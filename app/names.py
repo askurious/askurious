@@ -100,11 +100,11 @@ def hidden_org(person, viewer=None):
     """The organisation whose setting hides this person from the viewer (the signed-in person by default), or None."""
     if person is None or not getattr(person, "id", None):
         return None
+    viewer = viewer if viewer is not None else _viewer()  # first: participants' pages never ask the database
+    if viewer is None or viewer.id == person.id or _site_admin(viewer):
+        return None
     hiding = _hiding_ids()
     if not hiding:
-        return None
-    viewer = viewer if viewer is not None else _viewer()
-    if viewer is None or viewer.id == person.id or _site_admin(viewer):
         return None
     from app import orgs
 
