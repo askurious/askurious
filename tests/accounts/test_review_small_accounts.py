@@ -204,10 +204,9 @@ def test_dev_login_only_answers_under_a_local_name(app):
 
 
 def test_decisions_name_the_password_pause_as_it_is(app):
-    import os
+    from tests.helpers.internal_docs import internal_text_or_skip
 
-    with open(os.path.join(os.path.dirname(app.root_path), "decisions.md"), encoding="utf-8") as f:
-        text = f.read()
+    text = internal_text_or_skip("decisions.md")
     assert passwords.MAX_FAILURES == 10 and passwords.ACCOUNT_FAILURES == 50
     assert "Zehn Fehlversuche eines Absenders" in text and "nach 50 Fehlversuchen aller Absender" in text
     assert "Zehn Fehlversuche pausieren das Konto 15 Minuten, gezählt in der Datenbank" not in text

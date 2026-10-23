@@ -230,7 +230,8 @@
         "reverse": false
        }
       ],
-      "dont_know": false
+      "dont_know": false,
+      "level": "metric"
      },
      "texts": {
       "de": {

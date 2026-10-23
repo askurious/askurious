@@ -4,6 +4,7 @@ import os
 import runpy
 import time
 
+from tests.helpers.internal_docs import internal_text
 from tests.platform.test_audit8_b_deploy import World, _read, _write, needs_bash
 
 SNAPSHOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "deploy", "docker",
@@ -128,7 +129,8 @@ def test_cron_every_four_hours_and_status_age():
     deploy = _read("deploy", "docker", "deploy-docker.sh")
     assert "echo '30 2-22/4 * * * \\$HOME/askurious/deploy/docker/backup.sh" in deploy
     assert "backup=age:/stamps/backup-ok:9," in _read("deploy", "docker", "compose.yaml")
-    assert "OFFSITE_TARGET" in _read("deploy", "docker", "BETRIEB.md")
+    betrieb = internal_text("deploy", "docker", "BETRIEB.md")  # only in the private instance repository
+    assert betrieb is None or "OFFSITE_TARGET" in betrieb
 
 
 GPG_STUB = ('#!/usr/bin/env bash\necho "$*" >> "$SERVER/gpg.log"\n[ "${@: -1}" = --encrypt ] && cat > /dev/null\n'

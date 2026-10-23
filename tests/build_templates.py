@@ -46,6 +46,8 @@ def _choice(client, iid, code, question, options):
 
 def _likert(client, iid, code, question, statements):
     rows = [("code", code), ("question", question), ("points", "5"), ("labeling", "full"), ("answer_mode", "nudge")]
+    if len(statements) >= 2:  # an attitude scale whose mean the plan tests (a matrix is ordinal by default, 2026-10-23)
+        rows.append(("level", "metric"))
     for n, text in enumerate(statements, 1):
         rows += [("stmt_id", f"s{n}"), ("stmt_code", ""), ("stmt_text", text)]
     client.post(f"{E}/items/{iid}", data=MultiDict(rows))
