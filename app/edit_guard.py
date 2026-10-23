@@ -122,6 +122,20 @@ def _after_own(survey, key):
     return _last_agent(survey, last.saved_at) is None
 
 
+def lock(obj):
+    """Hold the row of `obj` (an item, a board, the survey) until commit or rollback and read it anew: called at the
+    start of a save, before the fingerprint is taken and `check` compares it. Two saves on the same base then run one
+    after the other, and the later one sees the earlier one's change as a conflict instead of overwriting it; so does
+    the beacon of a page being left while its own save is still under way (audit 2026-10-23, S-02). PostgreSQL:
+    SELECT ... FOR NO KEY UPDATE (rows that refer to it by key may still be added). SQLite has no row locks: a write
+    that changes nothing takes the database's one write lock first (as diary_access.lock_person)."""
+    model = type(obj)
+    if db.engine.dialect.name == "sqlite":
+        db.session.execute(db.delete(EditMark).where(db.false()))
+    return db.session.scalar(db.select(model).where(model.id == obj.id).with_for_update(key_share=True)
+                             .execution_options(populate_existing=True))
+
+
 def check(survey, key, current, form):
     """Before applying a form: None if it may be saved, else the conflict (also kept in g for the page)."""
     sent = form.get("base")

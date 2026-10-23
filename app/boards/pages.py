@@ -90,6 +90,7 @@ def designer(survey_id, board_id):
 
         # two people in the designer: a save based on an outdated page is not applied (code review 2026-10-15, I3)
         key = f"board:{board.id}"
+        board = edit_guard.lock(board) or abort(404)  # overlapping saves one after the other (audit 2026-10-23, S-02)
         conflict = edit_guard.check(survey, key, edit_guard.board_state(board), request.form)
         if conflict:
             from_form(board, request.form)

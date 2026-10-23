@@ -422,6 +422,7 @@ def _settings_conflict(survey, section):
     learns the fingerprint of the saved section."""
     from flask import g
 
+    edit_guard.lock(survey)  # overlapping saves one after the other (audit 2026-10-23, S-02)
     conflict = edit_guard.check(survey, f"settings:{section}", edit_guard.settings_state(survey, section), request.form)
     g.settings_step = undo.begin(survey)
     autosave.base_later(lambda: edit_guard.settings_state(survey, section))

@@ -84,6 +84,7 @@ def flow_loop_node(survey_id, nid):
                         "The survey is running or closed: the table is fixed."), "warning")  # loops.update_from_form
         else:
             key = f"loop:{nid}"
+            node = _locked_node(survey, nid)
             conflict = edit_guard.check(survey, key, edit_guard.node_state(node), request.form)
             step = undo.begin(survey)
             kept = loops.update_from_form(survey, node, request.form, lang)
@@ -117,6 +118,18 @@ WELLS_WINDSCHITL = ("Wells, G. L., & Windschitl, P. D. (1999). Stimulus sampling
 JUDD_WESTFALL_KENNY = ("Judd, C. M., Westfall, J., & Kenny, D. A. (2012). Treating stimuli as a random factor in social "
                        "psychology: A new and comprehensive solution to a pervasive but largely ignored problem. Journal "
                        "of Personality and Social Psychology, 103(1), 54–69. https://doi.org/10.1037/a0028347")
+
+
+def _locked_node(survey, nid):
+    """The node read anew with the survey's row held until commit, right before its fingerprint is checked: an
+    overlapping save of the same base waits and then gets a conflict (audit 2026-10-23, S-02)."""
+    from app import flow
+
+    edit_guard.lock(survey)
+    node, _ = flow.find(flow.tree(survey), nid)
+    if node is None:
+        abort(404)
+    return node
 
 
 def _loop_page_html(survey, node, lang):
@@ -277,6 +290,7 @@ def flow_vignettes_node(survey_id, nid):
                         "The survey is running or closed: factors and experimental design are fixed."), "warning")
             return redirect(here)
         key = f"loop:{nid}"
+        node = _locked_node(survey, nid)
         conflict = edit_guard.check(survey, key, edit_guard.node_state(node), request.form)
         step = undo.begin(survey)
         root = copy.deepcopy(flow.tree(survey))
@@ -579,6 +593,7 @@ def flow_node(survey_id, nid, action):
             return _flow_back(survey, lang, nid)
     elif action == "update":
         did = undo.both("Ablauf: {name} geändert", "Flow: {name} changed", name=name)
+        edit_guard.lock(survey)  # the flow read anew under the lock (audit 2026-10-23, S-02)
         node, _ = flow.find(flow.tree(survey), nid)
         if edit_guard.check(survey, f"flow:{nid}", edit_guard.node_state(node), request.form):
             c = g.edit_conflict
