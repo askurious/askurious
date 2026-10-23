@@ -523,8 +523,9 @@ def test_an_experiment_gets_its_conditions_and_the_study_plan_its_variables(app,
         stimulus = next(b for b in survey.blocks if b.title() == "Kurze Erklärung").items[0]
         assert stimulus.type == "info" and "Kurze Erklärung" in stimulus.texts["de"]["question"]
         h1, h2 = survey.study_plan["hypotheses"]
-        assert (h1["iv"], h1["dv"], h1["analysis"]) == ("Erkl", "Vert", "anova")  # three groups, a scale
-        assert (h2["iv"], h2["dv"]) == ("TB", "Vert") and h2["analysis"] == "r"
+        # three groups, a scale without a construct: ordinal, so Kruskal-Wallis (audit 2026-10-23, M2)
+        assert (h1["iv"], h1["dv"], h1["analysis"]) == ("Erkl", "Vert", "kw")
+        assert (h2["iv"], h2["dv"]) == ("TB", "Vert") and h2["analysis"] == "rho"  # Vert ordinal (M2)
 
 
 def test_the_project_starts_from_the_idea_and_ainstein_names_it(app, client, monkeypatch):

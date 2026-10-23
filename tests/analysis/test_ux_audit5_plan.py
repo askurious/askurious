@@ -85,8 +85,10 @@ def test_v4_v5_v7_field_says_what_is_computed(app, client, survey):
         statements = len((db.session.get(__import__("app.models", fromlist=["Item"]).Item, 4).config or {}).get("statements") or [])
         reasons = study_plan.reasons(s, {"iv": "gruppe", "dv": "zuf"})
     if statements >= 2:
-        assert reasons == [f"Zielgröße: Skalenwert aus {statements} Aussagen, als metrisch behandelt"]
-        assert "zählt in Hypothesen des Studienplans als metrisch" in client.get("/surveys/1/editor/items/4").data.decode()
+        # a matrix without a construct is ordinal: its score is tested by ranks (audit 2026-10-23, M2)
+        assert reasons == [f"Zielgröße: Skalenwert aus {statements} Aussagen, als ordinal behandelt (Rangtests, Median); "
+                           "metrisch, wenn das Messniveau der Matrix so gesetzt ist"]
+        assert "in Hypothesen des Studienplans: metrisch mit Mittelwert" in client.get("/surveys/1/editor/items/4").data.decode()
 
 
 def test_v4_a_new_row_keeps_its_id_over_saves(app, client, survey):

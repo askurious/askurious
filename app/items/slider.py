@@ -42,12 +42,14 @@ def _num(value, default=None):
 def snap(v, lo, hi, step):
     """v on the grid lo, lo + step, ... (never above hi), a tie rounded up like the browser's range input
     (HTML: "closest to positive infinity"); as an int for whole steps. Half to even would put 2 on 0 and 6 on
-    8 with step 4, and a grid that does not end on hi would snap 10 to 12 (from 0 to 10 in steps of 6)."""
-    places = units.decimals(step)
+    8 with step 4, and a grid that does not end on hi would snap 10 to 12 (from 0 to 10 in steps of 6).
+    The grid point is lo + n·step in decimal arithmetic, kept with the decimals of step and of lo: from 0.5 in
+    steps of 1, 2.5 stays 2.5 (rounding to the step's 0 decimals made it 3; audit 2026-10-23, M8)."""
+    places = max(units.decimals(step), units.decimals(lo))
     n = math.floor((v - lo) / step + 0.5 + 1e-9)
     while n > 0 and lo + n * step > hi + 1e-9:
         n -= 1
-    v = units.round_half_up(lo + n * step, places)
+    v = units.round_half_up(float(units.exact(lo) + n * units.exact(step)), places)
     return int(v) if float(v).is_integer() and places == 0 else v
 
 
@@ -158,7 +160,8 @@ class Slider(ItemType):
         return self.result_kind, self.unit_label(item), None
 
     def places(self, item):
-        return units.decimals(read_cfg(item).get("step", 1))
+        c = read_cfg(item)  # a grid from 0.5 in steps of 1 has the decimals of its start (audit 2026-10-23, M8)
+        return max(units.decimals(c.get("step", 1)), units.decimals(c.get("min", 0)))
 
     def signed(self, item):
         return read_cfg(item).get("min", 0) < 0
