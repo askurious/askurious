@@ -17,10 +17,12 @@ a stretch that played without a jump; the script closes one at every pause, jump
 visibility and when the page is sent. Without JavaScript the browser's own player shows and no log comes: the
 figures stay empty (None), never 0.
 
-  answer = {"log": [[ms, event, a, b, c], ...], "dur": seconds of the file, "key": asset key, "cut": events left out}
+  answer = {"log": [[ms, event, a, b, c], ...], "dur": seconds of the file, "key": asset key, "cut": events left out,
+            "visits": [[id of one showing of the page, its events, its cut], ...] (since 2026-10-23; DS-03)}
 """
 import json
 import math
+import re
 
 from app.items import register
 from app.items.base import FactSheet  # what the type can do and is for (app/element_types.py)
@@ -38,6 +40,7 @@ SEEK = ("back", "free", "none", "once")
 ADVANCE = ("any", "end", "share")
 DEFAULT_SHARE = 90
 CHUNK_BYTES = 5 * 1024 * 1024
+VISIT = re.compile(r"[A-Za-z0-9]{8,32}")  # the id of one showing of the page (participant.js), DS-03
 MAX_EVENTS = 500  # per element and page; what goes beyond is counted ("cut")
 MAX_SECONDS = 4 * 3600  # length of a file the editor accepts (longer: a film, not a stimulus)
 EVENTS = {  # event: number of values after it
@@ -354,6 +357,10 @@ class Stimulus(ItemType):
         answer = {"log": log, "dur": dur, "key": key}
         if cut:
             answer["cut"] = cut
+        visit = form.get(f"i{item.id}_visit", "")
+        if isinstance(visit, str) and VISIT.fullmatch(visit):
+            # which showing of the page the events come from: the same POST sent again replaces them (DS-03)
+            answer["visits"] = [[visit, len(log), cut]]
         rule = self.advance(item)
         if rule != "any" and not any(row[1] == "error" for row in log):  # a file that does not play keeps nobody
             # played to the end before (an error elsewhere on the page, "Zurück"): the stored log of the same file
@@ -377,15 +384,34 @@ class Stimulus(ItemType):
         return None  # a page shown again starts the log anew; what was played before stays in the answer
 
     def merge_answer(self, old, new):
-        """A page sent again (an error elsewhere on it, "Back" and on) adds its events to the earlier ones."""
+        """A page sent again (an error elsewhere on it, "Back" and on) adds its events to the earlier ones. The
+        events of one showing of the page (its visit id, "visits": [[id, events, cut], ...]) count once: the same
+        POST sent again (a retry after a dropped connection) replaces what that showing sent before instead of adding
+        its seconds, plays and pauses a second time (audit 2026-10-23, DS-03). Logs without a visit id (sent by a
+        script of before) are added as always."""
         if not isinstance(old, dict) or not isinstance(new, dict) or old.get("key") != new.get("key"):
             return new if new is not None else old
-        base = old["log"][-1][0] if old.get("log") else 0
-        log = old.get("log", []) + [[ms + base, *rest] for ms, *rest in new.get("log", [])]
-        out = {**new, "log": log[:MAX_EVENTS]}
-        cut = old.get("cut", 0) + new.get("cut", 0) + max(len(log) - MAX_EVENTS, 0)
+        sent = new.get("visits") if isinstance(new.get("visits"), list) else []
+        visit = sent[-1][0] if sent and isinstance(sent[-1], list) and len(sent[-1]) == 3 else ""
+        visits = [list(v) for v in (old.get("visits") or []) if isinstance(v, list) and len(v) == 3]
+        before, old_cut = list(old.get("log") or []), old.get("cut", 0)
+        if visit and visits and visits[-1][0] == visit:
+            _, events, cut = visits.pop()  # the same showing again: what it sent before goes
+            before, old_cut = before[:max(len(before) - int(events or 0), 0)], max(old_cut - int(cut or 0), 0)
+        elif visit and any(v[0] == visit for v in visits):
+            return old  # an older send of a showing that another one followed: counted already
+        base = before[-1][0] if before else 0
+        log = before + [[ms + base, *rest] for ms, *rest in new.get("log", [])]
+        kept, over = log[:MAX_EVENTS], max(len(log) - MAX_EVENTS, 0)
+        out = {**new, "log": kept}
+        out.pop("cut", None)
+        cut = old_cut + new.get("cut", 0) + over
         if cut:
             out["cut"] = cut
+        if visit or visits:
+            # every send is noted once the log knows showings, also one without an id, so that a later retry never
+            # takes away events of another showing
+            out["visits"] = (visits + [[visit, len(kept) - len(before), new.get("cut", 0) + over]])[-MAX_EVENTS:]
         return out
 
     def soft_warning(self, item, answer, lang):

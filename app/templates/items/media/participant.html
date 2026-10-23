@@ -32,6 +32,7 @@
   <p class="p-hint" data-media-error hidden>{{ ui("Die Datei lässt sich auf diesem Gerät nicht abspielen. Sie können trotzdem weitergehen.", "The file cannot be played on this device. You can go on anyway.") }}</p>
   <span class="p-sr-only" role="status" data-media-status></span>
   <input type="hidden" name="i{{ item.id }}" value="" data-media-log>
+  <input type="hidden" name="i{{ item.id }}_visit" value="" data-media-visit>
   {% if key %}<input type="hidden" name="i{{ item.id }}_key" value="{{ key }}">{% endif %}
   {% else %}
   <div class="p-image-missing">{{ ui("Datei fehlt", "File missing") }}</div>
