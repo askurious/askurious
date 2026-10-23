@@ -47,7 +47,10 @@ def may_invite(user, group):
 
     if group is None or group.account_type_id is None:
         return False
-    return _site_admin(user) or (group.led_by(user) and auth.may_admit(user))
+    from app import orgs
+
+    return _site_admin(user) or (group.led_by(user) and auth.may_admit(user)
+                                 and orgs.may_bring_in(user, orgs.of(group)))
 
 
 def _course(group_id):

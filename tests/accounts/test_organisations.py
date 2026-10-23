@@ -280,7 +280,7 @@ def test_the_caps_of_the_home_organisation_hold(app, client, survey):
         assert auth.may_create_surveys(me) and kind_access.levels(me)["diary"] == "create"   # site admins: never capped
     # the tab of the administration saves the caps
     client.post(f"/admin/orgs/{org_id}", data={"action": "caps", "kind_survey": "create", "kind_live": "create",
-                                                 "kind_interview": "off", "kind_diary": "edit", "invite_out": "1",
+                                                 "kind_interview": "off", "kind_diary": "edit", "invite_scope": "create",
                                                  "max_accounts": "40"})
     with app.app_context():
         org = db.session.get(Organisation, org_id)

@@ -308,6 +308,36 @@ def withdraw_invitation(org_id):
     return back
 
 
+@bp.route("/<int:org_id>/people/outside", methods=["POST"])
+@autosave.aware
+def outside(org_id):
+    """Who brings people in from outside (orgs.SCOPES): the organisation's admins make it only stricter than what the
+    platform set; "zurückziehen" ends the join links and invitations by e-mail that rest because of it (E12)."""
+    org = g.org
+    back = redirect(url_for("org.people", org_id=org.id, _anchor="von-aussen"))
+    again = _fresh("org.people", org_id=org.id)
+    if again:
+        return again
+    if request.form.get("action") == "withdraw":
+        rows = orgs.open_from_outside(org.id)
+        for kind, row in rows:
+            db.session.delete(row)
+        db.session.commit()
+        _log("organisation_outside_withdrawn", target=f"org {org.id}", count=len(rows))
+        flash(de_en("{n} Links und Einladungen zurückgezogen.", "{n} links and invitations withdrawn.", n=len(rows)),
+              "success")
+        return back
+    scope = request.form.get("invite_scope")
+    if scope not in orgs.SCOPES:
+        abort(400)
+    floor = orgs.platform_scope(org)
+    org.invite_scope_own = None if orgs.SCOPES.index(scope) <= orgs.SCOPES.index(floor) else scope
+    db.session.commit()
+    _log("organisation_outside", target=f"org {org.id}", scope=orgs.scope_of(org))
+    flash(de_en("Gespeichert: {s}.", "Saved: {s}.", s=orgs.scope_label(orgs.scope_of(org))), "success")
+    return back
+
+
 @bp.route("/<int:org_id>/people/new", methods=["POST"])
 def new_account(org_id):
     """An account without ORCID at home here (konzept-abteilungen A15, A21), as admin.new_account: the admin enters

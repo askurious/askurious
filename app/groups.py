@@ -204,7 +204,10 @@ def detail(group_id):
     join = {"may": joinlinks.may_make(current_user, group), "links": links,
             "paused": {link.id for link in links if joinlinks.paused(link, group)},  # A1 of the audit 2026-10-10
             "new": joinlinks.take_shown(group), "days": joinlinks.DAYS, "default_days": joinlinks.DEFAULT_DAYS,
-            "default_uses": joinlinks.DEFAULT_USES} if lead else None
+            "default_uses": joinlinks.DEFAULT_USES,
+            # the organisation lets only its admins (or the platform) bring in people from outside (orgs.SCOPES)
+            "closed": None if orgs.may_bring_in(current_user, orgs.of(group)) else orgs.not_brought_in(orgs.of(group)),
+            } if lead else None
     from app import account_types, bulk_invites
 
     # a course (app/account_types.py): its type and end, each member's end, who the lead may give a one-time link
@@ -215,7 +218,8 @@ def detail(group_id):
         course = {"type": account_types.get(group.account_type_id), "spec": account_types.course_spec(group),
                   "ends": {uid: account_types.summary(r) for uid, r in rows.items()} if lead else {},
                   "links": {u.id for u in bulk_invites.course_accounts(group)} if lead else set(),
-                  "list": bulk_invites.may_invite(current_user, group)}
+                  "list": bulk_invites.may_invite(current_user, group),
+                  "closed": None if orgs.may_bring_in(current_user, orgs.of(group)) else orgs.not_brought_in(orgs.of(group))}
     return render_template("groups/detail.html", group=group, lead=lead, me=group.member_of(current_user), q=q, join=join,
                            course=course,
                            results=results, designs=designs, linked=linked, offer=_offer(group),
@@ -317,6 +321,8 @@ def add_member(group_id):
         flash(de_en("Diese Person ist schon in der Gruppe.", "This person is already in the group."), "error")
     elif not orgs.may_join_group(known or orcid, group):
         flash(orgs.not_in_org(), "error")
+    elif not orgs.may_bring_in(current_user, orgs.of(group), known or orcid):
+        flash(orgs.not_brought_in(orgs.of(group)), "error")  # who brings in people from outside (orgs.SCOPES)
     elif len(group.members) >= MAX_MEMBERS:
         flash(de_en("Mehr als {n} Mitglieder je Gruppe sind nicht möglich.", "More than {n} members per group are not possible.",
                     n=MAX_MEMBERS), "error")

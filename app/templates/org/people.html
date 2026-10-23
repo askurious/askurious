@@ -3,7 +3,7 @@
    the platform (admin/researchers.html, Ralf 2026-10-18); accounts at home here are managed on their own page.
    Context: org, rows, page (the Listing), invites and invite_rows (open invitations, app/org_invites.py), types, default_type,
    left, cap, chosen, group_options, kinds_only, period. #}
-{% from "_macros.html" import csrf, orcid_link, form_error, list_table %}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link, form_error, list_table %}
 {% from "_icons.html" import icon %}
 {% from "_listing.html" import sort_th, search, pager, keep, choose %}
 {% block title %}{{ de_en("Personen", "People") }} · {{ org.name }}{% endblock %}
@@ -119,6 +119,27 @@
   {{ pager(invites) }}
 </section>
 {% endif %}
+<section class="panel" id="von-aussen">
+  <h2>{{ de_en("Personen von außen", "People from outside") }}</h2>
+  {% set floor = platform_scope(org) %}{% set now_scope = scope_of(org) %}
+  <form method="post" action="{{ url_for('org.outside', org_id=org.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label>{{ de_en("Wer darf Personen, die noch nicht zur Organisation gehören, in sie, ihre Gruppen und Befragungen holen?", "Who may bring people who do not belong to the organisation yet into it, its groups and surveys?") }}
+      <select name="invite_scope">{% for s in invite_scopes %}<option value="{{ s }}"{{ " selected" if s == now_scope }}{{ " disabled" if invite_scopes.index(s) < invite_scopes.index(floor) }}>{{ invite_scope_label(s) }}</option>{% endfor %}</select></label>
+    {% if floor != "create" %}<p class="muted small">{{ de_en("Die Admins der Plattform haben mindestens „{s}“ festgelegt; lockerer geht es hier nicht.", "The platform admins set at least “{s}”; it cannot be looser here.", s=invite_scope_label(floor)) }}</p>{% endif %}
+    <p class="muted small">{{ de_en("Personen der Organisation hinzufügen dürfen alle wie bisher. Beitrittslinks und Einladungen per E-Mail von Mitgliedern, die nun niemanden mehr hereinholen dürfen, ruhen.", "Everyone may add people of the organisation as before. Join links and invitations by email of members who may no longer bring anyone in rest.") }}</p>
+    {{ autosave_bar(small=true) }}
+  </form>
+  {% set resting = open_from_outside(org.id) %}
+  {% if resting %}
+  <form method="post" action="{{ url_for('org.outside', org_id=org.id) }}" class="inline"
+        data-confirm="{{ de_en('{n} ruhende Links und Einladungen zurückziehen?', 'Withdraw {n} resting links and invitations?', n=resting|length) }}" data-confirm-ok="{{ de_en('Zurückziehen', 'Withdraw') }}">
+    {{ csrf() }}<input type="hidden" name="action" value="withdraw">
+    <p>{{ de_en("{n} Beitrittslinks und Einladungen von Mitgliedern ruhen.", "{n} join links and invitations of members rest.", n=resting|length) }}
+      <button class="button button-secondary button-small">{{ de_en("Alle zurückziehen", "Withdraw all") }}</button></p>
+  </form>
+  {% endif %}
+</section>
 {# "Person hinzufügen" as on the platform (admin/researchers.html, S10), without choosing the organisation: it is this
    one (Ralf 2026-10-18). app.js turns the panel into a dialog; a refused form comes back open with what was entered. #}
 <section class="panel person-add" id="person-hinzufuegen" aria-labelledby="person-add-title" data-person-add-panel>

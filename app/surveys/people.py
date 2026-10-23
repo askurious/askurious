@@ -111,6 +111,9 @@ def add_member(survey_id):
     if not orgs.may_invite_across(survey, known or orcid) and not already:
         flash(orgs.not_across(), "error")  # the switches of both organisations (app/orgs.py, A10)
         return _back_to(survey, url_for("surveys.detail", survey_id=survey.id) + "#members")
+    if not orgs.may_bring_in(current_user, orgs.of(survey), known or orcid) and not already:
+        flash(orgs.not_brought_in(orgs.of(survey)), "error")  # who brings in people from outside (orgs.SCOPES)
+        return _back_to(survey, url_for("surveys.detail", survey_id=survey.id) + "#members")
     name = local.name if local else request.form.get("name", "").strip()[:200]
     if not name and not local:
         found = orcid_api.lookup(orcid)

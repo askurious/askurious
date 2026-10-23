@@ -1986,7 +1986,10 @@ def organisation_action(org_id):
         except ValueError:
             n = 0
         org.max_accounts = n if n > 0 else None
-        org.invite_out = request.form.get("invite_out") == "1"
+        scope = request.form.get("invite_scope")
+        if scope in orgs.SCOPES:
+            org.invite_scope = scope
+            org.invite_out = scope == "create"  # the former switch, kept in step for code that still reads it
         org.invite_in = request.form.get("invite_in") == "1"
         org.basis = (request.form.get("basis") or "").strip()[:300]
         db.session.commit()

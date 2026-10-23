@@ -76,7 +76,10 @@ def may_make(user, group):
     """A lead who may bring in people nobody named: who may create surveys (E5, auth.may_admit)."""
     from app import auth
 
-    return group.led_by(user) and auth.may_admit(user)
+    from app import orgs
+
+    # a link brings in people nobody named, so from outside (orgs.SCOPES)
+    return group.led_by(user) and auth.may_admit(user) and orgs.may_bring_in(user, orgs.of(group))
 
 
 def paused(link, group=None):
