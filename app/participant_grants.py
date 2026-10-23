@@ -35,9 +35,11 @@ GRANTS = {
     "user": (R, "the researchers' names the consent and the privacy page show (SurveyMember.display_name); no "
              "sign-in data, which lies in user_login"),
     # column rights: never the password hash, the second factor or the sign-in state
-    "user_login": (("SELECT (user_id, email, kinds)",), "the privacy page of a live vote without its own contact "
-                   "address names the email of the account that created it (app/live/base.py, contact_email); a "
-                   "pretest link checks the survey types its maker may still see (app/kind_access.py, kinds)"),
+    "user_login": (("SELECT (user_id, email, kinds, status, valid_until, session_version)",), "the privacy page of a "
+                   "live vote without its own contact address names the email of the account that created it "
+                   "(app/live/base.py, contact_email); a pretest link checks the survey types its maker may still see "
+                   "(app/kind_access.py, kinds) and that its maker's sign-in still holds: not blocked, period not over, "
+                   "same session_version as when the link was made (app/editor/share.py, _maker_still_signs)"),
     # a pretest or phone link (/p/...) holds only while its maker still has access to the survey
     # (app/editor/share.py, _shared_survey: access.own_role_of_user, kind_access.home_cap)
     "survey_group": (R, "a pretest link: does its maker still reach the survey through a group"),

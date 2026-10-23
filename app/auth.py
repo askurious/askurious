@@ -380,7 +380,7 @@ def sign_in():
                         "with ORCID or through a one-time link and set up the second factor under “Account › Profile and sign-in”."), "error")
         elif twofactor.required_at_signin(user):
             # the password is right; signed in only after the code (Ralf 2026-10-09)
-            session["pw2fa"] = {"user": user.id, "at": time.time(), "next": nxt}
+            session["pw2fa"] = {"user": user.id, "at": time.time(), "next": nxt, "v": _sign_in_version(user.id)}
             return redirect(url_for("auth.sign_in_code"))
         else:
             _signed_in(user)
@@ -406,6 +406,12 @@ def _signed_in(user, via="password"):
 PW2FA_SECONDS = 300  # the code page after the right password stays open this long
 
 
+def _sign_in_version(user_id):
+    """The account's session_version (0 without a sign-in row). The half sign-in after the right password carries it:
+    a new or removed password, a block or "Überall abmelden" before the code ends it (sign_in_code)."""
+    return int(db.session.scalar(db.select(UserLogin.session_version).where(UserLogin.user_id == user_id)) or 0)
+
+
 @bp.route("/sign-in/code", methods=["GET", "POST"])
 def sign_in_code():
     """Accounts with an enabled factor (and password admins): an authenticator code or backup code.
@@ -415,7 +421,7 @@ def sign_in_code():
     pending = session.get("pw2fa")
     user = db.session.get(User, pending.get("user")) if isinstance(pending, dict) and pending.get("user") else None
     if (user is None or time.time() - float(pending.get("at") or 0) > PW2FA_SECONDS or accounts.is_blocked(user)
-            or not twofactor.enabled(user)):
+            or pending.get("v") != _sign_in_version(user.id) or not twofactor.enabled(user)):
         session.pop("pw2fa", None)
         flash(de_en("Bitte erneut mit E-Mail-Adresse und Passwort anmelden.", "Please sign in again with email address and password."), "warning")
         return redirect(url_for("auth.sign_in"))
@@ -535,7 +541,8 @@ def set_password(token):
                 db.session.commit()
                 twofactor.tell("admin_password_reset", user)  # T9
                 if twofactor.enabled(user):
-                    session["pw2fa"] = {"user": user.id, "at": time.time(), "next": ""}
+                    # read after the commit: the new password raised the version, the old one's half sign-in ended
+                    session["pw2fa"] = {"user": user.id, "at": time.time(), "next": "", "v": _sign_in_version(user.id)}
                     flash(de_en("Passwort gespeichert. Bitte jetzt noch den Code aus der Authenticator-App eingeben.",
                                 "Password saved. Now please enter the code from the authenticator app."), "success")
                     return redirect(url_for("auth.sign_in_code"))

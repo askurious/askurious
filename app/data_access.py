@@ -202,15 +202,17 @@ def _authorised(survey_id):
     if any(name in request.args for name in QUERY_NAMES):
         return _refuse(400, de_en("Das Token gehört in den Header „Authorization: Bearer …“, nie in die Adresse.",
                                   "The token belongs in the header “Authorization: Bearer …”, never in the address."))
-    if not limits.allow_token_try(count=False):
-        return _refuse(429, de_en("Zu viele falsche Token; bitte später erneut versuchen.",
-                                  "Too many wrong tokens; please try again later."))
     scheme, _, value = request.headers.get("Authorization", "").partition(" ")
     value = value.strip()
     row = None
     if scheme.lower() == "bearer" and value:
         row = db.session.scalar(db.select(DataToken).filter_by(token_hash=_hash(value)))
     if row is None or row.survey_id != survey_id:
+        # only wrong tokens are counted and refused per sender: a valid token behind the same address (a shared
+        # network, NAT) goes through however many wrong ones others sent from there (as the diary app, diary_api)
+        if not limits.allow_token_try(count=False):
+            return _refuse(429, de_en("Zu viele falsche Token; bitte später erneut versuchen.",
+                                      "Too many wrong tokens; please try again later."))
         limits.allow_token_try()
         return _refuse(401, de_en("Kein gültiges Token für diese Befragung (Header „Authorization: Bearer …“).",
                                   "No valid token for this survey (header “Authorization: Bearer …”)."))

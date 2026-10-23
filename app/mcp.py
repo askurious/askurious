@@ -85,16 +85,17 @@ def _authorised():
         return _rpc_error(INVALID_REQUEST, de_en("Das Token gehört in den Header „Authorization: Bearer …“, nie in die "
                                                  "Adresse.", "The token belongs in the header “Authorization: "
                                                  "Bearer …”, never in the address."), status=400)
-    if not limits.allow_token_try(count=False):
-        return _rpc_error(TOO_MANY, de_en("Zu viele falsche Token; bitte später erneut versuchen.",
-                                          "Too many wrong tokens; please try again later."), status=429,
-                          headers={"Retry-After": str(current_app.config["TOKEN_TRY_WINDOW"])})
     scheme, _, value = request.headers.get("Authorization", "").partition(" ")
     value = value.strip()
     row = None
     if scheme.lower() == "bearer" and value.startswith(agent_access.PREFIX):
         row = db.session.scalar(db.select(AgentToken).filter_by(token_hash=agent_access.hashed(value)))
     if row is None:
+        # only wrong tokens are counted and refused per sender: a valid token behind a shared address goes through
+        if not limits.allow_token_try(count=False):
+            return _rpc_error(TOO_MANY, de_en("Zu viele falsche Token; bitte später erneut versuchen.",
+                                              "Too many wrong tokens; please try again later."), status=429,
+                              headers={"Retry-After": str(current_app.config["TOKEN_TRY_WINDOW"])})
         limits.allow_token_try()
         return _rpc_error(UNAUTHORISED, de_en("Kein gültiges Token (Header „Authorization: Bearer askat_…“).",
                                               "No valid token (header “Authorization: Bearer askat_…”)."), status=401,

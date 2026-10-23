@@ -272,3 +272,16 @@ def test_token_needs_the_current_terms_of_use(app, client, survey):
     assert r.status_code == 403 and "Nutzungsbedingungen" in r.get_json()["error"]
     client.post("/terms/", data={"accept": "1"})
     assert _get(_api(app), f"{API}/data.csv", token).status_code == 200
+
+
+def test_a_valid_token_goes_through_after_wrong_ones_from_its_address(app, client, survey, monkeypatch):
+    """The token is looked up before the limit on wrong tokens per sender: someone else's wrong tokens behind the same
+    address (a shared network, NAT) do not lock a valid token out. Only tokens that are not found are counted."""
+    monkeypatch.setitem(app.config, "TOKEN_TRY_LIMIT", 2)
+    monkeypatch.setattr(limits, "_network", lambda: "198.51.100.5")  # one sender for everyone
+    monkeypatch.setattr(limits, "_tokens", {})
+    _, token = _create(client)
+    api = _api(app)
+    assert [_get(api, f"{API}/codebook.csv", "falsch").status_code for _ in range(4)] == [401, 401, 429, 429]
+    assert _get(api, f"{API}/codebook.csv", token).status_code == 200
+    assert _get(api, f"{API}/codebook.csv", "falsch").status_code == 429                # the wrong ones still wait

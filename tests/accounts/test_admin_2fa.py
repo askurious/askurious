@@ -139,3 +139,60 @@ def test_other_accounts_sign_in_with_the_password_as_before(app, client):
     allow(app, "*")
     r = app.test_client().post("/auth/sign-in", data={"email": "gast@example.org", "password": GOOD})
     assert r.status_code == 302 and "/auth/sign-in/code" not in r.headers["Location"]
+
+
+@pytest.mark.parametrize("change", ["password", "sign_out_everywhere", "remove_password"])
+def test_a_changed_sign_in_between_password_and_code_ends_the_half_sign_in(app, client, change):
+    """The half sign-in after the password (pw2fa) carries the account's session_version: a new or removed password
+    or "sign out everywhere" in between sends the code back to the sign-in."""
+    _admin_with_password(app, client)
+    secret, _ = _setup(client)
+    app.config["ADMIN_TOTP"] = True
+    c = app.test_client()
+    r = c.post("/auth/sign-in", data={"email": MAIL, "password": GOOD})
+    assert r.headers["Location"].endswith("/auth/sign-in/code")
+    if change == "sign_out_everywhere":
+        assert client.post("/account/sign-out-everywhere").status_code == 302
+    else:
+        with app.app_context():
+            admin = db.session.scalar(db.select(User).filter_by(orcid=ADMIN))
+            if change == "password":
+                passwords.set_password(admin, GOOD + " neu")
+            else:
+                passwords.remove(admin)
+            db.session.commit()
+    r = c.post("/auth/sign-in/code", data={"code": _now(secret, 1)})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/auth/sign-in")
+    assert c.get("/dashboard/").status_code == 302                                     # not signed in
+    with c.session_transaction() as sess:
+        assert "pw2fa" not in sess
+
+
+def test_the_code_after_an_unchanged_password_still_signs_in(app, client):
+    """The counterpart: without a change in between, the code within PW2FA_SECONDS signs in as before."""
+    _admin_with_password(app, client)
+    secret, _ = _setup(client)
+    app.config["ADMIN_TOTP"] = True
+    c = app.test_client()
+    c.post("/auth/sign-in", data={"email": MAIL, "password": GOOD})
+    r = c.post("/auth/sign-in/code", data={"code": _now(secret, 1)})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/dashboard/")
+    assert c.get("/dashboard/").status_code == 200
+
+
+def test_a_one_time_link_of_an_admin_with_a_factor_leads_to_the_code(app, client):
+    """The new password of a one-time link raises session_version; the half sign-in it leaves takes the version after
+    that change, so the code signs in."""
+    _admin_with_password(app, client)
+    secret, _ = _setup(client)
+    app.config["ADMIN_TOTP"] = True
+    with app.app_context():
+        admin = db.session.scalar(db.select(User).filter_by(orcid=ADMIN))
+        token = passwords.new_link_token(admin, None, hours=passwords.RESET_HOURS)
+        db.session.commit()
+    c = app.test_client()
+    new = GOOD + " neu"
+    r = c.post(f"/auth/password/{token}", data={"password": new, "repeat": new})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/auth/sign-in/code")
+    r = c.post("/auth/sign-in/code", data={"code": _now(secret, 1)})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/dashboard/")

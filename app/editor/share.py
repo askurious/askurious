@@ -22,9 +22,32 @@ def _maker(data):
     return people_keys.account(data.get("u"), create=False)  # previously issued links (by key) expire normally
 
 
+def _maker_still_signs(maker, data):
+    """The link ends with the sign-in of who made it: not when that account is blocked or its period is over, nor once
+    its session_version moved on (blocking, a new or removed password, "Überall abmelden"). A link from before the
+    version was signed in counts as version 0. Reads only the columns the participants' role may see
+    (app/participant_grants.py, user_login)."""
+    from app import account_types
+    from app.models import UserLogin
+
+    if maker is None:
+        return False
+    row = db.session.execute(db.select(UserLogin.status, UserLogin.valid_until, UserLogin.session_version)
+                             .where(UserLogin.user_id == maker.id)).first()
+    if row is None:  # an account without a sign-in row: never blocked, version 0
+        return int(data.get("v") or 0) == 0
+    if row.status == UserLogin.BLOCKED or account_types.is_expired(row):
+        return False
+    try:
+        return int(data.get("v") or 0) == int(row.session_version or 0)
+    except (TypeError, ValueError):
+        return False
+
+
 def _shared_survey(token, check_member=True):
     """The survey of a valid phone or pretest link, else None; raises SignatureExpired when its days are over.
-    A link of an older generation (all were revoked) or of someone who lost access is no link any more."""
+    A link of an older generation (all were revoked), of someone who lost access or whose sign-in was revoked (blocked,
+    period over, new or removed password, "Überall abmelden") is no link any more, also for the testers' own comments."""
     from itsdangerous import BadSignature, SignatureExpired
 
     from app.models import Survey
@@ -44,6 +67,8 @@ def _shared_survey(token, check_member=True):
     if survey is None or int(data.get("g") or 0) != pretest_generation(survey):
         return None
     maker = _maker(data)
+    if not _maker_still_signs(maker, data):
+        return None
     if check_member and access.own_role_of_user(maker, survey) is None:  # who made the link still has access
         # by an entry or a group: what an example survey gives everyone does not keep the pretest links of someone who
         # left alive (audit 2026-10-11, rights H2); only the phone link someone made as an example's viewer holds,

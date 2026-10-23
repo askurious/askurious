@@ -179,3 +179,18 @@ def test_agent_changes_are_marked_in_history_presence_and_banner(app, client, su
     assert r["isError"] is False
     r = _tool(api, token, "delete_item", survey_id=1, item_id=1).get_json()["result"]     # the consent
     assert r["isError"] is True and "Einwilligung" in r["content"][0]["text"]
+
+
+def test_a_valid_agent_token_goes_through_after_wrong_ones_from_its_address(app, client, survey, monkeypatch):
+    """Wrong tokens of others behind the same address do not lock a valid token out of /mcp: only tokens that are not
+    found are counted and refused."""
+    experiments_on(client, "agent")
+    _, token = _create(client)
+    api = app.test_client()
+    monkeypatch.setitem(app.config, "TOKEN_TRY_LIMIT", 2)
+    monkeypatch.setattr(limits, "_network", lambda: "198.51.100.5")
+    monkeypatch.setattr(limits, "_agent_calls", {})
+    wrong = "askat_" + "x" * 40
+    assert [_rpc(api, wrong, "ping").status_code for _ in range(3)] == [401, 401, 429]
+    assert _rpc(api, token, "ping").status_code == 200
+    assert _rpc(api, wrong, "ping").status_code == 429
