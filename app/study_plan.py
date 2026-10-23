@@ -1505,6 +1505,7 @@ def update(survey_id):
         abort(403)
     # two people at the plan: a save based on an outdated page is not applied, as on the settings page (code review
     # 2026-10-15, I3); after the start the change would also be a deviation from the pre-registration nobody noticed
+    edit_guard.lock(survey)  # overlapping saves one after the other (audit 2026-10-23, S-02)
     conflict = edit_guard.check(survey, "settings:plan", edit_guard.settings_state(survey, "plan"), request.form)
     apply(survey, request.form)
     if conflict:

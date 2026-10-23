@@ -203,6 +203,9 @@ def edit_item(survey_id, item_id):
             flash(too_long, "error")
             return redirect(url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang, **_embed()))
         key = f"item:{item.id}"
+        # the row held and read anew before the fingerprint: an overlapping save of the same base waits and then
+        # gets a conflict (audit 2026-10-23, S-02)
+        item = edit_guard.lock(item) or abort(404)  # deleted meanwhile
         state_before = edit_guard.item_state(item)
         conflict = edit_guard.check(survey, key, state_before, request.form)
         # The page saves by itself in a draft (app.js, "Element editor: saving by itself"): the same form, sent
