@@ -35,7 +35,7 @@ Inside the wheels of the transcription service: av 19.0.1 bundles FFmpeg built w
 (GPL-2.0-or-later); ctranslate2 4.8.3 (CTranslate2 itself MIT) links Intel oneMKL (Intel Simplified Software
 License) and oneDNN (Apache-2.0) statically and ships no licence file for them; triton 3.8.0 contains NVIDIA tools
 (ptxas, cuobjdump, nvdisasm, CUPTI) under NVIDIA's licence terms.
-Works inside other wheels, each under its own licence, not only that of the package: setuptools 78.1.0
+Works inside other wheels, each under its own licence, not only that of the package: setuptools 84.1.0
 vendors autocommand 2.2.2 (LGPL-3.0) and parts under MPL-2.0; pyannote-audio 4.0.7 contains code from WeSpeaker
 (Apache-2.0).
 
@@ -115,7 +115,7 @@ cycler==0.12.1  BSD License
 defusedxml==0.7.1  PSFL
 einops==0.8.2  MIT
 faster-whisper==1.2.1  MIT
-filelock==3.32.3  MIT
+filelock==4.2.1  MIT
 flask==3.1.3  BSD-3-Clause
 flatbuffers==25.12.19  Apache 2.0
 fonttools==4.67.0  MIT
@@ -142,7 +142,7 @@ mpmath==1.3.0  BSD
 multidict==7.1.0  Apache-2.0
 narwhals==2.27.1  MIT
 networkx==3.6.1  BSD-3-Clause
-nltk==3.10.3  Apache License, Version 2.0
+nltk==3.10.4  Apache License, Version 2.0
 numpy==2.5.2  BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
 omegaconf==2.4.0  BSD License
 onnxruntime==1.31.0  MIT License
@@ -181,7 +181,7 @@ rich==15.0.0  MIT
 safetensors==0.8.0  Apache Software License
 scikit-learn==1.9.1  BSD-3-Clause
 scipy==1.18.1  BSD License
-setuptools==78.1.0  MIT License
+setuptools==84.1.0  MIT
 six==1.17.0  MIT
 sortedcontainers==2.4.0  Apache 2.0
 sqlalchemy==2.1.4  MIT

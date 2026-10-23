@@ -1,28 +1,29 @@
 # Known vulnerabilities of the WhisperX image's packages that were judged as not reachable in this isolated service
-# (whisper/README.md, "Sicherheitsprüfung der festgelegten Laufzeit", 2026-10-14; list 2026-10-15). The weekly check
-# (maintenance.sh, tools/check_vulnerabilities.py --accepted) lists them but does not alarm; any other id does, and
-# then the README's judgement has to be renewed before the id is added here. Lines: <package> <id>.
-nltk GHSA-8mgp-746c-j5xp
-setuptools GHSA-5rjg-fvgr-3xxf
-setuptools GHSA-h35f-9h28-mq5c
-setuptools PYSEC-2025-49
-setuptools PYSEC-2026-3447
-torch GHSA-qfhq-4f3w-5fph
-torch GHSA-rrmf-rvhw-rf47
-torch GHSA-vgrw-7cvw-pwgx
-torch PYSEC-2025-203
-torch PYSEC-2025-204
-torch PYSEC-2025-206
-torch PYSEC-2026-139
-torch PYSEC-2026-2286
-transformers GHSA-29pf-2h5f-8g72
-transformers GHSA-69w3-r845-3855
-transformers GHSA-fgcw-684q-jj6r
-transformers GHSA-x9r9-c232-4q39
-transformers GHSA-xrqw-3rrv-vx5w
-transformers PYSEC-2025-217
-transformers PYSEC-2026-2288
-transformers PYSEC-2026-2289
-transformers PYSEC-2026-2290
-transformers PYSEC-2026-3929
-transformers PYSEC-2026-4174
+# (whisper/README.md, "Sicherheitsprüfung der festgelegten Laufzeit", 2026-10-14; list 2026-10-15, renewed 2026-10-24).
+# The weekly check (maintenance.sh, tools/check_vulnerabilities.py --accepted) lists them but does not alarm; any other
+# id does, and then the README's judgement has to be renewed before the id is added here.
+# Lines: <package> <id> <owner> <until YYYY-MM-DD>  # why it is not reachable. A line without owner or date, or whose
+# date has passed, accepts nothing: its id alarms again until someone judges it anew and sets a new date.
+# They stay because WhisperX 3.8.6 pins torch~=2.8.0 (fixes need torch 2.9.1 to 2.13) and huggingface-hub<1.0
+# (transformers 5.x, which has the fixes, needs huggingface-hub>=1.5); raise them with the next WhisperX release.
+# Runtime facts behind every reason: the API takes only audio and fixed options (model small or large-v3-turbo,
+# de/en); the models are prepared once, hashed in manifest.json and mounted read-only; HF_HUB_OFFLINE, no internet.
+torch GHSA-qfhq-4f3w-5fph Ralf 2027-01-31  # torch.lstm_cell with crafted arguments: only fixed models call it, with their own shapes
+torch GHSA-rrmf-rvhw-rf47 Ralf 2027-01-31  # torch.jit.script on crafted code: the service scripts no code of others
+torch GHSA-vgrw-7cvw-pwgx Ralf 2027-01-31  # nn.utils.rnn.unpack_sequence with crafted input: not called with outside data
+torch PYSEC-2025-203 Ralf 2027-01-31  # torch.linalg.lu slice DoS: not used by the pipeline; worst case one failed job
+torch PYSEC-2025-204 Ralf 2027-01-31  # torch.rot90 with randn_like gives odd results: not used by the pipeline
+torch PYSEC-2025-206 Ralf 2027-01-31  # integer overflow in nan_to_num().long(): no outside tensors reach it
+torch PYSEC-2026-139 Ralf 2027-01-31  # pt2 archive loading (local attacker): no PT2 archives are loaded
+torch PYSEC-2026-2286 Ralf 2027-01-31  # malicious checkpoint for torch.load(weights_only): only the hashed read-only models load
+transformers GHSA-29pf-2h5f-8g72 Ralf 2027-01-31  # crafted config.json of a Hub model: offline, only the prepared alignment models
+transformers GHSA-69w3-r845-3855 Ralf 2027-01-31  # Trainer._load_rng_state: no training, no Trainer checkpoints
+transformers GHSA-fgcw-684q-jj6r Ralf 2027-01-31  # LightGlue model loading: no LightGlue model, no repository chosen by others
+transformers GHSA-x9r9-c232-4q39 Ralf 2027-01-31  # load_custom_generate downloads code: no generative models, offline
+transformers GHSA-xrqw-3rrv-vx5w Ralf 2027-01-31  # save_pretrained with crafted chat templates: nothing is saved, root read-only
+transformers PYSEC-2025-217 Ralf 2027-01-31  # X-CLIP checkpoint conversion: no conversion scripts run
+transformers PYSEC-2026-2288 Ralf 2027-01-31  # same as GHSA-69w3-r845-3855 (Trainer)
+transformers PYSEC-2026-2289 Ralf 2027-01-31  # same as GHSA-29pf-2h5f-8g72 (config.json from the Hub)
+transformers PYSEC-2026-2290 Ralf 2027-01-31  # same as GHSA-fgcw-684q-jj6r (LightGlue)
+transformers PYSEC-2026-3929 Ralf 2027-01-31  # same as GHSA-xrqw-3rrv-vx5w (save_pretrained)
+transformers PYSEC-2026-4174 Ralf 2027-01-31  # same as GHSA-x9r9-c232-4q39 (load_custom_generate)
