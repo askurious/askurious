@@ -2,7 +2,7 @@
 
 Thank you for your interest. Askurious is developed by Philipp Brauner and Ralf Philipsen at the Chair of
 Communication Science, RWTH Aachen University. RWTH Aachen University holds the rights in the code and licenses it
-under the European Union Public Licence 1.2 ([LICENSE](LICENSE)). Copyright (c) 2026 RWTH Aachen University.
+under the European Union Public Licence 1.2 ([LICENSE](LICENSE); copyright, authors and the parts under other licences: [NOTICE](NOTICE)). Copyright (c) 2026 RWTH Aachen University.
 Authors: Philipp Brauner, Ralf Philipsen.
 
 ## Before you open a pull request
