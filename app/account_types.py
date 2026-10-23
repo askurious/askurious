@@ -34,7 +34,8 @@ EXPIRED = "expired"  # UserLogin.block_reason of an account whose period ended
 NOTICE_DAYS = (30, 14, 3)  # advance notice in the app; the mail goes at 14 days (N11)
 MAIL_DAYS = 14
 MAX_MONTHS, MAX_WEEKS = 120, 520
-_SPEC = re.compile(r"^(?:|[mw]:\d{0,3}|d:(?:\d{4}-\d{2}-\d{2})?)$")
+# "t:30": days from the start, for registration links (app/signup_links.py; Ralf 2026-10-23 "30 Tage oder mehr")
+_SPEC = re.compile(r"^(?:|[mw]:\d{0,3}|t:\d{1,4}|d:(?:\d{4}-\d{2}-\d{2})?)$")
 
 # the five types to start with (N1); rights and periods are suggestions an admin changes on the type. "create" in
 # kinds is the right to create surveys of the type (app/kind_access.py); the column may_create is no longer read
@@ -199,7 +200,7 @@ def valid_spec(spec):
 
 
 def parse(spec):
-    """("", None) without end; ("m", 4) / ("w", 6); ("d", date); ("m"/"w"/"d", None): to be given at the invitation."""
+    """("", None) without end; ("m", 4) / ("w", 6) / ("t", 30); ("d", date); ("m"/"w"/"d", None): to be given at the invitation."""
     spec = spec or ""
     if not valid_spec(spec) or not spec:
         return "", None
@@ -233,6 +234,8 @@ def describe(spec):
         return de_en("bis {d}", "until {d}", d=_date_text(value))
     if unit == "m":
         return de_en("{n} Monat" if value == 1 else "{n} Monate", "{n} month" if value == 1 else "{n} months", n=value)
+    if unit == "t":
+        return de_en("{n} Tag" if value == 1 else "{n} Tage", "{n} day" if value == 1 else "{n} days", n=value)
     return de_en("{n} Woche" if value == 1 else "{n} Wochen", "{n} week" if value == 1 else "{n} weeks", n=value)
 
 
@@ -253,6 +256,8 @@ def end_for(spec, start):
     first = to_local(start).date()
     if unit == "w":
         return end_of_local_day_utc(first + timedelta(weeks=value))
+    if unit == "t":
+        return end_of_local_day_utc(first + timedelta(days=value))
     from app.retention import _add_months
 
     return end_of_local_day_utc(_add_months(first, value))
@@ -474,7 +479,7 @@ def extend(user, spec, by, now=None):
     now = now or utcnow()
     row = _row(user)
     unit, value = parse(spec)
-    if unit in ("m", "w") and value is not None:
+    if unit in ("m", "w", "t") and value is not None:
         base = row.valid_until if row.valid_until is not None and row.valid_until > now else now
         row.valid_until = end_for(spec, base)
     else:

@@ -563,7 +563,30 @@ class SignInOrcid(db.Model):
     valid_spec: Mapped[str | None] = mapped_column(String(20))
     # the organisation this iD comes into at its first sign-in (app/orgs.py); None = the one everything started in
     org_id: Mapped[int | None] = mapped_column(index=True)
+    # the registration link this iD came by (app/signup_links.py, migration 0098); None = added by hand
+    link_id: Mapped[int | None] = mapped_column(index=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class SignUpLink(db.Model):
+    """A registration link of the platform (app/signup_links.py, konzept-organisation-sichtbarkeit-einladungen-2026-10-23.md
+    E1-E9): whoever opens it and signs in with ORCID for the first time gets an account at home in `org_id`, with the
+    user type and period chosen here, until it expires, is used `max_uses` times or is revoked. Only the hash of the
+    token is stored. No foreign keys, like group_join_link: the rows go in code (revoking, the sweep)."""
+
+    __tablename__ = "sign_up_link"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    org_id: Mapped[int | None] = mapped_column(index=True)
+    account_type_id: Mapped[int | None] = mapped_column(index=True)
+    valid_spec: Mapped[str | None] = mapped_column(String(20))  # None: as the user type says
+    max_uses: Mapped[int] = mapped_column(default=1)
+    uses: Mapped[int] = mapped_column(default=0)
+    note: Mapped[str] = mapped_column(String(200), default="")
+    created_by_id: Mapped[int | None] = mapped_column(index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    expires_at: Mapped[datetime]
 
 
 class Organisation(db.Model):

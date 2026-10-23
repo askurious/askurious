@@ -434,14 +434,15 @@ def _activities():
                        "Zwei-Faktor-Anmeldung (verschlüsselt), Anmeldezeiten, grobe Browserbezeichnung der Sitzungen, "
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
                        "freigegebene Befragungstypen, Nutzertyp mit Beginn und "
-                       "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, angeheftete und ausgeblendete Befragungen, "
+                       "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung, "
+                       "angeheftete und ausgeblendete Befragungen, "
                        "Bearbeitungsspuren; auf der Warteliste der Anmeldung ORCID iD, Name und freiwillig eine "
                        "E-Mail-Adresse für die Nachricht, dass ein Platz frei ist.",
                        "ORCID iD, name, email address, password as a scrypt hash, secret of the two-factor "
                        "sign-in (encrypted), sign-in times, coarse browser label of the sessions, acceptance of the terms "
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "
-                       "and course, pinned and hidden surveys, editing traces; on the waiting list of the "
+                       "and course, invitation link of the registration, pinned and hidden surveys, editing traces; on the waiting list of the "
                        "sign-up ORCID iD, name and, optionally, an email address for the notice that a place is free."),
          "recipients": de_en("Admins; ORCID (Anmeldung); Mail-Relay und Slack, wenn eingeschaltet.",
                              "Admins; ORCID (sign-in); mail relay and Slack when switched on."),
@@ -457,7 +458,8 @@ def _activities():
                            "Konto sofort gesperrt, Löschung nach 30 Tagen durch den stündlichen Lauf; bis dahin bleiben "
                            "Vormerkung, vormerkende Person und Auswahl gespeichert, Übergaben ohne mögliche Person halten "
                            "die Löschung als „Löschung fällig“ an. Einladungsadressen einer Liste: bis zur "
-                           "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Warteliste: bis zur ersten "
+                           "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Einladungslinks der Plattform (nur Prüfwert, "
+                           "Notiz, Zähler): bis 30 Tage nach ihrem Ablauf. Warteliste: bis zur ersten "
                            "Anmeldung, höchstens 90 Tage; die E-Mail-Adresse, sobald die Nachricht verschickt ist.",
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
                            "date remain; memberships, home and admin role in organisations go with the account. Email "
@@ -471,7 +473,8 @@ def _activities():
                            "30 days by the hourly sweep; until then the mark, the person who marked it and the choices "
                            "are stored, and a handover without a person able to receive it holds the deletion as "
                            "“deletion due”. Invitation addresses of a list: until accepted, withdrawn or "
-                           "expired, at most 30 days. Waiting list: until the first sign-in, at most 90 days; the email "
+                           "expired, at most 30 days. Invitation links of the platform (hash, note, counter only): until 30 days after "
+                           "they expire. Waiting list: until the first sign-in, at most 90 days; the email "
                            "address as soon as the notice is sent."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b DSGVO (Nutzungsbedingungen); bei öffentlichen Stellen ggf. lit. e",

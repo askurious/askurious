@@ -592,7 +592,60 @@ def researchers():
                            type_counts={t.id: account_types.count_of(t) for t in account_types.all_types()},
                            default_type=account_types.default_type(), org_filter=org_filter,
                            group_filter=group_filter, group_options=group_options,
-                           org_options=[(o.id, orgs.label(o)) for o in orgs.all_orgs()] if orgs.several() else [])
+                           org_options=[(o.id, orgs.label(o)) for o in orgs.all_orgs()] if orgs.several() else [],
+                           signup=_signup_links())
+
+
+def _signup_links():
+    """The block "Einladungslinks" (app/signup_links.py): the links, the one made just now, and the choices of the
+    dialog: organisations (not the guests) with their user types."""
+    from app import account_types, orgs, signup_links
+
+    links = signup_links.listed()
+    choices = [(o, account_types.all_types(hidden=False, org_id=o.id)) for o in orgs.all_orgs(guests=False)]
+    return {"links": [(link, orgs.get(link.org_id), account_types.get(link.account_type_id),
+                       signup_links.came_by(link), signup_links.is_open(link)) for link in links],
+            "new": signup_links.take_shown(), "orgs": choices, "uses": signup_links.USES, "days": signup_links.DAYS,
+            "default_uses": signup_links.DEFAULT_USES, "default_days": signup_links.DEFAULT_DAYS,
+            "periods": [(p, signup_links.period_label(p)) for p in signup_links.PERIODS]}
+
+
+@bp.route("/signup-links", methods=["POST"])
+def signup_links_action():
+    """Make or revoke a registration link of the platform (app/signup_links.py)."""
+    from app import accounts, account_types, orgs, security_log, signup_links
+    from app.extensions import db
+
+    back = url_for("admin.researchers") + "#einladungslinks"
+    again = accounts.need_fresh(back)
+    if again:
+        return again
+    if request.form.get("action") == "revoke":
+        link = signup_links.revoke(request.form.get("link_id", type=int) or 0)
+        db.session.commit()
+        if link is not None:
+            security_log.event("sign_up_link_revoked", by=current_user.id, target=f"link {link.id}")
+            flash(de_en("Einladungslink widerrufen.", "Invitation link revoked."), "success")
+        return redirect(back)
+    org = orgs.get(request.form.get("org", type=int)) or orgs.get(orgs.default_id())
+    if org is None or org.key == orgs.GUEST:
+        abort(400)
+    t = account_types.get(request.form.get("account_type"))
+    if t is not None and account_types.org_of(t) != org.id:
+        t = None  # a type of another organisation: the organisation's type for new accounts
+    uses, days = request.form.get("max_uses", type=int), request.form.get("days", type=int)
+    if uses not in signup_links.USES or days not in signup_links.DAYS:
+        abort(400)
+    period, problem = signup_links.period_from_form(request.form)
+    if problem:
+        flash(problem, "error")
+        return redirect(back)
+    link, problem = signup_links.create(current_user, org, t, period, uses, days, request.form.get("note", ""))
+    if problem:
+        flash(problem, "error")
+    else:
+        signup_links.show_once(link)
+    return redirect(back)
 
 
 @bp.route("/surveys")
