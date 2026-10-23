@@ -9,6 +9,7 @@ from tests.participation.test_participate import _pos
 from app.extensions import db
 from app.models import Block, Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 META = {"title": "Test", "languages": ["de"], "default_language": "de", "allow_back": "1"}
 
@@ -80,7 +81,7 @@ def test_next_is_held_until_the_minimum_time_is_over(app, client, survey):
     p, url = start(app, client)
     page = p.get(url).data.decode()
     assert 'data-hold data-min="10" data-max="0"' in page
-    early = p.post(url, data={"pos": "r1", "nav": "next", "i2": "Antwort"})
+    early = p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "i2": "Antwort"})
     assert early.status_code == 200 and "bleibt noch" in early.data.decode()   # the page once more, with a note
     assert response(app)[1:3] == (1, {"1": "1", "2": "Antwort"})               # ... and what was typed is kept
     wait(app, 10)
@@ -88,7 +89,7 @@ def test_next_is_held_until_the_minimum_time_is_over(app, client, survey):
     assert response(app)[1] == 2
     # the next page of the block has its own clock
     assert 'data-min="10"' in p.get(url).data.decode()
-    assert p.post(url, data={"pos": "r2", "nav": "next", "i4": "x"}).status_code == 200
+    assert p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "i4": "x"}).status_code == 200
 
 
 def test_loading_the_page_again_does_not_start_the_clock_anew(app, client, survey):
@@ -104,9 +105,9 @@ def test_back_is_never_held_and_the_clock_starts_anew_on_return(app, client, sur
     p, url = start(app, client)
     p.get(url)
     wait(app, 10)
-    p.post(url, data={"pos": "r1", "nav": "next", "i2": "a"})
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "i2": "a"})
     p.get(url)
-    assert p.post(url, data={"pos": "r2", "nav": "back"}).status_code == 302   # at once
+    assert p.post(url, data={"pos": page_pos(p, 2), "nav": "back"}).status_code == 302   # at once
     assert response(app)[1] == 1
     assert 'data-min="10"' in p.get(url).data.decode()
 
@@ -116,7 +117,7 @@ def test_the_timer_sends_the_page_without_asking_for_required_answers(app, clien
     p, url = start(app, client)
     assert 'data-min="0" data-max="30"' in p.get(url).data.decode()
     # a page that only claims its time is up is an ordinary "Next": the required answer is asked for
-    claimed = p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "i2": ""})
+    claimed = p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "i2": ""})
     assert claimed.status_code == 200 and "has-error" in claimed.data.decode()
     wait(app, 30)
     assert p.post(url, data={"pos": _pos(claimed.get_data(as_text=True)), "nav": "next", "time_up": "1", "i2": ""}).status_code == 302
@@ -124,7 +125,7 @@ def test_the_timer_sends_the_page_without_asking_for_required_answers(app, clien
     assert position == 2 and not answers.get("2") and len(data["_timeup"]) == 1 and "_hold" not in data
     # the person answers the second page in time: an ordinary "Next"
     p.get(url)
-    p.post(url, data={"pos": "r2", "nav": "next", "i4": "fertig"})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "i4": "fertig"})
     assert response(app)[0] == Response.COMPLETED
     row = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv").data.decode("utf-8-sig"))))[0]
     assert row["time_up"] == "1" and row["q1"] == "" and row["q2"] == "fertig"

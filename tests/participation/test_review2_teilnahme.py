@@ -17,6 +17,7 @@ from tests.live import test_live
 from tests.participation import test_participate
 from tests.quotas import test_quotas
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 
 def _rows(app):
@@ -203,7 +204,7 @@ def test_the_page_time_of_a_first_page_after_a_skipped_entry(app, client, survey
         {"t": "block", "block": 1}], page_timing=True)
     p = app.test_client()
     assert "Einwilligung" in p.get(f"/s/{uid}").data.decode()
-    p.post(f"/s/{uid}", data={**CONSENT_OK, "pos": "r1"})
+    p.post(f"/s/{uid}", data={**CONSENT_OK, "pos": page_pos(p, 1)})
     with app.app_context():
         r = db.session.scalar(db.select(Response))
         assert "1" in ((r.paradata or {}).get("_t") or {}), r.paradata
@@ -220,7 +221,7 @@ def test_the_timer_of_a_first_page_runs_from_when_it_was_shown(app, client, surv
     p.get(f"/s/{uid}")
     with p.session_transaction() as sess:  # non-essential limits leave at least 30 seconds to react
         sess[f"n{sid}"] = {**sess[f"n{sid}"], "shown": (utcnow() - timedelta(seconds=40)).isoformat()}
-    html = p.post(f"/s/{uid}", data={"nav": "next", "time_up": "1", "pos": "r0"}, follow_redirects=True).data.decode()
+    html = p.post(f"/s/{uid}", data={"nav": "next", "time_up": "1", "pos": page_pos(p, 0)}, follow_redirects=True).data.decode()
     assert "has-error" not in html and "Einwilligung" in html        # on without an answer, as on a later page
     with app.app_context():
         r = db.session.scalar(db.select(Response))
@@ -235,7 +236,7 @@ def test_a_held_first_page_holds_its_button(app, client, survey):
         db.session.commit()
     p = app.test_client()
     p.get(f"/s/{uid}")
-    html = p.post(f"/s/{uid}", data={"nav": "next", "i2": "ja", "pos": "r0"}, follow_redirects=True).data.decode()
+    html = p.post(f"/s/{uid}", data={"nav": "next", "i2": "ja", "pos": page_pos(p, 0)}, follow_redirects=True).data.decode()
     assert "Einwilligung" not in html                                # held: the same page again
     with app.app_context():
         assert db.session.scalar(db.select(Response)).position == 0

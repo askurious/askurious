@@ -694,16 +694,36 @@ def statement_orders(response, row=None):
 # --- one step of the questionnaire --------------------------------------------------------
 
 
-def page_token(response, position, *, revision=True):
-    """What a rendered page carries back in its form (field "pos"): the page it was rendered for.
-    The separated section (SplitSession, no pid) counts its own pages, hence the prefix, and its token carries the
-    start of the session's random id: a page of a session that has ended (its answers stored) never fits a new one,
-    when the browser sends it again with the cookie from before (code review 2026-10-07, T2)."""
+def _person_mark(pid):
+    """Eight characters that tie a page to its participation without naming it: a keyed digest of the participant ID
+    (the server's secret key), so a page of a participation that this browser let go of ("Neue Teilnahme an diesem
+    Gerät") never fits the next one at the same position (audit 2026-10-23, DS-01)."""
+    import hashlib
+    import hmac
+
+    from flask import current_app, has_app_context
+
+    secret = str(current_app.secret_key or "") if has_app_context() else ""
+    return hmac.new(secret.encode(), str(pid or "").encode(), hashlib.sha256).hexdigest()[:8]
+
+
+def _page_name(response, position, revision):
     serial = (getattr(response, "layout", None) or {}).get("page_revisions", {}).get(str(position), 0)
     suffix = f".{serial}" if revision and serial else ""
     if hasattr(response, "pid"):
         return f"r{position}{suffix}"
     return f"x{str(getattr(response, 'id', None) or '')[:8]}-{position}{suffix}"
+
+
+def page_token(response, position, *, revision=True):
+    """What a rendered page carries back in its form (field "pos"): the page it was rendered for.
+    The separated section (SplitSession, no pid) counts its own pages, hence the prefix, and its token carries the
+    start of the session's random id: a page of a session that has ended (its answers stored) never fits a new one,
+    when the browser sends it again with the cookie from before (code review 2026-10-07, T2). A participation's token
+    carries a keyed digest of its participant ID for the same reason: a tab still open from the person before on this
+    device never writes into the next participation (audit 2026-10-23, DS-01)."""
+    name = _page_name(response, position, revision)
+    return f"{name}-{_person_mark(response.pid)}" if hasattr(response, "pid") else name
 
 
 def keep_key(response, position):
@@ -717,7 +737,7 @@ def keep_key(response, position):
     secret = str(current_app.secret_key or "") if has_app_context() else ""
     # the participant ID, also before the participation is stored (the consent page); the separated section its own id
     who = getattr(response, "pid", None) or f"{type(response).__name__}:{getattr(response, 'id', None) or ''}"
-    return hashlib.sha256(f"{secret}|{who}".encode()).hexdigest()[:16] + "-" + page_token(response, position, revision=False)
+    return hashlib.sha256(f"{secret}|{who}".encode()).hexdigest()[:16] + "-" + _page_name(response, position, False)
 
 
 @dataclass

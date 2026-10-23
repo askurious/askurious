@@ -20,6 +20,7 @@ from tests.helpers.audit_cr8_g import _js  # noqa: F401
 from tests.helpers.audit_cr8_i import TYPES, TrashedItem, _linked_question as _linked_question__cr8_i, fill_questions, os  # noqa: F401
 from tests.helpers.audit_review_fixes import E as E__review_fixes, OTHER as OTHER__review_fixes, _consent_and_two_blocks, _errors as _errors__review_fixes, _member as _member__review_fixes, fill_consent, split_node  # noqa: F401
 from tests.helpers.audit_review_medium import E as E__review_medium, _errors as _errors__review_medium, _file, _loop_around_block_2, _upload, _with_parameter, conditions, test_quotas  # noqa: F401
+from tests.helpers.page_pos import page_pos
 
 
 # --- from tests/audits/test_audit13_rest.py: Audit Daten und Berechnungen 2026-10-12, package I (exports, choice models, elements, rest): E-3, E-4, E-5, E-6, ---
@@ -894,7 +895,7 @@ def test_a_first_block_for_some_only(app, client, survey):
     p = app.test_client()
     page = p.get(url)                                         # without the parameter: block 3 is skipped
     assert page.status_code == 200 and "i1_c_voluntary" in page.data.decode()
-    p.post(url, data={**CONSENT_OK, "pos": "r1"})            # the first send is the consent, not lost
+    p.post(url, data={**CONSENT_OK, "pos": page_pos(p, 1)})            # the first send is the consent, not lost
     with app.app_context():
         r = db.session.scalar(db.select(Response).filter_by(is_preview=False))
         assert r.answers.get("1") == "1" and r.position == 2

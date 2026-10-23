@@ -10,6 +10,7 @@ from app import blockload
 from app.extensions import db
 from app.models import Block, Response, Survey, utcnow
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
@@ -145,14 +146,14 @@ def test_end_of_block_checks_every_page_again(app, client, survey):
     p = start(app, url)
     p.get(url)
     # the background sends were lost: page B is empty; the server goes back to it with its error
-    r = final(p, url, "r1", {"i2": "eins", "i6": "drei"}, {1: 2000, 2: 2000, 3: 2000})
+    r = final(p, url, page_pos(p, 1), {"i2": "eins", "i6": "drei"}, {1: 2000, 2: 2000, 3: 2000})
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and sections(html) == [("1", "hidden"), ("2", ""), ("3", "hidden")]
     assert "has-error" in html
     rs = response(app)
     assert rs.position == 2 and rs.answers["2"] == "eins"
     # sent again, complete, with the token of the page the server is at: on to the next block
-    r = final(p, url, "r2", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 2000, 2: 3000, 3: 2000})
+    r = final(p, url, page_pos(p, 2), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 2000, 2: 3000, 3: 2000})
     assert r.status_code in (302, 303)
     html = p.get(url).get_data(as_text=True)
     assert "Frage D" in html and "data-block" not in html
@@ -165,12 +166,12 @@ def test_back_and_without_script(app, client, survey):
     p = start(app, url)
     p.get(url)
     # without JavaScript the block goes page by page: the token is that of the page the server is at
-    p.post(url, data={"pos": "r1", "nav": "next", "i2": "eins"})
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "i2": "eins"})
     html = p.get(url).get_data(as_text=True)
-    assert 'name="pos" value="r2"' in html and sections(html)[1] == ("2", "")
+    assert f'name="pos" value="{page_pos(p, 2)}"' in html and sections(html)[1] == ("2", "")
     # "Back" from the block's first page with the whole block: the page before it (the consent stays where it is)
     meta = json.dumps({"start": 1, "pages": {}})
-    p.post(url, data={"pos": "r2", "nav": "back", "_block": meta})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "back", "_block": meta})
     # exactly the page before the block; before, the token of the page the server was at did not fit the block's
     # first page, and "Back" was dropped as a page sent twice (code review 2026-10-15, F2 and L3)
     assert response(app).position == 0
@@ -180,7 +181,7 @@ def _failed_check(app, url):
     """The end of the block found page B empty: the server is at page B (token r2), the block is sent from there."""
     p = start(app, url)
     p.get(url)
-    final(p, url, "r1", {"i2": "eins", "i6": "drei"}, {1: 2000, 2: 2000, 3: 2000})
+    final(p, url, page_pos(p, 1), {"i2": "eins", "i6": "drei"}, {1: 2000, 2: 2000, 3: 2000})
     assert response(app).position == 2
     return p, json.dumps({"start": 1, "pages": {}})
 
@@ -190,7 +191,7 @@ def test_back_after_a_failed_check_of_the_block(app, client, survey):
     the page was sent twice."""
     url = build(client, app)
     p, meta = _failed_check(app, url)
-    p.post(url, data={"pos": "r2", "nav": "back", "_block": meta, "i2": "zwei"})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "back", "_block": meta, "i2": "zwei"})
     assert response(app).position == 0
     assert 'class="p-tempo-note"' not in p.get(url).get_data(as_text=True)
 
@@ -200,7 +201,7 @@ def test_language_after_a_failed_check_of_the_block(app, client, survey):
     and shows the block again in the language picked, without the note that the page was sent twice."""
     url = build(client, app)
     p, meta = _failed_check(app, url)
-    p.post(url, data={"pos": "r2", "nav": "next", "set_lang": "en", "_block": meta, "i2": "zwei"})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "set_lang": "en", "_block": meta, "i2": "zwei"})
     rs = response(app)
     assert rs.position == 1 and rs.language == "en" and rs.answers["2"] == "zwei"
     assert 'class="p-tempo-note"' not in p.get(url).get_data(as_text=True)
@@ -215,7 +216,7 @@ def test_page_times_from_the_browser_cut_to_the_server_clock(app, client, survey
         r.layout = {**r.layout, "bl": {**r.layout["bl"], "at": (utcnow() - timedelta(seconds=10)).isoformat()}}
         db.session.commit()
     # 3 × 20 s claimed by the browser, but the server saw only 10 s
-    final(p, url, "r1", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 20000, 2: 20000, 3: 20000})
+    final(p, url, page_pos(p, 1), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 20000, 2: 20000, 3: 20000})
     rs = response(app)
     times = rs.paradata["_t"]
     assert 9 <= sum(times.values()) <= 11
@@ -233,7 +234,7 @@ def test_plausible_browser_times_are_kept(app, client, survey):
         r = db.session.scalar(db.select(Response))
         r.layout = {**r.layout, "bl": {**r.layout["bl"], "at": (utcnow() - timedelta(seconds=60)).isoformat()}}
         db.session.commit()
-    final(p, url, "r1", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 4000, 2: 6000, 3: 8000})
+    final(p, url, page_pos(p, 1), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 4000, 2: 6000, 3: 8000})
     rs = response(app)
     assert [round(rs.paradata["_t"][k]) for k in ("2", "4", "6")] == [4, 6, 8]
     assert blockload.times_cut(rs) == 0
@@ -248,7 +249,7 @@ def test_minimum_time_held_by_the_block_sum(app, client, survey):
         r.layout = {**r.layout, "bl": {**r.layout["bl"], "at": (utcnow() - timedelta(seconds=8)).isoformat()}}
         db.session.commit()
     # 3 × 6 s claimed, 8 s seen by the server: cut to about 2.7 s each, the first page was left too early
-    r = final(p, url, "r1", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 6000, 2: 6000, 3: 6000})
+    r = final(p, url, page_pos(p, 1), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 6000, 2: 6000, 3: 6000})
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and "bleibt noch" in html and response(app).position == 1
 
@@ -261,8 +262,8 @@ def test_export_has_the_browser_columns(app, client, survey):
         r = db.session.scalar(db.select(Response))
         r.layout = {**r.layout, "bl": {**r.layout["bl"], "at": (utcnow() - timedelta(seconds=60)).isoformat()}}
         db.session.commit()
-    final(p, url, "r1", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 4000, 2: 6000, 3: 8000})
-    p.post(url, data={"pos": "r4", "nav": "next", "i7": "vier"})
+    final(p, url, page_pos(p, 1), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 4000, 2: 6000, 3: 8000})
+    p.post(url, data={"pos": page_pos(p, 4), "nav": "next", "i7": "vier"})
     with app.app_context():
         assert db.session.scalar(db.select(Response)).status == Response.COMPLETED
         assert blockload.quality_counts(db.session.get(Survey, 1)) == {"timed": 1, "cut": 0}
@@ -302,18 +303,18 @@ def test_block_entered_again_from_the_next_block(app, client, survey):
         r = db.session.scalar(db.select(Response))
         r.layout = {**r.layout, "bl": {**r.layout["bl"], "at": (utcnow() - timedelta(seconds=30)).isoformat()}}
         db.session.commit()
-    final(p, url, "r1", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 4000, 2: 4000, 3: 4000})
+    final(p, url, page_pos(p, 1), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {1: 4000, 2: 4000, 3: 4000})
     assert response(app).position == 4
-    p.post(url, data={"pos": "r4", "nav": "back"})
+    p.post(url, data={"pos": page_pos(p, 4), "nav": "back"})
     html = p.get(url).get_data(as_text=True)
     # page 3 was left once, so a form of it from before no longer fits (audit 2026-10-17, D-01): "r3.1"
-    assert sections(html) == [("1", "hidden"), ("2", "hidden"), ("3", "")] and 'name="pos" value="r3.1"' in html
+    assert sections(html) == [("1", "hidden"), ("2", "hidden"), ("3", "")] and f'name="pos" value="{page_pos(p, 3, 1)}"' in html
     with app.app_context():
         r = db.session.scalar(db.select(Response))
         r.layout = {**r.layout, "bl": {**r.layout["bl"], "at": (utcnow() - timedelta(seconds=10)).isoformat()}}
         db.session.commit()
     # only page 3 was on screen in this document, for 4 s
-    r = final(p, url, "r3.1", {"i2": "eins", "i4": "zwei", "i6": "drei"}, {3: 4000})
+    r = final(p, url, page_pos(p, 3, 1), {"i2": "eins", "i4": "zwei", "i6": "drei"}, {3: 4000})
     assert r.status_code in (302, 303) and response(app).position == 4
     times = response(app).paradata["_t"]
     assert [round(times[k]) for k in ("2", "4", "6")] == [4, 4, 8]

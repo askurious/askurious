@@ -3,6 +3,7 @@ the answers it shows can no longer be changed, so nobody moves towards the major
 from app.extensions import db
 from app.models import Item, Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 
 def _uid(app):
@@ -136,19 +137,19 @@ def test_crowd_on_the_same_page_gets_its_figures_only_from_the_server(app, clien
     page = p.get(url).data.decode()
     data = _crowd_data(page)
     assert data["avatars"] == [] and data["own"] is None and data["fetch"] == f"{url}/crowd/{crowd}"
-    assert p.post(data["fetch"], data={"pos": "r0", "i2": "1"}).status_code == 409       # not the page shown
-    assert p.post(f"{url}/crowd/2", data={"pos": "r1", "i2": "1"}).status_code == 409    # no crowd
-    missing = p.post(data["fetch"], data={"pos": "r1"})
+    assert p.post(data["fetch"], data={"pos": page_pos(p, 0), "i2": "1"}).status_code == 409       # not the page shown
+    assert p.post(f"{url}/crowd/2", data={"pos": page_pos(p, 1), "i2": "1"}).status_code == 409    # no crowd
+    missing = p.post(data["fetch"], data={"pos": page_pos(p, 1)})
     assert missing.status_code == 400 and missing.json["error"]
     assert "2" not in _answers(app)
-    fixed = p.post(data["fetch"], data={"pos": "r1", "i2": "1"})
+    fixed = p.post(data["fetch"], data={"pos": page_pos(p, 1), "i2": "1"})
     assert fixed.status_code == 200 and len(fixed.json["avatars"]) == 40 and fixed.json["own"] is not None
     with app.app_context():
         r = db.session.scalar(db.select(Response))
         assert r.answers["2"] == 1 and "2" in r.layout["locked"]
     again = p.get(url).data.decode()                                                     # a reload: fixed, figures in the page
     assert "festgelegt und lässt sich nicht mehr ändern" in again and len(_crowd_data(again)["avatars"]) == 40
-    assert p.post(data["fetch"], data={"pos": "r1", "i2": "5"}).json["avatars"]          # once more: still 1
+    assert p.post(data["fetch"], data={"pos": page_pos(p, 1), "i2": "5"}).json["avatars"]          # once more: still 1
     p.post(url, data={"nav": "next", "i2": "5", f"i{crowd}_n_2": "0"})                  # the page sent with another one
     assert _answers(app)["2"] == 1
 

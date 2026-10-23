@@ -12,6 +12,7 @@ from tests.participation.test_participate import _pos
 from app.extensions import db
 from app.models import Item, Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 E = "/surveys/1/editor"
 
@@ -75,10 +76,10 @@ def test_timer_keeps_a_personal_total_and_marks_rows_not_shown(app, client, surv
     p.get(url)
     p.post(url, data=CONSENT_OK)
     p.get(url)
-    p.post(url, data={"pos": "r1", "nav": "next", "i2": "2000", "i3": "2"})
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "i2": "2000", "i3": "2"})
     p.get(url)
     _time_runs_out(app, 40)
-    p.post(url, data={"pos": "r2", "nav": "next", "time_up": "1",
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "time_up": "1",
                       "i5_rent": "1500", "i5_food": "500", "i5_touched": "1", "i6_s1": "3"})
     answers = _response(app).answers
     assert answers["5"] == {"rent": 1500, "food": 500}          # was None: the personal total was not known
@@ -95,10 +96,10 @@ def test_timer_marks_carried_options_not_shown(app, client, survey):
     p.get(url)
     p.post(url, data=CONSENT_OK)
     p.get(url)
-    p.post(url, data={"pos": "r1", "nav": "next", "i2": ["1", "3"]})   # Smartphone and Laptop, not the Tablet
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "i2": ["1", "3"]})   # Smartphone and Laptop, not the Tablet
     p.get(url)
     _time_runs_out(app, 31)
-    p.post(url, data={"pos": "r2", "nav": "next", "time_up": "1", "i5": ["1"]})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "time_up": "1", "i5": ["1"]})
     row = _export(client)[0]
     assert row["abends_1"] == "1" and row["abends_2"] == "-77"   # the Tablet was not offered: −77, not 0
 
@@ -249,8 +250,8 @@ def test_language_switch_on_the_first_page_stores_nothing(app, client, survey):
     uid = _two_languages(app, client)
     p = app.test_client()
     p.get(f"/s/{uid}?lang=de")
-    assert p.post(f"/s/{uid}", data={"set_lang": "en", "pos": "r0"}).status_code == 302
-    assert p.post(f"/s/{uid}", data={"nav": "back", "pos": "r0"}).status_code == 302
+    assert p.post(f"/s/{uid}", data={"set_lang": "en", "pos": page_pos(p, 0)}).status_code == 302
+    assert p.post(f"/s/{uid}", data={"nav": "back", "pos": page_pos(p, 0)}).status_code == 302
     with app.app_context():
         assert db.session.scalar(db.select(db.func.count(Response.id))) == 0   # was: stored without consent
     html = p.get(f"/s/{uid}").data.decode()
@@ -277,7 +278,7 @@ def test_opening_the_link_again_later_starts_the_clock_afresh(app, client, surve
     p.post(url, data=CONSENT_OK)
     r = _response(app)
     assert r.started_at == datetime(2026, 10, 6, 9, 0, 0)          # was: the day before
-    assert 'name="pos" value="r0"' in first and 'name="pos" value="r0"' in again
+    assert 'name="pos" value="r0-' in first and 'name="pos" value="r0-' in again
 
 
 # --- T-9: the language switch reads the numbers in the language they were typed in ------------------------
@@ -289,7 +290,7 @@ def test_language_switch_reads_numbers_in_the_language_of_the_page(app, client, 
     p.get(f"/s/{uid}?lang=de")
     p.post(f"/s/{uid}", data=CONSENT_OK)
     p.get(f"/s/{uid}")
-    p.post(f"/s/{uid}", data={"pos": "r1", "page_lang": "de", "set_lang": "en", "i2": "1.000"})
+    p.post(f"/s/{uid}", data={"pos": page_pos(p, 1), "page_lang": "de", "set_lang": "en", "i2": "1.000"})
     r = _response(app)
     assert r.language == "en" and r.answers["2"] == 1000           # was: 1.0
     # an older page without the field: the language the participation had before the switch
@@ -312,8 +313,8 @@ def test_page_sent_twice_counts_focus_and_paste_once(app, client, survey):
     url = f"/s/{_start(app, client)}"
     p = app.test_client()
     p.get(url)
-    p.post(url, data={**CONSENT_OK, "pos": "r0"})
-    page = {"nav": "next", "pos": "r1", "i2_s1": "2", "i2_s2": "2", "i3": "41",
+    p.post(url, data={**CONSENT_OK, "pos": page_pos(p, 0)})
+    page = {"nav": "next", "pos": page_pos(p, 1), "i2_s1": "2", "i2_s2": "2", "i3": "41",
             "_fp_blur": "1", "_fp_paste": "1", "_fp_pchars": "20", "_fp_inputs": "2"}
     p.post(url, data=page)
     once = dict(_response(app).paradata.get("_fp"))
@@ -331,9 +332,9 @@ def test_page_sent_twice_leads_to_the_current_page_with_a_note(app, client, surv
     url = f"/s/{_start(app, client)}"
     p = app.test_client()
     p.get(url)
-    p.post(url, data={**CONSENT_OK, "pos": "r0"})
+    p.post(url, data={**CONSENT_OK, "pos": page_pos(p, 0)})
     assert "schon abgeschickt" not in p.get(url).data.decode()
-    assert p.post(url, data={**CONSENT_OK, "pos": "r0"}).status_code == 302     # the consent page once more
+    assert p.post(url, data={**CONSENT_OK, "pos": page_pos(p, 0)}).status_code == 302     # the consent page once more
     html = p.get(url).data.decode()
     assert "Diese Seite war schon abgeschickt; Sie sind jetzt hier." in html
     assert "schon abgeschickt" not in p.get(url).data.decode()                  # said once

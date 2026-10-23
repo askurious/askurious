@@ -1375,6 +1375,11 @@ def block_page(uid):
     positions = blockload.run(survey, response, response.position)
     if not positions or str(data.get("start")) != str(positions[0]):
         return jsonify(error="stale"), 409
+    if data.get("pos") is not None and str(data["pos"]) != runtime.page_token(response, response.position):
+        # a page of another participation (a tab still open from the person before on this device) or of an older
+        # version of the block: never stored here; "gone" lets the tab drop it from its queue (audit 2026-10-23,
+        # DS-01). A send without "pos" comes from a script of before that change and is checked as before
+        return jsonify(error="stale", gone=True), 409
     try:
         out = blockload.store(survey, response, positions, data, _pick_language(survey, response), panel.values(survey))
     except ValueError:  # a form no page of ours sends (offline_answers.fields)

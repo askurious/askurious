@@ -230,7 +230,8 @@ def invites(survey):
     rows = db.session.execute(
         db.select(DiaryInvite.code, DiaryInvite.used_at, DiaryInvite.released_at, Enrolment.pid, Enrolment.status,
                   Enrolment.settings)
-        .outerjoin(Enrolment, Enrolment.id == DiaryInvite.enrolment_id)
+        .outerjoin(Enrolment, db.and_(Enrolment.id == DiaryInvite.enrolment_id, Enrolment.survey_id == survey.id,
+                                      Enrolment.created_at <= DiaryInvite.used_at))  # never a later person (S-01)
         .where(DiaryInvite.survey_id == survey.id).order_by(DiaryInvite.id))
     out = []
     now = utcnow()
@@ -320,6 +321,10 @@ def _rejoin_person(survey, invite):
         return None
     person = db.session.get(Enrolment, invite.enrolment_id)
     if person is None or person.survey_id != survey.id or person.status == Enrolment.LEFT:
+        return None
+    if invite.used_at is None or (person.created_at is not None and person.created_at > invite.used_at):
+        # someone who joined after the code was used cannot be the person who used it: a reference left from a
+        # deletion before the code let go of its person (audit 2026-10-23, S-01)
         return None
     return person
 
@@ -1781,7 +1786,12 @@ def fix_parts(survey):
 
 def forget(survey_id, invites=False):
     """The persons of a deleted survey (lifecycle.delete; their entries go with the survey's participations);
-    invites: also its invitation codes (the survey itself goes)."""
+    invites: also its invitation codes (the survey itself goes); otherwise the codes let go of their persons."""
+    from app.models import keep_floor_before_bulk_delete
+
+    keep_floor_before_bulk_delete(Enrolment, Enrolment.survey_id == survey_id)  # SQLite gives no id twice (S-01)
+    if not invites:
+        detach_invites(survey_id)
     db.session.execute(db.delete(Enrolment).where(Enrolment.survey_id == survey_id))
     from app.models import BrowserReceipt
 
@@ -1792,6 +1802,33 @@ def forget(survey_id, invites=False):
         from app.models import DiaryInvite
 
         db.session.execute(db.delete(DiaryInvite).where(DiaryInvite.survey_id == survey_id))
+
+
+def detach_invites(survey_id, persons=None):
+    """The invitation codes of a study let go of persons who go in one statement past the mapper events (all of the
+    study, or the ids `persons`): a code never names a person again who is gone, and its release ends with it
+    (audit 2026-10-23, S-01). Call it before the persons are deleted, in the same transaction."""
+    from app.models import DiaryInvite
+
+    where = [DiaryInvite.survey_id == survey_id, DiaryInvite.enrolment_id.is_not(None)]
+    if persons is not None:
+        where.append(DiaryInvite.enrolment_id.in_(persons))
+    db.session.execute(db.update(DiaryInvite).where(*where).values(enrolment_id=None, released_at=None)
+                       .execution_options(synchronize_session=False))
+
+
+def detach_dangling_invites():
+    """Codes that still name a person who is gone, or someone who joined only after the code was used (a person
+    deleted before codes let go of their persons, whose id SQLite gave to the next one): they let go of them. Changes
+    nothing a second time; returns how many codes let go (audit 2026-10-23, S-01)."""
+    from app.models import DiaryInvite
+
+    fits = db.select(Enrolment.id).where(Enrolment.id == DiaryInvite.enrolment_id,
+                                         Enrolment.survey_id == DiaryInvite.survey_id,
+                                         Enrolment.created_at <= DiaryInvite.used_at).exists()
+    done = db.session.execute(db.update(DiaryInvite).where(DiaryInvite.enrolment_id.is_not(None), ~fits)
+                              .values(enrolment_id=None, released_at=None).execution_options(synchronize_session=False))
+    return done.rowcount or 0
 
 
 def whole_persons(responses):
@@ -1810,7 +1847,7 @@ def sweep(now=None):
     """Hourly (lifecycle._rare_sweeps): persons who joined but never finished the entry part within PENDING_DAYS go,
     with what they began; persons none of whose entries is left (a retention period took them) go too. Commits by
     itself, only if something went."""
-    from app import erasure
+    from app import diary_access, erasure
 
     now = now or utcnow()
     old = db.session.scalars(db.select(Enrolment).where(Enrolment.status == Enrolment.PENDING,
@@ -1829,15 +1866,18 @@ def sweep(now=None):
             # begun entry part with its consent and demographics, not only the database (audit 2026-10-12, D-12)
             files.append(erasure.erase_again(db.session.get(Survey, person.survey_id), entries, reason="diary_pending"))
         else:
-            db.session.delete(person)
+            diary_access.revoke(person)  # the browsers of its web page lose their access with it
+            db.session.delete(person)  # its invitation code lets go of it (models._detach_invites)
         gone += 1
     empty = db.session.scalars(db.select(Enrolment).where(
         Enrolment.status != Enrolment.PENDING,
         ~db.select(Response.id).where(Response.enrolment_id == Enrolment.id).exists())).all()
     for person in empty:
+        diary_access.revoke(person)
         db.session.delete(person)
         gone += 1
-    if gone or promoted:
+    let_go = detach_dangling_invites()  # left from deletions before codes let go of their persons (S-01)
+    if gone or promoted or let_go:
         db.session.commit()
         for after in files:
             after()

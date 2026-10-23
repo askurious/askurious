@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models import Response, Survey
 from app.participate import trim_html
 from tests.conftest import CONSENT_OK, add, fill_consent, split_node
+from tests.helpers.page_pos import page_pos
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
@@ -49,16 +50,16 @@ def test_next_page_comes_with_the_post(app, client, survey):
     r = p.post(url, data=direct(CONSENT_OK))
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and "Alter" in html and "data-replace" in html
-    assert 'name="pos" value="r1"' in html
+    assert f'name="pos" value="{page_pos(p, 1)}"' in html
     # an error: the same page with its message, in the answer to the POST as before, and its entry also a GET
-    r = p.post(url, data=direct({"nav": "next", "pos": "r1"}))
+    r = p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 1)}))
     assert r.status_code == 200 and "has-error" in r.get_data(as_text=True) and "data-replace" in r.get_data(as_text=True)
-    r = p.post(url, data=direct({"nav": "next", "pos": "r1", "i2": "41"}))
+    r = p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 1), "i2": "41"}))
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and "Fast fertig" in html and "Absenden" in html
     # reloading is a GET (participant.js turned the entry into one): the same page, nothing sent again
     assert "Fast fertig" in p.get(url).get_data(as_text=True)
-    r = p.post(url, data=direct({"nav": "next", "pos": "r2"}))
+    r = p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 2)}))
     assert r.status_code == 200 and "Vielen Dank" in r.get_data(as_text=True)
     with app.app_context():
         response = db.session.scalar(db.select(Response))
@@ -71,7 +72,7 @@ def test_without_the_script_the_redirect_stays(app, client, survey):
     p.get(url)
     r = p.post(url, data=CONSENT_OK)
     assert r.status_code in (302, 303) and "data-replace" not in p.get(url).get_data(as_text=True)
-    r = p.post(url, data={"nav": "next", "pos": "r1", "i2": "41"})
+    r = p.post(url, data={"nav": "next", "pos": page_pos(p, 1), "i2": "41"})
     assert r.status_code in (302, 303)
 
 
@@ -80,9 +81,9 @@ def test_page_sent_twice_says_so_on_the_current_page(app, client, survey):
     p = app.test_client()
     p.get(url)
     p.post(url, data=direct(CONSENT_OK))
-    p.post(url, data=direct({"nav": "next", "pos": "r1", "i2": "41"}))
+    p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 1), "i2": "41"}))
     # the same page once more (a double click that came through, an older tab): dropped, the current page says so
-    r = p.post(url, data=direct({"nav": "next", "pos": "r1", "i2": "99"}))
+    r = p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 1), "i2": "99"}))
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and "Fast fertig" in html and "schon abgeschickt" in html
     with app.app_context():
@@ -95,8 +96,8 @@ def test_back_comes_with_the_post(app, client, survey):
     p = app.test_client()
     p.get(url)
     p.post(url, data=direct(CONSENT_OK))
-    p.post(url, data=direct({"nav": "next", "pos": "r1", "i2": "41"}))
-    r = p.post(url, data=direct({"nav": "back", "pos": "r2"}))
+    p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 1), "i2": "41"}))
+    r = p.post(url, data=direct({"nav": "back", "pos": page_pos(p, 2)}))
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and "Alter" in html and 'value="41"' in html
 
@@ -116,8 +117,8 @@ def test_separated_section_keeps_the_redirect(app, client, survey):
     p = app.test_client()
     p.get(url)
     p.post(url, data=direct(CONSENT_OK))
-    p.post(url, data=direct({"nav": "next", "pos": "r1", "i2": "41"}))
-    r = p.post(url, data=direct({"nav": "next", "pos": "r2"}))
+    p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 1), "i2": "41"}))
+    r = p.post(url, data=direct({"nav": "next", "pos": page_pos(p, 2)}))
     # the separated section reads the form of its own pages: it starts with the GET after the redirect
     assert r.status_code in (302, 303)
     assert "Mail" in p.get(url).get_data(as_text=True)

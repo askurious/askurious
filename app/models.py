@@ -2952,7 +2952,7 @@ def _remember_host(mapper, connection, target):
 
 # Tables whose floor is kept on SQLite only: a participation is deleted on the participants' side too (declined),
 # whose database role has no right on id_floor, and the sequences of PostgreSQL never go back anyway
-_FLOOR_ON_SQLITE_ONLY = {"response"}
+_FLOOR_ON_SQLITE_ONLY = {"response", "enrolment"}
 
 
 def _raise_floor(connection, name, highest):
@@ -3020,9 +3020,25 @@ def _keep_ids_apart(model):
 # (AInstein) names a group it is shared with by id; dashboards: undo puts a deleted one back under its id
 # (code review 2026-10-07, K1/E9). Participations: paper sheets, seal chains, saved states, the pseudonyms of the
 # construct pool and older exports name them by id; SQLite gave the id of a deleted last one to a new participation
-# in another survey (audit 2026-10-21, B1). Their bulk deletes call keep_floor_before_bulk_delete
-for _model in (Survey, Block, Item, Quota, QuotaCell, WorkGroup, Board, Response):
+# in another survey (audit 2026-10-21, B1). Their bulk deletes call keep_floor_before_bulk_delete. The persons of a
+# diary study: a used invitation code names its person by id, and SQLite gave the id of a deleted last person to the
+# next one, whom the old code then connected (audit 2026-10-23, S-01)
+for _model in (Survey, Block, Item, Quota, QuotaCell, WorkGroup, Board, Response, Enrolment):
     _keep_ids_apart(_model)
+
+
+def _detach_invites():
+    from sqlalchemy import event
+
+    @event.listens_for(Enrolment, "before_delete")
+    def _let_go(_mapper, connection, person):
+        """A person who goes lets go of the invitation code they joined with, in the same transaction: the code never
+        names anyone again, so no release can connect another person with it (audit 2026-10-23, S-01)."""
+        connection.execute(DiaryInvite.__table__.update().where(DiaryInvite.__table__.c.enrolment_id == person.id)
+                           .values(enrolment_id=None, released_at=None))
+
+
+_detach_invites()
 
 def _remember_hosts():
     from sqlalchemy import event
