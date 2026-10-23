@@ -7219,3 +7219,12 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Askurious ist öffentlich unter der EUPL-1.2 (askurious/askurious, frische History ab dem internen Stand 47e59153); das bisherige Repository heißt askurious/askurious-archive (privat). askurious-diary-android ist ebenfalls öffentlich.
 - `tools/public_export.py` liest die Dateien mit `core.autocrlf=false`, also mit LF wie eingecheckt: der erste Export aus einem Windows-Checkout hatte CRLF (korrigiert in 5dcf3d5).
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-23: Teilnahme, Tagebuch, Live, Editor und Statistik nachgeschärft
+- Teilnahme: Jede Seite und jede Hintergrundsendung trägt ein Kennzeichen ihrer Teilnahme; eine Sendung aus einer früheren Teilnahme im selben Browser wird abgewiesen und der Tab lädt neu. Seiten im Blockmodus werden in der Sprache gelesen, in der sie ausgefüllt wurden; ein Sprachwechsel im Block speichert alle Seiten des Blocks. Eine wiederholte Sendung derselben Medienseite zählt die Wiedergabe nur einmal.
+- Tagebuch: Wird eine Person gelöscht, löst sich ihr Einladungscode in derselben Transaktion von ihr; auf SQLite werden Personen-IDs nicht wieder vergeben. Das Datenschutzkonzept nennt das.
+- Live: Eine wiederholte gleiche Quizantwort behält ihre erste Zeit (eine geänderte Antwort bekommt die neue, Ralf, 2026-10-23); Beiträge eines früheren Durchgangs werden abgewiesen und das Handy lädt den aktuellen.
+- Editor: Gleichzeitige Speicherungen desselben Elements, derselben Einstellungen oder desselben Dashboards halten die Zeile bis zum Commit; die zweite bekommt den Konflikthinweis statt still zu überschreiben.
+- Statistik: Eine ordinale Likert-Matrix (Standard außer bei Konstrukten) wird im Studienplan mit Rangtests geprüft und mit dem Median beschrieben (Ralf, 2026-10-23, Weg a). CVA-Median korrigiert, konstante CVA-Antworten ohne Wichtigkeit, Slider behalten exakte Rasterwerte (auch bei kleinem Schritt und Start bei 0,5). PLS-Moderation behält formative Konstrukte, Hypothesen filtern ungültige Zahlen wie die Ergebnisseite, Welch-Test bei extremen Größenordnungen, nicht trennbarer Preis ohne Wichtigkeit, Achsenmarken begrenzt.
+- HTMT bleibt die Originalform nach Henseler et al. (2015) und ist jetzt so benannt; bei gemischten Vorzeichen der Kreuzkorrelationen erscheint ein Hinweis (Ralf, 2026-10-23).
+- Rechtstexte: Datenschutzkonzept ergänzt (Einladungscode bei Löschung gelöst), sonst keine Änderung nötig.
