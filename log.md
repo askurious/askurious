@@ -7213,3 +7213,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 ## 2026-10-23: README und LICENSE mit den Rechten der RWTH
 - LICENSE, README, die Seite „Lizenzen und Datenquellen“ und der MIT-Kopf von app/seal_verify.py nennen die RWTH Aachen University als Rechteinhaberin (§ 69b UrhG) und Philipp Brauner und Ralf Philipsen als Autoren (Ralf, 2026-10-21); der Code bleibt bis zur Veröffentlichung unter „alle Rechte vorbehalten“ (EUPL-1.2 im Entwurf #1331).
 - README: der Lehrstuhl verlinkt, Namen und Logos von Askurious und POLLtergeist ausdrücklich nicht mitlizenziert, lose Absätze aus dem Abschnitt „Licence“ in „AI“ und „Running a server“ verschoben, der deutsche Absatz zu Konten und KI ins Englische übertragen.
+
+## 2026-10-23: Öffentliches Repository
+
+- Askurious ist öffentlich unter der EUPL-1.2 (askurious/askurious, frische History ab dem internen Stand 47e59153); das bisherige Repository heißt askurious/askurious-archive (privat). askurious-diary-android ist ebenfalls öffentlich.
+- `tools/public_export.py` liest die Dateien mit `core.autocrlf=false`, also mit LF wie eingecheckt: der erste Export aus einem Windows-Checkout hatte CRLF (korrigiert in 5dcf3d5).
+- Rechtstexte geprüft, keine Änderung nötig.

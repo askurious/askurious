@@ -73,7 +73,9 @@ def read_instruments(path):
 
 def members():
     """(path, bytes, mode) of every committed file of HEAD that goes public."""
-    data = subprocess.run(["git", "-C", ROOT, "archive", "--format=tar", "HEAD"], capture_output=True, check=True).stdout
+    # core.autocrlf=false: the files as committed (LF), also from a Windows checkout (first export 2026-10-23 had CRLF)
+    data = subprocess.run(["git", "-C", ROOT, "-c", "core.autocrlf=false", "archive", "--format=tar", "HEAD"],
+                          capture_output=True, check=True).stdout
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         for info in tar:
             if info.isfile() and not internal(info.name):
