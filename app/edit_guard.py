@@ -147,7 +147,7 @@ def check(survey, key, current, form):
         db.select(EditMark).filter(EditMark.survey_id == survey.id, EditMark.key == key,
                                    EditMark.user_id != current_user.id, EditMark.saved_at.is_not(None))
         .order_by(EditMark.saved_at.desc()).limit(1))
-    who = (last.user.name or "Eine andere Person") if last else None
+    who = (last.user.display_name if last.user.name else "Eine andere Person") if last else None  # app/names.py
     when = to_local(last.saved_at).strftime("%H:%M") if last else None
     agent = _last_agent(survey, last.saved_at if last else None)
     if agent is not None:  # an AI agent saved after the others (with this person's token or another's)
@@ -217,7 +217,7 @@ def others_here(survey, key):
     from app import experimental
 
     agents = agents_here(survey) if experimental.enabled("agent", survey=survey) else []
-    return sorted({m.user.name or "Eine andere Person" for m in marks}) + agents
+    return sorted({m.user.display_name if m.user.name else "Eine andere Person" for m in marks}) + agents
 
 
 AGENT_KEY = "agent:"  # EditMark.key of an AI agent's token ("agent:<token id>"), per survey (app/agent_tools.py)

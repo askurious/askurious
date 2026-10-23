@@ -573,6 +573,9 @@ def delete(user, by, choices=None, admin=None, heirs=None):
                                                                  AccountSupervisor.supervisor_id == uid)))
     # memberships and the home in organisations: the iD went on standing there and was counted (Ralf 2026-10-18)
     db.session.execute(db.delete(OrganisationMember).where(OrganisationMember.user_id == uid))
+    from app.models import OrgAlias
+
+    db.session.execute(db.delete(OrgAlias).where(OrgAlias.user_id == uid))  # the number of the alias (app/names.py)
     from app.models import AgentToken, BlogPost, DataToken, InterviewerAccess, MailOutbox, MemberInvite, OrgDeletion
 
     # mails it queued and that wait still go with it, address and text (audit 2026-10-09b, E10); sent rows keep no

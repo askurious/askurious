@@ -338,6 +338,25 @@ def outside(org_id):
     return back
 
 
+@bp.route("/<int:org_id>/people/names", methods=["POST"])
+@autosave.aware
+def names_choice(org_id):
+    """Whether members see each other's names (app/names.py): the organisation's admins decide only when the platform
+    left it to them (names_mode "admins", E15)."""
+    org = g.org
+    back = redirect(url_for("org.people", org_id=org.id, _anchor="namen"))
+    again = _fresh("org.people", org_id=org.id)
+    if again:
+        return again
+    if org.names_mode != "admins":
+        abort(403)
+    org.names_hidden_own = request.form.get("hidden") == "1"
+    db.session.commit()
+    _log("organisation_names", target=f"org {org.id}", hidden=org.names_hidden_own)
+    flash(de_en("Gespeichert.", "Saved."), "success")
+    return back
+
+
 @bp.route("/<int:org_id>/people/new", methods=["POST"])
 def new_account(org_id):
     """An account without ORCID at home here (konzept-abteilungen A15, A21), as admin.new_account: the admin enters

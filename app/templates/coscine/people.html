@@ -19,7 +19,7 @@
       {% for p in people %}
       {% set state = members.get(p.email) if p.email else none %}
       {% set open = invited.get(p.email) if p.email else none %}
-      <tr><td>{{ p.user.display_name }}{% if p.groups %} <span class="hint">{{ de_en("über", "via") }} {{ p.groups|map(attribute=1)|join(", ") }}</span>{% endif %}<br><span class="muted small">{{ p.email or de_en("keine E-Mail-Adresse in Askurious", "no email address in Askurious") }}</span></td>
+      <tr><td>{{ p.user.display_name }}{% if p.groups %} <span class="hint">{{ de_en("über", "via") }} {{ p.groups|map(attribute=1)|join(", ") }}</span>{% endif %}<br><span class="muted small">{% if name_hidden(p.user) %}{{ de_en("E-Mail-Adresse verborgen", "email address hidden") }}{% else %}{{ p.email or de_en("keine E-Mail-Adresse in Askurious", "no email address in Askurious") }}{% endif %}</span></td>
         <td>{{ {"admin": "Admin", "editor": de_en("Bearbeiten", "Edit"), "viewer": de_en("Ansehen", "View")}[p.role] }}</td>
         <td>{% if state %}{{ de_en("Mitglied ({r})", "member ({r})", r=state) }}{% elif open %}{{ de_en("eingeladen bis {d}", "invited until {d}", d=coscine_day(open.expirationDate)|walldt(False)) }}{% else %}–{% endif %}</td>
         <td>{% if not state and not open %}<label class="check"><input type="checkbox" name="person" value="{{ p.user.id }}" {% if not p.email %}disabled{% endif %}> {{ "Member" if coscine_role[p.role] == "member" else "Guest" }}</label>{% elif open %}<button class="link small" form="withdraw-{{ open.id }}">{{ de_en("Einladung zurücknehmen", "Withdraw invitation") }}</button>{% endif %}</td></tr>

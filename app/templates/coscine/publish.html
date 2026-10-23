@@ -15,7 +15,7 @@
   <div class="flash flash-error">{{ icon("alert", 16) }} <span>{{ de_en("Diese Ressource lässt sich nicht veröffentlichen:", "This resource cannot be published:") }} {{ blocked }}</span></div>
   {% endif %}
   {% if requests %}
-  <ul class="plain snapshot-list">{% for r in requests %}<li>{{ de_en("Beantragt am {d} von {who} bei {s} ({r})", "Requested on {d} by {who} from {s} ({r})", d=r.at, who=r.by, s=r.service, r=r.resource) }}</li>{% endfor %}</ul>
+  <ul class="plain snapshot-list">{% for r in requests %}<li>{{ de_en("Beantragt am {d} von {who} bei {s} ({r})", "Requested on {d} by {who} from {s} ({r})", d=r.at, who=person_name_of(r.by_id, r.by), s=r.service, r=r.resource) }}</li>{% endfor %}</ul>
   {% endif %}
   {% if services %}
   <form method="post" action="{{ url_for('coscine.publish_page', survey_id=survey.id) }}" class="stack">

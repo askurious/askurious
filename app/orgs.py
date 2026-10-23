@@ -1047,6 +1047,9 @@ def delete(org):
 
     # its switches of experimental features too (app/experimental.py), also where the database does not cascade
     db.session.execute(db.delete(ExperimentGrant).where(ExperimentGrant.org_id == org.id))
+    from app.models import OrgAlias
+
+    db.session.execute(db.delete(OrgAlias).where(OrgAlias.org_id == org.id))  # the numbers of hidden names
     db.session.delete(org)
     forget()
     return None

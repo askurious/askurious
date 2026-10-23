@@ -5,7 +5,7 @@ files): green, in the style "Kontrast" black and white or white on dark (app.css
 here (only typed or found in the registry) gets ORCID's "unauthenticated" icon and that word, nothing else.
 `unauth` None looks it up (orcid_has_account, once per iD and request); lists that know it pass it. #}
 {% macro orcid_link(orcid, label=None, full=False, unauth=None) -%}
-{% if is_orcid(orcid) -%}
+{% if is_orcid(orcid) and not orcid_hidden(orcid) -%}
 {% if unauth is none %}{% set unauth = not orcid_has_account(orcid) %}{% endif -%}
 {% set text = (label or de_en("ORCID-Eintrag ansehen: {orcid}", "View ORCID record: {orcid}", orcid=orcid)) ~ (" (unauthenticated)" if unauth else "") -%}
 <a class="orcid-link{% if full %} orcid-full{% endif %}" href="https://orcid.org/{{ orcid }}" target="_blank" rel="noopener" title="{{ text }}"{% if not full %} aria-label="{{ text }}"{% endif %}><img class="orcid-icon{% if unauth %} orcid-unauth{% endif %}" src="{{ url_for('static', filename='img/orcid/orcid-id-unauth.svg' if unauth else 'img/orcid/orcid-id.svg') }}" width="24" height="24" alt="{% if full %}ORCID iD{% endif %}">{% if full %} https://orcid.org/{{ orcid }}{% endif %}{% if unauth %} <span class="orcid-unauth-text">(unauthenticated)</span>{% endif %}</a>

@@ -127,7 +127,10 @@ def remove_shot(survey, comment):
 def as_dict(c, own=True):
     from app.timeutil import to_local
 
-    return {"id": c.id, "own": own, "text": c.text, "author": c.author or "Testperson", "target": c.target,
+    from app import names
+
+    return {"id": c.id, "own": own, "text": c.text, "author": names.of_id(c.author_id, c.author or "Testperson"),
+            "target": c.target,
             "item_id": c.item_id, "status": c.status, "created": to_local(c.created_at).strftime("%d.%m.%Y %H:%M"),
             "shot": bool(c.shot)}
 
@@ -175,7 +178,7 @@ def handle(comment, status, user, note=""):
 
 
 def to_csv(survey):
-    from app import comment_shots, image_rights
+    from app import comment_shots, image_rights, names
     from app.export import safe_text
     from app.timeutil import to_local
 
@@ -188,8 +191,8 @@ def to_csv(survey):
         e = c.env or {}
         rights = comment_shots.attribution(survey.uid, c.shot)
         w.writerow([safe_text(v) for v in (
-            c.id, to_local(c.created_at).strftime("%Y-%m-%d %H:%M"), c.author, c.via, c.qversion, c.page or "",
-            c.target, c.text, c.status, c.handled_by,
+            c.id, to_local(c.created_at).strftime("%Y-%m-%d %H:%M"), names.of_id(c.author_id, c.author), c.via,
+            c.qversion, c.page or "", c.target, c.text, c.status, names.of_id(c.handled_by_id, c.handled_by),
             to_local(c.handled_at).strftime("%Y-%m-%d %H:%M") if c.handled_at else "", c.note,
             comment_shots.zip_name(c), e.get("device", ""), e.get("os", ""), e.get("browser", ""), e.get("size", ""),
             e.get("lang", ""), e.get("scheme", ""),
