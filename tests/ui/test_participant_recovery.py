@@ -4,6 +4,7 @@ import pytest
 from app import theme
 from tests.analysis.test_pagetime import setup, start, response, wait
 from tests.interview.test_voice import _voice
+from tests.helpers.page_pos import page_pos
 
 
 def test_ten_extensions_survive_reload_language_and_retry(app, client, survey):
@@ -12,7 +13,7 @@ def test_ten_extensions_survive_reload_language_and_retry(app, client, survey):
     p.get(url)
     for count in range(1, 11):
         # No answer fields: requesting time must neither validate nor advance the page.
-        data = {"pos": "r1", "nav": "time_more", "time_more": str(count)}
+        data = {"pos": page_pos(p, 1), "nav": "time_more", "time_more": str(count)}
         result = p.post(url, data=data, follow_redirects=True)
         assert result.status_code == 200 and b"has-error" not in result.data
         assert response(app)[1] == 1
@@ -23,13 +24,13 @@ def test_ten_extensions_survive_reload_language_and_retry(app, client, survey):
         assert int(re.search(r'data-max="(\d+)"', html)[1]) >= 30 * (count + 1) - 2
     assert len(response(app)[3]["_more"]) == 1
     assert 'data-hold-more-field' not in html
-    p.post(url, data={"pos": "r1", "set_lang": "en", "i2": "draft", "time_more": "10"})
+    p.post(url, data={"pos": page_pos(p, 1), "set_lang": "en", "i2": "draft", "time_more": "10"})
     assert response(app)[2]["2"] == "draft" and response(app)[3]["_hold"]["more"] == 10
     wait(app, 330)
-    assert p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "time_more": "10"}).status_code == 302
+    assert p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "time_more": "10"}).status_code == 302
     assert response(app)[1] == 2
     p.get(url)
-    p.post(url, data={"pos": "r2", "nav": "back"})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "back"})
     assert response(app)[1] == 1
     assert 'data-more="30"' in p.get(url).data.decode()  # returning starts a fresh allowance
 

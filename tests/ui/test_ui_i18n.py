@@ -8,6 +8,7 @@ import re
 from app.extensions import db
 from app.models import Survey
 from tests.conftest import CONSENT_OK, add
+from tests.helpers.page_pos import page_pos
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
@@ -146,7 +147,7 @@ def test_a_spanish_participation(app, client, survey):
     p.post(url, data=CONSENT_OK)
     page = p.get(url).data.decode()
     assert "Enviar" in page and "Absenden" not in page                            # the last page: "Submit"
-    done = p.post(url, data={"nav": "next", "i2": "Paella", "pos": "r1"}, follow_redirects=True).data.decode()
+    done = p.post(url, data={"nav": "next", "i2": "Paella", "pos": page_pos(p, 1)}, follow_redirects=True).data.decode()
     assert "Gracias por participar" in done
 
 

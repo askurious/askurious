@@ -12,6 +12,7 @@ from app.extensions import db
 from app.items.base import DONT_KNOW, DONT_KNOW_CODE, AnswerError
 from app.models import Item, Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 
 def _new(client, type_, **form):
@@ -201,7 +202,7 @@ def test_first_page_names_the_survey_and_the_end_page_the_right_to_delete(app, c
     first = p.get(url).data.decode()
     assert '<p class="p-survey-title"' in first and ">Test</p>" in first
     p.post(url, data=CONSENT_OK)
-    failed = p.post(url, data={"nav": "next", f"i{tid}": "", "pos": "r1"}, follow_redirects=True).data.decode()
+    failed = p.post(url, data={"nav": "next", f"i{tid}": "", "pos": page_pos(p, 1)}, follow_redirects=True).data.decode()
     assert "p-survey-title" not in failed                                    # only on the first page
     # the message right under the question, the valid range still there
     assert failed.index(f'id="q{tid}"') < failed.index(f'id="msg{tid}"') < failed.index(f'name="i{tid}"')

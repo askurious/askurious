@@ -9,6 +9,7 @@ from app.extensions import db
 from app.models import Item, Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent, fill_questions, fill_table
 from tests.analysis.test_vignettes import FORM, _add, _node
+from tests.helpers.page_pos import page_pos
 
 E = "/surveys/1/editor"
 
@@ -37,7 +38,7 @@ def test_translation_in_the_field_keeps_the_layout(app, client, survey):
         uid = db.session.get(Survey, 1).code
     p = app.test_client()
     p.get(f"/s/{uid}")
-    p.post(f"/s/{uid}", data={**CONSENT_OK, "pos": "r0"})
+    p.post(f"/s/{uid}", data={**CONSENT_OK, "pos": page_pos(p, 0)})
     p.get(f"/s/{uid}")
     with app.app_context():
         resp = db.session.scalar(db.select(Response))
@@ -128,7 +129,7 @@ def test_participation_waits_while_the_survey_is_a_draft_again(app, client, surv
     p = app.test_client()
     p.get("/s/1")
     p.post("/s/1", data=CONSENT_OK)
-    p.post("/s/1", data={"nav": "next", "i2": "alt", "pos": "r1"})
+    p.post("/s/1", data={"nav": "next", "i2": "alt", "pos": page_pos(p, 1)})
     with app.app_context():
         r = db.session.scalar(db.select(Response))
         before = (r.position, r.qversion, dict(r.answers), r.layout)
@@ -138,8 +139,8 @@ def test_participation_waits_while_the_survey_is_a_draft_again(app, client, surv
     client.post(E + "/items/5", data={"code": "q3", "question": "Frage 3"})
     page = p.get("/s/1").data.decode()
     assert "gerade nicht geöffnet" in page and "bleiben gespeichert" in page
-    p.post("/s/1", data={"nav": "next", "i4": "neu", "pos": "r2"})   # a page sent from the open tab
-    p.post("/s/1", data=CONSENT_OK | {"pos": "r0"})
+    p.post("/s/1", data={"nav": "next", "i4": "neu", "pos": page_pos(p, 2)})   # a page sent from the open tab
+    p.post("/s/1", data=CONSENT_OK | {"pos": page_pos(p, 0)})
     with app.app_context():
         s = db.session.get(Survey, 1)
         r = db.session.scalar(db.select(Response))
@@ -157,7 +158,7 @@ def test_participation_waits_while_the_survey_is_a_draft_again(app, client, surv
         assert r.position == 0 and r.qversion == 2 and r.paradata["_relayout"] == 1
         assert r.answers["2"] == "alt"
     assert "wurde inzwischen geändert" not in p.get("/s/1").data.decode()  # once
-    page = p.post("/s/1", data=CONSENT_OK | {"pos": "r0"}, follow_redirects=True).data.decode()
+    page = p.post("/s/1", data=CONSENT_OK | {"pos": page_pos(p, 0)}, follow_redirects=True).data.decode()
     assert 'value="alt"' in page                                     # the answer given before is filled in
     row = _rows(client)[0]
     assert row["relayout"] == "1" and row["qversion"] == "2"
@@ -177,7 +178,7 @@ def test_relayout_after_a_post_is_said_on_the_next_page(app, client, survey):
     add(client, "text_input")
     client.post(E + "/items/5", data={"code": "q3", "question": "Frage 3"})
     client.post("/surveys/1/start", data={"use_end": "1", "field_end": "2031-01-01"})
-    p.post("/s/1", data={"nav": "next", "i2": "x", "pos": "r1"})
+    p.post("/s/1", data={"nav": "next", "i2": "x", "pos": page_pos(p, 1)})
     page = p.get("/s/1", follow_redirects=True).data.decode()
     assert "wurde inzwischen geändert" in page and "schon abgeschickt" not in page
 

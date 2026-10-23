@@ -14,6 +14,7 @@ from app.items import date_time
 from app.items.base import AnswerError
 from app.models import Item, Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent
+from tests.helpers.page_pos import page_pos
 
 NOW = datetime(2026, 10, 1, 12, 0)  # the clock of these tests (UTC)
 
@@ -131,7 +132,7 @@ def test_page_lists_and_a_participation(app, client, survey):
     assert '<option value="45" >45</option>' in html and '<option value="50"' not in html      # quarters of an hour
     assert html.count('type="text"') == 1 and 'name="more_info"' in html         # only the field people do not see
     assert "<textarea" not in html                                               # nothing to type
-    again = p.post(url, data={"nav": "next", f"i{day}_d": "31", f"i{day}_m": "2", f"i{day}_y": "1990", "pos": "r1"},
+    again = p.post(url, data={"nav": "next", f"i{day}_d": "31", f"i{day}_m": "2", f"i{day}_y": "1990", "pos": page_pos(p, 1)},
                    follow_redirects=True).data.decode()
     assert "Dieses Datum gibt es nicht." in again
     assert '<option value="31" selected>31</option>' in again and '<option value="1990" selected>' in again  # kept for the fix

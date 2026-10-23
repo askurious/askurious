@@ -13,6 +13,7 @@ from tests.conftest import CONSENT_OK
 from tests.items.test_iat import _iat, _start
 from tests.items.test_image_mark import setup as mark_setup
 from tests.analysis.test_pagetime import response, setup as time_setup, start, wait
+from tests.helpers.page_pos import page_pos
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
@@ -88,17 +89,17 @@ def test_more_time_extends_the_limit_up_to_ten_times_and_is_exported(app, client
     assert 'data-more="30"' in html and "data-hold-more" in html and "Mehr Zeit" in html and 'data-more-limit="10"' in html
     assert "Für diese Seite haben Sie 30 Sekunden Zeit. Kurz vor Ablauf können Sie mit „Mehr Zeit“ verlängern." in html
     # "Mehr Zeit" sent with the page (an error keeps it on screen): the clock now runs 60 s, also after a reload
-    again = p.post(url, data={"pos": "r1", "nav": "next", "time_more": "1", "i2": ""}).data.decode()
+    again = p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_more": "1", "i2": ""}).data.decode()
     assert "has-error" in again and 'name="time_more" value="1"' in again and "data-hold-more" in again  # offered again
     data = response(app)[3]
     assert data["_hold"]["more"] == 1 and len(data["_more"]) == 1
     wait(app, 30)
-    assert p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "time_more": "1", "i2": ""}).status_code == 200
+    assert p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "time_more": "1", "i2": ""}).status_code == 200
     wait(app, 30)
-    assert p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "time_more": "1", "i2": ""}).status_code == 302
+    assert p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "time_more": "1", "i2": ""}).status_code == 302
     assert len(response(app)[3]["_more"]) == 1                                         # the page counted once
     p.get(url)
-    p.post(url, data={"pos": "r2", "nav": "next", "i4": "fertig"})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "i4": "fertig"})
     row = _rows(client)[0]
     assert row["time_more"] == "1" and row["time_up"] == "1"
     codebook = client.get("/surveys/1/export/codebook.csv").data.decode("utf-8-sig")
@@ -124,12 +125,12 @@ def test_a_time_that_belongs_to_the_experiment_is_fixed_and_said_beforehand(app,
     html = p.get(url).data.decode()
     assert "data-hold-more" not in html and 'data-more="0"' in html
     assert "Für diese Seite haben Sie 30 Sekunden Zeit." in html
-    p.post(url, data={"pos": "r1", "nav": "next", "time_more": "1", "i2": ""})      # nothing to extend
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_more": "1", "i2": ""})      # nothing to extend
     assert "_more" not in response(app)[3]
     wait(app, 30)
-    assert p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "time_more": "1", "i2": ""}).status_code == 302
+    assert p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "time_more": "1", "i2": ""}).status_code == 302
     p.get(url)
-    p.post(url, data={"pos": "r2", "nav": "next", "i4": "fertig"})
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "next", "i4": "fertig"})
     assert "time_more" not in _rows(client)[0]                                         # no page could be extended
     # the tick travels with the file
     assert pagetime.clean({"max_seconds": 30, "time_essential": True}) == {"max_seconds": 30, "time_essential": True}
@@ -207,13 +208,13 @@ def test_more_time_can_be_taken_again_and_stops_at_the_limit(app, client, survey
     time_setup(client, required=True, max_seconds=30)
     p, url = start(app, client)
     p.get(url)
-    p.post(url, data={"pos": "r1", "nav": "next", "time_more": "3", "i2": ""})       # three times on the page
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_more": "3", "i2": ""})       # three times on the page
     data = response(app)[3]
     assert data["_hold"]["more"] == 3 and len(data["_more"]) == 1
-    again = p.post(url, data={"pos": "r1", "nav": "next", "time_more": "99", "i2": ""}).data.decode()
+    again = p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_more": "99", "i2": ""}).data.decode()
     assert response(app)[3]["_hold"]["more"] == pagetime.MORE_LIMIT                    # never more than ten
     assert "data-hold-more" not in again and 'name="time_more" value="10"' in again
     wait(app, 30 * 10)
-    assert p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "time_more": "10", "i2": ""}).status_code == 200
+    assert p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "time_more": "10", "i2": ""}).status_code == 200
     wait(app, 30)
-    assert p.post(url, data={"pos": "r1", "nav": "next", "time_up": "1", "time_more": "10", "i2": ""}).status_code == 302
+    assert p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "time_more": "10", "i2": ""}).status_code == 302

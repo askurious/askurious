@@ -1321,6 +1321,12 @@ def measures():
                    "Bearbeitende, einmal und zwei Stunden lang; das bisherige Gerät verliert dann den Zugang.",
                    "A used personal diary code connects a new device only after a release by editors, once and for two "
                    "hours; the earlier device then loses access."), "app/diary.py"),
+            (de_en("Wird eine Person einer Tagebuchstudie gelöscht, wird ihr Einladungscode im selben Schritt von ihr "
+                   "entkoppelt (auch seine Freigabe endet); eine spätere Person kann nie über diesen Code verbunden "
+                   "werden.",
+                   "When a person of a diary survey is deleted, their invitation code is detached from them in the same "
+                   "step (its release ends too); a later person can never be connected through that code."),
+             "app/models.py, app/diary.py"),
             (de_en("Frei gewählte Webservice- und KI-Ziele dürfen die eigenen Netze des Betreibers (PROTECTED_NETS, "
                    "instance_overlay/protected_nets.txt) nicht erreichen. Prüfung aller DNS-Adressen einschließlich "
                    "IPv4 in IPv6; Verbindung nur zur geprüften Adresse. Zusätzliche Netze können gesperrt werden; "

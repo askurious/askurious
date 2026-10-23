@@ -288,7 +288,13 @@ def delete_dummy(survey_id):
         db.session.execute(db.delete(R).where(R.survey_id == survey.id, R.source == kind))
         from app.models import Enrolment
 
-        # the persons of a diary study go with their entries (dummy data or test persons)
+        # the persons of a diary study go with their entries (dummy data or test persons); their invitation codes
+        # let go of them, and SQLite gives none of their ids to a new person (audit 2026-10-23, S-01)
+        from app import diary
+
+        persons = db.select(Enrolment.id).where(Enrolment.survey_id == survey.id, Enrolment.source == kind)
+        diary.detach_invites(survey.id, persons)
+        keep_floor_before_bulk_delete(Enrolment, Enrolment.survey_id == survey.id, Enrolment.source == kind)
         db.session.execute(db.delete(Enrolment).where(Enrolment.survey_id == survey.id, Enrolment.source == kind))
         db.session.commit()
         from app import results_store

@@ -1862,6 +1862,7 @@ var blockPages = null;
   if (!pages.length) return;
   var url = form.getAttribute("data-block-url"), start = form.getAttribute("data-block-start");
   var csrf = (form.querySelector("input[name=csrf_token]") || {}).value || "";
+  var posField = form.querySelector("input[name=pos]");
   var say = form.querySelector("[data-bpage-live]"), note = form.querySelector("[data-block-note]");
   var QUEUE = "blockq:" + (form.getAttribute("data-keep") || start);
   var store = null;
@@ -1900,7 +1901,14 @@ var blockPages = null;
                    headers: { "Content-Type": "application/json", "X-CSRFToken": csrf }, body: JSON.stringify(body) })
         .then(function (r) {
           clearTimeout(timer);
-          if (r.status === 409) { location.reload(); return; }  // the server is elsewhere (another tab): its page
+          if (r.status === 409) {  // the server is elsewhere (another tab): its page
+            // a page of another participation or an older version of the block never fits: out of the queue, or the
+            // reload would send it again and again (audit 2026-10-23, DS-01)
+            r.json().then(function (j) {
+              if (j && j.gone) keep(queued().filter(function (b) { return !(b.page === body.page && b.seq === body.seq); }));
+            }, function () {}).then(function () { location.reload(); });
+            return;
+          }
           if (!r.ok) { reject(); return; }
           return r.json().then(resolve, reject);
         }, function () { clearTimeout(timer); reject(); });
@@ -2001,7 +2009,8 @@ var blockPages = null;
     clock();
     var m = of(p);
     m.seq = Math.max(Date.now(), m.seq + 1);  // a counter that also grows over a reload of the tab
-    var out = { start: start, page: key(p), seq: m.seq, ms: m.ms, form: fields(p), ack: m.ack ? 1 : 0, up: m.up ? 1 : 0 };
+    var out = { start: start, page: key(p), seq: m.seq, ms: m.ms, form: fields(p), ack: m.ack ? 1 : 0, up: m.up ? 1 : 0,
+                pos: posField ? posField.value : undefined };  // the participation and page the block was shown for (DS-01)
     Object.keys(extra || {}).forEach(function (k) { out[k] = extra[k]; });
     return out;
   }

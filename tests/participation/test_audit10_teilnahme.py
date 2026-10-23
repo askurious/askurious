@@ -16,6 +16,7 @@ from tests.analysis.test_pagetime import response as stored_response
 from tests.analysis.test_pagetime import setup as timed_setup
 from tests.analysis.test_pagetime import start as timed_start
 from tests.analysis.test_pagetime import wait
+from tests.helpers.page_pos import page_pos
 
 E = "/surveys/1/editor"
 
@@ -65,7 +66,7 @@ def test_a_reload_keeps_the_time_before_it(app, client, survey):
     p.get(f"/s/{uid}")              # the page with q1
     _age_shown(app, 90)             # read for 90 s ...
     p.get(f"/s/{uid}")              # ... then reloaded (or back from the privacy page)
-    p.post(f"/s/{uid}", data={"nav": "next", "i2": "Text", "pos": "r1"})
+    p.post(f"/s/{uid}", data={"nav": "next", "i2": "Text", "pos": page_pos(p, 1)})
     assert _paradata(app)["_t"]["2"] >= 90
 
 
@@ -77,7 +78,7 @@ def test_a_reload_gives_no_false_tempo_hint(app, client, survey):
     p.get(f"/s/{uid}")
     _age_shown(app, 90)
     p.get(f"/s/{uid}")
-    html = p.post(f"/s/{uid}", data={"nav": "next", "i2": "Text", "pos": "r1"}, follow_redirects=True).data.decode()
+    html = p.post(f"/s/{uid}", data={"nav": "next", "i2": "Text", "pos": page_pos(p, 1)}, follow_redirects=True).data.decode()
     assert not (_paradata(app).get("_tempo") or {}).get("fast")
     assert "sehr schnell" not in html
 
@@ -101,7 +102,7 @@ def test_after_an_error_the_page_starts_its_clock_anew_without_losing_time(app, 
     p.post(f"/s/{uid}", data=CONSENT_OK)
     p.get(f"/s/{uid}")
     _age_shown(app, 30)
-    failed = p.post(f"/s/{uid}", data={"nav": "next", "i2": "abc", "pos": "r1"})
+    failed = p.post(f"/s/{uid}", data={"nav": "next", "i2": "abc", "pos": page_pos(p, 1)})
     assert failed.status_code == 200  # an error; the correction uses its new revision
     _age_shown(app, 20)
     p.post(f"/s/{uid}", data={"nav": "next", "i2": "5", "pos": _pos(failed.get_data(as_text=True))})
@@ -234,10 +235,10 @@ def test_the_timer_drops_an_answer_changed_into_something_invalid(app, client, s
     client.post(E + "/items/2", data={"code": "q1", "question": "Zahl", "validation": "integer"})
     p, url = timed_start(app, client)
     p.get(url)
-    p.post(url, data={"pos": "r1", "nav": "next", "i2": "5"})
+    p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "i2": "5"})
     assert stored_response(app)[2].get("2") == 5
     p.get(url)
-    p.post(url, data={"pos": "r2", "nav": "back"})          # back to the number ...
+    p.post(url, data={"pos": page_pos(p, 2), "nav": "back"})          # back to the number ...
     returned = p.get(url)
     wait(app, 30)
     assert p.post(url, data={"pos": _pos(returned.get_data(as_text=True)), "nav": "next", "time_up": "1", "i2": "fünf"}).status_code == 302
