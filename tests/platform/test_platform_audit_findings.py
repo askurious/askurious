@@ -166,15 +166,15 @@ def test_unknown_version_stops_without_copy(app, tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(migrations, "backup", lambda a: calls.append(1) or "copy")
     con = sqlite3.connect(tmp_path / "test.db")
-    con.execute("UPDATE alembic_version SET version_num = '0099'")  # newer code ran here, then was rolled back
+    con.execute("UPDATE alembic_version SET version_num = '9999'")  # newer code ran here, then was rolled back
     con.commit()
     con.close()
     for _ in range(2):
-        with pytest.raises(migrations.SchemaMismatch, match="0099"):
+        with pytest.raises(migrations.SchemaMismatch, match="9999"):
             create_app(_config(tmp_path))
     assert calls == []
     with app.app_context():
-        assert migrations.known(migrations.head()) and not migrations.known("0099")
+        assert migrations.known(migrations.head()) and not migrations.known("9999")
 
 
 def test_one_copy_per_step_and_hour(app, tmp_path, monkeypatch):
