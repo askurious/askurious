@@ -933,8 +933,11 @@ def _latent_correlations(ram, theta):
 def quality(spec, loadings, corr, cols):
     """Per construct AVE and composite reliability of the standardised loadings (Fornell & Larcker, 1981), and HTMT
     for each pair of constructs (Henseler et al., 2015): the mean correlation between their indicators over the
-    geometric mean of the mean correlations within each. corr: the correlations of the columns cols."""
-    out = {"ave": {}, "cr": {}, "htmt": {}}
+    geometric mean of the mean correlations within each. This is the original HTMT, not HTMT+ (Ringle et al., 2023,
+    with absolute correlations) and not HTMT2 (Roemer et al., 2021, geometric means); Ralf kept it (audit 2026-10-23,
+    R-M1). Mixed signs among the correlations between two constructs cancel in its mean, so the value can be too
+    favourable: "htmt_mixed" lists such pairs [a, b] for a warning. corr: the correlations of the columns cols."""
+    out = {"ave": {}, "cr": {}, "htmt": {}, "htmt_mixed": []}
     single = set(spec.get("single") or {}) | set(spec.get("formative") or ())  # AVE, CR, HTMT need reflective ones
     loadings = {lv: rows for lv, rows in loadings.items() if lv not in single}
     for lv, rows in loadings.items():
@@ -954,7 +957,10 @@ def quality(spec, loadings, corr, cols):
         for b in range(a + 1, len(names)):
             ia = [pos[i] for i in spec["latent"][names[a]]]
             ib = [pos[i] for i in spec["latent"][names[b]]]
-            hetero = float(np.mean(corr[np.ix_(ia, ib)]))
+            between = corr[np.ix_(ia, ib)]
+            hetero = float(np.mean(between))
+            if np.any(between > 0) and np.any(between < 0):
+                out["htmt_mixed"].append([names[a], names[b]])
             mono = within(spec["latent"][names[a]]) * within(spec["latent"][names[b]])
             out["htmt"][(names[a], names[b])] = abs(hetero) / math.sqrt(mono) if mono > 0 else None
     return out
@@ -976,6 +982,9 @@ def _pls_two_stage(x, cols, spec, light):
             "observed": [o for o in spec["observed"] if o not in products],
             "paths": [p for p in spec["paths"] if p[0] not in products and p[1] not in products],
             "indirect": spec["indirect"], **({"cov": spec["cov"]} if spec.get("cov") else {})}
+    formative = [f for f in spec.get("formative") or () if f not in products]
+    if formative:  # mode B in both stages: without it the first stage weighted them as reflective (audit 2026-10-23, M1)
+        base["formative"] = formative
     keep = columns(base)
     pos = {c: k for k, c in enumerate(cols)}
     xb = x[:, [pos[c] for c in keep]]

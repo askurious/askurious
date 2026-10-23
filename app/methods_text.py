@@ -47,11 +47,11 @@ TEXT = {
                   "korrigiertem χ²; Satorra & Bentler, 1994). Skalen gingen als latente Konstrukte mit ihren Aussagen als "
                   "Indikatoren ein. Der Modellfit wurde mit χ², CFI, TLI, RMSEA und SRMR beurteilt (Hu & Bentler, 1999; CFI, "
                   "TLI und RMSEA normaltheoretisch aus dem ML-χ² und robust nach Brosseau-Liard & Savalei, 2014), "
-                  "das Messmodell mit AVE, Composite Reliability und HTMT (Fornell & Larcker, 1981; Henseler et al., 2015).",
+                  "das Messmodell mit AVE, Composite Reliability und HTMT in der ursprünglichen Form, nicht HTMT+ (Fornell & Larcker, 1981; Henseler et al., 2015).",
         "sem_pls": "Die mit „Strukturgleichungsmodell“ geplanten Hypothesen wurden gemeinsam mit PLS-SEM geprüft (Modus A, "
                    "Pfadgewichtung, für Paare ohne Richtung Faktorgewichtung; Hair et al., 2022), Skalen als Konstrukte aus ihren Aussagen. Die Signifikanz der Pfade "
                    "folgt aus einem Bootstrap mit {draws} Ziehungen. Das Messmodell wurde mit AVE, Composite Reliability "
-                   "und HTMT beurteilt (Fornell & Larcker, 1981; Henseler et al., 2015).",
+                   "und HTMT in der ursprünglichen Form (nicht HTMT+) beurteilt (Fornell & Larcker, 1981; Henseler et al., 2015).",
         "sem_ind": "Indirekte Effekte (Vermittlung) wurden über die gemeinsame Signifikanz beider Pfade geprüft "
                    "(MacKinnon et al., 2002; als p zählt das größere der beiden Pfad-p) und als Produkt der "
                    "standardisierten Pfade mit einem Perzentil-Bootstrap-Intervall ({draws} Ziehungen) berichtet "
@@ -136,11 +136,11 @@ TEXT = {
                   "scaled χ²; Satorra & Bentler, 1994). Scales entered as latent constructs with their items as "
                   "indicators. Model fit was judged by χ², CFI, TLI, RMSEA and SRMR (Hu & Bentler, 1999; CFI, TLI and "
                   "RMSEA as normal-theory values from the ML χ² and robust after Brosseau-Liard & Savalei, 2014), the "
-                  "measurement model by AVE, composite reliability and HTMT (Fornell & Larcker, 1981; Henseler et al., 2015).",
+                  "measurement model by AVE, composite reliability and HTMT in its original form, not HTMT+ (Fornell & Larcker, 1981; Henseler et al., 2015).",
         "sem_pls": "The hypotheses planned as “structural equation model” were tested together with PLS-SEM (mode A, path "
                    "weighting, factor weighting for pairs without a direction; Hair et al., 2022), with scales as constructs of their items. The significance of the paths "
                    "comes from a bootstrap with {draws} draws. The measurement model was judged by AVE, composite "
-                   "reliability and HTMT (Fornell & Larcker, 1981; Henseler et al., 2015).",
+                   "reliability and HTMT in its original form, not HTMT+ (Fornell & Larcker, 1981; Henseler et al., 2015).",
         "sem_ind": "Indirect effects (mediation) were tested by the joint significance of both paths (MacKinnon et al., "
                    "2002; the larger of the two path p counts) and reported as the product of the standardised paths "
                    "with a percentile bootstrap interval ({draws} draws; Preacher & Hayes, 2008).",

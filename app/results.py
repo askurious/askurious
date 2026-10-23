@@ -206,15 +206,16 @@ def _nice(step):
 def round_ticks(lo, hi, most=4):
     """Round values for the ticks of an axis from lo to hi (UI/UX audit 2026-10-07, W64: 45, 50, 55, 60 instead of
     47, 53, 60 at uneven places): steps of 1, 2, 2.5 or 5 × 10^k, at most `most` + 1 of them inside [lo, hi]."""
-    if hi <= lo:
+    if not (math.isfinite(lo) and math.isfinite(hi)) or hi <= lo:
         return [lo]
     step = _nice((hi - lo) / most)
+    # the first and the last index once, with a tolerance relative to the step, and never more than most + 2
+    # ticks: an absolute 1e-9 let a span of 1e-12 run to thousands of ticks, 1e-100 to an endless loop
+    # (audit 2026-10-23, M9)
     first = math.ceil(lo / step - 1e-9)
-    out, i = [], first
-    while i * step <= hi + 1e-9:
-        out.append(units.round_half_up(i * step, units.decimals(step) + 1))
-        i += 1
-    return out
+    last = math.floor(hi / step + 1e-9)
+    places = units.decimals(step) + 1
+    return [units.round_half_up(i * step, places) for i in range(first, min(last, first + most + 1) + 1)]
 
 
 def histogram(columns, most=24):
