@@ -19,7 +19,7 @@
 {% endif %}
 <p class="live-countdown" data-live-countdown hidden></p>
 {# the question on the screen comes drawn with the page (app/live/, join); live.js asks for changes #}
-<div class="live-stage" data-live data-poll="{{ poll }}" data-key="{{ key }}" aria-live="polite"
+<div class="live-stage" data-live data-live-run="{{ run }}" data-poll="{{ poll }}" data-key="{{ key }}" aria-live="polite"
      data-state="{{ url_for('live_public.where', code=survey.code) }}"
      data-look="{{ ui('Bitte nach vorn auf die Leinwand schauen.', 'Please look at the screen.') }}"
      data-wait="{{ talk_wait if talk else ui('Gleich geht es los …', 'Starting soon …') }}" data-thanks="{{ ui('Danke! Gleich kommt die nächste Frage.', 'Thank you! The next question is coming.') }}"

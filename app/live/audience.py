@@ -134,6 +134,18 @@ def _lock_device(survey, st, device):
         db.session.execute(db.delete(Response).where(db.false()))
 
 
+def _stale_run(st):
+    """A request from a page of an earlier run: the phone sends the run its page was drawn for (data-live-run,
+    live.js). After "Neuer Durchgang" or "Alles zurück" (control.py) a new run id is current, and an answer, a word,
+    a question, a vote, a reaction or a nickname from the old page landed in the new run (audit 2026-10-23, DS-06).
+    Refused with 409 "stale" and run, so the phone loads the page anew. A request without the field (a page from
+    before this change) is taken as before."""
+    sent = request.form.get("run")
+    if sent is not None and sent.strip() != str(st["run"]["id"]):
+        return jsonify(ok=False, error="stale", run=True), 409
+    return None
+
+
 def _response(survey, st, create=False):
     """This browser's participation in the current run: kept in the session, else found by the device id of the
     answer (T-17: the cookie was lost, or the answer to the first vote never reached the phone and it sends again),
@@ -469,8 +481,12 @@ def _block_answer(survey, st):
     # the number of pages answered, as before
     layout["live_pages"] = {**(layout.get("live_pages") or {}),
                             str(block_id): sum(all(i.id in done for i in page) for page in block_pages)}
+    # a page sent again with the same answer keeps the answer time it had (the points); a changed one takes the
+    # new time (Ralf, audit 2026-10-23, DS-05)
+    old_times = layout.get("live_times") or {}
+    times = {k: t for k, t in times.items() if not (k in old_times and stored.get(k) == values.get(k))}
     if times:
-        layout["live_times"] = {**(layout.get("live_times") or {}), **times}
+        layout["live_times"] = {**old_times, **times}
     response.layout = layout
     response.completed_at = utcnow()
     db.session.commit()
@@ -552,7 +568,7 @@ def join(code):
                                full=key.startswith("full-"),
                                words=[(r.id, t) for r, t in _my_words(survey, st, response, item)] if _multi(survey, item) else []))
     return render_template("live/join.html", survey=survey, lang=lang, assets=assets, poll=POLL_SECONDS, end=end_text(survey, lang, "thanks"),
-                           key=key, form=form, device=device_token(), quiz=any(quiz_of(st, i) for i in questions(survey)),
+                           key=key, form=form, device=device_token(), run=st["run"]["id"], quiz=any(quiz_of(st, i) for i in questions(survey)),
                            emojis=reaction_set(survey) if options(survey)["reactions"] and key != "ended" else (),
                            talk=options(survey)["qa"] and not questions(survey),
                            nick=_nick(survey, st, response)[0], teams=st.get("teams") or [], team=_nick(survey, st, response)[1])
@@ -591,6 +607,9 @@ def nickname(code):
     in its layout, never in the export."""
     survey = _public(code)
     st = state(survey)
+    stale = _stale_run(st)
+    if stale is not None:
+        return stale
     name, team = _nick_form(survey, st, "name", "team")
     if name is None:
         return jsonify(ok=False, error="name"), 400
@@ -615,6 +634,9 @@ def react(code):
     from app.models import LiveFeedback, LiveReaction
 
     survey = _public(code)
+    stale = _stale_run(state(survey))
+    if stale is not None:
+        return stale
     emojis = request.form.getlist("e")[:REACTION_BURST]
     if not options(survey)["reactions"] or not emojis or any(e not in reaction_set(survey) for e in emojis):
         return jsonify(ok=False), 400
@@ -656,6 +678,9 @@ def qa_ask(code):
 
     survey = _public(code)
     st = state(survey)
+    stale = _stale_run(st)
+    if stale is not None:
+        return stale
     opts = options(survey)
     if not opts["qa"]:
         return jsonify(ok=False, error="closed"), 409
@@ -695,6 +720,9 @@ def qa_vote(code, qid):
 
     survey = _public(code)
     st = state(survey)
+    stale = _stale_run(st)
+    if stale is not None:
+        return stale
     row = db.session.get(LiveQuestion, qid)
     if row is None or row.survey_id != survey.id or row.run_id != st["run"]["id"] or row.status not in ("open", "answered"):
         return jsonify(ok=False), 404
@@ -737,6 +765,9 @@ def answer(code):
 
     survey = _public(code)
     st = state(survey)
+    stale = _stale_run(st)
+    if stale is not None:
+        return stale
     if by_blocks(survey):
         return _block_answer(survey, st)
     item = _current(survey, st)
@@ -772,10 +803,15 @@ def answer(code):
     _keep_nick(survey, st, response)  # with the participation, not with a further word
     if extra:
         response = _new_response(survey, st, extra=True, main=response)
+    before = (response.answers or {}).get(str(item.id))
     response.answers = {**(response.answers or {}), str(item.id): value}
     response.completed_at = utcnow()
     opened = (st.get("opened") or {}).get(str(item.id))
-    if quiz_of(st, item) and opened:  # seconds from the question coming up to this answer (points of the quiz)
+    kept = ((response.layout or {}).get("live_times") or {}).get(str(item.id))
+    # seconds from the question coming up to this answer (points of the quiz). The same answer sent again (a retry
+    # after a lost reply, a second tap) keeps the time it had: it lowered the points; an answer changed on purpose
+    # takes the new time (Ralf, audit 2026-10-23, DS-05)
+    if quiz_of(st, item) and opened and not (kept is not None and before == value):
         layout = dict(response.layout or {})
         layout["live_times"] = {**(layout.get("live_times") or {}), str(item.id): round(time.time() - opened, 2)}
         response.layout = layout
@@ -796,6 +832,9 @@ def withdraw(code):
     word no longer counts towards the limit per device."""
     survey = _public(code)
     st = state(survey)
+    stale = _stale_run(st)
+    if stale is not None:
+        return stale
     item = _current(survey, st)
     if (item is None or by_blocks(survey) or request.form.get("ref") != f"q-{item.id}" or not _multi(survey, item)
             or item.id in st["closed"] or (deadline(st, item) and time.time() > deadline(st, item) + 1)):

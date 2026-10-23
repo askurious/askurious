@@ -11,6 +11,16 @@
   function de_en(de, en) { return UI_LANG === "en" ? en : de; }
   // the brand mark of the domain the page came from (data-brand on <html>, app/brand.py)
   var BRAND_MARK = (document.documentElement.getAttribute("data-brand") || "Askurious") + ".de";
+  // the run the phone's page belongs to (data-live-run, app/live/ join): sent with every answer, question, vote,
+  // reaction and nickname; after "Neuer Durchgang" or "Alles zurück" the server refuses it (409 "stale" with run) and
+  // the page loads anew in the new run, so nothing sent from the old page lands there (audit 2026-10-23, DS-06)
+  var RUN = (document.querySelector("[data-live-run]") || { dataset: {} }).dataset.liveRun || "";
+  function withRun(body) { if (RUN) body.append("run", RUN); return body; }
+  function newRun(d) {
+    if (!d || d.error !== "stale" || !d.run) return false;
+    location.replace(location.pathname);
+    return true;
+  }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
   // --- participant ---------------------------------------------------------------------------------------------
@@ -101,7 +111,7 @@
       function send() {
         sending = true;
         again = false;
-        var sent = values(), body = new FormData(form);
+        var sent = values(), body = withRun(new FormData(form));
         if (device) body.append("device", device);
         // the nickname as the field shows it goes with every answer: typed without the tick it was lost with the
         // next load of the page (a new question, "Antwort ändern"); the leaderboard named a random one
@@ -119,6 +129,7 @@
           .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d || {} }; }); })
           .then(function (res) {
             sending = false;
+            if (newRun(res.d)) return;  // the presenter started a new run: this page belonged to the old one
             // the choice changed while this one was on its way: the changed one goes too (the same one twice would be
             // a second word with "Mehrere Antworten pro Gerät")
             if (again && values() !== sent && res.d.error !== "closed") { send(); return; }
@@ -177,10 +188,12 @@
         body.append("csrf_token", form.elements.namedItem("csrf_token").value);
         body.append("ref", form.elements.namedItem("ref").value);
         body.append("word", x.dataset.word);
+        withRun(body);
         if (device) body.append("device", device);
         fetch(list.dataset.liveWords, { method: "POST", body: body, credentials: "same-origin" })
           .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d || {} }; }); })
           .then(function (res) {
+            if (newRun(res.d)) return;
             if (!res.ok) { x.disabled = false; if (res.d.error === "closed") { shown = null; tick(); } else if (res.d.error === "gone") fresh(); else failed(""); return; }
             if (shown && shown.indexOf("full-") === 0) { fresh(); return; }  // the field comes back
             x.closest("li").remove();
@@ -248,12 +261,15 @@
       var now = new URLSearchParams(new FormData(nick)).toString();
       if (now === saved) return;
       saved = now;
-      var body = new FormData(nick);
+      var body = withRun(new FormData(nick));
       if (device) body.append("device", device);
       body.append("csrf_token", nick.dataset.csrf);
       // keepalive: a page that loads anew right after typing (a new question) still sends it
       fetch(nick.dataset.liveNick, { method: "POST", body: body, credentials: "same-origin", keepalive: true })
-        .then(function (r) { done(r.ok); if (!r.ok) saved = ""; }).catch(function () { done(false); saved = ""; });
+        .then(function (r) {
+          if (r.status === 409) return r.json().then(function (d) { if (!newRun(d)) { done(false); saved = ""; } }).catch(function () { done(false); saved = ""; });
+          done(r.ok); if (!r.ok) saved = "";
+        }).catch(function () { done(false); saved = ""; });
     }
     // saved as it is typed (a pause, leaving the field, a team chosen), the tick only confirms: a name typed without
     // the tick was lost with the next load of the page
@@ -269,10 +285,14 @@
     var qaShown = "";
     function qaPost(url, body) {
       body.append("csrf_token", qa.dataset.csrf);
+      withRun(body);
       if (device) body.append("device", device);
       // a refusal that is not JSON (an expired token answers with a page): not sent, as without a connection
       return fetch(url, { method: "POST", body: body, credentials: "same-origin" }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; });
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (newRun(d)) return new Promise(function () {});  // the page loads anew: nothing more to say on it
+          return { ok: r.ok, d: d };
+        });
       });
     }
     function qaDraw(d) {
@@ -402,8 +422,10 @@
     body.append("csrf_token", react.dataset.csrf);
     burst.forEach(function (e) { body.append("e", e); });
     burst = [];
+    withRun(body);
     if (device) body.append("device", device);
-    fetch(react.dataset.liveReact, { method: "POST", body: body, credentials: "same-origin" }).catch(function () {});
+    fetch(react.dataset.liveReact, { method: "POST", body: body, credentials: "same-origin" })
+      .then(function (r) { return r.status === 409 ? r.json().then(newRun) : null; }).catch(function () {});
   }
   if (react) react.addEventListener("click", function (e) {
     var b = e.target.closest("[data-e]");
