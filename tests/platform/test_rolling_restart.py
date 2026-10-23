@@ -561,7 +561,12 @@ def _first_commit_of(revision):
     name = next((f for f in os.listdir(VERSIONS) if f.startswith(revision + "_")), None)
     out = _git("log", "--diff-filter=A", "--format=%H", "--", f"migrations/versions/{name}") if name else None
     lines = (out or "").split()
-    return lines[-1] if lines else None
+    if not lines:
+        return None
+    # the public repository starts with one commit that brought every migration at once (2026-10-23): its models are
+    # today's, so the models of `revision` are unknown there as in a shallow clone
+    roots = (_git("rev-list", "--max-parents=0", "HEAD") or "").split()
+    return None if lines[-1] in roots else lines[-1]
 
 
 def _drops(text):

@@ -5,6 +5,7 @@ import os
 import re
 
 from tests.nginx_conf import render, server_blocks
+from tests.helpers.internal_docs import internal_text
 from tests.platform.test_audit8_b_deploy import needs_bash
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -102,7 +103,9 @@ def test_bt4_app_role_with_the_old_one_as_fallback():
             assert not re.search(r"\becho\b[^>|]*\$pw", line) or ">>" in line or "| psql_su" in line, line
             assert not ("psql" in line and " -c " in line), line
     assert "psql_su <<SQL" in script
-    assert "BETRIEB.md" in script and "db-app-role.sh" in _read("deploy", "docker", "BETRIEB.md")
+    assert "BETRIEB.md" in script
+    betrieb = internal_text("deploy", "docker", "BETRIEB.md")  # only in the private instance repository
+    assert betrieb is None or "db-app-role.sh" in betrieb
 
 
 def test_bt12_database_time_limits():

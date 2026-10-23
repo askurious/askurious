@@ -19,6 +19,7 @@ from tests.platform.test_audit8_b_deploy import BASH, BASH_SLOW, World, _read, _
 from tests.privacy.test_erasure import take
 from tests.exports.test_seal import sealed_survey
 from tests.helpers import bounded_run
+from tests.helpers.internal_docs import internal_text_or_skip
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOCKER = os.path.join(HERE, "deploy", "docker")
@@ -206,7 +207,7 @@ def test_s4_a_case_the_chain_still_names_gets_a_deletion_record(app, client, sur
 
 
 def test_s4_betrieb_md_names_the_new_steps():
-    text = _read("deploy", "docker", "BETRIEB.md")
+    text = internal_text_or_skip("deploy", "docker", "BETRIEB.md")
     part = text[text.index("### Rückweg nach einer Migration"):]
     part = part[:part.index("\n## ")]
     assert "rollback --no-start" in part and "--tables-only" in part and "ABGEBROCHEN" in part

@@ -9,6 +9,7 @@ import re
 
 import pytest
 
+from tests.helpers.internal_docs import internal_text
 from tests.platform.test_audit8_b_deploy import needs_bash
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -259,7 +260,9 @@ def test_memory_limits_with_whisperx_stay_below_the_host():
     assert "whisper" in limits and total <= 19.5 * 1024 ** 3, limits
     assert total - _bytes(limits["whisper"]) <= 15.5 * 1024 ** 3
     # the table in BETRIEB.md names what compose.yaml sets
-    betrieb = _read("deploy", "docker", "BETRIEB.md")
+    betrieb = internal_text("deploy", "docker", "BETRIEB.md")
+    if betrieb is None:  # only in the private instance repository
+        return
     table = betrieb[betrieb.index("| Dienst | `mem_limit`"):]
     table = table[:table.index("\n\n")]
     shown = {"2560m": "2,5 GB", "3g": "3 GB", "4g": "4 GB", "2g": "2 GB", "768m": "768 MB", "256m": "256 MB"}

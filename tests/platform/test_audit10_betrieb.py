@@ -12,6 +12,7 @@ from app.models import Erasure, Response, SealEntry, SignInWait, Survey, utcnow
 from tests.platform.test_audit8_b_deploy import _read, _write, needs_bash, server  # noqa: F401 (fixture)
 from tests.privacy.test_erasure import take
 from tests.exports.test_seal import sealed_survey
+from tests.helpers.internal_docs import internal_text_or_skip
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -95,7 +96,7 @@ def test_l8_deletions_since_the_dump_are_made_again_and_the_chain_comes_back(app
 
 
 def test_l8_betrieb_md_names_the_step_before_the_release():
-    text = _read("deploy", "docker", "BETRIEB.md")
+    text = internal_text_or_skip("deploy", "docker", "BETRIEB.md")
     part = text[text.index("### Rückweg nach einer Migration"):]
     assert part.index("python - save") < part.index("pg_restore -U") < part.index("python - apply --do")
     assert "nicht wieder freigeben" in part
@@ -171,7 +172,7 @@ def _script(world):
 # --- L-6: a count before the brand's own database is switched on ---------------------------------------------------
 
 def test_l6_betrieb_md_counts_before_the_switch():
-    text = _read("deploy", "docker", "BETRIEB.md")
+    text = internal_text_or_skip("deploy", "docker", "BETRIEB.md")
     part = text[text.index("## Eigene Datenbank für eine Marke"):text.index("## Nach dem Deploy der nginx")]
     assert part.index("Bestand zählen") < part.index("COMPOSE_PROFILES=brand")
     assert "created_host = 'polltergeist.de'" in part and "created_host IS NULL" in part and "0029" in part
