@@ -1380,8 +1380,13 @@ def block_page(uid):
         # version of the block: never stored here; "gone" lets the tab drop it from its queue (audit 2026-10-23,
         # DS-01). A send without "pos" comes from a script of before that change and is checked as before
         return jsonify(error="stale", gone=True), 409
+    # numbers as the page that was sent writes them ("1.000" typed in German is 1000), also when the language was
+    # switched in another tab meanwhile; else as the page form does (audit 2026-10-23, DS-02)
+    sent_lang = data.get("page_lang")
+    if sent_lang not in survey.languages:
+        sent_lang = response.language if response.language in survey.languages else _pick_language(survey, response)
     try:
-        out = blockload.store(survey, response, positions, data, _pick_language(survey, response), panel.values(survey))
+        out = blockload.store(survey, response, positions, data, sent_lang, panel.values(survey))
     except ValueError:  # a form no page of ours sends (offline_answers.fields)
         db.session.rollback()
         return jsonify(error="invalid"), 400
@@ -1776,6 +1781,14 @@ def page(uid):
         # failed its check would be taken for a page sent twice (code review 2026-10-15, F2)
         form = form.copy()
         form["pos"] = runtime.page_token(response, block_run[0])
+    if request.method == "POST" and active and response.id is not None and request.form.get("set_lang"):
+        # the language link sends the whole form of a block loaded at once, mostly without "_block": what was typed on
+        # the block's other pages is kept too, not only on the page the server is at (audit 2026-10-23, DS-04)
+        lang_run = block_run or (blockload.run(survey, response, response.position)
+                                 if request.form.get("pos") == runtime.page_token(response, response.position) else None)
+        if lang_run:
+            blockload.keep_for_language(survey, response, [k for k in lang_run if k != response.position], form,
+                                        sent_lang, panel.values(survey))
     if block_run and request.form.get("nav", "next") == "next" and not request.form.get("set_lang"):
         result = _finish_block(survey, response, lang, block_run, block_meta, note_post, sent_lang)
     else:

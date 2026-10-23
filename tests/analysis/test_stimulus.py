@@ -277,3 +277,46 @@ def test_a_file_per_loop_value(app, client, survey):
         answer = item.kind.parse_answer(item, {"i3": _log((0, "play", 0)), "i3_key": key})
         assert answer["key"] == key and answer["dur"] == 11
         assert item.kind.parse_answer(item, {"i3": "[]", "i3_key": "forged"})["key"] == ""
+
+
+def _sent(log, visit=None):
+    """What parse_answer makes of one send of the page (the visit id as the player gives it)."""
+    events, cut = read_log(log, 10)
+    return {"log": events, "dur": 10, "key": "", **({"visits": [[visit, len(events), cut]]} if visit else {})}
+
+
+def test_the_same_send_again_counts_its_playback_once():
+    """audit 2026-10-23, DS-03: an identical POST sent again (a retry) added the log a second time: seconds, plays and
+    pauses doubled. One showing of the page (its visit id) now counts once; another showing still adds."""
+    from app.items.stimulus import Stimulus
+
+    kind = Stimulus()
+    log = _log((100, "play", 0), (4100, "seg", 0, 4, 0), (4100, "pause", 4))
+    first = _sent(log, "aaaaaaaa11")
+    again = kind.merge_answer(first, _sent(log, "aaaaaaaa11"))
+    assert figures(again)["seconds"] == 4.0 and figures(again)["plays"] == 1 and figures(again)["pauses"] == 1
+    more = _log((100, "play", 0), (6100, "seg", 0, 6, 0), (6100, "pause", 6))  # the same showing, sent later again
+    longer = kind.merge_answer(again, _sent(more, "aaaaaaaa11"))
+    assert figures(longer)["seconds"] == 6.0 and figures(longer)["plays"] == 1
+    other = kind.merge_answer(longer, _sent(log, "bbbbbbbb22"))  # shown again ("Back", an error on the page)
+    assert figures(other)["seconds"] == 10.0 and figures(other)["plays"] == 2
+    assert kind.merge_answer(other, _sent(more, "aaaaaaaa11")) == other  # an older showing arriving late: no change
+    # without a visit id (a script of before): added as always
+    plain = kind.merge_answer(_sent(log), _sent(log))
+    assert figures(plain)["seconds"] == 8.0 and figures(plain)["plays"] == 2
+
+
+def test_the_page_gives_each_showing_its_own_visit_field(app, client, survey):
+    """audit 2026-10-23, DS-03: the player fills the field with a random id per showing; a retry through the page keeps
+    the figures."""
+    _media(app, client)
+    _upload(client, seconds="10")
+    url = _start(app, client)
+    p = _participant(app, url)
+    assert 'name="i2_visit"' in p.get(url).data.decode()
+    log = _log((100, "play", 0), (4100, "seg", 0, 4, 0), (4100, "pause", 4))
+    # the soft hint keeps the page and stores the log; the same send again (the hint seen) goes on
+    p.post(url, data={"nav": "next", "i2": log, "i2_visit": "cccccccc33"})
+    assert figures(_answer(app))["seconds"] == 4.0
+    p.post(url, data={"nav": "next", "i2": log, "i2_visit": "cccccccc33", "nudge_ack": "1"})
+    assert figures(_answer(app))["seconds"] == 4.0 and figures(_answer(app))["plays"] == 1

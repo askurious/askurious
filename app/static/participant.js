@@ -639,6 +639,15 @@ document.querySelectorAll("[data-media]").forEach(function (box) {
   var el = box.querySelector("[data-media-el]"), bar = box.querySelector("[data-media-bar]");
   var field = box.querySelector("[data-media-log]");
   if (!el || !bar || !field) return;
+  // one id for this showing of the page: the same POST sent again replaces its events on the server instead of
+  // counting them twice (stimulus.merge_answer, audit 2026-10-23, DS-03)
+  var visit = box.querySelector("[data-media-visit]");
+  if (visit) {
+    var bytes = new Uint8Array(8);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+    else for (var b = 0; b < 8; b++) bytes[b] = Math.floor(Math.random() * 256);
+    visit.value = Array.prototype.map.call(bytes, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+  }
   var rule = box.dataset.seek, dur = parseFloat(box.dataset.dur) || 0, t0 = performance.now();
   var play = bar.querySelector("[data-media-play]"), seek = bar.querySelector("[data-media-seek]");
   var time = bar.querySelector("[data-media-time]"), mute = bar.querySelector("[data-media-mute]");
@@ -1862,7 +1871,7 @@ var blockPages = null;
   if (!pages.length) return;
   var url = form.getAttribute("data-block-url"), start = form.getAttribute("data-block-start");
   var csrf = (form.querySelector("input[name=csrf_token]") || {}).value || "";
-  var posField = form.querySelector("input[name=pos]");
+  var posField = form.querySelector("input[name=pos]"), langField = form.querySelector("input[name=page_lang]");
   var say = form.querySelector("[data-bpage-live]"), note = form.querySelector("[data-block-note]");
   var QUEUE = "blockq:" + (form.getAttribute("data-keep") || start);
   var store = null;
@@ -2010,7 +2019,8 @@ var blockPages = null;
     var m = of(p);
     m.seq = Math.max(Date.now(), m.seq + 1);  // a counter that also grows over a reload of the tab
     var out = { start: start, page: key(p), seq: m.seq, ms: m.ms, form: fields(p), ack: m.ack ? 1 : 0, up: m.up ? 1 : 0,
-                pos: posField ? posField.value : undefined };  // the participation and page the block was shown for (DS-01)
+                pos: posField ? posField.value : undefined,  // the participation and page the block was shown for (DS-01)
+                page_lang: langField ? langField.value : undefined };  // numbers read in the page's language (DS-02)
     Object.keys(extra || {}).forEach(function (k) { out[k] = extra[k]; });
     return out;
   }

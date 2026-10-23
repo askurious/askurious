@@ -334,6 +334,51 @@ def store(survey, response, positions, data, lang, params=None):
             "nudges": {str(k): str(v) for k, v in result.nudges.items()}}
 
 
+def keep_for_language(survey, response, positions, form, lang, params=None):
+    """A change of language while a block loaded at once is open (the language link sends the whole form of the
+    block, without "_block"): runtime.step keeps the page the server is at; this keeps what is valid on the other
+    pages `positions` of the block, without checking that they are complete, as "Back" and the language switch do on a
+    page by itself (runtime.step, `staying`): numbers read in `lang`, the language the page was shown in, incomplete
+    multiple selections as drafts, answers fixed by feedback already seen left as they are (audit 2026-10-23, DS-04).
+    Before, everything typed on a later page of the block was lost."""
+    from app import feedback_lock, geoip, quality, tempo
+    from app import quotas as quota_mod
+    from app.items.base import AnswerError
+    from app.runtime import (UNREADABLE, _AsOptional, _answer_meta, answer_key, evaluate, load_answers, page_at,
+                             present, row_view, store_answers)
+
+    layout = response.layout
+    view = {**{f"p:{k}": v for k, v in (params or {}).items()}, **quota_mod.view(survey, response),
+            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response)}
+    for page in positions:
+        answers = {**load_answers(response), **view}
+        row = layout["pages"][page].get("row")
+        _block, all_items = page_at(survey, response, page)
+        page_items = present(all_items, answers, row)
+        fixed = feedback_lock.frozen(response, page_items, row)
+        keep = [_AsOptional(i) for i in page_items if i.type != "consent" and not i.kind.alone_on_page]
+        result = evaluate(keep, form, lang, nudge_acknowledged=True, meta=_answer_meta(layout, page, response),
+                          answers=row_view(answers, row))
+        drafts = dict(response.layout.get("answer_drafts", {}))
+        for item in page_items:
+            drafts.pop(answer_key(item.id, row), None)
+        for item in keep:
+            if item.type == "multiple_choice" and item.id in result.errors and item.id not in fixed:
+                try:
+                    drafts[answer_key(item.id, row)] = item.kind.parse_answer(
+                        item, form, lang, meta={"draft": True}, answers=row_view(answers, row))
+                except (AnswerError, *UNREADABLE):
+                    pass
+        response.layout = {**response.layout, "answer_drafts": drafts}
+        feedback_lock.drop(result, fixed)
+        store_answers(response, result.answers, row)
+        if result.errors:
+            stored = dict(response.answers or {})
+            for item_id in result.errors:
+                stored.pop(answer_key(item_id, row), None)
+            response.answers = stored
+
+
 def read_meta(form):
     """The field _block of the form sent at the end of a block: {"start": position, "pages": {position: {"ms", "up",
     "more", "ack"}}}; None if it is missing or cannot be read."""
