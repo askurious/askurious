@@ -197,6 +197,67 @@
     Anyone removed from the list is signed out at their next click unless they are invited to a survey or in a group.
     Platform admins remain set in the server configuration (<code>ADMIN_ORCIDS</code>) and always get in.")|safe }}</p>
 </section>
+{# Registration links of the platform (app/signup_links.py): a list and "Einladungslink anlegen …", a dialog like
+   "Person hinzufügen". The new link is shown once. #}
+<section class="panel" id="einladungslinks">
+  <h2>{{ de_en("Einladungslinks", "Invitation links") }} <span class="hint">{{ de_en("je Link eine festgelegte Zahl neuer Konten mit ORCID, auch wenn die freie Anmeldung aus ist", "each link a set number of new accounts with ORCID, also while open sign-up is off") }}</span></h2>
+  {% if signup.new %}
+  <div class="join-link-new">
+    <p><strong>{{ de_en("Der neue Link wird nur jetzt angezeigt.", "The new link is shown only now.") }}</strong></p>
+    <div class="copy-row"><input class="one-time-link" id="signup-link-new" value="{{ signup.new }}" readonly aria-label="{{ de_en('Einladungslink', 'Invitation link') }}" data-select-all>
+      <button type="button" class="button button-secondary" data-copy="#signup-link-new">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+  </div>
+  {% endif %}
+  <div class="admin-listhead">
+    <a class="button" href="#einladungslink-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Einladungslink anlegen …", "Create invitation link …") }}</a>
+  </div>
+  {% if signup.links %}
+  <div class="res-scroll">
+  {% call list_table("is-num admin-people") %}
+    <thead><tr><th>{{ de_en("Link", "Link") }}</th><th>{{ de_en("Organisation", "Organisation") }}</th><th>{{ de_en("Nutzertyp und Laufzeit", "User type and period") }}</th><th>{{ de_en("genutzt", "used") }}</th><th>{{ de_en("gilt bis", "valid until") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for link, org, t, people, open in signup.links %}
+      <tr><td class="admin-name">{{ de_en("vom {d}", "of {d}", d=link.created_at|localdt(false)) }}{% if link.note %} · {{ link.note }}{% endif %}
+          {% if people %}<details class="hint-more"><summary>{{ de_en("{n} Konten", "{n} accounts", n=people|length) }}</summary><ul class="plain small">{% for u in people %}<li><a href="{{ url_for('admin.account', user_id=u.id) }}">{{ u.display_name }}</a></li>{% endfor %}</ul></details>{% endif %}</td>
+        <td>{{ org.name if org else "–" }}</td>
+        <td>{{ account_type_name(t) if t else "–" }} · {{ period_describe(link.valid_spec) if link.valid_spec is not none else period_describe(t.duration if t else "") }}</td>
+        <td>{{ de_en("{u} von {n}", "{u} of {n}", u=link.uses, n=link.max_uses) }}</td>
+        <td>{% if open %}{{ link.expires_at|localdt }}{% else %}<span class="muted">{{ de_en("beendet", "ended") }}</span>{% endif %}</td>
+        <td>{% if open %}<form class="inline" method="post" action="{{ url_for('admin.signup_links_action') }}"
+              data-confirm="{{ de_en('Diesen Einladungslink widerrufen?', 'Revoke this invitation link?') }}" data-confirm-note="{{ de_en('Wer ihn danach öffnet, kann sich damit nicht mehr registrieren. Konten, die schon über ihn kamen, bleiben.', 'Anyone who opens it afterwards can no longer register with it. Accounts that came by it already stay.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}">
+          {{ csrf() }}<input type="hidden" name="action" value="revoke"><input type="hidden" name="link_id" value="{{ link.id }}">
+          <button class="button button-secondary button-small">{{ de_en("Widerrufen", "Revoke") }}</button></form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% else %}<p class="muted">{{ de_en("Noch kein Einladungslink.", "No invitation link yet.") }}</p>{% endif %}
+</section>
+<section class="panel person-add add-dialog-narrow" id="einladungslink-anlegen" aria-labelledby="signup-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="signup-add-title">{{ de_en("Einladungslink anlegen", "Create invitation link") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form method="post" action="{{ url_for('admin.signup_links_action') }}" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="create">
+    <label>{{ de_en("Organisation", "Organisation") }} <span class="hint">{{ de_en("die Heimat der neuen Konten", "the home of the new accounts") }}</span>
+      <select name="org">{% for o, _ in signup.orgs %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Nutzertyp", "User type") }}
+      <select name="account_type"><option value="">{{ de_en("Standard für neue Konten der Organisation", "Default for new accounts of the organisation") }}</option>
+        {% for o, ts in signup.orgs %}{% if ts %}<optgroup label="{{ o.name }}">{% for t in ts %}<option value="{{ t.id }}">{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}</optgroup>{% endif %}{% endfor %}</select></label>
+    <label>{{ de_en("Laufzeit der Konten", "Period of the accounts") }} <span class="hint">{{ de_en("beginnt mit der Registrierung; danach wird das Konto gesperrt", "starts with the registration; afterwards the account is blocked") }}</span>
+      <select name="period">{% for value, label in signup.periods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Enddatum", "End date") }} <span class="hint">{{ de_en("nur bei „bis zu einem Datum“", "only with “until a date”") }}</span>
+      <input type="date" name="period_date"></label>
+    <label>{{ de_en("Anzahl Registrierungen", "Number of registrations") }}
+      <select name="max_uses">{% for n in signup.uses %}<option value="{{ n }}"{{ " selected" if n == signup.default_uses }}>{{ n }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Link gültig", "Link valid for") }}
+      <select name="days">{% for d in signup.days %}<option value="{{ d }}"{{ " selected" if d == signup.default_days }}>{{ de_en("1 Tag", "1 day") if d == 1 else de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, nur für Admins; z. B. wofür der Link ist", "optional, for admins only; e.g. what the link is for") }}</span>
+      <input name="note" maxlength="200"></label>
+    <p class="muted small">{{ de_en("Wer den Link öffnet und sich zum ersten Mal mit ORCID anmeldet, bekommt ein Konto mit Heimat in der Organisation, diesem Nutzertyp und dieser Laufzeit. Der Link kommt an der Liste, der Obergrenze und der Warteliste vorbei, nicht aber an der Höchstzahl Konten der Organisation. Bestehende Konten ändert er nicht.",
+      "Whoever opens the link and signs in with ORCID for the first time gets an account at home in the organisation, with this user type and period. The link gets past the list, the limit and the waiting list, but not past the organisation's maximum number of accounts. It does not change existing accounts.") }}</p>
+    <div class="button-row"><button class="button">{{ de_en("Link anlegen", "Create link") }}</button></div>
+  </form>
+</section>
 {# "Person hinzufügen" (UI/UX audit 2026-10-07, S10): the two ways side by side. app.js turns this panel into a dialog
    that the button above opens; without scripts it stays a panel the button leads to. After a refusal (an address
    taken, an iD that is none) the page comes back with what was entered, the reason in the form and the field marked,

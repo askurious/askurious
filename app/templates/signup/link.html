@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon %}
+{# The page of a registration link of the platform (app/signup_links.py). Needs: link, org, full, orcid_on. #}
+{% block title %}{{ de_en("Einladung", "Invitation") }}{% endblock %}
+{% block content %}
+<div class="sign-in">
+  <h1>{{ de_en("Einladung zu {b}", "Invitation to {b}", b=platform_name) }}</h1>
+  <section class="panel">
+    <p>{{ de_en("Mit diesem Link legen Sie ein Konto an, indem Sie sich mit Ihrer ORCID iD anmelden.", "With this link you create an account by signing in with your ORCID iD.") }}
+      {% if org and org.key != "main" %}{{ de_en("Ihr Konto gehört dann zur Organisation „{o}“.", "Your account then belongs to the organisation “{o}”.", o=org.long_name or org.name) }}{% endif %}</p>
+    {% if link.valid_spec %}<p class="muted">{{ de_en("Der Zugang gilt {d} ab der Anmeldung; danach wird das Konto gesperrt und später gelöscht. Vorher bekommen Sie Hinweise.", "Access holds {d} from the sign-in; afterwards the account is blocked and later deleted. You get notices beforehand.", d=period_describe(link.valid_spec)) }}</p>{% endif %}
+    {% if full %}
+    <p class="flash flash-warning"><span>{{ de_en("Für diese Organisation sind keine Plätze mehr frei. Bitte fragen Sie die Person, die Ihnen den Link gegeben hat.", "This organisation has no places left. Please ask the person who gave you the link.") }}</span></p>
+    {% elif orcid_on %}
+    <form method="post" class="button-row">
+      {{ csrf() }}
+      <button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden und Konto anlegen", "Sign in with ORCID and create account") }}</button>
+    </form>
+    <p class="muted small">{{ de_en("Haben Sie schon ein Konto, melden Sie sich wie gewohnt an; der Link ändert daran nichts.", "If you already have an account, sign in as usual; the link changes nothing about it.") }}</p>
+    {% else %}
+    <p class="muted">{{ de_en("Die Anmeldung mit ORCID ist auf diesem Server nicht eingerichtet.", "Sign-in with ORCID is not set up on this server.") }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

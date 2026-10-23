@@ -695,6 +695,9 @@ def orcid_callback():
     joined = joinlinks.accept_after_orcid(orcid, data.get("name", ""))  # a join link of a group opened before
     if joined:
         session["next"] = joined
+    from app import signup_links
+
+    signup_links.accept_after_orcid(orcid, data.get("name", ""))  # a registration link opened before: on the list now
     if not _may_sign_in(orcid):
         from app import signin
 

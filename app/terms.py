@@ -70,9 +70,11 @@ def version():
 # terms_en.html). A new "Version:" line in licence.md needs its entry here (tests/ui/test_ux_audit9_e.py).
 CHANGES = (
     ("2026-10-23c", "Organisationen (Abschnitt 2): Admins können festlegen, dass nur sie Personen von außen in die "
-                    "Organisation, ihre Gruppen und Befragungen holen.",
+                    "Organisation, ihre Gruppen und Befragungen holen. Konten über einen Einladungslink der Plattform "
+                    "können ab der Registrierung befristet sein.",
      "Organisations (section 2): admins can set that only they bring people from outside into the organisation, its "
-     "groups and surveys.", (2,)),
+     "groups and surveys. Accounts from an invitation link of the platform can be limited in time from the "
+     "registration on.", (2,)),
     ("2026-10-23b", "Dienste Dritter (Abschnitt 6): KI-Chat für Teilnehmende (experimentell). Die Nachrichten gehen über "
                     "einen Modellzugang, den Sie für die Befragung selbst eintragen; Sie brauchen eine Vereinbarung mit "
                     "dem Anbieter und eine Einwilligung, die den KI-Chat nennt.",
