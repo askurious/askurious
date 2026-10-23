@@ -165,12 +165,13 @@ def _values(survey, code, table):
     level = study_plan._level(thing)
     if isinstance(thing, dict):
         return [str(r.get(code)) if r.get(code) not in (None, "") else None for r in table], "nominal"
-    if thing.type in ("likert", "semantic") and level == "metric":
+    if thing.type in ("likert", "semantic") and (level == "metric" or study_plan._scale_size(thing)):
+        # a scale: its score per person; at an ordinal level the same score, tested by ranks (audit 2026-10-23, M2)
         subs = scales.subscale_groups(thing)
         if len(subs) > 1:
             return None, None  # no unrequested total across distinct constructs
         codes = subs[0][1] if subs else scales.scored_codes(thing)
-        return [scales.row_score(thing, codes, r) for r in table], "metric"
+        return [scales.row_score(thing, codes, r) for r in table], level
     gone = {str(m) for m in thing.kind.missing_codes(thing, thing.code)}
     raw = [r.get(code) for r in table]
     if level == "nominal":
@@ -384,7 +385,11 @@ def _describe(survey, h, table, out, lang="de"):
                     "from the number.")
     level = study_plan._level(thing)
     values, _ = _values(survey, code, table) if level else (None, None)
-    if level == "metric" and values is not None:
+    if level == "ordinal" and study_plan._scale_size(thing):  # an ordinal scale score: the median (M2)
+        xs = [v for v in values or () if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if xs:
+            out.update(n=len(xs), sentence=f"Mdn = {_de_lang(_median(xs), 2, lang)}")
+    elif level == "metric" and values is not None:
         xs = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
         if xs:
             import statistics
@@ -549,7 +554,7 @@ def _evaluate_one(survey, h, table, lang="de"):
                                       "A linear relation is assumed; with outliers or rank data the rank correlation "
                                       "(Spearman) is more robust."))
         return out
-    if xl == "metric":
+    if xl == "metric" or (survey is not None and study_plan._scale_size(study_plan._item(survey, h.get("iv")))):
         out["notes"].append(de_en("Für einen Gruppenvergleich muss die erste Variable Gruppen bilden (Auswahl oder "
                                   "Randomisierung).", "For a group comparison the first variable must form groups (a "
                                   "choice or a randomisation)."))
@@ -569,7 +574,9 @@ def _evaluate_one(survey, h, table, lang="de"):
                       "mean": gt.describe(groups[k])["mean"] if yl != "nominal" else None,
                       "median": _median([v for v in groups[k] if isinstance(v, float)]) if yl != "nominal" else None}
                      for k in keys]
-    order = _order(study_plan._item(survey, h.get("dv")), h.get("dv")) if yl == "ordinal" and survey is not None else None
+    dv_thing = study_plan._item(survey, h.get("dv")) if survey is not None else None
+    # a scale score is no answer of its own: its median stays a number (M2)
+    order = _order(dv_thing, h.get("dv")) if yl == "ordinal" and dv_thing is not None and not study_plan._scale_size(dv_thing) else None
     if order:  # the median as the answer (its label), not as the place in the scale (S-2); between two answers both
         names = [label for _, label in sorted(order.values())]
         for g in out["groups"]:

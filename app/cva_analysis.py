@@ -23,6 +23,7 @@ tell apart who likes the offer more), for pairs also the share of persons whose 
 holdout is among their best rated ones; chance is the share the best rated make up (Orme, 2009, for choice
 holdouts; Festlegung von Askurious for ratings)."""
 import math
+import statistics
 
 import numpy as np
 
@@ -55,9 +56,14 @@ def part_worths(beta, levels):
 
 
 def importances(pw):
+    """The share of each attribute's range in the sum of ranges; None for all when the ranges are only rounding noise
+    (audit 2026-10-23, M6: a flat person got importances normalised from ~1e-16 noise)."""
     ranges = [max(p) - min(p) for p in pw]
     total = sum(ranges)
-    return [r / total if total > 0 else None for r in ranges]
+    scale = max((abs(v) for p in pw for v in p), default=0.0)
+    if not total > 1e-12 * max(1.0, scale):
+        return [None] * len(ranges)
+    return [r / total for r in ranges]
 
 
 def rows_of(item, answer, versions=None):
@@ -102,6 +108,12 @@ def fit_person(rows, levels):
     sst = float(((y - y.mean()) ** 2).sum())
     flat = sst == 0
     r2 = None if flat else max(0.0, 1 - float((resid ** 2).sum()) / sst)
+    if flat:
+        # the same answer everywhere: no preference at all, so every part-worth is exactly 0 and importances are
+        # missing, not a split of rounding noise (audit 2026-10-23, M6)
+        pw = [[0.0] * n for n in levels]
+        return {"constant": float(y.mean()), "pw": pw, "importance": [None] * len(levels), "r2": None,
+                "n": len(rows), "flat": True}
     pw = part_worths([float(b) for b in beta[1:]], levels)
     return {"constant": float(beta[0]), "pw": pw, "importance": importances(pw), "r2": r2, "n": len(rows),
             "flat": flat}
@@ -170,7 +182,7 @@ def analyse(item, responses, lang):
     constant = _mean_ci([f["constant"] for f in usable])
     model = {"attributes": model_attrs, "q": q or 1.96, "t_df": n - 1 if n > 1 else None, "warnings": [],
              "persons": n, "price": None, "wtp_ok": False, "constant": constant[0],
-             "r2_mean": sum(r2s) / len(r2s) if r2s else None, "r2_median": r2s[len(r2s) // 2] if r2s else None}
+             "r2_mean": sum(r2s) / len(r2s) if r2s else None, "r2_median": statistics.median(r2s) if r2s else None}
     if n < 2:
         model["warnings"].append(_one_person())
     model["charts"] = charts(model)

@@ -530,9 +530,12 @@ def _level(item):
         return "nominal"
     if item.type == "multiple_choice":  # one 0/1 column per option, no single variable to test (audit 2026-10-12, S-6)
         return None
-    if item.type == "likert" and len((item.config or {}).get("statements") or []) >= 2:
-        return "metric"  # a scale: its mean score (scales.row_score)
     level = item.kind.level(item)
+    if item.type == "likert" and len((item.config or {}).get("statements") or []) >= 2:
+        # a scale counts with its score (the mean of its statements, scales.row_score) at the level of the matrix:
+        # metric where it is set so (a toolbox construct by default), else ordinal, tested with ranks and described
+        # by the median (audit 2026-10-23, M2, Ralf: "a"; before, every matrix of two statements counted as metric)
+        return "metric" if level == "metric" else "ordinal"
     return level if level in ("nominal", "ordinal", "metric") else None
 
 
@@ -613,13 +616,15 @@ def suggest(survey, h):
         return "describe"
     if same(h) or not (a and b):
         return ""
-    if b == "nominal" and a in ("nominal", "ordinal"):
+    scale = bool(_scale_size(iv))  # a scale score forms no groups, whatever its level (M2)
+    if b == "nominal" and a in ("nominal", "ordinal") and not scale:
         # a nominal outcome has no order: neither ranks nor means, only the cross table (χ² with Cramér's V), which
         # app/hypotheses.py also computes for ordered groups (audit 2026-10-10, B-16)
         return "chi2"
     if b == "nominal":  # metric against nominal: no test of this kind, the warning of nominal_mismatch() says why
         return ""
-    if a == "nominal" or (h.get("kind") in ("difference", "causal") and a == "ordinal" and _groups(iv, _keep(h)) <= 7):
+    if a == "nominal" or (h.get("kind") in ("difference", "causal") and a == "ordinal" and not scale
+                          and _groups(iv, _keep(h)) <= 7):
         two = _groups(iv, _keep(h)) == 2
         if b == "metric":
             return "t" if two else "anova"
@@ -630,7 +635,7 @@ def suggest(survey, h):
 
 
 def _scale_size(item):
-    """The number of statements of a Likert scale that the plan treats as one metric score, 0 for anything else."""
+    """The number of statements of a Likert scale that the plan treats as one score, 0 for anything else."""
     if item is None or isinstance(item, dict) or item.type != "likert":
         return 0
     n = len((item.config or {}).get("statements") or [])
@@ -638,10 +643,10 @@ def _scale_size(item):
 
 
 def metric_codes(survey):
-    """The variable names of the elements the plan treats as metric (a scale score, a number): no groups to compare.
+    """The variable names of the elements that form no groups to compare (a scale score, ordinal or metric, a number).
     The form greys them out under "Gruppen" and "Bedingung" (UI/UX audit 2026-10-09, X3)."""
     return {item.code for block in getattr(survey, "blocks", None) or [] for item in block.items
-            if item.kind.collects_answer and _level(item) == "metric"}
+            if item.kind.collects_answer and (_level(item) == "metric" or _scale_size(item))}
 
 
 def group_mismatch(survey, h):
@@ -650,7 +655,7 @@ def group_mismatch(survey, h):
     if not h or h.get("kind") not in GROUP_KINDS or same(h):
         return ""
     iv = _item(survey, h.get("iv"))
-    if iv is None or isinstance(iv, dict) or _level(iv) != "metric":
+    if iv is None or isinstance(iv, dict) or (_level(iv) != "metric" and not _scale_size(iv)):
         return ""
     what = de_en("eine Skala", "a scale") if _scale_size(iv) else de_en("eine Zahl", "a number")
     return de_en("„{code}“ ist {what}, keine Gruppenfrage. Für Skala gegen Skala passt die Art „Zusammenhang“; "
@@ -665,8 +670,17 @@ def nominal_mismatch(survey, h):
     the groups it is a t-test or an analysis of variance. "" otherwise (and where group_mismatch() already warns)."""
     if not h or h.get("kind") in (*UNTESTED, "mediation", "effect", "moderation", "lagged") or same(h) or group_mismatch(survey, h):
         return ""
-    if _level(_item(survey, h.get("iv"))) != "metric" or _level(_item(survey, h.get("dv"))) != "nominal":
+    iv = _item(survey, h.get("iv"))
+    if (_level(iv) != "metric" and not _scale_size(iv)) or _level(_item(survey, h.get("dv"))) != "nominal":
         return ""
+    if _level(iv) == "ordinal":  # an ordinal scale score (M2): compared by ranks
+        return de_en("„{dv}“ ist nominal (Antworten ohne Reihenfolge), „{iv}“ ein ordinaler Skalenwert: Dafür gibt es "
+                     "keinen Zusammenhangstest. Als Art „Unterschied“ mit „{dv}“ als Gruppen und „{iv}“ als "
+                     "verglichener Größe wird es ein Mann-Whitney-U- oder Kruskal-Wallis-Test.",
+                     "“{dv}” is nominal (answers without an order), “{iv}” an ordinal scale score: there is no test of "
+                     "a relationship for that. As the type “Difference” with “{dv}” as the groups and “{iv}” as the "
+                     "compared variable it becomes a Mann-Whitney U or Kruskal-Wallis test.",
+                     iv=h.get("iv"), dv=h.get("dv"))
     return de_en("„{dv}“ ist nominal (Antworten ohne Reihenfolge), „{iv}“ metrisch: Dafür gibt es keinen "
                  "Zusammenhangstest. Als Art „Unterschied“ mit „{dv}“ als Gruppen und „{iv}“ als verglichener Größe "
                  "wird es ein t-Test oder eine Varianzanalyse.",
@@ -702,10 +716,16 @@ def reasons(survey, h):
         out.append(mismatch)
     named = roles(h.get("kind"))
     for key, role in (("iv", named["iv"]), ("dv", named["dv"])):
-        n = _scale_size(_item(survey, h.get(key)))
-        if n:
+        thing = _item(survey, h.get(key))
+        n = _scale_size(thing)
+        if n and _level(thing) == "metric":
             out.append(de_en("{role}: Skalenwert aus {n} Aussagen, als metrisch behandelt",
                              "{role}: scale score from {n} statements, treated as metric", role=role, n=n))
+        elif n:  # the level of the matrix is ordinal (M2)
+            out.append(de_en("{role}: Skalenwert aus {n} Aussagen, als ordinal behandelt (Rangtests, Median); "
+                             "metrisch, wenn das Messniveau der Matrix so gesetzt ist",
+                             "{role}: scale score from {n} statements, treated as ordinal (rank tests, median); "
+                             "metric when the level of measurement of the matrix is set so", role=role, n=n))
     if h.get("kind") == "correlation" and h.get("analysis") == "sem":
         # since 2026-10-11 a relation without a direction in the model (modell-zeichnen-konzept.md, F4); before, it
         # was a path from A to B

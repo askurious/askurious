@@ -31,10 +31,21 @@ def affixes(fmt, currency="EUR", unit="", lang="de"):
     return "", (f" {unit}" if unit else "")
 
 
+def exact(number):
+    """A number as the Decimal of its text with 12 significant digits: 0.1 + 0.2 -> 0.3, 1e-05 -> 0.00001."""
+    return Decimal(format(float(number), ".12g"))
+
+
 def decimals(step):
-    """Number of decimals implied by a step such as 1, 0.5 or 0.25."""
-    text = f"{float(step):g}"
-    return len(text.split(".")[1]) if "." in text else 0
+    """Number of decimals implied by a step such as 1, 0.5, 0.25 or 0.00001. Read from the Decimal, not from "%g":
+    that writes 0.00001 as 1e-05 and so gave 0 decimals (audit 2026-10-23, M8)."""
+    try:
+        number = float(step)
+    except (TypeError, ValueError):
+        return 0
+    if not math.isfinite(number) or number == 0:
+        return 0
+    return max(0, -exact(number).normalize().as_tuple().exponent)
 
 
 def class_of(value, start, width, count=None):
