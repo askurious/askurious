@@ -78,7 +78,9 @@
       <label class="check"><input type="checkbox" name="no_create" value="1"{{ " checked" if o.may_create is sameas false }}> {{ de_en("Niemand mit Heimat hier legt Befragungen an", "Nobody at home here creates surveys") }}</label>
       <label>{{ de_en("Höchstzahl Konten mit Heimat hier", "Maximum accounts at home here") }} <span class="hint">{{ de_en("leer = keine", "empty = none") }}</span>
         <input name="max_accounts" type="number" min="1" max="100000" value="{{ o.max_accounts or '' }}"></label>
-      <label class="check"><input type="checkbox" name="invite_out" value="1"{{ " checked" if o.invite_out }}> {{ de_en("Mitglieder dürfen Personen von außen in Befragungen einladen", "Members may invite people from outside to surveys") }}</label>
+      <label>{{ de_en("Wer darf Personen von außen in die Organisation, ihre Gruppen und Befragungen holen?", "Who may bring people from outside into the organisation, its groups and surveys?") }}
+        <select name="invite_scope">{% for s in invite_scopes %}<option value="{{ s }}"{{ " selected" if s == platform_scope(o) }}>{{ invite_scope_label(s) }}</option>{% endfor %}</select></label>
+      {% if o.invite_scope_own and o.invite_scope_own != platform_scope(o) %}<p class="muted small">{{ de_en("Die Admins der Organisation haben das strenger gestellt: „{s}“.", "The organisation's admins made this stricter: “{s}”.", s=invite_scope_label(scope_of(o))) }}</p>{% endif %}
       <label class="check"><input type="checkbox" name="invite_in" value="1"{{ " checked" if o.invite_in }}> {{ de_en("Mitglieder dürfen in Befragungen anderer Organisationen eingeladen werden", "Members may be invited to surveys of other organisations") }}</label>
       <label>{{ de_en("Vertrag oder Grundlage", "Contract or basis") }} <span class="hint">{{ de_en("z. B. Auftragsverarbeitung", "e.g. data processing agreement") }}</span>
         <input name="basis" maxlength="300" value="{{ o.basis }}"></label>

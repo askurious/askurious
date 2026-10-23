@@ -438,18 +438,18 @@ def for_new(user):
 
 def may_invite_across(survey, orcid):
     """May a person (a typed key, or the User) be invited to this survey in person: always within its organisation;
-    across the fence only when the survey's organisation lets its members invite out and the person's home lets them be
-    invited in. A person without an account yet comes in as a guest (if the survey's organisation invites out)."""
+    across the fence only when the person's home lets them be invited in. A person without an account yet comes in as
+    a guest. Whether the inviter may bring someone from outside at all is may_bring_in (the scope of the survey's
+    organisation, which took over the former switch invite_out)."""
     if not orcid or not several():
         return True
-    org = get(of(survey))
     user = account_of(orcid)
     if user is None or user.pending:
-        return org is None or org.invite_out
+        return True
     if of(survey) in ids_of(user):
         return True
     home = _home_org(user)
-    return (org is None or org.invite_out) and (home is None or home.invite_in or home.key == GUEST)
+    return home is None or home.invite_in or home.key == GUEST
 
 
 def not_across():
@@ -457,6 +457,94 @@ def not_across():
                  "dort oder hier ausgeschaltet. Ein Admin der Plattform kann das ändern.",
                  "This person belongs to another organisation, and invitations beyond the organisation are switched off "
                  "there or here. A platform admin can change that.")
+
+
+# --- who brings people in from outside (konzept-organisation-sichtbarkeit-einladungen-2026-10-23.md, E10-E14) --------
+
+# Who may bring in someone who is not yet in the organisation (into it, its groups or its surveys), strictest last:
+# "create" whoever may create surveys (auth.may_admit, as before), "admins" only the organisation's admins,
+# "platform" only site admins. Site admins set invite_scope; the organisation's admins may only make it stricter
+# (invite_scope_own). The former switch invite_out off counts as "admins" at least.
+SCOPES = ("create", "admins", "platform")
+
+
+def scope_label(scope):
+    return {"create": de_en("Alle, die Befragungen anlegen dürfen", "Everyone who may create surveys"),
+            "admins": de_en("Nur Admins der Organisation", "Only admins of the organisation"),
+            "platform": de_en("Nur Admins der Plattform", "Only platform admins")}[scope]
+
+
+def _stricter(a, b):
+    return a if SCOPES.index(a) >= SCOPES.index(b) else b
+
+
+def platform_scope(org):
+    """The scope site admins set (with the old switch invite_out read as "admins" when off)."""
+    if org is None:
+        return "create"
+    scope = org.invite_scope if org.invite_scope in SCOPES else "create"
+    return scope if org.invite_out else _stricter(scope, "admins")
+
+
+def scope_of(org):
+    """What holds: the stricter of what site admins and the organisation's admins chose."""
+    scope = platform_scope(org)
+    own = getattr(org, "invite_scope_own", None)
+    return _stricter(scope, own) if org is not None and own in SCOPES else scope
+
+
+def is_external(person, org_id):
+    """Whether a person (a User, a typed key, or None for an address or a link nobody named) is outside the
+    organisation: no account yet, a pending one, or an account that does not belong to it."""
+    if person is None:
+        return True
+    user = account_of(person) if not isinstance(person, User) else person
+    if user is None or user.pending:
+        return True
+    return key(org_id) not in ids_of(user)
+
+
+def may_bring_in(user, org_id, person=None):
+    """May `user` bring this person into the organisation, one of its groups or one of its surveys? People already
+    in it always; from outside after the scope of the organisation. Site admins always."""
+    if not is_external(person, org_id):
+        return True
+    from flask import current_app
+
+    if user is not None and getattr(user, "orcid", None) in current_app.config.get("ADMIN_ORCIDS", ()):
+        return True
+    scope = scope_of(get(org_id))
+    if scope == "create":
+        return True
+    return scope == "admins" and is_admin_of(user, org_id)
+
+
+def open_from_outside(org_id):
+    """The open join links of the organisation's groups and invitations by e-mail to its groups and surveys that people
+    made who may no longer bring anyone in (they rest: joinlinks.paused, invites.authorised): [(kind, row)]."""
+    from app.models import GroupJoinLink, MemberInvite
+
+    org_id = key(org_id)
+    now = utcnow()
+    groups = db.select(WorkGroup.id).where(column(WorkGroup.org_id) == org_id)
+    surveys = db.select(Survey.id).where(column(Survey.org_id) == org_id)
+    rows = [("link", r) for r in db.session.scalars(db.select(GroupJoinLink).where(
+        GroupJoinLink.group_id.in_(groups), GroupJoinLink.role == "member", GroupJoinLink.expires_at >= now,
+        GroupJoinLink.uses < GroupJoinLink.max_uses))]
+    rows += [("invite", r) for r in db.session.scalars(db.select(MemberInvite).where(
+        db.or_(MemberInvite.group_id.in_(groups), MemberInvite.survey_id.in_(surveys)), MemberInvite.expires_at >= now))]
+    makers = {r.created_by_id for _, r in rows}
+    users = {u.id: u for u in db.session.scalars(db.select(User).where(User.id.in_(makers)))} if makers else {}
+    return [(k, r) for k, r in rows if not may_bring_in(users.get(r.created_by_id), org_id)]
+
+
+def not_brought_in(org_id=None):
+    scope = scope_of(get(org_id)) if org_id is not None else "admins"
+    if scope == "platform":
+        return de_en("In dieser Organisation holen nur Admins der Plattform Personen von außen herein.",
+                     "In this organisation only platform admins bring in people from outside.")
+    return de_en("In dieser Organisation holen nur Admins der Organisation Personen von außen herein.",
+                 "In this organisation only its admins bring in people from outside.")
 
 
 def is_member(user, org_id):

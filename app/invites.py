@@ -64,6 +64,10 @@ def authorised(invite):
     target = target_of(invite)
     if maker is None or target is None or accounts.is_blocked(maker) or not auth.may_admit(maker):
         return False
+    from app import orgs
+
+    if not orgs.may_bring_in(maker, orgs.of(target)):  # an address is someone from outside (orgs.SCOPES)
+        return False
     if invite.survey_id:
         return target.can(maker, "admin")
     # a list for a course a site admin invited without leading it (app/bulk_invites.py)
@@ -105,6 +109,11 @@ def create(email, role, by, survey=None, group=None):
 
     if not auth.may_admit(by):  # an invitation by mail brings in a new account (rechte-uebersicht-konzept.md H3)
         return auth.not_admitted()
+    from app import orgs
+
+    org_id = orgs.of(survey if survey is not None else group)
+    if not orgs.may_bring_in(by, org_id):  # an address is someone from outside (orgs.SCOPES)
+        return orgs.not_brought_in(org_id)
     sweep()
     # counted by the mails sent, not by the invitations still there: inviting the same address again or withdrawing
     # gives no room back; and every invitation counts for the account's limit (audit 2026-10-09b, E2)

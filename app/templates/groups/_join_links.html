@@ -34,6 +34,8 @@
       <input type="number" name="max_uses" min="1" max="{{ max_members }}" value="{{ join.default_uses }}" class="input-short"> {{ de_en("Beitritte", "joins") }}</label>
     <button class="button button-secondary button-small">{{ de_en("Link erzeugen", "Create link") }}</button>
   </form>
+  {% elif join.closed %}
+  <p class="muted small"><button class="button button-secondary button-small" disabled>{{ de_en("Link erzeugen", "Create link") }}</button> {{ join.closed }}</p>
   {% else %}
   <p class="muted small">{{ de_en("Beitrittslinks erzeugt nur eine Leitung, die selbst Befragungen anlegen darf, weil der Link Personen hereinbringt, die niemand namentlich hinzugefügt hat.", "Only a lead who may create surveys can create join links, because the link brings in people nobody added by name.") }}</p>
   {% endif %}

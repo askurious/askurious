@@ -448,6 +448,9 @@ def create_app(config_class=Config, server=False):
                                  org_display_name=orgs.display_name, org_name_of=orgs.name_of,
                                  orgs_creatable_all=lambda: orgs.all_orgs(guests=False),
                                  org_affiliation=orgs.affiliation_of,
+                                 invite_scopes=orgs.SCOPES, invite_scope_label=orgs.scope_label,
+                                 platform_scope=orgs.platform_scope, scope_of=orgs.scope_of,
+                                 open_from_outside=orgs.open_from_outside,
                                  org_short=orgs.short_of,
                                  org_logo_for=lambda survey: __import__("app.theme", fromlist=["x"]).org_logo(orgs.of(survey)))
     from app import access as access_rules

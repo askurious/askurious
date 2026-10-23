@@ -587,6 +587,10 @@ class Organisation(db.Model):
     max_accounts: Mapped[int | None]
     invite_out: Mapped[bool] = mapped_column(default=True)  # members may bring people from outside into surveys
     invite_in: Mapped[bool] = mapped_column(default=True)  # members may be brought into surveys of others
+    # who brings in people from outside (app/orgs.py SCOPES; migration 0097): "create" | "admins" | "platform";
+    # None = "create". invite_scope by site admins, invite_scope_own by the organisation's admins, only stricter
+    invite_scope: Mapped[str | None] = mapped_column(String(10))
+    invite_scope_own: Mapped[str | None] = mapped_column(String(10))
     basis: Mapped[str] = mapped_column(String(300), default="")  # contract or legal basis, site admins only
     default_type_id: Mapped[int | None] = mapped_column(ForeignKey("account_type.id", ondelete="SET NULL"), index=True)
     # the user types its admins may give (ids of AccountType); None = all that are not hidden (A16, migration 0072)

@@ -24,7 +24,8 @@
   <h2>{{ de_en("Lehrveranstaltung", "Course") }}</h2>
   <p>{{ de_en("Wer über diese Gruppe neu dazukommt, bekommt den Nutzertyp „{t}“; der Zugang gilt {d} und endet danach.", "Anyone who newly comes in through this group gets the user type “{t}”; access holds {d} and ends afterwards.", t=account_type_name(course.type), d=period_describe(course.spec)) }}</p>
   {% if course.list %}<p><a class="button button-secondary" href="{{ url_for('bulk_invites.invite_list', group_id=group.id) }}">{{ de_en("Adressliste einladen …", "Invite an address list …") }}</a>
-    <span class="muted small">{{ de_en("E-Mail-Adressen einfügen; ohne E-Mail-Versand bekommen Sie die Links als Datei zum Weiterschicken", "paste email addresses; without email sending you get the links as a file to pass on") if not mail_enabled() else de_en("E-Mail-Adressen einfügen; jede bekommt eine Einladung per E-Mail", "paste email addresses; each gets an invitation by email") }}</span></p>{% endif %}
+    <span class="muted small">{{ de_en("E-Mail-Adressen einfügen; ohne E-Mail-Versand bekommen Sie die Links als Datei zum Weiterschicken", "paste email addresses; without email sending you get the links as a file to pass on") if not mail_enabled() else de_en("E-Mail-Adressen einfügen; jede bekommt eine Einladung per E-Mail", "paste email addresses; each gets an invitation by email") }}</span></p>
+  {% elif lead and course.closed %}<p class="muted small"><button class="button button-secondary" disabled>{{ de_en("Adressliste einladen …", "Invite an address list …") }}</button> {{ course.closed }}</p>{% endif %}
 </section>
 {% endif %}
 

@@ -1482,12 +1482,14 @@ def measures():
         (de_en("Nichtverkettung", "Unlinkability"), [
             (de_en("Organisationen als logische Trennung in einer Datenbank: Gruppen teilen nur innerhalb ihrer "
                    "Organisation, die Personensuche findet nur Personen der eigenen Organisationen und gemeinsamer "
-                   "Befragungen; über den Zaun nur die persönliche Einladung in eine Befragung. Plattform-Admins und "
-                   "der Serverbetrieb sehen alle Organisationen",
+                   "Befragungen; über den Zaun nur die persönliche Einladung in eine Befragung. Je Organisation lässt "
+                   "sich festlegen, dass nur ihre Admins oder nur die Plattform Personen von außen hereinholen. "
+                   "Plattform-Admins und der Serverbetrieb sehen alle Organisationen",
                    "Organisations as a logical separation in one database: groups share only within their "
                    "organisation, the people search finds only people of one's own organisations and shared surveys; "
-                   "across the fence only the personal invitation to a survey. Site admins and server operation see "
-                   "all organisations"), "app/orgs.py, app/access.py, app/surveys/people.py"),
+                   "across the fence only the personal invitation to a survey. Per organisation it can be set that "
+                   "only its admins or only the platform bring in people from outside. Site admins and server "
+                   "operation see all organisations"), "app/orgs.py, app/access.py, app/surveys/people.py"),
             (de_en("Kontaktabschnitt ohne Verbindung zur Teilnahme, ohne Zeitstempel", "Contact section without a link "
                    "to the participation, without a timestamp"), "app/models.py (ContactEntry)"),
             (de_en("Ersatzkennungen in der gemeinsamen Auswertung mit eigenem Schlüssel", "Substitute identifiers in the "
