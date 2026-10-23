@@ -120,10 +120,11 @@ def _p_lang(p, lang="de"):
 
 
 def _numeric(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
+    """The number of an answer for a test, as results.valid_number reads it: "nan", "inf" and numbers beyond
+    MAX_NUMBER (old data) are missing, not values that break the statistics (audit 2026-10-23, M3)."""
+    from app import results
+
+    return results.valid_number(v)
 
 
 def _order(thing, code):

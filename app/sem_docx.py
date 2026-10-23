@@ -27,7 +27,7 @@ TEXT = {
                         "MacKinnon et al., 2002)."),
            "m_body": ("λ = standardisierte Ladung; AVE = durchschnittlich erfasste Varianz; CR = Composite Reliability "
                       "(Fornell & Larcker, 1981); HTMT = größtes Heterotrait-Monotrait-Verhältnis mit einem anderen "
-                      "Konstrukt (Henseler et al., 2015)."),
+                      "Konstrukt, ursprüngliche Form, nicht HTMT+ (Henseler et al., 2015)."),
            "hyp": "H{n}"},
     "en": {"t1": "Table {k}", "paths": "Path Coefficients of the Structural Equation Model", "path": "Path",
            "ind": "Indirect Effects", "via": "Path", "measure": "Measurement Model", "construct": "Construct / item",
@@ -42,8 +42,8 @@ TEXT = {
                         "resamples). p by the joint significance of both paths (the larger of the two path p; MacKinnon "
                         "et al., 2002)."),
            "m_body": ("λ = standardized loading; AVE = average variance extracted; CR = composite reliability (Fornell & "
-                      "Larcker, 1981); HTMT = largest heterotrait-monotrait ratio with another construct (Henseler et al., "
-                      "2015)."),
+                      "Larcker, 1981); HTMT = largest heterotrait-monotrait ratio with another construct, original form, "
+                      "not HTMT+ (Henseler et al., 2015)."),
            "hyp": "H{n}"},
 }
 

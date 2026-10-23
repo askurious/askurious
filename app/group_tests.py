@@ -480,6 +480,18 @@ def kruskal_wallis(groups, weights=None):
     return {"h": h, "df": df, "p": chi2_sf(h, df), "e2": min(h * (n + 1) / (n * n - 1), 1.0), "n": n}
 
 
+def _rescaled(groups):
+    """The groups times one common power of two that brings the largest |value| near 1, when it lies far from 1
+    (below 1e-50 or above 1e50); else unchanged. Squares of variances of values around 1e-100 underflow to 0 and
+    the degrees of freedom of Welch became 0/0 (audit 2026-10-23, M4). t, df, p, F, ω² and the standardised
+    difference do not change with the scale, and a power of two scales every value exactly."""
+    top = max((abs(v) for g in groups for v in g if v is not None), default=0.0)
+    if not top or not math.isfinite(top) or 1e-50 <= top <= 1e50:
+        return groups
+    factor = 2.0 ** -math.frexp(top)[1]
+    return [[None if v is None else v * factor for v in g] for g in groups]
+
+
 def welch_t(x, y, weights=None):
     """Welch's t test of two groups (Welch, 1947) with the standardised difference d = delta* = (M1 - M2) / s and
     s = sqrt((SD1^2 + SD2^2) / 2), the average of both variances, and its 95 % interval from the variance of
@@ -489,6 +501,7 @@ def welch_t(x, y, weights=None):
     2026-10-06, L-2). d is positive when the first group's mean is higher."""
     if weights is not None:
         return None
+    x, y = _rescaled([list(x), list(y)])  # nothing it returns is in the unit of the values (M4)
     a, b = describe(x), describe(y)
     n1, n2 = a["n"], b["n"]
     if n1 < 2 or n2 < 2:
@@ -522,6 +535,7 @@ def welch_anova(groups, weights=None):
     or below two groups of two (app/compare.py names the groups without variance)."""
     if weights is not None:
         return None
+    groups = _rescaled([list(g) for g in groups])  # F, p and ω² do not change with the scale (M4)
     stats = [describe(g) for g in groups if g]
     k = len(stats)
     if k < 2 or any(s["n"] < 2 for s in stats):

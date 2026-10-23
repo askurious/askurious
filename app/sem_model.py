@@ -2231,6 +2231,17 @@ def predict_table(result):
             "folds": found.get("folds")}
 
 
+def htmt_mixed(result):
+    """[(label a, label b)] of the construct pairs whose correlations between their statements have mixed signs: they
+    cancel in the mean of the original HTMT, which can then look better than the measurement is (audit 2026-10-23,
+    R-M1). Interaction terms left out, as in measurement_table."""
+    fit = result.get("fit") or {}
+    names = result.get("nodes") or {}
+    products = set((result.get("spec") or {}).get("products") or {})
+    return [(names.get(a, (a, a))[1], names.get(b, (b, b))[1])
+            for a, b in (fit.get("quality") or {}).get("htmt_mixed") or [] if not {a, b} & products]
+
+
 def measurement_table(result):
     """[{"name", "label", "items": [{"code", "text", "std"}], "ave", "cr", "htmt_max", "flags"}] and the HTMT
     pairs [(a, b, value)]."""

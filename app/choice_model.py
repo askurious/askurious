@@ -507,10 +507,13 @@ def summarise(sets, coding, attrs, persons, prices, price_wanted=False, constant
     # with the prior too (all importances do, not only its own): such attributes get no importance, the others
     # are shares among themselves.
     ranges = {a: max(b) - min(b) for a, (b, _) in pw.items() if a not in loose}
-    price_range = abs(beta_price) * (max(prices) - min(prices)) if beta_price is not None and prices else None
+    # a price not separable from the attributes is as loose: no importance and not in the sum (audit 2026-10-23, M7)
+    price_loose = coding.price is not None and bool(free[coding.price])
+    price_range = (abs(beta_price) * (max(prices) - min(prices))
+                   if beta_price is not None and prices and not price_loose else None)
     total = sum(ranges.values()) + (price_range or 0)
-    if loose:
-        names = ", ".join(attrs[a]["label"] for a in sorted(loose))
+    if loose or price_loose:
+        names = ", ".join([attrs[a]["label"] for a in sorted(loose)] + ([de_en("Preis", "Price")] if price_loose else []))
         warnings.append(de_en("Ohne Wichtigkeit: {names}. Ihre Spannweite legen nicht die Daten fest, ein Anteil daran "
                               "würde auch die Wichtigkeit aller anderen Merkmale verschieben. Die übrigen Wichtigkeiten "
                               "sind deshalb Anteile nur unter den übrigen Merkmalen.",

@@ -242,7 +242,7 @@
       {% endfor %}
       </tbody>
     </table></div>
-    <p class="muted small">{{ de_en("λ: standardisierte Ladung. AVE: durchschnittlich erfasste Varianz, ab 0,50 erklärt das Konstrukt mehr als der Messfehler", "λ: standardised loading. AVE: average variance extracted, from 0.50 the construct explains more than the measurement error") }} {{ apa.cite([S.FORNELL]) }}. {{ de_en("CR: Composite Reliability aus den Ladungen, ab 0,70. HTMT: Verhältnis der Korrelationen zwischen zu innerhalb der Konstrukte, über 0,85 trennen sich zwei Konstrukte kaum", "CR: composite reliability from the loadings, from 0.70. HTMT: ratio of the correlations between to within the constructs, above 0.85 two constructs hardly separate") }} {{ apa.cite([S.HENSELER]) }}. {{ de_en("Orientierungswerte, keine Tests.", "Orientation values, not tests.") }}</p>
+    <p class="muted small">{{ de_en("λ: standardisierte Ladung. AVE: durchschnittlich erfasste Varianz, ab 0,50 erklärt das Konstrukt mehr als der Messfehler", "λ: standardised loading. AVE: average variance extracted, from 0.50 the construct explains more than the measurement error") }} {{ apa.cite([S.FORNELL]) }}. {{ de_en("CR: Composite Reliability aus den Ladungen, ab 0,70. HTMT (ursprüngliche Form, nicht HTMT+): Verhältnis der Korrelationen zwischen zu innerhalb der Konstrukte, über 0,85 trennen sich zwei Konstrukte kaum", "CR: composite reliability from the loadings, from 0.70. HTMT (original form, not HTMT+): ratio of the correlations between to within the constructs, above 0.85 two constructs hardly separate") }} {{ apa.cite([S.HENSELER]) }}. {{ de_en("Orientierungswerte, keine Tests.", "Orientation values, not tests.") }}</p>
     {% set upper = sem_model.htmt_interval(sem, boot) %}
     {% if htmt|length > 1 or upper %}
     <div class="res-scroll"><table class="res-table">
@@ -251,6 +251,7 @@
     </table></div>
     {% if upper %}<p class="muted small">{{ de_en("Die obere Grenze kommt aus dem Bootstrap; liegt sie unter 0,85, trennen sich die beiden Konstrukte auch unter Berücksichtigung der Stichprobe", "The upper bound comes from the bootstrap; below 0.85 the two constructs are told apart also taking the sample into account") }} {{ apa.cite([S.FRANKE_SARSTEDT]) }}.</p>{% elif htmt|length > 1 %}<p class="muted small">{{ de_en("Mit dem Bootstrap kommt eine obere Grenze je HTMT dazu.", "With the bootstrap an upper bound per HTMT is added.") }}</p>{% endif %}
     {% endif %}
+    {% for a, b in sem_model.htmt_mixed(sem) %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("HTMT von {a} und {b}: Die Korrelationen zwischen ihren Aussagen haben gemischte Vorzeichen und heben sich im Mittel teilweise auf, der Wert kann daher zu günstig ausfallen. Umgepolte Aussagen prüfen.", "HTMT of {a} and {b}: the correlations between their statements have mixed signs and partly cancel in the mean, so the value may be too favourable. Check reversed statements.", a=a, b=b) }}</span></p>{% endfor %}
     {% set ftable = sem_model.formative_table(sem, boot) %}
     {% if ftable %}
     <h4 class="sem-sub">{{ term("formative", de_en("Formative Konstrukte", "Formative constructs")) }}</h4>
