@@ -6,12 +6,15 @@ every week as well, so a vulnerability found between deploys is noticed (audit 2
 
     python tools/check_vulnerabilities.py [requirements.lock ...] [tools/vendor_versions.txt] [--accepted FILE]
 
---accepted FILE: lines "<package> <vulnerability id>" that were judged and documented (the WhisperX image,
-deploy/docker/whisper/osv-accepted.txt and whisper/README.md): they are listed but do not fail the check; any other
-id does, also a new one for the same package (Abgleich 2026-10-15, T08-N-3).
+--accepted FILE: lines "<package> <vulnerability id> <owner> <until YYYY-MM-DD>  # reason" that were judged and
+documented (the WhisperX image, deploy/docker/whisper/osv-accepted.txt and whisper/README.md): they are listed but do
+not fail the check; any other id does, also a new one for the same package (Abgleich 2026-10-15, T08-N-3). A line
+without owner and date, or whose date has passed, accepts nothing, so an acceptance cannot outlive its review
+(audit 2026-10-23, V-DEP-01).
 
 Sends only package names and versions; needs no package beyond the standard library.
 """
+import datetime
 import json
 import os
 import re
@@ -49,13 +52,28 @@ def check(packages):
     return {pkg: [v["id"] for v in res.get("vulns", [])] for pkg, res in zip(packages, results) if res.get("vulns")}
 
 
-def accepted(path):
-    """{(package, id)} of the lines "<package> <id>" in path (# starts a comment)."""
+def accepted(path, today=None):
+    """{(package, id)} of the lines "<package> <id> <owner> <until YYYY-MM-DD>" in path (# starts a comment) whose
+    date is today or later; a line without owner or a valid date, or one that has run out, is named on stderr and
+    accepts nothing."""
+    today = today or datetime.date.today()
     out = set()
     with open(path, encoding="utf-8") as f:
-        for line in f:
+        for number, line in enumerate(f, 1):
             words = line.split("#", 1)[0].split()
-            if len(words) >= 2:
+            if not words:
+                continue
+            try:
+                until = datetime.date.fromisoformat(words[3]) if len(words) == 4 else None
+            except ValueError:
+                until = None
+            if until is None:
+                print(f"{path}:{number}: needs <package> <id> <owner> <until YYYY-MM-DD>, accepts nothing",
+                      file=sys.stderr)
+            elif until < today:
+                print(f"{path}:{number}: acceptance of {words[1]} ran out on {until} (owner {words[2]}), judge it anew",
+                      file=sys.stderr)
+            else:
                 out.add((words[0].lower(), words[1]))
     return out
 

@@ -4,6 +4,7 @@ the files Docker and git leave out (DP-11, DP-16), the weekly check for known vu
 JavaScript libraries (DP-10), and the deploy scripts that say when they skip a check (SV-5/DP-9, DP-17).
 
 No YAML library in the tests: compose.yaml is read as text, like the other tests of deploy/docker."""
+import datetime
 import os
 import re
 
@@ -290,9 +291,36 @@ def test_whisperx_image_pinned_hashed_and_checked_every_week():
         import check_vulnerabilities
     finally:
         sys.path.pop(0)
-    known = check_vulnerabilities.accepted(os.path.join(DOCKER, "whisper", "osv-accepted.txt"))
+    accepted = os.path.join(DOCKER, "whisper", "osv-accepted.txt")
+    known = check_vulnerabilities.accepted(accepted, datetime.date(2026, 10, 24))
     assert ("torch", "PYSEC-2026-2286") in known and ("transformers", "GHSA-29pf-2h5f-8g72") in known
     assert dict(check_vulnerabilities.pins(os.path.join(DOCKER, "whisper", "requirements-cpu.txt")))["torch"] == "2.8.0+cpu"
+
+
+def test_whisperx_fixable_vulnerabilities_are_fixed_and_the_rest_has_owner_and_date():
+    """Audit 2026-10-23, V-DEP-01: nltk 3.10.3 and setuptools 78.1.0 had fixed releases that WhisperX 3.8.6 allows, and
+    the accepted ids named neither who judged them nor until when. nltk and setuptools are raised (setuptools stays,
+    torch 2.8 requires it on Python 3.12 and pip check runs in the Dockerfile); every other line has owner, date and
+    reason."""
+    import sys
+
+    sys.path.insert(0, os.path.join(HERE, "tools"))
+    try:
+        import check_vulnerabilities
+    finally:
+        sys.path.pop(0)
+    pinned = dict(check_vulnerabilities.pins(os.path.join(DOCKER, "whisper", "requirements.txt")))
+    version = lambda text: tuple(int(part) for part in text.split("+")[0].split("."))  # noqa: E731
+    assert version(pinned["nltk"]) >= (3, 10, 4) and version(pinned["setuptools"]) >= (84, 1, 0)
+    assert version(pinned["filelock"]) >= (4, 2, 1)   # GHSA-v4x8-3wr5-3wq8, found by the check on 2026-10-24
+    path = os.path.join(DOCKER, "whisper", "osv-accepted.txt")
+    lines = [line for line in _read("deploy", "docker", "whisper", "osv-accepted.txt").splitlines()
+             if line.split("#", 1)[0].strip()]
+    for line in lines:
+        rule, reason = line.split("#", 1)
+        package, _id, owner, until = rule.split()
+        assert package in ("torch", "transformers") and owner and reason.strip() and datetime.date.fromisoformat(until)
+    assert len(check_vulnerabilities.accepted(path, datetime.date(2026, 10, 24))) == len(lines)
 
 
 def test_accepted_vulnerabilities_do_not_fail_the_check_but_new_ones_do(tmp_path, monkeypatch, capsys):
@@ -305,14 +333,19 @@ def test_accepted_vulnerabilities_do_not_fail_the_check_but_new_ones_do(tmp_path
     finally:
         sys.path.pop(0)
     (tmp_path / "req.txt").write_text("torch==2.8.0+cpu\n", encoding="utf-8")
-    (tmp_path / "ok.txt").write_text("# judged\ntorch GHSA-old  # why\n", encoding="utf-8")
-    for found, code in ((["GHSA-old"], 0), (["GHSA-old", "GHSA-new"], 1)):
+    (tmp_path / "ok.txt").write_text("# judged\ntorch GHSA-old Ralf 2999-12-31  # why\n"
+                                     "torch GHSA-gone Ralf 2026-01-31  # ran out\ntorch GHSA-bare  # no owner, no date\n",
+                                     encoding="utf-8")
+    for found, code in ((["GHSA-old"], 0), (["GHSA-old", "GHSA-new"], 1), (["GHSA-old", "GHSA-gone"], 1),
+                        (["GHSA-bare"], 1)):
         monkeypatch.setattr(check_vulnerabilities, "check", lambda packages, f=found: {packages[0]: f})
         monkeypatch.setattr(sys, "argv", ["x", str(tmp_path / "req.txt"), "--accepted", str(tmp_path / "ok.txt")])
         with pytest.raises(SystemExit) as end:
             check_vulnerabilities.main()
         assert end.value.code == code
-    assert "accepted: 1" in capsys.readouterr().out
+    output = capsys.readouterr()
+    assert "accepted: 1" in output.out
+    assert "GHSA-gone ran out on 2026-01-31 (owner Ralf)" in output.err and ":4: needs <package> <id> <owner>" in output.err
 
 
 def test_dev_requirements_without_known_vulnerabilities_are_checked_at_deploy():

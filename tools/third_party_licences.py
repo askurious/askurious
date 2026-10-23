@@ -67,7 +67,7 @@ Inside the wheels of the transcription service: av 19.0.1 bundles FFmpeg built w
 (GPL-2.0-or-later); ctranslate2 4.8.3 (CTranslate2 itself MIT) links Intel oneMKL (Intel Simplified Software
 License) and oneDNN (Apache-2.0) statically and ships no licence file for them; triton 3.8.0 contains NVIDIA tools
 (ptxas, cuobjdump, nvdisasm, CUPTI) under NVIDIA's licence terms.
-Works inside other wheels, each under its own licence, not only that of the package: setuptools 78.1.0
+Works inside other wheels, each under its own licence, not only that of the package: setuptools 84.1.0
 vendors autocommand 2.2.2 (LGPL-3.0) and parts under MPL-2.0; pyannote-audio 4.0.7 contains code from WeSpeaker
 (Apache-2.0).
 """

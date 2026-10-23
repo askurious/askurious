@@ -8,16 +8,20 @@ keine Datenbankzugänge oder sonstigen App-Schlüssel im Transkriptionscontainer
 
 ## Grenzen und Verhalten
 
-### Sicherheitsprüfung der festgelegten Laufzeit (14.10.2026)
+### Sicherheitsprüfung der festgelegten Laufzeit (14.10.2026, erneuert 24.10.2026)
 
-OSV meldet Befunde für NLTK 3.10.3, setuptools 78.1.0, PyTorch 2.8.0 und
-Transformers 4.57.6. Die Versionen sind daher nicht pauschal frei von bekannten
-Schwachstellen. Für diesen Dienst wurden die betroffenen Aufrufwege geprüft:
+Seit 24.10.2026 sind NLTK 3.10.4 (statt 3.10.3, GHSA-8mgp-746c-j5xp behoben) und
+setuptools 84.1.0 (statt 78.1.0, alle gemeldeten Befunde behoben) sowie filelock
+4.2.1 (statt 3.32.3, GHSA-v4x8-3wr5-3wq8 und zwei Windows-Befunde behoben) festgelegt;
+setuptools bleibt installiert, weil PyTorch 2.8 es unter Python 3.12 verlangt
+(`pip check` im Dockerfile), der Dienst importiert es nicht. Für PyTorch 2.8.0
+und Transformers 4.57.6 meldet OSV weiter Befunde: WhisperX 3.8.6 verlangt
+`torch~=2.8.0` und `huggingface-hub<1.0`, die Korrekturen stecken erst in PyTorch
+2.9.1 bis 2.13 bzw. Transformers 5.x (braucht `huggingface-hub>=1.5`). Sie stehen
+mit Verantwortlichem und Ablaufdatum in `osv-accepted.txt` und werden mit der
+nächsten WhisperX-Version angehoben. Für diesen Dienst wurden die betroffenen
+Aufrufwege geprüft:
 
-- NLTK: Modellimport/-export mit fremd gewählten Dateipfaden wird nicht angeboten;
-  der Dienst verwendet lokale Satztrenndaten.
-- setuptools: Paketdownloads und der Bau/Export von Quelldistributionen werden
-  im laufenden Dienst nicht ausgeführt; das Root-Dateisystem ist schreibgeschützt.
 - PyTorch: keine fremden Checkpoints, PT2-Archive, TorchScript-Quelltexte oder
   frei gewählten Tensoroperationen. Geladen werden ausschließlich die vorab
   geprüften lokalen Modelle; deren Manifest-Hashes sind vor Aktivierung erneut
@@ -30,9 +34,9 @@ Die bekannten Befunde bleiben für die Bibliotheksversionen bestehen; die
 betroffenen Eingaben/Funktionen sind nicht Teil dieser API. Diese Beurteilung
 gilt nur für die beschriebene isolierte Laufzeit. Modellwechsel, Bibliothekswechsel
 oder eine Erweiterung der API erfordern eine erneute Prüfung. Die OSV-Prüfung
-der App-Abhängigkeiten meldete keine bekannten Befunde. Referenzen:
-[NLTK](https://osv.dev/vulnerability/GHSA-8mgp-746c-j5xp),
-[setuptools](https://osv.dev/vulnerability/GHSA-5rjg-fvgr-3xxf),
+der App-Abhängigkeiten meldete keine bekannten Befunde. Läuft ein Datum in
+`osv-accepted.txt` ab, meldet die wöchentliche Prüfung die Kennung wieder, bis sie
+neu beurteilt ist. Referenzen:
 [PyTorch-Checkpoints](https://osv.dev/vulnerability/PYSEC-2026-2286),
 [Transformers-Modellkonfiguration](https://osv.dev/vulnerability/GHSA-29pf-2h5f-8g72).
 
