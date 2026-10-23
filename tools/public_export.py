@@ -120,6 +120,17 @@ def main(argv):
                 f.write(data)
             os.chmod(dest, mode)
         print(f"{len(files)} files written to {target}")
+        run = sorted(path for path, _data, mode in files if mode & 0o111)
+        if os.path.isdir(os.path.join(target, ".git")):
+            # on Windows os.chmod keeps no execute bit and git records 100644: give git the bit itself, else the
+            # server's scripts lose it (restart.sh: "./backup.sh: Permission denied", first public deploy 2026-10-24)
+            for i in range(0, len(run), 50):
+                subprocess.run(["git", "-C", target, "add", "--", *run[i:i + 50]], check=True)
+                subprocess.run(["git", "-C", target, "update-index", "--chmod=+x", "--", *run[i:i + 50]], check=True)
+            print(f"{len(run)} executable files marked in the git index of {target}")
+        elif run:
+            print(f"{len(run)} files must be executable; after git add run: git update-index --chmod=+x -- "
+                  + " ".join(run))
     found = findings(files, forbidden)
     for path, number, name in found:
         print(f"{path}:{number}: {name}")
