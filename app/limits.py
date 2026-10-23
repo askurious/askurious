@@ -278,11 +278,11 @@ def allow_voice_bytes(survey, size):
 
 
 # the windows of the counted kinds, for sweep (complaints and their mails: a day)
-COUNTED_WINDOWS = ("START_WINDOW", "SURVEY_SENDER_WINDOW", "LIVE_WINDOW", "ESTIMATE_WINDOW")
+COUNTED_WINDOWS = ("START_WINDOW", "SURVEY_SENDER_WINDOW", "LIVE_WINDOW")
 
 # the windows of the shared kinds, for sweep: a row is needed as long as the longest of them
 SHARED_WINDOWS = ("CODE_WINDOW", "LOGIN_WINDOW", "RESET_WINDOW", "ERASE_WINDOW", "VERIFY_WINDOW", "TOKEN_TRY_WINDOW",
-                  "STUDY_CODE_WINDOW")
+                  "STUDY_CODE_WINDOW", "ESTIMATE_WINDOW")
 LOGIN_PAUSE_SECONDS = 900  # the longest pause per sender and account (passwords.PAUSE)
 
 
@@ -458,7 +458,8 @@ def allow_agent(token_id):
 def allow_token_try(count=True):
     """Whether this sender may present a read token: False once it presented TOKEN_TRY_LIMIT wrong ones within
     TOKEN_TRY_WINDOW; count=True notes one more wrong one. A token has 256 random bits, so the limit is against noise,
-    not the only guard. In the database, for all processes."""
+    not the only guard. Asked only after a token was not found, so a valid one always goes through (a shared address).
+    In the database, for all processes."""
     return _shared_sender_limit("token_try", "TOKEN_TRY_LIMIT", "TOKEN_TRY_WINDOW", count)
 
 
@@ -962,12 +963,32 @@ def charge_ai(kind, own=False, units=1):
 
 
 def allow_estimate(user_id, count=True):
-    """Count an estimation started by this account; False once it started ESTIMATE_LIMIT within ESTIMATE_WINDOW. In
-    the database, for all processes (rate_count). The queue of the Rechenknecht and the estimation slots of the server
-    are shared by everyone: one account with many copies of a survey put its jobs before all others (audit 2026-10-22,
-    D-04)."""
+    """Count an estimation started by this account; False once it started ESTIMATE_LIMIT within ESTIMATE_WINDOW. The
+    queue of the Rechenknecht and the estimation slots of the server are shared by everyone: one account with many
+    copies of a survey put its jobs before all others (audit 2026-10-22, D-04). Counted in rate_hit (_take_shared):
+    serialised across all processes, so that two starts at the same moment cannot both take the last place, and
+    refused when the database cannot count (an estimation is no participation: it may wait). jobs.start takes the
+    place before it claims the run and gives it back with refund_estimate when the run does not start."""
     limit = int(current_app.config.get("ESTIMATE_LIMIT") or 0)
     if not limit or not user_id:
         return True
-    return _take_counted("estimate", _shared_key("estimate", user_id), limit,
-                         int(current_app.config.get("ESTIMATE_WINDOW") or 3600), count)
+    return _take_shared("estimate", _shared_key("estimate", user_id), limit,
+                        int(current_app.config.get("ESTIMATE_WINDOW") or 3600), count)
+
+
+def refund_estimate(user_id):
+    """Give back the place allow_estimate took for an estimation that did not start (one runs already, or its start
+    failed). Removes the newest count of this account; never raises."""
+    if not int(current_app.config.get("ESTIMATE_LIMIT") or 0) or not user_id:
+        return
+    from app.models import RateHit
+
+    t = RateHit.__table__
+    key = _shared_key("estimate", user_id)
+    try:
+        with db.engine.begin() as con:
+            newest = con.scalar(db.select(db.func.max(t.c.id)).where(t.c.kind == "estimate", t.c.key == key))
+            if newest is not None:
+                con.execute(t.delete().where(t.c.id == newest))
+    except Exception as e:  # noqa: BLE001 - a lost refund only keeps the place counted until its window ends
+        current_app.logger.warning("Estimate count not given back: %s", type(e).__name__)

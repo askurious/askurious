@@ -171,13 +171,22 @@ def pretest_generation(survey):
     return int((survey.panel or {}).get("pretest_gen") or 0)
 
 
+def sign_in_version(user_id):
+    """The account's session_version (0 without a sign-in row): blocking, a new or removed password and "Überall
+    abmelden" raise it, and every pretest link made before ends with it (app/editor/share.py, _shared_survey)."""
+    from app.models import UserLogin
+
+    return int(db.session.scalar(db.select(UserLogin.session_version).where(UserLogin.user_id == user_id)) or 0)
+
+
 def share_url(survey, days=1):
     """Signed link to this survey's preview, valid `days` days (the phone link of the preview: 1), bound to the
-    current researcher and to the survey's current generation of pretest links."""
+    current researcher, the version of their sign-in and the survey's current generation of pretest links."""
     from app.hosts import participant_base
 
     days = days if days in PRETEST_DAYS else 1
-    data = {"s": survey.id, "user": current_user.id, "d": days, "g": pretest_generation(survey)}
+    data = {"s": survey.id, "user": current_user.id, "d": days, "g": pretest_generation(survey),
+            "v": sign_in_version(current_user.id)}
     if access.showcase_only(current_user, survey):
         data.update(d=1, x=1)  # the phone link of someone who sees an example survey only as one: valid while it is one
     token = _share_serializer().dumps(data)

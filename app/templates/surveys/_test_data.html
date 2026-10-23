@@ -18,7 +18,7 @@
     <div class="row"><input id="pretest-url" class="grow-1" value="{{ pretest.url }}" readonly aria-label="{{ de_en('Pretest-Link', 'Pretest link') }}">
       <button type="button" class="button button-secondary" data-copy="#pretest-url">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
     <div class="qr-image pretest-qr" aria-hidden="true">{{ pretest.qr|safe }}</div>
-    <p class="muted small">{% if pretest.days == 1 %}{{ de_en("Gültig einen Tag, solange Sie Zugriff auf die Befragung haben.", "Valid for one day, as long as you have access to the survey.") }}{% else %}{{ de_en("Gültig {n} Tage, solange Sie Zugriff auf die Befragung haben.", "Valid for {n} days, as long as you have access to the survey.", n=pretest.days) }}{% endif %} {{ de_en("Neue Links lassen sich jederzeit erzeugen.", "New links can be created at any time.") }}</p>
+    <p class="muted small">{% if pretest.days == 1 %}{{ de_en("Gültig einen Tag, solange Sie Zugriff auf die Befragung haben.", "Valid for one day, as long as you have access to the survey.") }}{% else %}{{ de_en("Gültig {n} Tage, solange Sie Zugriff auf die Befragung haben.", "Valid for {n} days, as long as you have access to the survey.", n=pretest.days) }}{% endif %} {{ de_en("Ein neues Passwort, „Alle anderen Sitzungen beenden“ oder eine Sperre Ihres Kontos beendet ihn.", "A new password, “End all other sessions” or a block of your account ends it.") }} {{ de_en("Neue Links lassen sich jederzeit erzeugen.", "New links can be created at any time.") }}</p>
   </div>
   {% endif %}
   <form method="get" action="{{ url_for('surveys.field', survey_id=survey.id) }}#pretest" class="row">

@@ -431,7 +431,7 @@ class Config:
     # processes, file locks in uploads/hb/_slots; audit 2026-10-06, P7); more wait
     HB_PARALLEL = int(os.environ.get("HB_PARALLEL", "2"))
     # estimations (HB, latent classes, SEM and panel bootstraps, power simulations) one account may start within
-    # ESTIMATE_WINDOW seconds, counted for all processes (rate_count): one account with many copies of a survey put its
+    # ESTIMATE_WINDOW seconds, counted for all processes (rate_hit, serialised): one account with many copies of a survey put its
     # jobs before everyone else's (audit 2026-10-22, D-04). 0 = no limit
     ESTIMATE_LIMIT = int(os.environ.get("ESTIMATE_LIMIT", "12"))
     ESTIMATE_WINDOW = int(os.environ.get("ESTIMATE_WINDOW", "3600"))

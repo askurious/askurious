@@ -56,3 +56,71 @@ def test_dummy_data_stop_at_dummy_max(app, client, survey):
     assert r.status_code == 400 and "15 Dummy-Teilnahmen" in r.get_json()["error"]
     with app.app_context():
         assert db.session.scalar(db.select(db.func.count(Response.id)).filter_by(survey_id=1, source="dummy")) == 15
+
+
+def _start_as(app, user, claims, monkeypatch, submitted):
+    """jobs.start of a counted kind by `user` in a request, with the marker claim answered by `claims` (a function)."""
+    from flask_login import login_user
+
+    from app import jobs, maxdiff_hb
+
+    monkeypatch.setattr(maxdiff_hb, "claim", claims)
+    if submitted is not None:
+        monkeypatch.setattr(compute, "submit", lambda app_, kind, paths, inp, pool: submitted.append(kind) or True)
+    with app.test_request_context():
+        login_user(db.session.merge(user))
+        return jobs.start(app, "maxdiff_hb", ("r.json", "m.json"), {"key": "k"}, {})
+
+
+def _estimate_counts(app):
+    from app.models import RateHit
+
+    with app.app_context():
+        return db.session.scalar(db.select(db.func.count(RateHit.id)).filter_by(kind="estimate"))
+
+
+def test_a_second_estimation_at_the_same_moment_does_not_take_the_last_place(app, client, monkeypatch):
+    """jobs.start takes the place first, serialised for all processes (limits._take_shared), and a refusal stops the
+    start: of two starts at the same moment with one place left, only one runs."""
+    import pytest
+
+    from app import jobs
+    from app.models import User
+
+    app.config.update(ESTIMATE_LIMIT=1, COMPUTE_URL="https://rechner.example.org", COMPUTE_SECRET="s" * 40)
+    with app.app_context():
+        user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+    submitted = []
+
+    def claim_while_another_starts(paths, inp, pool):
+        # another item of the same account starts between this start's admission and its marker
+        with pytest.raises(jobs.EstimateLimit):
+            _start_as(app, user, lambda *a: True, monkeypatch, None)
+        return True
+
+    assert _start_as(app, user, claim_while_another_starts, monkeypatch, submitted) is True
+    assert submitted == ["maxdiff_hb"]
+    assert _estimate_counts(app) == 1
+
+
+def test_an_estimation_that_does_not_start_gives_its_place_back(app, client, monkeypatch):
+    """A start that finds its run already going (or whose claim fails) leaves the place to the next start."""
+    from app.models import User
+
+    app.config.update(ESTIMATE_LIMIT=1, COMPUTE_URL="https://rechner.example.org", COMPUTE_SECRET="s" * 40)
+    with app.app_context():
+        user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+    submitted = []
+    assert _start_as(app, user, lambda *a: False, monkeypatch, submitted) is False   # one runs already
+    assert _estimate_counts(app) == 0 and submitted == []
+
+    def broken(*a):
+        raise OSError("disk full")
+
+    try:
+        _start_as(app, user, broken, monkeypatch, submitted)
+    except OSError:
+        pass
+    assert _estimate_counts(app) == 0
+    assert _start_as(app, user, lambda *a: True, monkeypatch, submitted) is True
+    assert _estimate_counts(app) == 1 and submitted == ["maxdiff_hb"]

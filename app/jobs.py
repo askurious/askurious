@@ -34,22 +34,28 @@ DEAD_AFTER = 3600  # seconds without a sign of life after which a living process
 def start(app, kind, paths, inp, pool, background=True, name="hb"):
     """Claim the marker and start the estimation: True if started (or computed, background=False), False if one runs
     already."""
-    from app import compute, estimate, maxdiff_hb
+    from app import compute, estimate, limits, maxdiff_hb
 
     user_id = _starter(kind)
     if user_id is not None:
-        from app import limits
-
-        if not limits.allow_estimate(user_id, count=False):
-            raise EstimateLimit()
-    if not maxdiff_hb.claim(paths, inp, pool):  # one run at a time, also for two clicks at once (W-9)
-        return False
-    if user_id is not None:
-        from app import limits
         from app.extensions import db
 
-        limits.allow_estimate(user_id)
-        db.session.commit()  # the count stands even when the request ends without a commit of its own (a fetch)
+        # the place is taken first, in a transaction of its own that waits for every other start of this account
+        # (limits._take_shared): two starts at the same moment no longer both get the last place. The request's own
+        # work is committed before, so that SQLite's write lock of this request does not hold up that transaction
+        db.session.commit()
+        if not limits.allow_estimate(user_id):
+            raise EstimateLimit()
+    try:
+        claimed = maxdiff_hb.claim(paths, inp, pool)  # one run at a time, also for two clicks at once (W-9)
+    except BaseException:
+        if user_id is not None:
+            limits.refund_estimate(user_id)
+        raise
+    if not claimed:
+        if user_id is not None:
+            limits.refund_estimate(user_id)  # one runs already: this click started nothing
+        return False
     run = compute.runner(kind)
     if not background:
         maxdiff_hb._estimate_and_store(app, paths, inp, pool, run)

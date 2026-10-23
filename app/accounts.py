@@ -1156,8 +1156,8 @@ def sign_out_everywhere():
     db.session.commit()
     auth.remember(user, fresh=False, keep_age=True)  # stays signed in; how long ago the sign-in was does not change
     passwords._event("signed_out_everywhere", account=user.id)  # Abgleich 2026-10-15, AU-7
-    flash(de_en("Alle anderen Sitzungen und Datenzugänge sowie offene Einladungs- und Beitrittslinks wurden widerrufen. In diesem Browser bleiben Sie angemeldet.",
-                "All other sessions and data access tokens, pending invitations and join links were revoked. You stay signed in in this browser."), "success")
+    flash(de_en("Alle anderen Sitzungen und Datenzugänge sowie offene Einladungs-, Beitritts- und Pretest-Links wurden widerrufen. In diesem Browser bleiben Sie angemeldet.",
+                "All other sessions and data access tokens, pending invitations, join links and pretest links were revoked. You stay signed in in this browser."), "success")
     account_access.tell(gone)
     return redirect(url_for("accounts.index"))
 
