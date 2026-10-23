@@ -1,10 +1,11 @@
 """The questionnaire page of the editor: pages (blocks) added, changed, moved and deleted."""
-from flask import flash, redirect, render_template, request, url_for
+from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import access, answer_lock, constructs, design, duplicate, item_condition, linked, orgs, shortlist, trash, undo
+from app import (access, answer_lock, constructs, design, duplicate, edit_guard, item_condition, linked, orgs,
+                 shortlist, trash, undo)
 from app.editor.base import (_CANNOT_PLACE, _back, _block_name, _drop_nid, _ensure_content_block, _get_block,
-                             _get_item, _is_consent_block, _lang, _refuse_consent, _require_draft, bp, palette_types)
+                             _get_item, _hold, _is_consent_block, _lang, _refuse_consent, _require_draft, bp, palette_types)
 from app.extensions import db
 from app.lang import de_en
 from app.models import Block
@@ -114,6 +115,7 @@ def add_block(survey_id):
     if _require_draft(survey):
         from app import flow
 
+        _hold(survey)
         step = undo.begin(survey)
         block = Block(position=len(survey.blocks), titles={lang: survey.next_block_title()})
         from app import diary
@@ -134,7 +136,9 @@ def add_block(survey_id):
 @login_required
 def update_block(survey_id, block_id):
     survey = get_survey(survey_id)
-    block = _get_block(survey, block_id)
+    # the block's row held and read anew: a tick saved a moment ago by another member (or another field of this page,
+    # sent at the same time) is kept, not put back by settings read before it
+    block = edit_guard.lock(_get_block(survey, block_id)) or abort(404)
     lang = _lang(survey)
     step, old_name = undo.begin(survey), (block.titles or {}).get(lang, "")
     # The page saves the name and each tick at once and says which one in "changed": only what is named is set.
@@ -206,6 +210,7 @@ def move_block(survey_id, block_id, direction):
     survey = get_survey(survey_id)
     block = _get_block(survey, block_id)
     if _require_draft(survey):
+        block = _get_block(_hold(survey), block_id)
         from app import flow
 
         step = undo.begin(survey)
@@ -232,6 +237,7 @@ def place_block(survey_id, block_id):
     survey = get_survey(survey_id)
     block = _get_block(survey, block_id)
     if _require_draft(survey):
+        block = _get_block(_hold(survey), block_id)
         from sqlalchemy.orm.attributes import flag_modified
 
         from app import flow
@@ -277,6 +283,7 @@ def delete_block(survey_id, block_id):
     if _is_consent_block(block):
         _refuse_consent(survey)
     elif _require_draft(survey):
+        block = _get_block(_hold(survey), block_id)
         answered = answer_lock.answered(survey)
         if any(i.id in answered for i in block.items) and request.form.get(answer_lock.CONFIRM_FIELD) != "1":
             # questions with real answers: only after the dialog that says what follows (audit 2026-10-18, FUNC-05)

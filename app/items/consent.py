@@ -1267,7 +1267,9 @@ def ensure_consent_block(survey, researcher=None):
     config = kind.default_config()
     if researcher is not None and getattr(researcher, "id", None):
         config["researchers"] = user_refs(researcher)  # the account that creates the survey (a User)
-    used = {i.code for b in survey.blocks for i in b.items}
+    from app import edit_guard
+
+    used = edit_guard.taken_codes(survey)  # read under the survey's row
     consent = Item(type="consent", code="consent" if "consent" not in used else "consent_1", config=config,
                    # the standard wordings come in each language when shown (app/item_texts.py, S9)
                    texts=item_texts.new(kind, survey.languages, survey.default_language), answer_mode="required")

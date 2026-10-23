@@ -2,9 +2,9 @@
 from flask import abort, flash, redirect, request, url_for
 from flask_login import current_user, login_required
 
-from app import ai, answer_lock, item_condition, linked, trash, undo
+from app import ai, answer_lock, edit_guard, item_condition, linked, trash, undo
 from app.editor.base import (_admin_step, _back, _block_beside, _consent_admin, _consent_to_flow_start,
-                             _ensure_content_block, _get_block, _get_item, _is_consent_block, _lang, _place,
+                             _ensure_content_block, _get_block, _get_item, _hold, _is_consent_block, _lang, _place,
                              _refuse_consent, _renumber, _require_draft, bp)
 from app.extensions import db
 from app.lang import de_en
@@ -190,6 +190,8 @@ def trash_entry(survey_id, entry_id, action):
         abort(404)
     if not _require_draft(survey):
         return _back(survey, _lang(survey))
+    _hold(survey)  # read anew under the survey's row: names and blocks taken meanwhile are seen
+    entry = next((e for e in survey.trash if e.id == entry_id), None) or abort(404)
     if action == "destroy":
         trash.destroy(survey, entry)
         db.session.commit()
@@ -212,7 +214,7 @@ def trash_entry(survey_id, entry_id, action):
     content = [b for b in survey.blocks if not _is_consent_block(b)]
     if not content:
         abort(400)
-    used = {i.code for b in survey.blocks for i in b.items}
+    used = edit_guard.taken_codes(survey)  # read under the survey's row
     before = len(survey.blocks)
     step = undo.begin(survey)
     item = trash.restore(survey, entry, used, content[0])

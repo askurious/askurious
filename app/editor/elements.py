@@ -7,7 +7,7 @@ from flask_login import current_user, login_required
 from app import answer_lock, constructs, edit_guard, experimental, heavy, item_condition, item_texts, items, linked, undo
 from app.editor.arrange import _draft_consent
 from app.editor.base import (PRESETS, _CONSENT_BLOCK_ONLY, _admin_step, _back, _block_beside, _consent_admin,
-                             _consent_to_flow_start, _embed, _get_block, _get_item, _is_consent_block, _lang,
+                             _consent_to_flow_start, _embed, _get_block, _get_item, _hold, _is_consent_block, _lang,
                              _renumber, _require_draft, _unique_code, bp)
 from app.extensions import db
 from app.items.base import CODE_RE, LEVEL_LABELS, TEXT_MAX, too_long_text
@@ -39,6 +39,9 @@ def add_item(survey_id, block_id):
     lang = _lang(survey)
     if not _require_draft(survey):
         return _back(survey, lang)
+    # the questionnaire read anew under the survey's row: a name, a block or a place in the flow taken a moment ago by
+    # another member is seen
+    block = _get_block(_hold(survey), block_id)
     kind_key = request.form.get("type", "")
     preset = PRESETS.get(kind_key)
     if preset is not None and preset.live_only and survey.live is None:
@@ -85,7 +88,7 @@ def add_item(survey_id, block_id):
         return _back(survey, lang)
     if construct:
         kind_key, base, config, texts = constructs.build(construct, survey.languages, source, survey=survey)
-        used = {i.code for b in survey.blocks for i in b.items}
+        used = edit_guard.taken_codes(survey)
         item = Item(type=kind_key, answer_mode="nudge", config=config, texts=texts,
                     code=base if base not in used else _unique_code(survey, base))
         if item.code != base:  # second copy: keep the variable names of the rows unique
@@ -203,6 +206,13 @@ def edit_item(survey_id, item_id):
             flash(too_long, "error")
             return redirect(url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang, **_embed()))
         key = f"item:{item.id}"
+        # A new variable name changes more than this row: the names of the other questions are checked, the study
+        # plan and the texts that show this answer follow. The survey's row is held first (always survey, then
+        # questions, as undo/redo does), so two renamings run one after the other.
+        renaming = meta_editable and request.form.get("code", "").strip() != item.code
+        if renaming:
+            edit_guard.lock(survey)
+            db.session.expire_all()  # the questionnaire read anew under it (undo's "before", other questions' texts)
         # the row held and read anew before the fingerprint: an overlapping save of the same base waits and then
         # gets a conflict (audit 2026-10-23, S-02)
         item = edit_guard.lock(item) or abort(404)  # deleted meanwhile
@@ -223,7 +233,10 @@ def edit_item(survey_id, item_id):
         step = undo.begin(survey)
         if meta_editable:
             code = request.form.get("code", "").strip()
-            taken = {i.code for b in survey.blocks for i in b.items if i.id != item.id}
+            # read from the database under the survey's row: a name another member gave a question a moment ago is
+            # taken, though this request loaded the questionnaire before
+            taken = (edit_guard.taken_codes(survey, but={item.id}) if code != item.code
+                     else {i.code for b in survey.blocks for i in b.items if i.id != item.id})
             code_problem = None
             if not CODE_RE.match(code):
                 code_problem = de_en("Variablenname: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _.",
@@ -244,14 +257,22 @@ def edit_item(survey_id, item_id):
             elif code != item.code:
                 from app import piping
 
+                if not renaming:  # the name changed under the lock to something else than the form sends
+                    edit_guard.lock(survey)
                 parts = [n for n, _ in item.kind.pipe_parts(item, lang)]
                 old, item.code = item.code, code
                 from app import study_plan
 
-                study_plan.rename_code(survey, old, code)  # a hypothesis keeps its element
-                # texts that show this answer (or one of its values) keep showing it
-                followed = sorted(set(piping.renamed(survey, old, code))
-                                  | set(piping.renamed(survey, parts, [n for n, _ in item.kind.pipe_parts(item, lang)])))
+                if study_plan.rename_code(survey, old, code):  # a hypothesis keeps its element
+                    edit_guard.saved(survey, "settings:plan")  # a plan page opened before gets a conflict naming this
+                # texts that show this answer (or one of its values) keep showing it; their rows are held and read
+                # anew first (piping.renamed), and an editor of them opened before gets a conflict
+                touched = []
+                followed = sorted(set(piping.renamed(survey, old, code, touched))
+                                  | set(piping.renamed(survey, parts, [n for n, _ in item.kind.pipe_parts(item, lang)],
+                                                       touched)))
+                for other_id in sorted(set(touched) - {item.id}):
+                    edit_guard.saved(survey, f"item:{other_id}")
                 if followed:
                     say(de_en("Die Texte von {codes} zeigen die Antwort weiter: Der Baustein folgt dem neuen "
                               "Variablennamen „{code}“.",

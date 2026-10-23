@@ -136,6 +136,49 @@ def lock(obj):
                              .execution_options(populate_existing=True))
 
 
+def hold(obj):
+    """Hold the row of `obj` until commit or rollback like `lock`, without reading it anew: for a part of a request
+    that must not lose what it has changed on the object but not yet stored (a flush inside `no_autoflush`)."""
+    model = type(obj)
+    if obj.id is None:
+        return
+    if db.engine.dialect.name == "sqlite":
+        db.session.execute(db.delete(EditMark).where(db.false()))
+        return
+    db.session.execute(db.select(model.id).where(model.id == obj.id).with_for_update(key_share=True))
+
+
+def taken_codes(survey, but=()):
+    """The variable names the questions of `survey` have, read from the database with the survey's row held until
+    commit: two requests that pick or change a name at the same time (two members renaming two questions, adding
+    two at once) run one after the other, and the later one sees the name the earlier one took, even where its own
+    survey object was loaded before that. Questions of this request not yet stored and names changed
+    here count too. `but`: ids of questions left out (the one being renamed)."""
+    from sqlalchemy import inspect
+
+    from app.models import Block, Item
+
+    but = set(but or ())
+    stored = set()
+    if survey.id is not None:
+        # no flush here: callers build questions and blocks step by step (import, setup wizard); what is not stored
+        # yet is read from the objects below
+        with db.session.no_autoflush:
+            hold(survey)
+            query = (db.select(Item.code, Item.id).join(Block, Item.block_id == Block.id)
+                     .where(Block.survey_id == survey.id))
+            stored = {code for code, iid in db.session.execute(query) if iid not in but}
+    here = set()
+    for block in survey.blocks:
+        for item in block.items:
+            state = inspect(item)
+            if item.id in but and item.id is not None:
+                continue
+            if item.id is None or not state.persistent or state.modified:
+                here.add(item.code)
+    return stored | here
+
+
 def check(survey, key, current, form):
     """Before applying a form: None if it may be saved, else the conflict (also kept in g for the page)."""
     sent = form.get("base")
