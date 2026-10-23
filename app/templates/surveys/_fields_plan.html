@@ -331,6 +331,6 @@
 {% if plan.deviations %}
 <div class="plan-deviations">
   <span class="label-title">{{ de_en("Abweichungen von der Präregistrierung", "Deviations from the pre-registration") }}</span>
-  <ul>{% for d in plan.deviations %}<li>{{ d.at }}: {{ d.what }}{% if d.by %} <span class="hint">({{ d.by }})</span>{% endif %}</li>{% endfor %}</ul>
+  <ul>{% for d in plan.deviations %}<li>{{ d.at }}: {{ d.what }}{% if d.by %} <span class="hint">({{ person_name_of(d.by_id, d.by) }})</span>{% endif %}</li>{% endfor %}</ul>
 </div>
 {% endif %}

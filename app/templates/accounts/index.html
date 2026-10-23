@@ -15,6 +15,7 @@
 
 <section class="panel">
   <h2>{{ de_en("Angaben", "Details") }}</h2>
+  {% set hidden_note = names_own_note(current_user) %}{% if hidden_note %}<p class="flash flash-info"><span>{{ hidden_note }}</span></p>{% endif %}
   {% if current_user.has_orcid %}
   <dl class="account-facts">
     <dt>{{ de_en("Name", "Name") }}</dt><dd>{{ current_user.display_name }} {{ orcid_link(current_user.orcid, full=True, unauth=False) }}{% if current_user.number and current_user.number <= 12 %} <span class="muted">({{ de_en("Kontonummer {n}", "account number {n}", n=current_user.number) }})</span>{% endif %}</dd>

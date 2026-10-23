@@ -135,7 +135,7 @@ def candidates(survey, user):
     out = []
     for m in survey.members:
         if m.role in ("editor", "admin") and m.account is not None and m.account.id != getattr(user, "id", None):
-            out.append((m.account.id, m.account.name or m.name or "?"))
+            out.append((m.account.id, m.account.display_name if m.account.name else (m.name or "?")))
     return out
 
 

@@ -29,7 +29,7 @@ from datetime import date, datetime, timezone
 from urllib.parse import quote
 
 import requests
-from flask import (Blueprint, abort, current_app, flash, redirect, render_template, request, url_for)
+from flask import (Blueprint, abort, current_app, flash, has_request_context, redirect, render_template, request, url_for)
 from flask_login import current_user, login_required
 
 from app import autosave, bounded, secrets_box
@@ -1027,7 +1027,8 @@ def put_parts(uid, parts, client, project, resource, profile, values, person):
     now = to_local(utcnow())
     stamp = f"{now:%Y-%m-%d_%H%M%S}"
     folder = f"askurious/{uid}/{stamp}"
-    entry = {"at": utcnow().isoformat(timespec="seconds"), "shown": f"{now:%d.%m.%Y %H:%M}", "by": person, "folder": folder,
+    entry = {"at": utcnow().isoformat(timespec="seconds"), "shown": f"{now:%d.%m.%Y %H:%M}", "by": person,
+             "by_id": getattr(current_user, "id", None) if has_request_context() else None, "folder": folder,
              "files": [], "project": project.get("displayName") or project.get("name") or "",
              "resource": resource.get("displayName") or resource.get("name") or "", "pid": resource.get("pid") or "",
              # the ids, so the upload can be checked in Coscine later (K2)
@@ -1756,7 +1757,7 @@ def store(survey_id):
             flash(p, "error")
         return render_template("coscine/store.html", fields=shown, ticked=ticked, **view), 400
     try:
-        entry = upload(survey, client, project, resource, profile, values, ticked, current_user.display_name, room=room)
+        entry = upload(survey, client, project, resource, profile, values, ticked, current_user.name or "", room=room)
     except CoscineError as e:
         if isinstance(e, PartialUpload):  # noted, so the block "Coscine" names the incomplete folder
             survey.coscine = {**state, "uploads": ([e.entry] + list(state.get("uploads") or []))[:MAX_UPLOADS]}
@@ -1795,7 +1796,7 @@ def auto(survey_id):
                     "The automatic upload needs a stored Coscine token and a first upload by hand."), "error")
     else:
         # the target goes along: the token of this person writes only where they switched it on (Abgleich 2026-10-15 H2)
-        survey.coscine = {**state, "auto": {"on": True, "user_id": current_user.id, "name": current_user.display_name,
+        survey.coscine = {**state, "auto": {"on": True, "user_id": current_user.id, "name": current_user.name or "",
                                             "project": state.get("project"), "resource": state.get("resource")}
                           if on else {"on": False}}
         db.session.commit()
@@ -2015,7 +2016,7 @@ def publish_page(survey_id):
     except CoscineError as e:
         flash(str(e), "error")
         return render_template("coscine/publish.html", message=message, **view), 502
-    note = {"at": _now_shown(), "by": current_user.display_name, "service": service.get("displayName") or "",
+    note = {"at": _now_shown(), "by": current_user.name or "", "by_id": current_user.id, "service": service.get("displayName") or "",
             "resource": entry.get("resource") or ""}
     survey.coscine = {**state, "publications": ([note] + list(state.get("publications") or []))[:MAX_UPLOADS]}
     db.session.commit()

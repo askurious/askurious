@@ -9,7 +9,7 @@
 <div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
 <section class="panel" id="coscine-check">
   <h2>{{ de_en("Ablage in Coscine prüfen", "Check upload in Coscine") }}</h2>
-  <p class="small"><strong>{{ entry.project }}</strong> › <strong>{{ entry.resource }}</strong> · <code>{{ entry.folder }}</code> · {{ de_en("abgelegt am {d} von {who}", "stored on {d} by {who}", d=entry.shown, who=entry.by) }}</p>
+  <p class="small"><strong>{{ entry.project }}</strong> › <strong>{{ entry.resource }}</strong> · <code>{{ entry.folder }}</code> · {{ de_en("abgelegt am {d} von {who}", "stored on {d} by {who}", d=entry.shown, who=person_name_of(entry.by_id, entry.by)) }}</p>
   {% set bad = rows|selectattr("state", "in", ["missing", "changed"])|list %}
   {% if bad %}
   <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("{n} von {total} Dateien fehlen in Coscine oder weichen ab.", "{n} of {total} files are missing in Coscine or differ.", n=bad|length, total=entry.files|length) }}</span></div>

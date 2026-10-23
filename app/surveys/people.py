@@ -43,7 +43,7 @@ def search_people(q, existing):
         found = orcid_api.lookup(m.group(1))
         if found:
             add(found["orcid"], found["name"], "", "orcid")
-        return results
+        return _aliases(results)
     from app import passwords
 
     if passwords.normal_email(q):
@@ -72,12 +72,29 @@ def search_people(q, existing):
         mine = db.select(SurveyMember.survey_id).filter(SurveyMember.user_id == current_user.id)
         known = db.or_(User.id.in_(orgs.user_ids_in(orgs.searchable_ids(current_user))),
                        User.id.in_(db.select(SurveyMember.user_id).filter(SurveyMember.survey_id.in_(mine))))
+        from app import names
+
         for u in db.session.scalars(db.select(User).filter(User.name.icontains(q, autoescape=True), known, User.pending.is_(False))
                                     .order_by(User.name, User.id).limit(10)):
+            if names.is_hidden(u):
+                continue  # an organisation that hides names: not found by the name (E15, variant A)
             add(people_keys.key_for(u), u.name, orgs.affiliation_of(u), "user")
     if len(q) >= 3:
         for r in orcid_api.search(q):
             add(r["orcid"], r["name"], r["affiliation"], "orcid")
+    return _aliases(results)
+
+
+def _aliases(results):
+    """Names of people whose organisation hides them from the searcher: the alias, also when found by the full iD or
+    in the registry (app/names.py, E23)."""
+    from app import names, people_keys
+
+    for r in results:
+        person = people_keys.account(r["orcid"], create=False) if r.get("orcid") else None
+        org = names.hidden_org(person) if person is not None and not person.pending else None
+        if org is not None:
+            r["name"], r["affiliation"] = names.alias(person, org), ""
     return results
 
 

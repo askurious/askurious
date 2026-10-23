@@ -119,6 +119,19 @@
   {{ pager(invites) }}
 </section>
 {% endif %}
+<section class="panel" id="namen">
+  <h2>{{ de_en("Namen der Mitglieder", "Names of members") }}</h2>
+  {% if org.names_mode == "admins" %}
+  <form method="post" action="{{ url_for('org.names_choice', org_id=org.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="hidden" value="1"{{ " checked" if org.names_hidden_own }}> {{ de_en("Mitglieder sehen einander nicht mit Namen, sondern als „Mitglied 12“", "Members do not see each other by name but as “Member 12”") }}</label>
+    {{ autosave_bar(small=true) }}
+  </form>
+  {% else %}
+  <p>{{ de_en("Von der Plattform festgelegt: {s}.", "Set by the platform: {s}.", s=names_mode_label(org.names_mode or "shown")) }}</p>
+  {% endif %}
+  <p class="muted small">{{ de_en("Verborgen heißt: Mitglieder sehen einander ohne Namen und ORCID iD und finden einander in der Suche nicht über den Namen. Sie als Admins der Organisation, die Admins der Plattform und Gruppenleitungen für ihre Mitglieder sehen die Namen. Teilnehmende sehen die Verantwortlichen einer Befragung weiter mit Namen.", "Hidden means: members see each other without name and ORCID iD and do not find each other by name in the search. You as admins of the organisation, the platform admins and group leads for their members see the names. Participants still see the people responsible for a survey by name.") }}</p>
+</section>
 <section class="panel" id="von-aussen">
   <h2>{{ de_en("Personen von außen", "People from outside") }}</h2>
   {% set floor = platform_scope(org) %}{% set now_scope = scope_of(org) %}

@@ -435,6 +435,7 @@ def _activities():
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
                        "freigegebene Befragungstypen, Nutzertyp mit Beginn und "
                        "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung, "
+                       "Nummer des Kürzels in Organisationen mit verborgenen Namen, "
                        "angeheftete und ausgeblendete Befragungen, "
                        "Bearbeitungsspuren; auf der Warteliste der Anmeldung ORCID iD, Name und freiwillig eine "
                        "E-Mail-Adresse für die Nachricht, dass ein Platz frei ist.",
@@ -442,7 +443,8 @@ def _activities():
                        "sign-in (encrypted), sign-in times, coarse browser label of the sessions, acceptance of the terms "
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "
-                       "and course, invitation link of the registration, pinned and hidden surveys, editing traces; on the waiting list of the "
+                       "and course, invitation link of the registration, number of the label in organisations with hidden "
+                       "names, pinned and hidden surveys, editing traces; on the waiting list of the "
                        "sign-up ORCID iD, name and, optionally, an email address for the notice that a place is free."),
          "recipients": de_en("Admins; ORCID (Anmeldung); Mail-Relay und Slack, wenn eingeschaltet.",
                              "Admins; ORCID (sign-in); mail relay and Slack when switched on."),
@@ -1486,12 +1488,16 @@ def measures():
             (de_en("Organisationen als logische Trennung in einer Datenbank: Gruppen teilen nur innerhalb ihrer "
                    "Organisation, die Personensuche findet nur Personen der eigenen Organisationen und gemeinsamer "
                    "Befragungen; über den Zaun nur die persönliche Einladung in eine Befragung. Je Organisation lässt "
-                   "sich festlegen, dass nur ihre Admins oder nur die Plattform Personen von außen hereinholen. "
+                   "sich festlegen, dass nur ihre Admins oder nur die Plattform Personen von außen hereinholen, und dass "
+                   "sich ihre Mitglieder nur als „Mitglied 12“ sehen (ohne Name und ORCID iD; Namen sehen Admins und "
+                   "Gruppenleitungen, Teilnehmende die Verantwortlichen). "
                    "Plattform-Admins und der Serverbetrieb sehen alle Organisationen",
                    "Organisations as a logical separation in one database: groups share only within their "
                    "organisation, the people search finds only people of one's own organisations and shared surveys; "
                    "across the fence only the personal invitation to a survey. Per organisation it can be set that "
-                   "only its admins or only the platform bring in people from outside. Site admins and server "
+                   "only its admins or only the platform bring in people from outside, and that its members see each other "
+                   "only as “Member 12” (without name and ORCID iD; admins and group leads see names, participants "
+                   "the people responsible). Site admins and server "
                    "operation see all organisations"), "app/orgs.py, app/access.py, app/surveys/people.py"),
             (de_en("Kontaktabschnitt ohne Verbindung zur Teilnahme, ohne Zeitstempel", "Contact section without a link "
                    "to the participation, without a timestamp"), "app/models.py (ContactEntry)"),

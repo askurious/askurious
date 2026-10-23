@@ -10,7 +10,7 @@
   {% if c.uploads %}
   <ul class="plain snapshot-list">
     {% for u in c.uploads[:5] %}
-    <li><strong>{{ u.shown }}</strong> <span class="muted small">{{ u.by }}{% if u.auto %} · {{ de_en("automatisch", "automatic") }}{% endif %}</span>
+    <li><strong>{{ u.shown }}</strong> <span class="muted small">{{ person_name_of(u.by_id, u.by) }}{% if u.auto %} · {{ de_en("automatisch", "automatic") }}{% endif %}</span>
       · {{ u.project }} › {{ u.resource }}{% set h = coscine_handle(u.pid) %}{% if h %} · <a href="{{ h }}" target="_blank" rel="noopener">{{ de_en("Dauerhafter Link (Handle) ↗", "Permanent link (handle) ↗") }}</a>{% endif %}
       {% if u.partial %}
       <br><span class="small">{{ icon("alert", 14) }} {{ de_en("Abgebrochen: nur {n} von {total} Dateien im Ordner", "Stopped: only {n} of {total} files in the folder", n=u.files|length, total=u.planned) }} <code>{{ u.folder }}</code>, {{ de_en("ohne", "without") }} <code>checksums.sha256</code> ({{ de_en("fehlgeschlagen bei", "failed at") }} <code>{{ u.failed }}</code>). {{ de_en("Bitte erneut ablegen; der unvollständige Ordner bleibt in Coscine", "Please store again; the incomplete folder stays in Coscine") }}{% if u.worm %}{{ de_en(" und lässt sich in einer WORM-Ressource nicht entfernen", " and cannot be removed in a WORM resource") }}{% endif %}.</span>
@@ -30,7 +30,7 @@
   {% endif %}
   {% if a.on and a.token %}
   {# the daily check of the token at Coscine (app/coscine.py, check_tokens, K7) #}
-  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{% if a.token.problem == "rejected" %}{{ de_en("Coscine lehnt das Token von {name} ab (widerrufen oder abgelaufen); die automatische Ablage läuft so nicht.", "Coscine rejects the token of {name} (revoked or expired); the automatic upload cannot run like this.", name=a.name or de_en("der Person, die sie eingeschaltet hat", "the person who switched it on")) }}{% else %}{{ de_en("Das Coscine-Token von {name} läuft am {d} ab; danach läuft die automatische Ablage nicht mehr.", "The Coscine token of {name} expires on {d}; after that the automatic upload no longer runs.", name=a.name or de_en("der Person, die sie eingeschaltet hat", "the person who switched it on"), d=coscine_day(a.token.until)|walldt(False)) }}{% endif %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{% if a.token.problem == "rejected" %}{{ de_en("Coscine lehnt das Token von {name} ab (widerrufen oder abgelaufen); die automatische Ablage läuft so nicht.", "Coscine rejects the token of {name} (revoked or expired); the automatic upload cannot run like this.", name=person_name_of(a.user_id, a.name) or de_en("der Person, die sie eingeschaltet hat", "the person who switched it on")) }}{% else %}{{ de_en("Das Coscine-Token von {name} läuft am {d} ab; danach läuft die automatische Ablage nicht mehr.", "The Coscine token of {name} expires on {d}; after that the automatic upload no longer runs.", name=a.name or de_en("der Person, die sie eingeschaltet hat", "the person who switched it on"), d=coscine_day(a.token.until)|walldt(False)) }}{% endif %}
     {{ de_en("Ein neues Token wird unter „Konto“ hinterlegt.", "A new token is added under “Account”.") }}</span></div>
   {% endif %}
   {% if a.on and c.space and c.space.percent >= coscine_space_warn %}

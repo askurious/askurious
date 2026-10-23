@@ -438,7 +438,7 @@ def create_app(config_class=Config, server=False):
 
     app.register_blueprint(groups.bp)
     app.jinja_env.globals.update(groups_in_nav=groups.in_nav, groups_of=groups.of, group_label=groups.label)
-    from app import org_admin, orgs
+    from app import names, org_admin, orgs
 
     app.register_blueprint(org_admin.bp)  # "Verwaltung" of an organisation's admins (stage 3)
     # organisations (app/orgs.py): shown only once there is more than one (A24)
@@ -451,6 +451,9 @@ def create_app(config_class=Config, server=False):
                                  invite_scopes=orgs.SCOPES, invite_scope_label=orgs.scope_label,
                                  platform_scope=orgs.platform_scope, scope_of=orgs.scope_of,
                                  open_from_outside=orgs.open_from_outside,
+                                 names_modes=names.MODES, names_mode_label=names.mode_label, names_hide=names.hides,
+                                 name_hidden=names.is_hidden, orcid_hidden=names.orcid_hidden,
+                                 person_name_of=names.of_id, names_own_note=names.own_note,
                                  org_short=orgs.short_of,
                                  org_logo_for=lambda survey: __import__("app.theme", fromlist=["x"]).org_logo(orgs.of(survey)))
     from app import access as access_rules

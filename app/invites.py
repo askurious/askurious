@@ -170,7 +170,7 @@ def _send(invite, token, by, survey=None, group=None):
                  "Hello,\n\n{who} invites you in Askurious {what}.\n\nAccept with this link (valid for {d} days, once only); "
                  "there you sign in with ORCID or choose a password:\n\n{link}\n\n"
                  "If you do not know the person, ignore this email.",
-                 who=by.display_name, what=what, d=days, link=link)
+                 who=_for_outsider(by), what=what, d=days, link=link)
     reply = _reply_to(by)
     mail.send(email, subject, text + mail.signature(), reply_to=reply)
 
@@ -183,6 +183,20 @@ def _reply_to(user):
 def notices_on(user):
     display = user.display if isinstance(user.display, dict) else {}
     return display.get("mail_notices", True) is not False
+
+
+def _for_outsider(by):
+    from app import names
+
+    return names.for_outsider(by)
+
+
+def _seen_by(by, user):
+    """The name of `by` as the person who gets the mail sees it (app/names.py: "Mitglied 12" in an organisation that
+    hides names)."""
+    from app import names
+
+    return names.shown(by, by.name or "ORCID user", viewer=user)
 
 
 def notice(user, by, survey=None, group=None, role=""):
@@ -208,14 +222,14 @@ def notice(user, by, survey=None, group=None, role=""):
             subject = de_en("Askurious: Sie sind an „{t}“ beteiligt", "Askurious: you are involved in “{t}”", t=survey.title)
             text = de_en("Guten Tag {name},\n\n{who} hat Sie an der Befragung „{t}“ beteiligt (Rolle „{r}“):\n\n{link}",
                          "Hello {name},\n\n{who} has involved you in the survey “{t}” (role “{r}”):\n\n{link}",
-                         name=user.name, who=by.display_name, t=survey.title, r=label,
+                         name=user.name, who=_seen_by(by, user), t=survey.title, r=label,
                          link=base + url_for("surveys.detail", survey_id=survey.id))
         else:
             label = WorkGroupMember.roles().get(role, ("", ""))[0]
             subject = de_en("Askurious: Sie sind in der Gruppe „{t}“", "Askurious: you are in the group “{t}”", t=group.name)
             text = de_en("Guten Tag {name},\n\n{who} hat Sie in die Gruppe „{t}“ aufgenommen (Rolle „{r}“):\n\n{link}",
                          "Hello {name},\n\n{who} has added you to the group “{t}” (role “{r}”):\n\n{link}",
-                         name=user.name, who=by.display_name, t=group.name, r=label,
+                         name=user.name, who=_seen_by(by, user), t=group.name, r=label,
                          link=base + url_for("groups.detail", group_id=group.id))
         text += de_en("\n\nDiese Hinweise schalten Sie auf der Seite „Konto › Anzeige und Sprache“ ab.",
                       "\n\nYou can switch these notices off on the page “Account › Display and language”.") + mail.signature()

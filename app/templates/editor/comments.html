@@ -28,8 +28,8 @@
         <span class="badge comment-status">{{ labels[c.status] }}</span>
       </div>
       <p class="comment-text">{{ c.text }}</p>
-      <p class="hint">{{ c.author or de_en("Testperson", "Tester") }} · {{ de_en("Pretest-Link", "Pretest link") if c.via == "phone" else de_en("Vorschau im Editor", "Preview in the editor") }} · {{ c.created_at|localdt }}
-        {% if c.status != "open" %} · {{ de_en("{status} von {who} am {when}", "{status} by {who} on {when}", status=labels[c.status], who=c.handled_by or "?", when=c.handled_at|localdt) }}{% endif %}</p>
+      <p class="hint">{{ person_name_of(c.author_id, c.author) or de_en("Testperson", "Tester") }} · {{ de_en("Pretest-Link", "Pretest link") if c.via == "phone" else de_en("Vorschau im Editor", "Preview in the editor") }} · {{ c.created_at|localdt }}
+        {% if c.status != "open" %} · {{ de_en("{status} von {who} am {when}", "{status} by {who} on {when}", status=labels[c.status], who=person_name_of(c.handled_by_id, c.handled_by) or "?", when=c.handled_at|localdt) }}{% endif %}</p>
       {% if c.env %}<p class="comment-env">{{ env_label(c.env) }}</p>{% endif %}
       {% if c.note %}<p class="comment-note"><strong>{{ de_en("Notiz:", "Note:") }}</strong> {{ c.note }}</p>{% endif %}
       {% if can_edit %}

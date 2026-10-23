@@ -2044,6 +2044,10 @@ def organisation_action(org_id):
             org.invite_scope = scope
             org.invite_out = scope == "create"  # the former switch, kept in step for code that still reads it
         org.invite_in = request.form.get("invite_in") == "1"
+        from app import names
+
+        if request.form.get("names_mode") in names.MODES:  # names of members among each other (app/names.py)
+            org.names_mode = request.form.get("names_mode")
         org.basis = (request.form.get("basis") or "").strip()[:300]
         db.session.commit()
         security_log.event("organisation_caps", by=current_user.id, target=f"org {org.id}",

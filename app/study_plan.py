@@ -1328,7 +1328,7 @@ def apply(survey, form):
         if changed:
             after["deviations"] = before["deviations"] + [{
                 "at": _today(), "what": ", ".join(changed),
-                "by": getattr(current_user, "display_name", "") or ""}]
+                "by": getattr(current_user, "name", "") or "", "by_id": getattr(current_user, "id", None)}]
     survey.study_plan = after
 
 
@@ -1656,7 +1656,7 @@ def pilot(survey_id):
                                            if which == "safeguard" else de_en("Punktschätzer", "point estimate"))), 300)
         if survey.status != "draft" and _changes(before, plan):
             plan["deviations"].append({"at": _today(), "what": "Erwarteter Effekt aus Vorstudie",
-                                       "by": getattr(current_user, "display_name", "") or ""})
+                                       "by": getattr(current_user, "name", "") or "", "by_id": getattr(current_user, "id", None)})
         survey.study_plan = plan
         db.session.commit()
         flash(de_en("Erwarteten Effekt übernommen.", "Expected effect applied."), "success")
@@ -1692,7 +1692,7 @@ def take_target(survey_id):
                 plan["sample"]["exclusions"] = excl
             if survey.status != "draft" and _changes(before, plan):
                 plan["deviations"].append({"at": _today(), "what": "Stichprobe",
-                                           "by": getattr(current_user, "display_name", "") or ""})
+                                           "by": getattr(current_user, "name", "") or "", "by_id": getattr(current_user, "id", None)})
             survey.study_plan = plan
             db.session.commit()
             flash(de_en("Stichprobenziel {n} in den Studienplan übernommen.",
@@ -1781,7 +1781,7 @@ def assign(survey_id):
     if changed and survey.status != "draft":
         plan["deviations"].append({"at": _today(),
                                    "what": f"Zuordnung von {code} geändert",
-                                   "by": getattr(current_user, "display_name", "") or ""})
+                                   "by": getattr(current_user, "name", "") or "", "by_id": getattr(current_user, "id", None)})
     survey.study_plan = plan
     db.session.commit()
     flash(de_en("Zuordnung gespeichert.", "Assignment saved."), "success")

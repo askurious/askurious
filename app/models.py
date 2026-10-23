@@ -175,7 +175,11 @@ class User(UserMixin, db.Model):
 
     @property
     def display_name(self):
-        return self.name or "ORCID user"
+        """The name the signed-in person sees: "Mitglied 12" when this person's organisation hides names
+        (app/names.py)."""
+        from app import names
+
+        return names.shown(self, self.name or "ORCID user")
 
     @property
     def experimental(self):
@@ -614,6 +618,10 @@ class Organisation(db.Model):
     # None = "create". invite_scope by site admins, invite_scope_own by the organisation's admins, only stricter
     invite_scope: Mapped[str | None] = mapped_column(String(10))
     invite_scope_own: Mapped[str | None] = mapped_column(String(10))
+    # whether members see each other's names (app/names.py; migration 0099): "shown" | "hidden" | "admins" (its admins
+    # decide with names_hidden_own); None = "shown"
+    names_mode: Mapped[str | None] = mapped_column(String(10))
+    names_hidden_own: Mapped[bool | None]
     basis: Mapped[str] = mapped_column(String(300), default="")  # contract or legal basis, site admins only
     default_type_id: Mapped[int | None] = mapped_column(ForeignKey("account_type.id", ondelete="SET NULL"), index=True)
     # the user types its admins may give (ids of AccountType); None = all that are not hidden (A16, migration 0072)
@@ -632,6 +640,21 @@ class Organisation(db.Model):
 
     members: Mapped[list["OrganisationMember"]] = relationship(
         back_populates="org", cascade="all, delete-orphan", order_by="(OrganisationMember.role, OrganisationMember.id)")
+
+
+class OrgAlias(db.Model):
+    """The number a person has in an organisation that hides names (app/names.py, E16): shown as "Mitglied 12" to
+    other members, given once and kept. No foreign keys, like group_join_link: the rows go in code with the account
+    (accounts.delete) and the organisation (orgs.delete)."""
+
+    __tablename__ = "org_alias"
+    __table_args__ = (UniqueConstraint("org_id", "user_id", name="uq_org_alias_person"),
+                      UniqueConstraint("org_id", "number", name="uq_org_alias_number"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    org_id: Mapped[int] = mapped_column(index=True)
+    user_id: Mapped[int] = mapped_column(index=True)
+    number: Mapped[int]
 
 
 class PersonRow:
@@ -668,9 +691,14 @@ class PersonRow:
 
     @property
     def orcid_id(self):
-        """The person's ORCID iD for links and exports, or None (an account without ORCID, a deleted account)."""
+        """The person's ORCID iD for links and exports, or None (an account without ORCID, a deleted account, or a
+        person whose organisation hides names from the viewer, app/names.py)."""
         user = self.user
-        return user.orcid if user is not None and user.has_orcid else None
+        if user is None or not user.has_orcid:
+            return None
+        from app import names
+
+        return None if names.is_hidden(user) else user.orcid
 
 
 class OrganisationMember(PersonRow, db.Model):
@@ -1285,7 +1313,12 @@ class WorkGroupMember(PersonRow, db.Model):
 
     @property
     def display_name(self):
-        return (self.user and self.user.name) or self.name or "ORCID user"
+        real = (self.user and self.user.name) or self.name or "ORCID user"
+        if self.user is None:
+            return real
+        from app import names
+
+        return names.shown(self.user, real)
 
 
 class ConstructShare(PersonRow, db.Model):
@@ -1447,7 +1480,12 @@ class SurveyMember(PersonRow, db.Model):
 
     @property
     def display_name(self):
-        return (self.user and self.user.name) or self.name or "ORCID user"
+        real = (self.user and self.user.name) or self.name or "ORCID user"
+        if self.user is None:
+            return real
+        from app import names
+
+        return names.shown(self.user, real)
 
     @property
     def is_former(self):

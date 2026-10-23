@@ -50,6 +50,15 @@ def _files(survey, lang="de"):
 
 
 def freeze(survey, lang=None, pending=False):
+    """_freeze with the real names of the people responsible: the snapshot records what participants were shown
+    (app/names.py, E21)."""
+    from app import names
+
+    with names.real():
+        return _freeze(survey, lang, pending)
+
+
+def _freeze(survey, lang=None, pending=False):
     """Write the snapshot of the survey's current version. Returns its name, or None if it could not be
     written: the start of the fieldwork does not fail over it (the error is logged). lang: the language of its
     readable texts ("de" or "en"; default: that of the person starting, German outside a request).

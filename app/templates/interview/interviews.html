@@ -132,7 +132,7 @@
     {% for a in accesses %}{% set state_ = access_state(a) %}
     <tr>
       <td><strong>{{ a.name }}</strong>{% if not a.may_record %} <span class="badge">{{ de_en("ohne Aufnahme", "no recording") }}</span>{% endif %}{% if not a.may_transcribe %} <span class="badge">{{ de_en("ohne Transkript", "no transcript") }}</span>{% endif %}
-        <div class="muted small">{{ de_en("angelegt von {by}", "created by {by}", by=a.created_by_name or "–") }}</div></td>
+        <div class="muted small">{{ de_en("angelegt von {by}", "created by {by}", by=person_name_of(a.created_by_id, a.created_by_name) or "–") }}</div></td>
       <td>{% if state_ == "blocked" %}<span class="danger-text">{{ de_en("gesperrt", "blocked") }}</span>{% elif state_ == "expired" %}<span class="danger-text">{{ de_en("abgelaufen", "expired") }}</span>{% elif state_ == "invited" %}{{ de_en("noch nicht geöffnet", "not opened yet") }}{% else %}{{ de_en("aktiv", "active") }}{% endif %}</td>
       <td>{{ a.expires_at|localdt(false) }}</td>
       <td>{{ (a.devices or [])|length }} / {{ a.max_devices }}{% for d in (a.devices or []) %}<div class="muted small">{{ d.kind }}</div>{% endfor %}</td>
