@@ -1,0 +1,45 @@
+{# Video / audio stimulus (items/stimulus.py). Without JavaScript the browser's own player shows and no log is sent
+   (the field stays empty). participant.js [data-media] hides the browser's controls, puts its own bar under the
+   player (play/pause, time, a seek bar as far as the rules allow, sound, captions, full screen) and writes the log
+   into the hidden field. Captions lie in a <template> as text and go to <track> through a blob. #}
+{% set key = kind.key_for(item, asset_vars if asset_vars is defined else variables) %}
+{# a file taken off in the editor ("Datei entfernen") has no entry in config "files" any more: not shown #}
+{% set asset = (item.assets|selectattr("key", "equalto", key)|selectattr("status", "equalto", "approved")|first) if kind.info(item, key) else none %}
+{% set info = kind.info(item, key) or {} %}
+{% set video = kind.kind_of(item, key) == "video" %}
+{% set secs = (info.seconds or 0)|int %}
+{% set captions = item.text("captions", lang) %}
+{% set transcript = item.text("transcript", lang) %}
+<div class="p-media{% if not video %} is-audio{% endif %}" data-media data-seek="{{ kind.seek(item) }}" data-dur="{{ info.seconds or 0 }}">
+  {% include "items/_question.html" %}
+  {% if asset %}
+  <p class="p-hint" id="mh{{ item.id }}">{% if video %}{{ ui("Video, {t} Minuten. Bitte schalten Sie den Ton ein.", "Video, {t} minutes. Please turn the sound on.", t="%d:%02d"|format(secs // 60, secs % 60)) }}{% else %}{{ ui("Tonaufnahme, {t} Minuten. Bitte schalten Sie den Ton ein.", "Audio recording, {t} minutes. Please turn the sound on.", t="%d:%02d"|format(secs // 60, secs % 60)) }}{% endif %}</p>
+  {% set src = url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) %}
+  {% if video %}
+  <video width="640" height="360" class="p-media-el" src="{{ src }}" preload="metadata" playsinline controls controlslist="nodownload noplaybackrate" disablepictureinpicture data-media-el aria-describedby="mh{{ item.id }}"></video>
+  {% else %}
+  <audio class="p-media-el" src="{{ src }}" preload="metadata" controls controlslist="nodownload noplaybackrate" data-media-el aria-describedby="mh{{ item.id }}"></audio>
+  {% endif %}
+  {% if captions %}<template data-media-vtt>{{ captions }}</template>{% endif %}
+  <div class="p-media-bar" data-media-bar hidden>
+    <button type="button" class="p-media-play" data-media-play>{{ ui("Abspielen", "Play") }}</button>
+    <input type="range" class="p-range p-media-seek" min="0" max="{{ info.seconds or 0 }}" step="0.1" value="0" data-media-seek aria-label="{{ ui('Stelle', 'Position') }}">
+    <span class="p-media-time" data-media-time aria-hidden="true">0:00 / {{ "%d:%02d"|format(secs // 60, secs % 60) }}</span>
+    <button type="button" class="p-media-small" data-media-mute aria-pressed="false">{{ ui("Ton aus", "Mute") }}</button>
+    {% if captions and video %}<button type="button" class="p-media-small" data-media-cc aria-pressed="false">{{ ui("Untertitel", "Captions") }}</button>{% endif %}
+    {% if video %}<button type="button" class="p-media-small" data-media-full>{{ ui("Vollbild", "Full screen") }}</button>{% endif %}
+  </div>
+  <p class="p-hint" data-media-error hidden>{{ ui("Die Datei lässt sich auf diesem Gerät nicht abspielen. Sie können trotzdem weitergehen.", "The file cannot be played on this device. You can go on anyway.") }}</p>
+  <span class="p-sr-only" role="status" data-media-status></span>
+  <input type="hidden" name="i{{ item.id }}" value="" data-media-log>
+  {% if key %}<input type="hidden" name="i{{ item.id }}_key" value="{{ key }}">{% endif %}
+  {% else %}
+  <div class="p-image-missing">{{ ui("Datei fehlt", "File missing") }}</div>
+  {% endif %}
+  {% if transcript %}
+  <details class="p-media-transcript">
+    <summary>{{ ui("Textfassung", "Transcript") }}</summary>
+    <div{{ text_attrs(item, "transcript") }}>{% for line in transcript.split("\n") %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+  </details>
+  {% endif %}
+</div>

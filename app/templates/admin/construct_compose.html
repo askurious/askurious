@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "_icons.html" import icon %}
+{# Needs: choices [(construct, closed, n)], keys, f (construct_compose.filters), data (construct_compose.build or None), languages. #}
+{% block title %}{{ de_en("Zusammenstellung", "Compilation") }} · {{ de_en("Konstrukte", "Constructs") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "constructs" %}{% include "admin/_tabs.html" %}
+<a class="back-link" href="{{ url_for('admin.construct_pool') }}">{{ icon("back", 16) }} {{ de_en("Konstrukte", "Constructs") }}</a>
+<section class="panel" id="zusammenstellung">
+  <h2>{{ de_en("Zusammenstellung für eine Metaanalyse", "Compilation for a meta-analysis") }} <span class="hint">{{ de_en("Nutzungsbedingungen, Abschnitt 4", "terms of use, section 4") }}</span></h2>
+  <p class="muted small">{{ de_en("Mehrere Konstrukte als ein Datensatz: eine Zeile je Teilnahme, je Konstrukt seine Items als Spalten. Befragungen und Teilnahmen tragen dieselben
+    Pseudonyme wie in den gepoolten Dateien je Konstrukt. Einbezogen werden abgeschlossene echte Teilnahmen geschlossener Befragungen, ohne die Qualitätssicherung der einzelnen Befragung.",
+    "Several constructs as one data set: one row per participation, per construct its items as columns. Surveys and participations carry the same
+    pseudonyms as in the pooled files per construct. Completed real participations of closed surveys are included, without the quality assurance of the single survey.") }}</p>
+  {% if not choices %}<p class="muted">{{ de_en("Noch hat keine abgeschlossene Befragung ein validiertes Konstrukt.", "No closed survey has a validated construct yet.") }}</p>{% else %}
+  <form method="get" class="stack">
+    <fieldset class="compose-constructs"><legend class="label-title">{{ de_en("Konstrukte", "Constructs") }}</legend>
+      {% for c, closed, n in choices %}
+      <label class="check"><input type="checkbox" name="k" value="{{ c.key }}" {% if c.key in keys %}checked{% endif %}> {{ c.name }}
+        <span class="hint">{{ closed }} {{ de_en("Befragung", "survey") if closed == 1 else de_en("Befragungen", "surveys") }}, {{ de_en("{n} Teilnahmen", "{n} participations", n=n) }}</span></label>
+      {% endfor %}
+    </fieldset>
+    <div class="row-fields">
+      <fieldset><legend class="label-title">{{ de_en("Sprachen", "Languages") }}</legend>
+        {% for lang in languages %}<label class="check"><input type="checkbox" name="lang" value="{{ lang }}" {% if lang in f.langs %}checked{% endif %}> {{ lang|upper }}</label>{% endfor %}
+        <span class="hint">{{ de_en("keine angekreuzt: alle", "none ticked: all") }}</span></fieldset>
+      <label>{{ de_en("Fassung", "Revision") }}
+        <select name="fassung"><option value="alle">{{ de_en("alle Fassungen", "all revisions") }}</option><option value="aktuell" {% if f.current %}selected{% endif %}>{{ de_en("nur die aktuelle", "only the current one") }}</option></select></label>
+      <label>{{ de_en("Angepasste Verwendungen", "Adapted uses") }}
+        <select name="angepasst"><option value="ja">{{ de_en("einbeziehen", "include") }}</option><option value="nein" {% if f.plain %}selected{% endif %}>{{ de_en("weglassen", "leave out") }}</option></select></label>
+      <label>{{ de_en("von Monat", "from month") }} <input type="month" name="von" value="{{ f.since }}"></label>
+      <label>{{ de_en("bis Monat", "to month") }} <input type="month" name="bis" value="{{ f.until }}"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="vollstaendig" value="1" {% if f.complete %}checked{% endif %}> {{ de_en("nur Teilnahmen, die alle gewählten Konstrukte haben", "only participations that have all chosen constructs") }}</label>
+    <div class="form-actions"><button class="button button-secondary">{{ de_en("Zusammenstellen", "Compile") }}</button></div>
+  </form>
+  {% endif %}
+</section>
+
+{% if data %}
+<section class="panel" id="ergebnis">
+  <h2>{% if data.studies|length == 1 %}{{ de_en("{n} Teilnahmen aus {k} Befragung", "{n} participations from {k} survey", n=data.rows|length, k=data.studies|length) }}{% else %}{{ de_en("{n} Teilnahmen aus {k} Befragungen", "{n} participations from {k} surveys", n=data.rows|length, k=data.studies|length) }}{% endif %}</h2>
+  {% if data.rows %}
+  {% call list_table("construct-pool-table") %}
+    <thead><tr><th>{{ de_en("Befragung", "Survey") }}</th>{% for c in data.constructs %}<th class="num">{{ c.key }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for sid, n in data.studies %}<tr><td>{{ sid }}</td>{% for c in data.constructs %}<td class="num">{{ n.get(c.key, 0) }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody>
+  {% endcall %}
+  <p class="muted small">{{ de_en("{n} Spalten. Die ZIP-Datei enthält die Daten als CSV, .sav (SPSS, JASP), .omv (jamovi) und .rds (R), ein Codebuch, die Quellen als BibTeX und ein README mit Filtern und dieser Tabelle.", "{n} columns. The ZIP file contains the data as CSV, .sav (SPSS, JASP), .omv (jamovi) and .rds (R), a codebook, the sources as BibTeX and a README with the filters and this table.", n=data.header|length) }}</p>
+  <p class="form-actions"><a class="button" href="{{ url_for('admin.construct_compose_file') }}?{{ request.query_string.decode() }}">{{ icon("download", 16) }} {{ de_en("Herunterladen (ZIP)", "Download (ZIP)") }}</a></p>
+  {% else %}<p class="muted">{{ de_en("Mit diesen Filtern kommt keine Teilnahme zusammen.", "These filters bring together no participation.") }}</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

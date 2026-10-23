@@ -1,0 +1,13 @@
+{# Open invitations by e-mail of a survey or a group (app/invites.py), with "zurückziehen". Needs: invites, roles. #}
+{% from "_macros.html" import csrf %}
+{% if invites %}
+<h3>{{ de_en("Offene Einladungen per E-Mail", "Open invitations by email") }}</h3>
+<ul class="plain member-list">
+  {% for i in invites %}
+  <li>{{ i.email }} <span class="badge role-badge">{{ roles[i.role][0] if i.role in roles else i.role }}</span>
+    <span class="muted small">{{ de_en("gilt bis {d}", "valid until {d}", d=i.expires_at|localdt) }}</span>
+    <form class="inline" method="post" action="{{ url_for('invites.withdraw', invite_id=i.id) }}">{{ csrf() }}
+      <button class="button button-small button-secondary">{{ de_en("Zurückziehen", "Withdraw") }}</button></form></li>
+  {% endfor %}
+</ul>
+{% endif %}

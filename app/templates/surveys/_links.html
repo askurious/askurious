@@ -1,0 +1,258 @@
+{# The block "Teilnahmelink" of "Datenerhebung" in three parts (Ralf, 2026-10-08: rethink, restructure, drop what is
+   said twice): the link to hand out (with language, QR code and short name), the links per value with their counts
+   and tools, and what a panel needs (parameters, completion links, rules, signing; _panel_form.html). Needs: survey,
+   participant_url, groups, panel_link (None without URL parameters), value_links (links per allowed value of
+   parameters that are not stored, so not counted), panel, panel_cfg and what surveys._rule_conditions gives. #}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{% set is_admin = survey.role_of(current_user) == "admin" %}
+{# whom the links per person are for and which look conspicuous: from "Bearbeiten" up (security audit R3, Ralf
+   2026-10-09); "Ansehen" sees links and counts only, surveys.sees_link_names #}
+{% set sees_names = survey.can(current_user, "editor") %}
+<details class="panel settings-group link-panel" id="links" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Teilnahmelink", "Participation link") }}</h2><span class="settings-sum">{{ de_en("ein Link für alle oder eigene Links je Person oder Gruppe", "one link for everyone or own links per person or group") }}</span></summary>
+  <div class="settings-body">
+
+  {# 1. the link to hand out: one row; a language fixes ?lang= in the link and the QR code (was a table of its own) #}
+  <h3 class="links-head links-head-first">{{ de_en("Ein Link für alle", "One link for everyone") }}</h3>
+  <div class="copy-row">
+    <input value="{{ participant_url }}" readonly id="field-url" aria-label="{{ de_en('Teilnahmelink', 'Participation link') }}" data-select-all data-base="{{ participant_url }}">
+    {% if survey.languages|length > 1 %}
+    <select data-link-lang aria-label="{{ de_en('Sprache des Links', 'Language of the link') }}">
+      <option value="">{{ de_en("Sprache automatisch", "Language automatic") }}</option>
+      {% for code in survey.languages %}<option value="{{ code }}">{{ language_names.get(code, code) }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <button type="button" class="button button-secondary" data-copy="#field-url">{{ de_en("Kopieren", "Copy") }}</button>
+    {% if survey.status == "running" %}<a class="button button-secondary" href="{{ participant_url }}" target="_blank" rel="noopener" data-link-open>{{ de_en("Öffnen ↗", "Open ↗") }}</a>{% endif %}
+    <a class="button button-secondary" href="{{ url_for('surveys.qr_page', survey_id=survey.id) }}" target="_blank" rel="noopener" data-link-qr>QR-Code ↗</a>
+  </div>
+  <p class="muted small">{% if survey.status != "running" and survey.start_at %}{{ de_en("Bis zum geplanten Start zeigt der Link nur, wann die Befragung beginnt; zum Testen die Vorschau nutzen.", "Until the scheduled start the link only shows when the survey begins; for testing, use the preview.") }}{% elif survey.status != "running" %}{{ de_en("Derzeit zeigt der Link „Diese Befragung ist derzeit nicht geöffnet“; zum Testen die Vorschau nutzen.", "For now the link shows “This survey is not open at the moment”; for testing, use the preview.") }}{% else %}{{ de_en("Eigene Testdurchläufe über diesen Link zählen als echte Teilnahmen; zum Testen die Vorschau nutzen.", "Your own test runs through this link count as real participations; for testing, use the preview.") }}{% endif %}
+    {% if survey.languages|length > 1 %}{{ de_en("„Sprache automatisch“ folgt dem Browser", "“Language automatic” follows the browser") }}{% if survey.language_choice %}{{ de_en(", danach wählbar oben auf jeder Seite.", ", then selectable at the top of every page.") }}{% else %}{{ de_en("; Teilnehmende können sie nicht umstellen.", "; participants cannot change it.") }}{% endif %}{% endif %}</p>
+  {% if survey.label %}{% include "surveys/_label.html" %}
+  {% elif is_admin %}
+  <details class="settings-fold link-fold"><summary>{{ de_en("Kurzname im Link", "Short name in the link") }} <span class="hint">{{ de_en("optional, z. B.", "optional, e.g.") }} <code>/s/mensa-studie</code></span></summary>
+  {% include "surveys/_label.html" %}
+  </details>
+  {% endif %}
+
+  {# 2. own links for persons or groups (Ralf, 2026-10-08: "Links je Wert, Links je Person ist immer noch recht wenig
+     intuitiv"): said in the words of the people who use it, not of the technique (parameter, value). Behind it: a
+     stored URL parameter with allowed values (panel.add_values), names only here (panel.value_labels), counted
+     (panel.group_counts); parameters that are not stored come in the same table, without counts. #}
+  {% if groups or value_links or is_admin %}
+  {% set with_board = value_shares is defined and value_shares %}
+  {% set has_links = groups or value_links %}
+  {% set stored = panel_cfg.params|selectattr("mode", "equalto", "store")|list %}
+  {% set own_param = groups[0].name if groups else (stored[0].name if stored else "w") %}
+  {% macro add_form(first) %}
+  <form method="post" action="{{ url_for('surveys.add_value_links', survey_id=survey.id) }}" class="stack value-links-add-form">
+    {{ csrf() }}
+    <div class="row-fields value-links-add-fields">
+      <label class="grow-2">{{ de_en("Für wen?", "For whom?") }} <span class="hint">{{ de_en("ein Name je Zeile, z. B. aus einer Tabelle kopiert; jede Zeile ergibt einen Link", "one name per line, e.g. copied from a spreadsheet; each line gives one link") }}</span>
+        <textarea name="names" rows="{{ 5 if first else 3 }}" placeholder="{{ de_en('Anna Muster\nBen Beispiel\nKurs Biologie', 'Anna Example\nBen Sample\nBiology course') }}"></textarea></label>
+      <label>{{ de_en("oder nur eine Anzahl", "or just a number") }} <span class="hint">{{ de_en("Namen später eintragen", "add names later") }}</span>
+        <input type="number" name="count" min="1" max="{{ panel.MAX_ALLOWED }}"></label>
+    </div>
+    <details class="hint-more"><summary>{{ de_en("Name im Link", "Name in the link") }}</summary>
+      <label class="hint">{{ de_en("Jeder Link bekommt einen zufälligen Code, z. B.", "Each link gets a random code, e.g.") }} <code>…?{{ own_param }}=k7mp2q</code>{{ de_en(". Den Namen vor dem Gleichheitszeichen nur ändern, wenn er mit etwas anderem kollidiert:", ". Only change the name before the equals sign if it clashes with something else:") }}
+        <input name="param" value="{{ own_param }}" class="loop-colname" maxlength="41" required aria-label="{{ de_en('Name im Link', 'Name in the link') }}"></label>
+    </details>
+    {# Ralf, 2026-10-09: on request a dashboard with only the number of own participations, the same one at every run #}
+    {% set own_board = value_board(survey, own_param) if value_board is defined else none %}
+    <label class="check"><input type="checkbox" name="board" value="1" {% if own_board %}checked{% endif %}> {{ de_en("Für jede Person einen Dashboard-Link anlegen", "Create a dashboard link for each person") }}
+      <span class="hint">{% if own_board %}{{ de_en("zum Dashboard „{b}“ vom ersten Mal", "to the dashboard “{b}” from the first time", b=own_board.name) }}{% else %}{{ de_en("ein neues Dashboard, das nur die Zahl der eigenen Teilnahmen zeigt; beim nächsten Mal wird es wieder genutzt", "a new dashboard that shows only the number of own participations; it is used again next time") }}{% endif %}{% if not first %}{{ de_en("; ohne neue Namen ergänzt es nur die fehlenden Dashboard-Links", "; without new names it only adds the missing dashboard links") }}{% endif %}</span></label>
+    <div class="form-actions"><button class="button{{ '' if first else ' button-secondary' }}">{{ de_en("Links anlegen", "Create links") }}</button></div>
+  </form>
+  {% endmacro %}
+  <details class="settings-fold link-part" id="value-links" {% if has_links %}open{% endif %}>
+  <summary><h3 class="links-head">{{ de_en("Eigene Links für Personen oder Gruppen", "Own links for people or groups") }}</h3> <span class="hint">{% if has_links %}{{ de_en("{n} Links", "{n} links", n=groups|rejectattr("rest")|list|length + value_links|length) }}{% else %}{{ de_en("z. B. ein Link je Studierender, Kurs oder Standort, um zu sehen, wie viele über jeden Link teilnehmen", "e.g. one link per student, course or location, to see how many take part through each link") }}{% endif %}</span></summary>
+  {% if has_links %}
+  <form method="post" action="{{ url_for('surveys.remove_value_link', survey_id=survey.id) }}" id="value-remove">{{ csrf() }}</form>
+  <form method="post" action="{{ url_for('surveys.name_value_links', survey_id=survey.id) }}" data-autosave-form><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+  {{ csrf() }}
+  <div class="res-scroll">
+  <table class="group-links value-links" data-value-usable="{{ url_for('surveys.value_links_usable', survey_id=survey.id) }}">
+    <thead>
+      <tr><th rowspan="2">{{ de_en("Für", "For") }} <span class="hint">{% if sees_names %}{{ de_en("sehen nur „Bearbeiten“ und „Admin“", "only “Edit” and “Admin” see this") }}{% else %}{{ de_en("Namen ab der Rolle „Bearbeiten“", "names from the role “Edit”") }}{% endif %}</span></th><th rowspan="2">Link{% if not sees_names %} <span class="hint">{{ de_en("ab der Rolle „Bearbeiten“", "from the role “Edit”") }}</span>{% endif %}</th><th rowspan="2"></th>
+        <th colspan="3" class="center value-count-head">{{ de_en("Teilnahmen über diesen Link", "Participations through this link") }}</th>
+        {# the person's own dashboard link, to copy as the participation link (UI/UX audit 2026-10-09, X57, S19) #}
+        {% if with_board %}<th rowspan="2">{{ de_en("Ihr Stand", "Their status") }} <span class="hint">{{ de_en("Link für die Person: Zeigt ihr nur die Teilnahmen über ihren Link", "link for the person: shows them only the participations through their link") }}</span></th>{% endif %}
+        {% if is_admin %}<th rowspan="2"><span class="visually-hidden">{{ de_en("entfernen", "remove") }}</span></th>{% endif %}</tr>
+      <tr><th class="num" title="{{ de_en('echte Teilnahmen, auch abgebrochene', 'real participations, also broken-off ones') }}">{{ de_en("begonnen", "started") }}</th><th class="num">{{ de_en("abgeschlossen", "completed") }}</th><th class="num" title="{{ de_en('abgeschlossen und nicht von der Qualitätssicherung markiert', 'completed and not marked by quality assurance') }}">{{ de_en("verwertbar", "usable") }}</th></tr>
+    </thead>
+    <tbody>
+    {% for row in groups %}
+      {% if row.rest %}
+      <tr class="value-rest"><td class="muted" colspan="3">{{ de_en("über den Link für alle (ohne eigenen Link)", "through the link for everyone (without their own link)") }}</td>
+        <td class="num">{{ row.started }}</td><td class="num">{{ row.completed }}</td><td class="num" data-usable="{{ row.key }}">…</td>
+        {% if with_board %}<td></td>{% endif %}{% if is_admin %}<td></td>{% endif %}</tr>
+      {% else %}
+      {% set url = links.participant_url(survey, [(row.name, row.value)]) %}
+      <tr><td><div class="value-for">{% if is_admin %}<input name="label:{{ row.name }}:{{ row.value }}" value="{{ row.label }}" maxlength="100" class="value-label" placeholder="{{ de_en('Name eintragen', 'Enter a name') }}" aria-label="{{ de_en('Für wen ist der Link {v}?', 'Whom is the link {v} for?', v=row.value) }}">{% else %}{{ (row.label if sees_names else "") or "–" }}{% endif %}
+          {% if sees_names %}<span class="value-flag" data-flag="{{ row.key }}" role="img" hidden>{{ de_en("auffällig", "conspicuous") }}</span>{% endif %}</div></td>
+        {# the links per value only from "Bearbeiten" up: whoever only views sees the counts (Abgleich 2026-10-15 B-2) #}
+        {% if sees_names %}<td><div class="value-link-copy"><input value="{{ url }}" readonly data-select-all id="vl-{{ loop.index }}" aria-label="{{ de_en('Link für {v}', 'Link for {v}', v=row.label or row.value) }}"><button type="button" class="button button-small button-secondary" data-copy="#vl-{{ loop.index }}">{{ de_en("Kopieren", "Copy") }}</button></div></td>
+        <td class="nowrap"><a class="small" href="{{ url_for('surveys.qr_page', survey_id=survey.id, name=row.name, value=row.value) }}" target="_blank" rel="noopener">QR-Code ↗</a></td>
+        {% else %}<td class="muted">–</td><td></td>{% endif %}
+        <td class="num">{{ row.started }}</td><td class="num">{{ row.completed }}</td><td class="num" data-usable="{{ row.key }}">…</td>
+        {% if with_board %}<td>{% set board_url = value_shares.get((row.name, row.value)) %}{% if board_url %}<div class="value-link-copy"><input value="{{ board_url }}" readonly data-select-all id="vb-{{ loop.index }}" aria-label="{{ de_en('Stand-Link für {v}', 'Status link for {v}', v=row.label or row.value) }}"><button type="button" class="button button-small button-secondary" data-copy="#vb-{{ loop.index }}">{{ de_en("Kopieren", "Copy") }}</button></div>
+          <a class="small" href="{{ board_url }}" target="_blank" rel="noopener">{{ de_en("öffnen ↗", "open ↗") }}</a>{% endif %}</td>{% endif %}
+        {% if is_admin %}<td><button class="icon-btn danger" form="value-remove" name="remove" value="{{ row.name }}:{{ row.value }}" title="{{ de_en('Link entfernen', 'Remove link') }}" aria-label="{{ de_en('Link für {v} entfernen', 'Remove the link for {v}', v=row.label or row.value) }}">{{ icon("x", 16) }}</button></td>{% endif %}</tr>
+      {% endif %}
+    {% endfor %}
+    {% set labels = panel.value_labels(survey) if sees_names else {} %}
+    {% for name, value, url in value_links %}
+      {% set label = labels.get(name, {}).get(value, "") %}
+      <tr><td>{% if is_admin %}<input name="label:{{ name }}:{{ value }}" value="{{ label }}" maxlength="100" class="value-label" placeholder="{{ de_en('Name eintragen', 'Enter a name') }}" aria-label="{{ de_en('Für wen ist der Link {v}?', 'Whom is the link {v} for?', v=value) }}">{% else %}{{ label or "–" }}{% endif %}</td>
+        {% if sees_names %}<td><div class="value-link-copy"><input value="{{ url }}" readonly data-select-all id="vn-{{ loop.index }}" aria-label="{{ de_en('Link für {v}', 'Link for {v}', v=label or value) }}"><button type="button" class="button button-small button-secondary" data-copy="#vn-{{ loop.index }}">{{ de_en("Kopieren", "Copy") }}</button></div></td>
+        <td class="nowrap"><a class="small" href="{{ url_for('surveys.qr_page', survey_id=survey.id, name=name, value=value) }}" target="_blank" rel="noopener">QR-Code ↗</a></td>
+        {% else %}<td class="muted">–</td><td></td>{% endif %}
+        <td class="num muted" colspan="3" title="{{ de_en('Unter „Panel-Anbindung“ steht dieser Parameter auf „nicht speichern“; daher wird nicht gezählt.', 'Under “Panel connection” this parameter is set to “do not store”; so nothing is counted.') }}">{{ de_en("nicht gezählt", "not counted") }}</td>
+        {% if with_board %}<td></td>{% endif %}{% if is_admin %}<td></td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if is_admin %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+  {% if groups and sees_names %}
+  <p class="value-links-actions"><a class="button button-small button-secondary" href="{{ url_for('surveys.value_links_csv', survey_id=survey.id) }}">{{ de_en("Liste herunterladen (CSV)", "Download the list (CSV)") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('surveys.value_link_cards', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ de_en("QR-Karten zum Ausschneiden ↗", "QR cards to cut out ↗") }}</a></p>
+  {% endif %}
+  {% if groups and invitations_on(survey) %}
+  {# M7a of mailversand-konzept.md: each person their link by mail; the addresses are not stored (survey_invites) #}
+  <details class="settings-fold link-fold" id="value-links-mail"><summary>{{ de_en("Links per E-Mail verschicken", "Send the links by email") }}</summary>
+  <form method="post" action="{{ url_for('survey_invites.value_links_mail', survey_id=survey.id) }}" class="stack">
+    {{ csrf() }}
+    <p class="muted small">{{ de_en("Jede Person bekommt ihren Link{b} per E-Mail. Die Adressen werden nicht gespeichert; leere Zeilen bekommen nichts.", "Each person gets their link{b} by email. The addresses are not stored; empty lines get nothing.", b=de_en(" und ihren Dashboard-Link", " and their dashboard link") if with_board else "") }}</p>
+    <div class="res-scroll"><table class="value-links-mail">
+      {% for row in groups if not row.rest %}
+      <tr><td>{{ row.label or row.value }}</td><td><input type="email" name="mail:{{ row.name }}:{{ row.value }}" maxlength="254" aria-label="{{ de_en('E-Mail-Adresse für {v}', 'Email address for {v}', v=row.label or row.value) }}"></td></tr>
+      {% endfor %}
+    </table></div>
+    <label>{{ de_en("Zusatz zur E-Mail", "Addition to the email") }} <span class="hint">{{ de_en("optional, z. B. bis wann geworben wird", "optional, e.g. until when to recruit") }}</span>
+      <textarea name="note" rows="3" maxlength="2000"></textarea></label>
+    <div class="button-row"><button class="button button-secondary">{{ icon("mail", 16) }} {{ de_en("Links verschicken", "Send the links") }}</button></div>
+  </form>
+  </details>
+  {% endif %}
+  <details class="hint-more"><summary>{{ de_en("Was die Zahlen bedeuten", "What the numbers mean") }}</summary>
+    <p class="hint">{{ de_en("„Verwertbar“ sind abgeschlossene Teilnahmen, die die Qualitätssicherung nicht markiert. „Auffällig“ heißt nur: genauer hinsehen (viele Markierte, viele Abschlüsse kurz hintereinander oder weit mehr als bei den anderen; die Gründe zeigt der Mauszeiger); IP-Adressen werden dafür nicht verwendet. In den Daten steht bei jeder Teilnahme nur der Code des Links (pseudonym); die Namen stehen nur hier, nie im Link, in den Daten, in einer Befragungsdatei oder einer Kopie.", "“Usable” are completed participations that quality assurance does not mark. “Conspicuous” only means: look closer (many marked, many completions in quick succession or far more than the others; hover for the reasons); no IP addresses are used for this. The data hold only the code of the link with each participation (pseudonymous); the names appear only here, never in the link, the data, a survey file or a copy.") }}{% if not survey.repeat_marker %} {{ de_en("Gegen mehrfaches Ausfüllen hilft die Einstellung „Teilnahme im selben Browser: einmal, danach gesperrt“ (nur vor dem Start).", "Against filling in several times the setting “Participation in the same browser: once, then blocked” helps (only before the start).") }}{% endif %}</p>
+  </details>
+  {% endif %}
+  {% if is_admin %}
+  {% if not has_links %}
+  {# nothing yet: the form right here, not in a fold of its own (Ralf, 2026-10-08: "eine Ebene zuviel") #}
+  <ol class="value-links-steps muted small">
+    <li>{{ de_en("Namen eintragen (oder nur eine Anzahl).", "Enter names (or just a number).") }}</li>
+    <li>{{ de_en("Jede Person bekommt ihren eigenen Link, als Liste oder als QR-Karte zum Ausschneiden.", "Each person gets their own link, as a list or as a QR card to cut out.") }}</li>
+    <li>{{ de_en("Hier sehen Sie, wie viele über jeden Link teilgenommen haben.", "Here you see how many took part through each link.") }}</li>
+  </ol>
+  {{ add_form(true) }}
+  {% else %}
+  <div class="link-tools">
+  <details class="settings-fold link-fold value-links-add"><summary>{{ de_en("+ Weitere Links anlegen", "+ Create more links") }}</summary>
+  {{ add_form(false) }}
+  </details>
+  {% if groups %}
+  {# "höchstens N je Link" (Ralf, 2026-10-08): a hard quota with a cell per value, panel.set_cap #}
+  {% set value_params = groups|map(attribute="name")|unique|list %}
+  {% set cap = panel.cap_of(survey, value_params[0]) %}
+  {% if survey.is_editable or cap or value_params|length > 1 %}
+  <details class="settings-fold link-fold" {% if cap %}open{% endif %}><summary>{{ de_en("Höchstzahl je Link", "Maximum per link") }} <span class="hint">{% if cap %}{{ de_en("höchstens {n} abgeschlossene Teilnahmen je Link", "at most {n} completed participations per link", n=cap) }}{% else %}{{ de_en("optional, z. B. höchstens 10 je Person", "optional, e.g. at most 10 per person") }}{% endif %}</span></summary>
+  {# saves by itself, as the names above; "Rückgängig" takes it back (UI/UX audit 2026-10-09, X59) #}
+  <form method="post" action="{{ url_for('surveys.limit_value_links', survey_id=survey.id) }}" class="stack value-links-limit" data-autosave-form>
+    {{ csrf() }}
+    <div class="row-fields">
+      {% if value_params|length > 1 %}<label>{{ de_en("Links mit", "Links with") }}
+        <select name="param">{% for name in value_params %}<option value="{{ name }}">?{{ name }}=</option>{% endfor %}</select></label>
+      {% else %}<input type="hidden" name="param" value="{{ value_params[0] }}">{% endif %}
+      <label>{{ de_en("Höchstens je Link", "At most per link") }} <span class="hint">{{ de_en("abgeschlossene Teilnahmen; leer = unbegrenzt", "completed participations; empty = unlimited") }}</span>
+        <input type="number" name="limit" min="0" max="100000" value="{{ cap or '' }}"></label>
+    </div>
+    {{ autosave_bar(small=true) }}
+    <p class="muted small">{{ de_en("Ist ein Link voll, sehen weitere Personen das Ende „Quote voll“. Dafür legt Askurious eine Quote mit einem Teil je Link an (nur vor dem Start; danach lässt sich die Zahl ändern).", "When a link is full, further people see the end “Quota full”. For this Askurious creates a quota with one part per link (only before the start; afterwards the number can be changed).") }}{% if cap %} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}">{{ de_en("Zur Quote", "To the quota") }}</a>{% endif %}</p>
+  </form>
+  </details>
+  {% endif %}
+  {% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+  </details>
+  {% endif %}
+
+  {# 3. what a panel needs (Ralf, 2026-10-06: no longer in the settings): parameters, the link for the panel with
+     its placeholders, completion links, rules, signing #}
+  {% set own_names = panel.value_labels(survey).keys()|list %}
+  {% set paste_text = panel.pasted(current_user.id, survey.id) if current_user.is_authenticated else "" %}
+  {% set paste_left = session.get("panel_paste_left:" ~ survey.id) %}
+  {% set panel_used = paste_text or panel_cfg.params|rejectattr("name", "in", own_names)|list or panel_cfg.redirects.values()|select|list or panel_cfg.rules %}
+  <details class="settings-fold link-part" id="panel" {% if panel_used %}open{% endif %}>
+  <summary><h3 class="links-head">{{ de_en("Panel-Anbindung", "Panel connection") }}</h3> <span class="hint">{{ de_en("für Panelanbieter und Web-Apps: Kennungen aus dem Link übernehmen, am Ende zurückleiten", "for panel providers and web apps: take IDs from the link, send back at the end") }}</span></summary>
+  {# "Links vom Panel einfügen" (Ralf, 2026-10-08): the list of return addresses in one go, read by
+     panel.parse_panel_list, shown here before anything is taken over (surveys.paste_panel_links) #}
+  {% if is_admin %}
+  <details class="settings-fold link-fold" id="panel-paste" {% if paste_text or paste_left %}open{% endif %}><summary>{{ de_en("Links vom Panel einfügen", "Paste links from the panel") }} <span class="hint">{{ de_en("die Liste der Rücksprünge, die das Panel schickt, in einem Stück", "the list of return addresses the panel sends, in one go") }}</span></summary>
+  <form method="post" action="{{ url_for('surveys.paste_panel_links', survey_id=survey.id) }}" class="stack">
+    {{ csrf() }}
+    {% if paste_text %}
+    {% set paste_rows = panel.parse_panel_list(paste_text) %}
+    <div class="res-scroll">
+    <table class="list-table panel-paste-preview">
+      <thead><tr><th>{{ de_en("Zeile", "Line") }}</th><th>{{ de_en("wird", "becomes") }}</th><th>Link</th></tr></thead>
+      <tbody>
+      {% for row in paste_rows %}
+        <tr><td>{{ row.label }}</td>
+          <td>{% if row.kind in panel.OUTCOMES %}{{ de_en("Abschlusslink „{o}“", "completion link “{o}”", o=panel.OUTCOMES[row.kind]) }}
+            {# said as what it is: Askurious does not make that end (UI/UX audit 2026-10-09, X55) #}
+            {% elif row.kind == "speeder" %}<span class="muted">{{ de_en("nicht übernommen: selbst an ein Ende im Ablauf setzen (Bedingung „Seiten zu schnell abgeschickt“, Tempo-Hinweis an)", "not applied: put it at an end in the flow yourself (condition “pages sent too fast”, speed prompt on)") }}</span>
+            {% elif row.kind == "geo" %}<span class="muted">{{ de_en("nicht übernommen: selbst an ein Ende im Ablauf setzen (Bedingung „Land aus der IP-Adresse“, Einstellung an)", "not applied: put it at an end in the flow yourself (condition “country from the IP address”, setting on)") }}</span>
+            {% else %}<span class="muted">{{ de_en("nicht erkannt; bitte unten von Hand eintragen", "not recognised; please enter it below by hand") }}</span>{% endif %}</td>
+          <td><code class="panel-paste-url">{{ row.url }}</code></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% set skipped = panel.paste_skipped(paste_text) %}
+    {% if skipped %}<p class="muted small">{{ de_en("1 Zeile ohne Adresse ignoriert.", "1 line without an address ignored.") if skipped == 1 else de_en("{n} Zeilen ohne Adresse ignoriert.", "{n} lines without an address ignored.", n=skipped) }}</p>{% endif %}
+    {% set ids = paste_rows|map(attribute="param")|select|unique|list %}
+    {% set known = panel_cfg.params|map(attribute="name")|list %}
+    {% for name in ids if name not in known %}
+    <p class="muted small">{{ de_en("Die Kennung des Panels kommt als", "The panel's ID comes as") }} <code>?{{ name }}=…</code>{{ de_en("; der Parameter wird angelegt als „speichern, jeder Wert nur einmal“, damit eine zweite Teilnahme mit derselben Kennung zum Link „Duplikat“ geht.", "; the parameter is created as “store, each value only once”, so that a second participation with the same ID goes to the link “duplicate”.") }}</p>
+    {% endfor %}
+    {% if paste_rows|selectattr("kind", "in", ["speeder", "geo"])|list %}
+    <p class="muted small">{{ de_en("Speeder und Geo-IP haben keinen eigenen Ausgang: Die Links dafür gehören an ein Ende im", "Speeder and Geo-IP have no outcome of their own: their links belong to an end in the") }} <a href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ de_en("Ablauf", "flow") }}</a>{{ de_en(" (Art „Screen-out“) unter der genannten Bedingung; ein Link am Ende gilt vor dem allgemeinen.", " (kind “screen-out”) under the condition named; a link at an end applies before the general one.") }}</p>
+    {% endif %}
+    <div class="form-actions"><button class="button" name="action" value="apply">{{ de_en("Übernehmen", "Apply") }}</button>
+      <button class="button button-secondary" name="action" value="cancel">{{ de_en("Verwerfen", "Discard") }}</button></div>
+    {% else %}
+    {% if paste_left %}
+    <div class="panel-paste-left">
+      <p class="small"><strong>{{ de_en("Noch selbst an ein Ende im Ablauf setzen:", "Still to put at an end in the flow yourself:") }}</strong> {{ de_en("Art „Screen-out“ unter der genannten Bedingung, im", "kind “screen-out” under the condition named, in the") }} <a href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ de_en("Ablauf", "flow") }}</a>.</p>
+      {% for row in paste_left %}
+      <p class="small">{{ row.label }} <span class="hint">{{ de_en("Bedingung „Seiten zu schnell abgeschickt“", "condition “pages sent too fast”") if row.kind == "speeder" else de_en("Bedingung „Land aus der IP-Adresse“", "condition “country from the IP address”") }}</span></p>
+      <div class="copy-row"><input value="{{ row.url }}" readonly id="panel-left-{{ loop.index }}" data-select-all aria-label="{{ row.label }}">
+        <button type="button" class="button button-small button-secondary" data-copy="#panel-left-{{ loop.index }}">{{ de_en("Kopieren", "Copy") }}</button></div>
+      {% endfor %}
+      <div class="form-actions"><button class="button button-small button-secondary" name="action" value="dismiss">{{ de_en("Erledigt, ausblenden", "Done, hide") }}</button></div>
+    </div>
+    {% endif %}
+    <label>{{ de_en("Liste des Panels", "The panel's list") }} <span class="hint">{{ de_en("eine Zeile je Link, z. B. „Complete link: https://panel.example/complete?p=“", "one line per link, e.g. “Complete link: https://panel.example/complete?p=”") }}</span>
+      <textarea name="text" rows="5"></textarea></label>
+    <div class="form-actions"><button class="button button-secondary" name="action" value="preview">{{ de_en("Erkennen", "Recognise") }}</button></div>
+    <p class="muted small">{{ de_en("Askurious ordnet jede Zeile nach ihren Wörtern einem Ausgang zu (Complete, Screen out, Quota full, Quality, Duplicate) und setzt die Kennung am Ende als Platzhalter ein. Vor dem Übernehmen sehen Sie eine Vorschau.", "Askurious matches each line to an outcome by its words (complete, screen out, quota full, quality, duplicate) and puts in the ID at the end as a placeholder. Before applying you see a preview.") }}</p>
+    {% endif %}
+  </form>
+  </details>
+  {% endif %}
+  {% include "surveys/_panel_form.html" %}
+  {% if panel_link %}
+  <h4 class="links-subhead">{{ de_en("Link für das Panel", "Link for the panel") }} <span class="hint">{{ de_en("mit allen Parametern; „…“ setzt das Panel ein", "with all parameters; the panel fills in “…”") }}</span></h4>
+  <div class="copy-row"><input value="{{ panel_link }}" readonly id="panel-link" data-select-all aria-label="{{ de_en('Teilnahmelink für das Panel', 'Participation link for the panel') }}">
+    <button type="button" class="button button-secondary" data-copy="#panel-link">{{ de_en("Kopieren", "Copy") }}</button></div>
+  {% endif %}
+  </details>
+  </div>
+</details>

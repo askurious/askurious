@@ -1,0 +1,90 @@
+{# Ratings-based conjoint (app/items/cva.py): three tabs over one form; the design panel is panel.html. Attributes,
+   levels, prohibitions and the explanation page are the shared parts of items/_attributes. #}
+{% from "_learn.html" import why %}
+{% set t = item.lang_texts(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set c = item.config %}
+{% set pairs = kind.form(item) == "pairs" %}
+{% set ranking = kind.form(item) == "ranking" %}
+{% set question_label = de_en("Frage", "Question") %}
+{% set question_hint = de_en("steht über jedem Angebot bzw. Paar", "appears above every offer or pair") %}
+<div data-cj-tab="content">{{ why("conjoint_kind") }}{% include "items/_question_field.html" %}</div>
+{% set attr_footnote = de_en("Neue Merkmale und Stufen speichern sich selbst; danach den Versuchsplan neu erzeugen. Jedes Merkmal mit L Stufen kostet L − 1 Teilnutzen, und jede Person braucht mehr Aufgaben als Teilnutzen.", "New attributes and levels save themselves; then generate the experimental design again. Every attribute with L levels costs L − 1 part-worths, and every person needs more tasks than part-worths.") %}
+{% set level_values = true %}
+{% include "items/_attributes/editor.html" %}
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Antwortform", "Answer form") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Teilnehmende …", "Participants …") }}
+      <select name="form" data-reload-saved {% if not structural %}disabled{% endif %}>
+        <option value="single" {% if not pairs and not ranking %}selected{% endif %}>{{ de_en("bewerten jedes Angebot einzeln", "rate each offer on its own") }}</option>
+        <option value="pairs" {% if pairs %}selected{% endif %}>{{ de_en("vergleichen zwei Angebote abgestuft", "compare two offers on a graded scale") }}</option>
+        <option value="ranking" {% if ranking %}selected{% endif %}>{{ de_en("ordnen alle Angebote", "put all offers in order") }}</option>
+      </select></label>
+    {% if ranking %}
+    {% elif pairs %}
+    <label>{{ de_en("Stufen der Skala", "Points of the scale") }}
+      <select name="points" {% if not structural %}disabled{% endif %}>
+        {% for s in (7, 9) %}<option value="{{ s }}" {% if c.points == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select></label>
+    {% else %}
+    <label>{{ de_en("Skala", "Scale") }}
+      <select name="points" {% if not structural or c.slider %}disabled{% endif %}>
+        {% for s in (5, 7, 9, 11) %}<option value="{{ s }}" {% if c.points == s %}selected{% endif %}>{{ de_en("0 bis 10 (11 Stufen)", "0 to 10 (11 points)") if s == 11 else de_en("1 bis {s}", "1 to {s}", s=s) }}</option>{% endfor %}
+      </select></label>
+    <label class="check"><input type="checkbox" name="slider" value="1" data-reload-saved {% if c.slider %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Schieberegler 0 bis 100", "Slider 0 to 100") }}</label>
+    {% endif %}
+  </div>
+  <div class="row-fields">
+    {% if ranking %}
+    {% elif pairs %}
+    <label>{{ de_en("Ende der Skala", "End of the scale") }} <input name="much" value="{{ t.get('much', '') }}" placeholder="{{ d.much }}" class="narrow"> <span class="hint">{{ de_en("hinter „{a} 1“ bzw. „{a} 2“", "after “{a} 1” or “{a} 2”", a=t.get('alt_label') or d.alt_label) }}</span></label>
+    <label>{{ de_en("Mitte", "Middle") }} <input name="same" value="{{ t.get('same', '') }}" placeholder="{{ d.same }}" class="narrow"></label>
+    {% else %}
+    <label>{{ de_en("Beschriftung links", "Label on the left") }} <input name="low" value="{{ t.get('low', '') }}" placeholder="{{ d.low }}"></label>
+    <label>{{ de_en("Beschriftung rechts", "Label on the right") }} <input name="high" value="{{ t.get('high', '') }}" placeholder="{{ d.high }}"></label>
+    {% endif %}
+  </div>
+  <p class="muted small">{{ de_en("Einzeln: ein Angebot je Seite, z. B. „Wie wahrscheinlich würden Sie es wählen?“ Paarweise: zwei Angebote nebeneinander, die Skala reicht von „Angebot 1 viel lieber“ über „gleich“ bis „Angebot 2 viel lieber“; Vergleiche unterscheiden feiner als Einzelurteile. Rangfolge: alle Angebote der Person als Karten auf einer Seite, die sie ordnet (klassisches Kartenlegen; bis etwa 20 Karten). Ausgewertet wird je Person eine Regression, bei der Rangfolge auf den umgekehrten Rängen.", "Single: one offer per page, e.g. “How likely would you be to choose it?” In pairs: two offers side by side, the scale runs from “Offer 1 much preferred” over “same” to “Offer 2 much preferred”; comparisons tell apart more finely than single judgements. Ranking: all of a person's offers as cards on one page, which they put in order (the classic card sort; up to about 20 cards). The analysis is one regression per person, for the ranking on the reversed ranks.") }}</p>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Aufgaben", "Tasks") }}</legend>
+  {% set counts = kind.level_counts(item) %}
+  <div class="row-fields">
+    <label>{{ de_en("Aufgaben je Person", "Tasks per person") }} <input type="number" name="tasks" min="1" max="40" class="narrow" value="{{ c.tasks or '' }}" placeholder="{{ kind.n_tasks(item) or '' }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Versionen des Versuchsplans", "Versions of the experimental design") }} <input type="number" name="versions" min="1" max="4" class="narrow" value="{{ c.versions }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  {% if counts %}<p class="muted small">{{ de_en("Leer = Vorschlag: doppelt so viele Aufgaben wie Parameter (hier {p} Parameter, also {n}). Ideal ist das Dreifache, unter dem 1,5-Fachen wird es knapp (Festlegung von Askurious, damit die Regression je Person genug Freiheitsgrade behält); mindestens nötig sind Parameter + 1. Jede Person sieht alle Aufgaben ihrer Version; mehrere Versionen verteilen andere Angebote über die Teilnehmenden.", "Empty = suggestion: twice as many tasks as parameters (here {p} parameters, so {n}). Three times is ideal, under 1.5 times it gets thin (Askurious default, so that the regression per person keeps enough degrees of freedom); at least parameters + 1 are needed. Every person sees all tasks of their version; several versions spread other offers across the participants.", p=kind.n_params(item), n=kind.n_tasks(item)) }}</p>{% endif %}
+</fieldset>
+{% if ranking %}<p class="muted small" data-cj-tab="design">{{ de_en("Holdout-Aufgaben gibt es bei der Rangfolge nicht: Alle Angebote stehen auf einer Seite.", "There are no holdout tasks with the ranking: all offers are on one page.") }}</p>{% else %}{% include "items/conjoint/holdouts.html" %}{% endif %}
+{% set prohib_footnote = de_en("Danach den Versuchsplan neu erzeugen.", "Then generate the experimental design again.") %}
+{% set prohib_hint = de_en("Stufen zweier Merkmale, die nie zusammen in einem Angebot vorkommen sollen, z. B. Zentrum und sehr niedrige Miete", "Levels of two attributes that should never appear together in one offer, e.g. centre and a very low rent") %}
+{% set prohib_unit = de_en("einem Angebot", "an offer") %}
+{% include "items/_attributes/prohibitions.html" %}
+<fieldset data-cj-tab="display">
+  <legend>{{ de_en("Darstellung", "Display") }}</legend>
+  <div class="row-fields">
+    {% set shown_display = "image" if c.display in ("image", "both") else ("levels" if c.get("level_images") else "table") %}
+    <label>{{ de_en("Anzeige je Angebot", "Display per offer") }}
+      <select name="display" data-show-for data-reload-saved {% if not structural %}disabled{% endif %}>
+        {% for key, label in {"table": de_en("Tabelle mit Text", "Table with text"), "levels": de_en("Tabelle mit Bildern je Stufe", "Table with images per level"), "image": de_en("Ein Bild je Angebot", "One image per offer")}.items() %}
+        <option value="{{ key }}" {% if shown_display == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></label>
+    <fieldset class="level-mode" data-when="levels"><legend class="visually-hidden">{{ de_en("Bild und Text der Stufe", "Image and text of the level") }}</legend>
+      {% for key, label in {"replace": de_en("Bild statt Text", "Image instead of text"), "add": de_en("Bild über dem Text", "Image above the text")}.items() %}
+      <label class="check"><input type="radio" name="level_mode" value="{{ key }}" data-reload-saved {% if (c.get("level_images") or "replace") == key %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ label }}</label>{% endfor %}
+    </fieldset>
+    <label class="check" data-when="image"><input type="checkbox" name="rest_table" value="1" {% if c.display == "both" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Merkmale, die nicht im Bild sind, als Tabelle darunter", "Attributes not in the image as a table below") }}</label>
+    <label class="check" data-when="image"><input type="checkbox" name="show_visual_in_table" value="1" {% if c.show_visual_in_table %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Merkmale „im Bild“ zusätzlich in der Tabelle", "Attributes “in the image” also in the table") }}</label>
+    <label class="check" data-when="image"><input type="checkbox" name="stack_mobile" value="1" {% if c.get("stack_mobile", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Paare auf dem Handy (Hochformat) untereinander", "Pairs stacked on mobile phones (portrait)") }}</label>
+  </div>
+  <label data-when="image"><span class="label-title">{{ de_en("Grundprompt der Bilder: Was zeigt jedes Bild?", "Base prompt of the images: what does every image show?") }} <span class="hint">{{ de_en("auf Deutsch oder Englisch; die Stufen der Bild-Merkmale und der Bildstil werden ergänzt", "in German or English; the levels of the image attributes and the image style are added") }}</span></span>
+    <textarea name="scene" rows="2" {% if not structural %}readonly{% endif %}>{{ c.scene }}</textarea>
+  </label>
+  <label class="check"><input type="checkbox" name="hide_attr_labels" value="1" {% if c.hide_attr_labels %}checked{% endif %}> {{ de_en("Spalte mit den Merkmalsnamen ausblenden", "Hide the column with the attribute names") }}</label>
+  <div class="row-fields">
+    <label>{{ de_en("Bezeichnung der Angebote", "Name of the offers") }} <input name="alt_label" value="{{ t.get('alt_label', '') }}" placeholder="{{ d.alt_label }}"></label>
+  </div>
+  {% include "items/_auto_next.html" %}
+</fieldset>
+{% include "items/_attributes/explain_editor.html" %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{# Cards to print and cut apart: one per link of "Links je Wert", with its name, QR code and address (concept
+   "Werbelinks", 2026-10-08). Each card is the person's package (UI/UX audit 2026-10-09, S19, X57, X58): the title of
+   the survey, the name, the QR code, the address broken only before "?" and, with a dashboard per person, the
+   link to their own status. Needs: survey, rows (surveys._value_rows with "qr"). #}
+{% block title %}{{ de_en("QR-Karten", "QR cards") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<section class="panel value-cards-head">
+  <a class="back-link value-cards-back" href="{{ url_for('surveys.field', survey_id=survey.id) }}#value-links">{{ icon("back", 16) }} {{ de_en("Zurück zur Datenerhebung", "Back to data collection") }}</a>
+  <h1>{{ survey.title }} <span class="hint">{{ de_en("{n} Links", "{n} links", n=rows|length) }}</span></h1>
+  <div class="form-actions"><button type="button" class="button button-secondary" data-print>{{ de_en("Drucken", "Print") }}</button></div>
+</section>
+<div class="value-cards">
+  {% for row in rows %}
+  {% set base, sep, query = row.url.partition("?") %}
+  <div class="value-card">
+    <p class="value-card-survey">{{ survey.title }}</p>
+    <p><strong>{{ row.label or row.value }}</strong></p>
+    {{ row.qr|safe }}
+    <p class="qr-url"><code><span class="qr-url-base">{{ base }}</span>{% if sep %}<wbr><span class="qr-url-query">?{{ query }}</span>{% endif %}</code></p>
+    {% if row.board %}<p class="value-card-status">{{ de_en("Ihr Stand:", "Your status:") }} <code>{{ row.board }}</code></p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

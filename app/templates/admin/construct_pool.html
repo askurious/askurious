@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, num, list_table %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# Needs: c (Construct), r (construct_pool.report), sources. #}
+{% block title %}{{ c.name }} · {{ de_en("Konstrukte", "Constructs") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% macro ci(v, boot=false) %}<span class="res-ci" title="{{ de_en('95-%-Konfidenzintervall (Bootstrap, erst ab n = 30)', '95% confidence interval (bootstrap, only from n = 30)') if boot else de_en('95-%-Konfidenzintervall (erst ab n = 10)', '95% confidence interval (only from n = 10)') }}">[{% if v %}{{ num(v[0]) }}; {{ num(v[1]) }}{% else %}–{% endif %}]</span>{% endmacro %}
+{# the interval of a pooled value; none with two surveys (math audit 2026-10-06, N-1) #}
+{% macro pooled_ci(m) %}{% if m.ci %}{{ ci(m.ci) }}{% else %}<span title="{{ de_en('Bei zwei Befragungen kein belastbares Intervall des gepoolten Werts; es gelten die Intervalle der beiden Befragungen', 'With two surveys no reliable interval of the pooled value; the intervals of the two surveys apply') }}">{{ de_en("ohne Intervall", "no interval") }}</span>{% endif %}{% endmacro %}
+{% block content %}
+{% set active = "constructs" %}{% include "admin/_tabs.html" %}
+<a class="back-link" href="{{ url_for('admin.construct_pool') }}">{{ icon("back", 16) }} {{ de_en("Konstrukte", "Constructs") }}</a>
+<section class="panel" id="konstrukt">
+  <h2>{{ c.name }} <span class="hint">{{ c.key }}</span></h2>
+  {% if r.studies or r.running %}{% set closed_n = r.studies|map(attribute="study")|unique|list|length %}<p class="muted small">{% if closed_n == 1 %}{{ de_en("{k} abgeschlossene Befragung mit {n} Teilnahmen", "{k} closed survey with {n} participations", k=closed_n, n=r.n) }}{% else %}{{ de_en("{k} abgeschlossene Befragungen mit {n} Teilnahmen", "{k} closed surveys with {n} participations", k=closed_n, n=r.n) }}{% endif %}
+    {%- if r.running %}; {% if r.running == 1 %}{{ de_en("{n} laufende Befragung wird erst nach dem Abschluss einbezogen", "{n} running survey is included only once it is closed", n=r.running) }}{% else %}{{ de_en("{n} laufende Befragungen werden erst nach dem Abschluss einbezogen", "{n} running surveys are included only once they are closed", n=r.running) }}{% endif %}{% endif %}
+    {%- if r.drafts %}; {% if r.drafts == 1 %}{{ de_en("{n} Entwurf ohne Daten", "{n} draft without data", n=r.drafts) }}{% else %}{{ de_en("{n} Entwürfe ohne Daten", "{n} drafts without data", n=r.drafts) }}{% endif %}{% endif %}.
+    {{ de_en("Je Befragung zählt ihr Datenpool wie auf ihrer Ergebnisseite: nur echte Teilnahmen, ohne was die Qualitätssicherung markiert.", "Per survey its data pool counts as on its results page: only real participations, without what quality assurance marks.") }}</p>{% endif %}
+  {% if not r.studies %}<p class="muted">{{ de_en("Noch keine abgeschlossene Befragung mit diesem Konstrukt.", "No closed survey with this construct yet.") }}</p>{% endif %}
+
+  {% for s in r.scales %}
+  <h3>{% if s.name %}{{ de_en("Subskala „{name}“", "Subscale “{name}”", name=s.name) }}{% else %}{{ de_en("Skala", "Scale") }}{% endif %}</h3>
+  {% call list_table("scale-table construct-pool-table") %}
+    <thead><tr><th>{{ de_en("Befragung", "Survey") }}</th><th>{{ de_en("Sprache", "Language") }}</th><th>{{ de_en("Zeitraum", "Period") }}</th><th>{{ de_en("Fassung", "Revision") }}</th><th class="num stat">k</th><th class="num stat">N</th><th class="num stat">α</th><th class="num stat">ω</th><th>{{ de_en("gepoolt", "pooled") }}</th></tr></thead>
+    <tbody>
+      {% for row in s.rows %}
+      <tr><td>{{ row.study }}{% if row.item %} <span class="hint">{{ row.item }}</span>{% endif %}</td><td>{{ row.languages|join(", ")|upper }}</td><td>{{ row.months }}</td><td>{{ row.version or "–" }}</td>
+        <td class="num">{{ row.k }}</td><td class="num">{{ row.n }}</td>
+        <td class="num">{{ num(row.alpha) }}{% if row.alpha is not none %}<br><span class="hint">{{ ci(row.alpha_ci) }}</span>{% endif %}</td>
+        <td class="num">{% if row.k > 2 %}{{ num(row.omega) }}{% if row.omega is not none %}<br><span class="hint">{% if row.omega_wait %}[{{ de_en("wird berechnet …", "being computed …") }}]{% else %}{{ ci(row.omega_ci, true) }}{% endif %}</span>{% endif %}{% elif row.k == 2 %}<span title="{{ de_en('Spearman-Brown-Koeffizient: bei zwei Aussagen der zu berichtende Wert', 'Spearman-Brown coefficient: the value to report with two statements') }}">SB {{ num(row.sb) }}</span>{% if row.sb is not none %}<br><span class="hint">{{ ci(row.sb_ci) }}</span>{% endif %}{% else %}–{% endif %}</td>
+        <td>{% if row.in_pool %}{{ de_en("ja", "yes") }}{% elif row.same_people %}{{ de_en("nein", "no") }} <span class="hint">{{ de_en("gleiche Personen: Dieselbe Befragung ist schon mit einem anderen Element im Pool", "same people: the same survey is already in the pool with another element") }}</span>{% elif row.looped %}{{ de_en("nein", "no") }} <span class="hint">{{ de_en("in einer Schleife", "in a loop") }}</span>{% else %}{{ de_en("nein", "no") }} <span class="hint" title="{{ row.modifications|join('; ') }}">{{ de_en("angepasst", "adapted") }}{% if row.modifications %}: {{ row.modifications|join("; ")|truncate(60) }}{% endif %}</span>{% endif %}</td></tr>
+      {% endfor %}
+      <tr class="quota-sum"><td colspan="5">{{ de_en("Gepoolt", "Pooled") }}{% if s.alpha %} <span class="hint">{{ de_en("Random Effects", "random effects") }}; α: {{ s.alpha.k }} {{ de_en("Befragung", "survey") if s.alpha.k == 1 else de_en("Befragungen", "surveys") }}{% if s.rows and s.rows[0].k > 2 %}, ω: {{ s.omega.k if s.omega else de_en("keine", "none") }}{% endif %}</span>{% endif %}</td><td class="num">{{ s.n }}{% if s.omega and s.n_omega != s.n %}<br><span class="hint" title="{{ de_en('Teilnahmen der Befragungen im gepoolten ω', 'Participations of the surveys in the pooled ω') }}">ω: {{ s.n_omega }}</span>{% endif %}</td>
+        <td class="num">{% if s.alpha %}{{ num(s.alpha.value) }}<br><span class="hint">{{ pooled_ci(s.alpha) }}</span>{% else %}–{% endif %}</td>
+        <td class="num">{% if s.omega %}{{ num(s.omega.value) }}<br><span class="hint">{{ pooled_ci(s.omega) }}</span>{% else %}–{% endif %}</td><td></td></tr>
+    </tbody>
+  {% endcall %}
+  <p class="muted small">{% if s.alpha %}{{ de_en("Heterogenität von α: I² = {i2} %, τ² = {tau2} (auf der Skala ln(1 − α)).", "Heterogeneity of α: I² = {i2}%, τ² = {tau2} (on the scale ln(1 − α)).", i2=num(s.alpha.i2 * 100, 0), tau2=num(s.alpha.tau2, 3)) }}
+    {% else %}{{ de_en("Ein gepoolter Wert braucht mindestens zwei Befragungen mit α, die das Konstrukt unverändert nutzen.", "A pooled value needs at least two surveys with α that use the construct unchanged.") }} {% endif %}
+    {{ de_en("N: Teilnahmen, die alle Aussagen beantwortet haben (darauf beruhen α und ω).", "N: participations that answered all statements (α and ω rest on them).") }} {% if s.rows and s.rows[0].k == 2 %}{{ de_en("Bei zwei Aussagen steht statt ω der Spearman-Brown-Koeffizient (SB) der Befragung.", "With two statements the survey’s Spearman-Brown coefficient (SB) is shown instead of ω.") }}{% else %}{{ de_en("ω gibt es ab drei Aussagen.", "ω exists from three statements.") }}{% endif %}
+    {%- if s.rows|rejectattr("alpha", "none")|selectattr("alpha", "lt", 0)|list %} {{ de_en("Negatives α ist nicht interpretierbar; oft ist eine gegenläufige Aussage nicht umgepolt.", "A negative α cannot be interpreted; often a reversed statement has not been recoded.") }}{% endif %}</p>
+  {% endfor %}
+
+  {% if r.studies and not r.scales %}
+  {% call list_table("construct-pool-table") %}
+    <thead><tr><th>{{ de_en("Befragung", "Survey") }}</th><th>{{ de_en("Sprache", "Language") }}</th><th>{{ de_en("Zeitraum", "Period") }}</th><th>{{ de_en("Fassung", "Revision") }}</th><th class="num">{{ de_en("Teilnahmen", "Participations") }}</th><th>{{ de_en("angepasst", "adapted") }}</th></tr></thead>
+    <tbody>
+      {% for row in r.studies %}
+      <tr><td>{{ row.study }} <span class="hint">{{ row.item }}</span></td><td>{{ row.languages|join(", ")|upper }}</td><td>{{ row.months }}</td><td>{{ row.version or "–" }}</td>
+        <td class="num">{{ row.participations }}</td><td>{% if row.adapted %}{{ de_en("ja", "yes") }}{% if row.modifications %} <span class="hint">{{ row.modifications|join("; ")|truncate(60) }}</span>{% endif %}{% else %}{{ de_en("nein", "no") }}{% endif %}</td></tr>
+      {% endfor %}
+      <tr class="quota-sum"><td colspan="4">{{ de_en("Zusammen", "Total") }}</td><td class="num">{{ r.n }}</td><td></td></tr>
+    </tbody>
+  {% endcall %}
+  <p class="muted small">{{ de_en("Eine Einzelfrage hat keine Reliabilität; hier stehen nur die Teilnahmen (abgeschlossen, echt, vor der Qualitätssicherung).", "A single question has no reliability; only the participations are shown here (completed, real, before quality assurance).") }}</p>
+  {% endif %}
+
+  {% if r.scales %}
+  <p class="muted small">{{ de_en("In Klammern: 95-%-Konfidenzintervalle, je Befragung wie auf der Ergebnisseite (α nach Feldt, ω per Bootstrap); „[–]“ unter n = 10 (ω: unter 30).
+    Gepoolt wird ln(1 − α) mit der Varianz nach Bonett (2002) in einer Random-Effects-Metaanalyse nach DerSimonian und Laird, ω ebenso mit der Varianz aus seinem Bootstrap-Intervall; das Intervall des gepoolten Werts nach Hartung, Knapp, Sidik und Jonkman über die t-Verteilung mit k − 1 Freiheitsgraden (bei wenigen Befragungen breiter als mit der Normalverteilung); bei zwei Befragungen wäre es mit t(1) = 12,71 nicht belastbar, deshalb steht dann kein Intervall des gepoolten Werts, die Intervalle der beiden Befragungen bleiben.
+    Befragungen ohne ω-Intervall (unter 30 vollständigen Fällen oder nach unten offen) fehlen im gepoolten ω; deshalb nennt die Zeile „Gepoolt“ die Zahl der Befragungen je Kennwert.
+    Angepasste Verwendungen (Aussagen entfernt, ergänzt, anders formuliert oder entsperrt) und Skalen in Schleifen stehen in der Liste, gehen aber nicht in den gepoolten Wert ein.",
+    "In brackets: 95% confidence intervals, per survey as on the results page (α after Feldt, ω by bootstrap); “[–]” below n = 10 (ω: below 30).
+    ln(1 − α) is pooled with the variance after Bonett (2002) in a random-effects meta-analysis after DerSimonian and Laird, ω likewise with the variance from its bootstrap interval; the interval of the pooled value after Hartung, Knapp, Sidik and Jonkman uses the t distribution with k − 1 degrees of freedom (wider than with the normal distribution when there are few surveys); with two surveys it would not be reliable with t(1) = 12.71, so there is then no interval of the pooled value, and the intervals of the two surveys remain.
+    Surveys without an ω interval (below 30 complete cases or open at the bottom) are missing from the pooled ω; that is why the row “Pooled” names the number of surveys per statistic.
+    Adapted uses (statements removed, added, reworded or unlocked) and scales in loops are listed but do not go into the pooled value.") }}</p>
+  {% endif %}
+  {% if r.studies %}<p class="form-actions"><a class="button button-secondary button-small" href="{{ url_for('constructs.pool_csv', key=c.key) }}">{{ icon("download", 16) }} {{ de_en("Gepoolte Daten (CSV)", "Pooled data (CSV)") }}</a></p>{% endif %}
+  {% if r.scales %}{{ grouped(sources) }}{% endif %}
+</section>
+<section class="panel" id="verwendet">
+  <h2>{{ de_en("Verwendet in", "Used in") }} <span class="hint">{{ de_en("Veröffentlichungen; die Konstruktseite listet sie", "publications; the construct page lists them") }}</span></h2>
+  {% if cited %}<ul class="plain small">
+    {% for e in cited %}
+    <li><span>{{ e.meta.get("title") or (de_en("Datensatz", "Data set") if e.meta.get("kind") == "dataset" else de_en("ohne Titel", "untitled")) }}{% if e.meta.get("year") %} ({{ e.meta.year }}){% endif %} · <a href="https://doi.org/{{ e.doi }}" target="_blank" rel="noopener">{{ e.doi }}</a>
+      <span class="hint">{{ de_en("Zenodo-Datensatz einer Befragung", "Zenodo data set of a survey") if e.zenodo else de_en("von Forschenden", "from researchers") if e.from_survey else de_en("von einem Admin der Plattform", "from a platform admin") }}</span></span>
+      {% if not e.zenodo %}<form method="post" action="{{ url_for('admin.construct_citations', key=c.key) }}" class="inline">{{ csrf() }}
+        <input type="hidden" name="action" value="remove"><input type="hidden" name="doi" value="{{ e.doi }}">
+        <button class="button button-secondary button-small">{{ de_en("Entfernen", "Remove") }}</button></form>{% endif %}</li>
+    {% endfor %}
+  </ul>{% else %}<p class="muted small">{{ de_en("Noch keine.", "None yet.") }}</p>{% endif %}
+  <form method="post" action="{{ url_for('admin.construct_citations', key=c.key) }}" class="row-fields">
+    {{ csrf() }}<input type="hidden" name="action" value="add">
+    <label>DOI <input name="doi" required placeholder="10.1037/…"></label>
+    <div><button class="button button-secondary">{{ de_en("Eintragen", "Add") }}</button></div>
+  </form>
+</section>
+{% endblock %}

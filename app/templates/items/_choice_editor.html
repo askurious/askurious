@@ -1,0 +1,76 @@
+{% from "_macros.html" import row_list_hint %}
+{% from "_learn.html" import why %}
+{% set question_hint = de_en("Platzhalter wie {{name}} werden später durch Werte aus einer Schleife ersetzt.", "Placeholders such as {{name}} are later replaced by values from a loop.") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Antwortoptionen", "Answer options") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Wert im Export", "Code = value in the export") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit stack-phone">
+    {% set with_missing = item.kind.supports_missing %}
+    {% set with_text = item.kind.supports_text %}
+    {% set with_exclusive = item.kind.supports_exclusive %}
+    {% set with_images = item.kind.images(item) %}
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Beschriftung", "Label") }}</th>{% if with_missing %}<th class="narrow-col" title="{{ de_en('z. B. „weiß nicht“ oder „keine Angabe“: Bleibt im Export, zählt aber nicht in Median, Anteile und Spannweite und wird für SPSS als fehlender Wert markiert', 'e.g. “don’t know” or “no answer”: stays in the export but does not count towards the median, shares and range, and is marked as a missing value for SPSS') }}">{{ de_en("fehlend", "missing") }}</th>{% endif %}{% if with_text %}<th class="narrow-col" title="{{ de_en('z. B. „Anderes, und zwar:“: Hinter der Beschriftung steht ein Textfeld. Der eingetragene Text kommt in eine eigene Spalte <Variablenname>_<Code>_text', 'e.g. “Other, namely:”: a text field follows the label. The text entered goes into a column of its own <variable name>_<code>_text') }}">{{ de_en("Textfeld", "Text field") }}</th>{% endif %}{% if with_exclusive %}<th class="narrow-col" title="{{ de_en('z. B. „keine davon“: Wer sie ankreuzt, nimmt die anderen Kreuze zurück, und umgekehrt. So lässt sich „trifft nichts zu“ von „übersprungen“ trennen; im Export hat die Option wie jede andere ihre eigene Spalte', 'e.g. “none of these”: ticking it clears the other ticks, and vice versa. This separates “none applies” from “skipped”; in the export the option has its own column like any other') }}">{{ de_en("schließt andere aus", "excludes others") }}</th>{% endif %}{% if with_images %}<th title="{{ de_en('Was das Bild der Option zeigen soll, englisch; nur für „Mit KI erzeugen“. Der Bildstil der Befragung kommt dazu.', 'What the option’s image should show, in English; only for “Generate with AI”. The image style of the survey is added.') }}">{{ de_en("Bildbeschreibung für die KI (englisch)", "Image description for the AI (English)") }}</th><th title="{{ de_en('Was das Bild zeigt, in Worten für Menschen, die es nicht sehen (Screenreader). Leer lassen, wenn die Beschriftung schon alles sagt.', 'What the image shows, in words for people who cannot see it (screen readers). Leave empty if the label already says it all.') }}">{{ de_en("Alternativtext", "Alt text") }}</th>{% endif %}</tr></thead>
+    <tbody>
+    {% set labels = item.lang_texts(lang).get("options", {}) %}
+    {% for o in item.config.options if not o.src %}
+      <tr>
+        <td><input type="hidden" name="option_id" value="{{ o.id }}"><input name="option_code" aria-label="Code" value="{{ o.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" value="{{ labels.get(o.id, '') }}" placeholder="{{ (item.text('options') or {}).get(o.id, '') }}"></td>
+        {% if with_missing %}<td data-label="{{ de_en('fehlend', 'missing') }}"><input type="checkbox" name="option_missing" value="{{ o.id }}" aria-label="{{ de_en('zählt als fehlend', 'counts as missing') }}" {% if o.missing %}checked{% endif %} {% if not structural %}disabled{% endif %}></td>{% endif %}
+        {% if with_text %}<td data-label="{{ de_en('Textfeld', 'text field') }}"><input type="checkbox" name="option_text" value="{{ o.id }}" aria-label="{{ de_en('mit Textfeld', 'with text field') }}" {% if o.text %}checked{% endif %} {% if not structural %}disabled{% endif %}></td>{% endif %}
+        {% if with_exclusive %}<td data-label="{{ de_en('schließt andere aus', 'excludes others') }}"><input type="checkbox" name="option_exclusive" value="{{ o.id }}" aria-label="{{ de_en('schließt andere aus', 'excludes others') }}" {% if o.exclusive %}checked{% endif %} {% if not structural %}disabled{% endif %}></td>{% endif %}
+        {% if with_images %}<td><input name="option_prompt_{{ o.id }}" aria-label="{{ de_en('Bildbeschreibung für die KI', 'Image description for the AI') }}" value="{{ o.prompt or '' }}" maxlength="1000" placeholder="{{ de_en('z. B. ein rotes Fahrrad vor weißem Hintergrund', 'e.g. a red bicycle on white background') }}" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_alt" aria-label="{{ de_en('Alternativtext des Bildes', 'Alt text of the image') }}" value="{{ (item.lang_texts(lang).get('alts') or {}).get(o.id, '') }}" maxlength="300" placeholder="{{ de_en('z. B. rotes Fahrrad mit Korb', 'e.g. red bicycle with a basket') }}"></td>{% endif %}
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      {% set nid = new_id() %}
+      <tr class="new-row">
+        <td><input type="hidden" name="option_id" value="{{ nid }}"><input name="option_code" aria-label="Code" class="narrow" placeholder="{{ item.config.options|length + loop.index }}"></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" placeholder="{{ de_en('neue Option', 'new option') }}"></td>
+        {% if with_missing %}<td data-label="{{ de_en('fehlend', 'missing') }}"><input type="checkbox" name="option_missing" value="{{ nid }}" aria-label="{{ de_en('zählt als fehlend', 'counts as missing') }}"></td>{% endif %}
+        {% if with_text %}<td data-label="{{ de_en('Textfeld', 'text field') }}"><input type="checkbox" name="option_text" value="{{ nid }}" aria-label="{{ de_en('mit Textfeld', 'with text field') }}"></td>{% endif %}
+        {% if with_exclusive %}<td data-label="{{ de_en('schließt andere aus', 'excludes others') }}"><input type="checkbox" name="option_exclusive" value="{{ nid }}" aria-label="{{ de_en('schließt andere aus', 'excludes others') }}"></td>{% endif %}
+        {% if with_images %}<td><input name="option_prompt_{{ nid }}" aria-label="{{ de_en('Bildbeschreibung für die KI', 'Image description for the AI') }}" maxlength="1000"></td>
+        <td><input name="option_alt" aria-label="{{ de_en('Alternativtext des Bildes', 'Alt text of the image') }}" maxlength="300"></td>{% endif %}
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+  {% if item.kind.supports_search and structural %}
+  {# a long list in one go (single choice, mostly for the search field): one line per option, "Beschriftung" or
+     "Code;Beschriftung" (a tab from Excel works too), added at the end; the page reloads with the new rows #}
+  <details class="stack"{% if item.kind.search(item) and item.config.options|length < 2 %} open{% endif %}>
+    <summary>{{ de_en("Liste einfügen", "Paste a list") }}</summary>
+    <p class="muted small">{{ de_en("Eine Zeile je Option, angehängt ans Ende: nur die Beschriftung, oder Code und Beschriftung mit Semikolon oder Tabulator dazwischen (aus Excel einfügen). Leere Zeilen und Beschriftungen, die schon da sind, fallen weg, außer sie bringen einen eigenen Code mit; ohne Code oder mit einem schon vergebenen gibt es die Zahl nach der bisher höchsten. Eine Kopfzeile wird erkannt und ausgelassen; was nicht wie eingefügt übernommen wurde, steht danach in der Meldung. Höchstens {n} Optionen.", "One line per option, added at the end: only the label, or code and label with a semicolon or tab between them (paste from Excel). Empty lines and labels already there are left out unless they bring a code of their own; without a code or with one already taken the number after the highest so far is used. A header row is recognised and left out; what was not copied as pasted is named in the message afterwards. At most {n} options.", n=item.kind.max_options) }}</p>
+    <label><span class="label-title">{{ de_en("Liste", "List") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span></span>
+      <textarea name="options_paste" id="paste{{ item.id }}" rows="6" spellcheck="false" class="mono" data-reload-saved placeholder="{{ de_en('Bäcker/in
+7123;Konditor/in
+Koch/Köchin', 'Baker
+7123;Pastry chef
+Cook') }}"></textarea></label>
+    <label class="file-pick">{{ de_en("oder CSV-Datei laden", "or load a CSV file") }} <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" data-table-file="paste{{ item.id }}"></label>
+    {% from "coscine/_pick.html" import coscine_pick with context %}{{ coscine_pick(survey, "table", target="paste" ~ item.id) }}
+  </details>
+  {% endif %}
+  {% if item.kind.supports_search %}{% with kind=item.kind %}{% include "items/_places.html" %}{% endwith %}{% endif %}
+  {# the columns explained in the open, not only on hover (UI/UX audit 2026-10-05, V16) #}
+  {% if with_missing or with_text %}<p class="muted small">{% if with_missing %}<strong>{{ de_en("fehlend:", "missing:") }}</strong> {{ de_en("bleibt im Export, zählt aber nicht in Median, Anteile und Spannweite, z. B. „keine Angabe“ oder „weiß nicht“; bei solchen Beschriftungen wird es beim Eintippen angekreuzt.", "stays in the export but does not count towards the median, shares and range, e.g. “no answer” or “don’t know”; for such labels it is ticked as you type.") }}{% endif %}{% if with_text %} <strong>{{ de_en("Textfeld:", "Text field:") }}</strong> {{ de_en("hinter der Beschriftung steht ein Feld, z. B. „Anderes, und zwar:“; der Text kommt in eine eigene Spalte.", "a field follows the label, e.g. “Other, namely:”; the text goes into a column of its own.") }}{% endif %}</p>{% endif %}
+  {% if with_missing %}{{ why("missing_option") }}{% endif %}
+  {# untereinander · nebeneinander · Bilder as one field (V85); single choice shows it under the element, next to its
+     drop-down list (editor/item.html), so a linked element with locked texts can still switch it #}
+  {% if not item.kind.supports_dropdown %}{% include "items/_presentation.html" %}{% endif %}
+  {% if item.kind.supports_images %}
+  {% if with_images %}
+  {% set keys = item.kind.required_keys(item) %}
+  {% set n_ok = keys|select("in", item.assets|selectattr("status", "equalto", "approved")|map(attribute="key")|list)|list|length %}
+  <p class="small"><strong>{{ de_en("{n} von {total}", "{n} of {total}", n=n_ok, total=keys|length) }}</strong> {{ de_en("Bildern freigegeben", "images approved") }} ·
+    <a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang) }}">{{ de_en("Bilder hochladen oder erzeugen und prüfen", "Upload or generate images and review them") }}</a></p>
+  {% endif %}
+  {% endif %}
+</fieldset>
+{% set cv, cv_rows = kind.carry_view(item, lang), de_en("Antwortoptionen", "Answer options") %}
+{% include "items/_carry.html" %}

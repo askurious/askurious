@@ -1,0 +1,303 @@
+/* Dashboards (templates/boards/view.html, app/boards/): tiles with results, quotas and field figures.
+   Loaded after participant.css: every colour is a token of the survey's theme (app/theme.py), so a dashboard
+   looks like its questionnaire, light or dark. Graphics are CSS and SVG from the server; values stand next to
+   every graphic as text, never as colour alone. */
+body.board { background: var(--surface-2); }
+/* the palettes by the type of scale of the researcher UI (app.css, UI/UX audit 2026-10-07, S11): sequential --seq-1 to
+   --seq-5 (maps, heat maps), diverging --div-1 over the neutral --div-4 to --div-7 (levels of a scale) with the text
+   --div-ink, --data-fill and --data-neg (scores around zero). A dark theme (color-scheme: dark, app/theme.py) takes the
+   dark side of each pair; browsers without light-dark() keep the light one. The same values as in app.css
+   (tests/test_display.py). */
+body.board {
+  --seq-1: #cfe1fa; --seq-2: #a3c4ed; --seq-3: #71a7e0; --seq-4: #378ccf; --seq-5: #0270ae; --div-1: #af7c38;
+  --div-2: #c49d6f; --div-3: #d6bfa7; --div-4: #e3e2df; --div-5: #b0c5e0; --div-6: #79a8db; --div-7: #1e8cd6;
+  --div-ink: #1c1c1a; --data-fill: #378ccf; --data-neg: #ac7d3f;
+}
+@supports (color: light-dark(#000, #fff)) {
+  body.board {
+    --seq-1: light-dark(#cfe1fa, #2f445a); --seq-2: light-dark(#a3c4ed, #3c648b);
+    --seq-3: light-dark(#71a7e0, #3886c6); --seq-4: light-dark(#378ccf, #71a7e0);
+    --seq-5: light-dark(#0270ae, #9ecafe); --div-1: light-dark(#af7c38, #f1d2b1);
+    --div-2: light-dark(#c49d6f, #cbb297); --div-3: light-dark(#d6bfa7, #a29485);
+    --div-4: light-dark(#e3e2df, #787774); --div-5: light-dark(#b0c5e0, #8b97a7);
+    --div-6: light-dark(#79a8db, #a1b8d6); --div-7: light-dark(#1e8cd6, #bddaff);
+    --div-ink: light-dark(#1c1c1a, #000000); --data-fill: light-dark(#378ccf, #3886c6);
+    --data-neg: light-dark(#ac7d3f, #a5793e);
+  }
+}
+.b-page { max-width: 1180px; margin: 0 auto; padding: 24px 20px 12px; }
+.b-band { margin: 0; padding: 6px 16px; text-align: center; font-size: 0.85rem; background: var(--nudge-soft); color: var(--nudge);
+  border-bottom: 1px solid var(--nudge-line); }
+.b-head { display: flex; align-items: flex-end; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 20px; }
+.b-head .p-logo { margin: 0; }
+.b-head-text { flex: 1; min-width: 240px; }
+.b-head h1 { margin: 0; font-size: 1.5rem; line-height: 1.25; }
+.b-head h1 span { display: block; font-size: 1rem; font-weight: 400; color: var(--muted); }
+.b-stand { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
+.b-live { display: inline-flex; align-items: center; gap: 6px; margin-inline-end: 8px; padding: 1px 9px 1px 7px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 0.78rem; }
+.b-live[hidden] { display: none; }
+.b-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: b-pulse 2s ease-in-out infinite; }
+@keyframes b-pulse { 50% { opacity: 0.3; } }
+.b-languages { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.82rem; }
+.b-languages a { color: var(--muted); text-decoration: none; font-weight: 600; }
+.b-languages a[aria-current] { color: var(--accent); }
+.b-button { font: inherit; font-size: 0.85rem; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--fg); cursor: pointer; }
+.b-button:hover { background: var(--hover); }
+
+/* Twelve columns; a tile takes a quarter, a third, half, two thirds, three quarters or the whole row. Once the
+   script has measured the tiles (.b-packed), the rows are 4px high and the script gives every tile its column
+   and its rows (board.js, pack): tiles of different heights leave no holes, and a tile that begins in a column
+   of its own (.b-x, --x) leaves the place to its left free. The space between rows is the tile's margin then.
+   Without the script the rules below hold: tiles in rows, one after the other. */
+.b-tiles { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.b-tiles.b-packed { grid-auto-rows: 4px; row-gap: 0; }
+.b-tile { grid-column: span 6; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+.b-w3 { grid-column: span 3; }
+.b-w4 { grid-column: span 4; }
+.b-w8 { grid-column: span 8; }
+.b-w9 { grid-column: span 9; }
+.b-w12 { grid-column: 1 / -1; }
+.b-title { margin: 0 0 14px; font-size: 1.05rem; line-height: 1.35; font-weight: 600; }
+.b-subtitle { font-size: 0.85rem; font-weight: 500; color: var(--muted); font-family: ui-monospace, monospace; }
+.b-sample { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+  background: var(--nudge-soft); color: var(--nudge); border: 1px solid var(--nudge-line); vertical-align: middle; }
+.b-few, .b-empty { margin: 0; padding: 18px 0; color: var(--muted); font-size: 0.95rem; }
+.b-empty { grid-column: 1 / -1; text-align: center; }
+.b-few-row { color: var(--muted); font-size: 0.85rem; grid-column: 2 / -1; }
+.b-foot, .b-sub { margin: 12px 0 0; font-size: 0.82rem; color: var(--muted); }
+.b-note { font-size: 0.75rem; color: var(--muted); }
+.b-label { font-size: 0.92rem; line-height: 1.3; overflow-wrap: anywhere; }
+.b-value { font-size: 0.88rem; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: end; }
+
+/* bars */
+.b-bars, .b-stacks, .b-means, .b-legend { list-style: none; margin: 0; padding: 0; }
+.b-bars li, .b-stacks li, .b-means li { display: grid; grid-template-columns: minmax(90px, 34%) minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 5px 0; }
+.b-track { display: block; height: 16px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.b-fill { display: block; height: 100%; width: var(--v, 0%); background: var(--accent); border-radius: 4px; transition: width 0.7s ease; }
+.b-fill.b-full { background: var(--ok); }
+.b-progress { height: 20px; margin-top: 4px; }
+
+.b-pair { display: grid; gap: 3px; }
+.b-pairs .b-track { height: 11px; }
+.b-pairs .b-value { line-height: 1.25; }
+.b-fill-target, .b-swatch-target { background: var(--data-soft); }
+
+/* columns */
+/* two rows shared by all columns (bars with their value, labels): every bar stands on the same line, however
+   many lines the label below it takes */
+.b-cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: 190px auto; gap: 4px 8px; justify-items: center; }
+.b-col { display: contents; }
+.b-col-value { font-size: 0.78rem; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.b-col-space { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; border-bottom: 1px solid var(--border-strong); }
+.b-col-bar { display: block; flex: none; width: min(100%, 56px); height: calc(var(--v, 0%) * 0.88); min-height: 1px; background: var(--accent); border-radius: 4px 4px 0 0; transition: height 0.7s ease; }
+.b-col-label { align-self: start; font-size: 0.78rem; line-height: 1.2; text-align: center; overflow-wrap: anywhere; max-height: 3.6em; overflow: hidden; }
+.b-cols-many { column-gap: 2px; }
+.b-cols-many .b-col-value { font-size: 0.6rem; }
+.b-cols-many .b-col-label { font-size: 0.6rem; writing-mode: vertical-rl; max-height: 4.2em; }
+
+/* ring */
+.b-donut { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.b-donut svg, .b-ring svg { width: 170px; height: 170px; flex: none; }
+.b-donut circle, .b-ring circle { fill: none; stroke-width: 6; }
+.b-ring { text-align: center; }
+.b-ring-track { stroke: var(--track); }
+.b-ring-fill { stroke: var(--accent); stroke-linecap: butt; transition: stroke-dasharray 0.7s ease; }
+.b-ring-text { fill: var(--fg); font-size: 8px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+.b-legend { flex: 1; min-width: 160px; font-size: 0.88rem; }
+.b-legend li { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
+.b-legend strong { margin-inline-start: auto; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.b-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; align-self: center; border: 1px solid var(--border); }
+.b-legend-row { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; font-size: 0.8rem; }
+.b-legend-row li { padding: 0; }
+
+/* scores around zero, groups of bars, price points */
+.b-center { position: relative; overflow: visible; }
+.b-zero { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border-strong); }
+.b-div { position: absolute; top: 0; bottom: 0; left: 50%; width: var(--v, 0%); background: var(--data-fill); border-radius: 0 4px 4px 0; transition: width 0.7s ease; }
+.b-div.b-neg { left: auto; right: 50%; background: var(--data-neg); border-radius: 4px 0 0 4px; }
+.b-group { margin: 14px 0 2px; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.b-group:first-of-type { margin-top: 0; }
+.b-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+.b-point .b-sub { margin-top: 4px; }
+.b-point-small .b-number { font-size: 1.6rem; color: var(--fg); }
+
+/* a heading over the tiles below it, a text */
+.b-tile.b-heading { background: none; border: 0; padding: 10px 0 0; }
+.b-section { margin: 0; font-size: 1.25rem; line-height: 1.3; font-weight: 650; }
+.b-prose { font-size: 0.95rem; line-height: 1.5; }
+.b-prose > :first-child { margin-top: 0; }
+.b-prose > :last-child { margin-bottom: 0; }
+.b-prose h3 { font-size: 1.05rem; margin: 0 0 8px; }
+.b-prose p { margin: 0 0 10px; }
+.b-prose ul { margin: 0 0 10px; padding-inline-start: 1.2em; }
+
+/* members: a tile as a picture */
+.b-save { float: inline-end; display: grid; place-items: center; margin: -4px -6px 0 8px; padding: 4px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted);
+  font: inherit; font-size: 0.75rem; cursor: pointer; opacity: 0; transition: opacity 0.15s; }
+.b-tile:hover .b-save, .b-save:focus-visible { opacity: 1; border-color: var(--border); }
+.b-save:hover { background: var(--hover); color: var(--fg); }
+.b-saving .b-save { display: none; }
+
+/* the federal states */
+.b-map { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.b-map svg { flex: 0 1 260px; width: 260px; max-width: 100%; height: auto; }
+.b-state { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.b-state-rest, .b-swatch-rest { fill: var(--track); background: repeating-linear-gradient(45deg, var(--track) 0 3px, var(--surface) 3px 6px); }
+.b-map .b-legend { min-width: 210px; }
+.b-w12 .b-map svg { flex-basis: 340px; width: 340px; }
+.b-w3 .b-number, .b-w4 .b-number { font-size: 2.2rem; }
+.b-w3 .b-bars li, .b-w4 .b-bars li, .b-w3 .b-stacks li, .b-w4 .b-stacks li, .b-w3 .b-means li, .b-w4 .b-means li { grid-template-columns: minmax(0, 1fr) auto; }
+.b-w3 .b-label, .b-w4 .b-label { grid-column: 1 / -1; }
+.b-w3 .b-ends, .b-w4 .b-ends { padding-inline-start: 0; }
+.b-w3 .b-donut svg, .b-w3 .b-ring svg { width: 120px; height: 120px; }
+
+/* stacked bars of a scale */
+.b-stack { display: flex; height: 26px; border-radius: 4px; overflow: hidden; background: var(--track); }
+.b-seg { display: flex; align-items: center; justify-content: center; width: var(--v, 0%); min-width: 0; overflow: hidden; font-size: 0.72rem;
+  font-variant-numeric: tabular-nums; color: var(--div-ink); transition: width 0.7s ease; white-space: nowrap; }
+/* the writing on a coloured segment: black or white by its colour (boards/render.seg_ink; UI/UX audit 2026-10-16, 60) */
+.b-seg-plain { color: #ffffff; }
+.b-seg + .b-seg { border-inline-start: 1px solid var(--surface); }
+
+/* means on a scale */
+.b-ends { display: flex; justify-content: space-between; margin: 0 0 2px; padding-inline-start: calc(34% + 12px); font-size: 0.75rem; color: var(--muted); gap: 12px; }
+.b-scale { position: relative; display: block; height: 16px; }
+.b-axis { position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--track); }
+.b-whisker { position: absolute; top: 5px; height: 6px; background: var(--data-soft); border-radius: 3px; }
+.b-dot { position: absolute; left: var(--v, 0%); top: 1px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--accent);
+  border: 2px solid var(--surface); transition: left 0.7s ease; }
+
+.b-stacks li.b-nolabel, .b-means li.b-nolabel, .b-bars li.b-nolabel { grid-template-columns: minmax(0, 1fr) auto; }
+.b-ends-flush { padding-inline-start: 0; }
+
+/* figures */
+.b-number { margin: 0; font-size: 3rem; line-height: 1.1; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--accent); }
+.b-number small { font-size: 1.2rem; font-weight: 400; color: var(--muted); margin-inline-start: 6px; }
+.b-number-small { font-size: 1.8rem; }
+
+/* tables */
+.b-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.b-table th, .b-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: start; vertical-align: top; }
+.b-table th { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.b-table .b-num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.b-table .b-sum td { font-weight: 600; border-bottom: 0; }
+
+.b-footer { max-width: 1180px; padding: 10px 20px 18px; font-size: 0.8rem; color: var(--muted); }
+/* the sources of the methods the tiles show: one closed fold under them (templates/_sources.html) */
+.b-sources { margin-top: 18px; font-size: 0.8rem; color: var(--muted); }
+.b-sources summary { cursor: pointer; font-weight: 600; }
+.b-sources ul { margin: 6px 0 0; padding: 0; list-style: none; }
+.b-sources li { margin: 3px 0; padding-inline-start: 1.5em; text-indent: -1.5em; overflow-wrap: anywhere; }  /* APA list */
+.b-sources .ref-use { display: block; text-indent: 0; opacity: 0.8; }
+.b-framed .b-sources { display: none; }
+body.board .p-partners { max-width: 1180px; padding: 14px 20px; }
+
+/* the preview inside the designer: no footer, a little tighter */
+.b-framed .b-footer, .b-framed .p-partners { display: none; }
+.b-framed .b-page { padding: 16px; }
+/* inside a frame on another site: no margins of its own, the partner logos stay with the survey */
+.b-embedded .b-page { padding: 16px; }
+.b-embedded .p-partners { display: none; }
+
+/* the preview inside the designer: tiles are put in order by dragging them */
+[data-arrange] .b-tile { cursor: grab; position: relative; }
+.b-remove { position: absolute; top: 6px; inset-inline-end: 6px; width: 24px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 50%;
+  background: var(--surface); color: var(--muted); font: inherit; font-size: 1rem; line-height: 1; cursor: pointer; opacity: 0.55; }
+.b-tile:hover .b-remove, .b-remove:focus-visible { opacity: 1; }
+.b-remove:hover { color: var(--error); border-color: var(--error-line); background: var(--error-soft); }
+.b-tile.b-dragged { opacity: 0.45; outline: 2px dashed var(--accent); outline-offset: 2px; }
+.b-dragging, .b-dragging * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
+
+/* lecture hall: the QR code of the survey on the left, the tiles fill the rest; large type for the back rows */
+.board-hall .b-page { max-width: none; padding: 20px 28px; }
+.board-hall .b-body { display: grid; grid-template-columns: minmax(240px, 24vw) minmax(0, 1fr); gap: 28px; align-items: start; }
+.board-hall .b-join { position: sticky; top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; text-align: center; }
+.b-join-title { margin: 0 0 10px; font-size: 1.3rem; font-weight: 650; }
+.b-qr { background: #ffffff; border-radius: 8px; aspect-ratio: 1; }
+.b-qr svg { display: block; width: 100%; height: 100%; }
+.b-join-url { margin: 10px 0 0; font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+/* the dashboard of one person: their participation link with "Kopieren" and its QR code on top (X57, S19) */
+.b-person { display: flex; gap: 18px; align-items: center; justify-content: space-between; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin: 0 0 16px; }
+.b-person-text { flex: 1 1 auto; min-width: 0; }
+.b-person .b-join-title { font-size: 1.05rem; }
+.b-person-copy { display: flex; gap: 8px; margin: 0; }
+.b-person-copy input { flex: 1 1 auto; min-width: 0; height: 42px; padding: 0 10px; font: inherit; font-size: 0.9rem;
+  border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--fg); }
+.b-person-qr { flex: none; width: 120px; }
+.board-hall .b-title { font-size: 1.3rem; }
+.board-hall .b-label { font-size: 1.1rem; }
+.board-hall .b-value { font-size: 1.05rem; }
+.board-hall .b-track { height: 22px; }
+.board-hall .b-stack { height: 34px; }
+.board-hall .b-seg { font-size: 0.9rem; }
+.board-hall .b-number { font-size: 4.2rem; }
+.board-hall .b-footer, .board-hall .p-partners { display: none; }
+
+@media (min-width: 1001px) {
+  .b-tiles .b-x { grid-column: var(--x) / span var(--w); }  /* narrower windows have no room for gaps */
+}
+@media (max-width: 1000px) {
+  .b-w3, .b-w4 { grid-column: span 6; }
+  .b-w8, .b-w9 { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .b-tiles .b-tile { grid-column: 1 / -1; }
+  .b-bars li, .b-stacks li, .b-means li { grid-template-columns: minmax(0, 1fr) auto; }
+  .b-bars .b-label, .b-stacks .b-label, .b-means .b-label { grid-column: 1 / -1; }
+  .b-ends { padding-inline-start: 0; }
+  .board-hall .b-body { grid-template-columns: minmax(0, 1fr); }
+  .board-hall .b-join { position: static; max-width: 320px; margin: 0 auto; }
+  .b-person { flex-direction: column; align-items: stretch; }
+  .b-person-qr { width: 160px; margin: 0 auto; }
+  .b-number { font-size: 2.4rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-fill, .b-col-bar, .b-seg, .b-dot, .b-ring-fill, .b-div { transition: none; }
+  .b-live::before { animation: none; }
+}
+@page { margin: 14mm; }
+@media print {
+  body.board { background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .b-live, .b-button, .b-save, .b-band, .b-languages { display: none; }
+  .b-page { max-width: none; padding: 0 2px; }
+  /* paper is narrow: two tiles next to each other, wide ones over the whole row */
+  .b-tiles { gap: 12px; }
+  /* the places the script gave the tiles are for the screen */
+  .b-tiles .b-tile { grid-column: span 6 !important; grid-row: auto !important; margin-bottom: 0 !important; }
+  .b-tiles .b-w8, .b-tiles .b-w9, .b-tiles .b-w12 { grid-column: 1 / -1 !important; }
+  .b-map svg { flex-basis: 170px; width: 170px; }
+  .b-donut svg, .b-ring svg { width: 110px; height: 110px; }
+  .b-tiles.b-packed { grid-auto-rows: auto; row-gap: 12px; }
+  .b-tile { break-inside: avoid; }
+}
+/* word cloud (shape "words", app/boards/): the most named word largest */
+.b-cloud { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 14px; margin: 8px 0; line-height: 1.15; font-weight: 600; }
+.b-cloud span { overflow-wrap: anywhere; }
+/* text highlighting: the text with a stacked bar under every word (as on the results page) */
+.b-hl-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 8px; font-size: 0.85em; font-weight: 600; }
+.b-hl-legend span, .b-hl-head { display: inline-flex; align-items: center; gap: 6px; }
+.b-hl-legend i, .b-hl-head i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.b-hl-text { white-space: pre-wrap; line-height: 2.4; margin: 0; }
+.b-hl-w { position: relative; display: inline-block; line-height: 1.4; padding-bottom: 7px; }
+.b-hl-bar { position: absolute; inset-inline-start: 0; inset-inline-end: 0; bottom: 1px; height: 5px; display: flex; border-radius: 3px; overflow: hidden; background: rgba(127, 127, 127, 0.18); }
+.b-hl-bar i { display: block; height: 100%; }
+.b-hl-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px 20px; }
+.b-hl-head { margin: 0 0 4px; font-weight: 600; }
+.b-hl-top ol { margin: 0; padding-inline-start: 20px; }
+/* columns on a phone (UI/UX audit 2026-10-05, V80): under 500 px they turn into horizontal bars with the label in
+   front and the value behind, so long labels ("1910–1919") neither break letter by letter nor overlap */
+@media (max-width: 500px) {
+  .b-cols, .b-cols-many { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+  .b-col { display: grid; grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr); gap: 8px; align-items: center; }
+  .b-col-label, .b-cols-many .b-col-label { order: -1; writing-mode: horizontal-tb; text-align: start; font-size: 0.78rem; max-height: none; overflow-wrap: normal; }
+  .b-col-space { flex-direction: row; justify-content: flex-start; align-items: center; gap: 6px; height: 16px; border-bottom: 0; border-inline-start: 1px solid var(--border-strong); }
+  .b-col-bar { order: 0; width: calc(var(--v, 0%) * 0.7); height: 12px; min-width: 1px; border-radius: 0; border-start-end-radius: 4px; border-end-end-radius: 4px; transition: width 0.7s ease; }
+  .b-col-value, .b-cols-many .b-col-value { order: 1; font-size: 0.75rem; }
+}
+
+/* Right to left (Arabic, <html dir="rtl">): labels, bars and stacked shares mirror through the logical properties
+   above; number lines (means with their spread) and bars around a centre keep left to right */
+[dir="rtl"] .b-scale, [dir="rtl"] .b-center, [dir="rtl"] svg { direction: ltr; }

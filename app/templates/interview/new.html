@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "wizard/_import.html" import import_panel with context %}
+{% from "_start_cards.html" import start_cards %}
+{# Creating an interview guide (app/interview.py, concept interviewleitfaden-konzept.md 4.1): one page #}
+{% block title %}{{ de_en("Neuer Interviewleitfaden", "New interview guide") }}{% endblock %}
+{% block content %}
+<div class="survey-head">
+  <a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <h1>{{ de_en("Neuer Interviewleitfaden", "New interview guide") }}</h1> <span class="badge badge-interview">{{ de_en("Interviewleitfaden", "Interview guide") }}</span>
+</div>
+{{ start_cards("interview.new", starts, start) }}
+{% if start == "datei" %}
+{{ import_panel("leitfaden", de_en("Die Datei eines Leitfadens entsteht im Reiter „Export“ unter „Befragungsdatei“, auch in einer anderen Installation von Askurious.", "The file of a guide is made on the tab “Export” under “Survey file”, also in another installation of Askurious.")) }}
+{% else %}
+<form method="post" action="{{ url_for('interview.new') }}" class="panel stack interview-new">
+  {{ csrf() }}
+  <p class="muted small flush">{{ de_en("Ein Leitfaden für leitfadengestützte Interviews. Sie führen das Interview mit der Interviewansicht auf
+    Tablet oder Laptop oder mit dem ausgedruckten Leitfaden; unter „Interviews“ speichern Sie es auf Wunsch mit Notizen,
+    Tonaufnahme und Transkript.", "A guide for semi-structured interviews. You conduct the interview with the interview view on
+    a tablet or laptop or with the printed guide; under “Interviews” you can save it with notes,
+    audio recording and transcript.") }}</p>
+  <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
+    <input name="title" maxlength="300" placeholder="{{ de_en('z. B. „Pflegende Angehörige im ländlichen Raum“', 'e.g. “Family carers in rural areas”') }}" autofocus></label>
+  <label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("optional; steht im Word-Leitfaden", "optional; appears in the Word guide") }}</span></span>
+    <textarea name="research_question" rows="2" maxlength="3000"></textarea></label>
+  <div class="row-fields">
+    <label>{{ de_en("Sprache des Leitfadens", "Language of the guide") }}
+      <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if code == ui_language() %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Zielgruppe", "Target group") }}
+      <select name="target"><option value="">{{ de_en("nicht angegeben", "not stated") }}</option>{% for key, name in targets.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Interviewform", "Interview mode") }}
+      <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+  </div>
+  {% if start == "vorlage" %}
+  <fieldset class="bare">
+    <legend>{{ de_en("Vorlage", "Template") }}</legend>
+    <div class="interview-templates">
+      {% for key, (name, note) in templates.items() if key != "leer" %}
+      <label class="interview-template"><input type="radio" name="template" value="{{ key }}" {% if key == "witzel" %}checked{% endif %}>
+        <span><strong>{{ name }}</strong><span class="muted small">{{ note }}</span></span></label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% else %}<input type="hidden" name="template" value="leer">{% endif %}
+  <fieldset class="bare">
+    <legend>{{ de_en("Reihenfolge im Interview", "Order in the interview") }}</legend>
+    {% for key, (name, note) in orders.items() %}
+    <label class="check"><input type="radio" name="order" value="{{ key }}" {% if key == "free" %}checked{% endif %}> {{ name }} <span class="hint">{{ note }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Anlegen", "Create") }}</button>
+    {% if ai_on() %}
+    <button class="button button-ai button-secondary" name="then" value="ki" title="{{ de_en('Danach mit dem KI-Assistenten Fragen sammeln, prüfen, sortieren und zu Leitfragen bündeln', 'Then collect, check and sort questions with the AI assistant and bundle them into guide questions') }}">{{ icon("sparkles", 16) }} {{ de_en("Anlegen und mit KI entwickeln", "Create and develop with AI") }}</button></div>
+    {% endif %}
+</form>
+{% if start == "vorlage" %}
+{% from "_sources.html" import grouped %}
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endif %}
+{% endif %}
+{% endblock %}

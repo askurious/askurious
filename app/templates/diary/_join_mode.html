@@ -1,0 +1,18 @@
+{# How people join a diary study (app/diary.py, join_settings), in "Neue Tagebuchstudie" and on "Datenerhebung" (T5): one
+   shared code for everyone, or a personal code per person that connects a new phone to the same participation
+   again only after a release by the researchers (Philipp, 2026-10-13; "at any time" removed, Ralf, 2026-10-15,
+   Abgleich NB-1). On "Datenerhebung" `personal` comes from the study; the number of persons only when it is new
+   (`new_survey`). #}
+{% set personal = personal|default(false) %}
+<fieldset class="bare stack"><legend{% if join_in_fold|default(false) %} class="visually-hidden"{% endif %}>{{ de_en("Beitreten", "Joining") }}</legend>
+  <label class="check"><input type="radio" name="join" value="shared" {% if not personal %}checked{% endif %}> {{ de_en("Ein gemeinsamer Code für alle", "One shared code for everyone") }}
+    <span class="hint">{{ de_en("anonym: Wer den QR-Code scannt, tritt als neue Person bei. Geht das Handy verloren, beginnt die Person von vorn.", "anonymous: anyone who scans the QR code joins as a new person. If the phone is lost, the person starts again.") }}</span></label>
+  <label class="check"><input type="radio" name="join" value="personal" {% if personal %}checked{% endif %}> {{ de_en("Persönliche Codes für eine feste Zahl von Teilnehmenden", "Personal codes for a set number of participants") }}
+    <span class="hint">{{ de_en("jede Person bekommt einen eigenen Code mit QR-Code; mit ihm verbindet sie ihre Teilnahme wieder, etwa auf einem neuen Handy. Der gemeinsame Code gilt dann nicht.", "each person gets a code of their own with a QR code; with it they connect their participation again, for example on a new phone. The shared code does not work then.") }}</span></label>
+  <div class="stack" data-join-for="personal" {% if not personal %}hidden{% endif %}>
+    {% if new_survey|default(false) %}<label>{{ de_en("Anzahl Teilnehmende (Codes)", "Number of participants (codes)") }} <span class="hint">{{ de_en("weitere Codes können Sie später anlegen", "you can create more codes later") }}</span>
+      <input type="number" name="persons" min="1" max="500" value="20"></label>{% endif %}
+    <p class="muted small flush">{{ de_en("Wieder verbinden, etwa auf einem neuen Handy: Die Person meldet sich bei Ihnen, und Sie geben ihren Code im Reiter „Datenerhebung“ frei. Die Freigabe gilt zwei Stunden und einmal; das bisherige Gerät verliert dann den Zugang. Ohne Freigabe verbindet ein benutzter Code nicht, so kann niemand mit einer gefundenen Karte die Teilnahme übernehmen.",
+      "Connecting again, for example on a new phone: the person contacts you, and you release their code on the tab “Data collection”. The release is valid once and for two hours; the earlier device then loses access. Without a release a used code does not connect, so nobody can take a participation over with a card they found.") }}</p>
+  </div>
+</fieldset>

@@ -1,0 +1,70 @@
+{# Testing (UI audit 2026-10-04, R11, G2): everything before the start in one place: the preview, comments of test
+   runs, a pretest link for test persons without an account, stored test runs and dummy data. Open while the survey
+   is a draft, folded afterwards. Needs: survey, by_source, pretest (a link just made, or None), pretest_days,
+   open_comments. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% if survey.can(current_user, "editor") %}
+<details class="panel settings-group" id="testing" data-settings-group {% if survey.status == "draft" or pretest %}open{% endif %}>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Testen", "Testing") }}</h2><span class="settings-sum">{{ de_en("Vorschau, Pretest-Link, Testdurchläufe und Dummy-Daten; zählen nie als Teilnahmen", "preview, pretest link, test runs and dummy data; never count as participations") }}</span></summary>
+  <div class="settings-body">
+  <div class="row testing-actions">
+    <a class="button button-secondary" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("eye", 16) }} {{ de_en("Vorschau ↗", "Preview ↗") }}</a>
+    <a class="button button-secondary" href="{{ url_for('editor.comments_page', survey_id=survey.id) }}">{{ de_en("Kommentare aus Testdurchläufen", "Comments from test runs") }}{% if open_comments %} <span class="badge" title="{{ de_en('offen', 'open') }}">{{ open_comments }}</span>{% endif %}</a>
+  </div>
+  <h3 class="sub-head" id="pretest">{{ de_en("Pretest-Link", "Pretest link") }} <span class="hint">{{ de_en("für Testpersonen ohne Konto: die Vorschau mit Kommentarfunktion, nichts zählt als Teilnahme", "for test participants without an account: the preview with comments, nothing counts as participation") }}</span></h3>
+  {% if pretest %}
+  <div class="pretest-link">
+    <div class="row"><input id="pretest-url" class="grow-1" value="{{ pretest.url }}" readonly aria-label="{{ de_en('Pretest-Link', 'Pretest link') }}">
+      <button type="button" class="button button-secondary" data-copy="#pretest-url">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+    <div class="qr-image pretest-qr" aria-hidden="true">{{ pretest.qr|safe }}</div>
+    <p class="muted small">{% if pretest.days == 1 %}{{ de_en("Gültig einen Tag, solange Sie Zugriff auf die Befragung haben.", "Valid for one day, as long as you have access to the survey.") }}{% else %}{{ de_en("Gültig {n} Tage, solange Sie Zugriff auf die Befragung haben.", "Valid for {n} days, as long as you have access to the survey.", n=pretest.days) }}{% endif %} {{ de_en("Neue Links lassen sich jederzeit erzeugen.", "New links can be created at any time.") }}</p>
+  </div>
+  {% endif %}
+  <form method="get" action="{{ url_for('surveys.field', survey_id=survey.id) }}#pretest" class="row">
+    <label class="check">{{ de_en("gültig", "valid for") }} <select name="pretest" aria-label="{{ de_en('Gültigkeit des Pretest-Links', 'Validity of the pretest link') }}">{% for d in pretest_days %}<option value="{{ d }}" {% if (pretest and pretest.days == d) or (not pretest and d == 7) %}selected{% endif %}>{{ de_en("1 Tag", "1 day") if d == 1 else de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+    <button class="button button-secondary">{{ de_en("Neuen Pretest-Link erzeugen", "Create new pretest link") if pretest else de_en("Pretest-Link erzeugen", "Create pretest link") }}</button>
+  </form>
+  <form method="post" action="{{ url_for('surveys.revoke_pretest', survey_id=survey.id) }}" class="inline"
+        data-confirm="{{ de_en('Alle bisherigen Pretest-Links ungültig machen?', 'Invalidate all pretest links so far?') }}" data-confirm-note="{{ de_en('Auch die Pretest-Links aus der Vorschau fürs Handy gehen danach nicht mehr. Kommentare bleiben.', 'The pretest links from the preview for mobile phones stop working too. Comments stay.') }}" data-confirm-ok="{{ de_en('Ungültig machen', 'Invalidate') }}">
+    {{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Pretest-Links widerrufen …", "Revoke pretest links …") }}</button></form>
+  <h3 class="sub-head">{{ de_en("Testdurchläufe und Dummy-Daten", "Test runs and dummy data") }} <span class="hint">{{ de_en('im Export an <code>source</code> erkennbar', 'recognisable in the export by <code>source</code>')|safe }}</span></h3>
+  <div class="stat-line"><span><strong>{{ by_source.test }}</strong> {{ de_en("Testdurchläufe", "test runs") }}</span>
+    <span><strong data-dummy-count>{{ by_source.dummy }}</strong> {{ de_en("Dummy-Teilnahmen", "dummy participations") }}</span></div>
+  {# was in the settings until 2026-10-03; here, next to deleting the test runs #}
+  <form method="post" action="{{ url_for('surveys.update_test_runs', survey_id=survey.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    {% with values=survey %}{% include "surveys/_fields_test.html" %}{% endwith %}
+    {{ autosave_bar(small=true) }}
+  </form>
+  <form method="post" action="{{ url_for('surveys.make_dummy', survey_id=survey.id) }}" class="row" style="margin-top:12px; max-width:520px" data-dummy-form>
+    {# a visible label for the number (UI/UX audit 2026-10-07, W23) #}
+    {{ csrf() }}<label class="dummy-n"><input type="number" name="n" min="1" max="500" value="50" class="narrow"> {{ de_en("simulierte Personen", "simulated people") }}</label>
+    {% set dummy_blocked = dummy_errors is defined and dummy_errors %}
+    <button class="button button-secondary" {% if dummy_blocked %}disabled aria-describedby="dummy-blocked"{% endif %}>{{ de_en("Dummy-Daten erzeugen", "Create dummy data") }}</button>
+  </form>
+  {# the error that stops the dummy data, with the way to it (UI/UX audit 2026-10-09, X60) #}
+  {% if dummy_blocked %}
+  <div class="flash flash-warning small" id="dummy-blocked">{{ icon("alert", 16) }}
+    <div><p>{{ de_en("Dummy-Daten brauchen eine Startprüfung ohne Fehler:", "Dummy data need a pre-launch check without errors:") }}</p>
+    <ul>{% for f in dummy_errors[:3] %}<li>{% if f.link %}<a href="{{ url_for(f.link, survey_id=survey.id, _anchor=f.anchor) }}">{{ f.message }}</a>{% elif f.item_id %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=f.item_id) }}">{{ f.message }}</a>{% else %}<a href="{{ url_for('editor.index', survey_id=survey.id) }}">{{ f.message }}</a>{% endif %}</li>{% endfor %}
+      {% if dummy_errors|length > 3 %}<li>{{ de_en("und {n} weitere", "and {n} more", n=dummy_errors|length - 3) }}</li>{% endif %}</ul></div>
+  </div>
+  {% endif %}
+  {# shown by app.js while the dummies are created in portions #}
+  <div class="batch-progress" hidden data-dummy-progress>
+    <div class="p-progress" role="progressbar" aria-label="{{ de_en('Dummy-Daten erzeugen', 'Create dummy data') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-bar style="width:0"></span></div>
+    <span data-status role="status"></span> <button type="button" class="button button-small button-secondary" data-cancel>{{ de_en("Abbrechen", "Cancel") }}</button>
+  </div>
+  <p class="muted small">{{ de_en("Simulierte Personen durchlaufen den echten Ablauf (Randomisierung, Schleifen, Bedingungen, Conjoint) mit gültigen Antworten. Antworten auf die Variablen der Hypothesen folgen dem Studienplan (erwarteter Effekt), alles andere ist zufällig; die Ergebnisse zeigen also, was Sie angenommen haben, nicht was herauskäme. Gut, um Auswertungsskripte vor der Feldphase zu testen.", "Simulated people go through the real flow (randomisation, loops, conditions, conjoint) with valid answers. Answers to the variables of the hypotheses follow the research plan (expected effect), everything else is random; so the results show what you assumed, not what would come out. Good for testing analysis scripts before fieldwork.") }}</p>
+  <div class="form-actions">
+    {# only with something to delete, and with the number (UI audit 2026-10-12, U17) #}
+    {% for src, label in (("dummy", de_en("{n} Dummy-Teilnahmen löschen …", "Delete {n} dummy participations …", n=by_source.dummy)), ("test", de_en("{n} Testdurchläufe löschen …", "Delete {n} test runs …", n=by_source.test))) if by_source[src] %}
+    <form class="inline" method="post" action="{{ url_for('surveys.delete_dummy', survey_id=survey.id) }}"
+          data-confirm="{{ label|replace(" …", "") }}?" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+      {{ csrf() }}<input type="hidden" name="source" value="{{ src }}"><button class="button button-small button-danger">{{ icon("trash", 16) }} {{ label }}</button></form>
+    {% endfor %}
+  </div>
+  </div>
+</details>
+{% endif %}

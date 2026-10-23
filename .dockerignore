@@ -1,0 +1,29 @@
+# What the Docker build of deploy/docker/Dockerfile never needs (build context: the repository's root, compose.yaml).
+# The Dockerfile copies only named files (requirements, config.py, app, migrations ...), so nothing of this ends up in
+# the image anyway; left out here, it never even goes to the Docker daemon (audit 2026-10-13, DP-11): secrets
+# (.env and the like, keys, dumps), the git history, local databases and uploads, tests and caches.
+.git
+.github
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.asc
+**/*.dump
+**/*.sqlite
+**/*.db
+**/netcup.ini
+instance
+uploads
+deploy/docker/nginx-live
+tests
+tools/**
+!tools/build_static.py
+!tools/storage_backup_lock.py
+concepts
+docs
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache

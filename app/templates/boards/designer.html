@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar, csrf, presence_line with context %}
+{% block title %}{{ board.name }} · Dashboards · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "boards" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{# three columns: the tiles, each element one (Ralf, 2026-10-03) | the preview | name and links #}
+{% from "surveys/_used_data.html" import used_data with context %}
+{% set saved = survey.data_pool or {} %}
+{% set sources = (saved.get("sources") or (["real", "test", "dummy"] if survey.status == "draft" else ["real"]))|reject("equalto", "test")|list %}
+{{ used_data({"sources": sources or ["real"], "all": saved.get("all"), "drop": true}) }}
+<p class="hint">{{ de_en("Dashboards übernehmen den gespeicherten Datenpool, keine Ansichtsfilter oder Gewichtung der Ergebnisse. Testdurchläufe werden immer ausgeschlossen; bei einem reinen Test-Datenpool werden echte Teilnahmen verwendet. Einzelne Kacheln können zusätzliche Filter oder Datenschutzgrenzen haben.", "Dashboards use the saved data pool, without result view filters or weighting. Test runs are always excluded; a pool containing only test runs uses real participations. Individual tiles may have additional filters or privacy thresholds.") }}</p>
+<div class="board-designer" data-board-designer>
+  <div class="board-side board-side-pick">
+    <p class="board-back"><a class="back-link" href="{{ url_for('boards.index', survey_id=survey.id) }}">{{ icon("back", 16) }} {{ de_en("Alle Dashboards", "All dashboards") }}</a></p>
+    {# the form below saves by itself and is drawn anew with every save: its line stands outside of it #}
+    {% if can_edit %}{{ autosave_bar(small=true, form_id="board-form") }}{{ presence_line(survey, "board:" ~ board.id) }}{% endif %}
+    {% if locked %}<p class="muted small">{{ de_en("Dieses Dashboard hat gültige Links und zeigt sich damit ohne Anmeldung. Ändern kann es deshalb nur, wer die Links widerrufen darf (Rolle „Admin“).", "This dashboard has valid links and so shows without signing in. Therefore only those who may revoke the links can change it (role “Admin”).") }}</p>
+    {% elif not can_edit %}<p class="muted small">{{ de_en("Ihre Rolle „Ansehen“ zeigt das Dashboard; ändern können es Personen mit der Rolle „Bearbeiten“.", "Your role “View” shows the dashboard; people with the role “Edit” can change it.") }}</p>{% endif %}
+    <div data-board-form-wrap>{% include "boards/_form.html" %}</div>
+  </div>
+
+  <div class="board-side board-side-tiles">
+    {# one field under the other, each with its title above it, as on the settings page (W38) #}
+    <section class="panel board-name stack">
+      <label><span class="label-title">{{ de_en("Name des Dashboards", "Name of the dashboard") }}</span> <input name="name" form="board-form" value="{{ board.name }}" maxlength="200" required{% if not can_edit %} disabled{% endif %}></label>
+      {# from how many answers a tile shows numbers (boards.min_tile_of); fewer: "noch zu wenige Antworten" #}
+      <label><span class="label-title">{{ de_en("Ergebnisse zeigen ab", "Show results from") }}</span>
+        <select name="min_tile" form="board-form"{% if not can_edit %} disabled{% endif %}>
+          {% for k in tile_mins %}<option value="{{ k }}"{% if k == board_min_tile %} selected{% endif %}>{% if k == 1 %}{{ de_en("sofort (ab der ersten Antwort)", "at once (from the first answer)") }}{% else %}{{ de_en("{k} Antworten", "{k} answers", k=k) }}{% if k == min_tile_default %} {{ de_en("(Standard)", "(standard)") }}{% endif %}{% endif %}</option>{% endfor %}
+        </select>
+        <span class="hint">{{ de_en("Gilt je Kachel; vorher steht dort „Noch zu wenige Antworten“. Seltene Antworten (weniger als {n} Nennungen) werden zusammengefasst, außer bei „sofort“: Dann ist auch eine einzelne Antwort zu erkennen", "Applies per tile; before that it reads “Not enough answers yet”. Rare answers (fewer than {n} mentions) are combined, except with “at once”: then a single answer can be recognised too", n=min_cell) }}</span></label>
+    </section>
+
+    <section class="panel" id="links">
+      <h2>Links <span class="hint">{{ de_en("zeigen dieses Dashboard ohne Anmeldung, nur lesend, ohne Testdurchläufe", "show this dashboard without signing in, read only, without test runs") }}</span></h2>
+      {% macro share_item(share, url) %}
+        <li>
+          {# a link for one value carries the name of the person it was made for: from "Bearbeiten" up only (security audit R3) #}
+          <p class="board-link-name"><strong>{% if share.param and not survey.can(current_user, "editor") %}{{ de_en("Link für {v}", "Link for {v}", v=share.value) }}{% else %}{{ share.label or de_en("ohne Namen", "without name") }}{% endif %}</strong>{% if share.hall %} <span class="badge">{{ de_en("Hörsaal-Modus", "Lecture hall mode") }}</span>{% endif %}{% if share.param and survey.can(current_user, "editor") %} <span class="badge">{{ de_en("nur {param} = {value}", "only {param} = {value}", param=share.param, value=share.value) }}</span>{% endif %}{% if end_share and share.id == end_share.id %} <span class="badge" title="{{ de_en('Wer die Befragung abschließt, findet diesen Link als Knopf „Ergebnisse ansehen“ auf der Endseite', 'Anyone who completes the survey finds this link as the button “View results” on the end page') }}">{{ de_en("auf der Endseite", "on the end page") }}</span>{% endif %}</p>
+          {# the address itself only for who may give it out (role "Admin"): whoever has it can pass the dashboard on #}
+          {% if can_share %}
+          <div class="copy-row"><input value="{{ url }}" readonly id="board-share-{{ share.id }}" data-select-all aria-label="{{ de_en('Link zum Dashboard', 'Link to the dashboard') }}">
+            <button type="button" class="button button-small button-secondary" data-copy="#board-share-{{ share.id }}">{{ de_en("Kopieren", "Copy") }}</button>
+            <form method="post" action="{{ url_for('boards.share_revoke', survey_id=survey.id, board_id=board.id, share_id=share.id) }}" class="inline"
+                  data-confirm="{{ de_en('Diesen Link widerrufen?', 'Revoke this link?') }}" data-confirm-note="{{ de_en('Er zeigt danach nichts mehr.', 'It then shows nothing any more.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}" data-confirm-danger>{{ csrf() }}<button class="button button-small button-danger">{{ de_en("Widerrufen", "Revoke") }}</button></form></div>
+          {% if not share.hall %}
+          <details class="board-embed"><summary>{{ de_en("In eine andere Seite einbetten", "Embed in another page") }}</summary>
+            <div class="copy-row"><input value="{{ embed_code(share) }}" readonly id="board-embed-{{ share.id }}" data-select-all aria-label="{{ de_en('HTML zum Einbetten des Dashboards', 'HTML to embed the dashboard') }}">
+              <button type="button" class="button button-small button-secondary" data-copy="#board-embed-{{ share.id }}">{{ de_en("Kopieren", "Copy") }}</button></div>
+            <p class="muted small">{{ de_en("Dieses HTML in die andere Seite einfügen: Es zeigt das Dashboard dort in einem Rahmen über die ganze Breite, 800 Pixel hoch (die Höhe lässt sich im Text ändern). Der Rahmen zeigt dasselbe wie der Link und endet mit ihm.", "Paste this HTML into the other page: it shows the dashboard there in a frame across the whole width, 800 pixels high (the height can be changed in the text). The frame shows the same as the link and ends with it.") }}</p>
+          </details>
+          {% endif %}
+          {% endif %}
+          <p class="muted small">{% if expiry(share) >= unlimited %}{{ de_en("unbegrenzt gültig", "valid without limit") }}{% else %}{{ de_en("gültig bis {when} Uhr", "valid until {when}", when=expiry(share)|localdt) }}{% if share.valid == "field" and survey.field_end %} <span class="hint">{{ de_en("folgt dem Feldende", "follows the field end") }}</span>{% endif %}{% endif %} · {% if share.opens %}{{ de_en("{n}-mal geöffnet, zuletzt {when} Uhr", "opened {n} times, last at {when}", n=share.opens, when=share.opened_at|localdt) }}{% else %}{{ de_en("noch nie geöffnet", "never opened yet") }}{% endif %}</p>
+        </li>
+      {% endmacro %}
+      {# links for one value each (e.g. one per student, made together on "Datenerhebung") folded below the others #}
+      {% set plain = shares|rejectattr("0.param")|list %}{% set per_value = shares|selectattr("0.param")|list %}
+      {% if shares %}
+      {% if plain %}
+      <ul class="board-links">
+        {% for share, url in plain %}{{ share_item(share, url) }}{% endfor %}
+      </ul>
+      {% endif %}
+      {% if per_value %}
+      <details class="board-value-links"{% if not plain %} open{% endif %}><summary>{{ de_en("Links für einzelne Werte ({n})", "Links for single values ({n})", n=per_value|length) }}</summary>
+      <ul class="board-links">
+        {% for share, url in per_value %}{{ share_item(share, url) }}{% endfor %}
+      </ul>
+      </details>
+      {% endif %}
+      {% elif not can_share %}
+      <p class="muted">{{ de_en("Noch kein Link.", "No link yet.") }}</p>
+      {% endif %}
+      {% if can_share %}
+      <form method="post" action="{{ url_for('boards.share_add', survey_id=survey.id, board_id=board.id) }}" class="stack">
+        {{ csrf() }}
+        <div class="row-fields">
+          <label class="grow-2">{{ de_en("Für wen", "For whom") }} <span class="hint">{{ de_en("nur zur eigenen Übersicht", "only for your own overview") }}</span><input name="label" maxlength="100" placeholder="{{ de_en('z. B. Auftraggeber', 'e.g. client') }}"></label>
+          <label>{{ de_en("Gültig", "Valid") }}
+            <select name="valid">{% for key, name in validity %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+          {% if providers %}
+          <label>{{ de_en("Zeigt die Teilnahmen von", "Shows the participations of") }}
+            <select name="qp"><option value="">{{ de_en("allen zusammen", "all together") }}</option>
+              {% for name, value in providers %}<option value="{{ name }}={{ value }}">{{ link_value(survey, name, value) }}</option>{% endfor %}</select></label>
+          {% endif %}
+        </div>
+        {% if providers %}<p class="muted small">{{ de_en("Ein Link für einen Anbieter zeigt Kennzahlen der Datenerhebung und Quoten nur aus dessen Teilnahmen; Kacheln mit Ergebnissen von Fragen lässt er weg.", "A link for a provider shows key figures of the data collection and quotas only from its participations; it leaves out tiles with results of questions.") }}</p>{% endif %}
+        <label class="check"><input type="checkbox" name="hall" value="1"> {{ de_en("Hörsaal-Modus", "Lecture hall mode") }} <span class="hint">{{ de_en("große Schrift für den Beamer; zeigt links den QR-Code und die Adresse der Befragung", "large text for the projector; shows the QR code and the address of the survey on the left") }}</span></label>
+        <label class="check"><input type="checkbox" name="end" value="1"> {{ de_en("Auf der Endseite der Befragung zeigen", "Show on the end page of the survey") }} <span class="hint">{{ de_en("wer die Befragung abschließt, sieht dort den Knopf „Ergebnisse ansehen“ zu diesem Dashboard", "anyone who completes the survey sees the button “View results” for this dashboard there") }}{% if end_share %}{{ de_en("; ersetzt den bisherigen Link der Endseite", "; replaces the previous link of the end page") }}{% endif %}</span></label>
+        <div class="form-actions"><button class="button button-secondary">{{ de_en("Link erzeugen", "Create link") }}</button></div>
+        <p class="muted small">{{ de_en("Der Link zeigt nur zusammengefasste Zahlen, steht in keiner Suchmaschine und führt nicht in die Anwendung. Er rechnet mit der „Grundlage der Auswertung“ (Qualitätssicherung, Ergebnisse), aber nie mit Testdurchläufen aus der Vorschau. Ein Link „bis nach dem Feldende“ folgt dem Feldende, wenn es verschoben wird; ohne Feldende gilt er 30 Tage. Ein unbegrenzter Link gilt, bis er widerrufen, das Dashboard gelöscht oder die Befragung archiviert wird.", "The link shows only summarised figures, is listed in no search engine and does not lead into the application. It uses the “Basis of the analysis” (quality assurance, results), but never test runs from the preview. A link “until after the field end” follows the field end when it is moved; without a field end it is valid for 30 days. An unlimited link is valid until it is revoked, the dashboard is deleted or the survey is archived.") }}</p>
+      </form>
+      {% else %}
+      <p class="muted small">{{ de_en("Links erzeugen, weitergeben und widerrufen können Personen mit der Rolle „Admin“", "People with the role “Admin” can create, pass on and revoke links") }}{% if shares %}{{ de_en("; deshalb stehen hier die Links ohne ihre Adresse", "; that is why the links appear here without their address") }}{% endif %}.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="board-preview">
+    <p class="board-preview-head"><strong>{{ de_en("Vorschau", "Preview") }}</strong> <span class="hint">{{ de_en("so zeigt es der Link; Kacheln mit zu wenigen Antworten hier mit Beispielwerten", "as the link shows it; tiles with too few answers here with example values") }}{% if can_edit %} · {{ de_en("Kacheln ziehen, um sie anzuordnen (auf einen freien Platz gezogen bleibt links davon eine Lücke), oder links mit ↑ ↓ und „Platz in der Zeile“; das × nimmt eine Kachel vom Dashboard", "drag tiles to arrange them (dragged onto a free place, a gap stays to its left), or on the left with ↑ ↓ and “Place in the row”; the × takes a tile off the dashboard") }}{% endif %}</span>
+      <span class="board-preview-links">
+        {# the main way to read it in full size; the preview beside is scaled down (W38) #}
+        <a class="button button-small" href="{{ url_for('boards.view', survey_id=survey.id, board_id=board.id) }}" target="_blank" rel="noopener">{{ de_en("Öffnen", "Open") }} ↗</a>
+        <a class="button button-small button-secondary" href="{{ url_for('boards.view', survey_id=survey.id, board_id=board.id, hoersaal=1) }}" target="_blank" rel="noopener">{{ de_en("Hörsaal-Modus", "Lecture hall mode") }} ↗</a>
+      </span></p>
+    {# the page drawn at the width of a wide screen and scaled down (app.js), so the preview has the columns of the link
+       and "Breite: die Hälfte" shows (UI/UX audit 2026-10-05, V82) #}
+    <div class="board-frame" data-board-box><iframe class="board-frame-inner" data-board-frame title="{{ de_en('Vorschau des Dashboards', 'Preview of the dashboard') }}" src="{{ url_for('boards.view', survey_id=survey.id, board_id=board.id, beispiel=1) }}"></iframe></div>
+  </div>
+</div>
+{% endblock %}

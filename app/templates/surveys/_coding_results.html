@@ -1,0 +1,34 @@
+{# The categories of the open answers of one element (app/coding.py, results()): per categorised column the categories
+   as bars, the most frequent first, "Sonstiges" and "nicht verwertbar" last (in a loop one list per pass, e.pass_names);
+   and for the role "Bearbeiten" the button "Kategorisieren" next to every column that can be categorised (K1, K2).
+   Needs e (the entry), survey, bar_top. #}
+{% from "_macros.html" import share_bar, share_n %}
+{% set coded = {} %}{% for cl in (e.codings or []) + (e.codings_loop or []) %}{% set _ = coded.setdefault(cl.code, []).append(cl) %}{% endfor %}
+{% set captions = dict(e.pass_names or []) %}
+{% set can_code = survey.can(current_user, "editor") and experimental("coding", survey) %}
+{% for col, label in coding.columns(e.item) if coded.get(col) or can_code %}
+{% set lists = [] if coding_check.blind_for(survey, coding.key_of(e.item, col), current_user) else coded.get(col, []) %}
+<div class="res-freq res-coding">
+  <p class="res-freq-head">{{ de_en("Kategorien", "Categories") }}{% if coding.columns(e.item)|length > 1 %} · <code>{{ col }}</code> <span class="hint">{{ label|truncate(60) }}</span>{% endif %}
+    {% if can_code %}<a class="button button-small button-secondary" href="{{ url_for('coding.page', survey_id=survey.id, key=coding.key_of(e.item, col)) }}">{{ de_en("Kategorisieren", "Categorise") }}</a>{% endif %}</p>
+  {% for cl in lists %}
+  {% if cl.pass %}<p class="res-freq-head"><code>_{{ cl.pass }}</code> <span class="hint">{{ captions.get(cl.pass|int, "") }}</span></p>{% endif %}
+  {% if cl.n %}
+  {% set with_ci = cl.rows|selectattr("ci")|list %}
+  <ul class="plain res-bars{{ ' res-bars-ci' if with_ci }}">
+    {% set top = bar_top(cl.rows) %}
+    {% for row in cl.rows %}
+    <li><span class="res-bar-label">{{ row.label }}{% if row.group %} <span class="hint">{{ row.group }}</span>{% endif %}</span>
+      {{ share_bar(row, top) }}
+      <span class="res-bar-n">{{ share_n(row) }}{% if not cl.single %} <span class="hint" title="{{ de_en('Anteil an allen Nennungen', 'share of all mentions') }}">{{ row.of_mentions|percent }} {{ de_en("der Nennungen", "of mentions") }}</span>{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">n = {% if cl.single %}{{ de_en("{n} kategorisierte Antworten, eine Kategorie je Antwort", "{n} categorised answers, one category per answer", n=cl.n) }}{% else %}{{ de_en("{n} kategorisierte Antworten mit {k} Nennungen · mehrere Kategorien je Antwort möglich, die Anteile an Personen ergeben zusammen nicht 100 %", "{n} categorised answers with {k} mentions · several categories per answer possible, the shares of people do not add up to 100%", n=cl.n, k=cl.mentions) }}{% endif %}{% if col.endswith(coding.ASSOC) %} · {{ de_en("je Person die Kategorien aller ihrer Begriffe", "per person the categories of all their words") }}{% endif %}{% if cl.open > 0 %} · {{ de_en("noch nicht kategorisiert: {k}", "not categorised yet: {k}", k=cl.open) }}{% endif %}{% if with_ci %} · {{ de_en("Anteil (Anzahl); Fehlerbalken: 95-%-Konfidenzintervall nach Wilson", "share (count); error bars: 95% Wilson confidence interval") }}{% endif %}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Noch keine Antwort kategorisiert.", "No answer categorised yet.") }}{% if cl.open > 0 %} {{ de_en("Offen: {k}", "Open: {k}", k=cl.open) }}{% endif %}</p>
+  {% endif %}
+  {% else %}
+  <p class="muted small">{{ de_en("Die Antworten lassen sich in Kategorien einordnen und dann wie eine geschlossene Frage auswerten.", "The answers can be sorted into categories and then analysed like a closed question.") }}</p>
+  {% endfor %}
+</div>
+{% endfor %}

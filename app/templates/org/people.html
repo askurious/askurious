@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{# Verwaltung > Personen (app/org_admin.py): everyone in the organisation, sorted, searched and in pages like the list of
+   the platform (admin/researchers.html, Ralf 2026-10-18); accounts at home here are managed on their own page.
+   Context: org, rows, page (the Listing), invites and invite_rows (open invitations, app/org_invites.py), types, default_type,
+   left, cap, chosen, group_options, kinds_only, period. #}
+{% from "_macros.html" import csrf, orcid_link, form_error, list_table %}
+{% from "_icons.html" import icon %}
+{% from "_listing.html" import sort_th, search, pager, keep, choose %}
+{% block title %}{{ de_en("Personen", "People") }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% macro period_fields(form) %}{# user type and period of a new person: only the organisation's own types (A16) #}
+<label>{{ de_en("Nutzertyp", "User type") }}
+  <select name="account_type">{% if not default_type or default_type not in types %}<option value="">{{ de_en("Standard für neue Konten", "Default for new accounts") }}</option>{% endif %}{% for t in types %}<option value="{{ t.id }}"{{ " selected" if (form.get("account_type") == t.id|string if form.get("account_type") else (default_type and t.id == default_type.id)) }}>{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}</select></label>
+<fieldset class="period-fields"><legend>{{ de_en("Laufzeit", "Period") }} <span class="hint">{{ de_en("beginnt mit der ersten Anmeldung; danach wird das Konto gesperrt", "starts with the first sign-in; afterwards the account is blocked") }}</span></legend>
+  <div class="row">
+  <select name="valid_mode" aria-label="{{ de_en('Art der Laufzeit', 'Kind of period') }}">
+    {% for value, label in (("type", de_en("wie Nutzertyp", "as the user type")), ("m", de_en("Monate", "months")), ("w", de_en("Wochen", "weeks")), ("d", de_en("bis zum Datum", "until the date")), ("none", de_en("unbefristet", "without end"))) %}<option value="{{ value }}"{{ " selected" if form.get("valid_mode", "type") == value }}>{{ label }}</option>{% endfor %}</select>
+  <input type="number" name="valid_n" min="1" max="520" value="{{ form.get('valid_n', '') }}" aria-label="{{ de_en('Anzahl Monate oder Wochen', 'Number of months or weeks') }}" placeholder="{{ de_en('Anzahl', 'number') }}">
+  <input type="date" name="valid_date" value="{{ form.get('valid_date', '') }}" aria-label="{{ de_en('Enddatum', 'End date') }}"></div>
+</fieldset>
+{% endmacro %}
+{% macro kind_selects(form) %}{# the four survey types, at most the organisation's cap #}
+<fieldset class="kind-selects"><legend>{{ de_en("Befragungstypen", "Survey types") }}</legend>
+  {% for k in cap %}<label>{{ kind_label(k) }}
+    <select name="kind_{{ k }}"><option value="">{{ de_en("wie Nutzertyp", "as the user type") }}</option>{% for lvl in ("create", "edit", "view", "off")[("create", "edit", "view", "off").index(cap[k]):] %}<option value="{{ lvl }}"{{ " selected" if form.get("kind_" ~ k, "") == lvl }}>{{ kind_level_label(lvl) }}</option>{% endfor %}</select></label>
+  {% endfor %}</fieldset>
+{% endmacro %}
+{% macro bad(key, field) %}{% set problem = g.get("form_error") %}{% if problem and problem.key == key and problem.field == field %} aria-invalid="true" aria-describedby="{{ key }}-error"{% endif %}{% endmacro %}
+{% set problem = g.get("form_error") %}
+{% include "org/_tabs.html" %}
+<section class="panel" id="personen">
+  <h2>{{ de_en("Personen der Organisation", "People of the organisation") }} <span class="hint">{{ page.total }}</span></h2>
+  {% if invitation %}<div class="join-link-new" id="einladung" role="status">
+    <p>{{ de_en("Einladung für {n}: Geben Sie diesen Link nur der Person selbst. Er wird nur jetzt angezeigt und gilt {d} Tage, nur für ihr Konto; sie tritt mit ihm selbst bei.", "Invitation for {n}: give this link only to the person themselves. It is shown only now and is valid for {d} days, for their account only; with it they join themselves.", n=invitation.name, d=invitation.days) }}</p>
+    <div class="copy-row"><input class="one-time-link" id="org-join-link" value="{{ invitation.link }}" readonly aria-label="{{ de_en('Einladungslink', 'Invitation link') }}" data-select-all>
+      <button type="button" class="button button-secondary" data-copy="#org-join-link">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div></div>{% endif %}
+  <p class="muted small">{{ de_en("Zur Organisation gehört, wer hier aufgenommen ist oder in einer ihrer Gruppen ist. Konten, deren Heimat diese Organisation ist, verwalten Sie: Nutzertyp, Laufzeit, Befragungstypen, Anlegen von Befragungen, Sperren. Inhalte und Antworten von Befragungen sehen Sie hier nicht.", "Anyone who is added here or is in one of its groups belongs to the organisation. You manage the accounts whose home is this organisation: user type, period, survey types, creating surveys, blocking. You do not see the content or answers of surveys here.") }}</p>
+  <div class="admin-listhead">
+    {{ search(page, de_en("Personen suchen", "Search people"), de_en("Suchen: Name, ORCID iD, Gruppe …", "Search: name, ORCID iD, group …")) }}
+    <a class="button button-secondary button-small" href="{{ page.url(kinds=none if kinds_only else 1, page=none) }}"{% if kinds_only %} aria-current="page"{% endif %}>{{ de_en("Alle Konten", "All accounts") if kinds_only else de_en("Nur eingeschränkte Befragungstypen", "Only restricted survey types") }}</a>
+    {% for key, label in (("soon", de_en("endet in 30 Tagen", "ends within 30 days")), ("ended", de_en("abgelaufen", "ended"))) %}
+    <a class="button button-secondary button-small" href="{{ page.url(end=none if period == key else key, page=none) }}"{% if period == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    {% if group_options %}{{ choose(page, "group", de_en("Gruppe", "Group"), group_options, chosen.id if chosen else none) }}{% endif %}
+    <a class="button" href="#person-hinzufuegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Person hinzufügen …", "Add person …") }}</a>
+  </div>
+  {% if not rows %}<p class="muted">{{ de_en("Keine Personen zu dieser Suche.", "No people match this search.") if page.q or chosen or kinds_only or period else de_en("Noch niemand in der Organisation.", "Nobody in the organisation yet.") }}</p>{% else %}
+  <div class="org-people-box">{% call list_table("is-num admin-people org-people") %}
+    <thead><tr>{{ sort_th(page, "name", de_en("Name", "Name")) }}{{ sort_th(page, "home", de_en("Heimat", "Home"), de_en("hier: Konto wird von dieser Organisation verwaltet", "here: the account is managed by this organisation")) }}{{ sort_th(page, "groups", de_en("Gruppen", "Groups")) }}{{ sort_th(page, "surveys", de_en("Befragungen", "Surveys"), de_en("Befragungen dieser Organisation, in denen die Person Mitglied ist", "surveys of this organisation the person is a member of")) }}{{ sort_th(page, "running", de_en("laufende", "running")) }}{{ sort_th(page, "own", de_en("selbst angelegt", "created themselves")) }}
+      {{ sort_th(page, "completed", de_en("Teilnahmen", "Participations"), de_en("echte abgeschlossene Teilnahmen in diesen Befragungen", "real completed participations in these surveys")) }}{{ sort_th(page, "since", de_en("seit", "since")) }}{{ sort_th(page, "last", de_en("zuletzt", "last")) }}<th>{{ de_en("Konto", "Account") }}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% set u = r.user %}{% set p = r.period %}
+      <tr><td class="admin-name">{% if r.managed %}<a href="{{ url_for('org.account', org_id=org.id, user_id=u.id) }}">{{ u.display_name }}</a>{% else %}{{ u.display_name }}{% endif %} {{ orcid_link(u.orcid, unauth=False) }}
+          {% if r.member and r.member.role == "admin" %} <span class="badge">{{ de_en("Admin", "Admin") }}</span>{% endif %}{% if r.deletion %} <span class="badge badge-error">{{ de_en("Löschung fällig", "deletion due") if r.deletion_due else de_en("Löschung am {d}", "deletion on {d}", d=r.deletion.due_at|localdate) }}</span>{% elif r.blocked %} <span class="badge badge-error">{{ de_en("gesperrt", "blocked") }}</span>{% endif %}
+          {% if r.home %}{% if r.kinds and "create" in r.kinds.values() %}<span class="badge" title="{{ de_en('legt eigene Befragungen an: ', 'creates own surveys: ') }}{% for k, v in r.kinds.items() if v == 'create' %}{{ kind_label(k) }}{{ ', ' if not loop.last }}{% endfor %}">{{ de_en("legt an", "creates") }}</span>{% endif %}
+          {% if p.type %}<span class="badge" title="{{ de_en('Nutzertyp', 'User type') }}">{{ account_type_name(p.type) }}</span>{% endif %}
+          {% if p.expired %}<span class="badge badge-error">{{ de_en("abgelaufen am {d}", "ended on {d}", d=p.until|localdate) }}</span>
+          {% elif p.until %}<span class="badge{{ ' badge-pending' if p.left is not none and p.left <= 30 }}" title="{{ de_en('Ende der Laufzeit', 'End of the period') }}">{{ de_en("bis {d}", "until {d}", d=p.until|localdate) }}</span>
+          {% elif p.pending %}<span class="hint">{{ period_describe(p.pending) }} {{ de_en("ab dem Passwort", "from the password") }}</span>{% endif %}
+          {% set below = r.kinds.items()|selectattr(1, "in", ["off", "view"])|list if r.kinds else [] %}{% if below %}<span class="badge" title="{{ de_en('Befragungstypen unter „Bearbeiten“', 'Survey types below “Edit”') }}">{% for k, v in below %}{{ kind_label(k) }}: {{ kind_level_label(v) }}{{ ", " if not loop.last }}{% endfor %}</span>{% endif %}{% endif %}</td>
+        <td>{{ de_en("hier", "here") if r.home else de_en("woanders", "elsewhere") }}</td>
+        <td>{{ r.groups|join(", ") or "–" }}</td>
+        <td>{{ r.surveys or "–" }}</td><td>{{ r.running or "–" }}</td><td>{{ r.own or "–" }}</td><td>{{ r.completed or "–" }}</td>
+        <td>{{ u.created_at|localdt(false) }}</td><td>{{ u.last_login_at|localdt(false) if u.last_login_at else "–" }}</td>
+        <td class="admin-account"><div class="admin-row-actions">
+          {% if r.managed %}
+          <form class="inline" method="post" action="{{ url_for('org.account', org_id=org.id, user_id=u.id) }}"
+                {% if not r.blocked %}data-confirm="{{ de_en('{name} sperren?', 'Block {name}?', name=u.display_name) }}" data-confirm-note="{{ de_en('Die Person kann sich nicht mehr anmelden; alles andere bleibt, wie es ist.', 'The person can no longer sign in; everything else stays as it is.') }}"
+                data-confirm-ok="{{ de_en('Sperren', 'Block') }}" data-confirm-danger{% endif %}>
+            {{ csrf() }}{{ keep() }}<input type="hidden" name="action" value="{{ 'unblock' if r.blocked else 'block' }}">
+            {% set block_name = de_en("Entsperren", "Unblock") if r.blocked else de_en("Sperren", "Block") %}
+            <button class="icon-btn admin-act danger" title="{{ block_name }}" aria-label="{{ block_name }}: {{ u.display_name }}">{{ icon("lock", 16) }}</button>
+          </form>
+          <a class="icon-btn admin-act" href="{{ url_for('org.account', org_id=org.id, user_id=u.id) }}" title="{{ de_en('Verwalten', 'Manage') }}" aria-label="{{ de_en('Verwalten', 'Manage') }}: {{ u.display_name }}">{{ icon("settings", 16) }}</a>
+          {% endif %}
+          {% if r.removable %}
+          <form class="inline" method="post" action="{{ url_for('org.people_action', org_id=org.id) }}"
+                data-confirm="{{ de_en('{n} aus der Organisation entfernen?', 'Remove {n} from the organisation?', n=u.display_name) }}" data-confirm-note="{{ de_en('Die Person tritt auch aus den Gruppen der Organisation aus, ihre Heimat wechselt in ihre andere Organisation; ihre Befragungen bleiben.', 'The person also leaves the groups of the organisation and their home moves to their other organisation; their surveys stay.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
+            {{ csrf() }}{{ keep() }}<input type="hidden" name="action" value="remove"><input type="hidden" name="user_id" value="{{ u.id }}">
+            <button class="icon-btn admin-act danger" title="{{ de_en('Aus der Organisation entfernen', 'Remove from the organisation') }}" aria-label="{{ de_en('Aus der Organisation entfernen', 'Remove from the organisation') }}: {{ u.display_name }}">{{ icon("x", 16) }}</button></form>
+          {% elif not r.home %}
+          <form class="inline" method="post" action="{{ url_for('org.people_action', org_id=org.id) }}"
+                data-confirm="{{ de_en('{n} aus der Organisation entfernen?', 'Remove {n} from the organisation?', n=u.display_name) }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
+            {{ csrf() }}{{ keep() }}<input type="hidden" name="action" value="remove"><input type="hidden" name="user_id" value="{{ u.id }}">
+            <button class="icon-btn admin-act danger" title="{{ de_en('Aus der Organisation entfernen', 'Remove from the organisation') }}" aria-label="{{ de_en('Aus der Organisation entfernen', 'Remove from the organisation') }}: {{ u.display_name }}">{{ icon("x", 16) }}</button></form>
+          {% elif not r.managed %}<span class="hint" title="{{ r.why or '' }}">–</span>{% endif %}</div></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}</div>
+  {{ pager(page) }}
+  {% endif %}
+  <p class="muted small">{{ de_en("„Verwalten“: Nutzertyp, Laufzeit, Befragungstypen, Anlegerecht und Einmal-Link eines Kontos, dessen Heimat hier ist; die Konten anderer Admins der Organisation und Konten mit Rollen außerhalb der Organisation (in einer anderen Organisation, ihren Gruppen oder Befragungen) verwaltet ein Admin der Plattform. „Sperren“ hält jemanden draußen und lässt alles, wie es ist. „Entfernen“ nimmt eine Person aus der Organisation und ihren Gruppen, die auch zu einer anderen Organisation gehört; liegt ihre Heimat hier, wechselt sie dorthin. Wer nur hierher gehört, lässt sich auf der Seite der Person löschen: gesperrt sofort, gelöscht nach 30 Tagen.",
+    "“Manage”: user type, period, survey types, right to create and one-time link of an account at home here; the accounts of other admins of the organisation and accounts with roles beyond the organisation (in another organisation, its groups or surveys) are managed by a platform admin. “Block” keeps someone out and leaves everything as it is. “Remove” takes a person who also belongs to another organisation out of this one and its groups; a home here moves there. Anyone who belongs here only can be deleted on the person's page: blocked at once, deleted after 30 days.") }}</p>
+  <p class="muted small">{{ de_en("Befragungen und Teilnahmen zählen nur Befragungen dieser Organisation; Testdurchläufe, Dummy-Daten und Vorschau zählen nicht.",
+    "Surveys and participations count only surveys of this organisation; test runs, dummy data and preview do not count.") }}</p>
+</section>
+{% if invites.total %}
+<section class="panel" id="einladungen">
+  <h2>{{ de_en("Offene Einladungen", "Open invitations") }} <span class="hint">{{ invites.total }}</span></h2>
+  <div class="org-people-box">{% call list_table("admin-people org-invites") %}
+    <thead><tr>{{ sort_th(invites, "name", de_en("Person", "Person")) }}{{ sort_th(invites, "kind", de_en("Art", "Kind")) }}{{ sort_th(invites, "since", de_en("eingeladen", "invited")) }}{{ sort_th(invites, "by", de_en("von", "by")) }}{{ sort_th(invites, "until", de_en("gilt bis", "valid until")) }}<th><span class="visually-hidden">{{ de_en("Zurückziehen", "Withdraw") }}</span></th></tr></thead>
+    <tbody>
+    {% for i in invite_rows %}{% set who = i.name or i.orcid %}
+      <tr><td class="admin-name">{{ i.name or i.orcid or "–" }} {{ orcid_link(i.orcid, unauth=true) if i.orcid }}</td>
+        <td>{{ i.kinds|join(", ") }}</td>
+        <td>{{ i.since|localdt(false) if i.since else "–" }}</td>
+        <td>{{ i.by.display_name if i.by else "–" }}</td>
+        <td>{{ i.until|localdt(false) if i.until else "–" }}</td>
+        <td class="admin-account"><div class="admin-row-actions">{% if i.may %}
+          <form class="inline" method="post" action="{{ url_for('org.withdraw_invitation', org_id=org.id) }}"
+                data-confirm="{{ de_en('Einladung für {n} zurückziehen?', 'Withdraw the invitation for {n}?', n=who) }}" data-confirm-note="{{ de_en('Das Konto ohne ORCID bleibt; der Einmal-Link gilt nicht mehr.', 'The account without ORCID stays; the one-time link no longer works.') if i.key.startswith('l') else de_en('Die iD kann sich nicht mehr in diese Organisation anmelden und steht in keiner ihrer Gruppen mehr.', 'The iD can no longer sign in to this organisation and is in none of its groups any more.') }}"
+                data-confirm-ok="{{ de_en('Zurückziehen', 'Withdraw') }}" data-confirm-danger>
+            {{ csrf() }}{{ keep() }}<input type="hidden" name="key" value="{{ i.key }}">
+            <button class="icon-btn admin-act danger" title="{{ de_en('Einladung zurückziehen', 'Withdraw invitation') }}" aria-label="{{ de_en('Einladung zurückziehen', 'Withdraw invitation') }}: {{ who }}">{{ icon("trash", 16) }}</button></form>
+          {% else %}<span class="hint" title="{{ de_en('Admins der Organisation entfernt ein Admin der Plattform.', 'A platform admin removes admins of the organisation.') if i.admin else de_en('Dieses Konto verwalten Sie nicht.', 'You do not manage this account.') }}">–</span>{% endif %}</div></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}</div>
+  {{ pager(invites) }}
+</section>
+{% endif %}
+{# "Person hinzufügen" as on the platform (admin/researchers.html, S10), without choosing the organisation: it is this
+   one (Ralf 2026-10-18). app.js turns the panel into a dialog; a refused form comes back open with what was entered. #}
+<section class="panel person-add" id="person-hinzufuegen" aria-labelledby="person-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="person-add-title">{{ de_en("Person hinzufügen", "Add person") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <p class="muted small">{{ de_en("Zwei Wege, je nachdem, ob die Person eine ORCID iD hat. Ihre Heimat ist danach diese Organisation, wenn sie noch kein Konto hat.", "Two ways, depending on whether the person has an ORCID iD. If they have no account yet, their home is then this organisation.") }}{% if left is not none %} {{ de_en("Noch {n} Konten frei.", "{n} more accounts possible.", n=left) }}{% endif %}</p>
+  {# first the way, then only its form (Ralf 2026-10-18: not two columns with the same fields); app.js shows the choice
+     and hides the other way, without scripts both stay #}
+  <fieldset class="person-way-choice" data-person-way-choice hidden><legend>{{ de_en("Hat die Person eine ORCID iD?", "Does the person have an ORCID iD?") }}</legend>
+    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("Ja, Anmeldung mit ORCID", "Yes, sign-in with ORCID") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Nein, Konto mit E-Mail-Adresse und Passwort", "No, account with email address and password") }}</label></fieldset>
+  <div class="person-ways">
+    <section class="person-way" aria-labelledby="person-way-orcid" data-way="orcid">
+      <h3 id="person-way-orcid">{{ de_en("Mit ORCID iD", "With an ORCID iD") }}</h3>
+      <p class="muted small">{{ de_en("Wer schon ein Konto hat, bekommt eine Einladung: Sie sehen einmalig einen Link, den Sie der Person schicken; mit ihm tritt sie selbst bei (ein Gast bekommt die Organisation dann als Heimat). Wer noch keines hat, meldet sich selbst mit ORCID an; Nutzertyp, Laufzeit und Befragungstypen gelten ab der ersten Anmeldung.",
+        "Anyone who has an account already gets an invitation: you see a link once, which you send to the person; with it they join themselves (a guest then gets the organisation as home). Anyone without one signs in with ORCID themselves; user type, period and survey types apply from the first sign-in.") }}</p>
+      {% set again = request.form if problem and problem.key == "allow-orcid" else {} %}
+      <form method="post" action="{{ url_for('org.people_action', org_id=org.id) }}" class="stack">
+        {{ csrf() }}<input type="hidden" name="action" value="add">
+        <div id="allow-orcid-error">{{ form_error("allow-orcid") }}</div>
+        <label>ORCID iD <span class="hint">{{ de_en("0000-0000-0000-0000 oder die Adresse des Profils", "0000-0000-0000-0000 or the address of the record") }}</span>
+          <input name="orcid" maxlength="60" required autocomplete="off" value="{{ again.get('orcid', '') }}"{{ bad("allow-orcid", "orcid") }}></label>
+        <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, z.&nbsp;B. der Name, solange die Person noch kein Konto hat", "optional, e.g. the name while the person has no account yet")|safe }}</span>
+          <input name="note" maxlength="200" value="{{ again.get('note', '') }}"></label>
+        {{ period_fields(again) }}
+        {{ kind_selects(again) }}
+        <div class="button-row"><button class="button">{{ de_en("Aufnehmen", "Add") }}</button></div>
+      </form>
+    </section>
+    <section class="person-way" aria-labelledby="person-way-local" data-way="local">
+      <h3 id="person-way-local">{{ de_en("Ohne ORCID iD", "Without an ORCID iD") }}</h3>
+      <p class="muted small">{{ de_en("Konto mit E-Mail-Adresse und Passwort. Nach dem Anlegen sehen Sie einmalig einen Link, den Sie der Person selbst schicken; mit ihm setzt sie ihr Passwort.",
+        "Account with email address and password. After creating it you see a link once, which you send to the person yourself; with it they set their password.") if not mail_enabled() else de_en("Konto mit E-Mail-Adresse und Passwort. Die Person bekommt einen Einmal-Link per E-Mail, mit dem sie ihr Passwort setzt; ohne Häkchen sehen Sie den Link einmalig selbst.",
+        "Account with email address and password. The person gets a one-time link by email to set their password; without the tick you see the link once yourself.") }}</p>
+      {% set again = request.form if problem and problem.key == "new-account" else {} %}
+      <form method="post" action="{{ url_for('org.new_account', org_id=org.id) }}" class="stack">
+        {{ csrf() }}<div id="new-account-error">{{ form_error("new-account") }}</div>
+        <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("so steht die Person in den Listen der Beteiligten und Autoren", "how the person appears in the lists of people involved and authors") }}</span>
+          <input name="name" maxlength="200" required value="{{ again.get('name', '') }}"{{ bad("new-account", "name") }}></label>
+        <label>{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{{ de_en("der Anmeldename; in der Organisation sieht sie niemand", "the sign-in name; nobody in the organisation sees it") }}</span>
+          <input type="email" name="email" maxlength="254" required value="{{ again.get('email', '') }}"{{ bad("new-account", "email") }}></label>
+        {% if org.may_create is not sameas false %}<label class="check"><input type="checkbox" name="may_create" value="1"{{ " checked" if (again.get("may_create") == "1" if again else config.NEW_ACCOUNTS_MAY_CREATE) }}> {{ de_en("darf eigene Befragungen anlegen", "may create own surveys") }} <span class="hint">{{ de_en("setzt jede Art auf „Bearbeiten“ auf „Anlegen“", "sets every type at “Edit” to “Create”") }}</span></label>{% endif %}
+        {{ period_fields(again) }}
+        {{ kind_selects(again) }}
+        {% if mail_enabled() %}<label class="check"><input type="checkbox" name="send_mail" value="1"{{ " checked" if (again.get("send_mail") == "1" if again else true) }}> {{ de_en("Einmal-Link per E-Mail an die Person schicken", "Send the one-time link to the person by email") }}</label>{% endif %}
+        <div class="button-row"><button class="button">{{ de_en("Konto anlegen", "Create account") }}</button></div>
+      </form>
+    </section>
+  </div>
+</section>
+{% endblock %}

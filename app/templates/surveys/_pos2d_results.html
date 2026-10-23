@@ -1,0 +1,24 @@
+{# 2D positioning: mean position per element with ±1 SD as a cross; axes as set up in the item #}
+{% set it = e.item %}{% set lg = survey.default_language %}
+<figure class="pos2d-res">
+  <svg viewBox="0 0 440 440" role="img" aria-label="{{ de_en('Mittlere Positionen', 'Mean positions') }}">
+    <rect x="40" y="10" width="390" height="390" class="pos2d-frame"/>
+    <line x1="235" y1="10" x2="235" y2="400" class="pos2d-mid"/><line x1="40" y1="205" x2="430" y2="205" class="pos2d-mid"/>
+    {% for label, mx, my, sx, sy, n in e.pos2d %}
+    {% set cx = 40 + 3.9 * mx %}{% set cy = 400 - 3.9 * my %}
+    {# decimal comma; no SD from a single placement ("–") #}
+    <g class="pos2d-pt"><title>{{ label }}: {{ it.text("x_label", lg) }} M = {{ (mx)|dec(1) }} (SD {{ (sx)|dec(1) if sx is not none else "–" }}), {{ it.text("y_label", lg) }} M = {{ (my)|dec(1) }} (SD {{ (sy)|dec(1) if sy is not none else "–" }}), n = {{ n }}</title>
+      {% if sx is not none %}<line x1="{{ [40, cx - 3.9 * sx]|max }}" y1="{{ cy }}" x2="{{ [430, cx + 3.9 * sx]|min }}" y2="{{ cy }}" class="pos2d-sd"/>{% endif %}
+      {% if sy is not none %}<line x1="{{ cx }}" y1="{{ [10, cy - 3.9 * sy]|max }}" x2="{{ cx }}" y2="{{ [400, cy + 3.9 * sy]|min }}" class="pos2d-sd"/>{% endif %}
+      <circle cx="{{ cx }}" cy="{{ cy }}" r="5" class="pos2d-dot"/>
+      <text x="{{ cx + (8 if mx < 70 else -8) }}" y="{{ cy - 7 }}" text-anchor="{{ 'start' if mx < 70 else 'end' }}" class="pos2d-label">{{ label }}</text></g>
+    {% endfor %}
+    <text x="40" y="418" class="pos2d-end">{{ it.text("x_low", lg) }}</text>
+    <text x="430" y="418" text-anchor="end" class="pos2d-end">{{ it.text("x_high", lg) }}</text>
+    <text x="235" y="436" text-anchor="middle" class="pos2d-axis">{{ it.text("x_label", lg) }}</text>
+    <text x="32" y="400" text-anchor="end" class="pos2d-end">{{ it.text("y_low", lg) }}</text>
+    <text x="32" y="20" text-anchor="end" class="pos2d-end">{{ it.text("y_high", lg) }}</text>
+    <text transform="translate(12 205) rotate(-90)" text-anchor="middle" class="pos2d-axis">{{ it.text("y_label", lg) }}</text>
+  </svg>
+  <figcaption class="muted small">{{ de_en("Mittlere Position je Element, Kreuz = ±1 SD; Werte 0 bis 100. Details beim Überfahren eines Punktes.", "Mean position per element, cross = ±1 SD; values 0 to 100. Details when hovering over a dot.") }}</figcaption>
+</figure>

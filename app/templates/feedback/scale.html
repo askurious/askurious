@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Konstrukt vorschlagen", "Suggest a construct") }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('constructs.index') }}">{{ icon("back", 16) }} {{ de_en("Zurück zu den Konstrukten", "Back to the constructs") }}</a>
+<div class="page-head"><h1>{{ de_en("Konstrukt vorschlagen", "Suggest a construct") }} <span class="hint">{{ de_en("eine Skala aus der Literatur für „Konstrukte“", "a scale from the literature for “Constructs”") }}</span></h1></div>
+<section class="panel">
+  <p class="muted">{{ de_en("In die Sammlung kommen nur validierte Skalen, deren Wortlaut wir anhand der Originalquelle prüfen können. Bitte nennen Sie deshalb die Quelle mit DOI (auch ZIS/GESIS-Skalen haben eine).", "Only validated scales whose wording we can check against the original source go into the collection. So please give the source with its DOI (ZIS/GESIS scales have one too).") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
+      <input name="title" required maxlength="200" value="{{ form.get('title', '') }}" placeholder="{{ de_en('z. B. Need for Privacy Scale (NFP-S)', 'e.g. Need for Privacy Scale (NFP-S)') }}"></label>
+    <label><span class="label-title">{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("Was misst die Skala? Anzahl Items, Antwortformat, Sprachen", "What does the scale measure? Number of items, answer format, languages") }}</span></span>
+      <textarea name="description" rows="4" required maxlength="2000">{{ form.get('description', '') }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Begründung", "Justification") }} <span class="hint">{{ de_en("kurz: Wofür brauchen Sie oder andere sie?", "briefly: what do you or others need it for?") }}</span></span>
+      <textarea name="justification" rows="3" required maxlength="1000">{{ form.get('justification', '') }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("Autorinnen und Autoren, Jahr, Titel, Zeitschrift", "authors, year, title, journal") }}</span></span>
+      <textarea name="reference" rows="2" required maxlength="1000">{{ form.get('reference', '') }}</textarea></label>
+    <label><span class="label-title">DOI <span class="hint">{{ de_en("z. B. 10.1037/0022-3514.84.4.822", "e.g. 10.1037/0022-3514.84.4.822") }}</span></span>
+      <input name="doi" required maxlength="200" value="{{ form.get('doi', '') }}" placeholder="10.xxxx/…"></label>
+    <div class="form-actions"><button class="button">{{ icon("check", 16) }} {{ de_en("Vorschlag senden", "Send suggestion") }}</button></div>
+  </form>
+</section>
+{% endblock %}

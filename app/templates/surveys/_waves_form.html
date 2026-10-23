@@ -1,0 +1,57 @@
+{# The waves of a longitudinal design (app/waves.py), in the panel "Wellen" of the page "Studienplan": one row per wave
+   with the survey and its label, and an empty row to add one. Saves by itself and comes back anew with every save
+   (data-autosave-redraw). Needs: survey and waves.form_context(). #}
+{% from "_macros.html" import autosave_bar, csrf with context %}
+{% from "_learn.html" import why %}
+{% set rows = waves_view.rows %}
+{% set ids = rows|map(attribute="id")|list %}
+<form method="post" action="{{ url_for('waves.update', survey_id=survey.id) }}" class="stack" id="waves-form"{{ " data-autosave-form data-autosave-redraw" if can_waves else "" }}>
+  <fieldset class="bare" {% if not can_waves %}disabled{% endif %}>
+  {{ csrf() }}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">{{ de_en("Welle", "Wave") }}</th><th>{{ de_en("Befragung", "Survey") }}</th><th>{{ de_en("Bezeichnung", "Label") }}</th><th>{{ de_en("Spalten im Breitformat", "Columns in the wide format") }}</th></tr></thead>
+    <tbody>
+    {# nothing set yet: two rows, the first with this survey chosen #}
+    {% for r in ((rows + [none]) if rows else [none, none]) %}
+    {% set n = loop.index %}
+    {% set pre = survey.id if not rows and n == 1 else none %}
+    {% if n <= waves.MAX_WAVES %}
+    <tr>
+      <td class="center">{{ n }}</td>
+      <td><select name="wave_survey" aria-label="{{ de_en('Befragung der Welle {n}', 'Survey of wave {n}', n=n) }}">
+        <option value="">{{ de_en("– keine –", "– none –") }}</option>
+        {% if r and not r.allowed %}<option value="{{ r.id }}" selected>{{ r.title }}</option>{% endif %}
+        {% for sid, title in wave_choices %}
+        {% if sid == (r.id if r else none) or sid not in ids %}<option value="{{ sid }}"{% if (r and sid == r.id) or sid == pre %} selected{% endif %}>{{ title }}{% if sid == survey.id %} {{ de_en("(diese Befragung)", "(this survey)") }}{% endif %}</option>{% endif %}
+        {% endfor %}
+      </select>
+      {% if r and r.problem %}<span class="hint finding-warning">{{ r.problem }}</span>{% endif %}</td>
+      <td><input name="wave_label" maxlength="{{ waves.MAX_LABEL }}" value="{{ r.label if r else '' }}" placeholder="{{ de_en('z. B. vorher', 'e.g. before') if n == 1 else (de_en('z. B. nachher', 'e.g. after') if n == 2 else '') }}" aria-label="{{ de_en('Bezeichnung der Welle {n}', 'Label of wave {n}', n=n) }}"></td>
+      <td>{% if r %}<code>{{ waves.prefix(n) }}…</code>{% endif %}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if rows and not waves_view.ready %}<p class="flash flash-warning" role="status">{{ de_en("Zusammenführen geht erst mit mindestens zwei Wellen, die einen passenden persönlichen Code haben und deren Daten Sie herunterladen dürfen.", "Merging is possible only with at least two waves that have a matching personal code and whose data you may download.") }}</p>{% endif %}
+  {# what the results page models over the waves (app/panel_models.py): no part of the plan #}
+  {% if panel_choices %}
+  <input type="hidden" name="panel_form" value="1">
+  <div class="stack" id="wellen-modell">
+    <h3>{{ de_en("Längsschnitt auf der Ergebnisseite", "Longitudinal analysis on the results page") }}</h3>
+    <p class="muted small">{{ de_en("Größen, die in allen Wellen mit denselben Aussagen stehen. Die Ergebnisseite jeder Welle zeigt dann Mittelwerte je Welle, bei Skalen ab drei Aussagen die Messinvarianz über die Zeit und ab drei Wellen eine Wachstumskurve; ab zwei Größen ein Cross-Lagged-Panel-Modell. Hypothesen der Art „Wirkung über die Zeit“ nehmen ihre Größen von selbst dazu.", "Variables that stand in all waves with the same statements. The results page of every wave then shows means per wave, for scales from three statements the measurement invariance over time and from three waves a growth curve; from two variables a cross-lagged panel model. Hypotheses of the type “Effect over time” add their variables by themselves.") }}</p>
+    <div class="stack">{% for c in panel_choices %}<label class="check"><input type="checkbox" name="panel_var" value="{{ c.name }}"{% if c.name in panel_settings.vars %} checked{% endif %}> <span>{{ c.label }}</span></label>{% endfor %}</div>
+    <label class="check"><input type="checkbox" name="panel_tolerant" value="1"{% if panel_settings.tolerant %} checked{% endif %}> <span>{{ de_en("Codes mit einem abweichenden Teil verknüpfen (tolerant)", "Link codes with one differing part (tolerant)") }}</span></label>
+    {% if panel_waves >= 3 %}
+    <label class="check"><input type="checkbox" name="panel_real_time" value="1"{% if panel_settings.real_time %} checked{% endif %}> <span>{{ de_en("Wachstumskurve mit den tatsächlichen Abständen (Wochen zwischen den Teilnahmen) statt 0, 1, 2 …", "Growth curve with the actual intervals (weeks between participations) instead of 0, 1, 2 …") }}</span></label>
+    <label class="check"><input type="checkbox" name="panel_predictors" value="1"{% if panel_settings.predictors %} checked{% endif %}> <span>{{ de_en("Ausgangsniveau und Steigung durch die anderen gewählten Größen der ersten Welle erklären", "Explain initial level and slope by the other chosen variables of the first wave") }}</span></label>
+    {% endif %}
+    <label class="check"><input type="checkbox" name="panel_latent" value="1"{% if panel_settings.latent %} checked{% endif %}> <span>{{ de_en("Cross-Lagged-Panel-Modell mit latenten Skalen (aus den Aussagen, wenn die Ladungen über die Zeit gleich bleiben) statt mit Skalenwerten", "Cross-lagged panel model with latent scales (from the statements, if the loadings stay equal over time) instead of scale scores") }}</span></label>
+    {% if panel_waves >= 3 %}<label class="check"><input type="checkbox" name="panel_equal" value="1"{% if panel_settings.equal %} checked{% endif %}> <span>{{ de_en("Pfade über die Abstände gleichsetzen (bei etwa gleich langen Abständen)", "Set the paths equal over the intervals (with intervals of about equal length)") }}</span></label>{% endif %}
+    {{ why("clpm_or_riclpm") }}
+    {% if panel_waves >= 4 %}<label class="check"><input type="checkbox" name="panel_quadratic" value="1"{% if panel_settings.quadratic %} checked{% endif %}> <span>{{ de_en("Wachstumskurve quadratisch", "Quadratic growth curve") }}</span></label>{% endif %}
+  </div>
+  {% endif %}
+  {% if can_waves %}{{ autosave_bar() }}{% endif %}
+  </fieldset>
+</form>

@@ -1,0 +1,5 @@
+{# The omega intervals of the results page alone, for static/omega.js (surveys._omega_part): per placeholder
+   (data-omega-slot) the markup the page has when they are kept #}
+{% from "surveys/_omega_macros.html" import omega_ci, overview_open %}
+{% for slot, s in slots %}<template data-omega-for="{{ slot }}">{{ omega_ci(s, slot, note=slot.startswith("s:")) }}</template>
+{% endfor %}<template data-omega-for="note">{% if note %}{{ overview_open() }}{% endif %}</template>

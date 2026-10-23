@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{% from "_learn.html" import why %}
+{# The transcript of an interview (app/interview_transcribe.py): Whisper's draft to check and correct; saves by itself. #}
+{% block title %}{{ de_en("Transkript {label}", "Transcript {label}", label=row.interview.label) }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% set iv_access = interviewer_of(survey) %}
+{% if iv_access %}<div class="tabpage-head"><p class="muted small">{{ survey.title }}</p></div><!--flashes-->
+{% else %}<div class="tabpage-head">{% set active_tab = "interviews" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->{% endif %}
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Transkript {label}", "Transcript {label}", label=row.interview.label) }} <span class="hint">{% if st.source == "upload" %}{{ de_en("hochgeladen", "uploaded") }}{% if st.filename %}: {{ st.filename }}{% endif %}{% elif st.model %}{{ de_en("Entwurf von Whisper ({model})", "draft by Whisper ({model})", model=st.model) }}{% endif %}{% if st.checked %} · {{ de_en("geprüft am {d}", "checked on {d}", d=day(st.checked)) }}{% endif %}</span></h2>
+    <span class="spacer"></span>
+    {% if st.text %}<a class="button button-small button-secondary" href="{{ url_for('interview_transcribe.download', code=survey.code, rid=row.id) }}">{{ icon("download", 16) }} Text</a>{% endif %}
+    <a class="button button-small button-secondary" href="{{ interviews_url(survey) }}">{{ icon("back", 16) }} Interviews</a>
+  </div>
+  {% if (row.interview.audio or []) %}
+  <div class="iv-audio-part">{% for p in row.interview.audio %}<audio controls preload="metadata" src="{{ url_for('interview_audio.listen', code=survey.code, rid=row.id, part=p.part) }}"></audio>{% endfor %}</div>
+  {% endif %}
+  <p class="muted small">{{ de_en("Absätze enden mit einer Zeitmarke #hh:mm:ss-0# nach Dresing & Pehl (2018), gemessen an der Uhr des Interviews. Falls automatische Sprecherlabels vorhanden sind: P1-S1 bezeichnet die erste Stimme in Aufnahmeteil 1. Die Zuordnung gilt nur innerhalb eines Teils und erkennt keine Namen oder Rollen. Bitte beim Prüfen „I:“ (Interviewende) und „B:“ (befragte Person) setzen und Namen sowie erkennbare Angaben durch Platzhalter ersetzen.", "Paragraphs end with a time mark #hh:mm:ss-0# after Dresing & Pehl (2018), measured on the interview clock. If automatic speaker labels are present: P1-S1 denotes the first voice in recording part 1. Labels apply only within one part and identify no names or roles. Please set “I:” (interviewer) and “B:” (interviewee) while checking and replace names and identifying details with placeholders.") }}</p>
+  <form method="post" action="{{ url_for('interview_transcribe.upload', code=survey.code, rid=row.id) }}" enctype="multipart/form-data" class="row-fields transcript-upload"
+        {% if st.text %}data-confirm="{{ de_en('Das vorhandene Transkript ersetzen?', 'Replace the existing transcript?') }}" data-confirm-note="{{ de_en('Der bisherige Text geht verloren.', 'The previous text is lost.') }}" data-confirm-ok="{{ de_en('Ersetzen', 'Replace') }}"{% endif %}>
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Transkript hochladen", "Upload transcript") }} <span class="hint">{{ de_en(".txt, .docx oder Untertitel .srt/.vtt (f4, MAXQDA, Whisper); Untertitel bekommen Zeitmarken #hh:mm:ss-0#", ".txt, .docx or subtitles .srt/.vtt (f4, MAXQDA, Whisper); subtitles get time marks #hh:mm:ss-0#") }}</span></span>
+      <input type="file" name="file" accept=".txt,.docx,.srt,.vtt" required></label>
+    <div><button class="button button-secondary">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button></div>
+  </form>
+  {% if st.draft %}
+  {# Whisper ran again after a correction: its text waits beside the transcript (audit 2026-10-10, E-1) #}
+  <div class="option-group transcript-draft" id="draft">
+    <p><strong>{{ de_en("Neuer Entwurf von Whisper", "New draft by Whisper") }}</strong> <span class="hint">{{ de_en("aus „Neu transkribieren“ nach Ihrer Korrektur, mit allen Teilen der Aufnahme, auch später aufgenommenen; noch nicht pseudonymisiert. Er wird mit der Frist der Tonaufnahme gelöscht.", "from “Transcribe again” after your correction, with all parts of the recording, also those recorded later; not yet pseudonymised. It is deleted with the period of the audio recording.") }}</span></p>
+    <textarea rows="10" class="transcript-text" readonly aria-label="{{ de_en('Neuer Entwurf von Whisper', 'New draft by Whisper') }}">{{ st.draft }}</textarea>
+    <div class="row-fields">
+      <form method="post" action="{{ url_for('interview_transcribe.take_draft', code=survey.code, rid=row.id) }}" class="inline"
+            data-confirm="{{ de_en('Den Entwurf als Transkript übernehmen?', 'Accept the draft as the transcript?') }}" data-confirm-note="{{ de_en('Ihre Korrekturen und Platzhalter im bisherigen Text gehen verloren, der Haken „geprüft“ ebenso.', 'Your corrections and placeholders in the previous text are lost, as is the tick “checked”.') }}" data-confirm-ok="{{ de_en('Übernehmen', 'Accept') }}">
+        {{ csrf() }}<input type="hidden" name="action" value="take">
+        <button class="button button-small">{{ de_en("Übernehmen", "Accept") }}</button></form>
+      <form method="post" action="{{ url_for('interview_transcribe.take_draft', code=survey.code, rid=row.id) }}" class="inline">
+        {{ csrf() }}<input type="hidden" name="action" value="discard">
+        <button class="button button-small button-secondary">{{ de_en("Verwerfen", "Discard") }}</button></form>
+    </div>
+  </div>
+  {% endif %}
+  {% if current_user.is_authenticated %}{{ why("transcript_check") }}{% endif %}
+  <form method="post" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <textarea name="text" rows="24" class="transcript-text" aria-label="{{ de_en('Transkript', 'Transcript') }}">{{ st.text or "" }}</textarea>
+    {% if not iv_access %}
+    <input type="hidden" name="checked_shown" value="1">
+    <label class="check"><input type="checkbox" name="checked" value="1" {% if st.checked %}checked{% endif %}> {{ de_en("Transkript geprüft", "Transcript checked") }}
+      {% if keep == "transcript" and (row.interview.audio or []) %}<span class="hint">{{ de_en("die Teile der Tonaufnahme, die dieses Transkript enthält, werden {n} Tage nach dem Haken gelöscht; bis dahin lässt sich der Haken zurücknehmen. Später aufgenommene Teile bleiben erhalten.", "the parts of the audio recording this transcript contains are deleted {n} days after the tick; until then the tick can be taken back. Parts recorded later are kept.", n=grace) }}</span>{% endif %}
+</label>
+    {% endif %}
+    {# the head of the Word and PDF export (app/transcript_export.py): filled from the interview, each value changeable #}
+    {% if not iv_access %}<details class="option-group transcript-head" id="kopf">
+      <summary><strong>{{ de_en("Transkriptkopf", "Transcript head") }}</strong> <span class="hint">{{ de_en("für den Export als Word und PDF; aus dem Interview vorbefüllt, Änderungen gelten nur für dieses Interview", "for the export as Word and PDF; prefilled from the interview, changes apply to this interview only") }}</span></summary>
+      <input type="hidden" name="head_shown" value="1">
+      <div class="transcript-head-fields">
+      {% for key, label, value, auto in head %}
+      <label>{{ label }}<input type="text" name="head_{{ key }}" value="{{ value }}" maxlength="200"><input type="hidden" name="auto_{{ key }}" value="{{ auto }}"></label>
+      {% endfor %}
+      </div>
+    </details>{% endif %}
+    {{ autosave_bar() }}
+  </form>
+  {% if st.text and not iv_access %}
+  <div class="transcript-export">
+  <p class="label-title">{{ de_en("Exportieren", "Export") }} <span class="hint">{{ de_en("mit Transkriptkopf und Zeilennummern; Namen und erkennbare Angaben im Text vorher durch Platzhalter ersetzen", "with transcript head and line numbers; replace names and identifying details in the text with placeholders first") }}{% if not st.checked %}{{ de_en(", noch nicht geprüft: als Entwurf markiert", ", not yet checked: marked as a draft") }}{% endif %}</span></p>
+  <form method="get" action="{{ url_for('interview_transcribe.export', code=survey.code, rid=row.id) }}" class="row-fields">
+    <label class="check"><input type="checkbox" name="marks" value="1"> {{ de_en("Zeitmarken behalten", "Keep time marks") }}</label>
+    {% if has_tasks %}<input type="hidden" name="tasks" value="0"><label class="check" title="{{ de_en('Je Aufgabe eine Zeile an ihrer Zeitmarke, kursiv und ohne Sprecherkürzel; der Transkriptkopf nennt diese Einfügungen', 'One line per task at its time mark, in italics and without a speaker label; the transcript head names these insertions') }}"><input type="checkbox" name="tasks" value="1" checked> {{ de_en("Ergebnisse der Aufgaben einfügen", "Insert the results of the tasks") }}</label>{% endif %}
+    <button class="button button-small button-secondary" name="format" value="docx">{{ icon("download", 16) }} Word</button>
+    <button class="button button-small button-secondary" name="format" value="pdf">{{ icon("download", 16) }} PDF</button>
+  </form>
+  </div>
+  {{ why("transcript_export") }}
+  {% endif %}
+  {% if iv_access and st.text %}
+  {# an interviewer hands the checked transcript over and no longer opens the interview (app/interviewer.py, decision E) #}
+  <form method="post" class="row-fields" data-confirm="{{ de_en('Transkript als geprüft an die Forschenden übergeben?', 'Hand the transcript over to the researchers as checked?') }}"
+        data-confirm-note="{{ de_en('Danach können Sie dieses Interview nicht mehr öffnen.', 'Afterwards you can no longer open this interview.') }}" data-confirm-ok="{{ de_en('Übergeben', 'Hand over') }}">
+    {{ csrf() }}<input type="hidden" name="checked_shown" value="1"><input type="hidden" name="checked" value="1">
+    <button class="button">{{ de_en("Transkript geprüft: übergeben", "Transcript checked: hand over") }}</button>
+    <span class="hint">{{ de_en("erst nach dem Prüfen und Pseudonymisieren; danach öffnen nur noch die Forschenden das Interview", "only after checking and pseudonymising; afterwards only the researchers open the interview") }}</span>
+  </form>
+  {% endif %}
+</section>
+{# a draft by Whisper: its source in the same fold (audit 2026-10-05) #}
+{% set whisper = "Radford, A., Kim, J. W., Xu, T., Brockman, G., McLeavey, C., & Sutskever, I. (2023). Robust speech recognition via large-scale weak supervision. Proceedings of the 40th International Conference on Machine Learning, PMLR 202, 28492–28518." %}
+<section class="panel">{{ grouped(sources + ([(de_en("Automatische Transkription: Whisper", "Automatic transcription: Whisper"), [whisper])] if st.model and st.source != "upload" else []), de_en("Literatur", "References")) }}</section>
+{% endblock %}

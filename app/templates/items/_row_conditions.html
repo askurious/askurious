@@ -1,0 +1,29 @@
+{% from "_condition.html" import cond_line %}
+{# Rows of a matrix that only some people see (app/rows.py): one line per row with its condition, set like the
+   conditions of the flow (a question is picked, its answers are ticked; the script of the flow page builds the
+   fields when another question is chosen). Needs: rc = rows.editor_view(...), rc_what ("Aussagen", "Gegensatzpaare"). #}
+{% if rc.rows and (rc.data.order or rc.any) %}
+<fieldset class="row-conds" data-cond-page>
+  <legend>{{ de_en("{what} nur manchen zeigen", "{what}: show to some only", what=rc_what) }} <span class="hint">{{ de_en("abhängig von einer früheren Antwort oder einem URL-Parameter", "depending on an earlier answer or a URL parameter") }}</span></legend>
+  <script type="application/json" data-cond-items>{{ rc.data|tojson }}</script>
+  <details {% if rc.any %}open{% endif %}>
+    <summary>{% if rc.any %}{{ de_en("{n} von {total} mit Bedingung", "{n} of {total} with a condition", n=rc.any, total=rc.rows|length) }}{% else %}{{ de_en("alle werden immer gezeigt", "all are always shown") }}{% endif %}</summary>
+    {% if not structural %}
+    <p class="muted small">{% if item.config.construct and not item.config.construct.unlocked %}{{ de_en("Ein validiertes Konstrukt wird allen vollständig gezeigt. Bedingungen sind erst nach dem Entsperren möglich; das Konstrukt gilt dann als angepasst.", "A validated construct is shown to everyone in full. Conditions are only possible after unlocking; the construct then counts as adapted.") }}{% else %}{{ de_en("Bedingungen lassen sich nur im Entwurf und in der Ausgangssprache ändern.", "Conditions can only be changed in the draft and in the source language.") }}{% endif %}</p>
+    {% elif rc.multi %}
+    <label class="row-cond-all">{{ de_en("Für alle dieselbe Frage wählen", "Choose the same question for all") }}
+      <select data-cond-all aria-label="{{ de_en('Frage für alle Zeilen', 'Question for all rows') }}">
+        <option value="">{{ de_en("– Frage wählen –", "– choose a question –") }}</option>
+        {% for ref, label in rc.multi %}<option value="{{ ref }}">{{ label }}</option>{% endfor %}
+      </select>
+      <span class="hint">{{ de_en("danach je Zeile die Antwort ankreuzen; passt der Wortlaut einer Antwort zur Zeile, ist sie schon angekreuzt", "then tick the answer per row; if the wording of an answer fits the row, it is already ticked") }}</span>
+    </label>
+    {% endif %}
+    {% for row in rc.rows %}
+    {{ cond_line("when_" ~ row.id, row.view, rc.described, rc.data.order, rc.modes, rc.data.date_hint, structural, empty=de_en("immer zeigen", "always show"),
+                 text=row.text, name=row.label|truncate(60) or row.code, name_title=row.label, option_prefix=de_en("nur wenn ", "only if ")) }}
+    {% endfor %}
+    <p class="muted small">{{ de_en("Eine Zeile mit Bedingung sehen nur die Personen, auf die sie zutrifft (mehrere Antworten angekreuzt: Eine davon genügt). Im Export steht bei allen anderen −77 (nicht gezeigt, als fehlend deklariert); leer heißt gezeigt und nicht beantwortet. Pflicht und Hinweis gelten nur für die gezeigten Zeilen; ist keine Zeile übrig, entfällt die Frage. Neu angelegte Zeilen erscheinen hier nach dem Neuladen der Seite.", "A row with a condition is only seen by the people it applies to (several answers ticked: one of them is enough). In the export, everyone else has −77 (not shown, declared as missing); empty means shown and not answered. Required and prompt only apply to the rows shown; if no row is left, the question is skipped. Newly added rows appear here after reloading the page.") }}{% if item.config.construct %} {{ de_en("Bei einem validierten Konstrukt ist die Skala mit ausgeblendeten Aussagen nicht mehr die validierte Fassung.", "With a validated construct, the scale with hidden statements is no longer the validated version.") }}{% endif %}</p>
+  </details>
+</fieldset>
+{% endif %}

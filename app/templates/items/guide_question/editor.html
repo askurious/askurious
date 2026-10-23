@@ -1,0 +1,114 @@
+{% from "_learn.html" import why %}
+{% from "_macros.html" import row_list_hint %}
+{# Leitfrage (app/items/guide_question.py): the four parts of the guide scheme of Helfferich (2011) #}
+{% set question_label = de_en("Erzählaufforderung", "Narrative prompt") %}
+{% set question_hint = de_en("wörtlich vorzulesen; offen und erzählgenerierend", "to be read out word for word; open and narrative-generating") %}
+{% set question_rich = "block" %}
+{% set is_sub = kind.is_sub(item) %}
+{# "nur stellen, wenn …" (concept bedingungen-leitfaden, C and D; bedingung-konkrete-frage, E): never, an aspect of this
+   Leitfrage, an answer of the Kurzfragebogen, an earlier concrete question (for an Unterfrage: one of its Leitfrage).
+   The groups of aspects and of earlier questions are drawn anew from the rows when the choice opens (app.js,
+   data-probe-aspects, data-probe-earlier). #}
+{% macro cond_select(name, value, label, aspects=true, before=none) %}
+  {% set choices = kind.cond_choices(item, lang, aspects, before) %}
+  {% set earlier = kind.earlier_group() %}
+  <select name="{{ name }}" aria-label="{{ label }}" class="guide-cond" {% if not structural %}disabled{% endif %}>
+    <option value="">{{ de_en("immer", "always") }}</option>
+    {% if aspects %}
+    <optgroup label="{{ de_en('Aspekt dieser Leitfrage', 'Aspect of this guide question') }}" data-probe-aspects
+              data-absent="{{ de_en('„{a}“ kam nicht von selbst', '“{a}” did not come up by itself') }}" data-present="{{ de_en('„{a}“ wurde angesprochen', '“{a}” came up') }}">
+      {% for group, options in choices if group == de_en("Aspekt dieser Leitfrage", "Aspect of this guide question") %}{% for v, l in options %}<option value="{{ v }}" {% if v == value %}selected{% endif %}>{{ l }}</option>{% endfor %}{% endfor %}
+    </optgroup>
+    <optgroup label="{{ earlier }}" data-probe-earlier{% if earlier not in choices|map(attribute=0) %} hidden{% endif %}
+              data-yes="{{ de_en('K{n} „{q}“ trifft zu', 'Q{n} “{q}” applies') }}" data-no="{{ de_en('K{n} „{q}“ trifft nicht zu', 'Q{n} “{q}” does not apply') }}">
+      {% for group, options in choices if group == earlier %}{% for v, l in options %}<option value="{{ v }}" {% if v == value %}selected{% endif %}>{{ l }}</option>{% endfor %}{% endfor %}
+    </optgroup>
+    {% endif %}
+    {% for group, options in choices if group != de_en("Aspekt dieser Leitfrage", "Aspect of this guide question") and (not aspects or group != earlier) %}
+    <optgroup label="{{ group }}">{% for v, l in options %}<option value="{{ v }}" {% if v == value %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>
+    {% endfor %}
+    {% if value and value not in kind.cond_values(item, lang, aspects, before) %}<option value="{{ value }}" selected>{{ de_en("(Bedingung nicht mehr vorhanden)", "(condition no longer available)") }}</option>{% endif %}
+  </select>
+{% endmacro %}
+{% if is_sub %}
+{# an Unterfrage (concept unterfragen-konzept): indented in the guide's list with → and back with ← #}
+<p class="muted small guide-sub-note">{{ de_en("Unterfrage: eine Nachfrage zur Leitfrage darüber. Links mit ← wieder zur Leitfrage machen.", "Sub-question: a follow-up to the guide question above. Make it a guide question again with ← on the left.") }} {{ why("guide_sub") }}</p>
+<div class="row-fields guide-sub-fields">
+<label><span class="label-title">{{ de_en("Wann stellen?", "When to ask?") }} <span class="hint">{{ de_en("steht als kleiner Vermerk über der Unterfrage, z. B. „falls zutreffend“", "shown as a small note above the sub-question, e.g. “if applicable”") }}</span></span>
+  <input name="when" value="{{ item.lang_texts(lang).get('when', '') }}" placeholder="{{ item.text('when') }}" maxlength="200" list="guide-when-{{ item.id }}">
+  <datalist id="guide-when-{{ item.id }}">{% for de, en in kind.when_suggestions %}<option value="{{ de if lang.startswith("de") else en }}">{% endfor %}</datalist></label>
+{% if kind.cond_choices(item, lang, false) or (item.config or {}).case %}
+<label><span class="label-title">{{ de_en("Nur stellen, wenn …", "Ask only if …") }} <span class="hint">{{ de_en("eine Antwort im Kurzfragebogen oder eine konkrete Frage der Leitfrage, die zutrifft oder nicht; sonst wird die Unterfrage im Interview blass", "an answer in the short questionnaire or a specific question of the guide question that applies or not; otherwise the sub-question is paled in the interview") }}</span></span>
+  {{ cond_select("case", kind.cond_value((item.config or {}).case), de_en("Nur stellen, wenn …", "Ask only if …"), false) }}</label>
+{% endif %}
+</div>
+{% endif %}
+{% include "items/_question_field.html" %}
+{% set probe_title = de_en("Konkrete Fragen", "Specific questions") %}
+{# a row of "Konkrete Fragen": the question, then → / ← (Nachfrage of the row above, concept bedingungen-leitfaden A),
+   "Wann stellen?" of a Nachfrage and "nur stellen, wenn …" (C, D) #}
+{% macro probe_row(rid, label, placeholder, sub, when, when_placeholder, cond, new=false) %}
+        <tr class="guide-probe-row{% if sub %} is-probe-sub{% endif %}{% if new %} new-row{% endif %}"><td>
+          <input type="hidden" name="probe_id" value="{{ rid }}"><input type="hidden" name="probe_sub" value="{{ '1' if sub else '' }}">
+          <div class="guide-probe-main">
+            {% if structural %}<button type="button" class="icon-btn guide-probe-indent" data-probe-indent
+              title="{{ de_en('Als Nachfrage zur Frage darüber einrücken / wieder ausrücken', 'Indent as a follow-up to the question above / outdent again') }}"
+              aria-label="{{ de_en('Als Nachfrage einrücken oder ausrücken', 'Indent or outdent as a follow-up') }}"><span class="guide-probe-in" aria-hidden="true">→</span><span class="guide-probe-out" aria-hidden="true">←</span></button>{% endif %}
+            <input name="probe_label" aria-label="{{ probe_title }}" value="{{ label }}" placeholder="{{ placeholder }}" maxlength="1000">
+          </div>
+          <div class="guide-probe-extra">
+            <label class="guide-probe-when"><span>↳ {{ de_en("Wann stellen?", "When to ask?") }}</span>
+              <input name="probe_when" value="{{ when }}" placeholder="{{ when_placeholder or de_en('falls zutreffend', 'if applicable') }}" maxlength="200" list="guide-when-{{ item.id }}-p"></label>
+            <label class="guide-probe-if"><span>{{ de_en("nur wenn", "only if") }}</span>
+              {{ cond_select("probe_if", cond, de_en("nur stellen, wenn", "ask only if"), true, rid) }}</label>
+          </div>
+        </td></tr>
+{% endmacro %}
+<datalist id="guide-when-{{ item.id }}-p">{% for de, en in kind.when_suggestions %}<option value="{{ de if lang.startswith("de") else en }}">{% endfor %}</datalist>
+<div class="guide-lists">
+  {% for part, field, title in [("aspects", "aspect", de_en("Inhaltliche Aspekte (Check)", "Content aspects (check)")), ("keep", "keep", de_en("Aufrechterhaltungsfragen", "Maintenance questions")), ("probe", "probe", probe_title)] %}
+  {% set hint = {"aspects": de_en("nur abhaken, wenn es von selbst zur Sprache kommt", "only tick off when it comes up unprompted"), "keep": de_en("ohne inhaltliche Steuerung, z. B. „Und dann?“", "without steering the content, e.g. “And then?”"), "probe": de_en("feste Formulierung, am Ende des Themenblocks; mit → als Nachfrage einrücken", "fixed wording, at the end of the topic block; indent as a follow-up with →")}[part] %}
+  {% set mine = item.lang_texts(lang).get(part, {}) %}
+  {% set base = item.text(part) or {} %}
+  <fieldset class="guide-list guide-list-{{ part }}">
+    <legend>{{ title }} <span class="hint">{{ hint }}</span>{% if part == "probe" %} {{ why("guide_probe_if") }}{% endif %}</legend>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <tbody{% if part == "probe" %} data-probe-rows{% endif %}>
+      {% if part == "probe" %}
+      {% set subs = (item.config or {}).get("probe_sub") or [] %}
+      {% set conds = (item.config or {}).get("probe_if") or {} %}
+      {% set whens = item.lang_texts(lang).get("probe_when", {}) %}
+      {% set base_whens = item.text("probe_when") or {} %}
+      {% for rid in (item.config or {}).get(part, []) %}
+        {{ probe_row(rid, mine.get(rid, ''), base.get(rid, ''), rid in subs and not loop.first, whens.get(rid, ''), base_whens.get(rid, ''), kind.cond_value(conds.get(rid))) }}
+      {% endfor %}
+      {% if structural %}
+        {% for n in range(2) %}{{ probe_row(new_id(), '', de_en('neue Frage', 'new question'), false, '', '', '', true) }}{% endfor %}
+      {% endif %}
+      {% else %}
+      {% for rid in (item.config or {}).get(part, []) %}
+        <tr><td><input type="hidden" name="{{ field }}_id" value="{{ rid }}"><input name="{{ field }}_label" aria-label="{{ title }}" value="{{ mine.get(rid, '') }}" placeholder="{{ base.get(rid, '') }}" maxlength="1000"></td></tr>
+      {% endfor %}
+      {% if structural %}
+        {% for n in range(2) %}
+        <tr class="new-row"><td><input type="hidden" name="{{ field }}_id" value="{{ new_id() }}"><input name="{{ field }}_label" aria-label="{{ title }}" placeholder="{{ de_en('neuer Aspekt', 'new aspect') if part == 'aspects' else de_en('neue Frage', 'new question') }}" maxlength="1000"></td></tr>
+        {% endfor %}
+      {% endif %}
+      {% endif %}
+      </tbody>
+    </table></div>
+  </fieldset>
+  {% endfor %}
+</div>
+{{ row_list_hint() }}
+<label><span class="label-title">{{ de_en("Hinweis für Interviewende", "Note for interviewers") }} <span class="hint">{{ de_en("steht abgesetzt in der Interviewansicht und im Word-Leitfaden", "shown set apart in the interview view and in the Word guide") }}</span></span>
+  <textarea name="hint" rows="2" maxlength="1000">{{ item.lang_texts(lang).get("hint", "") }}</textarea></label>
+{% if not is_sub %}{# an Unterfrage has no duration of its own and is never a Kernfrage (E3) #}
+<div class="row-fields">
+  <label class="check"><input type="checkbox" name="core" value="1" {% if (item.config or {}).core %}checked{% endif %} {% if not structural %}disabled{% endif %}>
+    {{ de_en("Kernfrage", "Core question") }} <span class="hint">{{ de_en("soll in jedem Interview vorkommen; die Interviewansicht erinnert am Ende daran", "should come up in every interview; the interview view reminds you at the end") }}</span></label>
+  <label>{{ de_en("Geplante Dauer", "Planned duration") }}
+    <select name="minutes" {% if not structural %}disabled{% endif %}>
+      {% for m in (5, 10, 15, 20, 30, 45) %}<option value="{{ m }}" {% if kind.minutes(item) == m %}selected{% endif %}>{{ de_en("ca. {m} Min.", "approx. {m} min", m=m) }}</option>{% endfor %}
+    </select></label>
+</div>{% endif %}

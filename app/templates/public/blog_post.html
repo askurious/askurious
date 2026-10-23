@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# Needs: v (blog.view), body (rendered text), newer/older (views or None), is_public (false: a draft or a later
+   date, seen by an admin), cover_url (absolute, for the preview when shared). One entry of the news page. #}
+{% block title %}{{ v.title }} · {{ de_en("Neuigkeiten", "News") }} · Askurious{% endblock %}
+{% block head %}
+  {% if not is_public %}<meta name="robots" content="noindex">{% endif %}
+  <meta name="description" content="{{ v.summary }}">
+  <link rel="canonical" href="{{ blog_base() ~ v.url }}">
+  <link rel="alternate" type="application/atom+xml" title="{{ de_en('Neuigkeiten (Feed)', 'News (feed)') }}" href="{{ url_for('blog.feed', lang='en') if ui_language() == 'en' else url_for('blog.feed') }}">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Askurious">
+  <meta property="og:title" content="{{ v.title }}">
+  <meta property="og:description" content="{{ v.summary }}">
+  <meta property="og:url" content="{{ blog_base() ~ v.url }}">
+  <meta property="og:locale" content="{{ 'en_GB' if v.lang == 'en' else 'de_DE' }}">
+  {% if cover_url %}<meta property="og:image" content="{{ cover_url }}"><meta property="og:image:alt" content="{{ v.cover_alt }}">{% endif %}
+  {% if v.post.published_at %}<meta property="article:published_time" content="{{ v.post.published_at.isoformat() }}Z">{% endif %}
+  <meta name="twitter:card" content="{{ 'summary_large_image' if cover_url else 'summary' }}">
+{% endblock %}
+{% block container_class %}container blog-page{% endblock %}
+{% block content %}
+{% if not is_public %}
+<div class="flash flash-warning">{{ icon("eye-off", 16) }}
+  <span>{% if v.post.status == "draft" %}{{ de_en("Entwurf: nur für Admins sichtbar.", "Draft: only visible to admins.") }}{% else %}{{ de_en("Noch nicht öffentlich: Erscheint am {day}.", "Not public yet: appears on {day}.", day=v.post.published_at|localdate) }}{% endif %}
+    <a href="{{ url_for('blog.admin_edit', post_id=v.post.id) }}">{{ de_en("Bearbeiten", "Edit") }}</a></span></div>
+{% endif %}
+<p class="small blog-back"><a href="{{ url_for('blog.index') }}">{{ icon("back", 14) }} {{ de_en("Alle Neuigkeiten", "All news") }}</a></p>
+<article class="blog-article"{% if v.lang != ui_language() %} lang="{{ v.lang }}"{% endif %}>
+  <header class="blog-article-head">
+    <p class="blog-meta-line">{% if v.post.published_at %}<time datetime="{{ v.day }}">{{ v.post.published_at|localdate }}</time> · {% endif %}<span class="blog-category">{{ v.category }}</span>
+      {% if v.updated %} · {{ de_en("aktualisiert am {day}", "updated on {day}", day=v.updated|localdate) }}{% endif %}</p>
+    <h1>{{ v.title }}</h1>
+    {% if current_user.is_authenticated and current_user.is_admin %}<p class="flush"><a class="button button-small button-secondary" href="{{ url_for('blog.admin_edit', post_id=v.post.id) }}">{{ icon("edit", 16) }} {{ de_en("Bearbeiten", "Edit") }}</a></p>{% endif %}
+  </header>
+  {% if v.fallback %}<p class="blog-note" lang="{{ ui_language() }}">{{ de_en("Dieser Eintrag liegt nur auf Deutsch vor.", "This entry is only available in German.") }}</p>{% endif %}
+  {% if v.cover %}<figure class="blog-figure blog-cover"><img src="{{ url_for('blog.media', post_id=v.post.id, name=v.cover.filename) }}" alt="{{ v.cover_alt }}" width="{{ v.cover.width }}" height="{{ v.cover.height }}" decoding="async"></figure>{% endif %}
+  <div class="blog-body">{{ body }}</div>
+</article>
+<aside class="blog-after" lang="{{ ui_language() }}">
+  <p class="muted">{% if current_user.is_authenticated %}{{ de_en("Fragen oder Vorschläge?", "Questions or suggestions?") }} <button type="button" class="link" data-feedback-open>{{ de_en("Rückmeldung geben", "Give feedback") }}</button>{% else %}{{ de_en("Fragen oder Vorschläge? Schreiben Sie uns; die Adresse steht im {link}.", "Questions or suggestions? Write to us; the address is in the {link}.", html=True, link=('<a href="%s">%s</a>'|safe) % (url_for('public.privacy'), de_en("Impressum", "legal notice"))) }}{% endif %}</p>
+  {% if newer or older %}
+  <nav class="blog-neighbours" aria-label="{{ de_en('Weitere Einträge', 'More entries') }}">
+    {% if older %}<a class="blog-neighbour" href="{{ older.url }}" rel="prev"><span class="muted small">{{ de_en("Vorheriger Eintrag", "Previous entry") }}</span><span{% if older.lang != ui_language() %} lang="{{ older.lang }}"{% endif %}>{{ older.title }}</span></a>{% else %}<span></span>{% endif %}
+    {% if newer %}<a class="blog-neighbour is-next" href="{{ newer.url }}" rel="next"><span class="muted small">{{ de_en("Nächster Eintrag", "Next entry") }}</span><span{% if newer.lang != ui_language() %} lang="{{ newer.lang }}"{% endif %}>{{ newer.title }}</span></a>{% endif %}
+  </nav>
+  {% endif %}
+</aside>
+{% endblock %}

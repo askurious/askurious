@@ -1,0 +1,8 @@
+<label><span class="label-title">{{ question_label|default(de_en("Fragetext", "Question text")) }}
+  {% if question_hint is defined %}<span class="hint">{{ question_hint }}</span>{% endif %}</span>
+  <textarea name="question" rows="3" data-var-target{% if question_rich|default("inline") %} data-rich="{{ question_rich|default("inline") }}"{% endif %}>{{ item.lang_texts(lang).get("question", "") }}</textarea>
+</label>
+<p class="muted small format-hint">{{ de_en("Formatierung:", "Formatting:") }} {% if question_rich|default("inline") == "block" %}{{ de_en("Leerzeile = neuer Absatz, „- “ = Aufzählung,", "blank line = new paragraph, “- ” = list,") }} {% endif %}{{ de_en(format_hint(), "**bold**, *italic*, `code`, H~2~O subscript, x^2^ superscript; also <u>, <small>, <sub>, <sup>, <br>") }}</p>
+{% if lang != survey.default_language and not item.lang_texts(lang).get("question") %}
+<p class="muted small">{{ de_en("Ausgangssprache:", "Source language:") }} {{ item.text("question") }}</p>
+{% endif %}

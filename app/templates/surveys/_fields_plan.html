@@ -1,0 +1,336 @@
+{# The fields of the study plan (app/study_plan.py): the group "Studienplan" of the settings and the optional step of
+   the setup wizard. Needs: survey. Picking where it can be picked (settings without codes); hypotheses as rows with
+   "+ Hypothese" and ×; what explains and what is explained chosen from the questionnaire (in the wizard it is still
+   empty: chosen later here or in the element editor). #}
+{% from "_learn.html" import why, term %}
+{% from "_icons.html" import icon %}
+{% from "_sample.html" import sample_line %}
+{% set plan = study_plan.plan_of(survey) %}
+{% set measures = study_plan.measures(survey) %}
+{% set power_cohen = study_plan.power_cohen() %}
+{# the structural equation model (app/sem_model.py): the kind "Vermittlung" with a mediator, the method
+   "Strukturgleichungsmodell" and how it is estimated #}
+{% set sem_on = study_plan._sem_on(survey) %}
+{# in the setup wizard while the questionnaire holds only what the wizard put there (age, gender): W4 #}
+{% set plan_later = plan_wizard is defined and plan_wizard and study_plan.questions_later(survey) %}
+{% macro select(name, options, value, label) -%}
+<select name="{{ name }}" aria-label="{{ label }}">{% for key, text in options.items() %}<option value="{{ key }}" {% if key == value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+{%- endmacro %}
+{# variable name first, then the question (UI/UX audit 2026-10-05, V5); the one chosen on the other side of the
+   hypothesis is greyed out (V1, app.js) #}
+{# data-metric: a scale or a number, greyed out by app.js under "Gruppen"/"Bedingung" (X3) #}
+{% macro measure(name, value, other, label) -%}
+{% set metric = study_plan.metric_codes(survey) if survey is defined and survey else () %}
+<select name="{{ name }}" aria-label="{{ label }}" data-plan-var>
+  <option value="">{{ de_en("– Frage wählen –", "– choose a question –") if measures else de_en("– später, wenn der Fragebogen steht –", "– later, once the questionnaire is ready –") }}</option>
+  {% for code, text in measures %}<option value="{{ code }}" {% if code == value %}selected{% endif %} {% if code == other and code != value %}disabled{% endif %}{% if code in metric %} data-metric{% endif %}>{{ text }}</option>{% endfor %}
+  {% if value and value not in measures|map(attribute=0)|list %}<option value="{{ value }}" selected>{{ de_en("{v} (nicht mehr im Fragebogen)", "{v} (no longer in the questionnaire)", v=value) }}</option>{% endif %}
+</select>
+{%- endmacro %}
+{# the power analysis of a hypothesis (concept poweranalyse-konzept.md, PA1): expected effect, where it comes from,
+   power; the number it needs is drawn by the server after each save (data-live) with app/power.py #}
+{% macro effect_value(x) -%}{{ ("%g"|format(x)) if ui_language() == "en" else ("%g"|format(x)).replace(".", ",") }}{%- endmacro %}
+{% macro effect2(x) -%}{{ x|dec(2) }}{%- endmacro %}{# half up in the page's language (Z-9) #}
+{% macro num(x) -%}{{ "{:,}".format(x).replace(",", "," if ui_language() == "en" else ".") }}{%- endmacro %}
+{% macro power_row(h, hid) -%}
+{% set p = study_plan.power_of(survey, h or {}) %}
+{# no test with "offen" and "nur beschreiben": the row is hidden, its values stay (UI/UX audit 2026-10-07, W10) #}
+{% set untested = h and (h.kind in study_plan.UNTESTED or (h.analysis or study_plan.suggest(survey, h)) == "describe") %}
+<div class="row-fields plan-hyp-fields plan-hyp-power" data-plan-power {% if untested %}hidden{% endif %}>
+  <label><span data-live="plan-effect-label-{{ hid }}">{{ de_en("Erwarteter Effekt", "Expected effect") }}{% if p.measure %} <em>{{ p.measure }}</em>{% endif %}{% if p.analysis == "sem" and h and h.kind == "mediation" %} {{ de_en("je Pfad (x → m und m → y)", "per path (x → m and m → y)") }}{% elif p.analysis == "sem" and h and h.kind == "moderation" and sem_model.moderation_by_groups(survey, h) %} {{ de_en("als Unterschied Δβ des Pfads zwischen den Gruppen", "as the difference Δβ of the path between the groups") }}{% endif %}</span>
+    <input name="h_effect" inputmode="decimal" maxlength="8" class="narrow" value="{{ effect_value(h.effect) if h and h.get('effect') is not none else '' }}" aria-label="{{ de_en('Erwarteter Effekt', 'Expected effect') }}"
+           placeholder="{{ de_en('z. B. 0,3', 'e.g. 0.3') }}">
+    <span class="hint" data-live="plan-effect-hint-{{ hid }}">{% if p.measure %}{% set c = power_cohen[p.measure] %}{{ de_en("Cohen: {a} klein · {b} mittel · {c} groß", "Cohen: {a} small · {b} medium · {c} large", a=effect2(c[0]), b=effect2(c[1]), c=effect2(c[2])) }}{% if survey.id and h and h.iv and h.dv and h.id %} · <a href="{{ url_for('study_plan.pilot', survey_id=survey.id, h=h.id) }}">{{ de_en("aus früherer Befragung", "from an earlier survey") }}</a>{% endif %}{% endif %}</span></label>
+  <label>{{ de_en("Woher der Wert", "Where the value comes from") }} {{ select("h_basis", study_plan.bases(), h.basis if h and h.basis else "", de_en("Woher der Wert", "Where the value comes from")) }}
+    <span class="hint" data-live="plan-basis-hint-{{ hid }}">{% if h and h.basis == "cohen" %}{{ de_en("die schwächste Begründung: besser Literatur, Vorstudie oder der kleinste relevante Effekt (Lakens, 2022)", "the weakest reason: better literature, a pilot survey or the smallest effect of interest (Lakens, 2022)") }}{% elif h and h.basis == "pilot" %}{{ de_en("Effekte kleiner Vorstudien fallen oft zu groß aus (Albers & Lakens, 2018)", "effects of small pilot surveys often come out too large (Albers & Lakens, 2018)") }}{% endif %}</span></label>
+  {# the glossary "?" beside the label, not in it: a label binds its first control (UI/UX audit 2026-10-17, W-A10) #}
+  <div class="field-with-term"><label for="h-power-{{ hid }}">{{ de_en("Power", "Power") }}</label>{{ term("power", "") }}
+    <select name="h_power" id="h-power-{{ hid }}">{% for level in study_plan.POWERS %}<option value="{{ level }}" {% if level == p.level %}selected{% endif %}>{{ (level * 100)|round|int|pctsign }}</option>{% endfor %}</select></div>
+  <label class="wide-field">{{ de_en("Quelle oder Grund", "Source or reason") }}
+    <input name="h_basis_note" maxlength="300" value="{{ h.basis_note if h and h.basis_note else '' }}" placeholder="{{ de_en('z. B. Metaanalyse, oder: Ein kleinerer Effekt wäre für die Praxis belanglos', 'e.g. a meta-analysis, or: a smaller effect would not matter in practice') }}"></label>
+  <p class="plan-need small" data-live="plan-n-{{ hid }}">{% if not p.analysis %}<span class="muted">{{ de_en("Die Zahl folgt, sobald das Verfahren feststeht.", "The number follows once the method is set.") }}</span>
+    {% elif not p.measure %}<span class="muted">{{ de_en("Kein Test geplant, daher keine Poweranalyse.", "No test planned, hence no power analysis.") }}</span>
+    {% elif p.effect is none %}<span class="muted">{{ de_en("Mit dem erwarteten Effekt rechnet Askurious aus, wie viele Teilnahmen der Test braucht.", "With the expected effect, Askurious works out how many participations the test needs.") }}</span>
+    {% elif not p.valid %}<span class="plan-error">{{ de_en("Der Effekt liegt außerhalb des Bereichs, für den sich rechnen lässt.", "The effect lies outside the range that can be computed.") }}</span>
+    {% elif p.n %}{{ de_en("Nötig:", "Needed:") }} <strong>{{ num(p.n) }}</strong> {{ de_en("verwertbare Teilnahmen", "usable participations") }}{% if p.analysis in ("anova", "kw") %} ({{ de_en("{g} gleich große Gruppen", "{g} groups of equal size", g=p.groups) }}){% elif p.analysis in ("t", "u") %} ({{ de_en("zwei gleich große Gruppen", "two groups of equal size") }}){% elif p.analysis == "chi2" %} (df = {{ p.df }}){% elif p.analysis == "sem" and h.kind == "mediation" %} ({{ de_en("beide Pfade signifikant; Ladungen 0,70 angenommen", "both paths significant; loadings of 0.70 assumed") }}){% elif p.analysis == "sem" and h.kind == "moderation" and sem_model.moderation_by_groups(survey, h) %}{% set k = sem_model.moderation_groups(survey, h) %} ({% if k > 2 %}{{ de_en("Unterschied des Pfads zwischen {k} gleich großen Gruppen, über Δβ gleichmäßig verteilt; gemeinsamer Wald-Test mit {df} df; Ladungen 0,70 angenommen", "difference of the path between {k} groups of equal size, spread evenly over Δβ; joint Wald test with {df} df; loadings of 0.70 assumed", k=k, df=k - 1) }}{% else %}{{ de_en("Unterschied des Pfads zwischen zwei gleich großen Gruppen (Δβ), Wald-Test im Modell der Gruppen; Ladungen 0,70 angenommen", "difference of the path between two groups of equal size (Δβ), Wald test in the model of the groups; loadings of 0.70 assumed") }}{% endif %}){% elif p.analysis == "sem" and h.kind == "moderation" %} ({{ de_en("Wechselwirkung im geplanten Modell; Produktindikatoren mit Ladung 0,49 angenommen", "interaction in the planned model; product indicators with loadings of 0.49 assumed") }}){% elif p.analysis == "sem" %} ({{ de_en("Pfad im geplanten Modell; Ladungen 0,70 angenommen", "path in the planned model; loadings of 0.70 assumed") }}){% endif %}
+      <span class="hint">· α = {{ study_plan.alpha_text(p.alpha, ui_language()) }} {{ de_en("zweiseitig", "two-sided") }}{% if p.analysis in ("u", "kw", "rho") %} · {{ de_en("Rangverfahren: etwas mehr als beim parametrischen Test", "rank method: a little more than the parametric test") }}{% endif %}{% set args = study_plan.calculator_args(survey, p) if survey.id else none %}{% if args %} · <a href="{{ url_for('samplesize.index', **args) }}">{{ de_en("im Rechner öffnen", "open in the calculator") }}</a>{% endif %}</span>
+    {% else %}<span class="plan-error">{{ de_en("Mit diesem Effekt ist keine sinnvolle Zahl erreichbar.", "No sensible number can be reached with this effect.") }}</span>{% endif %}</p>
+{% if p.analysis in ("t", "anova") %}<p class="hint">{{ de_en("Die Powerplanung nimmt gleiche Varianzen an. Bei unterschiedlichen Streuungen kann die Power des Welch-Tests abweichen.", "Power planning assumes equal variances. With unequal spreads, the power of the Welch test can differ.") }}</p>{% elif p.analysis in ("u", "kw", "rho") %}<p class="hint">{{ de_en("Die Fallzahl für das Rangverfahren ist eine Näherung unter Normalverteilungsannahmen. Viele gleiche Rangwerte oder andere Verteilungen können eine andere Fallzahl erfordern.", "The sample size for the rank method is an approximation under normality assumptions. Many tied ranks or other distributions can require a different sample size.") }}</p>{% endif %}
+</div>
+{%- endmacro %}
+{% macro hypothesis(h, n) -%}
+{# a new row brings its own id ("n" and a number), so that the next save keeps it as the same hypothesis #}
+{% set hid = h.id if h else "n__N__" %}
+<div class="plan-hyp" data-row{% if n %} id="h{{ n }}"{% endif %}>
+  <input type="hidden" name="h_id" value="{{ hid }}">
+  <div class="plan-hyp-head">
+    <span class="plan-hyp-n">{{ "H" ~ n if n else de_en("neu", "new") }}</span>
+    <input name="h_text" value="{{ h.text if h else '' }}" maxlength="600" aria-label="{{ de_en('Hypothese in einem Satz', 'Hypothesis in one sentence') }}"
+           placeholder="{{ de_en('z. B. „Wer Technik generell vertraut, akzeptiert Pflegeroboter eher.“', 'e.g. “People who generally trust technology are more likely to accept care robots.”') }}">
+    <button type="button" class="icon-btn danger" data-row-remove title="{{ de_en('Hypothese entfernen', 'Remove hypothesis') }}" aria-label="{{ de_en('Hypothese entfernen', 'Remove hypothesis') }}">{{ icon("x", 16) }}</button>
+  </div>
+  <div class="row-fields plan-hyp-fields">
+    <label>{{ de_en("Art", "Type") }} {{ select("h_kind", study_plan.kinds(survey), h.kind if h else "correlation", de_en("Art der Hypothese", "Type of hypothesis")) }}</label>
+    {# an open question and a descriptive assumption have no direction and no method; the direction is named by the
+       kind (UI/UX audit 2026-10-09, X14) #}
+    {% set is_open = h and h.kind in study_plan.UNTESTED %}
+    <label data-plan-dir {% if is_open %}hidden{% endif %}>{{ de_en("Richtung", "Direction") }} {{ select("h_dir", study_plan.directions(h.kind if h else "correlation"), h.direction if h else "", de_en("Richtung", "Direction")) }}
+      <span class="hint" data-live="plan-dir-{{ hid }}">{{ study_plan.direction_hint(survey, h) if h else "" }}</span></label>
+    {% if plan_later %}
+    {# the setup wizard before the questionnaire (UI/UX audit 2026-10-07, W4): only age and gender would be offered;
+       the choice waits, the fields keep what the plan holds so the columns of the form stay aligned #}
+    <input type="hidden" name="h_iv" value="{{ h.iv if h else '' }}"><input type="hidden" name="h_dv" value="{{ h.dv if h else '' }}">
+    {% if sem_on %}<input type="hidden" name="h_mv" value="{{ h.mv if h and h.mv else '' }}"><input type="hidden" name="h_wv" value="{{ h.wv if h and h.wv else '' }}">{% endif %}
+    <p class="muted small plan-later">{{ de_en("Die beiden Variablen wählen Sie, sobald der Fragebogen steht (Reiter „Studienplan“ oder im Element unter „Im Studienplan“).", "You choose the two variables once the questionnaire is ready (tab “Research plan” or in the element under “In the research plan”).") }}</p>
+    {% else %}
+    {# the names follow the kind: Variable A/B for a relationship, Gruppen/Verglichen wird, Bedingung/Zielgröße
+       (Ralf, 2026-10-07); app.js renames them when the kind changes #}
+    {% set named = study_plan.roles(h.kind if h else "") %}
+    {# a descriptive assumption names one variable, the measured one (pre-test 2026-10-20, 6); app.js hides the other #}
+    <label data-plan-iv {% if h and h.kind in study_plan.ONE_VARIABLE %}hidden{% endif %}><span data-role="iv">{{ named.iv }}</span> {{ measure("h_iv", h.iv if h else "", h.dv if h else "", named.iv) }}</label>
+    <label><span data-role="dv">{{ named.dv }}</span> {{ measure("h_dv", h.dv if h else "", h.iv if h else "", named.dv) }}</label>
+    {# every row sends h_mv while the feature is on, so the columns of the form stay aligned (study_plan.from_form) #}
+    {% if sem_on %}<label data-plan-mv {% if not h or h.kind != "mediation" %}hidden{% endif %}>{{ de_en("Vermittler (vermittelt über)", "Mediator (through)") }} {{ measure("h_mv", h.mv if h and h.mv else "", "", de_en("Vermittler", "Mediator")) }}</label>
+    {# the moderator (stage 2 of the drawing, modell-zeichnen-konzept.md F2): every row sends h_wv as well #}
+    <label data-plan-wv {% if not h or h.kind != "moderation" %}hidden{% endif %}>{{ de_en("Moderator (verändert die Stärke)", "Moderator (changes the strength)") }} {{ measure("h_wv", h.wv if h and h.wv else "", "", de_en("Moderator", "Moderator")) }}</label>{% endif %}
+    {% endif %}
+    {# empty = the suggestion, and the field says which one (V4): what the field shows is what the results compute #}
+    {% set suggested = study_plan.suggest(survey, h) if h else "" %}
+    {# the suggestion in short in the field ("auto: Pearson"), its full name in the hint below (W11) #}
+    <label class="plan-method" {% if is_open %}hidden{% endif %}>{{ de_en("Verfahren", "Method") }}
+      <select name="h_analysis" aria-label="{{ de_en('Verfahren', 'Method') }}">
+        <option value="" data-live="plan-auto-{{ hid }}">{{ de_en("auto: {m}", "auto: {m}", m=study_plan.short_analyses()[suggested]) if suggested else de_en("automatisch, sobald beide Größen gewählt sind", "automatic, once both variables are chosen") }}</option>
+        {% for key, text in study_plan.analyses(survey).items() if key %}<option value="{{ key }}" {% if h and key == h.analysis %}selected{% endif %}>{{ text }}</option>{% endfor %}
+      </select>
+      <span class="hint" data-live="plan-why-{{ hid }}">{% if h and suggested and not h.analysis %}{{ de_en("Vorschlag: {m}", "Suggestion: {m}", m=study_plan.analyses()[suggested]) }}{% if study_plan.reasons(survey, h) %}; {% endif %}{% endif %}{{ study_plan.reasons(survey, h)|join("; ") if h else "" }}</span></label>
+    {# the groups a group comparison takes, with "nur diese Gruppen vergleichen" (UI/UX audit 2026-10-07, W1) #}
+    <div class="plan-groups" data-live="plan-groups-{{ hid }}">{% set go = study_plan.group_options(survey, h) if h and not plan_later else [] %}{% if go %}
+      <input type="hidden" name="h_grp_shown_{{ hid }}" value="1">
+      <fieldset class="plan-group-boxes"><legend class="small">{{ de_en("Gruppen im Test", "Groups in the test") }} <span class="hint">{{ de_en("nur die angekreuzten Gruppen vergleichen", "compare only the ticked groups") }}</span></legend>
+        {% for code, label, kept in go %}<label class="check"><input type="checkbox" name="h_grp_{{ hid }}" value="{{ code }}"{% if kept %} checked{% endif %}> {{ label }}</label>{% endfor %}</fieldset>
+      {% if study_plan.names_two(survey, h) %}<p class="small plan-groups-note">{{ icon("alert", 16) }} {{ de_en("Die Hypothese nennt zwei Gruppen, der Test vergleicht {k}. Sollen nur diese beiden verglichen werden, die übrigen oben abwählen.", "The hypothesis names two groups, the test compares {k}. If only these two are to be compared, untick the others above.", k=go|selectattr(2)|list|length) }}</p>{% endif %}
+    {% endif %}</div>
+  </div>
+  {{ power_row(h, hid) }}
+  <p class="plan-error" data-plan-same role="alert" {% if not study_plan.same(h) %}hidden{% endif %}>{{ de_en("Die beiden Variablen müssen verschiedene Fragen sein.", "The two variables must be different questions.") }}</p>
+</div>
+{%- endmacro %}
+
+<label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("ein Satz: was, über wen; nicht sichtbar für Teilnehmende; Kontext für die KI-Unterstützung", "one sentence: what, about whom; not visible to participants; context for the AI support") }}</span></span>
+  <textarea name="research_question" rows="2" maxlength="2000"
+            placeholder="{{ de_en('z. B. „Welche Faktoren bestimmen, ob Ältere Pflegeroboter im Alltag akzeptieren?“', 'e.g. “Which factors determine whether older people accept care robots in everyday life?”') }}">{{ survey.research_question or '' }}</textarea>
+</label>
+{# several goals in one survey, e.g. compare groups and measure preferences (Ralf, 2026-10-06) #}
+<fieldset class="plan-goals">
+  <legend>{{ de_en("Erkenntnisziele", "Research goals") }} <span class="hint">{{ de_en("mehrere möglich", "several possible") }}</span></legend>
+  {% for k, label in study_plan.goals().items() %}<label class="check"><input type="checkbox" name="goal" value="{{ k }}"{% if k in plan.goals %} checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+</fieldset>
+<div class="row-fields">
+  {# "Studiendesign": "Design" alone also meant the appearance and the plan of choice tasks (UI/UX audit 2026-10-16, Ralf 2026-10-17) #}
+  <label>{{ de_en("Studiendesign", "Research design") }} {{ select("design", study_plan.design_choices(), plan.design, de_en("Studiendesign", "Research design")) }}</label>
+</div>
+{# the method finder: what the goal suggests, drawn in the browser as soon as the goal is picked (UI/UX audit
+   2026-10-05, V6, app.js); an empty "Design" takes the suggestion, another one gets "übernehmen" #}
+{% set finder_pages = {"editor": url_for('editor.index', survey_id=survey.id) if survey.id else "",
+                       "flow": url_for('flow_page.index', survey_id=survey.id) if survey.id else "",
+                       "results": url_for('surveys.results', survey_id=survey.id) if survey.id else ""} %}
+{% set finder_data = {} %}
+{% for goal, f in study_plan.finder().items() %}{% set _ = finder_data.update({goal: {"design": f[0], "name": study_plan.designs()[f[0]], "text": f[1], "where": f[2], "url": finder_pages[study_plan.FINDER_PAGE[goal]]}}) %}{% endfor %}
+<script type="application/json" data-plan-finder-data>{{ finder_data|tojson }}</script>
+<div class="plan-finder" data-plan-finder>
+  {% for g in plan.goals %}{% set f = finder_data[g] %}
+  <p class="muted small"><strong>{{ study_plan.goals()[g] }}: {{ f.name }}.</strong> {{ f.text }} <span class="hint">{{ de_en("In Askurious:", "In Askurious:") }} {% if f.url %}<a href="{{ f.url }}">{{ f.where }}</a>{% else %}{{ f.where }}{% endif %}.</span>
+    {% if plan.design and plan.design != f.design %}{{ de_en("Gewählt ist „{name}“; das kann gute Gründe haben.", "“{name}” is chosen; there may be good reasons for this.", name=study_plan.designs()[plan.design]) }}
+      <button type="button" class="button button-secondary button-small plan-finder-take" data-plan-take="{{ f.design }}">{{ de_en("„{name}“ übernehmen", "Use “{name}”", name=f.name) }}</button>{% endif %}</p>
+  {% else %}<p class="muted small">{{ de_en("Mit dem Erkenntnisziel schlägt Askurious ein passendes Design vor.", "With the research goal, Askurious suggests a suitable design.") }}</p>{% endfor %}
+</div>
+
+<script type="application/json" data-plan-roles>{{ study_plan.roles_all()|tojson }}</script>
+<script type="application/json" data-plan-dirs>{{ study_plan.directions_all()|tojson }}</script>
+<fieldset class="plan-hyps" data-rows>
+  <legend>{{ de_en("Hypothesen", "Hypotheses") }} <span class="hint">{{ de_en("die beiden Variablen aus dem Fragebogen; das Verfahren wird aus Art und Messniveau vorgeschlagen", "the two variables from the questionnaire; the method is suggested from the type and level of measurement") }}</span></legend>
+  {% if sem_on and plan_page is defined and plan_page and not plan_later %}
+  {# the drawing of the model (modell-zeichnen-konzept.md): a second view of the rows
+     below, static/model.js; the switch is no part of the form (form="pm-none"), the places are (plan_layout) #}
+  <div class="plan-view" data-plan-view>
+    <div class="segmented" role="radiogroup" aria-label="{{ de_en('Ansicht der Hypothesen', 'View of the hypotheses') }}">
+      <label><input type="radio" name="plan_view" value="list" form="pm-none" checked><span>{{ de_en("Liste", "List") }}</span></label>
+      <label><input type="radio" name="plan_view" value="model" form="pm-none"><span>{{ de_en("Modell", "Model") }}</span></label>
+    </div>
+  </div>
+  <input type="hidden" name="plan_layout" value='{{ plan.layout|tojson }}' data-plan-layout>
+  <button type="button" hidden data-model-save data-undo-what=""></button>
+  {% set can_edit = survey.can(current_user, "editor") %}
+  {% include "surveys/_plan_model.html" %}
+  {% endif %}
+  {% for h in plan.hypotheses %}{{ hypothesis(h, loop.index) }}{% endfor %}
+  <template data-row-template>{{ hypothesis(none, 0) }}</template>
+  <button type="button" class="button button-secondary button-small" data-row-add>{{ de_en("+ Hypothese", "+ Hypothesis") }}</button>
+  {# the power of the hypotheses "Wirkung über die Zeit" by simulation (app/panel_models.power_state, E11) #}
+  {% set pp_ = panel_models.power_state(survey) if survey.id else none %}
+  {% if pp_ %}
+  <div class="plan-sem-power" id="plan-panel-power">
+    {% if pp_.state == "done" %}
+    <p class="small">{{ term("mc_power", de_en("Power per Simulation", "Power by simulation")) }} {{ de_en("über die Wellen", "over the waves") }} ({{ de_en("{r} Panels mit N = {n}, {w} Wellen, {m}", "{r} panels with N = {n}, {w} waves, {m}", r=pp_.result.reps, n=pp_.result.n, w=pp_.waves, m="RI-CLPM" if pp_.result.kind == "riclpm" else "CLPM") }}): {% for number, share in pp_.result.power|dictsort %}H{{ number }} <strong>{{ share|percent }}</strong>{{ "; " if not loop.last }}{% endfor %}{% if pp_.result.failed %} <span class="hint">{{ de_en("{k} ohne zulässige Lösung (zählen als nicht signifikant)", "{k} without an admissible solution (count as not significant)", k=pp_.result.failed) }}</span>{% endif %}</p>
+    {% elif pp_.state == "too_large" %}
+    {# audit 2026-10-21, E5: said instead of simulating a smaller standardised effect #}
+    <p class="small"><strong class="caution-text">{{ de_en("Effekte zu groß für die Planungsannahmen", "Effects too large for the planning assumptions") }}:</strong> {{ de_en("Bei {v} erklärten Stabilität (0,40) und erwartete Effekte zusammen fast die ganze oder mehr als die Varianz innerhalb der Personen; die Varianz bliebe nicht bei 1, und simuliert würde ein anderer Effekt als der geplante. Keine Simulation; bitte die erwarteten Effekte prüfen.", "For {v}, stability (0.40) and expected effects together would explain almost all or more than the variance within people; the variance would not stay at 1, and an effect other than the planned one would be simulated. No simulation; please check the expected effects.", v=pp_.vars|join(", ")) }}</p>
+    {% elif pp_.state == "running" %}
+    <p class="small" role="status">{{ de_en("Simulation läuft: {p}. Das Ergebnis steht hier beim nächsten Laden der Seite.", "Simulation running: {p}. The result is here when the page is loaded again.", p=((pp_.progress or 0) * 100)|round|int|pctsign) }}</p>
+    {% else %}
+    {% if pp_.state == "error" %}<p class="flash flash-warning small">{{ de_en("Die letzte Simulation ist abgebrochen.", "The last simulation stopped.") }}</p>{% endif %}
+    <p class="small"><button type="submit" class="button button-secondary button-small" formaction="{{ url_for('study_plan.panel_power', survey_id=survey.id) }}" formnovalidate>{{ de_en("Power der Hypothesen über die Zeit prüfen", "Check the power of the hypotheses over time") }}</button>
+      <span class="hint">{{ de_en("{r} Panels mit N = {n} und {w} Wellen{a}, im Hintergrund", "{r} panels with N = {n} and {w} waves{a}, in the background", r=panel_models.POWER_REPS, n=pp_.n, w=pp_.waves, a=(de_en(" (angenommen, solange keine Wellen verknüpft sind)", " (assumed while no waves are linked)") if pp_.assumed else "")) }}</span></p>
+    {% endif %}
+    <p class="muted small">{{ de_en("Angenommen (Festlegung von Askurious): die Hälfte der Varianz stabil zwischen Personen, Stabilität 0,40 innerhalb, der erwartete Effekt als standardisierter Pfad; ohne Messfehler und ohne fehlende Wellen, daher eine obere Grenze", "Assumed (set by Askurious): half of the variance stable between people, stability 0.40 within, the expected effect as a standardised path; without measurement error and without missing waves, so an upper bound") }} {{ apa.cite([panel_models.MULDER]) }}.</p>
+  </div>
+  {% endif %}
+  {% if sem_on %}
+  {# only while a hypothesis uses the model: the method or the kind "Vermittlung" (UI/UX audit 2026-10-07, W10; app.js) #}
+  {% set sem_used = plan.hypotheses|selectattr("kind", "in", ("mediation", "effect", "moderation"))|list or plan.hypotheses|selectattr("analysis", "equalto", "sem")|list %}
+  <div class="plan-sem" data-plan-sem {% if not sem_used %}hidden{% endif %}>
+  <div class="row-fields">
+    <label>{{ de_en("Strukturgleichungsmodell schätzen", "Estimate the structural equation model") }} <span class="hint">{{ de_en("für die Hypothesen mit diesem Verfahren und jede Vermittlung", "for the hypotheses with this method and every mediation") }}</span>
+      {{ select("sem_method", study_plan.sem_methods(), plan.sem_method or "cb", de_en("Schätzung des Strukturgleichungsmodells", "Estimation of the structural equation model")) }}</label>
+  </div>
+  {% set rp = sem_model.rmsea_plan(survey) if survey.id else none %}
+  {% if rp and rp.n %}<p class="small">{{ de_en("Modelltest (RMSEA 0,05 gegen 0,08, MacCallum et al., 1996): df = {df}, {n} Teilnahmen für 80 % Power.", "Model test (RMSEA 0.05 vs. 0.08, MacCallum et al., 1996): df = {df}, {n} participations for 80% power.", df=rp.df, n=num(rp.n)) }}
+    <a href="{{ url_for('samplesize.index', survey=survey.id, design='sem', df=rp.df) }}">{{ de_en("im Rechner öffnen", "open in the calculator") }}</a></p>{% endif %}
+  {# the power of the hypotheses by simulation (SEM extensions 2026-10-17, point 16) #}
+  {% set ps_ = sem_model.power_state(survey) if survey.id else none %}
+  {% if ps_ %}
+  <div class="plan-sem-power" id="plan-sem-power">
+    {% if ps_.state == "done" %}
+    <p class="small">{{ term("mc_power", de_en("Power per Simulation", "Power by simulation")) }} ({{ de_en("{r} Datensätze mit N = {n}", "{r} data sets with N = {n}", r=ps_.result.reps, n=ps_.result.n) }}): {% for number, share in ps_.result.power|dictsort %}H{{ number }} <strong>{{ share|percent }}</strong>{{ "; " if not loop.last }}{% endfor %}{% if ps_.result.failed %} <span class="hint">{{ de_en("{k} ohne zulässige Lösung (zählen als nicht signifikant)", "{k} without an admissible solution (count as not significant)", k=ps_.result.failed) }}</span>{% endif %}</p>
+    {% elif ps_.state == "running" %}
+    <p class="small" role="status">{{ de_en("Simulation läuft: {p}. Das Ergebnis steht hier beim nächsten Laden der Seite.", "Simulation running: {p}. The result is here when the page is loaded again.", p=((ps_.progress or 0) * 100)|round|int|pctsign) }}</p>
+    {% else %}
+    {% if ps_.state == "error" %}<p class="flash flash-warning small">{{ de_en("Die letzte Simulation ist abgebrochen.", "The last simulation stopped.") }}</p>{% endif %}
+    <p class="small"><button type="submit" class="button button-secondary button-small" formaction="{{ url_for('study_plan.sem_power', survey_id=survey.id) }}" formnovalidate>{{ de_en("Power per Simulation prüfen", "Check power by simulation") }}</button>
+      <span class="hint">{{ de_en("{r} Datensätze mit N = {n} aus dem geplanten Modell, im Hintergrund; genauer als die Näherung bei Vermittlung, Moderation und kleinen Stichproben", "{r} data sets with N = {n} from the planned model, in the background; more precise than the approximation for mediation, moderation and small samples", r=sem_model.POWER_REPS, n=ps_.n) }}</span></p>
+    {% endif %}
+  </div>
+  {% endif %}
+  {# the further settings of the model (SEM extensions 2026-10-17): control variables (6), single questions with an
+     assumed reliability (7); a form without "sem_shown" keeps what is stored #}
+  <input type="hidden" name="sem_shown" value="1">
+  {% set sopt = plan.sem %}
+  {% set singles = sem_model.single_candidates(survey) if survey.id else [] %}
+  <details class="plan-sem-more"{% if sopt.controls or sopt.single or sopt.formative or sopt.invariance or sopt.missing or sopt.ordinal or sopt.second or sopt.alternative %} open{% endif %}><summary>{{ de_en("Weitere Einstellungen des Modells", "Further settings of the model") }}{% if sopt.controls or sopt.single %} <span class="hint">{{ de_en("{c} Kontrollvariablen, {s} Einzelfragen mit Reliabilität", "{c} control variables, {s} single questions with a reliability", c=sopt.controls|length, s=sopt.single|length) }}</span>{% endif %}</summary>
+    <fieldset class="plan-sem-controls"><legend>{{ term("control", de_en("Kontrolliert für", "Controlled for")) }} <span class="hint">{{ de_en("je ein Pfad auf jede Größe, die das Modell erklärt; ohne Hypothese und ohne Korrektur nach Holm", "one path onto every variable the model explains; without a hypothesis and outside Holm's correction") }}</span></legend>
+      <div class="plan-sem-list">
+      {% for code, text in measures %}<label class="check"><input type="checkbox" name="sem_control" value="{{ code }}"{% if code in sopt.controls %} checked{% endif %}> {{ text }}</label>{% else %}<p class="hint">{{ de_en("Noch keine Fragen im Fragebogen.", "No questions in the questionnaire yet.") }}</p>{% endfor %}
+      </div>
+    </fieldset>
+    {{ why("sem_controls") }}
+    {% set scales = sem_model.scale_candidates(survey) if survey.id else [] %}
+    {% if plan.sem_method == "pls" and scales %}
+    <fieldset class="plan-sem-formative"><legend>{{ term("formative", de_en("Formative Konstrukte", "Formative constructs")) }} <span class="hint">{{ de_en("die Aussagen bilden das Konstrukt (z. B. ein Index aus Ausstattungsmerkmalen), statt es zu messen; PLS Modus B", "the statements form the construct (e.g. an index of equipment features) instead of measuring it; PLS mode B") }}</span></legend>
+      {% for code, text in scales %}<label class="check"><input type="checkbox" name="sem_formative" value="{{ code }}"{% if code in sopt.formative %} checked{% endif %}> {{ text }}</label>{% endfor %}
+    </fieldset>
+    {{ why("sem_formative") }}
+    {% endif %}
+    {% if plan.sem_method != "pls" %}
+    <div class="row-fields plan-sem-estimation">
+      <div class="field-with-term"><label for="sem-missing">{{ de_en("Fehlende Werte", "Missing values") }}</label>{{ term("fiml", "") }}
+        <select name="sem_missing" id="sem-missing"><option value="">{{ de_en("nur vollständige Teilnahmen (listenweise)", "complete participations only (listwise)") }}</option><option value="fiml"{% if sopt.missing == "fiml" %} selected{% endif %}>{{ de_en("alle Teilnahmen (Full Information ML)", "all participations (full information ML)") }}</option></select></div>
+      <div class="field-with-term"><label for="sem-ordinal">{{ de_en("Antworten der Aussagen", "Answers to the statements") }}</label>{{ term("wlsmv", "") }}
+        <select name="sem_ordinal" id="sem-ordinal"><option value="">{{ de_en("als Zahlen (ML)", "as numbers (ML)") }}</option><option value="ordinal"{% if sopt.ordinal == "ordinal" %} selected{% endif %}>{{ de_en("als geordnete Kategorien (WLSMV)", "as ordered categories (WLSMV)") }}</option></select></div>
+    </div>
+    {{ why("sem_estimation") }}
+    {% endif %}
+    {% if plan.sem_method != "pls" %}
+    {% set subs = sem_model.subscale_candidates(survey) if survey.id else [] %}
+    {% if subs %}
+    <fieldset class="plan-sem-second"><legend>{{ term("second_order", de_en("Faktor zweiter Ordnung", "Second-order factor")) }} <span class="hint">{{ de_en("ein Instrument mit Subskalen als ein Konstrukt über ihnen: ein Pfad statt einem je Subskala", "an instrument with subscales as one construct over them: one path instead of one per subscale") }}</span></legend>
+      {% for code, text in subs %}<label class="check"><input type="checkbox" name="sem_second" value="{{ code }}"{% if code in sopt.second %} checked{% endif %}> {{ text }}</label>{% endfor %}
+    </fieldset>
+    {% endif %}
+    {% set alts = sem_model.alternative_candidates(survey) if survey.id else [] %}
+    {% if alts %}
+    <fieldset class="plan-sem-alternative"><legend>{{ term("model_compare", de_en("Konkurrenzmodell", "Competing model")) }} <span class="hint">{{ de_en("vorab festgelegt: dasselbe Modell ohne das Angekreuzte, verglichen mit skaliertem χ²-Differenztest, AIC und BIC", "set in advance: the same model without what is ticked, compared by the scaled χ² difference test, AIC and BIC") }}</span></legend>
+      {% for key, text in alts %}<label class="check"><input type="checkbox" name="sem_alternative" value="{{ key }}"{% if key in sopt.alternative %} checked{% endif %}> {{ text }}</label>{% endfor %}
+    </fieldset>
+    {{ why("sem_compare") }}
+    {% endif %}
+    {% endif %}
+    {% set groupings = sem_model.invariance_candidates(survey) if survey.id else [] %}
+    <fieldset class="plan-sem-invariance"><legend>{{ term("invariance", de_en("Messinvarianz prüfen", "Test measurement invariance")) }} <span class="hint">{{ de_en("misst jede Skala in allen Gruppen dasselbe? Voraussetzung, um Gruppen zu vergleichen", "does every scale measure the same in all groups? A precondition for comparing groups") }}</span></legend>
+      <label class="plan-sem-rel">{{ de_en("über", "across") }} <select name="sem_invariance" aria-label="{{ de_en('Gruppen für die Messinvarianz', 'Groups for measurement invariance') }}">
+        <option value="">{{ de_en("– nicht prüfen –", "– do not test –") }}</option>
+        {% for key, text in groupings %}<option value="{{ key }}"{% if key == sopt.invariance %} selected{% endif %}>{{ text }}</option>{% endfor %}
+      </select></label>
+    </fieldset>
+    {{ why("sem_invariance") }}
+    {% if plan.sem_method != "pls" %}
+    <fieldset class="plan-sem-single"><legend>{{ term("single_item", de_en("Einzelfragen mit Messfehler", "Single questions with measurement error")) }} <span class="hint">{{ de_en("eine einzelne Frage als Konstrukt mit angenommener Reliabilität; sonst gilt sie als fehlerfrei gemessen und ihre Pfade fallen zu klein aus", "a single question as a construct with an assumed reliability; otherwise it counts as measured without error and its paths come out too small") }}</span></legend>
+      {% for code, text in singles %}<div class="plan-sem-single-row"><label class="check"><input type="checkbox" name="sem_single" value="{{ code }}"{% if code in sopt.single %} checked{% endif %}> {{ text }}</label>
+        <label class="plan-sem-rel">{{ de_en("Reliabilität", "Reliability") }} <input name="sem_rel_{{ code }}" inputmode="decimal" maxlength="5" class="narrow" value="{{ effect2(sopt.single.get(code, study_plan.SINGLE_REL)) }}" aria-label="{{ de_en('Reliabilität von {c}', 'Reliability of {c}', c=code) }}"></label></div>
+      {% else %}<p class="hint">{{ de_en("Im Modell steht noch keine einzelne Frage mit Zahlen.", "The model holds no single question with numbers yet.") }}</p>{% endfor %}
+    </fieldset>
+    {% endif %}
+  </details>
+  <p class="muted small">{{ de_en("Kovarianzbasiert passt zu reflektiven Skalen und prüft, ob das Modell zu den Daten passt; PLS kommt mit kleineren Stichproben aus, schätzt die Pfade aber aus Mittelwerten ohne Messfehlerkorrektur und kennt keinen Modelltest.", "Covariance-based suits reflective scales and tests whether the model fits the data; PLS manages with smaller samples but estimates the paths from composites without correcting for measurement error and has no test of the model.") }}</p>
+  </div>
+  {% endif %}
+</fieldset>
+
+{# the correction for several hypotheses (PA5): planned with α / k, judged after Holm (1979); off by default #}
+<label class="check plan-holm"><input type="checkbox" name="holm" value="1" {% if plan.holm %}checked{% endif %}> {{ de_en("Für mehrere Hypothesen korrigieren (Holm)", "Correct for several hypotheses (Holm)") }}
+  <span class="hint">{{ de_en("plant jede getestete Hypothese mit α / Zahl der Hypothesen und urteilt in den Ergebnissen nach dem korrigierten p (Holm, 1979); ohne Haken wie bisher je Hypothese α = ,05", "plans every tested hypothesis with α / number of hypotheses and judges the results by the corrected p (Holm, 1979); without the tick α = .05 per hypothesis as before") }}</span></label>
+{{ why("holm") }}
+{# a diary study: how the multilevel model tests a relationship of two variables of the entries (app/diary_model.py) #}
+{% if survey.sampling is not none %}
+<input type="hidden" name="diary_shown" value="1">
+<fieldset class="plan-diary"><legend>{{ de_en("Mehrebenenmodell der Tagebuchstudie", "Multilevel model of the diary survey") }} <span class="hint">{{ de_en("prüft Zusammenhänge zweier Größen der Einträge", "tests relationships of two variables of the entries") }} {{ term("within_between", de_en("innerhalb und zwischen Personen", "within and between people")) }}</span></legend>
+  <label class="check"><input type="checkbox" name="diary_lagged" value="1"{% if plan.diary.lagged %} checked{% endif %}> <span>{{ de_en("Zeitverzögert: das Erklärende aus dem vorigen Eintrag derselben Person", "Lagged: what explains from the same person's entry before") }}</span></label>
+  <label class="check"><input type="checkbox" name="diary_slope" value="1"{% if plan.diary.slope %} checked{% endif %}> <span>{{ term("random_slope", de_en("Zufällige Steigung", "Random slope")) }}{{ de_en(": Der Effekt darf sich zwischen Personen unterscheiden", ": the effect may differ between people") }}</span></label>
+  {{ why("centring") }}
+</fieldset>
+{% endif %}
+
+{# what the power analyses of all hypotheses ask of the sample (PA1); "übernehmen" puts the number into the target #}
+<div class="plan-power" data-live="plan-power">
+{% set ps = study_plan.power_summary(survey) if survey.id else none %}
+{# the line of the sample model (S3): the same on the calculator, the data collection, the quota assistant, the
+   export and the methods section (_sample.html, app/sample_model.py) #}
+{% set sm = sample_model.of(survey) if survey.id else none %}
+{% if ps %}
+  <p><strong>{{ de_en("Poweranalyse aus den Hypothesen:", "Power analysis from the hypotheses:") }}</strong>
+    {{ sample_line(sm) }} <span class="hint">{{ de_en("die verwertbaren Teilnahmen bestimmt {h}; Abschlüsse = verwertbare plus erwartete Ausschlüsse durch die Qualitätsregeln", "the usable participations are set by {h}; completions = usable plus the exclusions expected from the quality rules", h="H" ~ ps.by|join(", H")) }}</span>
+    {# a target apart from these completions, said once (UI/UX audit 2026-10-09, X5) #}
+    {% if sample_model.reserve_text(sm) %}<span class="sample-reserve">{{ sample_model.reserve_text(sm) }}</span>{% endif %}
+    {% if plan.sample.target != ps.completions %}<button type="button" class="button button-secondary button-small" data-plan-take-target="{{ ps.completions }}">{{ de_en("Als Stichprobenziel übernehmen", "Use as sample target") }}</button>{% endif %}</p>
+  <p class="muted small">{{ de_en("Größtes n über alle Hypothesen, weil eine Stichprobe alle Tests tragen muss (Festlegung von Askurious). Effekt, Begründung und Zahl gehen in die Präregistrierung und den Methodenentwurf.", "Largest n over all hypotheses, because one sample has to carry every test (set by Askurious). Effect, reason and number go into the pre-registration and the methods draft.") }}</p>
+{% elif sm %}
+  <p><strong>{{ de_en("Stichprobe:", "Sample:") }}</strong> {{ sample_line(sm, basis=true) }}</p>
+  {% if plan.hypotheses %}<p class="muted small">{{ de_en("Mit einem erwarteten Effekt je Hypothese rechnet Askurious hier aus, wie viele Teilnahmen die Befragung braucht.", "With an expected effect per hypothesis, Askurious works out here how many participations the survey needs.") }}</p>{% endif %}
+{% elif plan.hypotheses %}
+  <p class="muted small">{{ de_en("Mit einem erwarteten Effekt je Hypothese rechnet Askurious hier aus, wie viele Teilnahmen die Befragung braucht.", "With an expected effect per hypothesis, Askurious works out here how many participations the survey needs.") }}</p>
+{% endif %}
+</div>
+
+<div class="row-fields">
+  <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("abgeschlossene Teilnahmen", "completed participations") }}</span>
+    <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow"></label>
+  <label>{{ de_en("Rekrutierung", "Recruitment") }} {{ select("recruitment", study_plan.recruitment(), plan.sample.recruitment, de_en("Rekrutierung", "Recruitment")) }}</label>
+  <label>{{ de_en("Erwartete Ausschlüsse (%)", "Expected exclusions (%)") }} <span class="hint">{{ de_en("Abschlüsse, die die Qualitätsregeln aussortieren; Abbrüche zählen nicht als Abschluss", "completions the quality rules leave out; break-offs do not count as completions") }}</span>
+    <input type="number" name="sample_exclusions" min="0" max="90" value="{{ plan.sample.exclusions if plan.sample.exclusions is not none else study_plan.EXCLUSIONS }}" class="narrow"></label>
+  {# an online panel invites more people than complete: the invitations of the sample model (S3) #}
+  <label data-show-when="recruitment:panel" {% if plan.sample.recruitment != "panel" %}hidden{% endif %}>{{ de_en("Rücklaufquote (%)", "Response rate (%)") }} <span class="hint">{{ de_en("Anteil der Eingeladenen, die abschließen; leer: keine Zahl der Einladungen", "share of those invited who complete; empty: no number of invitations") }}</span>
+    <input type="number" name="sample_response" min="1" max="100" value="{{ plan.sample.response or '' }}" class="narrow"></label>
+  <label class="wide-field">{{ de_en("Anmerkung", "Note") }} <input name="sample_note" maxlength="600" value="{{ plan.sample.note }}" placeholder="{{ de_en('z. B. Studierende der RWTH über den Uni-Verteiler', 'e.g. RWTH students via the university mailing list') }}"></label>
+</div>
+{# only without a power analysis, which gives the number above; one name for the tool (UI/UX audit 2026-10-09, X10) #}
+{% if survey.id and not ps %}<p class="muted small">{{ de_en("Die Zahl rechnet der", "The") }} <a href="{{ url_for('samplesize.index', survey=survey.id) }}">{{ de_en("Rechner Stichprobengröße", "sample size calculator") }}</a> {{ de_en("aus.", "works out the number.") }}</p>{% endif %}
+{{ why("sample_size") }}
+<label><span class="label-title">{{ de_en("Ausschlussregeln", "Exclusion rules") }} <span class="hint">{{ de_en("vor der Erhebung festgelegt: wer nicht in die Auswertung eingeht", "set before data collection: who is left out of the analysis") }}</span></span>
+  <textarea name="rules" rows="2" maxlength="1200" placeholder="{{ de_en('z. B. Speeder (unter 50 % der Median-Dauer), falsch beantwortete Aufmerksamkeitsprüfung', 'e.g. speeders (under 50% of the median duration), failed attention check') }}">{{ plan.rules }}</textarea>
+</label>
+{% if survey.id %}<p class="muted small">{{ de_en("Was die Qualitätssicherung markiert, stellen Sie im Reiter", "You set what the quality assurance flags in the tab") }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "Quality assurance") }}</a>{{ de_en(" ein.", ".") }}</p>{% endif %}
+{% if plan.deviations %}
+<div class="plan-deviations">
+  <span class="label-title">{{ de_en("Abweichungen von der Präregistrierung", "Deviations from the pre-registration") }}</span>
+  <ul>{% for d in plan.deviations %}<li>{{ d.at }}: {{ d.what }}{% if d.by %} <span class="hint">({{ d.by }})</span>{% endif %}</li>{% endfor %}</ul>
+</div>
+{% endif %}

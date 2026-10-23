@@ -1,0 +1,15 @@
+{# The line of the sample model (app/sample_model.py, UI/UX audit 2026-10-07, S3), the same on every page that
+   names the size of the sample: "84 verwertbar · 94 Abschlüsse · bei 10 % Ausschlüssen", for an online panel with
+   a response rate " · 188 einladen bei 50 % Rücklauf". m: sample_model.of() or numbers(). lead: a short text in
+   front ("Studienplan:"); basis: the hint where the usable number comes from. live: the calculator fills the
+   numbers (samplesize.js, data-sm), the part with the invitations is always there and hidden without a rate.
+   The plain text of the same line is sample_model.text(). #}
+{% macro sample_line(m, lead=none, basis=false, live=false) -%}
+<span class="sample-line" data-sample-line>{% if lead %}<span class="sample-line-lead">{{ lead }}</span> {% endif -%}
+<span><strong data-sm="usable">{{ m.usable|thousands if m.usable is not none else "–" }}</strong> {{ de_en("verwertbar", "usable") }}</span> · <span><strong data-sm="completions">{{ m.completions|thousands if m.completions is not none else "–" }}</strong> {{ de_en("Abschlüsse", "completions") }}</span> · <span>{{ de_en("bei", "at") }} <span data-sm="exclusions">{{ m.exclusions|pctsign }}</span> {{ de_en("Ausschlüssen", "exclusions") }}</span>
+{%- if m.invite or live %}<span data-sm-invite {% if not m.invite %}hidden{% endif %}> · {{ de_en("", "invite ") }}<strong data-sm="invite">{{ m.invite|thousands if m.invite else "" }}</strong>{{ de_en(" einladen bei ", " at a ") }}<span data-sm="response">{{ m.response|pctsign if m.response else "" }}</span>{{ de_en(" Rücklauf", " response rate") }}</span>{% endif -%}
+{% if basis and m.basis %} <span class="hint">{{ sample_model.basis_text(m) }}</span>{% endif -%}
+{# a stored target apart from the power analysis, said once (UI/UX audit 2026-10-09, X5) #}
+{% if basis and sample_model.reserve_text(m) %} <span class="sample-reserve">{{ sample_model.reserve_text(m) }}</span>{% endif -%}
+</span>
+{%- endmacro %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# All element types with what each can do and is for, read from the types themselves (app/element_types.py) #}
+{% block title %}{{ de_en("Elementtypen", "Element types") }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ de_en("Elementtypen", "Element types") }} <span class="hint">{{ de_en("was jeder Typ kann und wofür er passt, {n} insgesamt", "what each type can do and what it fits, {n} in total", n=total) }}</span></h1>
+</div>
+
+<form method="get" class="construct-search" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ de_en('Suchen: Name, Fähigkeit, Einsatz, z. B. NPS, Hot Spot …', 'Search: name, capability, use, e.g. NPS, hot spot …') }}" aria-label="{{ de_en('Elementtypen suchen', 'Search element types') }}" autofocus>
+  {% if design %}<input type="hidden" name="design" value="{{ design }}">{% endif %}
+  <button class="button">{{ de_en("Suchen", "Search") }}</button>
+</form>
+<div class="facets">
+  <div class="facet-row">
+    <span class="facet-label">{{ de_en("Studiendesign", "Research design") }}</span>
+    {% for key, name in designs %}
+    {% set on = key == design %}
+    <a class="facet-chip{% if on %} is-on{% endif %}" href="{{ url_for('element_types.index', q=q or none, design=none if on else key) }}"{% if on %} aria-current="true"{% endif %}>{{ name }}</a>
+    {% endfor %}
+  </div>
+  {% if q or design %}<a class="small" href="{{ url_for('element_types.index') }}">{{ de_en("Filter zurücksetzen", "Reset filters") }}</a>{% endif %}
+</div>
+<p class="muted small">{{ de_en("{n} Treffer", "{n} hit", n=hits) if hits == 1 else de_en("{n} Treffer", "{n} hits", n=hits) }}{% if current_user.is_authenticated %} · {{ de_en("„In Ihren Befragungen“ zählt die Befragungen, die Sie öffnen können: Ihre eigenen und die Ihrer Gruppen.", "“In your surveys” counts the surveys you can open: your own and those of your groups.") }}{% endif %}</p>
+
+{# every type folded to its name, its line and how often it stands in one's surveys; a few hits come open (UI/UX audit
+   2026-10-09, X11: 42 open fact sheets were 30,000 px on a phone). No jump bar (no third menu band). #}
+{% set open_all = (q or design) and hits <= 5 %}
+{% for g, title, entries in groups %}
+<section class="element-type-group" id="gruppe-{{ g }}">
+  <h2>{{ title }}</h2>
+  <ul class="construct-list">
+    {% for e in entries %}
+    <li>
+    <details class="construct-card element-type" id="{{ e.key }}"{% if open_all %} open{% endif %}>
+      <summary><span class="element-type-head"><span class="item-icon">{{ icon(e.key) }}</span> <strong>{{ e.label }}</strong>
+        {% if e.used %}<span class="badge">{{ de_en_n(e.used, ("in {n} Ihrer Befragungen", "in {n} Ihrer Befragungen"), ("in {n} of your surveys", "in {n} of your surveys")) }}</span>{% endif %}</span>
+        <span class="construct-short">{{ e.description }}</span></summary>
+      <dl class="construct-facts">
+        <dt>{{ de_en("Kann", "Can do") }}</dt>
+        <dd><ul class="type-points">{% for t in e.can %}<li>{{ t }}</li>{% endfor %}</ul></dd>
+        <dt>{{ de_en("Passt für", "Fits") }}</dt>
+        <dd><ul class="type-points">{% for t in e.good_for %}<li>{{ t }}</li>{% endfor %}</ul></dd>
+        {% if e.not_for %}
+        <dt>{{ de_en("Passt nicht für", "Does not fit") }}</dt>
+        <dd><ul class="type-points">{% for t in e.not_for %}<li>{{ t }}</li>{% endfor %}</ul></dd>
+        {% endif %}
+        {% if e.examples %}
+        <dt>{{ de_en("Beispiele", "Examples") }}</dt>
+        <dd><ul class="type-points">{% for t in e.examples %}<li>{{ t }}</li>{% endfor %}</ul></dd>
+        {% endif %}
+        {# plain facts as text, without the frame of the design links (X11) #}
+        {% if e.facts %}
+        <dt>{{ de_en("Eigenschaften", "Properties") }}</dt>
+        <dd>{{ e.facts|join(" · ") }}</dd>
+        {% endif %}
+        {% if e.designs %}
+        <dt>{{ de_en("Passt zu Designs", "Fits designs") }}</dt>
+        <dd class="tag-row">{% for key, name in e.designs %}<a class="tag tag-thema" href="{{ url_for('element_types.index', design=key) }}">{{ name }}</a>{% endfor %}</dd>
+        {% endif %}
+        {% if e.keywords %}
+        <dt>{{ de_en("Auch gesucht als", "Also searched as") }}</dt>
+        <dd class="muted">{{ e.keywords|join(", ") }}</dd>
+        {% endif %}
+      </dl>
+    </details>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<p class="muted">{{ de_en("Keine Elementtypen gefunden. Weniger Wörter oder einen anderen Filter versuchen.", "No element types found. Try fewer words or another filter.") }}</p>
+{% endfor %}
+{% endblock %}

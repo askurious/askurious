@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{# Verwaltung > Nutzertypen > one type of the organisation (app/account_types.py): its fields, "für neue Konten",
+   hide, carry over to its accounts (Ralf 2026-10-16). Context: org, t, count, exempt (what a change leaves out, or empty). #}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{% from "admin/_type_fields.html" import type_fields %}
+{% block title %}{{ account_type_name(t) }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<a class="back-link" href="{{ url_for('org.types', org_id=org.id) }}">{{ icon("back", 16) }} {{ de_en("Nutzertypen", "User types") }}</a>
+<section class="panel">
+  <h2>{{ account_type_name(t) }}{% if t.is_default %} <span class="badge">{{ de_en("für neue Konten", "for new accounts") }}</span>{% endif %}</h2>
+  <form method="post" action="{{ url_for('org.types_action', org_id=org.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="action" value="save"><input type="hidden" name="type_id" value="{{ t.id }}">
+    {{ type_fields(t) }}
+    <p class="hint">{{ de_en("Änderungen gelten für Konten, die den Typ neu bekommen.", "Changes apply to accounts that newly get the type.") }}</p>
+    {% if exempt %}<p class="hint" id="ausgenommen">{{ exempt }}</p>{% endif %}
+    {{ autosave_bar(small=true) }}
+  </form>
+  <div class="button-row">
+    {% if not t.is_default %}<form class="inline" method="post" action="{{ url_for('org.types_action', org_id=org.id) }}">{{ csrf() }}<input type="hidden" name="type_id" value="{{ t.id }}">
+      <button class="button button-secondary button-small" name="action" value="default">{{ de_en("Für neue Konten verwenden", "Use for new accounts") }}</button>
+      <button class="button button-secondary button-small" name="action" value="hide">{{ de_en("Wieder zeigen", "Show again") if t.hidden else de_en("Ausblenden", "Hide") }}</button></form>{% endif %}
+    {% if count %}<form class="inline" method="post" action="{{ url_for('org.types_action', org_id=org.id) }}"
+        data-confirm="{{ de_en('Auf {n} Konten übertragen?', 'Carry over to {n} accounts?', n=count) }}" data-confirm-note="{{ de_en('Befragungstypen und Anlegerecht dieser Konten werden wie beim Typ gesetzt; Laufzeiten bleiben.', 'Survey types and right to create of these accounts are set as on the type; periods stay.') }}" data-confirm-ok="{{ de_en('Übertragen', 'Carry over') }}">
+      {{ csrf() }}<input type="hidden" name="type_id" value="{{ t.id }}"><button class="button button-secondary button-small" name="action" value="apply_all">{{ de_en("Auf die {n} Konten übertragen", "Carry over to the {n} accounts", n=count) }}</button></form>{% endif %}
+  </div>
+</section>
+{% endblock %}

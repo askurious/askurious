@@ -1,0 +1,3 @@
+{# Keeping the test runs of the preview (wizard; on the Feld page in "Test- und Dummy-Daten"). Needs: values. #}
+  <label class="check"><input type="checkbox" name="keep_test_runs" value="1" {% if values.keep_test_runs %}checked{% endif %}> {{ de_en("Testdurchläufe der Vorschau speichern", "Keep test runs of the preview") }}
+    <span class="hint">{{ de_en("im Export als", "selectable in the export as") }} <code>source = test</code>{{ de_en("; ohne diese Option ersetzt jeder neue Testdurchlauf den vorherigen", "; without this option every new test run replaces the previous one") }}</span></label>

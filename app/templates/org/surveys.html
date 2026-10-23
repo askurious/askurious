@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{# Verwaltung > Befragungen (app/org_admin.py), the first tab: the dashboard of the organisation's surveys and
+   participations (admin/_survey_dashboard.html, Ralf 2026-10-17) and its surveys, without content or answers (A15).
+   Context: org, rows [(survey, completed, completed in the period)] of the page, listing (app/tables.py), members {survey id: [names]}, hidden (left out by
+   their admins), stats, stats_mod, periods, period. #}
+{% from "_macros.html" import list_table, status_badge, kind_badge %}
+{% from "_listing.html" import sort_th, search, pager %}
+{% block title %}{{ de_en("Befragungen", "Surveys") }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+{% set dash_endpoint, dash_args = "org.surveys", {"org_id": org.id} %}{% include "admin/_survey_dashboard.html" %}
+<section class="panel" id="befragungen">
+  <h2>{{ de_en("Befragungen der Organisation", "Surveys of the organisation") }} <span class="hint">{{ listing.total }}</span></h2>
+  <p class="muted small">{{ de_en("Nur Titel, Stand, Beteiligte und Zahl der echten Teilnahmen; „im Zeitraum“: abgeschlossen im gewählten Zeitraum oben. Öffnen kann eine Befragung nur, wer an ihr beteiligt ist.", "Only title, state, people involved and number of real participations; “in the period”: completed in the period chosen above. Only those involved can open a survey.") }}{% if hidden %} {{ de_en("{n} weitere haben ihre Admins aus Übersichten herausgenommen.", "{n} more were taken out of overviews by their admins.", n=hidden) }}{% endif %}</p>
+  {{ search(listing, de_en("Befragungen suchen", "Search surveys"), de_en("Suchen: Titel, Code, Beteiligte …", "Search: title, code, people …")) }}
+  {% if rows %}
+  {# sortable and in pages of 10, 20 or 50 like the platform's list; the kind in its own column (Ralf, 2026-10-17) #}
+  <div class="res-scroll">{% call list_table("is-num org-ranking") %}
+    <thead><tr>{{ sort_th(listing, "title", de_en("Titel", "Title")) }}{{ sort_th(listing, "kind", de_en("Art", "Kind")) }}{{ sort_th(listing, "status", de_en("Stand", "State")) }}{{ sort_th(listing, "members", de_en("Beteiligte", "People")) }}{{ sort_th(listing, "period", de_en("im Zeitraum", "in the period")) }}{{ sort_th(listing, "completed", de_en("abgeschlossen", "completed")) }}</tr></thead>
+    <tbody>
+    {% for s, completed, recent in rows %}
+      <tr><td class="admin-name">{{ s.title }}</td><td>{{ kind_badge(s) }}</td><td>{{ status_badge(s) }}</td><td>{{ members.get(s.id, [])|join(", ") or "–" }}</td><td><strong>{{ recent|thousands }}</strong></td><td>{{ completed|thousands if completed else "–" }}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}</div>
+  {{ pager(listing) }}
+  {% else %}<p class="muted">{{ de_en("Keine Befragungen zu dieser Suche.", "No surveys match this search.") if listing.q else de_en("Noch keine Befragungen.", "No surveys yet.") }}</p>{% endif %}
+</section>
+{% endblock %}

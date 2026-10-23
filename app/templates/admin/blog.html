@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_icons.html" import icon %}
+{# Needs: drafts, published (BlogPost), now (utcnow), brands ({key: name}). The entries of the public page /blog
+   (app/blog.py; blog-konzept.md, Ralf 2026-10-10). #}
+{% block title %}{{ de_en("Blog", "Blog") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% macro rows(posts) -%}
+{% call list_table() %}
+  <thead><tr><th>{{ de_en("Titel", "Title") }}</th><th>{{ de_en("Datum", "Date") }}</th><th>{{ de_en("Kategorie", "Category") }}</th>
+    <th>{{ de_en("Sprachen", "Languages") }}</th><th>{{ de_en("Marken", "Brands") }}</th><th>{{ de_en("Zuletzt geändert", "Last changed") }}</th></tr></thead>
+  <tbody>
+  {% for p in posts %}
+    <tr>
+      <td><a href="{{ url_for('blog.admin_edit', post_id=p.id) }}">{{ p.title_de or de_en("(ohne Titel)", "(untitled)") }}</a>
+        {% if p.status == "published" and p.published_at and p.published_at > now %}<span class="badge">{{ de_en("erscheint später", "appears later") }}</span>{% endif %}</td>
+      <td>{{ p.published_at|localdate if p.published_at else "–" }}</td>
+      <td>{{ blog_category(p.category) }}</td>
+      <td>{{ "DE" if p.title_de and p.body_de else "–" }}{% if p.title_en and p.body_en %} · EN{% endif %}</td>
+      <td>{% if p.brands %}{{ p.brands|map("extract", brands)|select|join(", ") }}{% else %}{{ de_en("alle", "all") }}{% endif %}</td>
+      <td>{{ p.updated_at|localdt }}{% if p.updated_by %} · {{ p.updated_by.display_name }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+{% endcall %}
+{%- endmacro %}
+{% block content %}
+{% set active = "blog" %}{% include "admin/_tabs.html" %}
+<section class="panel" id="blog">
+  <div class="blog-admin-head">
+    <h2>{{ de_en("Blog „Neuigkeiten“", "Blog “News”") }}</h2>
+    <div class="button-row">
+      <a class="button button-small button-secondary" href="{{ url_for('blog.admin_draft') }}" title="{{ de_en('Die KI schreibt aus dem Entwicklungsprotokoll einen Entwurf auf Deutsch und Englisch', 'The AI writes a draft in German and English from the development log') }}">{{ icon("sparkles", 16) }} {{ de_en("Entwurf aus den Neuerungen", "Draft from what is new") }}</a>
+      <form method="post" action="{{ url_for('blog.admin_new') }}" class="inline">{{ csrf() }}<button class="button button-small">{{ icon("plus", 16) }} {{ de_en("Neuer Eintrag", "New entry") }}</button></form>
+    </div>
+  </div>
+  <p class="muted small">{{ de_en("Veröffentlichte Einträge stehen für alle lesbar unter {url}, neueste zuerst. Ein Entwurf ist nur für Admins sichtbar.",
+    "Published entries can be read by everyone at {url}, newest first. A draft is only visible to admins.", html=True, url=('<a href="%s">/blog</a>'|safe) % url_for('blog.index')) }}</p>
+  <h3>{{ de_en("Entwürfe", "Drafts") }}</h3>
+  {% if drafts %}{{ rows(drafts) }}{% else %}<p class="muted">{{ de_en("Keine Entwürfe.", "No drafts.") }}</p>{% endif %}
+  <h3>{{ de_en("Veröffentlicht", "Published") }}</h3>
+  {% if published %}{{ rows(published) }}{% else %}<p class="muted">{{ de_en("Noch nichts veröffentlicht. Fußzeile und Startseite verweisen erst auf „Neuigkeiten“, wenn ein Eintrag veröffentlicht ist.",
+    "Nothing published yet. The footer and the landing page only point to “News” once an entry is published.") }}</p>{% endif %}
+</section>
+{% endblock %}

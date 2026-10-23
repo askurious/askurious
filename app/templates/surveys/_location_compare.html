@@ -1,0 +1,17 @@
+{# The state of the shared location against the state a person names (items/geolocation.py comparison), on the page
+   "Qualitätssicherung". Describes the sample; nothing is marked from it. Needs: location_compare. #}
+{% macro share(k, n) %}{{ k }}{% if n %} <span class="muted">({{ (100 * k / n)|fixed(0)|pctsign }})</span>{% endif %}{% endmacro %}
+<section class="panel" id="standort">
+  <h2>{{ de_en("Standort im Vergleich", "Location compared") }} <span class="hint">{{ de_en("Bundesland des geteilten Standorts gegen die eigene Angabe, Teilnahmen im gespeicherten Datenpool", "federal state of the shared location against the person's own answer, participations in the saved data pool") }}</span></h2>
+  <table class="res-table">
+    <thead><tr><th>{{ de_en("Standort", "Location") }}</th><th>{{ de_en("Angabe", "Answer") }}</th><th title="{{ de_en('Teilnahmen, die den Standort geteilt und in der Frage ein deutsches Bundesland genannt haben', 'Participations that shared their location and named a German federal state in the question') }}">n</th>
+      <th>{{ de_en("gleiches Bundesland", "same federal state") }}</th><th>{{ de_en("anderes Bundesland", "other federal state") }}</th><th>{{ de_en("Standort im Ausland", "location abroad") }}</th></tr></thead>
+    <tbody>
+    {% for row in location_compare %}
+      <tr><td><code>{{ row.code }}</code></td><td><code>{{ row.against }}</code> {{ row.what }}</td><td>{{ row.n }}</td><td>{{ share(row.same, row.n) }}</td>
+        <td>{{ share(row.other, row.n) }}</td><td>{{ share(row.abroad, row.n) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">{{ de_en("Gezählt sind nur geteilte Positionen, nicht die Schätzung aus der IP-Adresse. Ein anderes Bundesland ist kein Zeichen für schlechte Antworten: Viele antworten von der Arbeit, unterwegs oder aus dem Urlaub, und die Frage meint oft den Wohnort. Deshalb wird daraus nichts markiert.", "Only shared positions are counted, not the estimate from the IP address. Another federal state is no sign of poor answers: many answer from work, on the move or on holiday, and the question often means where they live. So nothing is marked from it.") }}</p>
+</section>

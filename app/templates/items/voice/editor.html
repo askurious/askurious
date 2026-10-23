@@ -1,0 +1,15 @@
+{% set t = item.lang_texts(lang) %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Aufnahme", "Recording") }}</legend>
+  <div class="stack">
+    <label><span class="label-title">{{ de_en("Hinweis über der Aufnahme", "Note above the recording") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }} {{ de_en("z. B. dass die Stimme gespeichert wird", "e.g. that the voice is stored") }}</span></span>
+      <textarea name="notice" rows="2" maxlength="500" placeholder="{{ item.text('notice') }}">{{ t.get('notice', '') }}</textarea></label>
+    <div class="row-fields">
+      <label>{{ de_en("Höchstens", "At most") }} <input name="max_seconds" class="narrow" inputmode="numeric" value="{{ kind.max_seconds(item) }}" {% if not structural %}disabled{% endif %}> {{ de_en("Sekunden", "seconds") }} <span class="hint">{{ de_en("10 bis 300; danach endet die Aufnahme von selbst", "10 to 300; after that the recording ends automatically") }}</span></label>
+    </div>
+    <label class="check"><input type="checkbox" name="text_fallback" value="1" {% if kind.text_fallback(item) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Tippen statt Sprechen erlauben", "Allow typing instead of speaking") }} <span class="hint">{{ de_en("ein Textfeld unter der Aufnahme; ohne diese Alternative können Pflichtfragen bei fehlendem Mikrofon oder verweigertem Zugriff nicht beantwortet werden; nur optionale Fragen lassen sich überspringen", "a text field below the recording; without this alternative, required questions cannot be answered if the microphone is missing or access is denied; only optional questions can be skipped") }}</span></label>
+  </div>
+</fieldset>
+<p class="muted small">{{ de_en("Teilnehmende tippen einmal zum Starten und einmal zum Beenden, hören die Aufnahme an und können sie neu aufnehmen oder löschen. Die Aufnahme wird mit der Seite gesendet und mit der Teilnahme gelöscht (Löschcode, Löschfristen). Der Export enthält Dateiname und Länge; die Aufnahmen selbst lädt „Sprachnachrichten (.zip)“ im Reiter „Export“. Eine Abschrift macht Askurious nicht.", "Participants tap once to start and once to stop, listen to the recording and can record it again or delete it. The recording is sent with the page and deleted with the participation (deletion code, retention periods). The export holds the file name and length; the recordings themselves are downloaded with “Voice messages (.zip)” in the “Export” tab. Askurious does not make a transcript.") }}</p>
+{% from "_learn.html" import why %}{{ why("voice") }}

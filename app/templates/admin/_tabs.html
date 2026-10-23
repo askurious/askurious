@@ -1,0 +1,43 @@
+{# Heading and tabs of the administration. Needs: active (the key of the tab).
+   The tabs in three named groups in the same row, as Planen · Erheben · Analyse of a survey (UI/UX audit 2026-10-16,
+   21): contents | people and organisations | operation; thin lines between them, no row of their own. "Rückmeldungen"
+   is a tab (it was only reachable by the red count). "Personen" gathers researchers and sign-in as panels, no sub-tabs
+   (UI/UX audit 2026-10-07, S10); the groups (Ralf, 2026-10-10) are a tab of their own. The user types are kept per
+   organisation (tab "Organisationen"), no longer under "Personen" too; so is the template of the organisation design
+   ("Design der Einrichtung", Ralf 2026-10-19), which replaced the former tab "RWTH-Design" (/admin/designs and
+   /admin/templates lead to "Organisationen").
+   "Inhalte" comes first, so "Befragungen" with its dashboard is the first tab and the page the administration opens
+   with (Ralf, 2026-10-17).
+   The name of the tab is part of the h1, "Administration – Personen" (UI/UX audit 2026-10-16, 21 and 32). #}
+{% set fb_badge %}{% if feedback_open_count %} <span class="badge badge-error" title="{{ de_en('offen', 'open') }}">{{ feedback_open_count }}</span>{% endif %}{% endset %}
+{# (key, address, name of the tab, name in the heading, title) #}
+{% set admin_groups = [
+  (de_en("Inhalte", "Contents"), [
+    ("surveys", url_for('admin.surveys_page'), de_en("Befragungen", "Surveys"), none, none),
+    ("constructs", url_for('admin.construct_pool'), de_en("Konstrukte", "Constructs"), none, none),
+    ("blog", url_for('blog.admin_list'), de_en("Blog", "Blog"), none, de_en('Einträge der öffentlichen Seite „Neuigkeiten“', 'Entries of the public page “News”')),
+    ("feedback", url_for('feedback.index'), de_en("Rückmeldungen", "Feedback"), none, none)]),
+  (de_en("Personen und Organisationen", "People and organisations"), [
+    ("researchers", url_for('admin.researchers'), de_en("Personen", "People"), none, de_en('Forschende und Anmeldung', 'researchers and sign-in')),
+    ("groups", url_for('admin.groups'), de_en("Gruppen", "Groups"), none, none),
+    ("orgs", url_for('admin.organisations'), de_en("Organisationen", "Organisations"), none, de_en('mit ihren Nutzertypen und dem Design der Einrichtung', 'with their user types and the institution design'))]),
+  (de_en("Betrieb", "Operation"), [
+    ("experiments", url_for('admin.experiments'), de_en("Experimentell", "Experimental"), none, none),
+    ("ai", url_for('admin.ai_usage'), de_en("KI-Nutzung", "AI usage"), de_en("KI-Nutzung aller Konten", "AI usage of all accounts"), none),
+    ("log", url_for('admin.access_log'), de_en("Protokoll", "Access log"), none, none),
+    ("privacy", url_for('admin.privacy'), de_en("Datenschutz", "Data protection"), none, de_en('Datenschutzkonzept: Daten, Nutzertypen, externe Dienste, Maßnahmen', 'Data protection concept: data, kinds of users, outside services, measures')),
+    ("database", url_for('admin.database'), de_en("Server", "Server"), none, none)])] %}
+{% set ns = namespace(name="") %}
+{% for label, tabs in admin_groups %}{% for key, href, name, heading, title in tabs %}{% if key == active %}{% set ns.name = heading or name %}{% endif %}{% endfor %}{% endfor %}
+<h1{% if active == "privacy" %} class="no-print"{% endif %}>Administration{% if ns.name %} – {{ ns.name }}{% endif %}</h1>
+<nav class="admin-tabs" data-grouped aria-label="{{ de_en('Bereiche der Administration', 'Areas of administration') }}">
+  {% for label, tabs in admin_groups %}
+  <div class="tab-group" role="group" aria-label="{{ label }}" title="{{ label }}">
+    <div class="tab-group-links">
+    {% for key, href, name, heading, title in tabs %}
+      <a class="{{ 'is-active' if active == key else '' }}" {% if active == key %}aria-current="page"{% endif %} href="{{ href }}"{% if title %} title="{{ title }}"{% endif %}>{{ name }}{% if key == "feedback" %}{{ fb_badge }}{% endif %}</a>
+    {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</nav><!--flashes-->

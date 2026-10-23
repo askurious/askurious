@@ -1,0 +1,11 @@
+{
+ "app/static/board.js": 1,
+ "app/static/comments.js": 7,
+ "app/static/participant.js": 1,
+ "app/templates/constructs/linked.html": 1,
+ "app/templates/interview/guide.html": 1,
+ "app/templates/items/guide_question/participant.html": 1,
+ "app/templates/public/privacy.html": 14,
+ "app/templates/surveys/_hypotheses.html": 4,
+ "app/templates/terms.html": 3
+}

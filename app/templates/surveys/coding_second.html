@@ -1,0 +1,37 @@
+{# The second coder's page (app/coding_check.py): the texts of the sample only, blind to the first coding; a tick saves
+   at once (app.js, "Kategorisieren"), "Abschließen" ends it. Needs: survey, item, column, label, key, scheme, units,
+   done. #}
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "surveys/_coding_row.html" import coding_row %}
+{% block title %}{{ de_en("Zweitkodierung", "Second coding") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "results" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('surveys.results', survey_id=survey.id) }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+<h1>{{ de_en("Zweitkodierung", "Second coding") }}</h1>
+<p class="muted"><code>{{ column }}</code> · {{ label|truncate(160) }}</p>
+<p class="muted small">{{ de_en("Ordnen Sie jede Antwort der Stichprobe den Kategorien zu, ohne auf die Erstkodierung zu schauen; sie bleibt hier und auf der Ergebnisseite verborgen, bis Sie abschließen. Die Definitionen stehen unten.", "Assign each answer of the sample to the categories without looking at the first coding; it stays hidden here and on the results page until you finish. The definitions are below.") }}</p>
+
+<section class="panel" data-coding>
+  <h2>{{ de_en("Stichprobe", "Sample") }} <span class="hint" data-coding-progress>{{ de_en("{k} von {n} kategorisiert", "{k} of {n} categorised", k=done, n=units|length) }}</span></h2>
+  <ul class="plain coding-rows">
+    {% for u in units %}{{ coding_row({"norm": u.norm, "text": u.text, "second": u.second, "recheck": false}, scheme, survey, key, slot="second") }}{% endfor %}
+  </ul>
+  <form method="post" action="{{ url_for('coding.second_finish', survey_id=survey.id, key=key) }}" class="coding-add"
+        data-confirm="{{ de_en('Zweitkodierung abschließen?', 'Finish the second coding?') }}" data-confirm-note="{{ de_en('Danach lässt sie sich nicht mehr ändern, und der Vergleich wird angezeigt.', 'It can no longer be changed afterwards, and the comparison is shown.') }}" data-confirm-ok="{{ de_en('Abschließen', 'Finish') }}">
+    {{ csrf() }}<button class="button">{{ de_en("Abschließen", "Finish") }}</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Kategorien", "Categories") }}</h2>
+  <dl class="coding-defs">
+    {% for c in scheme.cats %}
+    <dt>{% if loop.index <= 9 %}<kbd>{{ loop.index }}</kbd> {% endif %}{{ c.name }}{% if c.group %} <span class="hint">{{ c.group }}</span>{% endif %}</dt>
+    <dd>{{ c.definition or "–" }}{% if c.example %} <span class="hint">{{ de_en("z. B.", "e.g.") }} „{{ c.example }}“</span>{% endif %}</dd>
+    {% endfor %}
+  </dl>
+</section>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "participant/base.html" %}
+{% set lang = survey.default_language %}
+{# The results of a live vote, one question per page, to print or save as PDF (app/live/, slides; package G). The
+   pages are drawn by live.js with the views of the screen; the data comes along as JSON. #}
+{% block title %}{{ survey.title }} · {{ de_en("Folien", "Slides") }}{% endblock %}
+{% block content %}
+<div class="live-slides-head">
+  <h1 class="live-title">{{ survey.title }}</h1>
+  {# which run, and another one beside it (both as a choice, the page reloads) #}
+  <div class="live-slides-ctl">
+  {% if runs|length > 1 %}<form method="get" class="live-slides-runs">
+    <label>{{ de_en("Durchgang", "Run") }} <select name="durchgang" data-submit-on-change>
+      {% for r in runs %}<option value="{{ r.id }}" {% if r.id == run.id %}selected{% endif %}>{{ r.name }}</option>{% endfor %}</select></label>
+    {% if runs|length > 1 %}<label>{{ de_en("vergleichen mit", "compare with") }} <select name="vergleich" data-submit-on-change>
+      <option value="">–</option>
+      {% for r in runs if r.id != run.id %}<option value="{{ r.id }}" {% if other and r.id == other.id %}selected{% endif %}>{{ r.name }}</option>{% endfor %}</select></label>{% endif %}
+    <noscript><button class="p-button p-button-secondary">{{ de_en("Zeigen", "Show") }}</button></noscript>
+  </form>{% endif %}
+  {% if has_slides %}{# the presentation slides of this run with the presenter's pen notes, one page each (app/live/ink.py) #}
+  <a class="p-button p-button-secondary" href="{{ url_for('live.ink_pdf', code=survey.code, durchgang=run.id) }}">{{ de_en("Folien mit Notizen (PDF)", "Slides with notes (PDF)") }}</a>{% endif %}
+  {% if has_slides and may_edit %}{# change the pen notes of this run afterwards (live_ink.js, concept stiftnotizen-konzept-2026-10-23.md, E9) #}
+  <button type="button" class="p-button p-button-secondary" data-ink-edit aria-pressed="false" hidden>{{ de_en("Notizen bearbeiten", "Edit notes") }}</button>{% endif %}
+  <button type="button" class="p-button" data-print>{{ de_en("Drucken / als PDF speichern", "Print / save as PDF") }}</button>
+  </div>
+</div>
+  {% if has_slides and may_edit %}
+  <div class="live-ink-tools live-ink-sticky" data-ink-tools role="toolbar" aria-label="{{ de_en('Stift', 'Pen') }}" hidden>
+    <div class="live-ink-row">
+      <button type="button" class="live-ink-btn" data-ink-tool="pen" data-ink-colour="#1a1a1a" aria-pressed="true" title="{{ de_en('Stift schwarz', 'Black pen') }}"><span class="live-ink-dot is-black"></span><span class="p-sr-only">{{ de_en("Stift schwarz", "Black pen") }}</span></button>
+      <button type="button" class="live-ink-btn" data-ink-tool="pen" data-ink-colour="#d32f2f" aria-pressed="false" title="{{ de_en('Stift rot', 'Red pen') }}"><span class="live-ink-dot is-red"></span><span class="p-sr-only">{{ de_en("Stift rot", "Red pen") }}</span></button>
+      <button type="button" class="live-ink-btn" data-ink-tool="pen" data-ink-colour="#1565c0" aria-pressed="false" title="{{ de_en('Stift blau', 'Blue pen') }}"><span class="live-ink-dot is-blue"></span><span class="p-sr-only">{{ de_en("Stift blau", "Blue pen") }}</span></button>
+      <button type="button" class="live-ink-btn" data-ink-tool="marker" data-ink-colour="#ffd400" aria-pressed="false" title="{{ de_en('Textmarker: breit und durchscheinend', 'Highlighter: broad and see-through') }}"><span class="live-ink-dot is-marker"></span><span class="p-sr-only">{{ de_en("Textmarker", "Highlighter") }}</span></button>
+      <button type="button" class="live-ink-btn live-ink-word" data-ink-tool="eraser" aria-pressed="false" title="{{ de_en('Radierer: löscht jeden Strich, den er berührt (auch das Radierende des Stifts)', 'Eraser: deletes every stroke it touches (the eraser end of the pen too)') }}">{{ de_en("Radierer", "Eraser") }}</button>
+      <button type="button" class="live-ink-btn live-ink-word" data-ink-undo disabled title="{{ de_en('Rückgängig (Strg+Z)', 'Undo (Ctrl+Z)') }}">↶ {{ de_en("Rückgängig", "Undo") }}</button>
+      <button type="button" class="live-ink-btn live-ink-word" data-ink-redo disabled title="{{ de_en('Wiederholen (Strg+Y)', 'Redo (Ctrl+Y)') }}">↷</button>
+      <button type="button" class="live-ink-btn live-ink-word" data-ink-clear title="{{ de_en('Alle Striche der zuletzt bearbeiteten Folie löschen (zweimal klicken; Rückgängig holt sie zurück)', 'Delete all strokes on the slide last edited (click twice; Undo brings them back)') }}">{{ de_en("Folie leeren", "Clear slide") }}</button>
+    </div>
+    <p class="small live-ink-status" data-ink-status role="status" hidden></p>
+  </div>
+  {% endif %}
+<div data-live-slides data-ui-lang="{{ ui_language() }}"{% if has_slides and may_edit %} data-ink-save="{{ url_for('live.ink_save', code=survey.code) }}" data-ink-run="{{ run.id }}" data-csrf="{{ csrf_token() }}"{% endif %} data-names="{{ [run.name, other.name if other else '']|tojson|forceescape }}" data-t="{{ {"answer": ui("Antwort", "answer"), "answers": ui("Antworten", "answers"), "mean": ui("Mittelwert", "Mean"),
+  "median": ui("Median", "Median"), "ended": ui("Abstimmung beendet", "Voting closed"), "hidden": ui("VERBORGEN", "HIDDEN"),
+  "noquestions": ui("Noch keine Fragen.", "No questions yet."), "nopoints": ui("Noch keine Punkte.", "No points yet."), "rank1": ui("Platz 1 = oben", "Place 1 = top"), "rankk": ui("Platz", "Place"),
+  "noimage": ui("Kein Bild.", "No image."), "right": ui("richtig", "right"), "left": ui("noch {s} s", "{s} s left")}|tojson|forceescape }}">{{ pages|tojson|forceescape }}</div>
+{% if has_slides %}<script src="{{ url_for('static', filename='live_ink.js') }}"></script>{% endif %}
+<script src="{{ url_for('static', filename='live.js') }}"></script>
+{% endblock %}
+{% block footer_links %}{% endblock %}

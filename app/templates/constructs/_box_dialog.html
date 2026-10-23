@@ -1,0 +1,19 @@
+{# The dialog of the full construct box (konzept-konstrukt-schnellbox-2026-10-16.md, K4): opened by a button with
+   data-box-open, filled from constructs.box (app.js, "Konstruktbox"). Context: survey and blocks (the editor: "+
+   Einfügen" into the block chosen here) or keep ("platform" or an organisation id: "+ Aufnehmen" into that list). #}
+{% from "_icons.html" import icon %}
+<dialog class="cbox-dialog" data-construct-box aria-labelledby="cbox-title"
+        data-url="{{ url_for('constructs.box') }}"
+        {% if survey is defined and survey %}data-survey="{{ survey.id }}" data-undo-url="{{ url_for('editor.undo', survey_id=survey.id) }}"{% endif %}
+        {% if keep is defined and keep %}data-keep="{{ keep }}" data-keep-url="{{ url_for('constructs.shortlist_change', keep=keep) }}"{% endif %}>
+  <div class="cbox-head">
+    <h2 id="cbox-title">{{ de_en("Konstrukte", "Constructs") }}</h2>
+    <input type="search" data-box-q placeholder="{{ de_en('Suchen: Name, Autor, Jahr, Wortlaut …', 'Search: name, author, year, wording …') }}" aria-label="{{ de_en('Konstrukte suchen', 'Search constructs') }}">
+    {% if box_blocks is defined and box_blocks %}
+    <label class="cbox-target"><span class="muted small">{{ de_en("Einfügen in", "Insert into") }}</span>
+      <select data-box-block>{% for b in box_blocks %}<option value="{{ url_for('editor.add_item', survey_id=survey.id, block_id=b.id) }}" data-block-id="{{ b.id }}">{{ b.title() or de_en("Block {n}", "Block {n}", n=loop.index) }}</option>{% endfor %}</select></label>
+    {% endif %}
+    <button type="button" class="icon-btn" data-box-close title="{{ de_en('Schließen', 'Close') }}" aria-label="{{ de_en('Schließen', 'Close') }}">×</button>
+  </div>
+  <div class="cbox-content" data-box-content><p class="muted">{{ de_en("Lädt …", "Loading …") }}</p></div>
+</dialog>

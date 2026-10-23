@@ -1,0 +1,105 @@
+{# The designer's form (app/boards/), the left column: the tiles of the dashboard in their order with their settings, and
+   below every element that could become a tile, each with its "+" (Ralf, 2026-10-03: the tiles are the choice, no list
+   to tick). It saves by itself (data-autosave-form) and comes back anew with every save (data-autosave-redraw). The
+   name of the dashboard stands in the right column (form="board-form"). Needs: survey, board, tiles, known, groups,
+   picked, can_edit, max_tiles, gone. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf, edit_guard_fields with context %}
+<form method="post" action="{{ url_for('boards.designer', survey_id=survey.id, board_id=board.id) }}" id="board-form" class="board-form"{{ " data-autosave-form data-autosave-redraw" if can_edit else "" }}>
+  {{ csrf() }}
+  {% if can_edit %}{{ edit_guard_fields(survey, "board:" ~ board.id, edit_guard.board_state(board), presence_key=false) }}{% endif %}
+  <input type="hidden" name="order" value="{{ tiles|map(attribute='key')|join(',') }}">
+  {# what could be ticked when this form was made: only of these does a missing tick mean "taken off" #}
+  <input type="hidden" name="known" value="{{ known|join(',') }}">
+  <fieldset class="board-fieldset"{% if not can_edit %} disabled{% endif %}>
+  <section class="panel board-on">
+    <h2>{{ de_en("Kacheln", "Tiles") }} <span class="hint">{{ de_en("in dieser Reihenfolge; am Griff ziehen oder mit den Pfeilen ordnen", "in this order; drag by the handle or arrange with the arrows") }}</span></h2>
+    {% if gone %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{% if gone == 1 %}{{ de_en("{n} Kachel zeigt auf Elemente, die es im Fragebogen nicht mehr gibt (oder die nicht mehr auf ein Dashboard können), und fehlt deshalb auf dem Dashboard.", "{n} tile points to elements that no longer exist in the questionnaire (or that can no longer go onto a dashboard), and is therefore missing on the dashboard.", n=gone) }}{% else %}{{ de_en("{n} Kacheln zeigen auf Elemente, die es im Fragebogen nicht mehr gibt (oder die nicht mehr auf ein Dashboard können), und fehlen deshalb auf dem Dashboard.", "{n} tiles point to elements that no longer exist in the questionnaire (or that can no longer go onto a dashboard), and are therefore missing on the dashboard.", n=gone) }}{% endif %}</span></p>{% endif %}
+    {% if tiles %}
+    {# tiles that would carry the same heading (split-ballot versions of one question): the view could not tell them
+       apart (UI/UX audit 2026-10-05, V79) #}
+    {% set heads = [] %}{% for t in tiles if t.view != "text" and known[t.key] %}{% set _ = heads.append((t.title or known[t.key].label)|trim|lower) %}{% endfor %}
+    <ol class="board-rows" data-board-rows>
+      {% for t in tiles %}
+      {% if t.view == "text" %}
+      <li class="board-row" data-key="{{ t.key }}">
+        <span class="drag-handle" title="{{ de_en('Ziehen, um die Reihenfolge zu ändern', 'Drag to change the order') }}" aria-hidden="true">⋮⋮</span>
+        <span class="board-row-name">{{ text_kinds[t.kind] }}{% if t.text %} <span class="hint">{{ t.text|truncate(40) }}</span>{% endif %}</span>
+        <span class="board-row-move">
+          <button type="button" class="icon-btn" data-board-move="up" title="{{ de_en('Nach oben', 'Up') }}" aria-label="{{ de_en('Nach oben', 'Up') }}"{% if loop.first %} disabled{% endif %}>{{ icon("up", 16) }}</button>
+          <button type="button" class="icon-btn" data-board-move="down" title="{{ de_en('Nach unten', 'Down') }}" aria-label="{{ de_en('Nach unten', 'Down') }}"{% if loop.last %} disabled{% endif %}>{{ icon("down", 16) }}</button>
+          <button type="button" class="icon-btn" data-board-remove title="{{ de_en('Vom Dashboard nehmen', 'Take off the dashboard') }}" aria-label="{{ de_en('Vom Dashboard nehmen', 'Take off the dashboard') }}">{{ icon("x", 16) }}</button>
+        </span>
+        <span class="board-row-settings">
+          <input type="hidden" name="pick" value="{{ t.key }}">
+          <label>{{ de_en("Art", "Kind") }}
+            <select name="kind-{{ t.key }}">{% for kind, name in text_kinds.items() %}<option value="{{ kind }}"{% if kind == t.kind %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+          <label>{{ de_en("Breite", "Width") }}
+            <select name="w-{{ t.key }}">{% for width, name in widths %}<option value="{{ width }}"{% if width == t.w %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+          <label>{{ de_en("Platz in der Zeile", "Place in the row") }}
+            <select name="x-{{ t.key }}">{% for start, name in starts if start + t.w - 1 <= 12 %}<option value="{{ start }}"{% if start == t.x %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+          <textarea name="text-{{ t.key }}" rows="{{ 1 if t.kind == "heading" else 4 }}" maxlength="{{ max_text }}" aria-label="{{ text_kinds[t.kind] }}" placeholder="{{ de_en('Überschrift über den folgenden Kacheln', 'Heading above the following tiles') if t.kind == 'heading' else de_en('Text; **fett**, *kursiv*, Leerzeile = neuer Absatz, „- “ am Zeilenanfang = Aufzählung', 'Text; **bold**, *italic*, empty line = new paragraph, “- ” at the start of a line = list') }}">{{ t.text }}</textarea>
+        </span>
+      </li>
+      {% else %}{% set row = known[t.key] %}
+      <li class="board-row" data-key="{{ t.key }}"><input type="hidden" name="pick" value="{{ t.key }}">
+        <span class="drag-handle" title="{{ de_en('Ziehen, um die Reihenfolge zu ändern', 'Drag to change the order') }}" aria-hidden="true">⋮⋮</span>
+        <span class="board-row-name">{{ row.label }}{% if row.hint %} <span class="hint">{{ row.hint }}</span>{% endif %}</span>
+        <span class="board-row-move">
+          <button type="button" class="icon-btn" data-board-move="up" title="{{ de_en('Nach oben', 'Up') }}" aria-label="{{ de_en('Nach oben', 'Up') }}"{% if loop.first %} disabled{% endif %}>{{ icon("up", 16) }}</button>
+          <button type="button" class="icon-btn" data-board-move="down" title="{{ de_en('Nach unten', 'Down') }}" aria-label="{{ de_en('Nach unten', 'Down') }}"{% if loop.last %} disabled{% endif %}>{{ icon("down", 16) }}</button>
+          <button type="button" class="icon-btn" data-board-remove title="{{ de_en('Vom Dashboard nehmen', 'Take off the dashboard') }}" aria-label="{{ de_en('Vom Dashboard nehmen', 'Take off the dashboard') }}">{{ icon("x", 16) }}</button>
+        </span>
+        <span class="board-row-settings">
+          <label>{{ de_en("Darstellung", "Display") }}
+            <select name="view-{{ t.key }}">{% for view, name in row.views %}<option value="{{ view }}"{% if view == t.view %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+          <label>{{ de_en("Breite", "Width") }}
+            <select name="w-{{ t.key }}">{% for width, name in widths %}<option value="{{ width }}"{% if width == t.w %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+          <label>{{ de_en("Platz in der Zeile", "Place in the row") }}
+            <select name="x-{{ t.key }}">{% for start, name in starts if start + t.w - 1 <= 12 %}<option value="{{ start }}"{% if start == t.x %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+          {% if t.key.startswith("quota:") or row.shape in ("cats", "multi", "states", "dist") %}
+          <label class="check"><input type="checkbox" name="pct-{{ t.key }}" value="1"{% if t.pct %} checked{% endif %}> {{ de_en("Füllstand in Prozent", "Fill level in percent") if t.key.startswith("quota:") else de_en("Anteile in Prozent", "Shares in percent") }}</label>
+          {% else %}<input type="hidden" name="pct-{{ t.key }}" value="1">{% endif %}
+          {% if not t.key.startswith("field:") %}
+          <label class="check"><input type="checkbox" name="n-{{ t.key }}" value="1"{% if t.n %} checked{% endif %}> {{ de_en("Soll und erreichte Zahl", "Target and reached number") if t.key.startswith("quota:") else de_en("Anzahl der Antworten", "Number of answers") }}</label>
+          {% else %}<input type="hidden" name="n-{{ t.key }}" value="1">{% endif %}
+          {% if row.shape in split_shapes %}{% set others = groupers|rejectattr(0, "equalto", t.key)|list %}{% if others %}
+          <label class="board-row-split">{{ de_en("Aufteilen nach", "Split by") }}
+            <select name="by-{{ t.key }}"><option value="">{{ de_en("nicht aufteilen", "do not split") }}</option>{% for key, question in others %}<option value="{{ key }}"{% if key == t.by %} selected{% endif %}>{{ question|truncate(60) }}</option>{% endfor %}</select></label>
+          {% endif %}{% endif %}
+          {% set same = heads|select("equalto", (t.title or row.label)|trim|lower)|list|length > 1 %}
+          <details class="board-row-title"{% if t.title or same %} open{% endif %}><summary>{{ de_en("Eigene Überschrift", "Own heading") }}</summary>
+            <input name="title-{{ t.key }}" value="{{ t.title }}" maxlength="200" placeholder="{{ row.label }}" aria-label="{{ de_en('Eigene Überschrift', 'Own heading') }}"></details>
+          {% if same %}<p class="flash flash-warning small board-same">{{ icon("alert", 16) }} <span>{{ de_en("Eine andere Kachel hat dieselbe Überschrift; in der Ansicht sind beide nicht zu unterscheiden. Ergänzen Sie, worin sie sich unterscheiden, z. B. „{label} ({hint})“ oder „… Version A, 49 €“.", "Another tile has the same heading; in the view the two cannot be told apart. Add how they differ, e.g. “{label} ({hint})” or “… version A, 49 €”.", label=row.label|truncate(60), hint=row.hint or t.key) }}</span></p>{% endif %}
+        </span>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="muted">{{ de_en("Noch keine Kachel. Unten mit „+“ hinzufügen, was das Dashboard zeigen soll.", "No tile yet. Below, add with “+” what the dashboard should show.") }}</p>
+    {% endif %}
+    <div class="form-actions board-add">
+      <button type="button" class="button button-small button-secondary" data-board-add="heading">{{ icon("plus", 14) }} {{ de_en("Überschrift", "Heading") }}</button>
+      <button type="button" class="button button-small button-secondary" data-board-add="text">{{ icon("plus", 14) }} Text</button>
+      <span class="hint">{{ de_en("zum Gliedern und Erklären", "to structure and explain") }}</span>
+    </div>
+  </section>
+  {# every element not yet on the dashboard: "+" puts it at the end of the tiles above #}
+  <section class="panel board-more">
+    <h2>{{ de_en("Weitere Kacheln", "More tiles") }} <span class="hint">{{ de_en("Kennzahlen, Quoten und Fragen; „+“ setzt sie ans Ende der Kacheln", "key figures, quotas and questions; “+” puts them at the end of the tiles") }}</span></h2>
+    {% for group in groups %}{% set rest = group.rows|rejectattr("key", "in", picked)|list %}{% if rest %}
+    <h3 class="board-more-head">{{ group.title }}</h3>
+    <ul class="board-more-list">
+      {% for row in rest %}
+      <li class="board-more-row{% if row.reason %} board-off{% endif %}">
+        <span class="board-row-name">{{ row.label }}{% if row.hint and not row.key.startswith("quota:") %} <span class="hint">{{ row.hint }}</span>{% endif %}{% if row.reason %} <span class="hint">{{ row.reason }}</span>{% endif %}</span>
+        {% if not row.reason %}<button type="button" class="icon-btn" data-board-include="{{ row.key }}" title="{{ de_en('Aufs Dashboard', 'Onto the dashboard') }}" aria-label="{{ de_en('„{label}“ aufs Dashboard', '“{label}” onto the dashboard', label=row.label|truncate(40)) }}">{{ icon("plus", 16) }}</button>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}{% endfor %}
+    <p class="muted small">{{ de_en("Höchstens {n} Kacheln je Dashboard.", "At most {n} tiles per dashboard.", n=max_tiles) }}</p>
+  </section>
+  </fieldset>
+</form>

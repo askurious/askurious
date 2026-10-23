@@ -1,0 +1,28 @@
+{# Options carried from an earlier question (app/carry.py). Needs: cv = carry.editor_view(item, lang),
+   cv_rows ("Antwortoptionen", "Elemente", "Aussagen"). The carried rows are shown, not edited: their wording and
+   codes are those of the earlier question. #}
+{% if cv.sources or cv.item %}
+{% set en_which = {"chosen": "the chosen answers", "unchosen": "the answers not chosen", "all": "all answers"} %}
+{% set rows_in_text = cv_rows|lower if ui_language() == "en" else cv_rows %}
+<fieldset class="carry">
+  <legend>{{ de_en("{rows} aus einer früheren Frage übernehmen", "{rows} from an earlier question", rows=cv_rows) }} <span class="hint">{{ de_en("z. B. nur die Geräte, die jemand vorher angekreuzt hat", "e.g. only the devices someone ticked before") }}</span></legend>
+  <div class="row-fields">
+    <label>{{ de_en("Frage", "Question") }}
+      <select name="carry_item" {% if not structural %}disabled{% endif %}>
+        <option value="">{{ de_en("– nichts übernehmen –", "– carry over nothing –") }}</option>
+        {% if cv.item and cv.item not in cv.known %}<option value="{{ cv.item }}" selected>{{ de_en("(Frage nicht mehr vorhanden oder nicht davor)", "(question no longer there or not before it)") }}</option>{% endif %}
+        {% for ref, label in cv.sources %}<option value="{{ ref }}" {% if cv.item == ref %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Übernommen werden", "Carried over") }}
+      <select name="carry_which" {% if not structural %}disabled{% endif %}>
+        {% for key, label in cv.choices %}<option value="{{ key }}" {% if cv.which == key %}selected{% endif %}>{{ de_en(label ~ " Antworten", en_which.get(key, label)) }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  {% if cv.rows %}
+  <p class="carry-rows"><span class="label-title">{{ de_en("Übernommen", "Carried over") }}</span> {% for code, label in cv.rows %}<span class="carry-row"><code>{{ code }}</code> {{ label|truncate(50) }}</span>{% endfor %}</p>
+  <p class="muted small">{{ de_en("Wortlaut, Übersetzungen und Codes kommen von der früheren Frage und werden dort geändert. Die übernommenen {rows} stehen vor den eigenen", "Wording, translations and codes come from the earlier question and are changed there. The {rows} carried over come before the element's own", rows=rows_in_text) }}{% if not cv.statements %} {{ de_en("(z. B. „keines davon“)", "(e.g. “none of these”)") }}{% endif %}. {{ de_en("Jede Person sieht nur, was zu ihrer Antwort passt; hat sie in ein Textfeld („Anderes, und zwar“) etwas eingetragen, steht ihr Text als Wortlaut da. Bleibt nichts Übernommenes übrig, entfällt die Frage", "Each person only sees what fits their answer; if they typed something into a text field (“Other, namely”), their text appears as the wording. If nothing carried over is left, the question is skipped") }}{% if item.type in ("single_choice", "ranking", "constant_sum") %}{{ de_en(", ebenso wenn insgesamt nur eine Option bleibt", ", as it is when only one option is left in total") }}{% endif %}.{% if item.type != "single_choice" %} {{ de_en("Im Export steht bei nicht gezeigten −77 (als fehlend deklariert).", "In the export, those not shown have −77 (declared as missing).") }}{% endif %}{% if cv.statements %} {{ de_en("Solche Aussagen sind eine Fragenbatterie, keine Skala: Skalenmittelwert und Cronbachs α werden für sie nicht berechnet.", "Such statements are a question battery, not a scale: the scale mean and Cronbach's α are not computed for them.") }}{% endif %}</p>
+  {% endif %}
+</fieldset>
+{% endif %}

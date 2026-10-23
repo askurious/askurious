@@ -1,0 +1,48 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+{% set question_hint = de_en("steht über der Aufgabe; jede Runde erklärt ihre Seiten selbst", "appears above the task; every round explains its sides itself") %}
+{% include "items/_question_field.html" %}
+{% set cats = kind.categories(item, lang) %}
+{% set st = item.lang_texts(lang).get("stimuli", {}) %}
+{# a short "So funktioniert es" with a small example (concept "Lernhilfen: fünfte Runde", H1, like the
+   side-by-side matrix after the pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Kategorien, Begriffe und Runden", "categories, terms and rounds"), open=not (st.values()|select|list)) %}
+  <p>{{ de_en("Sie legen zwei Zielkategorien (z. B. Roboter, Menschen) und zwei Bewertungen (z. B. gut, schlecht) an, jede mit einigen Begriffen. Teilnehmende sortieren die Begriffe einzeln nach links oder rechts, in sieben Runden: erst nur Ziele, dann nur Bewertungen, dann beides gemeinsam, danach mit getauschten Seiten noch einmal.", "You set two target categories (e.g. robots, humans) and two evaluations (e.g. good, bad), each with a few terms. Participants sort the terms one at a time to the left or right, in seven rounds: first the targets only, then the evaluations only, then both together, and again with the sides swapped.") }}</p>
+  <p class="muted small">{{ de_en("Aus den Zeiten der gemeinsamen Runden entsteht der D-Wert: Positiv heißt, „Roboter + gut“ ging schneller als „Menschen + gut“.", "The D score comes from the times of the combined rounds: positive means “robots + good” was faster than “humans + good”.") }}</p>
+{% endcall %}
+<fieldset>
+  <legend>{{ de_en("Kategorien und Begriffe", "Categories and terms") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Wert im Langformat", "code = value in the long format") }}</span></legend>
+  <p class="muted small">{{ de_en("Zwei Konzepte (A, B) und zwei Bewertungen (X, Y). „Kompatibel“ heißt A zusammen mit X: Ein positiver D-Wert bedeutet schnellere Antworten, wenn A und X auf derselben Seite liegen. Je Kategorie mindestens zwei, besser vier bis sechs Begriffe.", "Two concepts (A, B) and two evaluations (X, Y). “Compatible” means A together with X: a positive D score means faster answers when A and X are on the same side. At least two terms per category, better four to six.") }}</p>
+  {% for c, title in (("A", de_en("Konzept A", "Concept A")), ("B", de_en("Konzept B", "Concept B")), ("X", de_en("Bewertung X", "Evaluation X")), ("Y", de_en("Bewertung Y", "Evaluation Y"))) %}
+  <div class="stack">
+    <div class="row-fields">
+      <label>{{ title }} <input name="cat_{{ c }}_label" value="{{ cats[c].label }}" maxlength="60"></label>
+      <label>Code <input name="cat_{{ c }}_code" value="{{ cats[c].code }}" class="narrow" {% if not structural %}readonly{% endif %}></label>
+    </div>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Begriff", "Term") }}</th></tr></thead>
+      <tbody>
+      {% for s in item.cfg.stimuli if s.cat == c %}
+        <tr><td><input type="hidden" name="st_id" value="{{ s.id }}"><input type="hidden" name="st_cat" value="{{ c }}"><input name="st_code" aria-label="Code" value="{{ s.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+            <td><input name="st_label" aria-label="{{ de_en('Begriff', 'Term') }}" value="{{ st.get(s.id, '') }}" maxlength="80" placeholder="{{ (item.text('stimuli') or {}).get(s.id, '') }}"></td></tr>
+      {% endfor %}
+      {% if structural %}{% for n in range(2) %}
+        <tr class="new-row"><td><input type="hidden" name="st_id" value="{{ new_id() }}"><input type="hidden" name="st_cat" value="{{ c }}"><input name="st_code" aria-label="Code" class="narrow"></td>
+            <td><input name="st_label" aria-label="{{ de_en('Begriff', 'Term') }}" maxlength="80" placeholder="{{ de_en('neuer Begriff', 'new term') }}"></td></tr>
+      {% endfor %}{% endif %}
+      </tbody>
+    </table></div>
+  </div>
+  {% endfor %}
+  {{ row_list_hint() }}
+  <fieldset class="bare">
+    <span class="label-title">{{ de_en("Reihenfolge der Paarungen", "Order of the pairings") }}</span>
+    <label class="check"><input type="radio" name="order" value="person" {% if item.cfg.get("order", "person") != "fixed" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("zufällig je Person (Standard: Hebt Reihenfolgeeffekte über die Stichprobe auf)", "random per person (standard: cancels order effects across the sample)") }}</label>
+    <label class="check"><input type="radio" name="order" value="fixed" {% if item.cfg.get("order") == "fixed" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("immer zuerst A mit X", "always A with X first") }}</label>
+  </fieldset>
+</fieldset>
+<p class="muted small">{{ de_en("Sieben Blöcke mit 188 Durchgängen (20, 20, 20, 40, 28, 20, 40), etwa fünf Minuten. Ein Fehler zeigt ein rotes ✗ und muss korrigiert werden; die Zeit läuft bis zur richtigen Antwort. Export: D-Wert (Greenwald et al., 2003), D der Übungs- und Testblöcke, Fehler- und Schnellrate, Gültigkeit, Reihenfolge; jeder Durchgang im Langformat (Reiter „Export“).", "Seven blocks with 188 trials (20, 20, 20, 40, 28, 20, 40), about five minutes. An error shows a red ✗ and must be corrected; the time runs until the correct answer. Export: D score (Greenwald et al., 2003), D of the practice and test blocks, error and fast-answer rate, validity, order; every trial in the long format (tab “Export”).") }}</p>
+<p class="muted small">{{ de_en("Weiterverwenden:", "Reuse:") }} <code>{{ "{{" }}{{ item.code }}_d{{ "}}" }}</code> {{ de_en("setzt den D-Wert in spätere Texte (z. B. „0,46“; leer, wenn kein D-Wert berechnet werden konnte, daher besser mit Ersatztext:", "puts the D score into later texts (e.g. “0.46”; empty if no D score could be calculated, so better with a fallback text:") }}
+  <code>{{ "{{" }}{{ item.code }}_d|{{ de_en("kein Ergebnis", "no result") }}{{ "}}" }}</code>){{ de_en("; in Bedingungen des Ablaufs steht der IAT als Zahl (z. B. „größer als 0,35“).", "; in conditions of the flow the IAT appears as a number (e.g. “greater than 0.35”).") }}
+  {{ de_en("Vorsicht: Der D-Wert einer einzelnen Person schwankt stark (Retest-Reliabilität um 0,5). Für Rückmeldungen an Teilnehmende besser das Element „IAT-Ergebnis“ mit seiner Einordnung nutzen (Palette, Gruppe „Rückmeldung“); Verzweigungen nach dem D-Wert eher explorativ einsetzen.", "Caution: the D score of a single person varies a lot (retest reliability around 0.5). For feedback to participants, better use the element “IAT result” with its classification (palette, group “Feedback”); use branching by the D score rather exploratively.") }}</p>

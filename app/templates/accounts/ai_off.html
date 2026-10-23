@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{# A page that is AI as a whole (AInstein, the interview AI assistant, the live assistant) while generative AI is
+   switched off for the person (app/ai_access.py _ai_off_page; ki-nutzung-seite-konzept.md E4). No banner. #}
+{% block title %}{{ de_en("KI-Nutzung", "AI usage") }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>{{ de_en("Generative KI ist für Sie ausgeschaltet", "Generative AI is switched off for you") }}</h1>
+  <p>{{ de_en("Diese Seite arbeitet mit generativer KI. Sie haben sie unter „KI-Nutzung“ für Ihr Konto ausgeschaltet; Askurious schickt dann nichts an KI-Dienste.",
+    "This page works with generative AI. You switched it off for your account under “AI usage”; Askurious then sends nothing to AI services.") }}</p>
+  <p><a href="{{ url_for('ai_access.page') }}">{{ de_en("Zur Seite „KI-Nutzung“", "To the page “AI usage”") }}</a></p>
+</section>
+{% endblock %}

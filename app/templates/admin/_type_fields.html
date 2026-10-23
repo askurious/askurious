@@ -1,0 +1,16 @@
+{# The fields of one user type (app/account_types.py): in the form "Neuer Nutzertyp" and on the page of a type. #}
+{% macro type_fields(t) %}{# one user type (app/account_types.py) #}
+{% set unit = (t.duration or "")[:1] if t else "" %}{% set number = (t.duration or "")[2:] if t else "" %}
+<div class="row-fields"><label>{{ de_en("Name", "Name") }} <input name="name_de" maxlength="80" required value="{{ t.name_de if t else '' }}"></label>
+  <label>{{ de_en("Name englisch", "Name in English") }} <input name="name_en" maxlength="80" value="{{ t.name_en if t else '' }}"></label></div>
+<div class="row-fields"><label>{{ de_en("Laufzeit", "Period") }}
+  <select name="duration_mode">{% for value, label in (("none", de_en("unbefristet", "without end")), ("m", de_en("Monate", "months")), ("w", de_en("Wochen", "weeks")), ("d", de_en("festes Enddatum, bei der Einladung", "fixed end date, at the invitation"))) %}<option value="{{ value }}"{{ " selected" if (unit or "none") == value }}>{{ label }}</option>{% endfor %}</select></label>
+  <label>{{ de_en("Anzahl", "Number") }} <span class="hint">{{ de_en("leer: bei der Einladung anzugeben", "empty: given at the invitation") }}</span> <input type="number" name="duration_n" min="1" max="520" value="{{ number }}"></label></div>
+<fieldset class="kind-selects"><legend>{{ de_en("Befragungstypen", "Survey types") }}</legend>
+  {% for k in kind_keys %}<label>{{ kind_label(k) }}
+    <select name="kind_{{ k }}">{% for lvl in ("create", "edit", "view", "off") %}<option value="{{ lvl }}"{{ " selected" if ((t.kinds or {}).get(k, "edit") if t else "edit") == lvl }}>{{ kind_level_label(lvl) }}</option>{% endfor %}</select></label>
+  {% endfor %}</fieldset>
+<p class="hint">{{ de_en("„Anlegen“: Die Person legt eigene Befragungen dieser Art an; „Bearbeiten“: Sie arbeitet nur an geteilten mit. Wer sich selbst anmelden darf, bekommt „Anlegen“ bei jeder Art auf „Bearbeiten“, solange neue Konten anlegen dürfen.", "“Create”: the person creates own surveys of this type; “Edit”: they only work on shared ones. Whoever may sign in by themselves gets “Create” for every type at “Edit” while new accounts may create.") }}</p>
+<div class="row-fields"><label>{{ de_en("Löschen nach Ende", "Delete after the end") }} <span class="hint">{{ de_en("Monate; leer: nie", "months; empty: never") }}</span> <input type="number" name="delete_months" min="1" max="120" value="{{ t.delete_months if t and t.delete_months else '' }}"></label></div>
+<label class="check"><input type="checkbox" name="supervised" value="1"{{ " checked" if t and t.supervised }}> {{ de_en("mit Betreuung: Wer einlädt, wird Admin in jeder Befragung, die die Person anlegt", "with a supervisor: the person who invites becomes admin of every survey the person creates") }}</label>
+{% endmacro %}

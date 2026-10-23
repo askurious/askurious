@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{# the setup assistant after the first sign-in (app/account_setup.py, konto-einrichtung-konzept.md): four steps, each
+   with "Überspringen"; "Einrichtung beenden" ends it. Needs: step, steps, number, total, login, has_password, fresh,
+   minutes, min_length, ui_languages, ai_access, ai_access_days, ai_mod, here. #}
+{% from "_macros.html" import autosave_bar, csrf, orcid_icon, orcid_link %}
+{% from "_icons.html" import icon %}
+{% set titles = {"details": de_en("Angaben und Sprache", "Details and language"),
+                 "sign_in": de_en("Zweite Anmeldeart", "Second way to sign in"),
+                 "ai": de_en("Eigener KI-Zugang", "Own AI access"),
+                 "learning": de_en("Lernhilfen", "Learning aids")} %}
+{% block title %}{{ de_en("Konto einrichten", "Set up your account") }}{% endblock %}
+{% block content %}
+<div class="setup">
+<h1>{{ de_en("Konto einrichten", "Set up your account") }}</h1>
+<p class="muted">{{ de_en("Willkommen bei Askurious! Vier kurze Schritte, jeder lässt sich überspringen. Alles finden Sie später auch auf der Seite „Konto“.",
+  "Welcome to Askurious! Four short steps, each of which you can skip. You find everything later on the page “Account” as well.") }}</p>
+<ol class="setup-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
+  {% for s in steps %}<li{% if s == step %} aria-current="step" class="current"{% elif loop.index < number %} class="done"{% endif %}>{{ titles[s] }}</li>{% endfor %}
+</ol>
+
+<section class="panel">
+  <h2>{{ de_en("Schritt {n} von {t}: {title}", "Step {n} of {t}: {title}", n=number, t=total, title=titles[step]) }}</h2>
+
+  {% if step == "details" %}
+  <form method="post" class="stack account-form" id="setup-form">
+    {{ csrf() }}
+    {% if current_user.has_orcid %}
+    <p>{{ de_en("Name", "Name") }}: <strong>{{ current_user.display_name }}</strong> {{ orcid_link(current_user.orcid, full=True, unauth=False) }}</p>
+    <p class="muted small">{{ de_en("Der Name kommt bei jeder Anmeldung mit ORCID aus Ihrem öffentlichen ORCID-Profil und wird dort geändert.",
+      "The name comes from your public ORCID record at every sign-in with ORCID and is changed there.") }}</p>
+    {% else %}
+    <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("so stehen Sie in den Listen der Beteiligten und als Autorin oder Autor", "how you appear in the lists of people involved and as an author") }}</span>
+      <input name="name" value="{{ current_user.name }}" maxlength="200" required></label>
+    {% endif %}
+    <fieldset>
+      <legend>{{ de_en("Sprache der Seiten", "Language of the pages") }} <span class="hint">{{ de_en("Teilnehmende sehen die Sprachen ihrer Befragung", "participants see the languages of their survey") }}</span></legend>
+      {% for key, label in ui_languages.items() %}
+      <label class="check"><input type="radio" name="lang" value="{{ key }}" {% if ui_language() == key %}checked{% endif %}> <span>{{ label }}</span></label>
+      {% endfor %}
+    </fieldset>
+  </form>
+
+  {% elif step == "sign_in" %}
+  <p>{{ de_en("Mit zwei Anmeldearten kommen Sie auch dann in Ihr Konto, wenn eine gerade nicht geht.",
+    "With two ways to sign in you can still reach your account when one of them does not work.") }}</p>
+  <ul class="plain setup-ways">
+    <li>ORCID: {% if current_user.has_orcid %}<strong>{{ de_en("verbunden", "connected") }}</strong> {{ orcid_link(current_user.orcid, full=True, unauth=False) }}{% else %}{{ de_en("nicht verbunden", "not connected") }}{% endif %}</li>
+    <li>{{ de_en("E-Mail-Adresse und Passwort", "Email address and password") }}: {% if has_password %}<strong>{{ login.email }}</strong>{% else %}{{ de_en("nicht hinterlegt", "not added") }}{% endif %}</li>
+  </ul>
+  {% if current_user.has_orcid and has_password %}
+  <p>{{ de_en("Beide Anmeldearten sind eingerichtet.", "Both ways to sign in are set up.") }}</p>
+  {% elif not current_user.has_orcid %}
+  <p class="muted">{{ de_en("Sie melden sich einmal bei ORCID an; danach gehört die iD zu diesem Konto, und Sie können sich mit ORCID oder mit E-Mail-Adresse und Passwort anmelden. Name und Einrichtung kommen danach aus Ihrem öffentlichen ORCID-Profil.",
+    "You sign in at ORCID once; after that the iD belongs to this account, and you can sign in with ORCID or with email address and password. Name and institution then come from your public ORCID record.") }}</p>
+  {# the account proves itself before an iD becomes a way into it (audit 2026-10-22, A-01) #}
+  <form method="post" action="{{ url_for('auth.login') }}" class="stack account-form" autocomplete="off">
+    {{ csrf() }}<input type="hidden" name="link" value="1"><input type="hidden" name="fresh" value="1">
+    {% if has_password %}<input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+    <label>{{ de_en("Aktuelles Passwort", "Current password") }}
+      <input type="password" name="current" autocomplete="current-password" required></label>{% endif %}
+    {% if totp %}<label>{{ de_en("Code aus der Authenticator-App oder Ersatzcode", "Code from the authenticator app or a backup code") }}
+      <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>{% endif %}
+    <div class="button-row"><button class="button button-secondary">{{ orcid_icon() }}{{ de_en("Mit ORCID verbinden", "Connect with ORCID") }}</button></div>
+  </form>
+  {% elif not fresh %}
+  <p class="muted">{{ de_en("Dafür muss die Anmeldung frisch sein (höchstens {n} Minuten alt), damit niemand an einem offen gelassenen Rechner einen zweiten Zugang zu Ihrem Konto anlegt.",
+    "For this the sign-in must be fresh (at most {n} minutes old), so that nobody at a computer left open adds a second way into your account.", n=minutes) }}</p>
+  <p><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=here) }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}</a></p>
+  {% elif not mail_enabled() %}
+  <p>{{ de_en("Für einen zusätzlichen Passwortzugang muss ein Plattform-Admin den Mailversand einrichten oder einen Zugang über den Adminweg bereitstellen.",
+              "For additional password access, a platform admin must configure mail delivery or provide access through the admin process.") }}</p>
+  {% else %}
+  <form method="post" action="{{ url_for('accounts.password') }}" class="stack account-form">
+    {{ csrf() }}
+    <label>{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{{ de_en("erst nach Bestätigung über den E-Mail-Link als Anmeldename nutzbar", "usable as your sign-in name only after confirmation using the email link") }}</span>
+      <input type="email" name="email" autocomplete="username" maxlength="254" required></label>
+    <label>{{ de_en("Passwort", "Password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen", "at least {n} characters", n=min_length) }}</span>
+      <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+    <label>{{ de_en("Passwort wiederholen", "Repeat password") }}
+      <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+    <div class="button-row"><button class="button button-secondary">{{ de_en("Hinterlegen", "Add") }}</button></div>
+  </form>
+  {% endif %}
+  <form method="post" id="setup-form">{{ csrf() }}</form>
+
+  {% elif step == "ai" %}
+  <p>{{ de_en("Askurious hilft auf Wunsch mit KI, etwa beim Formulieren von Fragen. Das läuft über den Zugang der Plattform oder über Ihren eigenen API-Schlüssel, zum Beispiel von KI:connect.nrw. Ohne eigenen Schlüssel bleibt der Zugang der Plattform.",
+    "If you like, Askurious helps with AI, for example in wording questions. This runs over the platform's access or over your own API key, for example from KI:connect.nrw. Without your own key the platform's access stays.") }}</p>
+  <form method="post" action="{{ url_for('ai_access.switch') }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="ai_enabled" value="1" data-reload-saved {% if current_user.ai_enabled %}checked{% endif %}>
+      <span><strong>{{ de_en("Generative KI nutzen", "Use generative AI") }}</strong>
+      <span class="hint">{{ de_en("Aus: Askurious zeigt keine KI-Funktionen und schickt nichts an KI-Dienste.", "Off: Askurious shows no AI functions and sends nothing to AI services.") }}</span></span></label>
+    {{ autosave_bar() }}
+  </form>
+  <form method="post" id="setup-form">{{ csrf() }}</form>
+
+  {% else %}
+  <form method="post" class="stack" id="setup-form">
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="learning_aids" value="1" {% if current_user.learning_aids %}checked{% endif %}>
+      <span><strong>{{ de_en("Lernhilfen zeigen", "Show learning aids") }}</strong> <span class="muted small">{{ de_en("„Warum?“ an methodischen Entscheidungen (Pflichtfragen, Skalen, Quoten …) mit Quellen und ein ? an Kennzahlen wie M, SD oder α mit Erklärung. Gut für den Einstieg; erfahrene Forschende schalten sie oft aus.",
+        "“Why?” at methodological decisions (required questions, scales, quotas …) with sources and a ? at statistics such as M, SD or α with an explanation. Good for getting started; experienced researchers often switch them off.") }}</span></span></label>
+  </form>
+  {% endif %}
+</section>
+{% if step == "ai" and current_user.ai_enabled %}{% include "accounts/_ai_access.html" %}{% endif %}
+
+<div class="button-row setup-actions">
+  <button class="button" form="setup-form">{% if number == total %}{{ de_en("Fertig", "Done") }}{% else %}{{ de_en("Weiter", "Next") }}{% endif %}</button>
+  <button class="button button-secondary" form="setup-form" name="skip" value="1" formnovalidate>{{ de_en("Überspringen", "Skip") }}</button>
+</div>
+
+<form method="post" action="{{ url_for('account_setup.end') }}" class="inline">
+  {{ csrf() }}<button class="link small">{{ de_en("Einrichtung beenden", "End setup") }}</button>
+  <span class="muted small">{{ de_en("Die übrigen Schritte finden Sie dann auf der Seite „Konto“.", "You then find the remaining steps on the page “Account”.") }}</span>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{# Participant navigation: Back left, Next right. Needs: survey, lang, page, page_count, page_items. #}
+{% set own_buttons = page_items|selectattr("kind.ends_page")|list %}
+{# can_back: false on the first page and right behind a quota check (the answers before it are fixed) #}
+{% set show_back = survey.allow_back and page > 1 and (can_back if can_back is defined else true) %}
+{# Back is allowed in this survey but closed here on purpose (after a quota check, an external section): said where the
+   button would be, so it does not just vanish (UI audit 2026-10-12, U42) #}
+{% set back_locked = survey.allow_back and page > 1 and can_back is defined and not can_back %}
+{% set de = lang in ("de", "de-du") %}
+{% set hide_nav = auto_next is defined and auto_next %}
+{% if show_back or not own_buttons %}
+{% set buttons %}
+  {# Enter means "Next": the first submit button of the form decides, so an unseen one comes first and the visible
+     buttons stand in reading order, Back before Next (UI audit 2026-10-04, R65) #}
+  {% if show_back and not own_buttons %}<button class="p-default-submit" type="submit" name="nav" value="next" tabindex="-1" aria-hidden="true"></button>{% endif %}
+  {% if back_locked %}<span class="p-hint p-back-locked">{{ ui("Zurück ist ab hier nicht mehr möglich.", "Going back is not possible from here on.") }}</span>{% endif %}
+  {% if show_back %}
+  <button class="p-button p-button-secondary p-back" type="submit" name="nav" value="back" formnovalidate>{{ ui("Zurück", "Back") }}</button>
+  {% endif %}
+  {% if not own_buttons %}
+  {# a minimum or maximum time of the page (app/pagetime.py): participant.js counts down here, holds "Next" and sends the page #}
+  {% if hold is defined and hold %}<span class="p-hold" role="timer" data-hold data-min="{{ hold.min }}" data-max="{{ hold.max }}" data-more="{{ hold.extra or 0 }}" data-min-text="{{ ui('Weiter in {n} s', 'Next in {n} s') }}" data-max-text="{{ ui('Noch {n} s auf dieser Seite', '{n} s left on this page') }}" data-warn-text="{{ ui('Noch 20 Sekunden, dann wird diese Seite so abgeschickt, wie sie ist.', '20 seconds left, then this page is sent as it is.') }}"{% if hold.extra %} data-warn-more-text="{{ ui('Noch 20 Sekunden, dann wird diese Seite so abgeschickt, wie sie ist. Mit „Mehr Zeit“ bekommen Sie {n} Sekunden dazu.', '20 seconds left, then this page is sent as it is. “More time” gives you {n} seconds more.') }}" data-more-limit="{{ hold.limit }}" data-more-done-text="{{ ui('Sie haben {n} Sekunden mehr Zeit.', 'You have {n} more seconds.') }}"{% endif %} hidden></span>
+  {# said once, 20 s before the end (the timer itself is not read out every second; R60) #}
+  <span class="p-sr-only" data-hold-warn aria-live="assertive"></span>
+  {# WCAG 2.2.1 (accessibility concept D4): "Mehr Zeit" 20 s before each end, up to ten times (pagetime.MORE_LIMIT),
+     unless the time is part of the experiment (pagetime.offer); the page keeps sending how often it was taken (also
+     after a reload; UI/UX audit 2026-10-16, 80) #}
+  {% if hold.extra %}<button type="button" class="p-button p-button-secondary p-more" data-hold-more>{{ ui("Mehr Zeit", "More time") }}</button>
+  <input type="hidden" name="time_more" value="{{ hold.taken or 0 }}" data-hold-more-field>{% elif hold.extended %}<input type="hidden" name="time_more" value="{{ hold.taken }}">{% endif %}{% endif %}
+  <button class="p-button p-next" type="submit" name="nav" value="next">
+    {% if not (is_last if is_last is defined else page >= page_count) %}{{ ui("Weiter", "Next") }}{% else %}{{ ui("Absenden", "Submit") }}{% endif %}</button>
+  {% endif %}
+{% endset %}
+{# Pages that continue by themselves start without buttons; participant.js shows them again when the page
+   is already answered (after "Back") or is used with the keyboard. Without JavaScript nothing continues
+   by itself, so the buttons are always there. #}
+<div class="p-nav" {% if hide_nav %}hidden data-auto-next-nav{% endif %}>{{ buttons }}</div>
+{% if hide_nav %}<noscript><div class="p-nav">{{ buttons }}</div></noscript>{% endif %}
+{% endif %}

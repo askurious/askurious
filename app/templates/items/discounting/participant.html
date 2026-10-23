@@ -1,0 +1,24 @@
+{# Delay discounting (items/discounting.py, participant.js "Delay discounting"): two offers per choice; the
+   procedure runs in the browser, the server replays the choices. #}
+{% set ans = answers.get(item.id) %}
+{% include "items/_question.html" %}
+<div class="p-dd" data-dd="{{ item.id }}" data-required="{{ 1 if item.required else 0 }}">
+  <input type="hidden" name="i{{ item.id }}" value="{{ (ans|tojson|forceescape) if ans else '' }}" data-assign-answer data-dd-answer>
+  <script type="application/json" data-dd-task>{{ kind.task(item, lang)|tojson }}</script>
+  <div data-dd-stage>
+    {% if ans %}
+    <p class="p-assign-done">✓ {{ ui("Alle Entscheidungen getroffen.", "All choices made.") }}</p>
+    {% else %}
+    <button type="button" class="p-assign-start" data-dd-start>{{ ui("Start", "Start") }}</button>
+    {% endif %}
+  </div>
+  <div class="p-dd-task" data-dd-task-box hidden>
+    <p class="p-assign-progress" data-dd-progress></p>
+    <p class="p-sr-only" role="status" data-dd-status></p>
+    <div class="p-dd-options">
+      <button type="button" class="p-dd-option" data-dd-choice="S"><strong data-dd-amount></strong><span data-dd-when></span></button>
+      <button type="button" class="p-dd-option" data-dd-choice="L"><strong data-dd-amount></strong><span data-dd-when></span></button>
+    </div>
+  </div>
+  <noscript><p class="p-error">{{ ui("Für diese Aufgabe muss JavaScript aktiviert sein.", "This task needs JavaScript.") }}</p></noscript>
+</div>

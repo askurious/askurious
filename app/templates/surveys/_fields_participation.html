@@ -1,0 +1,38 @@
+{% from "_learn.html" import why %}
+{# Group "Teilnahme" of the options (settings page surveys/detail.html and wizard/_options.html): navigation and taking part
+   again in the same browser. Needs: values (the survey or the wizard form), lang_editable; fixed_marks: the lock
+   at what is fixed from the start on (settings page). #}
+{% from "_macros.html" import fixed_mark %}{% set marks = fixed_marks is defined and fixed_marks %}
+  <fieldset class="option-group" {% if not lang_editable %}disabled{% endif %}>
+  <label class="check"><input type="checkbox" name="allow_back" value="1" {% if values.allow_back %}checked{% endif %}> {{ de_en("Zurück-Knopf erlauben", "Allow back button") }}{% if marks %} {{ fixed_mark(not lang_editable, de_en("wie der Fragebogen", "like the questionnaire")) }}{% endif %}
+    <span class="hint">{{ de_en("Teilnehmende können zur vorherigen Seite zurückgehen", "participants can go back to the previous page") }}</span></label>
+  <label class="check"><input type="checkbox" name="show_progress" value="1" {% if values.show_progress is not defined or values.show_progress %}checked{% endif %}> {{ de_en("Fortschrittsanzeige", "Progress bar") }}{% if marks %} {{ fixed_mark(not lang_editable, de_en("wie der Fragebogen", "like the questionnaire")) }}{% endif %}
+    <span class="hint">{{ de_en("Balken oben auf jeder Seite, wie weit der Fragebogen beantwortet ist", "bar at the top of every page showing how much of the questionnaire is answered") }}</span></label>
+  {{ why("progress") }}
+  <label class="check"><input type="checkbox" name="auto_advance" value="1" {% if values.auto_advance %}checked{% endif %}> {{ de_en("Automatisch weiter", "Advance automatically") }}{% if marks %} {{ fixed_mark(not lang_editable, de_en("wie der Fragebogen", "like the questionnaire")) }}{% endif %}
+    <span class="hint">{{ de_en("auf Seiten, die mit einem Klick beantwortet sind (Einfachauswahl, Likert, Bewertung ohne Schieberegler, Conjoint)", "on pages answered with one click (single choice, Likert, rating without slider, conjoint)") }}</span></label>
+  {# "Schneller blättern" (app/blockload.py; experimental until 2026-10-16) #}
+  <input type="hidden" name="block_load_shown" value="1">
+  <label class="check"><input type="checkbox" name="block_load" value="1" {% if values.block_load %}checked{% endif %}> {{ de_en("Schneller blättern, auch bei schwachem Netz", "Page through faster, even on a weak connection") }}{% if marks %} {{ fixed_mark(not lang_editable, de_en("wie der Fragebogen", "like the questionnaire")) }}{% endif %}
+    <span class="hint">{{ de_en("Fasst einfache Blöcke in eine Übertragung zusammen: Hängt keine Seite eines Blocks von Antworten auf früheren Seiten desselben Blocks ab, kommen alle seine Seiten in einem Stück in den Browser. Das spart Wartezeit, und ein Funkloch hält niemanden auf. Jede Seite wird im Hintergrund gespeichert; der Fragebogen-Editor zeigt je Block, ob er geeignet ist.", "Combines simple blocks into one transfer: if no page of a block depends on answers on earlier pages of the same block, all its pages come to the browser in one piece. This saves waiting, and a dead spot stops nobody. Each page is saved in the background; the questionnaire editor shows per block whether it qualifies.") }}</span></label>
+  </fieldset>
+  {# one choice instead of the two tick boxes of before ("multi", "repeat_marker"; surveys.apply_options): the lab
+     mode may change in the field, the cookie only in a draft, since the consent names it #}
+  {# a diary study (app/diary.py) runs in the app, where a browser cookie or a lab mode means nothing (2026-10-11) #}
+  {% if values.sampling is not defined or values.sampling is none %}
+  {% set rmode = "multi" if values.panel and values.panel.multi else ("cookie" if values.repeat_marker else "session") %}
+  {% set marker_locked = not lang_editable %}
+  <fieldset class="option-group" role="radiogroup" aria-labelledby="repeat-mode-head">
+  <p class="label-title" id="repeat-mode-head">{{ de_en("Teilnahme im selben Browser", "Participation in the same browser") }}</p>
+  {# the more-text belongs to the whole group, so it stands under its heading (UI/UX audit 2026-10-05, V83) #}
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+    <p class="hint">{{ de_en("Mit dem Cookie sieht, wer den Link nach dem Ende im selben Browser noch einmal öffnet, nur einen Hinweis. Das hilft nicht gegen einen anderen Browser, ein privates Fenster oder gelöschte Cookies; für Panels gibt es bei den Teilnahmelinks „Jeder Wert nur einmal“. Ob ein Cookie gesetzt wird, lässt sich nach dem Start nicht mehr ändern, weil die Einwilligung es nennt; zwischen „beliebig oft“ und der Einstellung davor lässt sich im Feld wechseln.", "With the cookie, anyone who opens the link again in the same browser after the end sees only a notice. This does not help against another browser, a private window or deleted cookies; for panels, the participation links offer “Each value only once”. Whether a cookie is set cannot be changed after the start, since the consent names it; you can switch between “any number of times” and the previous setting during data collection.") }}</p>
+  </details>
+  <label class="check"><input type="radio" name="repeat_mode" value="session" {% if rmode == "session" %}checked{% endif %} {% if marker_locked and values.repeat_marker %}disabled{% endif %}> {{ de_en("einmal, solange die Sitzung hält", "once, while the session lasts") }}
+    <span class="hint">{{ de_en("wird der Link innerhalb von 7 Tagen wieder geöffnet, geht die begonnene Teilnahme weiter", "if the link is opened again within 7 days, the started participation continues") }}</span></label>
+  <label class="check"><input type="radio" name="repeat_mode" value="cookie" {% if rmode == "cookie" %}checked{% endif %} {% if marker_locked and not values.repeat_marker %}disabled{% endif %}> {{ de_en("einmal, danach {n} Tage gesperrt", "once, then blocked for {n} days", n=marker_days) }}{% if marks %} {{ fixed_mark(not lang_editable) }}{% endif %}
+    <span class="hint">{{ de_en("ein Cookie ohne Kennung merkt sich, dass teilgenommen wurde; wird in der Einwilligung genannt", "a cookie without an identifier remembers that someone took part; named in the consent") }}</span></label>
+  <label class="check"><input type="radio" name="repeat_mode" value="multi" {% if rmode == "multi" %}checked{% endif %}> {{ de_en("beliebig oft (Laborrechner, geteilte Tablets)", "any number of times (lab computers, shared tablets)") }}
+    <span class="hint">{{ de_en("am Ende „Neue Teilnahme an diesem Gerät“; auch im Feld änderbar", "at the end “New participation on this device”; can also be changed during data collection") }}</span></label>
+  </fieldset>
+  {% endif %}

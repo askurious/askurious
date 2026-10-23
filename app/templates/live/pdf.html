@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# Slides from a PDF into a live vote (app/live/ pdf): slides_pdf.js draws the pages in this
+   browser with pdf.js and sends them as pictures, one after the other. #}
+{% block title %}{{ de_en("Folien aus PDF", "Slides from PDF") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel live-pdf" data-slides-pdf data-csrf="{{ csrf_token() }}" data-max="{{ max_pages }}"
+         data-lib="{{ url_for('static', filename='vendor/pdfjs/pdf.min.js') }}" data-worker="{{ url_for('static', filename='vendor/pdfjs/pdf.worker.min.js') }}"
+         data-page="{{ url_for('live.pdf_page', code=survey.code) }}" data-clear="{{ url_for('live.pdf_clear', code=survey.code) }}"
+         data-done="{{ url_for('live.manage', code=survey.code) }}">
+  <h2>{{ de_en("Folien aus PDF", "Slides from PDF") }}</h2>
+  <p>{{ de_en("Jede Seite der PDF-Datei wird eine Präsentationsfolie am Ende der Liste: auf der Leinwand über die ganze Fläche, mit einem kleinen QR-Code in der Ecke. Zwischen die Folien lassen sich danach Fragen ziehen. Weitergeschaltet wird wie bei den Fragen, auch mit einem Presenter: Pfeiltasten, Bild auf und ab, Leertaste.", "Each page of the PDF file becomes a presentation slide at the end of the list: over the whole screen, with a small QR code in the corner. Afterwards you can drag questions between the slides. You move on as with the questions, a presenter remote works too: arrow keys, page up and down, space.") }}</p>
+  <p class="muted small">{{ de_en("PowerPoint, Keynote oder Impress: zuerst als PDF speichern (in PowerPoint „Datei > Exportieren > PDF“). Animationen, Übergänge und Videos gehen dabei verloren; jede Folie wird ein Standbild. Die Datei bleibt in Ihrem Browser: Er zeichnet die Seiten und schickt nur die Bilder, höchstens {n} Seiten auf einmal.", "PowerPoint, Keynote or Impress: save as PDF first (in PowerPoint “File > Export > PDF”). Animations, transitions and videos are lost; each slide becomes a still picture. The file stays in your browser: it draws the pages and sends only the pictures, at most {n} pages at a time.", n=max_pages) }}</p>
+  <div class="stack">
+    <label><span class="label-title">{{ de_en("PDF-Datei", "PDF file") }}</span>
+      <input type="file" accept="application/pdf,.pdf"></label>
+      {% include "_upload_rights.html" %}
+    {% if slides %}<label class="check"><input type="checkbox" name="replace" value="1">
+      {{ de_en("Bisherige Präsentationsfolien ersetzen", "Replace the presentation slides so far") }} <span class="hint">{{ de_en_n(slides, ("{n} Folie kommt in den Papierkorb; „Rückgängig“ holt sie zurück", "{n} Folien kommen in den Papierkorb; „Rückgängig“ holt sie zurück"), ("{n} slide goes to the bin; “Undo” brings it back", "{n} slides go to the bin; “Undo” brings them back")) }}</span></label>{% endif %}
+    <div class="form-actions">
+      <button type="button" class="button" data-slides-go disabled>{{ icon("upload", 16) }} {{ de_en("Folien übernehmen", "Add slides") }}</button>
+      <a class="button button-secondary" href="{{ url_for('live.manage', code=survey.code) }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+    </div>
+    <progress hidden value="0" max="1"></progress>
+    <p class="small live-pdf-status" data-slides-status role="status" hidden></p>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='slides_pdf.js') }}"></script>
+{% endblock %}

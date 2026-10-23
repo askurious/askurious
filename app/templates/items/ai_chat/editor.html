@@ -1,0 +1,22 @@
+{% set t = item.lang_texts(lang) %}
+{% set question_hint = de_en("z. B. „Nutzen Sie den Assistenten so, wie Sie es heute bei Ihrer Aufgabe tun würden.“", "e.g. “Use the assistant as you would for your task today.”") %}
+{% include "items/_question_field.html" %}
+<fieldset class="ai-fieldset">
+  <legend>{{ de_en("KI-Chat", "AI chat") }}</legend>
+  <div class="stack">
+    <label><span class="label-title">{{ de_en("Anweisungen an das Modell", "Instructions for the model") }} <span class="hint">{{ de_en("auf {l}; Teilnehmende sehen sie nicht; sie stehen in der Dokumentation der Befragung", "in {l}; participants do not see them; they are part of the survey's documentation", l=languages[lang]) }}</span></span>
+      <textarea name="system" rows="6" maxlength="8000" placeholder="{{ item.text('system') }}">{{ t.get('system', '') }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Erste Nachricht der KI", "First message of the AI") }} <span class="hint">{{ de_en("optional; erscheint als erste Sprechblase", "optional; shown as the first bubble") }}</span></span>
+      <textarea name="greeting" rows="2" maxlength="2000" placeholder="{{ item.text('greeting') }}">{{ t.get('greeting', '') }}</textarea></label>
+    <div class="row-fields">
+      <label>{{ de_en("Höchstens", "At most") }} <input name="max_messages" class="narrow" inputmode="numeric" value="{{ kind.max_messages(item) }}" {% if not structural %}disabled{% endif %}> {{ de_en("Nachrichten je Gespräch", "messages per conversation") }}</label>
+      <label>{{ de_en("Mindestens", "At least") }} <input name="min_messages" class="narrow" inputmode="numeric" value="{{ kind.min_messages(item) }}" {% if not structural %}disabled{% endif %}> {{ de_en("vor „Weiter“", "before “Next”") }} <span class="hint">{{ de_en("nur wenn das Element Pflicht ist", "only when the element is required") }}</span></label>
+      <label>{{ de_en("Höchstens", "At most") }} <input name="max_chars" class="narrow" inputmode="numeric" value="{{ kind.max_chars(item) }}" {% if not structural %}disabled{% endif %}> {{ de_en("Zeichen je Nachricht", "characters per message") }}</label>
+    </div>
+  </div>
+</fieldset>
+{% set chat_access = ai_chat_access(survey) %}
+<p class="ai-note">{% if chat_access %}{{ de_en("Modellzugang der Befragung: {p}, Modell {m} (Version {v}).", "Model access of the survey: {p}, model {m} (version {v}).", p=chat_access.provider_label, m=chat_access.model, v=chat_access.version) }}{% else %}<strong>{{ de_en("Noch kein Modellzugang: Ohne ihn lässt sich die Befragung nicht starten.", "No model access yet: the survey cannot start without it.") }}</strong>{% endif %}
+  <a href="{{ url_for('ai_chat.page', survey_id=survey.id) }}">{{ de_en("KI-Chat: Modellzugang", "AI chat: model access") }}</a></p>
+<p class="muted small">{{ de_en("Jede Nachricht geht an den Server von Askurious, der das Modell des Zugangs fragt und beide Nachrichten speichert. E-Mail-Adressen, Webadressen und Telefonnummern werden vor dem Senden an das Modell maskiert; gespeichert werden der Originaltext und die maskierte Fassung. Der Export hat je Teilnahme die Zahl der Nachrichten, ihre Zeichen, die Antworten und ob ein Hinweis auf Hilfe gezeigt wurde, und eine eigene Datei mit einer Zeile je Nachricht. Die Nachrichten gehen mit der Teilnahme (Löschcode, Löschfristen). Eine Kurzbefragung mit KI-Chat braucht in der App eine Verbindung.", "Every message goes to the Askurious server, which asks the model of the access and stores both messages. Email addresses, web addresses and phone numbers are masked before sending to the model; the original text and the masked version are stored. The export has per participation the number of messages, their characters, the answers and whether a hint to help was shown, plus a file of its own with one row per message. The messages go with the participation (deletion code, retention periods). A short survey with an AI chat needs a connection in the app.") }}</p>
+{% from "_learn.html" import why %}{{ why("ai_chat") }}

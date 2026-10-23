@@ -1,0 +1,4 @@
+# Only in the Docker image (deploy/docker/Dockerfile): the WSGI server and what it needs. Locked with hashes in
+# requirements-docker.lock by tools/lock_requirements.py (code audit 2026-10-08, B11).
+gunicorn==23.0.0
+packaging==26.3

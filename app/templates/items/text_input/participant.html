@@ -1,0 +1,38 @@
+{# The question alone is the field's name (<label for>); the message, the valid range and the units beside the
+   field describe it (aria-describedby, items/_field_aria.html; accessibility D3). #}
+{% from "items/_field_aria.html" import field_aria %}
+{% set hint = kind.range_hint(item, lang) %}
+{% set prefix, suffix = item.text("prefix", lang) or "", item.text("suffix", lang) or "" %}
+{# the valid range stays beside the message of a failed "Next" (V44), unless the message says the same #}
+{% set show_hint = hint and errors.get(item.id) != hint %}
+{# the limit of a text: shown from the start below 500 characters, else from 80 % of it (participant.js); a hidden limit
+   cut answers off unnoticed (UI/UX audit 2026-10-16, 102) #}
+{% set limit = item.config.max_length if item.config.get("validation", "none") in ("none", "regex") else none %}
+{% set limit_shown = limit and limit < 500 %}
+{% set aria = field_aria(item, item_msg if item_msg is defined else none, errors,
+                         ["hint" ~ item.id if show_hint else "", "pre" ~ item.id if prefix else "", "suf" ~ item.id if suffix else "",
+                          "cnt" ~ item.id if limit_shown else ""]) %}
+{# what the field asks for, if the researcher named it (name, e-mail, …): browsers and assistive tools can fill it in
+   (WCAG 1.3.5); empty by default, as surveys are anonymous (UI/UX audit 2026-10-16, 103) #}
+{% set purpose = item.config.get("purpose") or "" %}
+<div class="p-text">
+  {% with tag="label", label_for="t" ~ item.id %}{% include "items/_question.html" %}{% endwith %}
+  {% if show_hint %}<span class="p-hint" id="hint{{ item.id }}">{{ hint }}</span>{% endif %}
+  {% if item.config.multiline and item.config.get("validation", "none") in ("none", "regex") %}
+  {% if prefix %}<span class="p-affix p-affix-block" id="pre{{ item.id }}"{{ text_attrs(item, "prefix") }}>{{ prefix|fill(variables) }}</span>{% endif %}
+  <textarea id="t{{ item.id }}" name="i{{ item.id }}" rows="5" dir="auto" maxlength="{{ item.config.max_length }}"{% if purpose %} autocomplete="{{ purpose }}"{% endif %}{% if not item.text("question", lang) %} aria-label="{{ ui('Antwort', 'Answer') }}"{% endif %}{{ aria }}>{{ answers.get(item.id) if answers.get(item.id) is not none else "" }}</textarea>
+  {% if suffix %}<span class="p-affix p-affix-block" id="suf{{ item.id }}"{{ text_attrs(item, "suffix") }}>{{ suffix|fill(variables) }}</span>{% endif %}
+  {% else %}
+  <span class="p-affixed {% if prefix or suffix %}has-affix{% endif %}">
+    {% if prefix %}<span class="p-affix" id="pre{{ item.id }}"{{ text_attrs(item, "prefix") }}>{{ prefix|fill(variables) }}</span>{% endif %}
+    <input type="{{ 'email' if item.config.get('validation') == 'email' else 'text' }}" id="t{{ item.id }}" name="i{{ item.id }}" dir="auto"
+           inputmode="{{ kind.input_mode(item) }}" maxlength="{{ item.config.max_length }}"
+           {% if item.config.get("validation") in ("integer", "decimal", "plz_de") %}class="p-short" autocomplete="{{ purpose or 'off' }}"{% elif item.config.get("validation") == "email" %}autocomplete="{{ purpose or 'email' }}"{% elif purpose %}autocomplete="{{ purpose }}"{% endif %}
+           {% if not item.text("question", lang) %}aria-label="{{ ui('Antwort', 'Answer') }}"{% endif %}{{ aria }}
+           value="{{ kind.shown(item, answers.get(item.id), lang) }}">
+    {% if suffix %}<span class="p-affix" id="suf{{ item.id }}"{{ text_attrs(item, "suffix") }}>{{ suffix|fill(variables) }}</span>{% endif %}
+  </span>
+  {% endif %}
+  {% if limit %}<span class="p-count" id="cnt{{ item.id }}" data-count-for="t{{ item.id }}" data-max="{{ limit }}" data-left="{{ ui('noch {n} Zeichen', '{n} characters left') }}"{% if not limit_shown %} hidden{% endif %}>{{ ui("Höchstens {n} Zeichen", "At most {n} characters", n=limit) }}</span>
+  <span class="p-sr-only" aria-live="polite" data-count-say></span>{% endif %}
+</div>

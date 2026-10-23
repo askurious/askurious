@@ -1,0 +1,9 @@
+/* the weather demo of an external section (app/demo_webapp.py, templates/demo/wetter.html) */
+.demo-app { max-width: 620px; padding-block: 32px; }
+.demo-app h1 { margin: 0 0 8px; }
+.demo-form { display: grid; gap: 6px; margin: 18px 0; }
+.demo-form label { font-weight: 600; }
+.demo-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.demo-row input { flex: 1 1 220px; min-width: 0; }
+.demo-result { font-size: 1.35rem; font-weight: 600; margin: 12px 0; }
+.demo-note { color: var(--danger); background: var(--danger-soft); padding: 8px 12px; border-radius: var(--radius-panel); }

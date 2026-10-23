@@ -1,0 +1,2 @@
+{# Rechenwert (items/calc.py): on no page of a participant. Only the editor's views say what it is. #}
+{% if preview is defined and preview %}<p class="p-hint">{{ ui("Teilnehmende sehen dieses Element nicht.", "Participants do not see this element.") }} {{ ui("Rechenwert", "Computed value") }} <code>{{ item.code }}</code>: {{ kind.formula(item, lang) }}</p>{% endif %}

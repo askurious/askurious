@@ -1,0 +1,36 @@
+{% from "_learn.html" import why %}
+{# CBC and the ratings-based conjoint (cva: one offer, or two in pairs): holdout tasks (app/holdouts.py), part of the
+   element form; app.js shows as many as "Anzahl" says (data-ho). #}
+{% set attrs = kind.attributes(item) %}
+{% if attrs %}
+{% set n_ho = kind.holdout_count(item) %}
+{% set cva = item.type == "cva" %}
+{% set n_alts = kind.holdout_alternatives(item) if cva else item.config.alternatives %}
+{% set n_tasks = kind.n_tasks(item) if cva else item.config.tasks %}
+<fieldset class="ho-editor" data-cj-tab="design" data-ho>
+  <legend>{{ de_en("Holdout-Aufgaben", "Holdout tasks") }} <span class="hint">{% if cva %}{{ de_en("feste Angebote, für alle gleich; sie gehen nicht in die Schätzung ein und zeigen, wie gut die Teilnutzen Bewertungen vorhersagen", "fixed offers, the same for everyone; they do not go into the estimation and show how well the part-worths predict ratings") }}{% else %}{{ de_en("feste Aufgaben, für alle gleich; sie gehen nicht in die Schätzung ein und zeigen, wie gut das Modell Wahlen vorhersagt", "fixed tasks, the same for everyone; they do not go into the estimation and show how well the model predicts choices") }}{% endif %}</span></legend>
+  <label>{{ de_en("Anzahl", "Number") }}
+    <select name="ho_count" class="fit" data-ho-count {% if not structural %}disabled{% endif %}>
+      {% for k in range(4) %}<option value="{{ k }}" {% if k == n_ho %}selected{% endif %}>{{ de_en("keine", "none") if k == 0 else k }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for h in range(3) %}
+  <div class="ho-task" data-ho-slot="{{ h + 1 }}" {% if h >= n_ho %}hidden{% endif %}>
+    <p class="pw-head">{{ de_en("Holdout-Aufgabe {n}", "Holdout task {n}", n=h + 1) }} <span class="hint">{{ de_en("nach Aufgabe 3", "after task 3") if h == 0 and n_tasks > 3 else de_en("nach der letzten Aufgabe", "after the last task") }}</span></p>
+    <div class="res-scroll"><table class="list-table is-edit ho-table">
+      <thead><tr><th>{{ de_en("Merkmal", "attribute")|capitalize }}</th>{% for j in range(n_alts) %}<th>{% if cva %}{{ de_en("Angebot", "Offer") }}{% if n_alts > 1 %} {{ j + 1 }}{% endif %}{% else %}Option {{ j + 1 }}{% endif %}</th>{% endfor %}</tr></thead>
+      <tbody>{% for a in attrs %}{% set ai = loop.index0 %}
+        <tr><td>{{ a.label }}{% if a.price_attr %} <span class="hint">{{ de_en("Preis", "price") }}</span>{% endif %}</td>
+          {% for j in range(n_alts) %}{% set pick = kind.holdout_level(item, h, j, ai) %}
+          <td><select name="ho{{ h }}_{{ j }}_{{ a.id }}" aria-label="{{ de_en('Holdout-Aufgabe {n}, Option {j}: {label}', 'Holdout task {n}, option {j}: {label}', n=h + 1, j=j + 1, label=a.label) }}" {% if not structural %}disabled{% endif %}>
+            {% for lv in a.levels %}<option value="{{ lv.id }}" {% if loop.index0 == pick %}selected{% endif %}>{{ a.level_labels[loop.index0] or de_en("Stufe {n}", "Level {n}", n=loop.index) }}</option>{% endfor %}
+          </select></td>{% endfor %}</tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endfor %}
+  {% for w in kind.holdout_warnings(item) %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ w }}</span></p>{% endfor %}
+  <p class="muted small">{{ de_en("Höchstens drei. Die erste kommt nach Aufgabe 3, die übrigen nach der letzten Aufgabe; sie sehen aus wie die übrigen Aufgaben", "At most three. The first comes after task 3, the others after the last task; they look like the other tasks") }}{{ de_en(" (mit „Keine davon“)", " (with “None of these”)") if item.config.none else (de_en(" (mit der Nachfrage)", " (with the follow-up question)") if item.config.get("dual") else "") }}. {% if cva %}{{ de_en("Auf der Ergebnisseite steht, wie gut die Teilnutzen je Person die Antworten vorhersagen (Abweichung, Korrelation{x}).", "The results page shows how well the part-worths per person predict the answers (deviation, correlation{x}).", x=de_en(", Richtung", ", direction") if n_alts > 1 else de_en(", Trefferquote", ", hit rate")) }} {{ de_en("Nach dem Start gesperrt wie der Versuchsplan. Neue Merkmale oder Stufen erscheinen hier, sobald sie gespeichert sind (von selbst, beim Verlassen des Felds).", "Locked after the start like the experimental design. New attributes or levels appear here as soon as they are saved (automatically, when you leave the field).") }}{% else %}{{ de_en("Auf der Ergebnisseite stehen, sobald Nutzenwerte (HB) geschätzt sind, Trefferquote und Abweichung der Anteile. Nach dem Start gesperrt wie der Versuchsplan. Neue Merkmale oder Stufen erscheinen hier, sobald sie gespeichert sind (von selbst, beim Verlassen des Felds).", "Once utilities (HB) are estimated, the results page shows the hit rate and the deviation of the shares. Locked after the start like the experimental design. New attributes or levels appear here as soon as they are saved (automatically, when you leave the field).") }}{% endif %}</p>
+  {{ why("holdout") }}
+</fieldset>
+{% endif %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{# Verwaltung > Gruppen (app/org_admin.py): the organisation's groups; create one with its lead, rename, appoint a lead,
+   delete, creating surveys, preset of survey types and course, each within the organisation's caps. Members are
+   added and removed by the group's lead. Context: org, groups, types. #}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Gruppen", "Groups") }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<section class="panel">
+  {# "Neue Gruppe …" as "Person hinzufügen …" (Ralf 2026-10-20): a button that opens the dialog below #}
+  <div class="admin-listhead admin-listhead-title">
+    <h2>{{ de_en("Gruppen der Organisation", "Groups of the organisation") }} <span class="hint">{{ groups|length }}</span></h2>
+    <a class="button" href="#gruppe-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Neue Gruppe …", "New group …") }}</a>
+  </div>
+  <ul class="admin-groups">
+  {% for g in groups %}
+    <li>
+      <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="row admin-group-name" data-autosave-form>
+        {{ csrf() }}<input type="hidden" name="action" value="rename"><input type="hidden" name="group_id" value="{{ g.id }}">
+        <input type="text" name="name" value="{{ g.name }}" maxlength="80" aria-label="{{ de_en('Name der Gruppe', 'Name of the group') }}" required>
+        {{ autosave_bar(small=true) }}
+      </form>
+      <p class="admin-group-facts">{{ de_en("Leitung:", "Leads:") }} {% for m in g.leads() %}{{ m.display_name }} {{ orcid_link(m.orcid_id, unauth=not m.signed_up) }}{{ ", " if not loop.last }}{% else %}–{% endfor %}
+        <span class="muted">· {{ g.members|length }} {{ de_en("Mitglied", "member") if g.members|length == 1 else de_en("Mitglieder", "members") }}</span></p>
+      <div class="button-row admin-group-actions">
+        <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="inline button-row">
+          {{ csrf() }}<input type="hidden" name="action" value="may_create"><input type="hidden" name="group_id" value="{{ g.id }}"><input type="hidden" name="value" value="{{ '0' if g.may_create else '1' }}">
+          <span title="{{ de_en('Wer in die Gruppe kommt, bekommt einmal „Anlegen“ bei jeder Art auf „Bearbeiten“; wer sie verlässt, behält es.', 'Whoever joins the group gets “Create” once for every type at “Edit”; whoever leaves keeps it.') }}">{{ de_en("Beim Eintritt „Anlegen“:", "“Create” on joining:") }} {% if g.may_create %}<strong>{{ de_en("ja", "yes") }}</strong>{% else %}{{ de_en("nein", "no") }}{% endif %}</span>
+          {% if g.may_create or org.may_create is not sameas false %}<button class="button button-secondary button-small">{{ de_en("Beenden", "End") if g.may_create else de_en("Erlauben", "Allow") }}</button>{% endif %}
+        </form>
+        <details class="admin-group-kinds"><summary>{{ de_en("Befragungstypen für neue Konten:", "Survey types for new accounts:") }}
+          {% if g.kinds_preset %}{% for k in kind_keys %}{{ kind_label(k) }} {{ kind_level_label(g.kinds_preset.get(k, "edit")) }}{{ ", " if not loop.last }}{% endfor %}{% else %}{{ de_en("keine Vorgabe", "no preset") }}{% endif %}</summary>
+          <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="stack">
+            {{ csrf() }}<input type="hidden" name="action" value="kinds_preset"><input type="hidden" name="group_id" value="{{ g.id }}">
+            {% for k in kind_keys %}<label>{{ kind_label(k) }}
+              <select name="kind_{{ k }}">{% for lvl in ("create", "edit", "view", "off") %}<option value="{{ lvl }}"{{ " selected" if (g.kinds_preset or {}).get(k, "edit") == lvl }}>{{ kind_level_label(lvl) }}</option>{% endfor %}</select></label>{% endfor %}
+            <div class="button-row"><button class="button button-secondary button-small">{{ de_en("Als Vorgabe übernehmen", "Apply as preset") }}</button>
+              {% if g.kinds_preset %}<button class="button button-secondary button-small" name="none" value="1">{{ de_en("Keine Vorgabe", "No preset") }}</button>{% endif %}</div>
+            <p class="hint">{{ de_en("höchstens, was die Organisation erlaubt; gilt nur für Konten, die über diese Gruppe neu dazukommen", "at most what the organisation allows; applies only to accounts that newly come in through this group") }}</p>
+          </form></details>
+        {% set course_type = account_type_get(g.account_type_id) %}
+        <details class="admin-group-kinds"><summary>{{ de_en("Lehrveranstaltung:", "Course:") }}
+          {% if course_type %}{{ account_type_name(course_type) }}, {{ period_describe(course_spec(g)) }}{% else %}{{ de_en("nein", "no") }}{% endif %}</summary>
+          <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="stack" data-autosave-form>
+            {{ csrf() }}<input type="hidden" name="action" value="course"><input type="hidden" name="group_id" value="{{ g.id }}">
+            <label>{{ de_en("Nutzertyp neuer Konten", "User type of new accounts") }}
+              <select name="account_type"><option value="">{{ de_en("keine Lehrveranstaltung", "not a course") }}</option>
+                {% for t in types %}<option value="{{ t.id }}"{{ " selected" if t.id == g.account_type_id }}>{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}</select></label>
+            <label>{{ de_en("Ende der Lehrveranstaltung", "End of the course") }} <input type="date" name="course_until" value="{{ g.course_until|localdate_iso if g.course_until else '' }}"></label>
+            {{ autosave_bar(small=true) }}
+          </form></details>
+        {% set others = g.members|rejectattr("role", "equalto", "lead")|list %}
+        {% if others %}
+        <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="inline button-row">
+          {{ csrf() }}<input type="hidden" name="action" value="lead"><input type="hidden" name="group_id" value="{{ g.id }}">
+          <select name="member_id" aria-label="{{ de_en('Mitglied, das die Gruppe leiten soll', 'Member who is to lead the group') }}">{% for m in others %}<option value="{{ m.id }}">{{ m.display_name }}</option>{% endfor %}</select>
+          <button class="button button-secondary button-small">{{ de_en("Zur Leitung machen", "Make lead") }}</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="inline"
+              data-confirm="{{ de_en('Gruppe „{name}“ löschen?', 'Delete the group “{name}”?', name=g.name) }}" data-confirm-note="{{ de_en('Das beendet nur, was über die Gruppe geteilt war.', 'This only ends what was shared through the group.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+          {{ csrf() }}<input type="hidden" name="action" value="delete"><input type="hidden" name="group_id" value="{{ g.id }}">
+          <button class="button button-danger button-small">{{ icon("trash", 16) }} {{ de_en("Löschen", "Delete") }}</button>
+        </form>
+      </div>
+    </li>
+  {% else %}<li class="muted">{{ de_en("Noch keine Gruppen.", "No groups yet.") }}</li>{% endfor %}
+  </ul>
+</section>
+{# "Neue Gruppe" as a dialog like "Person hinzufügen" (Ralf 2026-10-20, app.js); without scripts a panel #}
+<section class="panel person-add add-dialog-narrow" id="gruppe-anlegen" aria-labelledby="group-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="group-add-title">{{ de_en("Neue Gruppe", "New group") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="new">
+    <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="80" required></label>
+    {# the lead picked from everyone in the organisation, found by typing; an ORCID iD for someone not yet in it (Ralf, 2026-10-16) #}
+    <fieldset class="stack org-lead-pick">
+      <legend>{{ de_en("Leitung", "Lead") }}</legend>
+      {% if people %}
+      <label>{{ de_en("Mitglied der Organisation", "Member of the organisation") }}
+        <input type="search" data-filter-select="lead-user" placeholder="{{ de_en('Name oder ORCID iD suchen …', 'Search name or ORCID iD …') }}" aria-label="{{ de_en('Mitglieder durchsuchen', 'Search members') }}" autocomplete="off">
+        <select name="lead_user" id="lead-user" aria-label="{{ de_en('Mitglied der Organisation', 'Member of the organisation') }}" size="{{ [people|length + 1, 6]|min }}">
+          <option value="" selected>{{ de_en("– niemand ausgewählt –", "– nobody chosen –") }}</option>
+          {% for u in people %}<option value="{{ u.id }}">{{ u.display_name }}{% if u.has_orcid %} · {{ u.orcid }}{% endif %}</option>{% endfor %}
+        </select></label>
+      {% endif %}
+      <label>{{ de_en("oder ORCID iD einer Person, die noch nicht dazugehört", "or the ORCID iD of someone not yet in it") if people else de_en("ORCID iD", "ORCID iD") }}
+        <input name="lead" maxlength="19" placeholder="0000-0000-0000-0000" autocomplete="off"></label>
+    </fieldset>
+    {% if org.may_create is not sameas false %}<label class="check"><input type="checkbox" name="members_create" value="1"> {{ de_en("Wer dazukommt, bekommt „Anlegen“ (eigene Befragungen anlegen)", "Whoever joins gets “Create” (create own surveys)") }}</label>{% endif %}
+    <div class="button-row"><button class="button">{{ de_en("Gruppe anlegen", "Create group") }}</button></div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{# The head of a part on the tab "Fragebogen" of a diary study (app/diary.py, editor_parts): its name, when it is
+   asked, a new block in it, and for the entry and the exit survey a questionnaire to take over (Ralf, 2026-10-11).
+   Needs h (the part), survey, editable, part_fixed, take_over. #}
+{% from "_macros.html" import csrf %}{% from "_icons.html" import icon %}
+<section class="diary-part-head" id="part-{{ h }}">
+  <h2 class="flush">{{ diary.part_label(h, survey) }}</h2>
+  <p class="muted small flush">{{ diary.when_asked(h, survey) }} · <a href="{{ url_for('diary.schedule', survey_id=survey.id) }}">{{ de_en("Zeitplan", "Schedule") }}</a>
+    · <a href="{{ url_for('editor.preview_survey', survey_id=survey.id, lang=lang, part=h) }}" target="_blank" rel="noopener" title="{{ de_en('Nur diesen Teil durchgehen, so wie eine Person ihn bekommt', 'Go through this part only, as a person gets it') }}">{{ icon("eye", 14) }} {{ de_en("Vorschau dieses Teils", "Preview of this part") }}</a></p>
+  {% if editable and not part_fixed %}
+  <div class="row-fields diary-part-actions">
+    <form method="post" action="{{ url_for('editor.add_block', survey_id=survey.id, lang=lang) }}">{{ csrf() }}<input type="hidden" name="part" value="{{ h }}">
+      <button class="button button-small button-secondary">{{ icon("plus", 14) }} {{ de_en("Neuer Block hier", "New block here") }}</button></form>
+    {% if h in ("entry", "exit") and take_over %}
+    <form method="post" action="{{ url_for('diary.take_over_page', survey_id=survey.id) }}" class="row-fields">{{ csrf() }}<input type="hidden" name="part" value="{{ h }}">
+      <select name="source" aria-label="{{ de_en('Fragebogen, dessen Blöcke übernommen werden', 'Questionnaire whose blocks are copied') }}">{% for s in take_over %}<option value="{{ s.id }}">{{ s.title|truncate(70) }}</option>{% endfor %}</select>
+      <button class="button button-small button-secondary" title="{{ de_en('Kopiert die Blöcke mit ihren Fragen ans Ende dieses Teils, ohne Einwilligung; Bedingungen auf andere Fragen und der Ablauf bleiben dort.', 'Copies the blocks with their questions to the end of this part, without the consent; conditions on other questions and the flow stay there.') }}">{{ de_en("Fragebogen übernehmen", "Copy questionnaire") }}</button></form>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>

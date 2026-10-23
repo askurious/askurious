@@ -1,0 +1,67 @@
+{% extends "participant/base.html" %}
+{% block title %}{{ survey.title }}{% endblock %}
+{% block participant_scripts %}{% if not talk %}{{ super() }}{% endif %}{% endblock %}
+{% block content %}
+{% set talk_wait = ui("Hier können Sie Fragen stellen und mit den Emojis unten zeigen, wenn etwas nicht klar ist.", "Here you can ask questions and use the emojis below to show when something is not clear.") %}
+<h1 class="live-title">{{ survey.title }}</h1>
+{% if quiz %}
+{# quiz (package F, decision L3): a voluntary nickname, only for the leaderboard #}
+<form class="live-nick" data-live-nick="{{ url_for('live_public.nickname', code=survey.code) }}" data-csrf="{{ csrf_token() }}">
+  <label for="live-nick">{{ ui("Spitzname für Rangliste:", "Nickname for the leaderboard:") }}</label>
+  {% if teams %}<select name="team" aria-label="{{ ui('Team', 'Team') }}"><option value="">{{ ui("Team wählen", "Choose a team") }}</option>
+    {% for t in teams %}<option value="{{ t }}" {% if t == team %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>{% endif %}
+  <span class="live-nick-row"><input id="live-nick" name="name" maxlength="30" value="{{ nick }}" autocomplete="off">
+  {# a small tick confirms the name (it saves room on the phone) #}
+  <button class="live-nick-ok" type="submit" title="{{ ui('Speichern', 'Save') }}" aria-label="{{ ui('Speichern', 'Save') }}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></span>
+  <span class="small" data-nick-note hidden>{{ ui("Gespeichert.", "Saved.") }}</span>
+  <span class="small" data-nick-fail hidden>{{ ui("Nicht gespeichert. Bitte die Seite neu laden und es erneut versuchen.", "Not saved. Please reload the page and try again.") }}</span>
+</form>
+{% endif %}
+<p class="live-countdown" data-live-countdown hidden></p>
+{# the question on the screen comes drawn with the page (app/live/, join); live.js asks for changes #}
+<div class="live-stage" data-live data-poll="{{ poll }}" data-key="{{ key }}" aria-live="polite"
+     data-state="{{ url_for('live_public.where', code=survey.code) }}"
+     data-look="{{ ui('Bitte nach vorn auf die Leinwand schauen.', 'Please look at the screen.') }}"
+     data-wait="{{ talk_wait if talk else ui('Gleich geht es los …', 'Starting soon …') }}" data-thanks="{{ ui('Danke! Gleich kommt die nächste Frage.', 'Thank you! The next question is coming.') }}"
+     data-change="{{ ui('Antwort ändern', 'Change answer') }}"
+     data-right="{{ ui('Richtig! +{p} Punkte', 'Right! +{p} points') }}" data-wrong="{{ ui('Leider falsch.', 'Not quite.') }}"
+     data-none="{{ ui('Keine Antwort gegeben.', 'No answer given.') }}" data-place="{{ ui('Platz {n} von {m}, {p} Punkte', 'Place {n} of {m}, {p} points') }}"
+     data-seconds="{{ ui('noch {s} s', '{s} s left') }}"
+     data-closed="{{ ui('Die Abstimmung zu dieser Frage ist beendet.', 'Voting on this question has ended.') }}"
+     data-full="{{ ui('Danke! Sie haben zu dieser Frage so viele Antworten gesendet wie möglich.', 'Thank you! You have sent as many answers to this question as allowed.') }}"
+     data-late="{{ ui('Die Abstimmung zu dieser Frage war schon vorbei. Ihre Antwort wurde nicht gezählt.', 'Voting on this question was already over. Your answer was not counted.') }}"
+     data-late-quiz="{{ ui('Die Zeit für die Quizfrage war schon abgelaufen; diese Antwort zählt nicht. Die übrigen Antworten sind gespeichert.', 'Time for the quiz question had already run out; that answer does not count. The other answers are saved.') }}"
+     data-device="{{ device }}"
+     data-fail="{{ ui('Nicht gesendet. Bitte die Seite neu laden und es erneut versuchen.', 'Not sent. Please reload the page and try again.') }}"
+     data-done="{{ ui('Danke! Gleich geht es weiter.', 'Thank you! More is coming soon.') }}">
+  {% if form %}{{ form }}{% elif key == "ended" %}<div class="live-end">{{ end|rich }}</div>{% else %}<p class="live-wait">{{ talk_wait if talk else ui("Gleich geht es los …", "Starting soon …") }}</p>{% endif %}
+</div>
+{% if emojis %}
+{# reactions (package G): an emoji floats over the screen #}
+<div class="live-react" data-live-react="{{ url_for('live_public.react', code=survey.code) }}" data-csrf="{{ csrf_token() }}"
+     role="group" aria-label="{{ ui('Reaktionen', 'Reactions') }}">
+  {% set names = {"👍": ui("Daumen hoch", "Thumbs up"), "❤️": ui("Herz", "Heart"), "😂": ui("Lachen", "Laughing"), "😮": ui("Staunen", "Surprised"), "👏": ui("Applaus", "Applause")} %}
+  {# a word under the emojis that do not explain themselves, so that 😕 "unklar" and ❓ "Frage" are told apart (Ralf,
+     2026-10-16); 👍 ❤️ 😂 👏 stay without, to keep the row short #}
+  {% set words = {"😕": ui("unklar", "unclear"), "❓": ui("Frage", "question"), "🐢": ui("langsamer", "slower"), "🐇": ui("schneller", "faster"), "💡": ui("Idee", "idea"), "🙋": ui("Meldung", "hand up"), "😴": ui("langweilig", "boring"), "🤔": ui("nachdenklich", "thinking")} %}
+  {% for e in emojis %}{% set word = words.get(e) %}<button type="button" class="live-react-btn{{ ' has-word' if word }}" data-e="{{ e }}" aria-label="{{ word or names.get(e, e) }}" title="{{ word or names.get(e, e) }}">{{ e }}{% if word %}<span class="live-react-word" aria-hidden="true">{{ word }}</span>{% endif %}</button>{% endfor %}
+</div>
+{% endif %}
+<section class="live-qa" data-live-qa="{{ url_for('live_public.qa_list', code=survey.code) }}"
+         data-ask="{{ url_for('live_public.qa_ask', code=survey.code) }}" data-vote="{{ url_for('live_public.qa_vote', code=survey.code, qid=0) }}"
+         data-csrf="{{ csrf_token() }}" data-sent="{{ ui('Danke! Die Frage ist angekommen.', 'Thank you! Your question has arrived.') }}"
+         data-waits="{{ ui('Danke! Die Frage erscheint, sobald sie freigegeben ist.', 'Thank you! Your question will appear once it is approved.') }}"
+         data-many="{{ ui('Sie haben schon fünf Fragen gestellt.', 'You have already asked five questions.') }}"
+         data-fail="{{ ui('Nicht gesendet. Bitte die Seite neu laden und es erneut versuchen.', 'Not sent. Please reload the page and try again.') }}" hidden>
+  <h2 class="live-qa-title">{{ ui("Fragen aus dem Publikum", "Questions from the audience") }}</h2>
+  <form class="live-qa-form" data-qa-form>
+    <textarea name="text" rows="2" maxlength="280" placeholder="{{ ui('Ihre Frage …', 'Your question …') }}" aria-label="{{ ui('Ihre Frage', 'Your question') }}"></textarea>
+    <button class="p-button p-button-secondary" type="submit">{{ ui("Frage stellen", "Ask") }}</button>
+    <p class="small" data-qa-note hidden></p>
+  </form>
+  <ul class="live-qa-list" data-qa-list></ul>
+</section>
+<template data-live-end><div class="live-end">{{ end|rich }}</div></template>
+<p class="muted small live-note">{{ ui("Ihre Antworten sind anonym und erscheinen nur zusammengefasst auf der Leinwand; kurze Texte (für eine Wortwolke oder als eigene Antwort eingetippt) dort so, wie sie eingegeben wurden.", "Your answers are anonymous and only appear summarised on the screen; short texts (for a word cloud or typed as your own answer) appear there as typed.") }}</p>
+<script src="{{ url_for('static', filename='live.js') }}"></script>
+{% endblock %}

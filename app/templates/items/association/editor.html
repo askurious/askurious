@@ -1,0 +1,29 @@
+{% set question_hint = de_en("z. B. „Was fällt Ihnen spontan ein, wenn Sie an künstliche Intelligenz denken? Nennen Sie bis zu drei Begriffe.“", "e.g. “What comes to mind when you think of artificial intelligence? Name up to three terms.”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+{# a short "So funktioniert es" with a small example (concept "Lernhilfen: fünfte Runde", H1, like the
+   side-by-side matrix after the pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Begriffe nennen und bewerten", "naming and rating terms"), open=false) %}
+  <p>{{ de_en("Teilnehmende schreiben zu einem Reizwort bis zu fünf Begriffe auf, die ihnen spontan einfallen. Auf derselben Seite bewerten sie danach jeden eigenen Begriff von sehr negativ (−2) bis sehr positiv (+2). Ausgewertet werden die häufigsten Begriffe und ihre mittlere Bewertung.", "Participants write down up to five terms that spontaneously come to mind for a stimulus word. On the same page they then rate each of their own terms from very negative (−2) to very positive (+2). The analysis shows the most frequent terms and their mean rating.") }}</p>
+  <p class="muted small">{{ de_en("Beispiel: „Künstliche Intelligenz“ → „hilfreich“ (+2), „Jobverlust“ (−1)", "Example: “artificial intelligence” → “helpful” (+2), “job loss” (−1)") }}</p>
+{% endcall %}
+<fieldset>
+  <legend>{{ de_en("Begriffe", "Terms") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Anzahl Felder", "Number of fields") }} <input type="number" name="slots" min="1" max="5" value="{{ item.config.slots }}" class="narrow" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("davon mindestens", "of which at least") }} <input type="number" name="min" min="1" max="5" value="{{ item.config.min }}" class="narrow" {% if not structural %}readonly{% endif %}>
+      <span class="hint">{{ de_en("gilt bei „Pflicht“ und „Hinweis“", "applies with “Required” and “Prompt”") }}</span></label>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Bewertung", "Rating") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("fünf Stufen, gespeichert als −2 bis +2", "five steps, stored as −2 to +2") }}</span></legend>
+  <label>{{ de_en("Frage zur Bewertung", "Rating question") }} <input name="rate" value="{{ lt.get('rate', '') }}" maxlength="80" placeholder="{{ de_en('Wie bewerten Sie diesen Begriff?', 'How do you rate this term?') }}"></label>
+  <div class="row-fields">
+    <label>−2 <input name="low" value="{{ lt.get('low', '') }}" maxlength="80" placeholder="{{ de_en('sehr negativ', 'very negative') }}"></label>
+    <label>+2 <input name="high" value="{{ lt.get('high', '') }}" maxlength="80" placeholder="{{ de_en('sehr positiv', 'very positive') }}"></label>
+  </div>
+  <p class="muted small">{{ de_en("Zwei Schritte auf einer Seite: erst nur die Begriffe, nach „Weiter“ die eigenen Begriffe mit ihrer Bewertung (mit „Begriffe ändern“ zurück).", "Two steps on one page: first only the terms, after “Next” the person's own terms with their rating (back with “Change terms”).") }}</p>
+</fieldset>
+<p class="muted small">{{ de_en("Methode", "Method") }}: affective imagery (Leiserowitz, 2006; Peters &amp; Slovic, 1996; Slovic et al., 1991).
+Export: {{ item.code }}_1 … (Text), {{ item.code }}_1_val … ({{ de_en("−2 bis +2", "−2 to +2") }}), {{ item.code }}_mean.</p>

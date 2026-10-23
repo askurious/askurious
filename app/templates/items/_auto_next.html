@@ -1,0 +1,5 @@
+{# "Ohne Weiter- und Zurück-Knöpfe" of an element (ItemType.supports_auto_next). Included by editor/item.html, or by the
+   editor of a type with auto_next_inline inside its fieldset "Darstellung" (CBC, UI/UX audit 2026-10-07, W34). #}
+<label class="check" {% if kind.editor_tabs and not kind.auto_next_inline %}data-cj-tab="{{ kind.editor_tabs[-1][0] }}"{% endif %}><input type="checkbox" name="auto_next" value="1" {% if item.config.auto_next %}checked{% endif %} {% if not meta_editable %}disabled{% endif %}>
+  {{ de_en("Ohne Weiter- und Zurück-Knöpfe: automatisch weiter, sobald erledigt", "Without Next and Back buttons: move on automatically once done") }}
+  <span class="hint">{{ kind.auto_next_hint }}{{ de_en("; gilt nur, wenn alle Fragen der Seite diese Option haben", "; applies only when all questions on the page have this option") }}</span></label>

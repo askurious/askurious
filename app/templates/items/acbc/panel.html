@@ -1,0 +1,27 @@
+{% from "_icons.html" import icon %}
+{% set c = item.cfg %}
+<section class="panel" id="design" data-cj-tab="design">
+  <h2>{{ de_en("Aufgaben je Person", "Tasks per person") }} <span class="hint">{{ de_en("wird für jede Person aus ihren eigenen Antworten erzeugt", "generated for every person from their own answers") }}</span></h2>
+  {% if c.attributes %}
+  <div class="figures cj-figures">
+    <div title="{{ de_en('Wunschvariante + Screening + Rückfragen + Turnier', 'Build-your-own + screening + follow-up questions + tournament') }}"><dt>{{ de_en("Seiten", "Pages") }}</dt><dd>1 + {{ c.screens }}{% if kind.rule_gaps(item) %} + {{ de_en("bis {n}", "up to {n}", n=[kind.rule_gaps(item)|length * kind.rule_phases(item)|length, c.get("max_nogo", 3) + c.get("max_must", 2) + ("price" in kind.rule_phases(item))|int]|min) }}{% endif %} + {{ de_en("bis {n}", "up to {n}", n=kind.max_tour_tasks(item)) }}</dd></div>
+    <div><dt>{{ de_en("Varianten im Screening", "Concepts in the screening") }}</dt><dd>{{ kind.n_concepts(item) }}</dd></div>
+    {% if kind.prohibitions(item) %}<div><dt>{{ de_en("Verbotene Kombinationen", "Prohibitions") }}</dt><dd>{{ kind.prohibitions(item)|length }}</dd></div>{% endif %}
+    {% if kind.uses_images(item) %}
+    {% set n_img = kind.required_keys(item)|length %}
+    <div class="{{ 'fig-ok' if n_img < 12 else 'fig-warn' if n_img <= 500 else 'fig-error' }}" title="{{ de_en('Alle erlaubten Kombinationen der Bild-Merkmale', 'All allowed combinations of the image attributes') }}"><dt>{{ de_en("Bilder nötig", "Images needed") }}</dt><dd>{{ n_img if n_img <= 500 else de_en("über 500", "over 500") }}</dd></div>
+    {% endif %}
+  </div>
+  <p class="muted small">{{ de_en("1. Wunschvariante zusammenstellen · 2. {screens} Seiten mit je {per} ähnlichen Varianten (je {lo}–{hi} Merkmale anders), jeweils „käme infrage“ oder nicht", "1. Build your own concept · 2. {screens} pages with {per} similar concepts each ({lo}–{hi} attributes different each), each “a possibility” or not", screens=c.screens, per=c.per_screen, lo=c.min_changes, hi=c.max_changes) }}{% if kind.rule_gaps(item) %}{{ de_en(", dazwischen ab Seite {n} Rückfragen zu Ausschlussgründen und Unverzichtbarem", ", in between from page {n} follow-up questions on unacceptables and must-haves", n=c.rules_after) }}{% endif %} · {{ de_en("3. Turnier der infrage kommenden (höchstens {n}) in Aufgaben zu je drei. Es gibt keinen vorab berechneten Versuchsplan; ausgewertet wird mit einem Auswahlmodell auf dem Langformat.", "3. Tournament of the concepts that are a possibility (at most {n}) in tasks of three. There is no experimental design calculated in advance; the analysis uses a choice model on the long format.", n=c.tour_max) }}</p>
+  {% else %}<p class="muted">{{ de_en("Zuerst Merkmale und Stufen anlegen.", "Add attributes and levels first.") }}</p>{% endif %}
+</section>
+{% if c.attributes %}
+{# the images belong to the look of the tasks: tab "Darstellung & Bilder", as with the CBC #}
+<section class="panel" data-cj-tab="display">
+  <h2>{{ de_en("Bilder", "Images") }}</h2>
+  {% if kind.uses_images(item) and kind.required_keys(item) %}{% include "items/_attributes/image_buttons.html" %}
+  {% elif kind.uses_images(item) %}<p class="muted">{{ de_en("Zuerst Merkmale „im Bild“ markieren (Reiter „Inhalt“).", "First mark attributes “in the image” (tab “Content”).") }}</p>
+  {% elif kind.level_images_on(item) %}{% include "items/_attributes/image_buttons.html" %}
+  {% else %}<p class="muted">{{ de_en("Anzeige „Tabelle mit Text“: Ohne Bilder.", "Display “Table with text”: no images.") }}</p>{% endif %}
+</section>
+{% endif %}

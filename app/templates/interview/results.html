@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# Evaluation of the stored interviews ("Interviews erheben", app/interview_results.py): case overview,
+   coverage, duration, notes per Leitfrage, exports. #}
+{% block title %}{{ de_en("Ergebnisse", "Results") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set lang = survey.default_language %}
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Ergebnisse", "Results") }} <span class="hint">{{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}{{ de_en(" mit Probeinterviews", " with trial interviews") if trials else "" }}</span></h2>
+    <span class="spacer"></span>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code, probe=none if trials else 1) }}">{{ de_en("ohne Probeinterviews", "without trial interviews") if trials else de_en("mit Probeinterviews", "with trial interviews") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_search.page', code=survey.code) }}">{{ de_en("Suche in den Transkripten", "Search in the transcripts") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_summaries.page', code=survey.code) }}">{{ de_en("Fallzusammenfassungen", "Case summaries") }}</a>
+  </div>
+  {% if not interviews %}<p class="muted">{{ de_en("Noch keine Interviews", "No interviews") }}{{ de_en(" und Probeinterviews", " or trial interviews") if trials else "" }}{{ de_en(". Die Ergebnisse füllen sich, sobald unter", " yet. The results fill up as soon as the first one is saved under") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}">Interviews</a>{{ de_en(" das erste gespeichert ist.", ".") }}</p>{% endif %}
+  <ul class="export-rows">
+    <li class="export-row"><div><strong>{{ de_en("Projekt für QDA-Programme", "Project for QDA software") }}</strong> <span class="muted small">{{ de_en("Transkripte, Kategoriensystem aus dem Leitfaden, Kurzfragebogen und Ergebnisse der Aufgaben als Fallmerkmale und Notizen als Memos in einer Datei (REFI-QDA), für MAXQDA, ATLAS.ti, NVivo und QDA Miner; ohne Probeinterviews", "transcripts, category system from the guide, short questionnaire and results of the tasks as case variables and notes as memos in one file (REFI-QDA), for MAXQDA, ATLAS.ti, NVivo and QDA Miner; without trial interviews") }}</span></div>
+      <a class="button button-small button-secondary" href="{{ url_for('interview_results.project_file', code=survey.code) }}">{{ icon("download", 16) }} .qdpx</a></li>
+    <li class="export-row"><div><strong>{{ de_en("Transkripte", "Transcripts") }}</strong> <span class="muted small">{{ de_en("je Interview eine Datei mit Transkriptkopf und Zeilennummern, alle in einem ZIP; nicht geprüfte als Entwurf markiert", "one file per interview with transcript head and line numbers, all in one ZIP; unchecked ones marked as drafts") }}</span></div>
+      <form method="get" action="{{ url_for('interview_results.transcripts_file', code=survey.code) }}" class="export-row-buttons">
+        {% if trials %}<input type="hidden" name="probe" value="1">{% endif %}
+        <label class="check"><input type="checkbox" name="marks" value="1"> {{ de_en("Zeitmarken behalten", "Keep time marks") }}</label>
+        {% if has_tasks %}<input type="hidden" name="tasks" value="0"><label class="check" title="{{ de_en('Je Aufgabe eine Zeile an ihrer Zeitmarke, kursiv und ohne Sprecherkürzel; der Transkriptkopf nennt diese Einfügungen', 'One line per task at its time mark, in italics and without a speaker label; the transcript head names these insertions') }}"><input type="checkbox" name="tasks" value="1" checked> {{ de_en("Ergebnisse der Aufgaben einfügen", "Insert the results of the tasks") }}</label>{% endif %}
+        <button class="button button-small button-secondary" name="format" value="docx">{{ icon("download", 16) }} Word (ZIP)</button>
+        <button class="button button-small button-secondary" name="format" value="pdf">{{ icon("download", 16) }} PDF (ZIP)</button>
+        <button class="button button-small button-secondary" name="format" value="both">{{ icon("download", 16) }} {{ de_en("beides (ZIP)", "both (ZIP)") }}</button></form></li>
+    <li class="export-row"><div><strong>{{ de_en("Fallübersicht", "Case overview") }}</strong> <span class="muted small">{{ de_en("eine Zeile je Interview: Kennung, Datum, Form, Dauer, je Leitfrage Stand und Aspekte (0/1), Aufgaben, Kurzfragebogen und Postskript", "one row per interview: identifier, date, mode, duration, per guide question status and aspects (0/1), tasks, short questionnaire and postscript") }}</span></div>
+      <a class="button button-small button-secondary" href="{{ url_for('interview_results.overview_file', code=survey.code, probe=1 if trials else none) }}">{{ icon("download", 16) }} CSV</a></li>
+    <li class="export-row"><div><strong>{{ de_en("Notizen und Postskripte", "Notes and postscripts") }}</strong> <span class="muted small">{{ de_en("je Interview Stand, Aspekte, Notizen und Zeitmarken (#hh:mm:ss-0#), dazu Kurzfragebogen und Postskript", "per interview status, aspects, notes and time marks (#hh:mm:ss-0#), with short questionnaire and postscript") }}</span></div>
+      <span class="export-row-buttons">
+        <a class="button button-small button-secondary" href="{{ url_for('interview_results.notes_word', code=survey.code, probe=1 if trials else none) }}">{{ icon("download", 16) }} Word</a>
+        <a class="button button-small button-secondary" href="{{ url_for('interview_results.notes_files', code=survey.code, probe=1 if trials else none) }}" title="{{ de_en('eine Textdatei je Interview, zum Einlesen neben dem Transkript', 'one text file per interview, to read in next to the transcript') }}">{{ icon("download", 16) }} Text (ZIP)</a></span></li>
+  </ul>
+</section>
+
+{% if interviews %}
+<section class="panel">
+  <h2>{{ de_en("Fallübersicht", "Case overview") }}</h2>
+  <div class="res-scroll">
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Datum", "Date") }}</th><th>{{ de_en("Form", "Mode") }}</th><th>{{ de_en("Dauer", "Duration") }}</th>{% for item in form_items %}<th>{{ item.text("question")|striptags|truncate(30, true, "…") }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r in interviews %}{% set m = r.interview %}
+    <tr><td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
+      <td>{{ day(m.date) }}</td><td>{{ modes.get(m.mode, "") }}</td><td>{{ de_en("{n} Min.", "{n} min", n=((m.elapsed or 0) / 60)|round|int) }}</td>
+      {% for item in form_items %}<td>{{ answer_text(item, (r.answers or {}).get(item.id|string), lang) }}{% set mark = source_mark(r, item) %}{% if mark %} <span class="muted small">{{ mark }}</span>{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Abdeckung", "Coverage") }} <span class="hint">{{ de_en("● gestellt · ◐ von selbst angesprochen · ○ nicht gestellt · K = Kernfrage", "● asked · ◐ raised spontaneously · ○ not asked · C = core question") }}</span></h2>
+  <div class="res-scroll">
+  {% call list_table("is-wide coverage-table") %}
+    <thead><tr><th>{{ de_en("Leitfrage", "Guide question") }}</th>{% for r in interviews %}<th class="center">{{ r.interview.label }}</th>{% endfor %}<th>{{ de_en("Aspekte, Anteil der Interviews", "Aspects, share of interviews") }}</th></tr></thead>
+    <tbody>
+    {% for group in coverage %}
+    <tr class="coverage-block"><td colspan="{{ interviews|length + 2 }}">{{ group.block.title() }}</td></tr>
+    {% for row in group.rows %}
+    <tr{% if row.sub %} class="coverage-sub"{% endif %}>
+      <td>{% if row.sub %}<span aria-hidden="true">↳ </span><span class="visually-hidden">{{ de_en("Unterfrage:", "Sub-question:") }} </span>{% endif %}{{ row.item.text("question")|striptags|truncate(70, true, "…") }}{% if row.item.config.core %} <strong class="iv-core-mark">{{ de_en("K", "C") }}</strong>{% endif %}</td>
+      {% for s in row.states %}<td class="center coverage-{{ s or 'none' }}{% if row.item.config.core and s not in ('asked', 'spontaneous') %} coverage-missing{% endif %}" title="{{ words.get(s, de_en('kein Stand', 'no status')) }}">{{ marks.get(s, "·") }}</td>{% endfor %}
+      <td class="coverage-aspects">{% for a in row.aspects %}<span class="coverage-aspect"><span class="coverage-bar" style="width: {{ (a.share * 60)|round|int }}px"></span>{{ a.text }} {{ (a.share * 100)|round|int|pctsign }}</span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Dauer je Themenblock", "Duration per topic block") }} <span class="hint">{{ de_en("Minuten, Median und Spanne gegenüber der geplanten Dauer", "minutes, median and range against the planned duration") }}</span></h2>
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Themenblock", "Topic block") }}</th><th>{{ de_en("geplant", "planned") }}</th><th>Median</th><th>{{ de_en("Spanne", "Range") }}</th><th>Interviews</th></tr></thead>
+    <tbody>
+    {% for d in durations %}
+    <tr><td>{{ d.block.title() }}</td><td>{{ d.planned or "–" }}</td>
+      <td>{{ d.median|dec(1) if d.median is not none else "–" }}</td>
+      <td>{% if d.low is not none %}{{ d.low|dec(1) }} {{ de_en("bis", "to") }} {{ d.high|dec(1) }}{% else %}–{% endif %}</td><td>{{ d.n }}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Notizen je Leitfrage", "Notes per guide question") }}</h2>
+  {% for n in notes %}
+  <details class="notes-fold" {% if n.entries %}open{% endif %}>
+    <summary><strong>{% if n.sub %}↳ {% endif %}{{ n.item.text("question")|striptags|truncate(90, true, "…") }}</strong> <span class="muted small">{{ n.block.title() }} · {{ n.entries|length }} {{ "Interview" if n.entries|length == 1 else de_en("Interviews", "interviews") }}</span></summary>
+    {% for e in n.entries %}
+    <div class="notes-entry"><strong>{{ e.label }}</strong>{% if e.note %} {{ e.note }}{% endif %}
+      {% for m in e.marks %}<div class="muted small"><code>{{ stamp(m.t) }}</code> {{ m.text }}</div>{% endfor %}</div>
+    {% else %}<p class="muted small">{{ de_en("Keine Notizen.", "No notes.") }}</p>{% endfor %}
+  </details>
+  {% endfor %}
+</section>
+{% endif %}{# without interviews the one empty state with its link stands above (UI/UX audit 2026-10-05, V106) #}
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+<script src="{{ url_for('static', filename='figure_png.js') }}" defer></script>
+{% endblock %}

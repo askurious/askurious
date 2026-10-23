@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Duplizieren", "Duplicate") }} · {{ survey.title }}{% endblock %}
+{# the survey's head as on the other tab pages: a band over the whole width, the column centred (Ralf, 2026-10-06) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "settings" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set came = request.args.get("from") %}
+<a class="back-link" href="{{ url_for('dashboard.index') if came == 'dashboard' else url_for('surveys.detail', survey_id=survey.id) }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") if came == "dashboard" else de_en("Einstellungen", "Settings") }}</a>
+<h1>{{ de_en("Als Kopie übernehmen", "Take a copy") if copy_only else de_en("Befragung duplizieren", "Duplicate survey") }}</h1>
+{% if copy_only %}<p class="muted">{{ de_en("„{title}“ ist eine Beispielbefragung. Ihre Kopie gehört nur Ihnen: Sie können sie frei ändern, testen und starten; das Beispiel bleibt, wie es ist.", "“{title}” is an example survey. Your copy belongs to you alone: you can change, test and start it freely; the example stays as it is.", title=survey.title) }}</p>{% endif %}
+<p class="muted">{{ de_en("Es entsteht eine neue, eigenständige Befragung im Entwurf: mit Fragebogen und Einstellungen von „{title}“, aber ohne Teilnahmen und Daten. Das Original bleibt unverändert.", "A new, independent survey is created as a draft: with the questionnaire and settings of “{title}”, but without participations and data. The original stays unchanged.", title=survey.title) }}</p>
+
+<section class="panel">
+  <form method="post" class="stack">
+    {{ csrf() }}
+    {% if error %}<div class="flash flash-error" role="alert"><span>{{ error }}</span></div>{% endif %}
+    <label><span class="label-title">{{ de_en("Titel des Duplikats *", "Title of the duplicate *") }} <span class="hint">{{ de_en("für Teilnehmende sichtbar; muss sich vom Original unterscheiden", "visible to participants; must differ from the original") }}</span></span>
+      <input name="title" required maxlength="300" value="{{ title }}" autofocus>
+    </label>
+    {% if not copy_only %}
+    <label class="check"><input type="checkbox" name="with_people" value="1" {% if with_people %}checked{% endif %}>
+      {{ de_en("Beteiligte Forschende und Gruppen übernehmen", "Copy involved researchers and groups") }}
+      <span class="hint">{% if others or groups %}{% if others %}{{ de_en("{names} mit ihrer Rolle", "{names} with their role", names=others|map(attribute="display_name")|join(", ")) if others|length == 1 else de_en("{names} mit ihren Rollen", "{names} with their roles", names=others|map(attribute="display_name")|join(", ")) }}{% endif %}{% if others and groups %}; {% endif %}{% if groups %}{{ de_en("Gruppe {names}", "group {names}", names=groups|map(attribute="name")|join(", ")) if groups|length == 1 else de_en("Gruppen {names}", "groups {names}", names=groups|map(attribute="name")|join(", ")) }}{% endif %}{{ de_en(". Ohne Häkchen sind nur Sie beteiligt.", ". Without a tick only you are involved.") }}{% else %}{{ de_en("Außer Ihnen ist niemand beteiligt.", "Nobody but you is involved.") }}{% endif %}{% if skipped_groups %} {{ de_en("Eine Gruppe, in der Sie nicht Mitglied sind, wird nicht übernommen.", "One group you are not a member of is not copied.") if skipped_groups == 1 else de_en("{n} Gruppen, in denen Sie nicht Mitglied sind, werden nicht übernommen.", "{n} groups you are not a member of are not copied.", n=skipped_groups) }}{% endif %}</span>
+    </label>
+    {% endif %}
+    {% if survey.kind == "survey" and not copy_only %}
+    <label class="check"><input type="checkbox" name="link" value="1" {% if link %}checked{% endif %}>
+      {{ de_en("Fragen mit dem Original verknüpfen", "Link questions to the original") }}
+      <span class="hint">{{ de_en("Original und Duplikat stellen dann dieselben Fragen als verknüpfte Elemente: Ihre Antworten lassen sich gemeinsam auswerten (z. B. Semester für Semester). Dafür sind die Fragen gesperrt, sobald eine der Befragungen damit läuft oder echte Teilnahmen hat; anpassen lässt sich jede Befragung für sich. Fragen, die Antworten anderer Fragen zeigen oder von ihnen abhängen, bleiben gewöhnliche Kopien.", "Original and duplicate then ask the same questions as linked elements: their answers can be analysed together (e.g. term by term). In return the questions are locked as soon as one of the surveys runs with them or has real participations; each survey can be adapted on its own. Questions that show answers of other questions or depend on them stay ordinary copies.") }}</span>
+    </label>
+    {% endif %}
+    <p class="small flush">{{ de_en("Sie werden Admin des Duplikats.", "You become admin of the duplicate.") }}</p>
+    <div class="form-actions">
+      <button class="button">{{ icon("copy", 16) }} {{ de_en("Kopie anlegen", "Create copy") if copy_only else de_en("Duplizieren", "Duplicate") }}</button>
+      <a class="button button-secondary" href="{{ url_for('dashboard.index') if came == 'dashboard' else url_for('surveys.detail', survey_id=survey.id) }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+    </div>
+  </form>
+</section>
+
+<div class="settings-pair">
+<section class="panel">
+  <h2>{{ de_en("Wird übernommen", "Copied") }}</h2>
+  <ul class="small">
+    <li>{{ de_en("Fragebogen: Blöcke, Fragen, Ablauf mit Randomisierung, Bedingungen und Schleifen", "Questionnaire: blocks, questions, flow with randomisation, conditions and loops") }}</li>
+    {% if survey.quotas %}<li>{{ de_en("Quoten mit ihren Teilquoten, Bedingungen und Soll-Zahlen (die Zähler beginnen bei null)", "Quotas with their sub-quotas, conditions and targets (the counters start at zero)") }}</li>{% endif %}
+    <li>{{ de_en("Versuchspläne von Conjoint, MaxDiff und ACBC, wie sie erzeugt wurden", "Experimental designs of conjoint, MaxDiff and ACBC as they were generated") }}</li>
+    <li>{{ de_en("validierte Konstrukte und verknüpfte Elemente: Sie bleiben verbunden", "validated constructs and linked elements: they stay connected") }}</li>
+    <li>{{ de_en("Bilder und Logos, als eigene Kopien der Dateien", "Images and logos, as own copies of the files") }}</li>
+    <li>{{ de_en("Erscheinungsbild, Sprachen und Übersetzungen (außer denen des Titels)", "Appearance, languages and translations (except those of the title)") }}</li>
+    <li>{{ de_en("Projektangaben, Optionen, Eckdaten und Text der Einwilligung, Bildstil", "Project details, options, key facts and text of the consent, image style") }}</li>
+    <li>{{ de_en("Teilnahme-Parameter und Weiterleitungen, Texte der Endseiten, getrennter Abschnitt, geplante Stichprobengröße", "Participation parameters and redirects, end page texts, separate section, planned sample size") }}</li>
+    {# the copy takes them on purpose (app/duplicate.py), the list says so (UI/UX audit 2026-10-09, X64) #}
+    {% if survey.boards %}<li>{{ de_en("Dashboards mit ihren Kacheln, ohne Links", "Dashboards with their tiles, without links") }}</li>{% endif %}
+  </ul>
+</section>
+<section class="panel">
+  <h2>{{ de_en("Wird nicht übernommen", "Not copied") }}</h2>
+  <ul class="small">
+    <li>{{ de_en("Teilnahmen und Antworten (echte, Testdurchläufe, Dummy-Daten), abgelehnte Einwilligungen", "Participations and answers (real ones, test runs, dummy data), declined consents") }}</li>
+    <li>{{ de_en("Kontaktdaten des getrennten Abschnitts", "Contact data of the separate section") }}</li>
+    <li>{{ de_en("Gesicherte Exportstände, HB-Schätzungen, Zenodo-Veröffentlichung und DOI", "Saved export states, HB estimates, Zenodo publication and DOI") }}</li>
+    <li>{{ de_en("Kommentare aus Testdurchläufen, Papierkorb", "Comments from test runs, bin") }}</li>
+    <li>{{ de_en("Kurzname im Link und Teilnahmelink: Das Duplikat bekommt einen eigenen Link", "Short name in the link and participation link: the duplicate gets its own link") }}</li>
+    <li>{{ de_en("Feldphase, Status und Verlauf: Das Duplikat beginnt als Entwurf in Fragebogen-Fassung 1", "Field time, status and history: the duplicate starts as a draft in questionnaire revision 1") }}</li>
+  </ul>
+  <p class="hint" style="margin-left:0">{{ de_en("Antworten werden nur bei der Befragung gespeichert, über deren Link sie eingehen. Original und Duplikat teilen weder Datensätze noch Dateien.", "Answers are stored only with the survey through whose link they come in. Original and duplicate share neither records nor files.") }}</p>
+</section>
+</div>
+{% endblock %}

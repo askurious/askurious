@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{# The guide of an interview guide (app/interview.py, concept interviewleitfaden-konzept.md 4.2): the Themenblöcke
+   with their elements on the left (drag to move, as on the page of a live vote: app.js data-live-*), the element
+   editor beside them. Kurzfragebogen and Postskript below, as far as the settings use them. #}
+{% block title %}{{ de_en("Leitfaden", "Guide") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+
+<div class="live-work">
+  <div class="live-left" data-live-left>
+    <p class="muted small flush guide-total">{{ de_en("Geplant: ca. {n} Min.", "Planned: approx. {n} min", n=total) }} · {{ de_en("Reihenfolge im Interview:", "Order in the interview:") }} {{ de_en("frei springen", "jump freely") if st.order == "free" else de_en("der Reihe nach", "in order") }}
+      · <a href="{{ url_for('interview.settings', code=survey.code) }}#interview">{{ de_en("ändern", "change") }}</a></p>
+    {# what is needed before the first interview, where the work on the guide is (UI audit 2026-10-04, R27a) #}
+    <p class="small flush guide-first">{{ de_en("Vor dem ersten Interview:", "Before the first interview:") }}
+      <a href="{{ url_for('interview.export_docx', code=survey.code, kind='einwilligung') }}">{{ de_en("Information und Einwilligung (Word)", "Information and consent (Word)") }}</a> ·
+      <a href="{{ url_for('interview.export', code=survey.code) }}#fassungen">{{ de_en("Fassung festhalten", "Record a revision") }}</a></p>
+    {% if editable and ai_on() %}
+    <div class="row guide-ai">
+      <a class="button button-ai button-secondary button-small" href="{{ url_for('interview_ai.develop', code=survey.code) }}"
+         title="{{ de_en('Sammeln, Prüfen, Sortieren, Subsumieren (Helfferich, 2011): Ihre Fragen zuerst, die KI ergänzt; neue Themenblöcke ans Ende', 'Collect, check, sort, subsume (Helfferich, 2011): your questions first, the AI adds to them; new topic blocks at the end') }}">{{ icon("sparkles", 16) }} {{ de_en("Mit KI entwickeln", "Develop with AI") }}</a>
+      <form method="post" action="{{ url_for('interview_ai.review_page', code=survey.code) }}" class="inline" data-busy-form>{{ csrf() }}
+        <button class="button button-ai button-secondary button-small" title="{{ de_en('Ganzer Leitfaden: offene Erzählaufforderungen, keine Suggestiv-, Mehrfach- oder Warum-Fragen, Reihenfolge, Länge; Vorschläge zum Auswählen', 'Whole guide: open narrative prompts, no leading, double or why questions, order, length; suggestions to choose from') }}">{{ icon("sparkles", 16) }} {{ de_en("Leitfaden mit KI prüfen", "Check guide with AI") }}</button></form>
+      {{ ai_access_line() }}
+    </div>
+    {% endif %}
+    {% for which, block in rows %}
+    <section class="panel live-block guide-block guide-part-{{ which }}" id="block-{{ block.id }}" data-live-section="{{ block.id }}">
+      <div class="live-block-head {{ 'guide-form-head' if which != 'guide' }}">
+        {% if which == "guide" %}
+          {# drag plus ↑ ↓, as the rows of the questionnaire and the flow (UI audit 2026-10-04, R92) #}
+          {% if editable %}<span class="drag-handle guide-block-drag" title="{{ de_en('Ziehen, um die Reihenfolge der Themenblöcke zu ändern', 'Drag to change the order of the topic blocks') }}" aria-hidden="true"
+                data-place-block="{{ url_for('interview.control', code=survey.code) }}" data-block="{{ block.id }}">⋮⋮</span>{% endif %}
+          {% if editable %}<form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline live-block-name">{{ csrf() }}
+            <input type="hidden" name="block" value="{{ block.id }}"><input type="hidden" name="action" value="rename_block">
+            <input name="title" value="{{ block.title() }}" title="{{ block.title() }}" maxlength="200" aria-label="{{ de_en('Name des Themenblocks', 'Name of the topic block') }}" data-submit-on-change></form>
+          {% else %}<strong class="live-block-name">{{ block.title() }}</strong>{% endif %}
+          <span class="muted small" title="{{ de_en('Summe der geplanten Dauer seiner Leitfragen', 'Sum of the planned duration of its guide questions') }}">{{ de_en("ca. {n} Min.", "approx. {n} min", n=planned(block)) }}</span>
+          {% if editable %}
+          <form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline guide-block-tools">{{ csrf() }}
+            <input type="hidden" name="block" value="{{ block.id }}">
+            <button class="icon-btn" name="action" value="up" title="{{ de_en('Themenblock nach oben', 'Topic block up') }}" aria-label="{{ de_en('Themenblock nach oben', 'Topic block up') }}">{{ icon("up", 14) }}</button>
+            <button class="icon-btn" name="action" value="down" title="{{ de_en('Themenblock nach unten', 'Topic block down') }}" aria-label="{{ de_en('Themenblock nach unten', 'Topic block down') }}">{{ icon("down", 14) }}</button></form>
+          <form method="post" action="{{ url_for('editor.duplicate_block', survey_id=survey.id, block_id=block.id) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" data-duplicate title="{{ de_en('Themenblock duplizieren: Kopie mit allen Leitfragen direkt darunter', 'Duplicate topic block: a copy with all guide questions right below') }}" aria-label="{{ de_en('Themenblock duplizieren', 'Duplicate topic block') }}">{{ icon("copy", 14) }}</button></form>
+          <form method="post" action="{{ url_for('editor.delete_block', survey_id=survey.id, block_id=block.id) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" title="{{ de_en('Themenblock löschen (Rückgängig bringt ihn zurück)', 'Delete topic block (Undo brings it back)') }}" aria-label="{{ de_en('Themenblock löschen', 'Delete topic block') }}">{{ icon("trash", 14) }}</button></form>
+          {% endif %}
+        {% else %}
+          <strong class="live-block-name">{{ parts[which] }}</strong>
+          <span class="muted small guide-form-note">{{ de_en("nach dem Gespräch", "after the conversation") if which == "post" else (de_en("vor dem Gespräch", "before the conversation") if st.short == "before" else de_en("nach dem Gespräch", "after the conversation")) }} · {{ de_en("auf Papier oder im Aufzeichnungswerkzeug", "on paper or in the recording tool") }}</span>
+          {% if editable %}<form method="post" action="{{ url_for('interview_ai.form_page', code=survey.code, which=which) }}" class="inline" data-busy-form>{{ csrf() }}
+            <button class="icon-btn guide-ai-icon" title="{{ de_en('{part}: Fragen mit KI vorschlagen (Witzel, 2000)', '{part}: suggest questions with AI (Witzel, 2000)', part=parts[which]) }}" aria-label="{{ de_en('{part} mit KI vorschlagen', 'Suggest {part} with AI', part=parts[which]) }}">{{ icon("sparkles", 14) }}</button></form>{% endif %}
+        {% endif %}
+      </div>
+      <ul class="live-items">
+        {# Unterfragen (app/interview.py, outline): indented under their Leitfrage; → indents, ← outdents, ↑ ↓ move a
+           Leitfrage with its Unterfragen and an Unterfrage among its siblings #}
+        {# a task (app/interview_tasks.py) stands indented under the Leitfrage it belongs to as well, moves with it #}
+        {% set lines = outline(block) %}{% set subs = subs_of(block) %}{% set owned = task_owner(block) %}{% set members = members_of(block) %}
+        {% for item, main in lines %}
+        {% set owner = owned.get(item.id) %}
+        {% set group = members.get((main or owner).id, []) if (main or owner) else none %}
+        {% set prev = lines[loop.index0 - 1][0] if not loop.first else none %}
+        {# data-onto: a Leitfrage dragged onto the middle of this row becomes an Unterfrage (interview.place_item, onto) #}
+        <li class="live-item {{ 'is-selected' if selected and selected.id == item.id }}{{ ' guide-sub' if main or owner }}{{ ' guide-task' if owner or is_task(item) }}" id="item-{{ item.id }}" data-live-row
+            {% if which == "guide" and item.type == "guide_question" %}data-onto="{{ item.id }}" data-onto-main="{{ main.id if main else item.id }}"{% endif %}
+            data-place="{{ url_for('interview.place_item', code=survey.code, item_id=item.id) if which == 'guide' else url_for('editor.place_item', survey_id=survey.id, item_id=item.id) }}">
+          {% if editable %}<span class="drag-handle" title="{{ de_en('Ziehen, um die Reihenfolge zu ändern', 'Drag to change the order') }}" aria-hidden="true">⋮⋮</span>{% endif %}
+          {% if main or owner %}<span class="guide-sub-mark" aria-hidden="true">↳</span>{% else %}<span class="item-icon">{{ icon(item.type, 16) }}</span>{% endif %}
+          <a class="live-item-text" href="{{ url_for('interview.guide', code=survey.code, item=item.id) }}">
+            <strong>{{ item.text("question")|striptags or de_en("(noch ohne Text)", "(no text yet)") }}</strong>
+            {% if is_task(item) %}<span class="muted small"><span class="guide-task-tag">{{ de_en("Aufgabe", "Task") }}</span> · {{ task_kind(item) }}{% if owner %} · {{ de_en("zu „{q}“", "for “{q}”", q=owner.text("question")|striptags|truncate(40, true, "…") or owner.code) }}{% endif %}</span>
+            {% elif main %}<span class="muted small">{% if item.text("when") %}<em class="guide-when">{{ item.text("when") }}</em> · {% endif %}{{ de_en("Unterfrage", "Sub-question") }}</span>
+            {% else %}<span class="muted small">{{ item.kind.label }}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% if subs.get(item.id) %} · {{ de_en("{n} Unterfragen", "{n} sub-questions", n=subs[item.id]|length) if subs[item.id]|length > 1 else de_en("1 Unterfrage", "1 sub-question") }}{% endif %}{% endif %}</span>{% endif %}</a>
+          {% if editable %}
+          {% if which == "guide" %}
+          {% if main or owner %}
+          {% set first, last = group[0].id == item.id, group[-1].id == item.id %}
+          {% if main %}<form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline">{{ csrf() }}<input type="hidden" name="item" value="{{ item.id }}">
+            <button class="icon-btn" name="action" value="outdent" title="{{ de_en('Ausrücken: wieder eine Leitfrage', 'Outdent: a guide question again') }}" aria-label="{{ de_en('Ausrücken', 'Outdent') }}">{{ icon("outdent", 14) }}</button></form>{% endif %}
+          {% else %}
+          {% set first, last = loop.first, (lines[loop.index0 + 1:]|selectattr(1, "none")|rejectattr("0.id", "in", owned)|list|length == 0) %}
+          {% if item.type == "guide_question" %}
+          <form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline">{{ csrf() }}<input type="hidden" name="item" value="{{ item.id }}">
+            <button class="icon-btn" name="action" value="indent" title="{{ de_en('Einrücken: Unterfrage der Leitfrage darüber', 'Indent: sub-question of the guide question above') }}" aria-label="{{ de_en('Einrücken', 'Indent') }}" {% if not prev or prev.type != "guide_question" %}disabled{% endif %}>{{ icon("indent", 14) }}</button></form>
+          {% endif %}
+          {% endif %}
+          {% for dir, ic, title in [("item_up", "up", de_en("Element nach oben", "Element up")), ("item_down", "down", de_en("Element nach unten", "Element down"))] %}
+          <form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline">{{ csrf() }}<input type="hidden" name="item" value="{{ item.id }}">
+            <button class="icon-btn" name="action" value="{{ dir }}" title="{{ title }}" aria-label="{{ title }}" {% if (dir == "item_up" and first) or (dir == "item_down" and last) %}disabled{% endif %}>{{ icon(ic, 14) }}</button></form>
+          {% endfor %}
+          {% set dup_title = de_en('Leitfrage duplizieren, mit ihren Unterfragen und Aufgaben: Kopie direkt darunter', 'Duplicate guide question with its sub-questions and tasks: a copy right below') if item.type == 'guide_question' and not main and members.get(item.id) else de_en('Element duplizieren: Kopie direkt darunter', 'Duplicate element: a copy right below') %}
+          <form method="post" action="{{ url_for('editor.duplicate_item', survey_id=survey.id, item_id=item.id) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" data-duplicate title="{{ dup_title }}" aria-label="{{ de_en('Element duplizieren', 'Duplicate element') }}">{{ icon("copy", 14) }}</button></form>
+          <form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline">{{ csrf() }}<input type="hidden" name="item" value="{{ item.id }}">
+            <button class="icon-btn" name="action" value="delete_item" title="{{ de_en('Element löschen (Rückgängig bringt es zurück)', 'Delete element (Undo brings it back)') }}" aria-label="{{ de_en('Element löschen', 'Delete element') }}">{{ icon("trash", 14) }}</button></form>
+          {% else %}
+          {% set first, last = loop.first, loop.last %}
+          {% for dir, ic, title in [("up", "up", de_en("Element nach oben", "Element up")), ("down", "down", de_en("Element nach unten", "Element down"))] %}
+          <form method="post" action="{{ url_for('editor.move_item', survey_id=survey.id, item_id=item.id, direction=dir) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" title="{{ title }}" aria-label="{{ title }}" {% if (dir == "up" and first) or (dir == "down" and last) %}disabled{% endif %}>{{ icon(ic, 14) }}</button></form>
+          {% endfor %}
+          {% set dup_title = de_en('Element duplizieren: Kopie direkt darunter', 'Duplicate element: a copy right below') %}
+          <form method="post" action="{{ url_for('editor.duplicate_item', survey_id=survey.id, item_id=item.id) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" data-duplicate title="{{ dup_title }}" aria-label="{{ de_en('Element duplizieren', 'Duplicate element') }}">{{ icon("copy", 14) }}</button></form>
+          <form method="post" action="{{ url_for('editor.delete_item', survey_id=survey.id, item_id=item.id) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" title="{{ de_en('Element löschen (Rückgängig bringt es zurück)', 'Delete element (Undo brings it back)') }}" aria-label="{{ de_en('Element löschen', 'Delete element') }}">{{ icon("trash", 14) }}</button></form>
+          {% endif %}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if editable %}
+      <form method="post" action="{{ url_for('editor.add_item', survey_id=survey.id, block_id=block.id) }}" class="live-add">
+        {{ csrf() }}{% set kinds = addable(block) %}
+        {# a few kinds: one "+ X" button each, as everywhere; many (the short questionnaire): a choice and "+ Element" (UI audit R26) #}
+        {% if kinds|length <= 4 %}{% for key, label in kinds.items() %}<button class="button button-small button-secondary" name="type" value="{{ key }}">+ {{ label }}</button>
+        {% if key == "guide_question" and which == "guide" %}{% set mains = outline(block)|selectattr(1, "none")|map(attribute=0)|selectattr("type", "equalto", "guide_question")|list %}
+        {% set to = selected if selected and selected.block_id == block.id and selected.type == "guide_question" else (mains[-1] if mains else none) %}
+        {% if to %}<button class="button button-small button-secondary" formaction="{{ url_for('interview.control', code=survey.code) }}" name="action" value="add_sub"
+          title="{{ de_en('Nachfrage zur ausgewählten, sonst zur letzten Leitfrage dieses Themenblocks', 'Follow-up to the selected, otherwise the last guide question of this topic block') }}">+ {{ de_en("Unterfrage", "Sub-question") }}</button><input type="hidden" name="item" value="{{ to.id }}">{% endif %}{% endif %}{% endfor %}
+        {% else %}<select name="type" aria-label="{{ de_en('Art des neuen Elements', 'Type of the new element') }}">{% for key, label in kinds.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+        <button class="button button-small button-secondary">+ Element</button>{% endif %}
+      </form>
+      {% if which == "guide" %}
+      {# a task (app/interview_tasks.py): under the selected Leitfrage of this block (after its Unterfragen and tasks),
+         else at the end of the block, where it belongs to the last Leitfrage #}
+      <details class="live-add guide-task-add">
+        <summary class="button button-small button-secondary" title="{{ de_en('Eine Aufgabe zur Leitfrage: Rangfolge, Karten sortieren, Aussagen bewerten oder ein Bild wählen; im Interview eingetragen oder zum Zeigen', 'A task for the guide question: ranking, sorting cards, rating statements or choosing an image; entered in the interview or shown on the device') }}">+ {{ de_en("Aufgabe", "Task") }}</summary>
+        <form method="post" action="{{ url_for('editor.add_item', survey_id=survey.id, block_id=block.id) }}" class="live-add-types">
+          {{ csrf() }}{% set at = task_at(block, selected) %}{% if at is not none %}<input type="hidden" name="position" value="{{ at }}">{% endif %}
+          <p class="muted small flush">{{ de_en("Welche Aufgabe? Sie gehört zur Leitfrage darüber; im Interview steht sie auf deren Seite.", "Which task? It belongs to the guide question above it; in the interview it stands on that question's page.") }}</p>
+          {% for key, label in task_types.items() %}<button class="live-add-type" name="type" value="{{ key }}">{{ label }}</button>{% endfor %}
+        </form>
+        {{ why("interview_task") }}
+      </details>
+      {% endif %}
+      {% endif %}
+    </section>
+    {% if which == "guide" and editable and (loop.last or rows[loop.index][0] != "guide") %}
+    <form method="post" action="{{ url_for('interview.control', code=survey.code) }}">
+      {{ csrf() }}<button class="button button-secondary" name="action" value="add_block">{{ icon("plus", 16) }} {{ de_en("Themenblock", "Topic block") }}</button></form>
+    {% endif %}
+    {% endfor %}
+    {% if editable and not rows|selectattr(0, "equalto", "guide")|list %}
+    <form method="post" action="{{ url_for('interview.control', code=survey.code) }}">
+      {{ csrf() }}<button class="button button-secondary" name="action" value="add_block">{{ icon("plus", 16) }} {{ de_en("Themenblock", "Topic block") }}</button></form>
+    {% endif %}
+  </div>
+
+  <div class="live-right">
+    {% if selected %}
+    <iframe class="live-editor" title="{{ de_en('Element bearbeiten', 'Edit element') }}" data-live-editor
+            src="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=selected.id, embed=1, neu=1 if request.args.get('neu') else none) }}"></iframe>
+    {% else %}
+    <div class="panel live-hint">
+      <p><strong>{{ de_en("Links ein Element anklicken", "Click an element on the left") }}</strong>{{ de_en(", um es hier zu bearbeiten, oder mit „+ …“ unter einem Themenblock ein neues anlegen.", " to edit it here, or add a new one with “+ …” under a topic block.") }}</p>
+      <p class="muted small">{{ de_en("Eine Leitfrage hat vier Teile nach Helfferich (2011): die Erzählaufforderung zum Vorlesen, inhaltliche
+        Aspekte zum Abhaken, Aufrechterhaltungsfragen und konkrete Fragen für das Ende des Themenblocks. Gespeichert wird unter „Interviews“: Stand je Leitfrage, Haken, Notizen und auf Wunsch Ton und Transkript.", "A guide question has four parts after Helfferich (2011): the narrative prompt to read out, content
+        aspects to tick off, maintenance questions and specific questions for the end of the topic block. Saved under “Interviews”: status per guide question, ticks, notes and, if you like, audio and transcript.") }}</p>
+      <p class="muted small">{{ de_en("Interview beginnen: Oben rechts „Interview beginnen“ legt es unter „Interviews“ an und öffnet die Interviewansicht, zum Beispiel auf dem Tablet.", "Begin an interview: “Begin interview” at the top right creates it under “Interviews” and opens the interview view, for example on the tablet.") }} <a href="{{ url_for('interview.conduct', code=survey.code) }}" target="_blank" rel="noopener">{{ de_en("Probe ohne Speichern ↗", "Trial without saving ↗") }}</a></p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

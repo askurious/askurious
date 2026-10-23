@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_link, list_table %}
+{# Administration > Experimentell (app/experimental.py): per feature, on for everyone?, persons, groups and
+   organisations it is switched on for, persons kept out. Needs: features (overview per feature), people, groups,
+   organisations (for the choice). #}
+{% block title %}{{ de_en("Experimentell", "Experimental") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "experiments" %}{% include "admin/_tabs.html" %}
+{% macro change(f, target, action, label, confirm=None, note=None) -%}
+<form method="post" action="{{ url_for('admin.experiments_change') }}" class="inline"
+      {% if confirm %}data-confirm="{{ confirm }}" data-confirm-ok="{{ label }}"{% if note %} data-confirm-note="{{ note }}"{% endif %}{% endif %}>
+  {{ csrf() }}<input type="hidden" name="feature" value="{{ f.key }}"><input type="hidden" name="target" value="{{ target }}">
+  <button class="button button-secondary button-small" name="action" value="{{ action }}">{{ label }}</button>
+</form>
+{%- endmacro %}
+<section class="panel">
+  <p class="muted small">{{ de_en("Experimentelle Funktionen sieht nur, für wen ein Admin sie einschaltet: für einzelne Personen, für Gruppen (alle Mitglieder,
+    auch künftige), für Organisationen (alle, die dazugehören, auch künftige) oder für alle. Wer ausgeschlossen ist, bekommt die Funktion auch über Gruppen, Organisationen und „für alle“ nicht. Das gilt auch für Admins.
+    Befragungen, die eine Funktion schon nutzen, behalten sie für Teilnehmende und Beteiligte, auch wenn sie ausgeschaltet wird; gesperrt ist nur neue Nutzung.
+    Dasselbe lässt sich auf der Seite jedes Kontos unter „Forschende“ einstellen.",
+    "Experimental features are seen only by those an admin switches them on for: single people, groups (all members,
+    future ones too), organisations (everyone who belongs to them, future ones too) or everyone. Anyone excluded does not get the feature through groups, organisations or “for everyone” either. This applies to admins too.
+    Surveys that already use a feature keep it for participants and the people involved even when it is switched off; only new use is barred.
+    The same can be set on the page of each account under “Researchers”.") }}</p>
+</section>
+{# one block per feature (Ralf 2026-10-19: not only a line between them) #}
+{% for f in features %}
+<section class="panel exp-feature" id="exp-{{ f.key }}">
+    <div class="exp-head">
+      <h2>{{ f.label }}</h2>
+      <span class="button-row">
+        {% if f.everyone %}<span class="badge badge-running">{{ de_en("für alle eingeschaltet", "switched on for everyone") }}</span>{# what the button does, and the question names who loses the feature (UI audit 2026-10-07, W90) #}
+        {{ change(f, "all", "off", de_en("Für alle ausschalten", "Switch off for everyone"), de_en("„{label}“ für alle ausschalten?", "Switch off “{label}” for everyone?", label=f.label),
+                  (de_en("1 Konto sieht die Funktion danach nicht mehr; eingeschaltete Personen und Gruppen behalten sie.", "1 account no longer sees the feature afterwards; people and groups it is switched on for keep it.") if f.only_everyone == 1
+                   else de_en("{n} Konten sehen die Funktion danach nicht mehr; eingeschaltete Personen und Gruppen behalten sie.", "{n} accounts no longer see the feature afterwards; people and groups it is switched on for keep it.", n=f.only_everyone))) }}
+        {% else %}{{ change(f, "all", "on", de_en("Für alle einschalten", "Switch on for everyone"), de_en("„{label}“ für alle Konten einschalten?", "Switch on “{label}” for all accounts?", label=f.label)) }}{% endif %}
+      </span>
+    </div>
+    <p class="muted small">{{ f.text }}</p>
+    <p class="small">{% if f.everyone %}{{ de_en("Für alle Konten", "For all accounts") }}{% else %}{{ de_en("Für", "For") }} {{ f.people|length }} {{ de_en("Person", "person") if f.people|length == 1 else de_en("Personen", "people") }} {{ de_en("und", "and") }}
+      {{ f.groups|length }} {{ de_en("Gruppe", "group") if f.groups|length == 1 else de_en("Gruppen", "groups") }}{% if f.orgs %}, {{ f.orgs|length }} {{ de_en("Organisation", "organisation") if f.orgs|length == 1 else de_en("Organisationen", "organisations") }}{% endif %}{% endif %}{% if f.kept %}, {{ de_en("{n} ausgeschlossen", "{n} excluded", n=f.kept|length) }}{% endif %}
+      · {{ de_en("genutzt in", "used in") }} {{ f.uses[0] }} {{ f.uses[1] }}</p>
+    {% if f.people or f.groups or f.orgs or f.kept %}
+    <div class="res-scroll">
+    {% call list_table("is-num admin-people") %}
+      <thead><tr><th>{{ de_en("Person, Gruppe oder Organisation", "Person, group or organisation") }}</th><th>{{ de_en("Stand", "Status") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for u in f.people %}
+        <tr><td class="admin-name"><a href="{{ url_for('admin.account', user_id=u.id) }}">{{ u.display_name }}</a> {{ orcid_link(u.orcid, unauth=False) }}{% if u.is_admin %} <span class="badge">Admin</span>{% endif %}</td>
+          <td>{{ de_en("eingeschaltet", "switched on") }}</td>
+          <td class="button-row">{{ change(f, "u:" ~ u.id, "off", de_en("Ausschalten", "Switch off")) }}{% if f.everyone or f.groups or f.orgs %}{{ change(f, "u:" ~ u.id, "blocked", de_en("Ausschließen", "Exclude")) }}{% endif %}</td></tr>
+      {% endfor %}
+      {% for w in f.groups %}
+        <tr><td class="admin-name">{{ de_en("Gruppe „{name}“", "Group “{name}”", name=w.name) }} <span class="hint">{{ w.members|length }} {{ de_en("Mitglied", "member") if w.members|length == 1 else de_en("Mitglieder", "members") }}</span></td>
+          <td>{{ de_en("eingeschaltet für die Gruppe", "switched on for the group") }}</td>
+          <td class="button-row">{{ change(f, "g:" ~ w.id, "off", de_en("Ausschalten", "Switch off")) }}</td></tr>
+      {% endfor %}
+      {% for o, n in f.orgs %}
+        <tr><td class="admin-name">{{ de_en("Organisation „{name}“", "Organisation “{name}”", name=o.name) }} <span class="hint">{{ n }} {{ de_en("Person", "person") if n == 1 else de_en("Personen", "people") }}</span></td>
+          <td>{{ de_en("eingeschaltet für die Organisation", "switched on for the organisation") }}</td>
+          <td class="button-row">{{ change(f, "o:" ~ o.id, "off", de_en("Ausschalten", "Switch off")) }}</td></tr>
+      {% endfor %}
+      {% for u in f.kept %}
+        <tr><td class="admin-name"><a href="{{ url_for('admin.account', user_id=u.id) }}">{{ u.display_name }}</a> {{ orcid_link(u.orcid, unauth=False) }}</td>
+          <td><span class="badge badge-error">{{ de_en("ausgeschlossen", "excluded") }}</span></td>
+          <td class="button-row">{{ change(f, "u:" ~ u.id, "off", de_en("Ausschluss aufheben", "Lift exclusion")) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    {% endcall %}
+    </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin.experiments_change') }}" class="exp-add">
+      {{ csrf() }}<input type="hidden" name="feature" value="{{ f.key }}">
+      {# search by name over the one list (app.js, data-filter-select), as for the lead of a new group #}
+      <input type="search" data-filter-select="exp-target-{{ f.key }}" placeholder="{{ de_en('Name suchen …', 'Search name …') }}" aria-label="{{ de_en('Personen, Gruppen und Organisationen für „{label}“ durchsuchen', 'Search people, groups and organisations for “{label}”', label=f.label) }}" autocomplete="off">
+      <label class="visually-hidden" for="exp-target-{{ f.key }}">{{ de_en("Person, Gruppe oder Organisation für „{label}“", "Person, group or organisation for “{label}”", label=f.label) }}</label>
+      <select name="target" id="exp-target-{{ f.key }}">
+        <option value="">{{ de_en("Person, Gruppe oder Organisation wählen …", "Choose a person, group or organisation …") }}</option>
+        <optgroup label="{{ de_en('Personen', 'People') }}">
+          {% for u in people %}<option value="u:{{ u.id }}">{{ u.display_name }}{% if u.has_orcid %} ({{ u.orcid }}){% endif %}</option>{% endfor %}
+        </optgroup>
+        {% if groups %}<optgroup label="{{ de_en('Gruppen', 'Groups') }}">
+          {% for w in groups %}<option value="g:{{ w.id }}">{{ de_en("Gruppe „{name}“", "Group “{name}”", name=w.name) }}</option>{% endfor %}
+        </optgroup>{% endif %}
+        {% if organisations %}<optgroup label="{{ de_en('Organisationen', 'Organisations') }}">
+          {% for o in organisations %}<option value="o:{{ o.id }}">{{ de_en("Organisation „{name}“", "Organisation “{name}”", name=o.name) }}</option>{% endfor %}
+        </optgroup>{% endif %}
+      </select>
+      <button class="button button-secondary button-small" name="action" value="on">{{ de_en("Einschalten", "Switch on") }}</button>
+      {# excluding only matters where someone gets the feature without being listed: for everyone or through a group;
+         otherwise "Ausschalten" in the row does it (Ralf, 2026-10-07) #}
+      {% if f.everyone or f.groups or f.orgs %}<button class="button button-secondary button-small" name="action" value="blocked">{{ de_en("Person ausschließen", "Exclude person") }}</button>{% endif %}
+    </form>
+</section>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,67 @@
+{% from "_macros.html" import autosave_bar, csrf with context %}
+{% from "_icons.html" import icon %}
+{# The block "Coscine" on the export page of a survey and of an interview guide (app/coscine.py): the
+   last uploads and the way to the page "In Coscine ablegen". Only with the feature (or a survey that uses it) and the role "Verwalten", like Zenodo. #}
+{% if survey.can(current_user, "admin") %}
+{% set c = survey.coscine or {} %}
+{% set connected = coscine_connected(current_user) %}
+<section class="panel" id="coscine">
+  <h2>Coscine <span class="hint">{{ de_en("Ablage im Forschungsdatenarchiv der RWTH Aachen", "storage in the research data archive of RWTH Aachen") }}</span></h2>
+  {% if c.uploads %}
+  <ul class="plain snapshot-list">
+    {% for u in c.uploads[:5] %}
+    <li><strong>{{ u.shown }}</strong> <span class="muted small">{{ u.by }}{% if u.auto %} · {{ de_en("automatisch", "automatic") }}{% endif %}</span>
+      · {{ u.project }} › {{ u.resource }}{% set h = coscine_handle(u.pid) %}{% if h %} · <a href="{{ h }}" target="_blank" rel="noopener">{{ de_en("Dauerhafter Link (Handle) ↗", "Permanent link (handle) ↗") }}</a>{% endif %}
+      {% if u.partial %}
+      <br><span class="small">{{ icon("alert", 14) }} {{ de_en("Abgebrochen: nur {n} von {total} Dateien im Ordner", "Stopped: only {n} of {total} files in the folder", n=u.files|length, total=u.planned) }} <code>{{ u.folder }}</code>, {{ de_en("ohne", "without") }} <code>checksums.sha256</code> ({{ de_en("fehlgeschlagen bei", "failed at") }} <code>{{ u.failed }}</code>). {{ de_en("Bitte erneut ablegen; der unvollständige Ordner bleibt in Coscine", "Please store again; the incomplete folder stays in Coscine") }}{% if u.worm %}{{ de_en(" und lässt sich in einer WORM-Ressource nicht entfernen", " and cannot be removed in a WORM resource") }}{% endif %}.</span>
+      {% else %}
+      <br><span class="muted small">{{ de_en("{n} Dateien im Ordner", "{n} files in the folder", n=u.files|length) }} <code>{{ u.folder }}</code></span>
+      {% endif %}
+      {% if u.check %}<br><span class="small">{% if u.check.ok %}{{ icon("check", 14) }} {{ de_en("am {d} geprüft: vollständig", "checked on {d}: complete", d=u.check.at) }}{% if u.check.deep %} ({{ de_en("mit SHA-256", "with SHA-256") }}){% endif %}{% else %}{{ icon("alert", 14) }} {{ de_en("am {d} geprüft: Dateien fehlen oder weichen ab", "checked on {d}: files missing or different", d=u.check.at) }}{% endif %}</span>{% endif %}
+      {% if connected %}<form class="inline" method="post" action="{{ url_for('coscine.check_page', survey_id=survey.id) }}">{{ csrf() }}<input type="hidden" name="ordner" value="{{ u.folder }}"> · <button class="link small">{{ de_en("In Coscine prüfen", "Check in Coscine") }}</button></form>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% set a = c.auto or {} %}
+  {% if a.running %}
+  {# the automatic upload runs in a thread of its own after the new revision or the start (app/coscine.py, I13) #}
+  <p class="small" role="status">{{ de_en("Automatische Ablage läuft, gestartet am {d}. Das Ergebnis steht hier, sobald Coscine geantwortet hat (Seite neu laden).", "Automatic upload running, started on {d}. The outcome shows here once Coscine has answered (reload the page).", d=a.running) }}</p>
+  {% endif %}
+  {% if a.on and a.token %}
+  {# the daily check of the token at Coscine (app/coscine.py, check_tokens, K7) #}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{% if a.token.problem == "rejected" %}{{ de_en("Coscine lehnt das Token von {name} ab (widerrufen oder abgelaufen); die automatische Ablage läuft so nicht.", "Coscine rejects the token of {name} (revoked or expired); the automatic upload cannot run like this.", name=a.name or de_en("der Person, die sie eingeschaltet hat", "the person who switched it on")) }}{% else %}{{ de_en("Das Coscine-Token von {name} läuft am {d} ab; danach läuft die automatische Ablage nicht mehr.", "The Coscine token of {name} expires on {d}; after that the automatic upload no longer runs.", name=a.name or de_en("der Person, die sie eingeschaltet hat", "the person who switched it on"), d=coscine_day(a.token.until)|walldt(False)) }}{% endif %}
+    {{ de_en("Ein neues Token wird unter „Konto“ hinterlegt.", "A new token is added under “Account”.") }}</span></div>
+  {% endif %}
+  {% if a.on and c.space and c.space.percent >= coscine_space_warn %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Die Ressource „{r}“ ist zu {p} % belegt. Bitte in Coscine vergrößern, sonst nimmt sie die nächste automatische Ablage nicht mehr an.", "The resource “{r}” is {p}% full. Please enlarge it in Coscine, otherwise it will not take the next automatic upload.", r=c.space.resource, p=c.space.percent|dec(1)) }}</span></div>
+  {% endif %}
+  {% if a.error %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Automatische Ablage am {d} fehlgeschlagen: {e}", "Automatic upload on {d} failed: {e}", d=a.error_at, e=a.error) }}</span></div>
+  {% endif %}
+  {% if c.resource and (connected or a.on) %}
+  {# optional (stage 2): off unless ticked; runs with the token of whoever ticked it #}
+  <form method="post" action="{{ url_for('coscine.auto', survey_id=survey.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="auto" value="1" {% if a.on %}checked{% endif %}>
+      {{ de_en("Automatisch ablegen {when}", "Store automatically {when}", when=coscine_auto_label(survey)) }}
+      <span class="hint">{% if survey.interview is not none %}{{ de_en("die neue Fassung", "the new revision") }}{% else %}{{ de_en("der eingefrorene Stand der Präregistrierung", "the frozen state of the pre-registration") }}{% endif %}{{ de_en(", in dieselbe Ressource wie die letzte Ablage und mit deren Metadaten", ", into the same resource as the last upload and with its metadata") }}{% if a.on and a.name %}{{ de_en("; über das Coscine-Token von {name}", "; through the Coscine token of {name}", name=a.name) }}{% endif %}</span></label>
+    {{ autosave_bar() }}
+  </form>
+  {% endif %}
+  {% if c.publications %}
+  <p class="small">{{ de_en("Veröffentlichung beantragt am {d} bei {s}", "Publication requested on {d} from {s}", d=c.publications[0].at, s=c.publications[0].service) }}</p>
+  {% endif %}
+  {% if connected and c.resource %}
+  <p class="small"><a href="{{ url_for('coscine.resource_page', survey_id=survey.id) }}">{{ de_en("Alle Ablagen dieser Befragung in der Ressource ansehen", "See all uploads of this survey in the resource") }}</a>
+    · <a href="{{ url_for('coscine.people_page', survey_id=survey.id) }}">{{ de_en("Wer sieht die Dateien", "Who sees the files") }}</a>
+    · <a href="{{ url_for('coscine.publish_page', survey_id=survey.id) }}">{{ de_en("Veröffentlichung beantragen", "Request publication") }}</a></p>
+  {% endif %}
+  {% if connected %}
+  <a class="button button-secondary" href="{{ url_for('coscine.store', survey_id=survey.id) }}">{{ icon("archive", 16) }} {{ de_en("In Coscine ablegen", "Store in Coscine") }}</a>
+  {% else %}
+  <p class="muted small">{{ de_en("Zum Ablegen unter", "To store, add a Coscine token under") }} <a href="{{ url_for('accounts.connections') }}#coscine">{{ de_en("Konto › Verbindungen", "Account › Connections") }}</a>{{ de_en(" ein Coscine-Token hinterlegen.", ".") }}</p>
+  {% endif %}
+  <p class="muted small">{% if survey.interview is not none %}{{ de_en("Die festgehaltenen Fassungen des Leitfadens", "The recorded revisions of the guide") }}{% else %}{{ de_en("Das Datenpaket wie bei Zenodo, auf Wunsch mit abgebrochenen Teilnahmen, und die Präregistrierung", "The data package as with Zenodo, optionally with broken-off participations, and the pre-registration") }}{% endif %} {{ de_en("mit Metadaten nach dem Profil der Ressource, in einem neuen Ordner je Ablage. Wer die Dateien sieht, legt das Coscine-Projekt fest.", "with metadata after the profile of the resource, in a new folder per upload. The Coscine project decides who sees the files.") }}</p>
+</section>
+{% endif %}

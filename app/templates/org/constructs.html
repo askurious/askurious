@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{# Verwaltung > Konstrukte (app/org_admin.py, konzept-konstrukt-schnellbox-2026-10-16.md, K9): the constructs the
+   organisation recommends in the questionnaire editor of its members. Context: org, keep, rows, platform, max. #}
+{% block title %}{{ de_en("Konstrukte", "Constructs") }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<section class="panel">
+  <h2>{{ de_en("Schnellbox der Organisation", "Quick box of the organisation") }}</h2>
+  <p class="muted small">{{ de_en("Diese Konstrukte stehen bei allen Mitgliedern im Fragebogen-Editor unter „Konstrukte“, in dieser Reihenfolge, nach ihren eigenen Favoriten. Alle anderen finden sie weiter über „Alle Konstrukte durchsuchen“.", "These constructs are listed in the questionnaire editor of all members under “Constructs”, in this order, after their own favourites. They find all others through “Browse all constructs” as before.") }}</p>
+  {% include "constructs/_shortlist.html" %}
+  {% if not rows %}
+  <p class="muted small">{{ de_en("Solange die Liste leer ist, gilt die Liste der Plattform:", "While the list is empty, the platform's list holds:") }}
+    {% for c in platform %}{{ c.name }}{{ ", " if not loop.last }}{% else %}{{ de_en("keine", "none") }}{% endfor %}.</p>
+  {% endif %}
+</section>
+{% endblock %}

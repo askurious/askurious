@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link, status_badge, kind_badge %}
+{% from "_people.html" import person_add %}
+{% from "_share.html" import end_share %}
+{# "+ … teilen" right on the group page: one of the own things not shared with the group yet (groups.share, R95) #}
+{% macro offer_form(kind, things, label, button) -%}
+{% if things %}
+<form method="post" action="{{ url_for('groups.share', group_id=group.id) }}" class="row-fields group-offer">
+  {{ csrf() }}<input type="hidden" name="kind" value="{{ kind }}">
+  <label>{{ label }}<select name="id">{% for t in things %}<option value="{{ t.id }}">{{ t.title if kind == "survey" else t.name }}</option>{% endfor %}</select></label>
+  <div><button class="button button-secondary">{{ button }}</button></div>
+</form>
+{% endif %}
+{%- endmacro %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ group.name }} · {{ de_en("Gruppen", "Groups") }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('groups.index') }}">{{ icon("back", 16) }} {{ de_en("Gruppen", "Groups") }}</a>
+<h1 data-live="group-name">{{ group.name }}</h1>
+{% if group.description %}<p class="muted">{{ group.description }}</p>{% endif %}
+
+{% if course %}{# a course (Lehrveranstaltung, app/account_types.py, N7) #}
+<section class="panel" id="lehrveranstaltung">
+  <h2>{{ de_en("Lehrveranstaltung", "Course") }}</h2>
+  <p>{{ de_en("Wer über diese Gruppe neu dazukommt, bekommt den Nutzertyp „{t}“; der Zugang gilt {d} und endet danach.", "Anyone who newly comes in through this group gets the user type “{t}”; access holds {d} and ends afterwards.", t=account_type_name(course.type), d=period_describe(course.spec)) }}</p>
+  {% if course.list %}<p><a class="button button-secondary" href="{{ url_for('bulk_invites.invite_list', group_id=group.id) }}">{{ de_en("Adressliste einladen …", "Invite an address list …") }}</a>
+    <span class="muted small">{{ de_en("E-Mail-Adressen einfügen; ohne E-Mail-Versand bekommen Sie die Links als Datei zum Weiterschicken", "paste email addresses; without email sending you get the links as a file to pass on") if not mail_enabled() else de_en("E-Mail-Adressen einfügen; jede bekommt eine Einladung per E-Mail", "paste email addresses; each gets an invitation by email") }}</span></p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel" id="members">
+  <h2>{{ de_en("Mitglieder", "Members") }} <span class="hint">{{ de_en("sehen einander und alles, was mit der Gruppe geteilt wurde", "see each other and everything shared with the group") }}</span></h2>
+  <ul class="plain member-list">
+    {% for m in group.members %}{% set own = m.user_id == current_user.id %}
+    <li>
+      {{ m.display_name }} {{ orcid_link(m.orcid_id, unauth=not m.signed_up) }}
+      {% if not m.signed_up %}<span class="badge">{{ de_en("noch nicht angemeldet", "not signed in yet") }}</span>{% endif %}
+      {% if lead and m.via == "link" %}<span class="hint">{{ de_en("über Beitrittslink, {d}", "by join link, {d}", d=m.created_at|localdt(false)) }}</span>{% endif %}
+      {# a course: each member's end (app/account_types.py, N16), and a one-time link for accounts of the course (N15) #}
+      {% set ends = course.ends.get(m.user_id) if course and m.user_id else none %}
+      {% if ends and ends.expired %}<span class="badge badge-error">{{ de_en("abgelaufen", "ended") }}</span>{% elif ends and ends.until %}<span class="hint">{{ de_en("bis {d}", "until {d}", d=ends.until|localdate) }}</span>{% endif %}
+      {% if course and m.user_id in course.links %}<form class="inline" method="post" action="{{ url_for('bulk_invites.one_time_link', group_id=group.id, user_id=m.user_id) }}"
+          data-confirm="{{ de_en('Einmal-Link für {n} erzeugen?', 'Create a one-time link for {n}?', n=m.display_name) }}" data-confirm-note="{{ de_en('Mit dem Link setzt die Person ein neues Passwort. Geben Sie ihn nur ihr selbst.', 'With the link the person sets a new password. Give it only to them.') }}" data-confirm-ok="{{ de_en('Link erzeugen', 'Create link') }}">
+        {{ csrf() }}<button class="link small">{{ de_en("Einmal-Link", "One-time link") }}</button></form>{% endif %}
+      {% if lead %}
+      {# the own role: asked first, since only another lead can give it back #}
+      <form class="inline member-role" method="post" action="{{ url_for('groups.set_role', group_id=group.id, member_id=m.id) }}"
+            {% if own %}data-confirm="{{ de_en('Eigene Rolle ändern?', 'Change your own role?') }}" data-confirm-note="{{ de_en('Ohne die Rolle „Leitung“ können Sie die Gruppe nicht mehr verwalten; zurückgeben kann sie nur eine andere Leitung.', 'Without the role “Lead” you can no longer manage the group; only another lead can give it back.') }}"
+            data-confirm-ok="{{ de_en('Rolle ändern', 'Change role') }}" data-confirm-danger{% endif %}>
+        {{ csrf() }}
+        <select name="role" aria-label="{{ de_en('Rolle von {n}', 'Role of {n}', n=m.display_name) }}" data-current="{{ m.role }}" data-submit-on-change>
+          {% for key, (label, what) in roles.items() %}<option value="{{ key }}" title="{{ what }}" {% if m.role == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <noscript><button class="button button-small button-secondary">{{ de_en("Ändern", "Change") }}</button></noscript>
+      </form>
+      {% else %}<span class="badge role-badge" title="{{ roles[m.role][1] }}">{{ roles[m.role][0] }}</span>{% endif %}
+      {% if group.members|length > 1 and (lead or own) %}
+      {% if own %}{{ end_share(url_for('groups.remove_member', group_id=group.id, member_id=m.id), de_en("Gruppe „{g}“ verlassen", "Leave group “{g}”", g=group.name), {}, de_en("Was mit der Gruppe geteilt ist, sehen Sie dann nicht mehr; was Sie selbst mit ihr geteilt haben, ist nicht mehr geteilt. Wieder aufnehmen kann Sie nur die Leitung.", "You will then no longer see what is shared with the group; what you shared with it yourself is no longer shared. Only the lead can add you again."), de_en("Gruppe verlassen", "Leave group")) }}
+      {% else %}{{ end_share(url_for('groups.remove_member', group_id=group.id, member_id=m.id), de_en("{n} aus der Gruppe entfernen", "Remove {n} from the group", n=m.display_name), {}, de_en("Was mit der Gruppe geteilt ist, sieht die Person dann nicht mehr; sie lässt sich später wieder aufnehmen.", "The person will then no longer see what is shared with the group; they can be added again later."), de_en("Entfernen", "Remove")) }}{% endif %}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% if lead %}
+  <p class="muted small">{{ de_en("Rollen:", "Roles:") }} {% for key, (label, what) in roles.items() %}<strong>{{ label }}</strong>: {{ what }}{% if not loop.last %} · {% endif %}{% endfor %}.
+    {{ de_en("Wer hinzugefügt wird, ist sofort Mitglied, kann sich bei Askurious anmelden und hat Zugriff auf alles, was mit der Gruppe geteilt ist.", "Anyone who is added is a member at once, can sign in to Askurious and has access to everything shared with the group.") }}</p>
+  {# one component for adding a person (_people.html, W96, S8) #}
+  {{ person_add(url_for('groups.detail', group_id=group.id) ~ "#members", "group-member-q", q, results, url_for('groups.add_member', group_id=group.id), roles=roles, role_default="member", invite_url=url_for('invites.to_group', group_id=group.id)) }}
+  {% if mail_enabled() or course %}{% with invites=open_invites(group=group) %}{% include "invites/_open.html" %}{% endwith %}{% endif %}
+  {% include "groups/_join_links.html" %}
+  {% endif %}
+</section>
+
+<section class="panel" id="surveys">
+  <h2>{{ de_en("Geteilte Befragungen", "Shared surveys") }} <span class="hint">{{ de_en("Zugriff für alle Mitglieder; Autorin oder Autor wird dadurch niemand", "access for all members; nobody becomes an author through it") }}</span></h2>
+  {% if not group.survey_links %}<p class="muted">{{ de_en("Mit dieser Gruppe ist noch keine Befragung geteilt. Teilen können die Admins einer Befragung, hier
+    oder in deren Einstellungen unter „Beteiligte Forschende“ → „Gruppen mit Zugriff“.", "No survey is shared with this group yet. The admins of a survey can share it, here
+    or in its settings under “Researchers involved” → “Groups with access”.") }}</p>
+  {% else %}
+  <ul class="plain">
+    {% for l in group.survey_links|sort(attribute="survey.title") if kind_sees(l.survey.kind) %}{# types "off" for the reader stay out (app/kind_access.py) #}
+    <li><a href="{{ url_for('surveys.detail', survey_id=l.survey.id) }}"><strong>{{ l.survey.title }}</strong></a> {{ kind_badge(l.survey) }} {{ status_badge(l.survey, false) }}
+      <span class="badge role-badge" title="{{ role_names[l.role][1] }}">{{ role_names[l.role][0] }}</span>
+      <span class="muted small">{{ l.survey.members|map(attribute="display_name")|join(", ") }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {{ offer_form("survey", offer.survey, de_en("Eine Ihrer Befragungen", "One of your surveys"), de_en("+ Befragung teilen", "+ Share survey")) }}
+</section>
+
+<section class="panel" id="designs">
+  <h2>{{ de_en("Geteilte Designs", "Shared designs") }} <span class="hint">{{ de_en("alle Mitglieder wenden sie an und duplizieren sie; bearbeiten nur mit eigenem Recht", "all members apply and duplicate them; editing only with their own right") }}</span></h2>
+  {% if not designs %}<p class="muted">{{ de_en("Mit dieser Gruppe ist noch kein Design geteilt. Teilen können die Eigentümer eines Designs, hier oder
+    auf der Seite", "No design is shared with this group yet. The owners of a design can share it, here or
+    on the page") }} <a href="{{ url_for('designs.index') }}">{{ de_en("Designs", "Designs") }}</a> {{ de_en("unter „Geteilt mit“.", "under “Shared with”.") }}</p>
+  {% else %}
+  <ul class="plain">
+    {% for d in designs %}
+    <li><strong>{{ d.name }}</strong> <span class="muted">{{ de_en("von", "by") }} {{ de_en("Ihnen", "you") if d.owner_id == current_user.id else d.owner.display_name }}</span>
+      {% if design_may_edit(current_user, d) %}<a class="button button-secondary button-small" href="{{ url_for('designs.edit', design_id=d.id) }}">{{ de_en("Bearbeiten", "Edit") }}</a>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Die Designs stehen auf der Seite", "The designs are available on the page") }} <a href="{{ url_for('designs.index') }}">{{ de_en("Designs", "Designs") }}</a> {{ de_en("und in jeder Befragung unter „Erscheinungsbild“ bereit.", "and in every survey under “Appearance”.") }}</p>
+  {% endif %}
+  {{ offer_form("design", offer.design, de_en("Eines Ihrer Designs", "One of your designs"), de_en("+ Design teilen", "+ Share design")) }}
+</section>
+
+<section class="panel" id="linked">
+  <h2>{{ de_en("Geteilte verknüpfte Elemente", "Shared linked elements") }} <span class="hint">{{ de_en("alle Mitglieder fügen sie in eigene Befragungen ein und werten sie gemeinsam aus; ändern nur, wer sie angelegt hat", "all members insert them into their own surveys and analyse them together; only the person who created them can change them") }}</span></h2>
+  {% if not linked %}<p class="muted">{{ de_en("Mit dieser Gruppe ist noch kein verknüpftes Element geteilt.", "No linked element is shared with this group yet.") }}</p>
+  {% else %}
+  <ul class="plain">
+    {% for c in linked %}
+    <li><a href="{{ url_for('constructs.linked', key=c.key) }}"><strong>{{ c.name }}</strong></a>
+      <span class="muted">{{ de_en("von", "by") }} {{ de_en("Ihnen", "you") if c.created_by_id == current_user.id else makers.get(c.created_by_id, "") }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {{ offer_form("linked", offer.linked, de_en("Eines Ihrer verknüpften Elemente", "One of your linked elements"), de_en("+ Element teilen", "+ Share element")) }}
+</section>
+
+{% if lead %}
+<section class="panel" id="settings">
+  <h2>{{ de_en("Name und Beschreibung", "Name and description") }}</h2>
+  {# saves by itself (app/autosave.py); outside of surveys there is no "Rückgängig" #}
+  <form method="post" action="{{ url_for('groups.edit', group_id=group.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label><span class="label-title">Name</span>
+      <input type="text" name="name" value="{{ group.name }}" maxlength="80" required class="name-field"></label>
+    <label><span class="label-title">{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional; sehen nur die Mitglieder", "optional; only the members see it") }}</span></span>
+      <input type="text" name="description" value="{{ group.description }}" maxlength="500" class="description-field"></label>
+    {{ autosave_bar() }}
+  </form>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Gruppe löschen", "Delete group") }}</h2>
+  <p class="muted">{{ de_en("Die Gruppe und ihre Mitgliederliste werden gelöscht. Geteilte Befragungen und Designs bleiben bei den Personen, denen sie gehören, sind
+    dann aber nicht mehr über die Gruppe geteilt: Wer nur über die Gruppe Zugriff hatte, verliert ihn.", "The group and its list of members are deleted. Shared surveys and designs stay with their owners but are
+    then no longer shared through the group: anyone who had access only through the group loses it.") }}</p>
+  {# the question says what ends, with singular and plural (UI audit 2026-10-07, W86) #}
+  {% set m = group.members|length %}{% set ns = group.survey_links|length %}{% set nd = designs|length %}{% set nl = linked|length %}
+  {% set members_text = de_en("1 Mitglied", "1 member") if m == 1 else de_en("{n} Mitgliedern", "{n} members", n=m) %}
+  {% set what = [de_en("1 Befragung", "1 survey") if ns == 1 else de_en("{n} Befragungen", "{n} surveys", n=ns),
+                 de_en("1 Design", "1 design") if nd == 1 else de_en("{n} Designs", "{n} designs", n=nd),
+                 de_en("1 verknüpftes Element", "1 linked element") if nl == 1 else de_en("{n} verknüpfte Elemente", "{n} linked elements", n=nl)] %}
+  {% set for_whom = de_en("1 Mitglied", "1 member") if m == 1 else de_en("{n} Mitglieder", "{n} members", n=m) %}
+  <form method="post" action="{{ url_for('groups.delete', group_id=group.id) }}"
+        data-confirm="{{ de_en('Gruppe „{g}“ mit {members} löschen?', 'Delete group “{g}” with {members}?', g=group.name, members=members_text) }}"
+        data-confirm-note="{{ de_en('Damit endet der Zugriff über die Gruppe auf {a}, {b} und {c} für {whom}. Das lässt sich nicht rückgängig machen.', 'This ends the access through the group to {a}, {b} and {c} for {whom}. This cannot be undone.', a=what[0], b=what[1], c=what[2], whom=for_whom) }}"
+        data-confirm-ok="{{ de_en('Gruppe löschen', 'Delete group') }}" data-confirm-danger>
+    {{ csrf() }}<button class="button button-danger">{{ icon("trash", 16) }} {{ de_en("Gruppe löschen", "Delete group") }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

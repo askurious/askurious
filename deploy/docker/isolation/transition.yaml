@@ -1,0 +1,15 @@
+# During a restart db/nginx must retain the old endpoints until both participants are healthy again.
+services:
+  db:
+    networks: !override {default: {}, backend: {}, researcher-back: {}, brand-backend: {}}
+  nginx:
+    networks: !override
+      default:
+        aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
+      frontend:
+        aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
+      researcher-front:
+        aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
+      brand-frontend: {}
+networks:
+  default: {}

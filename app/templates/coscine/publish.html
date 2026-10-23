@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# "Veröffentlichung beantragen" (app/coscine.py, publish_page, K5): a request to the publication service
+   of the person's organisation for the resource of the last upload. Needs: survey, entry, services, blocked, back,
+   requests, message. #}
+{% block title %}{{ de_en("Veröffentlichung beantragen", "Request publication") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel" id="coscine-publish">
+  <h2>{{ de_en("Veröffentlichung in Coscine beantragen", "Request publication in Coscine") }}</h2>
+  <p class="small">{{ de_en("Ressource", "Resource") }} <strong>{{ entry.project }} › {{ entry.resource }}</strong>{% set h = coscine_handle(entry.pid) %}{% if h %} · <a href="{{ h }}" target="_blank" rel="noopener">{{ de_en("Dauerhafter Link (Handle) ↗", "Permanent link (handle) ↗") }}</a>{% endif %}</p>
+  {% if blocked %}
+  <div class="flash flash-error">{{ icon("alert", 16) }} <span>{{ de_en("Diese Ressource lässt sich nicht veröffentlichen:", "This resource cannot be published:") }} {{ blocked }}</span></div>
+  {% endif %}
+  {% if requests %}
+  <ul class="plain snapshot-list">{% for r in requests %}<li>{{ de_en("Beantragt am {d} von {who} bei {s} ({r})", "Requested on {d} by {who} from {s} ({r})", d=r.at, who=r.by, s=r.service, r=r.resource) }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if services %}
+  <form method="post" action="{{ url_for('coscine.publish_page', survey_id=survey.id) }}" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Veröffentlichungsdienst", "Publication service") }}</span>
+      <select name="dienst">{% for s in services %}<option value="{{ s.organizationRor }}">{{ s.displayName }}{% if s.email %} ({{ s.email }}){% endif %}</option>{% endfor %}</select></label>
+    <label><span class="label-title">{{ de_en("Nachricht an den Dienst", "Message to the service") }}</span>
+      <textarea name="nachricht" rows="7" maxlength="4000">{{ message }}</textarea></label>
+    <div class="form-actions"><button class="button" {% if blocked %}disabled{% endif %}>{{ icon("arrow-up-right", 16) }} {{ de_en("Veröffentlichung beantragen", "Request publication") }}</button>
+      <a class="button button-secondary" href="{{ back }}">{{ de_en("Zurück", "Back") }}</a></div>
+  </form>
+  {% else %}
+  <p class="small">{{ de_en("Coscine nennt für Ihre Einrichtung keinen Veröffentlichungsdienst.", "Coscine names no publication service for your organisation.") }}</p>
+  {% endif %}
+  <p class="muted small">{{ de_en("Der Dienst Ihrer Einrichtung prüft die Anfrage, meldet sich per Mail und veröffentlicht mit DOI. Das dauert länger als Zenodo, bleibt aber in der Einrichtung; beide Wege stehen nebeneinander. Eine eigene PID braucht es nicht: Jede Ressource hat ihren Handle schon.", "The service of your organisation reviews the request, replies by mail and publishes with a DOI. That takes longer than Zenodo but stays within the organisation; both ways stand side by side. No PID of its own is needed: every resource already has its handle.") }}</p>
+</section>
+{% endblock %}

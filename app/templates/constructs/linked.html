@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar, csrf, num, orcid_link %}
+{% from "_people.html" import person_add %}
+{% from "_share.html" import end_share %}
+{% block title %}{{ c.name }} · {{ de_en("Verknüpftes Element", "Linked element") }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('constructs.index') }}#verknuepft">{{ icon("back", 16) }} {{ de_en("Konstrukte", "Constructs") }}</a>
+<div class="page-head">
+  <h1 data-live="linked-name">{{ icon("link", 20) }} {{ c.name }} <span class="badge badge-linked">{{ de_en("Fassung {v}", "Revision {v}", v=c.seed_version) }}</span></h1>
+  {% if (c.spec.texts or {})|length > 1 %}
+  <nav class="lang-switch" aria-label="{{ de_en('Sprache', 'Language') }}">
+    {% for code in c.spec.texts %}
+    <a href="{{ url_for('constructs.linked', key=c.key, lang=code) }}" {% if code == lang %}class="active"{% endif %}>{{ languages.get(code, code) }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+</div>
+
+<section class="panel">
+  <p>{{ de_en("Ein verknüpftes Element ist dieselbe Frage in mehreren Befragungen. Seine Antworten lassen sich gemeinsam auswerten, weil alle Befragungen nachweislich dasselbe fragen. Es ist kein validiertes Konstrukt: Belegt ist die Gleichheit der Frage, nicht ihre Güte.", "A linked element is the same question in several surveys. Its answers can be analysed together because all surveys demonstrably ask the same. It is not a validated construct: what is shown is that the question is the same, not how good it is.") }}</p>
+  <dl class="construct-facts">
+    <dt>{{ de_en("Stand", "State") }}</dt><dd>{% if info.frozen %}{{ icon("lock", 14) }} {{ de_en("Eingefroren.", "Frozen.") }} {{ info.frozen }} {{ de_en("Aufbau und Wortlaut sind gesperrt; einzelne Befragungen können es für sich anpassen.", "Structure and wording are locked; single surveys can adapt it for themselves.") }}{% else %}{{ de_en("Offen: Noch hat niemand echt geantwortet und keine Befragung damit läuft. Änderungen in einer Verwendung übernehmen alle Verwendungen im Entwurf.", "Open: nobody has answered for real yet and no survey with it is running. Changes in one use apply to all uses in draft.") }}{% endif %}</dd>
+    {% if info.versions|length > 1 %}<dt>{{ de_en("Fassungen", "Revisions") }}</dt><dd>{% for v, n, frozen in info.versions %}{{ de_en("Fassung {v}: {n} Verwendung", "Revision {v}: {n} use", v=v, n=n) if n == 1 else de_en("Fassung {v}: {n} Verwendungen", "Revision {v}: {n} uses", v=v, n=n) }}, {{ de_en("eingefroren", "frozen") if frozen else de_en("offen", "open") }}{{ "; " if not loop.last }}{% endfor %}
+      <span class="hint">{{ de_en("neue Fassung: in einer Befragung im Entwurf über „Neue Fassung anlegen“ im Element-Editor", "new revision: in a survey in draft with “Create new revision” in the element editor") }}</span></dd>{% endif %}
+    <dt>{{ de_en("Verwendet in", "Used in") }}</dt><dd>{{ de_en("{n} Befragung", "{n} survey", n=info.surveys) if info.surveys == 1 else de_en("{n} Befragungen", "{n} surveys", n=info.surveys) }}{% if info.real %}, {{ de_en("{n} echte Teilnahme", "{n} real participation", n=info.real) if info.real == 1 else de_en("{n} echte Teilnahmen", "{n} real participations", n=info.real) }}{% if info.real_partial %} {{ de_en("in den Befragungen mit Ihrem Zugriff", "in the surveys you have access to") }}{% endif %}{% endif %}</dd>
+    <dt>{{ de_en("Variablenname", "Variable name") }}</dt><dd><code>{{ c.spec.get("code", "") }}</code> <span class="hint">{{ de_en("in der ersten Verwendung; jede Befragung kann ihren eigenen haben", "in the first use; each survey can have its own") }}</span></dd>
+    <dt>{{ de_en("Sprachen", "Languages") }}</dt><dd>{{ (c.spec.texts or {})|list|map("upper")|join(", ") }}</dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Verwendungen", "Uses") }}</h2>
+  <table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Befragung", "Survey") }}</th><th>{{ de_en("Frage", "Question") }}</th><th>Status</th><th class="narrow-col">{{ de_en("Fassung", "Revision") }}</th><th class="narrow-col">{{ de_en("echte Teilnahmen", "real participations") }}</th></tr></thead>
+    <tbody>
+    {# surveys without the person's access: no row (status and participations are theirs), only a count below #}
+    {% for u in info.uses if u.visible %}
+    {% set s = u.survey %}
+    <tr>
+      <td><a href="{{ url_for('surveys.detail', survey_id=s.id) }}">{{ s.title }}</a></td>
+      <td><a href="{{ url_for('editor.edit_item', survey_id=s.id, item_id=u.item.id) }}"><code>{{ u.item.code }}</code></a>{% if u.adapted %} <span class="badge badge-paused">{{ de_en("angepasst", "adapted") }}</span>{% endif %}</td>
+      <td>{{ status_names.get(s.status, s.status) }}</td>
+      <td class="center">{{ u.version or "" }}</td>
+      <td class="center">{{ u.real if u.first else "" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if not info.uses %}<p class="muted">{{ de_en("Zurzeit verwendet keine Befragung dieses Element.", "No survey uses this element at the moment.") }}</p>{% endif %}
+  {% set hidden = info.uses|rejectattr("visible")|selectattr("first")|list|length %}
+  {% if info.hidden_uses %}<p class="muted small">{{ de_en("Weitere Verwendungen liegen außerhalb Ihres Zugriffs.", "Other uses are outside your access.") }}</p>{% endif %}
+  <p class="hint" style="margin-left:0">{{ de_en("Einfügen: im Fragebogen über die Liste „Verknüpfte Elemente“. Beim Duplizieren einer Befragung bleiben verknüpfte Elemente verknüpft.", "Insert: in the questionnaire from the list “Linked elements”. When a survey is duplicated, linked elements stay linked.") }}</p>
+</section>
+
+<section class="panel" id="auswertung">
+  <h2>{{ de_en("Gemeinsame Auswertung", "Shared analysis") }} <span class="hint">{{ de_en("echte Teilnahmen aus dem Datenpool jeder Befragung, ohne was die Qualitätssicherung markiert", "real participations from the data pool of each survey, without those quality assurance marks") }}</span></h2>
+  <form method="get" class="row-fields" action="{{ url_for('constructs.linked', key=c.key) }}#auswertung">
+    <label class="check"><input type="checkbox" name="laufend" value="1" {% if running %}checked{% endif %} data-submit-on-change> {{ de_en("laufende Befragungen einbeziehen", "include running surveys") }}</label>
+    <input type="hidden" name="laufend" value="0">{# after the box: unticked, only this one is sent #}
+    <label class="check"><input type="checkbox" name="ohne_hinweis" value="1" {% if without_hint %}checked{% endif %} data-submit-on-change> {{ de_en("auch Teilnahmen ohne Hinweis in der Einwilligung", "also participations without a note in the consent") }}
+      <span class="hint">{{ de_en("begonnen, bevor die Frage verknüpft war: Die Teilnehmenden wussten nichts von der gemeinsamen Auswertung", "started before the question was linked: the participants did not know about the shared analysis") }}</span></label>
+  </form>
+  <table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Befragung", "Survey") }}</th><th class="narrow-col">{{ de_en("Fassung", "Revision") }}</th><th class="narrow-col">{{ de_en("einbezogen", "included") }}</th><th>{{ de_en("Hinweis", "Note") }}</th></tr></thead>
+    <tbody>
+    {% for s in data.surveys %}
+    <tr><td>{{ s.survey.title }}</td><td class="center">{{ s.versions|join(", ") }}</td><td class="center">{{ s.n if not s.left_out else "–" }}</td>
+      <td class="small">{% if s.left_out == "Entwurf" %}{{ de_en("Entwurf, noch keine Daten", "draft, no data yet") }}{% elif s.left_out == "läuft" %}{{ de_en("läuft, nicht einbezogen", "running, not included") }}{% elif s.no_hint and not without_hint %}{{ de_en("{n} ohne Hinweis in der Einwilligung nicht einbezogen", "{n} without a note in the consent not included", n=s.no_hint) }}{% elif s.no_hint %}{{ de_en("davon {n} ohne Hinweis in der Einwilligung", "{n} of them without a note in the consent", n=s.no_hint) }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% set used_versions = data.surveys|selectattr("n")|map(attribute="versions")|sum(start=[])|unique|list %}
+  {% if used_versions|length > 1 %}<p class="small">{{ icon("alert", 14) }} {{ de_en("Die Zahlen fassen mehrere Fassungen zusammen; im Datensatz steht die Fassung je Zeile (Spalte", "The figures combine several revisions; the data set has the revision in each row (column") }} <code>version</code>).</p>{% endif %}
+  {% if data.hidden %}<p class="small muted">{{ de_en("Dazu {n} Verwendung in Befragungen, die Sie nicht öffnen oder nur ansehen können: nicht einbezogen.", "Plus {n} use in surveys you cannot open or can only view: not included.", n=data.hidden) if data.hidden == 1 else de_en("Dazu {n} Verwendungen in Befragungen, die Sie nicht öffnen oder nur ansehen können: nicht einbezogen.", "Plus {n} uses in surveys you cannot open or can only view: not included.", n=data.hidden) }}</p>{% endif %}
+  {% if figures %}
+  <div class="linked-figures">
+  <h3>{{ de_en("Antworten", "Answers") }}</h3>
+  {% set categorical = figures[0].shares is defined %}
+  {% if categorical %}
+  <div class="res-scroll">
+  <table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Antwort", "Answer") }}</th>{% for f in figures %}<th class="narrow-col">{{ f.title }} <span class="hint">n = {{ f.answered }}</span></th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in figures[0].shares %}{% set i = loop.index0 %}
+    <tr><td>{{ row.label|striptags }}</td>{% for f in figures %}<td>{% if f.shares[i].share is none %}–{% else %}<span class="lk-bar" style="--v: {{ (f.shares[i].share * 100)|round(1) }}%"></span> {{ f.shares[i].share|percent }}{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="res-scroll">
+  <table class="list-table is-edit">
+    <thead><tr><th>Variable</th>{% for f in figures %}<th class="narrow-col">{{ f.title }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in figures[0].rows %}{% set i = loop.index0 %}
+    <tr><td><code>{{ row.name }}</code></td>{% for f in figures %}{% set r = f.rows[i] %}<td>{% if r.n %}{% set span = (f.high - f.low) or 1 %}<span class="lk-bar" style="--v: {{ ([0, [100, (r.mean - f.low) / span * 100]|min]|max)|round(1) }}%" title="{{ de_en('Mittelwert auf der Spanne {low} bis {high}', 'Mean on the range {low} to {high}', low=f.low, high=f.high) }}"></span> M = {{ num(r.mean) }}, SD = {{ num(r.sd) }} <span class="hint">n = {{ r.n }}</span>{% else %}–{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+    {% if figures[0].reliability is defined %}
+    <tr><td>{{ de_en("Reliabilität", "Reliability") }}</td>{% for f in figures %}{% set rel = f.reliability %}<td class="center">{% if rel %}{{ "Spearman-Brown" if rel.two else "α" }} = {{ num(rel.alpha) }}{% if not rel.two %}, ω = {{ num(rel.omega) }}{% endif %} <span class="hint">n = {{ rel.n }}</span>{% else %}–{% endif %}</td>{% endfor %}</tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  </div>
+  {% else %}
+  <p class="muted">{{ de_en("Noch keine einbezogenen Teilnahmen.", "No included participations yet.") }}</p>
+  {% endif %}
+  <h3>{{ de_en("Gemeinsamer Datensatz", "Shared data set") }} <span class="hint">{{ de_en("eine Zeile je Teilnahme und Verwendung; Teilnahmen pseudonym, die Variablen des Elements, dazu andere verknüpfte Elemente derselben Teilnahme", "one row per participation and use; participations pseudonymous, the variables of the element, plus other linked elements of the same participation") }}</span></h3>
+  <p class="row">{% for fmt, label in [("csv", "CSV"), ("sav", "SPSS, JASP (.sav)"), ("omv", "jamovi (.omv)"), ("rds", "R (.rds)")] %}
+    <a class="button button-secondary small" href="{{ url_for('constructs.linked_data', key=c.key, fmt=fmt, laufend=0 if not running else none, ohne_hinweis=1 if without_hint else none) }}">{{ icon("download", 16) }} {{ label }}</a>{% endfor %}</p>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Frage", "Question") }} <span class="hint">{{ languages.get(lang, lang) }}</span></h2>
+  <p><strong>{{ texts.question|striptags if texts.question else "" }}</strong></p>
+  {% if config.statements %}
+  <table class="list-table is-edit construct-items">
+    <thead><tr><th class="narrow-col">Variable</th><th>{{ de_en("Aussage", "Statement") }}</th><th class="narrow-col">{{ de_en("umgepolt", "reversed") }}</th></tr></thead>
+    <tbody>
+    {% for st in config.statements %}
+    <tr><td><code>{{ st.code }}</code></td><td>{{ ((texts.statements or {}).get(st.id, "") or "")|striptags }}</td><td class="center">{% if st.reverse %}{{ icon("check", 16) }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if config.points %}<p class="small muted">{{ de_en("Skala: {n} Stufen", "Scale: {n} points", n=config.points) }}{% for l in texts.labels or [] %}{% if l %} · {{ loop.index }} = {{ l|striptags }}{% endif %}{% endfor %}</p>{% endif %}
+  {% elif config.options %}
+  <ul class="plain construct-options">
+    {% for o in config.options %}<li><code>{{ o.code }}</code> {{ ((texts.options or {}).get(o.id, "") or "")|striptags }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+{% if info.owner %}
+<section class="panel" id="teilen">
+  <h2>{{ de_en("Mit Personen teilen", "Share with people") }} <span class="hint">{{ de_en("z. B. für eine Kollegin, die die Frage in ihrer eigenen Befragung mitlaufen lässt: Sie findet das Element im Fragebogen unter „Verknüpfte Elemente“ und fügt es selbst ein; ändern kann sie es nicht", "e.g. for a colleague who asks the question in her own survey too: she finds the element in the questionnaire under “Linked elements” and inserts it herself; she cannot change it") }}</span></h2>
+  {# the same line as under "Beteiligte Forschende": name, ORCID symbol, ×; then "Person hinzufügen" (S8) #}
+  {% if c.person_shares %}
+  <ul class="plain member-list">
+    {% for s in c.person_shares %}{% set who = names.get(s.user_id) or s.orcid_id or de_en("(ohne Namen)", "(without a name)") %}
+    <li>{{ who }} {{ orcid_link(s.orcid_id) }} <span class="badge role-badge" title="{{ de_en('kann das Element einfügen, aber nicht ändern', 'can insert the element, but not change it') }}">{{ de_en("darf einfügen", "may insert") }}</span>
+      {{ end_share(url_for('constructs.linked', key=c.key), de_en("Freigabe für {who} beenden", "End sharing with {who}", who=who), {"action": "unshare_person", "user": s.user_id}, de_en("Befragungen, die das Element schon verwenden, behalten es.", "Surveys that already use the element keep it.")) }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {{ person_add(url_for('constructs.linked', key=c.key) ~ "#teilen", "linked-share-q", q, people, url_for('constructs.linked', key=c.key), hidden={"action": "share_person"}, add_word=de_en("Teilen", "Share")) }}
+</section>
+<section class="panel">
+  <h2>{{ de_en("Mit Gruppen teilen", "Share with groups") }} <span class="hint">{{ de_en("Mitglieder, auch künftige, können das Element einfügen und für ihre eigenen Befragungen gemeinsam auswerten; ändern können sie es nicht", "members, future ones too, can insert the element and analyse it together for their own surveys; they cannot change it") }}</span></h2>
+  {% for g in shared_groups %}
+  <span class="share-item"><span class="badge">{{ de_en("Gruppe", "Group") }}</span> {{ g.name }} {{ end_share(url_for('constructs.linked', key=c.key), de_en("Freigabe für die Gruppe „{group}“ beenden", "End sharing with the group “{group}”", group=g.name), {"action": "unshare", "group": g.id}, de_en("Befragungen, die das Element schon verwenden, behalten es.", "Surveys that already use the element keep it.")) }}</span>
+  {% endfor %}
+  {% if my_groups %}
+  <form method="post" class="row-fields">
+    {{ csrf() }}<input type="hidden" name="action" value="share">
+    <label><span class="label-title">{{ de_en("Gruppe", "Group") }}</span><select name="group">{% for g in my_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></label>
+    <div><button class="button button-secondary">{{ de_en("Teilen", "Share") }}</button></div>
+  </form>
+  {% elif not shared_groups %}<p class="muted small">{{ de_en("Sie sind in keiner Gruppe.", "You are not in any group.") }}</p>{% endif %}
+</section>
+<section class="panel" id="toolbox">
+  <h2>{{ de_en("In „Konstrukte“ aufnehmen?", "Add to “Constructs”?") }}</h2>
+  {% set st = submission.state if submission else "" %}
+  {% if st == "accepted" %}
+  <p class="small">{{ de_en("Aufgenommen: Das Element steht als", "Added: the element is listed as a") }} <a href="{{ url_for('constructs.detail', key=submission.toolbox_key) }}">{{ de_en("Konstrukt", "construct") }}</a> {{ de_en("unter „Konstrukte“", "under “Constructs”") }}{% if submission.note %} {{ de_en("(„{note}“)", "(“{note}”)", note=submission.note) }}{% endif %}.
+    {{ de_en("Die bisherigen Verwendungen bleiben verknüpfte Elemente und kommen nicht in den Pool des Betreibers.", "The uses so far stay linked elements and do not go into the pool of the provider of Askurious (see legal notice).") }}</p>
+  {% elif st == "submitted" %}
+  <p class="small">{{ de_en("Eingereicht am {date}. Ein Admin der Plattform prüft das Element; die Antwort erscheint hier und auf Ihrer Startseite.", "Submitted on {date}. A platform admin checks the element; the answer appears here and on your start page.", date=submission.created_at|localdate) }}</p>
+  {% elif st == "question" %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Rückfrage eines Admins der Plattform: {note}", "Question from a platform admin: {note}", note=submission.note) }}</span></div>
+  {% if info.owner %}
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="answer">
+    <label><span class="label-title">{{ de_en("Ihre Antwort", "Your answer") }}</span><textarea name="answer" rows="3" maxlength="2000" required></textarea></label>
+    <div class="form-actions"><button class="button">{{ de_en("Antwort senden", "Send answer") }}</button></div>
+  </form>
+  {% endif %}
+  {% else %}
+  {% if st == "rejected" %}<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Nicht aufgenommen: {note}", "Not added: {note}", note=submission.note) }}</span></div>{% endif %}
+  <p class="small">{{ de_en("Hat sich das Element bewährt (siehe „Gemeinsame Auswertung“) und gibt es eine Veröffentlichung dazu, reichen Sie es ein. Ein Admin der Plattform prüft es;", "If the element has proved itself (see “Shared analysis”) and there is a publication on it, submit it. A platform admin checks it;") }}
+    {{ de_en("wird es aufgenommen, entsteht ein neues Konstrukt, zunächst als „ungeprüft“, bis der Wortlaut mit der Quelle verglichen ist. Die bisherigen Verwendungen bleiben verknüpfte Elemente und kommen nicht in den Pool des Betreibers.", "if it is added, a new construct is made, first as “unchecked” until the wording has been compared with the source. The uses so far stay linked elements and do not go into the pool of the provider of Askurious (see legal notice).") }}</p>
+  {% if info.owner %}
+  <details{% if prefill.get("citation") or prefill.get("description") %} open{% endif %}><summary>{{ de_en("Einreichen", "Submit") }}</summary>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="submit">
+    <label><span class="label-title">{{ de_en("Beschreibung des Konstrukts", "Description of the construct") }} <span class="hint">{{ de_en("was es misst, für wen, wie lang", "what it measures, for whom, how long") }}</span></span>
+      <textarea name="description" rows="3" maxlength="3000" required>{{ prefill.get("description", "") }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("vollständige Angabe, z. B. APA", "full reference, e.g. APA") }}</span></span>
+      <textarea name="citation" rows="2" maxlength="2000" required>{{ prefill.get("citation", "") }}</textarea></label>
+    <label><span class="label-title">DOI</span><input name="doi" required placeholder="10.1037/…" value="{{ prefill.get('doi', '') }}"></label>
+    <label><span class="label-title">{{ de_en("Auswertung", "Scoring") }} <span class="hint">{{ de_en("z. B. Mittelwert aller Aussagen, Subskalen", "e.g. mean of all statements, subscales") }}</span></span>
+      <textarea name="scoring" rows="2" maxlength="1000" required>{{ prefill.get("scoring", "") }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Umgepolte Aussagen", "Reverse-coded statements") }} <span class="hint">optional</span></span><input name="reverse" maxlength="500" value="{{ prefill.get('reverse', '') }}"></label>
+    <label><span class="label-title">{{ de_en("Nutzungsbedingungen des Wortlauts", "Terms of use of the wording") }} <span class="hint">{{ de_en("z. B. CC BY 4.0, „frei für nichtkommerzielle Forschung“ oder „eigene Skala, Nutzung nach Rücksprache“", "e.g. CC BY 4.0, “free for non-commercial research” or “own scale, use after asking the authors”") }}</span></span>
+      <input name="licence" maxlength="1000" required value="{{ prefill.get('licence', '') }}"></label>
+    <label class="check"><input type="checkbox" name="rights" value="1" required> {{ de_en("Der Wortlaut darf in Askurious genutzt und mit allen Forschenden geteilt werden (eigene Skala oder Nutzung durch die Quelle erlaubt).", "The wording may be used in Askurious and shared with all researchers (own scale, or use permitted by the source).") }}</label>
+    <div class="form-actions"><button class="button">{{ de_en("Für „Konstrukte“ einreichen", "Submit for “Constructs”") }}</button></div>
+  </form>
+  </details>
+  {% endif %}
+  <p class="muted small">{{ de_en("Eine Skala aus der Literatur, die niemand in Askurious angelegt hat?", "A scale from the literature that nobody has created in Askurious?") }} <a href="{{ url_for('feedback.scale') }}">{{ de_en("Skala vorschlagen", "Suggest a scale") }}</a></p>
+  {% endif %}
+</section>
+<div class="settings-pair">
+<section class="panel">
+  <h2>Name</h2>
+  <form method="post" class="stack" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="action" value="rename">
+    <label><span class="label-title">Name <span class="hint">{{ de_en("nur für Forschende, z. B. in der Liste im Fragebogen", "for researchers only, e.g. in the list in the questionnaire") }}</span></span>
+      <input name="name" maxlength="120" required value="{{ c.name }}"></label>
+    {{ autosave_bar(small=true) }}
+  </form>
+</section>
+<section class="panel">
+  <h2>{{ de_en("Auflösen", "Dissolve") }}</h2>
+  {% if info.partial_dissolve %}
+  <p class="small">{{ de_en("Ihre {n} Verwendung wird eine gewöhnliche Kopie; die Verwendungen in Befragungen, die Sie nicht bearbeiten können, bleiben verknüpft.", "Your {n} use becomes an ordinary copy; the uses in surveys you cannot edit stay linked.", n=info.dissolvable) if info.dissolvable == 1 else de_en("Ihre {n} Verwendungen werden gewöhnliche Kopien; die Verwendungen in Befragungen, die Sie nicht bearbeiten können, bleiben verknüpft.", "Your {n} uses become ordinary copies; the uses in surveys you cannot edit stay linked.", n=info.dissolvable) }}</p>
+  <form method="post" data-confirm="{{ de_en('Ihre Verwendungen von „{name}“ lösen? {n} Verwendung wird eine gewöhnliche Kopie.', 'Unlink your uses of “{name}”? {n} use becomes an ordinary copy.', name=c.name, n=info.dissolvable) if info.dissolvable == 1 else de_en('Ihre Verwendungen von „{name}“ lösen? {n} Verwendungen werden gewöhnliche Kopien.', 'Unlink your uses of “{name}”? {n} uses become ordinary copies.', name=c.name, n=info.dissolvable) }}">
+  {% else %}
+  <p class="small">{{ de_en("Alle Verwendungen werden gewöhnliche Kopien: Fragen und Antworten bleiben in ihren Befragungen, aber nichts ist mehr gesperrt und nichts wird mehr gemeinsam ausgewertet.", "All uses become ordinary copies: questions and answers stay in their surveys, but nothing is locked any more and nothing is analysed together any more.") }}</p>
+  <form method="post" data-confirm="{{ de_en('„{name}“ auflösen? Alle {n} Verwendungen werden gewöhnliche Kopien.', 'Dissolve “{name}”? All {n} uses become ordinary copies.', name=c.name, n=info.uses|length) }}">
+  {% endif %}
+    {{ csrf() }}<input type="hidden" name="action" value="dissolve">
+    <button class="button button-danger">{{ de_en("Verknüpftes Element auflösen", "Dissolve linked element") }}</button>
+  </form>
+</section>
+</div>
+{% endif %}
+{% endblock %}

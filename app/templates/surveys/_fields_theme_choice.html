@@ -1,0 +1,28 @@
+{# The templates and designs a researcher can choose for the look of the survey pages. Needs: look (themes.of(survey)),
+   own_designs (designs_for(current_user)). Used in the settings and in the setup wizard. The organisation designs of
+   one's organisations come first (app/org_designs.py, Ralf 2026-10-19). #}
+<fieldset class="theme-choice-list">
+  <legend>{{ de_en("Farbschema", "Colour scheme") }}</legend>
+  {# the light one and the dark one, each staying as chosen (org_designs.for_user, Ralf 2026-10-23) #}
+  {% for entry in org_designs_for(current_user) %}{% for o in entry.options %}
+  <label class="theme-choice-item">
+    <input type="radio" name="preset" value="{{ o.key }}" {% if look.preset == themes.ORG and look.get("org") == entry.org.id and look.colors == o.colors and themes.is_auto(look) == themes.is_auto(o.theme) %}checked{% endif %}>
+    <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ o.colors[c] }}"></span>{% endfor %}</span>
+    <span><strong>{{ o.name }}</strong> <span class="muted">{{ de_en("Organisationsdesign von {org}", "organisation design of {org}", org=entry.org.name) }}, {{ o.note }}</span></span>
+  </label>
+  {% endfor %}{% endfor %}
+  {% for key, t in themes.presets_for(current_user, look.preset).items() %}
+  <label class="theme-choice-item">
+    <input type="radio" name="preset" value="{{ key }}" {% if look.preset == key %}checked{% endif %}>
+    <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ (t.tile or {}).get(c, t.colors[c]) }}"></span>{% endfor %}</span>
+    <span><strong>{{ t.name }}</strong> <span class="muted">{{ t.note }}</span></span>
+  </label>
+  {% endfor %}
+  {% for d in own_designs %}{% set t = themes.clean(d.data) or themes.standard() %}
+  <label class="theme-choice-item">
+    <input type="radio" name="preset" value="design:{{ d.id }}">
+    <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ t.colors[c] }}"></span>{% endfor %}</span>
+    <span><strong>{{ d.name }}</strong> <span class="muted">{{ de_en("mein Design", "my design") if d.owner_id == current_user.id else de_en("Design von {name}", "Design by {name}", name=d.owner.display_name) }}</span></span>
+  </label>
+  {% endfor %}
+</fieldset>

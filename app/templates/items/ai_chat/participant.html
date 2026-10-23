@@ -1,0 +1,36 @@
+{# KI-Chat (items/ai_chat.py, app/ai_chat.py, static/ai_chat.js): the conversation so far, a field and "Senden". Each
+   message goes to the server, which asks the model and stores both; the page itself sends only its own fields. The
+   label "KI" on every answer and the note above stay, whatever the researchers write (EU AI Act, Art. 50). #}
+<div class="p-aichat" data-aichat="{{ item.id }}"
+     {% if not preview|default(false) %}data-aichat-url="{{ url_for('participate.chat', uid=survey.public_key, item_id=item.id) }}"{% endif %}
+     data-aichat-max="{{ kind.max_chars(item) }}"
+     data-text-wait="{{ ui('Der KI-Assistent schreibt …', 'The AI assistant is writing …') }}"
+     data-text-failed="{{ ui('Die Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es noch einmal.', 'The message could not be sent. Please try again.') }}"
+     data-text-left="{{ ui('Noch {n} Nachrichten möglich', '{n} more messages possible') }}"
+     data-text-you="{{ ui('Sie', 'You') }}" data-text-ai="{{ ui('KI', 'AI') }}">
+  {% include "items/_question.html" %}
+  <p class="p-hint p-aichat-note">{{ ui("Sie schreiben mit einer KI, nicht mit einem Menschen. Ihre Nachrichten und die Antworten werden für die Auswertung gespeichert. Die KI kann sich irren. Nennen Sie bitte keine Namen, Adressen oder Gesundheitsangaben.", "You are writing with an AI, not with a person. Your messages and the answers are stored for the analysis. The AI can be wrong. Please do not give names, addresses or health details.") }}</p>
+  <div class="p-aichat-log" data-aichat-log role="log" aria-live="polite" aria-label="{{ ui('Gespräch mit dem KI-Assistenten', 'Conversation with the AI assistant') }}">
+    {% set greeting = item.text("greeting", lang) %}
+    {% if greeting %}<div class="p-aichat-msg p-aichat-ai"><span class="p-aichat-who">{{ ui("KI", "AI") }}</span><p dir="auto">{{ greeting|inline(variables) }}</p></div>{% endif %}
+    {% for role, text in kind.turns_shown(item, lang) %}
+    <div class="p-aichat-msg {% if role == 'user' %}p-aichat-me{% else %}p-aichat-ai{% endif %}"><span class="p-aichat-who">{% if role == 'user' %}{{ ui("Sie", "You") }}{% else %}{{ ui("KI", "AI") }}{% endif %}</span><p dir="auto">{{ text }}</p></div>
+    {% endfor %}
+  </div>
+  <div class="p-aichat-crisis" data-aichat-crisis hidden role="alert">
+    <p><strong>{{ ui("Wenn es Ihnen gerade nicht gut geht: Sie sind nicht allein.", "If you are not feeling well right now: you are not alone.") }}</strong>
+    {{ ui("Die Telefonseelsorge ist rund um die Uhr kostenlos und anonym erreichbar: 0800 111 0 111 oder 0800 111 0 222, online unter telefonseelsorge.de. In akuter Gefahr wählen Sie bitte 112.", "In an emergency, please call 112 (Europe) or your local emergency number. In Germany, the Telefonseelsorge can be reached free of charge and anonymously around the clock: 0800 111 0 111.") }}</p>
+  </div>
+  {% if preview|default(false) %}
+  <p class="p-hint">{{ ui("In der Vorschau antwortet der KI-Assistent nicht. Probieren Sie den Chat in einem Testdurchlauf aus.", "The AI assistant does not answer in the preview. Try the chat in a test run.") }}</p>
+  {% endif %}
+  {% set left = kind.messages_left(item) %}
+  <div class="p-aichat-form" data-aichat-form {% if left <= 0 %}hidden{% endif %}>
+    <label class="p-sr-only" for="ac{{ item.id }}">{{ ui("Ihre Nachricht an den KI-Assistenten", "Your message to the AI assistant") }}</label>
+    <textarea id="ac{{ item.id }}" rows="2" dir="auto" maxlength="{{ kind.max_chars(item) }}" data-aichat-input aria-describedby="q{{ item.id }}"></textarea>
+    <button type="button" class="p-aichat-send" data-aichat-send {% if preview|default(false) %}disabled{% endif %}>{{ ui("Senden", "Send") }}</button>
+  </div>
+  <p class="p-hint" data-aichat-status aria-live="polite">{% if left <= 0 %}{{ ui("Sie haben die Zahl der Nachrichten für dieses Gespräch erreicht.", "You have reached the number of messages for this conversation.") }}{% else %}{{ ui("Noch {n} Nachrichten möglich", "{n} more messages possible", n=left) }}{% endif %}</p>
+  <noscript><p class="p-hint">{{ ui("Für den KI-Chat wird JavaScript benötigt.", "The AI chat needs JavaScript.") }}</p></noscript>
+</div>
+{% if not assets.loaded_aichat %}{% set assets.loaded_aichat = true %}<script src="{{ url_for('static', filename='ai_chat.js') }}" defer></script>{% endif %}

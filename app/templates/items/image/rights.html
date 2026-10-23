@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Bildrechte", "Image rights") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('surveys.data', survey_id=survey.id) }}">{{ de_en("Zurück zum Export", "Back to export") }}</a>
+<h1>{{ de_en("Bildrechte", "Image rights") }}</h1>
+<p>{{ de_en("Für eine öffentliche Archivierung braucht jedes Bild dokumentierte Rechte und Ihre ausdrückliche Bestätigung. Die Freigabe für Teilnehmende ist davon unabhängig. Angaben aus der Bilddatei sind nur Vorschläge und kein Berechtigungsnachweis.", "Public archiving requires documented rights and your explicit declaration for every image. Approval for participants is separate. Information embedded in an image is only a suggestion, not proof of permission.") }}</p>
+{% for row in rows %}{% set a = row.asset %}{% set v = row['values'] %}
+<section class="panel" id="image-{{ a.id }}">
+  <h2>{{ a.item.code }} <span class="hint">{{ a.filename }}</span></h2>
+  <img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=a.filename) }}" alt="{{ a.item.code }}" width="160" loading="lazy">
+  <p>{{ de_en("Öffentliche Weitergabe bestätigt", "Public distribution declared") if row.confirmed else de_en("Öffentliche Weitergabe noch nicht bestätigt", "Public distribution not yet declared") }}</p>
+  {% if row.confirmed %}<p class="muted small">{{ a.rights.confirmation.by }} · {{ a.rights.confirmation.at }}</p>{% endif %}
+  {% if a.rights and a.rights.get('imported_unconfirmed') %}<p class="muted small">{{ de_en("Importierte Angaben: Bitte selbst prüfen und neu bestätigen.", "Imported details: please review and declare permission yourself.") }}</p>{% endif %}
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="asset_id" value="{{ a.id }}">
+    <label>{{ de_en("Rechtsgrundlage", "Rights basis") }}
+      <select name="basis"><option value="">{{ de_en("Noch nicht geklärt", "Not yet established") }}</option>
+      {% for key, label in [('own', de_en('Eigenes Bild / eigene Rechte', 'Own image / own rights')), ('license', de_en('Lizenz eines Dritten', 'Third-party licence')), ('permission', de_en('Individuelle Erlaubnis', 'Individual permission')), ('ai', de_en('KI-Bild mit geklärten Nutzungsbedingungen', 'AI image with reviewed terms of use'))] %}
+      <option value="{{ key }}" {% if v.basis == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    {% for key, label in [('creator', de_en('Urheber / verantwortliche Person', 'Creator / responsible person')), ('copyright', de_en('Copyright-Vermerk', 'Copyright notice')), ('credit', de_en('Erforderlicher Credit (leer, falls keiner)', 'Required credit (leave blank if none)')), ('source', de_en('Quelle / Herkunft', 'Source / provenance')), ('license', de_en('Lizenz / Nutzungsbedingungen', 'Licence / terms of use')), ('license_url', de_en('Lizenz-URL', 'Licence URL'))] %}
+    <label>{{ label }}<input name="{{ key }}" value="{{ v[key] }}" maxlength="4096"></label>{% endfor %}
+    <label>{{ de_en("Individuelle Erlaubnis: Umfang und Nachweisreferenz", "Individual permission: scope and evidence reference") }}<textarea name="permission" rows="2" maxlength="4096">{{ v.permission }}</textarea></label>
+    <p class="muted small">{{ de_en("Diese Angaben gehen in das öffentliche Archiv. Keine vertraulichen Verträge oder persönlichen Kontaktdaten eintragen.", "These details are included in the public archive. Do not enter confidential contracts or personal contact details.") }}</p>
+    <label class="check"><input type="checkbox" name="public_confirm" value="1" {% if row.confirmed %}checked{% endif %}>{{ de_en("Ich habe die Rechte und Bedingungen geprüft und bin berechtigt, dieses Bild unter den angegebenen Bedingungen öffentlich im Archiv weiterzugeben. Erforderliche Credits sind angegeben.", "I have reviewed the rights and terms and am entitled to distribute this image publicly in the archive under the stated terms. Required credits are provided.") }}</label>
+    <button class="button">{{ de_en("Speichern", "Save") }}</button>
+  </form>
+</section>
+{% else %}<p>{{ de_en("Keine Bilder vorhanden.", "No images available.") }}</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# "Alles in dieser Ressource" (app/coscine.py, resource_page, K2): every upload folder of the survey in
+   the resource of the last upload. Needs: survey, found, known, back, resource, size_text, kind. #}
+{% block title %}{{ de_en("Ablagen in Coscine", "Uploads in Coscine") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel" id="coscine-resource">
+  <h2>{{ de_en("Alle Ablagen dieser Befragung in Coscine", "All uploads of this survey in Coscine") }}</h2>
+  <p class="small"><strong>{{ resource.displayName or resource.name }}</strong>{% if kind %} ({{ kind }}){% endif %} · <code>askurious/{{ survey.uid }}/</code></p>
+  {% if found %}
+  <ul class="plain snapshot-list">
+    {% for folder, items in found.items() %}
+    <li><code>{{ folder }}</code> <span class="muted small">{{ de_en("{n} Dateien, {size}", "{n} files, {size}", n=items|length, size=size_text(items|map(attribute="size")|select|sum)) }}{% if folder not in known %} · {{ de_en("nicht in der Liste von Askurious (älter oder anderswo abgelegt)", "not in the list of Askurious (older or stored elsewhere)") }}{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small">{{ de_en("In dieser Ressource liegt kein Ordner dieser Befragung.", "There is no folder of this survey in this resource.") }}</p>
+  {% endif %}
+  <div class="form-actions"><a class="button button-secondary" href="{{ back }}">{{ de_en("Zurück", "Back") }}</a></div>
+</section>
+{% endblock %}

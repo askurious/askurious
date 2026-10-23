@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="{{ ui_language() }}" data-brand="Askurious"{% if site() %} data-site="{{ site() }}"{% endif %}{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>{# the language of these pages for this person (app/lang.py); `lang` is the language of the survey being edited, not of this page #}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if current_user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token() }}" data-refresh="{{ url_for('auth.csrf_token') }}">{% endif %}
+  <title>{% block title %}Askurious{% endblock %}</title>
+  {% set icon_prefix = site() ~ "-" if site() == "polltergeist" else "" %}{# the brand's own icon (app/brand.py) #}
+  <link rel="icon" href="{{ url_for('static', filename=icon_prefix ~ 'favicon.ico') }}" sizes="16x16 32x32 48x48">
+  {% if site() == 'polltergeist' %}<link rel="icon" type="image/webp" href="{{ url_for('static', filename='img/icon/polltergeist-icon-512.webp') }}" sizes="512x512">{% else %}<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/icon/icon-512.png') }}" sizes="512x512">{% endif %}
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon/' ~ icon_prefix ~ 'apple-touch-icon.png') }}">
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% if request.blueprint in ('editor', 'live', 'surveys', 'interview') %}<link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">{% endif %}
+  {% if request.blueprint == 'live' %}<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">{% endif %}
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {# participant.js only on the participants' pages (participant/base.html, the element's preview, the interview): the
+     few helpers these pages need are in app.js. The formatting field only on the pages with formatted texts, which
+     say so with {% set rich_text = true %} (code review 2026-10-07, F9) #}
+  {% if current_user.is_authenticated and rich_text is defined and rich_text %}<script src="{{ url_for('static', filename='richtext.js') }}" defer></script>{% endif %}
+  {# under construction: the yellow and black tape under the header #}
+  {% if config.UNDER_CONSTRUCTION %}<link rel="stylesheet" href="{{ url_for('static', filename='under_construction.css') }}">{% endif %}
+  {# what a page adds to its head: description, feed and preview for sharing (the news page /blog) #}
+  {% block head %}{% endblock %}
+</head>
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import orcid_icon %}
+{# ?embed=1: the page inside another one (the item editor on the page of a live vote): no header, no footer #}
+{% set embedded = request.args.get("embed") == "1" %}
+<body{% if embedded %} class="embedded"{% endif %}>
+{# the page before the header: the header's "Hilfe zu dieser Seite" needs the tab the page notes (surveys/_tabs.html,
+   help_note; UI/UX audit 2026-10-16, 17). The block is drawn once, through self.content(). #}
+{% if false %}{% block content %}{% endblock %}{% endif %}
+{% set page = self.content() %}
+<a class="skip-link" href="#main">{{ de_en("Zum Inhalt", "Skip to content") }}</a>{# first stop for the keyboard (WCAG 2.4.1, UI audit R76) #}
+{% if not embedded %}
+  <header class="site-header{% if current_user.is_authenticated %} signed-in{% endif %}{% if config.UNDER_CONSTRUCTION %} uc-tape{% endif %}">
+    {# the name leads to the home page, signed in too (Ralf, 2026-10-11; before: to the dashboard, R3) #}
+    <a class="brand" href="{{ url_for('public.index') }}">{% if site() == "polltergeist" %}{% from "_ghost.html" import ghost %}{{ ghost(30, "pg-ghost-brand") }}{% endif %}<span class="brand-name">{% if site() == "polltergeist" %}<span class="wm-strong">POLL</span>tergeist{% else %}{% from "_wordmark.html" import wordmark %}{{ wordmark() }}{% endif %}</span></a>
+    {# sun and moon drawn for Askurious (provenance check 2026-10-22, K7) #}
+    {% macro theme_icons() %}
+        <svg class="icon theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><g fill="currentColor"><circle cx="12" cy="3.5" r=".6"/><circle cx="12" cy="20.5" r=".6"/><circle cx="3.5" cy="12" r=".6"/><circle cx="20.5" cy="12" r=".6"/><circle cx="6" cy="6" r=".6"/><circle cx="18" cy="6" r=".6"/><circle cx="6" cy="18" r=".6"/><circle cx="18" cy="18" r=".6"/></g></svg>
+        <svg class="icon theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4A8.5 8.5 0 1 0 15 20 9.5 9.5 0 0 1 15 4z"/><path d="M19.5 9v3M18 10.5h3"/></svg>
+    {% endmacro %}
+    {% if current_user.is_authenticated %}
+    {# Signed in: the work areas on the left (the current one marked), on the right what is not a work area.
+       The menu at the name holds only what belongs to the account. When the window gets narrower, first
+       Administration and the prices move into that menu (.nav-narrow-more), only in narrow windows the areas too
+       (.nav-narrow-areas), so the header stays one line (UI audit 2026-10-07, W82). #}
+    {% set here = "constructs" if request.endpoint == "feedback.scale" else request.blueprint %}
+    {% macro area(endpoint, label, blueprints) %}<a href="{{ url_for(endpoint) }}"{% if here in blueprints %} aria-current="page"{% endif %}>{{ label }}</a>{% endmacro %}
+    {% macro areas() %}
+      {# live votes start from "Meine Befragungen" and stand in its list (live concept 6.1) #}
+      {# the name of the page it opens, as in the way back above a survey (UI/UX audit 2026-10-16, 51) #}
+      {{ area("dashboard.index", de_en("Meine Befragungen", "My surveys"), ("dashboard", "surveys", "wizard", "editor", "flow_page", "translations", "live", "boards", "coscine",
+                                                     "interview", "interview_ai", "interview_audio", "interview_data", "interview_results",
+                                                     "interview_search", "interview_summaries", "interview_transcribe", "diary", "study_plan")) }}
+      {# constructs and sample size belong to questionnaires: gone when that type is "off" (app/kind_access.py) #}
+      {# the sample size calculator is in the menu "Hilfe und Werkzeuge": used seldom, the study plan computes it in place
+         (UI/UX audit 2026-10-16, 146; Ralf 2026-10-17) #}
+      {% if kind_sees("survey") %}{{ area("constructs.index", de_en("Konstrukte", "Constructs"), ("constructs",)) }}{% endif %}
+    {% endmacro %}
+    {% if experimental("ainstein") and ai_on() %}<a class="icon-btn ainstein-btn" href="{{ url_for('ainstein.index') }}" {% set ainstein_title = de_en("AInstein: Forschungsfrage entwickeln, schärfen, operationalisieren und in den Fragebogen umsetzen", "AInstein: develop, sharpen and operationalise a research question and turn it into a questionnaire") %}title="{{ ainstein_title }}" aria-label="{{ ainstein_title }}"{% if here == "ainstein" %} aria-current="page"{% endif %}>{{ icon("brain", 20) }}</a>{% endif %}
+    {# until the (new) terms are accepted every area leads back to them: none in the header (UI/UX audit 2026-10-09, X69) #}
+    {% set areas_shown = not terms_pending(current_user) %}
+    {% if areas_shown %}<nav class="nav-areas" aria-label="{{ de_en('Bereiche', 'Areas') }}">{{ areas() }}</nav>{% endif %}
+    <nav class="nav-tools" aria-label="{{ de_en('Weiteres', 'More') }}">
+      {% if current_user.is_admin %}<span class="nav-wide"><a href="{{ url_for('admin.surveys_page') }}" title="{{ de_en('Administration', 'Administration') }}"{% if here in ("admin", "feedback") %} aria-current="page"{% endif %}>{{ de_en("Administration", "Administration") }}</a><span class="nav-sep" aria-hidden="true"></span></span>{% endif %}
+      {# help in one menu with words instead of signs (UI audit 2026-10-12, E11, S8): the handbook, the glossary,
+         feedback and, for admins, the open feedback with its number on the menu itself #}
+      {% set open_fb = feedback_open_count if current_user.is_admin and feedback_open_count else 0 %}
+      <details class="menu nav-menu help-menu" data-nav-menu>
+        <summary title="{{ de_en('Handbuch, Glossar, Rückmeldung', 'Handbook, glossary, feedback') }}">{{ icon("book", 18) }} <span class="help-menu-label">{{ de_en("Hilfe und Werkzeuge", "Help and tools") }}</span>{% if open_fb %} <span class="badge badge-error feedback-count" title="{{ de_en('Offene Rückmeldungen', 'Open feedback') }}">{{ open_fb }}</span>{% endif %}</summary>
+        <div class="nav-menu-panel">
+          {# first the section of the handbook on the tab or page that is open, where there is one (UI/UX audit 2026-10-16, 17) #}
+          {% set page_help = help_url() %}
+          {% if page_help %}<a href="{{ page_help }}">{{ icon("info", 18) }} {{ de_en("Hilfe zu dieser Seite", "Help on this page") }}</a>{% endif %}
+          <a href="{{ url_for('handbook.index') }}">{{ icon("book", 18) }} {{ de_en("Handbuch", "Handbook") }}</a>
+          <a href="{{ url_for('learning.glossary') }}">{{ icon("info", 18) }} {{ de_en("Glossar der Kennzahlen", "Glossary of statistics") }}</a>
+          <hr>
+          <p class="nav-menu-head">{{ de_en("Werkzeuge", "Tools") }}</p>
+          <a href="{{ url_for('element_types.index') }}">{{ icon("grid", 18) }} {{ de_en("Elementtypen", "Element types") }}</a>
+          {% if kind_sees("survey") %}<a href="{{ url_for('samplesize.index') }}">{{ icon("users", 18) }} {{ de_en("Stichprobengröße", "Sample size") }}</a>{% endif %}
+          {# add-on modules (app/plugins.py, add_tool), each with its experimental feature #}
+          {% if plugin_tools is defined %}{% for t in plugin_tools() %}<a href="{{ url_for(t.endpoint) }}">{{ icon(t.icon, 18) }} {{ de_en(t.de, t.en) }}</a>{% endfor %}{% endif %}
+          <hr>
+          <button type="button" data-feedback-open>{{ icon("bug", 18) }} {{ de_en("Fehler melden oder Vorschlag machen", "Report a problem or make a suggestion") }}</button>
+          {% if open_fb %}<a href="{{ url_for('feedback.index') }}">{{ icon("message", 18) }} {{ de_en_n(open_fb, ("{n} offene Rückmeldung", "{n} offene Rückmeldungen"), ("{n} open feedback item", "{n} open feedback items")) }}</a>{% endif %}
+        </div>
+      </details>
+      {# prices and donations stay a point of their own in the bar (Ralf, 2026-10-12) #}
+      {% if donations_on %}<a class="icon-btn donate-link" href="{{ url_for('public.pricing') }}" title="{{ de_en('Preise und Spenden', 'Prices and donations') }}" aria-label="{{ de_en('Preise und Spenden', 'Prices and donations') }}">{{ icon("gift", 18) }}</a>{% endif %}
+      <details class="menu nav-menu" data-nav-menu>
+        <summary aria-label="{{ de_en('Menü für {name}', 'Menu for {name}', name=current_user.display_name) }}" title="{{ de_en('Konto von {name}', 'Account of {name}', name=current_user.display_name) }}">{{ icon("user", 18) }}{{ icon("menu", 18) }}<span class="nav-menu-name">{{ current_user.display_name }}</span>{{ icon("chevron-down", 14) }}</summary>
+        <div class="nav-menu-panel">
+          {# from where one works to the session (Ralf 2026-10-10): work areas and Administration (narrow only), own
+             collections (designs = saved themes, groups: opened seldom, so not in the areas), settings, prices (narrow
+             only), sign out. The legal notice is in the footer only, which no longer cuts it (X67). #}
+          {% if areas_shown %}<div class="nav-narrow nav-narrow-areas">
+            {{ areas() }}
+            {% if not current_user.is_admin %}<hr>{% endif %}
+          </div>{% endif %}
+          {# Administration right after the areas: it is where admins work #}
+          {% if current_user.is_admin %}<div class="nav-narrow nav-narrow-more">
+            <a href="{{ url_for('admin.surveys_page') }}"{% if here in ("admin", "feedback") %} aria-current="page"{% endif %}>{{ icon("settings", 18) }} {{ de_en("Administration", "Administration") }}</a>
+            <hr>
+          </div>{% endif %}
+          <p class="nav-menu-head">{{ de_en("Meine Sammlungen", "My collections") }}</p>
+          <a href="{{ url_for('designs.index') }}"{% if here == "designs" %} aria-current="page"{% endif %}>{{ icon("palette", 18) }} {{ de_en("Designs", "Designs") }}</a>
+          {% if groups_in_nav(current_user) %}<a href="{{ url_for('groups.index') }}"{% if here == "groups" %} aria-current="page"{% endif %}>{{ icon("users", 18) }} {{ de_en("Gruppen", "Groups") }}</a>{% endif %}
+          {# the management of the organisations this person is an admin of (app/org_admin.py) #}
+          {% set orgs_admin = orgs_administered(current_user) %}
+          {% if orgs_admin %}<hr><p class="nav-menu-head">{{ de_en("Organisationsverwaltung", "Organisation management") }}</p>{% endif %}
+          {% for o in orgs_admin %}<a href="{{ url_for('org.surveys', org_id=o.id) }}"{% if here == "org" %} aria-current="page"{% endif %}>{{ icon("settings", 18) }} {{ o.name }}</a>{% endfor %}
+          <hr>
+          <p class="nav-menu-head">{{ de_en("Konto", "Account") }}</p>
+          {# the four account pages under the head "Konto" (Konto-Seiten B2, Ralf 2026-10-20): what belongs to the account
+             stands under it, the collections above #}
+          <a href="{{ url_for('accounts.index') }}"{% if request.endpoint == "accounts.index" %} aria-current="page"{% endif %}>{{ icon("user", 18) }} {{ de_en("Profil und Anmeldung", "Profile and sign-in") }}</a>
+          <a href="{{ url_for('accounts.connections') }}"{% if request.endpoint == "accounts.connections" %} aria-current="page"{% endif %}>{{ icon("link", 18) }} {{ de_en("Verbindungen", "Connections") }}</a>
+          <a href="{{ url_for('accounts.appearance') }}"{% if request.endpoint == "accounts.appearance" %} aria-current="page"{% endif %}>{{ icon("eye", 18) }} {{ de_en("Anzeige und Sprache", "Display and language") }}</a>
+          {# right under "Konto", with the violet AI sign (ki-nutzung-seite-konzept.md E2) #}
+          <a href="{{ url_for('ai_access.page') }}" class="nav-ai"{% if request.endpoint == "ai_access.page" %} aria-current="page"{% endif %}>{{ icon("sparkles", 18) }} {{ de_en("KI-Nutzung", "AI usage") }}</a>
+          <button type="button" data-theme-toggle data-mode-url="{{ url_for('accounts.display_mode') }}">{{ theme_icons() }} {{ de_en("Hell / Dunkel", "Light / Dark") }}</button>
+          <hr>
+          {% if donations_on %}
+          <div class="nav-narrow nav-narrow-more">
+            <a href="{{ url_for('public.pricing') }}">{{ icon("gift", 18) }} {{ de_en("Preise und Spenden", "Prices and donations") }}</a>
+            <hr>
+          </div>
+          {% endif %}
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button>{{ icon("logout", 18) }} {{ de_en("Abmelden", "Sign out") }}</button>
+          </form>
+        </div>
+      </details>
+    </nav>
+    {% else %}
+    <nav>
+      <button type="button" class="theme-toggle" data-theme-toggle title="{{ de_en('Hell / Dunkel', 'Light / Dark') }}" aria-label="{{ de_en('Zwischen hellem und dunklem Modus wechseln', 'Switch between light and dark mode') }}">{{ theme_icons() }}</button>
+      <a class="icon-btn handbook-link" href="{{ url_for('handbook.index') }}" title="{{ de_en('Handbuch: Konzept, Anleitungen, Seiten und Dialoge, KI', 'Handbook: concept, guides, pages and dialogs, AI') }}" aria-label="{{ de_en('Handbuch', 'Handbook') }}"{% if request.blueprint == "handbook" %} aria-current="page"{% endif %}>{{ icon("book", 18) }}</a>
+      {% if donations_on %}<a class="icon-btn donate-link" href="{{ url_for('public.pricing') }}" title="{{ de_en('Preise und Spenden', 'Prices and donations') }}" aria-label="{{ de_en('Preise und Spenden', 'Prices and donations') }}">{{ icon("gift", 18) }}</a>{% endif %}
+      {# the language before signing in (public.language); signed in, it is chosen on "Konto" #}
+      <form method="post" action="{{ url_for('public.language') }}" class="lang-pick" aria-label="{{ de_en('Sprache', 'Language') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+        {% for code in ("de", "en") %}<button name="lang" value="{{ code }}" lang="{{ code }}" {% if ui_language() == code %}aria-pressed="true"{% else %}aria-pressed="false"{% endif %} title="{{ 'Deutsch' if code == 'de' else 'English' }}">{{ code|upper }}</button>{% endfor %}
+      </form>
+      {# an interviewer with a personal link (app/interviewer.py): their name and "Abmelden" instead of signing in #}
+      {% set iv_access = interviewer_of(survey) if survey is defined and survey and survey.interview is not none else none %}
+      {% if iv_access %}
+      <span class="small">{{ de_en("Interviewende: {name}", "Interviewer {name}", name=iv_access.name) }}</span>
+      <form method="post" action="{{ url_for('interviewer.logout', code=survey.code) }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button-small button-secondary">{{ de_en("Abmelden", "Sign out") }}</button></form>
+      {% elif request.endpoint not in ("auth.sign_in", "auth.sign_in_code") and request.blueprint != "interviewer" %}
+      <a href="{{ url_for('auth.sign_in') }}">{{ de_en("Mit E-Mail anmelden", "Sign in with email") }}</a>
+      <a class="button" href="{{ url_for('auth.login') }}">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+  </header>
+{% endif %}
+  <main id="main" tabindex="-1" class="{% block container_class %}container{% endblock %}">
+    {# Messages stay in view when the page opens further down (#anchor); results that belong to a
+       section ("inline") are shown there, see surveys/data.html. On pages with a row of tabs (survey, administration)
+       they stand under it, where the tabs leave the mark <!--flashes--> (Ralf, 2026-10-06); else at the top. #}
+    {% set flashes %}
+    {# the end of a limited account comes near (app/account_types.py, N11): 30, 14 and 3 days before, until closed #}
+    {% set ending = expiry_notice() if current_user.is_authenticated and not embedded else none %}
+    {% if ending and session.get("expiry_seen") != ending.step %}<div class="flashes"><div class="flash flash-warning" role="status"><span class="flash-text">
+      {{ de_en("Ihr Zugang endet am {d} (noch {n} Tage). Danach ist das Konto gesperrt: Exportieren Sie bis dahin, was Sie brauchen, oder fragen Sie {who} nach einer Verlängerung.", "Your access ends on {d} ({n} days left). After that the account is blocked: export what you need before then, or ask {who} for an extension.", d=ending.end|localdate, n=ending.left, who=ending.who) }}</span>
+      <form class="flash-undo" method="post" action="{{ url_for('accounts.expiry_seen') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="step" value="{{ ending.step }}"><input type="hidden" name="next" value="{{ request.full_path }}"><button class="button button-small button-secondary">{{ de_en("Verstanden", "Got it") }}</button></form></div></div>{% endif %}
+    {% with messages = get_flashed_messages(with_categories=true)|rejectattr(0, "equalto", "inline")|list %}
+      {% if messages %}<div class="flashes" data-flashes>
+      {# "undo": a confirmation of something that "Rückgängig" takes back (app/undo.py), with the button right in it #}
+      {% for cat, msg in messages %}<div class="flash flash-{{ 'success' if cat == 'undo' else cat }}" role="{{ 'alert' if cat == 'error' else 'status' }}"><span class="flash-text">{{ msg }}</span>
+        {#- the pages of live votes and interview guides are addressed by code: their survey is in the context (R24) #}
+        {%- set undo_sid = (request.view_args or {}).get("survey_id") or (survey.id if survey is defined and survey else none) %}
+        {%- if cat == "undo" and undo_sid %}<form class="flash-undo" method="post" action="{{ url_for('editor.undo', survey_id=undo_sid) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button-small button-secondary">{{ de_en("Rückgängig", "Undo") }}</button></form>{% endif -%}
+      </div>{% endfor %}
+      </div>{% endif %}
+    {% endwith %}
+    {% endset %}
+    {% if "<!--flashes-->" in page %}{{ page.replace("<!--flashes-->", flashes, 1) }}{% else %}{{ flashes }}{{ page }}{% endif %}
+  </main>
+{% if not embedded %}
+  <footer class="site-footer">
+    <span class="footer-owner" data-fit-names>{% from "_wordmark.html" import wordmark %}<a class="footer-brand" href="{{ url_for('public.index') }}">{{ wordmark(True) }}</a> <span class="footer-names" title="Dr. Philipp Brauner · Dr. Ralf Philipsen"><span data-level="0"><a href="https://www.philipp-brauner.de" target="_blank" rel="noopener">Dr. Philipp Brauner</a> · Dr. Ralf Philipsen</span><span data-level="1" hidden><a href="https://www.philipp-brauner.de" target="_blank" rel="noopener">Dr. P. Brauner</a> - Dr. R. Philipsen</span><span data-level="2" hidden><a href="https://www.philipp-brauner.de" target="_blank" rel="noopener">Dr. Brauner</a> - Dr. Philipsen</span><span data-level="3" hidden>Drs. <a href="https://www.philipp-brauner.de" target="_blank" rel="noopener">Brauner</a> &amp; Philipsen</span><span data-level="4" hidden><a href="https://www.philipp-brauner.de" target="_blank" rel="noopener">Brauner</a>&amp;Philipsen</span></span><span class="footer-affiliation">, Communication Science, RWTH Aachen University, Germany</span></span>
+    {# three parts: the legal links on the right never shrink, the sentence before them gives way first, then the
+       names (UI/UX audit 2026-10-09, X67: "Impressum & Datenschutz" was cut off, on the phone out of sight) #}
+    <span class="footer-stats">
+      {% block footer_stats %}
+      {# no counts of running surveys and participations here any more (Ralf, 2026-10-17: "das kann weg"); pages of a
+         survey put its title here #}
+      {% endblock %}
+      {# the deploy time and commit stand on the status page (Ralf, 2026-10-11) #}
+    </span>
+    {# the two links the law asks for on every page first (imprint, § 5 DDG; accessibility statement, BITV 2.0 § 7),
+       then the terms; "Lizenzen und Datenquellen" is linked from the privacy page and the terms. The status stands
+       apart, with its dot in the colour of the whole (status_node.dot; Ralf, 2026-10-17) #}
+    <span class="footer-legal"><a href="{{ url_for('public.privacy') }}">{{ de_en("Impressum & Datenschutz", "Legal notice & privacy") }}</a> · <a href="{{ url_for('public.accessibility') }}">{{ de_en("Barrierefreiheit", "Accessibility") }}</a> · <a href="{{ url_for('terms.show') }}">{{ de_en("Nutzungsbedingungen", "Terms of use") }}</a></span>
+    {% if config.STATUS_URL %}<a class="footer-status" href="{{ brand_status_url() }}"><img src="{{ brand_status_url().rstrip('/') }}/dot.svg" width="8" height="8" alt="" aria-hidden="true">{{ de_en("Status", "Status") }}</a>{% endif %}
+  </footer>
+  {% endif %}
+{# after the page, not before its h1: its heading would come first in the list of headings (UI audit 2026-10-12, U55) #}
+  {% if current_user.is_authenticated %}
+  <dialog class="feedback-dialog" data-feedback-dialog aria-labelledby="feedback-title">
+    <div class="feedback-dialog-head"><h2 id="feedback-title">{{ icon("bug", 20) }} {{ de_en("Rückmeldung", "Feedback") }}</h2>
+      <button type="button" class="icon-btn" data-feedback-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    {% with page="", form={}, severities=feedback_severities %}{% include "feedback/_form.html" %}{% endwith %}
+  </dialog>
+  {% endif %}
+{# the embedding page refreshes its list after a save (live/manage.html; app.js sends the message) #}
+{% if embedded %}{% with saved = get_flashed_messages(category_filter=["success"]) %}{% if saved %}<span hidden data-live-item-saved></span>{% endif %}{% endwith %}{% endif %}
+{% set zenodo_hint = session.pop("zenodo_hint", None) if current_user.is_authenticated else none %}
+{% if zenodo_hint %}
+<dialog class="confirm-dialog" data-zenodo-hint aria-labelledby="zenodo-hint-title">
+  <h2 id="zenodo-hint-title">{{ de_en("Daten auf Zenodo ablegen?", "Store the data on Zenodo?") }}</h2>
+  <p>{{ de_en("„{title}“ ist geschlossen. Wir empfehlen, Daten, Codebuch und Fragebogen jetzt als Open-Data-Paket auf Zenodo abzulegen: Askurious legt dort einen Entwurf an, veröffentlichen und die DOI erhalten Sie auf Zenodo selbst.", "“{title}” is closed. We recommend storing data, codebook and questionnaire on Zenodo now as an open data package: Askurious creates a draft there, and you publish it and get the DOI on Zenodo itself.", title=zenodo_hint.title) }}</p>
+  <p>{{ de_en("Prüfen Sie vorher, ob die Einwilligung eine Veröffentlichung erlaubt.", "Check first whether the consent allows publishing.") }}</p>
+  <div class="confirm-actions">
+    <button type="button" class="button button-secondary" data-zenodo-hint-close>{{ de_en("Später", "Later") }}</button>
+    <a class="button" href="{{ zenodo_hint.url }}">{{ de_en("Zum Zenodo-Upload", "To the Zenodo upload") }}</a>
+  </div>
+</dialog>
+{% endif %}
+{# what a form held when the action asked for a fresh sign-in (accounts.need_fresh): app.js fills it in again #}
+{% set refill = fresh_refill() if current_user.is_authenticated else none %}
+{% if refill %}<span hidden data-fresh-refill="{{ refill|tojson|forceescape }}"></span>{% endif %}
+{% if session.pop("confetti", None) %}<canvas class="confetti" data-confetti aria-hidden="true"></canvas>{% endif %}
+</body>
+</html>

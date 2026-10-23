@@ -1,0 +1,6 @@
+# Scripts and files that run on Linux servers keep LF line endings, also in a Windows checkout with core.autocrlf:
+# git archive (deploy-docker.sh) converts them otherwise, and "#!/bin/sh\r" is "not found" there (nginx did not start, 2026-10-08).
+*.sh text eol=lf
+deploy/docker/** text eol=lf
+# Windows batch files need CRLF, cmd.exe misreads some lines with LF only
+*.cmd text eol=crlf

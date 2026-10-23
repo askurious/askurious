@@ -1,0 +1,84 @@
+{% from "_learn.html" import why, term %}
+{# Completion times and speeder threshold (Leiner, 2019) on the page "Qualitätssicherung". Needs: speed, speed_form
+   (id of the form that saves the threshold; its data sources redraw the histogram), speed_value, speed_edit
+   (may this person change it). The rule is picked here: the completion time against its median, or the relative
+   speed index over the page times (only with page times, then the default; speed.rsi). #}
+{% macro de(v) %}{{ v|dec(1) }}{% endmacro %}
+<section class="panel" id="speeders">
+  <h2>{{ de_en("Bearbeitungszeiten &amp; Speeder", "Completion times &amp; speeders")|safe }} <span class="hint">{{ de_en("abgeschlossene Teilnahmen im Datenpool; Median daraus", "completed participations in the data pool; median from them") }}</span></h2>
+  {% if speed.parts %}<p class="muted small">{{ de_en("Tagebuchstudie: Jeder Eintrag zählt gegen den Median seines Teils, nicht gegen den aller Einträge.", "Diary survey: each entry is measured against the median of its part, not of all entries.") }}
+    {% for label, median in speed.parts %}{{ label }}: {% if median %}{{ duration_short(median) }}{% else %}–{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  <fieldset class="speed-rule" data-speed-rule>
+    <legend class="visually-hidden">{{ de_en("Speeder-Regel", "Speeder rule") }}</legend>
+    <label class="check"><input type="radio" name="speeder_rule" value="duration" form="{{ speed_form }}" {% if speed.rule == "duration" %}checked{% endif %} {% if not speed_edit %}disabled{% endif %}> {{ de_en("Gesamtdauer: Schneller als ein Anteil der Median-Zeit", "Total duration: Faster than a share of the median time") }}</label>
+    <label class="check"><input type="radio" name="speeder_rule" value="rsi" form="{{ speed_form }}" {% if speed.rule == "rsi" %}checked{% endif %} {% if not speed_edit or speed.rsi is none %}disabled{% endif %}> {{ de_en("Relative Speed Index: Seiten schneller als ihr eigener Median", "Relative Speed Index: Pages faster than their own median") }}
+      {% if speed.rsi is not none %}<span class="hint">{{ de_en("Tempo je Seite gegenüber dem Median der Seite (Leiner, 2019); mit Seitenzeiten voreingestellt", "speed per page against the median of the page (Leiner, 2019); the default with page times") }}</span>{% endif %}</label>
+    {# why the index cannot be chosen, and the way to it in one step (UI/UX audit 2026-10-07, W22; pre-test 2026-10-20, 27):
+       in a draft the setting "Zeit je Seite erfassen" stands further up (#page-timing, quality.html) and an admin
+       switches it on from here; afterwards the survey has no page times and the index stays out of reach #}
+    {% if speed.rsi is none %}<p class="hint speed-rule-need" id="rsi-need">
+      {% if survey.live is not none %}{{ de_en("Bei Live-Abstimmungen nicht vorgesehen.", "Not available in live votes.") }}
+      {% elif survey.is_editable %}{{ de_en("Braucht Seitenzeiten. Schalten Sie dazu oben unter „Datenqualität steigern“", "Needs page times. For them, switch on") }} <a href="#page-timing" data-show-setting="page-timing">{{ de_en("„Zeit je Seite erfassen“", "“Record time per page”") }}</a>{{ de_en(" ein (nur vor dem Start).", " further up under “Improve data quality” (only before the start).") }}
+        {% if survey.role_of(current_user) == "admin" %}<button type="button" class="button button-small button-secondary" data-switch-setting="page-timing">{{ de_en("Seitenzeiten jetzt einschalten", "Switch page times on now") }}</button>
+        {% else %}{{ de_en("Ändern können Personen mit der Rolle „Admin“.", "People with the role “Admin” can change this.") }}{% endif %}
+      {% else %}{{ de_en("Für diese Befragung nicht möglich: Sie erfasst keine Seitenzeiten, und „Zeit je Seite erfassen“ lässt sich nur vor dem Start einschalten.", "Not possible for this survey: it records no page times, and “Record time per page” can only be switched on before the start.") }}{% endif %}</p>{% endif %}
+  </fieldset>
+  {{ why("speeder") }}
+  {# blocks loaded at once (app/blockload.py): their page times come from the browser, checked against the server #}
+  {% if block_times is defined and block_times %}<p class="muted small">{{ de_en("Einfache Blöcke werden am Stück geladen: Ihre Seitenzeiten misst der Browser, der Server prüft die Summe je Block gegen seine eigene Uhr. {n} abgeschlossene Teilnahmen haben solche Seitenzeiten; bei {cut} davon waren sie länger, als die Uhr des Servers erlaubt, und wurden darauf gekürzt (Spalte times_cut). Die Gesamtdauer misst immer der Server.", "Simple blocks are loaded at once: the browser measures their page times, and the server checks the sum per block against its own clock. {n} completed participations have such page times; for {cut} of them they were longer than the server's clock allows and were cut down to it (column times_cut). The total duration is always measured by the server.", n=block_times.timed, cut=block_times.cut) }}</p>{% endif %}
+  <div data-rule-box="duration" {% if speed.rule != "duration" %}hidden{% endif %}>
+  {% if speed.paths_differ %}<p class="flash flash-warning small">{{ de_en("Nicht alle gehen denselben Weg durch den Fragebogen (Verzweigungen, zufällig gezogene Elemente, Schleifen über einige Zeilen oder Fragen, die nur manche sehen). Die Gesamtdauer misst alle am selben Median: Wer einen kurzen Weg nimmt, gilt leicht als Speeder, wer einen langen nimmt, kaum.", "Not everyone takes the same path through the questionnaire (branches, randomly drawn elements, loops over some rows, or questions only some people see). The total duration measures everyone against the same median: anyone who takes a short path easily counts as a speeder, anyone who takes a long one hardly ever.") }} {% if speed.rsi is none %}{{ de_en("Der Relative Speed Index vergleicht jede Seite mit ihrem eigenen Median; er braucht Seitenzeiten („Zeit je Seite erfassen“ auf „Datenerhebung“, vor dem Start).", "The Relative Speed Index compares each page with its own median; it needs page times (“Record time per page” on “Data collection”, before the start).") }}{% else %}{{ de_en("Besser passt hier der Relative Speed Index: Er vergleicht jede Seite mit ihrem eigenen Median.", "The Relative Speed Index fits better here: it compares each page with its own median.") }}{% endif %}</p>{% endif %}
+  {% if speed.any or speed.times_all %}
+  <div class="speed" data-form="{{ speed_form }}" data-speed='{{ {"real": {"times": speed.times, "median": speed.median}, "all": {"times": speed.times_all, "median": speed.median_all}, "by_source": speed.by_source}|tojson }}'>
+    <input type="checkbox" checked hidden data-speed-real><input type="hidden" data-speed-base>
+    <p class="muted" data-speed-empty hidden>{{ de_en("Im gewählten Datenpool gibt es noch keine abgeschlossenen Teilnahmen.", "There are no completed participations in the chosen data pool yet.") }}</p>
+    <div class="speed-body" data-speed-body>
+      <div class="speed-chart"><svg role="img" aria-label="{{ de_en('Bearbeitungszeiten', 'Completion times') }}"></svg>
+        <details class="res-dist speed-table"><summary>{{ de_en("Als Tabelle", "As a table") }}</summary>
+          <div class="res-scroll"><table class="res-table"><thead><tr><th>{{ de_en("Bearbeitungszeit", "Completion time") }}</th><th>{{ de_en("Anzahl", "Count") }}</th></tr></thead><tbody data-speed-table></tbody></table></div></details></div>
+      <div class="speed-side">
+      <label class="speed-slider">
+        <span>{{ de_en("Speeder, wenn schneller als", "Speeder if faster than") }} <strong data-speed-pct>{{ speed_value }}</strong>{{ de_en(" % der Median-Zeit", "% of the median time") }}
+          (<span data-speed-cut></span>)</span>
+        <input type="range" name="speeder" form="{{ speed_form }}" min="5" max="100" step="1" value="{{ speed_value }}" data-speed-range
+               aria-label="{{ de_en('Schwelle in Prozent der Median-Bearbeitungszeit', 'Threshold in per cent of the median completion time') }}" {% if not speed_edit %}disabled{% endif %}>
+      </label>
+      <p class="speed-summary" aria-live="polite"><strong data-speed-n></strong> {{ de_en("als Speeder markiert", "marked as speeders") }} · {{ de_en("Median", "median") }} <span data-speed-median></span></p>
+
+      </div>
+      <div class="speed-note">
+  <p class="muted small">{{ de_en("Die Schwelle gilt für die ganze Befragung: für die Ergebnisse, alle Exporte und den Methodenteil. Der Median kommt dort aus dem jeweils gewählten Datenpool. Die Ergebnisse lassen Speeder weg; beim Export wählen Sie, ob sie nur markiert oder ausgeschlossen werden. Voreinstellung: 50 %.", "The threshold applies to the whole survey: to the results, all exports and the method section. The median there comes from the data pool chosen in each case. The results leave speeders out; when exporting you choose whether they are only marked or excluded. Default: 50%.") }}</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="muted">{{ de_en("Noch keine abgeschlossenen Teilnahmen. Sobald es welche gibt, erscheinen hier die Bearbeitungszeiten. Es gilt die Schwelle von {pct} % der Median-Zeit.", "No completed participations yet. As soon as there are some, the completion times appear here. The threshold of {pct}% of the median time applies.", pct=speed_value) }}</p>
+  {% endif %}
+  </div>
+  {% if speed.rsi is not none %}
+  <div data-rule-box="rsi" {% if speed.rule != "rsi" %}hidden{% endif %}>
+  <div class="speed" data-rsi='{{ {"values": speed.rsi["values"]}|tojson }}'>
+    {% if not speed.rsi["values"] %}<p class="muted">{{ de_en("Noch kein Relative Speed Index: Eine Seite zählt erst, wenn mindestens {n} abgeschlossene Teilnahmen im Datenpool sie abgeschickt haben. Bis dahin ist niemand Speeder.", "No Relative Speed Index yet: a page only counts once at least {n} completed participations in the data pool have sent it. Until then nobody is a speeder.", n=speed.rsi.min_n) }}</p>{% endif %}
+    <div class="speed-body">
+      {% if speed.rsi["values"] %}<div class="speed-chart" aria-hidden="true"><svg></svg></div>{% endif %}
+      <div class="speed-side">
+      <label class="speed-slider">
+        <span>{{ de_en("Speeder, wenn der", "Speeder if the") }} {{ term("rsi", "Relative Speed Index") }} {{ de_en('über <strong data-rsi-limit>{v}</strong> liegt', 'is above <strong data-rsi-limit>{v}</strong>', html=True, v=de(speed.limit)|trim) }}</span>
+        <input type="range" name="speeder_rsi" form="{{ speed_form }}" min="1" max="3" step="0.1" value="{{ speed.limit|fixed(1) }}" data-rsi-range
+               aria-label="{{ de_en('Grenze des Relative Speed Index', 'Limit of the Relative Speed Index') }}" {% if not speed_edit %}disabled{% endif %}>
+      </label>
+      {% if speed.rsi["values"] %}<p class="speed-summary" aria-live="polite"><strong data-rsi-n></strong> {{ de_en("als Speeder markiert", "marked as speeders") }} · {% if speed.rsi.pages == 1 %}{{ de_en("{n} Seite gezählt", "{n} page counted", n=speed.rsi.pages) }}{% else %}{{ de_en("{n} Seiten gezählt", "{n} pages counted", n=speed.rsi.pages) }}{% endif %}{% if speed.rsi.without %} · {{ de_en("{n} ohne Index", "{n} without an index", n=speed.rsi.without) }}{% endif %}</p>{% endif %}
+      {% if speed.rsi.without %}<p class="muted small">{% if speed.rsi.without == 1 %}{{ de_en("{n} abgeschlossene Teilnahme hat keinen Index: Keine ihrer Seiten haben schon {min} Personen abgeschickt (etwa ein seltener Zweig). Sie gelten nie als Speeder.", "{n} completed participation has no index: none of its pages has been sent by {min} people yet (a rare branch, say). It never counts as a speeder.", n=speed.rsi.without, min=speed.rsi.min_n) }}{% else %}{{ de_en("{n} abgeschlossene Teilnahmen haben keinen Index: Keine ihrer Seiten haben schon {min} Personen abgeschickt (etwa ein seltener Zweig). Sie gelten nie als Speeder.", "{n} completed participations have no index: none of their pages has been sent by {min} people yet (a rare branch, say). They never count as speeders.", n=speed.rsi.without, min=speed.rsi.min_n) }}{% endif %}</p>{% endif %}
+      </div>
+      <div class="speed-note">
+  {# first sentence in view, the rest under "Mehr dazu" (UI/UX audit 2026-10-16, 56) #}
+  <p class="muted small">{{ de_en("Je Seite wird die Median-Zeit der Seite durch die eigene Zeit geteilt (2 = doppelt so schnell wie üblich), dieser Faktor auf höchstens 3 begrenzt und über die gesehenen Seiten gemittelt (Leiner, 2019).", "Per page, the median time of the page is divided by the person’s own time (2 = twice as fast as usual), this factor is capped at 3 and averaged over the pages seen (Leiner, 2019).") }}</p>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+  <p class="muted small">{{ de_en("Gezählt werden Seiten mit mindestens einer Frage, ohne Mindestzeit oder Höchstzeit, die mindestens {n} abgeschlossene Teilnahmen abschickten (Festlegung von Askurious); jeder Schleifendurchgang ist eine eigene Seite. Wer auf einer Seite nicht alles sah (Fragen, Aussagen oder Optionen nur für manche), wird mit denen verglichen, die dieselbe Fassung sahen, sobald es davon {n} gibt; sonst mit allen auf der Seite. Die Grenze gilt für die ganze Befragung: für die Ergebnisse, alle Exporte (Spalte", "Counted are pages with at least one question, without a minimum or maximum time, that at least {n} completed participations sent (a choice of Askurious); each pass of a loop is a page of its own. Anyone who did not see everything on a page (questions, statements or options only for some) is compared with those who saw the same revision, once there are {n} of them; otherwise with everyone on the page. The limit applies to the whole survey: to the results, all exports (column", n=speed.rsi.min_n) }} <code>qc_rsi</code>{{ de_en(") und den Methodenteil. Voreinstellung: über 2,0, Leiners pragmatische Empfehlung für besonders verdächtige Teilnahmen.", ") and the method section. Default: above 2.0, Leiner’s pragmatic recommendation for particularly suspicious participations.") }}</p>
+  </details>
+      </div>
+    </div>
+  </div>
+  </div>
+  {% endif %}
+</section>

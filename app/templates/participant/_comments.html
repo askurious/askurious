@@ -1,0 +1,90 @@
+{# Comments on the current preview page (editor preview, mobile view, phone link). Needs: comment_url, block, page,
+   page_items, page_comments, my_comments; `on_phone` asks for an optional name. `stage` = placed next to the phone.
+   In the researcher's language (tool(), Ralf 2026-10-07); testers on the phone link read the survey's language
+   (data-t: the texts of comments.js).
+   An image of the page goes along (app/comment_shots.py); on the phone link a test person sees only the images of
+   their own comments, members of the survey see all. #}
+{% from "_icons.html" import icon %}
+{% set mine = my_comments or [] %}
+<aside class="p-comments {% if stage %}is-stage{% endif %}"{{ tool_attrs() }} data-comments data-url="{{ comment_url }}" aria-label="{{ tool('Kommentare zu dieser Seite', 'Comments on this page') }}"
+       data-t="{{ {'delete': tool('löschen', 'delete'), 'failed': tool('Konnte nicht gespeichert werden.', 'Could not be saved.'),
+                   'offline': tool('Keine Verbindung. Bitte erneut versuchen.', 'No connection. Please try again.'),
+                   'not_deleted': tool('Konnte nicht gelöscht werden. Bitte erneut versuchen.', 'Could not be deleted. Please try again.'),
+                   'image': tool('Bild', 'Image'), 'image_alt': tool('Bild der Seite zu diesem Kommentar', 'Image of the page for this comment'),
+                   'no_image': tool('Das ist kein Bild, das sich anhängen lässt.', 'This is not an image that can be attached.'),
+                   'capture_failed': tool('Die Seite konnte nicht aufgenommen werden.', 'The page could not be captured.')}|tojson|forceescape }}">
+  {% if not stage %}<button type="button" class="p-comments-toggle" data-comments-toggle aria-expanded="false" aria-label="{{ tool('Kommentare ({n})', 'Comments ({n})', n=page_comments|length) if page_comments else tool('Kommentar', 'Comment') }}">{{ icon("message", 18) }} <span class="p-comments-word">{{ tool("Kommentar", "Comment") }}</span>{% if page_comments %} <span class="p-comments-count" aria-hidden="true">{{ page_comments|length }}</span>{% endif %}</button>{% endif %}
+  <div class="p-comments-panel" data-comments-panel>
+    <h2>{{ icon("message", 20) }} {{ tool("Kommentare zu dieser Seite", "Comments on this page") }}</h2>
+    <form data-comment-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="block_id" value="{{ block.id }}">
+      <input type="hidden" name="page" value="{{ page }}">
+      <label>{{ tool("Worauf bezieht sich der Kommentar?", "What does the comment refer to?") }}
+        <select name="item_id">
+          <option value="">{{ tool("Ganze Seite", "Whole page") }}</option>
+          {% for it in page_items if it.type != "page_break" %}
+          <option value="{{ it.id }}">{{ it.code }}{% set q = (it.text("question") or "")|striptags %}{% if q %} · {{ q|truncate(40) }}{% endif %}</option>
+          {% endfor %}
+        </select></label>
+      {% if on_phone %}<label>{{ tool("Ihr Name", "Your name") }} <span class="p-comments-hint">{{ tool("optional", "optional") }}</span><input name="name" maxlength="120" autocomplete="name"></label>{% endif %}
+      <label>{{ tool("Kommentar", "Comment") }}<textarea name="text" rows="3" maxlength="4000" required dir="auto" placeholder="{{ tool('Was ist unklar, fehlt oder funktioniert nicht?', 'What is unclear, missing or not working?') }}"></textarea></label>
+      <div class="p-comments-shot" data-shot>
+        <span class="p-comments-label">{{ tool("Bild", "Image") }} <span class="p-comments-hint">{{ tool("optional", "optional") }}</span></span>
+        <div class="p-comments-shot-buttons" data-shot-buttons>
+          <button type="button" class="p-comments-chip" data-shot-capture hidden>{{ icon("camera", 16) }} {{ tool("Seite aufnehmen", "Capture page") }}</button>
+          <button type="button" class="p-comments-chip" data-shot-pick>{{ icon("image", 16) }} {{ tool("Bild wählen", "Choose image") }}</button>
+          {# Ctrl+V under Windows and Linux; comments.js puts ⌘V on a Mac and a hint about screenshots on a phone #}
+          <span class="p-comments-hint" data-shot-paste data-mac="{{ tool('oder mit ⌘V einfügen', 'or paste with ⌘V') }}">{{ tool("oder mit Strg+V einfügen", "or paste with Ctrl+V") }}</span>
+          <span class="p-comments-hint" data-shot-phone hidden>{{ tool("Am Smartphone zuerst ein Bildschirmfoto machen, dann hier wählen.", "On a phone, take a screenshot first, then choose it here.") }}</span>
+        </div>
+        <input type="file" accept="image/*" data-shot-file hidden>
+        <div class="p-comments-shot-thumb" data-shot-thumb hidden>
+          <img alt="{{ tool('Angehängtes Bild', 'Attached image') }}" title="{{ tool('Markieren', 'Mark') }}" data-shot-img>
+          <span class="p-comments-hint" data-shot-info></span>
+          <button type="button" class="p-comments-shot-remove" data-shot-remove aria-label="{{ tool('Bild entfernen', 'Remove image') }}">×</button>
+        </div>
+        <span class="p-comments-hint" data-shot-privacy hidden>{{ tool("Bitte darauf achten, dass auf dem Bild nichts Persönliches zu sehen ist.", "Please make sure that nothing personal can be seen in the image.") }}</span>
+        <details data-shot-rights-panel hidden>
+          <summary>{{ tool("Bildrechte und Quelle", "Image rights and source") }}</summary>
+          <p class="p-comments-hint">{{ tool("Bei fremden Bildern bitte die vorhandenen Rechteangaben hier eintragen. Sie bleiben beim Markieren und Abdecken erhalten und werden mit dem bearbeiteten Bild gespeichert. Die Angaben erteilen keine zusätzliche Nutzungserlaubnis.", "For third-party images, enter the existing attribution here. It stays with the edited image when you add marks or cover areas. These details do not grant additional permission to use the image.") }}</p>
+          <fieldset data-shot-rights disabled>
+            <legend>{{ tool("Rechteangaben zum Bild", "Image attribution") }}</legend>
+            {% for field, label_de, label_en in [('creator', 'Urheber/in', 'Creator'), ('copyright', 'Copyright-Vermerk', 'Copyright notice'), ('credit', 'Gewünschte Namensnennung', 'Required credit'), ('source', 'Quelle / Originaladresse', 'Source / original address'), ('license', 'Lizenz oder individuelle Erlaubnis', 'Licence or individual permission'), ('license_url', 'Lizenzadresse', 'Licence URL')] %}
+            <label>{{ tool(label_de, label_en) }}<input name="shot_rights_{{ field }}" maxlength="4096"{% if field == 'license_url' %} type="url"{% endif %}></label>
+            {% endfor %}
+          </fieldset>
+        </details>
+      </div>
+      <p class="p-comments-error" data-comment-error hidden></p>
+      <button class="p-button p-comments-send">{{ tool("Kommentar senden", "Send comment") }}</button>
+    </form>
+    <dialog class="p-shot-editor" data-shot-editor aria-labelledby="shot-editor-title">
+      <h2 id="shot-editor-title">{{ tool("Bild markieren", "Mark the image") }}</h2>
+      <div class="p-shot-tools" role="toolbar" aria-label="{{ tool('Werkzeuge', 'Tools') }}">
+        <button type="button" class="p-comments-chip" data-tool="rect" aria-pressed="true">{{ icon("frame", 16) }} {{ tool("Rahmen", "Frame") }}</button>
+        <button type="button" class="p-comments-chip" data-tool="arrow" aria-pressed="false">{{ icon("arrow-up-right", 16) }} {{ tool("Pfeil", "Arrow") }}</button>
+        <button type="button" class="p-comments-chip" data-tool="cover" aria-pressed="false">{{ icon("cover", 16) }} {{ tool("Abdecken", "Cover") }}</button>
+        <button type="button" class="p-comments-chip" data-shot-undo>{{ icon("undo", 16) }} {{ tool("Rückgängig", "Undo") }}</button>
+      </div>
+      <div class="p-shot-stage"><canvas data-shot-canvas aria-label="{{ tool('Bild der Seite zum Markieren', 'Image of the page to mark') }}"></canvas></div>
+      <p class="p-comments-hint">{{ tool("Mit Maus oder Finger ziehen. „Abdecken“ schwärzt, was niemand sehen soll.", "Drag with the mouse or a finger. “Cover” blacks out what nobody should see.") }}</p>
+      <div class="p-shot-actions">
+        <button type="button" class="p-button" data-shot-ok>{{ tool("Übernehmen", "Use image") }}</button>
+        <button type="button" class="p-button p-button-secondary" data-shot-cancel>{{ tool("Abbrechen", "Cancel") }}</button>
+      </div>
+    </dialog>
+    <ul class="p-comments-list" data-comment-list>
+      {% for c in page_comments %}
+      <li data-comment-id="{{ c.id }}">
+        <span class="p-comments-target">{{ c.target }}</span>
+        <span class="p-comments-text">{{ c.text }}</span>
+        {% if c.shot and (not on_phone or c.id in mine) %}<a class="p-comments-img" href="{{ comment_url }}/{{ c.id }}/shot" target="_blank" rel="noopener"><img src="{{ comment_url }}/{{ c.id }}/shot" alt="{{ tool('Bild der Seite zu diesem Kommentar', 'Image of the page for this comment') }}" loading="lazy"></a>
+        {% elif c.shot %}<span class="p-comments-hint">{{ icon("camera", 14) }} {{ tool("Bild", "Image") }}</span>{% endif %}
+        <span class="p-comments-meta">{{ c.author or tool("Testperson", "Tester") }} · {{ c.created_at|localdt }}{% if c.id in mine %} · <button type="button" class="p-comments-del" data-comment-delete>{{ tool("löschen", "delete") }}</button>{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="p-comments-hint">{{ tool("Kommentare zählen nicht als Antworten. Eigene Kommentare lassen sich bis zum nächsten „Von vorn“ löschen.", "Comments do not count as answers. Your own comments can be deleted until the preview starts again.") }}</p>
+  </div>
+</aside>

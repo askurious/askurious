@@ -1,0 +1,38 @@
+{# ↶ ↷: this person's last changes to the questionnaire, in the field to what may change there (app/undo.py). Needs: survey.
+   Ctrl+Z / Ctrl+Y press the two buttons when the cursor is not in a text field (app.js). #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% if survey.can(current_user, "editor") %}
+{% set steps = steps if steps is defined else edit_history(survey) %}{# surveys/_tabs.html reads them first (the line beside the arrows) #}
+<div class="undo-bar" role="group" aria-label="{{ de_en('Rückgängig und Wiederholen', 'Undo and redo') }}">
+  <form method="post" action="{{ url_for('editor.undo', survey_id=survey.id) }}">{{ csrf() }}
+    {% set tip = de_en("Rückgängig: {step} (Strg+Z)", "Undo: {step} (Ctrl+Z)", step=undo_label(steps.undo[0])) if steps.undo else de_en("Rückgängig: noch keine Änderung", "Undo: no change yet") %}
+    <button class="icon-btn" data-undo data-step="{{ steps.undo[0].id if steps.undo else '' }}" title="{{ tip }}" aria-label="{{ tip }}" {% if not steps.undo %}disabled{% endif %}>{{ icon("undo", 18) }}</button>
+  </form>
+  <form method="post" action="{{ url_for('editor.redo', survey_id=survey.id) }}">{{ csrf() }}
+    {% set tip = de_en("Wiederholen: {step} (Strg+Y)", "Redo: {step} (Ctrl+Y)", step=undo_label(steps.redo[0])) if steps.redo else de_en("Wiederholen: nichts zurückgenommen", "Redo: nothing undone") %}
+    <button class="icon-btn" data-redo data-step="{{ steps.redo[0].id if steps.redo else '' }}" title="{{ tip }}" aria-label="{{ tip }}" {% if not steps.redo %}disabled{% endif %}>{{ icon("redo", 18) }}</button>
+  </form>
+  {% if steps.undo %}
+  <details class="menu undo-menu">
+    <summary class="icon-btn" title="{{ de_en('Letzte Änderungen', 'Recent changes') }}" aria-label="{{ de_en('Letzte Änderungen', 'Recent changes') }}">{{ icon("chevron-down", 14) }}</summary>
+    <div class="menu-panel undo-panel">
+      <p class="undo-head">{{ de_en("Meine letzten Änderungen", "My recent changes") }} <span class="hint">{{ de_en("Ein Klick nimmt alles bis dorthin zurück.", "A click undoes everything up to there.") }}</span></p>
+      <ol class="undo-list">
+        {% for step in steps.undo %}
+        <li {% if loop.index > undo_shown %}hidden data-undo-older{% endif %}>
+          <form method="post" action="{{ url_for('editor.undo', survey_id=survey.id) }}">{{ csrf() }}
+            <input type="hidden" name="to" value="{{ step.id }}">
+            <button><span class="undo-time">{{ undo_when(step) }}</span> <span>{{ undo_label(step) }}</span></button>
+          </form>
+        </li>
+        {% endfor %}
+      </ol>
+      {% if steps.undo|length > undo_shown %}
+      <button type="button" class="undo-more" data-undo-more>{{ de_en("{n} ältere anzeigen", "Show {n} older", n=steps.undo|length - undo_shown) }}</button>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endif %}

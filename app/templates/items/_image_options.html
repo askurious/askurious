@@ -1,0 +1,17 @@
+{# Answer options as images ("Bildauswahl", items/choice.py): a tile per option with its image and its wording
+   below, the same field names and codes as the buttons. Needs: input_type ("radio" | "checkbox"), chosen_codes,
+   typed. Carried options and options without an approved image show their wording only. #}
+<div class="p-image-options">
+  {% for o in kind.options(item, lang, none if all_rows is defined and all_rows else answers) %}
+  {% set asset = kind.option_image(item, o.id) %}
+  <label class="p-image-option{% if o.text %} p-option-text{% endif %}">
+    {% if asset %}{% set iw, ih = image_size(item.survey.uid, asset.filename) %}{% set small = image_thumbnail(item.survey.uid, asset.filename) %}{% set sw, sh = image_size(item.survey.uid, small) %}<img src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=small) }}"{% if small != asset.filename %} srcset="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=small) }} {{ sw }}w, {{ url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) }} {{ iw }}w" sizes="(max-width: 600px) 45vw, 150px"{% endif %}{% if iw %} width="{{ iw }}" height="{{ ih }}"{% endif %} decoding="async" alt="{{ kind.option_alt(item, o, lang) }}" loading="lazy">
+    {% else %}<span class="p-image-missing" aria-hidden="true"></span>{% endif %}
+    <span class="p-image-caption">
+      <input type="{{ input_type }}" name="i{{ item.id }}" value="{{ o.code }}" {% if o.code in chosen_codes %}checked{% endif %}{% if o.exclusive and input_type == "checkbox" %} data-exclusive{% endif %}>
+      <span>{{ o.label|fill(variables) }}</span>
+    </span>
+    {% if o.text %}<input type="text" class="p-other" dir="auto" name="i{{ item.id }}_t_{{ o.id }}" maxlength="500" autocomplete="off" aria-label="{{ o.label }}" value="{{ typed.get(o.code, '') }}">{% endif %}
+  </label>
+  {% endfor %}
+</div>

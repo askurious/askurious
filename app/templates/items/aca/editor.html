@@ -1,0 +1,80 @@
+{# Adaptive conjoint (app/items/aca.py): three tabs over one form; panel.html shows the flow and the price hint.
+   Attributes, levels, prohibitions and the explanation page are the shared parts of items/_attributes. #}
+{% from "_learn.html" import why %}
+{% set t = item.lang_texts(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set c = item.config %}
+{% set question_label = de_en("Frage der Paare", "Question of the pairs") %}
+{% set question_hint = de_en("steht über jedem Paar", "appears above every pair") %}
+<div data-cj-tab="content">{{ why("conjoint_kind") }}{% include "items/_question_field.html" %}</div>
+{% set attr_footnote = de_en("Neue Merkmale und Stufen speichern sich selbst. Ein Preis gehört besser in CBC oder ACBC: ACA unterschätzt ihn.", "New attributes and levels save themselves. A price belongs in CBC or ACBC instead: ACA underestimates it.") %}
+{% set with_visual = false %}
+{% include "items/_attributes/editor.html" %}
+{% if c.attributes %}
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Reihenfolge der Stufen", "Order of the levels") }} <span class="hint">{{ de_en("Stufen ohne feste Reihenfolge bewerten die Teilnehmenden selbst", "participants rate levels without a fixed order themselves") }}</span></legend>
+  {% for a in kind.attributes(item, lang) %}
+  <label>{{ a.label }}
+    <select name="order_{{ a.id }}" {% if not structural %}disabled{% endif %}>
+      {% set o = (c.orders or {}).get(a.id, "") %}
+      <option value="" {% if not o %}selected{% endif %}>{{ de_en("Teilnehmende bewerten die Stufen", "Participants rate the levels") }}</option>
+      <option value="best_first" {% if o == "best_first" %}selected{% endif %}>{{ de_en("feste Reihenfolge: erste Stufe am besten", "fixed order: first level best") }}</option>
+      <option value="best_last" {% if o == "best_last" %}selected{% endif %}>{{ de_en("feste Reihenfolge: letzte Stufe am besten", "fixed order: last level best") }}</option>
+    </select></label>
+  {% endfor %}
+  <input type="hidden" name="order_shown" value="1">
+</fieldset>
+{% endif %}
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Texte", "Texts") }}</legend>
+  <div class="row-fields">
+    <label class="wide-field">{{ de_en("Frage zu den Stufen", "Question on the levels") }} <input name="pref_question" value="{{ t.get('pref_question', '') }}" placeholder="{{ d.pref_question }}"> <span class="hint">{{ de_en("{attr} steht für den Namen des Merkmals", "{attr} stands for the name of the attribute") }}</span></label>
+    <label>{{ de_en("links", "left") }} <input name="pref_low" value="{{ t.get('pref_low', '') }}" placeholder="{{ d.pref_low }}" class="narrow"></label>
+    <label>{{ de_en("rechts", "right") }} <input name="pref_high" value="{{ t.get('pref_high', '') }}" placeholder="{{ d.pref_high }}" class="narrow"></label>
+  </div>
+  <div class="row-fields">
+    <label class="wide-field">{{ de_en("Frage zur Wichtigkeit", "Question on the importance") }} <input name="imp_question" value="{{ t.get('imp_question', '') }}" placeholder="{{ d.imp_question }}"></label>
+    <label>{{ de_en("links", "left") }} <input name="imp_low" value="{{ t.get('imp_low', '') }}" placeholder="{{ d.imp_low }}" class="narrow"></label>
+    <label>{{ de_en("rechts", "right") }} <input name="imp_high" value="{{ t.get('imp_high', '') }}" placeholder="{{ d.imp_high }}" class="narrow"></label>
+  </div>
+  <div class="row-fields">
+    <label>{{ de_en("Paare: Ende der Skala", "Pairs: end of the scale") }} <input name="much" value="{{ t.get('much', '') }}" placeholder="{{ d.much }}" class="narrow"></label>
+    <label>{{ de_en("Mitte", "Middle") }} <input name="same" value="{{ t.get('same', '') }}" placeholder="{{ d.same }}" class="narrow"></label>
+    <label class="wide-field">{{ de_en("Frage der Kalibrierung", "Question of the calibration") }} <input name="cal_question" value="{{ t.get('cal_question', '') }}" placeholder="{{ d.cal_question }}"></label>
+  </div>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Paare", "Pairs") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Paare je Person", "Pairs per person") }} <input type="number" name="n_pairs" min="1" max="50" class="narrow" value="{{ c.n_pairs or '' }}" placeholder="{{ kind.n_pairs(item) or '' }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Merkmale je Angebot: erste Hälfte", "Attributes per offer: first half") }} <input type="number" name="size_start" min="2" max="5" class="narrow" value="{{ c.size_start }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("zweite Hälfte", "second half") }} <input type="number" name="size_end" min="2" max="5" class="narrow" value="{{ c.size_end }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Stufen der Paar-Skala", "Points of the pair scale") }}
+      <select name="pair_points" {% if not structural %}disabled{% endif %}>{% for s in (7, 9) %}<option value="{{ s }}" {% if c.pair_points == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+  </div>
+  <p class="muted small">{{ de_en("Leer = Vorschlag 3 · (Stufen − Merkmale − 1) − Stufen, hier {n}; üblich sind 15 bis 30. Voreingestellt sind zwei Merkmale je Angebot am Anfang und höchstens drei danach (Festlegung von Askurious: Kleine Paare sind anfangs leichter zu beurteilen).", "Empty = suggestion 3 · (levels − attributes − 1) − levels, here {n}; 15 to 30 are usual. Two attributes per offer are preset at first and at most three afterwards (Askurious default: small pairs are easier to judge at first).", n=kind.n_pairs(item)) }}</p>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Skalen und Kalibrierung", "Scales and calibration") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Stufen bewerten: Punkte", "Rating the levels: points") }}
+      <select name="pref_points" {% if not structural %}disabled{% endif %}>{% for s in (5, 7, 9) %}<option value="{{ s }}" {% if c.pref_points == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Wichtigkeit: Punkte", "Importance: points") }}
+      <select name="imp_points" {% if not structural %}disabled{% endif %}>{% for s in (4, 5, 7) %}<option value="{{ s }}" {% if c.imp_points == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Kalibrierungskonzepte", "Calibration concepts") }} <input type="number" name="cal" min="0" max="8" class="narrow" value="{{ c.cal }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Merkmale je Konzept", "Attributes per concept") }} <input type="number" name="cal_size" min="2" max="8" class="narrow" value="{{ c.cal_size }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  <p class="muted small">{{ de_en("Kalibrierung: 0 = keine, sonst 3 bis 8 Konzepte aus den wichtigsten Merkmalen der Person mit „Wie wahrscheinlich … (0 bis 100)?“; damit lassen sich Teilnutzen in Kaufwahrscheinlichkeiten übersetzen. Für Präferenzanteile ist sie nicht nötig.", "Calibration: 0 = none, otherwise 3 to 8 concepts made of the person's most important attributes with “How likely … (0 to 100)?”; this lets part-worths be translated into purchase likelihoods. It is not needed for preference shares.") }}</p>
+</fieldset>
+{% set prohib_footnote = de_en("Gilt in jedem Angebot eines Paares und der Kalibrierung.", "Applies to every offer of a pair and of the calibration.") %}
+{% set prohib_unit = de_en("einem Angebot", "an offer") %}
+{% include "items/_attributes/prohibitions.html" %}
+<fieldset data-cj-tab="display">
+  <legend>{{ de_en("Darstellung", "Display") }}</legend>
+  <label class="check"><input type="checkbox" name="hide_attr_labels" value="1" {% if c.hide_attr_labels %}checked{% endif %}> {{ de_en("Spalte mit den Merkmalsnamen ausblenden", "Hide the column with the attribute names") }}</label>
+  <div class="row-fields">
+    <label>{{ de_en("Bezeichnung der Angebote", "Name of the offers") }} <input name="alt_label" value="{{ t.get('alt_label', '') }}" placeholder="{{ d.alt_label }}"></label>
+  </div>
+  {% include "items/_auto_next.html" %}
+</fieldset>
+{% include "items/_attributes/explain_editor.html" %}

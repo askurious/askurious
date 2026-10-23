@@ -1,0 +1,9 @@
+{# The survey's title on its first page, with who runs it, before the consent: people who come by a link see what
+   they are asked about and by whom (UI/UX audit 2026-10-05, V34). Needs: survey, lang, page, block. #}
+{% if page == 1 and not (separated is defined and separated) %}{% set by = survey_sender(survey) %}
+<header class="p-survey-head">
+  {# the page's hidden heading already says the title, unless the block shows its own #}
+  <p class="p-survey-title" {% if not (block.show_title and block.title(lang)) %}aria-hidden="true"{% endif %}>{{ survey.title_in(lang) }}</p>
+  {% if by %}<p class="p-survey-by">{{ by }}</p>{% endif %}
+</header>
+{% endif %}

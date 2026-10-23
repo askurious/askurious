@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{# An invitation to join an organisation (app/org_admin.py, join): the person decides themselves (audit 2026-10-18,
+   AUTHZ-01/02). Needs: org, inviter, member, guest, token. #}
+{% block title %}{{ de_en("Einladung", "Invitation") }} · {{ org_label(org) }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Einladung in die Organisation {o}", "Invitation to the organisation {o}", o=org_label(org)) }}</h1>
+<section class="panel">
+  {% if member %}
+  <p>{{ de_en("Sie gehören schon zu dieser Organisation.", "You already belong to this organisation.") }}</p>
+  <p><a class="button button-secondary" href="{{ url_for('dashboard.index') }}">{{ de_en("Zur Übersicht", "To the overview") }}</a></p>
+  {% else %}
+  <p>{{ de_en("{n}, Admin der Organisation, lädt Sie ein, ihr beizutreten.", "{n}, an admin of the organisation, invites you to join it.", n=inviter.display_name) }}</p>
+  <p class="muted small">{{ de_en("Als Mitglied finden Sie die Personen der Organisation in der Suche, können in ihre Gruppen aufgenommen werden und sehen ihre Beispielbefragungen. Ihre Befragungen und Ihre übrigen Rechte bleiben, wie sie sind.", "As a member you find the organisation's people in the search, can be added to its groups and see its example surveys. Your surveys and your other rights stay as they are.") }}</p>
+  {% if guest %}<p class="muted small">{{ de_en("Ihr Konto hat bisher keine Organisation. Mit dem Beitritt wird diese Organisation seine Heimat: Ihre Admins verwalten es dann (Nutzertyp, Laufzeit, Befragungstypen, Sperren, Löschen), solange Sie keine Rollen in anderen Organisationen haben.", "Your account has had no organisation so far. Joining makes this organisation its home: its admins then manage it (user type, period, survey types, blocking, deleting) as long as you have no roles in other organisations.") }}</p>{% endif %}
+  <form method="post" class="row">
+    {{ csrf() }}
+    <button class="button" name="answer" value="join">{{ de_en("Beitreten", "Join") }}</button>
+    <button class="button button-secondary" name="answer" value="no">{{ de_en("Nicht beitreten", "Do not join") }}</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

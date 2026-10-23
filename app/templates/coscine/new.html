@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# "Neues Projekt in Coscine" (app/coscine.py, new_page, K1): a project or sub-project with a first
+   resource, or a resource in a project of the person. Needs: survey, back, form, me, organizations, projects,
+   disciplines, licenses, types, risk, base, kind_label. #}
+{% block title %}{{ de_en("Neu in Coscine anlegen", "Create in Coscine") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel" id="coscine-new">
+  <h2>{{ de_en("Neu in Coscine anlegen", "Create in Coscine") }}</h2>
+  <form method="post" action="{{ url_for('coscine.new_page', survey_id=survey.id) }}" class="stack" autocomplete="off" data-busy-form>
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Was anlegen", "What to create") }}</span>
+      <select name="wohin">
+        <option value="neu" {% if form.wohin == "neu" %}selected{% endif %}>{{ de_en("Neues Projekt mit Ressource", "New project with resource") }}</option>
+        {% for p in projects %}
+        <option value="sub:{{ p.id }}" {% if form.wohin == "sub:" ~ p.id %}selected{% endif %}>{{ de_en("Neues Unterprojekt von „{p}“ mit Ressource", "New sub-project of “{p}” with resource", p=p.displayName or p.name) }}</option>
+        {% endfor %}
+        {% for p in projects %}
+        <option value="in:{{ p.id }}" {% if form.wohin == "in:" ~ p.id %}selected{% endif %}>{{ de_en("Neue Ressource in „{p}“", "New resource in “{p}”", p=p.displayName or p.name) }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">{{ de_en("Ein Unterprojekt übernimmt die Verantwortlichen des Projekts darüber.", "A sub-project takes over the owners of the project above.") }}</span></label>
+
+    <h3>{{ de_en("Projekt", "Project") }} <span class="hint">{{ de_en("nur für ein neues Projekt oder Unterprojekt", "only for a new project or sub-project") }}</span></h3>
+    <label><span class="label-title">{{ de_en("Name", "Name") }}</span><input name="name" value="{{ form.name }}" maxlength="200"></label>
+    <label><span class="label-title">{{ de_en("Beschreibung", "Description") }}</span><textarea name="beschreibung" rows="3" maxlength="5000">{{ form.beschreibung }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Projektleitung", "Principal investigator") }}</span><input name="leitung" value="{{ form.leitung }}" maxlength="500"></label>
+    <div class="row-fields">
+      <label><span class="label-title">{{ de_en("Beginn", "Start") }}</span><input type="date" name="start" value="{{ form.start }}" required></label>
+      <label><span class="label-title">{{ de_en("Ende", "End") }}</span><input type="date" name="ende" value="{{ form.ende }}" required></label>
+    </div>
+    <p class="muted small">{{ de_en("Einrichtung: {o} (aus Ihrem Coscine-Profil).", "Organisation: {o} (from your Coscine profile).", o=organizations|map(attribute="displayName")|join(", ") or "–") }}</p>
+
+    <h3>{{ de_en("Ressource", "Resource") }}</h3>
+    <label><span class="label-title">{{ de_en("Name", "Name") }}</span><input name="ressource" value="{{ form.ressource }}" maxlength="200"></label>
+    <label><span class="label-title">{{ de_en("Disziplin", "Discipline") }}</span>
+      <select name="disziplin">
+        <option value="">{{ de_en("bitte wählen", "please choose") }}</option>
+        {% for d in disciplines %}<option value="{{ d.id }}" {% if d.id == form.disziplin %}selected{% endif %}>{{ (d.displayNameEn or d.displayNameDe) if english else (d.displayNameDe or d.displayNameEn) }}</option>{% endfor %}
+      </select></label>
+    <div class="row-fields">
+      <label><span class="label-title">{{ de_en("Typ", "Type") }}</span>
+        <select name="typ">
+          {% for t in types %}<option value="{{ t.id }}" {% if t.id == form.typ %}selected{% endif %}>{{ {"dsNrwWeb": "Web", "dsNrwS3": "S3", "dsNrwS3Worm": de_en("WORM, unveränderlich", "WORM, unchangeable"), "rds": "RDS"}.get(t.generalType, t.generalType) }}</option>{% endfor %}
+        </select></label>
+      <label><span class="label-title">{{ de_en("Größe in GB", "Size in GB") }}</span><input type="number" name="gb" value="{{ form.gb }}" min="1" max="10000" step="1">
+        <span class="hint">{{ de_en("Vorschlag: das Zehnfache der letzten Ablage, mindestens 1 GB", "suggestion: ten times the last upload, at least 1 GB") }}</span></label>
+    </div>
+    <label><span class="label-title">{{ de_en("Metadatenprofil", "Metadata profile") }}</span>
+      <select name="profil">
+        <option value="{{ risk }}" {% if form.profil == risk %}selected{% endif %}>Social Science Data Profile RISK</option>
+        <option value="{{ base }}" {% if form.profil == base %}selected{% endif %}>{{ de_en("Basisprofil", "Base profile") }}</option>
+      </select></label>
+    <label><span class="label-title">{{ de_en("Lizenz", "Licence") }} <span class="hint">{{ de_en("optional", "optional") }}</span></span>
+      <select name="lizenz">
+        <option value="">{{ de_en("keine angeben", "none") }}</option>
+        {% for l in licenses %}<option value="{{ l.id }}" {% if l.id == form.lizenz %}selected{% endif %}>{{ l.displayName }}</option>{% endfor %}
+      </select></label>
+    <p class="muted small">{{ de_en("Projekt und Ressource sind nur für Projektmitglieder sichtbar. Askurious legt nur an, was Sie hier bestätigen, und löscht in Coscine nichts; ändern oder löschen lässt sich beides in Coscine.", "Project and resource are visible to project members only. Askurious creates only what you confirm here and deletes nothing in Coscine; both can be changed or deleted in Coscine.") }}</p>
+    <div class="form-actions">
+      <button class="button">{{ icon("plus", 16) }} {{ de_en("In Coscine anlegen", "Create in Coscine") }}</button>
+      <a class="button button-secondary" href="{{ back }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+      <span class="busy-note" data-busy-note hidden role="status"><progress aria-label="{{ de_en('Wird in Coscine angelegt', 'Creating in Coscine') }}"></progress></span>
+    </div>
+  </form>
+</section>
+{% endblock %}

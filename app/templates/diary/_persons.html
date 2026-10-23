@@ -1,0 +1,41 @@
+{# The block "Teilnehmende" of "Datenerhebung" for a diary study (app/diary.py, persons_context): every person with
+   status, period, entries and answered prompts, pausing and ending; beside "Beitreten", where a questionnaire shows
+   its participation link (moved from "Zeitplan", concept "Befragungstypen im Vergleich" 2026-10-17, T5). In pages
+   (diary_list, app/tables.py; performance audit 2026-10-18, PERF-05). #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import term %}
+{% from "_sources.html" import cite, grouped %}
+{% from "_listing.html" import pager %}
+<details class="panel settings-group" id="persons" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Teilnehmende", "Participants") }}</h2><span class="settings-sum">{{ de_en("1 Person", "1 person") if diary_list.total == 1 else de_en("{n} Personen", "{n} people", n=diary_list.total) }}</span></summary>
+  <div class="settings-body stack">
+  {% if review_count and may_edit %}<p><a href="{{ url_for('diary.offline_review', survey_id=survey.id) }}">{{ de_en("{n} Offline-Antworten benötigen Prüfung", "{n} offline answers need review", n=review_count) }}</a></p>{% endif %}
+  <p class="muted small flush">{{ de_en("Jede Person zählt einmal, hier wie im Stichprobenziel (in Personen) und in „Ergebnisse“ (jede Person gleich gewichtet). „Qualitätssicherung“ misst jeden Eintrag gegen den Median seines Teils. Der Export hat eine Zeile je Eintrag mit der Spalte „person“.",
+    "Each person counts once, here as in the sample target (in people) and in “Results” (every person weighted equally). “Quality assurance” measures each entry against the median of its part. The export has one row per entry with the column “person”.") }}</p>
+  {% if flagged %}<p class="flush">{{ icon("alert", 16) }} {% if diary_list.pages > 1 %}{{ de_en("Auf dieser Seite:", "On this page:") }} {% endif %}{{ de_en("{n} Personen fallen auf: niedrige Antwortquote (unter 50 %, ab fünf Abfragen), seit zwei Tagen kein Eintrag oder Einträge, die fast immer die Antworten des vorigen wiederholen", "{n} people stand out: low compliance (below 50%, from five prompts), no entry for two days, or entries that almost always repeat the answers of the one before", n=flagged) }} {{ cite(diary_sources) }}.</p>{% endif %}
+  {% if diary_rows and not persons_shown %}<p class="muted flush">{{ de_en("Einzelne Personen sind ab der Rolle „Bearbeiten“ sichtbar.", "Individual people are visible from the Edit role onwards.") }}</p>
+  {% elif diary_rows %}
+  <div class="res-scroll"><table class="table">
+    <thead><tr><th>ID</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("Zeitraum", "Period") }}</th><th>{{ de_en("Einträge", "Entries") }}</th><th>{{ term("compliance", de_en("Beantwortete Abfragen", "Prompts answered")) }}</th><th>{{ de_en("Letzter Eintrag", "Last entry") }}</th><th>{{ de_en("Auffällig", "Stands out") }}</th>{% if may_edit %}<th><span class="visually-hidden">{{ de_en("Steuern", "Steer") }}</span></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for r in diary_rows %}
+      <tr><td class="mono small">{{ r.pid }}{% if r.source != "real" %} <span class="badge">{{ de_en("Test", "Test") if r.source == "test" else r.source }}</span>{% endif %}{% if r.fast %} <span class="badge">{{ de_en("Zeitraffer", "fast forward") }}</span>{% endif %}</td>
+        <td>{{ {"pending": de_en("Eingangsbefragung offen", "entry survey open"), "active": de_en("aktiv", "active"), "finished": de_en("abgeschlossen", "finished"), "left": de_en("ausgestiegen", "left"), "paused": de_en("pausiert", "paused"), "ended": de_en("beendet", "ended")}.get(r.status, r.status) }}</td>
+        <td>{% if r.first %}{{ r.first }} – {{ r.last or de_en("offen", "open") }}{% endif %}</td>
+        <td>{{ r.entries }}</td>
+        <td>{% if r.due %}{{ r.answered }} / {{ r.due }} ({{ (100 * r.answered / r.due)|round|int }} %){% else %}–{% endif %}{% if r.in_review %} <span class="muted small">· {{ de_en("{n} zur Prüfung", "{n} under review", n=r.in_review) }}</span>{% endif %}</td>
+        <td class="small">{% if r.last_entry %}{{ r.last_entry|localdt }}{% else %}–{% endif %}</td>
+        <td>{% for key, text in r.flags %}<span class="badge badge-pending">{{ text }}</span> {% endfor %}</td>
+        {% if may_edit %}<td class="nowrap">{% if r.status == "active" %}<form method="post" action="{{ url_for('diary.person_action', survey_id=survey.id, person_id=r.id, action='pause') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Pausieren", "Pause") }}</button></form>{% elif r.status == "paused" %}<form method="post" action="{{ url_for('diary.person_action', survey_id=survey.id, person_id=r.id, action='resume') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Fortsetzen", "Resume") }}</button></form>{% endif %}
+          {% if survey.can(current_user, "admin") and r.status in ("active", "paused", "pending") %}<form method="post" action="{{ url_for('diary.person_action', survey_id=survey.id, person_id=r.id, action='end') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary" data-confirm="{{ de_en('Tagebuchstudie für diese Person beenden?', 'End the diary survey for this person?') }}" data-confirm-note="{{ de_en('Sie bekommt keine Abfragen mehr; ihre Einträge bleiben. Das lässt sich nicht zurücknehmen.', 'They get no more prompts; their entries stay. This cannot be undone.') }}" data-confirm-ok="{{ de_en('Beenden', 'End') }}">{{ de_en("Beenden", "End") }}</button></form>{% endif %}</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {{ pager(diary_list) }}
+  {% if survey.can(current_user, "admin") and diary_still_in %}
+  <form method="post" action="{{ url_for('diary.end_all', survey_id=survey.id) }}">{{ csrf() }}<button class="button button-secondary" data-confirm="{{ de_en('Tagebuchstudie für alle beenden?', 'End the diary survey for everyone?') }}" data-confirm-note="{{ de_en('Niemand bekommt mehr Abfragen; der Abschluss-Fragebogen öffnet sich, wenn es einen gibt. Die Einträge bleiben. Das lässt sich nicht zurücknehmen.', 'Nobody gets prompts any more; the exit questionnaire opens if there is one. The entries stay. This cannot be undone.') }}" data-confirm-ok="{{ de_en('Für alle beenden', 'End for everyone') }}" data-confirm-danger>{{ de_en("Für alle jetzt beenden", "End for everyone now") }}</button></form>{% endif %}
+  {% else %}<p class="muted flush">{{ de_en("Noch niemand ist beigetreten.", "Nobody has joined yet.") }}</p>{% endif %}
+  {{ grouped([(de_en("Auffällige Personen", "People who stand out"), diary_sources)]) }}
+  </div>
+</details>

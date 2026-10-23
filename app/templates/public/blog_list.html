@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "public/_blog.html" import teaser %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{# Needs: views (blog.view of the entries of this page), page, pages, drafts (count, admins only). The news page
+   (app/blog.py; blog-konzept.md, Ralf 2026-10-10). #}
+{% block title %}{{ de_en("Neuigkeiten", "News") }} · Askurious{% endblock %}
+{% block head %}
+  <meta name="description" content="{{ de_en('Neue Funktionen und Verbesserungen in Askurious.', 'New features and improvements in Askurious.') }}">
+  <link rel="alternate" type="application/atom+xml" title="{{ de_en('Neuigkeiten (Feed)', 'News (feed)') }}" href="{{ url_for('blog.feed', lang='en') if ui_language() == 'en' else url_for('blog.feed') }}">
+{% endblock %}
+{% block container_class %}container blog-page{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ de_en("Neuigkeiten", "News") }}</h1>
+    <p class="muted flush">{{ de_en("Was neu ist in Askurious: Funktionen, Verbesserungen und Methodik.", "What is new in Askurious: features, improvements and methods.") }}</p>
+  </div>
+  <div class="page-head-actions">
+    <a class="button button-small button-secondary" href="{{ url_for('blog.feed', lang='en') if ui_language() == 'en' else url_for('blog.feed') }}" title="{{ de_en('Die Neuigkeiten im Feedreader abonnieren (Atom)', 'Subscribe to the news in a feed reader (Atom)') }}">{{ de_en("Feed", "Feed") }}</a>
+    {% if current_user.is_authenticated and current_user.is_admin %}
+    <form method="post" action="{{ url_for('blog.admin_new') }}" class="inline">{{ csrf() }}<button class="button button-small">{{ icon("plus", 16) }} {{ de_en("Neuer Eintrag", "New entry") }}</button></form>
+    <a class="button button-small button-secondary" href="{{ url_for('blog.admin_list') }}">{{ icon("edit", 16) }} {{ de_en("Alle Einträge", "All entries") }}{% if drafts %} · {{ de_en_n(drafts, ("{n} Entwurf", "{n} Entwürfe"), ("{n} draft", "{n} drafts")) }}{% endif %}</a>
+    {% endif %}
+  </div>
+</div>
+{% if views %}
+<div class="blog-list">
+  {% for v in views %}{{ teaser(v) }}{% endfor %}
+</div>
+{% if pages > 1 %}
+<nav class="blog-pager" aria-label="{{ de_en('Seiten', 'Pages') }}">
+  {% if page > 1 %}<a class="button button-small button-secondary" href="{{ url_for('blog.index', p=page - 1) if page > 2 else url_for('blog.index') }}">{{ de_en("Neuere Einträge", "Newer entries") }}</a>{% endif %}
+  <span class="muted small">{{ de_en("Seite {n} von {m}", "Page {n} of {m}", n=page, m=pages) }}</span>
+  {% if page < pages %}<a class="button button-small button-secondary" href="{{ url_for('blog.index', p=page + 1) }}">{{ de_en("Ältere Einträge", "Older entries") }}</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<p class="muted">{{ de_en("Noch keine Einträge.", "No entries yet.") }}</p>
+{% endif %}
+{% endblock %}

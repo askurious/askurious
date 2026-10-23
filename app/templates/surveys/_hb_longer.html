@@ -1,0 +1,16 @@
+{# "Neu schätzen mit doppelter Länge" (app/hb_convergence.longer_settings): under the convergence note at the top of
+   the HB block and in the convergence section. Needs: res (summary with convergence), e, f, survey. #}
+{% set cv = res.convergence %}
+{# not while an estimation runs: its result replaces this one when it ends #}
+{% if cv and not cv.ok and cv.longer and not (h is defined and h and h.state == "running") %}
+<div class="res-run-hb">
+  <form method="post" action="{{ url_for('surveys.results_hb', survey_id=survey.id, item_id=e.item.id) }}" data-hb-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="longer" value="1">
+    {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+    {% if f.all %}<input type="hidden" name="all" value="1">{% endif %}
+    {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
+    <button class="button button-small">{{ de_en("Neu schätzen mit doppelter Länge", "Estimate again with double length") }}</button>
+  </form>
+  <span class="muted small">{{ de_en("{burn} Burn-in- und {draws} weitere Iterationen statt {burn0} und {draws0}; dauert etwa doppelt so lange.", "{burn} burn-in and {draws} further iterations instead of {burn0} and {draws0}; takes about twice as long.", burn=cv.longer.burn|thousands, draws=cv.longer.draws|thousands, burn0=res.settings.burn|thousands, draws0=res.settings.draws|thousands) }}</span></div>
+{% endif %}

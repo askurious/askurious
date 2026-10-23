@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_terms_pending.html" import pending_head, pending_form with context %}
+{% block title %}{% if ui_language() == "en" %}Terms of use{% else %}Nutzungsbedingungen{% endif %}{% endblock %}
+{% block content %}
+{% if ui_language() == "en" %}{% include "terms_en.html" %}{% else %}
+{% if pending %}{{ pending_head(error, changes, older_changes) }}{% endif %}
+<article class="panel prose terms">
+  {{ body }}
+</article>
+{% if pending %}
+{{ pending_form(nxt, version, "Ich stimme den Nutzungsbedingungen (Version " ~ version ~ ") zu, einschließlich der gemeinsamen Auswertung von Konstrukt-Daten nach Abschnitt 4.") }}
+{% elif current_user.is_authenticated and current_user.terms_accepted_at %}
+<p class="muted small">Von Ihnen bestätigt am {{ current_user.terms_accepted_at|localdt }} (Version {{ current_user.terms_version }}).</p>
+{% endif %}
+{% endif %}
+{# ORCID's trademark notice for the official iD icon (_macros.orcid_link); on the page, not in licence.md, so no new
+   version to accept (Ralf, 2026-10-08) #}
+<p class="muted small">{{ de_en("ORCID™, das ORCID-Logo und das iD-Logo sind Marken von ORCID, Inc. und werden mit Erlaubnis verwendet.", "ORCID™, the ORCID logo, and iD logo are trademarks of ORCID, Inc. and used herein with permission.") }}</p>
+{% endblock %}

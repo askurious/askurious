@@ -1,0 +1,63 @@
+{# Shared by conjoint-like items (app/items/attributes.py): attributes and levels with their texts. Expects item, kind, lang, structural, languages, new_id, icon.
+   Optional (vignettes, app/vignettes.py): attr_word ("Faktor"), attr_words, with_visual (false), code_word, code_placeholder, hint_head, def_head.
+   English attr_word/attr_words in lower case ("factor", "factors"): the label and the legend raise the first letter. #}
+{% from "_macros.html" import row_tools %}
+{% set attr_word = attr_word|default(de_en("Merkmal", "attribute")) %}{% set attr_words = attr_words|default(de_en("Merkmale", "attributes")) %}{% set with_visual = with_visual|default(true) %}{% set with_between = with_between|default(false) %}{% set between_ids = between_ids|default([]) %}
+<fieldset data-cj-editor data-cj-tab="content">
+  {# the language once here, not in every column head (W35) #}
+  <legend>{{ de_en("{w} und Stufen", "{w} and levels", w=attr_words[:1]|upper ~ attr_words[1:]) }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}{% if with_visual %}; {{ de_en("„im Bild“: Wird in den Bildern dargestellt (bestimmt die Zahl der Bilder)", "“in the image”: shown in the images (sets the number of images)") }}{% endif %}</span></legend>
+  {% set attr_labels = t.get("attributes", {}) %}{% set level_labels = t.get("levels", {}) %}{% set level_defs = t.get("level_defs", {}) %}
+  {% set with_prices = level_prices is defined and level_prices %}{% set with_values = level_values is defined and level_values %}
+  {% macro level_row(aid, lid, label="", hint="", placeholder="", definition="", def_placeholder="", price="", value="") -%}
+  <tr class="cj-level">
+    <td><input type="hidden" name="lvl_{{ aid }}_id" value="{{ lid }}"><input name="lvl_{{ aid }}_label" aria-label="{{ de_en('Stufe', 'Level') }}" value="{{ label }}" placeholder="{{ placeholder or de_en('Stufe', 'Level') }}"></td>
+    <td><input name="lvl_{{ aid }}_def" aria-label="Definition" value="{{ definition }}" placeholder="{{ def_placeholder or 'optional' }}" maxlength="500"></td>
+    <td><input name="lvl_{{ aid }}_hint" aria-label="{{ de_en('Bildhinweis', 'Image hint') }}" value="{{ hint }}" placeholder="optional" {% if not structural %}readonly{% endif %}></td>
+    {% if with_prices %}<td><input name="lvl_{{ aid }}_price" aria-label="{{ de_en('Preis', 'Price') }}" value="{{ fmt_num(price) if price != '' else '' }}" placeholder="0" inputmode="decimal" class="narrow" {% if not structural %}readonly{% endif %}></td>{% endif %}
+    {% if with_values %}<td><input name="lvl_{{ aid }}_value" aria-label="{{ de_en('Wert', 'Value') }}" value="{{ value|string|replace('.', de_en(',', '.')) if value != '' else '' }}" placeholder="{{ de_en('optional', 'optional') }}" inputmode="decimal" class="narrow"></td>{% endif %}
+    {% if structural %}{{ row_tools(de_en("Stufe entfernen", "Remove level")) }}{% else %}<td class="cj-row-tools"></td>{% endif %}
+  </tr>
+  {%- endmacro %}
+  {% set with_price_attr = numeric_price is defined and numeric_price %}
+  {% macro attr_card(aid, code="", label="", visual=false, levels=[], new=false, placeholder="", price_attr=false, ordered=false) -%}
+  <div class="cj-attr{% if new %} new-attr{% endif %}" data-aid="{{ aid }}">
+    <input type="hidden" name="attr_id" value="{{ aid }}">
+    <div class="row-fields">
+      <label>{{ attr_word[:1]|upper ~ attr_word[1:] }} <input name="attr_label" value="{{ label }}" placeholder="{{ placeholder or de_en('z. B. Aussehen des Roboters', 'e.g. look of the robot') }}"></label>
+      <label>{{ code_word|default("Variable") }} <input name="attr_code" data-varname="full" value="{{ code }}" class="narrow" placeholder="{{ code_placeholder|default('A1') }}" {% if not structural and not new %}readonly{% endif %}></label>
+      {% if with_visual %}<label class="check"><input type="checkbox" name="attr_visual" value="{{ aid }}" {% if visual %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("im Bild", "in the image") }}</label>{% endif %}
+      {% if with_between %}<label class="check" title="{{ de_en('Alle Vignetten einer Person haben dieselbe Stufe dieses Faktors', 'All vignettes of a person have the same level of this factor') }}"><input type="checkbox" name="attr_between" value="{{ aid }}" {% if aid in between_ids %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("nur zwischen Personen", "between people only") }}</label>{% endif %}
+      {% if with_price_attr %}<label class="check" title="{{ de_en('Die Stufen sind Zahlen (z. B. 49 €, 99 €): In der Auswertung geht das Merkmal linear ein, daraus die Zahlungsbereitschaft', 'The levels are numbers (e.g. €49, €99): the analysis treats the attribute as linear and derives the willingness to pay from it') }}"><input type="checkbox" name="attr_price" value="{{ aid }}" {% if price_attr %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Preis (Zahlenwerte)", "Price (numeric values)") }}</label>{% endif %}
+      {# the results keep the order of the levels instead of sorting them by part-worth (UI audit 2026-10-12, U23) #}
+      {% if with_values %}<label class="check" title="{{ de_en('Die Stufen haben eine Reihenfolge (z. B. 5 GB, 20 GB, unbegrenzt): Die Ergebnisse zeigen sie in dieser Reihenfolge statt nach Teilnutzen sortiert', 'The levels have an order (e.g. 5 GB, 20 GB, unlimited): the results show them in this order instead of sorted by part-worth') }}"><input type="checkbox" name="attr_ordered" value="{{ aid }}" {% if ordered %}checked{% endif %}> {{ de_en("Stufen sind geordnet", "Levels are ordered") }}</label>{% endif %}
+      {% if structural %}<button type="button" class="icon-btn danger cj-remove" data-cj-remove-attr title="{{ de_en('{w} entfernen', 'Remove {w}', w=attr_word) }}" aria-label="{{ de_en('{w} entfernen', 'Remove {w}', w=attr_word) }}">{{ icon("x", 16) }}</button>{% endif %}
+    </div>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th>{{ de_en("Stufe", "Level") }}</th><th>Definition <span class="hint">{{ def_head|default(de_en("für Teilnehmende, in der Erklärung vorab; nicht für die KI", "for participants, in the explanation beforehand; not for the AI")) }}</span></th><th>{{ hint_head|default(de_en('Bildhinweis <span class="hint">englisch, nur für die KI; Teilnehmende sehen ihn nie</span>', 'Image hint <span class="hint">in English, only for the AI; participants never see it</span>'))|safe }}</th>{% if with_prices %}<th>{{ de_en("Preisanteil", "Price share") }} <span class="hint">{{ de_en("±, zum Grundpreis addiert", "±, added to the base price") }}</span></th>{% endif %}{% if with_values %}<th title="{{ de_en('Eine Zahl je Stufe, z. B. 5 für „5 km“. Steht in den Exporten neben der Nummer der Stufe (Spalte …_value im Langformat, Codebuch, Beschreibung der .cho-Datei); ändert den Versuchsplan nicht und lässt sich jederzeit anpassen.', 'One number per level, e.g. 5 for “5 km”. Appears in the exports next to the number of the level (column …_value in the long format, codebook, description of the .cho file); does not change the experimental design and can be adjusted at any time.') }}">{{ de_en("Wert", "Value") }} <span class="hint">{{ de_en("Zahl für den Export", "number for the export") }}</span></th>{% endif %}<th class="cj-row-tools"></th></tr></thead>
+      <tbody data-cj-levels{% if structural %} data-row-list{% endif %}>{{ caller() }}</tbody>
+    </table></div>
+    {% if structural %}<button type="button" class="button button-small button-secondary" data-cj-add-level>+ {{ de_en("Stufe", "level") }}</button>{% endif %}
+  </div>
+  {%- endmacro %}
+
+  {% if with_values %}<input type="hidden" name="attr_ordered_shown" value="1">{% endif %}
+  <div class="cj-attrs" data-cj-attrs>
+    {% for a in item.config.attributes %}
+      {% call attr_card(a.id, a.code, attr_labels.get(a.id, ''), a.visual, placeholder=(item.text('attributes') or {}).get(a.id, ''), price_attr=a.price_attr, ordered=(item.kind.levels_ordered(item, a) if with_values else false)) %}
+        {% for l in a.levels %}{{ level_row(a.id, l.id, level_labels.get(l.id, ''), l.hint, (item.text('levels') or {}).get(l.id, ''), level_defs.get(l.id, ''), (item.text('level_defs') or {}).get(l.id, ''), l.price if l.price is defined else '', l.value if l.value is defined else '') }}{% endfor %}
+      {% endcall %}
+    {% endfor %}
+    {% if structural and not item.config.attributes %}
+      {% set nid = new_id() %}
+      {% call attr_card(nid, new=true) %}{% for n in range(3) %}{{ level_row(nid, new_id(), placeholder=de_en("Stufe {n}", "Level {n}", n=n + 1)) }}{% endfor %}{% endcall %}
+    {% endif %}
+  </div>
+  {% if structural %}
+  <button type="button" class="button button-secondary" data-cj-add-attr>+ {{ attr_word }}</button>
+  <template data-cj-attr-template>
+    {% call attr_card("__AID__", new=true) %}{% for n in range(3) %}{{ level_row("__AID__", "__LID__", placeholder=de_en("Stufe {n}", "Level {n}", n=n + 1)) }}{% endfor %}{% endcall %}
+  </template>
+  <template data-cj-level-template>{{ level_row("__AID__", "__LID__") }}</template>
+  {% endif %}
+  <p class="muted small">{{ de_en("Leere {w} und Stufen werden nicht gespeichert.", "Empty {w} and levels are not saved.", w=attr_words) }}{% if attr_footnote is defined %} {{ attr_footnote }}{% endif %}</p>
+</fieldset>

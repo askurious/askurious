@@ -1,0 +1,56 @@
+{# Shared by conjoint-like items (app/items/attributes.py). #}
+{% macro level_text(item, attr, n, variables) -%}
+{# a level as the participant sees it: its text, or with the display "Tabelle mit Bildern je Stufe" its picture
+   (a logo, a seal) instead of the text (alt = the text) or above it (alt empty: the text follows) #}
+{%- set mode = item.kind.level_images_on(item) if item.kind.level_images_on is defined else "" -%}
+{%- set img = attr.level_images[n] if mode and attr.level_images is defined else none -%}
+{%- set text = attr.level_labels[n]|fill(variables) -%}
+{%- if img %}{% set w, h = image_size(item.survey.uid, img) %}<img class="cj-level-img" src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=img) }}"{% if w %} width="{{ w }}" height="{{ h }}"{% endif %} decoding="async" alt="{{ text|striptags if mode == 'replace' else '' }}">{% endif -%}
+{%- if not img or mode == "add" %}{{ text }}{% endif -%}
+{%- endmacro %}
+{% macro concept_table(item, kind, table_attrs, columns, labels, with_image, variables, lang, extra_rows=(), choose=true) -%}
+{# columns: [(option number, header, profile)] in display order; caller(number, header, cell ids) fills the last
+   row: the control there is named after the column's header ("Option 2 auswählen") and described by the ids of
+   the column's cells, so a screen reader hears the option's features with it (accessibility D6);
+   extra_rows: [(label, {option number: text})], e.g. the price. choose=false: no last row (the ratings-based conjoint
+   asks below the table, app/items/cva.py). No column of attribute names where no row has
+   one (images only): the images get the width. order: the place of a cell when the options stand one below the
+   other (.cj-stack on a phone held upright): option by option, each top to bottom. #}
+  {% set labels = labels and (table_attrs or extra_rows) %}
+  <table class="cj-table{% if not labels %} cj-no-labels{% endif %}">
+    <thead><tr>{% if labels %}<th class="cj-corner"></th>{% endif %}
+      {% for a, head, prof in columns %}<th scope="col" data-alt="{{ a }}" id="cj{{ item.id }}-{{ a }}" style="order: {{ loop.index0 * 100 }}">{{ head }}</th>{% endfor %}
+    </tr></thead>
+    <tbody>
+      {% if with_image %}
+      <tr class="cj-images">{% if labels %}<th class="cj-corner"></th>{% endif %}
+        {% for a, head, prof in columns %}
+        {% set asset = kind.asset_for_key(item, kind.image_key(item, prof)) %}
+        <td data-alt="{{ a }}" style="order: {{ loop.index0 * 100 + 1 }}">{% if asset %}{% set w, h = image_size(item.survey.uid, asset.filename) %}<img src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) }}" alt="{{ head }}"{% if w %} width="{{ w }}" height="{{ h }}"{% endif %} decoding="async">{% else %}<div class="p-image-missing">{{ ui("Bild fehlt", "Image missing", lang=lang) }}</div>{% endif %}</td>
+        {% endfor %}</tr>
+      {% endif %}
+      {% for attr in table_attrs %}
+      {% set col = (item.config.attributes|map(attribute="id")|list).index(attr.id) %}
+      {% set row = loop.index %}
+      <tr>{% if labels %}<th scope="row">{{ attr.label|fill(variables) }}</th>{% endif %}
+        {% for a, head, prof in columns %}<td data-alt="{{ a }}" id="cj{{ item.id }}-{{ a }}-{{ row }}" data-label="{{ attr.label|fill(variables)|striptags }}" style="order: {{ loop.index0 * 100 + 1 + row }}">{{ level_text(item, attr, prof[col], variables) }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+      {% for label, cells in extra_rows %}
+      {% set row = loop.index %}
+      <tr class="cj-extra">{% if labels %}<th scope="row">{{ label }}</th>{% endif %}
+        {% for a, head, prof in columns %}<td data-alt="{{ a }}" id="cj{{ item.id }}-{{ a }}-x{{ row }}" data-label="{{ label }}" style="order: {{ loop.index0 * 100 + 50 + row }}">{{ cells.get(a, "") }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+      {% if choose %}
+      <tr class="cj-choose">{% if labels %}<th class="cj-corner"></th>{% endif %}
+        {% for a, head, prof in columns %}
+        {% set ids = [] %}{% for attr in table_attrs %}{% set _ = ids.append("cj" ~ item.id ~ "-" ~ a ~ "-" ~ loop.index) %}{% endfor %}
+        {% for _x in extra_rows %}{% set _ = ids.append("cj" ~ item.id ~ "-" ~ a ~ "-x" ~ loop.index) %}{% endfor %}
+        <td data-alt="{{ a }}" style="order: {{ loop.index0 * 100 + 99 }}">{{ caller(a, head, ids|join(" ")) }}</td>
+        {% endfor %}
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+{%- endmacro %}

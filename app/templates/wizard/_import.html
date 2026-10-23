@@ -1,0 +1,26 @@
+{# "Aus einer Datei anlegen" (wizard.import_file) on the pages that make something new: the questionnaire wizard,
+   the live vote and the interview guide. origin: "" | "live" | "leitfaden", the page the upload comes from, in the address of the form (the
+   preview and a refusal lead back to it, also when the file is too large to read the form); source: where such a file comes from. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "coscine/_pick.html" import coscine_pick with context %}
+{% macro import_panel(origin="", source=none) %}
+<section class="panel" id="import">
+  <h2>{{ de_en("Aus einer Datei anlegen", "Create from a file") }} <span class="hint">{{ de_en("statt alles von Hand einzugeben", "instead of entering everything by hand") }}</span></h2>
+  <p class="small">{{ source if source is not none else de_en("Eine Befragungsdatei entsteht im Reiter „Export“ einer Befragung unter „Als Datei exportieren“, mehrere auf einmal unter „Meine Befragungen“, auch in einer anderen Installation von Askurious.", "A survey file is made on the tab “Export” of a survey under “Export as file”, several at once under “My surveys”, also in another installation of Askurious.") }} {{ de_en("Eine Vorschau zeigt, was die Datei enthält, bevor etwas angelegt wird; Teilnahmen und Daten enthält eine solche Datei nicht.", "A preview shows what the file holds before anything is created; such a file holds no participations and no data.") }}</p>
+  <form method="post" action="{{ url_for('wizard.import_file', origin=origin or None) }}" enctype="multipart/form-data" class="stack">
+    {{ csrf() }}
+    {# the same field to drop a file onto as for images (app.js, .dropzone) #}
+    <label class="dropzone">
+      {{ icon("upload", 28) }}
+      <span><strong>{{ de_en("Befragungsdatei auswählen", "Choose a survey file") if not origin else de_en("Datei auswählen", "Choose a file") }}</strong> {{ de_en("oder hierher ziehen", "or drag it here") }}</span>
+      <span class="small">{{ de_en(".json oder .zip aus Askurious, höchstens {n} MB; kein Word, PDF oder Excel", ".json or .zip from Askurious, at most {n} MB; no Word, PDF or Excel", n=config.IMPORT_MAX_BYTES // 1048576) }}</span>
+      <span class="dropzone-file"></span>
+      <input type="file" name="file" accept=".json,.zip,application/json,application/zip" required>
+    </label>
+    <div class="form-actions"><button class="button button-secondary">{{ icon("upload", 16) }} {{ de_en("Datei prüfen", "Check file") }}</button></div>
+  </form>
+  {# or a survey file kept in Coscine: the same preview (Coscine-Ausbau, package G) #}
+  {{ coscine_pick(none, "survey", origin=origin) }}
+</section>
+{% endmacro %}

@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% set rich_text = true %}{# richtext.js for the formatted texts (base.html) #}
+{% from "_macros.html" import autosave_bar, orcid_link, status_badge, csrf, edit_guard_fields, form_error, fixed_mark with context %}
+{% from "surveys/_end_text.html" import end_text_field %}
+{# every section saves by itself (Ralf, 2026-10-03, also in the field); outside a draft a text is saved when its
+   field is left, not in a typing pause, since it reaches participants at once (data-autosave-on-leave) #}
+{% set on_leave = "" if survey.is_editable else " data-autosave-on-leave" %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{% from "_condition.html" import cond_line %}
+{% from "_link_chips.html" import link_chips %}
+{% block title %}{{ de_en("Einstellungen", "Settings") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "settings" %}{% set fold_all = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set my_role = survey.role_of(current_user) %}
+{% set is_admin = my_role == "admin" %}
+{% set can_edit = survey.can(current_user, "editor") %}
+{% set started = not survey.is_editable %}
+{% set names = dict(groups) %}
+{# Seven groups, each folding to its head: the name, a line that says what is set (app/settings_page.py, drawn
+   anew after a save) and a lock where something is fixed from the start on (concept "Einstellungen:
+   Bestandsaufnahme und Gliederung", 2026-10-03). All open at first (Ralf, 2026-10-03); which groups were folded
+   is remembered by the browser (app.js); a link to an anchor inside a group opens it. No row of jump links
+   (Ralf: no third menu band). #}
+{% macro group(gid) -%}
+<details class="panel settings-group" id="{{ gid }}" data-settings-group open{% if gid in open_groups %} data-open-now{% endif %}>
+  <summary>
+    <span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span>
+    <h2>{{ names[gid] }}</h2>
+    <span class="settings-sum" data-live="sum-{{ gid }}">{% for text, _ in summaries[gid] %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span>
+    {% if gid in locking %}{{ fixed_mark(started, de_en("Teile dieses Abschnitts", "parts of this section")) }}{% endif %}
+  </summary>
+  <div class="settings-body">
+{{ caller() }}
+  </div>
+</details>
+{%- endmacro %}
+<div class="tabpage-grid">
+{% if not is_admin %}
+<div class="flash role-note">{{ icon("eye", 16) }} <span>{{ de_en("Ihre Rolle:", "Your role:") }} <strong>{{ role_names[my_role][0] }}</strong>. {{ de_en("Einstellungen und Beteiligte ändern nur Admins", "Only admins change settings and members") }}{% if can_edit %}{{ de_en("; den Fragebogen bearbeiten und die Befragung starten, pausieren und schließen können Sie", "; you can edit the questionnaire and start, pause and close the survey") }}{% endif %}.</span></div>
+{% endif %}
+
+
+{% call group("befragung") %}
+  <form method="post" action="{{ url_for('surveys.update_meta', survey_id=survey.id) }}" class="stack" id="project" data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="befragung">
+    {{ form_error("settings:meta") }}
+    {% if is_admin %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), url_for('surveys.detail', survey_id=survey.id) ~ "#befragung", presence_key="settings") }}{% endif %}
+    {% with values=survey %}{% include "surveys/_fields_project.html" %}{% endwith %}
+    {% with values=survey, values_languages=survey.languages, lang_editable=survey.is_editable, fixed_marks=true %}{% include "surveys/_fields_languages.html" %}{% endwith %}
+    {{ autosave_bar() }}
+  </fieldset></form>
+  {# duplicating: in the menu "⋯" at the top of every page of the survey (UI/UX audit 2026-10-16, 5) #}
+{% endcall %}
+
+{# the study plan has a page of its own (study_plan.page, Ralf 2026-10-06) #}
+{% call group("beteiligte") %}
+  <div id="members">
+  <p class="muted small">{{ de_en("Reihenfolge wie in einer Autorenliste.", "Order as in an author list.") }}</p>
+  {% include "surveys/_members.html" %}
+  </div>
+{% endcall %}
+
+{% call group("teilnahme") %}
+  <form method="post" action="{{ url_for('surveys.update_meta', survey_id=survey.id) }}" class="stack" data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="teilnahme">
+    {% if is_admin %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), url_for('surveys.detail', survey_id=survey.id) ~ "#teilnahme", presence_key=false) }}{% endif %}
+    {% with values=survey, lang_editable=survey.is_editable, fixed_marks=true %}{% include "surveys/_fields_participation.html" %}{% endwith %}
+    {{ autosave_bar() }}
+  </fieldset></form>
+{% endcall %}
+
+{% call group("einwilligung") %}
+  {% if survey.consent_item %}
+  <div class="wizard-panel" id="consent-facts">
+  <h3>{{ de_en("Eckdaten", "Key facts") }} <span class="hint">{{ de_en("Grundlage für den Einwilligungstext (Standardtext und KI)", "basis for the consent text (standard text and AI)") }}</span></h3>
+  <form method="post" action="{{ url_for('surveys.consent_facts', survey_id=survey.id) }}" class="stack" data-autosave-form{{ on_leave }}>
+    {{ csrf() }}
+    {{ form_error("settings:consent") }}
+    {% with consent=survey.consent_item, lang=survey.default_language, fixed_marks=true %}{% include "wizard/_consent.html" %}{% endwith %}
+    {{ autosave_bar() }}
+  </form>
+  {# the minimum age as a screen-out behind the age question (app/min_age.py; pre-test 2026-10-16) #}
+  {% set age_q, age_end, min_years = min_age.age_item(survey), min_age.node(survey), (survey.consent_item.config or {}).get("min_age") %}
+  {% if min_years %}
+  <div class="min-age-screenout small">
+    {% if age_end %}
+      <p>{{ de_en("Im Ablauf beendet die Bedingung „{name}“ hinter der Altersfrage Jüngere (Screen-out).", "In the flow the condition “{name}” behind the age question ends younger people (screen-out).", name=age_end.name) }} <a href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ de_en("Zum Ablauf", "To the flow") }}</a></p>
+      {% if survey.is_editable and survey.can(current_user, "editor") %}<form method="post" action="{{ url_for('surveys.min_age_screenout', survey_id=survey.id) }}" class="inline">{{ csrf() }}
+        <button class="button button-small button-secondary" name="action" value="remove">{{ de_en("Ende für Jüngere entfernen", "Remove the end for younger people") }}</button></form>{% endif %}
+    {% elif age_q %}
+      {% if survey.is_editable and survey.can(current_user, "editor") %}<form method="post" action="{{ url_for('surveys.min_age_screenout', survey_id=survey.id) }}" class="inline">{{ csrf() }}
+        <button class="button button-small button-secondary" name="action" value="apply">{{ de_en("Jüngere als {n} nach der Altersfrage beenden", "End people younger than {n} after the age question", n=min_years) }}</button></form>
+      <span class="hint">{{ de_en("legt im Ablauf eine Bedingung mit einem Ende (Screen-out) an", "adds a condition with an end (screen-out) to the flow") }}</span>{% endif %}
+    {% else %}
+      <p class="hint">{{ de_en("Um Jüngere zu beenden, braucht der Fragebogen eine Altersfrage, z. B. das Konstrukt „Alter“.", "To end younger people, the questionnaire needs an age question, e.g. the construct “Age”.") }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+  </div>
+  {% endif %}
+  <h3>{{ de_en("Datenschutz und Aufbewahrung", "Privacy and retention") }}</h3>
+  <form method="post" action="{{ url_for('surveys.update_meta', survey_id=survey.id) }}" class="stack" id="settings-privacy" data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="datenschutz">
+    {{ form_error("settings:privacy") }}
+    {% if is_admin %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), url_for('surveys.detail', survey_id=survey.id) ~ "#einwilligung", presence_key=false) }}{% endif %}
+    {% with values=survey, lang_editable=survey.is_editable, fixed_marks=true %}{% include "surveys/_fields_privacy.html" %}{% endwith %}
+    {{ autosave_bar() }}
+  </fieldset></form>
+  {# the seal chain (app/seal.py): on for a new survey (SEAL_DEFAULT); off again only while it has no entry, afterwards
+     never (it would hide what is deleted later); so buttons with a question, outside the form that saves itself #}
+  {% set sealed_for_good = survey.seal and seal_started %}
+  <div class="option-group" id="seal">
+    <p><strong>{{ de_en("Siegelkette", "Seal chain") }}</strong>
+      {% if sealed_for_good %}<span class="hint">{{ de_en("eingeschaltet; lässt sich nicht mehr ausschalten, sonst würde die Kette verbergen, was danach gelöscht wird. Kette und Prüfung im Reiter „Export“.", "switched on; cannot be switched off any more, or the chain would hide what is deleted afterwards. Chain and check in the tab “Export”.") }}</span>
+      {% elif survey.seal %}<span class="hint">{{ de_en("eingeschaltet (Standard für neue Befragungen); lässt sich ausschalten, bis der erste Eintrag entsteht (spätestens beim Start der Feldphase). Kette und Prüfung im Reiter „Export“.", "switched on (the standard for new surveys); can be switched off until its first entry is made (at the start of the fieldwork at the latest). Chain and check in the tab “Export”.") }}</span>
+      {% else %}<span class="hint">{{ de_en("macht die Daten manipulationssicher: Jede beendete echte Teilnahme bekommt eine Fallnummer in einer Hash-Kette, jede Löschung einen bleibenden Löschvermerk; Zeitstempel des DFN", "makes the data tamper-evident: every real participation that ended gets a case number in a hash chain, every deletion a lasting deletion record; timestamps of the DFN") }}</span>{% endif %}</p>
+    <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+      <p class="hint">{{ de_en("Abgeschlossene, Screen-out-, Quote-voll- und ausgeschlossene Teilnahmen werden versiegelt; Testdurchläufe und Dummy-Daten nicht. Jeder Eintrag enthält den Hashwert des vorigen: Wer einen Fall entfernt, ändert oder umsortiert, bricht alle späteren. Gelöschte Antworten sind weg, der Löschvermerk mit Fallnummer, Zeit und Anlass (z. B. Wunsch der Person) bleibt. Der Zeitstempeldienst des DFN bestätigt stündlich und bei jedem Herunterladen, dass die Kette zu diesem Zeitpunkt so bestand; er erhält nur einen Hashwert, keine Daten. Der Datenexport bekommt die Spalten seal_seq und seal_hash; mit der Kette und dem Prüfprogramm aus dem Reiter „Export“ lässt sich für eine Datendatei nachweisen, dass kein Fall ohne Löschvermerk fehlt. Teilnahmen, die schon vorher so endeten, werden beim Einschalten nachträglich versiegelt.", "Completed, screen-out, quota-full and excluded participations are sealed; test runs and dummy data are not. Each entry holds the hash of the one before: anyone who removes, changes or reorders a case breaks every later one. Deleted answers are gone; the deletion record with case number, time and occasion (e.g. the person's request) remains. The timestamp service of the DFN confirms hourly and at every download that the chain existed like this at that time; it receives only a hash, no data. The data export gets the columns seal_seq and seal_hash; with the chain and the checker from the tab “Export”, anyone can show for a data file that no case is missing without a deletion record. Participations that have already ended are sealed afterwards when it is switched on.") }}</p>
+    </details>
+    {# a tick like every other setting (UI audit 2026-10-12, U16), but with a question first: switched on, it stays on
+       once it has an entry; so it is sent at once, outside the form that saves itself, and "Nein" puts the tick back #}
+    {% set seal_open = is_admin and not sealed_for_good %}
+    <form method="post" action="{{ url_for('surveys.seal_enable', survey_id=survey.id) }}" class="inline seal-switch"
+          {% if not seal_open %}{% elif survey.seal %}data-confirm="{{ de_en('Siegelkette ausschalten?', 'Switch the seal chain off?') }}"
+          data-confirm-note="{{ de_en('Ohne Siegelkette lässt sich später nicht zeigen, dass kein Fall unbemerkt fehlt.', 'Without a seal chain it cannot be shown later that no case is missing unnoticed.') }}"
+          data-confirm-ok="{{ de_en('Ausschalten', 'Switch off') }}"
+          {% else %}data-confirm="{{ de_en('Siegelkette einschalten?', 'Switch the seal chain on?') }}"
+          data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen: Die Kette bleibt eingeschaltet, solange es die Befragung gibt, und ihre Einträge bleiben auch danach.', 'This cannot be undone: the chain stays on as long as the survey exists, and its entries remain even after that.') }}"
+          data-confirm-ok="{{ de_en('Einschalten', 'Switch on') }}"{% endif %}>{{ csrf() }}<input type="hidden" name="toggle" value="1">
+      <label class="check"><input type="checkbox" name="on" value="1" data-submit-on-change data-current="{{ '1' if survey.seal else '0' }}"
+        {% if survey.seal %}checked{% endif %} {% if not seal_open %}disabled{% endif %}> {{ de_en("Siegelkette eingeschaltet", "Seal chain switched on") }}
+        <span class="hint">{{ de_en("lässt sich nur bis zum ersten Eintrag ändern", "can only be changed until its first entry") }}</span></label>
+      {% if seal_open %}<noscript><button class="button button-small button-secondary">{{ de_en("Übernehmen", "Apply") }}</button></noscript>{% endif %}
+    </form>
+    {{ why("seal") }}
+  </div>
+  {# everything the consent names because of a setting, wherever that setting is (app/settings_page.py) #}
+  <div class="consent-mentions" data-live="consent-mentions">
+    <strong>{{ de_en("Die Einwilligung nennt zurzeit:", "The consent currently names:") }}</strong>
+    {% if consent_mentions %}
+    <ul>{% for what, where, url in consent_mentions %}<li>{{ what }}{% if url %} · <a href="{{ url }}">{{ where }}</a>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<span class="muted">{{ de_en("nichts davon; nur die Antworten, ohne Kennungen und Paradaten", "none of these; only the answers, without identifiers and paradata") }}</span>{% endif %}
+  </div>
+{% endcall %}
+
+{% call group("abschlusstexte") %}
+  <div id="end-texts">
+  <p class="muted small">{{ de_en("Ohne eigenen Text gilt der Standardtext. In der Ausgangssprache ({lang})", "Without a text of your own, the standard text applies. In the source language ({lang})", lang=languages[survey.default_language]) }}{% if survey.languages|length > 1 %}{{ de_en("; die anderen Sprachen auf der Seite", "; the other languages on the page") }} <a href="{{ url_for('translations.index', survey_id=survey.id) }}">{{ de_en("Übersetzung", "Translation") }}</a>{% endif %}.</p>
+  <form method="post" action="{{ url_for('surveys.update_end_texts', survey_id=survey.id) }}" class="stack" data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+    {{ csrf() }}
+    {% if is_admin %}{{ edit_guard_fields(survey, "settings:end_texts", edit_guard.settings_state(survey, "end_texts"), url_for('surveys.detail', survey_id=survey.id) ~ "#end-texts", presence_key=false) }}{% endif %}
+    {% for lang in [survey.default_language] %}
+    {% set custom = (survey.end_texts or {}).get(lang, {}) %}
+    {% for key, label in [("thanks", de_en("Nach dem Absenden", "After submitting")), ("declined", de_en("Nach abgelehnter Einwilligung", "After consent was declined")), ("closed", de_en("Wenn die Befragung nicht geöffnet ist", "When the survey is not open")), ("screenout", de_en("Bei einem Ende „Screen-out“ ohne eigenen Text", "At an end “Screen-out” without its own text")), ("quotafull", de_en("Bei einem Ende „Quote voll“ ohne eigenen Text", "At an end “Quota full” without its own text")), ("excluded", de_en("Bei einem Ende „Ausschluss“ ohne eigenen Text", "At an end “Exclusion” without its own text"))] %}
+    {{ end_text_field(key ~ "_" ~ lang, label, languages[lang], default_end_texts[lang][key], custom.get(key, ''), is_admin) }}
+    {% endfor %}
+    {% endfor %}
+    {{ autosave_bar() }}
+  </fieldset></form>
+  </div>
+{% endcall %}
+
+{% call group("gestaltung") %}
+  {% set look = themes.of(survey) %}
+  <div id="design">
+  {# headings that say what they act on, not two words for "looks" (Ralf, 2026-10-07) #}
+  <h3>{{ de_en("Farben und Schrift", "Colours and font") }} <span class="hint">{{ de_en("der Seiten für Teilnehmende", "of the participants' pages") }}</span></h3>
+  <div class="theme-summary" data-live="theme-summary-{{ survey.id }}">
+    <span class="theme-swatches" aria-hidden="true">{% for key in themes.COLOURS %}<span style="background: {{ look.colors[key] }}"></span>{% endfor %}</span>
+    <span><strong>{{ themes.name(look) }}</strong>{% if themes.is_dark(look) %} <span class="muted">· {{ de_en("dunkler Hintergrund", "dark background") }}</span>{% endif %}
+      <span class="muted">· {{ themes.font_name(look.font) }}</span></span>
+    <a class="button button-secondary button-small" href="{{ url_for('surveys.design', survey_id=survey.id) }}">{{ de_en("Erscheinungsbild öffnen", "Open appearance") }}</a>
+  </div>
+  {% if survey.status != "draft" %}<p class="muted small">{{ de_en("Das Erscheinungsbild ist wie der Fragebogen nur im Entwurf änderbar.", "Like the questionnaire, the appearance can only be changed in a draft.") }}</p>
+  {% elif can_edit %}
+  {# choose a template right here; colours of one's own, the logo and the details are on the page "Gestalten" #}
+  {% set own_designs = designs_for(current_user) %}
+  {# a click on a template applies it at once, like every setting (V86); the former colours can come back with ↶ #}
+  <form method="post" action="{{ url_for('surveys.choose_theme', survey_id=survey.id) }}" class="theme-choice" data-autosave-form>
+    {{ csrf() }}
+    {{ edit_guard_fields(survey, "settings:theme", edit_guard.settings_state(survey, "theme"), url_for('surveys.design', survey_id=survey.id), presence_key=false) }}
+    {% include "surveys/_fields_theme_choice.html" %}
+    {% if look.preset == "custom" %}<p class="muted small">{{ de_en("Zurzeit: eigene Farben (unter „Erscheinungsbild“ eingestellt). Ein Farbschema ersetzt sie", "Currently: your own colours (set under “Appearance”). A colour scheme replaces them") }}{% if own_designs %}{{ de_en(", ein eigenes Design auch Schrift und Logo", ", a design of your own also the font and logo") }}{% endif %}.</p>
+    {% elif own_designs %}<p class="muted small">{{ de_en("Ein eigenes Design ersetzt auch Schrift und Logo.", "A design of your own also replaces the font and logo.") }}</p>{% endif %}
+    {{ autosave_bar() }}
+  </form>
+  {% endif %}
+  </div>
+  <div id="image-style" class="panel-sub-sep">
+  <h3>{{ de_en("Stil der KI-Bilder", "Style of the AI images") }} <span class="hint">{{ de_en("gilt für alle Bilder, die die KI für diese Befragung erzeugt", "applies to all images the AI generates for this survey") }}</span></h3>
+  <p class="muted small">{{ de_en("Bilder beeinflussen die Wahrnehmung. Ein einheitlicher Stil sorgt dafür, dass Unterschiede zwischen
+    Versuchsbedingungen nur aus dem manipulierten Inhalt kommen.", "Images influence perception. A uniform style ensures that differences between
+    experimental conditions come only from the manipulated content.") }}</p>
+  <form method="post" action="{{ url_for('surveys.update_image_style', survey_id=survey.id) }}" class="stack" data-style-form data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not can_edit %}disabled{% endif %}>
+    {{ csrf() }}
+    {% if can_edit %}{{ edit_guard_fields(survey, "settings:image_style", edit_guard.settings_state(survey, "image_style"), url_for('surveys.detail', survey_id=survey.id) ~ "#image-style", presence_key=false) }}{% endif %}
+    {% include "surveys/_fields_image_style.html" %}
+    {{ autosave_bar() }}
+  </fieldset></form>
+  </div>
+{% endcall %}
+
+{% from "_sources.html" import grouped %}{{ grouped([(de_en("Aufbewahrung", "Retention"), [retention.GDPR, retention.DFG]), (de_en("Land und Bundesland aus der IP-Adresse: Genauigkeit", "Country and federal state from the IP address: accuracy"), geoip.SOURCES)], de_en("Literatur zu diesen Einstellungen", "References for these settings")) }}
+
+</div>
+{% endblock %}

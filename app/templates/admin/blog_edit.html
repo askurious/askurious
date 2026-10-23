@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# Needs: p (BlogPost), categories (blog.CATEGORIES), brand_choices [(key, name)], used (ids of images in the texts),
+   published_on (local date or ""), image_vars (for the formatting field: "Bild einfügen"). Saves by itself
+   (app/autosave.py); "Veröffentlichen", "Zurückziehen" and "Löschen" are actions of their own (blog-konzept.md). #}
+{% block title %}{{ p.title_de or de_en("Neuer Eintrag", "New entry") }} · Blog · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "blog" %}{% include "admin/_tabs.html" %}
+<script type="application/json" data-rich-vars>{{ image_vars|tojson }}</script>
+<section class="panel blog-edit">
+  <div class="blog-admin-head">
+    <div>
+      <p class="small flush"><a href="{{ url_for('blog.admin_list') }}">{{ icon("back", 14) }} {{ de_en("Alle Einträge", "All entries") }}</a></p>
+      <h2 class="flush">{{ p.title_de or de_en("Neuer Eintrag", "New entry") }}
+        {% if p.status == "published" %}<span class="badge badge-running">{{ de_en("Veröffentlicht", "Published") }}</span>{% else %}<span class="badge badge-pending">{{ de_en("Entwurf", "Draft") }}</span>{% endif %}</h2>
+    </div>
+    <div class="button-row">
+      <a class="button button-small button-secondary" href="{{ url_for('blog.admin_preview', post_id=p.id) }}" target="_blank" rel="noopener">{{ icon("eye", 16) }} {{ de_en("Vorschau", "Preview") if p.status != "published" else de_en("Ansehen", "View") }}</a>
+      {% if p.status == "published" %}
+      <form method="post" action="{{ url_for('blog.admin_withdraw', post_id=p.id) }}" class="inline">{{ csrf() }}
+        <button class="button button-small button-secondary" title="{{ de_en('Wieder zum Entwurf machen: nicht mehr öffentlich, nichts geht verloren', 'Make it a draft again: no longer public, nothing is lost') }}">{{ de_en("Zurückziehen", "Withdraw") }}</button></form>
+      {% else %}
+      <form method="post" action="{{ url_for('blog.admin_publish', post_id=p.id) }}" class="inline">{{ csrf() }}
+        <button class="button button-small">{{ de_en("Veröffentlichen", "Publish") }}</button></form>
+      {% endif %}
+      <form method="post" action="{{ url_for('blog.admin_delete', post_id=p.id) }}" class="inline">{{ csrf() }}
+        <button class="button button-small button-danger"
+          data-confirm="{{ de_en('Eintrag „{title}“ endgültig löschen?', 'Delete the entry “{title}” permanently?', title=p.title_de or de_en('ohne Titel', 'untitled')) }}"
+          data-confirm-note="{{ de_en('Text und Bilder gehen verloren, die Adresse führt danach ins Leere. Wer den Eintrag nur aus dem Blog nehmen will, wählt „Zurückziehen“.', 'Text and images are lost, and the address leads nowhere afterwards. To only take the entry off the blog, choose “Withdraw”.') }}"
+          data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>{{ de_en("Löschen", "Delete") }}</button></form>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('blog.admin_edit', post_id=p.id) }}" class="stack" id="post-form" data-autosave-form>
+    {{ csrf() }}
+    <div class="blog-langs">
+      {% for code, name, note in (("de", de_en("Deutsch", "German"), de_en("nötig zum Veröffentlichen", "needed to publish")), ("en", de_en("Englisch", "English"), de_en("freiwillig, sonst Deutsch mit Hinweis", "optional, else German with a note"))) %}
+      <fieldset class="blog-lang" lang="{{ code }}">
+        <legend>{{ name }} <span class="hint">{{ note }}</span></legend>
+        {# the AI buttons work on the fields as they are now (blog._save_form): "Textkorrekturen" corrects lightly and
+           keeps the author's style, "Ins Englische übersetzen" replaces the English version (asks first if there is one) #}
+        {% if ai_ready %}<div class="blog-ai">
+          <button class="button button-small button-ai" data-ai-call name="proofread" value="1" formaction="{{ url_for('blog.admin_proofread', post_id=p.id, lang=code) }}"
+            title="{{ de_en('Rechtschreibung, Tippfehler, Grammatik und Zeichensetzung leicht korrigieren lassen; Stil, Wortwahl und Formatierung bleiben. Die Meldung nennt jede Korrektur.', 'Have spelling, typing errors, grammar and punctuation lightly corrected; style, word choice and formatting stay. The message names every correction.') }}">{{ icon("sparkles", 16) }} {{ de_en("Textkorrekturen", "Text corrections") }}</button>
+          {% if code == "de" %}<button class="button button-small button-ai" data-ai-call name="translate" value="1" formaction="{{ url_for('blog.admin_translate', post_id=p.id) }}"
+            {% if p.title_en or p.body_en %}data-confirm="{{ de_en('Die englische Fassung durch eine Übersetzung der KI ersetzen?', 'Replace the English version with a translation by the AI?') }}" data-confirm-note="{{ de_en('Was jetzt auf Englisch dasteht, geht verloren.', 'What is in English now will be lost.') }}" data-confirm-ok="{{ de_en('Ersetzen', 'Replace') }}"{% endif %}
+            title="{{ de_en('Titel, Anriss und Text ins Englische übersetzen lassen; Formatierung, Bilder und Links bleiben', 'Have title, teaser and text translated into English; formatting, images and links stay') }}">{{ icon("sparkles", 16) }} {{ de_en("Ins Englische übersetzen", "Translate into English") }}</button>{% endif %}
+          {{ ai_access_line() }}</div>{% endif %}
+        <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
+          <input name="title_{{ code }}" value="{{ p['title_' ~ code] }}" maxlength="200"></label>
+        <label><span class="label-title">{{ de_en("Anriss", "Teaser") }}</span> <span class="hint">{{ de_en("ein, zwei Sätze für die Übersicht; leer: der Anfang des Textes", "one or two sentences for the overview; empty: the start of the text") }}</span>
+          <textarea name="summary_{{ code }}" rows="2" maxlength="1000">{{ p['summary_' ~ code] }}</textarea></label>
+        <label><span class="label-title">{{ de_en("Text", "Text") }}</span>
+          <textarea name="body_{{ code }}" rows="16" data-rich="block">{{ p['body_' ~ code] }}</textarea></label>
+      </fieldset>
+      {% endfor %}
+    </div>
+    <p class="hint">{{ de_en("Ein Absatz endet mit einer Leerzeile; eine ganz fett gesetzte Zeile ist eine Zwischenüberschrift. Links schreiben Sie als [Text](https://…) oder als Adresse. {marke} wird zum Namen der Marke, unter der gelesen wird.",
+      "A paragraph ends with a blank line; a line set in bold as a whole is a subheading. Write links as [Text](https://…) or as an address. {marke} becomes the name of the brand the entry is read under.") }}</p>
+
+    <div class="blog-meta">
+      <label><span class="label-title">{{ de_en("Kategorie", "Category") }}</span>
+        <select name="category">{% for key, (de, en) in categories.items() %}<option value="{{ key }}"{% if p.category == key %} selected{% endif %}>{{ de_en(de, en) }}</option>{% endfor %}</select></label>
+      {% if brand_choices|length > 1 %}
+      <fieldset><legend>{{ de_en("Erscheint unter", "Appears under") }} <span class="hint">{{ de_en("nichts angekreuzt: alle", "nothing ticked: all") }}</span></legend>
+        <input type="hidden" name="brands_sent" value="1">
+        {% for key, name in brand_choices %}<label class="check"><input type="checkbox" name="brands" value="{{ key }}"{% if not p.brands or key in p.brands %} checked{% endif %}> {{ name }}</label>{% endfor %}
+      </fieldset>
+      {% endif %}
+      {% if p.published_at %}
+      <label><span class="label-title">{{ de_en("Datum", "Date") }}</span> <span class="hint">{{ de_en("Tag der Veröffentlichung; ein späterer Tag: erst dann öffentlich", "day of publication; a later day: public only then") }}</span>
+        <input type="date" name="published_on" value="{{ published_on }}"></label>
+      <label><span class="label-title">{{ de_en("Adresse", "Address") }}</span> <span class="hint">{{ de_en("die bisherige leitet weiter", "the previous one redirects") }}</span>
+        <input name="slug" value="{{ p.slug }}" maxlength="100" pattern="[a-z0-9]+(-[a-z0-9]+)*" spellcheck="false"></label>
+      {% else %}
+      <p class="small" data-live="slug"><span class="label-title">{{ de_en("Adresse", "Address") }}</span><br><code>/blog/{{ p.slug }}</code>
+        <span class="hint">{{ de_en("folgt dem deutschen Titel bis zur Veröffentlichung", "follows the German title until publication") }}</span></p>
+      {% endif %}
+    </div>
+
+    <fieldset class="blog-images" id="bilder"><legend>{{ de_en("Bilder", "Images") }}</legend>
+      {% if p.images %}
+      <label class="check"><input type="radio" name="cover" value=""{% if not p.cover_image_id %} checked{% endif %}> {{ de_en("kein Titelbild", "no cover image") }}</label>
+      <ul class="blog-image-list">
+      {% for img in p.images %}
+        <li>
+          <img src="{{ url_for('blog.media', post_id=p.id, name=img.filename) }}" alt="" width="120" height="{{ (120 * img.height / img.width)|round|int if img.width else 80 }}" loading="lazy">
+          <div class="stack">
+            <label><span class="label-title">{{ de_en("Alternativtext (Deutsch)", "Alternative text (German)") }}</span> <span class="hint">{{ de_en("was das Bild zeigt, für Vorleseprogramme; nötig zum Veröffentlichen", "what the image shows, for screen readers; needed to publish") }}</span>
+              <input name="alt_de_{{ img.id }}" value="{{ img.alt_de }}" maxlength="300"></label>
+            <label><span class="label-title">{{ de_en("Alternativtext (Englisch)", "Alternative text (English)") }}</span>
+              <input name="alt_en_{{ img.id }}" value="{{ img.alt_en }}" maxlength="300" lang="en"></label>
+            <div class="button-row">
+              <label class="check"><input type="radio" name="cover" value="{{ img.id }}"{% if p.cover_image_id == img.id %} checked{% endif %}> {{ de_en("Titelbild", "Cover image") }}</label>
+              <span class="hint">{% if img.id in used %}{{ de_en("steht im Text", "is in the text") }}{% else %}{{ de_en("steht nicht im Text", "is not in the text") }}{% endif %}</span>
+              <button class="button button-small button-secondary" name="remove_image" value="1" formaction="{{ url_for('blog.admin_image_delete', post_id=p.id, image_id=img.id) }}" formnovalidate
+                data-confirm="{{ de_en('Dieses Bild entfernen?', 'Remove this image?') }}" data-confirm-note="{{ de_en('Wo es im Text steht, steht danach nichts mehr.', 'Its place in the text will then be empty.') }}"
+                data-confirm-ok="{{ de_en('Bild entfernen', 'Remove image') }}" data-confirm-danger>{{ de_en("Bild entfernen", "Remove image") }}</button>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted small">{{ de_en("Noch keine Bilder. Laden Sie unten eines hoch; im Textfeld setzt „Bild einfügen“ es an die Stelle des Cursors.",
+        "No images yet. Upload one below; in the text field, “Insert image” puts it where the cursor is.") }}</p>
+      {% endif %}
+      <p class="hint">{{ de_en("Ein Klick auf ein Bild im Textfeld legt fest, wo es steht: über die ganze Breite, oder links bzw. rechts mit dem folgenden Text daneben.",
+        "A click on an image in the text field sets where it appears: across the full width, or left or right with the following text beside it.") }}</p>
+    </fieldset>
+    {{ autosave_bar() }}
+  </form>
+
+  <form method="post" action="{{ url_for('blog.admin_image_add', post_id=p.id) }}" enctype="multipart/form-data" class="stack blog-upload">
+    {{ csrf() }}
+    <h3>{{ de_en("Bild hochladen", "Upload an image") }}</h3>
+    <p class="hint">{{ de_en("PNG, JPEG, WebP oder GIF bis 8 MB; gespeichert als WebP ohne Metadaten, höchstens 2400 Bildpunkte breit.",
+      "PNG, JPEG, WebP or GIF up to 8 MB; stored as WebP without metadata, at most 2400 pixels wide.") }}
+      {{ de_en("Nur eigene Bilder oder solche, deren Lizenz die Veröffentlichung erlaubt; verlangt die Lizenz einen Bildnachweis, steht er im Text unter dem Bild.",
+      "Only your own images or ones whose licence allows publishing them; if the licence asks for a credit, put it in the text below the image.") }}</p>
+    <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" required aria-label="{{ de_en('Bilddatei', 'Image file') }}">
+    {% include "_upload_rights.html" %}
+    <label><span class="label-title">{{ de_en("Alternativtext (Deutsch)", "Alternative text (German)") }}</span>
+      <input name="alt_de" maxlength="300"></label>
+    <label><span class="label-title">{{ de_en("Alternativtext (Englisch)", "Alternative text (English)") }}</span>
+      <input name="alt_en" maxlength="300" lang="en"></label>
+    <label class="check"><input type="checkbox" name="as_cover" value="1"> {{ de_en("als Titelbild verwenden", "use as cover image") }}</label>
+    <div><button class="button button-small button-secondary">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button></div>
+  </form>
+</section>
+{% endblock %}

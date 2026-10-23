@@ -1,0 +1,135 @@
+{# Check a state of a seal chain cited in a paper (public.verify, Philipp 2026-10-08): for anyone, without an account #}
+{% extends "base.html" %}
+{% block title %}{{ de_en("Siegelkette prüfen", "Check a seal chain") }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='seal_check.js') }}" defer></script>{% endblock %}
+{% block content %}
+<h1>{{ de_en("Siegelkette prüfen", "Check a seal chain") }}</h1>
+<p class="muted">{{ de_en("Veröffentlichungen mit Daten aus Askurious können einen Prüfcode nennen, z. B.", "Publications with data from Askurious can name a check code, e.g.") }} <code>142-57-3f9a1c2e7b4d8a10</code>. {{ de_en("Er steht für einen Stand der Siegelkette der Befragung, gesichert durch einen Zeitstempel des DFN.", "It stands for a state of the survey's seal chain, secured by a timestamp of the DFN.") }}</p>
+<form method="get" action="{{ url_for('public.verify') }}" class="seal-check">
+  <label class="sr-only" for="verify-code">{{ de_en("Prüfcode", "Check code") }}</label>
+  <input id="verify-code" name="code" value="{{ code or '' }}" maxlength="90" required placeholder="142-57-3f9a1c2e7b4d8a10" spellcheck="false">
+  <button class="button">{{ de_en("Prüfen", "Check") }}</button>
+</form>
+{% if busy %}
+<div class="seal-result">
+  <div class="seal-badge is-broken"><span class="seal-icon" aria-hidden="true">?</span><div><strong>{{ de_en("Gerade zu viele Prüfungen", "Too many checks just now") }}</strong>
+    <span class="seal-when">{{ de_en("Von dieser Adresse kamen in den letzten Minuten sehr viele Prüfungen. Bitte in ein paar Minuten erneut versuchen.", "Very many checks came from this address in the last few minutes. Please try again in a few minutes.") }}</span></div></div>
+</div>
+{% elif code %}
+<div class="seal-result">
+{% if not result.found %}
+  <div class="seal-badge is-broken"><span class="seal-icon" aria-hidden="true">?</span><div><strong>{{ de_en("Kein solcher Stand", "No such state") }}</strong>
+    <span class="seal-when">{{ de_en("Zu diesem Code gibt es auf Askurious.de keine Siegelkette. Bitte den Code prüfen.", "There is no seal chain for this code on Askurious.de. Please check the code.") }}</span></div></div>
+{% else %}
+  {% import "surveys/_seal_parts.html" as sp with context %}
+  {% set now = result.now %}
+  {% set ok = result.ok %}
+  {# two verdicts (siegelkette-konzept.md E10): the cited state of the chain (and the chain today), and the data stored
+     on Askurious now against it (E2) #}
+  {{ sp.verdict(result.cited_ok and now.chain_ok, now.data_ok,
+                (result.survey.title or de_en("Befragung {n}", "Survey {n}", n=code.strip().split("-")[0])) ~ " · " ~ de_en("Eintrag {n}", "entry {n}", n=result.seq),
+                chain_label=(de_en("bis Eintrag {n} lückenlos, unverändert und vom DFN gestempelt", "complete up to entry {n}, unchanged and stamped by the DFN", n=result.seq) if result.cited_ok and now.chain_ok else None),
+                data_label=sp.data_label(now)) }}
+  <ul class="seal-facts{% if not ok %} is-broken{% endif %}">
+    {% if result.gone %}{# the survey was deleted, its chain stays (audit 2026-10-10, L-1) #}
+    <li>{% if result.gone.way == "platform" %}{{ de_en("Die Befragung wurde am {d} von der Plattform gelöscht. Grund: {why}", "The survey was deleted by the platform on {d}. Reason: {why}", d=result.gone.at|localdt if result.gone.at else "–", why=result.gone.why or "–") }}{% else %}{{ de_en("Die Befragung wurde am {d} gelöscht.", "The survey was deleted on {d}.", d=result.gone.at|localdt if result.gone.at else "–") }}{% endif %}
+      {{ de_en("Ihre Siegelkette bleibt mit diesem Schlussvermerk bestehen; die Antworten sind nicht mehr gespeichert.", "Its seal chain stays with this final record; the answers are no longer stored.") }}</li>
+    {% endif %}
+    {% if result.cited_ok %}
+    <li>{{ de_en("Die Kette ist bis zu diesem Eintrag lückenlos und unverändert; der Code passt zu seinem Hashwert.", "The chain is complete and unchanged up to this entry; the code matches its hash value.") }}</li>
+    <li>{{ de_en("Gesichert durch den Zeitstempel des DFN vom {d} (Eintrag {s}); Signatur und Zertifikat geprüft.", "Secured by the timestamp of the DFN of {d} (entry {s}); signature and certificate checked.", d=result.stamp[1]|localdt, s=result.stamp[0]) }}</li>
+    {% if result.newer %}<li>{{ de_en_n(result.newer, ("Danach kam {n} weiterer Eintrag hinzu; er ändert diesen Stand nicht.", "Danach kamen {n} weitere Einträge hinzu; sie ändern diesen Stand nicht."), ("{n} further entry was added afterwards; it does not change this state.", "{n} further entries were added afterwards; they do not change this state.")) }}</li>{% endif %}
+    {% else %}
+    {% for p in result.problems[:10] %}<li>{{ p }}</li>{% endfor %}
+    {% if not result.stamp %}<li>{{ de_en("Für diesen Stand gibt es noch keinen Zeitstempel des DFN.", "There is no timestamp of the DFN for this state yet.") }}</li>{% endif %}
+    {% endif %}
+    {% if not (now.chain_ok and now.data_ok) %}{% for p in now.problems %}<li>{{ seal_problem(p) }}</li>{% endfor %}{% if now.unsealed %}<li>{{ de_en_n(now.unsealed, ("{n} zu versiegelnde Teilnahme ohne Eintrag in der Kette", "{n} zu versiegelnde Teilnahmen ohne Eintrag in der Kette"), ("{n} participation to be sealed without an entry in the chain", "{n} participations to be sealed without an entry in the chain")) }}</li>{% endif %}{% endif %}
+    <li>{{ de_en("Die Daten hat Askurious am {d} mit der Kette abgeglichen: Jeder Fall, der nicht mit Löschvermerk gelöscht ist, muss gespeichert sein und zu seinem Hashwert passen.", "Askurious compared the data with the chain on {d}: every case not deleted with a deletion record must be stored and match its hash value.", d=now.checked_at|localdt) }} {{ de_en("Diese Aussage trifft die Plattform selbst. Bestätigt sind damit die Kette und die Daten auf Askurious, nicht ein Datensatz, der anderswo liegt (z. B. auf Zenodo): Ob er alle diese Fälle enthält, zeigt unabhängig von Askurious der", "This statement comes from the platform itself. What is confirmed are the chain and the data on Askurious, not a data set kept elsewhere (e.g. on Zenodo): whether it holds all these cases shows, independently of Askurious, in the") }} <a href="#abgleich">{{ de_en("Abgleich mit ihm", "comparison with it") }}</a>.</li>
+  </ul>
+  <h2 class="seal-numbers-head">{{ de_en("Fälle in Zahlen", "Cases in numbers") }}</h2>
+  <p class="small muted">{{ de_en("So steht es in der Kette: jeder beendete Fall mit seinem Status und jede Löschung mit ihrem Weg. Diese Zahlen kann niemand nachträglich ändern, ohne dass der Code oben nicht mehr passt.", "This is what the chain records: every case that ended with its status and every deletion with its way. Nobody can change these numbers afterwards without the code above no longer matching.") }}</p>
+  {# a chain holds cases and events: why 5 cases with 1 deletion make 7 entries (Philipp, 2026-10-12) #}
+  {% set e = result.counts.entries %}
+  <p class="small muted">{{ de_en("Die Kette enthält zwei Arten von Einträgen: Fälle (je beendete Teilnahme ein Eintrag, dazu ein Änderungseintrag, wenn sich ein Fall danach ändert) und Ereignisse: Start und Ende der Feldphase, Löschvermerke, das Einschalten der Siegelkette, eine abgelaufene Aufbewahrungsfrist und das Löschen der Befragung. Deshalb hat eine Kette mehr Einträge als Fälle.",
+    "The chain holds two kinds of entries: cases (one entry per ended participation, plus an amendment when a case changes afterwards) and events: start and end of the fieldwork, deletion records, switching the seal chain on, an expired retention period and the deletion of the survey. That is why a chain has more entries than cases.") }}
+    {{ de_en("Die {n} Einträge bis hierhin: Fälle {c} · Änderungen {a} · Löschvermerke {d} · weitere Ereignisse {v}.", "The {n} entries up to here: cases {c} · amendments {a} · deletion records {d} · further events {v}.",
+             n=e.total, c=e.cases, a=e.amended, d=e.deleted, v=e.events) }}</p>
+  {{ sp.numbers([(de_en("bis Eintrag {n}", "up to entry {n}", n=result.seq), result.counts)] + ([(de_en("heute", "today"), result.counts_now)] if result.newer else [])) }}
+  <p class="small seal-head">{{ de_en("Vollständiger Hashwert:", "Full hash value:") }} <code>{{ result.digest }}</code></p>
+  {# a data file against the chain, in the browser: the file is never uploaded (siegelkette-konzept.md E9,
+     app/static/seal_check.js) #}
+  <section class="seal-compare" id="abgleich" data-seal-compare data-chain="{{ url_for('public.verify_chain', code=code) }}"
+           data-seq="{{ result.seq }}" data-digest="{{ result.digest }}" data-stamp="{{ result.stamp[1]|localdt if result.cited_ok and result.stamp else '' }}">
+    <h2 class="seal-numbers-head">{{ de_en("Datensatz abgleichen", "Compare a data set") }}</h2>
+    <p class="small muted">{{ de_en("Wählen Sie die Datendatei, z. B. data.csv aus dem Datensatz auf Zenodo. Ihr Browser prüft sie gegen die Kette dieses Prüfcodes: Jeder Fall bis Eintrag {n} muss darin stehen, außer er ist mit Löschvermerk gelöscht, und jede Zeile mit Fallnummer muss zu einem Fall der Kette gehören. Die Datei wird nicht hochgeladen und verlässt Ihren Rechner nicht.", "Choose the data file, e.g. data.csv from the data set on Zenodo. Your browser checks it against the chain of this check code: every case up to entry {n} must be in it, unless it was deleted with a deletion record, and every row with a case number must belong to a case of the chain. The file is not uploaded and does not leave your computer.", n=result.seq) }}</p>
+    <p class="small muted">{{ de_en("Geprüft werden damit Vollständigkeit und Herkunft der Fälle (welche Fälle es gibt, welche gelöscht wurden), nicht die Antwortwerte: Der Hashwert eines Falls enthält ein geheimes Salz und lässt sich aus der Datei nicht nachrechnen. Die Werte prüft Askurious selbst gegen die Hashwerte (oben: „Daten“).", "This checks the completeness and origin of the cases (which cases there are, which were deleted), not the answer values: the hash value of a case contains a secret salt and cannot be recomputed from the file. Askurious checks the values against the hash values itself (above: “Data”).") }}</p>
+    <div class="seal-compare-files">
+      <label>{{ de_en("Datendatei (CSV)", "Data file (CSV)") }} <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" data-seal-rows></label>
+      <label>{{ de_en("Kette, falls zur Hand (seal.json aus demselben Paket)", "Chain, if at hand (seal.json from the same package)") }} <input type="file" accept=".json,application/json" data-seal-chain></label>
+    </div>
+    <label class="small"><input type="checkbox" data-seal-completed> {{ de_en("Die Datei enthält nur abgeschlossene Teilnahmen (Datensatz von Zenodo oder Coscine)", "The file holds completed participations only (data set from Zenodo or Coscine)") }}</label>
+    <p class="small muted">{{ de_en("Ohne seal.json nimmt der Browser die Kette, wie Askurious sie heute zu diesem Code hat. Mit seal.json gleicht er jeden ihrer Einträge mit dieser Kette ab: Einträge, die Askurious nicht hat, lassen den Abgleich scheitern.", "Without seal.json the browser takes the chain as Askurious holds it today for this code. With seal.json it compares each of its entries with that chain: entries Askurious does not have make the comparison fail.") }}</p>
+    <div class="seal-compare-out" data-seal-out hidden aria-live="polite"></div>
+    <noscript><p class="small">{{ de_en("Der Abgleich im Browser braucht JavaScript; ohne geht es mit dem Prüfprogramm unten.", "The comparison in the browser needs JavaScript; without it, use the checker below.") }}</p></noscript>
+    <script type="application/json" id="seal-compare-texts">{{ {
+      "working": de_en("Prüfe …", "Checking …"),
+      "failed": de_en("Die Datei ließ sich nicht prüfen.", "The file could not be checked."),
+      "busy": de_en("Gerade zu viele Prüfungen von dieser Adresse. Bitte in ein paar Minuten erneut versuchen.", "Too many checks from this address just now. Please try again in a few minutes."),
+      "no_chain": de_en("Die Kette zu diesem Code ließ sich nicht laden.", "The chain for this code could not be loaded."),
+      "not_chain": de_en("Diese Datei ist keine Siegelkette von Askurious (seal.json).", "This file is not a seal chain of Askurious (seal.json)."),
+      "not_csv": de_en("Bitte die Datendatei als CSV wählen (z. B. data.csv); Excel-, SPSS- und andere Formate liest der Abgleich nicht.", "Please choose the data file as CSV (e.g. data.csv); the comparison does not read Excel, SPSS or other formats."),
+      "fits": de_en("Datensatz passt zur Kette", "Data set matches the chain"),
+      "fits_not": de_en("Datensatz passt nicht zur Kette", "Data set does not match the chain"),
+      "chain": de_en("Kette:", "Chain:"), "data": de_en("Datensatz:", "Data set:"),
+      "chain_ok": de_en("lückenlos und unverändert, enthält den zitierten Eintrag {n}", "complete and unchanged, holds the cited entry {n}"),
+      "chain_bad": de_en("gebrochen", "broken"),
+      "chain_other": de_en("gehört nicht zu diesem Prüfcode", "does not belong to this check code"),
+      "chain_foreign": de_en("weicht von der Kette auf Askurious ab", "differs from the chain on Askurious"),
+      "data_ok": [de_en("der {n} Fall mit Fallnummer steht in der Kette, keiner fehlt ohne Vermerk", "the {n} case with a case number is in the chain, none is missing without a record"), de_en("alle {n} Fälle mit Fallnummer stehen in der Kette, keiner fehlt ohne Vermerk", "all {n} cases with a case number are in the chain, none is missing without a record")],
+      "missing_short": [de_en("{n} Fall fehlt ohne Löschvermerk", "{n} case is missing without a deletion record"), de_en("{n} Fälle fehlen ohne Löschvermerk", "{n} cases are missing without a deletion record")],
+      "other_short": [de_en("{n} weiterer Befund", "{n} further finding"), de_en("{n} weitere Befunde", "{n} further findings")],
+      "columns_short": de_en("Spalte {cols} fehlt", "column {cols} missing"),
+      "file": de_en("Datei: {name}", "File: {name}"),
+      "p_order": de_en("Eintrag {n}: Nummer {seq} steht nicht an ihrer Stelle", "entry {n}: number {seq} out of order"),
+      "p_follow": de_en("Eintrag {n}: Folgt nicht auf den Eintrag davor", "entry {n}: does not follow the entry before"),
+      "p_hash": de_en("Eintrag {n}: Hashwert passt nicht zu seinem Inhalt", "entry {n}: hash does not match its content"),
+      "p_future": de_en("Eintrag {n}: Seine Zeit liegt in der Zukunft", "entry {n}: its time lies in the future"),
+      "p_foreign": [de_en("{n} Eintrag der gewählten seal.json steht nicht so in der Kette auf Askurious (angehängt oder verändert): {list}. Ihm folgt der Abgleich nicht.", "{n} entry of the seal.json chosen is not in the chain on Askurious like this (appended or changed): {list}. The comparison does not rely on it."), de_en("{n} Einträge der gewählten seal.json stehen nicht so in der Kette auf Askurious (angehängt oder verändert): {list}. Ihnen folgt der Abgleich nicht.", "{n} entries of the seal.json chosen are not in the chain on Askurious like this (appended or changed): {list}. The comparison does not rely on them.")],
+      "p_anchor": de_en("Zeitstempel zu Eintrag {n}: kein Hashwert dieser Kette", "timestamp of entry {n}: not a hash of this chain"),
+      "p_other": de_en("Eintrag {n} dieser Kette ist nicht der Stand, für den der Prüfcode steht: Die gewählte seal.json gehört zu einer anderen Befragung oder ist verändert.", "Entry {n} of this chain is not the state the check code stands for: the seal.json chosen belongs to another survey or was changed."),
+      "p_columns": de_en("Der Datei fehlt die Spalte {cols}: Zeilen ohne Fallnummer lassen sich nicht von erfundenen unterscheiden.", "The file lacks the column {cols}: rows without a case number cannot be told apart from invented ones."),
+      "p_missing": [de_en("Fehlt ohne Löschvermerk ({status}): {n} Fall: {list}", "Missing without a deletion record ({status}): {n} case: {list}"), de_en("Fehlen ohne Löschvermerk ({status}): {n} Fälle: {list}", "Missing without a deletion record ({status}): {n} cases: {list}")],
+      "p_deleted": de_en("In der Kette gelöscht, in der Datei noch enthalten: {list}", "Deleted in the chain, still in the file: {list}"),
+      "p_unknown": de_en("Fallnummern, die die Kette nicht kennt: {list}", "Case numbers the chain does not know: {list}"),
+      "p_changed": de_en("seal_hash passt nicht zum verzeichneten Hashwert: {list}", "seal_hash differs from the hash value recorded: {list}"),
+      "p_duplicate": de_en("Fallnummern in mehr als einer Zeile: {list}", "Case numbers in more than one row: {list}"),
+      "p_unsealed": de_en("Zeilen einer beendeten echten Teilnahme ohne Fallnummer (gezählt nach der Kopfzeile): {list}", "Rows of a real participation that ended, without a case number (counted after the header): {list}"),
+      "p_nohash": de_en("Fälle ohne seal_hash: {list}", "Cases without seal_hash: {list}"),
+      "n_completed": de_en("Nur abgeschlossene Teilnahmen geprüft: Fälle der Kette, die anders endeten, fehlen absichtlich und werden nicht geprüft ({list}).", "Completed participations only checked: cases of the chain that ended otherwise are left out by design and not checked ({list})."),
+      "none": de_en("keine", "none"),
+      "n_rows": [de_en("{n} Zeile mit Fallnummer verglichen.", "{n} row with a case number compared."), de_en("{n} Zeilen mit Fallnummer verglichen.", "{n} rows with a case number compared.")],
+      "n_without": de_en("Zeilen ohne Fallnummer, von der Kette nicht erfasst: {n} (Quelle/Status: {list}). Erfasst sind nur Zeilen mit Fallnummer.", "Rows without a case number, not covered by the chain: {n} (source/status: {list}). Only rows with a case number are covered."),
+      "n_later": [de_en("{n} Fall kam erst nach Eintrag {seq} dazu und fehlt im Datensatz (z. B. früher exportiert): {list}", "{n} case was added only after entry {seq} and is missing from the data set (e.g. exported earlier): {list}"), de_en("{n} Fälle kamen erst nach Eintrag {seq} dazu und fehlen im Datensatz (z. B. früher exportiert): {list}", "{n} cases were added only after entry {seq} and are missing from the data set (e.g. exported earlier): {list}")],
+      "n_older": de_en("Nach Eintrag {seq} geändert, im Datensatz im zitierten Stand: {list}", "Changed after entry {seq}, in the data set as of the cited state: {list}"),
+      "n_gone": de_en("Nach Eintrag {seq} mit Löschvermerk gelöscht, im Datensatz noch enthalten: {list}", "Deleted with a deletion record after entry {seq}, still in the data set: {list}"),
+      "n_own": [de_en("Verglichen mit der gewählten seal.json ({n} Eintrag).", "Compared with the seal.json chosen ({n} entry)."), de_en("Verglichen mit der gewählten seal.json ({n} Einträge).", "Compared with the seal.json chosen ({n} entries).")],
+      "n_server_same": de_en("Jeder Eintrag der gewählten seal.json steht unverändert in der Kette auf Askurious.", "Every entry of the seal.json chosen is in the chain on Askurious, unchanged."),
+      "n_offline": de_en("Die Kette auf Askurious ließ sich nicht laden: nur bis zum zitierten, gestempelten Stand (Eintrag {seq}) geprüft. Einträge der gewählten seal.json danach, auch Löschvermerke, zählen nicht.", "The chain on Askurious could not be loaded: checked only up to the cited, stamped state (entry {seq}). Entries of the seal.json chosen after it, deletion records too, do not count."),
+      "n_beyond": [de_en("{n} Zeile mit einer Fallnummer nach Eintrag {seq} nicht geprüft.", "{n} row with a case number after entry {seq} not checked."), de_en("{n} Zeilen mit einer Fallnummer nach Eintrag {seq} nicht geprüft.", "{n} rows with a case number after entry {seq} not checked.")],
+      "n_values": de_en("Geprüft sind Vollständigkeit und Herkunft der Fälle, nicht die Antwortwerte in der Datei.", "What is checked is the completeness and origin of the cases, not the answer values in the file."),
+      "n_server": [de_en("Verglichen mit der Kette, wie Askurious sie heute hat ({n} Eintrag).", "Compared with the chain as Askurious holds it today ({n} entry)."), de_en("Verglichen mit der Kette, wie Askurious sie heute hat ({n} Einträge).", "Compared with the chain as Askurious holds it today ({n} entries).")],
+      "n_stamp": de_en("Der Zeitstempel des DFN vom {when} ist oben auf dieser Seite geprüft; er sichert die Kette bis Eintrag {n}. Die Zeitstempel in der Datei selbst prüft der Browser nicht, das tut seal_verify.py.", "The timestamp of the DFN of {when} is checked at the top of this page; it secures the chain up to entry {n}. The browser does not check the timestamps in the file itself; seal_verify.py does."),
+      "n_nostamp": de_en("Für den zitierten Stand gibt es keinen Zeitstempel, der hält (siehe oben); der Abgleich zeigt dann nur, ob Datei und Kette zueinander passen.", "There is no timestamp that applies to the cited state (see above); the comparison then shows only whether file and chain match each other."),
+      "status": {"completed": de_en("abgeschlossen", "completed"), "screenout": de_en("Screen-out", "screen-out"), "quotafull": de_en("Quote voll", "quota full"), "excluded": de_en("im Ablauf ausgeschlossen", "excluded in the flow")}
+    }|tojson }}</script>
+    <p class="small">{{ de_en("Ohne Browser und ohne Askurious:", "Without a browser and without Askurious:") }}
+      <a href="{{ url_for('public.verify_chain', code=code) }}">seal.json</a> ·
+      <a href="{{ url_for('public.verify_checker') }}">seal_verify.py</a> ·
+      <code>python seal_verify.py seal.json data.csv</code>
+      <span class="muted">{{ de_en("(die Kette enthält nur Hashwerte, keine Antworten). Das Prüfprogramm prüft auch die Zeitstempel in der Datei und gleicht Einträge nach dem letzten Zeitstempel mit der Kette auf Askurious ab (die Adresse in seal.json nur, wenn sie zu Askurious selbst gehört; eine andere Installation nennen Sie mit --server URL); ohne Verbindung prüft es nur bis zum gestempelten Stand. Wie hier prüft es Vollständigkeit und Herkunft der Fälle, nicht die Antwortwerte.", "(the chain holds hash values only, no answers). The checker also checks the timestamps in the file and compares entries after the last timestamp with the chain on Askurious (the address in seal.json only if it belongs to Askurious itself; you name another installation with --server URL); without a connection it checks up to the stamped state only. As here, it checks the completeness and origin of the cases, not the answer values.") }}
+      {{ de_en("Ein Datensatz nur mit abgeschlossenen Teilnahmen (wie auf Zenodo) wird mit", "A data set of completed participations only (as on Zenodo) is checked with") }} <code>python seal_verify.py --completed seal.json data.csv</code> {{ de_en("geprüft: Dann fehlen Screenouts, „Quote voll“ und Ausschlüsse mit Absicht.", "then screen-outs, “quota full” and exclusions are left out by design.") }}</span></p>
+  </section>
+{% endif %}
+</div>
+{% endif %}
+{% endblock %}

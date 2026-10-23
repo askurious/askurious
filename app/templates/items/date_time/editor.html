@@ -1,0 +1,33 @@
+{% set c = item.config %}
+{% set off = "" if structural else "disabled" %}
+{% set question_hint = de_en("z. B. „In welchem Jahr sind Sie geboren?“", "e.g. “In which year were you born?”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Auswahl", "Choice") }}</legend>
+  <div class="stack">
+    <div class="row-fields">
+      <label>{{ de_en("Abgefragt wird", "Asked for") }}
+        <select name="parts" data-show-for {{ off }}>
+          {% for key, label in kind.parts.items() %}<option value="{{ key }}" {% if kind.asked(item) == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label data-when="year month date datetime">{{ de_en("Zeitraum", "Period") }}
+        <select name="span" {{ off }}>
+          {% for key, label in kind.spans.items() %}<option value="{{ key }}" {% if c.get("span", "past") == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label data-when="year month date datetime">{{ de_en("Jahr von", "Year from") }}
+        <input name="year_min" class="narrow" inputmode="numeric" maxlength="4" value="{{ c.get('year_min') if c.get('year_min') is not none else '' }}" placeholder="{{ de_en('automatisch', 'automatic') }}" {{ off }}></label>
+      <label data-when="year month date datetime">{{ de_en("Jahr bis", "Year to") }}
+        <input name="year_max" class="narrow" inputmode="numeric" maxlength="4" value="{{ c.get('year_max') if c.get('year_max') is not none else '' }}" placeholder="{{ de_en('automatisch', 'automatic') }}" {{ off }}></label>
+      <label data-when="time datetime">{{ de_en("Minuten", "Minutes") }}
+        <select name="minute_step" {{ off }}>
+          {% for step, label in kind.steps.items() %}<option value="{{ step }}" {% if kind.step(item) == step %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    {% with dk_export=de_en("1 in der Spalte {col}", "1 in the column {col}", col=item.code ~ "_dk") %}{% include "items/_dont_know_field.html" %}{% endwith %}
+    <p class="muted small">{{ de_en("Teilnehmende wählen jeden Teil aus einer Liste (auf dem Smartphone das gewohnte Auswahlrad), getippt wird nichts. Geprüft wird, dass die Auswahl vollständig ist, dass es den Tag gibt (kein 30. Februar, 29. Februar nur im Schaltjahr) und dass die Angabe im Zeitraum liegt.", "Participants pick each part from a list (on a smartphone the familiar picker wheel); nothing is typed. The check is that the choice is complete, that the day exists (no 30 February, 29 February only in a leap year) and that the answer lies within the period.") }}</p>
+    <p class="muted small" data-when="year month date datetime">{{ de_en("Ohne „Jahr von“ und „Jahr bis“ reicht die Liste {past} Jahre zurück und, wo die Zukunft erlaubt ist, {future} Jahre voraus. In Bedingungen des Ablaufs lassen sich die Antworten mit =, < und > vergleichen, z. B. mit 2000, 05.2000, 23.05.2000 oder 14:30.", "Without “Year from” and “Year to”, the list goes back {past} years and, where the future is allowed, {future} years ahead. In conditions of the flow, the answers can be compared with =, < and >, e.g. with 2000, 05.2000, 23.05.2000 or 14:30.", past=kind.past_years, future=kind.future_years) }}</p>
+  </div>
+</fieldset>

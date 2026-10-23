@@ -1,0 +1,33 @@
+{% set de = lang in ("de", "de-du") %}
+{% set c = item.config %}
+{# the total: fixed, or what this person answered to an earlier question (kind.total_for) #}
+{% set total = kind.shown_total(item, answers) %}
+{% set shown_for = none if all_rows is defined and all_rows else answers %}
+{% set ans = kind.own_answer(answers.get(item.id), total, kind.visible(item, shown_for)) %}
+{% set start = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% set values = kind.start_values(item, ans, total, shown_for) %}
+{% set unit = kind.unit_label(item, lang) %}
+{% set step = kind.slider_step(total) %}
+{% include "items/_question.html" %}
+<div class="p-csum" data-csum="{{ item.id }}" data-total="{{ total }}" {% if ans %}data-answered{% endif %}>
+  <p class="p-csum-hint">{{ (ui("Verteilen Sie %s. Wenn Sie einen Regler bewegen, gleichen die anderen den Unterschied aus; eingetippte Zahlen bleiben, wie Sie sie eingeben.", "Distribute %s. Moving one slider adjusts the others; numbers you type stay as you type them."))|format(kind.amount(item, total, lang)) }}</p>
+  {% for o in kind.ordered_options(item, lang, start, shown_for) %}
+  <div class="p-csum-row">
+    <label class="p-csum-label" for="cs{{ item.id }}_{{ o.code }}"{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</label>
+    <input type="range" class="p-range p-csum-range" min="0" max="{{ total }}" step="{{ step }}" value="{{ values[o.code] }}" data-csum-range="{{ o.code }}" aria-label="{{ o.label }}" hidden>
+    <span class="p-csum-num">
+      <input type="number" id="cs{{ item.id }}_{{ o.code }}" name="i{{ item.id }}_{{ o.code }}" min="0" max="{{ total }}" step="1" inputmode="numeric" value="{{ values[o.code] }}" data-csum-num="{{ o.code }}">
+      {% if unit %}<span class="p-csum-unit"{{ text_attrs(item, "unit") }}>{{ unit }}</span>{% endif %}
+    </span>
+  </div>
+  {% endfor %}
+  <div class="p-csum-foot">
+    {# the total is said once the sliders rest (participant.js, 600 ms), and only what is left: spoken at every step it
+       never stopped (UI/UX audit 2026-10-16, 100) #}
+    <span class="p-sr-only" aria-live="polite" data-csum-say data-done="{{ ui('Alles verteilt.', 'Everything is distributed.') }}"></span>
+    <span class="p-csum-sum" data-csum-sum>{{ ui("Summe", "Total") }}: <span class="p-ratio"><strong>{{ values.values()|sum }}</strong> / {{ kind.amount(item, total, lang) }}</span>
+      <span class="p-csum-rest" data-csum-rest data-left="{{ ui('noch %s zu verteilen', '%s left to distribute') }}" data-over="{{ ui('%s zu viel', '%s too many') }}" hidden></span></span>
+    <button type="button" class="p-rank-ok{% if ans %} is-done{% endif %}" data-csum-ok hidden>{{ ui("✓ Verteilung passt so", "✓ This distribution is fine") }}</button>
+  </div>
+  <input type="hidden" name="i{{ item.id }}_touched" value="{{ '1' if ans else '' }}" data-csum-touched>
+</div>

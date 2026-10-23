@@ -1,0 +1,125 @@
+{% from "_learn.html" import why, term, method %}
+{# CBC and ACBC: individual utilities by hierarchical Bayes (app/conjoint_hb.py view(), summary()). Needs: h (view), e (entry), f (data pool), survey, num. #}
+{% from "surveys/_choice_model.html" import pw_chart, per_unit %}
+{% set res = h.result %}
+{% from "_macros.html" import one, pct, signed, abbr %}
+{# UI/UX audit 2026-10-07, S7: hb_section "main" is the result on top of the question (or the button and the state),
+   "quality" the fit per person, the convergence and the method, in the fold "Modellgüte"; _hb_part.html draws both
+   and static/hb.js puts both in place #}
+{% set hb_section = hb_section if hb_section is defined and hb_section else "main" %}
+{% set hb_now = h.state == "current" and res %}
+{% if hb_section == "main" %}
+<section class="hb-part"{% if hb_now %} data-hb-current{% endif %} id="hb-part-{{ e.item.id }}" data-hb-item="{{ e.item.id }}" data-hb-url="{{ url_for('surveys.results', survey_id=survey.id) }}">
+<h3 class="res-group-head" id="hb-{{ e.item.id }}">{% if hb_now %}{{ de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }} <span class="hint">{{ de_en("individuelle Nutzen (Hierarchical Bayes)", "individual utilities (hierarchical Bayes)") }}</span>{% else %}{{ de_en("Individuelle Nutzen (Hierarchical Bayes)", "Individual utilities (hierarchical Bayes)") }}{% endif %}{{ fn("hb") }}</h3>
+{% if h.state == "running" %}
+{% include "surveys/_hb_running.html" %}
+{% elif h.marker and h.marker.state == "error" %}
+<p class="flash flash-warning">{{ de_en("Die letzte {hb}-Schätzung ist fehlgeschlagen:", "The last {hb} estimation failed:", html=True, hb=abbr("hb")) }} {{ h.marker.message }}</p>
+{% elif h.marker and h.marker.state == "aborted" %}
+<p class="flash flash-warning">{{ de_en("Die letzte HB-Schätzung wurde abgebrochen (keine Rückmeldung mehr, z. B. weil der Server-Prozess neu gestartet wurde).", "The last HB estimation was aborted (no more response, e.g. because the server process was restarted).") }}</p>
+{% endif %}
+{% if h.state == "current" %}
+<p class="muted small"><strong>{{ de_en("fertig", "done") }}</strong> · {{ de_en("geschätzt am {d}", "estimated on {d}", d=res.created|localdt) }} · {{ de_en("Rechenzeit {s} s", "computing time {s} s", s=one(res.seconds)) }} · {{ de_en("passt zu den Daten dieser Seite.", "matches the data on this page.") }}</p>
+{% elif h.state == "stale" %}
+<p class="flash flash-warning">{{ de_en("Für die Daten dieser Seite gibt es keine aktuelle HB-Schätzung. Die frühere Schätzung", "There is no current HB estimation for the data on this page. The earlier estimation") }}{% if h.stale_created %}{{ de_en(" vom {d}", " from {d}", d=h.stale_created|localdt) }}{% endif %}{{ de_en(" gehört zu einem anderen Datenstand (neue Teilnahmen, ein anderer Datenpool oder Speeder-Filter) und wird hier nicht mehr gezeigt.", " belongs to a different state of the data (new participations, a different data pool or speeder filter) and is no longer shown here.") }}</p>
+{% endif %}
+{% if h.state != "running" and h.state != "current" %}
+  {% if h.available %}
+  <div class="res-run-hb">
+    <form method="post" action="{{ url_for('surveys.results_hb', survey_id=survey.id, item_id=e.item.id) }}" data-hb-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+      {% if f.all %}<input type="hidden" name="all" value="1">{% endif %}
+      {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
+      <button class="button button-small">{{ de_en("Individuelle Nutzen schätzen (Hierarchical Bayes)", "Estimate individual utilities (Hierarchical Bayes)") }}</button>
+    </form>
+    <span class="muted small">{{ de_en("Individuelle Teilnutzen je Person (HB-{mnl}). Dauert je nach Datenmenge Sekunden bis Minuten und läuft im Hintergrund; das Ergebnis wird gespeichert und geht in den Datenexport ein.", "Individual part-worths per person (HB-{mnl}). Takes seconds to minutes depending on the amount of data and runs in the background; the result is saved and goes into the data export.", html=True, mnl=abbr("mnl")) }}</span></div>
+  {{ why("hb_or_logit") }}
+  {% else %}
+  <p class="muted small">{{ de_en("Für eine HB-Schätzung fehlen Daten (mindestens {n} Personen mit beantworteten Aufgaben).", "An HB estimation lacks data (at least {n} people with answered tasks).", n=h.min_persons) }}</p>
+  {% endif %}
+{% endif %}
+{# while an estimation runs only its bar: the result it replaces is not needed (Ralf, 2026-10-05) #}
+{% if res and h.state != "running" %}
+{# the convergence note carries the button for a longer run right away (it repeats in "Konvergenz der Kette") #}
+{% for w in res.warnings %}{% if w == res.convergence_warning %}<div class="flash flash-warning hb-conv-note"><p>{{ w }}{% if res.convergence %} <span class="hint">{{ de_en("Begriffe:", "Terms:") }} {{ term("rhat") }} {{ term("ess") }}</span>{% endif %}</p>{% include "surveys/_hb_longer.html" %}</div>{% else %}<p class="flash flash-warning">{{ w }}</p>{% endif %}{% endfor %}
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }} <span class="hint">{{ de_en("je Person aus ihren Teilnutzen berechnet, dann gemittelt", "computed per person from their part-worths, then averaged") }}</span></p>
+{# most important first; the tables and charts below keep the order of the questionnaire #}
+{% set imp_rows = [] %}
+{% for attr in res.attributes if attr.importance is not none %}{% set _ = imp_rows.append({"label": attr.label, "linear": false, "importance": attr.importance, "sd": attr.importance_sd, "lo": attr.imp_lo, "hi": attr.imp_hi}) %}{% endfor %}
+{% if res.price and res.price.importance is not none %}{% set _ = imp_rows.append({"label": res.price.label or de_en("Preis", "Price"), "linear": true, "importance": res.price.importance, "sd": res.price.importance_sd, "lo": res.price.imp_lo, "hi": res.price.imp_hi}) %}{% endif %}
+<ul class="plain res-bars cm-importance-bars hb-importance">
+  {% for row in imp_rows|sort(attribute="importance", reverse=true) %}
+  <li><span class="res-bar-label">{{ row.label }}{% if row.linear %} <span class="hint">linear</span>{% endif %}</span>
+    <span class="res-bar"><span style="width: {{ (row.importance * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n" title="{{ de_en('Streuung über die Personen: SD {sd}', 'Spread over the people: SD {sd}', sd=pct(row.sd)) }}">{{ pct(row.importance) }}{% if row.lo is not none %} <span class="hint">[{{ pct(row.lo) }}; {{ pct(row.hi) }}]</span>{% endif %}</span></li>
+  {% endfor %}
+</ul>
+<p class="muted small">{{ de_en("Bei schwachen oder zufälligen Vorlieben steigt die individuelle Wichtigkeit mit der Zahl der Stufen eines Merkmals: Unter mehr Stufen liegt die Spannweite schon durch Zufall höher. Eine hohe Wichtigkeit bei Teilnutzen nahe 0 und kleiner Streuung (SD) ist deshalb kein Befund.", "With weak or random preferences the individual importance rises with the number of levels of an attribute: with more levels the range is higher by chance alone. A high importance with part-worths near 0 and a small spread (SD) is therefore no finding.") }}</p>
+<p class="res-group-head">{{ de_en("Mittlere", "Mean") }} {{ term("partworth", de_en("Teilnutzen", "part-worths")) }} <span class="hint">{{ de_en("Mittel der individuellen, je Merkmal nullzentrierten Teilnutzen; Linie: 95-%-Posterior-Intervall des Mittelwerts; gleiche Skala für alle Merkmale", "mean of the individual part-worths, zero-centred per attribute; line: 95% posterior interval of the mean; same scale for all attributes") }}</span></p>
+{% for attr in res.attributes %}
+{% set ch = res.charts[loop.index0] %}
+<p class="pw-head">{{ attr.label }}</p>
+{{ pw_chart(ch) }}
+{# the same means as the chart plus spread: folded (UI audit 2026-10-12, U24) #}
+<details class="res-dist pw-table-fold"><summary>{{ de_en("Tabelle mit Intervall, SD und Quartilen", "Table with interval, SD and quartiles") }}</summary>
+<div class="res-scroll"><table class="res-table cm-utilities hb-utilities">
+  <colgroup><col class="hb-c-label"><col class="hb-c-num"><col class="hb-c-range"><col class="hb-c-num"><col class="hb-c-range"><col class="hb-c-share"></colgroup>
+  <thead><tr><th>{{ attr.label }}</th><th title="{{ de_en('Mittelwert der individuellen Teilnutzen', 'Mean of the individual part-worths') }}">{{ de_en("Mittel", "Mean") }}</th>
+    <th title="{{ de_en('95-%-Posterior-Intervall des Mittelwerts über die Personen', '95% posterior interval of the mean over the people') }}">{{ de_en("95-%-Intervall", "95% interval") }}</th>
+    <th title="{{ de_en('Standardabweichung der individuellen Teilnutzen (Punktschätzer, zum Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind größer)', 'Standard deviation of the individual part-worths (point estimates, shrunk towards the mean: the real differences between people are larger)') }}">SD</th>
+    <th title="{{ de_en('Mittlere 50 % der Personen (1. bis 3. Quartil)', 'Middle 50% of the people (1st to 3rd quartile)') }}">{{ de_en("Quartile", "Quartiles") }}</th>
+    <th title="{{ de_en('Anteil der Personen, für die diese Stufe nach ihrem Punktschätzer die beste des Merkmals ist; neigt zur Stufe der Mehrheit', 'Share of people for whom this level is the best of the attribute by their point estimate; tends towards the level of the majority') }}">{{ de_en("bevorzugt", "preferred") }}</th></tr></thead>
+  <tbody>
+  {# in the order of the bars above (W58) #}
+  {% for k in (ch.order if ch.order is defined else range(attr.levels|length)) %}{% set lv = attr.levels[k] %}
+    <tr><td>{{ lv.label }}{% if lv.separated %} <span class="hint" title="{{ de_en('von allen nie oder immer gewählt; nur die Priori begrenzt den Wert', 'never or always chosen by everyone; only the prior bounds the value') }}">{{ de_en("begrenzt", "bounded") }}</span>{% endif %}</td><td>{{ signed(lv.mean) }}</td>
+      <td>{% if lv.lo is not none %}[{{ signed(lv.lo) }}; {{ signed(lv.hi) }}]{% else %}–{% endif %}</td>
+      <td>{{ num(lv.sd) }}</td><td>{{ de_en("{a} bis {b}", "{a} to {b}", a=signed(lv.q1), b=signed(lv.q3)) }}</td><td>{{ pct(lv.best) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</details>
+{% endfor %}
+{% if res.price_levels %}
+<p class="pw-head">{{ res.price_levels.label }} <span class="hint">linear</span></p>
+{{ pw_chart(res.charts[res.attributes|length]) }}
+<p class="muted small">{{ res.price_levels.label }}: {{ de_en("linear geschätzt; die Balken zeigen den mittleren Koeffizienten × (Preis − mittlerer Preis der Stufen), also nullzentriert wie die übrigen Merkmale.", "estimated linearly; the bars show the mean coefficient × (price − mean price of the levels), so zero-centred like the other attributes.") }}</p>
+{% endif %}
+{% if res.price or res.asc %}
+<p class="muted small">
+  {% if res.price %}{% set u = res.price.unit or 1 %}{{ de_en("Preiskoeffizient", "Price coefficient") }} {{ per_unit(u) }}: {{ de_en("Mittel", "mean") }} {{ signed(res.price.mean * u, 4) }}{% if res.price.lo is not none %} [{{ signed(res.price.lo * u, 4) }}; {{ signed(res.price.hi * u, 4) }}]{% endif %}, {{ de_en("SD über die Personen", "SD over the people") }} {{ num(res.price.sd * u, 4) }}; {{ de_en("negativ bei {p} der Personen.", "negative for {p} of the people.", p=pct(res.price.negative)) }} {% endif %}
+  {% if res.asc %}{{ de_en("Schwelle „kommt nicht infrage“", "Threshold “out of the question”") if res.type == "acbc" else de_en("Konstante „Keine davon“", "Constant “None of these”") }}: {{ de_en("Mittel", "mean") }} {{ signed(res.asc.mean) }}{% if res.asc.lo is not none %} [{{ signed(res.asc.lo) }}; {{ signed(res.asc.hi) }}]{% endif %}, SD {{ num(res.asc.sd) }}{% if res.price %} <span class="hint">{% if res.type != "acbc" %}{{ de_en("bezogen auf ein Angebot zum mittleren Preis der Preisstufen", "relative to an offer at the mean price of the price levels") }}{% else %}{{ de_en("bezogen auf ein Angebot zum mittleren gezeigten Preis", "relative to an offer at the mean price shown") }}{% endif %}</span>{% endif %}.{% endif %}</p>
+{% endif %}
+{# the one reading sentence; fit, convergence and the method in "Modellgüte" (S7) #}
+<p class="muted small">{{ de_en("Mittel der je Person geschätzten Teilnutzen. Sie sind zum gemeinsamen Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind größer, als SD und Quartile zeigen", "Mean of the part-worths estimated per person. They are shrunk towards the common mean: the real differences between people are larger than SD and quartiles show") }}{{ fn("hb") }}. {{ de_en("Anpassung je Person, Konvergenz und Methode stehen unter „Modellgüte“.", "Fit per person, convergence and method are under “Model quality”.") }}</p>
+{% endif %}
+</section>
+{% else %}
+<section class="hb-quality" id="hb-quality-{{ e.item.id }}" data-hb-quality="{{ e.item.id }}">
+{% if res and h.state != "running" %}
+{% set q = res.rlh %}
+<p class="res-group-head">{{ de_en("Anpassungsgüte je Person ({rlh})", "Fit per person ({rlh})", html=True, rlh=abbr("rlh")) }} <span class="hint">{{ de_en("Root Likelihood: geometrisches Mittel der Wahrscheinlichkeiten der gewählten Alternativen", "root likelihood: geometric mean of the probabilities of the chosen alternatives") }}</span></p>
+{% set rc = q.chart %}
+<div class="pw-scroll"><svg class="pw-chart md-chart md-rlh-chart" viewBox="0 0 {{ rc.width }} {{ rc.height }}" role="img" aria-label="{{ de_en('HB: Verteilung der RLH', 'HB: distribution of the RLH') }}">
+  <line class="pw-grid pw-zero" x1="{{ rc.x0 }}" x2="{{ rc.x1 }}" y1="{{ rc.y1 }}" y2="{{ rc.y1 }}"/>
+  {% for t in rc.ticks %}<text class="pw-tick" x="{{ t[0] }}" y="{{ rc.height - 8 }}" text-anchor="middle">{{ tick_labels(rc.ticks|map(attribute=1)|list)[loop.index0] }}</text>{% endfor %}
+  <text class="pw-tick" x="{{ rc.x0 - 6 }}" y="{{ rc.y0 + 4 }}" text-anchor="end">{{ rc.top }}</text>
+  <text class="pw-tick" x="{{ rc.x0 + 4 }}" y="{{ rc.y0 + 4 }}">{{ de_en("Personen", "People") }}</text>
+  {% for bar in rc.bars %}<g><title>RLH {{ ((bar["from"])|dec(2)) }}–{{ ((bar.to)|dec(2)) }}: {{ de_en("{n} Personen", "{n} people", n=bar.count) }}{% if bar.low %}{{ de_en(", davon {k} unter der Grenze", ", {k} of them under the limit", k=bar.low) }}{% endif %}</title>
+    {% if bar.h %}<rect class="md-rlh" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.w }}" height="{{ bar.h }}"/>{% endif %}
+    {% if bar.low %}<rect class="md-rlh-low" x="{{ bar.x }}" y="{{ bar.low_y }}" width="{{ bar.w }}" height="{{ bar.low_h }}"/>{% endif %}</g>{% endfor %}
+  <line class="md-threshold" x1="{{ rc.limit_x }}" x2="{{ rc.limit_x }}" y1="{{ rc.y0 }}" y2="{{ rc.y1 }}"/>
+  <line class="pw-whisker" x1="{{ rc.chance_x }}" x2="{{ rc.chance_x }}" y1="{{ rc.y0 }}" y2="{{ rc.y1 }}"/>
+</svg></div>
+<p class="md-rlh-legend muted small"><span class="md-key md-key-ok"></span> {{ de_en("Personen ab der Grenze", "People from the limit on") }} · <span class="md-key md-key-low"></span> {{ de_en("Personen unter {f} × Zufall", "People under {f} × chance", f=(res.rlh_factor)|dec(1)) }} · <span class="md-key-line md-key-limit"></span> {{ de_en("Grenze", "Limit") }} · <span class="md-key-line md-key-chance"></span> {{ de_en("Zufall", "Chance") }}</p>
+<p class="muted small">{{ term("rlh") }} {{ de_en("im Mittel {m} (Median {md}); Zufall wäre im Mittel {c} (graue Linie).", "on average {m} (median {md}); chance would be {c} on average (grey line).", m=num(q.mean), md=num(q.median), c=num(q.chance)) }} <strong>{{ de_en("{k} von {n} Personen", "{k} of {n} people", k=q.low, n=res.persons) }}</strong> ({{ pct(q.low_share) }}) {{ de_en("liegen unter {f} × ihrem Zufallswert (gestrichelt, orange: {l} im Mittel): mögliche Zufallsklicker. Das ist nur ein Hinweis; die RLH ist bei HB durch die individuelle Anpassung etwas geschönt", "lie under {f} × their chance value (dashed, orange: {l} on average): possible random clickers. This is only a hint; with HB the RLH is somewhat flattered by the individual fit", f=(res.rlh_factor)|dec(1), l=num(q.limit)) }}{% if res.type == "acbc" %}{{ de_en(", und im Screening (zwei Alternativen) liegt der Zufallswert bei {c}", ", and in the screening (two alternatives) the chance value is {c}", c=num(0.5, 1)) }}{% endif %}. {{ de_en("Die Werte stehen als", "The values are in the export as") }} <code>{{ e.item.code }}_hb_rlh</code>{{ de_en(" im Export.", ".") }}</p>
+{% include "surveys/_hb_convergence.html" %}
+<p class="muted small">{{ de_en("Modell: {p} Personen, {s} Entscheidungen · {burn} Burn-in- und {draws} weitere Iterationen, jede {thin}. behalten ({kept} Ziehungen)", "Model: {p} people, {s} decisions · {burn} burn-in and {draws} further iterations, every {thin}th kept ({kept} draws)", p=res.persons, s=res.sets, burn=res.settings.burn, draws=res.settings.draws, thin=res.settings.thin, kept=res.kept) }}, Seed {{ res.settings.seed }} · {{ de_en("Akzeptanzrate {a} (Ziel {t})", "acceptance rate {a} (target {t})", a=num(res.acceptance), t=num(res.target)) }}{% if res.sigma_mean is not none %} · {{ de_en("mittlere Varianz der nullzentrierten Teilnutzen zwischen den Personen", "mean variance of the zero-centred part-worths between the people") }} {{ num(res.sigma_mean) }}{% endif %}{% if res.sigma_asc is not none %} · {{ de_en("Varianz der Konstante", "variance of the constant") }} {{ num(res.sigma_asc) }}{% endif %}{% if res.sigma_price_sd is not none and res.price %}{% set u = res.price.unit or 1 %} · {{ de_en("SD des Preiskoeffizienten", "SD of the price coefficient") }} {{ per_unit(u) }} {{ num(res.sigma_price_sd * u, 4) }}{% endif %} ·
+  {{ de_en("Geweke-artige Prüfung:", "Geweke-type check:") }} {% if res.convergence.geweke_ok %}{{ de_en("unauffällig", "unremarkable") }}{% else %}<strong>{{ de_en("auffällig", "conspicuous") }}</strong>{% endif %} ({{ de_en("Log-Likelihood erste / zweite Hälfte der Ziehungen", "log-likelihood first / second half of the draws") }} {{ num(res.ll_halves[0], 1) if res.ll_halves else "–" }} / {{ num(res.ll_halves[1], 1) if res.ll_halves else "–" }}, z = {{ num(res.geweke_ll) }}{% if res.geweke_mu_flagged %}; {{ de_en("{n} Mittelwert(e) auffällig", "{n} mean(s) conspicuous", n=res.geweke_mu_flagged) }}{% endif %}).</p>
+{% call method(de_en("Hierarchical Bayes", "Hierarchical Bayes")) %}<p>{{ de_en("Hierarchical Bayes (HB-MNL): Jede Person hat eigene Teilnutzen, die um einen gemeinsamen Mittelwert streuen (multivariat normal); geschätzt mit Gibbs-Sampling für Mittelwert und Kovarianz, einem Metropolis-Schritt je Person (Langevin-Vorschlag mit eigener, im Burn-in geregelter Schrittweite) und gemeinsamen Verschiebungs- und Streckungsschritten", "Hierarchical Bayes (HB-MNL): every person has their own part-worths, which scatter around a common mean (multivariate normal); estimated with Gibbs sampling for mean and covariance, a Metropolis step per person (Langevin proposal with its own step size, tuned during burn-in) and common shift and stretch steps") }}{{ fn("sampler") }}{{ de_en(", gestartet beim aggregierten Logit. Kodierung wie im aggregierten Modell (", ", started at the aggregate logit. Coding as in the aggregate model (") }}{{ de_en("Screening als Wahl gegen die Schwelle, Turnier als Wahl unter zwei oder drei Varianten", "screening as a choice against the threshold, tournament as a choice among two or three variants") if res.type == "acbc" else de_en("je Aufgabe eine Wahl unter den Optionen", "per task one choice among the options") }}{{ de_en(", Effektkodierung", ", effects coding") }}{% if res.price %}{{ de_en(", Preis linear", ", price linear") }}{% endif %}). {{ de_en("Je Person Posterior-Mittel der Teilnutzen, je Merkmal nullzentriert; die Wichtigkeit wird je Person aus diesen Teilnutzen berechnet (Spannweite des Merkmals / Summe der Spannweiten", "Per person the posterior mean of the part-worths, zero-centred per attribute; the importance is computed per person from these part-worths (range of the attribute / sum of the ranges") }}{% if res.price and res.price.importance is not none %}{{ de_en(", Preis: |Koeffizient| × Preisspanne", ", price: |coefficient| × price range") }}{% endif %}{{ de_en(") und dann gemittelt, sie ist daher meist gleichmäßiger verteilt als im aggregierten Modell. Weil diese Teilnutzen zum gemeinsamen Mittel hin geschrumpft sind, erscheinen Merkmale, deren Wirkung zwischen Personen wenig streut (oft der Preis), etwas wichtiger. Streuung, Quartile und Anteile über die Personen stammen aus den individuellen Punktschätzern. Diese sind zum gemeinsamen Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind größer, als SD und Quartile zeigen, und die Anteile neigen zur Reihenfolge der Mehrheit. Das Intervall gilt für den Mittelwert der befragten Personen, nicht für eine Grundgesamtheit. Die Priori für die Streuung zwischen Personen (Invers-Wishart; Erwartungswert der Varianz je nullzentriertem Teilnutzen (L − 1)/L bei L Stufen, 1 für die Konstante und den standardisierten Preiskoeffizienten) wirkt bei kleinen Stichproben und schwach bestimmten Werten spürbar auf die „mittlere Varianz“, kaum auf die individuellen Nutzen. Keine individuelle Zahlungsbereitschaft: Das Verhältnis zweier individueller Koeffizienten ist zu instabil. Die Werte stehen als", ") and then averaged, so it is usually spread more evenly than in the aggregate model. Because these part-worths are shrunk towards the common mean, attributes whose effect varies little between people (often the price) appear somewhat more important. Spread, quartiles and shares over the people come from the individual point estimates. These are shrunk towards the common mean: the real differences between people are larger than SD and quartiles show, and the shares tend towards the order of the majority. The interval applies to the mean of the surveyed people, not to a population. The prior for the spread between people (inverse Wishart; expected variance per zero-centred part-worth (L − 1)/L with L levels, 1 for the constant and the standardised price coefficient) noticeably affects the “mean variance” with small samples and weakly determined values, hardly the individual utilities. No individual willingness to pay: the ratio of two individual coefficients is too unstable. The values are in the export as") }} <code>{{ e.item.code }}_hb_…</code>{{ de_en(" im Export.", ".") }}</p>{% endcall %}
+{% else %}
+<p class="muted small">{{ de_en("Anpassungsgüte je Person (RLH) und Konvergenz der HB-Schätzung erscheinen hier, sobald eine aktuelle Schätzung fertig ist.", "Fit per person (RLH) and convergence of the HB estimation appear here as soon as a current estimation is done.") }}</p>
+{% endif %}
+</section>
+{% endif %}

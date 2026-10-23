@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_link, status_badge, kind_badge, form_error, list_table %}
+{% from "_icons.html" import icon %}
+{% from "_listing.html" import sort_th, search, pager, keep, choose %}
+{% from "admin/_type_fields.html" import type_fields %}
+{% block title %}{{ de_en("Personen", "People") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% macro kind_selects(chosen, form=none) %}{# the four survey types of a new account (app/kind_access.py); "wie Nutzertyp" takes the level of the chosen user type (app/account_types.py) #}
+<fieldset class="kind-selects"><legend>{{ de_en("Befragungstypen", "Survey types") }}</legend>
+  {% for k in kind_keys %}<label>{{ kind_label(k) }}
+    <select name="kind_{{ k }}"><option value="">{{ de_en("wie Nutzertyp", "as the user type") }}</option>{% for lvl in ("create", "edit", "view", "off") %}<option value="{{ lvl }}"{{ " selected" if form and form.get("kind_" ~ k, "") == lvl }}>{{ kind_level_label(lvl) }}</option>{% endfor %}</select></label>
+  {% endfor %}</fieldset>
+{% endmacro %}
+{% macro period_fields(form=none) %}{# user type and period of a new account (app/account_types.py, N5) #}
+{% set form = form or {} %}
+{# its home organisation (app/orgs.py, A21), once there is more than one; the user types below follow it (app.js) #}
+{% if org_several() %}<label>{{ de_en("Organisation", "Organisation") }}
+  <select name="org">{% for o in orgs_creatable_all() %}<option value="{{ o.id }}"{{ " selected" if form.get("org") == o.id|string }}>{{ o.name }}</option>{% endfor %}</select></label>{% endif %}
+<label>{{ de_en("Nutzertyp", "User type") }}
+  <select name="account_type">{% for t in types if not t.hidden %}<option value="{{ t.id }}"{% if org_several() %} data-org="{{ org_of(t) }}"{% if t.is_default %} data-org-default{% endif %}{% endif %}{{ " selected" if (form.get("account_type") == t.id|string if form.get("account_type") else (t.is_default and not t.org_id)) }}>{% if org_several() %}{{ org_label(org_get(org_of(t))) }}: {% endif %}{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}</select></label>
+<fieldset class="period-fields"><legend>{{ de_en("Laufzeit", "Period") }} <span class="hint">{{ de_en("beginnt mit der ersten Anmeldung; danach wird das Konto gesperrt", "starts with the first sign-in; afterwards the account is blocked") }}</span></legend>
+  <div class="row">
+  <select name="valid_mode" aria-label="{{ de_en('Art der Laufzeit', 'Kind of period') }}">
+    {% for value, label in (("type", de_en("wie Nutzertyp", "as the user type")), ("m", de_en("Monate", "months")), ("w", de_en("Wochen", "weeks")), ("d", de_en("bis zum Datum", "until the date")), ("none", de_en("unbefristet", "without end"))) %}<option value="{{ value }}"{{ " selected" if form.get("valid_mode", "type") == value }}>{{ label }}</option>{% endfor %}</select>
+  <input type="number" name="valid_n" min="1" max="520" value="{{ form.get('valid_n', '') }}" aria-label="{{ de_en('Anzahl Monate oder Wochen', 'Number of months or weeks') }}" placeholder="{{ de_en('Anzahl', 'number') }}">
+  <input type="date" name="valid_date" value="{{ form.get('valid_date', '') }}" aria-label="{{ de_en('Enddatum', 'End date') }}"></div>
+</fieldset>
+{% endmacro %}
+{% set active = "researchers" %}{% include "admin/_tabs.html" %}
+<section class="panel aic-kpis">
+  <div><span class="aic-big">{{ totals.users }}</span><span class="muted" title="{{ de_en('alle Konten, auch solche, deren Passwort noch nicht gesetzt ist', 'all accounts, including those whose password is not set yet') }}">{{ de_en("Konten", "accounts") }}</span></div>
+</section>
+{% if requests %}
+<section class="panel" id="passwort-anfragen">
+  <h2>{{ de_en("Passwort vergessen", "Forgotten passwords") }} <span class="hint">{{ de_en("Anfragen von der Anmeldeseite; Askurious schreibt niemanden an, den Link geben Sie selbst weiter", "requests from the sign-in page; Askurious writes to nobody, you pass the link on yourself") }}</span></h2>
+  <div class="res-scroll">
+  {% call list_table("is-num admin-people") %}
+    <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("E-Mail-Adresse", "Email address") }}</th><th>{{ de_en("angefragt", "requested") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for u, login in requests %}
+      <tr><td class="admin-name"><a href="{{ url_for('admin.account', user_id=u.id) }}">{{ u.display_name }}</a></td>
+        <td>{{ login.email }}</td>
+        <td>{{ login.reset_requested_at|localdt }}</td>
+        <td><div class="button-row">
+          <form class="inline" method="post" action="{{ url_for('admin.account', user_id=u.id) }}">
+            {{ csrf() }}<input type="hidden" name="action" value="link">
+            <button class="button button-secondary button-small">{{ de_en("Einmal-Link erzeugen", "Create one-time link") }}</button>
+          </form>
+          <form class="inline" method="post" action="{{ url_for('admin.account', user_id=u.id) }}">
+            {{ csrf() }}<input type="hidden" name="action" value="request_done"><input type="hidden" name="back" value="list">
+            <button class="button button-secondary button-small">{{ de_en("Erledigt", "Done") }}</button>
+          </form></div></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+</section>
+{% endif %}
+<section class="panel" id="forschende">
+  <h2>{{ de_en("Forschende", "Researchers") }} <span class="hint">{{ de_en("alle Konten; ein Klick auf eine Spalte sortiert", "all accounts; click a column to sort") }}</span></h2>
+  {# one button for both ways of adding someone (UI/UX audit 2026-10-07, S10); without scripts it leads to the panel #}
+  <div class="admin-listhead">
+  {{ search(people, de_en("Forschende suchen", "Search researchers"), de_en("Suchen: Name, ORCID iD, E-Mail-Adresse, Einrichtung, Gruppe …", "Search: name, ORCID iD, email address, institution, group …")) }}
+    {# only accounts with a survey type below "Bearbeiten" (app/kind_access.py) #}
+    <a class="button button-secondary button-small" href="{{ people.url(kinds=none if kinds_only else 1, page=none) }}"{% if kinds_only %} aria-current="page"{% endif %}>{{ de_en("Alle Konten", "All accounts") if kinds_only else de_en("Nur eingeschränkte Befragungstypen", "Only restricted survey types") }}</a>
+    {# by the period (app/account_types.py, N16) #}
+    {% for key, label in (("soon", de_en("endet in 30 Tagen", "ends within 30 days")), ("ended", de_en("abgelaufen", "ended")), ("due", de_en("Löschung fällig", "deletion due"))) %}
+    <a class="button button-secondary button-small" href="{{ people.url(end=none if period == key else key, page=none) }}"{% if period == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    {% if type_filter %}<a class="button button-secondary button-small" href="{{ people.url(type=none, page=none) }}" aria-current="page">{{ account_type_name(type_filter) }} ×</a>{% endif %}
+    {# two separate filters, one at a time: an organisation or a group (Ralf 2026-10-16) #}
+    {% if org_options %}{{ choose(people, "org", de_en("Organisation", "Organisation"), org_options, org_filter.id if org_filter else none, drop=("group",)) }}{% endif %}
+    {% if group_options %}{{ choose(people, "group", de_en("Gruppe", "Group"), group_options, group_filter.id if group_filter else none, drop=("org",)) }}{% endif %}
+    <a class="button" href="#person-hinzufuegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Person hinzufügen …", "Add person …") }}</a>
+  </div>
+  {% if not rows %}<p class="muted">{{ de_en("Keine Konten zu dieser Suche.", "No accounts match this search.") }}</p>{% else %}
+  <div class="res-scroll">{# a phone scrolls the table, not the page (UI audit 2026-10-07, W78) #}
+  {% call list_table("is-num admin-people admin-people-all") %}
+    <thead><tr>{{ sort_th(people, "nr", de_en("Nr.", "No.")) }}{{ sort_th(people, "name", de_en("Name", "Name")) }}{{ sort_th(people, "org", de_en("Organisation", "Organisation")) }}{{ sort_th(people, "groups", de_en("Gruppen", "Groups")) }}{{ sort_th(people, "surveys", de_en("Befragungen", "Surveys"), de_en("als Mitglied, auch geteilte", "as a member, shared ones included")) }}{{ sort_th(people, "running", de_en("laufende Befragungen", "running surveys")) }}{{ sort_th(people, "own", de_en("selbst angelegt", "created themselves")) }}
+      {{ sort_th(people, "completed", de_en("Teilnahmen", "Participations"), de_en("echte abgeschlossene Teilnahmen in diesen Befragungen", "real completed participations in these surveys")) }}{{ sort_th(people, "since", de_en("seit", "since")) }}{{ sort_th(people, "last", de_en("zuletzt", "last")) }}<th>{{ de_en("Konto", "Account") }}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% set u = r.user %}
+      <tr><td>{{ u.number or "–" }}</td>
+        <td class="admin-name">{{ u.display_name }} {{ orcid_link(u.orcid, unauth=False) }}{% if u.is_admin %} <span class="badge">Admin</span>{% endif %}
+          {% if r.blocked %}<span class="badge badge-error">{{ de_en("gesperrt", "blocked") }}</span>{% endif %}
+          {% if r.kinds and "create" in r.kinds.values() and not u.is_admin %}<span class="badge" title="{{ de_en('legt eigene Befragungen an: ', 'creates own surveys: ') }}{% for k, v in r.kinds.items() if v == 'create' %}{{ kind_label(k) }}{{ ', ' if not loop.last }}{% endfor %}">{{ de_en("legt an", "creates") }}</span>{% endif %}
+          {% set p = r.period %}{% if p.type and not u.is_admin %}<span class="badge" title="{{ de_en('Nutzertyp', 'User type') }}">{{ account_type_name(p.type) }}</span>{% endif %}
+          {% if p.expired %}<span class="badge badge-error">{{ de_en("abgelaufen am {d}", "ended on {d}", d=p.until|localdate) }}</span>
+          {% elif p.until and not u.is_admin %}<span class="badge{{ ' badge-pending' if p.left is not none and p.left <= 30 }}" title="{{ de_en('Ende der Laufzeit', 'End of the period') }}">{{ de_en("bis {d}", "until {d}", d=p.until|localdate) }}</span>
+          {% elif p.pending %}<span class="hint">{{ period_describe(p.pending) }} {{ de_en("ab dem Passwort", "from the password") }}</span>{% endif %}
+          {% set below = r.kinds.items()|selectattr(1, "in", ["off", "view"])|list if r.kinds else [] %}{% if below and not u.is_admin %}<span class="badge" title="{{ de_en('Befragungstypen unter „Bearbeiten“', 'Survey types below “Edit”') }}">{% for k, v in below %}{{ kind_label(k) }}: {{ kind_level_label(v) }}{{ ", " if not loop.last }}{% endfor %}</span>{% endif %}
+          {% if r.login and r.login.email %}<span class="hint" title="{{ de_en('Anmeldung mit E-Mail und Passwort', 'Sign-in with email and password') }}">{{ r.login.email }}{% if not r.login.password_hash %} · {{ de_en("Passwort noch nicht gesetzt", "password not set yet") }}{% endif %}</span>{% endif %}
+          {% if r.login and r.login.reset_requested_at %}<a class="badge badge-pending" href="#passwort-anfragen">{{ de_en("Passwort vergessen", "forgot password") }}</a>{% endif %}
+          {% if not u.terms_accepted_at %}<span class="hint">{{ de_en("Nutzungsbedingungen offen", "terms of use not accepted yet") }}</span>{% endif %}</td>
+        <td>{{ r.org_name or "–" }}</td>
+        <td>{{ r.groups|join(", ") or "–" }}</td>
+        <td>{{ r.surveys or "–" }}</td><td>{{ r.running or "–" }}</td><td>{{ r.own or "–" }}</td><td>{{ r.completed or "–" }}</td>
+        <td>{{ u.created_at|localdt(false) }}</td><td>{{ u.last_login_at|localdt(false) if u.last_login_at else "–" }}</td>
+        <td class="admin-account">{% if r.managed %}<div class="admin-row-actions">
+          <form class="inline" method="post" action="{{ url_for('admin.block_account', user_id=u.id) }}"
+                {% if not r.blocked %}data-confirm="{{ de_en('{name} sperren?', 'Block {name}?', name=u.display_name) }}" data-confirm-note="{{ de_en('Die Person kann sich nicht mehr anmelden; alles andere bleibt, wie es ist.', 'The person can no longer sign in; everything else stays as it is.') }}"
+                data-confirm-ok="{{ de_en('Sperren', 'Block') }}" data-confirm-danger{% endif %}>
+            {{ csrf() }}{{ keep() }}<input type="hidden" name="action" value="{{ 'unblock' if r.blocked else 'block' }}">
+            {# symbols with their name as tooltip: three worded buttons made the table scroll sideways (Ralf, 2026-10-07) #}
+            {% set block_name = de_en("Entsperren", "Unblock") if r.blocked else de_en("Sperren", "Block") %}
+            <button class="icon-btn admin-act danger" title="{{ block_name }}" aria-label="{{ block_name }}: {{ u.display_name }}">{{ icon("lock", 16) }}</button>
+          </form>
+          <a class="icon-btn admin-act" href="{{ url_for('admin.delete_account', user_id=u.id) }}" title="{{ de_en('Löschen', 'Delete') }}" aria-label="{{ de_en('Löschen', 'Delete') }}: {{ u.display_name }}">{{ icon("trash", 16) }}</a>
+          <a class="icon-btn admin-act" href="{{ url_for('admin.account', user_id=u.id) }}" title="{{ de_en('Verwalten', 'Manage') }}" aria-label="{{ de_en('Verwalten', 'Manage') }}: {{ u.display_name }}">{{ icon("settings", 16) }}</a></div>
+          {% else %}<span class="hint" title="{{ de_en('Admins der Plattform stehen in der Konfiguration des Servers (ADMIN_ORCIDS)', 'Platform admins are set in the server configuration (ADMIN_ORCIDS)') }}">{{ de_en("über die Konfiguration", "through the configuration") }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {{ pager(people) }}
+  {% endif %}
+  <p class="muted small">{{ de_en("„Verwalten“: darf die Person eigene Befragungen anlegen, Anmelde-Adresse, neuer Einmal-Link fürs Passwort.
+    „Sperren“ hält jemanden draußen und lässt alles, wie es ist. „Löschen“ zeigt zuerst, was mit Befragungen,
+    Designs und Gruppen der Person geschieht; wer sich danach noch anmelden darf, kommt mit leerem Konto wieder.",
+    "“Manage”: whether the person may create own surveys, sign-in address, new one-time link for the password.
+    “Block” keeps someone out and leaves everything as it is. “Delete” first shows what happens to the person’s surveys,
+    designs and groups; anyone still allowed to sign in afterwards comes back with an empty account.") }}</p>
+  <p class="muted small">{{ de_en("Teilnahmen zählen je Befragung, in der die Person Mitglied ist (auch geteilte); Testdurchläufe, Dummy-Daten und Vorschau zählen nicht.",
+    "Participations count per survey the person is a member of (shared ones included); test runs, dummy data and preview do not count.") }}</p>
+</section>
+<section class="panel" id="freischalten">
+  <h2>{{ de_en("Freigeschaltete ORCID iDs", "Allowed ORCID iDs") }} <span class="hint">{{ de_en("wer sich mit ORCID anmelden darf, ohne eingeladen oder in einer Gruppe zu sein; neue über „Person hinzufügen …“", "who may sign in with ORCID without being invited or in a group; new ones through “Add person …”") }}</span></h2>
+  {% if sign_in.leftover %}<div class="flash flash-warning"><span>{{ de_en("In der Konfiguration des Servers steht noch", "The server configuration still contains") }} <code>ALLOWED_ORCIDS</code>. {% if sign_in.taken_over %}{{ de_en("Es wurde am {date} hierher übernommen", "It was copied here on {date}", date=sign_in.taken_over) }}{% else %}{{ de_en("Es wurde hierher übernommen", "It was copied here") }}{% endif %}
+    {{ de_en("und wird nicht mehr gelesen; der Eintrag kann aus der", "and is no longer read; the entry can be deleted from the") }} <code>.env</code> {{ de_en("gelöscht werden.", "file.") }}</span></div>{% endif %}
+  {# "every ORCID holder": off, up to a limit, without a limit (gruppen-freischaltung-konzept.md, Stufe 3, E9-E13) #}
+  <form method="post" action="{{ url_for('admin.sign_in_orcids') }}" class="signin-mode">
+    {{ csrf() }}<input type="hidden" name="action" value="mode">
+    <fieldset>
+      <legend>{{ de_en("Freie Anmeldung mit ORCID", "Open sign-up with ORCID") }}</legend>
+      <label class="check"><input type="radio" name="mode" value="off"{{ " checked" if sign_in.mode == "off" }}> {{ de_en("aus: nur die Liste unten, Einladungen und Gruppen", "off: only the list below, invitations and groups") }}</label>
+      <label class="check"><input type="radio" name="mode" value="cap"{{ " checked" if sign_in.mode == "cap" }}> {{ de_en("jede Person mit ORCID iD, bis zur Obergrenze von", "anyone with an ORCID iD, up to a limit of") }}
+        <select name="limit" aria-label="{{ de_en('Obergrenze', 'Limit') }}">{% for n in sign_in.steps %}<option value="{{ n }}"{{ " selected" if n == sign_in.limit }}>{{ n }}</option>{% endfor %}</select>
+        {{ de_en("neuen Konten", "new accounts") }}</label>
+      <label class="check"><input type="radio" name="mode" value="all"{{ " checked" if sign_in.mode == "all" }}> {{ de_en("jede Person mit ORCID iD, ohne Grenze", "anyone with an ORCID iD, without a limit") }}</label>
+    </fieldset>
+    {# a deliberate exception from saving at once: it decides who may create an account, so a stray click on a radio
+       must not open the platform; the button says when it takes effect (UI audit 2026-10-12, U16) #}
+    <div class="button-row"><button class="button button-secondary">{{ de_en("Übernehmen (gilt sofort für neue Anmeldungen)", "Apply (takes effect at once for new sign-ups)") }}</button></div>
+  </form>
+  {% if sign_in.mode == "cap" %}
+  <p class="{{ 'flash flash-warning' if sign_in.level else 'muted' }}"><span><strong>{{ de_en("{u} von {n} Plätzen belegt.", "{u} of {n} places taken.", u=sign_in.used, n=sign_in.limit) }}</strong>
+    {% if sign_in.level == "full" %}{{ de_en("Die Obergrenze ist erreicht: Neue kommen auf die Warteliste. Heben Sie sie an, rücken die Ersten der Liste nach.", "The limit is reached: new people go on the waiting list. If you raise it, the first of the list move up.") }}
+    {% elif sign_in.level == "80" %}{{ de_en("Bald ist die Obergrenze erreicht.", "The limit will soon be reached.") }}{% endif %}
+    {{ de_en("Es zählen nur Konten, die allein über die freie Anmeldung kamen; gelöschte geben ihren Platz frei. Absenken sperrt niemanden aus.", "Only accounts that came by open sign-up alone count; deleted ones give their place back. Lowering it locks nobody out.") }}</span></p>
+  {% elif sign_in.mode == "all" %}
+  <p class="muted"><strong>{{ de_en("Jede Person mit ORCID iD kann sich anmelden.", "Everyone with an ORCID iD can sign in.") }}</strong> {{ de_en("Die Liste unten gilt erst wieder, wenn das ausgeschaltet ist.", "The list below only counts again once this is switched off.") }}</p>
+  {% endif %}
+  {% if sign_in.waiting %}
+  <h3>{{ de_en("Warteliste", "Waiting list") }} <span class="hint">{{ de_en("wer zuerst kam, kommt zuerst hinein; Einträge gehen nach 90 Tagen", "first come, first in; entries go after 90 days") }}</span></h3>
+  <div class="res-scroll">
+  {% call list_table("is-num admin-people") %}
+    <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("seit", "since") }}</th><th>{{ de_en("Stand", "State") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for w in sign_in.waiting %}
+      <tr><td class="admin-name">{{ w.name or "–" }} {{ orcid_link(w.orcid, unauth=true) }}</td>
+        <td>{{ w.asked_at|localdt }}</td>
+        <td>{% if w.admitted_at %}{{ de_en("nachgerückt am {d}, noch nicht angemeldet", "moved up on {d}, not signed in yet", d=w.admitted_at|localdt(false)) }}{% else %}{{ de_en("wartet", "waiting") }}{% if w.email %} · {{ de_en("wird per E-Mail benachrichtigt", "is told by email") }}{% endif %}{% endif %}</td>
+        <td><form class="inline" method="post" action="{{ url_for('admin.sign_in_orcids') }}">
+          {{ csrf() }}<input type="hidden" name="action" value="unwait"><input type="hidden" name="orcid" value="{{ w.orcid }}">
+          <button class="button button-secondary button-small">{{ de_en("Entfernen", "Remove") }}</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% endif %}
+  {% if sign_in.rows %}
+  <div class="res-scroll">
+  {% call list_table("is-num admin-people") %}
+    <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("Notiz", "Note") }}</th><th>{{ de_en("freigeschaltet", "allowed") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in sign_in.rows %}{% set e = r.entry %}
+      <tr><td class="admin-name">{% if r.user %}{{ r.user.display_name }}{% else %}<span class="muted">{{ de_en("noch nicht angemeldet", "not signed in yet") }}</span>{% endif %} {{ orcid_link(e.orcid, unauth=not r.user) }}</td>
+        <td>{{ e.note or "–" }}</td>
+        <td>{{ e.created_at|localdt(false) }}</td>
+        <td><form class="inline" method="post" action="{{ url_for('admin.sign_in_orcids') }}"
+              data-confirm="{{ de_en('Freischaltung entfernen?', 'Remove the permission?') }}" data-confirm-note="{{ de_en('Die Person kommt auch ohne Liste herein, weil sie zu einer Befragung eingeladen, in einer Gruppe ist oder ein Admin ihr Konto freigegeben hat. Fällt das weg, kann sie sich nicht mehr anmelden.', 'The person still gets in without the list because they are invited to a survey, in a group or an admin approved their account. Once that ends, they can no longer sign in.') if r.stays else de_en('Die Person ist mit dem nächsten Klick abgemeldet und kann sich nicht mehr anmelden. Ihr Konto bleibt, wie es ist.', 'The person is signed out at their next click and can no longer sign in. Their account stays as it is.') }}"
+              data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
+          {{ csrf() }}<input type="hidden" name="action" value="remove"><input type="hidden" name="orcid" value="{{ e.orcid }}">
+          <button class="link small">{{ de_en("entfernen", "remove") }}</button></form>
+          {% if r.stays %}<span class="hint" title="{{ de_en('Nur solange die Person an einer Befragung oder Gruppe beteiligt ist oder die Freigabe am Konto besteht; danach kann sie sich ohne Eintrag hier nicht mehr anmelden.', 'Only as long as the person takes part in a survey or group or the approval on the account stands; after that they cannot sign in without an entry here.') }}">{{ de_en("kommt auch ohne Liste rein (Befragung, Gruppe oder Freigabe am Konto)", "gets in without the list too (survey, group or approval on the account)") }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% else %}<p class="muted">{{ de_en("Noch niemand auf der Liste.", "Nobody on the list yet.") }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Freischalten erlaubt die Anmeldung. Ein neues Konto darf eigene Befragungen anlegen, solange neue Konten das dürfen;
+    hat die Person schon ein Konto, bekommt sie das Recht beim Freischalten. Zurücknehmen lässt es sich unter „verwalten“.
+    Wer von der Liste entfernt wird, ist beim nächsten Klick abgemeldet, außer er ist zu einer Befragung eingeladen oder in einer Gruppe.
+    Admins der Plattform stehen weiter in der Konfiguration des Servers (<code>ADMIN_ORCIDS</code>) und kommen immer herein.",
+    "Allowing permits sign-in. A new account may create own surveys as long as new accounts may;
+    if the person already has an account, they get the right when allowed. It can be taken back under “manage”.
+    Anyone removed from the list is signed out at their next click unless they are invited to a survey or in a group.
+    Platform admins remain set in the server configuration (<code>ADMIN_ORCIDS</code>) and always get in.")|safe }}</p>
+</section>
+{# "Person hinzufügen" (UI/UX audit 2026-10-07, S10): the two ways side by side. app.js turns this panel into a dialog
+   that the button above opens; without scripts it stays a panel the button leads to. After a refusal (an address
+   taken, an iD that is none) the page comes back with what was entered, the reason in the form and the field marked,
+   and the dialog opens by itself (W84). The one-time link after creating an account is shown on the account's page. #}
+{% set problem = g.get("form_error") %}
+{% macro bad(key, field) %}{% set problem = g.get("form_error") %}{% if problem and problem.key == key and problem.field == field %} aria-invalid="true" aria-describedby="{{ key }}-error"{% endif %}{% endmacro %}
+<section class="panel person-add" id="person-hinzufuegen" aria-labelledby="person-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="person-add-title">{{ de_en("Person hinzufügen", "Add person") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <p class="muted small">{{ de_en("Zwei Wege, je nachdem, ob die Person eine ORCID iD hat. Askurious verschickt in beiden Fällen keine E-Mail.",
+    "Two ways, depending on whether the person has an ORCID iD. In neither case does Askurious send an email.") }}</p>
+  {# first the way, then only its form (Ralf 2026-10-18: not two columns with the same fields); app.js shows the choice
+     and hides the other way, without scripts both stay #}
+  <fieldset class="person-way-choice" data-person-way-choice hidden><legend>{{ de_en("Hat die Person eine ORCID iD?", "Does the person have an ORCID iD?") }}</legend>
+    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("Ja, Anmeldung mit ORCID", "Yes, sign-in with ORCID") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Nein, Konto mit E-Mail-Adresse und Passwort", "No, account with email address and password") }}</label></fieldset>
+  <div class="person-ways">
+    <section class="person-way" aria-labelledby="person-way-orcid" data-way="orcid">
+      <h3 id="person-way-orcid">{{ de_en("Mit ORCID iD", "With an ORCID iD") }}</h3>
+      <p class="muted small">{{ de_en("Die Person meldet sich selbst mit ORCID an; hier wird nur ihre Anmeldung freigeschaltet.",
+        "The person signs in with ORCID themselves; here only their sign-in is allowed.") }}</p>
+      {% set again = request.form if problem and problem.key == "allow-orcid" else {} %}
+      <form method="post" action="{{ url_for('admin.sign_in_orcids') }}" class="stack">
+        {{ csrf() }}<input type="hidden" name="action" value="add">
+        <div id="allow-orcid-error">{{ form_error("allow-orcid") }}</div>
+        <label>ORCID iD <span class="hint">{{ de_en("0000-0000-0000-0000 oder die Adresse des Profils", "0000-0000-0000-0000 or the address of the record") }}</span>
+          <input name="orcid" maxlength="60" required autocomplete="off" value="{{ again.get('orcid', '') }}"{{ bad("allow-orcid", "orcid") }}></label>
+        <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, z.&nbsp;B. Name und Einrichtung, solange die Person noch kein Konto hat", "optional, e.g. name and institution while the person has no account yet")|safe }}</span>
+          <input name="note" maxlength="200" value="{{ again.get('note', '') }}"></label>
+        {{ period_fields(again) }}
+        {{ kind_selects(kinds_default, again) }}
+        <p class="hint">{{ de_en("gilt ab der ersten Anmeldung; hat die Person schon ein Konto, ändern Sie es auf dessen Seite", "applies from the first sign-in; if the person already has an account, change it on its page") }}</p>
+        <div class="button-row"><button class="button">{{ de_en("Anmeldung freischalten", "Allow sign-in") }}</button></div>
+      </form>
+    </section>
+    <section class="person-way" aria-labelledby="person-way-local" data-way="local">
+      <h3 id="person-way-local">{{ de_en("Ohne ORCID iD", "Without an ORCID iD") }}</h3>
+      <p class="muted small">{{ de_en("Konto mit E-Mail-Adresse und Passwort. Nach dem Anlegen sehen Sie einmalig einen Link, den Sie der Person selbst schicken; mit ihm setzt sie ihr Passwort.",
+        "Account with email address and password. After creating it you see a link once, which you send to the person yourself; with it they set their password.") if not mail_enabled() else de_en("Konto mit E-Mail-Adresse und Passwort. Die Person bekommt einen Einmal-Link per E-Mail, mit dem sie ihr Passwort setzt; ohne Häkchen sehen Sie den Link einmalig selbst.",
+        "Account with email address and password. The person gets a one-time link by email to set their password; without the tick you see the link once yourself.") }}</p>
+      {% set again = request.form if problem and problem.key == "new-account" else {} %}
+      <form method="post" action="{{ url_for('admin.new_account') }}" class="stack">
+        {{ csrf() }}<div id="new-account-error">{{ form_error("new-account") }}</div>
+        <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("so steht die Person in den Listen der Beteiligten und Autoren", "how the person appears in the lists of people involved and authors") }}</span>
+          <input name="name" maxlength="200" required value="{{ again.get('name', '') }}"{{ bad("new-account", "name") }}></label>
+        <label>{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{{ de_en("der Anmeldename; sie wird niemandem außer Admins gezeigt", "the sign-in name; it is shown to nobody but admins") }}</span>
+          <input type="email" name="email" maxlength="254" required value="{{ again.get('email', '') }}"{{ bad("new-account", "email") }}></label>
+        <label class="check"><input type="checkbox" name="may_create" value="1"{{ " checked" if (again.get("may_create") == "1" if again else config.NEW_ACCOUNTS_MAY_CREATE) }}> {{ de_en("darf eigene Befragungen anlegen", "may create own surveys") }} <span class="hint">{{ de_en("setzt jede Art auf „Bearbeiten“ auf „Anlegen“", "sets every type at “Edit” to “Create”") }}</span></label>
+        {{ period_fields(again) }}
+        {{ kind_selects(kinds_default, again) }}
+        {% if mail_enabled() %}<label class="check"><input type="checkbox" name="send_mail" value="1"{{ " checked" if (again.get("send_mail") == "1" if again else true) }}> {{ de_en("Einmal-Link per E-Mail an die Person schicken", "Send the one-time link to the person by email") }}</label>{% endif %}
+        <div class="button-row"><button class="button">{{ de_en("Konto anlegen", "Create account") }}</button></div>
+      </form>
+    </section>
+  </div>
+</section>
+
+{% endblock %}

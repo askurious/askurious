@@ -1,0 +1,89 @@
+{% from "_learn.html" import term, method %}
+{# Aggregate conditional logit (app/choice_model.py summarise(), charts()) for conjoint items. Needs: m, asc_label,
+   sets_note, num. cm_part (UI/UX audit 2026-10-07, S7): "main" the importance and the part-worths (on top of the
+   question when there is no current HB estimation), "detail" the fit, the coefficients and the method (in the fold
+   "Aggregiertes Logit-Modell im Detail"), "all" both (the fold, when HB is on top). #}
+{% set cm_part = cm_part if cm_part is defined and cm_part else "all" %}
+{# "je Währungseinheit" or "je 1.000 Währungseinheiten" (choice_model.price_unit) #}
+{% macro per_unit(u) %}{% if u == 1 %}{{ de_en("je Währungseinheit", "per currency unit") }}{% else %}{{ de_en("je {u} Währungseinheiten", "per {u} currency units", u=(u)|thousands) }}{% endif %}{% endmacro %}
+{% from "_macros.html" import pct, signed, abbr %}
+{# zero-centred bars: negative to the left, positive to the right, whiskers ±q SE (1.96 or t(G − 1)); common scale for all charts #}
+{# on a phone the narrow variant (labels above the bars, zero line in the middle, W59) replaces the wide one #}
+{% macro pw_svg(c, label, extra) %}
+<svg class="pw-chart {{ extra }}" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="{{ de_en('Teilnutzen {label}', 'Part-worths {label}', label=label) }}">
+  {% for t in c.ticks %}<line class="pw-grid{% if t[1] == 0 %} pw-zero{% endif %}" x1="{{ t[0] }}" x2="{{ t[0] }}" y1="2" y2="{{ c.height - 16 }}"/>
+  <text class="pw-tick" x="{{ t[0] }}" y="{{ c.tick_y }}" text-anchor="middle">{{ tick_labels(c.ticks|map(attribute=1)|list, true)[loop.index0] }}</text>{% endfor %}
+  {% for r in c.rows %}
+  <g class="pw-row">
+    <title>{{ r.label }}: {{ signed(r.beta) }}</title>
+    {# long labels wrap onto up to three lines instead of being cut (UI audit 2026-10-12, U24) #}
+    {% set lx = 4 if c.above else c.label_w - 8 %}<text class="pw-label" x="{{ lx }}" y="{{ r.label_y }}" text-anchor="{{ 'start' if c.above else 'end' }}" dominant-baseline="central">{% for line in r.lines %}<tspan x="{{ lx }}" y="{{ line[1] }}">{{ line[0] }}</tspan>{% endfor %}</text>
+    <rect class="{{ 'pw-pos' if r.positive else 'pw-neg' }}" x="{{ r.x }}" y="{{ r.y }}" width="{{ r.w }}" height="{{ r.h }}" rx="2"/>
+    {% if r.lo is not none %}<line class="pw-whisker" x1="{{ r.lo }}" x2="{{ r.hi }}" y1="{{ r.mid }}" y2="{{ r.mid }}"/>
+    <line class="pw-whisker" x1="{{ r.lo }}" x2="{{ r.lo }}" y1="{{ r.mid - 4 }}" y2="{{ r.mid + 4 }}"/>
+    <line class="pw-whisker" x1="{{ r.hi }}" x2="{{ r.hi }}" y1="{{ r.mid - 4 }}" y2="{{ r.mid + 4 }}"/>{% endif %}
+    <text class="pw-value" x="{{ r.text_x }}" y="{{ r.mid }}" text-anchor="{{ 'start' if r.positive else 'end' }}" dominant-baseline="central">{{ signed(r.beta) }}</text>
+  </g>
+  {% endfor %}
+</svg>
+{% endmacro %}
+{% macro pw_chart(c) %}
+<div class="pw-scroll">{{ pw_svg(c, c.label, "pw-wide") }}{% if c.narrow %}{{ pw_svg(c.narrow, c.label, "pw-narrow") }}{% endif %}</div>
+{% endmacro %}
+{% if m %}
+{% if cm_part != "detail" %}
+<div class="cm-main"{% if e is defined %} data-cm-item="{{ e.item.id }}"{% endif %}>
+{% if cm_part == "main" %}<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }} <span class="hint">{{ de_en("aggregiertes Logit-Modell", "aggregate logit model") }}</span>{% if fn is defined %}{{ fn("mnl") }}{% endif %}</h3>{% endif %}
+{% for w in m.warnings %}<p class="flash flash-warning">{{ w }}{% if m.ridge_warning and w == m.ridge_warning %}{{ fn("ridge") }}{% endif %}</p>{% endfor %}
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }}</p>
+{# most important first; the tables and charts below keep the order of the questionnaire #}
+{% set imp_rows = [] %}
+{% for attr in m.attributes %}{% set _ = imp_rows.append({"label": attr.label, "linear": false, "importance": attr.importance, "sort": attr.importance or 0}) %}{% endfor %}
+{% if m.price %}{% set _ = imp_rows.append({"label": price_label if price_label is defined and price_label else de_en("Preis", "Price"), "linear": true, "importance": m.price.importance, "sort": m.price.importance or 0}) %}{% endif %}
+<ul class="plain res-bars cm-importance-bars">
+  {% for row in imp_rows|sort(attribute="sort", reverse=true) %}
+  <li><span class="res-bar-label">{{ row.label }}{% if row.linear %} <span class="hint">linear</span>{% endif %}</span>
+    <span class="res-bar"><span style="width: {{ (row.sort * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n">{% if row.importance is none %}<span class="hint" title="{{ de_en('nicht durch die Daten bestimmt, siehe Hinweis oben', 'not determined by the data, see note above') }}">{{ de_en("ohne", "none") }}</span>{% else %}{{ pct(row.importance) }}{% endif %}</span></li>
+  {% endfor %}
+</ul>
+<p class="muted small">{{ de_en("Wichtigkeit: Spannweite der Teilnutzen eines Merkmals als Anteil an der Summe aller Spannweiten", "Importance: range of the part-worths of an attribute as a share of the sum of all ranges") }}{% if m.price %}{{ de_en("; beim Preis |Koeffizient| × gezeigte Preisspanne", "; for the price |coefficient| × price range shown") }}{% endif %}{% if m.attributes|selectattr("importance", "none")|list %}{{ de_en("; Merkmale, deren Werte nicht die Daten festlegen, stehen ohne Wichtigkeit, die übrigen als Anteile nur unter sich", "; attributes whose values are not set by the data are shown without importance, the others as shares among themselves only") }}{% endif %}.</p>
+<p class="res-group-head">{{ de_en("Teilnutzen", "Part-worths") }} <span class="hint">{{ de_en("nullzentriert je Merkmal, Balken nach links negativ, nach rechts positiv, Linie: 95-%-Intervall", "zero-centred per attribute, bars to the left negative, to the right positive, line: 95% interval") }} ({% if m.t_df %}±{{ num(m.q, 2) }} SE, {{ de_en("t-Quantil mit {df} Freiheitsgraden bei wenigen Personen", "t quantile with {df} degrees of freedom for few people", df=m.t_df) }}{% else %}±{{ num(1.96, 2) }} SE{% endif %}){{ de_en("; gleiche Skala für alle Merkmale", "; same scale for all attributes") }}</span></p>
+{% if m.wtp_weak %}<p class="muted small wtp-weak">{{ de_en("Preiskoeffizient nur knapp bestimmt (|z| = {z}): Die Zahlungsbereitschaft fällt eher zu klein aus, Intervall nach Fieller beachten (Hole, 2007; Grenze |z| = 4 von Askurious festgelegt).", "Price coefficient only narrowly determined (|z| = {z}): the willingness to pay tends to come out too small; mind the interval after Fieller (Hole, 2007; limit |z| = 4 set by Askurious).", z=num(m.wtp_weak, 1)) }}</p>{% endif %}
+{% for attr in m.attributes %}
+{% set ch = m.charts[loop.index0] %}
+<p class="pw-head">{{ attr.label }}</p>
+{{ pw_chart(ch) }}
+{# the same numbers as the chart: folded, open for the SE, the full labels and screen readers (UI audit 2026-10-12, U24) #}
+<details class="res-dist pw-table-fold"><summary>{% if m.wtp_ok %}{{ de_en("Tabelle mit SE und Zahlungsbereitschaft", "Table with SE and willingness to pay") }}{% else %}{{ de_en("Tabelle mit SE", "Table with SE") }}{% endif %}</summary>
+<div class="res-scroll"><table class="res-table cm-utilities">
+  <thead><tr><th>{{ attr.label }}</th><th title="{{ de_en('Teilnutzen (Effektkodierung: Summe je Merkmal 0)', 'Part-worth (effects coding: sum per attribute 0)') }}">{{ term("partworth", de_en("Teilnutzen", "Part-worth")) }}</th><th title="{{ de_en('Standardfehler', 'Standard error') }}">SE</th>
+    {% if m.wtp_ok %}<th title="{{ de_en('Zahlungsbereitschaft gegenüber dem Mittel des Merkmals: Teilnutzen / −Preiskoeffizient', 'Willingness to pay against the mean of the attribute: part-worth / −price coefficient') }}">{{ term("wtp", de_en("Zahlungsbereitschaft", "Willingness to pay")) }}</th><th title="{{ de_en('95-%-Intervall nach Fieller: nicht symmetrisch, weil der Preiskoeffizient im Nenner steht', '95% interval after Fieller: not symmetric because the price coefficient is in the denominator') }}">{{ de_en("95-%-Intervall", "95% interval") }}</th>{% endif %}</tr></thead>
+  <tbody>
+  {# in the order of the bars above (W58) #}
+  {% for k in (ch.order if ch.order is defined else range(attr.levels|length)) %}{% set lv = attr.levels[k] %}
+    <tr><td>{{ lv.label }}{% if lv.separated %} <span class="hint" title="{{ de_en('nie oder immer gewählt; Wert durch Regularisierung begrenzt', 'never or always chosen; value bounded by regularisation') }}">{{ de_en("begrenzt", "bounded") }}</span>{% elif lv.unshown %} <span class="hint">{{ de_en("nie gezeigt", "never shown") }}</span>{% endif %}</td><td>{{ signed(lv.beta) }}</td><td>{{ num(lv.se) }}</td>
+      {% if m.wtp_ok %}<td>{{ signed(lv.wtp, m.wtp_decimals) }}</td><td>{% if lv.wtp_lo is not none %}[{{ signed(lv.wtp_lo, m.wtp_decimals) }}; {{ signed(lv.wtp_hi, m.wtp_decimals) }}]{% else %}–{% endif %}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</details>
+{% endfor %}
+{% if m.price_levels %}
+<p class="pw-head">{{ m.price_levels.label }} <span class="hint">linear</span></p>
+{{ pw_chart(m.charts[m.attributes|length]) }}
+<p class="muted small">{{ m.price_levels.label }}: {{ de_en("linear geschätzt; die Balken zeigen Koeffizient × (Preis − mittlerer Preis der Stufen), also nullzentriert wie die übrigen Merkmale.", "estimated linearly; the bars show coefficient × (price − mean price of the levels), so zero-centred like the other attributes.") }}{% if m.price_linear %}{% set lt = m.price_linear %} {{ de_en("Linear oder in Stufen? Likelihood-Quotienten-Test gegen einen eigenen Teilnutzen je Preisstufe", "Linear or in steps? Likelihood ratio test against a part-worth of its own per price level") }}{% if fn is defined %}{{ fn("price_linear") }}{% endif %}: χ²({{ lt.df }}) = {{ num(lt.chi2) }}, p {{ p_bare(lt.p) if lt.p < 0.001 else "= " ~ p_bare(lt.p) }}. {% if lt.p < 0.05 %}<strong>{{ de_en("Die Teilnutzen des Preises weichen deutlich von einer Geraden ab.", "The part-worths of the price deviate clearly from a straight line.") }}</strong>{% else %}{{ de_en("Kein deutlicher Hinweis gegen die Gerade.", "No clear evidence against the straight line.") }}{% endif %}{% endif %}</p>
+{% if m.price_linear and m.price_linear.p < 0.05 %}{% call method(de_en("Woran kann das liegen?", "What can cause it?")) %}<p>{{ de_en("Dafür gibt es zwei mögliche Ursachen: Schwellen im Preis (etwa an runden Preisen); dann sind Preise zwischen den Stufen im Marktsimulator nur eine Näherung. Oder unterschiedlich preisempfindliche Personen: Auch wenn jede Person den Preis linear bewertet, ist das aggregierte Logit über alle Personen im Preis dann gekrümmt.", "There are two possible causes: thresholds in the price (e.g. at round prices); then prices between the levels are only an approximation in the market simulator. Or people who differ in their price sensitivity: even if every person values the price linearly, the aggregate logit over all people is then curved in the price.") }}{% if e is defined and e.cbc and e.cbc.hb and e.cbc.hb.result %} {{ de_en("Mit dem {hb}-Ergebnis rechnet der Simulator je Person linear mit ihrer eigenen Preisempfindlichkeit; die zweite Ursache ist dort berücksichtigt und unkritisch.", "With the {hb} result the simulator computes linearly per person with their own price sensitivity; the second cause is taken into account there and is not critical.", html=True, hb=abbr("hb")) }}{% endif %}</p>{% endcall %}{% endif %}
+{% endif %}
+{# the one reading sentence of the part-worths; the method behind them is in the detail (S7) #}
+<p class="muted small">{{ de_en("Teilnutzen in Effektkodierung: Je Merkmal summieren sie sich zu 0, positive Werte liegen über dem Durchschnitt des Merkmals.", "Part-worths in effects coding: per attribute they sum to 0; positive values lie above the average of the attribute.") }}{% if cm_part == "main" %} {{ de_en("Ein gemeinsames Modell für alle Personen; Einzelheiten unten unter „Aggregiertes Logit-Modell im Detail“.", "One common model for all people; details below under “Aggregate logit model in detail”.") }}{% endif %}</p>
+</div>
+{% endif %}
+{% if cm_part != "main" %}
+<p class="muted small">{{ de_en("{p} Personen, {s} Entscheidungen", "{p} people, {s} decisions", p=m.persons, s=m.sets) }} ({{ sets_note }}){% if m.rho2 is not none %} · <span title="{{ de_en('gegenüber gleich wahrscheinlichen Alternativen (nicht gegenüber einem Modell nur mit Konstante)', 'against equally likely alternatives (not against a model with the constant only)') }}">McFadden-{{ term("rho2") }} = {{ num(m.rho2) }}</span>{% endif %}.</p>
+{% if m.price or m.asc is not none %}<p class="muted small">
+  {% if m.price %}{% set u = m.price.unit or 1 %}{{ de_en("Preiskoeffizient", "Price coefficient") }} {{ per_unit(u) }}: {{ signed(m.price.beta * u, 4) }}{% if m.price.se is not none %} (SE {{ num(m.price.se * u, 4) }}){% endif %}. {% endif %}
+  {% if m.asc is not none %}{{ asc_label }}: {{ signed(m.asc) }}{% if m.asc_se is not none %} (SE {{ num(m.asc_se) }}){% endif %}{% if m.price %} <span class="hint">{{ de_en("bezogen auf ein Angebot zum mittleren Preis der Stufen", "relative to an offer at the mean price of the levels") if m.center == "levels" else de_en("bezogen auf ein Angebot zum mittleren gezeigten Preis", "relative to an offer at the mean price shown") }}</span>{% endif %}.{% endif %}</p>{% endif %}
+{% call method(de_en("Aggregiertes Logit-Modell", "Aggregate logit model")) %}<p>{{ de_en("Aggregierte Schätzung für die ganze Stichprobe (ein gemeinsames Modell), keine individuellen Nutzen wie bei Hierarchical Bayes; Unterschiede zwischen Personen bleiben unberücksichtigt, die Wichtigkeiten sind daher nicht mit HB-Wichtigkeiten (Mittel der individuellen) vergleichbar.", "Aggregate estimation for the whole sample (one common model), no individual utilities as with hierarchical Bayes; differences between people are not taken into account, so the importances are not comparable with HB importances (mean of the individual ones).") }}{% if m.robust %} {{ de_en("Standardfehler clusterrobust je Person (mehrere Wahlen einer Person sind nicht unabhängig).", "Standard errors cluster-robust per person (several choices of one person are not independent).") }}{% endif %} {{ de_en("Individuelle Nutzen liefert die HB-Schätzung; Gruppen mit eigenen Vorlieben zeigen die Segmente (latente Klassen).", "Individual utilities come from the HB estimation; groups with their own preferences are shown by the segments (latent classes).") }}</p>{% endcall %}
+{% endif %}
+{% endif %}

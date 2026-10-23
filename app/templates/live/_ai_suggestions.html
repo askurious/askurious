@@ -1,0 +1,19 @@
+{# The AI assistant's suggestions to tick and edit (live/assistant.html, the wizard live/new.html). Needs: suggestions, types. #}
+<ol class="plain live-ai-list">
+  {% for q in suggestions %}{% set n = loop.index0 %}
+  <li class="live-ai-item">
+    <div class="live-ai-pick">
+      <label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> <strong>{{ loop.index }}. {{ types[q.type] if q.type != "text_input" else de_en("Wortwolke", "Word cloud") }}</strong></label>
+      {% if q.type == "rating" %}<span class="muted small">{{ de_en("Sterne, 5 Stufen", "Stars, 5 levels") if q.style == "stars" else de_en("Smileys, 5 Stufen", "Smileys, 5 levels") }}</span>{% endif %}
+      <input type="hidden" name="q{{ n }}_type" value="{{ q.type }}">{% if q.style %}<input type="hidden" name="q{{ n }}_style" value="{{ q.style }}">{% endif %}
+    </div>
+    <div class="live-ai-fields">
+      <label><span class="label-title">{{ de_en("Frage", "Question") }}</span>
+        <textarea name="q{{ n }}_question" rows="2" maxlength="500">{{ q.question }}</textarea></label>
+      {% if q.options %}<label><span class="label-title">{{ de_en("Antworten", "Answers") }} <span class="hint">{{ de_en("eine je Zeile", "one per line") }}</span></span>
+        <textarea name="q{{ n }}_options" rows="{{ q.options|length }}">{{ q.options|join("\n") }}</textarea></label>{% endif %}
+      {% if q.why %}<p class="muted small flush">{{ q.why }}</p>{% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ol>

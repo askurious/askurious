@@ -1,0 +1,13 @@
+{% from "_macros.html" import csrf, ai_access_line %}{% from "_icons.html" import icon %}
+{# Leitfrage: the AI assistant beside the editor (app/interview_ai.py, A2); only in a draft, for "Bearbeiten" #}
+{% if survey.interview is not none and survey.is_editable and survey.can(current_user, "editor") and ai_on() %}
+<section class="panel">
+  <form method="post" action="{{ url_for('interview_ai.extend_page', code=survey.code, item_id=item.id, embed=request.args.get('embed')) }}" data-busy-form>
+    {{ csrf() }}
+    <button class="button button-ai button-small">{{ icon("sparkles", 16) }} {{ de_en("Leitfrage mit KI ergänzen", "Extend guide question with AI") }}</button>
+    {{ ai_access_line() }}
+    <span class="muted small">{{ de_en("schlägt Aspekte, Aufrechterhaltungsfragen und konkrete Fragen vor; Erzählaufforderung und Forschungsfrage gehen an {to}", "suggests aspects, maintenance questions and specific questions; the narrative prompt and the research question go to {to}", to=ai_recipient()) }}</span>
+    <p class="muted small flush" data-busy-note hidden>{{ de_en("Die KI denkt nach …", "The AI is thinking …") }}</p>
+  </form>
+</section>
+{% endif %}

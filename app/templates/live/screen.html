@@ -1,0 +1,156 @@
+{% extends "participant/base.html" %}
+{% set lang = survey.default_language %}
+{% block title %}{{ survey.title }} · {{ de_en("Ansicht zum Vortragen", "Presenter view") if presenter is defined and presenter else de_en("Ansicht fürs Publikum", "Audience view") }}{% endblock %}
+{% block main_attrs %}data-live-screen data-poll="{{ poll }}" data-results="{{ url_for('live.results_json', code=survey.code, view='speaker') if presenter is defined and presenter else url_for('live.results_json', code=survey.code) }}"
+  data-control="{{ url_for('live.control', code=survey.code) }}" data-csrf="{{ csrf_token() }}" data-ink-json="{{ url_for('live.ink_json', code=survey.code) }}" data-ink-save="{{ url_for('live.ink_save', code=survey.code) }}" data-ui-lang="{{ ui_language() }}"{% if not survey.can(current_user, "editor") %} data-readonly{% endif %}
+  data-t="{{ {"answer": ui("Antwort", "answer"), "answers": ui("Antworten", "answers"), "mean": ui("Mittelwert", "Mean"),
+  "median": ui("Median", "Median"), "ended": ui("Abstimmung beendet", "Voting closed"), "hidden": ui("VERBORGEN", "HIDDEN"), "reveal": ui("Ergebnis zeigen", "Show result"),
+  "noquestions": ui("Noch keine Fragen.", "No questions yet."), "nopoints": ui("Noch keine Punkte.", "No points yet."), "rank1": ui("Platz 1 = oben", "Place 1 = top"), "rankk": ui("Platz", "Place"),
+  "noimage": ui("Kein Bild.", "No image."), "right": ui("richtig", "right"), "left": ui("noch {s} s", "{s} s left"), "more": ui("+ {n} weitere", "+ {n} more")}|tojson|forceescape }}"{% endblock %}
+{% block content %}
+{% set presenter = presenter is defined and presenter %}
+<div class="live-screen{% if presenter %} is-presenter{% endif %}">
+  <aside class="live-joinbox">
+    {% if presenter %}
+    {# the presenter view shows neither the QR code nor the address: nobody scans the laptop, and the button
+       "QR-Code groß zeigen" in the steering puts both on the projector (Ralf, 2026-10-23); the hidden code and
+       address are what that large view shows (live.js) #}
+    <div class="live-presenter-info" hidden>
+      <div class="live-qr" hidden>{{ qr }}</div>
+      <p class="live-joinurl" hidden><code>{{ join.split("://")[1] }}</code></p>
+    </div>
+    {% else %}
+    <div class="live-qr">{{ qr }}</div>
+    <p class="live-joinurl"><code>{{ join.split("://")[1] }}</code></p>
+    {% endif %}
+    {# for the presenter (the screen needs an account): a dot per question, the one on the screen filled; the phones
+       show that question (live concept A2). Keys: arrows, page up and down, space; S closes or
+       opens voting on the question, E shows or hides its results #}
+    {# on the projector the steering is hidden (Ralf, 2026-10-03: the presenter view steers); keys and clicker work
+       anyway, the small button in the corner shows it for presenting without a second device #}
+    {# the role "Ansehen" may watch but not steer (live.control needs "Bearbeiten"): no steering for it #}
+    {% if survey.can(current_user, "editor") %}
+    <div class="live-presenter" id="live-steering" aria-label="{{ de_en('Steuerung', 'Controls') }}" {% if not presenter %}data-steering hidden{% endif %}>
+      <div class="live-group">
+        <div class="live-outline" data-outline></div>
+        {# the steering in two parts (Ralf, 2026-10-23: the column is wide anyway for the preview, so the buttons side by
+           side save height): ↺ Zurück Weiter in one row, everything else in a grid of as many columns as fit, the
+           frequent ones first and "Live-Abstimmung beenden" last. ↺ all back: the answers of this run are thrown away
+           and it starts afresh; two clicks (live.js), it deletes data, so only for admins (security audit 2026-10-06,
+           S22) #}
+        <div class="live-steer live-steer-restart">
+          {% if survey.can(current_user, "admin") %}<button type="button" class="live-steer-icon" data-restart title="{{ de_en('Alles zurück: die Antworten dieses Durchgangs verwerfen und von vorn beginnen (zweimal klicken)', 'Start over: discard the answers of this run and begin again (click twice)') }}" aria-label="{{ de_en('Alles zurück: Antworten dieses Durchgangs verwerfen', 'Start over: discard the answers of this run') }}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5"/><path d="M14.5 1.5L12 4l2.5 2.5"/></svg></button>{% endif %}
+          <button type="button" data-step="prev" title="{{ de_en('Vorige Frage (←)', 'Previous question (←)') }}">‹ {{ de_en("Zurück", "Back") }}</button>
+          <button type="button" data-step="next" title="{{ de_en('Nächste Frage (→, Leertaste)', 'Next question (→, space)') }}">{{ de_en("Weiter", "Next") }} ›</button>
+        </div>
+        <div class="live-steer-grid">
+          {% if (survey.live or {}).get("flow") == "blocks" %}<button type="button" class="live-steer-wide" data-step="next_block" title="{{ de_en('Abfrage des nächsten Blocks starten; der laufende schließt (Taste N)', 'Start voting on the next block; the running one closes (key N)') }}">{{ de_en("Nächsten Block starten", "Start next block") }}</button>{% endif %}
+          <button type="button" class="live-steer-wide" data-toggle="voting" title="{{ de_en('Antworten auf diese Folie schließen oder wieder öffnen (S)', 'Close or reopen answers on this slide (S)') }}">{{ de_en("Antworten schließen", "Close answers") }}</button>
+          {% if presenter %}<button type="button" class="live-steer-wide live-steer-minor live-qr-toggle" data-qr-toggle aria-pressed="false"
+            title="{{ de_en('Den QR-Code groß auf die Leinwand und hier in die Mitte; noch ein Klick oder Esc nimmt ihn weg', 'The QR code large on the projector and in the middle here; another click or Esc takes it away') }}">{{ de_en("QR-Code groß zeigen", "Show QR code large") }}</button>{% endif %}
+          {# a presentation slide: its small QR code in the corner hidden or shown again (state "corner_off", K) #}
+          <button type="button" class="live-steer-wide live-steer-minor" data-toggle="corner" hidden title="{{ de_en('Den kleinen QR-Code in der Ecke dieser Präsentationsfolie aus- oder einblenden (K)', 'Hide or show the small QR code in the corner of this presentation slide (K)') }}">{{ de_en("QR aus", "QR off") }}</button>
+          {% if presenter %}{# the pen on a presentation slide (app/live/ink.py, live_ink.js; concept stiftnotizen-konzept-2026-10-23.md):
+             shown only while one is on the screen; a button, the tools open over the page (Ralf, 2026-10-23) #}
+          {% include "live/_ink_tools.html" %}{% endif %}
+          <button type="button" class="live-steer-wide live-steer-minor" data-toggle="board" hidden title="{{ de_en('Die Rangliste des Quiz auf die Leinwand (R)', 'The quiz leaderboard on the screen (R)') }}">{{ de_en("Rangliste", "Leaderboard") }}</button>
+          {# the review at the end of a talk: questions and emojis per slide (with Q&A or reactions on) #}
+          <button type="button" class="live-steer-wide live-steer-minor" data-toggle="review" hidden title="{{ de_en('Rückblick auf die Leinwand: Fragen aus dem Publikum und Reaktionen je Folie (U)', 'Review on the screen: questions from the audience and reactions per slide (U)') }}">{{ de_en("Rückblick", "Review") }}</button>
+          {# the whole vote ended (pre-test 2026-10-16): screen and block empty, voting closed, the phones show the closing text #}
+          <button type="button" class="live-steer-wide live-steer-minor" data-step="end" title="{{ de_en('Die ganze Live-Abstimmung beenden: Leinwand leer, keine Antworten mehr, die Handys zeigen den Schlusstext. „Weiter“ oder ein Klick auf eine Frage setzt fort.', 'End the whole live poll: screen empty, no more answers, the phones show the closing text. “Next” or a click on a question goes on.') }}">{{ de_en("Live-Abstimmung beenden", "End live poll") }}</button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if presenter %}{# what comes next, under the steering and over the notes (concept live-naechste-folie-konzept.md):
+       a presentation slide as its picture, a question as a small text card; the title folds it (remembered in the browser) #}
+    <div class="live-next" data-next-box hidden>
+      <button type="button" class="live-group-title live-next-toggle" data-next-toggle aria-expanded="true">{{ de_en("Als Nächstes", "Up next") }}</button>
+      <div class="live-next-card" data-next></div>
+    </div>
+    {# the notes below the steering #}
+    {# the emojis of the slide on the screen, counted: only here, not on the projector (decision E5) #}
+    <p class="live-emoji-tally" data-emoji-count hidden></p>
+    <div class="live-presenter-notes">
+      <p class="live-group-title">{{ de_en("Notizen", "Notes") }}</p>
+      <div class="live-notes" data-notes><span class="live-none">{{ de_en("keine", "none") }}</span></div>
+    </div>
+    {# moderation and the questions from the audience, from the page "Präsentieren" (Ralf, 2026-10-03: the presenter's
+       business); live.js fills both, each group only while it has something to do #}
+    {% set ro = not survey.can(current_user, "editor") %}
+    <div class="live-presenter-mod" data-moderation="{{ url_for('live.moderation_json', code=survey.code) }}" data-hide-empty hidden
+         data-control="{{ url_for('live.control', code=survey.code) }}" data-csrf="{{ csrf_token() }}" {% if ro %}data-readonly{% endif %}>
+      <p class="live-group-title">{{ de_en("Kurze Texte", "Short texts") }}</p>
+      <p class="live-none" data-moderation-empty></p>
+      <div data-moderation-body hidden><ul class="live-mod-list" data-moderation-list></ul></div>
+    </div>
+    {% endif %}
+  </aside>
+  {# the footer line, bottom left: in the presenter view "Folie 2 von 9 — Ansicht fürs Publikum ↗ — Vollbild", on the
+     projector "Vollbild" (a click or the key F; Esc leaves it) #}
+  <p class="live-pos">{% if presenter %}<span data-position></span> — <a class="live-beamer" href="{{ url_for('live.screen', code=survey.code) }}" target="live-screen-{{ survey.code }}" rel="noopener">{{ de_en("Ansicht fürs Publikum", "Audience view") }} ↗</a><span class="live-fullscreen-sep" hidden> — </span>{% endif %}<button type="button" class="live-fullscreen" data-fullscreen aria-pressed="false" hidden title="{{ de_en('Vollbild ein- oder ausschalten (Taste F, Esc beendet)', 'Full screen on or off (key F, Esc ends it)') }}"><span data-fullscreen-label>{{ de_en("Vollbild", "Full screen") }}</span></button></p>
+  <p class="live-steer-error" data-step-error role="alert" hidden></p>{# a step the server did not take (live.js) #}
+  <div class="live-floats" data-floats aria-hidden="true"></div>{# reactions: on the projector and in the presenter view #}
+  {% if presenter %}{# the border between the left column and the slide: dragged, it makes the preview larger and the
+     slide smaller (Ralf, 2026-10-23); a double click goes back, the browser remembers the width (live.js) #}
+  <div class="live-resize" data-resize role="separator" aria-orientation="vertical" tabindex="0"
+       aria-label="{{ de_en('Breite der linken Spalte (Pfeiltasten; Doppelklick: Standard)', 'Width of the left column (arrow keys; double click: default)') }}"
+       title="{{ de_en('Ziehen: Vorschau größer oder kleiner; Doppelklick: Standardbreite', 'Drag: preview larger or smaller; double click: default width') }}"></div>
+  {% endif %}
+  {% if not presenter %}
+  {# a presentation slide fills the screen: the QR code and the short address small in its corner instead of the column #}
+  {%- set code_page = (participant_base() ~ url_for('live_public.enter_code')).split("://")[1].rstrip("/") %}
+  <div class="live-qr-corner" data-qr-corner hidden aria-hidden="true">{{ qr }}<span>{{ code_page }}<br>{{ survey.code }}</span></div>
+  {% endif %}
+  {% if not presenter %}
+  {# no ⚙ on the projector: the presenter view steers (the keys and a clicker work on this screen too) #}{% endif %}
+  {# Q&A on: the open questions from the audience beside every slide (live.js fills it; a click marks one answered) #}
+  <aside class="live-qa-side" data-qa-side hidden>
+    {% if presenter %}{# below the slide (the standard) or beside it, chosen here and kept by the browser; below, the border
+       above the questions is dragged (live.js; Ralf, 2026-10-23) #}
+    <div class="live-qa-grip" data-qa-grip role="separator" aria-orientation="horizontal" tabindex="0" hidden
+         aria-label="{{ de_en('Höhe der Fragen aus dem Publikum (Pfeiltasten; Doppelklick: Standard)', 'Height of the questions from the audience (arrow keys; double click: default)') }}"
+         title="{{ de_en('Ziehen: Fragen höher oder niedriger; Doppelklick: Standardhöhe', 'Drag: questions taller or shorter; double click: default height') }}"></div>
+    {% endif %}
+    <div class="live-qa-side-head">
+      <h2 class="live-qa-side-title">{{ ui("Fragen aus dem Publikum", "Questions from the audience") }}</h2>
+      {% if presenter %}<button type="button" class="live-qa-place" data-qa-place
+        title="{{ de_en('Die Fragen aus dem Publikum unter die Folie oder rechts neben sie', 'The questions from the audience below the slide or to its right') }}"></button>{% endif %}
+    </div>
+    {% if presenter %}
+    {# the presenter view: every question with its state and what can be done with it (Ralf, 2026-10-03: one place
+       for the questions, the right column); live.js as on "Präsentieren" before #}
+    <div class="live-presenter-mod live-qa-manage" data-qa="{{ url_for('live.qa_json', code=survey.code) }}"
+         data-control="{{ url_for('live.control', code=survey.code) }}" data-csrf="{{ csrf_token() }}" {% if not survey.can(current_user, "editor") %}data-readonly{% endif %}>
+      <p class="live-qa-tools">{% if survey.can(current_user, "editor") %}<button type="button" class="button button-secondary" data-qa-screen></button>{% endif %}</p>
+      <p class="live-none" data-qa-off></p>
+      <div data-qa-body hidden><ul class="live-mod-list" data-qa-list></ul></div>
+    </div>
+    {% else %}
+    <ol class="live-qa-screen" data-qa-side-list></ol>
+    {% endif %}
+  </aside>
+  <section class="live-board">
+    {# the projector: live.js makes this part smaller until the slide fits the window (data-fit) #}
+    <div class="live-fit" data-fit>
+    <p class="live-section-label" data-section></p>
+    <h1 class="live-q" data-q>{{ survey.title }}</h1>
+    <p class="live-n" data-n aria-live="polite"></p>
+    {% if presenter %}{# "In Blöcken": the slide on the screen belongs to a block that is not running yet #}
+    <p class="live-closed-hint" data-closed-hint hidden>{{ de_en("Dieser Block ist noch nicht gestartet: Die Teilnehmenden können hierauf noch nicht antworten.", "This block has not started yet: participants cannot answer it yet.") }}</p>{% endif %}
+    {# a short-text question: as a wall of posts or as a word cloud; it belongs to the question, so it stands with it #}
+    <button type="button" class="live-wall-toggle" data-toggle="wall" hidden title="{{ de_en('Kurze Texte als Pinnwand oder als Wortwolke zeigen; ein Klick auf einen Text blendet ihn aus', 'Show short texts as a wall or as a word cloud; a click on a text hides it') }}">{{ de_en("Als Pinnwand", "As a wall") }}</button>
+    {# data-fig-live: saving the result as PNG, the icon in its corner on hover, the title for the file name (figure_png.js);
+       both views need a sign-in #}
+    <div class="live-result" data-result data-fig-live="{{ survey.title }}"></div>
+    </div>
+    <button type="button" class="live-ghost-corner" data-ghost-corner title="{{ de_en('Ergebnis wieder verbergen', 'Hide the result again') }}" aria-label="{{ de_en('Ergebnis wieder verbergen', 'Hide the result again') }}" hidden></button>
+  </section>
+</div>
+
+<script src="{{ url_for('static', filename='live_ink.js') }}"></script>
+<script src="{{ url_for('static', filename='live.js') }}"></script>
+<script src="{{ url_for('static', filename='live_wake.js') }}" data-wake="always"></script>{# no standby while presenting #}
+<script src="{{ url_for('static', filename='figure_png.js') }}" defer></script>
+{% endblock %}
+{% block footer_links %}{% endblock %}

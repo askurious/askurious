@@ -1,0 +1,20 @@
+{% from "_icons.html" import icon %}
+{# The scales of the overview with their mean per group and the test (app/compare.py). Needs cmp, cmp_min. #}
+{% from "surveys/_compare_macros.html" import test_line %}
+{% from "_macros.html" import num %}
+<section class="panel" id="scales-groups"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Skalen nach Gruppen", "Scales by groups") }} <span class="hint">{{ de_en("Skalenmittelwerte je Gruppe von {code}", "scale means per group of {code}", code=cmp.code) }}</span></h2></summary>
+  {% set heads = cmp.groups|rejectattr("few")|list %}
+  <div class="res-scroll"><table class="quota-table scale-table">
+    <thead><tr><th>{{ de_en("Skala", "Scale") }}</th>{% for g in heads %}<th class="num">{{ g.label|truncate(24) }}<br><span class="hint">M (SD)</span></th>{% endfor %}<th>{{ de_en("Test und Effektstärke", "Test and effect size") }}</th></tr></thead>
+    <tbody>
+      {% for b in cmp.scales %}
+      {% set shown = b.groups|map(attribute=0)|list %}
+      <tr><td><code>{{ b.code }}</code>{% if b.sub %} · {{ b.sub }}{% endif %}</td>
+        {% for g in heads %}<td class="num">{% if g.code in shown %}{% set s = b.per[shown.index(g.code)] %}{{ num(s.mean) }} ({{ num(s.sd) }})<br><span class="hint">n = {{ s.n }}</span>{% else %}–{% endif %}</td>{% endfor %}
+        <td class="small">{{ test_line(b, cmp_min) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("„–“: weniger als {n} Personen dieser Gruppe mit einem Skalenwert. Die p-Werte sind explorativ und nicht für mehrfaches Testen korrigiert.", "“–”: fewer than {n} people of this group with a scale score. The p values are exploratory and not corrected for multiple testing.", n=cmp_min) }}</p>
+</details></section>

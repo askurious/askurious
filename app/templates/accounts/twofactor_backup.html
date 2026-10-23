@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{# Needs: codes (eight backup codes, shown only here), nxt (where to go afterwards). #}
+{% block title %}{{ de_en("Ersatzcodes", "Backup codes") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Ersatzcodes", "Backup codes") }}</h1>
+<section class="panel">
+  <p>{{ de_en("Ohne Telefon meldet sich das Konto mit einem dieser Codes an, jeder gilt einmal. Bitte jetzt ausdrucken oder an einem sicheren Ort ablegen: Sie erscheinen nur hier.",
+    "Without the phone, the account signs in with one of these codes, each once. Please print them now or keep them in a safe place: they appear only here.") }}</p>
+  <ul class="backup-codes">{% for code in codes %}<li><code>{{ code }}</code></li>{% endfor %}</ul>
+  <div class="button-row">
+    <button type="button" class="button button-secondary" data-print>{{ de_en("Drucken", "Print") }}</button>
+    <a class="button" href="{{ nxt }}">{{ de_en("Weiter", "Continue") }}</a>
+  </div>
+</section>
+{% endblock %}

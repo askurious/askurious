@@ -1,0 +1,43 @@
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „Ihre Einordnung“", "e.g. “Where you stand”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Wert", "Value") }}</legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set current = kind.chosen_value(item, 0) %}
+  <label>{{ de_en("Frage oder Skala", "Question or scale") }}
+    <select name="source" {% if not structural %}disabled{% endif %}>
+      <option value="">{{ de_en("– bitte wählen –", "– please choose –") }}</option>
+      {% for c in candidates %}{% for value, sub in kind.source_choices(c) %}
+      <option value="{{ value }}" {% if value == current %}selected{% endif %}>{{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} ({{ c.kind.label }}{% if toolbox_key(c) %}, {{ de_en("Konstrukt", "construct") }}{% endif %})</option>
+      {% endfor %}{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("Skalen als Mittelwert je Person (umgepolte Items rekodiert), einzelne Items als Wert. Instrumente mit Subskalen stehen je Subskala da: Die Subskalen messen Verschiedenes, ein Mittel über alle wäre keine Skala.", "Scales as the mean per person (reversed items recoded), single items as their value. Instruments with subscales are listed per subscale: the subscales measure different things, a mean across all of them would be no scale.") }}</span>
+  </label>
+  <label>{{ de_en("Grenzen beziehen sich auf", "Bounds refer to") }}
+    <select name="basis" {% if not structural %}disabled{% endif %}>
+      {% for key, label in kind.basis_names().items() %}<option value="{{ key }}" {% if item.config.basis == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("Prozentrang: Anteil der bisherigen abgeschlossenen Teilnahmen mit niedrigerem Wert; erst ab 5 Teilnahmen.", "Percentile rank: share of the completed participations so far with a lower value; only from 5 participations.") }}</span>
+  </label>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Kategorien", "Categories") }} <span class="hint">{{ de_en("2 bis 7; Kategorie gilt bis unter der Obergrenze, die letzte ist nach oben offen; leere Bezeichnung = Zeile entfällt", "2 to 7; a category applies up to below its upper bound, the last one is open at the top; empty name = row is dropped") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit band-table">
+    <thead><tr><th class="narrow-col">{{ de_en("bis unter", "up to below") }}</th><th>{{ de_en("Bezeichnung", "Name") }}</th><th>{{ de_en("Erläuterung", "Explanation") }} <span class="hint">{{ de_en("optional, für Teilnehmende", "optional, for participants") }}</span></th></tr></thead>
+    <tbody>
+      {% set bands = kind.bands(item, lang) %}
+      {% for n in range(7) %}
+      {% set b = bands[n] if n < bands|length else {"id": "", "upper": none, "label": "", "text": ""} %}
+      <tr>
+        <td><input type="hidden" name="band_id" value="{{ b.id }}"><input name="band_upper" aria-label="{{ de_en('bis unter', 'up to below') }}" class="narrow" inputmode="decimal"
+             value="{{ '' if b.upper is none else kind.upper_text(b.upper) }}" placeholder="{{ '–' if n == bands|length - 1 else de_en('z. B. 25', 'e.g. 25') }}" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="band_label" aria-label="{{ de_en('Bezeichnung', 'Name') }}" value="{{ b.label }}" placeholder="{{ de_en('z. B. unterdurchschnittlich', 'e.g. below average') if n == 0 else '' }}"></td>
+        <td><input name="band_text" aria-label="{{ de_en('Erläuterung', 'Explanation') }}" value="{{ b.text }}"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</fieldset>
+<p class="muted small">{{ de_en("Im Export:", "In the export:") }} <code>{{ item.code }}_value</code> {{ de_en("(gezeigter Wert bzw. Prozentrang) und", "(value shown or percentile rank) and") }} <code>{{ item.code }}_band</code> {{ de_en("(Kategorie, 1 = erste).", "(category, 1 = first).") }}</p>
+{% include "items/_lock_answers.html" %}

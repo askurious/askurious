@@ -1,0 +1,90 @@
+{# Adaptive conjoint (app/items/aca.py): explanation, ratings of the levels of one attribute, the importance of every
+   attribute, one pair of partial offers (scale as the ratings-based conjoint: positive = first preferred), one
+   calibration concept (0 to 100). Pairs and concepts come from the stored answer (kind.plan, replay). #}
+{% from "items/_attributes/macros.html" import concept_table %}
+{% set c = item.cfg %}
+{% set meta = page_meta if (page_meta is defined and page_meta) else {} %}
+{% set t = item.t(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set answer = answers.get(item.id) or {} %}
+{% set attrs = kind.attributes(item, lang) %}
+{% set alt_word = t.get("alt_label") or d.alt_label %}
+{% macro scale(name, values, chosen, low, high, label) -%}
+<div class="p-rating p-rating-numbers">
+<div class="p-numbers" style="--n: {{ values|length }}" role="radiogroup" aria-label="{{ label|striptags }}">
+  {% for v in values %}
+  {% set end = low if loop.first else (high if loop.last else "") %}
+  <label class="p-number"><input type="radio" name="{{ name }}" value="{{ v }}" {% if chosen == v %}checked{% endif %}{% if end %} aria-label="{{ v }} ({{ end|striptags }})"{% endif %}><span>{{ v }}{% if end %}<small class="p-number-end" aria-hidden="true">{{ end }}</small>{% endif %}</span></label>
+  {% endfor %}
+</div>
+<div class="p-endpoints" aria-hidden="true"><span>{{ low }}</span><span>{{ high }}</span></div>
+</div>
+{%- endmacro %}
+{% if meta.explain %}
+{% set explain_default = ui("Zuerst sagen Sie, wie Ihnen die einzelnen Ausprägungen gefallen und wie wichtig Ihnen die Merkmale sind. Danach sehen Sie Paare von Angeboten, die sich in wenigen Merkmalen unterscheiden, und sagen, welches Sie vorziehen. Die Angebote unterscheiden sich in folgenden Merkmalen:", "First you say how much you like the individual levels and how important the features are to you. Then you see pairs of offers that differ in a few features and say which one you prefer. The offers differ in these features:") %}
+{% include "items/_attributes/explain.html" %}
+{% elif meta.phase == "pref" %}
+{% set a = attrs|selectattr("id", "equalto", meta.attr)|first %}
+{% set row = (answer.get("r") or {}).get(meta.attr) or [] %}
+<fieldset class="p-fieldset aca-pref" aria-labelledby="q{{ item.id }}">
+<p class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "pref_question") }}>{{ (t.get("pref_question") or d.pref_question)|replace("{attr}", a.label|striptags)|fill(variables) }}{% include "items/_required.html" %}</p>
+{% set low, high = t.get("pref_low") or d.pref_low, t.get("pref_high") or d.pref_high %}
+{% for label in a.level_labels %}
+<div class="aca-row"><p class="aca-row-label">{{ label|fill(variables) }}</p>
+{{ scale("i" ~ item.id ~ "_r" ~ loop.index0, range(1, c.pref_points + 1)|list, row[loop.index0] if loop.index0 < row|length else none, low, high, label) }}</div>
+{% endfor %}
+</fieldset>
+{% elif meta.phase == "imp" %}
+{% set imp = answer.get("i") or {} %}
+<fieldset class="p-fieldset aca-imp" aria-labelledby="q{{ item.id }}">
+<p class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "imp_question") }}>{{ (t.get("imp_question") or d.imp_question)|fill(variables) }}{% include "items/_required.html" %}</p>
+{% set low, high = t.get("imp_low") or d.imp_low, t.get("imp_high") or d.imp_high %}
+{% for bw in kind.best_worst(item, answer, lang) %}
+{% set text = ui("%s: „%s“ statt „%s“", "%s: “%s” instead of “%s”")|format(bw.label|striptags, bw.best|striptags, bw.worst|striptags) %}
+<div class="aca-row"><p class="aca-row-label">{{ text }}</p>
+{{ scale("i" ~ item.id ~ "_i" ~ loop.index0, range(1, c.imp_points + 1)|list, imp.get(bw.id), low, high, text) }}</div>
+{% endfor %}
+</fieldset>
+{% elif meta.phase == "pair" %}
+{% set pair = kind.task_pair(item, answer, meta.k) %}
+{% if pair %}
+{% set chosen = (answer.get("p") or {}).get(meta.k|string) %}
+{% set table_attrs = [] %}{% for a in attrs %}{% if loop.index0 in pair[0] %}{% set _ = table_attrs.append(a) %}{% endif %}{% endfor %}
+{% set columns = [] %}{% for side in pair %}{% set prof = [] %}{% for a in attrs %}{% set _ = prof.append(side.get(loop.index0)) %}{% endfor %}{% set _ = columns.append((loop.index, alt_word ~ " " ~ loop.index, prof)) %}{% endfor %}
+<fieldset class="p-fieldset" aria-labelledby="q{{ item.id }}">
+<p class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ (t.get("question") or d.question)|fill(variables) }}{% include "items/_required.html" %}</p>
+<p class="p-hint">{{ (ui("Paar %d von %d", "Pair %d of %d"))|format(meta.k + 1, kind.n_pairs(item)) }}</p>
+<div class="cj cva" style="--alts: 2">{{ concept_table(item, kind, table_attrs, columns, not c.hide_attr_labels, false, variables, lang, choose=false) }}</div>
+{% set much = t.get("much") or d.much %}{% set same = t.get("same") or d.same %}
+{% set steps = kind.pair_steps(item) %}
+<div class="p-pair-scale cva-pair-scale" style="--k: {{ steps|length }}">
+  {% for value in steps %}
+  {% set side = (alt_word ~ " 1") if value > 0 else ((alt_word ~ " 2") if value < 0 else "") %}
+  {% set caption = (side ~ " " ~ much) if loop.first or loop.last else (same if value == 0 else "") %}
+  <label class="p-pair-step"><input type="radio" name="i{{ item.id }}_p{{ meta.k }}" value="{{ value }}" {% if chosen == value %}checked{% endif %} aria-label="{{ same if value == 0 else (side ~ ': ' ~ (value|abs) ~ ' / ' ~ (steps|max)) }}"><span>{{ caption }}</span></label>
+  {% endfor %}
+</div>
+</fieldset>
+{% endif %}
+{% elif meta.phase == "cal" %}
+{% set concept = kind.cal_concept(item, answer, meta.k) %}
+{% if concept %}
+{% set chosen = (answer.get("c") or {}).get(meta.k|string) %}
+{% set table_attrs = [] %}{% for a in attrs %}{% if loop.index0 in concept %}{% set _ = table_attrs.append(a) %}{% endif %}{% endfor %}
+{% set prof = [] %}{% for a in attrs %}{% set _ = prof.append(concept.get(loop.index0)) %}{% endfor %}
+<fieldset class="p-fieldset" aria-labelledby="q{{ item.id }}">
+<p class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "cal_question") }}>{{ (t.get("cal_question") or d.cal_question)|fill(variables) }}{% include "items/_required.html" %}</p>
+<div class="cj cva" style="--alts: 1">{{ concept_table(item, kind, table_attrs, [(1, alt_word, prof)], not c.hide_attr_labels, false, variables, lang, choose=false) }}</div>
+<div class="p-rating p-rating-slider" role="group" aria-labelledby="q{{ item.id }}">
+  <div class="p-slider {{ '' if chosen is not none else 'untouched' }}" data-slider>
+    <noscript><input type="number" name="i{{ item.id }}_c{{ meta.k }}" min="0" max="100" step="1" value="{{ chosen if chosen is not none else '' }}" aria-labelledby="q{{ item.id }}"></noscript>
+    <input type="hidden" name="i{{ item.id }}_c{{ meta.k }}" value="{{ chosen if chosen is not none else '' }}">
+    <output class="p-slider-value" aria-hidden="true">{{ chosen if chosen is not none else '' }}</output>
+    <input type="range" class="p-range" min="0" max="100" step="1" value="{{ chosen if chosen is not none else 50 }}" aria-labelledby="q{{ item.id }}"{% if chosen is none %} aria-valuetext="{{ ui('noch nicht eingestellt', 'not set yet') }}"{% endif %}>
+  </div>
+  <p class="p-hint p-slider-hint" data-slider-hint {% if chosen is not none %}hidden{% endif %}>{{ ui("Klicken oder tippen Sie auf die Linie, um einen Wert zu wählen.", "Click or tap the line to choose a value.") }}</p>
+  <div class="p-endpoints" aria-hidden="true"><span>0</span><span>100</span></div>
+</div>
+</fieldset>
+{% endif %}
+{% endif %}

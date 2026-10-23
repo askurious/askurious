@@ -1,0 +1,20 @@
+{# Scale profile (app/items/scale_profile.py): several scales or subscales one below the other #}
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „Ihr Profil“", "e.g. “Your profile”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Variablen", "Variables") }} <span class="hint">{{ de_en("Skalen, Subskalen, Likert-Aussagen oder Bewertungen vor diesem Element; je Variable eine Zeile, in der Reihenfolge des Fragebogens", "scales, subscales, Likert statements or ratings before this element; one row per variable, in the order of the questionnaire") }}</span></legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set chosen = [] %}{% for i in range((item.config.sources or [])|length) %}{% set _ = chosen.append(kind.chosen_value(item, i)) %}{% endfor %}
+  {% if candidates %}
+  {% for c in candidates %}{% for value, sub in kind.source_choices(c) %}
+  <label class="check"><input type="checkbox" name="sources" value="{{ value }}" {% if value in chosen %}checked{% endif %} {% if not structural %}disabled{% endif %}>
+    {{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} <span class="hint">{{ c.kind.label }}</span></label>
+  {% endfor %}{% endfor %}
+  {% else %}
+  <p class="muted">{{ de_en("Vor diesem Element steht keine passende Frage (Likert/Konstrukt, semantisches Differential, Bewertung).", "There is no suitable question (Likert/construct, semantic differential, rating) before this element.") }}</p>
+  {% endif %}
+  <label class="check"><input type="checkbox" name="show_sample" value="1" {% if item.config.get("show_sample", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("mit der Stichprobe vergleichen", "compare with the sample") }} <span class="hint">{{ de_en("der Mittelwert aller bisherigen Teilnehmenden als Ring", "the mean of all participants so far as a ring") }}</span></label>
+</fieldset>
+<p class="muted small">{{ de_en("Bis zu {n} Variablen; Werte der Stichprobe je Zeile ab 5 Personen; im Export", "Up to {n} variables; sample values per row from 5 people; in the export", n=12) }} <code>{{ item.code }}_n</code>.</p>
+{% include "items/_lock_answers.html" %}

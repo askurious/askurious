@@ -1,0 +1,34 @@
+{# Delete one's own answers with the deletion code alone (public.erase, Philipp 2026-10-08); linked from the privacy
+   page of the platform. The page of a survey (participant/erase.html) does the same for that survey. Participants
+   come here: the frame of their pages, in their language (?lang=, else the browser's), without the researchers' head
+   (X46). #}
+{% extends "participant/base.html" %}
+{% block title %}{{ ui("Antworten mit Löschcode löschen", "Delete answers with a deletion code") }} · Askurious{% endblock %}
+{% block logo %}{% endblock %}
+{% block content %}
+{% from "participant/_lang_select.html" import lang_select %}
+{{ lang_select(language_choices, lang) }}
+<article class="p-privacy p-complaint p-erase">
+  <h1 class="p-page-title">{{ ui("Antworten mit Löschcode löschen", "Delete answers with a deletion code") }}</h1>
+  {% if done %}
+  <div class="p-end" role="status">
+    <p>{{ ui("Ihre Antworten wurden <strong>unwiederbringlich gelöscht</strong>. Sie können dieses Fenster jetzt schließen.", "Your answers have been <strong>permanently deleted</strong>. You can close this window now.")|safe }}</p>
+    <p class="p-hint">{{ ui("Was bis dahin ausgewertet, heruntergeladen oder veröffentlicht wurde, lässt sich nicht zurückholen. Gespeichert wird nur, dass an diesem Tag eine Teilnahme gelöscht wurde, nicht welche.", "Whatever was analysed, downloaded or published until then cannot be retrieved. Only the fact that a participation was deleted on this day is kept, not which one.") }}</p>
+  </div>
+  {% else %}
+  <p>{{ ui("Manche Befragungen zeigen auf ihrer letzten Seite einen Löschcode. Mit ihm löschen Sie Ihre Antworten hier selbst, ohne Angabe von Gründen und von jedem Gerät aus. Die Nummer vor dem ersten Bindestrich gibt die Befragung an.", "Some surveys show a deletion code on their last page. With it you delete your answers here yourself, without giving reasons and from any device. The number before the first hyphen names the survey.") }}</p>
+  {% if error %}<p class="p-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('public.erase', lang=lang) }}" class="p-complaint-form" autocomplete="off" novalidate>{# the server's messages in the page's language, not the browser's (UI/UX audit 2026-10-16, 101) #}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="p-text"><span class="p-complaint-label">{{ ui("Löschcode", "Deletion code") }}</span>
+      <input type="text" name="code" maxlength="40" required autocapitalize="characters" spellcheck="false" class="p-erase-code" dir="ltr">
+      <span class="p-hint">{{ ui("Der Code steht auf der letzten Seite der Befragung und sieht so aus: {example}", "The code is shown on the last page of the survey and looks like this: {example}", example=example) }}</span></label>
+    <p>{{ ui("Das Löschen lässt sich nicht rückgängig machen.", "Deleting cannot be undone.") }}</p>
+    <label class="p-option p-check p-erase-confirm"><input type="checkbox" name="sure" value="1" required> {{ ui("Ja, ich möchte meine Antworten endgültig löschen.", "Yes, I want to delete my answers for good.") }}</label>
+    <p class="p-complaint-actions"><button class="p-button p-button-danger">{{ ui("Antworten zu diesem Code endgültig löschen", "Delete the answers for this code for good") }}</button></p>
+  </form>
+  <p class="p-hint">{{ ui("Ohne Code: Im Browser, in dem Sie teilgenommen haben, geht das bis 15 Minuten danach über „Antworten löschen“ auf der Datenschutzseite der Befragung (Link unten auf jeder ihrer Seiten). Sonst wenden Sie sich an die Forschenden der Befragung.", "Without a code: in the browser in which you took part, this works for up to 15 minutes via “Delete answers” on the privacy page of the survey (link at the bottom of each of its pages). Otherwise contact the researchers of the survey.") }}</p>
+  {% endif %}
+</article>
+{% endblock %}
+{% block footer_links %}<a href="{{ url_for('public.privacy') }}" class="p-footer-legal">{{ ui("Datenschutz & Impressum", "Privacy & legal notice") }}</a>{% endblock %}

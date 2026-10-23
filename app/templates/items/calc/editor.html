@@ -1,0 +1,50 @@
+{# Rechenwert (items/calc.py): a number worked out from earlier answers, put together by picking. #}
+{% set c = item.config %}
+{% set sources = kind.sources(item, lang) %}
+{% set known = sources|map("first")|list %}
+<label><span class="label-title">{{ de_en("Bezeichnung", "Name") }} <span class="hint">{{ de_en("für Listen, Codebuch und „Antwort einfügen“, z. B. „Jahreseinkommen“; Teilnehmende sehen das Element nicht", "for lists, codebook and “Insert answer”, e.g. “Yearly income”; participants do not see the element") }}</span></span>
+  <input name="question" value="{{ item.lang_texts(lang).get('question', '') }}" maxlength="200" placeholder="{{ item.text('question') }}">
+</label>
+<fieldset>
+  <legend>{{ de_en("Rechnung", "Calculation") }} <span class="hint">{{ kind.formula(item, lang) }}</span></legend>
+  {# the first value is an answer, not a question to pick for its own sake (pre-test 2026-10-20, 25) #}
+  <p class="muted small">{{ de_en("Gerechnet wird mit Antworten auf frühere Fragen. Beispiel: Antwort auf „Wie viele Stunden arbeiten Sie pro Woche?“ mal feste Zahl 4 = Stunden pro Monat.", "The calculation uses answers to earlier questions. Example: answer to “How many hours do you work per week?” times fixed number 4 = hours per month.") }}</p>
+  {% if not sources %}
+  <p class="muted small">{{ de_en("Noch gibt es keine Zahl, mit der sich rechnen ließe. Stellen Sie davor eine Frage, deren Antwort eine Zahl ist (Zahlenfeld, Schieberegler oder Bewertung), oder einen anderen Rechenwert.", "There is no number to calculate with yet. Put a question whose answer is a number before it (number field, slider or rating), or another computed value.") }}</p>
+  {% endif %}
+  <div class="row-fields">
+    <label>{{ de_en("Erster Wert: Antwort auf …", "First value: answer to …") }}
+      <select name="calc_a" {% if not structural %}disabled{% endif %}>
+        <option value="">{{ de_en("– Frage oder Rechenwert wählen –", "– choose a question or computed value –") }}</option>
+        {% if c.a and c.a not in known %}<option value="{{ c.a }}" selected>{{ de_en("(Frage nicht mehr vorhanden oder nicht davor)", "(question no longer there or not before it)") }}</option>{% endif %}
+        {% for ref, label in sources %}<option value="{{ ref }}" {% if c.a == ref %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Rechenart", "Operation") }}
+      <select name="calc_op" {% if not structural %}disabled{% endif %}>
+        {% for key, label in kind.ops %}<option value="{{ key }}" {% if c.op == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Zweiter Wert: feste Zahl oder Antwort auf …", "Second value: fixed number or answer to …") }}
+      <select name="calc_b" {% if not structural %}disabled{% endif %}>
+        <option value="">{{ de_en("feste Zahl (Feld rechts)", "fixed number (field on the right)") }}</option>
+        {% if c.b and c.b not in known %}<option value="{{ c.b }}" selected>{{ de_en("(Frage nicht mehr vorhanden oder nicht davor)", "(question no longer there or not before it)") }}</option>{% endif %}
+        {% for ref, label in sources %}<option value="{{ ref }}" {% if c.b == ref %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label data-show-when="calc_b:" {% if c.b %}hidden{% endif %}>{{ de_en("Feste Zahl", "Fixed number") }}
+      <input name="calc_fixed" inputmode="decimal" class="narrow" value="{{ kind.fixed_text(item, lang) }}" placeholder="{{ de_en('z. B. 12', 'e.g. 12') }}" {% if not structural %}readonly{% endif %}>
+    </label>
+  </div>
+  <div class="row-fields">
+    <label>{{ de_en("Nachkommastellen", "Decimal places") }}
+      <select name="calc_places" {% if not structural %}disabled{% endif %}>
+        {% for n in range(0, 5) %}<option value="{{ n }}" {% if (c.places or 0) == n %}selected{% endif %}>{{ n }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Einheit", "Unit") }}
+      <input name="calc_unit" value="{{ c.unit or '' }}" maxlength="30" placeholder="{{ de_en('z. B. €, hinter der Zahl', 'e.g. €, after the number') }}" {% if not structural %}readonly{% endif %}>
+    </label>
+  </div>
+  <p class="muted small">{{ de_en("Der Rechenwert steht in späteren Texten bereit (oben unter „Antworten früherer Fragen“ und mit „Antwort einfügen“), kann die Summe einer Konstantsumme sein und bekommt eine Spalte im Export. Fehlt ein Wert oder würde durch 0 geteilt, ist er leer: Im Text greift dann der Ersatztext. Für längere Rechnungen einen Rechenwert als ersten Wert des nächsten wählen. Die feste Zahl gilt nur, wenn beim zweiten Wert keine Frage gewählt ist.", "The computed value is available in later texts (above under “Answers to earlier questions” and with “Insert answer”), can be the total of a constant sum and gets a column in the export. If a value is missing or it would divide by 0, it is empty: the text then uses the fallback text. For longer calculations, choose a computed value as the first value of the next one. The fixed number only applies when no question is chosen as the second value.") }}</p>
+</fieldset>

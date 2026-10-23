@@ -1,0 +1,28 @@
+{# Drill-down (items/drill_down.py): one drop-down list per level. A list below the first holds all its entries,
+   grouped by the entry above, so the page also works without JavaScript; participant.js ([data-drill]) keeps only
+   the entries below the current choice, locks a list until the one above is chosen and hides a list where the
+   branch above it ends. #}
+{% set raw = answers.get(item.id) %}
+{% set chosen = raw if raw is iterable and raw is not string and raw is not mapping else [] %}
+{# after a failed "Next" only the first list still to choose is marked (X36) #}
+{% set gap = kind.first_open(item, lang, chosen) if errors.get(item.id) or (nudges is defined and (nudges or {}).get(item.id)) else none %}
+<fieldset class="p-fieldset p-select p-drill" data-drill {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %}>
+  {% with tag="legend" %}{% include "items/_question.html" %}{% endwith %}
+  {% for level in kind.levels_for(item, lang, chosen) %}
+  <div class="p-drill-level{{ ' p-missing' if gap == level.index }}" data-drill-level="{{ level.index }}"{% if not level.open %} hidden{% endif %}>
+    <label class="p-drill-name" for="s{{ item.id }}_{{ level.index }}"{{ text_attrs(item, "lists", level.list.id) }}>{{ level.list.label|fill(variables) }}</label>
+    <select id="s{{ item.id }}_{{ level.index }}" name="i{{ item.id }}_{{ level.index }}" autocomplete="off"{% if item.required %} aria-required="true"{% endif %}>
+      <option value="">{{ ui("Bitte auswählen", "Please select") }}</option>
+      {% for parent, entries in level.groups %}
+      {% if parent is none %}
+      {% for e in entries %}<option value="{{ e.id }}"{% if level.chosen == e.id %} selected{% endif %}{{ text_attrs(item, "entries", e.id) }}>{{ e.label|fill(variables)|striptags }}</option>{% endfor %}
+      {% else %}
+      <optgroup label="{{ parent }}" data-parent="{{ entries[0].parent }}"{{ text_attrs(item, "entries", entries[0].parent) }}>
+        {% for e in entries %}<option value="{{ e.id }}"{% if level.chosen == e.id %} selected{% endif %}{{ text_attrs(item, "entries", e.id) }}>{{ e.label|fill(variables)|striptags }}</option>{% endfor %}
+      </optgroup>
+      {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+  {% endfor %}
+</fieldset>

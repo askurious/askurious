@@ -1,0 +1,34 @@
+{% set de = lang in ("de", "de-du") %}
+{% set ans = answers.get(item.id) %}
+{% set start = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% set cats = kind.categories(item, lang) %}
+{% set els = kind.elements(item, lang, start) %}
+{% include "items/_question.html" %}
+<div class="p-assign" data-assign="{{ item.id }}" data-required="{{ 1 if item.required else 0 }}" data-keys="{{ 1 if item.cfg.get('keys', true) else 0 }}"
+     data-cats="{{ cats|map(attribute='code')|list|tojson|forceescape }}" data-labels="{{ cats|map(attribute='label')|list|tojson|forceescape }}">
+  <input type="hidden" name="i{{ item.id }}" value="{{ (ans|tojson|forceescape) if ans else '' }}" data-assign-answer>
+  <script type="application/json" data-assign-elements>{{ els|map(attribute="id")|list|tojson }}</script>
+  {# sides per element (true = categories swapped); the answer records the category code, not the side #}
+  <script type="application/json" data-assign-swap>{{ kind.swapped(item, crowd_seed if crowd_seed is defined else none, els|map(attribute="id")|list)|tojson }}</script>
+  {% for e in els %}<span hidden data-assign-label="{{ e.id }}">{{ e.label|fill(variables) }}</span>{% endfor %}
+  <div class="p-assign-stage" data-assign-stage>
+    {% if ans and ans|length == els|length %}
+    <p class="p-assign-done">✓ {{ ui("Alle Begriffe zugeordnet.", "All terms sorted.") }}
+      <button type="button" class="p-assign-restart" data-assign-restart>{{ ui("Noch einmal", "Start again") }}</button></p>
+    {% else %}
+    <button type="button" class="p-assign-start" data-assign-start>{{ ui("Start", "Start") }}</button>
+    <p class="p-assign-note">{{ (ui("%d Begriffe erscheinen einzeln nacheinander. Ordnen Sie jeden so schnell wie möglich links oder rechts zu.", "%d terms appear one at a time. Sort each one left or right as quickly as you can."))|format(els|length) }}
+      {% if item.required %}{{ ui("Weiter geht es, wenn alle zugeordnet sind.", "You can continue once all are sorted.") }}{% else %}{{ ui("Sie können die Aufgabe auch überspringen.", "You can also skip this task.") }}{% endif %}
+      {% if item.cfg.get("keys", true) %}{{ ui("Am Rechner auch mit den Tasten E (links) und I (rechts).", "On a computer you can also use the keys E (left) and I (right).") }}{% endif %}</p>
+    {% endif %}
+  </div>
+  <div class="p-assign-task" data-assign-task tabindex="-1" hidden>
+    <p class="p-assign-progress" data-assign-progress></p>
+    <p class="p-assign-word" data-assign-word aria-live="assertive"></p>
+    <div class="p-assign-boxes">
+      <button type="button" class="p-assign-box" data-assign-choice="{{ cats[0].code }}" data-assign-side="left">{% if item.cfg.get("keys", true) %}<kbd>E</kbd>{% endif %}<span data-assign-cat-label>{{ cats[0].label }}</span></button>
+      <button type="button" class="p-assign-box" data-assign-choice="{{ cats[1].code }}" data-assign-side="right"><span data-assign-cat-label>{{ cats[1].label }}</span>{% if item.cfg.get("keys", true) %}<kbd>I</kbd>{% endif %}</button>
+    </div>
+  </div>
+  <noscript><p class="p-error">{{ ui("Für diese Aufgabe muss JavaScript aktiviert sein.", "This task needs JavaScript.") }}</p></noscript>
+</div>

@@ -1,0 +1,72 @@
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set c = item.config %}
+{% set current = kind.design_current(item) %}
+<section class="panel" id="design" data-cj-tab="design">
+  <h2>{{ de_en("Versuchsplan", "Experimental design") }} <span class="hint">{{ de_en("D-effizient, wird beim Start eingefroren", "D-efficient, frozen at the start") }}</span></h2>
+  {% if c.attributes %}
+  <div class="figures cj-figures">
+    <div><dt>{{ de_en("Profile", "Profiles") }}</dt><dd>{{ c.tasks * c.alternatives * c.versions }}</dd></div>
+    {% set eff = kind.design_efficiency(item) %}
+    <div title="{{ de_en('0 bis 1, bezogen auf einen idealen Versuchsplan: 1 = beste Information des Logit-Modells (in einer Aufgabe möglichst verschiedene Stufen, Merkmale unabhängig; Huber & Zwerina, 1996); die Stufenhäufigkeit steht daneben', '0 to 1, relative to an ideal experimental design: 1 = best information of the logit model (levels as different as possible within a task, attributes independent; Huber & Zwerina, 1996); the level frequency is shown next to it') }}"><dt>{{ de_en("D-Effizienz", "D-efficiency") }}</dt><dd>{{ (eff|dec(2)) if eff is not none else "–" }}</dd></div>
+    {% set freq = kind.design_frequency(item, lang) %}
+    {% if freq %}{% set worst = freq|sort(attribute="ratio", reverse=true)|first %}
+    <div title="{{ de_en('Wie oft die seltenste und die häufigste Stufe eines Merkmals im ganzen Versuchsplan vorkommen (über alle Versionen); angezeigt das ungleichmäßigste Merkmal.', 'How often the rarest and the most frequent level of an attribute occur in the whole experimental design (across all versions); shown is the most uneven attribute.') }} {% for f in freq %}{{ f.label }}: {{ f.min }}–{{ f.max }}{{ '; ' if not loop.last }}{% endfor %}"><dt>{{ de_en("Stufenhäufigkeit", "Level frequency") }} <span class="hint">min.–max.</span></dt><dd>{{ worst.min }}–{{ worst.max }}</dd></div>
+    {% endif %}
+    {% if kind.prohibitions(item) %}<div><dt>{{ de_en("Verbotene Kombinationen", "Prohibitions") }}</dt><dd>{{ kind.prohibitions(item)|length }}{% if current %} · {{ de_en("verletzt: {n}", "violated: {n}", n=kind.prohibition_count(item)) }}{% endif %}</dd></div>{% endif %}
+    {% set ss = kind.sample_size(item) %}
+    <div title="{{ de_en('Faustregel nach Orme (2010): n ≥ 500 · L / (T · J); empfohlen 1,5 × (Festlegung von Askurious)', 'Rule of thumb after Orme (2010): n ≥ 500 · L / (T · J); recommended 1.5 × (a setting of Askurious)') }}"><dt>{{ de_en("Stichprobe", "Sample") }} <span class="hint">{{ de_en("min. / empf.", "min. / rec.") }}</span></dt>{% if eff == 0 %}<dd>–</dd><dd class="hint fig-note">{{ de_en("erst ein schätzbarer Versuchsplan", "first an estimable experimental design") }}</dd>{% else %}<dd>{{ ss[0] }} / {{ ss[1] }}</dd>{% endif %}</div>
+    {% if kind.uses_images(item) %}
+    {% set n_img = kind.required_keys(item)|length %}
+    <div class="{{ 'fig-ok' if n_img < 12 else 'fig-warn' if n_img <= 500 else 'fig-error' }}" title="{{ de_en('Verschiedene Kombinationen der Bild-Merkmale im Versuchsplan', 'Different combinations of the image attributes in the experimental design') }}"><dt>{{ de_en("Bilder nötig", "Images needed") }}</dt><dd>{{ n_img if current else "–" }}</dd></div>
+    {% endif %}
+  </div>
+  {% set plan_n = survey.max_responses or ss[1] %}
+  {% if plan_n %}
+  {# the same rule solved for the tasks; app.js recomputes the table when the sample changes #}
+  <details class="cj-reverse" data-cj-reverse data-levels="{{ kind.level_counts(item)|max }}" data-targets="500,750" data-max="30" data-long="15">
+    <summary>{{ de_en("Stichprobe steht fest: wie viele Aufgaben?", "Sample size fixed: how many tasks?") }}</summary>
+    <label>{{ de_en("Geplante Stichprobe", "Planned sample") }} <input type="number" min="1" max="100000" class="narrow" value="{{ plan_n }}" data-cj-reverse-n> <span class="hint">{{ de_en("abgeschlossene Teilnahmen", "completed participations") }}{{ de_en(", aus dem Ziel der Befragung", ", from the target of the survey") if survey.max_responses else "" }}</span></label>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th>{{ de_en("Alternativen je Aufgabe", "Alternatives per task") }}</th><th>{{ de_en("Aufgaben mindestens", "Tasks at least") }}</th><th>{{ de_en("Aufgaben empfohlen", "Tasks recommended") }}</th></tr></thead>
+      <tbody>{% for alts, t_min, t_rec in kind.tasks_needed(item, plan_n) %}
+        <tr data-alts="{{ alts }}" {% if alts == c.alternatives %}class="is-current"{% endif %}><td>{{ alts }}{% if alts == c.alternatives %} <span class="hint">{{ de_en("eingestellt, mit {n} Aufgaben", "set, with {n} tasks", n=c.tasks) }}</span>{% endif %}</td>
+          {% for t in (t_min, t_rec) %}<td class="{{ 'cj-over' if t > 30 else 'cj-long' if t > 15 else '' }}">{{ de_en("über 30", "over 30") if t > 30 else t }}</td>{% endfor %}</tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("Faustregel nach Orme (2010, Kap. 7): n · Aufgaben · Alternativen / c ≥ 500, mit c = größte Stufenzahl eines Merkmals (hier {c}). Nach den Aufgaben aufgelöst: Aufgaben ≥ 500 · c / (n · Alternativen). Orme nennt 500 als Untergrenze und rät, wenn möglich, zu 1000; empfohlen ist hier das 1,5-Fache, eine vorsichtige Festlegung von Askurious. „Keine davon“ zählt nicht als Alternative. Üblich sind 8 bis 15 Aufgaben, bis etwa 20 bleiben die Antworten verlässlich (Johnson & Orme, 1996); mehr ermüdet (über 15 farbig markiert), einstellbar sind höchstens 30 Aufgaben und 6 Alternativen. Zeigt die Tabelle „über 30“, reicht die Stichprobe für diesen Versuchsplan nicht: mehr Alternativen, weniger Stufen oder mehr Personen.", "Rule of thumb after Orme (2010, ch. 7): n · tasks · alternatives / c ≥ 500, with c = largest number of levels of an attribute (here {c}). Solved for the tasks: tasks ≥ 500 · c / (n · alternatives). Orme names 500 as the lower bound and advises 1000 where possible; recommended here is 1.5 times that, a cautious setting of Askurious. “None of these” does not count as an alternative. 8 to 15 tasks are usual, up to about 20 the answers stay reliable (Johnson & Orme, 1996); more is tiring (over 15 marked in colour), at most 30 tasks and 6 alternatives can be set. If the table shows “over 30”, the sample is not enough for this experimental design: more alternatives, fewer levels or more people.", c=kind.level_counts(item)|max) }}</p>
+  </details>
+  {% endif %}
+  {# the design hints once, here above "Versuchsplan neu erzeugen"; the holdout box shows only its own (W26) #}
+  {% for w in kind.design_warnings(item) %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ w }}</span></p>{% endfor %}
+  {% if not current %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Noch kein Versuchsplan.", "No experimental design yet.") if not c.design else de_en("Der Versuchsplan passt nicht mehr zu Merkmalen, Stufen oder Aufgaben.", "The experimental design no longer fits the attributes, levels or tasks.") }} {{ de_en("Bitte neu erzeugen.", "Please generate it again.") }}</span></p>{% endif %}
+  {% if structural %}
+  <form method="post" action="{{ url_for('editor.conjoint_design', survey_id=survey.id, item_id=item.id, lang=lang) }}"
+        data-busy="{{ de_en('Wird berechnet …', 'Calculating …') }}">
+    {{ csrf() }}<button class="button">{{ icon("conjoint", 16) }}<span> {{ de_en("Versuchsplan neu erzeugen", "Regenerate experimental design") if c.design else de_en("Versuchsplan erzeugen", "Generate experimental design") }}</span></button>
+  </form>
+  {% endif %}
+  {% if current %}
+  <details class="cj-design-view"><summary>{{ de_en("Versuchsplan ansehen (Version 1)", "View experimental design (version 1)") }}</summary>
+    {% set attrs = kind.attributes(item, lang) %}
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th>{{ de_en("Aufgabe", "Task") }}</th><th>Alt.</th>{% for a in attrs %}<th>{{ a.label }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for task in c.design.versions[0] %}{% set tloop = loop %}{% for prof in task %}
+        <tr><td>{{ tloop.index if loop.first else "" }}</td><td>{{ loop.index }}</td>{% for a in attrs %}<td>{{ a.level_labels[prof[loop.index0]] }}</td>{% endfor %}</tr>
+      {% endfor %}{% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endif %}
+  {% else %}<p class="muted">{{ de_en("Zuerst Merkmale und Stufen anlegen.", "Add attributes and levels first.") }}</p>{% endif %}
+</section>
+{% if c.attributes %}
+{# the images belong to the look of the task: tab "Darstellung & Bilder" #}
+<section class="panel" data-cj-tab="display">
+  <h2>{{ de_en("Bilder", "Images") }}</h2>
+  {% if kind.uses_images(item) %}
+  {% if current %}{% include "items/_attributes/image_buttons.html" %}
+  {% else %}<p class="muted">{{ de_en("Die Bilder folgen aus dem Versuchsplan: zuerst im Reiter „2 · Ablauf“ dieses Elements den Versuchsplan erzeugen.", "The images follow from the experimental design: first generate the experimental design in the tab “2 · Flow” of this element.") }}</p>{% endif %}
+  {% elif kind.level_images_on(item) %}{% include "items/_attributes/image_buttons.html" %}
+  {% else %}<p class="muted">{{ de_en("Anzeige „Tabelle mit Text“: Ohne Bilder.", "Display “Table with text”: no images.") }}</p>{% endif %}
+</section>
+{% endif %}

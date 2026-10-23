@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% set rich_text = true %}{# richtext.js for the formatted texts (base.html) #}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields with context %}
+{% from "_icons.html" import icon %}
+{# Einstellungen of a live vote (app/live/, live concept 6.3): groups that fold and save by
+   themselves, in the order and with the names of the questionnaire's settings (UI audit 2026-10-04, G6). #}
+{% block title %}{{ de_en("Einstellungen", "Settings") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "settings" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set may = survey.can(current_user, "editor") %}
+{% set here = url_for('live.settings', code=survey.code) %}
+<div class="tabpage-grid">
+{% set may_meta = survey.can(current_user, "admin") %}
+<details class="panel settings-group" id="titel" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Live-Abstimmung", "Live poll") }}</h2><span class="settings-sum" data-live="sum-befragung">{% for text, _ in sums["befragung"] %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span></summary>
+  <div class="settings-body">
+  <form method="post" class="stack" data-autosave-form><fieldset class="bare" {% if not may_meta %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="titel">
+    {% if may_meta %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), here ~ "#titel", presence_key=false) }}{% endif %}
+    <label><span class="label-title">{{ de_en("Titel", "Title") }} <span class="hint">{{ de_en("sehen auch die Teilnehmenden", "participants see it too") }}</span></span>
+      <input name="title" required maxlength="300" value="{{ survey.title }}"></label>
+    <label><span class="label-title">{{ de_en("Sprache", "Language") }} <span class="hint">{{ de_en("in der das Publikum abstimmt; die Texte gehen mit", "in which the audience votes; the texts move along") }}</span></span>
+      <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if survey.default_language == code %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    {% if may and not may_meta %}<p class="muted small flush">{{ de_en("Titel und Sprache ändern nur Admins der Abstimmung.", "Only admins of the poll change the title and the language.") }}</p>{% endif %}
+    {% if may_meta %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+
+<details class="panel settings-group" id="members" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Beteiligte Forschende", "Researchers involved") }}</h2><span class="settings-sum" data-live="sum-beteiligte">{% for text, _ in sums["beteiligte"] %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span></summary>
+  <div class="settings-body">
+  {% set members_back = here ~ '#members' %}{% set members_search_url = here %}
+  {% include "surveys/_members.html" %}
+  </div>
+</details>
+
+<details class="panel settings-group" id="teilnahme" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Teilnahme", "Participation") }}</h2></summary>
+  <div class="settings-body">
+  <form method="post" class="stack" data-autosave-form><fieldset class="bare" {% if not may %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="teilnahme">
+    {% if may %}{{ edit_guard_fields(survey, "settings:end_texts", edit_guard.settings_state(survey, "end_texts"), here ~ "#teilnahme", presence_key=false) }}{% endif %}
+    {% set in_blocks = (survey.live or {}).get("flow") == "blocks" %}
+    <fieldset class="bare live-flow">
+      <legend>{{ de_en("Ablauf", "Flow") }}</legend>
+      <label class="check"><input type="radio" name="flow" value="questions" {% if not in_blocks %}checked{% endif %}>
+        {{ de_en("Frage für Frage", "Question by question") }} <span class="hint">{{ de_en("die Handys zeigen die Frage, die auf der Leinwand steht", "the phones show the question that is on the screen") }}</span></label>
+      <label class="check"><input type="radio" name="flow" value="blocks" {% if in_blocks %}checked{% endif %}>
+        {{ de_en("In Blöcken", "In blocks") }} <span class="hint">{{ de_en("Sie starten einen Block, die Teilnehmenden beantworten ihn Seite für Seite (Seitenumbrüche im Block); die Leinwand zeigen Sie unabhängig davon", "you start a block, participants answer it page by page (page breaks in the block); you show the screen independently") }}</span></label>
+      {% if in_blocks and survey.blocks|length > 1 %}<p class="muted small flush">{{ de_en("Zurück zu „Frage für Frage“ legt alle Fragen in einen Block, Seitenumbrüche entfallen.", "Going back to “Question by question” puts all questions in one block; page breaks are dropped.") }}</p>{% endif %}
+    </fieldset>
+    <label class="check"><input type="checkbox" name="results_open" value="1" {% if options.results_open %}checked{% endif %}>
+      {{ de_en("Ergebnisse sofort zeigen", "Show results right away") }} <span class="hint">{{ de_en("die Leinwand zeigt die Antworten, sobald sie eintreffen; ohne Haken stehen sie zuerst hinter dem Geist", "the screen shows the answers as they come in; without the tick they are first hidden behind the ghost") }}</span></label>
+    <p class="muted small flush live-ghost-note">{{ de_en("Tipp: Ein Klick auf den Geist auf der Leinwand blendet die Ergebnisse jederzeit aus und wieder ein (Taste E).", "Tip: a click on the ghost on the screen hides and shows the results at any time (key E).") }}</p>
+    <label class="check"><input type="checkbox" name="instant" value="1" {% if options.instant %}checked{% endif %}>
+      {{ de_en("Antworten mit einem Tippen senden", "Send answers with one tap") }} <span class="hint">{{ de_en("ohne Knopf „Senden“, sobald alle Fragen der Seite gewählt sind; gilt für Auswahl, Skalen und Gegensatzpaare, Seiten mit Texten oder Mehrfachauswahl behalten den Knopf", "without the button “Send”, as soon as every question on the page has its choice; applies to choices, scales and pairs of opposites, pages with texts or multiple choice keep the button") }}</span></label>
+    <label class="check"><input type="checkbox" name="reactions" value="1" {% if options.reactions %}checked{% endif %}>
+      {{ de_en("Reaktionen erlauben", "Allow reactions") }} <span class="hint">{{ de_en("die Handys schicken Emojis, die kurz über die Leinwand schweben; je Folie gezählt für die Ansicht zum Vortragen und den Rückblick", "the phones send emojis that float briefly across the screen; counted per slide for the presenter view and the review") }}</span></label>
+    <fieldset class="live-emojis">
+      <legend>{{ de_en("Erlaubte Reaktionen", "Allowed reactions") }} <span class="hint">{{ de_en("die Handys bieten die angekreuzten an, auch kritische wie „langsamer“", "the phones offer the ticked ones, critical ones like “slower” too") }}</span></legend>
+      <input type="hidden" name="emojis_shown" value="1">
+      {% for e, name in emoji_choices.items() %}
+      <label class="live-emoji" title="{{ name }}"><input type="checkbox" name="emoji" value="{{ e }}" {% if e in emojis %}checked{% endif %}>
+        <span class="live-emoji-face" aria-hidden="true">{{ e }}</span><span class="live-emoji-name">{{ name }}</span></label>
+      {% endfor %}
+    </fieldset>
+    <label class="check"><input type="checkbox" name="qa" value="1" {% if options.qa %}checked{% endif %}>
+      {{ de_en("Fragen aus dem Publikum zulassen (Q&A)", "Allow questions from the audience (Q&A)") }} <span class="hint">{{ de_en("die Handys bekommen „Frage stellen“ und können Fragen anderer hochstimmen; Sie zeigen sie auf der Leinwand", "the phones get “Ask” and can vote up other people's questions; you show them on the screen") }}</span></label>
+    <input type="hidden" name="slides_shown" value="1">
+    <label class="check"><input type="checkbox" name="slide_phone" value="1" {% if options.slide_phone %}checked{% endif %}>
+      {{ de_en("Präsentationsfolien auch auf den Handys zeigen", "Show presentation slides on the phones too") }} <span class="hint">{{ de_en("hilft in großen Sälen; die Folien sind dann bei allen im Publikum, denken Sie an Abbildungen Dritter und Vertrauliches", "helps in large halls; the slides then reach everyone in the audience, mind third-party pictures and anything confidential") }}</span></label>
+    <label class="check"><input type="checkbox" name="premod" value="1" {% if options.premod %}checked{% endif %}>
+      {{ de_en("Kurze Texte und Fragen erst nach Freigabe zeigen", "Show short texts and questions only after approval") }} <span class="hint">{{ de_en("Wortwolke, Pinnwand und Q&A zeigen nur, was Sie unter „Präsentieren“ freigeben", "word cloud, wall and Q&A show only what you approve under “Present”") }}</span></label>
+    <label class="check"><input type="checkbox" name="filter" value="1" {% if options.filter %}checked{% endif %}>
+      {{ de_en("Kurze Texte mit Schimpfwörtern ausblenden", "Hide short texts with swear words") }} <span class="hint">{{ de_en("bleiben unter Moderation sichtbar und lassen sich dort zeigen", "they stay visible under moderation and can be shown there") }}</span></label>
+    <label><span class="label-title">{{ de_en("Teams für das Quiz", "Teams for the quiz") }} <span class="hint">{{ de_en("eines je Zeile; die Teilnehmenden wählen ihres beim Spitznamen, die Rangliste zeigt dann auch die Teams (Mittelwert der Punkte); leer: ohne Teams", "one per line; participants choose theirs with the nickname, the leaderboard then shows the teams too (mean of the points); empty: no teams") }}</span></span>
+      <textarea name="teams" rows="3" maxlength="900" placeholder="{{ de_en('z. B.', 'e.g.') }}&#10;{{ de_en('Reihe', 'Rows') }} 1–5&#10;{{ de_en('Reihe', 'Rows') }} 6–10">{{ teams }}</textarea></label>
+    <label><span class="label-title">{{ de_en("Kontakt für die Datenschutzseite", "Contact for the privacy page") }} <span class="hint">{{ de_en("die Teilnehmenden finden sie unter „Datenschutz & Impressum“; leer: die E-Mail Ihres Kontos, falls vorhanden", "participants find it under “Privacy & imprint”; empty: the email of your account, if any") }}</span></span>
+      <input type="email" name="contact_email" maxlength="254" value="{{ contact }}" placeholder="{{ de_en('name@hochschule.de', 'name@university.edu') }}"{% if not survey.can(current_user, "admin") %} disabled{% endif %}></label>
+    {% from "surveys/_end_text.html" import end_text_field %}
+    {{ end_text_field("end_text", de_en("Text der Endseite", "Text of the end page"), de_en("nach der letzten Frage", "after the last question"), live_thanks, end_text, survey.can(current_user, "admin")) }}
+    {% if may and not survey.can(current_user, "admin") %}<p class="muted small flush">{{ de_en("Kontakt und Text der Endseite ändern nur Admins der Abstimmung.", "Only admins of the poll change the contact and the text of the end page.") }}</p>{% endif %}
+    <p class="muted small flush">{{ de_en("Die Abstimmung ist anonym: keine Einwilligung, sondern ein kurzer Hinweis für die Teilnehmenden. Ergebnisse erscheinen ab der ersten Antwort.", "The poll is anonymous: no consent, but a short note for the participants. Results appear from the first answer on.") }}</p>
+    {% if may %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+
+<details class="panel settings-group" id="datenschutz" data-settings-group open>
+  {# the retention of what the live vote collects; it counts from the last activity, as a live vote is never closed
+     (app/retention.py, ended; concept "Befragungstypen im Vergleich" 2026-10-17, T14) #}
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Datenschutz und Aufbewahrung", "Data protection and retention") }}</h2><span class="settings-sum">{{ retention_label }}</span></summary>
+  <div class="settings-body">
+  <form method="post" class="stack" data-autosave-form><fieldset class="bare" {% if not survey.can(current_user, "admin") %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="datenschutz"><input type="hidden" name="retention_shown" value="1">
+    {% if survey.can(current_user, "admin") %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), here ~ "#datenschutz", presence_key=false) }}{% endif %}
+    <input type="hidden" name="retention_personal" value="{{ periods.personal or '' }}">
+    <label>{{ de_en("Alle Teilnahmen löschen", "Delete all participations") }}
+      <select name="retention_answers" class="fit">
+        {% for months, label in retention_choices %}<option value="{{ months or "" }}" {% if months == periods.answers %}selected{% endif %}>{{ label }}{% if months %} {{ de_en("nach der letzten Teilnahme", "after the last participation") }}{% endif %}</option>{% endfor %}
+      </select>
+      <span class="hint">{{ de_en("alle Antworten aller Durchgänge, die Fragen aus dem Publikum und die Reaktionen; die Folien bleiben. Eine Live-Abstimmung wird nie geschlossen, deshalb zählt die Frist ab der letzten Teilnahme und beginnt mit jeder neuen von vorn. Bitte die Daten vorher exportieren.", "all answers of all runs, the questions from the audience and the reactions; the slides remain. A live poll is never closed, so the period counts from the last participation and starts again with every new one. Please export the data beforehand.") }}</span></label>
+    {% if retention_due %}<p class="muted small flush">{{ de_en("Ohne neue Teilnahme gelöscht am {d}.", "Without a new participation deleted on {d}.", d=retention_due|localdate) }}</p>{% endif %}
+    {% if survey.can(current_user, "admin") %}{{ autosave_bar() }}{% else %}<p class="muted small flush">{{ de_en("Ändern können das die Admins der Live-Abstimmung.", "The admins of the live poll can change this.") }}</p>{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+
+<details class="panel settings-group" id="aussehen" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Erscheinungsbild", "Appearance") }}</h2><span class="settings-sum" data-live="sum-gestaltung">{% for text, _ in sums["gestaltung"] %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span></summary>{# as the group of a questionnaire (UI/UX audit 2026-10-16) #}
+  <div class="settings-body">
+  <form method="post" class="stack" data-autosave-form><fieldset class="bare" {% if not may %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="aussehen">
+    {% if may %}{{ edit_guard_fields(survey, "settings:theme", edit_guard.settings_state(survey, "theme"), here ~ "#aussehen", presence_key=false) }}{% endif %}
+    {% set look = themes.of(survey) %}{% set own_designs = designs_for(current_user) %}
+    {% include "surveys/_fields_theme_choice.html" %}
+    {% if may %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+</div>
+{% endblock %}

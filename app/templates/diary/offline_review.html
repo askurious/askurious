@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ de_en("Offline-Antworten prüfen", "Review offline answers") }}</h1>
+<p>{{ de_en("Diese Antworten sind erhalten, zählen aber nicht als abgeschlossen und gehen nicht in die regulären Exporte und Auswertungen ein. Korrigieren Sie Werte nur anhand einer nachvollziehbaren Klärung; das Original bleibt erhalten.", "These answers are retained but do not count as completed and are excluded from regular exports and analyses. Correct values only following a documented clarification; the original is retained.") }}</p>
+{% macro pager() %}{% if pages > 1 %}
+<nav class="pager" aria-label="{{ de_en('Seiten', 'Pages') }}">
+  <span class="muted small">{{ de_en("{n} Antworten zur Prüfung · Seite {page} von {pages}", "{n} answers to review · page {page} of {pages}", n=total, page=page_no, pages=pages) }}</span>
+  <span class="pager-links">
+    {% if page_no > 1 %}<a class="pager-link" href="{{ url_for('diary.offline_review', survey_id=survey.id, page=page_no - 1) }}" rel="prev">{{ de_en("Zurück", "Previous") }}</a>{% else %}<span class="pager-link is-off">{{ de_en("Zurück", "Previous") }}</span>{% endif %}
+    {% if page_no < pages %}<a class="pager-link" href="{{ url_for('diary.offline_review', survey_id=survey.id, page=page_no + 1) }}" rel="next">{{ de_en("Weiter", "Next") }}</a>{% else %}<span class="pager-link is-off">{{ de_en("Weiter", "Next") }}</span>{% endif %}
+  </span>
+</nav>{% endif %}{% endmacro %}
+{{ pager() }}
+{% for row in rows %}{% set review = row.occasion.review %}
+<section class="panel stack">
+  <h2>{{ row.pid }} · {{ part_label(row.part or (row.occasion or {}).get('part', 'entry'), survey) }} · {{ de_en("Fassung {n}", "Version {n}", n=row.qversion) }}</h2>
+  <p>{{ de_en("Ein Wert ist ungültig oder fehlt.", "A value is invalid or missing.") if review.reason == 'invalid' else de_en("Die Fassung passt nicht zum aktuellen Fragebogen.", "The version does not fit the current questionnaire.") }}</p>
+  {% if row.id in unpageable %}<p class="hint">{{ de_en("Diese Antwort kam ohne gespeicherten Seitenstand (ältere App), und der Fragebogen hat sich seither geändert. Sie lässt sich daher nicht übernehmen; das Original bleibt zur Prüfung erhalten.", "This answer arrived without a kept page (older app), and the questionnaire has changed since. It therefore cannot be accepted; the original is retained for review.") }}</p>
+  {% elif not review.page %}<p class="hint">{{ de_en("Ohne gespeicherten Seitenstand (ältere App) gesendet; geprüft wird gegen den unveränderten aktuellen Fragebogen.", "Sent without a kept page (older app); it is checked against the unchanged current questionnaire.") }}</p>{% endif %}
+  {% for field, error in review.errors.items() %}<p>{{ labels[row.id].get('i' ~ field, de_en('Eingabe', 'Input')) }}: {{ error }}</p>{% endfor %}
+  <div class="review-comparison">
+    <section><h3>{{ de_en("Unverändertes Original", "Unchanged original") }}</h3>
+      <p>{{ de_en("Empfangen am", "Received on") }} {{ row.received_at|localdt }} · {{ de_en("Sprache", "Language") }}: {{ row.language }}</p>
+      {% for definition in definitions[row.id] %}
+      <h4>{{ definition.code }} · {{ definition.question }}</h4>
+      {% if definition.bounds %}<p>{{ de_en("Zulässiger Zahlenbereich: {min} bis {max}", "Allowed numeric range: {min} to {max}", min=definition.bounds[0], max=definition.bounds[1]) }}</p>{% endif %}
+      {% if definition.scale_labels %}<ul>{% for value, label in definition.scale_labels %}<li><code>{{ value }}</code> = {{ label }}</li>{% endfor %}</ul>{% endif %}
+      <ul>{% for option in definition.options %}<li>{{ option.label }} · {{ de_en("Eingabewert", "Input value") }}: <code>{{ option.id }}</code> · {{ de_en("Exportcode", "Export code") }}: <code>{{ option.code }}</code></li>{% endfor %}</ul>
+      <details><summary>{{ de_en("Ursprüngliches Antwortformat", "Original answer format") }} · {{ definition.type }}</summary><pre class="env-lines">{{ definition.shape|tojson(indent=2) }}</pre></details>
+      <details><summary>{{ de_en("Aktuell erwartetes Antwortformat", "Currently expected answer format") }}</summary>
+        <p>{{ definition.current_question or de_en("Frage entfernt", "Question removed") }}</p><pre class="env-lines">{{ definition.current_shape|tojson(indent=2) }}</pre>
+      </details>
+      {% endfor %}
+      {% for key, values in review.form.items() %}<p><strong>{{ labels[row.id].get(key, key) }}</strong> <code>{{ key }}</code></p><pre class="env-lines">{{ values|tojson(indent=2) }}</pre>{% endfor %}
+    </section>
+  <form method="post" class="stack">
+    <h3>{{ de_en("Vorgeschlagene Korrektur", "Proposed correction") }}</h3>
+    <p class="hint">{{ de_en("Eingabewerte anhand der ursprünglichen Frage und Auswahl prüfen. Die Formatprüfung ändert und übernimmt noch keine Daten. Bei inkompatiblen Fassungen bleibt die Antwort zur Prüfung erhalten.", "Check input values against the original question and options. Checking the format does not change or accept data. Incompatible versions remain available for review.") }}</p>
+    {% for field, error in validation_errors.get(row.id, {}).items() %}<p class="flash flash-error">{{ labels[row.id].get('i' ~ field, field) }}: {{ error }}</p>{% endfor %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="response" value="{{ row.id }}">
+    {% for key, values in fields[row.id].items() if key.startswith('i') %}
+      {% for value in values if values is sequence and values is not string %}
+        <label>{{ labels[row.id].get(key, de_en('Eingabe', 'Input')) }}<textarea name="{{ key }}" maxlength="20000">{{ value }}</textarea></label>
+      {% else %}<label>{{ labels[row.id].get(key, de_en('Eingabe', 'Input')) }}<textarea name="{{ key }}" maxlength="20000">{{ values }}</textarea></label>{% endfor %}
+    {% endfor %}
+    <label>{{ de_en("Dokumentation der Klärung", "Clarification record") }}<textarea name="clarification" maxlength="2000">{{ request.form.get('clarification', '') if request.form.get('response')|int == row.id else '' }}</textarea></label>
+    <button class="button button-secondary" type="submit" name="action" value="check">{{ de_en("Werte prüfen", "Check values") }}</button>
+    <button class="button" type="submit" name="action" value="accept">{{ de_en("Geprüfte Werte übernehmen", "Accept reviewed values") }}</button>
+  </form>
+  </div>
+</section>
+{% else %}<p>{{ de_en("Keine Antworten zur Prüfung.", "No answers to review.") }}</p>{% endfor %}
+{{ pager() }}
+<p><a href="{{ url_for('diary.schedule', survey_id=survey.id) }}">{{ de_en("Zum Zeitplan", "To the schedule") }}</a></p>
+{% endblock %}

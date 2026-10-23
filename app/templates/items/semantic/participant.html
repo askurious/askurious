@@ -1,0 +1,21 @@
+{% set points = item.cfg.points %}
+{% set ans = answers.get(item.id) or {} %}
+{% include "items/_question.html" %}
+<div class="p-sd" style="--points: {{ points }}">
+  {% for pr in kind.pairs(item, lang, (stmt_orders or {}).get(item.id) if stmt_orders is defined else none, none if all_rows is defined and all_rows else answers) %}
+  <fieldset class="p-sd-row{% if (errors.get(item.id) or (nudges is defined and (nudges or {}).get(item.id))) and ans.get(pr.id) is none %} p-missing{% endif %}">
+    <legend class="p-sr-only">{{ pr.left|fill(variables) }} – {{ pr.right|fill(variables) }}</legend>
+    <span class="p-sd-left" aria-hidden="true"{{ text_attrs(item, "pairs", pr.id) }}>{{ pr.left|fill(variables) }}</span>
+    <div class="p-sd-scale">
+      {% for v in range(1, points + 1) %}
+      <label class="p-sd-point">
+        <input type="radio" name="i{{ item.id }}_{{ pr.id }}" value="{{ v }}" {% if ans.get(pr.id) == v %}checked{% endif %}
+               aria-label="{{ v }} {{ ui('von', 'of') }} {{ points }} ({{ pr.left|fill(variables)|striptags }} {{ ui('bis', 'to') }} {{ pr.right|fill(variables)|striptags }})">
+        {% if item.cfg.numbers %}<span class="p-sd-num">{{ v }}</span>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    <span class="p-sd-right" aria-hidden="true"{{ text_attrs(item, "pairs", pr.id) }}>{{ pr.right|fill(variables) }}</span>
+  </fieldset>
+  {% endfor %}
+</div>

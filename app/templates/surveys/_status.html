@@ -1,0 +1,294 @@
+{# Status block: start, pause, close, reopen, archive, sample target. Needs: survey, default_end, today,
+   start_errors (pre-launch check errors that stop the start of a draft). #}
+{% from "_learn.html" import why %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set is_admin = survey.role_of(current_user) == "admin" %}
+{# start, pause, resume, close and a new version: "Bearbeiten" too; archiving stays with the admins (Ralf, 2026-10-06) #}
+{% set may_run = survey.role_of(current_user) in ("editor", "admin") %}
+{# the data collection against the power analysis of the study plan (PA4): beside the target and the end of the
+   survey, not under the timeline of real participations, whose count is another one (UI/UX audit 2026-10-07, W15);
+   fetched after the page, it reads the data pool and the quality assurance #}
+{# the line of the sample model beside the end (S3): the same numbers as the study plan and the calculator #}
+{% from "_sample.html" import sample_line %}
+{% set sm = sample_model.of(survey) %}
+{% macro model_line() %}{% if sm and sm.basis != "end" %}<p class="small sample-model">{{ sample_line(sm, lead=sample_model.lead_text(sm), basis=true) }}</p>{% endif %}{% endmacro %}
+{% from "_macros.html" import computing %}
+{% macro power_progress() %}{{ model_line() }}{% if study_plan.power_summary(survey) %}{{ computing(de_en("Stand gegen die Poweranalyse wird berechnet …", "Progress against the power analysis is being computed …"), cls="power-progress", attrs=(' data-power-progress="' ~ url_for('study_plan.progress_part', survey_id=survey.id) ~ '"')|safe) }}{% endif %}{% endmacro %}
+{# Status and timeline in one block (Ralf, 2026-10-11): the key figures once at the top (state, since when, until
+   when, completed against the target, pace, time), then the chart, then what is going on right now, then the
+   buttons. The planned end and the days in the field stand only in the figures, no longer in the timeline too. #}
+{% set reasons = {"paused": de_en("pausiert", "paused"), "manual": de_en("manuell", "manually"), "time": de_en("Feldphase abgelaufen", "fieldwork over"), "sample": de_en("Stichprobe erreicht", "sample reached"), "quota": de_en("Quoten erfüllt", "quotas met")} %}
+{% macro figures() %}
+{% set days %}{{ (tl.running_days)|fixed(0) if tl.running_days >= 1 else "< 1" }} {{ de_en("Tag im Feld", "day in the field") if tl.running_days < 1.5 else de_en("Tage im Feld", "days in the field") }}{% endset %}
+<div class="stat-line status-figures">
+  {% if survey.status == "running" %}
+  <span><strong>{{ de_en("Läuft", "Running") }}</strong> {{ de_en("seit {d}", "since {d}", d=survey.opened_at|localdt) }} ({{ days }})</span>
+  {% elif survey.close_reason == "paused" %}
+  <span><strong>{{ de_en("Pausiert", "Paused") }}</strong> {{ de_en("seit {d}", "since {d}", d=survey.closed_at|localdt) }} ({{ days }})</span>
+  {% else %}
+  <span><strong>{{ de_en("Geschlossen", "Closed") }}</strong> {{ de_en("am {d}", "on {d}", d=survey.closed_at|localdt) }}{% if reasons.get(survey.close_reason) %} ({{ reasons[survey.close_reason] }}){% endif %}, {{ days }}</span>
+  {% endif %}
+  {% if survey.field_end and (survey.status == "running" or survey.close_reason == "paused") %}<span>{{ de_en("Feldende am {d}", "end of fieldwork on {d}", d=survey.field_end|endday) }}</span>{% endif %}
+  <span title="{{ de_en('Gezählt werden echte Teilnahmen, keine Testdurchläufe oder Dummy-Daten', 'Real participations are counted, no test runs or dummy data') }}"><strong>{{ tl.completed|thousands }}</strong>{% if survey.max_responses %} {{ de_en("von {n}", "of {n}", n=survey.max_responses|thousands) }}{% endif %} {% if tl.entries is not none %}{{ de_en("Personen mit abgeschlossener Eingangsbefragung", "people who completed the entry survey") }}</span>
+  <span title="{{ de_en('Beantwortete Kurzbefragungen aller echten Personen', 'Answered short surveys of all real people') }}"><strong>{{ tl.entries|thousands }}</strong> {{ de_en("Einträge", "entries") }}{% else %}{{ de_en("abgeschlossen", "completed") }}{% endif %}</span>
+  {% if tl.per_day is not none %}<span><strong>{{ (tl.per_day)|dec(1) }}</strong> {{ de_en("pro Feldtag", "per day in the field") }}</span>{% endif %}
+  {# the duration written as on dashboards and the page "Qualitätssicherung" (3:09 Min., V73) #}
+  <span>{% if tl.median_minutes is not none %}<strong>{{ duration_short(tl.median_minutes * 60) }}</strong> {{ de_en("Bearbeitungszeit (Median),", "completion time (median),") }} {% endif %}<span title="{{ de_en('Schätzung aus Lesezeit und typischer Antwortzeit (Fragebogen)', 'Estimate from reading time and typical answer time (questionnaire)') }}">{{ de_en("geschätzt", "estimated") }} {{ duration_label_html(estimate_duration(survey)) }}</span></span>
+</div>
+{% endmacro %}
+<details class="panel settings-group" id="status" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{% if survey.has_run %}{{ de_en("Status der Befragung", "Status of the survey") }}{% else %}{{ de_en("Start der Befragung", "Start of the survey") }}{% endif %}</h2><span class="settings-sum">{% if survey.status == "draft" %}{{ de_en("Entwurf", "draft") }}{% elif survey.status == "running" %}{{ de_en("läuft", "running") }}{% elif survey.close_reason == "paused" %}{{ de_en("pausiert", "paused") }}{% else %}{{ de_en("geschlossen", "closed") }}{% endif %}{% if survey.status != "draft" %} · {{ de_en("{n} abgeschlossen", "{n} completed", n=tl.completed|thousands) }}{% endif %}{% if (survey.qversion or 1) > 1 %} · {{ de_en("Fragebogen-Fassung {v}", "Questionnaire revision {v}", v=survey.qversion) }}{% endif %}</span></summary>
+  <div class="settings-body">
+  {% if survey.status == "draft" %}
+    <p>{{ de_en("Entwurf: Inhalt und Ablauf können bearbeitet werden.", "Draft: content and flow can be edited.") }}
+      <span title="{{ de_en('Schätzung aus Lesezeit und typischer Antwortzeit (Fragebogen)', 'Estimate from reading time and typical answer time (questionnaire)') }}">{{ de_en("Geschätzte Bearbeitungszeit:", "Estimated completion time:") }} {{ duration_label_html(estimate_duration(survey)) }}</span></p>
+    {% if not may_run %}{{ power_progress() }}{% endif %}
+  {% else %}
+    {{ figures() }}
+    {% if survey.close_reason == "paused" and survey.field_end %}<p class="muted small">{{ de_en("Nach dem Feldende gilt sie als geschlossen; dann beginnen die Aufbewahrungsfristen.", "After the end of fieldwork it counts as closed; then the retention periods begin.") }}</p>{% endif %}
+    {{ power_progress() }}
+    {% include "surveys/_timeline.html" %}
+    {% if survey.status == "running" %}
+    {# who is in the survey right now: one dot per participant, by progress; the colour fades with inactivity #}
+    <h3 class="status-sub">{{ de_en("Gerade in der Befragung", "In the survey right now") }}</h3>
+    <div class="live-strip" data-live-strip data-url="{{ url_for('surveys.field_live', survey_id=survey.id) }}" aria-label="{{ de_en('Wer gerade in der Befragung ist', 'Who is in the survey right now') }}">
+      <svg viewBox="0 0 1000 124" role="img" aria-hidden="true"></svg>
+      <p class="muted small live-legend">
+        {# the same opacities as in the drawing: just now, 3, 6 and 9 minutes without a new page #}
+        {% for age, text in ((0, de_en("gerade eben", "just now")), (180, de_en("vor 3 Min.", "3 min ago")), (360, de_en("vor 6 Min.", "6 min ago")), (540, de_en("vor 9 Min.", "9 min ago"))) %}
+        <span class="live-key"><span class="live-key-dot" style="opacity: {{ (0.08 + 0.92 * (1 - age / 600))|fixed(2) }}"></span>{{ text }}</span>
+        {% endfor %}
+        <span class="live-key-note">{{ de_en("zuletzt eine Seite abgeschickt · nach 10 Min. ausgeblendet", "last sent a page · hidden after 10 min") }}</span></p>
+    </div>
+    <p class="muted small">{{ de_en("Nur Textkorrekturen sind möglich, keine Änderungen am Ablauf.", "Only text corrections are possible, no changes to the flow.") }}
+      <a href="{{ url_for('surveys.data', survey_id=survey.id) }}#prereg">{{ de_en("Präregistrierung", "Pre-registration") }}</a> {{ de_en("beim Start festgehalten.", "recorded at the start.") }}</p>
+    {% endif %}
+  {% endif %}
+  {# a planned start ("Start planen", lifecycle.start_due_surveys): for everyone who sees the page; whoever may start
+     may take it back #}
+  {% if survey.start_at and survey.status != "running" %}
+  {% set pe = plan_end if plan_end is defined and plan_end else (none, none) %}
+  <div class="start-planned" id="start-planned">
+    <p>{{ icon("clock", 16) }} <strong>{{ de_en("Start geplant: {d}", "Start scheduled: {d}", d=survey.start_at|localdt) if survey.status == "draft" else de_en("Fortsetzung geplant: {d}", "Resumption scheduled: {d}", d=survey.start_at|localdt) }}</strong>
+      {% if pe[0] %}· {{ de_en("Feldende am {d}", "end of fieldwork on {d}", d=pe[0]|endday) }}{% endif %}
+      {% if pe[1] %}· {{ de_en("nach {n} abgeschlossenen Teilnahmen", "after {n} completed participations", n=pe[1]|thousands) }}{% endif %}
+      <span class="hint">{{ de_en("Die Befragung startet dann von selbst, mit denselben Prüfungen wie beim Knopf. Bis dahin zeigt der Teilnahmelink nur, wann sie beginnt.", "The survey then starts automatically, with the same checks as the button. Until then the participation link only shows when it begins.") }}</span></p>
+    {% if may_run %}<form method="post" action="{{ url_for('surveys.cancel_start', survey_id=survey.id) }}" class="inline">
+      {{ csrf() }}<button class="button button-secondary">{{ icon("x", 16) }} {{ de_en("Geplanten Start aufheben", "Cancel scheduled start") }}</button>
+    </form>{% endif %}
+  </div>
+  {% endif %}
+  {% if start_failure is defined and start_failure %}
+  {# a planned start whose checks failed at its moment: the survey stayed as it was; the note stays until someone
+     starts, schedules again or removes it #}
+  <div class="flash flash-warning start-failed" id="start-failed">{{ icon("alert", 16) }}
+    <div>
+      <p><strong>{{ de_en("Der geplante Start am {d} wurde nicht ausgeführt.", "The scheduled start on {d} was not carried out.", d=start_failure.planned|localdt) if start_failure.planned else de_en("Der geplante Start wurde nicht ausgeführt.", "The scheduled start was not carried out.") }}</strong>
+        {{ start_failure.failed }}</p>
+      {% if may_run %}<form method="post" action="{{ url_for('surveys.cancel_start', survey_id=survey.id) }}" class="inline">
+        {{ csrf() }}<button class="button button-secondary">{{ de_en("Hinweis entfernen", "Remove note") }}</button>
+      </form>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% if outside is defined and outside and survey.status != "draft" %}
+  {# external sections of the flow (app/external.py): who left for the web app and is not back #}
+  <p data-live-outside>{{ de_en("Gerade außerhalb, in einem externen Abschnitt:", "Outside right now, in an external section:") }} <strong data-outside-now>{{ outside.now }}</strong>
+    <span class="hint">{{ de_en("in den letzten {n} Minuten weitergeleitet und noch nicht zurück", "redirected in the last {n} minutes and not back yet", n=outside.minutes) }}</span>
+    · {{ de_en("länger nicht zurückgekehrt:", "not back for longer:") }} <strong data-outside-gone>{{ outside.gone }}</strong>
+    <span class="hint">{{ de_en("diese Teilnahmen bleiben „begonnen“", "these participations stay “started”") }}</span></p>
+  {% endif %}
+
+  {% if not may_run %}
+  {% elif survey.status == "running" %}
+    {# by consequence (Ralf, 2026-10-05): pausing can be undone, so no question; closing asks, naming what follows #}
+    <div class="button-row">
+      <form method="post" action="{{ url_for('surveys.close', survey_id=survey.id) }}" class="inline">
+        {{ csrf() }}<input type="hidden" name="pause" value="1"><button class="button button-secondary">{{ icon("pause", 16) }} {{ de_en("Pausieren", "Pause") }}</button>
+      </form>
+      <form method="post" action="{{ url_for('surveys.close', survey_id=survey.id) }}" class="inline"
+            data-confirm="{{ de_en('„{t}“ schließen?', 'Close “{t}”?', t=survey.title) }}" data-confirm-note="{{ de_en('Die Feldphase endet: Niemand kann mehr neu beginnen, begonnene Teilnahmen dürfen zu Ende geführt werden. Ab dann laufen die Aufbewahrungsfristen. Unter „Datenerhebung fortsetzen“ lässt sie sich wieder öffnen.', 'Fieldwork ends: nobody can begin anew, started participations may be finished. From then on the retention periods run. Under “Resume data collection” it can be opened again.') }}"
+            data-confirm-ok="{{ de_en('Schließen', 'Close') }}">
+        {# reversible ("Datenerhebung fortsetzen"): asked, but not red like what cannot be undone (UI/UX audit 2026-10-16, 4) #}
+        {{ csrf() }}<button class="button button-secondary">{{ de_en("Schließen …", "Close …") }}</button>
+      </form>
+    </div>
+    <p class="muted small"><strong>{{ de_en("Pausieren", "Pause") }}</strong>: {{ de_en("kurz unterbrechen.", "interrupt briefly.") }} <strong>{{ de_en("Schließen", "Close") }}</strong>: {{ de_en("die Feldphase beenden.", "end fieldwork.") }}
+      {{ de_en("In beiden Fällen kann niemand mehr neu beginnen; begonnene Teilnahmen dürfen zu Ende geführt werden.", "In both cases nobody can begin anew; started participations may be finished.") }}
+      {{ de_en("Beides lässt sich später unter „Datenerhebung fortsetzen“ wieder öffnen.", "Both can be opened again later under “Resume data collection”.") }}</p>
+  {% else %}
+    {% set blocked = start_errors is defined and start_errors %}
+    {% if survey.status == "draft" %}
+      {% if blocked %}
+      <div class="flash flash-error start-check" id="start-check">{{ icon("alert", 16) }}
+        <div>
+          <p><strong>{{ de_en("Noch nicht startklar:", "Not ready to start yet:") }}</strong> {% if start_errors|length == 1 %}{{ de_en("{n} Fehler in der Startprüfung muss vor dem Start behoben sein.", "{n} error in the pre-launch check must be fixed before the start.", n=start_errors|length) }}{% else %}{{ de_en("{n} Fehler in der Startprüfung müssen vor dem Start behoben sein.", "{n} errors in the pre-launch check must be fixed before the start.", n=start_errors|length) }}{% endif %}</p>
+          <ul>
+            {% for f in start_errors[:5] %}
+            <li>{% if f.link %}<a href="{{ url_for(f.link, survey_id=survey.id, _anchor=f.anchor) }}">{{ f.message }}</a>{% elif f.item_id %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=f.item_id) }}">{{ f.message }}</a>{% else %}{{ f.message }}{% endif %}</li>
+            {% endfor %}
+            {% if start_errors|length > 5 %}<li>{{ de_en("und {n} weitere", "and {n} more", n=start_errors|length - 5) }}</li>{% endif %}
+          </ul>
+          <p><a href="{{ url_for('editor.index', survey_id=survey.id) }}">{{ de_en("Zum Fragebogen mit der Startprüfung", "To the questionnaire with the pre-launch check") }}</a></p>
+        </div>
+      </div>
+      {% else %}
+      <p class="ok start-check" id="start-check">{{ icon("check", 16) }} {{ de_en("Startklar: Die Startprüfung meldet keine Fehler.", "Ready to start: the pre-launch check reports no errors.") }}</p>
+      {% endif %}
+      {# what else belongs before the start (UI audit 2026-10-04, G2): only the pre-launch check above stops it #}
+      {% set warns = start_warnings if start_warnings is defined else [] %}
+      {% set checks = learning.method_checks(survey, by_source.test if by_source is defined else 0, open_comments if open_comments is defined else 0) %}
+      {% set pc = survey.consent_item.kind.pool_copy(survey.consent_item) if survey.consent_item else none %}
+      {% set no_target = survey.quotas and survey.quotas|selectattr("cells")|list|length != survey.quotas|length %}
+      {# how far the list is (UI/UX audit 2026-10-07, W8) #}
+      {% set total = 1 + checks|length + (1 if pc else 0) + (1 if survey.quotas else 0) %}
+      {% set done = (0 if warns or blocked else 1) + checks|selectattr(0)|list|length + (1 if pc else 0) + (1 if survey.quotas and not no_target else 0) %}
+      <p class="small start-progress">{{ de_en("{d} von {n} Punkten erledigt", "{d} of {n} points done", d=done, n=total) }}</p>
+      <ul class="plain start-list">
+        <li class="{{ 'is-ok' if not warns and not blocked else 'is-open' }}{{ ' is-error' if blocked }}">{{ icon("x" if blocked else ("check" if not warns else "alert"), 16) }}
+          {% if blocked %}<a href="#start-check">{% if start_errors|length == 1 %}{{ de_en("{n} Fehler in der Startprüfung", "{n} error in the pre-launch check", n=1) }}{% else %}{{ de_en("{n} Fehler in der Startprüfung", "{n} errors in the pre-launch check", n=start_errors|length) }}{% endif %}</a> <span class="hint">{{ de_en("verhindert den Start", "holds up the start") }}</span>{% if warns %} · {% endif %}{% endif %}
+          {% if warns %}<a href="{{ url_for('editor.index', survey_id=survey.id) }}">{% if warns|length == 1 %}{{ de_en("{n} Warnung in der Startprüfung", "{n} warning in the pre-launch check", n=warns|length) }}{% else %}{{ de_en("{n} Warnungen in der Startprüfung", "{n} warnings in the pre-launch check", n=warns|length) }}{% endif %}</a> <span class="hint">{{ de_en("prüfen; sie halten den Start nicht auf", "check them; they do not hold up the start") }}</span>{% elif not blocked %}{{ de_en("Keine Fehler und Warnungen in der Startprüfung", "No errors or warnings in the pre-launch check") }}{% endif %}</li>
+        {# good practice beside the pre-launch check (concept "Studierende", package D); the reason only with the learning aids #}
+        {% for ok, text, hint, anchor, reason in checks %}
+        <li class="{{ 'is-ok' if ok else 'is-open' }}">{{ icon("check" if ok else "alert", 16) }}
+          {% if anchor and not ok %}<a href="{{ anchor }}">{{ text }}</a>{% else %}{{ text }}{% endif %}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}{% if reason and not ok %}{{ why(reason) }}{% endif %}</li>
+        {% endfor %}
+        {# the pooled analysis of validated constructs (licence.md section 4): named in the consent by itself, the
+           researchers' own data protection information needs it too (tester feedback 2026-10-06) #}
+        {% if pc %}<li class="is-ok">{{ icon("check", 16) }}
+          {{ de_en("Gemeinsame Auswertung standardisierter Fragebögen", "Pooled analysis of standardised questionnaires") }} <span class="hint">{{ pc.names|join(", ") }}; {{ de_en("die Einwilligung nennt sie;", "the consent names it;") }}
+          <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#einwilligung">{{ de_en("Text für die eigene Datenschutzinformation", "text for your own data protection information") }}</a></span></li>{% endif %}
+        {% if survey.quotas %}
+        <li class="{{ 'is-open' if no_target else 'is-ok' }}">{{ icon("alert" if no_target else "check", 16) }}
+          {% if no_target %}<a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}">{{ de_en("Eine Quote hat noch keine Teilquoten", "A quota has no sub-quotas yet") }}</a>{% else %}{{ de_en("Quoten mit Teilquoten angelegt", "Quotas with sub-quotas set up") }}{% endif %}</li>{% endif %}
+      </ul>
+      {# the start freezes the questionnaire for the pre-registration (app/prereg.py, R15) #}
+      <p class="muted small">{{ de_en("Beim Start wird der Fragebogen mit seinen Einstellungen als Präregistrierung festgehalten (ZIP mit Prüfsumme im Reiter „Export“).", "At the start the questionnaire with its settings is recorded as a pre-registration (ZIP with checksum in the tab “Export”).") }}</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('surveys.start', survey_id=survey.id) }}" class="stack start-form">
+      {{ csrf() }}
+      <p><strong>{{ de_en("Starten", "Start") if survey.status == "draft" else de_en("Datenerhebung fortsetzen", "Resume data collection") }}</strong>{% if survey.status != "draft" %} <span class="hint">{{ de_en("mit demselben Fragebogen; bisherige Teilnahmen zählen weiter", "with the same questionnaire; participations so far keep counting") }}</span>{% endif %}:
+        {{ de_en("Die Befragung endet automatisch, sobald eines der gewählten Endekriterien erreicht ist; ohne Haken läuft sie, bis sie pausiert oder geschlossen wird.", "The survey ends automatically as soon as one of the chosen end criteria is reached; without a tick it runs until it is paused or closed.") }}</p>
+      <label class="check"><input type="checkbox" name="use_end" value="1" checked> {{ de_en("Feldende am", "End of fieldwork on") }}
+        <input type="date" name="field_end" aria-label="{{ de_en('Feldende, Datum', 'End of fieldwork, date') }}" value="{{ default_end.isoformat() }}" min="{{ today.isoformat() }}" data-days-from="{{ today.isoformat() }}">
+        <span class="muted small" data-days-out></span></label>
+      {% set planned = request.args.get("max_responses", "")|int %}
+      {# the target of the study plan fills an empty end (UI/UX audit 2026-10-05, V10) #}
+      {# the completions of the sample model: the stored target, else what the power analysis asks for (S3) #}
+      {% set plan_target = (sm.target or sm.completions) if sm and sm.basis != "end" and not planned and not survey.max_responses and survey.status == "draft" else none %}
+      <label class="check"><input type="checkbox" name="use_max" value="1" {% if survey.max_responses or planned or plan_target %}checked{% endif %}>
+        {{ de_en("nach", "after") }} <input type="number" name="max_responses" min="1" value="{{ planned or survey.max_responses or plan_target or '' }}" max="10000000" class="narrow" aria-label="{{ de_en('Höchstzahl abgeschlossener Teilnahmen', 'Maximum number of completed participations') }}"> {{ de_en("abgeschlossenen Teilnahmen", "completed participations") }} <span class="hint">{{ de_en("gezählt werden echte Teilnahmen, keine Testdurchläufe oder Dummy-Daten", "real participations are counted, no test runs or dummy data") }}</span></label>
+      {% if planned %}<p class="muted small">{{ de_en("Aus dem Stichprobenrechner übernommen; wird mit dem Start gespeichert.", "Taken from the sample size calculator; saved with the start.") }}</p>
+      {% elif plan_target %}<p class="muted small">{{ de_en("Aus dem Studienplan (Stichprobenziel); wird mit dem Start gespeichert.", "From the research plan (sample target); saved with the start.") if sm.target else de_en("Aus dem Studienplan (Abschlüsse laut Poweranalyse); wird mit dem Start gespeichert.", "From the research plan (completions after the power analysis); saved with the start.") }}</p>
+      {% elif survey.status == "draft" %}<p class="small"><a href="{{ url_for('samplesize.index', survey=survey.id) }}">{{ de_en("Stichprobengröße berechnen", "Calculate sample size") }}</a> <span class="hint">{{ de_en("mit den Werten dieser Befragung; „Als Ziel übernehmen“ trägt die Zahl hier ein", "with the values of this survey; “Use as target” enters the number here") }}</span></p>{% endif %}
+      {% if survey.status == "draft" %}{{ power_progress() }}{% endif %}
+      {# a development server (the tape under the header): not yet a promise of reliability; also in the dialog #}
+      {% if config.UNDER_CONSTRUCTION %}{% set dev_note = de_en("Askurious ist noch in Entwicklung. Wir streben Zuverlässigkeit an, können sie aber noch nicht garantieren.", "Askurious is still under development. We aim for reliability but cannot guarantee it yet.") %}
+      <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ dev_note }}</span></div>{% endif %}
+      <div class="button-row">
+        {# starting (or reopening) asks, naming what follows (Ralf, 2026-10-05); with pre-launch check errors it stays locked #}
+        {% if survey.status == "draft" %}{% set start_note = de_en("Der Fragebogen wird als Präregistrierung festgehalten, die Einwilligung ist ab dann fest, und der Teilnahmelink nimmt Antworten an.", "The questionnaire is recorded as a pre-registration, the consent is fixed from then on, and the participation link accepts answers.") %}
+        {% else %}{% set start_note = de_en("Mit demselben Fragebogen; bisherige Teilnahmen zählen weiter, und der Teilnahmelink nimmt wieder Antworten an.", "With the same questionnaire; participations so far keep counting, and the participation link accepts answers again.") %}{% endif %}
+        {% if config.UNDER_CONSTRUCTION %}{% set start_note = start_note ~ " " ~ dev_note %}{% endif %}
+        <button class="button" {% if blocked %}title="{{ de_en('Erst die Fehler in der Startprüfung beheben (siehe oben)', 'First fix the errors in the pre-launch check (see above)') }}" aria-describedby="start-check" disabled
+                {% else %}data-confirm="{{ de_en('„{t}“ starten?', 'Start “{t}”?', t=survey.title) if survey.status == 'draft' else de_en('Datenerhebung fortsetzen?', 'Resume data collection?') }}" data-confirm-note="{{ start_note }}" data-confirm-ok="{{ de_en('Starten', 'Start') if survey.status == 'draft' else de_en('Fortsetzen', 'Resume') }}"{% endif %}>{{ icon("play", 16) }} {{ de_en("Befragung starten", "Start survey") if survey.status == "draft" else de_en("Datenerhebung fortsetzen", "Resume data collection") }}</button>
+        {# "Start planen": the same form with its end criteria, sent to another address; refused like the button. In the
+           row beside the start button; opened, it takes a line of its own below the row (app.css) #}
+        <details class="start-plan" id="start-plan"{% if survey.start_at %} open{% endif %}>
+          <summary>{{ icon("clock", 16) }} {{ de_en("Start planen", "Schedule start") if not survey.start_at else de_en("Geplanten Start ändern", "Change scheduled start") }}</summary>
+          <p class="muted small">{{ de_en("Die Befragung startet am gewählten Tag zur gewählten Uhrzeit (deutsche Zeit) von selbst, mit den Endekriterien oben und denselben Prüfungen wie beim Knopf. Bis dahin zeigt der Teilnahmelink nur, wann sie beginnt.", "The survey starts automatically on the chosen day at the chosen time (German time), with the end criteria above and the same checks as the button. Until then the participation link only shows when it begins.") }}</p>
+          <div class="button-row">
+            <label>{{ de_en("Datum", "Date") }} <input type="date" name="start_date" value="{{ plan_day if plan_day is defined else '' }}" min="{{ today.isoformat() }}"></label>
+            <label>{{ de_en("Uhrzeit", "Time") }} <input type="time" name="start_time" value="{{ plan_time if plan_time is defined else '08:00' }}" step="60"></label>
+            <button class="button button-secondary" formaction="{{ url_for('surveys.plan_start', survey_id=survey.id) }}"
+                    {% if blocked %}title="{{ de_en('Erst die Fehler in der Startprüfung beheben (siehe oben)', 'First fix the errors in the pre-launch check (see above)') }}" aria-describedby="start-check" disabled{% endif %}>{{ icon("clock", 16) }} {{ de_en("Start planen", "Schedule start") if not survey.start_at else de_en("Geplanten Start ändern", "Change scheduled start") }}</button>
+          </div>
+        </details>
+      </div>
+    </form>
+    {% if survey.close_reason == "paused" and not survey.archived %}
+    {# a pause that turned into the end (audit 2026-10-05, L-10): only a closed survey starts its retention periods #}
+    <form method="post" action="{{ url_for('surveys.close', survey_id=survey.id) }}" class="inline"
+          data-confirm="{{ de_en('„{t}“ aus der Pause schließen?', 'Close “{t}” from the pause?', t=survey.title) }}" data-confirm-note="{{ de_en('Die Feldphase endet, ohne fortgesetzt zu werden. Ab dann laufen die Aufbewahrungsfristen.', 'Fieldwork ends without being resumed. From then on the retention periods run.') }}"
+          data-confirm-ok="{{ de_en('Schließen', 'Close') }}">
+      {{ csrf() }}<button class="button button-secondary">{{ de_en("Aus der Pause schließen …", "Close from the pause …") }}</button>
+    </form>
+    <p class="muted small"><strong>{{ de_en("Aus der Pause schließen", "Close from the pause") }}</strong>: {{ de_en("die Feldphase beenden, ohne sie fortzusetzen. Ab dann laufen die Aufbewahrungsfristen.", "end fieldwork without resuming it. From then on the retention periods run.") }}</p>
+    {% endif %}
+    {% if survey.status == "closed" and not survey.archived %}
+    {# not in the archive: restored first (lifecycle._not_archived, audit 2026-10-18, FUNC-07) #}
+    {# opened right away when someone comes from the locked editor (…/field?edit=1#reopen) #}
+    <details class="reopen-box" id="reopen" {% if request.args.get("edit") %}open{% endif %}>
+      <summary>{{ icon("edit", 16) }} {{ de_en("Fragebogen ändern (neue Fassung)", "Change questionnaire (new revision)") }}</summary>
+      <div class="flash flash-warning">{{ icon("alert", 16) }}
+        <div>
+          <p><strong>{{ de_en("Achtung: Änderungen brechen die Vergleichbarkeit mit den bisherigen Daten.", "Caution: changes break the comparability with the data so far.") }}</strong></p>
+          <ul>
+            <li>{{ de_en("Die Befragung wird wieder zum Entwurf (Fragebogen-Fassung {v}); zum Weiterführen danach erneut öffnen.", "The survey becomes a draft again (questionnaire revision {v}); open it again afterwards to continue.", v=(survey.qversion or 1) + 1) }}</li>
+            <li>{{ de_en("Bisherige Antworten bleiben erhalten; die Spalte", "Answers so far are kept; the column") }} <code>qversion</code> {{ de_en("im Export zeigt, mit welcher Version jemand geantwortet hat.", "in the export shows which version someone answered.") }}</li>
+            <li>{{ de_en("Der Export richtet sich nach dem aktuellen Fragebogen: Antworten auf gelöschte Fragen fehlen dort. Deshalb werden Daten, Codebuch und Fragebogen jetzt gesichert und bleiben im Reiter „Export“ abrufbar.", "The export follows the current questionnaire: answers to deleted questions are missing there. That is why data, codebook and questionnaire are saved now and stay available in the tab “Export”.") }}</li>
+            <li>{{ de_en("Abgebrochene Teilnahmen beginnen beim Weitermachen von vorn (bisherige Antworten bleiben gespeichert).", "Broken-off participations start from the beginning when continued (answers so far stay saved).") }}</li>
+            <li>{{ de_en("Konstrukte, deren Items Sie ändern, gelten als angepasst (Metaanalyse).", "Constructs whose items you change count as adapted (meta-analysis).") }}</li>
+          </ul>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('surveys.reopen', survey_id=survey.id) }}" class="stack">
+        {{ csrf() }}
+        <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ de_en("Ich habe verstanden, dass die Daten danach aus zwei Fragebogen-Fassungen stammen.", "I understand that the data will then come from two questionnaire revisions.") }}</label>
+        <div><button class="button button-secondary">{{ icon("edit", 16) }} {{ de_en("Fragebogen ändern (neue Fassung)", "Change questionnaire (new revision)") }}</button></div>
+      </form>
+    </details>
+    {% endif %}
+    {% if survey.status == "closed" and survey.close_reason != "paused" %}
+    {# what follows the end of fieldwork, in one list like the start (UI/UX audit 2026-10-16, 2): before, the steps were
+       spread over three pages and a dialog shown once, and deleting was found only on the card in the archive #}
+    {% set rp = retention_of(survey) %}
+    <div class="closing" id="abschluss">
+      <h3 class="status-sub">{{ de_en("Abschluss", "Wrap-up") }} <span class="hint">{{ de_en("was nach dem Feldende ansteht", "what comes after the end of fieldwork") }}</span></h3>
+      <ul class="plain start-list">
+        <li class="is-open">{{ icon("chart", 16) }} <a href="{{ url_for('surveys.results', survey_id=survey.id) }}">{{ de_en("Ergebnisse prüfen", "Check the results") }}</a> <span class="hint">{{ de_en("Datenpool, Ausschlüsse, Hypothesen", "data pool, exclusions, hypotheses") }}</span></li>
+        <li class="is-open">{{ icon("download", 16) }} <a href="{{ url_for('surveys.data', survey_id=survey.id) }}">{{ de_en("Daten und Codebuch herunterladen", "Download data and codebook") }}</a> <span class="hint">{{ de_en("dazu Methodenteil, Präregistrierung und Siegelkette", "with the method section, pre-registration and seal chain") }}</span></li>
+        <li class="{{ 'is-ok' if survey.zenodo and survey.zenodo.get('doi') else 'is-open' }}">{{ icon("check" if survey.zenodo and survey.zenodo.get("doi") else "upload", 16) }}
+          <a href="{{ url_for('surveys.data', survey_id=survey.id) }}#zenodo">{% if survey.zenodo and survey.zenodo.get("doi") %}{{ de_en("Auf Zenodo veröffentlicht", "Published on Zenodo") }}{% else %}{{ de_en("Daten veröffentlichen (Zenodo)", "Publish the data (Zenodo)") }}{% endif %}</a> <span class="hint">{{ de_en("freiwillig, nur anonyme Daten", "optional, anonymous data only") }}</span></li>
+        <li class="is-open">{{ icon("clock", 16) }} <a href="{{ url_for('surveys.data', survey_id=survey.id) }}#retention">{{ de_en("Aufbewahrung", "Retention") }}</a>
+          <span class="hint">{% if rp.answers %}{{ de_en("alle Teilnahmen werden {p} nach dem Feldende gelöscht", "all participations are deleted {p} after the end of fieldwork", p=retention_label("answers", rp.answers)) }}{% else %}{{ de_en("keine automatische Löschung; das Konto bleibt verantwortlich", "no automatic deletion; the account stays responsible") }}{% endif %}</span></li>
+        {% if is_admin %}
+        <li class="{{ 'is-ok' if survey.archived else 'is-open' }}">{{ icon("check" if survey.archived else "archive", 16) }}
+          {% if survey.archived %}{{ de_en("Archiviert", "Archived") }} <span class="hint">{{ de_en("Löschen und Wiederherstellen im Menü „⋯“ oben", "delete and restore in the menu “⋯” at the top") }}</span>
+          {% else %}<form method="post" action="{{ url_for('surveys.archive', survey_id=survey.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="archived" value="1"><button class="link">{{ de_en("Archivieren", "Archive") }}</button></form> <span class="hint">{{ de_en("aus der Liste „Meine Befragungen“ ins Archiv; danach lässt sie sich auch löschen", "out of “My surveys” into the archive; then it can also be deleted") }}</span>{% endif %}</li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  {% endif %}
+  {% if runs %}
+  {# "Neuer Durchgang" (Philipp, 2026-10-13): the live comparisons count anew, the data stay; an entry in the status log #}
+  <div class="run-box" id="runs">
+    <h3>{{ de_en("Durchgänge", "Runs") }} <span class="hint">{{ de_en("Menschenmenge, Streubild und Vergleiche zählen nur den aktuellen Durchgang", "crowd, scatter and comparisons count only the current run") }}</span></h3>
+    <ul class="plain">
+      {% for r in runs %}
+      <li>{% if loop.last %}<strong>{{ r.name }}</strong>{% else %}{{ r.name }}{% endif %}
+        <span class="muted">· {% if r.since %}{{ de_en("seit {d}", "since {d}", d=r.since|localdt) }}{% else %}{{ de_en("seit dem Start", "since the start") }}{% endif %}
+        · {{ de_en_n(r.n_done, ("{n} abgeschlossene Teilnahme", "{n} abgeschlossene Teilnahmen"), ("{n} completed participation", "{n} completed participations")) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% if may_run %}
+    <details>
+      <summary>{{ icon("restore", 16) }} {{ de_en("Neuer Durchgang …", "New run …") }}</summary>
+      <form method="post" action="{{ url_for('surveys.new_run', survey_id=survey.id) }}" class="stack"
+            data-confirm="{{ de_en('Neuen Durchgang beginnen?', 'Begin a new run?') }}" data-confirm-note="{{ de_en('Menschenmenge, Streubild und Vergleiche mit der Stichprobe beginnen wieder bei null; unter 5 Teilnahmen zeigen sie erfundene Figuren. Gelöscht wird nichts: Ergebnisse und Export enthalten weiter alle Teilnahmen, der Export nennt in der Spalte „run“, in welchem Durchgang jede begann. Der Link bleibt derselbe.', 'Crowd, scatter and comparisons with the sample start again from zero; below 5 participations they show invented figures. Nothing is deleted: results and export still hold every participation, and the column “run” of the export names the run in which each began. The link stays the same.') }}"
+            data-confirm-ok="{{ de_en('Beginnen', 'Begin') }}">
+        {{ csrf() }}
+        <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("freiwillig, z. B. „Vorlesung 2“", "optional, e.g. “Lecture 2”") }}</span>
+          <input name="name" maxlength="100" placeholder="{{ de_en('Durchgang {n}', 'Run {n}', n=runs|length + 1) }}"></label>
+        <div class="button-row"><button class="button button-secondary">{{ de_en("Neuen Durchgang beginnen …", "Begin new run …") }}</button></div>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+  {# a draft again after a new revision (it ran before): the timeline so far, under the start (Ralf, 2026-10-11) #}
+  {% if survey.status == "draft" and survey.has_run %}{% include "surveys/_timeline.html" %}{% endif %}
+  </div>
+</details>

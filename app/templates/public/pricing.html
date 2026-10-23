@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ de_en("Preise und Spenden", "Pricing and donations") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Preise und Spenden", "Pricing and donations") }}</h1>
+<div class="pricing">
+  <section class="panel price-card">
+    <h2>{{ de_en("Nutzung", "Use") }}</h2>
+    <p class="price">0 €</p>
+    <p>{{ de_en("Askurious ist kostenlos, für Forschende wie für Teilnehmende.", "Askurious is free, for researchers and participants alike.") }}</p>
+    <ul>
+      <li>{{ de_en("Beliebig viele Befragungen und Teilnahmen", "Any number of surveys and participations") }}</li>
+      <li>{{ de_en("Alle Elementtypen, Ablaufsteuerung und validierte Konstrukte", "All element types, flow control and validated constructs") }}</li>
+      <li>{{ de_en("Export als CSV, für SPSS und JASP (.sav), für jamovi (.omv) und für R (.rds), mit Codebuch und Ergebnisseite", "Export as CSV, for SPSS and JASP (.sav), for jamovi (.omv) and for R (.rds), with codebook and results page") }}</li>
+      <li>{{ de_en("Keine Werbung, kein Tracking der Teilnehmenden", "No advertising, no tracking of participants") }}</li>
+    </ul>
+  </section>
+  <section class="panel price-card price-card-donate">
+    <h2>{{ de_en("Spenden", "Donations") }}</h2>
+    <p class="price">{{ de_en("freiwillig", "voluntary") }}</p>
+    <p>{{ de_en("Einige Funktionen nutzen KI, und dafür fallen laufende Kosten an.
+    Wenn Askurious Ihrer Forschung hilft, freut sich das Projekt über eine Spende, die diese KI-Guthaben deckt.", "Some functions use AI, which incurs running costs.
+    If Askurious helps your research, the project welcomes a donation that covers these AI credits.") }}</p>
+    {% if wero_url or donation_url %}
+    <p class="button-row">
+      {% if wero_url %}<a class="button" href="{{ wero_url }}" target="_blank" rel="noopener">{{ de_en("Mit Wero spenden", "Donate with Wero") }}</a>{% endif %}
+      {% if donation_url %}<a class="button{% if wero_url %} button-secondary{% endif %}" href="{{ donation_url }}" target="_blank" rel="noopener">{{ de_en("Mit PayPal spenden", "Donate with PayPal") }}</a>{% endif %}
+    </p>
+    {% elif email %}
+    <p>{{ de_en("Für eine Spende schreiben Sie bitte an", "For a donation please write to") }} <a href="mailto:{{ email }}">{{ email }}</a>.</p>
+    {% else %}
+    <p>{{ de_en("Wer Askurious unterstützen möchte, meldet sich gern", "If you would like to support Askurious, please get in touch") }} {% if current_user.is_authenticated %}{{ de_en("über die Rückmeldung (Käfer oben in der Leiste) oder", "via feedback (bug at the top of the bar) or") }} {% endif %}{{ de_en("über die Angaben im", "via the details in the") }} <a href="{{ url_for('public.privacy') }}">{{ de_en("Impressum", "legal notice") }}</a>.</p>
+    {% endif %}
+    <p class="muted small">{{ de_en("Eine Spende ist freiwillig und schaltet keine Funktionen frei.", "A donation is voluntary and does not unlock any functions.") }}</p>
+  </section>
+</div>
+{% endblock %}

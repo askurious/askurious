@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# Needs: s (ConstructSubmission), f (its fields), labels, proposal (accept form defaults or None), toolbox (Construct or None). #}
+{% block title %}{{ s.construct.name }} · {{ de_en("Eingereicht", "Submitted") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "constructs" %}{% include "admin/_tabs.html" %}
+<a class="back-link" href="{{ url_for('admin.construct_pool') }}#eingereicht">{{ icon("back", 16) }} {{ de_en("Konstrukte", "Constructs") }}</a>
+{% set c = s.construct %}{% set texts = (c.spec.get("texts") or {}).values()|first or {} %}
+<section class="panel">
+  <h2>{{ c.name }} <span class="hint">{{ de_en("eingereicht von {name} am {date}", "submitted by {name} on {date}", name=s.user.display_name if s.user else de_en("einer gelöschten Person", "a deleted person"), date=s.created_at|localdate) }}</span></h2>
+  <p class="small"><a href="{{ url_for('constructs.linked', key=c.key) }}">{{ de_en("Verknüpftes Element öffnen", "Open linked element") }}</a> ({{ de_en("Verwendungen, gemeinsame Auswertung, Fassung {v}", "uses, joint analysis, revision {v}", v=c.seed_version) }})</p>
+  {% if texts.get("question") %}<p><strong>{{ texts.question|striptags }}</strong></p>{% endif %}
+  {% set statements = texts.get("statements") or {} %}
+  {% set options = texts.get("options") or {} %}
+  {% if options %}<ul class="small">{% for o in (c.spec.get("config") or {}).get("options", []) %}<li>{{ (options.get(o.id) or "")|striptags }} <span class="hint">{{ o.code }}</span></li>{% endfor %}</ul>{% endif %}
+  {% if statements %}<ol class="small">{% for st in (c.spec.get("config") or {}).get("statements", []) %}<li>{{ (statements.get(st.id) or "")|striptags }}{% if st.reverse %} <span class="hint">{{ de_en("umgepolt", "reversed") }}</span>{% endif %}</li>{% endfor %}</ol>{% endif %}
+  <dl class="construct-facts">
+    {% for key, label in labels.items() if f.get(key) %}<dt>{{ label }}</dt><dd>{{ f[key] }}</dd>{% endfor %}
+    <dt>DOI</dt><dd><a href="https://doi.org/{{ f.doi }}" target="_blank" rel="noopener">{{ f.doi }}</a></dd>
+    {% if f.get("answer") %}<dt>{{ de_en("Antwort auf die Rückfrage", "Answer to the query") }}</dt><dd>{{ f.answer }}</dd>{% endif %}
+    {% if s.note %}<dt>{{ de_en("Rückfrage", "Query") if s.state == "question" else de_en("Notiz", "Note") }}</dt><dd>{{ s.note }}</dd>{% endif %}
+  </dl>
+</section>
+
+{% if proposal %}
+<section class="panel">
+  <h2>{{ de_en("Entscheiden", "Decide") }} <span class="hint">{{ de_en("wartet auf die Antwort", "waiting for the answer") if s.state == "question" else de_en("offen", "open") }}</span></h2>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="accept">
+    <div class="row-fields">
+      <label>{{ de_en("Schlüssel", "Key") }} <input name="key" value="{{ proposal.key }}" required pattern="[a-z][a-z0-9_]{1,39}"></label>
+      <label>{{ de_en("Name", "Name") }} <input name="name" value="{{ proposal.name }}" required maxlength="200"></label>
+    </div>
+    <div class="row-fields">
+      <label>{{ de_en("Autorinnen und Autoren", "Authors") }} <input name="authors" value="{{ proposal.authors }}" maxlength="300"></label>
+      <label>{{ de_en("Jahr", "Year") }} <input name="year" value="{{ proposal.year }}" inputmode="numeric" maxlength="4" class="narrow"></label>
+    </div>
+    <label>{{ de_en("Kurzbeschreibung", "Short description") }} <span class="hint">{{ de_en("eine Zeile in der Liste der Konstrukte", "one line in the list of constructs") }}</span><input name="short" maxlength="300"></label>
+    <label>{{ de_en("Notiz an die Einreichenden", "Note to the submitters") }} <span class="hint">{{ de_en("optional", "optional") }}</span><input name="note" maxlength="2000"></label>
+    <div class="form-actions"><button class="button">{{ de_en("Annehmen", "Accept") }}</button>
+      <span class="muted small">{{ de_en("Legt ein neues Konstrukt als Kopie an, Status „ungeprüft“. Das Element und seine Verwendungen bleiben, wie sie sind.", "Creates a new construct as a copy, status “unchecked”. The element and its uses stay as they are.") }}</span></div>
+  </form>
+  <form method="post" class="stack space-above">
+    {{ csrf() }}
+    <label>{{ de_en("Rückfrage oder Begründung", "Query or reason") }} <textarea name="note" rows="2" maxlength="2000" required></textarea></label>
+    <div class="button-row"><button class="button button-secondary" name="action" value="question">{{ de_en("Rückfrage stellen", "Ask a query") }}</button>
+      <button class="button button-secondary danger" name="action" value="reject">{{ de_en("Ablehnen", "Reject") }}</button></div>
+  </form>
+</section>
+{% elif toolbox %}
+<section class="panel">
+  <h2>{{ de_en("Aufgenommen als", "Added as") }} <a href="{{ url_for('constructs.detail', key=toolbox.key) }}">{{ toolbox.name }}</a> <span class="hint">{{ toolbox.key }}</span></h2>
+  <form method="post" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="verify">
+    <span class="small">{{ de_en("Wortlaut:", "Wording:") }} {{ de_en("gegen die Quelle geprüft", "checked against the source") if toolbox.status == "verified" else de_en("noch nicht gegen die Quelle geprüft", "not yet checked against the source") }}</span>
+    <button class="button button-secondary button-small">{{ de_en("Wieder als ungeprüft markieren", "Mark as unchecked again") if toolbox.status == "verified" else de_en("Als geprüft markieren", "Mark as checked") }}</button>
+  </form>
+</section>
+{% else %}
+<section class="panel"><p class="muted">{{ de_en("Abgelehnt am {date}.", "Rejected on {date}.", date=s.decided_at|localdate) }}</p></section>
+{% endif %}
+{% endblock %}

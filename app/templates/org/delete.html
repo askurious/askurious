@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{# Verwaltung > Personen > an account > "Konto löschen" (app/org_admin.py delete_account, app/org_delete.py). Context:
+   org, user, row (the mark or None), plan (accounts.plan), heirs, items (org_delete.items), choices, heir (the preset),
+   days, role_names, why_label. #}
+{% from "_macros.html" import csrf, kind_badge, status_badge %}
+{% from "_icons.html" import icon %}
+{% macro participations(n) %}{{ de_en("Teilnahme", "participation") if n == 1 else de_en("Teilnahmen", "participations") }}{% endmacro %}
+{% block title %}{{ de_en("Konto löschen", "Delete account") }} · {{ user.display_name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<a class="back-link" href="{{ url_for('org.account', org_id=org.id, user_id=user.id) }}">{{ icon("back", 16) }} {{ user.display_name }}</a>
+<h2 class="page-sub">{{ de_en("Konto von {n} löschen", "Delete the account of {n}", n=user.display_name) }}</h2>
+{% if row %}
+<p>{{ de_en("Zur Löschung vorgemerkt am {a}, gelöscht wird am {d}.", "Marked for deletion on {a}, deleted on {d}.", a=row.requested_at|localdt(false), d=row.due_at|localdt(false)) }}</p>
+{% if row.open_points %}<section class="panel account-blockers">
+  <h3>{{ icon("alert", 18) }} {{ de_en("Löschung fällig: noch zu klären", "Deletion due: still to settle") }}</h3>
+  <ul class="plain">{% for p in row.open_points %}<li>{% if p.title %}<strong>{{ p.title }}</strong>: {% endif %}{{ why_label(p.why) }}</li>{% endfor %}</ul>
+</section>{% endif %}
+{% else %}
+<p class="muted">{{ de_en("Das Konto wird sofort gesperrt und nach {n} Tagen gelöscht. Bis dahin lässt sich die Löschung auf der Seite der Person zurücknehmen; danach ist sie endgültig. Die Person erfährt es bei der Anmeldung und, wenn E-Mails eingeschaltet sind, per E-Mail.", "The account is blocked at once and deleted after {n} days. Until then the deletion can be taken back on the person's page; afterwards it is final. The person learns of it when signing in and, when emails are switched on, by email.", n=days) }}</p>
+{% endif %}
+
+<form method="post" class="account-delete">
+  {{ csrf() }}
+  <section class="panel">
+    <h3>{{ de_en("Was nur dieser Person gehört", "What belongs to this person alone") }}</h3>
+    {% if items %}
+    <p class="muted">{{ de_en("Sie selbst übernehmen nichts: Als Admin der Organisation sehen Sie keine Antworten. Laufende Befragungen und Befragungen mit echten Teilnahmen gehen an eine Person der Organisation; löschen lassen sich solche mit Teilnahmen nur mit Häkchen, laufende gar nicht. Geteilte Designs gehen voreingestellt weiter, Entwürfe und ungeteilte Designs werden gelöscht.", "Nothing passes to you yourself: as an admin of the organisation you see no answers. Running surveys and surveys with real participations pass to a person of the organisation; those with participations can only be deleted with a tick, running ones not at all. Shared designs pass on by default, drafts and unshared designs are deleted.") }}</p>
+    {% if heirs %}
+    <p><label for="heir"><strong>{{ de_en("Voreinstellung: übergeben an", "Preset: pass to") }}</strong></label>
+      <select id="heir" name="heir"><option value="">{{ de_en("bitte wählen", "please choose") }}</option>
+        {% for u in heirs %}<option value="{{ u.id }}"{{ " selected" if heir == u.id }}>{{ u.display_name }}</option>{% endfor %}</select></p>
+    {% else %}
+    <p class="hint">{{ de_en("In der Organisation gibt es niemanden, der übernehmen kann (Heimat hier, schon angemeldet, nicht gesperrt). Was übergeben werden muss, verhindert dann die Löschung.", "There is nobody in the organisation who can receive anything (home here, signed in before, not blocked). What has to be passed on then prevents the deletion.") }}</p>
+    {% endif %}
+    <div class="table-scroll"><table class="list-table">
+      <thead><tr><th>{{ de_en("Befragung oder Design", "Survey or design") }}</th><th>{{ de_en("Stand", "State") }}</th><th>{{ de_en("Was geschieht", "What happens") }}</th></tr></thead>
+      <tbody>
+      {% for it in items %}{% set chosen = (choices.get("items") or {}).get(it.key, "") %}
+      <tr><td><strong>{{ it.title }}</strong>{% if it.kind != "design" %} {{ kind_badge(it.obj) }}{% else %} <span class="muted small">Design{% if it.shared %} · {{ de_en("geteilt", "shared") }}{% endif %}</span>{% endif %}</td>
+        <td>{% if it.kind == "design" %}–{% else %}{{ status_badge(it.obj, false) }}{% if it.real %} <span class="muted small">{{ it.real }} {{ participations(it.real) }}</span>{% endif %}{% endif %}</td>
+        <td><select name="item_{{ it.key }}" aria-label="{{ de_en('Was mit „{t}“ geschieht', 'What happens to “{t}”', t=it.title) }}">
+          <option value=""{{ " selected" if chosen == "" }}>{{ de_en("wie voreingestellt: übergeben", "as preset: pass on") if it.default == "heir" else de_en("wie voreingestellt: löschen", "as preset: delete") }}</option>
+          {% if it.may_delete %}<option value="delete"{{ " selected" if chosen == "delete" }}>{{ de_en("löschen", "delete") }}</option>{% endif %}
+          {% for u in heirs %}<option value="{{ u.id }}"{{ " selected" if chosen == u.id|string }}>{{ de_en("an {n}", "to {n}", n=u.display_name) }}</option>{% endfor %}</select>
+          {% if it.needs_tick %}<label class="check small"><input type="checkbox" name="tick_{{ it.key }}" value="1"{{ " checked" if it.key in (choices.get("confirm") or []) }}>
+            {{ de_en("Ja, beim Löschen samt {n} {p} endgültig löschen", "Yes, when deleting, delete with {n} {p} permanently", n=it.real, p=participations(it.real)) }}</label>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody></table></div>
+    {% else %}
+    <p class="muted">{{ de_en("Keine Befragung und kein Design gehört nur dieser Person.", "No survey and no design belongs to this person alone.") }}</p>
+    {% endif %}
+  </section>
+
+  {% if plan.leave or plan.successor or plan.group_leave or plan.group_successor or plan.group_delete %}
+  <section class="panel">
+    <h3>{{ de_en("Was mit anderen geteilt ist", "What is shared with others") }}</h3>
+    <ul class="account-list">
+      {% for e in plan.leave %}<li>{{ de_en("Befragung „{t}“: Die Person tritt aus.", "Survey “{t}”: the person leaves.", t=e.survey.title) }}</li>{% endfor %}
+      {% for e in plan.successor %}<li>{{ de_en("Befragung „{t}“: Admin wird {n}.", "Survey “{t}”: {n} becomes admin.", t=e.survey.title, n=e.candidates[0].display_name) }}</li>{% endfor %}
+      {% for e in plan.group_leave %}<li>{{ de_en("Gruppe „{t}“: Die Person tritt aus.", "Group “{t}”: the person leaves.", t=e.group.name) }}</li>{% endfor %}
+      {% for e in plan.group_successor %}<li>{{ de_en("Gruppe „{t}“: Leitung wird {n}.", "Group “{t}”: {n} becomes lead.", t=e.group.name, n=e.candidates[0].display_name) }}</li>{% endfor %}
+      {% for e in plan.group_delete %}<li>{{ de_en("Gruppe „{t}“ ohne weitere Mitglieder: Wird gelöscht.", "Group “{t}” without further members: is deleted.", t=e.group.name) }}</li>{% endfor %}
+    </ul>
+    <p class="muted small">{{ de_en("Wo echte Teilnahmen bleiben, bleibt der Name der Person als Autorin oder Autor ohne Konto, weil die Teilnehmenden unter diesem Namen eingewilligt haben.", "Where real participations stay, the person's name stays as an author without an account, because participants consented under that name.") }}</p>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    {% if not row %}
+    <p><label for="confirm-name">{{ de_en("Zur Bestätigung den Namen eingeben: {n}", "To confirm, type the name: {n}", n=user.display_name) }}</label><br>
+      <input id="confirm-name" name="name" autocomplete="off" required></p>
+    <button class="button button-danger">{{ de_en("Sperren und zur Löschung vormerken", "Block and mark for deletion") }}</button>
+    {% else %}
+    <button class="button">{{ de_en("Auswahl speichern", "Save choices") }}</button>
+    {% endif %}
+  </section>
+</form>
+{% if row %}
+<form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="undo">
+  <button class="button button-secondary">{{ de_en("Löschung zurücknehmen", "Take the deletion back") }}</button></form>
+{% endif %}
+{% endblock %}

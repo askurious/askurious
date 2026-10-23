@@ -1,0 +1,110 @@
+{# Ratings-based conjoint (app/items/cva.py): one task per page, the explanation page. "single": one offer as a table
+   (or image) and a rating scale below it (the numbers of the rating element, or its slider 0 to 100); "pairs": two
+   offers side by side and a graded scale whose value is the category from the point of view of the first offer
+   (positive = first preferred), as in the paired comparison. #}
+{% from "items/_attributes/macros.html" import concept_table %}
+{% set c = item.config %}
+{% set meta = page_meta if (page_meta is defined and page_meta) else {} %}
+{% set task = meta.task if meta.task is defined else 0 %}
+{% set state = (cj_state or {}).get(item.id, {}) if cj_state is defined else {} %}
+{% set version = meta.v if meta.v is defined else (state.version if state and state.version is defined else 0) %}
+{% set pairs = kind.form(item) == "pairs" %}
+{# a holdout task (app/holdouts.py): fixed offers, the same for everyone, stored under "h<n>" #}
+{% set view = kind.page_profiles(item, meta, version) %}
+{% set profiles, akey = view[0], view[1] %}
+{% if not kind.design_current(item) or (not meta.explain and not profiles) %}
+<div class="p-image-missing">{{ ui("Bewertungs-Conjoint: Versuchsplan noch nicht erzeugt", "Ratings-based conjoint: experimental design not generated yet") }}</div>
+{% elif meta.explain %}
+{% if kind.form(item) == "ranking" %}
+{% set explain_default = (ui("Sie sehen gleich %d Angebote auf einer Seite. Bringen Sie sie in eine Reihenfolge: Oben das, das Ihnen am meisten zusagt. Die Angebote unterscheiden sich in folgenden Merkmalen:", "You will see %d offers on one page. Put them in order: at the top the one you like most. The offers differ in these features:"))|format(kind.shown_tasks(item)) %}
+{% elif pairs %}
+{% set explain_default = (ui("Sie sehen gleich %d Paare von Angeboten. Sagen Sie jeweils auf der Skala darunter, welches der beiden Ihnen mehr zusagt und wie deutlich. Die Angebote unterscheiden sich in folgenden Merkmalen:", "You will see %d pairs of offers. Each time, say on the scale below which of the two you like more and how much. The offers differ in these features:"))|format(kind.shown_tasks(item)) %}
+{% else %}
+{% set explain_default = (ui("Sie sehen gleich %d Angebote nacheinander. Bewerten Sie jedes auf der Skala darunter. Die Angebote unterscheiden sich in folgenden Merkmalen:", "You will see %d offers, one after the other. Rate each one on the scale below it. The offers differ in these features:"))|format(kind.shown_tasks(item)) %}
+{% endif %}
+{% include "items/_attributes/explain.html" %}
+{% elif meta.rank %}
+{# the ranking (stage 4): every offer of the plan as a card in one list, ordered like the ranking element (participant.js
+   [data-rank]); the hidden fields carry the task index in the order shown #}
+{% set t = item.t(lang) %}
+{% set attrs = kind.attributes(item, lang) %}
+{% set ranked = kind.ranked_offers(item, version, answers.get(item.id)) %}
+{% set done = (answers.get(item.id) or {}).get("t0") is not none %}
+<fieldset class="p-fieldset" aria-labelledby="q{{ item.id }}">
+<p class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ (t.get("question") or ui("Bringen Sie die Angebote in eine Reihenfolge: Oben das, das Ihnen am meisten zusagt.", "Put the offers in order: at the top the one you like most."))|fill(variables) }}{% include "items/_required.html" %}</p>
+<p class="p-rank-hint"><span class="p-if-mouse">{{ ui("Ziehen Sie die Elemente in die gewünschte Reihenfolge oder nutzen Sie die Pfeile.", "Drag the items into order or use the arrows.") }}</span><span class="p-if-touch">{{ ui("Bringen Sie die Elemente mit den Pfeilen in die gewünschte Reihenfolge.", "Use the arrows to put the items into order.") }}</span> {{ ui("Oben = Platz 1.", "Top = rank 1.") }}</p>
+<noscript><p class="p-error">{{ ui("Für diese Frage wird JavaScript benötigt.", "This question needs JavaScript.") }}</p></noscript>
+<ol class="p-rank cva-rank" data-rank="{{ item.id }}">
+  {% for task, profile in ranked %}
+  {% set card = [] %}{% for a in attrs %}{% set _ = card.append(((a.label|fill(variables) ~ ": ") if not c.hide_attr_labels else "") ~ a.level_labels[profile[loop.index0]]|fill(variables)) %}{% endfor %}
+  <li class="p-rank-item" draggable="true" data-code="{{ task }}">
+    <input type="hidden" name="i{{ item.id }}" value="{{ task }}" data-keep>
+    <span class="p-rank-pos" aria-hidden="true">{{ loop.index }}</span>
+    <span class="p-rank-grip" aria-hidden="true">⋮⋮</span>
+    <span class="p-rank-label cva-card">{% for line in card %}<span class="cva-card-line">{{ line }}</span>{% endfor %}</span>
+    <span class="p-rank-btns">
+      <button type="button" class="p-rank-up" aria-label="{{ (ui('%s nach oben', 'Move %s up'))|format(card|join(', ')|striptags) }}">↑</button>
+      <button type="button" class="p-rank-down" aria-label="{{ (ui('%s nach unten', 'Move %s down'))|format(card|join(', ')|striptags) }}">↓</button>
+    </span>
+  </li>
+  {% endfor %}
+</ol>
+<p class="p-sort-said" aria-live="polite" data-rank-said="{{ item.id }}" data-text="{{ ui('%s: jetzt Platz %s', '%s: now rank %s') }}"></p>
+<input type="hidden" name="i{{ item.id }}_touched" value="{{ '1' if done else '' }}" data-rank-touched="{{ item.id }}" data-keep>
+<p class="p-rank-confirm"><button type="button" class="p-rank-ok{% if done %} is-done{% endif %}" data-rank-ok="{{ item.id }}">{{ ui("✓ Reihenfolge passt so", "✓ This order is fine") }}</button></p>
+</fieldset>
+{% else %}
+{% set t = item.t(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set attrs = kind.attributes(item, lang) %}
+{% set answer = answers.get(item.id) or {} %}
+{% set chosen = answer.get(akey) %}
+{% set name = "i" ~ item.id ~ "_" ~ akey %}
+{% set with_image = kind.uses_images(item) %}
+{% set table_attrs = attrs if c.display == "table" else ([] if c.display == "image" else (attrs if c.show_visual_in_table else attrs|rejectattr("visual")|list)) %}
+{% set alt_word = t.get("alt_label") or d.alt_label %}
+{% set columns = [] %}{% for p in profiles %}{% set _ = columns.append((loop.index, (alt_word ~ " " ~ loop.index) if pairs else alt_word, p)) %}{% endfor %}
+{% set question = t.get("question") or (ui("Welches der beiden Angebote sagt Ihnen mehr zu?", "Which of the two offers do you like more?") if pairs else d.question) %}
+<fieldset class="p-fieldset" aria-labelledby="q{{ item.id }}">
+<p class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ question|fill(variables) }}{% include "items/_required.html" %}</p>
+<p class="p-hint">{{ (ui("Aufgabe %d von %d", "Task %d of %d"))|format(meta.n or task + 1, kind.shown_tasks(item)) }}</p>
+<div class="cj{% if with_image and c.get('stack_mobile', true) and pairs %} cj-stack{% endif %} cva" style="--alts: {{ columns|length }}">
+  {{ concept_table(item, kind, table_attrs, columns, not c.hide_attr_labels, with_image, variables, lang, choose=false) }}
+</div>
+{% if pairs %}
+{% set steps = kind.scale_points(item) %}
+{% set much = t.get("much") or d.much %}{% set same = t.get("same") or d.same %}
+<div class="p-pair-scale cva-pair-scale" style="--k: {{ steps|length }}">
+  {% for value in steps %}
+  {% set side = (alt_word ~ " 1") if value > 0 else ((alt_word ~ " 2") if value < 0 else "") %}
+  {% set caption = (side ~ " " ~ much) if loop.first or loop.last else (same if value == 0 else "") %}
+  <label class="p-pair-step"><input type="radio" name="{{ name }}" value="{{ value }}" {% if chosen == value %}checked{% endif %} aria-label="{{ same if value == 0 else (side ~ ': ' ~ (value|abs) ~ ' / ' ~ (steps|max)) }}"><span>{{ caption }}</span></label>
+  {% endfor %}
+</div>
+{% else %}
+{% set low, high = t.get("low") or d.low, t.get("high") or d.high %}
+<div class="p-rating p-rating-{{ 'slider' if c.slider else 'numbers' }}" role="group" aria-labelledby="q{{ item.id }}">
+  {% if c.slider %}
+  <div class="p-slider {{ '' if chosen is not none else 'untouched' }}" data-slider>
+    <noscript><input type="number" name="{{ name }}" min="0" max="100" step="1" value="{{ chosen if chosen is not none else '' }}" aria-labelledby="q{{ item.id }}"></noscript>
+    <input type="hidden" name="{{ name }}" value="{{ chosen if chosen is not none else '' }}">
+    <output class="p-slider-value" aria-hidden="true">{{ chosen if chosen is not none else '' }}</output>
+    <input type="range" class="p-range" min="0" max="100" step="1" value="{{ chosen if chosen is not none else 50 }}" aria-labelledby="q{{ item.id }}" aria-describedby="ep{{ item.id }}"
+           {% if chosen is none %}aria-valuetext="{{ ui('noch nicht eingestellt', 'not set yet') }}"{% endif %}>
+  </div>
+  <span id="ep{{ item.id }}" hidden>{{ ui("von %s bis %s", "from %s to %s")|format(low|fill(variables)|striptags, high|fill(variables)|striptags) }}</span>
+  <p class="p-hint p-slider-hint" data-slider-hint {% if chosen is not none %}hidden{% endif %}>{{ ui("Klicken oder tippen Sie auf die Linie, um einen Wert zu wählen.", "Click or tap the line to choose a value.") }}</p>
+  {% else %}
+  {% set values = kind.scale_points(item) %}
+  <div class="p-numbers" style="--n: {{ values|length }}">
+    {% for v in values %}
+    {% set end = low if loop.first else (high if loop.last else "") %}
+    <label class="p-number"><input type="radio" name="{{ name }}" value="{{ v }}" {% if chosen == v %}checked{% endif %}{% if end %} aria-label="{{ v }} ({{ end|fill(variables)|striptags }})"{% endif %}><span>{{ v }}{% if end %}<small class="p-number-end" aria-hidden="true">{{ end|fill(variables) }}</small>{% endif %}</span></label>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="p-endpoints" aria-hidden="true"><span{{ text_attrs(item, "low") }}>{{ low|fill(variables) }}</span><span{{ text_attrs(item, "high") }}>{{ high|fill(variables) }}</span></div>
+</div>
+{% endif %}
+</fieldset>
+{% endif %}

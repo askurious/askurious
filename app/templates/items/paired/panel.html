@@ -1,0 +1,38 @@
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set c = item.config %}
+{% set current = kind.design_current(item) %}
+{% set n = kind.n_items(item) %}
+<section class="panel" id="design" data-cj-tab="design">
+  <h2>{{ de_en("Versuchsplan", "Experimental design") }} <span class="hint">{{ de_en("balanciert, wird beim Start eingefroren", "balanced, frozen at the start") }}</span></h2>
+  {% if n >= 3 %}
+  {% set st = (c.design or {}).get("stats") or {} %}
+  <div class="figures cj-figures">
+    <div><dt>{{ de_en("Optionen", "Options") }}</dt><dd>{{ n }}</dd></div>
+    <div><dt>{{ de_en("Paare je Person", "Pairs per person") }}</dt><dd>{{ kind.n_pairs(item) }} {% if kind.complete(item) %}<span class="hint">{{ de_en("alle", "all") }}</span>{% else %}<span class="hint">{{ de_en("von {all}", "of {all}", all=n * (n - 1) // 2) }}</span>{% endif %}</dd></div>
+    <div title="{{ de_en('Wie oft jede Option innerhalb einer Version vorkommt (kleinster und größter Wert)', 'How often each option occurs within a version (smallest and largest value)') }}"><dt>{{ de_en("Je Option", "Per option") }} <span class="hint">{{ de_en("min.–max. je Version", "min.–max. per version") }}</span></dt><dd>{{ "%d–%d"|format(st.freq_min, st.freq_max) if current else "–" }}</dd></div>
+    <div title="{{ de_en('Wie oft ein Paar über alle Versionen vorkommt', 'How often a pair occurs across all versions') }}"><dt>{{ de_en("Je Paar", "Per pair") }} <span class="hint">{{ de_en("min.–max. gesamt", "min.–max. overall") }}</span></dt><dd>{{ "%d–%d"|format(st.pair_min, st.pair_max) if current else "–" }}</dd></div>
+    <div title="{{ de_en('Größter Unterschied, wie oft eine Option links und rechts steht (je Version)', 'Largest difference in how often an option appears on the left and on the right (per version)') }}"><dt>{{ de_en("Links/rechts", "Left/right") }} <span class="hint">{{ de_en("größte Abweichung", "largest deviation") }}</span></dt><dd>{{ st.side_spread if current else "–" }}</dd></div>
+    <div class="{{ '' if not current or st.connected_each else 'fig-warn' }}" title="{{ de_en('Alle Optionen sind über Paare verbunden (nötig für vergleichbare Werte; Ford, 1957)', 'All options are connected through pairs (needed for comparable values; Ford, 1957)') }}"><dt>{{ de_en("Verbunden", "Connected") }}</dt><dd>{{ (de_en("ja", "yes") if st.connected_each else de_en("nur gesamt", "overall only")) if current else "–" }}</dd></div>
+  </div>
+  {% for note in kind.design_notes(item) %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ note }}</span></p>{% endfor %}
+  {% if not current %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Noch kein Versuchsplan.", "No experimental design yet.") if not c.design else de_en("Der Versuchsplan passt nicht mehr zu Optionen, Paaren oder Versionen.", "The experimental design no longer fits the options, pairs or versions.") }} {{ de_en("Bitte neu erzeugen.", "Please generate it again.") }}</span></p>{% endif %}
+  {% if structural %}
+  <form method="post" action="{{ url_for('editor.conjoint_design', survey_id=survey.id, item_id=item.id, lang=lang) }}"
+        data-busy="{{ de_en('Wird berechnet …', 'Calculating …') }}">
+    {{ csrf() }}<button class="button">{{ icon("paired", 16) }}<span> {{ de_en("Versuchsplan neu erzeugen", "Regenerate experimental design") if c.design else de_en("Versuchsplan erzeugen", "Generate experimental design") }}</span></button>
+  </form>
+  {% endif %}
+  {% if current %}
+  {% set labels = kind.labels(item, lang) %}
+  <details class="cj-design-view"><summary>{{ de_en("Versuchsplan ansehen (Version 1)", "View experimental design (version 1)") }}</summary>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th>{{ de_en("Paar", "Pair") }}</th><th>{{ de_en("links", "left") }}</th><th>{{ de_en("rechts", "right") }}</th></tr></thead>
+      <tbody>{% for a, b in c.design.versions[0] %}
+        <tr><td>{{ loop.index }}</td><td><span class="muted">{{ a + 1 }}</span> {{ labels[a]|truncate(40) }}</td><td><span class="muted">{{ b + 1 }}</span> {{ labels[b]|truncate(40) }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endif %}
+  {% else %}<p class="muted">{{ de_en("Zuerst mindestens drei Optionen anlegen.", "Add at least three options first.") }}</p>{% endif %}
+</section>

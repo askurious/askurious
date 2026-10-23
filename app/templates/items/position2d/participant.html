@@ -1,0 +1,30 @@
+{% set de = lang in ("de", "de-du") %}
+{% set c = item.config %}
+{% set ans = answers.get(item.id) or {} %}
+{% set start = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% set skipped = ans.get("_skip", []) if ans is mapping else [] %}
+{% include "items/_question.html" %}
+<div class="p-pos" data-pos="{{ item.id }}">
+  <p class="p-pos-hint">{{ ui("Tippen Sie auf ein Element und dann in das Feld. Gesetzte Elemente lassen sich verschieben.", "Tap an element, then tap in the field. Placed elements can be moved.") }}
+    <span class="p-sr-only">{{ ui("Mit der Tastatur: Eingabe setzt das gewählte Element in die Mitte, die Pfeiltasten verschieben es, Entfernen legt es zurück.", "With the keyboard: Enter places the chosen element in the middle, the arrow keys move it, Delete puts it back.") }}</span></p>
+  <div class="p-pos-frame">
+    <div class="p-pos-ylabel"><span{{ text_attrs(item, "y_label") }}>{{ item.text("y_label", lang)|fill(variables) }}</span></div>
+    <div class="p-pos-yends"><span{{ text_attrs(item, "y_high") }}>{{ item.text("y_high", lang)|fill(variables) }}</span><span{{ text_attrs(item, "y_low") }}>{{ item.text("y_low", lang)|fill(variables) }}</span></div>
+    <div class="p-pos-field" data-pos-field role="group" aria-label="{{ item.text('x_label', lang) }} × {{ item.text('y_label', lang) }}">
+      <span class="p-pos-mid-x" aria-hidden="true"></span><span class="p-pos-mid-y" aria-hidden="true"></span>
+    </div>
+    <div class="p-pos-xends"><span{{ text_attrs(item, "x_low") }}>{{ item.text("x_low", lang)|fill(variables) }}</span><span{{ text_attrs(item, "x_high") }}>{{ item.text("x_high", lang)|fill(variables) }}</span></div>
+    <div class="p-pos-xlabel"{{ text_attrs(item, "x_label") }}>{{ item.text("x_label", lang)|fill(variables) }}</div>
+  </div>
+  <div class="p-pos-tray" data-pos-tray>
+    {% for o in kind.ordered_options(item, lang, start) %}
+    {% set xy = ans.get(o.code) if ans is mapping else none %}
+    <span class="p-pos-el">
+      <button type="button" class="p-pos-chip" data-pos-chip="{{ o.code }}" {% if xy %}data-x="{{ xy[0] }}" data-y="{{ xy[1] }}"{% endif %}>{{ o.label|fill(variables) }}</button>
+      <input type="hidden" name="i{{ item.id }}_{{ o.code }}" value="{{ '%s,%s'|format(xy[0], xy[1]) if xy else '' }}" data-pos-value="{{ o.code }}">
+      {% if c.allow_skip %}<label class="p-pos-skip"><input type="checkbox" name="i{{ item.id }}_skip" value="{{ o.code }}" data-pos-skip="{{ o.code }}" {% if o.code in skipped %}checked{% endif %}> {{ ui("kann ich nicht einschätzen", "can't say") }}</label>{% endif %}
+    </span>
+    {% endfor %}
+  </div>
+  <noscript><p class="p-pos-hint">{{ ui("Für diese Frage wird JavaScript benötigt.", "This question needs JavaScript.") }}</p></noscript>
+</div>

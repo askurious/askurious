@@ -1,0 +1,15 @@
+/* The preview bar on a phone in one line (UI/UX audit 2026-10-16, 23): "Vorschau", the pager with its block list and
+   "⋯" for the tools; the bar slides away while the page is scrolled down and comes back on the way up
+   (preview-bar.js). Its own file next to participant.css, loaded with the bar (participant/_preview_bar.html). */
+.p-preview-short, .p-preview-more-dots { display: none; }
+@media (max-width: 560px) {
+  .p-preview-bar { flex-wrap: wrap; transition: transform 0.2s ease; }
+  .p-preview-bar .p-preview-label { flex: 0 0 auto; }
+  .p-preview-long, .p-preview-more-text { display: none; }
+  .p-preview-short, .p-preview-more-dots { display: inline; }
+  .p-preview-bar.has-more .p-preview-more { padding: 2px 10px; font-size: 1rem; line-height: 1; }
+  .p-preview-bar.is-tucked { transform: translateY(-100%); }
+}
+@media (max-width: 560px) and (prefers-reduced-motion: reduce) {
+  .p-preview-bar { transition: none; }
+}

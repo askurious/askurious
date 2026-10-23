@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{# The page "Anzeige und Sprache" (accounts.appearance). Needs: login, display_settings, display_modes, display_looks,
+   display_sizes, display_dropped, ui_languages. #}
+{% block title %}{{ de_en("Anzeige und Sprache", "Display and language") }} · {{ de_en("Konto", "Account") }}{% endblock %}
+{% block content %}
+<p class="page-group">{{ de_en("Konto", "Account") }}</p>
+<h1>{{ de_en("Anzeige und Sprache", "Display and language") }}</h1>
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+
+{# light or dark, style, text size (app/display.py) and, as a fourth row, the language of these pages (app/lang.py;
+   the page loads anew in the chosen language once it is saved); one panel since Konto-Seiten B2, E8 #}
+<section class="panel" id="anzeige">
+  <h2>{{ de_en("Anzeige", "Display") }}</h2>
+  {% set shown = display_settings %}
+  <form method="post" action="{{ url_for('accounts.display_settings') }}" class="stack display-form" data-autosave-form data-display-form>
+    {{ csrf() }}
+    <fieldset>
+      <legend>{{ de_en("Hell oder dunkel", "Light or dark") }}</legend>
+      <div class="segmented">
+        {% for key, label in display_modes.items() %}
+        <label><input type="radio" name="mode" value="{{ key }}" {% if shown.mode == key %}checked{% endif %}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>{{ de_en("Stil", "Style") }}</legend>{# colours and fonts: "Stil", not "Farben" (UI/UX audit 2026-10-16, 22) #}
+      {% if display_dropped %}<p class="hint display-dropped">{{ de_en("Den Stil „{name}“ gibt es nicht mehr; Sie sehen jetzt „Askurious“.", "The style “{name}” no longer exists; you now see “Askurious”.", name=display_dropped) }}</p>{% endif %}
+      <div class="segmented">
+        {% for key, name, note in display_looks %}
+        <label title="{{ note }}"><input type="radio" name="look" value="{{ key }}" {% if shown.look == key %}checked{% endif %}><span>{{ name }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>{{ de_en("Textgröße", "Text size") }}</legend>
+      <div class="segmented">
+        {% for size in display_sizes %}
+        <label><input type="radio" name="size" value="{{ size }}" {% if shown.size == size %}checked{% endif %}><span>{{ size|pctsign }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {{ autosave_bar() }}
+  </form>
+  <form method="post" action="{{ url_for('accounts.language') }}" class="stack display-form" id="sprache" data-autosave-form>
+    {{ csrf() }}
+    <fieldset>
+      <legend>{{ de_en("Sprache", "Language") }}</legend>
+      <div class="segmented">
+        {% for key, name in ui_languages.items() %}
+        <label><input type="radio" name="lang" value="{{ key }}" lang="{{ key }}" data-reload-saved {% if ui_language() == key %}checked{% endif %}><span lang="{{ key }}">{{ name }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {{ autosave_bar() }}
+  </form>
+  <p class="muted small">{% for key, name, note in display_looks %}<strong>{{ name }}:</strong> {{ note }}{% if not loop.last %}. {% endif %}{% endfor %}.
+    {{ de_en("„Automatisch“ folgt der Einstellung Ihres Geräts; ist dort erhöhter Kontrast eingestellt, gilt bei „Askurious“ der Stil „Kontrast“.
+      „Hell / Dunkel“ im Menü an Ihrem Namen schaltet schnell um und wird hier gespeichert. Das alles gilt für Sie auf allen Geräten; Teilnehmende sehen Design und Sprachen ihrer Befragung.",
+      "“Automatic” follows the setting of your device; if increased contrast is set there, “Askurious” uses the style “Contrast”.
+      “Light / Dark” in the menu at your name switches quickly and is saved here. All this applies to you on all devices; participants see the design and the languages of their survey.") }}</p>
+</section>
+
+{% if mail_enabled() and login and login.email %}
+<section class="panel" id="mail">
+  <h2>{{ de_en("E-Mails", "Emails") }} <span class="hint">{{ de_en("an {e}", "to {e}", e=login.email) }}</span></h2>
+  <form method="post" action="{{ url_for('accounts.mail_notices') }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="on" value="1" {% if (current_user.display or {}).get("mail_notices", true) is not false %}checked{% endif %}>
+      <span><strong>{{ de_en("Hinweis per E-Mail, wenn mich jemand an einer Befragung oder in einer Gruppe beteiligt", "Notice by email when someone involves me in a survey or a group") }}</strong></span></label>
+    {{ autosave_bar() }}
+  </form>
+</section>
+{% endif %}
+
+<section class="panel" id="lernhilfen">
+  <h2>{{ de_en("Lernhilfen", "Learning aids") }} <span class="hint">{{ de_en("für den Einstieg in empirische Forschung", "for getting started in empirical research") }}</span></h2>
+  <form method="post" action="{{ url_for('accounts.learning_aids') }}" class="stack" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="shown" value="1">
+    <label class="check"><input type="checkbox" name="on" value="1" {% if current_user.learning_aids %}checked{% endif %}>
+      <span><strong>{{ de_en("Lernhilfen zeigen", "Show learning aids") }}</strong> <span class="muted small">{{ de_en("„Warum?“ an methodischen Entscheidungen (Pflichtfragen, Skalen, Speeder-Regel, Quoten …) mit Quellen,
+        ein ? an Kennzahlen wie M, SD, KI, α oder d mit Erklärung und dem", "“Why?” at methodological decisions (required questions, scales, speeder rule, quotas …) with sources,
+        a ? at statistics such as M, SD, CI, α or d with an explanation, and the") }} <a href="{{ url_for('learning.glossary') }}">{{ de_en("Glossar der Kennzahlen", "glossary of statistics") }}</a></span></span></label>
+    {{ autosave_bar() }}
+  </form>
+  {% if current_user.learning_hidden %}
+  <form method="post" action="{{ url_for('learning.show_hidden') }}" class="inline">
+    {{ csrf() }}<span class="muted small">{{ de_en("{n} Erklärungen „Warum?“ ausgeblendet.", "{n} “Why?” explanations hidden.", n=current_user.learning_hidden|length) }}</span>
+    <button class="button button-small">{{ de_en("Wieder zeigen", "Show again") }}</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

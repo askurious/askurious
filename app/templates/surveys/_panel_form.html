@@ -1,0 +1,130 @@
+{# Parameters from the link, completion links with their rules and signed links: one form, on the page "Datenerhebung" in the block "Teilnahmelink" (Ralf, 2026-10-06: no longer in the settings). Needs: survey, panel, is_admin and what surveys._rule_conditions gives. #}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields, form_error with context %}
+{% from "_icons.html" import icon %}
+{% from "_condition.html" import cond_line %}
+{% from "_link_chips.html" import link_chips %}
+{% set on_leave = "" if survey.is_editable else " data-autosave-on-leave" %}
+{% set pcfg = panel.config(survey) %}
+{% set value_label_names = panel.value_labels(survey).keys()|list %}
+<form method="post" action="{{ url_for('surveys.update_panel', survey_id=survey.id) }}" class="stack" data-panel-form data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+  {{ csrf() }}
+  {{ form_error("settings:panel") }}
+  {% if is_admin %}{{ edit_guard_fields(survey, "settings:panel", edit_guard.settings_state(survey, "panel"), url_for('surveys.field', survey_id=survey.id) ~ "#panel", presence_key=false) }}{% endif %}
+  {# the parameter of "Eigene Links" (it has names) is looked after above, not in this table: it goes along unseen
+     (Ralf, 2026-10-08: the block in the words of its users) #}
+  {% for p in pcfg.params if p.name in value_label_names %}
+  {# its values (the links per person) only for whoever saves this form: "Ansehen" must not read them (code review
+     2026-10-15, H1) #}
+  {% if is_admin %}<input type="hidden" name="param_name" value="{{ p.name }}"><input type="hidden" name="param_mode" value="{{ 'once' if p.once else p.mode }}">
+  <input type="hidden" name="param_required" value="{{ '1' if p.required else '0' }}"><input type="hidden" name="param_allowed" value="{{ p.allowed|join(', ') }}">{% endif %}
+  <p class="muted small">{{ de_en("Der Parameter", "The parameter") }} <code>{{ p.name }}</code> {{ de_en("gehört zu den", "belongs to the") }} <a href="#value-links">{{ de_en("eigenen Links für Personen oder Gruppen", "own links for people or groups") }}</a> {{ de_en("und wird dort verwaltet.", "and is looked after there.") }}</p>
+  {% endfor %}
+  <div data-rows>
+  {# the heads only from the first parameter on (UI/UX audit 2026-10-05, V20; app.css: .param-table) #}
+  <table class="list-table is-edit param-table">
+    <thead><tr><th>{{ de_en("Parameter", "Parameter") }}</th><th>{{ de_en("Umgang", "Handling") }}</th><th class="center">{{ de_en("Pflicht", "Required") }}</th><th>{{ de_en("Erlaubte Werte", "Allowed values") }} <span class="hint">{{ de_en("kommagetrennt, optional", "comma-separated, optional") }}</span></th><th><span class="visually-hidden">{{ de_en("entfernen", "remove") }}</span></th></tr></thead>
+    <tbody data-param-rows>
+      {# the saved parameters, then the template of a new one (app.js, "+ Parameter") #}
+      {% for p in pcfg.params|rejectattr("name", "in", value_label_names)|list + [{"name": "", "mode": "redirect", "required": false, "allowed": []}] %}
+      {% if loop.last %}<template data-row-template>{% endif %}
+      <tr data-row>
+        <td><input name="param_name" value="{{ p.name }}" placeholder="{{ de_en('z. B. group', 'e.g. group') }}" class="loop-colname" aria-label="{{ de_en('Name des Parameters', 'Name of the parameter') }}"></td>
+        <td><select name="param_mode" aria-label="{{ de_en('Umgang mit dem Parameter', 'Handling of the parameter') }}">
+            <option value="redirect" {% if p.mode != "store" %}selected{% endif %}>{{ de_en("nicht speichern", "do not store") }}</option>
+            <option value="store" {% if p.mode == "store" and not p.once %}selected{% endif %}>{{ de_en("speichern (pseudonym)", "store (pseudonymous)") }}</option>
+            <option value="once" {% if p.mode == "store" and p.once %}selected{% endif %}>{{ de_en("speichern, jeder Wert nur einmal", "store, each value only once") }}</option></select></td>
+        <td class="center"><select name="param_required" aria-label="{{ de_en('Pflicht', 'Required') }}"><option value="0">{{ de_en("nein", "no") }}</option><option value="1" {% if p.required %}selected{% endif %}>{{ de_en("ja", "yes") }}</option></select></td>
+        {# the values of links per value made per person (they have names) or many values: a count with a way to the
+           table "Links je Wert" instead of a long comma list (Ralf, 2026-10-08); "bearbeiten" shows the list #}
+        {% set long_list = p.name and p.allowed|length > 8 %}
+        <td>{% if long_list %}<span class="allowed-sum" data-allowed-sum>{{ de_en("{n} Werte", "{n} values", n=p.allowed|length) }} · <a href="#value-links">{{ de_en("Links", "Links") }}</a> · <button type="button" class="link-button" data-allowed-edit>{{ de_en("bearbeiten", "edit") }}</button></span>{% endif %}
+          <input name="param_allowed" value="{{ p.allowed|join(', ') }}" placeholder="{{ de_en('z. B. bio, chemie', 'e.g. bio, chemistry') }}" aria-label="{{ de_en('Erlaubte Werte, kommagetrennt', 'Allowed values, comma-separated') }}" {% if long_list %}hidden{% endif %}></td>
+        <td><button type="button" class="icon-btn danger" data-row-remove title="{{ de_en('Parameter entfernen', 'Remove parameter') }}" aria-label="{{ de_en('Parameter {name} entfernen', 'Remove parameter {name}', name=p.name) }}">{{ icon("x", 16) }}</button></td>
+      </tr>
+      {% if loop.last %}</template>{% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="button" class="button button-small button-secondary" data-row-add>+ Parameter</button>
+  </div>
+  <p class="muted small">{{ de_en("Parameter übernehmen Werte aus dem Teilnahmelink, z. B. die Kennung eines Panels. Sie lassen sich in Texte einfügen und im Ablauf als Bedingung wählen.", "Parameters take values from the participation link, e.g. the ID of a panel. They can be inserted into texts and chosen as a condition in the flow.") }}</p>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More on this") }}</summary>
+    <p class="hint">{{ de_en("Nicht deklarierte Parameter (z. B.", "Parameters not declared (e.g.") }} <code>utm_…</code>) {{ de_en("werden ignoriert. Speichern Sie nur, was Sie wirklich brauchen: Gespeicherte Kennungen machen die Daten pseudonym; die Einwilligung weist dann automatisch darauf hin. „Jeder Wert nur einmal“ ist für die Kennung eines Panels gedacht: Gibt es zu einer Kennung schon eine gespeicherte Teilnahme (auch eine abgebrochene oder ausgefilterte), sieht jeder weitere Aufruf aus einem anderen Browser nur den Hinweis, dass bereits teilgenommen wurde. Im selben Browser geht eine begonnene Teilnahme wie gewohnt weiter.", "are ignored. Store only what you really need: stored IDs make the data pseudonymous; the consent then points this out automatically. “Each value only once” is meant for the ID of a panel: if there is already a stored participation for an ID (also a broken-off or filtered one), every further call from another browser only sees the note that this person has already taken part. In the same browser a started participation goes on as usual.") }}</p>
+  </details>
+  <fieldset>
+    <legend>{{ de_en("Abschlusslinks", "Completion links") }} <span class="hint">{{ de_en("Weiterleitung am Ende, optional; die Knöpfe unter „Platzhalter einfügen“ setzen Teilnahme-ID, Sprache, Parameter und Befragung ein", "redirect at the end, optional; the buttons under “Insert placeholder” insert participation ID, language, parameters and survey") }}</span></legend>
+    {{ link_chips(panel.link_chips(survey)) }}
+    {# a line per outcome that has a link; "+ Abschlusslink" shows the line of another outcome, and the kind of
+       forwarding only once a link is there (UI/UX audit 2026-10-05, V20; app.js: data-link-rows) #}
+    <div data-link-rows>
+    {% for outcome, label in panel.OUTCOMES.items() %}
+    {% set url = pcfg.redirects.get(outcome, '') %}
+    <div class="row-fields link-row" data-link-row="{{ outcome }}" {% if not url %}hidden{% endif %}>
+      <label class="grow-1">{{ label }} <input name="redirect_{{ outcome }}" value="{{ url }}" placeholder="https://…" data-link-field></label>
+      <label class="link-mode" {% if not url %}hidden{% endif %}>{{ de_en("Weiterleitung", "Redirect") }} <select name="mode_{{ outcome }}" aria-label="{{ de_en('Weiterleitung „{label}“', 'Redirect “{label}”', label=label) }}">
+        {% for key, text in panel.LINK_MODES.items() %}<option value="{{ key }}" {% if pcfg.modes.get(outcome, "now") == key %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+    </div>
+    {% endfor %}
+    <div class="row link-add" {% if pcfg.redirects.values()|select|list|length >= panel.OUTCOMES|length %}hidden{% endif %}>
+      <select aria-label="{{ de_en('Ausgang des neuen Abschlusslinks', 'Outcome of the new completion link') }}" data-link-pick>{% for outcome, label in panel.OUTCOMES.items() if not pcfg.redirects.get(outcome) %}<option value="{{ outcome }}">{{ label }}</option>{% endfor %}</select>
+      <button type="button" class="button button-secondary" data-link-add>{{ de_en("+ Abschlusslink", "+ Completion link") }}</button>
+    </div>
+    </div>
+    <p class="muted small">{{ de_en("Nur", "Only") }} <code>https://</code>{{ de_en("; Platzhalter dürfen erst nach dem Rechnernamen stehen. Ein Ende im", "; placeholders may only come after the host name. An end in the") }} <a href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ de_en("Ablauf", "flow") }}</a> {{ de_en("kann einen eigenen Link haben, der dann vor dem Link hier gilt. Die Datenschutzseite der Befragung nennt die Ziele der Weiterleitung.", "can have its own link, which then applies before the link here. The privacy page of the survey names the targets of the redirect.") }} {% if survey.quotas %}{{ de_en("Den Code der Teilquote gibt es als Platzhalter, wenn unten erlaubt.", "The code of the sub-quota is available as a placeholder if allowed below.") }}{% endif %}</p>
+    <h3 class="link-rules-head">{{ de_en("Regeln", "Rules") }} <span class="hint">{{ de_en("ein anderer Link je Panelanbieter (URL-Parameter) oder je Teilquote; die erste passende Regel des Ausgangs gilt vor dem Link oben", "another link per panel provider (URL parameter) or per sub-quota; the first matching rule of the outcome applies before the link above") }}</span></h3>
+    {# one line per rule: the outcome, its condition picked like every condition (_condition.html: a URL
+       parameter, the result or Teilquote of a quota, or an answer), then the link; app.js adds and removes lines #}
+    <div class="link-rules" data-rows data-cond-page>
+      <script type="application/json" data-cond-items>{{ rule_data|tojson }}</script>
+      {% for rule in pcfg.rules + [none] %}
+      {% set k = "__N__" if loop.last else loop.index0 %}
+      {% if loop.last %}<template data-row-template>{% endif %}
+      <div class="link-rule" data-row>
+        <div class="link-rule-row">
+          <select name="r{{ k }}_outcome" aria-label="{{ de_en('Ausgang', 'Outcome') }}">{% for outcome, label in panel.OUTCOMES.items() %}<option value="{{ outcome }}" {% if rule and rule.outcome == outcome %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+          <span class="link-rule-word">{{ de_en("wenn", "if") }}</span>
+        </div>
+        {{ cond_line("r" ~ k, conditions.view(rule, rule_described) if rule and rule.item is not none else none, rule_described, rule_data.order,
+                     cond_modes, rule_data.date_hint, is_admin, empty=de_en("– Bedingung wählen –", "– choose a condition –"), text=condition_text(survey, rule) if rule else "") }}
+        <div class="link-rule-row">
+          <span class="link-rule-word">{{ de_en("dann", "then") }}</span>
+          <input name="r{{ k }}_url" value="{{ rule.url if rule else '' }}" placeholder="{{ de_en('https://… (leer = kein Link)', 'https://… (empty = no link)') }}" aria-label="{{ de_en('Link der Regel', 'Link of the rule') }}" class="link-rule-url" data-link-field>
+          <select name="r{{ k }}_mode" aria-label="{{ de_en('Weiterleitung', 'Redirect') }}">{% for key, text in panel.LINK_MODES.items() %}<option value="{{ key }}" {% if ((rule.mode if rule else "") or "now") == key %}selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+          <button type="button" class="icon-btn danger" data-row-remove title="{{ de_en('Regel entfernen', 'Remove rule') }}" aria-label="{{ de_en('Regel entfernen', 'Remove rule') }}">{{ icon("x", 16) }}</button>
+        </div>
+      </div>
+      {% if loop.last %}</template>{% endif %}
+      {% endfor %}
+      <div><button type="button" class="button button-small button-secondary" data-row-add>{{ de_en("+ Regel", "+ Rule") }}</button></div>
+    </div>
+    <p class="muted small">{{ de_en("Die Bedingung einer Regel wird gewählt wie im Ablauf: ein URL-Parameter, das Ergebnis oder die Teilquote einer Quote, oder eine Antwort. Die erste Regel des Ausgangs, deren Bedingung zutrifft, gilt vor dem Link oben. Bei „Einwilligung abgelehnt“ und „Befragung geschlossen“ gibt es noch keine Antworten: dort nur URL-Parameter.", "The condition of a rule is chosen as in the flow: a URL parameter, the result or sub-quota of a quota, or an answer. The first rule of the outcome whose condition is met applies before the link above. With “Consent declined” and “Survey closed” there are no answers yet: only URL parameters there.") }}</p>
+    {% if survey.quotas %}
+    <label class="check"><input type="checkbox" name="quota_placeholder" value="1" {% if pcfg.quota_placeholder %}checked{% endif %}> {{ de_en("Code der Teilquote als", "Allow the code of the sub-quota as") }} <code>{{ "{{quota}}" }}</code> {{ de_en("in Links erlauben", "in links") }}
+      <span class="hint">{{ de_en("der Code verrät dem Ziel die Merkmale der Teilquote (z. B. Geschlecht und Altersgruppe); die Datenschutzseite weist dann darauf hin. Antworten gehen nie in einen Link.", "the code tells the target the attributes of the sub-quota (e.g. gender and age group); the privacy page then points this out. Answers never go into a link.") }}</span></label>
+    {% endif %}
+  </fieldset>
+  {% set sign = panel.sign_config(survey) %}
+  <details class="settings-fold" {% if sign.key %}open{% endif %}><summary>{{ de_en("Signierte Links", "Signed links") }} <span class="hint">optional</span></summary>
+  <fieldset>
+    <legend class="visually-hidden">{{ de_en("Signierte Links", "Signed links") }} <span class="hint">{{ de_en("optional; manche Panels verlangen, dass der Abschlusslink eine Signatur trägt, damit niemand ihn von Hand aufrufen kann", "optional; some panels require the completion link to carry a signature so that nobody can call it by hand") }}</span></legend>
+    <label>{{ de_en("Signaturschlüssel", "Signature key") }} <span class="hint">{% if sign.key %}{{ de_en("ist gespeichert und wird nicht angezeigt; leer lassen, um ihn zu behalten", "is stored and not shown; leave empty to keep it") }}{% else %}{{ de_en("vom Panel vergeben", "issued by the panel") }}{% endif %}</span>
+      <input type="password" name="sign_key" value="" autocomplete="new-password" maxlength="{{ panel.MAX_KEY }}" placeholder="{% if sign.key %}••••••••{% endif %}"></label>
+    <div class="row-fields">
+      <label class="grow-1">{{ de_en("Verfahren", "Method") }} <select name="sign_alg">{% for key, text in panel.SIGN_ALGS.items() %}<option value="{{ key }}" {% if sign.alg == key %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+      <label class="grow-2">{{ de_en("Schreibweise", "Encoding") }} <select name="sign_enc">{% for key, text in panel.SIGN_ENCODINGS.items() %}<option value="{{ key }}" {% if sign.enc == key %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+    </div>
+    <label>{{ de_en("Signiert wird", "Signed is") }} <select name="sign_base">{% for key, text in panel.SIGN_BASES.items() %}<option value="{{ key }}" {% if sign.base == key %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+    {% if sign.key %}<div data-sign-key><input type="hidden" name="sign_key_remove" value="" data-remove-value><button type="button" class="button button-small button-secondary" data-remove-flag="[data-sign-key]">{{ icon("x", 16) }} {{ de_en("Signaturschlüssel entfernen", "Remove signature key") }}</button></div>{% endif %}
+    <p class="muted small">{{ de_en("Mit einem Schlüssel steht in jedem Abschlusslink", "With a key, every completion link has") }} <code>{{ "{{sig}}" }}</code> {{ de_en("für die Signatur, als Wert eines Parameters hinter dem Fragezeichen, z. B.", "for the signature, as the value of a parameter after the question mark, e.g.") }} <code>https://panel.example/ende?id={{ "{{PID}}" }}&amp;hash={{ "{{sig}}" }}</code>. {{ de_en("Signiert wird die fertig ausgefüllte Adresse vor diesem Parameter; was dahinter steht, ist nicht mit signiert. Verfahren, Schreibweise und Umfang nennt das Panel. Der Schlüssel wird verschlüsselt gespeichert und nie wieder angezeigt.", "What is signed is the filled-in address before this parameter; what follows it is not signed. The panel names method, encoding and scope. The key is stored encrypted and never shown again.") }}</p>
+    <label class="check"><input type="checkbox" name="sign_entry" value="1" {% if sign.entry %}checked{% endif %} {% if not sign.key %}disabled{% endif %}> {{ de_en("Auch den Einstiegslink signieren lassen", "Have the entry link signed too") }}
+      <span class="hint">{{ de_en("nur mit Schlüssel; dann nimmt die Befragung nur Links an, die das Panel signiert hat: Niemand kann eine fremde Panel-ID vorwegnehmen, eine erfinden oder sich die Werte für Quoten selbst geben. Der einfache Teilnahmelink ohne Signatur zeigt dann „Dieser Link ist unvollständig“.", "only with a key; the survey then takes only links the panel signed: nobody can take someone else's panel ID first, make one up or give themselves the values for quotas. The plain participation link without a signature then shows “This link is incomplete”.") }}</span></label>
+    <label>{{ de_en("Name des Signatur-Parameters im Einstiegslink", "Name of the signature parameter in the entry link") }} <input type="text" name="sign_entry_param" value="{{ sign.entry_param }}" maxlength="41" class="narrow" spellcheck="false" autocomplete="off"></label>
+    <p class="muted small">{{ de_en("Anleitung für das Panel: Das Panel hängt an den Einstiegslink als letzten Parameter die Signatur an, z. B.", "Instructions for the panel: the panel appends the signature to the entry link as its last parameter, e.g.") }} <code>…?PID=4711&amp;{{ sign.entry_param }}=…</code>. {{ de_en("Signiert wird mit demselben Schlüssel, Verfahren und derselben Schreibweise wie oben die Adresse vor diesem Parameter, so wie sie aufgerufen wird (mit https:// und Adresse; wie bei den Abschlusslinks mit oder ohne das & davor, siehe „Signiert wird“); angenommen wird auch die Signatur nur über den Teil hinter dem ? (z. B.", "It is signed with the same key, method and encoding as above, over the address before this parameter as it is called (with https:// and host; as for the completion links with or without the & before it, see “Signed is”); the signature over only the part after the ? (e.g.") }} <code>PID=4711&amp;</code>{{ de_en(") wird ebenfalls angenommen. Alle URL-Parameter der Befragung müssen vor der Signatur stehen; ein Link mit einem dahinter wird abgelehnt.", ") is accepted as well. All URL parameters of the survey must come before the signature; a link with one after it is refused.") }}</p>
+    {% set example = panel.sign_example(survey) if is_admin else none %}
+    {% if example %}
+    <p class="muted small sign-example">{{ de_en("Beispiel mit Testwerten zum Abgleich mit dem Panel: Signiert wird", "Example with test values to compare with the panel: signed is") }} <code>{{ example[1] }}</code>{{ de_en(", der Link lautet", ", the link reads") }} <code>{{ example[0] }}</code></p>
+    {% endif %}
+  </fieldset>
+  </details>
+  {{ autosave_bar() }}
+</fieldset></form>

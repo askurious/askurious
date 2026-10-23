@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# Search over the transcripts ("Interviews erheben", app/interview_search.py): keyword in context and
+   word frequencies. #}
+{% block title %}{{ de_en("Suche in den Transkripten", "Search in the transcripts") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Suche in den Transkripten", "Search in the transcripts") }} <span class="hint">{{ de_en("{n} Transkript, ohne Probeinterviews", "{n} transcript, without trial interviews", n=n) if n == 1 else de_en("{n} Transkripte, ohne Probeinterviews", "{n} transcripts, without trial interviews", n=n) }}</span></h2>
+    <span class="spacer"></span>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+  </div>
+  <form method="get" class="row-fields">
+    <label><span class="label-title">{{ de_en("Wort oder Wortfolge", "Word or phrase") }} <span class="hint">{{ de_en("„*“ am Wortende findet Fortsetzungen, z. B. pfleg*", "“*” at the end of a word finds continuations, e.g. car*") }}</span></span>
+      <input type="search" name="q" value="{{ query }}" maxlength="120" autofocus></label>
+    <label>{{ de_en("Absätze", "Paragraphs") }}
+      <select name="sprecher">{% for key, label in speakers.items() %}<option value="{{ key }}" {% if speaker == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <div><button class="button">{{ de_en("Suchen", "Search") }}</button></div>
+  </form>
+</section>
+
+{% if found %}
+<section class="panel">
+  <h2>{{ de_en("Fundstellen", "Matches") }} <span class="hint">{{ de_en("{n} insgesamt", "{n} in total", n=found.counts.values()|sum) }}{% for label, c in found.counts.most_common() %} · {{ label }}: {{ c }}{% endfor %}</span></h2>
+  {% if found.hits %}
+  {% call list_table("is-wide kwic") %}
+    <tbody>
+    {% for h in found.hits %}
+    <tr><td><strong>{{ h.label }}</strong></td><td class="kwic-text">{{ highlight(h) }}</td>
+      <td class="muted small"><code>{{ h.stamp }}</code> <a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=h.row) }}">{{ de_en("Transkript", "Transcript") }}</a></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% if found.counts.values()|sum > max_hits %}<p class="muted small">{{ de_en("Gezeigt werden die ersten {n} Fundstellen.", "The first {n} matches are shown.", n=max_hits) }}</p>{% endif %}
+  {% else %}<p class="muted">{{ de_en("Keine Fundstelle.", "No match.") }}</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>{{ de_en("Häufige Wörter", "Frequent words") }} <span class="hint">{{ de_en("ohne Funktionswörter, Zeitmarken und Sprecherkürzel", "without function words, time marks and speaker labels") }}{{ "; " ~ speakers[speaker] if speaker else "" }}</span></h2>
+  {% if top %}
+  <div class="word-freq">{% for w, c in top %}<a class="chip" href="{{ url_for('interview_search.page', code=survey.code, q=w, sprecher=speaker or none) }}">{{ w }} <small>{{ c }}</small></a>{% endfor %}</div>
+  <details class="space-above"><summary>{{ de_en("Je Interview", "Per interview") }}</summary>
+    {% call list_table("is-wide") %}
+      <tbody>{% for label, words in each.items() %}<tr><td><strong>{{ label }}</strong></td><td>{% for w, c in words %}{{ w }} ({{ c }}){{ ", " if not loop.last }}{% endfor %}</td></tr>{% endfor %}</tbody>
+    {% endcall %}
+  </details>
+  {% else %}<p class="muted">{{ de_en("Noch keine Transkripte. Sie entstehen aus den Tonaufnahmen unter „Interviews“ (Knopf „Transkribieren“).", "No transcripts yet. They are made from the audio recordings under “Interviews” (button “Transcribe”).") }}</p>{% endif %}
+</section>
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

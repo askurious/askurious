@@ -1,0 +1,109 @@
+{% from "_learn.html" import term, method %}
+{# MaxDiff (items/maxdiff.py results(), app/maxdiff_analysis.py): best-minus-worst scores per statement and the aggregate MNL (mnl(), chart()), then the HB section (_maxdiff_hb.html). Needs: e (entry), f, survey, num. #}
+{# Ordered by the questions of the researchers (UI/UX audit 2026-10-07, S7): the importance of the statements on top (HB
+   when a current estimation is there, else the aggregate MNL), then "Auswahl aus Aussagen"; folded the counts, the
+   MNL in detail, the segments and the model quality. #}
+{% from "_macros.html" import one, signed, abbr %}
+{% set m = e.maxdiff %}
+{% set has_anchor = m.anchor_n > 0 %}
+{% if m.skipped %}<p class="flash flash-warning">{% if m.skipped != 1 %}{{ de_en("{n} Personen ausgelassen: Ihre Version gibt es im aktuellen Versuchsplan nicht mehr.", "{n} people left out: their version no longer exists in the current experimental design.", n=m.skipped) }}{% else %}{{ de_en("{n} Person ausgelassen: Ihre Version gibt es im aktuellen Versuchsplan nicht mehr.", "{n} person left out: their version no longer exists in the current experimental design.", n=m.skipped) }}{% endif %}</p>{% endif %}
+{% if m.persons %}
+{% set h = m.hb %}
+{% set hb_now = h and h.state == "current" and h.result %}
+{% set x = m.mnl %}
+<p class="muted small">{{ de_en("{p} Personen, {s} beantwortete Sets.", "{p} people, {s} answered sets.", p=m.persons, s=m.sets) }}</p>
+{# the probability scores of the aggregate MNL: on top without a current HB estimation, else in its fold #}
+{% macro mnl_main(on_top) %}{% set c = x.chart %}
+<div class="cm-main" data-cm-item="{{ e.item.id }}">
+{% if on_top %}<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit der Aussagen", "Importance of the statements") }} <span class="hint">{{ de_en("aggregiertes Logit-Modell ({mnl})", "aggregate logit model ({mnl})", html=True, mnl=term("mnl", abbr("mnl"))) }}</span>{{ fn("mnl") }}</h3>{% endif %}
+{% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
+<p class="res-group-head">{{ de_en("Wahrscheinlichkeits-Scores", "Probability scores") }} <span class="hint">{{ de_en("Summe 100; Linie: 95-%-Intervall", "sum 100; line: 95% interval") }}{% if x.threshold %}{{ de_en("; gestrichelt: Schwelle „wirklich wichtig“ aus der Ankerfrage", "; dashed: threshold “really important” from the anchor question") }}{% endif %}</span></p>
+<div class="pw-scroll"><svg class="pw-chart md-chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="{{ de_en('MaxDiff-Wahrscheinlichkeits-Scores', 'MaxDiff probability scores') }}">
+  {% for t in c.ticks %}<line class="pw-grid{% if t[1] == 0 %} pw-zero{% endif %}" x1="{{ t[0] }}" x2="{{ t[0] }}" y1="{{ c.top_y - 4 }}" y2="{{ c.plot_bottom }}"/>
+  <text class="pw-tick" x="{{ t[0] }}" y="{{ c.tick_y }}" text-anchor="middle">{{ tick_labels(c.ticks|map(attribute=1)|list)[loop.index0] }}</text>{% endfor %}
+  {% for r in c.rows %}
+  <g class="pw-row">
+    <title>{{ r.n }}. {{ r.label }}: {{ one(r.score) }}</title>
+    <text class="pw-label" x="{{ c.label_w - 8 }}" y="{{ r.mid }}" text-anchor="end" dominant-baseline="central">{{ r.n }}. {{ r.label|truncate(34, true, "…") }}</text>
+    <rect class="pw-pos{% if r.above == false %} md-below{% endif %}" x="{{ r.x }}" y="{{ r.y }}" width="{{ r.w }}" height="{{ r.h }}" rx="2"/>
+    {% if r.lo is not none %}<line class="pw-whisker" x1="{{ r.lo }}" x2="{{ r.hi }}" y1="{{ r.mid }}" y2="{{ r.mid }}"/>
+    <line class="pw-whisker" x1="{{ r.lo }}" x2="{{ r.lo }}" y1="{{ r.mid - 4 }}" y2="{{ r.mid + 4 }}"/>
+    <line class="pw-whisker" x1="{{ r.hi }}" x2="{{ r.hi }}" y1="{{ r.mid - 4 }}" y2="{{ r.mid + 4 }}"/>{% endif %}
+    <text class="pw-value" x="{{ r.text_x }}" y="{{ r.mid }}" dominant-baseline="central">{{ one(r.score) }}</text>
+  </g>
+  {% endfor %}
+  {% if c.threshold_x is not none %}<line class="md-threshold" x1="{{ c.threshold_x }}" x2="{{ c.threshold_x }}" y1="{{ c.top_y - 6 }}" y2="{{ c.plot_bottom }}"/>
+  <text class="pw-tick md-threshold-label" x="{{ c.threshold_x }}" y="{{ c.top_y - 9 }}" text-anchor="middle">{{ de_en("Schwelle", "Threshold") }} {{ one(x.threshold.score) }}</text>{% endif %}
+</svg></div>
+<div class="res-scroll"><table class="res-table md-mnl">
+  <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th><th title="{{ de_en('Wahrscheinlichkeits-Score: exp(u) / (exp(u) + a − 1), a = {a} Aussagen je Set, auf Summe 100 skaliert', 'Probability score: exp(u) / (exp(u) + a − 1), a = {a} statements per set, scaled to sum 100', a=x.set_size) }}">{{ term("score") }}</th><th title="{{ de_en('95-%-Intervall des Scores (Simulation aus der Schätzung)', '95% interval of the score (simulation from the estimate)') }}">{{ de_en("95-%-Intervall", "95% interval") }}</th>
+    <th title="{{ de_en('Nutzen (Logit), nullzentriert: Mittel aller Aussagen = 0', 'Utility (logit), zero-centred: mean of all statements = 0') }}">{{ de_en("Nutzen", "Utility") }}</th><th title="{{ de_en('Standardfehler des Nutzens', 'Standard error of the utility') }}">SE</th><th title="{{ de_en('Zählwert (am wichtigsten − am wenigsten wichtig) / gezeigt', 'Count score (most important − least important) / shown') }}">{{ de_en("Zählwert", "Count score") }}</th>{% if x.threshold %}<th title="{{ de_en('Nutzen über der Schwelle aus der Ankerfrage; „unklar“, wenn das 95-%-Intervall des Abstands zur Schwelle die 0 einschließt', 'Utility above the threshold from the anchor question; “unclear” if the 95% interval of the distance to the threshold includes 0') }}">{{ de_en("über Schwelle", "above threshold") }}</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for r in x.rows %}
+    <tr><td><span class="muted">{{ r.n }}</span> {{ r.label|truncate(60) }}{% if r.separated %} <span class="hint" title="{{ de_en('immer als wichtigste oder als am wenigsten wichtige gewählt; Wert durch Regularisierung begrenzt', 'always chosen as most or as least important; value bounded by regularisation') }}">{{ de_en("begrenzt", "bounded") }}</span>{% endif %}</td>
+      <td>{% if r.side %}{{ de_en("über allen", "above all") if r.side == "top" else de_en("unter allen", "below all") }}{% else %}{{ one(r.score) }}{% endif %}</td><td>{% if r.lo is not none %}[{{ one(r.lo) }}; {{ one(r.hi) }}]{% else %}–{% endif %}</td>
+      <td>{% if r.side %}{{ "> " if r.side == "top" else "< " }}{% endif %}{{ signed(r.u) }}</td><td>{{ num(r.u_se) }}</td><td>{{ signed(r.count) }}</td>
+      {% if x.threshold %}<td>{{ de_en("unklar", "unclear") if r.above_sure == false else (de_en("ja", "yes") if r.above else de_en("nein", "no")) }}</td>{% endif %}</tr>
+  {% endfor %}
+  {% if x.threshold %}
+    <tr class="muted"><td>{{ de_en("Schwelle „wirklich wichtig“", "Threshold “really important”") }}</td><td>{{ one(x.threshold.score) }}</td><td>{% if x.threshold.lo is not none %}[{{ one(x.threshold.lo) }}; {{ one(x.threshold.hi) }}]{% else %}–{% endif %}</td>
+      <td>{{ signed(x.threshold.u) }}</td><td>{{ num(x.threshold.u_se) }}</td><td></td><td></td></tr>
+  {% endif %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Score: wie wahrscheinlich die Aussage in einem Set mit durchschnittlichen Aussagen als wichtigste gewählt wird, auf Summe 100 skaliert; eine Aussage mit 20 wird doppelt so wahrscheinlich gewählt wie eine mit 10.", "Score: how likely the statement is chosen as most important in a set of average statements, scaled to sum 100; a statement with 20 is twice as likely to be chosen as one with 10.") }}{{ fn("maxdiff") }}</p>
+</div>
+{% endmacro %}
+{% if x and x.disconnected %}
+<h3 class="res-group-head">{{ de_en("Aggregiertes Logit-Modell (MNL)", "Aggregate logit model (MNL)") }}{{ fn("mnl") }}</h3>
+{% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
+{% elif x and not hb_now %}{{ mnl_main(true) }}{% endif %}
+{% if h %}{% with hb_section="main" %}{% include "surveys/_maxdiff_hb.html" %}{% endwith %}{% endif %}
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+<details class="res-dist res-choice-fold">
+  <summary>{{ de_en("Zählwerte: Best minus Worst je Aussage", "Counts: best minus worst per statement") }}</summary>
+<p class="muted small">{{ de_en("Score = (am wichtigsten − am wenigsten wichtig) / gezeigt, von −1 bis +1; die Balken gehen von der Nulllinie in der Mitte aus, negativ nach links, positiv nach rechts, auf einer Skala für alle Aussagen.", "Score = (most important − least important) / shown, from −1 to +1; the bars start from the zero line in the middle, negative to the left, positive to the right, on one scale for all statements.") }}</p>
+{# zero-centred like the part-worths (V52): a rejected statement points left #}
+{% set reach = (m.rows|rejectattr("score", "none")|map(attribute="score")|map("abs")|list + [0.05])|max %}
+<ul class="plain res-bars md-res">
+  {% for row in m.rows %}
+  <li><span class="res-bar-label"><span class="muted">{{ row.n }}</span> {{ row.label|truncate(70) }}</span>
+    <span class="res-bar res-bar-zero" title="Score {{ signed(row.score) }}">{% if row.score is not none %}{% set w = (row.score|abs) / reach * 50 %}<span class="{{ 'is-neg' if row.score < 0 else 'is-pos' }}" style="margin-left: {{ (50 - w if row.score < 0 else 50)|round(1) }}%; width: {{ w|round(1) }}%"></span>{% endif %}</span>
+    <span class="res-bar-n">{{ signed(row.score) }}</span></li>
+  {% endfor %}
+</ul>
+<div class="res-scroll"><table class="res-table md-counts">
+  <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th><th title="{{ de_en('Wie oft gezeigt', 'How often shown') }}">{{ de_en("gezeigt", "shown") }}</th><th>{{ term("score") }}</th><th title="{{ de_en('Anteil „am wichtigsten“, wenn gezeigt', 'Share “most important” when shown') }}">best</th><th title="{{ de_en('Anteil „am wenigsten wichtig“, wenn gezeigt', 'Share “least important” when shown') }}">worst</th>{% if has_anchor %}<th title="{{ de_en('Anteil der Personen, die die Aussage in der Ankerfrage als wirklich wichtig angekreuzt haben', 'Share of people who ticked the statement as really important in the anchor question') }}">{{ de_en("Anker", "Anchor") }}</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for row in m.rows %}
+    <tr><td><span class="muted">{{ row.n }}</span> {{ row.label|truncate(60) }}</td><td>{{ row.shown }}</td>
+      <td>{{ signed(row.score) }}</td>
+      <td>{{ row.best_share|percent if row.best_share is not none else "–" }}</td>
+      <td>{{ row.worst_share|percent if row.worst_share is not none else "–" }}</td>
+      {% if has_anchor %}<td>{{ row.anchor|percent if row.anchor is not none else "–" }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Zählwerte über alle Personen", "Counts over all people") }}{{ fn("maxdiff") }}.{% if has_anchor %} {{ de_en("Anker", "Anchor") }}: n = {{ m.anchor_n }}.{% endif %}</p>
+</details>
+{% if x and not x.disconnected %}
+<details class="res-dist res-choice-fold cm-fold" data-cm-item="{{ e.item.id }}">
+  <summary>{{ de_en("Aggregiertes Logit-Modell (MNL) im Detail", "Aggregate logit model (MNL) in detail") }}{{ fn("mnl") }}</summary>
+  <div class="cm-fold-body">{% if hb_now %}{{ mnl_main(false) }}{% endif %}
+<p class="muted small">{{ de_en("{p} Personen, {o} Wahlen (je Set „am wichtigsten“ unter allen gezeigten und „am wenigsten wichtig“ unter den übrigen", "{p} people, {o} choices (per set “most important” among all shown and “least important” among the rest", p=x.persons, o=x.observations) }}{% if x.threshold %}{{ de_en(", dazu je Person und Aussage die Ankerfrage", ", plus the anchor question per person and statement") }}{% endif %}) · Log-Likelihood {{ num(x.loglik, 1) }} ({{ de_en("Nullmodell", "null model") }} {{ num(x.null_loglik, 1) }}){% if x.rho2 is not none %} · McFadden-{{ term("rho2") }} = {{ num(x.rho2) }}{% endif %}.</p>
+{% call method(de_en("Sequenzielles Best-Worst-Logit", "Sequential best-worst logit")) %}<p>{{ de_en("Sequenzielles Best-Worst-Logit: „am wichtigsten“ als Wahl unter allen gezeigten Aussagen, „am wenigsten wichtig“ als Wahl mit umgekehrtem Vorzeichen unter den übrigen. Nutzen nullzentriert;", "Sequential best-worst logit: “most important” as a choice among all statements shown, “least important” as a choice with reversed sign among the rest. Utilities zero-centred;") }} {% if x.robust %}{{ de_en("Standardfehler clusterrobust je Person (mehrere Wahlen einer Person sind nicht unabhängig)", "standard errors cluster-robust per person (several choices of one person are not independent)") }}{% else %}{{ de_en("Standardfehler aus der Hesse-Matrix, nicht clusterrobust: Dafür braucht es mehr Personen als Parameter", "standard errors from the Hessian matrix, not cluster-robust: that needs more people than parameters") }}{% endif %}.{% if x.t_df %} {{ de_en("Die 95-%-Intervalle rechnen bei so wenigen Personen mit dem t-Quantil für {df} Freiheitsgrade statt mit {z}.", "With so few people the 95% intervals use the t quantile for {df} degrees of freedom instead of {z}.", df=x.t_df, z=num(1.96, 2)) }}{% endif %} {{ de_en("Score = Wahrscheinlichkeits-Score: die Wahrscheinlichkeit, dass die Aussage in einem Set mit {k} durchschnittlichen Aussagen als wichtigste gewählt wird, auf Summe 100 skaliert. Verhältnisse lassen sich als Verhältnisse dieser Wahrscheinlichkeiten lesen (20 doppelt so wahrscheinlich gewählt wie 10); sie hängen von der Set-Größe ab und sind keine Wahlwahrscheinlichkeiten unter allen Aussagen.", "Score = probability score: the probability that the statement is chosen as most important in a set with {k} average statements, scaled to sum 100. Ratios can be read as ratios of these probabilities (20 twice as likely to be chosen as 10); they depend on the set size and are not choice probabilities among all statements.", k=x.set_size - 1) }}{% if x.threshold %} {{ de_en("Die Schwelle kommt aus der Ankerfrage (direkte Verankerung): je Person und Aussage eine Wahl zwischen der Aussage und der Schwelle, sie wird wie eine Aussage auf die Score-Skala übertragen. Die Ankerantworten gehen mit in die Schätzung der Nutzen ein: Antworten die Personen dort entschiedener als in den Sets, liegen die Scores etwas weiter auseinander als ohne Ankerfrage. Die Schwelle setzt voraus, dass Ankerwahlen und Best-Worst-Wahlen auf derselben Skala liegen (gleich viel Zufall in den Antworten); einen eigenen Skalenfaktor für die Ankerfrage schätzt das Modell nicht. Weicht die Skala ab, verschiebt sich der Schwellen-Score, die Scores der Aussagen und ihre Rangfolge bleiben fast gleich.", "The threshold comes from the anchor question (direct anchoring): per person and statement a choice between the statement and the threshold; it is carried over to the score scale like a statement. The anchor answers go into the estimation of the utilities: if people answer more decisively there than in the sets, the scores lie somewhat further apart than without an anchor question. The threshold assumes that anchor choices and best-worst choices lie on the same scale (the same amount of randomness in the answers); the model estimates no scale factor of its own for the anchor question. If the scale differs, the threshold score shifts; the scores of the statements and their ranking stay almost the same.") }}{% endif %}
+  {{ de_en("Aggregierte Schätzung für die ganze Stichprobe; individuelle Nutzen liefert die {hb}-Schätzung.", "Aggregate estimation for the whole sample; individual utilities come from the {hb} estimation.", html=True, hb=abbr("hb")) }}</p>{% endcall %}
+  </div>
+</details>
+{% endif %}
+{% if m.lc %}{% with l=m.lc %}{% include "surveys/_segments_fold.html" %}{% endwith %}{% endif %}
+{% if m.holdout or h %}
+<details class="res-dist res-choice-fold" id="quality-{{ e.item.id }}">
+  <summary>{{ de_en("Modellgüte", "Model quality") }} <span class="hint">{% if m.holdout %}{{ de_en("Holdout-Sets", "holdout sets") }}{% if h %}, {% endif %}{% endif %}{% if h %}{{ de_en("Anpassung je Person, Konvergenz", "fit per person, convergence") }}{% endif %}</span></summary>
+  {% if m.holdout %}{% with ho=m.holdout %}{% include "surveys/_holdout_results.html" %}{% endwith %}{% endif %}
+  {% if h %}{% with hb_section="quality" %}{% include "surveys/_maxdiff_hb.html" %}{% endwith %}{% endif %}
+</details>
+{% endif %}
+{% else %}
+<p class="muted small">{{ de_en("Noch keine beantworteten Sets.", "No answered sets yet.") }}</p>
+{% endif %}

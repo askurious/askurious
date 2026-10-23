@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{# Needs: rows (construct_pool.overview). #}
+{% block title %}{{ de_en("Konstrukte", "Constructs") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "constructs" %}{% include "admin/_tabs.html" %}
+<section class="panel" id="schnellbox">
+  <h2>{{ de_en("Schnellbox der Plattform", "Quick box of the platform") }}</h2>
+  <p class="muted small">{{ de_en("Diese Konstrukte stehen im Fragebogen-Editor unter „Konstrukte“ für jede Organisation ohne eigene Liste, nach den eigenen Favoriten. Organisationen pflegen ihre Liste unter Verwaltung › Konstrukte.", "These constructs are listed in the questionnaire editor under “Constructs” for every organisation without a list of its own, after the person's own favourites. Organisations keep their list under Management › Constructs.") }}</p>
+  {% with rows=shortlist_rows %}{% include "constructs/_shortlist.html" %}{% endwith %}
+</section>
+<section class="panel" id="eingereicht">
+  <h2>{{ de_en("Für „Konstrukte“ eingereicht", "Submitted for “Constructs”") }} <span class="hint">{{ de_en("verknüpfte Elemente von Forschenden", "linked elements from researchers") }}</span></h2>
+  {% if submitted %}
+  <ul class="plain">
+    {% for s in submitted %}
+    <li><a href="{{ url_for('admin.submission', sid=s.id) }}">{{ s.construct.name }}</a> <span class="hint">{{ s.user.display_name if s.user else de_en("gelöschte Person", "deleted person") }}, {{ s.created_at|localdate }}{% if s.state == "question" %}, {{ de_en("Rückfrage gestellt", "query asked") }}{% elif (s.fields or {}).get("answer") %}, {{ de_en("Antwort auf die Rückfrage", "answer to the query") }}{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted small">{{ de_en("Nichts offen.", "Nothing open.") }}</p>{% endif %}
+  {% if decided %}<details class="space-above"><summary class="small">{{ de_en("Entschieden ({n})", "Decided ({n})", n=decided|length) }}</summary><ul class="plain small">
+    {% for s in decided %}<li><a href="{{ url_for('admin.submission', sid=s.id) }}">{{ s.construct.name }}</a> <span class="hint">{{ de_en("aufgenommen als {key}", "added as {key}", key=s.toolbox_key) if s.state == "accepted" else de_en("abgelehnt", "rejected") }}, {{ s.decided_at|localdate }}</span></li>{% endfor %}
+  </ul></details>{% endif %}
+</section>
+<section class="panel" id="konstrukte">
+  <h2>{{ de_en("Gepoolte Konstruktdaten", "Pooled construct data") }} <span class="hint">{{ de_en("Nutzungsbedingungen, Abschnitt 4", "terms of use, section 4") }}</span></h2>
+  <p class="muted small">{{ de_en("Jedes validierte Konstrukt, das in einer Befragung steckt. Einbezogen werden abgeschlossene Befragungen mit ihren echten Teilnahmen; laufende werden nur gezählt.
+    Auf der Seite eines Konstrukts stehen je Befragung N, Cronbachs α und McDonalds ω mit 95-%-Konfidenzintervallen und ein gepoolter Wert über die Befragungen.
+    Befragungen erscheinen unter ihrem Pseudonym aus den gepoolten Dateien, nicht unter ihrem Titel.",
+    "Every validated construct used in a survey. Closed surveys with their real participations are included; running ones are only counted.
+    The page of a construct shows N, Cronbach’s α and McDonald’s ω with 95% confidence intervals per survey and a value pooled across the surveys.
+    Surveys appear under their pseudonym from the pooled files, not under their title.") }}</p>
+  {% if rows %}<p><a class="button button-secondary button-small" href="{{ url_for('admin.construct_compose') }}">{{ de_en("Mehrere Konstrukte zusammenstellen", "Compile several constructs") }}</a></p>{% endif %}
+  {% if not rows %}<p class="muted">{{ de_en("Noch steckt kein validiertes Konstrukt in einer Befragung.", "No validated construct is used in a survey yet.") }}</p>{% else %}
+  {% call list_table("construct-pool-table") %}
+    <thead><tr><th>{{ de_en("Konstrukt", "Construct") }}</th><th>{{ de_en("Art", "Kind") }}</th><th class="num">{{ de_en("abgeschlossen", "closed") }}</th><th class="num">{{ de_en("Teilnahmen", "Participations") }}</th><th class="num">{{ de_en("laufend", "running") }}</th><th>{{ de_en("Daten", "Data") }}</th></tr></thead>
+    <tbody>
+      {% for row in rows %}{% set c = row.construct %}
+      <tr><td><a href="{{ url_for('admin.construct_pool_detail', key=c.key) }}">{{ c.name }}</a> <span class="hint">{{ c.key }}</span></td>
+        <td>{% if row.scale >= 2 %}{{ de_en("Skala, {n} Aussagen", "scale, {n} statements", n=row.scale) }}{% else %}{{ de_en("Einzelfrage", "single question") }}{% endif %}</td>
+        <td class="num">{{ row.closed }}</td><td class="num">{{ row.n }}</td><td class="num">{{ row.running }}</td>
+        <td>{% if row.closed %}<a href="{{ url_for('constructs.pool_csv', key=c.key) }}">CSV</a>{% else %}<span class="muted">–</span>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  {% endcall %}
+  <p class="muted small">{{ de_en("Teilnahmen: abgeschlossene echte Teilnahmen der abgeschlossenen Befragungen, vor der Qualitätssicherung. Die CSV-Datei enthält alle abgeschlossenen Teilnahmen mit den demografischen Konstrukten derselben Teilnahme.", "Participations: completed real participations of the closed surveys, before quality assurance. The CSV file contains all completed participations with the demographic constructs of the same participation.") }}</p>
+  {% endif %}
+</section>
+{% endblock %}

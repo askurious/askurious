@@ -1,0 +1,30 @@
+{# Optional label for the participant link. Its own form says "ungespeichert" and asks before the page is left
+   while a typed label is not set yet (data-dirty-guard; UI/UX audit 2026-10-05, V23). With `survey`: its own form (settings); without: a field of the
+   surrounding creation form. Setting a label asks for confirmation and waits 3 seconds (app.js). #}
+{% from "_macros.html" import csrf %}
+{% set min_len = 1 if current_user.is_admin else 5 %}
+{% macro label_field(value="", button=none) %}
+<span class="label-title">{{ de_en("Kurzname im Link", "Short name in the link") }} <span class="hint">optional</span></span>
+<div class="label-row">
+  <span class="label-prefix">{{ participant_base() }}/s/</span>
+  <input name="label" value="{{ value }}" maxlength="40" pattern="[a-zA-Z][a-zA-Z0-9_\-]*" minlength="{{ min_len }}"
+         autocomplete="off" spellcheck="false" placeholder="{{ de_en('z. B. mensa-studie', 'e.g. canteen-survey') }}" aria-label="{{ de_en('Kurzname im Link', 'Short name in the link') }}" data-label-input>
+  {% if button %}<button class="button button-secondary" data-label-submit>{{ button }}</button>{% endif %}
+</div>
+<p class="small label-state muted" data-label-state></p>
+<p class="muted small">{% if min_len > 1 %}{{ de_en("Mindestens {n} Zeichen, ", "At least {n} characters, ", n=min_len) }}{% else %}{{ de_en("Für Admins der Plattform auch kürzer als 5 Zeichen; ", "For platform admins also shorter than 5 characters; ") }}{% endif %}{{ de_en("beginnend mit einem Buchstaben; danach Buchstaben, Ziffern, - und _ (Großbuchstaben werden klein geschrieben). Das Label wird nur einmal vergeben:", "starting with a letter; then letters, digits, - and _ (capitals are written in lower case). The label is given out only once:") }}
+  {{ de_en("Es lässt sich danach nicht mehr ändern und führt dauerhaft zu dieser Befragung.", "it cannot be changed afterwards and leads to this survey for good.") }}</p>
+{% endmacro %}
+{% if survey and survey.label %}
+<p class="small">{{ de_en("Kurzname:", "Short name:") }} <code>/s/{{ survey.label }}</code> · Code <code>{{ survey.code }}</code> {{ de_en("gilt immer.", "always works.") }}
+  <span class="muted">{{ de_en("Ein Kurzname wird nur einmal vergeben und lässt sich nicht ändern.", "A short name is given out only once and cannot be changed.") }}</span></p>
+{% elif survey %}
+<form method="post" action="{{ url_for('surveys.set_label', survey_id=survey.id) }}" class="label-form"
+      data-label-form data-label-check="{{ url_for('surveys.check_label') }}" data-dirty-guard>
+  {{ csrf() }}<input type="hidden" name="confirm" value="">
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  {{ label_field(button=de_en("Kurzname festlegen", "Set short name")) }}
+</form>
+{% else %}
+<div data-label-form data-label-check="{{ url_for('surveys.check_label') }}">{{ label_field(form.get("label", "")) }}</div>
+{% endif %}

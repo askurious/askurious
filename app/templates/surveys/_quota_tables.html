@@ -1,0 +1,40 @@
+{# The tables of the quota state: one per quota, then the totals of the survey. Needs: quota_report,
+   quota_totals; show_conds (default true). #}
+{% set with_conds = show_conds is not defined or show_conds %}
+{# the states of a cell are keys ("offen", "voll", "geschlossen"); shown in the language of the page #}
+{% set state_names = {"offen": de_en("offen", "open"), "voll": de_en("voll", "full"), "geschlossen": de_en("geschlossen", "closed")} %}
+{% for entry in quota_report %}
+<h3 class="quota-state-name">{{ entry.quota.name }} <span class="hint">{% if entry.quota.count_at == "check" %}{{ de_en("zählt sofort an der Quotenberechnung", "counts at once at the quota calculation") }}{% else %}{{ de_en("zählt bei Abschluss, {mode}", "counts at completion, {mode}", mode=entry.mode) }}{% if entry.quota.mode == "soft" and entry.quota.tolerance %}{% if entry.quota.tolerance_pct %}{{ de_en(", Toleranz {n} %", ", tolerance {n}%", n=entry.quota.tolerance) }}{% else %}{{ de_en(", Toleranz {n} Plätze", ", tolerance {n} places", n=entry.quota.tolerance) }}{% endif %}{% endif %}{% endif %}{% if not entry.node %} · {{ de_en("wird im Ablauf nicht berechnet", "not calculated in the flow") }}{% endif %}</span></h3>
+<table class="quota-table">
+  <thead><tr><th>{{ de_en("Teilquote", "Sub-quota") }}</th>{% if with_conds %}<th>{{ de_en("Bedingungen", "Conditions") }}</th>{% endif %}<th class="num">{{ de_en("Soll", "Target") }}</th><th class="num" title="{{ de_en('Teilnahmen, die die Quotenberechnung passiert haben', 'participations that passed the quota calculation') if entry.quota.count_at == 'check' else de_en('abgeschlossene Teilnahmen', 'completed participations') }}">{{ de_en("gezählt", "counted") if entry.quota.count_at == "check" else de_en("abgeschlossen", "completed") }}</th><th class="num" title="{{ de_en('reservierte Plätze laufender Teilnahmen', 'reserved places of running participations') }}">{{ de_en("laufend", "running") }}</th><th class="num" title="{{ de_en('Soll minus abgeschlossen', 'target minus completed') }}">{{ de_en("offen", "open") }}</th><th class="num" title="{{ de_en('wegen voller Teilquote abgewiesen', 'refused because the sub-quota was full') }}">{{ de_en("abgewiesen", "refused") }}</th><th>{{ de_en("Füllstand", "Fill level") }}</th><th>{{ de_en("Zustand", "State") }}</th></tr></thead>
+  <tbody>
+    {% for r in entry.cells %}
+    <tr>
+      <td>{{ quota_cell_label(survey, entry.quota, r.name) }} <code class="small">{{ r.code }}</code></td>
+      {% if with_conds %}<td class="small muted">{{ r.conds }}</td>{% endif %}
+      <td class="num">{{ r.target }}</td><td class="num"><strong>{{ r.done }}</strong>{% if r.over %} <span class="hint" title="{{ de_en('davon über dem Soll abgeschlossen', 'of these, completed over the target') }}">(+{{ r.over }})</span>{% endif %}{% if r.freed %} <span class="hint" title="{{ de_en('beim Abschluss von der Qualitätssicherung markiert: Platz wieder freigegeben, nicht mitgezählt', 'marked by quality assurance at completion: place given back, not counted') }}">({{ de_en("{n} markiert, frei", "{n} marked, free", n=r.freed) }})</span>{% endif %}</td>
+      <td class="num">{{ r.running }}</td><td class="num">{{ r.open }}</td><td class="num">{{ r.refused }}</td>
+      <td><span class="quota-bar" role="img" aria-label="{{ de_en('{done} von {target} abgeschlossen, {running} laufend', '{done} of {target} completed, {running} running', done=r.done, target=r.target, running=r.running) }}"><span class="quota-bar-done" style="width: {{ (r.share * 100)|round(1) }}%"></span><span class="quota-bar-running" style="width: {{ ([r.share_running, 1 - r.share]|min * 100)|round(1) }}%"></span></span></td>
+      <td><span class="quota-flag quota-flag-{{ {"offen": "open", "voll": "full", "geschlossen": "closed"}[r.state] }}">{{ state_names[r.state] }}</span></td>
+    </tr>
+    {% endfor %}
+    <tr class="quota-sum"><td>{{ de_en("Summe", "Total") }}</td>{% if with_conds %}<td></td>{% endif %}<td class="num">{{ entry.sum.target }}</td><td class="num"><strong>{{ entry.sum.done }}</strong></td><td class="num">{{ entry.sum.running }}</td><td class="num">{{ entry.sum.open }}</td><td class="num">{{ entry.sum.refused }}</td><td></td><td></td></tr>
+  </tbody>
+</table>
+{% if entry.matrix %}
+<details class="quota-matrix" data-key="matrix-{{ entry.quota.id }}">
+  <summary>{{ de_en("Als Matrix", "As a matrix") }} <span class="hint">{{ de_en("abgeschlossen / Soll", "completed / target") }}</span></summary>
+  <table class="quota-table quota-matrix-table">
+    <thead><tr><th></th>{% for col in entry.matrix.cols %}<th class="num">{{ col }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in entry.matrix.cells %}
+      <tr><th>{{ entry.matrix.rows[loop.index0] }}</th>{% for r in row %}<td class="num quota-flag-{{ {"offen": "open", "voll": "full", "geschlossen": "closed"}[r.state] }}" title="{{ r.name }}: {{ state_names[r.state] }}{% if r.running %}{{ de_en(', {n} laufend', ', {n} running', n=r.running) }}{% endif %}"><strong>{{ r.done }}</strong> / {{ r.target }}{% if r.state != "offen" %} <span class="quota-flag-word">{{ state_names[r.state] }}</span>{% endif %}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <textarea id="quota-matrix-{{ entry.quota.id }}" class="visually-hidden" readonly tabindex="-1" aria-hidden="true">{{ entry.matrix_text }}</textarea>
+  <p><button type="button" class="button button-small button-secondary" data-copy="#quota-matrix-{{ entry.quota.id }}">{{ de_en("Matrix kopieren", "Copy matrix") }}</button></p>
+</details>
+{% endif %}
+{% endfor %}
+<div class="stat-line quota-totals">{% for label, n in quota_totals %}<span><strong>{{ n }}</strong> {{ label }}</span>{% endfor %}</div>

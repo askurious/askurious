@@ -1,0 +1,50 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_hint = de_en("z. B. „Wo sehen Sie die folgenden Technologien? Setzen Sie jedes Element dorthin, wo es für Sie hingehört.“", "e.g. “Where do you see the following technologies? Place each element where you think it belongs.”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+{% set x_axis, y_axis = de_en("waagerecht (x)", "horizontal (x)"), de_en("senkrecht (y)", "vertical (y)") %}
+{% set w_name, w_start, w_end = de_en("Bezeichnung", "Label"), de_en("Anfang", "Start"), de_en("Ende", "End") %}
+<fieldset>
+  <legend>{{ de_en("Achsen", "Axes") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th></th><th>{{ w_name }}</th><th>{{ de_en("Anfang (links / unten)", "Start (left / bottom)") }}</th><th>{{ de_en("Ende (rechts / oben)", "End (right / top)") }}</th></tr></thead>
+    <tbody>
+      <tr><th>{{ x_axis }}</th>
+        <td><input name="x_label" aria-label="{{ x_axis }}: {{ w_name }}" value="{{ lt.get('x_label', '') }}" maxlength="40" placeholder="{{ de_en('z. B. Risiko', 'e.g. risk') }}"></td>
+        <td><input name="x_low" aria-label="{{ x_axis }}: {{ w_start }}" value="{{ lt.get('x_low', '') }}" maxlength="40" placeholder="{{ de_en('z. B. gering', 'e.g. low') }}"></td>
+        <td><input name="x_high" aria-label="{{ x_axis }}: {{ w_end }}" value="{{ lt.get('x_high', '') }}" maxlength="40" placeholder="{{ de_en('z. B. hoch', 'e.g. high') }}"></td></tr>
+      <tr><th>{{ y_axis }}</th>
+        <td><input name="y_label" aria-label="{{ y_axis }}: {{ w_name }}" value="{{ lt.get('y_label', '') }}" maxlength="40" placeholder="{{ de_en('z. B. Nutzen', 'e.g. benefit') }}"></td>
+        <td><input name="y_low" aria-label="{{ y_axis }}: {{ w_start }}" value="{{ lt.get('y_low', '') }}" maxlength="40" placeholder="{{ de_en('z. B. gering', 'e.g. low') }}"></td>
+        <td><input name="y_high" aria-label="{{ y_axis }}: {{ w_end }}" value="{{ lt.get('y_high', '') }}" maxlength="40" placeholder="{{ de_en('z. B. hoch', 'e.g. high') }}"></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("Gespeichert werden Werte von 0 bis 100 je Achse (0 = links bzw. unten).", "Values from 0 to 100 per axis are stored (0 = left or bottom).") }}</p>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Begriffe", "Terms") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Teil des Variablennamens ({x}, {y})", "code = part of the variable name ({x}, {y})", x=item.code ~ "_Code_x", y=item.code ~ "_Code_y") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Beschriftung", "Label") }} <span class="hint">{{ de_en("kurz halten, sie steht im Feld", "keep it short, it appears in the field") }}</span></th></tr></thead>
+    <tbody>
+    {% set labels = lt.get("options", {}) %}
+    {% for o in item.config.options %}
+      <tr>
+        <td><input type="hidden" name="option_id" value="{{ o.id }}"><input name="option_code" aria-label="Code" value="{{ o.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" value="{{ labels.get(o.id, '') }}" maxlength="40" placeholder="{{ (item.text('options') or {}).get(o.id, '') }}"></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="option_id" value="{{ new_id() }}"><input name="option_code" aria-label="Code" class="narrow" placeholder="{{ item.config.options|length + loop.index }}"></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" maxlength="40" placeholder="{{ de_en('neuer Begriff', 'new term') }}"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint(de_en("Mehr als etwa zehn Begriffe werden im Feld eng.", "More than about ten terms get crowded in the field.")) }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.config.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Begriffe in zufälliger Reihenfolge anbieten", "Offer the terms in random order") }}</label>
+  <label class="check"><input type="checkbox" name="allow_skip" value="1" {% if item.config.allow_skip %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("„Kann ich nicht einschätzen“ je Element erlauben", "Allow “I cannot judge” per element") }}</label>
+</fieldset>
+<p class="muted small">{{ de_en("Vorbild: Risiko-Nutzen-Karten (Fischhoff et al., 1978; Slovic, 1987), hier direkt gesetzt statt aus Skalen gemittelt; verwandt mit der Spatial Arrangement Method (Hout et al., 2013).", "Model: risk-benefit maps (Fischhoff et al., 1978; Slovic, 1987), placed directly here instead of averaged from scales; related to the Spatial Arrangement Method (Hout et al., 2013).") }}</p>

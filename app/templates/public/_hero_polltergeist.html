@@ -1,0 +1,27 @@
+{# Start page under polltergeist.de (BRANDS, app/brand.py; Ralf 2026-10-09: the name plays a part, modern and
+   serious, not playful; then the whole page in the poltergeist look, the structure may change, a cute ghost as the
+   logo; no explanation of a live poll, screenshots instead of its results): the word mark, the purpose, two ways in
+   and the changing screenshots with the ghost sitting on them. The kinds, functions and references follow as under
+   the main name, in this look. #}
+{% from "_macros.html" import orcid_icon %}
+{% from "_ghost.html" import ghost %}
+<section class="landing-hero pg-hero">
+  <span class="pg-shade pg-shade-1" aria-hidden="true"></span><span class="pg-shade pg-shade-2" aria-hidden="true"></span>
+  <div class="landing-intro">
+    <p class="pg-kicker">{{ de_en("Befragen · Abstimmen · Auswerten", "Survey · Poll · Analyse") }}</p>
+    <h1 class="pg-wordmark"><span class="wm-strong">POLL</span>tergeist</h1>
+    <p class="landing-lead">{{ de_en("Live-Abstimmungen im Hörsaal und Online-Befragungen für die Forschung, mit denselben Werkzeugen: Fragen bauen, ins Feld bringen, Ergebnisse sofort sehen.", "Live polls in the lecture hall and online surveys for research, with the same tools: build questions, take them into the field, see the results at once.") }}</p>
+    <div class="landing-cta">
+      {% if current_user.is_authenticated %}<a class="button" href="{{ url_for('dashboard.index') }}">{{ de_en("Zu meinen Befragungen", "To my surveys") }}</a>
+      {% else %}<a class="button" href="{{ url_for('auth.login') }}">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</a>{% endif %}
+      <a class="button button-secondary" href="https://polltergeist.de/s/introduction" target="_blank" rel="noopener nofollow">{{ de_en("Beispielbefragung ausprobieren", "Try an example survey") }} ↗</a>
+    </div>
+    <p class="landing-dev"><span class="dev-mark">{{ de_en("In Entwicklung", "In development") }}</span> {{ de_en("Fehler sind möglich, Rückmeldungen und Vorschläge sehr willkommen. Registrierungen sind vorerst nur auf Einladung möglich.", "Errors are possible; feedback and suggestions are very welcome. Registration is currently by invitation only.") }}</p>
+  </div>
+  {# changing screenshots of important moments of the software, the ghost sitting on their edge #}
+  <div class="pg-stage">
+    {{ ghost(118, "pg-ghost-hero") }}
+    {% include "public/_shots.html" %}
+  </div>
+</section>
+

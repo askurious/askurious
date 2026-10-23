@@ -1,0 +1,16 @@
+{# Q sort (items/q_sort.py results()): every statement with its mean value, SD and the share at either end of the
+   grid, most agreed first. Needs: e, num #}
+{% set qs = e.qsort %}
+<div class="res-scroll"><table class="res-table">
+  <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th><th>n</th><th>M</th><th>SD</th>
+    <th title="{{ de_en('Anteil in den beiden Spalten am Ende „{e}“', 'share in the two columns at the end “{e}”', e=qs.high) }}">{{ de_en("bei +{a}/+{b}", "at +{a}/+{b}", a=qs.k - 1, b=qs.k) }}</th>
+    <th title="{{ de_en('Anteil in den beiden Spalten am Ende „{e}“', 'share in the two columns at the end “{e}”', e=qs.low) }}">{{ de_en("bei −{a}/−{b}", "at −{a}/−{b}", a=qs.k - 1, b=qs.k) }}</th></tr></thead>
+  <tbody>
+  {% for r in qs.rows %}
+    <tr><td>{{ r.label }} <span class="hint"><code>{{ e.item.code }}_{{ r.code }}</code></span></td><td>{{ r.n }}</td>
+      <td>{{ num(r.mean) }}</td><td>{{ num(r.sd) }}</td>
+      <td>{% if r.agree is not none %}{{ r.agree|percent }}{% else %}–{% endif %}</td><td>{% if r.disagree is not none %}{{ r.disagree|percent }}{% else %}–{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Werte von −{k} ({low}) bis +{k} ({high}); oben die Aussagen mit der stärksten Zustimmung. Eine kleine SD heißt Einigkeit. Die Faktorenanalyse über Personen, um die es in der Q-Methode geht, rechnen das R-Paket qmethod oder PQMethod mit dem Export (eine Spalte je Aussage).", "Values from −{k} ({low}) to +{k} ({high}); at the top the statements with the most agreement. A small SD means consensus. The factor analysis by person, which is the point of the Q method, is done by the R package qmethod or PQMethod with the export (one column per statement).", k=qs.k, low=qs.low, high=qs.high) }}</p>

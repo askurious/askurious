@@ -1,0 +1,56 @@
+{# The field kit of the offline mode (app/interview_offline.py, app/static/interview-offline.js): unlock with the device
+   PIN, prepare a field pack with a network, start or continue a reserved interview, show the deletion code at the end,
+   sync. It covers the interview view until an interview is chosen. Nothing of an interview is in this page: the
+   device keeps it, encrypted. #}
+<section class="iv-kit" data-kit aria-labelledby="iv-kit-title">
+  <div class="iv-kit-box">
+    <h2 id="iv-kit-title">{{ de_en("Feldmappe", "Field kit") }} <span class="badge">{{ de_en("experimentell", "experimental") }}</span></h2>
+    <p class="small" data-kit-state role="status" aria-live="polite"></p>
+
+    <form class="stack" data-kit-lock hidden>
+      <p class="muted small flush" data-kit-first hidden>{{ de_en("Legen Sie eine PIN für dieses Gerät fest (mindestens 6 Zeichen). Mit ihr werden die Interviews auf dem Gerät verschlüsselt. Ohne PIN sind sie nicht mehr lesbar; es gibt keinen Generalschlüssel.", "Set a PIN for this device (at least 6 characters). The interviews on the device are encrypted with it. Without the PIN they cannot be read any more; there is no master key.") }}</p>
+      <label>{{ de_en("PIN", "PIN") }} <input type="password" data-kit-pin minlength="6" autocomplete="off" inputmode="numeric" required></label>
+      <label data-kit-first hidden>{{ de_en("PIN wiederholen", "Repeat PIN") }} <input type="password" data-kit-pin2 minlength="6" autocomplete="off" inputmode="numeric"></label>
+      <div><button class="button">{{ de_en("Entsperren", "Unlock") }}</button></div>
+    </form>
+
+    <div data-kit-open hidden>
+      <ul class="plain iv-kit-slots" data-kit-slots></ul>
+      <template data-kit-slot><li class="row-fields"><strong data-slot-label></strong> <span class="small muted" data-slot-state></span>
+        <button type="button" class="button button-small" data-slot-go></button></li></template>
+      <form class="row-fields" data-kit-prepare>
+        <label>{{ de_en("Interviews reservieren", "Reserve interviews") }} <input type="number" min="1" max="{{ offline_max }}" value="{{ offline_default }}" class="narrow" data-kit-n></label>
+        <button class="button button-secondary">{{ de_en("Für offline vorbereiten", "Prepare for offline") }}</button>
+        <span class="hint">{{ de_en("mit Netz; gültig {d} Tage", "with a network; valid {d} days", d=offline_days) }}</span>
+      </form>
+      <div class="row-fields">
+        <button type="button" class="button button-secondary" data-kit-sync>{{ de_en("Alles abgleichen", "Sync everything") }}</button>
+        <button type="button" class="button button-secondary" data-kit-lockbtn>{{ de_en("Sperren", "Lock") }}</button>
+      </div>
+      <p class="muted small flush">{{ de_en("Handy als Aufnahmegerät, Teilnehmerbildschirm und Transkription gibt es nur mit Netz. Nach dem Abgleich löscht das Gerät seine Kopie.", "Phone as recorder, participant screen and transcription only work with a network. After the sync the device deletes its copy.") }}</p>
+    </div>
+
+    <form class="stack" data-kit-new hidden>
+      <h3>{{ de_en("Interview beginnen", "Start interview") }}: <span data-new-label></span></h3>
+      <div class="row-fields">
+        <label>{{ de_en("Datum", "Date") }} <input type="date" name="date" data-new-date></label>
+        <label>{{ de_en("Interviewform", "Interview mode") }}
+          <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}" {% if st.mode == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Einwilligung", "Consent") }}
+          <select name="consent_form">{% for key, name in consent_forms.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+      </div>
+      <label class="check"><input type="checkbox" name="consent" value="1" required> {{ de_en("Einwilligung aller Sprechenden liegt vor", "Consent of everyone who speaks given") }}</label>
+      {% if (row.interview.consent or {}).audio %}<label class="check"><input type="checkbox" name="audio" value="1" {% if st.audio %}checked{% endif %}> {{ de_en("Tonaufnahme erlaubt", "Audio recording allowed") }} <span class="hint">{{ de_en("bis zum Abgleich verschlüsselt auf diesem Gerät, höchstens {d} Tage", "encrypted on this device until the sync, at most {d} days", d=offline_days) }}</span></label>{% endif %}
+      <label class="check"><input type="checkbox" name="trial" value="1"> {{ de_en("Probeinterview", "Trial interview") }}</label>
+      <div class="row-fields"><button class="button">{{ de_en("Interview beginnen", "Start interview") }}</button>
+        <button type="button" class="button button-secondary" data-new-cancel>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+    </form>
+
+    <div data-kit-code hidden>
+      <h3>{{ de_en("Löschcode für die interviewte Person", "Deletion code for the interviewed person") }}</h3>
+      <p class="iv-kit-code" data-code-value></p>
+      <p class="muted small">{{ de_en("Mit diesem Code kann die Person ihr Interview jederzeit löschen lassen, auch bevor es abgeglichen ist.", "With this code the person can have their interview deleted at any time, also before it is synced.") }}</p>
+      <div><button type="button" class="button" data-code-done>{{ de_en("Zur Feldmappe", "Back to the field kit") }}</button></div>
+    </div>
+  </div>
+</section>

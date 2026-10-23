@@ -1,0 +1,86 @@
+{# The full construct box (constructs.box; konzept-konstrukt-schnellbox-2026-10-16.md, K4-K9): filters on the left,
+   cards on the right. A card opens to its items; "+ Einfügen" goes into the block chosen in the dialog's head (the
+   editor, app.js), "+ Aufnehmen" into the list being kept (keep). Drawn anew on every change of a filter. #}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{% macro preview(c) %}
+  {% set spec = c.spec or {} %}{% set config = spec.get("config", {}) %}
+  {% set all_texts = spec.get("texts", {}) %}{% set texts = all_texts.get(lang) or (all_texts.values()|list|first) or {} %}
+  <div class="cbox-items">
+    {% if texts.get("question") %}<p><strong>{{ texts.question }}</strong></p>{% endif %}
+    {% if config.get("statements") %}
+    <ol>{% for s in config.statements %}<li>{{ (texts.get("statements") or {}).get(s.id, "") or texts.get("question", "") }}{% if s.get("reverse") %} <span class="hint">({{ de_en("umgepolt", "reversed") }})</span>{% endif %}</li>{% endfor %}</ol>
+    {% if texts.get("labels") %}<p class="muted small">{{ texts.labels|select|join(" … ") if texts.labels|select|list|length <= 2 else (texts.labels|select|first) ~ " … " ~ (texts.labels|select|list|last) }}</p>{% endif %}
+    {% elif config.get("pairs") %}
+    <ol>{% for pr in config.pairs %}{% set words = (texts.get("pairs") or {}).get(pr.id, {}) %}<li>{{ words.get("left", "") }} – {{ words.get("right", "") }}</li>{% endfor %}</ol>
+    {% elif config.get("options") %}
+    <ul class="plain">{% for o in config.options %}<li>{{ (texts.get("options") or {}).get(o.id, "") }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if not is_linked(c.key) %}<p class="small"><a href="{{ url_for('constructs.detail', key=c.key, survey=survey.id if survey else none) }}" target="_blank" rel="noopener">{{ de_en("Seite des Konstrukts", "Page of the construct") }}</a></p>{% endif %}
+  </div>
+{% endmacro %}
+<div class="cbox-body">
+  <form class="cbox-filters" data-box-filters>
+    <fieldset>
+      <legend>{{ de_en("Auswahl", "Selection") }}</legend>
+      <label class="check"><input type="radio" name="pick" value="all" {% if pick == "all" %}checked{% endif %}> <span>{{ de_en("Alle", "All") }}</span></label>
+      {% if not keep %}
+      <label class="check"><input type="radio" name="pick" value="stars" {% if pick == "stars" %}checked{% endif %}> <span>{{ de_en("Meine Favoriten ({n})", "My favourites ({n})", n=n_stars) }}</span></label>
+      {% if n_org %}<label class="check"><input type="radio" name="pick" value="org" {% if pick == "org" %}checked{% endif %}> <span>{{ de_en("Empfohlen von {who} ({n})", "Recommended by {who} ({n})", who=org_label, n=n_org) }}</span></label>{% endif %}
+      <label class="check"><input type="radio" name="pick" value="mine" {% if pick == "mine" %}checked{% endif %}> <span>{{ de_en("Meine und geteilte", "Mine and shared") }}</span></label>
+      {% endif %}
+    </fieldset>
+    {% if survey and survey.languages|length > 1 %}
+    <fieldset>
+      <legend>{{ de_en("Sprache", "Language") }}</legend>
+      <label class="check"><input type="checkbox" name="langs" value="1" {% if request.args.get("langs") %}checked{% endif %}> <span>{{ de_en("Fassung für alle Sprachen der Befragung", "Version for every language of the survey") }}</span></label>
+    </fieldset>
+    {% endif %}
+    {% if pick != "mine" %}
+    {% for facet, label in facets.items() %}
+    {% set tags = all_tags.get(facet, []) %}
+    {% if tags %}
+    {% set chosen = tags|selectattr("slug", "in", selected)|list %}
+    <details class="cbox-facet" {% if loop.index <= 2 or chosen %}open{% endif %}>
+      <summary>{{ label }}</summary>
+      {% for t in tags %}
+      {% set n = (counts.get(facet, [])|selectattr(0, "equalto", t)|map(attribute=1)|first) or 0 %}
+      {% if n or t.slug in selected %}<label class="check"><input type="checkbox" name="tag" value="{{ t.slug }}" {% if t.slug in selected %}checked{% endif %}> <span>{{ tag_name(t) }} <span class="hint">{{ n }}</span></span></label>{% endif %}
+      {% endfor %}
+    </details>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+  </form>
+  <div class="cbox-list">
+    {{ why("validated_scale") }}
+    <p class="muted small" data-box-count>{{ de_en("{n} Treffer", "{n} hit", n=rows|length) if rows|length == 1 else de_en("{n} Treffer", "{n} hits", n=rows|length) }}{% if q %} {{ de_en("für „{q}“", "for “{q}”", q=q) }}{% endif %}</p>
+    <ul class="cbox-cards">
+      {% for c in rows %}
+      {% set on = c.key in stars %}
+      <li class="cbox-card" data-key="{{ c.key }}">
+        {% if not keep and not is_linked(c.key) %}
+        <button type="button" class="icon-btn star-btn" data-box-star="{{ url_for('constructs.star', key=c.key) }}" aria-pressed="{{ 'true' if on else 'false' }}"
+                title="{{ de_en('Favorit: Steht in der Schnellbox. Klicken entfernt den Stern.', 'Favourite: listed in the quick box. A click removes the star.') if on else de_en('Als Favorit merken: Steht dann in der Schnellbox', 'Mark as favourite: it is then listed in the quick box') }}"
+                aria-label="{{ c.name }}: {{ de_en('Favorit entfernen', 'remove favourite') if on else de_en('als Favorit merken', 'mark as favourite') }}">{{ icon("star", 16) }}</button>
+        {% else %}<span class="cbox-icon" aria-hidden="true">{{ icon("link" if is_linked(c.key) else "construct", 16) }}</span>{% endif %}
+        <details class="cbox-main">
+          <summary><strong>{{ c.name }}</strong>{% if c.key in recommended and by %} <span class="hint">{{ de_en("empfohlen von {who}", "recommended by {who}", who=by) }}</span>{% endif %}
+            <span class="cbox-meta">{% if is_linked(c.key) %}{{ de_en("verknüpftes Element, Fassung {v}", "linked element, revision {v}", v=c.seed_version) }}{% else %}{{ c.author_year }} · {{ de_en_n(c.n_items, ("{n} Item", "{n} Items"), ("{n} item", "{n} items")) }}{% if c.points %} · {{ de_en("{n} Stufen", "{n} points", n=c.points) }}{% endif %} · {{ c.languages|map("upper")|join(", ") }}{% endif %}{% if c.status == "review" %} · <span class="construct-wording">{{ de_en("Wortlaut noch nicht gegen die Quelle geprüft", "Wording not yet checked against the source") }}</span>{% endif %}</span></summary>
+          {% if c.key in wording_allowed %}{{ preview(c) }}{% else %}
+          <p class="muted small">{{ permission_notice }}</p>
+          <a href="{{ url_for('constructs.detail', key=c.key, survey=survey.id if survey else none) }}">{{ de_en("Quelle und Nutzungsbedingungen", "Source and terms of use") }}</a>{% endif %}
+        </details>
+        <p class="cbox-done small" data-box-done hidden></p>
+        {% if keep %}
+        {% if c.key in kept %}<span class="muted small">{{ de_en("in der Liste", "in the list") }}</span>
+        {% else %}<button type="button" class="button button-secondary button-small" data-box-keep="{{ c.key }}">{{ icon("plus", 16) }} {{ de_en("Aufnehmen", "Add") }}</button>{% endif %}
+        {% elif c.key in wording_allowed %}
+        <button type="button" class="button button-secondary button-small" data-box-insert="construct:{{ c.key }}" aria-label="{{ de_en('{name} einfügen', 'Insert {name}', name=c.name) }}">{{ icon("plus", 16) }} {{ de_en("Einfügen", "Insert") }}</button>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if not rows %}<p class="muted">{{ de_en("Keine Konstrukte gefunden. Weniger Wörter oder andere Filter versuchen.", "No constructs found. Try fewer words or other filters.") }}</p>{% endif %}
+  </div>
+</div>

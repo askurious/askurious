@@ -1,0 +1,40 @@
+{% set t = item.lang_texts(lang) %}
+{% include "items/_question_field.html" %}
+{% set en_styles = {"slider": "Slider", "smileys": "Smileys", "stars": "Stars", "numbers": "Row of numbers"} %}
+<fieldset>
+  <legend>{{ de_en("Darstellung", "Appearance") }}</legend>
+  <div class="stack">
+    <div class="row-fields">
+      <label>{{ de_en("Stil", "Style") }}
+        <select name="style" data-show-for {% if not structural %}disabled{% endif %}>
+          {% for key, label in rating_styles().items() %}
+          <option value="{{ key }}" {% if item.cfg.style == key %}selected{% endif %}>{{ de_en(label, en_styles.get(key, label)) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label data-when="smileys">{{ de_en("Stufen", "Points") }}
+        <select name="points" {% if not structural %}disabled{% endif %}>
+          {% for p in (5, 7) %}<option value="{{ p }}" {% if item.cfg.points == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+      </label>
+      <label data-when="stars">{{ de_en("Sterne", "Stars") }}
+        <select name="points" {% if not structural %}disabled{% endif %}>
+          {% for p in (5, 7, 10) %}<option value="{{ p }}" {% if item.cfg.points == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+      </label>
+      <label data-when="slider numbers">{{ de_en("von", "from") }} <input name="min" class="narrow" inputmode="decimal" value="{{ fmt_num(item.cfg.min) }}" {% if not structural %}disabled{% endif %}></label>
+      <label data-when="slider numbers">{{ de_en("bis", "to") }} <input name="max" class="narrow" inputmode="decimal" value="{{ fmt_num(item.cfg.max) }}" {% if not structural %}disabled{% endif %}></label>
+      <label data-when="slider">{{ de_en("Schrittweite", "Step") }} <input name="step" class="narrow" inputmode="decimal" value="{{ fmt_num(item.cfg.step) }}" {% if not structural %}disabled{% endif %}></label>
+    </div>
+    <div class="row-fields">
+      <label data-when="slider" class="check"><input type="checkbox" name="show_value" value="1" {% if item.cfg.show_value %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("gewählten Wert anzeigen", "show the chosen value") }}</label>
+      <label class="check"><input type="checkbox" name="reverse" value="1" {% if item.cfg.reverse %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("umgepolt", "reversed") }} <span class="hint">{{ de_en("wird beim Export rekodiert", "recoded in the export") }}</span></label>
+    </div>
+    {% with dk_export="-98" %}{% include "items/_dont_know_field.html" %}{% endwith %}
+    <div class="row-fields">
+      <label class="grow-1">{{ de_en("Beschriftung links", "Label on the left") }} <input name="left" value="{{ t.get('left', '') }}" placeholder="{{ de_en('z. B. gar nicht', 'e.g. not at all') }}" style="width:100%"></label>
+      <label class="grow-1">{{ de_en("Beschriftung rechts", "Label on the right") }} <input name="right" value="{{ t.get('right', '') }}" placeholder="{{ de_en('z. B. sehr', 'e.g. very') }}" style="width:100%"></label>
+    </div>
+    <p class="muted small" data-when="slider">{{ de_en("Der Regler hat keinen Startwert: Der Griff erscheint erst bei der ersten Berührung (kein Anker-Effekt).", "The slider has no starting value: the handle only appears at the first touch (no anchoring effect).") }}</p>
+  </div>
+</fieldset>

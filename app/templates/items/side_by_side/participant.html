@@ -1,0 +1,85 @@
+{# Side-by-side matrix (items/side_by_side.py): a table with a two-level head on a computer, one card per row below
+   the width the columns need (E6, --sbs-min). Every row is a fieldset with the row as legend, every choice cell an
+   inner fieldset with the question of its column as legend (on a computer for screen readers only). A column with a
+   condition (data-sbs-when, E10) waits, dimmed and without a word, until the column it depends on has an answer
+   (participant.js); an answer that rules it out switches it off: "entfällt" in the table, gone in a card (X34).
+   After a failed "Next" each cell meant is marked, with its own message where its value is wrong (X35). #}
+{% set lay = kind.layout(item, lang) %}
+{% set ans = answers.get(item.id) or {} %}
+{% set marked = (errors.get(item.id) or (nudges is defined and (nudges or {}).get(item.id))) %}
+{% set every_open = not errors.get(item.id) %}
+{% set dk_label = ui("weiß nicht", "don't know") %}
+{% set off_label = ui("entfällt", "does not apply") %}
+{% include "items/_question.html" %}
+{% set wide = lay.width > 700 %}
+<div class="p-sbs{{ ' p-sbs-wide' if wide }}" data-sbs data-sbs-min="{{ lay.width }}" style="--sbs-cols: {% for c in lay.columns %}{{ c.width + 20 }}px{{ ' ' if not loop.last }}{% endfor %}" role="group"{% if item.text("question", lang) %} aria-labelledby="q{{ item.id }}"{% endif %}>
+  <div class="p-sbs-grid">
+    <div class="p-sbs-head" aria-hidden="true">
+      <span class="p-sbs-corner"></span>
+      {% for c in lay.columns %}
+      <span class="p-sbs-colhead"><span{{ text_attrs(item, "titles", c.id) }}>{{ c.title|fill(variables) }}</span>
+        {% if c.kind in ("single", "multi") %}
+        <span class="p-sbs-pts{{ ' p-sbs-ends' if c.ends }}" style="--points: {{ c.points + (1 if c.dk else 0) }}"{{ text_attrs(item, "labels", c.id) }}>
+          {% if c.ends %}<span>{{ c.labels[0]|fill(variables) }}</span><span>{{ c.labels[-1]|fill(variables) }}</span>
+          {% else %}{% for l in c.labels %}<span>{{ l|fill(variables) }}</span>{% endfor %}{% endif %}
+          {% if c.dk %}<span class="p-sbs-dk-head">{{ dk_label }}</span>{% endif %}
+        </span>
+        {% endif %}
+      </span>
+      {% endfor %}
+    </div>
+    {% set shown = kind.statements(item, lang, (stmt_orders or {}).get(item.id) if stmt_orders is defined else none, none if all_rows is defined and all_rows else answers) %}
+    {% for r in shown %}
+    {% set cells = ans.get(r.id) or {} %}
+    {% set marks = kind.cell_marks(item, cells, lang, every_open) if marked else {} %}
+    <fieldset class="p-sbs-row{{ ' p-sbs-alt' if loop.index is even }}{{ ' p-sbs-open' if marks }}" data-sbs-row="{{ r.id }}">
+      <legend class="p-sbs-label">{% if marks %}<span class="p-missing-mark" aria-hidden="true">⚠ </span>{% endif %}{% if loop.length > 1 %}<span class="p-statement-count">{{ (ui("%d von %d", "%d of %d"))|format(loop.index, loop.length) }}</span>{% endif %}<span{{ text_attrs(item, "rows", r.id) }}>{{ r.text|fill(variables) }}</span></legend>
+      {% for c in lay.columns %}
+      {% set name = "i" ~ item.id ~ "_" ~ r.id ~ "_" ~ c.id %}
+      {% set v = cells.get(c.id) %}
+      {% if c.kind in ("single", "multi") %}
+      <fieldset class="p-sbs-cell p-sbs-{{ c.kind }}{{ ' p-missing' if c.id in marks }}" data-sbs-col="{{ c.id }}"{% if c.when %} data-sbs-when="{{ c.when|tojson|forceescape }}"{% endif %}>
+        <legend class="p-sbs-celltitle"><span{{ text_attrs(item, "titles", c.id) }}>{{ c.title|fill(variables)|striptags }}</span>{% if c.required %}{% with item={"required": true} %}{% include "items/_required.html" %}{% endwith %}{% endif %}</legend>
+        <div class="p-scale{{ ' p-sbs-list' if c.points > 2 or c.dk else ' p-sbs-two' }}" style="--points: {{ c.points + (1 if c.dk else 0) }}">
+          {% for l in c.labels %}
+          {% set code = loop.index %}
+          <label class="p-point">
+            <input type="{{ 'radio' if c.kind == 'single' else 'checkbox' }}" name="{{ name }}" value="{{ code }}"
+                   {% if (c.kind == 'single' and v == code) or (c.kind == 'multi' and v is iterable and v is not string and code in v) %}checked{% endif %}
+                   aria-label="{{ l|fill(variables)|striptags if l else code }}">
+            <span class="p-point-label"{{ text_attrs(item, "labels", c.id) if l }}>{{ (l or code)|fill(variables) }}</span>
+          </label>
+          {% endfor %}
+          {% if c.dk %}
+          <label class="p-point p-point-dk">
+            <input type="radio" name="{{ name }}" value="dk" {% if v == "dk" %}checked{% endif %} aria-label="{{ dk_label }}">
+            <span class="p-point-label">{{ dk_label }}</span>
+          </label>
+          {% endif %}
+        </div>
+        {% if c.when %}<span class="p-sbs-off">{{ off_label }}</span>{% endif %}
+      </fieldset>
+      {% else %}
+      {% set msg = marks.get(c.id) %}
+      <div class="p-sbs-cell p-sbs-{{ c.kind }}{{ ' p-missing' if c.id in marks }}" data-sbs-col="{{ c.id }}"{% if c.when %} data-sbs-when="{{ c.when|tojson|forceescape }}"{% endif %}>
+        <label class="p-sbs-celltitle" for="{{ name }}"><span{{ text_attrs(item, "titles", c.id) }}>{{ c.title|fill(variables)|striptags }}</span>{% if c.required %}{% with item={"required": true} %}{% include "items/_required.html" %}{% endwith %}{% endif %}</label>
+        {% if c.kind == "dropdown" %}
+        <select id="{{ name }}" name="{{ name }}">
+          <option value="">{{ ui("Bitte auswählen", "Please select") }}</option>
+          {% for l in c.labels %}<option value="{{ loop.index }}" {% if v == loop.index %}selected{% endif %}{{ text_attrs(item, "labels", c.id) if l }}>{{ (l or loop.index)|fill(variables)|striptags }}</option>{% endfor %}
+        </select>
+        {% elif c.kind == "number" %}
+        <span class="p-sbs-num"><input id="{{ name }}" name="{{ name }}" inputmode="{{ 'decimal' if c.decimal else 'numeric' }}" autocomplete="off" value="{{ v if v is not none else '' }}" size="8"{% if msg %} aria-invalid="true" aria-describedby="m{{ name }}"{% endif %}>{% if c.unit %}<span{{ text_attrs(item, "units", c.id) }}>{{ c.unit|fill(variables) }}</span>{% endif %}</span>
+        {% else %}
+        <input id="{{ name }}" name="{{ name }}" maxlength="{{ kind.MAX_TEXT }}" autocomplete="off" dir="auto" value="{{ v if v is not none else '' }}"{% if msg %} aria-invalid="true" aria-describedby="m{{ name }}"{% endif %}>
+        {% endif %}
+        {% if msg %}<span class="p-sbs-cellmsg" id="m{{ name }}">{{ msg }}</span>{% endif %}
+        {% if c.when %}<span class="p-sbs-off">{{ off_label }}</span>{% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% if lay.columns|selectattr("when")|list %}<p class="p-sbs-skipped" hidden>{{ ui("Die weiteren Fragen entfallen.", "The further questions do not apply.") }}</p>{% endif %}
+    </fieldset>
+    {% endfor %}
+  </div>
+</div>

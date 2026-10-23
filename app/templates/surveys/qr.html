@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ de_en("QR-Code", "QR code") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<section class="panel qr-page">
+  <h1>{{ survey.title }}{% if params %} <span class="hint">{{ params[0][0] }} = {{ params[0][1] }}</span>{% endif %}</h1>
+  <img class="qr-image" src="{{ url_for('surveys.qr_image', survey_id=survey.id, fmt='svg', **query) }}" alt="{{ de_en('QR-Code für {url}', 'QR code for {url}', url=url) }}">
+  <p class="qr-url"><code>{{ url }}</code></p>
+  <div class="form-actions qr-actions">
+    <a class="button button-secondary" href="{{ url_for('surveys.qr_image', survey_id=survey.id, fmt='png', download=1, **query) }}">{{ de_en("PNG herunterladen", "Download PNG") }}</a>
+    <a class="button button-secondary" href="{{ url_for('surveys.qr_image', survey_id=survey.id, fmt='svg', download=1, **query) }}">{{ de_en("SVG herunterladen", "Download SVG") }}</a>
+    <button type="button" class="button button-secondary" data-print>{{ de_en("Drucken", "Print") }}</button>
+  </div>
+</section>
+{% endblock %}

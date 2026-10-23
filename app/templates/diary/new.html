@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_start_cards.html" import start_cards %}
+{% from "wizard/_import.html" import import_panel with context %}
+{# Creating a diary study (app/diary.py, concepts/experiencesampling.md): one page #}
+{% block title %}{{ de_en("Neue Tagebuchstudie", "New diary survey") }}{% endblock %}
+{% block content %}
+<div class="survey-head">
+  <a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <h1>{{ de_en("Neue Tagebuchstudie", "New diary survey") }}</h1> <span class="badge badge-diary">{{ de_en("Tagebuchstudie", "Diary survey") }}</span> <span class="badge badge-exp" title="{{ de_en('Experimentell, bis die App im Play Store ist', 'Experimental until the app is in the Play Store') }}">{{ de_en("experimentell", "experimental") }}</span>
+</div>
+{{ start_cards("diary.new", starts, start) }}
+{% if start == "datei" %}
+{{ import_panel("tagebuch", de_en("Die Datei einer Tagebuchstudie entsteht im Reiter „Export“ unter „Befragungsdatei“, auch in einer anderen Installation von Askurious.", "The file of a diary survey is made on the tab “Export” under “Survey file”, also in another installation of Askurious.")) }}
+{% elif start == "vorlage" %}
+{# typical designs (app/diary.py DIARY_TEMPLATES): entry survey, short survey "Moment" with its schedule, exit survey #}
+<section class="panel" id="vorlagen" aria-label="{{ de_en('Vorlagen', 'Templates') }}">
+  <ul class="plain template-list">
+    {% for k, (name, note) in templates.items() %}
+    <li><form method="post" action="{{ url_for('diary.new') }}" class="row template-row">{{ csrf() }}<input type="hidden" name="template" value="{{ k }}"><input type="hidden" name="language" value="{{ 'en' if ui_language() == 'en' else 'de' }}">
+      <span class="template-text"><strong>{{ name }}</strong><br><span class="muted small">{{ note }}</span></span>
+      <label class="template-title"><span class="small muted">{{ de_en("Titel der Tagebuchstudie", "Title of the diary survey") }}</span>
+        <input name="title" value="{{ name }}" maxlength="300" required></label>
+      <button class="button button-secondary">{{ de_en("Anlegen", "Create") }}</button></form></li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Jede Vorlage bringt die Eingangsbefragung mit Alter und Geschlecht, die Kurzbefragung „Moment“ mit einer Frage und eine Abschlussbefragung mit; Zeitplan und Fragen lassen sich danach ändern. Die drei Pläne nach Bolger und Laurenceau (2013): intervall-, signal- und ereignisgesteuert.", "Each template brings the entry survey with age and gender, the short survey “Moment” with one question and an exit survey; you can change the schedule and the questions afterwards. The three designs after Bolger and Laurenceau (2013): interval-, signal- and event-contingent.") }}</p>
+</section>
+{% from "_sources.html" import grouped %}
+<section class="panel">{{ grouped([(de_en("Vorlagen", "Templates"), [bolger])], de_en("Literatur", "References")) }}</section>
+{% else %}
+<form method="post" action="{{ url_for('diary.new') }}" class="panel stack">
+  {{ csrf() }}
+  <p class="muted small flush">{{ de_en("Teilnehmende treten mit der Askurious-App (Android) bei. Sie beantworten einmal eine Eingangsbefragung mit der Einwilligung, danach im Alltag kurze, wiederkehrende Kurzbefragungen (zu festen Zeiten, zufällig oder wann immer sie etwas melden möchten) und am Ende einmal eine Abschlussbefragung. Jede Antwort ist ein Eintrag; alle Einträge einer Person gehören zu ihrer Teilnahme.",
+    "Participants join with the Askurious app (Android). They answer an entry survey with the consent once, then short, recurring short surveys in daily life (at fixed times, at random, or whenever they want to report something), and at the end an exit survey once. Each answer is an entry; all entries of a person belong to their participation.") }}</p>
+  <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
+    <input name="title" maxlength="300" placeholder="{{ de_en('z. B. „Lernen im Alltag“', 'e.g. “Learning in daily life”') }}" autofocus></label>
+  <label>{{ de_en("Sprache", "Language") }}
+    <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if code == ui_language() %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+  <fieldset class="bare stack"><legend>{{ de_en("Mit anlegen", "Create along with it") }}</legend>{# "Vorlage" is the word of the survey templates (W94; UI audit 2026-10-12, U36) #}
+    <label class="check"><input type="checkbox" name="demographics" value="1" checked> {{ de_en("Alter und Geschlecht in die Eingangsbefragung (einmal je Person, nicht bei jeder Kurzbefragung)", "Age and gender in the entry survey (once per person, not in every short survey)") }}</label>
+    <label class="check"><input type="checkbox" name="exit" value="1" checked> {{ de_en("Abschlussbefragung anlegen, mit einer offenen Frage zum Schluss", "Create an exit survey, with one open question at the end") }}</label>
+    <p class="muted small flush">{{ de_en("Eine Kurzbefragung „Moment“ mit einer Frage kommt immer dazu. Alles lässt sich danach im Reiter „Fragebogen“ ändern; dort können Sie auch einen bestehenden Fragebogen als Eingangs- oder Abschlussbefragung übernehmen.",
+      "A short survey “Moment” with one question is always added. You can change everything afterwards on the tab “Questionnaire”; there you can also copy an existing questionnaire as entry or exit survey.") }}</p>
+  </fieldset>
+  {% with new_survey=true %}{% include "diary/_join_mode.html" %}{% endwith %}
+  <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Anlegen", "Create") }}</button></div>
+</form>
+{% endif %}
+{% endblock %}

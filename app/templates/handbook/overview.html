@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# /docs/dialogs (app/handbook.py, _overview): the former single page "Seiten und Dialoge", now an overview of the pages
+   it was split into; static/handbook.js sends an old link with a section on to its page. Needs: name, title, parts,
+   pages, targets. #}
+{% block title %}{{ title }} · {{ de_en("Handbuch", "Handbook") }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='handbook.js') }}" defer></script>{% endblock %}
+{% block container_class %}container handbook-page{% endblock %}
+{% block content %}
+<div class="handbook" data-handbook-anchors="{{ targets }}">
+  <nav class="handbook-nav" aria-label="{{ de_en('Handbuch', 'Handbook') }}">
+    <p class="handbook-nav-title">{{ icon("book", 18) }} {{ de_en("Handbuch", "Handbook") }}</p>
+    <ul class="plain">
+      {% for key, label in pages %}
+      <li><a href="{{ url_for('handbook.index') if key == 'index' else url_for('handbook.page', name=key) }}">{{ label }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  <article class="handbook-body panel">
+    <h1>{{ title }}</h1>
+    <p>{{ de_en("Die Beschreibung der Seiten und Dialoge steht jetzt auf mehreren Seiten:", "The description of the pages and dialogs is now on several pages:") }}</p>
+    {% for key, label, toc in parts %}
+    <h2 id="{{ key }}"><a href="{{ url_for('handbook.page', name=key) }}">{{ label }}</a></h2>
+    <ul>
+      {% for hid, text in toc %}<li><a href="{{ url_for('handbook.page', name=key) }}#{{ hid }}">{{ text }}</a></li>{% endfor %}
+    </ul>
+    {% endfor %}
+  </article>
+</div>
+{% endblock %}

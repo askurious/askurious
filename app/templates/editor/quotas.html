@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{% from "_condition.html" import cond_line, cond_add %}
+{% from "_learn.html" import why %}
+{% block title %}{{ de_en("Quoten", "Quotas") }} · {{ survey.title }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "quotas" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="quota-page" data-quota-page data-cond-page>
+{# a page below "Ablauf" (UI audit 2026-10-12, E4) #}
+<a class="back-link" href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ icon("back", 16) }} {{ de_en("Ablauf", "Flow") }}</a>
+<script type="application/json" data-cond-items>{{ quota_data|tojson }}</script>
+<div class="page-head">
+  <h2>{{ de_en("Quoten", "Quotas") }} <span class="hint">{{ de_en("Teilquoten mit Soll; wann sie berechnet werden und was bei voller Quote geschieht, steht im Ablauf", "sub-quotas with targets; when they are calculated and what happens when a quota is full is set in the flow") }}</span></h2>
+  {% if survey.sampling is not none %}<p class="muted small">{{ de_en("Tagebuchstudie: Quoten und Enden wirken in ihren Teilen nicht; die Teilnahme steuern Sie über Einladungscodes (Reiter „Datenerhebung“) und „Für alle beenden“ (Reiter „Zeitplan“).", "Diary survey: quotas and ends do not work in its parts; you steer participation with invitation codes (tab “Data collection”) and “End for everyone” (tab “Schedule”).") }}</p>{% endif %}
+  {% if editable %}<a class="button button-secondary" href="{{ url_for('flow_page.quota_census', survey_id=survey.id, lang=lang) }}" title="{{ de_en('Quoten nach Alter, Geschlecht und Bundesland mit den amtlichen Anteilen anlegen', 'Create quotas by age, gender and federal state with the official shares') }}">{{ de_en("Quotenassistent öffnen", "Open quota assistant") }}</a><p class="hint">{{ de_en("Nach Alter, Geschlecht und Bundesland mit den amtlichen Bevölkerungsanteilen Deutschlands.", "By age, gender and federal state, using Germany's official population shares.") }}</p>{% endif %}
+</div>
+{% if steering %}<div class="flash">{{ de_en("Die Befragung läuft oder ist geschlossen: Namen, Codes und Bedingungen sind fest. Als Admin können Sie das Feld steuern: Soll, Art, Toleranz und Haltezeit ändern, Teilquoten schließen und öffnen. Jede Änderung steht im Verlauf im Reiter „Datenerhebung“; den Füllstand zeigt der Kasten „Quoten“ darunter.", "The survey is running or closed: names, codes and conditions are fixed. As an admin you can steer the field: change target, type, tolerance and hold time, close and open sub-quotas. Every change is listed in the history on the tab “Data collection”; the box “Quotas” below shows how full they are.") }}</div>
+{% elif not editable %}<div class="flash">{{ de_en("Die Befragung läuft oder ist geschlossen: Die Quoten sind hier nur zu lesen (steuern können Admins). Den Füllstand zeigt der Kasten „Quoten“ darunter.", "The survey is running or closed: the quotas can only be read here (admins can steer them). The box “Quotas” below shows how full they are.") if not survey.is_editable else de_en("Zum Bearbeiten der Quoten ist die Rolle „Bearbeiten“ nötig.", "Editing the quotas needs the role “Edit”.") }}</div>{% endif %}
+<div data-live="quota-findings">{% for severity, message in findings %}<div class="flash flash-{{ 'error' if severity == 'error' else 'warning' }}">{{ icon("x" if severity == "error" else "alert", 16) }} <span>{{ message }}</span></div>{% endfor %}</div>
+
+{# the state of a started survey, right above what steers it (UI audit 2026-10-04, G4) #}
+{% if quota_jumps %}{% include "surveys/_quota_jumps.html" %}{% endif %}
+{% if quota_report %}{% include "surveys/_quotas.html" %}{% endif %}
+
+{# open as long as there is no quota yet; then it waits, folded, above them #}
+<details class="panel quota-intro"{% if not survey.quotas %} open{% endif %}>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("So funktioniert es", "How it works") }}</h2></summary>
+  <p>{{ de_en('Eine <strong>Quote</strong> besteht aus <strong>Teilquoten</strong>. Jede Teilquote hat ein Soll und eine oder mehrere Bedingungen, die alle zutreffen müssen, z. B. „Geschlecht: männlich“ und „Alter: 18 bis 29“. Eine Kreuzquote ist eine Quote, deren Teilquoten mehrere Bedingungen haben.', 'A <strong>quota</strong> consists of <strong>sub-quotas</strong>. Each sub-quota has a target and one or more conditions that must all hold, e.g. “Gender: male” and “Age: 18 to 29”. A cross quota is a quota whose sub-quotas have several conditions.')|safe }}</p>
+  <p>{{ de_en('Hier steht, <strong>was</strong> quotiert wird. <strong>Wann</strong> und mit welcher Folge, steht im', 'This page sets <strong>what</strong> is put under quota. <strong>When</strong> and with what result is set in the')|safe }} <a href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ de_en("Ablauf", "flow") }}</a>{{ de_en(': Eine <strong>Quotenberechnung</strong> hinter den Fragen, auf die sich die Bedingungen beziehen, gibt der Person ihren Platz in der Teilquote, die passt. Ein <strong>Ende</strong> der Art „Quote voll“ mit dieser Quote beendet die Teilnahme, wenn dort kein Platz mehr frei war; ohne ein solches Ende läuft die Person weiter und zählt in der Quote nicht. Die Entscheidung fällt einmal; danach führt „Zurück“ nicht mehr vor die Berechnung.', ': a <strong>quota calculation</strong> after the questions the conditions refer to gives the person their place in the sub-quota that fits. An <strong>end</strong> of the kind “quota full” with this quota ends the participation if no place was free there; without such an end the person carries on and does not count in the quota. The decision is made once; after that, “Back” no longer leads to before the calculation.')|safe }}</p>
+  <p>{{ de_en('<strong>Was zählt:</strong> Es zählen nur <strong>abgeschlossene</strong> Teilnahmen. Abgebrochene und später herausgefilterte Teilnahmen füllen keine Teilquote; sie halten höchstens vorübergehend einen Platz.', '<strong>What counts:</strong> only <strong>completed</strong> participations count. Broken-off participations and those filtered out later fill no sub-quota; at most they hold a place for a while.')|safe }}</p>
+  <p>{{ de_en('<strong>Hart:</strong> Der Platz wird an der Berechnung reserviert; abgeschlossene und laufende Teilnahmen zusammen überschreiten das Soll nie. Wer länger als die Haltezeit keine Seite absendet, gibt den Platz wieder frei. <strong>Weich:</strong> Es wird eingelassen, bis das Soll an abgeschlossenen Teilnahmen erreicht ist; wer dann schon im Fragebogen ist, darf fertig machen, höchstens um die Toleranz über dem Soll.', '<strong>Hard:</strong> the place is reserved at the calculation; completed and running participations together never exceed the target. Anyone who submits no page for longer than the hold time frees the place again. <strong>Soft:</strong> people are let in until the target of completed participations is reached; anyone who is already in the questionnaire then may finish, at most by the tolerance above the target.')|safe }}</p>
+  <p>{{ de_en("Wem keine Teilquote passt, der läuft ohne Platz weiter. Soll die Teilnahme dann enden, gehört in den Ablauf eine Bedingung auf die Quote („keine Teilquote“) mit einem Ende.", "Anyone who fits no sub-quota carries on without a place. If the participation should end then, add a condition on the quota (“no sub-quota”) with an end to the flow.") }}</p>
+  <p class="muted small">{{ de_en("Eine Bedingung wählt eine Frage und die Antworten, die zählen: bei Auswahlfragen ankreuzen, bei Zahlen „von … bis“ eintragen (nur „von“ heißt „ab“, nur „bis“ heißt „bis“; die Grenzen zählen mit). Sind mehrere Antworten angekreuzt, genügt eine davon. Testdurchläufe, Vorschau und Dummy-Daten belegen nie einen Platz.", "A condition picks a question and the answers that count: tick them for choice questions, enter “from … to” for numbers (only “from” means “from … on”, only “to” means “up to”; the limits are included). If several answers are ticked, one of them is enough. Test runs, preview and dummy data never take a place.") }}</p>
+</details>
+
+{# the fields of one condition, by the kind of its question; v: quotas.cond_view of a stored condition, or none.
+   The script (app.js) builds the same fields when another question is chosen. #}
+{% macro cond_row(prefix, v, text="") -%}
+{{ cond_line(prefix, v, described, quota_data.order, none, quota_data.date_hint, editable, empty=de_en("– Frage wählen –", "– choose a question –"), text=text, removable=true) }}
+{%- endmacro %}
+
+{# one Teilquote of the table; cell: a QuotaCell, or none for a new one #}
+{% macro cell_row(p, cell) -%}
+  <tr {% if cell is none %}class="quota-new"{% else %}id="quota-cell-{{ cell.id }}"{% endif %} data-cell data-prefix="{{ p }}">
+    <td><input type="hidden" name="{{ p }}_id" value="{{ cell.id if cell else '' }}">
+      <input name="{{ p }}_name" value="{{ cell.name if cell else '' }}" placeholder="{{ de_en('neue Teilquote; leer = Name aus den Bedingungen', 'new sub-quota; empty = name from the conditions') if cell is none else '' }}" maxlength="200" aria-label="{{ de_en('Name der Teilquote', 'Name of the sub-quota') }}" {% if not editable %}disabled{% endif %}>
+      {# a cell of "Höchstzahl je Link" is named after the link's code: whom it is for beside it (X56) #}
+      {% if cell %}{% set person = quota_cell_label(survey, cell.quota, cell.name) %}{% if person != cell.name %}<span class="hint">{{ person }}</span>{% endif %}{% endif %}</td>
+    <td class="quota-code-col"><input name="{{ p }}_code" value="{{ cell.code if cell else '' }}" data-varname="full" maxlength="40" aria-label="{{ de_en('Code der Teilquote im Export', 'Code of the sub-quota in the export') }}" placeholder="{{ de_en('automatisch', 'automatic') }}" {% if not editable %}disabled{% endif %}></td>
+    <td><input type="number" name="{{ p }}_target" min="0" max="1000000" value="{{ cell.target if cell else '' }}" aria-label="{{ de_en('Soll', 'Target') }}" {% if not editable %}disabled{% endif %}></td>
+    <td data-conds>
+      {% set conds = (cell.conds or []) if cell else [] %}
+      {% for cond in conds %}{{ cond_row(p ~ "_k" ~ loop.index0, quotas.cond_view(cond, described), quotas.cond_text(survey, cond, lang)) }}{% endfor %}
+      {% if editable and not conds %}{{ cond_row(p ~ "_k0", none) }}{% endif %}
+      {{ cond_add(p ~ "_k", [conds|length, 1]|max, quotas.MAX_CONDS, modes=false, editable=editable) }}
+    </td>
+    {% if editable %}<td class="center">{% if cell %}<input type="hidden" name="{{ p }}_delete" value="" data-remove-value><button type="button" class="icon-btn danger" data-remove-flag="[data-cell]" title="{{ de_en('Teilquote löschen', 'Delete sub-quota') }}" aria-label="{{ de_en('Teilquote „{name}“ löschen', 'Delete sub-quota “{name}”', name=cell.name) }}">{{ icon("trash", 16) }}</button>{% endif %}</td>{% endif %}
+  </tr>
+{%- endmacro %}
+
+{% for entry in report %}
+{% set quota = entry.quota %}
+<section class="panel quota" id="quota-{{ quota.id }}">
+  <h2 data-live="quota-head-{{ quota.id }}">{{ quota.name }} <span class="hint">{% if entry.node %}{{ de_en("wird im Ablauf berechnet", "is calculated in the flow") }}{% if entry.ends %}{{ de_en("; bei voller Quote endet die Teilnahme", "; when the quota is full, the participation ends") }}{% else %}; <strong>{{ de_en("beendet niemanden", "ends nobody") }}</strong>: {{ de_en("im", "the") }} <a href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ de_en("Ablauf", "flow") }}</a> {{ de_en("fehlt ein Ende „Quote voll“ mit dieser Quote", "lacks an end “quota full” with this quota") }}{% endif %}{% else %}<strong>{{ de_en("wird noch nirgends berechnet", "is not calculated anywhere yet") }}</strong>: {{ de_en("im", "in the") }} <a href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ de_en("Ablauf", "flow") }}</a>{{ de_en(" eine Quotenberechnung hinzufügen", ", add a quota calculation") }}{% endif %}</span></h2>
+  {% set may = editable or steering %}
+  <form method="post" action="{{ url_for('flow_page.quota_steer' if steering else 'flow_page.quota_save', survey_id=survey.id, quota_id=quota.id, lang=lang) }}" class="stack" {{ "data-autosave-form" if editable else "data-dirty-guard" }}>
+    {{ csrf() }}
+    <div class="row-fields">
+      <label class="grow-2">Name <input name="name" value="{{ quota.name }}" maxlength="200" {% if not editable %}disabled{% endif %}></label>
+      <label class="quota-code-col">{{ de_en("Code im Export", "Code in the export") }} <span class="hint">{{ de_en("Spalten", "columns") }} <code>quota_{{ quota.code }}</code>, <code>quota_{{ quota.code }}_res</code></span>
+        <input name="code" value="{{ quota.code }}" class="narrow" data-varname="full" maxlength="40" {% if not editable %}disabled{% endif %}></label>
+      <label>{{ de_en("Passen mehrere Teilquoten", "If several sub-quotas fit") }} <span class="hint">{{ de_en("zählt die erste in der Reihenfolge der Tabelle oder die am wenigsten gefüllte", "the first in the order of the table counts, or the least filled") }}</span><select name="pick" {% if not editable %}disabled{% endif %}>{% for key, label in quotas.picks().items() %}<option value="{{ key }}" {% if (quota.pick or "first") == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="row-fields">
+      <label>{{ de_en("Art", "Type") }} <select name="mode" data-quota-mode {% if not may %}disabled{% endif %}>{% for key, label in quotas.modes().items() %}<option value="{{ key }}" {% if quota.mode == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      {# only a soft quota has a tolerance: locked (value kept) while the quota is hard (UI/UX audit 2026-10-05, V19) #}
+      {% set soft = quota.mode == "soft" %}
+      <label>{{ de_en("Toleranz", "Tolerance") }} <span class="hint">{{ de_en("nur bei „weich“", "only for “soft”") }}</span>
+        <span class="row"><input type="number" name="tolerance" min="0" max="100000" value="{{ quota.tolerance }}" class="narrow" data-soft-only {% if not may or not soft %}disabled{% endif %}>
+        <select name="tolerance_unit" aria-label="{{ de_en('Einheit der Toleranz', 'Unit of the tolerance') }}" data-soft-only {% if not may or not soft %}disabled{% endif %}><option value="pct" {% if quota.tolerance_pct %}selected{% endif %}>{{ de_en("% des Solls", "% of the target") }}</option><option value="n" {% if not quota.tolerance_pct %}selected{% endif %}>{{ de_en("Plätze", "places") }}</option></select></span></label>
+      <label>{{ de_en("Haltezeit", "Hold time") }} <span class="hint">{{ de_en("Minuten ohne abgesendete Seite, nach denen ein reservierter Platz wieder frei wird; wer nach der Quotenberechnung noch keine Seite abgeschickt hat, gibt den Platz schon nach {n} Minuten frei", "minutes without a submitted page after which a reserved place becomes free again; who has not submitted a page since the quota calculation gives the place back after {n} minutes already", n=quotas.fresh_hold()) }}</span>
+        <input type="number" name="hold_minutes" min="1" max="10080" value="{{ quota.hold_minutes or quotas.DEFAULT_HOLD }}" class="narrow" {% if not may %}disabled{% endif %}></label>
+    </div>
+    {{ why("quota_hard") }}
+    {% set cells = quota.cells|list %}
+    {% set shown = cells + ([none] if editable else []) %}
+    <input type="hidden" name="cells" value="{{ shown|length }}">
+    {% if steering %}
+    <table class="list-table is-edit quota-steer">
+      <thead><tr><th>{{ de_en("Teilquote", "Sub-quota") }}</th><th>{{ de_en("Bedingungen", "Conditions") }}</th><th class="num">{{ de_en("abgeschlossen", "completed") }}</th><th class="num">{{ de_en("laufend", "running") }}</th><th class="narrow-col">{{ de_en("Soll", "Target") }}</th><th class="center">{{ de_en("geschlossen", "closed") }}</th></tr></thead>
+      <tbody>
+        {% for r in entry.cells %}
+        <tr id="quota-cell-{{ r.id }}"><td>{{ r.name }} <code class="small">{{ r.code }}</code></td><td class="small muted">{{ r.conds }}</td>
+          <td class="num">{{ r.done }}</td><td class="num">{{ r.running }}</td>
+          <td><input type="number" name="target_{{ r.id }}" min="0" max="1000000" value="{{ r.target }}" aria-label="{{ de_en('Soll der Teilquote {name}', 'Target of the sub-quota {name}', name=r.name) }}"></td>
+          <td class="center"><input type="checkbox" name="closed_{{ r.id }}" value="1" {% if r.closed %}checked{% endif %} aria-label="{{ de_en('Teilquote {name} schließen', 'Close sub-quota {name}', name=r.name) }}"></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted small">{{ de_en("Eine geschlossene Teilquote lässt niemanden mehr ein, unabhängig vom Stand; wer schon einen Platz hat, darf fertig machen. Ein niedrigeres Soll wirft niemanden hinaus.", "A closed sub-quota lets nobody in any more, whatever its count; anyone who already has a place may finish. A lower target throws nobody out.") }}</p>
+    <div class="form-actions"><button class="button">{{ de_en("Steuerung speichern", "Save steering") }}</button></div>
+    {% else %}
+    <table class="list-table is-edit quota-cells">
+      <thead><tr><th>{{ de_en("Teilquote", "Sub-quota") }}</th><th class="quota-code-col">{{ de_en("Code im Export", "Code in the export") }}</th><th>{{ de_en("Soll", "Target") }}</th><th>{{ de_en("Bedingungen", "Conditions") }} <span class="hint">{{ de_en("alle müssen zutreffen", "all must hold") }}</span></th>{% if editable %}<th class="center"><span class="visually-hidden">{{ de_en("löschen", "delete") }}</span></th>{% endif %}</tr></thead>
+      <tbody data-cells>
+        {% for cell in shown %}{{ cell_row("c" ~ loop.index0, cell) }}{% endfor %}
+      </tbody>
+    </table>
+    {% if editable %}
+    <template data-cell-template>{{ cell_row("c__N__", none) }}</template>
+    <div class="form-actions">
+      <button type="button" class="button button-secondary" data-add-cell>{{ de_en("+ Teilquote", "+ Sub-quota") }}</button>
+      <button type="button" class="button button-secondary button-small" data-toggle-codes aria-pressed="false" title="{{ de_en('Die Codes stehen nur in den Spalten des Exports; ohne Angabe entstehen sie aus den Namen', 'The codes appear only in the columns of the export; if left empty they are made from the names') }}">{{ de_en("Export-Codes zeigen", "Show export codes") }}</button>
+    </div>
+    {{ autosave_bar() }}
+    <p class="muted small">{{ de_en("Ein leerer Name wird aus den Bedingungen gebildet.", "An empty name is made from the conditions.") }}</p>
+    {% endif %}
+    {% endif %}
+  </form>
+  {% if editable %}
+  <details class="quota-generate" {% if not quota.cells %}open{% endif %}>
+    <summary>{{ de_en("Kreuzquote aufbauen", "Build a cross quota") }} <span class="hint">{{ de_en("Merkmale wählen und Antworten ankreuzen; alle Kombinationen entstehen als Teilquoten", "choose attributes and tick answers; every combination becomes a sub-quota") }}</span></summary>
+    <form method="post" action="{{ url_for('flow_page.quota_generate', survey_id=survey.id, quota_id=quota.id, lang=lang) }}" class="stack" data-quota-builder>
+      {{ csrf() }}
+      {% for k in range(3) %}
+      <div class="quota-attr" data-gen>
+        <label>{{ de_en("{n}. Merkmal", "attribute {n}", n=k + 1) }}
+          <select name="m{{ k }}_item" data-gen-item>
+            <option value="">{{ de_en("– Frage wählen –", "– choose a question –") if k == 0 else de_en("– kein weiteres Merkmal –", "– no further attribute –") }}</option>
+            {% for ref in quota_data.order %}<option value="{{ ref }}">{{ described[ref].label }}</option>{% endfor %}
+          </select></label>
+        <div class="quota-attr-cats" data-gen-cats data-prefix="m{{ k }}"></div>
+      </div>
+      {% endfor %}
+      <div class="row-fields">
+        <label>{{ de_en("Soll je Teilquote", "Target per sub-quota") }} <input type="number" name="target" min="0" max="1000000" class="narrow"></label>
+        <label>{{ de_en("oder Gesamt-Soll verteilen", "or spread a total target") }} <span class="hint">{{ de_en("dann erscheint je Ausprägung ein Feld „Anteil“; ohne Anteile gleichmäßig", "then each category gets a field “share”; without shares evenly") }}</span><input type="number" name="total" min="0" max="10000000" class="narrow" data-gen-total></label>
+      </div>
+      <p class="muted small">{{ de_en("Beim Verteilen werden die Anteile der Merkmale miteinander multipliziert, die Merkmale gelten also als unabhängig (z. B. dieselbe Altersverteilung bei Frauen und Männern). Stimmt das nicht, das Soll je Teilquote selbst eintragen; für Alter, Geschlecht und Bundesland rechnet der", "When spreading, the shares of the attributes are multiplied, so the attributes are taken as independent (e.g. the same age distribution for women and men). If that does not hold, enter the target per sub-quota yourself; for age, gender and federal state the") }} <a href="{{ url_for('flow_page.quota_census', survey_id=survey.id, lang=lang) }}">{{ de_en("Quotenassistent", "quota assistant") }}</a> {{ de_en("mit der gemeinsamen Verteilung der amtlichen Zahlen.", "uses the joint distribution of the official figures.") }}</p>
+      <label class="check"><input type="checkbox" name="replace" value="1" {% if not quota.cells %}checked{% endif %}> {{ de_en("vorhandene Teilquoten dieser Quote ersetzen", "replace the existing sub-quotas of this quota") }} <span class="hint">{{ de_en("sonst kommen die neuen Teilquoten dazu", "otherwise the new sub-quotas are added") }}</span></label>
+      <noscript><p class="flash flash-warning">{{ de_en("Zum Aufbauen einer Kreuzquote muss JavaScript eingeschaltet sein; einzelne Teilquoten lassen sich oben auch ohne anlegen.", "Building a cross quota needs JavaScript; single sub-quotas can be created above without it.") }}</p></noscript>
+      <div class="form-actions"><button class="button button-secondary">{{ de_en("Teilquoten erzeugen", "Create sub-quotas") }}</button></div>
+    </form>
+  </details>
+  <form method="post" action="{{ url_for('flow_page.quota_delete', survey_id=survey.id, quota_id=quota.id, lang=lang) }}" class="quota-delete">
+    {{ csrf() }}<button class="button button-small button-secondary">{{ icon("trash", 16) }} {{ de_en("Quote löschen", "Delete quota") }}</button>{# not asked about: "Rückgängig" brings it back #}
+  </form>
+  {% endif %}
+</section>
+{% else %}
+<section class="panel"><p class="muted">{{ de_en("Noch keine Quote. Mit „+ Quote“ unten oder dem Quotenassistenten oben anlegen.", "No quota yet. Create one with “+ Quota” below or with the quota assistant above.") }}</p></section>
+{% endfor %}
+{# the main action of the page right under the last quota, before quality assurance and weighting (UI/UX audit
+   2026-10-07, W21) #}
+{% if editable %}
+<form method="post" action="{{ url_for('flow_page.quota_add', survey_id=survey.id, lang=lang) }}" class="quota-add-form">
+  {{ csrf() }}<button class="button">{{ de_en("+ Quote", "+ Quota") }}</button>
+  <label class="check"><input type="checkbox" name="with_flow" value="1" checked> {{ de_en("Quotenberechnung und Ende „Quote voll“ im Ablauf mit anlegen", "Also create the quota calculation and the end “quota full” in the flow") }}
+    <span class="hint">{{ de_en("sonst beendet die Quote niemanden, bis beides im Ablauf steht", "otherwise the quota ends nobody until both are in the flow") }}</span></label>
+</form>
+{% endif %}
+
+{% if survey.quotas %}
+{# one setting for all quotas of the survey (quota_views.quota_marked): in a draft "Bearbeiten", in the field admins #}
+<section class="panel" id="quota-marked">
+  <h2>{{ de_en("Qualitätssicherung und Quoten", "Quality assurance and quotas") }}</h2>
+  <form method="post" action="{{ url_for('flow_page.quota_marked', survey_id=survey.id, lang=lang) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="drop_marked" value="1" {% if survey.quota_drop_marked %}checked{% endif %} {% if not (editable or steering) %}disabled{% endif %}>
+      {{ de_en("Von der Qualitätssicherung markierte Teilnahmen füllen keinen Quotenplatz", "Participations marked by the quality assurance fill no quota place") }}</label>
+    <p class="muted small">{{ de_en("Geprüft wird beim Abschluss, nach der Markierungsregel der Seite", "Checked at completion, by the marking rule of the page") }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "Quality assurance") }}</a>{{ de_en(": Speeder gegen den Median der bis dahin abgeschlossenen echten Teilnahmen (erst ab 30 echten Abschlüssen, vorher schwankt der Median zu stark) und die angekreuzten Auffälligkeiten (die wortgleiche offene Antwort braucht alle Teilnahmen und zählt dabei nicht). Der Platz einer markierten Teilnahme wird wieder frei, es kommen also mehr Personen ins Feld als ohne diese Einstellung. Manche Panelanbieter wollen keine automatische Filterung während der Befragung; deshalb ist das aus, und Markierte füllen ihren Platz (in den Ergebnissen zählen sie trotzdem nicht zum Ist). Auch während der Feldphase änderbar; es gilt für die Abschlüsse ab dann.", ": speeders against the median of the real participations completed so far (only from 30 real completions on; before that the median varies too much) and the ticked anomalies (the identical open answer needs all participations and does not count here). The place of a marked participation becomes free again, so more people get into the field than without this setting. Some panel providers want no automatic filtering during the survey; that is why it is off, and marked participations fill their place (in the results they still do not count towards the actual figure). Can also be changed during fieldwork; it applies to the completions from then on.") }}</p>
+    {% if editable or steering %}{{ autosave_bar() }}{% else %}<p class="muted small">{{ de_en("Ändern können im Entwurf Personen mit der Rolle „Bearbeiten“, während der Feldphase Admins.", "In a draft, people with the role “Edit” can change this; during fieldwork, admins.") }}</p>{% endif %}
+  </form>
+</section>
+{% endif %}
+
+{# weighting of the results by raking (app/weights.py, quota_views.quota_weighting): role "Bearbeiten", also in the field #}
+{% set w = weighting %}
+<section class="panel" id="weighting">
+  <h2>{{ de_en("Gewichtung", "Weighting") }} <span class="hint">{{ de_en("für die Ergebnisse: Schalter „gewichtet“ auf der Ergebnisseite, Spalte", "for the results: switch “weighted” on the results page, column") }} <code>weight</code> {{ de_en("im Export", "in the export") }}</span></h2>
+  {{ why("weighting") }}
+  <form method="post" action="{{ url_for('flow_page.quota_weighting', survey_id=survey.id, lang=lang) }}" class="stack" data-autosave-form>
+    {{ csrf() }}<fieldset class="bare" {% if not w.may %}disabled{% endif %}>
+    <label class="check"><input type="radio" name="kind" value="" {% if not w.setting.kind %}checked{% endif %}> {{ de_en("keine Gewichtung", "no weighting") }}</label>
+    <label class="check"><input type="radio" name="kind" value="quotas" {% if w.setting.kind == "quotas" %}checked{% endif %} {% if not survey.quotas %}disabled{% endif %}> {{ w.kinds.quotas }}
+      <span class="hint">{{ de_en("je Quote die Verteilung des Solls auf ihre Teilquoten; wer in welche Teilquote gehört, sagen deren Bedingungen", "per quota the distribution of the target over its sub-quotas; who belongs to which sub-quota is set by their conditions") }}</span></label>
+    {% if survey.quotas %}
+    <div class="weighting-sub">
+      {% for q in survey.quotas %}
+      <label class="check"><input type="checkbox" name="w_quota" value="{{ q.code }}" {% if q.code in w.setting.quotas %}checked{% endif %}> {{ q.name }} <span class="hint">{{ de_en("{n} Teilquoten", "{n} sub-quotas", n=q.cells|length) }}</span></label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <label class="check"><input type="radio" name="kind" value="census" {% if w.setting.kind == "census" %}checked{% endif %}> {{ w.kinds.census }}
+      <span class="hint">{{ de_en("Anteile der amtlichen Bevölkerungszahlen wie im Quotenassistenten, auch ohne Quote", "shares of the official population figures as in the quota assistant, also without a quota") }}</span></label>
+    <div class="weighting-sub">
+      {% for key, name in w.attributes.items() %}
+      {% set q = w.census_found[key] %}
+      <label class="check"><input type="checkbox" name="w_census" value="{{ key }}" {% if key in w.setting.census %}checked{% endif %} {% if q is none %}disabled{% endif %}> {{ name }}
+        <span class="hint">{% if q is none %}{{ w.missing[key] }}{% else %}{{ de_en("aus „{code}“", "from “{code}”", code=q.code) }}{% endif %}</span></label>
+      {% endfor %}
+    </div>
+    </fieldset>
+    {% for message in w.problems %}<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ message }}</span></div>{% endfor %}
+    {% if w.margins %}
+    <details class="res-dist"><summary>{{ de_en("Zielwerte", "Target values") }}</summary>
+      {% for m in w.margins %}
+      <p class="small"><strong>{{ m.name }}</strong>: {% for g in m.groups if g.share %}{{ g.name }} {{ g.share|percent }}{{ ", " if not loop.last }}{% endfor %}</p>
+      {% endfor %}
+    </details>
+    {% endif %}
+    <p class="muted small">{{ de_en("Raking: Die Gewichte werden Merkmal für Merkmal angepasst, bis die gewichteten Anteile die Zielwerte treffen (höchstens 0,1 Prozentpunkte daneben oder 100 Runden), und auf 0,2 bis 5 gekappt (Festlegung von Askurious). Gewichtet werden die Abschlüsse im Datenpool ohne die von der Qualitätssicherung markierten. Wer in ein Merkmal nicht passt (keine Angabe, „divers“, außerhalb der Altersspanne), behält dafür sein Gewicht; die Ergebnisseite nennt, wie viele. Gewichtung gleicht nur diese Merkmale an; eine Gelegenheitsstichprobe wird dadurch nicht repräsentativ.", "Raking: the weights are adjusted attribute by attribute until the weighted shares hit the target values (at most 0.1 percentage points off or 100 rounds), and capped at 0.2 to 5 (a choice of Askurious). The completions in the data pool are weighted, without those marked by the quality assurance. Anyone who does not fit an attribute (no answer, “diverse”, outside the age span) keeps their weight for it; the results page says how many. Weighting only aligns these attributes; it does not make a convenience sample representative.") }}</p>
+    {% if w.may %}{{ autosave_bar() }}{% else %}<p class="muted small">{{ de_en("Ändern können Personen mit der Rolle „Bearbeiten“.", "People with the role “Edit” can change this.") }}</p>{% endif %}
+  </form>
+</section>
+
+{# one fold with the sources of the page #}
+{% from "_sources.html" import grouped %}{{ grouped(w.sources, de_en("Literatur zu dieser Seite", "References for this page")) }}
+</div>
+{% endblock %}

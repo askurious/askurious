@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# A4 of the AI assistant (app/interview_ai.py): questions for the Kurzfragebogen or the Postskript. #}
+{% block title %}{{ de_en("{part} vorschlagen", "Suggest {part}", part=part) }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel">
+  <h2>{{ icon("sparkles", 18) }} {{ de_en("{part}: Vorschläge", "{part}: suggestions", part=part) }} <span class="hint">{{ de_en("ankreuzen, bei Bedarf anpassen, übernehmen; Antworten eine je Zeile", "tick, adapt if needed, accept; answers one per line") }}</span></h2>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="apply">
+    {% set types = {"single_choice": de_en("Einfachauswahl", "Single choice"), "multiple_choice": de_en("Mehrfachauswahl", "Multiple choice"), "text_input": de_en("Freitext", "Free text"), "date_time": de_en("Datum", "Date"), "rating": de_en("Bewertung", "Rating")} %}
+    {% for q in found %}{% set n = loop.index0 %}
+    <div class="ai-review-row">
+      <label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> <strong>{{ types[q.type] }}</strong></label>
+      <input type="hidden" name="q{{ n }}_type" value="{{ q.type }}">
+      <textarea name="q{{ n }}_question" rows="2" maxlength="500" aria-label="{{ de_en('Frage', 'Question') }}">{{ q.question }}</textarea>
+      {% if q.options %}<textarea name="q{{ n }}_options" rows="{{ q.options|length }}" aria-label="{{ de_en('Antworten', 'Answers') }}">{{ q.options|join("\n") }}</textarea>{% endif %}
+      {% if q.type == "rating" %}<div class="row-fields"><label>{{ de_en("links", "left") }} <input name="q{{ n }}_left" value="{{ q.left }}" maxlength="80"></label>
+        <label>{{ de_en("rechts", "right") }} <input name="q{{ n }}_right" value="{{ q.right }}" maxlength="80"></label></div>{% endif %}
+      {% if q.why %}<p class="muted small flush">{{ q.why }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="row"><button class="button">{{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+      <a class="button button-secondary" href="{{ url_for('interview.guide', code=survey.code) }}">{{ de_en("Zurück zum Leitfaden", "Back to the guide") }}</a></div>
+  </form>
+</section>
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

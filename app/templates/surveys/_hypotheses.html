@@ -1,0 +1,49 @@
+{# Results per hypothesis of the study plan (app/hypotheses.py): the planned test, effect, verdict and the sentence for
+   the report. Needs: hyps (from the results view), survey. #}
+{% from "_learn.html" import term %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num %}
+{% set verdict_class = {"unterstützt": "is-ok", "Gegenteil": "is-bad", "nicht unterstützt": "is-open", "offen": "is-open", "beschrieben": "is-open"} %}
+{# the verdict is a key of app/hypotheses.py (German); shown in the language of the page #}
+{% set verdict_shown = {"unterstützt": de_en("unterstützt", "supported"), "Gegenteil": de_en("Gegenteil", "opposite"), "nicht unterstützt": de_en("nicht unterstützt", "not supported"), "offen": de_en("offen", "open"), "beschrieben": de_en("beschrieben", "described")} %}
+<section class="panel" id="hypothesen"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Ergebnisse je Hypothese", "Results per hypothesis") }} {% if only %}<span class="badge">{{ de_en("ungefiltert", "unfiltered") }}</span> <span class="hint">{{ de_en("aus dem Studienplan; geprüft wie geplant, auf dem ganzen Datenpool{n}, nicht nur auf der gezeigten Teilgruppe", "from the research plan; tested as planned, on the whole data pool{n}, not only on the subgroup shown", n=(" (" ~ hyp_pool|thousands ~ ")") if hyp_pool else "") }}</span>{% else %}<span class="hint">{{ de_en("aus dem Studienplan; geprüft wie geplant, auf der Grundlage oben", "from the research plan; tested as planned, on the basis above") }}</span>{% endif %}</h2></summary>
+  {# with dummies in the basis: their effects come from the plan (UI/UX audit 2026-10-09, X2); only when there are
+     dummies, not merely the source ticked (UI audit 2026-10-12, U26) #}
+  {% if f is defined and "dummy" in f.sources and (by_source is not defined or by_source.get("dummy")) %}<p class="muted small">{{ de_en("Mit Dummy-Daten: Antworten auf die Variablen der Hypothesen folgen dem Studienplan (erwarteter Effekt), alles andere ist zufällig. Die Ergebnisse zeigen also, was Sie angenommen haben, nicht was herauskäme.", "With dummy data: answers to the variables of the hypotheses follow the research plan (expected effect), everything else is random. So the results show what you assumed, not what would come out.") }}</p>{% endif %}
+  <ol class="hyp-results">
+    {% for h in hyps %}
+    <li class="hyp-result">
+      <p class="hyp-head"><strong>H{{ loop.index }}</strong> {{ h.text }}
+        {% if h.explorative %}<span class="badge" title="{{ de_en('nach dem Start hinzugefügt: nicht präregistriert', 'added after the start: not preregistered') }}">{{ de_en("explorativ", "exploratory") }}</span>{% endif %}</p>
+      {# verdict, the sentence for the report (copyable) and p after Holm in one line; the method and what was tested
+         below, why this test folded (Ralf, 2026-10-17: fewer lines per hypothesis) #}
+      <p class="hyp-line"><span class="hyp-verdict {{ verdict_class.get(h.verdict, 'is-open') }}">{{ verdict_shown.get(h.verdict, h.verdict)|capitalize }}</span>
+        {% if h.sentence %}<span class="hyp-apa"><code data-copy-text title="{{ de_en('Für den Bericht: zum Kopieren klicken', 'For the report: click to copy') }}">{{ h.sentence|hyp_sentence }}{% if h.p_holm_text %}, {{ h.p_holm_text|hyp_sentence }}{% endif %}</code></span>{% endif %}
+        {% if h.n %}<span class="hint">{{ term("n") }} = {{ h.n }}</span>{% endif %}</p>
+      {% if h.vars or h.analysis %}<p class="muted small hyp-vars">{% for role, code, label, linked in h.vars %}{% if linked %}<a href="#res-{{ code }}"><code>{{ code }}</code></a>{% else %}<code>{{ code }}</code>{% endif %}{% if label is none %} ({{ de_en("nicht mehr im Fragebogen", "no longer in the questionnaire") }}){% endif %}{{ " → " if not loop.last }}{% endfor %}{% if h.analysis %}{{ " · " if h.vars }}{{ study_plan.analyses()[h.analysis] }}{% if h.beta %}, {{ de_en("β standardisiert", "β standardised") }}{% endif %}{% endif %}</p>{% endif %}
+      {# rank tests compare distributions: the median per group, the others the mean (V9) #}
+      {% if h.center == "Md" and h.groups|rejectattr("median", "none")|list %}
+      <p class="muted small">{% for g in h.groups %}{{ g.label }}: Md = {% if g.median_text %}{{ g.median_text }}{% elif g.median is none %}–{% else %}{{ g.median|dec(h.median_places) }}{% endif %} ({{ g.n }}){{ " · " if not loop.last }}{% endfor %}</p>
+      {% elif h.groups and h.groups|selectattr("mean")|list %}<p class="muted small">{% for g in h.groups %}{{ g.label }}: M = {{ num(g.mean) if g.mean is not none else "–" }} ({{ g.n }}){{ " · " if not loop.last }}{% endfor %}</p>{% endif %}
+      {# why this test (W14) and the wording of the variables, so that a wrong link shows (V2): folded #}
+      {% set labelled = [] %}{% for v in h.vars %}{% if v[2] %}{% set _ = labelled.append(v) %}{% endif %}{% endfor %}
+      {% if h.why or labelled %}<details class="hyp-more"><summary>{{ de_en("Warum dieser Test, Variablen", "Why this test, variables") }}</summary>
+        {% if h.why %}<p class="muted small hyp-why">{{ h.why }}</p>{% endif %}
+        {% if labelled %}<p class="muted small">{% for role, code, label, linked in labelled %}<code>{{ code }}</code>: {{ label }}{{ " · " if not loop.last }}{% endfor %}</p>{% endif %}
+      </details>{% endif %}
+      {% for note in h.notes %}<p class="muted small">{{ note|hyp_note }}</p>{% endfor %}
+      {# the multilevel model of a diary study as R code (app/diary_model.r_code) #}
+      {% if h.code %}<details class="res-dist"><summary>{{ de_en("Als R-Code (lme4)", "As R code (lme4)") }}</summary><pre class="sem-syntax"><code data-copy-text="{{ h.code }}" role="button" tabindex="0" title="{{ de_en('Kopieren', 'Copy') }}">{{ h.code }}</code></pre></details>{% endif %}
+      {# what the test could detect with these data (PA2): a sensitivity analysis, not "observed power" #}
+      {% if h.sensitivity %}<p class="hyp-sensitivity small{% if h.sensitivity.enough == false %} is-short{% endif %}"><span class="label-title">{{ de_en("Was der Test erkennen konnte", "What the test could detect") }}</span> {{ h.sensitivity.text }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {# the rules once for all hypotheses: Holm, what "not supported" means, APA (Ralf, 2026-10-17) #}
+  {% set holm = study_plan.plan_of(survey).holm and study_plan.tested(survey)|length >= 2 %}
+  <p class="muted small">{{ de_en("Signifikanz bei p &lt; ,05, alle Tests zweiseitig", "Significance at p &lt; .05, all tests two-sided")|safe }};
+    {% if holm %}{{ term("p_holm", "") }} {{ de_en("für {k} Hypothesen korrigiert nach Holm (1979), das Urteil folgt", "corrected for {k} hypotheses after Holm (1979), the verdict follows", k=study_plan.tested(survey)|length) }} p<sub>Holm</sub>.{% else %}{{ de_en("für mehrere Hypothesen ist nicht korrigiert.", "there is no correction for several hypotheses.") }}{% endif %}
+    {{ de_en("Gerichtete Hypothesen gelten nur bei einem Effekt in der vorhergesagten Richtung als unterstützt. „Nicht unterstützt“ heißt nicht, dass das Gegenteil gilt: Der Unterschied oder Zusammenhang war zu klein, um ihn von Zufall zu unterscheiden. Die Sätze folgen den Richtlinien der APA mit Dezimalkomma (p ohne führende Null); Ergebnisse, die nicht im Studienplan stehen, gelten als explorativ.", "Directed hypotheses count as supported only with an effect in the predicted direction. “Not supported” does not mean that the opposite holds: the difference or relation was too small to tell it apart from chance. The sentences follow the APA guidelines (p without a leading zero); results that are not in the research plan count as exploratory.") }}
+    <a href="{{ url_for('study_plan.page', survey_id=survey.id) }}">{{ de_en("Studienplan", "Research plan") }}</a></p>
+</details></section>

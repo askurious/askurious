@@ -1,0 +1,4 @@
+{# "Etwa n Abfragen am Tag" of one short survey `m` on the tab "Zeitplan": drawn in the page and again by every autosave
+   of the schedule form (data-autosave-part, app/autosave.py part()), so a changed time counts at once (pre-test
+   2026-10-20, 20). Hidden while the short survey is started by the participants. #}
+{% set n = per_day(m)|round(1) %}<p class="muted small flush" data-trigger-for="fixed random" data-autosave-part="diary-per-day-{{ m.key }}" {% if ((m.trigger or {}).t or "fixed") == "self" %}hidden{% endif %}>{% if n == 1 %}{{ de_en("Etwa 1 Abfrage am Tag.", "About 1 prompt a day.") }}{% else %}{{ de_en("Etwa {n} Abfragen am Tag.", "About {n} prompts a day.", n=n|int if n == n|int else n|dec(1)) }}{% endif %}</p>

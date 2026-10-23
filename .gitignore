@@ -1,0 +1,32 @@
+.env
+# further secrets that a test or a server copy may leave in the checkout (audit 2026-10-13, DP-16): the brand's
+# .env.brand and every other .env.*, the DNS key of netcup, keys and certificates, database dumps, the off-site key
+.env.*
+!.env.example
+netcup.ini
+*.pem
+*.key
+*.asc
+*.dump
+__pycache__/
+*.pyc
+.venv/
+venv/
+instance/
+*.sqlite
+*.db
+uploads/
+.DS_Store
+app/deployed_at.txt
+deploy/docker/nginx-live
+
+# Public assets of the running image, exported only on the deployment host for rolling compatibility.
+deploy/docker/nginx-image/previous-static/*
+!deploy/docker/nginx-image/previous-static/.keep
+.testmondata*
+
+# the files of one installation over the code (instance_overlay/README.md): only the README is part of the code
+instance_overlay/*
+!instance_overlay/README.md
+modules/*.whl
+modules/requirements.txt

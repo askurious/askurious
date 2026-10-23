@@ -1,0 +1,408 @@
+# Elementtypen von Askurious
+
+Alle Elementtypen des Fragebogens: was sie können, wofür sie passen und wofür nicht.
+Jeder Typ steht mit seinem Schlüssel im Code (`app/items/<schlüssel>.py`) in Klammern.
+Experimentelle Typen erscheinen nur, wenn man sie unter „Konto“ einschaltet (`app/experimental.py`).
+
+Diese Datei wird erzeugt, aus dem Steckbrief jedes Typs (`fact_sheet` in `app/items/`, gelesen von `app/element_types.py`).
+Nicht von Hand ändern: den Steckbrief ändern und dann `python tests/items/test_element_types.py --update`.
+Dieselben Texte zeigt die Seite „Elementtypen“ (`/itemtypes`), auf Deutsch und Englisch, und AInstein liest sie.
+
+## Klassische Fragen
+
+- **Einfachauswahl** (`single_choice`)
+  - Runde Auswahlknöpfe, senkrecht oder waagerecht, eine Dropdown-Liste oder ein Suchfeld.
+  - Optionen können als fehlender Wert zählen oder ein Freitextfeld haben („Sonstiges“).
+  - Optionen lassen sich aus einer früheren Frage übernehmen.
+  - Variante Bildauswahl: Antworten als Bilder zum Antippen, hochgeladen oder mit KI erzeugt.
+  - Variante Suchfeld: Beim Tippen erscheinen passende Antworten aus einer langen Liste (Berufe, Fächer, Gemeinden); die Liste lässt sich aus Excel einfügen oder als CSV-Datei laden.
+  - Passt für: Eine Antwort aus einer festen Liste, z. B. Bildung, Beruf oder eine Entscheidung; Filterfragen, nach denen der Ablauf verzweigt; Manipulationschecks in Experimenten.
+  - Passt nicht für: Mehrere zutreffende Antworten (dann Mehrfachauswahl); Abgestufte Zustimmung zu mehreren Aussagen (dann Likert-Skala).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung, Framing-Experiment, A/B-Test.
+  - Beispiele: Höchster Bildungsabschluss; A/B-Test: Welche von zwei Verpackungen würden Sie kaufen?
+- **Abhängige Auswahllisten (Drill-down)** (`drill_down`)
+  - Zwei bis fünf Dropdown-Listen untereinander, jede hängt von der Wahl darüber ab.
+  - Die Hierarchie kommt als Tabelle: aus Excel einfügen oder als CSV-Datei laden, eine Zeile je Kombination.
+  - Zweige dürfen früher enden (ein Land ohne Kreise).
+  - Export: eine Spalte je Liste mit dem Code des gewählten Eintrags.
+  - Passt für: Lange, gegliederte Listen: Bundesland, Kreis, Gemeinde; Fach und Hochschule; Beruf nach Berufsfeld; Produkt nach Marke, ohne unmögliche Kombinationen.
+  - Passt nicht für: Kurze Listen ohne Gliederung (dann Einfachauswahl als Dropdown); Mehrere Antworten je Liste (dann Mehrfachauswahl).
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Welches Auto fahren Sie? Marke, Modell, Baujahr.
+- **Mehrfachauswahl** (`multiple_choice`)
+  - Kästchen, senkrecht oder waagerecht.
+  - Optionen lassen sich aus einer früheren Frage übernehmen.
+  - Auch als Bildauswahl mit mehreren Antworten.
+  - Passt für: Alles, was zutrifft: genutzte Medien, Geräte, Informationsquellen; Eine Auswahl, aus der spätere Fragen ihre Optionen übernehmen.
+  - Passt nicht für: Eine Rangfolge der Optionen (dann Rangfolge); Wie stark etwas zutrifft (dann Likert-Skala oder Bewertung).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung.
+  - Beispiele: Welche dieser Sprachassistenten haben Sie schon genutzt?
+- **Rangfolge** (`ranking`)
+  - Optionen ziehen oder mit Pfeilen ordnen.
+  - Passt für: Prioritäten zwischen wenigen Optionen (bis etwa 7).
+  - Passt nicht für: Viele Optionen (dann MaxDiff); Wie groß die Abstände zwischen den Optionen sind (dann Konstantsumme).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung.
+  - Beispiele: Bringen Sie diese Ziele der Verkehrspolitik in eine Reihenfolge.
+- **Konstantsumme** (`constant_sum`)
+  - Einen festen Betrag auf mehrere Optionen verteilen.
+  - Als Zahl, Währung (€, $, £, CHF) oder Prozent.
+  - Die Summe ist fest oder kommt aus einer früheren Antwort.
+  - Passt für: Anteile und Budgets: Zeit, Geld oder Wichtigkeit, die zusammen 100 ergeben.
+  - Passt nicht für: Werte, die unabhängig voneinander sind (dann Schieberegler).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung.
+  - Beispiele: Verteilen Sie 100 Punkte auf diese Eigenschaften eines Autos.
+- **Freitext** (`text_input`)
+  - Einzeilig oder mehrzeilig, mit Höchstlänge.
+  - Eingabeprüfung: keine, ganze Zahl, Dezimalzahl, E-Mail-Adresse, deutsche Postleitzahl oder eigener regulärer Ausdruck.
+  - Passt für: Offene Fragen, Begründungen und Kommentare; Zahlen ohne vorgegebene Kategorien, z. B. Alter in Jahren oder Stunden pro Woche.
+  - Passt nicht für: Antworten, die sich als Liste vorgeben lassen (dann Einfach- oder Mehrfachauswahl); Ein Datum oder eine Uhrzeit (dann Datum / Uhrzeit).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung, Real-Time-Delphi.
+  - Beispiele: Delphi: Begründen Sie bitte Ihre Einschätzung.; Wie viele Stunden nutzen Sie das Internet pro Woche?
+- **Postleitzahl** (`postal_code`)
+  - Fünfstellige deutsche Postleitzahl.
+  - Auswertung nach Zone, Region und Postleitzahl.
+  - Passt für: Wohnort in Deutschland für regionale Vergleiche und Quoten.
+  - Passt nicht für: Befragungen außerhalb Deutschlands; Eine grobe Region, wenn eine Postleitzahl zu genau ist (dann Bundesland).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung.
+  - Beispiele: Wie lautet die Postleitzahl Ihres Wohnorts?
+- **Datum / Uhrzeit** (`date_time`)
+  - Jahr, Monat und Jahr, Datum, Uhrzeit oder Datum mit Uhrzeit.
+  - Zeitraum: Vergangenheit bis heute, ab heute oder beliebig.
+  - Minutenschritte 1, 5, 10, 15 oder 30.
+  - Passt für: Geburtsjahr, Datum eines Ereignisses, Uhrzeit des Aufstehens; Angaben, die gültig sein müssen (kein 31. Februar).
+  - Passt nicht für: Dauern oder Mengen (dann Freitext mit Zahl oder Schieberegler).
+  - Designs: Querschnittsbefragung, Längsschnitt.
+  - Beispiele: In welchem Jahr sind Sie geboren?
+- **Bundesland** (`federal_state`)
+  - Als Liste, als Dropdown oder als Karte.
+  - Mit „Ausland“ und „keine Angabe“.
+  - Passt für: Region in Deutschland für Quoten, Gewichtung und Vergleiche.
+  - Passt nicht für: Befragungen außerhalb Deutschlands.
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung.
+  - Beispiele: Quote nach Bundesland in einer Wahrnehmungsbefragung.
+- **Persönlicher Code** (`personal_code`)
+  - Bildet einen Code aus 3 bis 6 kurzen Fragen, die man jedes Mal gleich beantwortet (Anfangsbuchstabe des Vornamens der Mutter, Tag des Geburtstags …).
+  - Ein Feld je Teil mit Prüfung (ein Buchstabe, zwei Ziffern) und „weiß nicht“ (? im Code).
+  - Export: eine Spalte mit dem vereinheitlichten Code, auf Wunsch die Teile einzeln; Wellen werden auf der Export-Seite darüber zusammengeführt.
+  - Passt für: Vorher-Nachher-Befragungen, Lehrevaluation und Interventionen über ein Semester, anonym; Mehrere Wellen ohne Namen, E-Mail-Adresse oder Panel-Kennung verknüpfen.
+  - Passt nicht für: Kleine Gruppen, in denen sich Personen am Code erkennen ließen (dann weniger Teile); Panels mit Kennung im Link (dann die Kennung als URL-Parameter).
+  - Designs: Messwiederholung, Längsschnitt.
+  - Beispiele: Code aus Mutter, Geburtstag, Vater, älteren Geschwistern und Geburtsort, vor und nach dem Seminar.
+- **Rechenwert** (`calc`)
+  - Rechnet mit früheren Zahlen: plus, minus, mal, geteilt, „in % von“.
+  - Für spätere Texte, als Summe einer Konstantsumme und als Spalte im Export.
+  - Passt für: Werte, die sich aus Antworten ergeben, z. B. Jahreseinkommen aus Monatseinkommen; Zahlen, die in einer späteren Frage erscheinen sollen.
+  - Passt nicht für: Skalenwerte über mehrere Aussagen (die rechnet die Auswertung).
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Sie sagten, Sie geben {{monat}} € im Monat aus, das sind {{jahr}} € im Jahr.
+
+## Skalen
+
+- **Likert-Skala / Matrix** (`likert`)
+  - 2 bis 10 Stufen.
+  - Beschriftung: Zustimmung, Zutreffen, Wahrscheinlichkeit, Bewertung, Qualität, Zufriedenheit, Wichtigkeit, Häufigkeit oder eigene.
+  - Alle Stufen beschriftet oder nur die Enden; Beschriftung je Aussage oder einmal oben.
+  - Aussagen in Zufallsreihenfolge, umgepolte Aussagen.
+  - Mehrdimensional: jede Aussage einer Subskala zuordnen, zum Beispiel die fünf Dimensionen der Big Five.
+  - Passt für: Einstellungen, Bewertungen und Konstrukte mit mehreren Aussagen; Validierte Skalen aus „Konstrukte“.
+  - Passt nicht für: Eine einzelne Einschätzung mit Sternen oder Smileys (dann Bewertung); Mehrere Fragen je Zeile mit verschiedenen Antwortarten (dann Side-by-Side-Matrix).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung, Framing-Experiment, Messwiederholung, Vignettenstudie, Längsschnitt.
+  - Beispiele: Vertrauen in KI mit fünf Aussagen auf einer 7-stufigen Zustimmungsskala.
+- **Semantisches Differential** (`semantic`)
+  - Gegensatzpaare auf 5 bis 7 Stufen.
+  - Mehrdimensional: jedes Gegensatzpaar einer Subskala zuordnen.
+  - Passt für: Das Bild von etwas: einer Marke, einem Roboter, einer Person; Wahrnehmung von Stimuli im Experiment.
+  - Passt nicht für: Zustimmung zu Aussagen (dann Likert-Skala).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung, Framing-Experiment, Messwiederholung.
+  - Beispiele: Der Roboter wirkt: kalt – warm, unfreundlich – freundlich.
+- **Side-by-Side-Matrix** (`side_by_side`)
+  - Zeilen (z. B. Verkehrsmittel) mit bis zu fünf Fragen als Spalten nebeneinander.
+  - Jede Spalte mit eigener Antwortart: Auswahl auf einer Antwortskala oder mit eigenen Antworten, Mehrfachauswahl, Dropdown-Liste, Zahl mit Einheit und Bereich, Kurztext.
+  - Pflicht je Spalte, „weiß nicht“ je Auswahl-Spalte, Messniveau je Spalte.
+  - Am Rechner eine Tabelle, am Handy eine Karte je Zeile.
+  - Zeilen in Zufallsreihenfolge, nur manchen zeigen oder aus einer früheren Frage übernehmen.
+  - Passt für: Dieselben Fragen zu mehreren Dingen: Nutzung, Häufigkeit und Bewertung je Produkt.
+  - Passt nicht für: Mehrere Aussagen auf einer einzigen Skala (dann Likert-Skala).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung.
+  - Beispiele: Je Verkehrsmittel: genutzt (ja/nein), wie oft, wie zufrieden.
+- **Bewertung** (`rating`)
+  - Schieberegler, Smileys (5 oder 7), Sterne (5, 7 oder 10) oder Zahlenreihe (zum Beispiel 0 bis 10).
+  - Passt für: Eine einzelne Gesamtbewertung, z. B. Zufriedenheit oder Weiterempfehlung; Projektionen im Delphi: Wahrscheinlichkeit, Wirkung, Wünschbarkeit.
+  - Passt nicht für: Mehrere Aussagen auf derselben Skala (dann Likert-Skala).
+  - Designs: Querschnittsbefragung, A/B-Test, Messwiederholung, Vignettenstudie, Real-Time-Delphi.
+  - Beispiele: Wie wahrscheinlich ist es, dass Sie uns weiterempfehlen? (0 bis 10).
+- **Schieberegler** (`slider`)
+  - Eine oder mehrere Aussagen auf Reglern von … bis ….
+  - Als Zahl, Währung oder Prozent, mit oder ohne sichtbaren Wert, auf Wunsch in Zufallsreihenfolge.
+  - Ohne Startwert: kein Anker, „nicht beantwortet“ bleibt erkennbar.
+  - Passt für: Schätzungen auf einer fein abgestuften Skala: Wahrscheinlichkeit in Prozent, Beträge, Anteile; Delphi-Projektionen mit Wahrscheinlichkeit.
+  - Passt nicht für: Werte, die zusammen eine Summe ergeben müssen (dann Konstantsumme).
+  - Designs: Querschnittsbefragung, Wahrnehmungsbefragung, Real-Time-Delphi, Vignettenstudie.
+  - Beispiele: Wie wahrscheinlich ist es, dass 2035 Roboter in der Pflege helfen? (0 bis 100 %).
+- **Preisbereitschaft (Van Westendorp)** (`psm`)
+  - Vier Preisfragen, aufsteigend oder absteigend.
+  - Währung frei wählbar.
+  - Optional mit Kaufwahrscheinlichkeit nach Newton et al. (1993).
+  - Passt für: Akzeptable Preisspanne für ein Produkt oder einen Dienst.
+  - Passt nicht für: Wie Preis und andere Merkmale gegeneinander abgewogen werden (dann Conjoint).
+  - Designs: Querschnittsbefragung, Wahlexperiment.
+  - Beispiele: Ab welchem Preis wäre Ihnen ein Abo für Lernvideos zu teuer?
+
+## Wahlexperimente
+
+- **Conjoint (CBC)** (`conjoint`)
+  - Merkmale mit Stufen, Aufgaben und Optionen, Versionen (Blocking), optional „keine davon“.
+  - Anzeige als Tabelle, als Produktbild oder als Produktbild mit Tabelle darunter; Bilder von der KI oder hochgeladen.
+  - Merkmalsreihenfolge fest oder je Person; Optionen gemischt; Haltefragen.
+  - Nutzenwerte und Wichtigkeiten (Hierarchical Bayes), Simulator für Marktanteile.
+  - Passt für: Welche Merkmale und Stufen Menschen vorziehen und wie sie abwägen; Zahlungsbereitschaft und Marktanteile.
+  - Passt nicht für: Einstellungen oder Zusammenhänge (dann Skalen); Mehr als etwa 6 Merkmale (dann ACBC).
+  - Designs: Wahlexperiment.
+  - Beispiele: Serviceroboter mit 4 Merkmalen, KI-Bilder für Aussehen und Größe, 8 Aufgaben zu je 2 Optionen.
+- **Adaptive Choice-Based Conjoint (ACBC)** (`acbc`)
+  - Wunschvariante zusammenstellen, ähnliche Varianten prüfen, Favoriten im Turnier wählen.
+  - Darstellung als Tabelle, als Bild oder als beides.
+  - Regeln für „geht nicht“ und „muss“; Preis optional.
+  - Passt für: Wahlexperimente mit vielen Merkmalen oder kleinen Stichproben.
+  - Passt nicht für: Kurze Befragungen: ACBC dauert länger als ein Conjoint.
+  - Designs: Wahlexperiment.
+  - Beispiele: E-Bike mit 7 Merkmalen und Preis.
+- **Bewertungs-Conjoint (CVA)** (`cva`)
+  - Merkmale mit Stufen; jedes Angebot einzeln auf einer Skala bewerten (5 bis 11 Stufen oder 0 bis 100), zwei Angebote auf einer Skala mit 7 oder 9 Stufen vergleichen oder alle Angebote in eine Reihenfolge bringen.
+  - Versuchsplan für das lineare Modell, den jede Person ganz sieht; Anzeige als Tabelle, mit Bildern je Stufe oder einem Bild je Angebot; bis zu drei feste Holdout-Aufgaben prüfen die Vorhersage.
+  - Teilnutzen, Wichtigkeiten und R² je Person (Regression), Mittel über alle mit Intervallen, Segmente (Latent-Class-Regression), Marktsimulator, Dashboard-Kachel, Papierfassung.
+  - Passt für: Wenige Merkmale (bis etwa 6) und kleine Stichproben, wenn Werte je Person ohne HB gebraucht werden; Lehre und Wiederholung klassischer Conjoint-Untersuchungen.
+  - Passt nicht für: Marktanteile und Preise (dann CBC: Bewerten ist keine Wahl); Viele Merkmale (dann ACBC).
+  - Designs: Wahlexperiment.
+  - Beispiele: Wohnung mit 4 Merkmalen (Miete, Lage, Größe, Balkon), 14 Angebote je Person auf 0 bis 10.
+- **MaxDiff (Best-Worst)** (`maxdiff`)
+  - Setgröße 3 bis 6, Zahl der Sets und Versionen.
+  - Optional Erklärung vorab, Ankerfrage und Haltefragen.
+  - Passt für: Welche von vielen Aussagen oder Eigenschaften am wichtigsten sind.
+  - Passt nicht für: Wie Merkmale mit Stufen zusammenwirken (dann Conjoint); Wenige Optionen (dann Rangfolge).
+  - Designs: Wahlexperiment, Wahrnehmungsbefragung.
+  - Beispiele: Welche von 15 Eigenschaften einer App ist Ihnen am wichtigsten, welche am wenigsten?
+- **Paarvergleich** (`paired`)
+  - Zwei Optionen je Seite (Text, auf Wunsch mit Bild); wählen, mit „gleich“ oder auf einer Stärke-Skala mit 5 oder 7 Stufen.
+  - Bis 8 Optionen alle Paare, darüber ein balanciertes unvollständiges Design in Versionen.
+  - Auswertung: Bradley-Terry-Werte (Summe 100) mit Intervallen, Positionseffekt, Tabelle Option × Option, Konsistenz je Person (zirkuläre Triaden).
+  - Passt für: Prioritäten zwischen 4 und 20 Optionen, wenn das Urteil schwer fällt; Bilder, Logos oder Entwürfe vergleichen.
+  - Passt nicht für: Sehr viele Optionen (dann MaxDiff); Merkmale mit Stufen (dann Conjoint); Wenige Optionen, die man leicht ordnet (dann Rangfolge).
+  - Designs: Wahlexperiment, Wahrnehmungsbefragung.
+  - Beispiele: Welches von zwei Logos wirkt vertrauenswürdiger?; Was ist Ihnen bei einem Arbeitsplatz wichtiger: Gehalt oder Homeoffice?
+- **Adaptive Conjoint (ACA)** (`aca`, experimentell)
+  - Stufen bewerten (oder feste Reihenfolge), Wichtigkeit je Merkmal, Paare aus Teilprodukten mit 2 bis 5 Merkmalen, die sich nach jeder Antwort anpassen, optional Kalibrierung mit Kaufwahrscheinlichkeit.
+  - Teilnutzen und Wichtigkeiten je Person, Selbstauskunft neben Paaren, Marktsimulator.
+  - Passt für: Sehr viele Merkmale (bis etwa 30) und kleine Stichproben; Wiederholung älterer Untersuchungen mit diesem Verfahren und Lehre.
+  - Passt nicht für: Preise und Zahlungsbereitschaft (ACA unterschätzt den Preis; dann CBC oder ACBC); Papierfragebögen (die Paare entstehen während der Befragung).
+  - Designs: Wahlexperiment.
+  - Beispiele: Smartphone mit 10 Merkmalen, 20 Paare, 5 Kalibrierungskonzepte.
+
+## Räumlich und visuell
+
+- **2D-Positionierung** (`position2d`)
+  - Mehrere Begriffe in ein Feld mit zwei beschrifteten Achsen setzen.
+  - Jeder Begriff ergibt zwei Werte, je Achse einen.
+  - Passt für: Abwägungen auf zwei Achsen, z. B. Risiko und Nutzen von Technologien; Vergleich vieler Begriffe auf einen Blick.
+  - Passt nicht für: Mehr als zwei Bewertungen je Begriff (dann Side-by-Side-Matrix oder Likert-Skala).
+  - Designs: Wahrnehmungsbefragung, Querschnittsbefragung.
+  - Beispiele: Setzen Sie jede Technologie nach Risiko und Nutzen in das Feld.
+- **Bild** (`image`)
+  - Hochgeladen oder KI-generiert: quadratisch, quer oder hoch.
+  - Auf Wunsch ohne Text im Bild, mit Platzhaltern aus Schleifen.
+  - Passt für: Stimuli in Experimenten und Vignetten; Varianten im A/B-Test.
+  - Passt nicht für: Antworten als Bilder zum Antippen (dann Einfachauswahl als Bildauswahl).
+  - Designs: Framing-Experiment, A/B-Test, Messwiederholung, Vignettenstudie.
+  - Beispiele: Framing-Experiment: dasselbe Produkt als freundliches oder technisches Bild.
+- **Video / Audio** (`media`)
+  - Hochgeladenes Video oder Audio mit eigener Bedienleiste, Untertiteln und Textfassung.
+  - Spulen frei, nur zurück, gar nicht oder nur einmal abspielen; weiter erst nach dem Ende oder einem Anteil.
+  - Protokoll: wie viel gesehen, bis zum Ende, Abspielzeit, Pausen, Sprünge, im Hintergrund, stumm.
+  - Passt für: Medienstimuli in Experimenten: Werbespot, Nachrichtenbeitrag, Stimme; Prüfen, ob die Manipulation angekommen ist.
+  - Passt nicht für: Lange Filme (eine Datei hat höchstens 50 MB); Ton aufnehmen (dann Sprachnachricht).
+  - Designs: Framing-Experiment, A/B-Test, Messwiederholung.
+  - Beispiele: Framing-Experiment: derselbe Beitrag mit zwei Sprecherstimmen.
+- **Bild markieren** (`image_mark`)
+  - Punkte setzen oder Linien zeichnen (Textmarker).
+  - Auswertung als Heatmap.
+  - Variante Hot Spot: vorher festgelegte Bereiche antippen oder als „gefällt“ / „gefällt nicht“ bewerten, eine Spalte je Bereich.
+  - Passt für: Was an einem Bild auffällt, gefällt oder stört: Werbung, Webseite, Verpackung.
+  - Passt nicht für: Orte auf einer echten Landkarte (dann Karte mit Markern).
+  - Designs: Querschnittsbefragung, A/B-Test.
+  - Beispiele: Markieren Sie, was Ihnen an dieser Startseite zuerst auffällt.
+- **Karte mit Markern** (`map_marker`)
+  - Marker als Stecknadel, Kreis, Quadrat oder Raute.
+  - Optional je Marker eine Frage: Freitext, Skala oder Einfachauswahl.
+  - Auswertung als Heatmap oder als alle Marker.
+  - Passt für: Orte, die Menschen mit etwas verbinden: Angsträume, Lieblingsorte, Wege.
+  - Passt nicht für: Wo das Gerät gerade ist (dann Standort).
+  - Designs: Wahrnehmungsbefragung, Querschnittsbefragung.
+  - Beispiele: Wo in Ihrer Stadt fühlen Sie sich abends unsicher?
+- **Standort** (`geolocation`)
+  - Genau, auf etwa 100 m oder auf etwa 1 km gerundet.
+  - Verweigert jemand die Freigabe, bleibt die Antwort leer oder wird aus der IP-Adresse geschätzt.
+  - Passt für: Wo eine Befragung ausgefüllt wird, z. B. vor Ort an einem Ereignis.
+  - Passt nicht für: Orte, die Teilnehmende selbst wählen (dann Karte mit Markern); Wohnort (dann Postleitzahl oder Bundesland).
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Befragung auf einem Festival: In welchem Bereich wurde sie ausgefüllt?
+
+## Textaufgaben und Reaktionszeit
+
+- **Kartensortierung** (`card_sort`)
+  - Karten auf Stapel sortieren: vorgegebene (geschlossen), selbst angelegte und benannte (offen) oder beides.
+  - Auf Wunsch zusätzlich eine Reihenfolge der Karten in jedem Stapel.
+  - Antippen oder ziehen, am Handy und mit der Tastatur bedienbar.
+  - Auswertung: Verteilung je Karte, wie oft zwei Karten zusammen lagen, Namen eigener Stapel.
+  - Passt für: Wie Menschen Begriffe ordnen: mentale Modelle, Kategorien, Menüs und Navigation; Zuordnung vieler Begriffe zu wenigen festen Kategorien.
+  - Passt nicht für: Zustimmung zu Aussagen auf einer Skala (dann Likert-Skala oder Q-Sort); Schnelle Zuordnung mit Reaktionszeit (dann Zuordnungsaufgabe).
+  - Designs: Wahrnehmungsbefragung, Querschnittsbefragung.
+  - Beispiele: Offene Sortierung: Auf welche Stapel legen Sie diese 20 Funktionen einer App?
+- **Zuordnungsaufgabe** (`assign`)
+  - Begriffe einer von zwei Kategorien zuordnen, mit Reaktionszeit.
+  - Die Seiten der Kategorien wechseln je Person, je Element oder bleiben fest.
+  - Passt für: Schnelle, spontane Urteile über viele Begriffe.
+  - Passt nicht für: Implizite Einstellungen mit Kontrastblöcken (dann IAT).
+  - Designs: Messwiederholung, Querschnittsbefragung.
+  - Beispiele: Ordnen Sie jedes Wort so schnell wie möglich „gut“ oder „schlecht“ zu.
+- **Impliziter Assoziationstest (IAT)** (`iat`)
+  - Sieben Blöcke, vier Kategorien mit eigenen Stimuli.
+  - Reihenfolge je Person ausgelost oder fest.
+  - D-Wert nach Greenwald et al. (2003).
+  - Danach auf Wunsch das Ergebnis für die Person (IAT-Ergebnis).
+  - Passt für: Implizite Einstellungen, die man nicht gern oder nicht bewusst angibt.
+  - Passt nicht für: Bildschirme ohne Tastatur oder kleine Handys ohne Erprobung; Explizite Einstellungen (dann Skalen).
+  - Designs: Querschnittsbefragung, Framing-Experiment.
+  - Beispiele: Menschen und Roboter mit gut und schlecht.
+- **Q-Sort** (`q_sort`)
+  - Aussagen in ein Raster von „lehne stark ab“ bis „stimme stark zu“ legen, mit fester Zahl von Plätzen je Spalte.
+  - Raster annähernd normalverteilt aus der Zahl der Aussagen oder selbst festgelegt; auf Wunsch mit Vorsortierung in drei Stapel.
+  - Export eine Spalte je Aussage (−k … +k), so wie Programme der Q-Methode sie lesen.
+  - Passt für: Subjektive Sichtweisen und ihre Muster (Q-Methode): Personen werden nach ihren Sortierungen gruppiert; Kleine, gezielt gewählte Gruppen, z. B. Fachleute oder Betroffene.
+  - Passt nicht für: Wie verbreitet eine Meinung in einer Bevölkerung ist (dann Likert-Skala); Begriffe ohne Rangordnung in Gruppen ordnen (dann Kartensortierung).
+  - Designs: Wahrnehmungsbefragung, Real-Time-Delphi.
+  - Beispiele: 40 Aussagen zur Energiewende von −4 bis +4 sortieren.
+- **Belohnungsaufschub (Delay Discounting)** (`discounting`)
+  - Adaptiv oder schnell (5 Durchgänge).
+  - Ergibt k und die Fläche unter der Kurve.
+  - Passt für: Geduld und Zeitpräferenz, z. B. bei Gesundheit, Geld oder Nachhaltigkeit.
+  - Passt nicht für: Präferenzen zwischen Produkten (dann Conjoint).
+  - Designs: Querschnittsbefragung, Framing-Experiment.
+  - Beispiele: Lieber 50 € heute oder 100 € in einem Jahr?
+- **Freie Assoziationen** (`association`)
+  - Spontane Begriffe nennen und jeden eigenen Begriff von negativ bis positiv bewerten.
+  - Passt für: Erste Gedanken und Bilder zu einem Thema, bevor Fragen sie lenken; Mentale Modelle und Bewertung neuer Technologien.
+  - Passt nicht für: Bewertung vorgegebener Begriffe (dann Likert-Skala oder 2D-Positionierung).
+  - Designs: Wahrnehmungsbefragung, Querschnittsbefragung.
+  - Beispiele: Was fällt Ihnen spontan zu „Wasserstoff“ ein?
+- **Lückentext** (`cloze`)
+  - Lücken in drei Breiten.
+  - Passt für: Wissenstests und Satzergänzungen.
+  - Passt nicht für: Offene Antworten ohne Textrahmen (dann Freitext).
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Die Hauptstadt von Australien ist ___.
+- **Texthervorhebung** (`highlight`)
+  - Wörter markieren und so 1 bis 3 Kategorien mit eigener Farbe zuordnen.
+  - Passt für: Welche Stellen eines Textes überzeugen oder stören: Nachrichten, Werbung, Informationstexte.
+  - Passt nicht für: Stellen in einem Bild (dann Bild markieren).
+  - Designs: Framing-Experiment, A/B-Test.
+  - Beispiele: Markieren Sie, was Sie an dieser Meldung glaubwürdig (grün) oder unglaubwürdig (rot) finden.
+- **KI-Chat** (`ai_chat`, experimentell)
+  - Ein Gespräch mit dem Modell, das die Befragung selbst hinterlegt; Anweisungen je Sprache.
+  - Jede Nachricht beider Seiten wird gespeichert und als Langformat exportiert.
+  - Passt für: Befragungen darüber, wie Menschen KI-Assistenten nutzen.
+  - Passt nicht für: Hilfe beim Ausfüllen des Fragebogens.
+  - Designs: Querschnittsbefragung, Längsschnitt.
+  - Beispiele: Tagebuchstudie: Wofür nutzen Sie heute den Assistenten?
+
+## Rückmeldung an Teilnehmende
+
+- **Stichprobenvergleich** (`sample_compare`)
+  - Verteilung je Aussage mit Median oder Mittelwert als Glockenkurve.
+  - Ab 5 Antworten.
+  - Passt für: Rückmeldung, wo man im Vergleich zu den anderen steht; Real-Time-Delphi: die Antworten der anderen vor dem Überarbeiten.
+  - Passt nicht für: Ergebnisse, die die späteren Antworten nicht beeinflussen sollen.
+  - Designs: Real-Time-Delphi, Wahrnehmungsbefragung.
+  - Beispiele: Delphi: So haben die bisherigen Expertinnen und Experten geschätzt.
+- **2D-Streubild** (`sample_map`)
+  - Zwei Variablen gegeneinander, die eigene Position hervorgehoben.
+  - Ab 5 Antworten.
+  - Passt für: Rückmeldung zu zwei Bewertungen zugleich, z. B. Risiko und Nutzen.
+  - Passt nicht für: Eine einzelne Variable (dann Stichprobenvergleich).
+  - Designs: Wahrnehmungsbefragung, Real-Time-Delphi.
+  - Beispiele: Ihre Einschätzung von Risiko und Nutzen neben der aller anderen.
+- **IAT-Ergebnis** (`iat_feedback`)
+  - Zeigt nach einem IAT das eigene Ergebnis in Worten.
+  - Stärke in vier Stufen mit dem D-Wert daneben.
+  - Ab 5 Teilnahmen die Verteilung der bisherigen Teilnehmenden mit der eigenen Position.
+  - Erklärt, was das Ergebnis bedeutet und was nicht; alle Texte vorausgefüllt und änderbar.
+  - Passt für: Eine faire Rückmeldung nach einem IAT.
+  - Passt nicht für: Befragungen ohne IAT.
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Sie haben Menschen leichter mit gut verbunden als Roboter.
+- **Rückmeldung als Menschenmenge** (`sample_crowd`)
+  - Die bisherigen Teilnehmenden als Figuren, die eigene Antwort hervorgehoben.
+  - Ab 5 Antworten.
+  - Passt für: Anschauliche Rückmeldung für Laien, z. B. auf Veranstaltungen oder in der Lehre.
+  - Passt nicht für: Genaue Werte und Verteilungen (dann Stichprobenvergleich).
+  - Designs: Wahrnehmungsbefragung, Real-Time-Delphi.
+  - Beispiele: Wie viele denken wie Sie? Die Menge läuft zu ihren Antworten.
+- **Skalenprofil** (`scale_profile`)
+  - Zeigt die eigenen Werte auf mehreren Skalen, Subskalen, Likert-Aussagen oder Bewertungen untereinander (bis 12).
+  - Auf Wunsch je Zeile der Mittelwert der Stichprobe als Ring (ab 5 Personen).
+  - Passt für: Rückmeldung zu Persönlichkeit oder Einstellungen als Anreiz zur Teilnahme.
+  - Passt nicht für: Ergebnisse, die die späteren Antworten nicht beeinflussen sollen.
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Ihr Profil auf den fünf Dimensionen der Big Five.
+- **Einordnung in Wertebereiche** (`score_band`)
+  - Der eigene Wert in 2 bis 7 selbst definierten Kategorien.
+  - Nach dem Wert selbst oder nach dem Prozentrang in der bisherigen Stichprobe.
+  - Passt für: Eine verständliche Einordnung eines Skalenwerts, z. B. niedrig, mittel, hoch.
+  - Passt nicht für: Diagnosen ohne geprüfte Normen.
+  - Designs: Querschnittsbefragung.
+  - Beispiele: Ihre Technikaffinität liegt im oberen Drittel.
+- **Themenkarte** (`topic_map`)
+  - Steht hinter einer Schleife, in der jedes Thema auf denselben Skalen bewertet wird.
+  - Setzt jedes Thema auf zwei gewählte Bewertungen, zum Beispiel Risiko und Nutzen.
+  - Auf Wunsch je Thema der Mittelwert der Stichprobe als Ring (ab 5 Personen).
+  - Passt für: Rückmeldung nach der Bewertung vieler Themen, z. B. Technologien.
+  - Passt nicht für: Befragungen ohne Schleife über Themen.
+  - Designs: Messwiederholung, Wahrnehmungsbefragung.
+  - Beispiele: Ihre Karte der Technologien nach Risiko und Nutzen.
+- **Themenprofil** (`topic_profile`)
+  - Steht hinter einer Schleife und zeigt je gewählter Variable (bis 8) den eigenen Mittelwert über die bewerteten Themen.
+  - Auf Wunsch daneben das Mittel der Stichprobe; jede Person zählt einmal (ab 5 Personen).
+  - Passt für: Eine persönliche Zusammenfassung nach einer Schleife über Themen.
+  - Passt nicht für: Befragungen ohne Schleife über Themen.
+  - Designs: Messwiederholung, Wahrnehmungsbefragung.
+  - Beispiele: Im Schnitt sehen Sie die Technologien riskanter als die anderen.
+
+## Struktur, Recht und Interview
+
+- **Leitfrage** (`guide_question`, nur in Interviewleitfäden)
+  - Erzählaufforderung mit Aspekten, Aufrechterhaltungsfragen und konkreten Fragen.
+  - Als Unterfrage eingerückt unter die Leitfrage darüber, mit „Wann stellen?“ (z. B. falls zutreffend).
+  - Passt für: Leitfadeninterviews: Erfahrungen, Gründe und Bedeutungen verstehen.
+  - Passt nicht für: Fragebögen (sie gibt es nur in Interviewleitfäden).
+  - Designs: Qualitatives Interview.
+  - Beispiele: Erzählen Sie mal, wie Sie zu Ihrem Beruf gekommen sind.
+- **Einwilligung** (`consent`)
+  - Informierte Einwilligung mit Zustimmung oder Ablehnung.
+  - Bestätigungen für Alter, Freiwilligkeit, Daten und Sorgfalt.
+  - Passt für: Jede Befragung mit Menschen: Information und Einwilligung vor dem Start.
+- **Sprachnachricht** (`voice`)
+  - Teilnehmende sprechen ihre Antwort ein, auf Wunsch tippen sie stattdessen.
+  - Passt für: Lange, erzählende Antworten, die man ungern tippt; Teilnehmende am Handy.
+  - Passt nicht für: Kurze Fakten (dann Freitext oder Auswahl).
+  - Designs: Querschnittsbefragung, Qualitatives Interview.
+  - Beispiele: Erzählen Sie von Ihrer letzten Begegnung mit einem Roboter.
+- **Text** (`info`)
+  - Text ohne Antwort, zum Beispiel Instruktionen, mit Absätzen, Aufzählungen und Zwischenüberschriften.
+  - Mit Platzhaltern aus Schleifen und früheren Antworten.
+  - Passt für: Instruktionen, Übergänge und Szenarien; Textstimuli in Experimenten und Vignetten.
+  - Passt nicht für: Die Einwilligung (dann Einwilligung).
+  - Designs: Framing-Experiment, A/B-Test, Vignettenstudie, Messwiederholung.
+  - Beispiele: Framing: dieselbe Nachricht als Gewinn oder als Verlust.
+- **Seitenumbruch** (`page_break`)
+  - Beginnt eine neue Seite innerhalb des Blocks.
+  - Passt für: Lange Blöcke auf mehrere Seiten verteilen.
+  - Passt nicht für: Neue Abschnitte mit eigener Bedingung oder Zufallsreihenfolge (dann ein neuer Block).

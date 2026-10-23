@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="{{ html_lang(survey.default_language) }}"{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>
+{# The result of one task to change in the interview view (app/interview_screen.py, edit_view; E8), in a frame of the
+   task's card: drawn fresh with the stored result, saved like the task's form in the view (interview_data.save_form,
+   part "task"); a change of a result from the participant screen is then marked "vom Interviewenden geändert".
+   interview-screen-view.js saves a moment after a change and tells the interview view. #}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ de_en("Ergebnis ändern", "Change result") }} · {{ survey.title }}</title>
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+  <script src="{{ url_for('static', filename='participant.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='interview-screen-view.js') }}" defer></script>
+</head>
+{% set lang = survey.default_language %}
+<body class="iv-body iv-screen-edit" data-ui-lang="{{ ui_language() }}">
+<form class="iv-form iv-task-form" data-ivs-edit-page action="{{ url_for('interview_data.save_form', code=survey.code, rid=row.id) }}" novalidate
+      data-saving="{{ de_en('speichert …', 'saving …') }}" data-saved="{{ de_en('gespeichert', 'saved') }}"
+      data-failed="{{ de_en('nicht gespeichert, bitte erneut versuchen', 'not saved, please try again') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="part" value="{{ part }}">{% if task %}<input type="hidden" name="task" value="{{ task.id }}"><input type="hidden" name="t" value="">{% else %}<input type="hidden" name="task" value="short">{% endif %}
+  {% for item in items %}
+  {% with answers=form_answers, errors={}, variables={}, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}
+  {% endfor %}
+  <p class="small" data-ivs-edit-note role="status"></p>
+</form>
+{% include "participant/_scripts.html" %}
+</body>
+</html>

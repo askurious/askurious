@@ -1,0 +1,14 @@
+{# Free associations: the most frequent words (lower case, punctuation removed) with the mean evaluation #}
+<div class="res-scroll"><table class="res-terms">
+  <thead><tr><th>{{ de_en("Begriff", "Term") }}</th><th>{{ de_en("Nennungen", "Mentions") }}</th><th title="{{ de_en('Personen, die den Begriff genannt haben, jede einmal gezählt', 'People who named the term, each counted once') }}">{{ de_en("Personen", "People") }}</th><th>{{ de_en("mittlere Bewertung (−2 bis +2)", "mean rating (−2 to +2)") }}</th></tr></thead>
+  <tbody>
+  {% set top = (e.terms|map(attribute=1)|max) or 1 %}
+  {% for word, n, v, persons in e.terms %}
+    <tr><td>{{ word }}</td>
+      <td><span class="res-terms-bar" style="width: {{ (60 * n / top)|round(1) }}px"></span> {{ n }}</td>
+      <td>{{ persons }}</td>
+      <td>{% if v is not none %}<span class="res-terms-val {{ 'is-neg' if v < -0.5 else ('is-pos' if v > 0.5 else '') }}">{{ (v)|dec(1, true) }}</span>{% else %}–{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Die häufigsten {n} Begriffe; Schreibweisen werden nur in Kleinschreibung und ohne Satzzeichen zusammengefasst, Synonyme nicht.", "The {n} most frequent terms; spellings are only put together in lower case and without punctuation, synonyms are not.", n=e.terms|length) }}{% if e.few_hidden %} {{ de_en("Begriffe, die weniger als fünf Personen genannt haben, zeigt die Rolle „Ansehen“ nicht.", "The role “View” does not see terms named by fewer than five people.") }}{% endif %}</p>

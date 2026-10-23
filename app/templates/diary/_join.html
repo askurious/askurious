@@ -1,0 +1,80 @@
+{# The block "Beitreten" of "Datenerhebung" for a diary study (app/diary.py, join_context), where a questionnaire has
+   its participation link (surveys/_links.html): participants join only in the app, so the participation link, short
+   name, links per person, panel and completion links do not apply. Join code and QR code, the test codes (only for
+   those who may see them, diary.show_test_codes) and the invitation codes; moved here from "Zeitplan"
+   (Philipp, 2026-10-12), the way to join too (T5, 2026-10-17). #}
+{% from "_macros.html" import autosave_bar, csrf with context %}
+{% from "_icons.html" import icon %}
+<details class="panel settings-group link-panel" id="links" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Beitreten", "Joining") }}</h2><span class="settings-sum">{{ de_en("in der App, mit Code oder QR-Code", "in the app, with a code or a QR code") }}</span></summary>
+  <div class="settings-body stack">
+  {# how people join, set here beside the codes (moved from "Zeitplan", concept "Befragungstypen im Vergleich"
+     2026-10-17, T5); saves by itself #}
+  <form method="post" action="{{ url_for('diary.join_mode', survey_id=survey.id) }}" class="stack" data-autosave-form><fieldset class="bare" {% if not may_edit %}disabled{% endif %}>
+    {{ csrf() }}{% set join_in_fold = true %}{% include "diary/_join_mode.html" %}{# the fold says "Beitreten" already #}
+    {% if may_edit %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+  {% if survey.status != "running" %}<p class="muted small flush">{{ de_en("Beitreten geht wie die Teilnahme an einem Fragebogen erst, wenn die Datenerhebung läuft (oben „Starten“). Ausprobieren können Sie die Tagebuchstudie schon jetzt mit dem Testcode.", "Like taking part in a questionnaire, joining works only once data collection is running (“Start” above). You can try the diary survey now with the test code.") }}</p>{% endif %}
+  <div class="diary-join">
+    <div class="diary-qr" style="width:180px;background:#fff">{{ qr }}</div>
+    <div class="stack">
+      <p class="flush">{{ de_en("Beitrittscode", "Join code") }}: <strong class="mono">{{ survey.code }}</strong></p>
+      <p class="flush"><a href="{{ join_url }}">{{ join_url }}</a></p>
+      <p class="muted small flush">{{ de_en("Teilnehmende scannen den QR-Code mit der Kamera oder in der App, oder geben den Code in der App ein. Ohne App führt der Link zu einer Seite mit dem Weg zur App. Die App gibt es für Android.",
+        "Participants scan the QR code with the camera or in the app, or type the code in the app. Without the app, the link leads to a page with the way to the app. The app is available for Android.") }}</p>
+    </div>
+  </div>
+  {% if show_tests %}
+  {# always open, in two columns: the two test codes side by side (Philipp, 2026-10-12) #}
+  <div class="stack">
+    <h3 class="flush">{{ de_en("Testcode für Sie und weitere Beteiligte", "Test code for you and other people involved") }}</h3>
+    <div class="diary-tests">
+    <div class="diary-join">
+      <div class="diary-qr" style="width:140px;background:#fff">{{ test_qr }}</div>
+      <div class="stack">
+        <p class="flush">{{ de_en("Testcode", "Test code") }}: <strong class="mono">{{ test_code }}</strong></p>
+        <p class="muted small flush">{{ de_en("Mit diesem Code treten Sie schon im Entwurf bei. Ihre Einträge zählen als Testdurchläufe (Quelle „Test“), nicht als echte Teilnahmen; im Entwurf ändern Sie dabei weiter Fragebogen und Zeitplan. Geben Sie den Testcode nicht an Teilnehmende weiter.",
+          "With this code you join already in the draft. Your entries count as test runs (source “test”), not as real participations; in the draft you keep changing questionnaire and schedule meanwhile. Do not pass the test code on to participants.") }}</p>
+      </div>
+    </div>
+    <div class="diary-join">
+      <div class="diary-qr" style="width:140px;background:#fff">{{ fast_qr }}</div>
+      <div class="stack">
+        <p class="flush">{{ de_en("Testcode mit Zeitraffer", "Test code with fast forward") }}: <strong class="mono">{{ fast_code }}</strong></p>
+        <p class="muted small flush">{{ de_en("Wie der Testcode, aber ein Studientag vergeht in zehn Minuten: Abfragen, Ablauf, Erinnerungen und Abschluss kommen entsprechend schneller, so erleben Sie die ganze Tagebuchstudie in kurzer Zeit. Die Zeiten dieser Testperson im Export sind Zeiten im Zeitraffer.",
+          "Like the test code, but a day of the diary survey passes in ten minutes: prompts, expiry, reminders and the exit survey come that much faster, so you experience the whole diary survey in a short time. The times of this test person in the export are fast-forward times.") }}</p>
+      </div>
+    </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if may_edit %}<form method="post" action="{{ url_for('diary.renew_test_codes', survey_id=survey.id) }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary" data-confirm="{{ de_en('Neue Testcodes erzeugen?', 'Generate new test codes?') }}" data-confirm-note="{{ de_en('Die bisherigen Testcodes (mit und ohne Zeitraffer) gelten dann nicht mehr. Testpersonen, die schon beigetreten sind, bleiben.', 'The earlier test codes (with and without fast forward) then no longer work. Test participants who have joined already stay.') }}" data-confirm-ok="{{ de_en('Neu erzeugen', 'Generate new ones') }}">{{ de_en("Testcodes neu erzeugen", "Generate new test codes") }}</button></form>{% endif %}
+
+  <h3 class="flush" id="invites">{{ de_en("Persönliche Codes", "Personal codes") }} <span class="badge">{{ invites|selectattr("used")|list|length }} / {{ invites|length }}</span></h3>
+  <p class="muted small flush">{% if survey.sampling.invite_only %}{{ de_en("Jede Person tritt mit ihrem eigenen Code bei; der gemeinsame Code oben gilt nicht.", "Each person joins with their own code; the shared code above does not work.") }}{% else %}{{ de_en("Neben dem gemeinsamen Code oben: ein eigener Code je Person. Nur noch mit persönlichen Codes beitreten lassen Sie oben in diesem Block.", "Besides the shared code above: a code of its own per person. Allow joining only with personal codes at the top of this block.") }}{% endif %}
+    {{ de_en("Mit ihrem Code verbindet eine Person ihre Teilnahme wieder, nachdem Sie ihn unten freigegeben haben (einmal je Freigabe, zwei Stunden lang).", "With their code a person connects their participation again after you have released it below (once per release, for two hours).") }}</p>
+  {% if may_edit %}<form method="post" action="{{ url_for('diary.add_invites', survey_id=survey.id) }}" class="row-fields">{{ csrf() }}
+    <label>{{ de_en("Anzahl", "Number") }} <input type="number" name="n" min="1" max="500" value="10"></label>
+    <div><button class="button button-secondary">{{ icon("plus", 16) }} {{ de_en("Codes anlegen", "Create codes") }}</button></div>
+  </form>
+  {% if invites|rejectattr("used")|list %}<p class="flush"><a href="{{ url_for('diary.print_invites', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("download", 16) }} {{ de_en("Unbenutzte Codes zum Ausdrucken", "Unused codes to print") }}</a></p>{% endif %}
+  {% set joined = invites|selectattr("used")|list %}
+  {% if joined %}
+  <details class="stack"{% if joined|selectattr("released")|list %} open{% endif %}>
+    <summary>{{ de_en("Benutzte Codes und ihre Teilnahmen", "Used codes and their participations") }}</summary>
+    <div class="res-scroll"><table class="table small">
+      <thead><tr><th>{{ de_en("Code", "Code") }}</th><th>{{ de_en("Teilnahme", "Participation") }}</th><th>{{ de_en("Wieder verbinden", "Connect again") }}</th></tr></thead>
+      <tbody>{% for i in joined %}
+        <tr><td class="mono">{{ survey.code }}-{{ i.c }}</td>
+          <td class="mono">{% if i.pid %}{{ i.pid }}{% if i.status == "left" %} <span class="badge">{{ de_en("ausgestiegen", "left") }}</span>{% endif %}{% if i.rejoined %} <span class="muted small">{{ de_en("zuletzt neu verbunden: {at}", "last connected again: {at}", at=i.rejoined|localdt) }}</span>{% endif %}{% else %}<span class="muted">{{ de_en("unbekannt (vor dem 13.10.2026 oder gelöscht)", "unknown (before 13 Oct 2026 or deleted)") }}</span>{% endif %}</td>
+          <td>{% if i.pid and i.status != "left" %}
+            <form method="post" action="{{ url_for('diary.release', survey_id=survey.id, code=i.c) }}" class="inline">{{ csrf() }}
+            {% if i.released %}<input type="hidden" name="on" value="0"><span class="badge">{{ de_en("freigegeben bis {at}", "released until {at}", at=i.until|localdt) }}</span> <button class="link">{{ de_en("zurücknehmen", "take back") }}</button>
+            {% else %}<button class="button button-small button-secondary" data-confirm="{{ de_en('Den Code {code} einmal freigeben?', 'Release the code {code} once?', code=survey.code ~ '-' ~ i.c) }}" data-confirm-note="{{ de_en('Wer den Code in den nächsten zwei Stunden als Nächstes eingibt, übernimmt die Teilnahme; das bisherige Gerät verliert den Zugang. Geben Sie ihn nur frei, wenn sich die Person bei Ihnen gemeldet hat.', 'Anyone who types the code next within the next two hours takes the participation over; the earlier device loses access. Only release it when the person has contacted you.') }}" data-confirm-ok="{{ de_en('Freigeben', 'Release') }}">{{ de_en("Code wieder freigeben", "Release code") }}</button>{% endif %}
+            </form>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endif %}{% endif %}
+  </div>
+</details>

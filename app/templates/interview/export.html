@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# Export of an interview guide (app/interview.py, concept interviewleitfaden-konzept.md 6): the Word documents, the
+   category system, the survey file and the versions (app/interview_versions.py). #}
+{% block title %}Export · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel guide-export">
+  <h2>{{ de_en("Dokumente", "Documents") }}</h2>
+  <ul class="export-rows">
+    {% for key, (name, note) in documents.items() %}
+    <li class="export-row">
+      <div><strong>{{ name }}</strong> <span class="muted small">{{ note }}</span></div>
+      <span class="export-row-buttons">
+        <a class="button button-small button-secondary" href="{{ url_for('interview.export_docx', code=survey.code, kind=key) }}">{{ icon("download", 16) }} Word</a>
+        {% if key == "leitfaden" %}<a class="button button-small button-secondary" href="{{ url_for('interview.print_view', code=survey.code) }}" target="_blank" rel="noopener"
+           title="{{ de_en('Druckansicht; im Druckdialog des Browsers „Als PDF speichern“ wählen', 'Print view; choose “Save as PDF” in the browser’s print dialogue') }}">{{ icon("download", 16) }} PDF ↗</a>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  <h2>{{ de_en("Auswertung und Weitergabe", "Analysis and sharing") }}</h2>
+  <ul class="export-rows">
+    <li class="export-row">
+      <div><strong>{{ de_en("Kategoriensystem", "Category system") }}</strong> <span class="muted small">{{ de_en("Themenblöcke als Hauptkategorien, Leitfragen und Aspekte darunter (REFI-QDA), für MAXQDA, ATLAS.ti, NVivo und QDA Miner", "topic blocks as main categories, guide questions and aspects below them (REFI-QDA), for MAXQDA, ATLAS.ti, NVivo and QDA Miner") }}</span></div>
+      <span class="export-row-buttons">
+        {% if editable and survey.is_editable and ai_on() %}<form method="post" action="{{ url_for('interview_ai.categories_page', code=survey.code) }}" class="inline" data-busy-form>{{ csrf() }}
+          <button class="button button-small button-ai button-secondary" title="{{ de_en('Je Leitfrage und Aspekt eine Definition und eine Abgrenzung vorschlagen (Kuckartz & Rädiker, 2022); ohne Ankerbeispiele', 'Suggest a definition and a delimitation per guide question and aspect (Kuckartz & Rädiker, 2022); without anchor examples') }}">{{ icon("sparkles", 16) }} {{ de_en("Definitionen mit KI", "Definitions with AI") }}</button></form>{{ ai_access_line() }}{% endif %}
+        <a class="button button-small button-secondary" href="{{ url_for('interview.export_qdc', code=survey.code) }}">{{ icon("download", 16) }} .qdc</a>
+      </span>
+    </li>
+    {% if may_copy_out(survey) %}
+    <li class="export-row">
+      <div><strong>{{ de_en("Befragungsdatei", "Survey file") }}</strong> <span class="muted small">{{ de_en("der ganze Leitfaden maschinenlesbar (JSON), zum Einlesen in Askurious oder in ein Aufzeichnungswerkzeug", "the whole guide machine-readable (JSON), to read into Askurious or into a recording tool") }}</span></div>
+      <a class="button button-small button-secondary" href="{{ url_for('surveys.export_file', survey_id=survey.id) }}">{{ icon("download", 16) }} JSON</a>
+    </li>
+    {% endif %}
+  </ul>
+  {# the stored interviews in the same place as the documents (UI audit 2026-10-04, R22) #}
+  <h2>Interviews</h2>
+  <ul class="export-rows">
+    <li class="export-row"><div><strong>{{ de_en("Projekt für QDA-Programme", "Project for QDA software") }}</strong> <span class="muted small">{{ de_en("Transkripte, Kategoriensystem, Kurzfragebogen als Fallmerkmale und Notizen als Memos in einer Datei (REFI-QDA)", "transcripts, category system, short questionnaire as case variables and notes as memos in one file (REFI-QDA)") }}</span></div>
+      <a class="button button-small button-secondary" href="{{ url_for('interview_results.project_file', code=survey.code) }}">{{ icon("download", 16) }} .qdpx</a></li>
+    <li class="export-row"><div><strong>{{ de_en("Fallübersicht", "Case overview") }}</strong> <span class="muted small">{{ de_en("eine Zeile je Interview: Kennung, Datum, Form, Dauer, je Leitfrage Stand und Aspekte, Kurzfragebogen und Postskript", "one row per interview: identifier, date, mode, duration, per guide question status and aspects, short questionnaire and postscript") }}</span></div>
+      <a class="button button-small button-secondary" href="{{ url_for('interview_results.overview_file', code=survey.code) }}">{{ icon("download", 16) }} CSV</a></li>
+    <li class="export-row"><div><strong>{{ de_en("Notizen und Postskripte", "Notes and postscripts") }}</strong> <span class="muted small">{{ de_en("je Interview Stand, Aspekte, Notizen und Zeitmarken", "per interview status, aspects, notes and time marks") }}</span></div>
+      <a class="button button-small button-secondary" href="{{ url_for('interview_results.notes_word', code=survey.code) }}">{{ icon("download", 16) }} Word</a></li>
+  </ul>
+  <p class="muted small flush">{{ de_en("Ohne Probeinterviews; mit ihnen und als Textdateien je Interview unter", "Without trial interviews; with them and as text files per interview under") }} <a href="{{ url_for('interview_results.page', code=survey.code) }}">{{ de_en("Ergebnisse", "Results") }}</a>.</p>
+</section>
+
+<section class="panel" id="fassungen">
+  <h2>{{ de_en("Fassungen", "Revisions") }}</h2>
+  <p class="muted small">{{ de_en("Eine Fassung friert den Leitfaden so ein, wie er jetzt ist: Word-Leitfaden, Interviewkarte, Kategoriensystem und Befragungsdatei in einer ZIP-Datei mit SHA-256-Prüfsummen, zum Zitieren im Methodenteil, im Ethikantrag oder in einer Präregistrierung. Der Leitfaden bleibt danach bearbeitbar.", "A revision freezes the guide as it is now: Word guide, interview card, category system and survey file in one ZIP file with SHA-256 checksums, to cite in the methods section, the ethics application or a pre-registration. The guide stays editable afterwards.") }}</p>
+  {% if editable %}
+  <form method="post" action="{{ url_for('interview.version_new', code=survey.code) }}">
+    {{ csrf() }}
+    <div class="row-fields">
+    <label>{{ de_en("Anlass", "Occasion") }}
+      <select name="note">{% for key, label in notes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+    <label><span class="label-title">{{ de_en("Bemerkung", "Remark") }} <span class="hint">{{ de_en("optional, ein Satz", "optional, one sentence") }}</span></span>
+      <input name="text" maxlength="200"></label>
+    </div>
+    <label>{{ de_en("Materiallizenz dieser Fassung", "Material licence for this revision") }}
+      <select name="material_license">
+        <option value="">{{ de_en("Keine Veröffentlichungslizenz festlegen", "Do not grant a publication licence") }}</option>
+        {% for key, (label, link) in material_licenses.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+      </select></label>
+    <p class="muted small">{{ de_en("Für eigene offen nachnutzbare Materialien empfehlen wir CC BY 4.0. Die Auswahl gilt nur für diese neue Fassung; frühere Fassungen bleiben unverändert. Fremdmaterialien behalten ihre eigenen Lizenzen.", "For your own openly reusable materials we recommend CC BY 4.0. Your selection applies only to this new revision; previous revisions remain unchanged. Third-party materials retain their own licences.") }}</p>
+    <label>{{ de_en("Fremdmaterialien: Fundstellen, Rechteinhaber, Quellen und Weitergabebedingungen", "Third-party materials: locations, rights holders, sources and redistribution terms") }}
+      <textarea name="material_third_party" rows="2" maxlength="4000" placeholder="{{ de_en('Falls enthalten; sonst leer lassen', 'If included; otherwise leave blank') }}"></textarea></label>
+    <label class="checkbox"><input type="checkbox" name="material_rights_confirm" value="1"> {{ de_en("Ich darf die eigenen Materialien dieser Fassung unter der gewählten Lizenz veröffentlichen, einschließlich erforderlicher Zustimmungen von Miturhebern und Arbeitgebern. Enthaltene Fremdmaterialien habe ich oben benannt; ihre Weitergabe ist erlaubt und die nötigen Quellen und Hinweise sind enthalten.", "I am authorised to publish this revision’s own materials under the selected licence, including any required co-author and employer consent. I have identified third-party materials above; their redistribution is permitted and the required credits and notices are included.") }}</label>
+    <p class="muted small">{{ de_en("Ohne Lizenzwahl und Bestätigung lässt sich die Fassung weiterhin festhalten und herunterladen; ein Zenodo-Upload ist dann nicht möglich.", "You can still record and download a revision without selecting and confirming a licence; Zenodo upload will then be unavailable.") }}</p>
+    <button class="button button-secondary">{{ icon("archive", 16) }} {{ de_en("Fassung festhalten", "Record revision") }}</button>
+  </form>
+  {% endif %}
+  {% if versions %}
+  <ul class="export-rows">
+    {% for v in versions %}
+    <li class="export-row">
+      <div><strong>{{ de_en("Fassung {n}", "Revision {n}", n=v.n) }}</strong> <span class="muted small">{{ day(v.at) }} · {{ v.by }} · {{ notes.get(v.note, v.note) }}{% if v.text %}: {{ v.text }}{% endif %}</span>
+        <br><code class="small" title="{{ de_en('SHA-256 der ZIP-Datei', 'SHA-256 of the ZIP file') }}">{{ v.sha256 }}</code>
+        {% if v.material_license and v.material_license.id in material_licenses %}<br><span class="small">{{ material_licenses[v.material_license.id][0] }} · {{ de_en("bestätigt von", "confirmed by") }} {{ v.material_license.confirmed_by }}</span>
+        {% else %}<br><span class="muted small">{{ de_en("Keine bestätigte Materiallizenz; für Zenodo eine neue Fassung mit Lizenzwahl festhalten.", "No confirmed material licence; record a new revision with a licence selection for Zenodo.") }}</span>{% endif %}
+        {% if v.zenodo %}<br><span class="small">{% set where = "Zenodo" if v.zenodo.target == "zenodo" else de_en("Zenodo-Sandbox", "Zenodo sandbox") %}{{ de_en("Veröffentlicht auf {where}", "Published on {where}", where=where) if v.zenodo.state == "published" else de_en("Entwurf auf {where}", "Draft on {where}", where=where) }}{% if v.zenodo.doi %} · DOI <code>{{ v.zenodo.doi }}</code>{% endif %}{% if v.zenodo.url %} · <a href="{{ v.zenodo.url }}" target="_blank" rel="noopener">{{ de_en("auf Zenodo öffnen ↗", "open on Zenodo ↗") }}</a>{% endif %}</span>{% endif %}</div>
+      <span class="export-row-buttons">
+        {% if zenodo_targets %}
+        <form method="post" action="{{ url_for('interview.version_zenodo', code=survey.code, name=v.name) }}" class="inline" data-busy-form>{{ csrf() }}
+          {% if zenodo_targets|length > 1 %}<select name="target" aria-label="{{ de_en('Ziel', 'Target') }}">{% for t, label in zenodo_targets %}<option value="{{ t }}" {% if (v.zenodo or {}).target == t %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+          {% else %}<input type="hidden" name="target" value="{{ zenodo_targets[0][0] }}">{% endif %}
+          {% if v.material_license and v.material_license.confirmed and (not v.zenodo or v.zenodo.state != "published") %}<button class="button button-small button-secondary" name="action" value="upload" title="{{ de_en('Diese Fassung als Entwurf auf Zenodo anlegen; veröffentlichen Sie ihn dort, dann vergibt Zenodo die DOI', 'Create this revision as a draft on Zenodo; publish it there, then Zenodo assigns the DOI') }}">{{ de_en("Entwurf aktualisieren", "Update draft") if v.zenodo else de_en("Auf Zenodo", "To Zenodo") }}</button>{% endif %}
+          {% if v.zenodo %}<button class="button button-small button-secondary" name="action" value="refresh" title="{{ de_en('Status und DOI von Zenodo neu lesen', 'Read status and DOI from Zenodo again') }}">{{ de_en("Stand abrufen", "Fetch status") }}</button>{% endif %}
+        </form>
+        {% endif %}
+        <a class="button button-small button-secondary" href="{{ url_for('interview.version_file', code=survey.code, name=v.name) }}">{{ icon("download", 16) }} ZIP</a>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted small flush">{{ de_en("Noch keine Fassung. „Fassung festhalten“ friert den jetzigen Leitfaden ein, etwa für einen Ethikantrag.", "No revision yet. “Record revision” freezes the current guide, for example for an ethics application.") }}</p>{% endif %}
+  {% if versions and survey.can(current_user, "admin") %}<p class="muted small flush">{% if zenodo_targets %}{{ de_en("„Auf Zenodo“ legt die Fassung als Entwurf in Ihrem verbundenen Zenodo-Konto an, mit allen Beteiligten als Autorinnen und Autoren; veröffentlichen Sie ihn dort, dann vergibt Zenodo die DOI.", "“To Zenodo” creates the revision as a draft in your connected Zenodo account, with everyone involved as authors; publish it there, then Zenodo assigns the DOI.") }}{% else %}{{ de_en("Eine Fassung lässt sich über Zenodo mit DOI zitierbar machen: dafür unter", "A revision can be made citable with a DOI through Zenodo: for this, under") }} <a href="{{ url_for('accounts.connections') }}#zenodo">{{ de_en("Konto › Verbindungen", "Account › Connections") }}</a> {{ de_en("mit Zenodo verbinden.", "connect to Zenodo.") }}{% endif %}</p>{% endif %}
+</section>
+{% include "coscine/_block.html" %}
+{% if may_delete %}
+{# beside the downloads, where a questionnaire has "Antworten löschen (Datenschutz)" (concept "Befragungstypen im
+   Vergleich" 2026-10-17, T6; before on "Interviews") #}
+<section class="panel" id="loeschen">
+  <h2>{{ de_en("Interview löschen (Datenschutz)", "Delete an interview (data protection)") }}</h2>
+  <p class="muted small">{{ de_en("Möchte eine interviewte Person ihre Daten löschen lassen, genügt ihr Löschcode (vom Ende des Interviews) oder die Kennung. Gelöscht wird das ganze Interview; gezählt wird nur je Tag.", "If an interviewed person wants their data deleted, their deletion code (from the end of the interview) or the identifier is enough. The whole interview is deleted; only a count per day is kept.") }}</p>
+  <form method="post" action="{{ url_for('interview_data.delete_by_code', code=survey.code) }}" class="row-fields"
+        data-confirm="{{ de_en('Das gefundene Interview endgültig löschen?', 'Delete the interview found permanently?') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+    {{ csrf() }}
+    <label>{{ de_en("Löschcode oder Kennung", "Deletion code or identifier") }} <input name="term" maxlength="60" autocomplete="off"></label>
+    <div><button class="button button-danger">{{ icon("trash", 16) }} {{ de_en("Löschen", "Delete") }}</button></div>
+  </form>
+</section>
+{% endif %}
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

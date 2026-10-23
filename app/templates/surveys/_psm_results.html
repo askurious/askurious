@@ -1,0 +1,96 @@
+{% from "_learn.html" import term %}
+{# Van Westendorp results of one PSM item (results.psm_curves). Needs: e (entry), num macro via price() below. #}
+{% set a = e.psm %}
+{# the curves and marks are kept with German names (results.PSM_SERIES): shown by their key in the page language #}
+{% set psm_names = {"too_cheap": de_en("zu billig", "too cheap"), "not_cheap": de_en("nicht günstig", "not cheap"),
+                    "not_expensive": de_en("nicht teuer", "not expensive"), "too_expensive": de_en("zu teuer", "too expensive")} %}
+{% set psm_marks = {"max. Kauf": de_en("max. Kauf", "max. purchase"), "max. Umsatz": de_en("max. Umsatz", "max. revenue")} %}
+{% macro price(v) %}{{ a.fmt(v) }}{% endmacro %}
+{% from "_macros.html" import pct %}
+{% macro svg(ch, names, y_label, y_fmt) %}
+<figure class="psm-chart" data-psm-chart>
+  <svg viewBox="0 0 {{ ch.w }} {{ ch.h }}" role="img" aria-label="{{ de_en('{y} nach Preis', '{y} by price', y=y_label) }}">
+    {# tick labels in the language of the page, from the values (the kept results hold German labels) #}
+    {% set y_labels = tick_labels(ch.y_ticks|map(attribute=1)|list, false, 4) %}
+    {% for yy, v, lab in ch.y_ticks %}
+    <line class="psm-grid" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ yy }}" y2="{{ yy }}"/>
+    <text class="psm-tick" x="{{ ch.x_lo - 6 }}" y="{{ yy + 4 }}" text-anchor="end">{{ v|percent if y_fmt == "pct" else y_labels[loop.index0] }}</text>
+    {% endfor %}
+    {% set x_labels = tick_labels(ch.x_values, false, 4) if ch.x_values is defined else ch.x_ticks|map(attribute=1)|list %}
+    {% for xx, v in ch.x_ticks %}
+    <text class="psm-tick" x="{{ xx }}" y="{{ ch.base_y + 18 }}" text-anchor="middle">{{ x_labels[loop.index0] }}</text>
+    {% endfor %}
+    <line class="psm-axis" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ ch.base_y }}" y2="{{ ch.base_y }}"/>
+    <text class="psm-tick" x="{{ ch.x_hi }}" y="{{ ch.h - 4 }}" text-anchor="end">{{ de_en("Preis", "Price") }}{% if a.unit %} ({{ a.unit }}){% endif %}</text>
+    {% for m in ch.marks %}
+    <line class="psm-mark" x1="{{ m.x }}" x2="{{ m.x }}" y1="{{ m.label_y + 4 }}" y2="{{ ch.base_y }}"/>
+    <text class="psm-mark-label" x="{{ m.x }}" y="{{ m.label_y }}" text-anchor="middle">{{ psm_marks.get(m.label, m.label) }}</text>
+    {% endfor %}
+    {% for ln in ch.lines %}
+    <polyline class="psm-line psm-{{ ln.key }}" points="{{ ln.points }}"/>
+    {% if names|length > 1 %}<text class="psm-direct" x="{{ ln.label_x }}" y="{{ ln.label_y }}" text-anchor="{{ ln.anchor }}">{{ names[ln.key] }}</text>{% endif %}
+    {% endfor %}
+    <line class="psm-cross" data-psm-cross x1="0" x2="0" y1="{{ ch.top_y }}" y2="{{ ch.base_y }}" hidden/>
+    <rect class="psm-hit" data-psm-hit x="{{ ch.x_lo }}" y="{{ ch.top_y }}" width="{{ ch.x_hi - ch.x_lo }}" height="{{ ch.base_y - ch.top_y }}"/>
+  </svg>
+  <div class="psm-tip" data-psm-tip hidden></div>
+  <script type="application/json" data-psm-data>{{ {"rows": ch.data, "keys": ch.lines|map(attribute="key")|list, "names": names,
+    "fmt": y_fmt, "unit": a.unit, "x0": ch.x_lo, "x1": ch.x_hi,
+    "lo": ch.data[0][0] if ch.data else 0, "hi": ch.data[-1][0] if ch.data else 0}|tojson }}</script>
+</figure>
+{% endmacro %}
+
+<div class="psm-results">
+  <p class="muted small">Van Westendorp{{ fn("psm") }}: {{ de_en("{n} konsistente Antworten", "{n} consistent answers", n=a.n) }}{% if a.n_inconsistent %}, {{ de_en("{n} inkonsistente ausgeschlossen", "{n} inconsistent ones excluded", n=a.n_inconsistent) }}{% if a.share_inconsistent is not none %} ({{ de_en("{p} der vollständigen Antworten", "{p} of the complete answers", p=a.share_inconsistent|percent) }}){% endif %}: {{ de_en("Preise nicht in der Reihenfolge TC ≤ C ≤ E ≤ TE (gleiche Preise sind erlaubt)", "prices not in the order TC ≤ C ≤ E ≤ TE (equal prices are allowed)") }}{% endif %}{% if a.n_cases > a.n_complete %}, {{ de_en("{n} unvollständige", "{n} incomplete", n=a.n_cases - a.n_complete) }}{% endif %}.</p>
+  {% if a.curves %}
+  {% set names = {} %}{% for key, label in a.series %}{% set _ = names.update({key: psm_names.get(key, label)}) %}{% endfor %}
+  <ul class="plain psm-legend">
+    {% for key, label in a.series %}<li><svg width="26" height="10" aria-hidden="true"><line class="psm-line psm-{{ key }}" x1="1" x2="25" y1="5" y2="5"/></svg> {{ names[key] }}</li>{% endfor %}
+  </ul>
+  {{ svg(a.chart, names, de_en("Anteil der Teilnehmenden", "Share of participants"), "pct") }}
+  <div class="res-scroll"><table class="res-table psm-points">
+    {# 95 % bootstrap intervals over persons (psm_analysis.point_intervals), from 30 consistent answers on #}
+    {% macro price_ci(key) %}<td>{% set c = (a.ci or {}).get(key) %}{% if c %}[{{ price(c[0]) }}; {{ price(c[1]) }}]{% else %}–{% endif %}</td>{% endmacro %}
+    <thead><tr><th>{{ term("psm_points", de_en("Preispunkt", "Price point")) }}</th><th>{{ de_en("Preis", "Price") }}</th><th title="{{ de_en('95-%-Konfidenzintervall: Perzentil-Bootstrap über Personen, 1000 Ziehungen', '95% confidence interval: percentile bootstrap over people, 1000 draws') }}">{{ de_en("95-%-KI", "95% CI") }}</th><th>{{ de_en("Schnittpunkt", "Intersection") }}</th></tr></thead>
+    <tbody>
+      <tr><td>PMC <span class="hint">{{ de_en("untere Grenze", "lower limit") }}</span></td><td>{{ price(a.points.PMC) }}</td>{{ price_ci("PMC") }}<td>{{ de_en("zu billig × nicht günstig", "too cheap × not cheap") }}</td></tr>
+      <tr><td>OPP <span class="hint">{{ de_en("optimaler Preis", "optimal price") }}</span></td><td>{{ price(a.points.OPP) }}</td>{{ price_ci("OPP") }}<td>{{ de_en("zu billig × zu teuer", "too cheap × too expensive") }}</td></tr>
+      <tr><td>IPP <span class="hint">{{ de_en("Indifferenzpreis", "indifference price") }}</span></td><td>{{ price(a.points.IPP) }}</td>{{ price_ci("IPP") }}<td>{{ de_en("nicht günstig × nicht teuer", "not cheap × not expensive") }}</td></tr>
+      <tr><td>PME <span class="hint">{{ de_en("obere Grenze", "upper limit") }}</span></td><td>{{ price(a.points.PME) }}</td>{{ price_ci("PME") }}<td>{{ de_en("zu teuer × nicht teuer", "too expensive × not expensive") }}</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted small">{% if a.ci %}{{ de_en("95-%-Konfidenzintervalle: Perzentil-Bootstrap über Personen (1000 Ziehungen, fester Startwert; Quelle am Ende der Seite); „–“, wo zu wenige Ziehungen einen Schnittpunkt hatten.", "95% confidence intervals: percentile bootstrap over people (1000 draws, fixed seed; source at the end of the page); “–” where too few draws had an intersection.") }}{% else %}{{ de_en("95-%-Konfidenzintervalle erst ab {n} Personen mit konsistenten Antworten.", "95% confidence intervals only from {n} people with consistent answers.", n=a.ci_min or 30) }}{% endif %}</p>
+  <p class="res-scale">{{ de_en("Akzeptable Preisspanne:", "Acceptable price range:") }} <strong>{{ de_en("{lo} bis {hi}", "{lo} to {hi}", lo=price(a.points.PMC), hi=price(a.points.PME)) }}</strong></p>
+
+  {% if a.nms %}
+  <h3 class="res-group-head">Newton-Miller-Smith{{ fn("nms") }} <span class="hint">{{ de_en("n = {n} mit beiden Kaufwahrscheinlichkeiten", "n = {n} with both purchase probabilities", n=a.nms.n) }}</span></h3>
+  {% if a.nms.nobody %}
+  <p class="res-scale">{{ de_en("Niemand würde zu einem der genannten Preise kaufen: Die Kaufbereitschaft ist überall 0 %, es gibt keinen Preis mit höchster Kaufbereitschaft oder höchstem Umsatz.", "Nobody would buy at any of the prices named: the purchase intention is 0% everywhere; there is no price with the highest purchase intention or the highest revenue.") }}</p>
+  {% else %}
+  <p class="res-scale">{{ de_en("Höchste Kaufbereitschaft", "Highest purchase intention") }} {% if a.nms.max_trial.price_to is not none %}{{ de_en("von", "from") }} <strong>{{ de_en("{lo} bis {hi}", "{lo} to {hi}", lo=price(a.nms.max_trial.price), hi=price(a.nms.max_trial.price_to)) }}</strong> ({{ de_en("überall gleich {p}", "{p} throughout", p=pct(a.nms.max_trial.value)) }}){% else %}{% set side = a.nms.max_trial.side %}{% if side == "below" %}{{ de_en("knapp unter", "just below") }}{% elif side == "above" %}{{ de_en("knapp über", "just above") }}{% else %}{{ de_en("bei", "at") }}{% endif %} <strong>{{ price(a.nms.max_trial.price) }}</strong> ({{ pct(a.nms.max_trial.value) }}){% endif %} ·
+    {# a peak in the limit of a piece at a jump (tie C = E): just below or above the price (audit 2026-10-12, W-3) #}
+    {% set side = a.nms.max_revenue.side %}{% if side == "below" %}{{ de_en("höchster Umsatz knapp unter", "highest revenue just below") }}{% elif side == "above" %}{{ de_en("höchster Umsatz knapp über", "highest revenue just above") }}{% else %}{{ de_en("höchster Umsatz bei", "highest revenue at") }}{% endif %} <strong>{{ price(a.nms.max_revenue.price) }}</strong> ({{ de_en("Kaufbereitschaft dort {p}", "purchase intention there {p}", p=pct(a.nms.max_revenue.trial)) }})</p>
+  {% endif %}
+  <p class="muted small">{{ de_en("Kaufbereitschaft (Anteil)", "Purchase intention (share)") }}</p>
+  {{ svg(a.trial_chart, {"trial": de_en("Kaufbereitschaft", "Purchase intention")}, de_en("Kaufbereitschaft", "Purchase intention"), "pct") }}
+  <p class="muted small">{{ de_en("Umsatzindex (Preis × Kaufbereitschaft, je befragter Person)", "Revenue index (price × purchase intention, per surveyed person)") }}</p>
+  {{ svg(a.revenue_chart, {"revenue": de_en("Umsatzindex", "Revenue index")}, de_en("Umsatzindex", "Revenue index"), "num") }}
+  {% endif %}
+
+  <details class="psm-table">
+    <summary>{{ de_en("Kurven als Tabelle", "Curves as a table") }}</summary>
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ de_en("Preis", "Price") }}</th>{% for key, label in a.series %}<th>{{ psm_names.get(key, label) }}</th>{% endfor %}{% if a.nms %}<th>{{ de_en("Kauf", "Purchase") }}</th><th>{{ de_en("Umsatzindex", "Revenue index") }}</th>{% endif %}</tr></thead>
+      <tbody>
+      {% for i in a.table_rows %}{% set p = a.curves.prices[i] %}
+        <tr><td>{{ price(p) }}</td>{% for key, _ in a.series %}<td>{{ pct(a.curves[key][i]) }}</td>{% endfor %}
+          {% if a.nms %}<td>{{ pct(a.nms.trial[i]) }}</td><td>{{ ((a.nms.revenue[i])|dec(2)) }}</td>{% endif %}</tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </details>
+  <p class="muted small">{{ de_en("Achse von dem Preis, unter dem 98 % „zu billig“ sagen, bis zu dem, ab dem 98 % „zu teuer“ sagen;", "Axis from the price below which 98% say “too cheap” to the one from which 98% say “too expensive”;") }} {% if a.table_rows|length < a.curves.prices|length %}{{ de_en("Tabelle und Kurven zeigen höchstens {k} der {n} genannten Preise, gleichmäßig verteilt; Preispunkte, Intervalle und Kaufbereitschaft beruhen auf allen.", "table and curves show at most {k} of the {n} prices named, evenly spread; price points, intervals and purchase intention rest on all of them.", k=a.table_rows|length, n=a.curves.prices|length) }}{% else %}{{ de_en("die Tabelle enthält alle Preise.", "the table contains all prices.") }}{% endif %}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Für die Kurven braucht es mindestens zwei konsistente, vollständige Antworten.", "The curves need at least two consistent, complete answers.") }}</p>
+  {% endif %}
+</div>

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{# Accessibility of the platform (app/public.py, accessibility), linked from the footer of the researchers' pages, from the landing page ("Barrierefrei, wo möglich") and from the
+   section "Barrierefreiheit" of the page "Impressum & Datenschutz" (public/privacy.html). The pages of a survey have their own statement
+   (participant/accessibility.html), reached from their privacy page.
+   ENTWURF: vom Betreiber zu prüfen wie die Datenschutzerklärung; die Seiten für Forschende sind noch nicht nach
+   BITV NRW / WCAG 2.1 AA bewertet (Philipp, 2026-10-13). Betreiber ist der Lehrstuhl, also eine öffentliche Stelle
+   des Landes NRW: BITV NRW und die Ombudsstelle des Landes statt BITV 2.0 (Ralf, 2026-10-17). #}
+{% block title %}{{ de_en("Barrierefreiheit", "Accessibility") }}{% endblock %}
+{% block content %}
+<article>{# plain flow like "Impressum & Datenschutz": the gap of .stack added to the paragraphs' margins (Ralf, 2026-10-17) #}
+<h1>{{ de_en("Barrierefreiheit", "Accessibility") }}</h1>
+{% include "public/_operator_a11y.html" %}
+
+<h2>{{ de_en("Seiten für Teilnehmende", "Pages for participants") }}</h2>
+<p>{{ de_en("Die Seiten der Befragungen sind teilweise mit diesen Anforderungen vereinbar. Jede Befragung hat eine eigene Erklärung zur Barrierefreiheit mit den bekannten Ausnahmen, etwa Aufgaben, die Reaktionszeiten messen; Teilnehmende finden sie über „Datenschutz & Impressum“ unten auf jeder Seite der Befragung. Die Erklärung beruht auf einer Selbstbewertung der Betreiber vom {date}.",
+  "The pages of the surveys partially comply with these requirements. Each survey has its own accessibility statement with the known exceptions, such as tasks that measure reaction times; participants find it through “Privacy & legal notice” at the bottom of every page of the survey. The statement is based on a self-assessment by the provider of Askurious of {date}.",
+  date=made) }}</p>
+<p>{{ de_en("Texte, Bilder und Videos einer Befragung stellen ihre Forschenden ein. Der Editor weist auf fehlende Alternativtexte und zu schwache Kontraste hin, kann aber nicht alles prüfen.",
+  "The texts, images and videos of a survey are provided by its researchers. The editor points out missing alternative texts and weak contrasts, but cannot check everything.") }}</p>
+
+<h2>{{ de_en("Seiten für Forschende", "Pages for researchers") }}</h2>
+<p>{{ de_en("Die Seiten zum Erstellen, Durchführen und Auswerten von Befragungen sind noch nicht nach diesen Anforderungen bewertet. Wir verbessern sie fortlaufend und beheben gemeldete Barrieren.",
+  "The pages for creating, running and analysing surveys have not yet been assessed against these requirements. We improve them continuously and fix barriers that are reported.") }}</p>
+
+<h2>{{ de_en("Barrieren melden", "Reporting barriers") }}</h2>
+<p>{{ de_en("Ist Ihnen eine Barriere aufgefallen, oder brauchen Sie einen Inhalt in einer anderen Form? Dann schreiben Sie dem Betreiber von Askurious:", "Have you come across a barrier, or do you need content in another form? Then write to the provider of Askurious:") }}
+  {% if email %}<a href="mailto:{{ email }}">{{ email }}</a>{% else %}<a href="{{ url_for('public.privacy') }}">{{ de_en("Impressum", "Legal notice") }}</a>{% endif %}.</p>
+
+{% include "public/_operator_enforcement.html" %}
+</article>
+{% endblock %}

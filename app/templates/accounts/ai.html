@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{# The page "KI-Nutzung" (app/ai_access.py page; ki-nutzung-seite-konzept.md, E1-E9 as recommended, Ralf 2026-10-10):
+   1 the switch, 2 the access in use (the own access itself is on "Verbindungen" since Konto-Seiten B2), 4 the calls of the last 30 days, 5 the platform's models,
+   6 what one may do with them. With generative AI off only 1 and one sentence. No banner.
+   Needs: ai_access, ai_access_days, ai_mod, calls, sums, days, today, platform, own_now. #}
+{% block title %}{{ de_en("KI-Nutzung", "AI usage") }} · {{ de_en("Konto", "Account") }}{% endblock %}
+{% block content %}
+<p class="page-group">{{ de_en("Konto", "Account") }}</p>
+<h1>{{ de_en("KI-Nutzung", "AI usage") }}</h1>
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+
+<section class="panel" id="schalter">
+  <form method="post" action="{{ url_for('ai_access.switch') }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="ai_enabled" value="1" data-reload-saved {% if current_user.ai_enabled %}checked{% endif %}>
+      <span><strong>{{ de_en("Generative KI nutzen", "Use generative AI") }}</strong>
+      <span class="hint">{{ de_en("Aus: Askurious zeigt keine KI-Funktionen und keine KI-Hinweise mehr und schickt nichts an KI-Dienste. Was die KI schon erzeugt hat, bleibt. Gilt nur für Sie, auch in gemeinsamen Befragungen.",
+        "Off: Askurious shows no AI functions and no AI notes any more and sends nothing to AI services. What the AI has created already stays. Applies to you only, also in shared surveys.") }}</span></span></label>
+    {{ autosave_bar() }}
+  </form>
+  {% if not current_user.ai_enabled %}<p class="flush">{{ de_en("Generative KI ist für Sie ausgeschaltet.", "Generative AI is switched off for you.") }}</p>{% endif %}
+</section>
+
+{% if current_user.ai_enabled %}
+<section class="panel" id="gerade">
+  <h2>{{ de_en("Gerade benutzt", "In use now") }}</h2>
+  <dl class="account-facts">
+    <dt>{{ de_en("Texte", "Texts") }}</dt>
+    <dd>{% if own_now %}{{ de_en("eigener Zugang", "own access") }}: {{ ai_mod.provider_label(own_now.provider) }}, {{ own_now.text_model }} ({{ ai_mod.origin(own_now.provider, own_now.text_model) }})
+      {% else %}{{ de_en("Zugang der Plattform", "the platform's access") }}{% if config.OPENAI_TEXT_MODEL %}: OpenAI, {{ config.OPENAI_TEXT_MODEL }}{% endif %}{% endif %}</dd>
+    <dt>{{ de_en("Bilder", "Images") }}</dt>
+    <dd>{{ de_en("Zugang der Plattform", "the platform's access") }}{% if config.OPENAI_IMAGE_MODEL %}: OpenAI, {{ config.OPENAI_IMAGE_MODEL }}{% endif %}</dd>
+  </dl>
+  <p class="muted small">{{ de_en("Einen eigenen Schlüssel für die KI-Textfunktionen hinterlegen Sie unter", "You add your own key for the AI text functions under") }} <a href="{{ url_for('accounts.connections') }}#ki-zugang">{{ de_en("Verbindungen", "Connections") }}</a>.</p>
+</section>
+
+{# the own AI key moved to "Verbindungen" (Konto-Seiten B2, Ralf 2026-10-20): an old link to #ki-zugang goes there #}
+<span hidden data-moved-anchor="ki-zugang" data-moved-to="{{ url_for('accounts.connections') }}#ki-zugang"></span>
+
+<section class="panel" id="statistik">
+  <h2>{{ de_en("Ihre KI-Aufrufe", "Your AI calls") }} <span class="hint">{{ de_en("der letzten {n} Tage", "of the last {n} days", n=days) }}</span></h2>
+  {% if today %}
+  <p class="small">{{ de_en("Heute:", "Today:") }}
+    {% for label, used, limit in today %}{{ used }}{% if limit %} {{ de_en("von", "of") }} {{ limit }}{% endif %} {{ label }}{% if not limit %} ({{ de_en("ohne Tageslimit", "no daily limit") }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+  {% if calls %}
+  <div class="res-scroll">
+  <table class="list-table ai-usage-table">
+    <thead><tr><th>{{ de_en("Funktion", "Function") }}</th><th>{{ de_en("Aufrufe", "Calls") }}</th><th class="num">{{ de_en("davon fehlgeschlagen", "of which failed") }}</th>
+      <th class="num">{{ de_en("Plattform", "Platform") }}</th><th class="num">{{ de_en("eigener Zugang", "own access") }}</th><th class="num">{{ de_en("Tokens", "Tokens") }}</th><th class="num">{{ de_en("Bilder", "Images") }}</th></tr></thead>
+    <tbody>
+    {% set top = calls[0].share %}
+    {% for c in calls %}
+    <tr><td>{{ c.label }}</td>
+      <td><span class="ai-usage-cell"><span class="res-bar"><span style="width: {{ (c.share / top * 100)|round(1) if top else 0 }}%"></span></span> {{ c.share|percent }} ({{ c.calls }})</span></td>
+      <td class="num">{{ c.failed }}</td><td class="num">{{ c.platform }}</td><td class="num">{{ c.own }}</td>
+      <td class="num">{{ c.tokens|thousands }}</td><td class="num">{{ c.images }}</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><th>{{ de_en("Zusammen", "Total") }}</th><th>{{ sums.calls }}</th><th class="num">{{ sums.failed }}</th><th class="num">{{ sums.platform }}</th><th class="num">{{ sums.own }}</th><th class="num">{{ sums.tokens|thousands }}</th><th class="num">{{ sums.images }}</th></tr></tfoot>
+  </table>
+  </div>
+  <p class="muted small">{{ de_en("Fehlgeschlagene Aufrufe zählen nicht auf das Tageslimit. Kosten nennt Askurious hier nicht. Gezählt werden Aufrufe seit dem 10.10.2026.",
+    "Failed calls do not count on the daily limit. Askurious names no costs here. Calls are counted since 10 October 2026.") }}</p>
+  {% else %}
+  <p class="muted">{{ de_en("In den letzten {n} Tagen keine KI-Aufrufe.", "No AI calls in the last {n} days.", n=days) }}</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="modelle">
+  <h2>{{ de_en("Modelle der Plattform", "The platform's models") }}</h2>
+  {% if platform %}
+  <dl class="account-facts">
+    {% for what, model, where in platform %}<dt>{{ what }}</dt><dd><strong>{{ model }}</strong> · {{ where }}</dd>{% endfor %}
+  </dl>
+  {% else %}<p class="muted">{{ de_en("Auf diesem Server ist kein KI-Dienst der Plattform eingerichtet.", "No AI service of the platform is set up on this server.") }}</p>{% endif %}
+</section>
+
+<section class="panel" id="was-darf-ich">
+  <h2>{{ de_en("Was darf ich damit?", "What may I do with it?") }}</h2>
+  <p><strong>{{ de_en("Zugang der Plattform.", "The platform's access.") }}</strong>
+    {{ de_en("Es gelten die Nutzungsrichtlinien von OpenAI, die Datenschutzerklärung und die Nutzungsbedingungen von Askurious (Abschnitt 6). Keine personenbezogenen Daten eingeben; Ergebnisse vor der Verwendung prüfen.",
+      "OpenAI's usage policies, the privacy policy and the terms of use of Askurious (section 6) apply. Do not enter personal data; check results before using them.") }}
+    <a href="https://openai.com/policies/usage-policies/" target="_blank" rel="noopener">{{ de_en("Richtlinien von OpenAI", "OpenAI's policies") }} ↗</a> ·
+    <a href="{{ url_for('public.privacy') }}">{{ de_en("Datenschutzerklärung", "Privacy policy") }}</a> ·
+    <a href="{{ url_for('terms.show') }}#abschnitt-6">{{ de_en("Nutzungsbedingungen, Abschnitt 6", "Terms of use, section 6") }}</a></p>
+  <p><strong>KI:connect.nrw.</strong>
+    {{ de_en("Nur für Studium, Lehre, Forschung und Verwaltung; keine personenbezogenen Daten Dritter eingeben; den Zugang nicht weitergeben. Schlüssel gelten einen Monat. Maßgeblich sind die Nutzungsbedingungen Ihrer Hochschule.",
+      "Only for studying, teaching, research and administration; do not enter personal data of third parties; do not pass the access on. Keys are valid for a month. Your university's terms of use apply.") }}
+    <a href="{{ de_en('https://help.itc.rwth-aachen.de/service/1808737e10424937b76e564ed15d8028/article/4f07ebbbc8c4477a8db9baa441494941/', 'https://help.itc.rwth-aachen.de/en/service/1808737e10424937b76e564ed15d8028/article/4f07ebbbc8c4477a8db9baa441494941/') }}" target="_blank" rel="noopener">{{ de_en("Beispiel RWTH: API-Schlüssel", "Example RWTH: API keys") }} ↗</a></p>
+  <p><strong>{{ de_en("OpenAI mit eigenem Schlüssel oder eigene Adresse.", "OpenAI with your own key or your own address.") }}</strong>
+    {{ de_en("Es gelten die Bedingungen Ihres Anbieters, auch dafür, ob Antworttexte von Teilnehmenden dorthin dürfen.", "Your provider's terms apply, also on whether answer texts of participants may go there.") }}</p>
+  <p class="muted small">{{ de_en("Keine Rechtsberatung. Maßgeblich sind die Bedingungen des jeweiligen Anbieters.", "No legal advice. The terms of the respective provider apply.") }}</p>
+</section>
+{% endif %}
+{% endblock %}

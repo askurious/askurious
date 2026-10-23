@@ -1,0 +1,153 @@
+{# The models over the waves of a panel (app/panel_models.py): the scores per wave, the invariance over time and the
+   growth curves, computed on the button and kept under the fingerprints of all waves. Needs: longitudinal
+   (panel_models.page), survey. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num %}
+{% from "_learn.html" import term %}
+{% from "surveys/_compare_macros.html" import pval %}
+{# a model as R code to copy (lavaan): the merged wide file of the waves, the scores, the model (E14) #}
+{% macro r_code(text, id) %}{% if text %}<details class="res-dist" id="{{ id }}"><summary>{{ de_en("Als R-Code (lavaan)", "As R code (lavaan)") }} <span class="hint">{{ de_en("für die zusammengeführten Wellen im Breitformat", "for the merged waves in the wide format") }}</span></summary>
+  <pre class="sem-syntax"><code data-copy-text="{{ text }}" role="button" tabindex="0" title="{{ de_en('Kopieren', 'Copy') }}">{{ text }}</code></pre>
+</details>{% endif %}{% endmacro %}
+{% set L = longitudinal %}
+{% set R = L.result %}
+{% set src = L.src %}
+<section class="panel" id="panel"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Längsschnitt über die Wellen", "Longitudinal analysis over the waves") }}
+    {% if R and R.waves %}<span class="hint">{{ R.waves|join(" · ") }}</span>{% endif %}</h2></summary>
+  {% if L.missing %}
+  <p class="muted small">{{ de_en("Der Längsschnitt verknüpft die Antworten aller Wellen und ist deshalb nur mit Leserecht in jeder Welle zu sehen, deren persönlicher Code dieselben Teile hat. Es fehlt: {w}.", "The longitudinal analysis links the answers of all waves and can therefore only be seen with read access to every wave whose personal code has the same parts. Missing: {w}.", w=L.missing|join(", ")) }}</p>
+  {% elif not R and L.job and L.job.state == "running" %}
+  {# the models run as a job (app/panel_job.py); the bar follows its status and the page loads again at its end (app.js) #}
+  {% set done = ((L.job.progress or 0) * 100)|round|int %}
+  <div class="batch-progress hb-progress" data-sem-running data-url="{{ url_for('surveys.results_panel_status', survey_id=survey.id) }}">
+    <div class="p-progress" role="progressbar" aria-label="{{ de_en('Längsschnitt', 'Longitudinal analysis') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ done }}"><span data-bar style="width:{{ done }}%"></span></div>
+    <span role="status">{% if L.job.queued %}{{ de_en("Der Längsschnitt wartet auf einen freien Platz.", "The longitudinal analysis is waiting for a free slot.") }}{% else %}{{ de_en("Längsschnitt wird gerechnet:", "Longitudinal analysis being computed:") }} <span data-status>{{ done|pctsign }}</span>{% endif %} {{ de_en("Das Ergebnis erscheint von selbst.", "The result appears automatically.") }}</span>
+  </div>
+  {% elif not R %}
+  {% if L.job and L.job.state == "error" %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("Die letzte Rechnung ist abgebrochen.", "The last computation stopped.") }} {{ L.job.message }}</span></p>{% endif %}
+  <p class="muted small">{{ de_en("Die gewählten Größen werden über alle Wellen verknüpft (wie beim Zusammenführen im Export) und gemeinsam geschätzt. Noch nicht gerechnet für den jetzigen Stand der Daten.", "The chosen variables are linked over all waves (as when merging in the export) and estimated together. Not yet computed for the current state of the data.") }}</p>
+  {% if survey.can(current_user, "editor") %}
+  <form method="post" action="{{ url_for('surveys.results_panel', survey_id=survey.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="button button-small">{{ de_en("Längsschnitt rechnen", "Compute longitudinal analysis") }}</button>
+    <span class="hint">{{ de_en("liest die Antworten aller Wellen (das Zugriffsprotokoll vermerkt es) und rechnet im Hintergrund", "reads the answers of all waves (the access log notes it) and computes in the background") }}</span>
+  </form>
+  {% else %}
+  <p class="muted small">{{ de_en("Rechnen können Personen mit dem Recht „Bearbeiten“.", "People with the right “Edit” can compute it.") }}</p>
+  {% endif %}
+  {% elif R.error %}
+  <p class="muted small">{% if R.error == "vars" %}{{ de_en("Keine der gewählten Größen steht in allen Wellen mit denselben Aussagen.", "None of the chosen variables stands in all waves with the same statements.") }}{% elif R.error == "access" %}{{ de_en("Es fehlt das Leserecht für: {w}.", "Read access is missing for: {w}.", w=R.missing|join(", ")) }}{% else %}{{ de_en("Dafür braucht es mindestens zwei verknüpfbare Wellen.", "This needs at least two linkable waves.") }}{% endif %}</p>
+  {% else %}
+  {% set rep = R.report %}
+  <p class="small">{{ de_en("{p} Personen, davon {l} über mehrere Wellen verknüpft ({c} in allen Wellen{t}).", "{p} people, {l} of them linked over several waves ({c} in all waves{t}).", p=rep.persons, l=rep.linked, c=rep.complete, t=(de_en(", {k} tolerant", ", {k} tolerant", k=rep.tolerant) if rep.tolerant else "")) }}{% if rep.duplicate or rep.no_code %} {{ de_en("Außen vor: {d} Teilnahmen mit doppeltem Code, {n} ohne Code.", "Left out: {d} participations with a duplicate code, {n} without a code.", d=rep.duplicate, n=rep.no_code) }}{% endif %}</p>
+  {% set level_names = {"configural": de_en("konfigural (gleiche Struktur)", "configural (same structure)"), "metric": de_en("metrisch (gleiche Ladungen)", "metric (equal loadings)"), "scalar": de_en("skalar (+ gleiche Achsenabschnitte)", "scalar (+ equal intercepts)")} %}
+  {% set factor_names = {"I": de_en("Ausgangsniveau (Achsenabschnitt)", "Initial level (intercept)"), "S": de_en("Steigung je Woche", "Slope per week") if R.real_time else de_en("Steigung je Welle", "Slope per wave"), "Q": de_en("Krümmung (quadratisch)", "Curvature (quadratic)")} %}
+  {% for v in R.vars %}
+  <h3 class="sem-sub" id="panel-{{ v.name|replace(':', '-') }}">{{ v.label }}</h3>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Welle", "Wave") }}</th>{% for w in R.waves %}<th class="num">{{ w }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      <tr><td>n</td>{% for d in v.describe %}<td class="num">{{ d.n }}</td>{% endfor %}</tr>
+      <tr><td>M</td>{% for d in v.describe %}<td class="num">{{ num(d.mean) if d.mean is not none else "–" }}</td>{% endfor %}</tr>
+      <tr><td>{{ term("sd", "SD") }}</td>{% for d in v.describe %}<td class="num">{{ num(d.sd) if d.sd is not none else "–" }}</td>{% endfor %}</tr>
+    </tbody>
+  </table></div>
+  {% if v.kind == "scale" %}<p class="muted small">{{ de_en("Skalenwert: Mittelwert der Aussagen; sein Messfehler ist in den Wachstumsmodellen nicht herausgerechnet.", "Scale score: mean of the statements; its measurement error is not removed in the growth models.") }}</p>{% endif %}
+  {% set inv = v.invariance %}
+  {% if inv %}
+  <p class="small"><strong>{{ term("invariance", de_en("Messinvarianz über die Zeit", "Measurement invariance over time")) }}</strong> <span class="hint">{{ de_en("dieselbe Skala in jeder Welle, Residuen derselben Aussage über die Wellen korreliert", "the same scale in every wave, residuals of the same statement correlated over the waves") }}</span></p>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Stufe", "Level") }}</th><th class="num">χ² (df)</th><th class="num">{{ term("cfi", "CFI") }}</th><th class="num">{{ term("rmsea", "RMSEA") }}</th><th class="num">{{ term("srmr", "SRMR") }}</th><th class="num">Δχ² (Δdf), p</th><th class="num">ΔCFI</th><th class="num">ΔRMSEA</th><th>{{ de_en("hält", "holds") }}</th></tr></thead>
+    <tbody>{% for r in inv.levels %}{% set f = r.fit %}<tr>
+      <td>{{ level_names[r.level] }}</td>
+      {% if f.converged %}<td class="num">{{ num(f.scaled.chi2 if f.scaled else f.chi2) }} ({{ f.df }})</td><td class="num">{{ num(f.cfi, 3) }}</td><td class="num">{{ num(f.rmsea, 3) }}</td><td class="num">{{ num(f.srmr, 3) }}</td>
+      <td class="num">{% if r.get("diff") %}{{ num(r.diff.chi2) }} ({{ r.diff.df }}), {{ p_bare(r.diff.p) }}{% endif %}</td><td class="num">{{ num(r.get("d_cfi"), 3) if r.get("d_cfi") is not none else "" }}</td><td class="num">{{ num(r.get("d_rmsea"), 3) if r.get("d_rmsea") is not none else "" }}</td>
+      <td>{% if r.get("holds") %}<span class="sem-mark">✓</span>{% elif r.get("holds") is sameas false %}<span class="sem-mark">⚠ {{ de_en("nein", "no") }}</span>{% endif %}</td>
+      {% else %}<td class="num" colspan="8"><span class="hint">{{ de_en("keine Lösung", "no solution") }}</span></td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if inv.means and inv.highest == "scalar" %}
+  <p class="small">{{ de_en("Latente Mittelwerte gegenüber „{w}“", "Latent means compared with “{w}”", w=R.waves[0]) }}: {% for m in inv.means %}{{ R.waves[m.wave - 1] }} {{ num(m.est) }} (d = {{ num(m.d) }}, {{ pval(m.p) }}){{ "; " if not loop.last }}{% endfor %}.</p>
+  {% elif inv.means %}
+  <p class="muted small">{{ de_en("Mittelwerte über die Zeit lassen sich als latente Mittelwerte erst vergleichen, wenn die skalare Stufe hält.", "Means over time can only be compared as latent means once the scalar level holds.") }}</p>
+  {% endif %}
+  {{ r_code(inv.r, "panel-r-inv-" ~ loop.index) }}
+  {% endif %}
+  {% set g = v.growth %}
+  {% if g %}
+  <p class="small"><strong>{{ term("growth", de_en("Wachstumskurve", "Growth curve")) }}</strong> <span class="hint">{{ de_en("quadratisch", "quadratic") if g.quadratic else de_en("linear", "linear") }}, {{ de_en("Zeitwerte", "time scores") }} {{ g.times|join(", ") }}{{ de_en(" (Wochen seit der ersten Welle)", " (weeks since the first wave)") if R.real_time else "" }}</span></p>
+  {% if g.fit.converged %}
+  {% set f = g.fit %}
+  <p class="muted small">n = {{ f.n }} · χ²<sub>{{ de_en("skaliert", "scaled") }}</sub>({{ f.df }}) = {{ num(f.scaled.chi2 if f.scaled else f.chi2) }}{% if f.df > 0 %} · CFI {{ num(f.cfi, 3) }} · RMSEA {{ num(f.rmsea, 3) }}{% endif %} · SRMR {{ num(f.srmr, 3) }}{% if not f.admissible %} · <span class="is-warn">{{ de_en("nicht zulässige Lösung (negative Varianz)", "inadmissible solution (negative variance)") }}</span>{% endif %}</p>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th></th><th class="num">{{ de_en("Mittelwert", "Mean") }}</th><th class="num">SE</th><th class="num">{{ term("p") }}</th><th class="num">{{ de_en("Varianz", "Variance") }}</th></tr></thead>
+    <tbody>{% for k, m in g.means.items() %}{% set var = g.variances[k] %}<tr><td>{{ factor_names[k] }}</td><td class="num">{{ num(m.est) }}</td><td class="num">{{ num(m.se, 3) }}</td><td class="num">{{ p_bare(m.p) }}</td><td class="num">{{ num(var.est, 3) }}{% if var.p is not none %} <span class="hint">({{ pval(var.p) }})</span>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if g.corr %}<p class="muted small">{{ de_en("Korrelation von Ausgangsniveau und Steigung: r = {r}", "Correlation of initial level and slope: r = {r}", r=num(g.corr.std)) }}, {{ pval(g.corr.p) }}. {{ de_en("Eine Varianz der Steigung über null heißt: Personen verändern sich unterschiedlich.", "A variance of the slope above zero means: people change differently.") }}</p>{% endif %}
+  {% if g.predictors %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Einflussgröße aus „{w}“", "Predictor from “{w}”", w=R.waves[0]) }}</th>{% for k in g.means %}<th class="num">→ {{ factor_names[k] }} (β)</th>{% endfor %}</tr></thead>
+    <tbody>{% for p in g.predictors %}<tr><td>{{ p.name }}</td>{% for k in g.means %}{% set e = p[k] %}<td class="num{% if e and e.p is not none and e.p < 0.05 %} is-sig{% endif %}">{{ num(e.std) if e else "–" }}{% if e %} <span class="hint">({{ pval(e.p) }})</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% else %}<p class="muted small">{{ de_en("Für die Wachstumskurve fand sich keine Lösung.", "No solution was found for the growth curve.") }}</p>{% endif %}
+  {{ r_code(g.r, "panel-r-growth-" ~ loop.index) }}
+  {% endif %}
+  {% for note in v.notes %}<p class="muted small">{% if note == "two_waves" %}{{ de_en("Eine Wachstumskurve braucht mindestens drei Wellen.", "A growth curve needs at least three waves.") }}{% elif note == "few_growth" %}{{ de_en("Für die Wachstumskurve zu wenige Personen mit Werten (mindestens {k}, Festlegung von Askurious).", "Too few people with values for the growth curve (at least {k}, set by Askurious).", k=L.min_n) }}{% elif note == "few_invariance" %}{{ de_en("Für die Messinvarianz zu wenige Personen mit Werten (mindestens {k}, Festlegung von Askurious).", "Too few people with values for measurement invariance (at least {k}, set by Askurious).", k=L.min_n) }}{% elif note == "too_many" %}{{ de_en("Zu viele Aussagen mal Wellen für die Messinvarianz (höchstens {k} Spalten).", "Too many statements times waves for measurement invariance (at most {k} columns).", k=L.max_columns) }}{% elif note == "items_invariance" %}{{ de_en("Messinvarianz erst ab drei Aussagen.", "Measurement invariance only from three statements on.") }}{% elif note == "quadratic_four" %}{{ de_en("Quadratisch erst ab vier Wellen; gerechnet ist die lineare Kurve.", "Quadratic only from four waves on; the linear curve is computed.") }}{% endif %}</p>{% endfor %}
+  {% endfor %}
+  {# the cross-lagged panel model (E5) #}
+  {% set C = R.cross %}
+  {% if C %}
+  <h3 class="sem-sub" id="panel-cross">{{ term("riclpm", "RI-CLPM") if C.kind == "riclpm" else de_en("Cross-Lagged-Panel-Modell (CLPM)", "Cross-lagged panel model (CLPM)") }} <span class="hint">{{ C.names|join(" · ") if C.names else "" }}{% if C.latent %} · {{ de_en("latent: {v}", "latent: {v}", v=C.latent|join(", ")) }}{% endif %}</span></h3>
+  {% if C.error == "few" %}
+  <p class="muted small">{{ de_en("Zu wenige verknüpfte Personen mit Werten (n = {n}, mindestens {k}, Festlegung von Askurious).", "Too few linked people with values (n = {n}, at least {k}, set by Askurious).", n=C.n, k=L.min_n) }}</p>
+  {% elif not C.fit.converged %}
+  <p class="muted small">{{ de_en("Für das Modell fand sich keine Lösung.", "No solution was found for the model.") }}</p>
+  {% else %}
+  {% set f = C.fit %}
+  <p class="muted small">n = {{ f.n }} · χ²<sub>{{ de_en("skaliert", "scaled") }}</sub>({{ f.df }}) = {{ num(f.scaled.chi2 if f.scaled else f.chi2) }}{% if f.df > 0 %} · CFI {{ num(f.cfi, 3) }} · RMSEA {{ num(f.rmsea, 3) }}{% endif %} · SRMR {{ num(f.srmr, 3) }}{% if not f.admissible %} · <span class="is-warn">{{ de_en("nicht zulässige Lösung", "inadmissible solution") }}</span>{% endif %}</p>
+  {# the paths over the waves as a diagram: a column per wave, a row per variable (E14) #}
+  {% set W = R.waves|length %}{% set K = C.names|length %}
+  {% set single = C.equal or W == 2 %}
+  <div class="sem-diagram"><svg viewBox="0 0 {{ 40 + 220 * (W - 1) + 150 }} {{ 30 + 92 * K }}" role="img" aria-label="{{ de_en('Pfade über die Wellen', 'Paths over the waves') }}">
+    <defs><marker id="panel-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="sem-arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+    {% for pth in C.paths %}{% set a = C.names.index(pth.from_label) %}{% set b = C.names.index(pth.to_label) %}
+    {% for i in pth.intervals %}{% set t = i.t - 1 %}
+      {% set x1 = 20 + 220 * (t - 1) + 150 %}{% set y1 = 20 + 92 * a + 20 + (0 if pth.auto else (8 if b > a else -8)) %}
+      {% set x2 = 20 + 220 * t %}{% set y2 = 20 + 92 * b + 20 + (0 if pth.auto else (-8 if b > a else 8)) %}
+      {% set std = pth.std if single else i.std %}{% set pv = pth.p if single else i.p %}
+      {% set sig = pv is not none and pv < 0.05 %}
+      <line class="sem-edge{% if not sig %} is-ns{% endif %}" x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 - 2 }}" y2="{{ y2 }}" marker-end="url(#panel-arrow)"/>
+      <text class="sem-edge-label{% if sig %} is-sig{% endif %}" x="{{ (x1 + x2) / 2 if pth.auto else x1 + 0.28 * (x2 - x1) }}" y="{{ (y1 + y2) / 2 - 6 if pth.auto else y1 + 0.28 * (y2 - y1) + (12 if b > a else -4) }}" text-anchor="middle">{{ num(std) }}</text>
+    {% endfor %}{% endfor %}
+    {% for name in C.names %}{% set k = loop.index0 %}{% for w in R.waves %}
+    <g class="sem-node"><rect x="{{ 20 + 220 * loop.index0 }}" y="{{ 20 + 92 * k }}" width="150" height="40" rx="4"/>
+      <text class="sem-node-label" x="{{ 20 + 220 * loop.index0 + 75 }}" y="{{ 20 + 92 * k + 18 }}" text-anchor="middle">{{ name|truncate(22, true, "…") }}</text>
+      <text class="sem-node-sub" x="{{ 20 + 220 * loop.index0 + 75 }}" y="{{ 20 + 92 * k + 33 }}" text-anchor="middle">{{ w }}</text></g>
+    {% endfor %}{% endfor %}
+  </svg></div>
+  <p class="muted small">{{ de_en("Zahlen: standardisierte Pfade β; durchgezogen und fett, wo p < ,05; gestrichelt sonst.", "Numbers: standardised paths β; solid and bold where p < .05; dashed otherwise.") }}{% if C.kind == "riclpm" %} {{ de_en("Die zufälligen Achsenabschnitte hinter jeder Zeile sind nicht gezeichnet.", "The random intercepts behind each row are not drawn.") }}{% endif %}</p>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Pfad (Welle t → t + 1)", "Path (wave t → t + 1)") }}</th>{% if C.equal or R.waves|length == 2 %}<th class="num">B</th><th class="num">SE</th><th class="num">{{ term("beta", "β") }}</th><th class="num">{{ term("p") }}</th>{% else %}{% for w in R.waves[1:] %}<th class="num">→ {{ w }} (β)</th>{% endfor %}<th class="num">{{ de_en("alle 0", "all 0") }}: {{ term("p") }}</th>{% endif %}</tr></thead>
+    <tbody>{% for pth in C.paths %}<tr{% if pth.auto %} class="muted"{% endif %}>
+      <td>{{ pth.from_label }} → {{ pth.to_label }}{% if pth.auto %} <span class="hint">{{ de_en("Stabilität", "stability") }}</span>{% endif %}</td>
+      {% if C.equal or R.waves|length == 2 %}<td class="num">{{ num(pth.est, 3) }}</td><td class="num">{{ num(pth.se, 3) }}</td><td class="num{% if not pth.auto and pth.p is not none and pth.p < 0.05 %} is-sig{% endif %}">{{ num(pth.std) }}</td><td class="num">{{ p_bare(pth.p) }}</td>
+      {% else %}{% for i in pth.intervals %}<td class="num{% if not pth.auto and i.p is not none and i.p < 0.05 %} is-sig{% endif %}">{{ num(i.std) }} <span class="hint">({{ p_bare(i.p) }})</span></td>{% endfor %}<td class="num">{% if pth.joint %}{{ p_bare(pth.joint.p) }}{% endif %}</td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if C.wald %}<p class="muted small">{{ de_en("Sind die Pfade über die Abstände gleich? Wald-Test χ²({df}) = {chi},", "Are the paths equal over the intervals? Wald test χ²({df}) = {chi},", df=C.wald.df, chi=num(C.wald.chi2)) }} {{ pval(C.wald.p) }}{{ de_en("; ein kleines p spricht gegen gleiche Pfade.", "; a small p speaks against equal paths.") }}</p>{% endif %}
+  {% if C.kind == "riclpm" %}<p class="muted small">{{ de_en("Zufällige Achsenabschnitte (stabile Unterschiede zwischen Personen):", "Random intercepts (stable differences between people):") }} {% for c in C.ri_corr %}r({{ c.a }}, {{ c.b }}) = {{ num(c.std) }}, {{ pval(c.p) }}{{ "; " if not loop.last }}{% endfor %}. {{ de_en("Die Pfade beschreiben Schwankungen innerhalb von Personen um ihr eigenes Niveau", "The paths describe fluctuations within people around their own level") }} {{ apa.cite([src.hamaker, src.mulder_hamaker]) }}.</p>
+  {% else %}<p class="muted small">{{ de_en("Das CLPM trennt stabile Unterschiede zwischen Personen nicht von Wirkungen innerhalb von Personen; seine Pfade können beides mischen", "The CLPM does not separate stable differences between people from effects within people; its paths can mix both") }} {{ apa.cite([src.hamaker]) }}{{ de_en(". Ab drei Wellen und genug Personen rechnet Askurious das RI-CLPM.", ". From three waves and enough people Askurious computes the RI-CLPM.") }}</p>{% endif %}
+  {{ r_code(C.r, "panel-r-cross") }}
+  {% endif %}
+  {% for note in C.notes %}<p class="muted small">{% if note[0] == "observed" %}{{ de_en("„{v}“ geht als Skalenwert ein: latent nur, wenn die Ladungen über die Zeit gleich bleiben (metrische Invarianz) und die Skala gewählt ist.", "“{v}” enters as a scale score: latent only if the loadings stay equal over time (metric invariance) and the scale is chosen.", v=note[1]) }}{% elif note[0] == "riclpm_few" %}{{ de_en("Für das RI-CLPM zu wenige Personen (mindestens {k}, Festlegung von Askurious nach Mulder, 2023); gerechnet ist das CLPM.", "Too few people for the RI-CLPM (at least {k}, set by Askurious after Mulder, 2023); the CLPM is computed.", k=note[1]) }}{% endif %}</p>{% endfor %}
+  {% endif %}
+  {% if R.unknown_hyps %}<p class="muted small">{{ de_en("Nicht im Modell, weil eine Größe nicht in allen Wellen mit denselben Aussagen steht oder mehrere Teilskalen hat:", "Not in the model because a variable does not stand in all waves with the same statements or has several subscales:") }} {% for a, b in R.unknown_hyps %}{{ a }} → {{ b }}{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
+  {% if R.real_time_asked and not R.real_time %}<p class="muted small">{{ de_en("Die tatsächlichen Abstände ließen sich nicht verwenden (Startdaten fehlen oder steigen nicht an); gerechnet ist mit 0, 1, 2 …", "The actual intervals could not be used (start dates missing or not increasing); computed with 0, 1, 2 …") }}</p>{% endif %}
+  <p class="muted small">{{ term("fiml", "FIML") }}: {{ de_en("Jede verknüpfte Person zählt mit den Wellen, an denen sie teilgenommen hat; das setzt voraus, dass das Fehlen späterer Wellen vom Beobachteten abhängen darf, aber nicht vom fehlenden Wert selbst (MAR). Fehler und Test robust (MLR).", "Every linked person counts with the waves they took part in; this assumes that dropping out may depend on what was observed but not on the missing value itself (MAR). Errors and test robust (MLR).") }} {{ apa.cite([src.enders, src.yuan]) }}. {{ de_en("Messinvarianz über die Zeit", "Measurement invariance over time") }} {{ apa.cite([src.widaman, src.chen]) }}, {{ de_en("Wachstumskurven", "growth curves") }} {{ apa.cite([src.bollen]) }}{% if R.cross %}, {{ de_en("Cross-Lagged-Panel-Modelle", "cross-lagged panel models") }} {{ apa.cite([src.hamaker, src.mulder_hamaker]) }}{% endif %}.</p>
+  <p class="form-actions"><a class="button button-secondary button-small" href="{{ url_for('surveys.results_panel_docx', survey_id=survey.id, lang='de') }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Deutsch)", "Word table (German)") }}</a>
+    <a class="button button-secondary button-small" href="{{ url_for('surveys.results_panel_docx', survey_id=survey.id, lang='en') }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Englisch)", "Word table (English)") }}</a></p>
+  {% if L.at %}<p class="muted small">{{ de_en("Gerechnet: {t}", "Computed: {t}", t=L.at|localdt) }}</p>{% endif %}
+  {% endif %}
+</details></section>

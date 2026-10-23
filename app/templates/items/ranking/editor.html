@@ -1,0 +1,30 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_hint = de_en("Platzhalter wie {{name}} werden später durch Werte aus einer Schleife ersetzt.", "Placeholders like {{name}} are later replaced by values from a loop.") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Optionen", "Options") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Teil des Variablennamens im Export ({col} = Rang)", "code = part of the variable name in the export ({col} = rank)", col=item.code ~ "_Code") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit stack-phone">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Beschriftung", "Label") }}</th></tr></thead>
+    <tbody>
+    {% set labels = item.lang_texts(lang).get("options", {}) %}
+    {% for o in item.config.options if not o.src %}
+      <tr>
+        <td><input type="hidden" name="option_id" value="{{ o.id }}"><input name="option_code" aria-label="Code" value="{{ o.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" value="{{ labels.get(o.id, '') }}" placeholder="{{ (item.text('options') or {}).get(o.id, '') }}"></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="option_id" value="{{ new_id() }}"><input name="option_code" aria-label="Code" class="narrow" placeholder="{{ item.config.options|length + loop.index }}"></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" placeholder="{{ de_en('neue Option', 'new option') }}"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.config.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Ausgangsreihenfolge zufällig", "Random starting order") }} <span class="hint">{{ de_en("empfohlen: Sonst beeinflusst die Reihenfolge der Liste die Antwort", "recommended: otherwise the order of the list influences the answer") }}</span></label>
+</fieldset>
+{% set cv, cv_rows = kind.carry_view(item, lang), de_en("Optionen", "Options") %}
+{% include "items/_carry.html" %}

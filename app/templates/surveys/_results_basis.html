@@ -1,0 +1,141 @@
+{# The panel "Grundlage und Ansicht" on top of Ergebnisse (UI/UX audit 2026-10-07, S6, W73): a sentence on what the
+   page shows, then two zones apart. "Gespeichert für die Befragung" is what applies to quality assurance, results,
+   dashboards and the export (_basis_stored.html, autosaved); "Nur diese Ansicht" changes only this page and its
+   address (one GET form). Under them what the view needs said, and with groups the differences at a glance
+   (_compare_pick.html). Replaces the panel "Grundlage der Auswertung" and the panel of the view below it. No jump bar
+   (Ralf: no third menu band). Needs what results.html has. #}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{% from "_macros.html" import abbr %}
+{# a live poll says "Proben" (runs marked as a trial) where a questionnaire says "Testdurchläufe" (concept
+   "Befragungstypen im Vergleich" 2026-10-17, T10) #}
+{% set source_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Proben", "trials") if survey.live is not none else de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+{# a survey an add-on module keeps for itself without fieldwork of its own (app/plugins.py, add_view without the tab
+   "quality", e.g. an imported analysis): all its participations are real, with no test runs, dummy data, marked ones
+   or weighting, so the panel keeps only what can differ there (Ralf, 2026-10-22) #}
+{% set pv = plugin_view(survey) if plugin_view is defined else none %}
+{% set outside = pv is not none and "quality" not in pv.tabs %}
+{% set stored = basis is defined and survey.live is none and not outside %}
+{% set shown_groups %}{% if only %}{% for code, label in only.groups if code in only_codes %}„{{ label }}“{{ de_en(" oder ", " or ") if not loop.last }}{% endfor %}{% endif %}{% endset %}
+<section class="panel basis res-basis"{% if stored %} id="pool"{% endif %}>
+  <h2>{{ de_en("Grundlage und Ansicht", "Basis and view") }}</h2>
+  {% from "surveys/_used_data.html" import used_data with context %}
+  {% if not outside %}{{ used_data(f, r.n_rows, f.weighted and r.weighting) }}
+  <p class="hint">{% if survey.live is not none %}{{ de_en("Ansichtsfilter gelten nur hier. Proben (als Probe gekennzeichnete Durchgänge) stehen auch im Export, mit der Quelle „test“.", "View filters apply here only. Trials (runs marked as a trial) are in the export too, with the source “test”.") }}{% else %}{{ de_en("Ansichtsfilter und Gewichtung gelten nur hier. Im Export wählen Sie Quellen und Ausschlüsse separat; Dashboards verwenden den gespeicherten Datenpool und schließen Testdurchläufe sowie markierte Teilnahmen aus.", "View filters and weighting apply here only. In the export, choose sources and exclusions separately; dashboards use the saved data pool and exclude test runs and marked participations.") }}{% endif %}</p>{% endif %}
+  {# where the page stands, in one sentence: what it counts, without or with the marked, weighted or not, groups #}
+  <p class="res-state" id="basis-line">{{ de_en("Grundlage", "Basis") }}: <strong>{{ r.n_rows|thousands }}</strong> {{ de_en("Teilnahmen", "participations") if r.n_rows != 1 else de_en("Teilnahme", "participation") }}
+    {#- test data look like test data (UI/UX audit 2026-10-09, S18) #}
+    {%- if "dummy" in f.sources and by_source is defined and by_source.get("dummy") %} <span class="badge" title="{{ de_en('Der Datenpool enthält simulierte Teilnahmen; sie folgen dem Studienplan', 'The data pool holds simulated participations; they follow the research plan') }}">{{ de_en("mit Dummy-Daten", "with dummy data") }}</span>{% endif %}
+    {%- if run %} · {{ de_en("Durchgang „{name}“", "run “{name}”", name=run_name) }}{% endif %}
+    {%- if r.marked %} · {% if f.drop %}{{ de_en("ohne {n} Markierte", "without {n} marked", n=r.marked|thousands) }}{% else %}{{ de_en("mit {n} Markierten", "with {n} marked", n=r.marked|thousands) }}{% endif %} <span class="hint">{{ de_en("(davon {s} Speeder)", "({s} of them speeders)", s=r.speeders) }}{{ fn("speeder") }}</span>{% endif %}
+    {%- if r.diary %} · {{ de_en("{p} Personen, {e} Einträge", "{p} people, {e} entries", p=r.diary.persons|thousands, e=r.diary.entries|thousands) }}{% endif %}
+    {%- if not outside %} · {% if r.diary and r.diary.by_person %}<span title="{{ de_en('Tagebuchstudie: Jede Person zählt je Kennwert gleich, auch bei teilweise beantworteten Matrizen. Konfidenzintervalle berücksichtigen wiederholte Messungen. Skalenkennwerte und Korrelationen zwischen Personen beruhen auf Personenmittelwerten; für Mehrebenenmodelle den Export (Spalte „person“) nutzen.', 'Diary survey: each person counts equally per statistic, also for partly answered matrices. Confidence intervals account for repeated measurements. Scale statistics and between-person correlations use person means; for multilevel models use the export (column “person”).') }}">{{ de_en("jede Person gleich gewichtet", "every person weighted equally") }}</span>{% else %}{{ de_en("gewichtet", "weighted") if f.weighted and r.weighting else de_en("ungewichtet", "unweighted") }}{% endif %}{% endif %}
+    {%- if cmp %} · {{ de_en("nach Gruppen von {code}", "by groups of {code}", code=cmp.code) }}{% elif not outside %} · {{ de_en("keine Gruppen", "no groups") }}{% endif %}
+    {%- if only %} · <span class="badge res-filtered">{{ de_en("nur", "only") }} {{ only.title|truncate(40) }} = {{ shown_groups }}</span>{% endif %}</p>
+  {% if not outside %}<p class="muted small res-state-more">{{ de_en("Datenpool", "Data pool") }}: {% for s in f.sources %}{{ source_names[s]|after_colon if loop.first else source_names[s] }}{{ ", " if not loop.last }}{% endfor %}{% if f.all %}{{ de_en(", auch abgebrochene", ", also broken-off ones") }}{% endif %}
+    {%- if board_tests %} · {{ de_en("Die Dashboards lassen die {n} Testdurchläufe weg, ihre Zahlen weichen daher ab", "The dashboards leave out the {n} test runs, so their figures differ", n=board_tests) if board_tests > 1 else de_en("Die Dashboards lassen den Testdurchlauf weg, ihre Zahlen weichen daher ab", "The dashboards leave out the test run, so their figures differ") }}{% endif %}
+    {%- if computed_at %} · <span title="{{ de_en('Neu berechnet wird von selbst, sobald neue Teilnahmen in den Datenpool kommen oder sich Datenpool, Qualitätssicherung oder Fragebogen ändern.', 'The results are recomputed automatically as soon as new participations come into the data pool or the data pool, quality assurance or questionnaire change.') }}">{% if from_store %}{{ de_en("Datengrundlage unverändert, berechnet am", "Data unchanged, computed on") }} {{ computed_at|localdt }}{% else %}{{ de_en("eben neu berechnet", "just computed") }}{% endif %}</span>{% endif %}</p>{% endif %}
+  {% set short_rest = outside and unfinished is defined and unfinished %}
+  {% if not outside or short_rest or group_choices %}
+  <div class="basis-zones">
+    {% if short_rest %}
+    {# the one saved choice left: the participations the source marks as not complete (_basis_stored.html otherwise) #}
+    <div class="basis-zone" id="pool">
+      {% from "_macros.html" import autosave_bar, csrf %}
+      {% set can_edit = survey.can(current_user, "editor") and not pool_frozen %}
+      <form method="post" action="{{ url_for('surveys.update_pool', survey_id=survey.id) }}" id="pool-form" class="stack results-filter"{{ " data-autosave-form" if can_edit else "" }}>
+        {{ csrf() }}<input type="hidden" name="back" value="{{ request.path }}">
+        {% for s in basis.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+        <label class="check"><input type="checkbox" name="all" value="1" {% if basis.all %}checked{% endif %} {% if not can_edit %}disabled{% endif %}> {{ de_en("auch die {n} nicht abgeschlossenen Teilnahmen einbeziehen", "also include the {n} participations that were not completed", n=unfinished|thousands) if unfinished != 1 else de_en("auch die nicht abgeschlossene Teilnahme einbeziehen", "also include the participation that was not completed") }}
+          <span class="hint">{{ de_en("gilt für Ergebnisse, Dashboards und die Vorauswahl beim Export", "applies to results, dashboards and the preselection for the export") }}</span></label>
+        {% if pool_frozen and survey.can(current_user, "editor") %}<p class="muted small">{{ pool_frozen_note }}</p>{% endif %}
+        {% if can_edit %}{{ autosave_bar(small=true) }}{% endif %}
+      </form>
+    </div>
+    {% endif %}
+    {% if stored %}
+    <div class="basis-zone">
+      <h3 class="basis-zone-head">{{ de_en("Gespeichert für die Befragung", "Saved for the survey") }} <span class="hint">{{ de_en("gilt für Qualitätssicherung, Ergebnisse und Dashboards und ist die Vorauswahl beim Export; in Klammern: abgeschlossene Teilnahmen je Quelle", "applies to quality assurance, results and dashboards and is the preselection for the export; in brackets: completed participations per source") }}</span></h3>
+      {% include "surveys/_basis_stored.html" %}
+    </div>
+    {% endif %}
+    {% if not outside or group_choices %}
+    <div class="basis-zone basis-zone-view">
+      <h3 class="basis-zone-head">{{ de_en("Nur diese Ansicht", "This view only") }} <span class="hint">{{ de_en("Nicht gespeichert: Ändert nur diese Seite und ihre Adresse.", "Not saved: changes only this page and its address.") }}</span></h3>
+      {# one form for the whole view: every choice keeps the others (W73: one column of labels, the app's check boxes) #}
+      <form method="get" class="res-view" id="view-form">
+        {% if not first %}{% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}{% if f.all %}<input type="hidden" name="all" value="1">{% endif %}<input type="hidden" name="drop" value="{{ 1 if f.drop else 0 }}">{% endif %}
+        {% if runs|length > 1 and survey.can(current_user, "editor") %}
+        {# a live vote with several runs: all together or one (live concept, L8) #}
+        <label class="res-view-row"><span class="label-title">{{ de_en("Durchgang", "Run") }}</span>
+          <select name="durchgang" data-submit-on-change>
+            <option value="">{{ de_en("alle Durchgänge", "all runs") }}</option>
+            {% for id, name in runs %}<option value="{{ id }}" {% if run == id or run == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+          </select></label>
+        {% elif run %}<input type="hidden" name="durchgang" value="{{ run }}">{% endif %}
+        {% if (r.marked or not f.drop) and not run %}
+        {# the results with the participations quality assurance marks: to compare (concept ki-agenten-konzept.md, E9) #}
+        <label class="check"><input type="checkbox" name="markierte" value="1" {% if not f.drop %}checked{% endif %} data-submit-on-change> {{ de_en("Markierte einbeziehen", "Include marked ones") }}
+          <span class="hint">{{ de_en("zum Vergleich: Ändern sich die Ergebnisse deutlich, tragen Verdachtsfälle sie mit", "to compare: if the results change markedly, suspect cases carry them") }} (<a href="{{ url_for('surveys.quality', survey_id=survey.id) }}#agents">{{ de_en("Schutz vor Bots und KI-Agenten", "Protection against bots and AI agents") }}</a>)</span></label>
+        {% endif %}
+        {% if weighting_on and not run %}
+        {# weighted results (app/weights.py): offered once a weighting is set on the page "Quoten" #}
+        <label class="check" id="weighting"><input type="checkbox" name="gewichtet" value="1" {% if f.weighted %}checked{% endif %} data-submit-on-change> {{ de_en("gewichtet", "weighted") }}
+          <span class="hint">{{ de_en("Gewichtung nach der Einstellung auf der Seite", "Weighting as set on the page") }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#weighting">{{ de_en("Quoten", "Quotas") }}</a></span></label>
+        {% endif %}
+        {% if group_choices %}
+        {# "Nach Gruppen aufteilen" (app/compare.py): a choice, in sections of the group variables (app/groupvars.py) #}
+        <label class="res-view-row"><span class="label-title">{{ de_en("Nach Gruppen aufteilen", "Split into groups") }}</span>
+          <select name="gruppen" data-submit-on-change>
+            <option value="">{{ de_en("(keine)", "(none)") }}</option>
+            {% for section, options in group_choices %}<optgroup label="{{ section }}">
+            {% for id, label in options %}<option value="{{ id }}" {% if cmp and cmp.by|string == id|string %}selected{% endif %}>{{ label|striptags|truncate(80) }}</option>{% endfor %}
+            </optgroup>{% endfor %}
+          </select></label>
+        {# "Nur zeigen": the page for some groups of a group variable only (surveys.results); the exports stay whole #}
+        {% if survey.can(current_user, "editor") %}
+        <label class="res-view-row"><span class="label-title">{{ de_en("Nur zeigen", "Show only") }}</span>
+          <select name="nur_var" data-submit-on-change>
+            <option value="">{{ de_en("(alle Teilnahmen)", "(all participations)") }}</option>
+            {% for section, options in group_choices %}<optgroup label="{{ section }}">
+            {% for id, label in options %}<option value="{{ id }}" {% if (only and only.id == id|string) or (not only and request.args.get("nur_var") == id|string) %}selected{% endif %}>{{ label|striptags|truncate(80) }}</option>{% endfor %}
+            </optgroup>{% endfor %}
+          </select></label>
+        {% set pick = only or (request.args.get("nur_var") and group_vars.get(request.args.get("nur_var"))) %}
+        {% if pick and pick.groups %}<span class="res-only-groups" role="group" aria-label="{{ de_en('Gruppen, die gezeigt werden', 'Groups shown') }}">{% for code, label in pick.groups %}<label class="check"><input type="checkbox" name="nur" value="{{ code }}" {% if code in only_codes %}checked{% endif %} data-submit-on-change="700"> {{ label }}</label> {% endfor %}</span>
+        {% if not only %}<span class="hint res-only-hint">{{ de_en("Gruppen ankreuzen, die gezeigt werden sollen.", "Tick the groups to show.") }}</span>{% endif %}
+        {% elif pick %}<span class="hint res-only-hint">{{ de_en("Für diese Zahl gibt es noch keine festen Klassen: unter „Nach Gruppen aufteilen“ diese Zahl wählen und die Grenzen festlegen, dann hier filtern.", "This number has no fixed classes yet: choose it under “Split into groups”, set the bounds, then filter here.") }}</span>{% endif %}
+        {% endif %}
+        {% endif %}
+        {% if not (runs|length > 1 or ((r.marked or not f.drop) and not run) or (weighting_on and not run) or group_choices) %}<p class="muted small">{{ de_en("Hier gibt es noch nichts zu wählen: keine markierten Teilnahmen, keine Gewichtung und keine Fragen, nach denen sich die Teilnahmen in Gruppen teilen lassen.", "Nothing to choose here yet: no marked participations, no weighting and no questions to split the participations into groups by.") }}</p>{% endif %}
+        <noscript><button class="button button-small">{{ de_en("Zeigen", "Show") }}</button></noscript>
+      </form>
+      {% include "surveys/_compare_bins.html" %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {# what the view needs said, under both zones #}
+  {% set w = r.weighting %}
+  {% if f.weighted and w and not run %}
+  <p class="muted small">{{ de_en("Gewichtet: {n} abgeschlossene Teilnahmen", "Weighted: {n} completed participations", n=w.n) }}{% if w.left_out %} {{ de_en("({n} nicht abgeschlossene ohne Gewicht, hier nicht enthalten)", "({n} not completed without a weight, not included here)", n=w.left_out) }}{% endif %} · {{ term("n_eff", de_en("effektive Fallzahl nach Kish", "Kish's effective sample size")) }}{{ fn("weighting") }} n<sub>eff</sub> = {{ w.n_eff|fixed(0) }} · {{ de_en("größtes Gewicht {max}, kleinstes {min}", "largest weight {max}, smallest {min}", max=num(w.max, 2), min=num(w.min, 2)) }}{% if w.check %}
+    · <strong class="weight-check">{{ de_en("Prüfen", "Check") }}:</strong> {{ de_en("Zielwerte nicht erreicht, ein gewichteter Anteil weicht noch um bis zu {dev} Prozentpunkte ab (Kappung der Gewichte, {rounds} Runden)", "targets not reached, a weighted share still differs by up to {dev} percentage points (capping of the weights, {rounds} rounds)", dev=num(100 * w.deviation, 1), rounds=w.rounds) }}{% endif %}
+    · {{ de_en("Merkmale", "Attributes") }}: {% for a in w.attributes %}{{ a.name }}{% if a.missing %} <span class="hint">{{ de_en("({n} ohne Zuordnung, Gewicht dafür unverändert)", "({n} without a match, their weight unchanged)", n=a.missing) }}</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}.
+    </p>
+  {# W75: the figures in one line, the warning on representativeness as a sentence of its own, what is weighted in a fold #}
+  <p class="muted small"><strong>{{ de_en("Gewichtung gleicht nur diese Merkmale an die Zielwerte an: Eine Gelegenheitsstichprobe wird dadurch nicht repräsentativ", "Weighting only matches these attributes to the targets: it does not make a convenience sample representative") }}</strong>{{ fn("aapor") }}.</p>
+  {{ why("weighting_scope") }}
+  {% for message in w.problems + w.hints %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ message }}</span></p>{% endfor %}
+  {% endif %}
+  {% if not f.drop and f.weighted and r.weighting and not run %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("In der gewichteten Ansicht bleiben Markierte ausgeschlossen", "In the weighted view marked ones stay left out") }}{% if r.weighting.marked_out %} ({{ r.weighting.marked_out }}){% endif %}: {{ de_en("Gewichte gibt es nur für abgeschlossene, nicht markierte Teilnahmen. Zum Vergleich mit den Markierten „gewichtet“ abwählen.", "there are weights only for completed participations that are not marked. To compare with the marked ones, untick “weighted”.") }}</span></p>{% endif %}
+  {% if only %}
+  <p class="flash flash-warning small" id="only-note">{{ icon("info", 16) }} <span><strong>{{ de_en("Nur ein Teil der Daten:", "Only part of the data:") }}</strong> {{ only.title }} = {{ shown_groups }} ({{ de_en("{n} Teilnahmen", "{n} participations", n=r.n_rows) }}). {{ de_en("Die Ergebnisse je Hypothese rechnen weiter mit dem ganzen Datenpool; individuelle Nutzen ({hb}), Segmente und Marktsimulator gibt es nur ohne Filter; Exporte bleiben ungefiltert.", "The results per hypothesis still use the whole data pool; individual utilities ({hb}), segments and the market simulator are shown without a filter only; exports stay unfiltered.", html=True, hb=abbr("hb")) }}{% if f.weighted %} {{ de_en("Gewichtet wird mit den Gewichten der ganzen Stichprobe: Die Teilgruppe behält ihre eigene gewichtete Zusammensetzung (Lumley, 2010).", "Weighting uses the weights of the whole sample: the subgroup keeps its own weighted composition (Lumley, 2010).") }}{% endif %}
+    <a href="{{ clear_subgroup_url }}">{{ de_en("Teilgruppenfilter entfernen", "Remove subgroup filter") }}</a></span></p>
+  {% endif %}
+  {% if r.versions|length > 1 %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("Die Teilnahmen stammen aus {n} Fragebogen-Fassungen ({names}). Alle sind hier mit der aktuellen Fassung ausgewertet; wurden Antwortcodes, Stufen oder Umpolungen geändert, passen ältere Antworten nicht dazu. Zum Trennen im Export nach", "The participations come from {n} questionnaire revisions ({names}). All are analysed here with the current revision; if answer codes, levels or reversals were changed, older answers do not fit it. To separate them, filter the export by", n=r.versions|length, names=r.versions|join(", ")) }} <code>qversion</code>{{ de_en(" filtern.", ".") }}</span></p>{% endif %}
+  {% include "surveys/_compare_pick.html" %}
+</section>
+{# "Alle zuklappen" at the start of the sections it folds (W73), not above the state of the data #}
+{# one button that opens or closes all: "zuklappen" while all items are open (as at the start), else "aufklappen" (U10) #}
+{% from "_macros.html" import fold_all_button %}
+<div class="res-fold-row"><span class="res-fold-all">{{ fold_all_button() }}</span></div>

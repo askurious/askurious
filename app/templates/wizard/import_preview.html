@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Vorschau · Aus einer Datei anlegen", "Preview · Create from a file") }}{% endblock %}
+{% block content %}
+{% set many = rows|length > 1 %}
+<a class="back-link" href="{{ back }}">{{ icon("back", 16) }} {{ back_label }}</a>
+<h1>{{ de_en("Befragungen aus der Datei anlegen", "Create surveys from the file") if many else de_en("Befragung aus der Datei anlegen", "Create a survey from the file") }}</h1>
+<p class="muted">{% if many %}{{ de_en("Die Datei enthält {n} Befragungen. Jede ausgewählte wird ein eigener Entwurf.", "The file holds {n} surveys. Each one chosen becomes a draft of its own.", n=rows|length) }}{% else %}{{ de_en("So sieht die Datei aus, bevor sie eingelesen wird.", "This is what the file looks like before it is read in.") }}{% endif %}
+  {{ de_en("Beim Einlesen wird jeder Wert geprüft; was hier nicht zulässig ist, wird ausgelassen und danach genannt. Teilnahmen und Daten enthält eine Befragungsdatei nicht.", "Every value is checked while reading in; whatever is not allowed here is left out and named afterwards. A survey file holds no participations and no data.") }}</p>
+
+<form method="post" action="{{ url_for('wizard.import_file', origin=origin or None) }}" class="stack">
+  {{ csrf() }}
+  <input type="hidden" name="token" value="{{ token }}">
+  {% if errors.get(-1) %}<div class="flash flash-error" role="alert"><span>{{ errors[-1] }}</span></div>{% endif %}
+  {% for row in rows %}{% set n = loop.index0 %}
+  <section class="panel">
+    <h2>{{ row.title or de_en("Ohne Titel", "Untitled") }} <span class="hint">{{ de_en("Live-Abstimmung", "Live poll") if row.live else (de_en("Interviewleitfaden", "Interview guide") if row.interview else de_en("Befragung", "Survey")) }}{% if row.exported %}{{ de_en(", exportiert am {when}", ", exported on {when}", when=row.exported|localdt) }}{% endif %}</span></h2>
+    {% if many %}<label class="check"><input type="checkbox" name="take-{{ n }}" value="1"{% if not form or form.get('take-' ~ n) %} checked{% endif %}> {{ de_en("Diese Befragung einlesen", "Read in this survey") }}</label>{% endif %}
+    <dl class="file-facts">
+      {% if row.project %}<dt>{{ de_en("Projekt", "Project") }}</dt><dd>{{ row.project }}</dd>{% endif %}
+      {% if row.languages %}<dt>{{ de_en("Sprachen", "Languages") }}</dt><dd>{{ row.languages|join(", ") }}</dd>{% endif %}
+      <dt>{{ de_en("Fragebogen", "Questionnaire") }}</dt>
+      <dd>{{ de_en("{n} Block", "{n} block", n=row.blocks) if row.blocks == 1 else de_en("{n} Blöcke", "{n} blocks", n=row.blocks) }}, {{ de_en("{n} Element", "{n} element", n=row.item_count) if row.item_count == 1 else de_en("{n} Elemente", "{n} elements", n=row.item_count) }}{% if row.types %}:
+        {% for label, count in row.types %}{{ count }} × {{ label }}{{ ", " if not loop.last }}{% endfor %}{% endif %}
+        {% if row.unknown %}<br><span class="muted small">{{ de_en("{n} Element einer Art, die diese Installation nicht kennt; es wird ausgelassen.", "{n} element of a kind this installation does not know; it is left out.", n=row.unknown) if row.unknown == 1 else de_en("{n} Elemente einer Art, die diese Installation nicht kennt; sie werden ausgelassen.", "{n} elements of a kind this installation does not know; they are left out.", n=row.unknown) }}</span>{% endif %}</dd>
+      {% if row.flow %}<dt>{{ de_en("Ablauf", "Flow") }}</dt><dd>{{ row.flow|join(", ") }}</dd>{% endif %}
+      {% if row.quotas %}<dt>{{ de_en("Quoten", "Quotas") }}</dt><dd>{{ row.quotas|join(", ") }} <span class="muted small">{{ de_en("mit Soll-Zahlen, ohne Zählerstände", "with targets, without counts") }}</span></dd>{% endif %}
+      {% if row.boards %}<dt>{{ de_en("Dashboards", "Dashboards") }}</dt><dd>{{ row.boards }} <span class="muted small">{{ de_en("ohne ihre Links", "without their links") }}</span></dd>{% endif %}
+      {% if row.params %}<dt>{{ de_en("Teilnahmelinks", "Participation links") }}</dt><dd>{{ de_en("{n} Parameter aus dem Link", "{n} parameters from the link", n=row.params) }} <span class="muted small">{{ de_en("Abschlusslinks werden nach dem Einlesen genannt", "completion links are named after reading in") }}</span></dd>{% endif %}
+      <dt>{{ de_en("Bilder und Logos", "Images and logos") }}</dt>
+      <dd>{% if row.images %}{{ de_en("{n} Datei", "{n} file", n=row.images) if row.images == 1 else de_en("{n} Dateien", "{n} files", n=row.images) }}, {% if ui_language() == "en" %}{{ row.image_mb|fixed(1) }}{% else %}{{ row.image_mb|dec(1) }}{% endif %} MB{% else %}{{ de_en("keine", "none") }}{% endif %}</dd>
+      {% if row.look %}<dt>{{ de_en("Erscheinungsbild", "Appearance") }}</dt><dd>{{ de_en("eigenes", "own") }}{% if row.logo %}{{ de_en(", mit Logo", ", with logo") }}{% endif %}</dd>{% endif %}
+    </dl>
+    {% if row.twin and not errors.get(n) %}<p class="small flush">{{ de_en("Eine Befragung mit diesem Titel gibt es bei Ihnen schon. Das Einlesen läuft deshalb wie ein Duplizieren: Es entsteht eine neue, eigenständige Befragung mit eigenem Code, Link und eigenen Dateien, und sie braucht einen eigenen Titel. Die vorhandene bleibt unverändert.", "You already have a survey with this title. Reading in therefore works like duplicating: a new, separate survey with its own code, link and files is created, and it needs a title of its own. The existing one stays unchanged.") }}</p>{% endif %}
+    {% if errors.get(n) %}<div class="flash flash-error" role="alert"><span>{{ errors[n] }}</span></div>{% endif %}
+    <label><span class="label-title">{{ de_en("Titel der neuen Befragung", "Title of the new survey") }} <span class="hint">{{ de_en("für Teilnehmende sichtbar", "visible to participants") }}{% if row.twin %}{{ de_en("; muss sich von „{title}“ unterscheiden", "; must differ from “{title}”", title=row.twin.title) }}{% else %}{{ de_en("; leer: der Titel aus der Datei", "; empty: the title from the file") }}{% endif %}</span></span>
+      <input name="title-{{ n }}" maxlength="300" value="{{ form.get('title-' ~ n, row.suggested) if form else row.suggested }}"{% if row.twin %} required{% endif %}>
+    </label>
+  </section>
+  {% endfor %}
+  <p class="small flush">{{ de_en("Sie werden Admin jeder neuen Befragung und stehen in der Einwilligung als verantwortliche Person.", "You become admin of each new survey and are named in the consent as the responsible person.") if many else de_en("Sie werden Admin der neuen Befragung und stehen in der Einwilligung als verantwortliche Person.", "You become admin of the new survey and are named in the consent as the responsible person.") }} {{ de_en("Die Datei liegt eine Stunde lang bereit.", "The file is kept for one hour.") }}</p>
+  <div class="form-actions">
+    <button class="button">{{ icon("upload", 16) }} {{ de_en("Einlesen", "Read in") }}</button>
+    <a class="button button-secondary" href="{{ back }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+  </div>
+</form>
+{% endblock %}

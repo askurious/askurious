@@ -1,0 +1,49 @@
+{# Complaint about a survey to the operators of the platform (app/participate.py: complaint). #}
+{% extends "participant/base.html" %}
+{% block title %}{{ ui("Beschwerde", "Complaint") }} · {{ survey.title_in(lang) }}{% endblock %}
+{% block content %}
+<article class="p-privacy p-complaint">
+  <h1 class="p-page-title">{{ ui("Beschwerde", "Complaint") }}</h1>
+  <p class="p-privacy-survey">{{ ui("Befragung", "Survey") }}: <strong>{{ survey.title_in(lang) }}</strong> (<code dir="ltr">{{ survey.code }}</code>)</p>
+  {% if sent %}
+  <div class="p-end" role="status">
+    <p>{{ ui("Danke. Ihre Beschwerde ist bei den Betreibern der Plattform eingegangen und wird vorrangig geprüft.", "Thank you. Your complaint has reached the operators of the platform and will be reviewed with priority.") }}</p>
+    <p>{{ ui("Haben Sie eine E-Mail-Adresse angegeben, erfahren Sie dort die Entscheidung mit ihrer Begründung.", "If you gave an email address, you will receive the decision and its reasons there.") }}</p>
+    {% if number %}<p>{{ ui("Ihre Vorgangsnummer: {number}", "Your case number: {number}", number=number) }}</p>{% endif %}
+  </div>
+  {% else %}
+  <p>{{ ui("Verletzt diese Befragung Urheberrechte, den Datenschutz oder andere Rechte? Ihre Meldung geht an die Betreiber der Plattform, nicht an die Verantwortlichen der Befragung, und wird vorrangig geprüft.", "Does this survey infringe copyright, data protection or other rights? Your report goes to the operators of the platform, not to the people responsible for the survey, and is reviewed with priority.") }}</p>
+  <form method="post" class="p-complaint-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if error %}<p class="p-error" role="alert">{{ error }}</p>{% endif %}
+    <fieldset class="p-fieldset">
+      <legend class="p-complaint-label">{{ ui("Worum geht es?", "What is it about?") }}</legend>
+      <div class="p-options">
+        {% for key, names in kinds.items() %}
+        <label class="p-option p-radio"><input type="radio" name="kind" value="{{ key }}" {% if form.get("kind") == key %}checked{% endif %}>
+          <span>{{ ui(names[0], names[1]) }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label class="p-text"><span class="p-complaint-label">{{ ui("Beschreibung", "Description") }}</span>
+      <textarea name="message" rows="6" dir="auto" maxlength="5000" required>{{ form.get("message", "") }}</textarea>
+      <span class="p-hint">{{ ui("Bitte nennen Sie die betroffene Stelle (Seite, Frage, Bild) und, bei Urheberrecht, das geschützte Werk und wem es gehört.", "Please name the place concerned (page, question, image) and, for copyright, the protected work and who owns it.") }}</span></label>
+    {# name and e-mail as Art. 16(2)(c) DSA asks; optional, but without them there is no confirmation and no decision
+       to send (copyright audit 2026-10-16, U11) #}
+    <label class="p-text"><span class="p-complaint-label">{{ ui("Ihr Name (freiwillig)", "Your name (optional)") }}</span>
+      <input type="text" dir="auto" name="name" maxlength="80" autocomplete="name" value="{{ form.get('name', '') }}"></label>
+    <label class="p-text"><span class="p-complaint-label">{{ ui("Ihre E-Mail-Adresse (freiwillig)", "Your email address (optional)") }}</span>
+      <input type="email" dir="ltr" name="email" maxlength="110" autocomplete="email" value="{{ form.get('email', '') }}">
+      <span class="p-hint">{{ ui("Für Rückfragen, die Eingangsbestätigung und die Entscheidung über Ihre Beschwerde; nicht mit Antworten der Befragung verbunden.", "For questions, the confirmation of receipt and the decision on your complaint; not linked to any answers of the survey.") }}</span></label>
+    <label class="p-option p-check"><input type="checkbox" name="good_faith" value="1" {% if form.get("good_faith") == "1" %}checked{% endif %} required>
+      <span>{{ ui("Ich bin in gutem Glauben davon überzeugt, dass meine Angaben richtig und vollständig sind.", "I am convinced in good faith that the details given are accurate and complete.") }}</span></label>
+    <label class="p-complaint-trap" aria-hidden="true">Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+    {# the operators hear of it in Slack (app/notify.py): kind and survey code only, never the text or contact (2026-10-21) #}
+    {% if config.SLACK_WEBHOOK_URL %}<p class="p-hint">{{ ui("Die Betreiber erfahren über den Dienst Slack (Anbieter mit Sitz in den USA), dass eine Beschwerde eingegangen ist: Dorthin gehen nur die Art der Beschwerde und der Code der Befragung, nicht Ihre Beschreibung und nicht Ihr Kontakt.", "The operators learn through the Slack service (a provider based in the USA) that a complaint has arrived: only the kind of complaint and the code of the survey go there, not your description and not your contact.") }}</p>{% endif %}
+    <p class="p-complaint-actions"><button class="p-button">{{ ui("Beschwerde senden", "Send complaint") }}</button></p>
+  </form>
+  {% endif %}
+  <p class="p-privacy-back"><a href="{{ privacy_url }}"><span class="p-flip" aria-hidden="true">←</span> {{ ui("Datenschutz", "Privacy") }}</a> · <a href="{{ back }}">{{ ui("Zurück zur Befragung", "Back to the survey") }}</a></p>
+</article>
+{% endblock %}
+{% block footer_links %}{% endblock %}

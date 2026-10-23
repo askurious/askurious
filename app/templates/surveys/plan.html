@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields with context %}
+{# The study plan as a page of its own between "Einstellungen" and "Fragebogen" (Ralf, 2026-10-06; it was a group of
+   the settings, decision S1 of 2026-10-05). Editors and admins change it; after the start every change is noted as
+   a deviation from the pre-registration (app/study_plan.py). #}
+{% set on_leave = "" if survey.is_editable else " data-autosave-on-leave" %}
+{% block title %}{{ de_en("Studienplan", "Research plan") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "plan" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set can_edit = survey.can(current_user, "editor") %}
+<section class="panel" id="studienplan">
+  <h2>{{ de_en("Studienplan", "Research plan") }} <span class="hint">{% for text, _ in summary %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span></h2>
+  <form method="post" action="{{ url_for('study_plan.update', survey_id=survey.id) }}" class="stack" data-autosave-form{{ on_leave }}><fieldset class="bare" {% if not can_edit %}disabled{% endif %}>
+    {{ csrf() }}
+    {% if can_edit %}{{ edit_guard_fields(survey, "settings:plan", edit_guard.settings_state(survey, "plan")) }}{% endif %}
+    {% set plan_page = true %}{# the drawing of the model only here, not in the setup wizard #}
+    {% include "surveys/_fields_plan.html" %}
+    {% if can_edit %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+</section>
+{# the waves of a longitudinal design (app/waves.py): a panel of its own, no part of the plan, so linking a later wave
+   is no deviation from the pre-registration #}
+{% if survey.sampling is none %}{# a diary study links its parts itself: no waves (2026-10-11) #}
+<section class="panel" id="wellen">
+  <h2>{{ de_en("Wellen", "Waves") }} <span class="hint">{{ de_en("Befragungen derselben Personen vorher und nachher, verknüpft über den persönlichen Code", "surveys of the same people before and after, linked by the personal code") }}</span></h2>
+  <p class="muted small">{{ de_en("Für Messwiederholung und Längsschnitt: Jede Welle ist eine eigene Befragung mit dem Element „Persönlicher Code“ mit denselben Teilen; am einfachsten wird Welle 2 durch Duplizieren von Welle 1 angelegt. Die Liste gilt für alle Wellen darin, und auf der Seite „Export“ jeder Welle lassen sich die Daten zusammenführen. Wählbar sind Befragungen, deren Daten Sie herunterladen dürfen.", "For repeated measures and longitudinal designs: every wave is a survey of its own with the element “Personal code” with the same parts; wave 2 is easiest created by duplicating wave 1. The list applies to all waves in it, and the data can be merged on the page “Export” of every wave. Surveys whose data you may download can be chosen.") }}</p>
+  {% include "surveys/_waves_form.html" %}
+</section>
+{% endif %}
+{% if study_plan._sem_on(survey) %}<script src="{{ url_for('static', filename='model.js') }}" defer></script>{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{# Needs: rows (AccessLog, one page), log (app/tables.Listing: sort, search, pages), keep (days kept). #}
+{% from "_listing.html" import sort_th, search, pager %}
+{% block title %}{{ de_en("Protokoll", "Access log") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "log" %}{% include "admin/_tabs.html" %}
+<section class="panel" id="protokoll">
+  <h2>{{ de_en("Protokoll", "Access log") }}</h2>
+  <p class="muted small">{{ de_en("Wer Rohdaten oder Kontaktdaten heruntergeladen, Beteiligte oder Gruppenfreigaben geändert, Teilnahmen oder Konten gelöscht "
+    "oder die Datenbank kopiert hat. Ohne Antworten und ohne Kontaktdaten; Einträge bleiben {keep} Tage.",
+    "Who downloaded raw data or contact data, changed people with access or group access, deleted participations or accounts "
+    "or copied the database. Without answers and without contact data; entries are kept for {keep} days.", keep=keep) }}</p>
+  {{ search(log, de_en("Protokoll durchsuchen", "Search the access log"), de_en("Suchen: Person, Befragungscode, Aktion, Angaben", "Search: person, survey code, action, details")) }}
+  {% if rows %}
+  <div class="res-scroll">
+  {% call list_table() %}
+    <thead><tr>{{ sort_th(log, "at", de_en("Zeit", "Time")) }}{{ sort_th(log, "who", de_en("Person", "Person"), de_en("„Nr.“: Registriernummer des Kontos", "“No.”: registration number of the account")) }}{{ sort_th(log, "survey", de_en("Befragung", "Survey")) }}{{ sort_th(log, "action", de_en("Aktion", "Action")) }}<th>{{ de_en("Angaben", "Details") }}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr><td>{{ r.at|localdt }}</td><td>{{ r.who|log_who }}</td><td>{% if r.survey_code %}<code>{{ r.survey_code }}</code>{% endif %}</td>
+        <td>{{ r.action|log_action }}</td><td class="small">{{ r.detail }}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {{ pager(log) }}
+  {% else %}
+  <p class="muted">{% if log.q %}{{ de_en("Keine Einträge zu dieser Suche.", "No entries for this search.") }}{% else %}{{ de_en("Keine Einträge.", "No entries.") }}{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

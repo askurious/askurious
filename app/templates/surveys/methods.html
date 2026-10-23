@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import term %}
+{% block title %}{{ de_en("Methodenteil", "Methods section") }} · {{ survey.title }}{% endblock %}
+{% macro de(v, p=1) %}{{ (v)|dec(p) }}{% endmacro %}
+{# a negative Spearman-Brown (two items correlating negatively) is no reliability either (audit 2026-10-21, E4) #}
+{% macro sb(v) %}{% if v is none %}Spearman-Brown = –{% elif v < 0 %}{{ de_en("Spearman-Brown negativ (nicht interpretierbar)", "Spearman-Brown negative (not interpretable)") }}{% else %}Spearman-Brown = {{ de(v, 2) }}{% endif %}{% endmacro %}
+{% macro alpha(a) %}{% if a is none %}–{% elif a < 0 %}{{ de_en("α negativ (nicht interpretierbar)", "α negative (not interpretable)") }}{% else %}α = {{ de(a, 2) }}{% endif %}{% endmacro %}
+{# the survey's head as on the other tab pages: a band over the whole width, the column centred (Ralf, 2026-10-06) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('surveys.data', survey_id=survey.id) }}">{{ icon("back", 16) }} Export</a>
+<h1>{{ de_en("Methodenteil", "Methods section") }}</h1>
+{% set pool_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+{% set en = ui_language() == "en" %}
+<p class="muted small">{{ de_en("Grundlage: der Datenpool der", "Basis: the data pool of the") }} <a href="{{ url_for('surveys.results', survey_id=survey.id) }}">{{ de_en("Ergebnisse", "results") }}</a> ({% for x in f.pool %}{{ pool_names[x] }}{{ ", " if not loop.last }}{% endfor %}; {{ de_en("festgelegt in der", "set in") }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "quality assurance") }}</a>){{ de_en(", ohne Vorschau.", ", without previews.") }} {{ de_en("Die Speeder-Regel", "The speeder rule") }} ({% if f.rsi %}{{ de_en("Relative Speed Index über {v}", "Relative Speed Index above {v}", v=de(f.rsi)) }}{% else %}{{ de_en("{p} % des Medians", "{p}% of the median", p=f.speeder_pct) }}{% endif %}) {{ de_en("kommt aus der", "comes from") }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "quality assurance") }}</a>.</p>
+
+{% if "dummy" in f.pool or "test" in f.pool %}<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Dummy-Daten im Datenpool", "Dummy data in the data pool") if "dummy" in f.pool else de_en("Testdurchläufe im Datenpool", "Test runs in the data pool") }}{{ de_en(": Die Zahlen zeigen, wie der Methodenteil aussehen wird, nicht was die Befragung ergeben hat. Für das Manuskript in der Qualitätssicherung nur echte Teilnahmen wählen.", ": the numbers show what the methods section will look like, not what the survey found. For the manuscript choose only real participations in quality assurance.") }}</span></div>{% endif %}
+<div class="mfacts">
+  <section class="panel">
+    <h2>{{ de_en("Feldphase", "Fieldwork") }}</h2>
+    <dl class="mfacts-list">
+      <dt>{{ de_en("Beginn", "Start") }}</dt><dd>{{ f.start and f.start|localdate or "–" }}</dd>
+      <dt>{{ de_en("Ende", "End") }}</dt><dd>{{ f.end and f.end|localdate or "–" }}{% if f.running %} <span class="hint">{{ de_en("geplant, läuft noch", "planned, still running") }}</span>{% endif %}</dd>
+      <dt>{{ de_en("Dauer", "Duration") }}</dt><dd>{% if not f.days %}–{% elif f.days == 1 %}{{ de_en("1 Tag", "1 day") }}{% else %}{{ de_en("{n} Tage", "{n} days", n=f.days) }}{% endif %}</dd>
+      <dt>{{ de_en("Plattform", "Platform") }}</dt><dd>Askurious.de</dd>
+      <dt>{{ de_en("Darstellung", "Appearance") }}</dt><dd>{{ f.look.en if en else f.look.de }}</dd>
+    </dl>
+    <p class="hint">{{ de_en("vom ersten Start bis zum Ende; Pausen dazwischen nicht berücksichtigt", "from the first start to the end; breaks in between not taken into account") }}</p>
+  </section>
+  <section class="panel">
+    <h2>{{ de_en("Personen", "People") }}</h2>
+    <dl class="mfacts-list">
+      <dt>{{ de_en("Begonnen", "Started") }}</dt><dd>{{ f.started }}</dd>
+      <dt>{{ de_en("Keine Einwilligung", "No consent") }}</dt><dd>{{ f.declined }}</dd>
+      <dt>{{ term("screen_out", "Screen-out") }}</dt><dd>{{ f.screenout }}</dd>
+      {% if f.quotafull %}<dt>{{ de_en("Quote voll", "Quota full") }}</dt><dd>{{ f.quotafull }}</dd>{% endif %}
+      {% if f.excluded %}<dt>{{ de_en("Ausschluss im Ablauf", "Excluded in the flow") }}</dt><dd>{{ f.excluded }}</dd>{% endif %}
+      <dt>{{ de_en("Abgebrochen", "Broken off") }}</dt><dd>{{ f.incomplete }}</dd>
+      {% if f.in_progress %}<dt>{{ de_en("Füllen gerade aus", "Filling in right now") }}</dt><dd>{{ f.in_progress }}</dd>{% endif %}
+      <dt>{{ de_en("Abgeschlossen", "Completed") }}</dt><dd>{{ f.completed }}</dd>
+      <dt>{{ term("speeder", "Speeder") }}</dt><dd>{{ f.speeders }}</dd>
+      {% if f.quality %}<dt title="{{ de_en('von der Qualitätssicherung wegen mehrerer Auffälligkeiten markiert, ohne die Speeder', 'marked by quality assurance for several anomalies, without the speeders') }}">{{ de_en("Weitere markierte", "Other marked ones") }}</dt><dd>{{ f.marked_other }}</dd>{% endif %}
+      <dt>{{ de_en("Bereinigte Stichprobe", "Cleaned sample") }}</dt><dd><strong>N = {{ f.final }}</strong></dd>
+    </dl>
+  </section>
+  {% if f.quotas %}
+  <section class="panel">
+    <h2>{{ de_en("Quoten", "Quotas") }}</h2>
+    <dl class="mfacts-list">
+      {% for q in f.quotas %}
+      <dt>{{ q.name }}</dt><dd>{{ de_en("{n} von {all}", "{n} of {all}", n=q.done, all=q.target) }} <span class="hint">{% if q.cells|length == 1 %}{{ de_en("1 Teilquote", "1 sub-quota") }}{% else %}{{ de_en("{n} Teilquoten", "{n} sub-quotas", n=q.cells|length) }}{% endif %}, {{ q.kind if en else q.kind_de }}{% if q.refused %}; {{ de_en("{n} abgewiesen", "{n} turned away", n=q.refused) }}{% endif %}</span></dd>
+      {% endfor %}
+    </dl>
+    {% if f.census %}<p class="muted small">{{ de_en("Soll nach Alter, Geschlecht und Bundesland: Verteilung der Bevölkerung {span} in Deutschland am {date} (Statistisches Bundesamt, Bevölkerungsfortschreibung auf Grundlage des Zensus 2022, Tabelle {table}).", "Targets by age, gender and federal state: distribution of the population {span} in Germany on {date} (Statistisches Bundesamt, population update based on the 2022 census, table {table}).", span=f.census.span if en else f.census.span_de, date=f.census.date, table=f.census.table) }}</p>{% endif %}
+  </section>
+  {% endif %}
+  <section class="panel">
+    <h2>{{ de_en("Zeiten", "Times") }}</h2>
+    <dl class="mfacts-list">
+      {# the same format as the quality assurance: "3:09 Min." (UI/UX audit 2026-10-09, X83) #}
+      <dt>Median</dt><dd>{{ duration_short(f.median_min * 60) if f.median_min else "–" }}</dd>
+      {% if f.rsi %}<dt>{{ de_en("Regel", "Rule") }}</dt><dd>{{ de_en("Relative Speed Index über {v}", "Relative Speed Index above {v}", v=de(f.rsi)) }}</dd>
+      {% else %}<dt>Cutoff</dt><dd>{{ duration_short(f.cutoff_min * 60) if f.cutoff_min else "–" }}</dd>
+      <dt>{{ de_en("Regel", "Rule") }}</dt><dd>{{ de_en("unter {p} % des Medians", "under {p}% of the median", p=f.speeder_pct) }}</dd>{% endif %}
+    </dl>
+    <p class="hint">{{ de_en("Speeder nach Leiner (2019)", "Speeders after Leiner (2019)") }}</p>
+  </section>
+</div>
+<div class="mfacts mfacts-2">
+  <section class="panel">
+    <h2>{{ de_en("Demografie", "Demographics") }}</h2>
+    {# two messages (UI/UX audit 2026-10-05, V30): the questions are there but nobody answered yet, or they are missing #}
+    {% if not (f.age and f.age.n) and not f.gender %}
+    {% if f.has_age or f.has_gender %}
+    <p class="muted small">{{ de_en("Noch keine Antworten zu {what} im Datenpool. Sobald es welche gibt, stehen hier Mittelwert und Verteilung.", "No answers on {what} in the data pool yet. As soon as there are some, the mean and the distribution are shown here.", what=de_en("Alter und Geschlecht", "age and gender") if f.has_age and f.has_gender else de_en("Alter", "age") if f.has_age else de_en("Geschlecht", "gender")) }}</p>
+    {% else %}
+    <p class="muted small">{{ de_en("Keine Angaben: Der Fragebogen enthält keine Fragen zu Alter oder Geschlecht (z. B. den Block „{block}“ aus „Konstrukte“, oder eigene Fragen mit dem Variablennamen", "No data: the questionnaire has no questions on age or gender (e.g. the block “{block}” from “Constructs”, or questions of your own with the variable name", block=demographics_block()) }} <code>alter</code>
+      {{ de_en("bzw.", "or") }} <code>geschlecht</code>){{ de_en(". Die Methodenbeschreibung lässt die Demografie dann weg.", ". The methods description then leaves the demographics out.") }}</p>
+    {% endif %}
+    {% endif %}
+    <dl class="mfacts-list">
+      {% if f.age and f.age.n %}<dt>{{ de_en("Alter", "Age") }}</dt><dd>M = {{ de(f.age.mean) }}{% if f.age.sd is not none %}, SD = {{ de(f.age.sd) }}{% endif %}; {{ de_en("{lo} bis {hi} Jahre", "{lo} to {hi} years", lo="%g"|format(f.age.min), hi="%g"|format(f.age.max)) }} <span class="hint">n = {{ f.age.n }}</span></dd>{% endif %}
+      {% if f.gender %}<dt>{{ de_en("Geschlecht", "Gender") }}</dt><dd>{% for label, n in f.gender %}{{ label }} {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+    </dl>
+  </section>
+  <section class="panel">
+    <h2>{{ de_en("Validierte Instrumente", "Validated instruments") }}</h2>
+    {% if not f.constructs %}<p class="muted small">{{ de_en("Keine validierten Konstrukte im Fragebogen.", "No validated constructs in the questionnaire.") }}</p>{% endif %}
+    {% for c in f.constructs %}
+    <div class="mfacts-instrument">
+      <strong>{{ c.name }}</strong>{% if c.authors and c.year %} <span class="muted">({{ c.authors }}, {{ c.year }})</span>{% endif %}
+      <div class="small">{{ de_en("{n} Items", "{n} items", n=c["items"]) if c["items"] }}{% if c.points %}, {{ de_en("{n}-stufig", "{n} points", n=c.points) }}{% endif %}{% if c.modified %} · <span class="badge badge-pending">{{ de_en("angepasst", "adapted") }}</span>{% endif %}</div>
+      {% if c.subscales %}
+        {% for s in c.subscales %}<div class="small">{{ s.name }} ({{ de_en("{n} Items", "{n} items", n=s.k) }}): {% if s.k == 2 %}{{ sb(s.sb) }} <span class="hint">{{ de_en("bei zwei Items statt α", "instead of α with two items") }}</span>{% else %}{{ alpha(s.alpha) }}{% endif %}{% if s.omega is not none %}, ω = {{ de(s.omega, 2) }}{% endif %}{% if s.mean is not none %}, M = {{ de(s.mean, 2) }}, SD = {{ de(s.sd, 2) if s.sd is not none else "–" }}{% endif %}</div>{% endfor %}
+      {% else %}
+        <div class="small">{% if c["items"] == 2 %}{{ sb(c.sb) }} <span class="hint">{{ de_en("bei zwei Items statt α", "instead of α with two items") }}</span>{% else %}{{ alpha(c.alpha) }}{% endif %}{% if c.omega is not none %}, ω = {{ de(c.omega, 2) }}{% endif %}{% if c.mean is not none %}, M = {{ de(c.mean, 2) }}, SD = {{ de(c.sd, 2) if c.sd is not none else "–" }}{% endif %}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {# one fold of sources per page: here without choice experiments, else in their panel below #}
+    {% set source_groups = ([(de_en("Reliabilität: Cronbachs α und McDonalds ω (Ein-Faktor-Modell, Maximum Likelihood)", "Reliability: Cronbach's α and McDonald's ω (one-factor model, maximum likelihood)"), reliability_sources)] if f.constructs else []) + choice_sources %}
+    {% from "_sources.html" import grouped %}
+    {% if f.constructs and not f.choice and not f.tasks %}{{ grouped(source_groups) }}{% endif %}
+  </section>
+</div>
+{% if f.choice %}
+<section class="panel">
+  <h2>{{ de_en("Wahlexperimente", "Choice experiments") }}</h2>
+  {% for c in f.choice %}<p class="small">{{ choice_en[loop.index0] if en else c.text_de }}</p>{% endfor %}
+  {% if not f.tasks %}{{ grouped(source_groups) }}{% endif %}
+</section>
+{% endif %}
+{% if f.tasks %}
+<section class="panel">
+  <h2>{{ de_en("Experimentelle Aufgaben", "Experimental tasks") }}</h2>
+  {% for t in f.tasks %}<p class="small">{{ t.text_en if en and t.text_en else t.text_de }}</p>{% endfor %}
+  {{ grouped(source_groups) }}
+</section>
+{% endif %}
+
+{% if f.coding %}
+<section class="panel">
+  <h2>{{ de_en("Offene Antworten", "Open answers") }} <span class="hint">{{ de_en("kategorisiert", "categorised") }}</span></h2>
+  {% for c in f.coding %}<p class="small">{{ c.text_en if en else c.text_de }}</p>{% endfor %}
+  <p class="muted small">Mayring, P. (2022). Qualitative Inhaltsanalyse: Grundlagen und Techniken (13. Aufl.). Beltz. · Krippendorff, K. (2019). Content analysis: An introduction to its methodology (4. Aufl.). SAGE.</p>
+</section>
+{% endif %}
+
+{% if f.plan %}
+{# the study plan in the methods section (V29): what was planned, the hypotheses with the test planned for each #}
+<section class="panel">
+  <h2>{{ de_en("Studienplan und Hypothesen", "Research plan and hypotheses") }} <span class="hint">{{ de_en("aus dem", "from the") }} <a href="{{ url_for('study_plan.page', survey_id=survey.id) }}">{{ de_en("Studienplan", "research plan") }}</a>{{ de_en("; die Ergebnisse je Hypothese stehen in den Ergebnissen", "; the results per hypothesis are in the results") }}</span></h2>
+  <dl class="mfacts-list">
+    {% if f.plan.question %}<dt>{{ de_en("Forschungsfrage", "Research question") }}</dt><dd>{{ f.plan.question }}</dd>{% endif %}
+    {# the line of the sample model, as the study plan, the data collection and the export show it (S3) #}
+    {% if f.plan.model %}{% from "_sample.html" import sample_line %}<dt>{{ de_en("Angestrebte Stichprobe", "Target sample") }}</dt><dd>{{ sample_line(f.plan.model, basis=true) }}</dd>
+    {% elif f.plan.target %}<dt>{{ de_en("Angestrebte Stichprobe", "Target sample") }}</dt><dd>{{ f.plan.target }}</dd>{% endif %}
+    {% if f.plan.recruitment_de %}<dt>{{ de_en("Rekrutierung", "Recruitment") }}</dt><dd>{{ f.plan.recruitment_en if en and f.plan.recruitment_en else f.plan.recruitment_de }}</dd>{% endif %}
+    {% if f.plan.rules %}<dt>{{ de_en("Ausschlussregeln", "Exclusion rules") }}</dt><dd>{{ f.plan.rules }}</dd>{% endif %}
+    {% for h in f.plan.hypotheses %}<dt>H{{ loop.index }}</dt><dd>{{ h.text }}{% if h.test %} <span class="hint">{{ de_en("geprüft mit", "tested with") }}: {{ h.test_en if en else h.test_de }}</span>{% endif %}{% if h.explorative %} <span class="hint">{{ de_en("explorativ, nach dem Start ergänzt", "exploratory, added after the start") }}</span>{% endif %}</dd>{% endfor %}
+  </dl>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>{{ de_en("Methodenbeschreibung", "Methods description") }} {% if ai_on() %}<span class="hint">{{ de_en("nur diese Fakten gehen an die KI, keine einzelnen Antworten", "only these facts go to the AI, no single answers") }}</span>{% endif %}</h2>
+  <div class="row mgen-word">
+    <a class="button button-secondary" href="{{ url_for('surveys.export_methods', survey_id=survey.id, fmt='docx') }}">{{ de_en("Entwurf als Word (Deutsch)", "Draft as Word (German)") }}</a>
+    <a class="button button-secondary" href="{{ url_for('surveys.export_methods', survey_id=survey.id, fmt='docx', lang='en') }}">{{ de_en("Entwurf als Word (Englisch)", "Draft as Word (English)") }}</a>
+  </div>
+  <p class="muted small">{{ de_en("Der Word-Entwurf enthält dieselben Zahlen, die Instrumente mit Quellen, die Datenbereinigung, den Analyseplan und die Ergebnisse je Hypothese. Mit KI umformulieren:", "The Word draft has the same numbers, the instruments with sources, the data cleaning, the analysis plan and the results per hypothesis. Rephrase with AI:") }}</p>
+  {% if ai_on() %}
+  <form method="post" class="mgen">
+    {{ csrf() }}
+    <span class="segmented" role="radiogroup" aria-label="{{ de_en('Länge', 'Length') }}">
+      {% for key, label in lengths.items() %}<label><input type="radio" name="length" value="{{ key }}" {% if key == length %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+    </span>
+    <div class="mgen-langs">
+      <button class="button button-ai" name="lang" value="de" data-ai data-ai-hide="#methods-result">{{ icon("sparkles", 16) }} {{ de_en("Deutsch", "German") }}</button>
+      <button class="button button-ai" name="lang" value="en" data-ai data-ai-hide="#methods-result">{{ icon("sparkles", 16) }} {{ de_en("Englisch", "English") }}</button>
+    </div>
+    {{ ai_access_line() }}
+  </form>
+  <div class="ai-writing" data-ai-writing-box hidden>
+    <p class="ai-writing-head">{{ de_en("Wird formuliert … das dauert bis zu einer halben Minute", "Being written … this takes up to half a minute") }}</p>
+    <p class="ai-writing-text" aria-hidden="true"></p>
+  </div>
+  {% endif %}
+  {% if text %}
+  <div id="methods-result">
+  <p class="muted small">{{ {"de": de_en("Deutsch", "German"), "en": de_en("Englisch", "English"), "draft": de_en("Entwurf ohne KI (Deutsch)", "Draft without AI (German)")}[lang] }}{% if lang != "draft" %}, {{ lengths[length] }}{% endif %} · {{ de_en("bitte gegen die Fakten oben prüfen", "please check against the facts above") }}</p>
+  <textarea id="methods-text" aria-label="{{ de_en('Methodenteil', 'Methods section') }}" rows="14" class="methods-text">{{ text }}</textarea>
+  <p><button type="button" class="button button-secondary" data-copy="#methods-text">{{ de_en("Kopieren", "Copy") }}</button></p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Kommentare", "Comments") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid">
+<section class="panel comments-page">
+  <h2>💬 {{ de_en("Kommentare aus Testdurchläufen", "Comments from test runs") }} <span class="hint">{{ de_en("aus der Vorschau im Editor und über Pretest-Links", "from the preview in the editor and via pretest links") }}</span></h2>
+  <p class="tabs-inline">
+    <a href="?show=open" {% if show != "all" %}aria-current="page"{% endif %}>{{ de_en("offen ({n})", "open ({n})", n=n_open) }}</a> ·
+    <a href="?show=all" {% if show == "all" %}aria-current="page"{% endif %}>{{ de_en("alle ({n})", "all ({n})", n=n_all) }}</a>
+    · <a href="{{ url_for('editor.index', survey_id=survey.id, lang=lang) }}">{{ de_en("zurück zum Fragebogen", "back to the questionnaire") }}</a>
+  </p>
+  {% if not comments %}<p class="muted">{{ de_en("Keine offenen Kommentare.", "No open comments.") if show != "all" else de_en("Noch keine Kommentare.", "No comments yet.") }}</p>{% endif %}
+  <ul class="plain comment-list">
+    {% for c in comments %}
+    <li class="comment comment-{{ c.status }}{% if c.shot %} has-shot{% endif %}" id="comment-{{ c.id }}">
+      {% if c.shot %}{% set shot_url = url_for('editor.preview_comment_shot', survey_id=survey.id, comment_id=c.id) %}
+      <a class="comment-shot" href="{{ shot_url }}" data-comment-shot data-caption="{{ c.target }}{% if c.env %} · {{ env_label(c.env) }}{% endif %}">
+        <img src="{{ shot_url }}" alt="{{ de_en('Bild der Seite zu diesem Kommentar', 'Image of the page for this comment') }}" loading="lazy"{% if c.shot_w %} width="{{ c.shot_w }}" height="{{ c.shot_h }}"{% endif %}></a>
+      {% endif %}
+      <div class="comment-body">
+      <div class="comment-head">
+        {% if c.item_id %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=c.item_id, lang=lang) }}">{{ c.target }}</a>
+        {% else %}<a href="{{ url_for('editor.index', survey_id=survey.id, lang=lang) }}#block-{{ c.block_id }}">{{ c.target }}</a>{% endif %}
+        <span class="hint">{{ de_en("Seite {page} · Fassung {rev}", "Page {page} · revision {rev}", page=c.page or "?", rev=c.qversion) }}</span>
+        <span class="badge comment-status">{{ labels[c.status] }}</span>
+      </div>
+      <p class="comment-text">{{ c.text }}</p>
+      <p class="hint">{{ c.author or de_en("Testperson", "Tester") }} · {{ de_en("Pretest-Link", "Pretest link") if c.via == "phone" else de_en("Vorschau im Editor", "Preview in the editor") }} · {{ c.created_at|localdt }}
+        {% if c.status != "open" %} · {{ de_en("{status} von {who} am {when}", "{status} by {who} on {when}", status=labels[c.status], who=c.handled_by or "?", when=c.handled_at|localdt) }}{% endif %}</p>
+      {% if c.env %}<p class="comment-env">{{ env_label(c.env) }}</p>{% endif %}
+      {% if c.note %}<p class="comment-note"><strong>{{ de_en("Notiz:", "Note:") }}</strong> {{ c.note }}</p>{% endif %}
+      {% if can_edit %}
+      <form method="post" action="{{ url_for('editor.handle_comment', survey_id=survey.id, comment_id=c.id) }}" class="comment-actions">
+        {{ csrf() }}<input type="hidden" name="show" value="{{ show }}">
+        <input name="note" placeholder="{{ de_en('Notiz (optional), z. B. was geändert wurde', 'Note (optional), e.g. what was changed') }}" aria-label="{{ de_en('Notiz', 'Note') }}">
+        {% if c.status == "open" %}
+        <button class="button button-small" name="status" value="resolved">{{ de_en("Erledigt", "Done") }}</button>
+        <button class="button button-small button-secondary" name="status" value="ignored">{{ de_en("Ignorieren", "Ignore") }}</button>
+        {% else %}
+        <button class="button button-small button-secondary" name="status" value="open">{{ de_en("Wieder öffnen", "Reopen") }}</button>
+        {% endif %}
+        {% if c.shot %}<button class="link" name="remove_shot" value="1" data-confirm="{{ de_en('Bild zu diesem Kommentar entfernen?', 'Remove the image of this comment?') }}" data-confirm-ok="{{ de_en('Bild entfernen', 'Remove image') }}" data-confirm-danger>{{ de_en("Bild entfernen", "Remove image") }}</button>{% endif %}
+      </form>
+      {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Alle Kommentare mit ihrer Bearbeitung gibt es im Reiter „Export“ als", "All comments with how they were handled are in the tab “Export” as") }} {% if any_shots %}<a href="{{ url_for('surveys.export_comments_zip', survey_id=survey.id) }}">{{ de_en("ZIP mit Bildern", "ZIP with images") }}</a>{% else %}<a href="{{ url_for('surveys.export_comments', survey_id=survey.id) }}">CSV</a>{% endif %}.</p>
+</section>
+</div>
+{% endblock %}

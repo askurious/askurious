@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{# "Gruppe zur Organisation machen" (app/orgs.py plan/make_from_group, A23 of konzept-abteilungen-2026-10-15.md): what
+   would happen, then the change. Context: p (plan), group, source_name, kept_shares, dropped_shares. #}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Gruppe zur Organisation machen", "Make group an organisation") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "orgs" %}{% include "admin/_tabs.html" %}
+{% macro names(items, attr) %}{% for x in items %}{{ x[attr] if attr else x }}{{ ", " if not loop.last }}{% else %}{{ de_en("keine", "none") }}{% endfor %}{% endmacro %}
+{% macro kind_label(kind) %}{{ {"survey": de_en("Befragung", "Survey"), "design": de_en("Design", "Design"), "element": de_en("Verknüpftes Element", "Linked element"), "project": de_en("Forschungsprojekt", "Research project")}[kind] }}{% endmacro %}
+{% macro thing_name(kind, thing) %}{{ thing.title if kind == "survey" else thing.name }}{% endmacro %}
+<section class="panel">
+  <h2>{{ de_en("„{g}“ zur Organisation machen", "Make “{g}” an organisation", g=group.name) }}</h2>
+  <p class="muted small">{{ de_en("Die Gruppe gehört heute zu „{o}“. So sähe es danach aus; nichts verliert Zugriff, nichts wird neu sichtbar.", "The group belongs to “{o}” today. This is what it would look like afterwards; nobody loses access, nothing becomes newly visible.", o=source_name) }}</p>
+  <h3>{{ de_en("Personen", "People") }}</h3>
+  <ul>
+    <li>{{ de_en("Ziehen um (die neue Organisation wird ihre Heimat, in „{o}“ bleiben sie Mitglied):", "Move (the new organisation becomes their home; they stay members of “{o}”):", o=source_name) }}
+      {% for m in p.members if m.user_id in p.movers %}{{ m.display_name }}{% if m.role == "lead" %} ({{ de_en("Leitung", "lead") }}){% endif %}{{ ", " if not loop.last }}{% else %}{{ de_en("niemand", "nobody") }}{% endfor %}</li>
+    <li>{{ de_en("Werden nur Mitglied (ihre Heimat ist schon eine andere Organisation):", "Only become members (their home is another organisation already):") }}
+      {% for m in p.members if m.user_id not in p.movers %}{{ m.display_name }}{{ ", " if not loop.last }}{% else %}{{ de_en("niemand", "nobody") }}{% endfor %}</li>
+  </ul>
+  <h3>{{ de_en("Was mitzieht", "What comes along") }}</h3>
+  <ul>
+    <li>{{ de_en("Befragungen, deren Admins alle in der Gruppe sind:", "Surveys whose admins are all in the group:") }} {{ names(p.surveys, "title") }}</li>
+    <li>{{ de_en("Designs der Umziehenden:", "Designs of those who move:") }} {{ names(p.designs, "name") }}</li>
+    <li>{{ de_en("Verknüpfte Elemente der Umziehenden:", "Linked elements of those who move:") }} {{ names(p.elements, "name") }}</li>
+    <li>{{ de_en("Forschungsprojekte der Umziehenden:", "Research projects of those who move:") }} {{ names(p.projects, "name") }}</li>
+  </ul>
+  <p class="muted small">{{ de_en("Alles andere bleibt in „{o}“. Wer dort persönlich beteiligt ist, behält das.", "Everything else stays in “{o}”. Anyone who takes part there in person keeps it.", o=source_name) }}</p>
+  <h3>{{ de_en("Freigaben, die persönlich werden", "Shares that become personal") }}</h3>
+  <p class="muted small">{{ de_en("Eine Gruppe teilt nur innerhalb ihrer Organisation. Freigaben, die danach über den Zaun gingen, werden zu persönlichen Einträgen ihrer Mitglieder in derselben Rolle; bei Befragungen stehen diese Personen dann unter „Beteiligte“.", "A group shares only within its organisation. Shares that would cross the fence afterwards become personal entries of its members in the same role; for surveys these people then appear under “People”.") }}</p>
+  {% for title, shares in ((de_en("wenn die Gruppe bleibt", "if the group stays"), kept_shares), (de_en("wenn die Gruppe aufgelöst wird", "if the group is dissolved"), dropped_shares)) %}
+  <p><strong>{{ title }}:</strong>
+    {% for kind, thing, g, role in shares %}{{ kind_label(kind) }} „{{ thing_name(kind, thing) }}“ ({{ de_en("über „{g}“, {n} Personen", "through “{g}”, {n} people", g=g.name, n=g.members|length) }}){{ "; " if not loop.last }}{% else %}{{ de_en("keine", "none") }}{% endfor %}</p>
+  {% endfor %}
+  <form method="post" class="stack">
+    {{ csrf() }}
+    <label>{{ de_en("Name der Organisation", "Name of the organisation") }} <input name="name" value="{{ group.name }}" maxlength="80" required></label>
+    <label class="check"><input type="checkbox" name="leads_admin" value="1" checked> {{ de_en("Die Leitung der Gruppe wird Admin der Organisation", "The group's lead becomes organisation admin") }}</label>
+    <label class="check"><input type="checkbox" name="keep_group" value="1" checked> {{ de_en("Die Gruppe bleibt als erste Gruppe der Organisation", "The group stays as the first group of the organisation") }}
+      <span class="hint">{{ de_en("ohne Häkchen wird sie aufgelöst; was sie geteilt hatte, wird persönlich", "without the tick it is dissolved; what it shared becomes personal") }}</span></label>
+    <div class="button-row"><button class="button">{{ de_en("Organisation anlegen", "Create organisation") }}</button>
+      <a class="button button-secondary" href="{{ url_for('admin.groups') }}#gruppen">{{ de_en("Abbrechen", "Cancel") }}</a></div>
+  </form>
+</section>
+{% endblock %}

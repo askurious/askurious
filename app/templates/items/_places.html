@@ -1,0 +1,7 @@
+{# A list of places (municipalities with their AGS, ...) in a search field or a drill-down: it locates a person about
+   as closely as a postal code, so public data packages have its columns only with the tick for open answers
+   (ItemType.place_columns; audit 2026-10-10). A privacy setting: also while the survey runs. Needs: item, kind. #}
+<input type="hidden" name="places_box" value="1">
+<label class="check"><input type="checkbox" name="places" value="1" {% if item.config.get("places") %}checked{% endif %}> {{ de_en("Ortsliste (z. B. Gemeinden): wie Postleitzahlen behandeln", "List of places (e.g. municipalities): treat like postal codes") }}
+  <span class="hint">{{ de_en("dann in öffentlichen Datenpaketen (Zenodo, Coscine) nur mit dem Haken „offene Antworten“", "then in public data packages (Zenodo, Coscine) only with the tick “open answers”") }}</span></label>
+{% if kind.place_columns(item) and not item.config.get("places") %}<p class="muted small">{{ de_en("Die Codes sehen nach amtlichen Gemeindeschlüsseln aus: Die Antworten werden auch ohne den Haken wie Postleitzahlen behandelt.", "The codes look like official municipality keys: the answers are treated like postal codes even without the tick.") }}</p>{% endif %}

@@ -1,0 +1,13 @@
+{# Errors on participant pages (app/participate.py): lost session, unknown link, a page the database could not
+   take. `survey` may be none. #}
+{% extends "participant/base.html" %}
+{% block title %}{{ survey.title_in(lang) if survey else heading }}{% endblock %}
+{% block content %}
+<div class="p-end p-end-error" role="alert">
+  <h1>{{ heading }}</h1>
+  <p>{{ text }}</p>
+  {% if resend is defined and resend %}<p><button type="button" class="p-button" data-resend>{{ resend }}</button></p>
+  {% elif retry %}<p><a class="p-button" href="{{ retry }}">{{ retry_label }}</a></p>{% endif %}
+</div>
+{% endblock %}
+{% block footer_links %}{% if survey %}{{ super() }}{% endif %}{% endblock %}

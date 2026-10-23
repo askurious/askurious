@@ -1,0 +1,14 @@
+{# One page of a block loaded at once (app/blockload.py; page.html with block_sections): the same parts as a page of its
+   own (_block.html, _nav.html), in a section of the block's form; participant.js shows one at a time. Needs what
+   page.html needs of a page, and: position (its place in the layout), active (shown first), announce (said when it
+   is switched to). The hidden fields stand once in the form; the trap fields on every page (app/quality.py). #}
+<section class="p-bpage" data-bpage="{{ position }}" data-page="{{ page }}" data-page-count="{{ page_count }}"
+         data-title="{% if errors %}{{ ui('Fehler', 'Error') }} – {% elif nudges %}{{ ui('Hinweis', 'Note') }} – {% endif %}{{ ui('Seite', 'Page') }} {{ page }} – {{ survey.title_in(lang) }}"
+         data-announce="{{ (ui('Seite %d von etwa %d', 'Page %d of about %d'))|format(page, page_count) }}"
+         {% if nudge_shown %}data-nudged{% endif %} {% if not active %}hidden{% endif %}>
+  {% if hold and hold.essential and hold.max %}<p class="p-tempo-note" data-hold-note hidden>{{ (ui("Für diese Seite haben Sie %d Sekunden Zeit. Danach geht es von selbst weiter.", "You have %d seconds for this page. After that, the survey moves on automatically."))|format(hold.total) }}</p>{% elif hold and hold.extra %}<p class="p-tempo-note" data-hold-note hidden>{{ (ui("Für diese Seite haben Sie %d Sekunden Zeit. Kurz vor Ablauf können Sie mit „Mehr Zeit“ verlängern.", "You have %d seconds for this page. Shortly before the end, “More time” lets you extend it."))|format(hold.total) }}</p>{% endif %}
+  <div class="p-trap" aria-hidden="true"><label>More information <input type="text" name="more_info" tabindex="-1" autocomplete="off"></label></div>
+  {% if ai_bait %}<div class="p-trap" aria-hidden="true"><p>{{ ui(ai_bait[0], ai_bait[1]) }}</p><label>{{ ui("Kennwort für KI-Systeme", "Code word for AI systems") }} <input type="text" name="ki_kennwort" tabindex="-1" autocomplete="off"></label></div>{% endif %}
+  {% include "participant/_block.html" %}
+  {% include "participant/_nav.html" %}
+</section>

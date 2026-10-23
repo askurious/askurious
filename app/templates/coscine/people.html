@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# "Wer sieht die Dateien" (app/coscine.py, people_page, K3): the members of the Coscine project of the
+   last upload next to the people with a right on the survey. Needs: survey, project, people, members, invited,
+   coscine_role, back. #}
+{% block title %}{{ de_en("Wer sieht die Dateien", "Who sees the files") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel" id="coscine-people">
+  <h2>{{ de_en("Wer sieht die Dateien in Coscine", "Who sees the files in Coscine") }}</h2>
+  <p class="small">{{ de_en("Projekt", "Project") }} <strong>{{ project.displayName or project.name }}</strong> · {{ de_en("{n} Mitglieder in Coscine", "{n} members in Coscine", n=members|length) }}</p>
+  <form method="post" action="{{ url_for('coscine.people_page', survey_id=survey.id) }}" class="stack">
+    {{ csrf() }}
+    <div class="res-scroll"><table class="table">
+      <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("Recht in Askurious", "Right in Askurious") }}</th><th>{{ de_en("In Coscine", "In Coscine") }}</th><th>{{ de_en("Einladen als", "Invite as") }}</th></tr></thead>
+      <tbody>
+      {% for p in people %}
+      {% set state = members.get(p.email) if p.email else none %}
+      {% set open = invited.get(p.email) if p.email else none %}
+      <tr><td>{{ p.user.display_name }}{% if p.groups %} <span class="hint">{{ de_en("über", "via") }} {{ p.groups|map(attribute=1)|join(", ") }}</span>{% endif %}<br><span class="muted small">{{ p.email or de_en("keine E-Mail-Adresse in Askurious", "no email address in Askurious") }}</span></td>
+        <td>{{ {"admin": "Admin", "editor": de_en("Bearbeiten", "Edit"), "viewer": de_en("Ansehen", "View")}[p.role] }}</td>
+        <td>{% if state %}{{ de_en("Mitglied ({r})", "member ({r})", r=state) }}{% elif open %}{{ de_en("eingeladen bis {d}", "invited until {d}", d=coscine_day(open.expirationDate)|walldt(False)) }}{% else %}–{% endif %}</td>
+        <td>{% if not state and not open %}<label class="check"><input type="checkbox" name="person" value="{{ p.user.id }}" {% if not p.email %}disabled{% endif %}> {{ "Member" if coscine_role[p.role] == "member" else "Guest" }}</label>{% elif open %}<button class="link small" form="withdraw-{{ open.id }}">{{ de_en("Einladung zurücknehmen", "Withdraw invitation") }}</button>{% endif %}</td></tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">{{ de_en("Niemand außer Ihnen hat Rechte an der Befragung.", "Nobody but you has rights on the survey.") }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% set groups = [] %}{% for p in people %}{% for g in p.groups %}{% if g not in groups %}{% set _ = groups.append(g) %}{% endif %}{% endfor %}{% endfor %}
+    {% for gid, name in groups %}
+    <label class="check"><input type="checkbox" name="gruppe" value="{{ gid }}"> {{ de_en("Alle aus der Gruppe „{g}“ einladen, die noch fehlen", "Invite everyone from the group “{g}” who is still missing", g=name) }}</label>
+    {% endfor %}
+    <p class="muted small">{{ de_en("Rollen: Admin und Bearbeiten werden „Member“, Ansehen wird „Guest“ (nur lesen). „Owner“ vergibt Askurious nie. Die E-Mail-Adresse geht erst mit dem Klick auf „Einladen“ an Coscine; Coscine schickt die Einladung, angenommen wird sie in Coscine. Personen, die nur mit ORCID angemeldet sind, haben in Askurious keine E-Mail-Adresse und lassen sich hier nicht einladen.", "Roles: admin and edit become “Member”, view becomes “Guest” (read only). Askurious never gives “Owner”. The email address goes to Coscine only with the click on “Invite”; Coscine sends the invitation, which is accepted in Coscine. People signed in with ORCID only have no email address in Askurious and cannot be invited here.") }}</p>
+    <div class="form-actions"><button class="button">{{ icon("users", 16) }} {{ de_en("Einladen", "Invite") }}</button>
+      <a class="button button-secondary" href="{{ back }}">{{ de_en("Zurück", "Back") }}</a></div>
+  </form>
+  {% for open in invited.values() %}
+  <form id="withdraw-{{ open.id }}" method="post" action="{{ url_for('coscine.withdraw_page', survey_id=survey.id) }}" hidden>{{ csrf() }}<input type="hidden" name="einladung" value="{{ open.id }}"></form>
+  {% endfor %}
+</section>
+{% endblock %}

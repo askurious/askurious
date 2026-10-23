@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, kind_badge, list_table %}
+{% from "_icons.html" import icon %}
+{% from "_listing.html" import sort_th, search, pager %}
+{# Administration > Befragungen, the first tab: the dashboard of the platform in a chosen period (app/admin_stats.py,
+   Ralf 2026-10-17) and every survey by real participations (out of "Personen", Ralf 2026-10-07). A click on a period
+   swaps the dashboard and the list in place, and both are fetched anew every minute (app.js, data-admin-dash).
+   Breakdowns of participations show numbers under five as "< 5" (admin_stats.small_cell). #}
+{% block title %}{{ de_en("Befragungen", "Surveys") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "surveys" %}{% include "admin/_tabs.html" %}
+{% set dash_endpoint, dash_args = "admin.surveys_page", {} %}{% include "admin/_survey_dashboard.html" %}
+<section class="panel" id="befragungen">
+  <h2>{{ de_en("Befragungen nach Teilnahmen", "Surveys by participations") }} <span class="hint">{{ de_en("echte Teilnahmen; „im Zeitraum“: abgeschlossen im gewählten Zeitraum oben", "real participations; “in the period”: completed in the period chosen above") }}</span></h2>
+  {{ search(surveys, de_en("Befragungen suchen", "Search surveys"), de_en("Suchen: Titel, Code, Forschende …", "Search: title, code, researchers …")) }}
+  {% if totals.hidden %}<p class="hint">{% if totals.hidden == 1 %}{{ de_en("{n} Befragung ist auf Wunsch ihrer Forschenden nicht aufgeführt (Einstellung „In der Übersicht der Plattform-Admins nicht aufführen“).", "{n} survey is not listed at the request of its researchers (setting “Do not list in the platform admins’ overview”).", n=totals.hidden) }}{% else %}{{ de_en("{n} Befragungen sind auf Wunsch ihrer Forschenden nicht aufgeführt (Einstellung „In der Übersicht der Plattform-Admins nicht aufführen“).", "{n} surveys are not listed at the request of their researchers (setting “Do not list in the platform admins’ overview”).", n=totals.hidden) }}{% endif %}</p>{% endif %}
+  {% if not ranking %}<p class="muted">{{ de_en("Keine Befragungen zu dieser Suche.", "No surveys match this search.") if surveys.q else de_en("Keine Befragungen.", "No surveys.") }}</p>{% else %}
+  <div class="res-scroll">
+  {# the kind and the state in two columns, as on the cards of "Meine Befragungen" (UI audit 2026-10-07, W87) #}
+  {% call list_table("is-num admin-ranking") %}
+    <thead><tr><th>#</th>{{ sort_th(surveys, "title", de_en("Befragung", "Survey")) }}{{ sort_th(surveys, "kind", de_en("Art", "Kind")) }}{{ sort_th(surveys, "status", de_en("Status", "Status")) }}{{ sort_th(surveys, "members", de_en("Forschende", "Researchers")) }}{{ sort_th(surveys, "period", de_en("im Zeitraum", "in the period")) }}{{ sort_th(surveys, "completed", de_en("abgeschlossen", "completed")) }}{{ sort_th(surveys, "started", de_en("begonnen", "started")) }}{{ sort_th(surveys, "last", de_en("letzte Teilnahme", "last participation")) }}<th><span class="visually-hidden">{{ de_en("Löschen", "Delete") }}</span></th></tr></thead>
+    <tbody>
+    {% for r in ranking %}{% set s = r.survey %}
+      <tr><td>{{ surveys.first + loop.index0 }}</td>
+        <td>{{ s.title }} <span class="hint"><code>{{ s.code }}</code></span></td>
+        <td>{{ kind_badge(s) }}</td><td>{{ status_badge(s) }}</td>
+        <td>{{ r.members|join(", ") or "–" }}</td>
+        <td><strong>{{ r.period|thousands }}</strong></td><td>{{ r.completed|thousands }}</td><td>{{ r.started|thousands }}</td>
+        <td>{{ r.last|localdt(false) if r.last else "–" }}</td>
+        {# deleting as a symbol at the end of the row, as in the list of people (Ralf, 2026-10-17) #}
+        <td class="admin-account"><a class="icon-btn admin-act" href="{{ url_for('admin.platform_erase', survey_id=s.id) }}" title="{{ de_en('Löschen …', 'Delete …') }}" aria-label="{{ de_en('Löschen', 'Delete') }}: {{ s.title }}">{{ icon("trash", 16) }}</a></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {{ pager(surveys) }}
+  {% endif %}
+</section>
+<section class="panel" id="plattform-loeschung">
+  <h2>{{ de_en("Löschung durch die Plattform", "Deletion by the platform") }} <span class="hint">{{ de_en("Teilnahmen oder eine ganze Befragung, mit einem Grund, den die Siegelkette vermerkt; auch für Befragungen, die oben nicht aufgeführt sind", "participations or a whole survey, with a reason the seal chain records; also for surveys not listed above") }}</span></h2>
+  <form method="get" action="{{ url_for('admin.platform_erase_find') }}" class="button-row">
+    <label>{{ de_en("Code der Befragung", "Survey code") }} <input type="text" name="code" required class="narrow" autocomplete="off"></label>
+    <button class="button button-secondary">{{ de_en("Öffnen", "Open") }}</button>
+  </form>
+</section>
+{% endblock %}

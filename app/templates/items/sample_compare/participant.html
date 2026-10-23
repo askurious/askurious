@@ -1,0 +1,60 @@
+{% set loop_row = (page_meta or {}).get("row") if page_meta is defined else none %}
+{% set de = lang in ("de", "de-du") %}
+{% set is_preview = preview is defined and preview %}
+{% set display = "bell" if item.config.display == "bell" else "items" %}
+{% set rows = kind.rows(item, lang, answers, preview=is_preview, row=loop_row) if display == "items" else [] %}
+{% set bell = kind.bell(item, lang, answers, preview=is_preview, row=loop_row) if display == "bell" else none %}
+
+{% include "items/_question.html" %}
+{% if preview is defined and preview %}<p class="p-sc-note">{{ ui("Vorschau: Zählt auch Test- und Dummy-Daten.", "Preview: includes test and dummy data.") }}</p>{% endif %}
+{% if bell %}
+<div class="p-sc-bell">
+  <p class="p-sc-label">{{ bell.label|fill(variables) }}</p>
+  {% if bell.enough %}
+  {{ bell.svg }}
+  {% if bell.ends[0] %}<div class="p-sc-axis p-sc-bell-axis"><span>1 = {{ bell.ends[0] }}</span><span>{{ bell.points }} = {{ bell.ends[1] }}</span></div>{% endif %}
+  <p class="p-sc-meta">
+    {% if item.config.show_own and bell.own is not none and bell.below_share is not none %}
+    {{ (ui("Ihr Mittelwert liegt über %d %% der bisherigen Teilnehmenden.", "Your mean is higher than %d %% of participants so far."))|format(bell.below_share|pct) }}
+    {% endif %}{{ ui("Grundlage", "Based on") }}: n = {{ bell.n }}.
+    {{ (ui("Die Kurve ist eine Normalverteilung mit dem Mittelwert (%s) und der Standardabweichung (%s) der bisherigen Teilnehmenden, nicht ihre tatsächliche Verteilung.", "The curve is a normal distribution with the mean (%s) and standard deviation (%s) of participants so far, not their actual distribution."))|format(bell.mean_text, bell.sd_text) }}</p>
+  {% include "items/_live_source.html" %}
+  {% else %}
+  <p class="p-sc-few">{{ ui("Noch zu wenige Antworten für einen Vergleich.", "Not enough answers yet for a comparison.") }}</p>
+  {% endif %}
+  <input type="hidden" name="i{{ item.id }}_n_{{ bell.source.id }}" value="{{ bell.n if bell.enough else 0 }}">
+</div>
+{% endif %}
+<div class="p-sc">
+  {% for row in rows %}
+  <div class="p-sc-row">
+    <p class="p-sc-label">{{ row.label|fill(variables) }}</p>
+    {% if not row.enough %}
+    <p class="p-sc-few">{{ ui("Noch zu wenige Antworten für einen Vergleich.", "Not enough answers yet for a comparison.") }}</p>
+    {% elif row.nominal %}
+    <ul class="p-sc-bars">
+      {% for l in row.labels %}
+      {% set mine = item.config.show_own and row.own == loop.index0 %}
+      <li class="{% if mine %}is-own{% endif %}"><span class="p-sc-opt">{{ l }}{% if mine %} <em>{{ ui("(Ihre Antwort)", "(your answer)") }}</em>{% endif %}</span>
+        <span class="p-sc-track"><span class="p-sc-fill" style="width: {{ (row.shares[loop.index0] * 100)|fixed(1) }}%"></span></span>
+        <span class="p-sc-pct">{{ (row.shares[loop.index0] * 100)|fixed(0) }} %</span></li>
+      {% endfor %}
+    </ul>
+    <p class="p-sc-meta">n = {{ row.n }}{% for m in row.missing if m.count %} · {{ m.label }}: {{ m.count }}{% endfor %}</p>
+    {% else %}
+    <div class="p-sc-hist" style="--k: {{ row.labels|length }}" role="img"
+         aria-label="{{ (ui('Verteilung, Median ', 'Distribution, median ')) ~ row.median_label }}">
+      {% for c in row.counts %}
+      {% set mine = item.config.show_own and row.own == loop.index0 %}
+      <span class="p-sc-col{% if mine %} is-own{% endif %}" title="{{ loop.index }}: {{ c }}">
+        <span class="p-sc-colfill" style="height: {{ (row.shares[loop.index0] / row.max_share * 100)|fixed(1) }}%"></span>
+      </span>
+      {% endfor %}
+    </div>
+    <div class="p-sc-axis"><span>{{ row.labels[0] }}</span><span>{{ row.labels[-1] }}</span></div>
+    <p class="p-sc-meta">{{ "Median" }}: {{ row.median_label }}{% if item.config.show_own and row.own is not none %} · {{ ui("Ihre Antwort", "Your answer") }}: {{ row.own + 1 }}{% endif %} · n = {{ row.n }}</p>
+    {% endif %}
+    <input type="hidden" name="i{{ item.id }}_n_{{ row.source.id }}" value="{{ row.n if row.enough else 0 }}">
+  </div>
+  {% endfor %}
+</div>

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# A one-time link the lead of a course made for one of its accounts (app/bulk_invites.py, N15). Needs: group,
+   person, link, hours. #}
+{% block title %}{{ de_en("Einmal-Link", "One-time link") }} · {{ group.name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('groups.detail', group_id=group.id) }}">{{ icon("back", 16) }} {{ group.name }}</a>
+<h1>{{ de_en("Einmal-Link für {n}", "One-time link for {n}", n=person.display_name) }}</h1>
+<section class="panel">
+  <p>{{ de_en("Geben Sie diesen Link nur der Person selbst, auf einem Weg, dem Sie vertrauen.", "Give this link only to the person themselves, by a channel you trust.") }} <strong>{{ de_en("Er wird nur jetzt angezeigt", "It is shown only now") }}</strong>, {{ de_en("gilt {hours} Stunden und nur einmal. Mit ihm setzt die Person ein neues Passwort.", "is valid for {hours} hours and only once. With it the person sets a new password.", hours=hours) }}</p>
+  <div class="copy-row"><input class="one-time-link" id="one-time-link" value="{{ link }}" readonly aria-label="{{ de_en('Einmal-Link', 'One-time link') }}" data-select-all>
+    <button type="button" class="button button-secondary" data-copy="#one-time-link">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+</section>
+{% endblock %}

@@ -1,0 +1,56 @@
+{# Data pool. Needs: pool (sources, all, drop, speeder), by_source (completed per source), pool_form (form id),
+   pool_action (optional URL the form is sent to). pool_quality: the page "Datenerhebung" (a folding block, no
+   choice for speeders there), where the pool is saved for the survey (POST, surveys.update_pool); elsewhere
+   (export page) it starts from the saved one and holds for the downloads of that page only. pool_fixed: the pool cannot be changed by this person (a dashboard link shows it:
+   surveys.pool_frozen), the rest of the form can; pool_fixed_note says why. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar %}
+{% from "_learn.html" import why %}
+{% if pool_quality %}<details class="panel settings-group" id="pool" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Datenpool", "Data pool") }}</h2><span class="settings-sum">{{ de_en("gilt für Qualitätssicherung und Ergebnisse und ist die Vorauswahl beim Export; in Klammern: abgeschlossene Teilnahmen je Quelle", "applies to quality assurance and results and is the preselection for the export; in brackets: completed participations per source") }}</span></summary>
+  <div class="settings-body">
+{% else %}<section class="panel" id="pool">
+  <h2>{{ de_en("Datenpool", "Data pool") }} <span class="hint">{{ de_en("in Klammern: abgeschlossene Teilnahmen je Quelle", "in brackets: completed participations per source") }}</span></h2>{% endif %}
+  <form method="{{ 'post' if pool_quality else 'get' }}" {% if pool_action %}action="{{ pool_action }}"{% endif %} id="{{ pool_form }}" class="stack results-filter"{{ " data-autosave-form" if pool_quality and not pool_locked else "" }}>
+    {% if pool_quality %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+    {% set source_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+    {# on the export page the pool comes from the page "Datenerhebung": one line, the boxes unfold to change it for
+       this page's downloads (UI/UX audit 2026-10-03, U13) #}
+    {% if not pool_quality %}<details class="pool-fold" {% if request.args.get("source") %}open{% endif %}>
+      <summary><span class="label-title">{{ de_en("Datenquellen:", "Data sources:") }}</span> <span data-pool-source-summary>{% for key in pool.sources %}{{ source_names[key] }} ({{ by_source[key] }}){{ ", " if not loop.last }}{% endfor %}{% if pool.all %}{{ de_en(", auch abgebrochene", ", also broken-off ones") }}{% endif %}</span>
+        <span class="hint">{{ de_en("Vorauswahl aus dem gespeicherten Datenpool · für diese Downloads anpassen", "preselected from the saved data pool · adjust for these downloads") }}</span></summary>{% endif %}
+    <div class="row-fields source-choice">
+      <span class="label-title">{{ de_en("Datenquellen", "Data sources") }}</span>
+      {% for key in ("real", "test", "dummy") %}{% set label = source_names[key] %}
+      <label class="check"><input type="checkbox" name="source" value="{{ key }}" {% if key in pool.sources %}checked{% endif %} {% if pool_locked or pool_fixed %}disabled{% endif %}> {{ label }} ({{ by_source[key] }})</label>
+      {% endfor %}
+      <label class="check"><input type="checkbox" name="all" value="1" {% if pool.all %}checked{% endif %} {% if pool_locked or pool_fixed %}disabled{% endif %}> {{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}</label>
+    </div>
+    {{ why("data_pool") }}
+    {% if not pool_quality %}</details>{% endif %}
+    {% if pool_fixed %}<p class="muted small">{{ pool_fixed_note }}</p>{% endif %}
+    {% if pool_quality and survey.boards %}<p class="muted small">{{ de_en("Dashboards zählen Testdurchläufe nie mit, auch wenn der Datenpool sie enthält.", "Dashboards never count test runs, even if the data pool contains them.") }}</p>{% endif %}
+    {% if not pool_quality %}
+    {# only for the files: the results always leave out what quality assurance marks (speeders and more) #}
+    <div class="row-fields source-choice" id="pool-speeders">
+      <span class="label-title">{{ de_en("Markierte Teilnahmen", "Marked participations") }}</span>
+      <label class="check"><input type="radio" name="drop" value="0" {% if not pool.drop %}checked{% endif %}> {{ de_en("Einbeziehen und mit Qualitätskennzeichen exportieren", "Include and export with quality flags") }}</label>
+      <label class="check"><input type="radio" name="drop" value="1" {% if pool.drop %}checked{% endif %}> {{ de_en("Vom Export ausschließen", "Exclude from export") }}</label>
+      <span class="hint">{{ de_en("Speeder ({rule}) und Teilnahmen mit genug Auffälligkeiten; die Regeln stehen unter", "Speeders ({rule}) and participations with enough anomalies; the rules are under", rule=speeder_rule_text(survey)) }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "Quality assurance") }}</a></span>
+    </div>
+    {% endif %}
+    {% if not pool_quality %}
+    {% from "surveys/_used_data.html" import used_data with context %}
+    {# the count line is the one live region, busy while it is computed (UI/UX audit 2026-10-16, 31) #}
+    {% from "_macros.html" import computing %}
+    <div data-export-counts data-url="{{ url_for('surveys.export_counts', survey_id=survey.id) }}">
+      {{ used_data(pool) }}
+      {{ computing(de_en("Exportumfang wird berechnet …", "Calculating export selection …"), tag="p", attrs=" data-count-line"|safe) }}
+      <noscript><p>{{ de_en("Die genaue Fallzahl finden Sie ohne JavaScript in „Exportumfang speichern (JSON)“.", "Without JavaScript, find the exact count in “Save export selection (JSON)”.") }}</p></noscript>
+    </div>
+    <p class="hint">{{ de_en("Diese Auswahl gilt für die Antwortdateien dieser Seite. Ergebnisfilter und Gewichtung werden nicht übernommen. Langformate können mehrere Zeilen je Teilnahme enthalten.", "This selection applies to the answer files on this page. Result filters and weighting are not applied. Long formats may contain multiple rows per participation.") }}</p>
+    {% endif %}
+    {% if pool_quality and not pool_locked %}{{ autosave_bar(small=true) }}{% endif %}
+  </form>
+{% if pool_quality %}  </div>
+</details>{% else %}</section>{% endif %}

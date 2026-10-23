@@ -1,0 +1,20 @@
+{# One construct in the result list. Needs: c, stars, q, selected, survey (optional) #}
+{% set on = c.key in stars %}
+<li class="construct-card" id="k-{{ c.key }}">
+  <div class="construct-card-main">
+    {% if current_user.is_authenticated %}<form class="inline pin-form" method="post" action="{{ url_for('constructs.star', key=c.key) }}">{{ csrf() }}
+      <input type="hidden" name="list" value="1"><input type="hidden" name="q" value="{{ q }}">
+      {% for t in selected %}<input type="hidden" name="tag" value="{{ t }}">{% endfor %}
+      {% if survey %}<input type="hidden" name="survey" value="{{ survey.id }}">{% endif %}
+      <button class="pin-btn" title="{{ de_en('Favorit: Steht im Fragebogen-Editor in der Liste. Klicken entfernt den Stern.', 'Favourite: listed in the questionnaire editor. Click to remove the star.') if on else de_en('Als Favorit merken: Steht dann im Fragebogen-Editor in der Liste', 'Mark as favourite: it is then listed in the questionnaire editor') }}"
+              aria-label="{{ c.name }}: {{ de_en('Favorit entfernen', 'remove favourite') if on else de_en('als Favorit merken', 'mark as favourite') }}" aria-pressed="{{ 'true' if on else 'false' }}">{{ "★" if on else "☆" }}</button></form>{% endif %}
+    <a class="card-title" href="{{ url_for('constructs.detail', key=c.key, survey=survey.id if survey else none) }}">{{ c.name }}</a>
+    {# the wording's own state in words, not in the yellow of "Pausiert" and not as a second status beside
+       "validierte Skala" (UI audit 2026-10-07, W88) #}
+    {% if c.status == "review" %}<span class="construct-wording">{{ de_en("Wortlaut noch nicht gegen die Quelle geprüft", "Wording not yet checked against the source") }}</span>{% endif %}
+    <p class="construct-short">{{ c.short }}</p>
+    {% set n_cited = (cite_counts|default({})).get(c.key, 0) %}
+    <p class="card-meta">{{ c.author_year }} · {{ de_en_n(c.n_items, ("{n} Item", "{n} Items"), ("{n} item", "{n} items")) }}{% if c.points %} · {{ de_en("{n} Stufen", "{n} points", n=c.points) }}{% endif %} · {{ c.languages|map("upper")|join(", ") }}{% if n_cited %} · {{ de_en("verwendet in {n} Veröffentlichung", "used in {n} publication", n=n_cited) if n_cited == 1 else de_en("verwendet in {n} Veröffentlichungen", "used in {n} publications", n=n_cited) }}{% endif %}</p>
+    <div class="tag-row">{% for f in facets %}{% for t in c.tags if t.facet == f %}<a class="tag tag-{{ t.facet }}" href="{{ url_for('constructs.index', tag=t.slug, survey=survey.id if survey else none) }}" title="{{ facets.get(t.facet, t.facet) }}">{{ tag_name(t) }}</a>{% endfor %}{% endfor %}</div>
+  </div>
+</li>

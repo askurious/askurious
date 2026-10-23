@@ -1,0 +1,63 @@
+<!doctype html>
+{# status.askurious.de and status.polltergeist.de (app/status_node.py): the look of base.html (header, footer, app.css) without sign-in,
+   menus and scripts of the app; the language of the browser (Philipp, 2026-10-08) #}
+<html lang="{{ 'en' if de_en('de', 'en') == 'en' else 'de' }}"{% if site %} data-site="{{ site }}"{% endif %} data-default-mode="{{ default_mode }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="{{ every }}">
+  <title>{{ de_en("Status", "Status") }} · Askurious</title>
+  <link rel="icon" href="{{ url_for('static', filename=(site ~ '-' if site == 'polltergeist' else '') ~ 'favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='status.css') }}">
+</head>
+<body>
+<a class="skip-link" href="#main">{{ de_en("Zum Inhalt", "Skip to content") }}</a>
+<header class="site-header">
+  <a class="brand" href="{{ home }}/">{% if site == "polltergeist" %}{% from "_ghost.html" import ghost %}{{ ghost(30, "pg-ghost-brand") }}<span class="brand-name"><span class="wm-strong">POLL</span>tergeist</span>{% else %}{% from "_wordmark.html" import wordmark %}<span class="brand-name">{{ wordmark() }}</span>{% endif %}</a>
+  <nav><a href="{{ home }}/">{{ de_en("Zur Startseite", "To the home page") }}</a></nav>
+</header>
+<main id="main" tabindex="-1" class="container status-page">
+  <h1>{{ de_en("Status", "Status") }}</h1>
+  <div class="status-overall status-{{ overall }}" role="status">
+    {% if overall == "ok" %}{{ de_en("Alle aktivierten Dienste laufen.", "All enabled services are running.") }}
+    {% elif overall == "down" %}{{ de_en("Gestört: {names}", "Disrupted: {names}", names=down|map(attribute="key")|map("status_name")|join(", ")) }}
+    {% else %}{{ de_en("Noch keine Messung; die erste folgt in einer Minute.", "No measurement yet; the first follows within a minute.") }}{% endif %}
+  </div>
+  <p class="muted small">{{ de_en("Geprüft wird jede Minute aus dem Server selbst. Die Balken zeigen die letzten 24 Stunden (seit {start} Uhr) in Abschnitten von 15 Minuten.", "Checked every minute from the server itself. The bars show the last 24 hours (since {start}) in sections of 15 minutes.", start=start) }}</p>
+  {% if deployed %}<p class="muted small status-deployed">{{ de_en("Stand der Software: deployt am {d}", "Software version: deployed on {d}", d=deployed.at) }}</p>{% endif %}
+
+  {% for s in services %}
+  <section class="panel status-service">
+    <div class="status-head">
+      <h2>{{ name(s.key) }}</h2>
+      {# the same words and colours as every other service: "läuft", "gestört" (Ralf, 2026-10-19: not "Betriebsbereit") #}
+      {% if s.whisper %}<span class="status-badge status-{{ 'none' if s.whisper.state == 'disabled' else 'down' if s.whisper.state == 'unavailable' else 'ok' }}">{% if s.whisper.state == 'disabled' %}{{ de_en("deaktiviert", "disabled") }}{% elif s.whisper.state == 'ready' %}{{ de_en("läuft", "running") }}{% else %}{{ de_en("gestört", "disrupted") }}{% endif %}</span>
+      {% elif s.last %}<span class="status-badge status-{{ 'ok' if s.last.ok else 'down' }}">{{ de_en("läuft", "running") if s.last.ok else de_en("gestört", "disrupted") }}</span>{% else %}<span class="status-badge status-none">{{ de_en("unbekannt", "unknown") }}</span>{% endif %}
+    </div>
+    <ol class="status-bars" aria-label="{{ de_en('Letzte 24 Stunden', 'Last 24 hours') }}">
+      {% for b in s.bars %}<li class="status-{{ b.state }}{% if b.level %} status-l{{ b.level }}{% endif %}" title="{{ b.at }}–{{ b.to }}: {% if b.state == 'none' %}{{ de_en('keine Messung', 'no measurement') }}{% elif b.bad %}{{ de_en('in {bad} von {n} geprüften Minuten gestört', 'disrupted in {bad} of {n} minutes checked', bad=b.bad, n=b.n) }}{% else %}{{ de_en('{n} geprüfte Minuten in Ordnung', '{n} minutes checked, all fine', n=b.n) }}{% endif %}"></li>{% endfor %}
+    </ol>
+    <div class="status-axis muted small"><span>{{ de_en("vor 24 Std.", "24 h ago") }}</span><span>{{ de_en("jetzt", "now") }}</span></div>
+    {# the quarter hours with failures as words too: the title of a bar reaches neither keyboard nor touch (UI/UX audit
+       2026-10-16, 63); "1 von 15 Min." rather than "1/15", which read as a time (Ralf, 2026-10-17). Only for screen
+       readers: on the screen the title of each bar says it (Ralf, 2026-10-17: "im Text braucht es die Infos nicht") #}
+    {% set failed = s.bars|selectattr("bad")|list %}
+    {% if failed %}<p class="visually-hidden">{{ de_en("Viertelstunden mit Fehlern:", "Quarter hours with failures:") }} {% for b in failed %}{{ b.at }}–{{ b.to }} ({{ de_en("{bad} von {n} Min.", "{bad} of {n} min", bad=b.bad, n=b.n) }}){% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    <p class="small status-facts">
+      {% if s.share is not none %}{{ de_en("Erreichbar: {p} %", "Available: {p}%", p=s.share|pct) }}{% endif %}
+      {% set kind = base_key(s.key) %}{% set first = (s.last.detail.split() or [""])[0] if s.last and s.last.detail else "" %}
+      {% if s.median is not none %} · {% if kind == "cert" %}{{ de_en("Antwort", "Answer") }}{% else %}{{ de_en("Antwortzeit (Median)", "Response time (median)") }}{% endif %}: {{ s.median }} ms{% endif %}
+      {% if s.last and s.last.detail and not s.whisper %} · {% if kind == "cert" and first.lstrip("-").isdigit() %}{{ de_en("noch {d} Tage gültig", "valid for {d} more days", d=first) }}{% if "self-signed" in s.last.detail %} ({{ de_en("selbstsigniert", "self-signed") }}){% elif "untrusted" in s.last.detail %} ({{ de_en("nicht vertrauenswürdig", "not trusted") }}){% endif %}{% if "." in s.last.detail.split()[-1] %} ({{ s.last.detail.split()[-1] }}){% endif %}{% elif kind == "wartung" %}{{ de_en("an für", "on for") }} {% for side in s.last.detail.split() %}{{ de_en("Forschende", "researchers") if side == "forschende" else de_en("Teilnahme", "participation") }}{% if not loop.last %}, {% endif %}{% endfor %}{% elif kind == "backup" and s.last.detail.isdigit() %}{{ de_en("letzte vor {h} Stunden", "last one {h} hours ago", h=s.last.detail) }}{% else %}{{ de_en("Zuletzt", "Last") }}: {{ s.last.detail }}{% endif %}{% endif %}
+      {% if s.last %} · {{ de_en("Letzte Prüfung: {at}", "Last check: {at}", at=s.last.at) }}{% endif %}
+    </p>
+  </section>
+  {% endfor %}
+</main>
+<footer class="site-footer">
+  <span class="footer-owner">{% from "_wordmark.html" import wordmark %}<a class="footer-brand" href="{{ home }}/">{{ wordmark(True) }}</a> <a href="https://www.philipp-brauner.de" target="_blank" rel="noopener">Dr. Philipp Brauner</a> · Dr. Ralf Philipsen<span class="footer-affiliation">, Communication Science, RWTH Aachen University, Germany</span></span>
+  <span class="footer-legal"><a href="{{ home }}/privacy">{{ de_en("Impressum & Datenschutz", "Legal notice & privacy") }}</a></span>
+</footer>
+</body>
+</html>

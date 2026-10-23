@@ -1,0 +1,8 @@
+{# Caps of the survey or of a live run that were reached (limits.note_cap, S5 of the audit 2026-10-06): nobody was
+   turned away; the researchers decide what to do. Needs: cap_notes (limits.cap_notes). #}
+{% from "_icons.html" import icon %}
+{% if cap_notes %}
+<div class="flash flash-warning" id="cap-notes">{{ icon("alert", 16) }} <span><strong>{{ de_en("Auffällig viele Anfragen.", "Strikingly many requests.") }}</strong>
+  {% for n in cap_notes[:5] %}{{ n.at|localdt }}: {{ n.text }} {% endfor %}
+  {{ de_en("Abgewiesen wurde deshalb niemand. Stammen sie nicht aus Ihrem Aufruf, kann ein Skript dahinterstehen: {what}. Ein einzelner Absender ist ohnehin begrenzt.", "Nobody was turned away because of this. If they do not come from your invitation, a script may be behind them: {what}. A single sender is limited anyway.", what=de_en("Durchgang als Probe kennzeichnen oder löschen", "mark the run as a trial or delete it") if survey.live is not none else de_en("die Teilnahmen in der Qualitätssicherung prüfen und die Befragung bei Bedarf pausieren", "check the participations in quality assurance and pause the survey if needed")) }}</span></div>
+{% endif %}

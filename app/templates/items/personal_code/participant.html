@@ -1,0 +1,26 @@
+{# Personal code (items/personal_code.py): one short field per part with its question as the label, and a tick
+   "weiß ich nicht" beside it (the code then holds ?). participant.js ([data-code]) writes letters in upper case, empties
+   and locks a field when its tick is set, and takes the tick back when something is typed. After a failed "Next" the
+   parts still empty are marked. #}
+{% from "items/_field_aria.html" import field_aria %}
+{% set raw = answers.get(item.id) %}
+{% set given = raw if raw is mapping else {} %}
+{% set failed = errors.get(item.id) or (nudges is defined and (nudges or {}).get(item.id)) %}
+<fieldset class="p-fieldset p-code" data-code {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %}>
+  {% with tag="legend" %}{% include "items/_question.html" %}{% endwith %}
+  {% for f in kind.fields(item, lang) %}
+  {% set v = given.get(f.key) %}
+  {% set dk = v == "dk" %}
+  <div class="p-code-part{{ ' p-missing' if failed and not v }}">
+    <label class="p-code-name" for="c{{ item.id }}_{{ f.key }}">{{ f.label }}</label>
+    <div class="p-code-row">
+      <input type="text" id="c{{ item.id }}_{{ f.key }}" name="i{{ item.id }}_{{ f.key }}" class="p-code-input w{{ f.width }}"
+             maxlength="{{ f.width }}" size="{{ f.width + 1 }}" autocomplete="off" autocapitalize="characters" spellcheck="false"
+             {% if f.kind != "letter" %}inputmode="numeric" pattern="[0-9]*"{% endif %} data-code-kind="{{ f.kind }}"
+             {% if item.required %}aria-required="true"{% endif %}{{ field_aria(item, item_msg if item_msg is defined else none, errors) }}
+             value="{{ '' if dk or v is none else v }}">
+      <label class="p-option p-check p-dk p-code-dk"><input type="checkbox" name="i{{ item.id }}_{{ f.key }}_dk" value="1" data-code-dk{% if dk %} checked{% endif %}> {{ ui("weiß nicht", "don't know") }}<span class="p-sr-only"> ({{ f.label }})</span></label>
+    </div>
+  </div>
+  {% endfor %}
+</fieldset>

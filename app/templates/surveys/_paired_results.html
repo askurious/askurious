@@ -1,0 +1,97 @@
+{# Paired comparison (items/paired.py results(), app/paired_analysis.py): the values of the Bradley-Terry model on top,
+   then folded the table option x option, the counts, the consistency and the model in detail. Needs: e, num, fn. #}
+{% from "_macros.html" import one, signed, pct %}
+{% from "_learn.html" import term %}
+{% set pc = e.paired %}
+{% if pc.persons %}
+{% set x = pc.model %}
+<p class="muted small">{{ de_en("{p} Personen, {k} beantwortete Paare.", "{p} people, {k} answered pairs.", p=pc.persons, k=pc.pairs) }}</p>
+{% if x and x.disconnected %}
+{% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
+{% elif x %}{% set c = x.chart %}
+<h3 class="res-group-head cm-main-head">{{ de_en("Werte der Optionen", "Values of the options") }} <span class="hint">{{ de_en("Bradley-Terry-Modell", "Bradley-Terry model") }}</span>{{ fn("paired") }}</h3>
+{% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
+<p class="res-group-head">{{ de_en("Werte", "Values") }} <span class="hint">{{ de_en("Summe 100; Linie: 95-%-Intervall", "sum 100; line: 95% interval") }}</span></p>
+<div class="pw-scroll"><svg class="pw-chart md-chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="{{ de_en('Werte des Paarvergleichs', 'Values of the paired comparison') }}">
+  {% for t in c.ticks %}<line class="pw-grid{% if t[1] == 0 %} pw-zero{% endif %}" x1="{{ t[0] }}" x2="{{ t[0] }}" y1="{{ c.top_y - 4 }}" y2="{{ c.plot_bottom }}"/>
+  <text class="pw-tick" x="{{ t[0] }}" y="{{ c.tick_y }}" text-anchor="middle">{{ tick_labels(c.ticks|map(attribute=1)|list)[loop.index0] }}</text>{% endfor %}
+  {% for r in c.rows %}
+  <g class="pw-row">
+    <title>{{ r.n }}. {{ r.label }}: {{ one(r.score) }}</title>
+    <text class="pw-label" x="{{ c.label_w - 8 }}" y="{{ r.mid }}" text-anchor="end" dominant-baseline="central">{{ r.n }}. {{ r.label|truncate(34, true, "…") }}</text>
+    <rect class="pw-pos" x="{{ r.x }}" y="{{ r.y }}" width="{{ r.w }}" height="{{ r.h }}" rx="2"/>
+    {% if r.lo is not none %}<line class="pw-whisker" x1="{{ r.lo }}" x2="{{ r.hi }}" y1="{{ r.mid }}" y2="{{ r.mid }}"/>
+    <line class="pw-whisker" x1="{{ r.lo }}" x2="{{ r.lo }}" y1="{{ r.mid - 4 }}" y2="{{ r.mid + 4 }}"/>
+    <line class="pw-whisker" x1="{{ r.hi }}" x2="{{ r.hi }}" y1="{{ r.mid - 4 }}" y2="{{ r.mid + 4 }}"/>{% endif %}
+    <text class="pw-value" x="{{ r.text_x }}" y="{{ r.mid }}" dominant-baseline="central">{{ one(r.score) }}</text>
+  </g>
+  {% endfor %}
+</svg></div>
+<div class="res-scroll"><table class="res-table md-mnl">
+  <thead><tr><th>{{ de_en("Option", "Option") }}</th><th title="{{ de_en('100 · exp(u) / Summe exp(u)', '100 · exp(u) / sum of exp(u)') }}">{{ term("bt_worth", de_en("Wert", "Value")) }}</th><th title="{{ de_en('95-%-Intervall des Werts (Simulation aus der Schätzung)', '95% interval of the value (simulation from the estimate)') }}">{{ de_en("95-%-Intervall", "95% interval") }}</th>
+    <th title="{{ de_en('Nutzen (Logit), nullzentriert: Mittel aller Optionen = 0', 'Utility (logit), zero-centred: mean of all options = 0') }}">{{ de_en("Nutzen", "Utility") }}</th><th title="{{ de_en('Standardfehler des Nutzens', 'Standard error of the utility') }}">SE</th></tr></thead>
+  <tbody>
+  {% for r in x.rows %}
+    <tr><td><span class="muted">{{ r.n }}</span> {{ r.label|truncate(60) }}{% if r.separated %} <span class="hint" title="{{ de_en('hat jeden Vergleich gewonnen oder verloren; Wert durch Regularisierung begrenzt', 'won or lost every comparison; value bounded by regularisation') }}">{{ de_en("begrenzt", "bounded") }}</span>{% endif %}</td>
+      <td>{% if r.side %}{{ de_en("über allen", "above all") if r.side == "top" else de_en("unter allen", "below all") }}{% else %}{{ one(r.score) }}{% endif %}</td><td>{% if r.lo is not none %}[{{ one(r.lo) }}; {{ one(r.hi) }}]{% else %}–{% endif %}</td>
+      <td>{% if r.side %}{{ "> " if r.side == "top" else "< " }}{% endif %}{{ signed(r.u) }}</td><td>{{ num(r.u_se) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{% if pc.answer == "strength" %}{{ de_en("Wert: Je höher, desto häufiger und deutlicher wurde die Option vorgezogen; Summe 100. Die Stärke-Skala geht über das Modell benachbarter Kategorien ein.", "Value: the higher, the more often and the more strongly the option was preferred; sum 100. The strength scale enters through the adjacent-categories model.") }}{{ fn("paired_ties") }}{% else %}{{ de_en("Wert: Option A wird Option B mit der Wahrscheinlichkeit Wert A / (Wert A + Wert B) vorgezogen{tie}; Summe 100. Ein doppelter Wert heißt also: im direkten Vergleich 2 : 1.", "Value: option A is preferred to option B with probability value A / (value A + value B){tie}; sum 100. So a value twice as high means 2 : 1 in a direct comparison.", tie=de_en(", „gleich“ beiseitegelassen", ", “same” left aside") if pc.answer == "tie" else "") }}{% if pc.answer == "tie" %}{{ fn("paired_ties") }}{% endif %}{% endif %}</p>
+{% if x.position %}{% set po = x.position %}
+<p class="muted small">{{ de_en("Positionseffekt", "Position effect") }}{{ fn("paired_order") }}: {% if po.clear %}<strong>{{ de_en("Die zuerst (links) gezeigte Option wurde häufiger gewählt", "The option shown first (left) was chosen more often") if po.first else de_en("Die als zweite (rechts) gezeigte Option wurde häufiger gewählt", "The option shown second (right) was chosen more often") }}</strong> (δ = {{ signed(po.delta) }}, SE {{ num(po.se) }}). {{ de_en("Der Versuchsplan gleicht die Seiten aus; die Werte oben sind um den Effekt bereinigt.", "The experimental design balances the sides; the values above are adjusted for the effect.") }}{% else %}{{ de_en("kein deutlicher Vorteil einer Seite", "no clear advantage of one side") }} (δ = {{ signed(po.delta) }}, SE {{ num(po.se) }}).{% endif %}{% if pc.answer == "tie" %} {{ de_en("„Gleich“ in {p} der Vergleiche.", "“Same” in {p} of the comparisons.", p=x.tie_share|percent) }}{% endif %}</p>
+{% endif %}
+{% endif %}
+{% if pc.hb %}{% with hb_section="main" %}{% include "surveys/_paired_hb.html" %}{% endwith %}{% endif %}
+{% if pc.matrix %}{% set mx = pc.matrix %}
+<details class="res-dist res-choice-fold"><summary>{{ de_en("Wer gewinnt gegen wen", "Who wins against whom") }}</summary>
+<div class="res-scroll"><table class="res-table res-pairs">
+  <thead><tr><th></th>{% for n in mx.order %}<th title="{{ mx.labels[loop.index0] }}">{{ n }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for line in mx.cells %}{% set i = loop.index0 %}
+    <tr><th>{{ mx.order[i] }}. {{ mx.labels[i]|truncate(40) }}</th>
+      {% for v in line %}<td{% if v is not none %} style="background: color-mix(in srgb, var(--accent) {{ (v * 60)|round|int }}%, transparent)" title="{{ mx.labels[i] }} – {{ mx.labels[loop.index0] }}: {{ v|percent }}"{% endif %}>{% if v is not none %}{{ (v * 100)|round|int }}{% else %}·{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Prozent der Vergleiche, die die Option der Zeile gegen die der Spalte gewann („gleich“ zählt halb); sortiert nach dem Wert.", "Percent of the comparisons the row option won against the column option (“same” counts half); sorted by value.") }}</p>
+</details>
+{% endif %}
+<details class="res-dist res-choice-fold"><summary>{{ de_en("Zählwerte je Option", "Counts per option") }}</summary>
+<div class="res-scroll"><table class="res-table md-counts">
+  <thead><tr><th>{{ de_en("Option", "Option") }}</th><th>{{ de_en("verglichen", "compared") }}</th><th>{{ de_en("gewonnen", "won") }}</th><th>{{ de_en("verloren", "lost") }}</th>{% if pc.answer != "choice" %}<th>{{ de_en("gleich", "same") }}</th>{% endif %}<th title="{{ de_en('(gewonnen + gleich / 2) / verglichen', '(won + same / 2) / compared') }}">{{ de_en("Gewinnanteil", "Win share") }}</th><th title="{{ de_en('(gewonnen − verloren) / verglichen, von −1 bis +1', '(won − lost) / compared, from −1 to +1') }}">{{ de_en("Saldo", "Balance") }}</th>{% if pc.answer == "strength" %}<th title="{{ de_en('mittlere Stärke, mit der die Option vorgezogen (+) oder nachgestellt (−) wurde (Scheffé, 1952)', 'mean strength with which the option was preferred (+) or placed behind (−) (Scheffé, 1952)') }}">{{ de_en("mittlere Stärke", "mean strength") }}</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for r in pc.rows|selectattr("comparisons")|sort(attribute="share", reverse=true) %}
+    <tr><td><span class="muted">{{ r.n }}</span> {{ r.label|truncate(60) }}</td><td>{{ r.comparisons }}</td><td>{{ r.wins }}</td><td>{{ r.losses }}</td>{% if pc.answer != "choice" %}<td>{{ r.ties }}</td>{% endif %}
+      <td>{{ pct(r.share) }}</td><td>{{ signed(r.score) }}</td>{% if pc.answer == "strength" %}<td>{{ signed(r.strength) }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</details>
+{% if pc.consistency %}{% set cs = pc.consistency %}
+<details class="res-dist res-choice-fold"><summary>{{ de_en("Konsistenz je Person", "Consistency per person") }}</summary>
+<p class="muted small">{{ de_en("Zirkuläre Triaden: A vor B, B vor C und C vor A. Kendalls Konsistenzkoeffizient ζ = 1 − Triaden / größtmögliche Zahl, 1 = widerspruchsfrei", "Circular triads: A over B, B over C and C over A. Kendall's coefficient of consistence ζ = 1 − triads / largest possible number, 1 = free of contradictions") }}{{ fn("paired_consistency") }}.</p>
+<ul class="plain">
+  <li>{% if cs.zeta_median is not none %}{{ de_en("Median von ζ: <strong>{m}</strong> (Mittel {a}) über {n} Personen, die jedes Paar entschieden haben; ganz widerspruchsfrei: {p}", "Median of ζ: <strong>{m}</strong> (mean {a}) over {n} people who decided every pair; entirely free of contradictions: {p}", html=True, m=num(cs.zeta_median), a=num(cs.zeta_mean), n=cs.with_zeta, p=cs.perfect) }}{% else %}{{ de_en("ζ fehlt: Niemand hat jedes Paar entschieden.", "No ζ: nobody decided every pair.") }}{% endif %}</li>
+  <li>{{ de_en("Nicht besser als Raten (mindestens ein Viertel der Dreiergruppen zirkulär): <strong>{m}</strong> von {n} Personen", "Not better than guessing (at least a quarter of the triples circular): <strong>{m}</strong> of {n} people", html=True, m=cs.marked, n=cs.persons) }}</li>
+  {% if cs.u is not none %}<li>{{ de_en("Übereinstimmung zwischen den Personen, Kendalls u: <strong>{u}</strong> (von −1 bis 1; 1 = alle urteilen gleich; {n} Personen)", "Agreement between the people, Kendall's u: <strong>{u}</strong> (from −1 to 1; 1 = everybody judges alike; {n} people)", html=True, u=signed(cs.u), n=cs.u_n) }}</li>{% endif %}
+</ul>
+{% if cs.with_zeta %}{% set top = cs.hist|max %}
+<div class="res-scroll"><table class="res-table">
+  <thead><tr><th>{{ term("zeta") }}</th>{% for h in cs.hist %}<th>{{ num(loop.index0 / 10, 1) }}–{{ num(loop.index / 10, 1) }}</th>{% endfor %}</tr></thead>
+  <tbody><tr><th>{{ de_en("Personen", "People") }}</th>{% for h in cs.hist %}<td{% if h and top %} style="background: color-mix(in srgb, var(--accent) {{ (h / top * 50)|round|int }}%, transparent)"{% endif %}>{{ h }}</td>{% endfor %}</tr></tbody>
+</table></div>
+{% endif %}
+<p class="muted small">{{ de_en("Je Person im Export: {t} und {z}. Wer nicht besser als Raten urteilt, lässt sich in der Qualitätssicherung ausschließen.", "Per person in the export: {t} and {z}. Those who judge no better than guessing can be excluded in the quality assurance.", t=e.item.code ~ "_triads", z=e.item.code ~ "_zeta") }}</p>
+</details>
+{% endif %}
+{% if x and not x.disconnected %}
+<details class="res-dist res-choice-fold"><summary>{{ de_en("Modell im Detail", "The model in detail") }}</summary>
+<p class="muted small">{{ de_en("{o} Urteile von {p} Personen; Log-Likelihood {ll} (Nullmodell {null}); McFaddens ρ² = {r}; Standardfehler {se}.", "{o} judgements of {p} people; log-likelihood {ll} (null model {null}); McFadden's ρ² = {r}; standard errors {se}.", o=x.observations, p=x.persons, ll=num(x.loglik, 1), null=num(x.null_loglik, 1), r=num(x.rho2), se=de_en("clusterrobust je Person", "cluster-robust per person") if x.robust else de_en("aus der Hesse-Matrix", "from the Hessian")) }}{% if x.t_df %} {{ de_en("Intervalle mit t({df}).", "Intervals with t({df}).", df=x.t_df) }}{% endif %}{{ fn("mnl") }}</p>
+{% if pc.hb %}{% with hb_section="quality" %}{% include "surveys/_paired_hb.html" %}{% endwith %}{% endif %}
+</details>
+{% endif %}
+{% else %}
+<p class="muted small">{{ de_en("Noch keine beantworteten Paare.", "No answered pairs yet.") }}</p>
+{% endif %}

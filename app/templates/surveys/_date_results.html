@@ -1,0 +1,27 @@
+{# Dates and times of one item (items/date_time.py results()): earliest, median, latest and the distribution. Needs: e (entry). #}
+{% set d = e.dates %}
+{# the period of the bars (items/date_time.py results) comes in German; its English word for the page #}
+{% set step = de_en(d.step, {"Stunde": "hour", "Tag": "day", "Monat": "month", "Jahr": "year", "Jahrzehnt": "decade"}.get(d.step, d.step)) %}
+{% if d.n %}
+<p class="muted small">{{ de_en_n(d.n, ("{n} Antwort", "{n} Antworten"), ("{n} answer", "{n} answers")) }}{% if e.passes %} {{ de_en_n(d.persons, ("aus {n} Teilnahme", "aus {n} Teilnahmen"), ("from {n} participation", "from {n} participations")) }}{% endif %} {% if d.min %}· {{ de_en("früheste", "earliest") }} <strong>{{ d.min }}</strong> {% endif %}· <strong title="{{ de_en('mittlere Antwort der sortierten Antworten; bei gerader Anzahl der Zeitpunkt in der Mitte zwischen den beiden mittleren', 'middle answer of the sorted answers; with an even number the point in time halfway between the two middle ones') }}">Md = {{ d.median }}</strong>{% if d.max %} · {{ de_en("späteste", "latest") }} <strong>{{ d.max }}</strong>{% endif %}{% if d.over_midnight %} <span class="hint">{{ de_en("Uhrzeiten über Mitternacht: früheste, späteste und Md auf der Uhr gelesen (zirkulär)", "times across midnight: earliest, latest and Md read on the clock (circular)") }}{{ fn("clock") }}</span>{% endif %}{% if d.wide %} <span class="hint">{{ de_en("die Antworten verteilen sich über mehr als einen halben Tag: Md nur eingeschränkt aussagekräftig", "the answers spread over more than half a day: Md says only so much") }}</span>{% endif %}{% if d.dont_know %} · {{ de_en("als fehlend gewertet: weiß nicht ({n})", "counted as missing: don't know ({n})", n=d.dont_know) }}{% endif %}</p>
+<div class="res-freq">
+  {# time runs left to right, every period between the first and the last answer, empty ones too (V59) #}
+  {% set rows = d.rows %}{% set top = (rows|map(attribute="count")|list + [1])|max %}
+  {% set W, L, B = 560, 8, 96 %}{% set bw = (W - 2 * L) / (rows|length or 1) %}{% set every_k = ((rows|length) / 8)|round(0, "ceil")|int or 1 %}
+  <svg class="res-dates" viewBox="0 0 {{ W }} {{ B + 34 }}" role="img" aria-label="{{ de_en('Verteilung je {step}: {k} Zeiträume, höchstens {top} Antworten', 'Distribution per {step}: {k} periods, at most {top} answers', step=step, k=rows|length, top=top) }}">
+    {% for row in rows %}{% set x = L + loop.index0 * bw %}{% set h = row.count / top * (B - 16) %}
+    {% if row.count %}<rect class="res-hist-bar" x="{{ (x + 1)|round(1) }}" y="{{ (B - h)|round(1) }}" width="{{ [bw - 2, 1]|max|round(1) }}" height="{{ h|round(1) }}"><title>{{ row.label }}: {{ row.count }} ({{ row.share|percent }})</title></rect>{% endif %}
+    {% if rows|length <= 12 %}<text class="res-hist-tick" x="{{ (x + bw / 2)|round(1) }}" y="{{ (B - h - 4)|round(1) }}" text-anchor="middle">{{ row.count }}</text>{% endif %}
+    {% if loop.index0 % every_k == 0 %}<text class="res-hist-tick" x="{{ (x + bw / 2)|round(1) }}" y="{{ B + 14 }}" text-anchor="middle">{{ row.label }}</text>{% endif %}
+    {% endfor %}
+    <line class="res-hist-axis" x1="{{ L }}" x2="{{ W - L }}" y1="{{ B }}" y2="{{ B }}"/>
+  </svg>
+  <details class="res-dist"><summary>{{ de_en("Als Tabelle", "As a table") }}</summary>
+  <div class="res-scroll"><table class="res-table"><thead><tr><th>{{ de_en(step, step|capitalize) }}</th><th>{{ de_en("Anzahl", "Count") }}</th><th>{{ de_en("Anteil", "Share") }}</th></tr></thead>
+    <tbody>{% for row in rows %}<tr><td>{{ row.label }}</td><td>{{ row.count }}</td><td>{{ row.share|percent }}</td></tr>{% endfor %}</tbody></table></div>
+  </details>
+  <p class="muted small">{{ de_en("Verteilung je {step}", "Distribution per {step}", step=step) }}{% if d.filled %}{{ de_en("; alle Zeiträume von der frühesten bis zur spätesten Antwort, auch leere", "; all periods from the earliest to the latest answer, empty ones too") }}{% else %}{{ de_en("; nur Zeiträume mit Antworten", "; only periods with answers") }}{% endif %}.{% if e.few_hidden %} {% if d.step == "Tag" %}{{ de_en("Die früheste und die späteste Antwort und Tage mit weniger als fünf Antworten zeigt die Rolle „Ansehen“ nicht.", "The role “View” does not see the earliest and the latest answer and days with fewer than five answers.") }}{% else %}{{ de_en("Die früheste und die späteste Antwort zeigt die Rolle „Ansehen“ nicht.", "The role “View” does not see the earliest and the latest answer.") }}{% endif %}{% endif %}</p>
+</div>
+{% else %}
+<p class="muted small"><code>{{ e.item.code }}</code>: {{ de_en("keine Antworten", "no answers") }}</p>
+{% endif %}

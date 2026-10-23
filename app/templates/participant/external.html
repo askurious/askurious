@@ -1,0 +1,37 @@
+{% extends "participant/base.html" %}
+{# An external section of the flow (app/external.py): the page before the person leaves for the web app. Sending
+   the form notes the time of leaving and answers with the redirect; with `auto_after` participant.js sends it by
+   itself after that many seconds (without scripts the button stays). `been_out`: the person left before and
+   opened the survey again without the return link.
+   The preview renders this page too (`preview`): the button is shown but leads nowhere; below it the address and a
+   return with values typed there, nothing is called (S9). #}
+{% block title %}{{ ui("Weiterleitung", "Forwarding") }} – {{ survey.title_in(lang) }}{% endblock %}
+{% block main_attrs %}{% if preview is defined and preview %}data-page="end" data-page-count="{{ page_count }}"{% endif %}{% endblock %}
+{% block content %}
+<div class="p-end p-external">{% if text %}<h1 class="p-sr-only">{{ ui("Weiterleitung", "Forwarding") }}</h1>{{ text|rich }}{% else %}<h1>{{ ui("Sie werden weitergeleitet …", "You are being forwarded …") }}</h1><p>{{ ui("Der nächste Teil dieser Befragung findet auf einer anderen Website statt. Danach kommen Sie von dort automatisch hierher zurück.", "The next part of this survey takes place on another website. Afterwards you will be brought back here automatically.") }}</p>{% endif %}</div>
+{% if preview is defined and preview %}
+<div class="p-forward"><button class="p-button" type="button" disabled>{{ ui("Weiter", "Next") }}</button></div>
+<form method="post" class="p-preview-summary">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="pos" value="{{ page_token }}">
+  <input type="hidden" name="ext_back" value="1">
+  {# the test tools in the language of the page, like the preview bar #}
+  <p><strong>{{ ui("Externer Abschnitt „{name}“", "External section “{name}”", name=node.name or node.code) }}</strong> <span class="p-preview-note">({{ ui("weiter nach {n} s", "on after {n} s", n=auto_seconds) if node.mode == "auto" else ui("weiter per Knopf", "on with a button") }}; {{ ui("in der Vorschau nicht aufgerufen", "not opened in the preview") }})</span></p>
+  <p>{{ ui("Adresse", "Address") }}: <code>{{ forward }}</code></p>
+  <p class="p-preview-note"><code>{{ "{{return}}" }}</code> {{ ui("ist im Feld der signierte Rückkehrlink dieser Teilnahme. Die Web-App leitet am Ende dorthin", "is the signed return link of this participation in the field. At the end the web app forwards there") }}{% if values %} {{ ui("und hängt die Rückgabewerte an, z. B.", "and appends the return values, e.g.") }} <code>…&amp;{{ values[0].name }}={{ "Text" if values[0].kind == "text" else "17" }}</code>{% endif %}.</p>
+  {% for v in values %}
+  <label>{{ node.code }}_{{ v.name }} <span class="p-preview-note">({{ {"number": ui("Zahl", "number"), "text": ui("Text", "text")}.get(v.kind, kinds[v.kind]) }})</span>
+    <input name="xv_{{ v.name }}" {% if v.kind != "text" %}inputmode="decimal"{% endif %} maxlength="100"></label>
+  {% endfor %}
+  <button class="p-button">{{ ui("Rückkehr simulieren", "Simulate the return") }}</button>
+</form>
+{% else %}
+<form method="post" class="p-forward" {% if auto_after %}data-auto-leave="{{ auto_after }}"{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="pos" value="{{ page_token }}">
+  {% if been_out %}<p class="p-forward-note">{{ ui("Sie waren schon dort? Am Ende des externen Teils führt ein Link hierher zurück. Mit dem Knopf öffnen Sie den externen Teil noch einmal.", "Already been there? At the end of the external part a link leads back here. The button opens the external part once more.") }}</p>
+  {% elif auto_after %}<p class="p-forward-note">{{ ui("Sie werden in {n} Sekunden weitergeleitet.", "You will be forwarded in {n} seconds.", n=auto_after) }}</p>{% endif %}
+  <button class="p-button">{{ ui("Weiter", "Next") }}</button>
+</form>
+{% endif %}
+{% endblock %}

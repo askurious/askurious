@@ -1,0 +1,55 @@
+{# MaxDiff (app/items/maxdiff.py): one set per page (best | statement | worst), the explanation page and the anchoring question. #}
+{% set c = item.config %}
+{% set meta = page_meta if (page_meta is defined and page_meta) else {} %}
+{% set task = meta.task if meta.task is defined else 0 %}
+{# a holdout set (app/holdouts.py): fixed statements, the same for everyone, stored under "h<n>" #}
+{% set holdout = meta.holdout if meta.holdout is defined else none %}
+{% set akey = ("h" ~ holdout) if holdout is not none else ("t" ~ task) %}
+{% set state = (cj_state or {}).get(item.id, {}) if cj_state is defined else {} %}
+{% set version = meta.v if meta.v is defined else (state.version if state and state.version is defined else 0) %}
+{% set t = item.t(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set de = lang in ("de", "de-du") %}
+{% set labels = kind.labels(item, lang) %}
+{% set answer = answers.get(item.id) or {} %}
+{% if not kind.design_current(item) %}
+<div class="p-image-missing">{{ ui("MaxDiff: Versuchsplan noch nicht erzeugt", "MaxDiff: experimental design not generated yet") }}</div>
+{% elif meta.explain %}
+<h2 class="p-question" id="q{{ item.id }}">{{ ui("Bevor es losgeht", "Before you start") }}</h2>
+{% set explain_default = (ui("Sie sehen gleich %d Sets mit je %d Aussagen. Wählen Sie in jedem Set die Aussage, die Ihnen **am wichtigsten** ist, und die, die Ihnen **am wenigsten wichtig** ist. Manche Aussagen kommen mehrmals vor, jeweils mit anderen zusammen.", "You will see %d sets of %d statements each. In each set, choose the statement that is **most important** to you and the one that is **least important**. Some statements appear more than once, each time together with others."))|format(kind.shown_tasks(item), c.set_size) %}
+<div class="p-info">{{ (t.get("explain_intro") or explain_default)|rich(variables) }}</div>
+{% elif meta.anchor %}
+{# stored: a list = answered ([] = "none of these"), none = not answered yet or left open #}
+{% set stored = answer.get("anchor") %}
+{% set picked = stored or [] %}
+<fieldset class="p-fieldset" aria-labelledby="q{{ item.id }}">
+  <h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "anchor_question") }}>{{ (t.get("anchor_question") or d.anchor_question)|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+  <p class="p-hint">{{ ui("Mehrere Antworten möglich.", "Choose any number.") }}</p>
+  <div class="p-options" data-md-anchor>
+    {# the person's own random order (meta.order); the value stays the statement's index #}
+    {% set order = meta.order if meta.order is defined and meta.order|length == labels|length else range(labels|length) %}
+    {% for i in order %}
+    <label class="p-option p-check"><input type="checkbox" name="i{{ item.id }}_a" value="{{ i }}" {% if i in picked %}checked{% endif %}><span{{ text_attrs(item, "statements") }}>{{ labels[i]|fill(variables) }}</span></label>
+    {% endfor %}
+    <label class="p-option p-check"><input type="checkbox" name="i{{ item.id }}_a" value="none" data-exclusive {% if stored is not none and not picked %}checked{% endif %}><span{{ text_attrs(item, "anchor_none") }}>{{ t.get("anchor_none") or d.anchor_none }}</span></label>
+  </div>
+</fieldset>
+{% else %}
+{% set choice = answer.get(akey) or {} %}
+{% set best_label = t.get("best_label") or d.best_label %}
+{% set worst_label = t.get("worst_label") or d.worst_label %}
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ t.get("question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<p class="p-hint">{{ (ui("Set %d von %d", "Set %d of %d"))|format(meta.n if meta.n is defined else task + 1, kind.shown_tasks(item) if meta.n is defined else kind.n_sets(item)) }}</p>
+<table class="md" data-md aria-labelledby="q{{ item.id }}">
+  <thead><tr><th class="md-pick" scope="col">{{ best_label }}</th><th class="md-text" scope="col"><span class="p-sr-only">{{ ui("Aussage", "Statement") }}</span></th><th class="md-pick" scope="col">{{ worst_label }}</th></tr></thead>
+  <tbody>
+    {% for i in (kind.holdout_set(item, holdout) if holdout is not none else kind.task_set(item, version, task)) %}
+    <tr data-md-row="{{ i }}">
+      <td class="md-pick md-best"><label><input type="radio" name="i{{ item.id }}_{{ akey }}_b" value="{{ i }}" {% if choice.b == i %}checked{% endif %} aria-label="{{ best_label }}: {{ labels[i] }}"></label></td>
+      <td class="md-text"{{ text_attrs(item, "statements") }}>{{ labels[i]|fill(variables) }}</td>
+      <td class="md-pick md-worst"><label><input type="radio" name="i{{ item.id }}_{{ akey }}_w" value="{{ i }}" {% if choice.w == i %}checked{% endif %} aria-label="{{ worst_label }}: {{ labels[i] }}"></label></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

@@ -1,0 +1,7 @@
+{# The HB block of one question alone, for static/hb.js (surveys._hb_part): num and fn as on the results page #}
+{% from "_macros.html" import num %}
+{% macro fn() %}{% set cited = [] %}{% for key in varargs if notes is defined and notes.get(key) %}{% set _ = cited.extend(notes[key]) %}{% endfor %}{% if cited %} {{ apa.cite(cited) }}{% endif %}{% endmacro %}
+{# both parts (UI/UX audit 2026-10-07, S7): the result on top and the fit in "Modellgüte"; hb.js puts both in place #}
+{% for part in ("main", "quality") %}
+{% if kind == "cva" %}{% with hb_section=part %}{% include "surveys/_cva_hb.html" %}{% endwith %}{% elif kind == "maxdiff" %}{% with hb_section=part %}{% include "surveys/_maxdiff_hb.html" %}{% endwith %}{% elif kind == "paired" %}{% with hb_section=part %}{% include "surveys/_paired_hb.html" %}{% endwith %}{% else %}{% with h=e[kind].hb, hb_section=part %}{% include "surveys/_conjoint_hb.html" %}{% endwith %}{% endif %}
+{% endfor %}

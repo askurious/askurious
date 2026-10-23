@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{# Präsentieren of a live vote (app/live/): joining, opening the screen from the beginning, the runs. #}
+{% block title %}{{ de_en("Präsentieren", "Present") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{# a run marked as a trial or not (T-23): its participations are test ones #}
+{% macro run_test(r) %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="inline">
+  {{ csrf() }}<input type="hidden" name="run" value="{{ r.id }}">{% if not r.test %}<input type="hidden" name="on" value="1">{% endif %}
+  <button class="button button-small button-secondary" name="action" value="run_test">{{ de_en("Probe aufheben", "Unmark trial") if r.test else de_en("Als Probe kennzeichnen", "Mark as trial") }}</button></form>{% endmacro %}
+<div class="tabpage-head">{% set active_tab = "present" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid">
+{% include "surveys/_cap_notes.html" %}
+<section class="panel">
+  <h2>{{ de_en("Teilnehmen", "Join") }}</h2>
+  <div class="live-join-box">
+    <div class="live-qr">{{ qr }}</div>
+    <div class="stack">
+      <p class="flush">{{ de_en("QR-Code scannen oder die Adresse eingeben:", "Scan the QR code or enter the address:") }}</p>
+      <p class="live-big-url"><input type="hidden" id="live-join-url" value="{{ join }}"><a href="{{ join }}" target="_blank" rel="noopener">{{ join }}</a>
+        <button type="button" class="button button-small button-secondary" data-copy="#live-join-url" title="{{ de_en('Link in die Zwischenablage kopieren', 'Copy the link to the clipboard') }}">{{ de_en("Link kopieren", "Copy link") }}</button></p>
+      <p class="muted small flush">{{ de_en("Code:", "Code:") }} <strong class="live-code">{{ survey.code }}</strong>
+        {%- set code_page = (participant_base() ~ url_for('live_public.enter_code')).split("://")[1].rstrip("/") %}
+        {{ de_en("(ohne QR-Code-App: {page} öffnen und den Code eingeben)", "(without a QR reader: open {page} and enter the code)", page=code_page) }}</p>
+      {# for a talk held with PowerPoint or PDF: the code on a slide of one's own, small in a corner (variant A of
+         konzept-live-feedback-praesentation-2026-10-12.md) #}
+      <p class="muted small flush">{{ de_en("QR-Code für eigene Folien:", "QR code for your own slides:") }}
+        <a href="{{ url_for('live.qr_download', code=survey.code, kind='png') }}" download>{{ de_en("PNG mit Adresse und Code", "PNG with address and code") }}</a> ·
+        <a href="{{ url_for('live.qr_download', code=survey.code, kind='svg') }}" download>SVG</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Leinwand", "Screen") }}</h2>
+  {# the screen also without questions (QR code and address for the room, Q&A, reactions); the hint stays #}
+  {% if questions %}
+  {# first sentence in view, the rest under "Mehr dazu" (UI/UX audit 2026-10-16, 56) #}
+  <p class="small">{{ de_en("„Ansicht zum Vortragen“ beginnt bei der ersten Folie, das Ergebnis noch verdeckt, und öffnet die Ansicht für den eigenen Laptop.", "“Presenter view” starts at the first slide, the result still hidden, and opens the view for your own laptop.") }}</p>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+  <p class="small">{{ de_en("Dort: QR-Code, die Frage mit Ergebnis, die Steuerung, Ihre Notizen, kurze Texte zum Freigeben und die Fragen aus dem Publikum. Läuft die Abstimmung schon, heißt der Knopf „Von vorn beginnen“, und „Ansicht zum Vortragen öffnen“ geht dort weiter, wo sie steht. „Ansicht fürs Publikum“ öffnet die Leinwand für den Beamer, ohne neu zu beginnen (auch aus der Ansicht zum Vortragen heraus, unten links); beide zeigen dieselbe Abstimmung.", "There: the QR code, the question with its result, the controls, your notes, short texts to approve and the questions from the audience. Once the poll is running, the button is called “Start from the beginning”, and “Open presenter view” carries on where it left off. “Audience view” opens the screen for the projector without starting afresh (also from the presenter view, bottom left); both show the same poll.") }}</p>
+  </details>
+  {% if has_slides %}<p class="small">{{ de_en("Auf Präsentationsfolien schreiben Sie in der Ansicht zum Vortragen mit einem digitalen Stift (oder mit Finger und Maus); die Striche erscheinen auf der Leinwand und kommen mit „Folien mit Notizen (PDF)“ unter Daten.", "In the presenter view you write on presentation slides with a digital pen (or finger and mouse); the strokes appear on the screen and come with “Slides with notes (PDF)” under Data.") }}</p>
+  {{ why("ink_slides") }}{% endif %}
+  {% else %}
+  <p class="muted">{{ de_en("Noch keine Folie.", "No slide yet.") }} <a href="{{ url_for('live.manage', code=survey.code) }}">{{ de_en("Folien anlegen", "Create slides") }}</a></p>
+  {% endif %}
+  <div class="form-actions">
+    {# like starting a slide show (Ralf, 2026-10-09): with a second screen in Chrome/Edge one click starts, puts the
+       audience view in full screen on the projector and opens the presenter view on the laptop (live.js) #}
+    {% if editable %}<button type="button" class="button" hidden data-two-screens data-control="{{ url_for('live.control', code=survey.code) }}"
+      data-csrf="{{ csrf_token() }}" data-screen="{{ url_for('live.screen', code=survey.code) }}" data-speaker="{{ url_for('live.presenter', code=survey.code) }}"
+      data-name="live-presenter-{{ survey.code }}" title="{{ de_en('Von vorn beginnen: Ansicht fürs Publikum im Vollbild auf dem zweiten Bildschirm, Ansicht zum Vortragen auf diesem', 'Start from the beginning: audience view in full screen on the second screen, presenter view on this one') }}">{{ icon("play", 16) }} {{ de_en("Auf zweitem Bildschirm präsentieren", "Present on a second screen") }}</button>{% endif %}
+    {% if editable %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" target="live-presenter-{{ survey.code }}" class="inline">{{ csrf() }}
+      <button class="button" name="action" value="start" title="{{ de_en('Von vorn beginnen und die Ansicht zum Vortragen öffnen', 'Start from the beginning and open the presenter view') }}">{{ icon("play", 16) }} {# once started: two ways in, named by what they do (Ralf, 2026-10-16) #}{% if questions and (st.screen or st.block or st.ended) %}{{ de_en("Von vorn beginnen", "Start from the beginning") }}{% else %}{{ de_en("Ansicht zum Vortragen", "Presenter view") }}{% endif %} ↗</button></form>{% endif %}
+    {# go on where the vote stands, without starting afresh (pre-test 2026-10-16: after "Neuer Durchgang" nobody found
+       how to move on from the first slide) #}
+    {% if editable and questions and (st.screen or st.block) %}<a class="button button-secondary" href="{{ url_for('live.presenter', code=survey.code) }}" target="live-presenter-{{ survey.code }}" title="{{ de_en('Die Ansicht zum Vortragen öffnen, ohne neu zu beginnen', 'Open the presenter view without starting afresh') }}">{{ de_en("Ansicht zum Vortragen öffnen", "Open presenter view") }} ↗</a>{% endif %}
+    <a class="button button-secondary" href="{{ url_for('live.screen', code=survey.code) }}" target="live-screen-{{ survey.code }}" rel="noopener">{{ icon("chart", 16) }} {{ de_en("Ansicht fürs Publikum", "Audience view") }} ↗</a>
+  </div>
+  {% if editable %}<p class="muted small" hidden data-two-screens-hint></p>{% endif %}
+  {% if questions %}<p class="muted small">{{ de_en("Weiterschalten in der Ansicht zum Vortragen: „Weiter“, Pfeil nach rechts oder Leertaste (auch ein Presenter); beenden mit „Live-Abstimmung beenden“ dort oder hier.", "Moving on in the presenter view: “Next”, the right arrow or the space bar (a clicker too); end it with “End live poll” there or here.") }}</p>{% endif %}
+  {% if editable and questions %}
+  {% if st.ended %}<p class="small"><span class="badge">{{ de_en("Beendet", "Ended") }}</span> {{ de_en("Die Handys zeigen den Schlusstext. „Von vorn beginnen“ startet neu.", "The phones show the closing text. “Start from the beginning” starts afresh.") }}</p>
+  {% elif st.screen or st.block %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="inline" data-confirm="{{ de_en('Live-Abstimmung beenden?', 'End the live poll?') }}" data-confirm-note="{{ de_en('Die Leinwand wird leer, es werden keine Antworten mehr angenommen, und die Handys zeigen den Schlusstext. Die Antworten bleiben gespeichert.', 'The screen goes blank, no more answers are taken and the phones show the closing text. The answers stay stored.') }}" data-confirm-ok="{{ de_en('Beenden', 'End') }}">
+    {{ csrf() }}<button class="button button-secondary" name="action" value="end">{{ icon("stop", 16) }} {{ de_en("Live-Abstimmung beenden", "End live poll") }}</button></form>{% endif %}
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Durchgänge", "Runs") }}</h2>
+  <div class="live-run">
+    <span><strong>{{ st.run.name }}</strong>{% if st.run.test %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %} · {{ people }} {{ de_en("Teilnahme", "participation") if people == 1 else de_en("Teilnahmen", "participations") }}{% if runs %} <span class="muted small">· {{ de_en("früher:", "earlier:") }} {% for r in runs %}{{ r.name }}{% if r.test %} ({{ de_en("Probe", "trial") }}){% endif %} ({{ r.n }}){% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</span>
+    {% if editable %}{{ run_test(st.run) }}{% endif %}
+    {% if editable %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="inline" data-confirm="{{ de_en('Neuen Durchgang beginnen?', 'Begin a new run?') }}" data-confirm-note="{{ de_en('Leinwand und Handys beginnen bei der ersten Frage; die bisherigen Antworten bleiben gespeichert, zählen aber nicht mehr auf der Leinwand.', 'Screen and phones start at the first question; the answers so far stay stored but no longer count on the screen.') }}">
+      {{ csrf() }}<input name="name" placeholder="{{ de_en('Name, z. B. Vorlesung 14.10.', 'Name, e.g. lecture 14 Oct') }}" maxlength="100" aria-label="{{ de_en('Name des neuen Durchgangs', 'Name of the new run') }}">
+      <label class="small"><input type="checkbox" name="test" value="1"> {{ de_en("als Probe", "as a trial") }}</label>
+      <button class="button button-secondary" name="action" value="new_run">{{ de_en("Neuer Durchgang …", "New run …") }}</button></form>{% endif %}
+  </div>
+  {% if runs and editable %}
+  {# earlier runs can go, with their answers (improvement 2): e.g. last semester's, once nobody needs them (admins);
+     a run can be marked as a trial afterwards too (T-23) #}
+  <ul class="live-runs-old">
+    {% for r in runs %}<li><span>{{ r.name }}{% if r.test %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %} · {{ r.n }} {{ de_en("Teilnahme", "participation") if r.n == 1 else de_en("Teilnahmen", "participations") }}</span>
+      <span class="live-run-actions">
+      {# into another run, the current one too, of the same kind (trial or not); cannot be undone (Ralf, 2026-10-16) #}
+      {% if survey.can(current_user, "admin") %}{% set into = ([st.run] + runs) | rejectattr("id", "equalto", r.id) | selectattr("test", "equalto", r.test) | list if r.test else ([st.run] + runs) | rejectattr("id", "equalto", r.id) | rejectattr("test") | list %}
+      {% if into %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="inline live-run-merge"
+            data-confirm="{{ de_en('Durchgang „{name}“ ({n} Teilnahmen) mit „{into}“ zusammenführen?', 'Merge run “{name}” ({n} participations) into “{into}”?', name=r.name, n=r.n, into=into[0].name) }}"
+            data-confirm-template="{{ de_en('Durchgang „{name}“ ({n} Teilnahmen) mit „{into}“ zusammenführen?', 'Merge run “{name}” ({n} participations) into “{into}”?', name=r.name, n=r.n, into='{into}') }}"
+            data-confirm-note="{{ de_en('Teilnahmen, Fragen aus dem Publikum und Reaktionen je Folie zählen danach zum gewählten Durchgang; „{name}“ verschwindet aus der Liste. Die Exporte nennen weiter den ursprünglichen Durchgang (Spalte durchgang_ursprung). Das lässt sich nicht rückgängig machen.', 'Participations, questions from the audience and reactions per slide then count for the chosen run; “{name}” goes from the list. The exports still name the original run (column durchgang_ursprung). This cannot be undone.', name=r.name) }}"
+            data-confirm-ok="{{ de_en('Endgültig zusammenführen', 'Merge for good') }}" data-confirm-danger>
+        {{ csrf() }}<input type="hidden" name="run" value="{{ r.id }}">
+        <select name="into" aria-label="{{ de_en('Zusammenführen mit Durchgang', 'Merge into run') }}" data-merge-into>{% for t in into %}<option value="{{ t.id }}">{{ t.name }}{% if t.id == st.run.id %} ({{ de_en("laufend", "current") }}){% endif %}</option>{% endfor %}</select>
+        <button class="button button-small button-danger" name="action" value="run_merge">{{ de_en("Zusammenführen", "Merge") }}</button></form>{% endif %}{% endif %}
+      {{ run_test(r) }}
+      {% if survey.can(current_user, "admin") %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="inline"
+            data-confirm="{{ de_en('Durchgang „{name}“ löschen?', 'Delete run “{name}”?', name=r.name) }}" data-confirm-note="{{ de_en('Die {n} Teilnahmen dieses Durchgangs und seine Fragen aus dem Publikum werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.', 'The {n} participations of this run and its questions from the audience are deleted permanently. This cannot be undone.', n=r.n) }}"
+            data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>
+        {{ csrf() }}<input type="hidden" name="run" value="{{ r.id }}">
+        <button class="button button-small button-danger" name="action" value="run_delete">{{ icon("trash", 14) }} {{ de_en("Löschen", "Delete") }}</button></form>{% endif %}</span></li>{% endfor %}
+  </ul>
+  {% endif %}
+  <p class="muted small">{{ de_en("Die Antworten aller Durchgänge stehen unter Ergebnisse und Export (Spalte", "The answers of all runs are under Results and Export (column") }} <code>durchgang</code>{{ de_en("). Ein Durchgang als „Probe“, etwa zum Ausprobieren mit dem eigenen Handy, zählt dort nicht zu den echten Teilnahmen (Quelle „test“). Ein früherer Durchgang lässt sich mit einem anderen zusammenführen; die Exporte nennen dann den ursprünglichen in der Spalte", "). A run marked as a “trial”, e.g. to try it out with your own phone, does not count there among the real participations (source “test”). An earlier run can be merged into another one; the exports then name the original one in the column") }} <code>durchgang_ursprung</code>.</p>
+</section>
+</div>
+<script src="{{ url_for('static', filename='live.js') }}"></script>
+<script src="{{ url_for('static', filename='live_wake.js') }}" data-wake="fullscreen"></script>{# no standby while the second screen shows the audience view #}
+{% endblock %}

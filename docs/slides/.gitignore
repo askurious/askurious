@@ -1,0 +1,4 @@
+# rendered decks: quarto render docs/slides/queryous-long.qmd (or -short)
+*.html
+*_files/
+.quarto/

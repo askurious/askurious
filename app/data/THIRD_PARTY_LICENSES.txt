@@ -1,0 +1,211 @@
+Third-party software of Askurious
+==================================
+
+The Python packages the lock files of the repository install, with version and licence as PyPI states them
+(written by tools/third_party_licences.py; do not edit by hand). Most wheels bring their licence texts;
+ctranslate2 4.8.3, flatbuffers 25.12.19, tokenizers 0.22.2 and primepy 1.3 ship no licence file, their licence
+is the one PyPI and their repositories state.
+Askurious runs them as a web service and passes none of them on; whoever passes on an image or a copy of the
+installed packages adds their licence texts and NOTICE files.
+
+Not listed below, also part of a server: CPython (PSF License), the Docker base images python:3.12-slim (Debian),
+nginx:alpine, postgres:17 and certbot with their system packages, and the C libraries inside the wheels (e.g.
+OpenBLAS in NumPy, libjpeg/libpng/FreeType in Pillow, OpenSSL in cryptography, libpq in psycopg-binary, libxml2 in
+lxml, RE2/Abseil in google-re2), each under its own licence.
+FreeType, inside the wheels of Pillow and matplotlib: Portions of this software are copyright © The FreeType
+Project (www.freetype.org). All rights reserved.
+In the browser: Leaflet, Leaflet.heat with simpleheat, PDF.js with OpenJPEG and core-js, the font Atkinson
+Hyperlegible Next and the icons, see /sources. The PDF.js bundles include core-js 3.39.0 (MIT, Copyright (c) 2014-2024 Denis Pushkarev).
+Its unchanged licence is app/static/vendor/pdfjs/LICENSE_CORE_JS, from
+https://raw.githubusercontent.com/zloirock/core-js/v3.39.0/LICENSE.
+Icons (app/templates/_icons.html, the sun and moon in base.html, the restart arrow in live/screen.html): all drawn
+for Askurious. The ORCID iD icons
+(app/static/img/orcid) are the official files of the ORCID brand library, used as the ORCID Brand Guidelines allow;
+ORCID and the iD logo are trademarks of ORCID, Inc.
+Data (maps, postcodes, federal states, IP ranges, population figures, handwritten digits, the password block
+list): source and licence of each file in app/data/README.md and on /sources.
+
+Transcription service, if set up (deploy/docker/whisper): models loaded once by prepare.py, each under its own
+licence: Whisper weights (Systran/faster-whisper-small, mobiuslabsgmbh/faster-whisper-large-v3-turbo) MIT;
+pyannote/speaker-diarization-community-1 CC BY 4.0 (pyannoteAI); alignment models wav2vec2 WAV2VEC2_ASR_BASE_960H
+(English) MIT and jonatasgrosman/wav2vec2-large-xlsr-53-german (German) Apache 2.0; Silero VAD MIT; the NLTK sentence
+data punkt_tab (Jan Strunk) Apache 2.0, the licence of the nltk_data repository (the package names none of its
+own). ffmpeg from Debian (GPL build) runs as a separate program.
+Inside the wheels of the transcription service: av 19.0.1 bundles FFmpeg built with libx264 and libx265
+(GPL-2.0-or-later); ctranslate2 4.8.3 (CTranslate2 itself MIT) links Intel oneMKL (Intel Simplified Software
+License) and oneDNN (Apache-2.0) statically and ships no licence file for them; triton 3.8.0 contains NVIDIA tools
+(ptxas, cuobjdump, nvdisasm, CUPTI) under NVIDIA's licence terms.
+Works inside other wheels, each under its own licence, not only that of the package: setuptools 78.1.0
+vendors autocommand 2.2.2 (LGPL-3.0) and parts under MPL-2.0; pyannote-audio 4.0.7 contains code from WeSpeaker
+(Apache-2.0).
+
+Web-App / web app
+-----------------
+alembic==1.20.0  MIT
+annotated-types==0.8.0  MIT
+anyio==4.15.1  MIT
+blinker==1.9.0  MIT License
+certifi==2026.10.19  MPL-2.0
+cffi==2.1.1  MIT-0
+charset-normalizer==3.5.2  MIT
+click==8.5.0  BSD-3-Clause
+colorama==0.4.6  BSD License
+cryptography==50.0.2  Apache-2.0 OR BSD-3-Clause
+distro==1.9.0  Apache License, Version 2.0
+flask==3.1.3  BSD-3-Clause
+flask-login==0.6.3  MIT
+flask-migrate==4.1.0  MIT
+flask-sqlalchemy==3.1.1  BSD License
+flask-wtf==1.2.2  BSD License
+google-re2==1.1.20251105  BSD License
+gunicorn==23.0.0  MIT
+h11==0.16.0  MIT
+httpcore==1.0.9  BSD-3-Clause
+httpx==0.28.1  BSD-3-Clause
+idna==3.20  BSD-3-Clause
+itsdangerous==2.2.0  BSD License
+jinja2==3.1.6  BSD License
+jiter==0.17.0  MIT
+lxml==6.1.3  BSD-3-Clause
+mako==1.4.3  MIT
+markupsafe==3.0.4  BSD-3-Clause
+numpy==2.0.2  BSD License
+openai==2.48.0  Apache-2.0
+packaging==26.3  Apache-2.0 OR BSD-2-Clause
+pillow==13.0.0  MIT-CMU
+psycopg==3.3.6  LGPL-3.0-only
+psycopg-binary==3.3.6  LGPL-3.0-only
+pycparser==3.11  BSD-3-Clause
+pydantic==2.14.1  MIT
+pydantic-core==2.50.1  MIT
+pypdf==6.21.2  BSD-3-Clause
+python-docx==1.2.0  MIT
+python-dotenv==1.2.3  BSD-3-Clause
+reportlab==4.5.1  BSD License
+requests==2.34.2  Apache-2.0
+segno==1.6.6  BSD License
+sniffio==1.3.1  MIT OR Apache-2.0
+sqlalchemy==2.1.5  MIT
+tqdm==4.70.1  MPL-2.0 AND MIT
+typing-extensions==4.16.0  PSF-2.0
+typing-inspection==0.4.4  MIT
+tzdata==2025.2  Apache-2.0
+urllib3==2.8.0  MIT
+werkzeug==3.1.9  BSD-3-Clause
+wtforms==3.2.2  BSD License
+
+Transkriptionsdienst, falls eingerichtet / transcription service, if set up
+---------------------------------------------------------------------------
+aiohappyeyeballs==2.7.1  PSF-2.0
+aiohttp==3.14.5  Apache-2.0 AND MIT
+aiosignal==1.4.0  Apache 2.0
+alembic==1.20.0  MIT
+asteroid-filterbanks==0.4.0  MIT
+attrs==26.1.0  MIT
+av==19.0.1  BSD-3-Clause
+blinker==1.9.0  MIT License
+certifi==2026.10.19  MPL-2.0
+charset-normalizer==3.5.2  MIT
+click==8.5.0  BSD-3-Clause
+cloudpickle==3.1.2  BSD-3-Clause
+colorlog==6.12.0  MIT License
+contourpy==1.4.0  BSD-3-Clause
+ctranslate2==4.8.3  MIT
+cycler==0.12.1  BSD License
+defusedxml==0.7.1  PSFL
+einops==0.8.2  MIT
+faster-whisper==1.2.1  MIT
+filelock==3.32.3  MIT
+flask==3.1.3  BSD-3-Clause
+flatbuffers==25.12.19  Apache 2.0
+fonttools==4.67.0  MIT
+frozenlist==1.8.0  Apache-2.0
+fsspec==2026.7.0  BSD-3-Clause (repository)
+googleapis-common-protos==1.75.5  Apache-2.0
+grpcio==1.84.0  Apache-2.0
+hf-xet==1.7.0  Apache-2.0
+huggingface-hub==0.36.2  Apache
+idna==3.20  BSD-3-Clause
+itsdangerous==2.2.0  BSD License
+jinja2==3.1.6  BSD License
+joblib==1.6.0  BSD-3-Clause
+julius==0.2.8  MIT License
+kiwisolver==1.5.1  BSD License
+lightning==2.6.6  Apache-2.0
+lightning-utilities==0.15.3  Apache-2.0
+mako==1.4.3  MIT
+markdown-it-py==4.2.0  MIT License
+markupsafe==3.0.3  BSD-3-Clause
+matplotlib==3.11.2  Python Software Foundation License
+mdurl==0.1.2  MIT License
+mpmath==1.3.0  BSD
+multidict==7.1.0  Apache-2.0
+narwhals==2.27.1  MIT
+networkx==3.6.1  BSD-3-Clause
+nltk==3.10.3  Apache License, Version 2.0
+numpy==2.5.2  BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+omegaconf==2.4.0  BSD License
+onnxruntime==1.31.0  MIT License
+opentelemetry-api==1.45.1  Apache-2.0
+opentelemetry-exporter-http-transport==0.66b1  Apache-2.0
+opentelemetry-exporter-otlp==1.45.1  Apache-2.0
+opentelemetry-exporter-otlp-common==0.66b1  Apache-2.0
+opentelemetry-exporter-otlp-proto-common==1.45.1  Apache-2.0
+opentelemetry-exporter-otlp-proto-grpc==1.45.1  Apache-2.0
+opentelemetry-exporter-otlp-proto-http==1.45.1  Apache-2.0
+opentelemetry-proto==1.45.1  Apache-2.0
+opentelemetry-sdk==1.45.1  Apache-2.0
+opentelemetry-semantic-conventions==0.66b1  Apache-2.0
+optuna==5.0.0  MIT License
+packaging==26.3  Apache-2.0 OR BSD-2-Clause
+pandas==3.0.6  BSD License
+pillow==13.0.0  MIT-CMU
+primepy==1.3  MIT License
+propcache==0.5.4  Apache-2.0
+protobuf==7.36.2  3-Clause BSD License
+pyannote-audio==4.0.7  MIT (repository)
+pyannote-core==6.0.1  MIT (repository)
+pyannote-database==6.1.1  MIT (repository)
+pyannote-metrics==4.1  MIT (repository)
+pyannote-pipeline==4.0.0  MIT (repository)
+pyannoteai-sdk==0.4.0  MIT (repository)
+pygments==2.21.0  BSD-2-Clause
+pyparsing==3.3.3  MIT
+python-dateutil==2.9.0.post0  Dual License
+pytorch-lightning==2.6.6  Apache-2.0
+pytorch-metric-learning==2.9.0  MIT License
+pyyaml==6.0.3  MIT
+regex==2026.9.29  Apache-2.0 AND CNRI-Python
+requests==2.34.2  Apache-2.0
+rich==15.0.0  MIT
+safetensors==0.8.0  Apache Software License
+scikit-learn==1.9.1  BSD-3-Clause
+scipy==1.18.1  BSD License
+setuptools==78.1.0  MIT License
+six==1.17.0  MIT
+sortedcontainers==2.4.0  Apache 2.0
+sqlalchemy==2.1.4  MIT
+sympy==1.14.0  BSD
+threadpoolctl==3.7.0  BSD-3-Clause
+tokenizers==0.22.2  Apache Software License
+torch==2.8.0+cpu  BSD-3-Clause
+torch-audiomentations==0.12.0  MIT
+torch-pitch-shift==1.2.5  MIT License
+torchaudio==2.8.0+cpu  BSD License
+torchcodec==0.7.0  BSD-3-Clause (repository)
+torchmetrics==1.9.0  Apache-2.0
+torchvision==0.23.0+cpu  BSD
+tqdm==4.70.1  MPL-2.0 AND MIT
+transformers==4.57.6  Apache 2.0 License
+triton==3.8.0  MIT
+typing-extensions==4.16.0  PSF-2.0
+urllib3==2.8.0  MIT
+waitress==3.0.2  ZPL 2.1
+werkzeug==3.1.9  BSD-3-Clause
+whisperx==3.8.6  BSD-2-Clause
+yarl==1.25.1  Apache-2.0
+
+Nur beim Bauen der Images / only when building the images
+---------------------------------------------------------
+rcssmin==1.3.0  Apache-2.0
+rjsmin==1.3.0  Apache-2.0

@@ -1,0 +1,64 @@
+{# settings of a web service in the flow (app/webservice.py), inside the form of flow/index.html; address, body and
+   header are set by the admins of the survey, as the addresses of external sections #}
+{% from "_link_chips.html" import link_chips %}
+{% set off = "disabled" if not editable else "" %}
+{% set fixed = off if (may_link and ws_allowed) else "disabled" %}
+<div class="ext-grid">
+  <label>{{ de_en("Name", "Name") }} <input name="name" value="{{ node.name }}" maxlength="100" {{ off }}></label>
+  <label>{{ de_en("Variablenname", "Variable name") }} <input name="code" data-varname="full" value="{{ node.code }}" {{ off }}></label>
+  <label>{{ de_en("Methode", "Method") }}
+    <select name="method" {{ fixed }}>{% for m in webservice.METHODS %}<option value="{{ m }}" {% if (node.method or "GET") == m %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></label>
+  <label class="ext-wide">{{ de_en("Adresse", "Address") }} <span class="hint">{{ de_en("nur https; Platzhalter wie", "https only; placeholders such as") }} <code>{{ "{{city}}" }}</code> {{ de_en("werden URL-kodiert eingesetzt", "go in URL-encoded") }}</span>
+    <input name="url" value="{{ node.url }}" placeholder="https://geocoding-api.open-meteo.com/v1/search?name={{ '{{city}}' }}&amp;count=1" maxlength="1000" {{ fixed }} data-link-field></label>
+  {% if editable and may_link and ws_allowed %}{{ link_chips(webservice.chips(survey, node)) }}{% endif %}
+</div>
+{% if (node.method or "GET") == "POST" or node.body %}
+<label>{{ de_en("Inhalt (JSON, nur bei POST)", "Body (JSON, POST only)") }} <span class="hint">{{ de_en("Platzhalter in Anführungszeichen, z. B.", "placeholders in quotes, e.g.") }} <code>{"q": "{{ '{{city}}' }}"}</code></span>
+  <textarea name="body" rows="3" maxlength="5000" {{ fixed }}>{{ node.body }}</textarea></label>
+{% else %}<input type="hidden" name="body" value="">{% endif %}
+<div class="row-fields">
+  <label>{{ de_en("Kopfzeile (optional)", "Header (optional)") }} <span class="hint">{{ de_en("z. B. für einen API-Schlüssel", "e.g. for an API key") }}</span>
+    <input name="header" value="{{ node.header or '' }}" placeholder="X-Api-Key" maxlength="60" {{ fixed }}></label>
+  <label class="wide-field">{{ de_en("Wert der Kopfzeile", "Value of the header") }} <span class="hint">{{ de_en("verschlüsselt gespeichert, nie in einer Kopie oder Befragungsdatei", "stored encrypted, never in a copy or survey file") }}</span>
+    <input name="secret" type="password" autocomplete="off" value="" placeholder="{{ de_en('gespeichert – leer lassen, um ihn zu behalten', 'stored – leave empty to keep it') if node.secret else '' }}" maxlength="500" {{ fixed }}></label>
+</div>
+{% if may_link and not ws_allowed %}<p class="muted small">{{ de_en("Adresse, Inhalt und Kopfzeile ändern und den Testaufruf machen kann nur, wer das experimentelle Merkmal „Web Service im Ablauf“ freigeschaltet hat (Konto).", "Only people who have the experimental feature “Web Service in the flow” switched on (Account) can change address, body and header and make the test call.") }}</p>
+{% elif editable and not may_link %}<p class="muted small">{{ de_en("Adresse, Inhalt und Kopfzeile legt fest, wer in dieser Befragung die Rolle „Admin“ hat.", "Address, body and header are set by whoever has the role “Admin” in this survey.") }}</p>{% endif %}
+<fieldset>
+  <legend>{{ de_en("Werte aus der Antwort", "Values from the answer") }} <span class="hint">{{ de_en("Feld der JSON-Antwort mit Punkten, Listen mit Zahlen, z. B. results.0.latitude; erscheinen in späteren Texten als", "field of the JSON answer with dots, lists by number, e.g. results.0.latitude; appear in later texts as") }} <code>{{ "{{" ~ node.code ~ "_name}}" }}</code></span></legend>
+  <div data-rows>
+  <table class="list-table is-edit ext-values">
+    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Feld in der Antwort", "Field in the answer") }}</th><th>{{ de_en("Art", "Type") }}</th><th>{{ de_en("Platzhalter und Spalte", "Placeholder and column") }}</th>{% if editable %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+      {% for v in webservice.values(node) + ([{"name": "", "path": "", "kind": "text"}] if editable else []) %}
+      {% if editable and loop.last %}<template data-row-template>{% endif %}
+      <tr data-row>
+        <td><input name="value_name" value="{{ v.name }}" maxlength="31" placeholder="{{ de_en('z. B. temp', 'e.g. temp') if loop.first and not v.name else '' }}" aria-label="{{ de_en('Name des Werts', 'Name of the value') }}" {{ off }}></td>
+        <td><input name="value_path" value="{{ v.path }}" maxlength="200" placeholder="{{ 'current.temperature_2m' if loop.first and not v.path else '' }}" aria-label="{{ de_en('Feld in der Antwort', 'Field in the answer') }}" {{ off }}></td>
+        <td><select name="value_kind" aria-label="{{ de_en('Art des Werts', 'Type of the value') }}" {{ off }}>{% for key, label in webservice.kinds().items() %}<option value="{{ key }}" {% if v.kind == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+        <td>{% if v.name %}<code>{{ "{{" ~ node.code ~ "_" ~ v.name ~ "}}" }}</code>{% endif %}</td>
+        {% if editable %}<td><button type="button" class="icon-btn danger" data-row-remove title="{{ de_en('Wert entfernen', 'Remove value') }}" aria-label="{{ de_en('Wert {name} entfernen', 'Remove value {name}', name=v.name) }}">✕</button></td>{% endif %}
+      </tr>
+      {% if editable and loop.last %}</template>{% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if editable %}<button type="button" class="button button-small button-secondary" data-row-add>{{ de_en("+ Wert", "+ Value") }}</button>{% endif %}
+  </div>
+  <p class="muted small">{{ de_en("Dazu kommt die Spalte", "In addition there is the column") }} <code>{{ node.code }}_ok</code> {{ de_en("(1 = Aufruf gelungen, 0 = nicht; dann bleiben die Werte leer und die Befragung läuft weiter). Aufgerufen wird einmal je Teilnahme, wenn die Person die Stelle passiert, höchstens 5 Sekunden lang; gibt er Angaben aus der Befragung weiter, erst nach der Einwilligung.", "(1 = call worked, 0 = not; then the values stay empty and the survey goes on). It is called once per participation, when the person passes the point, for at most 5 seconds; if it passes on data from the survey, only after the consent.") }}</p>
+</fieldset>
+{% if node.url and may_link and ws_allowed %}
+<p><button class="button button-small button-secondary" formaction="{{ url_for('editor.flow_ws_test', survey_id=survey.id, nid=node.id, lang=lang) }}" formnovalidate>{{ de_en("Testaufruf", "Test call") }}</button>
+  <span class="hint">{{ de_en("ruft die Adresse einmal mit Beispielwerten auf und zeigt die Antwort", "calls the address once with example values and shows the answer") }}</span></p>
+{% for name in webservice.used(node) if name not in ("pid", "lang", "survey") %}{% if loop.first %}<div class="row-fields">{% endif %}
+  <label>{{ de_en("Beispielwert für", "Example value for") }} <code>{{ "{{" ~ name ~ "}}" }}</code> <input name="test_{{ name }}" value="{{ (ws_test.given or {}).get(name, '') if ws_test and ws_test.nid == node.id else '' }}" maxlength="200"></label>
+{% if loop.last %}</div>{% endif %}{% endfor %}
+{% endif %}
+{% if ws_test and ws_test.nid == node.id %}
+<div class="ws-test" role="status">
+  <p class="small"><strong>{{ de_en("Testaufruf:", "Test call:") }}</strong> <code>{{ ws_test.url }}</code> · {% if ws_test.status %}HTTP {{ ws_test.status }}{% if ws_test.size is not none %}, {{ de_en("{n} Bytes", "{n} bytes", n=ws_test.size) }}{% endif %}{% endif %}{% if ws_test.err %} · {{ ws_test.err }}{% endif %} · {{ ws_test.ms }} ms</p>
+  {% if ws_test.v %}<p class="small">{{ de_en("Übernommen:", "Taken:") }} {% for k, val in ws_test.v.items() %}<code>{{ node.code }}_{{ k }}</code> = {{ val if val != "" else de_en("(fehlt)", "(missing)") }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% if ws_test.snippet %}<pre class="ws-snippet">{{ ws_test.snippet }}{% if ws_test.cut %} …{% endif %}</pre>{% endif %}
+  {% if ws_test.cut %}<p class="muted small">{{ de_en("Gekürzt; die Werte oben sind aus der ganzen Antwort.", "Cut short; the values above come from the whole answer.") }}</p>{% endif %}
+</div>
+{% endif %}

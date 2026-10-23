@@ -1,0 +1,76 @@
+{% set t = item.lang_texts(lang) %}
+{% set c = item.cfg %}
+{% set question_label = de_en("Einleitung", "Introduction") %}
+{% set question_hint = de_en("optional, z. B. „Stellen Sie sich vor, Sie möchten das folgende Produkt kaufen.“", "optional, e.g. “Imagine you want to buy the following product.”") %}
+{% include "items/_question_field.html" %}
+<p class="muted small">{{ de_en("Die Quelle steht am Ende der Seite und im Export (README); ein veränderter Wortlaut der vier Fragen steht im Codebuch.", "The source appears at the end of the page and in the export (README); a changed wording of the four questions is noted in the codebook.") }}</p>
+<fieldset>
+  <legend>{{ de_en("Produkt", "Product") }}</legend>
+  <label><span class="label-title">{{ de_en("Produktbeschreibung", "Product description") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}; {{ de_en("alle Preisfragen beziehen sich darauf", "all price questions refer to it") }}</span></span>
+    <textarea name="product" rows="5" data-var-target data-rich="block" placeholder="{{ item.text('product') or '' }}">{{ t.get('product', '') }}</textarea>
+  </label>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Preiseingabe", "Price entry") }}</legend>
+  <div class="stack">
+    <div class="row-fields">
+      <label>{{ de_en("Währung", "Currency") }}
+        <select name="currency" data-show-for {% if not structural %}disabled{% endif %}>
+          {% for code, sym in kind.currencies.items() %}<option value="{{ code }}" {% if c.currency == code %}selected{% endif %}>{{ code }} ({{ sym }})</option>{% endfor %}
+          <option value="unit" {% if c.currency not in kind.currencies %}selected{% endif %}>{{ de_en("eigene Einheit", "own unit") }}</option>
+        </select>
+      </label>
+      <label data-when="unit">{{ de_en("Einheit", "Unit") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span> <input name="unit" value="{{ t.get('unit', '') }}" maxlength="30" placeholder="{{ de_en('z. B. Punkte, € / Monat', 'e.g. points, € / month') }}" class="narrow"></label>
+      <label>{{ de_en("Nachkommastellen", "Decimal places") }} <input type="number" name="decimals" min="0" max="4" class="narrow" value="{{ c.get('decimals', 2) }}" {% if not structural %}disabled{% endif %}></label>
+      <label>min. <input name="min" class="narrow" inputmode="decimal" value="{{ fmt_num(c.min) }}" placeholder="0" {% if not structural %}disabled{% endif %}></label>
+      <label>max. <input name="max" class="narrow" inputmode="decimal" value="{{ fmt_num(c.max) }}" placeholder="{{ de_en('offen', 'open') }}" {% if not structural %}disabled{% endif %}></label>
+    </div>
+    <div class="row-fields">
+      <label>{{ de_en("Reihenfolge der Fragen", "Order of the questions") }}
+        <select name="order" {% if not structural %}disabled{% endif %}>
+          {% for key, label in kind.orders.items() %}<option value="{{ key }}" {% if c.get('order', 'asc') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ de_en("Konsistenz (zu billig < günstig < teuer < zu teuer)", "Consistency (too cheap < cheap < expensive < too expensive)") }}
+        <select name="consistency" {% if not structural %}disabled{% endif %}>
+          {% for key, label in kind.consistency_modes.items() %}<option value="{{ key }}" {% if c.get('consistency', 'required') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <p class="muted small">{{ de_en("Eingaben mit Komma oder Punkt und Tausenderpunkt (1.299,00) sind erlaubt; negative Preise nie. Export: vier Zahlen {code}_tc, _c, _e, _te.", "Entries with a comma or a point and a thousands separator (1,299.00) are allowed; negative prices never. Export: four numbers {code}_tc, _c, _e, _te.", code=item.code) }}</p>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Preisfragen", "Price questions") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Standardformulierung nach Van Westendorp; anpassbar", "standard wording after Van Westendorp; adjustable") }}</span></legend>
+  <div class="stack">
+    {% for k in kind.keys %}
+    <label><span class="label-title">{{ kind.name(k, ui_language())|capitalize }} ({{ k|upper }})</span>
+      <textarea name="q_{{ k }}" rows="2" data-var-target placeholder="{{ item.text('q_' ~ k) or '' }}">{{ t.get('q_' ~ k, '') }}</textarea>
+    </label>
+    {% endfor %}
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Zusatzfragen nach Newton et al.", "Follow-up questions after Newton et al.") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Kaufwahrscheinlichkeit beim eigenen Preis „günstig“ und „teuer“", "purchase probability at one's own “cheap” and “expensive” price") }}</span></legend>
+  <div class="stack">
+    <label class="check"><input type="checkbox" name="nms" value="1" {% if c.get('nms') %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("zwei Zusatzfragen stellen (Export {code}_nms_c, _nms_e; Kaufkurve und Umsatzkurve in den Ergebnissen)", "ask two follow-up questions (export {code}_nms_c, _nms_e; purchase curve and revenue curve in the results)", code=item.code) }}</label>
+    {% for k in ("c", "e") %}
+    <label><span class="label-title">{{ de_en("Frage beim Preis „{name}“", "Question at the “{name}” price", name=kind.name(k, ui_language())) }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}; {{ de_en("{price} wird durch den eingegebenen Preis ersetzt", "{price} is replaced by the price entered") }}</span></span>
+      <textarea name="nms_{{ k }}" rows="2" data-var-target placeholder="{{ item.text('nms_' ~ k) or '' }}">{{ t.get('nms_' ~ k, '') }}</textarea>
+    </label>
+    {% endfor %}
+    {% set labels = kind.nms_labels(item, lang) %}
+    {% set weights = kind.nms_weights(item) %}
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Antwort", "Answer") }}</th><th class="narrow-col">{{ de_en("Kaufwahrscheinlichkeit in %", "Purchase probability in %") }}</th></tr></thead>
+      <tbody>
+      {% for n in range(5, 0, -1) %}
+        <tr><td>{{ n }}</td>
+          <td><input name="nms_label" aria-label="{{ de_en('Antwort {n}', 'Answer {n}', n=n) }}" value="{{ labels[n - 1] }}" maxlength="80"></td>
+          <td><input name="nms_weight" aria-label="{{ de_en('Kaufwahrscheinlichkeit in % für Antwort {n}', 'Purchase probability in % for answer {n}', n=n) }}" class="narrow" inputmode="decimal" value="{{ fmt_num(weights[n - 1]) }}" {% if not structural %}disabled{% endif %}></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("Die Auswertung setzt je Person die Kaufwahrscheinlichkeit beim Preis „zu billig“ und „zu teuer“ auf 0, bei „günstig“ und „teuer“ auf das Gewicht der Antwort und verbindet die Punkte linear. Festlegung von Askurious: verbreitete Praxisgewichte für die fünfstufige Kaufabsicht (0, 10, 30, 50, 70 %).", "The analysis sets each person's purchase probability at the “too cheap” and “too expensive” price to 0, at “cheap” and “expensive” to the weight of the answer, and connects the points linearly. Askurious default: common practice weights for the five-point purchase intention (0, 10, 30, 50, 70%).") }}</p>
+  </div>
+</fieldset>

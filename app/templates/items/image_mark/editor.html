@@ -1,0 +1,96 @@
+{% set question_label = de_en("Aufgabe", "Task") %}
+{% set question_hint = de_en("z. B. „Tippen Sie auf die Stellen, die Ihnen zuerst auffallen.“ oder „Markieren Sie, was Sie stört.“", "e.g. “Tap the spots you notice first.” or “Mark what bothers you.”") %}
+{% include "items/_question_field.html" %}
+{# a short "So funktioniert es" with a small example (concept "Lernhilfen: fünfte Runde", H1, like the
+   side-by-side matrix after the pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Markieren oder Bereiche", "marking or areas"), open=false) %}
+  <p>{{ de_en("Mit „Punkte setzen“ und „Linien zeichnen“ markieren Teilnehmende frei auf dem Bild; die Ergebnisse zeigen alle Markierungen zusammen als Heatmap. Für „Bereiche auswählen“ oder „Bereiche bewerten“ (Hot Spot) ziehen Sie vorher Rechtecke über das Bild, und Teilnehmende tippen die zutreffenden an oder bewerten sie mit „gefällt“ und „gefällt nicht“.", "With “Set points” and “Draw lines” participants mark the image freely; the results show all marks together as a heat map. For “Choose areas” or “Rate areas” (hot spot) you draw rectangles over the image beforehand, and participants tap the ones that apply or rate them with “like” and “dislike”.") }}</p>
+  <p class="muted small">{{ de_en("Frei markieren zeigt, was auffällt; Bereiche zählen genau, wie oft ein bestimmtes Teil gewählt wurde.", "Free marking shows what stands out; areas count exactly how often a given part was chosen.") }}</p>
+{% endcall %}
+<fieldset>
+  <legend>{{ de_en("Markieren", "Marking") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Art", "Kind") }}
+      <select name="mode" data-reload-saved {% if not structural %}disabled{% endif %}>
+        {% for k, l in kind.modes.items() %}<option value="{{ k }}" {% if item.config.mode == k %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("mindestens", "at least") }} <span class="hint">{{ de_en("leer = keine Vorgabe", "empty = no minimum") }}</span>
+      <input type="number" name="min" min="1" max="200" value="{{ item.config.min or '' }}" class="narrow" {% if not structural %}readonly{% endif %}>
+    </label>
+    <label>{{ de_en("höchstens", "at most") }} <span class="hint">{{ de_en("leer = unbegrenzt", "empty = unlimited") }}</span>
+      <input type="number" name="max" min="1" max="200" value="{{ item.config.max or '' }}" class="narrow" {% if not structural %}readonly{% endif %}>
+    </label>
+    <label>{{ de_en("Farbe", "Colour") }}
+      <input type="color" name="color" {% if themes.swatches(survey) %}list="theme-colours"{% endif %} value="{{ item.config.color or '#ffd400' }}" {% if not meta_editable %}disabled{% endif %}>
+      {% if themes.swatches(survey) %}<datalist id="theme-colours">{% for colour in themes.swatches(survey) %}<option value="{{ colour }}">{% endfor %}</datalist>
+      <span class="hint">{{ de_en("Die Farbauswahl schlägt die Farben des Farbschemas vor.", "The colour picker suggests the colours of the colour scheme.") }}</span>{% endif %}
+    </label>
+  </div>
+  {% if kind.on_areas(item) %}
+  <p class="muted small">{{ de_en("Hot Spot: Teilnehmende tippen vorher festgelegte Bereiche an. Im Export steht je Bereich eine Spalte ({col}): 1/0 bei „auswählen“, 1/0/−1 bei „bewerten“.", "Hot spot: participants tap areas set beforehand. The export has one column per area ({col}): 1/0 for “choose”, 1/0/−1 for “rate”.", col=item.code ~ "_Code") }}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Teilnehmende können mit „Rückgängig“ die letzte Markierung zurücknehmen und mit „Neu“ alle entfernen. Gespeichert werden Koordinaten relativ zum Bild (0–1), passend für Heatmaps.", "Participants can take back the last mark with “Undo” and remove all with “New”. Coordinates relative to the image (0–1) are stored, suitable for heatmaps.") }}</p>
+  {% endif %}
+</fieldset>
+{% if kind.on_areas(item) %}
+{# the rectangle of a row also as four numbers in % of the image, without dragging: WCAG 2.5.7, keyboard (X22); no
+   name, app.js writes them into area_box #}
+{% macro box_fields(fixed) -%}<span class="hot-nums">{% for part, word in [(0, de_en("links", "left")), (1, de_en("oben", "top")), (2, de_en("Breite", "width")), (3, de_en("Höhe", "height"))] %}<label>{{ word }} <input type="number" data-hot-num="{{ part }}" min="0" max="100" step="1" inputmode="numeric" class="hot-num" aria-label="{{ de_en('{w} in % des Bildes', '{w} in % of the image', w=word) }}" {% if fixed %}readonly{% endif %}> %</label>{% endfor %}</span>{%- endmacro %}
+{# Hot spot: the areas as rows (code, label, rectangle); app.js [data-hot-editor] draws them over the image, a drag on
+   the image draws a new one or, after "neu ziehen", the rectangle of that row anew. #}
+{% from "_macros.html" import row_list_hint %}
+{% set hot_asset = kind.asset_for(item) %}
+{% set alabels = item.lang_texts(lang).get("areas", {}) %}
+<fieldset data-hot-editor>
+  <legend>{{ de_en("Bereiche", "Areas") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Teil des Variablennamens ({col})", "code = part of the variable name ({col})", col=item.code ~ "_Code") }}</span></legend>
+  {% if hot_asset %}
+  <p class="muted small">{% if structural %}{{ de_en("Mit gedrückter Maustaste ein Rechteck über das Bild ziehen: Es wird ein neuer Bereich. „Neu ziehen“ in einer Zeile ersetzt deren Rechteck durch das nächste gezogene. Ohne Ziehen: Lage und Größe in der Zeile in Prozent des Bildes eintragen.", "Drag a rectangle over the image with the mouse button held down: it becomes a new area. “Draw again” in a row replaces its rectangle with the next one drawn. Without dragging: enter position and size in the row in per cent of the image.") }}{% else %}{{ de_en("Die Bereiche sind festgelegt, weil es schon Antworten gibt; die Beschriftungen lassen sich noch ändern.", "The areas are fixed because there are answers already; the labels can still be changed.") }}{% endif %}</p>
+  <div class="hot-edit-stage" data-hot-edit-stage{% if not structural %} data-fixed{% endif %}>
+    <img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=hot_asset.filename) }}" alt="" draggable="false">
+  </div>
+  {% else %}
+  <p class="hint finding-warning">{{ de_en("Zuerst ein Bild wählen; die Bereiche werden dann darauf gezogen.", "Choose an image first; the areas are then drawn on it.") }}</p>
+  {% endif %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Beschriftung", "Label") }} <span class="hint">{{ de_en("für Screenreader, die Liste ohne JavaScript und die Ergebnisse", "for screen readers, the list without JavaScript and the results") }}</span></th><th>{{ de_en("Rechteck", "Rectangle") }}</th></tr></thead>
+    <tbody data-hot-rows>
+    {% for a in item.config.areas or [] %}
+      <tr>
+        <td><input type="hidden" name="area_id" value="{{ a.id }}"><input name="area_code" aria-label="Code" value="{{ a.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="area_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" value="{{ alabels.get(a.id, '') }}" maxlength="200" placeholder="{{ (item.text('areas') or {}).get(a.id, '') }}"></td>
+        <td><input type="hidden" name="area_box" value="{{ a.box|join(',') }}">{{ box_fields(not structural) }}{% if structural %} <button type="button" class="button button-small button-secondary" data-hot-redraw>{{ de_en("neu ziehen", "draw again") }}</button>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      <tr class="new-row">
+        <td><input type="hidden" name="area_id" value="{{ new_id() }}"><input name="area_code" aria-label="Code" class="narrow" placeholder="{{ (item.config.areas or [])|length + 1 }}"></td>
+        <td><input name="area_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" maxlength="200" placeholder="{{ de_en('neuer Bereich', 'new area') }}"></td>
+        <td><input type="hidden" name="area_box" value="">{{ box_fields(false) }} <button type="button" class="button button-small button-secondary" data-hot-redraw>{{ de_en("neu ziehen", "draw again") }}</button></td>
+      </tr>
+    {% endif %}
+    </tbody>
+  </table></div>
+  {% if structural %}{{ row_list_hint(de_en("Zeilen ohne Rechteck werden nicht gespeichert.", "Rows without a rectangle are not saved.")) }}{% endif %}
+</fieldset>
+{% endif %}
+<label><span class="label-title">{{ de_en("Alternativtext", "Alternative text") }} <span class="hint">{{ de_en("für Screenreader", "for screen readers") }}</span></span>
+  <input name="alt" value="{{ item.lang_texts(lang).get('alt', '') }}"{% if not item.lang_texts(lang).get('alt', '')|trim %} aria-describedby="alt-missing"{% endif %}>
+</label>
+{% if not item.lang_texts(lang).get('alt', '')|trim %}<p class="hint finding-warning alt-missing" data-alt-missing id="alt-missing">{{ de_en("Noch leer: Screenreader sagen dann nichts über das Bild. Beschreiben Sie kurz, was es zeigt.", "Still empty: screen readers then say nothing about the image. Describe briefly what it shows.") }}</p>{% endif %}
+{% set pooled = kind.pooled(item) if not kind.on_areas(item) else {"n": 0} %}
+{% if pooled.n %}
+<fieldset>
+  <legend>{{ de_en("Bisherige Markierungen", "Marks so far") }} <span class="hint">{% if pooled.n != 1 %}{{ de_en("{n} abgeschlossene Teilnahmen, ohne die von der Qualitätssicherung markierten", "{n} completed participations, without those marked by quality assurance", n=pooled.n) }}{% else %}{{ de_en("{n} abgeschlossene Teilnahme, ohne die von der Qualitätssicherung markierten", "{n} completed participation, without those marked by quality assurance", n=pooled.n) }}{% endif %}</span>
+</legend>
+  {% set asset = kind.asset_for(item) %}
+  {% if asset %}
+  <div class="mark-pool" data-mark-pool='{{ {"mode": item.config.mode, "color": item.config.color, "marks": pooled.marks}|tojson }}'>
+    <img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=asset.filename) }}" alt="">
+    <canvas></canvas>
+  </div>
+  <p class="muted small">{{ de_en("Jede Markierung halbtransparent übereinander: Wo viele markiert haben, wird es kräftiger. Rohdaten im Export.", "Every mark semi-transparent on top of each other: where many have marked, it gets stronger. Raw data in the export.") }}</p>
+  {% endif %}
+</fieldset>
+{% endif %}

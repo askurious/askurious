@@ -1,0 +1,7 @@
+{% from "items/_field_aria.html" import field_aria %}
+<div class="p-text">
+  {% with tag="label", label_for="t" ~ item.id %}{% include "items/_question.html" %}{% endwith %}
+  <input type="text" id="t{{ item.id }}" name="i{{ item.id }}" class="p-short" inputmode="numeric" autocomplete="postal-code" maxlength="7"
+         {% if not item.text("question", lang) %}aria-label="{{ ui('Antwort', 'Answer') }}"{% endif %}{{ field_aria(item, item_msg if item_msg is defined else none, errors) }}
+         value="{{ answers.get(item.id) if answers.get(item.id) is not none else '' }}">
+</div>

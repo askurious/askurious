@@ -1,0 +1,201 @@
+/*-- scss:defaults --*/
+
+// The colours and fonts of the app (app/static/app.css)
+$q-bg: #f6f6f3;
+$q-surface: #ffffff;
+$q-fg: #1c1c1a;
+$q-muted: #6b6b66;
+$q-accent: #2957a4;
+$q-accent-soft: rgba(41, 87, 164, 0.10);
+$q-ai: #7a3fd1;
+$q-ai-soft: #f2ebfc;
+$q-line: #e2e1db;
+
+$body-bg: $q-bg;
+$body-color: $q-fg;
+$link-color: $q-accent;
+$presentation-heading-color: $q-fg;
+$presentation-heading-font: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+$presentation-heading-font-weight: 600;
+$font-family-sans-serif: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+$presentation-font-size-root: 34px;
+$presentation-h2-font-size: 1.55em;
+$code-color: $q-accent;
+
+/*-- scss:rules --*/
+
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&display=swap");
+
+// master: a thin accent line on top of every slide, the logo bottom right, footer bottom left
+.reveal .slides section.slide.level2:not(.q-title)::before {
+  content: "";
+  position: absolute;
+  top: -10px; left: 0; right: 0;
+  height: 6px;
+  background: $q-accent;
+  border-radius: 3px;
+}
+
+.reveal .slide-logo {
+  max-height: 1.6em !important;
+  bottom: 0.6em !important;
+  right: 1.2em !important;
+  opacity: 0.85;
+}
+
+.reveal .footer {
+  color: $q-muted;
+  font-size: 0.45em;
+  text-align: left;
+  left: 1.6em;
+  bottom: 1.2em;
+}
+
+.reveal .slide-number {
+  color: $q-muted;
+  background: transparent;
+  font-size: 0.5em;
+  top: auto !important;
+  right: auto !important;
+  left: 3.2em !important;
+  bottom: 1.15em !important;
+}
+
+.reveal h2 {
+  margin-bottom: 0.6em;
+  letter-spacing: -0.01em;
+}
+
+.reveal ul li { margin-bottom: 0.25em; }
+.reveal .muted { color: $q-muted; }
+.reveal .accent { color: $q-accent; }
+.reveal .small { font-size: 0.7em; }
+.reveal .smaller { font-size: 0.6em; }
+
+// title slide
+.reveal section.q-title {
+  text-align: center;
+}
+.reveal section.q-title img.q-logo {
+  width: 62%;
+  margin: 1.2em auto 0.2em;
+  box-shadow: none;
+}
+.reveal section.q-title .q-ipa {
+  color: $q-muted;
+  font-style: italic;
+  font-size: 0.75em;
+}
+.reveal section.q-title .q-claim {
+  font-family: $presentation-heading-font;
+  font-size: 1.15em;
+  margin-top: 1.2em;
+}
+
+// section dividers
+.reveal section.q-section h1 {
+  color: $q-accent;
+  font-size: 2.2em;
+}
+.reveal section.q-section p { color: $q-muted; }
+
+// cards in a grid
+.reveal .q-grid {
+  display: grid;
+  gap: 0.6em;
+  grid-template-columns: repeat(var(--cols, 2), 1fr);
+  font-size: 0.7em;
+  line-height: 1.4;
+}
+.reveal .q-card {
+  background: $q-surface;
+  border: 1px solid $q-line;
+  border-top: 4px solid $q-accent;
+  border-radius: 10px;
+  padding: 0.6em 0.8em 0.7em;
+  text-align: left;
+}
+.reveal .q-h {
+  display: block;
+  font-family: $presentation-heading-font;
+  font-weight: 600;
+  font-size: 1.15em;
+  margin: 0 0 0.3em;
+  color: $q-fg;
+}
+.reveal .column > p > .q-h { font-size: 1.05em; color: $q-accent; }
+.reveal .q-card p { margin: 0; }
+.reveal .q-card ul { margin: 0; padding-left: 1em; }
+.reveal .q-card.ai { border-top-color: $q-ai; background: $q-ai-soft; }
+.reveal .q-card.big { font-size: 1.3em; padding: 0.9em 1em 1em; }
+
+// small labels
+.reveal .q-tag {
+  display: inline-block;
+  font-size: 0.55em;
+  font-weight: 600;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  background: $q-accent-soft;
+  color: $q-accent;
+  vertical-align: middle;
+}
+.reveal .q-tag.ai { background: $q-ai-soft; color: $q-ai; }
+
+// a highlighted statement
+.reveal .q-quote {
+  border-left: 5px solid $q-accent;
+  padding: 0.3em 0 0.3em 0.8em;
+  font-family: $presentation-heading-font;
+  font-size: 1.05em;
+}
+
+.reveal .q-refs {
+  position: absolute;
+  bottom: 2.6em;
+  left: 0;
+  font-size: 0.42em;
+  color: $q-muted;
+}
+
+.reveal table { font-size: 0.6em; }
+.reveal table th { border-bottom: 2px solid $q-accent; }
+
+// screenshots: a framed window, cut at the bottom if taller than the slide allows
+.reveal img.q-shot {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  object-fit: cover;
+  object-position: top left;
+  border: 1px solid $q-line;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(28, 28, 26, 0.14);
+  margin: 0;
+}
+.reveal img.q-shot.half { max-height: 250px; }
+.reveal img.q-shot.tall { max-height: 540px; }
+.reveal .q-shots { display: grid; gap: 14px; }
+.reveal .q-caption { font-size: 0.42em; color: $q-muted; margin-top: 0.4em; }
+
+// text next to a screenshot
+.reveal .q-side { font-size: 0.78em; }
+.reveal .q-side ul { margin-left: 0; }
+
+// the reference slides
+.reveal .q-reflist {
+  columns: 2;
+  column-gap: 1.6em;
+  font-size: 0.48em;
+  line-height: 1.32;
+  text-align: left;
+}
+.reveal .q-reflist p {
+  margin: 0 0 0.55em;
+  padding-left: 1.5em;
+  text-indent: -1.5em;
+  break-inside: avoid;
+}
+
+// a screenshot on top of a card
+.reveal .q-card img.q-shot { max-height: 210px; margin-bottom: 0.6em; box-shadow: none; }

@@ -1,0 +1,46 @@
+{# Voice message (items/voice.py, participant.js "Voice message"). Without a microphone or MediaRecorder the
+   recorder stays hidden and only the text field (if allowed) is there. While the survey cannot store recordings
+   (VOICE_MAX_MB, a nearly full disk) there is no recorder, only the text field, also where the item has none. #}
+{% set given = answers.get(item.id) if answers.get(item.id) is mapping else {} %}
+{% set audio = given.get("audio") if given.get("audio") is mapping else none %}
+{% set closed = kind.closed(item) %}
+{% if closed %}
+<div class="p-voice">
+  {% include "items/_question.html" %}
+  <p class="p-hint">{{ ui("Aufnahmen sind gerade nicht möglich. Bitte schreiben Sie Ihre Antwort auf.", "Recording is not possible at the moment. Please type your answer.") }}</p>
+  <label class="p-text p-voice-text">
+    <span class="p-hint">{{ ui("Ihre Antwort:", "Your answer:") }}</span>
+    <textarea name="i{{ item.id }}_text" rows="3" dir="auto" maxlength="5000">{{ given.get("text", "") }}</textarea>
+  </label>
+</div>
+{% else %}
+<div class="p-voice" data-voice data-max="{{ kind.max_seconds(item) }}">
+  {% include "items/_question.html" %}
+  {% if not kind.text_fallback(item) %}
+  <p class="p-hint">{% if item.required %}{{ ui("Diese Pflichtfrage benötigt eine Sprachaufnahme. Sie brauchen ein Mikrofon und müssen den Zugriff im Browser erlauben. Ohne Aufnahme können Sie nicht weitergehen. Zum Beenden der Teilnahme schließen Sie diese Seite.", "This required question needs a voice recording. You need a microphone and must allow browser access. You cannot continue without a recording. To stop taking part, close this page.") }}{% else %}{{ ui("Ohne Aufnahme können Sie diese Frage mit „Weiter“ überspringen.", "Without a recording, you can skip this question with “Next”.") }}{% endif %}</p>
+  {% endif %}
+  {% set notice = item.text("notice", lang) %}
+  {% if notice %}<p class="p-hint p-voice-notice"{{ text_attrs(item, "notice") }}>{{ notice|inline(variables) }}</p>{% endif %}
+  <div class="p-voice-recorder" data-voice-recorder hidden>
+    <button type="button" class="p-voice-button" data-voice-toggle aria-describedby="q{{ item.id }}">
+      <span class="p-voice-dot" aria-hidden="true"></span><span data-voice-label>{{ ui("Aufnahme starten", "Start recording") }}</span>
+    </button>
+    {# the clock is not read out every second; the line below says start and stop (accessibility concept D7) #}
+    <span class="p-voice-time" data-voice-time>{% if audio %}{{ ui("Aufnahme gespeichert", "Recording saved") }} ({{ "%d:%02d"|format(audio.seconds // 60, audio.seconds % 60) }}){% endif %}</span>
+    <span class="p-sr-only" role="status" data-voice-status></span>
+    <audio controls preload="none" data-voice-player hidden></audio>
+    <button type="button" class="p-voice-remove" data-voice-remove {% if not audio %}hidden{% endif %}>{{ ui("Aufnahme löschen", "Delete recording") }}</button>
+    <input type="file" name="i{{ item.id }}_audio" accept="audio/*" data-voice-file hidden tabindex="-1" aria-hidden="true">
+    <input type="hidden" name="i{{ item.id }}_seconds" value="{{ audio.seconds if audio else '' }}" data-voice-seconds>
+    <input type="hidden" name="i{{ item.id }}_keep" value="{{ '1' if audio else '' }}" data-voice-keep>
+  </div>
+  {% if item.id in g.get("voice_dropped", ()) %}<p class="p-hint">{{ ui("Ihre Aufnahme wird erst gespeichert, wenn Sie weitergehen. Bitte nehmen Sie sie noch einmal auf.", "Your recording is stored only when you go on. Please record it again.") }}</p>{% endif %}
+  <p class="p-hint" role="alert" data-voice-problem hidden></p>
+  {% if kind.text_fallback(item) %}
+  <label class="p-text p-voice-text">
+    <span class="p-hint">{{ ui("Oder schreiben Sie Ihre Antwort:", "Or type your answer:") }}</span>
+    <textarea name="i{{ item.id }}_text" rows="3" dir="auto" maxlength="5000">{{ given.get("text", "") }}</textarea>
+  </label>
+  {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,34 @@
+{# What the end page shows after the end text: the completion link, the deletion code or the date until which this
+   browser can delete, the result dashboards. The preview shows the same (W47) with `preview` set: the link is not
+   followed and nothing moves on by itself; the deletion code is an example. #}
+{% set preview = preview is defined and preview %}
+{% set auto_forward = forward is defined and forward and forward_after is defined and forward_after and not (erase_code is defined and erase_code) and not preview %}
+{% if forward is defined and forward %}
+<div class="p-forward"{% if auto_forward %} data-forward-after="{{ forward_after }}"{% endif %}>
+  {% if auto_forward %}<p class="p-forward-note" data-forward-note data-text="{{ ui('Sie werden in {n} Sekunden weitergeleitet.', 'You will be forwarded in {n} seconds.') }}" data-stopped="{{ ui('Weiterleitung angehalten. Mit „Weiter“ geht es weiter.', 'Forwarding stopped. Use “Next” to continue.') }}">{{ ui("Sie werden in {n} Sekunden weitergeleitet.", "You will be forwarded in {n} seconds.", n=forward_after) }}</p>
+  <span class="p-sr-only" data-forward-live aria-live="polite"></span>{% endif %}
+  {% if preview %}<a class="p-button" aria-disabled="true" title="{{ ui('In der Vorschau nicht aufgerufen', 'Not opened in the preview') }}">{{ ui("Weiter", "Next") }}</a>
+  {% else %}<a class="p-button" href="{{ forward }}" rel="noreferrer" data-forward>{{ ui("Weiter", "Next") }}</a>{% endif %}
+  {% if auto_forward %}<button type="button" class="p-button p-button-secondary" data-forward-stop hidden>{{ ui("Anhalten", "Stop") }}</button>{% endif %}
+</div>
+{% endif %}
+{# the deletion code of this participation (survey setting "erase_code", app/erasure.py): shown to this person only #}
+{% if erase_code is defined and erase_code %}
+<div class="p-erase-note">
+  <p>{{ ui("Ihr Löschcode:", "Your deletion code:") }} <strong class="p-erase-code" dir="ltr">{{ erase_code }}</strong> <button type="button" class="p-copy" data-copy="{{ erase_code }}" data-copied="{{ ui('Kopiert', 'Copied') }}" hidden>{{ ui("Kopieren", "Copy") }}</button></p>
+  <p class="p-hint">{{ ui("Mit diesem Code können Sie Ihre Antworten später löschen: Auf der Seite „Datenschutz“ dieser Befragung, auch von einem anderen Gerät. Bitte notieren Sie ihn; er wird nur Ihnen angezeigt.", "With this code you can delete your answers later: on the “Privacy” page of this survey, also from another device. Please note it down; it is shown to you only.") }}
+    <a href="{{ url_for('participate.privacy', uid=survey.public_key, lang=lang) }}">{{ ui("Zur Seite „Datenschutz“", "Go to the “Privacy” page") }}</a></p>
+  {# closing the window comes after the code, not before it (X45; the standard thanks leave the sentence out here) #}
+  <p class="p-erase-close">{{ ui("Wenn Sie den Code notiert haben, können Sie dieses Fenster schließen.", "Once you have noted the code down, you can close this window.") }}</p>
+</div>
+{% elif erase_until is defined and erase_until %}
+{# no code: the end page still names the right the consent promised (V43) #}
+<p class="p-hint p-erase-here">{{ ui("Bis {d} können Sie Ihre Antworten in diesem Browser auf der Seite „Datenschutz“ löschen.", "Until {d} you can delete your answers in this browser on the “Privacy” page.", d=erase_until) }}
+  <a href="{{ url_for('participate.privacy', uid=survey.public_key, lang=lang) }}">{{ ui("Zur Seite „Datenschutz“", "Go to the “Privacy” page") }}</a></p>
+{% endif %}
+{# dashboards the researchers show to who has completed the survey (boards.end_links): summarised numbers only #}
+{% if boards is defined and boards %}
+<div class="p-forward p-end-boards">
+  {% for name, url in boards %}<a class="p-button p-button-secondary" href="{{ url }}" target="_blank" rel="noopener">{{ ui("Ergebnisse ansehen", "See the results") }}{% if boards|length > 1 %}: {{ name }}{% endif %}</a>{% endfor %}
+</div>
+{% endif %}

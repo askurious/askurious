@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_sources.html" import cite, grouped %}
+{% block title %}{{ de_en("Glossar der Kennzahlen", "Glossary of statistics") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Glossar der Kennzahlen", "Glossary of statistics") }}</h1>
+<p class="muted">{{ de_en("Was die Zahlen in Qualitätssicherung, Ergebnissen und Wahlmodellen bedeuten, mit einem Beispiel. Die Fragezeichen neben den Kennzahlen führen hierher; sie erscheinen, solange unter", "What the figures in quality assurance, results and choice models mean, with an example. The question marks next to the statistics lead here; they appear as long as the learning aids are switched on under") }} <a href="{{ url_for('accounts.index') }}#lernhilfen">{{ de_en("Konto", "Account") }}</a>{{ de_en(" die Lernhilfen eingeschaltet sind.", ".") }}</p>
+<p class="learn-search"><label>{{ de_en("Suchen", "Search") }} <input type="search" data-learn-search
+  placeholder="{{ de_en('z. B. Teststärke, α, Segment', 'e.g. power, α, segment') }}" autocomplete="off"></label>
+  <span class="muted small" data-learn-search-none hidden>{{ de_en("Nichts gefunden.", "Nothing found.") }}</span></p>
+{% for title, note, terms in sections %}
+<section class="panel" data-learn-section>
+  <h2>{{ title }}</h2>
+  {% if note %}<p class="muted small">{{ note }}</p>{% endif %}
+  <dl class="learn-glossary">
+    {% for t in terms %}
+    <dt id="{{ t.key }}"><strong>{{ t.symbol }}</strong> · {{ t.name }}</dt>
+    <dd><p>{{ t.text }}{% if t.sources %} {{ cite(t.sources) }}{% endif %}</p><p class="muted">{{ de_en("Beispiel:", "Example:") }} {{ t.example }}</p></dd>
+    {% endfor %}
+  </dl>
+</section>
+{% endfor %}
+<section class="panel" id="entscheidungen" data-learn-section>
+  <h2>{{ de_en("Entscheidungen", "Decisions") }}</h2>
+  <p class="muted small">{{ de_en("Die Erklärungen „Warum?“ an den Stellen, wo Sie entscheiden.", "The “Why?” explanations at the places where you decide.") }}</p>
+  {# in the groups of the tabs, alphabetical within each (concept "Lernhilfen: fünfte Runde", H3) #}
+  {% for group, rows in decision_groups if rows %}
+  <h3 class="learn-group">{{ group }}</h3>
+  <dl class="learn-glossary">
+    {% for r in rows %}
+    <dt id="warum-{{ r.key }}"><strong>{{ r.title }}</strong> <span class="hint">{{ r.place }}</span></dt>
+    <dd><p>{{ r.text }}{% if r.sources %} {{ cite(r.sources) }}{% endif %}</p></dd>
+    {% endfor %}
+  </dl>
+  {% endfor %}
+</section>
+{# every source of the glossary once, in one fold at the end #}
+{% set ns = namespace(groups=[]) %}{% for _title, _note, terms in sections %}{% for t in terms if t.sources %}{% set ns.groups = ns.groups + [(t.name, t.sources)] %}{% endfor %}{% endfor %}{% for r in decisions if r.sources %}{% set ns.groups = ns.groups + [(r.title, r.sources)] %}{% endfor %}
+{% if ns.groups %}<section class="panel">{{ grouped(ns.groups, de_en("Literatur", "References")) }}</section>{% endif %}
+{% endblock %}

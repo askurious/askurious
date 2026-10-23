@@ -1,0 +1,48 @@
+{% from "items/_fallback.html" import fallback_option %}
+{% set chosen, typed = kind.chosen(answers.get(item.id)), kind.typed(answers.get(item.id)) %}
+{% if kind.images(item) %}
+<fieldset class="p-fieldset" {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %}>
+  {% with tag="legend" %}{% include "items/_question.html" %}{% endwith %}
+  {% with input_type="radio", chosen_codes=[chosen] %}{% include "items/_image_options.html" %}{% endwith %}
+</fieldset>
+{% elif kind.dropdown(item) or kind.search(item) %}
+{# A drop-down list instead of radio buttons (editor: "als Dropdown-Liste anzeigen"): same field names and
+   codes. The first entry is the empty answer, so an optional question can be taken back. The text field of
+   an option ("Other: ...") stands below the list and shows only while its option is chosen (participant.js).
+   As a search field (config "display" = "search") participant.js puts a text field with suggestions in front of
+   the list and hides the list; it stays the field that is sent, so without the script the list is shown. #}
+<div class="p-select" data-select{% if kind.search(item) %} data-search{% endif %}>
+  {% with tag="label", label_for="s" ~ item.id %}{% include "items/_question.html" %}{% endwith %}
+  <select id="s{{ item.id }}" name="i{{ item.id }}" autocomplete="off"{% if not item.text("question", lang) %} aria-label="{{ ui('Antwort', 'Answer') }}"{% endif %}{% if item.required %} aria-required="true"{% endif %}>
+    <option value="">{{ ui("Bitte auswählen", "Please select") }}</option>
+    {% for o in kind.options(item, lang, none if all_rows is defined and all_rows else answers) %}
+    <option value="{{ o.code }}" {% if chosen == o.code %}selected{% endif %}>{{ o.label|fill(variables)|striptags }}</option>
+    {% endfor %}
+  </select>
+  {% for o in kind.options(item, lang, none if all_rows is defined and all_rows else answers) if o.text %}
+  <input type="text" class="p-other" dir="auto" name="i{{ item.id }}_t_{{ o.id }}" maxlength="500" autocomplete="off" aria-label="{{ o.label }}" data-select-text="{{ o.code }}" value="{{ typed.get(o.code, '') }}">
+  {% endfor %}
+</div>
+{% else %}
+<fieldset class="p-fieldset" {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %}>
+  {% with tag="legend" %}{% include "items/_question.html" %}{% endwith %}
+  {# ordered answers side by side only while they fit in one line; on a phone one below the other (UI audit 2026-10-12, U37) #}
+  <div class="p-options {{ item.config.layout }}{% if item.config.layout == 'horizontal' and (kind.level(item) == 'ordinal' or looks_ordered(item)) %} is-ordered{% endif %}">
+    {% for o in kind.options(item, lang, none if all_rows is defined and all_rows else answers) %}
+    {% if o.missing or o.aside %}
+    {# "keine Angabe", "weiß nicht", "Ich wohne nicht in Deutschland": the card of every answer set aside (S8) #}
+    {% call fallback_option("radio", "i" ~ item.id, o.code, chosen == o.code, "p-option-text" if o.text else "") %}
+      <span{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span>
+      {% if o.text %}<input type="text" class="p-other" dir="auto" name="i{{ item.id }}_t_{{ o.id }}" maxlength="500" autocomplete="off" aria-label="{{ o.label }}" value="{{ typed.get(o.code, '') }}">{% endif %}
+    {% endcall %}
+    {% else %}
+    <label class="p-option p-radio{% if o.text %} p-option-text{% endif %}">
+      <input type="radio" name="i{{ item.id }}" value="{{ o.code }}" {% if chosen == o.code %}checked{% endif %}>
+      <span{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span>
+      {% if o.text %}<input type="text" class="p-other" dir="auto" name="i{{ item.id }}_t_{{ o.id }}" maxlength="500" autocomplete="off" aria-label="{{ o.label }}" value="{{ typed.get(o.code, '') }}">{% endif %}
+    </label>
+    {% endif %}
+    {% endfor %}
+  </div>
+</fieldset>
+{% endif %}

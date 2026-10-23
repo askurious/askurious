@@ -1,0 +1,42 @@
+{% from "items/_fallback.html" import fallback_option %}
+{# The federal states as radio buttons or drop-down list (the single choice), or as a simple map to click on
+   (editor: "Karte zum Anklicken"). The map is drawn from the state outlines (items/federal_state.py outline())
+   without a map service. The radio buttons stay in the page: without JavaScript they are the question, with
+   it (participant.js) the states among them are hidden from view, a click on a state ticks its button, and
+   screen readers and the keyboard keep using the buttons. Below 600 px the buttons stay in view as the choice
+   and the map only shows it (participant.css; UI audit 2026-10-12, U38). #}
+{# the city states get a hit circle of their own, about 44 px wide on a phone (r 36 of the drawing; V46) #}
+{% if kind.as_map(item) %}
+{% set chosen = kind.chosen(answers.get(item.id)) %}
+{% set drawing = kind.outline() %}
+<fieldset class="p-fieldset p-state" data-state-pick {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %}>
+  {% with tag="legend" %}{% include "items/_question.html" %}{% endwith %}
+  <div class="p-state-map" data-state-map hidden>
+    <svg viewBox="0 0 {{ drawing.width }} {{ drawing.height }}" width="{{ drawing.width }}" height="{{ drawing.height }}" aria-hidden="true" focusable="false">
+      {% for s in kind.map_states(item, lang) %}<use class="p-state-area" data-code="{{ s.code }}" href="{{ url_for('static', filename='geo/state-outlines.svg') }}#state-{{ s.code }}"><title>{{ s.label }}</title></use>
+      {% endfor %}
+      {% for s in kind.map_states(item, lang) if s.small %}<circle class="p-state-hit" data-code="{{ s.code }}" cx="{{ s.x }}" cy="{{ s.y }}" r="36"><title>{{ s.label }}</title></circle>
+      {% endfor %}
+      {% for s in kind.map_states(item, lang) %}<text class="p-state-label{% if s.small %} p-state-label-small{% endif %}" data-code="{{ s.code }}" x="{{ s.x }}" y="{{ s.y - (s.lines|length - 1) * 9 }}">{% for line in s.lines %}<tspan x="{{ s.x }}"{% if not loop.first %} dy="18"{% endif %}>{{ line }}</tspan>{% endfor %}</text>
+      {% endfor %}
+    </svg>
+    <p class="p-state-chosen" data-state-chosen hidden>{{ ui("Ausgewählt:", "Selected:") }} <strong data-state-name></strong></p>
+    <p class="p-map-credit">{{ bkg_credit }}, {{ ui("vereinfacht", "simplified") }}</p>{# dl-de/by-2-0 (copyright audit 2026-10-16, U7) #}
+  </div>
+  <div class="p-options vertical">
+    {% for o in kind.options(item, lang) %}
+    {% if o.aside %}
+    {# "Ich wohne nicht in Deutschland", "keine Angabe": the card of every answer set aside (S8) #}
+    {% call fallback_option("radio", "i" ~ item.id, o.code, chosen == o.code) %}<span{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span>{% endcall %}
+    {% else %}
+    <label class="p-option p-radio"{% if o.id.startswith("s") %} data-state-option{% endif %}>
+      <input type="radio" name="i{{ item.id }}" value="{{ o.code }}" {% if chosen == o.code %}checked{% endif %}>
+      <span{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span>
+    </label>
+    {% endif %}
+    {% endfor %}
+  </div>
+</fieldset>
+{% else %}
+{% include "items/single_choice/participant.html" %}
+{% endif %}

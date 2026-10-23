@@ -1,0 +1,20 @@
+{# The question on the screen, on a participant's phone (app/live/), sent by app/static/live.js #}
+<form method="post" class="live-form" action="{{ url_for('live_public.answer', code=survey.code) }}" novalidate autocomplete="off" data-live-form{% if instant %} data-instant{% endif %}{% if multi %} data-multi{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="ref" value="{{ ref }}">
+  {% if page %}<input type="hidden" name="page" value="{{ page }}">{% endif %}
+  {% if full %}{% for item in items %}<p class="p-question">{{ item.text("question", lang)|inline({}) }}</p>{% endfor %}
+  <p class="live-full">{{ ui("Danke! Sie haben zu dieser Frage so viele Antworten gesendet wie möglich.", "Thank you! You have sent as many answers to this question as allowed.") }}</p>
+  {% else %}{% for item in items %}{% include "participant/_item.html" %}{% endfor %}{% endif %}
+  {% if multi and not full %}<p class="muted small">{{ ui("Mehrere Antworten nacheinander sind möglich.", "Several answers, one after the other, are possible.") }}
+    {%- if word_left %} <span data-live-left="{{ ui('Noch {n} möglich.', '{n} more possible.') }}">{{ ui("Noch {n} möglich.", "{n} more possible.", n=word_left) }}</span>{% endif %}</p>
+  <p class="small live-sent-note" data-live-sent hidden aria-live="polite">{{ ui("Angekommen.", "Received.") }}</p>{% endif %}
+  {# the words this device sent, each with a button that takes it back (Ralf, 2026-10-16) #}
+  {% if multi %}<ul class="live-my-words" data-live-words="{{ url_for('live_public.withdraw', code=survey.code) }}"
+      data-label="{{ ui('Zurückziehen', 'Withdraw') }}" aria-label="{{ ui('Ihre Wörter', 'Your words') }}"{% if not words %} hidden{% endif %}>
+    {% for id, text in words %}<li><span dir="auto">{{ text }}</span><button type="button" class="live-withdraw" data-word="{{ id }}" aria-label="{{ ui('Zurückziehen', 'Withdraw') }}: {{ text }}" title="{{ ui('Zurückziehen', 'Withdraw') }}">×</button></li>{% endfor %}
+  </ul>{% endif %}
+  <p class="p-error" data-live-error hidden></p>
+  {# with "instant" a tap sends (live.js); the button stays for keyboards, out of sight #}
+  {% if not full %}<div class="p-nav{% if instant %} is-instant{% endif %}"><button class="p-button" type="submit">{{ ui("Senden", "Send") }}</button></div>{% endif %}
+</form>

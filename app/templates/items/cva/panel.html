@@ -1,0 +1,52 @@
+{# Ratings-based conjoint (app/items/cva.py): the experimental design (tab "2 · Ablauf") and the images (tab
+   "3 · Darstellung & Bilder"), as for CBC (items/conjoint/panel.html). #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set c = item.config %}
+{% set current = kind.design_current(item) %}
+{% set pairs = kind.form(item) == "pairs" %}
+<section class="panel" id="design" data-cj-tab="design">
+  <h2>{{ de_en("Versuchsplan", "Experimental design") }} <span class="hint">{{ de_en("D-optimal für die Regression, wird beim Start eingefroren", "D-optimal for the regression, frozen at the start") }}</span></h2>
+  {% if c.attributes %}
+  <div class="figures cj-figures">
+    <div><dt>{{ de_en("Parameter", "Parameters") }}</dt><dd>{{ kind.n_params(item) }}</dd></div>
+    <div><dt>{{ de_en("Aufgaben je Person", "Tasks per person") }}</dt><dd>{{ kind.n_tasks(item) }}</dd></div>{% if kind.holdout_count(item) %}<div><dt>{{ de_en("Holdout-Aufgaben", "Holdout tasks") }}</dt><dd>{{ kind.holdout_count(item) }}</dd></div>{% endif %}
+    {% set eff = kind.design_efficiency(item) %}
+    <div title="{{ de_en('0 bis 100, bezogen auf einen orthogonalen, ausgewogenen Versuchsplan (Kuhfeld et al., 1994); bei mehreren Versionen die kleinste', '0 to 100, relative to an orthogonal, balanced design (Kuhfeld et al., 1994); with several versions the smallest') }}"><dt>{{ de_en("D-Effizienz", "D-efficiency") }}</dt><dd>{{ eff|round|int if eff is not none else "–" }}</dd></div>
+    {% set freq = kind.design_frequency(item, lang) %}
+    {% if freq %}{% set worst = freq|sort(attribute="ratio", reverse=true)|first %}
+    <div title="{% for f in freq %}{{ f.label }}: {{ f.min }}–{{ f.max }}{{ '; ' if not loop.last }}{% endfor %}"><dt>{{ de_en("Stufenhäufigkeit", "Level frequency") }} <span class="hint">min.–max.</span></dt><dd>{{ worst.min }}–{{ worst.max }}</dd></div>
+    {% endif %}
+    {% if kind.uses_images(item) %}<div><dt>{{ de_en("Bilder nötig", "Images needed") }}</dt><dd>{{ kind.required_keys(item)|length if current else "–" }}</dd></div>{% endif %}
+  </div>
+  {% for w in kind.design_warnings(item) %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ w }}</span></p>{% endfor %}
+  {% if not current %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Noch kein Versuchsplan.", "No experimental design yet.") if not c.design else de_en("Der Versuchsplan passt nicht mehr zu Merkmalen, Stufen oder Aufgaben.", "The experimental design no longer fits the attributes, levels or tasks.") }} {{ de_en("Bitte neu erzeugen.", "Please generate it again.") }}</span></p>{% endif %}
+  {% if structural %}
+  <form method="post" action="{{ url_for('editor.conjoint_design', survey_id=survey.id, item_id=item.id, lang=lang) }}"
+        data-busy="{{ de_en('Wird berechnet …', 'Calculating …') }}">
+    {{ csrf() }}<button class="button">{{ icon("conjoint", 16) }}<span> {{ de_en("Versuchsplan neu erzeugen", "Regenerate experimental design") if c.design else de_en("Versuchsplan erzeugen", "Generate experimental design") }}</span></button>
+  </form>
+  {% endif %}
+  {% if current %}
+  <details class="cj-design-view"><summary>{{ de_en("Versuchsplan ansehen (Version 1)", "View experimental design (version 1)") }}</summary>
+    {% set attrs = kind.attributes(item, lang) %}
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+      <thead><tr><th>{{ de_en("Aufgabe", "Task") }}</th>{% if pairs %}<th>{{ de_en("Angebot", "Offer") }}</th>{% endif %}{% for a in attrs %}<th>{{ a.label }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for task in c.design.versions[0] %}{% set tloop = loop %}{% for prof in (task if pairs else [task]) %}
+        <tr><td>{{ tloop.index if loop.first else "" }}</td>{% if pairs %}<td>{{ loop.index }}</td>{% endif %}{% for a in attrs %}<td>{{ a.level_labels[prof[loop.index0]] }}</td>{% endfor %}</tr>
+      {% endfor %}{% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endif %}
+  {% else %}<p class="muted">{{ de_en("Zuerst Merkmale und Stufen anlegen.", "Add attributes and levels first.") }}</p>{% endif %}
+</section>
+{% if c.attributes %}
+<section class="panel" data-cj-tab="display">
+  <h2>{{ de_en("Bilder", "Images") }}</h2>
+  {% if kind.uses_images(item) %}
+  {% if current %}{% include "items/_attributes/image_buttons.html" %}
+  {% else %}<p class="muted">{{ de_en("Die Bilder folgen aus dem Versuchsplan: zuerst im Reiter „2 · Ablauf“ dieses Elements den Versuchsplan erzeugen.", "The images follow from the experimental design: first generate the experimental design in the tab “2 · Flow” of this element.") }}</p>{% endif %}
+  {% elif kind.level_images_on(item) %}{% include "items/_attributes/image_buttons.html" %}
+  {% else %}<p class="muted">{{ de_en("Anzeige „Tabelle mit Text“: Ohne Bilder.", "Display “Table with text”: no images.") }}</p>{% endif %}
+</section>
+{% endif %}

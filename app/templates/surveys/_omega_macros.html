@@ -1,0 +1,12 @@
+{# Intervals of the results page that the omega part (surveys._omega_part, static/omega.js) renders as well #}
+{% from "_macros.html" import num %}
+{# 95 % confidence intervals (app/intervals.py): "[a; b]", "[–]" below 10 cases (bootstrap: 30), "[–; b]" open below #}
+{% macro ci(c, d=2, boot=false) %}<span class="res-ci" title="{{ de_en('95-%-Konfidenzintervall (Bootstrap, erst ab n = 30)', '95% confidence interval (bootstrap, from n = 30)') if boot else de_en('95-%-Konfidenzintervall (erst ab n = 10)', '95% confidence interval (from n = 10)') }}">[{% if c %}{{ num(c[0], d) }}; {{ num(c[1], d) }}{% else %}–{% endif %}]</span>{% endmacro %}
+{# bootstrap draws without an omega count as below every value (intervals.open_percentile): their share, and "–" as
+   the lower end when it falls among them #}
+{% macro omega_open(s) %}{% if s.omega_failed %} <span class="hint">{{ de_en("{share} der Bootstrap-Ziehungen ohne schätzbares ω, als kleinster Wert gezählt", "{share} of the bootstrap draws without an estimable ω, counted as the smallest value", share=s.omega_failed|percent) }}{% if s.omega_ci and s.omega_ci[0] is none %}{{ de_en(": Untergrenze nach unten offen", ": lower bound open downwards") }}{% endif %}</span>{% endif %}{% endmacro %}
+{# the omega interval of a scale (and its note) or of a row of the overview; while it is drawn (results.fill_omega)
+   a placeholder that static/omega.js replaces with the same markup #}
+{% macro omega_ci(s, slot, note=true) %}{% if s.omega_wait %}<span class="res-ci res-wait" data-omega-slot="{{ slot }}" title="{{ de_en('95-%-Konfidenzintervall: Wird berechnet', '95% confidence interval: being computed') }}">[{{ de_en("wird berechnet …", "being computed …") }}]</span>{% else %}{{ ci(s.omega_ci, boot=true) }}{% if note %}{{ omega_open(s) }}{% endif %}{% endif %}{% endmacro %}
+{# the sentence under the overview on draws without an omega #}
+{% macro overview_open() %}{{ de_en("; Ziehungen ohne schätzbares ω zählen als kleinster Wert, „–“ als Untergrenze heißt: nach unten offen", "; draws without an estimable ω count as the smallest value, “–” as the lower bound means: open downwards") }}{% endmacro %}

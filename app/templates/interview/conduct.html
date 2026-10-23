@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="{{ html_lang(survey.default_language) }}" data-iv-page{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>
+{# The interview view (app/interview.py, concept interviewleitfaden-konzept.md 4.3): the guide for a tablet or laptop
+   during the interview. Nothing goes to the server: ticks, states and the clock stay in this browser tab
+   (interview.js, sessionStorage). Order "free": the list on the left jumps; "linear": Weiter and Zurück, the list
+   shows the progress, a jump only through "Zu Themenblock …".
+   <html lang> is the survey's language (the guide's questions and the forms are content in it); the frame follows the
+   page language of the person conducting (data-ui-lang on <body>, read by de_en() of interview.js and mic.js). #}
+{# what a Leitfrage and each of its Unterfragen show under their prompt: status, aspects, questions, hint, note. Aspects
+   and maintaining questions (used during the narrative) side by side, the concrete questions (at the end) below them
+   across the width, each with its Nachfragen (concept bedingungen-leitfaden, review of the view, Ralf 2026-10-19) #}
+{% macro question_body(item, row, sub=false) %}
+          <div class="segmented iv-state" role="radiogroup" aria-label="{{ de_en('Stand der Unterfrage', 'Status of the sub-question') if sub else de_en('Stand der Leitfrage', 'Status of the guide question') }}">
+            {% for value, label in [("asked", de_en("gestellt", "asked")), ("spontaneous", de_en("von selbst angesprochen", "raised spontaneously")), ("skipped", de_en("nicht gestellt", "not asked"))] %}
+            <label><input type="radio" name="state-{{ item.id }}" value="{{ value }}" data-iv-state="{{ item.id }}"><span>{{ label }}</span></label>
+            {% endfor %}
+          </div>
+          <div class="iv-columns">
+            {% for part, title in [("aspects", de_en("Inhaltliche Aspekte", "Content aspects")), ("keep", de_en("Aufrechterhaltungsfragen", "Maintenance questions")), ("probe", de_en("Konkrete Fragen (am Ende)", "Specific questions (at the end)"))] %}
+            {% set rows_ = item.kind.rows(item, part) %}
+            {% if rows_ %}
+            <div class="iv-col iv-col-{{ part }}">
+              <h3>{{ title }}</h3>
+              {% if part == "keep" %}
+              <ul class="iv-keep">{% for rid, text in rows_ %}<li>„{{ text }}“</li>{% endfor %}</ul>
+              {% elif part == "probe" %}
+              {# concrete questions with their Nachfragen and conditions (concept bedingungen-leitfaden): a row whose
+                 condition does not hold is paled, never hidden (interview.js, data-iv-if) #}
+              <div class="iv-probe-list">
+              {% for p in item.kind.probe_tree(item) %}
+              {# K1, K2 in front as the conditions name them; a condition as a line over its row with its state (data-iv-off,
+                 interview.js); Nachfragen hang from a line under their concrete question (Ralf 2026-10-22) #}
+              <div class="iv-probe" data-iv-probe="{{ item.id }}:{{ p.id }}"{% if p.cond_attr %} data-iv-if="{{ p.cond_attr|tojson|forceescape }}"{% endif %}>
+                {% if p.cond_label %}<p class="iv-cond">{{ p.cond_label }} <span class="iv-cond-state" data-iv-off></span></p>{% endif %}
+                <label class="check iv-tick"><input type="checkbox" data-iv-tick="{{ item.id }}:probe:{{ p.id }}"> <span class="iv-k">K{{ p.n }}</span> <span>{{ p.text }}</span></label>
+                {# "trifft zu": a concrete question with Nachfragen or one a condition names (B, E) #}
+                {% if p.fit %}
+                <div class="segmented iv-fit" role="radiogroup" aria-label="{{ de_en('Trifft die Frage zu?', 'Does the question apply?') }}">
+                  {% for value, label in [("yes", de_en("trifft zu", "applies")), ("no", de_en("trifft nicht zu", "does not apply"))] %}
+                  <label><input type="radio" name="fit-{{ item.id }}-{{ p.id }}" value="{{ value }}" data-iv-fit="{{ item.id }}:{{ p.id }}"><span>{{ label }}</span></label>
+                  {% endfor %}
+                </div>
+                {% endif %}
+                {% if p.subs %}
+                <div class="iv-tree iv-tree-thin">
+                {% for s in p.subs %}
+                <div class="iv-node iv-probe iv-probe-sub" data-iv-probe="{{ item.id }}:{{ s.id }}" data-iv-parent="{{ item.id }}:{{ p.id }}" data-iv-parent-n="{{ p.n }}"{% if s.cond_attr %} data-iv-if="{{ s.cond_attr|tojson|forceescape }}"{% endif %}>
+                  <p class="iv-cond">{{ s.cond_label or de_en("nur wenn K{n} trifft zu", "only if Q{n} applies", n=p.n) }} <span class="iv-cond-state" data-iv-off></span></p>
+                  <p class="iv-kind">{{ [de_en("Nachfrage zu K{n}", "Follow-up to Q{n}", n=p.n), s.when]|select|join(" · ") }}</p>
+                  <label class="check iv-tick"><input type="checkbox" data-iv-tick="{{ item.id }}:probe:{{ s.id }}"> <span>{{ s.text }}</span></label>
+                </div>
+                {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+              </div>
+              {% else %}
+              {% for rid, text in rows_ %}
+              <label class="check iv-tick"><input type="checkbox" data-iv-tick="{{ item.id }}:{{ part }}:{{ rid }}"> <span>{{ text }}</span></label>
+              {% endfor %}
+              {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% if item.text("hint") %}<p class="iv-hint"><strong>{{ de_en("Hinweis:", "Note:") }}</strong> {{ item.text("hint") }}</p>{% endif %}
+          {% if row %}
+          <div class="iv-notes">
+            <label><span class="label-title">{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("keine Namen notieren, Pseudonyme verwenden", "do not note names, use pseudonyms") }}</span></span>
+              <textarea rows="3" maxlength="2000" data-iv-note="{{ item.id }}"></textarea></label>
+            <div class="iv-marks"><button type="button" class="button button-small button-secondary" data-iv-mark-add="{{ item.id }}">⏱ {{ de_en("Zeitmarke setzen", "Set time mark") }}</button>
+              <ul class="plain" data-iv-marks="{{ item.id }}"></ul></div>
+          </div>
+          {% endif %}
+{% endmacro %}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interview · {{ survey.title }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+  {# the elements of the Kurzfragebogen and the Postskript: rating sliders, "Weiß nicht", "Anderes, und zwar", dates #}
+  <script src="{{ url_for('static', filename='participant.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='mic.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='audiostore.js') }}" defer></script>
+  {% if offline %}<script src="{{ url_for('static', filename='interview-offline.js') }}" defer></script>{% endif %}
+  <script src="{{ url_for('static', filename='interview.js') }}" defer></script>
+</head>
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{% from "_learn.html" import why %}
+{% set lang = survey.default_language %}
+{% set free = st.order == "free" %}
+<body class="iv-body" data-ui-lang="{{ ui_language() }}">
+{# "Zum Zeigen" (interview/_task.html): while a task is shown, everything but it is hidden (.iv-showing, app.css) #}
+<div class="iv" data-interview data-order="{{ st.order }}" data-key="askurious-interview-{{ survey.code }}{{ '-' ~ row.id if row else '' }}"
+     {% if offline %}data-offline data-csrf="{{ csrf_token() }}" data-sw="{{ url_for('interview.interview_sw') }}"
+     data-pack-url="{{ url_for('interview_offline.pack_new', code=survey.code) }}" data-sync-url="{{ url_for('interview_offline.sync_view', code=survey.code) }}" data-guide="{{ survey.code }}"
+     {% elif row %}data-save="{{ url_for('interview_data.save_view', code=survey.code, rid=row.id) }}" data-csrf="{{ csrf_token() }}"
+     data-sw="{{ url_for('interview.interview_sw') }}"{% endif %}>
+  {% if offline %}{% include "interview/_field_kit.html" %}{% endif %}
+  {% if record %}<script type="application/json" data-iv-record>{{ record|tojson }}</script>{% endif %}
+  <header class="iv-bar">
+    {% if row %}<a class="back-link" href="{{ interviews_url(survey) }}" title="{{ de_en('Zurück zu den Interviews', 'Back to the interviews') }}" aria-label="{{ de_en('Zurück zu den Interviews', 'Back to the interviews') }}">{{ icon("back", 16) }}</a>
+    {% else %}<a class="back-link" href="{{ url_for('interview.guide', code=survey.code) }}" title="{{ de_en('Zurück zum Leitfaden', 'Back to the guide') }}" aria-label="{{ de_en('Zurück zum Leitfaden', 'Back to the guide') }}">{{ icon("back", 16) }}</a>{% endif %}
+    <h1 class="iv-title">{{ survey.title }}</h1>{# the page's one heading of the first rank (UI audit 2026-10-12, U33, U55) #}
+    <span class="muted small iv-mode">{{ orders[st.order][0] }}</span>
+    <span class="iv-spacer"></span>
+    {% if row %}<strong class="iv-label">{{ row.interview.label }}</strong>{% if row.source == "test" %} <span class="badge">{{ de_en("Probeinterview", "Trial interview") }}</span>{% endif %}
+    <span class="small iv-saved" data-iv-saved role="status">{{ de_en("gespeichert", "saved") }}</span>
+    {% if ((row.interview or {}).consent or {}).audio %}
+    {# the recording (app/interview_audio.py): only with the consent to it; sent in pieces while it runs #}
+    <span class="iv-rec" data-iv-rec {% if not offline %}data-audio-url="{{ url_for('interview_audio.upload', code=survey.code, rid=row.id) }}"{% endif %}
+          data-audio-part="{{ next_part(row) }}" data-audio-store="iv-{{ row.pid or row.id }}" data-interview-id="{{ row.id }}"
+          {% if not offline %}data-netcheck="{{ url_for('interview_audio.netcheck', code=survey.code, rid=row.id) }}"{% endif %}>
+      <button type="button" class="button button-small iv-rec-btn" data-iv-rec-toggle>● {{ de_en("Aufnahme starten", "Start recording") }}</button>
+      <button type="button" class="button button-small button-secondary" data-iv-rec-stop hidden>■ {{ de_en("Aufnahme beenden", "Stop recording") }}</button>
+      <span class="small" data-iv-rec-state role="status"></span>
+      {# offline L: shown only while pieces wait and cannot get through (interview.js drawRec) #}
+      <button type="button" class="button button-small button-secondary" data-iv-rec-save hidden title="{{ de_en('Die wartenden Tonstücke als Datei speichern; auf der Seite „Aufnahme hochladen“ des Interviews wieder einlesen', 'Save the waiting audio pieces as a file; read them in on the interview page “Upload recording”') }}">{{ de_en("Tonstücke sichern", "Save audio pieces") }}</button>
+      {# the microphone (mic.js): a choice when there is more than one, a level while it records or tests #}
+      <select class="iv-mic" data-mic-select aria-label="{{ de_en('Mikrofon', 'Microphone') }}" hidden></select>
+      <button type="button" class="button button-small button-secondary" data-mic-test title="{{ de_en('Mikrofon und Pegel prüfen, ohne aufzunehmen', 'Check microphone and level without recording') }}">{{ de_en("Testen", "Test") }}</button>
+      <span class="iv-level" data-mic-level hidden aria-hidden="true"><span></span></span>
+      {% if conference %}{# the shared tab or screen adds its sound (interview.js, mix) #}
+      <label class="check small" title="{{ de_en('Beim Start teilt der Browser den Tab der Videokonferenz oder den ganzen Bildschirm mit Ton; gespeichert wird nur der Ton, gemischt mit dem Mikrofon. Nur Chrome und Edge; mit Headset.', 'On start the browser shares the tab of the video conference or the whole screen with sound; only the sound is stored, mixed with the microphone. Chrome and Edge only; use a headset.') }}"><input type="checkbox" data-iv-conference> {{ de_en("Ton der Videokonferenz mit aufnehmen", "Also record the sound of the video conference") }}</label>
+      {% endif %}
+    </span>
+    {% if current_user.is_authenticated %}{{ why("conference") }}{% endif %}
+    {# a second device records (app/interview_remote.py): the smartphone opens this link, the view shows its state;
+       not offline (E8 b: the phone finds the tablet only through the server) #}
+    {% if not offline %}
+    <details class="iv-remote" data-iv-remote data-state-url="{{ url_for('interview_remote.state', code=survey.code, rid=row.id) }}"
+             data-stop-url="{{ url_for('interview_remote.stop', code=survey.code, rid=row.id) }}">
+      <summary class="button button-small button-secondary">{{ de_en("Handy als Aufnahmegerät", "Phone as recorder") }}</summary>
+      <div class="iv-remote-panel">
+        {% if interviewer_of(survey) %}<p class="small">{{ de_en("Auf dem Handy zuerst Ihren Interviewlink öffnen, dann diesen Code scannen oder den Link dort öffnen.", "First open your interviewer link on the phone, then scan this code or open the link there.") }}</p>{% endif %}
+        <p class="small">{{ de_en("Mit dem Handy scannen (gleiches Konto) oder den Link dort öffnen. Das Handy zeigt nur die Aufnahme; startet es, bevor die Uhr hier läuft, startet die Uhr mit. „Interview beenden“ beendet auch die Aufnahme dort.", "Scan with the phone (same account) or open the link there. The phone shows only the recording; if it starts before the clock here runs, the clock starts too. “End interview” also ends the recording there.") }}</p>
+        <img src="{{ url_for('interview_remote.qr', code=survey.code, rid=row.id) }}" alt="{{ de_en('QR-Code der Aufnahmeseite', 'QR code of the recording page') }}" width="180" height="180">
+        <p class="small"><a href="{{ url_for('interview_remote.page', code=survey.code, rid=row.id) }}" target="_blank" rel="noopener">{{ url_for('interview_remote.page', code=survey.code, rid=row.id, _external=True) }}</a></p>
+      </div>
+    </details>
+    <span class="small iv-remote-state" data-iv-remote-state role="status" hidden></span>
+    {% endif %}
+    {% if screen %}
+    {# the interviewee's own screen for the tasks (app/interview_screen.py): a link and QR code per
+       interview, shown once; the device shows only the task released below (interview-screen-view.js) #}
+    <details class="iv-remote iv-screen" data-ivs-view data-poll="2" data-csrf="{{ csrf_token() }}"
+             data-connect="{{ url_for('interview_screen.connect_view', code=survey.code, rid=row.id) }}"
+             data-disconnect="{{ url_for('interview_screen.disconnect_view', code=survey.code, rid=row.id) }}"
+             data-release="{{ url_for('interview_screen.release_view', code=survey.code, rid=row.id) }}"
+             data-state="{{ url_for('interview_screen.state_view', code=survey.code, rid=row.id) }}"
+             data-edit="{{ url_for('interview_screen.edit_view', code=survey.code, rid=row.id, iid=0) }}">
+      <summary class="button button-small button-secondary">{{ de_en("Teilnehmerbildschirm", "Participant screen") }}</summary>
+      <div class="iv-remote-panel iv-screen-panel">
+        <p class="small">{{ de_en("Die interviewte Person öffnet den Link auf ihrem eigenen Handy oder Laptop, im Videogespräch über den Chat. Ihr Gerät zeigt nur die Aufgabe, die Sie freigeben, nichts vom Leitfaden; das Ergebnis erscheint hier.", "The interviewee opens the link on their own phone or laptop, in a video interview through the chat. Their device shows only the task you release, nothing of the guide; the result appears here.") }}</p>
+        <div data-ivs-new hidden>
+          <img data-ivs-qr alt="{{ de_en('QR-Code des Teilnehmerbildschirms', 'QR code of the participant screen') }}" width="180" height="180">
+          <p class="small"><a data-ivs-link href="#" target="_blank" rel="noopener noreferrer"></a></p>
+          <p class="small"><button type="button" class="button button-small button-secondary" data-ivs-copy>{{ de_en("Link kopieren", "Copy link") }}</button> <span data-ivs-copied hidden>{{ de_en("kopiert", "copied") }}</span></p>
+          <p class="muted small">{{ de_en("Nur hier zu sehen. Der Link öffnet sich auf einem einzigen Gerät, innerhalb von {m} Minuten; die Verbindung endet mit dem Interview, spätestens nach {h} Stunden.", "Shown only here. The link opens on one device only, within {m} minutes; the connection ends with the interview, after {h} hours at the latest.", m=screen_minutes, h=screen_hours) }}</p>
+        </div>
+        <p class="small" data-ivs-line role="status"></p>
+        <p class="ivs-view-buttons">
+          <button type="button" class="button button-small" data-ivs-connect>{{ de_en("Teilnehmerbildschirm verbinden", "Connect participant screen") }}</button>
+          <button type="button" class="button button-small button-secondary" data-ivs-renew hidden>{{ de_en("Neuen Link erzeugen", "Make a new link") }}</button>
+          <button type="button" class="button button-small button-secondary" data-ivs-disconnect hidden>{{ de_en("Bildschirm trennen", "Disconnect screen") }}</button>
+        </p>
+        {% if current_user.is_authenticated %}{{ why("interview_screen") }}{% endif %}
+      </div>
+    </details>
+    <span class="small iv-remote-state" data-ivs-badge role="status" hidden></span>
+    {% endif %}
+    {% endif %}
+    {% else %}<span class="iv-trial" role="note"><strong>{{ de_en("Probe ohne Speichern", "Trial without saving") }}</strong> <span class="small">{{ de_en("Haken und Uhr nur in diesem Tab", "ticks and clock in this tab only") }}</span>
+      · <a class="small" href="{{ url_for('interview_data.index', code=survey.code) }}#neu">{{ de_en("Interview beginnen", "Start interview") }}</a></span>{% endif %}
+    {# the text size of this view only, kept on this device (theme-init.js, interview.js); "Konto" sets it for all pages #}
+    <span class="iv-size" role="group" aria-label="{{ de_en('Schriftgröße der Interviewansicht', 'Text size of the interview view') }}">
+      <button type="button" class="button button-small button-secondary" data-iv-size="-1" title="{{ de_en('Schrift kleiner', 'Smaller text') }}" aria-label="{{ de_en('Schrift kleiner', 'Smaller text') }}">A−</button>
+      <span class="small iv-size-value" data-iv-size-value aria-live="polite"></span>
+      <button type="button" class="button button-small button-secondary" data-iv-size="1" title="{{ de_en('Schrift größer', 'Larger text') }}" aria-label="{{ de_en('Schrift größer', 'Larger text') }}">A+</button>
+    </span>
+    <span class="iv-clock" data-iv-clock aria-label="{{ de_en('Dauer des Interviews', 'Duration of the interview') }}">00:00:00</span>
+    <button type="button" class="button button-small button-secondary" data-iv-pause><span>Start</span></button>
+    {% if not row %}<button type="button" class="button button-small button-secondary" data-iv-reset title="{{ de_en('Haken, Stände und Uhr zurücksetzen', 'Reset ticks, states and clock') }}">{{ icon("restore", 14) }} {{ de_en("Neues Interview", "New interview") }}</button>{% endif %}
+  </header>
+  <div class="iv-main">
+    <nav class="iv-nav" aria-label="{{ de_en('Themenblöcke', 'Topic blocks') }}">
+      {% for which, block in rows %}
+      {% set mine = steps|selectattr("block", "equalto", block)|list %}
+      {% if mine %}
+      <div class="iv-nav-block" data-iv-block="{{ block.id }}">
+        {% if free %}<button type="button" class="iv-nav-head" data-iv-go="{{ mine[0].n }}">{% else %}<div class="iv-nav-head">{% endif %}
+          <span>{{ block.title() if which == "guide" else parts[which] }}</span>
+          <span class="iv-nav-time" data-iv-block-time="{{ block.id }}">{% if which == "guide" and planned(block) %}{{ de_en("ca. {n} Min.", "approx. {n} min", n=planned(block)) }}{% endif %}</span>
+        {% if free %}</button>{% else %}</div>{% endif %}
+        {% if which == "guide" %}
+        <ul class="iv-nav-steps">
+          {% for step in mine if step.item.type == "guide_question" %}
+          <li>{% if free %}<button type="button" data-iv-go="{{ step.n }}" data-iv-mark="{{ step.n }}">{% else %}<span data-iv-mark="{{ step.n }}">{% endif %}
+            <span class="iv-dot" aria-hidden="true"></span>{{ step.item.text("question")|striptags|truncate(60, true, "…") or de_en("Leitfrage", "Guide question") }}{% if step.item.config.core %} <span class="iv-core-mark" title="{{ de_en('Kernfrage', 'Core question') }}">{{ de_en("Kern", "Core") }}</span>{% endif %}
+            {% if free %}</button>{% else %}</span>{% endif %}
+            {% if step.subs %}<ul class="iv-nav-subs">{% for sub in step.subs %}<li data-iv-sub-mark="{{ sub.id }}"><span class="iv-dot" aria-hidden="true"></span>{{ sub.text("question")|striptags|truncate(50, true, "…") or de_en("Unterfrage", "Sub-question") }}</li>{% endfor %}</ul>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+      <p class="muted small iv-core-count" data-iv-core-count></p>
+      {% if not free %}
+      <details class="iv-jump">
+        <summary>{{ de_en("Zu Themenblock …", "Go to topic block …") }}</summary>
+        {% for which, block in rows %}{% set mine = steps|selectattr("block", "equalto", block)|list %}
+        {% if mine %}<button type="button" class="button button-small button-secondary" data-iv-go="{{ mine[0].n }}">{{ block.title() if which == "guide" else parts[which] }}</button>{% endif %}
+        {% endfor %}
+      </details>
+      {% endif %}
+    </nav>
+
+    <main class="iv-stage">
+      {# e.g. "Interview beenden" refused while a required question of the Kurzfragebogen is open (interview_data.finish) #}
+      {% with messages = get_flashed_messages(category_filter=["error"]) %}{% for msg in messages %}<div class="flash flash-error" role="alert"><span class="flash-text">{{ msg }}</span></div>{% endfor %}{% endwith %}
+      {% for step in steps %}
+      {% set item = step.item %}
+      <section class="iv-step" data-iv-step="{{ step.n }}" {% if step.block %}data-iv-block-of="{{ step.block.id }}"{% endif %}
+               {% if item and item.type == "guide_question" %}data-iv-question="{{ item.id }}" data-iv-label="{{ item.text('question')|striptags|truncate(80, true, '…') or de_en('Leitfrage', 'Guide question') }}"{% if item.config.core %} data-iv-core{% endif %}{% endif %}
+               {% if not loop.first %}hidden{% endif %}>
+        {% if step.part == "guide" %}
+          <p class="muted small iv-where">{{ step.block.title() }}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% endif %}</p>
+          {% if item.type == "guide_question" %}
+          {% set cases = item.kind.case_questions([item] + step.subs) %}
+          {% if cases %}
+          {# the answers of the Kurzfragebogen the conditions on this page ask about (D): tapped here during the talk,
+             stored as the Kurzfragebogen's answers of a stored interview (interview.js, data-iv-case) #}
+          <div class="iv-cases" role="group" aria-label="{{ de_en('Fallmerkmale', 'Case features') }}">
+            <span class="iv-cases-title">{{ de_en("Fallmerkmale", "Case features") }}</span>
+            {% for short, codes in cases %}
+            <span class="iv-case"><span class="iv-case-q">{{ item.kind.short_label(short) }}</span>
+              {% for code, label in codes %}<button type="button" class="chip" data-iv-case="{{ short.id }}" data-code="{{ code }}" data-multi="{{ '1' if short.type == 'multiple_choice' else '' }}" aria-pressed="false">{{ label }}</button>{% endfor %}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="iv-prompt">{{ item.text("question")|rich }}</div>
+          {# with Unterfragen the rust edge of the prompt runs down as a line, each Unterfrage hangs from it; its condition
+             is the line over it with its state (Ralf 2026-10-22) #}
+          {% if step.subs %}<div class="iv-tree"><div class="iv-tree-head">{% endif %}
+          {{ question_body(item, row) }}
+          {% if step.subs %}</div>{% endif %}
+          {% for sub in step.subs %}
+          {# an Unterfrage on the page of its Leitfrage, indented, with its own status and note (concept unterfragen, E1) #}
+          {% set case_attr = sub.kind.case_attr(sub) %}
+          {% set case_label = sub.kind.case_label(sub) %}
+          <div class="iv-node iv-sub" data-iv-sub="{{ sub.id }}"{% if case_attr %} data-iv-if="{{ case_attr|tojson|forceescape }}"{% endif %}>
+            {% if case_label %}<p class="iv-cond">{{ case_label }} <span class="iv-cond-state" data-iv-off></span></p>{% endif %}
+            <p class="iv-sub-head">{{ de_en("Unterfrage {n} zur Leitfrage", "Sub-question {n} of the guide question", n=loop.index) }}{% if sub.text("when") %} · <em>{{ sub.text("when") }}</em>{% endif %}</p>
+            <div class="iv-sub-prompt">{{ sub.text("question")|rich }}</div>
+            {{ question_body(sub, row, true) }}
+          </div>
+          {% endfor %}
+          {% if step.subs %}</div>{% endif %}
+          {# the tasks of this Leitfrage beneath its Unterfragen (app/interview_tasks.py) #}
+          {% for task in step.tasks %}{% with item=task %}{% include "interview/_task.html" %}{% endwith %}{% endfor %}
+          {% elif item.type in task_item_types %}
+          {% include "interview/_task.html" %}
+          {% else %}
+          <div class="iv-content">{% with answers={}, errors={}, variables={}, preview=true, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}</div>
+          {% endif %}
+        {% elif step.part in ("short", "post") %}
+          <h2>{{ parts[step.part] }}</h2>
+          <p class="muted small">{{ de_en("Direkt nach dem Gespräch, von Ihnen auszufüllen", "To be filled in by you right after the conversation") if step.part == "post" else de_en("Zum Ausfüllen auf Papier (Export) oder im Aufzeichnungswerkzeug", "To fill in on paper (export) or in the recording tool") }}{{ de_en("; hier nur zum Durchgehen.", "; here only to go through.") }}</p>
+          {% if row %}
+          {% set on_screen = screen and step.part == "short" %}
+          {% if on_screen %}
+          {# the Kurzfragebogen on the interviewee's own screen (app/interview_screen.py, Ralf 2026-10-22, A): all its
+             questions at once; while it is out there or its answers came from there, the form below is hidden and a
+             change goes through a freshly drawn form (E2, marked) #}
+          <div data-iv-task="short">
+          <div class="iv-task-screen" data-ivs-task="short" hidden>
+            <p class="iv-task-screen-name" data-ivs-task-name hidden><strong>{{ parts[step.part] }}</strong></p>
+            <p class="small iv-task-screen-state" data-ivs-task-state role="status"></p>
+            <p class="iv-task-result" data-ivs-result hidden><strong>{{ de_en("Ergebnis:", "Result:") }}</strong> <span data-ivs-result-text></span>
+              <span class="badge" data-ivs-result-by data-screen="{{ de_en('vom Teilnehmerbildschirm', 'from the participant screen') }}" data-changed="{{ de_en('vom Interviewenden geändert', 'changed by the interviewer') }}"></span></p>
+            <p class="ivs-view-buttons">
+              <button type="button" class="button button-small" data-ivs-show hidden>{{ de_en("Kurzfragebogen auf dem Teilnehmerbildschirm zeigen", "Show the short questionnaire on the participant screen") }}</button>
+              <button type="button" class="button button-small button-secondary" data-ivs-hide hidden>{{ de_en("Zurücknehmen", "Take back") }}</button>
+              <button type="button" class="button button-small button-secondary" data-ivs-change hidden>{{ de_en("Antworten ändern", "Change answers") }}</button>
+            </p>
+            <iframe class="iv-task-frame" data-ivs-frame hidden title="{{ de_en('Antworten des Kurzfragebogens ändern', 'Change the answers of the short questionnaire') }}"></iframe>
+          </div>
+          <div data-iv-show-area>
+          {% endif %}
+          {# filled in and stored with the interview (app/interview_data.py, save_forms) #}
+          <form class="iv-form" data-iv-form action="{{ url_for('interview_data.save_form', code=survey.code, rid=row.id) }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {# each form sends its own fields only: the other form's answers stay (save_forms) #}
+            <input type="hidden" name="part" value="{{ step.part }}">
+            {% for item in step.block.items if item.type != "page_break" %}
+            {% with answers=form_answers, errors={}, variables={}, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}
+            {% endfor %}
+          </form>
+          {% if on_screen %}</div></div>{% endif %}
+          {% else %}
+          {# shown, not filled in: Askurious stores nothing from an interview #}
+          <fieldset class="iv-form bare" disabled>
+            {% for item in step.block.items if item.type != "page_break" %}
+            {% with answers={}, errors={}, variables={}, preview=true, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}
+            {% endfor %}
+          </fieldset>
+          {% endif %}
+        {% else %}
+          <h2>{{ de_en("Abschluss", "Closing") }}</h2>
+          <p data-iv-missing-none hidden>{{ de_en("Alle Kernfragen sind vorgekommen.", "All core questions came up.") }}</p>
+          <div data-iv-missing hidden><p>{{ de_en("Diese Kernfragen kamen noch nicht vor:", "These core questions have not come up yet:") }}</p><ul data-iv-missing-list></ul></div>
+          {% if offline %}
+          <p class="muted small">{{ de_en("„Interview beenden“ zeigt den Löschcode für die interviewte Person; das Interview bleibt verschlüsselt auf diesem Gerät, bis es abgeglichen ist.", "“End interview” shows the deletion code for the interviewed person; the interview stays encrypted on this device until it is synced.") }}</p>
+          <form><button class="button" data-iv-finish>{{ de_en("Interview beenden", "End interview") }}</button></form>
+          {% elif row %}
+          <p class="muted small">{{ de_en("Alles ist gespeichert. „Interview beenden“ zeigt den Löschcode für die interviewte Person; Notizen und Postskript lassen sich danach unter „Interviews“ weiter bearbeiten.", "Everything is saved. “End interview” shows the deletion code for the interviewed person; notes and postscript can still be edited afterwards under “Interviews”.") }}</p>
+          <form method="post" action="{{ url_for('interview_data.finish', code=survey.code, rid=row.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="button" data-iv-finish>{{ de_en("Interview beenden", "End interview") }}</button></form>
+          {% else %}
+          <p class="muted small">{% if rows|selectattr(0, "equalto", "post")|list %}{{ de_en("Das Postskript gleich im Anschluss schreiben.", "Write the postscript right afterwards.") }} {% endif %}{{ de_en("„Neues Interview“ oben setzt Haken, Stände und Uhr für das nächste Gespräch zurück.", "“New interview” above resets ticks, states and clock for the next conversation.") }}</p>
+          {% endif %}
+          <section class="iv-sources">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+        {% endif %}
+      </section>
+      {% endfor %}
+      <div class="iv-steps-nav">
+        <button type="button" class="button button-secondary" data-iv-prev>‹ {{ de_en("Zurück", "Back") }}</button>
+        <span class="muted small" data-iv-pos></span>
+        <button type="button" class="button" data-iv-next>{{ de_en("Weiter", "Next") }} ›</button>
+      </div>
+    </main>
+  </div>
+</div>
+{% include "participant/_scripts.html" %}
+{% if screen %}<script src="{{ url_for('static', filename='interview-screen-view.js') }}" defer></script>{% endif %}
+</body>
+</html>

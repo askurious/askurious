@@ -1,0 +1,89 @@
+{# The dashboard of surveys and participations (app/admin_stats.py): on Administration > Befragungen for the whole
+   platform (Ralf 2026-10-17) and on Verwaltung > Befragungen for one organisation (app/org_admin.py, Ralf 2026-10-17).
+   Context: stats (admin_stats.overview), stats_mod (the module), periods, period, dash_endpoint and dash_args (the page
+   the period links and the date form go to). A click on a period swaps this block and the list "#befragungen" in place,
+   and both are fetched anew every minute (app.js, data-admin-dash). Breakdowns of participations show numbers under
+   five as "< 5" (admin_stats.small_cell). #}
+{% from "_macros.html" import list_table %}
+{% macro cell(n) %}{% set v = stats_mod.small_cell(n) %}{{ v if v is string else v|thousands }}{% endmacro %}
+{% macro before(cur, prev) %}{% if prev is not none %}<span class="hint">{{ de_en("davor:", "before:") }} {{ prev|thousands }}{% set c = stats_mod.change(cur, prev) %}{% if c %} ({{ c }}){% endif %}</span>{% endif %}{% endmacro %}
+{% set d = stats %}{% set w = d.window %}{% set p = d.parts %}{% set sv = d.surveys %}
+<div data-admin-dash>
+<form class="adash-bar" method="get" action="{{ url_for(dash_endpoint, **dash_args) }}" data-admin-dash-form>
+  <nav class="segmented" aria-label="{{ de_en('Zeitraum', 'Period') }}">
+    {% for key, label in periods.items() %}<a href="{{ url_for(dash_endpoint, period=key, **dash_args) }}" data-admin-dash-link{% if period == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  <input type="hidden" name="period" value="since">
+  <label class="adash-since">{{ de_en("seit", "since") }} <input type="date" name="since" value="{{ w.since.isoformat() if w.since else '' }}" max="{{ d.now|localdate_iso }}" required></label>
+  <button class="button button-secondary button-small">{{ de_en("Zeigen", "Show") }}</button>
+  <span class="hint">{% if w.prev %}{{ de_en("verglichen mit dem gleich langen Zeitraum davor", "compared with the period of the same length before") }} · {% endif %}{{ de_en("Stand {t}, jede Minute neu", "as of {t}, updated every minute", t=stats_mod.clock(d.now)) }}</span>
+</form>
+<section class="panel aic-kpis adash-kpis" aria-label="{{ de_en('Kennzahlen', 'Key figures') }}">
+  <div><span class="aic-big">{{ sv.all|thousands }}</span><span class="muted">{{ de_en("Befragungen", "Surveys") }}</span>
+    <span class="hint">{{ de_en("{a} Entwurf · {b} laufen · {c} beendet", "{a} draft · {b} running · {c} closed", a=sv.draft, b=sv.running, c=sv.closed) }}</span></div>
+  <div><span class="aic-big">{{ sv.running|thousands }}</span><span class="muted">{{ de_en("laufen gerade", "running now") }}</span>
+    <span class="hint">{{ de_en("im Zeitraum {a} erstmals gestartet, {b} beendet", "in the period {a} started for the first time, {b} closed", a=sv.opened, b=sv.ended) }}</span></div>
+  <div><span class="aic-big">{{ p.started|thousands }}</span><span class="muted">{{ de_en("Teilnahmen begonnen", "Participations begun") }}</span>{{ before(p.started, p.prev_started) }}</div>
+  <div><span class="aic-big">{{ p.completed|thousands }}</span><span class="muted">{{ de_en("Teilnahmen abgeschlossen", "Participations completed") }}</span>
+    {% if p.rate is not none %}<span class="hint">{{ de_en("{r} der begonnenen", "{r} of those begun", r=p.rate|percent) }}</span>{% endif %}{{ before(p.completed, p.prev_completed) }}</div>
+  <div><span class="aic-big">{{ d.with_input|thousands }}</span><span class="muted">{{ de_en("Befragungen mit Eingang", "Surveys with participations") }}</span>
+    <span class="hint">{{ de_en("{n} laufende ohne neue Teilnahme seit {d} Tagen", "{n} running without a new participation for {d} days", n=d.quiet, d=stats_mod.QUIET_DAYS) }}</span></div>
+  <div><span class="aic-big">{{ cell(d.active_now) }}</span><span class="muted">{{ de_en("gerade aktiv", "active now") }}</span>
+    <span class="hint">{{ de_en("Teilnahmen mit einer Seite in den letzten {m} Minuten", "participations with a page in the last {m} minutes", m=stats_mod.ACTIVE_MINUTES) }}</span></div>
+</section>
+<details class="learn-why learn-method">
+  <summary>{{ de_en("Was zählt hier?", "What is counted here?") }}</summary>
+<p>{{ de_en("Gezählt werden nur echte Teilnahmen: Testdurchläufe, Dummy-Daten und die Vorschau zählen nicht. Eine Teilnahme ist im Zeitraum begonnen, wenn ihre erste Seite darin liegt, und abgeschlossen, wenn sie darin bis zum Ende kam; ein Papierbogen zählt mit dem Zeitpunkt der Übernahme. „Abgebrochen“ heißt: begonnen und seit {h} Stunden keine Seite mehr. Befragungen, die ihre Forschenden aus den Übersichten der Admins heraushalten, zählen in allen Zahlen mit, werden aber nirgends genannt.", "Only real participations are counted: test runs, dummy data and the preview are not. A participation was begun in the period if its first page lies in it, and completed if it reached the end in it; a paper questionnaire counts with the time it was read in. “Abandoned” means: begun, and no page for {h} hours. Surveys whose researchers keep them out of the admins’ overviews count in every figure but are never named.", h=stats_mod.ABANDON_HOURS) }}</p>
+<p>{{ de_en("Aufteilungen nennen Zahlen unter {n} nur als „< {n}“, damit sich niemand aus wenigen Teilnahmen erkennen lässt; die Gesamtzahlen bleiben genau. Gezeigt werden nur Zählungen, keine Antworten.", "Breakdowns give numbers under {n} only as “< {n}”, so that nobody can be recognised from a few participations; the totals stay exact. Only counts are shown, never answers.", n=stats_mod.MIN_CELL) }}</p>
+</details>
+<section class="panel" id="eingang">
+  <h2>{{ de_en("Eingehende Teilnahmen", "Incoming participations") }} <span class="hint">{{ {"hour": de_en("je Stunde", "per hour"), "day": de_en("je Tag", "per day"), "week": de_en("je Woche", "per week"), "month": de_en("je Monat", "per month")}[w.step] }}</span></h2>
+  {{ stats_mod.chart(d) }}
+</section>
+<div class="adash-grid">
+<section class="panel" id="ausgang">
+  <h2>{{ de_en("Ausgang der Teilnahmen", "Outcome of the participations") }} <span class="hint">{{ de_en("im Zeitraum begonnen: {n}", "begun in the period: {n}", n=p.started|thousands) }}</span></h2>
+  {% if not p.started %}<p class="muted">{{ de_en("Im gewählten Zeitraum wurde keine Teilnahme begonnen.", "No participation was begun in the chosen period.") }}</p>{% else %}
+  {% set labels = stats_mod.outcome_labels() %}{% set top = d.outcome.values()|max %}
+  <div class="adash-bars">
+  {% for key, n in d.outcome.items() %}
+    <span>{{ labels[key] }}</span><span class="adash-track"><i class="{{ 'adash-done' if key == 'completed' else 'adash-other' }}" style="width: {{ (100 * n / top)|round(1) if n >= stats_mod.MIN_CELL else 0 }}%"></i></span><span class="adash-num">{{ cell(n) }}</span>
+  {% endfor %}
+  </div>{% endif %}
+</section>
+<section class="panel" id="wann">
+  <h2>{{ de_en("Wann Teilnahmen eingehen", "When participations come in") }} <span class="hint">{{ de_en("abgeschlossene im Zeitraum, nach Wochentag und Stunde", "completed in the period, by weekday and hour") }}</span></h2>
+  {% if not p.completed %}<p class="muted">{{ de_en("Im gewählten Zeitraum wurde keine Teilnahme abgeschlossen.", "No participation was completed in the chosen period.") }}</p>{% else %}
+  {% set top = d.heat|map("max")|max %}{% set days = stats_mod.weekdays() %}
+  <div class="res-scroll"><table class="adash-heat" aria-label="{{ de_en('Abgeschlossene Teilnahmen nach Wochentag und Stunde', 'Completed participations by weekday and hour') }}">
+    <thead><tr><th></th>{% for h in range(24) %}<th scope="col">{{ h if h % 3 == 0 else "" }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for day in d.heat %}{% set wd = days[loop.index0] %}<tr><th scope="row">{{ wd }}</th>{% for n in day %}<td class="adash-h{{ stats_mod.heat_level(n, top) }}" title="{{ wd }} {{ '%02d' % loop.index0 }}:00 · {{ cell(n) }}"></td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="aic-legend"><span class="aic-key"><i class="adash-h1"></i>{{ de_en("wenige", "few") }}</span><span class="aic-key"><i class="adash-h4"></i>{{ de_en("viele", "many") }}</span><span>{{ de_en("Felder mit weniger als {n} Teilnahmen bleiben hell.", "Cells with fewer than {n} participations stay light.", n=stats_mod.MIN_CELL) }}</span></p>
+  {% endif %}
+</section>
+</div>
+<div class="adash-grid">
+<section class="panel" id="arten">
+  <h2>{{ de_en("Nach Art", "By kind") }}</h2>
+  {% set kl = stats_mod.kind_labels() %}
+  <div class="res-scroll">{% call list_table("is-num") %}
+    <thead><tr><th>{{ de_en("Art", "Kind") }}</th><th>{{ de_en("Befragungen", "Surveys") }}</th><th>{{ de_en("laufen", "running") }}</th><th>{{ de_en("abgeschlossen im Zeitraum", "completed in the period") }}</th></tr></thead>
+    <tbody>{% for key, k in d.kinds.items() %}<tr><td>{{ kl[key] }}</td><td>{{ k.surveys|thousands }}</td><td>{{ k.running|thousands }}</td><td>{{ cell(k.completed) }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+</section>
+<section class="panel" id="forschende-konten">
+  <h2>{{ de_en("Forschende und Konten", "Researchers and accounts") }}</h2>
+  {% set pe = d.people %}
+  <div class="res-scroll">{% call list_table("is-num") %}
+    <tbody>
+      <tr><td>{{ de_en("neue Befragungen im Zeitraum", "new surveys in the period") }}</td><td>{{ pe.new_surveys|thousands }}</td></tr>
+      <tr><td>{{ de_en("neue Konten im Zeitraum", "new accounts in the period") }}</td><td>{{ pe.new_accounts|thousands }}</td></tr>
+      <tr><td>{{ de_en("zuletzt angemeldet im Zeitraum", "last signed in during the period") }}</td><td>{{ pe.signed_in|thousands }}</td></tr>
+      <tr><td>{{ de_en("Forschende mit laufender Befragung", "researchers with a running survey") }}</td><td>{{ pe.with_running|thousands }}</td></tr>
+      {% if pe.orgs %}<tr><td>{{ de_en("Organisationen mit Eingang im Zeitraum", "organisations with participations in the period") }}</td><td>{{ de_en("{a} von {b}", "{a} of {b}", a=pe.orgs[0], b=pe.orgs[1]) }}</td></tr>{% endif %}
+    </tbody>
+  {% endcall %}</div>
+</section>
+</div>
+</div>

@@ -1,0 +1,87 @@
+{# in the researcher's language (tool(), Ralf 2026-10-07); testers on the phone link read the survey's language; data-page and
+   data-end: the pager label of the mobile view (participant.js) #}
+{# on a phone one line that slides away while scrolling down: a stylesheet and a script of its own, next to
+   participant.css and participant.js (UI/UX audit 2026-10-16, 23) #}
+<link rel="stylesheet" href="{{ url_for('static', filename='preview-bar.css') }}">
+<script src="{{ url_for('static', filename='preview-bar.js') }}" defer></script>
+<nav class="p-preview-bar"{{ tool_attrs() }} aria-label="{{ tool('Vorschau', 'Preview') }}" data-page="{{ tool('Seite {p}/{n}', 'Page {p}/{n}') }}" data-end="{{ tool('Ende', 'End') }}">
+  <span class="p-preview-label"><span class="p-preview-long">{{ tool("Vorschau · Antworten zählen nicht", "Preview · answers do not count") }}</span><span class="p-preview-short" title="{{ tool('Vorschau · Antworten zählen nicht', 'Preview · answers do not count') }}">{{ tool("Vorschau", "Preview") }}</span></span>
+  {% if page is defined %}
+  <span class="p-preview-pager" data-pager>
+    <a href="?lang={{ lang }}&restart=1" class="p-restart" title="{{ tool('Neuer Testdurchlauf ab Seite 1 (Antworten verwerfen, neu randomisieren)', 'New test run from page 1 (discard the answers, randomise again)') }}" {% if framed is defined and framed %}target="_top"{% endif %}>⏮<span class="p-restart-text"> {{ tool("Von vorn", "Start over") }}</span></a>
+    <a href="?lang={{ lang }}&page={{ page - 1 }}" aria-label="{{ tool('Vorherige Seite', 'Previous page') }}" data-prev {% if page <= 1 %}class="off" aria-disabled="true"{% endif %}>‹</a>
+    {% set pager_label %}{{ tool("Seite {p}/{n}", "Page {p}/{n}", p=page, n=page_count) }}{% if block is defined %} · {{ (block.title(lang)|fill(variables if variables is defined else none)|striptags) or tool("Block", "Block") }}{% endif %}{% if page_meta is defined and page_meta and page_meta.iter %} · {{ tool("Durchlauf {i}/{n}", "Pass {i}/{n}", i=page_meta.iter, n=page_meta.iters) }}{% endif %}{% endset %}
+    {% if jump is defined and jump|length > 1 %}
+    <details class="p-jump" data-pager-label>
+      <summary title="{{ tool('Zu einem Block springen', 'Jump to a block') }}">{{ pager_label }} <span class="p-jump-caret" aria-hidden="true">▾</span></summary>
+      <ul class="p-jump-list">
+        {% for j in jump %}
+        {% set here = j.page <= page and (loop.last or loop.nextitem.page > page) %}
+        <li><a href="?lang={{ lang }}&page={{ j.page }}" {% if framed is defined and framed %}target="_top"{% endif %} {% if here %}aria-current="true"{% endif %}>
+          <span class="p-jump-title">{{ j.title|readable_placeholders }}{% if j.loop %} <span class="p-jump-iter">· {{ tool("Schleife", "loop") }}</span>{% endif %}</span>
+          <span class="p-jump-page">{{ tool("S. {n}", "p. {n}", n=j.page) }}</span></a></li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% else %}
+    <span data-pager-label>{{ pager_label }}</span>
+    {% endif %}
+    <a href="?lang={{ lang }}&page={{ page + 1 }}" aria-label="{{ tool('Nächste Seite', 'Next page') }}" data-next {% if page >= page_count %}class="off" aria-disabled="true"{% endif %}>›</a>
+  </span>
+  {% endif %}
+  {# on a phone only the label and the pager stay at the top; the tools open from here (X47, participant.js) #}
+  <button type="button" class="p-preview-more" data-preview-more aria-expanded="false" aria-controls="preview-tools" aria-label="{{ tool('Werkzeuge', 'Tools') }}" title="{{ tool('Werkzeuge', 'Tools') }}"><span class="p-preview-more-text">{{ tool("Werkzeuge", "Tools") }} <span aria-hidden="true">▾</span></span><span class="p-preview-more-dots" aria-hidden="true">⋯</span></button>
+  <span class="p-preview-tools" id="preview-tools">
+    {# on a narrow screen the comments open from here: a floating button would lie on the answer fields (V51) #}
+    {% if comment_url is defined and comment_url and page is defined %}<button type="button" class="p-preview-comment" data-comments-bar aria-label="{{ tool('Kommentare ({n})', 'Comments ({n})', n=page_comments|length) if page_comments is defined and page_comments else tool('Kommentar', 'Comment') }}">{% from "_icons.html" import icon %}{{ icon("message", 15) }}{% if page_comments is defined and page_comments %} <span aria-hidden="true">{{ page_comments|length }}</span>{% endif %}</button>{% endif %}
+    <label class="p-validate" title="{{ tool('Pflichtfragen, Hinweise, Eingabeprüfungen und Einwilligung prüfen', 'Check required questions, hints, input checks and consent') }}">
+      <input type="checkbox" {% if validate is not defined or validate %}checked{% endif %}
+             data-preview-param="validate" data-lang="{{ lang }}"> {{ tool("Pflicht prüfen", "Check required") }}
+    </label>
+    {% if lang != survey.default_language %}
+    {# texts of this language that still fall back to the default language: marked on the page (only in the preview, S9) #}
+    <label class="p-validate" title="{{ tool('Texte markieren, die noch in der Ausgangssprache stehen', 'Mark texts that are still in the source language') }}">
+      <input type="checkbox" {% if mark_untranslated is not defined or mark_untranslated %}checked{% endif %}
+             data-preview-param="untranslated" data-lang="{{ lang }}"> {{ tool("Unübersetzte markieren", "Mark untranslated") }}
+    </label>
+    {% endif %}
+    {% if not (on_phone is defined and on_phone) %}
+    <span class="p-device" role="group" aria-label="{{ tool('Ansicht', 'View') }}">
+      <a href="?lang={{ lang }}&device=desktop" {% if device != "mobile" %}aria-current="true"{% endif %} title="{{ tool('Desktop-Ansicht', 'Desktop view') }}">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/></svg><span>{{ tool("Desktop", "Desktop") }}</span></a>
+      <a href="?lang={{ lang }}&device=mobile" {% if device == "mobile" %}aria-current="true"{% endif %} title="{{ tool('Mobilansicht (Größe und Hoch-/Querformat wählbar)', 'Mobile view (size and portrait or landscape to choose)') }}">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg><span>{{ tool("Mobil", "Mobile") }}</span></a>
+    </span>
+    {% endif %}
+    {% if quota_nodes is defined %}{% for node in quota_nodes %}
+    {# try a quota calculation as full or with room; it decides once, so switching starts a new test run #}
+    <span class="p-device" role="group" aria-label="{{ tool('Quotenberechnung', 'Quota calculation') }}{% if quota_nodes|length > 1 %} {{ loop.index }}{% endif %}">
+      <a href="?lang={{ lang }}&qfull={{ node.id }}&on=0" {% if node.id not in quota_sim %}aria-current="true"{% endif %} {% if framed is defined and framed %}target="_top"{% endif %} title="{{ tool('Quotenberechnung', 'Quota calculation') }}{% if quota_nodes|length > 1 %} {{ loop.index }}{% endif %}: {{ tool('Platz frei (neuer Testdurchlauf)', 'room left (new test run)') }}">{{ tool("Quote: frei", "Quota: open") }}</a>
+      <a href="?lang={{ lang }}&qfull={{ node.id }}&on=1" {% if node.id in quota_sim %}aria-current="true"{% endif %} {% if framed is defined and framed %}target="_top"{% endif %} title="{{ tool('Quotenberechnung', 'Quota calculation') }}{% if quota_nodes|length > 1 %} {{ loop.index }}{% endif %}: {{ tool('als voll ausprobieren (neuer Testdurchlauf)', 'try out as full (new test run)') }}">{{ tool("voll simulieren", "simulate full") }}</a>
+    </span>
+    {% endfor %}{% endif %}
+    {% if survey.geo_ip and geo_sim is defined %}
+    {# try out a country and state instead of the one of this request; looked up once, so switching starts a new test run #}
+    <label class="p-validate" title="{{ tool('Land und Bundesland aus der IP-Adresse: für Bedingungen und Quoten ausprobieren (neuer Testdurchlauf)', 'Country and federal state from the IP address: try out for conditions and quotas (new test run)') }}">{{ tool("IP-Region", "IP region") }}
+      <select data-preview-param="geo" data-lang="{{ lang }}"{% if framed is defined and framed %} data-top{% endif %}>
+        <option value="auto" {% if not geo_sim %}selected{% endif %}>{{ tool("wie diese Anfrage", "as this request") }}</option>
+        {% for value, label in geoip.preview_choices() %}<option value="{{ value }}" {% if value == geo_sim %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    {% if themes.is_auto(themes.of(survey)) and not (on_phone is defined and on_phone) %}
+    {# the look follows the device: show one side whatever this device says #}
+    {% set side = themes.preview_side(survey) %}
+    {# "Farbe: wie Gerät · hell · dunkel": the device's colour scheme, not the device view beside it (X47) #}
+    <span class="p-device" role="group" aria-label="{{ tool('Farbe', 'Colour') }}">
+      <span class="p-device-name" aria-hidden="true">{{ tool("Farbe:", "Colour:") }}</span>
+      <a href="?lang={{ lang }}&scheme=auto" {% if not side %}aria-current="true"{% endif %} title="{{ tool('Hell oder dunkel wie dieses Gerät', 'Light or dark like this device') }}">{{ tool("wie Gerät", "as device") }}</a>
+      <a href="?lang={{ lang }}&scheme=light" {% if side == "light" %}aria-current="true"{% endif %} title="{{ tool('Helle Darstellung zeigen', 'Show the light look') }}">{{ tool("hell", "light") }}</a>
+      <a href="?lang={{ lang }}&scheme=dark" {% if side == "dark" %}aria-current="true"{% endif %} title="{{ tool('Dunkle Darstellung zeigen', 'Show the dark look') }}">{{ tool("dunkel", "dark") }}</a>
+    </span>
+    {% endif %}
+    {% if survey.languages|length > 1 %}
+      {% for code in survey.languages %}<a href="?lang={{ code }}{% if page is defined %}&page={{ page }}{% endif %}" {% if code == lang %}aria-current="true"{% endif %} title="{{ language_names.get(code, code) }}">{{ code.split("-")[0]|upper }}</a>{% endfor %}
+    {% endif %}
+  </span>
+</nav>

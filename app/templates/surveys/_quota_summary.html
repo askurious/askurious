@@ -1,0 +1,15 @@
+{# A quota in one line (UI audit 2026-10-04, R14, G4): definition, state, steering and read links are on the tab
+   "Quoten"; Datenerhebung and Ergebnisse show this short form. Needs: survey, summary_report (quotas.report),
+   summary_rule (how the "Ist" counts here). #}
+{% from "_icons.html" import icon %}
+<ul class="plain quota-summary">
+  {% for entry in summary_report %}
+  {% set states = entry.cells|map(attribute="state")|list %}
+  <li><strong>{{ entry.quota.name }}</strong> {{ de_en("{done} von {target}", "{done} of {target}", done=entry.sum.done, target=entry.sum.target) }}
+    {# the states there are, joined: no dot left hanging when the last ones are 0 (V75) #}
+    {% set parts = [] %}{% for label, name in (("voll", de_en("voll", "full")), ("offen", de_en("offen", "open")), ("geschlossen", de_en("geschlossen", "closed"))) %}{% set n = states|select("equalto", label)|list|length %}{% if n %}{% set _ = parts.append(n ~ " " ~ name) %}{% endif %}{% endfor %}
+    <span class="hint">{{ parts|join(" · ") }}</span>
+    <span class="quota-bar" role="img" aria-label="{{ de_en('{done} von {target}', '{done} of {target}', done=entry.sum.done, target=entry.sum.target) }}"><span class="quota-bar-done" style="width: {{ ((entry.sum.done / entry.sum.target * 100) if entry.sum.target else 0)|round(1) }}%"></span></span></li>
+  {% endfor %}
+</ul>
+<p class="muted small">{{ summary_rule }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#quotas">{{ de_en("Quoten öffnen", "Open quotas") }}</a></p>

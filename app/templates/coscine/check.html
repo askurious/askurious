@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# "In Coscine prüfen" (app/coscine.py, check_page, K2): one upload's folder in Coscine against what
+   Askurious noted at the upload. Needs: survey, entry, rows, deep, deep_possible, deep_limit, total, back, size_text. #}
+{% block title %}{{ de_en("Ablage prüfen", "Check upload") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel" id="coscine-check">
+  <h2>{{ de_en("Ablage in Coscine prüfen", "Check upload in Coscine") }}</h2>
+  <p class="small"><strong>{{ entry.project }}</strong> › <strong>{{ entry.resource }}</strong> · <code>{{ entry.folder }}</code> · {{ de_en("abgelegt am {d} von {who}", "stored on {d} by {who}", d=entry.shown, who=entry.by) }}</p>
+  {% set bad = rows|selectattr("state", "in", ["missing", "changed"])|list %}
+  {% if bad %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("{n} von {total} Dateien fehlen in Coscine oder weichen ab.", "{n} of {total} files are missing in Coscine or differ.", n=bad|length, total=entry.files|length) }}</span></div>
+  {% else %}
+  <div class="flash flash-success">{{ icon("check", 16) }} <span>{% if deep %}{{ de_en("Vollständig: Alle Dateien sind in Coscine, Größe und SHA-256 stimmen.", "Complete: all files are in Coscine, size and SHA-256 match.") }}{% else %}{{ de_en("Vollständig: Alle Dateien sind in Coscine, ihre Größen stimmen.", "Complete: all files are in Coscine, their sizes match.") }}{% endif %}</span></div>
+  {% endif %}
+  <div class="res-scroll"><table class="table">
+    <thead><tr><th>{{ de_en("Datei", "File") }}</th><th>{{ de_en("Ergebnis", "Result") }}</th><th class="num">{{ de_en("Größe beim Ablegen", "Size when stored") }}</th><th class="num">{{ de_en("Größe in Coscine", "Size in Coscine") }}</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td><code>{{ r.name }}</code></td>
+      <td>{% if r.state == "ok" %}{{ de_en("vorhanden", "present") }}{% elif r.state == "missing" %}<strong>{{ de_en("fehlt", "missing") }}</strong>{% elif r.state == "changed" %}<strong>{{ de_en("geändert", "changed") }}</strong>{% else %}{{ de_en("zusätzlich, nicht von Askurious abgelegt", "additional, not stored by Askurious") }}{% endif %}</td>
+      <td class="num">{% if r.size is not none %}{{ size_text(r.size) }}{% endif %}</td>
+      <td class="num">{% if r.found is not none %}{{ size_text(r.found) }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="muted small">{% if deep %}{{ de_en("Gründlich geprüft: Askurious hat jede Datei aus Coscine geladen und ihre SHA-256 mit der beim Ablegen verglichen.", "Checked thoroughly: Askurious loaded each file from Coscine and compared its SHA-256 with the one at the upload.") }}{% else %}{{ de_en("Geprüft wurden Vorhandensein und Größe. Coscine nennt keine Prüfsummen; die SHA-256 jeder Datei steht in", "Checked were presence and size. Coscine gives no checksums; the SHA-256 of each file is in") }} <code>checksums.sha256</code>{{ de_en(" im Ordner.", " in the folder.") }}{% endif %}</p>
+  <div class="form-actions">
+    {% if not deep and deep_possible %}
+    <form method="post" action="{{ url_for('coscine.check_page', survey_id=survey.id) }}" data-busy-form>
+      {{ csrf() }}<input type="hidden" name="ordner" value="{{ entry.folder }}"><input type="hidden" name="gruendlich" value="1">
+      <button class="button button-secondary">{{ icon("check", 16) }} {{ de_en("Gründlich prüfen ({size} laden)", "Check thoroughly (load {size})", size=size_text(total)) }}</button>
+      <span class="busy-note" data-busy-note hidden role="status"><progress aria-label="{{ de_en('Wird aus Coscine geladen', 'Loading from Coscine') }}"></progress></span>
+    </form>
+    {% elif not deep %}
+    <p class="muted small">{{ de_en("Gründlich prüfen geht bis {limit} je Ablage; diese hat {size}.", "Thorough checks go up to {limit} per upload; this one has {size}.", limit=size_text(deep_limit), size=size_text(total)) }}</p>
+    {% endif %}
+    <a class="button button-secondary" href="{{ back }}">{{ de_en("Zurück", "Back") }}</a>
+  </div>
+</section>
+{% endblock %}

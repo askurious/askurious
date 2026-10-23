@@ -1,0 +1,10 @@
+{% set asset = kind.asset_for(item, asset_vars if asset_vars is defined else variables) %}
+<figure class="p-figure">
+  {% if asset %}
+  {% set w, h = image_size(item.survey.uid, asset.filename) %}
+  <img src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) }}"{% if w %} width="{{ w }}" height="{{ h }}"{% endif %} decoding="async" alt="{{ item.text('alt', lang) }}">
+  {% else %}
+  <div class="p-image-missing">{{ ui("Bild fehlt", "Image missing") }}</div>
+  {% endif %}
+  {% if item.text("question", lang) %}<figcaption{{ text_attrs(item, "question") }}>{{ item.text("question", lang)|inline(variables) }}</figcaption>{% endif %}
+</figure>

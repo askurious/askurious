@@ -1,0 +1,10 @@
+{% extends "participant/base.html" %}
+{# The link at the end of an invitation mail (participate.no_mail): one button, so that a mail program checking the
+   link does not opt out by itself. #}
+{% block content %}
+<h1>{{ ui("Keine weiteren E-Mails", "No further emails") }}</h1>
+<p>{{ ui("Möchten Sie zu dieser Befragung keine Einladungen und Erinnerungen mehr bekommen?", "Would you like to stop getting invitations and reminders about this survey?") }}</p>
+<form method="post" action="{{ url_for('participate.no_mail', uid=survey.public_key, token=token, lang=lang) }}">
+  <button class="p-button">{{ ui("Keine E-Mails mehr zu dieser Befragung", "No more emails about this survey") }}</button>
+</form>
+{% endblock %}

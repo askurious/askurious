@@ -1,0 +1,41 @@
+{% set de = lang in ("de", "de-du") %}
+{% set shown = answers.get(item.id) %}
+{% set unit = kind.unit_label(item, lang) %}
+{% set hint = kind.range_hint(item, lang) %}
+{% include "items/_question.html" %}
+{% set product = item.text("product", lang) %}
+{% if product %}<div class="p-psm-product">{{ product|rich(variables) }}</div>{% endif %}
+<div class="p-psm" data-psm="{{ item.id }}">
+  <script type="application/json" data-psm-config>{{ kind.client_messages(item, lang)|tojson }}</script>
+  {% if hint %}<p class="p-hint">{{ hint }}</p>{% endif %}
+  {% for k in kind.sequence(item) %}
+  <label class="p-psm-row p-text" for="psm{{ item.id }}_{{ k }}">
+    <span class="p-psm-q"{{ text_attrs(item, "q_" ~ k) }}>{{ item.text("q_" ~ k, lang)|fill(variables) }}</span>
+    <span class="p-affixed has-affix">
+      <input type="text" id="psm{{ item.id }}_{{ k }}" name="i{{ item.id }}_{{ k }}" class="p-short" autocomplete="off"
+             inputmode="{{ kind.input_mode(item) }}" maxlength="20" data-psm-field="{{ k }}"
+             value="{{ kind.field_value(item, shown, k, lang) }}">
+      {% if unit %}<span class="p-affix">{{ unit }}</span>{% endif %}
+    </span>
+    <span class="p-psm-msg" data-psm-msg="{{ k }}" aria-live="polite"></span>
+  </label>
+  {% endfor %}
+  <p class="p-psm-order" data-psm-order aria-live="polite" hidden></p>
+  {% if kind.nms(item) %}
+  {% set labels = kind.nms_labels(item, lang) %}
+  {% for k in ("c", "e") %}
+  {% set picked = shown.get("nms_" ~ k) if shown is mapping else none %}
+  <fieldset class="p-fieldset p-psm-nms" aria-labelledby="psmq{{ item.id }}_{{ k }}">
+    <legend class="p-psm-q" id="psmq{{ item.id }}_{{ k }}">{{ kind.nms_question(item, k, lang, shown, variables) }}</legend>
+    <div class="p-options">
+      {% for n in range(5, 0, -1) %}
+      <label class="p-option p-radio">
+        <input type="radio" name="i{{ item.id }}_nms_{{ k }}" value="{{ n }}" {% if picked == n %}checked{% endif %}>
+        <span>{{ labels[n - 1] }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  {% endif %}
+</div>

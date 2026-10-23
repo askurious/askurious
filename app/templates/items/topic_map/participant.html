@@ -1,0 +1,26 @@
+{# Topic map (app/items/topic_feedback.py): one's own topics on two evaluations, the sample's beside them #}
+{% set is_preview = preview is defined and preview %}
+{% set m = kind.map(item, lang, answers, preview=is_preview) %}
+{% include "items/_question.html" %}
+{% if is_preview %}<p class="p-sc-note">{{ ui("Vorschau: Zählt auch Test- und Dummy-Daten.", "Preview: includes test and dummy data.") }}</p>{% endif %}
+{% if m %}
+<div class="p-sc-map">
+  {% if m.svg %}
+  {{ m.svg }}
+  <p class="p-sc-meta"><span class="p-map-key own"></span> {{ ui("Ihre Einschätzung", "Your rating") }}{% if m.sample_shown %} ·
+    <span class="p-map-key p-topic-key-sample"></span> {{ ui("Durchschnitt aller Teilnehmenden", "average of all participants") }} · n = {{ m.n }}{% endif %}</p>
+  {% if m.few %}<p class="p-sc-few">{{ ui("Noch zu wenige Antworten für einen Vergleich.", "Not enough answers yet for a comparison.") }}</p>{% endif %}
+  {# the points in words, not only as dots (D8) #}
+  <ul class="p-topic-list small">{% for p in m.points %}
+    <li>{{ p.name }}: {% if p.own %}{{ ui("Sie", "you") }} {{ p.own_text }}{% endif %}{% if p.own and p.sample %} · {% endif %}{% if p.sample %}{{ ui("Durchschnitt", "average") }} {{ p.sample_text }}{% endif %}</li>
+  {% endfor %}</ul>
+  <dl class="p-map-axes small">
+    <div><dt>{{ ui("waagerecht", "horizontal") }}</dt><dd>{{ m.x[2] }}{% if m.x[3] %} ({{ m.x[3] }} → {{ m.x[4] }}){% endif %}</dd></div>
+    <div><dt>{{ ui("senkrecht", "vertical") }}</dt><dd>{{ m.y[2] }}{% if m.y[3] %} ({{ m.y[3] }} → {{ m.y[4] }}){% endif %}</dd></div>
+  </dl>
+  {% else %}
+  <p class="p-sc-few">{{ ui("Noch zu wenige Antworten für einen Vergleich.", "Not enough answers yet for a comparison.") }}</p>
+  {% endif %}
+  <input type="hidden" name="i{{ item.id }}_n" value="{{ m.n }}">
+</div>
+{% endif %}

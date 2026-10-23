@@ -1,0 +1,46 @@
+{# Ratings-based conjoint (items/cva.py results(), app/cva_analysis.py): importances and part-worths as means of the
+   regressions per person, the fit per person. Needs: e, num, fn. The bar charts are those of the choice models. #}
+{% from "_macros.html" import pct, signed %}
+{% from "_learn.html" import term, method %}
+{% from "surveys/_choice_model.html" import pw_chart with context %}
+{% set cv = e.cva %}
+{% set m = cv.model %}
+{% if cv.persons > cv.estimated %}<p class="muted small">{{ de_en("{p} Personen mit Antworten, davon {k} mit eigenen Werten; die übrigen haben zu wenige Aufgaben beantwortet, um alle Teilnutzen zu schätzen.", "{p} people with answers, {k} of them with values of their own; the others answered too few tasks to estimate all part-worths.", p=cv.persons, k=cv.estimated) }}</p>{% endif %}
+{% if m %}
+<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }} <span class="hint">{{ term("cva", "CVA") }}, {{ de_en("Mittel der Werte je Person", "mean of the values per person") }}</span>{{ fn("cva") }}</h3>
+{% for w in m.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }}</p>
+<ul class="plain res-bars cm-importance-bars">
+  {% for a in m.attributes|sort(attribute="importance", reverse=true) %}
+  <li><span class="res-bar-label">{{ a.label }}</span>
+    <span class="res-bar"><span style="width: {{ ((a.importance or 0) * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n" {% if a.importance_lo is not none %}title="{{ de_en('95-%-Intervall', '95% interval') }} [{{ pct(a.importance_lo) }}; {{ pct(a.importance_hi) }}]"{% endif %}>{{ pct(a.importance) }}</span></li>
+  {% endfor %}
+</ul>
+<p class="muted small">{{ de_en("Wichtigkeit: je Person die Spannweite der Teilnutzen eines Merkmals als Anteil an der Summe aller Spannweiten, gemittelt über die Personen.", "Importance: per person the range of an attribute’s part-worths as a share of the sum of all ranges, averaged over the people.") }}</p>
+<p class="res-group-head">{{ term("partworth", de_en("Teilnutzen", "Part-worths")) }} <span class="hint">{{ de_en("in Punkten der Antwortskala, nullzentriert je Merkmal; Linie: 95-%-Intervall über Personen", "in points of the answer scale, zero-centred per attribute; line: 95% interval over people") }}{% if m.t_df %} (±{{ num(m.q, 2) }} SE, {{ de_en("t-Quantil mit {df} Freiheitsgraden", "t quantile with {df} degrees of freedom", df=m.t_df) }}){% endif %}</span></p>
+{% for attr in m.attributes %}
+{% set ch = m.charts[loop.index0] %}
+<p class="pw-head">{{ attr.label }}</p>
+{{ pw_chart(ch) }}
+<details class="res-dist pw-table-fold"><summary>{{ de_en("Tabelle mit SE", "Table with SE") }}</summary>
+<div class="res-scroll"><table class="res-table cm-utilities">
+  <thead><tr><th>{{ attr.label }}</th><th>{{ term("partworth", de_en("Teilnutzen", "Part-worth")) }}</th><th title="{{ de_en('Standardfehler des Mittels über Personen', 'Standard error of the mean over people') }}">SE</th><th>{{ de_en("95-%-Intervall", "95% interval") }}</th></tr></thead>
+  <tbody>
+  {% for k in ch.order %}{% set lv = attr.levels[k] %}
+    <tr><td>{{ lv.label }}</td><td>{{ signed(lv.beta) }}</td><td>{{ num(lv.se) }}</td><td>{% if lv.lo is not none %}[{{ signed(lv.lo) }}; {{ signed(lv.hi) }}]{% else %}–{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</details>
+{% endfor %}
+<p class="muted small">{{ term("r2_person", de_en("R² je Person", "R² per person")) }}: {{ de_en("im Mittel {m}, Median {md}", "mean {m}, median {md}", m=num(m.r2_mean), md=num(m.r2_median)) }}{% if cv.low %} · {{ de_en("{n} Personen unter {lim}", "{n} people under {lim}", n=cv.low, lim=num(cv.r2_low, 1)) }}{% endif %}{% if cv.flat %} · {{ de_en("{n} Personen gaben überall dieselbe Antwort und gehen nicht ein", "{n} people gave the same answer everywhere and are left out", n=cv.flat) }}{% endif %}.</p>
+{% if cv.holdout %}{% with ho=cv.holdout %}{% include "surveys/_cva_holdouts.html" %}{% endwith %}{% endif %}
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{% call method(de_en("Regression je Person", "Regression per person")) %}<p>{{ de_en("Für jede Person eine lineare Regression ihrer Antworten auf die gezeigten Stufen (kleinste Quadrate, Effektkodierung); bei Paaren auf die Differenz der beiden Angebote mit einer Konstante für die zuerst gezeigte Seite. Die Teilnutzen sind in Punkten der Antwortskala nullzentriert; oben stehen ihre Mittel über die Personen mit einem t-Intervall. Anders als bei Wahlaufgaben braucht das kein HB, weil jede Person ihren ganzen Versuchsplan bewertet.", "For every person a linear regression of their answers on the levels shown (least squares, effects coding); for pairs on the difference of the two offers with a constant for the side shown first. The part-worths are zero-centred in points of the answer scale; above are their means over the people with a t interval. Unlike choice tasks this needs no HB, because every person rates their whole experimental design.") }}</p>{% endcall %}
+{% elif cv.persons %}
+<p class="muted small">{{ de_en("Noch keine Person mit eigenen Werten.", "No person with values of their own yet.") }}</p>
+{% endif %}
+{% if cv.hb %}{% with hb_section="main", m=none %}{% include "surveys/_cva_hb.html" %}{% endwith %}{% endif %}
+{% if cv.hb %}{% with hb_section="quality", m=none %}{% include "surveys/_cva_hb.html" %}{% endwith %}{% endif %}
+{% if cv.lc %}{% with l=cv.lc %}{% include "surveys/_segments_fold.html" %}{% endwith %}{% endif %}

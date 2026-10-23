@@ -1,0 +1,68 @@
+{# MaxDiff (app/items/maxdiff.py): three tabs over one form; the design panel is panel.html. #}
+{% from "_macros.html" import row_list_hint, row_tools %}
+{% set t = item.lang_texts(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set question_label = de_en("Aufgabe", "Task") %}
+{% set question_hint = de_en("steht über jedem Set", "appears above every set") %}
+<div data-cj-tab="content">{% include "items/_question_field.html" %}</div>
+<fieldset data-cj-tab="content" data-md-editor>
+  <legend>{{ de_en("Aussagen", "Statements") }} <span class="hint">{{ de_en("Texte auf {l}; Nummer = Wert im Export; gezeigt wird in der Reihenfolge des Versuchsplans", "texts in {l}; number = value in the export; shown in the order of the experimental design", l=languages[lang]) }}</span></legend>
+  {% set stexts = t.get("statements", {}) %}
+  {% macro row(sid, text="", placeholder="") -%}
+  <tr>
+    <td class="md-num"></td>
+    <td><input type="hidden" name="md_id" value="{{ sid }}"><input name="md_text" aria-label="{{ de_en('Aussage', 'Statement') }}" value="{{ text }}" placeholder="{{ placeholder or de_en('neue Aussage', 'new statement') }}" maxlength="500"></td>
+    {% if structural %}{{ row_tools(de_en("Aussage entfernen", "Remove statement")) }}{% else %}<td class="cj-row-tools"></td>{% endif %}
+  </tr>
+  {%- endmacro %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit md-statements">
+    <thead><tr><th class="narrow-col">{{ de_en("Nr.", "No.") }}</th><th>{{ de_en("Aussage", "Statement") }}</th><th class="cj-row-tools"></th></tr></thead>
+    <tbody data-md-rows{% if structural %} data-row-list{% endif %}>
+      {% for s in item.config.statements %}{{ row(s.id, stexts.get(s.id, ''), (item.text('statements') or {}).get(s.id, '')) }}{% endfor %}
+      {% if structural and not item.config.statements %}{% for n in range(5) %}{{ row(new_id(), placeholder=de_en("Aussage {n}", "Statement {n}", n=n + 1)) }}{% endfor %}{% endif %}
+    </tbody>
+  </table></div>
+  {% if structural %}
+  <template data-md-template>{{ row("__SID__") }}</template>
+  <button type="button" class="button button-small button-secondary" data-md-add>+ {{ de_en("Aussage", "statement") }}</button>
+  {{ row_list_hint(de_en("Mindestens vier Aussagen, üblich sind 8 bis 30. Nach Änderungen den Versuchsplan neu erzeugen.", "At least four statements, 8 to 30 are usual. After changes, generate the experimental design again.")) }}
+  {% endif %}
+</fieldset>
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Beschriftung der Spalten", "Column labels") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Beste Wahl", "Best choice") }} <input name="best_label" value="{{ t.get('best_label', '') }}" placeholder="{{ d.best_label }}"></label>
+    <label>{{ de_en("Schlechteste Wahl", "Worst choice") }} <input name="worst_label" value="{{ t.get('worst_label', '') }}" placeholder="{{ d.worst_label }}"></label>
+  </div>
+</fieldset>
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Erklärung vorab", "Explanation beforehand") }} <span class="hint">{{ de_en("optional: eigene Seite vor dem ersten Set", "optional: a page of its own before the first set") }}</span></legend>
+  <label class="check"><input type="checkbox" name="explain" value="1" {% if item.config.explain %}checked{% endif %}> {{ de_en("Aufgabe vor dem ersten Set erklären", "Explain the task before the first set") }}</label>
+  <label><span class="label-title">Text <span class="hint">{{ de_en("leer = Standardtext („Sie sehen gleich … Sets …“)", "empty = standard text (“You will now see … sets …”)") }}</span></span>
+    <textarea name="explain_intro" rows="3" data-rich="block">{{ t.get("explain_intro", "") }}</textarea></label>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>Sets</legend>
+  {% set n = kind.n_items(item) %}
+  {% set sizes = kind.allowed_set_sizes(item) %}
+  <div class="row-fields">
+    <label>{{ de_en("Aussagen je Set", "Statements per set") }}
+      <select name="set_size" {% if not structural %}disabled{% endif %}>
+        {% for k in [3, 4, 5, 6] %}<option value="{{ k }}" {% if item.config.set_size == k %}selected{% endif %} {% if n >= 4 and k not in sizes %}disabled{% endif %}>{{ k }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Sets je Person", "Sets per person") }} <input type="number" name="sets" min="1" max="60" class="narrow" value="{{ item.config.sets or '' }}" placeholder="{{ kind.n_sets(item) if n else '' }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Versionen des Versuchsplans", "Versions of the experimental design") }} <input type="number" name="versions" min="1" max="20" class="narrow" value="{{ item.config.versions }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  <p class="muted small">{{ de_en("Sets leer = Vorschlag 3 · Aussagen / Set-Größe, also jede Aussage etwa dreimal je Person", "Sets empty = suggestion 3 · statements / set size, so every statement about three times per person") }}{% if n %} {{ de_en("(hier {n})", "(here {n})", n=kind.n_sets(item)) }}{% endif %}. {{ de_en("Aussagen je Set: 3 bis 6 und weniger als die Zahl der Aussagen. Mehrere Versionen verteilen Kombinations- und Reihenfolgeeffekte über die Teilnehmenden.", "Statements per set: 3 to 6 and fewer than the number of statements. Several versions spread combination and order effects across the participants.") }}</p>
+</fieldset>
+{% include "items/maxdiff/holdouts.html" %}
+<fieldset data-cj-tab="anchor">
+  <legend>{{ de_en("Ankerfrage", "Anchor question") }} <span class="hint">{{ de_en("optional: eine Seite nach den Sets", "optional: one page after the sets") }}</span></legend>
+  <label class="check"><input type="checkbox" name="anchor" value="1" {% if item.config.anchor %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Direkte Ankerfrage stellen: alle Aussagen zum Ankreuzen", "Ask a direct anchor question: all statements to tick") }}</label>
+  <div class="row-fields">
+    <label>{{ de_en("Frage", "Question") }} <input name="anchor_question" value="{{ t.get('anchor_question', '') }}" placeholder="{{ d.anchor_question }}"></label>
+    <label>{{ de_en("„Keine davon“", "“None of these”") }} <input name="anchor_none" value="{{ t.get('anchor_none', '') }}" placeholder="{{ d.anchor_none }}" class="narrow"></label>
+  </div>
+  <p class="muted small">{{ de_en("MaxDiff misst nur, was relativ wichtiger ist. Die Ankerfrage zeigt zusätzlich, welche Aussagen überhaupt als wichtig gelten (direkte Verankerung nach Lattery, 2010; Quelle am Ende der Seite). Export:", "MaxDiff only measures what is relatively more important. The anchor question also shows which statements count as important at all (direct anchoring after Lattery, 2010; source at the end of the page). Export:") }} <code>{{ item.code }}_anchor1</code>, <code>{{ item.code }}_anchor2</code> … {{ de_en("als 0/1; „Keine davon“ ergibt überall 0, eine offen gelassene Ankerfrage bleibt leer.", "as 0/1; “None of these” gives 0 everywhere, an anchor question left open stays empty.") }}</p>
+</fieldset>

@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields, list_table, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# The editor of a vignette loop (app/vignettes.py), the loop page for the source "Faktoren und Stufen". One page, four numbered sections (no row of
+   sub-tabs). Needs: survey, node, blocks, lang, languages, item/kind (vignettes.Factors), t, new_id, plan, current,
+   universe, allowed, full_options, problems, n_params, structural, findings, preview, doe, vignettes, sources. #}
+{% block title %}{{ de_en("Vignetten", "Vignettes") }} {{ node.name or node.code }} · {{ survey.title }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{# the survey's head as on the other tab pages: a band over the whole width, the column centred (Ralf, 2026-10-06) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "flow" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ icon("back", 16) }} {{ de_en("Ablauf", "Flow") }}</a>
+<div class="page-head">
+  <h1>🧩 {{ node.name or de_en("Vignetten", "Vignettes") }} <span class="hint">{{ de_en("Block", "Block") if blocks|length == 1 else de_en("Blöcke", "Blocks") }} {% for b in blocks %}{{ de_en("„{t}“", "“{t}”", t=b.title() or de_en("ohne Titel", "untitled")) }}{% if not loop.last %}, {% endif %}{% else %}{{ de_en("(noch keine)", "(none yet)") }}{% endfor %} {{ de_en("je Vignette wiederholt", "repeated per vignette") }}</span></h1>
+</div>
+{% include "editor/_lang_note.html" %}
+{% set locked = not survey.is_editable and lang == survey.default_language %}
+{% if not structural %}<div class="flash">{{ de_en("Die Befragung läuft oder ist geschlossen: Faktoren und Versuchsplan sind fest. Übersetzungen der Stufen lassen sich in der Ansicht der jeweiligen Sprache korrigieren.", "The survey is running or closed: factors and experimental design are fixed. Translations of the levels can be corrected in the view of each language.") if locked else de_en("Übersetzungsansicht: Nur die Beschriftungen und Definitionen werden übersetzt.", "Translation view: only the labels and definitions are translated.") }}</div>{% endif %}
+{% for severity, message, item_id, block_id in findings %}<div class="flash flash-{{ 'error' if severity == 'error' else 'warning' }}">{{ icon("x" if severity == "error" else "alert", 16) }} <span>{{ message }}</span></div>{% endfor %}
+
+{% set source = "factors" %}{% include "editor/_loop_source.html" %}
+
+<section class="panel loop-intro">
+  <h2>{{ de_en("So funktioniert es", "How it works") }}</h2>
+  <p>{{ de_en('Eine <strong>Vignette</strong> beschreibt eine erfundene Situation, deren Merkmale (<strong>Faktoren</strong>) mit ihren <strong>Stufen</strong>
+    systematisch variieren, z. B. ein Roboter (Aussehen: humanoid, Roboterarm, Kiste) an einem Ort (Pflegeheim, Krankenhaus, Zuhause). Die Faktoren beschreiben
+    die Situation, nicht die Teilnehmenden.', 'A <strong>vignette</strong> describes an invented situation whose characteristics (<strong>factors</strong>) vary systematically with their <strong>levels</strong>,
+    e.g. a robot (appearance: humanoid, robot arm, box) in a place (care home, hospital, home). The factors describe
+    the situation, not the participants.')|safe }}</p>
+  <p>{{ de_en('Den Vignettentext schreiben Sie als normales Element in den Block dieser Schleife und setzen dort die Platzhalter der Faktoren ein; die Fragen
+    dazu sind normale Fragen. Askurious erzeugt aus den Faktoren einen <strong>Versuchsplan</strong> und teilt ihn in <strong>Decks</strong>: Jede Person
+    bekommt ein Deck, in dem die Stufen ausgewogen vorkommen.', 'You write the vignette text as a normal element in the block of this loop and put the placeholders of the factors in it; the questions
+    about it are normal questions. From the factors, Askurious creates an <strong>experimental design</strong> and splits it into <strong>decks</strong>: each person
+    gets one deck in which the levels occur in balance.')|safe }}</p>
+</section>
+
+{% if ai_found %}
+<section class="panel vig-ai-found" id="ki">
+  {% set k = ai_found.kind %}{% set d = ai_found.data %}
+  <h2>{{ icon("sparkles", 18) }} {{ {"factors": de_en("Vorgeschlagene Faktoren", "Suggested factors"), "levels": de_en("Weitere Stufen für „{name}“", "More levels for “{name}”", name=(d.name if k == "levels" else "")), "pairs": de_en("Unplausible Kombinationen", "Implausible combinations"), "text": de_en("Entwurf des Vignettentexts", "Draft of the vignette text")}[k] }}
+    <span class="hint">{{ de_en("KI-Vorschläge: ankreuzen, bei Bedarf ändern, übernehmen; nichts ändert sich vorher", "AI suggestions: tick, change if needed, accept; nothing changes before that") }}</span></h2>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="ai_take_{{ k }}">
+    {% if k == "factors" %}
+      {% for f in d %}{% set n = loop.index0 %}
+      <div class="vig-ai-card">
+        <label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> <input name="f{{ n }}_name" value="{{ f.name }}" aria-label="{{ de_en('Name des Faktors', 'Name of the factor') }}"></label>
+        <div class="vig-ai-levels">{% for l in f.levels %}<input name="f{{ n }}_level" value="{{ l }}" aria-label="{{ de_en('Stufe {n}', 'Level {n}', n=loop.index) }}">{% endfor %}</div>
+        {% if f.why %}<p class="muted small">{{ f.why }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    {% elif k == "levels" %}
+      <input type="hidden" name="aid" value="{{ d.aid }}">
+      {% for l in d.levels %}<label class="check"><input type="checkbox" name="take" value="{{ l }}" checked> {{ l }}</label>{% endfor %}
+      {% if d.why %}<p class="muted small">{{ d.why }}</p>{% endif %}
+    {% elif k == "pairs" %}
+      {% for p in d %}<label class="check"><input type="checkbox" name="take" value="{{ p.a }}:{{ p.la }}|{{ p.b }}:{{ p.lb }}" checked> {{ p.label }} <span class="muted small">{{ p.why }}</span></label>{% endfor %}
+    {% else %}
+      <textarea name="text" rows="4">{{ d.text }}</textarea>
+      {% if d.missing %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Es fehlen die Platzhalter", "The placeholders") }} {% for m in d.missing %}<code>{{ "{{" ~ m ~ "}}" }}</code> {% endfor %}{{ de_en("; bitte ergänzen.", " are missing; please add them.") }}</span></p>{% endif %}
+      {% if d.why %}<p class="muted small">{{ d.why }}</p>{% endif %}
+      <p class="muted small">{{ de_en("Wird als neues Text-Element am Anfang des Blocks der Schleife angelegt.", "Is created as a new text element at the start of the block of the loop.") }}</p>
+    {% endif %}
+    <div class="button-row"><button class="button">{{ de_en("Übernehmen", "Accept") }}</button>
+      <a class="button button-secondary" href="{{ url_for('flow_page.vignettes_node', survey_id=survey.id, nid=node.id, lang=lang) }}">{{ de_en("Verwerfen", "Discard") }}</a></div>
+  </form>
+  <p class="muted small">{{ de_en("Die KI kennt Titel, Beschreibung, Forschungsfrage und den Fragebogen, keine Antworten. Übernommene Faktoren und Stufen sind als „KI-generiert“ markiert: Ihre Auswahl braucht eine theoretische Begründung.", "The AI knows the title, description, research question and the questionnaire, no answers. Accepted factors and levels are marked as “AI-generated”: choosing them needs a theoretical justification.") }}</p>
+</section>
+{% endif %}
+
+{# saves by itself, in the field too: translations then when a field is left (UI audit 2026-10-04, R17) #}
+{% set autosave = structural or not locked %}
+<form method="post" class="panel stack" {{ "data-autosave-form" if autosave else "data-dirty-guard" }}{{ " data-autosave-on-leave" if autosave and not structural else "" }}>
+  {{ csrf() }}
+  {% if survey.can(current_user, "editor") %}{{ edit_guard_fields(survey, "loop:" ~ node.id, edit_guard.node_state(node),
+       url_for("flow_page.vignettes_node", survey_id=survey.id, nid=node.id, lang=lang)) }}{% endif %}
+  <div class="row-fields">
+    <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("für Sie; erscheint im Ablauf", "for you; appears in the flow") }}</span>
+      <input name="name" value="{{ node.name }}" placeholder="{{ de_en('z. B. Roboter im Alltag', 'e.g. robots in everyday life') }}" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Variablenname", "Variable name") }} <input name="code" data-varname="full" value="{{ node.code }}" class="narrow" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Reihenfolge im Deck", "Order in the deck") }}
+      <select name="order" {% if not structural %}disabled{% endif %}>
+        <option value="random" {% if node.order != "fixed" %}selected{% endif %}>{{ de_en("zufällig je Person", "random per person") }}</option>
+        <option value="fixed" {% if node.order == "fixed" %}selected{% endif %}>{{ de_en("wie im Versuchsplan", "as in the experimental design") }}</option>
+      </select></label>
+  </div>
+
+  <h2><span class="step-no">1</span> {{ de_en("Faktoren und Stufen", "Factors and levels") }}</h2>
+  {% with attr_word=de_en("Faktor", "factor"), attr_words=de_en("Faktoren", "factors"), with_visual=false, code_word=de_en("Platzhalter", "Placeholder"), with_between=true,
+          between_ids=(node.attributes or [])|selectattr("between")|map(attribute="id")|list,
+          code_placeholder=de_en("aus dem Namen", "from the name"), def_head=de_en("für Teilnehmende, als Platzhalter …_def", "for participants, as placeholder …_def"),
+          hint_head=de_en('Interner Hinweis <span class="hint">nie gezeigt, z. B. für Bild-Prompts (…_hint)</span>', 'Internal note <span class="hint">never shown, e.g. for image prompts (…_hint)</span>') %}
+  {% include "items/_attributes/editor.html" %}
+  {% endwith %}
+  {% set ai_made = (node.attributes or [])|selectattr("ai")|map(attribute="code")|list %}
+  {% set ai_levels = (node.attributes or [])|map(attribute="levels")|sum(start=[])|selectattr("ai")|list %}
+  {% if ai_made or ai_levels %}<p class="small"><span class="badge badge-pending">{{ de_en("KI-generiert", "AI-generated") }}</span>
+    {% if ai_made %}{{ de_en("Faktoren {codes}", "Factors {codes}", codes=ai_made|join(", ")) }}{% endif %}{% if ai_made and ai_levels %}; {% endif %}{% if ai_levels %}{{ de_en("{n} Stufe", "{n} level", n=ai_levels|length) if ai_levels|length == 1 else de_en("{n} Stufen", "{n} levels", n=ai_levels|length) }}{% endif %}</p>{% endif %}
+  {% set names = node.columns|map(attribute="name")|list %}
+  <div data-live="vignette-placeholders">
+  {% if names %}
+  <p class="small">{{ de_en("Im Vignettentext und in den Fragen dieses Blocks:", "In the vignette text and the questions of this block:") }}
+    {% for c in node.columns if not c.hidden %}<code class="copy-chip" role="button" tabindex="0" title="{{ de_en('Klicken oder Enter: kopieren', 'Click or Enter: copy') }}" data-copy-text="{{ '{{' ~ c.name ~ '}}' }}">{{ "{{" ~ c.name ~ "}}" }}</code> {% endfor %}</p>
+  <ul class="plain small loop-usage">
+    {% for it in blocks|map(attribute="items")|sum(start=[]) if it.type != "page_break" %}
+    {% set uses = it.kind.used_placeholders(it)|select("in", names)|list %}
+    <li>{{ icon("check", 14) if uses else icon("alert", 14) }} <code>{{ it.code }}</code>
+      {% if uses %}{{ de_en("verwendet {names}", "uses {names}", names=uses|map("string")|join(", ")) }}{% else %}<span class="muted">{{ de_en("verwendet noch keinen Platzhalter", "uses no placeholder yet") }}</span>{% endif %}
+      · <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=it.id, lang=lang) }}">{{ de_en("bearbeiten", "edit") }}</a></li>
+    {% else %}<li class="muted">{{ de_en("Der Block der Schleife enthält noch keine Elemente: im Fragebogen einen Text mit den Platzhaltern und die Fragen dazu anlegen.", "The block of the loop contains no elements yet: create a text with the placeholders and the questions about it in the questionnaire.") }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  </div>
+
+  {% set n_attrs = (node.attributes or [])|length %}
+  {% if structural and n_attrs > 9 %}<p class="muted small">{{ icon("alert", 14) }} {{ de_en("{n} Faktoren: Empfohlen sind fünf bis neun, damit Teilnehmende alle beachten können (Quellen unten).", "{n} factors: five to nine are recommended so that participants can attend to all of them (sources below).", n=n_attrs) }}</p>{% endif %}
+
+  <h2 id="ausschluesse"><span class="step-no">2</span> {{ de_en("Verbotene Kombinationen", "Prohibitions") }}</h2>
+  {% with prohib_hint=de_en("Stufen zweier Faktoren, die nie zusammen in einer Vignette vorkommen sollen, weil die Kombination unlogisch oder sehr unplausibel ist", "levels of two factors that should never occur together in a vignette because the combination is illogical or very implausible"),
+          prohib_unit=de_en("einer Vignette", "a vignette"), prohib_new=de_en("Neue Faktoren oder Stufen erscheinen hier, sobald sie gespeichert sind (von selbst).", "New factors or levels appear here as soon as they are saved (automatically).") %}
+  {% include "items/_attributes/prohibitions.html" %}
+  {% endwith %}
+  {% if n_attrs < 2 %}<p class="muted small">{{ de_en("Verbotene Kombinationen gibt es ab zwei Faktoren.", "Prohibitions are possible from two factors on.") }}</p>{% endif %}
+
+  <h2 id="plan"><span class="step-no">3</span> {{ de_en("Versuchsplan", "Experimental design") }}</h2>
+  {% if universe %}
+  <p>{{ vignettes.level_counts(node)|join(" × ") }} = <strong>{{ (universe)|thousands }}</strong> {{ de_en("Kombinationen", "combinations") }}{% if allowed != universe %}{{ de_en(", davon {n} erlaubt", ", {n} of them allowed", n=(allowed)|thousands) }}{% endif %} · {{ de_en("{n} Effekte zu schätzen", "{n} effects to estimate", n=n_params - 1) }}</p>
+  {% endif %}
+  <fieldset {% if not structural %}disabled{% endif %}>
+    <div class="row-fields">
+      <label>{{ de_en("Verfahren", "Method") }}
+        <select name="method" data-show-for>
+          <option value="doptimal" {% if plan.method != "full" %}selected{% endif %}>{{ de_en("D-optimaler Ausschnitt", "D-optimal subset") }}</option>
+          <option value="full" {% if plan.method == "full" %}selected{% endif %} {% if not full_options %}disabled{% endif %}>{{ de_en("alle Kombinationen", "all combinations") }}{% if not full_options %}{{ de_en(" (nur bis {n})", " (only up to {n})", n=doe.FULL_MAX) }}{% endif %}</option>
+        </select></label>
+      <label data-when="doptimal">{{ de_en("Vignetten je Person", "Vignettes per person") }}
+        <select name="per_person">{% for n in range(2, 41) %}<option value="{{ n }}" {% if plan.per_person == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+      <label data-when="doptimal">{{ de_en("Decks", "Decks") }}
+        <select name="decks">{% for n in range(1, 61) %}<option value="{{ n }}" {% if plan.decks == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+      <label data-when="full">{{ de_en("Vignetten je Person", "Vignettes per person") }}
+        <select name="per_person">{% for n in full_options %}<option value="{{ n }}" {% if plan.per_person == n %}selected{% endif %}>{{ n }} ({{ de_en("{d} Deck", "{d} deck", d=allowed // n) if allowed // n == 1 else de_en("{d} Decks", "{d} decks", d=allowed // n) }})</option>{% endfor %}</select></label>
+    </div>
+  </fieldset>
+  {% if (node.attributes or [])|length > 1 %}
+  {% set chosen = [] %}{% for p in (plan.interactions or []) %}{% set _ = chosen.append(p|join("|")) %}{% endfor %}
+  {% set fs = item.attributes(item) %}
+  <details class="space-above" data-when="doptimal" {% if chosen %}open{% endif %}>
+    <summary>{{ de_en("Wechselwirkungen schätzen", "Estimate interactions") }} <span class="hint">{{ de_en("optional; Paare von Faktoren, deren gemeinsame Wirkung der Versuchsplan trennen soll (braucht mehr Vignetten)", "optional; pairs of factors whose joint effect the experimental design is to separate (needs more vignettes)") }}</span></summary>
+    <div class="loop-plan-cols">
+      {% for a in fs %}{% for b in fs[loop.index:] %}{% set v = ([a.id, b.id]|sort)|join("|") %}
+      <label class="check"><input type="checkbox" name="interaction" value="{{ v }}" {% if v in chosen %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ a.label }} × {{ b.label }}</label>
+      {% endfor %}{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+  {% set btw = (node.attributes or [])|selectattr("between")|list %}
+  {% if btw %}{% set ns = namespace(c=1) %}{% for a in btw %}{% set ns.c = ns.c * (a.levels|length) %}{% endfor %}
+  <p class="muted small">{{ de_en("Nur zwischen Personen:", "Only between people:") }} {% for a in item.attributes(item) if a.between %}{{ a.label }}{{ ", " if not loop.last }}{% endfor %}.
+    {{ de_en("Jedes Deck hat eine Kombination dieser Stufen ({c} Kombinationen); die Zahl der Decks muss ein Vielfaches von {c} sein.", "Each deck has one combination of these levels ({c} combinations); the number of decks must be a multiple of {c}.", c=ns.c) }}</p>
+  {% endif %}
+  <p class="muted small" data-when="doptimal">{{ de_en("Der Versuchsplan umfasst Vignetten je Person × Decks verschiedene Vignetten (jetzt {n}", "The experimental design comprises vignettes per person × decks different vignettes (now {n}", n=(plan.per_person or 0) * (plan.decks or 0)) }}{% if n_params %}{{ de_en(", mindestens {n} nötig", ", at least {n} needed", n=n_params) }}{% endif %}). {{ de_en("Empfohlen: höchstens {k} Vignetten je Person und eine D-Effizienz über {e}.", "Recommended: at most {k} vignettes per person and a D-efficiency above {e}.", k=doe.PER_PERSON_HINT, e=doe.EFFICIENCY_GOOD) }}</p>
+  <p class="muted small" data-when="full">{{ de_en("Alle erlaubten Kombinationen, gleichmäßig auf Decks verteilt; angeboten werden die Größen, die aufgehen.", "All allowed combinations, spread evenly over decks; the sizes offered are those that divide evenly.") }}</p>
+  {% if autosave %}{{ autosave_bar() }}{% endif %}
+</form>
+
+{% if structural and ai_on() %}
+<section class="panel" id="ki-hilfe">
+  <h2>{{ icon("sparkles", 18) }} {{ de_en("KI-Hilfe", "AI help") }} <span class="hint">{{ de_en("nur auf Knopfdruck; Sie wählen aus, was übernommen wird", "only at the press of a button; you choose what is accepted") }}</span></h2>
+  <div class="button-row vig-ai-buttons">
+    <form method="post">{{ csrf() }}<button class="button button-secondary button-small button-ai" name="action" value="ai_factors">{{ de_en("Faktoren vorschlagen", "Suggest factors") }}</button></form>
+    {% if node.attributes %}
+    <form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="ai_levels">
+      <select name="aid" aria-label="{{ de_en('Faktor', 'Factor') }}">{% for a in item.attributes(item) %}<option value="{{ a.id }}">{{ a.label }}</option>{% endfor %}</select>
+      <button class="button button-secondary button-small button-ai">{{ de_en("Stufen ergänzen", "Add levels") }}</button></form>
+    {% if node.attributes|length > 1 %}<form method="post">{{ csrf() }}<button class="button button-secondary button-small button-ai" name="action" value="ai_pairs">{{ de_en("Unplausible Kombinationen finden", "Find implausible combinations") }}</button></form>{% endif %}
+    <form method="post">{{ csrf() }}<button class="button button-secondary button-small button-ai" name="action" value="ai_text">{{ de_en("Vignettentext entwerfen", "Draft the vignette text") }}</button></form>
+    {% endif %}
+    {{ ai_access_line() }}
+  </div>
+</section>
+{% endif %}
+
+<section class="panel" id="plan-result">
+  {% if structural %}
+  <form method="post" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="generate">
+    <button class="button" {% if problems %}disabled title="{{ problems|join(' ') }}"{% endif %}>{{ de_en("Versuchsplan erzeugen", "Generate experimental design") }}</button>
+    <span class="muted small">{% if problems %}{{ problems|join(" ") }}{% else %}{{ de_en("Große Versuchspläne brauchen einige Sekunden. Erzeugen lässt sich rückgängig machen.", "Large experimental designs take a few seconds. Creating can be undone.") }}{% endif %}</span>
+  </form>
+  {% endif %}
+  {% if current and plan.stats %}
+  {% set s = vignettes.plan_stats(node) %}
+  <div class="vig-stats">
+    <div><span class="muted small">{{ de_en("Vignetten", "Vignettes") }}</span><strong>{{ s.n }}</strong></div>
+    <div><span class="muted small">{{ de_en("Decks zu je", "Decks of") }}</span><strong>{{ plan.decks_rows|length }} × {{ plan.decks_rows[0]|length }}</strong></div>
+    <div><span class="muted small">{{ de_en("D-Effizienz", "D-efficiency") }}</span><strong class="{{ 'text-ok' if s.d_eff >= doe.EFFICIENCY_GOOD else 'text-warn' }}">{{ s.d_eff|dec(1) }}</strong></div>
+    {% if s.deck_eff is not none %}<div><span class="muted small">{{ de_en("D-Effizienz in den Decks", "D-efficiency within the decks") }}{% if s.deck_within %} {{ de_en("(Faktoren innerhalb der Personen)", "(factors within people)") }}{% endif %}</span><strong>{{ s.deck_eff|dec(1) }}</strong></div>{% endif %}
+    <div><span class="muted small">{{ de_en("größte Korrelation zweier Faktoren", "largest correlation of two factors") }}</span><strong>{{ s.max_corr|dec(2) }}</strong></div>
+    {% if s.decks_missing_level %}<div><span class="muted small">{{ de_en("Decks, in denen eine Stufe fehlt", "Decks in which a level is missing") }}{% if s.deck_within %} {{ de_en("(Faktoren innerhalb der Personen)", "(factors within people)") }}{% endif %}</span><strong>{{ s.decks_missing_level }}</strong></div>{% endif %}
+  </div>
+  {% if survey.max_responses %}<p class="small">{{ de_en("Bei {n} Teilnehmenden beantwortet jedes Deck etwa {k} Personen.", "With {n} participants, each deck is answered by about {k} people.", n=survey.max_responses, k=(survey.max_responses / plan.decks_rows|length)|round(0, "floor")|int) }}</p>{% endif %}
+  <p class="muted small">{{ de_en("D-Effizienz 100 heißt: Faktoren unkorreliert, Stufen gleich oft", "A D-efficiency of 100 means: factors uncorrelated, levels equally often") }} {{ apa.cite(doe.KUHFELD) }}. {{ de_en("Jedes Deck sollte von mehreren Personen beantwortet werden, damit sich
+    Deck und Person trennen lassen; für mindestens 5 Personen je Deck brauchen Sie {n} Teilnehmende (die 5 ist eine Festlegung von Askurious).", "Each deck should be answered by several people so that
+    deck and person can be separated; for at least 5 people per deck you need {n} participants (the 5 is a choice made by Askurious).", n=5 * plan.decks_rows|length) }}</p>
+  {% elif plan.profiles %}
+  <p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Der Versuchsplan passt nicht mehr zu Faktoren, Stufen, verbotenen Kombinationen oder Deckgröße: bitte neu erzeugen.", "The experimental design no longer fits the factors, levels, prohibitions or deck size: please create it again.") }}</span></p>
+  {% else %}
+  <p class="muted small">{{ de_en("Noch kein Versuchsplan. „Versuchsplan erzeugen“ oben legt ihn aus Faktoren und Stufen an.", "No experimental design yet. “Generate experimental design” above builds it from the factors and levels.") }}</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="vorschau">
+  <h2><span class="step-no">4</span> {{ de_en("Vorschau", "Preview") }}</h2>
+  {% if current %}
+  {% set total = (node.rows or [])|length %}
+  {% set n = ((preview - 1) % total) + 1 %}
+  <p class="small">{{ de_en("Vignette {n} von {total} (Deck {d})", "Vignette {n} of {total} (deck {d})", n=n, total=total, d=vignettes.deck_of(node, node.rows[n - 1].id)) }}
+    · <a href="{{ url_for('flow_page.vignettes_node', survey_id=survey.id, nid=node.id, lang=lang, v=(n - 2) % total + 1) }}#vorschau">{{ de_en("‹ vorige", "‹ previous") }}</a>
+    · <a href="{{ url_for('flow_page.vignettes_node', survey_id=survey.id, nid=node.id, lang=lang, v=n % total + 1) }}#vorschau">{{ de_en("nächste ›", "next ›") }}</a></p>
+  {% set texts = vignettes.preview(survey, node, blocks, n, lang) %}
+  {% for code, text in texts %}<blockquote class="vig-preview"><span class="muted small">{{ code }}</span><br>{{ text|striptags }}</blockquote>
+  {% else %}<p class="muted small">{{ de_en("Sobald ein Element im Block die Platzhalter verwendet, steht hier der Text mit den Stufen dieser Vignette.", "As soon as an element in the block uses the placeholders, the text with the levels of this vignette appears here.") }}</p>{% endfor %}
+  <details class="space-above">
+    <summary>{{ de_en("Alle Decks als Tabelle", "All decks as a table") }}</summary>
+    <div class="res-scroll">
+    {% call list_table("small") %}
+      <thead><tr><th>{{ de_en("Deck", "Deck") }}</th><th>#</th>{% for a in node.attributes %}<th>{{ a.code }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for d, rows in vignettes.deck_table(survey, node, lang) %}{% for number, labels in rows %}
+        <tr><td>{{ d if loop.first else "" }}</td><td>{{ number }}</td>{% for l in labels %}<td>{{ l }}</td>{% endfor %}</tr>
+      {% endfor %}{% endfor %}</tbody>
+    {% endcall %}
+    </div>
+  </details>
+  {% else %}
+  <p class="muted small">{{ de_en("Die Vorschau erscheint, sobald ein Versuchsplan erzeugt ist.", "The preview appears as soon as an experimental design has been generated.") }}</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Export", "Export") }}</h2>
+  <p class="small">{{ de_en("In den Datendateien (CSV, SPSS, jamovi, R) stehen die Antworten nach Position:", "In the data files (CSV, SPSS, jamovi, R) the answers are stored by position:") }} <code>{{ node.code }}_deck</code>, {{ de_en("je Position", "per position") }}
+    <code>{{ node.code }}_p1</code> {{ de_en("(welche Vignette) und die Stufen der Faktoren", "(which vignette) and the levels of the factors") }} (<code>{{ node.code }}_p1_{{ (node.attributes or [{"code": "faktor"}])[0].code }}</code> …),
+    {{ de_en("dann jede Frage als", "then each question as") }} <code>Q1_p1 … Q1_p{{ ((node.plan or {}).decks_rows or [[]])[0]|length or "k" }}</code>. {{ de_en("Für Mehrebenenmodelle gibt es im Reiter „Export“ das Langformat.", "For multilevel models, the tab “Export” offers the long format.") }}</p>
+  {{ grouped(sources) }}
+</section>
+{% endblock %}

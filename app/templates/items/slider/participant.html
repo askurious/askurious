@@ -1,0 +1,33 @@
+{% set de = lang in ("de", "de-du") %}
+{% set c = item.cfg %}
+{% set ans = answers.get(item.id) or {} %}
+{% set order = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% set pre, suf = kind.affixes(item, lang) %}
+{% set left, right = item.text("left", lang), item.text("right", lang) %}
+{% include "items/_question.html" %}
+{% set rows = kind.rows(item, lang, order) %}
+{% set open_rows = rows|map(attribute="id")|reject("in", ans)|list %}
+<p class="p-hint p-slider-hint" data-slider-hint {% if not open_rows %}hidden{% endif %}>{# for every device, the keys with the script (UI/UX audit 2026-10-16, 95) #}{{ (ui("Wählen Sie einen Wert auf der Linie.", "Choose a value on the line.")) if rows|length == 1 else (ui("Wählen Sie auf jeder Linie einen Wert.", "Choose a value on each line.")) }}<span class="p-if-js"> {{ ui("Mit der Tastatur: den Regler auswählen und die Pfeiltasten nutzen.", "With the keyboard: select the slider and use the arrow keys.") }}</span></p>
+<div class="p-sliders">
+  {% for r in rows %}
+  {% set v = ans.get(r.id) %}
+  <div class="p-slider-row{{ ' has-label' if r.text }}">
+    {% if r.text %}<div class="p-slider-label" id="sl{{ item.id }}_{{ r.id }}"{{ text_attrs(item, "rows", r.id) }}>{{ r.text|fill(variables) }}</div>{% endif %}
+    <div class="p-slider {{ '' if v is not none else 'untouched' }}{{ ' has-start' if c.get('start') is not none and v is none else '' }}" data-slider {% if c.show_value %}data-show-value{% endif %}
+         data-prefix="{{ pre }}" data-suffix="{{ suf }}" data-places="{{ kind.places(item) }}" data-signed="{{ '1' if kind.signed(item) else '' }}" data-lang="{{ lang }}">
+      <noscript><input type="number" name="i{{ item.id }}_{{ r.id }}" min="{{ c.min }}" max="{{ c.max }}" step="{{ c.step }}" value="{{ v if v is not none else '' }}"
+        {% if r.text %}aria-labelledby="sl{{ item.id }}_{{ r.id }}"{% elif item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% else %}aria-label="{{ ui('Bewertung', 'Rating') }}"{% endif %}></noscript>
+      <input type="hidden" name="i{{ item.id }}_{{ r.id }}" value="{{ v if v is not none else '' }}" data-keep>
+      <output class="p-slider-value" aria-hidden="true">{{ kind.show(item, v, lang) if v is not none else '' }}</output>
+      <input type="range" class="p-range" min="{{ c.min }}" max="{{ c.max }}" step="{{ c.step }}"
+             value="{{ v if v is not none else (c.get('start') if c.get('start') is not none else (c.min + c.max) / 2) }}"
+             {% if r.text %}aria-labelledby="sl{{ item.id }}_{{ r.id }}"{% elif item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% else %}aria-label="{{ ui('Wert', 'Value') }}"{% endif %}
+             {% if left or right %}aria-describedby="ep{{ item.id }}_{{ r.id }}"{% endif %}
+             {% if v is none %}aria-valuetext="{{ ui('noch nicht eingestellt', 'not set yet') }}"{% endif %}>
+    </div>
+    {# the words at the ends, for screen readers with the slider (the visible ones below are hidden from them; D8) #}
+    {% if left or right %}<span id="ep{{ item.id }}_{{ r.id }}" hidden>{{ ui("von %s bis %s", "from %s to %s")|format((left|fill(variables)|striptags) if left else kind.show(item, c.min, lang), (right|fill(variables)|striptags) if right else kind.show(item, c.max, lang)) }}</span>{% endif %}
+    <div class="p-endpoints" aria-hidden="true"><span{{ text_attrs(item, "left") if left }}>{{ left|fill(variables) if left else kind.show(item, c.min, lang) }}</span><span{{ text_attrs(item, "right") if right }}>{{ right|fill(variables) if right else kind.show(item, c.max, lang) }}</span></div>
+  </div>
+  {% endfor %}
+</div>

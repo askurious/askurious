@@ -1,0 +1,178 @@
+{# ORCID iD icon linking to the profile. In lists the icon alone (ORCID's inline display); `full` adds the iD as
+https URI, as ORCID's display guidelines ask where a person's own record is shown (rights review 2026-10-08).
+The official icons of the ORCID Brand Library, unchanged, as files in static/img/orcid (to swap them, replace the
+files): green, in the style "Kontrast" black and white or white on dark (app.css). An iD nobody has signed in with
+here (only typed or found in the registry) gets ORCID's "unauthenticated" icon and that word, nothing else.
+`unauth` None looks it up (orcid_has_account, once per iD and request); lists that know it pass it. #}
+{% macro orcid_link(orcid, label=None, full=False, unauth=None) -%}
+{% if is_orcid(orcid) -%}
+{% if unauth is none %}{% set unauth = not orcid_has_account(orcid) %}{% endif -%}
+{% set text = (label or de_en("ORCID-Eintrag ansehen: {orcid}", "View ORCID record: {orcid}", orcid=orcid)) ~ (" (unauthenticated)" if unauth else "") -%}
+<a class="orcid-link{% if full %} orcid-full{% endif %}" href="https://orcid.org/{{ orcid }}" target="_blank" rel="noopener" title="{{ text }}"{% if not full %} aria-label="{{ text }}"{% endif %}><img class="orcid-icon{% if unauth %} orcid-unauth{% endif %}" src="{{ url_for('static', filename='img/orcid/orcid-id-unauth.svg' if unauth else 'img/orcid/orcid-id.svg') }}" width="24" height="24" alt="{% if full %}ORCID iD{% endif %}">{% if full %} https://orcid.org/{{ orcid }}{% endif %}{% if unauth %} <span class="orcid-unauth-text">(unauthenticated)</span>{% endif %}</a>
+{%- endif %}
+{%- endmacro %}
+
+{# The iD icon at the start of a button "Mit ORCID anmelden" (ORCID's brand guidelines for sign-in buttons; UI/UX audit
+   2026-10-09, X79): beside the text, which stays; decorative, so no alt text. #}
+{% macro orcid_icon() -%}
+<img class="orcid-icon" src="{{ url_for('static', filename='img/orcid/orcid-id.svg') }}" width="24" height="24" alt="">
+{%- endmacro %}
+
+{# The state of a survey. An interview guide has no fieldwork and a live poll no state beyond being presented: both
+   show their kind (kind_badge) and here "–" (`dash`) or nothing, never "Entwurf" (UI audit 2026-10-07, W87). #}
+{% macro status_badge(survey, dash=true) -%}
+{% from "_icons.html" import icon %}
+{% set labels = {"draft": de_en("Entwurf", "Draft"), "running": de_en("Läuft", "Running"), "closed": de_en("Geschlossen", "Closed")} %}
+{% if survey.live is not none and live_now(survey) %}<span class="badge badge-running">{{ de_en("Läuft", "Running") }}</span>
+{%- elif survey.interview is not none or survey.live is not none %}{% if dash %}<span class="muted" title="{{ de_en('kein Status: ohne Feldphase', 'no state: no fieldwork') }}">–</span>{% endif %}
+{%- elif survey.status == "closed" and survey.close_reason == "paused" %}<span class="badge badge-paused">{{ de_en("Pausiert", "Paused") }}</span>
+{#- a draft that ran before and was opened for a new revision has real data: "Entwurf · Fassung 2" with how many
+    (UI/UX audit 2026-10-16, 20) #}
+{%- elif survey.status == "draft" and (survey.qversion or 1) > 1 %}{% set n_before = survey.completed_count() %}<span class="badge badge-draft" title="{{ de_en_n(n_before, ('hat {n} Teilnahme aus Fassung {v}', 'hat {n} Teilnahmen aus Fassung {v}'), ('has {n} participation from revision {v}', 'has {n} participations from revision {v}'), v=(survey.qversion - 1) if survey.qversion == 2 else ('1–' ~ (survey.qversion - 1))) }}">{{ de_en("Entwurf · Fassung {v}", "Draft · revision {v}", v=survey.qversion) }}</span>
+{%- else %}<span class="badge badge-{{ survey.status }}">{{ labels[survey.status] }}</span>{% endif %}
+{%- if survey.start_at and survey.status != "running" and survey.live is none and survey.interview is none %} <span class="badge badge-pending" title="{{ de_en('Startet von selbst (Reiter „Datenerhebung“)', 'Starts automatically (tab “Data collection”)') }}">{{ icon("clock", 12) }} {{ de_en("Start {d}", "Start {d}", d=survey.start_at|localdt) }}</span>
+{%- elif (survey.start_plan or {}).get("failed") and survey.status != "running" %} <span class="badge badge-error" title="{{ de_en('Die Prüfung beim geplanten Start schlug fehl (Reiter „Datenerhebung“)', 'The check at the scheduled start failed (tab “Data collection”)') }}">{{ de_en("Geplanter Start nicht ausgeführt", "Scheduled start not carried out") }}</span>{% endif %}
+{%- if survey.archived %} <span class="badge">{{ de_en("Archiviert", "Archived") }}</span>{% endif %}
+{%- endmacro %}
+
+{# The kind of a survey with the tag of the cards on "Meine Befragungen" (W87) #}
+{% macro kind_badge(survey) -%}
+{% if survey.live is not none %}<span class="badge badge-live-tag">{{ de_en("Live-Abstimmung", "Live poll") }}</span>
+{%- elif survey.interview is not none %}<span class="badge badge-interview">{{ de_en("Interviewleitfaden", "Interview guide") }}</span>
+{%- elif survey.sampling is not none %}<span class="badge badge-diary">{{ de_en("Tagebuchstudie", "Diary survey") }}</span>
+{%- else %}<span class="badge badge-survey-tag">{{ de_en("Fragebogen", "Questionnaire") }}</span>{% endif %}
+{%- endmacro %}
+
+{# A setting that is fixed once the survey has started (settings page): one mark for all of them, grey before the
+   start ("wird beim Start fest"), the reason in its title. #}
+{% macro fixed_mark(started, why=none) -%}
+{% from "_icons.html" import icon %}
+{%- set why = why or de_en("die Einwilligung nennt es", "the consent names it") %}
+{%- set text = (de_en("Seit dem Start fest: ", "Fixed since the start: ") if started else de_en("Wird beim Start fest: ", "Becomes fixed at the start: ")) ~ why ~ "." %}
+<span class="fixed-mark{% if started %} is-fixed{% endif %}" title="{{ text }}" role="img" aria-label="{{ text }}">{{ icon("lock", 14) }}</span>
+{%- endmacro %}
+
+{# A number fetched after the page ("wird berechnet …"): a live region that is busy until the script has put the
+   figures in (and takes aria-busy off), so that a screen reader says them once they are there (UI/UX audit
+   2026-10-16, 31). tag "div" holds the text as a paragraph and is replaced as a whole; "p" is the line itself.
+   attrs: further attributes, as a string that starts with a space. #}
+{% macro computing(text, tag="div", cls="", attrs="") -%}
+<{{ tag }}{% if cls %} class="{{ cls }}"{% endif %} role="status" aria-busy="true"{{ attrs }}>{% if tag == "div" %}<p class="muted small">{{ text }}</p>{% else %}{{ text }}{% endif %}</{{ tag }}>
+{%- endmacro %}
+
+{% macro csrf() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{%- endmacro %}
+
+{# Protection against overwriting each other's changes (app/edit_guard.py): inside a form, the fingerprint of
+   the part as opened; after a conflict, who changed it and a link to that version; others who have it open. #}
+{# A form that was refused (g.form_error, set by the route): the reason inside the form, which is shown
+   again with what was entered; nothing was saved. #}
+{% macro form_error(key) -%}
+{%- set problem = g.get("form_error") %}
+{%- if problem and problem.key == key %}
+<div class="flash flash-error" data-unsaved data-scroll-here role="alert">
+  <span><strong>{{ de_en("Nicht gespeichert:", "Not saved:") }}</strong> {{ problem.message }} {{ de_en("Ihre Eingaben stehen weiter unten; nach der Korrektur bitte erneut speichern.", "Your entries are below; please save again after correcting them.") }}</span>
+</div>
+{%- endif %}
+{%- endmacro %}
+
+{# The line of a form that saves by itself (form[data-autosave-form], app.js and app/autosave.py), in place of
+   "Speichern": what happened to the last change, a retry, both versions after a conflict. small: as in a narrow panel;
+   form_id: the bar stands outside of its form. #}
+{# ⋮⋮ ↑ ↓ × at the end of a row the person orders by hand: the same as the rows app.js adds to the generic tables of
+   the element editors (UI/UX audit 2026-10-07, W32). The <tbody> carries data-row-list; app.js moves, removes and
+   drags the rows and then sends "rows:changed". #}
+{% macro row_tools(remove_label) -%}
+{% from "_icons.html" import icon %}
+<td class="cj-row-tools row-tools"><span class="drag-handle row-drag" aria-hidden="true" title="{{ de_en('Ziehen zum Umsortieren', 'Drag to reorder') }}">⋮⋮</span><button type="button" class="icon-btn" data-row="up" title="{{ de_en('nach oben', 'move up') }}" aria-label="{{ de_en('nach oben', 'move up') }}">↑</button><button type="button" class="icon-btn" data-row="down" title="{{ de_en('nach unten', 'move down') }}" aria-label="{{ de_en('nach unten', 'move down') }}">↓</button><button type="button" class="icon-btn danger" data-row="remove" title="{{ remove_label }}" aria-label="{{ remove_label }}">{{ icon("x", 16) }}</button></td>
+{%- endmacro %}
+
+{# The one note under a list of rows ordered by hand (S8): how to move and remove rows, and that empty rows are not
+   saved; once under the list, not per table. more: what this list adds; or a caller with markup. #}
+{% macro row_list_hint(more="") -%}
+<p class="muted small row-list-hint">{{ de_en("Zeilen am Griff ⋮⋮ ziehen oder mit ↑ ↓ umsortieren, mit × entfernen; leere Zeilen werden nicht gespeichert.", "Drag rows by the handle ⋮⋮ or reorder them with ↑ ↓, remove them with ×; empty rows are not saved.") }}{% if more %} {{ more }}{% endif %}{% if caller %} {{ caller() }}{% endif %}</p>
+{%- endmacro %}
+
+{# One table for the lists outside the results (UI/UX audit 2026-10-07, W93, S8), inside its scroll wrapper: a table
+   wider than its panel scrolls within it. variants: further classes of .list-table (app.css): is-num (the columns
+   after the first are numbers, right-aligned), is-wide (over the whole width), is-lines (lines instead of shaded
+   rows); the rows of fields in the editors are .list-table.is-edit without the wrapper. #}
+{% macro list_table(variants="") -%}
+<div class="table-scroll"><table class="list-table{% if variants %} {{ variants }}{% endif %}">{{ caller() }}</table></div>
+{%- endmacro %}
+
+{# One button opens or closes every fold of the page (details.res-fold, details.settings-group): "Alle aufklappen"
+   while one is closed, else "Alle zuklappen"; app.js switches its words and aria-expanded (UI audit 2026-10-12,
+   U10). The words here are those of a page that starts with every fold open. #}
+{% macro fold_all_button() -%}
+<button type="button" class="button button-secondary button-small" data-fold-all aria-expanded="true" data-label-open="{{ de_en('Alle aufklappen', 'Expand all') }}" data-label-close="{{ de_en('Alle zuklappen', 'Collapse all') }}">{{ de_en("Alle zuklappen", "Collapse all") }}</button>
+{%- endmacro %}
+
+{# The line is no live region of its own: the head of the survey (or the page's line) says what happened; only an
+   error or a conflict is said here, as role=alert set by app.js, and the head stays silent then (UI/UX audit
+   2026-10-16, 30). The buttons after a conflict name whose change they load (54). #}
+{% macro autosave_bar(small=false, form_id="") -%}
+<div class="form-actions autosave-bar" data-autosave-bar="{{ form_id }}">
+  <span class="autosave-status" data-autosave-status>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span>
+  <button type="button" class="button button-small button-secondary" data-autosave-retry hidden>{{ de_en("Erneut versuchen", "Try again") }}</button>
+  <button type="button" class="button button-small button-secondary" data-autosave-theirs hidden>{{ de_en("Änderung der anderen Person laden", "Load the other person’s version") }}</button>
+  <button type="button" class="button button-small button-secondary" data-autosave-mine hidden>{{ de_en("Meine Änderung behalten", "Keep my version") }}</button>
+  <noscript><button class="button{% if small %} button-small{% endif %}"{% if form_id %} form="{{ form_id }}"{% endif %}>{{ de_en("Speichern", "Save") }}</button></noscript>
+</div>
+{%- endmacro %}
+
+{% macro edit_guard_fields(survey, key, current, open_url=None, presence_key=None) -%}
+<input type="hidden" name="base" value="{{ edit_guard.base(key, current) }}" data-guard-key="{{ key }}">
+{%- set conflict = edit_guard.conflict_for(key) %}
+{%- if conflict %}
+<div class="flash flash-error edit-conflict" data-unsaved role="alert">
+  <span><strong>{{ de_en("Nicht gespeichert:", "Not saved:") }}</strong> {% if conflict.when %}{{ de_en("{who} hat hier um {when} Uhr gespeichert, nachdem Sie die Seite geöffnet haben.", "{who} saved here at {when} after you opened the page.", who=conflict.who, when=conflict.when) }}{% else %}{{ de_en("{who} hat hier gespeichert, nachdem Sie die Seite geöffnet haben.", "{who} saved here after you opened the page.", who=conflict.who) }}{% endif %}
+  {{ de_en("Unten stehen weiterhin Ihre Eingaben. „Meine Änderung behalten“ ersetzt jetzt diesen Stand durch Ihre Eingaben.", "Your entries are still below. “Keep my version” now replaces this version with your entries.") }}
+  {% if open_url %}<a href="{{ open_url }}" target="_blank" rel="noopener">{{ de_en("Gespeicherten Stand öffnen", "Open the saved version") }} ↗</a> ·
+  <a href="{{ open_url }}">{{ de_en("Meine Eingaben verwerfen", "Discard my entries") }}</a>{% endif %}</span>
+</div>
+{%- endif %}
+{%- if presence_key is not false %}{{ presence_line(survey, presence_key or key) }}{% endif %}
+{%- endmacro %}
+
+{# "Gerade ebenfalls geöffnet von …": on its own where the form is drawn anew with every save (the dashboard designer),
+   so the line app.js reports into stays in the page #}
+{% macro presence_line(survey, key) -%}
+{%- set others = edit_guard.others_here(survey, key) %}
+<div class="flash flash-warning edit-presence" data-presence
+     data-url="{{ url_for('editor.presence', survey_id=survey.id) }}" data-key="{{ key }}"
+     data-every="{{ edit_guard.HEARTBEAT_SECONDS }}" {% if not others %}hidden{% endif %}>
+  <span>{{ de_en("Gerade ebenfalls geöffnet von", "Also open right now for") }} <strong data-presence-names>{{ others|join(", ") }}</strong>. {{ de_en("Wer später speichert, wird gewarnt, statt fremde Änderungen zu überschreiben.", "Anyone who saves later is warned instead of overwriting the other changes.") }}</span>
+</div>
+{%- endmacro %}
+
+{# Numbers on the results pages in the page language (German 2,50, English 2.50; units.page_lang); "–" for no value. A value that shows as zero gets no sign
+   ("0,00", never "-0,00" or "−0,00"). num: d decimals; one: one decimal; signed: with a sign (+ or −); pct: a share
+   (0 … 1) as a whole percentage. #}
+{# one formatter for the results page, dashboards and Word (units.stat, UI/UX audit 2026-10-05, V70): a dot between
+   thousands (93.367), "−" as minus #}
+{% macro num(v, d=2) %}{{ stat_num(v, d) }}{% endmacro %}
+{# the language of a survey's content (question, option, block name) on a researcher's page, as an attribute: a
+   German question on an English page is read with German pronunciation (WCAG 3.1.2; UI/UX audit 2026-10-09, X87) #}
+{% macro content_lang(code) %}{% if code %} lang="{{ html_lang(code) }}"{% endif %}{% endmacro %}
+{% macro one(v) %}{{ num(v, 1) }}{% endmacro %}
+{% macro signed(v, d=2) %}{{ stat_num(v, d, none, true) }}{% endmacro %}
+{% macro pct(v) %}{% if v is none %}–{% else %}{{ v|percent }}{% endif %}{% endmacro %}
+
+{# a share as a bar; its 95 % interval (Wilson) as an error bar on it, the numbers when pointing at it (Ralf, 2026-10-06) #}
+{% macro share_bar(row, top, cls="") %}<span class="res-bar{{ " " ~ cls if cls }}"{% if row.ci %} title="95-%-Konfidenzintervall (Wilson): {{ row.ci[0]|pct }}–{{ row.ci[1]|percent }}"{% endif %}><span style="width: {{ (row.share / top * 100)|round(1) }}%"></span>{% if row.ci %}<i class="res-ci-bar" style="left: {{ [row.ci[0] / top * 100, 100]|min|round(1) }}%; width: {{ ([row.ci[1] / top * 100, 100]|min - [row.ci[0] / top * 100, 100]|min)|round(1) }}%"></i>{% endif %}</span>{% endmacro %}
+{# the share first, the count in brackets #}
+{% macro share_n(row) %}{{ row.share|percent }} ({{ row.count }}){% endmacro %}
+
+{# which AI access a text function uses, while the experimental "own_ai_key" is on for the person (app/ai_access.py):
+   "KI: eigener Zugang (KI:connect.nrw, gpt-oss-120b)" or "KI: Zugang der Plattform"; nothing otherwise.
+   platform=true: a function that always runs over the installation's key (images) #}
+{% macro ai_access_line(platform=false) %}{% set text = ai_access_shown(platform=platform) %}{% if text %}<span class="hint ai-access-line">{{ text }}</span>{% endif %}{% endmacro %}
+{# a method's abbreviation spelt out on hover, at its first mention in a results template (UX audit 2026-10-16, W-10) #}
+{% macro abbr(key) -%}
+{%- set t = {"hb": ("HB", de_en("Hierarchical Bayes: Schätzung individueller Nutzenwerte", "Hierarchical Bayes: estimation of individual utilities")),
+             "mnl": ("MNL", de_en("Multinomiales Logit-Modell", "Multinomial logit model")),
+             "rlh": ("RLH", de_en("Root Likelihood: geometrisches Mittel der Wahrscheinlichkeiten, die das Modell den Wahlen einer Person gibt", "Root likelihood: geometric mean of the probabilities the model gives to a person’s choices"))}[key] -%}
+<abbr title="{{ t[1] }}">{{ t[0] }}</abbr>
+{%- endmacro %}

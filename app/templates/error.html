@@ -1,0 +1,49 @@
+{# The app's error pages 403, 404 and 500 (app/errors.py; UI/UX audit 2026-10-09, X68): in the frame of every page, in
+   the language of the person, with the way back and who can give the access. #}
+{% extends "base.html" %}
+{% if kind == "forbidden" %}
+  {% set heading = de_en("Dafür fehlt Ihrem Konto die Berechtigung", "Your account lacks the permission for this") %}
+{% elif kind == "error" %}
+  {% set heading = de_en("Hier ist etwas schiefgegangen", "Something went wrong here") %}
+{% elif kind == "orcid_off" %}
+  {% set heading = de_en("Anmeldung mit ORCID ist hier nicht eingerichtet", "Sign-in with ORCID is not set up here") %}
+{% else %}
+  {% set heading = de_en("Diese Seite gibt es nicht (mehr)", "This page does not exist (any more)") %}
+{% endif %}
+{% block title %}{{ heading }} · Askurious{% endblock %}
+{% block content %}
+<section class="panel error-page" aria-labelledby="error-title">
+  <h1 id="error-title">{{ heading }}</h1>
+  {% if kind == "forbidden" %}
+    {% if survey_id %}
+    <p>{{ de_en("Zugriff auf eine Befragung und die Rolle darin gibt eine Admin-Person der Befragung. Fragen Sie die Person, die Ihnen den Link geschickt hat.", "Access to a survey and the role in it are given by an admin of the survey. Ask the person who sent you the link.") }}</p>
+    {% elif signed_in %}
+    <p>{{ de_en("Diese Berechtigung gibt ein Admin der Plattform. Schreiben Sie über „Rückmeldung geben“ an die Admins der Plattform, wofür Sie sie brauchen.", "This permission is given by a platform admin. Write to the platform admins via “Give feedback” what you need it for.") }}</p>
+    {% else %}
+    <p>{{ de_en("Melden Sie sich an; danach sehen Sie, was Ihr Konto darf.", "Sign in; then you will see what your account may do.") }}</p>
+    {% endif %}
+  {% elif kind == "orcid_off" %}
+    {# auth.login without ORCID_CLIENT_ID (UI audit 2026-10-12, U58) #}
+    <p>{{ de_en("Diese Installation hat keinen Zugang zu ORCID. Melden Sie sich bitte mit E-Mail-Adresse und Passwort an; ein Konto dafür richten die Admins der Plattform ein.", "This installation has no access to ORCID. Please sign in with your email address and password; the platform admins set up an account for it.") }}</p>
+  {% elif kind == "error" %}
+    <p>{{ de_en("Der Fehler ist protokolliert. Laden Sie die Seite gleich noch einmal; geschieht es wieder, schreiben Sie den Admins der Plattform kurz, was Sie gerade getan haben.", "The error has been logged. Reload the page in a moment; if it happens again, briefly write to the platform admins what you were just doing.") }}</p>
+  {% else %}
+    <p>{{ de_en("Vielleicht wurde sie gelöscht oder die Adresse ist unvollständig.", "Perhaps it was deleted, or the address is incomplete.") }}</p>
+    {% if survey_id and signed_in %}<p>{{ de_en("Gehört die Befragung jemand anderem, gibt Ihnen eine Admin-Person der Befragung Zugriff.", "If the survey belongs to someone else, an admin of the survey can give you access.") }}</p>{% endif %}
+  {% endif %}
+  <div class="form-actions">
+    {% if signed_in %}
+      <a class="button" href="{{ url_for('dashboard.index') }}">{{ de_en("Zu „Meine Befragungen“", "To “My surveys”") }}</a>
+      {% if kind != "missing" %}<button type="button" class="button button-secondary" data-feedback-open>{{ de_en("Rückmeldung geben", "Give feedback") }}</button>{% endif %}
+    {% elif kind == "orcid_off" %}
+      <a class="button" href="{{ url_for('auth.sign_in', next=nxt) }}">{{ de_en("Mit E-Mail anmelden", "Sign in with email") }}</a>
+      <a class="button button-secondary" href="{{ url_for('public.index') }}">{{ de_en("Zur Startseite", "To the home page") }}</a>
+    {% elif kind == "forbidden" %}
+      <a class="button" href="{{ url_for('auth.sign_in') }}">{{ de_en("Anmelden", "Sign in") }}</a>
+      <a class="button button-secondary" href="{{ url_for('public.index') }}">{{ de_en("Zur Startseite", "To the home page") }}</a>
+    {% else %}
+      <a class="button" href="{{ url_for('public.index') }}">{{ de_en("Zur Startseite", "To the home page") }}</a>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

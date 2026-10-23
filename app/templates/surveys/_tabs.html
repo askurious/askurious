@@ -1,0 +1,135 @@
+{# Shared header for the pages of one survey. Needs: survey, active_tab (settings | editor | present | flow | translation | quotas | field | quality | results | boards | data).
+   sub_page: a page below a tab (element, loop, method section, ...): the page has its own h1 and ↶ ↷, so the title of
+   the survey is no heading here (UI audit 2026-10-04, R2). Actions that open a new window (Vorschau, Interview beginnen)
+   stand at the right of this line, not among the tabs: the row of tabs holds pages only (G1, R1). #}
+{% set sub = sub_page is defined and sub_page %}
+{{ help_note(survey, active_tab if active_tab is defined else none) }}{# for "Hilfe zu dieser Seite" in the header (UI/UX audit 2026-10-16, 17) #}
+{# the title is drawn anew after a save (data-live, app.js redraw) only where it can be changed, the settings: on every
+   other page that would load the whole page once more after each save (code review 2026-10-07, F3) #}
+{% set live_title = ' data-live="survey-title"'|safe if (active_tab is defined and active_tab == "settings" and not sub) else "" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import status_badge %}
+{# the name of the open tab, a hidden part of the h1: "Kundenzufriedenheit – Ergebnisse" for a screen reader, the eye
+   has the marked tab (UI/UX audit 2026-10-16, 32) #}
+{% set tab_names = {"settings": de_en("Einstellungen", "Settings"), "plan": de_en("Studienplan", "Research plan"),
+  "editor": de_en("Folien", "Slides") if survey.live is not none else de_en("Leitfaden", "Guide") if survey.interview is not none else de_en("Fragebogen", "Questionnaire"),
+  "flow": de_en("Ablauf", "Flow"), "quotas": de_en("Quoten", "Quotas"), "schedule": de_en("Zeitplan", "Schedule"),
+  "translation": de_en("Übersetzung", "Translation"), "field": de_en("Datenerhebung", "Data collection"),
+  "quality": de_en("Qualitätssicherung", "Quality assurance"), "results": de_en("Ergebnisse", "Results"), "boards": "Dashboards",
+  "data": "Export", "present": de_en("Präsentieren", "Present"), "interviews": "Interviews", "analysis": de_en("Ergebnisse", "Results")} %}
+{% set tab_name = tab_names.get(active_tab) if active_tab is defined else none %}
+{# a survey an add-on module keeps for itself (app/plugins.py, add_view): fewer tabs, its own way back #}
+{% set pv = plugin_view(survey) if plugin_view is defined else none %}
+<div class="survey-head">
+  {# a landmark of its own for the way back (UI/UX audit 2026-10-16, 33) #}
+  <nav class="crumbs" aria-label="{{ de_en('Brotkrumen', 'Breadcrumb') }}">{% if pv %}<a class="back-link crumb" href="{{ url_for(pv.back) }}">{{ icon("back", 16) }} {{ de_en(pv.back_de, pv.back_en) }}</a>{% else %}<a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>{% endif %}
+  <span class="crumb-sep" aria-hidden="true">/</span></nav>
+  {% if sub %}<p class="survey-title"{{ live_title }}>{{ survey.title }}</p>{% else %}<h1{{ live_title }}>{{ survey.title }}{% if tab_name %}<span class="visually-hidden"> – {{ tab_name }}</span>{% endif %}</h1>{% endif %} {% if survey.live is not none %}<span class="badge badge-live">{{ de_en("Live-Abstimmung", "Live poll") }}</span>{% elif survey.interview is not none %}<span class="badge badge-interview">{{ de_en("Interviewleitfaden", "Interview guide") }}</span>{% else %}{% if survey.sampling is not none %}<span class="badge badge-diary" title="{{ de_en('Experimentell, bis die App im Play Store ist', 'Experimental until the app is in the Play Store') }}">{{ de_en("Tagebuchstudie · experimentell", "Diary survey · experimental") }}</span> {% endif %}{% if pv and pv.badge_de %}<span class="badge">{{ de_en(pv.badge_de, pv.badge_en) }}</span>{% else %}{{ status_badge(survey) }}{% endif %}{% endif %}
+  {% if survey.project and survey.project != "None" %}<span class="muted small">{{ survey.project }}</span>{% endif %}
+  {# ↶ ↷ on the pages that save something (Datenerhebung and Ergebnisse too: their forms, the basis box); not on
+     Export, where a Ctrl+Z would take back a change that is not in view #}
+  <div class="survey-head-actions">
+    {# an interview is begun (and so saved) under "Interviews"; the view without one is a trial (UI audit R20) #}
+    {% if survey.interview is not none %}<a class="button button-secondary button-small" href="{{ url_for('interview_data.index', code=survey.code) }}#neu">{{ icon("play", 16) }} {{ de_en("Interview beginnen", "Begin interview") }}</a>
+    {% elif survey.live is none and not pv %}<a class="button button-secondary button-small" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("eye", 16) }} {{ de_en("Vorschau", "Preview") }} ↗</a>{% endif %}
+    {# the next step of the survey's life, from every tab (UI/UX audit 2026-10-16, 142): the start list, the link, the
+       resumption, the closing list; all on "Datenerhebung", so not there. A button in this row, no band of its own. #}
+    {% if survey.live is none and survey.interview is none and active_tab != "field" and not pv and survey.can(current_user, "editor") %}
+    {% if survey.status == "draft" %}{% set next_step = ("status", "play", de_en("Zum Start", "To the start")) %}
+    {% elif survey.status == "running" %}{% set next_step = ("links", "link", de_en("Teilnahmelink", "Participation link")) %}
+    {% elif survey.close_reason == "paused" %}{% set next_step = ("status", "play", de_en("Fortsetzen …", "Resume …")) %}
+    {% else %}{% set next_step = ("abschluss", "check", de_en("Abschluss", "Wrap-up")) %}{% endif %}
+    <a class="button button-small next-step" href="{{ url_for('surveys.field', survey_id=survey.id) }}#{{ next_step[0] }}">{{ icon(next_step[1], 16) }} {{ next_step[2] }}</a>
+    {% endif %}
+    {# S2 (UI/UX audit 2026-10-07, W29): one place for the saved state on every page of the survey, sub pages too
+       (element, loop, images, quota assistant, appearance, dashboard designer): this line, then ↶ ↷. Every form and
+       script that saves by itself reports here (app.js, saveState); the line of a form only shows up for an error,
+       a conflict or a warning. Before anything is saved on this page it claims nothing: the time of the person's
+       last change, else that changes save by themselves. Shown at once where the arrows are; elsewhere (Export,
+       interview pages) only once something on the page saves by itself. #}
+    {# one button that opens or closes every fold of the page (U10), beside the saved state instead of on a line of its
+       own over the first block (UI/UX audit 2026-10-16, 29); pages with folds set fold_all #}
+    {% if fold_all is defined and fold_all %}{% from "_macros.html" import fold_all_button %}{{ fold_all_button() }}{% endif %}
+    {% if survey.can(current_user, "editor") %}
+    {% set arrows = active_tab in ("settings", "plan", "editor", "flow", "translation", "quotas", "field", "quality", "results", "boards") %}
+    {% set steps = edit_history(survey) %}
+    {% set neutral = de_en("Ihre letzte Änderung: {when}", "Your last change: {when}", when=undo_when(steps.undo[0])) if steps and steps.undo else de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") %}
+    {# without the arrows (Export) the line and the arrows keep their place, invisible, so that "Vorschau" stands where
+       it stands on every tab (UI/UX audit 2026-10-09, X71); the line shows once something saves (app.js, draw) #}
+    <span class="autosave-status autosave-page{% if not arrows %} autosave-reserved{% endif %}" data-autosave-head data-neutral="{{ neutral }}" role="status" aria-live="polite">
+      <span class="autosave-long" data-autosave-long>{{ neutral }}</span><span class="autosave-short" data-autosave-short></span>
+      <a class="autosave-goto" href="#" data-autosave-goto aria-label="{{ de_en('zur Stelle', 'show') }}" hidden><span class="autosave-long">{{ de_en("zur Stelle", "show") }}</span><span class="autosave-short" aria-hidden="true">↓</span></a>
+    </span>
+    {% if arrows %}{% include "editor/_undo.html" %}
+    {% else %}<span class="undo-bar undo-reserved" aria-hidden="true"><span class="icon-btn"></span><span class="icon-btn"></span>{% if steps.undo %}<span class="undo-menu"><span class="icon-btn"></span></span>{% endif %}</span>{% endif %}
+    {% endif %}
+    {% include "surveys/_survey_menu.html" %}
+  </div>
+</div>
+{# in three named groups in the same row for every kind of survey (UI audit 2026-10-12, E4, S2; the four kinds alike,
+   concept "Befragungstypen im Vergleich" 2026-10-17, T1-T3): plan, collect, analysis ("Analyse", not "Auswerten" /
+   "Evaluate", which sounds like evaluation research: UI/UX audit 2026-10-16, 57); each kind shows only its own tabs.
+   The quotas belong to the flow (their page is a page below "Ablauf"); on a phone one drop-down list instead of a row
+   cut off at the edge. A live poll (app/live/, live concept 6.3) and an interview guide
+   (app/interview.py, concept interviewleitfaden-konzept.md 4.2) have no data collection of their own, so no
+   Studienplan, Ablauf, Qualitätssicherung or Dashboards. #}
+{% if survey.live is not none %}
+{% set nav_label = de_en("Bereiche der Live-Abstimmung", "Sections of the live poll") %}
+{% set groups = [
+  (de_en("Planen", "Plan"), [
+    ("settings", url_for('live.settings', code=survey.code), "settings", de_en("Einstellungen", "Settings"), none),
+    ("editor", url_for('live.manage', code=survey.code), "edit", de_en("Folien", "Slides"), none)]),
+  (de_en("Erheben", "Collect"), [
+    ("present", url_for('live.present', code=survey.code), "play", de_en("Präsentieren", "Present"), none)]),
+  (de_en("Analyse", "Analysis"), [
+    ("results", url_for('surveys.results', survey_id=survey.id), "chart", de_en("Ergebnisse", "Results"), none),
+    ("data", url_for('surveys.data', survey_id=survey.id), "download", "Export", none)])] %}
+{% elif survey.interview is not none %}
+{% set nav_label = de_en("Bereiche des Interviewleitfadens", "Sections of the interview guide") %}
+{% set groups = [
+  (de_en("Planen", "Plan"), [
+    ("settings", url_for('interview.settings', code=survey.code), "settings", de_en("Einstellungen", "Settings"), none),
+    ("editor", url_for('interview.guide', code=survey.code), "edit", de_en("Leitfaden", "Guide"), none)]),
+  (de_en("Erheben", "Collect"), [
+    ("interviews", url_for('interview_data.index', code=survey.code), "interview", "Interviews", none)]),
+  (de_en("Analyse", "Analysis"), [
+    ("analysis", url_for('interview_results.page', code=survey.code), "chart", de_en("Ergebnisse", "Results"), none),
+    ("data", url_for('interview.export', code=survey.code), "download", "Export", none)])] %}
+{% else %}
+{% set nav_label = de_en("Bereiche der Befragung", "Sections of the survey") %}
+{% set n_done = survey.completed_count() %}
+{% set groups = [
+  (de_en("Planen", "Plan"), [
+    ("settings", url_for('surveys.detail', survey_id=survey.id), "settings", de_en("Einstellungen", "Settings"), none),
+    ("plan", url_for('study_plan.page', survey_id=survey.id), "target", de_en("Studienplan", "Research plan"), none),
+    ("editor", url_for('editor.index', survey_id=survey.id), "edit", de_en("Fragebogen", "Questionnaire"), none),
+    ("flow", url_for('flow_page.index', survey_id=survey.id), "block-down", de_en("Ablauf", "Flow"), none)]
+    + ([("schedule", url_for('diary.schedule', survey_id=survey.id), "clock", de_en("Zeitplan", "Schedule"), none)] if survey.sampling is not none else [])
+    + ([("translation", url_for('translations.index', survey_id=survey.id), "flag", de_en("Übersetzung", "Translation"), none)] if survey.languages|length > 1 or active_tab == "translation" else [])),
+  (de_en("Erheben", "Collect"), [
+    ("field", url_for('surveys.field', survey_id=survey.id), "play", de_en("Datenerhebung", "Data collection"), none),
+    ("quality", url_for('surveys.quality', survey_id=survey.id), "check", de_en("Qualitätssicherung", "Quality assurance"), none)]),
+  (de_en("Analyse", "Analysis"), [
+    ("results", url_for('surveys.results', survey_id=survey.id), "chart", de_en("Ergebnisse", "Results"), none),
+    ("boards", url_for('boards.index', survey_id=survey.id), "grid", "Dashboards", none),
+    ("data", url_for('surveys.data', survey_id=survey.id), "download", "Export", n_done or none)])] %}
+{% endif %}
+{% if pv %}{% set kept = [] %}{% for label, tabs in groups %}{% set shown = tabs|selectattr("0", "in", pv.tabs)|list %}{% if shown %}{% set _ = kept.append((label, shown)) %}{% endif %}{% endfor %}{% set groups = kept %}{% endif %}
+{% set current = "flow" if active_tab == "quotas" else active_tab %}
+<nav class="survey-tabs" data-grouped aria-label="{{ nav_label }}">
+  {% for label, tabs in groups %}
+  <div class="tab-group" role="group" aria-label="{{ label }}">
+    <div class="tab-group-links">
+    {% for key, href, ic, name, count in tabs %}
+      <a href="{{ href }}" {% if current == key %}aria-current="page"{% endif %}>{{ icon(ic, 16) }} {{ name }}{% if count %} <span class="badge" title="{{ de_en('abgeschlossene Teilnahmen', 'completed participations') }}">{{ count }}</span>{% endif %}</a>
+      {# the settings set apart by a line of their own, still in the group "Planen" (Ralf, 2026-10-17) #}
+      {% if key == "settings" %}<span class="tab-group-sep" aria-hidden="true"></span>{% endif %}
+    {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</nav>
+<div class="survey-tabs-select"><label class="visually-hidden" for="survey-section">{{ de_en("Bereich der Befragung", "Section of the survey") }}</label>
+  <select id="survey-section" data-nav-select>
+    {% for label, tabs in groups %}<optgroup label="{{ label }}">{% for key, href, ic, name, count in tabs %}<option value="{{ href }}" {% if current == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</optgroup>{% endfor %}
+  </select><button type="button" class="button button-small" data-nav-open>{{ de_en("Öffnen", "Open") }}</button></div>

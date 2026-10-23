@@ -1,0 +1,21 @@
+{# The feedback form (used in the header dialog and on /feedback/neu). Needs: severities, page, form #}
+<form method="post" action="{{ url_for('feedback.new') }}" class="stack feedback-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="page" value="{{ page }}" data-feedback-page>
+  <fieldset class="severity-scale">
+    <legend>{{ de_en("Wie wichtig ist es?", "How important is it?") }}</legend>
+    <div class="severity-options">
+      {% for value, (de, en) in severities.items() if value < 4 %}
+      <label class="severity-option sev-{{ value }}">
+        <input type="radio" name="severity" value="{{ value }}" {% if (form.get("severity") or "1") == value|string %}checked{% endif %}>
+        <span><strong>{{ de_en(de, en) }}</strong></span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <label>{{ de_en("Was ist Ihnen aufgefallen?", "What did you notice?") }}
+    <textarea name="message" rows="5" required maxlength="5000" placeholder="{{ de_en('z. B. „Beim Speichern eines Blocks springt die Seite nach oben.“ oder „Es wäre schön, wenn …“', 'e.g. “When I save a block, the page jumps to the top.” or “It would be nice if …”') }}">{{ form.get("message", "") }}</textarea>
+  </label>
+  <p class="muted small">{{ de_en("Die Seite, auf der Sie gerade sind, wird mitgeschickt", "The page you are on is sent along") }}{% if page %} (<code>{{ page|truncate(60) }}</code>){% endif %}. {{ de_en("Keine Teilnehmendendaten.", "No participant data.") }}</p>
+  <div class="form-actions"><button class="button">{{ icon("check", 16) }} {{ de_en("Absenden", "Send") }}</button></div>
+</form>

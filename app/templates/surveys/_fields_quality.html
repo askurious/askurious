@@ -1,0 +1,56 @@
+{# Paradata and data quality (surveys.apply_options): technical details, page times, window switches and the
+   tempo hint. Shown in the wizard with the other options and on the page "Datenerhebung" ("Datenqualität steigern").
+   Needs: values (the survey), lang_editable. #}
+<fieldset id="settings-quality">
+  <legend>{{ de_en("Paradaten und Datenqualität", "Paradata and data quality") }}</legend>
+  <input type="hidden" name="quality_shown" value="1">
+  <fieldset class="option-group" {% if not lang_editable %}disabled{% endif %}>
+  <label class="check"><input type="checkbox" name="paradata" value="1" {% if values.paradata %}checked{% endif %}> {{ de_en("Technische Angaben erfassen", "Record technical details") }}
+    <span class="hint">{{ de_en("grob: Gerätetyp, Betriebssystem, Browser (ohne Versionen), Fensterbreite in Klassen, Ausrichtung, Touch; wird in der Einwilligung genannt", "coarse: device type, operating system, browser (without versions), window width in classes, orientation, touch; named in the consent") }}</span></label>
+  {# id: the speeder rule "Relative Speed Index" links here and switches it on (surveys/_speed.html); the page loads
+     anew after the save, so the index can be chosen at once #}
+  <label class="check setting-target" id="page-timing"><input type="checkbox" name="page_timing" value="1" data-reload-saved {% if values.page_timing %}checked{% endif %}> {{ de_en("Zeit je Seite erfassen", "Record time per page") }}
+    <span class="hint">{{ de_en("Sekunden vom Anzeigen bis „Weiter“, bei erneutem Besuch addiert; im Export je Seite eine Spalte", "seconds from display to “Next”, added up on a repeat visit; in the export one column per page") }} <code>t_…</code>{{ de_en("; wird in der Einwilligung genannt", "; named in the consent") }}</span></label>
+  <label class="check"><input type="checkbox" name="focus_paste" value="1" {% if values.focus_paste %}checked{% endif %}> {{ de_en("Fensterwechsel und Einfügen zählen", "Count window switches and pasting") }}
+    <span class="hint">{{ de_en("wie oft jemand das Fenster oder den Tab verlässt und Text in ein Textfeld einfügt, wie viele Zeichen eingefügt wurden und wie viele Eingaben die Textfelder erhielten; nur Zahlen, nie Inhalte; im Export", "how often someone leaves the window or tab and pastes text into a text field, how many characters were pasted and how many inputs the text fields received; only numbers, never content; in the export") }} <code>focus_lost</code>, <code>focus_pages</code>, <code>pasted</code>, <code>pasted_chars</code>, <code>text_inputs</code>{{ de_en("; wird in der Einwilligung genannt", "; named in the consent") }}</span></label>
+  <input type="hidden" name="ai_bait_shown" value="1">
+  <label class="check"><input type="checkbox" name="ai_bait" value="1" {% if values.ai_bait %}checked{% endif %}> {{ de_en("Köder für KI-Agenten auf jeder Seite", "Bait for AI agents on every page") }}
+    <span class="hint">{{ de_en("ein Satz an KI-Systeme, den Menschen weder sehen noch vorgelesen bekommen, bittet um ein Kennwort; kommt es zurück, steht im Export", "a sentence to AI systems, which people neither see nor have read out to them, asks for a password; if it comes back, the export has") }} <code>qc_ai</code> = 1{{ de_en(", und die Auffälligkeit „KI-Köder befolgt“ lässt sich unter „Markieren“ ankreuzen. Findet nur einen Teil der Agenten. Wird in der Einwilligung genannt", ", and the flag “AI bait followed” can be ticked under “Flag”. Finds only some of the agents. Named in the consent") }}</span></label>
+  {% set tempo_mode = values.tempo_hint|default("off", true) %}
+  <label>{{ de_en("Tempo-Hinweis", "Speed prompt") }}
+    <select name="tempo_hint">
+      {% for key, label in tempo.modes() %}<option value="{{ key }}" {% if key == tempo_mode %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("wer eine Seite schneller abschickt, als sich ihre Fragen lesen lassen, sieht sie noch einmal mit der Bitte, die Antworten zu prüfen; ein zweites „Weiter“ geht weiter. Schaltet „Zeit je Seite erfassen“ mit ein. Bei „nur in ausgewählten Blöcken“ steht der Haken im Kopf jedes Blocks im Fragebogen.", "anyone who submits a page faster than its questions can be read sees it again with a request to check the answers; a second “Next” moves on. Also switches on “Record time per page”. With “only in selected blocks”, the tick is in the head of each block in the questionnaire.") }}</span></label>
+  {# what only matters while the hint is on (app.js, data-show-when) #}
+  <div class="stack tempo-details" data-show-when="tempo_hint:!off" {% if tempo_mode == "off" %}hidden{% endif %}>
+  <label>{{ de_en("Hinweis zeigen", "Show prompt") }}
+    <select name="tempo_dose">
+      {% for key, label in tempo.doses() %}<option value="{{ key }}" {% if key == values.tempo_dose|default("once", true) %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("Ein einziger Hinweis wirkte in den Experimenten so gut wie einer bei jedem Mal und führte nicht zu mehr Abbrüchen.", "In the experiments, a single prompt worked as well as one every time and did not lead to more break-offs.") }}</span></label>
+  {% set tempo_opts = tempo.options(values) %}
+  {% set tempo_lang = values.default_language|default("de", true) %}
+  {% set tempo_own = (values.tempo_texts or {}).get(tempo_lang) or {} %}
+  <input type="hidden" name="tempo_options_shown" value="1">
+  <label>{{ de_en("Schwelle des Tempo-Hinweises", "Threshold of the speed prompt") }}
+    <select name="tempo_rule">
+      {% for key, label in tempo.rules() %}<option value="{{ key }}" {% if key == tempo_opts.rule %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("Lesezeit (350 ms je Wort): fest und für alle gleich, wie in den Experimenten. Median: Zu schnell ist, wer weniger als die Hälfte der üblichen Zeit der Seite braucht.", "Reading time (350 ms per word): fixed and the same for everyone, as in the experiments. Median: too fast is anyone who takes less than half the usual time for the page.") }}</span></label>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+    <p class="hint">{{ de_en("Beim Median zählt die Zeit, die der erste Besuch der Seite bei den bisherigen Teilnahmen im Median dauerte; die Regel gilt je Seite ab {n} Teilnahmen, davor die Lesezeit. Der Median trifft immer die Schnellsten, auch wenn alle sorgfältig antworten. Beide Regeln im Vergleich je Seite: Qualitätssicherung, „Tempo je Seite“.", "With the median, the median time of the first visit to the page across the participations so far counts; the rule applies per page from {n} participations on, before that the reading time. The median always hits the fastest, even if everyone answers carefully. Both rules compared per page: quality assurance, “Speed per page”.", n=tempo.MEDIAN_MIN) }}</p>
+  </details>
+  <label class="check"><input type="checkbox" name="tempo_read" value="1" {% if tempo_opts.read %}checked{% endif %}> {{ de_en("Tempo-Hinweis auch auf Seiten ohne Frage", "Speed prompt also on pages without a question") }}
+    <span class="hint">{{ de_en("Texte, Vignetten, Anweisungen: Wer weiterklickt, bevor sich der Text lesen lässt, wird gebeten, ihn in Ruhe zu lesen", "texts, vignettes, instructions: anyone who clicks on before the text can be read is asked to read it calmly") }}</span></label>
+  <label class="check"><input type="checkbox" name="tempo_tasks" value="1" {% if tempo_opts.tasks %}checked{% endif %}> {{ de_en("Tempo-Hinweis auch bei Auswahlaufgaben (Conjoint, MaxDiff)", "Speed prompt also for choice tasks (conjoint, MaxDiff)") }}
+    <span class="hint">{{ de_en("je Aufgabe zählen die Frage und die gezeigten Stufen oder Aussagen. In den Experimenten nicht geprüft; spätere Aufgaben beantworten auch sorgfältige Personen schneller, hier passt die Median-Schwelle besser.", "per task, the question and the levels or statements shown count. Not tested in the experiments; even careful people answer later tasks faster, so the median threshold fits better here.") }}</span></label>
+  <label>{{ de_en("Eigener Text des Tempo-Hinweises", "Own text of the speed prompt") }}
+    <textarea name="tempo_text_hint_{{ tempo_lang }}" rows="2" maxlength="500" placeholder="{{ tempo.default_message(tempo_lang) }}">{{ tempo_own.hint or "" }}</textarea>
+    <span class="hint">{{ de_en("leer = der Standardtext, der im Feld steht. Weitere Sprachen im Reiter „Übersetzung“.", "empty = the standard text shown in the field. Other languages in the tab “Translation”.") }}</span></label>
+  <label>{{ de_en("Eigener Text auf Seiten ohne Frage", "Own text on pages without a question") }}
+    <textarea name="tempo_text_hint_read_{{ tempo_lang }}" rows="2" maxlength="500" placeholder="{{ tempo.default_message(tempo_lang, "read") }}">{{ tempo_own.hint_read or "" }}</textarea>
+    <span class="hint">{{ de_en("leer = der Standardtext, der im Feld steht", "empty = the standard text shown in the field") }}</span></label>
+  </div>
+  </fieldset>
+</fieldset>

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{# Verwaltung > Personen > one account at home in the organisation (app/org_admin.py). Context: org, user, row, link
+   (a one-time link shown once), levels, cap, period, types, current_type, blocked. #}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ user.display_name }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<a class="back-link" href="{{ url_for('org.people', org_id=org.id) }}">{{ icon("back", 16) }} {{ de_en("Personen", "People") }}</a>
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<section class="panel">
+  <h2>{{ user.display_name }} {{ orcid_link(user.orcid, unauth=False) }}{% if deletion %} <span class="badge badge-error">{{ de_en("Löschung fällig", "deletion due") if deletion_due else de_en("Löschung vorgemerkt", "marked for deletion") }}</span>{% elif blocked %} <span class="badge badge-error">{{ de_en("gesperrt", "blocked") }}</span>{% endif %}</h2>
+  {% if link %}<div class="join-link-new"><p><strong>{{ de_en("Einmal-Link", "One-time link") }}</strong> · {{ de_en("Er wird nur jetzt angezeigt.", "It is shown only now.") }}</p>
+    <input class="one-time-link" value="{{ link }}" readonly aria-label="{{ de_en('Einmal-Link', 'One-time link') }}" data-select-all></div>{% endif %}
+
+  <h3>{{ de_en("Nutzertyp und Laufzeit", "User type and period") }}</h3>
+  <p>{{ account_type_name(current_type) if current_type else de_en("ohne Typ", "no type") }} · {% if period.until %}{{ de_en("bis {d}", "until {d}", d=period.until|localdt(false)) }}{% else %}{{ de_en("unbefristet", "without end") }}{% endif %}</p>
+  <form method="post" class="inline button-row" data-autosave-form>{{ csrf() }}<input type="hidden" name="action" value="account_type">
+    <select name="account_type" aria-label="{{ de_en('Nutzertyp', 'User type') }}"><option value="">{{ de_en("ohne Typ", "no type") }}</option>{% for t in types %}<option value="{{ t.id }}"{{ " selected" if current_type and t.id == current_type.id }}>{{ account_type_name(t) }}</option>{% endfor %}</select>
+    {{ autosave_bar(small=true) }}</form>
+  <form method="post" class="inline button-row">{{ csrf() }}<input type="hidden" name="action" value="extend">
+    <select name="valid_mode" aria-label="{{ de_en('Laufzeit', 'Period') }}"><option value="m">{{ de_en("um Monate verlängern", "extend by months") }}</option><option value="w">{{ de_en("um Wochen verlängern", "extend by weeks") }}</option><option value="d">{{ de_en("bis Datum", "until date") }}</option><option value="none">{{ de_en("unbefristet", "without end") }}</option></select>
+    <input name="valid_n" type="number" min="1" max="520" aria-label="{{ de_en('Anzahl', 'Number') }}"> <input name="valid_date" type="date" aria-label="{{ de_en('Enddatum', 'End date') }}">
+    <button class="button button-secondary button-small">{{ de_en("Laufzeit ändern", "Change period") }}</button></form>
+
+  <h3>{{ de_en("Befragungstypen", "Survey types") }} <span class="hint">{{ de_en("höchstens, was die Organisation erlaubt; „Anlegen“: auch eigene Befragungen der Art anlegen", "at most what the organisation allows; “Create”: also create own surveys of the type") }}</span></h3>
+  {% for k in kind_keys %}
+  <form method="post" class="inline button-row">{{ csrf() }}<input type="hidden" name="action" value="kind"><input type="hidden" name="kind" value="{{ k }}">
+    <span>{{ kind_label(k) }}</span>
+    <select name="level" aria-label="{{ kind_label(k) }}" data-submit-on-change>{% for lvl in ("create", "edit", "view", "off") %}{% if kind_rank(lvl) <= kind_rank(cap[k]) %}<option value="{{ lvl }}"{{ " selected" if levels[k] == lvl }}>{{ kind_level_label(lvl) }}</option>{% endif %}{% endfor %}</select>
+    <noscript><button class="button button-secondary button-small">{{ de_en("Speichern", "Save") }}</button></noscript></form>
+  {% endfor %}
+
+  <h3>{{ de_en("Zugang", "Access") }}</h3>
+  <div class="button-row">
+    {% if not deletion %}<form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="{{ 'unblock' if blocked else 'block' }}">
+      <button class="button button-secondary button-small">{{ de_en("Entsperren", "Unblock") if blocked else de_en("Sperren", "Block") }}</button></form>{% endif %}
+    {% if row.email and not user.has_orcid %}<form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="link">
+      <button class="button button-secondary button-small">{{ de_en("Einmal-Link erzeugen", "Create one-time link") }}</button></form>{% endif %}
+  </div>
+
+  <h3>{{ de_en("Löschen", "Deletion") }}</h3>
+  {% if deletion %}
+  <p>{{ de_en("Gesperrt und zur Löschung vorgemerkt; gelöscht wird am {d}.", "Blocked and marked for deletion; it will be deleted on {d}.", d=deletion.due_at|localdt(false)) }}</p>
+  {% if deletion.open_points %}<ul class="plain">{% for p in deletion.open_points %}<li>{{ icon("alert", 14) }} {% if p.title %}<strong>{{ p.title }}</strong>: {% endif %}{{ why_label(p.why) }}</li>{% endfor %}</ul>{% endif %}
+  <div class="button-row">
+    <a class="button button-secondary button-small" href="{{ url_for('org.delete_account', org_id=org.id, user_id=user.id) }}">{{ de_en("Auswahl ansehen und ändern", "View and change choices") }}</a>
+    <form method="post" class="inline" action="{{ url_for('org.delete_account', org_id=org.id, user_id=user.id) }}">{{ csrf() }}<input type="hidden" name="action" value="undo">
+      <button class="button button-secondary button-small">{{ de_en("Löschung zurücknehmen", "Take the deletion back") }}</button></form>
+  </div>
+  {% elif deletion_refused %}
+  <p class="muted small">{{ deletion_refused }}{% if other_orgs %} {{ de_en("Weitere Organisationen: {o}. „Entfernen“ steht in der Liste der Personen.", "Further organisations: {o}. “Remove” is in the list of people.", o=other_orgs|join(", ")) }}{% endif %}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Die Person gehört nur zu dieser Organisation. Löschen sperrt das Konto sofort und löscht es nach 30 Tagen; bis dahin lässt es sich zurücknehmen.", "The person belongs to this organisation only. Deleting blocks the account at once and deletes it after 30 days; until then it can be taken back.") }}</p>
+  <a class="button button-danger button-small" href="{{ url_for('org.delete_account', org_id=org.id, user_id=user.id) }}">{{ de_en("Konto löschen …", "Delete account …") }}</a>
+  {% endif %}
+</section>
+{% endblock %}

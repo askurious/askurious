@@ -1,0 +1,32 @@
+{# IAT-Ergebnis (app/items/iat_feedback.py): which IAT, and every text participants read (prefilled, editable) #}
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „Ihr IAT-Ergebnis“", "e.g. “Your IAT result”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>Test</legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set current = kind.chosen_value(item, 0) %}
+  <label>IAT
+    <select name="source" {% if not structural %}disabled{% endif %}>
+      <option value="">{{ de_en("der letzte IAT davor", "the last IAT before") }}</option>
+      {% for c in candidates %}<option value="{{ c.id }}" {% if (c.id|string) == current %}selected{% endif %}>{{ c.code }} · {{ c.text("question", lang)|truncate(70) }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="check"><input type="checkbox" name="compare" value="1" {% if item.config.get("compare", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}>
+    {{ de_en("mit den bisherigen Teilnehmenden vergleichen (Verteilung ab 5 Teilnahmen)", "compare with the participants so far (distribution from 5 participations)") }}</label>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Texte", "Texts") }} <span class="hint">{{ de_en("vorausgefüllt, je nach Befragung anpassen; {A} und {B} sind die beiden Konzepte des IAT, {X} und {Y} die Bewertungen, kursiv gesetzt", "prefilled, adapt them to the survey; {A} and {B} are the two concepts of the IAT, {X} and {Y} the evaluations, set in italics") }}</span></legend>
+  {% for key, label, rows in [
+       ("result_pos", de_en("Ergebnis: {A} eher mit {X}", "Result: {A} rather with {X}"), 2), ("result_neg", de_en("Ergebnis: {B} eher mit {X}", "Result: {B} rather with {X}"), 2),
+       ("result_none", de_en("Ergebnis: kein deutlicher Unterschied", "Result: no clear difference"), 2),
+       ("s_none", de_en("Stärke 1 (|D| unter 0,15)", "Strength 1 (|D| below 0.15)"), 1), ("s_slight", de_en("Stärke 2 (ab 0,15)", "Strength 2 (from 0.15)"), 1),
+       ("s_moderate", de_en("Stärke 3 (ab 0,35)", "Strength 3 (from 0.35)"), 1), ("s_strong", de_en("Stärke 4 (ab 0,65)", "Strength 4 (from 0.65)"), 1),
+       ("others", de_en("Überschrift der Verteilung (ab 5 Teilnahmen)", "Heading of the distribution (from 5 participations)"), 1),
+       ("explanation", de_en("Erklärung: was es bedeutet und was nicht (**fett** für die Einleitungen, Leerzeile = neuer Absatz)", "Explanation: what it means and what it does not (**bold** for the introductions, blank line = new paragraph)"), 7),
+       ("invalid", de_en("Durchgang nicht auswertbar (mehr als 10 % sehr schnelle Antworten)", "Run cannot be analysed (more than 10% very fast answers)"), 2)] %}
+  <label>{{ label }}<textarea name="{{ key }}" rows="{{ rows }}" maxlength="1500">{{ kind.text(item, key, lang) }}</textarea></label>
+  {% endfor %}
+</fieldset>
+<p class="muted small">{{ de_en("Die Erklärung ordnet das Ergebnis ein; bei sensiblen Themen (z. B. Herkunft, Geschlecht) besonders sorgfältig formulieren. Im Export:", "The explanation puts the result into context; word it with particular care for sensitive topics (e.g. origin, gender). In the export:") }} <code>{{ item.code }}_value</code> {{ de_en("(gezeigter D-Wert) und", "(D score shown) and") }} <code>{{ item.code }}_band</code> {{ de_en("(Stärke, 1 bis 4).", "(strength, 1 to 4).") }}</p>
+{% include "items/_lock_answers.html" %}

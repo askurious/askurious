@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{# The expected effect of a hypothesis from an earlier survey (PA6, app/power_pilot.py, study_plan.pilot). Needs:
+   survey, h, number, p, found [(survey, estimate)], sources. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf, list_table %}
+{% block title %}{{ de_en("Effekt aus früherer Befragung", "Effect from an earlier survey") }}{% endblock %}
+{# rounded half up in the page's language (|dec; "%.2f" rounded 0,125 to 0,12: Mathe-Audit 2026-10-06, Z-9) #}
+{% macro dec(x) -%}{{ x|dec(2) }}{%- endmacro %}
+{% block content %}
+<a class="back-link" href="{{ url_for('study_plan.page', survey_id=survey.id) }}">{{ icon("back", 16) }} {{ de_en("Zurück zum Studienplan", "Back to the research plan") }}</a>
+<div class="page-head"><h1>{{ de_en("Effekt aus früherer Befragung", "Effect from an earlier survey") }} <span class="hint">H{{ number }}</span></h1></div>
+<section class="panel">
+  <p><strong>H{{ number }}</strong> {{ h.text }} <span class="hint">· <code>{{ h.iv }}</code> → <code>{{ h.dv }}</code> · {{ study_plan.analyses()[p.analysis] }}</span></p>
+  <p class="muted small">{{ de_en("Gesucht wird in Ihren und den mit Ihnen geteilten Befragungen, die beide Variablen mit demselben Variablennamen erhoben haben; gezählt werden echte, abgeschlossene Teilnahmen ohne die von der Qualitätssicherung markierten. Effekte kleiner früherer Befragungen fallen oft zu groß aus (Albers & Lakens, 2018); die untere Grenze des 60-%-Intervalls („Safeguard“) gleicht das aus (Perugini et al., 2014).", "The search covers your surveys and those shared with you that collected both variables under the same variable names; real, completed participations count, without those marked by quality assurance. Effects of small earlier surveys often come out too large (Albers & Lakens, 2018); the lower end of the 60% interval (“safeguard”) makes up for it (Perugini et al., 2014).") }}</p>
+  {% if found %}
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Befragung", "Survey") }}</th><th class="num">n</th><th class="num">{{ de_en("Effekt", "Effect") }} <em>{{ p.measure }}</em></th><th class="num">{{ de_en("Safeguard", "Safeguard") }} <em>{{ p.measure }}</em></th><th></th></tr></thead>
+    <tbody>{% for other, e in found %}
+      <tr><td>{{ other.title }}</td><td class="num">{{ e.n }}</td><td class="num">{{ dec(e.effect) }}</td><td class="num">{{ dec(e.safeguard) }}</td>
+        <td>{% if survey.can(current_user, "editor") %}<form method="post" class="inline-form">{{ csrf() }}<input type="hidden" name="h" value="{{ h.id }}"><input type="hidden" name="source" value="{{ other.id }}">
+          {% if e.safeguard >= 0.01 %}<button class="button button-small" name="which" value="safeguard">{{ de_en("Safeguard übernehmen", "Use safeguard") }}</button>{% endif %}
+          <button class="button button-small button-secondary" name="which" value="point">{{ de_en("Punktschätzer übernehmen", "Use point estimate") }}</button></form>{% endif %}
+          {% if e.safeguard < 0.01 %}<span class="hint">{{ de_en("Das Intervall reicht bis 0: Die frühere Befragung zeigt nicht sicher einen Effekt.", "The interval reaches 0: the earlier survey does not show an effect with certainty.") }}</span>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  {% endcall %}
+  {% else %}
+  <p>{{ de_en("Keine frühere Befragung mit beiden Variablen und mindestens 10 verwertbaren Teilnahmen gefunden.", "No earlier survey with both variables and at least 10 usable participations was found.") }}</p>
+  {% endif %}
+  {% from "_sources.html" import grouped %}{{ grouped(sources, de_en("Literatur", "References")) }}
+</section>
+{% endblock %}

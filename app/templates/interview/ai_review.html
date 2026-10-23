@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# A3 of the AI assistant (app/interview_ai.py): the whole guide checked; the ticked suggestions are taken over as one step. #}
+{% block title %}{{ de_en("Leitfaden prüfen", "Check guide") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% if found.remarks %}
+<section class="panel">
+  <h2>{{ de_en("Zum Leitfaden als Ganzem", "On the guide as a whole") }}</h2>
+  <ul>{% for r in found.remarks %}<li>{{ r }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+<section class="panel">
+  <h2>{{ icon("sparkles", 18) }} {{ de_en("Vorschläge", "Suggestions") }} <span class="hint">{{ de_en("ankreuzen, bei Bedarf anpassen, übernehmen", "tick, adapt if needed, accept") }}</span></h2>
+  {% if found.parts %}
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="apply">
+    {% set names = {"question": de_en("Erzählaufforderung", "Narrative prompt"), "hint": de_en("Hinweis", "Note"), "aspects": de_en("Aspekt", "Aspect"), "keep": de_en("Aufrechterhaltungsfrage", "Maintenance question"), "probe": de_en("Konkrete Frage", "Specific question")} %}
+    {% for p in found.parts %}{% set n = loop.index0 %}
+    <div class="ai-review-row">
+      <label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> <strong>{{ p.code }}</strong> · {{ names[p.id.split(":")[0]] }}</label>
+      <input type="hidden" name="p{{ n }}_item" value="{{ p.item }}"><input type="hidden" name="p{{ n }}_id" value="{{ p.id }}">
+      <p class="muted small flush">{{ de_en("bisher:", "so far:") }} {{ p.current }}</p>
+      <textarea name="p{{ n }}_text" rows="2" maxlength="1000" aria-label="{{ de_en('Vorschlag', 'Suggestion') }}">{{ p.suggestion }}</textarea>
+      {% if p.why %}<p class="muted small flush">{{ p.why }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="row"><button class="button">{{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+      <a class="button button-secondary" href="{{ url_for('interview.guide', code=survey.code) }}">{{ de_en("Zurück zum Leitfaden", "Back to the guide") }}</a></div>
+  </form>
+  {% else %}<p>{{ de_en("Die KI hat keine Änderung vorgeschlagen.", "The AI suggested no change.") }}</p>
+  <a class="button button-secondary" href="{{ url_for('interview.guide', code=survey.code) }}">{{ de_en("Zurück zum Leitfaden", "Back to the guide") }}</a>{% endif %}
+</section>
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

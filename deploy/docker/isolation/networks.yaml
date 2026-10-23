@@ -1,0 +1,65 @@
+# Target topology; restart.sh and transition.py handle the staged rollout. Compose >= 2.24.4.
+services:
+  db:
+    networks: !override {backend: {}, researcher-back: {}, brand-backend: {}}
+  # the participants' containers share no network with the researchers' container (audit 2026-10-22, E-01, stage 2b):
+  # a break-in there reaches neither researcher:8000 (past nginx, its rate limits and blocked paths, with a forged
+  # X-Forwarded-For) nor the Rechenknecht; they queue the cancels of transcriptions in the database (whisper_cancel)
+  participant-a:
+    networks: !override {frontend: {}, backend: {}}
+  participant-b:
+    networks: !override {frontend: {}, backend: {}}
+  researcher:
+    networks: !override {researcher-front: {}, researcher-back: {}, compute-net: {}, whisper-net: {}}
+  housekeeping:
+    networks: !override {researcher-back: {}, compute-net: {}, outbound: {}}
+  migrate:
+    networks: !override {backend: {}}
+  brand-migrate:
+    networks: !override {brand-backend: {}}
+  compute:
+    networks: !override {compute-net: {}}
+  nginx:
+    networks: !override
+      frontend:
+        aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
+      researcher-front:
+        aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
+      brand-frontend: {}
+  status:
+    networks: !override {frontend: {}, researcher-front: {}, brand-frontend: {}}
+    environment:
+      # No database or compute network membership merely for TCP monitoring.
+      STATUS_CHECKS: >-
+        participant-a=http:http://participant-a:8000/healthz,
+        participant-b=http:http://participant-b:8000/healthz,
+        researcher=http:http://researcher:8000/healthz,
+        compute=http:http://researcher:8000/healthz/compute,
+        whisper=whisper:http://researcher:8000/healthz/whisper,
+        web=https:https://${PARTICIPANT_HOST:-ask.askurious.de}/healthz,
+        cert=tls:${PARTICIPANT_HOST:-ask.askurious.de}:443,
+        backup=age:/stamps/backup-ok:9,
+        ${BRAND_STATUS_CHECKS:-}
+  certbot:
+    networks: !override {certificate-outbound: {}}
+  brand-participant:
+    networks: !override {brand-frontend: {}, brand-backend: {}, brand-compute-net: {}}
+  brand-researcher:
+    networks: !override {brand-frontend: {}, brand-backend: {}, brand-compute-net: {}}
+  brand-housekeeping:
+    networks: !override {brand-backend: {}, brand-compute-net: {}, brand-outbound: {}}
+  brand-compute:
+    networks: !override {brand-compute-net: {}}
+
+networks:
+  frontend: {}
+  backend: {internal: true}
+  researcher-front: {}
+  researcher-back: {internal: true}
+  compute-net: {internal: true}
+  brand-frontend: {}
+  brand-backend: {internal: true}
+  brand-compute-net: {internal: true}
+  outbound: {}
+  brand-outbound: {}
+  certificate-outbound: {}

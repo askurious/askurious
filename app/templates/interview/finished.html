@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# The end of a stored interview (app/interview_data.py, finish): the deletion code to hand over. #}
+{% block title %}{{ de_en("Interview {label} beendet", "Interview {label} ended", label=row.interview.label) }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<section class="panel interview-finished">
+  <h1>{{ de_en("Interview {label} beendet", "Interview {label} ended", label=row.interview.label) }}</h1>
+  <p>{{ de_en("Alles ist gespeichert. Notizen und Postskript lassen sich unter „Interviews“ weiter bearbeiten.", "Everything is saved. Notes and postscript can still be edited under “Interviews”.") }}</p>
+  {% if code_ %}
+  <div class="erase-code-box">
+    <p><strong>{{ de_en("Löschcode für die interviewte Person", "Deletion code for the interviewed person") }}</strong></p>
+    <p class="erase-code"><code>{{ code_ }}</code></p>
+    {% if interviewer_of(survey) %}
+    <p class="muted small">{{ de_en("Damit lässt die Person ihr Interview später löschen, ohne ihren Namen zu nennen: Sie schickt den Code an die Forschenden, die das Interview löschen. Am besten auf die Einwilligung schreiben oder diese Seite ausdrucken.", "With it the person can later have their interview deleted without giving their name: they send the code to the researchers, who delete the interview. Best write it on the consent form or print this page.") }}</p>
+    {% else %}
+    <p class="muted small">{{ de_en("Damit lässt die Person ihr Interview später löschen, ohne ihren Namen zu nennen: Sie schickt den Code an Sie, und Sie geben ihn unter „Interviews“ → „Löschung auf Wunsch“ ein. Am besten auf die Einwilligung schreiben oder diese Seite ausdrucken.", "With it the person can later have their interview deleted without giving their name: they send you the code, and you enter it under “Interviews” → “Deletion on request”. Best write it on the consent form or print this page.") }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="row">
+    <button type="button" class="button button-secondary" data-print>{{ de_en("Drucken", "Print") }}</button>
+    <a class="button" href="{{ interviews_url(survey) }}">{{ de_en("Zu den Interviews", "To the interviews") }}</a>
+  </div>
+</section>
+{% endblock %}

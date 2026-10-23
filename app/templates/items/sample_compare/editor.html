@@ -1,0 +1,32 @@
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „So haben andere Teilnehmende bisher geantwortet“", "e.g. “How other participants have answered so far”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Frage im Vergleich", "Question compared") }} <span class="hint">{{ de_en("eine Frage vor diesem Element; für mehrere Fragen einfach weitere Elemente anlegen", "a question before this element; for several questions simply add further elements") }}</span></legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set current = kind.chosen_value(item, 0) %}
+  {% if candidates %}
+  <label>{{ de_en("Darstellung", "Display") }}
+    <select name="display" {% if not structural %}disabled{% endif %} data-show-for>
+      {% for key, label in kind.display_names().items() %}<option value="{{ key }}" {% if (item.config.display or "items") == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>{{ de_en("Frage", "Question") }}
+    <select name="source" {% if not structural %}disabled{% endif %} data-sc-source>
+      <option value="">{{ de_en("– bitte wählen –", "– please choose –") }}</option>
+      {% for c in candidates %}
+      {% set construct = toolbox_key(c) %}
+      {% for value, sub in kind.source_choices(c) %}
+      <option value="{{ value }}" data-matrix="{{ 1 if kind.is_matrix(c) else 0 }}" {% if value == current %}selected{% endif %}>{{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} ({{ c.kind.label }}{% if construct %}, {{ de_en("Konstrukt", "construct") }}{% endif %})</option>
+      {% endfor %}
+      {% endfor %}
+    </select>
+  </label>
+  <p class="hint" data-when="bell">{{ de_en("Glockenkurve: Mittelwert jeder Person über die Aussagen (bei Instrumenten mit Subskalen über die gewählte Subskala; umgepolte Items rekodiert), als Normalverteilung mit Gruppenmittelwert und eigener Position; nur für Matrixfragen.", "Bell curve: each person's mean across the statements (for instruments with subscales across the chosen subscale; reversed items recoded), as a normal distribution with the group mean and one's own position; only for matrix questions.") }}</p>
+  {% else %}
+  <p class="muted">{{ de_en("Vor diesem Element steht noch keine passende Frage (Likert/Konstrukt, semantisches Differential, Bewertung, Einfachauswahl).", "There is no suitable question before this element yet (Likert/construct, semantic differential, rating, single choice).") }}</p>
+  {% endif %}
+  <label class="check"><input type="checkbox" name="show_own" value="1" {% if item.config.show_own %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("eigene Antwort hervorheben", "highlight one's own answer") }}</label>
+</fieldset>
+<p class="muted small">{{ de_en("Werte erscheinen ab 5 abgeschlossenen Teilnahmen. Die Rückmeldung kann spätere Antworten beeinflussen. Im Export steht je Frage, wie viele Antworten die Person gesehen hat", "Values appear from 5 completed participations. The feedback can influence later answers. The export shows per question how many answers the person has seen") }} (<code>{{ item.code }}_n_…</code>; {{ de_en("0 = noch keine Werte gezeigt", "0 = no values shown yet") }}).</p>
+{% include "items/_lock_answers.html" %}

@@ -1,0 +1,15 @@
+{# The week preview of the tab "Zeitplan" (diary.week_preview): drawn in the page and again by every autosave of the
+   schedule form, which puts it in place of this one (data-autosave-part, app/autosave.py part()), so a changed time
+   shows at once, not after a reload (pre-test 2026-10-20, 20). #}
+<section class="panel stack" id="week" data-autosave-part="diary-week">
+  <h2 class="flush">{{ de_en("Wochenvorschau", "Week preview") }}</h2>
+  {% set days, warnings = week %}
+  <p class="muted small flush">{{ de_en("Die ersten sieben Tage einer Person, die heute die Eingangsbefragung beendet; Minuten geschätzt aus der Lesezeit der Kurzbefragungen. Zeiten mit ~ sind zufällig: Jede Person bekommt eigene, und Ruhezeiten, die sie in der App einstellt, bleiben ab dem nächsten Tag frei.", "The first seven days of a person who completes the entry survey today; minutes estimated from the reading time of the short surveys. Times with ~ are random: each person gets their own, and quiet hours they set in the app stay free from the next day.") }}</p>
+  {% for w in warnings %}<p class="flash flash-warning flush">{{ w }}</p>{% endfor %}
+  <div class="res-scroll"><table class="table diary-week">
+    <thead><tr>{% for d in days %}<th>{{ de_en("Tag {n}", "Day {n}", n=d.day) }}<br><span class="muted small">{{ weekdays[d.date.isoweekday() - 1][1] }} {{ d.label }}</span></th>{% endfor %}</tr></thead>
+    <tbody><tr>{% for d in days %}<td>{% for time, name in d.prompts %}<div class="small">{{ time }} {{ name }}</div>{% else %}<span class="muted">–</span>{% endfor %}</td>{% endfor %}</tr>
+    <tr>{% for d in days %}<td class="muted small">{% if d.prompts %}{% if d.prompts|length == 1 %}{{ de_en("1 Abfrage, ~{m} Min.", "1 prompt, ~{m} min", m=d.minutes|round(1)) }}{% else %}{{ de_en("{n} Abfragen, ~{m} Min.", "{n} prompts, ~{m} min", n=d.prompts|length, m=d.minutes|round(1)) }}{% endif %}{% endif %}</td>{% endfor %}</tr></tbody>
+  </table></div>
+  {% set selfs = [] %}{% for m in modules if self_start(m) %}{% set _ = selfs.append(m) %}{% endfor %}{% if selfs %}<p class="muted small flush">{{ de_en("Dazu jederzeit von den Teilnehmenden:", "Plus at any time by the participants:") }} {% for m in selfs %}{{ text_of(m.name, lang, survey) }}{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+</section>

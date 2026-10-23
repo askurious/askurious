@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{# Administration > Gruppen: all groups, a tab of its own again (out of "Personen", Ralf 2026-10-10). #}
+{% block title %}{{ de_en("Gruppen", "Groups") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "groups" %}{% include "admin/_tabs.html" %}
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+{% with groups=gr.groups, listing=gr.listing, new_link=gr.new_link, lead_links=gr.lead_links, org_filter=gr.org, org_names=gr.org_names, org_options=gr.org_options %}{% include "admin/_groups.html" %}{% endwith %}
+{% endblock %}

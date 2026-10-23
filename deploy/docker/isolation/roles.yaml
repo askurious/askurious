@@ -1,0 +1,59 @@
+# Selected by compose-env.sh only after explicit DB_ISOLATION=1 and credential provisioning.
+# Use as an explicit override of ../compose.yaml; all paths stay relative to that first file.
+x-runtime: &runtime
+  DATABASE_URL: postgresql://${DB_RUN_USER:?runtime role missing}:${DB_RUN_PASSWORD:?runtime password missing}@db/askurious
+  DATABASE_SCHEMA_MODE: check
+
+# the participants' containers: their own role with the rights of app/participant_grants.py once
+# PARTICIPANT_DB_USER and PARTICIPANT_DB_PASSWORD are in the .env (participant-db-role.sh, audit 2026-10-18, CFG-04);
+# without them the runtime role above, the same URL as the researchers' (isolation/transition.py checks either)
+x-participant-runtime: &participant-runtime
+  DATABASE_URL: postgresql://${PARTICIPANT_DB_USER:-${DB_RUN_USER:?runtime role missing}}:${PARTICIPANT_DB_PASSWORD:-${DB_RUN_PASSWORD:?runtime password missing}}@db/askurious
+  DATABASE_SCHEMA_MODE: check
+
+x-migration: &migration
+  image: askurious:latest
+  pull_policy: never
+  restart: "no"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  mem_limit: 1g
+  pids_limit: 128
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  command: [python, -m, app.schema_migrate]
+  healthcheck:
+    disable: true
+
+services:
+  participant-a:
+    environment: *participant-runtime
+  participant-b:
+    environment: *participant-runtime
+  researcher:
+    environment: *runtime
+  housekeeping:
+    environment: *runtime
+  brand-participant:
+    environment:
+      DATABASE_SCHEMA_MODE: check
+  brand-researcher:
+    environment:
+      DATABASE_SCHEMA_MODE: check
+  brand-housekeeping:
+    environment:
+      DATABASE_SCHEMA_MODE: check
+  migrate:
+    <<: *migration
+    profiles: [migration]
+    environment:
+      DATABASE_URL: postgresql://${DB_APP_USER:?migration owner missing}:${DB_APP_PASSWORD:?migration password missing}@db/askurious
+      RUNTIME_ROLE: ${DB_RUN_USER:?runtime role missing}
+      # empty: no participant role; set: its rights after every migration (app/schema_migrate.py grant_participant)
+      PARTICIPANT_ROLE: ${PARTICIPANT_DB_USER:-}
+  brand-migrate:
+    <<: *migration
+    profiles: [brand-migration]
+    env_file:
+      - path: .env.brand-migration
+        required: false

@@ -1,0 +1,33 @@
+{# "Unterschiede auf einen Blick" (UI/UX audit 2026-10-07, S6): every test of the group comparison in one table, the
+   largest effect first, each row a link to its question (app/compare.overview; Gerhardt-Powals "Fuse data"). The
+   comparisons themselves stay folded in the sections (_compare_item.html). Needs cmp, cmp_overview. #}
+{% from "surveys/_compare_macros.html" import pval %}
+{% from "_macros.html" import num, signed %}
+{% from "_learn.html" import term %}
+{% set ov = cmp_overview %}
+{% set symbols = {"cramer_v": "V", "r": "r", "epsilon2": "ε²", "g": "δ*", "omega2": "ω²"} %}
+{# one word per row, so that a number is never read without its judgement (UI/UX audit 2026-10-09, X53) #}
+{% set verdicts = {"none": de_en("kein Unterschied", "no difference"), "small": de_en("klein", "small"),
+                   "medium": de_en("mittel", "medium"), "large": de_en("groß", "large")} %}
+<h3 class="res-group-head" id="cmp-overview">{{ de_en("Unterschiede auf einen Blick", "Differences at a glance") }} <span class="hint">{{ de_en("alle Fragen nach {code}, der größte Effekt zuerst", "every question by {code}, the largest effect first", code=cmp.code) }}</span></h3>
+{% if ov.rows %}
+<div class="res-scroll"><table class="res-table cmp-overview">
+  <thead><tr><th>{{ de_en("Frage", "Question") }}</th><th>Test</th><th class="num">{{ de_en("Effekt", "Effect") }} <span class="hint">({{ term("cramer_v", "V") }}, {{ term("r", "r") }}, ε², {{ term("g", "δ*") }}, {{ term("omega2", "ω²") }})</span></th><th class="num">{{ term("p") }}</th><th>{{ de_en("Deutung", "Reading") }}</th></tr></thead>
+  <tbody>
+  {% for row in ov.rows %}
+    <tr><td><a href="#cmp-{{ row.item_id }}">{{ row.question|striptags|readable_placeholders|truncate(70) }}</a> <span class="hint">{{ row.code }}{% if row.several and row.block and row.block != row.code %} · {{ row.block }}{% if row.label %} {{ row.label|column_head(row.pass)|truncate(50) }}{% endif %}{% elif row.pass %} · _{{ row.pass }}{% endif %}{% if row.coding %} · {{ de_en("Kategorien", "Categories") }}{% endif %}{% if row.option and row.coding %} · {{ de_en("Kategorie „{o}“, ausgewählt als größter Unterschied von {k} Kategorien: Kann ein Zufallstreffer sein", "category “{o}”, picked as the largest difference of {k} categories: may be a chance finding", o=row.option.label|truncate(40), k=row.option.of) }}{% elif row.option %} · {{ de_en("Option „{o}“, ausgewählt als größter Unterschied von {k} Optionen: Kann ein Zufallstreffer sein", "option “{o}”, picked as the largest difference of {k} options: may be a chance finding", o=row.option.label|truncate(40), k=row.option.of) }}{% endif %}</span></td>
+      <td>{{ row.test }}</td>
+      <td class="num">{{ symbols[row.effect] }} = {% if row.value is none %}–{% elif row.signed %}{{ signed(row.value) }}{% else %}{{ num(row.value) }}{% endif %}{% if row.corrected is not none %} <span class="hint">({{ de_en("bereinigt {v}", "corrected {v}", v=num(row.corrected)) }})</span>{% endif %}</td>
+      <td class="num">{{ pval(row.p, true) }}</td>
+      <td class="cmp-verdict cmp-verdict-{{ row.verdict }}">{{ verdicts[row.verdict] }}{% if row.option %}<span class="hint">*</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Geordnet nach der Größe des Effekts auf einer gemeinsamen Skala: V über das um seine Verzerrung bereinigte φ (bereinigtes V daneben), r wie es ist, ε² und ω² über ihre Wurzel, δ* über r = δ* / √(δ*² + 4). Deutung auf dieser Skala: ab 0,1 klein, ab 0,3 mittel, ab 0,5 groß; „kein Unterschied“ bei p ≥ ,05 oder unter 0,1", "Ordered by the size of the effect on one scale: V by φ corrected for its bias (the corrected V beside it), r as it is, ε² and ω² by their root, δ* by r = δ* / √(δ*² + 4). Reading on this scale: from 0.1 small, from 0.3 medium, from 0.5 large; “no difference” at p ≥ .05 or below 0.1") }}{{ fn("compare_order") }}.{% if ov.rows|selectattr("option")|list %} {{ de_en("* Bei Mehrfachauswahl steht die Option mit dem größten Unterschied, ausgewählt aus allen Optionen der Frage: Je mehr Optionen, desto eher ist sie ein Zufallstreffer. Ihr p ist deshalb nach Holm über die getesteten Optionen korrigiert.", "* For multiple choice the option with the largest difference is shown, picked from all options of the question: the more options, the likelier it is a chance finding. Its p is therefore corrected after Holm over the options tested.") }}{% endif %} {{ de_en("Bei vielen erwarteten Häufigkeiten unter 5 steht das exakte p. Die p-Werte sind explorativ und nicht für mehrfaches Testen korrigiert. Ein Klick auf die Frage öffnet ihren Vergleich.", "With many expected frequencies under 5 the exact p is shown. The p values are exploratory and not corrected for multiple testing. A click on the question opens its comparison.") }}{% if ov.untested %} {{ de_en("Ohne Test (zu wenig Streuung oder Antworten): {n} Vergleiche, nur in ihren Abschnitten.", "Without a test (too little variation or too few answers): {n} comparisons, only in their sections.", n=ov.untested) }}{% endif %}</p>
+{% elif cmp.diary %}
+<p class="muted small">{{ de_en("Tagebuchstudie: keine Tests, denn die Einträge einer Person sind nicht unabhängig voneinander; ein Test über alle Einträge gäbe zu kleine p-Werte. Die Anteile und Mittelwerte je Gruppe in den Abschnitten zählen jede Person in jedem Teil einmal.", "Diary survey: no tests, because the entries of one person are not independent of each other; a test over all entries would give p values that are too small. The shares and means per group in the sections count every person once in every part.") }}</p>
+{% elif cmp.weighted %}
+<p class="muted small">{{ de_en("Tests gibt es nur in der ungewichteten Ansicht; die gewichteten Anteile und Mittelwerte je Gruppe stehen in den Abschnitten.", "Tests are only in the unweighted view; the weighted shares and means per group are in the sections.") }}</p>
+{% else %}
+<p class="muted small">{{ de_en("Kein Vergleich ließ sich testen (zu wenig Streuung oder zu wenige Antworten je Gruppe).", "No comparison could be tested (too little variation or too few answers per group).") }}</p>
+{% endif %}

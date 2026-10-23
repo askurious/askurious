@@ -1,0 +1,49 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+{% include "items/_question_field.html" %}
+{# a short "So funktioniert es" with a small example (concept "Lernhilfen: fünfte Runde", H1, like the
+   side-by-side matrix after the pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Jetzt oder später", "now or later"), open=false) %}
+  <p>{{ de_en("Teilnehmende wählen mehrmals zwischen einem kleineren Betrag sofort und einem größeren später. Jede Wahl verschiebt das nächste Angebot, bis der Punkt gefunden ist, an dem beide gleich viel wert sind. Daraus wird k berechnet: Je größer k, desto weniger zählt ein späterer Betrag.", "Participants choose several times between a smaller amount now and a larger one later. Each choice moves the next offer until the point where both are worth the same is found. From it k is computed: the larger k, the less a later amount counts.") }}</p>
+  <p class="muted small">{{ de_en("Beispiel: 50 € jetzt oder 100 € in einem Jahr? Wer „jetzt“ wählt, bekommt als Nächstes 25 € jetzt angeboten.", "Example: €50 now or €100 in a year? Whoever picks “now” is offered €25 now next.") }}</p>
+{% endcall %}
+{% set t = item.lang_texts(lang) %}
+{% set mode = kind.mode(item) %}
+<fieldset>
+  <legend>{{ de_en("Verfahren", "Procedure") }}</legend>
+  <label>{{ de_en("Verfahren", "Procedure") }}
+    <select name="mode" data-show-for {% if not structural %}disabled{% endif %}>
+      <option value="adjusting" {% if mode == "adjusting" %}selected{% endif %}>{{ de_en("Angepasster Betrag", "Adjusting amount") }} (Du et al., 2002)</option>
+      <option value="quick" {% if mode == "quick" %}selected{% endif %}>{{ de_en("Kurz: fünf Fragen", "Short: five questions") }} ({{ de_en("nach", "after") }} Koffarnus & Bickel, 2014)</option>
+    </select></label>
+  <p class="muted small" data-when="adjusting">{{ de_en("Je Verzögerung einige Wahlen; der Betrag heute nähert sich dem Indifferenzpunkt. Ergibt k, ln(k) und die Fläche unter der Kurve.", "A few choices per delay; the amount today approaches the indifference point. Gives k, ln(k) and the area under the curve.") }}</p>
+  <p class="muted small" data-when="quick">{{ de_en("Die Hälfte heute oder alles später; die Verzögerung passt sich an (2 Stunden bis 25 Jahre). Die fünfte Wahl legt ED50 zwischen zwei Stufen der Leiter (geometrisches Mittel); k = 1 / ED50.", "Half today or all of it later; the delay adapts (2 hours to 25 years). The fifth choice places ED50 between two steps of the ladder (geometric mean); k = 1 / ED50.") }}</p>
+  <div class="row-fields">
+    <label>{{ de_en("Späterer Betrag", "Later amount") }} <input name="amount" class="narrow" inputmode="decimal" value="{{ fmt_num(kind.amount(item)) }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Einheit", "Unit") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }} {{ de_en("{n} = Betrag", "{n} = amount") }}</span> <input name="unit" class="narrow" value="{{ t.get('unit', '') }}" placeholder="{{ item.text('unit') }}"></label>
+    <label>{{ de_en("Wort für sofort", "Word for now") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span> <input name="now" class="narrow" value="{{ t.get('now', '') }}" placeholder="{{ item.text('now') }}"></label>
+  </div>
+</fieldset>
+<fieldset data-when="adjusting">
+  <legend>{{ de_en("Verzögerungen", "Delays") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("in Tagen; Text so, wie Teilnehmende ihn lesen, z. B. „in 1 Monat“", "in days; text as participants read it, e.g. “in 1 month”") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th class="narrow-col">{{ de_en("Tage", "Days") }}</th><th>Text</th></tr></thead>
+    <tbody>
+    {% set dt = t.get("delays", {}) %}
+    {% for d in item.config.delays %}
+      <tr><td><input type="hidden" name="de_id" value="{{ d.id }}"><input name="de_code" aria-label="Code" value="{{ d.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+          <td><input name="de_days" aria-label="{{ de_en('Tage', 'Days') }}" value="{{ fmt_num(d.days) }}" class="narrow" inputmode="decimal" {% if not structural %}readonly{% endif %}></td>
+          <td><input name="de_label" aria-label="Text" value="{{ dt.get(d.id, '') }}" placeholder="{{ (item.text('delays') or {}).get(d.id, '') }}"></td></tr>
+    {% endfor %}
+    {% if structural %}{% for n in range(2) %}
+      <tr class="new-row"><td><input type="hidden" name="de_id" value="{{ new_id() }}"><input name="de_code" aria-label="Code" class="narrow"></td>
+          <td><input name="de_days" aria-label="{{ de_en('Tage', 'Days') }}" class="narrow" inputmode="decimal"></td>
+          <td><input name="de_label" aria-label="Text" placeholder="{{ de_en('z. B. in 10 Jahren', 'e.g. in 10 years') }}"></td></tr>
+    {% endfor %}{% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+  <label>{{ de_en("Wahlen je Verzögerung", "Choices per delay") }} <input name="steps" class="narrow" inputmode="numeric" value="{{ kind.steps(item) }}" {% if not structural %}disabled{% endif %}> <span class="hint">{{ de_en("3 bis 8; mit 6 liegt der Indifferenzpunkt auf 1/128 des Betrags genau", "3 to 8; with 6 the indifference point is accurate to 1/128 of the amount") }}</span></label>
+</fieldset>
+<p class="muted small">{{ de_en("Teilnehmende sehen {n} Entscheidungen nacheinander. Der Server rechnet aus den gespeicherten Wahlen nach, welche Angebote gezeigt wurden, und daraus k (Hyperbel V = A / (1 + kD), D in Tagen; Mazur, 1987), ln(k) und, beim angepassten Betrag, die Fläche unter der Kurve (Myerson et al., 2001), je Verzögerung den Indifferenzpunkt und die zwei Kennzeichen nicht systematischer Daten (Johnson & Bickel, 2008).", "Participants see {n} decisions one after another. From the stored choices, the server works out which offers were shown, and from them k (hyperbola V = A / (1 + kD), D in days; Mazur, 1987), ln(k) and, with the adjusting amount, the area under the curve (Myerson et al., 2001), the indifference point per delay and the two markers of non-systematic data (Johnson & Bickel, 2008).", n=kind.total(item)) }}</p>

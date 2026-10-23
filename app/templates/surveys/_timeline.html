@@ -1,0 +1,19 @@
+{# The timeline of participations inside the block "Status der Befragung" (_status.html; one block since Ralf,
+   2026-10-11): the key figures stand above it in the status, the planned end there too. Needs: survey, tl
+   (timeline.build). #}
+<div class="timeline" id="timeline">
+  <p class="muted small timeline-caption">{{ de_en("Zeitverlauf: echte Teilnahmen pro {bin}, ohne Testdurchläufe und Dummy-Daten", "Timeline: real participations per {bin}, without test runs and dummy data", bin=tl.bin) }}</p>
+  {{ tl.svg }}
+  <div class="tl-legend">
+    <span><i class="tl-key tl-bar"></i> {{ de_en("abgeschlossen", "completed") }}</span>
+    <span><i class="tl-key tl-bar-other"></i> {{ de_en("abgebrochen / Screen-out / Quote voll", "broken off / screen-out / quota full") }}</span>
+    <span><i class="tl-key tl-draft"></i> {{ de_en("Entwurf", "draft") }}</span>
+    <span><i class="tl-key tl-running"></i> {{ de_en("läuft", "running") }}</span>
+    <span><i class="tl-key tl-paused"></i> {{ de_en("pausiert", "paused") }}</span>
+    <span><i class="tl-key tl-closed"></i> {{ de_en("geschlossen", "closed") }}</span>
+    {% if tl.field_end %}<span><i class="tl-key tl-planned"></i> {{ de_en("bis Feldende", "until end of fieldwork") }}</span>{% endif %}
+  </div>
+  {% if tl.events %}<ol class="plain tl-events small muted">
+    {% for at, label in tl.events %}<li>{{ at|localdt }} {{ label }}</li>{% endfor %}
+  </ol>{% endif %}
+</div>

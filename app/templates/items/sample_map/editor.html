@@ -1,0 +1,26 @@
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „So ordnen Sie sich im Vergleich ein“", "e.g. “Where you stand compared to others”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Achsen", "Axes") }} <span class="hint">{{ de_en("Skalen gehen als Mittelwert je Person ein (umgepolte Items rekodiert; Instrumente mit Subskalen je Subskala), einzelne Items als Wert", "scales count as the mean per person (reversed items recoded; instruments with subscales per subscale), single items as their value") }}</span></legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set srcs = item.config.sources or [] %}
+  {% if candidates|length >= 2 %}
+  {% for name, label, idx in (("source", de_en("X-Achse (waagerecht)", "X axis (horizontal)"), 0), ("source_y", de_en("Y-Achse (senkrecht)", "Y axis (vertical)"), 1)) %}
+  <label>{{ label }}
+    <select name="{{ name }}" {% if not structural %}disabled{% endif %}>
+      <option value="">{{ de_en("– bitte wählen –", "– please choose –") }}</option>
+      {% set current = kind.chosen_value(item, idx) %}
+      {% for c in candidates %}{% for value, sub in kind.source_choices(c) %}
+      <option value="{{ value }}" {% if value == current %}selected{% endif %}>{{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} ({{ c.kind.label }}{% if toolbox_key(c) %}, {{ de_en("Konstrukt", "construct") }}{% endif %})</option>
+      {% endfor %}{% endfor %}
+    </select>
+  </label>
+  {% endfor %}
+  {% else %}
+  <p class="muted">{{ de_en("Vor diesem Element stehen noch keine zwei passenden Fragen (Likert/Konstrukt, semantisches Differential, Bewertung).", "There are not yet two suitable questions before this element (Likert/construct, semantic differential, rating).") }}</p>
+  {% endif %}
+  <label class="check"><input type="checkbox" name="show_own" value="1" {% if item.config.show_own %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("eigene Position hervorheben", "highlight one's own position") }}</label>
+</fieldset>
+<p class="muted small">{{ de_en("Gleiche Positionen werden zu größeren Blasen zusammengefasst, das Fadenkreuz zeigt den Gruppenmittelwert. Werte ab 5 Personen, die beide Fragen beantwortet haben; im Export", "Equal positions are merged into larger bubbles, the crosshair shows the group mean. Values from 5 people who answered both questions; in the export") }} <code>{{ item.code }}_n_…</code>.</p>
+{% include "items/_lock_answers.html" %}

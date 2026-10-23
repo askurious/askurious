@@ -1,0 +1,31 @@
+{# The parts of the page "Nutzungsbedingungen" while a person still has to accept them, for terms.html and
+   terms_en.html (UI/UX audit 2026-10-09, X69): above the text what is new since the version the person accepted, a
+   jump to the confirmation; below it the confirmation with "Abmelden" next to it, as easy as agreeing, and the way
+   to delete the account. #}
+{% from "_macros.html" import csrf %}
+{% macro pending_head(error, changes, older_changes) %}
+<div class="flash{% if error %} flash-error{% endif %} terms-pending">
+  <p>{% if current_user.terms_version %}{{ de_en("Die Nutzungsbedingungen wurden geändert.", "The terms of use have changed.") }}{% else %}{{ de_en("Willkommen!", "Welcome!") }}{% endif %}
+  {{ de_en("Bitte lesen und bestätigen Sie die Bedingungen, bevor Sie Befragungen anlegen oder bearbeiten.", "Please read and confirm the terms before you create or edit surveys.") }}
+  <a href="#bestaetigung">{{ de_en("Zur Bestätigung ↓", "To the confirmation ↓") }}</a></p>
+  {% for v, de, en, sections in changes %}
+  <p class="terms-new"><strong>{{ de_en("Neu in Version {v}:", "New in version {v}:", v=v) }}</strong> {{ de_en(de, en) }}
+    {% for n in sections %}<a href="#abschnitt-{{ n }}">{{ de_en("Abschnitt {n}", "Section {n}", n=n) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endfor %}
+  {% if older_changes %}<p class="terms-new muted small">{{ de_en("Ältere Änderungen seit Ihrer Version {v} stehen im ganzen Text.", "Older changes since your version {v} are in the full text.", v=current_user.terms_version) }}</p>{% endif %}
+</div>
+{% endmacro %}
+{% macro pending_form(nxt, version, label) %}
+<form method="post" class="panel stack terms-accept" id="bestaetigung">
+  {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
+  <label class="check"><input type="checkbox" name="accept" value="1" required>
+    <span>{{ label }}</span></label>
+  <p class="muted small">{{ de_en("Wie die Plattform die Daten Ihres Kontos verarbeitet:", "How the platform processes the data of your account:") }} <a href="{{ url_for('public.privacy') }}">{{ de_en("Datenschutzerklärung", "privacy policy") }}</a>.</p>
+  <div class="form-actions">
+    <button class="button">{{ de_en("Zustimmen und fortfahren", "Agree and continue") }}</button>
+    <button class="button button-secondary" form="terms-sign-out">{{ de_en("Abmelden", "Sign out") }}</button>
+  </div>
+  <p class="muted small">{{ de_en("Wer nicht zustimmt, meldet sich ab oder entfernt sein Konto unter", "If you do not agree, sign out or remove your account under") }} <a href="{{ url_for('accounts.delete_own') }}">{{ de_en("Konto › Konto löschen", "Account › Delete account") }}</a>.</p>
+</form>
+<form method="post" action="{{ url_for('auth.logout') }}" id="terms-sign-out" hidden>{{ csrf() }}</form>
+{% endmacro %}

@@ -1,0 +1,12 @@
+{# Leitfrage: nobody answers it; the preview in the element editor shows it as the interview view does #}
+<div class="p-guide">
+  <div class="p-guide-prompt">{{ item.text("question", lang)|rich(variables) }}</div>
+  {% for part, title in [("aspects", "Inhaltliche Aspekte"), ("keep", "Aufrechterhaltungsfragen"), ("probe", "Konkrete Fragen")] %}
+  {% set rows = item.kind.rows(item, part, lang) %}
+  {% if rows %}
+  <div class="p-guide-part"><strong>{{ title }}</strong>
+    <ul>{% for rid, text in rows %}<li>{{ text }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  {% endfor %}
+  {% if item.text("hint", lang) %}<p class="p-guide-hint">{{ item.text("hint", lang) }}</p>{% endif %}
+</div>

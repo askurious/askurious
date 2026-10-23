@@ -1,0 +1,29 @@
+{% from "_learn.html" import why %}
+{% set c = item.config %}
+{% set question_hint = de_en("z. B. „Wo sind Sie gerade? Für die Auswertung nach Regionen bitten wir Sie, Ihren Standort zu übermitteln.“", "e.g. “Where are you right now? To analyse the answers by region, we ask you to share your location.”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Standort", "Location") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Gespeichert wird", "Stored") }}
+      <select name="store" {% if not meta_editable %}disabled{% endif %}>
+        {% for k, l in kind.stores.items() %}
+        {# once the survey runs only coarser: the consent named the level #}
+        {% if structural or loop.index0 >= (kind.stores|list).index(c.store or "exact") %}<option value="{{ k }}" {% if (c.store or "exact") == k %}selected{% endif %}>{{ l }}</option>{% endif %}
+        {% endfor %}
+      </select>
+      {% if not structural %}<span class="hint">{{ de_en("eine gröbere Stufe kürzt auch die schon gespeicherten Positionen sofort; das lässt sich nicht zurücknehmen", "a coarser level also cuts down the positions already stored at once; this cannot be undone") }}</span>{% endif %}
+    </label>
+    <label>{{ de_en("Wer den Standort nicht teilt", "If the location is not shared") }}
+      <select name="fallback" {% if not structural %}disabled{% endif %}>
+        {% for k, l in kind.fallbacks.items() %}<option value="{{ k }}" {% if (c.fallback or "none") == k %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  {% if (c.store or "exact") in ("exact", "100m") %}<p class="small"><strong>{{ de_en("Genaue und auf 100 m gerundete Koordinaten können auf eine Wohnung zeigen.", "Exact coordinates and those rounded to 100 m can point to a home.") }}</strong> {{ de_en("Reicht für Ihre Auswertung die Region, wählen Sie eine gröbere Stufe.", "If the region is enough for your analysis, choose a coarser level.") }}</p>{% endif %}
+  {{ why("geo_level") }}{{ why("geo_fallback") }}
+  <label class="check"><input type="checkbox" name="correct" value="1" {% if kind.correct(item) %}checked{% endif %} {% if not meta_editable %}disabled{% endif %}> {{ de_en("Position auf einer Karte zeigen und korrigieren lassen", "Show the position on a map and let it be corrected") }} <span class="hint">{{ de_en("die Ortung in Gebäuden liegt oft daneben; im Export ist vermerkt, welche Positionen von Hand korrigiert wurden", "locating inside buildings is often off; the export notes which positions were corrected by hand") }}</span></label>
+  <p class="muted small">{{ de_en("Teilnehmende tippen auf „Standort übermitteln“, dann fragt ihr Browser um Erlaubnis. Sie können auch „Ich möchte meinen Standort nicht angeben“ wählen; das zählt als Antwort, auch bei einer Pflichtfrage. Gespeichert werden der Weg (geteilt, korrigiert, abgelehnt, nicht verfügbar), die Koordinaten in der gewählten Stufe, die Genauigkeit der Ortung in Metern sowie Postleitzahl und Bundesland, in denen der Punkt liegt (auf diesem Server ermittelt, ohne Anfrage bei Dritten).", "Participants tap “Share location”, then their browser asks for permission. They can also choose “I prefer not to give my location”; that counts as an answer, even for a required question. Stored are the way (shared, corrected, refused, not available), the coordinates at the chosen level, the accuracy of the location in metres, and the postal code and federal state the point lies in (worked out on this server, without asking third parties).") }}</p>
+  <p class="muted small">{{ de_en("Genaue und auf 100 m gerundete Koordinaten werden mit der Frist für personenbezogene Angaben gelöscht (derzeit: {period}, unter „Einstellungen“), Postleitzahl und Bundesland bleiben. Die Einwilligung nennt das Element und die Stufe. Nach dem Start lässt sich die Stufe nur noch gröber stellen.", "Exact coordinates and those rounded to 100 m are deleted with the period for personal details (currently: {period}, under “Settings”); postal code and federal state stay. The consent names the element and the level. After the start, the level can only be made coarser.", period=retention.label("personal", retention.of(survey).personal)) }}</p>
+  <p class="muted small">{{ de_en("Die Ortung geht nur über https und nur auf Seiten mit diesem Element. In der Vorschau des Elements hier im Editor fragt der Browser nicht; dafür die Vorschau der Befragung öffnen.", "Locating only works over https and only on pages with this element. In the preview of the element here in the editor, the browser does not ask; open the preview of the survey for that.") }}</p>
+</fieldset>

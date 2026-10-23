@@ -1,0 +1,40 @@
+{# Join links of a group (app/joinlinks.py, gruppen-freischaltung-konzept.md E5-E7), on the group's page for its
+   leads. Needs: group, join {may, links, paused, new, days, default_days, default_uses}. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+<div class="join-links" id="join-links">
+  <h3>{{ de_en("Beitrittslink", "Join link") }}</h3>
+  <p class="muted small">{{ de_en("Wer den Link öffnet und sich anmeldet, ist sofort Mitglied. Geben Sie ihn nur an Personen weiter, die in die Gruppe sollen; er gilt bis zum gewählten Tag und für höchstens so viele Beitritte, wie Sie angeben.",
+    "Anyone who opens the link and signs in is a member at once. Only pass it on to people who are to join the group; it is valid until the chosen day and for at most as many joins as you set.") }}
+    {% if group.may_create %}{{ de_en("Wer über den Link in diese Gruppe kommt, legt danach eigene Befragungen an (Stufe „Anlegen“) und behält das auch nach dem Austritt.", "Whoever comes into this group by the link creates own surveys afterwards (level “Create”) and keeps that after leaving too.") }}{% endif %}</p>
+  {% if join.new %}
+  <div class="join-link-new">
+    <p><strong>{{ de_en("Der neue Link wird nur jetzt angezeigt.", "The new link is shown only now.") }}</strong></p>
+    <div class="copy-row"><input class="one-time-link" id="join-link-new" value="{{ join.new }}" readonly aria-label="{{ de_en('Beitrittslink', 'Join link') }}" data-select-all>
+      <button type="button" class="button button-secondary" data-copy="#join-link-new">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+  </div>
+  {% endif %}
+  {% if join.links %}
+  <ul class="plain join-link-list">
+    {% for l in join.links %}
+    <li>{{ de_en("Link vom {c}", "Link of {c}", c=l.created_at|localdt(false)) }} · {{ de_en("{u} von {n} genutzt", "{u} of {n} used", u=l.uses, n=l.max_uses) }} · {{ de_en("gilt bis {d}", "valid until {d}", d=l.expires_at|localdt) }}{% if l.id in join.paused %} · <span class="finding-warning">{{ de_en("ausgesetzt: Wer ihn erzeugt hat, darf keine Personen mehr in die Gruppe holen", "suspended: the person who created it may no longer bring people into the group") }}</span>{% endif %}
+      <form method="post" action="{{ url_for('joinlinks.revoke', link_id=l.id) }}" class="inline"
+            data-confirm="{{ de_en('Diesen Link widerrufen?', 'Revoke this link?') }}" data-confirm-note="{{ de_en('Wer ihn danach öffnet, kommt nicht mehr in die Gruppe. Wer schon beigetreten ist, bleibt Mitglied.', 'Anyone who opens it afterwards no longer gets into the group. Anyone who has joined already stays a member.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}">
+        {{ csrf() }}<button class="button button-secondary button-small">{{ de_en("Widerrufen", "Revoke") }}</button>
+      </form></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if join.may %}
+  <form method="post" action="{{ url_for('joinlinks.make', group_id=group.id) }}" class="inline button-row">
+    {{ csrf() }}
+    <label>{{ de_en("gültig", "valid for") }}
+      <select name="days">{% for d in join.days %}<option value="{{ d }}"{{ " selected" if d == join.default_days }}>{{ de_en("1 Tag", "1 day") if d == 1 else de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("höchstens", "at most") }}
+      <input type="number" name="max_uses" min="1" max="{{ max_members }}" value="{{ join.default_uses }}" class="input-short"> {{ de_en("Beitritte", "joins") }}</label>
+    <button class="button button-secondary button-small">{{ de_en("Link erzeugen", "Create link") }}</button>
+  </form>
+  {% else %}
+  <p class="muted small">{{ de_en("Beitrittslinks erzeugt nur eine Leitung, die selbst Befragungen anlegen darf, weil der Link Personen hereinbringt, die niemand namentlich hinzugefügt hat.", "Only a lead who may create surveys can create join links, because the link brings in people nobody added by name.") }}</p>
+  {% endif %}
+</div>

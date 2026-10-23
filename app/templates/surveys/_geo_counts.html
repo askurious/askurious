@@ -1,0 +1,23 @@
+{# Where the real participations came from, estimated from the IP address. Needs: geo_counts (geoip.field_counts). #}
+{% from "_icons.html" import icon %}
+{% macro rows(table, head) %}
+<table class="zebra geo-counts">
+  <thead><tr><th>{{ head }}</th><th>{{ de_en("begonnen", "started") }}</th><th>{{ de_en("abgeschlossen", "completed") }}</th></tr></thead>
+  <tbody>
+    {% for name, started, done in table %}<tr><td>{{ name }}</td><td>{{ started }}</td><td>{{ done }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+<details class="panel settings-group" id="ip-region" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Herkunft nach IP-Adresse", "Origin by IP address") }}</h2><span class="settings-sum">{{ de_en("echte Teilnahmen; das Land ist verlässlich, das Bundesland eine Schätzung", "real participations; the country is reliable, the federal state an estimate") }}</span></summary>
+  <div class="settings-body">
+  <div class="geo-counts-pair">
+    {{ rows(geo_counts.countries, de_en("Land", "Country")) }}
+    {% if geo_counts.states %}{{ rows(geo_counts.states, de_en("Bundesland", "Federal state")) }}{% endif %}
+  </div>
+  {% if geo_counts.map %}<p class="muted small">{{ de_en("Karte der begonnenen Teilnahmen aus Deutschland.", "Map of the started participations from Germany.") }}</p>{% with e = geo_counts.map, unit = de_en("Teilnahmen", "participations") %}{% include "surveys/_state_results.html" %}{% endwith %}{% endif %}
+  {% if geo_counts.unknown[0] %}<p class="muted small">{{ de_en("Nicht ermittelt: {a} begonnen, {b} abgeschlossen.", "Not determined: {a} started, {b} completed.", a=geo_counts.unknown[0], b=geo_counts.unknown[1]) }}
+    {{ de_en("Sind es alle, sieht die App die Adressen nicht (Administration → IP-Region).", "If it is all of them, the app does not see the addresses (Administration → IP region).") }}</p>{% endif %}
+  <p class="muted small">{{ geoip.DBIP|safe }}. {{ de_en("Mobilfunk, Firmen- und Hochschulnetze und VPN werden oft einem anderen Bundesland zugeordnet; der Vergleich mit einer Frage nach Postleitzahl oder Bundesland steht in der Qualitätssicherung.", "Mobile, company and university networks and VPNs are often placed in another federal state; the comparison with a question on the postcode or federal state is in quality assurance.") }}</p>
+  </div>
+</details>

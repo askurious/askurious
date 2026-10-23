@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# A1 of the AI assistant (app/interview_ai.py): a guide along the SPSS principle of Helfferich (2011), step by step;
+   the state goes along in the form ("data"), nothing is stored before "Übernehmen". #}
+{% block title %}{{ de_en("Leitfaden mit KI entwickeln", "Develop guide with AI") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel ai-develop">
+  <div class="ai-steps">
+    {% set at = steps|map(attribute=0)|list %}
+    {% for key, label in steps %}
+    <span class="ai-step {{ 'is-current' if key == step else ('is-done' if at.index(key) < at.index(step) else '') }}">{{ "✓ " if at.index(key) < at.index(step) else loop.index ~ " " }}{{ label }}</span>
+    {% endfor %}
+  </div>
+
+  {% if step == "sammeln" %}
+  <h2>{{ de_en("Sammeln", "Collect") }}</h2>
+  <p class="muted small">{{ de_en("Tragen Sie zuerst alle Fragen ein, die Ihnen zur Forschungsfrage einfallen, auch unfertige; eine je Zeile. Beim Sammeln
+    merken Sie, was Sie schon erwarten (Helfferich, 2011). Die KI ergänzt danach, was fehlt, oder schlägt eine erste Sammlung vor, wenn Sie noch keine haben.", "First enter all the questions that come to mind for the research question, unfinished ones too; one per line. While collecting
+    you notice what you already expect (Helfferich, 2011). The AI then adds what is missing, or suggests a first collection if you have none yet.") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="data" value="{{ {'questions': questions}|tojson|forceescape }}">
+    <label><span class="label-title">{{ de_en("Ihre Fragen", "Your questions") }} <span class="hint">{{ de_en("eine je Zeile", "one per line") }}</span></span>
+      <textarea name="own" rows="8" maxlength="20000">{{ own }}</textarea></label>
+    {% set added = questions|selectattr("src", "equalto", "ai")|list %}
+    {% if added %}
+    <fieldset class="bare">
+      <legend>{{ de_en("Von der KI ergänzt", "Added by the AI") }} <span class="hint">{{ de_en("angekreuzte kommen mit", "ticked ones come along") }}</span></legend>
+      {% for q in questions %}{% if q.src == "ai" %}
+      <label class="check ai-suggest"><input type="checkbox" name="keep_ai" value="{{ loop.index0 }}" checked> <span>{{ q.text }}{% if q.why %}<span class="muted small"> · {{ q.why }}</span>{% endif %}</span></label>
+      {% endif %}{% endfor %}
+    </fieldset>
+    {% endif %}
+    <div class="row">
+      <button class="button button-ai button-secondary" name="action" value="collect">{{ icon("sparkles", 16) }} {{ de_en("Weiter ergänzen", "Add more") if added else de_en("Mit KI ergänzen", "Add with AI") }}</button>
+      <span class="spacer"></span>
+      <button class="button button-secondary" name="action" value="to_check_skip">{{ de_en("Ohne Prüfung weiter", "Continue without checking") }}</button>
+      <button class="button button-ai" name="action" value="to_check">{{ icon("sparkles", 16) }} {{ de_en("Weiter zu „Prüfen“", "On to “Check”") }}</button>
+      {{ ai_access_line() }}
+    </div>
+    <p class="muted small flush">{{ de_en("Was Sie hier eintragen, geht mit Titel, Forschungsfrage, Zielgruppe und Interviewform an {to}. Bitte keine Namen oder anderen personenbezogenen Daten eintragen.", "What you enter here goes, with title, research question, target group and interview mode, to {to}. Please do not enter names or other personal data.", to=ai_recipient()) }}</p>
+  </form>
+
+  {% elif step == "pruefen" %}
+  <h2>{{ de_en("Prüfen", "Check") }}</h2>
+  <p class="muted small">{{ de_en("Je Frage, was die KI auffällt: geschlossen, suggestiv, zwei Fragen in einer, Fachsprache, Warum-Frage, setzt Wissen voraus, wertend. Sie entscheiden je Frage.", "Per question, what strikes the AI: closed, leading, two questions in one, jargon, why question, assumes knowledge, evaluative. You decide per question.") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="data" value="{{ {'questions': questions, 'checks': checks}|tojson|forceescape }}">
+    <ol class="plain ai-checks">
+      {% for q in questions %}{% set c = checks[loop.index0] %}{% set n = loop.index0 %}
+      <li class="ai-check">
+        <div class="ai-check-q"><span class="muted small">{{ de_en("Ihre Frage", "Your question") if q.src == "own" else de_en("von der KI", "by the AI") }}</span>{{ q.text }}</div>
+        <div class="ai-check-f">{% for i in c.issues %}<span class="badge badge-paused">{{ issues[i] }}</span> {% endfor %}{% if c.why %}<span class="muted small">{{ c.why }}</span>{% elif not c.issues %}<span class="muted small">{{ de_en("keine Auffälligkeit", "nothing noticeable") }}</span>{% endif %}</div>
+        <div class="ai-check-c">
+          {# the way chosen comes back after an AI error in "Sortieren" (I4); else the suggestion if there is one #}
+          {% set way = c.choice if c.choice in ("keep", "drop") or (c.choice == "suggest" and c.suggestion) else ("suggest" if c.suggestion else "keep") %}
+          {% if c.suggestion %}<label class="check"><input type="radio" name="c{{ n }}" value="suggest" {% if way == "suggest" %}checked{% endif %}> {{ de_en("Vorschlag:", "Suggestion:") }}</label>
+            <input name="s{{ n }}" value="{{ c.suggestion }}" maxlength="500" aria-label="{{ de_en('Vorschlag', 'Suggestion') }}">{% endif %}
+          <label class="check"><input type="radio" name="c{{ n }}" value="keep" {% if way == "keep" %}checked{% endif %}> {{ de_en("behalten", "keep") }}</label>
+          <label class="check"><input type="radio" name="c{{ n }}" value="drop" {% if way == "drop" %}checked{% endif %}> {{ de_en("streichen", "drop") }}</label>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    <div class="row"><span class="spacer"></span>
+      <button class="button button-secondary" name="action" value="to_sort_skip">{{ de_en("Ohne KI weiter (ein Themenblock)", "Continue without AI (one topic block)") }}</button>
+      <button class="button button-ai" name="action" value="to_sort">{{ icon("sparkles", 16) }} {{ de_en("Weiter zu „Sortieren“", "On to “Sort”") }}</button>{{ ai_access_line() }}</div>
+  </form>
+
+  {% elif step == "sortieren" %}
+  <h2>{{ de_en("Sortieren", "Sort") }}</h2>
+  <p class="muted small">{{ de_en("Die Fragen in Themenblöcken, in einer Reihenfolge mit leichtem, erzählendem Einstieg. Titel ändern, Fragen einem anderen Themenblock zuordnen.", "The questions in topic blocks, in an order with an easy, narrative entry. Change titles, assign questions to another topic block.") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="data" value="{{ {'questions': questions}|tojson|forceescape }}">
+    {% for g in groups %}{% set gi = loop.index0 %}
+    <fieldset class="ai-group">
+      <legend><input name="title" value="{{ g.title }}" maxlength="200" aria-label="{{ de_en('Titel des Themenblocks {n}', 'Title of topic block {n}', n=loop.index) }}"></legend>
+      {% for qn in g.questions %}
+      <div class="ai-group-row"><span>{{ questions[qn].text }}</span>
+        <select name="g{{ qn }}" aria-label="{{ de_en('Themenblock', 'Topic block') }}">{% for h in groups %}<option value="{{ loop.index0 }}" {% if loop.index0 == gi %}selected{% endif %}>{{ h.title }}</option>{% endfor %}</select></div>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <div class="row"><span class="spacer"></span>
+      <button class="button button-secondary" name="action" value="to_subsume_skip">{{ de_en("Ohne KI weiter", "Continue without AI") }}</button>
+      <button class="button button-ai" name="action" value="to_subsume">{{ icon("sparkles", 16) }} {{ de_en("Weiter zu „Subsumieren“", "On to “Subsume”") }}</button>{{ ai_access_line() }}</div>
+  </form>
+
+  {% else %}
+  <h2>{{ de_en("Subsumieren", "Subsume") }}</h2>
+  <p class="muted small">{{ de_en("Je Themenblock eine erzählgenerierende Leitfrage; die übrigen Fragen als Aspekte oder konkrete Fragen. Alles lässt sich hier und danach im Leitfaden ändern. Je Zeile ein Eintrag.", "Per topic block one narrative-generating guide question; the other questions as aspects or specific questions. Everything can be changed here and afterwards in the guide. One entry per line.") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="apply">
+    {% for b in blocks %}{% set n = loop.index0 %}
+    <fieldset class="ai-group">
+      <legend><label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> {{ de_en("übernehmen", "accept") }}</label>
+        <input name="b{{ n }}_title" value="{{ b.title }}" maxlength="200" aria-label="{{ de_en('Titel des Themenblocks', 'Title of the topic block') }}"></legend>
+      <label><span class="label-title">{{ de_en("Erzählaufforderung", "Narrative prompt") }}</span><textarea name="b{{ n }}_prompt" rows="2" maxlength="1000">{{ b.prompt }}</textarea></label>
+      <div class="guide-lists">
+        <label><span class="label-title">{{ de_en("Inhaltliche Aspekte", "Content aspects") }}</span><textarea name="b{{ n }}_aspects" rows="4">{{ b.aspects|join("\n") }}</textarea></label>
+        <label><span class="label-title">{{ de_en("Aufrechterhaltungsfragen", "Maintenance questions") }}</span><textarea name="b{{ n }}_keep" rows="4">{{ b.keep|join("\n") }}</textarea></label>
+        <label><span class="label-title">{{ de_en("Konkrete Fragen", "Specific questions") }}</span><textarea name="b{{ n }}_probe" rows="4">{{ b.probe|join("\n") }}</textarea></label>
+      </div>
+      <label>{{ de_en("Geplante Dauer", "Planned duration") }} <select name="b{{ n }}_minutes">{% for m in (5, 10, 15, 20, 30, 45) %}<option value="{{ m }}" {% if b.minutes == m %}selected{% endif %}>{{ de_en("ca. {n} Min.", "approx. {n} min", n=m) }}</option>{% endfor %}</select></label>
+    </fieldset>
+    {% endfor %}
+    <div class="row"><span class="spacer"></span><button class="button">{{ de_en("Ausgewählte als Themenblöcke übernehmen", "Accept selected as topic blocks") }}</button></div>
+    <p class="muted small flush">{{ de_en("Die Themenblöcke kommen ans Ende des Leitfadens; „Rückgängig“ nimmt die Übernahme als Ganzes zurück.", "The topic blocks go to the end of the guide; “Undo” reverses the takeover as a whole.") }}</p>
+  </form>
+  {% endif %}
+</section>
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

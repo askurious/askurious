@@ -1,0 +1,7 @@
+{% include "items/_choice_editor.html" %}
+<div class="row-fields">
+  <label>{{ de_en("Mindestens", "At least") }} <input type="number" name="min" min="0" class="narrow" value="{{ item.config.min or '' }}" {% if not structural %}disabled{% endif %}></label>
+  <label>{{ de_en("Höchstens", "At most") }} <input type="number" name="max" min="1" class="narrow" value="{{ item.config.max or '' }}" {% if not structural %}disabled{% endif %}></label>
+</div>
+<label class="check"><input type="checkbox" name="multi_hint" value="1" {% if item.config.get("multi_hint", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Hinweis „Mehrere Antworten möglich.“ unter der Frage", "Note “Several answers possible.” below the question") }}
+  <span class="hint">{{ de_en("nur ohne Mindest- oder Höchstzahl; die nennen dann selbst, wie viele Antworten gehen", "only without a minimum or maximum; those then say themselves how many answers are allowed") }}</span></label>

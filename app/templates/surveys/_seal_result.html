@@ -1,0 +1,32 @@
+{# the result of "Jetzt prüfen" of the seal chain (surveys.seal_check, filled into data.html by app.js) #}
+{% import "surveys/_seal_parts.html" as sp with context %}
+{% set chain_ok = not result.chain_problems %}
+{% set data_ok = not result.data_problems %}
+{% set last = result.summary.last_anchor %}
+{{ sp.verdict(chain_ok, data_ok, de_en("geprüft gerade eben", "checked just now"),
+              data_label=(de_en_n(result.present, ("der {n} vorhandene Fall passt, keiner fehlt ohne Vermerk", "alle {n} vorhandenen Fälle passen, keiner fehlt ohne Vermerk"), ("the {n} case present matches, none is missing without a record", "all {n} cases present match, none is missing without a record")) if data_ok else None)) }}
+{% if not (chain_ok and data_ok) %}
+<ul class="seal-facts is-broken">
+  {% for p in result.problems[:20] %}<li>{{ p }}</li>{% endfor %}
+  {% if result.problems|length > 20 %}<li>{{ de_en("… und {n} weitere", "… and {n} more", n=result.problems|length - 20) }}</li>{% endif %}
+</ul>
+{% endif %}
+<ul class="seal-facts">
+  {% if chain_ok %}
+  {% set k = result.kinds %}
+  {% set others = result.summary.entries - (k.sealed or 0) - (k.deleted or 0) %}
+  <li>{{ de_en_n(result.summary.entries, ("Der {n} Eintrag der Kette ist unverändert", "Alle {n} Einträge der Kette folgen lückenlos aufeinander"), ("The {n} entry of the chain is unchanged", "All {n} entries of the chain follow each other without a gap")) }}: {{ de_en_n(k.sealed or 0, ("{n} Fall", "{n} Fälle"), ("{n} case", "{n} cases")) }}{% if k.deleted %} ({{ de_en("{n} mit Löschvermerk", "{n} with a deletion record", n=k.deleted) }}){% endif %}{% if others %}, {{ de_en_n(others, ("{n} Vermerk zur Kette selbst (z. B. Einschalten)", "{n} Vermerke zur Kette selbst (z. B. Einschalten)"), ("{n} note on the chain itself (e.g. switched on)", "{n} notes on the chain itself (e.g. switched on)")) }}{% endif %}. {{ de_en("Jeder trägt den SHA-256-Hashwert des vorigen; keiner wurde verändert, entfernt oder eingefügt.", "Each carries the SHA-256 hash of the one before; none was changed, removed or inserted.") }}</li>
+  {% endif %}
+  {% if data_ok %}
+  <li>{{ de_en_n(info.cases, ("Von {n} Fall", "Von {n} Fällen"), ("Of {n} case", "Of {n} cases")) }} {{ de_en_n(result.present, ("ist {n} vorhanden", "sind {n} vorhanden"), ("{n} is present", "{n} are present")) }}{% if info.deleted %} {{ de_en_n(info.deleted, ("und {n} mit Löschvermerk gelöscht", "und {n} mit Löschvermerk gelöscht"), ("and {n} was deleted with a deletion record", "and {n} were deleted with a deletion record")) }}{% endif %}; {{ de_en("keiner fehlt ohne Vermerk.", "none is missing without a record.") }}{% if result.present %} {{ de_en_n(result.present, ("Die gespeicherten Daten des vorhandenen Falls stimmen mit seinem Hashwert in der Kette überein.", "Die gespeicherten Daten der {n} vorhandenen Fälle stimmen mit ihren Hashwerten in der Kette überein."), ("The stored data of the case present match its hash value in the chain.", "The stored data of the {n} cases present match their hash values in the chain.")) }}{% endif %}</li>
+  {% endif %}
+  {% if last %}<li>{{ de_en("Der Stand bis Eintrag {n} ist vom Zeitstempeldienst des DFN am {d} gestempelt; Signatur und Zertifikat wurden geprüft.", "The state up to entry {n} was stamped by the timestamp service of the DFN on {d}; signature and certificate were checked.", n=last[0], d=last[1]|localdt) }} {{ de_en("Wer den Prüfcode oder die Datei der Kette außerhalb festhält, etwa im Manuskript, kann später zeigen, dass dieser Stand unverändert ist, auch gegenüber den Admins der Plattform.", "Anyone who keeps the check code or the file of the chain elsewhere, e.g. in the manuscript, can show later that this state is unchanged, also towards the platform's admins.") }}{% if result.head_seq > last[0] %} {{ de_en("Die neueren Einträge bis {h} werden beim nächsten Stempeln gesichert.", "The newer entries up to {h} are secured at the next stamping.", h=result.head_seq) }}{% endif %}</li>
+  {% elif not stamp_note %}<li>{{ de_en("Noch kein Zeitstempel des DFN; er folgt beim nächsten Stempeln und beim Herunterladen.", "No timestamp of the DFN yet; it follows at the next stamping and at the download.") }}</li>{% endif %}
+  {# why the newest entry is still unstamped (seal.stamp_at_check): no service set, not reachable, a bad answer #}
+  {% if stamp_note %}<li class="seal-stamp-note">{{ stamp_note }}</li>{% endif %}
+</ul>
+{{ sp.numbers([(de_en("heute", "today"), result.counts)]) }}
+{% if result.head %}
+<p class="small seal-head">{{ de_en("Prüfsumme der Kette (Eintrag {n}):", "Checksum of the chain (entry {n}):", n=result.head_seq) }} <code>{{ result.head }}</code><br>
+  <span class="muted">{{ de_en("Wer diese Prüfsumme notiert, etwa im Manuskript, kann später zeigen, dass die Daten bis hierhin unverändert sind: Jede Änderung an einem früheren Eintrag ergäbe eine andere.", "Anyone who notes this checksum, e.g. in the manuscript, can show later that the data up to here are unchanged: any change to an earlier entry would give another one.") }}</span></p>
+{% endif %}

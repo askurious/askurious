@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{# One organisation of Administration > Organisationen (variant A of the concept of 2026-10-18, Ralf): names, the
+   template of the organisation design ("Design der Einrichtung", Ralf 2026-10-19), admins (also by ORCID iD or the
+   address of an account, who needs no account yet), limits and switches, links, delete when empty. Everything saves
+   itself but the uploads. Context: o, counts, admins, members [(user, row)], main_key, template_sides. #}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ o.name }} · {{ de_en("Organisationen", "Organisations") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "orgs" %}{% include "admin/_tabs.html" %}
+<p class="muted small"><a href="{{ url_for('admin.organisations') }}">‹ {{ de_en("Alle Organisationen", "All organisations") }}</a>
+  <span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<section class="panel org-page" id="org-{{ o.id }}">
+  <h2>{{ o.name }}{% if o.key == main_key %} <span class="badge">{{ de_en("Ausgangs-Organisation", "Starting organisation") }}</span>{% endif %}</h2>
+  <p class="admin-group-facts">
+    {{ counts.people }} {{ de_en("Person", "person") if counts.people == 1 else de_en("Personen", "people") }}
+    {% if counts.invited %}· {{ de_en("{n} eingeladen ohne Konto", "{n} invited without an account", n=counts.invited) }}{% endif %}
+    · {{ de_en("{n} mit Heimat hier", "{n} with their home here", n=counts.homes) }}
+    · <a href="{{ url_for('admin.groups', g_org=o.id) }}">{{ counts.groups }} {{ de_en("Gruppe", "group") if counts.groups == 1 else de_en("Gruppen", "groups") }}</a>
+    · {{ counts.surveys }} {{ de_en("Befragung", "survey") if counts.surveys == 1 else de_en("Befragungen", "surveys") }}
+    {% if o.from_group_name %}<span class="muted">· {{ de_en("aus der Gruppe „{g}“", "from the group “{g}”", g=o.from_group_name) }}</span>{% endif %}
+  </p>
+  <p class="admin-group-facts">
+    <a href="{{ url_for('admin.researchers', f_org=o.id) }}#forschende">{{ de_en("Personen ansehen", "View people") }}</a>
+    · <a href="{{ url_for('org.surveys', org_id=o.id) }}">{{ de_en("Verwaltung öffnen", "Open management") }}</a>
+    {# the user types only here, no longer under "Personen" too (UI/UX audit 2026-10-16, 21) #}
+    · <a href="{{ url_for('org.types', org_id=o.id) }}">{{ de_en("Nutzertypen", "User types") }}</a></p>
+
+  <h3>{{ de_en("Namen", "Names") }}</h3>
+  <form method="post" action="{{ url_for('admin.organisation_action', org_id=o.id) }}" class="stack org-names" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="action" value="rename">
+    <label>{{ de_en("Kurzname", "Short name") }} <span class="hint">{{ de_en("für die Seiten der Plattform", "for the platform's pages") }}</span>
+      <input type="text" name="name" value="{{ o.name }}" maxlength="80" required></label>
+    <label>{{ de_en("Ausführlicher Name", "Full name") }} <span class="hint">{{ de_en("für Befragungstexte", "for survey texts") }}</span>
+      <input type="text" name="long_name" value="{{ o.long_name }}" maxlength="200"></label>
+    <label>{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
+      <input type="text" name="description" value="{{ o.description }}" maxlength="500"></label>
+    {{ autosave_bar(small=true) }}
+  </form>
+
+</section>
+<section class="panel org-page-part" id="admins">
+  <h2>{{ de_en("Admins der Organisation", "Organisation admins") }}</h2>
+  <ul class="org-admin-list">
+  {% for m in admins %}
+    {% set key = m.user.orcid if m.user else "" %}{% set shown = org_name_of(m.user) if m.user else "–" %}
+    <li>{{ shown }} {{ orcid_link(m.orcid_id, unauth=not m.signed_up) }}{% if not m.signed_up %} <span class="hint">{{ de_en("noch ohne Konto", "no account yet") }}</span>{% endif %}
+      <form method="post" action="{{ url_for('admin.organisation_action', org_id=o.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="unadmin"><input type="hidden" name="orcid" value="{{ key }}"><input type="hidden" name="user_id" value="{{ m.user_id or '' }}">
+        {#- without an account the entry goes as a whole (no list of people shows it), with an account it stays a member #}
+        {% if m.signed_up %}<button class="icon-btn" title="{{ de_en('Admin-Rolle entziehen', 'Take the admin role away') }}" aria-label="{{ de_en('Admin-Rolle von {n} entziehen', 'Take the admin role away from {n}', n=shown) }}">{{ icon("x", 14) }}</button>
+        {%- else %}<button class="icon-btn" title="{{ de_en('Aus der Organisation entfernen', 'Remove from the organisation') }}" aria-label="{{ de_en('{n} aus der Organisation entfernen', 'Remove {n} from the organisation', n=shown) }}">{{ icon("x", 14) }}</button>{% endif %}</form></li>
+  {% else %}<li class="org-no-admin">{{ de_en("noch keine", "none yet") }}</li>{% endfor %}
+  </ul>
+  {% if removed %}<form method="post" action="{{ url_for('admin.organisation_action', org_id=o.id) }}" class="org-admin-undo">
+    {{ csrf() }}<input type="hidden" name="action" value="admin"><input type="hidden" name="who" value="{{ removed.orcid }}"><input type="hidden" name="who_name" value="{{ removed.name }}">
+    <span class="muted small">{{ de_en("{n} entfernt.", "{n} removed.", n=removed.name) }}</span> <button class="button button-small button-secondary">{{ de_en("Rückgängig", "Undo") }}</button></form>{% endif %}
+  <form method="post" action="{{ url_for('admin.organisation_action', org_id=o.id) }}" class="org-admin-add">
+    {{ csrf() }}<input type="hidden" name="action" value="admin">
+    {% set others = [] %}{% for u, m in members if not (m and m.role == "admin") %}{% set _ = others.append(u) %}{% endfor %}
+    {% if others %}<label>{{ de_en("Person der Organisation", "Person of the organisation") }}
+      <select name="orcid"><option value="">{{ de_en("– wählen –", "– choose –") }}</option>{% for u in others %}<option value="{{ u.orcid }}">{{ u.display_name }}</option>{% endfor %}</select></label>
+    <span class="muted small">{{ de_en("oder", "or") }}</span>{% endif %}
+    <label>{{ de_en("ORCID iD oder E-Mail-Adresse", "ORCID iD or email address") }} <span class="hint">{{ de_en("die Person braucht noch kein Konto", "the person needs no account yet") }}</span>
+      <input name="who" maxlength="254" placeholder="0000-0000-0000-0000"></label>
+    <button class="button button-secondary button-small">{{ de_en("Zum Admin machen", "Make admin") }}</button>
+  </form>
+
+</section>
+<section class="panel org-page-part" id="grenzen">
+  <h2>{{ de_en("Grenzen und Schalter", "Limits and switches") }}</h2>
+  <div class="admin-group-kinds">
+    <form method="post" action="{{ url_for('admin.organisation_action', org_id=o.id) }}" class="stack" data-autosave-form>
+      {{ csrf() }}<input type="hidden" name="action" value="caps">
+      <p class="muted small">{{ de_en("Höchstens erlaubte Befragungstypen für Konten mit Heimat hier:", "Survey types allowed at most for accounts at home here:") }}</p>
+      {% for k in kind_keys %}<label>{{ kind_label(k) }}
+        <select name="kind_{{ k }}">{% for lvl in ("create", "edit", "view", "off") %}<option value="{{ lvl }}"{{ " selected" if (o.kinds_cap or {}).get(k, "create") == lvl }}>{{ kind_level_label(lvl) }}</option>{% endfor %}</select></label>{% endfor %}
+      <label class="check"><input type="checkbox" name="no_create" value="1"{{ " checked" if o.may_create is sameas false }}> {{ de_en("Niemand mit Heimat hier legt Befragungen an", "Nobody at home here creates surveys") }}</label>
+      <label>{{ de_en("Höchstzahl Konten mit Heimat hier", "Maximum accounts at home here") }} <span class="hint">{{ de_en("leer = keine", "empty = none") }}</span>
+        <input name="max_accounts" type="number" min="1" max="100000" value="{{ o.max_accounts or '' }}"></label>
+      <label class="check"><input type="checkbox" name="invite_out" value="1"{{ " checked" if o.invite_out }}> {{ de_en("Mitglieder dürfen Personen von außen in Befragungen einladen", "Members may invite people from outside to surveys") }}</label>
+      <label class="check"><input type="checkbox" name="invite_in" value="1"{{ " checked" if o.invite_in }}> {{ de_en("Mitglieder dürfen in Befragungen anderer Organisationen eingeladen werden", "Members may be invited to surveys of other organisations") }}</label>
+      <label>{{ de_en("Vertrag oder Grundlage", "Contract or basis") }} <span class="hint">{{ de_en("z. B. Auftragsverarbeitung", "e.g. data processing agreement") }}</span>
+        <input name="basis" maxlength="300" value="{{ o.basis }}"></label>
+      {{ autosave_bar(small=true) }}
+    </form>
+  </div>
+
+  {% if o.key != main_key %}
+  <form method="post" action="{{ url_for('admin.organisation_action', org_id=o.id) }}" class="org-delete"
+        data-confirm="{{ de_en('Organisation „{name}“ löschen?', 'Delete the organisation “{name}”?', name=o.name) }}" data-confirm-note="{{ de_en('Das geht nur, wenn sie leer ist.', 'This works only when it is empty.') }}"
+        data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+    {{ csrf() }}<input type="hidden" name="action" value="delete">
+    <button class="button button-danger button-small">{{ icon("trash", 16) }} {{ de_en("Organisation löschen", "Delete organisation") }}</button>
+    <span class="hint">{{ de_en("nur wenn sie leer ist", "only when it is empty") }}</span>
+  </form>
+  {% endif %}
+</section>
+<section class="panel org-page-part" id="design">
+  <h2>{{ de_en("Design der Einrichtung", "Institution design") }} <span class="hint">{{ de_en("optional", "optional") }}</span></h2>
+  <p class="muted small">{{ de_en("Eine Vorlage für das Organisationsdesign, damit die Admins der Organisation nicht bei null anfangen: eine Designdatei für hell und eine für dunkel. Hat die Organisation noch kein Design dieser Seite, wird die Vorlage es; ein Design, das ihre Admins schon gemacht haben, bleibt, sie sehen dann „Vorlage übernehmen“.", "A template for the organisation design, so that the organisation's admins do not start from nothing: one design file for light and one for dark. If the organisation has no design of that side yet, the template becomes it; a design its admins have already made stays, and they then see “Apply template”.") }}</p>
+  <div class="admin-theme-logos">
+  {% for side in template_sides %}
+    <div class="admin-theme-logo org-design-side">
+      <h3>{{ de_en("Hell", "Light") if side.mode == "light" else de_en("Dunkel", "Dark") }}</h3>
+      {% if side.template %}{% set d = side.template %}
+      <p class="org-design-current"><span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ d.colors[c] }}"></span>{% endfor %}</span>
+        <strong>{{ themes.name(d) }}</strong>{% if d.get("fixed") %} <span class="muted small">{{ de_en("Schrift und Ecken fest", "font and corners fixed") }}</span>{% endif %}</p>
+      <div class="form-actions">
+        <a class="button button-secondary button-small" href="{{ url_for('admin.organisation_template_file', org_id=o.id, mode=side.mode) }}" download>{{ de_en("Herunterladen", "Download") }}</a>
+        <form method="post" action="{{ url_for('admin.organisation_template', org_id=o.id) }}" class="inline" data-confirm="{{ de_en('Vorlage ({side}) entfernen? Das Organisationsdesign bleibt.', 'Remove the template ({side})? The organisation design stays.', side=side.label) }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
+          {{ csrf() }}<input type="hidden" name="action" value="remove"><input type="hidden" name="mode" value="{{ side.mode }}"><button class="button button-danger button-small">{{ de_en("Entfernen", "Remove") }}</button></form>
+      </div>
+      {% else %}<p class="muted small">{{ de_en("Keine Vorlage.", "No template.") }}</p>{% endif %}
+      <p class="muted small">{{ de_en("Organisationsdesign:", "Organisation design:") }} {{ themes.name(side.design) if side.design else de_en("noch keins", "none yet") }}</p>
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('admin.organisation_template', org_id=o.id) }}">
+        {{ csrf() }}<input type="hidden" name="mode" value="{{ side.mode }}">
+        <label for="template-file-{{ side.mode }}">{{ de_en("Designdatei", "Design file") }} <span class="hint">JSON</span></label>
+        <div class="row field-with-button"><input type="file" id="template-file-{{ side.mode }}" name="file" accept=".json,application/json" required>
+          <button class="button button-secondary">{{ de_en("Hochladen", "Upload") }}</button></div>
+      </form>
+    </div>
+  {% endfor %}
+  </div>
+
+</section>
+
+{% endblock %}

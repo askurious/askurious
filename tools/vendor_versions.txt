@@ -1,0 +1,8 @@
+# The JavaScript libraries in app/static/vendor with their versions, for the check for known vulnerabilities
+# (tools/check_vulnerabilities.py; audit 2026-10-13, DP-10). A library raised or added there is raised or added here
+# (tests/platform/test_compose_hardening.py compares the versions in the files with these lines).
+npm leaflet==1.9.4
+npm leaflet.heat==0.2.0
+npm pdfjs-dist==4.10.38
+# Included in both PDF.js bundles; its MIT text is vendor/pdfjs/LICENSE_CORE_JS.
+npm core-js==3.39.0

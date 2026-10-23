@@ -1,0 +1,29 @@
+{# The summary under the end page of a test run (participant/end.html with `preview`): how it ended, the completion
+   link that was not opened, the quota calculations, the conditions and the answers recorded. #}
+<div class="p-preview-summary">
+  {# in the language of the page, like the preview bar: testers on the phone link read the survey's language #}
+  <p><strong>{{ ui("Vorschau beendet", "Preview finished") }}</strong> ({{ {"declined": ui("abgelehnt", "declined"), "screenout": ui("Screen-out", "screen-out"), "quotafull": ui("Quote voll", "quota full"), "excluded": ui("Ausschluss", "excluded"), "completed": ui("abgeschlossen", "completed")}.get(response.status, response.status) }}). <span class="p-preview-note">{{ ui("Nur in der Vorschau: Teilnehmende sehen diesen Kasten nicht.", "Preview only: participants do not see this box.") }}</span></p>
+  {# folded (pre-test 2026-10-16: the summary read as part of the end page) #}
+  <details class="p-preview-details"><summary>{{ ui("Ablauf und erfasste Antworten dieses Testdurchlaufs", "Flow and answers recorded in this test run") }}</summary>
+  {% if forward is defined and forward %}<p>{{ ui("Abschlusslink", "Completion link") }} <span class="p-preview-note">({{ {"now": ui("sofort weiterleiten", "forward at once"), "button": ui("Endseite mit Knopf", "end page with a button"), "auto": ui("Endseite, weiter nach 5 s", "end page, on after 5 s")}.get(forward_mode, "") }}; {{ ui("in der Vorschau nicht aufgerufen", "not opened in the preview") }})</span>: <code>{{ forward }}</code></p>{% endif %}
+  {% if response.quota %}
+  <p>{{ ui("Quotenberechnung", "Quota calculation") }}:</p>
+  <ul>{% for q in survey.quotas if response.quota.get(q.id|string) %}{% set e = response.quota[q.id|string] %}
+    <li>{{ q.name }}: {{ {"in": ui("Platz", "room"), "full": ui("voll", "full"), "none": ui("keine Teilquote", "no cell"), "other": ui("kein Platz (andere Quote voll)", "no room (another quota full)"), "over": ui("über Soll", "over target")}.get(e.res, e.res) }}{% for c in q.cells if c.id == e.cell %}, {{ ui("Teilquote „{name}“", "cell “{name}”", name=c.name) }}{% endfor %} <span class="p-preview-note">({{ ui("in der Vorschau wird nichts gezählt", "nothing is counted in the preview") }})</span></li>
+  {% endfor %}</ul>
+  {% endif %}
+  {% if (response.layout or {}).get("conditions") %}
+  <p>{{ ui("Zugewiesene Versuchsbedingungen", "Assigned experimental conditions") }}:</p>
+  <ul>{% for rid, picked in response.layout.conditions.items() %}<li>{{ condition_label(survey, rid, picked) }}</li>{% endfor %}</ul>
+  {% endif %}
+  <p>{{ ui("Erfasste Antworten dieses Testdurchlaufs", "Answers recorded in this test run") }}:</p>
+  <ul>
+    {% for block in survey.blocks %}{% for item in block.items if item.kind.collects_answer %}
+    {% set a = (response.answers or {}).get(item.id|string) %}
+    {# codes with their wording and typed texts in quotes, not the stored structure (UI audit 2026-10-12, U28) #}
+    <li><code>{{ item.code }}</code>: {{ preview_answer(item, a, lang) }}</li>
+    {% endfor %}{% endfor %}
+  </ul>
+  </details>
+  <a class="p-button" href="?lang={{ lang }}&restart=1" {% if framed %}target="_top"{% endif %}>↺ {{ ui("Neuer Testdurchlauf", "New test run") }}</a>
+</div>

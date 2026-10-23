@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% from "_macros.html" import orcid_link, status_badge, csrf %}
+{% from "_icons.html" import icon %}
+{# "Bearbeiten" may duplicate; without the right to create surveys the button stays, greyed, and says why (Ralf, 2026-10-06) #}
+{% macro duplicate_button(s, my_role) -%}
+{# an example survey seen only as one: a copy of one's own, with the right to create (demo-befragungen-konzept.md, 5a) #}
+{% if showcase_only(current_user, s) %}{% if kind_creates(s.kind) %}<a class="button button-small button-secondary card-act-end" href="{{ url_for('surveys.duplicate', survey_id=s.id) }}?from=dashboard">{{ icon("copy", 16) }} {{ de_en("Als Kopie übernehmen", "Take a copy") }}</a>{% endif %}
+{%- elif my_role != "viewer" and kind_creates(s.kind) %}<a class="button button-small button-secondary card-act-end" href="{{ url_for('surveys.duplicate', survey_id=s.id) }}?from=dashboard">{{ icon("copy", 16) }} {{ de_en("Duplizieren", "Duplicate") }}</a>
+{%- elif my_role != "viewer" %}<button type="button" class="button button-small button-secondary card-act-end" disabled title="{{ de_en('Duplizieren legt eine eigene Befragung an; Ihr Konto darf keine eigenen Befragungen anlegen. Das schaltet ein Admin der Plattform frei.', 'Duplicating creates a survey of your own; your account may not create surveys of its own. A platform admin can allow that.') }}">{{ icon("copy", 16) }} {{ de_en("Duplizieren", "Duplicate") }}</button>{% endif %}
+{%- endmacro %}
+{# the words the search on the cards looks at besides title, project, code and people: kind and state as the card
+   shows them, never the labels of its buttons (UI audit W76) #}
+{% macro card_state(s) -%}
+{% if s.live is not none %}{{ de_en("Live-Abstimmung", "Live poll") }}{% elif s.interview is not none %}{{ de_en("Interviewleitfaden", "Interview guide") }}{% else %}{{ de_en("Fragebogen", "Questionnaire") }} {% if s.status == "closed" and s.close_reason == "paused" %}{{ de_en("Pausiert", "Paused") }}{% elif s.status == "running" %}{{ de_en("Läuft", "Running") }}{% elif s.status == "closed" %}{{ de_en("Geschlossen", "Closed") }}{% else %}{{ de_en("Entwurf", "Draft") }}{% endif %}{% endif %}{% if s.archived %} {{ de_en("Archiviert", "Archived") }}{% endif %}
+{%- endmacro %}
+{# one card of the list; also in the section of example surveys #}
+{% macro survey_card(s, anchor="survey-") -%}
+  {% set running = (s.live is not none and live_now(s)) or (s.live is none and s.interview is none and s.status == "running" and not s.archived) %}
+  <li class="card{% if s.id in pinned %} is-pinned{% endif %}{% if running %} card-running{% endif %} card-kind{% if s.live is not none %} card-live{% elif s.interview is not none %} card-interview{% elif s.sampling is not none %} card-diary{% endif %}" id="{{ anchor }}{{ s.id }}" data-title="{{ s.title|lower }}" data-created="{{ s.created_at.isoformat() if s.created_at else '' }}" data-done="{{ done.get(s.id, 0) if s.interview is none else 0 }}" data-pinned="{{ 1 if s.id in pinned else 0 }}"
+      data-search="{{ [s.title, s.project or '', s.code, s.members|map(attribute='display_name')|join(' '), card_state(s)]|join(' ')|lower }}">
+    {# first action and title by state: build (draft), watch (running), resume (paused), read (closed);
+       main = (link, icon, label, which page) #}
+    {% set my_role = s.role_of(current_user) %}
+    {% set paused = s.status == "closed" and s.close_reason == "paused" %}
+    {% if s.live is not none %}{% set main = (url_for('live.present', code=s.code), "play", de_en("Präsentieren", "Present"), "present") %}
+    {% elif s.interview is not none %}{% set main = (url_for('interview.guide', code=s.code), "edit", de_en("Leitfaden", "Guide"), "guide") %}
+    {% elif s.status == "running" %}{% set main = (url_for('surveys.field', survey_id=s.id), "play", de_en("Datenerhebung", "Data collection"), "field") %}
+    {# a paused survey, and a draft in a new revision of one that ran (UI/UX audit 2026-10-16, 20): go on collecting #}
+    {% elif paused or (s.status == "draft" and (s.qversion or 1) > 1) %}{% set main = (url_for('surveys.field', survey_id=s.id) ~ "#status", "play", de_en("Datenerhebung fortsetzen", "Resume data collection") if my_role != "viewer" else de_en("Datenerhebung", "Data collection"), "field") %}
+    {% elif s.status == "closed" %}{% set main = (url_for('surveys.results', survey_id=s.id), "chart", de_en("Ergebnisse", "Results"), "results") %}
+    {% else %}{% set main = (url_for('editor.index', survey_id=s.id), "edit", de_en("Fragebogen", "Questionnaire"), "editor") %}{% endif %}
+    {% set pin_text = de_en("Nicht mehr oben anheften", "Unpin from the top") if s.id in pinned else de_en("Oben anheften", "Pin to the top") %}
+    <form class="inline pin-form" method="post" action="{{ url_for('dashboard.pin', survey_id=s.id) }}">{{ csrf() }}
+      {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
+      <button class="pin-btn" title="{{ pin_text }}"
+              aria-label="{{ pin_text }}" aria-pressed="{{ 'true' if s.id in pinned else 'false' }}">{{ "★" if s.id in pinned else "☆" }}</button></form>
+    <a class="card-title" href="{{ main[0] }}">{{ s.title }}</a>
+    {# a live vote: a quiet tag beside the title; "Läuft" (fieldwork, or a live vote being presented) stands out in the
+       top right corner with a pulsing dot (Philipp, 2026-10-04); an interview guide keeps its tag (Ralf) #}
+    {% if s.live is not none %}<span class="badge badge-live-tag" title="{{ de_en('Live-Abstimmung für Veranstaltungen', 'Live poll for events') }}">{{ de_en("Live-Abstimmung", "Live poll") }}</span>{% if s.archived %} <span class="badge">{{ de_en("Archiviert", "Archived") }}</span>{% endif %}
+    {% elif s.interview is not none %}<span class="badge badge-interview" title="{{ de_en('Leitfaden für qualitative Interviews', 'Guide for qualitative interviews') }}">{{ de_en("Interviewleitfaden", "Interview guide") }}</span>
+    {% elif s.sampling is not none %}<span class="badge badge-diary" title="{{ de_en('Tagebuchstudie mit der App', 'Diary survey with the app') }}">{{ de_en("Tagebuchstudie", "Diary survey") }}</span>
+    {% if not running %}{{ status_badge(s) }}{% elif s.archived %}<span class="badge">{{ de_en("Archiviert", "Archived") }}</span>{% endif %}
+    {% else %}<span class="badge badge-survey-tag" title="{{ de_en('Befragung mit Fragebogen', 'Survey with a questionnaire') }}">{{ de_en("Fragebogen", "Questionnaire") }}</span>{# its kind first, like the others (Ralf, 2026-10-04), then its state #}
+    {% if not running %}{{ status_badge(s) }}{% elif s.archived %}<span class="badge">{{ de_en("Archiviert", "Archived") }}</span>{% endif %}{% endif %}
+    {% if running %}<span class="run-mark" title="{{ de_en('Wird gerade präsentiert', 'Being presented right now') if s.live is not none else de_en('Die Feldphase läuft', 'Fieldwork is running') }}"><i aria-hidden="true"></i>{{ de_en("Läuft", "Running") }}</span>{% endif %}
+    {% if my_role != "admin" %}<span class="badge role-badge" title="{{ role_names[my_role][1] }}">{{ role_names[my_role][0] }}</span>{% endif %}
+    {% if access.showcased(s) %}<span class="badge badge-example" title="{{ de_en('Beispielbefragung: Alle angemeldeten Forschenden können sie ansehen', 'Example survey: all signed-in researchers can view it') }}">{{ de_en("Beispiel", "Example") }}</span>{% endif %}
+    <div class="card-meta">
+      {% if s.project %}{{ s.project }} · {% endif %}
+      {# a guide: its kind is the tag beside the title, the line does not say it again (W98); it counts its interviews
+         where the others count completed participations (concept "Befragungstypen im Vergleich" 2026-10-17, T13) #}
+      {# beside the dummies of a draft the count says that it holds real ones only (UI/UX audit 2026-10-09, X63) #}
+      {% if s.interview is none %}{% if dummies.get(s.id) %}{{ de_en("{n} abgeschlossen (echt) · {d} Dummy", "{n} completed (real) · {d} dummy", n=done.get(s.id, 0), d=dummies[s.id]) }}{% else %}{{ de_en("{n} abgeschlossen", "{n} completed", n=done.get(s.id, 0)) }}{% endif %}{% else %}{{ de_en("1 Interview", "1 interview") if done.get(s.id, 0) == 1 else de_en("{n} Interviews", "{n} interviews", n=done.get(s.id, 0)) }}{% endif %}
+      {# the date the list is sorted by, so that two copies of one name tell apart (UI/UX audit 2026-10-09, X16) #}
+      {% if s.updated_at %} · <span title="{{ s.updated_at|localdt }}">{{ de_en("geändert {d}", "changed {d}", d=s.updated_at|localdate) }}</span>{% endif %}
+      {% if s.status == "running" and s.field_end %} · {{ de_en("bis", "until") }} {{ s.field_end|endday }}{% endif %}
+      {% if s.status == "running" and s.max_responses %} · {{ de_en("max.", "max.") }} {{ s.max_responses }}{% endif %}
+      · {{ s.members|map(attribute="display_name")|join(", ") }}
+      {% if s.group_links %}{% set via = access.via(current_user, s) %}{% set others_n = s.group_links|length - via|length %}
+      · {% if via %}{{ de_en("über die Gruppe", "through the group") if not s.member_of(current_user) else de_en("Gruppe", "group") }} {{ via|map(attribute="name")|join(", ") }}{% endif %}{% if others_n %}{{ de_en(" und ", " and ") if via }}{% if via %}{{ de_en("{n} weitere Gruppe", "{n} more group", n=others_n) if others_n == 1 else de_en("{n} weitere Gruppen", "{n} more groups", n=others_n) }}{% else %}{{ de_en("{n} Gruppe", "{n} group", n=others_n) if others_n == 1 else de_en("{n} Gruppen", "{n} groups", n=others_n) }}{% endif %}{% endif %}{% endif %}
+    </div>
+    <div class="card-actions">
+      {% if s.live is not none %}
+      {# a live vote (app/live/): the buttons in the order of a survey's card (Ralf, 2026-10-03) #}
+      {% if s.setup_step %}<a class="button button-small" href="{{ url_for('live.step', code=s.code, key=s.setup_step) }}">{{ icon("play", 16) }} {{ de_en("Anlegen fortsetzen", "Continue setting up") }}</a>
+      {# Fragen first, then Einstellungen and Export; presenting starts from the questions page (Ralf, 2026-10-05) #}
+      {% else %}<a class="button button-small" href="{{ url_for('live.manage', code=s.code) }}">{{ icon("edit", 16) }} {{ de_en("Folien", "Slides") }}</a>{% endif %}
+      {# the results of each kind before Export (Ralf, 2026-10-05); Einstellungen in the menu "⋯" (UI/UX audit 2026-10-16, 6) #}
+      <a class="button button-small button-secondary" href="{{ url_for('surveys.results', survey_id=s.id) }}">{{ icon("chart", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+      <a class="button button-small button-secondary" href="{{ url_for('surveys.data', survey_id=s.id) }}">{{ icon("download", 16) }} {{ de_en("Export", "Export") }}</a>
+      {% elif s.interview is not none %}
+      {# an interview guide (app/interview.py): no data collection, no results #}
+      <a class="button button-small" href="{{ main[0] }}">{{ icon("edit", 16) }} {{ de_en("Leitfaden", "Guide") }}</a>
+      <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=s.code) }}">{{ icon("chart", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+      <a class="button button-small button-secondary" href="{{ url_for('interview.export', code=s.code) }}">{{ icon("download", 16) }} {{ de_en("Export", "Export") }}</a>
+      {% else %}
+      {# setting up goes on with those who may change it, not with "Ansehen" (e.g. an example survey) #}
+      {% set in_setup = s.setup_step and s.status == "draft" and my_role != "viewer" %}
+      {# the one filled button (the main action) first, then always in this order: Fragebogen · Ergebnisse · Export,
+         without the one that is already the main action (UI audit 2026-10-07, W98; Einstellungen in the menu, 2026-10-16) #}
+      {% if in_setup %}
+      <a class="button button-small" href="{{ url_for('wizard.step', survey_id=s.id, key=s.setup_step) }}">{{ icon("play", 16) }} {{ de_en("Anlegen fortsetzen", "Continue setting up") }}</a>
+      {% else %}<a class="button button-small" href="{{ main[0] }}">{{ icon(main[1], 16) }} {{ main[2] }}</a>{% endif %}
+      {% if main[3] != "editor" or in_setup %}<a class="button button-small button-secondary" href="{{ url_for('editor.index', survey_id=s.id) }}">{{ icon("edit", 16) }} {{ de_en("Fragebogen", "Questionnaire") }}</a>{% endif %}
+      {% if main[3] != "results" or in_setup %}<a class="button button-small button-secondary" href="{{ url_for('surveys.results', survey_id=s.id) }}">{{ icon("chart", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>{% endif %}
+      <a class="button button-small button-secondary" href="{{ url_for('surveys.data', survey_id=s.id) }}">{{ icon("download", 16) }} {{ de_en("Export", "Export") }}</a>
+      {% endif %}
+      {# one filled main action and at most three ways (Fragebogen, Ergebnisse, Export); settings, duplicating, hiding,
+         archiving and deleting in the menu "⋯" (UI/UX audit 2026-10-16, 6). An example survey seen only as one keeps
+         its button "Als Kopie übernehmen". #}
+      {% if showcase_only(current_user, s) %}{{ duplicate_button(s, my_role) }}
+        {# only for oneself: no right changes (demo-befragungen-konzept.md, 3a) #}
+        <form class="inline card-act-end" method="post" action="{{ url_for('dashboard.hide', survey_id=s.id) }}">
+          {{ csrf() }}{% if show_hidden %}<input type="hidden" name="view" value="hidden"><input type="hidden" name="hidden" value="0">{% endif %}
+          <button class="button button-small button-secondary" title="{{ de_en('Nur in Ihrer Liste; Ihre Rechte bleiben', 'Only in your list; your rights stay') }}">{{ icon("eye" if show_hidden else "eye-off", 16) }} {{ de_en("Wieder einblenden", "Show again") if show_hidden else de_en("Für mich ausblenden", "Hide for me") }}</button>
+        </form>
+      {% else %}<span class="card-act-end">{% with survey=s, on_card=true %}{% include "surveys/_survey_menu.html" %}{% endwith %}</span>{% endif %}
+    </div>
+  </li>
+{%- endmacro %}
+{% block title %}{{ de_en("Archiv", "Archive") if show_archived else de_en("Ausgeblendet", "Hidden") if show_hidden else de_en("Meine Befragungen", "My surveys") }}{% endblock %}
+{% block container_class %}container{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ de_en("Archiv", "Archive") if show_archived else de_en("Ausgeblendet", "Hidden") if show_hidden else de_en("Meine Befragungen", "My surveys") }}</h1>
+  </div>
+  {# only the types this person may create (app/kind_access.py) #}{% if may_create and kinds_made %}<div class="page-head-actions">
+    {% if "survey" in kinds_made %}<a class="button button-secondary button-kind" href="{{ url_for('wizard.new') }}" title="{{ de_en('Online-Befragung mit Fragebogen', 'Online survey with a questionnaire') }}">{{ icon("plus") }} {{ de_en("Fragebogen", "Questionnaire") }}</a>{% endif %}
+    {# experimental until the app is in the Play Store (app/diary.py) #}{% if experimental("diary") and "diary" in kinds_made %}<a class="button button-secondary button-kind kind-diary" href="{{ url_for('diary.new') }}" title="{{ de_en('Experience Sampling: Teilnehmende antworten über Tage oder Wochen in der App, zu festen Zeiten oder wenn etwas passiert', 'Experience sampling: participants answer in the app over days or weeks, at fixed times or when something happens') }}">{{ icon("plus") }} {{ de_en("Tagebuchstudie", "Diary survey") }} <span class="badge badge-exp">{{ de_en("experimentell", "experimental") }}</span></a>{% endif %}
+    {% if "interview" in kinds_made %}<a class="button button-secondary button-kind kind-interview" href="{{ url_for('interview.new') }}" title="{{ de_en('Leitfaden für qualitative Interviews: entwickeln, als Word ausgeben, im Gespräch auf dem Tablet führen, Interviews speichern und auswerten', 'Guide for qualitative interviews: develop it, export it to Word, conduct the conversation on a tablet, store and analyse interviews') }}">{{ icon("plus") }} {{ de_en("Interviewleitfaden", "Interview guide") }}</a>{% endif %}
+    {% if "live" in kinds_made %}<a class="button button-secondary button-kind kind-live" href="{{ url_for('live.new') }}" title="{{ de_en('Abstimmung im Hörsaal oder Vortrag: Das Publikum antwortet am Handy, kurz eingerichtet', 'Vote in a lecture or talk: the audience answers on their phones, set up quickly') }}">{{ icon("plus") }} {{ de_en("Live-Abstimmung", "Live poll") }}</a>{% endif %}
+    {# add-on modules (app/plugins.py), each with its experimental feature #}{% for b in plugin_buttons() %}<a class="button button-secondary button-kind" href="{{ url_for(b.endpoint) }}" title="{{ de_en(b.title_de, b.title_en) }}">{{ icon("plus") }} {{ de_en(b.de, b.en) }} <span class="badge badge-exp">{{ de_en("experimentell", "experimental") }}</span></a>{% endfor %}</div>{% endif %}
+</div>
+
+<div class="dash-single">
+<div class="dash-main">
+{# a development server (the tape under the header): the tool is still being built #}
+{% if config.UNDER_CONSTRUCTION and not show_archived and not show_hidden %}{% set status = brand_status_url() or "https://status.askurious.de" %}
+<div class="flash flash-warning">{{ icon("alert", 16) }}
+  <span>{{ de_en("Askurious ist noch in Entwicklung. Wir streben eine hohe Zuverlässigkeit an, spielen auf der Seite der Forschenden aber noch regelmäßig Updates ein; laufende Befragungen sind davon weniger, aber dennoch auch betroffen. Aktueller Stand:", "Askurious is still under development. We aim for high reliability but still update the researchers' side regularly; running surveys are affected less, but still affected. Current state:") }}
+    <a href="{{ status }}">{{ status.split("//")[-1] }}</a></span></div>
+{% endif %}
+{% for s in submissions %}
+<div class="flash {{ 'flash-success' if s.state == 'accepted' else 'flash-warning' }}">{{ icon("check" if s.state == "accepted" else "alert", 16) }}
+  <span>{% if s.state == "accepted" %}{{ de_en("„{name}“ ist in „Konstrukte“ aufgenommen.", "“{name}” has been added to “Constructs”.", name=s.construct.name) }}{% elif s.state == "question" %}{{ de_en("Rückfrage zu „{name}“, das Sie für „Konstrukte“ eingereicht haben.", "A question about “{name}”, which you submitted for “Constructs”.", name=s.construct.name) }}{% else %}{{ de_en("„{name}“ wurde nicht in „Konstrukte“ aufgenommen.", "“{name}” was not added to “Constructs”.", name=s.construct.name) }}{% endif %}
+    <a href="{{ url_for('constructs.linked', key=s.construct.key) }}#toolbox">{{ de_en("Öffnen", "Open") }}</a></span></div>
+{% endfor %}
+{% if surveys or group_filter or has_live or has_interview or has_diary %}
+<div class="dash-toolbar">
+{% if group_filter or has_live or has_interview or has_diary %}
+{# two filters that combine: the kind (one name per kind, as on the cards) and, in a choice, the group (R29, R96) #}
+<form method="get" class="dash-filter" aria-label="{{ de_en('Filtern', 'Filter') }}">
+  {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
+  {% if show_hidden %}<input type="hidden" name="hidden" value="1">{% endif %}
+  {% if (has_live or has_interview or has_diary) and kinds_seen|length > 1 %}<nav class="segmented dash-groups" aria-label="{{ de_en('Art', 'Kind') }}">{# one choice: .segmented (W81) #}
+    {% for key, label in (("", de_en("Alle", "All")), ("fragebogen", de_en("Fragebögen", "Questionnaires")), ("tagebuch", de_en("Tagebuchstudien", "Diary surveys")), ("leitfaden", de_en("Interviewleitfäden", "Interview guides")), ("live", de_en("Live-Abstimmungen", "Live polls"))) if key == "" or (key == "fragebogen" and "survey" in kinds_seen) or (key == "leitfaden" and has_interview) or (key == "live" and has_live) or (key == "tagebuch" and has_diary) %}
+    <a {% if kind == key %}aria-current="page" {% endif %}href="{{ url_for('dashboard.index', art=key or none, group=group.id if group else none, archived=1 if show_archived else none, hidden=1 if show_hidden else none) }}">{{ label }}</a>{% endfor %}
+  </nav>{% endif %}
+  {% if kind %}<input type="hidden" name="art" value="{{ kind }}">{% endif %}
+  {% if group_filter %}<label class="dash-group-choice">{{ de_en("Gruppe", "Group") }}
+    <select name="group" data-submit-on-change><option value="">{{ de_en("alle", "all") }}</option>{% for g in group_filter %}<option value="{{ g.id }}" {% if group and group.id == g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></label>
+  <noscript><button class="button button-small button-secondary">{{ de_en("Zeigen", "Show") }}</button></noscript>{% endif %}
+</form>
+{% endif %}
+{# search and sort in the browser (app.js), shown once the list is longer than the window (Ralf, 2026-10-05) #}
+{% if surveys|length > 1 %}<div class="dash-find" data-dash-find hidden>
+  <input type="search" placeholder="{{ de_en('Suchen', 'Search') }}" aria-label="{{ de_en('Befragungen durchsuchen', 'Search surveys') }}" data-dash-search>
+  <select aria-label="{{ de_en('Sortieren', 'Sort') }}" data-dash-sort>
+    <option value="">{{ de_en("Zuletzt geändert", "Last changed") }}</option><option value="title">{{ de_en("Titel A–Z", "Title A–Z") }}</option>
+    <option value="created">{{ de_en("Zuletzt angelegt", "Last created") }}</option><option value="done">{{ de_en("Meiste Teilnahmen", "Most participations") }}</option>
+  </select>
+</div>{% endif %}
+</div>
+{% endif %}
+{% if surveys %}
+<ul class="card-list space-above" data-dash-list>
+  {% for s in surveys %}{{ survey_card(s) }}{% endfor %}
+</ul>
+<p class="muted" data-dash-none hidden>{{ de_en("Keine Befragung passt zur Suche.", "No survey matches the search.") }}</p>
+{# the number of hits, said aloud while typing (UI audit W76) #}
+<p class="visually-hidden" role="status" data-dash-count></p>
+{% else %}
+<div class="panel empty-panel">
+  <p class="muted">{{ de_en("Keine archivierten Befragungen.", "No archived surveys.") if show_archived else de_en("Keine ausgeblendeten Befragungen.", "No hidden surveys.") if show_hidden else (de_en("Mit dieser Gruppe ist keine aktive Befragung geteilt.", "No active survey is shared with this group.") if group else de_en("Noch keine Befragungen.", "No surveys yet.")) }}</p>
+  {# the same buttons, in the same order as above (R29) #}
+  {% if not show_archived and not show_hidden and may_create and kinds_made %}{% if "survey" in kinds_made %}<a class="button button-secondary button-kind" href="{{ url_for('wizard.new') }}">{{ icon("plus") }} {{ de_en("Fragebogen", "Questionnaire") }}</a>{% endif %}
+    {% if experimental("diary") and "diary" in kinds_made %}<a class="button button-secondary button-kind kind-diary" href="{{ url_for('diary.new') }}">{{ icon("plus") }} {{ de_en("Tagebuchstudie", "Diary survey") }} <span class="badge badge-exp">{{ de_en("experimentell", "experimental") }}</span></a>{% endif %}
+    {% if "interview" in kinds_made %}<a class="button button-secondary button-kind kind-interview" href="{{ url_for('interview.new') }}">{{ icon("plus") }} {{ de_en("Interviewleitfaden", "Interview guide") }}</a>{% endif %}
+    {% if "live" in kinds_made %}<a class="button button-secondary button-kind kind-live" href="{{ url_for('live.new') }}">{{ icon("plus") }} {{ de_en("Live-Abstimmung", "Live poll") }}</a>{% endif %}
+  {% elif not show_archived and not show_hidden %}<p class="muted small">{{ de_en("Ihr Konto ist für die Mitarbeit in Befragungen und Gruppen freigeschaltet, zu denen Sie eingeladen wurden. Für eigene Befragungen schreiben Sie über „Rückmeldung geben“ an die Admins der Plattform.", "Your account may work on surveys and in groups you were invited to. For surveys of your own, write to the platform admins via “Give feedback”.") }}</p>
+    {# the way to the admins right here, the dialog of the bug icon in the header (UI/UX audit 2026-10-09, X72) #}
+    <button type="button" class="button button-secondary" data-feedback-open>{{ icon("bug", 18) }} {{ de_en("Rückmeldung geben", "Give feedback") }}</button>{% endif %}
+</div>
+{% endif %}
+
+{% if showcase %}
+{# example surveys (Survey.showcase): below one's own, folded, open while one has nothing of one's own yet; the browser
+   remembers the choice (demo-befragungen-konzept.md, 2b). One's own examples stand only here (Ralf 2026-10-11) #}
+<details class="dash-examples space-above" data-dash-examples {% if not has_own %}open{% endif %}>
+  <summary><span class="dash-examples-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Beispielbefragungen", "Example surveys") }} <span class="muted">({{ showcase|length }})</span></h2></summary>
+  <div class="dash-examples-head">
+    <p class="muted small flush">{% if may_create %}{{ de_en("Zum Ansehen und als Vorlage: Fragebogen, Ablauf, Einstellungen, Vorschau und Ergebnisse lesen, mit „Als Kopie übernehmen“ eine eigene Befragung daraus machen.", "To look at and to start from: read the questionnaire, flow, settings, preview and results, make a survey of your own from one with “Take a copy”.") }}{% else %}{{ de_en("Zum Ansehen: Fragebogen, Ablauf, Einstellungen, Vorschau und Ergebnisse lesen.", "To look at: read the questionnaire, flow, settings, preview and results.") }}{% endif %} {{ de_en("Ändern kann sie niemand außer den Beteiligten.", "Only those involved can change them.") }}</p>
+    {% if foreign_examples %}<form class="inline" method="post" action="{{ url_for('dashboard.hide_examples') }}">{{ csrf() }}
+      <button class="button button-small button-secondary">{{ icon("eye-off", 16) }} {{ de_en("Alle für mich ausblenden", "Hide all for me") }}</button></form>{% endif %}
+  </div>
+  <ul class="card-list">
+    {% for s in showcase %}{{ survey_card(s) }}{% endfor %}
+  </ul>
+</details>
+{% endif %}
+
+<p class="small space-above">
+  {% if show_archived or show_hidden %}<a class="back-link" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Zurück zu aktiven Befragungen", "Back to active surveys") }}</a>
+  {% else %}{% if archived_count %}<a class="icon-link" href="{{ url_for('dashboard.index', archived=1) }}">{{ icon("archive", 16) }} {{ de_en("Archiv", "Archive") }} ({{ archived_count }})</a>{% endif %}
+  {% if hidden_count %}<a class="icon-link" href="{{ url_for('dashboard.index', hidden=1) }}" title="{{ de_en('Befragungen, die Sie für sich ausgeblendet haben', 'Surveys you hid for yourself') }}">{{ icon("eye-off", 16) }} {{ de_en("Ausgeblendet", "Hidden") }} ({{ hidden_count }})</a>{% endif %}{% endif %}
+  {% if surveys or archived_count %}<a class="icon-link" href="{{ url_for('dashboard.export') }}">{{ icon("download", 16) }} {{ de_en("Mehrere als Datei exportieren", "Export several as a file") }}</a>{% endif %}
+</p>
+</div>
+
+</div>
+{% endblock %}

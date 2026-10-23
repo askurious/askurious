@@ -1,0 +1,21 @@
+{# The choice at the top of a loop's page: rows from a table or from factors and levels (app/vignettes.py from_table,
+   to_factors, to_table). Only where the structure can change (draft, default language, editor). Needs: survey, node, lang,
+   structural; "source" is "table" or "factors". The current source is no button: one click, the other page. #}
+{% if structural %}
+{% from "_macros.html" import csrf %}
+{# no question beforehand: the switch is one undo step, the next page says what it did, with "Rückgängig" (W28) #}
+<form method="post" class="panel loop-source">
+  {{ csrf() }}<input type="hidden" name="action" value="{{ 'source_factors' if source == 'table' else 'source_table' }}">
+  <span class="label-title">{{ de_en("Woher kommen die Durchläufe?", "Where do the passes come from?") }}</span>
+  <div class="loop-source-list">
+    {% for key, sym, title, desc in [("table", "📋", de_en("Tabelle", "Table"), de_en("Zeilen selbst eintragen, z. B. je Roboter oder Szenario; jede Zeile ein Durchlauf", "enter rows yourself, e.g. per robot or scenario; each row one pass")),
+                                     ("factors", "🧩", de_en("Faktoren und Stufen", "Factors and levels"), de_en("Vignetten: Askurious kreuzt die Stufen, zieht einen Versuchsplan und teilt ihn in Decks je Person", "vignettes: Askurious crosses the levels, draws an experimental design and splits it into decks per person"))] %}
+    {% if key == source %}
+    <div class="loop-source-item is-current" aria-current="true"><span aria-hidden="true">{{ sym }}</span><span><strong>{{ title }}</strong><span class="hint">{{ desc }}</span></span></div>
+    {% else %}
+    <button class="loop-source-item"><span aria-hidden="true">{{ sym }}</span><span><strong>{{ title }}</strong><span class="hint">{{ desc }}</span></span></button>
+    {% endif %}
+    {% endfor %}
+  </div>
+</form>
+{% endif %}

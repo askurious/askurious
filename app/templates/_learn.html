@@ -1,0 +1,49 @@
+{# Lernhilfen (app/learning.py). The switch on "Konto" shows the glossary "?" and the folds for beginners; the
+   folds that weigh a methodological choice are shown to everybody (learning.show_reason, UI/UX audit 2026-10-05, V28).
+   why(key): a fold "Warum?" at a decision, with what speaks for and against, the short reference (APA) after the
+   text and the references below it.
+   term(key, shown): a statistic with a quiet "?"; a click or the keyboard opens a small box in the same window with
+   the explanation and a link "im Glossar ↗" (app.js, UI/UX audit 2026-10-05, V27). n, M, SD and Md get their "?"
+   only once per page (learning.show_term). #}
+{% from "_sources.html" import entry, cite %}
+{% macro why(key) -%}
+{% if learning.show_reason(key) %}{% set r = learning.reason(key) %}
+<details class="learn-why">
+  <summary>{{ de_en("Warum?", "Why?") }} {{ r.title }}</summary>
+  <p>{{ r.text }}{% if r.sources %} {{ cite(r.sources, link=false) }}{% endif %}</p>
+  {% if r.sources %}<ul class="learn-sources">{% for e in apa.references(r.sources) %}<li>{{ e.html }}</li>{% endfor %}</ul>{% endif %}
+  <button type="button" class="learn-hide" data-learn-hide="{{ key }}"
+    data-url="{{ url_for('learning.hide', key=key) }}" data-unhide-url="{{ url_for('learning.unhide', key=key) }}">{{ de_en("Nicht mehr zeigen", "Don’t show again") }}</button>
+</details>
+{% endif %}
+{%- endmacro %}
+
+{# method(title): a long paragraph on how something is computed, in a fold that looks like "Warum?" (UI/UX audit
+   2026-10-07, S7): one reading sentence with its short reference stays in sight, the method behind it opens here.
+   Its numbers belong to the result, so there is no "Nicht mehr zeigen". Use with call: {% call method(t) %}...{% endcall %} #}
+{% macro method(title) -%}
+<details class="learn-why learn-method">
+  <summary>{{ de_en("Wie gerechnet?", "How is it computed?") }} {{ title }}</summary>
+  {{ caller() }}
+</details>
+{%- endmacro %}
+
+{# how(title, open): how an element is built, in the same fold as "Warum?" (pre-test 2026-10-20, 24): a few sentences
+   and a small example, open while the element is still empty. It explains the element, not a choice, so there is no
+   "Nicht mehr zeigen". Use with call: {% call how(t, open) %}...{% endcall %} #}
+{% macro how(title, open=false) -%}
+<details class="learn-why learn-how"{% if open %} open{% endif %}>
+  <summary>{{ de_en("So funktioniert es:", "How it works:") }} {{ title }}</summary>
+  {{ caller() }}
+</details>
+{%- endmacro %}
+
+{% macro term(key, shown=none) -%}
+{% set t = learning.term(key) %}
+{#- word and "?" in one span: in a label laid out as a column (.stack label) the "?" would otherwise take a line of its
+   own and push the field down #}
+{%- if learning_on() and learning.show_term(key) %}<span class="learn-term-at">{{ shown if shown is not none else t.symbol }}<button type="button" class="learn-term" data-term aria-expanded="false"
+   data-term-name="{{ t.name }}" data-term-text="{{ t.text }}" data-term-example="{{ t.example }}" data-term-href="{{ url_for('learning.glossary') }}#{{ t.key }}"
+   aria-label="{{ de_en('{name}: Was heißt das?', '{name}: what does it mean?', name=t.name) }}">?</button></span>
+{%- else %}{{ shown if shown is not none else t.symbol }}{% endif %}
+{%- endmacro %}

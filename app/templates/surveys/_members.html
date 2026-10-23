@@ -1,0 +1,150 @@
+{% from "_macros.html" import orcid_link, csrf %}
+{% from "_share.html" import end_share %}
+{% from "_icons.html" import icon %}
+{% from "_people.html" import person_add %}
+{# Needs: survey. Optional: members_back (where POSTs return), members_search_url (GET target of the search). #}
+{% set back = members_back if members_back is defined else url_for('surveys.detail', survey_id=survey.id) ~ '#members' %}
+{% set search_url = members_search_url if members_search_url is defined else url_for('surveys.detail', survey_id=survey.id) %}
+{% set manage = survey.can(current_user, "admin") %}
+{# the roles in the words of a questionnaire, a live vote or a guide (V89) #}
+{% set role_names = role_names_for(survey) %}
+  <ol class="plain member-list">
+    {% for m in survey.members %}
+    <li>
+      <span class="member-rank">{{ loop.index }}.</span>
+      {% if manage %}<span class="member-moves">
+        <form class="inline" method="post" action="{{ url_for('surveys.move_member', survey_id=survey.id, member_id=m.id, direction='up') }}">{{ csrf() }}<input type="hidden" name="next" value="{{ back }}"><button class="icon-btn" title="{{ de_en('nach oben', 'up') }}" aria-label="{{ de_en('nach oben', 'up') }}" {% if loop.first %}disabled{% endif %}>{{ icon("up", 16) }}</button></form>
+        <form class="inline" method="post" action="{{ url_for('surveys.move_member', survey_id=survey.id, member_id=m.id, direction='down') }}">{{ csrf() }}<input type="hidden" name="next" value="{{ back }}"><button class="icon-btn" title="{{ de_en('nach unten', 'down') }}" aria-label="{{ de_en('nach unten', 'down') }}" {% if loop.last %}disabled{% endif %}>{{ icon("down", 16) }}</button></form>
+      </span>{% endif %}
+      {{ m.display_name }} {{ orcid_link(m.orcid_id, unauth=not m.signed_up) }}
+      {% if m.affiliation %}<span class="muted small">{{ m.affiliation }}</span>{% endif %}
+      {% if m.is_former %}<span class="badge" title="{{ de_en('Der Name bleibt in der Autorenliste, weil Teilnehmende unter ihm eingewilligt haben. Zugriff hat über diesen Eintrag niemand.', 'The name stays in the list of authors because participants gave their consent under it. Nobody has access through this entry.') }}">{{ de_en("ehemalig", "former") }}</span>
+      {% elif not m.signed_up %}<span class="badge">{{ de_en("noch nicht angemeldet", "not signed in yet") }}</span>{% endif %}
+      {% if m.is_former %}
+      {% elif manage %}
+      {# the own role: asked first, since only another admin can give it back #}
+      <form class="inline member-role" method="post" action="{{ url_for('surveys.set_member_role', survey_id=survey.id, member_id=m.id) }}"
+            {% if m.user_id == current_user.id %}data-confirm="{{ de_en('Eigene Rolle ändern?', 'Change your own role?') }}" data-confirm-note="{{ de_en('Ohne die Rolle „Admin“ können Sie Einstellungen, Beteiligte und Rollen nicht mehr ändern; zurückgeben kann sie nur eine andere Admin-Person.', 'Without the role “Admin” you can no longer change settings, people involved and roles; only another admin can give it back.') }}"
+            data-confirm-ok="{{ de_en('Rolle ändern', 'Change role') }}" data-confirm-danger{% endif %}>
+        {{ csrf() }}<input type="hidden" name="next" value="{{ back }}">
+        <select name="role" aria-label="{{ de_en('Rolle von {name}', 'Role of {name}', name=m.display_name) }}" data-current="{{ m.role }}" data-submit-on-change>
+          {% for key, (label, what) in role_names.items() %}<option value="{{ key }}" title="{{ what }}" {% if m.role == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <noscript><button class="button button-small button-secondary">{{ de_en("Ändern", "Change") }}</button></noscript>
+      </form>
+      {% else %}<span class="badge role-badge" title="{{ role_names[m.role][1] }}">{{ role_names[m.role][0] }}</span>{% endif %}
+      {# the person's level for this type caps the role (app/kind_access.py, F8); only platform admins change it #}
+      {% if not m.is_former and m.signed_up %}{% set lvl = kind_level_of(m.user, survey.kind) %}{% if lvl == "off" or (lvl == "view" and m.role != "viewer") %}
+      <span class="hint">{{ de_en("sieht diese Art nicht (Befragungstyp „Aus“); ein Admin der Plattform kann das ändern", "does not see this type (survey type “Off”); a platform admin can change that") if lvl == "off" else de_en("sieht diese Art nur zum Ansehen; ein Admin der Plattform kann das ändern", "sees this type for viewing only; a platform admin can change that") }}</span>{% endif %}{% endif %}
+      {% if survey.members|length > 1 and (manage or m.user_id == current_user.id) %}
+      {% set own = m.user_id == current_user.id %}
+      {% if own %}{{ end_share(url_for('surveys.remove_member', survey_id=survey.id, member_id=m.id), de_en("Befragung verlassen", "Leave survey"), {"next": back}, de_en("Sie verlieren sofort den Zugriff auf „{title}“. Wieder hinzufügen kann Sie nur eine Admin-Person der Befragung.", "You lose access to “{title}” at once. Only an admin of the survey can add you again.", title=survey.title), de_en("Befragung verlassen", "Leave survey")) }}
+      {% else %}{{ end_share(url_for('surveys.remove_member', survey_id=survey.id, member_id=m.id), de_en("{name} entfernen", "Remove {name}", name=m.display_name), {"next": back}, de_en("Der Zugriff auf diese Befragung endet sofort; die Person lässt sich später wieder hinzufügen.", "Access to this survey ends at once; the person can be added again later."), de_en("Entfernen", "Remove")) }}{% endif %}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+
+  {# groups with access: their members may open the survey, they are not authors (app/access.py) #}
+  {% set my_groups = groups_of(current_user, survey) if manage else [] %}
+  {% set open_groups = my_groups|rejectattr("id", "in", survey.group_links|map(attribute="group_id")|list)|list %}
+  {% if survey.group_links or open_groups %}
+  <div class="member-groups" id="access-groups">
+    <h3>{{ de_en("Gruppen mit Zugriff", "Groups with access") }} <span class="hint">{{ de_en("Mitglieder der Gruppe haben Zugriff, stehen aber nicht in der Autorenliste", "members of the group have access but are not in the list of authors") }}</span></h3>
+    {% if survey.group_links %}
+    <ul class="plain member-list">
+      {% for l in survey.group_links %}
+      <li>
+        <details class="member-group">
+          <summary><span class="badge">{{ de_en("Gruppe", "Group") }}</span> {{ group_label(l.group) }} <span class="muted small">{{ de_en("{n} Mitglied", "{n} member", n=1) if l.group.members|length == 1 else de_en("{n} Mitglieder", "{n} members", n=l.group.members|length) }}</span></summary>
+          {# who belongs to a group stays with those who work with it, not with everyone who sees an example survey #}
+          {% if not showcase_only(current_user, survey) %}<ul>{% for m in l.group.members %}<li>{{ m.display_name }} {{ orcid_link(m.orcid_id, unauth=not m.signed_up) }}{% if m.role == "lead" %} <span class="hint">{{ de_en("Leitung", "Lead") }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+        </details>
+        {# a group: Ansehen or Bearbeiten (with the raw data), never Admin (Ralf, 2026-10-05) #}
+        {% set grole = l.role if l.role in ("viewer", "editor") else "viewer" %}
+        {% if manage %}
+        <form class="inline member-role" method="post" action="{{ url_for('surveys.set_group_access', survey_id=survey.id) }}">
+          {{ csrf() }}<input type="hidden" name="next" value="{{ back }}"><input type="hidden" name="link" value="{{ l.id }}">
+          <select name="role" aria-label="{{ de_en('Rolle der Gruppe {name}', 'Role of the group {name}', name=l.group.name) }}" data-current="{{ grole }}" data-submit-on-change>
+            {% for key in ("viewer", "editor") %}<option value="{{ key }}" title="{{ role_names[key][1] }}" {% if grole == key %}selected{% endif %}>{{ role_names[key][0] }}</option>{% endfor %}
+          </select>
+          <noscript><button class="button button-small button-secondary">{{ de_en("Ändern", "Change") }}</button></noscript>
+        </form>
+        {% else %}<span class="badge role-badge" title="{{ role_names[grole][1] }}">{{ role_names[grole][0] }}</span>{% endif %}
+        {% if manage %}
+        {{ end_share(url_for('surveys.remove_group_access', survey_id=survey.id), de_en("Der Gruppe „{name}“ den Zugriff nehmen", "Take access away from the group “{name}”", name=l.group.name), {"next": back, "link": l.id}, de_en("Er endet sofort für alle Mitglieder, die nicht zusätzlich als Person beteiligt sind.", "It ends at once for all members who are not also involved in person."), de_en("Zugriff nehmen", "Take access away")) }}
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if open_groups %}
+    <form method="post" action="{{ url_for('surveys.add_group_access', survey_id=survey.id) }}" class="row member-group-add">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ back }}">
+      <select name="group" aria-label="{{ de_en('Gruppe', 'Group') }}" required>
+        <option value="">{{ de_en("Gruppe wählen …", "Choose a group …") }}</option>
+        {% for g in open_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+      </select>
+      <select name="role" aria-label="{{ de_en('Rolle der Gruppe', 'Role of the group') }}">
+        {% for key in ("viewer", "editor") %}<option value="{{ key }}" title="{{ role_names[key][1] }}">{{ role_names[key][0] }}</option>{% endfor %}
+      </select>
+      <button class="button button-secondary">{{ de_en("Zugriff geben", "Give access") }}</button>
+    </form>
+    <p class="muted small">{{ de_en("Der Zugriff gilt für alle Mitglieder der Gruppe, auch für künftige; wer dazugehört, entscheidet die Leitung der Gruppe.", "Access applies to all members of the group, future ones too; the lead of the group decides who belongs to it.") }}
+      {{ de_en("„Bearbeiten“ schließt die Rohdaten und das Starten, Pausieren und Schließen ein, also auch für jedes neue Mitglied. „Admin“ wird nur, wer oben als Person beteiligt ist.", "“Edit” includes the raw data and starting, pausing and closing, so also for every new member. Only someone involved in person above becomes “Admin”.") }}</p>
+    {% elif manage %}
+    {# nothing left to offer: say so, instead of a form that silently disappears #}
+    <p class="muted small" data-no-more-groups>{{ de_en("Weitere Gruppen: Ihre Gruppe hat schon Zugriff.", "More groups: your group already has access.") if my_groups|length == 1 else de_en("Weitere Gruppen: Alle Ihre Gruppen haben schon Zugriff.", "More groups: all your groups already have access.") }} {{ de_en("Teilen können Sie mit jeder Gruppe, in der Sie selbst Mitglied sind, auch mit mehreren; weitere Gruppen legen Sie unter", "You can share with every group you are a member of, also with several; you create more groups under") }}
+      <a href="{{ url_for('groups.index') }}">{{ de_en("Gruppen", "Groups") }}</a> {{ de_en("an oder lassen sich dort aufnehmen.", "or get added to them there.") }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# the organisation the survey belongs to (app/orgs.py, konzept-abteilungen-2026-10-15.md): shown once there is more
+     than one; its admins move it into another of their organisations, admins of the organisation make it its example #}
+  {% if org_several() %}{% set here = org_get(org_of(survey)) %}{% set others = orgs_creatable(current_user)|rejectattr("id", "equalto", here.id if here else none)|list %}
+  <div class="member-showcase" id="organisation">
+    <h3>{{ de_en("Organisation", "Organisation") }} <span class="hint">{{ org_label(here) }}</span></h3>
+    {% if manage and others %}
+    <form method="post" action="{{ url_for('surveys.move_organisation', survey_id=survey.id) }}" class="inline button-row"
+          data-confirm="{{ de_en('Befragung in eine andere Organisation verschieben?', 'Move the survey into another organisation?') }}" data-confirm-note="{{ de_en('Gruppen der bisherigen Organisation verlieren ihren Zugriff; persönlich Beteiligte behalten ihn.', 'Groups of the former organisation lose their access; people involved in person keep it.') }}" data-confirm-ok="{{ de_en('Verschieben', 'Move') }}">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ back }}">
+      <select name="org" aria-label="{{ de_en('Ziel-Organisation', 'Target organisation') }}">{% for o in others %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select>
+      <button class="button button-small button-secondary">{{ de_en("Verschieben", "Move") }}</button>
+    </form>
+    {% endif %}
+    {% if manage and here and org_is_admin(current_user, here.id) %}
+    <form method="post" action="{{ url_for('surveys.set_org_showcase', survey_id=survey.id) }}">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ back }}">
+      <label class="check"><input type="checkbox" name="state" value="on" {% if survey.org_showcase %}checked{% endif %} data-submit-on-change>
+        {{ de_en("Als Beispielbefragung der Organisation zeigen", "Show as an example survey of the organisation") }}</label>
+      <noscript><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></noscript>
+    </form>
+    {% elif survey.org_showcase %}<p class="muted small">{{ de_en("Beispielbefragung der Organisation: Alle ihre Mitglieder können sie ansehen und kopieren.", "Example survey of the organisation: all its members can view and copy it.") }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  {# an example survey: every signed-in researcher may view it; only site admins who are its admins switch it
+     (app/access.py, demo-befragungen-konzept.md), with the second factor while ADMIN_TOTP is on (audit 2026-10-11, M7) #}
+  {% set showcase_switch = manage and admin_rights(current_user) %}
+  {% if showcase_switch or survey.showcase %}
+  <div class="member-showcase" id="showcase">
+    <h3>{{ de_en("Beispielbefragung", "Example survey") }} <span class="hint">{{ de_en("für alle angemeldeten Forschenden sichtbar", "visible to all signed-in researchers") }}</span></h3>
+    {% if showcase_switch %}
+    <form method="post" action="{{ url_for('surveys.set_showcase', survey_id=survey.id) }}">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ back }}">
+      <label class="check"><input type="checkbox" name="state" value="on" {% if survey.showcase %}checked{% endif %} data-submit-on-change>
+        {{ de_en("Als Beispielbefragung allen zeigen", "Show to everyone as an example survey") }}</label>
+      <noscript><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></noscript>
+    </form>
+    {% endif %}
+    <p class="muted small">{{ de_en("Alle angemeldeten Forschenden finden sie unter „Meine Befragungen“ im Abschnitt „Beispielbefragungen“: Sie können Fragebogen, Ablauf, Einstellungen, Vorschau und zusammengefasste Ergebnisse ansehen und eine eigene Kopie anlegen, aber nichts ändern, nicht kommentieren und keine Einzelantworten sehen. Sichtbar werden dabei die Namen der oben Beteiligten.", "All signed-in researchers find it under “My surveys” in the section “Example surveys”: they can view the questionnaire, flow, settings, preview and summarised results and create a copy of their own, but change nothing, not comment and see no single answers. The names of those involved above become visible.") }}{% if survey.archived %} {{ de_en("Archiviert ist sie für niemanden sonst sichtbar.", "While archived it is visible to nobody else.") }}{% endif %}</p>
+  </div>
+  {% endif %}
+
+  {% if manage %}
+  <p class="muted small">{{ de_en("Rollen:", "Roles:") }} {% for key, (label, what) in role_names.items() %}<strong>{{ label }}</strong>: {{ what }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+  {# one component for adding a person (_people.html, W96, S8) #}
+  {{ person_add(search_url ~ "#members", "member-q", q, results, url_for('surveys.add_member', survey_id=survey.id), roles=role_names, role_default="editor", hidden={"next": back}, invite_url=url_for('invites.to_survey', survey_id=survey.id)) }}
+  {% if mail_enabled() %}{% with invites=open_invites(survey=survey), roles=role_names %}{% include "invites/_open.html" %}{% endwith %}{% endif %}
+  {% endif %}

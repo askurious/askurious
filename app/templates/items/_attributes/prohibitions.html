@@ -1,0 +1,26 @@
+{# Shared by conjoint-like items (app/items/attributes.py): prohibited level pairs as a grid per attribute pair. Expects item, kind, lang, structural, languages, new_id, icon.
+   prohib_unit goes into "in {unit}": German "einer Vignette", English "a vignette". #}
+{% set saved = kind.attributes(item, lang) %}
+{% if saved|length >= 2 %}
+<fieldset class="cj-prohib" data-cj-tab="design">
+  <legend>{{ de_en("Verbotene Kombinationen", "Prohibitions") }} <span class="hint">{{ prohib_hint|default(de_en("Stufen zweier Merkmale, die nie zusammen in einer Option vorkommen sollen, z. B. sehr niedriger Preis und Premium-Ausstattung", "Levels of two attributes that should never appear together in one option, e.g. a very low price and premium equipment")) }}</span></legend>
+  {% set chosen = [] %}{% for p in item.config.get("prohibitions", []) %}{% set _ = chosen.append(p.a ~ ":" ~ p.la ~ "|" ~ p.b ~ ":" ~ p.lb) %}{% endfor %}
+  {% for a in saved %}{% for b in saved[loop.index:] %}
+  {% set n = namespace(k=0) %}{% for la in a.levels %}{% for lb in b.levels %}{% if (a.id ~ ":" ~ la.id ~ "|" ~ b.id ~ ":" ~ lb.id) in chosen %}{% set n.k = n.k + 1 %}{% endif %}{% endfor %}{% endfor %}
+  <details class="cj-prohib-pair" {% if n.k %}open{% endif %}>
+    <summary>{{ a.label }} × {{ b.label }}{% if n.k %} <span class="badge badge-pending">{{ de_en("{n} verboten", "{n} prohibited", n=n.k) }}</span>{% endif %}</summary>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="cj-prohib-grid">
+      <thead><tr><th></th>{% for lb in b.level_labels %}<th scope="col">{{ lb or "?" }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for la in a.levels %}{% set la_label = a.level_labels[loop.index0] %}
+        <tr><th scope="row">{{ la_label or "?" }}</th>
+          {% for lb in b.levels %}{% set v = a.id ~ ":" ~ la.id ~ "|" ~ b.id ~ ":" ~ lb.id %}
+          <td><label class="cj-prohib-cell" title="{{ de_en('{a} und {b} nie zusammen', '{a} and {b} never together', a=la_label, b=b.level_labels[loop.index0]) }}">
+            <input type="checkbox" name="prohib" value="{{ v }}" {% if v in chosen %}checked{% endif %} {% if not structural %}disabled{% endif %}><span aria-hidden="true">✕</span></label></td>
+          {% endfor %}</tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endfor %}{% endfor %}
+  <p class="muted small">{{ de_en("Angekreuzt = diese beiden Stufen erscheinen nie gemeinsam in {unit}.", "Ticked = these two levels never appear together in {unit}.", unit=prohib_unit|default(de_en("einer Option", "an option"))) }}{% if prohib_footnote is defined %} {{ prohib_footnote }}{% endif %} {{ prohib_new|default(de_en("Neue Merkmale oder Stufen erscheinen hier, sobald sie gespeichert sind (von selbst, beim Verlassen des Felds).", "New attributes or levels appear here as soon as they are saved (automatically, when you leave the field).")) }}</p>
+</fieldset>
+{% endif %}

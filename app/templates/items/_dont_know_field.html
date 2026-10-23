@@ -1,0 +1,4 @@
+{# Editor: the tick for "weiß nicht" (items/base.py DONT_KNOW, UI/UX audit 2026-10-05, V41). Needs: item, structural,
+   dk_export (what the export writes). #}
+<label class="check"><input type="checkbox" name="dont_know" value="1" {% if item.config.get("dont_know") %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("„weiß nicht“ anbieten", "Offer “don't know”") }}
+  <span class="hint">{{ de_en("abgesetzt von den Antworten; zählt als fehlend und nicht in Mittelwerten oder Anteilen, im Export {export}", "set apart from the answers; counts as missing and not in means or shares, in the export {export}", export=dk_export) }}</span></label>

@@ -1,0 +1,82 @@
+{# Paired comparison (app/items/paired.py): two tabs over one form; the design panel is panel.html. The list of
+   options uses the script of the MaxDiff editor ([data-md-editor] in app.js). #}
+{% from "_macros.html" import row_list_hint, row_tools %}
+{% set t = item.lang_texts(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set c = item.config %}
+{% set with_images = kind.images(item) %}
+{% set question_label = de_en("Frage", "Question") %}
+{% set question_hint = de_en("steht über jedem Paar, z. B. „Was ist Ihnen wichtiger?“", "appears above every pair, e.g. “Which is more important to you?”") %}
+<div data-cj-tab="content">{% include "items/_question_field.html" %}</div>
+<fieldset data-cj-tab="content" data-md-editor>
+  <legend>{{ de_en("Optionen", "Options") }} <span class="hint">{{ de_en("Texte auf {l}; Nummer = Wert im Export; 3 bis 20", "texts in {l}; number = value in the export; 3 to 20", l=languages[lang]) }}</span></legend>
+  {% set otexts = t.get("objects", {}) %}
+  {% set alts = t.get("alts", {}) %}
+  {% macro row(o, text="", placeholder="") -%}
+  <tr>
+    <td class="md-num"></td>
+    <td><input type="hidden" name="md_id" value="{{ o.id }}"><input name="md_text" aria-label="{{ de_en('Option', 'Option') }}" value="{{ text }}" placeholder="{{ placeholder or de_en('neue Option', 'new option') }}" maxlength="500"></td>
+    {% if with_images %}<td><input name="option_prompt_{{ o.id }}" aria-label="{{ de_en('Bildbeschreibung für die KI', 'Image description for the AI') }}" value="{{ o.prompt or '' }}" maxlength="1000" placeholder="{{ de_en('z. B. ein rotes Fahrrad vor weißem Hintergrund', 'e.g. a red bicycle on white background') }}" {% if not structural %}readonly{% endif %}></td>
+    <td><input name="option_alt_{{ o.id }}" aria-label="{{ de_en('Alternativtext', 'Alt text') }}" value="{{ alts.get(o.id, '') }}" maxlength="300"></td>{% endif %}
+    {% if structural %}{{ row_tools(de_en("Option entfernen", "Remove option")) }}{% else %}<td class="cj-row-tools"></td>{% endif %}
+  </tr>
+  {%- endmacro %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit md-statements">
+    <thead><tr><th class="narrow-col">{{ de_en("Nr.", "No.") }}</th><th>{{ de_en("Option", "Option") }}</th>{% if with_images %}<th title="{{ de_en('Was das Bild der Option zeigen soll, englisch; nur für „Mit KI erzeugen“. Der Bildstil der Befragung kommt dazu.', 'What the option’s image should show, in English; only for “Generate with AI”. The image style of the survey is added.') }}">{{ de_en("Bildbeschreibung für die KI (englisch)", "Image description for the AI (English)") }}</th><th title="{{ de_en('Was das Bild zeigt, in Worten für Menschen, die es nicht sehen (Screenreader). Leer lassen, wenn die Beschriftung schon alles sagt.', 'What the image shows, in words for people who cannot see it (screen readers). Leave empty if the label already says it all.') }}">{{ de_en("Alternativtext", "Alt text") }}</th>{% endif %}<th class="cj-row-tools"></th></tr></thead>
+    <tbody data-md-rows{% if structural %} data-row-list{% endif %}>
+      {% for o in c.objects %}{{ row(o, otexts.get(o.id, ''), (item.text('objects') or {}).get(o.id, '')) }}{% endfor %}
+      {% if structural and not c.objects %}{% for n in range(4) %}{{ row({"id": new_id()}, placeholder=de_en("Option {n}", "Option {n}", n=n + 1)) }}{% endfor %}{% endif %}
+    </tbody>
+  </table></div>
+  {% if structural %}
+  <template data-md-template>{{ row({"id": "__SID__"}) }}</template>
+  <button type="button" class="button button-small button-secondary" data-md-add>+ {{ de_en("Option", "option") }}</button>
+  {{ row_list_hint(de_en("Mindestens drei Optionen, üblich sind 5 bis 15; bei mehr als 20 passt MaxDiff besser. Nach Änderungen den Versuchsplan neu erzeugen.", "At least three options, 5 to 15 are usual; with more than 20, MaxDiff fits better. After changes, generate the experimental design again.")) }}
+  {% endif %}
+  <input type="hidden" name="images_shown" value="1">
+  <label class="check"><input type="checkbox" name="images" value="1" {% if with_images %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Optionen mit Bild zeigen", "Show the options with an image") }}</label>
+  {% if with_images %}
+  {% set keys = kind.required_keys(item) %}
+  {% set n_ok = keys|select("in", item.assets|selectattr("status", "equalto", "approved")|map(attribute="key")|list)|list|length %}
+  <p class="small"><strong>{{ de_en("{n} von {total}", "{n} of {total}", n=n_ok, total=keys|length) }}</strong> {{ de_en("Bildern freigegeben", "images approved") }} ·
+    <a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang) }}">{{ de_en("Bilder hochladen oder erzeugen und prüfen", "Upload or generate images and review them") }}</a></p>
+  {% endif %}
+</fieldset>
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Antwortform", "Answer form") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Teilnehmende …", "Participants …") }}
+      <select name="answer" {% if not structural %}disabled{% endif %}>
+        <option value="choice" {% if c.answer == "choice" %}selected{% endif %}>{{ de_en("wählen eine der beiden (Wahl)", "choose one of the two (choice)") }}</option>
+        <option value="tie" {% if c.answer == "tie" %}selected{% endif %}>{{ de_en("wählen eine oder „gleich“", "choose one or “same”") }}</option>
+        <option value="strength" {% if c.answer == "strength" %}selected{% endif %}>{{ de_en("sagen, wie viel besser (Stärke-Skala)", "say how much better (strength scale)") }}</option>
+      </select></label>
+    <label>{{ de_en("Stufen der Stärke-Skala", "Steps of the strength scale") }}
+      <select name="steps" {% if not structural %}disabled{% endif %}>
+        {% for s in (5, 7) %}<option value="{{ s }}" {% if c.steps == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select></label>
+  </div>
+  <div class="row-fields">
+    <label>{{ de_en("Knopf „gleich“", "Button “same”") }} <input name="tie_label" value="{{ t.get('tie_label', '') }}" placeholder="{{ d.tie_label }}"></label>
+    <label>{{ de_en("Stärke: stark", "Strength: strong") }} <input name="much" value="{{ t.get('much', '') }}" placeholder="{{ d.much }}" class="narrow"></label>
+    <label>{{ de_en("deutlich (nur 7 Stufen)", "clear (7 steps only)") }} <input name="clear" value="{{ t.get('clear', '') }}" placeholder="{{ d.clear }}" class="narrow"></label>
+    <label>{{ de_en("schwach", "weak") }} <input name="bit" value="{{ t.get('bit', '') }}" placeholder="{{ d.bit }}" class="narrow"></label>
+    <label>{{ de_en("Mitte", "Middle") }} <input name="same" value="{{ t.get('same', '') }}" placeholder="{{ d.same }}" class="narrow"></label>
+  </div>
+  <p class="muted small">{{ de_en("Wahl: am schnellsten, das Bradley-Terry-Modell (Bradley & Terry, 1952). „Gleich“ vermeidet erzwungene Zufallsurteile bei echter Gleichgültigkeit (Davidson, 1970). Die Stärke-Skala gibt mehr Information je Paar (Agresti, 1992); dabei steht links „die erste Option viel besser“, in der Mitte „gleich“. Quellen am Ende der Ergebnisseite.", "Choice: fastest, the Bradley-Terry model (Bradley & Terry, 1952). “Same” avoids forced random judgements under true indifference (Davidson, 1970). The strength scale gives more information per pair (Agresti, 1992); its left end says “the first option much better”, its middle “same”. Sources at the end of the results page.") }}</p>
+</fieldset>
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Erklärung vorab", "Explanation beforehand") }} <span class="hint">{{ de_en("optional: eigene Seite vor dem ersten Paar", "optional: a page of its own before the first pair") }}</span></legend>
+  <label class="check"><input type="checkbox" name="explain" value="1" {% if c.explain %}checked{% endif %}> {{ de_en("Aufgabe vor dem ersten Paar erklären", "Explain the task before the first pair") }}</label>
+  <label><span class="label-title">Text <span class="hint">{{ de_en("leer = Standardtext („Sie sehen gleich … Paare …“)", "empty = standard text (“You will now see … pairs …”)") }}</span></span>
+    <textarea name="explain_intro" rows="3" data-rich="block">{{ t.get("explain_intro", "") }}</textarea></label>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Paare", "Pairs") }}</legend>
+  {% set n = kind.n_items(item) %}
+  <div class="row-fields">
+    <label>{{ de_en("Paare je Person", "Pairs per person") }} <input type="number" name="pairs" min="1" max="190" class="narrow" value="{{ c.per_person or '' }}" placeholder="{{ kind.n_pairs(item) if n else '' }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Versionen des Versuchsplans", "Versions of the experimental design") }} <input type="number" name="versions" min="1" max="20" class="narrow" value="{{ c.versions }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  <p class="muted small">{{ de_en("Leer = Vorschlag: bis 8 Optionen alle Paare (vollständiger Versuchsplan), darüber 2 · Optionen, also jede Option etwa viermal je Person", "Empty = suggestion: up to 8 options all pairs (complete design), above that 2 · options, so every option about four times per person") }}{% if n >= 2 %} {{ de_en("(hier {p} von {all})", "(here {p} of {all})", p=kind.n_pairs(item), all=n * (n - 1) // 2) }}{% endif %}. {{ de_en("Nur mit allen Paaren lässt sich die Konsistenz je Person berechnen. Mehrere Versionen verteilen, welche Paare jemand sieht, und ihre Reihenfolge über die Teilnehmenden.", "Only with all pairs can the consistency per person be calculated. Several versions spread which pairs someone sees, and their order, across the participants.") }}</p>
+</fieldset>

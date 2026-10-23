@@ -1,0 +1,43 @@
+{# Implicit Association Test (items/iat.py, participant.js "IAT"). The plan of the seven blocks comes from the
+   server (seeded by the pid: the same after a reload); the browser runs it and sends every trial. #}
+{% set ans = answers.get(item.id) %}
+{% set pid = (variables or {}).get("pid") if variables is defined else none %}
+{% set order, blocks = kind.plan(item, pid, lang) %}
+{% set cats = kind.categories(item, lang) %}
+{% include "items/_question.html" %}
+<div class="p-iat" data-iat="{{ item.id }}" data-required="{{ 1 if item.required else 0 }}" data-order="{{ order }}">
+  <input type="hidden" name="i{{ item.id }}" value="{{ (ans|tojson|forceescape) if ans else '' }}" data-assign-answer data-iat-answer>
+  <script type="application/json" data-iat-plan>{{ blocks|tojson }}</script>
+  <script type="application/json" data-iat-words>{{ kind.words(item, lang, variables if variables is defined else none)|tojson }}</script>
+  <script type="application/json" data-iat-cats>{{ kind.labels(item, lang)|tojson }}</script>
+  <div class="p-iat-stage" data-iat-stage>
+    {% if ans and ans != kind.CANNOT %}
+    <p class="p-assign-done">✓ {{ ui("Aufgabe abgeschlossen.", "Task completed.") }}</p>
+    {% else %}
+    {% if ans %}<p class="p-assign-done">{{ ui("Sie haben angegeben, dass Sie diese Aufgabe nicht bearbeiten können.", "You said that you cannot do this task.") }}</p>{% endif %}
+    <p class="p-assign-note">{{ ui("Sieben kurze Runden. Vor jeder Runde sehen Sie, welche Kategorien links und rechts stehen. Am Rechner: Taste E für links, I für rechts. Auf dem Handy: links oder rechts antippen.", "Seven short rounds. Before each round you see which categories are on the left and right. On a computer: key E for left, I for right. On a phone: tap left or right.") }}</p>
+    {# fast key presses are essential to the task; who cannot give them says so instead (accessibility concept D5, E5) #}
+    <p class="p-assign-note">{{ ui("Die Aufgabe verlangt schnelle Tastendrücke oder schnelles Tippen. Wenn Ihnen das nicht möglich ist, wählen Sie „Diese Aufgabe kann ich nicht bearbeiten“.", "The task needs fast key presses or fast tapping. If that is not possible for you, choose “I cannot do this task”.") }}</p>
+    <button type="button" class="p-assign-start" data-iat-start>{{ ui("Start", "Start") }}</button>
+    {% if not ans %}<button type="button" class="p-iat-cannot" data-iat-cannot hidden>{{ ui("Diese Aufgabe kann ich nicht bearbeiten", "I cannot do this task") }}</button>{% endif %}
+    {% endif %}
+  </div>
+  <div class="p-iat-task" data-iat-task tabindex="-1" hidden>
+    <div class="p-iat-head"><span class="p-iat-side" data-iat-left></span><span class="p-iat-round" data-iat-round id="iat-round-{{ item.id }}"></span><span class="p-iat-side p-iat-right" data-iat-right></span></div>
+    <div class="p-iat-center">
+      <p class="p-iat-word" data-iat-word aria-live="assertive"></p>
+      <p class="p-iat-wrong" data-iat-wrong hidden aria-hidden="true">✗</p>
+      {# a wrong answer said in words, not only as the red ✗ (accessibility concept D7) #}
+      <p class="p-sr-only" role="status" data-iat-status></p>
+      <div class="p-iat-intro" data-iat-intro hidden>
+        <p data-iat-intro-text id="iat-intro-{{ item.id }}"></p>
+        <button type="button" class="p-assign-start" data-iat-go aria-describedby="iat-round-{{ item.id }} iat-intro-{{ item.id }}">{{ ui("Weiter", "Continue") }}</button>
+      </div>
+    </div>
+    <div class="p-iat-keys">
+      <button type="button" class="p-iat-key" data-iat-key="0" tabindex="-1"><kbd>E</kbd></button>
+      <button type="button" class="p-iat-key" data-iat-key="1" tabindex="-1"><kbd>I</kbd></button>
+    </div>
+  </div>
+  <noscript><p class="p-error">{{ ui("Für diese Aufgabe muss JavaScript aktiviert sein.", "This task needs JavaScript.") }}</p></noscript>
+</div>

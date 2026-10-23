@@ -1,0 +1,35 @@
+{% set t = item.t(lang) %}
+<section class="p-consent" {% if t.get("question") %}aria-labelledby="q{{ item.id }}"{% else %}aria-label="{{ ui('Einwilligung', 'Consent') }}"{% endif %}>
+  {% if t.get("question") %}<h2 class="p-consent-title" id="q{{ item.id }}">{{ t.question }}</h2>{% endif %}
+  {# contact address and the way to delete as the settings say now, also in a text written before (X43) #}
+  <div class="p-consent-body"{{ text_attrs(item, "body") }}>{{ kind.shown_body(item, lang)|rich(variables) }}</div>
+  {% set pool = kind.pool_notice(item, lang) %}
+  {# a fixed paragraph on the pooled constructs (licence.md section 4): no own text can lose it #}
+  {% if pool %}<div class="p-consent-body p-consent-pool">{{ pool|rich }}</div>{% endif %}
+  {% set confirms = kind.confirmations(item, lang) %}
+  {% set shown = answers.get(item.id) %}
+  {% set ticked = shown.ticked if shown is mapping else (["age", "voluntary", "data", "commitment"] if shown == "1" else []) %}
+  {% set failed = errors.get(item.id) %}
+  {% if confirms %}
+  <fieldset class="p-fieldset p-confirms">
+    <legend class="p-sr-only">{{ ui("Bestätigungen", "Confirmations") }}</legend>
+    <div class="p-options">
+      {% for c in confirms %}
+      <label class="p-option p-check{% if failed and c.key not in ticked %} p-missing{% endif %}">
+        <input type="checkbox" name="i{{ item.id }}_c_{{ c.key }}" value="1" {% if c.key in ticked %}checked{% endif %}>
+        <span>{{ c.text }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endif %}
+  {# the message directly under the ticks it is about, not below the buttons #}
+  {% if failed %}<p class="p-error" role="alert" id="msg{{ item.id }}" data-item-message>{{ failed }}</p>{% endif %}
+  <p class="p-consent-note"{{ text_attrs(item, "agree_note") }}>{{ kind.ui_text(item, lang, "agree_note") }}</p>
+  <div class="p-consent-actions">
+    {# "Continue" comes first in the source so the Enter key never declines; CSS puts "decline" on the left #}
+    <button class="p-button p-consent-agree" type="submit" name="i{{ item.id }}" value="1"{{ text_attrs(item, "agree") }}>{{ kind.ui_text(item, lang, "agree") }}</button>
+    {# declining never needs the ticks: skip browser validation #}
+    <button class="p-button p-button-secondary p-consent-decline" type="submit" name="i{{ item.id }}" value="0" formnovalidate{{ text_attrs(item, "disagree") }}>{{ kind.ui_text(item, lang, "disagree") }}</button>
+  </div>
+</section>

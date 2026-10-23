@@ -1,0 +1,24 @@
+{# The entries of a diary study answered without a connection and sent later (diary.late_entries), on the page
+   "Qualitätssicherung" (audit 2026-10-11, M1). Their start and end are what the phone says; the server keeps its own
+   time of arrival. Persons and times only for "Bearbeiten", like the persons on the tab "Zeitplan". Needs: late. #}
+<section class="panel" id="nachgereicht">
+  <h2>{{ de_en("Nachgereichte Einträge", "Entries submitted late") }} <span class="hint">{{ de_en("ohne Verbindung beantwortet und später gesendet", "answered without a connection and sent later") }}</span></h2>
+  <p>{{ de_en("{n} von {of} abgeschlossenen Einträgen der Kurzbefragungen sind nachgereicht.", "{n} of {of} completed entries of the short surveys were submitted late.", n=late.n, of=late.of) }}
+    <span class="muted small">{{ de_en("Beginn und Ende stammen vom Telefon; angenommen werden sie nur, wenn der Beginn vor dem Ablauf der Abfrage lag, nicht vor dem letzten Abruf der Offline-Seite und nicht nach dem Eingang beim Server. Im Export: die Spalten „nachgereicht“ (1 = später gesendet) und „eingang“ (Eingang beim Server, UTC).", "Start and end come from the phone; they are taken only if the start lay before the prompt expired, not before the offline page was last fetched and not after the server received the entry. In the export: the columns “nachgereicht” (1 = sent later) and “eingang” (arrival at the server, UTC).") }}</span></p>
+  {% if late.rows and survey.can(current_user, "editor") %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("Teil", "Part") }}</th><th>{{ de_en("Abfrage", "Prompt") }}</th>
+      <th>{{ de_en("Beginn (Telefon)", "Start (phone)") }}</th><th>{{ de_en("Ende (Telefon)", "End (phone)") }}</th>
+      <th>{{ de_en("Eingang (Server)", "Arrival (server)") }}</th><th>{{ de_en("Verzug", "Delay") }}</th></tr></thead>
+    <tbody>
+    {% for r in late.rows %}
+      <tr><td><code>{{ r.person }}</code></td><td>{{ r.part }}</td><td class="small">{% if r.due %}{{ r.due|localdt }}{% else %}–{% endif %}</td>
+        <td class="small">{{ r.started|localdt if r.started else "–" }}</td><td class="small">{{ r.completed|localdt if r.completed else "–" }}</td>
+        <td class="small">{{ r.received|localdt if r.received else "–" }}</td>
+        <td class="small">{% if r.lag is not none %}{{ (r.lag / 3600)|dec(1) }} h{% else %}–{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if late.n > late.rows|length %}<p class="muted small">{{ de_en("Die neuesten {k} von {n}.", "The newest {k} of {n}.", k=late.rows|length, n=late.n) }}</p>{% endif %}
+  {% endif %}
+</section>

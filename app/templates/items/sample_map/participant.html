@@ -1,0 +1,25 @@
+{% set loop_row = (page_meta or {}).get("row") if page_meta is defined else none %}
+{% set de = lang in ("de", "de-du") %}
+{% set is_preview = preview is defined and preview %}
+{% set scatter = kind.scatter(item, lang, answers, preview=is_preview, row=loop_row) %}
+{% include "items/_question.html" %}
+{% if is_preview %}<p class="p-sc-note">{{ ui("Vorschau: Zählt auch Test- und Dummy-Daten.", "Preview: includes test and dummy data.") }}</p>{% endif %}
+{% if scatter %}
+<div class="p-sc-map">
+  {% if scatter.enough %}
+  {{ scatter.svg }}
+  <p class="p-sc-meta"><span class="p-map-key own"></span> {{ ui("Ihre Position", "Your position") }} ·
+    <span class="p-map-key"></span> {{ ui("andere Teilnehmende (größer = mehr Personen)", "other participants (larger = more people)") }} ·
+    {{ ui("Linien: Durchschnitt", "lines: average") }} · n = {{ scatter.n }}</p>
+  {# the own point in words, not only as a coloured dot (D8) #}
+  {% if item.config.get("show_own", true) and scatter.own_text %}<p class="p-sc-meta p-map-own-text">{{ ui("Ihre Position", "Your position") }}: {{ scatter.own_text }}</p>{% endif %}
+  <dl class="p-map-axes small">
+    <div><dt>{{ ui("waagerecht", "horizontal") }}</dt><dd>{{ scatter.x[2] }}{% if scatter.x[3] %} ({{ scatter.x[3] }} → {{ scatter.x[4] }}){% endif %}</dd></div>
+    <div><dt>{{ ui("senkrecht", "vertical") }}</dt><dd>{{ scatter.y[2] }}{% if scatter.y[3] %} ({{ scatter.y[3] }} → {{ scatter.y[4] }}){% endif %}</dd></div>
+  </dl>
+  {% else %}
+  <p class="p-sc-few">{{ ui("Noch zu wenige Antworten für einen Vergleich.", "Not enough answers yet for a comparison.") }}</p>
+  {% endif %}
+  {% for src in scatter.sources %}<input type="hidden" name="i{{ item.id }}_n_{{ src.id }}" value="{{ scatter.n if scatter.enough else 0 }}">{% endfor %}
+</div>
+{% endif %}

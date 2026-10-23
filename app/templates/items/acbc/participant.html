@@ -1,0 +1,118 @@
+{% from "items/_fallback.html" import fallback_option %}
+{% from "items/_attributes/macros.html" import concept_table, level_text %}
+{% set c = item.cfg %}
+{% set t = item.t(lang) %}
+{% set de = lang in ("de", "de-du") %}
+{% set meta = page_meta if (page_meta is defined and page_meta) else {} %}
+{% set answer = ((answers or {}).get(item.id) if answers is defined else none) or {} %}
+{% set labels = not c.hide_attr_labels %}
+{% set with_image = kind.uses_images(item) %}
+{% set attrs = kind.attributes(item, lang) %}
+{% set table_attrs = attrs if c.display == "table" else ([] if c.display == "image" else (attrs if c.show_visual_in_table else attrs|rejectattr("visual")|list)) %}
+{% set price_on = kind.price_on(item) %}
+{% set alt_label = t.get("alt_label") or (ui("Variante", "Option")) %}
+{% if meta.explain %}
+{% set explain_default = (ui("Zuerst stellen Sie Ihre bevorzugte Variante zusammen. Danach sehen Sie ähnliche Varianten und geben jeweils an, ob sie für Sie infrage kämen. Zum Schluss wählen Sie aus den infrage kommenden Varianten Ihren Favoriten. Die Varianten unterscheiden sich in folgenden Merkmalen:", "First you put together the option you would prefer. Then you see similar options and say for each whether it would be a possibility for you. Finally you pick your favourite among the possible ones. The options differ in these features:")) %}
+{% include "items/_attributes/explain.html" %}
+{% elif meta.phase in ("price", "nogo", "must") %}
+{% set q = kind.plan(item, answer).questions.get({"price": "p", "nogo": "n", "must": "m"}[meta.phase] ~ meta.after) %}
+{% set stored = (answer.get("rules") or {}).get({"price": "p", "nogo": "n", "must": "m"}[meta.phase] ~ meta.after) %}
+{% if q %}
+<p class="p-hint">{{ ui("Zwischenfrage", "A quick question") }}</p>
+{% if meta.phase == "price" %}
+{% set cap = (stored or {}).get("cap") if stored is not none else "unset" %}
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "price_question") }}>{{ t.get("price_question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<div class="p-options" role="radiogroup" aria-labelledby="q{{ item.id }}">
+  {% for v in q.options %}
+  <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_pc" value="{{ v }}" {% if cap == v %}checked{% endif %}><span>{{ (ui("bis ", "up to ")) ~ kind.format_price(item, v, lang) }}</span></label>
+  {% endfor %}
+  <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_pc" value="none" {% if stored is not none and cap is none %}checked{% endif %}><span>{{ t.get("price_none") or (ui("Keine feste Grenze", "No fixed limit")) }}</span></label>
+</div>
+{% elif meta.phase == "nogo" %}
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "nogo_question") }}>{{ t.get("nogo_question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<div class="p-options" aria-labelledby="q{{ item.id }}" data-acbc-nogo>
+  {% for o in q.options %}{% set ref = kind.level_ref(item, o[0], o[1]) %}
+  <label class="p-option p-check"><input type="checkbox" name="i{{ item.id }}_ng" value="{{ ref }}" {% if stored and ref in stored %}checked{% endif %}><span>{{ kind.level_text(item, o, lang)|fill(variables) }}</span></label>
+  {% endfor %}
+  {% call fallback_option("checkbox", "i" ~ item.id ~ "_ng", "none", stored is not none and not stored, attrs="data-exclusive") %}<span>{{ t.get("nogo_none") or (ui("Keine davon", "None of these")) }}</span>{% endcall %}
+</div>
+{% else %}
+{% set ref = kind.level_ref(item, q.level[0], q.level[1]) %}
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "must_question") }}>{{ t.get("must_question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<p class="acbc-must-level">{{ kind.level_text(item, q.level, lang)|fill(variables) }}</p>
+<input type="hidden" name="i{{ item.id }}_ml" value="{{ ref }}">
+<div class="p-options" role="radiogroup" aria-labelledby="q{{ item.id }}">
+  <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_mh" value="1" {% if stored and stored.yes %}checked{% endif %}><span>{{ t.get("must_yes") or (ui("Ja, unverzichtbar", "Yes, a must-have")) }}</span></label>
+  <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_mh" value="0" {% if stored and not stored.yes %}checked{% endif %}><span>{{ t.get("must_no") or (ui("Nein", "No")) }}</span></label>
+</div>
+{% endif %}
+{% endif %}
+{% elif meta.phase == "screen" or meta.phase == "tour" %}
+{% set plan = kind.plan(item, answer) %}
+{% set concepts = plan.concepts %}
+{% if not concepts %}
+<div class="p-image-missing">{{ ui("Bitte zuerst die Wunschvariante zusammenstellen.", "Please put together your preferred option first.") }}</div>
+{% else %}
+{% if meta.phase == "screen" %}
+{% set on_screen = kind.screen_concepts(item, meta.screen or 0) %}
+{% set shown = on_screen|reject("ge", concepts|length)|list %}
+{% set auto = [] %}
+{% for n in shown %}{% if concepts[n].auto %}{% set _ = auto.append(n) %}{% endif %}{% endfor %}
+{% set shown = shown|reject("in", auto)|list %}
+{% set question = t.get("screen_question", "") %}
+{% set step_hint = (ui("Schritt 2: Seite %d von %d", "Step 2: page %d of %d"))|format((meta.screen or 0) + 1, c.screens) %}
+{% else %}
+{% set shown = kind.tour_group(item, answer, meta.round or 0) %}
+{% set question = t.get("question", "") %}
+{% set step_hint = (ui("Schritt 3: Auswahl %d von %d", "Step 3: choice %d of %d"))|format((meta.round or 0) + 1, kind.tour_total(item, answer)) %}
+{% endif %}
+{% set columns = [] %}{% for n in shown %}{% set _ = columns.append((n + 1, alt_label ~ " " ~ loop.index, concepts[n].p)) %}{% endfor %}
+{% set price_cells = {} %}{% if price_on %}{% for n in shown %}{% set _ = price_cells.update({n + 1: kind.format_price(item, concepts[n].price, lang)}) %}{% endfor %}{% endif %}
+{% set extra = [(t.get("price_label") or (ui("Preis", "Price")), price_cells)] if price_on else [] %}
+<h2 class="p-question" id="q{{ item.id }}">{{ question|inline(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<p class="p-hint">{{ step_hint }}</p>
+{% if meta.phase == "screen" %}
+{% set s = answer.get("s") or {} %}
+<div class="cj cj-screen" style="--alts: {{ shown|length }}" data-acbc-screen>
+  {% for n in auto %}<input type="hidden" name="i{{ item.id }}_s{{ n }}" value="a">{% endfor %}
+  {% if not shown %}<p class="p-info">{{ ui("Auf dieser Seite gibt es nach Ihren Angaben keine passenden Varianten. Bitte gehen Sie weiter.", "Given your answers, there are no suitable options on this page. Please continue.") }}</p>{% else %}
+  {# the group is named by the column's header, the same number the participant sees (D6) #}
+  {% call(a, head, cells) concept_table(item, kind, table_attrs, columns, labels, with_image, variables, lang, extra) %}{% set v = s.get((a - 1)|string) %}
+    <div class="acbc-screen-choice" role="radiogroup" aria-labelledby="cj{{ item.id }}-{{ a }}"{% if cells %} aria-describedby="{{ cells }}"{% endif %}>
+      <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_s{{ a - 1 }}" value="1" {% if v == 1 %}checked{% endif %}><span>{{ t.get("possible_label") or (ui("Käme infrage", "A possibility")) }}</span></label>
+      <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_s{{ a - 1 }}" value="0" {% if v == 0 %}checked{% endif %}><span>{{ t.get("not_possible_label") or (ui("Kommt nicht infrage", "Not a possibility")) }}</span></label>
+    </div>{% endcall %}
+  {% endif %}
+</div>
+{% else %}
+{% set chosen = (answer.get("t") or {}).get((meta.round or 0)|string) %}
+<div class="cj" role="radiogroup" aria-labelledby="q{{ item.id }}" style="--alts: {{ shown|length }}" data-cj>
+  {% call(a, head, cells) concept_table(item, kind, table_attrs, columns, labels, with_image, variables, lang, extra) %}<label class="p-option p-radio cj-pick"><input type="radio" name="i{{ item.id }}_r{{ meta.round or 0 }}" value="{{ a }}" aria-label="{{ ui('%s auswählen', 'Choose %s')|format(head|striptags) }}"{% if cells %} aria-describedby="{{ cells }}"{% endif %} {% if chosen is not none and chosen + 1 == a %}checked{% endif %}>
+          <span>{{ ui("Auswählen", "Choose") }}</span></label>{% endcall %}
+</div>
+{% endif %}
+{% endif %}
+{% else %}
+{# build your own (also the editor preview) #}
+{% set byo = answer.get("byo") or {} %}
+{% set filled = answer.get("byo_filled") or [] %}{# levels filled at random are not the participant's choice: shown open #}
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "byo_question") }}>{{ t.get("byo_question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<p class="p-hint">{{ ui("Schritt 1: Ihre Wunschvariante", "Step 1: your preferred option") }}</p>
+<div class="acbc-byo" data-acbc-byo>
+  {% for attr in attrs %}
+  <fieldset class="acbc-byo-attr">
+    <legend>{{ attr.label|fill(variables) }}</legend>
+    {% for level in attr.levels %}{% set price = (level.price or 0) if price_on else 0 %}
+    <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_byo_{{ attr.id }}" value="{{ level.id }}" data-price="{{ price }}" {% if byo.get(attr.id) == level.id and attr.id not in filled %}checked{% endif %}>
+      <span>{{ level_text(item, attr, loop.index0, variables) }}{% if price %} <span class="acbc-price-part">{{ kind.format_component(item, price, lang) }}</span>{% endif %}</span></label>
+    {% endfor %}
+  </fieldset>
+  {% endfor %}
+  {% if price_on %}
+  {% set p = c.price or {} %}
+  <p class="acbc-byo-total" data-base="{{ p.base or 0 }}" data-step="{{ p.step or 1 }}" data-currency="{{ p.currency }}" data-lang="{{ lang }}">
+    {{ t.get("base_label") or (ui("Grundpreis", "Base price")) }}: {{ kind.format_price(item, (p.base or 0)|float, lang) }} ·
+    {{ t.get("price_label") or (ui("Preis", "Price")) }}: <strong data-acbc-total aria-live="polite">{{ kind.format_price(item, (p.base or 0)|float, lang) }}</strong></p>
+  {% endif %}
+</div>
+{% endif %}

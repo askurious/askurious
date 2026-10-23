@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{# Needs: nxt (where to go afterwards). #}
+{% block title %}{{ de_en("Code eingeben", "Enter code") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Code für die Administration", "Code for the administration") }}</h1>
+<section class="panel">
+  <p>{{ de_en("Bitte den aktuellen Code aus Ihrer Authenticator-App eingeben.", "Please enter the current code from your authenticator app.") }}</p>
+  <form method="post" action="{{ url_for('twofactor.ask') }}" class="row" autocomplete="off">
+    {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
+    <label>{{ de_en("Code", "Code") }} <input type="text" name="code" maxlength="12" autocomplete="one-time-code" required autofocus class="narrow"></label>
+    <button class="button">{{ de_en("Weiter", "Continue") }}</button>
+  </form>
+</section>
+{% endblock %}

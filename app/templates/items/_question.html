@@ -1,0 +1,11 @@
+{% set q = item.text("question", lang) %}
+{# a question not yet translated shows the default language's text: it says so, and reads in its own direction (W45) #}
+{# the question is a heading (h2): screen readers jump from question to question. In a legend the heading stands
+   inside it, around a label it holds the label (UI/UX audit 2026-10-16, 97) #}
+{% set q_tag = tag|default("p") %}
+{% if q and q_tag == "legend" %}<legend class="p-q-head"><h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ q|inline(variables) }}{% include "items/_required.html" %}</h2></legend>
+{%- elif q and q_tag == "label" %}<h2 class="p-q-head"><label class="p-question" id="q{{ item.id }}"{% if label_for is defined and label_for %} for="{{ label_for }}"{% endif %}{{ text_attrs(item, "question") }}>{{ q|inline(variables) }}{% include "items/_required.html" %}</label></h2>
+{%- elif q %}<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ q|inline(variables) }}{% include "items/_required.html" %}</h2>{% endif %}
+{# the message of a failed "Next" right under the question, not below a long answer area (V45); participant/_item.html
+   shows it at the end only for an element without a question text #}
+{% if q %}{% include "items/_message.html" %}{% endif %}

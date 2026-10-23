@@ -1,0 +1,30 @@
+{% from "_macros.html" import fixed_mark %}{% set marks = fixed_marks is defined and fixed_marks %}
+<fieldset id="languages" {% if not lang_editable %}disabled{% endif %}>
+  <legend>{{ de_en("Sprachen", "Languages") }}{% if marks %} {{ fixed_mark(not lang_editable, de_en("Teilnahmen und Übersetzungen hängen daran", "participations and translations depend on it")) }}{% endif %}</legend>
+  <div class="lang-checks">
+  {% for code, name in languages.items() %}
+  <label class="check"><input type="checkbox" name="languages" value="{{ code }}"
+    {% if code in (values_languages or ['de']) %}checked{% endif %}> {{ name }}</label>
+  {% endfor %}
+  </div>
+  <p class="hint">{{ de_en("„Deutsch (Sie)“ und „Deutsch (du)“ sind zwei Fassungen derselben Sprache: Teilnehmende sehen eine davon, je nach Link", "“Deutsch (Sie)” and “Deutsch (du)” are two versions of the same language: participants see one of them, depending on the link") }} (<code>?lang=de</code> {{ de_en("oder", "or") }} <code>?lang=de-du</code>){{ de_en("; ohne Angabe im Link „Sie“, sofern vorhanden.", "; without it in the link, “Sie”, if available.") }}</p>
+  {# only the ticked languages (app.js follows the ticks); once the questionnaire has an element a change asks first,
+     since the questionnaire is then edited in the other language (UI/UX audit 2026-10-05, V26) #}
+  {% set chosen = values_languages or ['de'] %}
+  {% set built = [] %}{% if values.blocks is defined %}{% for b in values.blocks %}{% for i in b.items if i.type != "consent" %}{% if built.append(1) %}{% endif %}{% endfor %}{% endfor %}{% endif %}
+  <label class="lang-default">{{ de_en("Ausgangssprache", "Source language") }} <span class="hint">{{ de_en("in ihr wird der Fragebogen erstellt, die anderen werden übersetzt", "the questionnaire is written in it, the others are translated") }}</span>
+    <select name="default_language" class="fit" data-lang-default{% if built %} data-lang-confirm{% endif %}>
+      {% for code, name in languages.items() %}
+      {% set on = code in chosen or code == values.default_language %}
+      <option value="{{ code }}" {% if code == (values.default_language or 'de') %}selected{% endif %}{% if not on %} hidden disabled{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <input type="hidden" name="language_choice_shown" value="1">
+  <label class="check"><input type="checkbox" name="language_choice" value="1"
+    {% if values.language_choice is not defined or values.language_choice %}checked{% endif %}>
+    {{ de_en("Teilnehmende dürfen die Sprache selbst wählen", "Participants may choose the language themselves") }}
+    <span class="hint">{{ de_en("Umschalter oben auf jeder Seite; sonst entscheidet allein die Spracheinstellung des Browsers (oder", "switch at the top of every page; otherwise only the browser's language setting decides (or") }} <code>?lang=</code> {{ de_en("im Link)", "in the link)") }}</span></label>
+  {% if not lang_editable and not marks %}<p class="muted small">{{ de_en("Sprachen sind nach dem Start festgelegt.", "Languages are fixed after the start.") }}</p>{% endif %}
+</fieldset>
+

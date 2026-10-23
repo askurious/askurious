@@ -1,0 +1,37 @@
+{# Scientific sources in APA style (app/apa.py; Ralf, 2026-10-05): in the running text only the short reference
+   cite(...) such as "(Conrad et al., 2017)", linked to its entry; at the end of the page or block one closed fold with
+   the reference list, sorted by author, formatted after APA 7, DOI as link. A click on a short reference opens the fold
+   (app.js). Citations are full strings next to the logic (quality.SOURCES, tempo.CONRAD, ...). #}
+
+{# the short reference: "(Conrad et al., 2017; Greszki et al., 2014)"; narrative: "Conrad et al. (2017)" #}
+{% macro cite(sources, narrative=false, link=true) %}{{ apa.cite(sources, narrative, link) }}{% endmacro %}
+
+{# one entry of a list; anchor=false inside a fold that is not the page's list (no second id on the page) #}
+{% macro entry(source, anchor=true) %}{% set r = apa.ref(source) %}<li{% if anchor %} id="ref-{{ r.key }}"{% endif %}>{{ r.html }}</li>{% endmacro %}
+
+{% macro _list(entries, uses, use_label=none) %}
+<ul class="refs">
+  {% for e in entries %}
+  <li id="ref-{{ e.key }}">{{ e.html }}{% if uses and e.uses %} <span class="ref-use">{{ use_label or de_en("zu", "on") }}: {{ e.uses|join("; ") }}</span>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+{# One fold for everything on a page: groups = [(what the sources belong to, [full citations])]. Each work appears
+   once, sorted by author; what it is cited for stands quietly after it. #}
+{% macro grouped(groups, label=none, use_label=none) %}
+{% set entries = apa.references(groups) %}
+<details class="sources">
+  <summary>{{ label or de_en("Literatur", "References") }} ({{ entries|length }})</summary>
+  {{ _list(entries, true, use_label) }}
+</details>
+{% endmacro %}
+
+{# a fold with a plain list of citations #}
+{% macro sources(sources, label=None) %}
+{% set entries = apa.references(sources) %}
+<details class="sources">
+  <summary>{{ label or (de_en("Literatur", "References") if entries|length > 1 else de_en("Quelle", "Source")) }}{% if entries|length > 1 %} ({{ entries|length }}){% endif %}</summary>
+  {{ _list(entries, false) }}
+</details>
+{% endmacro %}

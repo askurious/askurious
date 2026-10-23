@@ -1,0 +1,4 @@
+{# The message of a failed "Next" (error or nudge, participant/_item.html: item_msg), once, right where it is included:
+   under the question (items/_question.html), or right after their own question for the types that write it themselves
+   (MaxDiff, conjoint, paired comparison, ACBC; UI/UX audit 2026-10-16, 93) #}
+{% if item_msg is defined and item_msg.text and not item_msg.shown %}{% set item_msg.shown = true %}<p class="{{ item_msg.cls }}" role="{{ item_msg.role }}" id="msg{{ item.id }}" data-item-message>{{ item_msg.text }}</p>{% endif %}

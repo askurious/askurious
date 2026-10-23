@@ -1,0 +1,213 @@
+{% from "_learn.html" import why, term %}
+{# The page "Kategorisieren" of one open answer (app/coding.py): the categories (an autosave form) and the answers, one
+   row per text, each with its categories to tick. With the script a tick saves at once and the keys 1 to 9 tick the
+   categories of the row in focus; without it every row has its own button. Needs: survey, item, column, label, key,
+   scheme, rows, names, done, max_cats, mayring, fixed, base (the version of the schemes: a form sent after someone
+   else saved is refused, audit 2026-10-10, L-9), ai_informed and ai_notice (the AI help only after the tick, B-1),
+   ai_to, ai_may_confirm and ai_pending (the tick per recipient, given by the owner or an admin only; K3). #}
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, autosave_bar, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Kategorisieren", "Categorise") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "results" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('surveys.results', survey_id=survey.id) }}#res-{{ item.code }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+<h1>{{ de_en("Kategorisieren", "Categorise") }}</h1>
+<p class="muted"><code>{{ column }}</code> · {{ label|truncate(160) }}</p>
+<p class="muted small">{{ de_en("Ordnen Sie die Antworten Kategorien zu. Die Ergebnisseite zählt sie dann wie eine geschlossene Frage, der Export bekommt je Kategorie eine Spalte, und der Kodierleitfaden mit allen Definitionen steht im Reiter „Export“.", "Assign the answers to categories. The results page then counts them like a closed question, the export gets one column per category, and the coding guide with every definition is on the tab “Export”.") }}</p>
+
+<section class="panel" id="kategorien">
+  <h2>{{ de_en("Kategorien", "Categories") }}{% if scheme %} <span class="hint">{{ de_en("Taste", "key") }} 1–9 {{ de_en("in dieser Reihenfolge", "in this order") }}</span>{% endif %}</h2>
+  {% if scheme %}
+  <form method="post" action="{{ url_for('coding.update_scheme', survey_id=survey.id, key=key) }}" class="stack coding-scheme" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="base" value="{{ base }}" data-guard-key="coding">
+    <label class="check"><input type="checkbox" name="single" value="1"{% if scheme.single %} checked{% endif %}> {{ de_en("nur eine Kategorie je Antwort", "only one category per answer") }}</label>
+    <ol class="plain coding-cats">
+      {% for c in scheme.cats %}
+      <li class="coding-cat">
+        <span class="coding-key" aria-hidden="true">{{ loop.index if loop.index <= 9 else "" }}</span>
+        <div class="coding-cat-fields">
+          <div class="coding-cat-row">
+            <label class="field">{{ de_en("Name", "Name") }} <input type="text" name="name_{{ c.id }}" value="{{ c.name }}" maxlength="80" required></label>
+            <label class="field">{{ de_en("Oberkategorie", "Main category") }} <span class="hint">{{ de_en("frei lassen, wenn keine", "leave empty if none") }}</span> <input type="text" name="group_{{ c.id }}" value="{{ c.group or '' }}" maxlength="60"></label>
+            <span class="hint coding-code">{{ de_en("Code", "Code") }} {{ c.id }}</span>
+            {% if not c.fixed %}<button type="submit" class="icon-btn" form="coding-remove-{{ c.id }}" title="{{ de_en('Kategorie entfernen', 'Remove category') }}" aria-label="{{ de_en('Kategorie „{name}“ entfernen', 'Remove category “{name}”', name=c.name) }}">{{ icon("x", 16) }}</button>{% endif %}
+          </div>
+          <label class="field">{{ de_en("Definition", "Definition") }} <span class="hint">{{ de_en("wann eine Antwort dazugehört", "when an answer belongs to it") }}</span> <textarea name="definition_{{ c.id }}" rows="2" maxlength="600">{{ c.definition or "" }}</textarea></label>
+          <label class="field">{{ de_en("Ankerbeispiel", "Anchor example") }} <span class="hint">{{ de_en("eine typische Antwort, am besten in eigenen Worten: Ein wörtliches Zitat wird geleert, wenn die Person ihre Antworten löscht", "a typical answer, best in your own words: a verbatim quote is emptied when the person deletes their answers") }}</span> <input type="text" name="example_{{ c.id }}" value="{{ c.example or '' }}" maxlength="600"></label>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {{ autosave_bar(true) }}
+  </form>
+  {% for c in scheme.cats if not c.fixed %}
+  <form method="post" action="{{ url_for('coding.remove', survey_id=survey.id, key=key, cat_id=c.id) }}" id="coding-remove-{{ c.id }}" hidden
+        data-confirm="{{ de_en('Kategorie „{name}“ entfernen?', 'Remove category “{name}”?', name=c.name) }}" data-confirm-note="{{ de_en('Antworten, die nur diese Kategorie hatten, sind danach wieder offen.', 'Answers that had only this category are open again afterwards.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">{{ csrf() }}<input type="hidden" name="base" value="{{ base }}" data-guard-key="coding"></form>
+  {% endfor %}
+  {% else %}
+  <p class="muted small">{{ de_en("Noch keine Kategorien. Mit der ersten kommen „Sonstiges“ und „nicht verwertbar“ dazu.", "No categories yet. “Other” and “not usable” come with the first one.") }}</p>
+  {% endif %}
+  {% if not scheme or scheme.cats|rejectattr("fixed")|list|length < max_cats %}
+  <form method="post" action="{{ url_for('coding.add', survey_id=survey.id, key=key) }}" class="inline-form coding-add">
+    {{ csrf() }}<input type="hidden" name="base" value="{{ base }}" data-guard-key="coding">
+    <label class="field">{{ de_en("Neue Kategorie", "New category") }} <input type="text" name="name" maxlength="80" placeholder="{{ de_en('z. B. Preis', 'e.g. price') }}"></label>
+    <button class="button button-small">{{ de_en("Kategorie hinzufügen", "Add category") }}</button>
+  </form>
+  {% endif %}
+  {% set own = scheme.cats|rejectattr("fixed")|list if scheme else [] %}
+  {% if own %}
+  <details class="coding-change">
+    <summary>{{ de_en("Kategorien zusammenlegen oder teilen", "Merge or split categories") }}</summary>
+    <form method="post" action="{{ url_for('coding.merge', survey_id=survey.id, key=key) }}" class="coding-add"
+          data-confirm="{{ de_en('Kategorien zusammenlegen?', 'Merge the categories?') }}" data-confirm-note="{{ de_en('Alle Antworten der ersten bekommen die zweite; die erste verschwindet. Das lässt sich nicht rückgängig machen.', 'Every answer of the first gets the second; the first disappears. This cannot be undone.') }}" data-confirm-ok="{{ de_en('Zusammenlegen', 'Merge') }}">
+      {{ csrf() }}<input type="hidden" name="base" value="{{ base }}" data-guard-key="coding">
+      <label class="field">{{ de_en("Kategorie", "Category") }} <select name="source">{% for c in own %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+      <label class="field">{{ de_en("aufgehen lassen in", "merge into") }} <select name="target">{% for c in scheme.cats %}<option value="{{ c.id }}"{% if loop.index == 2 %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+      <button class="button button-small button-secondary">{{ de_en("Zusammenlegen", "Merge") }}</button>
+    </form>
+    {% for c in own %}
+    <form method="post" action="{{ url_for('coding.split', survey_id=survey.id, key=key, cat_id=c.id) }}" class="coding-add coding-split" data-coding-split="{{ c.id }}"{% if not loop.first %} hidden{% endif %}>
+      {{ csrf() }}<input type="hidden" name="base" value="{{ base }}" data-guard-key="coding">
+      <label class="field">{{ de_en("Kategorie teilen", "Split category") }} <select data-coding-split-pick aria-label="{{ de_en('Kategorie', 'Category') }}">{% for o in own %}<option value="{{ o.id }}"{% if o.id == c.id %} selected{% endif %}>{{ o.name }}</option>{% endfor %}</select></label>
+      <label class="field">{{ de_en("neue Kategorie daneben", "new category beside it") }} <input type="text" name="name" maxlength="80" required></label>
+      <button class="button button-small button-secondary">{{ de_en("Aufteilen", "Split") }}</button>
+    </form>
+    {% endfor %}
+    <p class="muted small">{{ de_en("Beim Teilen werden die Antworten der bisherigen Kategorie als „neu prüfen“ markiert: Sie entscheiden je Antwort, ob die bisherige oder die neue passt.", "When splitting, the answers of the old category are marked “check again”: you decide per answer whether the old or the new one fits.") }}</p>
+  </details>
+  {% endif %}
+  {% if coding_ai_on %}
+  <div class="coding-ai-box" id="vorschlaege">
+    {% if ai_own %}<p class="ai-note small">{{ ai_access_line() }} {{ de_en("Mit eigenem Schlüssel gelten die Nutzungsbedingungen Ihres Anbieters. Offene Antworten können personenbezogene Daten enthalten: Prüfen Sie, ob die Weitergabe an ihn erlaubt ist.", "With your own key your provider's terms of use apply. Open answers can contain personal data: check whether passing them on to it is allowed.") }}</p>{% else %}{{ ai_access_line() }}{% endif %}
+    {% if ai_informed %}
+    <form method="post" action="{{ url_for('coding.ai_scheme', survey_id=survey.id, key=key) }}" class="coding-add">
+      {{ csrf() }}<button class="button button-small button-secondary" data-ai-call>{{ de_en("Kategorien vorschlagen lassen (KI)", "Have categories proposed (AI)") }}</button>
+      <span class="hint">{{ de_en("Die häufigsten Antworttexte echter Teilnahmen gehen dafür an den KI-Dienst. Ein Vorschlag gilt erst, wenn Sie ihn übernehmen.", "The most frequent answer texts of real participations go to the AI service for this. A proposal only counts once you take it over.") }}</span>
+    </form>
+    {% elif not ai_may_confirm %}
+    {# K3, decision 6a: only the owner or an admin of the survey confirms, for the recipient this person's AI goes to #}
+    <p class="muted small">{{ de_en("Die KI-Hilfe schickt Antworttexte von Teilnehmenden (nur echte Teilnahmen, ohne weitere Angaben) an den KI-Dienst {to}. Das geht erst, wenn die Person, der die Befragung gehört, oder ein Admin der Befragung bestätigt hat, dass die Teilnehmenden über die Übermittlung an diesen Dienst informiert wurden, etwa mit diesem Absatz:", "The AI help sends answer texts of participants (real participations only, without other details) to the AI service {to}. This only works once the owner or an admin of the survey has confirmed that the participants were told about the transfer to this recipient, for example with this paragraph:", to=ai_to) }}</p>
+    <blockquote class="small" lang="de">{{ ai_notice.de }}</blockquote>
+    <blockquote class="small" lang="en">{{ ai_notice.en }}</blockquote>
+    {% endif %}
+    {% for p in ai_pending %}
+    {# the AI help sends answer texts of participants to the recipient named: only once the participants were told (B-1, K3) #}
+    <form method="post" action="{{ url_for('coding.ai_informed', survey_id=survey.id, key=key) }}" class="stack">
+      {{ csrf() }}<input type="hidden" name="base" value="{{ base }}" data-guard-key="coding"><input type="hidden" name="to" value="{{ p.key }}">
+      {% if p.mine %}<p class="muted small">{% if ai_own %}{{ de_en("Die KI-Hilfe schickt Antworttexte von Teilnehmenden (nur echte Teilnahmen, ohne weitere Angaben) über Ihren eigenen Schlüssel an Ihren KI-Anbieter. Nutzen Sie sie nur, wenn die Information und Einwilligung oder die Datenschutzinformation Ihrer Befragung das nennt (den Absatz unten an Ihren Anbieter anpassen) und dessen Nutzungsbedingungen die Weitergabe erlauben:", "The AI help sends answer texts of participants (real participations only, without other details) over your own key to your AI provider. Only use it if the information and consent or the privacy notice of your survey says so (adapt the paragraph below to your provider) and its terms of use allow passing them on:") }}{% else %}{{ de_en("Die KI-Hilfe schickt Antworttexte von Teilnehmenden (nur echte Teilnahmen, ohne weitere Angaben) an den KI-Dienst von OpenAI, der sie nicht zum Training verwendet, nicht für spätere Abrufe speichert und zur Missbrauchskontrolle bis zu 30 Tage aufbewahrt (OpenAI, „Data controls in the OpenAI platform“). Nutzen Sie sie nur, wenn die Information und Einwilligung oder die Datenschutzinformation Ihrer Befragung das nennt, etwa mit diesem Absatz:", "The AI help sends answer texts of participants (real participations only, without other details) to the AI service of OpenAI, which does not use them for training, does not store them for later retrieval and keeps them for up to 30 days to monitor abuse (OpenAI, “Data controls in the OpenAI platform”). Only use it if the information and consent or the privacy notice of your survey says so, for example with this paragraph:") }}{% endif %}</p>
+      {% else %}<p class="muted small">{{ de_en("Eine beteiligte Person nutzt einen eigenen KI-Zugang; mit ihm gehen die Antworttexte an den KI-Dienst {to}. Bestätigen Sie auch diesen Dienst, wenn die Information und Einwilligung oder die Datenschutzinformation Ihrer Befragung ihn nennt:", "A person involved uses their own AI access; with it the answer texts go to the AI service {to}. Confirm this recipient too if the information and consent or the privacy notice of your survey names it:", to=p.name) }}</p>{% endif %}
+      <blockquote class="small" lang="de">{{ p.notice.de }}</blockquote>
+      <blockquote class="small" lang="en">{{ p.notice.en }}</blockquote>
+      <label class="check"><input type="checkbox" name="informed" value="1" required> {{ de_en("Teilnehmende wurden über die Übermittlung informiert", "Participants were told about the transfer") }}</label>
+      <button class="button button-small button-secondary">{{ de_en("Bestätigen", "Confirm") }}</button>
+    </form>
+    {% endfor %}
+    {% if proposals %}
+    <ul class="plain coding-proposals">
+      {% for p in proposals %}
+      <li><span><strong>{{ p.name }}</strong>{% if p.definition %} · {{ p.definition }}{% endif %}{% if p.example %} <span class="hint">{{ de_en("z. B.", "e.g.") }} „{{ p.example }}“</span>{% endif %}</span>
+        <form method="post" action="{{ url_for('coding.ai_take_proposal', survey_id=survey.id, key=key) }}" class="inline-form">{{ csrf() }}<input type="hidden" name="n" value="{{ loop.index0 }}"><button class="button button-small button-secondary">{{ de_en("Übernehmen", "Accept") }}</button></form></li>
+      {% endfor %}
+    </ul>
+    <div class="coding-add">
+      <form method="post" action="{{ url_for('coding.ai_take_proposal', survey_id=survey.id, key=key) }}" class="inline-form">{{ csrf() }}<input type="hidden" name="n" value="all"><button class="button button-small">{{ de_en("Alle übernehmen", "Accept all") }}</button></form>
+      <form method="post" action="{{ url_for('coding.ai_drop_proposals', survey_id=survey.id, key=key) }}" class="inline-form">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Vorschläge verwerfen", "Discard the proposals") }}</button></form>
+    </div>
+    {% endif %}
+  </div>
+  {% elif ai_needs_own %}
+  {# answer texts go only over an own AI access, never over the platform's key: the button stays and leads to the form
+     for the own access (Ralf, 2026-10-21) #}
+  <div class="coding-ai-box" id="vorschlaege">
+    <div class="coding-add">
+      <a class="button button-small button-secondary" href="{{ url_for('accounts.connections', **{'for': 'coding'}) }}#ki-zugang">{{ de_en("Kategorien vorschlagen lassen (KI)", "Have categories proposed (AI)") }}</a>
+      <span class="hint">{{ de_en("Nur mit einem eigenen KI-Zugang (z. B. KI:connect.nrw): Antworttexte von Teilnehmenden gehen nicht über den Zugang der Plattform. Der Knopf führt zum Eintragen unter Konto › Verbindungen.", "Only with an own AI access (e.g. KI:connect.nrw): answer texts of participants do not go over the platform's access. The button leads to entering it under Account › Connections.") }}</span>
+    </div>
+  </div>
+  {% endif %}
+  <p class="muted small">{{ de_en("Aufbau wie ein Kodierleitfaden: je Kategorie Definition und Ankerbeispiel", "Built like a coding guide: per category a definition and an anchor example") }} (Mayring, 2022).</p>
+  <details class="sources"><summary>{{ de_en("Quellen", "Sources") }}</summary><ul class="plain small"><li>{{ mayring }}</li>{% for src in check_sources %}<li>{{ src }}</li>{% endfor %}</ul></details>
+</section>
+
+{% from "surveys/_coding_row.html" import coding_row %}
+<section class="panel" id="antworten" data-coding>
+  <h2>{{ de_en("Antworten", "Answers") }} <span class="hint" data-coding-progress>{{ de_en("{k} von {n} kategorisiert", "{k} of {n} categorised", k=done, n=rows|length) }}</span></h2>
+  {% if not rows %}
+  <p class="muted">{{ de_en("Noch keine Antworten. Antworten aus der laufenden Befragung erscheinen hier, sobald die Teilnahme beendet ist.", "No answers yet. Answers from the running survey appear here once the participation has ended.") }}</p>
+  {% else %}
+  {% set suggested = rows|selectattr("ai")|selectattr("cats", "none")|list %}
+  {% if coding_ai_on and own and ai_informed %}
+  <div class="coding-add">
+    <form method="post" action="{{ url_for('coding.ai_assign', survey_id=survey.id, key=key) }}" class="inline-form">{{ csrf() }}<button class="button button-small button-secondary" data-ai-call>{{ de_en("Zuordnung vorschlagen lassen (KI)", "Have an assignment suggested (AI)") }}</button></form>
+    {% if suggested %}
+    <table><caption>{{ de_en("Verteilung der KI-Vorschläge auf noch offene Antworttexte", "Distribution of AI suggestions across answer texts still open") }}</caption>
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th>{{ de_en("Antworttexte", "Answer texts") }}</th><th>{{ de_en("Anteil", "Share") }}</th></tr></thead>
+    <tbody>{% for row in ai_distribution %}<tr><td>{{ row.name }}{% if row.concentrated %} — {{ de_en("auffällig konzentriert; prüfen", "unusually concentrated; review") }}{% endif %}</td><td>{{ row.count }}</td><td>{{ row.share }} %</td></tr>{% endfor %}</tbody></table>
+    <form method="post" action="{{ url_for('coding.ai_accept', survey_id=survey.id, key=key) }}" class="inline-form">{{ csrf() }}{% if ai_distribution|selectattr("concentrated")|list %}<label><input type="checkbox" name="reviewed" value="1" required> {{ de_en("Ich habe die auffällige Verteilung anhand der Antworten geprüft.", "I have reviewed the unusual distribution against the answers.") }}</label>{% endif %}<button class="button button-small">{{ de_en("KI-Vorschläge übernehmen ({n})", "Accept the AI suggestions ({n})", n=suggested|length) }}</button></form>{% endif %}
+    <span class="hint">{{ de_en("Die noch offenen Antworttexte echter Teilnahmen gehen nach Entfernung erkennbarer E-Mail-Adressen, Telefonnummern und URLs an den KI-Dienst; Vorschläge stehen blass an den Antworten und gelten erst nach dem Übernehmen.", "The answer texts of real participations still open go to the AI service after recognisable email addresses, telephone numbers and URLs are removed; suggestions appear pale next to the answers and only count once accepted.") }}</span>
+  </div>
+  {% elif ai_needs_own and own %}
+  <div class="coding-add">
+    <a class="button button-small button-secondary" href="{{ url_for('accounts.connections', **{'for': 'coding'}) }}#ki-zugang">{{ de_en("Zuordnung vorschlagen lassen (KI)", "Have an assignment suggested (AI)") }}</a>
+    <span class="hint">{{ de_en("Nur mit einem eigenen KI-Zugang; der Knopf führt zum Eintragen unter Konto › Verbindungen.", "Only with an own AI access; the button leads to entering it under Account › Connections.") }}</span>
+  </div>
+  {% endif %}
+  <div class="coding-tools">
+    <label class="field">{{ de_en("Suchen", "Search") }} <input type="search" data-coding-search></label>
+    <label class="check"><input type="checkbox" data-coding-open> {{ de_en("nur noch offene", "only open ones") }}</label>
+    {% if rows|selectattr("recheck")|list %}<label class="check"><input type="checkbox" data-coding-recheck> {{ de_en("nur „neu prüfen“", "only “check again”") }}</label>{% endif %}
+  </div>
+  <p class="muted small">{{ de_en("Gleiche Antworten stehen einmal da (Groß- und Kleinschreibung und Leerzeichen egal); ein Häkchen gilt für alle Teilnahmen mit diesem Text.", "Equal answers appear once (ignoring case and spaces); a tick applies to every participation with this text.") }}{% if scheme %} {{ de_en("Eine Antwort anklicken, dann mit den Tasten 1 bis 9 die Kategorien setzen.", "Click an answer, then set its categories with the keys 1 to 9.") }}{% endif %}</p>
+  <ul class="plain coding-rows">
+    {% if scheme %}{% for r in rows %}{{ coding_row(r, scheme, survey, key, names=names) }}{% endfor %}
+    {% else %}{% for r in rows %}<li class="coding-row"><p class="coding-text">{{ r.text }}{% if r.n > 1 %} <span class="hint">{{ r.n }}×</span>{% endif %}</p></li>{% endfor %}{% endif %}
+  </ul>
+  {% endif %}
+</section>
+
+{% if scheme and rows|length >= 2 %}
+<section class="panel" id="zweitkodierung">
+  <h2>{{ de_en("Zweitkodierung", "Second coding") }} <span class="hint">{{ de_en("Reliabilität nach Krippendorff", "reliability after Krippendorff") }}</span></h2>
+  {{ why("second_coding") }}
+  {% if not second %}
+  <p class="muted small">{{ de_en("Eine zweite beteiligte Person kodiert blind eine Zufallsstichprobe der Antworten (20 %, mindestens 50; hier {n}). Danach zeigt diese Seite Krippendorffs α, die Übereinstimmung und die Abweichungen zum Klären.", "A second person involved codes a random sample of the answers blind (20%, at least 50; here {n}). Afterwards this page shows Krippendorff's α, the agreement and the disagreements to clarify.", n=sample_n) }}</p>
+  {% if coders %}
+  <form method="post" action="{{ url_for('coding.second_start', survey_id=survey.id, key=key) }}" class="coding-add">
+    {{ csrf() }}
+    <label class="field">{{ de_en("Zweite Person", "Second person") }} <select name="coder">{% for uid, name in coders %}<option value="{{ uid }}">{{ name }}</option>{% endfor %}</select></label>
+    <button class="button button-small">{{ de_en("Zweitkodierung anlegen", "Set up second coding") }}</button>
+  </form>
+  {% else %}
+  <p class="muted small">{{ de_en("Dafür braucht die Befragung eine weitere Person mit der Rolle „Bearbeiten“ unter „Einstellungen“ › „Beteiligte Forschende“.", "For this the survey needs another person with the role “Edit” under “Settings” › “Researchers involved”.") }}</p>
+  {% endif %}
+  {% elif not second.done %}
+  <p>{{ de_en("Läuft bei {name}: {n} Antworten in der Stichprobe.", "Under way with {name}: {n} answers in the sample.", name=second.name, n=second.ids|length) }}</p>
+  <form method="post" action="{{ url_for('coding.second_stop', survey_id=survey.id, key=key) }}" class="inline-form" data-confirm="{{ de_en('Zweitkodierung beenden?', 'End the second coding?') }}" data-confirm-note="{{ de_en('Die Stichprobe und die Kategorien der zweiten Person gehen verloren.', 'The sample and the second person’s categories are lost.') }}" data-confirm-ok="{{ de_en('Beenden', 'End') }}">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Zweitkodierung beenden", "End the second coding") }}</button></form>
+  {% elif check %}
+  <p><strong>{{ term("kripp", de_en("Krippendorffs α", "Krippendorff's α")) }} = {{ check.alpha|dec(2) if check.alpha is not none else "–" }}</strong>{% if check.ci %} <span class="hint">{{ de_en("95-%-KI", "95% CI") }} [{{ check.ci[0]|dec(2) }}; {{ check.ci[1]|dec(2) }}]</span>{% endif %} · {{ de_en("Übereinstimmung", "agreement") }} {{ check.agree|percent if check.agree is not none else "–" }} · n = {{ check.n }}{% if check.skipped %} <span class="hint">({{ de_en("{k} ohne Erstkodierung nicht verglichen", "{k} without a first coding not compared", k=check.skipped) }})</span>{% endif %} · {{ de_en("zweite Person", "second person") }}: {{ check.by }}</p>
+  <p class="muted small">{% if check.single %}{{ de_en("α nominal über die Kategorien.", "α nominal over the categories.") }}{% else %}{{ de_en("Mehrere Kategorien je Antwort: α über alle Kategorien zusammen, je Kategorie als ja/nein; Übereinstimmung = genau dieselben Kategorien.", "Several categories per answer: α over all categories together, each as yes/no; agreement = exactly the same categories.") }}{% endif %} {% if check.rescored %}{{ de_en("Nach dem Abschluss wurden Kategorien zusammengelegt oder entfernt: α ist mit dem geänderten Schema neu berechnet.", "Categories were merged or removed after the end: α is computed anew with the changed scheme.") }} {% endif %}{{ de_en("Intervall per Bootstrap über die Antworten (1000 Ziehungen, ab 10). Als Faustregel gilt α ab 0,80 als verlässlich, ab 0,667 für vorläufige Schlüsse (Krippendorff, 2019).", "Interval by a bootstrap over the answers (1000 draws, from 10). As a rule of thumb α from 0.80 counts as reliable, from 0.667 for tentative conclusions (Krippendorff, 2019).") }}</p>
+  {% if check.per_cat %}
+  <details class="res-dist"><summary>{{ de_en("α je Kategorie", "α per category") }}</summary>
+    <table class="res-table"><thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th>{{ de_en("Krippendorffs α", "Krippendorff's α") }}</th></tr></thead><tbody>
+    {% for name, a in check.per_cat %}<tr><td>{{ name }}</td><td>{{ a|dec(2) if a is not none else "–" }}</td></tr>{% endfor %}
+    </tbody></table>
+    <p class="muted small">{{ de_en("„–“: nicht bestimmbar, weil beide die Kategorie nie oder immer vergeben haben.", "“–”: cannot be determined because both never or always gave the category.") }}</p>
+  </details>
+  {% endif %}
+  {% if check.differ %}
+  <h3>{{ de_en("Abweichungen klären ({n})", "Clarify the disagreements ({n})", n=check.differ|length) }}</h3>
+  <p class="muted small">{{ de_en("Die geklärte Fassung gilt: Setzen Sie die Kategorien, auf die Sie sich einigen. α bleibt der Wert des Vergleichs.", "The clarified version counts: set the categories you agree on. α stays the value of the comparison.") }}</p>
+  <ul class="plain coding-rows" data-coding>
+    {% for u in check.differ %}
+    <li class="coding-diff hint">{{ de_en("Erstkodierung", "First coding") }}: {{ u.frozen_names|join(", ") or "–" }} · {{ de_en("Zweitkodierung", "Second coding") }}: {{ u.second_names|join(", ") or "–" }}{% if u.clarified %} · {{ de_en("geändert", "changed") }}{% endif %}</li>
+    {{ coding_row({"norm": u.norm, "text": u.text, "cats": u.first, "n": 1, "sources": [], "mixed": false, "recheck": false, "from_ai": false, "ai": none}, scheme, survey, key) }}
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="{{ url_for('coding.second_stop', survey_id=survey.id, key=key) }}" class="inline-form" data-confirm="{{ de_en('Ergebnis der Zweitkodierung verwerfen?', 'Discard the result of the second coding?') }}" data-confirm-note="{{ de_en('Danach lässt sich eine neue Zweitkodierung anlegen.', 'A new second coding can be set up afterwards.') }}" data-confirm-ok="{{ de_en('Verwerfen', 'Discard') }}">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Verwerfen und neu anlegen", "Discard and set up anew") }}</button></form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

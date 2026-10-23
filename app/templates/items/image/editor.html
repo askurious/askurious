@@ -1,0 +1,7 @@
+{% set question_label = de_en("Bildunterschrift", "Caption") %}
+{% set question_hint = "optional" %}
+{% include "items/_question_field.html" %}
+<label><span class="label-title">{{ de_en("Alternativtext", "Alt text") }} <span class="hint">{{ de_en("für Screenreader", "for screen readers") }}</span></span>
+  <input name="alt" value="{{ item.lang_texts(lang).get('alt', '') }}"{% if not item.lang_texts(lang).get('alt', '')|trim %} aria-describedby="alt-missing"{% endif %}>
+</label>
+{% if not item.lang_texts(lang).get('alt', '')|trim %}<p class="hint finding-warning alt-missing" data-alt-missing id="alt-missing">{{ de_en("Noch leer: Screenreader sagen dann nichts über das Bild. Beschreiben Sie kurz, was es zeigt; nur ein Bild, das bloß schmückt, darf ohne bleiben.", "Still empty: screen readers then say nothing about the image. Describe briefly what it shows; only an image that merely decorates may go without.") }}</p>{% endif %}

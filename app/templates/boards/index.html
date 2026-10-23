@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% block title %}Dashboards · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "boards" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid board-index">
+{% set can_edit = survey.can(current_user, "editor") %}
+
+<section class="panel">
+  <h2>Dashboards <span class="hint">{{ de_en("Seiten mit Ergebnissen, Quoten und Kennzahlen der Datenerhebung, die sich per Link weitergeben lassen", "pages with results, quotas and key figures of the data collection that can be passed on by link") }}</span></h2>
+  {% if survey.boards %}
+  <div class="res-scroll">{# a phone scrolls the table, not the page (UI audit W79) #}
+  <table class="group-links board-list">
+    <thead><tr><th>Name</th><th>{{ de_en("Kacheln", "Tiles") }}</th><th>{{ de_en("gültige Links", "valid links") }}</th><th></th></tr></thead>
+    <tbody>
+      {% for board in survey.boards %}
+      <tr>
+        <td><a href="{{ url_for('boards.designer', survey_id=survey.id, board_id=board.id) }}"><strong>{{ board.name }}</strong></a></td>
+        <td>{{ tiles[board.id] }}</td>
+        <td>{{ live[board.id] }}</td>
+        <td class="nowrap">
+          <a class="button button-small button-secondary" href="{{ url_for('boards.designer', survey_id=survey.id, board_id=board.id) }}">{{ de_en("Bearbeiten", "Edit") if can_edit else de_en("Ansehen", "View") }}</a>
+          <a class="button button-small button-secondary" href="{{ url_for('boards.view', survey_id=survey.id, board_id=board.id) }}" target="_blank" rel="noopener">{{ de_en("Öffentliche Ansicht", "Public view") }} ↗</a>
+          {% if can_edit %}<form method="post" action="{{ url_for('boards.delete', survey_id=survey.id, board_id=board.id) }}" class="inline"
+                data-confirm="{{ de_en('Dashboard „{name}“ löschen?', 'Delete dashboard “{name}”?', name=board.name) }}" data-confirm-note="{{ de_en('Seine Links zeigen danach nichts mehr. Das lässt sich nicht rückgängig machen.', 'Its links then show nothing any more. This cannot be undone.') }}"
+                data-confirm-ok="{{ de_en('Dashboard löschen', 'Delete dashboard') }}" data-confirm-danger>{{ csrf() }}<button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Löschen", "Delete") }}</button></form>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">{{ de_en("Diese Befragung hat noch kein Dashboard.", "This survey has no dashboard yet.") }}</p>
+  {% endif %}
+</section>
+
+{% if can_edit %}
+<section class="panel">
+  <h2>{{ de_en("Neues Dashboard", "New dashboard") }}</h2>
+  {% if survey.boards|length >= max_boards %}
+  <p class="muted">{{ de_en("Höchstens {n} Dashboards je Befragung.", "At most {n} dashboards per survey.", n=max_boards) }}</p>
+  {% else %}
+  <form method="post" action="{{ url_for('boards.new', survey_id=survey.id) }}" class="stack">
+    {{ csrf() }}
+    <div class="board-templates" role="radiogroup" aria-label="{{ de_en('Vorlage', 'Template') }}">
+      {% for key, name in templates.items() %}
+      <label class="board-template"><input type="radio" name="template" value="{{ key }}" {% if loop.first %}checked{% endif %}>
+        <span><strong>{{ name }}</strong><span class="hint">{{ notes[key] }}</span></span></label>
+      {% endfor %}
+    </div>
+    <label>Name <span class="hint">{{ de_en("leer = Name der Vorlage; lässt sich später ändern", "empty = name of the template; can be changed later") }}</span><input name="name" maxlength="200"></label>
+    <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Dashboard anlegen", "Create dashboard") }}</button></div>
+  </form>
+  {% endif %}
+</section>
+{% else %}
+<section class="panel"><p class="muted small">{{ de_en("Ihre Rolle „Ansehen“ zeigt die Dashboards; anlegen und ändern können sie Personen mit der Rolle „Bearbeiten“.", "Your role “View” shows the dashboards; people with the role “Edit” can create and change them.") }}</p></section>
+{% endif %}
+
+<section class="panel">
+  {# first sentence in view, the rest under "Mehr dazu" (UI/UX audit 2026-10-16, 56) #}
+  <p class="muted small">{{ de_en("Ein Dashboard zeigt nur zusammengefasste Zahlen, keine Antworten einzelner Personen.", "A dashboard shows only summarised figures, no answers of individual people.") }}</p>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+  <p class="muted small">{{ de_en("Keine Freitexte, Ergebnisse erst ab {tile} Antworten (im Designer je Dashboard einstellbar), und Antworten, die weniger als {cell}-mal genannt wurden, werden zusammengefasst. Es gilt die „Grundlage der Auswertung“ (Qualitätssicherung, Ergebnisse); markierte Teilnahmen bleiben draußen. Solange die Befragung läuft, zeigt ein Link Fragen und Quoten in Stufen: neue Zahlen erst nach jeweils {cell} weiteren Teilnahmen, für alle Sprachen und alle Dashboards der Befragung auf demselben Stand. Nur Hörsaal-Links zeigen jede Antwort sofort.", "No free texts, results only from {tile} answers (adjustable per dashboard in the designer), and answers named fewer than {cell} times are combined. The “Basis of the analysis” applies (quality assurance, results); marked participations stay out. While the survey runs, a link shows questions and quotas in steps: new figures only after every {cell} further participations, at the same state for all languages and all dashboards of the survey. Only lecture hall links show every answer at once.", tile=min_tile, cell=min_cell) }}</p>
+  </details>
+</section>
+</div>
+{% endblock %}

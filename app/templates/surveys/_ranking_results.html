@@ -1,0 +1,12 @@
+{# Ranking where not everyone saw every option (carried options): ranks normalised to the number of options
+   each person ranked (items/ranking.py results()), since rank 2 of 2 is last and rank 2 of 5 second. Needs: e, num #}
+<div class="res-scroll"><table class="res-table">
+  <thead><tr><th>Option</th><th>n</th><th title="{{ de_en('(k − Rang) / (k − 1) bei k gereihten Optionen: 1 = oben, 0 = unten', '(k − rank) / (k − 1) with k ranked options: 1 = top, 0 = bottom') }}">{{ de_en("normierter Rang", "normalised rank") }}</th><th>{{ de_en("auf Platz 1", "ranked first") }}</th></tr></thead>
+  <tbody>
+  {% for r in e.ranks_norm %}
+    <tr><td>{{ r.label }} <span class="hint"><code>{{ e.item.code }}_{{ r.code }}</code></span></td><td>{{ r.n }}</td>
+      <td>{{ num(r.mean) }}</td><td>{% if r.top is not none %}{{ r.top|percent }}{% else %}–{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Nicht alle haben alle Optionen gesehen: Wer zwei Optionen reiht, setzt mit Rang 2 ans Ende, wer fünf reiht, an die zweite Stelle. Der mittlere Rang oben vermischt beides; vergleichbar ist der normierte Rang (1 = oben, 0 = unten) über die Personen, die die Option gesehen haben.", "Not everyone saw every option: anyone who ranks two options puts rank 2 last, anyone who ranks five puts it second. The mean rank above mixes both; comparable is the normalised rank (1 = top, 0 = bottom) over the people who saw the option.") }}</p>

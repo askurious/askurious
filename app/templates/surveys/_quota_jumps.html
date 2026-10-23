@@ -1,0 +1,6 @@
+{# Cells whose running places rose by leaps (quotas.jumps, S20 of the audit 2026-10-06): a note, nothing happens by
+   itself. Needs: quota_jumps (quota_views.state_context). #}
+{% from "_icons.html" import icon %}
+{% for j in quota_jumps %}
+<div class="flash flash-warning">{{ icon("alert", 16) }} <span><strong>{{ j.quota }}: {{ j.cell }}</strong> – {{ de_en("in den letzten {minutes} Minuten haben {n} laufende Teilnahmen einen Platz reserviert (offen: {open}). Kommen sie nicht aus Ihrem Aufruf, kann ein Skript die Teilquote füllen und echte Personen auf „Quote voll“ schicken. Die Plätze werden nach der Haltezeit frei; prüfen Sie die Teilnahmen in der Qualitätssicherung und schließen Sie die Teilquote, wenn nötig, unter „Ablauf“ › „Quoten“.", "in the last {minutes} minutes {n} running participations reserved a place (open: {open}). If they do not come from your invitation, a script may be filling the sub-quota and sending real people to “Quota full”. The places become free after the holding time; check the participations in quality assurance and, if needed, close the sub-quota under “Flow” › “Quotas”.", minutes=j.minutes, n=j.n, open=j.open) }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#quota-cell-{{ j.cell_id }}">{{ de_en("Ablauf → Quoten", "Flow → Quotas") }}</a></span></div>
+{% endfor %}

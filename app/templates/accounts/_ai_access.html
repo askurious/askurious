@@ -1,0 +1,67 @@
+{# the own AI key on the page "KI-Nutzung" (app/ai_access.py; eigener-ki-schluessel-konzept.md, E1-E7 as recommended;
+   for everyone since 2026-10-10). Needs: ai_access (AiAccess or None), ai_access_days, ai_mod (app.ai_access). The
+   key itself is never shown again, only its last four characters. #}
+{% from "_macros.html" import autosave_bar %}
+<section class="panel" id="ki-zugang">
+  <h2>{{ de_en("Eigener KI-Zugang", "Own AI access") }} <span class="hint">{{ de_en("eigener API-Schlüssel für die KI-Textfunktionen", "own API key for the AI text functions") }}</span></h2>
+  {% if request.args.get("for") in ("coding", "paper") and not (ai_access and ai_access.text_model) %}
+  {# came from a button of a function that sends participants' data: it runs only over an own access (Ralf, 2026-10-21) #}
+  <p class="ai-status small" role="status">{{ icon("info", 14) }} {% if request.args.get("for") == "coding" %}{{ de_en("Die KI-Hilfe beim Kategorisieren schickt Antworttexte von Teilnehmenden und läuft deshalb nur über einen eigenen KI-Zugang (z. B. KI:connect.nrw).", "The AI help for categorising sends answer texts of participants and therefore runs only over an own AI access (e.g. KI:connect.nrw).") }}{% else %}{{ de_en("Das KI-Lesen der Handschrift schickt Bildausschnitte von Papierbögen der Teilnehmenden und läuft deshalb nur über einen eigenen KI-Zugang (z. B. KI:connect.nrw).", "Reading handwriting with AI sends image sections of participants' paper sheets and therefore runs only over an own AI access (e.g. KI:connect.nrw).") }}{% endif %} {{ de_en("Tragen Sie ihn hier ein und wählen Sie ein Modell; danach steht die Funktion bereit.", "Enter it here and choose a model; then the function is ready.") }}</p>
+  {% endif %}
+  {% if ai_access %}
+  {% if ai_access.last_error %}
+  <p class="ai-status small">{{ icon("alert", 14) }} {{ ai_mod.error_text(ai_access.last_error) }}</p>{# a status line, no banner (Ralf, 2026-10-10) #}
+  {% endif %}
+  {% if ai_access_days is not none and ai_access_days <= ai_mod.WARN_DAYS %}
+  <p class="ai-status small">{{ icon("alert", 14) }} {% if ai_access_days < 0 %}{{ de_en("Ihr Schlüssel ist laut „Gültig bis“ abgelaufen.", "Your key has expired according to “Valid until”.") }}{% elif ai_access_days == 0 %}{{ de_en("Ihr Schlüssel läuft heute ab.", "Your key expires today.") }}{% elif ai_access_days == 1 %}{{ de_en("Ihr Schlüssel läuft in 1 Tag ab.", "Your key expires in 1 day.") }}{% else %}{{ de_en("Ihr Schlüssel läuft in {n} Tagen ab.", "Your key expires in {n} days.", n=ai_access_days) }}{% endif %}
+    {{ de_en("Bitte beim Anbieter erneuern und unten einfügen.", "Please renew it at the provider and paste it below.") }}</p>
+  {% endif %}
+  <p class="ai-note small" data-live="ai-model">{{ de_en("Schlüssel hinterlegt bei {provider}, endet auf …{hint}.", "Key stored for {provider}, ends in …{hint}.", provider=ai_mod.provider_label(ai_access.provider), hint=ai_access.key_hint) }}
+    {% if ai_access.text_model %}{{ de_en("Modell:", "Model:") }} <strong>{{ ai_access.text_model }}</strong> ({{ ai_mod.origin(ai_access.provider, ai_access.text_model) }}).{% endif %}
+    {% if ai_access.valid_until %}{{ de_en("Gültig bis", "Valid until") }} {{ ai_access.valid_until|walldt(false) }}.{% endif %}
+    {% if not ai_access.text_model %}{{ de_en("Noch kein Modell gewählt: Bis dahin läuft die KI über den Zugang der Plattform.", "No model chosen yet: until then the AI runs over the platform's access.") }}{% endif %}</p>
+  {# the model saves on its choice, a typed one when its field is left (autosave, Ralf 2026-10-10: no button) #}
+  <form method="post" action="{{ url_for('ai_access.model') }}" class="stack" autocomplete="off" data-autosave-form>
+    {{ csrf() }}
+    {# the model and "Verbindung prüfen" in one row (Ralf, 2026-10-18); the button sends the form below it #}
+    <div class="field"><label class="label-title" for="ai-model">{{ de_en("Modell", "Model") }}</label>
+      <div class="row field-with-button ai-model-row">
+      {% if ai_access.models %}
+      <select name="model" id="ai-model" required>
+        {% if not ai_access.text_model %}<option value="">{{ de_en("Bitte wählen", "Please choose") }}</option>{% endif %}
+        {% for m in ai_access.models %}<option value="{{ m }}"{% if m == ai_access.text_model %} selected{% endif %}>{{ m }} · {{ ai_mod.origin(ai_access.provider, m) }}</option>{% endfor %}
+      </select>
+      {% else %}
+      <input type="text" name="model" id="ai-model" value="{{ ai_access.text_model }}" maxlength="120" spellcheck="false" required>
+      {% endif %}
+      <button class="button button-ai" form="ai-check">{{ de_en("Verbindung prüfen", "Check connection") }}</button></div>
+      {% if not ai_access.models %}<span class="hint">{{ de_en("Der Anbieter liefert keine Modellliste; bitte die technische Modell-ID eintragen.", "The provider gives no model list; please type the technical model id.") }}</span>{% endif %}
+    </div>
+    {{ autosave_bar() }}
+  </form>
+  <form method="post" action="{{ url_for('ai_access.check') }}" id="ai-check" hidden>{{ csrf() }}</form>
+  {% endif %}
+  <form method="post" action="{{ url_for('ai_access.save') }}" class="stack ai-access-form" autocomplete="off">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Anbieter", "Provider") }}</span>
+      <select name="provider">
+        {% for key, label in ai_mod.providers() %}<option value="{{ key }}"{% if (ai_access.provider if ai_access else "kiconnect") == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></label>
+    <label data-show-when="provider:custom"><span class="label-title">{{ de_en("Basis-Adresse", "Base address") }}</span>
+      <input type="url" name="base_url" value="{{ ai_access.base_url if ai_access and ai_access.provider == 'custom' else '' }}" placeholder="https://…/v1" maxlength="300" spellcheck="false">
+      <span class="hint">{{ de_en("Eine OpenAI-kompatible Schnittstelle, nur https und nur öffentliche Server (z. B. RWTH LLM Hosting, ein eigenes vLLM).", "An OpenAI-compatible API, https only and public servers only (e.g. RWTH LLM Hosting, your own vLLM).") }}</span></label>
+    <label><span class="label-title">{{ de_en("Neuer API-Schlüssel", "New API key") if ai_access else de_en("API-Schlüssel", "API key") }}</span>
+      <input type="password" name="key" autocomplete="off" spellcheck="false"{% if not ai_access %} required{% endif %}>
+      {% if ai_access %}<span class="hint">{{ de_en("Leer lassen, um den hinterlegten Schlüssel zu behalten.", "Leave empty to keep the stored key.") }}</span>{% endif %}</label>
+    <label><span class="label-title">{{ de_en("Gültig bis (optional)", "Valid until (optional)") }}</span>
+      <input type="date" name="valid_until" value="{{ ai_access.valid_until.isoformat() if ai_access and ai_access.valid_until else '' }}">
+      <span class="hint">{{ de_en("Bei KI:connect ohne Angabe heute + 30 Tage. Askurious erinnert 3 Tage vorher.", "At KI:connect without a date today + 30 days. Askurious reminds you 3 days before.") }}</span></label>
+    <div class="form-actions"><button class="button button-secondary">{{ de_en("Speichern und Modelle laden", "Save and load models") }}</button></div>
+  </form>
+  {% if ai_access %}
+  <form class="inline" method="post" action="{{ url_for('ai_access.remove') }}">{{ csrf() }}<button class="link small">× {{ de_en("Entfernen", "Remove") }}</button></form>
+  {% endif %}
+  <p class="muted small">{{ de_en("Mit eigenem Schlüssel laufen die KI-Textfunktionen über Ihren Zugang, Ihr Kontingent und die Nutzungsbedingungen Ihres Anbieters, immer mit dem Schlüssel der Person, die gerade klickt; das Tageslimit von Askurious zählt dann nicht. Bilder laufen weiter über den Zugang der Plattform. Askurious speichert den Schlüssel verschlüsselt und zeigt ihn nie wieder an.",
+    "With your own key the AI text functions run over your access, your quota and your provider's terms of use, always with the key of the person who clicks; the daily limit of Askurious does not count then. Images keep running over the platform's access. Askurious stores the key encrypted and never shows it again.") }}
+    {{ de_en("Schlüssel für KI:connect erzeugen:", "Create a key for KI:connect:") }} <a href="https://chat.kiconnect.nrw" target="_blank" rel="noopener">chat.kiconnect.nrw ↗</a> {{ de_en("→ Name unten links → API-Schlüsselverwaltung. Schlüssel gelten einen Monat.", "→ name at the bottom left → API key management. Keys are valid for a month.") }}</p>
+</section>

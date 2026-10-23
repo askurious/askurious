@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# A recording made elsewhere added to an interview (app/interview_audio.py, upload_page; audio-upload.js cuts each
+   file into pieces). Concept konzept-online-interviews-2026-10-15.md: only sound (3a), every voice of its own file
+   may get its speaker (2a, optional), the tick that everybody who speaks consented (4a). #}
+{% block title %}{{ de_en("Aufnahme hochladen", "Upload recording") }} · {{ row.interview.label }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% if interviewer_of(survey) %}<div class="tabpage-head"><p class="muted small">{{ survey.title }}</p></div><!--flashes-->
+{% else %}<div class="tabpage-head">{% set active_tab = "interviews" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->{% endif %}
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Aufnahme hochladen: {label}", "Upload recording: {label}", label=row.interview.label) }}</h2>
+    <span class="spacer"></span>
+    <a class="button button-small button-secondary" href="{{ back }}">{{ icon("back", 16) }} Interviews</a>
+  </div>
+  <p class="muted small">{{ de_en("Für Interviews über Zoom, Teams, Webex oder BigBlueButton oder mit einem Diktiergerät: Die Tondatei kommt zu den übrigen Teilen der Aufnahme dieses Interviews, mit derselben Löschfrist. Askurious nimmt nur Ton an (M4A, MP3, WAV, WebM, Ogg), keine Videodateien.", "For interviews over Zoom, Teams, Webex or BigBlueButton or with a voice recorder: the audio file joins the other parts of this interview's recording, with the same deletion period. Askurious accepts sound only (M4A, MP3, WAV, WebM, Ogg), no video files.") }}</p>
+  <details class="small">
+    <summary>{{ de_en("Woher die Tondatei kommt", "Where to get the audio file") }}</summary>
+    <ul>
+      <li>{{ de_en("Zoom: lokale Aufzeichnung in der Desktop-App (nicht auf Handy oder Tablet). Zoom legt neben dem Video eine M4A-Datei nur mit Ton an; diese hochladen. Ist in Zoom eingestellt, für jede Person eine eigene Audiodatei aufzunehmen, gibt es im Ordner „Audio Record“ eine Datei je Person: dann jede Datei einzeln hochladen und ihren Sprecher wählen, die gemeinsame Datei weglassen.", "Zoom: local recording in the desktop app (not on a phone or tablet). Next to the video, Zoom makes an M4A file with sound only; upload that one. If Zoom is set to record a separate audio file for each person, the folder “Audio Record” holds one file per person: then upload each file on its own and choose its speaker, leaving out the combined file.") }}</li>
+      <li>{{ de_en("Teams und Webex speichern Aufnahmen als Video. Den Ton vorher als Tondatei speichern (z. B. mit VLC oder Audacity), oder nur das Transkript von Teams (.vtt oder .docx) beim Transkript hochladen.", "Teams and Webex store recordings as video. Save the sound as an audio file first (e.g. with VLC or Audacity), or upload only the Teams transcript (.vtt or .docx) on the transcript page.") }}</li>
+      <li>{{ de_en("Nach dem Hochladen die Kopie bei der Plattform und auf dem eigenen Rechner löschen, damit die Aufnahme nur an einer Stelle liegt und mit der Frist des Leitfadens verschwindet.", "After the upload, delete the copy at the platform and on your own computer, so that the recording lies in one place only and goes with the period of the guide.") }}</li>
+      {% if whisper_jobs %}<li>{{ de_en("Der Transkriptionsdienst nimmt je Datei höchstens 60 Minuten; eine längere Aufnahme vorher teilen.", "The transcription service takes at most 60 minutes per file; split a longer recording first.") }}</li>{% endif %}
+    </ul>
+  </details>
+  {% if parts_left <= 0 or left <= 0 %}
+  <p class="danger-text">{{ de_en("Dieses Interview hat keinen Platz für weitere Aufnahmeteile.", "This interview has no room for further recording parts.") }}</p>
+  {% else %}
+  <form class="stack" data-audio-upload data-csrf="{{ csrf_token() }}" data-url="{{ url_for('interview_audio.upload', code=survey.code, rid=row.id) }}"
+        data-part="{{ next_part }}" data-piece="{{ piece }}" data-left="{{ left }}" data-parts-left="{{ parts_left }}" data-back="{{ back }}">
+    {% if not (row.interview.consent or {}).upload %}
+    <label class="check"><input type="checkbox" name="all" value="1" required> {{ de_en("Alle Sprechenden haben vor der Aufnahme eingewilligt, auch in die Übertragung zu Askurious", "Everyone who speaks consented before the recording, also to its transfer to Askurious") }} <span class="hint">{{ de_en("die befragte Person, die Interviewenden und alle, die im Raum mitsprechen (§ 201 StGB, Art. 6 Abs. 1 lit. a DSGVO)", "the interviewee, the interviewers and anyone who speaks in the room (section 201 German Criminal Code, Art. 6(1)(a) GDPR)") }}</span></label>
+    {% else %}<p class="muted small">{{ de_en("Einwilligung aller Sprechenden bestätigt.", "Consent of everyone who speaks confirmed.") }}</p>{% endif %}
+    <div class="row-fields">
+      <label>{{ de_en("Aufgenommen mit", "Recorded with") }}
+        <select name="origin">{% for key in origins %}<option value="{{ key }}">{{ label(key, origins) }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Tondateien", "Audio files") }}
+        <input type="file" name="files" multiple required accept=".m4a,.mp3,.wav,.webm,.ogg,.oga,.opus,audio/*"></label>
+    </div>
+    <div data-files hidden>
+      <p class="muted small flush">{{ de_en("Hat eine Datei nur eine Stimme (Zoom: eigene Datei je Person), ihren Sprecher wählen: Dann ordnet die Transkription die Absätze nach der Zeit und setzt „I:“ und „B:“. Eine Datei mit mehreren Stimmen bleibt bei „mehrere Sprechende“.", "If a file holds one voice only (Zoom: a separate file per person), choose its speaker: the transcription then orders the paragraphs by time and sets “I:” and “B:”. A file with several voices stays at “several speakers”.") }}</p>
+      <ul class="plain" data-file-list></ul>
+      <template data-file-row><li class="row-fields"><span data-name></span>
+        <label>{{ de_en("Sprecher", "Speaker") }} <select data-speaker>{% for key in speakers %}<option value="{{ key }}">{{ label(key, speakers) }}</option>{% endfor %}</select></label></li></template>
+    </div>
+    <div><button class="button">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button></div>
+    <p class="small" data-upload-state role="status" aria-live="polite"></p>
+    <progress data-upload-bar value="0" max="1" hidden aria-label="{{ de_en('Hochgeladen', 'Uploaded') }}"></progress>
+  </form>
+  {% endif %}
+  {# offline L: the pieces the interview view or the phone saved as a file when they did not get through (audio-rescue.js) #}
+  <form class="stack" data-audio-rescue data-csrf="{{ csrf_token() }}" data-url="{{ url_for('interview_audio.upload', code=survey.code, rid=row.id) }}" data-interview="{{ row.id }}">
+    <h3>{{ de_en("Gesicherte Tonstücke einlesen", "Read in saved audio pieces") }}</h3>
+    <p class="muted small flush">{{ de_en("Kam eine Aufnahme nicht durch, speichert „Tonstücke sichern“ in der Interviewansicht oder auf dem Handy die wartenden Stücke als Datei (.askurious-audio.json). Hier eingelesen, kommen sie an ihre Stelle in der Aufnahme; schon vorhandene Stücke werden übersprungen. Danach die Datei löschen.", "If a recording did not get through, “Save audio pieces” in the interview view or on the phone saves the waiting pieces as a file (.askurious-audio.json). Read in here, they go to their place in the recording; pieces already there are skipped. Delete the file afterwards.") }}</p>
+    <label>{{ de_en("Datei", "File") }} <input type="file" name="rescue" accept=".json,application/json" required></label>
+    <div><button class="button button-secondary">{{ de_en("Einlesen", "Read in") }}</button></div>
+    <p class="small" data-rescue-state role="status" aria-live="polite"></p>
+  </form>
+</section>
+<script src="{{ url_for('static', filename='audio-upload.js') }}" defer></script>
+<script src="{{ url_for('static', filename='audio-rescue.js') }}" defer></script>
+{% endblock %}

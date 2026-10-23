@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Gruppen", "Groups") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Gruppen", "Groups") }}</h1>
+<p class="muted">{{ de_en("Eine Gruppe ist eine Liste von Personen, mit denen Sie regelmäßig arbeiten, etwa ein Lehrstuhl oder ein Projektteam.
+  Mit einer Gruppe lassen sich Befragungen und Designs auf einmal teilen, statt Person für Person. Eine Gruppe besitzt nichts: Designs und
+  Befragungen bleiben bei den Personen, denen sie gehören. Wer austritt oder eine Gruppe löscht, verliert also nichts; es endet nur, was über
+  die Gruppe geteilt war.", "A group is a list of people you work with regularly, such as a chair or a project team.
+  A group lets you share surveys and designs all at once instead of person by person. A group owns nothing: designs and
+  surveys stay with their owners. Anyone who leaves or deletes a group therefore loses nothing; only what was shared through
+  the group ends.") }}</p>
+
+<section class="panel">
+  <h2>{{ de_en("Meine Gruppen", "My groups") }}</h2>
+  {% if not groups %}<p class="muted">{{ de_en("Sie sind in keiner Gruppe.", "You are not in any group.") }}</p>{% endif %}
+  <ul class="plain group-list">
+    {% for g in groups %}{% set me = g.member_of(current_user) %}
+    <li>
+      <a class="group-name" href="{{ url_for('groups.detail', group_id=g.id) }}">{{ g.name }}</a>
+      {% if me.role == "lead" %}<span class="badge role-badge">{{ de_en("Leitung", "Lead") }}</span>{% endif %}
+      <span class="muted small">{{ g.members|length }} {{ de_en("Mitglied", "member") if g.members|length == 1 else de_en("Mitglieder", "members") }}{% if me.role != "lead" %}
+        · {{ de_en("Leitung:", "Lead:") }} {{ g.leads()|map(attribute="display_name")|join(", ") }}{% endif %}</span>
+      {% if g.description %}<span class="muted small group-description">{{ g.description }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% if may_create %}
+<section class="panel">
+  <h2>{{ de_en("Neue Gruppe", "New group") }} <span class="hint">{{ de_en("Sie leiten die Gruppe und fügen danach die Mitglieder hinzu", "you lead the group and then add the members") }}</span></h2>
+  <form method="post" action="{{ url_for('groups.new') }}" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">Name</span>
+      <input type="text" name="name" maxlength="80" required class="name-field"></label>
+    <label><span class="label-title">{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional; sehen nur die Mitglieder", "optional; only the members see it") }}</span></span>
+      <input type="text" name="description" maxlength="500" class="description-field"></label>
+    <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Gruppe anlegen", "Create group") }}</button></div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

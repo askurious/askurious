@@ -1,0 +1,48 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+{% set question_hint = de_en("z. B. „Wie erleben Sie den Roboter?“", "e.g. “How do you experience the robot?”") %}
+{% include "items/_question_field.html" %}
+{% set w_left, w_right, w_rev = de_en("links", "left"), de_en("rechts", "right"), de_en("umgepolt", "reversed") %}
+<fieldset>
+  <legend>{{ de_en("Skala", "Scale") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Stufen", "Points") }}
+      <select name="points" {% if not structural %}disabled{% endif %}>{% for p in ((5, 6, 7) + ((item.cfg.points,) if item.cfg.points and item.cfg.points not in (5, 6, 7) else ()))|sort %}<option value="{{ p }}" {% if item.cfg.points == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+    </label>
+    <label class="check"><input type="checkbox" name="numbers" value="1" {% if item.cfg.numbers %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Stufen nummerieren", "Number the points") }}</label>
+    <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.cfg.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Paare in zufälliger Reihenfolge", "Pairs in random order") }}</label>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Gegensatzpaare", "Opposite pairs") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Variablenname leer = {code}_1, {code}_2, …; „umgepolt“, wenn der positive Pol links steht", "variable name empty = {code}_1, {code}_2, …; “reversed” if the positive pole is on the left", code=item.code) }}</span></legend>
+  {% set sub_names = item.config.pairs|selectattr("subscale")|map(attribute="subscale")|unique|list %}
+  {% include "items/_subscales_field.html" %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit{% if not sub_names %} off-sub{% endif %}" id="rows{{ item.id }}">
+    <thead><tr><th>{{ w_left }}</th><th>{{ w_right }}</th><th class="narrow-col">Variable</th><th class="narrow-col col-sub">{{ de_en("Subskala", "Subscale") }}</th><th class="narrow-col">{{ w_rev }}</th></tr></thead>
+    <tbody>
+    {% set ptexts = item.lang_texts(lang).get("pairs", {}) %}
+    {% for p in item.cfg.pairs %}
+    {% set dflt = (item.text("pairs") or {}).get(p.id, {}) %}
+    <tr>
+      <td><input type="hidden" name="pair_id" value="{{ p.id }}"><input name="pair_left" aria-label="{{ w_left }}" value="{{ ptexts.get(p.id, {}).get('left', '') }}" placeholder="{{ dflt.get('left', '') }}"></td>
+      <td><input name="pair_right" aria-label="{{ w_right }}" value="{{ ptexts.get(p.id, {}).get('right', '') }}" placeholder="{{ dflt.get('right', '') }}"></td>
+      <td><input name="pair_code" aria-label="Variable" data-varname="part" value="{{ p.code }}" class="narrow" placeholder="{{ item.code }}_{{ loop.index }}" {% if not structural %}readonly{% endif %}></td>
+      <td class="col-sub"><input name="pair_subscale" aria-label="{{ de_en('Subskala', 'Subscale') }}" list="subs{{ item.id }}" value="{{ p.subscale or '' }}" class="narrow" maxlength="100" {% if not structural %}readonly{% endif %}></td>
+      <td class="center"><input type="checkbox" name="pair_reverse" aria-label="{{ w_rev }}" value="{{ p.id }}" {% if p.reverse %}checked{% endif %} {% if not structural %}disabled{% endif %}></td>
+    </tr>
+    {% endfor %}
+    {% if structural %}{% for n in range(3) %}{% set nid = new_id() %}
+    <tr class="new-row">
+      <td><input type="hidden" name="pair_id" value="{{ nid }}"><input name="pair_left" aria-label="{{ w_left }}" placeholder="{{ de_en('z. B. unfreundlich', 'e.g. unfriendly') }}"></td>
+      <td><input name="pair_right" aria-label="{{ w_right }}" placeholder="{{ de_en('z. B. freundlich', 'e.g. friendly') }}"></td>
+      <td><input name="pair_code" aria-label="Variable" data-varname="part" class="narrow"></td>
+      <td class="col-sub"><input name="pair_subscale" aria-label="{{ de_en('Subskala', 'Subscale') }}" list="subs{{ item.id }}" class="narrow" maxlength="100"></td>
+      <td class="center"><input type="checkbox" name="pair_reverse" aria-label="{{ w_rev }}" value="{{ nid }}"></td>
+    </tr>
+    {% endfor %}{% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+</fieldset>
+{% set rc, rc_what = kind.row_conditions(item, lang), de_en("Gegensatzpaare", "Opposite pairs") %}
+{% include "items/_row_conditions.html" %}

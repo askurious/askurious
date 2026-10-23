@@ -1,0 +1,29 @@
+{# Interviews without a network (app/interview_offline.py, experimental): the guide's switch (researchers), the link to
+   the field kit, and the field packs with their state. Needs: survey, offline (dict from interview_offline.panel). #}
+{% if offline.offered %}
+<section class="panel" id="offline">
+  <h2>{{ de_en("Offline-Modus", "Offline mode") }} <span class="badge">{{ de_en("experimentell", "experimental") }}</span></h2>
+  <p class="muted small flush">{{ de_en("Für Interviews ohne Netz: Mit Netz reserviert das Gerät einige Interviews samt Kennung und Löschcode, ohne Netz führt es sie nacheinander, mit Netz gleicht es alles ab. Die Daten liegen bis dahin verschlüsselt auf dem Gerät, höchstens {d} Tage.", "For interviews without a network: with a network the device reserves some interviews with identifier and deletion code, without a network it conducts them one after the other, with a network it syncs everything. Until then the data stay encrypted on the device, at most {d} days.", d=offline.days) }}</p>
+  {% if offline.may_switch %}
+  <form method="post" action="{{ url_for('interview_offline.switch', code=survey.code) }}" class="row-fields">
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="on" value="1" {% if offline.on %}checked{% endif %}> {{ de_en("Offline-Modus für diesen Leitfaden erlauben", "Allow offline mode for this guide") }}</label>
+    <button class="button button-small button-secondary">{{ de_en("Übernehmen", "Apply") }}</button>
+  </form>
+  {% endif %}
+  {% if offline.on %}
+  <p><a class="button" href="{{ url_for('interview_offline.page', code=survey.code) }}">{{ de_en("Feldmappe öffnen", "Open field kit") }}</a>
+     <span class="hint">{{ de_en("auf dem Gerät, das ins Feld geht; dort mit Netz vorbereiten", "on the device that goes into the field; prepare it there with a network") }}</span></p>
+  {% if offline.packs %}
+  <table class="list-table small">
+    <thead><tr><th>{{ de_en("Feldpaket von", "Field pack by") }}</th><th>{{ de_en("Gültig bis", "Valid until") }}</th><th>{{ de_en("Abgeglichen", "Synced") }}</th><th></th></tr></thead>
+    <tbody>{% for p in offline.packs %}
+      <tr><td>{{ p.by_name }}</td><td>{{ day(p.until) if p.until else "" }}{% if p.withdrawn %} · {{ de_en("zurückgezogen", "withdrawn") }}{% elif not p.live %} · {{ de_en("abgelaufen", "expired") }}{% endif %}</td>
+          <td>{{ de_en("{s} von {n}", "{s} of {n}", s=p.synced, n=p.slots) }}</td>
+          <td>{% if offline.may_switch and p.live %}<form method="post" action="{{ url_for('interview_offline.withdraw', code=survey.code, pack_id=p.id) }}" data-confirm="{{ de_en('Feldpaket zurückziehen? Noch nicht abgeglichene Interviews nimmt der Server dann nicht mehr an.', 'Withdraw the field pack? The server then no longer accepts interviews not yet synced.') }}">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Zurückziehen", "Withdraw") }}</button></form>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+</section>
+{% endif %}

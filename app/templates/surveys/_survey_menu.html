@@ -1,0 +1,56 @@
+{# What one does with a survey as a whole, in one place (UI/UX audit 2026-10-16, 5 and 142): duplicating, exporting it as
+   a file, archiving and deleting stood on four pages (Einstellungen, Export, Datenerhebung, the card in the archive).
+   Needs: survey; `on_card`: the menu of a card in the list (dashboard), with the links the card no longer shows. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set role = survey.role_of(current_user) %}
+{% set questionnaire = survey.live is none and survey.interview is none %}
+{% if role %}
+<details class="menu nav-menu survey-menu" data-nav-menu>
+  <summary class="icon-btn" title="{{ de_en('Weitere Aktionen für diese Befragung', 'More actions for this survey') }}" aria-label="{{ de_en('Weitere Aktionen für „{t}“', 'More actions for “{t}”', t=survey.title) }}">{{ icon("more", 18) }}</summary>
+  <div class="nav-menu-panel">
+    {% if on_card is defined and on_card %}
+    {% if survey.live is not none %}<a href="{{ url_for('live.settings', code=survey.code) }}">{{ icon("settings", 16) }} {{ de_en("Einstellungen", "Settings") }}</a>
+    {% elif survey.interview is not none %}<a href="{{ url_for('interview.settings', code=survey.code) }}">{{ icon("settings", 16) }} {{ de_en("Einstellungen", "Settings") }}</a>
+    {% else %}<a href="{{ url_for('surveys.detail', survey_id=survey.id) }}">{{ icon("settings", 16) }} {{ de_en("Einstellungen", "Settings") }}</a>{% endif %}
+    {% endif %}
+    {% if role != "viewer" and kind_creates(survey.kind) %}<a href="{{ url_for('surveys.duplicate', survey_id=survey.id) }}{% if on_card is defined and on_card %}?from=dashboard{% endif %}">{{ icon("copy", 16) }} {{ de_en("Duplizieren …", "Duplicate …") }}</a>
+    {% elif role != "viewer" %}<p class="hint survey-menu-note">{{ de_en("Duplizieren nicht möglich: Ihr Konto darf keine eigenen Befragungen anlegen; das schaltet ein Admin der Plattform frei", "Duplicating not possible: your account may not create surveys of its own; a platform admin can allow this") }}</p>{% endif %}
+    {% if questionnaire and role != "viewer" %}<a href="{{ url_for('surveys.data', survey_id=survey.id) }}#export-file">{{ icon("download", 16) }} {{ de_en("Als Datei exportieren", "Export as a file") }}</a>{% endif %}
+    {% if role != "admin" and on_card is defined and on_card %}
+    <form method="post" action="{{ url_for('dashboard.hide', survey_id=survey.id) }}">{{ csrf() }}
+      {% if show_hidden is defined and show_hidden %}<input type="hidden" name="view" value="hidden"><input type="hidden" name="hidden" value="0">{% endif %}
+      <button title="{{ de_en('Nur in Ihrer Liste; Ihre Rechte bleiben', 'Only in your list; your rights stay') }}">{{ icon("eye" if show_hidden is defined and show_hidden else "eye-off", 16) }} {{ de_en("Wieder einblenden", "Show again") if show_hidden is defined and show_hidden else de_en("Für mich ausblenden", "Hide for me") }}</button>
+    </form>
+    {% endif %}
+    {% if role == "admin" and survey.status != "running" %}
+    {# can be undone (Archiv → Wiederherstellen): no question, the message says where it went #}
+    <form method="post" action="{{ url_for('surveys.archive', survey_id=survey.id) }}">{{ csrf() }}
+      <input type="hidden" name="archived" value="{{ '0' if survey.archived else '1' }}">
+      <button>{{ icon("restore" if survey.archived else "archive", 16) }} {{ de_en("Aus dem Archiv holen", "Restore from archive") if survey.archived else de_en("Archivieren", "Archive") }}</button>
+    </form>
+    {% endif %}
+    {% if role == "admin" and survey.archived %}
+    <hr>
+    {# cannot be undone: only in the archive, asked with the survey's name; with real participations the code is typed #}
+    {% if survey.status == "draft" and not survey.has_real_responses() %}
+    <form method="post" action="{{ url_for('surveys.delete', survey_id=survey.id) }}"
+          data-confirm="{{ de_en('Entwurf „{title}“ endgültig löschen?', 'Delete the draft “{title}” permanently?', title=survey.title) }}" data-confirm-note="{{ de_en('Fragebogen, Einstellungen, Test- und Dummy-Daten und hochgeladene Bilder werden gelöscht. Das lässt sich nicht rückgängig machen.', 'Questionnaire, settings, test and dummy data and uploaded images are deleted. This cannot be undone.') }}"
+          data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>
+      {{ csrf() }}<button class="danger">{{ icon("trash", 16) }} {{ de_en("Endgültig löschen …", "Delete permanently …") }}</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('surveys.delete', survey_id=survey.id) }}"
+          data-confirm="{{ de_en('„{title}“ mit allen Daten endgültig löschen?', 'Delete “{title}” with all its data permanently?', title=survey.title) }}" data-confirm-note="{{ de_en('Fragebogen, alle Teilnahmen und Antworten, Exporte auf dem Server, Kontaktdaten und Bilder werden gelöscht. Das lässt sich nicht rückgängig machen. Ein Datensatz, der schon auf Zenodo veröffentlicht ist, bleibt dort.', 'Questionnaire, all participations and answers, exports on the server, contact details and images are deleted. This cannot be undone. A dataset already published on Zenodo stays there.') }}"
+          data-confirm-ok="{{ de_en('Mit allen Daten löschen', 'Delete with all data') }}" data-confirm-danger
+          data-confirm-type="{{ survey.code }}">
+      {{ csrf() }}<input type="hidden" name="with_data" value="1">
+      <button class="danger">{{ icon("trash", 16) }} {{ de_en("Mit allen Daten löschen …", "Delete with all data …") }}</button>
+    </form>
+    {% endif %}
+    {% elif role == "admin" and survey.status != "running" %}
+    <p class="hint survey-menu-note">{{ de_en("Löschen geht im Archiv.", "Deleting is done in the archive.") }}</p>
+    {% endif %}
+  </div>
+</details>
+{% endif %}

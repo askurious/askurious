@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_learn.html" import why %}
+{# The model access of a survey with the element "KI-Chat" (app/ai_chat.py; E4 as decided by Ralf 2026-10-23): one
+   access per survey, never a personal one and never the platform's key. The key is never shown again, only its last
+   four characters. From the start on provider, address and model stay; a new key raises the version. #}
+{% block title %}{{ de_en("KI-Chat: Modellzugang", "AI chat: model access") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel stack">
+  <h2 class="flush">{{ de_en("KI-Chat: Modellzugang", "AI chat: model access") }}</h2>
+  <p class="ai-note">{{ de_en("Der KI-Chat dieser Befragung läuft über einen eigenen Modellzugang der Befragung, nicht über Ihren persönlichen KI-Zugang und nicht über den Zugang der Plattform. Weil der Chatbot selbst untersucht wird, steht in der Dokumentation der Befragung, woher er kommt: Anbieter, Adresse, Modell, wer ihn wann eingetragen hat, und die Anweisungen jedes KI-Chats. Der Schlüssel steht nirgends.", "The AI chat of this survey runs over a model access of the survey itself, not over your personal AI access and not over the platform's access. Because the chatbot itself is studied, the survey's documentation states where it comes from: provider, address, model, who entered it and when, and the instructions of every AI chat. The key appears nowhere.") }}</p>
+  {% if row %}
+  <dl class="facts">
+    <dt>{{ de_en("Anbieter", "Provider") }}</dt><dd>{{ provider_label }}</dd>
+    <dt>{{ de_en("Adresse", "Address") }}</dt><dd><code>{{ row.base_url }}</code></dd>
+    <dt>{{ de_en("Modell", "Model") }}</dt><dd><strong>{{ row.model }}</strong> ({{ origin }})</dd>
+    <dt>{{ de_en("Schlüssel", "Key") }}</dt><dd>{{ de_en("endet auf …{h}", "ends in …{h}", h=row.key_hint) }}{% if row.valid_until %}, {{ de_en("gültig bis", "valid until") }} {{ row.valid_until.isoformat() }}{% endif %}</dd>
+    <dt>{{ de_en("Version", "Version") }}</dt><dd>{{ row.version }}{% if row.set_by %}, {{ de_en("eingetragen von {who}", "entered by {who}", who=row.set_by) }}{% endif %}{% if row.set_at %}, {{ row.set_at|walldt }}{% endif %}</dd>
+    <dt>{{ de_en("Nachrichten je Tag", "Messages per day") }}</dt><dd>{{ de_en("höchstens {n} von allen Teilnehmenden zusammen in 24 Stunden", "at most {n} from all participants together in 24 hours", n=row.per_day) }}</dd>
+  </dl>
+  {% if row.history %}
+  <details class="ai-chat-history"><summary>{{ de_en("Frühere Versionen", "Earlier versions") }} ({{ row.history|length }})</summary>
+    <ul>{% for old in row.history %}<li>{{ old.version }}: {{ old.provider }}, <code>{{ old.base_url }}</code>, {{ old.model }} ({{ old.set_by or "–" }}, {{ (old.set_at or "–")[:16] }})</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  {% endif %}
+  {% if may_edit %}
+  <form method="post" action="{{ url_for('ai_chat.page', survey_id=survey.id) }}" class="stack" autocomplete="off">
+    {{ csrf() }}
+    {% if locked and row %}<p class="muted small">{{ de_en("Die Befragung läuft oder lief schon: Anbieter, Adresse und Modell bleiben, wie sie beim Start waren. Ein neuer Schlüssel ist möglich und zählt als neue Version.", "The survey is or was running: provider, address and model stay as they were at the start. A new key is possible and counts as a new version.") }}</p>{% endif %}
+    {% set fixed = "disabled" if locked and row else "" %}
+    <label><span class="label-title">{{ de_en("Anbieter", "Provider") }}</span>
+      <select name="provider" {{ fixed }}>
+        {% for key, label in providers %}<option value="{{ key }}"{% if (row.provider if row else "kiconnect") == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>{% if fixed %}<input type="hidden" name="provider" value="{{ row.provider }}">{% endif %}</label>
+    <label data-show-when="provider:custom"><span class="label-title">{{ de_en("Basis-Adresse", "Base address") }}</span>
+      <input type="url" name="base_url" value="{{ row.base_url if row and row.provider == 'custom' else '' }}" placeholder="https://…/v1" maxlength="300" spellcheck="false" {{ fixed }}>
+      {% if fixed %}<input type="hidden" name="base_url" value="{{ row.base_url }}">{% endif %}
+      <span class="hint">{{ de_en("Eine OpenAI-kompatible Schnittstelle, nur https und nur öffentliche Server (z. B. ein eigener Modellserver des Instituts).", "An OpenAI-compatible API, https only and public servers only (e.g. a model server of your institute).") }}</span></label>
+    <label><span class="label-title">{{ de_en("Neuer API-Schlüssel", "New API key") if row else de_en("API-Schlüssel", "API key") }}</span>
+      <input type="password" name="key" autocomplete="off" spellcheck="false"{% if not row %} required{% endif %}>
+      {% if row %}<span class="hint">{{ de_en("Leer lassen, um den hinterlegten Schlüssel zu behalten.", "Leave empty to keep the stored key.") }}</span>{% endif %}</label>
+    <label><span class="label-title">{{ de_en("Modell", "Model") }}</span>
+      <input type="text" name="model" value="{{ row.model if row else '' }}" maxlength="120" spellcheck="false" {{ fixed }}>
+      {% if fixed %}<input type="hidden" name="model" value="{{ row.model }}">{% endif %}
+      <span class="hint">{{ de_en("die technische Modell-ID; bietet der Zugang nur ein Modell, darf das Feld leer bleiben", "the technical model id; if the access offers only one model, the field may stay empty") }}</span></label>
+    <label><span class="label-title">{{ de_en("Nachrichten je Tag", "Messages per day") }}</span>
+      <input name="per_day" class="narrow" inputmode="numeric" value="{{ row.per_day if row else default_per_day }}">
+      <span class="hint">{{ de_en("von allen Teilnehmenden zusammen in 24 Stunden; begrenzt die Kosten", "from all participants together in 24 hours; limits the cost") }}</span></label>
+    <label><span class="label-title">{{ de_en("Gültig bis (optional)", "Valid until (optional)") }}</span>
+      <input type="date" name="valid_until" value="{{ row.valid_until.isoformat() if row and row.valid_until else '' }}">
+      <span class="hint">{{ de_en("Bei KI:connect ohne Angabe heute + 30 Tage. Läuft der Schlüssel ab, antwortet der Chat nicht mehr; die Prüfung des Fragebogens warnt 7 Tage vorher.", "At KI:connect without a date today + 30 days. When the key runs out, the chat no longer answers; the check of the questionnaire warns 7 days before.") }}</span></label>
+    <div class="form-actions"><button class="button button-secondary">{{ de_en("Speichern und Verbindung prüfen", "Save and check the connection") }}</button></div>
+  </form>
+  {% else %}
+  <p class="muted small">{{ de_en("Den Modellzugang ändern Personen mit der Rolle „Admin“.", "People with the role “Admin” change the model access.") }}</p>
+  {% endif %}
+  {% if items %}
+  <p class="muted small">{{ de_en("KI-Chats in dieser Befragung:", "AI chats in this survey:") }} {% for item in items %}<code>{{ item.code }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+  {{ why("ai_chat") }}
+</section>
+{% endblock %}

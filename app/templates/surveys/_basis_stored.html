@@ -1,0 +1,36 @@
+{# What is saved for the survey as the basis of every evaluation (UI audit 2026-10-04, R12, G3): the data pool (the
+   export page starts from it), what happens to marked participations, and the weighting. In the panel of
+   Qualitätssicherung (_basis.html) and in the zone "Gespeichert für die Befragung" of the panel "Grundlage und
+   Ansicht" on Ergebnisse (_results_basis.html, UI/UX audit 2026-10-07, S6). Needs: survey, basis (the saved pool:
+   surveys.stored_pool), by_source, pool_frozen, pool_frozen_note, weighting_on. #}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_learn.html" import why %}
+{% set can_edit = survey.can(current_user, "editor") %}
+{% set source_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+  <form method="post" action="{{ url_for('surveys.update_pool', survey_id=survey.id) }}" id="pool-form" class="stack results-filter"{{ " data-autosave-form" if can_edit and not pool_frozen else "" }}>
+    {{ csrf() }}<input type="hidden" name="back" value="{{ request.path }}">
+    <div class="row-fields source-choice">
+      <span class="label-title">{{ de_en("Datenquellen", "Data sources") }}</span>
+      {% for key in ("real", "test", "dummy") %}
+      <label class="check"><input type="checkbox" name="source" value="{{ key }}" {% if key in basis.sources %}checked{% endif %} {% if not can_edit or pool_frozen %}disabled{% endif %}> {{ source_names[key] }} ({{ by_source[key] }})</label>
+      {% endfor %}
+      <label class="check"><input type="checkbox" name="all" value="1" {% if basis.all %}checked{% endif %} {% if not can_edit or pool_frozen %}disabled{% endif %}> {{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}</label>
+    </div>
+    {{ why("data_pool") }}
+    {% if pool_frozen and can_edit %}<p class="muted small">{{ pool_frozen_note }}</p>{% endif %}
+    {% if survey.status == "draft" %}<p class="muted small">{{ de_en("Im Entwurf sind Testdurchläufe und Dummy-Daten dabei, solange hier nichts anderes gewählt ist; beim Start stellt sich der Datenpool auf echte Teilnahmen um.", "In the draft, test runs and dummy data are included as long as nothing else is chosen here; at the start the data pool switches to real participations.") }}</p>{% endif %}
+    {% if can_edit and not pool_frozen %}{{ autosave_bar(small=true) }}{% endif %}
+  </form>
+  {# a survey an add-on module keeps for itself (app/plugins.py, add_view) has no quality rules or weighting to go to:
+     the lines stand only where their tab does (Ralf, 2026-10-22) #}
+  {% set pv = plugin_view(survey) if plugin_view is defined else none %}
+  {% if not pv or "quality" in pv.tabs %}
+  {# on Ergebnisse the sentence follows "Markierte einbeziehen" of the view beside it (W73) #}
+  <p class="small basis-line"><span class="label-title">{{ de_en("Markierte Teilnahmen", "Marked participations") }}</span> {% if request.endpoint == "surveys.results" and f is defined and not f.drop %}{{ de_en("Speeder und Teilnahmen mit genug Auffälligkeiten sind in Ergebnissen und Dashboards sonst nicht enthalten; in dieser Ansicht sind sie mit „Markierte einbeziehen“ enthalten (nur zum Vergleich, nicht gespeichert); im Export wählbar.", "Speeders and participations with enough anomalies are otherwise not included in results and dashboards; in this view they are included with “Include marked ones” (only to compare, not saved); selectable in the export.") }}{% else %}{{ de_en("Speeder und Teilnahmen mit genug Auffälligkeiten sind in Ergebnissen und Dashboards nicht enthalten; im Export wählbar.", "Speeders and participations with enough anomalies are not included in results and dashboards; selectable in the export.") }}{% endif %}
+    {% if request.endpoint != "surveys.quality" %}<a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Regeln in der Qualitätssicherung", "Rules in quality assurance") }}</a>{% else %}{{ de_en("Die Regeln stehen unten.", "The rules are below.") }}{% endif %}</p>
+  {% endif %}
+  {% if not pv or "flow" in pv.tabs %}
+  <p class="small basis-line"><span class="label-title">{{ de_en("Gewichtung", "Weighting") }}</span>
+    {% if weighting_on %}{{ de_en("eingestellt; in den Ergebnissen mit „gewichtet“ einschaltbar.", "set up; can be switched on in the results with “weighted”.") }}{% else %}{{ de_en("keine.", "none.") }}{% endif %}
+    <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#weighting">{{ de_en("Gewichtung ändern", "Change weighting") if weighting_on else de_en("Gewichtung einrichten", "Set up weighting") }} {{ de_en("(Quoten)", "(quotas)") }}</a></p>
+  {% endif %}

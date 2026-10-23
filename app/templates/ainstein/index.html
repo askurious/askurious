@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# AInstein (app/ainstein.py): the researcher's projects and a new one from name and idea #}
+{% block title %}AInstein{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ icon("brain", 26) }} AInstein <span class="badge badge-paused ainstein-dev" title="{{ de_en('AInstein wird laufend weiterentwickelt: Abläufe und Texte können sich ändern', 'AInstein is under continuous development: steps and texts may change') }}">{{ de_en("in Entwicklung", "in active development") }}</span> <span class="hint">{{ de_en("Forschungsfrage entwickeln, schärfen, operationalisieren und in den Fragebogen umsetzen", "Develop, sharpen and operationalise a research question and turn it into the questionnaire") }}</span></h1></div>
+
+<form method="post" action="{{ url_for('ainstein.create') }}" class="panel stack ainstein-new" data-ainstein-busy="{{ de_en('AInstein liest Ihre Idee …', 'AInstein is reading your idea …') }}" data-ainstein-area=".ainstein-new">
+  {{ csrf() }}
+  <label><span class="label-title">{{ de_en("Beschreiben Sie Ihre grobe Projektidee:", "Describe your rough project idea:") }} <span class="hint">{{ de_en("Im Gespräch mit AInstein füllen Sie einen Forschungs-Canvas: Forschungsfrage, Design, Stichprobe, Hypothesen, Konstrukte und Auswertung. Daraus wird Ihre Befragung angelegt. Die KI schlägt vor, aber Sie entscheiden. Beschreiben Sie, worum es geht, wen es betrifft, was das Ziel Ihrer Forschung ist, welche Methoden Sie nutzen wollen und wie Ihre erwartete Stichprobe aussieht. AInstein antwortet in Ihrer Sprache.", "In conversation with AInstein you fill in a research canvas: research question, design, sample, hypotheses, constructs and analysis. Your survey is created from it. The AI proposes, but you decide. Describe what it is about, whom it concerns, what the aim of your research is, which methods you want to use and what your expected sample looks like. AInstein answers in your language.") }}</span></span>
+    <textarea name="idea" rows="6" maxlength="4000" required autofocus data-submit-keys data-grow-field data-min-words="10">{{ form.get('idea', '') }}</textarea></label>
+  <div class="ainstein-new-actions">
+    {# the idea grows a tree: over 100 words are ideal; ainstein.js counts the words and lets the parts appear
+       (data-from: from how many words). A friendly nudge, never a limit. #}
+    <div class="ainstein-grow" data-grow>
+      <svg class="ainstein-tree" viewBox="0 0 120 80" aria-hidden="true">
+        <ellipse class="t-ground" cx="60" cy="74" rx="46" ry="4.5"/>
+        <g class="t-grow" data-grow-tree>{# grows with every word: scaled from its foot (ainstein.js) #}
+        <g class="t-part t-seed" data-from="0" data-until="0"><ellipse cx="60" cy="71" rx="4" ry="2.6"/></g>
+        <g class="t-part t-sprout" data-from="1" data-until="34">
+          <path class="t-stem" d="M60 74 C60 68 60 63 60 58"/>
+          <path class="t-young" d="M60 62 C55 57 50 58 48 61 C52 64 56 64 60 62Z"/>
+          <path class="t-young" d="M60 60 C65 55 70 56 72 59 C68 62 64 62 60 60Z"/></g>
+        <g class="t-part t-sprout" data-from="10" data-until="34">
+          <path class="t-stem" d="M60 58 C60 55 60 52 60 49"/>
+          <path class="t-young" d="M60 53 C56 49 52 50 51 52 C54 55 57 55 60 53Z"/></g>
+        <g class="t-part t-sprout" data-from="20" data-until="34">
+          <path class="t-young" d="M60 51 C64 47 68 48 69 50 C66 53 63 53 60 51Z"/>
+          <path class="t-young" d="M60 49 C58 45 59 42 61 41 C63 44 62 47 60 49Z"/></g>
+        <g class="t-part t-sprout" data-from="28" data-until="34"><path class="t-young" d="M60 66 C56 63 53 64 52 66 C55 68 58 68 60 66Z"/></g>
+        <g class="t-part" data-from="35"><path class="t-trunk" d="M56 74 C57 62 58 52 59 42 L61 42 C62 52 63 62 64 74Z"/></g>
+        <g class="t-part" data-from="55"><path class="t-branch" d="M59.5 52 C52 48 46 44 42 40"/><path class="t-branch" d="M60.5 50 C68 46 74 42 78 38"/></g>
+        <g class="t-part t-leaf-1" data-from="35"><circle cx="60" cy="38" r="11"/></g>
+        <g class="t-part t-leaf-2" data-from="50"><circle cx="47" cy="42" r="10"/><circle cx="73" cy="41" r="10"/></g>
+        <g class="t-part t-leaf-3" data-from="42"><circle cx="54" cy="34" r="6"/></g>
+        <g class="t-part t-leaf-2" data-from="62"><circle cx="66" cy="32" r="8"/></g>
+        <g class="t-part t-leaf-1" data-from="70"><circle cx="60" cy="26" r="13"/></g>
+        <g class="t-part t-leaf-2" data-from="78"><circle cx="50" cy="24" r="8"/></g>
+        <g class="t-part t-leaf-3" data-from="85"><circle cx="40" cy="32" r="10"/><circle cx="80" cy="31" r="10"/><circle cx="60" cy="44" r="10"/></g>
+        <g class="t-part t-leaf-1" data-from="92"><circle cx="70" cy="20" r="8"/></g>
+        <g class="t-part t-blossom" data-from="100"><circle cx="50" cy="28" r="2.6"/><circle cx="69" cy="22" r="2.6"/><circle cx="42" cy="40" r="2.6"/>
+          <circle cx="79" cy="36" r="2.6"/><circle cx="61" cy="36" r="2.6"/></g>
+        <g class="t-part t-blossom" data-from="108"><circle cx="55" cy="15" r="2.4"/><circle cx="86" cy="30" r="2.4"/></g>
+        <g class="t-part t-fruit" data-from="125"><circle cx="47" cy="46" r="3.2"/><circle cx="73" cy="47" r="3.2"/><circle cx="64" cy="30" r="3.2"/></g>
+        <g class="t-part t-bird" data-from="115"><path d="M84 22 C87 18 92 18 94 21 L98 20 L95 23 C94 26 88 27 84 22Z"/><circle class="t-eye" cx="92" cy="21" r="0.8"/></g>
+        <g class="t-part t-butterfly" data-from="135"><path d="M24 30 C19 25 17 31 22 33 C17 35 20 40 24 35 C28 40 31 35 26 33 C31 31 29 25 24 30Z"/></g>
+        <g class="t-part t-squirrel" data-from="150"><path d="M82 72 C80 66 83 62 87 63 C86 58 90 55 94 57 C99 59 99 66 95 69 C93 72 88 73 82 72Z"/>
+          <circle cx="86" cy="64" r="2.4"/></g>
+        </g>
+      </svg>
+      <div class="ainstein-grow-info">
+        <p class="ainstein-grow-text" aria-live="polite"><strong data-grow-count>{{ de_en("0 Wörter", "0 words") }}</strong> <span data-grow-hint>{{ de_en("ideal sind über 100", "over 100 are ideal") }}</span></p>
+        {# what the idea already touches, guessed from words in the browser (ainstein.js); AInstein asks about the rest #}
+        {# dots, not boxes: nothing to tick, they fill while one writes (UI/UX audit 2026-10-09, X15) #}
+        <p class="ainstein-aspects-lead small muted" id="ainstein-aspects-lead">{{ de_en("AInstein erkennt in Ihrem Text:", "AInstein recognises in your text:") }}</p>
+        <ul class="ainstein-aspects" aria-labelledby="ainstein-aspects-lead">
+          {% for key, label in [("topic", de_en("Worum es geht", "What it is about")), ("who", de_en("Wen es betrifft", "Whom it concerns")), ("aim", de_en("Ziel", "Aim")), ("method", de_en("Methode", "Method")), ("sample", de_en("Stichprobe", "Sample"))] %}
+          <li data-aspect="{{ key }}"><span class="ainstein-aspect-mark" aria-hidden="true"></span>{{ label }}<span class="visually-hidden" data-aspect-state>{{ de_en(": noch offen", ": still open") }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <button class="button button-ai">{{ icon("brain", 18) }} {{ de_en("Mit AInstein beginnen", "Start with AInstein") }}</button> {{ ai_access_line() }}</div>
+</form>
+
+{% if projects %}
+<h2>{{ de_en("Ihre Projekte", "Your projects") }}</h2>
+{% for p in projects %}
+<div class="card ainstein-card">
+  <div>
+    <a href="{{ url_for('ainstein.project', code=p.code) }}"><strong>{{ p.name }}</strong></a>
+    {% if p.survey_id %}<span class="badge">{{ de_en("Befragung erstellt", "Survey created") }}</span>{% endif %}
+    {% if p.user_id != current_user.id %}<span class="badge">{{ de_en("geteilt", "shared") }}</span>{% endif %}
+    <div class="muted small">{{ p.idea|truncate(180) }}</div>
+    {% set n = (p.chat or [])|length %}
+    <div class="muted small">{{ de_en("zuletzt bearbeitet", "last edited") }} {{ p.updated_at|localdt }} · {{ n }} {{ de_en("Nachricht", "message") if n == 1 else de_en("Nachrichten", "messages") }}</div>
+  </div>
+  {% if p.user_id == current_user.id %}  <form method="post" action="{{ url_for('ainstein.delete', code=p.code) }}" data-confirm="{{ de_en('Projekt „{name}“ mit Canvas und Gespräch löschen?', 'Delete the project “{name}” with canvas and conversation?', name=p.name) }}">
+    {{ csrf() }}<button class="icon-btn" title="{{ de_en('Projekt löschen', 'Delete project') }}" aria-label="{{ de_en('Projekt „{name}“ löschen', 'Delete the project “{name}”', name=p.name) }}">{{ icon("trash", 18) }}</button>
+  </form>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+<script src="{{ url_for('static', filename='ainstein.js') }}" defer></script>
+{% endblock %}

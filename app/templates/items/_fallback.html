@@ -1,0 +1,9 @@
+{# One look for the answer that stands aside of the others (UI/UX audit 2026-10-07, S8, W48): "weiß nicht" of a rating
+   or a date, the options of a single choice that count as missing ("keine Angabe"), "Ich wohne nicht in Deutschland",
+   "Keine davon" of a choice task: a dashed card after a gap, quieter than the answers. The column "weiß nicht" of a
+   matrix has the same dashed line in its grid. Only the look is shared: names and values stay as they were.
+   input_type: "radio" or "checkbox"; attrs: further attributes of the input (fixed markup of the template);
+   cls: further classes of the card. The caller gives what follows the input (the wording in a <span>). #}
+{% macro fallback_option(input_type, name, value, checked=false, cls="", attrs="") -%}
+<label class="p-option {{ 'p-radio' if input_type == 'radio' else 'p-check' }} p-dk{% if cls %} {{ cls }}{% endif %}"><input type="{{ input_type }}" name="{{ name }}" value="{{ value }}"{% if attrs %} {{ attrs|safe }}{% endif %}{% if checked %} checked{% endif %}>{{ caller() }}</label>
+{%- endmacro %}

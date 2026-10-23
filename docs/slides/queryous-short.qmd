@@ -1,0 +1,133 @@
+---
+pagetitle: "Askurious in five slides"
+lang: en-GB
+format:
+  revealjs:
+    theme: [default, queryous.scss]
+    logo: ../logo.png
+    footer: "Askurious.de"
+    slide-number: c/t
+    width: 1280
+    height: 720
+    margin: 0.06
+    transition: fade
+    transition-speed: fast
+    hash: true
+    navigation-mode: linear
+    embed-resources: true
+---
+
+## {.q-title}
+
+![](../logo.png){.q-logo fig-alt="Askurious"}
+
+[/ɑːˈskjʊə.ri.əs/, from **ask** and **curious**]{.q-ipa}
+
+[Surveys for research: design, field, analyse, share.]{.q-claim}
+
+[Askurious.de · see it live at Askurious.de/s/introduction]{.muted .small}
+
+## The vision {.center}
+
+::: {.q-grid style="--cols: 2;"}
+::: {.q-card .big}
+[Open source]{.q-h}
+Research infrastructure that researchers can inspect, run themselves and build on.
+:::
+::: {.q-card .big}
+[Open data with ease]{.q-h}
+From the field to a citable data package in a few clicks: codebook, SPSS, jamovi, R, Zenodo.
+:::
+::: {.q-card .big}
+[Reuse through the toolbox]{.q-h}
+Validated scales go in as ordinary items; every study adds to their pooled reliability.
+:::
+::: {.q-card .big .ai}
+[AI where it suits]{.q-h}
+Suggestions, never decisions: clearly labelled, reviewed by the researcher, switchable.
+:::
+:::
+
+## From idea to field
+
+::: columns
+::: {.column .q-side width="44%"}
+- **Likert and semantic differential scales**, validated instruments from the toolbox
+- **38 item types**, incl. CBC, ACBC and MaxDiff with AI product images and hierarchical Bayes
+- **Loops over a table** and **D-optimal vignette** designs
+- Blocks, branches, piping, quotas, panel links, links per group
+- **Live feedback** to participants: their position compared with the sample
+- Preview on desktop and smartphone, with comment fields
+:::
+::: {.column width="56%"}
+![](img/cj-ai-task.jpg){.q-shot .tall fig-alt="Choice task with two AI-generated care robots"}
+:::
+:::
+
+::: q-refs
+Brauner (2024), Frontiers in Psychology · Kühne & Kroh (2018), Social Science Computer Review
+:::
+
+## Results you can share
+
+::: columns
+::: {.column .q-side width="34%"}
+- **Live**: M, SD, median, **Cronbach's α** and **McDonald's ω** with intervals
+- Results per hypothesis of the study plan
+- **Quality control**: speeders, straightlining, attention checks, bots
+- **Open data**: SPSS, jamovi, R, codebook, Zenodo; draft of the methods section
+:::
+::: {.column width="66%"}
+![](img/results-scales.jpg){.q-shot fig-alt="Scales overview with alpha, omega and correlations"}
+:::
+:::
+
+::: q-refs
+Leiner (2019), Survey Research Methods · Hayes & Coutts (2020), Communication Methods and Measures
+:::
+
+## Also in the box {.center}
+
+::: {.q-grid style="--cols: 3; font-size: 0.62em;"}
+::: q-card
+![](img/crowd.jpg){.q-shot fig-alt="The participant as a figure in the crowd of earlier participants"}
+
+[Live feedback]{.q-h}
+Each participant sees where they stand in the crowd of everyone so far.
+:::
+::: q-card
+![](img/image-styles.jpg){.q-shot fig-alt="Selector of the image style for all AI images of a survey"}
+
+[One image style]{.q-h}
+All AI images of a survey in one style, so stimuli stay comparable.
+:::
+::: q-card
+![](img/preview-mobile.jpg){.q-shot fig-alt="Preview with smartphone frame, QR code and comment panel"}
+
+[Feedback on the survey]{.q-h}
+Preview on desktop and phone, comments per page or question from pretesters.
+:::
+:::
+
+::: q-refs
+Kühne & Kroh (2018), Social Science Computer Review
+:::
+
+## Beyond the questionnaire {.center}
+
+::: {.q-grid style="--cols: 3;"}
+::: {.q-card .big}
+[Live votes]{.q-h}
+Live feedback at lectures and events, steered by the presenter.
+:::
+::: {.q-card .big}
+[Interviews]{.q-h}
+Guide, recording, local transcription, export to MAXQDA, ATLAS.ti and NVivo.
+:::
+::: {.q-card .big .ai}
+[For newcomers]{.q-h}
+Learning aids, study templates and AInstein, a research assistant from idea to study plan.
+:::
+:::
+
+[Try it: **Askurious.de** · see it live at **Askurious.de/s/introduction**]{.q-claim}

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{# One sheet of a paper questionnaire (app/paper.py): what was read, what is uncertain, the handwriting to type in;
+   then "Übernehmen". Taken over: the same, read-only, while the scans are kept. Needs: survey, sheet, found
+   (paper.evaluate; None without scans), show_all, number, run, next_id. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import ai_access_line, autosave_bar, csrf %}
+{% block title %}{{ de_en("Bogen {n}", "Sheet {n}", n=number) }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "field" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid">
+<section class="panel">
+  <a class="back-link" href="{{ url_for('surveys.field', survey_id=survey.id) }}#paper">{{ icon("back", 16) }} {{ de_en("Papierfragebogen", "Paper questionnaire") }}</a>
+  <h1>{{ de_en("Bogen {n}", "Sheet {n}", n=number) }}</h1>
+  <p class="muted small">{{ de_en("Druckauftrag {r}, Bogen {k} von {c}", "Print run {r}, sheet {k} of {c}", r=run.id, k=sheet.number, c=run.count) }} ·
+    {% if sheet.state == "done" %}{{ de_en("übernommen", "accepted") }} {{ sheet.done_at|localdt }}
+    {% elif sheet.state == "printed" %}{{ de_en("noch nicht gescannt", "not scanned yet") }}
+    {% elif sheet.state == "declined" %}{{ de_en("ohne Einwilligung, nicht gespeichert", "without consent, not stored") }}
+    {% elif sheet.state == "erased" %}{{ de_en("auf Wunsch gelöscht", "deleted on request") }}
+    {% elif sheet.state == "discarded" %}{{ de_en("verworfen", "discarded") }}
+    {% else %}{{ de_en("zu prüfen", "to check") }}{% if sheet.checked_by %} · {{ de_en("einmal geprüft, jetzt prüft eine zweite Person", "checked once, now a second person checks it") }}{% endif %}{% endif %}</p>
+
+  {% if found %}
+  {% if found.pages %}
+  <p class="small">{{ de_en("Scans:", "Scans:") }}
+    {% for n, p in found.pages|dictsort %}<a href="{{ url_for('paper.page_image', survey_id=survey.id, page_id=p.id) }}" target="_blank" rel="noopener">{{ de_en("Seite {n}", "page {n}", n=n + 1) }} ↗</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    <span class="muted">({{ de_en("grün angekreuzt, gelb unsicher, blau Handschrift", "green ticked, amber uncertain, blue handwriting") }})</span></p>
+  {% endif %}
+  {% if found.changed and sheet.state != "done" %}
+  <div class="flash flash-warning small">{{ icon("alert", 16) }}<div><p>{{ de_en("Der Fragebogen wurde nach dem Druck dieses Bogens geändert. Der Bogen wird deshalb nicht von selbst übernommen; beim Übernehmen werden die Antworten den Seiten des heutigen Fragebogens nach Block und Frage zugeordnet.", "The questionnaire was changed after this sheet was printed, so the sheet is not accepted automatically; when it is accepted, its answers are matched to the pages of today's questionnaire by block and question.") }}</p></div></div>
+  {% endif %}
+  {% if found.missing %}
+  <div class="flash flash-warning small">{{ icon("alert", 16) }}<div><p>{{ de_en("Noch nicht gescannt:", "Not scanned yet:") }} {% for n in found.missing %}{{ de_en("Seite {n}", "page {n}", n=n + 1) }}{% if not loop.last %}, {% endif %}{% endfor %}</p></div></div>
+  {% endif %}
+
+  {% if sheet.state == "done" %}
+  <p class="small muted">{{ de_en("So wurde der Bogen gelesen und übernommen. Ändern lässt er sich danach nicht mehr; eine falsch übernommene Antwort korrigieren Sie wie online in den Daten.", "This is how the sheet was read and accepted. It cannot be changed afterwards; correct a wrong answer in the data, as online.") }}</p>
+  {% endif %}
+
+  {% if paper_ai_on and found.writing and sheet.state != "done" %}
+  {# reading handwriting with AI (E8): only after the tick that participants were told, as the coding help (B-1) #}
+  <div class="paper-ai">
+    {% if ai_ok %}
+    <form method="post" action="{{ url_for('paper.sheet_read', survey_id=survey.id, sheet_id=sheet.id) }}" class="row">
+      {{ csrf() }}<button class="button button-ai button-small" data-ai-call>{{ icon("sparkles", 16) }} {{ de_en("Handschrift mit KI lesen", "Read handwriting with AI") }}</button>
+      <span class="hint">{{ ai_access_line() }} {{ de_en("Ein Vorschlag je Feld; er gilt erst mit „Übernehmen“.", "One suggestion per field; it only counts with “Accept”.") }}</span>
+    </form>
+    {% elif not ai_may_confirm %}
+    {# K3/P-S6, decision 6a: only the owner or an admin of the survey confirms, for the recipient this person's AI goes to #}
+    <p class="muted small">{{ de_en("Die KI kann die Handschrift lesen: Dafür gehen Bildausschnitte der Schreibfelder an den KI-Dienst {to}. Das geht erst, wenn die Person, der die Befragung gehört, oder ein Admin der Befragung bestätigt hat, dass die Teilnehmenden über die Übermittlung an diesen Dienst informiert wurden, etwa mit diesem Absatz:", "The AI can read the handwriting: image sections of the writing fields go to the AI service {to}. This only works once the owner or an admin of the survey has confirmed that the participants were told about the transfer to this recipient, for example with this paragraph:", to=ai_to) }}</p>
+    <blockquote class="small" lang="de">{{ ai_notice.de }}</blockquote>
+    <blockquote class="small" lang="en">{{ ai_notice.en }}</blockquote>
+    {% endif %}
+    {% for p in ai_pending %}
+    <form method="post" action="{{ url_for('paper.ai_informed', survey_id=survey.id) }}" class="stack">
+      {{ csrf() }}<input type="hidden" name="back" value="{{ url_for('paper.sheet_page', survey_id=survey.id, sheet_id=sheet.id) }}"><input type="hidden" name="to" value="{{ p.key }}">
+      {% if p.mine %}<p class="muted small">{{ de_en("Die KI kann die Handschrift lesen: Dafür gehen Bildausschnitte der Schreibfelder (ohne weitere Antworten und ohne Bogennummer) über Ihren eigenen Schlüssel an Ihren KI-Anbieter. Nutzen Sie das nur, wenn die Information und Einwilligung Ihrer Befragung es nennt (den Absatz unten an Ihren Anbieter anpassen) und dessen Nutzungsbedingungen die Weitergabe erlauben:", "The AI can read the handwriting: image sections of the writing fields (without other answers and without the sheet number) go over your own key to your AI provider. Only use this if the information and consent of your survey says so (adapt the paragraph below to your provider) and its terms of use allow passing them on:") }}</p>
+      {% else %}<p class="muted small">{{ de_en("Eine beteiligte Person nutzt einen eigenen KI-Zugang; mit ihm gehen die Bildausschnitte an den KI-Dienst {to}. Bestätigen Sie auch diesen Dienst, wenn die Information und Einwilligung Ihrer Befragung ihn nennt:", "A person involved uses their own AI access; with it the image sections go to the AI service {to}. Confirm this recipient too if the information and consent of your survey names it:", to=p.name) }}</p>{% endif %}
+      <blockquote class="small" lang="de">{{ p.notice.de }}</blockquote>
+      <blockquote class="small" lang="en">{{ p.notice.en }}</blockquote>
+      <label class="check"><input type="checkbox" name="informed" value="1" required> {{ de_en("Teilnehmende wurden über die Übermittlung informiert", "Participants were told about the transfer") }}</label>
+      <button class="button button-small button-secondary">{{ de_en("Bestätigen", "Confirm") }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% elif ai_needs_own and found.writing and sheet.state != "done" %}
+  {# handwriting of participants goes only over an own AI access, never over the platform's key: the button stays and
+     leads to the form for the own access (Ralf, 2026-10-21) #}
+  <div class="paper-ai">
+    <div class="row">
+      <a class="button button-ai button-small" href="{{ url_for('accounts.connections', **{'for': 'paper'}) }}#ki-zugang">{{ icon("sparkles", 16) }} {{ de_en("Handschrift mit KI lesen", "Read handwriting with AI") }}</a>
+      <span class="hint">{{ de_en("Nur mit einem eigenen KI-Zugang (z. B. KI:connect.nrw): Handschrift von Teilnehmenden geht nicht über den Zugang der Plattform. Der Knopf führt zum Eintragen unter Konto › Verbindungen.", "Only with an own AI access (e.g. KI:connect.nrw): handwriting of participants does not go over the platform's access. The button leads to entering it under Account › Connections.") }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  {% set done = sheet.state == "done" %}
+  <form method="post" action="{{ url_for('paper.sheet_save', survey_id=survey.id, sheet_id=sheet.id) }}" class="stack paper-review"{% if not done %} data-autosave-form{% endif %}>
+    {{ csrf() }}
+    <fieldset class="bare"{% if done %} disabled{% endif %}>
+    {% set shown = [] %}
+    {% for key, g in found.groups.items() %}
+      {% set boxes = g.fields|selectattr("k", "equalto", "box")|list %}
+      {% set writes = g.fields|selectattr("k", "equalto", "write")|selectattr("state", "equalto", "ink")|list %}
+      {% if show_all or g.issues or writes %}
+      {% set _ = shown.append(1) %}
+      <fieldset class="bare paper-group">
+        <legend><strong>{{ g.q or de_en("Frage", "Question") }}</strong>{% if g.lab %} · {{ g.lab }}{% endif %}</legend>
+        {% for issue in g.issues %}<p class="small paper-issue">{{ icon("alert", 14) }} {{ issue }}</p>{% endfor %}
+        {% if boxes %}
+        <img class="paper-part" src="{{ url_for('paper.part_image', survey_id=survey.id, sheet_id=sheet.id, index=boxes[0].i, group=1) }}" alt="{{ de_en('Ausschnitt des Scans', 'Part of the scan') }}" loading="lazy">
+        <div class="row">
+          {% if g.one %}
+          <label class="check"><input type="radio" name="g_{{ key }}" value="" {% if not boxes|selectattr("state", "equalto", "x")|list %}checked{% endif %}> <span class="muted">{{ de_en("keine Antwort", "no answer") }}</span></label>
+          {% endif %}
+          {% for e in boxes %}<label class="check"><input type="{{ 'radio' if g.one else 'checkbox' }}" name="g_{{ key }}" value="{{ e.v }}" {% if e.state == "x" and (not g.one or boxes|selectattr("state", "equalto", "x")|list|length == 1) %}checked{% endif %}> {{ e.lab or e.v }}{% if e.state == "?" %} <span class="paper-issue">?</span>{% elif e.state == "f" %} <span class="muted">({{ de_en("ausgemalt", "filled in") }})</span>{% endif %}</label>{% endfor %}
+          {% if not g.one %}<input type="hidden" name="g_{{ key }}" value="">{% endif %}
+        </div>
+        {% endif %}
+        {% for e in g.fields if e.k == "write" and (e.state == "ink" or show_all) %}
+        <div class="stack">
+          <img class="paper-part" src="{{ url_for('paper.part_image', survey_id=survey.id, sheet_id=sheet.id, index=e.i) }}" alt="{{ de_en('Handschrift', 'Handwriting') }}" loading="lazy">
+          <label>{{ e.lab or de_en("Abgetippt", "Typed in") }}{% if e.ai %} <span class="paper-ai-mark">{{ de_en("KI-Vorschlag", "AI suggestion") }}</span>{% elif e.value is none and e.suggest %} <span class="hint">{{ de_en("Vorschlag der Ziffernerkennung", "suggestion of the digit recognition") }}</span>{% endif %}
+          {% if e.h > 12 %}<textarea name="w_{{ e.i }}" rows="3">{{ e.value or "" }}</textarea>
+          {% else %}<input name="w_{{ e.i }}" value="{{ e.value if e.value is not none else (e.suggest or '') }}" autocomplete="off">{% endif %}</label>
+        </div>
+        {% endfor %}
+      </fieldset>
+      {% endif %}
+    {% endfor %}
+    </fieldset>
+    {% if not shown %}<p class="muted">{{ de_en("Nichts Unsicheres und keine Handschrift auf diesem Bogen.", "Nothing uncertain and no handwriting on this sheet.") }}
+      {% if not show_all %}<a href="{{ url_for('paper.sheet_page', survey_id=survey.id, sheet_id=sheet.id, all=1) }}">{{ de_en("Alle Antworten zeigen", "Show all answers") }}</a>{% endif %}</p>{% endif %}
+    {% if not done %}
+    {{ autosave_bar(small=true) }}
+    <div class="form-actions">
+      {% if found.missing %}<label class="check small"><input type="checkbox" name="without_missing" value="1"> {{ de_en("ohne die fehlenden Seiten übernehmen", "accept without the missing pages") }}</label>{% endif %}
+      <button class="button" name="action" value="take">{{ de_en("Übernehmen", "Accept") }}</button>
+      {% if not show_all %}<a class="small" href="{{ url_for('paper.sheet_page', survey_id=survey.id, sheet_id=sheet.id, all=1) }}">{{ de_en("Alle Antworten zeigen", "Show all answers") }}</a>{% endif %}
+      {% if next_id %}<a class="small" href="{{ url_for('paper.sheet_page', survey_id=survey.id, sheet_id=next_id) }}">{{ de_en("Nächster Bogen", "Next sheet") }} →</a>{% endif %}
+    </div>
+    {% endif %}
+  </form>
+  {% elif sheet.state == "done" and sheet.response_id %}
+  <p class="small muted">{{ de_en("Die Scans dieses Bogens sind gelöscht (Einstellung „Scans“); seine Antworten stehen in den Daten.", "The scans of this sheet are deleted (setting “Scans”); its answers are in the data.") }}</p>
+  {% elif sheet.state == "done" %}
+  <p class="small muted">{{ de_en("Scans und Antworten dieses Bogens sind mit der Frist für die Antworten gelöscht.", "The scans and answers of this sheet were deleted with the period for the answers.") }}</p>
+  {% endif %}
+
+  {% if sheet.state not in ("erased", "discarded", "declined") %}
+  <div class="form-actions">
+    {% if sheet.state == "printed" or (sheet.state != "done" and survey.can(current_user, "admin")) %}
+    <form class="inline" method="post" action="{{ url_for('paper.sheet_discard', survey_id=survey.id, sheet_id=sheet.id) }}"
+          data-confirm="{{ de_en('Bogen verwerfen?', 'Discard sheet?') }}" data-confirm-note="{{ de_en('Der Bogen wird nicht übernommen, seine Scans werden gelöscht. Für ausgefüllte Übungsbögen o. Ä.', 'The sheet is not accepted, its scans are deleted. For sheets filled in for practice or the like.') }}" data-confirm-ok="{{ de_en('Verwerfen', 'Discard') }}" data-confirm-danger>
+      {{ csrf() }}<button class="button button-small button-danger">{{ de_en("Bogen verwerfen", "Discard sheet") }}</button></form>
+    {% endif %}
+    {% if may_erase %}
+    <form class="inline" method="post" action="{{ url_for('paper.sheet_erase', survey_id=survey.id, sheet_id=sheet.id) }}"
+          data-confirm="{{ de_en('Bogen löschen?', 'Delete sheet?') }}" data-confirm-note="{{ de_en('Für eine Löschanfrage: Teilnahme, Scans und Abgetipptes werden gelöscht; ein später gescannter Bogen mit dieser Nummer wird nicht mehr angenommen. Das lässt sich nicht rückgängig machen.', 'For a deletion request: participation, scans and what was typed are deleted; a sheet with this number scanned later is no longer accepted. This cannot be undone.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+      {{ csrf() }}
+      {% if sheet.response_id %}
+      {# as a deletion online: the reason goes into the deletion record of the seal chain (audit 2026-10-10, P-S4) #}
+      <fieldset class="erase-why">
+        <legend>{{ de_en("Grund der Löschung", "Reason for the deletion") }}</legend>
+        <label class="check"><input type="radio" name="why" value="wish" checked> {{ de_en("Löschwunsch oder Widerruf der Person", "the person's request or withdrawal of consent") }}</label>
+        <label class="check"><input type="radio" name="why" value="consent"> {{ de_en("keine wirksame Einwilligung (z. B. minderjährig)", "no valid consent (e.g. a minor)") }}</label>
+        <label class="check"><input type="radio" name="why" value="other"> {{ de_en("anderer Rechtsgrund:", "another legal ground:") }}</label>
+        <input type="text" name="why_text" maxlength="190" aria-label="{{ de_en('Anderer Rechtsgrund in wenigen Worten', 'Other legal ground in a few words') }}" placeholder="{{ de_en('in wenigen Worten, 10 bis 190 Zeichen', 'in a few words, 10 to 190 characters') }}">
+        <span class="hint">{{ de_en("Der Grund steht öffentlich in der Siegelkette (Prüfseite, seal.json) und lässt sich danach nicht mehr ändern. Bitte keine Namen oder anderen Angaben zu Personen.", "The reason is public in the seal chain (check page, seal.json) and cannot be changed afterwards. Please give no names or other details about people.") }}</span>
+      </fieldset>
+      {% endif %}
+      <button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Bogen löschen", "Delete sheet") }}</button></form>
+    {% else %}
+    <p class="small muted">{{ de_en("Einen Bogen auf Anfrage löschen können nur Personen mit der Rolle „Admin“, wie eine Teilnahme online.", "Only people with the role “Admin” can delete a sheet on request, as with a participation online.") }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+</div>
+{% endblock %}

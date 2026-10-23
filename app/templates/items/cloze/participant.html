@@ -1,0 +1,2 @@
+{% include "items/_question.html" %}
+<div class="p-cloze" id="cloze{{ item.id }}">{{ kind.text_html(item, lang, answers.get(item.id), variables) }}</div>

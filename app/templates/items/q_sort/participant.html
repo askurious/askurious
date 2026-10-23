@@ -1,0 +1,54 @@
+{% set c = item.cfg %}
+{% set raw = answers.get(item.id) %}
+{% set ans = raw if raw is mapping else {} %}
+{% set placed = ans.get("q") if ans.get("q") is mapping else {} %}
+{% set piles = ans.get("p") if ans.get("p") is mapping else {} %}
+{% set start = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% set cards = kind.ordered_options(item, lang, start) %}
+{% set presort = c.get("presort", true) %}
+{% set rank = false %}
+{% set values = kind.values(item) %}
+{% set caps = kind.capacities(item) or [] %}
+{% set k = values|length // 2 %}
+{% include "items/_question.html" %}
+<div class="p-sort is-q" data-sort="{{ item.id }}" data-sort-q{% if presort %} data-sort-presort{% endif %} style="--q-cols: {{ values|length }}">
+  <p class="p-sort-hint">{% if presort %}<span data-pre-hint>{{ ui("Schritt 1: Ordnen Sie jede Aussage zunächst grob ein.", "Step 1: First place each statement roughly.") }}</span> {% endif %}<span data-grid-hint{% if presort %} hidden{% endif %}>{% if presort %}{{ ui("Schritt 2:", "Step 2:") }} {% endif %}{{ ui("Tippen Sie auf eine Aussage und dann auf eine Spalte. Jede Spalte hat eine feste Zahl von Plätzen.", "Tap a statement, then a column. Each column has a fixed number of places.") }}<span class="p-if-mouse"> {{ ui("Sie können die Aussagen auch ziehen.", "You can also drag the statements.") }}</span></span></p>
+  <noscript><p class="p-error">{{ ui("Für diese Frage wird JavaScript benötigt.", "This question needs JavaScript.") }}</p></noscript>
+  <input type="hidden" name="i{{ item.id }}" value="{{ {'q': placed, 'p': piles}|tojson|forceescape if placed or piles else '' }}" data-sort-value>
+  {% if presort %}
+  <div class="p-sort-pre" data-pre hidden>
+    <p class="p-sort-pre-card" data-pre-card aria-live="polite"></p>
+    <p class="p-sort-pre-btns">
+      <button type="button" data-pile-to="-1"><span{{ text_attrs(item, "pre_low") }}>{{ item.text("pre_low", lang)|fill(variables) }}</span></button>
+      <button type="button" data-pile-to="0"><span{{ text_attrs(item, "pre_mid") }}>{{ item.text("pre_mid", lang)|fill(variables) }}</span></button>
+      <button type="button" data-pile-to="1"><span{{ text_attrs(item, "pre_high") }}>{{ item.text("pre_high", lang)|fill(variables) }}</span></button>
+    </p>
+    <p class="p-sort-pre-foot"><span data-pre-count data-text="{{ ui('%s von %s', '%s of %s') }}"></span> <button type="button" class="p-sort-undo" data-pre-undo>{{ ui("↶ rückgängig", "↶ undo") }}</button></p>
+  </div>
+  {% endif %}
+  <section class="p-sort-stack" data-group=""{% if presort %} data-grid-part{% endif %}>
+    <h3 class="p-sort-head"><button type="button" class="p-sort-drop" data-drop>{{ ui("Noch nicht gelegt", "Not laid yet") }} <span class="p-sort-count" data-count></span></button></h3>
+    {% if presort %}<p class="p-sort-piles">{% for p, key in ((1, "pre_high"), (0, "pre_mid"), (-1, "pre_low")) %}<span class="p-sort-pile-key" data-pile-key="{{ p }}"{{ text_attrs(item, key) }}>{{ item.text(key, lang)|fill(variables) }}</span>{% endfor %}</p>{% endif %}
+    <ul class="p-sort-list" data-list>
+      {% for o in cards if o.code not in placed %}{% set pile = piles.get(o.code) %}{% include "items/_sort_card.html" %}{% endfor %}
+    </ul>
+  </section>
+  <div class="p-sort-groups p-q-grid" data-groups{% if presort %} data-grid-part{% endif %}>
+    {% for v in values %}
+    <section class="p-sort-group" data-group="{{ v }}" data-cap="{{ caps[loop.index0] if caps else 0 }}" style="--cap: {{ caps[loop.index0] if caps else 1 }}">
+      <h3 class="p-sort-head"><button type="button" class="p-sort-drop" data-drop><bdi class="p-q-value" dir="ltr">{{ "%+d"|format(v) if v else "0" }}</bdi>{% if v == values[0] %} <span class="p-q-end"{{ text_attrs(item, "low") }}>{{ item.text("low", lang)|fill(variables) }}</span>{% elif v == values[-1] %} <span class="p-q-end"{{ text_attrs(item, "high") }}>{{ item.text("high", lang)|fill(variables) }}</span>{% endif %} <span class="p-sort-count" data-count></span></button></h3>
+      <ol class="p-sort-list" data-list>
+        {% for o in cards if placed.get(o.code) == v %}{% set pile = piles.get(o.code) %}{% include "items/_sort_card.html" %}{% endfor %}
+      </ol>
+    </section>
+    {% endfor %}
+  </div>
+  {# what happened, said aloud and shown (WCAG 4.1.3, S20) #}
+  <p class="p-sort-said" aria-live="polite" data-sort-said data-text="{{ ui('%s: jetzt in %s', '%s: now in %s') }}"></p>
+  {# the targets as a bar at the bottom of a phone's screen while a card is picked (participant.js, S20) #}
+  <div class="p-sort-bar" data-sort-bar hidden>
+    <p class="p-sort-bar-head"><span class="p-sort-bar-card" data-bar-card></span><button type="button" class="p-sort-bar-close" data-bar-close aria-label="{{ ui('Auswahl aufheben', 'Clear selection') }}">✕</button></p>
+    <div class="p-sort-bar-targets" role="group" aria-label="{{ ui('Legen in', 'Put in') }}" data-bar-targets></div>
+    <p class="p-sort-bar-said" aria-hidden="true" data-bar-said></p>
+  </div>
+</div>

@@ -1,0 +1,348 @@
+{
+ "format": "askurious-survey",
+ "version": 6,
+ "exported_at": "2026-10-05T00:00:00Z",
+ "survey": {
+  "title": "Präferenzen für einen Pflegeroboter",
+  "title_translations": {},
+  "project": "",
+  "description": "Sie sehen mehrmals zwei Pflegeroboter und wählen jeweils den, den Sie eher nutzen würden.",
+  "research_question": "Welche Eigenschaften eines Pflegeroboters zählen für die Wahl am meisten?",
+  "study_plan": {
+   "goal": "preference",
+   "goals": [
+    "preference"
+   ],
+   "design": "cross",
+   "hypotheses": [
+    {
+     "id": "aaf9409b",
+     "text": "Welche Eigenschaft bestimmt die Wahl am stärksten: Preis, Datenschutz oder Aussehen?",
+     "kind": "open",
+     "direction": "",
+     "iv": "",
+     "dv": "",
+     "analysis": "",
+     "power": 0.8
+    }
+   ],
+   "sample": {
+    "target": 200,
+    "recruitment": "panel",
+    "note": "",
+    "exclusions": null,
+    "response": null
+   },
+   "rules": "Speeder (unter 50 % der Median-Dauer); wer die Aufmerksamkeitsprüfung falsch beantwortet",
+   "holm": false,
+   "sem_method": "",
+   "sem": {
+    "controls": [],
+    "single": {},
+    "formative": [],
+    "invariance": "",
+    "missing": "",
+    "alternative": [],
+    "second": [],
+    "ordinal": ""
+   },
+   "diary": {
+    "lagged": false,
+    "slope": false
+   },
+   "layout": {
+    "v": 1,
+    "nodes": {}
+   },
+   "deviations": []
+  },
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "block_load": false,
+  "repeat_marker": false,
+  "erase_code": false,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": null,
+  "paper": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "funding": "",
+      "controller": "",
+      "dpo": "",
+      "special_categories": false,
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "special": false,
+       "audio": false,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Einwilligung",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_special": "",
+       "confirm_audio": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Block 1"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 2,
+     "type": "conjoint",
+     "code": "cbc",
+     "answer_mode": "optional",
+     "config": {
+      "attributes": [
+       {
+        "id": "a1",
+        "code": "look",
+        "visual": true,
+        "levels": [
+         {
+          "id": "a1l0",
+          "hint": "hint humanoid"
+         },
+         {
+          "id": "a1l1",
+          "hint": "hint technisch"
+         },
+         {
+          "id": "a1l2",
+          "hint": "hint tierartig"
+         }
+        ]
+       },
+       {
+        "id": "a2",
+        "code": "price",
+        "visual": false,
+        "levels": [
+         {
+          "id": "a2l0",
+          "hint": "hint 50 €"
+         },
+         {
+          "id": "a2l1",
+          "hint": "hint 100 €"
+         },
+         {
+          "id": "a2l2",
+          "hint": "hint 150 €"
+         }
+        ]
+       },
+       {
+        "id": "a3",
+        "code": "privacy",
+        "visual": false,
+        "levels": [
+         {
+          "id": "a3l0",
+          "hint": "hint lokal"
+         },
+         {
+          "id": "a3l1",
+          "hint": "hint Cloud"
+         }
+        ]
+       }
+      ],
+      "tasks": 4,
+      "alternatives": 2,
+      "versions": 1,
+      "none": true,
+      "dual": false,
+      "display": "table",
+      "attr_order": "fixed",
+      "scene": "A care robot helps an older person",
+      "show_visual_in_table": false,
+      "stack_mobile": true,
+      "design": {
+       "sig": "429b4e909172",
+       "versions": [
+        [
+         [
+          [
+           2,
+           2,
+           0
+          ],
+          [
+           0,
+           0,
+           1
+          ]
+         ],
+         [
+          [
+           2,
+           1,
+           0
+          ],
+          [
+           0,
+           2,
+           1
+          ]
+         ],
+         [
+          [
+           1,
+           1,
+           0
+          ],
+          [
+           2,
+           0,
+           1
+          ]
+         ],
+         [
+          [
+           0,
+           0,
+           0
+          ],
+          [
+           1,
+           1,
+           1
+          ]
+         ]
+        ]
+       ],
+       "d_eff": 0.0
+      },
+      "auto_next": false,
+      "shuffle_alts": false,
+      "holdouts": [],
+      "prohibitions": [],
+      "hide_attr_labels": false,
+      "explain": false,
+      "level_images": ""
+     },
+     "texts": {
+      "de": {
+       "question": "Welchen Roboter wählen Sie?",
+       "alt_label": "",
+       "attributes": {
+        "a1": "Aussehen",
+        "a2": "Preis",
+        "a3": "Datenschutz"
+       },
+       "levels": {
+        "a1l0": "humanoid",
+        "a1l1": "technisch",
+        "a1l2": "tierartig",
+        "a2l0": "50 €",
+        "a2l1": "100 €",
+        "a2l2": "150 €",
+        "a3l0": "lokal",
+        "a3l1": "Cloud"
+       },
+       "level_defs": {},
+       "explain_intro": "",
+       "attr_desc": {}
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "block",
+    "block": 2
+   },
+   {
+    "t": "split",
+    "id": "sd667a1"
+   }
+  ]
+ },
+ "quotas": [],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null,
+ "sampling": null
+}

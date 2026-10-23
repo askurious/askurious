@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, list_table, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Bilder", "Images") }} · {{ item.code }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{# in the frame of the survey like the loop page: its head and tabs, "Fragebogen" active, ↶ ↷ in the head (W30) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% if survey.can(current_user, 'editor') %}<p><a href="{{ url_for('editor.image_rights', survey_id=survey.id) }}">{{ de_en("Bildrechte für öffentliche Archivierung", "Image rights for public archiving") }}</a></p>{% endif %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set n = rows|length %}
+{% set n_ok = rows|selectattr("approved")|list|length %}
+{% set n_pending = rows|rejectattr("approved")|selectattr("pending")|list|length %}
+{% set n_missing = n - n_ok - n_pending %}
+{% set levels_on = kind.level_images_on is defined and kind.level_images_on(item) %}
+{% set combos = kind.uses_images is not defined or kind.uses_images(item) %}
+{# two ways (conjoint): weg="hochladen" own files, weg="ki" generated; without weg both (e.g. answer options) #}
+{% set can_upload = kind.image_uploads is defined and kind.image_uploads %}
+{% set up = can_upload and weg != "ki" %}
+{% set ki = weg != "hochladen" %}
+<a class="back-link" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}{{ '#tab-display' if kind.editor_tabs else ('#design' if kind.panel_template else '#assets') }}">{{ icon("back", 16) }} {{ (item_preset(item) or kind).label }} · {{ item.code }}</a>
+<div class="page-head"><h1>{% if weg == "hochladen" %}{{ de_en("{what} hochladen", "Upload {what}", what=de_en("Bilder je Stufe", "images per level") if levels_on else kind.image_set_label) }}{% elif weg == "ki" %}{{ de_en("{what} mit KI erzeugen", "Generate {what} with AI", what=de_en("Bilder je Stufe", "images per level") if levels_on else kind.image_set_label) }}{% else %}{{ de_en("Bilder je Stufe", "Images per level") if levels_on else kind.image_set_label }}{% endif %}
+  <span class="hint">{% if levels_on %}{{ de_en("{n} Stufen", "{n} levels", n=n) }} · {{ de_en("das Bild steht statt des Texts", "the image replaces the text") if levels_on == "replace" else de_en("das Bild steht über dem Text", "the image is above the text") }}{% elif kind.image_set_unit is defined %}{{ n }} {{ kind.image_set_unit }}{% else %}{{ de_en("{n} Kombinationen der Platzhalter im Prompt", "{n} combinations of the placeholders in the prompt", n=n) if kind.has_image else de_en("{n} Kombinationen der Bild-Merkmale", "{n} combinations of the image attributes", n=n) }}{% endif %}</span></h1></div>
+
+{% if combos or levels_on %}
+<section class="panel">
+  <div class="stat-line">
+    <span><strong>{{ n_ok }}</strong> {{ de_en("freigegeben", "approved") }}</span>{% if ki %}<span><strong>{{ n_pending }}</strong> {{ de_en("zu prüfen", "to review") }}</span>{% endif %}<span><strong>{{ n_missing }}</strong> {{ de_en("fehlen", "missing") }}</span>
+    {% if ki %}<span>{{ de_en("Bildstil:", "Image style:") }} <strong>{{ style_label }}</strong> <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#image-style">{{ de_en("ändern", "change") }}</a></span>{% endif %}
+    {% if weg == "hochladen" and ai_on() %}<a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang, weg='ki') }}">{{ de_en("Stattdessen mit KI erzeugen", "Generate with AI instead") }}</a>
+    {% elif weg == "ki" and can_upload %}<a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang, weg='hochladen') }}">{{ de_en("Stattdessen eigene Bilder hochladen", "Upload your own images instead") }}</a>{% endif %}
+  </div>
+  {% if levels_on %}
+  <p class="muted small">{{ de_en("Je Stufe ein Bild, z. B. das Logo einer Marke oder ein Siegel.", "One image per level, e.g. a brand’s logo or a seal.") }}{% if levels_on == "replace" %} {{ de_en("Ein Merkmal ohne Bilder zeigt weiter seinen Text; hat es nur für einige Stufen ein Bild, kann die Befragung nicht starten.", "An attribute without images keeps showing its text; if only some of its levels have an image, the survey cannot start.") }}{% endif %}</p>
+  {% set gaps = kind.level_image_gaps(item) %}
+  {% if gaps %}<p class="flash flash-warning small">{{ de_en("Nur einige Stufen haben ein Bild", "Only some levels have an image") }} ({% for code, c, total in gaps %}{{ code }}: {{ de_en("{c} von {total}", "{c} of {total}", c=c, total=total) }}{{ ", " if not loop.last }}{% endfor %}). {{ de_en("Am besten alle Stufen eines Merkmals mit Bild oder keine.", "Best give all levels of an attribute an image, or none.") }}</p>{% endif %}
+  {% endif %}
+  {% if ki and kind.visual_attributes is defined %}
+  {% if not levels_on %}
+  <form method="post" class="stack image-scene" action="{{ url_for('editor.item_images_scene', survey_id=survey.id, item_id=item.id, lang=lang, weg=weg) }}"{{ " data-autosave-form" if structural else "" }}>
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Grundprompt: Was zeigt jedes Bild?", "Base prompt: what does every image show?") }} <span class="hint">{{ de_en("auf Deutsch oder Englisch; die KI bekommt ihn für jedes Bild, ergänzt um die Stufen der Bild-Merkmale ({codes}) und den Bildstil", "in German or English; the AI gets it for every image, together with the levels of the image attributes ({codes}) and the image style", codes=kind.visual_attributes(item)|map(attribute="code")|join(", ") or de_en("keine markiert", "none marked")) }}</span></span>
+      <textarea name="scene" rows="3" placeholder="{{ de_en('z. B. Ein Lieferroboter auf einem Gehweg in einer deutschen Stadt, von der Seite gesehen, ganz sichtbar', 'e.g. A delivery robot on a sidewalk in a German city, seen from the side, full body visible') }}" {% if not structural %}readonly{% endif %}>{{ item.config.scene or "" }}</textarea>
+    </label>
+    {% if n_missing and not (item.config.scene or "").strip() %}<p class="flash flash-warning small">{{ de_en("Ohne Grundprompt kennt die KI nur die Stufen, etwa „Farbe: rot; Größe: klein“, und rät, was gezeigt werden soll. Bitte Gegenstand, Umgebung und Blickwinkel beschreiben.", "Without a base prompt the AI only knows the levels, such as “Colour: red; Size: small”, and guesses what to show. Please describe the object, the surroundings and the angle of view.") }}</p>{% endif %}
+    {% if structural %}{{ autosave_bar(small=true) }}<p class="muted small">{{ de_en("Bereits erzeugte Bilder bleiben; „Neu erzeugen“ verwendet den neuen Prompt.", "Images already generated stay; “Regenerate” uses the new prompt.") }}</p>{% endif %}
+  </form>
+  {% endif %}
+  {% set no_hint = kind.missing_hints(item) %}
+  {% if no_hint and n_missing %}<p class="flash flash-warning small">{{ de_en("Ohne Bildhinweis (Spalte „Bildhinweis“ im Editor) erfährt die KI nichts über diese Stufen: {levels}. Namen, Stufen und Definitionen aus dem Fragebogen gehen bewusst nicht in den Prompt.", "Without an image hint (column “Image hint” in the editor) the AI learns nothing about these levels: {levels}. Names, levels and definitions from the questionnaire deliberately stay out of the prompt.", levels=no_hint|map("join", ": ")|join(", ")) }}</p>{% endif %}
+  {% if structural and ai_on() %}
+  <form method="post" class="inline space-above" action="{{ url_for('editor.item_images_review', survey_id=survey.id, item_id=item.id, weg=weg) }}">
+    {{ csrf() }}<button class="button button-ai button-small">{{ icon("sparkles", 16) }} {{ de_en("Prompts von der KI prüfen lassen", "Have the AI review the prompts") }}</button>
+    {{ ai_access_line() }}
+    <span class="muted small">{{ de_en("Bildhinweise der Stufen auf Klarheit; Vorschläge zum Auswählen, ein KI-Aufruf (Text)", "Image hints of the levels checked for clarity; suggestions to choose from, one AI call (text)") if levels_on else de_en("Grundprompt und alle Bildhinweise auf Klarheit; Vorschläge zum Auswählen, ein KI-Aufruf (Text)", "Base prompt and all image hints checked for clarity; suggestions to choose from, one AI call (text)") }}</span>
+  </form>
+  {% endif %}
+  {% endif %}
+  {% if n > 500 %}
+  <p class="flash flash-error">{{ icon("x", 16) }} {{ de_en("Über 500 Bilder: bitte weniger Platzhalter im Prompt verwenden.", "Over 500 images: please use fewer placeholders in the prompt.") if kind.has_image else de_en("Über 500 Bilder: bitte weniger Merkmale „im Bild“ markieren.", "Over 500 images: please mark fewer attributes “in the image”.") }}</p>
+  {% elif structural %}
+  {% if ki and ai_on() %}
+  <div class="form-actions space-above">
+    <button class="button button-ai" data-batch data-missing="{{ rows|rejectattr('approved')|rejectattr('pending')|map(attribute='key')|list|tojson|forceescape }}"
+            data-url="{{ url_for('editor.item_images_generate', survey_id=survey.id, item_id=item.id) }}" {% if not n_missing %}disabled{% endif %}
+            data-warn="{{ 1 if n >= 12 else 0 }}">{{ icon("sparkles", 16) }}<span> {{ de_en("{n} fehlende Bilder erzeugen", "Generate {n} missing images", n=n_missing) }}</span></button>
+    {% if n_pending %}
+    <form class="inline" method="post" action="{{ url_for('editor.item_images_approve_all', survey_id=survey.id, item_id=item.id, lang=lang, weg=weg) }}">
+      {{ csrf() }}<button class="button button-secondary">{{ icon("check", 16) }} {{ de_en("Alle {n} ungeprüften freigeben", "Approve all {n} unreviewed", n=n_pending) }}</button></form>
+    {% endif %}
+    {{ ai_access_line(platform=true) }}
+  </div>
+  <div class="batch-progress" hidden data-batch-progress>
+    <div class="p-progress"><span data-bar style="width:0"></span></div>
+    <span data-status role="status"></span> <button type="button" class="button button-small button-secondary" data-cancel>{{ de_en("Abbrechen", "Cancel") }}</button>
+  </div>
+  <p class="muted small">{{ de_en("Die Bilder werden nacheinander erzeugt (je etwa 10 bis 60 Sekunden). Das Fenster muss dafür geöffnet bleiben; bereits erzeugte Bilder bleiben erhalten.", "The images are generated one after another (about 10 to 60 seconds each). The window has to stay open for this; images already generated are kept.") }}</p>
+  {% endif %}
+  {% if up and kind.upload_name is defined %}
+  <div class="multi-upload space-above" data-multi-upload data-url="{{ url_for('editor.item_images_upload', survey_id=survey.id, item_id=item.id) }}"
+       data-names="{{ rows|map(attribute='name')|list|tojson|forceescape }}" data-keys="{{ rows|map(attribute='key')|list|tojson|forceescape }}"
+       data-labels="{{ rows|map(attribute='label')|list|tojson|forceescape }}" data-taken="{{ rows|selectattr('assets')|map(attribute='key')|list|tojson|forceescape }}">
+    {# a drop zone like the image element's: the files can be dragged here from the explorer (W37) #}
+    <label class="dropzone multi-dropzone">{{ icon("upload", 24) }}
+      <span><strong>{{ de_en("Mehrere Bilder auf einmal auswählen", "Choose several images at once") }}</strong> {{ de_en("oder hierher ziehen", "or drag them here") }}</span>
+      <span class="dropzone-file"></span>
+      <input type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp" data-multi-files></label>
+      {% include "_upload_rights.html" %}
+    <span class="muted small">{{ de_en("Zugeordnet über den Dateinamen: Variablenname und Nummer der Stufe, z. B. „{name}.jpg“ (steht an jedem Bild).", "Matched by file name: variable name and number of the level, e.g. “{name}.jpg” (shown at every image).", name=rows[0].name if rows else "") }} <a href="{{ url_for('editor.item_images_names', survey_id=survey.id, item_id=item.id) }}">{{ de_en("Liste der Dateinamen", "List of file names") }}</a>. {{ de_en("PNG, JPEG, GIF oder WebP, ohne Bewegung; wird auf höchstens {px} Pixel verkleinert und sofort freigegeben.", "PNG, JPEG, GIF or WebP, without animation; reduced to at most {px} pixels and approved at once.", px=600 if levels_on else 1400) }}</span>
+    <div class="multi-upload-preview" hidden data-multi-preview>
+      {% call list_table("is-wide space-above") %}<thead><tr><th scope="col">{{ de_en("Datei", "File") }}</th><th scope="col">{{ de_en("Stufe", "Level") if levels_on else de_en("Kombination", "Combination") }}</th><th scope="col"></th></tr></thead><tbody data-multi-rows></tbody>{% endcall %}
+      <div class="form-actions"><button type="button" class="button" data-multi-go></button>
+        <button type="button" class="button button-secondary" data-multi-cancel>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+      <div class="batch-progress" hidden data-multi-progress><div class="p-progress"><span data-bar style="width:0"></span></div><span data-status role="status"></span></div>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+
+<div class="asset-grid cj-gallery">
+  {% for row in rows %}
+  {% set shown = row.approved or ((row.pending[0] if row.pending else none) if ki else none) %}
+  <figure class="asset {{ 'asset-approved' if row.approved else ('asset-pending' if shown else 'asset-missing') }}" {% if shown %}id="img-{{ shown.id }}"{% endif %}>
+    {% if shown %}<img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=shown.filename) }}" alt="{{ row.label }}" loading="lazy">
+    {% else %}<div class="p-image-missing">{{ de_en("fehlt", "missing") }}</div>{% endif %}
+    <figcaption>
+      <strong class="small">{{ row.label }}</strong>
+      <div class="asset-meta">
+        {% if row.approved %}<span class="badge badge-approved">{{ de_en("freigegeben", "approved") }}</span>{% elif shown %}<span class="badge badge-pending">{{ de_en("zu prüfen", "to review") }}</span>{% else %}<span class="badge">{{ de_en("fehlt", "missing") }}</span>{% endif %}
+        {% if ki and shown and shown.source == "ai" and shown.style != style_id %}<span class="badge badge-pending" title="{{ de_en('Mit anderem Bildstil erzeugt', 'Generated with another image style') }}">{{ de_en("anderer Stil", "other style") }}</span>{% endif %}
+        {% if ki and (row.pending|length > 1 or (row.approved and row.pending)) %}<span class="muted small">{{ de_en("+{n} Varianten", "+{n} variants", n=row.pending|length - (0 if row.approved else 1)) }}</span>{% endif %}
+      </div>
+      {% if structural %}
+      {% if ki %}
+      <div class="toolbar">
+        {% if shown and shown.status == "pending" %}
+        <form class="inline" method="post" action="{{ url_for('editor.review_asset', survey_id=survey.id, asset_id=shown.id, action='approve', lang=lang, weg=weg) }}">{{ csrf() }}<button class="button button-small">{{ icon("check", 16) }} {{ de_en("Freigeben", "Approve") }}</button></form>
+        <form class="inline" method="post" action="{{ url_for('editor.review_asset', survey_id=survey.id, asset_id=shown.id, action='delete', lang=lang, weg=weg) }}" data-confirm="{{ de_en('Diese Bildvariante verwerfen?', 'Discard this image variant?') }}" data-confirm-note="{{ de_en('Sie wird endgültig gelöscht.', 'It is deleted permanently.') }}" data-confirm-ok="{{ de_en('Verwerfen', 'Discard') }}" data-confirm-danger>{{ csrf() }}<button class="button button-small button-danger">{{ de_en("Verwerfen", "Discard") }}</button></form>
+        {% endif %}
+        {% if ai_on() %}
+        <button type="button" class="button button-small button-ai" title="{{ de_en('Dieses Bild von der KI neu erzeugen lassen (ein KI-Aufruf)', 'Have the AI regenerate this image (one AI call)') if shown else de_en('Dieses Bild von der KI erzeugen lassen (ein KI-Aufruf)', 'Have the AI generate this image (one AI call)') }}" data-regen data-key="{{ row.key }}">{{ icon("restore", 16) }} {{ de_en("Neu erzeugen", "Regenerate") if shown else de_en("Erzeugen", "Generate") }}</button>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if up %}
+      <div class="toolbar">
+        <form class="asset-upload" method="post" enctype="multipart/form-data" action="{{ url_for('editor.item_images_upload', survey_id=survey.id, item_id=item.id, lang=lang, weg=weg) }}">
+          {{ csrf() }}<input type="hidden" name="key" value="{{ row.key }}">
+          <label class="button button-small button-secondary" title="{{ de_en('PNG, JPEG, GIF oder WebP, bis 10 MB; wird sofort freigegeben', 'PNG, JPEG, GIF or WebP, up to 10 MB; approved at once') }}">{{ icon("upload", 16) }} {{ de_en("Ersetzen", "Replace") if row.approved else de_en("Bild hochladen", "Upload image") }}
+            <input type="file" name="file" class="visually-hidden" accept="image/png,image/jpeg,image/gif,image/webp" required data-submit-on-change></label>
+          <noscript><button class="button button-small button-secondary">{{ de_en("Hochladen", "Upload") }}</button></noscript>
+        </form>
+        {% if weg == "hochladen" and row.approved %}
+        <form class="inline" method="post" action="{{ url_for('editor.review_asset', survey_id=survey.id, asset_id=row.approved.id, action='delete', lang=lang, weg=weg) }}" data-confirm="{{ de_en('Dieses Bild entfernen?', 'Remove this image?') }}" data-confirm-note="{{ de_en('Die Datei wird gelöscht.', 'The file is deleted.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>{{ csrf() }}<button class="button button-small button-danger">{{ de_en("Entfernen", "Remove") }}</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endif %}
+      {% if up and row.name %}<p class="muted small">{{ de_en("Dateiname:", "File name:") }} <code>{{ row.name }}</code></p>{% endif %}
+      {% if shown and shown.source == "upload" %}<p class="muted small">{{ de_en("Hochgeladen am {date}", "Uploaded on {date}", date=shown.created_at|localdate) }}</p>
+      {% elif ki %}<details class="small"><summary class="muted">Prompt</summary><p class="muted small prompt-text">{{ (shown.prompt if shown else kind.prompt_for_key(item, row.key)) }}</p></details>{% endif %}
+    </figcaption>
+  </figure>
+  {% endfor %}
+</div>
+{% else %}
+<section class="panel"><p class="muted">{{ de_en("Anzeige „Tabelle mit Text“: Ohne Bilder. Bilder gibt es mit der Anzeige „Ein Bild je Option“ oder „Tabelle mit Bildern je Stufe“ (im Element unter „Darstellung & Bilder“).", "Display “Table with text”: no images. Images come with the display “One image per option” or “Table with images per level” (in the element under “Display & images”).") }}</p></section>
+{% endif %}
+{% endblock %}

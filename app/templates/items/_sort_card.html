@@ -1,0 +1,10 @@
+{# One card of the sorting widget (card sort, Q sort; participant.js [data-sort]): a button that picks it, and with
+   an order within the groups the arrows (hidden while the card lies on the stack). Needs: item, o, rank, variables;
+   pile: the presort pile of a Q sort or none #}
+<li class="p-sort-card" draggable="true" data-card="{{ o.code }}"{% if pile is not none %} data-pile="{{ pile }}"{% endif %}>
+  <button type="button" class="p-sort-pick" aria-pressed="false"><span{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span></button>
+  {% if rank %}<span class="p-sort-btns">
+    <button type="button" class="p-sort-up" aria-label="{{ (ui('%s nach oben', 'Move %s up'))|format(o.label) }}">↑</button>
+    <button type="button" class="p-sort-down" aria-label="{{ (ui('%s nach unten', 'Move %s down'))|format(o.label) }}">↓</button>
+  </span>{% endif %}
+</li>

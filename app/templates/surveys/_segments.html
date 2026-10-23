@@ -1,0 +1,248 @@
+{% from "_learn.html" import why, term, method %}
+{# Segments of a CBC or MaxDiff question by a latent class logit (app/segments.py view(), summary()). Needs: l (view),
+   e (entry), f (data pool), survey, num. #}
+{% from "_macros.html" import num, one, pct, signed, abbr %}
+{% from "surveys/_compare_macros.html" import pval %}
+{% set res = l.result %}
+{% set reg = e.item.type == "cva" %}{# ratings-based conjoint: a latent class regression (app/lc_regression.py) #}
+{% set editor = survey.can(current_user, "editor") %}
+{# the data pool only when the address names one: otherwise the survey's saved pool, whose results are kept #}
+{% macro pool_fields() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for s in request.args.getlist("source") %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+  {% if request.args.get("all") %}<input type="hidden" name="all" value="1">{% endif %}
+  {% if request.args.get("drop") %}<input type="hidden" name="drop" value="1">{% endif %}
+  {% if f.weighted %}<input type="hidden" name="gewichtet" value="1">{% endif %}{% endmacro %}
+<section class="lc-part" id="lc-part-{{ e.item.id }}" data-lc-item="{{ e.item.id }}" data-lc-url="{{ url_for('surveys.results', survey_id=survey.id) }}">
+<h3 class="res-group-head" id="lc-{{ e.item.id }}">{{ de_en("Segmente (latente Klassen)", "Segments (latent classes)") }}{{ fn("lc") }}</h3>
+<p class="lc-status muted small" role="status" aria-live="polite"></p>
+{% if l.state == "running" %}
+{% set done = ((l.marker.progress or 0) * 100)|round|int %}
+<div class="batch-progress hb-progress" data-lc-running{% if l.marker.queued %} data-queued{% endif %} data-url="{{ url_for('surveys.results_lc_status', survey_id=survey.id, item_id=e.item.id) }}">
+  <div class="p-progress" role="progressbar" aria-label="{{ de_en('Segmentschätzung', 'Segment estimation') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ done }}"><span data-bar style="width:{{ done }}%"></span></div>
+  <span role="status">{% if l.marker.queued %}{{ de_en("Segmentschätzung wartet: Gerade rechnen schon andere Schätzungen; diese beginnt, sobald ein Platz frei ist.", "Segment estimation is waiting: other estimations are running right now; this one starts as soon as a slot is free.") }}<span data-status hidden></span>{% else %}{{ de_en("Segmentschätzung läuft:", "Segment estimation running:") }} <span data-status>{{ done|pctsign }}</span> · {{ de_en("gestartet {t} Uhr.", "started at {t}.", t=l.marker.started|localclock) }}{% endif %} {{ de_en("Das Ergebnis erscheint hier von selbst.", "The result appears here automatically.") }}</span>
+</div>
+{% elif l.marker and l.marker.state == "error" %}
+<p class="flash flash-warning">{{ de_en("Die letzte Segmentschätzung ist fehlgeschlagen:", "The last segment estimation failed:") }} {{ l.marker.message }}</p>
+{% elif l.marker and l.marker.state == "aborted" %}
+<p class="flash flash-warning">{{ de_en("Die letzte Segmentschätzung wurde abgebrochen (keine Rückmeldung mehr, z. B. weil der Server-Prozess neu gestartet wurde).", "The last segment estimation was aborted (no more response, e.g. because the server process was restarted).") }}{% if l.pending %} {{ de_en("Fertig sind die Lösungen bis {n} Segmente; „Schätzung fortsetzen“ rechnet nur die übrigen.", "The solutions up to {n} segments are done; “Continue estimation” computes only the rest.", n=l.pending) }}{% endif %}</p>
+{% endif %}
+{% if l.state == "current" %}
+<p class="muted small"><strong>{{ de_en("fertig", "done") }}</strong> · {{ de_en("geschätzt am {d}", "estimated on {d}", d=res.created|localdt) }} · {{ de_en("Rechenzeit {s} s", "computing time {s} s", s=one(res.seconds)) }} · {{ de_en("passt zu den Daten dieser Seite.", "matches the data on this page.") }}</p>
+{% elif l.state == "stale" %}
+<p class="flash flash-warning">{{ de_en("Für die Daten dieser Seite gibt es keine aktuelle Segmentschätzung. Die frühere", "There is no current segment estimation for the data on this page. The earlier one") }}{% if l.stale_created %}{{ de_en(" vom {d}", " from {d}", d=l.stale_created|localdt) }}{% endif %}{{ de_en(" gehört zu einem anderen Datenstand (neue Teilnahmen, ein anderer Datenpool oder Speeder-Filter) und wird hier nicht mehr gezeigt.", " belongs to a different state of the data (new participations, a different data pool or speeder filter) and is no longer shown here.") }}</p>
+{% endif %}
+{% if l.state != "running" and l.state != "current" %}
+  {% if l.available and l.too_few_for_two %}
+  <p class="muted small">{{ de_en("Für 2 Segmente sind mindestens {two} Personen nötig (5 Personen je Parameter und Segment, hier {p} Parameter je Segment); mit {n} Personen ergäbe die Schätzung nur 1 Segment.", "2 segments need at least {two} people (5 people per parameter and segment, here {p} parameters per segment); with {n} people the estimation would give only 1 segment.", two=l.two_persons, p=l.parameters, n=l.n_persons) }}</p>
+  {% elif l.available %}
+  <div class="res-run-hb">
+    <form method="post" action="{{ url_for('surveys.results_lc', survey_id=survey.id, item_id=e.item.id) }}">
+      {{ pool_fields() }}
+      <button class="button button-small">{{ de_en("Schätzung fortsetzen", "Continue estimation") if l.pending else de_en("Segmente schätzen", "Estimate segments") }}</button>
+    </form>
+    <span class="muted small">{% if reg %}{{ de_en("Teilt die Teilnehmenden in Segmente mit eigenen Teilnutzen (Latent-Class-Regression der Bewertungen, 1 bis 6 Segmente in einem Lauf). Dauert Sekunden und läuft im Hintergrund; das Ergebnis wird gespeichert und geht in den Datenexport ein.", "Divides the participants into segments with their own part-worths (latent class regression of the ratings, 1 to 6 segments in one run). Takes seconds and runs in the background; the result is saved and goes into the data export.") }}{% else %}{{ de_en("Teilt die Teilnehmenden in Segmente mit eigenen {what} (Latent-Class-Logit, 1 bis 6 Segmente in einem Lauf). Dauert je nach Datenmenge Sekunden bis wenige Minuten und läuft im Hintergrund; das Ergebnis wird gespeichert und geht in den Datenexport ein.", "Divides the participants into segments with their own {what} (latent class logit, 1 to 6 segments in one run). Takes seconds to a few minutes depending on the amount of data and runs in the background; the result is saved and goes into the data export.", what=de_en("Nutzen der Aussagen", "utilities of the statements") if e.item.type == "maxdiff" else de_en("Teilnutzen", "part-worths")) }}{% endif %}</span></div>
+  {% else %}
+  <p class="muted small">{{ de_en("Für Segmente fehlen Daten (mindestens {n} Personen mit beantworteten {what}).", "Segments lack data (at least {n} people with answered {what}).", n=l.min_persons, what=de_en("Sets", "sets") if e.item.type == "maxdiff" else de_en("Aufgaben", "tasks")) }}</p>
+  {% endif %}
+{% endif %}
+{% if res %}
+{% for w in res.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
+<form method="post" action="{{ url_for('surveys.results_lc_choose', survey_id=survey.id, item_id=e.item.id) }}" class="lc-form">
+{{ pool_fields() }}
+<p class="res-group-head">{{ de_en("Lösungen", "Solutions") }} <span class="hint">{{ de_en("je Zahl der Segmente; kleinere Werte von BIC, AIC3 und CAIC sind besser", "per number of segments; smaller values of BIC, AIC3 and CAIC are better") }}{{ fn("lc_crit") }}</span></p>
+{% macro whole(v) %}{{ (v|round|int)|string|replace("-", "−") }}{% endmacro %}
+<div class="res-scroll lc-scroll"><table class="res-table lc-solutions">
+  <thead><tr><th title="{{ de_en('Zahl der Segmente', 'Number of segments') }}{% if editor %}{{ de_en('; die gewählte Lösung wird angezeigt, exportiert und im Simulator genutzt', '; the chosen solution is shown, exported and used in the simulator') }}{% endif %}">{{ de_en("Segmente", "Segments") }}</th>
+    <th title="Log-Likelihood">LL</th>
+    <th title="{{ de_en('Bayes-Informationskriterium mit N = Personen; fett: kleinster Wert', 'Bayesian information criterion with N = people; bold: smallest value') }}">{{ term("bic") }}</th><th title="{{ de_en('AIC mit Strafgewicht 3; fett: kleinster Wert', 'AIC with penalty weight 3; bold: smallest value') }}">AIC3</th><th title="{{ de_en('konsistentes AIC; fett: kleinster Wert', 'consistent AIC; bold: smallest value') }}">CAIC</th>
+    <th title="{{ de_en('Trennschärfe der Zuordnung: 1 = jede Person eindeutig in einem Segment', 'Sharpness of the assignment: 1 = every person clearly in one segment') }}">{{ term("entropy", de_en("Entropie", "Entropy")) }} R²</th>
+    <th title="{{ de_en('Anteil des kleinsten Segments', 'Share of the smallest segment') }}">{{ de_en("kleinstes", "smallest") }}</th><th title="{{ de_en('Wie viele der zu Ende gerechneten Läufe die beste Lösung fanden', 'How many of the runs computed to the end found the best solution') }}">{{ de_en("gefunden", "found") }}</th>
+    {% if l.hits %}<th title="{{ de_en('Holdout-Aufgaben: Anteil der Personen, deren wahrscheinlichste Wahl (Mischung der Segmente nach ihrer Zugehörigkeit) die tatsächliche war', 'Holdout tasks: share of people whose most likely choice (mixture of the segments by their membership) was the actual one') }}">{{ de_en("Treffer", "Hits") }}</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for s in res.solutions %}
+    <tr class="{% if s.K == res.K %}lc-shown{% endif %}{% if s.K == res.suggested %} lc-suggested{% endif %}">
+      <td>{% if editor %}<label class="lc-pick"><input type="radio" name="lc_k" value="{{ s.K }}"{% if s.K == res.K %} checked{% endif %}> {{ s.K }}</label>{% else %}{{ s.K }}{% endif %}{% if s.K == res.suggested %} <span class="lc-star" title="{{ de_en('Vorschlag', 'Suggestion') }}">{{ de_en("Vorschlag", "Suggestion") }}</span>{% endif %}</td>
+      <td title="{{ de_en('{n} Parameter', '{n} parameters', n=s.params) }}">{{ whole(s.ll) }}</td>
+      {% for crit in ("bic", "aic3", "caic") %}<td{% if s.K == res.best[crit] %} class="lc-best"{% endif %}>{{ whole(s[crit]) }}</td>{% endfor %}
+      <td>{{ num(s.entropy) if s.entropy is not none else "–" }}</td>
+      {# the verdict as a word next to the value, not only in colour and in a title (W68) #}
+      <td{% if s.flag %} class="lc-warn"{% endif %}>{% if s.flag %}<strong>{{ pct(s.smallest) }}</strong> <span class="lc-flag">⚠ {{ de_en("klein", "small") }}</span>{% else %}{{ pct(s.smallest) if s.K > 1 else "–" }}{% endif %}</td>
+      <td{% if s.unstable %} class="lc-warn"{% endif %}>{% if s.unstable %}<strong>{{ s.found }}/{{ s.runs }}</strong> <span class="lc-flag">⚠ {{ de_en("instabil", "unstable") }}</span>{% else %}{{ s.found }}/{{ s.runs }}{% endif %}</td>
+      {% if l.hits %}<td>{{ pct(l.hits.get(s.K)) }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Fett: der kleinste Wert je Kriterium; ⚠ klein: ein Segment unter 5 % bzw. 50 Personen (je nachdem, was mehr ist)", "Bold: the smallest value per criterion; ⚠ small: a segment under 5% or 50 people (whichever is more)") }}{{ fn("lc_size") }}{{ de_en("; ⚠ instabil: Die beste Lösung wurde nur einmal gefunden. Entropie R² ab 0,8 gilt als gute Trennung, unter 0,6 als schwach", "; ⚠ unstable: the best solution was found only once. An entropy R² of 0.8 or more counts as good separation, under 0.6 as weak") }}{{ fn("lc_entropy") }}.{% if res.best.aic3 != res.suggested %} {{ de_en("AIC3 spräche für {n} Segmente.", "AIC3 would favour {n} segments.", n=res.best.aic3) }}{% endif %}</p>
+{% call method(de_en("Wie der Vorschlag entsteht", "How the suggestion is made")) %}<p>{{ de_en("Vorschlag: die Lösung mit dem kleinsten BIC unter denen ohne zu kleines Segment und mit stabiler Lösung; die anderen lassen sich trotzdem wählen. Höchstens 6 Segmente, mehr sind in der Praxis kaum nutzbar", "Suggestion: the solution with the smallest BIC among those without a too small segment and with a stable solution; the others can still be chosen. At most 6 segments, more are hardly usable in practice") }}{{ fn("lc_kmax") }}; {{ de_en("dazu höchstens eines je 5 Personen und Parameter, ab 60 Personen (Festlegungen von Askurious).", "also at most one per 5 people and parameter, from 60 people on (settings of Askurious).") }}{% if l.hits %} {{ de_en("Die Trefferquote in den Holdout-Aufgaben ist die praktischste Prüfung: Mehr Segmente lohnen sich, wenn sie Wahlen besser vorhersagen, die nicht in die Schätzung eingingen.", "The hit rate in the holdout tasks is the most practical check: more segments are worth it if they better predict choices that did not go into the estimation.") }}{% endif %} {{ de_en("Die Wahl sollte auch inhaltlich passen: Segmente, die sich deutlich unterscheiden und sich benennen lassen.", "The choice should also fit in substance: segments that differ clearly and can be named.") }}</p>{% endcall %}
+{% if l.too_few_for_two and res.kmax == 1 %}<p class="muted small">{{ de_en("Nur 1 Segment: Für 2 Segmente sind mindestens {two} Personen nötig (5 Personen je Parameter und Segment, hier {p} Parameter je Segment), vorhanden sind {n}.", "Only 1 segment: 2 segments need at least {two} people (5 people per parameter and segment, here {p} parameters per segment); there are {n}.", two=l.two_persons, p=l.parameters, n=l.n_persons) }}</p>{% endif %}
+{% if res.kmax > 1 and res.persons < 2 * l.min_class %}<p class="muted small">{{ de_en("Kein Vorschlag über 1 Segment möglich, weil jedes Segment mindestens {m} Personen braucht und hier nur {n} Personen sind; die Lösungen mit mehr Segmenten lassen sich trotzdem wählen.", "No suggestion above 1 segment is possible, because every segment needs at least {m} people and there are only {n} people here; the solutions with more segments can still be chosen.", m=l.min_class, n=res.persons) }}</p>{% endif %}
+{{ why("segments_k") }}
+{% if res.K > 1 %}
+<p class="res-group-head">{{ de_en("Segmentgrößen", "Segment sizes") }} <span class="hint">{{ de_en("Anteil aus den", "Share from the") }} {{ term("membership", de_en("Zugehörigkeitswahrscheinlichkeiten", "membership probabilities")) }}, {{ de_en("95-%-Intervall; Personen: am wahrscheinlichsten in diesem Segment", "95% interval; people: most likely in this segment") }}</span></p>
+<ul class="plain res-bars lc-sizes">
+  {% for s in res.segments %}
+  <li><span class="res-bar-label">{% if editor %}<span class="lc-key lc-c{{ s.index + 1 }}"></span><input type="text" name="lc_name_{{ s.index }}" value="{{ s.name if res.names_saved else '' }}" placeholder="{{ s.name }}" maxlength="40" class="lc-name lc-c{{ s.index + 1 }}" aria-label="{{ de_en('Name für Segment {n}', 'Name for segment {n}', n=s.index + 1) }}">{% else %}<span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}{% endif %}</span>
+    <span class="res-bar lc-bar lc-c{{ s.index + 1 }}"><span style="width: {{ (s.share * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n" title="{{ de_en('{n} Personen am wahrscheinlichsten hier, davon {sure} mit mindestens 80 %', '{n} people most likely here, {sure} of them with at least 80%', n=s.persons, sure=s.sure) }}">{{ pct(s.share) }}{% if s.lo is not none %} <span class="hint">[{{ pct(s.lo) }}; {{ pct(s.hi) }}]</span>{% endif %} · {{ de_en("{n} P.", "{n} pers.", n=s.persons) }}{% if f.weighted and l.sizes_weighted %}<br><span class="hint">{{ de_en("gewichtet", "weighted") }} {{ pct(l.sizes_weighted[s.index]) }}</span>{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if editor %}
+<div class="lc-actions"><button class="button button-small">{{ de_en("Übernehmen", "Apply") }}</button>
+  <span class="lc-taken"><strong>{% if res.K == 1 %}{{ de_en("übernommen: {k} Segment", "applied: {k} segment", k=res.K) }}{% else %}{{ de_en("übernommen: {k} Segmente", "applied: {k} segments", k=res.K) }}{% endif %}</strong></span>
+  <span class="muted small">{{ de_en("Die gewählte Lösung und die Namen gelten auch im Datenexport; sie ändern den Fragebogen nicht.", "The chosen solution and the names also apply in the data export; they do not change the questionnaire.") }}</span></div>
+{% endif %}
+</form>
+{% if editor and res.can_undo %}
+<form method="post" action="{{ url_for('surveys.results_lc_undo', survey_id=survey.id, item_id=e.item.id) }}" class="inline-form">
+  {{ pool_fields() }}<button class="button button-small button-secondary">{{ de_en("Rückgängig", "Undo") }}</button></form>
+{% endif %}
+{% set seg = res.segments %}
+{% if res.covariates %}{% set cv = res.covariates %}
+<p class="res-group-head">{{ de_en("Wer gehört wohin", "Who belongs where") }} <span class="hint">{{ de_en("Kovariaten der Segmentanteile: Odds Ratio, in diesem Segment statt in „{ref}“ zu sein", "Covariates of the segment shares: odds ratio of being in this segment instead of “{ref}”", ref=cv.reference) }}{{ fn("lc_cov") }}</span></p>
+<div class="res-scroll lc-scroll"><table class="res-table lc-table lc-cov">
+  <thead><tr><th>{{ de_en("Kovariate", "Covariate") }}</th>{% for name in cv.against %}<th><span class="lc-key lc-c{{ loop.index + 1 }}"></span>{{ name }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for row in cv.rows %}
+    <tr><td>{{ row.question }}: {{ row.label }}{% if row.reference %} <span class="hint">{{ de_en("gegenüber „{ref}“", "compared with “{ref}”", ref=row.reference) }}</span>{% endif %}</td>
+    {% for c in row.cells %}<td title="{{ de_en('Koeffizient', 'Coefficient') }} {{ signed(c.g) }}{% if c.se is not none %}, SE {{ num(c.se) }}{% endif %}">{{ num(c.or) }}{% if c.p is not none %} <span class="hint">({{ pval(c.p) }})</span>{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}</tbody>
+</table></div>
+<p class="muted small">{{ term("odds_ratio", "") }} {{ de_en("Odds Ratio über 1: Personen mit diesem Merkmal sind eher in diesem Segment als in „{ref}“. Die Kovariaten gehen in die Schätzung ein und verschieben die Segmente selbst etwas; explorativ, ohne Korrektur für viele Tests.", "Odds ratio over 1: people with this characteristic are more likely in this segment than in “{ref}”. The covariates go into the estimation and shift the segments themselves a little; exploratory, without correction for many tests.", ref=cv.reference) }}</p>
+{% endif %}
+{% set weighted = f.weighted and l.sizes_weighted %}
+{# one segment is no result of its own: the tables would repeat the aggregate model (V65) #}
+{% if res.K == 1 %}
+<p class="muted small lc-none">{{ de_en("Die Daten zeigen keine Gruppen mit unterschiedlichen Vorlieben: Mit einem Segment gilt das aggregierte Modell oben für alle.", "The data show no groups with different preferences: with one segment, the aggregate model above applies to everyone.") }}</p>
+{% elif res.type == "maxdiff" %}
+<p class="res-group-head">{{ de_en("Wahrscheinlichkeits-Scores je Segment", "Probability scores per segment") }} <span class="hint">{{ de_en("Summe 100 je Segment; sortiert nach dem gewichteten Mittel aller Segmente", "sum 100 per segment; sorted by the weighted mean of all segments") }}</span></p>
+<div class="res-scroll lc-scroll"><table class="res-table lc-table">
+  <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th>{% for s in seg %}<th><span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for st in res.statements %}
+    <tr><td>{{ st.label }}</td>{% for v in st["values"] %}<td class="lc-cell" title="{{ de_en('Nutzen', 'Utility') }} {{ signed(v.util) }}{% if v.se is not none %}, SE {{ num(v.se) }}{% endif %}"><span class="lc-mini lc-c{{ loop.index }}"><span style="width: {{ v.width }}%"></span></span> {{ one(v.score) }}{% if v.separated %} <span class="hint">{{ de_en("begrenzt", "bounded") }}</span>{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }} {{ de_en("je Segment", "per segment") }} <span class="hint">{{ de_en("Spannweite der Teilnutzen als Anteil an der Summe der Spannweiten", "range of the part-worths as a share of the sum of the ranges") }}</span></p>
+<div class="lc-importance">
+{% for g in res.importance_bars %}
+  <p class="pw-head">{{ g.label }}</p>
+  <ul class="plain res-bars lc-groups">
+  {% for b in g.bars %}<li><span class="res-bar-label"><span class="lc-key lc-c{{ b.segment + 1 }}"></span>{{ seg[b.segment].name }}</span>
+    <span class="res-bar lc-bar lc-c{{ b.segment + 1 }}"><span style="width: {{ b.width or 0 }}%"></span></span>
+    <span class="res-bar-n">{{ pct(b.value) }}</span></li>{% endfor %}
+  </ul>
+{% endfor %}
+</div>
+<p class="res-group-head">{{ de_en("Teilnutzen je Segment", "Part-worths per segment") }} <span class="hint">{{ de_en("je Merkmal nullzentriert; Standardfehler beim Überfahren", "zero-centred per attribute; standard error on hover") }}{{ fn("lc_se") }}</span></p>
+<div class="res-scroll lc-scroll"><table class="res-table lc-table">
+  <thead><tr><th>{{ de_en("Merkmal / Stufe", "Attribute / level") }}</th>{% for s in seg %}<th><span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for a in res.attributes %}
+    <tr class="lc-attr"><th colspan="{{ seg|length + 1 }}" scope="rowgroup">{{ a.label }} <span class="hint">{{ a.code }}</span></th></tr>
+    {% for lv in a.levels %}
+    <tr><td>{{ lv.label }}</td>{% for v in lv["values"] %}<td title="{% if v.se is not none %}SE {{ num(v.se) }}{% else %}{{ de_en('ohne Standardfehler', 'without standard error') }}{% endif %}">{{ signed(v.beta) }}{% if v.separated %} <span class="hint">{{ de_en("begrenzt", "bounded") }}</span>{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+  {% endfor %}
+  {% if res.price %}
+    <tr><td>{% if res.price.unit != 1 %}{{ de_en("Preiskoeffizient je {u} Währungseinheiten", "Price coefficient per {u} currency units", u=res.price.unit) }}{% else %}{{ de_en("Preiskoeffizient je {u} Währungseinheit", "Price coefficient per {u} currency unit", u=res.price.unit) }}{% endif %}</td>{% for b in res.price.beta %}<td title="{% if res.price.se[loop.index0] is not none %}SE {{ num(res.price.se[loop.index0] * res.price.unit, 4) }}{% endif %}">{{ signed(b * res.price.unit, 4) }}</td>{% endfor %}</tr>
+  {% endif %}
+  {% if res.asc %}
+    <tr><td>{{ de_en("Konstante „Keine davon“", "Constant “None of these”") }}</td>{% for x in res.asc %}<td title="{% if x.se is not none %}SE {{ num(x.se) }}{% endif %}">{{ signed(x.beta) }}</td>{% endfor %}</tr>
+  {% endif %}
+  </tbody>
+</table></div>
+{% if res.price and res.price.wtp is defined and true in res.price.wtp %}
+<p class="res-group-head">{{ term("wtp", de_en("Zahlungsbereitschaft", "Willingness to pay")) }} {{ de_en("je Segment", "per segment") }} <span class="hint">{{ de_en("je Stufe gegenüber dem Mittel des Merkmals, 95-%-Intervall nach Fieller; nur bei deutlich negativem Preiskoeffizienten", "per level against the mean of the attribute, 95% interval after Fieller; only with a clearly negative price coefficient") }}</span></p>
+{% set weak = [] %}{% for z in res.price.weak or [] %}{% if z %}{% set _ = weak.append(seg[loop.index0].name ~ " (|z| = " ~ num(z, 1) ~ ")") %}{% endif %}{% endfor %}{% if weak %}<p class="muted small wtp-weak">{{ de_en("Preiskoeffizient nur knapp bestimmt in {which}: Die Zahlungsbereitschaft fällt dort eher zu klein aus, Intervall nach Fieller beachten (Hole, 2007; Grenze |z| = 4 von Askurious festgelegt).", "Price coefficient only narrowly determined in {which}: the willingness to pay tends to come out too small there, mind the interval after Fieller (Hole, 2007; limit |z| = 4 set by Askurious).", which=weak|join(", ")) }}</p>{% endif %}
+<div class="res-scroll lc-scroll"><table class="res-table lc-table">
+  <thead><tr><th>{{ de_en("Merkmal / Stufe", "Attribute / level") }}</th>{% for s in seg %}<th><span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for a in res.attributes %}
+    <tr class="lc-attr"><th colspan="{{ seg|length + 1 }}" scope="rowgroup">{{ a.label }}</th></tr>
+    {% for lv in a.levels %}
+    <tr><td>{{ lv.label }}</td>{% for v in lv["values"] %}<td>{% if v.wtp is not none %}{{ signed(v.wtp, res.wtp_decimals) }} <span class="hint">[{{ signed(v.wtp_lo, res.wtp_decimals) }}; {{ signed(v.wtp_hi, res.wtp_decimals) }}]</span>{% else %}–{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endif %}
+{% endif %}
+{% if res.K > 1 and l.profile_choices is defined %}
+{% set lc_weighted = f.weighted and l.profile_weighted %}{% set lc_bch = l.bch and not lc_weighted %}
+<p class="res-group-head" id="lc-profile-{{ e.item.id }}">{{ de_en("Segmente beschreiben", "Describe segments") }} <span class="hint">{{ de_en("Antworten auf andere Fragen je Segment,", "answers to other questions per segment,") }} {% if lc_bch %}{{ de_en("mit BCH-Gewichten, die die Fehlzuordnung herausrechnen", "with BCH weights that correct for misassignment") }}{% else %}{{ de_en("jede Person nach ihrer Zugehörigkeitswahrscheinlichkeit gewichtet (unterschätzt Unterschiede)", "each person weighted by their membership probability (underestimates differences)") }}{% if lc_weighted %}{{ de_en(", dazu mit der Gewichtung der Seite", ", plus with the weighting of the page") }}{% endif %}{% endif %}{{ fn("lc_profile") }}</span></p>
+{{ why("segments_describe") }}
+{% if editor and l.profile_choices %}
+<form method="post" action="{{ url_for('surveys.results_lc_choose', survey_id=survey.id, item_id=e.item.id) }}" class="lc-profile-form">
+  {{ pool_fields() }}<input type="hidden" name="lc_prof_sent" value="1">
+  <details class="res-dist"{% if not l.profile_ids %} open{% endif %}><summary>{{ de_en("Fragen wählen ({n} von höchstens 8)", "Choose questions ({n} of at most 8)", n=l.profile_ids|length) }}</summary>
+  <div class="lc-profile-pick">
+  {% for id, label in l.profile_choices %}<label class="check"><input type="checkbox" name="lc_prof" value="{{ id }}"{% if id in l.profile_ids %} checked{% endif %}> {{ label }}</label>{% endfor %}
+  </div>
+  <button class="button button-small">{{ de_en("Übernehmen", "Apply") }}</button></details>
+</form>
+{% endif %}
+{% set prof = l.profile_weighted if (f.weighted and l.profile_weighted) else l.profile %}
+{% if not prof %}<p class="muted small">{{ de_en("Noch keine Fragen gewählt.", "No questions chosen yet.") }}</p>{% endif %}
+{% for q in prof %}
+<p class="pw-head">{{ q.label }}</p>
+<div class="res-scroll lc-scroll"><table class="res-table lc-table lc-profile">
+  <thead><tr><th></th>{% for s in seg %}<th><span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for b in q.blocks %}
+    {% if b.kind == "mean" %}
+    <tr><td>{{ b.label or de_en("Mittelwert", "Mean") }}{% if b.unit %} <span class="hint">{{ b.unit }}</span>{% endif %} <span class="hint">M (SD)</span></td>{% for p in b.per %}<td>{{ num(p.mean) }}{% if p.sd is not none %} <span class="hint">({{ num(p.sd) }})</span>{% endif %}</td>{% endfor %}</tr>
+    {% else %}
+      {% if q.blocks|length > 1 and not b.multi %}<tr class="lc-attr"><th colspan="{{ seg|length + 1 }}" scope="rowgroup">{{ b.label }}</th></tr>{% endif %}
+      {% for r in b.rows %}<tr><td>{{ r.label }}{% if b.multi %} <span class="hint">{{ de_en("angekreuzt", "ticked") }}</span>{% endif %}</td>{% for x in r.shares %}<td>{{ pct(x) }}{% if r.clipped and r.clipped[loop.index0] %} <span class="hint" title="{{ de_en('Die BCH-Schätzung liegt außerhalb von 0 bis 100 % und ist auf den Rand gesetzt', 'The BCH estimate lies outside 0 to 100% and is set to the boundary') }}">{{ de_en("gekappt", "clipped") }}</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+    {% endif %}
+    {% if b.test and not lc_weighted %}<tr class="lc-test"><td colspan="{{ seg|length + 1 }}">{% if b.test.small %}{{ de_en("Kein Test: zu wenige Personen je Antwort (auch zusammengefasst erwarten nicht alle Segmente mindestens 5 Personen je Antwort)", "No test: too few people per answer (even merged, not all segments expect at least 5 people per answer)") }}{% else %}{{ de_en("Unterschied zwischen den Segmenten (BCH):", "Difference between the segments (BCH):") }} F({{ b.test.df }}, {{ b.test.df2 }}) = {{ num(b.test.F) }}, N = {{ b.test.n }}, {{ pval(b.test.p) }}{% if b.test.merged %}; {{ de_en("seltene Antworten für den Test zusammengefasst:", "rare answers merged for the test:") }} {{ b.test.merged|join("; ") }}{% endif %}{% endif %}</td></tr>{% endif %}
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endfor %}
+{% if prof %}<p class="muted small">{% if lc_bch %}{{ de_en("Anteile und Mittelwerte mit BCH-Gewichten: Sie gleichen im Mittel aus, dass Personen nicht sicher einem Segment zugeordnet sind", "Shares and means with BCH weights: on average they make up for people not being assigned to a segment with certainty") }}{{ fn("lc_bch") }}. {{ de_en("Anteilige wie modale Zuordnung verwischen Unterschiede; korrigiert sind die BCH-Werte.", "Proportional as well as modal assignment blur differences; the BCH values are corrected.") }}{% if l.clipped %} {{ de_en("„gekappt“: Die BCH-Schätzung lag außerhalb von 0 bis 100 % (bei kleinen Segmenten oder seltenen Antworten möglich) und ist auf den Rand gesetzt.", "“clipped”: the BCH estimate lay outside 0 to 100% (possible with small segments or rare answers) and is set to the boundary.") }}{% endif %} {{ de_en("Die Tests rechnen mit denselben Gewichten und einem robusten Wald-Test über Personen (Varianz um das gemeinsame Mittel, als F-Test; so bleibt die Fehlerrate auch bei kleinen Segmenten und seltenen Antworten nahe 5 %); sie sind explorativ, ohne Korrektur für viele Tests. Erwartet eine Kombination aus Segment und Antwort weniger als 5 Personen, fasst der Test seltene Antworten zusammen oder entfällt.", "The tests use the same weights and a robust Wald test over people (variance around the common mean, as an F test; this keeps the error rate near 5% even with small segments and rare answers); they are exploratory, without correction for many tests. If a combination of segment and answer expects fewer than 5 people, the test merges rare answers or is dropped.") }}{% else %}{{ de_en("Anteile und Mittelwerte zählen jede Person in jedem Segment mit ihrer Zugehörigkeitswahrscheinlichkeit (anteilige Zuordnung). Das unterschätzt Unterschiede zwischen den Segmenten, wie die Zuordnung zum wahrscheinlichsten Segment auch.", "Shares and means count each person in each segment with their membership probability (proportional assignment). This underestimates differences between the segments, as does the assignment to the most likely segment.") }} {% if lc_weighted %}{{ de_en("Mit Gewichtung ohne BCH-Korrektur und ohne Tests; ohne Gewichtung zeigt die Seite die korrigierten BCH-Werte.", "With weighting, without BCH correction and without tests; without weighting the page shows the corrected BCH values.") }}{% else %}{{ de_en("Keine BCH-Korrektur und keine Tests: Die Segmente sind zu schlecht getrennt, um die Fehlzuordnung herauszurechnen.", "No BCH correction and no tests: the segments are separated too poorly to correct for misassignment.") }}{% endif %}{% endif %}{% if res.entropy is not none and res.entropy < 0.6 %} {{ de_en("Bei der geringen Trennschärfe (Entropie R² {e}) sind die Profile nur eine grobe Richtung.", "With the low separation (entropy R² {e}) the profiles are only a rough direction.", e=num(res.entropy)) }}{% endif %}</p>{% endif %}
+{% endif %}
+{% if l.hb_means %}
+<details class="res-dist"><summary>{{ de_en("{hb}-Nutzen je Segment", "{hb} utilities per segment", html=True, hb=abbr("hb")) }}</summary>
+<p class="muted small">{% if l.hb_means.kind == "maxdiff" %}{{ de_en("Mittel der individuellen HB-Scores der Personen, gewichtet mit ihrer Zugehörigkeit ({n} Personen).", "Mean of the individual HB scores of the people, weighted by their membership ({n} people).", n=l.hb_means.persons) }}{% else %}{{ de_en("Mittel der individuellen HB-Teilnutzen der Personen, gewichtet mit ihrer Zugehörigkeit ({n} Personen).", "Mean of the individual HB part-worths of the people, weighted by their membership ({n} people).", n=l.hb_means.persons) }}{% endif %} {{ de_en("Hilft beim Benennen; die Segmente selbst kommen aus dem Latent-Class-Modell.", "Helps with naming; the segments themselves come from the latent class model.") }}</p>
+<div class="res-scroll lc-scroll"><table class="res-table lc-table">
+  <thead><tr><th>{{ de_en("Aussage", "Statement") if l.hb_means.kind == "maxdiff" else de_en("Merkmal / Stufe", "Attribute / level") }}</th>{% for s in seg %}<th><span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% if l.hb_means.kind == "maxdiff" %}
+    {% for r in l.hb_means.rows %}<tr><td>{{ r.label }}</td>{% for v in r["values"] %}<td>{{ one(v) }}</td>{% endfor %}</tr>{% endfor %}
+  {% else %}
+    {% for a in l.hb_means.rows %}
+    <tr class="lc-attr"><th colspan="{{ seg|length + 1 }}" scope="rowgroup">{{ a.label }}</th></tr>
+    {% for lv in a.levels %}<tr><td>{{ lv.label }}</td>{% for v in lv["values"] %}<td>{{ signed(v) }}</td>{% endfor %}</tr>{% endfor %}
+    {% endfor %}
+  {% endif %}
+  </tbody>
+</table></div>
+</details>
+{% endif %}
+{% if editor and l.cov_choices %}
+<form method="post" action="{{ url_for('surveys.results_lc_choose', survey_id=survey.id, item_id=e.item.id) }}" class="lc-profile-form">
+  {{ pool_fields() }}<input type="hidden" name="lc_cov_sent" value="1">
+  <details class="res-dist"><summary>{{ de_en("Kovariaten wählen ({n} von höchstens 4)", "Choose covariates ({n} of at most 4)", n=l.cov_ids|length) }}</summary>
+  <p class="muted small">{{ de_en("Fragen, die mitbestimmen, wie wahrscheinlich eine Person in jedem Segment ist (z. B. Alter, Geschlecht). Sie gehen in die Schätzung ein: Nach dem Übernehmen werden die Segmente neu geschätzt.", "Questions that help determine how likely a person is to be in each segment (e.g. age, gender). They go into the estimation: after applying, the segments are estimated again.") }}</p>
+  {{ why("segments_covariates") }}
+  <div class="lc-profile-pick">
+  {% for id, label in l.cov_choices %}<label class="check"><input type="checkbox" name="lc_cov" value="{{ id }}"{% if id in l.cov_ids %} checked{% endif %}> {{ label }}</label>{% endfor %}
+  </div>
+  <button class="button button-small">{{ de_en("Übernehmen und neu schätzen", "Apply and estimate again") }}</button></details>
+</form>
+{% endif %}
+{% if editor and res.solutions|selectattr("K", "equalto", res.K)|selectattr("unstable")|list %}
+<form method="post" action="{{ url_for('surveys.results_lc', survey_id=survey.id, item_id=e.item.id) }}" class="inline-form">
+  {{ pool_fields() }}<input type="hidden" name="more" value="1">
+  <button class="button button-small button-secondary">{{ de_en("Neu schätzen mit mehr Starts", "Estimate again with more starts") }}</button></form>
+{% endif %}
+{% if reg %}<p class="muted small">{{ de_en("Modell: {p} Personen, {s} Bewertungen · {starts} Startwerte je Segmentzahl mit je {short} kurzen EM-Schritten, die besten {keep} bis zur Konvergenz gerechnet; stabil, wenn mindestens 2 dieser {keep} dasselbe Optimum finden", "Model: {p} people, {s} ratings · {starts} starting values per number of segments with {short} short EM steps each, the best {keep} computed to convergence; stable when at least 2 of these {keep} find the same optimum", p=res.persons, s=res.sets, starts=res.settings.starts, short=l.short, keep=l.keep) }}{{ fn("lc_start") }}, Seed {{ res.settings.seed }}{% if res.sigma %} · {{ de_en("Reststreuung je Segment (SD in Punkten der Skala):", "Residual spread per segment (SD in points of the scale):") }} {% for s in seg %}{{ s.name }} {{ num(res.sigma[loop.index0]) }}{{ ", " if not loop.last }}{% endfor %}{% endif %}.</p>
+{% call method(de_en("Latent-Class-Regression", "Latent class regression")) %}<p>{{ de_en("Latent-Class-Regression: Jede Person gehört mit einer Wahrscheinlichkeit zu jedem Segment; innerhalb eines Segments erklären dieselben Teilnutzen die Bewertungen, mit eigener Reststreuung. Geschätzt mit dem EM-Algorithmus aus denselben Aufgaben wie die Regression je Person (ohne Holdouts, ohne Personen mit überall derselben Antwort); ein Segment braucht anders als eine Person nicht alle Teilnutzen allein zu bestimmen. Die Teilnutzen stehen in Punkten der Antwortskala; ihre Standardfehler gelten bei gegebener Zugehörigkeit und sind deshalb etwas zu klein. Segmente, die sich fast nur in der Stärke aller Werte unterscheiden, zeigen eher unterschiedlich entschiedene als unterschiedlich gesinnte Personen", "Latent class regression: every person belongs to every segment with a probability; within a segment the same part-worths explain the ratings, with a residual spread of its own. Estimated with the EM algorithm from the same tasks as the regression per person (without holdouts, without people with the same answer everywhere); unlike a person, a segment need not determine every part-worth alone. The part-worths are in points of the answer scale; their standard errors hold for the given membership and are therefore somewhat too small. Segments that differ almost only in the strength of all values show people who decide differently firmly rather than people who think differently") }}{{ fn("lc_scale") }}. {{ de_en("Die Werte stehen als", "The values are in the export as") }} <code>{{ e.item.code }}_lk</code> ({{ de_en("wahrscheinlichstes Segment", "most likely segment") }}) {{ de_en("und", "and") }} <code>{{ e.item.code }}_lk_p1</code> … ({{ de_en("Wahrscheinlichkeiten", "probabilities") }}){{ de_en(" im Export.", ".") }}</p>{% endcall %}
+{% else %}<p class="muted small">{{ de_en("Modell: {p} Personen, {s} Entscheidungen · {starts} Startwerte je Segmentzahl mit je {short} kurzen EM-Schritten, die besten {keep} bis zur Konvergenz gerechnet; stabil, wenn mindestens 2 dieser {keep} dasselbe Optimum finden", "Model: {p} people, {s} decisions · {starts} starting values per number of segments with {short} short EM steps each, the best {keep} computed to convergence; stable when at least 2 of these {keep} find the same optimum", p=res.persons, s=res.sets, starts=res.settings.starts, short=l.short, keep=l.keep) }}{{ fn("lc_start") }}, Seed {{ res.settings.seed }} · {{ de_en("Anpassung je Segment ({rlh}):", "Fit per segment ({rlh}):", html=True, rlh=abbr("rlh")) }} {% for s in seg %}{{ s.name }} {{ num(s.rlh) }}{{ ", " if not loop.last }}{% endfor %}; {{ de_en("Zufall", "chance") }} {{ num(res.chance) }}.</p>
+{% call method(de_en("Latent-Class-Logit", "Latent class logit")) %}<p>{{ de_en("Latent-Class-Logit: Jede Person gehört mit einer Wahrscheinlichkeit zu jedem Segment; innerhalb eines Segments haben alle dieselben {what}. Geschätzt mit dem EM-Algorithmus aus {source} wie das aggregierte Modell und HB, je Segment mit einer schwachen Normal-Priori, damit kleine Segmente endliche Werte behalten. Segmente, die sich fast nur in der Stärke aller Werte unterscheiden, zeigen eher unterschiedlich entschiedene als unterschiedlich gesinnte Personen", "Latent class logit: every person belongs to every segment with a probability; within a segment everyone has the same {what}. Estimated with the EM algorithm from {source} as the aggregate model and HB, per segment with a weak normal prior so that small segments keep finite values. Segments that differ almost only in the strength of all values show people who decide differently firmly rather than people who think differently", what=de_en("Nutzen", "utilities") if res.type == "maxdiff" else de_en("Teilnutzen", "part-worths"), source=de_en("denselben Best-Worst-Wahlen", "the same best-worst choices") if res.type == "maxdiff" else de_en("denselben Auswahlaufgaben", "the same choice tasks")) }}{{ fn("lc_scale") }}. {{ de_en("Die Werte stehen als", "The values are in the export as") }} <code>{{ e.item.code }}_lk</code> ({{ de_en("wahrscheinlichstes Segment", "most likely segment") }}) {{ de_en("und", "and") }} <code>{{ e.item.code }}_lk_p1</code> … ({{ de_en("Wahrscheinlichkeiten", "probabilities") }}){{ de_en(" im Export.", ".") }}</p>{% endcall %}
+{% endif %}
+{% endif %}
+</section>

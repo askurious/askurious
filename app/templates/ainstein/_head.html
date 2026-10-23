@@ -1,0 +1,14 @@
+{# The head of every step of a project of AInstein (app/ainstein.py): name, badges and the steps of the wizard #}
+{% from "_icons.html" import icon %}
+<div class="survey-head">
+  <a class="back-link crumb" href="{{ url_for('ainstein.index') }}">{{ icon("brain", 16) }} AInstein</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <h1>{{ project.name }}</h1>
+  {% if survey %}<a class="badge" href="{{ url_for('editor.index', survey_id=survey.id) }}">{{ de_en("Befragung „{title}“", "Survey “{title}”", title=survey.title) }}</a>{% endif %}
+  {% if project.role != "owner" %}<span class="badge">{{ de_en("geteilt:", "shared:") }} {{ shared_roles[project.role] }}</span>{% endif %}
+</div>
+<nav class="ainstein-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
+  {% for key, label in steps %}
+  <a href="{{ url_for('ainstein.' ~ key, code=project.code) }}"{% if key == step %} aria-current="step"{% endif %}><span class="ainstein-num">{{ loop.index }}</span> {{ label }}</a>
+  {% endfor %}
+</nav>

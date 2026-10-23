@@ -1,0 +1,27 @@
+{% from "_learn.html" import why %}
+{# One field "Darstellung" for single and multiple choice: untereinander · nebeneinander · Dropdown-Liste · Suchfeld ·
+   Bilder, as radio buttons, since only one of them can apply (UI/UX audit 2026-10-05, V85; before: three tick boxes
+   in two places). Sends `presentation` (choice.update_from_form, images_from_form, base.set_display read it). Layout
+   and images are part of the structure, the drop-down list and the search field are presentation only and stay
+   switchable on a locked construct: on a locked element the structural choice it has stays enabled, so one can go
+   back from the list. #}
+{% set k = item.kind %}
+{% set cur_images = k.supports_images and k.images(item) %}
+{% set cur_layout = "horizontal" if item.config.layout == "horizontal" else "vertical" %}
+{% set shown = "images" if cur_images else ("dropdown" if k.dropdown(item) else ("search" if k.search(item) else cur_layout)) %}
+{% set cur_struct = "images" if cur_images else cur_layout %}
+{% set may_meta = meta_editable if meta_editable is defined else structural %}
+{% set choices = [("vertical", de_en("untereinander", "one below the other"), ""), ("horizontal", de_en("nebeneinander", "side by side"), "")] %}
+{% if k.supports_dropdown %}{% set choices = choices + [("dropdown", de_en("Dropdown-Liste", "Drop-down list"), de_en("aufklappbare Liste statt Auswahlknöpfen, spart Platz bei vielen Antworten", "a list that folds open instead of radio buttons, saves space with many answers"))] %}{% endif %}
+{% if k.supports_search %}{% set choices = choices + [("search", de_en("Suchfeld mit Vorschlägen", "Search field with suggestions"), de_en("beim Tippen erscheinen passende Antworten, für lange Listen wie Berufe, Fächer oder Gemeinden; Optionen mit Textfeld („nicht in der Liste, und zwar“) stehen immer unter den Vorschlägen", "matching answers appear while typing, for long lists such as occupations, subjects or municipalities; options with a text field (“not in the list, namely”) always appear below the suggestions"))] %}{% endif %}
+{% if k.supports_images %}{% set choices = choices + [("images", de_en("Bilder", "Images"), de_en("je Option ein Bild mit ihrer Beschriftung darunter, hochgeladen oder mit KI im Bildstil der Befragung erzeugt", "one image per option with its label below, uploaded or generated with AI in the image style of the survey"))] %}{% endif %}
+<div class="option-group" role="radiogroup" aria-labelledby="presentation-head-{{ item.id }}">
+  {% if k.supports_images %}<input type="hidden" name="images_shown" value="1">{% endif %}
+  <p class="label-title" id="presentation-head-{{ item.id }}">{{ de_en("Darstellung", "Appearance") }} <span class="hint">{{ de_en("nur die Anzeige; Codes, Export und Ergebnisse bleiben gleich", "display only; codes, export and results stay the same") }}</span></p>
+  {% for value, label, note in choices %}
+  {% set enabled = (may_meta if value in ("dropdown", "search") else (structural or (may_meta and value == cur_struct))) %}
+  <label class="check"><input type="radio" name="presentation" value="{{ value }}" {% if k.supports_images %}data-reload-saved{% endif %} {% if shown == value %}checked{% endif %} {% if not enabled %}disabled{% endif %}> {{ label }}{% if note %}
+    <span class="hint">{{ note }}</span>{% endif %}</label>
+  {% endfor %}
+</div>
+{% if k.supports_dropdown %}{{ why("dropdown") }}{% endif %}

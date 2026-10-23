@@ -1,0 +1,58 @@
+{# Long lists (app/tables.py): column heads that sort, the search field and the pages. A head that sorts shows a
+   quiet ↕ before it is chosen (UI audit 2026-10-07, W93). #}
+{% macro sort_link(t, key, label) -%}
+<a class="sort-link{{ ' is-active' if t.sort == key }}" href="{{ t.sort_url(key) }}"{% if t.sort == key %} title="{{ de_en('absteigend sortiert; Klick kehrt um', 'sorted descending; click to reverse') if t.dir == 'desc' else de_en('aufsteigend sortiert; Klick kehrt um', 'sorted ascending; click to reverse') }}"{% endif %}>{{ label }}{% if t.sort == key %}<span class="sort-arrow" aria-hidden="true">{{ "▼" if t.dir == "desc" else "▲" }}</span>{% else %}<span class="sort-arrow is-off" aria-hidden="true">↕</span>{% endif %}</a>
+{%- endmacro %}
+
+{% macro sort_th(t, key, label, title="") -%}
+<th{% if t.sort == key %} aria-sort="{{ 'descending' if t.dir == 'desc' else 'ascending' }}"{% endif %}{% if title %} title="{{ title }}"{% endif %}>{{ sort_link(t, key, label) }}</th>
+{%- endmacro %}
+
+{% macro search(t, label, placeholder) %}
+{# searches while typing, after a short pause (app.js); the button only without scripts (UI audit 2026-10-04, R94) #}
+<form method="get" action="{{ request.path }}{% if t.anchor %}#{{ t.anchor }}{% endif %}" class="list-search" role="search" data-live-search>
+  {% for name, value in t.kept() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  <input type="search" name="{{ t.prefix }}_q" value="{{ t.q }}" placeholder="{{ placeholder }}" aria-label="{{ label }}" maxlength="100">
+  <button class="button button-secondary" data-live-search-button>{{ de_en("Suchen", "Search") }}</button>
+  {% if t.q %}<a class="button button-secondary" href="{{ t.url(q=none, page=none) }}">{{ de_en("Alle zeigen", "Show all") }}</a>
+  <span class="muted small">{{ de_en("{n} Treffer", "{n} matches", n=t.total) }}</span>{% endif %}
+</form>
+{% endmacro %}
+
+{% macro pager(t) %}
+{# rows per page (Listing sizes: 10, 20, 50; Ralf 2026-10-16), once there is more than the smallest size #}
+{% if t.sizes and t.total > t.sizes[0] %}<p class="pager-sizes muted small">{{ de_en("Zeilen je Seite:", "Rows per page:") }}
+  {% for n in t.sizes %}{% if n == t.per_page %}<strong aria-current="true">{{ n }}</strong>{% else %}<a href="{{ t.url(n=n if n != t.sizes[0] else none, page=none) }}">{{ n }}</a>{% endif %}{{ " · " if not loop.last }}{% endfor %}</p>{% endif %}
+{% if t.pages > 1 %}
+<nav class="pager" aria-label="{{ de_en('Seiten', 'Pages') }}">
+  <span class="muted small">{{ de_en("{first}–{last} von {total}", "{first}–{last} of {total}", first=t.first, last=t.last, total=t.total) }}</span>
+  <span class="pager-links">
+    {% if t.page > 1 %}<a class="pager-link" href="{{ t.url(page=t.page - 1) }}" rel="prev">{{ de_en("Zurück", "Previous") }}</a>{% else %}<span class="pager-link is-off">{{ de_en("Zurück", "Previous") }}</span>{% endif %}
+    {% for n in t.page_numbers() %}
+      {% if n is none %}<span class="pager-gap">…</span>
+      {% elif n == t.page %}<span class="pager-link is-current" aria-current="page">{{ n }}</span>
+      {% else %}<a class="pager-link" href="{{ t.url(page=n) }}">{{ n }}</a>{% endif %}
+    {% endfor %}
+    {% if t.page < t.pages %}<a class="pager-link" href="{{ t.url(page=t.page + 1) }}" rel="next">{{ de_en("Weiter", "Next") }}</a>{% else %}<span class="pager-link is-off">{{ de_en("Weiter", "Next") }}</span>{% endif %}
+  </span>
+</nav>
+{% endif %}
+{% endmacro %}
+
+{# In a form that changes a row: come back to the same page, order and search (admin._back). #}
+{% macro keep() %}<input type="hidden" name="back" value="{{ request.query_string.decode() }}">{% endmacro %}
+
+{# A filter of a list by one value (an organisation, a group): a select that sends the address again, keeping the other
+   state of the page. options: [(value, label)]; current: the chosen value or none; drop: filters this one replaces
+   (organisation or group: one filter at a time, Ralf 2026-10-16). #}
+{% macro choose(t, name, label, options, current, drop=()) %}
+<form method="get" class="inline listing-choose">
+  <label class="small">{{ label }}
+    <select name="{{ t.prefix }}_{{ name }}" data-submit-on-change>
+      <option value="">{{ de_en("alle", "all") }}</option>
+      {% for value, text in options %}<option value="{{ value }}"{{ " selected" if current is not none and value|string == current|string }}>{{ text }}</option>{% endfor %}
+    </select></label>
+  {% for k, v in t.kept() if k not in (t.prefix ~ "_" ~ name, t.prefix ~ "_page") and k[t.prefix|length + 1:] not in drop %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <noscript><button class="button button-secondary button-small">{{ de_en("Filtern", "Filter") }}</button></noscript>
+</form>
+{% endmacro %}

@@ -1,0 +1,115 @@
+{% from "_macros.html" import ai_access_line %}
+{% set t = item.lang_texts(lang) %}
+{% set default_view = lang == survey.default_language %}
+{% set yes, no = de_en("ja", "yes"), de_en("nein", "no") %}
+<label><span class="label-title">{{ de_en("Überschrift", "Heading") }}</span>
+  <input name="question" value="{{ t.get('question', '') }}">
+</label>
+
+<fieldset>
+  <legend>{{ de_en("Eckdaten", "Key facts") }} <span class="hint">{{ de_en("Grundlage für den Text; Freiwilligkeit und Anonymität sind immer enthalten", "basis for the text; voluntariness and anonymity are always included") }}</span></legend>
+  <div class="stack">
+    {% set est = estimate_duration(item.survey) %}
+    <div class="field duration-field">
+      <label class="label-title" for="consent-duration">{{ de_en("Dauer (Minuten)", "Duration (minutes)") }}</label>
+      <div class="inline-controls">
+        <input id="consent-duration" type="number" name="duration" min="1" class="narrow" value="{{ item.config.duration or '' }}" {% if not default_view %}disabled{% endif %} data-duration-input>
+        {% if default_view %}
+        <button type="button" class="button button-small button-secondary" data-duration-estimate="{{ duration_minutes(est.high) }}"
+                title="{{ de_en('Schätzung aus der Wortzahl aller Texte (200 Wörter pro Minute) und typischen Antwortzeiten je Art des Elements; berücksichtigt Schleifen, Randomisierungen und Bedingungen. Übernimmt das obere Ende der Spanne ({range}), damit die Angabe nicht zu knapp ist.', 'Estimate from the word count of all texts (200 words per minute) and typical answer times per kind of element; takes loops, randomisations and conditions into account. Takes the upper end of the range ({range}) so that the figure is not too tight.', range=duration_label(est)) }}">⏱ {{ de_en("Aus dem Fragebogen schätzen", "Estimate from the questionnaire") }}</button>
+        <span class="hint">{{ de_en("Schätzung:", "Estimate:") }} {{ duration_label_html(est) }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% set c = item.config %}
+    <div class="consent-facts-summary small">
+      <span class="label-title">{{ de_en("Weitere Eckdaten", "Further key facts") }} <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#consent-facts">{{ de_en("in den Einstellungen ändern", "change in the settings") }}</a></span>
+      <ul class="plain-inline">
+        <li>{{ de_en("Mindestalter:", "Minimum age:") }} {{ c.min_age or de_en("keins", "none") }}</li>
+        <li>{{ de_en("Verantwortlich:", "Responsible:") }} {{ item.kind.researchers(item)|map(attribute="display_name")|join(", ") or "–" }}</li>
+        <li>{{ de_en("Kontakt:", "Contact:") }} {{ c.contact_email or "–" }}</li>
+        <li>{{ de_en("Ethikvotum:", "Ethics approval:") }} {{ (c.ethics_ref or yes) if c.ethics else no }}</li>
+        <li>{{ de_en("Vergütung:", "Compensation:") }} {{ t.get("compensation") or de_en("keine", "none") }}</li>
+        <li>Open Data: {{ (yes ~ (", " ~ c.repository if c.repository else "") ~ (", " ~ c.license if c.license else "")) if c.open_data else no }}</li>
+        <li>{{ de_en("Technische Angaben:", "Technical data:") }} {{ de_en("werden erfasst", "recorded") if survey.paradata else no }}</li>
+        <li>{{ de_en("Zeit je Seite:", "Time per page:") }} {{ de_en("wird erfasst", "recorded") if survey.page_timing else no }}</li>
+        {% if item.kind.has_media(item) %}<li>{{ de_en("Abspielprotokoll (Video / Audio):", "Playback log (video / audio):") }} {{ de_en("wird erfasst", "recorded") }}</li>{% endif %}
+        <li>{{ de_en("Fensterwechsel und Einfügen:", "Window switches and pasting:") }} {{ de_en("werden gezählt", "counted") if survey.focus_paste else no }}</li>
+        <li>{{ de_en("Köder für KI-Agenten:", "Bait for AI agents:") }} {{ yes if survey.ai_bait else no }}</li>
+        <li>{{ de_en("Aufbewahrung: Kennungen und Kontaktangaben {personal}, alle Teilnahmen {answers}", "Retention: identifiers and contact details {personal}, all participations {answers}", personal=retention.label("personal", retention.of(survey).personal), answers=retention.label("answers", retention.of(survey).answers)) }}</li>
+        <li>{{ de_en("Löschcode für Teilnehmende:", "Deletion code for participants:") }} {{ de_en("wird vergeben", "issued") if survey.erase_code else no }}</li>
+        <li>{{ de_en("Cookie gegen erneute Teilnahme:", "Cookie against repeated participation:") }} {{ de_en("wird gesetzt", "set") if survey.repeat_marker else no }}</li>
+        <li>{{ de_en("Land und Bundesland aus der IP-Adresse:", "Country and federal state from the IP address:") }} {{ de_en("werden geschätzt", "estimated") if survey.geo_ip else no }}</li>
+        {% set geo_level = geolocation_finest(survey) %}{% if geo_level %}<li>{{ de_en("Standort (Element):", "Location (element):") }} {{ geolocation_stores[geo_level] }}</li>{% endif %}
+      </ul>
+    </div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>{{ de_en("Bestätigungen", "Confirmations") }} <span class="hint">{{ de_en("Teilnehmende müssen jede aktive Aussage ankreuzen, bevor sie zustimmen können", "participants must tick every active statement before they can agree") }}{% if not structural %}{{ de_en("; nach dem Start fest, nur der Wortlaut lässt sich korrigieren", "; fixed after the start, only the wording can be corrected") }}{% endif %}</span></legend>
+  <ul class="plain confirm-list">
+    {% set enabled = item.config.get("confirm", {}) %}
+    {# "special" and "audio" only where the survey asks them, and always on (items/consent.py, REQUIRED) #}
+    {% set asked = item.kind.confirmation_keys(item) %}
+    {% for key in consent_confirmations() if key not in ("special", "audio") or key in asked %}
+    {% set default_text = consent_default(key, lang, item.config) %}
+    {% set required = key in ("special", "audio") %}
+    <li>
+      <label class="check confirm-toggle"><input type="checkbox" name="confirm_{{ key }}" value="1" {% if required or enabled.get(key, true) %}checked{% endif %} {% if required or not default_view or not structural %}disabled{% endif %}>
+        <strong>{{ consent_labels()[key] }}</strong>
+        {% if key == "age" and not item.config.min_age %}<span class="hint">{{ de_en("nur mit Mindestalter", "only with a minimum age") }}</span>{% endif %}
+        {% if key == "special" %}<span class="hint">{{ de_en("Pflicht, solange die Befragung besondere Kategorien erhebt (Einstellungen)", "required while the survey collects special categories (Settings)") }}</span>{% endif %}
+        {% if key == "audio" %}<span class="hint">{{ de_en("Pflicht, solange die Befragung eine Sprachnachricht enthält", "required while the survey contains a voice message") }}</span>{% endif %}</label>
+      <input name="confirm_text_{{ key }}" value="{{ t.get('confirm_' ~ key, '') }}" placeholder="{{ default_text }}" aria-label="Text: {{ consent_labels()[key] }}">
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Leer lassen = Standardtext (passt sich an Mindestalter und Open Data an).", "Leave empty = standard text (adapts to the minimum age and Open Data).") }}</p>
+</fieldset>
+
+<div id="body" class="stack">
+  <div class="consent-draft">
+    <span class="label-title">{{ de_en("Text erzeugen", "Generate text") }} <span class="hint">{{ de_en("ersetzt den aktuellen Text in {language}", "replaces the current text in {language}", language=languages[lang]) }}</span></span>
+    <div class="toolbar">
+      {# the standard text without AI too: a template or an early exit from the wizard leaves no placeholder (UI/UX audit 2026-10-16, 1) #}
+      <button class="button button-small button-secondary" name="draft" value="template"
+              {% if not survey.is_editable %}data-confirm="{{ de_en('Aktuellen Text durch den Standardtext ersetzen?', 'Replace the current text with the standard text?') }}" data-confirm-note="{{ de_en('Die Befragung ist gestartet: Der jetzige Text lässt sich danach nicht zurückholen.', 'The survey has started: the current text cannot be brought back afterwards.') }}"
+              data-confirm-ok="{{ de_en('Text ersetzen', 'Replace text') }}" data-confirm-danger{% endif %}>{{ de_en("Standardtext einsetzen", "Insert standard text") }}</button>
+      {% if ai_on() %}
+      <button class="button button-small button-ai" name="draft" value="ai" data-ai data-ai-writing="#consent-writing"
+              data-ai-hide="#consent-body-field" data-ai-chars="1800"
+              {# in the draft "Rückgängig" brings the old text back; later nothing does, so it is asked #}
+              {% if not survey.is_editable %}data-confirm="{{ de_en('Aktuellen Text durch einen KI-Entwurf ersetzen?', 'Replace the current text with an AI draft?') }}" data-confirm-note="{{ de_en('Die Befragung ist gestartet: Der jetzige Text lässt sich danach nicht zurückholen.', 'The survey has started: the current text cannot be brought back afterwards.') }}"
+              data-confirm-ok="{{ de_en('Text ersetzen', 'Replace text') }}" data-confirm-danger{% endif %}>{{ icon("sparkles", 16) }}<span> {{ de_en("Mit KI formulieren", "Write with AI") }}</span></button>
+      {{ ai_access_line() }}
+      {% endif %}
+    </div>
+  </div>
+  {% if ai_on() %}
+  <div class="ai-writing" id="consent-writing" hidden>
+    <p class="ai-writing-head">{{ de_en("Einwilligungstext wird formuliert … das dauert bis zu einer halben Minute", "Writing the consent text … this takes up to half a minute") }}</p>
+    <p class="ai-writing-text" aria-hidden="true"></p>
+  </div>
+  {% endif %}
+  <label id="consent-body-field"><span class="label-title">{{ de_en("Einwilligungstext", "Consent text") }} <span class="hint">{{ de_en("Enter = neuer Absatz, Umschalt+Enter = neue Zeile", "Enter = new paragraph, Shift+Enter = new line") }}</span></span>
+    <textarea name="body" rows="16" data-rich="block">{{ t.get('body', '') }}</textarea>
+  </label>
+  {% set pool = kind.pool_notice(item, lang) %}
+  {% if pool %}
+  <div class="consent-pool">
+    <span class="label-title">{{ de_en("Fester Absatz unter dem Text", "Fixed paragraph below the text") }} <span class="hint">{{ de_en("die Befragung verwendet validierte Konstrukte (Nutzungsbedingungen, Abschnitt 4); er lässt sich nicht ändern", "the survey uses validated constructs (terms of use, section 4); it cannot be changed") }}</span></span>
+    <div class="muted">{{ pool|rich }}</div>
+    <p class="hint">{{ de_en("Geben Sie Teilnehmenden eine eigene Datenschutzinformation, nehmen Sie ihn auch dort auf:", "If you give participants a data protection information of your own, include it there too:") }}
+      <a href="{{ url_for('surveys.detail', survey_id=item.survey.id) }}#einwilligung">{{ de_en("Text zum Kopieren unter Einstellungen", "text to copy in the settings") }}</a></p>
+  </div>
+  {% endif %}
+  <label><span class="label-title">{{ de_en("Hinweis über den Schaltflächen", "Note above the buttons") }}</span>
+    <input name="agree_note" value="{{ t.get('agree_note', '') }}">
+  </label>
+  <div class="row-fields">
+    <label class="grow-1">{{ de_en("Schaltfläche Zustimmung", "Agree button") }} <input name="agree" value="{{ t.get('agree', '') }}" style="width:100%"></label>
+    <label class="grow-1">{{ de_en("Schaltfläche Ablehnung", "Decline button") }} <input name="disagree" value="{{ t.get('disagree', '') }}" style="width:100%"></label>
+  </div>
+  <p class="muted small">{{ de_en("Wer ablehnt, wird ohne weitere Fragen zur Abschlussseite geleitet. Das Tool ersetzt keine Prüfung durch eine Ethikkommission oder den Datenschutz Ihrer Einrichtung.", "Anyone who declines is taken to the closing page without further questions. The tool does not replace a review by an ethics committee or the data protection office of your institution.") }}</p>
+</div>

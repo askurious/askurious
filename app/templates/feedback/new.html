@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Rückmeldung", "Feedback") }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ icon("bug", 22) }} {{ de_en("Rückmeldung", "Feedback") }} <span class="hint">{{ de_en("Fehler melden oder Vorschlag machen", "report a bug or make a suggestion") }}</span></h1></div>
+<section class="panel">{% include "feedback/_form.html" %}</section>
+{% endblock %}

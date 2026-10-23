@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Konstrukte", "Constructs") }}{% endblock %}
+{% block content %}
+{% if survey %}
+<a class="back-link" href="{{ url_for('editor.index', survey_id=survey.id) }}">{{ icon("back", 16) }} {{ de_en("Zurück zum Fragebogen „{title}“", "Back to the questionnaire “{title}”", title=survey.title) }}</a>
+{% endif %}
+<div class="page-head">
+  <h1>{{ de_en("Konstrukte", "Constructs") }} <span class="hint">{{ de_en("validierte Skalen und Standardfragen, {n} insgesamt", "validated scales and standard questions, {n} in total", n=total) }}</span></h1>
+  {% if current_user.is_authenticated %}<a class="button button-secondary" href="{{ url_for('feedback.scale') }}">{{ icon("plus", 16) }} {{ de_en("Konstrukt vorschlagen", "Suggest a construct") }}</a>{% endif %}
+</div>
+{% if not current_user.is_authenticated %}
+<p class="muted">{{ de_en("Angemeldete Forschende sehen bei jedem Konstrukt den Wortlaut der Items und fügen es mit einem Klick in ihren Fragebogen ein.", "Signed-in researchers see the wording of the items of every construct and insert it into their questionnaire with one click.") }}
+  <a href="{{ url_for('auth.sign_in', next=request.full_path) }}">{{ de_en("Anmelden", "Sign in") }}</a></p>
+{% endif %}
+
+<form method="get" class="construct-search" role="search">
+  {% if survey %}<input type="hidden" name="survey" value="{{ survey.id }}">{% endif %}
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ de_en('Suchen: Name, Autor, Jahr, Wortlaut der Items …', 'Search: name, author, year, item wording …') }}" aria-label="{{ de_en('Konstrukte suchen', 'Search constructs') }}" autofocus>
+  {% for t in selected %}<input type="hidden" name="tag" value="{{ t }}">{% endfor %}
+  {% if own_only %}<input type="hidden" name="eigene" value="1">{% endif %}
+  <button class="button">{{ de_en("Suchen", "Search") }}</button>
+</form>
+{% if has_linked %}
+<nav class="segmented dash-groups" aria-label="{{ de_en('Welche Konstrukte', 'Which constructs') }}">{# one choice: .segmented (W81) #}
+  <a {% if not own_only %}aria-current="page" {% endif %}href="{{ url_for('constructs.index', q=q or none, tag=selected, survey=survey.id if survey else none) }}">{{ de_en("Alle", "All") }}</a>
+  <a {% if own_only %}aria-current="page" {% endif %}href="{{ url_for('constructs.index', q=q or none, eigene=1, survey=survey.id if survey else none) }}">{{ de_en("Meine und geteilte", "Mine and shared") }}</a>
+</nav>
+{% endif %}
+
+{% if not own_only %}
+<div class="facets">
+  {# the first three filters stay in view; the long ones (Art, Thema, Fachgebiet) wait in a fold, open when one of
+     their tags is chosen #}
+  {% set folded = facets|list %}{% set folded = folded[3:] %}
+  {% set open_more = namespace(on=false) %}
+  {% for facet in folded %}{% for t in all_tags.get(facet, []) %}{% if t.slug in selected %}{% set open_more.on = true %}{% endif %}{% endfor %}{% endfor %}
+  {% for facet, label in facets.items() %}
+  {% set tags = all_tags.get(facet, []) %}
+  {% if facet == folded[0] %}<details class="facet-more"{% if open_more.on %} open{% endif %}><summary>{{ de_en("Weitere Filter:", "More filters:") }} {% for f in folded %}{{ facets[f] }}{{ ", " if not loop.last }}{% endfor %}</summary>{% endif %}
+  {% if tags %}
+  <div class="facet-row">
+    <span class="facet-label">{{ label }}</span>
+    {% for t in tags %}
+    {% set on = t.slug in selected %}
+    {% set n = (counts.get(facet, [])|selectattr(0, "equalto", t)|map(attribute=1)|first) or 0 %}
+    {% set next_tags = (selected|reject("equalto", t.slug)|list) if on else selected + [t.slug] %}
+    <a class="facet-chip{% if on %} is-on{% endif %}{% if not n and not on %} is-empty{% endif %}"
+       href="{{ url_for('constructs.index', q=q or none, tag=next_tags, survey=survey.id if survey else none) }}"
+       {% if on %}aria-current="true"{% endif %}>{{ tag_name(t) }} <span class="facet-count">{{ n }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if loop.last and folded %}</details>{% endif %}
+  {% endfor %}
+  {% if selected or q %}<a class="small" href="{{ url_for('constructs.index', survey=survey.id if survey else none) }}">{{ de_en("Filter zurücksetzen", "Reset filters") }}</a>{% endif %}
+</div>
+
+{% endif %}
+
+{% if not own_only %}
+<p class="muted small">{{ de_en("{n} Treffer", "{n} hit", n=rows|length) if rows|length == 1 else de_en("{n} Treffer", "{n} hits", n=rows|length) }}{% if q %} {{ de_en("für „{q}“", "for “{q}”", q=q) }}{% endif %}{% if current_user.is_authenticated %} · {{ de_en("Konstrukte mit Stern stehen im Fragebogen-Editor in der Schnellbox „Konstrukte“, vor den Empfehlungen Ihrer Organisation.", "Starred constructs are listed in the questionnaire editor in the quick box “Constructs”, before the recommendations of your organisation.") }}{% endif %}</p>
+<ul class="construct-list">
+  {% for c in rows %}{% include "constructs/_card.html" %}{% endfor %}
+</ul>
+{% if not rows %}<p class="muted">{{ de_en("Keine Konstrukte gefunden. Weniger Wörter oder andere Filter versuchen.", "No constructs found. Try fewer words or other filters.") }}</p>{% endif %}
+{% elif not linked_list %}<p class="muted">{{ de_en("Keine eigenen oder geteilten Elemente gefunden.", "No own or shared elements found.") if q else de_en("Noch keine eigenen oder mit Ihnen geteilten Elemente. Im Element-Editor einer Frage „Verknüpfbar machen“, dann steht sie hier.", "No own elements or elements shared with you yet. Choose “Make linkable” in the element editor of a question, and it appears here.") }}</p>
+{% endif %}
+
+{% if linked_list %}
+<section class="panel" id="verknuepft">
+  <h2>{{ icon("link", 18) }} {{ de_en("Verknüpfte Elemente", "Linked elements") }} <span class="hint">{{ de_en("eigene Fragen, die in mehreren Befragungen gleich gestellt werden; nicht validiert, aber gemeinsam auswertbar", "your own questions asked the same way in several surveys; not validated, but analysable together") }}</span></h2>
+  <ul class="plain">
+    {% for c in linked_list %}
+    <li><a href="{{ url_for('constructs.linked', key=c.key) }}">{{ c.name }}</a> <span class="badge badge-linked">{{ de_en("Fassung {v}", "Revision {v}", v=c.seed_version) }}</span> <span class="muted small"><code>{{ c.spec.get("code", "") }}</code></span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

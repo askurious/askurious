@@ -1,0 +1,36 @@
+{# Semantic differential: the polarity profile (app/items/semantic.py, profile). One row per pair between its poles,
+   the scale points as thin lines; per series (pass of a loop) a marker at the median (ordinal) or the mean
+   (metric), a bar over the quartiles or one SD, and a line through the markers. Series differ in colour
+   (--chart-1 …) and in the shape of the marker (V60); the legend shows both. Names at the last
+   point would overlap where series share a median. The frequencies per point stand
+   in the closed fold below. #}
+{% set pf = e.profile %}
+{% set many = pf.series|length > 1 %}
+<figure class="sd-profile" style="--sd-rows: {{ pf.rows|length }}">
+  {% if many %}<ul class="plain sd-legend">{% for s in pf.series %}<li><i class="sd-c{{ loop.index0 % 6 }} sd-m{{ loop.index0 % 4 }}"></i>{{ s.label }} <code class="hint">…_{{ s.pass }}</code></li>{% endfor %}</ul>{% endif %}
+  <div class="sd-grid">
+    <span></span>
+    <div class="sd-axis" aria-hidden="true">{% for t in pf.ticks %}<span style="left: {{ t.x }}%">{{ t.value }}</span>{% endfor %}</div>
+    <span></span>
+    <div class="sd-poles sd-left">{% for r in pf.rows %}<span title="{{ r.code }}">{{ r.left }}</span>{% endfor %}</div>
+    <div class="sd-track" role="img" aria-label="{{ de_en('Profil', 'Profile') }}: {% for r in pf.rows %}{{ r.left }} – {{ r.right }}{% for c in r.cells %}{% if c %} {{ 'M' if c.kind == 'num' else 'Md' }} {{ num(c.mean) if c.kind == 'num' else num(c.median, 0 if c.median == c.median|round else 1) }}{% endif %}{% endfor %}{{ '; ' if not loop.last }}{% endfor %}">
+      {% for t in pf.ticks %}<i class="sd-tick" style="left: {{ t.x }}%"></i>{% endfor %}
+      <svg viewBox="0 0 100 {{ pf.rows|length }}" preserveAspectRatio="none" aria-hidden="true">
+        {% for s in pf.series %}{% if s.line.count(" ") %}<polyline class="sd-line sd-c{{ loop.index0 % 6 }}" points="{{ s.line }}"/>{% endif %}{% endfor %}
+      </svg>
+      {# on a phone the pair stands over its row instead of beside it (UI/UX audit 2026-10-09, X89) #}
+      {% for r in pf.rows %}<span class="sd-pair" style="top: calc({{ loop.index0 }} * var(--sd-row))">{{ r.left }} – {{ r.right }}</span>{% endfor %}
+      {% for r in pf.rows %}{% set row = loop.index0 %}
+        {# markers of the series apart by about their height, so that equal medians do not hide each other (X89) #}
+        {% set step = [15, 34 / ((r.cells|length - 1) or 1)]|min %}
+        {% for c in r.cells %}{% if c %}{% set off = (loop.index0 - (r.cells|length - 1) / 2) * step if many else 0 %}
+        <span class="sd-range sd-c{{ loop.index0 % 6 }}" style="left: {{ c.lo }}%; width: {{ (c.hi - c.lo)|round(2) }}%; top: calc({{ row }} * var(--sd-row) + var(--sd-mid) + {{ off|round(1) }}px)"></span>
+        <span class="sd-dot sd-c{{ loop.index0 % 6 }} sd-m{{ loop.index0 % 4 }}" style="left: {{ c.mid }}%; top: calc({{ row }} * var(--sd-row) + var(--sd-mid) + {{ off|round(1) }}px)"
+          title="{{ r.left }} – {{ r.right }}{% if many %} · {{ pf.series[loop.index0].label }}{% endif %}: {% if c.kind == 'num' %}M = {{ num(c.mean) }}, SD = {{ num(c.sd) }}{% else %}Md = {{ num(c.median, 1 if c.median != c.median|round else 0) }}, Q1–Q3 = {{ c.q1|int }}–{{ c.q3|int }}{% endif %}, n = {{ c.n }}"></span>
+        {% endif %}{% endfor %}
+      {% endfor %}
+    </div>
+    <div class="sd-poles sd-right">{% for r in pf.rows %}<span>{{ r.right }}</span>{% endfor %}</div>
+  </div>
+  <figcaption class="muted small">{% if pf.metric %}{{ de_en("Punkt: Mittelwert, Balken: ± 1 Standardabweichung", "Dot: mean, bar: ± 1 standard deviation") }}{% else %}{{ de_en("Punkt: Median, Balken: Quartile Q1–Q3", "Dot: median, bar: quartiles Q1–Q3") }}{% endif %} · {{ de_en("Skala 1 bis {n}", "scale 1 to {n}", n=pf.points) }}{% if pf.rows|selectattr("left")|list|length < pf.rows|length %} · {{ de_en("Paare ohne Begriff stehen mit ihrem Code", "pairs without a term are shown with their code") }}{% endif %}</figcaption>
+</figure>

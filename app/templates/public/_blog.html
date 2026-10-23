@@ -1,0 +1,12 @@
+{# One entry of the news page in a list (app/blog.py view): the overview /blog and "Neu in Askurious" on the
+   landing page. `level`: the heading level of its title. #}
+{% macro teaser(v, level=2, with_image=true) -%}
+<article class="blog-teaser{% if with_image and v.cover %} has-cover{% endif %}"{% if v.lang != ui_language() %} lang="{{ v.lang }}"{% endif %}>
+  {% if with_image and v.cover %}<a class="blog-teaser-image" href="{{ v.url }}" tabindex="-1" aria-hidden="true"><img src="{{ url_for('blog.media', post_id=v.post.id, name=v.cover.filename) }}" alt="" width="{{ v.cover.width }}" height="{{ v.cover.height }}" loading="lazy" decoding="async"></a>{% endif %}
+  <div>
+    <p class="blog-meta-line"><time datetime="{{ v.day }}">{{ v.post.published_at|localdate }}</time> · <span class="blog-category">{{ v.category }}</span></p>
+    <h{{ level }} class="blog-teaser-title"><a href="{{ v.url }}">{{ v.title }}</a></h{{ level }}>
+    {% if v.summary %}<p class="blog-teaser-text">{{ v.summary }}</p>{% endif %}
+  </div>
+</article>
+{%- endmacro %}

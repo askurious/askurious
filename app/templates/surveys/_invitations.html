@@ -1,0 +1,76 @@
+{% from "_learn.html" import why %}
+{# The block "Einladungen per E-Mail" of "Datenerhebung" (app/survey_invites.py; only with mail on, for "Admin" with the
+   right to create surveys): the address list with its state, the mail per language, reminders, test and sending. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set st = invitation_state(survey) %}
+{% set c = st.counts %}
+<details class="panel settings-group" id="einladungen" data-settings-group {% if c.total %}open{% endif %}>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Einladungen per E-Mail", "Invitations by email") }}</h2>
+    <span class="settings-sum">{% if c.total %}{{ de_en("{n} Adressen · {d} teilgenommen", "{n} addresses · {d} took part", n=c.total - c.optout, d=c.done) }}{% else %}{{ de_en("jede Person bekommt ihren eigenen Link; die Antworten bleiben ohne Bezug zur Adresse", "each person gets their own link; the answers stay without a link to the address") }}{% endif %}</span></summary>
+  <div class="settings-body">
+  {% if c.total %}
+  <dl class="account-facts invite-counts">
+    <dt>{{ de_en("Adressen", "Addresses") }}</dt><dd>{{ c.total - c.optout }}{% if c.unsent %} · {{ de_en("{n} noch nicht eingeladen", "{n} not invited yet", n=c.unsent) }}{% endif %}{% if c.queued %} · {{ de_en("{n} E-Mails unterwegs", "{n} emails on their way", n=c.queued) }}{% endif %}</dd>
+    <dt>{{ de_en("Stand", "State") }}</dt><dd>{{ de_en("{d} teilgenommen · {s} begonnen · {o} offen", "{d} took part · {s} started · {o} open", d=c.done, s=c.started, o=c.open) }}{% if c.optout %} · {{ de_en("{n} abgemeldet", "{n} opted out", n=c.optout) }}{% endif %}{% if c.failed %} · <strong>{{ de_en("{n} nicht zustellbar", "{n} not deliverable", n=c.failed) }}</strong>{% endif %}
+      <br><span class="muted small">{{ de_en("„begonnen“ und „teilgenommen“ werden einmal täglich übernommen, damit sich keine Teilnahme einer Adresse zuordnen lässt.", "“started” and “took part” are updated once a day, so that no participation can be matched to an address.") }}</span></dd>
+  </dl>
+  <div class="button-row">
+    {% if survey.status == "running" %}
+    {% if c.unsent %}<form method="post" action="{{ url_for('survey_invites.send', survey_id=survey.id) }}" class="inline"
+      data-confirm="{{ de_en('{n} Einladungen verschicken?', 'Send {n} invitations?', n=c.unsent) }}" data-confirm-ok="{{ de_en('Verschicken', 'Send') }}">{{ csrf() }}<input type="hidden" name="kind" value="invite">
+      <button class="button">{{ icon("mail", 16) }} {{ de_en("{n} Einladungen verschicken", "Send {n} invitations", n=c.unsent) }}</button></form>{% endif %}
+    {% if c.remindable %}<form method="post" action="{{ url_for('survey_invites.send', survey_id=survey.id) }}" class="inline"
+      data-confirm="{{ de_en('Jetzt eine Erinnerung an {n} Personen schicken, die noch nicht teilgenommen haben?', 'Send a reminder now to {n} people who have not taken part yet?', n=c.remindable) }}" data-confirm-ok="{{ de_en('Erinnern', 'Remind') }}">{{ csrf() }}<input type="hidden" name="kind" value="reminder">
+      <button class="button button-secondary">{{ de_en("Jetzt erinnern ({n})", "Remind now ({n})", n=c.remindable) }}</button></form>{% endif %}
+    {% else %}<p class="muted small">{{ de_en("Verschickt wird, sobald die Befragung läuft.", "Sending starts once the survey runs.") }}</p>{% endif %}
+    <a class="button button-secondary button-small" href="{{ url_for('survey_invites.export', survey_id=survey.id) }}">{{ de_en("Liste mit Stand (CSV)", "List with state (CSV)") }}</a>
+    <form method="post" action="{{ url_for('survey_invites.delete', survey_id=survey.id) }}" class="inline"
+      data-confirm="{{ de_en('Adressliste löschen?', 'Delete the address list?') }}" data-confirm-note="{{ de_en('Alle Adressen und wartenden E-Mails gehen; persönliche Links, die schon verschickt sind, funktionieren als gewöhnlicher Link weiter.', 'All addresses and waiting emails go; personal links already sent keep working as an ordinary link.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>{{ csrf() }}
+      <button class="button button-danger button-small">{{ de_en("Adressliste löschen", "Delete the address list") }}</button></form>
+  </div>
+  {% endif %}
+
+  <h3>{{ de_en("Adressen aufnehmen", "Add addresses") }}</h3>
+  <form method="post" action="{{ url_for('survey_invites.addresses', survey_id=survey.id) }}" enctype="multipart/form-data" class="stack">
+    {{ csrf() }}
+    <label>{{ de_en("Einfügen", "Paste") }} <span class="hint">{{ de_en("eine Person je Zeile: E-Mail-Adresse; Name (optional); Sprache (optional, z. B. en)", "one person per line: email address; name (optional); language (optional, e.g. en)") }}</span>
+      <textarea name="addresses" rows="4" placeholder="anna@example.org; Anna Muster"></textarea></label>
+    <label>{{ de_en("oder CSV-Datei", "or CSV file") }} <span class="hint">{{ de_en("Spalten email, name, sprache; höchstens {n} Adressen je Befragung", "columns email, name, language; at most {n} addresses per survey", n=st.max_list) }}</span>
+      <input type="file" name="file" accept=".csv,.txt,text/csv,text/plain"></label>
+    <div class="button-row"><button class="button button-secondary">{{ de_en("Aufnehmen", "Add") }}</button></div>
+  </form>
+
+  <h3>{{ de_en("Text der E-Mails", "Text of the emails") }}</h3>
+  <p class="muted small">{{ de_en("Platzhalter: {name}, {link} (der persönliche Link, Pflicht; danach ein Leerzeichen oder Zeilenende, angehängt werden darf nichts), {frist} (Feldende), {titel}. Unter jeder E-Mail steht ein Link zum Abmelden. Die E-Mail kommt von Askurious; Antworten gehen an Ihre Adresse. Die Einwilligung sollte nennen, dass Einladungen per E-Mail verschickt werden und wie lange die Adressliste bleibt.",
+    "Placeholders: {name}, {link} (the personal link, required; followed by a space or a line break, nothing may be added to it), {frist} (end of fieldwork), {titel}. Each email ends with a link to opt out. The sender is Askurious; replies go to your address. The consent should say that invitations are sent by email and how long the address list stays.") }}</p>
+  <form method="post" action="{{ url_for('survey_invites.texts', survey_id=survey.id) }}" class="stack">
+    {{ csrf() }}
+    {% for lang in st.langs %}
+    <fieldset>
+      <legend>{{ lang|upper }}</legend>
+      {% for kind, label in (("invite", de_en("Einladung", "Invitation")), ("reminder", de_en("Erinnerung", "Reminder"))) %}
+      {% set t = st.texts[lang][kind] %}
+      <label>{{ label }}: {{ de_en("Betreff", "Subject") }} <input name="{{ kind }}_subject_{{ lang }}" value="{{ t.subject }}" maxlength="200"></label>
+      <label>{{ label }}: {{ de_en("Text", "Text") }} <textarea name="{{ kind }}_body_{{ lang }}" rows="6">{{ t.body }}</textarea></label>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <div class="row">
+      <label>{{ de_en("1. Erinnerung nach", "1st reminder after") }} <input type="number" name="reminder1" min="1" max="60" value="{{ st.reminders[0] if st.reminders|length > 0 else '' }}" style="width: 5em"> {{ de_en("Tagen", "days") }}</label>
+      <label>{{ de_en("2. Erinnerung nach", "2nd reminder after") }} <input type="number" name="reminder2" min="1" max="60" value="{{ st.reminders[1] if st.reminders|length > 1 else '' }}" style="width: 5em"> {{ de_en("Tagen", "days") }}</label>
+    </div>
+    {{ why("reminders") }}
+    <label class="check"><input type="checkbox" name="only" value="1" {% if st.only %}checked{% endif %}> {{ de_en("Nur mit persönlichem Link teilnehmen (jeder Link für eine Teilnahme)", "Take part only with a personal link (each link for one participation)") }}</label>
+    <p class="muted small">{{ de_en("Ohne Häkchen begrenzt die Liste die Teilnahme nicht: Der allgemeine Link funktioniert weiter, und wer einen persönlichen Link weitergibt, setzt damit den Stand der eingeladenen Person. Mit Häkchen sehen Personen ohne persönlichen Link oder mit einem schon benutzten Link einen Hinweis statt der Befragung; wird die Liste gelöscht, gilt wieder der allgemeine Link.", "Without the tick the list does not limit who takes part: the general link keeps working, and whoever passes on a personal link sets the state of the invited person. With the tick, people without a personal link or with a link used already see a note instead of the survey; once the list is deleted, the general link works again.") }}</p>
+    <p class="muted small">{{ de_en("Gezählt ab der Einladung; nur an Personen, die noch nicht teilgenommen haben; leer: keine. Höchstens {n} E-Mails je Befragung und Tag.", "Counted from the invitation; only to people who have not taken part yet; empty: none. At most {n} emails per survey and day.", n=st.per_day) }}</p>
+    <div class="button-row"><button class="button button-secondary">{{ de_en("Speichern", "Save") }}</button></div>
+  </form>
+  <form method="post" action="{{ url_for('survey_invites.test_mail', survey_id=survey.id) }}" class="row">
+    {{ csrf() }}
+    {% if st.langs|length > 1 %}<select name="lang" aria-label="{{ de_en('Sprache der Test-E-Mail', 'Language of the test email') }}">{% for lang in st.langs %}<option value="{{ lang }}">{{ lang|upper }}</option>{% endfor %}</select>{% endif %}
+    <select name="kind" aria-label="{{ de_en('Art der Test-E-Mail', 'Kind of test email') }}"><option value="invite">{{ de_en("Einladung", "Invitation") }}</option><option value="reminder">{{ de_en("Erinnerung", "Reminder") }}</option></select>
+    <button class="button button-secondary button-small">{{ de_en("Test-E-Mail an mich", "Test email to me") }}</button>
+  </form>
+  </div>
+</details>

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{# Needs: qr (inline SVG), secret (base32), nxt (where to go afterwards). #}
+{% block title %}{{ de_en("Zweiter Faktor einrichten", "Set up second factor") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Zweiter Faktor einrichten", "Set up second factor") }}</h1>
+<section class="panel">
+  <ol>
+    <li>{{ de_en("Eine Authenticator-App öffnen.",
+      "Open an authenticator app.") }}</li>
+    <li>{{ de_en("Diesen QR-Code scannen. Ohne Kamera: den Schlüssel unten von Hand eingeben (zeitbasiert, 6 Ziffern, 30 Sekunden).",
+      "Scan this QR code. Without a camera: enter the key below by hand (time-based, 6 digits, 30 seconds).") }}</li>
+    <li>{{ de_en("Den Code, den die App jetzt zeigt, hier eingeben.", "Enter the code the app shows now here.") }}</li>
+  </ol>
+  <div class="qr" style="max-width:220px">{{ qr }}</div>
+  <p class="small">{{ de_en("Schlüssel", "Key") }}: <code>{{ secret }}</code></p>
+  <form method="post" action="{{ url_for('twofactor.setup') }}" class="row" autocomplete="off">
+    {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
+    <label>{{ de_en("Code aus der App", "Code from the app") }} <input type="text" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" autocomplete="one-time-code" required autofocus class="narrow"></label>
+    <button class="button">{{ de_en("Einrichten", "Set up") }}</button>
+  </form>
+  <p class="muted small">{{ de_en("Der Schlüssel erscheint nur hier. Wer das Telefon verliert, schaltet den Faktor mit einem Code aus und richtet ihn neu ein;
+    ohne Telefon hilft ein Admin der Plattform (Einstellung", "The key appears only here. If you lose your phone, switch the factor off with a code and set it up again;
+    without the phone, a platform admin helps (setting") }} <code>ADMIN_TOTP</code> {{ de_en("auf dem Server).", "on the server).") }}</p>
+</section>
+{% endblock %}

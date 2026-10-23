@@ -1,0 +1,25 @@
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import cite, grouped %}
+{% from "_learn.html" import term %}
+{# A diary study on the results page (app/diary.py, time_results): every numeric question of a module by day of the
+   study and by hour of the day, with ICC(1). Means unweighted over the entries of the day or hour; the lists above are
+   weighted per person. #}
+<section class="panel"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Verlauf der Tagebuchstudie", "Course of the diary survey") }} <span class="hint">{{ de_en("Mittelwerte der Einträge je Studientag und Tageszeit", "means of the entries per day of the diary survey and hour of the day") }}</span></h2></summary>
+  <p class="muted small">{{ de_en("ICC(1) ist der Anteil der Streuung zwischen den Personen; der Rest liegt innerhalb der Personen, über die Einträge hinweg. Ein kleiner ICC heißt: Die Antworten schwanken vor allem im Alltag einer Person, ein großer: Sie unterscheiden vor allem die Personen. Geschätzt hier aus der einfaktoriellen Varianzanalyse nach Shrout und Fleiss (kann negativ werden); die Hypothesen schätzen ICC(1) dagegen im Mehrebenenmodell (REML, nie negativ), daher können beide Werte leicht voneinander abweichen", "ICC(1) is the share of the variance between people; the rest lies within people, across their entries. A small ICC means the answers vary mostly in a person's daily life, a large one that they mostly tell people apart. Estimated here from the one-way analysis of variance after Shrout and Fleiss (it can be negative); the hypotheses estimate ICC(1) in the multilevel model instead (REML, never negative), so the two values can differ slightly") }} {{ cite([shrout, bolger]) }}. {{ de_en("Mehrebenenmodelle rechnen Sie mit dem Export (eine Zeile je Eintrag, Spalte „person“).", "Fit multilevel models with the export (one row per entry, column “person”).") }}</p>
+  {% for t in diary_time %}
+  {% set top = (t.by_day + t.by_hour)|map(attribute=1)|max %}
+  <h3>{{ t.label }} <span class="muted small"><code>{{ t.code }}</code> · {{ t.module }} · {{ de_en("{n} Einträge von {p} Personen", "{n} entries of {p} people", n=t.n, p=t.persons) }} · {{ term("icc") }} <span class="hint">(ANOVA)</span> {% if t.icc is none %}–{% elif t.icc < 0 %}<span title="{{ de_en('Die Schätzung war negativ ({v}): Die Unterschiede zwischen den Personen sind nicht größer als innerhalb der Personen. Üblich ist, sie als 0 zu berichten.', 'The estimate was negative ({v}): the differences between people are no larger than within them. It is usually reported as 0.', v=t.icc|dec(2)) }}">0 ({{ de_en("negativ geschätzt", "estimated negative") }})</span>{% else %}{{ t.icc|dec(2) }}{% endif %}</span></h3>
+  <div class="diary-time">
+    <div class="res-scroll"><table class="table diary-time-table">
+      <thead><tr><th>{{ de_en("Studientag", "Day") }}</th><th>M</th><th>n</th></tr></thead>
+      <tbody>{% for day, mean, n in t.by_day %}<tr><td>{{ day }}</td><td><span class="res-bar"><span style="width: {{ (mean / top * 100)|round(1) if top else 0 }}%"></span></span> {{ mean|dec(2) }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="res-scroll"><table class="table diary-time-table">
+      <thead><tr><th>{{ de_en("Uhrzeit", "Hour") }}</th><th>M</th><th>n</th></tr></thead>
+      <tbody>{% for hour, mean, n in t.by_hour %}<tr><td>{{ "%02d"|format(hour) }}:00</td><td><span class="res-bar"><span style="width: {{ (mean / top * 100)|round(1) if top else 0 }}%"></span></span> {{ mean|dec(2) }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endfor %}
+  {{ grouped([(de_en("ICC(1) und Auswertung intensiver Längsschnittdaten", "ICC(1) and analysis of intensive longitudinal data"), [shrout, bolger])]) }}
+</details></section>

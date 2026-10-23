@@ -1,0 +1,3 @@
+{# A diary study: α and ω over the statements averaged per person are the reliability of the person means (between
+   level), higher than that of a single entry (audit 2026-10-21, E8). Used by surveys/results.html at every scale. #}
+{% macro person_means_note(s) %}{% if s.by_person %}<span class="hint">{{ de_en("Reliabilität der Personenmittel (Between): α und ω über die je Person gemittelten Aussagen aller Einträge; sie liegt meist höher als die Reliabilität eines einzelnen Eintrags (Within)", "Reliability of the person means (between): α and ω over the statements averaged per person over all entries; usually higher than the reliability of a single entry (within)") }}</span>{% endif %}{% endmacro %}

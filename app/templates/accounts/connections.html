@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{# The page "Verbindungen" (accounts.connections_page): everything with a stored key or token. Needs: data_tokens, zenodo,
+   coscine, coscine_check, coscine_days, coscine_docs, coscine_tokens, ai_access, ai_access_days, ai_mod, agent_on, agent_tokens, new_agent_token,
+   agent_surveys, agent_days, agent_url. #}
+{% block title %}{{ de_en("Verbindungen", "Connections") }} · {{ de_en("Konto", "Account") }}{% endblock %}
+{% block content %}
+<p class="page-group">{{ de_en("Konto", "Account") }}</p>
+<h1>{{ de_en("Verbindungen", "Connections") }}</h1>
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+
+<section class="panel" id="datenzugaenge">
+  {# named as on the export page, with what it is: the panel alone said nothing (Ralf, 2026-10-20) #}
+  <h2>{{ de_en("Datenzugang für R und Python", "Data access for R and Python") }}</h2>
+  <p class="muted small">{{ de_en("Tokens, mit denen ein Skript Datensatz und Codebuch einer Befragung lädt. Angelegt werden sie unter „Export“ einer Befragung.",
+    "Tokens with which a script loads the data set and codebook of a survey. They are created under “Export” of a survey.") }}</p>
+  {% for token, survey in data_tokens %}
+    <p>{{ token.name }} · {{ survey.title }} · <a href="{{ url_for('surveys.data', survey_id=survey.id) }}#data-access">{{ de_en("Ansehen und widerrufen", "View and revoke") }}</a></p>
+  {% else %}<p class="muted">{{ de_en("Keine gültigen Tokens.", "No valid tokens.") }}</p>{% endfor %}
+</section>
+
+{# the targets this server has an application for (zenodo_auth.available); a connection shows the Zenodo block on
+   the export page of a survey (Ralf, 2026-10-04) #}
+{% if zenodo %}
+<section class="panel" id="zenodo">
+  <h2>{{ de_en("Verbindung zu Zenodo", "Connection to Zenodo") }} <span class="hint">{{ de_en("zum Hochladen von Daten, Codebuch und Fragebogen als Open-Data-Paket", "to upload data, codebook and questionnaire as an open data package") }}</span></h2>
+  <ul class="plain zenodo-connections">
+    {% for target, label, connected in zenodo %}
+    <li class="zenodo-conn"><strong>{{ label }}</strong>
+      {% if connected %}<span class="badge badge-approved">{{ de_en("verbunden", "connected") }}</span>
+      <form class="inline" method="post" action="{{ url_for('zenodo_auth.disconnect', target=target) }}">
+        {{ csrf() }}<input type="hidden" name="next" value="{{ url_for('accounts.connections') }}#zenodo"><button class="link small">{{ de_en("Trennen", "Disconnect") }}</button>
+      </form>
+      {% else %}<form class="inline" method="post" action="{{ url_for('zenodo_auth.connect', target=target) }}">
+        {{ csrf() }}<input type="hidden" name="next" value="{{ url_for('accounts.connections') }}#zenodo"><button class="button button-small button-secondary">{{ de_en("Mit {name} verbinden", "Connect with {name}", name=label) }}</button>
+      </form>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Sie melden sich bei Zenodo an (auch mit ORCID) und erlauben Askurious, Entwürfe in Ihrem Konto anzulegen. Danach erscheint unter „Export“ jeder Befragung, die Sie verwalten, der Block „Zenodo“.",
+    "You sign in at Zenodo (also with ORCID) and allow Askurious to create drafts in your account. After that the block “Zenodo” appears under “Export” of every survey you manage.") }}</p>
+</section>
+{% endif %}
+
+{# Coscine (app/coscine.py; for everyone since 2026-10-20) offers no OAuth for other applications, so a personal token is pasted
+   here; stored encrypted, "trennen" deletes it (coscine-konzept.md, C1, C2). #}
+<section class="panel" id="coscine">
+  <h2>{{ de_en("Verbindung zu Coscine", "Connection to Coscine") }} <span class="hint">{{ de_en("Forschungsdatenarchiv der RWTH Aachen", "research data archive of RWTH Aachen University") }}</span></h2>
+  {% if coscine %}
+  <p class="small"><span class="badge badge-approved">{{ de_en("verbunden", "connected") }}</span>{% if coscine.name %} {{ de_en("als", "as") }} <strong>{{ coscine.name }}</strong>{% endif %}
+    {% if coscine.expires_at %}· {{ de_en("Token gültig bis", "token valid until") }} {{ coscine.expires_at|localdate }}{% endif %}
+    {% if coscine_days is not none and coscine_days < 30 %}· <strong class="coscine-expiry">{% if coscine_days < 0 %}{{ de_en("abgelaufen", "expired") }}{% elif coscine_days == 0 %}{{ de_en("läuft heute ab", "expires today") }}{% elif coscine_days == 1 %}{{ de_en("läuft morgen ab", "expires tomorrow") }}{% else %}{{ de_en("läuft in {n} Tagen ab", "expires in {n} days", n=coscine_days) }}{% endif %}</strong>{% endif %}
+    {% if coscine_check and coscine_check.state == "ok" %}· {{ de_en("von Coscine bestätigt", "confirmed by Coscine") }}{% if coscine_check.name %} ({{ de_en("Token „{n}“", "token “{n}”", n=coscine_check.name) }}){% endif %}{% endif %}</p>
+  {% if coscine_check and coscine_check.state == "rejected" %}
+  <div class="flash flash-error">{{ icon("alert", 16) }} <span>{{ de_en("Coscine lehnt dieses Token ab: Es ist abgelaufen, wurde widerrufen oder durch das Verknüpfen von Anmeldearten in Coscine ungültig. Bitte ein neues erzeugen und unten einfügen.", "Coscine rejects this token: it has expired, was revoked or became invalid when login methods were linked in Coscine. Please create a new one and paste it below.") }}</span></div>
+  {% elif coscine_check and coscine_check.state == "unreachable" %}
+  <p class="muted small">{{ de_en("Coscine war gerade nicht erreichbar; ob das Token noch gilt, ließ sich nicht prüfen.", "Coscine could not be reached just now; whether the token is still valid could not be checked.") }}</p>
+  {% endif %}
+  {% endif %}
+  <form method="post" action="{{ url_for('coscine.connect') }}" class="stack" autocomplete="off">
+    {{ csrf() }}
+    {# field, "Token ersetzen" and "Trennen" in one row; "Trennen" sends its own form below (Ralf, 2026-10-20) #}
+    <label for="coscine-token"><span class="label-title">{{ de_en("Neues Zugriffstoken", "New access token") if coscine else de_en("Zugriffstoken aus Coscine", "Access token from Coscine") }}</span></label>
+    <div class="form-actions token-row">
+      <input type="password" id="coscine-token" name="token" autocomplete="off" spellcheck="false" required>
+      <button class="button button-secondary">{{ de_en("Token ersetzen", "Replace token") if coscine else de_en("Mit Coscine verbinden", "Connect with Coscine") }}</button>
+      {% if coscine %}<button class="link small" form="coscine-disconnect">{{ de_en("Trennen und Token löschen", "Disconnect and delete token") }}</button>{% endif %}
+    </div>
+  </form>
+  {% if coscine %}<form id="coscine-disconnect" method="post" action="{{ url_for('coscine.disconnect') }}">{{ csrf() }}</form>{% endif %}
+  {# the steps at Coscine with a direct link to its token page (Coscine-Anmeldung, option C, 2026-10-20) #}
+  <p class="small">{{ de_en("Token erzeugen:", "Create a token:") }} <a href="{{ coscine_tokens }}" target="_blank" rel="noopener">{{ de_en("Coscine › Profil › Zugriffstoken", "Coscine › Profile › Access token") }} ↗</a>,
+    {{ de_en("Name und Ablaufdatum wählen, Token sofort kopieren (Coscine zeigt es nur einmal) und hier einfügen. Verknüpfen Sie in Coscine Anmeldearten, werden alle Tokens ungültig.",
+    "choose a name and expiry date, copy the token right away (Coscine shows it only once) and paste it here. Linking login methods in Coscine invalidates all tokens.") }}
+    <a href="{{ coscine_docs }}" target="_blank" rel="noopener">{{ de_en("Anleitung", "Instructions") }} ↗</a></p>
+  <p class="muted small">{{ de_en("Coscine kennt keine Anmeldung für andere Anwendungen, deshalb ein Token. Askurious speichert es verschlüsselt und nutzt es nur für Ihre Schritte mit Coscine (etwa „In Coscine ablegen“ unter „Export“ einer Befragung), für die automatische Ablage, wenn Sie sie einschalten, und um bei Coscine zu prüfen, ob es noch gilt: auf dieser Seite und, solange eine automatische Ablage damit läuft, einmal am Tag.",
+    "Coscine has no sign-in for other applications, hence a token. Askurious stores it encrypted and only uses it for your steps with Coscine (such as “Store in Coscine” under “Export” of a survey), for the automatic upload if you switch it on, and to check with Coscine whether it is still valid: on this page and, while an automatic upload runs with it, once a day.") }}</p>
+</section>
+
+{# the own AI key (accounts/_ai_access.html), here since Konto-Seiten B2 (Ralf, 2026-10-20); with generative AI
+   switched off on "KI-Nutzung" it shows only while a key is still stored, so that it can be removed #}
+{% if ai_on() or ai_access %}{% include "accounts/_ai_access.html" %}{% endif %}
+
+{# the AI agent interface (app/agent_access.py, app/mcp.py; experimental "agent"): personal tokens for an agent such as
+   Claude Code. A token made before stays listed and revocable when the feature is off. #}
+{% if agent_on or agent_tokens %}
+<section class="panel" id="ki-agenten">
+  <h2>{{ de_en("KI-Agenten-Schnittstelle (MCP)", "AI agent interface (MCP)") }} <span class="badge badge-exp">{{ de_en("experimentell", "experimental") }}</span> <span class="hint">{{ de_en("Fragebögen mit einem eigenen KI-Agenten lesen und Entwürfe bearbeiten", "read questionnaires and edit drafts with your own AI agent") }}</span></h2>
+  {% if new_agent_token %}
+  <div class="flash flash-warning" role="status"><div>
+    <strong>{{ de_en("Ihr neues Token „{name}“, gültig bis {d}:", "Your new token “{name}”, valid until {d}:", name=new_agent_token.name, d=new_agent_token.expires_at|localdate) }}</strong>
+    <p class="copy-row"><input type="text" readonly value="{{ new_agent_token.value }}" aria-label="{{ de_en('Token', 'Token') }}" spellcheck="false">
+      <span class="chip" role="button" tabindex="0" data-copy-text="{{ new_agent_token.value }}" title="{{ de_en('Token kopieren', 'Copy token') }}">{{ de_en("kopieren", "copy") }}</span></p>
+    <p class="small">{{ de_en("Es wird nur jetzt angezeigt; Askurious speichert nur einen Prüfwert davon. In Claude Code richtet diese Zeile die Verbindung ein:", "It is shown only now; Askurious stores only a checksum of it. In Claude Code this line sets up the connection:") }}</p>
+    <pre class="env-lines"><code>{{ new_agent_token.command }}</code></pre>
+    <span class="chip" role="button" tabindex="0" data-copy-text="{{ new_agent_token.command }}" title="{{ de_en('Befehl kopieren', 'Copy command') }}">{{ de_en("kopieren", "copy") }}</span>
+  </div></div>
+  {% endif %}
+  {% if agent_on %}
+  <p class="small">{{ de_en("Ein KI-Agent, etwa Claude Code oder Claude Desktop, verbindet sich mit einem persönlichen Token über das Model Context Protocol mit Askurious. Er liest Ihre Fragebögen (Aufbau und Texte, nie Antworten oder Daten) und kann in Entwürfen Blöcke und Elemente anlegen, ändern, verschieben, in den Papierkorb legen, Konstrukte einfügen und eigene Schritte zurücknehmen. Feldphase starten, Befragungen löschen, Daten, Teilnahmelinks, Beteiligte und die Einwilligung bleiben außen vor.",
+    "An AI agent such as Claude Code or Claude Desktop connects with Askurious through the Model Context Protocol using a personal token. It reads your questionnaires (structure and texts, never answers or data) and, in drafts, can add, change and move blocks and elements, put them in the bin, insert constructs and take back its own steps. Starting fieldwork, deleting surveys, data, participation links, people involved and the consent stay out.") }}</p>
+  <form method="post" action="{{ url_for('agent_access.create') }}" class="stack" autocomplete="off">
+    {{ csrf() }}
+    <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("wofür, z. B. „Claude Code Laptop“", "what for, e.g. “Claude Code laptop”") }}</span>
+      <input type="text" name="name" maxlength="80" required spellcheck="false"></label>
+    <fieldset>
+      <legend>{{ de_en("Umfang", "Scope") }}</legend>
+      <label class="check"><input type="radio" name="scope" value="read" checked> {{ de_en("Nur lesen", "Read only") }}</label>
+      <label class="check"><input type="radio" name="scope" value="edit"> {{ de_en("Lesen und Entwürfe bearbeiten", "Read and edit drafts") }}</label>
+    </fieldset>
+    <fieldset>
+      <legend>{{ de_en("Befragungen", "Surveys") }}</legend>
+      <label class="check"><input type="radio" name="limit" value="0" checked> {{ de_en("Alle meine Befragungen (die Rolle in jeder gilt)", "All my surveys (the role in each applies)") }}</label>
+      <label class="check"><input type="radio" name="limit" value="1"> {{ de_en("Nur diese:", "Only these:") }}</label>
+      {% for s in agent_surveys %}
+      <label class="check"><input type="checkbox" name="survey" value="{{ s.id }}"> {{ s.title }}</label>
+      {% endfor %}
+    </fieldset>
+    <label class="check"><input type="checkbox" name="understood" value="1" required>
+      {{ de_en("Inhalte Ihrer Fragebögen gehen an den KI-Dienst, den Ihr Agent nutzt.", "The contents of your questionnaires go to the AI service your agent uses.") }}
+      <span class="hint">{{ de_en("Askurious selbst schickt nichts an ein KI-Modell; das tut Ihr Agent. Schreiben Sie keine personenbezogenen Daten in Fragebogentexte und geben Sie lizenzierte Wortlaute nicht weiter (Nutzungsbedingungen, Abschnitt 6).", "Askurious itself sends nothing to an AI model; your agent does. Do not write personal data into questionnaire texts and do not pass on licensed wordings (terms of use, section 6).") }}</span></label>
+    <div class="form-actions"><button class="button">{{ de_en("Token anlegen", "Create token") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Ein Token gilt {n} Tage. Jede Änderung des Agenten ist ein Schritt im Verlauf unter „Rückgängig“, mit dem Namen des Tokens, und jeder Aufruf steht im Protokoll. Adresse der Schnittstelle: {url}",
+    "A token is valid for {n} days. Every change by the agent is a step in the history under “Undo”, with the token’s name, and every call is in the access log. Address of the interface: {url}", n=agent_days, url=agent_url) }}</p>
+  {% endif %}
+  {% if agent_tokens %}
+  <ul class="export-list">
+    {% for t in agent_tokens %}
+    <li><div><strong>{{ t.row.name }}</strong><span class="desc">{{ de_en("Lesen und Entwürfe bearbeiten", "read and edit drafts") if t.row.scope == "edit" else de_en("nur lesen", "read only") }} · {% if t.surveys is none %}{{ de_en("alle meine Befragungen", "all my surveys") }}{% else %}{{ t.surveys|join(", ") }}{% endif %} · {% if t.row.last_used_at %}{{ de_en("zuletzt benutzt am {d}", "last used on {d}", d=t.row.last_used_at|localdt) }}{% else %}{{ de_en("noch nie benutzt", "never used") }}{% endif %} · {% if t.state == "expired" %}<strong>{{ de_en("abgelaufen am {d}", "expired on {d}", d=t.row.expires_at|localdate) }}</strong>{% else %}{{ de_en("gültig bis {d}", "valid until {d}", d=t.row.expires_at|localdate) }}{% endif %}</span></div>
+      <form method="post" action="{{ url_for('agent_access.revoke', token_id=t.row.id) }}"
+            data-confirm="{{ de_en('Token „{name}“ widerrufen?', 'Revoke token “{name}”?', name=t.row.name) }}" data-confirm-note="{{ de_en('Der Agent mit diesem Token erreicht Askurious danach nicht mehr.', 'The agent with this token no longer reaches Askurious afterwards.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}" data-confirm-danger>
+        {{ csrf() }}<button class="button button-danger">{{ de_en("Widerrufen", "Revoke") }}</button></form></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

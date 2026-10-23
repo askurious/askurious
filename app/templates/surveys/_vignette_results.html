@@ -1,0 +1,45 @@
+{% from "_learn.html" import term %}
+{% from "_icons.html" import icon %}
+{# Vignettes on the results page (app/vignettes.py analysis): per loop and numeric question the means
+   per level and the regression with person-clustered standard errors. Needs: r (the results), icon. #}
+{# rounded half up in the page's language ("%.3f" rounded half to even and wrote p = .04996 as 0.050; Mathe-Audit
+   2026-10-06, Z-9) #}
+{% macro dec(v, places=2) %}{% if v is none %}–{% else %}{{ v|dec(places)|replace("-", "−") }}{% endif %}{% endmacro %}
+{% macro interval(c) %}{% if c %}[{{ dec(c[0]) }}; {{ dec(c[1]) }}]{% else %}[–]{% endif %}{% endmacro %}
+{% macro pval(p) %}{{ p_bare(p) }}{% endmacro %}
+{% for v in r.vignettes %}
+<section class="panel res-item" id="vignetten-{{ v.code }}"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Vignetten „{name}“", "Vignettes “{name}”", name=v.name) }} <span class="hint">{{ de_en("Wirkung der Faktoren je Frage", "effect of the factors per question") }}</span></h2></summary>
+  {% for q in v.questions %}
+  <h3>{{ q.code }} · {{ q.question|striptags|truncate(120) }} <span class="hint">{{ de_en("{n} Bewertungen von {p} Personen", "{n} ratings from {p} people", n=q.n, p=q.persons) }}</span></h3>
+  {% if q.too_few %}
+  <p class="muted small">{{ de_en("Zu wenige Bewertungen für eine Auswertung (ab 10 Bewertungen von 3 Personen).", "Too few ratings for an analysis (from 10 ratings by 3 people).") }}</p>
+  {% else %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Faktor", "Factor") }}</th><th>{{ de_en("Stufe", "Level") }}</th><th class="num">n</th><th class="num">M</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th></tr></thead>
+    <tbody>
+    {% for f in q.by_level %}{% for l in f.levels %}
+      <tr><td>{% if loop.first %}{{ f.label }} <span class="hint">{{ f.code }}</span>{% endif %}</td><td>{{ l.label }}</td>
+        <td class="num">{{ l.n }}</td><td class="num">{{ dec(l.mean) }}</td><td class="num">{{ interval(l.ci) }}</td></tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table></div>
+  {% if q.coefs %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>Regression <span class="hint">{{ de_en("Referenz: erste Stufe jedes Faktors", "reference: first level of each factor") }}</span></th><th class="num">b</th><th class="num">SE</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th></tr></thead>
+    <tbody>
+    {% for c in q.coefs %}
+      <tr><td>{{ c.name }}</td><td class="num">{{ dec(c.b) }}</td><td class="num">{{ dec(c.se) }}</td><td class="num">{{ interval(c.ci) }}</td><td class="num">{{ pval(c.p) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+  <p class="muted small">R² = {{ dec(q.r2) }} · {{ de_en("Intraklassenkorrelation (Anteil der Unterschiede zwischen Personen)", "intraclass correlation (share of the differences between people)") }}{{ fn("icc") }} = {{ dec(q.icc) }}.
+    {{ de_en("Standardfehler und Intervalle nach Person geclustert (CR1), t-Verteilung mit {df} Freiheitsgraden. Für zufällige Steigungen oder Wechselwirkungen mit Merkmalen der Personen: Langformat im Reiter „Export“, z. B. in R mit", "Standard errors and intervals clustered by person (CR1), t distribution with {df} degrees of freedom. For random slopes or interactions with characteristics of the people: long format in the tab “Export”, e.g. in R with", df=q.persons - 1) }} <code>lmer(antwort ~ {{ q.by_level|map(attribute="code")|join(" + ") }} + (1 | resp_id))</code>.</p>
+  {% endif %}
+  {% endfor %}
+  {% if v.skipped %}
+  <p class="muted small">{{ de_en("Nicht ausgewertet, weil nicht auf einer Skala gemessen (Antwortcodes ohne Mittelwert): {codes}.", "Not analysed because not measured on a scale (answer codes have no mean): {codes}.", codes=v.skipped|join(", ")) }}</p>
+  {% endif %}
+</details></section>
+{% endfor %}

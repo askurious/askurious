@@ -1,0 +1,11 @@
+{# The structural equation model while it is estimated as the job "sem_fit" (app/sem_fit_job.py): the bar follows its
+   status and the page loads again at its end (static/app.js, data-sem-running). Needs: sem_job, survey. #}
+{% from "_icons.html" import icon %}
+{% set done = ((sem_job.progress or 0) * 100)|round|int %}
+<section class="panel" id="sem"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Strukturgleichungsmodell", "Structural equation model") }}</h2></summary>
+  <div class="batch-progress hb-progress" data-sem-running data-url="{{ url_for('surveys.results_sem_fit_status', survey_id=survey.id, key=sem_job.key) }}">
+    <div class="p-progress" role="progressbar" aria-label="{{ de_en('Strukturgleichungsmodell', 'Structural equation model') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ done }}"><span data-bar style="width:{{ done }}%"></span></div>
+    <span role="status">{% if sem_job.queued %}{{ de_en("Das Modell wartet auf einen freien Platz.", "The model is waiting for a free slot.") }}{% else %}{{ de_en("Das Modell wird geschätzt:", "The model is being estimated:") }} <span data-status>{{ done|pctsign }}</span>{% endif %} {{ de_en("Das Ergebnis erscheint von selbst; die Hypothesen mit dem Verfahren „Strukturgleichungsmodell“ werden dann beurteilt.", "The result appears automatically; the hypotheses with the method “Structural equation model” are judged then.") }}</span>
+  </div>
+</details></section>

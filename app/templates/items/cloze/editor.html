@@ -1,0 +1,17 @@
+{% set question_hint = de_en("z. B. „Ergänzen Sie die Lücken mit dem, was Ihnen als Erstes einfällt.“", "e.g. “Fill in the gaps with whatever comes to mind first.”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+{# a short "So funktioniert es" with a small example (concept "Lernhilfen: fünfte Runde", H1, like the
+   side-by-side matrix after the pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Lücken im Text", "gaps in the text"), open=not lt.get("text")) %}
+  <p>{{ de_en("Schreiben Sie den Text und setzen Sie mit „Lücke“ eine Lücke, wo etwas fehlen soll. Teilnehmende tippen in jede Lücke ein paar Wörter (höchstens 50 Zeichen); nichts wird als richtig oder falsch bewertet. Im Export stehen die Lücken der Reihe nach, durch „;“ getrennt.", "Write the text and use “Gap” wherever something should be missing. Participants type a few words into each gap (at most 50 characters); nothing is marked right or wrong. The export lists the gaps in order, separated by “;”.") }}</p>
+  <p class="muted small">{{ de_en("Beispiel: „Ein gutes Team braucht vor allem [ ] und [ ].“ → Antwort „Vertrauen; Humor“", "Example: “A good team needs above all [ ] and [ ].” → answer “trust; humour”") }}</p>
+{% endcall %}
+<label><span class="label-title">{{ de_en("Text mit Lücken", "Text with gaps") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span>
+  <span class="hint">{{ de_en("Lücken mit „Lücke“ einfügen; ein Klick auf eine Lücke ändert ihre Breite (klein, mittel, groß)", "insert gaps with “Gap”; a click on a gap changes its width (small, medium, large)") }}{% if not structural %}{{ de_en("; die Befragung läuft: Wortlaut änderbar, die Zahl der Lücken nicht", "; the survey is running: the wording can change, the number of gaps cannot") }}{% endif %}</span></span>
+  <textarea name="text" rows="6" data-rich="block" data-rich-gaps{% if not structural %} data-rich-gaps-fixed{% endif %}>{{ lt.get("text", "") }}</textarea>
+</label>
+<p class="muted small format-hint">{{ de_en("Lücke = [ ], Breite über die Leerzeichen dazwischen: [ ] klein, [&nbsp;&nbsp;&nbsp;] mittel, [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;] groß. Im Text auch: Leerzeile = neuer Absatz, „- “ = Aufzählung,", "Gap = [ ], width by the spaces in between: [ ] small, [&nbsp;&nbsp;&nbsp;] medium, [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;] large. Also in the text: blank line = new paragraph, “- ” = list,")|safe }} {{ de_en(format_hint(), "**bold**, *italic*, `code`, H~2~O subscript, x^2^ superscript; also <u>, <small>, <sub>, <sup>, <br>") }}</p>
+<p class="muted small">{{ de_en("{n} Lücke(n). Antworten: freier Text ohne Prüfung, eine Zeile, höchstens 50 Zeichen. Bei „Pflicht“ müssen alle Lücken ausgefüllt sein.", "{n} gap(s). Answers: free text without checks, one line, at most 50 characters. With “Required”, all gaps must be filled in.", n=kind.gaps(item, lang)|length) }}
+{{ de_en("Export: {code} = die Antworten in Textreihenfolge, getrennt mit „;“.", "Export: {code} = the answers in text order, separated by “;”.", code=item.code) }}</p>

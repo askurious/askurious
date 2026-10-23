@@ -1,0 +1,20 @@
+{# Topic profile (app/items/topic_feedback.py): variables of a loop, averaged over the topics #}
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „Ihre Einschätzung über alle Themen“", "e.g. “Your assessment across all topics”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Variablen", "Variables") }} <span class="hint">{{ de_en("Bewertungen aus einer Schleife (Tabelle, Faktoren oder Vignetten) vor diesem Element, z. B. Risiko, Nutzen und Wert; je Variable der Mittelwert über die Themen", "evaluations from a loop (table, factors or vignettes) before this element, e.g. risk, benefit and value; per variable the mean over the topics") }}</span></legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set chosen = [] %}{% for i in range((item.config.sources or [])|length) %}{% set _ = chosen.append(kind.chosen_value(item, i)) %}{% endfor %}
+  {% if candidates %}
+  {% for c in candidates %}{% for value, sub in kind.source_choices(c) %}
+  <label class="check"><input type="checkbox" name="sources" value="{{ value }}" {% if value in chosen %}checked{% endif %} {% if not structural %}disabled{% endif %}>
+    {{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} <span class="hint">{{ c.kind.label }}</span></label>
+  {% endfor %}{% endfor %}
+  {% else %}
+  <p class="muted">{{ de_en("Vor diesem Element steht keine Schleife mit passenden Fragen (Likert/Konstrukt, semantisches Differential, Bewertung). Das Element gehört hinter die Schleife.", "There is no loop with suitable questions (Likert/construct, semantic differential, rating) before this element. The element belongs after the loop.") }}</p>
+  {% endif %}
+  <label class="check"><input type="checkbox" name="show_sample" value="1" {% if item.config.get("show_sample", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("mit der Stichprobe vergleichen", "compare with the sample") }} <span class="hint">{{ de_en("das Mittel der persönlichen Mittelwerte aller bisherigen Teilnehmenden als Ring; jede Person zählt einmal", "the mean of the personal means of all participants so far as a ring; each person counts once") }}</span></label>
+</fieldset>
+<p class="muted small">{{ de_en("Bis zu 8 Variablen; Werte der Stichprobe ab 5 Personen; im Export", "Up to 8 variables; sample values from 5 people; in the export") }} <code>{{ item.code }}_n</code>.</p>
+{% include "items/_lock_answers.html" %}

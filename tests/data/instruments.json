@@ -1,0 +1,474 @@
+{
+ "format": "askurious-instrument-wordings",
+ "version": 1,
+ "instruments": {
+  "bfi10": {
+   "question": {
+    "de": "Teststandardfrage zu BFI10",
+    "en": "Test instruction for BFI10"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von BFI10",
+     "en": "Test statement 1 of BFI10"
+    },
+    {
+     "de": "Testaussage 2 von BFI10",
+     "en": "Test statement 2 of BFI10"
+    },
+    {
+     "de": "Testaussage 3 von BFI10",
+     "en": "Test statement 3 of BFI10"
+    },
+    {
+     "de": "Testaussage 4 von BFI10",
+     "en": "Test statement 4 of BFI10"
+    },
+    {
+     "de": "Testaussage 5 von BFI10",
+     "en": "Test statement 5 of BFI10"
+    },
+    {
+     "de": "Testaussage 6 von BFI10",
+     "en": "Test statement 6 of BFI10"
+    },
+    {
+     "de": "Testaussage 7 von BFI10",
+     "en": "Test statement 7 of BFI10"
+    },
+    {
+     "de": "Testaussage 8 von BFI10",
+     "en": "Test statement 8 of BFI10"
+    },
+    {
+     "de": "Testaussage 9 von BFI10",
+     "en": "Test statement 9 of BFI10"
+    },
+    {
+     "de": "Testaussage 10 von BFI10",
+     "en": "Test statement 10 of BFI10"
+    }
+   ]
+  },
+  "kut": {
+   "question": {
+    "de": "Teststandardfrage zu KUT",
+    "en": "Test instruction for KUT"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von KUT",
+     "en": "Test statement 1 of KUT"
+    },
+    {
+     "de": "Testaussage 2 von KUT",
+     "en": "Test statement 2 of KUT"
+    },
+    {
+     "de": "Testaussage 3 von KUT",
+     "en": "Test statement 3 of KUT"
+    },
+    {
+     "de": "Testaussage 4 von KUT",
+     "en": "Test statement 4 of KUT"
+    },
+    {
+     "de": "Testaussage 5 von KUT",
+     "en": "Test statement 5 of KUT"
+    },
+    {
+     "de": "Testaussage 6 von KUT",
+     "en": "Test statement 6 of KUT"
+    },
+    {
+     "de": "Testaussage 7 von KUT",
+     "en": "Test statement 7 of KUT"
+    },
+    {
+     "de": "Testaussage 8 von KUT",
+     "en": "Test statement 8 of KUT"
+    }
+   ]
+  },
+  "asku": {
+   "question": {
+    "de": "Teststandardfrage zu ASKU",
+    "en": "Test instruction for ASKU"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von ASKU",
+     "en": "Test statement 1 of ASKU"
+    },
+    {
+     "de": "Testaussage 2 von ASKU",
+     "en": "Test statement 2 of ASKU"
+    },
+    {
+     "de": "Testaussage 3 von ASKU",
+     "en": "Test statement 3 of ASKU"
+    }
+   ]
+  },
+  "ie4": {
+   "question": {
+    "de": "Teststandardfrage zu IE4",
+    "en": "Test instruction for IE4"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von IE4",
+     "en": "Test statement 1 of IE4"
+    },
+    {
+     "de": "Testaussage 2 von IE4",
+     "en": "Test statement 2 of IE4"
+    },
+    {
+     "de": "Testaussage 3 von IE4",
+     "en": "Test statement 3 of IE4"
+    },
+    {
+     "de": "Testaussage 4 von IE4",
+     "en": "Test statement 4 of IE4"
+    }
+   ]
+  },
+  "kusiv3": {
+   "question": {
+    "de": "Teststandardfrage zu KUSIV3",
+    "en": "Test instruction for KUSIV3"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von KUSIV3",
+     "en": "Test statement 1 of KUSIV3"
+    },
+    {
+     "de": "Testaussage 2 von KUSIV3",
+     "en": "Test statement 2 of KUSIV3"
+    },
+    {
+     "de": "Testaussage 3 von KUSIV3",
+     "en": "Test statement 3 of KUSIV3"
+    }
+   ]
+  },
+  "i8": {
+   "question": {
+    "de": "Teststandardfrage zu I8",
+    "en": "Test instruction for I8"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von I8",
+     "en": "Test statement 1 of I8"
+    },
+    {
+     "de": "Testaussage 2 von I8",
+     "en": "Test statement 2 of I8"
+    },
+    {
+     "de": "Testaussage 3 von I8",
+     "en": "Test statement 3 of I8"
+    },
+    {
+     "de": "Testaussage 4 von I8",
+     "en": "Test statement 4 of I8"
+    },
+    {
+     "de": "Testaussage 5 von I8",
+     "en": "Test statement 5 of I8"
+    },
+    {
+     "de": "Testaussage 6 von I8",
+     "en": "Test statement 6 of I8"
+    },
+    {
+     "de": "Testaussage 7 von I8",
+     "en": "Test statement 7 of I8"
+    },
+    {
+     "de": "Testaussage 8 von I8",
+     "en": "Test statement 8 of I8"
+    }
+   ]
+  },
+  "nfck": {
+   "question": {
+    "de": "Teststandardfrage zu NFCK"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von NFCK"
+    },
+    {
+     "de": "Testaussage 2 von NFCK"
+    },
+    {
+     "de": "Testaussage 3 von NFCK"
+    },
+    {
+     "de": "Testaussage 4 von NFCK"
+    }
+   ]
+  },
+  "tb": {
+   "question": {
+    "de": "Teststandardfrage zu TB"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von TB"
+    },
+    {
+     "de": "Testaussage 2 von TB"
+    },
+    {
+     "de": "Testaussage 3 von TB"
+    },
+    {
+     "de": "Testaussage 4 von TB"
+    },
+    {
+     "de": "Testaussage 5 von TB"
+    },
+    {
+     "de": "Testaussage 6 von TB"
+    },
+    {
+     "de": "Testaussage 7 von TB"
+    },
+    {
+     "de": "Testaussage 8 von TB"
+    },
+    {
+     "de": "Testaussage 9 von TB"
+    },
+    {
+     "de": "Testaussage 10 von TB"
+    },
+    {
+     "de": "Testaussage 11 von TB"
+    },
+    {
+     "de": "Testaussage 12 von TB"
+    }
+   ]
+  },
+  "r1": {
+   "question": {
+    "de": "Teststandardfrage zu R1",
+    "en": "Test instruction for R1"
+   },
+   "statements": [
+    {
+     "de": "",
+     "en": ""
+    }
+   ]
+  },
+  "aub": {
+   "question": {
+    "de": "Teststandardfrage zu AUB"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von AUB"
+    },
+    {
+     "de": "Testaussage 2 von AUB"
+    },
+    {
+     "de": "Testaussage 3 von AUB"
+    },
+    {
+     "de": "Testaussage 4 von AUB"
+    },
+    {
+     "de": "Testaussage 5 von AUB"
+    },
+    {
+     "de": "Testaussage 6 von AUB"
+    },
+    {
+     "de": "Testaussage 7 von AUB"
+    },
+    {
+     "de": "Testaussage 8 von AUB"
+    },
+    {
+     "de": "Testaussage 9 von AUB"
+    },
+    {
+     "de": "Testaussage 10 von AUB"
+    },
+    {
+     "de": "Testaussage 11 von AUB"
+    }
+   ]
+  },
+  "tam_pu": {
+   "question": {
+    "de": "Teststandardfrage zu TAM_PU [System]",
+    "en": "Test instruction for TAM_PU [System]"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 zu [System]",
+     "en": "Test statement 1 about [System]"
+    },
+    {
+     "de": "Testaussage 2 zu [System]",
+     "en": "Test statement 2 about [System]"
+    },
+    {
+     "de": "Testaussage 3 zu [System]",
+     "en": "Test statement 3 about [System]"
+    },
+    {
+     "de": "Testaussage 4 zu [System]",
+     "en": "Test statement 4 about [System]"
+    },
+    {
+     "de": "Testaussage 5 zu [System]",
+     "en": "Test statement 5 about [System]"
+    },
+    {
+     "de": "Testaussage 6 zu [System]",
+     "en": "Test statement 6 about [System]"
+    }
+   ]
+  },
+  "tam_peou": {
+   "question": {
+    "de": "Teststandardfrage zu TAM_PEOU [System]",
+    "en": "Test instruction for TAM_PEOU [System]"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 zu [System]",
+     "en": "Test statement 1 about [System]"
+    },
+    {
+     "de": "Testaussage 2 zu [System]",
+     "en": "Test statement 2 about [System]"
+    },
+    {
+     "de": "Testaussage 3 zu [System]",
+     "en": "Test statement 3 about [System]"
+    },
+    {
+     "de": "Testaussage 4 zu [System]",
+     "en": "Test statement 4 about [System]"
+    },
+    {
+     "de": "Testaussage 5 zu [System]",
+     "en": "Test statement 5 about [System]"
+    },
+    {
+     "de": "Testaussage 6 zu [System]",
+     "en": "Test statement 6 about [System]"
+    }
+   ]
+  },
+  "tam_bi": {
+   "question": {
+    "de": "Teststandardfrage zu TAM_BI [System]",
+    "en": "Test instruction for TAM_BI [System]"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 zu [System]",
+     "en": "Test statement 1 about [System]"
+    },
+    {
+     "de": "Testaussage 2 zu [System]",
+     "en": "Test statement 2 about [System]"
+    }
+   ]
+  },
+  "gdms": {
+   "question": {
+    "en": "Test instruction for GDMS"
+   },
+   "statements": [
+    {
+     "en": "Test statement 1 of GDMS"
+    },
+    {
+     "en": "Test statement 2 of GDMS"
+    },
+    {
+     "en": "Test statement 3 of GDMS"
+    },
+    {
+     "en": "Test statement 4 of GDMS"
+    },
+    {
+     "en": "Test statement 5 of GDMS"
+    },
+    {
+     "en": "Test statement 6 of GDMS"
+    },
+    {
+     "en": "Test statement 7 of GDMS"
+    },
+    {
+     "en": "Test statement 8 of GDMS"
+    },
+    {
+     "en": "Test statement 9 of GDMS"
+    },
+    {
+     "en": "Test statement 10 of GDMS"
+    },
+    {
+     "en": "Test statement 11 of GDMS"
+    },
+    {
+     "en": "Test statement 12 of GDMS"
+    },
+    {
+     "en": "Test statement 13 of GDMS"
+    },
+    {
+     "en": "Test statement 14 of GDMS"
+    },
+    {
+     "en": "Test statement 15 of GDMS"
+    },
+    {
+     "en": "Test statement 16 of GDMS"
+    },
+    {
+     "en": "Test statement 17 of GDMS"
+    },
+    {
+     "en": "Test statement 18 of GDMS"
+    },
+    {
+     "en": "Test statement 19 of GDMS"
+    },
+    {
+     "en": "Test statement 20 of GDMS"
+    },
+    {
+     "en": "Test statement 21 of GDMS"
+    },
+    {
+     "en": "Test statement 22 of GDMS"
+    },
+    {
+     "en": "Test statement 23 of GDMS"
+    },
+    {
+     "en": "Test statement 24 of GDMS"
+    },
+    {
+     "en": "Test statement 25 of GDMS"
+    }
+   ]
+  }
+ }
+}

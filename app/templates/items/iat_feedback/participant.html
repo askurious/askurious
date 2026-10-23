@@ -1,0 +1,41 @@
+{# IAT-Ergebnis (app/items/iat_feedback.py): the own result in words, its strength, the others, what it means #}
+{% set loop_row = (page_meta or {}).get("row") if page_meta is defined else none %}
+{% set is_preview = preview is defined and preview %}
+{% set r = kind.result(item, lang, answers, preview=is_preview, row=loop_row) %}
+{% include "items/_question.html" %}
+{% if r %}
+<div class="p-iatfb">
+  {% if not r.answered %}
+  <p class="p-sc-few">{{ ui("Für ein Ergebnis fehlt der Test.", "The test is missing for a result.") }}</p>
+  {% elif r.d is none %}
+  <p class="p-iatfb-text">{{ kind.text(item, "invalid", lang)|fill(variables) }}</p>
+  {% else %}
+  <p class="p-iatfb-result">{{ r.sentence }}</p>
+  <p class="p-iatfb-strength">{{ ui("Stärke", "Strength") }}: <strong>{{ r.strength_label }}</strong>
+    <span class="p-sc-meta">(D = {{ ((r.d)|fixed(2)).replace(".", ui(",", ".")) }})</span></p>
+  {# the own D on an axis from -1 to +1, zero in the middle, ticks at the cut-offs of the strengths (0.15, 0.35, 0.65);
+     beyond ±1 the mark sits at the end #}
+  {% macro ticks() %}{% for pos, label, zero in kind.ticks(lang) %}
+    <span class="p-iatfb-tick{% if zero %} is-zero{% endif %}" style="left: {{ pos|fixed(1) }}%"><span>{{ label }}</span></span>
+    {% endfor %}{% endmacro %}
+  <div class="p-iatfb-axis" role="img" aria-label="D = {{ ((r.d)|fixed(2)).replace('.', ui(',', '.')) }}">
+    <span class="p-iatfb-mark" style="left: {{ (r.pos)|fixed(1) }}%">{{ ui("Sie", "You") }}</span>
+    <span class="p-iatfb-line"></span>
+    {{ ticks() }}
+  </div>
+  <div class="p-iatfb-ends"><span>{{ r.ends[0] }}</span><span>{{ r.ends[1] }}</span></div>
+  {% if r.enough %}
+  <p class="p-iatfb-sub">{{ kind.text(item, "others", lang)|fill(variables) }}</p>
+  <div class="p-iatfb-dist" role="img" aria-label="{{ ui('Verteilung der bisherigen Teilnehmenden', 'Distribution of previous participants') }}">
+    {% for b in r.bars %}<span class="p-iatfb-bar{% if loop.index0 == r.own_bar %} is-own{% endif %}" style="height: {{ (b.height)|fixed(1) }}%"
+      title="{{ (b.share * 100)|round|int }} %"></span>{% endfor %}
+  </div>
+  <div class="p-iatfb-axis is-under" aria-hidden="true">{{ ticks() }}</div>
+  <p class="p-sc-meta">{{ ui("Ihr Ergebnis ist hervorgehoben; n = %d.", "Your result is highlighted; n = %d.")|format(r.n) }}</p>
+  {% endif %}
+  <div class="p-iatfb-text">{{ kind.text(item, "explanation", lang)|rich(variables) }}</div>
+  <input type="hidden" name="i{{ item.id }}_value" value="{{ (r.d)|fixed(3) }}">
+  <input type="hidden" name="i{{ item.id }}_band" value="{{ r.strength + 1 }}">
+  {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# The handbook under /docs/ (app/handbook.py): the pages on the left with the sections of the open one, the text
+   (app/data/handbook/<lang>/<name>.md) on the right. Needs: name, title, body, toc, pages. #}
+{% block title %}{{ title }} · {{ de_en("Handbuch", "Handbook") }}{% endblock %}
+{% block container_class %}container handbook-page{% endblock %}
+{% block content %}
+<div class="handbook">
+  <nav class="handbook-nav" aria-label="{{ de_en('Handbuch', 'Handbook') }}">
+    <p class="handbook-nav-title">{{ icon("book", 18) }} {{ de_en("Handbuch", "Handbook") }}</p>
+    <ul class="plain">
+      {% for key, label in pages %}
+      <li>
+        <a href="{{ url_for('handbook.index') if key == 'index' else url_for('handbook.page', name=key) }}"{% if key == name %} aria-current="page"{% endif %}>{{ label }}</a>
+        {% if key == name and toc %}
+        <ul class="plain handbook-toc">
+          {% for hid, text in toc %}<li><a href="#{{ hid }}">{{ text }}</a></li>{% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+  <article class="handbook-body panel">
+    {{ body }}
+  </article>
+</div>
+{% endblock %}

@@ -1,0 +1,3 @@
+{# The segments of one question alone, for static/segments.js (surveys._lc_part): fn as on the results page #}
+{% macro fn() %}{% set cited = [] %}{% for key in varargs if notes is defined and notes.get(key) %}{% set _ = cited.extend(notes[key]) %}{% endfor %}{% if cited %} {{ apa.cite(cited) }}{% endif %}{% endmacro %}
+{% include "surveys/_segments.html" %}

@@ -1,0 +1,37 @@
+{% from "_learn.html" import term %}
+{# Card sort (items/card_sort.py results()): per card the share in each given group, how often two cards lay in the
+   same group, the names of own groups. Needs: e, num #}
+{% set cs = e.cardsort %}
+{% if cs.groups %}
+<div class="res-scroll"><table class="res-table">
+  <thead><tr><th>{{ de_en("Karte", "Card") }}</th><th>n</th>{% for g in cs.groups %}<th>{{ g }}</th>{% endfor %}{% if cs.own %}<th>{{ de_en("eigener Stapel", "own pile") }}</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for r in cs.rows %}
+    <tr><td>{{ r.label }} <span class="hint"><code>{{ e.item.code }}_{{ r.code }}</code></span></td><td>{{ r.n }}</td>
+      {% for s in r.shares %}<td{% if s is not none and s == r.top and s > 0 %} class="res-top"{% endif %}>{% if s is not none %}{{ s|percent }}{% else %}–{% endif %}</td>{% endfor %}
+      {% if cs.own %}<td{% if r.own is not none and r.own == r.top and r.own > 0 %} class="res-top"{% endif %}>{% if r.own is not none %}{{ r.own|percent }}{% else %}–{% endif %}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Anteil der Personen, die die Karte auf diesen Stapel gelegt haben; fett: der häufigste Stapel.", "Share of the people who put the card on this pile; bold: the most frequent pile.") }}</p>
+{% endif %}
+{% if cs.labels|length > 1 %}
+<details class="res-dist"{% if not cs.groups %} open{% endif %}><summary>{{ de_en("Wie oft zwei Karten zusammen lagen", "How often two cards lay together") }}</summary>
+<div class="res-scroll"><table class="res-table res-pairs">
+  <thead><tr><th></th>{% for l in cs.labels %}<th title="{{ l }}">{{ loop.index }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for line in cs.pairs %}{% set i = loop.index0 %}
+    <tr><th>{{ loop.index }}. {{ cs.labels[i]|truncate(40) }}</th>
+      {% for v in line %}<td{% if v is not none %} style="background: color-mix(in srgb, var(--accent) {{ (v * 60)|round|int }}%, transparent)" title="{{ cs.labels[i] }} + {{ cs.labels[loop.index0] }}: {{ v|percent }}"{% endif %}>{% if v is not none %}{{ (v * 100)|round|int }}{% else %}·{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ term("similarity", "") }} {{ de_en("Prozent der Personen, die beide Karten sortiert haben und sie auf denselben Stapel gelegt haben. Diese Ähnlichkeitsmatrix ist die übliche Grundlage einer hierarchischen Clusteranalyse; die Daten dafür stehen im Export.", "Percent of the people who sorted both cards and put them on the same pile. This similarity matrix is the usual basis of a hierarchical cluster analysis; the data for it are in the export.") }}</p>
+</details>
+{% endif %}
+{% if cs.own %}
+<details class="res-dist"><summary>{{ de_en("Namen eigener Stapel", "Names of own piles") }}</summary>
+{% if cs.names %}<ol class="plain">{% for name, n in cs.names %}<li>{{ name }} <span class="muted">({{ n }})</span></li>{% endfor %}</ol>
+{% else %}<p class="muted small">{{ de_en("noch keine eigenen Stapel", "no own piles yet") }}</p>{% endif %}
+</details>
+{% endif %}

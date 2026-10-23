@@ -1,0 +1,13 @@
+<label><span class="label-title">{{ de_en("Titel der Befragung", "Survey title") }} * <span class="hint">{{ de_en("für Teilnehmende sichtbar (Browser-Tab, Datenschutzseite)", "visible to participants (browser tab, privacy page)") }}</span></span>
+  <input name="title" required maxlength="300" value="{{ values.title or '' }}">
+</label>
+<label>{{ de_en("Projektzugehörigkeit", "Project") }}
+  <input name="project" maxlength="300" value="{{ values.project or '' }}"
+         placeholder="{{ de_en('z. B. Drittmittelprojekt, Lehrveranstaltung, Abschlussarbeit', 'e.g. funded project, course, thesis') }}">
+</label>
+<label><span class="label-title">{{ de_en("Beschreibung", "Description") }}
+    <span class="hint">{{ de_en("Worum geht es in der Befragung? Erscheint in der Einwilligung („Worum geht es?“) für Teilnehmende und dient der KI-Unterstützung als Kontext. Zwei bis vier Sätze in verständlicher Sprache.", "What is the survey about? Appears in the consent (“Worum geht es?”) for participants and gives the AI support its context. Two to four sentences in plain language.") }}</span></span>
+  <textarea name="description" rows="4" data-description-field
+            placeholder="{{ de_en('z. B. „Wir untersuchen, wie Menschen Pflegeroboter im Alltag wahrnehmen und unter welchen Bedingungen sie ihnen vertrauen. Sie sehen kurze Szenarien und beantworten Fragen dazu.“', 'e.g. “We investigate how people perceive care robots in everyday life and under which conditions they trust them. You will see short scenarios and answer questions about them.”') }}">{{ values.description or '' }}</textarea>
+  <span class="hint" data-description-count></span>
+</label>

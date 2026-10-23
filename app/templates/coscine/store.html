@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{# "In Coscine ablegen" (app/coscine.py): step "target" picks project and resource, step "content"
+   what goes along and the metadata of the resource's profile. Needs: survey, step, back, conn, days; target:
+   targets, chosen; content: target, project, resource, profile, missing, choices, ticked, fields, handle,
+   worm, kind, warn_public, room, space_warn, size_text. #}
+{% block title %}{{ de_en("In Coscine ablegen", "Store in Coscine") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel" id="coscine">
+  <h2>{{ de_en("In Coscine ablegen", "Store in Coscine") }} <span class="hint">{{ de_en("Forschungsdatenarchiv der RWTH Aachen", "research data archive of RWTH Aachen") }}</span></h2>
+  {% if days is not none and days < 30 %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{% if days < 0 %}{{ de_en("Das Coscine-Token ist abgelaufen.", "The Coscine token has expired.") }}{% elif days == 1 %}{{ de_en("Das Coscine-Token läuft in 1 Tag ab.", "The Coscine token expires in 1 day.") }}{% else %}{{ de_en("Das Coscine-Token läuft in {n} Tagen ab.", "The Coscine token expires in {n} days.", n=days) }}{% endif %}
+    {{ de_en("Unter", "A new one can be added under") }} <a href="{{ url_for('accounts.connections') }}#coscine">{{ de_en("Konto › Verbindungen", "Account › Connections") }}</a>{{ de_en(" lässt sich ein neues hinterlegen.", ".") }}</span></div>
+  {% endif %}
+
+  {{ why("archive_where") }}
+  {% if step == "target" %}
+  {% if targets %}
+  <form method="get" action="{{ url_for('coscine.store', survey_id=survey.id) }}" class="stack">
+    <label>{{ de_en("Ziel", "Target") }}
+      <select name="ziel">
+        {% for p, resources in targets %}
+        <optgroup label="{{ p.displayName or p.name }}">
+          {% for r in resources %}{% set key = p.id ~ ":" ~ r.id %}
+          <option value="{{ key }}" {% if key == chosen %}selected{% endif %}>{{ r.displayName or r.name }}{% set k = kind_label(r) %}{% if k %} ({{ k }}){% endif %}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="form-actions"><button class="button">{{ de_en("Weiter", "Next") }}</button>
+      <a class="button button-secondary" href="{{ url_for('coscine.new_page', survey_id=survey.id) }}">{{ icon("plus", 16) }} {{ de_en("Neu in Coscine anlegen", "Create in Coscine") }}</a></div>
+  </form>
+  <p class="muted small">{{ de_en("Zur Auswahl stehen die Ressourcen (Web oder S3: änderbar; WORM: nur einmal beschreibbar, nicht löschbar) der Coscine-Projekte, in denen {who} schreiben darf. Ein neues Projekt oder eine neue Ressource lässt sich hier mit „Neu in Coscine anlegen“ einrichten.", "You can choose from the resources (web or S3: changeable; WORM: writable only once, cannot be deleted) of the Coscine projects in which {who} may write. A new project or resource can be set up here with “Create in Coscine”.", who=conn.name or de_en("Ihr Coscine-Konto", "your Coscine account")) }}</p>
+  {% else %}
+  <p class="small">{{ de_en("In Coscine gibt es für {who} noch keine Ressource, in die es schreiben darf. Legen Sie in", "In Coscine there is no resource yet that {who} may write to. Create a project in", who=conn.name or de_en("Ihr Konto", "your account")) }} <a href="https://coscine.rwth-aachen.de/" target="_blank" rel="noopener">Coscine ↗</a> {{ de_en("ein Projekt mit einer Ressource vom Typ „Web“, „S3“ oder „WORM“ an und kommen Sie dann hierher zurück, oder legen Sie beides gleich hier an.", "with a resource of type “Web”, “S3” or “WORM” and then come back here, or create both right here.") }}</p>
+  <div class="form-actions"><a class="button" href="{{ url_for('coscine.new_page', survey_id=survey.id) }}">{{ icon("plus", 16) }} {{ de_en("Neu in Coscine anlegen", "Create in Coscine") }}</a></div>
+  {% endif %}
+
+  {% else %}
+  <p class="small"><strong>{{ project.displayName or project.name }}</strong> › <strong>{{ resource.displayName or resource.name }}</strong>{% if kind %} ({{ kind }}){% endif %}
+    · {{ de_en("Metadatenprofil „{p}“", "metadata profile “{p}”", p=profile.title) }}{% if handle %} · <a href="{{ handle }}" target="_blank" rel="noopener">{{ de_en("Dauerhafter Link (Handle) ↗", "Permanent link (handle) ↗") }}</a>{% endif %}
+    · <a href="{{ url_for('coscine.store', survey_id=survey.id) }}">{{ de_en("anderes Ziel", "other target") }}</a></p>
+  {% if room %}
+  {# the storage of the resource (app/coscine.py, space, K4): what does not fit is refused before the first file #}
+  <p class="small">{{ de_en("Speicher: {used} von {total} belegt ({p} %), {free} frei.", "Storage: {used} of {total} in use ({p}%), {free} free.", used=size_text(room.used), total=size_text(room.total), p=room.percent|dec(1), free=size_text(room.free)) }}</p>
+  {% if room.percent >= space_warn %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Die Ressource ist fast voll. Passt die Ablage nicht mehr hinein, lehnt Askurious sie vor der ersten Datei ab; vergrößern lässt sich die Ressource in Coscine.", "The resource is nearly full. If the upload no longer fits, Askurious refuses it before the first file; the resource can be enlarged in Coscine.") }}</span></div>
+  {% endif %}
+  {% endif %}
+  {% if missing %}
+  <div class="flash flash-error">{{ icon("alert", 16) }} <span>{{ de_en("Das Metadatenprofil dieser Ressource verlangt Angaben, die Askurious nicht ausfüllen kann: {names}. Bitte eine Ressource mit dem Basisprofil oder dem Profil „Social Science Data Profile RISK“ wählen.", "The metadata profile of this resource asks for details Askurious cannot fill in: {names}. Please choose a resource with the base profile or the profile “Social Science Data Profile RISK”.", names=missing|map(attribute="name")|join(", ")) }}</span></div>
+  {% endif %}
+  {% if worm %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Eine <strong>WORM-Ressource</strong> lässt sich nie ändern: Abgelegte Dateien können weder überschrieben noch gelöscht werden, auch nicht von Ihnen, und belegen ihren Platz dauerhaft. Das gilt auch für einen unvollständigen Ordner, wenn die Übertragung abbricht.", "A <strong>WORM resource</strong> can never be changed: stored files can be neither overwritten nor deleted, not even by you, and take up their space for good. This also applies to an incomplete folder if the transfer breaks off.")|safe }}</span></div>
+  {% endif %}
+  {% if warn_public %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Diese Ressource ist in Coscine <strong>öffentlich</strong> sichtbar, laut Einwilligung werden die Daten aber nicht veröffentlicht. Bitte prüfen, ob die Ablage hier zulässig ist.", "This resource is <strong>publicly</strong> visible in Coscine, but according to the consent the data are not published. Please check whether storing them here is allowed.")|safe }}</span></div>
+  {% endif %}
+  <form method="post" action="{{ url_for('coscine.store', survey_id=survey.id) }}" class="stack" autocomplete="off" data-busy-form>
+    {{ csrf() }}<input type="hidden" name="ziel" value="{{ target }}">
+    <h3>{{ de_en("Was mitgeht", "What goes along") }}</h3>
+    {% for key, label, note, _ in choices %}
+    <label class="check"><input type="checkbox" name="{{ key }}" value="1" {% if key in ticked %}checked{% endif %}> {{ label }} <span class="hint">{{ note }}</span></label>
+    {% else %}<p class="muted small">{% if survey.interview is not none %}{{ de_en("Noch keine Fassung des Leitfadens festgehalten.", "No revision of the guide recorded yet.") }}{% else %}{{ de_en("Nichts zum Ablegen.", "Nothing to store.") }}{% endif %}</p>{% endfor %}
+    <h3>{{ de_en("Metadaten", "Metadata") }} <span class="hint">{{ de_en("je Datei, nach dem Profil der Ressource; der Titel bekommt den Dateinamen angehängt", "per file, after the profile of the resource; the file name is appended to the title") }}</span></h3>
+    {% for f, value in fields %}
+    <label><span class="label-title">{{ f.name }}{% if not f.min %} <span class="hint">{{ de_en("optional", "optional") }}</span>{% endif %}{% if f.multi %} <span class="hint">{{ de_en("mehrere mit ; trennen", "separate several with ;") }}</span>{% endif %}</span>
+      {% if f.options %}
+      <select name="{{ f.key }}">
+        <option value="" {% if not value %}selected{% endif %}>{{ de_en("bitte wählen", "please choose") }}</option>
+        {% for o in f.options %}<option value="{{ o }}" {% if o == value %}selected{% endif %}>{{ o }}</option>{% endfor %}
+      </select>
+      {% elif f.datatype.endswith("#integer") %}
+      <input type="number" name="{{ f.key }}" value="{{ value }}" step="1"{% if f.low is not none %} min="{{ f.low }}"{% endif %}{% if f.high is not none %} max="{{ f.high }}"{% endif %}>
+      {% elif f.datatype.endswith("#date") %}
+      <input type="date" name="{{ f.key }}" value="{{ value }}">
+      {% elif not f.single %}
+      <textarea name="{{ f.key }}" rows="3" maxlength="4000">{{ value }}</textarea>
+      {% else %}
+      <input name="{{ f.key }}" value="{{ value }}" maxlength="4000">
+      {% endif %}
+      {% if f.help %}<span class="hint">{{ f.help }}</span>{% endif %}
+    </label>
+    {% endfor %}
+    <div class="form-actions">
+      <button class="button" {% if missing or not choices %}disabled{% endif %}{% if worm %} data-confirm="{{ de_en('In die WORM-Ressource ablegen?', 'Store in the WORM resource?') }}"
+        data-confirm-note="{{ de_en('Die Dateien lassen sich danach weder ändern noch löschen. Bricht die Übertragung ab, bleibt auch der unvollständige Ordner dort liegen.', 'The files can then be neither changed nor deleted. If the transfer breaks off, the incomplete folder also stays there.') }}"
+        data-confirm-ok="{{ de_en('Ablegen', 'Store') }}"{% endif %}>{{ icon("archive", 16) }} {{ de_en("In Coscine ablegen", "Store in Coscine") }}</button>
+      <span class="busy-note" data-busy-note hidden role="status"><progress aria-label="{{ de_en('Wird an Coscine übertragen', 'Transferring to Coscine') }}"></progress>
+        <span>{{ de_en("Wird an Coscine übertragen … je Datei Metadaten und Inhalt, das kann einige Minuten dauern.", "Transferring to Coscine … metadata and content per file, this can take a few minutes.") }}</span></span>
+    </div>
+    <p class="muted small">{{ de_en("Jede Ablage kommt in einen neuen Ordner", "Each upload goes into a new folder") }} <code>askurious/{{ survey.uid }}/{{ de_en("Datum_Uhrzeit", "date_time") }}/</code>{{ de_en("; nichts wird überschrieben. Dazu kommt", "; nothing is overwritten. Added is") }} <code>checksums.sha256</code> {{ de_en("mit der SHA-256 jeder Datei. Weggelassen werden wie bei Zenodo immer Teilnahme-ID, URL-Parameter, Geräteangaben und Kontaktdaten. Eine DOI vergibt Coscine nicht selbst: Dafür nach dem Ablegen im Block „Coscine“ „Veröffentlichung beantragen“ wählen (an der RWTH über RWTH Publications).", "with the SHA-256 of each file. As with Zenodo, participation ID, URL parameters, device details and contact details are always left out. Coscine does not assign a DOI itself: for that, choose “Request publication” in the block “Coscine” after storing (at RWTH via RWTH Publications).") }}</p>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

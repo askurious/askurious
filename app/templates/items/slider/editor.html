@@ -1,0 +1,69 @@
+{% from "_macros.html" import row_list_hint %}
+{% from "_learn.html" import why %}
+{% set t = item.lang_texts(lang) %}
+{% set c = item.cfg %}
+{% set question_hint = de_en("z. B. „Wie stark verändert sich Ihr Vertrauen durch …?“", "e.g. “How much does … change your trust?”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Skala", "Scale") }}</legend>
+  {{ why("slider") }}
+  <div class="stack">
+    {% if structural %}
+    <label>{{ de_en("Vorlage", "Template") }}
+      <select data-slider-preset>
+        <option value="">{{ de_en("– übernehmen –", "– apply –") }}</option>
+        {% for label, lo, hi, step, f in kind.presets %}<option value="{{ lo }}|{{ hi }}|{{ step }}|{{ f }}">{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <div class="row-fields">
+      <label>{{ de_en("von", "from") }} <input name="min" class="narrow" inputmode="decimal" value="{{ fmt_num(c.min) }}" {% if not structural %}disabled{% endif %}></label>
+      <label>{{ de_en("bis", "to") }} <input name="max" class="narrow" inputmode="decimal" value="{{ fmt_num(c.max) }}" {% if not structural %}disabled{% endif %}></label>
+      <label>{{ de_en("Schrittweite", "Step") }} <input name="step" class="narrow" inputmode="decimal" value="{{ fmt_num(c.step) }}" {% if not structural %}disabled{% endif %}></label>
+      <label>{{ de_en("Startwert", "Starting value") }} <span class="hint">optional</span> <input name="start" class="narrow" inputmode="decimal" value="{{ fmt_num(c.get('start')) if c.get('start') is not none else '' }}" placeholder="{{ de_en('keiner', 'none') }}" {% if not structural %}disabled{% endif %}></label>
+      <label>{{ de_en("Einheit", "Unit") }}
+        <select name="format" data-show-for {% if not structural %}disabled{% endif %}>
+          {% for key, label in kind.formats.items() %}<option value="{{ key }}" {% if c.format == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label data-when="currency">{{ de_en("Währung", "Currency") }}
+        <select name="currency" {% if not structural %}disabled{% endif %}>
+          {% for code, sym in kind.currencies.items() %}<option value="{{ code }}" {% if c.currency == code %}selected{% endif %}>{{ code }} ({{ sym }})</option>{% endfor %}
+        </select>
+      </label>
+      <label data-when="number">{{ de_en("Einheit", "Unit") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span> <input name="unit" value="{{ t.get('unit', '') }}" maxlength="30" placeholder="{{ de_en('leer, oder z. B. km, Std.', 'empty, or e.g. km, hrs') }}" class="narrow"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="show_value" value="1" {% if c.show_value %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("gewählten Wert anzeigen", "show the chosen value") }}</label>
+    <label class="check"><input type="hidden" name="ratio_shown" value="1"><input type="checkbox" name="ratio" value="1" {% if c.get("ratio", c.format == "currency") %}checked{% endif %}> {{ de_en("Beträge oder Anzahlen", "Amounts or counts") }} <span class="hint">{{ de_en("Werte mit echtem Nullpunkt; nur dann zeigen die Ergebnisse den Gini-Koeffizienten", "values with a true zero; only then do the results show the Gini coefficient") }}</span></label>
+    <div class="row-fields">
+      <label class="grow-1">{{ de_en("Beschriftung links", "Label on the left") }} <input name="left" value="{{ t.get('left', '') }}" placeholder="{{ de_en('z. B. stark gesunken', 'e.g. decreased a lot') }}" style="width:100%"></label>
+      <label class="grow-1">{{ de_en("Beschriftung rechts", "Label on the right") }} <input name="right" value="{{ t.get('right', '') }}" placeholder="{{ de_en('z. B. stark gestiegen', 'e.g. increased a lot') }}" style="width:100%"></label>
+    </div>
+    <p class="muted small">{{ de_en("Die Regler haben keinen Startwert: Der Griff erscheint erst bei der ersten Berührung (kein Anker-Effekt). Anders als bei der Konstantsumme sind die Werte unabhängig voneinander.", "The sliders have no starting value: the handle only appears at the first touch (no anchoring effect). Unlike the constant sum, the values are independent of each other.") }}</p>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Aussagen", "Statements") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("eine Aussage ohne Text = nur die Frage mit einem Regler; Variablenname leer = {code} bzw. {code}_1, _2, …", "a statement without text = only the question with one slider; variable name empty = {code} or {code}_1, _2, …", code=item.code) }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th><th class="narrow-col">Variable</th></tr></thead>
+    <tbody>
+    {% set rtexts = t.get("rows", {}) %}
+    {% for r in c.rows %}
+      <tr>
+        <td><input type="hidden" name="stmt_id" value="{{ r.id }}"><input name="stmt_text" aria-label="{{ de_en('Aussage', 'Statement') }}" value="{{ rtexts.get(r.id, '') }}" placeholder="{{ (item.text('rows') or {}).get(r.id, '') }}"></td>
+        <td><input name="stmt_code" aria-label="Variable" data-varname="part" value="{{ r.code }}" class="narrow" placeholder="{{ kind.row_code(item, loop.index0, r) }}" {% if not structural %}readonly{% endif %}></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="stmt_id" value="{{ new_id() }}"><input name="stmt_text" aria-label="{{ de_en('Aussage', 'Statement') }}" placeholder="{{ de_en('neue Aussage', 'new statement') }}"></td>
+        <td><input name="stmt_code" aria-label="Variable" data-varname="part" class="narrow"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if c.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Aussagen in zufälliger Reihenfolge zeigen", "Show the statements in random order") }}</label>
+</fieldset>

@@ -1,0 +1,43 @@
+{# "Anteile je Gruppe" (UI/UX audit 2026-10-07, S8, W63): one figure for the shares of a group comparison, the same for
+   single choice, multiple choice and ordered answers (app/compare.py). Every group has its colour of the data
+   palette and its shape in the key, as the segments (.lc-c1 to .lc-c6, S11), and its name next to its bar, so the
+   groups are told apart without colour too (WCAG 1.4.1).
+   - single and multiple choice: per answer one bar per group with its 95 % interval, every share from 0, one scale
+     for the whole block (Ralf, 2026-10-06); not with two answers, where the table says it all (W63); more than six
+     answers would make a long column of bars: then folded;
+   - ordered answers: one stacked 100-% row per group, the levels in scale order as for the whole sample (W63). #}
+{% from "_macros.html" import num, share_bar %}
+{% macro group_key(j) %}<span class="lc-key lc-c{{ (j % 6) + 1 }}" aria-hidden="true"></span>{% endmacro %}
+{% macro group_shares(b, cd) %}
+{% if b.kind == "ordinal" %}
+    {% set k = b.levels|length %}
+    <div class="res-stacks res-group-shares">
+      <ul class="plain res-stack-legend">{% for lv in b.levels %}{% set bg = level_colour(loop.index0, k) %}<li><i style="background: {{ bg[0] }}"></i>{{ lv.value }}{% if lv.label %} {{ lv.label|truncate(32) }}{% endif %}</li>{% endfor %}</ul>
+      {% for g in b.per %}{% set glabel = b.groups[loop.index0][1] %}
+      <div class="res-stack-row"><span class="res-stack-label">{{ group_key(loop.index0) }}{{ glabel|truncate(40) }} <span class="hint">Md {% if g.median_hi %}{{ g.median }}–{{ g.median_hi }}{% else %}{{ g.median if g.median is not none else "–" }}{% endif %}</span></span>
+        <span class="res-stack" role="img" aria-label="{{ glabel|truncate(40) }}: {% for lv in b.levels %}{{ lv.label or lv.value }} {{ (g.shares[lv.value] or 0)|percent }}{{ ', ' if not loop.last }}{% endfor %}">
+          {%- for lv in b.levels %}{% set bg = level_colour(loop.index0, k) %}{% set sh = g.shares[lv.value] or 0 %}{% if sh %}<span class="{{ 'is-strong' if bg[1] }}" style="width: {{ (sh * 100)|round(2) }}%; background: {{ bg[0] }}" title="{{ lv.label or lv.value }}: {{ sh|percent }}">{% if sh >= 0.08 %}{{ sh|pct }}{% endif %}</span>{% endif %}{% endfor -%}
+        </span>
+        <span class="res-stack-n">n = {{ num(g.n, cd) }}</span></div>
+      {% endfor %}
+      <p class="muted small">{{ de_en("Anteile je Gruppe in Prozent, Stufen in der Reihenfolge der Skala; Zahlen ab 8 %; Md: Median", "Shares per group in per cent, levels in the order of the scale; numbers from 8%; Md: median") }}</p>
+    </div>
+{% elif b.rows|length > 2 %}
+    {% set ns = namespace(top=0) %}{% for row in b.rows %}{% for s in row.shares %}{% set ci = row.ci[loop.index0] if row.ci else none %}{% set ns.top = [ns.top, s, ci[1] if ci else 0]|max %}{% endfor %}{% endfor %}
+    {% if b.rows|length > 6 %}<details class="res-dist"><summary>{{ de_en("Als Abbildung", "As a figure") }}</summary>{% endif %}
+    <div class="res-group-bars res-group-shares">
+      <ul class="plain res-stack-legend" aria-hidden="true">{% for c, label in b.groups %}<li>{{ group_key(loop.index0) }}{{ label|truncate(40) }}</li>{% endfor %}</ul>
+      {% for row in b.rows %}
+      <p class="res-group-bars-head">{{ row.label|truncate(60) }}</p>
+      <ul class="plain res-bars{{ ' res-bars-ci' if row.ci }}">
+        {% for c, label in b.groups %}{% set j = loop.index0 %}
+        <li><span class="res-bar-label">{{ group_key(j) }}{{ label|truncate(40) }}</span>
+          {{ share_bar({"share": row.shares[j], "ci": row.ci[j] if row.ci else none}, ns.top or 1, "lc-bar lc-c" ~ ((j % 6) + 1)) }}
+          <span class="res-bar-n">{{ row.shares[j]|percent }} ({{ num(row.cells[j], cd) }})</span></li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    </div>
+    {% if b.rows|length > 6 %}</details>{% endif %}
+{% endif %}
+{% endmacro %}

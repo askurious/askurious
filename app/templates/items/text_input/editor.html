@@ -1,0 +1,64 @@
+{% set t = item.lang_texts(lang) %}
+{% include "items/_question_field.html" %}
+{% set en_validations = {"none": "none", "integer": "whole number", "decimal": "decimal number", "email": "email address", "plz_de": "postal code (DE)", "regex": "own regular expression"} %}
+<fieldset>
+  <legend>{{ de_en("Eingabe", "Input") }}</legend>
+  <div class="stack">
+    <div class="row-fields">
+      <label>{{ de_en("Text davor", "Text before") }} <span class="hint">{{ de_en("optional, links neben dem Feld", "optional, to the left of the field") }}</span>
+        <input name="prefix" value="{{ t.get('prefix', '') }}" maxlength="100" placeholder="{{ (item.text('prefix') or '') or de_en('z. B. ca.', 'e.g. approx.') }}"></label>
+      <label>{{ de_en("Text danach", "Text after") }} <span class="hint">{{ de_en("optional, rechts neben dem Feld", "optional, to the right of the field") }}</span>
+        <input name="suffix" value="{{ t.get('suffix', '') }}" maxlength="100" placeholder="{{ (item.text('suffix') or '') or de_en('z. B. m', 'e.g. m') }}"></label>
+    </div>
+    <div class="row-fields">
+      <label>{{ de_en("Eingabeprüfung", "Input check") }}
+        <select name="validation" data-show-for {% if not structural %}disabled{% endif %}>
+          {% for key, label in kind_validations().items() %}
+          <option value="{{ key }}" {% if item.config.get("validation", "none") == key %}selected{% endif %}>{{ de_en(label, en_validations.get(key, label)) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label data-when="integer decimal">{{ de_en("von", "from") }} <input name="min" class="narrow" inputmode="decimal" value="{{ fmt_num(item.config.get('min')) }}" {% if not structural %}disabled{% endif %}></label>
+      <label data-when="integer decimal">{{ de_en("bis", "to") }} <input name="max" class="narrow" inputmode="decimal" value="{{ fmt_num(item.config.get('max')) }}" {% if not structural %}disabled{% endif %}></label>
+    </div>
+    <label class="check" data-when="integer decimal"><input type="hidden" name="ratio_shown" value="1"><input type="checkbox" name="ratio" value="1" {% if item.config.get("ratio", true) %}checked{% endif %}> {{ de_en("Beträge oder Anzahlen", "Amounts or counts") }} <span class="hint">{{ de_en("Werte mit echtem Nullpunkt; nur dann zeigen die Ergebnisse den Gini-Koeffizienten (nicht bei Jahreszahlen oder Skalenwerten)", "values with a true zero; only then do the results show the Gini coefficient (not for years or scale values)") }}</span></label>
+    <div class="stack" data-when="regex">
+      <label><span class="label-title">{{ de_en("Regulärer Ausdruck", "Regular expression") }} <span class="hint">{{ de_en("muss die ganze Eingabe treffen, z. B.", "must match the whole input, e.g.") }} <code>[A-Z]{2}\d{4}</code></span></span>
+        <input name="pattern" value="{{ item.config.get('pattern', '') }}" spellcheck="false" class="mono" {% if not structural %}readonly{% endif %}>
+      </label>
+      <label><span class="label-title">{{ de_en("Fehlermeldung", "Error message") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }} optional</span></span>
+        <input name="validation_message" value="{{ t.get('validation_message', '') }}" placeholder="{{ de_en('Die Eingabe hat nicht das erwartete Format.', 'The input does not have the expected format.') }}">
+      </label>
+      <label>{{ de_en("Ausprobieren", "Try it") }} <input data-regex-test placeholder="{{ de_en('Beispieleingabe', 'Example input') }}" spellcheck="false"><span class="small" data-regex-result></span></label>
+    </div>
+    <div class="row-fields" data-when="none regex">
+      <label class="check"><input type="checkbox" name="multiline" value="1" {% if item.config.multiline %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("mehrzeilig", "multi-line") }}</label>
+      <label>{{ de_en("max. Zeichen", "max. characters") }} <input type="number" name="max_length" min="1" class="narrow" value="{{ item.config.max_length }}" {% if not structural %}disabled{% endif %}></label>
+    </div>
+    {# what the field asks for, for the browser's autofill and assistive tools (WCAG 1.3.5); empty by default, as surveys
+       are anonymous (UI/UX audit 2026-10-16, 103). Only a hint on the page: changeable at any time #}
+    <label><span class="label-title">{{ de_en("Zweck des Feldes", "Purpose of the field") }} <span class="hint">{{ de_en("optional; nur für Angaben zur Person, etwa im abgetrennten Abschnitt: Browser und Hilfsmittel können sie dann ausfüllen", "optional; only for details about the person, e.g. in the separated section: browsers and assistive tools can then fill them in") }}</span></span>
+      <input type="hidden" name="purpose_shown" value="1">
+      <select name="purpose">
+        <option value="">{{ de_en("keiner", "none") }}</option>
+        {% for key, (label_de, label_en) in kind.purposes().items() %}
+        <option value="{{ key }}" {% if item.config.get("purpose") == key %}selected{% endif %}>{{ de_en(label_de, label_en) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+</fieldset>
+{% if survey is defined and survey and survey.live is not none %}
+{# live votes: several words one after the other, per word cloud (Ralf, 2026-10-16; before: one tick for the whole
+   vote on Einstellungen, still read for votes that have not set it here, app/live/audience.py _multi) #}
+<fieldset>
+  <legend>{{ de_en("Live-Abstimmung", "Live poll") }}</legend>
+  <div class="stack">
+    <input type="hidden" name="live_multi_shown" value="1">
+    <label class="check"><input type="checkbox" name="live_multi" value="1" {% if item.config.get("live_multi", (survey.live or {}).get("multi", false)) %}checked{% endif %}>
+      {{ de_en("Mehrere Antworten nacheinander erlauben", "Allow several answers one after the other") }} <span class="hint">{{ de_en("Wort eintippen, Enter, das Feld ist frei für das nächste", "type a word, press Enter, the field is free for the next one") }}</span></label>
+    <label>{{ de_en("Höchstens je Person", "At most per person") }} <span class="hint">{{ de_en("leer: ohne Grenze", "empty: no limit") }}</span>
+      <input type="number" name="live_max" min="1" max="100" class="narrow" value="{{ item.config.get('live_max') or '' }}"></label>
+  </div>
+</fieldset>
+{% endif %}

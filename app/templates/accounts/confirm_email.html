@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Anmeldeadresse bestätigen", "Confirm sign-in address") }} · Askurious{% endblock %}
+{% block content %}
+<h1>{{ de_en("Anmeldeadresse bestätigen", "Confirm sign-in address") }}</h1>
+{% if activate %}<p>{{ de_en("Sie aktivieren {email} und das zuvor gewählte Passwort für Ihr aktuell angemeldetes Konto. Andere Sitzungen werden beendet; Datenzugänge, Einladungen und Verbindungen bleiben.",
+            "You activate {email} and the previously chosen password for your currently signed-in account. Other sessions are ended; data access tokens, invitations and connections stay.", email=email) }}</p>{% else %}<p>{{ de_en("Sie bestätigen die bestehende Anmeldeadresse {email} für Ihr aktuell angemeldetes Konto. Ihr Passwort bleibt gültig.", "You confirm the existing sign-in address {email} for your currently signed-in account. Your password remains valid.", email=email) }}</p>{% endif %}
+<form method="post">{{ csrf() }}<button class="button">{{ de_en("Adresse bestätigen", "Confirm address") }}</button></form>
+{% endblock %}

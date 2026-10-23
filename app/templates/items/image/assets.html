@@ -1,0 +1,91 @@
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "coscine/_pick.html" import coscine_pick with context %}
+<section class="panel" id="assets">
+  {% if survey.can(current_user, 'editor') %}<p><a href="{{ url_for('editor.image_rights', survey_id=survey.id) }}">{{ de_en("Bildrechte für öffentliche Archivierung", "Image rights for public archiving") }}</a></p>{% endif %}
+  <h2>{{ de_en("Bild", "Image") }} <span class="hint">{{ de_en("Nur freigegebene Bilder werden Teilnehmenden gezeigt.", "Only approved images are shown to participants.") }}</span></h2>
+  {% if structural %}
+  {% set ai = item.config.source == "ai" and ai_on() %}
+  <div class="tabs" role="tablist" data-tabs>
+    <button type="button" class="tab" role="tab" id="tab-upload" aria-controls="panel-upload" aria-selected="{{ 'false' if ai else 'true' }}">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button>
+    {% if ai_on() %}
+    <button type="button" class="tab" role="tab" id="tab-ai" aria-controls="panel-ai" aria-selected="{{ 'true' if ai else 'false' }}">{{ icon("sparkles", 16) }} {{ de_en("Mit KI erzeugen", "Generate with AI") }}</button>
+    {% endif %}
+  </div>
+
+  <div class="tab-panel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" {% if ai %}hidden{% endif %}>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('editor.upload', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="stack">
+      {{ csrf() }}
+      <label class="dropzone">
+        {{ icon("image", 28) }}
+        <span><strong>{{ de_en("Bild auswählen", "Choose an image") }}</strong> {{ de_en("oder hierher ziehen", "or drag it here") }}</span>
+        <span class="small">{{ de_en("PNG, JPEG, GIF oder WebP, bis 10 MB", "PNG, JPEG, GIF or WebP, up to 10 MB") }}</span>
+        <span class="dropzone-file"></span>
+        <input type="file" name="file" accept="image/png,image/jpeg,image/gif,image/webp" required>
+      </label>
+      {% include "_upload_rights.html" %}
+      <div class="form-actions"><button class="button">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button></div>
+    </form>
+    {{ coscine_pick(survey, "image", item=item, lang=lang) }}
+    {% set from_coscine = item.config.get("coscine") %}
+    {% if from_coscine and coscine_connected(current_user) %}
+    {# copied, not linked (Coscine-Ausbau E9): "neu holen" takes the same file again #}
+    <form method="post" action="{{ url_for('coscine.pick_image', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="inline small">
+      {{ csrf() }}<input type="hidden" name="ziel" value="{{ from_coscine.ziel }}"><input type="hidden" name="pfad" value="{{ from_coscine.pfad }}">
+      <span class="muted">{{ de_en("Aus Coscine: {p}, geholt am {d}", "From Coscine: {p}, taken on {d}", p=from_coscine.pfad, d=from_coscine.at) }}</span>
+      · <button class="link small">{{ de_en("neu holen", "take again") }}</button></form>
+    {% endif %}
+  </div>
+
+  {% if ai_on() %}
+  <div class="tab-panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" {% if not ai %}hidden{% endif %}>
+    <form method="post" action="{{ url_for('editor.generate', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="stack"
+          data-busy="{{ de_en('Wird erzeugt … (bis zu 1 Minute)', 'Generating … (up to 1 minute)') }}">
+      {{ csrf() }}
+      <label><span class="label-title">Prompt <span class="hint">{{ de_en("Beschreibung des Bildes, sprachunabhängig", "description of the image, independent of the language") }}</span></span>
+        <textarea name="prompt" rows="4" placeholder="{{ de_en('z. B. Ein freundlicher Pflegeroboter reicht einer älteren Frau im Wohnzimmer ein Glas Wasser, Fotostil, natürliches Licht', 'e.g. A friendly care robot hands an older woman a glass of water in the living room, photo style, natural light') }}">{{ item.config.prompt }}</textarea>
+      </label>
+      <p class="muted small">{{ de_en("Platzhalter wie", "Placeholders such as") }} <code>{{ "{{robot}}" }}</code> {{ de_en("machen das Bild dynamisch: In einer Schleife entsteht dann je Kombination ein Bild.", "make the image dynamic: in a loop, one image is then made per combination.") }}</p>
+      <div class="row-fields">
+        <label>Format
+          <select name="size">
+            {% for v, l in [("1536x1024", de_en("Querformat 3:2", "Landscape 3:2")), ("1024x1024", de_en("Quadrat", "Square")), ("1024x1536", de_en("Hochformat 2:3", "Portrait 2:3"))] %}
+            <option value="{{ v }}" {% if item.config.size == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="text_free" value="1" {% if item.config.get("text_free", true) %}checked{% endif %}> {{ de_en("ohne Schrift im Bild", "no lettering in the image") }} <span class="hint">{{ de_en("dann für alle Sprachen gleich", "then the same for all languages") }}</span></label>
+      </div>
+      {% if kind.is_dynamic(item) %}
+      {% set n_keys = kind.required_keys(item)|length %}
+      <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Dynamisch: Verwendet {names}.", "Dynamic: uses {names}.", names=kind.prompt_variables(item)|sort|join(", ")) }}
+        {% if n_keys %}{{ de_en("{n} Kombination(en) in der Schleife dieses Blocks,", "{n} combination(s) in the loop of this block,", n=n_keys) }} <a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang) }}">{{ de_en("Bilder erzeugen und prüfen", "generate and review images") }}</a>.
+        {% else %}{{ de_en("Der Block braucht eine Schleife, deren Tabelle diese Platzhalter als Spalten hat.", "The block needs a loop whose table has these placeholders as columns.") }}{% endif %}</span></div>
+      {% endif %}
+      <div class="form-actions"><button type="submit" class="button button-ai">{{ icon("sparkles", 16) }}<span> {{ de_en("Prompt speichern", "Save prompt") if kind.is_dynamic(item) else de_en("Erzeugen", "Generate") }}</span></button>{% if not kind.is_dynamic(item) %}{{ ai_access_line(platform=true) }}{% endif %}</div>
+    </form>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <div class="asset-grid">
+    {% for a in item.assets|sort(attribute="created_at", reverse=true) %}
+    <figure class="asset asset-{{ a.status }}">
+      <img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=a.filename) }}" alt="">
+      <figcaption>
+        <div class="asset-meta">
+          <span class="badge badge-{{ a.status }}">{{ {"approved": de_en("freigegeben", "approved"), "pending": de_en("zu prüfen", "to review"), "rejected": de_en("abgelehnt", "rejected")}[a.status] }}</span>
+          <span class="muted small">{{ de_en("KI", "AI") if a.source == "ai" else de_en("hochgeladen", "uploaded") }} · {{ a.created_at|localdt }}</span>
+        </div>
+        {% if structural %}
+        <div class="toolbar">
+          {% if a.status != "approved" %}<form class="inline" method="post" action="{{ url_for('editor.review_asset', survey_id=survey.id, asset_id=a.id, action='approve', lang=lang) }}">{{ csrf() }}<button class="button button-small">{{ icon("check", 16) }} {{ de_en("Freigeben", "Approve") }}</button></form>{% endif %}
+          {% if a.status == "pending" %}<form class="inline" method="post" action="{{ url_for('editor.review_asset', survey_id=survey.id, asset_id=a.id, action='reject', lang=lang) }}">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Ablehnen", "Reject") }}</button></form>{% endif %}
+          <form class="inline" method="post" action="{{ url_for('editor.review_asset', survey_id=survey.id, asset_id=a.id, action='delete', lang=lang) }}" data-confirm="{{ de_en('Das freigegebene Bild endgültig löschen?', 'Delete the approved image permanently?') if a.status == 'approved' else de_en('Dieses Bild endgültig löschen?', 'Delete this image permanently?') }}" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen; Teilnehmende sehen dann kein Bild, bis ein anderes freigegeben ist.', 'This cannot be undone; participants then see no image until another one is approved.') if a.status == 'approved' else de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}" data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>{{ csrf() }}<button class="icon-btn danger" title="{{ de_en('endgültig löschen', 'delete permanently') }}" aria-label="{{ de_en('endgültig löschen', 'delete permanently') }}">{{ icon("trash") }}</button></form>
+        </div>
+        {% endif %}
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% if not item.assets %}<p class="muted small space-above">{{ de_en("Noch kein Bild.", "No image yet.") }}</p>{% endif %}
+</section>

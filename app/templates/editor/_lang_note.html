@@ -1,0 +1,8 @@
+{% from "_icons.html" import icon %}
+{# Item and loop pages opened in a language other than the default one (from the page "Übersetzung"); the
+   questionnaire itself is edited in the default language only. Needs: survey, lang, languages. #}
+{% if lang != survey.default_language %}
+<div class="flash">{{ icon("flag", 16) }} <span>{{ de_en("Übersetzung ({language}): Hier stehen die Texte dieser Sprache.", "Translation ({language}): the texts of this language are shown here.", language=languages[lang]) }}
+  <a href="{{ request.path }}">{{ de_en("Zur Ausgangssprache ({language})", "To the source language ({language})", language=languages[survey.default_language]) }}</a> ·
+  <a href="{{ url_for('translations.index', survey_id=survey.id, lang=lang) }}">{{ de_en("Zur Übersetzungsseite", "To the translation page") }}</a></span></div>
+{% endif %}

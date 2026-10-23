@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "items/_suggestion.html" import suggestion %}
+{% block title %}{{ de_en("KI-Prüfung der Texte", "AI check of the texts") }} · {{ item.code if item else survey.title }}{% endblock %}
+{% block content %}
+{% set back = url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) if item else url_for('editor.index', survey_id=survey.id, lang=lang) %}
+<a class="back-link" href="{{ back }}">{{ icon("back", 16) }} {{ item.code if item else de_en("Fragebogen", "Questionnaire") }}</a>
+<div class="page-head"><h1>{{ de_en("KI-Prüfung der Texte", "AI check of the texts") }} <span class="hint">{{ de_en("Frage {code}", "Question {code}", code=item.code) if item else de_en("ganzer Fragebogen", "whole questionnaire") }} · {{ language_names[survey.default_language] }}</span></h1></div>
+<p class="muted small">{{ de_en("Geprüft nach den Regeln der Fragebogenkonstruktion: eine Sache je Frage, neutral, ohne doppelte Verneinung, verständlich, vollständige und überschneidungsfreie Antworten, einheitliche Anrede, Rechtschreibung.", "Checked against the rules of questionnaire design: one thing per question, neutral, no double negatives, understandable, complete and non-overlapping answers, consistent form of address, spelling.") }}
+  {{ de_en("Nicht gesendet: validierte Konstrukte (ihr Wortlaut bleibt wie veröffentlicht), die Einwilligung und die Übersetzungen.", "Not sent: validated constructs (their wording stays as published), the consent and the translations.") }}
+  {{ de_en("Nichts ändert sich, bis Sie Vorschläge auswählen und übernehmen.", "Nothing changes until you select and apply suggestions.") }}</p>
+
+{% if result.empty %}
+<p class="flash flash-warning">{{ de_en("Im Fragebogen gibt es noch keine Texte, die sich prüfen ließen.", "The questionnaire has no texts to check yet.") }}</p>
+{% endif %}
+{% if result.cut %}
+<p class="flash flash-warning small">{{ de_en("Der Fragebogen ist für eine Anfrage zu lang; geprüft wurde der vordere Teil. Die übrigen Fragen lassen sich einzeln prüfen (Knopf auf der Seite jeder Frage).", "The questionnaire is too long for one request; the front part was checked. The other questions can be checked one by one (button on the page of each question).") }}</p>
+{% endif %}
+
+{% if result.remarks %}
+<section class="panel">
+  <h2>{{ de_en("Zum Fragebogen insgesamt", "On the questionnaire as a whole") if not item else de_en("Allgemeine Hinweise", "General notes") }}</h2>
+  <ul>{% for r in result.remarks %}<li>{{ r }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if result.suggestions %}
+<form method="post" action="{{ url_for('editor.text_review_apply', survey_id=survey.id) }}" class="stack">
+  {{ csrf() }}
+  {% if item %}<input type="hidden" name="item" value="{{ item.id }}">{% endif %}
+  <section class="panel">
+    <table class="review-table">
+      <colgroup><col class="check-col"><col><col></colgroup>
+      {% for s in result.suggestions %}
+      {% set ref = s.item.id ~ "|" ~ s.id %}
+      {% set where %}{% if not item %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=s.item.id, lang=lang) }}"><code>{{ s.item.code }}</code></a> · {% endif %}<strong>{{ s.role }}</strong>{% endset %}
+      {{ suggestion("take", ref, s.role, where, s.old, "text_" ~ ref, s.suggestion, s.why) }}
+      {% endfor %}
+    </table>
+    <div class="form-actions"><button class="button">{{ icon("check", 16) }} {{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+      <a class="button button-secondary" href="{{ back }}">{{ de_en("Verwerfen", "Discard") }}</a></div>
+  </section>
+</form>
+{% elif not result.empty %}
+<p class="flash flash-success">{{ de_en("Die KI hat an den Texten nichts zu verbessern gefunden.", "The AI found nothing to improve in the texts.") }}</p>
+{% endif %}
+{% endblock %}

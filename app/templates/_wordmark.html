@@ -1,0 +1,11 @@
+{# The wordmark of Askurious in PT Serif Bold, as outlines (static/img/wordmark.svg; copyright audit 2026-10-22: the
+   text before named "Iowan Old Style", a commercial font, which showed only where it was installed). Only for the main
+   brand: another brand (BRANDS) keeps its name as text. Baseline and height as the text it replaces: 1.325 em high,
+   0.286 em below the baseline (the font's ascender and descender). #}
+{% macro wordmark(with_domain=False, cls="") -%}
+{%- if main_brand() -%}
+<svg class="wordmark {{ cls }}" viewBox="0 0 {{ 6249 if with_domain else 4817 }} 1325" role="img" aria-label="{{ brand_name() }}{{ '.de' if with_domain }}"><use href="{{ url_for('static', filename='img/wordmark.svg') }}#{{ 'askurious-de' if with_domain else 'askurious' }}"/></svg>
+{%- else -%}
+{{ brand_name() }}{{ '.de' if with_domain }}
+{%- endif -%}
+{%- endmacro %}

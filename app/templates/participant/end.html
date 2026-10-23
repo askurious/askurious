@@ -1,0 +1,31 @@
+{% extends "participant/base.html" %}
+{# `forward`: the completion link of this end (panel.target), shown as a button; with `forward_after` the page
+   moves on by itself after that many seconds. A link that redirects at once never gets here.
+   The countdown runs in participant.js and can be stopped; while a deletion code is on the page nothing moves on by
+   itself, the person has to note the code first (WCAG 2.2.1, UI audit 2026-10-04, R60).
+   The preview renders this page too (`preview`, editor._run_preview): the link is not followed, the deletion code is
+   an example, and the summary of the test run follows (S9, W47). #}
+{% block head %}{% set auto_forward = forward is defined and forward and forward_after and not (erase_code is defined and erase_code) and not (preview is defined and preview) %}{% if auto_forward %}<noscript><meta http-equiv="refresh" content="{{ forward_after }};url={{ forward }}"></noscript>{% endif %}{% endblock %}
+{% block main_attrs %}{% if preview is defined and preview %}data-page="end" data-page-count="{{ page_count }}"{% endif %}{% endblock %}
+{% block content %}
+{# the one main heading of the page for screen readers (R63); what is seen is the researchers' end text #}
+<h1 class="p-sr-only">{{ ui("Ende der Befragung", "End of the survey") }}</h1>
+<div class="p-end p-end-{{ status }}"{% if in_app is defined and in_app %} data-app-done{% endif %}{% if waiting is defined and waiting %} data-keep-inputs{% endif %}>{{ text|rich }}</div>
+{% include "participant/_end_extras.html" %}
+{% if preview is defined and preview %}
+{% if erase_code %}<p class="p-preview-note">{{ ui("Beispielcode: So sieht der Löschcode für Teilnehmende aus.", "Example code: this is how participants see their deletion code.") }}</p>{% endif %}
+{% if study_next %}{# the test run of the whole diary study: on to the next part (app/editor/preview.py) #}
+<div class="p-preview-summary p-study-next">
+  <p><strong>{{ ui("Testdurchlauf der ganzen Tagebuchstudie: Teil {k} von {n}", "Test run of the whole diary survey: part {k} of {n}", k=study_next.k, n=study_next.n) }}</strong></p>
+  {% if study_next.url %}<a class="p-button" href="{{ study_next.url }}" {% if framed %}target="_top"{% endif %}>{{ ui("Weiter mit: {part}", "Continue with: {part}", part=study_next.label) }}</a>
+  {% else %}<p>{{ ui("Alle Teile sind durchlaufen.", "All parts have been gone through.") }}</p>{% endif %}
+</div>
+{% endif %}
+{% include "participant/_preview_summary.html" %}
+{% elif again is defined and again %}
+<form method="post" action="{{ url_for('participate.again', uid=survey.public_key) }}" class="p-again">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="p-button p-button-secondary">{{ again }}</button>
+</form>
+{% endif %}
+{% endblock %}

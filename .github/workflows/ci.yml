@@ -1,0 +1,63 @@
+# For now only by hand (Ralf, 2026-10-19): for the cost of private Actions no CI runs on GitHub, no push, no
+# pull_request, no schedule, and nobody starts this workflow. The check before a deploy is the local --full run.
+# Kept for later (the repository may move or become public); switching it back on: BETRIEB.md, "CI auf GitHub".
+# What it runs (audit 2026-10-18, CFG-06): the tests in four parts and the check for known vulnerabilities, on
+# GitHub's machines. The everyday run without --full: the slow tests (tests/slow_tests.txt) and the deploy tests
+# (bash) stay for the --full run before a deploy. Actions pinned by commit, as the images by digest (CFG-05).
+name: CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        part:
+          - "tests/accounts tests/editor tests/items"
+          - "tests/analysis tests/exports"
+          - "tests/participation tests/quotas tests/privacy tests/diary tests/interview"
+          - "tests/platform tests/ui tests/live tests/dashboards"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          # the whole history: tests/platform/test_rolling_restart.py reads the models of an older revision from git
+          # (FUNC-01); in a shallow clone that check could only skip
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Packages (requirements.lock with its hashes, then the test tools)
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes --no-deps -r requirements.lock
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Tests
+        env:
+          TEST_SLOTS: "0"  # one run per machine of GitHub: no waiting for a place
+          WSL_TESTS: "0"
+        run: python -m pytest -q -p no:warnings -n 4 ${{ matrix.part }}
+
+  vulnerabilities:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Known vulnerabilities (OSV), as deploy-docker.sh checks them
+        run: >-
+          python tools/check_vulnerabilities.py requirements.lock tools/vendor_versions.txt
+          deploy/docker/requirements-docker.lock deploy/docker/requirements-static.lock requirements-dev.txt
+      - name: Base images pinned by digest (tools/image_digests.py lists a moved tag, not a failure here)
+        run: python tools/image_digests.py || true

@@ -1,0 +1,42 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+{% set question_hint = de_en("z. B. „Ordnen Sie jeden Begriff so schnell wie möglich einer Kategorie zu.“", "e.g. “Sort each term into a category as quickly as you can.”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Zwei Kategorien", "Two categories") }} <span class="hint">{{ de_en("Code = Wert im Export", "code = value in the export") }}</span></legend>
+  <div class="row-fields">
+    {% for c in kind.categories(item, lang) %}
+    <label>{{ de_en("links", "left") if c.id == "L" else de_en("rechts", "right") }}{% if item.cfg.get("sides", "person") != "fixed" %} <span class="hint">{{ de_en("Ausgangsposition", "starting position") }}</span>{% endif %}{% if item.cfg.get("keys", true) %} <span class="hint">{{ de_en("Taste {k}", "key {k}", k="E" if c.id == "L" else "I") }}</span>{% endif %}
+      <input name="cat_{{ c.id }}_label" value="{{ c.label }}" placeholder="{{ de_en('z. B. gut', 'e.g. good') if c.id == 'L' else de_en('z. B. schlecht', 'e.g. bad') }}"></label>
+    <label>Code <input name="cat_{{ c.id }}_code" value="{{ c.code }}" class="narrow" {% if not structural %}readonly{% endif %}></label>
+    {% endfor %}
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Begriffe", "Terms") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("werden einzeln nacheinander gezeigt; Code = Teil des Variablennamens ({a}, {b})", "shown one after another; code = part of the variable name ({a}, {b})", a=item.code ~ "_Code", b=item.code ~ "_Code_rt") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th>Text</th></tr></thead>
+    <tbody>
+    {% set et = item.lang_texts(lang).get("elements", {}) %}
+    {% for e in item.cfg.elements %}
+      <tr><td><input type="hidden" name="el_id" value="{{ e.id }}"><input name="el_code" aria-label="Code" data-varname="part" value="{{ e.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+          <td><input name="el_label" aria-label="Text" value="{{ et.get(e.id, '') }}" placeholder="{{ (item.text('elements') or {}).get(e.id, '') }}"></td></tr>
+    {% endfor %}
+    {% if structural %}{% for n in range(4) %}
+      <tr class="new-row"><td><input type="hidden" name="el_id" value="{{ new_id() }}"><input name="el_code" aria-label="Code" data-varname="part" class="narrow" placeholder="{{ item.cfg.elements|length + loop.index }}"></td>
+          <td><input name="el_label" aria-label="Text" placeholder="{{ de_en('z. B. Pflegeroboter', 'e.g. care robot') if loop.first else de_en('neuer Begriff', 'new term') }}"></td></tr>
+    {% endfor %}{% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.cfg.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Reihenfolge der Begriffe zufällig (je Teilnahme)", "Random order of the terms (per participation)") }}</label>
+  {% set sides = item.cfg.get("sides", "person") %}
+  <fieldset class="bare">
+    <span class="label-title">{{ de_en("Seiten der Kategorien", "Sides of the categories") }} <span class="hint">{{ de_en("die Antwort speichert immer die Kategorie, nicht die Seite", "the answer always stores the category, not the side") }}</span></span>
+    {% for value, text in (("person", de_en("zufällig je Person (Standard)", "random per person (standard)")), ("item", de_en("zufällig je Begriff", "random per term")), ("fixed", de_en("fest wie oben (links, rechts)", "fixed as above (left, right)"))) %}
+    <label class="check"><input type="radio" name="sides" value="{{ value }}" {% if sides == value %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ text }}</label>
+    {% endfor %}
+  </fieldset>
+  <label class="check"><input type="checkbox" name="keys" value="1" {% if item.cfg.get("keys", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Tasten E (links) und I (rechts) erlauben", "Allow keys E (left) and I (right)") }} <span class="hint">{{ de_en("am Rechner genauer als Mausklicks", "more precise than mouse clicks on a computer") }}</span></label>
+</fieldset>
+<p class="muted small">{{ de_en("Gemessen wird die Zeit vom Erscheinen eines Elements bis zur Entscheidung (Millisekunden, im Browser gemessen). Die Instruktion zählt nicht mit: Das erste Element erscheint erst nach „Start“.", "The time from an element appearing to the decision is measured (milliseconds, measured in the browser). The instruction does not count: the first element only appears after “Start”.") }}</p>

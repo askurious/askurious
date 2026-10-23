@@ -1,0 +1,297 @@
+{
+ "format": "askurious-survey",
+ "version": 6,
+ "exported_at": "2026-10-05T00:00:00Z",
+ "survey": {
+  "title": "Wirkung eines Plakattextes",
+  "title_translations": {},
+  "project": "",
+  "description": "Sie lesen einen kurzen Plakattext und beantworten danach einige Fragen.",
+  "research_question": "Wirkt ein Text, der den Nutzen betont, stärker als einer, der vor Nachteilen warnt?",
+  "study_plan": {
+   "goal": "causal",
+   "goals": [
+    "causal"
+   ],
+   "design": "experiment",
+   "hypotheses": [
+    {
+     "id": "143b825a",
+     "text": "Der Text mit dem Nutzen führt zu einer positiveren Einstellung als der Text mit den Risiken.",
+     "kind": "causal",
+     "direction": "",
+     "iv": "bedingung",
+     "dv": "einstellung",
+     "analysis": "",
+     "effect": 0.5,
+     "basis": "sesoi",
+     "basis_note": "Beispielwert der Vorlage: kleinster Effekt, der praktisch zählt; vor der Erhebung mit Literatur oder einer Vorstudie begründen",
+     "power": 0.8
+    }
+   ],
+   "sample": {
+    "target": 143,
+    "recruitment": "convenience",
+    "note": "",
+    "exclusions": null,
+    "response": null
+   },
+   "rules": "Speeder (unter 50 % der Median-Dauer); wer die Aufmerksamkeitsprüfung falsch beantwortet",
+   "holm": false,
+   "sem_method": "",
+   "sem": {
+    "controls": [],
+    "single": {},
+    "formative": [],
+    "invariance": "",
+    "missing": "",
+    "alternative": [],
+    "second": [],
+    "ordinal": ""
+   },
+   "diary": {
+    "lagged": false,
+    "slope": false
+   },
+   "layout": {
+    "v": 1,
+    "nodes": {}
+   },
+   "deviations": []
+  },
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "block_load": false,
+  "repeat_marker": false,
+  "erase_code": false,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": null,
+  "paper": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "funding": "",
+      "controller": "",
+      "dpo": "",
+      "special_categories": false,
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "special": false,
+       "audio": false,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Einwilligung",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_special": "",
+       "confirm_audio": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Text: Nutzen"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 2,
+     "type": "info",
+     "code": "text_nutzen",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {
+       "question": "**Das Deutschlandticket spart Ihnen jeden Monat Geld und Nerven.** Bus und Bahn statt Stau und Parkplatzsuche."
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "titles": {
+    "de": "Text: Risiken"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 3,
+     "type": "info",
+     "code": "text_risiken",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {
+       "question": "**Wer nicht umsteigt, zahlt drauf.** Steigende Sprit- und Parkkosten treffen vor allem Autofahrende."
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "titles": {
+    "de": "Block 3"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 4,
+     "type": "likert",
+     "code": "einstellung",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": false,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie den folgenden Aussagen zu?",
+       "statements": {
+        "s1": "Ich würde das Deutschlandticket kaufen.",
+        "s2": "Das Deutschlandticket ist sein Geld wert.",
+        "s3": "Ich würde es Freunden empfehlen."
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "rand",
+    "id": "r1",
+    "code": "bedingung",
+    "name": "Plakattext",
+    "k": 1,
+    "balanced": true,
+    "shuffle": false,
+    "children": [
+     {
+      "t": "block",
+      "block": 2
+     },
+     {
+      "t": "block",
+      "block": 3
+     }
+    ]
+   },
+   {
+    "t": "block",
+    "block": 4
+   },
+   {
+    "t": "split",
+    "id": "s802daf"
+   }
+  ]
+ },
+ "quotas": [],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null,
+ "sampling": null
+}

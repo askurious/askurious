@@ -1,0 +1,34 @@
+{# The state of the quotas on a page of its own: to print (or save as PDF) for researchers, and what a share
+   link shows without signing in (`shared`: the QuotaShare). Numbers only; never indexed; no way into the app. #}
+<!doctype html>
+<html lang="{{ ui_language() }}"{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>{{ de_en("Quotenstand", "Quota state") }} · {{ survey.title }}</title>
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {# the copy button (app.js) and the print button (participant.js) #}
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='participant.js') }}" defer></script>
+</head>
+<body class="quota-print">
+  <main class="container quota-page">
+    <h1>{{ de_en("Quotenstand", "Quota state") }} <span class="hint">{{ survey.title }} · {{ de_en("Befragung {code}", "Survey {code}", code=survey.code) }}</span></h1>
+    <p class="muted">{{ de_en("Stand {d} Uhr · nur echte Teilnahmen", "As of {d} · real participations only", d=quota_now|localdt) }}{% if quota_only %} · <strong>{{ de_en("nur Teilnahmen mit {name} = {value}", "only participations with {name} = {value}", name=quota_only[0], value=quota_only[1]) }}</strong>{{ de_en(": abgeschlossen, laufend, abgewiesen und die Gesamtzahlen; Soll, offen und Zustand gelten für die ganze Teilquote", ": completed, running, refused and the totals; target, open and state apply to the whole sub-quota") }}{% endif %}</p>
+    <div class="form-actions quota-state-actions no-print">
+      <button type="button" class="button button-secondary" data-copy="#quota-state-text">{{ de_en("Kopieren", "Copy") }}</button>
+      <a class="button button-secondary" href="{{ csv_url }}">CSV</a>
+      <a class="button button-secondary" href="{{ csv_url }}{{ '&' if '?' in csv_url else '?' }}sep=semicolon" title="{{ de_en('für ein deutsches Excel', 'for a German Excel') }}">{{ de_en("CSV (Semikolon)", "CSV (semicolon)") }}</a>
+      <button type="button" class="button button-secondary" data-print>{{ de_en("Drucken", "Print") }}</button>
+      <a class="button button-secondary" href="">{{ de_en("Aktualisieren", "Refresh") }}</a>
+    </div>
+    <textarea id="quota-state-text" class="visually-hidden" readonly tabindex="-1" aria-hidden="true">{{ quota_text }}</textarea>
+    {% set show_conds = shared.show_conds if shared else true %}
+    {% if quota_report %}{% include "surveys/_quota_tables.html" %}{% else %}<p class="muted">{{ de_en("Diese Befragung hat keine Quoten.", "This survey has no quotas.") }}</p>{% endif %}
+    <p class="muted small">{{ de_en("abgeschlossen = abgeschlossene Teilnahmen (bei „zählt sofort“: gezählt an der Quotenberechnung) · laufend = reservierte Plätze laufender Teilnahmen · offen = Soll minus abgeschlossen · abgewiesen = wegen voller Teilquote beendet.", "completed = completed participations (with “counts at once”: counted at the quota calculation) · running = reserved places of running participations · open = target minus completed · refused = ended because the sub-quota was full.") }}{% if shared %} {% if shared.expires_at %}{{ de_en("Diese Seite zeigt nur Zahlen. Der Link ist bis {d} Uhr gültig und kann jederzeit widerrufen werden.", "This page shows numbers only. The link is valid until {d} and can be revoked at any time.", d=shared.expires_at|localdt) }}{% else %}{{ de_en("Diese Seite zeigt nur Zahlen. Der Link ist unbegrenzt gültig und kann jederzeit widerrufen werden.", "This page shows numbers only. The link is valid without limit and can be revoked at any time.") }}{% endif %}{% endif %}</p>
+  </main>
+</body>
+</html>

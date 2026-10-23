@@ -1,0 +1,326 @@
+{
+ "format": "askurious-survey",
+ "version": 6,
+ "exported_at": "2026-10-05T00:00:00Z",
+ "survey": {
+  "title": "Zufriedenheit mit der Mensa",
+  "title_translations": {},
+  "project": "",
+  "description": "Wir möchten wissen, wie zufrieden Sie mit der Mensa sind und was wir verbessern können.",
+  "research_question": "Wie zufrieden sind die Gäste der Mensa, und was treibt die Weiterempfehlung?",
+  "study_plan": {
+   "goal": "describe",
+   "goals": [
+    "describe"
+   ],
+   "design": "cross",
+   "hypotheses": [
+    {
+     "id": "72b25090",
+     "text": "Wer zufriedener ist, empfiehlt die Mensa eher weiter.",
+     "kind": "correlation",
+     "direction": "pos",
+     "iv": "zufriedenheit",
+     "dv": "empfehlung",
+     "analysis": "",
+     "effect": 0.3,
+     "basis": "sesoi",
+     "basis_note": "Beispielwert der Vorlage: kleinster Effekt, der praktisch zählt; vor der Erhebung mit Literatur oder einer Vorstudie begründen",
+     "power": 0.8
+    },
+    {
+     "id": "3d430f61",
+     "text": "Studierende, Beschäftigte und Gäste unterscheiden sich in der Weiterempfehlung.",
+     "kind": "difference",
+     "direction": "",
+     "iv": "gruppe",
+     "dv": "empfehlung",
+     "analysis": "",
+     "effect": 0.3,
+     "basis": "sesoi",
+     "basis_note": "Beispielwert der Vorlage: kleinster Effekt, der praktisch zählt; vor der Erhebung mit Literatur oder einer Vorstudie begründen",
+     "power": 0.8
+    }
+   ],
+   "sample": {
+    "target": 150,
+    "recruitment": "convenience",
+    "note": "",
+    "exclusions": null,
+    "response": null
+   },
+   "rules": "Speeder (unter 50 % der Median-Dauer); wer die Aufmerksamkeitsprüfung falsch beantwortet",
+   "holm": false,
+   "sem_method": "",
+   "sem": {
+    "controls": [],
+    "single": {},
+    "formative": [],
+    "invariance": "",
+    "missing": "",
+    "alternative": [],
+    "second": [],
+    "ordinal": ""
+   },
+   "diary": {
+    "lagged": false,
+    "slope": false
+   },
+   "layout": {
+    "v": 1,
+    "nodes": {}
+   },
+   "deviations": []
+  },
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "block_load": false,
+  "repeat_marker": false,
+  "erase_code": false,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": null,
+  "paper": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "funding": "",
+      "controller": "",
+      "dpo": "",
+      "special_categories": false,
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "special": false,
+       "audio": false,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Einwilligung",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_special": "",
+       "confirm_audio": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Block 1"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 2,
+     "type": "rating",
+     "code": "empfehlung",
+     "answer_mode": "nudge",
+     "config": {
+      "style": "numbers",
+      "points": 5,
+      "min": 0.0,
+      "max": 10.0,
+      "step": 1,
+      "show_value": false,
+      "reverse": false,
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie wahrscheinlich ist es, dass Sie die Mensa weiterempfehlen?",
+       "left": "sehr unwahrscheinlich",
+       "right": "sehr wahrscheinlich"
+      }
+     }
+    },
+    {
+     "id": 3,
+     "type": "likert",
+     "code": "zufriedenheit",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": false,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie den folgenden Aussagen zu?",
+       "statements": {
+        "s1": "Das Essen schmeckt mir.",
+        "s2": "Die Preise sind angemessen.",
+        "s3": "Die Wartezeit ist kurz.",
+        "s4": "Es gibt genug vegetarische Gerichte."
+       }
+      }
+     }
+    },
+    {
+     "id": 4,
+     "type": "single_choice",
+     "code": "gruppe",
+     "answer_mode": "nudge",
+     "config": {
+      "options": [
+       {
+        "id": "o1",
+        "code": "1"
+       },
+       {
+        "id": "o2",
+        "code": "2"
+       },
+       {
+        "id": "o3",
+        "code": "3"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Sie essen in der Mensa als …",
+       "options": {
+        "o1": "Studierende",
+        "o2": "Beschäftigte",
+        "o3": "Gast"
+       }
+      }
+     }
+    },
+    {
+     "id": 5,
+     "type": "text_input",
+     "code": "verbessern",
+     "answer_mode": "optional",
+     "config": {
+      "multiline": true,
+      "max_length": 2000,
+      "validation": "none",
+      "pattern": "",
+      "min": null,
+      "max": null
+     },
+     "texts": {
+      "de": {
+       "question": "Was sollten wir als Erstes verbessern?"
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "block",
+    "block": 2
+   },
+   {
+    "t": "split",
+    "id": "s78bc3c"
+   }
+  ]
+ },
+ "quotas": [],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null,
+ "sampling": null
+}

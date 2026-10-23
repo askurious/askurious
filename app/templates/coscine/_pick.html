@@ -1,0 +1,29 @@
+{# "Aus Coscine wählen" (app/coscine.py, pick_list, pick_text, pick_image; K6): a file from a Coscine
+   resource the person's token sees, beside an upload. kind "table" puts the text of a CSV into the field `target`
+   (it saves itself), kind "image" sends the chosen file to pick_image for `item`, kind "media" to pick_media (in the background, value `key`
+   of the loop; no form of its own, as it stands inside the element's form). Only with the feature and a token. #}
+{% macro coscine_pick(survey, kind, target=none, item=none, lang=none, key="", origin="") -%}
+{% if coscine_connected(current_user) %}
+{% from "_macros.html" import csrf %}
+<div class="coscine-pick small" data-coscine-pick="{{ kind }}" data-list="{{ url_for('coscine.pick_list_plain') ~ '?art=survey' if kind == 'survey' else url_for('coscine.pick_list', survey_id=survey.id, art=kind) }}"{% if kind == "table" %} data-target="{{ target }}" data-text="{{ url_for('coscine.pick_text', survey_id=survey.id) }}"{% endif %}{% if kind == "media" %} data-post="{{ url_for('coscine.pick_media', survey_id=survey.id, item_id=item.id) }}" data-state="{{ url_for('coscine.pick_media_state', survey_id=survey.id, item_id=item.id) }}" data-key="{{ key }}"{% endif %}>
+  <button type="button" class="link small" data-coscine-open>{{ de_en("aus Coscine wählen", "choose from Coscine") }}</button>
+  <span class="row-fields" data-coscine-panel hidden>
+    <select data-coscine-target aria-label="{{ de_en('Ressource in Coscine', 'Resource in Coscine') }}"></select>
+    <select data-coscine-file aria-label="{{ de_en('Datei in Coscine', 'File in Coscine') }}"></select>
+    {% if kind == "survey" %}
+    <form method="post" action="{{ url_for('wizard.import_file', origin=origin or None) }}" class="inline">
+      {{ csrf() }}<input type="hidden" name="coscine_ziel"><input type="hidden" name="coscine_pfad">
+      <button class="button button-secondary" data-coscine-take>{{ de_en("Prüfen", "Check") }}</button></form>
+    {% elif kind == "image" %}
+    <form method="post" action="{{ url_for('coscine.pick_image', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="inline">
+      {{ csrf() }}<input type="hidden" name="ziel"><input type="hidden" name="pfad">
+      <button class="button button-secondary" data-coscine-take>{{ de_en("Übernehmen", "Take") }}</button></form>
+    {% else %}
+    <button type="button" class="button button-secondary" data-coscine-take>{{ de_en("Übernehmen", "Take") }}</button>
+    {% endif %}
+    <span class="muted" data-coscine-note role="status"></span>
+  </span>
+</div>
+<script src="{{ url_for('static', filename='coscine.js') }}" defer></script>
+{% endif %}
+{%- endmacro %}

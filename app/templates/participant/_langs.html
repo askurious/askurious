@@ -1,0 +1,16 @@
+{# the language switch for participants (setting "Teilnehmende dürfen die Sprache selbst wählen"): on the pages of a
+   participation and in the preview, which shows what participants see (W47) #}
+{% if survey.languages|map("replace", "de-du", "de")|unique|list|length > 1 and survey.language_choice %}
+{# participant.js sends the page along (field set_lang), so what was typed stays; without JavaScript a plain link #}
+{# German once: "Sie" and "du" are two versions of it, not two languages to choose from (the link decides) #}
+{% set choices = [] %}
+{% for code in survey.languages if not (code in ("de", "de-du") and lang in ("de", "de-du") and code != lang)
+                                    and not (code == "de-du" and "de" in survey.languages and lang not in ("de", "de-du")) %}
+{% set _ = choices.append((code, "Deutsch" if code in ("de", "de-du") else language_names.get(code, code))) %}{% endfor %}
+{% if choices|length >= 4 %}{% from "participant/_lang_select.html" import lang_select %}{{ lang_select(choices, lang, send_page=true) }}
+{% else %}
+<nav class="p-langs" aria-label="{{ ui('Sprache', 'Language') }}">
+  {% for code, name in choices %}<a href="?lang={{ code }}" data-set-lang="{{ code }}" {% if code == lang %}aria-current="true"{% endif %} lang="{{ html_lang(code) }}">{{ name }}</a>{% endfor %}
+</nav>
+{% endif %}
+{% endif %}

@@ -1,0 +1,40 @@
+{# Location (items/geolocation.py, static/geolocation.js). The position is asked for only on a tap; the texts of
+   every state stand here and the script shows the one that applies. #}
+{% set given = answers.get(item.id) if answers.get(item.id) is mapping else {} %}
+<div class="p-geo" data-geo="{{ item.id }}" data-geo-cfg='{{ kind.settings(item)|tojson }}'>
+  {% include "items/_question.html" %}
+  {# not when the question says it itself (U46) #}
+  {% set said = kind.stored_said(item, lang) %}
+  {% if not said %}<p class="p-hint p-geo-stored" id="gs{{ item.id }}">{{ kind.stored_note(item, lang) }}</p>{% endif %}
+  <div class="p-geo-actions" data-geo-actions hidden>
+    <button type="button" class="p-geo-btn p-geo-share" data-geo-share aria-describedby="q{{ item.id }}{% if not said %} gs{{ item.id }}{% endif %}">{{ ui("Standort übermitteln", "Share my location") }}</button>
+    <button type="button" class="p-geo-btn p-geo-refuse" data-geo-refuse>{{ ui("Ich möchte meinen Standort nicht angeben", "I prefer not to give my location") }}</button>
+  </div>
+  <div class="p-geo-status" aria-live="polite">
+    <p class="p-hint" data-geo-msg="busy" hidden>{{ ui("Standort wird ermittelt …", "Finding your location …") }} <button type="button" class="p-geo-link" data-geo-cancel>{{ ui("Abbrechen", "Cancel") }}</button></p>
+    <p class="p-hint" data-geo-msg="shared" hidden>{{ ui("Standort übermittelt.", "Location shared.") }} <span data-geo-acc data-text="{{ ui('Genauigkeit etwa ± {n} m', 'Accuracy about ± {n} m') }}"></span></p>
+    <p class="p-hint" data-geo-msg="corrected" hidden>{{ ui("Standort übermittelt und auf der Karte korrigiert.", "Location shared and corrected on the map.") }}</p>
+    <p class="p-hint" data-geo-msg="refused" hidden>{{ ui("Sie haben angegeben, Ihren Standort nicht zu teilen.", "You chose not to share your location.") }}</p>
+    <p class="p-hint" data-geo-msg="denied" hidden>{{ ui("Ihr Browser hat die Standortabfrage abgelehnt. Sie können das in den Einstellungen der Website ändern und es dann erneut versuchen.", "Your browser declined the location request. You can change this in the site settings and try again.") }}</p>
+    <p class="p-hint" data-geo-msg="unavailable" hidden>{{ ui("Ihr Gerät konnte keinen Standort ermitteln.", "Your device could not determine a location.") }}</p>
+    <p class="p-hint" data-geo-msg="timeout" hidden>{{ ui("Die Standortabfrage hat zu lange gedauert.", "Finding the location took too long.") }}</p>
+  </div>
+  {% if kind.correct(item) %}
+  <div class="p-geo-map" data-geo-map hidden>
+    <p class="p-hint">{{ ui("Sie können den Punkt verschieben, wenn er nicht stimmt.", "You can drag the point if it is not right.") }}</p>
+    <div class="p-map-canvas p-geo-canvas" data-map-canvas role="application" aria-label="{{ ui('Karte mit Ihrem Standort', 'Map with your location') }}"></div>
+    {# without a mouse: move the map (arrow keys, search by eye), then put the point in its centre (D8) #}
+    <button type="button" class="p-map-btn p-geo-center" data-geo-center>{{ ui("Punkt in die Kartenmitte", "Move the point to the centre of the map") }}</button>
+  </div>
+  {% endif %}
+  <noscript><p class="p-hint">{{ ui("Für die Standortabfrage wird JavaScript benötigt.", "Sharing the location needs JavaScript.") }}</p></noscript>
+  <input type="hidden" name="i{{ item.id }}" value='{{ given|tojson if given else "" }}' data-geo-input>
+</div>
+{% if kind.correct(item) %}
+{% if not assets.loaded_leaflet %}{% set assets.loaded_leaflet = true %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='map_marker.js') }}" defer></script>
+{% endif %}
+{% endif %}
+{% if not assets.loaded_geolocation %}{% set assets.loaded_geolocation = true %}<script src="{{ url_for('static', filename='geolocation.js') }}" defer></script>{% endif %}

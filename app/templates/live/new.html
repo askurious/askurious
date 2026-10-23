@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "wizard/_import.html" import import_panel with context %}
+{% from "_start_cards.html" import start_cards %}
+{# The short wizard of a live vote (app/live/, live concept 6.2): title and language, first
+   question, done. #}
+{% set title = steps[index][1] %}
+{% block title %}{{ title }} · {{ de_en("Neue Live-Abstimmung", "New live poll") }}{% endblock %}
+{% block content %}
+<div class="survey-head">
+  <a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <h1>{{ survey.title if survey else de_en("Neue Live-Abstimmung", "New live poll") }}</h1> <span class="badge badge-live">{{ de_en("Live-Abstimmung", "Live poll") }}</span>
+</div>
+{% if not survey %}{{ start_cards("live.new", starts, start) }}{% endif %}
+{% if survey or start == "leer" %}
+<ol class="wizard-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
+  {% for k, t in steps %}
+  {% set state = "current" if loop.index0 == index else ("done" if loop.index0 < index else "todo") %}
+  <li class="wizard-step {{ state }}"><span class="wizard-num">{{ "✓" if state == "done" else loop.index }}</span><span class="wizard-label">{{ t }}</span></li>
+  {% endfor %}
+</ol>
+
+<section class="panel wizard-panel wizard-step-{{ key }}">
+  <h2>{{ title }}</h2>
+  {% if key == "titel" %}
+  <form method="post" action="{{ url_for('live.new') }}" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Titel", "Title") }} <span class="hint">{{ de_en("z. B. Name der Veranstaltung; sehen auch die Teilnehmenden", "e.g. the name of the event; participants see it too") }}</span></span>
+      <input name="title" maxlength="300" placeholder="{{ de_en('z. B. „Vorlesung Methoden, Sitzung 3“', 'e.g. “Methods lecture, session 3”') }}" autofocus></label>
+    <label><span class="label-title">{{ de_en("Sprache", "Language") }} <span class="hint">{{ de_en("in der das Publikum abstimmt", "in which the audience votes") }}</span></span>
+      <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if code == ("en" if ui_language() == "en" else "de-du") %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <p class="muted small flush">{{ de_en("Die Abstimmung ist anonym: Teilnehmende sehen keine Einwilligung, sondern einen kurzen Hinweis, was mit den Antworten geschieht.", "The poll is anonymous: participants see no consent but a short note on what happens with the answers.") }}</p>
+    <div class="wizard-nav"><span class="wizard-spacer"></span><button class="button">{{ de_en("Anlegen und weiter", "Create and continue") }}</button></div>
+  </form>
+
+  {% elif key == "frage" and suggestions and ai_on() %}
+  {# the AI assistant's suggestions: the ticked ones go into the live vote #}
+  <form method="post" action="{{ url_for('live.step', code=survey.code, key='frage') }}" class="stack">
+    {{ csrf() }}<input type="hidden" name="description" value="{{ description }}">
+    <p class="muted small flush">{{ de_en("Ankreuzen, bei Bedarf anpassen, übernehmen. Weitere Folien legen Sie danach im Reiter „Folien“ an.", "Tick, adjust if needed, add. You create further slides afterwards in the tab “Slides”.") }}</p>
+    {% include "live/_ai_suggestions.html" %}
+    <div class="wizard-nav">
+      <button class="button button-secondary button-ai" name="wizard" value="ai">{{ icon("sparkles", 16) }} {{ de_en("Neu vorschlagen", "Suggest again") }}</button>
+      {{ ai_access_line() }}
+      <span class="wizard-spacer"></span>
+      <button class="button" name="wizard" value="ai_apply">{{ de_en("Ausgewählte übernehmen und weiter", "Accept selected and continue") }}</button>
+    </div>
+  </form>
+
+  {% elif key == "frage" %}
+  {% if ai_on() %}
+  {# first the AI assistant (app/live_ai.py): what the event is and what the presenter wants to learn #}
+  <form method="post" action="{{ url_for('live.step', code=survey.code, key='frage') }}" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Was führen Sie durch, und was möchten Sie wissen?", "What are you running, and what would you like to know?") }} <span class="hint">{{ de_en("die KI schlägt Feedbackfragen vor", "the AI suggests feedback questions") }}</span></span>
+      <textarea name="description" rows="4" maxlength="3000" autofocus
+                placeholder="{{ de_en('z. B. Vorlesung Methoden, 120 Studierende im 3. Semester, heute Regression. Ich möchte wissen, ob das Tempo passt, was unklar geblieben ist und ob die Übung geholfen hat.', 'e.g. methods lecture, 120 students in their third semester, today regression. I would like to know whether the pace is right, what stayed unclear and whether the exercise helped.') }}">{{ description }}</textarea></label>
+    <p class="muted small flush">{{ de_en("Die Beschreibung geht an {to}. Bitte keine Namen oder anderen personenbezogenen Daten eintragen.", "The description goes to {to}. Please do not enter names or other personal data.", to=ai_recipient()) }}</p>
+    <div class="wizard-nav"><span class="wizard-spacer"></span>{{ ai_access_line() }}
+      <button class="button button-ai" name="wizard" value="ai">{{ icon("sparkles", 16) }} {{ de_en("Folien vorschlagen", "Suggest slides") }}</button></div>
+  </form>
+  {% endif %}
+  {# ready-made live votes (app/live/ TEMPLATES): the questions at once, to change afterwards #}
+  <details class="live-own" {% if own == "template" %}open{% endif %}>
+    <summary>{{ de_en("Eine Vorlage nehmen", "Use a template") }}</summary>
+    <form method="post" action="{{ url_for('live.step', code=survey.code, key='frage') }}" class="stack">
+      {{ csrf() }}<input type="hidden" name="wizard" value="template">
+      <fieldset class="theme-choice-list live-first">
+        <legend>{{ de_en("Vorlage", "Template") }}</legend>
+        {% for k, (name, note, qs) in templates.items() %}
+        <label class="theme-choice-item"><input type="radio" name="template" value="{{ k }}" {% if loop.first %}checked{% endif %}>
+          <span><strong>{{ name }}</strong> <span class="muted">{{ note }}{% if qs %} · {{ de_en("{n} Fragen", "{n} questions", n=qs|length) }}{% endif %}</span></span></label>
+        {% endfor %}
+      </fieldset>
+      <div class="wizard-nav"><span class="wizard-spacer"></span><button class="button">{{ de_en("Vorlage übernehmen und weiter", "Use template and continue") }}</button></div>
+    </form>
+  </details>
+  {# or straight to the editing page, to lay down all questions there (blocks, types, page breaks) #}
+  <form method="post" action="{{ url_for('live.step', code=survey.code, key='frage') }}" class="live-own">
+    {{ csrf() }}<button class="link" name="wizard" value="own">{{ de_en("Ich möchte meine Folien lieber selbst festlegen.", "I would rather set my slides myself.") }}</button>
+  </form>
+
+  {% else %}
+  <div class="live-join-box">
+    <div class="live-qr">{{ qr }}</div>
+    <div class="stack">
+      <p class="flush">{{ de_en("So stimmt das Publikum ab: QR-Code scannen oder die Adresse eingeben.", "This is how the audience votes: scan the QR code or enter the address.") }}</p>
+      <p class="live-big-url"><a href="{{ join }}" target="_blank" rel="noopener">{{ join }}</a></p>
+      <p class="muted small flush">{{ de_en("Code:", "Code:") }} <strong class="live-code">{{ survey.code }}</strong>
+        {%- set code_page = (participant_base() ~ url_for('live_public.enter_code')).split("://")[1].rstrip("/") %}
+        {{ de_en("(ohne QR-Code-App: {page} öffnen und den Code eingeben). Die Abfrage beginnt im Reiter „Präsentieren“.", "(without a QR reader: open {page} and enter the code). Voting starts in the tab “Present”.", page=code_page) }}</p>
+    </div>
+  </div>
+  <form method="post" action="{{ url_for('live.step', code=survey.code, key='fertig') }}">
+    {{ csrf() }}
+    <div class="wizard-nav">
+      <span class="wizard-spacer"></span>
+      <button class="button button-secondary" name="wizard" value="next">{{ icon("edit", 16) }} {{ de_en("Weitere Folien anlegen", "Create more slides") }}</button>
+      {# straight into the presenter view, from the beginning (the same as „Ansicht zum Vortragen“ on Präsentieren) #}
+      <button class="button" formaction="{{ url_for('live.control', code=survey.code) }}" name="action" value="start" autofocus>{{ icon("play", 16) }} {{ de_en("Präsentieren", "Present") }}</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% elif start == "vorlage" %}
+{# ready-made live votes (app/live/ TEMPLATES): created with their questions, then the step "Fertig" #}
+<section class="panel" id="vorlagen" aria-label="{{ de_en('Vorlagen', 'Templates') }}">
+  <ul class="plain template-list">
+    {% for k, (name, note, qs) in templates.items() %}
+    <li><form method="post" action="{{ url_for('live.new') }}" class="row template-row">{{ csrf() }}<input type="hidden" name="template" value="{{ k }}"><input type="hidden" name="language" value="{{ 'en' if ui_language() == 'en' else 'de-du' }}">
+      <span class="template-text"><strong>{{ name }}</strong> <span class="hint">{% if qs %}{{ de_en("{n} Fragen", "{n} questions", n=qs|length) }}{% else %}{{ de_en("Fragen und Emojis aus dem Publikum", "questions and emojis from the audience") }}{% endif %}</span><br><span class="muted small">{{ note }}</span></span>
+      <label class="template-title"><span class="small muted">{{ de_en("Titel der Abstimmung", "Title of the poll") }}</span>
+        <input name="title" value="{{ name }}" maxlength="300" required></label>
+      <button class="button button-secondary">{{ de_en("Anlegen", "Create") }}</button></form></li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Das Publikum stimmt in der Sprache Ihrer Oberfläche ab; die Folien lassen sich danach im Reiter „Folien“ ändern.", "The audience votes in the language of your interface; you can change the questions afterwards on the tab “Slides”.") }}</p>
+</section>
+{% else %}
+{{ import_panel("live", de_en("Die Datei einer Live-Abstimmung entsteht unter „Export“ mit „Als Datei exportieren“, auch in einer anderen Installation von Askurious.", "A live poll file is made under “Export” with “Export as a file”, also in another installation of Askurious.")) }}
+{% endif %}
+{% endblock %}

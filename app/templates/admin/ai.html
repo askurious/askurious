@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, list_table %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("KI-Nutzung aller Konten", "AI usage of all accounts") }} · Administration{% endblock %}{# one name with the own page "KI-Nutzung" (UI/UX audit 2026-10-16, 51) #}
+{% macro euro(v) %}{{ (v)|dec(2) }} €{% endmacro %}
+{% macro n(v) %}{% if ui_language() == "en" %}{{ "{:,.0f}".format(v) }}{% else %}{{ "{:,.0f}".format(v)|replace(",", ".") }}{% endif %}{% endmacro %}
+{% macro money(g) %}{% if g.cost or g.priced %}{{ euro(g.cost) }}{% if not g.priced %} <span class="hint">{{ de_en("+ Aufrufe ohne Kostenangabe", "+ calls without cost") }}</span>{% endif %}{% else %}<span class="muted">{{ de_en("keine Kostenangabe", "no cost") }}</span>{% endif %}{% endmacro %}
+{# without calls only the empty state, not three heads over nothing (UI audit 2026-10-07, W91); on a phone the
+   table scrolls in its panel (W78) #}
+{% macro table(rows, labels=none, head="") %}
+{% if not rows %}<p class="muted">{{ de_en("Keine Aufrufe im Zeitraum.", "No calls in the period.") }}</p>{% else %}
+<div class="res-scroll">
+{% call list_table("is-num") %}
+  <thead><tr><th>{{ head }}</th><th>{{ de_en("Aufrufe", "Calls") }}</th><th>{{ de_en("Fehler", "Errors") }}</th><th>{{ de_en("Tokens ein", "Tokens in") }}</th><th>{{ de_en("Tokens aus", "Tokens out") }}</th><th>{{ de_en("Ø ein / aus je Aufruf", "Ø in / out per call") }}</th><th>{{ de_en("Bilder", "Images") }}</th><th>{{ de_en("Kosten (geschätzt)", "Cost (estimated)") }}</th></tr></thead>
+  <tbody>
+  {% for key, g in rows.items() %}
+    <tr><td>{{ labels.get(key, key) if labels else key }}</td><td>{{ n(g.calls) }}</td><td>{{ g.failed or "–" }}</td>
+      <td>{{ n(g["in"]) }}</td><td>{{ n(g["out"]) }}</td><td>{{ n(g.in_avg) }} / {{ n(g.out_avg) }}</td>
+      <td>{{ g.images or "–" }}</td><td>{{ money(g) }}</td></tr>
+  {% endfor %}
+  </tbody>
+{% endcall %}
+</div>
+{% endif %}
+{% endmacro %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "ai" %}{% include "admin/_tabs.html" %}
+{# one control for choosing a view: .segmented, here with links (UI audit 2026-10-07, W81) #}
+{# the same periods as on Befragungen, "seit" with a date (app/admin_stats.py, Ralf 2026-10-19) #}
+<form class="adash-bar aic-periods" method="get" action="{{ url_for('admin.ai_usage') }}">
+  <nav class="segmented" aria-label="{{ de_en('Zeitraum', 'Period') }}">
+    {% for key, label in periods.items() %}<a href="{{ url_for('admin.ai_usage', period=key) }}"{% if r.period == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  <input type="hidden" name="period" value="since">
+  <label class="adash-since">{{ de_en("seit", "since") }} <input type="date" name="since" value="{{ r.since.isoformat() if r.since else '' }}" max="{{ r.now|localdate_iso }}" required></label>
+  <button class="button button-secondary button-small">{{ de_en("Zeigen", "Show") }}</button>
+</form>
+<section class="panel aic-kpis">
+  {% set t = r.total or {"calls": 0, "failed": 0, "in": 0, "out": 0, "images": 0, "cost": 0, "priced": true} %}
+  {% set p = r.prev or {"calls": 0, "cost": 0} %}
+  <div><span class="aic-big">{{ n(t.calls) }}</span><span class="muted">{{ de_en("Aufrufe", "Calls") }}{% if t.failed %}, {{ de_en("{n} fehlgeschlagen", "{n} failed", n=t.failed) }}{% endif %}</span>
+    {% if r.compare %}<span class="hint">{{ de_en("davor:", "before:") }} {{ n(p.calls) }}</span>{% endif %}</div>
+  <div><span class="aic-big">{{ n(t["in"] + t["out"]) }}</span><span class="muted">{{ de_en("Tokens ({i} ein, {o} aus)", "Tokens ({i} in, {o} out)", i=n(t["in"]), o=n(t["out"])) }}</span></div>
+  <div><span class="aic-big">{{ t.images }}</span><span class="muted">{{ de_en("Bilder", "Images") }}</span></div>
+  <div><span class="aic-big">{{ money(t) }}</span><span class="muted">{{ de_en("Kosten (geschätzt)", "Cost (estimated)") }}</span>
+    {% if r.compare and (t.cost or t.priced) %}<span class="hint">{{ de_en("davor:", "before:") }} {{ euro(p.cost) }}</span>{% endif %}</div>
+</section>
+<section class="panel">
+  <h2>{{ de_en("Verlauf", "Over time") }} <span class="hint">{{ de_en("{unit} je {step}, gestapelt nach Zweck", "{unit} per {step}, stacked by purpose", unit=r.unit, step=r.step) }}{% if r.unit != "€" %}{{ de_en("; mit Preisen unten in €", "; in € once prices are entered below") }}{% endif %}</span></h2>
+  {{ chart }}
+</section>
+<section class="panel"><h2>{{ de_en("Nach Zweck", "By purpose") }}</h2>{{ table(r.by_purpose, purposes, de_en("Zweck", "Purpose")) }}</section>
+<section class="panel"><h2>{{ de_en("Nach Modell", "By model") }}</h2>{{ table(r.by_model, none, de_en("Modell", "Model")) }}</section>
+{% if r.own %}
+{# calls over researchers' own keys (experimental "own_ai_key", app/ai_access.py): no cost for the installation #}
+<section class="panel"><h2>{{ de_en("Eigene KI-Zugänge", "Own AI access") }} <span class="hint">{{ de_en("Aufrufe über die Schlüssel von Forschenden, ohne Kosten für die Plattform; nicht in den Zahlen oben", "calls over researchers' own keys, no cost for the platform; not in the figures above") }}</span></h2>
+<div class="res-scroll">
+{% call list_table("is-num") %}
+  <thead><tr><th>{{ de_en("Anbieter", "Provider") }}</th><th>{{ de_en("Aufrufe", "Calls") }}</th><th>{{ de_en("Fehler", "Errors") }}</th><th>{{ de_en("Tokens ein", "Tokens in") }}</th><th>{{ de_en("Tokens aus", "Tokens out") }}</th></tr></thead>
+  <tbody>
+  {% for key, g in r.own.items() %}
+    <tr><td>{{ own_labels(key) }}</td><td>{{ n(g.calls) }}</td><td>{{ g.failed or "–" }}</td><td>{{ n(g["in"]) }}</td><td>{{ n(g["out"]) }}</td></tr>
+  {% endfor %}
+  </tbody>
+{% endcall %}
+</div>
+</section>
+{% endif %}
+<section class="panel"><h2>{{ de_en("Nach Elementtyp", "By element type") }} <span class="hint">{{ de_en("nur Aufrufe, die zu einem Element gehören", "only calls that belong to an element") }}</span></h2>{{ table(r.by_item, none, de_en("Typ", "Type")) }}</section>
+<section class="panel">
+  <h2>{{ de_en("Preise", "Prices") }} <span class="hint">{{ de_en("für die Kostenschätzung; aus der Preisliste des Anbieters übernehmen", "for the cost estimate; take them from the provider's price list") }}</span></h2>
+  <form method="post" action="{{ url_for('admin.ai_usage', period=r.period, since=r.since.isoformat() if r.since else none) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    {% call list_table("is-num aic-prices") %}
+      <thead><tr><th>{{ de_en("Textmodell", "Text model") }}</th><th>{{ de_en("€ je 1 Mio. Tokens ein", "€ per 1M tokens in") }}</th><th>{{ de_en("€ je 1 Mio. Tokens aus", "€ per 1M tokens out") }}</th></tr></thead>
+      <tbody>
+      {# the models come by themselves (ai_stats.known_models); only the prices are typed #}
+      {% for m in r.text_models %}{% set pr = r.prices.text.get(m, {}) %}
+        <tr><td><code>{{ m }}</code><input type="hidden" name="text_model" value="{{ m }}"></td>
+          <td><input name="text_in" class="narrow" inputmode="decimal" value="{{ fmt_num(pr.get('in')) }}" aria-label="{{ de_en('{m}: € je 1 Mio. Tokens ein', '{m}: € per 1M tokens in', m=m) }}"></td>
+          <td><input name="text_out" class="narrow" inputmode="decimal" value="{{ fmt_num(pr.get('out')) }}" aria-label="{{ de_en('{m}: € je 1 Mio. Tokens aus', '{m}: € per 1M tokens out', m=m) }}"></td></tr>
+      {% endfor %}
+      </tbody>
+    {% endcall %}
+    {% call list_table("is-num aic-prices") %}
+      <thead><tr><th>{{ de_en("Bildmodell", "Image model") }}</th><th>{{ de_en("Größe", "Size") }}</th><th>{{ de_en("€ je Bild", "€ per image") }}</th></tr></thead>
+      <tbody>
+      {% for m, s in r.image_sizes %}
+        <tr><td><code>{{ m }}</code><input type="hidden" name="image_model" value="{{ m }}"></td>
+          <td>{{ s }}<input type="hidden" name="image_size" value="{{ s }}"></td>
+          <td><input name="image_price" class="narrow" inputmode="decimal" value="{{ fmt_num(r.prices.image.get(m, {}).get(s)) }}" aria-label="{{ de_en('{m}, {s}: € je Bild', '{m}, {s}: € per image', m=m, s=s) }}"></td></tr>
+      {% endfor %}
+      </tbody>
+    {% endcall %}
+    {{ autosave_bar() }}
+    <p class="muted small flush">{{ de_en("Neue Modelle erscheinen hier von selbst, sobald Askurious sie nutzt oder sie eingestellt sind; ihre Kosten zählen, sobald sie einen Preis haben.", "New models appear here automatically as soon as Askurious uses them or they are configured; their costs count once they have a price.") }}</p>
+  </form>
+  <p class="muted small">{{ de_en("Gezählt wird ab der Einführung dieser Seite: Zweck, Elementtyp, Modell, Tokens laut Anbieter, Bilder und Größe,
+    ohne Person, Befragung oder Inhalte. Die Statistik wird nach zwei Jahren gelöscht.", "Counted since this page was introduced: purpose, element type, model, tokens as reported by the provider, images and size,
+    without person, survey or content. The statistics are deleted after two years.") }}</p>
+</section>
+{% endblock %}

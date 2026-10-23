@@ -1,0 +1,67 @@
+{# Response patterns and the marking rule (app/quality.py) on the page "Qualitätssicherung". Needs: patterns
+   (quality.summary), mark_form (id of the form that saves the rule), mark_edit (may this person change it). #}
+{% from "_macros.html" import num %}
+{% from "_sources.html" import cite %}
+<section class="panel" id="patterns">
+  <h2>{{ de_en("Antwortmuster und Prüfungen", "Response patterns and checks") }} <span class="hint">{{ de_en("Teilnahmen im gespeicherten Datenpool", "participations in the saved data pool") }}</span></h2>
+  {% if patterns.n %}
+  <div class="res-scroll">{# a phone scrolls the table, not the page (UI audit W79) #}
+  <table class="res-table">
+    <thead><tr><th>{{ de_en("Kennwert", "Indicator") }}</th><th title="{{ de_en('Teilnahmen, für die der Kennwert berechnet werden konnte', 'Participations for which the indicator could be computed') }}">n</th><th>{{ de_en("Median", "Median") }}</th><th>{{ de_en("Maximum", "Maximum") }}</th><th>{{ de_en("auffällig", "anomalous") }}</th></tr></thead>
+    <tbody{% if mark_form %} data-live="qc-patterns"{% endif %}>
+    {% for row in patterns.rows %}
+      {% set d = 0 if row.column in ("qc_longstring", "attention_failed", "attention_skipped", "qc_bot", "qc_text_chars", "qc_text_same", "qc_text_near", "qc_ai", "qc_untyped", "focus_lost", "pasted") else 2 %}
+      {# shares in percent, "kein Wert" and "kein Grenzwert" as words: "–" had two meanings here (V74) #}
+      {% set share = row.column in ("qc_straight", "qc_missing", "qc_tempo") %}
+      <tr><td>{{ row.label }} <code>{{ row.column }}</code></td><td>{{ row.n }}</td>
+        {% for v in (row.median, row.max) %}<td>{% if v is none %}<span class="muted">{{ de_en("kein Wert", "no value") }}</span>{% elif share %}{{ v|percent }}{% else %}{{ num(v, d) }}{% endif %}</td>{% endfor %}
+        <td>{% if row.rule %}<span title="{{ row.rule }}">{{ row.notable }}</span>{% else %}<span class="muted" title="{{ row.note }}">{{ de_en("kein Grenzwert", "no limit") }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small">{{ de_en("Die Kennwerte stehen je Teilnahme in jedem Export (Spalten", "The indicators are in every export per participation (columns") }} <code>qc_…</code>{{ de_en(", erklärt im Codebuch).", ", explained in the codebook).") }}
+    {% if patterns.matrix %}{{ de_en("Matrizen sind Likert-Matrizen und semantische Differentiale, gelesen wie angeklickt und in der gezeigten Reihenfolge.", "Matrices are Likert matrices and semantic differentials, read as clicked and in the order shown.") }}{% else %}{{ de_en("Der Fragebogen hat keine Matrix mit mehreren Zeilen; Muster gleicher Antworten gibt es deshalb nicht.", "The questionnaire has no matrix with several rows, so there are no patterns of equal answers.") }}{% endif %}
+    {{ de_en("Ein einzelner Kennwert belegt keine achtlose Teilnahme; aussagekräftig sind mehrere Auffälligkeiten zusammen.", "A single indicator does not prove a careless participation; several anomalies together are telling.") }}</p>
+  <ul class="criteria">
+    {% for row in patterns.rows %}
+    <li>
+      <strong>{{ row.label }}</strong>
+      <span class="muted">{% if row.rule %}{{ de_en("Auffällig:", "Anomalous:") }} {{ row.rule }}{% if row.sources %} {{ cite(row.sources) }}{% endif %}.{% if row.own_limit %} {{ patterns.own_limit }}{% endif %}{% else %}{{ row.note }}{% if row.sources %} {{ cite(row.sources) }}{% endif %}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">{{ de_en("Im gespeicherten Datenpool gibt es noch keine Teilnahmen.", "There are no participations in the saved data pool yet.") }}{% if not patterns.matrix %} {{ de_en("Der Fragebogen hat keine Matrix mit mehreren Zeilen; ausgewiesen wird dann nur der Anteil fehlender Antworten.", "The questionnaire has no matrix with several rows; only the share of missing answers is shown then.") }}{% endif %}</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="marking">
+  <h2>{{ de_en("Markierung", "Marking") }} <span class="hint">{{ de_en("was markiert ist, geht nicht in die Ergebnisse ein; beim Export wählen Sie, ob es nur markiert oder ausgeschlossen wird", "what is marked does not go into the results; when exporting you choose whether it is only marked or excluded") }}</span></h2>
+  <div class="stack">
+    <p><strong>{{ de_en("Speeder", "Speeders") }}</strong> {{ de_en("sind immer markiert, auch ohne weitere Auffälligkeit: Die Bearbeitungszeit gilt als bester einzelner Hinweis", "are always marked, even without any other anomaly: the completion time counts as the best single indicator") }} {{ cite(quality.LEINER) }}{{ de_en(". Zusätzlich markiert ist eine Teilnahme, die mindestens so viele der angekreuzten Auffälligkeiten zeigt:", ". A participation is also marked if it shows at least this many of the ticked anomalies:") }}</p>
+    <p class="muted small">{{ de_en("Für alle anderen Auffälligkeiten mehrere verschiedene Hinweise mit vorsichtigen Grenzen statt eines einzelnen", "For all other anomalies, several different indicators with cautious limits instead of a single one") }} {{ cite(quality.CURRAN) }}.</p>
+    <div class="row-fields source-choice">
+      <span class="label-title">{{ de_en("Mindestens", "At least") }}</span>
+      {% set most = [patterns.flags|length, 2]|max %}
+      {% for k in range(1, most + 1) %}
+      <label class="check"><input type="radio" name="qc_min" value="{{ k }}" form="{{ mark_form }}" {% if patterns.rules.min == k or (loop.last and patterns.rules.min > k) %}checked{% endif %} {% if not mark_edit %}disabled{% endif %}> {{ k }}</label>
+      {% endfor %}
+      <span class="hint">{{ de_en("empfohlen sind zwei (mehrere Hürden statt einer)", "two are recommended (several hurdles instead of one)") }}{% if patterns.flags|length < 2 %}{{ de_en("; dieser Fragebogen kann nur eine Auffälligkeit zeigen, sie markiert also erst mit „mindestens 1“", "; this questionnaire can show only one anomaly, so it only marks with “at least 1”") }}{% endif %}</span>
+    </div>
+    <div class="stack">
+      {% for key, label, sources in patterns.flags %}
+      <div>
+        <label class="check"><input type="checkbox" name="qc_flag" value="{{ key }}" form="{{ mark_form }}" {% if key in patterns.rules.flags %}checked{% endif %} {% if not mark_edit %}disabled{% endif %}> {{ label }}</label>{% if sources %} {{ cite(sources) }}{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {# flags the questionnaire cannot show keep their saved state #}
+    {% for key in patterns.rules.flags if key not in patterns.flags|map("first")|list %}<input type="hidden" name="qc_flag" value="{{ key }}" form="{{ mark_form }}">{% endfor %}
+    {% if patterns.n %}
+    <p class="speed-summary"{% if mark_form %} data-live="qc-marked"{% endif %}><strong>{{ de_en("{k} von {n}", "{k} of {n}", k=patterns.marked, n=patterns.n) }}</strong> {{ de_en("Teilnahmen im Datenpool sind nach der gespeicherten Regel markiert, davon {s} als Speeder.", "participations in the data pool are marked by the saved rule, {s} of them as speeders.", s=patterns.speeders) }}
+      <span class="muted">{{ de_en("Angekreuzte Auffälligkeiten je Teilnahme:", "Ticked anomalies per participation:") }} {% set sep = joiner(" · ") %}{% for n in patterns.by_flags %}{% if n %}{{ sep() }}{{ de_en("keine", "none") if loop.index0 == 0 else loop.index0 }}: {{ n }}{% endif %}{% endfor %}</span></p>
+    {% endif %}
+    <p class="muted small">{{ de_en("Im Export stehen", "The export holds") }} <code>qc_flags</code> {{ de_en("(Zahl der angekreuzten Auffälligkeiten) und", "(number of ticked anomalies) and") }} <code>qc_marked</code> {{ de_en("(1 = markiert). Aufmerksamkeitsprüfungen legen Sie im Fragebogen an einer Zeile der Likert-Matrix an, die Selbstauskunft „{name}“ steht unter „Konstrukte“; beide erscheinen hier, sobald der Fragebogen sie enthält.", "(1 = marked). You set up attention checks in the questionnaire on a row of the Likert matrix; the self-report “{name}” is under “Constructs”; both appear here as soon as the questionnaire contains them.", name=seed_name("sorgfalt")) }}</p>
+  </div>
+</section>

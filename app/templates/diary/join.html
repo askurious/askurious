@@ -1,0 +1,18 @@
+{% extends "participant/base.html" %}
+{# The join link of a diary study behind its QR code (app/diary_api.py, join_page). With the Askurious app installed
+   the phone opens the app instead (App Link); this page is for a phone without it #}
+{# the title only while the study takes this person: not of a draft or an ended study (audit 2026-10-11, N1) #}
+{% block title %}{% if accepting %}{{ survey.title_in(lang) }}{% endif %}{% endblock %}
+{% block content %}
+{% if accepting %}
+<h1>{{ survey.title_in(lang) }}</h1>
+<p>{{ ui("Diese Tagebuchstudie läuft in der App „Askurious“ für Android. So treten Sie bei:", "This diary study runs in the app “Askurious” for Android. This is how you join:") }}</p>
+<ol>
+  <li><a href="{{ store_url }}">{{ ui("Installieren Sie die App.", "Install the app.") }}</a></li>
+  <li>{{ ui("Scannen Sie den QR-Code noch einmal, oder öffnen Sie die App und geben Sie diesen Beitrittscode ein:", "Scan the QR code again, or open the app and type this join code:") }} <strong class="p-code">{{ code }}</strong></li>
+</ol>
+<p class="p-muted">{{ ui("Die App speichert keinen Namen, keine E-Mail-Adresse und keine Telefonnummer.", "The app stores no name, email address or phone number.") }}</p>
+{% else %}
+<p>{{ ui("Diese Tagebuchstudie nimmt gerade keine neuen Teilnehmenden auf.", "This diary study is not taking new participants at the moment.") }}</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,73 @@
+{# The drawing of the model in the study plan (concept modell-zeichnen-konzept.md, Ralf
+   2026-10-11: F1 to F10 as recommended): a second view of the rows of hypotheses above (static/model.js), the list
+   stays the way without dragging (WCAG 2.5.7). Needs: survey, plan, can_edit. #}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+<div class="plan-model" data-plan-model hidden>
+  <script type="application/json" data-model-data>{{ plan_model.data(survey, can_edit)|tojson }}</script>
+  {% if survey.status != "draft" %}<p class="small muted">{{ de_en("Die Datenerhebung hat begonnen: Ein neuer Pfeil ist eine explorative Hypothese und steht als Abweichung im Plan. Verschieben ändert am Plan nichts.", "Data collection has started: a new arrow is an exploratory hypothesis and is listed in the plan as a deviation. Moving variables changes nothing in the plan.") }}</p>{% endif %}
+  <div class="pm-layout">
+    <div class="pm-vars">
+      <p class="label-title">{{ de_en("Variablen", "Variables") }} <span class="hint">{{ de_en("auf die Fläche ziehen oder anklicken", "drag onto the area or click") if can_edit else de_en("aus dem Fragebogen", "from the questionnaire") }}</span></p>
+      {# where new variables come from (pre-test 2026-10-20, 16): the drawing makes none of its own #}
+      <p class="small muted pm-vars-note">{{ de_en("Die Variablen sind die Fragen des Fragebogens. Eine neue Variable entsteht mit einer neuen Frage im", "The variables are the questions of the questionnaire. A new variable comes with a new question in the") }} <a href="{{ url_for('editor.index', survey_id=survey.id) }}">{{ de_en("Fragebogen", "questionnaire") }}</a>{{ de_en("; eine Skala mit mehreren Aussagen, etwa ein Konstrukt, steht als Ellipse (latente Variable) hier.", "; a scale with several statements, such as a construct, appears here as an ellipse (latent variable).") }}</p>
+      <ul class="plain pm-var-list">
+        {% for v in plan_model.variables(survey) %}<li><button type="button" class="pm-var" data-pm-var="{{ v.code }}"{% if not can_edit %} disabled{% endif %}>
+          <span class="pm-shape{% if v.shape == 'latent' %} is-latent{% endif %}{% if v.rand %} is-condition{% endif %}" aria-hidden="true"></span>
+          <span class="pm-var-text"><span class="pm-var-name">{{ v.name }}</span>
+            <span class="hint">{{ v.code }} · {{ v.info }}{% if not v.sem %} · {{ de_en("nicht im Modell", "not in the model") }}{% endif %}</span></span>
+          <span class="pm-placed" data-pm-placed hidden title="{{ de_en('im Bild', 'in the picture') }}">{{ icon("check", 16) }}<span class="visually-hidden">{{ de_en("im Bild", "in the picture") }}</span></span>
+        </button></li>{% else %}<li class="muted small">{{ de_en("Noch keine Fragen mit Antworten im Fragebogen.", "No questions with answers in the questionnaire yet.") }}</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="pm-main">
+      <div class="pm-tools" data-pm-tools role="toolbar" aria-label="{{ de_en('Werkzeuge der Zeichenfläche', 'Tools of the drawing area') }}">
+        {% if can_edit %}<button type="button" class="button button-secondary button-small" data-pm-auto>{{ de_en("Automatisch anordnen", "Arrange automatically") }}</button>
+        <button type="button" class="button button-secondary button-small" data-pm-align="left" hidden>{{ de_en("Links bündig", "Align left") }}</button>
+        <button type="button" class="button button-secondary button-small" data-pm-align="middle" hidden>{{ de_en("Untereinander", "In a column") }}</button>
+        <button type="button" class="button button-secondary button-small" data-pm-align="row" hidden>{{ de_en("Nebeneinander", "In a row") }}</button>
+        <button type="button" class="button button-secondary button-small" data-pm-align="spread-x" hidden>{{ de_en("Waagerecht verteilen", "Spread horizontally") }}</button>
+        <button type="button" class="button button-secondary button-small" data-pm-align="spread-y" hidden>{{ de_en("Senkrecht verteilen", "Spread vertically") }}</button>{% endif %}
+        <span class="pm-zoom">
+          <button type="button" class="icon-btn" data-pm-zoom="-0.1" aria-label="{{ de_en('Verkleinern', 'Zoom out') }}" title="{{ de_en('Verkleinern', 'Zoom out') }}">−</button>
+          <span class="small muted" data-pm-zoom-level aria-live="polite">{{ 100|pctsign }}</span>
+          <button type="button" class="icon-btn" data-pm-zoom="0.1" aria-label="{{ de_en('Vergrößern', 'Zoom in') }}" title="{{ de_en('Vergrößern', 'Zoom in') }}">+</button>
+        </span>
+        {# the statements of each construct as small boxes above it, only to look at (Ralf, 2026-10-17) #}
+        <button type="button" class="button button-secondary button-small" data-pm-measure aria-pressed="false" title="{{ de_en('Zu jedem Konstrukt seine Aussagen aus dem Fragebogen zeigen (nur ansehen)', 'Show the statements of each construct from the questionnaire (view only)') }}">{{ de_en("Messmodelle zeigen", "Show measurement models") }}</button>
+        <button type="button" class="button button-secondary button-small" data-pm-fit title="{{ de_en('Die ganze Zeichnung in die Fläche einpassen; Zoom auch mit Strg und Mausrad', 'Fit the whole drawing into the area; zoom with Ctrl and the mouse wheel too') }}">{{ de_en("Alles zeigen", "Show all") }}</button>
+        {# saving as a picture: the download icon of the figures elsewhere, PNG or SVG (Ralf, 2026-10-17) #}
+        <details class="pm-save">
+          <summary class="icon-btn" title="{{ de_en('Als Bild speichern', 'Save as image') }}" aria-label="{{ de_en('Als Bild speichern', 'Save as image') }}">{{ icon("download", 18) }}</summary>
+          <div class="pm-save-menu">
+            <button type="button" class="button button-secondary button-small" data-pm-image="png">{{ de_en("PNG (Bild)", "PNG (picture)") }}</button>
+            <button type="button" class="button button-secondary button-small" data-pm-image="svg">{{ de_en("SVG (zum Weiterbearbeiten)", "SVG (to edit further)") }}</button>
+          </div>
+        </details>
+      </div>
+      <div class="pm-frame" data-pm-frame><div class="pm-area" data-pm-area></div></div>
+      <p class="small pm-hint" data-pm-hint role="status" hidden></p>
+      <p class="small muted" data-pm-outside hidden></p>
+      {% set ms = plan_model.status(survey) %}
+      <p class="small pm-status" data-live="plan-model-status">{% if ms and ms.error %}<span class="plan-error">{{ ms.error }}</span>{% elif ms and ms.q is not none %}{{ de_en("Im Strukturgleichungsmodell: {h} Hypothesen · {q} freie Parameter", "In the structural equation model: {h} hypotheses · {q} free parameters", h=ms.tested, q=ms.q) }}{% if not ms.pls %} · df = {{ ms.df }}{% endif %} · {{ de_en("nötig mindestens {n} vollständige Teilnahmen", "at least {n} complete participations needed", n=ms.need) }}{% elif ms %}{{ de_en("Im Strukturgleichungsmodell: {h} Hypothesen", "In the structural equation model: {h} hypotheses", h=ms.tested) }}{% else %}<span class="muted">{{ de_en("Noch keine Hypothese im Strukturgleichungsmodell: Pfeile der Art „Einfluss“, Vermittlungen und Hypothesen mit dem Verfahren „Strukturgleichungsmodell“ gehören hinein.", "No hypothesis in the structural equation model yet: arrows of the type “Influence”, mediations and hypotheses with the method “Structural equation model” belong in it.") }}</span>{% endif %}</p>
+      <div class="pm-panel" data-pm-panel hidden></div>
+      {{ why("moderation_mediation") }}
+      <details class="pm-textview"><summary>{{ de_en("Modell als Text", "Model as text") }}</summary><ul class="plain small" data-pm-text></ul></details>
+      <details class="pm-keys" data-pm-keys><summary>{{ de_en("Bedienung mit der Tastatur", "Keyboard use") }}</summary>
+        <dl class="small">
+          <dt>Tab</dt><dd>{{ de_en("in die Fläche und hinaus (ein Halt)", "into the area and out (one stop)") }}</dd>
+          <dt>{{ de_en("Pfeiltasten", "Arrow keys") }}</dt><dd>{{ de_en("zur nächsten Variable oder zum nächsten Pfeil in dieser Richtung", "to the next variable or arrow in that direction") }}</dd>
+          <dt>{{ de_en("Umschalt + Pfeiltasten", "Shift + arrow keys") }}</dt><dd>{{ de_en("Variable um 8 px verschieben, mit Strg um 40 px", "move the variable by 8 px, with Ctrl by 40 px") }}</dd>
+          <dt>Enter</dt><dd>{{ de_en("Pfeil: Beziehung ändern; Variable: Aussagen und Hypothesen zeigen", "arrow: change the relation; variable: show statements and hypotheses") }}</dd>
+          <dt>V</dt><dd>{{ de_en("verbinden: Ziel mit den Pfeiltasten wählen, Enter legt die Beziehung an, Esc bricht ab", "connect: choose the target with the arrow keys, Enter creates the relation, Esc cancels") }}</dd>
+          <dt>M</dt><dd>{{ de_en("auf einem Pfeil: Vermittler oder Moderator einfügen", "on an arrow: insert a mediator or moderator") }}</dd>
+          <dt>{{ de_en("Entf", "Delete") }}</dt><dd>{{ de_en("Pfeil oder Variable entfernen", "remove the arrow or variable") }}</dd>
+          <dt>{{ de_en("Strg + Z / Strg + Y", "Ctrl + Z / Ctrl + Y") }}</dt><dd>{{ de_en("rückgängig / wiederholen", "undo / redo") }}</dd>
+          <dt>?</dt><dd>{{ de_en("diese Liste öffnen oder schließen", "open or close this list") }}</dd>
+        </dl>
+        <p class="small muted">{{ de_en("Mit der Maus: Variable auf eine andere ziehen und kurz halten, bis sie blau wird, legt eine Beziehung an; auf einen Pfeil gezogen wird sie Vermittler oder Moderator. Vom Punkt am Rand zu einer anderen Variable ziehen verbindet ebenso. Alt beim Ziehen: ohne Raster und Hilfslinien.", "With the mouse: drag a variable onto another one and hold for a moment until it turns blue to create a relation; dragged onto an arrow it becomes a mediator or moderator. Dragging from the dot at its edge to another variable connects as well. Alt while dragging: without grid and guides.") }}</p>
+      </details>
+      <p class="visually-hidden" aria-live="polite" data-pm-say></p>
+    </div>
+  </div>
+</div>

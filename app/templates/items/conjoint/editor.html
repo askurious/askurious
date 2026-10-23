@@ -1,0 +1,71 @@
+{% from "_learn.html" import why %}
+{% set t = item.lang_texts(lang) %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+<div data-cj-tab="content">{{ why("conjoint_kind") }}{% include "items/_question_field.html" %}</div>
+{% set attr_footnote = de_en("Neue Merkmale und Stufen speichern sich selbst; danach den Versuchsplan neu erzeugen. „Preis (Zahlenwerte)“: Stufen wie 49 €, 99 €; die Auswertung schätzt dann eine Zahlungsbereitschaft.", "New attributes and levels save themselves; then generate the experimental design again. “Price (numeric values)”: levels such as €49, €99; the analysis then estimates a willingness to pay.") %}
+{% set numeric_price = true %}
+{% set level_values = true %}
+{% include "items/_attributes/editor.html" %}
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Aufgaben", "Tasks") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Aufgaben", "Tasks") }} <input type="number" name="tasks" min="1" max="30" class="narrow" value="{{ item.config.tasks }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Alternativen je Aufgabe", "Alternatives per task") }} <input type="number" name="alternatives" min="2" max="6" class="narrow" value="{{ item.config.alternatives }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Versionen des Versuchsplans", "Versions of the experimental design") }} <input type="number" name="versions" min="1" max="20" class="narrow" value="{{ item.config.versions }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  {{ why("conjoint_tasks") }}
+  {% set none_mode = "option" if item.config.none else ("dual" if item.config.get("dual") else "") %}
+  <label>{{ de_en("Keine Wahl", "No choice") }}
+    <select name="none_mode" class="fit" data-reload-saved {% if not structural %}disabled{% endif %}>
+      {% for key, label in {"": de_en("immer eine Option wählen", "always choose an option"), "option": de_en("Option „Keine davon“ anbieten", "offer the option “None of these”"), "dual": de_en("Nachfrage nach der Wahl (Dual Response)", "follow-up question after the choice (dual response)")}.items() %}
+      <option value="{{ key }}" {% if none_mode == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("Dual Response: erst eine Wahl unter den Optionen (Präferenz, von allen), dann „Würden Sie sich in Wirklichkeit dafür entscheiden?“ (Akzeptanz); Fragetext unter „Darstellung“", "dual response: first a choice among the options (preference, from everyone), then “Would you really choose it?” (acceptance); question text under “Display”") }}</span>
+  </label>
+  {{ why("none_option") }}
+  <label class="check"><input type="checkbox" name="attr_order" value="participant" {% if item.config.attr_order == "participant" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Reihenfolge der Merkmale je Person zufällig", "Random order of the attributes per person") }}</label>
+  <label class="check"><input type="checkbox" name="shuffle_alts" value="1" {% if item.config.shuffle_alts %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Reihenfolge der Optionen je Person und Aufgabe zufällig", "Random order of the options per person and task") }} <span class="hint">{{ de_en("nur die Anzeige; gespeichert wird immer die Option aus dem Versuchsplan, nicht die Position", "display only; what is saved is always the option of the experimental design, not its position") }}</span></label>
+</fieldset>
+{% set prohib_footnote = de_en("Danach den Versuchsplan neu erzeugen; die D-Effizienz sinkt dadurch etwas.", "Then generate the experimental design again; the D-efficiency drops a little as a result.") %}
+{% include "items/_attributes/prohibitions.html" %}
+{% include "items/conjoint/holdouts.html" %}
+<fieldset data-cj-tab="display">
+  <legend>{{ de_en("Darstellung", "Display") }}</legend>
+  <div class="row-fields">
+    {% set shown_display = "image" if item.config.display in ("image", "both") else ("levels" if item.config.get("level_images") else "table") %}
+    <label>{{ de_en("Anzeige je Option", "Display per option") }}
+      <select name="display" data-show-for data-reload-saved {% if not structural %}disabled{% endif %}>
+        {% for key, label in {"table": de_en("Tabelle mit Text", "Table with text"), "levels": de_en("Tabelle mit Bildern je Stufe", "Table with images per level"), "image": de_en("Ein Bild je Option", "One image per option")}.items() %}
+        <option value="{{ key }}" {% if shown_display == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <span class="hint" data-when="table">{{ de_en("die Stufen als Text", "the levels as text") }}</span>
+      <span class="hint" data-when="levels">{{ de_en("je Stufe ein eigenes Bild, z. B. Logo oder Siegel", "an image of its own per level, e.g. a logo or a seal") }}</span>
+      <span class="hint" data-when="image">{{ de_en("ein Bild aus den Stufen der Merkmale „im Bild“, von der KI oder hochgeladen", "one image from the levels of the attributes “in the image”, generated by the AI or uploaded") }}</span>
+    </label>
+    <fieldset class="level-mode" data-when="levels"><legend class="visually-hidden">{{ de_en("Bild und Text der Stufe", "Image and text of the level") }}</legend>
+      {% for key, label in {"replace": de_en("Bild statt Text", "Image instead of text"), "add": de_en("Bild über dem Text", "Image above the text")}.items() %}
+      <label class="check"><input type="radio" name="level_mode" value="{{ key }}" data-reload-saved {% if (item.config.get("level_images") or "replace") == key %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ label }}</label>{% endfor %}
+    </fieldset>
+    <label class="check" data-when="image"><input type="checkbox" name="rest_table" value="1" {% if item.config.display == "both" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Merkmale, die nicht im Bild sind, als Tabelle darunter", "Attributes not in the image as a table below") }}</label>
+    <label class="check" data-when="image"><input type="checkbox" name="show_visual_in_table" value="1" {% if item.config.show_visual_in_table %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Merkmale „im Bild“ zusätzlich in der Tabelle", "Attributes “in the image” also in the table") }}</label>
+    <label class="check" data-when="image"><input type="checkbox" name="stack_mobile" value="1" {% if item.config.get("stack_mobile", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Auf dem Handy (Hochformat) untereinander", "Stacked on mobile phones (portrait)") }} <span class="hint">{{ de_en("größere Bilder; im Querformat und am Rechner nebeneinander", "larger images; side by side in landscape and on computers") }}</span></label>
+  </div>
+  <label data-when="image"><span class="label-title">{{ de_en("Grundprompt der Bilder: Was zeigt jedes Bild?", "Base prompt of the images: what does every image show?") }} <span class="hint">{{ de_en("auf Deutsch oder Englisch; die Stufen der Bild-Merkmale und der Bildstil werden ergänzt", "in German or English; the levels of the image attributes and the image style are added") }}</span></span>
+    <textarea name="scene" rows="2" placeholder="{{ de_en('z. B. Ein Pflegeroboter hilft einer älteren Person zu Hause', 'e.g. A care robot helps an older person at home') }}" {% if not structural %}readonly{% endif %}>{{ item.config.scene }}</textarea>
+  </label>
+  <label class="check"><input type="checkbox" name="hide_attr_labels" value="1" {% if item.config.hide_attr_labels %}checked{% endif %}> {{ de_en("Spalte mit den Merkmalsnamen ausblenden", "Hide the column with the attribute names") }} <span class="hint">{{ de_en("sinnvoll, wenn die Merkmale vorher gut erklärt wurden", "useful if the attributes were explained well beforehand") }}</span></label>
+  <div class="row-fields">
+    <label>{{ de_en("Bezeichnung der Alternativen", "Name of the alternatives") }} <input name="alt_label" value="{{ t.get('alt_label', '') }}" placeholder="Option"></label>
+    {# only with the option "Keine davon" (W34); the page comes anew when "Keine Wahl" changes #}
+    {% if item.config.none %}<label>{{ de_en("„Keine davon“-Text", "“None of these” text") }} <input name="none_label" value="{{ t.get('none_label', '') }}" placeholder="{{ item.text('none_label') or kind.default_texts(lang).none_label }}"></label>{% endif %}
+  </div>
+  {% if item.config.get("dual") and not item.config.none %}
+  <div class="row-fields">
+    <label class="wide-field">{{ de_en("Nachfrage (Dual Response)", "Follow-up question (dual response)") }} <input name="dr_question" value="{{ t.get('dr_question', '') }}" placeholder="{{ item.text('dr_question') or de_en('Würden Sie sich in Wirklichkeit für die gewählte Option entscheiden?', 'Would you really choose the option you selected?') }}"></label>
+    <label>{{ de_en("Antwort ja", "Answer yes") }} <input name="dr_yes" value="{{ t.get('dr_yes', '') }}" placeholder="{{ item.text('dr_yes') or de_en('Ja', 'Yes') }}" class="field-name"></label>
+    <label>{{ de_en("Antwort nein", "Answer no") }} <input name="dr_no" value="{{ t.get('dr_no', '') }}" placeholder="{{ item.text('dr_no') or de_en('Nein', 'No') }}" class="field-name"></label>
+  </div>
+  {% endif %}
+  {% include "items/_auto_next.html" %}
+</fieldset>
+{% include "items/_attributes/explain_editor.html" %}

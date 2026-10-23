@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link, list_table %}
+{% from "_icons.html" import icon %}
+{# Needs: user, login (UserLogin or None), link (a fresh one-time link, shown once), link_open, has_password, hours. #}
+{% block title %}{{ user.display_name }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{# a page below the tab "Forschende": the heading and the tabs of the administration stay (UI audit 2026-10-07, W101) #}
+{% set active = "researchers" %}{% include "admin/_tabs.html" %}
+<a class="back-link" href="{{ url_for('admin.researchers') }}">{{ icon("back", 16) }} {{ de_en("Forschende", "Researchers") }}</a>
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<section class="panel">
+  <h2>{{ user.display_name }}{% if login and login.status == "blocked" %} <span class="badge badge-error">{{ de_en("gesperrt", "blocked") }}</span>{% endif %}</h2>
+  {# one kind of account with two ways to sign in (konto-einrichtung-konzept.md, 1 A): which of them are set up #}
+  <p class="muted flush">{{ de_en("Anmeldung:", "Sign-in:") }}
+    {% if user.has_orcid %}ORCID {{ orcid_link(user.orcid, full=True, unauth=False) }}{% endif %}
+    {% if login and login.email %}{% if user.has_orcid %}{{ de_en("und", "and") }} {% endif %}{{ de_en("E-Mail-Adresse und Passwort", "email address and password") }}{% if not login.password_hash %} {{ de_en("(Passwort noch nicht gesetzt)", "(password not set yet)") }}{% endif %}{% endif %}
+    {% if not user.has_orcid and not (login and login.email) %}{{ de_en("noch keine", "none yet") }}{% endif %}{% if org_short(user) %} · {{ org_short(user) }}{% endif %}</p>
+</section>
+
+{% if link %}
+<section class="panel">
+  <h2>{{ de_en("Einmal-Link zum Setzen des Passworts", "One-time link for setting the password") }}</h2>
+  <p>{{ de_en("Schicken Sie diesen Link der Person auf einem Weg, dem Sie vertrauen.", "Send this link to the person by a channel you trust.") }} <strong>{{ de_en("Er wird nur jetzt angezeigt", "It is shown only now") }}</strong>, {{ de_en("gilt {hours} Stunden
+    und nur einmal. Wer ihn hat, kann das Passwort dieses Kontos setzen.", "is valid for {hours} hours
+    and only once. Anyone who has it can set the password of this account.", hours=hours) }}</p>
+  {# a button to copy, as with the participation links (UI audit 2026-10-07, W84) #}
+  <div class="copy-row"><input class="one-time-link" id="one-time-link" value="{{ link }}" readonly aria-label="{{ de_en('Einmal-Link', 'One-time link') }}" data-select-all>
+    <button type="button" class="button button-secondary" data-copy="#one-time-link">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+  <p class="muted small">{{ de_en("Die Person meldet sich danach mit", "The person then signs in with") }} <strong>{{ login.email }}</strong> {{ de_en("und ihrem Passwort an. Ein neuer Link macht diesen ungültig.", "and their password. A new link makes this one invalid.") }}</p>
+</section>
+{% endif %}
+
+<section class="panel" id="befragungstypen">
+  {# one level per survey type, "Anlegen" the highest: it took the place of the separate right to create surveys
+     (konzept-stufe-anlegen-2026-10-18.md, Ralf "wie empfohlen"; app/kind_access.py) #}
+  <h2>{{ de_en("Befragungstypen", "Survey types") }} <span class="hint">{{ de_en("was die Person von jeder Art sieht, bearbeitet und anlegt", "what the person sees, edits and creates of each type") }}</span></h2>
+  {% if site_admin %}<p><strong>{{ de_en("Als Admin der Plattform (Konfiguration des Servers) sieht, bearbeitet und legt {name} in jedem Fall alle Arten an.", "As a platform admin (server configuration), {name} sees, edits and creates all types in any case.", name=user.display_name) }}</strong></p>{% endif %}
+  <div class="res-scroll">
+  {% call list_table("admin-people") %}
+    <thead><tr><th>{{ de_en("Art", "Type") }}</th><th>{{ de_en("Stand", "Status") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for kind, level, lower in kinds %}
+      <tr><td>{{ kind_label(kind) }}</td>
+        <td><strong>{{ kind_level_label(level) }}</strong></td>
+        <td class="button-row">{% for lvl in ("off", "view", "edit", "create") if lvl != level %}
+          {% set hit = lower.get(lvl) %}
+          <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="inline"
+            {% if hit %}data-confirm="{{ de_en('{kind} auf „{level}“ setzen? Das betrifft {n} Befragungen von {name}.', 'Set {kind} to “{level}”? This affects {n} surveys of {name}.', kind=kind_label(kind), level=kind_level_label(lvl), n=hit.n, name=user.display_name) }}"
+            data-confirm-note="{{ de_en('Dort hat die Person danach nur noch die Rolle „Ansehen“.', 'There the person then only has the role “View”.') if lvl == 'view' else de_en('Die Person sieht sie danach nicht mehr.', 'The person then no longer sees them.') }}{% if hit.running %} {{ de_en('Laufend: {t}. Die Erhebung läuft weiter.', 'Running: {t}. Data collection continues.', t=hit.running|join(', ')) }}{% endif %}{% if hit.only %} {{ de_en('Einzige Admin-Person in: {t}; dort kann nur noch ein Admin der Plattform stoppen oder Beteiligte ändern.', 'Only admin in: {t}; there only a platform admin can stop it or change the people.', t=hit.only|join(', ')) }}{% endif %}"
+            data-confirm-ok="{{ de_en('Trotzdem setzen', 'Set anyway') }}"{% endif %}>
+            {{ csrf() }}<input type="hidden" name="action" value="kind"><input type="hidden" name="kind" value="{{ kind }}">
+            <button class="button button-secondary button-small" name="level" value="{{ lvl }}">{{ kind_level_label(lvl) }}</button></form>
+        {% endfor %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="may_create">
+    <button class="button button-secondary button-small" name="value" value="1">{{ de_en("Überall anlegen", "Create everywhere") }}</button>
+    <button class="button button-secondary button-small" name="value" value="0">{{ de_en("Nirgends anlegen", "Create nowhere") }}</button>
+    <span class="muted small">{{ de_en("setzt jede Art von „Bearbeiten“ auf „Anlegen“ oder zurück; „Aus“ und „Ansehen“ bleiben", "sets every type from “Edit” to “Create” or back; “Off” and “View” stay") }}</span>
+  </form>
+  <p class="muted small">{{ de_en("„Aus“: Die Art erscheint nirgends, auch geteilte Befragungen dieser Art nicht. „Ansehen“: geteilte Befragungen und Beispiele öffnen, höchstens in der Rolle „Ansehen“. „Bearbeiten“: an geteilten Befragungen mitarbeiten, keine eigenen anlegen. „Anlegen“: auch eigene Befragungen dieser Art anlegen; wer bei irgendeiner Art „Anlegen“ hat, legt auch Gruppen und eigene Designs an. Eine Gruppe mit „darf Befragungen anlegen“ setzt „Bearbeiten“ beim Eintritt einmal auf „Anlegen“. Die Heimat-Organisation kann die Stufen deckeln. Die Tagebuchstudie braucht zusätzlich die experimentelle Funktion.", "“Off”: the type appears nowhere, not even shared surveys of it. “View”: shared surveys and examples open, at most in the role “View”. “Edit”: works on shared surveys, creates none of its own. “Create”: also creates own surveys of the type; whoever has “Create” for any type also creates groups and own designs. A group with “may create surveys” sets “Edit” to “Create” once on joining. The home organisation can cap the levels. The diary survey also needs the experimental feature.") }}</p>
+</section>
+
+{% if home_choices %}
+<section class="panel" id="heimat">
+  {# the home organisation, changed by a site admin (app/orgs.py, move_home; Ralf 2026-10-18) #}
+  <h2>{{ de_en("Heimat-Organisation", "Home organisation") }}</h2>
+  <p>{{ de_en("Heimat:", "Home:") }} <strong>{{ org_label(home) }}</strong>{% if also_in %} · {{ de_en("außerdem in:", "also in:") }} {% for o in also_in %}{{ org_label(o) }}{{ ", " if not loop.last }}{% endfor %}{% endif %}</p>
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="account-form period-form">
+    {{ csrf() }}<input type="hidden" name="action" value="home">
+    <label for="home-org">{{ de_en("Heimat ändern", "Change the home") }} <span class="hint">{{ de_en("ihre Admins verwalten dann das Konto; die bisherige Heimat bleibt eine Mitgliedschaft", "its admins then manage the account; the former home stays a membership") }}</span></label>
+    <div class="row"><select id="home-org" name="org">
+      {% for o in home_choices %}<option value="{{ o.id }}"{{ " selected" if home and home.id == o.id }}>{{ org_label(o) }}</option>{% endfor %}</select>
+      <button class="button button-secondary" data-confirm="{{ de_en('Heimat von {n} ändern?', 'Change the home of {n}?', n=user.display_name) }}" data-confirm-note="{{ de_en('Ein Nutzertyp der bisherigen Organisation wird der gleichnamige der neuen, sonst ihr Standardtyp. Laufzeit, Befragungstypen und Anlegerecht bleiben, höchstens so weit, wie die neue Organisation erlaubt.', 'A user type of the former organisation becomes the one of the same name in the new one, else its default type. Period, survey types and the right to create stay, at most as far as the new organisation allows.') }}">{{ de_en("Übernehmen", "Apply") }}</button></div>
+  </form>
+</section>
+{% endif %}
+
+<section class="panel" id="nutzertyp">
+  {# user type, period and supervisor (app/account_types.py, konzept-nutzertypen-2026-10-15.md, N5, N10, N12, N13) #}
+  <h2>{{ de_en("Nutzertyp und Laufzeit", "User type and period") }}</h2>
+  {% if site_admin %}<p><strong>{{ de_en("Als Admin der Plattform läuft das Konto von {name} nie ab.", "As a platform admin, the account of {name} never ends.", name=user.display_name) }}</strong></p>{% endif %}
+  <p>{{ de_en("Typ:", "Type:") }} <strong>{{ account_type_name(period.type) }}</strong> ·
+    {% if period.expired %}<span class="badge badge-error">{{ de_en("abgelaufen am {d}", "ended on {d}", d=period.until|localdate) }}</span> {{ de_en("Das Konto ist gesperrt; Verlängern öffnet es wieder.", "The account is blocked; extending opens it again.") }}
+    {% elif period.until %}{{ de_en("Laufzeit bis {d}", "Period until {d}", d=period.until|localdate) }}{% if period.left is not none %} ({{ de_en("noch {n} Tage", "{n} days left", n=period.left) }}){% endif %}
+    {% elif period.pending %}{{ de_en("Laufzeit {what}, beginnt, wenn die Person ihr Passwort setzt", "Period {what}, starts when the person sets their password", what=describe_spec(period.pending)) }}
+    {% else %}{{ de_en("unbefristet", "without end") }}{% endif %}</p>
+  {% if deletion_due %}<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Die Löschfrist des Typs ist vorbei. Askurious löscht das Konto nicht selbst, weil noch etwas zu übergeben ist (laufende Befragungen, Daten ohne weitere Person oder eine Nachfolge); bitte über „Konto löschen …“ entscheiden.", "The deletion period of the type is over. Askurious does not delete the account itself because something has to be handed over (running surveys, data nobody else holds, or a successor); please decide through “Delete account …”.") }}</span></div>{% endif %}
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="account-form period-form">
+    {{ csrf() }}<input type="hidden" name="action" value="extend">
+    <label>{{ de_en("Laufzeit ändern", "Change the period") }} <span class="hint">{{ de_en("Monate und Wochen zählen ab dem bisherigen Ende (verlängern), ein Datum gilt so, wie es ist", "months and weeks count from the current end (extend), a date holds as it is") }}</span></label>
+    <div class="row">
+      <select name="valid_mode" aria-label="{{ de_en('Art der Laufzeit', 'Kind of period') }}">
+        {% for value, label in (("m", de_en("um Monate verlängern", "extend by months")), ("w", de_en("um Wochen verlängern", "extend by weeks")), ("d", de_en("bis zum Datum", "until the date")), ("none", de_en("unbefristet", "without end"))) %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+      <input type="number" name="valid_n" min="1" max="520" aria-label="{{ de_en('Anzahl', 'Number') }}" placeholder="{{ de_en('Anzahl', 'number') }}">
+      <input type="date" name="valid_date" aria-label="{{ de_en('Enddatum', 'End date') }}">
+      <button class="button button-secondary">{{ de_en("Übernehmen", "Apply") }}</button></div>
+  </form>
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="account-form period-form" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="action" value="account_type">
+    <label for="account-type">{{ de_en("Nutzertyp wechseln", "Change the user type") }} <span class="hint">{{ de_en("die Befragungstypen kommen vom neuen Typ, die Laufzeit bleibt", "the survey types come from the new type, the period stays") }}</span></label>
+    <div class="row"><select id="account-type" name="account_type"><option value="">{{ de_en("ohne Typ", "no type") }}</option>
+      {% for t in types %}<option value="{{ t.id }}"{{ " selected" if period.type and period.type.id == t.id }}>{{ account_type_name(t) }}</option>{% endfor %}</select>
+</div>
+    {{ autosave_bar(small=true) }}
+  </form>
+  {# Betreuung: several people (Ralf 2026-10-18), shown as a list with × like added people, not as a colour in a list
+     box; a click in the list below adds one at once (the page comes back with the list). They drop out when the type
+     changes to one without supervision, and stay admins of the surveys they are in already (Ralf) #}
+  <div class="account-form period-form supervisor-pick" id="betreuung">
+    <p class="supervisor-head"><strong>{{ de_en("Betreuung", "Supervisors") }}</strong> <span class="hint">{{ de_en("Personen der Heimat-Organisation; jede wird Admin in jeder Befragung, die die Person neu anlegt, und bekommt die Nachricht vor dem Ende", "people of the home organisation; each becomes admin of every survey the person newly creates and gets the notice before the end") }}</span></p>
+    <ul class="supervisor-list">
+    {% for s in supervisors %}
+      <li>{{ s.display_name }}
+        <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="supervisor_remove"><input type="hidden" name="supervisor" value="{{ s.id }}">
+          <button class="icon-btn" title="{{ de_en('Aus der Betreuung nehmen', 'Remove from the supervisors') }}" aria-label="{{ de_en('{n} aus der Betreuung nehmen', 'Remove {n} from the supervisors', n=s.display_name) }}">{{ icon("x", 14) }}</button></form></li>
+    {% else %}<li class="muted">{{ de_en("noch niemand", "nobody yet") }}</li>{% endfor %}
+    </ul>
+    {% if supervisor_choices %}
+    {% set many = supervisor_choices|length > 10 %}
+    {# many people: a search field over the list, outside the form, so typing a name sends nothing #}
+    <label for="supervisor">{{ de_en("Person hinzufügen", "Add a person") }}</label>
+    {% if many %}<input type="search" data-filter-select="supervisor" data-filter-keep placeholder="{{ de_en('Name suchen …', 'Search name …') }}" aria-label="{{ de_en('Personen für die Betreuung durchsuchen', 'Search people for the supervisors') }}" autocomplete="off">{% endif %}
+    <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" aria-label="{{ de_en('Betreuung hinzufügen', 'Add a supervisor') }}">
+      {{ csrf() }}<input type="hidden" name="action" value="supervisor">
+      <select id="supervisor" name="supervisor" data-submit-on-change{% if many %} size="6"{% endif %}>{% if not many %}<option value="">{{ de_en("– wählen –", "– choose –") }}</option>{% endif %}
+        {% for u in supervisor_choices %}<option value="{{ u.id }}">{{ u.display_name }}</option>{% endfor %}</select>
+      <noscript><button class="button button-secondary button-small">{{ de_en("Hinzufügen", "Add") }}</button></noscript>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel" id="experimentell">
+  <h2>{{ de_en("Experimentelle Funktionen", "Experimental features") }} <span class="hint">{{ de_en("sieht die Person nur, wenn sie hier, über eine Gruppe, eine Organisation oder für alle eingeschaltet sind", "the person sees them only when they are switched on here, through a group, an organisation or for everyone") }}</span></h2>
+  <div class="res-scroll">
+  {% call list_table("is-num admin-people") %}
+    <thead><tr><th>{{ de_en("Funktion", "Feature") }}</th><th>{{ de_en("Stand", "Status") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for key, label, how in experiments %}
+      <tr><td>{{ label }}</td>
+        <td>{% if how.blocked %}<span class="badge badge-error">{{ de_en("ausgeschlossen", "excluded") }}</span>
+          {% elif how.own %}<strong>{{ de_en("eingeschaltet", "switched on") }}</strong>
+          {% elif how.everyone %}{{ de_en("eingeschaltet für alle", "switched on for everyone") }}
+          {% elif how.groups %}{{ de_en("eingeschaltet über", "switched on through") }} {{ de_en("die Gruppe", "the group") if how.groups|length == 1 else de_en("die Gruppen", "the groups") }} {% for name in how.groups %}„{{ name }}“{{ ", " if not loop.last }}{% endfor %}
+          {% elif how.orgs %}{{ de_en("eingeschaltet über", "switched on through") }} {{ de_en("die Organisation", "the organisation") if how.orgs|length == 1 else de_en("die Organisationen", "the organisations") }} {% for name in how.orgs %}„{{ name }}“{{ ", " if not loop.last }}{% endfor %}
+          {% else %}{{ de_en("aus", "off") }}{% endif %}</td>
+        <td><form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="inline button-row">
+          {{ csrf() }}<input type="hidden" name="action" value="experiment"><input type="hidden" name="feature" value="{{ key }}">
+          {% if how.blocked %}<button class="button button-secondary button-small" name="state" value="off">{{ de_en("Ausschluss aufheben", "Lift exclusion") }}</button>
+          {% else %}
+            {% if how.own %}<button class="button button-secondary button-small" name="state" value="off">{{ de_en("Ausschalten", "Switch off") }}</button>
+            {# on for everyone already: a personal switch that stays when "für alle" ends, and the page says so (W90) #}
+            {% elif how.everyone %}<button class="button button-secondary button-small" name="state" value="on">{{ de_en("Auch persönlich einschalten", "Also switch on personally") }}</button>
+              <span class="hint">{{ de_en("bleibt, wenn „für alle“ endet", "stays when “for everyone” ends") }}</span>
+            {% else %}<button class="button button-secondary button-small" name="state" value="on">{{ de_en("Einschalten", "Switch on") }}</button>{% endif %}
+            {% if how.everyone or how.groups or how.orgs %}<button class="button button-secondary button-small" name="state" value="blocked">{{ de_en("Ausschließen", "Exclude") }}</button>{% endif %}
+          {% endif %}
+        </form></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  <p class="muted small">{{ de_en("Befragungen, die eine Funktion schon nutzen, behalten sie für Teilnehmende und Beteiligte, auch wenn sie hier ausgeschaltet wird.
+    Gruppen und „für alle“ stehen unter", "Surveys that already use a feature keep it for participants and the people involved, even when it is switched off here.
+    Groups and “for everyone” are under") }} <a href="{{ url_for('admin.experiments') }}">{{ de_en("Experimentell", "Experimental") }}</a>.</p>
+</section>
+
+{% if hard_locked %}
+<section class="panel">
+  <h2>{{ de_en("Anmeldung gesperrt", "Sign-in locked") }}</h2>
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Nach {n} falschen Passwörtern oder Codes in Folge (seit {date}) ist die Anmeldung mit Passwort und Code gesperrt. Die Anmeldung mit ORCID bleibt offen. Geben Sie sie nur frei, wenn Sie sicher sind, dass die Person selbst sich vertippt hat; sonst kennt jemand das Passwort.",
+    "After {n} wrong passwords or codes in a row (since {date}), signing in with password and code is locked. Signing in with ORCID stays open. Release it only if you are sure the person mistyped themselves; otherwise someone knows the password.", n=hard_limit, date=login.hard_locked_at|localdt) }}</span></div>
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="release">
+    <button class="button button-secondary">{{ de_en("Anmeldung freigeben", "Release sign-in") }}</button>
+  </form>
+</section>
+{% endif %}
+
+{% if login and login.email %}
+<section class="panel">
+  <h2>{{ de_en("Anmeldung mit E-Mail-Adresse und Passwort", "Sign-in with email address and password") }}</h2>
+  <p>{% if has_password %}{% if login.password_changed_at %}{{ de_en("Das Passwort ist gesetzt (zuletzt am {date}).", "The password is set (last on {date}).", date=login.password_changed_at|localdt(false)) }}{% else %}{{ de_en("Das Passwort ist gesetzt.", "The password is set.") }}{% endif %}
+    {% elif link_open %}{{ de_en("Das Passwort ist noch nicht gesetzt; ein Einmal-Link ist offen.", "The password is not set yet; a one-time link is open.") }}
+    {% else %}{{ de_en("Das Passwort ist noch nicht gesetzt, und es ist kein gültiger Einmal-Link offen.", "The password is not set yet, and no valid one-time link is open.") }}{% endif %}</p>
+  {# a button on purpose, not saved by itself: it changes the sign-in name; it stands right beside the field
+     (UI audit 2026-10-07, W103) #}
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="account-form">
+    {{ csrf() }}<input type="hidden" name="action" value="email">
+    <label for="login-email">{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{% if mail_enabled() %}{{ de_en("der Anmeldename und die Adresse für Einmal-Links per E-Mail", "the sign-in name and the address for one-time links by email") }}{% else %}{{ de_en("der Anmeldename; Askurious kann sie nicht prüfen und schreibt niemanden an", "the sign-in name; Askurious cannot check it and writes to nobody") }}{% endif %}</span></label>
+    <div class="row field-with-button"><input type="email" id="login-email" name="email" value="{{ login.email }}" maxlength="254" required>
+      <button class="button button-secondary">{{ de_en("Adresse ändern", "Change address") }}</button></div>
+  </form>
+  <h3 class="account-link-head">{{ de_en("Einmal-Link", "One-time link") }}</h3>
+  {% if login.reset_requested_at %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Für diese Adresse wurde am {date} auf der Anmeldeseite „Passwort vergessen?“ angefragt. Wer gefragt hat, weiß Askurious nicht: Geben Sie den Einmal-Link nur an die hinterlegte Adresse weiter, nie an eine andere, auch wenn jemand darum bittet. Der Link erledigt die Anfrage.",
+    "On {date}, “Forgot your password?” was asked for this address on the sign-in page. Askurious does not know who asked: pass the one-time link on only to the address on file, never to another one, even if someone asks for it. The link completes the request.", date=login.reset_requested_at|localdt) }}</span></div>
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="request_done">
+    <button class="button button-secondary button-small">{{ de_en("Anfrage ohne Link erledigen", "Complete the request without a link") }}</button>
+  </form>
+  {% endif %}
+  {% if not user.has_orcid %}
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="button-row"
+        {% if has_password %}data-confirm="{{ de_en('Neuen Einmal-Link erzeugen?', 'Create a new one-time link?') }}" data-confirm-note="{{ de_en('Das bisherige Passwort gilt weiter, bis die Person über den Link ein neues setzt.', 'The current password stays valid until the person sets a new one through the link.') }}"
+        data-confirm-ok="{{ de_en('Link erzeugen', 'Create link') }}"{% endif %}>
+    {{ csrf() }}<input type="hidden" name="action" value="link">
+    <button class="button button-secondary">{{ de_en("Neuen Einmal-Link erzeugen", "Create a new one-time link") }}</button>
+    <span class="muted small">{{ de_en("für ein vergessenes Passwort oder einen abgelaufenen Link; ein älterer Link wird ungültig", "for a forgotten password or an expired link; an older link becomes invalid") }}</span>
+  </form>
+  {% if mail_enabled() %}
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="link_mail">
+    <button class="button button-secondary">{{ icon("mail", 16) }} {{ de_en("Neuen Einmal-Link per E-Mail schicken", "Send a new one-time link by email") }}</button>
+    <span class="muted small">{{ de_en("an {email}; der Link wird nicht angezeigt", "to {email}; the link is not shown", email=login.email) }}</span>
+  </form>
+  {% endif %}
+  {% endif %}
+</section>
+{% elif user.has_orcid %}
+<section class="panel">
+  <h2>{{ de_en("Anmeldung", "Sign-in") }}</h2>
+  <p class="muted">{{ de_en("Dieses Konto meldet sich mit ORCID an. Ein Passwort kann die Person selbst auf ihrer Seite „Konto“ hinterlegen.", "This account signs in with ORCID. The person can add a password themselves on their page “Account”.") }}</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>{{ de_en("Sperren und Löschen", "Block and delete") }}</h2>
+  <div class="button-row">
+    <form class="inline" method="post" action="{{ url_for('admin.block_account', user_id=user.id) }}">
+      {{ csrf() }}<input type="hidden" name="action" value="{{ 'unblock' if login and login.status == 'blocked' else 'block' }}">
+      <button class="button button-secondary">{{ icon("lock", 16) }} {{ de_en("Entsperren", "Unblock") if login and login.status == "blocked" else de_en("Sperren", "Block") }}</button>
+    </form>
+    <a class="button button-secondary" href="{{ url_for('admin.delete_account', user_id=user.id) }}">{{ icon("trash", 16) }} {{ de_en("Konto löschen …", "Delete account …") }}</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,2 @@
+{# Only the rare types actually rendered on this page; core helpers and restored inputs are ready first. #}
+{% for script in assets.extra_scripts %}<script src="{{ url_for('static', filename='participant-' ~ script ~ '.js') }}" defer></script>{% endfor %}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="{{ html_lang(lang) }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ de_en("Vorschau (Mobil)", "Preview (mobile)") }} · {{ survey.title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+</head>
+<body class="participant device-stage-body">
+  {% include "participant/_preview_bar.html" %}
+  <div class="device-stage">
+    <div class="device-row">
+      <div class="device-col">
+        <div class="device" data-device data-lang="{{ lang }}" data-page="{{ page }}">
+          <iframe src="{{ frame_src }}" title="{{ de_en('Mobilansicht', 'Mobile view') }}" allow="microphone; geolocation" width="390" height="844" data-device-frame></iframe>
+        </div>
+        <div class="device-controls"{{ tool_attrs() }} role="group" aria-label="{{ de_en('Gerät', 'Device') }}">
+          <select data-device-size aria-label="{{ de_en('Bildschirmgröße', 'Screen size') }}">
+            {# the narrowest common width, the usual ones and a tablet (Ralf, 2026-10-07) #}
+            <option value="360x780">{{ de_en("Klein · 360 × 780 (z. B. kompaktes Android)", "Small · 360 × 780 (e.g. compact Android)") }}</option>
+            <option value="375x667">{{ de_en("Klein · 375 × 667 (z. B. iPhone SE)", "Small · 375 × 667 (e.g. iPhone SE)") }}</option>
+            <option value="390x844" selected>{{ de_en("Mittel · 390 × 844 (z. B. iPhone 14/15)", "Medium · 390 × 844 (e.g. iPhone 14/15)") }}</option>
+            <option value="412x915">{{ de_en("Groß · 412 × 915 (z. B. Samsung Galaxy, Pixel)", "Large · 412 × 915 (e.g. Samsung Galaxy, Pixel)") }}</option>
+            <option value="430x932">{{ de_en("Groß · 430 × 932 (z. B. iPhone Pro Max)", "Large · 430 × 932 (e.g. iPhone Pro Max)") }}</option>
+            <option value="820x1180">{{ de_en("Tablet · 820 × 1180 (z. B. iPad Air)", "Tablet · 820 × 1180 (e.g. iPad Air)") }}</option>
+          </select>
+          <button type="button" class="device-rotate" data-device-rotate title="{{ de_en('Hoch- und Querformat wechseln', 'Switch between portrait and landscape') }}"
+                  data-portrait="{{ de_en('Hochformat', 'Portrait') }}" data-landscape="{{ de_en('Querformat', 'Landscape') }}">⟲ <span data-device-orientation>{{ de_en("Querformat", "Landscape") }}</span></button>
+        </div>
+        {# a phone larger than the window is scaled down: the line says by how much, and "Originalgröße" shows it at its own
+           size, with scrolling (X48) #}
+        <p class="device-caption"{{ tool_attrs() }}><span data-device-caption data-scaled="{{ de_en('verkleinert auf {p} %', 'scaled down to {p}%') }}">390 × 844 px · {{ de_en("Hochformat", "Portrait") }}</span>
+          <button type="button" class="device-actual" data-device-actual hidden data-fit="{{ de_en('An Fenster anpassen', 'Fit to window') }}">{{ de_en("Originalgröße", "Actual size") }}</button></p>
+      </div>
+      <aside class="phone-card"{{ tool_attrs() }}>
+        <h2>{{ de_en("Auf dem eigenen Smartphone testen", "Test on your own phone") }}</h2>
+        <div class="qr">{{ phone_qr|safe }}</div>
+        <p>{{ de_en("QR-Code mit der Kamera scannen. Der Link öffnet nur die Vorschau dieser Befragung, ohne Anmeldung, und ist <strong>24 Stunden</strong> gültig."|safe, "Scan the QR code with the camera. The link opens only the preview of this survey, without signing in, and is valid for <strong>24 hours</strong>."|safe) }}</p>
+        <p class="muted">{{ de_en("Antworten zählen nicht. Den Link nicht an Teilnehmende weitergeben.", "Answers do not count. Do not pass the link on to participants.") }}</p>
+        <input value="{{ phone_link }}" readonly data-select-all aria-label="{{ de_en('Vorschau-Link fürs Smartphone', 'Preview link for the phone') }}">
+      </aside>
+      {% if comment_url %}{% with stage=true %}{% include "participant/_comments.html" %}{% endwith %}{% endif %}
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='participant.js') }}"></script>
+  {% if comment_url is defined and comment_url %}<script src="{{ url_for('static', filename='comment_shot.js') }}"></script><script src="{{ url_for('static', filename='comments.js') }}"></script>{% endif %}
+</body>
+</html>

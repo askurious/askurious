@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{# Verwaltung > Design (app/org_admin.py, Ralf 2026-10-16): the organisation's logo for light and dark backgrounds,
+   usable by all its members in the appearance of a survey, and the organisation design, light and dark: the standard
+   of the organisation (app/org_designs.py, Ralf 2026-10-19). Context: org, logo, folder, sides [{mode, label, design,
+   template}], sources [(key, name)], template_differs. #}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_learn.html" import why %}
+{% block title %}{{ de_en("Design", "Design") }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<section class="panel">
+  <h2>{{ de_en("Namen", "Names") }}</h2>
+  <form method="post" action="{{ url_for('org.design_action', org_id=org.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="action" value="names">
+    <label>{{ de_en("Kurzname", "Short name") }} <span class="hint">{{ de_en("auf den Seiten der Plattform", "on the platform's pages") }}</span> <input name="name" maxlength="80" required value="{{ org.name }}"></label>
+    <label>{{ de_en("Ausführlicher Name", "Full name") }} <span class="hint">{{ de_en("in Befragungstexten: Einwilligung, Datenschutzhinweise, Veröffentlichungen; leer = Kurzname", "in survey texts: consent, privacy notes, publications; empty = short name") }}</span> <input name="long_name" maxlength="200" value="{{ org.long_name }}"></label>
+    {{ autosave_bar(small=true) }}
+  </form>
+</section>
+<section class="panel">
+  <h2>{{ de_en("Logo der Organisation", "Logo of the organisation") }}</h2>
+  <p class="muted small">{{ de_en("Alle Mitglieder können es im Erscheinungsbild ihrer Befragungen übernehmen („Logo der Organisation übernehmen“); Befragungen, die das Organisationsdesign wählen oder damit entstehen, bekommen es von selbst. Jede Befragung behält ihre eigene Kopie.", "All members can apply it in the appearance of their surveys (“Use the logo of the organisation”); surveys that choose the organisation design or start with it get it automatically. Every survey keeps its own copy.") }}</p>
+  <div class="admin-theme-logos">
+    {% for variant, title, key in [("light", de_en("Logo für helle Hintergründe", "Logo for light backgrounds"), "file"), ("dark", de_en("Logo für dunkle Hintergründe (z. B. weiß)", "Logo for dark backgrounds (e.g. white)"), "file_dark")] %}
+    <div class="admin-theme-logo">
+      <h3>{{ title }}</h3>
+      {% if logo and logo.get(key) %}
+      <div class="design-logo-current {{ 'is-dark' if variant == 'dark' }}"><img src="{{ url_for('media.serve', survey_uid=folder, filename=logo[key]) }}" alt=""></div>
+      {% else %}<p class="muted small">{{ de_en("Noch keine Datei.", "No file yet.") }}</p>{% endif %}
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('org.design_action', org_id=org.id) }}">
+        {{ csrf() }}<input type="hidden" name="action" value="logo"><input type="hidden" name="variant" value="{{ variant }}">
+        <label for="org-logo-{{ variant }}">{{ de_en("Ersetzen", "Replace") if logo and logo.get(key) else de_en("Datei", "File") }} <span class="hint">{{ de_en("PNG, JPEG, WebP oder SVG", "PNG, JPEG, WebP or SVG") }}</span></label>
+        <div class="row field-with-button"><input type="file" id="org-logo-{{ variant }}" name="file" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" required>
+          <button class="button button-secondary">{{ de_en("Hochladen", "Upload") }}</button></div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% if logo and logo.get("file") %}
+  <form method="post" action="{{ url_for('org.design_action', org_id=org.id) }}" class="inline" data-confirm="{{ de_en('Logo der Organisation entfernen?', 'Remove the logo of the organisation?') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
+    {{ csrf() }}<input type="hidden" name="action" value="remove_logo"><button class="button button-secondary button-small">{{ de_en("Logo entfernen", "Remove logo") }}</button></form>
+  {% endif %}
+</section>
+<section class="panel" id="organisationsdesign">
+  <h2>{{ de_en("Organisationsdesign", "Organisation design") }}</h2>
+  <p class="muted small">{{ de_en("Der Standard der Organisation: Neue Befragungen beginnen damit, mit einem dunklen dazu wechseln sie nach der Einstellung des Geräts zwischen hell und dunkel. Alle Mitglieder finden es oben in der Auswahl des Erscheinungsbilds; ändern können sie nur ihre Kopie. Bestehende Befragungen behalten ihr Aussehen.", "The standard of the organisation: new surveys start with it; with a dark one as well they switch between light and dark after the device's setting. All members find it at the top of the appearance choices; they can only change their copy. Existing surveys keep their look.") }}</p>
+  {{ why("org_design") }}
+  {% if template_differs %}
+  <div class="flash flash-warning org-design-template"><span>{{ de_en("Die Plattform hat eine Vorlage für Ihr Organisationsdesign bereitgestellt.", "The platform has provided a template for your organisation design.") }}</span>
+    <form method="post" action="{{ url_for('org.design_action', org_id=org.id) }}" class="inline" data-confirm="{{ de_en('Vorlage der Plattform als Organisationsdesign übernehmen? Das bisherige Organisationsdesign wird ersetzt.', 'Apply the platform template as organisation design? The current organisation design is replaced.') }}" data-confirm-ok="{{ de_en('Übernehmen', 'Apply') }}">
+      {{ csrf() }}<input type="hidden" name="action" value="design_template"><button class="button button-secondary button-small">{{ de_en("Vorlage übernehmen", "Apply template") }}</button></form></div>
+  {% endif %}
+  <div class="admin-theme-logos">
+    {% for side in sides %}
+    <div class="admin-theme-logo org-design-side">
+      <h3>{{ de_en("Hell", "Light") if side.mode == "light" else de_en("Dunkel", "Dark") }}{% if side.mode == "dark" %} <span class="hint">{{ de_en("optional", "optional") }}</span>{% endif %}</h3>
+      {% if side.design %}{% set d = side.design %}
+      <div class="org-design-current">
+        <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ d.colors[c] }}"></span>{% endfor %}</span>
+        <span><strong>{{ themes.name(d) }}</strong>
+        <span class="muted small">{{ themes.font_name(d.font) }}{% if d.get("fixed") %} · {{ de_en("Schrift und Ecken fest", "font and corners fixed") }}{% endif %}{% if d.get("swatches") %} · {{ de_en("{n} Farbvorschläge", "{n} colour suggestions", n=d.swatches|length) }}{% endif %}</span></span>
+        <span class="org-design-buttons">
+          <a class="button button-small" href="{{ url_for('org.design_edit', org_id=org.id, mode=side.mode) }}">{{ de_en("Bearbeiten", "Edit") }}</a>
+          <a class="button button-secondary button-small" href="{{ url_for('org.design_file', org_id=org.id, mode=side.mode) }}" download>{{ de_en("Herunterladen", "Download") }}</a>
+          <form method="post" action="{{ url_for('org.design_action', org_id=org.id) }}" class="inline" data-confirm="{{ de_en('Organisationsdesign ({side}) entfernen? Befragungen, die es haben, behalten ihre Kopie.', 'Remove the organisation design ({side})? Surveys that have it keep their copy.', side=side.label) }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
+            {{ csrf() }}<input type="hidden" name="action" value="design_remove"><input type="hidden" name="mode" value="{{ side.mode }}"><button class="button button-danger button-small">{{ de_en("Entfernen", "Remove") }}</button></form>
+        </span>
+      </div>
+      {% else %}
+      <div class="org-design-current"><span class="muted small">{{ de_en("Noch keins.", "None yet.") }}</span>
+        <span class="org-design-buttons"><a class="button button-small" href="{{ url_for('org.design_edit', org_id=org.id, mode=side.mode) }}">{{ de_en("Im Designeditor erstellen", "Create in the design editor") }}</a></span></div>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('org.design_action', org_id=org.id) }}">
+        {{ csrf() }}<input type="hidden" name="action" value="design_upload"><input type="hidden" name="mode" value="{{ side.mode }}">
+        <label for="org-design-file-{{ side.mode }}">{{ de_en("Designdatei hochladen", "Upload a design file") }} <span class="hint">{{ de_en("JSON, z. B. aus „Herunterladen“", "JSON, e.g. from “Download”") }}</span></label>
+        <div class="row field-with-button"><input type="file" id="org-design-file-{{ side.mode }}" name="file" accept=".json,application/json" required>
+          <button class="button button-secondary">{{ de_en("Hochladen", "Upload") }}</button></div>
+      </form>
+      <form method="post" action="{{ url_for('org.design_action', org_id=org.id) }}">
+        {{ csrf() }}<input type="hidden" name="action" value="design_take"><input type="hidden" name="mode" value="{{ side.mode }}">
+        <label for="org-design-source-{{ side.mode }}">{{ de_en("Oder übernehmen aus", "Or apply from") }} <span class="hint">{{ de_en("Farbschema oder eines Ihrer Designs", "a colour scheme or one of your designs") }}</span></label>
+        <div class="row field-with-button"><select id="org-design-source-{{ side.mode }}" name="source" required><option value="">{{ de_en("– wählen –", "– choose –") }}</option>{% for key, label in sources %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+          <button class="button button-secondary">{{ de_en("Übernehmen", "Apply") }}</button></div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

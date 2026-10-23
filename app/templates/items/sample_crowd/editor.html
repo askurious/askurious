@@ -1,0 +1,31 @@
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „Hier stehen die anderen Teilnehmenden“", "e.g. “Where the other participants stand”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Frage", "Question") }} <span class="hint">{{ de_en("eine Frage vor diesem Element, auch auf derselben Seite", "a question before this element, also on the same page") }}</span></legend>
+  {% set candidates = kind.candidates(item) %}
+  {% set current = kind.chosen_value(item, 0) %}
+  {% if candidates %}
+  <label>{{ de_en("Frage", "Question") }}
+    <select name="source" {% if not structural %}disabled{% endif %}>
+      <option value="">{{ de_en("– bitte wählen –", "– please choose –") }}</option>
+      {% for c in candidates %}{% for value, sub in kind.source_choices(c) %}
+      <option value="{{ value }}" {% if value == current %}selected{% endif %}>{{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} ({{ c.kind.label }})</option>
+      {% endfor %}{% endfor %}
+    </select>
+  </label>
+  {% else %}
+  <p class="muted">{{ de_en("Vor diesem Element steht noch keine passende Frage (Likert/Konstrukt, semantisches Differential, Bewertung, Einfachauswahl).", "There is no suitable question before this element yet (Likert/construct, semantic differential, rating, single choice).") }}</p>
+  {% endif %}
+  <div class="row-fields">
+    <label>{{ de_en("höchstens", "at most") }} <input type="number" name="avatars" min="5" max="150" value="{{ item.config.avatars or 40 }}" class="narrow" {% if not structural %}readonly{% endif %}> {{ de_en("Figuren", "figures") }}</label>
+    <label class="check"><input type="checkbox" name="show_own" value="1" {% if item.config.show_own %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("eigene Figur hervorheben („Sie“)", "highlight one's own figure (“You”)") }}</label>
+    <label class="check"><input type="checkbox" name="keep_previous" value="1" {% if item.config.get("keep_previous", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("vorige Positionen sofort zeigen", "show previous positions at once") }} <span class="hint">{{ de_en("bei mehreren Menschenmengen nacheinander (z. B. in einer Schleife): Die Figuren stehen schon dort, wo sie zuletzt standen, und gehen nach der Antwort los; sonst erscheint die Menge erst nach der Antwort.", "with several crowds one after another (e.g. in a loop): the figures already stand where they stood last and start walking after the answer; otherwise the crowd only appears after the answer.") }}
+      {{ de_en("Achtung Verankerung: Teilnehmende sehen dann vor ihrer Antwort, wo die anderen bei der vorigen Frage standen; bei ähnlichen Fragen (z. B. dieselbe Skala in einer Schleife) kann das die Antworten in Richtung der Menge ziehen.", "Beware of anchoring: participants then see before their answer where the others stood on the previous question; with similar questions (e.g. the same scale in a loop) this can pull the answers towards the crowd.") }}</span></label>
+  </div>
+</fieldset>
+<p class="muted small">{{ de_en("Experimentell. Jede Figur ist eine bisherige Teilnahme; bei mehreren solchen Elementen bleiben es dieselben Personen, die von ihrer letzten zur neuen Position laufen. Matrixfragen zeigen den Skalenmittelwert (bei Instrumenten mit Subskalen den der gewählten Subskala).", "Experimental. Every figure is a participation so far; with several such elements they stay the same people, walking from their last to their new position. Matrix questions show the scale mean (for instruments with subscales, that of the chosen subscale).") }}
+  <strong>{{ de_en("Gleiche Seite:", "Same page:") }}</strong> {{ de_en("Die Menge erscheint erst nach der eigenen Antwort (kein Anker). Mit „Antworten danach nicht mehr ändern“ legt die Person ihre Antwort zuerst fest, dann läuft die Menge los. Ohne das Häkchen kann sie ihre Antwort noch ändern, und ihre Figur läuft mit; das kann gewollt sein (Delphi-artig) oder die Antwort verzerren.", "The crowd only appears after one's own answer (no anchor). With “Answers cannot be changed afterwards” the person first fixes the answer, then the crowd starts walking. Without the tick the person can still change the answer and their figure follows; this can be intended (Delphi-like) or bias the answer.") }}
+  {{ de_en("Mehr Teilnahmen als Figuren: zufällige Auswahl je Person. Weniger: aufgefüllt mit Figuren, die aus den echten Antworten gezogen werden. Unter 5 Antworten: alle Figuren erfunden (Glocke um die Skalenmitte), keine echte Antwort sichtbar. Simulierte Figuren werden den Teilnehmenden mit einem kurzen Hinweis kenntlich gemacht; ohne Hinweis wäre das eine Täuschung (Ethikvotum, Aufklärung am Ende).", "More participations than figures: random selection per person. Fewer: filled up with figures drawn from the real answers. Under 5 answers: all figures made up (a bell around the middle of the scale), no real answer visible. Simulated figures are made recognisable to participants with a short note; without a note this would be deception (ethics approval, debriefing at the end).") }}
+  {{ de_en("Im Export:", "In the export:") }} <code>{{ item.code }}_n_…</code> {{ de_en("(gesehene echte Antworten, 0 = unter 5) und", "(real answers seen, 0 = under 5) and") }} <code>{{ item.code }}_sim</code> {{ de_en("(simulierte Figuren).", "(simulated figures).") }}</p>
+{% include "items/_lock_answers.html" %}

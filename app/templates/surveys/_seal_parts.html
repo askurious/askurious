@@ -1,0 +1,57 @@
+{# Parts of the seal chain shared by the tab "Export" (surveys/data.html, surveys/_seal_result.html) and the public check
+   page (public/verify.html): two verdicts, chain and data (siegelkette-konzept.md E10), and the chain in numbers (E3) #}
+
+{# chain_ok, data_ok: the two verdicts; when: a line under them (e.g. "geprüft gerade eben") #}
+{% macro verdict(chain_ok, data_ok, when, chain_label=None, data_label=None) %}
+{% set ok = chain_ok and data_ok %}
+<div class="seal-badge {{ 'is-sealed' if ok else 'is-broken' }}">
+  <span class="seal-icon" aria-hidden="true">{{ "🔒" if ok else "⚠" }}</span>
+  <div>
+    <strong>{{ de_en("Siegel intakt", "Seal intact") if ok else de_en("Siegel gebrochen", "Seal broken") }}</strong>
+    <span class="seal-lines">
+      <span class="{{ 'is-ok' if chain_ok else 'is-bad' }}">{{ de_en("Kette:", "Chain:") }} {{ chain_label or (de_en("intakt", "intact") if chain_ok else de_en("gebrochen", "broken")) }}</span>
+      <span class="{{ 'is-ok' if data_ok else 'is-bad' }}">{{ de_en("Daten:", "Data:") }} {{ data_label or (de_en("passen zur Kette", "match the chain") if data_ok else de_en("passen nicht zur Kette", "do not match the chain")) }}</span>
+    </span>
+    {% if when %}<span class="seal-when">{{ when }}</span>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# the data line of a stored check (models.SealStatus) #}
+{% macro data_label(st) -%}
+{% if st.data_ok %}{{ de_en_n(st.present, ("der {n} vorhandene Fall passt, keiner fehlt ohne Vermerk", "alle {n} vorhandenen Fälle passen, keiner fehlt ohne Vermerk"), ("the {n} case present matches, none is missing without a record", "all {n} cases present match, none is missing without a record")) }}{% else %}{% set parts = [] %}{% if st.missing %}{% set _ = parts.append(de_en_n(st.missing, ("{n} Fall fehlt ohne Löschvermerk", "{n} Fälle fehlen ohne Löschvermerk"), ("{n} case is missing without a deletion record", "{n} cases are missing without a deletion record"))) %}{% endif %}{% if st.changed %}{% set _ = parts.append(de_en_n(st.changed, ("{n} Fall an der Plattform vorbei verändert", "{n} Fälle an der Plattform vorbei verändert"), ("{n} case changed past the platform", "{n} cases changed past the platform"))) %}{% endif %}{% if st.unsealed %}{% set _ = parts.append(de_en_n(st.unsealed, ("{n} zu versiegelnde Teilnahme ohne Eintrag", "{n} zu versiegelnde Teilnahmen ohne Eintrag"), ("{n} participation to be sealed without an entry", "{n} participations to be sealed without an entry"))) %}{% endif %}{{ parts|join(", ") }}{% endif %}
+{%- endmacro %}
+
+{% macro status_name(s) -%}
+{{ {"completed": de_en("abgeschlossen", "completed"), "screenout": de_en("Screen-out", "screen-out"), "quotafull": de_en("Quote voll", "quota full"), "excluded": de_en("im Ablauf ausgeschlossen", "excluded in the flow")}.get(s, s) }}
+{%- endmacro %}
+
+{% macro way_name(w) -%}
+{{ {"self": de_en("durch die teilnehmende Person", "by the participant"), "request": de_en("durch die Forschenden auf Wunsch der Person", "by the researchers at the person's request"), "consent": de_en("durch die Forschenden: keine wirksame Einwilligung", "by the researchers: no valid consent"), "legal": de_en("durch die Forschenden aus anderem Rechtsgrund", "by the researchers on another legal ground"), "retention": de_en("Aufbewahrungsfrist abgelaufen", "retention period over"), "platform": de_en("durch die Plattform", "by the platform"), "live": de_en("Live-Durchgang verworfen", "live run discarded"), "survey": de_en("mit der Befragung gelöscht", "deleted with the survey"), "other": de_en("auf anderem Weg", "another way")}.get(w, w) }}
+{%- endmacro %}
+
+{# cols: [(heading, counts of seal.counts)]; a row shows when one column has it #}
+{% macro numbers(cols) %}
+{% set statuses = ["completed", "screenout", "quotafull", "excluded"] %}
+{% set ways = ["self", "request", "consent", "legal", "retention", "platform", "live", "survey", "other"] %}
+<div class="res-scroll"><table class="seal-numbers">
+  <thead><tr><th scope="col">{{ de_en("Fälle", "Cases") }}</th>{% for head, c in cols %}<th scope="col" class="num">{{ head }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    <tr><th scope="row">{{ de_en("beendet und versiegelt", "ended and sealed") }}</th>{% for head, c in cols %}<td class="num">{{ c.cases }}</td>{% endfor %}</tr>
+    {% for s in statuses %}{% set ns = namespace(n=0) %}{% for head, c in cols %}{% set ns.n = ns.n + c.by_status.get(s, 0) %}{% endfor %}{% if ns.n %}
+    <tr class="sub"><th scope="row">{{ status_name(s) }}</th>{% for head, c in cols %}<td class="num">{{ c.by_status.get(s, 0) }}</td>{% endfor %}</tr>
+    {% endif %}{% endfor %}
+    <tr><th scope="row">{{ de_en("gelöscht, mit Löschvermerk", "deleted, with a deletion record") }}</th>{% for head, c in cols %}<td class="num">{{ c.deleted }}</td>{% endfor %}</tr>
+    {% for w in ways %}{% set ns = namespace(n=0) %}{% for head, c in cols %}{% set ns.n = ns.n + c.by_way.get(w, 0) %}{% endfor %}{% if ns.n %}
+    <tr class="sub"><th scope="row">{{ way_name(w) }}</th>{% for head, c in cols %}<td class="num">{{ c.by_way.get(w, 0) }}</td>{% endfor %}</tr>
+    {% endif %}{% endfor %}
+    <tr class="total"><th scope="row">{{ de_en("bleiben", "remaining") }}</th>{% for head, c in cols %}<td class="num">{{ c.remaining }}</td>{% endfor %}</tr>
+    {% set ns = namespace(n=0) %}{% for head, c in cols %}{% set ns.n = ns.n + c.amended %}{% endfor %}{% if ns.n %}
+    <tr><th scope="row">{{ de_en("davon nach dem Ende geändert (mit Vermerk)", "of which changed after their end (recorded)") }}</th>{% for head, c in cols %}<td class="num">{{ c.amended }}</td>{% endfor %}</tr>
+    {% endif %}
+  </tbody>
+</table></div>
+{% set last = cols[-1][1] %}
+{% if last.reasons %}<ul class="seal-facts">{% for case, w, why in last.reasons %}<li>{% if case %}{{ de_en("Fall {n}", "Case {n}", n=case) }}{% else %}{{ de_en("Ganze Befragung", "Whole survey") }}{% endif %}, {{ way_name(w) }}: {{ why }}</li>{% endfor %}</ul>{% endif %}
+{% if last.field %}<p class="small muted">{% for kind, at in last.field %}{{ de_en("Feldphase begonnen", "Fieldwork started") if kind == "fieldstarted" else (de_en("Präregistrierung eingefroren", "Pre-registration frozen") if kind == "prereg" else de_en("Feldphase geschlossen", "Fieldwork closed")) }} {{ at[8:10] }}.{{ at[5:7] }}.{{ at[:4] }}{{ "; " if not loop.last }}{% endfor %}.</p>{% endif %}
+{% endmacro %}

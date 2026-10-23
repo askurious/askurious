@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon %}
+{# The page of a join link (app/joinlinks.py). Needs: link, group, leads, token, orcid_on, by_mail. #}
+{% block title %}{{ group.name }}{% endblock %}
+{% block content %}
+<div class="sign-in">
+  <h1>{{ group.name }}</h1>
+  <section class="panel">
+    <p>{% if link.role == "lead" %}{{ de_en("Mit diesem Link übernehmen Sie die Leitung der Gruppe „{g}“ in Askurious.", "With this link you become the lead of the group “{g}” in Askurious.", g=group.name) }}{% else %}{{ de_en("Sie sind eingeladen, der Gruppe „{g}“ in Askurious beizutreten.", "You are invited to join the group “{g}” in Askurious.", g=group.name) }}{% endif %}
+      {% if leads %}{{ de_en("Leitung:", "Lead:") }} {{ leads|join(", ") }}.{% endif %}</p>
+    {% if group.description %}<p class="muted">{{ group.description }}</p>{% endif %}
+    {% if current_user.is_authenticated %}
+    <form method="post" class="button-row">
+      {{ csrf() }}
+      <button class="button">{{ de_en("Beitreten als {n}", "Join as {n}", n=current_user.display_name) if link.role != "lead" else de_en("Leitung übernehmen als {n}", "Accept the lead as {n}", n=current_user.display_name) }}</button>
+    </form>
+    {% else %}
+    {% if orcid_on %}
+    <h2>{{ de_en("Mit ORCID", "With ORCID") }} <span class="hint">{{ de_en("empfohlen", "recommended") }}</span></h2>
+    <form method="post" class="button-row">
+      {{ csrf() }}<input type="hidden" name="way" value="orcid">
+      <button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden und beitreten", "Sign in with ORCID and join") }}</button>
+    </form>
+    {% endif %}
+    {% if by_mail %}
+    <h2>{{ de_en("Mit E-Mail-Adresse", "With email address") }}</h2>
+    <p class="muted small">{{ de_en("Sie bekommen eine E-Mail mit einem Link; mit ihm legen Sie ein Passwort fest und treten bei.", "You get an email with a link; with it you choose a password and join.") }}</p>
+    <form method="post" class="stack">
+      {{ csrf() }}<input type="hidden" name="way" value="email">
+      <label>{{ de_en("E-Mail-Adresse", "Email address") }} <input type="email" name="email" maxlength="254" required autocomplete="email"></label>
+      <div class="button-row"><button class="button button-secondary">{{ de_en("E-Mail schicken", "Send email") }}</button></div>
+    </form>
+    {% endif %}
+    {% if by_password %}{# a course without mail (app/account_types.py, N14): an account with e-mail address and password #}
+    <h2>{{ de_en("Mit E-Mail-Adresse und Passwort", "With email address and password") }}</h2>
+    <p class="muted small">{{ de_en("Sie legen hier ein Konto für diese Lehrveranstaltung an; Sie melden sich künftig mit Ihrer E-Mail-Adresse und diesem Passwort an. Der Zugang endet mit der Lehrveranstaltung.", "Here you create an account for this course; from now on you sign in with your email address and this password. Access ends with the course.") }}</p>
+    <form method="post" class="stack">
+      {{ csrf() }}<input type="hidden" name="way" value="password">
+      <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="200" required value="{{ form.get('name', '') }}" autocomplete="name"></label>
+      <label>{{ de_en("E-Mail-Adresse", "Email address") }} <input type="email" name="email" maxlength="254" required value="{{ form.get('email', '') }}" autocomplete="username"></label>
+      <label>{{ de_en("Passwort", "Password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen; ein Satz aus mehreren Wörtern ist gut", "at least {n} characters; a sentence of several words is good", n=min_length) }}</span>
+        <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <label>{{ de_en("Passwort wiederholen", "Repeat password") }}
+        <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <div class="button-row"><button class="button">{{ de_en("Konto anlegen und beitreten", "Create account and join") }}</button></div>
+    </form>
+    {% endif %}
+    <p class="muted small">{{ de_en("Schon ein Konto mit E-Mail-Adresse?", "Already have an account with an email address?") }} <a href="{{ url_for('auth.sign_in', next=url_for('joinlinks.page', token=token)) }}">{{ de_en("Anmelden", "Sign in") }}</a></p>
+    {% endif %}
+    <p class="muted small">{{ de_en("Der Link gilt bis {d}.", "The link is valid until {d}.", d=link.expires_at|localdt) }}</p>
+  </section>
+</div>
+{% endblock %}

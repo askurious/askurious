@@ -1,0 +1,24 @@
+{# the pen's button and its tools (included in the steering of live/screen.html); a pen always draws on the slide, a finger or
+   the mouse only with "Mit Finger oder Maus zeichnen"; the pen draws with the tools closed too, with the last one picked #}
+    <div class="live-ink-wrap" data-ink-wrap hidden>
+      <button type="button" class="live-steer-wide live-steer-minor live-ink-open" data-ink-open aria-expanded="false" aria-controls="live-ink-pop"
+        title="{{ de_en('Stift, Textmarker, Radierer und Laser für diese Folie (Esc schließt)', 'Pen, highlighter, eraser and laser for this slide (Esc closes)') }}"><span class="live-ink-dot is-black" data-ink-now></span> {{ de_en("Stift", "Pen") }}</button>
+      <div class="live-ink-tools live-ink-pop" id="live-ink-pop" data-ink-tools role="toolbar" aria-label="{{ de_en('Stift', 'Pen') }}" hidden>
+        <div class="live-ink-row">
+          <button type="button" class="live-ink-btn" data-ink-tool="pen" data-ink-colour="#1a1a1a" aria-pressed="true" title="{{ de_en('Stift schwarz', 'Black pen') }}"><span class="live-ink-dot is-black"></span><span class="p-sr-only">{{ de_en("Stift schwarz", "Black pen") }}</span></button>
+          <button type="button" class="live-ink-btn" data-ink-tool="pen" data-ink-colour="#d32f2f" aria-pressed="false" title="{{ de_en('Stift rot', 'Red pen') }}"><span class="live-ink-dot is-red"></span><span class="p-sr-only">{{ de_en("Stift rot", "Red pen") }}</span></button>
+          <button type="button" class="live-ink-btn" data-ink-tool="pen" data-ink-colour="#1565c0" aria-pressed="false" title="{{ de_en('Stift blau', 'Blue pen') }}"><span class="live-ink-dot is-blue"></span><span class="p-sr-only">{{ de_en("Stift blau", "Blue pen") }}</span></button>
+          <button type="button" class="live-ink-btn" data-ink-tool="marker" data-ink-colour="#ffd400" aria-pressed="false" title="{{ de_en('Textmarker: breit und durchscheinend', 'Highlighter: broad and see-through') }}"><span class="live-ink-dot is-marker"></span><span class="p-sr-only">{{ de_en("Textmarker", "Highlighter") }}</span></button>
+          <button type="button" class="live-ink-btn live-ink-word" data-ink-tool="eraser" aria-pressed="false" title="{{ de_en('Radierer: löscht jeden Strich, den er berührt (auch das Radierende des Stifts)', 'Eraser: deletes every stroke it touches (the eraser end of the pen too)') }}">{{ de_en("Radierer", "Eraser") }}</button>
+          <button type="button" class="live-ink-btn live-ink-word" data-ink-tool="laser" aria-pressed="false" title="{{ de_en('Laserpunkt: zeigt auf der Leinwand, wird nicht gespeichert', 'Laser dot: points on the screen, is not saved') }}">{{ de_en("Laser", "Laser") }}</button>
+        </div>
+        <div class="live-ink-row">
+          <button type="button" class="live-ink-btn live-ink-word" data-ink-undo disabled title="{{ de_en('Rückgängig (Strg+Z)', 'Undo (Ctrl+Z)') }}">↶ {{ de_en("Rückgängig", "Undo") }}</button>
+          <button type="button" class="live-ink-btn live-ink-word" data-ink-redo disabled title="{{ de_en('Wiederholen (Strg+Y)', 'Redo (Ctrl+Y)') }}">↷</button>
+          <button type="button" class="live-ink-btn live-ink-word" data-ink-clear title="{{ de_en('Alle Striche dieser Folie löschen (zweimal klicken; Rückgängig holt sie zurück)', 'Delete all strokes on this slide (click twice; Undo brings them back)') }}">{{ de_en("Folie leeren", "Clear slide") }}</button>
+        </div>
+        <label class="live-ink-check"><input type="checkbox" data-ink-draw> {{ de_en("Mit Finger oder Maus zeichnen", "Draw with finger or mouse") }}</label>
+        <label class="live-ink-check"><input type="checkbox" data-ink-screen checked> {{ de_en("Auf der Leinwand zeigen", "Show on the screen") }}</label>
+      </div>
+      <p class="small live-ink-status" data-ink-status role="status" hidden></p>{# outside the popup: an error shows with it closed #}
+    </div>

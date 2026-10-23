@@ -1,0 +1,8 @@
+{# "Weiß nicht" of a rating or a date (items/base.py DONT_KNOW, UI/UX audit 2026-10-05, V41): a tick set apart
+   below the answers; participant.js takes the other answer back when it is ticked, and the tick when an answer is
+   given. Needs: item, dk (true if it was chosen). #}
+{% if item.config.get("dont_know") %}
+{# the card of every answer set aside (items/_fallback.html, S8); a tick that replaces the answer, which it says #}
+{% from "items/_fallback.html" import fallback_option %}
+{% call fallback_option("checkbox", "i" ~ item.id ~ "_dk", "1", dk, attrs="data-dont-know") %}<span>{{ ui("weiß nicht", "don't know") }} <span class="p-dk-note">{{ ui("(statt einer Angabe)", "(instead of an answer)") }}</span></span>{% endcall %}
+{% endif %}

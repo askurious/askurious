@@ -1,0 +1,6 @@
+{# Quotas on Datenerhebung: the short form; everything else is on the tab "Quoten" (UI audit 2026-10-04, G4) #}
+<section class="panel" id="quotas">
+  <h2>{{ de_en("Quoten", "Quotas") }} <span class="hint">{{ de_en("Stand jetzt", "as of now") }}</span></h2>
+  {% if quota_jumps %}{% include "surveys/_quota_jumps.html" %}{% endif %}
+  {% with summary_report=quota_report, summary_rule=de_en("Nur echte, abgeschlossene Teilnahmen. Den genauen Stand, die Steuerung, die Zahlen je Panelanbieter und Links für Dritte gibt es unter „Ablauf“ › „Quoten“.", "Only real, completed participations. The exact state, the steering, the numbers per panel provider and links for third parties are under “Flow” › “Quotas”.") %}{% include "surveys/_quota_summary.html" %}{% endwith %}
+</section>

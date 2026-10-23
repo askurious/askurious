@@ -1,0 +1,51 @@
+{# Postal codes of one item (items/postal_code.py results()): frequencies per zone, region and code. Needs: e (entry). #}
+{% set p = e.postal %}
+{% macro bars(rows) %}
+<ul class="plain res-bars">
+  {% set top = bar_top(rows) %}
+  {% for row in rows %}
+  <li><span class="res-bar-label"><strong>{{ row.value }}</strong>{% if row.label %} <span class="hint">{{ row.label }}</span>{% endif %}</span>
+    <span class="res-bar"><span style="width: {{ (row.share / top * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n">{{ row.count }} · {{ row.share|percent }}</span></li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+{% if p.unknown %}<p class="muted small"><strong>{% if p.unknown == 1 %}{{ de_en("1 unbekannte Postleitzahl", "1 unknown postcode") }}{% else %}{{ de_en("{n} unbekannte Postleitzahlen", "{n} unknown postcodes", n=p.unknown) }}{% endif %}</strong> {{ de_en("(fünf Ziffern, aber keine deutsche PLZ): nicht in Karte, Zonen, Regionen und Anteilen; im Export stehen sie unverändert.", "(five digits, but no German postcode): not in the map, zones, regions and shares; they appear unchanged in the export.") }}</p>{% endif %}
+{% if p.n %}
+<p class="muted small">{{ de_en("{n} Postleitzahlen", "{n} postcodes", n=p.n) }}{% if e.passes %} {{ de_en("aus {n} Teilnahmen", "from {n} participations", n=p.persons) }}{% endif %} · {{ de_en("{k} verschiedene in {r} Regionen", "{k} different ones in {r} regions", k=p.distinct, r=p.regions_n) }}{% if p.singles %} · {{ de_en("{n} kommen nur einmal vor", "{n} occur only once", n=p.singles) }}{% endif %}</p>
+{% if p.area_regions %}
+<div class="res-map" data-postal-map>
+  <script type="application/json" data-postal-data>{{ dict(p.map, regions=p.area_regions, area_url=url_for('geo.plz_areas', region='RR', v=p.areas_version), counts=p.counts, places=p.places, classes=p.classes)|tojson }}</script>
+  <div class="res-map-bar">
+    <ul class="plain res-legend" aria-label="{{ de_en('Antworten je Postleitzahl', 'Answers per postcode') }}">
+      {% for c in p.classes %}<li><span class="res-swatch" style="background: {{ c.color }}"></span>{{ c.lo }}{% if c.hi != c.lo %}–{{ c.hi }}{% endif %}</li>{% endfor %}
+    </ul>
+    <span class="muted small">{{ de_en("Antworten je Postleitzahl", "Answers per postcode") }}</span>
+  </div>
+  <div class="res-map-canvas" data-map-canvas></div>
+  <p class="muted small">{{ de_en("Postleitzahlgebiete aus OpenStreetMap, eingefärbt nach der Zahl der Antworten. Klick zeigt PLZ, Ort und Anzahl.", "Postcode areas from OpenStreetMap, coloured by the number of answers. A click shows the postcode, place and count.") }}
+    {{ de_en("Orte:", "Places:") }} <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>).
+    {% if p.without_area %}<strong>{{ de_en("{n} Antworten", "{n} answers", n=p.without_area) }}</strong> {{ de_en("haben eine PLZ ohne eigenes Gebiet (z. B. Großkunden oder unbekannte PLZ) und fehlen auf der Karte.", "have a postcode without an area of its own (e.g. large customers or unknown postcodes) and are missing from the map.") }}{% endif %}</p>
+</div>
+{# once per page and deferred, as in _map_results.html (F9) #}
+{% if once("leaflet") %}<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>{% endif %}
+{% if once("map_marker.js") %}<script src="{{ url_for('static', filename='map_marker.js') }}" defer></script>{% endif %}
+{% if once("postal_map.js") %}<script src="{{ url_for('static', filename='postal_map.js') }}" defer></script>{% endif %}
+{% endif %}
+<div class="res-freq">
+  <p class="res-freq-head">{{ de_en("Nach Zone", "By zone") }} <span class="hint">{{ de_en("erste Ziffer", "first digit") }}</span></p>
+  {{ bars(p.zones|sort(attribute="count", reverse=true)) }}
+</div>
+<details class="res-freq">
+  <summary class="res-freq-head">{{ de_en("Nach Region", "By region") }} <span class="hint">{{ de_en("erste zwei Ziffern, {n} von {all}", "first two digits, {n} of {all}", n=p.regions_n, all=p.regions_total) }}</span></summary>
+  {{ bars(p.regions|sort(attribute="count", reverse=true)) }}
+</details>
+<details class="res-freq">
+  <summary class="res-freq-head">{{ de_en("Häufigste Postleitzahlen", "Most frequent postcodes") }} <span class="hint">{% if p.top|length < p.distinct %}{{ de_en("die {n} häufigsten; alle im Export", "the {n} most frequent; all in the export", n=p.top|length) }}{% else %}{{ de_en("alle", "all") }}{% endif %}</span></summary>
+  {{ bars(p.top) }}
+  {% if e.few_hidden %}<p class="muted small">{{ de_en("Einzelne Postleitzahlen zeigt die Rolle „Ansehen“ erst ab fünf Antworten, in der Liste wie auf der Karte.", "The role “View” sees single postcodes only from five answers, in the list as on the map.") }}</p>{% endif %}
+</details>
+{% else %}
+<p class="muted small">{{ de_en("Noch keine Postleitzahlen.", "No postcodes yet.") }}</p>
+{% endif %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ c.name }} · {{ de_en("Konstrukte", "Constructs") }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('constructs.index', survey=survey.id if survey else none) }}">{{ icon("back", 16) }} {{ de_en("Konstrukte", "Constructs") }}</a>
+<div class="page-head">
+  {% set on = c.key in stars %}
+  <h1>{% if not guest %}<form class="inline pin-form" method="post" action="{{ url_for('constructs.star', key=c.key) }}">{{ csrf() }}
+    <input type="hidden" name="lang" value="{{ lang }}">{% if survey %}<input type="hidden" name="survey" value="{{ survey.id }}">{% endif %}
+    <button class="pin-btn" title="{{ de_en('Favorit: Steht im Fragebogen-Editor in der Liste. Klicken entfernt den Stern.', 'Favourite: listed in the questionnaire editor. Click to remove the star.') if on else de_en('Als Favorit merken: Steht dann im Fragebogen-Editor in der Liste', 'Mark as favourite: it is then listed in the questionnaire editor') }}"
+            aria-label="{{ de_en('Favorit entfernen', 'Remove favourite') if on else de_en('Als Favorit merken', 'Mark as favourite') }}" aria-pressed="{{ 'true' if on else 'false' }}">{{ "★" if on else "☆" }}</button></form>{% endif %}{{ c.name }}</h1>
+  {% if c.languages|length > 1 %}
+  <nav class="lang-switch" aria-label="{{ de_en('Sprache', 'Language') }}">
+    {% for code in c.languages %}
+    <a href="{{ url_for('constructs.detail', key=c.key, lang=code, survey=survey.id if survey else none) }}" {% if code == lang %}class="active"{% endif %}>{{ languages.get(code, code) }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+</div>
+{% if c.status == "review" %}
+<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Der Wortlaut ist noch nicht gegen die Originalquelle geprüft. Vor echter Feldarbeit bitte kontrollieren.", "The wording has not yet been checked against the original source. Please check it before real fieldwork.") }}</span></div>
+{% endif %}
+
+<section class="panel">
+  <p>{{ c.description or c.short }}</p>
+  <div class="tag-row">{% for f in facets %}{% for t in c.tags if t.facet == f %}<a class="tag tag-{{ t.facet }}" href="{{ url_for('constructs.index', tag=t.slug, survey=survey.id if survey else none) }}"><span class="muted">{{ facets.get(t.facet, t.facet) }}:</span> {{ tag_name(t) }}</a>{% endfor %}{% endfor %}</div>
+  <dl class="construct-facts">
+    <dt>{{ de_en("Quelle", "Source") }}</dt><dd>{{ c.citation }}{% if c.doi %} <a href="https://doi.org/{{ c.doi }}" target="_blank" rel="noopener">doi:{{ c.doi }}</a>{% endif %}
+      {% if c.citation or c.doi %}<span class="hint">· {{ de_en("für die Literaturverwaltung:", "for your reference manager:") }} <a href="{{ url_for('constructs.reference', key=c.key, fmt='bib') }}">BibTeX</a> · <a href="{{ url_for('constructs.reference', key=c.key, fmt='ris') }}">RIS</a></span>{% endif %}</dd>
+    <dt>{{ de_en("Umfang", "Length") }}</dt><dd>{{ de_en_n(c.n_items, ("{n} Item", "{n} Items"), ("{n} item", "{n} items")) }}{% if c.points %}, {{ de_en("{n} Stufen", "{n} points", n=c.points) }}{% endif %}</dd>
+    {% if c.scoring %}<dt>{{ de_en("Auswertung", "Scoring") }}</dt><dd>{{ c.scoring }}</dd>{% endif %}
+    {# a guest gets the terms of use only with the wording: the stored terms of some scales are under review
+       (copyright audit 2026-10-16, U3-U6); signed in as before #}
+    {% if c.notes and show_wording %}<dt>{{ de_en("Nutzung", "Use") }}</dt><dd>{{ c.notes }}</dd>{% endif %}
+    <dt>{{ de_en("Wortlaut", "Wording") }}</dt><dd>{{ de_en("gegen die Originalquelle geprüft", "checked against the original source") if c.status == "verified" else de_en("noch nicht gegen die Originalquelle geprüft", "not yet checked against the original source") }}</dd>
+    <dt>{{ de_en("Sprachen", "Languages") }}</dt><dd>{{ c.languages|map("upper")|join(", ") }}</dd>
+    {% if not guest %}<dt>{{ de_en("Verwendet in", "Used in") }}</dt><dd>{{ de_en("{n} Befragung", "{n} survey", n=stats.surveys) if stats.surveys == 1 else de_en("{n} Befragungen", "{n} surveys", n=stats.surveys) }}{% if stats.closed %}, {{ de_en("davon {n} abgeschlossen", "{n} of them closed", n=stats.closed) }}{% endif %}</dd>{% endif %}
+  </dl>
+  {% if not pooled %}
+  <p class="muted small">{{ de_en("Standardfrage zur Demografie: Antworten darauf gehen nicht in die gemeinsame Auswertung der Konstrukte über Befragungen hinweg ein", "Demographic standard question: answers to it do not go into the pooled analysis of the constructs across surveys") }} (<a href="{{ url_for('terms.show') }}">{{ de_en("Nutzungsbedingungen, Abschnitt 4", "terms of use, section 4") }}</a>).</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Antworten auf Konstrukte können nach Abschluss der Feldphase pseudonymisiert studienübergreifend für Metaanalysen ausgewertet werden", "After fieldwork has ended, answers to constructs can be analysed pseudonymised across surveys for meta-analyses") }} (<a href="{{ url_for('terms.show') }}">{{ de_en("Nutzungsbedingungen, Abschnitt 4", "terms of use, section 4") }}</a>).</p>
+  {% endif %}
+  {% if current_user.is_admin and pooled %}
+  <p><a class="button button-secondary small" href="{{ url_for('constructs.pool_csv', key=c.key) }}">{{ de_en("Gepoolte Daten (CSV, nur Admins der Plattform)", "Pooled data (CSV, platform admins only)") }}</a></p>
+  {% endif %}
+</section>
+
+{% if cited or together %}
+<section class="panel" id="verwendet">
+  {% if cited %}
+  <h2>{{ de_en("Verwendet in", "Used in") }} <span class="hint">{{ de_en("{n} Veröffentlichung, eingetragen von Forschenden und von Admins der Plattform", "{n} publication, entered by researchers and by platform admins", n=cited|length) if cited|length == 1 else de_en("{n} Veröffentlichungen, eingetragen von Forschenden und von Admins der Plattform", "{n} publications, entered by researchers and by platform admins", n=cited|length) }}</span></h2>
+  <ul class="plain small">
+    {% for e in cited %}{% set m = e.meta %}
+    <li><span>{% if m.get("authors") %}{{ m.authors|map("first")|list|join(", ") if m.authors|length <= 3 else m.authors[0][0] ~ " et al." }}{% if m.get("year") %} ({{ m.year }}){% endif %}. {% endif %}{{ m.get("title") or (de_en("Datensatz", "Data set") if m.get("kind") == "dataset" else de_en("ohne Titel", "untitled")) }}{% if m.get("journal") %}. <em>{{ m.journal }}</em>{% endif %}.
+      <a href="https://doi.org/{{ e.doi }}" target="_blank" rel="noopener">doi:{{ e.doi }}</a></span></li>
+    {% endfor %}
+  </ul>
+  <p class="hint small">{{ de_en("Für die Literaturverwaltung:", "For your reference manager:") }} <a href="{{ url_for('constructs.citing', key=c.key, fmt='bib') }}">BibTeX</a> · <a href="{{ url_for('constructs.citing', key=c.key, fmt='ris') }}">RIS</a>.
+    {{ de_en("Eine eigene Veröffentlichung tragen Sie im Reiter „Export“ Ihrer Befragung ein.", "You enter a publication of your own in the tab “Export” of your survey.") }}</p>
+  {% endif %}
+  {% if together %}
+  <h3>{{ de_en("Oft zusammen verwendet mit", "Often used together with") }}</h3>
+  <ul class="plain small">{% for other, n in together %}<li><span><a href="{{ url_for('constructs.detail', key=other.key, survey=survey.id if survey else none) }}">{{ other.name }}</a> <span class="hint">{{ de_en("in {n} Befragung", "in {n} survey", n=n) if n == 1 else de_en("in {n} Befragungen", "in {n} surveys", n=n) }}</span></span></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if survey %}
+<section class="panel">
+  <h2>{{ de_en("In „{title}“ einfügen", "Insert into “{title}”", title=survey.title) }}</h2>
+  {% if not insert_allowed %}
+  <p class="muted">{{ permission_notice }}</p>
+  {% elif blocks %}
+  <form method="post" class="row" action="" data-insert-form>
+    {{ csrf() }}<input type="hidden" name="type" value="construct:{{ c.key }}">
+    <label>Block <select data-insert-block>
+      {% for b in blocks %}<option value="{{ url_for('editor.add_item', survey_id=survey.id, block_id=b.id) }}">{{ b.title() or ("Block " ~ loop.index) }}</option>{% endfor %}
+    </select></label>
+    <button class="button">{{ icon("plus", 16) }} {{ de_en("Am Ende des Blocks einfügen", "Insert at the end of the block") }}</button>
+  </form>
+  {% if missing_langs %}<p class="muted small">{{ de_en("Keine Fassung für {langs}: Dort wird der englische Wortlaut zum Übersetzen eingesetzt.", "No version for {langs}: the English wording is inserted there for translation.", langs=missing_langs|map("upper")|join(", ")) }}</p>{% endif %}
+  {% elif not survey.is_editable %}
+  <p class="muted">{{ de_en("Die Befragung läuft oder ist geschlossen.", "The survey is running or closed.") }}</p>
+  {% else %}
+  <p class="muted">{{ de_en("Noch kein Block für Fragen vorhanden. Legen Sie im Fragebogen zuerst einen Block an.", "No block for questions yet. First add a block in the questionnaire.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{# the item tables sort by any column in the browser, e.g. by subscale (Ralf, 2026-10-07; app.js, data-sort-table) #}
+{% macro sort_head(label, cls="") %}<th{% if cls %} class="{{ cls }}"{% endif %}><button type="button" class="sort-link th-sort" data-sort-col>{{ label }}<span class="sort-arrow is-off" aria-hidden="true">↕</span></button></th>{% endmacro %}
+{% if not show_wording %}
+{# wording not released for passing on (constructs.wording_public): its source instead (Ralf 2026-10-16) #}
+<section class="panel">
+  <h2>Items</h2>
+  {% if permission_required %}<p>{{ permission_notice }}</p>
+  {% else %}<p>{{ de_en("Den Wortlaut der Items zeigen wir hier nur angemeldeten Forschenden, weil seine Lizenz keine Weitergabe an alle erlaubt. Sie finden ihn in der oben genannten Quelle.", "We show the wording of the items here only to signed-in researchers, because its licence does not allow passing it on to everyone. You find it in the source named above.") }}</p>
+  {% if guest %}<p><a href="{{ url_for('auth.sign_in', next=request.full_path) }}">{{ de_en("Anmelden", "Sign in") }}</a></p>{% endif %}{% endif %}
+</section>
+{% else %}
+<section class="panel">
+  <h2>Items <span class="hint">{{ languages.get(lang, lang) }}</span></h2>
+  <p><strong>{{ texts.question }}</strong></p>
+  {% if config.statements %}
+  <table class="list-table is-edit construct-items" data-sort-table>
+    {% set subscales = config.statements|selectattr("subscale")|list %}
+    <thead><tr>{{ sort_head("Variable", "narrow-col") }}{{ sort_head(de_en("Aussage", "Statement")) }}{% if subscales %}{{ sort_head(de_en("Subskala", "Subscale"), "narrow-col") }}{% endif %}{{ sort_head(de_en("umgepolt", "reversed"), "narrow-col") }}</tr></thead>
+    <tbody>
+    {% for s in config.statements %}
+    <tr data-order="{{ loop.index }}" data-reversed="{{ 1 if s.reverse else 0 }}"><td><code>{{ s.code }}</code></td><td>{{ texts.statements.get(s.id, "") or (texts.question if config.statements|length == 1 else "") }}</td>{% if subscales %}<td>{{ s.subscale or "" }}</td>{% endif %}<td class="center">{% if s.reverse %}{{ icon("check", 16) }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="small muted">{{ de_en("Skala: {n} Stufen", "Scale: {n} points", n=config.points or texts.labels|length) }}{% for l in texts.labels %}{% if l %} · {{ loop.index }} = {{ l }}{% endif %}{% endfor %}</p>
+  {% elif config.pairs %}
+  {# semantic differential: one pair of opposite terms per item #}
+  <table class="list-table is-edit construct-items" data-sort-table>
+    {% set subscales = config.pairs|selectattr("subscale")|list %}
+    <thead><tr>{{ sort_head("Variable", "narrow-col") }}{{ sort_head(de_en("links", "left")) }}{{ sort_head(de_en("rechts", "right")) }}{% if subscales %}{{ sort_head(de_en("Subskala", "Subscale"), "narrow-col") }}{% endif %}{{ sort_head(de_en("umgepolt", "reversed"), "narrow-col") }}</tr></thead>
+    <tbody>
+    {% for pr in config.pairs %}
+    {% set words = (texts.pairs or {}).get(pr.id, {}) %}
+    <tr data-order="{{ loop.index }}" data-reversed="{{ 1 if pr.reverse else 0 }}"><td><code>{{ pr.code }}</code></td><td>{{ words.get("left", "") }}</td><td>{{ words.get("right", "") }}</td>{% if subscales %}<td>{{ pr.subscale or "" }}</td>{% endif %}<td class="center">{% if pr.reverse %}{{ icon("check", 16) }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="small muted">{{ de_en("Skala: {n} Stufen zwischen den beiden Begriffen; „umgepolt“: Der positive Pol steht links.", "Scale: {n} points between the two terms; “reversed”: the positive pole is on the left.", n=config.points) }}</p>
+  {% elif config.options %}
+  <ul class="plain construct-options">
+    {% for o in config.options %}<li><code>{{ o.code }}</code> {{ texts.options.get(o.id, "") }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

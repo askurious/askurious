@@ -1,0 +1,6 @@
+{#- The block "Demographische Angaben" of a new survey (wizard.add_demographics): age and sex, or the bundle
+"Demografie kurz (RatSWD)" (app/ratswd.py). Needs `demographics` (wizard.demographic_choices()). -#}
+{% set chosen_demographics = form.get("demografie", "") if form is defined and form else "" %}
+<label>{{ de_en("Demografische Angaben", "Demographics") }}
+  <select name="demografie">{% for value, label in demographics %}<option value="{{ value }}"{% if chosen_demographics == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <span class="hint">{{ de_en("Ein eigener Block nach der Einwilligung; einzelne Fragen entfernen Sie danach im Editor. Die RatSWD-Fragen sind Standardfragen des Rats für Sozial- und Wirtschaftsdaten (2023).", "A block of its own after the consent; you remove single questions in the editor afterwards. The RatSWD questions are standard questions of the German Data Forum (RatSWD, 2023).") }}</span></label>

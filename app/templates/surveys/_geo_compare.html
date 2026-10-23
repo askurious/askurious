@@ -1,0 +1,22 @@
+{# The state estimated from the IP address against the state a person names (geoip.comparison), on the page
+   "Qualitätssicherung". Describes the sample; nothing is marked from it. Needs: geo_compare. #}
+{% macro share(k, n) %}{{ k }}{% if n %} <span class="muted">({{ (100 * k / n)|fixed(0)|pctsign }})</span>{% endif %}{% endmacro %}
+<section class="panel" id="ip-region">
+  <h2>{{ de_en("IP-Region im Vergleich", "IP region compared") }} <span class="hint">{{ de_en("Bundesland aus der IP-Adresse gegen die eigene Angabe, Teilnahmen im gespeicherten Datenpool", "federal state from the IP address against the person's own answer, participations in the saved data pool") }}</span></h2>
+  {% if geo_compare %}
+  <table class="res-table">
+    <thead><tr><th>{{ de_en("Frage", "Question") }}</th><th>{{ de_en("Angabe", "Answer") }}</th><th title="{{ de_en('Teilnahmen mit einem deutschen Bundesland aus dieser Frage, für die nachgeschlagen wurde', 'Participations with a German federal state from this question that were looked up') }}">n</th>
+      <th>{{ de_en("gleiches Bundesland", "same federal state") }}</th><th>{{ de_en("anderes Bundesland", "other federal state") }}</th><th>{{ de_en("IP im Ausland", "IP abroad") }}</th><th>{{ de_en("nicht ermittelt", "not determined") }}</th></tr></thead>
+    <tbody>
+    {% for row in geo_compare %}
+      <tr><td><code>{{ row.code }}</code></td><td>{{ row.what }}</td><td>{{ row.n }}</td><td>{{ share(row.same, row.n) }}</td>
+        <td>{{ share(row.other, row.n) }}</td><td>{{ share(row.abroad, row.n) }}</td><td>{{ share(row.unknown, row.n) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">{{ de_en("Die Tabelle zeigt, wie gut die Schätzung für diese Stichprobe ist. Gezählt sind Teilnahmen, die in der Frage ein deutsches Bundesland nennen (bei der Postleitzahl und beim Standort das Land, in dem sie liegen; beim Standort nur geteilte Positionen).", "The table shows how good the estimate is for this sample. Counted are participations that name a German federal state in the question (for the postcode and the location, the state they lie in; for the location only shared positions).") }}
+    {{ de_en("Ein anderes Bundesland ist kein Zeichen für schlechte Antworten: Mobilfunk, Firmen-, Behörden- und Hochschulnetze und VPN werden oft einem anderen Ort zugeordnet. Deshalb wird daraus nichts markiert.", "Another federal state is no sign of poor answers: mobile, company, authority and university networks and VPNs are often placed elsewhere. So nothing is marked from it.") }}</p>
+  {% else %}
+  <p class="muted">{{ de_en("Der Fragebogen hat keine Frage nach Postleitzahl oder Bundesland und kein Element Standort, mit dem sich die Schätzung vergleichen ließe. Für einen Pilot genügt eines davon.", "The questionnaire has no question on the postcode or federal state and no location element to compare the estimate with. For a pilot one of them is enough.") }}</p>
+  {% endif %}
+</section>

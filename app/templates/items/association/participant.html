@@ -1,0 +1,33 @@
+{% set de = lang in ("de", "de-du") %}
+{% set given = answers.get(item.id) or [] %}
+{% include "items/_question.html" %}
+{# Two steps on one page: first the words, then (after "Next") each own word with its rating. Without
+   JavaScript both steps show at once; coming back with an error opens the rating step. #}
+<div class="p-assoc" data-assoc="{{ item.id }}" {% if given %}data-phase="rate"{% endif %}>
+  <p class="p-sr-only" role="status" data-assoc-status></p>
+  <div class="p-assoc-step-words">
+    {% for k in kind.slots(item) %}
+    {% set a = given[k - 1] if k <= given|length else {} %}
+    <label class="p-assoc-word"><span class="p-assoc-num">{{ k }}.</span>
+      <input type="text" dir="auto" name="i{{ item.id }}_{{ k }}" value="{{ a.t or '' }}" maxlength="60" autocomplete="off"
+             data-assoc-word="{{ k }}" aria-label="{{ ui('Begriff', 'Word') }} {{ k }}"></label>
+    {% endfor %}
+  </div>
+  <div class="p-assoc-step-rate">
+    <p class="p-assoc-legend" tabindex="-1"{{ text_attrs(item, "rate") }}>{{ item.text("rate", lang) }}</p>
+    {% for k in kind.slots(item) %}
+    {% set a = given[k - 1] if k <= given|length else {} %}
+    <fieldset class="p-assoc-rate" data-assoc-rate="{{ k }}" {% if given and not a.t %}hidden{% endif %}>
+      <legend class="p-assoc-shown" data-assoc-show="{{ k }}">{{ a.t or "" }}</legend>
+      <div class="p-assoc-scale">
+        {% for v in (-2, -1, 0, 1, 2) %}
+        <label class="p-assoc-point"><input type="radio" name="i{{ item.id }}_{{ k }}_val" value="{{ v }}" {% if a.v == v and a.t %}checked{% endif %}>
+          <span>{{ "%+d"|format(v) if v else "0" }}</span></label>
+        {% endfor %}
+      </div>
+      <div class="p-assoc-ends"><span{{ text_attrs(item, "low") }}>{{ item.text("low", lang) }}</span><span{{ text_attrs(item, "high") }}>{{ item.text("high", lang) }}</span></div>
+    </fieldset>
+    {% endfor %}
+    <button type="button" class="p-link p-assoc-edit" data-assoc-edit hidden>{{ ui("← Begriffe ändern", "← Change words") }}</button>
+  </div>
+</div>

@@ -1,0 +1,6 @@
+torch==2.8.0+cpu \
+    --hash=sha256:cb9a8ba8137ab24e36bf1742cb79a1294bd374db570f09fc15a5e1318160db4e
+torchaudio==2.8.0+cpu \
+    --hash=sha256:9377faee65a290578280ac7f4884c3586253dac2ca28c60f458ff6efe86a6b05
+torchvision==0.23.0+cpu \
+    --hash=sha256:ae459d4509d3b837b978dc6c66106601f916b6d2cda75c137e3f5f48324ce1da

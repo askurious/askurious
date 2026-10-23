@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% from "_learn.html" import why, term %}
+{% from "_sample.html" import sample_line %}
+{% block title %}{{ de_en("Stichprobengröße", "Sample size") }}{% endblock %}
+{% block content %}
+{% if survey %}
+<a class="back-link" href="{{ url_for('surveys.field', survey_id=survey.id) }}#status">{{ icon("back", 16) }} {{ de_en("Zurück zu „{t}“", "Back to “{t}”", t=survey.title) }}</a>
+{% endif %}
+<div class="page-head"><h1>{{ de_en("Stichprobengröße", "Sample size") }} <span class="hint">{{ de_en("grobe Planung vor der Feldphase", "rough planning before fieldwork") }}</span></h1></div>
+{{ why("sample_size") }}
+{% set tests = "groups props anova factorial chi2 equiv paired rm corr reg" %}
+{% set sided = "groups props paired corr alpha" %}
+{% set either = tests ~ " prop mean" %}
+
+<section class="panel ss" data-ss {% if survey %}data-back="{{ url_for('surveys.field', survey_id=survey.id) }}"{% endif %}{% if calc.response %} data-response="{{ calc.response }}"{% endif %}>
+  <div class="ss-grid">
+    {# one grid for every planner: each field is a cell of name, field and hint; samplesize.js shows the cells of
+       the chosen planner (data-ss-for) and of the chosen direction (data-ss-mode) #}
+    <div class="ss-inputs">
+      <label class="ss-wide"><span class="ss-name">{{ de_en("Was wollen Sie planen?", "What do you want to plan?") }}</span>
+        <select data-ss-design>
+          {% for group, planners in [
+               (de_en("Gruppen vergleichen", "Comparing groups"), [("groups", de_en("Zwei Gruppen: Mittelwerte (t-Test, auch ungleich groß)", "Two groups: means (t-test, also of unequal size)")),
+                                        ("props", de_en("Zwei Gruppen: Anteile (z. B. A/B-Test „x % klicken“)", "Two groups: proportions (e.g. A/B test “x % click”)")),
+                                        ("anova", de_en("Drei oder mehr Gruppen (einfaktorielle ANOVA)", "Three or more groups (one-way ANOVA)")),
+                                        ("factorial", de_en("Zwei Faktoren: Haupteffekt oder Wechselwirkung (zweifaktorielle ANOVA)", "Two factors: main effect or interaction (two-way ANOVA)")),
+                                        ("chi2", de_en("Häufigkeiten: Kreuztabelle oder Verteilung (χ²-Test)", "Frequencies: cross table or distribution (χ² test)")),
+                                        ("equiv", de_en("Gleichwertigkeit zeigen (Äquivalenztest, TOST)", "Showing equivalence (equivalence test, TOST)"))]),
+               (de_en("Dieselben Personen mehrfach", "The same people several times"), [("paired", de_en("Zwei Messungen (gepaarter t-Test)", "Two measurements (paired t-test)")),
+                                                ("rm", de_en("Drei oder mehr Messungen, auch mit Gruppen (ANOVA mit Messwiederholung)", "Three or more measurements, also with groups (repeated measures ANOVA)"))]),
+               (de_en("Zusammenhänge", "Relationships"), [("corr", de_en("Zwei Variablen (Korrelation)", "Two variables (correlation)")),
+                                  ("reg", de_en("Mehrere Prädiktoren (lineare Regression, R²)", "Several predictors (linear regression, R²)"))]
+                                 + [("sem", de_en("Strukturgleichungsmodell: Modelltest (RMSEA)", "Structural equation model: model test (RMSEA)"))]),
+               (de_en("Schätzen", "Estimating"), [("prop", de_en("Anteil schätzen (z. B. „x % stimmen zu“ ± Fehlerspanne)", "Estimating a proportion (e.g. “x % agree” ± margin of error)")),
+                             ("mean", de_en("Mittelwert schätzen (± Fehlerspanne)", "Estimating a mean (± margin of error)")),
+                             ("alpha", de_en("Reliabilität einer Skala (Cronbachs α)", "Reliability of a scale (Cronbach's α)"))]),
+               (de_en("Wahlverfahren und Vignetten", "Choice methods and vignettes"), [("conjoint", de_en("Conjoint-Analyse, CBC oder ACBC (Faustregel)", "Conjoint analysis, CBC or ACBC (rule of thumb)")),
+                                                ("maxdiff", de_en("MaxDiff (Faustregel)", "MaxDiff (rule of thumb)")),
+                                                ("pairedcmp", de_en("Paarvergleich (Bradley-Terry)", "Paired comparison (Bradley-Terry)")),
+                                                ("vignette", de_en("Vignetten mit Decks (faktorieller Survey)", "Vignettes with decks (factorial survey)"))])] %}
+          <optgroup label="{{ group }}">{% for key, label in planners %}
+            <option value="{{ key }}" {% if design == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>
+          {% endfor %}
+        </select>
+      </label>
+
+      {% set small, medium, large = de_en("klein", "small"), de_en("mittel", "medium"), de_en("groß", "large") %}
+      <label class="check ss-wide" data-ss-for="{{ either }}"><input type="checkbox" data-ss="mode"> {{ de_en("Zahl der Teilnahmen steht fest: erreichbaren Effekt zeigen", "Number of participations is fixed: show the reachable effect") }}{{ term("mde", "") }} <span class="hint">{{ de_en("z. B. bei festem Budget", "e.g. with a fixed budget") }}</span></label>
+      <label data-ss-for="{{ either }}" data-ss-mode="effect"><span class="ss-name">{{ de_en("verwertbare Teilnahmen", "usable participations") }}</span>
+        <input type="number" min="2" value="200" data-ss="avail"></label>
+
+      <div class="ss-input" data-ss-for="groups paired corr" data-ss-mode="n"><span class="ss-name"><label for="ss-effect"><span data-ss-for="groups">{{ de_en("Effektstärke", "Effect size") }} <em>d</em></span><span data-ss-for="paired">{{ de_en("Effektstärke", "Effect size") }} <em>d</em> <span class="hint">{{ de_en("wie zwischen Gruppen", "as between groups") }}</span></span><span data-ss-for="corr">{{ de_en("Korrelation", "Correlation") }} <em>r</em></span></label><span data-ss-for="groups">{{ term("d", "") }}</span></span>
+        <input type="number" step="0.01" min="0.01" max="3" value="{{ prefill.effect or 0.5 }}" data-ss="effect" id="ss-effect"></div>
+      <label data-ss-for="anova factorial rm" data-ss-mode="n"><span class="ss-name">{{ de_en("Effektstärke", "Effect size") }} <em>f</em></span>
+        <input type="number" step="0.01" min="0.01" max="2" value="{{ prefill.f or 0.25 }}" data-ss="f"></label>
+      <label data-ss-for="chi2" data-ss-mode="n"><span class="ss-name">{{ de_en("Effektstärke", "Effect size") }} <em>w</em></span>
+        <input type="number" step="0.01" min="0.01" max="2" value="{{ prefill.w or 0.3 }}" data-ss="w"></label>
+      <div class="ss-presets" data-ss-for="anova factorial rm" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Effektstärken f', 'usual effect sizes f') }}">
+        <button type="button" class="button button-secondary" data-ss-set="f=0.10">{{ small }} {{ de_en("0,10", "0.10") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="f=0.25">{{ medium }} {{ de_en("0,25", "0.25") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="f=0.40">{{ large }} {{ de_en("0,40", "0.40") }}</button></div>
+      <div class="ss-presets" data-ss-for="groups paired" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Effektstärken', 'usual effect sizes') }}">
+        <button type="button" class="button button-secondary" data-ss-set="effect=0.2">{{ small }} {{ de_en("0,2", "0.2") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="effect=0.5">{{ medium }} {{ de_en("0,5", "0.5") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="effect=0.8">{{ large }} {{ de_en("0,8", "0.8") }}</button></div>
+      <div class="ss-presets" data-ss-for="corr" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Korrelationen', 'usual correlations') }}">
+        <button type="button" class="button button-secondary" data-ss-set="effect=0.1">{{ small }} {{ de_en("0,1", "0.1") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="effect=0.3">{{ medium }} {{ de_en("0,3", "0.3") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="effect=0.5">{{ large }} {{ de_en("0,5", "0.5") }}</button></div>
+      <div class="ss-presets" data-ss-for="chi2" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Effektstärken w', 'usual effect sizes w') }}">
+        <button type="button" class="button button-secondary" data-ss-set="w=0.1">{{ small }} {{ de_en("0,1", "0.1") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="w=0.3">{{ medium }} {{ de_en("0,3", "0.3") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="w=0.5">{{ large }} {{ de_en("0,5", "0.5") }}</button></div>
+
+      <label data-ss-for="props"><span class="ss-name">{{ de_en("Anteil in Gruppe 1 (%)", "Proportion in group 1 (%)") }}</span>
+        <input type="number" min="0.1" max="99.9" step="0.1" value="50" data-ss="p1"></label>
+      <label data-ss-for="props" data-ss-mode="n"><span class="ss-name">{{ de_en("erwarteter Anteil in Gruppe 2 (%)", "expected proportion in group 2 (%)") }}</span>
+        <input type="number" min="0.1" max="99.9" step="0.1" value="60" data-ss="p2"></label>
+
+      <label data-ss-for="factorial"><span class="ss-name">{{ de_en("Stufen von Faktor A", "Levels of factor A") }}</span>
+        <input type="number" min="2" max="10" value="2" data-ss="fa"></label>
+      <label data-ss-for="factorial"><span class="ss-name">{{ de_en("Stufen von Faktor B", "Levels of factor B") }}</span>
+        <input type="number" min="2" max="10" value="2" data-ss="fb"></label>
+      <label data-ss-for="factorial"><span class="ss-name">{{ de_en("Getesteter Effekt", "Tested effect") }}</span>
+        <select data-ss="factor" data-ss-text><option value="A" selected>{{ de_en("Haupteffekt A", "Main effect A") }}</option><option value="B">{{ de_en("Haupteffekt B", "Main effect B") }}</option><option value="AB">{{ de_en("Wechselwirkung A × B", "Interaction A × B") }}</option></select></label>
+
+      <label data-ss-for="chi2"><span class="ss-name">{{ de_en("Kategorien der ersten Variable", "Categories of the first variable") }}</span>
+        <input type="number" min="2" max="30" value="{{ prefill.rows or 2 }}" data-ss="rows"></label>
+      <label data-ss-for="chi2"><span class="ss-name">{{ de_en("Kategorien der zweiten Variable", "Categories of the second variable") }}</span>
+        <input type="number" min="1" max="30" value="{{ prefill.cols or 2 }}" data-ss="cols"> <span class="hint">{{ de_en("1 = Verteilung einer Variablen", "1 = distribution of one variable") }}</span></label>
+
+      <label data-ss-for="equiv"><span class="ss-name">Design</span>
+        <select data-ss="eqdesign" data-ss-text><option value="groups" selected>{{ de_en("zwei unabhängige Gruppen", "two independent groups") }}</option><option value="paired">{{ de_en("dieselben Personen zweimal", "the same people twice") }}</option></select></label>
+      <label data-ss-for="equiv" data-ss-mode="n"><span class="ss-name">{{ de_en("Äquivalenzgrenzen ± (in", "Equivalence bounds ± (in") }} <em>d</em>)</span>
+        <input type="number" step="0.01" min="0.01" max="3" value="0.5" data-ss="bound"> <span class="hint">{{ de_en("kleinster Unterschied, der zählt", "smallest difference that matters") }}</span></label>
+      <label data-ss-for="equiv"><span class="ss-name">{{ de_en("erwarteter wahrer Unterschied (in", "expected true difference (in") }} <em>d</em>)</span>
+        <input type="number" step="0.01" min="0" max="3" value="0" data-ss="truediff"> <span class="hint">{{ de_en("meist 0", "usually 0") }}</span></label>
+
+      <label data-ss-for="rm"><span class="ss-name">{{ de_en("Messungen je Person", "Measurements per person") }}</span>
+        <input type="number" min="2" max="20" value="3" data-ss="meas"></label>
+      <label data-ss-for="rm"><span class="ss-name">{{ de_en("Gruppen", "Groups") }}</span>
+        <input type="number" min="1" max="20" value="1" data-ss="rmgroups"> <span class="hint">{{ de_en("1 = alle in einer Gruppe", "1 = all in one group") }}</span></label>
+      <label data-ss-for="rm"><span class="ss-name">{{ de_en("Getesteter Effekt", "Tested effect") }}</span>
+        <select data-ss="rmeffect" data-ss-text><option value="within" selected>{{ de_en("Zeit (innerhalb der Personen)", "Time (within people)") }}</option><option value="between">{{ de_en("Gruppen (zwischen den Personen)", "Groups (between people)") }}</option><option value="inter">{{ de_en("Wechselwirkung Zeit × Gruppe", "Interaction time × group") }}</option></select></label>
+      <label data-ss-for="rm"><span class="ss-name">{{ de_en("Sphärizität ε", "Sphericity ε") }}</span>
+        <input type="number" step="0.05" min="0.05" max="1" value="1" data-ss="eps"> <span class="hint">{{ de_en("1 = erfüllt; untere Grenze 1/(Messungen − 1)", "1 = met; lower bound 1/(measurements − 1)") }}</span></label>
+
+      <label data-ss-for="reg"><span class="ss-name">{{ de_en("Prädiktoren im Modell", "Predictors in the model") }}</span>
+        <input type="number" min="1" max="50" value="5" data-ss="preds"></label>
+      <label data-ss-for="reg"><span class="ss-name">{{ de_en("davon getestet", "of which tested") }}</span>
+        <input type="number" min="1" max="50" placeholder="{{ de_en('alle', 'all') }}" data-ss="tested"> <span class="hint">{{ de_en("leer = R² des ganzen Modells", "empty = R² of the whole model") }}</span></label>
+      <label data-ss-for="reg" data-ss-mode="n"><span class="ss-name">{{ de_en("erwartetes R² des Modells", "expected R² of the model") }}</span>
+        <input type="number" step="0.01" min="0.001" max="0.99" value="0.13" data-ss="r2"></label>
+      <label data-ss-for="reg" data-ss-mode="n"><span class="ss-name">{{ de_en("Zuwachs ΔR² der getesteten", "Increase ΔR² of the tested ones") }}</span>
+        <input type="number" step="0.01" min="0.001" max="0.99" placeholder="{{ de_en('nur bei Teilmenge', 'only for a subset') }}" data-ss="dr2"></label>
+      <div class="ss-presets" data-ss-for="reg" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Werte für R²', 'usual values of R²') }}">
+        <button type="button" class="button button-secondary" data-ss-set="r2=0.02">{{ small }} {{ de_en("0,02", "0.02") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="r2=0.13">{{ medium }} {{ de_en("0,13", "0.13") }}</button>
+        <button type="button" class="button button-secondary" data-ss-set="r2=0.26">{{ large }} {{ de_en("0,26", "0.26") }}</button></div>
+
+      <label data-ss-for="alpha"><span class="ss-name">{{ de_en("Items der Skala", "Items of the scale") }}</span>
+        <input type="number" min="2" max="200" value="10" data-ss="items"></label>
+      <label data-ss-for="alpha"><span class="ss-name">{{ de_en("α, das widerlegt werden soll (α₀)", "α to be refuted (α₀)") }}</span>
+        <input type="number" step="0.01" min="0.01" max="0.99" value="0.7" data-ss="alpha0"></label>
+      <label data-ss-for="alpha"><span class="ss-name">{{ de_en("erwartetes α (α₁)", "expected α (α₁)") }}</span>
+        <input type="number" step="0.01" min="0.01" max="0.99" value="0.8" data-ss="alpha1"></label>
+
+      <label data-ss-for="sem"><span class="ss-name">{{ de_en("Freiheitsgrade des Modells", "Degrees of freedom of the model") }}</span>
+        <input type="number" min="1" max="5000" value="{{ prefill.df or 50 }}" data-ss="semdf"> <span class="hint">{{ de_en("Studienplan oder SEM-Ausgabe: df", "research plan or SEM output: df") }}</span></label>
+      <label data-ss-for="sem"><span class="ss-name">{{ de_en("RMSEA bei gutem Fit (ε₀)", "RMSEA of close fit (ε₀)") }}</span>
+        <input type="number" step="0.01" min="0" max="0.2" value="0.05" data-ss="eps0"></label>
+      <label data-ss-for="sem"><span class="ss-name">{{ de_en("RMSEA bei schlechtem Fit (ε₁)", "RMSEA of poor fit (ε₁)") }}</span>
+        <input type="number" step="0.01" min="0.01" max="0.3" value="0.08" data-ss="eps1"></label>
+      <label data-ss-for="{{ tests }} alpha sem pairedcmp"><span class="ss-name">{{ de_en("Signifikanzniveau α", "Significance level α") }}</span>
+        {# a hypothesis of a study plan with Holm's correction opens with α / k (PA-5) #}
+        <select data-ss="alpha">{% if holm %}<option value="{{ holm.value }}" selected>{% if holm.k %}{{ de_en("{a} (Holm, {k} Hypothesen)", "{a} (Holm, {k} hypotheses)", a=holm.text, k=holm.k) }}{% else %}{{ holm.text }}{% endif %}</option>{% endif %}{% for level, de, en in [(0.05, ",05", ".05"), (0.01, ",01", ".01"), (0.1, ",10", ".10")] %}<option value="{{ level }}" {% if not holm and level == (prefill.alpha or 0.05) %}selected{% endif %}>{{ de_en(de, en) }}</option>{% endfor %}</select></label>
+      <label data-ss-for="{{ tests }} alpha sem pairedcmp"><span class="ss-name">{{ de_en("Power", "Power") }}</span>
+        <select data-ss="power">{% for level in (0.8, 0.9, 0.95) %}<option value="{{ level }}" {% if level == (prefill.power or 0.8) %}selected{% endif %}>{{ (level * 100)|round|int|pctsign }}</option>{% endfor %}</select></label>
+      <label data-ss-for="groups props"><span class="ss-name">{{ de_en("Größenverhältnis Gruppe 2 : Gruppe 1", "Size ratio group 2 : group 1") }}</span>
+        <input type="number" step="0.1" min="0.1" max="10" value="1" data-ss="ratio"> <span class="hint">{{ de_en("1 = gleich groß, 2 = doppelt so viele", "1 = equal size, 2 = twice as many") }}</span></label>
+      <label class="check ss-wide" data-ss-for="{{ sided }}"><input type="checkbox" data-ss="onesided"> {{ de_en("einseitig", "one-sided") }} <span class="hint">{{ de_en("nur mit gerichteter Hypothese", "only with a directional hypothesis") }}</span></label>
+
+      <label data-ss-for="prop" data-ss-mode="n"><span class="ss-name">{{ de_en("Fehlerspanne ± (Prozentpunkte)", "Margin of error ± (percentage points)") }}</span>
+        <input type="number" min="0.5" max="25" step="0.5" value="5" data-ss="margin"></label>
+      <label data-ss-for="mean"><span class="ss-name">{{ de_en("erwartete Standardabweichung", "expected standard deviation") }}</span>
+        <input type="number" step="0.1" min="0.01" value="1" data-ss="sd"> <span class="hint">{{ de_en("z. B. 1 auf einer Skala von 1 bis 5", "e.g. 1 on a scale from 1 to 5") }}</span></label>
+      <label data-ss-for="mean" data-ss-mode="n"><span class="ss-name">{{ de_en("Fehlerspanne ± (Skalenpunkte)", "Margin of error ± (scale points)") }}</span>
+        <input type="number" step="0.01" min="0.01" value="0.1" data-ss="emargin"></label>
+      <label data-ss-for="prop mean"><span class="ss-name">{{ de_en("Vertrauensniveau", "Confidence level") }}</span>
+        <select data-ss="conf"><option value="0.9">{{ 90|pctsign }}</option><option value="0.95" selected>{{ 95|pctsign }}</option><option value="0.99">{{ 99|pctsign }}</option></select></label>
+      <label data-ss-for="prop"><span class="ss-name">{{ de_en("erwarteter Anteil (%)", "expected proportion (%)") }}</span>
+        <input type="number" min="1" max="99" value="50" data-ss="p"> <span class="hint">{{ de_en("50 % = ungünstigster Fall", "50% = worst case") }}</span></label>
+      <label data-ss-for="prop mean"><span class="ss-name">{{ de_en("Grundgesamtheit", "Population") }}</span>
+        <input type="number" min="0" placeholder="{{ de_en('unbegrenzt', 'unlimited') }}" data-ss="pop"> <span class="hint">{{ de_en("nur bei kleinen, bekannten Gruppen", "only for small, known groups") }}</span></label>
+
+      <label data-ss-for="conjoint"><span class="ss-name">{{ de_en("Aufgaben je Person", "Tasks per person") }}</span>
+        <input type="number" min="1" max="30" value="{{ conjoint.tasks if conjoint else 8 }}" data-ss="tasks"></label>
+      <label data-ss-for="conjoint"><span class="ss-name">{{ de_en("Alternativen je Aufgabe", "Alternatives per task") }}</span>
+        <input type="number" min="2" max="6" value="{{ conjoint.alternatives if conjoint else 2 }}" data-ss="alts"></label>
+      <label data-ss-for="conjoint"><span class="ss-name">{{ de_en("größte Stufenzahl eines Merkmals", "largest number of levels of an attribute") }}</span>
+        <input type="number" min="2" max="20" value="{{ conjoint.levels if conjoint else 3 }}" data-ss="levels"></label>
+
+      <label data-ss-for="pairedcmp"><span class="ss-name">{{ de_en("Optionen", "Options") }}</span>
+        <input type="number" min="3" max="20" value="{{ paired.options if paired else 8 }}" data-ss="pck"></label>
+      <label data-ss-for="pairedcmp"><span class="ss-name">{{ de_en("Paare je Person", "Pairs per person") }}</span>
+        <input type="number" min="1" max="190" value="{{ paired.pairs if paired else 28 }}" data-ss="pcp"></label>
+      <label data-ss-for="pairedcmp"><span class="ss-name">{{ de_en("kleinster Effekt δ (Logit)", "smallest effect δ (logit)") }}</span>
+        <input type="number" step="0.05" min="0.01" max="5" value="0.2" data-ss="pcdelta"> <span class="hint">{{ de_en("Abweichung einer Option vom Mittel aller, die von 0 verschieden sein soll", "deviation of an option from the mean of all that is to differ from 0") }}</span></label>
+      <label data-ss-for="maxdiff"><span class="ss-name">{{ de_en("Aussagen", "Statements") }}</span>
+        <input type="number" min="4" max="300" value="{{ maxdiff.statements if maxdiff else 12 }}" data-ss="mdk"></label>
+      <label data-ss-for="maxdiff"><span class="ss-name">{{ de_en("Aussagen je Set", "Statements per set") }}</span>
+        <input type="number" min="2" max="10" value="{{ maxdiff.set_size if maxdiff else 4 }}" data-ss="mdset"></label>
+      <label data-ss-for="maxdiff"><span class="ss-name">{{ de_en("Sets je Person", "Sets per person") }}</span>
+        <input type="number" min="1" max="100" value="{{ maxdiff.sets if maxdiff else 9 }}" data-ss="mdsets"></label>
+
+      <label data-ss-for="vignette"><span class="ss-name">{{ de_en("Vignetten in der Stichprobe", "Vignettes in the sample") }}</span>
+        <input type="number" min="1" value="60" data-ss="vtotal"> <span class="hint">{{ de_en("alle verschiedenen Vignetten, die bewertet werden", "all different vignettes that are rated") }}</span></label>
+      <label data-ss-for="vignette"><span class="ss-name">{{ de_en("Vignetten je Person (Deck)", "Vignettes per person (deck)") }}</span>
+        <input type="number" min="1" max="100" value="10" data-ss="vper"></label>
+      <label data-ss-for="vignette"><span class="ss-name">{{ de_en("Personen je Deck", "People per deck") }}</span>
+        <input type="number" min="1" max="1000" value="5" data-ss="vdeck"> <span class="hint">{{ de_en("Vorgabe 5 (Festlegung von Askurious)", "default 5 (set by Askurious)") }}</span></label>
+
+      <label data-ss-for="paired rm equiv"><span class="ss-name">{{ de_en("Korrelation der Messungen ρ", "Correlation of the measurements ρ") }}</span>
+        <input type="number" step="0.05" min="-0.95" max="0.95" value="0.5" data-ss="rho"> <span class="hint"><span data-ss-for="equiv">{{ de_en("nur bei denselben Personen; ", "only for the same people; ") }}</span>{{ de_en("aus Vorstudien, 0,5 ohne Anhaltspunkt", "from pilot data, 0.5 without any clue") }}</span></label>
+      <label data-ss-for="anova"><span class="ss-name">{{ de_en("Gruppen / Versuchsbedingungen", "Groups / experimental conditions") }}</span>
+        <input type="number" min="2" max="20" value="{{ prefill.groups or 3 }}" data-ss="groups"> <span class="hint">{{ de_en("zwischen den Personen, gleich groß", "between people, of equal size") }}</span></label>
+      <label data-ss-mode="n"><span class="ss-name">{{ de_en("erwartete Ausschlüsse (%)", "expected exclusions (%)") }}</span>
+        <input type="number" min="0" max="90" value="{{ exclusions }}" data-ss="dropout"> <span class="hint">{{ de_en("Abschlüsse, die die Qualitätsregeln aussortieren; Abbrüche zählen nicht als Abschluss", "completions the quality rules leave out; break-offs do not count as completions") }}{% if exclusions_from_plan %}; {{ de_en("aus dem Studienplan", "from the research plan") }}{% endif %}</span></label>
+      {% if conjoint %}<p class="muted small ss-wide" data-ss-for="conjoint">{{ de_en("Übernommen aus dem Conjoint „{c}“ dieser Befragung.", "Taken from the conjoint “{c}” of this survey.", c=conjoint.code) }}</p>{% endif %}
+      {# the power of the part-worths from the design of this survey (PA7) #}
+      {% for key in ("conjoint", "maxdiff", "pairedcmp") if key in choice_power %}{% set cp = choice_power[key] %}
+      <div class="ss-wide ss-choice-power" data-ss-for="{{ key }}" data-ss-choice-power="{{ key }}">
+        <p class="label-title">{{ de_en("Power der Teilnutzen aus dem Versuchsplan", "Power of the part-worths from the experimental design") if key == "conjoint" else de_en("Power der Werte aus dem Versuchsplan", "Power of the scores from the experimental design") }}</p>
+        {% if cp %}
+        <script type="application/json" data-ss-choice-data>{{ cp|tojson }}</script>
+        <div class="ss-choice-fields">
+          <label><span class="ss-name">{{ de_en("kleinster Effekt δ (Logit)", "smallest effect δ (logit)") }}</span>
+            <input type="number" step="0.05" min="0.01" max="5" value="0.2" data-ss-choice="delta"> <span class="hint">{{ de_en("Abweichung einer Stufe vom Mittel ihres Merkmals, die von 0 verschieden sein soll", "deviation of a level from the mean of its attribute that is to differ from 0") if key == "conjoint" else de_en("Abweichung einer Aussage vom Mittel aller, die von 0 verschieden sein soll", "deviation of a statement from the mean of all that is to differ from 0") }}</span></label>
+          <label><span class="ss-name">{{ de_en("Power", "Power") }}</span>
+            <select data-ss-choice="power"><option value="0.8" selected>80 %</option><option value="0.9">90 %</option><option value="0.95">95 %</option></select></label>
+        </div>
+        <p data-ss-choice-out class="small"></p>
+        {% if cp.price %}<p class="muted small" data-ss-choice-price>{{ de_en("Preis als Zahl: Das Modell schätzt für den Preis einen Koeffizienten, keinen Teilnutzen je Stufe. δ gilt dort für den Nutzenunterschied des äußersten Preises ({p}) zum mittleren Preis.", "Price as a number: the model estimates one coefficient for the price, not a part-worth per level. There δ is the utility difference of the outermost price ({p}) from the mean price.", p=cp.price) }}</p>{% endif %}
+        <p class="muted small">{{ de_en("Nach de Bekker-Grob et al. (2015) aus der Information des Logit-Modells über die Aufgaben dieses Versuchsplans, α = ,05 zweiseitig. Festlegung von Askurious: Wahlwahrscheinlichkeiten bei Teilnutzen 0 wie die D-Effizienz; bei großen wahren Teilnutzen fällt die Zahl etwas zu klein aus.", "After de Bekker-Grob et al. (2015) from the information of the logit model over the tasks of this experimental design, α = .05 two-sided. Set by Askurious: choice probabilities at part-worths of 0, as the D-efficiency; with large true part-worths the number comes out somewhat too small.") }}</p>
+        {% else %}
+        <p class="muted small">{{ de_en("Erst mit einem aktuellen Versuchsplan, der alle Teilnutzen trennt (im Element „Versuchsplan erzeugen“).", "Only with a current experimental design that separates all part-worths (“Generate experimental design” in the element).") }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if paired %}<p class="muted small ss-wide" data-ss-for="pairedcmp">{{ de_en("Übernommen aus dem Paarvergleich „{c}“ dieser Befragung.", "Taken from the paired comparison “{c}” of this survey.", c=paired.code) }}</p>{% endif %}
+      {% if maxdiff %}<p class="muted small ss-wide" data-ss-for="maxdiff">{{ de_en("Übernommen aus dem MaxDiff „{c}“ dieser Befragung.", "Taken from the MaxDiff “{c}” of this survey.", c=maxdiff.code) }}</p>{% endif %}
+
+      <details class="ss-wide ss-more">
+        <summary>{{ de_en("Klumpen, Gewichtung, Teilgruppe", "Clusters, weighting, subgroup") }}</summary>
+        <div class="ss-inputs">
+          <label><span class="ss-name">{{ de_en("Personen je Klumpen", "People per cluster") }}</span>
+            <input type="number" min="1" step="0.1" placeholder="{{ de_en('keine Klumpen', 'no clusters') }}" data-ss="cluster"> <span class="hint">{{ de_en("z. B. Schülerinnen und Schüler je Klasse", "e.g. pupils per class") }}</span></label>
+          <label><span class="ss-name">{{ de_en("Intraklassenkorrelation (ICC)", "Intraclass correlation (ICC)") }}</span>
+            <input type="number" min="0" max="0.99" step="0.01" placeholder="{{ de_en('z. B. 0,05', 'e.g. 0.05') }}" data-ss="icc"> <span class="hint">{{ de_en("Ähnlichkeit innerhalb eines Klumpens", "similarity within a cluster") }}</span></label>
+          <label><span class="ss-name">{{ de_en("Variationskoeffizient der Gewichte", "Coefficient of variation of the weights") }}</span>
+            <input type="number" min="0" max="10" step="0.05" placeholder="{{ de_en('ungewichtet', 'unweighted') }}" data-ss="cv"> <span class="hint">{{ de_en("Standardabweichung / Mittelwert der Gewichte", "standard deviation / mean of the weights") }}</span></label>
+          <label><span class="ss-name">{{ de_en("kleinste getrennt ausgewertete Teilgruppe (%)", "smallest subgroup analysed separately (%)") }}</span>
+            <input type="number" min="1" max="100" placeholder="{{ de_en('alle', 'all') }}" data-ss="share"> <span class="hint">{{ de_en("das Ziel gilt dann für diese Teilgruppe", "the target then applies to this subgroup") }}</span></label>
+        </div>
+      </details>
+    </div>
+
+    <div class="ss-result" aria-live="polite">
+      <div class="ss-big"><span data-ss-out="n">–</span> <small data-ss-out="unit">{{ de_en("verwertbare Teilnahmen", "usable participations") }}</small></div>
+      <p data-ss-out="detail" class="ss-detail"></p>
+      <p data-ss-out="warning" class="ss-warning" hidden></p>
+      {# the line of the sample model, as on every page that names the sample (S3); samplesize.js fills it #}
+      <p class="ss-invite" data-ss-invite>{{ sample_line(sample_model.numbers(none, exclusions, calc.response, none), live=true) }}</p>
+      {% if survey %}<a class="button" data-ss-apply href="#">{{ icon("check", 16) }} {{ de_en("Als Ziel übernehmen", "Use as target") }}</a>
+      {# the number goes into the study plan and the end of the field period (UI/UX audit 2026-10-05, V10) #}
+      {% if survey.can(current_user, "editor") %}<form method="post" action="{{ url_for('study_plan.take_target', survey_id=survey.id) }}" data-ss-apply-form hidden>{{ csrf() }}<input type="hidden" name="n"><input type="hidden" name="excl"></form>{% endif %}
+      <p class="muted small">{{ de_en("die Abschlüsse werden Stichprobenziel im Studienplan und stehen", "the completions become the sample target in the research plan and appear") if survey.can(current_user, "editor") else de_en("die Abschlüsse stehen", "the completions appear") }} {{ de_en("bei „nach … abgeschlossenen Teilnahmen“ (dort mit dem Start gespeichert)", "under “after … completed participations” (saved there with the start)") }}</p>{% endif %}
+    </div>
+    {# the power curve (PA3, samplesize.js): only for the tests #}
+    <figure class="ss-curve" data-ss-curve hidden>
+      <div class="ss-curve-plot" data-ss-curve-plot></div>
+      <p class="small ss-curve-text" data-ss-curve-text hidden></p>
+      <figcaption class="muted small"><span>{{ de_en("Power nach Zahl der Teilnahmen: dicke Linie für den gewählten Effekt, dünne für die kleinen, mittleren und großen Effekte nach Cohen (1988); gestrichelt die gewählte Power. Wo die Kurve flach wird, bringt jede weitere Teilnahme wenig.", "Power by number of participations: the thick line for the chosen effect, thin ones for Cohen's (1988) small, medium and large effects; dashed the chosen power. Where the curve flattens, every further participation adds little.") }}</span>
+        <button type="button" class="icon-btn fig-save-icon" data-ss-curve-png title="{{ de_en('Als PNG speichern', 'Save as PNG') }}" aria-label="{{ de_en('Abbildung als PNG speichern', 'Save the figure as PNG') }}">{{ icon("download", 18) }}</button></figcaption>
+    </figure>
+  </div>
+</section>
+
+{# only the hints of the chosen planner (samplesize.js, data-ss-for); the sources stay complete in their fold #}
+<section class="panel">
+  <h2>{{ de_en("Hinweise", "Notes") }}</h2>
+  <ul class="small">
+    <li data-ss-for="groups paired anova factorial rm chi2 reg">{{ de_en('<strong>Exakte Power</strong> über die nichtzentrale <em>t</em>-, <em>F</em>- bzw. χ²-Verteilung (Cohen, 1988; Faul et al., 2007, 2009). Effektstärken nach Cohen (1988): <em>d</em> klein 0,2, mittel 0,5, groß 0,8; <em>f</em> klein 0,10, mittel 0,25, groß 0,40; <em>w</em> klein 0,1, mittel 0,3, groß 0,5; <em>f</em>² klein 0,02, mittel 0,15, groß 0,35.', '<strong>Exact power</strong> via the noncentral <em>t</em>, <em>F</em> or χ² distribution (Cohen, 1988; Faul et al., 2007, 2009). Effect sizes after Cohen (1988): <em>d</em> small 0.2, medium 0.5, large 0.8; <em>f</em> small 0.10, medium 0.25, large 0.40; <em>w</em> small 0.1, medium 0.3, large 0.5; <em>f</em>² small 0.02, medium 0.15, large 0.35.')|safe }}</li>
+    <li data-ss-for="groups props">{{ de_en('<strong>Ungleiche Gruppen:</strong> Bei gleicher Gesamtzahl haben gleich große Gruppen die höchste Power; ein Verhältnis von 1 : 2 braucht rund ein Achtel mehr Personen.', '<strong>Unequal groups:</strong> for the same total, groups of equal size have the highest power; a ratio of 1 : 2 needs about one eighth more people.')|safe }}</li>
+    <li data-ss-for="paired">{{ de_en('<strong>Messwiederholung:</strong> Die Power hängt an <em>d<sub>z</sub></em> = <em>d</em> / √(2 · (1 − ρ)) (Lakens, 2013): Je enger die beiden Messungen zusammenhängen, desto weniger Personen braucht es. Die Konventionen 0,2/0,5/0,8 gelten für <em>d</em>, nicht für <em>d<sub>z</sub></em>.', '<strong>Repeated measures:</strong> the power depends on <em>d<sub>z</sub></em> = <em>d</em> / √(2 · (1 − ρ)) (Lakens, 2013): the more closely the two measurements are related, the fewer people are needed. The conventions 0.2/0.5/0.8 apply to <em>d</em>, not to <em>d<sub>z</sub></em>.')|safe }}</li>
+    <li data-ss-for="anova">{{ de_en('<strong>Drei oder mehr Gruppen:</strong> Die Zahl reicht für den Gesamttest der einfaktoriellen ANOVA (unterscheiden sich die Gruppen überhaupt?). Einzelne Paarvergleiche mit Korrektur für Mehrfachvergleiche brauchen mehr Personen.', '<strong>Three or more groups:</strong> the number suffices for the overall test of the one-way ANOVA (do the groups differ at all?). Single pairwise comparisons with a correction for multiple comparisons need more people.')|safe }}</li>
+    <li data-ss-for="factorial">{{ de_en('<strong>Zwei Faktoren:</strong> alle Versuchsbedingungen (Stufenkombinationen) gleich groß, gerechnet wird die Zahl je Versuchsbedingung (Cohen, 1988; Faul et al., 2007). Die Gesamtzahl wird auf gleich große Versuchsbedingungen aufgerundet und liegt deshalb manchmal etwas über einer Rechnung ohne diese Rundung. Wechselwirkungen sind oft kleiner als Haupteffekte; ein kleineres <em>f</em> ansetzen.', '<strong>Two factors:</strong> all experimental conditions (combinations of levels) of equal size; the number per condition is computed (Cohen, 1988; Faul et al., 2007). The total is rounded up to conditions of equal size and so sometimes lies slightly above a calculation without this rounding. Interactions are often smaller than main effects; assume a smaller <em>f</em>.')|safe }}</li>
+    <li data-ss-for="rm">{{ de_en('<strong>Messwiederholung mit mehreren Messungen:</strong> nach Faul et al. (2007) mit gleicher Korrelation ρ zwischen allen Messungen. Ist die Sphärizität verletzt, ε kleiner als 1 setzen (Greenhouse-Geisser-Schätzung aus Vorstudien). Für Versuchspläne mit mehr Faktoren raten Lakens und Caldwell (2021) zur Simulation.', '<strong>Repeated measures with several measurements:</strong> after Faul et al. (2007) with the same correlation ρ between all measurements. If sphericity is violated, set ε below 1 (Greenhouse-Geisser estimate from pilot data). For designs with more factors Lakens and Caldwell (2021) advise simulation.')|safe }}</li>
+    <li data-ss-for="chi2">{{ de_en('<strong>χ²:</strong> Kreuztabelle mit (Zeilen − 1) · (Spalten − 1) Freiheitsgraden, Verteilung einer Variablen mit Kategorien − 1. Jede erwartete Häufigkeit eines Tabellenfelds sollte mindestens 5 betragen.', '<strong>χ²:</strong> cross table with (rows − 1) · (columns − 1) degrees of freedom, distribution of one variable with categories − 1. Every expected frequency of a table cell should be at least 5.')|safe }}</li>
+    <li data-ss-for="props">{{ de_en('<strong>Zwei Anteile:</strong> z-Test ohne Stetigkeitskorrektur mit gepoolter Varianz unter der Nullhypothese (Fleiss et al., 2003). Zur Einordnung steht Cohens <em>h</em> dabei (klein 0,2, mittel 0,5, groß 0,8).', '<strong>Two proportions:</strong> z-test without continuity correction with pooled variance under the null hypothesis (Fleiss et al., 2003). For orientation Cohen\'s <em>h</em> is shown as well (small 0.2, medium 0.5, large 0.8).')|safe }}</li>
+    <li data-ss-for="equiv">{{ de_en('<strong>Äquivalenztest:</strong> zwei einseitige Tests (TOST) gegen die Grenzen ± Δ, jeder auf dem Niveau α (Schuirmann, 1987; Lakens, 2017). Die Power ist nach unten abgeschätzt, die Zahl liegt also eher etwas zu hoch. Die Grenzen müssen vor der Erhebung festgelegt werden.', '<strong>Equivalence test:</strong> two one-sided tests (TOST) against the bounds ± Δ, each at level α (Schuirmann, 1987; Lakens, 2017). The power is estimated from below, so the number tends to be slightly too high. The bounds must be set before data collection.')|safe }}</li>
+    <li data-ss-for="corr">{{ de_en('<strong>Korrelation:</strong> exakte Power über die Verteilung des Korrelationskoeffizienten (Faul et al., 2009).', '<strong>Correlation:</strong> exact power via the distribution of the correlation coefficient (Faul et al., 2009).')|safe }}</li>
+    <li data-ss-for="reg">{{ de_en('<strong>Regression:</strong> <em>f</em>² = R² / (1 − R²) für das ganze Modell, für eine Teilmenge der Prädiktoren <em>f</em>² = ΔR² / (1 − R²) mit dem R² des vollen Modells (Cohen, 1988; Faul et al., 2009). Die Knöpfe setzen R² = 0,02/0,13/0,26, das entspricht <em>f</em>² ≈ 0,02/0,15/0,35.', '<strong>Regression:</strong> <em>f</em>² = R² / (1 − R²) for the whole model, for a subset of the predictors <em>f</em>² = ΔR² / (1 − R²) with the R² of the full model (Cohen, 1988; Faul et al., 2009). The buttons set R² = 0.02/0.13/0.26, which corresponds to <em>f</em>² ≈ 0.02/0.15/0.35.')|safe }}</li>
+    <li data-ss-for="prop">{{ de_en('<strong>Anteil:</strong> Fehlerspanne als halbe Breite des Wilson-Intervalls (Wilson, 1927), das auch bei kleinen Anteilen zuverlässig bleibt (Newcombe, 1998); mit Endlichkeitskorrektur bei angegebener Grundgesamtheit (Cochran, 1977). Die Fehlerspanne gilt für einfache Zufallsstichproben.', '<strong>Proportion:</strong> margin of error as half the width of the Wilson interval (Wilson, 1927), which stays reliable for small proportions too (Newcombe, 1998); with finite population correction when a population is given (Cochran, 1977). The margin of error applies to simple random samples.')|safe }}</li>
+    <li data-ss-for="mean">{{ de_en('<strong>Mittelwert:</strong> Gesucht wird das kleinste n mit t<sub>n − 1</sub> · s / √n ≤ e. Bei endlicher Grundgesamtheit N wird der Standardfehler gleichzeitig mit √((N − n) / N) korrigiert (Cochran, 1977); die Freiheitsgrade steigen dadurch nicht. s ist eine erwartete Stichproben-Standardabweichung, am besten aus einer Vorstudie. Ein Designeffekt D wird näherungsweise durch die effektive Fallzahl n / D berücksichtigt, auch bei den Freiheitsgraden. Für Teilgruppen gelten deren Fallzahl und Grundgesamtheit.', '<strong>Mean:</strong> the smallest n with t<sub>n − 1</sub> · s / √n ≤ e is sought. For a finite population N, the standard error is corrected simultaneously by √((N − n) / N) (Cochran, 1977); this does not increase the degrees of freedom. s is an expected sample standard deviation, preferably from pilot data. A design effect D is approximated by the effective sample size n / D, including for the degrees of freedom. Subgroups use their own sample and population sizes.')|safe }}</li>
+    <li data-ss-for="groups anova factorial">{{ de_en("Die Powerplanung setzt gleiche Varianzen voraus. Bei unterschiedlichen Streuungen kann die tatsächliche Power eines Welch-Tests abweichen; dann mit mehreren Annahmen oder einer Simulation planen.", "Power planning assumes equal variances. With unequal spreads, the actual power of a Welch test can differ; plan with several assumptions or a simulation in that case.") }}</li>
+    <li data-ss-for="sem">{{ de_en('<strong>Strukturgleichungsmodell:</strong> Power des Tests auf guten Fit nach MacCallum et al. (1996): Ein Modell, das in Wahrheit schlecht passt (RMSEA ε₁), soll die Hypothese guten Fits (ε₀) verwerfen. Für einzelne Pfade rechnet der Studienplan die Power im geplanten Modell (Satorra & Saris, 1985). Faustregeln wie 10 Personen je Parameter sind nicht belastbar (Wolf et al., 2013).', '<strong>Structural equation model:</strong> power of the test of close fit after MacCallum et al. (1996): a model that in truth fits poorly (RMSEA ε₁) should reject the hypothesis of close fit (ε₀). For single paths the research plan computes the power in the planned model (Satorra & Saris, 1985). Rules of thumb such as 10 people per parameter are not reliable (Wolf et al., 2013).')|safe }}</li>
+    <li data-ss-for="alpha">{{ de_en('<strong>Reliabilität:</strong> Test, ob Cronbachs α über α₀ liegt, wenn es in Wahrheit α₁ beträgt (Bonett, 2002).', '<strong>Reliability:</strong> test whether Cronbach\'s α lies above α₀ when it is in truth α₁ (Bonett, 2002).')|safe }}</li>
+    <li data-ss-for="conjoint">{{ de_en('<strong>Conjoint:</strong> Faustregel nach Orme (2010): n ≥ 500 · c / (Aufgaben · Alternativen), c = größte Stufenzahl. Das empfohlene 1,5-Fache ist eine Festlegung von Askurious (Sicherheitsabstand), keine Angabe aus der Quelle. Für ACBC gibt es keine eigene Faustregel; ACBC schätzt oft genauer als CBC und kommt dann mit weniger Personen aus (Chapman et al., 2009), die Regel liegt also auf der sicheren Seite.', '<strong>Conjoint:</strong> rule of thumb after Orme (2010): n ≥ 500 · c / (tasks · alternatives), c = largest number of levels. The recommended 1.5 times is set by Askurious (safety margin), not taken from the source. ACBC has no rule of thumb of its own; ACBC often estimates more precisely than CBC and then needs fewer people (Chapman et al., 2009), so the rule errs on the safe side.')|safe }}</li>
+    <li data-ss-for="maxdiff">{{ de_en('<strong>MaxDiff:</strong> Für Werte der ganzen Stichprobe sollte jede Aussage mindestens 500-mal, besser 1.000-mal gezeigt werden; für Werte je Person etwa dreimal je Person (Festlegung von Askurious nach der Faustregel für Wahlexperimente, Orme, 2010). Die große Zahl ist die 1.000er-Regel.', '<strong>MaxDiff:</strong> for scores of the whole sample every statement should be shown at least 500 times, better 1,000 times; for scores per person about three times per person (Askurious default after the rule of thumb for choice experiments, Orme, 2010). The large number is the 1,000 rule.')|safe }}</li>
+    <li data-ss-for="pairedcmp">{{ de_en('<strong>Paarvergleich:</strong> nach de Bekker-Grob et al. (2015) aus der Information des Bradley-Terry-Modells (Bradley & Terry, 1952) bei Werten 0: Sieht jede Person P von K Optionen-Paaren, gleichmäßig verteilt, hat der nullzentrierte Wert einer Option je Person die Varianz 2 (K − 1)² / (P · K); nötig sind n = (z<sub>1−α/2</sub> + z<sub>Power</sub>)² · Varianz / δ². Gerechnet mit der Wahl zwischen zwei Optionen; „gleich“ und die Stärke-Skala geben etwas mehr Information, die Zahl ist dann eher zu groß.', '<strong>Paired comparison:</strong> after de Bekker-Grob et al. (2015) from the information of the Bradley-Terry model (Bradley & Terry, 1952) at values of 0: if every person sees P of the pairs of K options, spread evenly, the zero-centred value of an option has the variance 2 (K − 1)² / (P · K) per person; n = (z<sub>1−α/2</sub> + z<sub>power</sub>)² · variance / δ² are needed. Computed with the choice between two options; “same” and the strength scale give a little more information, the number is then rather too large.')|safe }}</li>
+    <li data-ss-for="vignette">{{ de_en('<strong>Vignetten:</strong> Die Vignetten der Stichprobe werden auf Decks verteilt, jede Person bewertet ein Deck (Atzmüller & Steiner, 2010; Auspurg & Hinz, 2015). Mehr als 10 Vignetten je Person überfordern allgemeine Bevölkerungsstichproben (Sauer et al., 2011). Die Vorgabe von 5 Personen je Deck ist eine Festlegung von Askurious, keine Angabe aus den Quellen.', '<strong>Vignettes:</strong> the vignettes of the sample are spread over decks, every person rates one deck (Atzmüller & Steiner, 2010; Auspurg & Hinz, 2015). More than 10 vignettes per person overtax general population samples (Sauer et al., 2011). The default of 5 people per deck is set by Askurious, not taken from the sources.')|safe }}</li>
+    <li data-ss-for="{{ either }}">{{ de_en('<strong>Erreichbarer Effekt:</strong> Steht die Zahl der Teilnahmen fest (Budget, Panel), zeigt „erreichbaren Effekt zeigen“ den kleinsten Effekt bzw. die Fehlerspanne, die damit erreicht wird (Lakens, 2022).', '<strong>Reachable effect:</strong> if the number of participations is fixed (budget, panel), “show the reachable effect” shows the smallest effect or the margin of error that it reaches (Lakens, 2022).')|safe }}</li>
+    <li>{{ de_en('<strong>Klumpen, Gewichtung, Teilgruppe:</strong> Der Designeffekt 1 + (m − 1) · ICC für Klumpen der Größe m (Kish, 1965; Killip et al., 2004) und 1 + CV² für Gewichte (Kish, 1992) werden multipliziert (Gabler et al., 1999). Soll das Ergebnis schon für eine Teilgruppe gelten, wird durch ihren Anteil geteilt (Kish, 1987). Bei angegebener Grundgesamtheit kommt die Endlichkeitskorrektur zuletzt: erst Designeffekt, dann für die Teilgruppe ihr Teil der Grundgesamtheit, dann die Korrektur (Kish, 1965; Cochran, 1977).', '<strong>Clusters, weighting, subgroup:</strong> the design effect 1 + (m − 1) · ICC for clusters of size m (Kish, 1965; Killip et al., 2004) and 1 + CV² for weights (Kish, 1992) are multiplied (Gabler et al., 1999). If the result is to apply to a subgroup already, it is divided by its share (Kish, 1987). With a given population the finite population correction comes last: first the design effect, then for the subgroup its part of the population, then the correction (Kish, 1965; Cochran, 1977).')|safe }}</li>
+    <li data-ss-for="{{ tests }}">{{ de_en("Die Effektstärke sollte aus Vorstudien oder der Literatur stammen, nicht aus Wunschdenken. Pfade und Vermittlung plant der Studienplan, den Modelltest eines Strukturgleichungsmodells dieser Rechner. Für Mehrebenenmodelle mit zufälligen Steigungen oder logistische Regression besser", "The effect size should come from pilot data or the literature, not from wishful thinking. Paths and mediation are planned by the research plan, the model test of a structural equation model by this calculator. For multilevel models with random slopes or logistic regression, better use") }} <a href="https://www.psychologie.hhu.de/arbeitsgruppen/allgemeine-psychologie-und-arbeitspsychologie/gpower" target="_blank" rel="noopener">G*Power</a> {{ de_en("oder eine Simulation nutzen.", "or a simulation.") }}</li>
+  </ul>
+  {% from "_sources.html" import grouped %}{{ grouped(sources + ([(de_en("Power der Teilnutzen aus dem Versuchsplan", "Power of the part-worths from the experimental design"), choice_sources)] if choice_power else []), de_en("Literatur zu dieser Seite", "References for this page")) }}
+</section>
+<script src="{{ url_for('static', filename='samplesize.js') }}" defer></script>
+{% endblock %}

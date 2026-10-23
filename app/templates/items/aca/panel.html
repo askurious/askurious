@@ -1,0 +1,16 @@
+{# Adaptive conjoint (app/items/aca.py): the flow of one interview (tab "2 · Ablauf") and the price hint. #}
+{% from "_icons.html" import icon %}
+{% set c = item.config %}
+<section class="panel" id="design" data-cj-tab="design">
+  <h2>{{ de_en("Ablauf je Person", "Flow per person") }} <span class="hint">{{ de_en("die Paare entstehen während der Befragung", "the pairs arise during the survey") }}</span></h2>
+  {% if c.attributes %}
+  <div class="figures cj-figures">
+    <div><dt>{{ de_en("Seiten Stufen", "Pages levels") }}</dt><dd>{{ kind.rated(item)|length }}</dd></div>
+    <div><dt>{{ de_en("Wichtigkeit", "Importance") }}</dt><dd>1</dd></div>
+    <div><dt>{{ de_en("Paare", "Pairs") }}</dt><dd>{{ kind.n_pairs(item) }}</dd></div>
+    <div><dt>{{ de_en("Kalibrierung", "Calibration") }}</dt><dd>{{ kind.n_cal(item) }}</dd></div>
+  </div>
+  {% for w in kind.check_warnings(item) %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ w }}</span></p>{% endfor %}
+  <p class="muted small">{{ de_en("Vor jedem Paar schätzt Askurious die Teilnutzen der Person neu (Selbstauskunft plus bisherige Paare) und wählt die Merkmale, die bisher am seltensten zusammen gezeigt wurden, mit Stufen, die beide Angebote möglichst gleich gut machen (Johnson, 1987). Einen Versuchsplan zum Erzeugen gibt es nicht.", "Before every pair Askurious re-estimates the person's part-worths (self-explicated plus the pairs so far) and picks the attributes shown together least often so far, with levels that make both offers about equally good (Johnson, 1987). There is no experimental design to generate.") }}</p>
+  {% else %}<p class="muted">{{ de_en("Zuerst Merkmale und Stufen anlegen.", "Add attributes and levels first.") }}</p>{% endif %}
+</section>

@@ -1,0 +1,27 @@
+{% set de = lang in ("de", "de-du") %}
+{% set shown_for = none if all_rows is defined and all_rows else answers %}
+{# an order given for other options (the earlier answer changed after going back) is no answer any more #}
+{% set ans = kind.own_order(item, answers.get(item.id), shown_for) %}
+{% set start = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% include "items/_question.html" %}
+{# dragging needs a mouse; on touch screens the hint names only the arrows #}
+<p class="p-rank-hint"><span class="p-if-mouse">{{ ui("Ziehen Sie die Elemente in die gewünschte Reihenfolge oder nutzen Sie die Pfeile.", "Drag the items into order or use the arrows.") }}</span><span class="p-if-touch">{{ ui("Bringen Sie die Elemente mit den Pfeilen in die gewünschte Reihenfolge.", "Use the arrows to put the items into order.") }}</span> {{ ui("Oben = Platz 1.", "Top = rank 1.") }}</p>
+<noscript><p class="p-error">{{ ui("Für diese Frage wird JavaScript benötigt.", "This question needs JavaScript.") }}</p></noscript>
+<ol class="p-rank" data-rank="{{ item.id }}">
+  {% for o in kind.ordered_options(item, lang, ans, start, shown_for) %}
+  <li class="p-rank-item" draggable="true" data-code="{{ o.code }}">
+    <input type="hidden" name="i{{ item.id }}" value="{{ o.code }}" data-keep>
+    <span class="p-rank-pos" aria-hidden="true">{{ loop.index }}</span>
+    <span class="p-rank-grip" aria-hidden="true">⋮⋮</span>
+    <span class="p-rank-label"{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span>
+    <span class="p-rank-btns">
+      <button type="button" class="p-rank-up" aria-label="{{ (ui('%s nach oben', 'Move %s up'))|format(o.label) }}">↑</button>
+      <button type="button" class="p-rank-down" aria-label="{{ (ui('%s nach unten', 'Move %s down'))|format(o.label) }}">↓</button>
+    </span>
+  </li>
+  {% endfor %}
+</ol>
+{# the new place after an arrow, said aloud and shown (WCAG 4.1.3, UI audit R75, S20) #}
+<p class="p-sort-said" aria-live="polite" data-rank-said="{{ item.id }}" data-text="{{ ui('%s: jetzt Platz %s', '%s: now rank %s') }}"></p>
+<input type="hidden" name="i{{ item.id }}_touched" value="{{ '1' if ans else '' }}" data-rank-touched="{{ item.id }}" data-keep>
+<p class="p-rank-confirm"><button type="button" class="p-rank-ok{% if ans %} is-done{% endif %}" data-rank-ok="{{ item.id }}">{{ ui("✓ Reihenfolge passt so", "✓ This order is fine") }}</button></p>

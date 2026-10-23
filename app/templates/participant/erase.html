@@ -1,0 +1,51 @@
+{# Participants delete their own answers (app/participate.py: erase; app/erasure.py). #}
+{% extends "participant/base.html" %}
+{% block title %}{{ ui("Antworten löschen", "Delete answers") }} · {{ survey.title_in(lang) }}{% endblock %}
+{% block content %}
+{# deleting for good: red, and asked once more by a tick (UI audit 2026-10-04, R64); the server checks it and says what is
+   missing in the language of the survey, like every other form of the participants (novalidate; the browser's own
+   message came in the browser's language, UI/UX audit 2026-10-16, 101) #}
+{% macro confirm_box() %}<label class="p-option p-check p-erase-confirm"><input type="checkbox" name="sure" value="1" required> {{ ui("Ja, ich möchte meine Antworten endgültig löschen.", "Yes, I want to delete my answers for good.") }}</label>{% endmacro %}
+<article class="p-privacy p-complaint p-erase">
+  <h1 class="p-page-title">{{ ui("Antworten löschen", "Delete answers") }}</h1>
+  <p class="p-privacy-survey">{{ ui("Befragung", "Survey") }}: <strong>{{ survey.title_in(lang) }}</strong> (<code dir="ltr">{{ survey.code }}</code>)</p>
+  {% if done %}
+  <div class="p-end" role="status">
+    <p>{{ ui("Ihre Antworten wurden <strong>unwiederbringlich gelöscht</strong>. Sie können dieses Fenster jetzt schließen.", "Your answers have been <strong>permanently deleted</strong>. You can close this window now.")|safe }}</p>
+  </div>
+  {% else %}
+  {% if error %}<p class="p-error" role="alert">{{ error }}</p>{% endif %}
+  {% if own_since %}
+  <form method="post" class="p-complaint-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="here" value="1">
+    <p>{{ ui("In diesem Browser liegt eine Teilnahme an dieser Befragung vor, begonnen am {date}.", "This browser holds a participation in this survey, started on {date}.", date=own_since) }}
+      {{ ui("Das Löschen lässt sich nicht rückgängig machen.", "Deleting cannot be undone.") }}</p>
+    {{ confirm_box() }}
+    <p class="p-complaint-actions"><button class="p-button p-button-danger">{{ ui("Meine Antworten endgültig löschen", "Delete my answers for good") }}</button></p>
+  </form>
+  {% endif %}
+  {% if codes %}
+  {# with a participation in this browser its own form comes first; the one for a code is folded below (W52) #}
+  {% if own_since %}<details class="p-erase-other"{% if error %} open{% endif %}>
+    <summary>{{ ui("Eine andere Teilnahme mit Löschcode löschen", "Delete another participation with a deletion code") }}</summary>{% endif %}
+  <form method="post" class="p-complaint-form" autocomplete="off" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {# the code and its example run left to right on a right-to-left page too (UI/UX audit 2026-10-09, X32): the
+       example stands in a sentence, so it comes isolated by Unicode marks (participate.erase) #}
+    <label class="p-text"><span class="p-complaint-label">{{ ui("Löschcode", "Deletion code") }}</span>
+      <input type="text" name="code" maxlength="40" required autocapitalize="characters" spellcheck="false" class="p-erase-code" dir="ltr">
+      <span class="p-hint">{{ ui("Der Code steht auf der letzten Seite der Befragung und sieht so aus: {example}", "The code is shown on the last page of the survey and looks like this: {example}", example=example) }}</span></label>
+    <p>{{ ui("Das Löschen lässt sich nicht rückgängig machen.", "Deleting cannot be undone.") }}</p>
+    {{ confirm_box() }}
+    <p class="p-complaint-actions"><button class="p-button p-button-danger">{{ ui("Antworten zu diesem Code endgültig löschen", "Delete the answers for this code for good") }}</button></p>
+  </form>
+  {% if own_since %}</details>{% endif %}
+  {% elif not own_since %}
+  <p>{{ ui("In diesem Browser liegt keine Teilnahme an dieser Befragung vor, und diese Befragung vergibt keine Löschcodes. Ihre Antworten lassen sich deshalb nicht mehr Ihnen zuordnen und nicht einzeln löschen.", "This browser holds no participation in this survey, and this survey gives out no deletion codes. Your answers can therefore no longer be linked to you and cannot be deleted individually.") }}</p>
+  {% endif %}
+  {% endif %}
+  <p class="p-privacy-back"><a href="{{ privacy_url }}"><span class="p-flip" aria-hidden="true">←</span> {{ ui("Datenschutz", "Privacy") }}</a> · <a href="{{ back }}">{{ ui("Zurück zur Befragung", "Back to the survey") }}</a></p>
+</article>
+{% endblock %}
+{% block footer_links %}{% endblock %}

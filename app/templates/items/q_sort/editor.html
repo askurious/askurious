@@ -1,0 +1,68 @@
+{% from "_learn.html" import why %}
+{% from "_macros.html" import row_list_hint %}
+{% set question_hint = de_en("Die Sortieranweisung, z. B. „Wie sehr stimmen Sie den folgenden Aussagen zu? Legen Sie jede Aussage auf einen Platz im Raster.“", "The condition of instruction, e.g. “How much do you agree with the following statements? Lay each statement on a place in the grid.”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+{% set c = item.cfg %}
+{% set k = c.get("range", 3) %}
+{% set caps = kind.capacities(item) %}
+{% set own = c.get("capacities") %}
+<fieldset>
+  <legend>{{ de_en("Aussagen", "Statements") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Teil des Variablennamens ({col} = Wert von −{k} bis +{k})", "code = part of the variable name ({col} = value from −{k} to +{k})", col=item.code ~ "_Code", k=k) }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit stack-phone">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Aussage", "Statement") }}</th></tr></thead>
+    <tbody>
+    {% set labels = lt.get("options", {}) %}
+    {% for o in item.config.options %}
+      <tr>
+        <td><input type="hidden" name="option_id" value="{{ o.id }}"><input name="option_code" aria-label="Code" value="{{ o.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_label" aria-label="{{ de_en('Aussage', 'Statement') }}" value="{{ labels.get(o.id, '') }}" maxlength="300" placeholder="{{ (item.text('options') or {}).get(o.id, '') }}"></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="option_id" value="{{ new_id() }}"><input name="option_code" aria-label="Code" class="narrow" placeholder="{{ item.config.options|length + loop.index }}"></td>
+        <td><input name="option_label" aria-label="{{ de_en('Aussage', 'Statement') }}" maxlength="300" placeholder="{{ de_en('neue Aussage', 'new statement') }}"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint(de_en("Üblich sind 20 bis 60 Aussagen (das Q-Set), höchstens 80.", "20 to 60 statements (the Q set) are usual, at most 80.")) }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if c.get("randomize", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Aussagen in zufälliger Reihenfolge anbieten", "Offer the statements in random order") }} <span class="hint">{{ de_en("empfohlen", "recommended") }}</span></label>
+  <label class="check"><input type="checkbox" name="presort" value="1" {% if c.get("presort", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Vorsortierung in drei Stapel", "Presort into three piles") }} <span class="hint">{{ de_en("erst jede Aussage einmal einordnen, dann ins Raster legen; Spalte {col}", "first place each statement once, then lay it into the grid; column {col}", col=item.code ~ "_Code_pre") }}</span></label>
+</fieldset>
+{# drawn anew after every save (app.js redraw, data-live): the places follow new statements at once (X20, S15) #}
+<fieldset data-live="qsort-grid-{{ item.id }}">
+  <legend>{{ de_en("Raster", "Grid") }}</legend>
+  {{ why("q_sort_grid") }}
+  <label>{{ de_en("Spannweite", "Range") }}
+    <select name="range" data-reload-saved {% if not structural %}disabled{% endif %}>
+      {% for n in range(2, 7) %}<option value="{{ n }}" {% if n == k %}selected{% endif %}>−{{ n }} … +{{ n }} ({{ de_en("{c} Spalten", "{c} columns", c=2 * n + 1) }})</option>{% endfor %}
+    </select></label>
+  <label class="check"><input type="radio" name="shape" value="auto" data-reload-saved {% if not own %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("annähernd normalverteilt aus der Zahl der Aussagen", "roughly normal from the number of statements") }}</label>
+  <label class="check"><input type="radio" name="shape" value="own" data-reload-saved {% if own %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Plätze je Spalte selbst festlegen", "Set the places per column myself") }}</label>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Spalte", "Column") }}</th>{% for v in kind.values(item) %}<th>{{ ("%+d"|format(v))|replace("-", "−") if v else "0" }}</th>{% endfor %}<th>{{ de_en("Summe", "Total") }}</th></tr></thead>
+    <tbody><tr><th>{{ de_en("Plätze", "Places") }}</th>
+      {% for v in kind.values(item) %}
+      <td>{% if own %}<input type="number" name="cap_{{ v }}" min="1" max="80" value="{{ (caps or [])[loop.index0] if caps else 1 }}" class="narrow" aria-label="{{ de_en('Plätze in Spalte {v}', 'Places in column {v}', v=v) }}" {% if not structural %}readonly{% endif %}>{% else %}{{ (caps or [])[loop.index0] if caps else "–" }}{% endif %}</td>
+      {% endfor %}
+      <td>{{ caps|sum if caps else "–" }} / {{ item.config.options|length }}</td></tr></tbody>
+  </table></div>
+  {% if not caps %}<p class="muted small">{{ de_en("Für das Raster braucht es mindestens so viele Aussagen wie Spalten.", "The grid needs at least as many statements as columns.") }}</p>{% endif %}
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Beschriftungen", "Labels") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}</span></legend>
+  <label>{{ de_en("Linkes Ende (−{k})", "Left end (−{k})", k=k) }} <input name="low" value="{{ lt.get('low', '') }}" maxlength="60"></label>
+  <label>{{ de_en("Rechtes Ende (+{k})", "Right end (+{k})", k=k) }} <input name="high" value="{{ lt.get('high', '') }}" maxlength="60"></label>
+  {% if c.get("presort", true) %}
+  <label>{{ de_en("Stapel links", "Left pile") }} <input name="pre_low" value="{{ lt.get('pre_low', '') }}" maxlength="60"></label>
+  <label>{{ de_en("Stapel Mitte", "Middle pile") }} <input name="pre_mid" value="{{ lt.get('pre_mid', '') }}" maxlength="60"></label>
+  <label>{{ de_en("Stapel rechts", "Right pile") }} <input name="pre_high" value="{{ lt.get('pre_high', '') }}" maxlength="60"></label>
+  {% else %}
+  {% for key in ("pre_low", "pre_mid", "pre_high") %}<input type="hidden" name="{{ key }}" value="{{ lt.get(key, '') }}">{% endfor %}
+  {% endif %}
+</fieldset>
+<p class="muted small">{{ de_en("Die Faktorenanalyse über Personen, um die es in der Q-Methode geht, machen Programme wie das R-Paket qmethod oder PQMethod mit dem Export: eine Spalte je Aussage. Vorbild: Stephenson (1953), Watts & Stenner (2012).", "The factor analysis by person, which is the point of the Q method, is done by tools such as the R package qmethod or PQMethod with the export: one column per statement. Model: Stephenson (1953), Watts & Stenner (2012).") }}</p>

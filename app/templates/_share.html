@@ -1,0 +1,14 @@
+{# One way to end a share or an access, wherever something is shared (UI/UX audit 2026-10-04, R95, G9): the name
+   stands before it, then × with its name for screen readers, and the same question every time.
+   action: where the form goes; what: "Freigabe für die Gruppe „X“ beenden" (title, aria-label and the question);
+   fields: hidden fields; note: what happens; ok: the word of the red button. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% macro end_share(action, what, fields={}, note="", ok=none) -%}
+{#- the default word in the page's language: a default of a macro parameter is no de_en() (UI audit W77) #}
+{%- set ok = ok or de_en("Freigabe beenden", "End sharing") %}
+<form method="post" action="{{ action }}" class="inline share-end" data-confirm="{{ what }}?"{% if note %} data-confirm-note="{{ note }}"{% endif %} data-confirm-ok="{{ ok }}" data-confirm-danger>
+  {{ csrf() }}{% for name, value in fields.items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  <button class="icon-btn danger" title="{{ what }}" aria-label="{{ what }}">{{ icon("x", 16) }}</button>
+</form>
+{%- endmacro %}

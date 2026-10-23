@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields with context %}
+{% block title %}{{ de_en("Datenerhebung", "Data collection") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "field" %}{% set fold_all = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid">
+{# every block folds like the groups of the settings page: open at first, the browser remembers what was folded (app.js) #}
+{% include "surveys/_cap_notes.html" %}
+{% set is_admin = survey.role_of(current_user) == "admin" %}
+{# status and timeline on top once the survey has run (Survey.has_run, also a draft again in a new revision);
+   before the first start the block holds only the start, in the order of the work (Ralf, 2026-10-11) #}
+{% if not survey.has_run %}
+{# the order of the work before the start: test, prevent, start, then the link #}
+{% include "surveys/_test_data.html" %}
+{# "Datenqualität steigern" is on the page Qualitätssicherung now: one place for data quality (UI audit 2026-10-12, E6) #}
+{% include "surveys/_status.html" %}
+{% if survey.sampling is not none %}{% include "diary/_join.html" %}{% include "diary/_persons.html" %}{% else %}{% include "surveys/_links.html" %}{% endif %}
+{% if invitations_on(survey) %}{% include "surveys/_invitations.html" %}{% endif %}
+{% if quota_report %}{% include "surveys/_field_quotas.html" %}{% endif %}
+{% if paper %}{% include "surveys/_paper.html" %}{% endif %}
+{% else %}
+{# in the field, afterwards and in a new revision: status and timeline first, then the link (Ralf, 2026-10-11;
+   before, F32 had the link above the status), what is fixed or done at the end #}
+{% include "surveys/_status.html" %}
+{% if survey.sampling is not none %}{% include "diary/_join.html" %}{% include "diary/_persons.html" %}{% else %}{% include "surveys/_links.html" %}{% endif %}
+{% if invitations_on(survey) %}{% include "surveys/_invitations.html" %}{% endif %}
+{% if quota_report %}{% include "surveys/_field_quotas.html" %}{% endif %}
+{% if paper %}{% include "surveys/_paper.html" %}{% endif %}
+{% if geo_counts %}{% include "surveys/_geo_counts.html" %}{% endif %}
+{% include "surveys/_test_data.html" %}
+{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{# The tabs of an organisation's "Verwaltung" (app/org_admin.py). Context: org, active. "Befragungen" with its
+   dashboard comes first and is the page the management opens with, then the contents (Konstrukte), then people and their
+   settings, as in the administration (Ralf 2026-10-17). In three groups with a line between them like the
+   administration's tabs (Ralf 2026-10-18): contents | people | look. #}
+<h1>{{ de_en("Verwaltung", "Management") }} · {{ org.name }}</h1>
+{% set org_groups = [
+  (de_en("Inhalte", "Contents"), [
+    ("surveys", url_for('org.surveys', org_id=org.id), de_en("Befragungen", "Surveys")),
+    ("constructs", url_for('org.constructs', org_id=org.id), de_en("Konstrukte", "Constructs"))]),
+  (de_en("Personen", "People"), [
+    ("people", url_for('org.people', org_id=org.id), de_en("Personen", "People")),
+    ("groups", url_for('org.groups', org_id=org.id), de_en("Gruppen", "Groups")),
+    ("types", url_for('org.types', org_id=org.id), de_en("Nutzertypen", "User types"))]),
+  (de_en("Erscheinungsbild", "Appearance"), [
+    ("design", url_for('org.design', org_id=org.id), de_en("Design", "Design"))])] %}
+<nav class="admin-tabs" data-grouped aria-label="{{ de_en('Bereiche der Verwaltung', 'Areas of management') }}">
+  {% for label, tabs in org_groups %}
+  <div class="tab-group" role="group" aria-label="{{ label }}" title="{{ label }}">
+    <div class="tab-group-links">
+    {% for key, href, name in tabs %}
+      <a class="{{ 'is-active' if active == key else '' }}" {% if active == key %}aria-current="page"{% endif %} href="{{ href }}">{{ name }}</a>
+    {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</nav><!--flashes-->

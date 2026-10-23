@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% set rich_text = true %}{# richtext.js for the formatted texts (base.html) #}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Übersetzung", "Translation") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% if not target %}
+<section class="panel">
+  <h2>{{ de_en("Übersetzung", "Translation") }}</h2>
+  <p>{{ de_en("Diese Befragung hat nur eine Sprache ({lang}).", "This survey has only one language ({lang}).", lang=names.get(survey.default_language, survey.default_language)) }}
+    {{ de_en("Weitere Sprachen fügen Sie unter", "You add further languages under") }} <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#languages">{{ de_en("Einstellungen → Befragung → Sprachen", "Settings → Survey → Languages") }}</a> {{ de_en("hinzu;", ";") }}
+    {{ de_en("hier stehen dann alle Texte der Befragung neben ihrer Übersetzung, mit dem, was fehlt oder sich seitdem geändert hat.", "all texts of the survey then appear here next to their translation, with what is missing or has changed since.") }}</p>
+</section>
+{% else %}
+{# open_n: what the AI would translate (translations.pending) #}
+{# check_n: what "Alles bestätigen" confirms for this person (not the admins' texts for "Bearbeiten") #}
+<section class="panel tr-head" data-tr-page data-save="{{ url_for('translations.save_field', survey_id=survey.id, lang=target) }}"
+         data-ai="{{ url_for('translations.ai_translate', survey_id=survey.id, lang=target) }}">
+  <div class="tr-head-row">
+    <h2>{{ de_en("Übersetzung", "Translation") }} {{ names.get(survey.default_language, survey.default_language) }} → {{ names.get(target, target) }}</h2>
+    {% if others|length > 1 %}
+    <form method="get" class="inline"><label>{{ de_en("Zielsprache", "Target language") }}
+      <select name="lang" data-submit-on-change>{% for l in others %}<option value="{{ l }}" {% if l == target %}selected{% endif %}>{{ names.get(l, l) }}</option>{% endfor %}</select></label></form>
+    {% endif %}
+  </div>
+  <div class="tr-progress" aria-hidden="true">
+    {% for key in ("ok", "validated", "ai", "changed", "missing") %}{% if counts[key] %}<i class="is-{{ key }}" style="flex: {{ counts[key] }}" title="{{ {"ok": de_en("übersetzt", "translated"), "validated": de_en("validiert", "validated"), "ai": de_en("KI, ungeprüft", "AI, unchecked"), "changed": de_en("zu prüfen", "to check"), "missing": de_en("fehlt", "missing")}[key] }}: {{ counts[key] }}"></i>{% endif %}{% endfor %}
+  </div>
+  <div class="tr-filters" role="group" aria-label="{{ de_en('Anzeigen', 'Show') }}">
+    <button type="button" class="tr-chip is-on" aria-pressed="true" data-tr-filter="all">{{ de_en("Alle", "All") }} <span data-tr-count="all">{{ total }}</span></button>
+    <button type="button" class="tr-chip" aria-pressed="false" data-tr-filter="missing"><i class="tr-dot is-missing"></i>{{ de_en("fehlt", "missing") }} <span data-tr-count="missing">{{ counts.missing }}</span></button>
+    <button type="button" class="tr-chip" aria-pressed="false" data-tr-filter="changed"><i class="tr-dot is-changed"></i>{{ de_en("zu prüfen", "to check") }} <span data-tr-count="changed">{{ counts.changed }}</span></button>
+    <button type="button" class="tr-chip" aria-pressed="false" data-tr-filter="ai"><i class="tr-dot is-ai"></i>{{ de_en("KI, ungeprüft", "AI, unchecked") }} <span data-tr-count="ai">{{ counts.ai }}</span></button>
+    <span class="muted small"><i class="tr-dot is-ok"></i>{{ de_en("übersetzt", "translated") }} <span data-tr-count="ok">{{ counts.ok }}</span>
+      {% if counts.validated %} · <i class="tr-dot is-validated"></i>{{ de_en("validiert", "validated") }} {{ counts.validated }}{% endif %}</span>
+  </div>
+  {% if can_edit %}
+  <div class="button-row tr-actions">
+    {% if ai_on() %}
+    <button type="button" class="button button-ai" data-tr-ai {% if survey.status == "running" %}data-tr-live{% endif %} {% if not open_n %}disabled{% endif %}><span>{{ de_en("Alles Offene mit KI übersetzen", "Translate everything open with AI") }} (<b class="tr-n" data-tr-count="open">{{ open_n }}</b>)</span></button>
+    {% endif %}
+    <form method="post" action="{{ url_for('translations.confirm', survey_id=survey.id, lang=target) }}" class="inline">
+      {{ csrf() }}<input type="hidden" name="scope" value="all">
+      <button class="button button-secondary" {% if not check_n %}disabled{% endif %}>{{ icon("check", 16) }} {{ de_en("Alles bestätigen", "Confirm all") }} ({{ check_n }})</button>
+    </form>
+    {% if ai_on() %}
+    <p class="muted small tr-ai-status" data-tr-ai-status aria-live="polite"></p>
+    {{ ai_access_line() }}
+    {% endif %}
+  </div>
+  {% if ai_on() %}
+  <p class="muted small">{{ de_en("Die KI bekommt Titel, Beschreibung und Forschungsfrage als Kontext sowie die bestätigten Übersetzungen als Glossar; Platzhalter, Formatierung und Lücken bleiben erhalten.", "The AI gets the title, description and research question as context and the confirmed translations as a glossary; placeholders, formatting and gaps are kept.") }}
+    {{ de_en("Was sie übersetzt, bleibt „ungeprüft“, bis Sie es bearbeiten oder einen Block bzw. alles bestätigen. Ändert sich später ein Text der Ausgangssprache, steht die Übersetzung wieder auf „zu prüfen“, mit der Änderung markiert. Was Sie selbst übersetzt oder bestätigt haben, überschreibt die KI dabei nicht; sie übersetzt nur neu, was fehlt oder was von ihr stammt und noch ungeprüft ist.", "What it translates stays “unchecked” until you edit it or confirm a block or everything. If a text of the source language changes later, the translation goes back to “to check”, with the change marked. The AI does not overwrite what you translated or confirmed yourself; it only translates anew what is missing or what comes from it and is still unchecked.") }}
+    {{ de_en("Validierte Instrumente mit eigener Fassung in der Zielsprache werden nicht übersetzt.", "Validated instruments with their own version in the target language are not translated.") }}</p>
+  {% endif %}
+  {% endif %}
+</section>
+
+{% for g in groups %}
+{% set gid = g.key|replace(":", "-") %}
+{% set g_check = (g.units if is_admin else g.units|rejectattr("admin"))|map(attribute="fields")|sum(start=[])|selectattr("status", "in", ["ai", "changed"])|list|length %}
+<section class="panel tr-group" id="{{ gid }}" data-tr-group>
+  <div class="tr-group-head">
+    <h2>{% if g.block %}{{ g.block.title() or "Block " ~ loop.index0 }}{% else %}{{ de_en("Allgemeine Texte", "General texts") }}{% endif %}</h2>
+    {% if can_edit and g_check %}
+    <form method="post" action="{{ url_for('translations.confirm', survey_id=survey.id, lang=target) }}" class="inline">
+      {{ csrf() }}<input type="hidden" name="scope" value="{{ g.key }}">
+      <button class="button button-secondary button-small">{{ icon("check", 16) }} {{ de_en("Block bestätigen", "Confirm block") if g.block else de_en("Abschnitt bestätigen", "Confirm section") }} ({{ g_check }})</button>
+    </form>
+    {% endif %}
+  </div>
+  {% for u in g.units %}
+  <div class="tr-unit" data-tr-unit {% if u.item %}id="item-{{ u.item.id }}"{% endif %}>
+    <h3>{% if u.item %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=u.item.id, lang=target) }}">{{ u.label }}</a>{% else %}{{ u.label }}{% endif %}
+      {% if u.validated %}<span class="badge">{{ de_en("validiert", "validated") }}</span>{% endif %}</h3>
+    {% if u.note %}<p class="muted small">{{ u.note }}</p>{% endif %}
+    {% set locked = u.admin and not is_admin %}
+    {% if locked and can_edit %}<p class="muted small">{{ de_en("Diese Texte ändert nur die Rolle „Admin“, wie in den Einstellungen; Sie sehen sie hier ohne Eingabefeld.", "Only the role “Admin” changes these texts, as in the settings; you see them here without an input field.") }}</p>{% endif %}
+    {% for f in u.fields %}
+    {# texts participants see formatted are shown formatted and translated in the formatting field (richtext.js) #}
+    {% set shown %}{% if f.rich %} data-rich-show="{{ 'inline' if f.rich == 'inline' else 'block' }}"{% if f.rich == "gaps" %} data-rich-gaps{% endif %}{% endif %}{% endset %}
+    <div class="tr-row" data-tr-row data-status="{{ f.status }}" data-ai="{{ 1 if f.ai else 0 }}"{% if locked %} data-tr-locked{% endif %}>
+      <div class="tr-role">{{ f.role }}</div>
+      {% if f.diff %}<div class="tr-source tr-diff" lang="{{ survey.default_language }}"><span class="tr-diff-label">{{ de_en("geändert seit der Übersetzung", "changed since the translation") }}</span>{{ f.diff }}</div>
+      {% else %}<div class="tr-source" lang="{{ survey.default_language }}"{{ shown }}>{{ f.source }}</div>{% endif %}
+      <div class="tr-target">
+        {% if u.validated %}<div class="tr-validated" lang="{{ target }}"{{ shown if f.target }}>{{ f.target or "–" }}</div>
+        {# a standard wording of the element: set in every language by Askurious, changed in the element if need be (S9) #}
+        {% elif f.status == "default" %}<div class="tr-fixed tr-default" lang="{{ target }}" dir="{{ html_dir(target) }}">{{ f.target or "–" }}</div>
+        {% elif not can_edit or locked %}<div class="tr-fixed" lang="{{ target }}"{{ shown if f.target }}>{{ f.target or "–" }}</div>
+        {% else %}<textarea lang="{{ target }}" rows="{{ [((f.source|length) // 60) + 1 + f.source.count('\n'), 8]|min }}" data-unit="{{ u.key }}" data-path="{{ f.path }}"
+          {% if f.rich %}data-rich="{{ 'inline' if f.rich == 'inline' else 'block' }}"{% if f.rich == "gaps" %} data-rich-gaps{% endif %} data-rich-bar="float"{% endif %}
+          aria-label="{{ f.role }} ({{ names.get(target, target) }})">{{ f.target }}</textarea>{% endif %}
+        <span class="tr-status is-{{ f.status }}" data-tr-status>{{ status_labels[f.status] }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

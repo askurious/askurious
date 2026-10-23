@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# AI assistant of a live vote (app/live_ai.py): a description in, five questions out; the ticked ones are added. #}
+{% block title %}{{ de_en("KI-Assistent", "AI assistant") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel live-ai">
+  <h2>{{ de_en("Folien mit KI vorschlagen", "Suggest slides with AI") }}</h2>
+  <form method="post" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Was führen Sie durch, und was möchten Sie wissen?", "What are you running, and what would you like to know?") }}</span>
+      <textarea name="description" rows="5" maxlength="3000" required
+                placeholder="{{ de_en('z. B. Vorlesung Mensch-Technik-Interaktion, 120 Studierende im 3. Semester, heute zum Thema Usability-Tests. Ich möchte wissen, ob das Tempo passt, was unklar geblieben ist und ob die Übung geholfen hat.', 'e.g. lecture on human-technology interaction, 120 students in their third semester, today on usability tests. I would like to know whether the pace is right, what stayed unclear and whether the exercise helped.') }}">{{ description }}</textarea></label>
+    <div><button class="button button-ai">{{ icon("sparkles", 16) }} {{ de_en("Folien vorschlagen", "Suggest slides") }}</button> {{ ai_access_line() }}</div>
+    <p class="muted small flush">{{ de_en("Die Beschreibung geht an {to}. Bitte keine Namen oder anderen personenbezogenen Daten eintragen.", "The description goes to {to}. Please do not enter names or other personal data.", to=ai_recipient()) }}</p>
+  </form>
+</section>
+
+{% if suggestions %}
+<section class="panel live-ai">
+  <h2>{{ de_en("Vorschläge", "Suggestions") }} <span class="hint">{{ de_en("ankreuzen, bei Bedarf anpassen, übernehmen", "tick, adjust if needed, accept") }}</span></h2>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="apply"><input type="hidden" name="description" value="{{ description }}">
+    {% include "live/_ai_suggestions.html" %}
+    <div class="row">
+      {% if blocks|length > 1 %}<label>{{ de_en("Übernehmen in", "Add to") }} <select name="block">{% for b in blocks %}<option value="{{ b.id }}" {% if loop.last %}selected{% endif %}>{{ b.title() }}</option>{% endfor %}</select></label>{% endif %}
+      <button class="button">{{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

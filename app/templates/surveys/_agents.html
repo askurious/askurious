@@ -1,0 +1,22 @@
+{# What helps against bots and AI agents (concept ki-agenten-konzept.md, E8): closed by default; the sources stand in
+   the one fold of the page (quality.AGENT_SOURCES) #}
+<details class="panel settings-group" id="agents" data-settings-group>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Schutz vor Bots und KI-Agenten", "Protection against bots and AI agents") }}</h2><span class="settings-sum">{{ de_en("was der Fragebogen leisten kann und was nur die Rekrutierung leistet", "what the questionnaire can do and what only recruitment does") }}</span></summary>
+  <div class="settings-body stack">
+    <p>{{ de_en("Einfache Bots fängt diese Seite gut ab: das versteckte Feld, Tempo, Antwortmuster und gleiche Freitexte. KI-Agenten, die einen echten Browser steuern, bestehen dagegen fast jede Prüfung im Fragebogen, auch Aufmerksamkeitsprüfungen, und lassen sich für wenige Cent je Teilnahme in jede Richtung lenken. CAPTCHAs lösen sie schneller als Menschen, und Erkennungsprogramme für KI-Texte sind unzuverlässig. Vollständig verhindern lässt es sich deshalb nicht.", "This page catches simple bots well: the hidden field, speed, answer patterns and identical free texts. AI agents that steer a real browser, in contrast, pass almost every check in the questionnaire, attention checks too, and can be steered in any direction for a few cents per participation. They solve CAPTCHAs faster than humans, and detectors for AI texts are unreliable. So it cannot be prevented completely.") }}</p>
+    <p><strong>{{ de_en("Was im Fragebogen hilft", "What helps in the questionnaire") }}</strong> {{ de_en("(oben unter „Vor dem Start: Datenqualität steigern“ einschalten, unten unter „Markierung“ ankreuzen):", "(switch it on above under “Before the start: improve data quality”, tick it below under “Flags”):") }}</p>
+    <ul>
+      <li>{{ de_en("Köder für KI-Agenten: Findet Agenten, die den Seitenquelltext lesen und Anweisungen darin befolgen.", "Bait for AI agents: finds agents that read the page source and follow instructions in it.") }}</li>
+      <li>{{ de_en("Fensterwechsel und Einfügen zählen: „Text eingefügt“ und „Text ohne Tippen“ finden Antworten, die aus einem Sprachmodell kopiert oder auf einmal in die Felder gesetzt wurden.", "Count window switches and pasting: “Text pasted” and “Text without typing” find answers that were copied from a language model or put into the fields all at once.") }}</li>
+      <li>{{ de_en("Gleiche offene Antwort: auch fast gleiche Texte, wie sie Vorlagen und Sprachmodelle erzeugen.", "Identical open answer: also nearly identical texts, as templates and language models produce them.") }}</li>
+    </ul>
+    <p><strong>{{ de_en("Was mehr hilft: der Zugang", "What helps more: access") }}</strong></p>
+    <ul>
+      <li>{{ de_en("Panels, die ihre Teilnehmenden prüfen (Ausweis, Verhaltensprüfung vor der Befragung), statt offener Links.", "Panels that check their participants (ID, behavioural check before the survey) instead of open links.") }}</li>
+      <li>{{ de_en("Die Kennung des Panels als URL-Parameter mit „Jeder Wert nur einmal“ (Teilnahmelinks), damit ein Konto nur einmal teilnimmt.", "The ID of the panel as a URL parameter with “Each value only once” (participation links), so that an account takes part only once.") }}</li>
+      <li>{{ de_en("Persönliche Einladungen statt eines Links in sozialen Medien; dort angeworbene Stichproben waren schon vor Sprachmodellen zu großen Teilen gefälscht.", "Personal invitations instead of a link on social media; samples recruited there were largely fake even before language models.") }}</li>
+      <li>{{ de_en("Kleine Anreize oder eine Verlosung statt einer hohen Prämie je Teilnahme: je lohnender ein Fall, desto eher lohnt sich ein Agent.", "Small incentives or a prize draw instead of a high reward per participation: the more rewarding a case, the more an agent pays off.") }}</li>
+    </ul>
+    <p><strong>{{ de_en("Beim Auswerten:", "When analysing:") }}</strong> {{ de_en("die Ergebnisse mit und ohne markierte Teilnahmen vergleichen (Ergebnisse, „Markierte einbeziehen“). Ändern sie sich deutlich, sind Verdachtsfälle in der Stichprobe, die das Ergebnis tragen.", "compare the results with and without marked participations (Results, “Include marked ones”). If they change clearly, there are suspect cases in the sample that carry the result.") }}</p>
+  </div>
+</details>

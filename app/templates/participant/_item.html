@@ -1,0 +1,36 @@
+{% set script = {'card_sort':'sort', 'q_sort':'sort', 'image_mark':'mark', 'sample_crowd':'crowd', 'highlight':'highlight', 'voice':'voice', 'iat':'tasks', 'discounting':'tasks'}.get(item.type) %}
+{% if script and script not in assets.extra_scripts %}{% set assets.extra_scripts = assets.extra_scripts + [script] %}{% endif %}
+{# Renders one item for participants. Needs: item, lang, answers, errors, variables. #}
+{% set kind = item.kind %}
+{% set nudge_msg = (nudges or {}).get(item.id) if nudges is defined else none %}
+<div class="p-item p-item-{{ item.type }}{% if errors.get(item.id) %} has-error{% elif nudge_msg %} has-nudge{% endif %}" id="i{{ item.id }}">
+  {# participant.js scrolls to the first gap, moves the focus there after an error and links the inputs to
+     this message; it stands right under the question (items/_question.html), else at the end; the consent places
+     its own message next to its ticks #}
+  {% set item_msg = namespace(text=none, cls="", role="", shown=item.type == "consent") %}
+  {% if errors.get(item.id) %}{% set item_msg.text = errors[item.id] %}{% set item_msg.cls = "p-error" %}{% set item_msg.role = "alert" %}
+  {% elif nudge_msg %}{% set item_msg.text = nudge_msg %}{% set item_msg.cls = "p-nudge" %}{% set item_msg.role = "status" %}{% endif %}
+  {# the preview only: this question is shown because its condition holds (app/item_condition.py) #}
+  {% if item_conds is defined and item_conds.get(item.id) %}<p class="p-preview-note p-cond-note"{{ tool_attrs() }}>{{ tool("Bedingt: nur gezeigt, wenn {cond}", "Conditional: shown only if {cond}", cond=item_conds[item.id]) }}</p>{% endif %}
+  {# an answer fixed by feedback already seen (app/feedback_lock.py): shown, not changeable; the server keeps it #}
+  {% set fixed = locked_items is defined and item.id in locked_items %}
+  {% if fixed %}<div class="p-fixed">
+  {% set saved = answers.get(item.id) %}
+  {% set parts = kind.pipe_parts(item, lang) %}
+  {% if kind.pipeable(item) or parts %}
+    {% include "items/_question.html" %}
+    {% if parts %}<dl>{% for key, label in parts %}<dt>{{ label }}</dt><dd>{{ kind.pipe_part_text(item, saved, key, lang) }}</dd>{% endfor %}</dl>
+    {% else %}<p>{{ kind.pipe_text(item, saved, lang) }}</p>{% endif %}
+  {% else %}<fieldset disabled class="p-fixed-fields">{% include kind.participant_template %}</fieldset>
+    {# the saved answer in words: disabled controls, a map or a marked image say little to a screen reader (W-A03) #}
+    {% set summary = kind.fixed_summary(item, saved, lang) %}
+    <div class="p-fixed-summary"><p>{{ ui("Ihre gespeicherte Antwort:", "Your saved answer:") }}</p>
+    {% if summary %}<dl>{% for label, text in summary %}{% if label %}<dt>{{ label }}</dt>{% endif %}<dd>{{ text }}</dd>{% endfor %}</dl>
+    {% else %}<p>{{ ui("Keine Antwort", "No answer") if saved in (none, "", [], {}) else ui("Ihre Antwort ist gespeichert.", "Your answer is saved.") }}</p>{% endif %}</div>{% endif %}
+  </div>
+  <p class="p-fixed-note">{{ ui("Ihre Antwort ist festgelegt und lässt sich nicht mehr ändern.", "Your answer is fixed and can no longer be changed.") }}</p>
+  {% else %}{% include kind.participant_template %}
+  {% if lock_hint is defined and item.id in lock_hint %}<p class="p-lock-hint">{{ ui("Ihre Antwort lässt sich nicht mehr ändern, sobald Sie die Rückmeldung dazu gesehen haben.", "Your answer can no longer be changed once you have seen the feedback on it.") }}</p>{% endif %}
+  {% endif %}
+  {% if item_msg.text and not item_msg.shown %}<p class="{{ item_msg.cls }}" role="{{ item_msg.role }}" id="msg{{ item.id }}" data-item-message>{{ item_msg.text }}</p>{% endif %}
+</div>

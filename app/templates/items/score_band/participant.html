@@ -1,0 +1,41 @@
+{% set loop_row = (page_meta or {}).get("row") if page_meta is defined else none %}
+{% set de = lang in ("de", "de-du") %}
+{% set is_preview = preview is defined and preview %}
+{% set r = kind.result(item, lang, answers, preview=is_preview, row=loop_row) %}
+{% include "items/_question.html" %}
+{% if r %}
+<div class="p-band">
+  {% if r.basis == "percentile" and not r.enough %}
+  <p class="p-sc-few">{{ ui("Noch zu wenige Antworten für eine Einordnung.", "Not enough answers yet.") }}</p>
+  {% elif r.band is none %}
+  <p class="p-sc-few">{{ ui("Für eine Einordnung fehlen Ihre Antworten.", "Your answers are missing for this.") }}</p>
+  {% else %}
+  {% set hit = r.bands[r.band] %}
+  <p class="p-band-result">{{ hit.label }}</p>
+  {% if hit.text %}<p class="p-band-text">{{ hit.text|fill(variables) }}</p>{% endif %}
+  {# the numbers on the bar are scale values only: the categories carried their number 1, 2, 3 inside the bar, which
+     read as values ("my value is 3,3 but sits in 2", pre-test 2026-10-20); they are told apart by the legend's order #}
+  {% macro num(v) %}{{ ("%g"|format((v)|round(2))).replace(".", ui(",", ".")) }}{% endmacro %}
+  <div class="p-band-bar" role="img" aria-label="{{ hit.label }}">
+    {% for b in r.bands %}
+    <span class="p-band-seg{% if loop.index0 == r.band %} is-hit{% endif %}{% if loop.last %} is-last{% endif %}" style="width: {{ (r.segments[loop.index0])|fixed(2) }}%"></span>
+    {% endfor %}
+    <span class="p-band-marker" style="left: {{ (r.marker)|fixed(2) }}%"></span>
+    <span class="p-band-value" aria-hidden="true" style="left: {{ ([[r.marker, 4]|max, 96]|min)|fixed(2) }}%">{% if r.basis == "percentile" %}{{ (r.shown / 100)|pct }}{% else %}{{ ((r.shown)|fixed(1)).replace(".", ui(",", ".")) }}{% endif %}</span>
+  </div>
+  <div class="p-band-axis" aria-hidden="true">
+    {% for v, at in r.ticks %}<span style="left: {{ at|fixed(2) }}%"{% if loop.first %} class="is-first"{% elif loop.last %} class="is-last"{% endif %}>{{ num(v) }}</span>{% endfor %}
+  </div>
+  <ol class="p-band-legend">
+    {% for b in r.bands %}<li{% if loop.index0 == r.band %} class="is-hit"{% endif %}>{{ b.label }}</li>{% endfor %}
+  </ol>
+  <p class="p-sc-meta">
+    {% if r.basis == "percentile" %}{{ (ui("Ihr Prozentrang: %d von 100 (n = %d).", "Your percentile rank: %d of 100 (n = %d)."))|format((r.shown / 100)|pct, r.n) }}
+    {% else %}{{ ui("Ihr Wert", "Your value") }}: {{ ((r.shown)|fixed(1)).replace(".", ui(",", ".")) }} ({{ "%g"|format(r.lo) }} {{ ui("bis", "to") }} {{ "%g"|format(r.hi) }}){% endif %}
+  </p>
+  {% if r.basis == "percentile" %}{% include "items/_live_source.html" %}{% endif %}
+  <input type="hidden" name="i{{ item.id }}_value" value="{{ (r.shown)|fixed(3) }}">
+  <input type="hidden" name="i{{ item.id }}_band" value="{{ r.band + 1 }}">
+  {% endif %}
+</div>
+{% endif %}

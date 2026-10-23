@@ -1,0 +1,5 @@
+{#- Who is responsible for data protection, on the page "Impressum und Datenschutz": the operator of this installation
+    with its contact (IMPRINT_NAME, IMPRINT_ADDRESS, IMPRINT_EMAIL). An installation names its legal entity and its data
+    protection officer in instance_overlay/templates/public/_owner.html (instance_overlay/README.md). -#}
+{{ de_en("Verantwortlich im Sinne der DSGVO ist der Betreiber dieser Installation:", "The controller under the GDPR is the operator of this installation:") }}<br>
+{{ imprint.name }}{% for line in imprint.address %}<br>{{ line }}{% endfor %}{% if imprint.email %}<br><a href="mailto:{{ imprint.email }}">{{ imprint.email }}</a>{% endif %}</p>

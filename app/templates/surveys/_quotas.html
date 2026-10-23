@@ -1,0 +1,74 @@
+{# State of the quotas on the fieldwork page: every cell with target, completed, running, open and refused,
+   to read, to copy (tab-separated: pastes as a table), as CSV and to print; per provider (a stored URL
+   parameter); links for providers. Needs: survey and quota_views.state_context (quota_report, quota_text,
+   quota_totals, quota_now, quota_only, quota_providers), shares (quota_views.shares). #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% set qp = (quota_only[0] ~ "=" ~ quota_only[1]) if quota_only else none %}
+{% set is_admin = survey.role_of(current_user) == "admin" %}
+<details class="panel settings-group quota-state" id="quotas" data-settings-group open {% if survey.status == "running" %}data-quota-live="{{ url_for('flow_page.quota_state', survey_id=survey.id, part=1, qp=qp) }}"{% endif %}>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Quoten", "Quotas") }}</h2><span class="settings-sum">{{ de_en("nur echte Teilnahmen · Stand", "real participations only · as of") }} <span data-quota-stamp>{{ quota_now|localdt }}</span></span></summary>
+  <div class="settings-body">
+  <div class="form-actions quota-state-actions">
+    <button type="button" class="button button-secondary" data-copy="#quota-state-text">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button>
+    <a class="button button-secondary" href="{{ url_for('flow_page.quota_state_csv', survey_id=survey.id, qp=qp) }}">{{ icon("download", 16) }} CSV</a>
+    <a class="button button-secondary" href="{{ url_for('flow_page.quota_state_csv', survey_id=survey.id, sep='semicolon', qp=qp) }}" title="{{ de_en('für ein deutsches Excel', 'for a German Excel') }}">{{ de_en("CSV (Semikolon)", "CSV (semicolon)") }}</a>
+    <a class="button button-secondary" href="{{ url_for('flow_page.quota_state', survey_id=survey.id, qp=qp) }}" target="_blank" rel="noopener">{{ de_en("Druckansicht ↗", "Print view ↗") }}</a>
+  </div>
+  {% if quota_providers %}
+  <form method="get" action="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#quotas" class="row quota-provider">
+    <label>{{ de_en("Teilnahmen von", "Participations of") }}
+      <select name="qp" data-submit-on-change>
+        <option value="">{{ de_en("allen zusammen", "all together") }}</option>
+        {% for name, value in quota_providers %}<option value="{{ name }}={{ value }}" {% if quota_only == (name, value) %}selected{% endif %}>{{ link_value(survey, name, value) }}</option>{% endfor %}
+      </select></label>
+    <noscript><button class="button button-small button-secondary">{{ de_en("Zeigen", "Show") }}</button></noscript>
+  </form>
+  {% endif %}
+  <textarea id="quota-state-text" class="visually-hidden" readonly tabindex="-1" aria-hidden="true">{{ quota_text }}</textarea>
+  <p class="muted small">{{ de_en("„Kopieren“ legt die Übersicht als Tabelle in die Zwischenablage (einfügen in eine E-Mail, in Excel oder in ein Panel-Portal). Sie enthält nur Zahlen, keine Antworten und keine Kennungen.", "“Copy” puts the overview as a table on the clipboard (paste it into an email, into Excel or into a panel portal). It holds numbers only, no answers and no IDs.") }}{% if quota_only %} <strong>{{ de_en("Gefiltert auf {name} = {value}:", "Filtered to {name} = {value}:", name=quota_only[0], value=quota_only[1]) }}</strong> {{ de_en("abgeschlossen, laufend, abgewiesen und die Gesamtzahlen zählen nur diese Teilnahmen; Soll, offen und Zustand gelten für die ganze Teilquote.", "completed, running, refused and the totals count only these participations; target, open and state apply to the whole sub-quota.") }}{% endif %}</p>
+  <div data-quota-tables>
+  {% include "surveys/_quota_tables.html" %}
+  </div>
+  {% if is_admin %}
+  <form method="post" action="{{ url_for('flow_page.quota_recount', survey_id=survey.id) }}" class="quota-recount">
+    {{ csrf() }}<button class="button button-small button-secondary" title="{{ de_en('Zähler aus den Teilnahmen neu berechnen (nach einer Störung, oder zur Sicherheit)', 'Recalculate the counters from the participations (after a fault, or to be sure)') }}">{{ de_en("Neu zählen", "Recount") }}</button>
+    <span class="muted small">{{ de_en("Die Zähler laufen beim Belegen und Abschließen mit; „Neu zählen“ berechnet sie aus den Teilnahmen neu.", "The counters keep up when places are taken and participations completed; “Recount” recalculates them from the participations.") }}</span>
+  </form>
+  {# the same as the links of a dashboard (boards/designer.html): a list of links, then one form to make one #}
+  <div class="quota-shares" id="quota-shares">
+    <h3>Links <span class="hint">{{ de_en("zeigen diese Übersicht ohne Anmeldung, nur lesend, z. B. für einen Panelanbieter", "show this overview without signing in, read-only, e.g. for a panel provider") }}</span></h3>
+    {% if shares %}
+    <ul class="board-links">
+      {% for share, url in shares %}
+      <li>
+        <p class="board-link-name"><strong>{{ share.label or de_en("ohne Namen", "without a name") }}</strong>{% if share.param %} <span class="badge">{{ de_en("nur {name} = {value}", "only {name} = {value}", name=share.param, value=share.value) }}</span>{% endif %}{% if not share.show_conds %} <span class="badge">{{ de_en("ohne Bedingungen", "without conditions") }}</span>{% endif %}</p>
+        <div class="copy-row"><input value="{{ url }}" readonly id="quota-share-{{ share.id }}" data-select-all aria-label="{{ de_en('Link zur Quotenübersicht', 'Link to the quota overview') }}">
+          <button type="button" class="button button-small button-secondary" data-copy="#quota-share-{{ share.id }}">{{ de_en("Kopieren", "Copy") }}</button>
+          <form method="post" action="{{ url_for('flow_page.quota_share_revoke', survey_id=survey.id, share_id=share.id) }}" class="inline"
+                data-confirm="{{ de_en('Diesen Link widerrufen?', 'Revoke this link?') }}" data-confirm-note="{{ de_en('Er zeigt danach nichts mehr.', 'It shows nothing afterwards.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}" data-confirm-danger>{{ csrf() }}<button class="button button-small button-danger">{{ de_en("Widerrufen", "Revoke") }}</button></form></div>
+        <p class="muted small">{% if share.expires_at %}{{ de_en("gültig bis {d} Uhr", "valid until {d}", d=share.expires_at|localdt) }}{% else %}{{ de_en("unbegrenzt gültig", "valid without limit") }}{% endif %}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <form method="post" action="{{ url_for('flow_page.quota_share_add', survey_id=survey.id) }}" class="stack quota-share-form">
+      {{ csrf() }}
+      <div class="row-fields">
+        <label class="grow-2">{{ de_en("Für wen", "For whom") }} <span class="hint">{{ de_en("nur zur eigenen Übersicht", "only for your own overview") }}</span><input name="label" maxlength="100" placeholder="{{ de_en('z. B. Panel A', 'e.g. Panel A') }}"></label>
+        <label>{{ de_en("Gültig", "Valid") }}
+          <select name="valid">{% for key, name in link_validity %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+        {% if quota_providers %}
+        <label>{{ de_en("Zeigt die Teilnahmen von", "Shows the participations of") }}
+          <select name="qp"><option value="">{{ de_en("allen zusammen", "all together") }}</option>
+            {% for name, value in quota_providers %}<option value="{{ name }}={{ value }}">{{ link_value(survey, name, value) }}</option>{% endfor %}</select></label>
+        {% endif %}
+      </div>
+      <label class="check"><input type="checkbox" name="conds" value="1" checked> {{ de_en("Bedingungen der Teilquoten zeigen", "Show the conditions of the sub-quotas") }} <span class="hint">{{ de_en("ohne Haken stehen nur Namen und Codes der Teilquoten da", "without a tick only names and codes of the sub-quotas are shown") }}</span></label>
+      <div class="form-actions"><button class="button button-secondary">{{ de_en("Link erzeugen", "Create link") }}</button></div>
+      <p class="muted small">{{ de_en("Der Link zeigt die Zahlen live und je Teilquote: Jeder Abschluss erscheint sofort. Bei kleinen Teilquoten lässt sich so eine gerade abgeschlossene Teilnahme ihrer Teilquote zuordnen; geben Sie ihn deshalb nur weiter, wo die Zahlen für die Steuerung gebraucht werden (z. B. an den Panelanbieter). Dashboards zeigen Quoten dagegen in Stufen.", "The link shows the numbers live and per sub-quota: every completion appears at once. With small sub-quotas a participation just completed can thus be assigned to its sub-quota; so only pass it on where the numbers are needed for steering (e.g. to the panel provider). Dashboards, in contrast, show quotas in steps.") }}</p>
+    </form>
+  </div>
+  {% endif %}
+  </div>
+</details>

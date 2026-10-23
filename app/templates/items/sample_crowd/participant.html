@@ -1,0 +1,41 @@
+{% set loop_row = (page_meta or {}).get("row") if page_meta is defined else none %}
+{% set de = lang in ("de", "de-du") %}
+{% set is_preview = preview is defined and preview %}
+{% set crowd = kind.crowd(item, lang, answers, preview=is_preview, seed=crowd_seed if crowd_seed is defined else 0, row=loop_row) %}
+{% include "items/_question.html" %}
+{% if is_preview %}<p class="p-sc-note">{{ ui("Vorschau: Zählt auch Test- und Dummy-Daten.", "Preview: includes test and dummy data.") }}</p>{% endif %}
+{% if crowd %}
+  {% set sc = crowd.scale %}
+  {# the question on this page, not fixed yet (app/feedback_lock.py, audit 2026-10-11 N8): no figures in the page; they
+     come from the server once "Antwort festlegen" has stored and fixed the answer #}
+  {% set waits = crowd_url is defined and crowd_url and page_items is defined and not is_preview
+                 and kind.locks_on_page(item, crowd.source, page_items, locked_items if locked_items is defined else ()) %}
+  <div class="p-crowd" data-crowd='{{ {"survey": item.survey.uid, "avatars": [] if waits else crowd.avatars, "own": crowd.own if crowd.show_own and not waits else none,
+       "fetch": (crowd_url ~ item.id) if waits else none,
+       "show_own": crowd.show_own, "prev": item.config.get("keep_previous", true), "bins": (sc.bins|length) if sc.bins else 0, "live": sc.live, "codes": sc.get("codes"),
+       "lo": sc.get("lo"), "hi": sc.get("hi"), "me": ui("Sie", "You"), "lock": item.config.get("lock_answers", false)}|tojson }}'
+       data-fixed-note="{{ ui("Ihre Antwort ist festgelegt und lässt sich nicht mehr ändern.", "Your answer is fixed and can no longer be changed.") }}">
+    {% set fixing = item.config.get("lock_answers", false) %}
+    <p class="p-crowd-wait" data-crowd-wait hidden>{% if fixing %}{{ ui("Sobald Sie Ihre Antwort festgelegt haben, sehen Sie hier, wo die anderen stehen.", "Once you have fixed your answer, you will see here where the others stand.") }}{% else %}{{ ui("Sobald Sie oben geantwortet haben, sehen Sie hier, wo die anderen stehen.", "Once you have answered above, you will see here where the others stand.") }}{% endif %}</p>
+    {# the question on this page (app/feedback_lock.py): the crowd walks only after "Antwort festlegen", which fixes the answer #}
+    {% if fixing %}<p class="p-crowd-fix" data-crowd-fix hidden><button type="button" class="p-button p-button-secondary" data-crowd-fix-button disabled>{{ ui("Antwort festlegen", "Fix my answer") }}</button>
+      <span class="p-lock-hint">{{ ui("Danach lässt sich Ihre Antwort nicht mehr ändern.", "After that, your answer can no longer be changed.") }}</span></p>{% endif %}
+    <div class="p-crowd-stage">
+      <svg class="p-crowd-svg" viewBox="0 0 1000 250" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="{{ (ui('%d bisherige Teilnehmende als Figuren', '%d previous participants as figures'))|format(crowd.avatars|length) }}"></svg>
+    </div>
+    {% if sc.bins %}
+    <div class="p-crowd-bins" style="--k: {{ sc.bins|length }}">{% for b in sc.bins %}<span>{{ b }}</span>{% endfor %}</div>
+    {% endif %}
+    {% if sc.ends[0] or sc.ends[1] or not sc.bins %}
+    <div class="p-crowd-ends"><span>{{ sc.ends[0] or (sc.lo|round(1) if sc.lo is not none else "") }}</span><span>{{ sc.ends[1] or (sc.hi|round(1) if sc.hi is not none else "") }}</span></div>
+    {% endif %}
+    {# the own position in words, not only as the coloured figure (D8) #}
+    {% if crowd.show_own and crowd.own_text %}<p class="p-sc-meta p-crowd-own">{{ ui("Ihre Position", "Your position") }}: {{ crowd.own_text }}</p>{% endif %}
+    <p class="p-sc-meta">
+      {% if not crowd.enough %}{{ ui("Noch nicht genug Teilnahmen. Beispielhafte Darstellung.", "Not enough participants yet. Illustrative example.") }}
+      {% else %}{{ ui("Grundlage", "Based on") }}: n = {{ crowd.n }}{% if crowd.n > crowd.avatars|length %}, {{ (ui("davon %d zufällig ausgewählt", "%d of them picked at random"))|format(crowd.avatars|length) }}{% endif %}{% if crowd.simulated %}; {{ (ui("ergänzt um %d simulierte Figuren nach diesen Antworten", "topped up with %d simulated figures based on these answers"))|format(crowd.simulated) }}{% endif %}.{% endif %}</p>
+  </div>
+  <input type="hidden" name="i{{ item.id }}_n_{{ crowd.source.id }}" value="{{ crowd.n if crowd.enough else 0 }}">
+  <input type="hidden" name="i{{ item.id }}_sim" value="{{ crowd.simulated }}">
+{% endif %}

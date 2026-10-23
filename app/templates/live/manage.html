@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Folien", "Slides") }} · {{ survey.title }}{% endblock %}
+{# the same page frame as the other tabs: the tab band over the whole width (Ralf, 2026-10-03) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+
+<div class="live-work">
+  <div class="live-left" data-live-left>
+    {% if editable and ai_on() %}<a class="button button-ai button-secondary live-ai-link" href="{{ url_for('live.assistant', code=survey.code) }}"
+       title="{{ de_en('Veranstaltung beschreiben, Feedbackfragen vorschlagen lassen und die passenden übernehmen', 'Describe the event, have feedback questions suggested and add the ones that fit') }}">{{ icon("sparkles", 16) }} {{ de_en("Folien mit KI vorschlagen", "Suggest slides with AI") }}</a>{% endif %}
+    {# the pages of a PDF as presentation slides (app/live/ pdf; for everyone since 2026-10-17) #}
+    {% if editable %}<a class="button button-secondary live-ai-link" href="{{ url_for('live.pdf', code=survey.code) }}"
+       title="{{ de_en('Die Seiten einer PDF-Datei als Präsentationsfolien übernehmen; der Browser wandelt sie in Bilder um', 'Add the pages of a PDF file as presentation slides; the browser turns them into pictures') }}">{{ icon("upload", 16) }} {{ de_en("Folien aus PDF", "Slides from PDF") }}</a>{% endif %}
+    {% for block in blocks %}
+    {# "Frage für Frage": one block, no head, every question a slide (concept 6.3); "In Blöcken": a head per block
+       with its name and whether it runs, page breaks between the pages (Einstellungen -> Teilnahme -> Ablauf) #}
+    <section class="panel live-block {{ 'is-released' if in_blocks and st.block == block.id }}" data-live-section="{{ block.id }}">
+      {% if in_blocks %}
+      <div class="live-block-head">
+        {% if editable %}<form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="inline live-block-name">{{ csrf() }}
+          <input type="hidden" name="block" value="{{ block.id }}"><input type="hidden" name="action" value="rename_block">
+          {# no drop: a slide dragged by its text landed here as its address and was saved as the name (Ralf, 2026-10-16) #}
+          <input name="title" value="{{ block.title() }}" maxlength="200" autocomplete="off" aria-label="{{ de_en('Name des Blocks', 'Name of the block') }}" data-submit-on-change data-no-drop></form>
+        {% else %}<strong class="live-block-name">{{ block.title() }}</strong>{% endif %}
+        {% if st.block == block.id %}<span class="live-state is-open">{{ de_en("Antworten offen", "Answers open") }}</span>{% else %}<span class="live-state is-closed">{{ de_en("geschlossen", "closed") }}</span>{% endif %}
+        {# delete a block as in the questionnaire: no question first, "Rückgängig" brings it back whole; not the running one #}
+        {% if editable and st.block != block.id %}<form method="post" action="{{ url_for('editor.delete_block', survey_id=survey.id, block_id=block.id) }}" class="inline">{{ csrf() }}
+          <button class="icon-btn" title="{{ de_en('Block löschen (Rückgängig bringt ihn zurück)', 'Delete block (Undo brings it back)') }}" aria-label="{{ de_en('Block löschen', 'Delete block') }}">{{ icon("trash", 14) }}</button></form>{% endif %}
+      </div>
+      {% endif %}
+      <ul class="live-items">
+        {% for item in block.items %}
+        {% if item.type == "page_break" and in_blocks %}
+        <li class="live-item live-break" data-live-row data-place="{{ url_for('editor.place_item', survey_id=survey.id, item_id=item.id) }}">
+          {% if editable %}<span class="drag-handle" title="{{ de_en('Ziehen, um den Seitenumbruch zu verschieben', 'Drag to move the page break') }}" aria-hidden="true">⋮⋮</span>{% endif %}
+          <span class="live-break-line">{{ de_en("Seitenumbruch", "Page break") }}</span>
+          {% if editable %}<form method="post" action="{{ url_for('editor.delete_item', survey_id=survey.id, item_id=item.id) }}" class="inline">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Seitenumbruch entfernen', 'Remove page break') }}" aria-label="{{ de_en('Seitenumbruch entfernen', 'Remove page break') }}">{{ icon("x", 14) }}</button></form>{% endif %}
+        </li>
+        {% elif item.type in types %}
+        <li class="live-item {{ 'is-selected' if selected and selected.id == item.id }}" id="item-{{ item.id }}" data-live-row
+            data-place="{{ url_for('editor.place_item', survey_id=survey.id, item_id=item.id) }}">
+          {% if editable %}<span class="drag-handle" title="{{ de_en('Ziehen, um die Reihenfolge der Folien zu ändern', 'Drag to change the order of the slides') }}" aria-hidden="true">⋮⋮</span>{% endif %}
+          <a class="live-item-text" href="{{ url_for('live.manage', code=survey.code, item=item.id) }}" draggable="false">
+            <strong>{{ item.text("question")|plain or (item.text("alt")|plain if item.config.get("slide")) or de_en("(ohne Fragetext)", "(no question text)") }}</strong>
+            <span class="muted small">{# slides, counted as such; a text slide has no answers to count (UI audit 2026-10-12, E5) #}{{ de_en("Folie {n}", "Slide {n}", n=loop.index) }} · {{ type_label(survey, item) }}{% if item.kind.collects_answer %} · {{ de_en_n(counts.get(item.id, 0), ("{n} Antwort", "{n} Antworten"), ("{n} answer", "{n} answers")) }}{% endif %}{% if st.screen == item.id %} · {{ de_en("auf der Leinwand", "on the screen") }}{% endif %}</span></a>
+          {% if editable %}<form method="post" action="{{ url_for('editor.duplicate_item', survey_id=survey.id, item_id=item.id) }}" class="inline">{{ csrf() }}
+            <button class="icon-btn" data-duplicate title="{{ de_en('Folie duplizieren: Kopie direkt darunter', 'Duplicate slide: a copy right below') }}" aria-label="{{ de_en('Folie duplizieren', 'Duplicate slide') }}">{{ icon("copy", 14) }}</button></form>{% endif %}
+          {% if editable %}<form method="post" action="{{ url_for('editor.delete_item', survey_id=survey.id, item_id=item.id) }}" class="inline"
+                data-confirm="{{ de_en('Folie löschen?', 'Delete slide?') }}" data-confirm-note="{{ de_en('„Rückgängig“ in der Meldung danach bringt sie zurück.', '“Undo” in the message afterwards brings it back.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}">{{ csrf() }}
+            <button class="icon-btn" title="{{ de_en('Folie löschen', 'Delete slide') }}" aria-label="{{ de_en('Folie löschen', 'Delete slide') }}">{{ icon("trash", 14) }}</button></form>{% endif %}
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+      {% if editable %}
+      {# first "+ Frage", then the type: a click on a type creates the question (Philipp, 2026-10-07: choosing the type
+         in a list before the button was not apparent) #}
+      <details class="live-add" data-live-add>
+        <summary class="button button-small button-secondary">+ {{ de_en("Folie", "Slide") }}</summary>
+        <form method="post" action="{{ url_for('editor.add_item', survey_id=survey.id, block_id=block.id) }}" class="live-add-types">
+          {{ csrf() }}<p class="muted small flush">{{ de_en("Welche Art von Folie?", "What kind of slide?") }}</p>
+          {% for key, label in addable.items() %}<button class="live-add-type{{ ' is-break' if key == 'page_break' }}" name="type" value="{{ key }}">{{ label }}</button>{% endfor %}
+        </form>
+      </details>
+      {% endif %}
+    </section>
+    {% endfor %}
+    {% if in_blocks and editable %}
+    <form method="post" action="{{ url_for('live.control', code=survey.code) }}">
+      {{ csrf() }}<button class="button button-secondary" name="action" value="add_block">{{ icon("plus", 16) }} {{ de_en("Block", "Block") }}</button></form>
+    {% endif %}
+  </div>
+
+  <div class="live-right">
+    {% if selected and editable %}
+    {# notes for the presenter view (improvement 7): only the presenter sees them #}
+    {% set note = ((st.notes or {}).get(selected.id|string) or "") %}
+    <details class="panel live-quiz" {% if note %}open{% endif %}>
+      <summary><strong>{{ de_en("Notizen", "Notes") }}</strong> <span class="hint">{{ de_en("vorhanden", "present") if note else de_en("nur in der Ansicht zum Vortragen zu sehen", "only seen in the presenter view") }}</span></summary>
+      <form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="stack" data-live-quiz>
+        {{ csrf() }}<input type="hidden" name="action" value="notes_set"><input type="hidden" name="item" value="{{ selected.id }}">
+        <textarea name="notes" rows="3" maxlength="3000" aria-label="{{ de_en('Notizen zu dieser Folie', 'Notes on this slide') }}" placeholder="{{ de_en('z. B. Was ich zu den Ergebnissen sagen will', 'e.g. what I want to say about the results') }}">{{ note }}</textarea>
+        <p class="muted small flush" data-live-quiz-status role="status">{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</p>
+        <noscript><button class="button button-small">{{ de_en("Speichern", "Save") }}</button></noscript>
+      </form>
+    </details>
+    {% endif %}
+    {% if selected and selected.type in quiz_types and editable %}
+    {# quiz (package F): the right answer and a countdown of this question; points and leaderboard follow #}
+    <details class="panel live-quiz" {% if quiz %}open{% endif %}>
+      <summary><strong>Quiz</strong> <span class="hint">{{ de_en("Quizfrage", "Quiz question") ~ (", " ~ quiz.seconds ~ " s" if quiz.seconds else "") if quiz else de_en("als Quizfrage mit richtiger Antwort", "as a quiz question with a right answer") }}</span></summary>
+      {# saves by itself on every change (no save button, Ralf 2026-10-02); without JavaScript the button below #}
+      <form method="post" action="{{ url_for('live.control', code=survey.code) }}" class="stack" data-live-quiz>
+        {{ csrf() }}<input type="hidden" name="action" value="quiz_set"><input type="hidden" name="item" value="{{ selected.id }}">
+        <label class="check"><input type="checkbox" name="on" value="1" {% if quiz %}checked{% endif %}> {{ de_en("Quizfrage: Richtige Antworten geben Punkte für die Rangliste", "Quiz question: right answers give points for the leaderboard") }}</label>
+        {% if selected.type == "slider" %}
+        <div class="live-quiz-row">
+          <label>{{ de_en("Richtiger Wert", "Right value") }} <input type="number" step="any" name="value" value="{{ ('%g' % quiz.get('value')) if quiz.get('value') is not none else '' }}"></label>
+          <label>{{ de_en("Toleranz", "Tolerance") }} ± <input type="number" step="any" min="0" name="tol" value="{{ '%g' % (quiz.get('tol') or 0) }}"></label>
+        </div>
+        {% else %}
+        <fieldset class="bare"><legend class="small">{{ de_en("Richtige Antworten (alle müssen angekreuzt sein)", "Right answers (all must be ticked)") if selected.type == "multiple_choice" else de_en("Richtige Antwort", "Right answer") }}</legend>
+          {% for o in selected.kind.options(selected, survey.default_language) %}
+          <label class="check"><input type="checkbox" name="correct" value="{{ o.code }}" {% if o.code in (quiz.correct or []) %}checked{% endif %}> {{ o.label|striptags or o.code }}</label>
+          {% else %}<p class="muted small">{{ de_en("Erst Antwortmöglichkeiten anlegen.", "Create answer options first.") }}</p>{% endfor %}
+        </fieldset>
+        {% endif %}
+        <label>{{ de_en("Countdown", "Countdown") }} <span class="hint">{{ de_en("Sekunden; leer: ohne. Mit Countdown gibt es für Schnelle mehr Punkte (500 bis 1000).", "seconds; empty: none. With a countdown, quick answers get more points (500 to 1000).") }}{% if in_blocks %} {{ de_en("In Blöcken läuft er ab dem Start des Blocks, auch für Fragen auf späteren Seiten.", "In blocks it runs from the start of the block, also for questions on later pages.") }}{% endif %}</span>
+          <input type="number" name="seconds" min="5" max="600" step="1" value="{{ quiz.seconds or '' }}"></label>
+        <p class="muted small flush" data-live-quiz-status role="status">{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</p>
+        <noscript><button class="button button-small">{{ de_en("Speichern", "Save") }}</button></noscript>
+      </form>
+    </details>
+    {% endif %}
+    {% if selected %}
+    <iframe class="live-editor" title="{{ de_en('Folie bearbeiten', 'Edit slide') }}" data-live-editor
+            src="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=selected.id, embed=1, neu=1 if request.args.get('neu') else none) }}"></iframe>
+    {% else %}
+    <div class="panel live-hint">
+      <p>{{ de_en("<strong>Links eine Folie anklicken</strong>, um sie hier zu bearbeiten, oder mit „+ Folie“ eine neue anlegen.", "<strong>Click a slide on the left</strong> to edit it here, or create a new one with “+ Slide”.")|safe }}</p>
+      {% if in_blocks %}
+      <p class="muted small">{{ de_en("Ablauf „In Blöcken“: Auf der Leinwand starten Sie einen Block; die Teilnehmenden beantworten ihn Seite für Seite (Seitenumbrüche teilen ihn), auch bevor Sie die Ergebnisse zeigen. Was die Leinwand zeigt, wählen Sie unabhängig davon.", "Flow “In blocks”: on the screen you start a block; participants answer it page by page (page breaks split it), even before you show the results. What the screen shows you choose independently.") }}</p>
+      {% else %}
+      <p class="muted small">{{ de_en("Jede Folie ist eine Seite auf der Leinwand. Während der Veranstaltung schalten Sie auf der Leinwand (Reiter „Präsentieren“) von Folie zu Folie; die Handys zeigen immer die Folie, die auf der Leinwand steht.", "Every slide is a page on the screen. During the event you switch from slide to slide on the screen (tab “Present”); the phones always show the slide that is on the screen.") }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

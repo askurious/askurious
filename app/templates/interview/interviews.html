@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_icons.html" import icon %}
+{# The interviews of an interview guide ("Interviews erheben", app/interview_data.py): starting one after
+   the consent step, the list with continuing, deleting on request. #}
+{% block title %}Interviews · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "interviews" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% if may_edit %}
+<section class="panel" id="neu">
+  <h2>{{ de_en("Interview beginnen", "Start interview") }}</h2>
+  <form method="post" action="{{ url_for('interview_data.new', code=survey.code) }}" class="stack">
+    {{ csrf() }}
+    <div class="row-fields">
+      <label>{{ de_en("Kennung", "Identifier") }} <input name="label" value="{{ label }}" maxlength="20" class="narrow"></label>
+      <label>{{ de_en("Datum", "Date") }} <input type="date" name="date" value="{{ today }}"></label>
+      <label>{{ de_en("Interviewform", "Interview mode") }}
+        <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}" {% if st.mode == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Einwilligung", "Consent") }}
+        <select name="consent_form">{% for key, name in forms.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+    </div>
+    <label class="check"><input type="checkbox" name="consent" value="1" required> {{ de_en("Einwilligung aller Sprechenden liegt vor", "Consent of everyone who speaks given") }} <span class="hint">{{ de_en("ohne sie beginnt kein Interview: die der befragten Person und bei Tonaufnahme auch die der Interviewenden und weiterer Personen, die im Raum der befragten Person mitsprechen (§ 201 StGB); die Vorlage gibt es im Leitfaden oben und unter „Export“", "no interview begins without it: that of the interviewee and with a recording also that of the interviewers and anyone else who speaks in the interviewee's room (section 201 German Criminal Code); the template is in the guide above and under “Export”") }}</span></label>
+    <label class="check"><input type="checkbox" name="audio" value="1" {% if st.audio %}checked{% endif %}> {{ de_en("Tonaufnahme erlaubt", "Audio recording allowed") }} <span class="hint">{{ de_en("dann lässt sich in der Interviewansicht aufnehmen; die Aufnahme liegt auf dem Askurious-Server, nicht öffentlich, und wird nach der Frist aus den Einstellungen gelöscht", "then you can record in the interview view; the recording is kept on the Askurious server, not public, and is deleted after the period set in the settings") }}</span></label>
+    <label class="check"><input type="checkbox" name="trial" value="1"> {{ de_en("Probeinterview", "Trial interview") }} <span class="hint">{{ de_en("wird getrennt geführt und nicht mitgezählt", "kept separately and not counted") }}</span></label>
+    <p class="muted small flush">{{ de_en("Keine Namen eintragen: Die Kennung ist das einzige Merkmal; die Liste Kennung ↔ Person führen Sie außerhalb von Askurious.", "Do not enter names: the identifier is the only link to the person; you keep the list identifier ↔ person outside Askurious.") }}</p>
+    <div><button class="button">{{ icon("play", 16) }} {{ de_en("Interview beginnen", "Start interview") }}</button></div>
+  </form>
+</section>
+{% endif %}
+
+{% include "interview/_offline_panel.html" %}
+<section class="panel">
+  {% set n_real = rows|selectattr("source", "equalto", "real")|list|length %}{% set n_test = rows|selectattr("source", "equalto", "test")|list|length %}
+  <h2>{{ de_en("Geführte Interviews", "Interviews conducted") }} <span class="hint">{{ de_en("{n} Interviews, {t} Probeinterviews", "{n} interviews, {t} trial interviews", n=n_real, t=n_test) }}</span></h2>
+  {% if accesses %}
+  {# the filter "geführt von" (app/interviewer.py): the team's own interviews or those of one interviewer link #}
+  <form method="get" class="row-fields">
+    <label>{{ de_en("Geführt von", "Conducted by") }}
+      <select name="by" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        <option value="team" {% if held_by == "team" %}selected{% endif %}>{{ de_en("den Beteiligten (Konten)", "the people involved (accounts)") }}</option>
+        {% for a in accesses %}<option value="{{ a.id }}" {% if held_by == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+      </select></label>
+  </form>
+  {% endif %}
+  {% if rows %}
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Datum", "Date") }}</th><th>{{ de_en("Form", "Mode") }}</th><th>{{ de_en("Dauer", "Duration") }}</th><th>{{ de_en("interviewt von", "interviewed by") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("Löschen nach Frist", "Deletion after period") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% set m = r.interview %}
+    <tr>
+      <td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
+      <td>{{ day(m.date) }}</td>
+      <td>{{ modes.get(m.mode, "") }}</td>
+      <td>{{ de_en("{n} Min.", "{n} min", n=(m.elapsed // 60) if m.elapsed else 0) }}</td>
+      <td>{{ m.by_name or "–" }}{% if m.access %} <span class="badge" title="{{ de_en('mit einem Interviewlink geführt', 'conducted with an interviewer link') }}">{{ de_en("Link", "Link") }}</span>{% endif %}</td>
+      <td>{% if r.status == "completed" %}{{ de_en("beendet", "ended") }}{% elif left_open(r) %}<span class="danger-text" title="{{ de_en('Seit Tagen unverändert und nicht beendet: bitte fortsetzen und beenden oder löschen. Die Frist zählt ab der letzten Bearbeitung.', 'Unchanged for days and not ended: please continue and end it or delete it. The period counts from the last edit.') }}">{{ de_en("nicht beendet", "not ended") }}</span>{% else %}{{ de_en("läuft", "running") }}{% endif %}
+        {% if may_edit and (m.consent or {}).audio %}<div class="small"><a href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id) }}">{{ de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
+        {% if may_edit and not (m.audio or []) %}<div class="small"><a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id) }}">{{ de_en("Transkript", "Transcript") if (m.transcript or {}).text else de_en("Transkript hochladen", "Upload transcript") }}</a></div>{% endif %}
+        {% set audio = (m.audio or []) %}
+        {% if audio and may_edit %}
+        {% set mb = ((audio|sum(attribute="bytes")) / 1048576)|round(1) %}
+        <details class="iv-audio"><summary class="small">🎙 {% if audio|length == 1 %}{{ de_en("Aufnahme ({n} Teil, {mb} MB)", "Recording ({n} part, {mb} MB)", n=audio|length, mb=mb) }}{% else %}{{ de_en("Aufnahme ({n} Teile, {mb} MB)", "Recording ({n} parts, {mb} MB)", n=audio|length, mb=mb) }}{% endif %}</summary>
+          {% for p in audio %}<div class="iv-audio-part"><audio controls preload="none" data-preload-open src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>
+            <a class="small" href="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part, download=1) }}">{{ de_en("herunterladen", "download") }}</a>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}</div>{% endfor %}
+          {% if may_delete %}<form method="post" action="{{ url_for('interview_audio.delete', code=survey.code, rid=r.id) }}" data-confirm="{{ de_en('Aufnahme von {label} löschen?', 'Delete the recording of {label}?', label=m.label) }}" data-confirm-note="{{ de_en('Die Tonaufnahme wird endgültig gelöscht; Notizen und Haken bleiben.', 'The audio recording is deleted permanently; notes and ticks remain.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+            {{ csrf() }}<button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Aufnahme löschen", "Delete recording") }}</button></form>{% endif %}
+        </details>
+        {% set tr = m.transcript or {} %}
+        <div class="iv-transcript small">
+          {% set busy = transcribing(r) %}{% set done_parts = (tr.parts or {})|length %}
+          {% if busy %}{% set progress = transcription_progress(r) %}
+            <div class="iv-progress" data-transcription-progress="{{ url_for('interview_transcribe.progress_status', code=survey.code, rid=r.id) }}"
+                 data-error="{{ de_en('Status momentan nicht erreichbar. Bitte später erneut prüfen.', 'Status temporarily unavailable. Please check again later.') }}">
+              <span data-progress-text role="status" aria-live="polite">{{ progress.text }}</span>
+              <div class="iv-progress-row"><progress data-progress-bar value="{{ progress.done }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
+                <span data-progress-parts>{{ progress.parts_text }}</span>
+                <form method="post" action="{{ url_for('interview_transcribe.cancel', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}
+                  <button class="button button-small button-secondary">{{ de_en("Abbrechen", "Cancel") }}</button></form></div>
+              <span class="muted" data-progress-estimate>{{ progress.eta_text }}</span>
+              <a data-progress-finished hidden href="{{ url_for('interview_data.index', code=survey.code) }}">{{ de_en("Anzeige aktualisieren", "Refresh view") }}</a>
+            </div>
+          {% elif tr.state == "running" %}<span class="danger-text">{{ de_en("Transkription unterbrochen (z. B. durch einen Neustart des Servers)", "Transcription interrupted (e.g. by a restart of the server)") }}{% if done_parts %}; {% if done_parts == 1 %}{{ de_en("{n} Teil ist schon fertig", "{n} part is already done", n=done_parts) }}{% else %}{{ de_en("{n} Teile sind schon fertig", "{n} parts are already done", n=done_parts) }}{% endif %}{% endif %}</span>
+          {% elif tr.state == "error" %}<span class="danger-text">{{ de_en("Transkription fehlgeschlagen:", "Transcription failed:") }} {{ transcription_error(tr) }}{% if done_parts %} {% if done_parts == 1 %}{{ de_en("({n} Teil ist schon fertig und wird nicht noch einmal gesendet)", "({n} part is already done and is not sent again)", n=done_parts) }}{% else %}{{ de_en("({n} Teile sind schon fertig und werden nicht noch einmal gesendet)", "({n} parts are already done and are not sent again)", n=done_parts) }}{% endif %}{% endif %}</span>{% endif %}
+          {% if tr.text %}<a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id) }}">{{ de_en("Transkript (geprüft)", "Transcript (checked)") if tr.checked else de_en("Transkript prüfen", "Check transcript") }}</a>{% if tr.partial %} <span class="muted">{{ de_en("(unvollständig: Fehlende Teile sind markiert)", "(incomplete: missing parts are marked)") }}</span>{% endif %}{% if tr.draft %} · <a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id) }}#draft">{{ de_en("neuer Entwurf", "new draft") }}</a>{% endif %}{% endif %}
+          {% if whisper and not busy %}<form method="post" action="{{ url_for('interview_transcribe.begin', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}
+            {% if config.WHISPER_JOBS %}<label>{{ de_en("Modell", "Model") }} <select name="model">
+              {% for model in whisper_models %}<option value="{{ model }}"{% if model == (tr.requested_model or whisper_default) %} selected{% endif %}>{{ model }}</option>{% endfor %}
+            </select></label><span class="hint">{{ de_en("Bei einem Modellwechsel werden die Aufnahmeteile neu transkribiert; korrigierter Text bleibt erhalten.", "Changing the model transcribes the recording parts again; corrected text is kept.") }}</span>{% endif %}
+            <button class="button button-small button-secondary" title="{{ de_en('Die Aufnahme geht an den Whisper-Server Ihrer Einrichtung, nicht an Dritte', 'The recording goes to the Whisper server of your institution, not to third parties') }}">{{ de_en("Weiter transkribieren", "Continue transcribing") if done_parts else (de_en("Neu transkribieren", "Transcribe again") if tr.text else de_en("Transkribieren", "Transcribe")) }}</button></form>{% endif %}
+        </div>
+        {% elif m.audio_removed %}<div class="muted small">{{ de_en("Aufnahme gelöscht", "Recording deleted") }}</div>{% endif %}</td>
+      <td>{% set d = due(survey, r) %}{{ d|localdt(false) if d else ("–" if r.status != "completed" else de_en("keine Frist", "no period")) }}</td>
+      <td class="row-actions">
+        {% if may_edit %}
+        {% if r.status == "completed" %}
+        <form method="post" action="{{ url_for('interview_data.reopen', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Bearbeiten", "Edit") }}</button></form>
+        {% else %}<a class="button button-small" href="{{ url_for('interview.conduct', code=survey.code, interview=r.id) }}">{{ de_en("Fortsetzen", "Continue") }}</a>{% endif %}
+        {% endif %}
+        {% if may_delete %}
+        <form method="post" action="{{ url_for('interview_data.delete', code=survey.code, rid=r.id) }}" class="inline"
+              data-confirm="{{ de_en('Interview {label} löschen?', 'Delete interview {label}?', label=m.label) }}" data-confirm-note="{{ de_en('Haken, Notizen, Kurzfragebogen und Postskript werden endgültig gelöscht.', 'Ticks, notes, short questionnaire and postscript are deleted permanently.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+          {{ csrf() }}<button class="icon-btn danger" title="{{ de_en('Interview löschen', 'Delete interview') }}" aria-label="{{ de_en('Interview {label} löschen', 'Delete interview {label}', label=m.label) }}">{{ icon("trash", 14) }}</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% else %}<p class="muted">{{ de_en("Noch kein Interview. Oben unter „Interview beginnen“ das erste anlegen.", "No interview yet. Create the first one above under “Start interview”.") }}</p>{% endif %}
+</section>
+
+{% if may_edit %}
+{# interviewers without an account (app/interviewer.py, concept konzept-interviewer-zugang-2026-10-15.md) #}
+<section class="panel" id="interviewende">
+  <h2>{{ de_en("Interviewende ohne Konto", "Interviewers without an account") }}</h2>
+  <p class="muted small">{{ de_en("Jede Person bekommt einen eigenen Link mit QR-Code. Damit führt sie Interviews dieses Leitfadens, nimmt auf und transkribiert, ohne Konto. Sie sieht nur ihre eigenen Interviews, und jedes nur, bis sie das Transkript als geprüft übergibt. Der Link allein gibt Zugang: Geben Sie ihn nur der Person selbst und sperren Sie ihn, wenn die Arbeit endet.", "Each person gets a link of their own with a QR code. With it they conduct interviews of this guide, record and transcribe, without an account. They see only their own interviews, and each only until they hand the transcript over as checked. The link alone gives access: give it only to the person themselves and block it when the work ends.") }}</p>
+  {% if new_link %}
+  <div class="option-group" id="interviewer-link-new">
+    <p><strong>{{ de_en("Link für {name}", "Link for {name}", name=new_link.access.name) }}</strong> · <strong>{{ de_en("wird nur jetzt angezeigt", "shown only now") }}</strong>. {{ de_en("Ein neuer Link macht ihn ungültig.", "A new link makes it invalid.") }}</p>
+    <div class="copy-row"><input class="one-time-link" id="interviewer-link" value="{{ new_link.url }}" readonly aria-label="{{ de_en('Interviewlink', 'Interviewer link') }}" data-select-all>
+      <button type="button" class="button button-secondary" data-copy="#interviewer-link">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+    <img class="interviewer-qr" src="{{ new_link.qr }}" alt="{{ de_en('QR-Code des Interviewlinks', 'QR code of the interviewer link') }}" width="220" height="220">
+    <p class="muted small">{{ de_en("Den QR-Code ausdrucken oder vom Bildschirm scannen lassen. Nicht in Gruppen-Chats oder E-Mails an mehrere schicken.", "Print the QR code or let it be scanned from the screen. Do not send it to group chats or emails to several people.") }}</p>
+  </div>
+  {% endif %}
+  {% if accesses %}
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("gültig bis", "valid until") }}</th><th>{{ de_en("Geräte", "Devices") }}</th><th>{{ de_en("zuletzt genutzt", "last used") }}</th><th>{{ de_en("Interviews", "Interviews") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for a in accesses %}{% set state_ = access_state(a) %}
+    <tr>
+      <td><strong>{{ a.name }}</strong>{% if not a.may_record %} <span class="badge">{{ de_en("ohne Aufnahme", "no recording") }}</span>{% endif %}{% if not a.may_transcribe %} <span class="badge">{{ de_en("ohne Transkript", "no transcript") }}</span>{% endif %}
+        <div class="muted small">{{ de_en("angelegt von {by}", "created by {by}", by=a.created_by_name or "–") }}</div></td>
+      <td>{% if state_ == "blocked" %}<span class="danger-text">{{ de_en("gesperrt", "blocked") }}</span>{% elif state_ == "expired" %}<span class="danger-text">{{ de_en("abgelaufen", "expired") }}</span>{% elif state_ == "invited" %}{{ de_en("noch nicht geöffnet", "not opened yet") }}{% else %}{{ de_en("aktiv", "active") }}{% endif %}</td>
+      <td>{{ a.expires_at|localdt(false) }}</td>
+      <td>{{ (a.devices or [])|length }} / {{ a.max_devices }}{% for d in (a.devices or []) %}<div class="muted small">{{ d.kind }}</div>{% endfor %}</td>
+      <td>{{ a.last_used_at|localdt if a.last_used_at else "–" }}</td>
+      <td>{{ access_counts.get(a.id, 0) }}</td>
+      <td class="row-actions">
+        <form method="post" action="{{ url_for('interviewer.change', code=survey.code, aid=a.id, action='link') }}" class="inline"
+              data-confirm="{{ de_en('Neuen Link für {name} erzeugen?', 'Create a new link for {name}?', name=a.name) }}" data-confirm-note="{{ de_en('Der bisherige Link öffnet danach nichts mehr, und alle Geräte müssen den neuen öffnen.', 'The previous link then opens nothing, and every device has to open the new one.') }}" data-confirm-ok="{{ de_en('Neuer Link', 'New link') }}">
+          {{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Neuer Link", "New link") }}</button></form>
+        {% if a.devices %}<form method="post" action="{{ url_for('interviewer.change', code=survey.code, aid=a.id, action='signout') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Geräte abmelden", "Sign out devices") }}</button></form>{% endif %}
+        {% if a.blocked %}<form method="post" action="{{ url_for('interviewer.change', code=survey.code, aid=a.id, action='unblock') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Entsperren", "Unblock") }}</button></form>
+        {% else %}<form method="post" action="{{ url_for('interviewer.change', code=survey.code, aid=a.id, action='block') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Sperren", "Block") }}</button></form>{% endif %}
+        <form method="post" action="{{ url_for('interviewer.change', code=survey.code, aid=a.id, action='extend') }}" class="inline">{{ csrf() }}<input type="hidden" name="days" value="{{ default_days }}">
+          <button class="button button-small button-secondary" title="{{ de_en('um {n} Tage verlängern', 'extend by {n} days', n=default_days) }}">{{ de_en("Verlängern", "Extend") }}</button></form>
+        <form method="post" action="{{ url_for('interviewer.change', code=survey.code, aid=a.id, action='delete') }}" class="inline"
+              data-confirm="{{ de_en('Zugang von {name} löschen?', 'Delete the access of {name}?', name=a.name) }}" data-confirm-note="{{ de_en('Der Link öffnet danach nichts mehr. Die Interviews bleiben beim Leitfaden und tragen weiter den Namen.', 'The link then opens nothing. The interviews stay with the guide and keep the name.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+          {{ csrf() }}<button class="icon-btn danger" title="{{ de_en('Zugang löschen', 'Delete access') }}" aria-label="{{ de_en('Zugang von {name} löschen', 'Delete the access of {name}', name=a.name) }}">{{ icon("trash", 14) }}</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% endif %}
+  {# one or several at once, as the links for persons on the survey side (surveys/_links.html), Ralf 2026-10-15 #}
+  <form method="post" action="{{ url_for('interviewer.add', code=survey.code) }}" class="stack">
+    {{ csrf() }}<input type="hidden" name="batch" value="{{ interviewer_batch() }}">
+    <div class="row-fields value-links-add-fields">
+      <label class="grow-2">{{ de_en("Name oder Kürzel", "Name or initials") }} <span class="hint">{{ de_en("eine Person je Zeile, z. B. die Teilnehmenden eines Seminars aus einer Tabelle kopiert", "one person per line, e.g. the participants of a seminar copied from a spreadsheet") }}</span>
+        <textarea name="names" rows="3" placeholder="{{ de_en('Anna Becker
+Ben Yilmaz', 'Anna Becker
+Ben Yilmaz') }}"></textarea></label>
+      <label>{{ de_en("oder nur eine Anzahl", "or just a number") }} <span class="hint">{{ de_en("benannt als „Person 1“, „Person 2“ usw.", "named “Person 1”, “Person 2” and so on") }}</span>
+        <input type="number" name="count" min="1" max="{{ max_batch }}" class="narrow"></label>
+    </div>
+    <div class="row-fields">
+      <label>{{ de_en("Gültig für", "Valid for") }}
+        <select name="days">{% for d in link_days %}<option value="{{ d }}" {% if d == default_days %}selected{% endif %}>{{ de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Höchstens Geräte", "At most devices") }} <input type="number" name="devices" min="1" max="{{ max_devices }}" value="{{ default_devices }}" class="narrow"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="may_record" value="1" checked> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
+    <label class="check"><input type="checkbox" name="may_transcribe" value="1" checked> {{ de_en("darf transkribieren", "may transcribe") }}</label>
+    <div><button class="button button-secondary">{{ icon("plus", 16) }} {{ de_en("Interviewende hinzufügen", "Add interviewers") }}</button>
+      <span class="hint">{{ de_en("Bei mehreren erscheinen alle Links mit QR-Code einmal auf einer Seite zum Drucken.", "With several, all links with their QR codes appear once on a page to print.") }}</span></div>
+  </form>
+</section>
+{% endif %}
+
+<script src="{{ url_for('static', filename='transcription-progress.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{# Markers of all participants of one map item (items/map_marker.py results()). Needs: e (entry), num macro. #}
+{% from "_icons.html" import icon %}
+{% set m = e.map %}
+{% if m.n %}
+<div class="res-map" data-map-results='{{ dict(m.settings, points=m.points, name=e.item.code ~ "-karte")|tojson }}'>
+  <div class="res-map-bar">
+    <div class="segmented" role="radiogroup" aria-label="{{ de_en('Darstellung', 'Display') }}">
+      {% for k, l in e.item.kind.result_views.items() %}
+      <label><input type="radio" name="map-view-{{ e.item.id }}" value="{{ k }}" data-map-view {% if m.settings.view == k %}checked{% endif %}><span>{{ l }}</span></label>
+      {% endfor %}
+    </div>
+    <span class="muted small">{% if e.item.type == "geolocation" %}{% if m.n == 1 %}{{ de_en("1 geteilte Position", "1 shared position") }}{% else %}{{ de_en("{n} geteilte Positionen", "{n} shared positions", n=m.n) }}{% endif %}{% else %}{{ de_en("{n} Marker von {p} Teilnahmen · im Mittel {mean} je Person", "{n} markers from {p} participations · on average {mean} per person", n=m.n, p=m.persons, mean=num(m.mean, 1)) }}{% endif %}</span>
+    <button type="button" class="icon-btn fig-save-icon res-map-png" data-map-png title="{{ de_en('Die Karte so, wie sie gerade zu sehen ist, als PNG-Datei speichern (für Berichte)', 'Save the map as it is shown now as a PNG file (for reports)') }}" aria-label="{{ de_en('Karte als PNG speichern', 'Save the map as PNG') }}">{{ icon("download", 18) }}</button>
+  </div>
+  <div class="res-map-canvas" data-map-canvas></div>
+  {% if e.item.type == "geolocation" %}
+  <p class="muted small">{{ de_en("Die Karte zoomt auf alle Positionen.", "The map zooms to all positions.") }}{% if survey.can(current_user, "editor") %} {{ de_en("„Alle Positionen“: Klick auf einen Punkt zeigt die Teilnahme", "“All positions”: a click on a dot shows the participation") }} (<code>resp_id</code>).{% endif %}
+    <span data-map-png-note hidden>{{ de_en("Der Kartenserver erlaubt das Übernehmen seiner Kacheln nicht: Das Bild zeigt die Punkte ohne Hintergrundkarte.", "The map server does not allow its tiles to be copied: the image shows the dots without a background map.") }}</span>
+    {% if m.truncated %}<strong>{{ de_en("Gezeigt werden {n} zufällig gezogene Positionen", "Shown are {n} randomly drawn positions", n=m.points|length) }}</strong>{{ de_en("; alle stehen im Export.", "; all of them are in the export.") }}{% endif %}
+    {{ de_en("Weg der Antwort, Genauigkeit und Bundesland stehen darunter.", "The way of answering, accuracy and federal state are below.") }}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Die Karte zoomt auf alle Marker.", "The map zooms to all markers.") }}{% if survey.can(current_user, "editor") %} {{ de_en("„Alle Marker“: Klick auf einen Marker zeigt Teilnahme", "“All markers”: a click on a marker shows the participation") }} (<code>resp_id</code>){{ de_en(", Markernummer und Antworten.", ", marker number and answers.") }}{% endif %}
+    <span data-map-png-note hidden>{{ de_en("Der Kartenserver erlaubt das Übernehmen seiner Kacheln nicht: Das Bild zeigt die Marker ohne Hintergrundkarte.", "The map server does not allow its tiles to be copied: the image shows the markers without a background map.") }}</span>
+    {% if m.truncated %}<strong>{{ de_en("Gezeigt werden {n} zufällig gezogene Marker", "Shown are {n} randomly drawn markers", n=m.points|length) }}</strong>{{ de_en("; alle stehen im Export.", "; all of them are in the export.") }}{% endif %}
+    {{ de_en("Die Heatmap gewichtet jede Person gleich: Wer k Marker gesetzt hat, zählt mit jedem davon 1/k.", "The heatmap weights every person equally: anyone who set k markers counts 1/k with each of them.") }}</p>
+  {% endif %}
+</div>
+{% if m.summary %}
+<div class="res-scroll"><table class="res-table">
+  <thead><tr><th>{{ de_en("Zusatzfrage je Marker", "Follow-up question per marker") }}</th><th>n</th><th>M</th><th>SD</th><th title="{{ de_en('Erst je Person über ihre Marker gemittelt, dann über die Personen: Wer viele Marker setzt, zählt nicht mehr als andere', 'First averaged per person over their markers, then over the people: anyone who sets many markers counts no more than others') }}">{{ de_en("M über Personen", "M over people") }}</th></tr></thead>
+  <tbody>
+  {% for s in m.summary %}
+    <tr><td><code>{{ e.item.code }}_…_{{ s.q.export_code }}</code> <span class="hint">{{ s.q.text|truncate(60) }}</span></td>
+      <td>{{ s.n }}</td>
+      {% if s.q.kind == "scale" %}<td>{{ num(s.mean) }} <span class="hint">1–{{ s.q.points }}</span></td><td>{{ num(s.sd) }}</td><td>{{ num(s.person_mean) }} <span class="hint">n = {{ s.persons }}</span></td>
+      {% elif s.q.kind == "choice" %}<td colspan="3" class="small">{% for label, count in s.counts %}{{ label }}: {{ count }}{% if s.n %} ({{ num(100 * count / s.n, 0)|pctsign }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+      {% else %}<td colspan="3" class="muted small">{{ de_en("Text; im Export lesen", "Text; read it in the export") }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endif %}
+{# the scripts once per page, deferred: they run when the page is read in full and draw every map on it (code review
+   2026-10-07, F9; before, each map loaded and ran Leaflet again) #}
+{% if once("leaflet") %}<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>{% endif %}
+{% if once("leaflet-heat") %}<script src="{{ url_for('static', filename='vendor/leaflet-heat/leaflet-heat.js') }}" defer></script>{% endif %}
+{% if once("map_marker.js") %}<script src="{{ url_for('static', filename='map_marker.js') }}" defer></script>{% endif %}
+{% if once("map_results.js") %}<script src="{{ url_for('static', filename='map_results.js') }}" defer></script>{% endif %}
+{% else %}
+<p class="muted small">{{ de_en("Noch keine geteilten Positionen.", "No shared positions yet.") if e.item.type == "geolocation" else de_en("Noch keine Marker.", "No markers yet.") }}</p>
+{% endif %}

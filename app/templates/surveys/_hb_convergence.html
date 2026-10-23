@@ -1,0 +1,34 @@
+{% from "_learn.html" import term, method %}
+{# Convergence of an HB result (app/hb_convergence.py view()): trace line, split-R-hat, ESS, rule, longer run. Needs: res (summary), e, f, survey, num. #}
+{% set cv = res.convergence %}
+{% if cv %}
+<p class="res-group-head">{{ de_en("Konvergenz der Kette", "Convergence of the chain") }}{{ fn("convergence") }} <span class="hint">{{ de_en("Log-Likelihood je behaltener Ziehung", "log-likelihood per kept draw") }}{% if cv.kept and cv.chart and cv.kept > 500 %}{{ de_en(", für die Grafik auf 500 Punkte ausgedünnt", ", thinned to 500 points for the chart") }}{% endif %}</span></p>
+{% set tc = cv.chart %}
+{% if tc %}
+<div class="pw-scroll"><svg class="pw-chart hb-trace" viewBox="0 0 {{ tc.width }} {{ tc.height }}" role="img" aria-label="{{ de_en('HB: Verlauf der Log-Likelihood über die behaltenen Ziehungen', 'HB: course of the log-likelihood over the kept draws') }}">
+  <line class="pw-grid" x1="{{ tc.x0 }}" x2="{{ tc.x1 }}" y1="{{ tc.y0 }}" y2="{{ tc.y0 }}"/>
+  <line class="pw-grid" x1="{{ tc.x0 }}" x2="{{ tc.x1 }}" y1="{{ tc.y1 }}" y2="{{ tc.y1 }}"/>
+  <text class="pw-tick" x="{{ tc.x0 - 6 }}" y="{{ tc.y0 + 4 }}" text-anchor="end">{{ num(tc.hi, 1) }}</text>
+  <text class="pw-tick" x="{{ tc.x0 - 6 }}" y="{{ tc.y1 + 4 }}" text-anchor="end">{{ num(tc.lo, 1) }}</text>
+  <text class="pw-tick" x="{{ tc.x0 }}" y="{{ tc.height - 4 }}">{{ de_en("erste behaltene Ziehung", "first kept draw") }}</text>
+  <text class="pw-tick" x="{{ tc.x1 }}" y="{{ tc.height - 4 }}" text-anchor="end">{{ de_en("letzte ({n})", "last ({n})", n=cv.kept) }}</text>
+  <polyline class="hb-trace-line" points="{{ tc.points }}"/>
+</svg></div>
+{% endif %}
+<p class="muted small hb-convergence">Status: {% if not cv.complete %}<strong class="hb-conv-check">{{ de_en("nicht beurteilbar", "not assessable") }}</strong>{% elif cv.ok %}<strong class="hb-conv-ok">{{ de_en("konvergiert", "converged") }}</strong>{% else %}<strong class="hb-conv-check">{{ de_en("prüfen", "check") }}</strong>{% endif %}
+  · {{ term("rhat") }} max. {{ num(cv.rhat_max, 3) }} ({{ de_en("Grenze unter {l}", "limit under {l}", l=num(cv.rhat_limit)) }})
+  · {{ term("ess") }} min. {{ de_en("{e} von {k} Ziehungen (Grenze {l})", "{e} of {k} draws (limit {l})", e=num(cv.ess_min, 0), k=cv.kept, l=cv.ess_limit) }}
+  · {{ de_en("ESS der Log-Likelihood", "ESS of the log-likelihood") }} {{ num(cv.ess_ll, 0) }}
+  · {{ de_en("Geweke-artige Prüfung", "Geweke-type check") }} {% if cv.geweke_ok %}{{ de_en("unauffällig", "unremarkable") }}{% else %}<strong>{{ de_en("auffällig", "conspicuous") }}</strong>{% endif %}.
+</p>
+{% call method(de_en("R̂, ESS und Geweke-artige Prüfung", "R̂, ESS and Geweke-type check")) %}<p>{{ de_en("R̂ und ESS je Populationsmittel ({what}) und je angezeigtem Mittelwert über die Personen ({shown}) aus der einen Kette: rang-normalisiertes split-R̂ (erste gegen zweite Hälfte der behaltenen Ziehungen) und effektive Stichprobengröße mit Geyers monotoner Anfangsfolge", "R̂ and ESS per population mean ({what}) and per mean shown over the people ({shown}) from the one chain: rank-normalised split-R̂ (first against second half of the kept draws) and effective sample size with Geyer's initial monotone sequence", what=de_en("Aussagen", "statements") if e.item.type == "maxdiff" else de_en("alle Parameter", "all parameters"), shown=de_en("Scores", "scores") if e.item.type == "maxdiff" else de_en("Teilnutzen, Konstante, Preis", "part-worths, constant, price")) }}{{ fn("convergence") }}. {{ de_en("Konvergiert heißt: max. R̂ unter {r}, min. ESS ab {e} und Geweke-artige Prüfung unauffällig (Vergleich der Hälften mit Batch-Mitteln statt Spektraldichten)", "Converged means: max. R̂ under {r}, min. ESS from {e} and Geweke-type check unremarkable (comparison of the halves with batch means instead of spectral densities)", r=num(cv.rhat_limit), e=cv.ess_limit) }}{{ fn("convergence") }}.</p>{% endcall %}
+<p class="muted small">{{ de_en("Die Prüfung vergleicht Abschnitte einer einzelnen Kette. Sie ersetzt keinen Vergleich unabhängig gestarteter Ketten und belegt nicht die Konvergenz aller individuellen Nutzen oder Streuungsparameter. Ohne gültige Diagnose für jede überwachte Größe ist die Konvergenz nicht beurteilbar.", "The check compares parts of a single chain. It does not replace a comparison of independently started chains or establish convergence of all individual utilities or variance parameters. Without a valid diagnostic for every monitored quantity, convergence cannot be assessed.") }}</p>
+{% if not cv.ok %}
+  {% if cv.longer %}
+  {# the button stands in the convergence note at the top of the block; here only for a result without that note #}
+  {% if not res.convergence_warning %}{% include "surveys/_hb_longer.html" %}{% endif %}
+  {% else %}
+  <p class="muted small">{{ de_en("Die längste Einstellung ist erreicht. Die Werte nur als Richtung lesen; oft liegt es an Stufen oder Aussagen, die die Daten nicht begrenzen (siehe Hinweise oben).", "The longest setting has been reached. Read the values only as a direction; often it is due to levels or statements that the data do not bound (see notes above).") }}</p>
+  {% endif %}
+{% endif %}
+{% endif %}

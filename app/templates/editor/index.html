@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, csrf, content_lang, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{% block title %}{{ de_en("Fragebogen", "Questionnaire") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}workspace{% endblock %}
+{% block footer_stats %}
+<strong>{{ survey.title|truncate(60) }}</strong> · {{ de_en("{done} abgeschlossen · {started} begonnen", "{done} completed · {started} started", done=participants.completed, started=participants.started) }} ·
+{% endblock %}
+{% block content %}
+{% set can_edit = survey.can(current_user, "editor") %}
+{% set editable = survey.is_editable and can_edit %}
+<div class="workspace-head">
+  <div class="workspace-title">
+    {% set active_tab = "editor" %}{% include "surveys/_tabs.html" %}
+  </div>
+</div><!--flashes-->
+{# an AI agent changed this survey within the last minutes (app/agent_tools.py, edit_guard.agents_here): its steps are in
+   the history under the arrow, named after its token #}
+{% if agents_now and experimental("agent", survey) %}
+<div class="flash flash-warning" role="status" data-agent-banner>{{ icon("sparkles", 16) }}
+  <span>{{ de_en("Gerade arbeitet ein KI-Agent an dieser Befragung: {names}. Seine Schritte stehen im Verlauf unter „Rückgängig“ und lassen sich dort zurücknehmen; neu laden zeigt seine letzten Änderungen.",
+                 "An AI agent is working on this survey right now: {names}. Its steps are in the history under “Undo” and can be taken back there; reload to see its latest changes.", names=agents_now|join(", ")) }}</span>
+</div>
+{% endif %}
+
+<div class="editor-grid" data-editor
+     data-add-url="{{ url_for('editor.add_item', survey_id=survey.id, block_id=0, lang=lang) }}"
+     data-place-url="{{ url_for('editor.place_item', survey_id=survey.id, item_id=0, lang=lang) }}"
+     data-block-place-url="{{ url_for('editor.place_block', survey_id=survey.id, block_id=0, lang=lang) }}">
+
+  {# ---- left: palette; the resize handle sits in the gap next to it ---- #}
+  <div class="sidebar-resizer" data-sidebar-resizer="left" role="separator" aria-orientation="vertical"
+       aria-label="{{ de_en('Breite der linken Seitenleiste ändern', 'Change the width of the left sidebar') }}" tabindex="0" title="{{ de_en('Ziehen: Breite ändern · Doppelklick: zurücksetzen', 'Drag: change width · double-click: reset') }}"></div>
+  <div class="sidebar-resizer sidebar-resizer-right" data-sidebar-resizer="right" role="separator" aria-orientation="vertical"
+       aria-label="{{ de_en('Breite der rechten Seitenleiste ändern', 'Change the width of the right sidebar') }}" tabindex="0" title="{{ de_en('Ziehen: Breite ändern · Doppelklick: zurücksetzen', 'Drag: change width · double-click: reset') }}"></div>
+  <aside class="sidebar sidebar-left" aria-label="{{ de_en('Hinzufügen: Elemente, Konstrukte, Rückmeldung', 'Add: elements, constructs, feedback') }}" data-sidebar="left">
+    <div class="sidebar-head">
+      <h2>{{ de_en("Hinzufügen", "Add") }}</h2>
+      <button type="button" class="icon-btn sidebar-toggle" data-sidebar-toggle="left" aria-expanded="true"
+              title="{{ de_en('Seitenleiste ein-/ausklappen', 'Expand/collapse sidebar') }}" aria-label="{{ de_en('Seitenleiste ein- oder ausklappen', 'Expand or collapse sidebar') }}">{{ icon("back", 16) }}</button>
+    </div>
+    {% if editable %}
+    <p class="muted small sidebar-help">{{ de_en('In beliebigen Block ziehen (zwischen zwei Blöcke: neuer Block) oder mit <strong>+</strong> einfügen: ans Ende des Blocks, den Sie zuletzt angeklickt haben (er ist umrandet), sonst ans Ende des letzten Blocks.', 'Drag into any block (between two blocks: new block) or insert with <strong>+</strong>: at the end of the block you clicked last (it has an outline), otherwise at the end of the last block.')|safe }}</p>
+    <p class="muted small" data-insertion-target role="status"></p>
+    <input type="search" class="palette-search" data-palette-search placeholder="{{ de_en('Suchen: Elemente, Konstrukte, Rückmeldung …', 'Search: elements, constructs, feedback …') }}"
+           title="{{ de_en('Filtert alle Gruppen; Konstrukte werden im Volltext gesucht (Name, Autor, Jahr, Wortlaut). Mit Pfeil nach unten einen Treffer auswählen, dann mit Enter hinzufügen.', 'Filters all groups; constructs are searched in full text (name, author, year, wording). Use the down arrow to select a result, then Enter to add it.') }}"
+           aria-label="{{ de_en('Elemente, Konstrukte und Rückmeldungen suchen', 'Search elements, constructs and feedback') }}" autocomplete="off">
+
+    {% set groups = [("items", de_en("Elemente", "Elements"), item_types|selectattr("category", "equalto", "items")|list),
+                     ("feedback", de_en("Rückmeldung an Teilnehmende", "Feedback to participants"), item_types|selectattr("category", "equalto", "feedback")|list)] %}
+    <section class="palette-group pg-items" data-palette-group="items">
+      <button type="button" class="pg-head" aria-expanded="true" data-pg-toggle title="{{ de_en('Am häufigsten verwendete zuerst: gezählt in Ihren Befragungen und denen Ihrer Gruppen', 'Most used first: counted in your surveys and those of your groups') }}">
+        <span class="pg-chevron" aria-hidden="true">▾</span> {{ de_en("Elemente", "Elements") }} <span class="pg-count" data-pg-count>{{ groups[0][2]|length }}</span></button>
+      <div class="pg-body">
+        <ul class="palette" data-palette>
+          {% for t in groups[0][2] %}
+      <li class="palette-row" data-search="{{ (t.label ~ ' ' ~ t.description ~ ' ' ~ t.key ~ ' ' ~ t.search_words)|lower }}">
+        <div class="palette-item" data-type="{{ t.key }}" title="{{ t.label }}: {{ t.description }} ({{ de_en('ziehen', 'drag') }})">
+          <span class="item-icon">{{ icon(t.key) }}</span>
+          <span><strong>{{ t.label|soft_hyphens }}</strong><span class="desc">{% if t.short %}{{ t.short }}{% elif t.experimental %}{{ t.description|replace("Experimentell: ", "")|replace("Experimental: ", "") }}{% else %}{{ t.description }}{% endif %}</span></span>
+        </div>
+        <button type="button" class="icon-btn palette-add" data-type="{{ t.key }}" title="{{ de_en('{name} am Ende des markierten Blocks einfügen', 'Insert {name} at the end of the marked block', name=t.label) }}" aria-label="{{ de_en('{name} hinzufügen', 'Add {name}', name=t.label) }}">{{ icon("plus") }}</button>
+      </li>
+          {% endfor %}
+      {% if ai_on() %}
+      <li class="palette-row palette-ai" data-search="ki skala entwerfen items konstrukt ai">
+        <div class="palette-item" data-type="ai_scale" title="{{ de_en('Skala mit KI entwerfen: Items zu einer Konstrukt-Idee vorschlagen lassen (ziehen)', 'Draft a scale with AI: have items suggested for a construct idea (drag)') }}">
+          <span class="item-icon">✨</span>
+          <span><strong>{{ de_en("Skala mit KI entwerfen", "Draft a scale with AI") }}</strong><span class="desc">{{ de_en("Items zu einer Konstrukt-Idee vorschlagen lassen; nicht validiert", "Have items suggested for a construct idea; not validated") }}</span></span>
+        </div>
+        <button type="button" class="icon-btn palette-add button-ai" data-type="ai_scale" title="{{ de_en('KI-Skala am Ende des markierten Blocks entwerfen', 'Draft an AI scale at the end of the marked block') }}" aria-label="{{ de_en('Skala mit KI entwerfen', 'Draft a scale with AI') }}">{{ icon("plus") }}</button>
+      </li>
+      {% endif %}
+        </ul>
+        <p class="muted small palette-empty" data-pg-empty hidden>{{ de_en("Keine passenden Elemente.", "No matching elements.") }}</p>
+        <p class="small palette-all"><a href="{{ url_for('element_types.index') }}" target="_blank" rel="noopener">{{ de_en("Alle Elementtypen: was jeder kann und wofür er passt", "All element types: what each can do and what it fits") }}</a></p>
+      </div>
+    </section>
+
+    <section class="palette-group pg-constructs" data-palette-group="constructs">
+      <button type="button" class="pg-head" aria-expanded="true" data-pg-toggle>
+        <span class="pg-chevron" aria-hidden="true">▾</span> {{ de_en("Konstrukte", "Constructs") }} <span class="pg-count" data-pg-count>{{ construct_total }}</span></button>
+      <div class="pg-body">
+        {% if editable and survey.live is none and survey.interview is none and not diary.is_diary(survey) %}
+        {# the bundle of the RatSWD standard questions (app/ratswd.py): one block, each part can be left out #}
+        <details class="construct-bundle">
+          <summary><strong>{{ de_en("Demografie kurz (RatSWD)", "Short demographics (RatSWD)") }}</strong>
+            <span class="desc">{{ de_en("Standardfragen als eigener Block; Fragen abwählbar", "Standard questions as a block of its own; questions can be left out") }}</span></summary>
+          <form method="post" action="{{ url_for('editor.add_demographics', survey_id=survey.id, lang=lang) }}" class="stack">
+            {{ csrf() }}
+            {% for part, label in demographic_parts %}<label class="check"><input type="checkbox" name="part" value="{{ part }}" checked> <span>{{ label }}</span></label>{% endfor %}
+            <p class="muted small">{{ de_en("Geburtsmonat und -jahr machen Personen zusammen mit Bundesland, Haushaltsgröße oder Beruf in kleinen Stichproben erkennbar; das Geburtsland der Eltern kann auf die ethnische Herkunft hindeuten (Art. 9 DSGVO, die Einwilligung muss es abdecken). Nicht Teil der gemeinsamen Auswertung der Konstrukte.", "Month and year of birth, together with federal state, household size or occupation, can make people recognisable in small samples; the parents' country of birth can point to ethnic origin (Art. 9 GDPR, the consent must cover it). Not part of the pooled analysis of the constructs.") }}</p>
+            <div><button class="button button-small">{{ icon("plus", 16) }} {{ de_en("Als Block einfügen", "Insert as a block") }}</button></div>
+          </form>
+        </details>
+        {% endif %}
+        <ul class="palette" data-construct-results data-url="{{ url_for('constructs.api_search') }}">
+          {% for c in construct_list %}
+          {% set on = c.key in construct_starred %}
+          <li class="palette-row">
+            <div class="palette-item" data-type="construct:{{ c.key }}" title="{{ c.name }}: {{ c.author_year }} ({{ de_en('ziehen', 'drag') }})">
+              <span class="item-icon">{{ icon("construct") }}</span>
+              <span><strong>{{ c.name|soft_hyphens }}</strong><span class="desc">{{ c.author_year }}{% if construct_by.get(c.key) and c.key not in construct_starred %} · {{ de_en("empfohlen von {who}", "recommended by {who}", who=construct_by[c.key]) }}{% endif %}</span></span>
+            </div>
+            <button type="button" class="icon-btn star-btn" data-star="{{ url_for('constructs.star', key=c.key) }}" aria-pressed="{{ 'true' if on else 'false' }}" title="{{ de_en('Favorit: Steht in dieser Liste. Klicken entfernt den Stern.', 'Favourite: listed here. A click removes the star.') if on else de_en('Als Favorit merken: Steht dann in dieser Liste', 'Mark as favourite: it is then listed here') }}" aria-label="{{ c.name }}: {{ de_en('Favorit entfernen', 'remove favourite') if on else de_en('als Favorit merken', 'mark as favourite') }}">{{ icon("star", 16) }}</button>
+            <button type="button" class="icon-btn palette-add" data-type="construct:{{ c.key }}" title="{{ de_en('{name} am Ende des markierten Blocks einfügen', 'Insert {name} at the end of the marked block', name=c.name) }}" aria-label="{{ de_en('{name} hinzufügen', 'Add {name}', name=c.name) }}">{{ icon("plus") }}</button>
+          </li>
+          {% endfor %}
+        </ul>
+        <template data-construct-icons><span data-part="icon">{{ icon("construct") }}</span><span data-part="plus">{{ icon("plus") }}</span><span data-part="star">{{ icon("star", 16) }}</span></template>
+        <p class="muted small palette-empty" data-pg-empty hidden>{{ de_en("Keine passenden Konstrukte.", "No matching constructs.") }}</p>
+        {# the full box as a dialog over the editor (konzept-konstrukt-schnellbox-2026-10-16.md, K4); without the
+           right to edit the page "Konstrukte" as before #}
+        {% if editable %}<p class="construct-explore"><button type="button" class="button button-secondary button-small" data-box-open>{{ icon("construct", 16) }} {{ de_en("Alle {n} Konstrukte durchsuchen", "Browse all {n} constructs", n=construct_total) }}</button></p>
+        {% else %}<a class="small construct-explore" href="{{ url_for('constructs.index', survey=survey.id) }}">{{ de_en("Alle {n} Konstrukte entdecken", "Explore all {n} constructs", n=construct_total) }} →</a>{% endif %}
+      </div>
+    </section>
+
+    {% if linked_list %}
+    <section class="palette-group pg-linked" data-palette-group="linked">
+      <button type="button" class="pg-head" aria-expanded="true" data-pg-toggle title="{{ de_en('Ihre verknüpften Elemente und die aus Befragungen, die Sie öffnen können', 'Your linked elements and those from surveys you can open') }}">
+        <span class="pg-chevron" aria-hidden="true">▾</span> {{ de_en("Verknüpfte Elemente", "Linked elements") }} <span class="pg-count" data-pg-count>{{ linked_list|length }}</span></button>
+      <div class="pg-body">
+        <ul class="palette" data-palette>
+          {% for c in linked_list %}
+          <li class="palette-row" data-search="{{ (c.name ~ ' ' ~ c.spec.get('code', ''))|lower }}">
+            <div class="palette-item" data-type="construct:{{ c.key }}" title="{{ de_en('{name}: verknüpftes Element, Fassung {rev} (ziehen)', '{name}: linked element, revision {rev} (drag)', name=c.name, rev=c.seed_version) }}">
+              <span class="item-icon">{{ icon("link") }}</span>
+              <span><strong>{{ c.name }}</strong><span class="desc">{{ de_en("Fassung {rev}", "Revision {rev}", rev=c.seed_version) }} · {{ c.spec.get("code", "") }}</span></span>
+            </div>
+            <a class="icon-btn" href="{{ url_for('constructs.linked', key=c.key) }}" title="{{ de_en('Seite des Elements: Verwendungen und Stand', 'Page of the element: uses and state') }}" aria-label="{{ de_en('Seite des Elements: Verwendungen und Stand', 'Page of the element: uses and state') }}">{{ icon("eye") }}</a>
+            <button type="button" class="icon-btn palette-add" data-type="construct:{{ c.key }}" title="{{ de_en('{name} am Ende des markierten Blocks einfügen', 'Insert {name} at the end of the marked block', name=c.name) }}" aria-label="{{ de_en('{name} hinzufügen', 'Add {name}', name=c.name) }}">{{ icon("plus") }}</button>
+          </li>
+          {% endfor %}
+        </ul>
+        <p class="muted small palette-empty" data-pg-empty hidden>{{ de_en("Keine passenden verknüpften Elemente.", "No matching linked elements.") }}</p>
+      </div>
+    </section>
+    {% endif %}
+
+    {# "an Teilnehmende": "Rückmeldung" alone is also the report of a problem to the admins (UI/UX audit 2026-10-16, 51) #}
+    <section class="palette-group pg-feedback" data-palette-group="feedback">
+      <button type="button" class="pg-head" aria-expanded="true" data-pg-toggle title="{{ de_en('Am häufigsten verwendete zuerst: gezählt in Ihren Befragungen und denen Ihrer Gruppen', 'Most used first: counted in your surveys and those of your groups') }}">
+        <span class="pg-chevron" aria-hidden="true">▾</span> {{ de_en("Rückmeldung an Teilnehmende", "Feedback to participants") }} <span class="pg-count" data-pg-count>{{ groups[1][2]|length }}</span></button>
+      <div class="pg-body">
+        <ul class="palette" data-palette>
+          {% for t in groups[1][2] %}
+      <li class="palette-row" data-search="{{ (t.label ~ ' ' ~ t.description ~ ' ' ~ t.key ~ ' ' ~ t.search_words)|lower }}"{% if t.requires is defined and t.requires and not (survey.blocks|map(attribute="items")|sum(start=[])|selectattr("type", "equalto", t.key)|list) %} data-palette-new="{{ t.key }}"{% endif %}>
+        <div class="palette-item" data-type="{{ t.key }}" title="{{ t.label }}: {{ t.description }} ({{ de_en('ziehen', 'drag') }})">
+          <span class="item-icon">{{ icon(t.key) }}</span>
+          <span><strong>{{ t.label|soft_hyphens }}</strong> <span class="badge badge-ai palette-new-badge" hidden>{{ de_en("neu", "new") }}</span><span class="desc">{% if t.short %}{{ t.short }}{% elif t.experimental %}{{ t.description|replace("Experimentell: ", "")|replace("Experimental: ", "") }}{% else %}{{ t.description }}{% endif %}</span></span>
+        </div>
+        <button type="button" class="icon-btn palette-add" data-type="{{ t.key }}" title="{{ de_en('{name} am Ende des markierten Blocks einfügen', 'Insert {name} at the end of the marked block', name=t.label) }}" aria-label="{{ de_en('{name} hinzufügen', 'Add {name}', name=t.label) }}">{{ icon("plus") }}</button>
+      </li>
+          {% endfor %}
+        </ul>
+        <p class="muted small palette-empty" data-pg-empty hidden>{{ de_en("Keine passenden Rückmeldungen.", "No matching feedback.") }}</p>
+      </div>
+    </section>
+    <form method="post" action="{{ url_for('editor.add_block', survey_id=survey.id, lang=lang) }}">
+      {{ csrf() }}<button class="button button-secondary palette-block" title="{{ de_en('Neuer Block', 'New block') }}">{{ icon("plus", 16) }}<span> {{ de_en("Neuer Block", "New block") }}</span></button>
+    </form>
+    {% if ai_on() %}
+    <section class="ai-ideas" data-ai-ideas data-url="{{ url_for('editor.ai_ideas', survey_id=survey.id) }}"
+             data-constructs="{{ url_for('constructs.index', survey=survey.id) }}">
+      <h2>{{ de_en("Anregungen", "Suggestions") }}</h2>
+      <button type="button" class="button button-ai palette-block" data-ai-ideas-go
+              title="{{ de_en('Titel, Beschreibung, Forschungsfrage und der Aufbau des Fragebogens (ohne Antworten) gehen an {to}. Nur Ideen, keine Quellen, nichts davon ist validiert.', 'Title, description, research question and the structure of the questionnaire (without answers) go to {to}. Ideas only, no sources, none of it is validated.', to=ai_recipient()) }}">✨ {{ de_en("Vorschlagen", "Suggest") }}</button>
+      {{ ai_access_line() }}
+      <div class="ai-writing" data-ai-ideas-writing hidden>
+        <p class="ai-writing-head" role="status">{{ de_en("Sucht Konstrukte …", "Looking for constructs …") }}</p>
+        <p class="ai-writing-text" aria-hidden="true"></p>
+      </div>
+      <ul class="plain ai-idea-list" data-ai-ideas-list></ul>
+      <p class="muted small">{{ de_en("Schlägt passende Konstrukte zu Titel, Beschreibung und Fragebogen vor (explorative Ideen, nicht validiert).", "Suggests constructs that fit the title, description and questionnaire (exploratory ideas, not validated).") }}</p>
+    </section>
+    {% endif %}
+    {% else %}
+    {% if not can_edit %}
+    <p class="muted small">{{ de_en("Ihre Rolle ist „Ansehen“: Sie können den Fragebogen lesen und in der Vorschau durchgehen, aber nicht ändern.", "Your role is “View”: you can read the questionnaire and go through it in the preview, but not change it.") }}</p>
+    {# a copy of one's own to change, only for someone with the right to create surveys (UI/UX audit 2026-10-17, W-S01) #}
+    {% if may_copy %}<p class="small"><a href="{{ url_for('surveys.duplicate', survey_id=survey.id) }}">{{ icon("copy", 16) }} {{ de_en("Als eigene Kopie übernehmen", "Take a copy of your own") }}</a></p>{% endif %}
+    {% else %}
+    {# changing the questionnaire after the start is one deliberate step with consequences for the data (new version) #}
+    {% set is_paused = survey.status == "closed" and survey.close_reason == "paused" %}
+    <p class="muted small">{{ de_en("Die Befragung läuft:", "The survey is running:") if survey.status == "running" else (de_en("Die Befragung ist pausiert:", "The survey is paused:") if is_paused else de_en("Die Befragung ist geschlossen:", "The survey is closed:")) }}
+      {{ de_en("Texte lassen sich korrigieren, Fragen und Ablauf sind festgelegt.", "Texts can be corrected, questions and flow are fixed.") }}
+      {{ de_en("Änderungen daran brauchen eine neue Fragebogen-Fassung", "Changes to them need a new revision of the questionnaire") }}{% if survey.status == "running" %}{{ de_en("; dafür zuerst pausieren oder schließen", "; pause or close the survey first") }}{% endif %}:
+      <a href="{{ url_for('surveys.field', survey_id=survey.id, edit=1) }}#reopen">{{ de_en("Datenerhebung → Fragebogen ändern (neue Fassung)", "Data collection → change questionnaire (new revision)") }}</a></p>
+    {% endif %}
+    {% endif %}
+  </aside>
+
+  {# ---- center: blocks ---- #}
+  <div class="canvas">
+    {% if not can_edit %}
+    <div class="flash">{{ icon("eye", 16) }} {{ de_en("Ihre Rolle ist „Ansehen“: Sie können den Fragebogen lesen und in der Vorschau durchgehen, aber nicht ändern.", "Your role is “View”: you can read the questionnaire and go through it in the preview, but not change it.") }}</div>
+    {% elif not editable %}
+    <div class="flash flash-warning">{{ icon("alert", 16) }} {{ de_en("Nur Textkorrekturen sind möglich, der Ablauf ist festgelegt.", "Only text corrections are possible, the flow is fixed.") }}</div>
+    {% endif %}
+    {# separated section and trash: collapsible; closed while empty, open as soon as something is in them #}
+    {% macro split_divider(filled) -%}
+    <details class="area-toggle" id="split" {% if filled %}open{% endif %} data-area>
+    <summary class="split-divider">
+      <span>🔒 <strong>{{ de_en("Getrennter Abschnitt", "Separated section") }}</strong> · {{ de_en("ab hier ohne Verbindung zu den bisherigen Antworten gespeichert (z. B. für Feedback, Verlosung, Kontaktdaten)", "from here on saved without a link to the answers so far (e.g. for feedback, a prize draw, contact details)") }}{% if not filled %} <span class="area-state">· {{ de_en("leer", "empty") }}</span>{% endif %}</span>
+      <span class="area-caret" aria-hidden="true">▾</span>
+    </summary>
+    {%- endmacro %}
+    {% set part_fixed = diary.locked(survey) if part_heads or part_tail else true %}
+    {% for block in canvas_blocks %}
+    {% for h in part_heads.get(block.id, []) %}{% include "diary/_part_head.html" %}{% endfor %}
+    {# a diary study: ↑/↓ stay in the part (diary.move_in_part), so the first and last block of each part are edges #}
+    {% set block_first = loop.first or block.id in part_heads %}{% set block_last = loop.last or (loop.nextitem and loop.nextitem.id in part_heads) %}
+    {% if split and split_after and block.id == split_after[0] %}{{ split_divider(true) }}<div class="separated-area">{% endif %}
+    {% set pinned = [survey.consent_item] if (block.items|length == 1 and block.items[0] is sameas survey.consent_item) else [] %}
+    {% if pinned %}
+    {% set c = pinned[0] %}
+    <section class="panel block block-pinned" id="block-{{ block.id }}" data-drag-id="{{ block.id }}">
+      <div class="block-head">
+        {% if editable %}<span class="drag-handle block-handle" data-block-handle title="{{ de_en('Block ziehen zum Verschieben: hier oder an jeder freien Stelle des Blockkopfs', 'Drag to move the block: here or at any free spot of the block head') }}" aria-hidden="true">⋮⋮</span>{% endif %}
+        {% if flow_badges.get(block.id) %}<div class="flow-badges">{% for b in flow_badges[block.id] %}<a class="flow-badge" href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ b }}</a>{% endfor %}</div>{% endif %}
+        <div class="pinned-title">{{ icon("consent") }} <span class="label-title">{{ de_en("Einwilligung", "Consent") }}</span>
+          <span class="hint">{{ de_en("steht allein in ihrem Block", "is alone in its block") }}{% if editable %} · {{ de_en("verschiebbar", "movable") }}{% if survey.can(current_user, "admin") %} · {{ de_en("entfernbar", "removable") }}{% endif %}{% endif %}</span></div>
+        <div class="toolbar">
+          <a class="icon-btn" href="{{ url_for('editor.preview_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" target="_blank" rel="noopener" title="{{ de_en('Vorschau', 'Preview') }}" aria-label="{{ de_en('Vorschau', 'Preview') }}">{{ icon("eye") }}</a>
+          {% if editable %}
+          <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='up', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach oben', 'Block up') }}" aria-label="{{ de_en('Block nach oben', 'Block up') }}" {% if block_first %}disabled{% endif %}>{{ icon("up") }}</button></form>
+          <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='down', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach unten', 'Block down') }}" aria-label="{{ de_en('Block nach unten', 'Block down') }}" {% if block_last %}disabled{% endif %}>{{ icon("down") }}</button></form>
+          {# into the trash like every question (no question asked; the message says how to get it back); only admins:
+             a new or restored consent sets its key facts (security audit 2026-10-06, S10) #}
+          {% if survey.can(current_user, "admin") %}<form class="inline" method="post" action="{{ url_for('editor.delete_item', survey_id=survey.id, item_id=c.id, lang=lang) }}">{{ csrf() }}<button class="icon-btn danger" title="{{ de_en('Einwilligung entfernen (kommt in den Papierkorb)', 'Remove consent (goes to the bin)') }}" aria-label="{{ de_en('Einwilligung entfernen (kommt in den Papierkorb)', 'Remove consent (goes to the bin)') }}">{{ icon("trash") }}</button></form>{% endif %}
+          {% endif %}
+        </div>
+      </div>
+      <ol class="item-list">
+        <li class="item-row" id="item-{{ c.id }}">
+          <div class="item-main">
+            <a class="item-icon" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=c.id, lang=lang) }}" aria-label="{{ de_en('Einwilligung bearbeiten', 'Edit consent') }}" title="{{ de_en('Einwilligung bearbeiten', 'Edit consent') }}">{{ icon("consent") }}</a>
+            <div class="item-body">
+              <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=c.id, lang=lang) }}" class="item-code">{{ c.code }}</a>
+              {% if c.id in by_item %}<span class="badge badge-error" title="{{ by_item[c.id]|map(attribute='message')|join('; ') }}">{{ de_en("unvollständig", "incomplete") }}</span>{% endif %}
+              <div class="item-text"><span{{ content_lang(lang) }}>{{ c.text("question", lang) }}</span> · <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=c.id, lang=lang) }}">{{ de_en("bearbeiten", "edit") }}</a></div>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </section>
+    {% else %}
+    <section class="panel block {% if loop.last %}is-active{% endif %} {% if block.id in split_after %}block-separated{% endif %} {% if comment_blocks.get(block.id) %}has-comments{% endif %}" id="block-{{ block.id }}" data-block-id="{{ block.id }}" data-drag-id="{{ block.id }}" data-insertion-label="{{ de_en('Block {n}', 'Block {n}', n=loop.index0 + survey.block_start) }}">
+      <div class="block-head">
+        {% if editable %}<span class="drag-handle block-handle" data-block-handle title="{{ de_en('Block ziehen zum Verschieben: hier oder an jeder freien Stelle des Blockkopfs', 'Drag to move the block: here or at any free spot of the block head') }}" aria-hidden="true">⋮⋮</span>{% endif %}
+        <form method="post" action="{{ url_for('editor.update_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" class="block-form">
+          {{ csrf() }}
+          {% if flow_badges.get(block.id) %}<div class="flow-badges">
+            {% for b in flow_badges.get(block.id, []) %}<a class="flow-badge" href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ b }}</a>{% endfor %}
+          </div>{% endif %}
+          {% set pc = block.pages()|length %}
+          <label class="block-name">
+            <input name="title"{{ content_lang(lang) }} aria-label="{{ de_en('Name des Blocks', 'Name of the block') }}" value="{{ (block.titles or {}).get(lang, '') }}" placeholder="{{ de_en('Block {n} benennen, z. B. „Szenario A“', 'Name block {n}, e.g. “Scenario A”', n=loop.index0 + survey.block_start) }}"
+                   maxlength="300" data-block-name title="{{ de_en('Name des Blocks: Erscheint im Ablauf, bei Randomisierungen und im Export; Enter speichert', 'Name of the block: shown in the flow, in randomisations and in the export; Enter saves') }}" {% if not can_edit %}disabled{% endif %}>
+          </label>
+          {% if blockload_info is not none and block.id in blockload_info %}{% set bl_why = blockload_info[block.id] %}
+          {% if bl_why %}<span class="badge" title="{{ de_en('Wird Seite für Seite geladen: {why}', 'Loaded page by page: {why}', why=bl_why|join('; ')) }}">{{ de_en("seitenweise", "page by page") }}<span class="visually-hidden">: {{ bl_why|join("; ") }}</span></span>
+          {% else %}<span class="badge badge-running" title="{{ de_en('Einfacher Block: Alle Seiten kommen in einem Stück in den Browser (Einstellungen: Teilnahme)', 'Simple block: all pages come to the browser in one piece (settings: participation)') }}">{{ de_en("am Stück", "at once") }}</span>{% endif %}
+          {% endif %}
+          {% if comment_blocks.get(block.id) %}<a class="badge badge-comment" href="{{ url_for('editor.comments_page', survey_id=survey.id) }}" title="{{ de_en('Offene Kommentare aus Testdurchläufen zu diesem Block', 'Open comments from test runs on this block') }}">💬 {{ de_en("{n} offen", "{n} open", n=comment_blocks[block.id]) }}</a>{% endif %}
+          {# rarely used, but important: in a fold of their own, closed; its line names what is set (Philipp, 2026-10-08) #}
+          {% set times = (block.settings or {}) %}
+          {% set active = ([de_en("Name sichtbar", "name shown")] if block.show_title else []) + ([de_en("zufällige Reihenfolge", "random order")] if block.randomize_items else []) + ([de_en("mind. {n} s", "min. {n} s", n=times.min_seconds)] if times.get("min_seconds") else []) + ([de_en("höchstens {n} s", "max. {n} s", n=times.max_seconds)] if times.get("max_seconds") else []) %}
+          <details class="block-settings">
+          <summary><span>{{ de_en("Einstellungen", "Settings") }}{% if active %} <span class="hint">· {{ active|join(" · ") }}</span>{% endif %}</span>
+            <span class="hint block-meta">{# only the pages: a number here counted other blocks than the names "Block 1", "Block 2" do (V101) #}{{ de_en("{n} Seite", "{n} page", n=pc) if pc == 1 else de_en("{n} Seiten", "{n} pages", n=pc) }}</span></summary>
+          <div class="block-options">
+            <label class="check" title="{{ de_en('Der Name erscheint dann als Überschrift über den Fragen des Blocks', 'The name then appears as a heading above the questions of the block') }}"><input type="checkbox" name="show_title" value="1" data-block-option {% if block.show_title %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("Namen auch Teilnehmenden zeigen", "Show the name to participants too") }}</label>
+            <label class="check"><input type="checkbox" name="randomize_items" value="1" data-block-option {% if block.randomize_items %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("zufällige Reihenfolge der Elemente auf jeder Seite", "random order of the elements on each page") }}</label>
+            {% if tempo.mode(survey) == "blocks" %}<label class="check" title="{{ de_en('Wer eine Seite dieses Blocks schneller abschickt, als sich ihre Fragen lesen lassen, sieht sie noch einmal mit einem Hinweis (Einstellungen der Befragung: Tempo-Hinweis)', 'Anyone who submits a page of this block faster than its questions can be read sees it once more with a hint (survey settings: speed hint)') }}"><input type="checkbox" name="tempo_hint" value="1" data-block-option {% if (block.settings or {}).get("tempo_hint") %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("Tempo-Hinweis auf den Seiten dieses Blocks", "Speed hint on the pages of this block") }}</label>{% endif %}
+            {% if tempo.block_on(survey, block) %}
+            {% set limits = tempo.block_thresholds(survey, block, lang) %}
+            <span class="hint tempo-limits" title="{{ de_en('Tempo-Hinweis: Wer eine Seite beim ersten „Weiter“ schneller abschickt, sieht sie noch einmal mit einem Hinweis.', 'Speed hint: anyone who submits a page faster at the first “Next” sees it once more with a hint.') }} {{ de_en('Schwelle: halbe Median-Zeit der Seite bei den bisherigen Teilnahmen, davor und sonst ', 'Threshold: half the median time of the page in the participations so far, before that and otherwise ') if tempo.options(survey).rule == 'median' else '' }}{{ de_en('350 ms je Wort der Frage- und Aussagetexte; „–“ = Seite wird nicht geprüft (Einwilligung, Aufgabe mit eigenen Seiten; Seiten ohne Frage und Auswahlaufgaben nur, wenn in den Einstellungen angekreuzt). Auswahlaufgaben: Mittelwert über die Aufgaben.', '350 ms per word of the question and statement texts; “–” = page is not checked (consent, task with its own pages; pages without a question and choice tasks only when ticked in the settings). Choice tasks: mean over the tasks.') }}">{{ de_en("Tempo-Schwelle je Seite:", "Speed threshold per page:") }} {% for s in limits %}{{ "–" if s is none else ((s)|fixed(1)).replace(".", ",") ~ " s" }}{{ " · " if not loop.last }}{% endfor %}</span>
+            {% endif %}
+            <span class="block-times" title="{{ de_en('Zeit je Seite dieses Blocks. Mindestens: „Weiter“ ist erst nach so vielen Sekunden möglich, z. B. damit ein Bild oder Text betrachtet wird. Höchstens: Die Seite zählt herunter und geht danach von selbst weiter, mit den bis dahin gegebenen Antworten. Leer = keine Vorgabe. Gilt nicht für Einwilligung und Aufgaben mit eigenen Seiten.', 'Time per page of this block. Minimum: “Next” is possible only after so many seconds, e.g. so that an image or text is looked at. Maximum: the page counts down and then moves on automatically, with the answers given so far. Empty = no limit. Does not apply to consent and tasks with their own pages.') }}">{{ de_en("Zeit je Seite:", "Time per page:") }}
+              <label>{{ de_en("mindestens", "at least") }} <input type="number" name="min_seconds" min="1" max="{{ pagetime.MIN_LIMIT }}" step="1" inputmode="numeric" value="{{ times.get('min_seconds') or '' }}" data-block-option {% if not editable %}disabled{% endif %}> s</label>
+              <label>{{ de_en("höchstens", "at most") }} <input type="number" name="max_seconds" min="1" max="{{ pagetime.MAX_LIMIT }}" step="1" inputmode="numeric" value="{{ times.get('max_seconds') or '' }}" data-block-option {% if not editable %}disabled{% endif %}> s</label>
+              {# WCAG 2.2.1 (accessibility concept D4): without the tick a page offers "Mehr Zeit" up to ten times before its time is up #}
+              <label class="check" title="{{ de_en('Ohne Häkchen bekommen Teilnehmende mindestens 20 Sekunden vor Ablauf bis zu zehnmal „Mehr Zeit“; nicht notwendige Zeitlimits dauern mindestens 30 Sekunden, wie es die Barrierefreiheit verlangt (WCAG 2.2.1). Mit Häkchen bleibt die Höchstzeit fest, weil sie zur Aufgabe gehört (z. B. ein Experiment unter Zeitdruck); die Seite sagt dann vorher, wie viel Zeit es gibt.', 'Without the tick participants get “More time” up to ten times, at least 20 seconds before the end; non-essential limits last at least 30 seconds, as accessibility requires (WCAG 2.2.1). With the tick the time limit stays fixed because it is part of the task (e.g. an experiment under time pressure); the page then says beforehand how much time there is.') }}"><input type="checkbox" name="{{ pagetime.ESSENTIAL }}" value="1" data-block-option {% if times.get(pagetime.ESSENTIAL) %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("Die Zeit gehört zum Versuch", "The time is part of the experiment") }}</label>
+            </span>
+            {% if editable and block.id not in split_after and not loop_info.get(block.id) %}
+            <span class="block-loop"><button class="button button-small button-secondary" form="loop-form-{{ block.id }}" title="{{ de_en('Diesen Block je Tabellenzeile wiederholen, z. B. einmal je Roboter oder Szenario: Legt im Ablauf eine Schleife um den Block an. Mit einer Zeile je Variante und zufälliger Auswahl auch für Varianten eines Stimulus.', 'Repeat this block per table row, e.g. once per robot or scenario: puts a loop around the block in the flow. With one row per variant and random selection also for variants of a stimulus.') }}">🔁 {{ de_en("Schleife um diesen Block", "Loop around this block") }}</button>
+              <span class="hint">{{ de_en("je Tabellenzeile wiederholen, z. B. je Roboter oder Szenario", "repeat per table row, e.g. per robot or scenario") }}</span></span>
+            {{ why("copy_or_loop") }}
+            {% endif %}
+            {% if blockload_info is not none and blockload_info.get(block.id) %}<p class="hint block-load-why">{{ de_en("Nicht am Stück geladen:", "Not loaded at once:") }} {{ blockload_info[block.id]|join("; ") }}</p>{% endif %}
+            {# saved at once, like the name (app.js); the button is only there without JavaScript #}
+            {% if can_edit %}<noscript><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></noscript>{% endif %}
+          </div>
+          </details>
+        </form>
+        <div class="toolbar">
+          {% if part_heads or part_tail %}{# a diary study: the part of this block (app/diary.py, block_part) #}
+          <form class="inline" method="post" action="{{ url_for('diary.block_part', survey_id=survey.id, block_id=block.id) }}">{{ csrf() }}
+            <select name="part" class="diary-part-select" data-submit-on-change aria-label="{{ de_en('Teil des Blocks', 'Part of the block') }}" title="{{ de_en('Zu welchem Teil der Block gehört; Ziehen in einen anderen Teil ändert es auch', 'Which part the block belongs to; dragging it into another part changes it too') }}" {% if not editable or part_fixed %}disabled{% endif %}>
+              {% for k in diary.part_keys(survey) %}<option value="{{ k }}" {% if diary.part_of(block) == k %}selected{% endif %}>{{ diary.part_label(k, survey) }}</option>{% endfor %}
+            </select></form>
+          {% endif %}
+          {% if loop_info.get(block.id) %}
+          <a class="button button-small button-secondary loop-btn is-on" href="{{ url_for('flow_page.loop_node', survey_id=survey.id, nid=loop_info[block.id].id, lang=lang) }}" title="{{ de_en('Tabelle und Einstellungen der Schleife „{name}“', 'Table and settings of the loop “{name}”', name=loop_info[block.id].name) }}">🔁 <span class="loop-btn-text">{{ loop_info[block.id].name or de_en("Schleife", "Loop") }}</span></a>
+          {% elif editable and block.id not in split_after %}
+          {# a rare step: its button is in the block's settings (UI audit 2026-10-12, U21); its form stands here,
+             outside the form of the block, which may not hold another #}
+          <form id="loop-form-{{ block.id }}" class="inline" method="post" action="{{ url_for('editor.loop_table', survey_id=survey.id, block_id=block.id, lang=lang) }}" hidden>{{ csrf() }}</form>
+          {% endif %}
+          <a class="icon-btn" href="{{ url_for('editor.preview_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" target="_blank" rel="noopener" title="{{ de_en('Vorschau', 'Preview') }}" aria-label="{{ de_en('Vorschau', 'Preview') }}">{{ icon("eye") }}</a>
+          {% if editable %}
+          <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='up', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach oben', 'Block up') }}" aria-label="{{ de_en('Block nach oben', 'Block up') }}" {% if block_first %}disabled{% endif %}>{{ icon("up") }}</button></form>
+          <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='down', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach unten', 'Block down') }}" aria-label="{{ de_en('Block nach unten', 'Block down') }}" {% if block_last %}disabled{% endif %}>{{ icon("down") }}</button></form>
+          {# the block with all its elements, right below; for the same questions per scenario a loop needs no copies #}
+          <form class="inline" method="post" action="{{ url_for('editor.duplicate_block', survey_id=survey.id, block_id=block.id, lang=lang) }}">{{ csrf() }}<button class="icon-btn" data-duplicate title="{{ de_en('Block duplizieren: Kopie mit allen Elementen direkt darunter. Dieselben Fragen je Szenario oder Produkt? Das geht auch ohne Kopien mit einer Schleife (Einstellungen des Blocks).', 'Duplicate block: a copy with all elements right below. The same questions per scenario or product? A loop does it without copies (settings of the block).') }}" aria-label="{{ de_en('Block duplizieren', 'Duplicate block') }}">{{ icon("copy") }}</button></form>
+          {% set block_answered = block.items|selectattr("id", "in", answered)|list %}
+          <form class="inline" method="post" action="{{ url_for('editor.delete_block', survey_id=survey.id, block_id=block.id, lang=lang) }}"{% if block_answered %} data-confirm="{{ de_en('Block mit Antworten löschen?', 'Delete block with answers?') }}" data-confirm-note="{{ answer_lock.DELETE_BLOCK_ASK }}" data-confirm-ok="{{ de_en('Trotzdem löschen', 'Delete anyway') }}" data-confirm-danger{% endif %}>{{ csrf() }}{% if block_answered %}<input type="hidden" name="{{ answer_lock.CONFIRM_FIELD }}" value="1">{% endif %}<button class="icon-btn danger" title="{{ de_en('Block löschen (lässt sich rückgängig machen)', 'Delete block (can be undone)') }}" aria-label="{{ de_en('Block löschen (lässt sich rückgängig machen)', 'Delete block (can be undone)') }}">{{ icon("trash") }}</button></form>
+          {% endif %}
+        </div>
+      </div>
+
+      <ol class="item-list" data-dropzone>
+        {% for item in block.items %}
+        <li class="item-row {% if comment_items.get(item.id) %}has-comments {% endif %}{% if item.type == 'page_break' %}page-break-row{% elif (item.config or {}).get('ai') %}row-ai{% elif ((item.config or {}).get('construct') or {}).get('key', '')[:2] == 'v-' %}row-linked{% elif (item.config or {}).get('construct') %}row-construct{% elif item.kind.category == 'feedback' %}row-feedback{% endif %}" id="item-{{ item.id }}" data-item-id="{{ item.id }}" {% if editable %}data-drag{% endif %}>
+          {% if editable %}<span class="drag-handle" title="{{ de_en('Ziehen zum Verschieben: hier oder an jeder freien Stelle der Zeile, auch in einen anderen Block oder zwischen zwei Blöcke (neuer Block)', 'Drag to move: here or at any free spot of the row, also into another block or between two blocks (new block)') }}" aria-hidden="true">⋮⋮</span>{% endif %}
+          {% if item.type == "page_break" %}
+          <div class="item-main page-break-line"><span>{{ de_en("Seitenumbruch", "Page break") }}</span></div>
+          {% else %}
+          <div class="item-main">
+            <a class="item-icon" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" {% set preset = item_preset(item) %}title="{{ (preset or item.kind).label }}" draggable="false">{{ icon(preset.key if preset else item.type) }}</a>
+            <div class="item-body">
+              <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="item-code" draggable="false">{{ item.code }}</a>
+              {% if item.kind.collects_answer and item.kind.has_answer_mode %}
+              {% set mode = item.answer_mode_labels()[item.answer_mode] %}
+              <span class="badge mode-badge mode-{{ item.answer_mode }}" title="{{ mode[1] }}">{{ mode[0] }}</span>
+              {% endif %}
+              {% if item.id in by_item %}<span class="badge badge-error" title="{{ by_item[item.id]|map(attribute='message')|join('; ') }}">{{ de_en("unvollständig", "incomplete") }}</span>{% endif %}
+              {% if cond_items.get(item.id) %}<span class="badge badge-cond" title="{{ de_en('Nur zeigen, wenn {cond}', 'Show only if {cond}', cond=cond_items[item.id]) }}">{{ de_en("bedingt", "conditional") }}</span>{% endif %}
+              {% if comment_items.get(item.id) %}<a class="badge badge-comment" href="{{ url_for('editor.comments_page', survey_id=survey.id) }}" title="{{ de_en('Offene Kommentare aus Testdurchläufen', 'Open comments from test runs') }}">💬 {{ comment_items[item.id] }}</a>{% endif %}
+              {% if (item.config or {}).get("ai") %}<span class="badge badge-ai" title="{{ de_en('Items von einer KI entworfen: nicht validiert', 'Items drafted by an AI: not validated') if item.kind.ai_scale else de_en('Texte von einer KI entworfen: bitte prüfen', 'Texts drafted by an AI: please check') }}">✨ {{ de_en("KI-generiert", "AI-generated") }}</span>{% endif %}
+              {% set cb = construct_badge(item) %}
+              {% if cb and cb.linked %}<a class="badge badge-linked{% if cb.modified %} is-modified{% endif %}" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" title="{{ cb.title }}">{{ icon("link", 12) }} {{ cb.label }}{% if cb.modified %} · {{ de_en("angepasst", "adapted") }}{% endif %}</a>
+              {% elif cb %}<a class="badge badge-construct{% if cb.modified %} is-modified{% endif %}" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" title="{{ cb.title }}">{{ icon("construct", 12) }} {{ cb.label }}{% if cb.modified %} · {{ de_en("verändert", "changed") }}{% endif %}</a>{% endif %}
+              <div class="item-text"{% if item.text("question", lang) %}{{ content_lang(lang) }}{% endif %}>{{ (item.text("question", lang)|plain or (item_preset(item) or item.kind).label)|truncate(140) }}</div>
+            </div>
+          </div>
+          {% endif %}
+          {% if editable %}
+          {# a phone: the tools of the row behind "⋯" at its top right instead of a line of their own (UI audit 2026-10-12, U56) #}
+          <button type="button" class="icon-btn row-menu-btn" data-row-menu aria-expanded="false" title="{{ de_en('Verschieben, duplizieren und löschen', 'Move, duplicate and delete') }}" aria-label="{{ de_en('Verschieben, duplizieren und löschen', 'Move, duplicate and delete') }}">⋯</button>
+          <div class="toolbar">
+            {% for dir, ic, title, disabled in [("up","up",de_en("nach oben", "up"), loop.first), ("down","down",de_en("nach unten", "down"), loop.last), ("prev_block","block-up",de_en("in vorherigen Block", "into the previous block"), block_first), ("next_block","block-down",de_en("in nächsten Block", "into the next block"), block_last)] %}
+            {# up and down always; into the next or previous block only while the row is pointed at or focused (R92) #}
+            <form class="inline{% if dir in ('prev_block', 'next_block') %} row-tool-more{% endif %}" method="post" action="{{ url_for('editor.move_item', survey_id=survey.id, item_id=item.id, direction=dir, lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ title }}" aria-label="{{ title }}" {% if disabled %}disabled{% endif %}>{{ icon(ic) }}</button></form>
+            {% endfor %}
+            {# a copy right below, with a variable name of its own (app/editor/duplicating.py); not for a page break #}
+            {% if item.type != "page_break" %}<form class="inline" method="post" action="{{ url_for('editor.duplicate_item', survey_id=survey.id, item_id=item.id, lang=lang) }}">{{ csrf() }}<button class="icon-btn" data-duplicate title="{{ de_en('duplizieren: Kopie direkt darunter, mit eigenem Variablennamen', 'duplicate: a copy right below, with a variable name of its own') }}" aria-label="{{ de_en('„{code}“ duplizieren', 'Duplicate “{code}”', code=item.code) }}">{{ icon("copy") }}</button></form>{% endif %}
+            {# a question with real answers in a survey opened for editing: deleting asks first (audit 2026-10-18, FUNC-05) #}
+            <form class="inline" method="post" action="{{ url_for('editor.delete_item', survey_id=survey.id, item_id=item.id, lang=lang) }}"{% if item.id in answered %} data-confirm="{{ de_en('„{code}“ mit seinen Antworten löschen?', 'Delete “{code}” with its answers?', code=item.code) }}" data-confirm-note="{{ answer_lock.DELETE_ASK }}" data-confirm-ok="{{ de_en('Trotzdem löschen', 'Delete anyway') }}" data-confirm-danger{% endif %}>{{ csrf() }}{% if item.id in answered %}<input type="hidden" name="{{ answer_lock.CONFIRM_FIELD }}" value="1">{% endif %}<button class="icon-btn danger" title="{{ de_en('löschen (kommt in den Papierkorb)', 'delete (goes to the bin)') }}" aria-label="{{ de_en('löschen (kommt in den Papierkorb)', 'delete (goes to the bin)') }}">{{ icon("trash") }}</button></form>
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+        <li class="drop-hint" aria-hidden="true">{{ de_en("Elemente hierher ziehen", "Drag elements here") if editable else de_en("Leer", "Empty") }}</li>
+      </ol>
+      {# on a phone the palette stands under the whole questionnaire: this button shows it right under the block, and
+        "+" there adds to this block (app.js data-block-palette; UI/UX audit 2026-10-09, X29) #}
+      {% if editable %}<button type="button" class="button button-small button-secondary block-palette-btn" data-block-palette aria-expanded="false">{{ icon("plus", 16) }} {{ de_en("Element hinzufügen", "Add element") }}</button>{% endif %}
+    </section>
+    {% endif %}
+    {% else %}
+    <div class="panel empty-state">
+      <p>{{ de_en("Noch kein Block. Ein Block fasst Elemente zusammen und ist später die Einheit für Randomisierung und Schleifen.", "No block yet. A block groups elements and is later the unit for randomisation and loops.") }}</p>
+      {% if editable %}
+      <form method="post" action="{{ url_for('editor.add_block', survey_id=survey.id, lang=lang) }}">{{ csrf() }}<button class="button">{{ icon("plus") }} {{ de_en("Ersten Block anlegen", "Create first block") }}</button></form>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% for h in part_tail %}{% include "diary/_part_head.html" %}{% endfor %}
+
+    {% if split and split_after %}</div></details>{% endif %}
+    {# a diary study has no separated section: every part is stored with the person (decision of 2026-10-11) #}
+    {% if not split_after and not (part_heads or part_tail) %}{{ split_divider(false) }}<div class="separated-area"><p class="area-empty">{{ de_en("leer", "empty") }}</p></div></details>{% endif %}
+    {% if editable %}
+    <details class="area-toggle trash-area" id="trash" aria-label="{{ de_en('Papierkorb', 'Bin') }}" {% if survey.trash %}open{% endif %} data-area>
+      <summary class="split-divider trash-divider">
+        <span>{{ icon("trash", 16) }} <strong>{{ de_en("Papierkorb", "Bin") }}</strong> · {{ de_en("gelöschte Fragen bleiben {n} Tage hier und werden dann endgültig entfernt", "deleted questions stay here for {n} days and are then removed permanently", n=trash.TRASH_DAYS) }}
+          <span class="area-state">· {{ survey.trash|length if survey.trash else de_en("leer", "empty") }}</span></span>
+        <span class="area-caret" aria-hidden="true">▾</span>
+      </summary>
+      <ol class="item-list">
+        {% if not survey.trash %}<li class="area-empty">{{ de_en("leer", "empty") }}</li>{% endif %}
+        {% for entry in survey.trash %}
+        <li class="item-row">
+          <div class="item-main">
+            <span class="item-icon" title="{{ entry.data.type }}">{{ icon(entry.data.type) }}</span>
+            <div class="item-body">
+              <span class="item-code">{{ entry.data.code }}</span>
+              <span class="hint">{% if entry.data.block_title %}{{ de_en("aus „{block}“", "from “{block}”", block=entry.data.block_title) }} · {% endif %}{% if trash.expires(entry) %}{{ de_en("bis {date}", "until {date}", date=trash.expires(entry)|localdt) }}{% else %}{{ de_en("bleibt, bis Sie es endgültig löschen (echte Antworten)", "stays until you delete it for good (real answers)") }}{% endif %}</span>
+              <div class="item-text">{{ trash.label(entry, lang)|truncate(140) }}</div>
+            </div>
+          </div>
+          <div class="toolbar">
+            <form class="inline" method="post" action="{{ url_for('editor.trash_entry', survey_id=survey.id, entry_id=entry.id, action='restore', lang=lang) }}">{{ csrf() }}<button class="button button-small button-secondary" title="{{ de_en('An die alte Stelle zurücklegen (sonst in den ersten Block)', 'Put back in its old place (otherwise into the first block)') }}">{{ icon("undo", 14) }} {{ de_en("Wiederherstellen", "Restore") }}</button></form>
+            <form class="inline" method="post" action="{{ url_for('editor.trash_entry', survey_id=survey.id, entry_id=entry.id, action='destroy', lang=lang) }}" data-confirm="{{ de_en('„{code}“ endgültig löschen?', 'Delete “{code}” permanently?', code=entry.data.code) }}" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}" data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>{{ csrf() }}<button class="icon-btn danger" title="{{ de_en('endgültig löschen', 'delete permanently') }}" aria-label="{{ de_en('endgültig löschen', 'delete permanently') }}">{{ icon("x") }}</button></form>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+    </details>
+    {% endif %}
+  </div>
+
+  {# ---- right: pre-launch check and figures ---- #}
+  <aside class="sidebar sidebar-right" aria-label="{{ de_en('Startprüfung', 'Pre-launch check') }}" data-sidebar="right">
+    {% set n_errors = findings|selectattr("severity", "equalto", "error")|list|length + findings|selectattr("blocks_start")|list|length %}
+    <div class="right-rail">
+      <button type="button" class="icon-btn sidebar-toggle" data-sidebar-toggle="right" aria-expanded="true"
+              title="{{ de_en('Seitenleiste ein-/ausklappen', 'Expand/collapse sidebar') }}" aria-label="{{ de_en('Rechte Seitenleiste ein- oder ausklappen', 'Expand or collapse the right sidebar') }}">{{ icon("back", 16) }}</button>
+      <span class="rail-only rail-status {{ 'bad' if n_errors else 'good' }}" title="{{ de_en('{n} Fehler in der Startprüfung', '{n} errors in the pre-launch check', n=n_errors) }}">{{ n_errors if n_errors else "✓" }}</span>
+    </div>
+    <div id="panel-check">
+    {% if team_notes %}<p class="comments-link"><a href="{{ url_for('editor.comments_page', survey_id=survey.id) }}" class="{% if comment_blocks %}has-open{% endif %}">💬 {{ de_en("Kommentare aus Testdurchläufen", "Comments from test runs") }}{% if comment_blocks %}: {{ de_en("{n} offen", "{n} open", n=comment_blocks.values()|sum) }}{% endif %}</a></p>{% endif %}
+    <h2>{{ de_en("Startprüfung", "Pre-launch check") }}</h2>
+    {% include "surveys/_plan_line.html" %}
+      {% if findings %}
+      <ul class="plain findings">
+        {% for f in findings %}
+        <li class="finding finding-{{ 'error' if f.blocks_start else f.severity }}">
+          {{ icon("x" if f.severity == "error" or f.blocks_start else "alert", 16) }}
+          {% if f.fix and survey.is_editable and survey.can(current_user, "editor") %}{# a one-click fix under the message (UI/UX audit 2026-10-05, V17) #}
+          <div class="finding-body"><a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=f.item_id, lang=lang) }}">{{ f.message }}</a>
+          <form method="post" action="{{ url_for(f.fix[1], survey_id=survey.id, item_id=f.fix[2].item_id) }}" class="finding-fix">{{ csrf() }}
+            {% for k, v in f.fix[2].items() if k != "item_id" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+            <button class="button button-secondary button-small">{{ f.fix[0] }}</button></form></div>
+          {% elif f.link %}<a href="{{ url_for(f.link, survey_id=survey.id, lang=lang, _anchor=f.anchor) }}">{{ f.message }}</a>
+          {% elif f.item_id %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=f.item_id, lang=lang) }}">{{ f.message }}</a>
+          {% else %}<span>{{ f.message }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if survey.status == "draft" %}<p class="muted small">{{ de_en("Fehler müssen vor dem Start behoben sein; Warnungen sollten geprüft oder behoben werden.", "Errors must be fixed before the start; warnings should be checked or fixed.") }}</p>{% endif %}
+      {% else %}<p class="ok">{{ icon("check", 16) }} {{ de_en("Startklar.", "Ready to start.") if survey.status == "draft" else de_en("Keine Meldungen.", "No messages.") }}</p>{% endif %}
+      {% if survey.is_editable and survey.can(current_user, "editor") and ai_on() %}
+      <form method="post" action="{{ url_for('editor.text_review_survey', survey_id=survey.id) }}" class="ai-check-side">
+        {{ csrf() }}<button class="button button-ai button-small" title="{{ de_en('Ganzer Fragebogen: Formulierung, Reihenfolge, Skalen; Vorschläge zum Auswählen, ein KI-Aufruf', 'Whole questionnaire: wording, order, scales; suggestions to choose from, one AI call') }}">{{ icon("sparkles", 16) }} {{ de_en("Texte von der KI prüfen lassen", "Have the texts checked by AI") }}</button>
+        {{ ai_access_line() }}
+      </form>
+      {% endif %}
+
+  
+      <h2 class="mt">{{ de_en("Kennzahlen", "Key figures") }}</h2>
+      <dl class="figures">
+        {% set est = stats.duration %}
+        {% if survey.sampling is not none %}{# a diary study: each part on its own (diary.part_durations) #}
+        {% for k, e in diary.part_durations(survey) %}<div class="fig-wide" title="{{ de_en('Geschätzte Dauer des ganzen Teils aus Lesezeit und typischer Antwortzeit; in Klammern die Spanne, wenn Bedingungen Fragen nur manchen zeigen. Einträge auf dem Handy mal 1,3.', 'Estimated duration of the whole part from reading time and typical answer time; in brackets the range when conditions show questions to some only. Entries on the phone times 1.3.') }}"><dt>{{ diary.part_label(k, survey) }}</dt><dd>{{ duration_label_html(e) }}</dd></div>{% endfor %}
+        {% else %}
+        <div class="fig-wide" title="{{ de_en('Schätzung aus Lesezeit (200 Wörter/Min.) und typischer Antwortzeit je Art des Elements', 'Estimate from reading time (200 words/min) and typical answer time per kind of element') }}{% if est.has_random %}{{ de_en('; Randomisierung: nur die gezeigten Blöcke', '; randomisation: only the blocks shown') }}{% endif %}{% if est.has_branches %}{{ de_en('; Bedingungen: Spanne ohne/mit bedingten Blöcken', '; conditions: range without/with conditional blocks') }}{% endif %}">
+          <dt>{{ de_en("Geschätzte Dauer", "Estimated duration") }}</dt><dd>{{ duration_label_html(est) }}</dd></div>
+        {% endif %}
+        <div><dt>{{ de_en("Blöcke", "Blocks") }}</dt><dd>{{ stats.blocks }}</dd></div>
+        <div><dt>{{ de_en("Seiten", "Pages") }}</dt><dd>{{ stats.pages }}</dd></div>
+        <div><dt>{{ de_en("Fragen", "Questions") }}</dt><dd>{{ stats.questions }}</dd></div>
+        <div><dt>{{ de_en("Variablen im Export", "Variables in the export") }}</dt><dd>{{ stats.columns }}</dd></div>
+        {# every tile half wide: the grid fills without a gap (UI audit 2026-10-12, U13) #}
+        <div title="{{ de_en('Verschiedene Wege durch die Blöcke: Randomisierungen (welche Blöcke, ggf. Reihenfolge) und Bedingungen (Block gezeigt oder nicht; obere Schranke). Schleifen (Mikroszenarien) und die Reihenfolge von Aussagen innerhalb einer Skala zählen nicht.', 'Different paths through the blocks: randomisations (which blocks, possibly their order) and conditions (block shown or not; upper bound). Loops (micro-scenarios) and the order of statements within a scale do not count.') }}">
+          <dt>{{ de_en("Pfade durch den Ablauf", "Paths through the flow") }}</dt><dd>{{ human_count(stats.paths) }}{% if stats.orders != stats.paths %} <span class="hint">{{ de_en("inkl. Reihenfolge in Blöcken: {n}", "incl. order within blocks: {n}", n=human_count(stats.orders)) }}</span>{% endif %}</dd></div>
+      <div title="{{ de_en('Anzahl der Versuchsbedingungen aus Randomisierungen (Between-Subject-Zellen)', 'Number of experimental conditions from randomisations (between-subject cells)') }}"><dt>{{ de_en('Versuchs&shy;bedingungen', 'Experimental conditions')|safe }}</dt><dd>{{ human_count(stats.conditions) }}</dd></div>
+      <div title="{{ de_en('Anzahl der Verzweigungen im Ablauf', 'Number of branches in the flow') }}"><dt>{{ de_en("Verzweigungen", "Branches") }}</dt><dd>{{ stats.branches }}</dd></div>
+        <div class="{{ 'fig-ok' if stats.ai_images < 12 else 'fig-warn' if stats.ai_images <= 500 else 'fig-error' }}"
+             title="{{ de_en('Vorab zu erzeugende KI-Bilder: unter 12 unkritisch, ab 12 Warnung, über 500 gesperrt', 'AI images to be generated in advance: under 12 fine, from 12 a warning, over 500 blocked') }}">
+          <dt>{{ de_en("KI-Bilder", "AI images") }}</dt><dd>{{ stats.ai_images }}</dd></div>
+      </dl>
+  
+    </div>
+  </aside>
+</div>
+{% if editable and ai_on() %}
+{% if editable %}{% include "constructs/_box_dialog.html" %}{% endif %}
+<dialog class="ai-dialog" data-ai-dialog>
+  <form method="post" class="stack" data-ai-form data-url="{{ url_for('editor.ai_scale', survey_id=survey.id, block_id=0, lang=lang) }}"
+        data-busy="{{ de_en('Wird entworfen … (bis zu 1 Minute)', 'Drafting … (up to 1 minute)') }}">
+    {{ csrf() }}
+    <input type="hidden" name="position" value="">
+    <h2>✨ {{ de_en("Skala mit KI entwerfen", "Draft a scale with AI") }}</h2>
+    <label>{{ de_en("Was soll die Skala messen?", "What should the scale measure?") }} <span class="hint">{{ de_en("ein bis zwei Sätze; die Beschreibung der Befragung geht als Kontext mit", "one or two sentences; the description of the survey goes along as context") }}</span>
+      <textarea name="idea" rows="3" required maxlength="500" placeholder="{{ de_en('z. B. „Wie sehr Menschen einem Pflegeroboter zutrauen, sie im Alltag zuverlässig zu unterstützen“', 'e.g. “How much people trust a care robot to support them reliably in everyday life”') }}"></textarea></label>
+    <div class="row-fields">
+      <label>{{ de_en("Anzahl Items", "Number of items") }} <input type="number" name="n" min="2" max="15" value="3" class="narrow"></label>
+      <label class="check"><input type="checkbox" name="reverse" value="1" checked> {{ de_en("etwa die Hälfte umgepolt", "about half reverse-keyed") }} <span class="hint">{{ de_en("gerade Anzahl: genau die Hälfte, ungerade: eins weniger", "even number: exactly half, odd: one fewer") }}</span></label>
+    </div>
+    <p class="muted small">{{ de_en('Ergebnis: eine Likert-Matrix mit Item-Entwürfen, markiert als <strong>KI-generiert</strong> (auch im Codebuch). Nicht validiert: Items prüfen, anpassen, im Pretest die Reliabilität untersuchen. Die Anfrage geht an {to} (ohne Antworten).', 'Result: a Likert matrix with draft items, marked as <strong>AI-generated</strong> (in the codebook too). Not validated: check the items, adapt them, examine the reliability in the pretest. The request goes to {to} (without answers).', html=True, to=ai_recipient()) }}</p>
+    <div class="ai-writing" id="scale-writing" hidden>
+      <p class="ai-writing-head" role="status">{{ de_en("Skala wird entworfen … das dauert bis zu einer Minute", "Drafting the scale … this takes up to a minute") }}</p>
+      <p class="ai-writing-text" aria-hidden="true"></p>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="button button-ai" data-ai data-ai-writing="#scale-writing" data-ai-chars="900">✨ {{ de_en("Entwerfen", "Draft") }}</button>
+      <button type="button" class="button button-secondary" data-ai-cancel>{{ de_en("Abbrechen", "Cancel") }}</button>
+      {{ ai_access_line() }}
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

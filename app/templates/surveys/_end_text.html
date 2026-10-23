@@ -1,0 +1,17 @@
+{# One text of an end page: the standard text is shown as text, not as a grey placeholder; "Anpassen" puts it into
+   the field to change a word, "Standard wiederherstellen" empties the field again (UI/UX audit 2026-10-05, V88, V98;
+   app.js "End texts"). An empty field means the standard text, as before. #}
+{% macro end_text_field(name, label, hint, standard, own, editable) -%}
+<div class="end-text" data-end-text>
+  <p class="label-title">{{ label }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</p>
+  <div class="end-text-default" data-end-default {% if own %}hidden{% endif %}>
+    <span class="muted">{{ de_en("Standardtext:", "Standard text:") }}</span>
+    <div class="end-text-standard" data-rich-show="block">{{ standard }}</div>
+    {% if editable %}<button type="button" class="button button-small button-secondary" data-end-adapt>{{ de_en("Anpassen", "Adapt") }}</button>{% endif %}
+  </div>
+  <label class="end-text-own" data-end-own {% if not own %}hidden{% endif %}><span class="visually-hidden">{{ label }}</span>
+    <textarea name="{{ name }}" rows="3" {% if own %}data-rich="block"{% endif %} data-standard="{{ standard }}" {% if not editable %}disabled{% endif %}>{{ own }}</textarea>
+  </label>
+  {% if editable %}<button type="button" class="button button-small button-secondary end-text-restore" data-end-restore {% if not own %}hidden{% endif %}>{{ de_en("Standard wiederherstellen", "Restore standard") }}</button>{% endif %}
+</div>
+{%- endmacro %}

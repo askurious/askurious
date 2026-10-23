@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{# Administration > Organisationen (app/orgs.py, konzept-abteilungen-2026-10-15.md) as a table (variant A of the concept
+   of 2026-10-18, Ralf): a row per organisation with accounts, invited iDs, homes, groups, surveys and admins; search,
+   sort and 10/20/50 rows (app/tables.py). Names, admins, the template of the organisation design, limits and deleting
+   are on the page of the organisation (admin/org.html). A new one comes from "Neue Organisation" (Ralf 2026-10-18) or
+   from a group in the tab "Gruppen" (A23).
+   Context: rows [{org, counts, admins}], t (Listing), main_key, guest, guest_counts #}
+{% from "_macros.html" import autosave_bar, csrf, list_table %}
+{% from "_listing.html" import sort_th, search, pager, keep %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Organisationen", "Organisations") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "orgs" %}{% include "admin/_tabs.html" %}
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<section class="panel" id="organisationen">
+  <h2>{{ de_en("Organisationen", "Organisations") }} <span class="hint">{{ de_en("Lehrstühle, Institute, Abteilungen, Firmen", "chairs, institutes, departments, companies") }}</span></h2>
+  {# first sentence in view, the rest under "Mehr dazu" (UI/UX audit 2026-10-16, 56) #}
+  <p class="muted small">{{ de_en("Eine Organisation ist ein Zaun, kein Zugriff: Personen, Gruppen, Befragungen und Designs gehören zu einer; geteilt, gesucht und „für alle“ gilt nur innerhalb.", "An organisation is a fence, not an access: people, groups, surveys and designs belong to one; sharing, searching and “for everyone” hold only inside.") }}</p>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More") }}</summary>
+  <p class="muted small">{{ de_en("Wer persönlich in eine Befragung eingeladen ist, sieht diese Befragung auch über den Zaun, und nichts sonst. Jede Person hat eine Heimat; wer Mitglied einer Gruppe ist, gehört auch zu deren Organisation. Admins einer Organisation verwalten ihre Personen und Gruppen unter „Verwaltung“ im Menü am Namen, höchstens bis zu den Grenzen, die Sie auf der Seite der Organisation setzen (Stift in der Zeile). „Personen“ zählt Konten; wer eingetragen ist und sich noch nie angemeldet hat, steht als „eingeladen“ daneben. Neue Organisationen legen Sie mit „Neue Organisation …“ an oder machen eine Gruppe dazu, im Reiter",
+    "Anyone who is invited to a survey in person sees that survey across the fence too, and nothing else. Everyone has a home; members of a group belong to its organisation too. Admins of an organisation manage its people and groups under “Management” in the menu at their name, at most within the limits you set on the organisation's page (pencil in the row). “People” counts accounts; anyone entered who has never signed in stands next to it as “invited”. You create new organisations with “New organisation …” or make a group one, in the tab") }} <a href="{{ url_for('admin.groups') }}">{{ de_en("„Gruppen“", "“Groups”") }}</a>.</p>
+  </details>
+  {# "Neue Organisation …" as "Person hinzufügen …" (Ralf 2026-10-20): a button that opens the dialog below #}
+  <div class="admin-listhead">
+    {{ search(t, de_en("Organisationen durchsuchen", "Search organisations"), de_en("Suchen: Name, ausführlicher Name, Admin …", "Search: name, full name, admin …")) }}
+    <a class="button" href="#organisation-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Neue Organisation …", "New organisation …") }}</a>
+  </div>
+  {% if not rows %}<p class="muted">{{ de_en("Keine Organisation zu dieser Suche.", "No organisation matches this search.") }}</p>{% else %}
+  {% call list_table("is-num admin-orgs") %}
+    <thead><tr>{{ sort_th(t, "name", de_en("Organisation", "Organisation")) }}<th>{{ de_en("Personen", "People") }}</th><th title="{{ de_en('Konten, deren Heimat diese Organisation ist', 'Accounts whose home this organisation is') }}">{{ de_en("Heimat hier", "Home here") }}</th>{{ sort_th(t, "groups", de_en("Gruppen", "Groups")) }}{{ sort_th(t, "surveys", de_en("Befragungen", "Surveys")) }}<th>{{ de_en("Admins", "Admins") }}</th><th><span class="visually-hidden">{{ de_en("Aktionen", "Actions") }}</span></th></tr></thead>
+    <tbody>
+    {% for r in rows %}{% set o = r.org %}{% set c = r.counts %}
+      <tr id="org-{{ o.id }}">
+        <td class="admin-name" data-label="{{ de_en('Organisation', 'Organisation') }}"><a href="{{ url_for('admin.organisation_page', org_id=o.id) }}"><strong>{{ o.name }}</strong></a>{% if o.key == main_key %} <span class="badge">{{ de_en("Ausgangs-Organisation", "Starting organisation") }}</span>{% endif %}
+          {% if o.long_name %}<span class="hint org-long">{{ o.long_name }}</span>{% endif %}</td>
+        <td data-label="{{ de_en('Personen', 'People') }}">{{ c.people }}{% if c.invited %} <span class="muted small" title="{{ de_en('eingetragen, aber noch nie angemeldet', 'entered, but never signed in yet') }}">· {{ de_en("{n} eingeladen", "{n} invited", n=c.invited) }}</span>{% endif %}</td>
+        <td data-label="{{ de_en('Heimat hier', 'Home here') }}">{{ c.homes }}</td>
+        <td data-label="{{ de_en('Gruppen', 'Groups') }}">{% if c.groups %}<a href="{{ url_for('admin.groups', g_org=o.id) }}">{{ c.groups }}</a>{% else %}0{% endif %}</td>
+        <td data-label="{{ de_en('Befragungen', 'Surveys') }}">{{ c.surveys }}</td>
+        <td class="org-admins-cell" data-label="{{ de_en('Admins', 'Admins') }}">{% for m in r.admins %}{{ org_name_of(m.user) if m.user else "–" }}{% if not m.signed_up %} <span class="hint">{{ de_en("ohne Konto", "no account") }}</span>{% endif %}{{ ", " if not loop.last }}{% else %}<span class="org-no-admin">{{ de_en("noch keine", "none yet") }}</span>{% endfor %}</td>
+        <td class="admin-account"><div class="admin-row-actions">
+          <a class="icon-btn admin-act" href="{{ url_for('admin.organisation_page', org_id=o.id) }}" title="{{ de_en('Bearbeiten', 'Edit') }}" aria-label="{{ de_en('Bearbeiten', 'Edit') }}: {{ o.name }}">{{ icon("edit", 16) }}</a>
+          <a class="icon-btn admin-act" href="{{ url_for('admin.researchers', f_org=o.id) }}#forschende" title="{{ de_en('Personen ansehen', 'View people') }}" aria-label="{{ de_en('Personen ansehen', 'View people') }}: {{ o.name }}">{{ icon("users", 16) }}</a>
+        </div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% endif %}
+  {{ pager(t) }}
+  {% if guest %}
+  <p class="muted small org-guests">{{ org_label(guest) }}: {{ guest_counts.homes }} {{ de_en("Konto", "account") if guest_counts.homes == 1 else de_en("Konten", "accounts") }}
+    · <a href="{{ url_for('admin.researchers', f_org=guest.id) }}#forschende">{{ de_en("Personen ansehen", "View people") }}</a>.
+    {{ de_en("Wer nur über eine persönliche Einladung in eine Befragung dazukam: Sieht nur diese Befragungen, legt nichts an, findet niemanden. Ein Admin einer Organisation nimmt einen Gast auf, dann ist sie seine Heimat.", "Anyone who came in only by a personal invitation to a survey: sees only those surveys, creates nothing, finds nobody. An organisation's admin takes a guest in; it is then their home.") }}</p>
+  {% endif %}
+</section>
+{# "Neue Organisation" (Ralf 2026-10-18), since 2026-10-20 a dialog like "Person hinzufügen" (app.js): without scripts a
+   panel the button leads to. From a group it still goes through "Zur Organisation machen" in the tab "Gruppen". #}
+<section class="panel person-add add-dialog-narrow" id="organisation-anlegen" aria-labelledby="org-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="org-add-title">{{ de_en("Neue Organisation", "New organisation") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form method="post" action="{{ url_for('admin.organisation_new') }}" class="stack">
+    {{ csrf() }}
+    <label>{{ de_en("Kurzname", "Short name") }} <span class="hint">{{ de_en("für die Seiten der Plattform", "for the platform's pages") }}</span>
+      <input name="name" maxlength="80" required></label>
+    <label>{{ de_en("Ausführlicher Name", "Full name") }} <span class="hint">{{ de_en("optional; für Befragungstexte", "optional; for survey texts") }}</span>
+      <input name="long_name" maxlength="200"></label>
+    <label>{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
+      <input name="description" maxlength="500"></label>
+    <label>{{ de_en("Erste Admin-Person", "First admin") }} <span class="hint">{{ de_en("ORCID iD oder E-Mail-Adresse eines Kontos; die Person braucht noch kein Konto", "ORCID iD or email address of an account; the person needs no account yet") }}</span>
+      <input name="admin" maxlength="254" placeholder="0000-0000-0000-0000"></label>
+    <label>{{ de_en("Name der Admin-Person", "Name of the admin") }} <span class="hint">{{ de_en("optional; sonst aus dem ORCID-Profil", "optional; otherwise from the ORCID profile") }}</span>
+      <input name="admin_name" maxlength="200"></label>
+    <p class="muted small">{{ de_en("Die Admin-Person wird Mitglied und verwaltet die Organisation unter „Verwaltung“; ihre Heimat bleibt, wo sie ist (ändern unter „Forschende“ mit „Heimat ändern“). Aus einer bestehenden Gruppe entsteht eine Organisation mit „Zur Organisation machen …“ im Reiter „Gruppen“.",
+      "The admin becomes a member and manages the organisation under “Management”; their home stays where it is (change it under “Researchers” with “Change the home”). An existing group becomes an organisation with “Make an organisation …” in the tab “Groups”.") }}</p>
+    <div class="button-row"><button class="button">{{ de_en("Organisation anlegen", "Create organisation") }}</button></div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% from "_learn.html" import why %}
+{# MaxDiff: holdout sets (app/holdouts.py), part of the element form; app.js shows as many as "Anzahl" says (data-ho). #}
+{% set labels = kind.labels(item) %}
+{% if labels|length >= 4 %}
+{% set n_ho = kind.holdout_count(item) %}
+<fieldset class="ho-editor" data-cj-tab="design" data-ho>
+  <legend>{{ de_en("Holdout-Sets", "Holdout sets") }} <span class="hint">{{ de_en("feste Sets, für alle gleich; sie gehen nicht in die Schätzung ein und zeigen, wie gut das Modell die wichtigste Aussage vorhersagt", "fixed sets, the same for everyone; they do not go into the estimation and show how well the model predicts the most important statement") }}</span></legend>
+  <label>{{ de_en("Anzahl", "Number") }}
+    <select name="ho_count" data-ho-count {% if not structural %}disabled{% endif %}>
+      {% for k in range(4) %}<option value="{{ k }}" {% if k == n_ho %}selected{% endif %}>{{ de_en("keine", "none") if k == 0 else k }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for h in range(3) %}
+  <div class="ho-task" data-ho-slot="{{ h + 1 }}" {% if h >= n_ho %}hidden{% endif %}>
+    <p class="pw-head">{{ de_en("Holdout-Set {n}", "Holdout set {n}", n=h + 1) }} <span class="hint">{{ de_en("nach Set 3", "after set 3") if h == 0 and kind.n_sets(item) > 3 else de_en("nach dem letzten Set", "after the last set") }}</span></p>
+    <div class="row-fields">
+      {% for p in range(item.config.set_size) %}{% set pick = kind.holdout_statement(item, h, p) %}
+      <label>{{ de_en("Aussage {n}", "Statement {n}", n=p + 1) }}
+        <select name="ho{{ h }}_{{ p }}" {% if not structural %}disabled{% endif %}>
+          {% for s in item.config.statements %}<option value="{{ s.id }}" {% if loop.index0 == pick %}selected{% endif %}>{{ loop.index }}. {{ labels[loop.index0]|truncate(60) }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <p class="muted small">{{ de_en("Höchstens drei, mit {n} verschiedenen Aussagen je Set. Das erste kommt nach Set 3, die übrigen nach dem letzten Set; sie sehen aus wie die übrigen Sets. Auf der Ergebnisseite stehen, sobald Nutzenwerte (HB) geschätzt sind, Trefferquote und Abweichung der Anteile. Nach dem Start gesperrt wie der Versuchsplan. Neue Aussagen erscheinen hier, sobald sie gespeichert sind (von selbst, beim Verlassen des Felds).", "At most three, with {n} different statements per set. The first comes after set 3, the others after the last set; they look like the other sets. Once utilities (HB) are estimated, the results page shows the hit rate and the deviation of the shares. Locked after the start like the experimental design. New statements appear here as soon as they are saved (automatically, when you leave the field).", n=item.config.set_size) }}</p>
+  {{ why("holdout") }}
+</fieldset>
+{% endif %}

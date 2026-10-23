@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# A5 of the AI assistant (app/interview_ai.py): definitions and delimitations for the category system (.qdc). #}
+{% block title %}{{ de_en("Kategoriendefinitionen", "Category definitions") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel">
+  <h2>{{ icon("sparkles", 18) }} {{ de_en("Kategoriendefinitionen", "Category definitions") }} <span class="hint">{{ de_en("ankreuzen, bei Bedarf anpassen, übernehmen; sie stehen dann als Beschreibung im Kategoriensystem", "tick, adapt if needed, accept; they then appear as the description in the category system") }}</span></h2>
+  <p class="muted small">{{ de_en("Ankerbeispiele fehlen absichtlich: Sie kommen aus dem Material, also aus den Transkripten (Kuckartz & Rädiker, 2022).", "Anchor examples are left out on purpose: they come from the material, that is, from the transcripts (Kuckartz & Rädiker, 2022).") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="apply">
+    {% for c in found %}{% set n = loop.index0 %}
+    <fieldset class="ai-group">
+      <legend><label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> <strong>{{ c.code }}</strong> {{ c.label }}</label></legend>
+      <input type="hidden" name="c{{ n }}_item" value="{{ c.item }}">
+      <label><span class="label-title">{{ de_en("Definition", "Definition") }}</span><textarea name="c{{ n }}_definition" rows="2" maxlength="1000">{{ c.definition }}</textarea></label>
+      <label><span class="label-title">{{ de_en("Abgrenzung", "Delimitation") }}</span><textarea name="c{{ n }}_delimit" rows="2" maxlength="1000">{{ c.delimit }}</textarea></label>
+      {% for rid, name in c.names.items() %}
+      <label><span class="label-title">{{ de_en("Aspekt „{name}“", "Aspect “{name}”", name=name) }}</span><input name="c{{ n }}_a_{{ rid }}" value="{{ c.aspects.get(rid, '') }}" maxlength="500"></label>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <div class="row"><button class="button">{{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+      <a class="button button-secondary" href="{{ url_for('interview.export', code=survey.code) }}">{{ de_en("Zurück zum Export", "Back to export") }}</a></div>
+  </form>
+</section>
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="{{ html_lang(lang) }}" dir="{{ html_dir(lang) }}" data-brand="Askurious"{% if site() %} data-site="{{ site() }}"{% endif %} {% if framed is defined and framed %}class="in-device"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}{{ survey.title_in(lang) }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+  {% if request.blueprint in ('live', 'live_public', 'live_code') %}<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">{% endif %}
+  {% if request.blueprint in ('live', 'live_public') %}<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">{% endif %}
+  {# the survey's theme: variables only, every value validated (app/theme.py); nothing for the standard look #}
+  {% set tab_icon = theme_icon(survey if survey is defined else none) %}
+  {% if tab_icon %}<link rel="icon" type="{{ tab_icon.type }}" href="{{ url_for('media.serve', survey_uid=survey.uid, filename=tab_icon.file) }}">{% endif %}
+  <script src="{{ url_for('static', filename='participant-init.js') }}"></script>
+  {% block head %}{% endblock %}
+  {% if survey is defined and themes.of(survey).font == 'atkinson' %}<link rel="preload" href="{{ url_for('static', filename='fonts/atkinson-hyperlegible-next/AtkinsonHyperlegibleNext-wght.woff2', v=none) }}" as="font" type="font/woff2" crossorigin>{% endif %}
+  {% block theme %}{% set theme_style = theme_css(survey if survey is defined else none) %}{% if theme_style %}<style>{{ theme_style|safe }}</style>{% endif %}{% endblock %}
+</head>
+<body class="participant"{% set ui_js = ui_texts_js(lang) %}{% if ui_js %} data-ui="{{ ui_js|tojson|forceescape }}"{% endif %}{% if g.direct_page %} data-replace{% endif %}>
+  {# a test run (the preview of the editor, the phone link): the same templates as the participation, with the
+     preview bar above (S9; inside the phone frame the page around it has the bar) #}
+  {% block banner %}{% if preview is defined and preview and not (framed is defined and framed) %}{% include "participant/_preview_bar.html" %}{% endif %}{% endblock %}
+  <main class="p-container" {% block main_attrs %}{% endblock %}>
+    {# the logo of the survey's theme: an image before the page's heading, never altered (no filter, no recolouring) #}
+    {% block logo %}{% set logo = theme_logo(survey if survey is defined else none, lang) %}{% include "participant/_logo.html" %}{% endblock %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block aside %}{% endblock %}
+  {# logos of funders and partners: on the first page and on the last one (not while answering) #}
+  {% block partners %}{% if (page is defined and page == 1) or status is defined %}{% set partner_logos = theme_partners(survey if survey is defined else none) %}{% include "participant/_partners.html" %}{% endif %}{% endblock %}
+  <footer class="p-footer">
+    {% from "_wordmark.html" import wordmark %}<span class="p-brand">{{ wordmark(True) }}</span>
+    {% block footer_links %}<a href="{{ url_for('participate.privacy', uid=survey.public_key, lang=lang, back=request.full_path) }}" {% if framed is defined and framed %}target="_top"{% endif %} class="p-footer-legal">{{ ui("Datenschutz & Impressum", "Privacy & legal notice") }}</a>{% endblock %}
+  </footer>
+  {% block participant_scripts %}<script src="{{ url_for('static', filename='participant.js') }}"></script>{% include 'participant/_scripts.html' %}{% endblock %}
+  {% if comment_url is defined and comment_url %}<script src="{{ url_for('static', filename='comment_shot.js') }}"></script><script src="{{ url_for('static', filename='comments.js') }}"></script>{% endif %}
+
+</body>
+</html>

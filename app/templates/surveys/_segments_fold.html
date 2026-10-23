@@ -1,0 +1,6 @@
+{# The segments of a choice model folded under its result (UI/UX audit 2026-10-07, S7); open while an estimation runs
+   or failed, and when an address points into them (app.js). Needs: l (view), e, f, survey. #}
+<details class="res-dist res-choice-fold" id="lc-fold-{{ e.item.id }}"{% if l.state == "running" or (l.marker and l.marker.state in ("error", "aborted")) %} open{% endif %}>
+  <summary>{{ de_en("Segmente", "Segments") }} <span class="hint">{% if l.state == "current" and l.result %}{% if l.result.K == 1 %}{{ de_en("1 Segment übernommen", "1 segment applied") }}{% else %}{{ de_en("{k} Segmente übernommen", "{k} segments applied", k=l.result.K) }}{% endif %}{% elif l.state == "stale" %}{{ de_en("die frühere Schätzung passt nicht mehr zu den Daten", "the earlier estimation no longer matches the data") }}{% elif l.state == "running" %}{{ de_en("Schätzung läuft", "estimation running") }}{% else %}{{ de_en("Gruppen mit eigenen Vorlieben, noch nicht geschätzt", "groups with their own preferences, not estimated yet") }}{% endif %}</span></summary>
+  {% include "surveys/_segments.html" %}
+</details>

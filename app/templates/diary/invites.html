@@ -1,0 +1,31 @@
+<!doctype html>
+{# The unused invitation codes of a diary study to print and cut (app/diary.py, print_invites): one card per person
+   with the QR code, the join code and the way to the app, in the survey's language. #}
+<html lang="{{ html_lang(lang) }}">
+<head>
+<meta charset="utf-8">
+<title>{{ survey.title }} · {{ de_en("Einladungscodes", "Invitation codes") }}</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 12mm; color: #000; background: #fff; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
+  .card { border: 1px dashed #888; padding: 5mm; break-inside: avoid; text-align: center; }
+  .card svg { width: 38mm; height: auto; }
+  .code { font: 600 15px ui-monospace, monospace; margin: 2mm 0; }
+  .note { font-size: 11px; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+<p class="hint">{{ de_en("Drucken und ausschneiden: Jede Karte gehört zu genau einer Person.", "Print and cut: each card belongs to exactly one person.") }}</p>
+<h1>{{ survey.title_in(lang) }}</h1>
+<div class="cards">
+{% for code, qr in cards %}
+  <div class="card">{{ qr }}
+    <div class="code">{{ code }}</div>
+    <div class="note">{{ ui("Scannen Sie den QR-Code, oder öffnen Sie die App „Askurious“ und geben Sie diesen Beitrittscode ein:", "Scan the QR code, or open the app “Askurious” and type this join code:") }}</div>
+    <div class="note">{{ ui("Bewahren Sie die Karte auf: Mit diesem Code verbinden Sie Ihre Teilnahme wieder, etwa auf einem neuen Handy, nachdem Sie sich beim Forschungsteam gemeldet haben.", "Keep this card: with this code you connect your participation again, for example on a new phone, after you have contacted the research team.") }}</div>
+  </div>
+{% endfor %}
+</div>
+</body>
+</html>

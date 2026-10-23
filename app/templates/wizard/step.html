@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_icons.html" import icon %}
+{% from "wizard/_import.html" import import_panel with context %}
+{% from "_start_cards.html" import start_cards %}
+{% set title, subtitle, optional = steps[index][1], steps[index][2], steps[index][3] %}
+{% block title %}{{ title }} · {{ de_en("Neuer Fragebogen", "New questionnaire") }}{% endblock %}
+{% block content %}
+<div class="survey-head">
+  <a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <h1>{{ survey.title if survey else de_en("Neuer Fragebogen", "New questionnaire") }}</h1> <span class="hint">{{ de_en("Schritt für Schritt anlegen", "Create step by step") }}</span>
+</div>
+{% if not survey %}{{ start_cards("wizard.new", starts, start) }}{% endif %}
+{% if survey or start == "leer" %}
+{# on the phone the steps shrink to their numbers and this line says where one is (UI/UX audit 2026-10-09, X12) #}
+<p class="wizard-count">{{ de_en("Schritt {n} von {m} · {title}", "Step {n} of {m} · {title}", n=index + 1, m=steps|length, title=steps[index][1]) }}</p>
+<ol class="wizard-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
+  {% for k, t, st, opt in steps %}
+  {% set state = "current" if loop.index0 == index else ("done" if loop.index0 < index or (reached is defined and loop.index0 <= reached) else "todo") %}
+  {# a step left with "Überspringen" gets a dash, not a tick (UI/UX audit 2026-10-05, V22) #}
+  {% set left = state == "done" and skipped is defined and k in skipped %}
+  <li class="wizard-step {{ state }}{% if left %} skipped{% endif %}">
+    {% if survey and state == "done" %}<a href="{{ url_for('wizard.step', survey_id=survey.id, key=k) }}" aria-label="{{ de_en('Schritt {n}: {title}', 'Step {n}: {title}', n=loop.index, title=t) }}{% if left %} {{ de_en('(übersprungen)', '(skipped)') }}{% endif %}">{% endif %}
+    <span class="wizard-num">{{ "–" if left else "✓" if state == "done" else loop.index }}</span><span class="wizard-label">{{ t }}</span>
+    {% if survey and state == "done" %}</a>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+
+<section class="panel wizard-panel wizard-step-{{ key }}">
+  <h2>{{ title }} <span class="hint">{{ subtitle }}{% if optional %} · optional{% endif %}</span></h2>
+
+  {% if key == "ablauf" %}
+    {# the participant link label has its own form (confirmation, check), so it stands before the step's form #}
+    <h3 class="wizard-sub">{{ de_en("Link", "Link") }}</h3>
+    {% set next = "wizard" %}{% include "surveys/_label.html" %}
+  {% endif %}
+
+  {% if key == "team" %}
+    {% set members_back = url_for('wizard.step', survey_id=survey.id, key='team') %}
+    {% set members_search_url = members_back %}
+    <div id="members">{% include "surveys/_members.html" %}</div>
+    <p class="muted small">{{ de_en("Hinzugefügte Personen sehen die Befragung nach dem Anmelden. Die Reihenfolge wird z. B. in der Einwilligung verwendet.", "People added here see the survey after signing in. The order is used e.g. in the consent.") }}{% if mail_enabled() %} {{ de_en("Bei einer E-Mail-Einladung muss zunächst die Einladung angenommen werden; dabei ist auch ein neues Konto mit Passwort möglich.", "An email invitation must first be accepted; a new password account can also be created then.") }}{% endif %}</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('wizard.new') if not survey else url_for('wizard.step', survey_id=survey.id, key=key) }}"
+        class="stack" {% if key == "gestaltung" %}data-style-form{% endif %}{% if survey and key not in ("team", "fertig") %} data-autosave-form{% endif %}>
+    {{ csrf() }}
+    {% if key == "projekt" %}
+      {% with values=(survey or form) %}{% include "surveys/_fields_project.html" %}{% endwith %}
+      {% if not survey %}{% include "surveys/_fields_demographics.html" %}{% endif %}
+    {% elif key == "studienplan" %}
+      {% set plan_wizard = true %}{% include "surveys/_fields_plan.html" %}
+    {% elif key == "sprachen" %}
+      {% include "surveys/_fields_languages.html" %}
+    {% elif key == "einwilligung" %}
+      {% include "wizard/_consent.html" %}
+    {% elif key == "ablauf" %}
+      {% include "wizard/_options.html" %}
+    {% elif key == "gestaltung" %}
+      {# first what every participant sees, then the style that only matters for AI images (Ralf, 2026-10-07) #}
+      <h3>{{ de_en("Farben und Schrift", "Colours and font") }} <span class="hint">{{ de_en("der Seiten für Teilnehmende", "of the participants' pages") }}</span></h3>
+      {% set look = themes.of(survey) %}{% set own_designs = designs_for(current_user) %}
+      <p class="muted small">{{ de_en("So sehen Teilnehmende die Befragung. Eigene Farben, ein Logo und alles Weitere später unter Einstellungen → Erscheinungsbild → „Erscheinungsbild öffnen“.", "This is how participants see the survey. Your own colours, a logo and everything else later under Settings → Appearance → “Open appearance”.") }}</p>
+      {% include "surveys/_fields_theme_choice.html" %}
+      <h3 class="panel-sub-sep">{{ de_en("Stil der KI-Bilder", "Style of the AI images") }}</h3>
+      {% include "surveys/_fields_image_style.html" %}
+    {% elif key == "fertig" %}
+      {% include "wizard/_summary.html" %}
+    {% endif %}
+
+    {% if survey and key not in ("team", "fertig") %}{{ autosave_bar() }}{% endif %}
+    <div class="wizard-nav">
+      {% if index > 0 and survey %}<button class="button button-secondary" name="wizard" value="back" formnovalidate>{{ icon("back", 16) }} {{ de_en("Zurück", "Back") }}</button>{% endif %}
+      <span class="wizard-spacer"></span>
+      {% if optional %}<button class="button button-secondary" name="wizard" value="skip" formnovalidate>{{ de_en("Überspringen", "Skip") }}</button>{% endif %}
+      <button class="button" name="wizard" value="next">{{ de_en("Zum Fragebogen", "To the questionnaire") if key == "fertig" else (de_en("Anlegen und weiter", "Create and continue") if not survey else de_en("Weiter", "Next")) }}</button>
+    </div>
+  </form>
+</section>
+
+{% endif %}
+{% if not survey and start == "vorlage" %}
+{# typical studies to start from (app/study_templates.py), with research plan and dummy data; the buttons in one column at the right #}
+{# the card above names it already: no second heading (UI/UX audit 2026-10-07, W16); a title of its own before the
+   survey is created, then the setup wizard from the step "Studienplan" #}
+<section class="panel" id="vorlagen" aria-label="{{ de_en('Vorlagen', 'Templates') }}">
+  {# what a template gives over an empty start (pre-test 2026-10-16: "keinen Vorteil gegenüber einer leeren Vorlage gefunden") #}
+  <p class="small">{{ de_en("Gegenüber einem leeren Anfang bringt eine Vorlage einen ausgefüllten Studienplan mit Hypothesen, einen passenden Fragebogen mit Ablauf (etwa Randomisierung, Schleife oder Quoten) und {n} Dummy-Teilnahmen mit. Die Ergebnisse mit Tabellen, Abbildungen und Tests sind damit sofort zu sehen: zum Kennenlernen der Auswertung und als Gerüst für die eigene Befragung. Ab dem Start zählen in den Ergebnissen nur noch echte Teilnahmen.", "Compared with an empty start, a template brings a filled-in research plan with hypotheses, a matching questionnaire with its flow (such as randomisation, a loop or quotas) and {n} dummy participations. The results with tables, figures and tests can be seen at once: to get to know the analysis and as a framework for your own survey. From the start on, only real participations count in the results.", n=study_templates.dummies) }}</p>
+  <ul class="plain template-list">
+    {% for key, (title, goal, shows) in study_templates.items() %}
+    <li><form method="post" action="{{ url_for('study_plan.from_template', key=key) }}" class="row template-row">{{ csrf() }}
+      <span class="template-text"><strong>{{ title }}</strong> <span class="hint">{{ study_plan.goals()[goal] }}</span><br><span class="muted small">{{ shows }}</span></span>
+      <label class="template-title"><span class="small muted">{{ de_en("Titel der Befragung", "Title of the survey") }}</span>
+        <input name="title" value="{{ title }}" maxlength="200" required></label>
+      <button class="button button-secondary">{{ de_en("Anlegen", "Create") }}</button></form></li>
+    {% endfor %}
+  </ul>
+</section>
+{% elif not survey and start == "datei" %}
+{{ import_panel() }}
+{% endif %}
+{% endblock %}

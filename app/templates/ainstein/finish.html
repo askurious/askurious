@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# Step 3: the survey made from the plan, comments and sharing #}
+{% block title %}{{ project.name }} · AInstein{% endblock %}
+{% block content %}
+{% set editing = project.role != "view" %}
+{% include "ainstein/_head.html" %}
+{% if editing %}
+<section class="panel" id="befragung">
+  <h2>{{ de_en("Befragung anlegen", "Create survey") }}</h2>
+  {% if survey %}<p>{{ de_en("Aus diesem Projekt ist bereits die Befragung", "This project has already produced the survey") }} <a href="{{ url_for('editor.index', survey_id=survey.id) }}">{{ de_en("„{title}“", "“{title}”", title=survey.title) }}</a>{{ de_en("
+    entstanden. Eine weitere lässt sich erstellen, etwa nach Änderungen am Plan.", ". Another one can be created, for example after changes to the plan.") }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Ein Entwurf mit Projektname als Titel, der Idee als Beschreibung und Forschungsfrage und Hypothesen in den
+    Einstellungen; dazu Einwilligung und demographische Angaben wie bei jeder neuen Befragung und je Rolle ein Block mit den
+    Konstrukten. Von der KI entworfene Skalen sind als „KI-generiert“ markiert und vor dem Feldstart zu prüfen.", "A draft with the project name as title, the idea as description and research question and hypotheses in the
+    settings; plus consent and demographics as in every new survey and one block per role with the
+    constructs. Scales drafted by the AI are marked “AI-generated” and are to be checked before fieldwork.") }}</p>
+  <form method="post" action="{{ url_for('ainstein.make_survey', code=project.code) }}" class="row-fields" data-ainstein-busy="{{ de_en('Die Befragung wird angelegt …', 'The survey is being created …') }}" data-ainstein-area="#befragung">
+    {{ csrf() }}
+    <label>{{ de_en("Sprache der Befragung", "Language of the survey") }}
+      <select name="languages">{% for k, label in languages.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+    {% include "surveys/_fields_demographics.html" %}
+    <div><button class="button{% if needs_ai %} button-ai{% endif %}" {% if needs_ai %}title="{{ de_en('AInstein baut dabei vereinbarte Fragen, ergänzt Wahlexperimente oder formuliert fehlende Items', 'AInstein builds agreed questions, completes choice experiments or words missing items') }}"{% endif %} {% if not (plan.hypotheses or plan.constructs) %}disabled title="{{ de_en('Zuerst Hypothesen und Konstrukte ableiten oder eintragen', 'Derive or enter hypotheses and constructs first') }}"{% endif %}>{{ icon("plus", 18) }} {{ de_en("Befragung anlegen", "Create survey") }}</button>{% if needs_ai %}{{ ai_access_line() }}{% endif %}</div>
+  </form>
+</section>
+{% endif %}
+
+<section class="panel" id="kommentare">
+  <h2>{{ de_en("Kommentare", "Comments") }}</h2>
+  <p class="muted small">{{ de_en("Für alle, die das Projekt öffnen dürfen, etwa Betreuende. AInstein liest die Kommentare mit und geht im Gespräch darauf ein.", "For everyone who may open the project, such as supervisors. AInstein reads the comments too and takes them up in the conversation.") }}</p>
+  {% for c in project.comments or [] %}
+  <div class="ainstein-comment">
+    <div class="small"><strong>{{ c.name or de_en("Gelöschtes Konto", "Deleted account") }}</strong>{% if c.box %} <span class="badge">{{ (canvas|selectattr(0, "equalto", c.box)|first)[1] }}</span>{% endif %}
+      <span class="muted">{{ c.at[:10] }}</span>
+      {% if c.user_id == current_user.id or project.role == "owner" %}<form method="post" action="{{ url_for('ainstein.comment', code=project.code) }}" class="inline-form">
+        {{ csrf() }}<input type="hidden" name="delete" value="{{ c.id }}"><button class="icon-btn" title="{{ de_en('Kommentar löschen', 'Delete comment') }}" aria-label="{{ de_en('Kommentar löschen', 'Delete comment') }}">{{ icon("trash", 16) }}</button></form>{% endif %}</div>
+    <p class="ainstein-comment-text">{{ c.text }}</p>
+  </div>
+  {% else %}<p class="muted small">{{ de_en("Noch keine Kommentare.", "No comments yet.") }}</p>{% endfor %}
+  <form method="post" action="{{ url_for('ainstein.comment', code=project.code) }}" class="stack">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Neuer Kommentar", "New comment") }}</span><textarea name="text" rows="3" maxlength="2000" required></textarea></label>
+    <div class="row-fields">
+      <label>{{ de_en("Zu", "On") }} <select name="box"><option value="">{{ de_en("dem Projekt allgemein", "the project in general") }}</option>{% for key, title, _hint in canvas %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</select></label>
+      <div><button class="button button-secondary">{{ de_en("Kommentieren", "Comment") }}</button></div>
+    </div>
+  </form>
+</section>
+
+{% if project.role == "owner" %}
+<section class="panel" id="teilen">
+  <h2>{{ de_en("Teilen", "Share") }}</h2>
+  <p class="muted small">{{ de_en("„Lesen und kommentieren“: Gespräch, Canvas und Plan ansehen und Kommentare schreiben. „Mitarbeiten“: auch mit
+    AInstein sprechen, Canvas und Plan ändern und eine Befragung anlegen. Löschen und Teilen bleibt bei Ihnen.", "“Read and comment”: see conversation, canvas and plan and write comments. “Work on it”: also talk with
+    AInstein, change canvas and plan and create a survey. Deleting and sharing stay with you.") }}</p>
+  {% for x in project.shares or [] %}
+  <div class="ainstein-share">
+    <span>{% if x.kind == "group" %}{{ de_en("Gruppe", "Group") }} {% endif %}<strong>{{ x.name }}</strong> · {{ shared_roles[x.role] }}</span>
+    <form method="post" action="{{ url_for('ainstein.share', code=project.code) }}" class="inline-form">
+      {{ csrf() }}<input type="hidden" name="remove" value="{{ loop.index0 }}"><button class="button button-secondary button-small">{{ de_en("Entfernen", "Remove") }}</button></form>
+  </div>
+  {% endfor %}
+  <form method="get" action="{{ url_for('ainstein.finish', code=project.code) }}#teilen" class="row-fields">
+    <label>{{ de_en("Person suchen", "Search for a person") }} <span class="hint">{{ de_en("Name, ORCID iD oder E-Mail-Adresse", "name, ORCID iD or email address") }}</span><input name="q" value="{{ q }}" maxlength="200"></label>
+    <div><button class="button button-secondary">{{ de_en("Suchen", "Search") }}</button></div>
+  </form>
+  {% if people is not none %}
+    {% for p in people %}
+    <form method="post" action="{{ url_for('ainstein.share', code=project.code) }}" class="ainstein-share">
+      {{ csrf() }}<input type="hidden" name="orcid" value="{{ p.orcid }}"><input type="hidden" name="name" value="{{ p.name }}">
+      <span><strong>{{ p.name }}</strong>{% if p.affiliation %} <span class="muted small">{{ p.affiliation }}</span>{% endif %}</span>
+      <select name="role" aria-label="{{ de_en('Recht', 'Right') }}">{% for k, label in shared_roles.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
+      <button class="button button-small">{{ de_en("Teilen", "Share") }}</button>
+    </form>
+    {% else %}<p class="muted small">{{ de_en("Niemand gefunden.", "Nobody found.") }}</p>{% endfor %}
+  {% endif %}
+  {% if groups %}
+  <form method="post" action="{{ url_for('ainstein.share', code=project.code) }}" class="row-fields">
+    {{ csrf() }}
+    <label>{{ de_en("Mit einer Ihrer Gruppen", "With one of your groups") }} <select name="group_id">{% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Recht", "Right") }} <select name="role">{% for k, label in shared_roles.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+    <div><button class="button button-secondary">{{ de_en("Mit Gruppe teilen", "Share with group") }}</button></div>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+<div class="ainstein-step-nav"><a class="button button-secondary" href="{{ url_for('ainstein.design', code=project.code) }}">‹ {{ de_en("Design und Skalen", "Design and scales") }}</a></div>
+<script src="{{ url_for('static', filename='ainstein.js') }}" defer></script>
+{% endblock %}

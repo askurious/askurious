@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields with context %}
+{% block title %}{{ de_en("Qualitätssicherung", "Quality assurance") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "quality" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid">
+{% set can_edit = survey.can(current_user, "editor") %}
+{% set is_admin = survey.role_of(current_user) == "admin" %}
+
+{# Preventing poor data before detecting it (Philipp, 2026-10-04): paradata and the tempo hint, a part of the settings
+   (role "Admin", only in a draft since the consent names them; surveys.update_quality_options). In a draft it comes
+   right before the start; afterwards it is locked, so it goes folded to the end (UI audit 2026-10-04, R10, G2). #}
+{% macro prevent() %}
+<details class="panel settings-group" id="prevent" data-settings-group {% if survey.status == "draft" %}open{% endif %}>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Vor dem Start: Datenqualität steigern", "Before the start: improve data quality") }}</h2><span class="settings-sum">{{ de_en("vor dem Start einstellen; die Einwilligung nennt es", "set before the start; the consent names it") if survey.status == "draft" else de_en("seit dem Start fest (die Einwilligung nennt es)", "fixed since the start (the consent names it)") }}</span></summary>
+  <div class="settings-body">
+  <form method="post" action="{{ url_for('surveys.update_quality_options', survey_id=survey.id) }}" class="stack" data-autosave-form><fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
+    {{ csrf() }}
+    {% if is_admin %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), url_for('surveys.quality', survey_id=survey.id) ~ "#prevent", presence_key=false) }}{% endif %}
+    {% with values=survey, lang_editable=survey.is_editable %}{% include "surveys/_fields_quality.html" %}{% endwith %}
+    {% if is_admin %}{{ autosave_bar() }}{% else %}<p class="muted small">{{ de_en("Ändern können Personen mit der Rolle „Admin“.", "People with the role “Admin” can change this.") }}</p>{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+{% endmacro %}
+{# one place for data quality (UI audit 2026-10-12, E6): first what prevents poor data (paradata, tempo hint, bait;
+   before 2026-10-12 on "Datenerhebung"), then what detects it. The data pool is set where it shows, on Ergebnisse;
+   here one line says what it holds. #}
+{% if survey.status == "draft" %}{{ prevent() }}{% endif %}
+{% set source_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+<p class="small qc-basis-line" id="pool">{{ de_en("Grundlage", "Basis") }}: {% for src in basis.sources %}{{ source_names[src]|after_colon if loop.first else source_names[src] }}{% if by_source.get(src) is not none %} ({{ by_source[src]|thousands }}){% endif %}{{ ", " if not loop.last }}{% endfor %}{% if basis.all %}{{ de_en(", auch abgebrochene", ", also broken-off ones") }}{% endif %}.
+  <a href="{{ url_for('surveys.results', survey_id=survey.id) }}#pool">{{ de_en("Datenpool auf der Seite „Ergebnisse“ ändern", "Change the data pool on the page “Results”") }}</a></p>
+{# one form for the slider and the marking below (their fields name it) #}
+{% if can_edit %}<form method="post" action="{{ url_for('surveys.quality', survey_id=survey.id) }}" id="quality-form" data-autosave-form>{{ csrf() }}</form>{% endif %}
+
+{% with speed_form="quality-form", speed_value=pool.speeder, speed_edit=can_edit %}{% include "surveys/_speed.html" %}{% endwith %}
+
+{% with mark_form="quality-form", mark_edit=can_edit %}{% include "surveys/_patterns.html" %}{% endwith %}
+
+{# what quality assurance leaves out, as the sentence for the methods section (app/methods_text.py); drawn anew after a save #}
+{% if patterns.n %}
+<section class="panel" id="methodenteil">
+  <h2>{{ de_en("Für den Methodenteil", "For the method section") }} <span class="hint">{{ de_en("die Ausschlüsse in einem Satz; mehr im Entwurf des Methodenteils", "the exclusions in one sentence; more in the draft of the method section") }}</span></h2>
+  <p data-live="qc-methods">{{ methods_text.exclusions(survey, patterns, ui_language()) }}</p>
+  <p class="small"><a href="{{ url_for('surveys.export_methods', survey_id=survey.id, fmt='docx') }}">{{ icon("download", 16) }} {{ de_en("Entwurf des Methodenteils (Word)", "Draft of the method section (Word, German)") }}</a>
+    · <a href="{{ url_for('surveys.export_methods', survey_id=survey.id, fmt='docx', lang='en') }}">{{ de_en("auf Englisch", "in English") }}</a></p>
+</section>
+{% endif %}
+
+{% if tempo_pages is not none %}{% include "surveys/_tempo_pages.html" %}{% endif %}
+
+{% if geo_compare is not none %}{% include "surveys/_geo_compare.html" %}{% endif %}
+{% if location_compare %}{% include "surveys/_location_compare.html" %}{% endif %}
+{% if late is not none %}{% include "diary/_late.html" %}{% endif %}
+
+{% include "surveys/_agents.html" %}
+{% if survey.status != "draft" %}{{ prevent() }}{% endif %}
+
+{# the save line of the form above: only seen when a change was not saved (app.css .qc-save) #}
+<section class="panel res-run{% if can_edit %} qc-save{% endif %}">
+  {% if can_edit %}{{ autosave_bar(form_id="quality-form") }}
+  {% else %}<span class="muted small">{{ de_en("Ihre Rolle „Ansehen“ zeigt die Einstellungen; ändern können sie Personen mit der Rolle „Bearbeiten“.", "Your role “View” shows the settings; people with the role “Edit” can change them.") }}</span>{% endif %}
+</section>
+
+
+{# every source of this page in one fold, as an APA reference list; the criteria above carry the short references #}
+<section class="panel" id="sources">
+  {% from "_sources.html" import grouped %}{{ grouped([(de_en("Tempo-Hinweis und Tempo je Seite: Lesezeit je Wort", "Speed prompt and speed per page: reading time per word"), [tempo.CONRAD]), (de_en("Tempo-Hinweis und Tempo je Seite: Anteil der Median-Zeit", "Speed prompt and speed per page: share of the median time"), [tempo.GRESZKI]), (de_en("Fensterwechsel und Einfügen zählen", "Count window switches and pasting"), [focus_source])] + patterns.sources + [(de_en("Schutz vor Bots und KI-Agenten", "Protection against bots and AI agents"), agent_sources)] + ([(de_en("Land und Bundesland aus der IP-Adresse: Genauigkeit", "Country and federal state from the IP address: accuracy"), geoip.SOURCES)] if geo_compare is not none else []), de_en("Literatur zu allen Kriterien dieser Seite", "References for all criteria on this page")) }}
+</section>
+
+</div>
+{% endblock %}

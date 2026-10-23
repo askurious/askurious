@@ -1,0 +1,19 @@
+{# Shared by conjoint-like items (app/items/attributes.py): texts of the explanation page. Expects item, kind, lang, structural, languages, new_id, icon. #}
+{% set t = item.lang_texts(lang) %}
+<fieldset data-cj-tab="content">
+  <legend>{{ de_en("Erklärung vorab", "Explanation beforehand") }} <span class="hint">{{ de_en("optional: eigene Seite vor der ersten Aufgabe mit allen Merkmalen und Stufen", "optional: a page of its own before the first task with all attributes and levels") }}</span></legend>
+  <label class="check"><input type="checkbox" name="explain" value="1" {% if item.config.explain %}checked{% endif %}> {{ de_en("Merkmale und Stufen vor der ersten Aufgabe erklären", "Explain the attributes and levels before the first task") }}</label>
+  <label><span class="label-title">{{ de_en("Einleitung", "Introduction") }} <span class="hint">{{ de_en("leer = Standardtext („Sie sehen gleich … Aufgaben …“)", "empty = standard text (“You will now see … tasks …”)") }}</span></span>
+    <textarea name="explain_intro" rows="3" data-rich="block">{{ t.get("explain_intro", "") }}</textarea></label>
+  {% set descs = t.get("attr_desc", {}) %}
+  {% if item.config.attributes %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Merkmal", "attribute")|capitalize }}</th><th>{{ de_en("Erklärung", "Explanation") }} <span class="hint">{{ de_en("für Teilnehmende, auf {l}; optional, die Stufen werden automatisch aufgelistet", "for participants, in {l}; optional, the levels are listed automatically", l=languages[lang]) }}</span></th></tr></thead>
+    <tbody>
+      {% for a in kind.attributes(item, lang) %}
+      <tr><td>{{ a.label }}</td><td><input name="attr_desc_{{ a.id }}" aria-label="{{ de_en('Erklärung zu {label}', 'Explanation of {label}', label=a.label) }}" value="{{ descs.get(a.id, '') }}" placeholder="{{ de_en('z. B. was das Merkmal bedeutet', 'e.g. what the attribute means') if loop.first else '' }}"></td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted small">{{ de_en("Erst Merkmale anlegen.", "Add attributes first.") }}</p>{% endif %}
+</fieldset>

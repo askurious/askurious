@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ de_en("Alle Funktionen", "All features") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Alle Funktionen", "All features") }}</h1>
+<p>{{ de_en("Was Askurious kann, nach Themen geordnet: vom Studienplan über den Fragebogen und die Datenerhebung bis zu Ergebnissen und offenen Daten.", "What Askurious can do, by topic: from the research plan through the questionnaire and data collection to results and open data.") }}</p>
+<nav aria-label="{{ de_en('Themen', 'Topics') }}">
+  <ul class="feature-toc">
+    {% for anchor, title, _items in groups %}<li><a href="#{{ anchor }}">{{ title }}</a></li>{% endfor %}
+  </ul>
+</nav>
+<div class="feature-groups">
+  {% for anchor, title, items in groups %}
+  <section class="panel" aria-labelledby="{{ anchor }}">
+    <h2 id="{{ anchor }}">{{ title }}</h2>
+    <ul>
+      {% for text, key in items %}
+      <li>{{ text }}{% if key in experimental_keys %} <span class="badge badge-exp">{{ de_en("experimentell", "experimental") }}<sup>*</sup></span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+</div>
+<p class="muted small" id="experimentell"><sup>*</sup> {{ de_en("Experimentelle Funktionen sind noch in Erprobung und auf begründete Anfrage verfügbar.", "Experimental features are still being tried out and are available on reasonable request.") }}
+{% if email %}{{ de_en("Schreiben Sie dazu an", "Please write to") }} <a href="mailto:{{ email }}">{{ email }}</a>.{% else %}{{ de_en("Die Kontaktdaten stehen im", "The contact details are in the") }} <a href="{{ url_for('public.privacy') }}">{{ de_en("Impressum", "legal notice") }}</a>.{% endif %}</p>
+{% endblock %}

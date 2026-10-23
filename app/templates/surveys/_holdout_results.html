@@ -1,0 +1,25 @@
+{% from "_learn.html" import term, method %}
+{# Holdout tasks of CBC and MaxDiff (app/holdouts.py cbc_view(), maxdiff_view()): hit rate and share error of HB and of the aggregate logit. Needs: ho, e. #}
+{% from "_macros.html" import one, pct, abbr %}
+{% set task_name = de_en("Holdout-Set", "Holdout set") if ho.kind == "maxdiff" else de_en("Holdout-Aufgabe", "Holdout task") %}
+<h3 class="res-group-head" id="holdout-{{ e.item.id }}">{{ de_en("Vorhersage der Holdout-Sets", "Prediction of the holdout sets") if ho.kind == "maxdiff" else de_en("Vorhersage der Holdout-Aufgaben", "Prediction of the holdout tasks") }}{{ fn("holdout") }}</h3>
+<div class="res-scroll"><table class="res-table ho-results">
+  <thead><tr><th>{{ term("holdout", task_name) }}</th><th title="{{ de_en('Personen mit HB-Nutzen und beantworteter Holdout-Aufgabe', 'People with HB utilities and an answered holdout task') }}">{{ de_en("Personen", "People") }}</th>
+    <th title="{{ de_en('Anteil der Personen, deren höchster vorhergesagter Nutzen (Posterior-Mittel) die gewählte Option trifft; in Klammern das 95-%-Intervall nach Wilson', 'Share of people whose highest predicted utility (posterior mean) hits the chosen option; in brackets the 95% interval after Wilson') }}">{{ term("hit_rate", de_en("Trefferquote", "Hit rate")) }} {{ term("hb", abbr("hb")) }}</th>
+    <th title="{{ de_en('Dieselbe Vorhersage aus dem aggregierten Logit-Modell: Alle Personen bekommen dieselbe Vorhersage', 'The same prediction from the aggregate logit model: all people get the same prediction') }}">{{ de_en("Trefferquote Logit", "Hit rate logit") }}</th>
+    <th title="{{ de_en('Trefferquote beim Raten: 1 / Zahl der Optionen', 'Hit rate when guessing: 1 / number of options') }}{{ de_en(' (mit „Keine davon“)', ' (with “None of these”)') if ho.none else '' }}">{{ de_en("Zufall", "Chance") }}</th>
+    <th title="{{ de_en('Mittlere absolute Abweichung zwischen vorhergesagten Präferenzanteilen (Logit-Regel je Person, gemittelt) und beobachteten Wahlanteilen, über die Optionen', 'Mean absolute deviation between predicted preference shares (logit rule per person, averaged) and observed choice shares, over the options') }}">{{ term("mae") }} HB</th>
+    <th title="{{ de_en('Dasselbe mit den Anteilen des aggregierten Logit-Modells', 'The same with the shares of the aggregate logit model') }}">MAE Logit</th></tr></thead>
+  <tbody>
+  {% for r in ho.rows %}
+    <tr><td>{{ task_name }} {{ r.h }}</td><td>{{ r.hb.n if r.hb else 0 }}</td>
+      <td>{% if r.hb %}{{ pct(r.hb.hit) }}{% if r.hb.lo is not none %} <span class="hint">({{ pct(r.hb.lo) }}–{{ pct(r.hb.hi) }})</span>{% endif %}{% else %}–{% endif %}</td>
+      <td>{% if r.pooled %}{{ pct(r.pooled.hit) }}{% if r.pooled.lo is not none %} <span class="hint">({{ pct(r.pooled.lo) }}–{{ pct(r.pooled.hi) }})</span>{% endif %}{% else %}–{% endif %}</td>
+      <td>{{ pct(r.chance) }}</td>
+      <td>{{ one(r.hb.mae * 100) ~ de_en(" PP", " pp") if r.hb else "–" }}</td>
+      <td>{{ one(r.pooled.mae * 100) ~ de_en(" PP", " pp") if r.pooled else "–" }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="muted small">{{ de_en("Die Holdout-Sets", "The holdout sets") if ho.kind == "maxdiff" else de_en("Die Holdout-Aufgaben", "The holdout tasks") }} {{ de_en("gehen nicht in die Schätzung ein: Die Werte zeigen, wie gut die Modelle Wahlen vorhersagen, auf die sie nicht angepasst wurden", "do not go into the estimation: the values show how well the models predict choices they were not fitted to") }}{{ de_en(" (hier die Wahl „am wichtigsten“)", " (here the choice “most important”)") if ho.kind == "maxdiff" else "" }}. {{ de_en("Die Trefferquote sollte deutlich über dem Zufall liegen, ein kleinerer MAE ist besser.", "The hit rate should lie clearly above chance; a smaller MAE is better.") }}</p>
+{% call method(de_en("Trefferquote und MAE", "Hit rate and MAE")) %}<p>{{ de_en("Trefferquote: Anteil der Personen, bei denen die Option mit dem höchsten vorhergesagten Nutzen die gewählte ist (Gleichstand anteilig); sie sollte deutlich über dem Zufall liegen. MAE: mittlere absolute Abweichung der vorhergesagten von den beobachteten Wahlanteilen über die Optionen, in Prozentpunkten (PP); kleiner ist besser. Liegt HB nicht über dem Logit-Modell, tragen die individuellen Unterschiede wenig zur Vorhersage bei. Ohne Intervall unter 10 Personen.", "Hit rate: share of people for whom the option with the highest predicted utility is the one chosen (ties shared); it should lie clearly above chance. MAE: mean absolute deviation of the predicted from the observed choice shares over the options, in percentage points (pp); smaller is better. If HB is not above the logit model, the individual differences contribute little to the prediction. No interval under 10 people.") }}</p>{% endcall %}

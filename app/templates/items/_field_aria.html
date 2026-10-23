@@ -1,0 +1,8 @@
+{# The attributes that tie a field to its message and hints, written by the server so they hold without
+   JavaScript too (accessibility D3): aria-describedby lists the message of a failed "Next" (msg<id>, under the
+   question or at the end of the element) and the given hint ids; aria-invalid marks an error. The name of the
+   field is its question alone (a <label for> or aria-labelledby), never the message. #}
+{% macro field_aria(item, item_msg, errors, hints=[]) -%}
+{%- set ids = (["msg" ~ item.id] if item_msg is not none and item_msg.text else []) + hints|select|list -%}
+{%- if ids %} aria-describedby="{{ ids|join(' ') }}"{% endif %}{% if errors.get(item.id) %} aria-invalid="true"{% endif %}
+{%- endmacro %}

@@ -1,0 +1,19 @@
+{# Shared by conjoint-like items (app/items/attributes.py): the explanation page with all attributes and levels.
+   explain_default: intro text if the item has none (explain_intro). #}
+{% set t = item.t(lang) %}
+{% set de = lang in ("de", "de-du") %}
+<h2 class="p-question" id="q{{ item.id }}">{{ ui("Bevor es losgeht", "Before you start") }}</h2>
+<div class="p-info">{{ (t.get("explain_intro") or explain_default)|rich(variables) }}</div>
+<dl class="cj-explain">
+  {% for attr in kind.attributes(item, lang) %}
+  <div><dt>{{ attr.label|fill(variables) }}</dt>
+    <dd>{% if attr.description %}<span class="cj-explain-desc">{{ attr.description|fill(variables) }}</span>{% endif %}
+      {% if attr.level_defs|select|list %}
+      <ul class="cj-explain-defs">
+        {% for label in attr.level_labels %}{% if label %}<li><strong>{{ label }}</strong>{% if attr.level_defs[loop.index0] %}: {{ attr.level_defs[loop.index0]|fill(variables) }}{% endif %}</li>{% endif %}{% endfor %}
+      </ul>
+      {% else %}
+      <span class="cj-explain-levels">{{ (ui("Ausprägungen: ", "Levels: ")) }}{{ attr.level_labels|select|join(" · ") }}</span>
+      {% endif %}</dd></div>
+  {% endfor %}
+</dl>

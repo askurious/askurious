@@ -1,0 +1,34 @@
+<!doctype html>
+{# the weather demo of an external section (app/demo_webapp.py): a page of a web app outside the questionnaire, in
+   the language of the survey ({{lang}} in its address); texts come from app/demo_webapp.py through tr() #}
+<html lang="{{ html_lang }}" dir="{{ html_dir }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.title }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='demo.css') }}">
+</head>
+<body>
+<main id="main" class="container demo-app">
+  <h1>{{ t.title }}</h1>
+  <p class="muted">{{ t.intro }}</p>
+  <form method="get" action="{{ url_for('demo_webapp.weather') }}" class="demo-form">
+    <input type="hidden" name="lang" value="{{ lang }}">
+    {% if back %}<input type="hidden" name="return" value="{{ back }}">{% endif %}
+    <label for="stadt">{{ t.city }}</label>
+    <div class="demo-row">
+      <input id="stadt" name="stadt" value="{{ city }}" maxlength="100" autocomplete="address-level2" required autofocus>
+      <button class="button">{{ t.ask }}</button>
+    </div>
+  </form>
+  {% if problem %}<p class="demo-note" role="alert">{{ problem }}</p>{% endif %}
+  {% if shown %}<p class="demo-result" role="status">{{ t.result }}</p>{% endif %}
+  {% if target and (shown or problem) %}<p><a class="button" href="{{ target }}">{{ t.back }}</a></p>{% endif %}
+  {% if not back %}<p class="muted small">{{ t.alone }}</p>{% endif %}
+  <p class="muted small"><a href="https://open-meteo.com/" target="_blank" rel="noopener">{{ t.source }}</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></p>
+</main>
+</body>
+</html>

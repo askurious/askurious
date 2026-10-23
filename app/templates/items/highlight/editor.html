@@ -1,0 +1,32 @@
+{% set question_hint = de_en("z. B. „Markieren Sie Wörter, die Sie positiv oder negativ finden. Sie müssen nicht alle Wörter markieren.“", "e.g. “Mark words you find positive or negative. You do not have to mark all words.”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+<label><span class="label-title">{{ de_en("Text zum Markieren", "Text to mark") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span>
+  <span class="hint">{{ de_en("jedes Wort lässt sich markieren; Zeilenumbrüche bleiben", "every word can be marked; line breaks stay") }}{% if not structural %}{{ de_en("; die Befragung läuft: Der Text ist fest, weil die Wörter über ihre Nummer ausgewertet werden", "; the survey is running: the text is fixed because the words are analysed by their number") }}{% endif %}</span></span>
+  <textarea name="passage" rows="8" {% if not structural %}readonly{% endif %}>{{ lt.get("passage", "") }}</textarea>
+</label>
+<fieldset>
+  <legend>{{ de_en("Kategorien", "Categories") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}</span></legend>
+  <label>{{ de_en("Anzahl", "Number") }}
+    <select name="ncats" data-submit-on-change {% if not structural %}disabled{% endif %}>
+      {% for n in (1, 2, 3) %}<option value="{{ n }}" {% if n == item.config.cats|length %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select>
+    <span class="hint">{{ de_en("eine andere Anzahl setzt Namen und Farben auf die Vorschläge zurück (1: wichtig; 2: positiv, negativ; 3: dazu neutral)", "another number resets names and colours to the suggestions (1: important; 2: positive, negative; 3: plus neutral)") }}</span></label>
+  {% set en_colours = {"yellow": "Yellow", "green": "Green", "red": "Red", "blue": "Blue", "grey": "Grey", "violet": "Violet"} %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Nr.", "No.") }}</th><th>Name</th><th>{{ de_en("Farbe", "Colour") }}{% if not structural %} <span class="hint">{{ de_en("nur im Entwurf in der Standardsprache änderbar", "can only be changed in the draft in the standard language") }}</span>{% endif %}</th></tr></thead>
+    <tbody>
+    {% for k, label, color in kind.cats(item, lang) %}
+      {% set own = (lt.get("cats") or [])[k - 1] if (lt.get("cats") or [])|length >= k else "" %}
+      <tr><td>{{ k }}</td>
+        <td><input name="cat_label" aria-label="{{ de_en('Name der Kategorie {k}', 'Name of category {k}', k=k) }}" value="{{ own }}" maxlength="40" placeholder="{{ label }}"></td>
+        <td><span class="hl-swatch" style="background: {{ color }}"></span>
+          <select name="cat_color" {% if not structural %}disabled{% endif %}>
+            {% for key, (name, css) in hl_colors().items() %}<option value="{{ key }}" {% if item.config.cats[k - 1].color == key %}selected{% endif %}>{{ de_en(name, en_colours.get(key, name)) }}</option>{% endfor %}
+          </select></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</fieldset>
+<p class="muted small">{{ de_en("Teilnehmende wählen oben eine Markierung und tippen oder klicken Wörter an (mit der Maus auch über mehrere Wörter ziehen); erneutes Antippen entfernt die Markierung.", "Participants choose a marker at the top and tap or click words (with the mouse, also drag across several words); tapping again removes the mark.") }}
+{{ de_en("Export: {code}_w1 … je Wort (0 = nicht markiert, 1 … = Kategorie), {code}_c1 … Anzahl markierter Wörter je Kategorie.", "Export: {code}_w1 … per word (0 = not marked, 1 … = category), {code}_c1 … number of marked words per category.", code=item.code) }}</p>

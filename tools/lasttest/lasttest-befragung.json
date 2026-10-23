@@ -1,0 +1,1721 @@
+{
+ "format": "askurious-survey",
+ "version": 5,
+ "exported_at": "2026-10-08T11:30:52Z",
+ "survey": {
+  "title": "Lasttest",
+  "title_translations": {},
+  "project": "",
+  "description": "",
+  "research_question": "",
+  "study_plan": null,
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "repeat_marker": false,
+  "erase_code": true,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "body": "Lasttest: bitte nicht für echte Daten verwenden.",
+       "question": "Einwilligung",
+       "agree": "Fortsetzen",
+       "disagree": "Nein",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Demographische Angaben"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {
+    "demographics": true
+   },
+   "items": [
+    {
+     "id": 2,
+     "type": "text_input",
+     "code": "age",
+     "answer_mode": "nudge",
+     "config": {
+      "multiline": false,
+      "max_length": 3,
+      "validation": "integer",
+      "min": 10,
+      "max": 120,
+      "pattern": "",
+      "construct": {
+       "key": "age",
+       "version": 1,
+       "unlocked": false,
+       "template": {
+        "type": "text_input",
+        "code": "age",
+        "texts": {
+         "de": {
+          "question": "Wie alt sind Sie?",
+          "prefix": "",
+          "suffix": "Jahre",
+          "validation_message": ""
+         },
+         "en": {
+          "question": "How old are you?",
+          "prefix": "",
+          "suffix": "years",
+          "validation_message": ""
+         }
+        },
+        "config": {
+         "multiline": false,
+         "max_length": 3,
+         "validation": "integer",
+         "min": 10,
+         "max": 120,
+         "pattern": ""
+        }
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Wie alt sind Sie?",
+       "prefix": "",
+       "suffix": "Jahre",
+       "validation_message": ""
+      }
+     }
+    },
+    {
+     "id": 3,
+     "type": "single_choice",
+     "code": "gender",
+     "answer_mode": "nudge",
+     "config": {
+      "options": [
+       {
+        "id": "o1",
+        "code": "1"
+       },
+       {
+        "id": "o2",
+        "code": "2"
+       },
+       {
+        "id": "o3",
+        "code": "3"
+       },
+       {
+        "id": "o5",
+        "code": "4",
+        "text": true,
+        "optional": true
+       },
+       {
+        "id": "o4",
+        "code": "99",
+        "missing": true
+       }
+      ],
+      "layout": "vertical",
+      "construct": {
+       "key": "gender",
+       "version": 6,
+       "unlocked": false,
+       "template": {
+        "type": "single_choice",
+        "code": "gender",
+        "config": {
+         "options": [
+          {
+           "id": "o1",
+           "code": "1"
+          },
+          {
+           "id": "o2",
+           "code": "2"
+          },
+          {
+           "id": "o3",
+           "code": "3"
+          },
+          {
+           "id": "o5",
+           "code": "4",
+           "text": true,
+           "optional": true
+          },
+          {
+           "id": "o4",
+           "code": "99",
+           "missing": true
+          }
+         ],
+         "layout": "vertical"
+        },
+        "texts": {
+         "de": {
+          "question": "Welchem Geschlecht fühlen Sie sich zugehörig?",
+          "options": {
+           "o1": "weiblich",
+           "o2": "männlich",
+           "o3": "divers",
+           "o5": "Ich beschreibe mich selbst:",
+           "o4": "keine Angabe"
+          }
+         },
+         "en": {
+          "question": "What is your gender?",
+          "options": {
+           "o1": "female",
+           "o2": "male",
+           "o3": "diverse",
+           "o5": "Prefer to self-describe:",
+           "o4": "prefer not to disclose"
+          }
+         }
+        }
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Welchem Geschlecht fühlen Sie sich zugehörig?",
+       "options": {
+        "o1": "weiblich",
+        "o2": "männlich",
+        "o3": "divers",
+        "o5": "Ich beschreibe mich selbst:",
+        "o4": "keine Angabe"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "titles": {
+    "de": "Block 1"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 4,
+     "type": "page_break",
+     "code": "_pb1",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 5,
+     "type": "likert",
+     "code": "m1",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 1)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 6,
+     "type": "single_choice",
+     "code": "e1",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "2f29dd",
+        "code": "1"
+       },
+       {
+        "id": "012889",
+        "code": "2"
+       },
+       {
+        "id": "df4b8a",
+        "code": "3"
+       },
+       {
+        "id": "08e059",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 1)",
+       "options": {
+        "2f29dd": "ja",
+        "012889": "eher ja",
+        "df4b8a": "eher nein",
+        "08e059": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 7,
+     "type": "multiple_choice",
+     "code": "v1",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "38bd7d",
+        "code": "1"
+       },
+       {
+        "id": "a6ad2d",
+        "code": "2"
+       },
+       {
+        "id": "fba13e",
+        "code": "3"
+       },
+       {
+        "id": "c67c33",
+        "code": "4"
+       },
+       {
+        "id": "86021b",
+        "code": "5"
+       }
+      ],
+      "layout": "vertical",
+      "min": null,
+      "max": null,
+      "multi_hint": false
+     },
+     "texts": {
+      "de": {
+       "question": "Was trifft zu?",
+       "options": {
+        "38bd7d": "rot",
+        "a6ad2d": "blau",
+        "fba13e": "grün",
+        "c67c33": "gelb",
+        "86021b": "schwarz"
+       }
+      }
+     }
+    },
+    {
+     "id": 8,
+     "type": "page_break",
+     "code": "_pb2",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 9,
+     "type": "likert",
+     "code": "m2",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 2)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 10,
+     "type": "single_choice",
+     "code": "e2",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "b127c5",
+        "code": "1"
+       },
+       {
+        "id": "e1725f",
+        "code": "2"
+       },
+       {
+        "id": "cd2657",
+        "code": "3"
+       },
+       {
+        "id": "d3509b",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 2)",
+       "options": {
+        "b127c5": "ja",
+        "e1725f": "eher ja",
+        "cd2657": "eher nein",
+        "d3509b": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 11,
+     "type": "single_choice",
+     "code": "d2",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "0da911",
+        "code": "1"
+       },
+       {
+        "id": "f292aa",
+        "code": "2"
+       },
+       {
+        "id": "2db438",
+        "code": "3"
+       },
+       {
+        "id": "dd88f7",
+        "code": "4"
+       },
+       {
+        "id": "685c8f",
+        "code": "5"
+       },
+       {
+        "id": "df4366",
+        "code": "6"
+       },
+       {
+        "id": "b742d5",
+        "code": "7"
+       },
+       {
+        "id": "056536",
+        "code": "8"
+       },
+       {
+        "id": "6b2063",
+        "code": "9"
+       },
+       {
+        "id": "5e42ae",
+        "code": "10"
+       },
+       {
+        "id": "ce5c56",
+        "code": "11"
+       },
+       {
+        "id": "e18f5f",
+        "code": "12"
+       }
+      ],
+      "layout": "vertical",
+      "display": "dropdown"
+     },
+     "texts": {
+      "de": {
+       "question": "Bitte wählen",
+       "options": {
+        "0da911": "Option 1",
+        "f292aa": "Option 2",
+        "2db438": "Option 3",
+        "dd88f7": "Option 4",
+        "685c8f": "Option 5",
+        "df4366": "Option 6",
+        "b742d5": "Option 7",
+        "056536": "Option 8",
+        "6b2063": "Option 9",
+        "5e42ae": "Option 10",
+        "ce5c56": "Option 11",
+        "e18f5f": "Option 12"
+       }
+      }
+     }
+    },
+    {
+     "id": 12,
+     "type": "page_break",
+     "code": "_pb3",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 13,
+     "type": "likert",
+     "code": "m3",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 3)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 14,
+     "type": "single_choice",
+     "code": "e3",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "ff3ae1",
+        "code": "1"
+       },
+       {
+        "id": "c058bd",
+        "code": "2"
+       },
+       {
+        "id": "772b30",
+        "code": "3"
+       },
+       {
+        "id": "4bf733",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 3)",
+       "options": {
+        "ff3ae1": "ja",
+        "c058bd": "eher ja",
+        "772b30": "eher nein",
+        "4bf733": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 15,
+     "type": "multiple_choice",
+     "code": "v3",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "150665",
+        "code": "1"
+       },
+       {
+        "id": "ed45da",
+        "code": "2"
+       },
+       {
+        "id": "8f3f88",
+        "code": "3"
+       },
+       {
+        "id": "b609cc",
+        "code": "4"
+       },
+       {
+        "id": "362520",
+        "code": "5"
+       }
+      ],
+      "layout": "vertical",
+      "min": null,
+      "max": null,
+      "multi_hint": false
+     },
+     "texts": {
+      "de": {
+       "question": "Was trifft zu?",
+       "options": {
+        "150665": "rot",
+        "ed45da": "blau",
+        "8f3f88": "grün",
+        "b609cc": "gelb",
+        "362520": "schwarz"
+       }
+      }
+     }
+    },
+    {
+     "id": 16,
+     "type": "text_input",
+     "code": "z3",
+     "answer_mode": "optional",
+     "config": {
+      "multiline": false,
+      "max_length": 2000,
+      "validation": "integer",
+      "pattern": "",
+      "min": null,
+      "max": null
+     },
+     "texts": {
+      "de": {
+       "question": "Eine Zahl, bitte"
+      }
+     }
+    },
+    {
+     "id": 17,
+     "type": "page_break",
+     "code": "_pb4",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 18,
+     "type": "likert",
+     "code": "m4",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 4)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 19,
+     "type": "single_choice",
+     "code": "e4",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "d4cdf5",
+        "code": "1"
+       },
+       {
+        "id": "bf5aa2",
+        "code": "2"
+       },
+       {
+        "id": "791c7b",
+        "code": "3"
+       },
+       {
+        "id": "29ca21",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 4)",
+       "options": {
+        "d4cdf5": "ja",
+        "bf5aa2": "eher ja",
+        "791c7b": "eher nein",
+        "29ca21": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 20,
+     "type": "single_choice",
+     "code": "d4",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "7a7dc3",
+        "code": "1"
+       },
+       {
+        "id": "f22c7f",
+        "code": "2"
+       },
+       {
+        "id": "ebb99d",
+        "code": "3"
+       },
+       {
+        "id": "bbb233",
+        "code": "4"
+       },
+       {
+        "id": "ca4f89",
+        "code": "5"
+       },
+       {
+        "id": "fad0b3",
+        "code": "6"
+       },
+       {
+        "id": "91838d",
+        "code": "7"
+       },
+       {
+        "id": "1ad745",
+        "code": "8"
+       },
+       {
+        "id": "8f75e2",
+        "code": "9"
+       },
+       {
+        "id": "fa8037",
+        "code": "10"
+       },
+       {
+        "id": "bdda35",
+        "code": "11"
+       },
+       {
+        "id": "ee1d0b",
+        "code": "12"
+       }
+      ],
+      "layout": "vertical",
+      "display": "dropdown"
+     },
+     "texts": {
+      "de": {
+       "question": "Bitte wählen",
+       "options": {
+        "7a7dc3": "Option 1",
+        "f22c7f": "Option 2",
+        "ebb99d": "Option 3",
+        "bbb233": "Option 4",
+        "ca4f89": "Option 5",
+        "fad0b3": "Option 6",
+        "91838d": "Option 7",
+        "1ad745": "Option 8",
+        "8f75e2": "Option 9",
+        "fa8037": "Option 10",
+        "bdda35": "Option 11",
+        "ee1d0b": "Option 12"
+       }
+      }
+     }
+    },
+    {
+     "id": 21,
+     "type": "page_break",
+     "code": "_pb5",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 22,
+     "type": "likert",
+     "code": "m5",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 5)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 23,
+     "type": "single_choice",
+     "code": "e5",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "81f12e",
+        "code": "1"
+       },
+       {
+        "id": "b6c815",
+        "code": "2"
+       },
+       {
+        "id": "934e06",
+        "code": "3"
+       },
+       {
+        "id": "98a0e7",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 5)",
+       "options": {
+        "81f12e": "ja",
+        "b6c815": "eher ja",
+        "934e06": "eher nein",
+        "98a0e7": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 24,
+     "type": "multiple_choice",
+     "code": "v5",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "28a2f8",
+        "code": "1"
+       },
+       {
+        "id": "8bbfe0",
+        "code": "2"
+       },
+       {
+        "id": "a632a8",
+        "code": "3"
+       },
+       {
+        "id": "763e86",
+        "code": "4"
+       },
+       {
+        "id": "f10755",
+        "code": "5"
+       }
+      ],
+      "layout": "vertical",
+      "min": null,
+      "max": null,
+      "multi_hint": false
+     },
+     "texts": {
+      "de": {
+       "question": "Was trifft zu?",
+       "options": {
+        "28a2f8": "rot",
+        "8bbfe0": "blau",
+        "a632a8": "grün",
+        "763e86": "gelb",
+        "f10755": "schwarz"
+       }
+      }
+     }
+    },
+    {
+     "id": 25,
+     "type": "page_break",
+     "code": "_pb6",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 26,
+     "type": "likert",
+     "code": "m6",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 6)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 27,
+     "type": "single_choice",
+     "code": "e6",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "a037af",
+        "code": "1"
+       },
+       {
+        "id": "91e4f7",
+        "code": "2"
+       },
+       {
+        "id": "4fc9c7",
+        "code": "3"
+       },
+       {
+        "id": "45b1a0",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 6)",
+       "options": {
+        "a037af": "ja",
+        "91e4f7": "eher ja",
+        "4fc9c7": "eher nein",
+        "45b1a0": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 28,
+     "type": "single_choice",
+     "code": "d6",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "8883a8",
+        "code": "1"
+       },
+       {
+        "id": "c29974",
+        "code": "2"
+       },
+       {
+        "id": "4f6205",
+        "code": "3"
+       },
+       {
+        "id": "f0538f",
+        "code": "4"
+       },
+       {
+        "id": "71a69f",
+        "code": "5"
+       },
+       {
+        "id": "4f8e7a",
+        "code": "6"
+       },
+       {
+        "id": "4235bd",
+        "code": "7"
+       },
+       {
+        "id": "89551b",
+        "code": "8"
+       },
+       {
+        "id": "db4934",
+        "code": "9"
+       },
+       {
+        "id": "5bbc7d",
+        "code": "10"
+       },
+       {
+        "id": "4c0ae6",
+        "code": "11"
+       },
+       {
+        "id": "da6eff",
+        "code": "12"
+       }
+      ],
+      "layout": "vertical",
+      "display": "dropdown"
+     },
+     "texts": {
+      "de": {
+       "question": "Bitte wählen",
+       "options": {
+        "8883a8": "Option 1",
+        "c29974": "Option 2",
+        "4f6205": "Option 3",
+        "f0538f": "Option 4",
+        "71a69f": "Option 5",
+        "4f8e7a": "Option 6",
+        "4235bd": "Option 7",
+        "89551b": "Option 8",
+        "db4934": "Option 9",
+        "5bbc7d": "Option 10",
+        "4c0ae6": "Option 11",
+        "da6eff": "Option 12"
+       }
+      }
+     }
+    },
+    {
+     "id": 29,
+     "type": "text_input",
+     "code": "z6",
+     "answer_mode": "optional",
+     "config": {
+      "multiline": false,
+      "max_length": 2000,
+      "validation": "integer",
+      "pattern": "",
+      "min": null,
+      "max": null
+     },
+     "texts": {
+      "de": {
+       "question": "Eine Zahl, bitte"
+      }
+     }
+    },
+    {
+     "id": 30,
+     "type": "page_break",
+     "code": "_pb7",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 31,
+     "type": "likert",
+     "code": "m7",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 7)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 32,
+     "type": "single_choice",
+     "code": "e7",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "ce4f26",
+        "code": "1"
+       },
+       {
+        "id": "9d48f8",
+        "code": "2"
+       },
+       {
+        "id": "45f464",
+        "code": "3"
+       },
+       {
+        "id": "a1877c",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 7)",
+       "options": {
+        "ce4f26": "ja",
+        "9d48f8": "eher ja",
+        "45f464": "eher nein",
+        "a1877c": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 33,
+     "type": "multiple_choice",
+     "code": "v7",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "4067b6",
+        "code": "1"
+       },
+       {
+        "id": "1d2811",
+        "code": "2"
+       },
+       {
+        "id": "d65b95",
+        "code": "3"
+       },
+       {
+        "id": "58c90f",
+        "code": "4"
+       },
+       {
+        "id": "382d56",
+        "code": "5"
+       }
+      ],
+      "layout": "vertical",
+      "min": null,
+      "max": null,
+      "multi_hint": false
+     },
+     "texts": {
+      "de": {
+       "question": "Was trifft zu?",
+       "options": {
+        "4067b6": "rot",
+        "1d2811": "blau",
+        "d65b95": "grün",
+        "58c90f": "gelb",
+        "382d56": "schwarz"
+       }
+      }
+     }
+    },
+    {
+     "id": 34,
+     "type": "page_break",
+     "code": "_pb8",
+     "answer_mode": "optional",
+     "config": {},
+     "texts": {
+      "de": {}
+     }
+    },
+    {
+     "id": 35,
+     "type": "likert",
+     "code": "m8",
+     "answer_mode": "optional",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie zu? (Seite 8)",
+       "statements": {
+        "s1": "Aussage 1",
+        "s2": "Aussage 2",
+        "s3": "Aussage 3",
+        "s4": "Aussage 4",
+        "s5": "Aussage 5",
+        "s6": "Aussage 6"
+       }
+      }
+     }
+    },
+    {
+     "id": 36,
+     "type": "single_choice",
+     "code": "e8",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "73af4c",
+        "code": "1"
+       },
+       {
+        "id": "49002e",
+        "code": "2"
+       },
+       {
+        "id": "2006d7",
+        "code": "3"
+       },
+       {
+        "id": "45a11a",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welche Antwort passt? (Seite 8)",
+       "options": {
+        "73af4c": "ja",
+        "49002e": "eher ja",
+        "2006d7": "eher nein",
+        "45a11a": "nein"
+       }
+      }
+     }
+    },
+    {
+     "id": 37,
+     "type": "single_choice",
+     "code": "d8",
+     "answer_mode": "optional",
+     "config": {
+      "options": [
+       {
+        "id": "e3c3d3",
+        "code": "1"
+       },
+       {
+        "id": "937522",
+        "code": "2"
+       },
+       {
+        "id": "671c4c",
+        "code": "3"
+       },
+       {
+        "id": "a9c826",
+        "code": "4"
+       },
+       {
+        "id": "9c778b",
+        "code": "5"
+       },
+       {
+        "id": "79feef",
+        "code": "6"
+       },
+       {
+        "id": "1c2d7e",
+        "code": "7"
+       },
+       {
+        "id": "363948",
+        "code": "8"
+       },
+       {
+        "id": "ee3c7c",
+        "code": "9"
+       },
+       {
+        "id": "9bb644",
+        "code": "10"
+       },
+       {
+        "id": "40c2d1",
+        "code": "11"
+       },
+       {
+        "id": "5331df",
+        "code": "12"
+       }
+      ],
+      "layout": "vertical",
+      "display": "dropdown"
+     },
+     "texts": {
+      "de": {
+       "question": "Bitte wählen",
+       "options": {
+        "e3c3d3": "Option 1",
+        "937522": "Option 2",
+        "671c4c": "Option 3",
+        "a9c826": "Option 4",
+        "9c778b": "Option 5",
+        "79feef": "Option 6",
+        "1c2d7e": "Option 7",
+        "363948": "Option 8",
+        "ee3c7c": "Option 9",
+        "9bb644": "Option 10",
+        "40c2d1": "Option 11",
+        "5331df": "Option 12"
+       }
+      }
+     }
+    },
+    {
+     "id": 38,
+     "type": "text_input",
+     "code": "txt",
+     "answer_mode": "optional",
+     "config": {
+      "multiline": false,
+      "max_length": 2000,
+      "validation": "none",
+      "min": null,
+      "max": null,
+      "pattern": ""
+     },
+     "texts": {
+      "de": {
+       "question": "Möchten Sie noch etwas sagen?"
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "block",
+    "block": 2
+   },
+   {
+    "t": "block",
+    "block": 3
+   },
+   {
+    "t": "split",
+    "id": "sfe1de6"
+   }
+  ]
+ },
+ "quotas": [],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null
+}

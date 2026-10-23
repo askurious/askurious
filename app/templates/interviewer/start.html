@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{# The page of an interviewer link (app/interviewer.py, start): the hints to confirm; the key comes from the address's
+   "#" and goes once in the body of the POST (interviewer.js), never in a log. #}
+{% block title %}{{ de_en("Interviews führen", "Conduct interviews") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<section class="panel interviewer-start">
+  <p class="muted small">{{ survey.title }}</p>
+  <h1>{{ de_en("Interviews führen", "Conduct interviews") }}</h1>
+  {% if left %}
+  <p>{{ de_en("Sie sind abgemeldet. Zum Weiterarbeiten Ihren Link erneut öffnen.", "You are signed out. To go on, open your link again.") }}</p>
+  {% else %}
+  {% if problem %}<p class="flash flash-error" role="alert">{{ problem }}</p>{% endif %}
+  <form method="post" class="stack" data-interviewer-start>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="key" data-interviewer-key>
+    <p data-interviewer-nokey hidden class="danger-text">{{ de_en("Bitte den vollständigen Link öffnen, den Sie von den Forschenden bekommen haben (mit dem Teil nach „#“), oder den QR-Code scannen.", "Please open the complete link you got from the researchers (with the part after “#”), or scan the QR code.") }}</p>
+    <h2>{{ de_en("Hinweise für Interviewende", "Notes for interviewers") }}</h2>
+    <ul>
+      <li>{{ de_en("Dieser Link ist Ihr persönlicher Zugang. Wer ihn hat, sieht Ihre Interviews: nicht weitergeben, nicht in Chats posten, den QR-Code nicht offen liegen lassen.", "This link is your personal access. Anyone who has it sees your interviews: do not pass it on, do not post it in chats, do not leave the QR code lying around.") }}</li>
+      <li>{{ de_en("Was Sie in den Interviews erfahren, ist vertraulich. Sie arbeiten im Auftrag der Forschenden und nach ihren Anweisungen.", "What you learn in the interviews is confidential. You work on behalf of the researchers and follow their instructions.") }}</li>
+      <li>{{ de_en("Kein Interview ohne Einwilligung. Keine Namen in Notizen und Transkripte schreiben, Pseudonyme verwenden.", "No interview without consent. Do not write names in notes and transcripts; use pseudonyms.") }}</li>
+      <li>{{ de_en("Sie sehen nur Ihre eigenen Interviews, und jedes nur, bis Sie das Transkript als geprüft übergeben.", "You see only your own interviews, and each only until you hand the transcript over as checked.") }}</li>
+      <li>{{ de_en("Auf einem geteilten Gerät nach der Arbeit abmelden. Nach {n} Minuten ohne Aktivität öffnen Sie den Link erneut.", "Sign out after work on a shared device. After {n} minutes without activity you open the link again.", n=60) }}</li>
+    </ul>
+    <label class="check"><input type="checkbox" name="hints" value="{{ hints }}" required> {{ de_en("Ich habe die Hinweise gelesen und halte mich daran.", "I have read the notes and follow them.") }}</label>
+    <div><button class="button">{{ de_en("Weiter", "Continue") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Dieser Bereich speichert in Ihrem Browser nur ein technisch notwendiges Sitzungs-Cookie. Mehr dazu in der", "This area stores only a technically necessary session cookie in your browser. More in the") }} <a href="{{ url_for('public.privacy') }}">{{ de_en("Datenschutzerklärung", "privacy policy") }}</a>.</p>
+  {% endif %}
+</section>
+<script src="{{ url_for('static', filename='interviewer.js') }}" defer></script>
+{% endblock %}

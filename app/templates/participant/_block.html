@@ -1,0 +1,17 @@
+{# One page of a block. Needs: block, page_items, page (1-based), lang, answers, errors, variables. #}
+{% if block.show_title and block.title(lang) and (block_start if block_start is defined else page == 1) %}<h1 class="p-page-title">{{ block.title(lang)|fill(variables if variables is defined else none) }}</h1>
+{% else %}{# every page has a heading: screen readers notice the new page and can jump to its start #}
+<h1 class="p-sr-only">{{ survey.title_in(lang) }}, {{ ui("Seite", "page") }} {{ page }}</h1>{% endif %}
+{# the page was sent faster than it can be read (app/tempo.py): once more, with a note; "Next" continues #}
+{% if tempo_note is defined and tempo_note %}<p class="p-tempo-note" role="status" tabindex="-1" data-tempo-note>{{ tempo_note }}</p>{% endif %}
+{% set body %}
+  {% for item in page_items %}
+    {% include "participant/_item.html" %}
+  {% endfor %}
+{% endset %}
+{# the star is explained on every page that shows one, before the first question: who starts at the top sees it before
+   the stars (UI/UX audit 2026-10-16, 94) #}
+{% if 'class="p-required"' in body %}<p class="p-required-note"><span class="p-required" aria-hidden="true">*</span> {{ ui("Pflichtfrage", "Required question") }}</p>{% endif %}
+<div class="p-items">
+{{ body }}
+</div>

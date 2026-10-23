@@ -1,0 +1,310 @@
+{
+ "format": "askurious-survey",
+ "version": 6,
+ "exported_at": "2026-10-05T00:00:00Z",
+ "survey": {
+  "title": "Urteile über Pflegeroboter",
+  "title_translations": {},
+  "project": "",
+  "description": "Sie lesen kurze Beschreibungen von Pflegerobotern und beurteilen jeweils, wie gut Sie den Einsatz finden.",
+  "research_question": "Wie hängt das Urteil über einen Pflegeroboter von Aussehen und Einsatzort ab?",
+  "study_plan": {
+   "goal": "causal",
+   "goals": [
+    "causal"
+   ],
+   "design": "vignettes",
+   "hypotheses": [
+    {
+     "id": "fbce3328",
+     "text": "Wie hängt die Beurteilung humanoider Roboter vom Einsatzort (Pflegeheim oder zu Hause) ab?",
+     "kind": "open",
+     "direction": "",
+     "iv": "",
+     "dv": "",
+     "analysis": "",
+     "power": 0.8
+    }
+   ],
+   "sample": {
+    "target": 100,
+    "recruitment": "convenience",
+    "note": "",
+    "exclusions": null,
+    "response": null
+   },
+   "rules": "Speeder (unter 50 % der Median-Dauer); wer die Aufmerksamkeitsprüfung falsch beantwortet",
+   "holm": false,
+   "sem_method": "",
+   "sem": {
+    "controls": [],
+    "single": {},
+    "formative": [],
+    "invariance": "",
+    "missing": "",
+    "alternative": [],
+    "second": [],
+    "ordinal": ""
+   },
+   "diary": {
+    "lagged": false,
+    "slope": false
+   },
+   "layout": {
+    "v": 1,
+    "nodes": {}
+   },
+   "deviations": []
+  },
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "block_load": false,
+  "repeat_marker": false,
+  "erase_code": false,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": null,
+  "paper": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "funding": "",
+      "controller": "",
+      "dpo": "",
+      "special_categories": false,
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "special": false,
+       "audio": false,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Einwilligung",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_special": "",
+       "confirm_audio": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Block 1"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 2,
+     "type": "likert",
+     "code": "urteil",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": false,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Ein Pflegeroboter mit dem Aussehen „{{aussehen}}“ hilft im Einsatzort „{{einsatzort}}“. Wie sehr stimmen Sie zu?",
+       "statements": {
+        "s1": "Diesen Roboter fände ich an diesem Ort gut eingesetzt."
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "loop",
+    "id": "l662de1",
+    "name": "Roboter",
+    "code": "vig",
+    "columns": [
+     {
+      "id": "fa1",
+      "name": "aussehen",
+      "hidden": false
+     },
+     {
+      "id": "ha1",
+      "name": "aussehen_hint",
+      "hidden": true
+     },
+     {
+      "id": "fa2",
+      "name": "einsatzort",
+      "hidden": false
+     }
+    ],
+    "rows": [],
+    "mode": "all",
+    "k": 1,
+    "order": "random",
+    "balanced": true,
+    "children": [
+     {
+      "t": "block",
+      "block": 2
+     }
+    ],
+    "source": "factors",
+    "attributes": [
+     {
+      "id": "a1",
+      "code": "aussehen",
+      "levels": [
+       {
+        "id": "l11",
+        "hint": "humanoid robot"
+       },
+       {
+        "id": "l12",
+        "hint": "robot arm"
+       },
+       {
+        "id": "l13",
+        "hint": "box robot"
+       }
+      ]
+     },
+     {
+      "id": "a2",
+      "code": "einsatzort",
+      "levels": [
+       {
+        "id": "l21",
+        "hint": ""
+       },
+       {
+        "id": "l22",
+        "hint": ""
+       },
+       {
+        "id": "l23",
+        "hint": ""
+       }
+      ]
+     }
+    ],
+    "prohibitions": [],
+    "texts": {
+     "de": {
+      "attributes": {
+       "a1": "Aussehen",
+       "a2": "Einsatzort"
+      },
+      "levels": {
+       "l11": "humanoid",
+       "l12": "Roboterarm",
+       "l13": "Kiste",
+       "l21": "Pflegeheim",
+       "l22": "Krankenhaus",
+       "l23": "Zuhause"
+      },
+      "level_defs": {}
+     }
+    },
+    "plan": {
+     "method": "doptimal",
+     "per_person": 4,
+     "decks": 3,
+     "interactions": []
+    }
+   },
+   {
+    "t": "split",
+    "id": "sae67fb"
+   }
+  ]
+ },
+ "quotas": [],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null,
+ "sampling": null
+}

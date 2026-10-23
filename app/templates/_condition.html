@@ -1,0 +1,50 @@
+{# One condition, the same everywhere it is set (element "Bedingung" in the flow, Teilquoten, rows shown only to
+   some, rules of completion links): what it is put on, what is asked about it, and its answers to tick or its
+   range (app/conditions.py; app.js builds the same fields when another question is chosen).
+   prefix: the fields are "<prefix>_item", "<prefix>_mode", …; "" for a form with one condition.
+   v: conditions.view of the stored condition, or none; described: conditions.describe; order: the refs offered.
+   modes: conditions.MODES, or none for a form without the choice of what is asked (Teilquoten).
+   empty: the label of "nothing chosen"; text: the condition in words (shown when the form has no fields for it).
+   name / name_title: a label in front (a row of a matrix); removable: a × that takes the condition away
+   (in the Teilquoten with its words beside it). #}
+{% from "_icons.html" import icon %}
+{% macro cond_line(prefix, v, described, order, modes, date_hint, editable=true, empty=none,
+                   text="", removable=false, name=none, name_title="", option_prefix="") -%}
+{% set n = (prefix ~ "_") if prefix else "" %}
+{% set info = described.get(v.ref) if v else none %}
+{% set off = "" if editable else "disabled" %}
+<div class="cond-line" data-cond data-prefix="{{ prefix }}" {% if name is not none %}data-row-label="{{ name_title }}"{% endif %}>
+  {% if name is not none %}<span class="cond-name" title="{{ name_title }}">{{ name }}</span>{% endif %}
+  <select name="{{ n }}item" data-cond-item aria-label="{{ de_en('Frage, URL-Parameter oder Quote', 'Question, URL parameter or quota') }}" {{ off }}>
+    <option value="">{{ empty if empty is not none else de_en("– Frage, URL-Parameter oder Quote –", "– question, URL parameter or quota –") }}</option>
+    {% for ref in order %}<option value="{{ ref }}" {% if v and v.ref == ref %}selected{% endif %}>{{ option_prefix }}{{ described[ref].label }}</option>{% endfor %}
+    {% if v and v.ref not in described %}<option value="{{ v.ref }}" selected>{{ text }}</option>{% endif %}
+  </select>
+  {% if v %}<input type="hidden" name="{{ n }}raw" value="{{ v.raw }}">{% endif %}
+  {% if modes is not none %}<select name="{{ n }}mode" data-cond-mode aria-label="{{ de_en('Vergleich', 'Comparison') }}" {{ off }}>
+    {% if info %}{% for key, label in modes[info.modes] %}<option value="{{ key }}" {% if v.mode == key %}selected{% endif %}>{{ label }}</option>{% endfor %}{% endif %}
+  </select>{% endif %}
+  {# the × right behind the question it takes away, before the answers (UI audit 2026-10-12, U18) #}
+  {% if removable and editable %}<button type="button" class="icon-btn danger" data-cond-remove title="{{ de_en('Bedingung entfernen', 'Remove condition') }}" aria-label="{{ de_en('Bedingung entfernen', 'Remove condition') }}">{{ icon("x", 16) }}</button>{% endif %}
+  <span class="cond-value" data-cond-value>
+    {% if v and v.special %}<span class="quota-special" title="{{ de_en('Diese Bedingung bleibt, wie sie ist, bis etwas anderes gewählt wird', 'This condition stays as it is until something else is chosen') }}">{{ text }}</span>
+    {% elif not info or v.mode in ("answered", "empty") %}
+    {% elif info.kind == "choice" %}<span class="quota-options">{% for code, label in info.options %}<label class="check"><input type="checkbox" name="{{ n }}codes" value="{{ code }}" {% if code in v.codes %}checked{% endif %} {{ off }}> {{ label }}</label>{% endfor %}</span>
+    {% elif info.kind in ("number", "date") and v.mode in ("lt", "gt") %}<input name="{{ n }}value" value="{{ v.value }}" aria-label="{{ de_en('Wert', 'Value') }}" class="narrow" {% if info.kind == "number" %}inputmode="decimal"{% else %}placeholder="{{ date_hint }}"{% endif %} {{ off }}>
+    {% elif info.kind in ("number", "date") %}<span class="quota-range">{{ de_en("von", "from") }} <input name="{{ n }}from" value="{{ v.lo }}" aria-label="{{ de_en('von', 'from') }}" {% if info.kind == "number" %}inputmode="decimal"{% else %}placeholder="{{ date_hint }}"{% endif %} {{ off }}> {{ de_en("bis", "to") }} <input name="{{ n }}to" value="{{ v.hi }}" aria-label="{{ de_en('bis', 'to') }}" {% if info.kind == "number" %}inputmode="decimal"{% else %}placeholder="{{ date_hint }}"{% endif %} {{ off }}></span>
+    {% elif info.kind == "text" %}<input name="{{ n }}value" value="{{ v.value }}" placeholder="{{ de_en('Wert', 'Value') }}" aria-label="{{ de_en('Wert', 'Value') }}" maxlength="200" {{ off }}>
+    {% endif %}
+  </span>
+</div>
+{%- endmacro %}
+
+{# Several conditions of one thing: the lines, "+ Bedingung" and, from two on, whether all or one of them must
+   hold. base: the prefix of a line is base + its number; rule: the stored rule ("all" | "any"), or none where
+   all must hold anyway (a Teilquote). The lines come from the caller (cond_line, removable). #}
+{% macro cond_add(base, count, max, modes=true, rule=none, rule_name="rule", editable=true) -%}
+{% if rule is not none %}
+<label class="cond-rule" data-cond-rule {% if count < 2 %}hidden{% endif %}>{{ de_en("Es müssen", "Must") }}
+  <select name="{{ rule_name }}" {% if not editable %}disabled{% endif %}><option value="all" {% if rule != "any" %}selected{% endif %}>{{ de_en("alle zutreffen", "all hold") }}</option><option value="any" {% if rule == "any" %}selected{% endif %}>{{ de_en("eine davon zutreffen", "one of them hold") }}</option></select></label>
+{% endif %}
+{% if editable %}<button type="button" class="button button-small button-secondary" data-add-cond data-conds-base="{{ base }}" data-conds-max="{{ max }}" {% if not modes %}data-conds-plain{% endif %} {% if count >= max %}hidden{% endif %}>{{ de_en("+ Bedingung", "+ Condition") }}</button>{% endif %}
+{%- endmacro %}

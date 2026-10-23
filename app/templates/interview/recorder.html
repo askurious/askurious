@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="{{ ui_language() }}"{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>
+{# The recording page for a second device (app/interview_remote.py, recorder.js): only the recording bar of one
+   interview, no guide; the interview view on the tablet sees its state. The researcher's page language (app/lang.py). #}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ de_en("Aufnahme", "Recording") }} · {{ row.interview.label }} · {{ survey.title }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <script src="{{ url_for('static', filename='theme-init.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='mic.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='audiostore.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='recorder.js') }}" defer></script>
+</head>
+<body class="iv-body">
+<main class="iv-recorder" data-recorder data-csrf="{{ csrf_token() }}"
+      data-audio-url="{{ url_for('interview_audio.upload', code=survey.code, rid=row.id) }}" data-audio-part="{{ part }}" data-audio-store="rec-{{ row.pid or row.id }}" data-interview-id="{{ row.id }}"
+      data-state-url="{{ url_for('interview_remote.state', code=survey.code, rid=row.id) }}">
+  <p class="muted small">{{ survey.title }}</p>
+  <h1>{{ de_en("Aufnahme {label}", "Recording {label}", label=row.interview.label) }}</h1>
+  {% if row.status == row.COMPLETED %}
+  <p>{{ de_en("Dieses Interview ist beendet.", "This interview has ended.") }}</p>
+  {# pieces an earlier visit kept on this device are still sent (recorder.js); their state shows here #}
+  <p class="small" data-rec-state role="status"></p>
+  {% elif not consented %}
+  <p>{{ de_en("Für dieses Interview liegt keine Einwilligung in die Aufnahme vor.", "There is no consent to recording for this interview.") }}</p>
+  <p class="small" data-rec-state role="status"></p>
+  {% else %}
+  <p class="muted">{{ de_en("Dieses Gerät nimmt nur auf. Den Leitfaden führen Sie auf dem anderen Gerät; dort sehen Sie, dass hier aufgenommen wird. „Interview beenden“ dort beendet auch diese Aufnahme.", "This device only records. You follow the guide on the other device; there you see that recording is running here. “End interview” there also ends this recording.") }}</p>
+  <div class="iv-recorder-time" data-rec-time aria-live="off">00:00</div>
+  <div class="iv-recorder-mic">
+    <select data-mic-select aria-label="{{ de_en('Mikrofon', 'Microphone') }}" hidden></select>
+    <button type="button" class="button button-small button-secondary" data-mic-test>{{ de_en("Testen", "Test") }}</button>
+  </div>
+  <span class="iv-level iv-level-wide" data-mic-level hidden aria-hidden="true"><span></span></span>
+  <div class="iv-rec iv-recorder-buttons">
+    <button type="button" class="button iv-rec-btn" data-rec-toggle>● {{ de_en("Aufnahme starten", "Start recording") }}</button>
+    <button type="button" class="button button-secondary" data-rec-stop hidden>■ {{ de_en("Aufnahme beenden", "Stop recording") }}</button>
+  </div>
+  <p class="small" data-rec-state role="status"></p>
+  <p class="muted small">{{ de_en("Lassen Sie diese Seite offen und das Display an; viele Telefone unterbrechen die Aufnahme sonst.", "Keep this page open and the screen on; many phones interrupt the recording otherwise.") }}</p>
+  {% endif %}
+  {# offline L: shown only while pieces wait and cannot get through (recorder.js draw) #}
+  <p><button type="button" class="button button-small button-secondary" data-rec-save hidden>{{ de_en("Tonstücke als Datei sichern", "Save audio pieces as a file") }}</button></p>
+</main>
+</body>
+</html>

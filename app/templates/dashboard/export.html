@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Mehrere Befragungen exportieren", "Export several surveys") }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
+<h1>{{ de_en("Mehrere Befragungen exportieren", "Export several surveys") }}</h1>
+<p class="muted">{{ de_en("Fragebogen und Einstellungen der ausgewählten Befragungen in einer ZIP-Datei, jede in einem eigenen Ordner. Über „+ Fragebogen“ › „Aus einer Datei anlegen“ lässt sich die ZIP-Datei als Ganzes wieder einlesen; eine Vorschau zeigt dann jede Befragung, und Sie wählen, welche angelegt werden. Teilnahmen, Daten und beteiligte Personen enthält die Datei nicht.", "Questionnaire and settings of the selected surveys in one ZIP file, each in a folder of its own. Via “+ Questionnaire” › “Create from a file” the ZIP file can be read in again as a whole; a preview then shows each survey, and you choose which are created. The file holds no participations, data or people involved.") }}</p>
+
+<section class="panel">
+  <form method="get" action="{{ url_for('dashboard.export') }}" class="stack">
+    <input type="hidden" name="download" value="1">
+    {% if surveys %}
+    <div class="form-actions">
+      <button type="button" class="button button-small button-secondary" data-check-all="survey">{{ de_en("Alle auswählen", "Select all") }}</button>
+      <button type="button" class="button button-small button-secondary" data-check-none="survey">{{ de_en("Nichts auswählen", "Select none") }}</button>
+    </div>
+    {% for s in surveys %}
+    <label class="check"><input type="checkbox" name="survey" value="{{ s.code }}"{% if s.code in wanted %} checked{% endif %}>
+      {# the same tags as on "Meine Befragungen": the kind, then the state; "Archiviert" once (status_badge has it) #}
+      {{ s.title }} {% if s.live is not none %}<span class="badge badge-live-tag">{{ de_en("Live-Abstimmung", "Live poll") }}</span>{% elif s.interview is not none %}<span class="badge badge-interview">{{ de_en("Interviewleitfaden", "Interview guide") }}</span>{% else %}<span class="badge badge-survey-tag">{{ de_en("Fragebogen", "Questionnaire") }}</span> {{ status_badge(s) }}{% endif %}
+      {% if s.archived and (s.live is not none or s.interview is not none) %}<span class="badge">{{ de_en("Archiviert", "Archived") }}</span>{% endif %}
+      {% if s.project %}<span class="hint">{{ s.project }}</span>{% endif %}</label>
+    {% endfor %}
+    <input type="hidden" name="files" value="0">
+    <label class="check"><input type="checkbox" name="files" value="1" checked> {{ de_en("Bilder und Logos einschließen", "Include images and logos") }}
+      <span class="hint">{{ de_en("ohne Häkchen wird die Datei kleiner; Fragen mit Bild kommen dann ohne ihr Bild an", "without the tick the file is smaller; questions with an image then arrive without their image") }}</span></label>
+    <p class="small flush">{{ de_en("Eingelesen wird höchstens {mb} MB auf einmal. Wird die Datei größer, Befragungen mit vielen Bildern einzeln exportieren.", "At most {mb} MB are read in at once. If the file gets larger, export surveys with many images one by one.", mb=config.IMPORT_MAX_BYTES // 1048576) }}</p>
+    <div class="form-actions"><button class="button">{{ icon("download", 16) }} {{ de_en("Als ZIP-Datei herunterladen", "Download as ZIP file") }}</button></div>
+    {% else %}
+    <p class="muted">{{ de_en("Noch keine Befragungen.", "No surveys yet.") }}</p>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

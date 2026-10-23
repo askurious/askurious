@@ -1,0 +1,119 @@
+{# Paper questionnaires (app/paper.py; papierfragebogen-konzept.md): print numbered sheets, upload
+   the scans, check what is uncertain, take the sheets over. Needs: survey, paper (paper.overview). #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import autosave_bar, csrf %}
+{% from "_learn.html" import why %}
+{% if survey.can(current_user, "editor") %}
+{% set c = paper.counts %}
+<details class="panel settings-group" id="paper" data-settings-group {% if paper.open or paper.uploads or paper.destroy %}open{% endif %}>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Papierfragebogen", "Paper questionnaire") }}</h2><span class="settings-sum">{% if paper.total %}{{ de_en("{n} Bögen gedruckt, {d} übernommen", "{n} sheets printed, {d} accepted", n=paper.total, d=c.get("done", 0)) }}{% else %}{{ de_en("drucken, ausfüllen lassen, scannen und übernehmen", "print, have it filled in, scan and accept") }}{% endif %}</span></summary>
+  <div class="settings-body">
+  {% if paper.left_out %}
+  <div class="flash flash-warning small">{{ icon("alert", 16) }}
+    <div><p>{{ de_en("Nicht auf Papier (fehlt im Ausdruck, bleibt bei Papierbögen leer):", "Not on paper (left out of the print, stays empty for paper sheets):") }}</p>
+    <ul>{% for item, label in paper.left_out[:6] %}<li><a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id) }}">{{ item.code }}</a> · {{ label }}</li>{% endfor %}
+    {% if paper.left_out|length > 6 %}<li>{{ de_en("und {n} weitere", "and {n} more", n=paper.left_out|length - 6) }}</li>{% endif %}</ul></div>
+  </div>
+  {% endif %}
+
+  <h3 class="sub-head">{{ de_en("1 · Drucken", "1 · Print") }} <span class="hint">{{ de_en("jeder Bogen mit eigener Nummer und eigener Zufallsreihenfolge, wie online", "every sheet with its own number and its own random order, as online") }}</span></h3>
+  {% if paper.languages %}
+  <form method="post" action="{{ url_for('paper.new_run', survey_id=survey.id) }}" class="row">
+    {{ csrf() }}
+    <label class="dummy-n"><input type="number" name="count" min="1" max="300" value="30" class="narrow"> {{ de_en("Bögen", "sheets") }}</label>
+    {% if paper.languages|length > 1 %}<label class="check">{{ de_en("Sprache", "Language") }} <select name="language">{% for lang in paper.languages %}<option value="{{ lang }}" {% if lang == survey.default_language %}selected{% endif %}>{{ language_names.get(lang, lang) if language_names is defined else lang }}</option>{% endfor %}</select></label>
+    {% else %}<input type="hidden" name="language" value="{{ paper.languages[0] }}">{% endif %}
+    <label class="check">{{ de_en("Schrift", "Type") }} <select name="size"><option value="large" selected>{{ de_en("groß (12 pt)", "large (12 pt)") }}</option><option value="normal">{{ de_en("normal (10 pt)", "normal (10 pt)") }}</option></select></label>
+    <label class="check"><input type="checkbox" name="duplex" value="1"> {{ de_en("doppelseitig drucken", "print double-sided") }}</label>
+    <button class="button button-secondary">{{ icon("download", 16) }} {{ de_en("PDF erzeugen", "Create PDF") }}</button>
+  </form>
+  {% else %}
+  <p class="muted small">{{ de_en("Die Sprachen dieser Befragung lassen sich noch nicht drucken (auf Papier vorerst nur Sprachen in lateinischer Schrift ohne Sonderzeichen außerhalb Westeuropas).", "The languages of this survey cannot be printed yet (on paper, for now only languages in Latin script without special characters outside Western Europe).") }}</p>
+  {% endif %}
+  {% if paper.runs %}
+  <ul class="plain small">{% for run in paper.runs %}
+    <li id="paper-run-{{ run.id }}">{% if run.id in paper.pdfs %}<a href="{{ url_for('paper.run_pdf', survey_id=survey.id, run_id=run.id) }}">{{ icon("download", 14) }} {{ de_en("Druckauftrag {n}", "Print run {n}", n=run.id) }}</a>{% else %}{{ de_en("Druckauftrag {n}", "Print run {n}", n=run.id) }} <span class="muted">({{ de_en("PDF gelöscht: alle Bögen erledigt und die Aufbewahrungszeit der Scans vorbei", "PDF deleted: all sheets done and the time scans are kept is over") }})</span>{% endif %} · {{ de_en("{n} Bögen", "{n} sheets", n=run.count) }} · {{ run.language }} · {{ run.created_at|localdt }}{% if run.qversion != (survey.qversion or 1) %} · <span class="muted">{{ de_en("ältere Fassung des Fragebogens", "older revision of the questionnaire") }}</span>{% endif %}</li>
+  {% endfor %}</ul>
+  <p class="muted small">{{ de_en("Einseitig oder doppelseitig auf A4 drucken, in Originalgröße (nicht „an Seite anpassen“). Die schwarzen Ecken und die Punktreihe unten nicht abdecken. Doppelseitig: Mit dem Häkchen beginnt jeder Bogen auf einem eigenen Blatt.", "Print on A4, single- or double-sided, at actual size (not “fit to page”). Do not cover the black corners and the row of dots at the foot. Double-sided: with the tick, every sheet starts on a paper of its own.") }}{% if survey.erase_code %} {{ de_en("Nach jedem Bogen folgt ein Blatt mit seinem Löschcode: Die Person behält es und gibt nur die Seiten mit den schwarzen Ecken zurück.", "Every sheet is followed by a page with its deletion code: the person keeps it and hands back only the pages with the black corners.") }}{% endif %}</p>
+  {% endif %}
+
+  <h3 class="sub-head">{{ de_en("2 · Scans hochladen", "2 · Upload scans") }} <span class="hint">{{ de_en("PDF vom Scanner oder Bilder, 300 dpi, Graustufen; Reihenfolge egal", "PDF from the scanner or images, 300 dpi, greyscale; order does not matter") }}</span></h3>
+  <form method="post" action="{{ url_for('paper.upload', survey_id=survey.id) }}" enctype="multipart/form-data" class="row">
+    {{ csrf() }}
+    <input type="file" name="scans" multiple accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,application/pdf,image/jpeg,image/png,image/tiff" required aria-label="{{ de_en('Scans', 'Scans') }}">
+    <button class="button button-secondary">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button>
+  </form>
+  {% if paper.uploads %}
+  <ul class="plain small" role="status">{% for u in paper.uploads %}
+    <li>{{ u.file }}: {% if u.stale %}{{ de_en("abgebrochen; bitte noch einmal hochladen", "broken off; please upload again") }}{% elif u.total %}{{ de_en("{d} von {n} Seiten gelesen", "{d} of {n} pages read", d=u.done, n=u.total) }}{% else %}{{ de_en("wird gelesen …", "being read …") }}{% endif %}</li>
+  {% endfor %}</ul>
+  <p class="muted small"><a href="{{ url_for('surveys.field', survey_id=survey.id) }}#paper">{{ de_en("Stand aktualisieren", "Refresh") }}</a></p>
+  {% endif %}
+
+  <h3 class="sub-head">{{ de_en("3 · Prüfen und übernehmen", "3 · Check and accept") }}</h3>
+  <div class="stat-line">
+    <span><strong>{{ c.get("printed", 0) }}</strong> {{ de_en("noch nicht gescannt", "not scanned yet") }}</span>
+    <span><strong>{{ c.get("scanned", 0) + c.get("review", 0) }}</strong> {{ de_en("zu prüfen", "to check") }}</span>
+    <span><strong>{{ c.get("done", 0) }}</strong> {{ de_en("übernommen", "accepted") }}</span>
+    {% if c.get("declined") %}<span><strong>{{ c.declined }}</strong> {{ de_en("ohne Einwilligung", "without consent") }}</span>{% endif %}
+    {% if c.get("erased") %}<span><strong>{{ c.erased }}</strong> {{ de_en("auf Wunsch gelöscht", "deleted on request") }}</span>{% endif %}
+    {% if c.get("discarded") %}<span><strong>{{ c.discarded }}</strong> {{ de_en("verworfen", "discarded") }}</span>{% endif %}
+  </div>
+  {% if paper.open %}
+  <table class="res-table">
+    <thead><tr><th>{{ de_en("Bogen", "Sheet") }}</th><th>{{ de_en("Seiten", "Pages") }}</th><th></th></tr></thead>
+    <tbody>{% for o in paper.open[:50] %}<tr>
+      <td><code>{{ o.number }}</code></td><td>{{ o.scanned }} / {{ o.sheet.pages }}</td>
+      <td><a href="{{ url_for('paper.sheet_page', survey_id=survey.id, sheet_id=o.sheet.id) }}">{{ de_en("Prüfen", "Check") }}</a></td></tr>{% endfor %}</tbody>
+  </table>
+  {% if paper.open|length > 50 %}<p class="muted small">{{ de_en("und {n} weitere", "and {n} more", n=paper.open|length - 50) }}</p>{% endif %}
+  {% endif %}
+  {% if paper.recent %}
+  <details class="paper-recent">
+    <summary class="small">{{ de_en("Zuletzt übernommen ({n})", "Accepted last ({n})", n=paper.recent|length) }}</summary>
+    <table class="res-table">
+      <thead><tr><th>{{ de_en("Bogen", "Sheet") }}</th><th>{{ de_en("Übernommen", "Accepted") }}</th><th></th></tr></thead>
+      <tbody>{% for o in paper.recent %}<tr>
+        <td><code>{{ o.number }}</code></td><td>{{ o.sheet.done_at|localdt }}</td>
+        <td>{% if o.scanned %}<a href="{{ url_for('paper.sheet_page', survey_id=survey.id, sheet_id=o.sheet.id) }}">{{ de_en("Ansehen", "View") }}</a>{% else %}<span class="muted">{{ de_en("Scans gelöscht", "scans deleted") }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table>
+  </details>
+  {% endif %}
+  <form method="post" action="{{ url_for('paper.find', survey_id=survey.id) }}" class="row">
+    {{ csrf() }}<label class="check">{{ de_en("Bogen suchen", "Find sheet") }} <input name="number" placeholder="7K3Q-9F2M" size="11" autocomplete="off"></label>
+    <button class="button button-small button-secondary">{{ de_en("Öffnen", "Open") }}</button>
+  </form>
+  <p class="muted small">{{ de_en("Auf einem Bogen lassen sich auch Löschanfragen ohne Löschcode erledigen: „Bogen löschen“ entfernt Teilnahme und Scans.", "Deletion requests without a deletion code can be handled on a sheet too: “Delete sheet” removes the participation and the scans.") }}</p>
+
+  {% if paper.loose %}
+  <h3 class="sub-head">{{ de_en("Seiten ohne Bogen", "Pages without a sheet") }} <span class="hint">{{ de_en("werden nach 7 Tagen gelöscht", "deleted after 7 days") }}</span></h3>
+  <ul class="plain small">{% for p in paper.loose %}
+    <li>{{ p.uploaded_at|localdt }} · {{ paper_why(p.reading.why if p.reading else p.state) }}
+      {% if p.reading and p.reading.differs %} · <strong>{{ de_en("anders ausgefüllt als der gelesene Bogen ({n} Felder): vielleicht ein zweiter Bogen", "filled in differently from the sheet read ({n} fields): perhaps a second sheet", n=p.reading.differs) }}</strong>{% endif %}
+      {% if p.filename %} · <a href="{{ url_for('paper.page_image', survey_id=survey.id, page_id=p.id) }}" target="_blank" rel="noopener">{{ de_en("ansehen", "view") }}</a>{% endif %}
+      {% if survey.can(current_user, "admin") %}<form class="inline" method="post" action="{{ url_for('paper.page_remove', survey_id=survey.id, page_id=p.id) }}">{{ csrf() }}<button class="link small">{{ de_en("entfernen", "remove") }}</button></form>{% endif %}</li>
+  {% endfor %}</ul>
+  {% endif %}
+
+  {% if paper.destroy %}
+  <h3 class="sub-head">{{ de_en("Papier vernichten", "Destroy the paper") }} <span class="hint">{{ de_en("auf Wunsch gelöscht; in Askurious ist nichts mehr davon", "deleted on request; nothing of it is left in Askurious") }}</span></h3>
+  <ul class="plain small">{% for d in paper.destroy %}
+    <li>{{ de_en("Bitte Bogen {n} vernichten.", "Please destroy sheet {n}.", n=d.number) }}
+      {% if survey.can(current_user, "admin") %}<form class="inline" method="post" action="{{ url_for('paper.sheet_destroyed', survey_id=survey.id, sheet_id=d.sheet.id) }}">{{ csrf() }}<button class="link small">{{ de_en("vernichtet", "destroyed") }}</button></form>{% endif %}</li>
+  {% endfor %}</ul>
+  {% endif %}
+
+  <h3 class="sub-head">{{ de_en("Einstellungen", "Settings") }}</h3>
+  <form method="post" action="{{ url_for('paper.save_settings', survey_id=survey.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <fieldset class="bare"><legend class="field-label">{{ de_en("Prüfen", "Checking") }}</legend>
+    {% for key, label in paper_review_choices() %}<label class="check"><input type="radio" name="review" value="{{ key }}" {% if paper.settings.review == key %}checked{% endif %}> {{ label }}</label>{% endfor %}</fieldset>
+    {{ why("paper_check") }}
+    <fieldset class="bare"><legend class="field-label">{{ de_en("Scans", "Scans") }}</legend>
+    {% for key, label in paper_keep_choices() %}<label class="check"><input type="radio" name="keep" value="{{ key }}" {% if paper.settings.keep == key %}checked{% endif %}> {{ label }}</label>{% endfor %}</fieldset>
+    <p class="muted small">{{ de_en("Scans gehen außerdem mit der Teilnahme, mit den Aufbewahrungsfristen und mit der Befragung. Die Papierbögen selbst bewahren Sie auf und vernichten Sie.", "Scans also go with the participation, with the retention periods and with the survey. You keep and destroy the paper sheets yourself.") }}</p>
+    {{ autosave_bar(small=true) }}
+  </form>
+  </div>
+</details>
+{% endif %}

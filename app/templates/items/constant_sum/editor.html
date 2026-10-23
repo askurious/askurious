@@ -1,0 +1,81 @@
+{% from "_macros.html" import row_list_hint %}
+{% set question_hint = de_en("z. B. „Verteilen Sie 100 Punkte danach, wie wichtig Ihnen die folgenden Eigenschaften sind.“", "e.g. “Distribute 100 points according to how important the following properties are to you.”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Summe", "Total") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Zu verteilen", "To distribute") }}
+      <input type="number" name="total" min="1" max="10000" value="{{ item.config.total }}" class="narrow" {% if not structural %}readonly{% endif %}>
+    </label>
+    <label>{{ de_en("Einheit", "Unit") }}
+      <select name="format" data-show-for {% if not structural %}disabled{% endif %}>
+        {% for key, label in kind.formats.items() %}<option value="{{ key }}" {% if item.config.get("format", "number") == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label data-when="currency">{{ de_en("Währung", "Currency") }}
+      <select name="currency" {% if not structural %}disabled{% endif %}>
+        {% for code, sym in kind.currencies.items() %}<option value="{{ code }}" {% if item.config.get("currency", "EUR") == code %}selected{% endif %}>{{ code }} ({{ sym }})</option>{% endfor %}
+      </select>
+    </label>
+    <label data-when="number">{{ de_en("Bezeichnung", "Name") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span>
+      <input name="unit" value="{{ item.lang_texts(lang).get('unit', '') }}" maxlength="30" placeholder="{{ de_en('z. B. Punkte, Stunden', 'e.g. points, hours') }}">
+    </label>
+  </div>
+  <p class="muted small">{{ de_en("Die Summe stimmt für Teilnehmende immer: Wer einen Regler bewegt, verschiebt den Unterschied auf die übrigen Optionen, zuerst auf die noch nicht eingestellten.", "For participants the total is always right: moving one slider shifts the difference to the other options, first to those not yet set.") }}</p>
+  {% set c = item.config %}
+  {% set sources = kind.total_sources(item, lang) %}
+  {% set known = sources|map("first")|list %}
+  {% if sources or c.get("total_from") %}
+  <label class="check"><input type="checkbox" name="total_mode" value="from" {% if c.get("total_from") %}checked{% endif %} data-reveal="csum-personal-{{ item.id }}" {% if not structural %}disabled{% endif %}> {{ de_en("Summe aus einer früheren Antwort nehmen", "Take the total from an earlier answer") }} <span class="hint">{{ de_en("jede Person verteilt ihren eigenen Betrag, z. B. ihr Monatseinkommen", "every person distributes their own amount, e.g. their monthly income") }}</span></label>
+  <div id="csum-personal-{{ item.id }}" {% if not c.get("total_from") %}hidden{% endif %}>
+    <div class="row-fields">
+      <label>{{ de_en("Frage mit der Summe", "Question with the total") }}
+        <select name="total_from" {% if not structural %}disabled{% endif %}>
+          {% if c.get("total_from") and c.get("total_from") not in known %}<option value="{{ c.total_from }}" selected>{{ de_en("(Frage nicht mehr vorhanden oder nicht davor)", "(question no longer there or not before)") }}</option>{% endif %}
+          {% for ref, label in sources %}<option value="{{ ref }}" {% if c.get("total_from") == ref %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ de_en("Wenn die Antwort fehlt oder 0 ist", "If the answer is missing or 0") }}
+        <select name="total_missing" {% if not structural %}disabled{% endif %}>
+          <option value="skip">{{ de_en("Frage überspringen", "Skip the question") }}</option>
+          <option value="fallback" {% if c.get("total_missing") == "fallback" %}selected{% endif %}>{{ de_en("Ersatzsumme verwenden", "Use a fallback total") }}</option>
+        </select>
+      </label>
+      <label>{{ de_en("Ersatzsumme", "Fallback total") }}
+        <input type="number" name="total_fallback" min="1" max="999999999" value="{{ c.get('total_fallback') or '' }}" class="narrow" placeholder="{{ de_en('z. B. 2000', 'e.g. 2000') }}" {% if not structural %}readonly{% endif %}>
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" name="export_pct" value="1" {% if c.get("export_pct") %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Anteile zusätzlich in Prozent exportieren", "Also export the shares in per cent") }} <span class="hint">{{ de_en("Spalten {code}_Code_pct", "columns {code}_Code_pct", code=item.code) }}</span></label>
+    <p class="muted small">{{ de_en("Angeboten werden Zahlenfelder und Schieberegler früherer Seiten. Dezimalzahlen werden auf ganze Einheiten gerundet; die Grenze von 10.000 gilt hier nicht. Im Export steht die Summe jeder Person in {code}_total; Ergebnisse und Dashboards zeigen die Anteile in Prozent. „Zu verteilen“ oben gilt dann nicht.", "Number fields and sliders of earlier pages are offered. Decimals are rounded to whole units; the limit of 10,000 does not apply here. In the export each person's total is in {code}_total; results and dashboards show the shares in per cent. “To distribute” above then does not apply.", code=item.code) }}</p>
+  </div>
+  {% elif structural %}
+  <p class="muted small">{{ de_en("Die Summe kann auch aus einer früheren Antwort kommen (z. B. dem Monatseinkommen): Dafür braucht es auf einer früheren Seite ein Zahlenfeld oder einen Schieberegler.", "The total can also come from an earlier answer (e.g. the monthly income): this needs a number field or a slider on an earlier page.") }}</p>
+  {% endif %}
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Optionen", "Options") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Teil des Variablennamens im Export ({code}_Code = Anteil)", "code = part of the variable name in the export ({code}_Code = share)", code=item.code) }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Beschriftung", "Label") }}</th></tr></thead>
+    <tbody>
+    {% set labels = item.lang_texts(lang).get("options", {}) %}
+    {% for o in item.config.options if not o.src %}
+      <tr>
+        <td><input type="hidden" name="option_id" value="{{ o.id }}"><input name="option_code" aria-label="Code" value="{{ o.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" value="{{ labels.get(o.id, '') }}" placeholder="{{ (item.text('options') or {}).get(o.id, '') }}"></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="option_id" value="{{ new_id() }}"><input name="option_code" aria-label="Code" class="narrow" placeholder="{{ item.config.options|length + loop.index }}"></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" placeholder="{{ de_en('neue Option', 'new option') }}"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.config.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Optionen in zufälliger Reihenfolge zeigen", "Show the options in random order") }}</label>
+</fieldset>
+{% set cv, cv_rows = kind.carry_view(item, lang), de_en("Optionen", "Options") %}
+{% include "items/_carry.html" %}

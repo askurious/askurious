@@ -1,0 +1,803 @@
+{
+ "format": "askurious-survey",
+ "version": 6,
+ "exported_at": "2026-10-05T00:00:00Z",
+ "survey": {
+  "title": "Akzeptanz einer Lern-App",
+  "title_translations": {},
+  "project": "",
+  "description": "Wir untersuchen, wie Studierende eine Lern-App für die Prüfungsvorbereitung beurteilen und ob sie sie nutzen würden.",
+  "research_question": "Was bestimmt, ob Studierende eine Lern-App nutzen wollen?",
+  "study_plan": {
+   "goal": "correlation",
+   "goals": [
+    "correlation"
+   ],
+   "design": "cross",
+   "hypotheses": [
+    {
+     "id": "073e888d",
+     "text": "Je nützlicher die App erscheint, desto höher die Nutzungsabsicht.",
+     "kind": "correlation",
+     "direction": "pos",
+     "iv": "PU",
+     "dv": "BI",
+     "analysis": "",
+     "effect": 0.3,
+     "basis": "sesoi",
+     "basis_note": "Beispielwert der Vorlage: kleinster Effekt, der praktisch zählt; vor der Erhebung mit Literatur oder einer Vorstudie begründen",
+     "power": 0.8
+    },
+    {
+     "id": "85e9fd14",
+     "text": "Je einfacher die App zu bedienen ist, desto höher die Nutzungsabsicht.",
+     "kind": "correlation",
+     "direction": "pos",
+     "iv": "PEOU",
+     "dv": "BI",
+     "analysis": "",
+     "effect": 0.3,
+     "basis": "sesoi",
+     "basis_note": "Beispielwert der Vorlage: kleinster Effekt, der praktisch zählt; vor der Erhebung mit Literatur oder einer Vorstudie begründen",
+     "power": 0.8
+    }
+   ],
+   "sample": {
+    "target": 94,
+    "recruitment": "convenience",
+    "note": "",
+    "exclusions": null,
+    "response": null
+   },
+   "rules": "Speeder (unter 50 % der Median-Dauer); wer die Aufmerksamkeitsprüfung falsch beantwortet",
+   "holm": false,
+   "sem_method": "",
+   "sem": {
+    "controls": [],
+    "single": {},
+    "formative": [],
+    "invariance": "",
+    "missing": "",
+    "alternative": [],
+    "second": [],
+    "ordinal": ""
+   },
+   "diary": {
+    "lagged": false,
+    "slope": false
+   },
+   "layout": {
+    "v": 1,
+    "nodes": {}
+   },
+   "deviations": []
+  },
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "block_load": false,
+  "repeat_marker": false,
+  "erase_code": false,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": null,
+  "paper": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "funding": "",
+      "controller": "",
+      "dpo": "",
+      "special_categories": false,
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "special": false,
+       "audio": false,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Einwilligung",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_special": "",
+       "confirm_audio": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Block 1"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 2,
+     "type": "likert",
+     "code": "PU",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 7,
+      "labeling": "full",
+      "label_display": "once",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "PU_1",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "PU_2",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "PU_3",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "PU_4",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "PU_5",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "PU_6",
+        "reverse": false
+       }
+      ],
+      "construct": {
+       "key": "tam_pu",
+       "version": 1,
+       "unlocked": false,
+       "template": {
+        "type": "likert",
+        "code": "PU",
+        "config": {
+         "points": 7,
+         "labeling": "full",
+         "label_display": "once",
+         "randomize": true,
+         "statements": [
+          {
+           "id": "s1",
+           "code": "PU_1",
+           "reverse": false
+          },
+          {
+           "id": "s2",
+           "code": "PU_2",
+           "reverse": false
+          },
+          {
+           "id": "s3",
+           "code": "PU_3",
+           "reverse": false
+          },
+          {
+           "id": "s4",
+           "code": "PU_4",
+           "reverse": false
+          },
+          {
+           "id": "s5",
+           "code": "PU_5",
+           "reverse": false
+          },
+          {
+           "id": "s6",
+           "code": "PU_6",
+           "reverse": false
+          }
+         ]
+        },
+        "texts": {
+         "de": {
+          "question": "",
+          "labels": [
+           "äußerst unwahrscheinlich",
+           "ziemlich unwahrscheinlich",
+           "eher unwahrscheinlich",
+           "weder noch",
+           "eher wahrscheinlich",
+           "ziemlich wahrscheinlich",
+           "äußerst wahrscheinlich"
+          ],
+          "statements": {
+           "s1": "",
+           "s2": "",
+           "s3": "",
+           "s4": "",
+           "s5": "",
+           "s6": ""
+          }
+         }
+        }
+       },
+       "wording_sources": {
+        "de": [
+         "de"
+        ]
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "",
+       "labels": [
+        "äußerst unwahrscheinlich",
+        "ziemlich unwahrscheinlich",
+        "eher unwahrscheinlich",
+        "weder noch",
+        "eher wahrscheinlich",
+        "ziemlich wahrscheinlich",
+        "äußerst wahrscheinlich"
+       ],
+       "statements": {
+        "s1": "",
+        "s2": "",
+        "s3": "",
+        "s4": "",
+        "s5": "",
+        "s6": ""
+       }
+      }
+     }
+    },
+    {
+     "id": 3,
+     "type": "likert",
+     "code": "PEOU",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 7,
+      "labeling": "full",
+      "label_display": "once",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "PEOU_1",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "PEOU_2",
+        "reverse": false
+       },
+       {
+        "id": "s3",
+        "code": "PEOU_3",
+        "reverse": false
+       },
+       {
+        "id": "s4",
+        "code": "PEOU_4",
+        "reverse": false
+       },
+       {
+        "id": "s5",
+        "code": "PEOU_5",
+        "reverse": false
+       },
+       {
+        "id": "s6",
+        "code": "PEOU_6",
+        "reverse": false
+       }
+      ],
+      "construct": {
+       "key": "tam_peou",
+       "version": 1,
+       "unlocked": false,
+       "template": {
+        "type": "likert",
+        "code": "PEOU",
+        "config": {
+         "points": 7,
+         "labeling": "full",
+         "label_display": "once",
+         "randomize": true,
+         "statements": [
+          {
+           "id": "s1",
+           "code": "PEOU_1",
+           "reverse": false
+          },
+          {
+           "id": "s2",
+           "code": "PEOU_2",
+           "reverse": false
+          },
+          {
+           "id": "s3",
+           "code": "PEOU_3",
+           "reverse": false
+          },
+          {
+           "id": "s4",
+           "code": "PEOU_4",
+           "reverse": false
+          },
+          {
+           "id": "s5",
+           "code": "PEOU_5",
+           "reverse": false
+          },
+          {
+           "id": "s6",
+           "code": "PEOU_6",
+           "reverse": false
+          }
+         ]
+        },
+        "texts": {
+         "de": {
+          "question": "",
+          "labels": [
+           "äußerst unwahrscheinlich",
+           "ziemlich unwahrscheinlich",
+           "eher unwahrscheinlich",
+           "weder noch",
+           "eher wahrscheinlich",
+           "ziemlich wahrscheinlich",
+           "äußerst wahrscheinlich"
+          ],
+          "statements": {
+           "s1": "",
+           "s2": "",
+           "s3": "",
+           "s4": "",
+           "s5": "",
+           "s6": ""
+          }
+         }
+        }
+       },
+       "wording_sources": {
+        "de": [
+         "de"
+        ]
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "",
+       "labels": [
+        "äußerst unwahrscheinlich",
+        "ziemlich unwahrscheinlich",
+        "eher unwahrscheinlich",
+        "weder noch",
+        "eher wahrscheinlich",
+        "ziemlich wahrscheinlich",
+        "äußerst wahrscheinlich"
+       ],
+       "statements": {
+        "s1": "",
+        "s2": "",
+        "s3": "",
+        "s4": "",
+        "s5": "",
+        "s6": ""
+       }
+      }
+     }
+    },
+    {
+     "id": 4,
+     "type": "likert",
+     "code": "BI",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 7,
+      "labeling": "full",
+      "label_display": "once",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "BI_1",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "BI_2",
+        "reverse": false
+       }
+      ],
+      "construct": {
+       "key": "tam_bi",
+       "version": 2,
+       "unlocked": false,
+       "template": {
+        "type": "likert",
+        "code": "BI",
+        "config": {
+         "points": 7,
+         "labeling": "full",
+         "label_display": "once",
+         "randomize": true,
+         "statements": [
+          {
+           "id": "s1",
+           "code": "BI_1",
+           "reverse": false
+          },
+          {
+           "id": "s2",
+           "code": "BI_2",
+           "reverse": false
+          }
+         ]
+        },
+        "texts": {
+         "de": {
+          "question": "",
+          "labels": [
+           "stimme überhaupt nicht zu",
+           "stimme nicht zu",
+           "stimme eher nicht zu",
+           "weder noch",
+           "stimme eher zu",
+           "stimme zu",
+           "stimme voll und ganz zu"
+          ],
+          "statements": {
+           "s1": "",
+           "s2": ""
+          }
+         }
+        }
+       },
+       "wording_sources": {
+        "de": [
+         "de"
+        ]
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "",
+       "labels": [
+        "stimme überhaupt nicht zu",
+        "stimme nicht zu",
+        "stimme eher nicht zu",
+        "weder noch",
+        "stimme eher zu",
+        "stimme zu",
+        "stimme voll und ganz zu"
+       ],
+       "statements": {
+        "s1": "",
+        "s2": ""
+       }
+      }
+     }
+    },
+    {
+     "id": 5,
+     "type": "likert",
+     "code": "TB",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 5,
+      "labeling": "full",
+      "label_display": "once",
+      "randomize": true,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "TB_1",
+        "reverse": false,
+        "subscale": "Technikakzeptanz"
+       },
+       {
+        "id": "s2",
+        "code": "TB_2",
+        "reverse": false,
+        "subscale": "Technikakzeptanz"
+       },
+       {
+        "id": "s3",
+        "code": "TB_3",
+        "reverse": false,
+        "subscale": "Technikakzeptanz"
+       },
+       {
+        "id": "s4",
+        "code": "TB_4",
+        "reverse": false,
+        "subscale": "Technikakzeptanz"
+       },
+       {
+        "id": "s5",
+        "code": "TB_5",
+        "reverse": true,
+        "subscale": "Technikkompetenzüberzeugungen"
+       },
+       {
+        "id": "s6",
+        "code": "TB_6",
+        "reverse": true,
+        "subscale": "Technikkompetenzüberzeugungen"
+       },
+       {
+        "id": "s7",
+        "code": "TB_7",
+        "reverse": true,
+        "subscale": "Technikkompetenzüberzeugungen"
+       },
+       {
+        "id": "s8",
+        "code": "TB_8",
+        "reverse": true,
+        "subscale": "Technikkompetenzüberzeugungen"
+       },
+       {
+        "id": "s9",
+        "code": "TB_9",
+        "reverse": false,
+        "subscale": "Technikkontrollüberzeugungen"
+       },
+       {
+        "id": "s10",
+        "code": "TB_10",
+        "reverse": false,
+        "subscale": "Technikkontrollüberzeugungen"
+       },
+       {
+        "id": "s11",
+        "code": "TB_11",
+        "reverse": false,
+        "subscale": "Technikkontrollüberzeugungen"
+       },
+       {
+        "id": "s12",
+        "code": "TB_12",
+        "reverse": false,
+        "subscale": "Technikkontrollüberzeugungen"
+       }
+      ],
+      "construct": {
+       "key": "tb",
+       "version": 1,
+       "unlocked": false,
+       "template": {
+        "type": "likert",
+        "code": "TB",
+        "config": {
+         "points": 5,
+         "labeling": "full",
+         "label_display": "once",
+         "randomize": true,
+         "statements": [
+          {
+           "id": "s1",
+           "code": "TB_1",
+           "reverse": false,
+           "subscale": "Technikakzeptanz"
+          },
+          {
+           "id": "s2",
+           "code": "TB_2",
+           "reverse": false,
+           "subscale": "Technikakzeptanz"
+          },
+          {
+           "id": "s3",
+           "code": "TB_3",
+           "reverse": false,
+           "subscale": "Technikakzeptanz"
+          },
+          {
+           "id": "s4",
+           "code": "TB_4",
+           "reverse": false,
+           "subscale": "Technikakzeptanz"
+          },
+          {
+           "id": "s5",
+           "code": "TB_5",
+           "reverse": true,
+           "subscale": "Technikkompetenzüberzeugungen"
+          },
+          {
+           "id": "s6",
+           "code": "TB_6",
+           "reverse": true,
+           "subscale": "Technikkompetenzüberzeugungen"
+          },
+          {
+           "id": "s7",
+           "code": "TB_7",
+           "reverse": true,
+           "subscale": "Technikkompetenzüberzeugungen"
+          },
+          {
+           "id": "s8",
+           "code": "TB_8",
+           "reverse": true,
+           "subscale": "Technikkompetenzüberzeugungen"
+          },
+          {
+           "id": "s9",
+           "code": "TB_9",
+           "reverse": false,
+           "subscale": "Technikkontrollüberzeugungen"
+          },
+          {
+           "id": "s10",
+           "code": "TB_10",
+           "reverse": false,
+           "subscale": "Technikkontrollüberzeugungen"
+          },
+          {
+           "id": "s11",
+           "code": "TB_11",
+           "reverse": false,
+           "subscale": "Technikkontrollüberzeugungen"
+          },
+          {
+           "id": "s12",
+           "code": "TB_12",
+           "reverse": false,
+           "subscale": "Technikkontrollüberzeugungen"
+          }
+         ]
+        },
+        "texts": {
+         "de": {
+          "question": "",
+          "labels": [
+           "stimmt gar nicht",
+           "stimmt wenig",
+           "stimmt teilweise",
+           "stimmt ziemlich",
+           "stimmt völlig"
+          ],
+          "statements": {
+           "s1": "",
+           "s2": "",
+           "s3": "",
+           "s4": "",
+           "s5": "",
+           "s6": "",
+           "s7": "",
+           "s8": "",
+           "s9": "",
+           "s10": "",
+           "s11": "",
+           "s12": ""
+          }
+         }
+        }
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "",
+       "labels": [
+        "stimmt gar nicht",
+        "stimmt wenig",
+        "stimmt teilweise",
+        "stimmt ziemlich",
+        "stimmt völlig"
+       ],
+       "statements": {
+        "s1": "",
+        "s2": "",
+        "s3": "",
+        "s4": "",
+        "s5": "",
+        "s6": "",
+        "s7": "",
+        "s8": "",
+        "s9": "",
+        "s10": "",
+        "s11": "",
+        "s12": ""
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "block",
+    "block": 2
+   },
+   {
+    "t": "split",
+    "id": "se7adc4"
+   }
+  ]
+ },
+ "quotas": [],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null,
+ "sampling": null
+}

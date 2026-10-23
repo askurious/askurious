@@ -1,0 +1,714 @@
+# Own server with Docker (Philipp, 2026-10-08): PostgreSQL, the researchers' side (askurious.de), the participants'
+# side (ask.askurious.de) and nginx in front, which sends each host name to its container. 443 is the default,
+# 80 only redirects (and answers Let's Encrypt). Secrets live in ~/askurious-env/.env on the server, linked here as
+# .env, never in the repository or the code folder (deploy-docker.sh). The app separates the two sides itself
+# (app/hosts.py): PARTICIPANT_BASE_URL makes participants' links lead to ask.askurious.de, SIDE lets each container
+# answer only its own paths (on askurious.de the participants' paths move to ask.askurious.de). nginx lets only those
+# paths through there as well.
+name: askurious
+
+# Logs of every container: Docker's json-file, at most 3 files of 20 MB each, then the oldest goes. No access log
+# with IP addresses anywhere: gunicorn writes none, nginx none for participants and only failed requests without
+# address and query for the rest (nginx/askurious.conf.template; code audit 2026-10-08, B2).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+# What the app containers read from the .env (audit 2026-10-13, SV-2/DP-6). No container gets the whole .env any
+# more (env_file): each gets the lines it needs, by name. A name without a value takes the line of the same name from
+# the .env (the file compose reads anyway, a link to ~/askurious-env/.env); a line missing there stays missing in the
+# container, so config.py keeps its default. POSTGRES_PASSWORD, DB_APP_PASSWORD (both only inside DATABASE_URL below),
+# BRAND_COMPUTE_SECRET, OFFSITE_* and the other lines for the scripts reach no app container.
+# The settings: every name config.py reads, except the ones compose sets itself below and DEV_LOGIN (never on a
+# server). A new setting in config.py goes here as well (tests/platform/test_compose_hardening.py says so).
+x-app-settings: &app-settings
+  ACCOUNT_SETUP:
+  ACCOUNT_STORAGE_MAX_MB:
+  ADMIN_ORCIDS:
+  ADMIN_TOTP:
+  ADMIN_TOTP_HOURS:
+  AGENT_LIMIT:
+  AGENT_WINDOW:
+  AI_ADMIN_FACTOR:
+  AI_IMAGES_PER_DAY:
+  AI_MAX_OUTPUT_TOKENS:
+  AI_OWN_URL_HOSTS:
+  AI_PARALLEL:
+  AI_PARALLEL_PER_ACCOUNT:
+  AI_PLATFORM_IMAGES_PER_DAY:
+  AI_PLATFORM_TEXTS_PER_DAY:
+  AI_PRICES_FILE:
+  AI_TEXTS_PER_DAY:
+  ALLOWED_ORCIDS:
+  BALANCE_SECONDS:
+  BOARD_CHECK_SECONDS:
+  BOARD_HALL_POLL_SECONDS:
+  BOARD_LIMIT:
+  BOARD_POLL_SECONDS:
+  BOARD_PUBLIC_SECONDS:
+  BOARD_STEP_MARGIN:
+  BOARD_WINDOW:
+  BRANDS:
+  CLOSE_GRACE_HOURS:
+  CODE_LIMIT:
+  CODE_WIDE_LIMIT:
+  CODE_WINDOW:
+  COMMENT_SHOTS_MAX_MB:
+  COMMENT_SHOTS_PER_DAY:
+  COMMENT_SHOT_SENDER_LIMIT:
+  COMMENT_SHOT_SENDER_WINDOW:
+  COMPLAINTS_PER_DAY:
+  COMPLAINTS_PER_SENDER:
+  COMPLAINT_MAILS_PER_ADDRESS:
+  COMPUTE_SIGNATURE_V1:
+  CONTAINER_SERVICES:
+  COSCINE_API:
+  CSRF_HOURS:
+  DB_MAX_OVERFLOW:
+  DB_POOL_SIZE:
+  DATABASE_SCHEMA_MODE:
+  DESIGN_SECONDS:
+  DIARY_APP_FINGERPRINTS:
+  DIARY_APP_URL:
+  DIARY_MIN_APP_VERSION:
+  DIARY_ON_MAIN_ADDRESS:
+  DIARY_PERSON_LIMIT:
+  DIARY_PERSON_WINDOW:
+  DIARY_SYNC_LIMIT:
+  DONATION_URL:
+  DONATION_WERO_URL:
+  DUMMY_MAX:
+  ERASE_LIMIT:
+  ERASE_WINDOW:
+  ESTIMATE_LIMIT:
+  ESTIMATE_PROCESS:
+  ESTIMATE_WINDOW:
+  HB_PARALLEL:
+  HEAVY_PARALLEL:
+  HEAVY_WAIT:
+  HSTS_SUBDOMAINS:
+  REPORT_JOB_THRESHOLD:
+  REPORT_JOB_COST:
+  REPORT_JOB_COST_RESEARCHER:
+  REPORT_JOB_MEMORY_MB:
+  REPORT_JOB_WAIT:
+  REPORT_API_WAITERS:
+  IMPORT_MAX_BYTES:
+  EXPORT_JSON_MAX_BYTES:
+  EXPORT_ZIP_MAX_BYTES:
+  IMPRINT_ADDRESS:
+  IMPRINT_EMAIL:
+  IMPRINT_NAME:
+  INSTANCE_OVERLAY:
+  INSTRUMENT_WORDINGS:
+  INSTRUMENT_WORDING_PERMISSIONS:
+  INVITES_PER_DAY:
+  LIVE_JOIN_LIMIT:
+  LIVE_QA_FLOOD:
+  LIVE_QA_LIMIT:
+  LIVE_REACT_LIMIT:
+  LIVE_RUN_PARTICIPATIONS:
+  LIVE_RUN_QUESTIONS:
+  LIVE_RUN_SENDER_JOINS:
+  LIVE_RUN_SENDER_QUESTIONS:
+  LIVE_SENDER_QUESTION_VOTES:
+  LIVE_VOTE_LIMIT:
+  LIVE_WINDOW:
+  LOGIN_LIMIT:
+  LOGIN_WINDOW:
+  MAIL_FROM:
+  MAIL_FROM_NAME:
+  MAIL_HOST:
+  MAIL_PER_ACCOUNT_DAY:
+  MAIL_PER_MINUTE:
+  MAIL_PORT:
+  MAIL_SECURITY:
+  MAIL_USER:
+  MAP_SEARCH_URL:
+  MAP_TILE_ATTRIBUTION:
+  MAP_TILE_ATTRIBUTION_DARK:
+  MAP_TILE_URL:
+  MAP_TILE_URL_DARK:
+  MEDIA_MAX_MB:
+  MEDIA_SURVEY_MAX_MB:
+  NEW_ACCOUNTS_MAY_CREATE:
+  OMEGA_BACKGROUND:
+  OPENAI_IMAGE_MODEL:
+  OPENAI_TEXT_MODEL:
+  ORCID_BASE_URL:
+  ORCID_CLIENT_ID:
+  OWN_AI_CALLS_PER_DAY:
+  PANEL_ONCE_TAKEOVER_MINUTES:
+  PARTICIPANT_FORM_BYTES:
+  PARTICIPANT_HANDOVER_UNTIL:
+  PARTICIPANT_OLD_COOKIE_UNTIL:
+  PHONE_COMMENTS_PER_DAY:
+  PHONE_RUNS_PER_DAY:
+  PROTECTED_NETS:
+  PUBLIC_BASE_URL:
+  QC_VALUES_KEPT:
+  QUOTA_FRESH_HOLD_MINUTES:
+  REDIRECT_HOSTS:
+  RESET_LIMIT:
+  RESET_WINDOW:
+  SEAL_CHECK_LIMIT:
+  SEAL_CHECK_WINDOW:
+  SEAL_DEFAULT:
+  SEAL_MERKLE:
+  SECURITY_LOG_DAYS:
+  SECURITY_LOG_DIR:
+  SEM_BACKGROUND:
+  SENDER_WIDE_FACTOR:
+  SESSION_MAX_DAYS:
+  SIGN_IN_SECONDS:
+  SITE_BRAND:
+  SLACK_ADMINS:
+  SQLITE_BUSY_SECONDS:
+  SQLITE_JOURNAL:
+  START_LIMIT:
+  START_WINDOW:
+  STATUS_JSON_TOKEN:
+  STORAGE_GATE_WAIT:
+  STUDY_CODE_LIMIT:
+  STUDY_CODE_WINDOW:
+  STORAGE_MIN_FREE_MB:
+  STORAGE_USAGE_ENABLED:
+  SURVEY_SENDER_LIMIT:
+  SURVEY_SENDER_WINDOW:
+  SURVEY_START_LIMIT:
+  SURVEY_START_WINDOW:
+  SURVEY_STORAGE_MAX_MB:
+  TOKEN_LIMIT:
+  TOKEN_TRY_LIMIT:
+  TOKEN_TRY_WINDOW:
+  TOKEN_WINDOW:
+  TSA_URL:
+  UNDER_CONSTRUCTION:
+  VERIFY_LIMIT:
+  VERIFY_WINDOW:
+  VOICE_MAX_MB:
+  VOICE_SENDER_SHARE:
+  WEBSERVICE_BLOCKED_NETS:
+  WHISPER_MODEL:
+  WHISPER_JOBS:
+  WHISPER_ALIGN:
+  WHISPER_DIARIZE:
+  WHISPER_CANCEL_URL:
+  WHISPER_PATH:
+  WHISPER_TIMEOUT:
+  WHISPER_URL:
+  ZENODO_CLIENT_ID:
+  ZENODO_SANDBOX_CLIENT_ID:
+
+# the keys and passwords both sides need: sessions and stored secrets (also the previous keys of a rotation,
+# BETRIEB.md), the Rechenknecht and Slack (complaints of participants, app/participate.py)
+x-app-secrets: &app-secrets
+  SECRET_KEY:
+  SECRET_KEY_FALLBACKS:
+  TOKEN_KEY:
+  TOKEN_KEY_FALLBACKS:
+  PARTICIPANT_TOKEN_KEY:
+  PARTICIPANT_TOKEN_KEY_FALLBACKS:
+  POOL_KEY:
+  DIARY_KEY:
+  COMPUTE_SECRET:
+  SLACK_WEBHOOK_URL:
+
+# the participants' containers (audit 2026-10-22, E-01): without COMPUTE_SECRET, with which a break-in there could
+# hand the Rechenknecht's results of running jobs to the researchers' side (they hand out no jobs; an estimation there
+# would be computed in the container itself), and without TOKEN_KEY, which opens every stored secret (second
+# factors, OAuth tokens, own AI keys): what they open lies under PARTICIPANT_TOKEN_KEY (app/secrets_box.py), and
+# invitation links are found by their hash alone (survey_invites.find)
+x-participant-secrets: &participant-secrets
+  SECRET_KEY:
+  SECRET_KEY_FALLBACKS:
+  PARTICIPANT_TOKEN_KEY:
+  PARTICIPANT_TOKEN_KEY_FALLBACKS:
+  POOL_KEY:
+  DIARY_KEY:
+  SLACK_WEBHOOK_URL:
+
+# the mail server's password: only where mail is sent (the researchers' container and the housekeeping, which sends
+# what waits in the queue, app/mailqueue.py). The participants' containers leave their mails in the queue
+# (app/mail.py, queued_here) and never get it (audit 2026-10-18, CFG-04)
+x-mail-secrets: &mail-secrets
+  MAIL_PASSWORD:
+
+# what compose.yaml sets itself in every app container
+x-app-fixed: &app-fixed
+  # the app's own role without superuser rights (audit 2026-10-09, BT4), once db-app-role.sh has written
+  # DB_APP_USER and DB_APP_PASSWORD to the .env; until then the superuser "askurious" as before (BETRIEB.md)
+  DATABASE_URL: postgresql://${DB_APP_USER:-askurious}:${DB_APP_PASSWORD:-${POSTGRES_PASSWORD}}@db/askurious
+  PROXY_COUNT: "1"
+  LIFECYCLE_IN_REQUEST: "0"
+  MEDIA_X_ACCEL: "1"
+  COMPUTE_URL: http://compute:8090          # the Rechenknecht below; without it the app computes itself
+  STATUS_URL: https://${STATUS_HOST:-status.askurious.de}/   # linked in the footer
+  PARTICIPANT_BASE_URL: https://${PARTICIPANT_HOST:-ask.askurious.de}   # participants' links (app/hosts.py)
+
+# only the researchers' container: sign-in (ORCID), Zenodo, AI, Whisper, the buttons of the Slack messages and /cron.
+# The participants' containers answer none of these paths (app/hosts.py) and never call these services.
+x-researcher-secrets: &researcher-secrets
+  ORCID_CLIENT_SECRET:
+  ZENODO_CLIENT_SECRET:
+  ZENODO_SANDBOX_CLIENT_SECRET:
+  OPENAI_API_KEY:
+  WHISPER_TOKEN:
+  SLACK_SIGNING_SECRET:
+  CRON_KEY:
+  # the key of the researchers' sessions (app/cookies.py, CFG-04): a break-in on the participants' side cannot sign
+  # a researcher's or admin's session with it. Empty: SECRET_KEY as before (BETRIEB.md, "Schlüssel der Forschenden")
+  RESEARCHER_SESSION_KEY:
+  RESEARCHER_SESSION_KEY_FALLBACKS:
+
+# Hardening of every container built from the app image (audit 2026-10-13, SV-3/DP-5; CIS Docker 5.3, 5.12, 5.25):
+# no capabilities at all (the app runs as UID 1000 on port 8000 and needs none), no gaining of rights through setuid
+# programs, and a read-only file system. The app writes only into its volumes (instance/, /status) and into /tmp
+# (exports and uploads past 16 MB, gunicorn's heartbeat files): /tmp is a tmpfs, which counts towards mem_limit.
+# Before this, /app was not writable for the app either (root's, Dockerfile), so nothing else is lost.
+x-hardened: &hardened
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+
+x-app: &app
+  <<: *hardened
+  build:
+    context: ../..
+    dockerfile: deploy/docker/Dockerfile
+  image: askurious:latest
+  restart: unless-stopped
+  logging: *logging
+  # gunicorn finishes running requests within --graceful-timeout 30; Docker waits that long before it kills (B8)
+  stop_grace_period: 35s
+  # memory and processes (SV-3/DP-5): a runaway request or estimation ends in its own container (the kernel stops a
+  # process there), never takes PostgreSQL along. Measured: a participants' container 1.4 GB, at 1,000 people at once
+  # 2.8 GB for both together (load test 2026-10-08). The researcher overrides this for two reports up to 0.8 GB each.
+  # All limits together stay below the host's 19 GB also with WhisperX (Abgleich 2026-10-15, T08-N-4; BETRIEB.md):
+  # 2.5 GB leave a participants' container its measured 1.4 GB, the /tmp of 512 MB and room to spare.
+  mem_limit: 2560m
+  pids_limit: 1024                     # processes and threads: 12 workers x 4 threads and the background threads
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  environment: &app-env
+    <<: [*app-settings, *app-secrets, *mail-secrets, *app-fixed]
+  volumes:
+    - instance:/app/instance          # uploads (images, voice messages, interview audio) shared by both sides
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    # by its tag until the next maintenance window: a changed db line makes the isolation check (transition.py) refuse
+    # the rolling deploy. In that window set DB_IMAGE=postgres:17.x@sha256:... in the .env (tools/image_digests.py
+    # names the digest; audit 2026-10-18, CFG-05); restart.sh recreates the database container only in that window
+    image: ${DB_IMAGE:-postgres:17}
+    restart: unless-stopped
+    logging: *logging
+    # mission critical with nginx and participant (Philipp, 2026-10-08): 2048; researcher 512, the rest 256
+    cpu_shares: 2048
+    # memory (SV-3/DP-5): room for shared_buffers (1 GB), 500 connections and maintenance; the app containers have
+    # their own, lower limits, so that one of them that runs out ends there. Should the server itself run short, the
+    # kernel stops other processes first (oom_score_adj). Starts as root and switches to the user postgres (gosu, no
+    # setuid program): no-new-privileges does not hinder it; its capabilities stay as the image needs them
+    mem_limit: 3g
+    oom_score_adj: -500
+    pids_limit: 1024                         # max_connections 500, one process each, and PostgreSQL's own
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_USER: askurious
+      POSTGRES_DB: askurious
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U askurious -d askurious"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    shm_size: 256m
+    # up to 15 connections per app process (SQLAlchemy's pool): 2 x 12 + 4 processes need more than the default 100.
+    # Time limits as a safety net (audit 2026-10-09, BT12): no statement runs longer than the researchers' longest
+    # request (gunicorn --timeout 300), and a transaction left open (idle in transaction) ends after 10 minutes, so
+    # that it holds no locks and VACUUM and migrations do not wait for it. pg_dump and pg_restore switch the
+    # statement limit off for themselves. A slow request takes seconds, the load test saw idle transactions of 0.01 s.
+    command: ["postgres", "-c", "max_connections=500", "-c", "shared_buffers=1GB",
+              "-c", "statement_timeout=300s", "-c", "idle_in_transaction_session_timeout=600s"]
+
+  # participants first: more workers and four times the researchers' CPU share when both sides are busy. One process uses one core
+  # (Python); with 8 the load test of 2026-10-08 stopped at ~85 requests/s and 10 of 24 cores, with 20 it served
+  # 1,000 at once at 0.16 s (median) on ~15 cores.
+  # Two containers of 12 processes each (24 together, as in the one container before): a deploy restarts them one
+  # after the other (restart.sh), nginx sends the requests to the other in between, and participants see no error
+  # page (zwei-teilnahme-container-konzept.md, Ralf 2026-10-08). Each may use up to 20 of the 24 cores (a ceiling
+  # only, so that one can take more when the load is uneven; 4 stay for PostgreSQL and nginx); their shares of 1024
+  # add up to the 2048 of the database and nginx, as the one container had.
+  housekeeping:
+    <<: *app
+    mem_limit: 768m                          # one process (app.housekeeping), no web workers (T08-N-4)
+    pids_limit: 128
+    cpu_shares: 128
+    environment:
+      <<: *app-env
+      SIDE: researcher
+    depends_on:
+      researcher:
+        condition: service_healthy
+    command: ["python", "-m", "app.housekeeping"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; assert time.time()-os.stat('/tmp/housekeeping-heartbeat').st_mtime < 180"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+
+  participant-a: &participant
+    <<: *app
+    cpu_shares: 1024
+    cpus: 20
+    # a running request gets up to --graceful-timeout 60 to finish when the container stops (a long voice message over
+    # a slow line): the restart waits for it. --timeout only ends a worker that stops answering as a whole; with
+    # gthread a single slow request is not ended by it (nginx gives up after 60 s and does not repeat it, BT10).
+    # --keep-alive 75 (both sides): longer than nginx keeps an idle connection to the app (60 s), so nginx always
+    # closes it first and never sends a request on a connection gunicorn has just closed (default 2 s: a 502 now and then)
+    stop_grace_period: 65s
+    environment:
+      # without the mail password (x-mail-secrets) and without the researchers' secrets (CFG-04, E-01)
+      <<: [*app-settings, *participant-secrets, *app-fixed]
+      # the participants' own database role with the rights of app/participant_grants.py only (CFG-04), once
+      # participant-db-role.sh has written PARTICIPANT_DB_USER and PARTICIPANT_DB_PASSWORD to the .env (needs
+      # DB_ISOLATION=1, compose-env.sh; isolation/roles.yaml takes the same pair); until then the app's role as above
+      DATABASE_URL: postgresql://${PARTICIPANT_DB_USER:-${DB_APP_USER:-askurious}}:${PARTICIPANT_DB_PASSWORD:-${DB_APP_PASSWORD:-${POSTGRES_PASSWORD}}}@db/askurious
+      SIDE: participant                      # answers only the participants' paths (app/hosts.py)
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "12", "--threads", "4",
+              "--timeout", "60", "--graceful-timeout", "60", "--keep-alive", "75", "passenger_wsgi:application"]
+
+  participant-b: *participant
+
+  researcher:
+    <<: *app
+    networks: {default: {}, whisper-net: {}}
+    mem_limit: 3g                           # web workers (~1 GB) plus two reports up to ~0.8 GB each (PF-2, T08-N-4)
+    cpu_shares: 512                          # a quarter of the participants' share (Philipp, 2026-10-08)
+    # exports, imports (40 MB as text) and results computed anew; /tmp takes ZIP exports past 16 MB
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+    environment:
+      <<: [*app-env, *researcher-secrets]
+      SIDE: researcher                       # participants' paths move to PARTICIPANT_BASE_URL (app/hosts.py)
+      # the containers' load for Administration > Server (app/containers.py), written by container-stats.sh
+      CONTAINER_STATS: /stamps/containers.json
+    volumes:
+      - instance:/app/instance
+      # only the files of ~/askurious-status (container load, backup's time mark), read-only, never the dumps
+      - ${HOME}/askurious-status:/stamps:ro
+    # --max-requests: a worker that computed a large report keeps its high-water mark of memory; renewed after about a
+    # thousand requests it gives it back (audit 2026-10-22, G-02)
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "4", "--threads", "8",
+              "--timeout", "300", "--graceful-timeout", "30", "--keep-alive", "75", "--max-requests", "1000",
+              "--max-requests-jitter", "100", "passenger_wsgi:application"]
+
+  # Local CPU transcription: opt-in, prepared models, private queue, no public port or runtime downloads.
+  whisper:
+    <<: *hardened
+    profiles: [whisper]
+    image: askurious-whisperx:3.8.6-phase1
+    pull_policy: never  # build and validate separately with explicit CPU/RAM limits (whisper/README.md)
+    restart: unless-stopped
+    logging: *logging
+    cpus: 8                       # 24 vCPU with AVX2/FMA since 2026-10-17; nice 15 and the lowest share keep it behind the app
+    cpu_shares: 64
+    mem_limit: 4g
+    memswap_limit: 4g
+    oom_score_adj: 500
+    pids_limit: 256
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    networks: {whisper-net: {}}
+    environment:
+      WHISPER_TOKEN: ${WHISPER_TOKEN:-}
+      WHISPER_THREADS: "8"
+      # the libraries' own thread pools follow WHISPER_THREADS; they override the image's values without a rebuild
+      OMP_NUM_THREADS: "8"
+      MKL_NUM_THREADS: "8"
+      OPENBLAS_NUM_THREADS: "8"
+      NUMEXPR_NUM_THREADS: "8"
+      WHISPER_MAX_LOAD: "20"        # no new job above this load; 12 was meant for 4 threads on fewer cores
+      WHISPER_APP_HEALTH: http://researcher:8000/healthz
+    volumes:
+      - ${WHISPER_MODELS_DIR:-${HOME}/askurious-whisper-models}:/models:ro
+      - whisper-jobs:/state
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+
+  # Rechenknecht (app/compute_node.py): HB and latent classes, at most 8 cores and the lowest share, so that long
+  # estimations never slow down either side. Same image, but nothing of the .env: no database, no SECRET_KEY, no uploads;
+  # only the shared COMPUTE_SECRET. Reachable inside the compose network only. Down: the app computes itself.
+  compute:
+    <<: *hardened
+    image: askurious:latest
+    pull_policy: never                     # built for the two app containers, never fetched from a registry
+    restart: unless-stopped
+    logging: *logging
+    # six estimations at once (COMPUTE_PARALLEL), each up to some 400 MB with its input (measured 2026-10-06), so 3 GB;
+    # the host has 22 GB since 2026-10-17, before that six took the limits past its memory (T08-N-4)
+    mem_limit: 3g
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8090), 3)"]
+      interval: 30s
+    # gunicorn instead of werkzeug's development server (audit 2026-10-18, CFG-07): one worker, since the jobs live
+    # in its memory, with threads for the questions while estimations run in its pool of processes
+    command: ["gunicorn", "--bind", "0.0.0.0:8090", "--workers", "1", "--worker-class", "gthread", "--threads", "8",
+              "--timeout", "120", "--graceful-timeout", "30", "app.compute_node:create()"]
+    environment:
+      COMPUTE_SECRET: ${COMPUTE_SECRET}
+      COMPUTE_CALLBACK: http://researcher:8000/rechenknecht
+      COMPUTE_BIND: 0.0.0.0:8090
+      COMPUTE_PARALLEL: "6"
+      COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-1}   # signature 1 still taken (app/compute.py, CFG-07)
+    cpus: 8
+    cpu_shares: 256
+    depends_on: [researcher]
+
+  # status.askurious.de (app/status_node.py): checks every service each minute from inside, shows the last 24 h.
+  # Same image, nothing of the .env but its names: no database login, no SECRET_KEY; its own small SQLite file in the volume "status"
+  status:
+    <<: *hardened
+    image: askurious:latest
+    pull_policy: never
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 256m                          # one small process; its SQLite file lies in the volume "status"
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    command: ["python", "-m", "app.status_node"]
+    environment:
+      STATUS_BIND: 0.0.0.0:8070
+      STATUS_DB: /status/status.db
+      STATUS_REDUNDANT: "participant-a|participant-b"  # one of them answering is enough (restarted one by one)
+      STATUS_INFO: backup,wartung            # shown, but no disruption (audit 2026-10-09, BT6; the maintenance switch)
+      # names whose certificate may be self-signed for a while (a new name before its Let's Encrypt certificate);
+      # every other untrusted certificate is a disruption (app/status_node.py, audit 2026-10-18, CFG-13)
+      STATUS_TLS_UNTRUSTED_OK: ${STATUS_TLS_UNTRUSTED_OK:-}
+      # the token in /status/<token>.json for the operators' monitoring; empty or short: no such address (app/status_node.py)
+      STATUS_JSON_TOKEN: ${STATUS_JSON_TOKEN:-}
+      # the name and look of a further brand under its own status name (status.polltergeist.de, app/brand.py)
+      BRANDS: ${BRANDS:-}
+      PUBLIC_BASE_URL: https://${RESEARCHER_HOST:-askurious.de}
+      STATUS_CHECKS: >-
+        participant-a=http:http://participant-a:8000/healthz,
+        participant-b=http:http://participant-b:8000/healthz,
+        researcher=http:http://researcher:8000/healthz,
+        db=tcp:db:5432,
+        compute=http:http://researcher:8000/healthz/compute,
+        whisper=whisper:http://researcher:8000/healthz/whisper,
+        web=https:https://${PARTICIPANT_HOST:-ask.askurious.de}/healthz,
+        cert=tls:${PARTICIPANT_HOST:-ask.askurious.de}:443,
+        backup=age:/stamps/backup-ok:9,
+        wartung=absent:/stamps/wartung,
+        ${BRAND_STATUS_CHECKS:-}
+      # a further brand with its own containers (profile "brand" below): its status name shows only its checks
+      # ("brand-…", BRAND_STATUS_CHECKS) and the database; the main one only the others (app/status_node.py)
+      STATUS_STACK: ${BRAND_STACK_DOMAIN:-}
+    volumes:
+      - status:/status
+      # only backup.sh's time mark of the last good dump, never the dumps (restart.sh creates the folder)
+      - ${HOME}/askurious-status:/stamps:ro
+    cpu_shares: 256
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8070/healthz', timeout=4)"]
+      interval: 30s
+
+  nginx:
+    # stable branch with a fixed patch release (audit 2026-10-09, BT1). The weekly pull of maintenance.sh brings the
+    # Alpine and OpenSSL fixes, which Docker rebuilds under the same tag; a new nginx release (1.30.x) and each
+    # April's new stable branch (1.32 in 2027) are raised by hand in nginx-image/Dockerfile (BETRIEB.md, "Images
+    # anheben"), which adds openssl for self-signed.sh at build time (audit 2026-10-10, B7)
+    build:
+      context: ../..
+      dockerfile: deploy/docker/nginx-image/Dockerfile
+    image: askurious-nginx:local
+    pull_policy: never                     # built here, never fetched from a registry
+    restart: unless-stopped
+    logging: *logging
+    cpu_shares: 2048
+    # its master runs as root (ports 80 and 443, the keys), the workers as the user nginx; the start scripts copy
+    # certificates and write configuration. no-new-privileges only (SV-3/DP-5): no setuid program gains rights. The
+    # capabilities stay as the image needs them (taking them away is a test on the server first, BETRIEB.md)
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 512                          # one worker per core (24) and the renewal loop
+    ports:
+      - "80:80"
+      - "443:443"
+    # nginx-live: a link to ~/askurious-env/nginx, which no deploy moves or deletes; restart.sh writes this code's nginx/
+    # into it. A mount holds the folder it found at nginx's start: from the code folder that was the folder of the deploy
+    # that last started nginx, renamed by the next deploy and deleted by the one after (2026-10-10)
+    volumes:
+      - ./nginx-live/askurious.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # one server block per https name (B1): 04-servers.sh writes them, nginx/locations/ holds what each side answers
+      - ./nginx-live/servers.sh:/docker-entrypoint.d/04-servers.sh:ro
+      - ./nginx-live/locations:/etc/nginx/locations:ro
+      - ./nginx-live/self-signed.sh:/docker-entrypoint.d/05-self-signed.sh:ro
+      - ./nginx-live/participant-upstream.sh:/docker-entrypoint.d/06-participant-upstream.sh:ro
+      - ./nginx-live/brand-stack.sh:/docker-entrypoint.d/07-brand-stack.sh:ro
+      - instance:/app/instance:ro
+      - certs:/etc/letsencrypt
+      - acme:/var/www/acme
+      # the switch of the maintenance page (deploy/docker/wartung.sh, nginx/locations/wartung.conf): restart.sh creates it
+      - ${HOME}/askurious-status/wartung:/etc/nginx/wartung:ro
+    environment:
+      RESEARCHER_HOST: ${RESEARCHER_HOST:-askurious.de}
+      # the brands' names on the maintenance page (nginx/servers.sh)
+      BRANDS: ${BRANDS:-}
+      PARTICIPANT_HOST: ${PARTICIPANT_HOST:-ask.askurious.de}
+      STATUS_HOST: ${STATUS_HOST:-status.askurious.de}
+      # further domains with a name of their own (BRANDS in .env, app/brand.py), space-separated; empty: none
+      BRAND_RESEARCHER_HOSTS: ${BRAND_RESEARCHER_HOSTS:-}
+      BRAND_PARTICIPANT_HOSTS: ${BRAND_PARTICIPANT_HOSTS:-}
+      # the one among them with its own containers and database (profile "brand"); empty: all go to the ones above
+      BRAND_STACK_DOMAIN: ${BRAND_STACK_DOMAIN:-}
+      # the names from before the rename to Askurious (2026-10-09): they only redirect to the ones above, so that links
+      # already sent (invitations, QR codes, papers) keep working; their certificates are renewed like the others
+      OLD_RESEARCHER_HOST: ${OLD_RESEARCHER_HOST:-queryous.de}
+      OLD_PARTICIPANT_HOST: ${OLD_PARTICIPANT_HOST:-ask.queryous.de}
+      OLD_STATUS_HOST: ${OLD_STATUS_HOST:-status.queryous.de}
+      # www.<name> of Askurious and of each brand redirect to the name without www (nginx/servers.sh); 0: left out
+      WWW_REDIRECT: ${WWW_REDIRECT:-1}
+      # 1: HSTS with includeSubDomains (nginx/servers.sh, CFG-10); off until the DNS zones are checked (BETRIEB.md)
+      HSTS_SUBDOMAINS: ${HSTS_SUBDOMAINS:-0}
+    # picks up renewed certificates (self-signed.sh copies them to the fixed paths, which the master reads at the reload)
+    command: ["/bin/sh", "-c", "(while sleep 6h; do sh /docker-entrypoint.d/05-self-signed.sh >/dev/null; nginx -s reload; done) & exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    depends_on: [participant-a, participant-b, researcher, status]
+    # inside the network the public names lead to nginx too: the status page checks them as a browser would
+    networks:
+      default:
+        aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
+
+  # A further brand with its own database (datenbank-je-marke-konzept.md, prepared 2026-10-09, not in use yet). These
+  # services start only with COMPOSE_PROFILES=brand in the .env (BETRIEB.md, "Eigene Datenbank für eine Marke"); without
+  # it compose leaves them out and everything runs as before. Same image as Askurious, but their own settings
+  # (.env.brand: SECRET_KEY, DATABASE_URL to their own database and role in the same PostgreSQL, SITE_BRAND,
+  # PUBLIC_BASE_URL ...; brand-stack.sh setup writes it), their own uploads (volume instance-brand) and their own
+  # Rechenknecht. Smaller than Askurious to begin with: one participants' container (a deploy restarts it with a
+  # short gap), two researcher processes. Several brands of this kind would need further copies of these services.
+  brand-participant:
+    <<: *app
+    profiles: ["brand"]
+    env_file:
+      - path: .env.brand                   # a link to ~/askurious-env/.env.brand (deploy-docker.sh links .env*)
+        required: false                    # compose reads it even for a profile not started
+      # only DATABASE_URL with the brand's participant role (participant-db-role.sh --brand, CFG-04); read after
+      # .env.brand, so it replaces that line there. Missing: the brand's role of .env.brand as before
+      - path: .env.brand-participant
+        required: false
+    cpu_shares: 512
+    cpus: 8
+    stop_grace_period: 65s
+    environment:
+      PROXY_COUNT: "1"
+      SIDE: participant
+      LIFECYCLE_IN_REQUEST: "0"
+      COMPUTE_URL: http://brand-compute:8090
+      COMPUTE_SECRET: ""                   # the participants' side hands out no jobs (audit 2026-10-22, E-01)
+    volumes:
+      - instance-brand:/app/instance
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "6", "--threads", "4",
+              "--timeout", "60", "--graceful-timeout", "60", "--keep-alive", "75", "passenger_wsgi:application"]
+
+  brand-researcher: &brand-researcher
+    <<: *app
+    profiles: ["brand"]
+    env_file:
+      - path: .env.brand
+        required: false
+    cpu_shares: 256
+    environment:
+      PROXY_COUNT: "1"
+      SIDE: researcher
+      LIFECYCLE_IN_REQUEST: "0"
+      COMPUTE_URL: http://brand-compute:8090
+      COMPUTE_SECRET: ${BRAND_COMPUTE_SECRET:-}
+      CONTAINER_STATS: /stamps/containers.json
+      # its own containers and the shared ones, not those of Askurious (app/containers.py)
+      CONTAINER_SERVICES: brand-participant,brand-researcher,brand-housekeeping,brand-compute,db,nginx,status,certbot
+    volumes:
+      - instance-brand:/app/instance
+      - ${HOME}/askurious-status:/stamps:ro
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "2", "--threads", "8",
+              "--timeout", "300", "--graceful-timeout", "30", "--keep-alive", "75", "passenger_wsgi:application"]
+
+  brand-housekeeping:
+    <<: *brand-researcher
+    mem_limit: 1g
+    pids_limit: 128
+    cpu_shares: 128
+    depends_on:
+      brand-researcher:
+        condition: service_healthy
+    command: ["python", "-m", "app.housekeeping"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; assert time.time()-os.stat('/tmp/housekeeping-heartbeat').st_mtime < 180"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+
+  brand-compute:
+    <<: *hardened
+    image: askurious:latest
+    pull_policy: never
+    profiles: ["brand"]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 2g
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8090), 3)"]
+      interval: 30s
+    command: ["gunicorn", "--bind", "0.0.0.0:8090", "--workers", "1", "--worker-class", "gthread", "--threads", "8",
+              "--timeout", "120", "--graceful-timeout", "30", "app.compute_node:create()"]
+    environment:
+      COMPUTE_SECRET: ${BRAND_COMPUTE_SECRET:-}
+      COMPUTE_CALLBACK: http://brand-researcher:8000/rechenknecht
+      COMPUTE_BIND: 0.0.0.0:8090
+      COMPUTE_PARALLEL: "3"
+    cpus: 4
+    cpu_shares: 256
+    depends_on: [brand-researcher]
+
+  # Let's Encrypt over HTTP (webroot); only works once both names point here and port 80 is reachable from outside
+  certbot:
+    # a fixed version (B11), raised by hand; the server ran 5.8.0 on 2026-10-08. Pinned by its digest as well
+    # (audit 2026-10-13, DP-11): the tag could be moved, the digest not. Raising: BETRIEB.md, "Images anheben"
+    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    restart: unless-stopped
+    logging: *logging
+    cpu_shares: 256
+    security_opt: ["no-new-privileges:true"]  # runs as root (image), writes only its volumes (SV-3/DP-5)
+    mem_limit: 256m
+    pids_limit: 64
+    volumes:
+      - certs:/etc/letsencrypt
+      - acme:/var/www/acme
+    entrypoint: ["/bin/sh", "-c", "while :; do certbot renew --webroot -w /var/www/acme --quiet; sleep 12h; done"]
+
+volumes:
+  whisper-jobs:
+  pgdata:
+  instance:
+  certs:
+  acme:
+  status:
+  instance-brand:                          # uploads of the brand with its own database (profile "brand")
+
+networks:
+  whisper-net: {internal: true}

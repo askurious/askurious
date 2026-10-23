@@ -1,0 +1,80 @@
+{% set de = lang in ("de", "de-du") %}
+{% set c = item.config %}
+{% set asset = kind.asset_for(item, asset_vars if asset_vars is defined else variables) %}
+{% set ans = answers.get(item.id) %}
+{% set lo, hi = kind.limits(item) %}
+{% include "items/_question.html" %}
+{% if kind.on_areas(item) %}
+{# Hot spot: the areas the researcher drew lie over the image as buttons (participant.js [data-hot]); a tap chooses an
+   area or takes it back, in mode "rate" it goes round "gefällt", "gefällt nicht" and neutral. The list below the image
+   holds the fields that are sent: without JavaScript it is the question itself, with it the overview of the choices
+   by name and a second way to choose (S20, X42). #}
+{% set rate = c.mode == "rate" %}
+{% set chosen = ans if ans is iterable and ans is not string else [] %}
+<div class="p-mark p-hot" data-hot="{{ item.id }}"{% if rate %} data-hot-rate{% endif %} data-max="{{ c.max or '' }}" style="--mark: {{ c.color or '#ffd400' }}">
+  <p class="p-mark-hint">{% if rate %}{{ ui("Wählen Sie einen Bereich des Bildes: einmal = gefällt, zweimal = gefällt nicht, ein drittes Mal = wieder neutral.", "Choose an area of the image: once = like, twice = dislike, a third time = neutral again.") }}{% else %}{{ ui("Wählen Sie die Bereiche des Bildes, die zutreffen; ein zweites Mal nimmt die Auswahl zurück.", "Choose the areas of the image that apply; choosing one again takes it back.") }}{% endif %}
+    <span class="p-if-js">{{ ui("Mit der Tastatur: Die Bereiche lassen sich auch in der Liste wählen.", "With the keyboard: the areas can also be chosen in the list.") }}</span>
+    {% if c.max %}{{ (ui("Höchstens %d.", "At most %d."))|format(hi) }}{% endif %}</p>
+  {% if asset %}
+  <div class="p-mark-stage p-hot-stage" data-hot-stage>
+    {% set w, h = image_size(item.survey.uid, asset.filename) %}<img src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) }}"{% if w %} width="{{ w }}" height="{{ h }}"{% endif %} decoding="async" alt="{{ item.text('alt', lang) }}" draggable="false">
+  </div>
+  {% else %}
+  <div class="p-image-missing">{{ ui("Bild fehlt", "Image missing") }}</div>
+  {% endif %}
+  <div class="p-hot-list" data-hot-list>
+    {% for a in kind.areas(item, lang) %}
+    {% set box = a.box|join(",") %}
+    {% if rate %}
+    {% set v = (chosen.get(a.code) if chosen is mapping else none)|string %}
+    <fieldset class="p-hot-row" data-hot-area="{{ a.code }}" data-box="{{ box }}" data-label="{{ a.label|striptags }}">
+      <legend{{ text_attrs(item, "areas", a.id) }}>{{ a.label|fill(variables) }}</legend>
+      <label><input type="radio" name="i{{ item.id }}_{{ a.code }}" value="1" {% if v == "1" %}checked{% endif %}> {{ ui("gefällt", "like") }}</label>
+      <label><input type="radio" name="i{{ item.id }}_{{ a.code }}" value="0" {% if v not in ("1", "-1") %}checked{% endif %}> {{ ui("neutral", "neutral") }}</label>
+      <label><input type="radio" name="i{{ item.id }}_{{ a.code }}" value="-1" {% if v == "-1" %}checked{% endif %}> {{ ui("gefällt nicht", "dislike") }}</label>
+    </fieldset>
+    {% else %}
+    <label class="p-hot-row" data-hot-area="{{ a.code }}" data-box="{{ box }}" data-label="{{ a.label|striptags }}"><input type="checkbox" name="i{{ item.id }}" value="{{ a.code }}" {% if chosen is not mapping and a.code in chosen %}checked{% endif %}> <span{{ text_attrs(item, "areas", a.id) }}>{{ a.label|fill(variables) }}</span></label>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <span class="p-sr-only" role="status" data-mark-status></span>
+</div>
+{% else %}
+<div class="p-mark" data-mark="{{ item.id }}" data-mode="{{ c.mode }}" data-max="{{ c.max or '' }}" style="--mark: {{ c.color or '#ffd400' }}">
+  <p class="p-mark-hint">
+    {# what is stored: in "lines" every stroke as drawn (no area is filled or measured), in "points" one point per
+       click (pre-test 2026-10-20, 35: outline or fill in?) #}
+    {% if c.mode == "lines" %}{{ ui("Fahren Sie mit gedrückter Maus oder dem Finger wie mit einem Textmarker über die Stellen im Bild, die Sie markieren möchten. Ihre Linien werden genau so gespeichert, wie Sie sie ziehen.", "Hold down the mouse button or use your finger and go over the parts of the image you want to mark, as with a highlighter. Your lines are saved exactly as you draw them.") }}
+    {% else %}{{ ui("Klicken oder tippen Sie auf die Stellen im Bild, die Sie markieren möchten. Jeder Klick setzt einen Punkt.", "Click or tap the places in the image you want to mark. Each click sets a point.") }}{% endif %}
+    {% if c.max %}{{ (ui("Höchstens %d.", "At most %d."))|format(hi) }}{% endif %}
+    {% if c.mode != "lines" %}
+    {# spots also with the keyboard (WCAG 2.1.1, accessibility concept D2/E3); free-hand lines are exempt #}
+    <span class="p-mark-keys" id="mark-keys-{{ item.id }}">{{ ui("Mit der Tastatur: Bild auswählen, mit den Pfeiltasten das Fadenkreuz bewegen (mit Umschalt in großen Schritten), Enter setzt eine Stelle, Entf nimmt die letzte zurück.", "With the keyboard: select the image, move the crosshair with the arrow keys (with Shift in big steps), Enter marks a spot, Delete takes back the last one.") }}</span>{% endif %}
+  </p>
+  <noscript><p class="p-error">{{ ui("Für diese Frage wird JavaScript benötigt.", "This question needs JavaScript.") }}</p></noscript>
+  {% if asset %}
+  <div class="p-mark-stage"{% if c.mode != "lines" %} data-focus-target{% endif %}>
+    {% set w, h = image_size(item.survey.uid, asset.filename) %}<img src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) }}"{% if w %} width="{{ w }}" height="{{ h }}"{% endif %} decoding="async" alt="{{ item.text('alt', lang) }}" draggable="false">
+    <svg class="p-mark-layer" aria-hidden="true"></svg>
+    {% if c.mode != "lines" %}<span class="p-mark-cross" aria-hidden="true"></span>{% endif %}
+  </div>
+  {% else %}
+  <div class="p-image-missing">{{ ui("Bild fehlt", "Image missing") }}</div>
+  {% endif %}
+  <div class="p-mark-bar">
+    <span class="p-mark-count" data-mark-count></span>
+    {# what a tap, a key or "entfernen" did, in words: "Stelle 2 gesetzt, 40 % von links, 60 % von oben" (D2) #}
+    <span class="p-sr-only" role="status" data-mark-status></span>
+    <span class="p-mark-btns">
+      <button type="button" class="p-mark-undo" data-mark-undo disabled title="{{ ui('Letzte Markierung zurücknehmen', 'Undo last mark') }}">↶ {{ ui("Rückgängig", "Undo") }}</button>
+      <button type="button" class="p-mark-undo" data-mark-clear disabled title="{{ ui('Alle Markierungen entfernen und neu beginnen', 'Remove all marks and start over') }}">⟲ {{ ui("Neu", "Start over") }}</button>
+    </span>
+  </div>
+  {# the spots as a list, each with its own "entfernen" (D2); filled by the script #}
+  {% if c.mode != "lines" %}<ol class="p-mark-list" data-mark-list hidden></ol>{% endif %}
+  <input type="hidden" name="i{{ item.id }}" value='{{ ans|tojson if ans else "" }}' data-mark-input data-keep>
+  {# a way through without mouse or finger (WCAG 2.1.1, UI audit R54) #}
+  <label class="p-mark-none"><input type="checkbox" name="i{{ item.id }}_none" value="1" data-mark-none{% if c.mode != "lines" %} data-not-first{% endif %} {% if ans == [] %}checked{% endif %}> {{ ui("Ich kann hier nichts markieren", "I cannot mark anything here") }}</label>
+</div>
+{% endif %}

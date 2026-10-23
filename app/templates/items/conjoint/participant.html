@@ -1,0 +1,53 @@
+{% from "items/_fallback.html" import fallback_option %}
+{% from "items/_attributes/macros.html" import concept_table %}
+{% set c = item.config %}
+{% set task = page_meta.task if (page_meta is defined and page_meta and page_meta.task is defined) else 0 %}
+{% set explain_page = page_meta is defined and page_meta and page_meta.explain %}
+{# a holdout task (app/holdouts.py): fixed options, the same for everyone, stored under "h<n>" #}
+{% set holdout = page_meta.holdout if (page_meta is defined and page_meta and page_meta.holdout is defined) else none %}
+{% set akey = ("h" ~ holdout) if holdout is not none else ("t" ~ task) %}
+{% set hprofiles = kind.holdout_profiles(item, holdout) if holdout is not none else none %}
+{% set state = (cj_state or {}).get(item.id, {}) if cj_state is defined else {} %}
+{% set version = state.version if state and state.version is defined else 0 %}
+{% if not kind.design_current(item) %}
+<div class="p-image-missing">{{ ui("Conjoint: Versuchsplan noch nicht erzeugt", "Conjoint: experimental design not generated yet") }}</div>
+{% elif explain_page %}
+{% set explain_default = (ui("Sie sehen gleich %d Aufgaben mit je %d Möglichkeiten. Wählen Sie jeweils die Möglichkeit, die Sie am meisten anspricht. Die Möglichkeiten unterscheiden sich in folgenden Merkmalen:", "You will see %d tasks with %d options each. Each time, choose the option you like most. The options differ in these features:"))|format(kind.shown_tasks(item), c.alternatives) %}
+{% include "items/_attributes/explain.html" %}
+{% else %}
+{% set attrs = kind.attributes(item, lang, state.order if state else none) %}
+{% set t = item.t(lang) %}
+{% set chosen = ((answers.get(item.id) or {}).get(akey)) %}
+{% set with_image = kind.uses_images(item) %}
+{% set labels = not c.hide_attr_labels %}
+{# display order of the options (optionally shuffled per participant and task); columns keep the option's own number #}
+{% set order = kind.alt_order(item, crowd_seed if crowd_seed is defined else none, "ho" if holdout is not none else version, holdout if holdout is not none else task) %}
+{% set table_attrs = attrs if c.display == "table" else ([] if c.display == "image" else (attrs if c.show_visual_in_table else attrs|rejectattr("visual")|list)) %}
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ t.get("question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<p class="p-hint">{{ (ui("Aufgabe %d von %d", "Task %d of %d"))|format(page_meta.n, kind.shown_tasks(item)) if (page_meta is defined and page_meta and page_meta.n is defined) else (ui("Aufgabe %d von %d", "Task %d of %d"))|format(task + 1, c.tasks) }}</p>
+<div class="cj{% if with_image and c.get("stack_mobile", true) %} cj-stack{% endif %}" role="radiogroup" aria-labelledby="q{{ item.id }}" style="--alts: {{ c.alternatives }}" data-cj data-cj-item="{{ item.id }}">
+  {# the name of an option: the researcher's word, else "Option" in the page's language (W44) #}
+  {% set alt_word = t.get("alt_label") or ui("Option", "Option") %}
+  {% set columns = [] %}{% set alt_names = {} %}{% for a in order %}{% set _ = columns.append((a + 1, alt_word ~ " " ~ loop.index, kind.profile(item, version, task, a) if hprofiles is none else hprofiles[a])) %}{% set _ = alt_names.update({a + 1: alt_word ~ " " ~ loop.index}) %}{% endfor %}
+  {% call(a, head, cells) concept_table(item, kind, table_attrs, columns, labels, with_image, variables, lang) %}<label class="p-option p-radio cj-pick cj-pick-plain"><input type="radio" name="i{{ item.id }}_{{ akey }}" value="{{ a }}" aria-label="{{ ui('%s auswählen', 'Choose %s')|format(head|striptags) }}"{% if cells %} aria-describedby="{{ cells }}"{% endif %} data-cj-name="{{ alt_names.get(a, '') }}" {% if chosen == a %}checked{% endif %}>
+          <span>{{ ui("Auswählen", "Choose") }}</span></label>{% endcall %}
+  {% if c.none %}
+  {# the card of every answer set aside (items/_fallback.html, S8) #}
+  {% call fallback_option("radio", "i" ~ item.id ~ "_" ~ akey, "0", chosen == 0, "cj-none") %}<span{{ text_attrs(item, "none_label") }}>{{ t.get("none_label") or (ui("Keine davon", "None of these")) }}</span>{% endcall %}
+  {% endif %}
+</div>
+{% if kind.dual(item) %}
+{# dual response: after the choice among the options, would the person really choose it (app/items/conjoint.py).
+   participant.js shows it once an option is chosen and, with the standard wording, names that option (W46);
+   without the script it stays visible with the general wording. #}
+{% set again = ((answers.get(item.id) or {}).get("d" ~ akey)) %}
+{% set dr_standard = ui("Würden Sie sich in Wirklichkeit für die gewählte Option entscheiden?", "Would you really choose the option you selected?") %}
+{% set dr_text = t.get("dr_question") or dr_standard %}
+<fieldset class="p-fieldset cj-dual" role="radiogroup" aria-labelledby="q{{ item.id }}d" data-cj-dual="{{ item.id }}"
+          {% if dr_text == dr_standard or dr_text == kind.default_texts(lang).get("dr_question") %}data-cj-named="{{ ui('Würden Sie sich in Wirklichkeit für %s entscheiden?', 'Would you really choose %s?') }}"{% endif %}>
+  <h3 class="p-question" id="q{{ item.id }}d"{{ text_attrs(item, "dr_question") }}>{{ dr_text|fill(variables) }}</h3>
+  <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_d{{ akey }}" value="1" {% if again == 1 %}checked{% endif %}> <span{{ text_attrs(item, "dr_yes") }}>{{ t.get("dr_yes") or ui("Ja", "Yes") }}</span></label>
+  <label class="p-option p-radio"><input type="radio" name="i{{ item.id }}_d{{ akey }}" value="0" {% if again == 0 %}checked{% endif %}> <span{{ text_attrs(item, "dr_no") }}>{{ t.get("dr_no") or ui("Nein", "No") }}</span></label>
+</fieldset>
+{% endif %}
+{% endif %}

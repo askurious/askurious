@@ -1,0 +1,8 @@
+{# A running hierarchical Bayes estimation: a bar that static/hb.js keeps up to date (surveys.results_hb_status);
+   when the estimation has ended, the HB block of the question alone is fetched anew (hb_part), the page does not
+   load again. Needs: h (view with marker), e (entry), survey. #}
+{% set done = ((h.marker.progress or 0) * 100)|round|int %}
+<div class="batch-progress hb-progress" data-hb-running{% if h.marker.queued %} data-queued{% endif %} data-url="{{ url_for('surveys.results_hb_status', survey_id=survey.id, item_id=e.item.id) }}">
+  <div class="p-progress" role="progressbar" aria-label="{{ de_en('Schätzung der individuellen Nutzen', 'Estimation of individual utilities') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ done }}"><span data-bar style="width:{{ done }}%"></span></div>
+  <span role="status">{% if h.marker.queued %}{{ de_en("Schätzung der individuellen Nutzen wartet: Gerade rechnen schon andere Schätzungen; diese beginnt, sobald ein Platz frei ist.", "Estimating individual utilities is waiting: other estimations are running right now; this one starts as soon as a slot is free.") }}<span data-status hidden></span>{% else %}{{ de_en("Schätzung der individuellen Nutzen läuft:", "Estimating individual utilities:") }} <span data-status>{{ done|pctsign }}</span> · {{ de_en("gestartet {t} Uhr.", "started at {t}.", t=h.marker.started|localclock) }}{% endif %} {{ de_en("Das Ergebnis erscheint hier von selbst.", "The result appears here automatically.") }}</span>
+</div>

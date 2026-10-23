@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# Step 1 of a project of AInstein: the conversation on the left (the main thing) and the canvas it fills, as cards AInstein writes into (no input boxes: the researcher refines them through the conversation; ainstein.js lights up a box it changed) #}
+{% block title %}{{ project.name }} · AInstein{% endblock %}
+{% block container_class %}container ainstein-wide{% endblock %}
+{% block content %}
+{% set editing = project.role != "view" %}
+{% include "ainstein/_head.html" %}
+
+<div class="ainstein-layout" data-ainstein data-chat-url="{{ url_for('ainstein.chat', code=project.code) }}"
+     data-canvas-url="{{ url_for('ainstein.canvas', code=project.code) }}">
+  <aside class="ainstein-chat" id="chat" aria-label="{{ de_en('Gespräch mit AInstein', 'Conversation with AInstein') }}">
+    <div class="ainstein-chat-head">{{ icon("brain", 18) }} <strong>AInstein</strong> <span class="badge badge-ai">{{ de_en("KI", "AI") }}</span>
+      {% set n = (project.chat or [])|length %}
+      <span class="ainstein-count" data-count title="{{ de_en('Nachrichten in diesem Gespräch, Ihre und die von AInstein; alle 25 Nachrichten fasst AInstein das Ältere für sich zusammen', 'Messages in this conversation, yours and AInstein’s; every 25 messages AInstein condenses the older ones for itself') }}">{{ n }} {{ de_en("Nachricht", "message") if n == 1 else de_en("Nachrichten", "messages") }}</span>
+      <button type="button" class="icon-btn ainstein-sound" data-sound aria-label="{{ de_en('Töne beim Senden und Antworten', 'Sounds when sending and answering') }}" title="{{ de_en('Töne aus', 'Sounds off') }}" aria-pressed="true">
+        <span data-sound-on>{{ icon("volume", 18) }}</span><span data-sound-off hidden>{{ icon("volume-off", 18) }}</span></button>
+</div>
+    <div class="ainstein-messages" data-messages aria-live="polite">
+      {% for m in project.chat or [] %}
+      <div class="ainstein-msg ainstein-msg-{{ 'user' if m.role == 'user' else 'ai' }}">
+        {% if m.role == "user" %}<p>{{ m.text }}</p>{% else %}{{ m.text|ainstein_reply }}{% endif %}</div>
+      {% else %}
+      <p class="muted small" data-empty>{{ de_en("AInstein hat noch nicht geantwortet. Schreiben Sie, woran Sie gerade denken, oder fragen Sie
+        z. B. „Welche Stichprobe passt zu meiner Frage?“", "AInstein has not answered yet. Write what you are thinking about, or ask,
+        for example, “Which sample fits my question?”") }}</p>
+      {% endfor %}
+    </div>
+    {% if editing %}
+    <form method="post" action="{{ url_for('ainstein.chat', code=project.code) }}" class="ainstein-send" data-send>
+      {{ csrf() }}
+      <textarea name="message" rows="3" maxlength="4000" required placeholder="{{ de_en('Ihre Antwort oder Frage … (Strg+Enter sendet)', 'Your answer or question … (Ctrl+Enter sends)') }}" aria-label="{{ de_en('Nachricht an AInstein', 'Message to AInstein') }}" data-message></textarea>
+      <div class="ainstein-send-foot">
+        <p class="muted ainstein-note">{{ de_en("AInstein kann irren. AInstein trägt Ergebnisse direkt in den Canvas ein; Änderungen besprechen Sie hier im Gespräch. Mit AInstein teilen Sie Forschungsideen mit einem Sprachmodell.", "AInstein can be wrong. AInstein writes results straight into the canvas; you discuss changes here in the conversation. With AInstein you share research ideas with a language model.") }}
+          <a href="{{ url_for('element_types.index') }}">{{ de_en("Welche Elementtypen AInstein kennt", "Which element types AInstein knows") }}</a></p>
+        {{ ai_access_line() }}
+        <button class="button">{{ de_en("Senden", "Send") }}</button>
+      </div>
+    </form>
+    {% else %}<p class="muted small flush">{{ de_en("Sie sehen das Projekt zum Lesen; Anmerkungen schreiben Sie unten unter", "You see the project read-only; you write remarks below under") }} <a href="#kommentare">{{ de_en("Kommentare", "Comments") }}</a>.</p>{% endif %}
+  </aside>
+
+  {# the canvas column: as tall as the chat, its boxes scroll, the buttons at the bottom line up with the chat's lower edge #}
+  <div class="ainstein-side"><div class="ainstein-side-inner">
+  <section class="ainstein-canvas" aria-label="{{ de_en('Forschungs-Canvas', 'Research canvas') }}" aria-live="polite">
+    {% for key, title, hint in canvas %}
+    {% set box = boxes[key] %}
+    <article class="ainstein-box{% if box.text %} is-filled{% endif %}{% if key in updated %} is-updated{% endif %}" id="box-{{ key }}" data-box="{{ key }}" title="{{ hint }}">
+      <h2><span class="ainstein-num">{{ loop.index }}</span> {{ title }} <span class="ainstein-updated-label">{{ de_en("aktualisiert", "updated") }}</span></h2>
+      <div class="ainstein-box-text" data-box-text>{% if box.text %}{{ box.text|ainstein_box }}{% else %}<span class="muted">{{ hint }}</span>{% endif %}</div>
+    </article>
+    {% endfor %}
+  </section>
+  <div class="ainstein-step-nav ainstein-step-nav-end">{# "Neu ableiten" belongs to the canvas: beside "Weiter", under it #}
+    {% if editing and project.chat %}
+    <form method="post" action="{{ url_for('ainstein.sync', code=project.code) }}" data-ainstein-busy="{{ de_en('AInstein liest das ganze Gespräch …', 'AInstein is reading the whole conversation …') }}" data-ainstein-area=".ainstein-canvas">
+      {{ csrf() }}<button class="button button-ai" title="{{ de_en('Füllt die Felder des Canvas neu aus dem ganzen Gespräch', 'Fills the boxes of the canvas anew from the whole conversation') }}">{{ icon("sparkles", 18) }} {{ de_en("Neu ableiten", "Derive anew") }}</button>
+    </form>
+    {% endif %}
+    <a class="button" href="{{ url_for('ainstein.design', code=project.code) }}">{{ de_en("Weiter ›", "Next ›") }}</a>
+  </div>
+  </div></div>
+
+</div>
+<script src="{{ url_for('static', filename='ainstein.js') }}" defer></script>
+{% endblock %}

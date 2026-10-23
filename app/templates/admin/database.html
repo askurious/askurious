@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, list_table %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# The tab "Server" (Ralf, 2026-10-07: "Datenbank" and "IP-Region" in one): the database, its backups (Ralf, 2026-10-18: only their list) and the switch
+   between SQLite and PostgreSQL, where the estimations run, and the IP region with the proxy setting.
+   Needs: s (dbmove.status), form (the fields), checked, copied, error, env_line, leftovers, backups (app/backups.py), compute_status, probe, ip, mail_status, containers, whisper_status and whisper_model (app/whisper_jobs.py),
+   deployed (app._deployed_at: the deploy with its commit, which the public status page leaves out; audit 2026-10-11, BT3). #}
+{% block title %}{{ de_en("Server", "Server") }} · Administration{% endblock %}
+{% macro n(v) %}{{ (v)|thousands }}{% endmacro %}
+{# cores with one decimal; a little load that one decimal would round to 0,0 shows as "< 0,1" (Ralf, 2026-10-10) #}
+{% macro cores(v) %}{{ ("< " ~ 0.1|dec(1)) if 0 < v < 0.05 else v|dec(1) }}{% endmacro %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "database" %}{% include "admin/_tabs.html" %}
+{# what weakens the running of the platform and only the server can change (audit 2026-10-13, SV-4/DP-8, KR-5,
+   SV-5/DP-9): shown only while something is open; the steps stand in deploy/docker/BETRIEB.md #}
+{% set sec = security %}
+{% if sec and (sec["keys"] or sec.skipped) %}
+<section class="panel" id="sicherheit">
+  <h2>{{ de_en("Sicherheit des Betriebs", "Operational security") }} <span class="hint">{{ de_en("Einstellungen des Servers, die nur dort geändert werden", "settings of the server that are changed only there") }}</span></h2>
+  <p>{{ de_en("Admins melden sich mit ORCID oder mit Passwort und Authenticator-Code an. Bei einer ORCID-Anmeldung ist kein zusätzlicher App-Code verpflichtend.", "Admins sign in with ORCID or with a password and an authenticator code. An ORCID sign-in does not require an additional app code.") }}</p>
+  {% if sec["keys"] %}
+  <p class="flash flash-warning"><strong>{{ de_en("Schwache Schlüssel:", "Weak keys:") }}</strong> {% for name, kind in sec["keys"] %}<code>{{ name }}</code>{{ ", " if not loop.last }}{% endfor %}.
+    {{ de_en("Ein kurzer oder wenig zufälliger Schlüssel lässt sich aus einer Kopie der Datenbank erraten. Neuen Zufallsschlüssel setzen, den alten als Rückfall behalten (deploy/docker/BETRIEB.md, „Schlüssel wechseln“).", "A short or hardly random key can be guessed from a copy of the database. Set a new random key and keep the old one as a fallback (deploy/docker/BETRIEB.md, “Schlüssel wechseln”).") }}</p>
+  {% endif %}
+  {% if sec.skipped %}
+  <p class="flash flash-warning"><strong>{{ de_en("Der letzte Deploy hat Prüfungen übersprungen:", "The last deploy skipped checks:") }}</strong>
+    {% for s in sec.skipped %}{{ {"tests": de_en("Tests", "tests"), "osv": de_en("Prüfung auf bekannte Schwachstellen", "check for known vulnerabilities"), "unmerged": de_en("Prüfung, ob der Stand in main ist", "check that the state is in main")}[s] }}{{ ", " if not loop.last }}{% endfor %}.
+    {{ de_en("Beim nächsten Deploy ohne SKIP_TESTS, SKIP_OSV und ALLOW_UNMERGED nachholen.", "Catch up with the next deploy without SKIP_TESTS, SKIP_OSV and ALLOW_UNMERGED.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+{# how busy the containers are (app/containers.py, deploy/docker/container-stats.sh; Ralf, 2026-10-09) #}
+{% set ct = containers %}{% set h = ct.host %}
+<section class="panel" id="container">
+  <h2>{{ de_en("Container", "Containers") }} <span class="hint">{{ de_en("Auslastung, jede Minute neu gemessen", "load, measured anew every minute") if ct.containers else de_en("kein Container-System", "no container system") }}</span></h2>
+  {% if ct.containers %}
+  {% if ct.stale %}<p class="flash flash-warning">{{ de_en("Die Werte sind älter als fünf Minuten: Der Cronjob container-stats.sh läuft wohl nicht mehr (crontab -l auf dem Server).", "The values are older than five minutes: the cron job container-stats.sh has probably stopped (crontab -l on the server).") }}</p>{% endif %}
+  {% call list_table() %}
+    <thead><tr><th>{{ de_en("Container", "Container") }}</th><th>{{ de_en("CPU jetzt", "CPU now") }}</th><th class="num">{{ de_en("Spitze 24 h", "Peak 24 h") }}</th><th class="num">{{ de_en("Arbeitsspeicher", "Memory") }}</th><th>{{ de_en("Läuft seit", "Running since") }}</th><th class="num">{{ de_en("Neustarts", "Restarts") }}</th></tr></thead>
+    <tbody>{% for r in ct.rows %}
+      <tr><td>{{ r.label }}{% if r.status and r.status != "running" %} <strong>{{ r.status }}</strong>{% elif r.health == "unhealthy" %} <strong>{{ de_en("antwortet nicht", "not answering") }}</strong>{% endif %}</td>
+        <td>{% if r.cores is not none %}<meter min="0" max="{{ r.limit or 1 }}" value="{{ r.cores }}" title="{{ (100 * r.cores / (r.limit or 1))|round(0)|int }} %"></meter>
+          {{ cores(r.cores) }} / {{ de_en("{n} Kernen", "{n} cores", n=r.limit|int) if r.limit else "?" }}{% endif %}</td>
+        <td class="num">{{ cores(r.peak) if r.peak is not none else "–" }}</td>
+        <td class="num">{{ r.mem|filesize if r.mem is not none else "–" }}</td>
+        <td>{{ r.started|localdt if r.started else "–" }}</td>
+        <td class="num">{{ r.restarts if r.restarts is not none else "–" }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}
+  {% else %}
+  <p class="muted small">{{ de_en("Die App läuft hier nicht in Containern (oder der Cronjob container-stats.sh ist nicht eingerichtet). Das hier ist die Maschine, auf der sie läuft.", "The app does not run in containers here (or the cron job container-stats.sh is not set up). This is the machine it runs on.") }}</p>
+  {% endif %}
+  <p class="muted small">{{ de_en("Server", "Server") }}: {{ de_en("{n} Kerne", "{n} cores", n=h.cpus) if h.cpus else "" }}{% if h.load %} · {{ de_en("Last", "Load") }} {{ h.load[0]|dec(2) }} / {{ h.load[1]|dec(2) }} / {{ h.load[2]|dec(2) }} ({{ de_en("1, 5, 15 Minuten", "1, 5, 15 minutes") }}){% endif %}{% if h.mem_total %} · {{ de_en("Arbeitsspeicher {u} von {t} belegt", "memory {u} of {t} in use", u=(h.mem_total - (h.mem_available or 0))|filesize, t=h.mem_total|filesize) }}{% endif %}{% if ct.time %} · {{ de_en("Stand", "As of") }} {{ ct.time|localdt }}{% endif %}</p>
+  {% if deployed %}<p class="muted small" id="deploy">{{ de_en("Stand der Software: deployt am {d}", "Software version: deployed on {d}", d=deployed.at|walldt) }}{% if deployed.id %}, Commit <code>{{ deployed.id }}</code>{% endif %}</p>{% endif %}
+  {% if ct.containers %}<p class="muted small">{{ de_en("CPU in Kernen: 1,0 ist ein voll ausgelasteter Kern, gemessen gegen die Obergrenze des Containers (sonst alle Kerne des Servers). Die Teilnahme-Container und die Datenbank haben Vorrang, wenn es eng wird; der Rechenknecht nimmt nur, was übrig ist.", "CPU in cores: 1.0 is one fully used core, measured against the container's ceiling (else every core of the server). The participants' containers and the database come first when it gets tight; the compute node only takes what is left.") }}</p>{% endif %}
+</section>
+<section class="panel" id="datenbank">
+  <h2>{{ de_en("Datenbank der App", "Database of the app") }}</h2>
+  <dl class="account-facts">
+    <dt>{{ de_en("Art", "Kind") }}</dt>
+    <dd>{{ s.version }}{% if s.dialect == "sqlite" %} · Journal {{ s.journal|upper }}{% endif %}</dd>
+    <dt>{{ de_en("Adresse", "Address") }}</dt>
+    <dd><code>{{ s.url }}</code></dd>
+    {% if s.size is not none %}<dt>{{ de_en("Größe", "Size") }}</dt><dd>{{ s.size|filesize }}</dd>{% endif %}
+    <dt>{{ de_en("Einträge", "Entries") }}</dt>
+    <dd>{{ de_en("{r} in {t} Tabellen", "{r} in {t} tables", r=n(s.rows), t=s.tables|length) }}</dd>
+    <dt>{{ de_en("PostgreSQL-Treiber", "PostgreSQL driver") }}</dt>
+    <dd>{% if s.driver %}{{ de_en("installiert", "installed") }}{% else %}<strong>{{ de_en("nicht installiert", "not installed") }}</strong>: <code>psycopg</code> {{ de_en("aus", "from") }} <code>requirements-postgres.txt</code>
+      ({{ de_en("bei Plesk in", "on Plesk, add it to") }} <code>vendor.zip</code>{{ de_en(" aufnehmen", " as well") }}), {{ de_en("danach die App neu starten", "then restart the app") }}{% endif %}</dd>
+    {% set m = s.migration %}
+    <dt>{{ de_en("Schema", "Schema") }}</dt>
+    <dd>{% if m.current == m.head %}{{ de_en("Stand", "Version") }} <code>{{ m.current }}</code>, {{ de_en("aktuell", "up to date") }}{% else %}{{ de_en("Stand", "Version") }} <code>{{ m.current or de_en("ohne", "none") }}</code>, {{ de_en("der Code ist bei", "the code is at") }} <code>{{ m.head }}</code>{% endif %}</dd>
+  </dl>
+  {% if m.differences %}
+  <details class="db-tables">
+    <summary>{{ de_en("Abweichungen vom Schema des Codes ({n})", "Differences from the schema of the code ({n})", n=m.differences|length) }}</summary>
+    <p class="muted small">{{ de_en("Die Datenbank läuft so, aber sie ist nicht genau, wie die Migrationen sie bauen würden; meist Fremdschlüssel oder Indizes, die früher beim automatischen Nachtragen einer Spalte fehlten, oder Spalten aus alten Handänderungen. Eine Migration, die eine dieser Stellen ändert, muss damit rechnen.", "The database runs like this, but it is not exactly as the migrations would build it; mostly foreign keys or indexes that were missing when a column was added automatically in the past, or columns from old manual changes. A migration that changes one of these places has to reckon with this.") }}</p>
+    <ul class="plain small">{% for d in m.differences %}<li><code>{{ d }}</code></li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  <details class="db-tables">
+    <summary>{{ de_en("Migrationen ({n})", "Migrations ({n})", n=m.history|length) }}</summary>
+    <p class="muted small">{{ de_en("Jede Änderung am Schema ist eine Migration; die App spielt beim Start ein, was fehlt, ein Serverprozess nach dem anderen.", "Every change to the schema is a migration; at start the app applies what is missing, one server process after the other.") }}
+      {% if s.dialect == "sqlite" %}{{ de_en("Vorher legt sie eine Kopie der Datenbank in", "Before that it puts a copy of the database in") }} <code>instance/backups/</code>{{ de_en(" ab.", ".") }}{% elif backups %}{{ de_en("Auf dem Docker-Server sichert backup.sh die Datenbank vor jedem Deploy mit neuen Migrationen (siehe Sicherungen).", "On the Docker server, backup.sh backs up the database before every deploy with new migrations (see Backups).") }}{% else %}{{ de_en("PostgreSQL legt sie keine Kopie an:", "On PostgreSQL it makes no copy:") }} <strong>{{ de_en("vor einem Deploy mit neuen Migrationen bitte ein Datenbank-Backup machen", "please make a database backup before a deploy with new migrations") }}</strong> {{ de_en("(Plesk: Datenbanken, Sichern).", "(Plesk: Databases, Back up).") }}{% endif %}</p>
+    {% call list_table() %}
+      <thead><tr><th>{{ de_en("Version", "Version") }}</th><th>{{ de_en("Inhalt", "Content") }}</th></tr></thead>
+      <tbody>{% for rev, title in m.history %}<tr><td><code>{{ rev }}</code>{% if rev == m.current %} <span class="hint">{{ de_en("eingespielt bis hier", "applied up to here") }}</span>{% endif %}</td><td>{{ title }}</td></tr>{% endfor %}</tbody>
+    {% endcall %}
+  </details>
+  {% if s.dialect == "sqlite" %}
+  <p class="muted small">{{ de_en("SQLite lässt immer nur einen Schreibzugriff zur Zeit zu. Das reicht für den üblichen Betrieb.
+    Wenn regelmäßig mehrere hundert Personen gleichzeitig teilnehmen oder große Live-Abstimmungen laufen, ist PostgreSQL die bessere Wahl. Der Code läuft auf beiden.", "SQLite only ever allows one write at a time. That is enough for normal use.
+    If several hundred people regularly take part at the same time or large live polls run, PostgreSQL is the better choice. The code runs on both.") }}</p>
+  {% endif %}
+  <details class="db-tables">
+    <summary>{{ de_en("Einträge je Tabelle", "Entries per table") }}</summary>
+    {% call list_table() %}
+      <thead><tr><th>{{ de_en("Tabelle", "Table") }}</th><th>{{ de_en("Inhalt", "Content") }}</th><th class="num">{{ de_en("Einträge", "Entries") }}</th></tr></thead>
+      <tbody>{% for name, rows in s.tables|sort(attribute="1", reverse=true) %}
+        <tr><td><code>{{ name }}</code></td><td class="small">{{ table_note(name) }}</td><td class="num">{{ n(rows) if rows is not none else de_en("fehlt", "missing") }}</td></tr>{% endfor %}</tbody>
+    {% endcall %}
+  </details>
+</section>
+
+{# the backups (Ralf, 2026-10-18, option A: show only): on the Docker server the list backup.sh writes (app/backups.py),
+   never a dump itself; copies of the database the app keeps (audit 2026-10-05, L-5) only while there are some #}
+{% set lo = leftovers %}{% set bk = backups %}
+<section class="panel" id="sicherungen">
+  <h2>{{ de_en("Sicherungen", "Backups") }} <span class="hint">{{ de_en("nur die Liste, die Dateien bleiben auf dem Server", "the list only, the files stay on the server") if bk else de_en("keine Liste von backup.sh", "no list from backup.sh") }}</span></h2>
+  {% if bk %}
+  {% if bk.stale %}<p class="flash flash-warning">{{ de_en("Der letzte Lauf von backup.sh ist älter als neun Stunden: Die Sicherung läuft wohl nicht mehr (crontab -l auf dem Server).", "The last run of backup.sh is older than nine hours: the backup has probably stopped (crontab -l on the server).") }}</p>
+  {% elif not bk.ok %}<p class="flash flash-warning">{{ de_en("Der letzte Lauf von backup.sh ist fehlgeschlagen; Einzelheiten in ~/askurious-backup.log auf dem Server.", "The last run of backup.sh failed; details in ~/askurious-backup.log on the server.") }}</p>{% endif %}
+  {% set reg = bk.regular %}{% set pre = bk.dumps|selectattr("kind", "equalto", "before-deploy")|list %}
+  <dl class="account-facts">
+    <dt>{{ de_en("Letzter Lauf", "Last run") }}</dt>
+    <dd>{{ bk.time|localdt if bk.time else "–" }}{% if bk.run == "before-deploy" %} ({{ de_en("vor einem Deploy", "before a deploy") }}){% endif %}, {{ de_en("erfolgreich", "successful") if bk.ok else de_en("fehlgeschlagen", "failed") }}</dd>
+    <dt>{{ de_en("Datenbank", "Database") }}</dt>
+    <dd>{% if reg %}{{ de_en("{n} laufende Sicherungen (alle vier Stunden, 14 Tage), jüngste {a}, älteste {b}", "{n} regular backups (every four hours, 14 days), newest {a}, oldest {b}", n=reg|length, a=reg[0].at|localdt, b=reg[-1].at|localdt) }}{% else %}<strong>{{ de_en("keine laufende Sicherung", "no regular backup") }}</strong>{% endif %}{% if pre %}; {{ de_en("{n} vor einem Deploy (30 Tage)", "{n} before a deploy (30 days)", n=pre|length) }}{% endif %}; {{ de_en("zusammen {s}", "together {s}", s=bk.size|filesize) }}</dd>
+    {% if bk.uploads %}<dt>{{ de_en("Hochgeladene Dateien", "Uploaded files") }}</dt>
+    <dd>{{ de_en("{n} Stände (14 Tage), zusammen {s}; nur neue oder geänderte Dateien belegen Platz", "{n} snapshots (14 days), together {s}; only new or changed files take space", n=bk.uploads.snapshots, s=bk.uploads.size|filesize) }}</dd>{% endif %}
+    <dt>{{ de_en("Kopie außerhalb des Servers", "Copy off the server") }}</dt>
+    <dd>{% if bk.offsite %}{{ de_en("eingerichtet, verschlüsselt", "set up, encrypted") }}; {% if bk.offsite_at %}{{ de_en("zuletzt übertragen {t}", "last transferred {t}", t=bk.offsite_at|localdt) }}{% else %}{{ de_en("noch keine Übertragung", "no transfer yet") }}{% endif %}{% else %}{{ de_en("aus: Die Sicherungen liegen nur auf diesem Server", "off: the backups are on this server only") }}{% endif %}</dd>
+    <dt>{{ de_en("Auf diesem Server", "On this server") }}</dt>
+    <dd>{{ de_en("laufende Sicherungen verschlüsselt (öffentlicher Schlüssel), die vor einem Deploy lesbar für den Rückweg", "regular backups encrypted (public key), those before a deploy readable for the way back") if bk.encrypt else de_en("unverschlüsselt, nur für den Server-Benutzer lesbar", "unencrypted, readable by the server user only") }}</dd>
+  </dl>
+  {% if bk.offsite_stale %}<p class="flash flash-warning">{{ de_en("Die Kopie außerhalb des Servers ist eingerichtet, aber seit über neun Stunden nicht durchgelaufen; Einzelheiten in ~/askurious-backup.log auf dem Server.", "The copy off the server is set up but has not gone through for over nine hours; details in ~/askurious-backup.log on the server.") }}</p>{% endif %}
+  {% if bk.dumps %}
+  <details class="db-tables">
+    <summary>{{ de_en("Alle Sicherungen der Datenbank ({n}, zusammen {size})", "All backups of the database ({n}, together {size})", n=bk.dumps|length, size=bk.size|filesize) }}</summary>
+  {% call list_table() %}
+    <thead><tr><th>{{ de_en("Datei", "File") }}</th><th>{{ de_en("Art", "Kind") }}</th><th class="num">{{ de_en("Größe", "Size") }}</th><th>{{ de_en("Angelegt", "Made") }}</th><th>{{ de_en("Wird gelöscht", "Deleted") }}</th></tr></thead>
+    <tbody>{% for d in bk.dumps %}
+      <tr><td><code>{{ d.name }}</code></td>
+        <td>{{ {"regular": de_en("laufend", "regular"), "before-deploy": de_en("vor einem Deploy", "before a deploy")}.get(d.kind, de_en("von Hand", "by hand")) }}</td>
+        <td class="num">{{ d.size|filesize }}</td><td>{{ d.at|localdt if d.at else "–" }}</td>
+        <td>{% if d.until %}{{ de_en("um den", "around") }} {{ d.until|localdt }}{% else %}{{ de_en("nur von Hand", "only by hand") }}{% endif %}</td></tr>{% endfor %}</tbody>
+  {% endcall %}
+  </details>
+  {% endif %}
+  <p class="muted small">{{ de_en("Die Sicherungen enthalten alle Antworten und Adressen. Sie liegen nur auf dem Server, außerhalb der Container der App; diese Seite sieht nur ihre Liste. Herunterladen, Zurückspielen und Löschen geht nur dort", "The backups hold all answers and addresses. They lie on the server only, outside the app's containers; this page sees only their list. Downloading, restoring and deleting happen only there") }} (<code>deploy/docker/BETRIEB.md</code>, „Datensicherung“).</p>
+  {% elif s.dialect == "postgresql" %}
+  <p class="muted small">{{ de_en("Die App läuft nicht auf dem Docker-Server (oder backup.sh ist dort noch nicht gelaufen). Sichern Sie die Datenbank beim Hoster (Plesk: Datenbanken, Sichern).", "The app does not run on the Docker server (or backup.sh has not run there yet). Back up the database at the host (Plesk: Databases, Back up).") }}</p>
+  {% endif %}
+  {% if lo.backups %}
+  <p class="muted small">{{ de_en("Vor jeder Migration legt die App unter SQLite eine Kopie in", "Before every migration under SQLite, the app puts a copy in") }} <code>instance/backups/</code>{{ de_en(" ab. Sie enthält alle Antworten und Adressen; Löschanfragen und Aufbewahrungsfristen erreichen sie nicht.", ". It holds all answers and addresses; deletion requests and retention periods do not reach it.") }}
+    {{ de_en("Deshalb löscht die App jede Kopie nach {d} Tagen", "So the app deletes every copy after {d} days", d=lo.days) }}{% if s.dialect == "sqlite" %}{{ de_en(", außer der jüngsten", ", except the newest") }}{% endif %}.</p>
+  {# a long list folded, like the tables of the database above: after many migrations it filled the page (2026-10-07) #}
+  <details class="db-tables">
+    <summary>{{ de_en("Kopien vor Migrationen ({n}, zusammen {size})", "Copies before migrations ({n}, together {size})", n=lo.backups|length, size=(lo.backups|sum(attribute="size"))|filesize) }}</summary>
+  {% call list_table() %}
+    <thead><tr><th>{{ de_en("Kopie vor einer Migration", "Copy before a migration") }}</th><th class="num">{{ de_en("Größe", "Size") }}</th><th>{{ de_en("wird gelöscht", "deleted") }}</th></tr></thead>
+    <tbody>{% for b in lo.backups %}
+      <tr><td><code>{{ b.name }}</code></td><td class="num">{{ b.size|filesize }}</td>
+        <td>{% if b.until %}{{ de_en("am", "on") }} {{ b.until|localdt }}{% else %}{{ de_en("bleibt als jüngste bis zur nächsten Migration", "stays as the newest until the next migration") }}{% endif %}</td></tr>{% endfor %}</tbody>
+  {% endcall %}
+  </details>
+  {% elif not bk and s.dialect == "sqlite" %}
+  <p class="muted small">{{ de_en("Keine Kopie vor einer Migration vorhanden. Die SQLite-Datei sichert der Hoster mit dem Ordner", "No copy from before a migration. The host backs up the SQLite file with the folder") }} <code>instance/</code>.</p>
+  {% endif %}
+  {% if lo.temp %}
+  <p>{% if lo.temp|length == 1 %}{{ de_en("Im Temp-Ordner des Servers liegt {n} Kopie von einem abgebrochenen Kopieren ({size});", "The server's temp folder holds {n} copy from a stopped copying ({size});", n=lo.temp|length, size=lo.temp|sum(attribute="size")|filesize) }}{% else %}{{ de_en("Im Temp-Ordner des Servers liegen {n} Kopien von einem abgebrochenen Kopieren ({size});", "The server's temp folder holds {n} copies from a stopped copying ({size});", n=lo.temp|length, size=lo.temp|sum(attribute="size")|filesize) }}{% endif %}
+    {{ de_en("die App löscht sie beim nächsten Aufräumen.", "the app deletes them at the next clean-up.") }}</p>
+  {% endif %}
+  {% if lo.old %}
+  <div class="flash flash-warning">
+    <div>
+      <p><strong>{{ de_en("Die alte SQLite-Datei liegt noch:", "The old SQLite file is still there:") }}</strong> <code>{{ lo.old.path }}</code>, {{ lo.old.size|filesize }}, {{ de_en("zuletzt geändert am", "last changed on") }} {{ lo.old.at|localdt }}.
+        {{ de_en("Sie enthält alle Antworten und Adressen bis zum Wechsel zu PostgreSQL und wird nicht automatisch gelöscht. Ohne sie geht der Weg zurück zu SQLite nur noch über", "It holds all answers and addresses up to the switch to PostgreSQL and is not deleted automatically. Without it, the way back to SQLite only goes through") }} <code>tools/copy_database.py</code>.</p>
+      <form method="post" action="{{ url_for('admin.database') }}" class="inline">
+        {{ csrf() }}<button class="button button-danger" name="action" value="remove_old"
+                data-confirm="{{ de_en('Die alte SQLite-Datei endgültig löschen?', 'Delete the old SQLite file permanently?') }}"
+                data-confirm-note="{{ de_en('Alle Antworten und Adressen darin bis zum Wechsel zu PostgreSQL sind danach weg. Die App arbeitet weiter mit PostgreSQL.', 'All answers and addresses in it up to the switch to PostgreSQL are then gone. The app keeps working with PostgreSQL.') }}"
+                data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger
+                data-confirm-type="{{ de_en('löschen', 'delete') }}">{{ de_en("Alte SQLite-Datei löschen", "Delete old SQLite file") }}</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+{% if s.dialect == "sqlite" %}
+<section class="panel" id="wechsel">
+  <h2>{{ de_en("Zu PostgreSQL wechseln", "Switch to PostgreSQL") }}</h2>
+  <ol class="db-steps">
+    <li>{{ de_en("Beim Hoster eine", "At the host, create an") }} <strong>{{ de_en("leere", "empty") }}</strong> {{ de_en("PostgreSQL-Datenbank mit eigenem Benutzer anlegen (Plesk: Websites &amp; Domains › Datenbanken).", "PostgreSQL database with its own user (Plesk: Websites &amp; Domains › Databases).")|safe }}</li>
+    <li>{{ de_en("Den Treiber installieren (siehe oben) und die Verbindung unten prüfen. Das ändert nichts.", "Install the driver (see above) and check the connection below. That changes nothing.") }}</li>
+    <li>{{ de_en("Kopieren, am besten wenn keine Befragung im Feld ist: Was Teilnehmende nach dem Kopieren abschicken, landet nur noch in der alten Datenbank.", "Copy, best while no survey is in the field: what participants send after the copy only ends up in the old database.") }}</li>
+    <li>{{ de_en("Die angezeigte Zeile in die", "Copy the line shown into the") }} <code>.env</code> {{ de_en("des Servers kopieren und die App neu starten.", "of the server and restart the app.") }}</li>
+  </ol>
+  <p class="muted small">{{ de_en("Die SQLite-Datei bleibt unverändert liegen. Zurück geht es, indem Sie die Zeile wieder aus der", "The SQLite file stays unchanged. To go back, take the line out of the") }} <code>.env</code> {{ de_en("nehmen und neu starten.", "again and restart.") }}
+    {{ de_en("Für sehr große Datenbanken gibt es dasselbe Kopieren auf der Kommandozeile:", "For very large databases the same copying exists on the command line:") }} <code>python tools/copy_database.py postgresql://…</code></p>
+
+  {% if error %}<p class="flash flash-error db-result" role="alert">{{ error }}</p>{% endif %}
+  {% if checked %}
+  <div class="flash flash-success db-result" role="status">
+    <p><strong>{{ de_en("Verbindung steht:", "Connected:") }}</strong> {{ checked.version }}.
+      {% if checked.filled %}{{ de_en("Die Datenbank enthält aber schon Daten der App ({t}); kopiert wird nur in eine leere.", "But the database already holds data of the app ({t}); copying only goes into an empty one.", t=checked.filled|join(", ")) }}
+      {% elif checked.existing %}{{ de_en("{n} Tabellen der App sind schon angelegt, alle leer.", "{n} tables of the app already exist, all empty.", n=checked.existing) }}
+      {% else %}{{ de_en("Sie ist leer.", "It is empty.") }}{% endif %}</p>
+    {% if checked.too_long %}<p><strong>{{ de_en("Vor dem Kopieren zu kürzen:", "To shorten before copying:") }}</strong> {% for t, c, limit, count in checked.too_long %}{{ t }}.{{ c }} ({{ de_en("{count}× über {limit} Zeichen", "{count}× over {limit} characters", count=count, limit=limit) }}){{ ", " if not loop.last }}{% endfor %}.
+      {{ de_en("SQLite speichert längere Texte, PostgreSQL nicht.", "SQLite stores longer texts, PostgreSQL does not.") }}</p>{% endif %}
+  </div>
+  {% endif %}
+  {% if copied %}
+  <div class="flash flash-success db-result" role="status">
+    <p><strong>{{ de_en("Kopiert:", "Copied:") }}</strong> {{ de_en("{r} Einträge aus {t} Tabellen in {s} s.", "{r} entries from {t} tables in {s} s.", r=n(copied.rows), t=copied.tables, s=copied.seconds|string if ui_language() == "en" else copied.seconds|string|replace(".", ",")) }}
+      {{ de_en("Jetzt diese Zeile unverändert in die", "Now copy this line unchanged into the") }} <code>.env</code> {{ de_en("des Servers kopieren und die App neu starten:", "of the server and restart the app:") }}</p>
+    <input class="one-time-link" value="{{ env_line }}" readonly aria-label="{{ de_en('Zeile für die .env', 'Line for the .env') }}" data-select-all>
+    <p class="muted small">{{ de_en("Die Zeile enthält das Passwort; Sonderzeichen sind darin schon so geschrieben, wie die Adresse sie braucht (etwa", "The line contains the password; special characters in it are already written as the address needs them (e.g.") }} <code>@</code> {{ de_en("als", "as") }} <code>%40</code>).</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('admin.database') }}#wechsel" class="stack db-form" autocomplete="off">
+    {{ csrf() }}
+    <div class="db-fields">
+      <label>{{ de_en("Server", "Server") }} <input name="host" value="{{ form.host }}" placeholder="localhost" required></label>
+      <label>{{ de_en("Port", "Port") }} <input name="port" value="{{ form.port }}" inputmode="numeric" class="narrow"></label>
+      <label>{{ de_en("Datenbank", "Database") }} <input name="name" value="{{ form.name }}" required></label>
+      <label>{{ de_en("Benutzer", "User") }} <input name="user" value="{{ form.user }}" required autocomplete="off"></label>
+      <label>{{ de_en("Passwort", "Password") }} <input type="password" name="password" value="{{ form.password }}" autocomplete="new-password"></label>
+    </div>
+    <div class="button-row">
+      <button class="button button-secondary" name="action" value="check">{{ de_en("Verbindung prüfen", "Check connection") }}</button>
+      <button class="button" name="action" value="copy"
+              data-confirm="{{ de_en('Alle Daten in diese Datenbank kopieren?', 'Copy all data into this database?') }}"
+              data-confirm-note="{{ de_en('Die App arbeitet danach weiter mit SQLite, bis die Zeile in der .env steht und die App neu gestartet ist. Je nach Größe dauert das einige Minuten.', 'The app then keeps working with SQLite until the line is in the .env and the app has been restarted. Depending on the size, this takes a few minutes.') }}"
+              data-confirm-ok="{{ de_en('Kopieren', 'Copy') }}">{{ de_en("Daten kopieren", "Copy data") }}</button>
+    </div>
+    <p class="muted small">{{ de_en("Das Passwort wird nur für diese Anfrage benutzt, nirgends gespeichert und nicht protokolliert. Nach dem Kopieren steht es in der Zeile für die", "The password is only used for this request, stored nowhere and not logged. After copying it is in the line for the") }} <code>.env</code>.</p>
+  </form>
+</section>
+{% endif %}
+{# one box for where the heavy estimations run: a second machine if set up, else this server in a process of its own
+   (Ralf, 2026-10-06) #}
+<section class="panel" id="schaetzungen">
+  <h2>{{ de_en("Schätzungen und Bootstraps", "Estimations and bootstraps") }}</h2>
+  <p class="muted small">{{ de_en("HB-Schätzungen, latente Klassen, der Bootstrap der Strukturgleichungsmodelle und die Omega-Intervalle der Ergebnisseite.", "HB estimations, latent classes, the bootstrap of structural equation models and the omega intervals of the results page.") }}</p>
+  <h3 class="panel-sub" id="rechenknecht">{{ de_en("Rechenknecht", "Compute node") }}</h3>
+  {% set rk = compute_status %}
+  {% if not rk.configured %}
+  <p class="muted small">{{ de_en("Nicht eingerichtet: Dieser Server rechnet selbst. Ein zweiter Rechner übernimmt die Schätzungen, sobald COMPUTE_URL und COMPUTE_SECRET in der .env stehen (Anleitung: tools/rechenknecht/README.md).",
+                                  "Not set up: this server computes them itself. A second machine takes the estimations over once COMPUTE_URL and COMPUTE_SECRET are in the .env (guide: tools/rechenknecht/README.md).") }}</p>
+  {% else %}
+  <dl class="account-facts">
+    <dt>{{ de_en("Adresse", "Address") }}</dt>
+    <dd><code>{{ rk.url }}</code></dd>
+    <dt>{{ de_en("Erreichbar", "Reachable") }}</dt>
+    <dd>{% if rk.reachable %}{{ de_en("ja", "yes") }}{% else %}<strong>{{ de_en("nein", "no") }}</strong> ({{ rk.error }}): {{ de_en("Schätzungen laufen auf diesem Server.", "estimations run on this server.") }}{% endif %}</dd>
+    {% if rk.reachable %}
+    <dt>{{ de_en("Programmstand", "Code version") }}</dt>
+    <dd>{% if rk.node.version == rk.version %}{{ de_en("gleich wie hier", "the same as here") }} (<code>{{ rk.version }}</code>){% else %}<strong>{{ de_en("anders", "different") }}</strong> (<code>{{ rk.node.version }}</code>, {{ de_en("hier", "here") }} <code>{{ rk.version }}</code>): {{ de_en("Schätzungen laufen auf diesem Server, bis der Rechenknecht denselben Stand hat.", "estimations run on this server until the compute node has the same version.") }}{% endif %}</dd>
+    <dt>{{ de_en("Aufträge", "Jobs") }}</dt>
+    <dd>{{ de_en("{r} laufen, {q} warten, {p} Plätze", "{r} running, {q} waiting, {p} places", r=rk.node.running, q=rk.node.queued, p=rk.node.parallel) }}</dd>
+    {% endif %}
+    <dt>{{ de_en("Offen von hier", "Open from here") }}</dt>
+    <dd>{{ rk.waiting }}</dd>
+  </dl>
+  {% endif %}
+  <h3 class="panel-sub panel-sub-sep" id="prozess">{{ de_en("Auf diesem Server: eigener Prozess", "On this server: a process of its own") }}</h3>
+  <p class="muted small">{% if estimate_on %}{{ de_en("Rechnet dieser Server selbst, laufen die Schätzungen in einem eigenen Prozess mit niedrigster Priorität, nicht in den Prozessen, die Seiten ausliefern. Lässt der Server keinen eigenen Prozess zu, laufen sie wie früher als Thread.", "When this server computes them itself, estimations run in a process of their own at the lowest priority, not in the processes that serve pages. If the server does not allow such a process, they run in a thread as before.") }}{% else %}{{ de_en("Ausgeschaltet (ESTIMATE_PROCESS=0 in der .env): Schätzungen laufen als Thread in den Prozessen, die Seiten ausliefern.", "Switched off (ESTIMATE_PROCESS=0 in the .env): estimations run in a thread of the processes that serve pages.") }}{% endif %}</p>
+  {% if probe %}
+  <dl class="account-facts">
+    <dt>{{ de_en("Prüfprozess", "Test process") }}</dt>
+    <dd>{% if probe.started is not defined %}{% if probe.waiting %}{{ de_en("startet …", "starting …") }}{% else %}<strong>{{ de_en("hat sich nie gemeldet", "never reported") }}</strong>: {{ de_en("Der Server startet keine eigenen Prozesse, Schätzungen laufen als Thread.", "the server does not start processes of their own; estimations run in a thread.") }}{% endif %}
+      {% elif probe.done %}{{ de_en("bis zum Ende gelaufen ({m} min): Der Server lässt eigene Prozesse leben.", "ran to the end ({m} min): the server lets processes of their own live.", m=probe.minutes|string if ui_language() == "en" else probe.minutes|string|replace(".", ",")) }}
+      {% elif probe.alive %}{{ de_en("läuft seit {m} min, letztes Lebenszeichen vor {s} s", "running for {m} min, last sign of life {s} s ago", m=probe.minutes|string if ui_language() == "en" else probe.minutes|string|replace(".", ","), s=probe.age) }}
+      {% else %}<strong>{{ de_en("nach {m} min verstummt", "went silent after {m} min", m=probe.minutes|string if ui_language() == "en" else probe.minutes|string|replace(".", ",")) }}</strong>: {{ de_en("Der Server hat den Prozess beendet. Schätzungen, die so enden, rechnet die App danach im Thread neu.", "the server ended the process. Estimations that end this way are computed again in a thread.") }}{% endif %}</dd>
+    {% if probe.started is defined %}
+    <dt>{{ de_en("Priorität", "Priority") }}</dt>
+    <dd>{% if probe.nice is not none %}nice {{ probe.nice }}{% elif probe.lowered %}{{ de_en("niedrigste", "lowest") }}{% else %}{{ de_en("unverändert", "unchanged") }}{% endif %}</dd>
+    {% endif %}
+  </dl>
+  {% endif %}
+  <form method="post" action="{{ url_for('admin.database') }}#prozess" class="button-row">
+    {{ csrf() }}
+    <button class="button button-secondary" name="action" value="probe">{{ de_en("Prüfen, ob der Server eigene Prozesse zulässt", "Check whether the server allows processes of their own") }}</button>
+  </form>
+  <p class="muted small">{{ de_en("Der Prüfprozess lebt 15 Minuten und meldet sich alle 10 Sekunden. Läuft er nach einem Deploy oder einer Pause noch, überstehen Schätzungen beides.", "The test process lives for 15 minutes and reports every 10 seconds. If it is still running after a deploy or an idle time, estimations survive both.") }}</p>
+</section>
+
+{# whether WhisperX is computing and how many jobs wait: only here for admins, the public status page leaves it out
+   (Abgleich 2026-10-15, T02-NEU-3/NB-11; Ralf, 2026-10-18) #}
+{% if whisper_status %}{% set ws = whisper_status %}
+<section class="panel" id="transkription">
+  <h2>{{ de_en("Transkription (WhisperX)", "Transcription (WhisperX)") }}</h2>
+  <dl class="account-facts">
+    <dt>{{ de_en("Zustand", "State") }}</dt>
+    <dd>{% if ws.state == "busy" %}<strong>{{ de_en("rechnet", "computing") }}</strong>{% elif ws.state == "ready" %}{{ de_en("bereit, nichts zu tun", "ready, nothing to do") }}{% else %}<strong>{{ de_en("nicht erreichbar", "unreachable") }}</strong>{% endif %}</dd>
+    {% if ws.state != "unavailable" %}
+    <dt>{{ de_en("Aufträge", "Jobs") }}</dt>
+    <dd>{{ de_en("{r} läuft, {q} warten", "{r} running, {q} waiting", r=ws.running, q=ws.queued) if ws.running == 1 else de_en("{r} laufen, {q} warten", "{r} running, {q} waiting", r=ws.running, q=ws.queued) }}</dd>
+    {% endif %}
+    <dt>{{ de_en("Standardmodell", "Default model") }}</dt>
+    <dd><code>{{ whisper_model }}</code></dd>
+  </dl>
+  <p class="muted small">{{ de_en("Es rechnet immer nur ein Auftrag, die anderen warten. Den Fortschritt eines Interviews zeigt die Interviewliste des Leitfadens.", "Only one job computes at a time, the others wait. The progress of an interview shows in the guide's list of interviews.") }}</p>
+</section>
+{% endif %}
+
+{% with geoip=ip.geoip, month=ip.month, country=ip.country, local=ip.local, state=ip.state, proxies=ip.proxies, hops=ip.hops %}
+<section class="panel" id="mailserver">
+  <h2>{{ de_en("Mailserver", "Mail server") }} <span class="hint">{{ de_en("Einmal-Links, Einladungen", "one-time links, invitations") }}</span></h2>
+  {% set ms = mail_status %}
+  {% if ms.on %}
+  <dl class="account-facts">
+    <dt>{{ de_en("Versand", "Sending") }}</dt><dd>{{ de_en("eingeschaltet", "switched on") }}</dd>
+    <dt>{{ de_en("Server", "Server") }}</dt><dd><code>{{ ms.host }}:{{ ms.port }}</code> · {{ ms.security|upper }}{% if ms.user %} · {{ de_en("Anmeldung als", "signed in as") }} <code>{{ ms.user }}</code>{% endif %}</dd>
+    <dt>{{ de_en("Absender", "Sender") }}</dt><dd><code>{{ ms.name }} &lt;{{ ms.sender }}&gt;</code></dd>
+    <dt>{{ de_en("Serien", "Series") }}</dt><dd>{{ de_en("höchstens {n} E-Mails je Minute", "at most {n} emails per minute", n=ms.per_minute) }}{% if ms.queued is not none %} · {{ de_en("{n} in der Warteschlange", "{n} in the queue", n=ms.queued) }}{% endif %}</dd>
+  </dl>
+  {% if ms.plaintext_login %}
+  <p class="flash flash-warning">{{ de_en("MAIL_SECURITY ist none, aber MAIL_USER ist gesetzt: Das Passwort geht unverschlüsselt über das Netz. Bitte MAIL_SECURITY=starttls (Port 587) oder ssl (465) eintragen.",
+    "MAIL_SECURITY is none, but MAIL_USER is set: the password travels unencrypted over the network. Please set MAIL_SECURITY=starttls (port 587) or ssl (465).") }}</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('admin.database') }}#mailserver" class="row field-with-button">
+    {{ csrf() }}<input type="hidden" name="action" value="mail_test">
+    <label class="visually-hidden" for="mail-test-to">{{ de_en("Test-E-Mail an", "Test email to") }}</label>
+    <input type="email" id="mail-test-to" name="to" maxlength="254" required value="{{ ms.own }}" placeholder="{{ de_en('Adresse für die Test-E-Mail', 'Address for the test email') }}">
+    <button class="button button-secondary">{{ icon("mail", 16) }} {{ de_en("Test-E-Mail senden", "Send test email") }}</button>
+  </form>
+  {% else %}
+  <p>{{ de_en("Kein Versand eingestellt. Askurious verschickt keine E-Mails, und keine Seite zeigt eine E-Mail-Funktion: Passwort-Links geben Admins weiter, Einladungen per Adresse gibt es nicht.",
+    "No sending set up. Askurious sends no emails, and no page shows a mail function: admins pass on password links, there are no invitations by address.") }}</p>
+  <p class="muted small">{{ de_en("Zum Einschalten in der .env des Servers eintragen und die App neu starten:", "To switch it on, add to the server's .env and restart the app:") }}</p>
+  <pre class="env-lines"><code>MAIL_HOST=smtp.example.org
+MAIL_PORT=587
+MAIL_SECURITY=starttls
+MAIL_USER=…
+MAIL_PASSWORD=…
+MAIL_FROM=noreply@askurious.de</code></pre>
+  <p class="muted small">{{ de_en("Es fehlen:", "Missing:") }} {% for k in ms.missing %}<code>{{ k }}</code>{{ ", " if not loop.last }}{% endfor %}. {{ de_en("MAIL_SECURITY ist starttls (Port 587), ssl (465) oder none; MAIL_USER und MAIL_PASSWORD nur, wenn der Server eine Anmeldung verlangt.",
+    "MAIL_SECURITY is starttls (port 587), ssl (465) or none; MAIL_USER and MAIL_PASSWORD only if the server asks for a sign-in.") }}</p>
+  {% endif %}
+</section>
+
+{# what goes to Slack (app/notify.py): short until there is a processing agreement with Slack (Ralf, 2026-10-21) #}
+<section class="panel" id="slack">
+  <h2>{{ de_en("Slack", "Slack") }} <span class="hint">{% if slack_on %}{{ de_en("Meldungen an die Admins der Plattform", "messages to the platform admins") }}{% else %}{{ de_en("auf diesem Server aus (SLACK_WEBHOOK_URL leer)", "off on this server (SLACK_WEBHOOK_URL empty)") }}{% endif %}</span></h2>
+  <form method="post" action="{{ url_for('admin.database') }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <fieldset class="bare"><legend>{{ de_en("Inhalt der Nachrichten", "Content of the messages") }}</legend>
+      <label class="check"><input type="radio" name="slack_content" value="short"{% if not slack_full %} checked{% endif %}> {{ de_en("knapp: nur Kontonummer, Befragungscode und Link; keine Namen, Einrichtungen, Befragungstitel oder Textauszüge", "short: only account number, survey code and link; no names, organisations, survey titles or text excerpts") }}</label>
+      <label class="check"><input type="radio" name="slack_content" value="full"{% if slack_full %} checked{% endif %}> {{ de_en("ausführlich: mit Namen, Einrichtung, Befragungstitel und Auszug aus Fehlermeldungen; Beschwerden von Teilnehmenden bleiben knapp", "detailed: with name, organisation, survey title and an excerpt of error reports; complaints of participants stay short") }}</label>
+    </fieldset>
+    <p class="muted small">{{ de_en("„Ausführlich“ nur wählen, wenn ein Vertrag zur Auftragsverarbeitung mit Slack besteht. Die Datenschutzerklärung und das Datenschutzkonzept folgen der Wahl.", "Choose “detailed” only if there is a data processing agreement with Slack. The privacy notice and the data protection concept follow the choice.") }}</p>
+    {{ autosave_bar() }}
+  </form>
+</section>
+
+<section class="panel" id="monitoring">
+  <h2>{{ de_en("Monitoring Feed", "Monitoring feed") }} <span class="hint">{{ de_en("Zahlen für ein Anzeigegerät, das Android-Widget oder ein eigenes Werkzeug", "numbers for a display, the Android widget or a tool of your own") }}</span></h2>
+  <div class="feed-block">
+    <div class="feed-list">
+      <p class="muted small">{{ de_en("Die Statistik ist ein JSON mit den Zählungen echter Teilnahmen und Befragungen der letzten 31 Tage je Tag, der letzten sieben Tage je Stunde und der letzten 24 Stunden je Viertelstunde, nie mit Antworten oder Namen. Sie lässt sich nur mit dem Token in der Adresse abrufen: Wer die Adresse hat, sieht diese Zahlen. Das Token sehen und ändern nur Site-Admins.",
+        "The statistics are a JSON with the counts of real participations and surveys of the last 31 days by day, of the last seven days by hour and of the last 24 hours by quarter hour, never with answers or names. They can only be fetched with the token in the address: whoever has the address sees these numbers. Only site admins see and change the token.") }}</p>
+      <dl class="account-facts">
+        <dt>{{ de_en("Statistik Teilnahmen und Befragungen", "Statistics of participations and surveys") }}</dt>
+        <dd>
+          {% if monitoring_url %}
+          <code class="break">{{ monitoring_url }}</code>
+          <button type="button" class="button button-small" data-copy-tsv="{{ monitoring_url }}" data-label="{{ de_en('Kopieren', 'Copy') }}">{{ de_en("Kopieren", "Copy") }}</button>
+          {% else %}
+          {{ de_en("Noch kein Token: Der Feed ist aus, seine Adresse gibt es nicht.", "No token yet: the feed is off, its address does not exist.") }}
+          {% endif %}
+        </dd>
+        <dt>{{ de_en("Zustand der Dienste", "State of the services") }}</dt>
+        <dd>
+          {% if status_json_url %}
+          <code class="break">{{ status_json_url }}</code>
+          <button type="button" class="button button-small" data-copy-tsv="{{ status_json_url }}" data-label="{{ de_en('Kopieren', 'Copy') }}">{{ de_en("Kopieren", "Copy") }}</button>
+          {% else %}
+          {{ de_en("Ohne STATUS_JSON_TOKEN in der .env des Servers (mindestens 24 Zeichen) gibt es diese Adresse der Statusseite nicht.", "Without STATUS_JSON_TOKEN in the server's .env (at least 24 characters) this address of the status page does not exist.") }}
+          {% endif %}
+        </dd>
+      </dl>
+      <form method="post" action="{{ url_for('admin.database') }}#monitoring" class="button-row">
+        {{ csrf() }}
+        {% if monitoring_url %}
+        <button class="button" name="action" value="monitoring_make"
+                data-confirm="{{ de_en('Ein neues Token erzeugen?', 'Make a new token?') }}"
+                data-confirm-note="{{ de_en('Das bisherige Token gilt dann nicht mehr: Werkzeuge mit der alten Adresse bekommen eine Fehlermeldung, bis sie die neue haben.', 'The present token then no longer counts: tools with the old address get an error until they have the new one.') }}"
+                data-confirm-ok="{{ de_en('Neu erzeugen', 'Make anew') }}">{{ de_en("Neues Token erzeugen", "Make a new token") }}</button>
+        <button class="button button-danger" name="action" value="monitoring_remove"
+                data-confirm="{{ de_en('Das Token entfernen?', 'Remove the token?') }}"
+                data-confirm-note="{{ de_en('Der Feed ist danach aus: Seine Adresse gibt es nicht mehr.', 'The feed is off then: its address no longer exists.') }}"
+                data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>{{ de_en("Token entfernen", "Remove the token") }}</button>
+        {% else %}
+        <button class="button" name="action" value="monitoring_make">{{ de_en("Token erzeugen", "Make a token") }}</button>
+        {% endif %}
+      </form>
+      <p class="muted small">{{ de_en("Die Token-Knöpfe gelten für die Statistik. Die Statusseite läuft unabhängig von der Plattform und liefert den Zustand jedes Dienstes als JSON. Dieser zweite Token steht in der .env des Servers (STATUS_JSON_TOKEN).",
+        "The token buttons are for the statistics. The status page runs independently of the platform and gives the state of every service as JSON. This second token is a line of the server's .env (STATUS_JSON_TOKEN).") }}</p>
+    </div>
+    {% if monitoring_qr %}
+    <figure class="feed-qr">
+      <div class="qr">{{ monitoring_qr }}</div>
+      <figcaption class="muted small">{{ de_en("QR Code zum Einrichten der Android-App „Askurious Dashboard“. Der Code enthält beide Tokens: nicht weitergeben!", "QR code to set up the Android app “Askurious Dashboard”. The code contains both tokens: do not pass it on!") }}</figcaption>
+    </figure>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel" id="ip-region">
+
+  <h2>{{ de_en("IP-Region und Proxy", "IP region and proxy") }} <span class="hint">{{ de_en("Land und Bundesland aus der IP-Adresse; Einstellung je Befragung, Standard aus", "country and federal state from the IP address; setting per survey, off by default") }}</span></h2>
+
+  <p class="muted small">{{ de_en("Befragungen können einschalten, dass mit der Zustimmung zur Teilnahme einmal das Land und in Deutschland das Bundesland aus der IP-Adresse geschätzt wird.
+
+    Nachgeschlagen wird in einer Tabelle, die mit dem Code auf den Server kommt; gespeichert wird nur das Ergebnis. Hier steht, ob das auf diesem Server funktioniert; gespeichert wird dabei nichts.", "Surveys can switch on that, with the consent to take part, the country and, in Germany, the federal state are estimated once from the IP address.
+
+    The lookup uses a table that comes to the server with the code; only the result is stored. Here you see whether that works on this server; nothing is stored.") }}</p>
+
+  <dl class="account-facts">
+
+    <dt>{{ de_en("Tabelle", "Table") }}</dt>
+
+    <dd>{% if month %}{{ de_en("Stand {month}", "As of {month}", month=month) }} · {{ geoip.DBIP|safe }} {{ de_en("(CC BY 4.0, verkleinert auf Land und Bundesland)", "(CC BY 4.0, reduced to country and federal state)") }}{% else %}<strong>{{ de_en("fehlt", "missing") }}</strong> (<code>app/data/geo_ip.bin.gz</code>): {{ de_en("Es wird nichts ermittelt.", "Nothing is determined.") }}{% endif %}</dd>
+
+    <dt>{{ de_en("Ihre Anfrage", "Your request") }}</dt>
+
+    <dd>{% if local %}<strong>{{ de_en("Die App sieht keine öffentliche Adresse", "The app sees no public address") }}</strong> ({{ request.remote_addr or de_en("keine", "none") }}).
+
+      {{ de_en("Land und Bundesland bleiben dann bei allen Teilnahmen leer; siehe „Proxy-Einstellung“.", "Country and federal state then stay empty for all participations; see “Proxy setting”.") }}
+      {% elif country %}{{ country }}{% if state %}, {{ state }}{% endif %} <span class="muted">({{ de_en("aus {a}", "from {a}", a=request.remote_addr) }})</span>
+
+      {% else %}{{ de_en("nicht in der Tabelle", "not in the table") }} <span class="muted">({{ request.remote_addr }})</span>{% endif %}</dd>
+
+    <dt>{{ de_en("Proxy-Einstellung", "Proxy setting") }}</dt>
+
+    <dd id="proxy-check"><code>PROXY_COUNT</code> {% if proxies %}{{ de_en("ist {n}", "is {n}", n=proxies) }}{% else %}{{ de_en("ist nicht gesetzt", "is not set") }}{% endif %}; {% if hops == 1 %}{{ de_en("diese Anfrage kam mit {n} Eintrag in", "this request arrived with {n} entry in", n=hops) }}{% else %}{{ de_en("diese Anfrage kam mit {n} Einträgen in", "this request arrived with {n} entries in", n=hops) }}{% endif %} <code>X-Forwarded-For</code> {{ de_en("an (jeder Proxy hängt einen an).", "(each proxy appends one).") }}
+
+      {{ de_en("Regel:", "Rule:") }} <code>PROXY_COUNT</code> {{ de_en("ist die Zahl der Proxys vor der App, auf einem Plesk-Server mit nginx vor der App also 1. Ohne Proxy steht die Zeile nicht in der", "is the number of proxies in front of the app, so 1 on a Plesk server with nginx in front of the app. Without a proxy the line is not in the") }} <code>.env</code>.
+
+      {{ de_en("Prüfen: Diese Seite einmal mit einer erfundenen Kopfzeile abrufen, etwa", "Check: call this page once with an invented header, for example") }} <code>curl -H "X-Forwarded-For: 8.8.8.8" -b "session=…" https://&lt;Server&gt;/admin/database</code> {{ de_en("mit dem Sitzungscookie aus Ihrem Browser.", "with the session cookie from your browser.") }}
+
+      {{ de_en("Die angezeigte Adresse und die Region müssen dieselben bleiben wie hier. Erscheint 8.8.8.8 oder ein anderes Land, ist", "The address and region shown must stay the same as here. If 8.8.8.8 or another country appears,") }} <code>PROXY_COUNT</code> {{ de_en("zu groß oder der Proxy reicht die Kopfzeile ungeprüft durch; dann könnten Teilnehmende ihre Adresse selbst angeben, und Region und Limits je Absender wären wirkungslos.", "is too large or the proxy passes the header through unchecked; then participants could state their address themselves, and region and limits per sender would have no effect.") }}</dd>
+
+    <dt>{{ de_en("Aktualisieren", "Updating") }}</dt>
+
+    <dd>{{ de_en("etwa vierteljährlich: die neue Ausgabe bei DB-IP laden,", "about quarterly: download the new edition from DB-IP, run") }} <code>python tools/build_geo_ip.py &lt;{{ de_en("Datei", "file") }}&gt;</code> {{ de_en("ausführen, die neue Tabelle einchecken. Der Server lädt nichts aus dem Netz.", "and check in the new table. The server downloads nothing from the internet.") }}</dd>
+
+  </dl>
+
+  <p class="muted small">{{ de_en("Stimmt das Bundesland für Ihren eigenen Anschluss nicht, ist das kein Fehler der Einrichtung: Hochschul- und Firmennetze, Mobilfunk und VPN werden oft einem anderen Ort zugeordnet.", "If the federal state for your own connection is wrong, that is not a fault of the setup: university and company networks, mobile networks and VPNs are often assigned to another place.") }}</p>
+
+  {{ grouped([(de_en("Genauigkeit von IP-Geolokalisierung", "Accuracy of IP geolocation"), geoip.SOURCES)]) }}
+
+</section>
+{% endwith %}
+{% endblock %}

@@ -1,0 +1,28 @@
+# Known vulnerabilities of the WhisperX image's packages that were judged as not reachable in this isolated service
+# (whisper/README.md, "Sicherheitsprüfung der festgelegten Laufzeit", 2026-10-14; list 2026-10-15). The weekly check
+# (maintenance.sh, tools/check_vulnerabilities.py --accepted) lists them but does not alarm; any other id does, and
+# then the README's judgement has to be renewed before the id is added here. Lines: <package> <id>.
+nltk GHSA-8mgp-746c-j5xp
+setuptools GHSA-5rjg-fvgr-3xxf
+setuptools GHSA-h35f-9h28-mq5c
+setuptools PYSEC-2025-49
+setuptools PYSEC-2026-3447
+torch GHSA-qfhq-4f3w-5fph
+torch GHSA-rrmf-rvhw-rf47
+torch GHSA-vgrw-7cvw-pwgx
+torch PYSEC-2025-203
+torch PYSEC-2025-204
+torch PYSEC-2025-206
+torch PYSEC-2026-139
+torch PYSEC-2026-2286
+transformers GHSA-29pf-2h5f-8g72
+transformers GHSA-69w3-r845-3855
+transformers GHSA-fgcw-684q-jj6r
+transformers GHSA-x9r9-c232-4q39
+transformers GHSA-xrqw-3rrv-vx5w
+transformers PYSEC-2025-217
+transformers PYSEC-2026-2288
+transformers PYSEC-2026-2289
+transformers PYSEC-2026-2290
+transformers PYSEC-2026-3929
+transformers PYSEC-2026-4174

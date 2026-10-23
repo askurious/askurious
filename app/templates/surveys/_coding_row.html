@@ -1,0 +1,29 @@
+{# One answer on the page "Kategorisieren" (app/coding.py): its text, how often, and its categories to tick; with the
+   script a tick saves at once (app.js, "Kategorisieren"). slot "second": the second coder's own categories (r.second),
+   blind to the first coding; names: {category id: name} for the AI suggestion. #}
+{% from "_macros.html" import csrf %}
+{% macro coding_row(r, scheme, survey, key, slot="", names={}) %}
+{% set mine = r.second if slot == "second" else r.cats %}
+{% set open = mine is none %}
+{% set recheck = r.recheck and slot != "second" %}
+<li class="coding-row{{ ' is-open' if open }}{{ ' is-recheck' if recheck }}" data-coding-row data-text="{{ r.norm }}"{% if recheck %} data-recheck{% endif %} tabindex="0">
+  <form method="post" action="{{ url_for('coding.assign_route', survey_id=survey.id, key=key) }}" data-coding-form>
+    {{ csrf() }}
+    <input type="hidden" name="norm" value="{{ r.norm }}">
+    {% if slot %}<input type="hidden" name="slot" value="{{ slot }}">{% endif %}
+    <p class="coding-text">{{ r.text }}{% if r.n is defined and r.n > 1 %} <span class="hint">{{ r.n }}×</span>{% endif %}
+      {%- if slot != "second" %}{% for s in (r.sources or [])|sort if s != "real" %} <span class="badge">{{ de_en("Test", "Test") if s == "test" else de_en("Dummy", "Dummy") }}</span>{% endfor %}
+      {%- if r.mixed %} <span class="badge" title="{{ de_en('Teilnahmen mit diesem Text haben verschiedene Kategorien oder sind teils noch offen; ein neues Häkchen gilt für alle.', 'Participations with this text have different categories or are partly still open; a new tick applies to all of them.') }}">{{ de_en("uneinheitlich", "mixed") }}</span>{% endif %}
+      {%- if recheck %} <span class="badge" title="{{ de_en('Eine Kategorie dieser Antwort wurde geteilt: bitte prüfen, ob die bisherige oder die neue passt. Ein Häkchen nimmt die Markierung weg.', 'A category of this answer was split: please check whether the old or the new one fits. A tick removes the mark.') }}">{{ de_en("neu prüfen", "check again") }}</span>{% endif %}
+      {%- if r.from_ai %} <span class="badge" title="{{ de_en('Aus dem KI-Vorschlag übernommen', 'Accepted from the AI suggestion') }}">{{ de_en("aus KI-Vorschlag", "from AI suggestion") }}</span>{% endif %}{% endif %}</p>
+    {% if slot != "second" and open and r.ai %}<p class="coding-ai hint">{{ de_en("KI schlägt vor", "AI suggests") }}: {% for c in r.ai %}{{ names.get(c, "?") }}{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+    <div class="coding-chips" role="group" aria-label="{{ de_en('Kategorien', 'Categories') }}">
+      {% for c in scheme.cats %}
+      <label class="coding-chip{{ ' is-suggested' if slot != 'second' and open and r.ai and c.id in r.ai }}"><input type="{{ 'radio' if scheme.single else 'checkbox' }}" name="cat" value="{{ c.id }}"{% if mine and c.id in mine %} checked{% endif %}><span>{% if loop.index <= 9 %}<kbd>{{ loop.index }}</kbd> {% endif %}{{ c.name }}</span></label>
+      {% endfor %}
+      {% if scheme.single %}<label class="coding-chip"><input type="radio" name="cat" value=""{% if open %} checked{% endif %}><span>{{ de_en("offen", "open") }}</span></label>{% endif %}
+      <noscript><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></noscript>
+    </div>
+  </form>
+</li>
+{% endmacro %}

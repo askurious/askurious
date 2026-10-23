@@ -1,0 +1,35 @@
+{# The data collection against the power analysis of the study plan (PA4, app/study_plan.progress): usable
+   participations after quality assurance, what is still missing at the share left out so far, per hypothesis.
+   Fetched by app.js into the block "Zeitverlauf". Needs: survey, pr. No test result here (Simmons et al., 2011). #}
+{% macro num(x) -%}{{ "{:,}".format(x).replace(",", "," if ui_language() == "en" else ".") }}{%- endmacro %}
+{% if pr %}
+{% set top = [pr.completed, (pr.need / (1 - pr.planned_rate))|round(0, "ceil")|int, pr.need]|max %}
+<p class="power-progress-head"><strong>{{ de_en("Stand gegen die Poweranalyse", "Progress against the power analysis") }}</strong>
+  <span class="hint">{{ de_en("aus dem Studienplan; verwertbar heißt: abgeschlossen und nicht von der Qualitätssicherung markiert", "from the research plan; usable means: completed and not marked by quality assurance") }}; {% if pr.only_real %}{{ de_en("gezählt im Datenpool der Ergebnisse: echte Teilnahmen", "counted in the data pool of the results: real participations") }}{% else %}{{ de_en("gezählt im Datenpool der Ergebnisse, mit Testdurchläufen oder Dummy-Daten", "counted in the data pool of the results, with test runs or dummy data") }}{% endif %}</span></p>
+<div class="power-bar" role="img" aria-label="{{ de_en('{u} verwertbar, {m} ausgeschlossen, {n} nötig', '{u} usable, {m} excluded, {n} needed', u=pr.usable, m=pr.marked, n=pr.need) }}">
+  <span class="power-bar-usable" style="width: {{ (100 * pr.usable / top)|round(1) }}%"></span><span class="power-bar-marked" style="width: {{ (100 * pr.marked / top)|round(1) }}%"></span>
+  <i class="power-bar-need" style="left: {{ (100 * pr.need / top)|round(1) }}%"></i>
+</div>
+<p class="small power-legend"><span><i class="power-key power-bar-usable"></i> {{ de_en("{n} verwertbar", "{n} usable", n=num(pr.usable)) }}</span>
+  <span><i class="power-key power-bar-marked"></i> {{ de_en("{n} ausgeschlossen", "{n} excluded", n=num(pr.marked)) }}{% if pr.measured %} ({{ (pr.rate * 100)|round|int|pctsign }}{{ de_en(", geplant ", ", planned ") }}{{ (pr.planned_rate * 100)|round|int|pctsign }}){% endif %}</span>
+  <span><i class="power-key power-bar-need"></i> {{ de_en("{n} nötig", "{n} needed", n=num(pr.need)) }}</span></p>
+{% if pr.missing %}
+<p>{{ de_en("Es fehlen noch {m} verwertbare Teilnahmen; bei {how} sind das etwa {c} Abschlüsse.", "{m} usable participations are still missing; at {how} that is about {c} completions.",
+            m=num(pr.missing), c=num(pr.more), how=(de_en("der bisherigen Ausschlussquote von {r} %", "the share excluded so far of {r}%", r=(pr.rate * 100)|round|int) if pr.measured else de_en("{r} % erwarteten Ausschlüssen", "{r}% expected exclusions", r=(pr.rate * 100)|round|int))) }}
+  {% if pr.end %}{{ de_en("Das Feldende nach {n} Abschlüssen reicht dafür nicht:", "The end of data collection after {n} completions is not enough for that:", n=num(survey.max_responses)) }}
+    {% if survey.can(current_user, "editor") %}<a href="{{ url_for('surveys.field', survey_id=survey.id, max_responses=pr.end) }}#status">{{ de_en("auf {n} erhöhen", "raise it to {n}", n=num(pr.end)) }}</a>{% else %}{{ de_en("nötig wären {n}.", "{n} would be needed.", n=num(pr.end)) }}{% endif %}{% endif %}</p>
+{% elif pr.short %}
+<p>{{ de_en("Die Gesamtzahl ist erreicht, aber noch nicht für jede Hypothese:", "The total has been reached, but not yet for every hypothesis:") }}
+  {% for row in pr.short %}H{{ row.n }}: {% if row.per_group %}{{ de_en("kleinste Gruppe {h} von {n}", "smallest group {h} of {n}", h=num(row.have), n=num(row.need)) }}{% else %}{{ de_en("{h} von {n}", "{h} of {n}", h=num(row.have), n=num(row.need)) }}{% endif %}{{ "; " if not loop.last else "." }}{% endfor %}</p>
+{% else %}
+<p>{{ de_en("Die Zahl der Poweranalyse ist erreicht.", "The number of the power analysis has been reached.") }}</p>
+{% endif %}
+<ul class="small power-rows">
+  {% for row in pr.rows %}
+  <li>H{{ row.n }} ({{ study_plan.effect_text(row.p) }}):
+    {% if row.per_group %}{{ de_en("kleinste Gruppe {h}, nötig {n} je Gruppe", "smallest group {h}, {n} needed per group", h=num(row.have), n=num(row.need)) }}{% else %}{{ de_en("{h} verwertbar, nötig {n}", "{h} usable, {n} needed", h=num(row.have), n=num(row.need)) }}{% endif %}{% if row.share >= 1 %} · <strong>{{ de_en("erreicht", "reached") }}</strong>{% else %} · {{ (row.share * 100)|round(0, "floor")|int|pctsign }}{% endif %}</li>
+  {% endfor %}
+</ul>
+<p class="muted small">{{ de_en("Zwischenergebnisse der Tests zeigt Askurious hier bewusst nicht: Wer nach einem Blick auf p weiter erhebt oder aufhört, erhöht die Fehlerrate (Simmons et al., 2011).", "Askurious deliberately shows no interim test results here: anyone who looks at p and then goes on collecting or stops raises the error rate (Simmons et al., 2011).") }}</p>
+{% from "_sources.html" import sources %}{{ sources([study_plan.SIMMONS]) }}
+{% endif %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, status_badge, kind_badge %}
+{% from "_icons.html" import icon %}
+{# Administration > Befragungen > deletion by the platform (app/platform_erase.py, admin.platform_erase). Needs:
+   survey, found (what the lines named, before the confirmation), people, chain (seal.summary or None), earlier
+   (deletions by the platform so far), reason_min, reason_max. #}
+{% block title %}{{ de_en("Löschung durch die Plattform", "Deletion by the platform") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "surveys" %}{% include "admin/_tabs.html" %}
+<a class="back-link" href="{{ url_for('admin.surveys_page') }}">{{ icon("back", 16) }} {{ de_en("Befragungen", "Surveys") }}</a>
+<h2 class="page-sub">{{ de_en("Löschung durch die Plattform", "Deletion by the platform") }}: {{ survey.title }}
+  <span class="hint"><code>{{ survey.code }}</code></span> {{ kind_badge(survey) }} {{ status_badge(survey) }}</h2>
+<p class="muted">{{ de_en("Für den Ausnahmefall, etwa einen Verstoß gegen den Datenschutz oder die Anordnung einer Behörde. Gelöscht wird sofort und endgültig. Der Grund steht danach unveränderlich in der Siegelkette der Befragung, wird vom DFN mitgestempelt und ist mit der Kette öffentlich prüfbar: bitte in wenigen Worten und ohne Namen oder andere personenbezogene Daten. Die Forschenden werden danach per E-Mail informiert; das Protokoll vermerkt, wer gelöscht hat und warum.", "For the exceptional case, such as a data-protection violation or an order of an authority. Deleting happens at once and permanently. The reason is then recorded permanently in the survey's seal chain, is stamped by the DFN with it and can be checked publicly with the chain: please in a few words and without names or other personal data. The researchers are told by email afterwards; the access log notes who deleted and why.") }}</p>
+
+<section class="panel">
+  <h3>{{ de_en("Befragung", "Survey") }}</h3>
+  <p>{{ de_en("Forschende:", "Researchers:") }}
+    {% for name, email, _user in people %}{{ name }}{% if not email %} <span class="hint">({{ de_en("keine E-Mail-Adresse am Konto", "no email address on the account") }})</span>{% endif %}{% if not loop.last %}, {% endif %}{% else %}–{% endfor %}</p>
+  {% if chain %}<p>{{ de_en("Siegelkette:", "Seal chain:") }} {{ de_en_n(chain.cases, ("{n} Fall", "{n} Fälle"), ("{n} case", "{n} cases")) }}, {{ de_en("{n} mit Löschvermerk", "{n} with a deletion record", n=chain.deleted) }}, {{ de_en_n(chain.entries, ("{n} Eintrag", "{n} Einträge"), ("{n} entry", "{n} entries")) }}</p>
+  {% else %}<p class="muted">{{ de_en("Diese Befragung hat keine Siegelkette: Die Löschung steht nur im Protokoll.", "This survey has no seal chain: the deletion is only in the access log.") }}</p>{% endif %}
+  {% if earlier %}<p>{{ de_en("Bisher durch die Plattform gelöscht:", "Deleted by the platform so far:") }}</p>
+  <ul>{% for case, why in earlier %}<li>{% if case %}{{ de_en("Fall {n}", "Case {n}", n=case) }}{% else %}{{ de_en("die Befragung", "the survey") }}{% endif %}: {{ why }}</li>{% endfor %}</ul>{% endif %}
+</section>
+
+<section class="panel">
+  <h3>{{ de_en("Teilnahmen löschen", "Delete participations") }}</h3>
+  {% if found %}
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="cases">
+    <input type="hidden" name="terms" value="{{ found.terms }}"><input type="hidden" name="reason" value="{{ found.reason }}">
+    <input type="hidden" name="confirm" value="{{ found.responses + found.entries }}">
+    <div class="flash flash-warning">{{ icon("alert", 16) }}
+      <div><p><strong>{{ de_en("Gefunden: {n} Teilnahmen und {e} Einträge des getrennten Abschnitts.", "Found: {n} participations and {e} entries of the separated section.", n=found.responses, e=found.entries) }}</strong></p>
+        <p>{{ de_en("Grund:", "Reason:") }} {{ found.reason }}</p>
+        {% if found.missing %}<p>{{ de_en("Nichts gefunden zu:", "Nothing found for:") }} {{ found.missing|join(", ") }}</p>{% endif %}</div></div>
+    <div class="button-row">
+      <button class="button button-danger">{{ de_en("Endgültig löschen", "Delete permanently") }}</button>
+      <a class="button button-secondary" href="{{ url_for('admin.platform_erase', survey_id=survey.id) }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+    </div>
+  </form>
+  {% else %}
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="cases">
+    <label>{{ de_en("Welche Teilnahmen", "Which participations") }} <span class="hint">{{ de_en("eine je Zeile: Fallnummer der Siegelkette als „#12“, oder Löschcode, Teilnahme-ID, Kennung aus dem Link, E-Mail-Adresse des getrennten Abschnitts", "one per line: case number of the seal chain as “#12”, or deletion code, participation ID, identifier from the link, email address of the separated section") }}</span>
+      <textarea name="terms" rows="4" required></textarea></label>
+    <label>{{ de_en("Grund", "Reason") }} <span class="hint">{{ de_en("{a} bis {b} Zeichen; steht unveränderlich und öffentlich in der Siegelkette", "{a} to {b} characters; recorded permanently and publicly in the seal chain", a=reason_min, b=reason_max) }}</span>
+      <input type="text" name="reason" minlength="{{ reason_min }}" maxlength="{{ reason_max }}" required></label>
+    <div><button class="button button-secondary">{{ de_en("Suchen und prüfen", "Find and check") }}</button></div>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h3>{{ de_en("Ganze Befragung löschen", "Delete the whole survey") }}</h3>
+  <p class="muted">{{ de_en("Löscht die Befragung mit Fragebogen, allen Teilnahmen, Dateien und Einstellungen, auch während der Feldphase. Eine Siegelkette bleibt und endet mit einem Vermerk mit diesem Grund.", "Deletes the survey with its questionnaire, all participations, files and settings, also during fieldwork. A seal chain stays and ends with a record giving this reason.") }}</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="survey">
+    <label>{{ de_en("Grund", "Reason") }} <span class="hint">{{ de_en("{a} bis {b} Zeichen; steht unveränderlich und öffentlich in der Siegelkette", "{a} to {b} characters; recorded permanently and publicly in the seal chain", a=reason_min, b=reason_max) }}</span>
+      <input type="text" name="reason" minlength="{{ reason_min }}" maxlength="{{ reason_max }}" required></label>
+    <label>{{ de_en("Zur Bestätigung den Code der Befragung eingeben", "Enter the survey's code to confirm") }} <span class="hint"><code>{{ survey.code }}</code></span>
+      <input type="text" name="code" autocomplete="off" required></label>
+    <div><button class="button button-danger">{{ de_en("Befragung endgültig löschen", "Delete the survey permanently") }}</button></div>
+  </form>
+</section>
+{% endblock %}

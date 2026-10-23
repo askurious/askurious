@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon, orcid_link, status_badge, kind_badge %}
+{% from "_icons.html" import icon %}
+{# Needs: user (the account), plan (accounts.plan), admin (a site admin deletes someone else's account), fresh. #}
+{% macro participations(n) %}{{ de_en("Teilnahme", "participation") if n == 1 else de_en("Teilnahmen", "participations") }}{% endmacro %}
+{% block title %}{{ de_en("Konto löschen", "Delete account") }}{% endblock %}
+{% block container_class %}container{% if admin %} admin-page{% endif %}{% endblock %}
+{% block content %}
+{# for an admin a page below the tab "Forschende": heading and tabs of the administration stay (UI audit 2026-10-07, W101) #}
+{% if admin %}
+{% set active = "researchers" %}{% include "admin/_tabs.html" %}
+<a class="back-link" href="{{ url_for('admin.researchers') }}">{{ icon("back", 16) }} {{ de_en("Forschende", "Researchers") }}</a>
+<h2 class="page-sub">{{ de_en("Konto von {n} löschen", "Delete the account of {n}", n=user.display_name) }}</h2>
+{% else %}<a class="back-link" href="{{ url_for('accounts.index') }}">{{ icon("back", 16) }} {{ de_en("Konto", "Account") }}</a>
+<h1>{{ de_en("Konto löschen", "Delete account") }}</h1>{% endif %}
+<p class="muted">{{ de_en("Löschen ist endgültig und geschieht sofort. Diese Seite zeigt vollständig, was dabei verschwindet, was bleibt und was
+  vorher zu klären ist.", "Deleting is final and happens at once. This page shows in full what disappears, what stays and what
+  has to be settled first.") }} {% if admin %}{{ de_en("Löschen sperrt niemanden aus: Wer sich weiter anmelden darf, kommt mit einem leeren Konto wieder.
+  Zum Aussperren gibt es „Sperren“.", "Deleting locks nobody out: anyone who may still sign in comes back with an empty account.
+  To lock someone out, use “Block”.") }}{% else %}{{ de_en("Wenn Sie sich später wieder anmelden dürfen, beginnen Sie mit einem leeren Konto.", "If you may sign in again later, you start with an empty account.") }}{% endif %}</p>
+
+{% set blocked = not admin and plan.running %}
+{% set linked_gone = plan.linked|selectattr("left" if admin else "left_all", "equalto", 0)|list %}
+{% set linked_kept = plan.linked|rejectattr("left" if admin else "left_all", "equalto", 0)|list %}
+{% set live_contact = plan.live_contact + (plan.live_contact_taken if admin else []) %}
+{% if blocked %}
+<section class="panel account-blockers">
+  <h2>{{ icon("alert", 18) }} {{ de_en("Bitte zuerst klären", "Please settle first") }}</h2>
+  <p>{{ de_en("Diese Befragungen laufen gerade und gehören nur Ihnen. Mitten in der Feldphase verschwindet keine Befragung:
+    Beenden Sie sie zuerst, oder machen Sie eine weitere Person zum Admin der Befragung.", "These surveys are running and belong to you alone. No survey disappears in the middle of fieldwork:
+    end them first, or make another person admin of the survey.") }}</p>
+  <ul class="plain">
+    {% for e in plan.running %}<li><a href="{{ url_for('surveys.detail', survey_id=e.survey.id) }}"><strong>{{ e.survey.title }}</strong></a>
+      {{ kind_badge(e.survey) }} {{ status_badge(e.survey, false) }} <span class="muted small">{{ e.real }} {{ participations(e.real) }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<form method="post" class="account-delete">
+  {{ csrf() }}
+  <section class="panel">
+    <h2>{{ de_en("Wird gelöscht", "Will be deleted") }}</h2>
+    <ul class="account-list">
+      <li><strong>{{ de_en("Das Konto", "The account") }}</strong>: {{ de_en("Name", "name") }}, {{ de_en("Verknüpfung mit der ORCID iD", "link to the ORCID iD") if user.has_orcid else de_en("E-Mail-Adresse und Passwort", "email address and password") }}, {{ de_en("Einrichtung, Zustimmung zu den Nutzungsbedingungen", "institution, acceptance of the terms of use") }}{% if plan.contacts %},
+        {{ plan.contacts }} {{ de_en("Kontakt", "contact") if plan.contacts == 1 else de_en("Kontakte", "contacts") }}{% endif %}, {{ de_en("angeheftete Befragungen, KI-Tageszähler und
+        Zugang zum Design der Einrichtung. Auch der Eintrag in den Kontakten anderer verschwindet.", "pinned surveys, daily AI counter and
+        access to the institution design. The entry in other people's contacts disappears too.") }}</li>
+      {% if plan.zenodo %}<li><strong>{{ de_en("Die Verbindung zu Zenodo", "The connection to Zenodo") }}</strong> {{ de_en("mit den gespeicherten Schlüsseln. Was auf Zenodo veröffentlicht ist,
+        bleibt dort; das liegt außerhalb von Askurious.", "with the stored keys. What is published on Zenodo
+        stays there; that lies outside Askurious.") }}</li>{% endif %}
+      {% if plan.coscine %}<li><strong>{{ de_en("Das Coscine-Token", "The Coscine token") }}</strong>. {{ de_en("Was in Coscine abgelegt ist, bleibt dort, und das Token bleibt
+        in Coscine gültig, bis es dort widerrufen wird oder abläuft.", "What is stored in Coscine stays there, and the token stays
+        valid in Coscine until it is revoked there or expires.") }}</li>{% endif %}
+      {% if plan.ai_access %}<li><strong>{{ de_en("Der eigene KI-Schlüssel", "The own AI key") }}</strong>. {{ de_en("Beim Anbieter bleibt er gültig, bis er dort widerrufen wird oder abläuft.", "At the provider it stays valid until it is revoked there or expires.") }}</li>{% endif %}
+      <li><strong>{{ de_en("Der Bezug Ihrer KI-Aufrufe zu Ihnen", "The link of your AI calls to you") }}</strong>. {{ de_en("Die Aufrufe bleiben ohne Person in der Statistik der Admins, höchstens 730 Tage.", "The calls stay in the admins' statistics without a person, for at most 730 days.") }}</li>
+      {% if plan.designs %}<li><strong>{{ plan.designs|length }} {{ "Design" if plan.designs|length == 1 else "Designs" }}</strong>:
+        {{ plan.designs|map(attribute="name")|join(", ") }}. {{ de_en("Befragungen, die ein Design verwendet haben, behalten ihr Aussehen.", "Surveys that used a design keep their look.") }}
+        {% if plan.designs_shared %}{% if plan.designs_shared == 1 %}{{ de_en("{n} davon ist geteilt: Wer
+        es behalten will, dupliziert es vorher.", "{n} of them is shared: anyone who wants
+        to keep it duplicates it first.", n=plan.designs_shared) }}{% else %}{{ de_en("{n} davon sind geteilt: Wer
+        eines behalten will, dupliziert es vorher.", "{n} of them are shared: anyone who wants
+        to keep one duplicates it first.", n=plan.designs_shared) }}{% endif %}{% endif %}</li>{% endif %}
+      {% if plan.drafts %}<li><strong>{% if plan.drafts|length == 1 %}{{ de_en("{n} Befragung ohne echte Teilnahmen", "{n} survey without real participations", n=1) }}{% else %}{{ de_en("{n} Befragungen ohne echte Teilnahmen", "{n} surveys without real participations", n=plan.drafts|length) }}{% endif %}</strong>,
+        {% if plan.drafts|length == 1 %}{{ de_en("an der", "in which") }}{% else %}{{ de_en("an denen", "in which") }}{% endif %} {{ de_en("sonst niemand beteiligt ist, samt Fragebogen, Testdurchläufen und Dateien:", "nobody else is involved, with questionnaire, test runs and files:") }}
+        {% for e in plan.drafts %}{{ de_en("„{t}“", "“{t}”", t=e.survey.title) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>{% endif %}
+      {% if linked_gone %}<li><strong>{{ linked_gone|length }} {{ de_en("verknüpftes Element", "linked element") if linked_gone|length == 1 else de_en("verknüpfte Elemente", "linked elements") }}</strong>,
+        {{ de_en("die danach keine Befragung mehr verwendet:", "that no survey uses any more afterwards:") }}
+        {% for e in linked_gone %}{{ de_en("„{t}“", "“{t}”", t=e.element.name) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>{% endif %}
+      {% if plan.group_delete %}<li><strong>{{ plan.group_delete|length }} {{ de_en("Gruppe", "group") if plan.group_delete|length == 1 else de_en("Gruppen", "groups") }} {{ de_en("ohne weitere Mitglieder", "without further members") }}</strong>:
+        {% for e in plan.group_delete %}{{ de_en("„{t}“", "“{t}”", t=e.group.name) }}{% if not loop.last %}, {% endif %}{% endfor %}.</li>{% endif %}
+    </ul>
+    {% if plan.data and not admin %}
+    <div class="account-data">
+      <h3>{{ de_en("Befragungen mit echten Teilnahmen, die nur Ihnen gehören", "Surveys with real participations that belong to you alone") }}</h3>
+      <p>{{ de_en("Sie werden <strong>samt allen Antworten</strong> gelöscht. Wer eine Befragung erhalten will, macht vorher in ihren Einstellungen
+        unter „Beteiligte Forschende“ eine weitere Person zum Admin. Daten, die Sie noch brauchen, laden Sie vorher herunter.", "They are deleted <strong>with all answers</strong>. Anyone who wants to keep a survey first makes another person admin in its settings
+        under “Researchers involved”. Download any data you still need beforehand.")|safe }}</p>
+      <ul class="plain">
+        {% for e in plan.data %}<li><a href="{{ url_for('surveys.detail', survey_id=e.survey.id) }}"><strong>{{ e.survey.title }}</strong></a>
+          {{ kind_badge(e.survey) }} {{ status_badge(e.survey, false) }} <span class="muted small">{{ e.real }} {{ participations(e.real) }}</span></li>{% endfor %}
+      </ul>
+      <label class="check"><input type="checkbox" name="confirm_data" value="1" required>
+        {% if plan.data|length == 1 %}{{ de_en("Ja, diese Befragung mit zusammen", "Yes, delete this survey with a total of") }}{% else %}{{ de_en("Ja, diese {n} Befragungen mit zusammen", "Yes, delete these {n} surveys with a total of", n=plan.data|length) }}{% endif %}
+        {{ plan.data_total }} {{ participations(plan.data_total) }} {{ de_en("endgültig löschen.", "permanently.") }}</label>
+    </div>
+    {% endif %}
+  </section>
+
+  {% if admin and (plan.data or plan.running) %}
+  <section class="panel">
+    <h2>{{ de_en("Laufende Befragungen und Befragungen mit echten Teilnahmen, die sonst niemandem gehören", "Running surveys and surveys with real participations that belong to nobody else") }}</h2>
+    <p class="muted">{{ de_en("Voreinstellung: Sie übernehmen die Befragung als Admin, und sie wandert ins Archiv. So gehen keine Forschungsdaten
+      nebenbei verloren. Laufende Befragungen laufen weiter und lassen sich nur übernehmen.", "Default: the survey passes to you as admin and moves to the archive. That way no research data
+      get lost along the way. Running surveys keep running and can only pass to you.") }}</p>
+    <ul class="plain">
+      {% for e in plan.running + plan.data %}
+      <li><strong>{{ e.survey.title }}</strong> {{ kind_badge(e.survey) }} {{ status_badge(e.survey, false) }}
+        <span class="muted small">{{ e.real }} {{ participations(e.real) }}</span>
+        {% if e.survey.status == "running" %}<span class="muted small">{{ de_en("wird übernommen", "passes to you") }}</span>
+        {% else %}<select name="data_{{ e.survey.id }}" aria-label="{{ de_en('Was mit „{t}“ geschieht', 'What happens to “{t}”', t=e.survey.title) }}">
+          <option value="take" selected>{{ de_en("übernehmen und archivieren", "transfer to me and archive") }}</option>
+          <option value="delete">{{ de_en("samt Antworten löschen", "delete with answers") }}</option></select>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if plan.successor or plan.group_successor %}
+  <section class="panel">
+    <h2>{{ de_en("Nachfolge", "Succession") }} <span class="hint">{{ de_en("jede Befragung braucht eine Admin-Person, jede Gruppe eine Leitung", "every survey needs an admin, every group a lead") }}</span></h2>
+    <ul class="plain">
+      {% for e in plan.successor %}
+      <li><label for="survey_{{ e.survey.id }}">{{ de_en("Befragung", "Survey") }} <strong>{{ e.survey.title }}</strong>: {{ de_en("Admin wird", "new admin") }}</label>
+        <select id="survey_{{ e.survey.id }}" name="survey_{{ e.survey.id }}">
+          {% for c in e.candidates %}<option value="{{ c.id }}">{{ c.display_name }} ({{ de_en("bisher", "so far") }} {{ role_names[c.role][0] }})</option>{% endfor %}
+        </select>
+        {% if e.unproven %}<span class="hint">{{ de_en("Keine der übrigen Personen hat sich schon angemeldet oder ihr Konto ist gesperrt; die Befragung bleibt trotzdem bei ihnen.", "None of the other people has signed in yet, or their account is blocked; the survey stays with them all the same.") }}</span>{% endif %}</li>
+      {% endfor %}
+      {% for e in plan.group_successor %}
+      <li><label for="group_{{ e.group.id }}">{{ de_en("Gruppe", "Group") }} <strong>{{ e.group.name }}</strong>: {{ de_en("die Leitung übernimmt", "the lead passes to") }}</label>
+        <select id="group_{{ e.group.id }}" name="group_{{ e.group.id }}">
+          {% for c in e.candidates %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}
+          <option value="delete">{{ de_en("niemand, die Gruppe löschen", "nobody, delete the group") }}</option>
+        </select></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>{{ de_en("Bleibt bestehen", "Stays") }}</h2>
+    <ul class="account-list">
+      {% for e in plan.leave + plan.successor %}
+      <li>{{ de_en("Befragung", "Survey") }} <strong>{{ e.survey.title }}</strong> {{ de_en("bei den übrigen Beteiligten.", "with the other people involved.") }}
+        {% if e.real %}{{ de_en("Sie hat echte Teilnahmen: Der Name bleibt in der Liste der Autorinnen und Autoren stehen, ohne Konto und ohne Zugriff,
+        weil Teilnehmende unter diesem Namen eingewilligt haben. Die Admins der Befragung können den Eintrag entfernen.", "It has real participations: the name stays in the list of authors, without account and without access,
+        because participants consented under this name. The admins of the survey can remove the entry.") }}
+        {% else %}{{ de_en("Der Eintrag in der Liste der Beteiligten wird entfernt.", "The entry in the list of people involved is removed.") }}{% endif %}</li>
+      {% endfor %}
+      {% for e in plan.group_leave + plan.group_successor %}
+      <li>{{ de_en("Gruppe", "Group") }} <strong>{{ e.group.name }}</strong> {{ de_en("mit ihren übrigen Mitgliedern und allem, was andere mit ihr geteilt haben. Was", "with its other members and everything others shared with it. What") }}
+        {% if admin %}{{ de_en("die Person mit ihr geteilt hat, ist nicht mehr geteilt, wie beim Austreten.", "the person shared with it is no longer shared, as when leaving.") }}{% else %}{{ de_en("Sie mit ihr geteilt haben, ist nicht mehr geteilt, wie beim Austreten.", "you shared with it is no longer shared, as when leaving.") }}{% endif %}</li>
+      {% endfor %}
+      {% for e in linked_kept %}
+      <li>{{ de_en("Verknüpftes Element", "Linked element") }} <strong>{{ e.element.name }}</strong> {{ de_en("in den Befragungen, die es verwenden, danach gehört es niemandem mehr:
+        Ändern, teilen und auflösen kann es dann, wer eine dieser Befragungen bearbeiten darf.", "in the surveys that use it, afterwards without
+        owner: anyone who may edit one of these surveys can then change, share and dissolve it.") }}</li>
+      {% endfor %}
+      {% for s in live_contact %}
+      <li>{{ de_en("Live-Abstimmung", "Live poll") }} <strong>{{ s.title }}</strong>. {{ de_en("Ihre Datenschutzseite nennt bisher die E-Mail-Adresse dieses Kontos als Kontakt
+        und danach keine mehr. Eine eigene Adresse lässt sich vorher in den Einstellungen der Abstimmung eintragen.", "Its privacy page so far names the email address of this account as contact
+        and afterwards none. An address of its own can be entered beforehand in the settings of the poll.") }}</li>
+      {% endfor %}
+      <li>{{ de_en("Kommentare aus der Vorschau, mit dem Namen als Text: Sie gehören zur Dokumentation der jeweiligen Befragung.", "Comments from the preview, with the name as text: they belong to the documentation of the survey concerned.") }}</li>
+      <li>{{ de_en("Rückmeldungen (Fehlerberichte), ohne Verweis auf die Person.", "Feedback (bug reports), without reference to the person.") }}</li>
+      <li>{{ de_en("Was Askurious nicht erreicht: Veröffentlichungen auf Zenodo, Ablagen in Coscine, heruntergeladene Exporte und Sicherungskopien des Servers.", "What Askurious cannot reach: publications on Zenodo, storage in Coscine, downloaded exports and backups of the server.") }}</li>
+    </ul>
+  </section>
+
+  {% if not blocked %}
+  <section class="panel">
+    <h2>{{ de_en("Bestätigen", "Confirm") }}</h2>
+    {% if not admin and by_password %}
+    <div class="stack">
+      <label>{{ de_en("Zur Bestätigung Ihr Passwort", "Your password to confirm") }}
+        <input type="password" name="password" autocomplete="current-password" required></label>
+      <div class="button-row">
+        <button class="button button-danger">{{ icon("trash", 16) }} {{ de_en("Konto endgültig löschen", "Delete account permanently") }}</button>
+        <a class="button button-secondary" href="{{ url_for('accounts.index') }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+      </div>
+    </div>
+    {% elif not admin and not fresh %}
+    <p>{{ de_en("Zum Löschen muss die Anmeldung frisch sein (höchstens {m} Minuten alt), damit niemand an einem offen gelassenen Rechner Ihr
+      Konto löscht.", "To delete, your sign-in must be fresh (at most {m} minutes old), so that nobody deletes your account
+      at a computer left open.", m=minutes) }}</p>
+    <p><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.delete_own')) }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in again with ORCID") }}</a></p>
+    {% else %}
+    {# as with data-confirm-type: the red button works only once the name is typed, case and spaces aside (W85);
+       the server checks it again (accounts.name_matches) #}
+    <div class="stack">
+      <label>{{ de_en("Zur Bestätigung den Namen des Kontos eintippen:", "Type the name of the account to confirm:") }} <strong>{{ user.display_name }}</strong>
+        <input name="name" autocomplete="off" required data-match-name="{{ user.display_name }}" aria-describedby="name-match-hint"></label>
+      <p class="hint" id="name-match-hint" data-match-hint>{{ de_en("Name stimmt noch nicht.", "The name does not match yet.") }}</p>
+      <div class="button-row">
+        <button class="button button-danger" data-match-button>{{ icon("trash", 16) }} {{ de_en("Konto endgültig löschen", "Delete account permanently") }}</button>
+        <a class="button button-secondary" href="{{ url_for('admin.researchers') if admin else url_for('accounts.index') }}">{{ de_en("Abbrechen", "Cancel") }}</a>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+</form>
+{% endblock %}

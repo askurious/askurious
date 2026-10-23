@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# Step 2: what AInstein derives from canvas and conversation (goal, design, sample, hypotheses, constructs, sample size and length) and the own scales #}
+{% block title %}{{ project.name }} · AInstein{% endblock %}
+{% block content %}
+{% set editing = project.role != "view" %}
+{% include "ainstein/_head.html" %}
+{# the first time (no plan yet) ainstein.js asks AInstein to fill the page as it opens: data-auto-derive #}
+<form method="post" action="{{ url_for('ainstein.save_plan', code=project.code) }}" class="ainstein-plan-form"
+      {% if auto_derive %}data-auto-derive="{{ url_for('ainstein.derive', code=project.code) }}"{% endif %}>
+{{ csrf() }}<fieldset class="ainstein-plan bare"{% if not editing %} disabled{% endif %}>
+<section class="panel ainstein-plan" id="plan">
+  <div class="page-head"><h2>{{ de_en("Studiendesign und Hypothesen", "Research design and hypotheses") }}</h2>
+    {% if auto_derive %}<span class="badge badge-ai" data-auto-label>{{ icon("sparkles", 14) }} {{ de_en("AInstein füllt diese Seite aus …", "AInstein is filling in this page …") }}</span>
+    {% elif plan.hypotheses or plan.constructs %}<span class="badge badge-ai" title="{{ de_en('Aus Canvas und Gespräch abgeleitet; alles ist änderbar', 'Derived from canvas and conversation; everything can be changed') }}">{{ icon("sparkles", 14) }} {{ de_en("von AInstein ausgefüllt", "filled in by AInstein") }}</span>{% endif %}
+  </div>
+  {% if stale %}<p class="ainstein-stale">{{ de_en("Der Canvas hat sich geändert, seit diese Seite ausgefüllt wurde.", "The canvas has changed since this page was filled in.") }}
+    <button class="button button-ai button-small" form="ainstein-rederive">{{ icon("sparkles", 16) }} {{ de_en("Aus dem Canvas neu ausfüllen", "Fill in anew from the canvas") }}</button>{{ ai_access_line() }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Aus Canvas und Gespräch: Ziel und Design, Stichprobe, Hypothesen und darunter die Konstrukte mit ihrer Messung.
+    Alles ist hier änderbar; leere Zeilen kommen hinzu.", "From canvas and conversation: aim and design, sample, hypotheses and below them the constructs with their measurement.
+    Everything can be changed here; empty rows are added.") }}</p>
+    <div class="ainstein-plan-head">
+      <label>{{ de_en("Erkenntnisziel", "Research aim") }} <select name="goal"><option value="">{{ de_en("noch offen", "not yet decided") }}</option>{% for k, label in goals.items() %}<option value="{{ k }}" {% if plan.goal == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Studiendesign", "Research design") }} <select name="design"><option value="">{{ de_en("noch offen", "not yet decided") }}</option>{% for k, label in designs.items() %}<option value="{{ k }}" {% if plan.design == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Stichprobe: Zahl", "Sample: number") }} <input type="number" name="target" min="1" value="{{ plan.sample.target or '' }}"></label>
+      <label>{{ de_en("Rekrutierung", "Recruitment") }} <select name="recruitment">{% for k, label in recruitment.items() %}<option value="{{ k }}" {% if plan.sample.recruitment == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="ainstein-wide">{{ de_en("Wer nimmt teil", "Who takes part") }} <input name="sample_note" maxlength="400" value="{{ plan.sample.note }}"></label>
+      <label class="ainstein-wide">{{ de_en("Intervention zwischen den Messungen", "Intervention between the measurements") }} <span class="hint">{{ de_en("leer, wenn es keine gibt", "empty if there is none") }}</span>
+        <input name="intervention" maxlength="600" value="{{ plan.intervention }}" placeholder="{{ de_en('z. B. Spielen des Bewegungsspiels, ca. 15 Minuten', 'e.g. playing the exercise game, about 15 minutes') }}"></label>
+    </div>
+    {% if needs or plan.constructs %}
+    <div class="ainstein-needs">
+      <strong>{{ de_en("Fallzahl und Länge", "Sample size and length") }}</strong> <span class="hint">{{ de_en("Näherung: mittlerer Effekt, α = 0,05, Power 0,80; genau im", "Approximation: medium effect, α = 0.05, power 0.80; exactly in the") }}
+        <a href="{{ url_for('samplesize.index') }}" target="_blank" rel="noopener">{{ de_en("Stichprobenrechner", "sample size calculator") }}</a></span>
+      <ul>
+        {% for n, need, how in needs %}
+        <li>H{{ n }}: {{ de_en("etwa", "about") }} <strong>{{ need }}</strong> {{ de_en("Teilnehmende", "participants") }} ({{ how }}){% if plan.sample.target and plan.sample.target < need %}
+          <span class="badge badge-wip">{{ de_en("geplant {n}", "planned {n}", n=plan.sample.target) }}</span>{% endif %}</li>
+        {% endfor %}
+        {% if plan.constructs %}<li>{{ de_en("Fragebogen: etwa", "Questionnaire: about") }} <strong>{{ de_en("{n} Minuten", "{n} minutes", n=minutes) }}</strong></li>{% endif %}
+      </ul>
+    </div>
+    {% endif %}
+    <h3>{{ de_en("Hypothesen", "Hypotheses") }}</h3>
+    <div class="res-scroll"><table class="ainstein-table">
+      <thead><tr><th>#</th><th>{{ de_en("Hypothese oder Forschungsfrage", "Hypothesis or research question") }}</th><th>{{ de_en("Art", "Kind") }}</th><th>{{ de_en("Konstrukte", "Constructs") }} <span class="hint">{{ de_en("mit Komma", "comma-separated") }}</span></th><th><span class="visually-hidden">{{ de_en("Löschen", "Delete") }}</span></th></tr></thead>
+      <tbody>
+      {% for h in plan.hypotheses + [{}, {}] %}{% set n = loop.index0 %}
+      <tr>
+        <td class="muted">{% if h %}H{{ loop.index }}{% endif %}</td>
+        <td><textarea name="h{{ n }}_text" rows="2" maxlength="600" aria-label="{{ de_en('Hypothese {n}', 'Hypothesis {n}', n=loop.index) }}"{% if not h %} placeholder="{{ de_en('weitere Hypothese …', 'further hypothesis …') }}"{% endif %}>{{ h.text }}</textarea></td>
+        <td><select name="h{{ n }}_kind" aria-label="{{ de_en('Art', 'Kind') }}">{% for k, label in kinds.items() %}<option value="{{ k }}" {% if h.kind == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+        <td><input name="h{{ n }}_constructs" value="{{ (h.constructs or [])|join(', ') }}" aria-label="{{ de_en('Konstrukte', 'Constructs') }}"></td>
+        <td>{% if h %}<label class="check small"><input type="checkbox" name="h{{ n }}_delete" value="1"> {{ de_en("löschen", "delete") }}</label>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+</section>
+<section class="panel ainstein-plan" id="konstrukte">
+  <h2>{{ de_en("Konstrukte", "Constructs") }}</h2>
+  <p class="muted small">{{ de_en("Jedes Konstrukt wird gemessen mit einem validierten Konstrukt, wie im Gespräch vereinbart (eine bestimmte Skala,
+    eigene Fragen), mit einem Wahlexperiment, mit einer Manipulation, mit einer eigenen Skala (unten) oder gar nicht; dazu, ob vorher,
+    nachher oder beides.", "Each construct is measured with a validated construct, as agreed in the conversation (a particular scale,
+    own questions), with a choice experiment, with a manipulation, with your own scale (below) or not at all; and whether before,
+    after or both.") }}</p>
+    <div class="res-scroll"><table class="ainstein-table">
+      <thead><tr><th>{{ de_en("Konstrukt", "Construct") }}</th><th>{{ de_en("Rolle", "Role") }}</th><th>{{ de_en("Bedeutung in diesem Projekt", "Meaning in this project") }}</th><th>{{ de_en("Wann", "When") }}</th><th>{{ de_en("Messung", "Measurement") }}</th><th>{{ de_en("Vereinbart", "Agreed") }} <span class="hint">{{ de_en("Instrument, Items, Format", "instrument, items, format") }}</span></th><th>{{ de_en("Items", "Items") }} <span class="hint">{{ de_en("KI-Entwurf", "AI draft") }}</span></th><th><span class="visually-hidden">{{ de_en("Löschen", "Delete") }}</span></th></tr></thead>
+      <tbody>
+      {% for c in plan.constructs + [{}, {}] %}{% set n = loop.index0 %}
+      <tr>
+        <td><input name="c{{ n }}_name" maxlength="120" value="{{ c.name }}" aria-label="{{ de_en('Konstrukt', 'Construct') }}"{% if not c %} placeholder="{{ de_en('weiteres Konstrukt …', 'further construct …') }}"{% endif %}></td>
+        <td><select name="c{{ n }}_role" aria-label="{{ de_en('Rolle', 'Role') }}">{% for k, label in roles.items() %}<option value="{{ k }}" {% if c.role == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+        <td><textarea name="c{{ n }}_definition" rows="2" maxlength="400" aria-label="{{ de_en('Bedeutung', 'Meaning') }}">{{ c.definition }}</textarea></td>
+        <td><select name="c{{ n }}_when" aria-label="{{ de_en('Wann gemessen', 'When measured') }}">{% for k, label in when.items() %}<option value="{{ k }}" {% if (c.when or "after") == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+        <td><select name="c{{ n }}_measure" aria-label="{{ de_en('Messung', 'Measurement') }}">
+          {% for k, label in measures.items() %}<option value="{{ k }}" {% if (c.measure if c else "ai") == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          {# those recommended in the organisation first (app/shortlist.py, konzept-konstrukt-schnellbox-2026-10-16.md, K14) #}
+          {% if recommended %}<optgroup label="{{ de_en('Empfohlen in Ihrer Organisation', 'Recommended in your organisation') }}">{% for key, name, short, _source in toolbox if key in recommended %}<option value="{{ key }}" {% if c.measure == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</optgroup>{% endif %}
+          <optgroup label="{{ de_en('Validiertes Konstrukt', 'Validated construct') if not recommended else de_en('Weitere validierte Konstrukte', 'Further validated constructs') }}">{% for key, name, short, _source in toolbox if key not in recommended %}<option value="{{ key }}" {% if c.measure == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</optgroup>
+        </select></td>
+        <td><textarea name="c{{ n }}_spec" rows="{{ [3, (c.spec or '').count('\n') + 2, ((c.spec or '')|length // 45) + 1]|max }}" maxlength="3000" aria-label="{{ de_en('Vereinbartes Instrument', 'Agreed instrument') }}" placeholder="{{ de_en('z. B. Borg CR10 (0–10); Conjoint: je Zeile „Merkmal: Stufe; Stufe“; IAT: je Zeile „A: Konzept: Wort; Wort“', 'e.g. Borg CR10 (0–10); conjoint: per line “Attribute: level; level”; IAT: per line “A: concept: word; word”') }}">{{ c.spec }}</textarea></td>
+        <td><input type="number" name="c{{ n }}_n" min="3" max="8" value="{{ c.n or 5 }}" aria-label="{{ de_en('Zahl der Items', 'Number of items') }}"></td>
+        <td>{% if c %}<label class="check small"><input type="checkbox" name="c{{ n }}_delete" value="1"> {{ de_en("löschen", "delete") }}</label>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if editing %}<div><button class="button button-secondary">{{ de_en("Plan speichern", "Save plan") }}</button></div>{% endif %}
+</section>
+</fieldset>
+</form>
+{% if stale %}<form method="post" action="{{ url_for('ainstein.derive', code=project.code) }}" id="ainstein-rederive" hidden
+      data-ainstein-busy="{{ de_en('AInstein füllt die Seite neu aus …', 'AInstein is filling in the page anew …') }}" data-ainstein-area="#plan"
+      data-confirm="{{ de_en('Diese Seite aus dem geänderten Canvas neu ausfüllen?', 'Fill in this page anew from the changed canvas?') }}" data-confirm-note="{{ de_en('Was Sie hier geändert haben, wird ersetzt.', 'What you changed here will be replaced.') }}">{{ csrf() }}</form>{% endif %}
+
+{% set own = [] %}{% for c in plan.constructs %}{% if c.measure == "ai" %}{% set _ = own.append((loop.index0, c)) %}{% endif %}{% endfor %}
+{% if own and editing %}
+<section class="panel" id="skalen">
+  <div class="page-head"><h2>{{ de_en("Eigene Skalen", "Own scales") }}</h2></div>
+  <p class="muted small">{{ de_en("Für Konstrukte ohne passende validierte Skala und ohne vereinbartes Instrument. Erst das Konstrukt: Bedeutung, Facetten
+    (die Aspekte, die die Items abdecken), was nicht dazugehört, Antwortstufen und Umpolung, je nach Zielgruppe und Fokus. Dann entwirft
+    AInstein die Items aus dem Gespräch. Gelöschte Items werden beim nächsten Entwurf ersetzt, die übrigen bleiben. Die Hinweise an den
+    Items sind Prüffragen, kein Urteil; vor dem Feldstart im Pretest erproben.", "For constructs without a fitting validated scale and without an agreed instrument. First the construct: meaning, facets
+    (the aspects the items cover), what does not belong to it, answer points and reversal, depending on target group and focus. Then
+    AInstein drafts the items from the conversation. Deleted items are replaced at the next draft, the others stay. The hints on the
+    items are questions to check, not a verdict; try the items out in a pretest before fieldwork.") }}</p>
+  <form method="post" action="{{ url_for('ainstein.scales', code=project.code) }}" class="ainstein-plan" data-ainstein-busy="{{ de_en('AInstein entwirft die Items …', 'AInstein is drafting the items …') }}" data-ainstein-area="#skalen">
+    {{ csrf() }}
+    {% for n, c in own %}
+    <fieldset class="ainstein-scale" id="skala-{{ n }}">
+      <legend>{{ c.name }} <span class="hint">{{ c.definition }}</span></legend>
+      <div class="ainstein-plan-head">
+        <label class="ainstein-wide">{{ de_en("Facetten", "Facets") }} <span class="hint">{{ de_en("eine je Zeile, 2–4", "one per line, 2–4") }}</span>
+          <textarea name="s{{ n }}_facets" rows="3" maxlength="400">{{ c.facets|join("\n") }}</textarea></label>
+        <label class="ainstein-wide">{{ de_en("Gehört nicht dazu", "Does not belong to it") }} <input name="s{{ n }}_exclude" maxlength="300" value="{{ c.exclude }}"></label>
+        <label>{{ de_en("Zahl der Items", "Number of items") }} <input type="number" name="s{{ n }}_n" min="3" max="10" value="{{ c.n }}"></label>
+        <label>{{ de_en("Antwortstufen", "Answer points") }} <select name="s{{ n }}_points">{% for p in range(2, 11) %}<option value="{{ p }}" {% if c.points == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Umpolung", "Reversal") }} <select name="s{{ n }}_reverse">{% for k, label in reverse.items() %}<option value="{{ k }}" {% if c.reverse == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      </div>
+      {% if c["items"] %}
+      <table class="ainstein-table ainstein-items">
+        <thead><tr><th>{{ de_en("Item", "Item") }}</th><th>{{ de_en("Facette", "Facet") }}</th><th>{{ de_en("umgepolt", "reversed") }}</th><th>{{ de_en("Hinweise", "Hints") }}</th><th><span class="visually-hidden">{{ de_en("Löschen", "Delete") }}</span></th></tr></thead>
+        <tbody>
+        {% for i in c["items"] %}{% set k = loop.index0 %}
+        <tr>
+          <td><textarea name="s{{ n }}_{{ k }}_text" rows="2" maxlength="300" aria-label="{{ de_en('Item {n}', 'Item {n}', n=loop.index) }}">{{ i.text }}</textarea></td>
+          <td><input name="s{{ n }}_{{ k }}_facet" maxlength="80" value="{{ i.facet }}" aria-label="{{ de_en('Facette', 'Facet') }}"></td>
+          <td><input type="checkbox" name="s{{ n }}_{{ k }}_reverse" value="1" {% if i.reverse %}checked{% endif %} aria-label="{{ de_en('umgepolt', 'reversed') }}"></td>
+          <td>{% for flag in flags(i, c["items"]) %}<span class="badge badge-wip">{{ flag }}</span> {% endfor %}</td>
+          <td><label class="check small"><input type="checkbox" name="s{{ n }}_{{ k }}_delete" value="1"> {{ de_en("löschen", "delete") }}</label></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="muted small">{{ de_en("Noch keine Items.", "No items yet.") }}</p>{% endif %}
+      <div class="ainstein-scale-actions">
+        <button class="button button-ai button-small" name="draft" value="{{ n }}">{{ icon("sparkles", 16) }} {% if c["items"] %}{{ de_en("Fehlende Items entwerfen", "Draft missing items") }}{% else %}{{ de_en("Items entwerfen", "Draft items") }}{% endif %}</button>
+      </div>
+    </fieldset>
+    {% endfor %}
+    <div class="ainstein-scale-actions">
+      <button class="button button-secondary">{{ de_en("Skalen speichern", "Save scales") }}</button>
+      <button class="button button-ai" name="draft" value="all">{{ icon("sparkles", 18) }} {{ de_en("Items für alle eigenen Skalen entwerfen", "Draft items for all own scales") }}</button>
+      {{ ai_access_line() }}
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<div class="ainstein-step-nav"><a class="button button-secondary" href="{{ url_for('ainstein.project', code=project.code) }}">‹ {{ de_en("Gespräch und Canvas", "Conversation and canvas") }}</a><a class="button" href="{{ url_for('ainstein.finish', code=project.code) }}">{{ de_en("Weiter: Abschluss", "Next: finish") }} ›</a></div>
+<script src="{{ url_for('static', filename='ainstein.js') }}" defer></script>
+{% endblock %}

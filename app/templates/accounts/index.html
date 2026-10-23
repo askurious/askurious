@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{# the registration number only for the first twelve accounts, behind the ORCID iD (Philipp, 2026-10-13); called
+   "Kontonummer", not "Karteikartennummer" (UI/UX audit 2026-10-16, 22) #}
+{% from "_macros.html" import autosave_bar, csrf, orcid_icon, orcid_link, list_table %}
+{% from "_icons.html" import icon %}
+{# The page "Profil und Anmeldung", the first of the account pages (accounts.index). Needs: login (UserLogin or None),
+   has_password, config_admin, fresh, minutes, min_length, my_period, my_supervisors, my_contact, supervised, totp,
+   backup_left, sessions. #}
+{% block title %}{{ de_en("Profil und Anmeldung", "Profile and sign-in") }} · {{ de_en("Konto", "Account") }}{% endblock %}
+{% block content %}
+<p class="page-group">{{ de_en("Konto", "Account") }}</p>
+<h1>{{ de_en("Profil und Anmeldung", "Profile and sign-in") }}</h1>
+{# one autosave line for the page, as on "Designs"; the sections speak only of an error (UI audit 2026-10-07, W100) #}
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+
+<section class="panel">
+  <h2>{{ de_en("Angaben", "Details") }}</h2>
+  {% if current_user.has_orcid %}
+  <dl class="account-facts">
+    <dt>{{ de_en("Name", "Name") }}</dt><dd>{{ current_user.display_name }} {{ orcid_link(current_user.orcid, full=True, unauth=False) }}{% if current_user.number and current_user.number <= 12 %} <span class="muted">({{ de_en("Kontonummer {n}", "account number {n}", n=current_user.number) }})</span>{% endif %}</dd>
+    <dt>{{ de_en("Organisation", "Organisation") }}</dt><dd>{{ org_affiliation(current_user) or de_en("keine", "none") }}</dd>
+    <dt>{{ de_en("Dabei seit", "Member since") }}</dt><dd>{{ current_user.created_at|localdt(false) }}</dd>
+  </dl>
+  <p class="muted small">{{ de_en("Der Name kommt bei jeder Anmeldung mit ORCID aus Ihrem öffentlichen ORCID-Profil und wird dort geändert.",
+    "The name comes from your public ORCID record at every sign-in with ORCID and is changed there.") }}</p>
+  {% else %}
+  <form method="post" action="{{ url_for('accounts.details') }}" class="stack account-form" data-autosave-form>
+    {{ csrf() }}
+    <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("so stehen Sie in den Listen der Beteiligten und als Autorin oder Autor", "how you appear in the lists of people involved and as an author") }}</span>
+      <input name="name" value="{{ current_user.name }}" maxlength="200" required></label>
+    {{ autosave_bar() }}
+  </form>
+  <dl class="account-facts space-above">
+    {% if current_user.number and current_user.number <= 12 %}<dt>{{ de_en("Kontonummer", "Account number") }}</dt><dd>{{ current_user.number }}</dd>{% endif %}
+    <dt>{{ de_en("Dabei seit", "Member since") }}</dt><dd>{{ current_user.created_at|localdt(false) }}</dd>
+  </dl>
+  {% endif %}
+</section>
+
+{# user type, period and supervisor, read only (app/account_types.py, N10, N16); and the accounts this person supervises #}
+{% if not current_user.is_admin and (my_period.type and (my_period.until or my_period.type.supervised) or my_supervisors) or supervised %}
+<section class="panel" id="nutzertyp">
+  <h2>{{ de_en("Zugang", "Access") }}</h2>
+  {% if my_period.type and not current_user.is_admin %}<p>{{ de_en("Nutzertyp:", "User type:") }} <strong>{{ account_type_name(my_period.type) }}</strong>{% if my_period.until %} · {{ de_en("Ihr Zugang gilt bis {d}; danach ist das Konto gesperrt. Verlängern kann {who}.", "Your access holds until {d}; after that the account is blocked. {who} can extend it.", d=my_period.until|localdate, who=my_contact) }}{% endif %}</p>{% endif %}
+  {% if my_supervisors|length == 1 %}<p>{{ de_en("Betreuung: {name}. Jede Befragung, die Sie neu anlegen, ist mit dieser Person als Admin geteilt; sie sieht Fragebogen und Antworten.", "Supervisor: {name}. Every survey you newly create is shared with this person as admin; they see the questionnaire and the answers.", name=my_supervisors[0].display_name) }}</p>
+  {% elif my_supervisors %}<p>{{ de_en("Betreuung: {names}. Jede Befragung, die Sie neu anlegen, ist mit diesen Personen als Admins geteilt; sie sehen Fragebogen und Antworten.", "Supervisors: {names}. Every survey you newly create is shared with these people as admins; they see the questionnaire and the answers.", names=my_supervisors|map(attribute="display_name")|join(", ")) }}</p>{% endif %}
+  {% if supervised %}<h3>{{ de_en("Von Ihnen betreut", "Supervised by you") }}</h3>
+  <ul class="plain">{% for person, row in supervised %}<li>{{ person.display_name }}{% if row.valid_until %} · {{ de_en("bis {d}", "until {d}", d=row.valid_until|localdate) }}{% if row.block_reason == "expired" %} <span class="badge badge-error">{{ de_en("abgelaufen", "ended") }}</span>{% endif %}{% endif %}</li>{% endfor %}</ul>
+  <p class="muted small">{{ de_en("In den Befragungen dieser Personen sind Sie Admin. Verlängern kann ein Admin der Plattform.", "You are admin of the surveys of these people. A platform admin can extend their access.") }}</p>{% endif %}
+</section>
+{% endif %}
+
+{# the survey types, read only, shown once one is below "Bearbeiten" (app/kind_access.py, F14) #}
+{% if not current_user.is_admin %}{% set my_levels = kind_levels_mine() %}{% if my_levels.values()|reject("equalto", "edit")|list %}
+<section class="panel" id="befragungstypen">
+  <h2>{{ de_en("Befragungstypen", "Survey types") }} <span class="hint">{{ de_en("welche Arten von Befragungen Sie sehen und bearbeiten", "which types of survey you see and edit") }}</span></h2>
+  <ul class="plain">{% for k in kind_keys %}<li>{{ kind_label(k) }}: <strong>{{ kind_level_label(my_levels[k]) }}</strong></li>{% endfor %}</ul>
+  <p class="muted small">{{ de_en("Ändern kann das nur ein Admin der Plattform. „Ansehen“: Geteilte Befragungen dieser Art öffnen Sie nur zum Ansehen; „Aus“: Die Art erscheint für Sie nicht.", "Only a platform admin can change this. “View”: you open shared surveys of this type for viewing only; “Off”: the type does not appear for you.") }}</p>
+</section>
+{% endif %}{% endif %}
+
+{# the order of the page (UI/UX audit 2026-10-16, 22; Konto-Seiten B2): details · sign-in and security (password,
+   second factor, sessions) · experimental features · deleting the account last #}
+{# both ways to sign in on one account (konto-einrichtung-konzept.md, 1 A, Ralf 2026-10-18): ORCID and e-mail with
+   password, each added here; connecting ORCID cannot be undone by the person, the password goes while ORCID stays (2 A) #}
+<section class="panel" id="anmeldung">
+  <h2>{{ de_en("Anmeldung", "Sign-in") }} <span class="hint">{{ de_en("wie Sie in Ihr Konto kommen; mit zwei Wegen auch dann, wenn einer gerade nicht geht", "how you get into your account; with two ways also when one of them does not work") }}</span></h2>
+  <ul class="plain setup-ways">
+    <li>ORCID: {% if current_user.has_orcid %}<strong>{{ de_en("verbunden", "connected") }}</strong> {{ orcid_link(current_user.orcid, full=True, unauth=False) }}{% else %}{{ de_en("nicht verbunden", "not connected") }}{% endif %}</li>
+    <li>{{ de_en("E-Mail-Adresse und Passwort", "Email address and password") }}: {% if has_password %}<strong>{{ login.email }}</strong>{% if not current_user.has_orcid %} <span class="hint">{{ de_en("die Adresse ändert ein Admin der Plattform", "a platform admin changes the address") }}</span>{% endif %}{% else %}{{ de_en("nicht hinterlegt", "not added") }}{% endif %}</li>
+  </ul>
+  {% if not current_user.has_orcid %}
+  <h3>{{ de_en("Mit ORCID verbinden", "Connect with ORCID") }}</h3>
+  <p class="muted">{{ de_en("Sie melden sich einmal bei ORCID an; danach gehört die iD zu diesem Konto. Sie stehen dann mit ORCID-Symbol in den
+    Listen der Beteiligten und mit iD als Autorin oder Autor bei Zenodo, und Sie können sich mit ORCID oder wie bisher mit E-Mail-Adresse
+    und Passwort anmelden. Befragungen, Gruppen und Designs bleiben, wie sie sind. Name und Einrichtung kommen danach aus Ihrem
+    öffentlichen ORCID-Profil. Trennen können Sie die iD wieder, solange E-Mail-Adresse und Passwort hinterlegt sind.",
+    "You sign in at ORCID once; after that the iD belongs to this account. You then appear with the ORCID symbol in the lists of
+    people involved and with your iD as an author on Zenodo, and you can sign in with ORCID or, as before, with email address and
+    password. Surveys, groups and designs stay as they are. Name and institution then come from your public ORCID record.
+    You can disconnect the iD again as long as email address and password are added.") }}</p>
+  {# the account proves itself before an iD becomes a way into it (audit 2026-10-22, A-01) #}
+  <form method="post" action="{{ url_for('auth.login') }}" class="stack account-form" autocomplete="off">
+    {{ csrf() }}<input type="hidden" name="link" value="1"><input type="hidden" name="fresh" value="1">
+    {% if has_password %}<input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+    <label>{{ de_en("Aktuelles Passwort", "Current password") }}
+      <input type="password" name="current" autocomplete="current-password" required></label>{% endif %}
+    {% if totp %}<label>{{ de_en("Code aus der Authenticator-App oder Ersatzcode", "Code from the authenticator app or a backup code") }}
+      <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>{% endif %}
+    <div class="button-row"><button class="button button-secondary">{{ orcid_icon() }}{{ de_en("Mit ORCID verbinden", "Connect with ORCID") }}</button></div>
+  </form>
+  {% elif has_password and not config_admin %}
+  {# B5 of konto-schluessel-plan.md: the iD goes, the account and everything in it stays #}
+  <h3>{{ de_en("ORCID trennen", "Disconnect ORCID") }}</h3>
+  <form method="post" action="{{ url_for('accounts.remove_orcid') }}" class="stack account-form" data-confirm="{{ de_en('ORCID iD von diesem Konto trennen?', 'Disconnect the ORCID iD from this account?') }}" data-confirm-note="{{ de_en('Sie melden sich danach nur noch mit E-Mail-Adresse und Passwort an.', 'You will then sign in with email address and password only.') }}" data-confirm-ok="{{ de_en('Trennen', 'Disconnect') }}" data-confirm-danger>
+    {{ csrf() }}
+    <input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+    <label>{{ de_en("Aktuelles Passwort", "Current password") }}
+      <input type="password" name="current" autocomplete="current-password" required></label>
+    <div class="button-row"><button class="button button-danger">{{ de_en("Trennen", "Disconnect") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Befragungen, Gruppen und Freigaben bleiben. Sie stehen danach ohne ORCID-Symbol in den Listen der Beteiligten, und bei Zenodo steht keine iD mehr bei Ihrem Namen. Verbinden können Sie wieder, auch mit einer anderen iD.",
+    "Surveys, groups and shares stay. You then appear without the ORCID symbol in the lists of people involved, and Zenodo shows no iD with your name. You can connect again, also with another iD.") }}</p>
+  {% endif %}
+  <div id="passwort">
+  {% if has_password %}
+  <h3>{{ de_en("Passwort ändern", "Change password") }}</h3>
+  <form method="post" action="{{ url_for('accounts.password') }}" class="stack account-form">
+    {{ csrf() }}
+    <input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+    <label>{{ de_en("Aktuelles Passwort", "Current password") }}
+      <input type="password" name="current" autocomplete="current-password" required></label>
+    <label>{{ de_en("Neues Passwort", "New password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen", "at least {n} characters", n=min_length) }}</span>
+      <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+    <label>{{ de_en("Neues Passwort wiederholen", "Repeat new password") }}
+      <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+    <div class="button-row"><button class="button button-secondary">{{ de_en("Passwort ändern", "Change password") }}</button></div>
+  </form>
+  <p class="muted small">{% if current_user.has_orcid %}{{ de_en("Sie melden sich mit ORCID an oder mit", "You sign in with ORCID or with") }} <strong>{{ login.email }}</strong> {{ de_en("und diesem Passwort.", "and this password.") }} {% endif %}
+    {% if mail_enabled() %}{{ de_en("Ein neues Passwort beendet alle anderen Sitzungen. Passwort vergessen: Auf der Anmeldeseite „Passwort vergessen?“ anklicken; Sie bekommen dann eine E-Mail mit einem Link zum Neusetzen.",
+    "A new password ends all other sessions. Forgotten your password? Click “Forgot your password?” on the sign-in page; you then get an email with a link to set a new one.") }}{% else %}{{ de_en("Ein neues Passwort beendet alle anderen Sitzungen. Passwort vergessen: Auf der Anmeldeseite „Passwort vergessen?“ anklicken; ein Admin der Plattform gibt Ihnen dann einen Link zum Neusetzen.",
+    "A new password ends all other sessions. Forgotten your password? Click “Forgot your password?” on the sign-in page; a platform admin then gives you a link to set a new one.") }}{% endif %}</p>
+  {% if current_user.has_orcid %}
+  {# a forgotten password: a fresh sign-in with ORCID proves the person instead (accounts.orcid_fresh, Ralf 2026-10-18) #}
+  <details class="space-above"{% if orcid_fresh() %} open{% endif %}>
+    <summary>{{ de_en("Passwort vergessen?", "Forgotten your password?") }}</summary>
+    {% if orcid_fresh() %}
+    <form method="post" action="{{ url_for('accounts.password') }}" class="stack account-form">
+      {{ csrf() }}<input type="hidden" name="forgot" value="1">
+      <input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+      <label>{{ de_en("Neues Passwort", "New password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen", "at least {n} characters", n=min_length) }}</span>
+        <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <label>{{ de_en("Neues Passwort wiederholen", "Repeat new password") }}
+        <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <div class="button-row"><button class="button button-secondary">{{ de_en("Neues Passwort setzen", "Set new password") }}</button></div>
+    </form>
+    {% else %}
+    <p class="muted small">{{ de_en("Melden Sie sich neu mit ORCID an (ORCID fragt dann nach Ihrem ORCID-Passwort); danach setzen Sie hier ein neues Passwort, ohne das alte.",
+      "Sign in again with ORCID (ORCID then asks for your ORCID password); after that you set a new password here, without the old one.") }}</p>
+    <p><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.index') + '#passwort') }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}</a></p>
+    {% endif %}
+  </details>
+  {% endif %}
+  {% if login.email and not login.email_verified_at %}
+  <p>{{ de_en("Diese bestehende Anmeldeadresse wurde noch nicht per E-Mail bestätigt.", "This existing sign-in address has not yet been confirmed by email.") }}</p>
+  {% if mail_enabled() and fresh %}<form method="post" action="{{ url_for('accounts.verify_email') }}">{{ csrf() }}<button class="button button-secondary">{{ de_en("Anmeldeadresse bestätigen", "Confirm sign-in address") }}</button></form>{% endif %}
+  {% endif %}
+  {% if current_user.has_orcid %}
+  <h3>{{ de_en("E-Mail-Adresse und Passwort entfernen", "Remove email address and password") }}</h3>
+  <form method="post" action="{{ url_for('accounts.remove_password') }}" class="stack account-form" data-confirm="{{ de_en('Anmeldung mit E-Mail-Adresse und Passwort entfernen?', 'Remove sign-in with email address and password?') }}" data-confirm-note="{{ de_en('Sie melden sich danach nur noch mit ORCID an.', 'You will then sign in with ORCID only.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>
+    {{ csrf() }}
+    <input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+    <label>{{ de_en("Aktuelles Passwort", "Current password") }}
+      <input type="password" name="current" autocomplete="current-password" required></label>
+    <div class="button-row"><button class="button button-danger">{{ de_en("Entfernen", "Remove") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Danach melden Sie sich nur noch mit ORCID an. Die Adresse wird mit entfernt; E-Mails von Askurious gehen dann nicht mehr an sie. Alle anderen Sitzungen dieses Kontos enden.",
+    "After that you sign in with ORCID only. The address is removed too; emails from Askurious no longer go to it. All other sessions of this account end.") }}</p>
+  {% endif %}
+  {% else %}
+  <h3>{{ de_en("E-Mail-Adresse und Passwort hinterlegen", "Add email address and password") }} <span class="hint">{{ de_en("zusätzlich zu ORCID, wenn Sie möchten", "in addition to ORCID, if you like") }}</span></h3>
+  {% if not fresh %}
+  <p class="muted">{{ de_en("Dafür muss die Anmeldung frisch sein (höchstens {n} Minuten alt), damit niemand an einem offen gelassenen Rechner
+    einen zweiten Zugang zu Ihrem Konto anlegt.", "For this the sign-in must be fresh (at most {n} minutes old), so that nobody at a computer left
+    open adds a second way into your account.", n=minutes) }}</p>
+  <p><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.index')) }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}</a></p>
+  {% elif not mail_enabled() %}
+  <p>{{ de_en("Für einen zusätzlichen Passwortzugang muss ein Plattform-Admin den Mailversand einrichten oder einen Zugang über den Adminweg bereitstellen.",
+              "For additional password access, a platform admin must configure mail delivery or provide access through the admin process.") }}</p>
+  {% else %}
+  <form method="post" action="{{ url_for('accounts.password') }}" class="stack account-form">
+    {{ csrf() }}
+    <label>{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{{ de_en("erst nach Bestätigung über den E-Mail-Link als Anmeldename nutzbar", "usable as your sign-in name only after confirmation using the email link") }}</span>
+      <input type="email" name="email" autocomplete="username" maxlength="254" required></label>
+    <label>{{ de_en("Passwort", "Password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen", "at least {n} characters", n=min_length) }}</span>
+      <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+    <label>{{ de_en("Passwort wiederholen", "Repeat password") }}
+      <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+    <div class="button-row"><button class="button button-secondary">{{ de_en("Hinterlegen", "Add") }}</button></div>
+  </form>
+  {% endif %}
+  {% endif %}
+  </div>
+</section>
+
+{% if totp_on %}
+<section class="panel" id="zweiter-faktor">
+  <h2>{{ de_en("Zweiter Faktor", "Second factor") }} {% if current_user.is_admin %}<span class="hint">{{ de_en("bei Passwortanmeldung nötig", "required for password sign-in") }}</span>{% endif %}</h2>
+  {% if totp %}
+  <p>{{ de_en("Eingeschaltet. Bei Passwortanmeldung wird ein Code verlangt.", "Switched on. Password sign-in requires a code.") }} {% if current_user.is_admin %}{{ de_en("Die Passwortanmeldung fragt nach einem Code; ORCID bleibt ohne zusätzlichen Pflichtcode.", "Password sign-in asks for a code; ORCID has no mandatory additional code.") }}{% endif %}</p>
+  <form method="post" action="{{ url_for('twofactor.disable') }}" class="row" autocomplete="off">
+    {{ csrf() }}<label>{{ de_en("Aktueller Code", "Current code") }} <input type="text" name="code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" required class="narrow"></label>
+    <button class="button button-secondary">{{ de_en("Ausschalten", "Switch off") }}</button>
+  </form>
+  <p class="muted">{{ de_en_n(backup_left, ("{n} Ersatzcode übrig", "{n} Ersatzcodes übrig"), ("{n} backup code left", "{n} backup codes left")) }}.</p>
+  <form method="post" action="{{ url_for('twofactor.backup_codes') }}" class="row" autocomplete="off">
+    {{ csrf() }}<label>{{ de_en("Aktueller Code", "Current code") }} <input type="text" name="code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" required class="narrow"></label>
+    <button class="button button-secondary">{{ de_en("Neue Ersatzcodes", "New backup codes") }}</button>
+  </form>
+  {% else %}
+  <p class="muted">{{ de_en("Ausgeschaltet.", "Switched off.") }}</p>
+  <p><a class="button button-secondary" href="{{ url_for('twofactor.setup') }}">{{ de_en("Einrichten", "Set up") }}</a></p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="panel" id="sitzungen">
+  <h2>{{ de_en("Sitzungen", "Sessions") }}</h2>
+  {# the ten most recently used, this browser always among them; ending one has a column of its own, all others go
+     with one button (UI/UX audit 2026-10-05, V105) #}
+  {% set shown = sessions[:10] %}
+  {% set this_row = sessions|selectattr("id", "equalto", this_sid)|list %}
+  {% if this_row and this_row[0] not in shown %}{% set shown = shown[:9] + this_row %}{% endif %}
+  {# on a phone the two times stand under the browser and "Beenden" stays in view (UI audit 2026-10-07, W78) #}
+  {% call list_table("sessions-table") %}
+    <thead><tr><th>{{ de_en("Browser und System", "Browser and system") }}</th><th>{{ de_en("Angemeldet seit", "Signed in since") }}</th><th>{{ de_en("Zuletzt aktiv", "Last active") }}</th><th><span class="visually-hidden">{{ de_en("Beenden", "End") }}</span></th></tr></thead>
+    <tbody>
+    {% for s in shown %}
+      <tr><td>{{ session_label(s.label) }}{% if s.id == this_sid %} <span class="badge">{{ de_en("dieser Browser", "this browser") }}</span>{% endif %}</td>
+        <td data-label="{{ de_en('Angemeldet seit', 'Signed in since') }}">{{ s.created_at|localdt }}</td><td data-label="{{ de_en('Zuletzt aktiv', 'Last active') }}">{{ s.last_seen_at|localdt }}</td>
+        <td class="sessions-end">{% if s.id != this_sid %}<form class="inline" method="post" action="{{ url_for('accounts.end_session', sid=s.id) }}">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Beenden", "End") }}</button></form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% set older = sessions|length - shown|length %}
+  {% if older > 0 %}<p class="muted small">{{ de_en("und {n} ältere Sitzung, die der Knopf unten mit beendet.", "and {n} older session, which the button below ends as well.", n=older) if older == 1
+    else de_en("und {n} ältere Sitzungen, die der Knopf unten mit beendet.", "and {n} older sessions, which the button below ends as well.", n=older) }}</p>{% endif %}
+  <p class="muted small">{{ de_en("„Abmelden“ beendet genau die Sitzung dieses Browsers, auch eine Kopie ihres Cookies. „Alle anderen Sitzungen beenden“ beendet alle übrigen auf einmal, auch die dort gespeicherte Anmeldung; hier bleiben Sie angemeldet. Es widerruft außerdem Ihre Datenzugänge und offenen Einladungs- und Beitrittslinks und trennt Zenodo, Coscine und Ihren eigenen KI-Zugang.",
+    "“Sign out” ends exactly the session of this browser, also a copy of its cookie. “End all other sessions” ends all the others at once, also the sign-in saved there; you stay signed in here. It also revokes your data access tokens and pending invitations and join links, and disconnects Zenodo, Coscine and your own AI access.") }}</p>
+  <form method="post" action="{{ url_for('accounts.sign_out_everywhere') }}">
+    {{ csrf() }}<button class="button button-secondary">{{ de_en("Alle anderen Sitzungen beenden", "End all other sessions") }}</button>
+  </form>
+</section>
+
+{% set experiments_on = experimental_on(current_user) %}
+{% if experiments_on %}
+<section class="panel" id="experimentell">
+  <h2>{{ de_en("Experimentelle Funktionen", "Experimental features") }} <span class="hint">{{ de_en("neue Teile von Askurious, die noch erprobt werden", "new parts of Askurious still being tried out") }}</span></h2>
+  <ul class="feature-list">
+    {% for key, label, text in experimental_features if key in experiments_on %}
+    <li><strong>{{ label }}</strong> <span class="muted small">{{ text }}</span></li>
+    {% endfor %}
+  </ul>
+  <p class="muted small">{{ de_en("Ein Admin der Plattform hat diese Funktionen für Sie eingeschaltet; ändern kann das nur ein Admin. Die Funktionen
+    selbst können sich noch ändern. Befragungen, die sie schon nutzen, laufen für Teilnehmende und Beteiligte weiter, auch wenn eine Funktion wieder ausgeschaltet wird.",
+    "A platform admin switched these features on for you; only an admin can change that. The features themselves may still change. Surveys that
+    already use them keep running for participants and the people involved, even if a feature is switched off again.") }}</p>
+  {% set sources = experimental_sources(experiments_on) %}
+  {% if sources %}{% from "_sources.html" import grouped %}{{ grouped(sources) }}{% endif %}
+</section>
+{% endif %}
+
+{# parts that moved to the pages "Verbindungen" and "Anzeige und Sprache" (Konto-Seiten B2, Ralf 2026-10-20): an old
+   link to their anchor goes on there (app.js) #}
+{% for anchor, to in (("datenzugaenge", "connections"), ("zenodo", "connections"), ("coscine", "connections"),
+                      ("ki-zugang", "connections"), ("ki-agenten", "connections"), ("darstellung", "appearance"),
+                      ("sprache", "appearance"), ("mail", "appearance"), ("lernhilfen", "appearance")) %}
+<span hidden data-moved-anchor="{{ anchor }}" data-moved-to="{{ url_for('accounts.' + to) }}#{{ 'anzeige' if anchor == 'darstellung' else anchor }}"></span>
+{% endfor %}
+
+<section class="panel">
+  <h2>{{ de_en("Konto löschen", "Delete account") }}</h2>
+  <p class="muted">{{ de_en("Entfernt Ihr Konto und alles, was nur Ihnen gehört. Gemeinsame Befragungen bleiben bei den übrigen Beteiligten, Gruppen
+    bleiben bestehen. Bevor etwas gelöscht wird, sehen Sie vollständig, was geschieht.",
+    "Removes your account and everything that belongs to you alone. Shared surveys stay with the others involved, groups stay.
+    Before anything is deleted, you see in full what will happen.") }}</p>
+  <p><a class="button button-secondary" href="{{ url_for('accounts.delete_own') }}">{{ icon("trash", 16) }} {{ de_en("Konto löschen …", "Delete account …") }}</a></p>
+</section>
+{% endblock %}

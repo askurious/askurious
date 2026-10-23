@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ de_en("Quotenassistent", "Quota assistant") }} · {{ survey.title }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% macro pct(value) %}{{ (value)|dec(1)|pctsign }}{% endmacro %}
+{% macro num(value) %}{% if ui_language() == "en" %}{{ "{:,}".format(value) }}{% else %}{{ (value)|thousands }}{% endif %}{% endmacro %}
+{# the choices as fields; hidden=true repeats them in the form that makes the quotas #}
+{% macro chosen() %}
+  <input type="hidden" name="n" value="{{ opts.n or '' }}">
+  <input type="hidden" name="cross" value="{{ opts.cross }}">
+  <input type="hidden" name="lo" value="{{ opts.lo }}">
+  <input type="hidden" name="hi" value="{{ opts.hi or '' }}">
+  <input type="hidden" name="scheme" value="{{ opts.scheme }}">
+  <input type="hidden" name="regions" value="{{ opts.regions }}">
+  <input type="hidden" name="state" value="{{ opts.state }}">
+  <input type="hidden" name="age" value="{{ opts.age }}">
+  <input type="hidden" name="gender" value="{{ opts.gender }}">
+  <input type="hidden" name="gf" value="{{ opts.gf }}">
+  <input type="hidden" name="gm" value="{{ opts.gm }}">
+  {% if opts.move %}<input type="hidden" name="move" value="1">{% endif %}
+{% endmacro %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "quotas" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="quota-page">
+<a class="back-link" href="{{ url_for('flow_page.quotas', survey_id=survey.id, lang=lang) }}">{{ icon("back", 16) }} {{ de_en("Quoten", "Quotas") }}</a>
+<div class="page-head">
+  <h2>{{ de_en("Quotenassistent: Bevölkerung Deutschland", "Quota assistant: population of Germany") }} <span class="hint">{{ de_en("Quoten nach Alter, Geschlecht und Bundesland mit den amtlichen Anteilen", "quotas by age, gender and federal state with the official shares") }}</span></h2>
+</div>
+{% if not editable %}<div class="flash">{{ de_en("Die Befragung läuft oder ist geschlossen: Der Assistent arbeitet nur im Entwurf. Das Soll lässt sich unter „Ablauf“ › „Quoten“ ändern.", "The survey is running or closed: the assistant only works in a draft. The target can be changed under “Flow” › “Quotas”.") if not survey.is_editable else de_en("Zum Anlegen der Quoten ist die Rolle „Bearbeiten“ nötig.", "Creating the quotas needs the role “Edit”.") }}</div>{% endif %}
+
+<section class="panel quota-intro">
+  <p>{{ de_en('Der Assistent legt die Quoten an, mit denen die Stichprobe in <strong>Alter, Geschlecht und Bundesland</strong> der Bevölkerung in Deutschland entspricht, und verteilt die Stichprobengröße nach den amtlichen Anteilen (Stichtag {date}). Fehlen die drei Fragen, fügt er sie auf der ersten Seite hinter der Einwilligung ein; das Bundesland kann er auch aus einer Frage nach der Postleitzahl nehmen. Danach sind es Quoten wie alle anderen und lassen sich unter „Ablauf“ › „Quoten“ ändern.', 'The assistant creates the quotas that make the sample match the population of Germany in <strong>age, gender and federal state</strong>, and spreads the sample size by the official shares (reference date {date}). If the three questions are missing, it inserts them on the first page after the consent; it can also take the federal state from a question about the postcode. After that they are quotas like any other and can be changed under “Flow” › “Quotas”.', html=True, date=census.reference_date()) }}</p>
+  <p class="muted small">{{ de_en("Quotiert wird nach diesen drei Merkmalen; in allen anderen Merkmalen ist die Stichprobe damit nicht von selbst bevölkerungsgetreu. Die amtliche Statistik weist in dieser Gliederung nur männlich und weiblich aus: Wer „divers“ oder „keine Angabe“ wählt, nimmt teil und zählt in keiner Teilquote des Geschlechts.", "The quotas cover these three attributes; in all other attributes the sample does not automatically match the population. In this breakdown the official statistics only show male and female: anyone who chooses “divers” or “keine Angabe” takes part and counts in no sub-quota of gender.") }}</p>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Einstellungen", "Settings") }}</h2>
+  <form method="get" action="{{ url_for('flow_page.quota_census', survey_id=survey.id) }}" class="stack">
+    <input type="hidden" name="lang" value="{{ lang }}">
+    <div class="row-fields">
+      <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("Abschlüsse", "completions") }}{% if from_plan %}{{ de_en(", aus dem Studienplan", ", from the research plan") if model.basis != "end" else de_en(", aus dem Feldende", ", from the end of data collection") }}{% endif %}</span><input type="number" name="n" min="1" max="{{ census.MAX_N }}" value="{{ opts.n or '' }}" class="narrow"></label>
+      <label>{{ de_en("Alter ab", "Age from") }} <select name="lo">{% for v in census.AGE_FROM %}<option value="{{ v }}" {% if opts.lo == v %}selected{% endif %}>{{ de_en("{n} Jahren", "{n} years", n=v) }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Alter bis", "Age up to") }} <select name="hi">{% for v in census.AGE_TO %}<option value="{{ v or '' }}" {% if opts.hi == v %}selected{% endif %}>{{ de_en("{n} Jahre", "{n} years", n=v) if v else de_en("ohne Grenze", "no limit") }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Altersgruppen", "Age groups") }} <select name="scheme">{% for key in census.SCHEMES %}<option value="{{ key }}" {% if opts.scheme == key %}selected{% endif %}>{{ census.scheme_label(key) }}</option>{% endfor %}</select></label>
+    </div>
+    {# the line of the sample model, as on the study plan and the data collection (S3): the targets of all sub-quotas
+       add up to the completions #}
+    {% if model %}{% from "_sample.html" import sample_line %}<p class="small sample-model">{{ sample_line(model, lead=sample_model.lead_text(model), basis=model.basis != "end") }}</p>{% endif %}
+    <div class="row-fields">
+      <label>{{ de_en("Bundesländer", "Federal states") }} <span class="hint">{{ de_en("aus der Postleitzahl", "from the postcode") if state_item and state_item.type == "postal_code" else de_en("aus dem Standort", "from the location") if state_item and state_item.type == "geolocation" else de_en("gefragt wird immer das Bundesland", "the question always asks for the federal state") }}{{ de_en("; zusammengefasst werden nur die Teilquoten", "; only the sub-quotas are put together") }}</span>
+        <select name="regions">{% for key in census.REGIONS %}<option value="{{ key }}" {% if opts.regions == key %}selected{% endif %}>{{ census.region_name(key) }}</option>{% endfor %}</select></label>
+      {% if sources|rejectattr("type", "equalto", "federal_state")|list %}
+      <label>{{ de_en("Bundesland aus", "Federal state from") }} <span class="hint">{{ de_en("eine Postleitzahl und ein Standort nennen ihr Bundesland selbst; das Element Bundesland ist dann nicht nötig", "a postcode and a location name their federal state themselves; the element federal state is then not needed") }}</span>
+        <select name="state">
+          {% for item in sources %}<option value="{{ item.id }}" {% if state_item and state_item.id == item.id %}selected{% endif %}>{{ item.code }} · {{ de_en("Postleitzahl (das Bundesland, in dem sie liegt)", "postcode (the federal state it lies in)") if item.type == "postal_code" else de_en("Standort (das Bundesland, in dem er liegt; ohne geteilten Standort Screen-out)", "location (the federal state it lies in; screen-out without a shared location)") if item.type == "geolocation" else de_en("Element Bundesland", "element federal state") }}</option>{% endfor %}
+          {% if not sources|selectattr("type", "equalto", "federal_state")|list %}<option value="new" {% if not state_item %}selected{% endif %}>{{ de_en("neues Element Bundesland einfügen", "insert a new element federal state") }}</option>{% endif %}
+        </select></label>
+      {% endif %}
+    </div>
+    {# the questions for age and gender: one of the questionnaire or a new construct (UI/UX audit 2026-10-05, V18) #}
+    {% set age_item, gender_item = found.age, found.gender %}
+    <div class="row-fields">
+      <label>{{ de_en("Alter aus", "Age from") }} <span class="hint">{{ de_en("eine Frage nach einer ganzen Zahl", "a question asking for a whole number") }}</span>
+        <select name="age">
+          {% for item in age_sources %}<option value="{{ item.id }}" {% if age_item and age_item.id == item.id %}selected{% endif %}>{{ item.code }} · {{ census.described(item, "age") }}</option>{% endfor %}
+          <option value="new" {% if not age_item %}selected{% endif %}>{{ de_en("Konstrukt Alter neu einfügen", "insert a new construct age") }}</option>
+        </select></label>
+      <label>{{ de_en("Geschlecht aus", "Gender from") }} <span class="hint">{{ de_en("eine Einfachauswahl", "a single choice") }}</span>
+        <select name="gender">
+          {% for item in gender_sources %}<option value="{{ item.id }}" {% if gender_item and gender_item.id == item.id %}selected{% endif %}>{{ item.code }} · {{ census.described(item, "gender") }}</option>{% endfor %}
+          <option value="new" {% if not gender_item %}selected{% endif %}>{{ de_en("Konstrukt Geschlecht neu einfügen", "insert a new construct gender") }}</option>
+        </select></label>
+      {% if gender_item and gender_item.config and not gender_item.config.get("construct") %}
+      {% set sexes = census.gender_codes(gender_item, opts) %}
+      <label>{{ de_en("weiblich ist", "female is") }} <select name="gf"><option value="">{{ de_en("– Antwort wählen –", "– choose an answer –") }}</option>{% for code, label in gender_answers %}<option value="{{ code }}" {% if sexes.f == code %}selected{% endif %}>{{ label|striptags }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("männlich ist", "male is") }} <select name="gm"><option value="">{{ de_en("– Antwort wählen –", "– choose an answer –") }}</option>{% for code, label in gender_answers %}<option value="{{ code }}" {% if sexes.m == code %}selected{% endif %}>{{ label|striptags }}</option>{% endfor %}</select></label>
+      {% endif %}
+    </div>
+    {# the questions there stay where they are; moving them is a choice (UI/UX audit 2026-10-07, W18) #}
+    <label class="check"><input type="checkbox" name="move" value="1" {% if opts.move %}checked{% endif %}> {{ de_en("Vorhandene Fragen in einen eigenen Block hinter der Einwilligung verschieben", "Move the questions already there into a block of their own after the consent") }}
+      <span class="hint">{{ de_en("ohne Haken bleiben sie, wo sie sind; fehlende Fragen kommen in den Block „Demographische Angaben“", "without the tick they stay where they are; missing questions go into the block “Demographics”") }}</span></label>
+    <fieldset class="census-cross">
+      <legend>{{ de_en("Kreuzung", "Crossing") }} <span class="hint">{{ de_en("Welche Merkmale sollen miteinander gekreuzt werden?", "Which attributes should be crossed with each other?") }}</span></legend>
+      <div class="census-attrs">{% for key, name in census.attributes().items() %}<label class="check"><input type="checkbox" name="x" value="{{ key }}" {% if key in census.CROSSED[opts.cross] %}checked{% endif %}> {{ name }}</label>{% endfor %}</div>
+      <p class="muted small">{{ de_en("Nichts angekreuzt: je eine Quote für jedes Merkmal. Zwei angekreuzt: diese beiden gekreuzt, das dritte für sich. Alle drei: voll gekreuzt. Gewählt ist:", "Nothing ticked: one quota for each attribute. Two ticked: these two crossed, the third on its own. All three: fully crossed. Chosen:") }} <strong>{{ census.cross_label(opts.cross) }}</strong>.</p>
+    </fieldset>
+    <div class="form-actions"><button class="button button-secondary">{{ de_en("Vorschau zeigen", "Show preview") }}</button></div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Vorschau", "Preview") }} <span class="hint">{{ de_en("noch nichts gespeichert", "nothing saved yet") if opts.n else de_en("Anteile; das Soll erscheint mit der Stichprobengröße", "shares; the target appears with the sample size") }}</span></h2>
+  <p>{{ de_en("Grundgesamtheit: Bevölkerung in Deutschland {span}, {persons} Personen am {date}.", "Population: people in Germany {span}, {persons} people on {date}.", span=census.span_shown(opts.lo, opts.hi), persons=num(plan.persons)|trim, date=census.reference_date()) }}
+    {{ de_en("Altersgruppen: {name} ({origin}).", "Age groups: {name} ({origin}).", name=census.scheme_name(opts.scheme), origin=census.scheme_origin(opts.scheme)) }}{% if opts.regions != "states" %}
+    {{ de_en("Bundesländer zusammengefasst: {origin}.", "Federal states put together: {origin}.", origin=census.region_origin(opts.regions)) }}{% endif %} <span class="muted small">{{ de_en("Quellen der Einteilungen am Ende der Seite.", "Sources of the groupings at the end of the page.") }}</span></p>
+  {% for message in problems + plan.errors %}<div class="flash flash-error">{{ icon("x", 16) }} <span>{{ message }}</span></div>{% endfor %}
+  {# quotas already on the same attributes: two quotas on one attribute could each end a participation, after two
+     different targets; so a choice, "ersetzen" chosen (UI/UX audit 2026-10-07, W18) #}
+  {% if others %}<div class="flash flash-warning census-others">{{ icon("alert", 16) }}
+    <div><p><strong>{{ de_en("Diese Merkmale sind schon quotiert:", "These attributes already have quotas:") }}</strong>
+      {% for quota, attrs in others %}„{{ quota.name }}“ ({{ attrs|join(de_en(" und ", " and ")) }}){{ ", " if not loop.last }}{% endfor %}.
+      {{ de_en("Ist ein Merkmal zweimal quotiert, kann jede der beiden Quoten die Teilnahme beenden, nach verschiedenen Soll-Werten.", "If an attribute has two quotas, either of them can end the participation, by different targets.") }}</p>
+    {% if editable %}<div class="census-others-choice" role="radiogroup" aria-label="{{ de_en('Vorhandene Quoten', 'Existing quotas') }}">
+      <label class="check"><input type="radio" name="others" value="replace" form="census-apply" {% if opts.others != "add" %}checked{% endif %}> {{ de_en("bestehende Quoten ersetzen", "replace the existing quotas") if others|length > 1 else de_en("bestehende Quote „{name}“ ersetzen", "replace the existing quota “{name}”", name=others[0][0].name) }}</label>
+      <label class="check"><input type="radio" name="others" value="add" form="census-apply" {% if opts.others == "add" %}checked{% endif %}> {{ de_en("zusätzlich anlegen", "create in addition") }}</label>
+    </div>{% endif %}</div></div>{% endif %}
+  {% for message in plan.hints %}<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ message }}</span></div>{% endfor %}
+
+  <h3>{{ de_en("Im Fragebogen", "In the questionnaire") }}</h3>
+  <ul class="census-steps">{% for step in steps %}<li>{{ step }}</li>{% endfor %}</ul>
+
+  {% for quota in plan.quotas %}
+  {% set grid = grids[quota.code] %}
+  <h3>{{ quota.name }} <span class="hint">{{ de_en("{n} Teilquoten", "{n} sub-quotas", n=quota.cells|length) }}{% if opts.n %}{{ de_en(", Soll zusammen {n}", ", total target {n}", n=quota.cells|sum(attribute="target")) }}{% endif %}</span></h3>
+  <div class="census-scroll">
+  {% if grid %}
+  {% call list_table("census-table") %}
+    <thead><tr><th></th>{% for col in grid.cols %}<th class="num">{{ col }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in grid.cells %}<tr><th scope="row">{{ grid.rows[loop.index0] }}</th>{% for c in row %}<td class="num" title="{{ c.name }}: {{ pct(c.share) }}">{% if opts.n %}{{ c.target }}{% else %}{{ pct(c.share) }}{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  {% endcall %}
+  {% else %}
+  {% call list_table("census-table census-list") %}
+    <thead><tr><th>{{ de_en("Teilquote", "Sub-quota") }}</th><th class="num">{{ de_en("Anteil", "Share") }}</th>{% if opts.n %}<th class="num">{{ de_en("Soll", "Target") }}</th>{% endif %}</tr></thead>
+    <tbody>{% for c in quota.cells %}<tr><th scope="row">{{ c.name }}</th><td class="num">{{ pct(c.share) }}</td>{% if opts.n %}<td class="num">{{ c.target }}</td>{% endif %}</tr>{% endfor %}</tbody>
+  {% endcall %}
+  {% endif %}
+  </div>
+  {% endfor %}
+
+  {% if editable %}
+  <form method="post" action="{{ url_for('flow_page.quota_census', survey_id=survey.id, lang=lang) }}" class="stack census-apply" id="census-apply">
+    {{ csrf() }}{{ chosen() }}
+    {% if old %}<label class="check"><input type="checkbox" name="replace" value="1" required> {{ de_en("Die bisherigen Quoten des Assistenten ersetzen ({names})", "Replace the assistant's previous quotas ({names})", names=old|map(attribute="name")|join(", ")) }}</label>{% endif %}
+    {# the reason stands before the locked button, not under it (V10) #}
+    {% if not opts.n %}<p class="muted small">{{ de_en("Zum Anlegen bitte oben die Stichprobengröße eintragen und die Vorschau zeigen.", "To create the quotas, please enter the sample size above and show the preview.") }}</p>{% endif %}
+    <div class="form-actions"><button class="button" {% if not opts.n or problems or plan.errors %}disabled{% endif %}>{{ de_en("Quoten anlegen", "Create quotas") }}</button></div>
+  </form>
+  {% endif %}
+  <p class="muted small">{{ de_en("Datenquelle:", "Data source:") }} {{ census.source(ui_language()) }} (<a href="{{ census.SOURCE_URL }}" target="_blank" rel="noopener">{{ de_en("Tabelle", "table") }}</a>, <a href="{{ census.LICENCE_URL }}" target="_blank" rel="noopener">{{ de_en("Lizenz", "licence") }}</a>). {{ de_en("Bei gekreuzten Quoten stammt jeder Anteil aus der gemeinsamen Verteilung der Merkmale; das Soll ist so gerundet, dass jede Quote genau die Stichprobengröße ergibt.", "With crossed quotas, each share comes from the joint distribution of the attributes; the target is rounded so that each quota adds up to exactly the sample size.") }}</p>
+  {% from "_sources.html" import grouped %}{{ grouped(census.source_groups(), de_en("Literatur zu den Altersgruppen, der Zusammenfassung der Bundesländer und der Anteile", "References for the age groups, the grouping of the federal states and the shares")) }}
+</section>
+</div>
+{% endblock %}

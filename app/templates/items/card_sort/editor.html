@@ -1,0 +1,77 @@
+{% from "_learn.html" import why %}
+{% from "_macros.html" import row_list_hint %}
+{% set question_hint = de_en("z. B. „Bitte legen Sie die Begriffe, die für Sie zusammengehören, auf einen Stapel.“", "e.g. “Please put the terms that belong together for you on one pile.”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+{% set c = item.cfg %}
+{% set mode = c.get("mode", "closed") %}
+<fieldset>
+  <legend>{{ de_en("Art der Sortierung", "Kind of sort") }}</legend>
+  {% for key, text, hint in [
+      ("closed", de_en("geschlossen", "closed"), de_en("auf die vorgegebenen Stapel", "onto the given piles")),
+      ("open", de_en("offen", "open"), de_en("Teilnehmende legen Stapel an und benennen sie", "participants make and name the piles")),
+      ("hybrid", de_en("gemischt", "hybrid"), de_en("vorgegebene Stapel und eigene dazu", "given piles and own ones besides"))] %}
+  <label class="check"><input type="radio" name="mode" value="{{ key }}" data-reload-saved {% if mode == key %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ text }} <span class="hint">{{ hint }}</span></label>
+  {% endfor %}
+  {{ why("card_sort_mode") }}
+  {% if mode != "closed" %}
+  <label>{{ de_en("Höchstens so viele eigene Stapel", "At most this many own piles") }}
+    <input type="number" name="max_own" min="1" max="30" value="{{ c.get('max_own', 8) }}" class="narrow" {% if not structural %}readonly{% endif %}>
+    <span class="hint">{{ de_en("im Export Codes 101, 102 … und je eine Spalte mit dem Namen ({col})", "in the export codes 101, 102 … and a column with the name each ({col})", col=item.code ~ "_own1") }}</span></label>
+  {% endif %}
+  <label class="check"><input type="checkbox" name="rank" value="1" {% if c.get("rank") %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Karten in jedem Stapel zusätzlich in eine Reihenfolge bringen", "Also put the cards in order within each pile") }} <span class="hint">{{ de_en("Spalte {col}: 1 = oben", "column {col}: 1 = top", col=item.code ~ "_Code_rank") }}</span></label>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Karten", "Cards") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Teil des Variablennamens ({col} = Code des Stapels)", "code = part of the variable name ({col} = code of the pile)", col=item.code ~ "_Code") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Beschriftung", "Label") }} <span class="hint">{{ de_en("kurz halten: ein Begriff oder ein kurzer Satz", "keep it short: a term or a short sentence") }}</span></th></tr></thead>
+    <tbody>
+    {% set labels = lt.get("options", {}) %}
+    {% for o in item.config.options %}
+      <tr>
+        <td><input type="hidden" name="option_id" value="{{ o.id }}"><input name="option_code" aria-label="Code" value="{{ o.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" value="{{ labels.get(o.id, '') }}" maxlength="200" placeholder="{{ (item.text('options') or {}).get(o.id, '') }}"></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="option_id" value="{{ new_id() }}"><input name="option_code" aria-label="Code" class="narrow" placeholder="{{ item.config.options|length + loop.index }}"></td>
+        <td><input name="option_label" aria-label="{{ de_en('Beschriftung', 'Label') }}" maxlength="200" placeholder="{{ de_en('neue Karte', 'new card') }}"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint(de_en("Bewährt sind etwa 15 bis 40 Karten.", "About 15 to 40 cards work well.")) }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if c.get("randomize", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Karten in zufälliger Reihenfolge anbieten", "Offer the cards in random order") }} <span class="hint">{{ de_en("empfohlen", "recommended") }}</span></label>
+</fieldset>
+{% if mode != "open" %}
+<fieldset>
+  <legend>{{ de_en("Vorgegebene Stapel", "Given piles") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("Code = Wert in den Spalten der Karten", "code = value in the columns of the cards") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th class="narrow-col">Code</th><th>{{ de_en("Bezeichnung", "Label") }}</th></tr></thead>
+    <tbody>
+    {% set glabels = lt.get("groups", {}) %}
+    {% for g in c.get("groups", []) %}
+      <tr>
+        <td><input type="hidden" name="group_id" value="{{ g.id }}"><input name="group_code" aria-label="Code" value="{{ g.code }}" class="narrow" {% if not structural %}readonly{% endif %}></td>
+        <td><input name="group_label" aria-label="{{ de_en('Bezeichnung', 'Label') }}" value="{{ glabels.get(g.id, '') }}" maxlength="200" placeholder="{{ (item.text('groups') or {}).get(g.id, '') }}"></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(2) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="group_id" value="{{ new_id() }}"><input name="group_code" aria-label="Code" class="narrow" placeholder="{{ c.get('groups', [])|length + loop.index }}"></td>
+        <td><input name="group_label" aria-label="{{ de_en('Bezeichnung', 'Label') }}" maxlength="200" placeholder="{{ de_en('neuer Stapel', 'new pile') }}"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint() }}
+</fieldset>
+{% else %}
+{% for g in c.get("groups", []) %}<input type="hidden" name="group_id" value="{{ g.id }}"><input type="hidden" name="group_code" value="{{ g.code }}"><input type="hidden" name="group_label" value="{{ lt.get('groups', {}).get(g.id, '') }}">{% endfor %}
+{% endif %}
+<p class="muted small">{{ de_en("Ergebnisse: Verteilung je Karte, wie oft zwei Karten auf demselben Stapel lagen (Grundlage für Clusteranalysen) und die Namen eigener Stapel. Vorbild: Sortierverfahren (Rugg & McGeorge, 1997; Coxon, 1999).", "Results: distribution per card, how often two cards were on the same pile (the basis for cluster analyses) and the names of own piles. Model: sorting techniques (Rugg & McGeorge, 1997; Coxon, 1999).") }}</p>

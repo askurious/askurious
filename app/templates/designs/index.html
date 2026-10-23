@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, orcid_link %}
+{% from "_share.html" import end_share %}
+{% from "_people.html" import person_add %}
+{% from "_icons.html" import icon %}
+{% block title %}Designs{% endblock %}
+{% macro tile_head(design) %}
+  {% set t = look(design) %}
+  {# the sample page in the look of the design, small: what participants would see (not to be used, only looked at) #}
+  <div class="design-tile-look" style="background: {{ t.colors.background }}" aria-hidden="true">
+    <iframe src="{{ url_for('designs.look_page', design_id=design.id) }}" title="{{ de_en('Beispielseite im Design „{name}“', 'Sample page in the design “{name}”', name=design.name) }}" loading="lazy" tabindex="-1" scrolling="no"></iframe>
+  </div>
+  <p class="design-tile-facts muted small">{{ de_en("Schrift", "Font") }} {{ themes.font_name(t.font) }} · {{ de_en("Ecken", "Corners") }} {{ themes.radii()[t.radius]|lower }}{% if t.scheme == "auto" %} · {{ de_en("hell und dunkel", "light and dark") }}{% elif themes.is_dark(t) %} · {{ de_en("dunkel", "dark") }}{% endif %}{% if t.logo %} · {{ de_en("mit Logo", "with logo") }}{% endif %}</p>
+{% endmacro %}
+{% block content %}
+<h1>Designs</h1>
+{# the one autosave line of the page while the names of several designs save by themselves (app.js) #}
+<p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+<p class="muted">{{ de_en("Ein Design ist das Erscheinungsbild einer Befragung, unter einem Namen aufbewahrt. Angelegt wird es hier oder auf der Seite
+  „Erscheinungsbild“ einer Befragung („Als Design speichern“); angewendet wird es in den Einstellungen einer Befragung. Eine Befragung bekommt
+  immer ihre eigene Kopie: Wer ein Design später ändert, löscht oder nicht mehr teilt, ändert keine Befragung.",
+  "A design is the appearance of a survey, kept under a name. You create it here or on the page “Appearance” of a survey (“Save as design”);
+  you apply it in the settings of a survey. A survey always gets its own copy: changing, deleting or no longer sharing a design later
+  changes no survey.") }}</p>
+
+<section class="panel">
+  <h2>{{ de_en("Meine Designs", "My designs") }}</h2>
+  {% if not may_create %}<p class="muted">{{ not_allowed }}</p>
+  {% else %}
+  {% if not own %}<p class="muted">{{ de_en("Noch keine. Legen Sie hier ein neues an, oder wählen Sie in einer Befragung unter Einstellungen → Erscheinungsbild → „Erscheinungsbild öffnen“ den Knopf „Als Design speichern“.", "None yet. Create a new one here, or in a survey choose the button “Save as design” under Settings → Appearance → “Open appearance”.") }}</p>{% endif %}
+  <form method="post" action="{{ url_for('designs.new') }}" class="design-new">
+    {{ csrf() }}
+    {# a visible label, not only a placeholder (UI/UX audit 2026-10-05, V97) #}
+    <label class="design-new-name">{{ de_en("Name des neuen Designs", "Name of the new design") }} <input type="text" name="name" maxlength="80" required></label>
+    <button class="button">{{ icon("plus", 16) }} {{ de_en("Neues Design", "New design") }}</button>
+  </form>
+  {% endif %}
+  <div class="design-tiles">
+    {% for d in own %}
+    <article class="design-tile" id="design-{{ d.id }}">
+      {{ tile_head(d) }}
+      {# the name saves by itself when the field is left, as the other names (UI audit 2026-10-04, R95) #}
+      <form method="post" action="{{ url_for('designs.rename', design_id=d.id) }}" class="design-tile-name" data-autosave-form data-autosave-on-leave>
+        {{ csrf() }}<input type="text" name="name" value="{{ d.name }}" maxlength="80" aria-label="{{ de_en('Name des Designs', 'Name of the design') }}" required>
+        {{ autosave_bar(small=true) }}
+      </form>
+      <div class="design-tile-shares">
+        <strong>{{ de_en("Geteilt mit", "Shared with") }}</strong>
+        {% if not d.shares and not d.group_shares %}<span class="muted">{{ de_en("niemandem", "no one") }}</span>{% endif %}
+        <ul>
+          {% for s in d.group_shares %}
+          <li><span class="badge">{{ de_en("Gruppe", "Group") }}</span> <a href="{{ url_for('groups.detail', group_id=s.group.id) }}">{{ s.group.name }}</a>
+            {{ end_share(url_for('designs.unshare_group', design_id=d.id), de_en("Freigabe für die Gruppe „{name}“ beenden", "End sharing with the group “{name}”", name=s.group.name), {"group": s.group.id}, de_en("Befragungen, die das Design schon verwenden, behalten ihr Erscheinungsbild.", "Surveys that already use the design keep their appearance.")) }}</li>
+          {% endfor %}
+          {% for s in d.shares %}
+          {% set edits = s.user_id in d.editors|map(attribute="user_id") %}
+          {% set who = names.get(s.user_id) or s.orcid_id or de_en("(ohne Namen)", "(without a name)") %}
+          <li>{{ who }} {{ orcid_link(s.orcid_id) }}
+            <form method="post" action="{{ url_for('designs.editor', design_id=d.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="user" value="{{ s.user_id }}">
+              {% if edits %}<span class="badge">{{ de_en("darf bearbeiten", "may edit") }}</span> <button class="button button-secondary button-small design-right" title="{{ de_en('{who} das Bearbeiten wieder nehmen', 'Take the right to edit from {who}', who=who) }}">{{ de_en("Entziehen", "Revoke") }}</button>
+              {% else %}<input type="hidden" name="allow" value="1"><button class="button button-secondary button-small design-right" title="{{ de_en('{who} darf das Design dann auch ändern', '{who} may then also change the design', who=who) }}">{{ de_en("Bearbeiten erlauben", "Allow editing") }}</button>{% endif %}</form>
+            {{ end_share(url_for('designs.unshare', design_id=d.id), de_en("Freigabe für {who} beenden", "End sharing with {who}", who=who), {"user": s.user_id}, de_en("Befragungen, die das Design schon verwenden, behalten ihr Erscheinungsbild.", "Surveys that already use the design keep their appearance.")) }}</li>
+          {% endfor %}
+        </ul>
+        {# one component for adding a person (_people.html, S8): search by name, ORCID iD or email, the right with each match #}
+        <div class="design-tile-person">
+        {{ person_add(url_for('designs.index') ~ "#design-" ~ d.id, "design-share-" ~ d.id, q if share_for == d.id else "", results if share_for == d.id else none, url_for('designs.share', design_id=d.id), roles=rights, role_name="right", role_default="use", search_hidden={"share": d.id}, add_word=de_en("Teilen", "Share")) }}
+        </div>
+        {# with the whole organisation it belongs to (app/orgs.py, A13), once there is more than one #}
+        {% if org_several() %}
+        <form method="post" action="{{ url_for('designs.share_org', design_id=d.id) }}" class="design-tile-share">
+          {{ csrf() }}
+          <label class="check"><input type="checkbox" name="state" value="on" {% if d.org_shared %}checked{% endif %} data-submit-on-change>
+            {{ de_en("Mit der ganzen Organisation „{o}“ teilen", "Share with the whole organisation “{o}”", o=org_label(org_get(org_of(d)))) }}</label>
+          <noscript><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></noscript>
+        </form>
+        {% endif %}
+        {% set open_groups = my_groups|rejectattr("id", "in", d.group_shares|map(attribute="group_id")|list)|list %}
+        {% if open_groups %}
+        <form method="post" action="{{ url_for('designs.share_group', design_id=d.id) }}" class="design-tile-share">
+          {{ csrf() }}
+          <select name="group" aria-label="{{ de_en('Teilen mit Gruppe', 'Share with group') }}" required>
+            <option value="">{{ de_en("Gruppe wählen …", "Choose group …") }}</option>
+            {% for g in open_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+          <button class="button button-secondary button-small">{{ de_en("Mit Gruppe teilen", "Share with group") }}</button>
+        </form>
+        {% elif my_groups %}
+        <p class="muted small design-tile-note" data-no-more-groups>{% if my_groups|length == 1 %}{{ de_en("Weitere Gruppen: Ihre Gruppe hat das Design schon.", "Further groups: your group already has the design.") }}{% else %}{{ de_en("Weitere Gruppen: Alle Ihre Gruppen haben das Design schon.", "Further groups: all your groups already have the design.") }}{% endif %}
+          {{ de_en("Teilen können Sie mit jeder Gruppe, in der Sie Mitglied sind, auch mit mehreren.", "You can share with every group you are a member of, also with several.") }}</p>
+        {% endif %}
+        {% if d.group_shares or d.shares %}<p class="muted small design-tile-note">{{ de_en("Wer das Design geteilt bekommt, wendet es an und dupliziert es; das gilt auch für die Leitung einer Gruppe. Bearbeiten kann es nur eine einzeln eingetragene Person, der Sie es erlauben.", "Those the design is shared with apply and duplicate it; this also applies to the leads of a group. Only a person entered individually whom you allow it can edit it.") }}</p>{% endif %}
+      </div>
+      <div class="button-row">
+        <a class="button button-small" href="{{ url_for('designs.edit', design_id=d.id) }}">{{ de_en("Bearbeiten", "Edit") }}</a>
+        {% if may_create %}<form method="post" action="{{ url_for('designs.duplicate', design_id=d.id) }}" class="inline">{{ csrf() }}<button class="button button-secondary button-small">{{ de_en("Duplizieren", "Duplicate") }}</button></form>{% endif %}
+        <form method="post" action="{{ url_for('designs.delete', design_id=d.id) }}" class="inline"
+              data-confirm="{{ de_en('Design „{name}“ löschen?', 'Delete design “{name}”?', name=d.name) }}" data-confirm-note="{{ de_en('Befragungen, die es verwendet haben, behalten ihr Erscheinungsbild.', 'Surveys that used it keep their appearance.') }}"
+              data-confirm-ok="{{ de_en('Design löschen', 'Delete design') }}" data-confirm-danger>{{ csrf() }}<button class="button button-danger button-small">{{ de_en("Löschen", "Delete") }}</button></form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Mit mir geteilt", "Shared with me") }} <span class="hint">{{ de_en("anwenden und duplizieren; bearbeiten nur, wenn die Person, der es gehört, es Ihnen einzeln erlaubt hat", "apply and duplicate; edit only if the owner allowed it to you individually") }}</span></h2>
+  {% if not shared %}<p class="muted">{{ de_en("Niemand hat ein Design mit Ihnen geteilt.", "No one has shared a design with you.") }}</p>{% endif %}
+  <div class="design-tiles">
+    {% for d in shared %}
+    <article class="design-tile">
+      {{ tile_head(d) }}
+      <p class="design-tile-title"><strong>{{ d.name }}</strong> <span class="muted">{{ de_en("von {owner}", "by {owner}", owner=d.owner.display_name) }}{% set via = via_groups(current_user, d) %}{% if via %}
+        · {% if via|length == 1 %}{{ de_en("über die Gruppe {names}", "via the group {names}", names=via|map(attribute="name")|join(", ")) }}{% else %}{{ de_en("über die Gruppen {names}", "via the groups {names}", names=via|map(attribute="name")|join(", ")) }}{% endif %}{% endif %}</span></p>
+      {% if usable(current_user, d) %}
+      <div class="button-row">
+        {% if may_edit(current_user, d) %}<a class="button button-small" href="{{ url_for('designs.edit', design_id=d.id) }}" title="{{ de_en('{owner} hat Ihnen das Bearbeiten erlaubt', '{owner} has allowed you to edit it', owner=d.owner.display_name) }}">{{ de_en("Bearbeiten", "Edit") }}</a>{% endif %}
+        {% if may_create %}<form method="post" action="{{ url_for('designs.duplicate', design_id=d.id) }}" class="inline">{{ csrf() }}<button class="button button-secondary button-small">{{ de_en("Duplizieren", "Duplicate") }}</button></form>{% endif %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Designs der Plattform", "Designs of the platform") }} <span class="hint">{{ de_en("stehen in jeder Befragung unter „Erscheinungsbild“ bereit", "available in every survey under “Appearance”") }}</span></h2>
+  <ul class="design-builtin">
+    {% for key, t in builtin.items() %}
+    <li><span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ (t.tile or {}).get(c, t.colors[c]) }}"></span>{% endfor %}</span>
+      <strong>{{ t.name }}</strong> <span class="muted">{{ t.note }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

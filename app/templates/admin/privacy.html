@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, list_table %}
+{# Needs: c (app/privacy_concept.build()), max_chars. Every table has fixed columns of the same widths (pc-table,
+   app.css; Ralf 2026-10-21: the widths changed from table to table). The Datenschutzkonzept: built anew on every call; the same data
+   as the Word file (app/privacy_concept_docx.py). Printing hides the header, the tabs and the form (privacy-print). #}
+{% block title %}{{ de_en("Datenschutz", "Data protection") }} · Administration{% endblock %}
+{% block container_class %}container admin-page privacy-print{% endblock %}
+{% block content %}
+{% set active = "privacy" %}<div class="no-print">{% include "admin/_tabs.html" %}</div>
+{% set h = c.headings %}
+{% macro org_field(key) %}{% set v = c.org[key] %}{% set label, hint = c.labels[key] %}
+    <label>{{ label }}
+      <input name="{{ key }}" value="{{ v.value }}" maxlength="{{ max_chars }}" placeholder="{{ hint }}">
+      {% if v.at %}<span class="muted small">{{ de_en("zuletzt geändert {when} von {who}", "last changed {when} by {who}", when=v.at|localdt, who=v.by or "—") }}</span>{% endif %}
+    </label>
+{% endmacro %}
+<section class="panel">
+  <h2>{{ de_en("Datenschutzkonzept {brand}", "Data protection concept {brand}", brand=c.meta.brand) }}</h2>
+  <p class="muted small">{{ de_en("Stand {date} · {base} · Nutzungsbedingungen Version {terms}", "As of {date} · {base} · terms of use version {terms}", date=c.meta.date, base=c.meta.base, terms=c.meta.terms) }}</p>
+  {% for text in c.intro %}<p>{{ text }}</p>{% endfor %}
+  <div class="form-actions no-print">
+    <a class="button" href="{{ url_for('admin.privacy_docx') }}">{{ de_en("Als Word herunterladen", "Download as Word") }}</a>
+    <button type="button" class="button button-secondary" data-print>{{ de_en("Drucken", "Print") }}</button>
+  </div>
+</section>
+
+<section class="panel" id="{{ h.scope[0] }}">
+  <h2>{{ h.scope[1] }}</h2>
+  <form method="post" action="{{ url_for('admin.privacy') }}" class="stack no-print" data-autosave-form>
+    {{ csrf() }}
+    {% for key in c.org_keys %}{{ org_field(key) }}{% endfor %}
+    {{ autosave_bar() }}
+  </form>
+  <div class="print-only">
+    {% call list_table("pc-table") %}<tbody>{% for key in c.org_keys %}<tr><th>{{ c.labels[key][0] }}</th><td>{{ c.org[key].value or de_en("— nicht ausgefüllt —", "— not filled in —") }}</td></tr>{% endfor %}</tbody>{% endcall %}
+  </div>
+</section>
+
+<section class="panel" id="{{ h.roles[0] }}">
+  <h2>{{ h.roles[1] }}</h2>
+  <p class="muted small">{{ de_en("Nach Personengruppe, nie nach einzelner Person.", "By group of people, never by individual.") }}</p>
+  <div class="res-scroll">{% call list_table("pc-table") %}
+    <thead><tr><th>{{ de_en("Personengruppe", "Group of people") }}</th><th>{{ de_en("Wie bestimmt", "How set") }}</th><th>{{ de_en("Sieht und verarbeitet", "Sees and processes") }}</th></tr></thead>
+    <tbody>{% for r in c.roles %}<tr><td><strong>{{ r.who }}</strong></td><td class="small">{{ r.how }}</td><td class="small">{{ r.sees }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+</section>
+
+<section class="panel" id="{{ h.record[0] }}">
+  <h2>{{ h.record[1] }}</h2>
+  {% for a in c.activities %}
+  <h3>{{ a.no }}. {{ a.name }}</h3>
+  <div class="res-scroll">{% call list_table("pc-table") %}<tbody>
+    {% if a.catalog %}<tr><th>{{ de_en("Katalogname", "Catalogue name") }}</th><td class="small">{{ a.catalog }}</td></tr>{% endif %}
+    <tr><th>{{ de_en("Eingeführt, zuletzt geändert", "Introduced, last changed") }}</th><td class="small">{{ a.since }} · {{ a.changed }}</td></tr>
+    <tr><th>{{ de_en("Verfahren", "Procedure") }}</th><td class="small">{{ a.procedure }}</td></tr>
+    <tr><th>{{ de_en("Verantwortlich", "Controller") }}</th><td class="small">{{ a.controller }}</td></tr>
+    <tr><th>{{ de_en("Zweck", "Purpose") }}</th><td class="small">{{ a.purpose }}</td></tr>
+    <tr><th>{{ de_en("Betroffene", "Data subjects") }}</th><td class="small">{{ a.subjects }}</td></tr>
+    <tr><th>{{ de_en("Datenkategorien", "Categories of data") }}</th><td class="small">{{ a.data }}</td></tr>
+    <tr><th>{{ de_en("Empfänger intern", "Internal recipients") }}</th><td class="small">{{ a.internal }}</td></tr>
+    <tr><th>{{ de_en("Empfänger", "Recipients") }}</th><td class="small">{{ a.recipients }}</td></tr>
+    <tr><th>{{ de_en("Übermittlung in ein Drittland", "Transfer to a third country") }}</th><td class="small">{{ a.third_country }}</td></tr>
+    <tr><th>{{ de_en("Löschfristen", "Deletion periods") }}</th><td class="small">{{ a.deletion }}</td></tr>
+    <tr><th>{{ de_en("Rechtsgrundlage (Vorschlag)", "Legal basis (proposal)") }}</th><td class="small">{{ a.basis }}</td></tr>
+    {% if a.own_basis %}<tr><th>{{ de_en("Rechtsgrundlage dieser Installation", "Legal basis of this installation") }}</th><td class="small">{{ a.own_basis }}</td></tr>{% endif %}
+  </tbody>{% endcall %}</div>
+  {% endfor %}
+  <p class="muted small">{{ de_en("Maßnahmen: siehe Abschnitt 6.", "Measures: see section 6.") }}</p>
+</section>
+
+<section class="panel" id="{{ h.flow[0] }}">
+  <h2>{{ h.flow[1] }}</h2>
+  <div class="res-scroll">{% call list_table("pc-table") %}
+    <thead><tr><th>{{ de_en("Schritt", "Step") }}</th><th>{{ de_en("Daten", "Data") }}</th><th>{{ de_en("Maßnahmen", "Measures") }}</th><th>{{ de_en("Wer", "Who") }}</th></tr></thead>
+    <tbody>{% for f in c.flow %}<tr><td><strong>{{ f.step }}</strong></td><td class="small">{{ f.data }}</td><td class="small">{{ f.measures }}</td><td class="small">{{ f.who }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+</section>
+
+<section class="panel" id="{{ h.services[0] }}">
+  <h2>{{ h.services[1] }}</h2>
+  <p class="muted small">{{ de_en("„Hier“ zeigt, ob der Dienst auf diesem Server eingeschaltet ist.", "“Here” shows whether the service is switched on on this server.") }}</p>
+  <div class="res-scroll">{% call list_table("pc-table pc-services") %}
+    <thead><tr><th>{{ de_en("Dienst", "Service") }}</th><th>{{ de_en("Gesendete Daten", "Data sent") }}</th><th>{{ de_en("Ausgelöst von", "Triggered by") }}</th><th>{{ de_en("Schalter", "Switch") }}</th><th>{{ de_en("Hier", "Here") }}</th><th>{{ de_en("Ort, Grundlage", "Location, basis") }}</th><th>{{ de_en("Auftragsverarbeitung", "Processing agreement") }}</th></tr></thead>
+    <tbody>{% for s in c.services %}<tr><td><strong>{{ s.name }}</strong></td><td class="small">{{ s.data }}</td><td class="small">{{ s.who }}</td><td class="small">{{ s.switch }}</td>
+      <td class="small">{% if s.state[0] %}<span class="badge badge-running">{{ s.state[1] }}</span>{% else %}<span class="muted">{{ s.state[1] }}</span>{% endif %}</td><td class="small">{{ s.where }}</td><td class="small">{{ s.avv or "—" }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+</section>
+
+<section class="panel" id="{{ h.measures[0] }}">
+  <h2>{{ h.measures[1] }}</h2>
+  <p class="muted small">{{ de_en("Geordnet nach den Gewährleistungszielen des Standard-Datenschutzmodells 3.1; zuerst die Zuordnung zu den Kontrollarten der TOM-Liste.", "Ordered by the protection goals of the Standard Data Protection Model 3.1; first the mapping to the control types of the TOM list.") }}</p>
+  <h3>{{ de_en("Kontrollarten (Art. 32 Abs. 1)", "Control types (Art. 32 (1))") }}</h3>
+  <div class="res-scroll">{% call list_table("pc-table pc-controls") %}
+    <thead><tr><th>{{ de_en("Kontrollart", "Control type") }}</th><th>Art. 32</th><th>{{ de_en("Maßnahmen", "Measures") }}</th></tr></thead>
+    <tbody>{% for name, lit, text in c.controls %}<tr><td><strong>{{ name }}</strong></td><td class="small">{{ lit }}</td><td class="small">{{ text }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+  {% for goal, rows in c.measures %}
+  <h3>{{ goal }}</h3>
+  <div class="res-scroll">{% call list_table("pc-table pc-code") %}
+    <tbody>{% for text, where in rows %}<tr><td class="small">{{ text }}</td><td class="small"><code>{{ where }}</code></td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+  {% endfor %}
+</section>
+
+<section class="panel" id="{{ h.defaults[0] }}">
+  <h2>{{ h.defaults[1] }}</h2>
+  <ul>{% for text in c.defaults %}<li>{{ text }}</li>{% endfor %}</ul>
+</section>
+
+<section class="panel" id="{{ h.risks[0] }}">
+  <h2>{{ h.risks[1] }}</h2>
+  <p class="small">{{ de_en("Kriterien nach WP 248 rev.01; zwei oder mehr sprechen in der Regel für eine DSFA: {k}.", "Criteria of WP 248 rev.01; two or more usually call for an impact assessment: {k}.", k=c.criteria|join("; ")) }}</p>
+  <div class="res-scroll">{% call list_table("pc-table") %}
+    <thead><tr><th>{{ de_en("Tätigkeit", "Activity") }}</th><th>{{ de_en("Zutreffende Kriterien", "Criteria met") }}</th><th>{{ de_en("Ergebnis (Vorschlag)", "Result (proposal)") }}</th></tr></thead>
+    <tbody>{% for name, crit, result in c.risks %}<tr><td><strong>{{ name }}</strong></td><td class="small">{{ crit }}</td><td class="small">{{ result }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+</section>
+
+<section class="panel" id="{{ h.breach[0] }}">
+  <h2>{{ h.breach[1] }}</h2>
+  <p>{{ c.breach }}</p>
+  <p><strong>{{ c.labels.privacy_breach[0] }}:</strong> {{ c.org.privacy_breach.value or de_en("— nicht ausgefüllt —", "— not filled in —") }}</p>
+</section>
+
+<section class="panel" id="{{ h.open[0] }}">
+  <h2>{{ h.open[1] }}</h2>
+  {% if c.open %}<ul>{% for text in c.open %}<li>{{ text }}</li>{% endfor %}</ul>{% else %}<p class="muted">{{ de_en("Keine.", "None.") }}</p>{% endif %}
+</section>
+
+<section class="panel" id="{{ h.sources[0] }}">
+  <h2>{{ h.sources[1] }}</h2>
+  <ul class="small">{% for text in c.sources %}<li>{{ text }}</li>{% endfor %}</ul>
+</section>
+
+{% set d = c.dpia %}
+<section class="panel" id="{{ h.dpia[0] }}">
+  <h2>{{ h.dpia[1] }}</h2>
+  <p><strong>{{ d.result }}</strong></p>
+  {% for text in d.scope %}<p class="small">{{ text }}</p>{% endfor %}
+  <form method="post" action="{{ url_for('admin.privacy') }}" class="stack no-print" data-autosave-form>
+    {{ csrf() }}{{ org_field("privacy_dpia_coding") }}
+    {{ autosave_bar() }}
+  </form>
+  <p class="print-only"><strong>{{ c.labels.privacy_dpia_coding[0] }}:</strong> {{ d.statement or de_en("— nicht ausgefüllt —", "— not filled in —") }}</p>
+
+  <h3>{{ de_en("Beschreibung der Verarbeitung (Art. 35 Abs. 7 lit. a)", "Description of the processing (Art. 35 (7) (a))") }}</h3>
+  <div class="res-scroll">{% call list_table("pc-table") %}<tbody>{% for label, text in d.facts %}<tr><th>{{ label }}</th><td class="small">{{ text }}</td></tr>{% endfor %}</tbody>{% endcall %}</div>
+
+  <h3>{{ de_en("Schwellwertanalyse", "Threshold analysis") }}</h3>
+  <p class="small">{{ de_en("Neue Technologie trifft sicher zu, vertrauliche Daten und schutzbedürftige Betroffene je nach Befragung; dazu kommt beim Weg über OpenAI das Drittland.", "New technology applies for sure, sensitive data and vulnerable people depending on the survey; the route over OpenAI adds the third country.") }}</p>
+  <div class="res-scroll">{% call list_table("pc-table pc-met") %}
+    <thead><tr><th>{{ de_en("Kriterium (WP 248)", "Criterion (WP 248)") }}</th><th>{{ de_en("Erfüllt", "Met") }}</th><th>{{ de_en("Begründung", "Reason") }}</th></tr></thead>
+    <tbody>{% for crit, met, why in d.threshold %}<tr><td class="small">{{ crit }}</td><td class="small">{{ met }}</td><td class="small">{{ why }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+
+  <h3>{{ de_en("Notwendigkeit und Verhältnismäßigkeit (lit. b)", "Necessity and proportionality (b)") }}</h3>
+  <ul class="small">{% for text in d.necessity %}<li>{{ text }}</li>{% endfor %}</ul>
+
+  <h3>{{ de_en("Risiken (lit. c)", "Risks (c)") }}</h3>
+  <div class="res-scroll">{% call list_table("pc-table pc-nr") %}
+    <thead><tr><th>{{ de_en("Nr.", "No.") }}</th><th>{{ de_en("Risiko", "Risk") }}</th><th>{{ de_en("Vor den Maßnahmen", "Before the measures") }}</th><th>{{ de_en("Danach, über OpenAI", "After, over OpenAI") }}</th><th>{{ de_en("Danach, Anbieter in Deutschland", "After, provider in Germany") }}</th></tr></thead>
+    <tbody>{% for nr, risk, gross, net_us, net_de in d.risks %}<tr><td class="small">{{ nr }}</td><td class="small">{{ risk }}</td><td class="small">{{ gross }}</td><td class="small">{{ net_us }}</td><td class="small">{{ net_de }}</td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+
+  <h3>{{ de_en("Maßnahmen (lit. d)", "Measures (d)") }}</h3>
+  <div class="res-scroll">{% call list_table("pc-table pc-code") %}
+    <thead><tr><th>{{ de_en("Vorhanden", "In place") }}</th><th>{{ de_en("Gegen", "Against") }}</th><th>{{ de_en("Fundstelle", "Where") }}</th></tr></thead>
+    <tbody>{% for text, against, where in d.measures %}<tr><td class="small">{{ text }}</td><td class="small">{{ against }}</td><td class="small"><code>{{ where }}</code></td></tr>{% endfor %}</tbody>
+  {% endcall %}</div>
+  <p class="small"><strong>{{ de_en("Vorgeschlagen:", "Proposed:") }}</strong></p>
+  <ul class="small">{% for text in d.proposed %}<li>{{ text }}</li>{% endfor %}</ul>
+  <p class="muted small">{{ d.review }}</p>
+</section>
+{% endblock %}

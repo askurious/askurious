@@ -1,0 +1,56 @@
+{# Conjoint (CBC) (items/conjoint.py results(), app/cbc_analysis.py): ordered by the questions of the researchers (UI/UX
+   audit 2026-10-07, S7): on top the importance and the part-worths (HB when a current estimation is there, else the
+   aggregate logit), then the market simulator; folded below the counts, the aggregate logit in detail, the segments
+   and the model quality (holdout, fit per person, convergence). Needs: e (entry), num. #}
+{% set a = e.cbc.counts %}
+{% set m = e.cbc.model %}
+{% set h = e.cbc.hb %}
+{% set hb_now = h and h.state == "current" and h.result %}
+<div class="acbc-results">
+{% if a.skipped %}<p class="flash flash-warning">{% if a.skipped != 1 %}{{ de_en("{n} Personen ausgelassen: Ihre Version gibt es im aktuellen Versuchsplan nicht mehr.", "{n} people left out: their version no longer exists in the current experimental design.", n=a.skipped) }}{% else %}{{ de_en("{n} Person ausgelassen: Ihre Version gibt es im aktuellen Versuchsplan nicht mehr.", "{n} person left out: their version no longer exists in the current experimental design.", n=a.skipped) }}{% endif %}</p>{% endif %}
+{% if a.persons %}
+<p class="muted small">{{ de_en("{p} Personen, {t} beantwortete Aufgaben", "{p} people, {t} answered tasks", p=a.persons, t=a.tasks) }}{% if a.none_offered %}; {{ de_en("„Keine davon“ in {n} Aufgaben", "“None of these” in {n} tasks", n=a.none) }} ({{ a.none_share|percent if a.none_share is not none else "– %" }}){% endif %}{% if a.dual %}; {{ de_en("Nachfrage (Dual Response) in {n} Aufgaben beantwortet, davon „würde nicht wählen“ in {k}", "follow-up question (dual response) answered in {n} tasks, “would not choose it” in {k} of them", n=a.asked, k=a.declined) }} ({{ a.declined_share|percent if a.declined_share is not none else "– %" }}){% endif %}.</p>
+{% set pa = e.item.kind.price_attribute(e.item) %}
+{% set cm_with = {"asc_label": (de_en("Konstante „Keine“ (aus der Nachfrage)", "Constant “none” (from the follow-up question)") if a.dual else de_en("Konstante „Keine davon“", "Constant “None of these”")), "sets_note": (de_en("je Aufgabe eine Wahl unter den Optionen; wo die Nachfrage beantwortet ist, kodiert als Dual Response nach Brazell et al. (2006): bei „würde wählen“ stattdessen eine Wahl unter den Optionen und „Keine“, bei „würde nicht wählen“ dazu „Keine“ als Wahl unter den Optionen und „Keine“", "per task one choice among the options; where the follow-up question was answered, coded as dual response after Brazell et al. (2006): for “would choose it” instead one choice among the options and “none”, for “would not choose it” in addition “none” as the choice among the options and “none”") if a.dual else de_en("je Aufgabe eine Wahl unter den Optionen", "per task one choice among the options") ~ (de_en(" und „Keine davon“", " and “None of these”") if a.none_offered else "")), "price_label": (e.item.kind.attributes(e.item)[pa].label if pa is not none else none)} %}
+{# 1. importance and part-worths #}
+{% if not hb_now %}{% with m=m, asc_label=cm_with.asc_label, sets_note=cm_with.sets_note, price_label=cm_with.price_label, cm_part="main" %}{% include "surveys/_choice_model.html" %}{% endwith %}{% endif %}
+{% if h %}{% with hb_section="main" %}{% include "surveys/_conjoint_hb.html" %}{% endwith %}{% endif %}
+{# 2. the market simulator #}
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{# 3. folded: what lies behind #}
+<details class="res-dist res-choice-fold">
+  <summary>{{ de_en("Zählwerte: Wahlanteile je Stufe", "Counts: choice shares per level") }}</summary>
+{% for attr in a.attributes %}
+<div class="res-scroll"><table class="res-table acbc-counts">
+  <thead><tr><th>{{ attr.label }} <span class="hint">{{ attr.code }}</span></th>
+    <th title="{{ de_en('Wie oft die Stufe in einer Option gezeigt wurde', 'How often the level was shown in an option') }}">{{ de_en("gezeigt", "shown") }}</th>
+    <th title="{{ de_en('Wie oft eine Option mit dieser Stufe gewählt wurde', 'How often an option with this level was chosen') }}">{{ de_en("gewählt", "chosen") }}</th>
+    <th title="{{ de_en('gewählt / gezeigt', 'chosen / shown') }}">{{ de_en("Wahlanteil", "Choice share") }}</th></tr></thead>
+  <tbody>
+  {% for lv in attr.levels %}
+    <tr><td>{{ lv.label }}</td><td>{{ lv.shown }}</td><td>{{ lv.chosen }}</td>
+      <td>{{ lv.share|percent if lv.share is not none else "–" }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endfor %}
+<p class="muted small">{{ de_en("Zählwerte beschreiben, wie oft Optionen mit einer Stufe gewählt wurden; sie berücksichtigen die übrigen Stufen der Aufgabe nicht. Bei {k} Optionen je Aufgabe liegt der Zufallswert bei {c}", "Counts describe how often options with a level were chosen; they do not take the other levels of the task into account. With {k} options per task the chance value is {c}", k=e.item.config.alternatives, c=((1 - (a.none_share or 0)) / e.item.config.alternatives)|percent) }}{% if a.none_offered %}{{ de_en(" (die Anteile zählen auch Aufgaben mit „Keine davon“, hier {n}; ohne sie wären es {w})", " (the shares also count tasks with “None of these”, here {n}; without them it would be {w})", n=(a.none_share or 0)|percent, w=(1 / e.item.config.alternatives)|percent) }}{% endif %}.</p>
+</details>
+{% if m %}
+<details class="res-dist res-choice-fold cm-fold" data-cm-item="{{ e.item.id }}">
+  <summary>{{ de_en("Aggregiertes Logit-Modell im Detail", "Aggregate logit model in detail") }}{{ fn("mnl") }}</summary>
+  <div class="cm-fold-body">{% with m=m, asc_label=cm_with.asc_label, sets_note=cm_with.sets_note, price_label=cm_with.price_label, cm_part=("all" if hb_now else "detail") %}{% include "surveys/_choice_model.html" %}{% endwith %}</div>
+</details>
+{% endif %}
+{% if e.cbc.lc %}{% with l=e.cbc.lc %}{% include "surveys/_segments_fold.html" %}{% endwith %}{% endif %}
+{% if e.cbc.holdout or h %}
+<details class="res-dist res-choice-fold" id="quality-{{ e.item.id }}">
+  <summary>{{ de_en("Modellgüte", "Model quality") }} <span class="hint">{% if e.cbc.holdout %}{{ de_en("Holdout-Aufgaben", "holdout tasks") }}{% if h %}, {% endif %}{% endif %}{% if h %}{{ de_en("Anpassung je Person, Konvergenz", "fit per person, convergence") }}{% endif %}</span></summary>
+  {% if e.cbc.holdout %}{% with ho=e.cbc.holdout %}{% include "surveys/_holdout_results.html" %}{% endwith %}{% endif %}
+  {% if h %}{% with hb_section="quality" %}{% include "surveys/_conjoint_hb.html" %}{% endwith %}{% endif %}
+</details>
+{% endif %}
+{% else %}
+<p class="muted small">{{ de_en("Noch keine beantworteten Aufgaben.", "No answered tasks yet.") }}</p>
+{% endif %}
+</div>

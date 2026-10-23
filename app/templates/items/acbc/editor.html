@@ -1,0 +1,101 @@
+{% from "_learn.html" import why %}
+{% set t = item.lang_texts(lang) %}
+{% set c = item.cfg %}
+{% set p = c.price or {} %}
+{% set question_label = de_en("Frage im Turnier", "Question in the tournament") %}
+{% set question_hint = de_en("Auswahl des Favoriten aus je bis zu drei Varianten", "choice of the favourite from up to three concepts at a time") %}
+<div data-cj-tab="content">{{ why("conjoint_kind") }}{% include "items/_question_field.html" %}</div>
+<div class="row-fields" data-cj-tab="content">
+  <label class="wide-field">{{ de_en("Frage beim Zusammenstellen", "Question when building") }} <input name="byo_question" value="{{ t.get('byo_question', '') }}" placeholder="{{ item.text('byo_question') or '' }}"></label>
+  <label class="wide-field">{{ de_en("Frage im Screening", "Question in the screening") }} <input name="screen_question" value="{{ t.get('screen_question', '') }}" placeholder="{{ item.text('screen_question') or '' }}"></label>
+</div>
+{% set level_prices = p.on %}
+{% set attr_footnote = de_en("Preisanteile je Stufe erscheinen, sobald unter „Gesamtpreis“ der Gesamtpreis eingeschaltet ist.", "Price shares per level appear as soon as the total price is switched on under “Total price”.") %}
+{% set level_values = true %}
+{% include "items/_attributes/editor.html" %}
+<fieldset data-cj-tab="design">
+  <legend>Screening <span class="hint">{{ de_en("Varianten nahe der Wunschvariante, jeweils „käme infrage“ oder nicht", "concepts close to the build-your-own concept, each “a possibility” or not") }}</span></legend>
+  <div class="row-fields">
+    <label>{{ de_en("Seiten", "Pages") }} <input type="number" name="screens" min="1" max="12" class="narrow" value="{{ c.screens }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("Varianten je Seite", "Concepts per page") }} <input type="number" name="per_screen" min="2" max="5" class="narrow" value="{{ c.per_screen }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("geänderte Merkmale je Variante: mindestens", "changed attributes per concept: at least") }} <input type="number" name="min_changes" min="1" max="10" class="narrow" value="{{ c.min_changes }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("höchstens", "at most") }} <input type="number" name="max_changes" min="1" max="10" class="narrow" value="{{ c.max_changes }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  <div class="row-fields">
+    <label>{{ de_en("„Käme infrage“", "“A possibility”") }} <input name="possible_label" value="{{ t.get('possible_label', '') }}"></label>
+    <label>{{ de_en("„Kommt nicht infrage“", "“Not a possibility”") }} <input name="not_possible_label" value="{{ t.get('not_possible_label', '') }}"></label>
+  </div>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Rückfragen", "Follow-up questions") }} <span class="hint">{{ de_en("zwischen den Screening-Seiten: Ausschlussgründe (nur in abgelehnten Varianten gesehene Stufen) und Unverzichtbares (Stufen in allen infrage kommenden Varianten)", "between the screening pages: unacceptables (levels seen only in rejected concepts) and must-haves (levels in all concepts that are a possibility)") }}</span></legend>
+  <label class="check"><input type="checkbox" name="rules" value="1" {% if c.get("rules", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Rückfragen stellen", "Ask follow-up questions") }}</label>
+  <div class="row-fields">
+    <label>{{ de_en("ab Screening-Seite", "from screening page") }} <input type="number" name="rules_after" min="1" max="11" class="narrow" value="{{ c.get('rules_after', 2) }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("höchstens Fragen zu Ausschlussgründen", "at most questions on unacceptables") }} <input type="number" name="max_nogo" min="0" max="6" class="narrow" value="{{ c.get('max_nogo', 3) }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("zu Unverzichtbarem", "on must-haves") }} <input type="number" name="max_must" min="0" max="6" class="narrow" value="{{ c.get('max_must', 2) }}" {% if not structural %}disabled{% endif %}></label>
+  </div>
+  <label class="check"><input type="checkbox" name="price_cap" value="1" {% if c.get("price_cap", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("mit Gesamtpreis einmal nach der Preisgrenze fragen", "with a total price, ask once for the price limit") }}</label>
+  <div class="row-fields">
+    <label class="wide-field">{{ de_en("Frage Ausschlussgründe", "Question on unacceptables") }} <input name="nogo_question" value="{{ t.get('nogo_question', '') }}"></label>
+    <label>{{ de_en("„Keine davon“", "“None of these”") }} <input name="nogo_none" value="{{ t.get('nogo_none', '') }}" class="field-name"></label>
+  </div>
+  <div class="row-fields">
+    <label class="wide-field">{{ de_en("Frage Unverzichtbar", "Question on must-haves") }} <input name="must_question" value="{{ t.get('must_question', '') }}"></label>
+    <label>{{ de_en("Ja", "Yes") }} <input name="must_yes" value="{{ t.get('must_yes', '') }}" class="field-name"></label>
+    <label>{{ de_en("Nein", "No") }} <input name="must_no" value="{{ t.get('must_no', '') }}" class="field-name"></label>
+  </div>
+  <div class="row-fields">
+    <label class="wide-field">{{ de_en("Frage Preisgrenze", "Question on the price limit") }} <input name="price_question" value="{{ t.get('price_question', '') }}"></label>
+    <label>{{ de_en("„Keine Grenze“", "“No limit”") }} <input name="price_none" value="{{ t.get('price_none', '') }}" class="field-name"></label>
+  </div>
+  <p class="muted small">{{ de_en("Bestätigte Regeln gelten für den Rest: Spätere Varianten, die sie verletzen, werden ersetzt oder entfallen, und infrage kommende, die sie verletzen, scheiden aus dem Turnier aus.", "Confirmed rules apply for the rest: later concepts that violate them are replaced or dropped, and concepts that are a possibility but violate them leave the tournament.") }}</p>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Turnier", "Tournament") }} <span class="hint">{{ de_en("die infrage kommenden Varianten treten in Aufgaben zu je drei an, bis eine übrig ist", "the concepts that are a possibility compete in tasks of three until one is left") }}</span></legend>
+  <label>{{ de_en("höchstens so viele Varianten im Turnier", "at most this many concepts in the tournament") }} <input type="number" name="tour_max" min="2" max="30" class="narrow" value="{{ c.tour_max }}" {% if not structural %}disabled{% endif %}>
+    <span class="hint">{{ de_en("weitere infrage kommende werden zufällig weggelassen; {n} Varianten brauchen bis zu {tasks} Aufgaben", "further ones are left out at random; {n} concepts need up to {tasks} tasks", n=c.tour_max, tasks=kind.max_tour_tasks(item)) }}</span></label>
+</fieldset>
+<fieldset data-cj-tab="design">
+  <legend>{{ de_en("Gesamtpreis", "Total price") }} <span class="hint">{{ de_en("optional: Grundpreis plus ein Preisanteil je Stufe, je Variante zufällig gestreut", "optional: base price plus a price share per level, varied at random per concept") }}</span></legend>
+  <label class="check"><input type="checkbox" name="price_on" value="1" {% if p.on %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Gesamtpreis anzeigen", "Show the total price") }}</label>
+  {# only count with "Gesamtpreis anzeigen": locked while it is off, their values kept (W31) #}
+  <div class="row-fields" data-needs="price_on">
+    <label>{{ de_en("Grundpreis", "Base price") }} <input name="price_base" value="{{ fmt_num(p.base) }}" inputmode="decimal" class="narrow" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Streuung ± %", "Variation ± %") }} <input type="number" name="price_variation" min="0" max="50" class="narrow" value="{{ p.variation }}" {% if not structural %}disabled{% endif %}></label>
+    <label>{{ de_en("runden auf", "round to") }} <input name="price_step" value="{{ fmt_num(p.step) }}" inputmode="decimal" class="narrow" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Währung", "Currency") }} <input name="price_currency" value="{{ p.currency }}" class="narrow" {% if not structural %}readonly{% endif %}></label>
+  </div>
+  <div class="row-fields">
+    <label>{{ de_en("Bezeichnung", "Label") }} <input name="price_label" value="{{ t.get('price_label', '') }}"></label>
+    <label>{{ de_en("„Grundpreis“-Text", "“Base price” text") }} <input name="base_label" value="{{ t.get('base_label', '') }}"></label>
+  </div>
+  <p class="muted small">{{ de_en("Die Streuung entkoppelt den Preis von den übrigen Merkmalen, damit sich sein Einfluss schätzen lässt. Die Preisanteile stehen bei den Stufen.", "The variation decouples the price from the other attributes so that its influence can be estimated. The price shares are shown with the levels.") }}</p>
+</fieldset>
+{% include "items/_attributes/prohibitions.html" %}
+<fieldset data-cj-tab="display">
+  <legend>{{ de_en("Darstellung", "Display") }}</legend>
+  <div class="row-fields">
+    {% set shown_display = "image" if c.display in ("image", "both") else ("levels" if c.get("level_images") else "table") %}
+    <label>{{ de_en("Anzeige je Option", "Display per option") }}
+      <select name="display" data-show-for {% if not structural %}disabled{% endif %}>
+        {% for key, label in {"table": de_en("Tabelle mit Text", "Table with text"), "levels": de_en("Tabelle mit Bildern je Stufe", "Table with images per level"), "image": de_en("Ein Bild je Option", "One image per option")}.items() %}
+        <option value="{{ key }}" {% if shown_display == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <span class="hint" data-when="table">{{ de_en("die Stufen als Text", "the levels as text") }}</span>
+      <span class="hint" data-when="levels">{{ de_en("je Stufe ein eigenes Bild, z. B. Logo oder Siegel", "an image of its own per level, e.g. a logo or a seal") }}</span>
+      <span class="hint" data-when="image">{{ de_en("ein Bild aus den Stufen der Merkmale „im Bild“, von der KI oder hochgeladen", "one image from the levels of the attributes “in the image”, generated by the AI or uploaded") }}</span>
+    </label>
+    <fieldset class="level-mode" data-when="levels"><legend class="visually-hidden">{{ de_en("Bild und Text der Stufe", "Image and text of the level") }}</legend>
+      {% for key, label in {"replace": de_en("Bild statt Text", "Image instead of text"), "add": de_en("Bild über dem Text", "Image above the text")}.items() %}
+      <label class="check"><input type="radio" name="level_mode" value="{{ key }}" {% if (c.get("level_images") or "replace") == key %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ label }}</label>{% endfor %}
+    </fieldset>
+    <label class="check" data-when="image"><input type="checkbox" name="rest_table" value="1" {% if c.display == "both" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Merkmale, die nicht im Bild sind, als Tabelle darunter", "Attributes not in the image as a table below") }}</label>
+    <label class="check" data-when="image"><input type="checkbox" name="show_visual_in_table" value="1" {% if c.show_visual_in_table %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Merkmale „im Bild“ zusätzlich in der Tabelle", "Attributes “in the image” also in the table") }}</label>
+  </div>
+  <label data-when="image"><span class="label-title">{{ de_en("Grundprompt der Bilder: Was zeigt jedes Bild?", "Base prompt of the images: what does every image show?") }} <span class="hint">{{ de_en("auf Deutsch oder Englisch; die Stufen der Bild-Merkmale und der Bildstil werden ergänzt", "in German or English; the levels of the image attributes and the image style are added") }}</span></span>
+    <textarea name="scene" rows="2" placeholder="{{ de_en('z. B. Ein Pflegeroboter hilft einer älteren Person zu Hause', 'e.g. A care robot helps an older person at home') }}" {% if not structural %}readonly{% endif %}>{{ c.scene }}</textarea>
+  </label>
+  <label class="check"><input type="checkbox" name="hide_attr_labels" value="1" {% if c.hide_attr_labels %}checked{% endif %}> {{ de_en("Spalte mit den Merkmalsnamen ausblenden", "Hide the column with the attribute names") }} <span class="hint">{{ de_en("sinnvoll, wenn die Merkmale vorher gut erklärt wurden", "useful if the attributes were explained well beforehand") }}</span></label>
+  <label>{{ de_en("Bezeichnung der Varianten", "Name of the concepts") }} <input name="alt_label" value="{{ t.get('alt_label', '') }}" placeholder="{{ de_en('Variante', 'Concept') }}"></label>
+</fieldset>
+{% include "items/_attributes/explain_editor.html" %}

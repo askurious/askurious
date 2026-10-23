@@ -1,0 +1,368 @@
+{# The tiles of a dashboard (app/boards/). Needs: state (boards.state: every number is already as a link may
+   show it), lang, palette, donut, num, pct, signed, MIN_CELL. Its own words come through ui() in the language of the state. Elements with data-k keep their value across an update of the
+   page, so bars grow to the new value instead of jumping (static/board.js). #}
+{% macro value(t, r) -%}
+  {%- if r.small %}{{ ui("fast alle", "nearly all") if r.high else ui("unter {n}", "fewer than {n}", n=MIN_CELL) }}
+  {%- else %}{% if t.pct or not t.n %}{{ pct(r.share) }}{% endif %}{% if t.pct and t.n %} · {% endif %}{% if t.n %}{{ r.count }}{% endif %}{% endif -%}
+{%- endmacro %}
+{# the credit of the postcode areas with its links, as ODbL 4.3 asks on a public page (licence audit 2026-10-21, D-6):
+   OpenStreetMap to its copyright page, ODbL to the licence, in every language of the catalog (each translation keeps
+   both words); the linked names as app/items/postal_code.py, OSM_AREAS #}
+{% macro plz_credit() -%}
+  {%- set osm %}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>{% endset -%}
+  {%- set odbl %}<a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL</a>{% endset -%}
+  {{ ui("Postleitzahlgebiete © OpenStreetMap-Mitwirkende (ODbL), Orte GeoNames (CC BY 4.0)", "postcode areas © OpenStreetMap contributors (ODbL), places GeoNames (CC BY 4.0)")|e|replace("ODbL", odbl)|replace("OpenStreetMap", osm) }}
+{%- endmacro %}
+{# levels of a scale on the diverging scale of board.css (UI/UX audit 2026-10-05, V78; 2026-10-07, S11): --div-1 at
+   the low end, the neutral --div-4 in the middle, --div-7 at the high end; the text on every step is --div-ink #}
+{% macro level_colour(a, b, k) -%}
+  {{ diverging_colour(((a + b) / 2) / ([k - 1, 1]|max))[0] }}
+{%- endmacro %}
+{# the share of a level of a conjoint question; one that rests on too few choices or people is not named #}
+{% macro level_share(lv) %}{% if lv.small %}{{ ui("unter {n}", "fewer than {n}", n=MIN_CELL) }}{% elif lv.share is not none %}{{ pct(lv.share) }}{% else %}–{% endif %}{% endmacro %}
+{% macro ring(share, text, sub) %}
+<div class="b-ring">
+  <svg viewBox="0 0 42 42" role="img" aria-label="{{ text }}">
+    <circle class="b-ring-track" cx="21" cy="21" r="15.9155" pathLength="100"></circle>
+    <circle class="b-ring-fill" cx="21" cy="21" r="15.9155" pathLength="100" stroke-dasharray="{{ (share * 100)|round(1) }} {{ (100 - share * 100)|round(1) }}" stroke-dashoffset="25"></circle>
+    <text x="21" y="21" class="b-ring-text">{{ text }}</text>
+  </svg>
+  {% if sub %}<p class="b-sub">{{ sub }}</p>{% endif %}
+</div>
+{% endmacro %}
+{% macro columns(t, rows, show) %}
+{% set top = (rows|map(attribute="share")|select("number")|list + [0])|max %}
+<div class="b-cols{% if rows|length > 14 %} b-cols-many{% endif %}">
+  {% for r in rows %}
+  <div class="b-col">
+    <span class="b-col-space"><span class="b-col-value">{{ show(t, r) }}</span><span class="b-col-bar" data-k="{{ t.key }}:c{{ loop.index }}" style="--v: {{ ((r.share or 0) / top * 100)|round(1) if top else 0 }}%"></span></span>
+    <span class="b-col-label">{{ r.label }}</span></div>
+  {% endfor %}
+</div>
+{% endmacro %}
+{% macro count_only(t, r) %}{{ r.count }}{% endmacro %}
+{# a reversed statement is recoded for its mean or median: on that axis its ends are swapped #}
+{% macro reversed_note(levels) %}<span class="b-note">{{ ui("umgepolt", "reversed") }}{% if levels %}: {{ ui("links „{a}“, rechts „{b}“", "left “{a}”, right “{b}”", a=levels[-1] or levels|length, b=levels[0] or 1) }}{% endif %}</span>{% endmacro %}
+{% macro means(t, rows, lo, hi, places) %}
+<ul class="b-means">
+  {% for r in rows %}
+  <li{% if not r.label %} class="b-nolabel"{% endif %}>{% if r.label %}<span class="b-label">{{ r.label }}{% if r.reverse %} {{ reversed_note(t.levels) }}{% endif %}</span>{% endif %}
+    {% if r.few %}<span class="b-few-row">{{ ui("noch zu wenige Antworten", "too few answers yet") }}</span>{% else %}
+    {% set span = (hi - lo) or 1 %}
+    {% set at = ([[ (r.mean - lo) / span, 0]|max, 1]|min) * 100 %}
+    {% set sd = (r.sd or 0) / span * 100 %}
+    <span class="b-scale"><span class="b-axis"></span><span class="b-whisker" style="left: {{ [at - sd, 0]|max|round(1) }}%; right: {{ [100 - at - sd, 0]|max|round(1) }}%"></span>
+      <span class="b-dot" data-k="{{ t.key }}:m{{ loop.index }}" style="--v: {{ at|round(1) }}%"></span></span>
+    <span class="b-value">M {{ num(r.mean, places) }}{% if r.sd is not none %} · SD {{ num(r.sd, places) }}{% endif %}{% if t.n %} · n {{ r.n }}{% endif %}</span>
+    {% endif %}</li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+{% for t in state.tiles %}
+<section class="b-tile b-w{{ t.w }}{% if t.x %} b-x{% endif %} b-shape-{{ t.shape }} b-view-{{ t.view }}{% if t.shape == "text" and t.kind == "heading" %} b-heading{% endif %}" data-key="{{ t.key }}" data-w="{{ t.w }}"{% if t.x %} data-x="{{ t.x }}" style="--x: {{ t.x }}; --w: {{ t.w }}"{% endif %}>
+  {% if t.shape == "text" %}
+    {# no data: a heading over the tiles below, or a text; the text is formatted and escaped by items.base.rich #}
+    {% if t.kind == "heading" %}<h2 class="b-section">{{ t.title or ui("Überschrift", "Heading") }}</h2>
+    {% else %}<div class="b-prose">{{ t.html|safe if t.html else "" }}{% if not t.html %}<p class="b-few">{{ ui("Text", "Text") }}</p>{% endif %}</div>{% endif %}
+  {% else %}
+  <h2 class="b-title">{{ t.title }}{% if t.subtitle %} <span class="b-subtitle">{{ t.subtitle }}</span>{% endif %}{% if t.sample %} <span class="b-sample">{{ ui("Beispielwerte", "Example values") }}</span>{% endif %}</h2>
+  {% endif %}
+  {% if t.shape == "text" %}
+  {% elif t.few %}
+  <p class="b-few">{{ ui("Noch zu wenige Antworten", "Too few answers yet") }}</p>
+
+  {% elif t.split %}
+    {# the answers apart for the groups of another question (boards._compare); one colour per group, or per answer #}
+    {% set s = t.split %}
+    {% if t.shape == "cats" %}
+      {% if t.view == "table" %}
+      <table class="b-table"><thead><tr><th>{{ ui("Gruppe", "Group") }}</th>{% for label in s.cats %}<th class="b-num">{{ label }}</th>{% endfor %}<th class="b-num">n</th></tr></thead>
+        <tbody>{% for g in s.groups %}{% set shares = s.shares[loop.index0] %}<tr><td>{{ g.label }}</td>{% for share in shares %}<td class="b-num">{{ pct(share) }}</td>{% endfor %}<td class="b-num">{{ g.n }}</td></tr>{% endfor %}</tbody></table>
+      {% else %}
+      <ul class="b-legend b-legend-row">{% for label in s.cats %}<li><span class="b-swatch" style="background: {{ palette[loop.index0 % palette|length] }}"></span>{{ label }}</li>{% endfor %}</ul>
+      <ul class="b-stacks">
+        {% for g in s.groups %}{% set outer = loop.index %}
+        <li><span class="b-label">{{ g.label }}</span>
+          <span class="b-stack">{% for share in s.shares[loop.index0] if share %}<span class="b-seg b-seg-plain" data-k="{{ t.key }}:g{{ outer }}-{{ loop.index }}" style="--v: {{ (share * 100)|round(2) }}%; background: {{ palette[loop.index0 % palette|length] }}; color: {{ seg_ink(palette[loop.index0 % palette|length]) }}" title="{{ s.cats[loop.index0] }}: {{ pct(share) }}">{% if share >= 0.09 %}{{ pct(share) }}{% endif %}</span>{% endfor %}</span>
+          {% if t.n %}<span class="b-value">n {{ g.n }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    {% else %}
+      {% set share_values = t.shape == "multi" %}
+      {% if t.view == "table" %}
+      <table class="b-table"><thead><tr><th></th>{% for g in s.groups %}<th class="b-num">{{ g.label }}{% if t.n %}<br><span class="b-note">n {{ g.n }}</span>{% endif %}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in s.rows %}<tr><td>{{ r.label or t.title }}{% if r.reverse %} {{ reversed_note(s.ends) }}{% endif %}</td>
+          {% for v in (r.shares if share_values else r.means) %}<td class="b-num">{% if v is none %}–{% elif share_values %}{{ pct(v) }}{% elif r.texts %}{{ r.texts[loop.index0] }}{% else %}{{ num(v) }}{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+      {% else %}
+      <ul class="b-legend b-legend-row">{% for g in s.groups %}<li><span class="b-swatch" style="background: {{ palette[loop.index0 % palette|length] }}"></span>{{ g.label }}{% if t.n %} <span class="b-note">n {{ g.n }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% if s.ends %}<p class="b-ends{% if not s.rows[0].label %} b-ends-flush{% endif %}"><span>{{ s.ends[0] }}</span><span>{{ s.ends[1] }}</span></p>{% endif %}
+      <ul class="b-bars b-pairs">
+        {% for r in s.rows %}{% set outer = loop.index %}
+        <li{% if not r.label %} class="b-nolabel"{% endif %}>{% if r.label %}<span class="b-label">{{ r.label }}{% if r.reverse %} {{ reversed_note(s.ends) }}{% endif %}</span>{% endif %}
+          <span class="b-pair">{% for v in (r.shares if share_values else r.means) %}
+            <span class="b-track"><span class="b-fill" data-k="{{ t.key }}:g{{ outer }}-{{ loop.index }}" style="--v: {{ (([[(v - s.lo) / ((s.hi - s.lo) or 1), 0]|max, 1]|min) * 100)|round(1) if v is not none else 0 }}%; background: {{ palette[loop.index0 % palette|length] }}"></span></span>{% endfor %}
+          </span>
+          <span class="b-value">{% for v in (r.shares if share_values else r.means) %}{% if v is none %}–{% elif share_values %}{{ pct(v) }}{% elif r.texts %}{{ r.texts[loop.index0] }}{% else %}{{ num(v) }}{% endif %}{{ "<br>"|safe if not loop.last }}{% endfor %}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    {% endif %}
+    <p class="b-foot">{{ ui("aufgeteilt nach: {question}", "split by: {question}", question=t.by_title) }}{% if t.shape not in ("cats", "multi") %} · {{ ui("Median", "Median") if s.ordinal else ui("Mittelwert", "Mean") }}{% if s.unit %} ({{ s.unit }}){% endif %}{% endif %}{% if s.merged_groups %} · {{ ui("kleine Gruppen sind zusammengefasst", "small groups are put together") }}{% endif %}{% if s.merged %} · {{ ui("seltene Antworten sind zusammengefasst", "rare answers are put together") }}{% endif %}{% if s.note %} · {{ s.note }}{% endif %}</p>
+
+  {% elif t.shape in ("cats", "multi") %}
+    {% if t.view == "columns" %}{{ columns(t, t.rows, value) }}
+    {% elif t.view == "donut" %}
+    <div class="b-donut">
+      <svg viewBox="0 0 42 42" role="img" aria-label="{{ t.title }}">
+        {% for offset, length in donut(t.rows) %}<circle cx="21" cy="21" r="15.9155" pathLength="100" stroke="{{ palette[loop.index0 % palette|length] }}" stroke-dasharray="{{ length }} {{ 100 - length }}" stroke-dashoffset="{{ offset }}"></circle>{% endfor %}
+      </svg>
+      <ul class="b-legend">{% for r in t.rows %}<li><span class="b-swatch" style="background: {{ palette[loop.index0 % palette|length] }}"></span>{{ r.label }} <strong>{{ value(t, r) }}</strong></li>{% endfor %}</ul>
+    </div>
+    {% elif t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Antwort", "Answer") }}</th><th class="b-num">{{ ui("Anteil", "Share") }}</th><th class="b-num">{{ ui("Anzahl", "Count") }}</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}</td>{% if r.small %}<td class="b-num" colspan="2">{{ ui("fast alle", "nearly all") if r.high else ui("unter {n}", "fewer than {n}", n=MIN_CELL) }}</td>{% else %}<td class="b-num">{{ pct(r.share) }}</td><td class="b-num">{{ r.count }}</td>{% endif %}</tr>{% endfor %}</tbody></table>
+    {% else %}
+    <ul class="b-bars">
+      {% for r in t.rows %}
+      <li><span class="b-label">{{ r.label }}</span>
+        <span class="b-track"><span class="b-fill" data-k="{{ t.key }}:b{{ loop.index }}" style="--v: {{ ((r.share or 0) * 100)|round(1) }}%"></span></span>
+        <span class="b-value">{{ value(t, r) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Personen", "{n} people", n=t.n) if t.shape == "multi" else ui("{n} Antworten", "{n} answers", n=t.n) }}{% endif %}{% if t.shape == "multi" %}{{ " · " if t.n }}{{ ui("mehrere Antworten möglich", "several answers possible") }}{% if t.partial %} · {{ ui("Anteil an denen, die die Antwort gesehen haben", "share of those who saw the answer") }}{% endif %}{% endif %}{% if t.merged %} · {{ ui("seltene Antworten sind zusammengefasst", "rare answers are put together") }}{% endif %}</p>
+
+  {% elif t.shape == "score" %}
+    {% if t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Option", "Option") if t.pairs else ui("Aussage", "Statement") }}</th><th class="b-num">Score</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}</td><td class="b-num">{{ signed(r.score) }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}
+    <ul class="b-bars b-diverging">
+      {% for r in t.rows %}
+      <li><span class="b-label">{{ r.label }}</span>
+        <span class="b-track b-center"><span class="b-zero"></span><span class="b-div{% if r.score < 0 %} b-neg{% endif %}" data-k="{{ t.key }}:d{{ loop.index }}" style="--v: {{ (r.score|abs * 50)|round(1) }}%"></span></span>
+        <span class="b-value">{{ signed(r.score) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Personen", "{n} people", n=t.n) }} · {% endif %}{% if t.pairs %}{{ ui("Score: Anteil gewonnener minus Anteil verlorener Vergleiche, von −1 bis +1; er hängt etwas davon ab, gegen welche Optionen eine Option antrat", "Score: share of comparisons won minus share lost, from −1 to +1; it depends a little on which options an option was compared with") }}{% else %}{{ ui("Score: Anteil „am besten“ minus Anteil „am schlechtesten“, von −1 bis +1", "Score: share of “best” minus share of “worst”, from −1 to +1") }}{% endif %}</p>
+
+  {% elif t.shape == "conjoint" %}
+    {% if t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Merkmal", "Attribute") }}</th><th>{{ ui("Stufe", "Level") }}</th><th class="b-num">{{ ui("Anteil", "Share") }}</th></tr></thead>
+      <tbody>{% for a in t.attributes %}{% for lv in a.levels %}<tr>{% if loop.first %}<td rowspan="{{ a.levels|length }}">{{ a.label }}{% if a.importance is not none %}<br><span class="b-note">{{ ui("Wichtigkeit {p}", "Importance {p}", p=pct(a.importance)) }}</span>{% endif %}</td>{% endif %}<td>{{ lv.label }}</td><td class="b-num">{{ level_share(lv) }}</td></tr>{% endfor %}{% endfor %}</tbody></table>
+    {% elif t.view == "levels" %}
+    {% for a in t.attributes %}{% set outer = loop.index %}
+    <p class="b-group">{{ a.label }}</p>
+    <ul class="b-bars">
+      {% for lv in a.levels %}
+      <li><span class="b-label">{{ lv.label }}</span>
+        <span class="b-track"><span class="b-fill" data-k="{{ t.key }}:l{{ outer }}-{{ loop.index }}" style="--v: {{ ((lv.share or 0) * 100)|round(1) }}%"></span></span>
+        <span class="b-value">{{ level_share(lv) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+    {% else %}
+    <ul class="b-bars">
+      {% for a in t.importances %}
+      <li><span class="b-label">{{ a.label }}</span>
+        <span class="b-track"><span class="b-fill" data-k="{{ t.key }}:i{{ loop.index }}" style="--v: {{ ((a.importance or 0) * 100)|round(1) }}%"></span></span>
+        <span class="b-value">{{ pct(a.importance) if a.importance is not none else "–" }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% set imp_method %}{% if t.method == "hb" %}{{ ui("Wichtigkeit: Spannweite der Teilnutzen eines Merkmals als Anteil aller Spannweiten, je Person berechnet und gemittelt (Hierarchical Bayes)", "Importance: range of the part-worths of an attribute as a share of all ranges, computed per person and averaged (hierarchical Bayes)") }}{% elif t.method == "persons" %}{{ ui("Wichtigkeit: Spannweite der Teilnutzen eines Merkmals als Anteil aller Spannweiten, je Person aus ihren Bewertungen berechnet und gemittelt", "Importance: range of the part-worths of an attribute as a share of all ranges, computed per person from their ratings and averaged") }}{% elif t.method %}{{ ui("Wichtigkeit: Spannweite der Teilnutzen eines Merkmals als Anteil aller Spannweiten (aggregiertes Logit-Modell)", "Importance: range of the part-worths of an attribute as a share of all ranges (aggregate logit model)") }}{% endif %}{% endset %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Personen", "{n} people", n=t.n) }} · {% endif %}{% if t.view == "importance" %}{{ imp_method }}{% elif t.view == "table" and t.method %}{{ t.basis }} · {{ imp_method }}{% else %}{{ t.basis }}{% endif %}</p>
+
+  {% elif t.shape == "points" %}
+    {% if t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Preispunkt", "Price point") }}</th><th class="b-num">{{ ui("Preis", "Price") }}</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}<br><span class="b-note">{{ r.hint }}</span></td><td class="b-num">{{ r.value or "–" }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}
+    <div class="b-points">
+      {% for r in t.rows %}
+      <div class="b-point{% if loop.index > 2 %} b-point-small{% endif %}"><p class="b-number"><span>{{ r.value or "–" }}</span></p><p class="b-sub"><strong>{{ r.label }}</strong> · {{ r.hint }}</p></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if t.n %}<p class="b-foot">{{ ui("{n} Personen mit stimmigen Preisangaben", "{n} people with consistent prices", n=t.n) }}</p>{% endif %}
+
+  {% elif t.shape == "states" %}
+    {% set listed = t.rows + ([{"label": ui("Weitere Länder", "Other states"), "count": t.rest.count, "share": t.rest.share, "rest": true}] if t.rest else []) %}
+    {% if t.view == "map" and state_map %}
+    {% set top = (t.rows|map(attribute="share")|list + [0])|max %}
+    {% set low = (t.rows|selectattr("count")|map(attribute="share")|list + [top])|min %}
+    {% set by = {} %}{% for r in t.rows %}{% set _ = by.update({r.code: r}) %}{% endfor %}
+    <div class="b-map">
+      <svg viewBox="0 0 {{ state_map.width }} {{ state_map.height }}" role="img" aria-label="{{ t.title }}">
+        {% for code, d in state_map.paths.items() %}{% set r = by.get(code) %}
+        <path d="{{ d }}" class="b-state{% if not r %} b-state-rest{% elif not r.count %} b-state-none{% endif %}"{% if r and r.count and top %} style="fill: {{ sequential_colour(r.share, low, top) }}"{% endif %}><title>{% if r %}{{ r.label }}: {{ value(t, r) }}{% else %}{{ ui("zusammengefasst", "put together") }}{% endif %}</title></path>
+        {% endfor %}
+      </svg>
+      <ul class="b-legend">
+        {% for r in t.rows|selectattr("count")|sort(attribute="count", reverse=true) %}<li><span class="b-swatch" style="background: {{ sequential_colour(r.share, low, top) }}"></span>{{ r.label }} <strong>{{ value(t, r) }}</strong></li>{% endfor %}
+        {% if t.rest %}<li><span class="b-swatch b-swatch-rest"></span><span>{{ ui("Weitere Länder", "Other states") }} <span class="b-note">({{ t.rest.labels|join(", ") }})</span></span> <strong>{{ value(t, t.rest) }}</strong></li>{% endif %}
+      </ul>
+    </div>
+    <p class="b-note">{{ bkg_credit }}, {{ ui("vereinfacht", "simplified") }}{% if t.from_plz %}; {{ plz_credit() }}{% endif %}</p>
+    {% elif t.view == "heat" and state_map %}
+    {% set heat = t.heat or [] %}
+    <div class="b-map">
+      <svg viewBox="0 0 {{ state_map.width }} {{ state_map.height }}" role="img" aria-label="{{ t.title }}">
+        {% for code, d in state_map.paths.items() %}<path d="{{ d }}" class="b-state b-state-none"></path>{% endfor %}
+        {% for c in heat %}<rect x="{{ c.x }}" y="{{ c.y }}" width="{{ c.w }}" height="{{ c.h }}" class="b-heat" style="fill: {{ sequential_colour(c.share, 0, 1) }}"><title>{{ ui("{n} Personen", "{n} people", n=c.count) }}</title></rect>{% endfor %}
+      </svg>
+      {% if not heat %}<p class="b-note">{{ ui("Noch kein Gebiet mit genug Personen.", "No area with enough people yet.") }}</p>{% endif %}
+    </div>
+    <p class="b-note">{{ bkg_credit }}, {{ ui("vereinfacht", "simplified") }}{% if t.from_plz %}; {{ plz_credit() }}{% endif %}</p>
+    {% elif t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Bundesland", "Federal state") }}</th><th class="b-num">{{ ui("Anteil", "Share") }}</th><th class="b-num">{{ ui("Anzahl", "Count") }}</th></tr></thead>
+      <tbody>{% for r in listed %}<tr><td>{{ r.label }}{% if r.rest %} <span class="b-note">({{ t.rest.labels|join(", ") }})</span>{% endif %}</td><td class="b-num">{{ pct(r.share) }}</td><td class="b-num">{{ r.count }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}
+    <ul class="b-bars">
+      {% for r in listed %}
+      <li><span class="b-label">{{ r.label }}{% if r.rest %} <span class="b-note">({{ t.rest.labels|join(", ") }})</span>{% endif %}</span>
+        <span class="b-track"><span class="b-fill" data-k="{{ t.key }}:b{{ loop.index }}" style="--v: {{ (r.share * 100)|round(1) }}%"></span></span>
+        <span class="b-value">{{ value(t, r) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Antworten", "{n} answers", n=t.n) }}{% endif %}{% if t.from_plz %}{{ " · " if t.n }}{{ ui("Bundesland der Postleitzahl", "state of the postal code") }}{% if t.view not in ("map", "heat") %} · {{ plz_credit() }}{% endif %}{% endif %}{% if t.from_location %}{{ " · " if t.n }}{{ ui("Bundesland des Standorts", "state of the location") }}{% endif %}{% if t.view == "heat" %} · {{ ui("Raster von etwa 10 km; Gebiete mit wenigen Personen sind ausgelassen", "grid of about 10 km; areas with few people are left out") }}{% endif %}{% if t.rest %} · {{ ui("Länder mit wenigen Antworten sind zusammengefasst", "states with few answers are put together") }}{% endif %}</p>
+
+  {% elif t.shape == "words" %}
+    {% if t.view == "table" %}
+      <table class="b-table"><thead><tr><th>{{ ui("Begriff", "Word") }}</th><th class="b-num">{{ ui("Nennungen", "Mentions") }}</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}</td><td class="b-num">{{ r.count }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}
+      <p class="b-cloud">{% for r in t.rows %}<span style="font-size: {{ (0.9 + 1.9 * r.size)|round(2) }}em; color: {{ palette[loop.index0 % palette|length] }}" title="{{ r.label }}: {{ r.count }}">{{ r.label }}</span> {% endfor %}</p>
+    {% endif %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Antworten", "{n} answers", n=t.n) }} · {% endif %}{{ ui("nur Begriffe, die mindestens {m}-mal genannt wurden", "only words given at least {m} times", m=MIN_CELL) }}</p>
+  {% elif t.shape == "highlight" %}
+    {# text highlighting (boards._highlight): the text with a stacked bar under every word, the share of the people who
+       marked it per category; a word marked by fewer than MIN_CELL people stays unmarked #}
+    <p class="b-hl-legend">{% for c in t.cats %}<span><i style="background: {{ c.color }}"></i>{{ c.label }}</span>{% endfor %}</p>
+    {% if t.view == "top" %}
+    <div class="b-hl-top">{% for c in t.cats %}<div><p class="b-hl-head"><i style="background: {{ c.color }}"></i>{{ c.label }}</p>
+      {% set words = t.top[loop.index0] if t.top else [] %}
+      {% if words %}<ol>{% for w, k in words %}<li>{{ w }} <span class="b-note">({{ k }})</span></li>{% endfor %}</ol>{% else %}<p class="b-note">{{ ui("kein Wort oft genug markiert", "no word marked often enough") }}</p>{% endif %}</div>{% endfor %}</div>
+    {% else %}
+    <p class="b-hl-text">{% for tok in t.tokens %}{% if tok.counts and tok.counts|sum %}<span class="b-hl-w" title="{{ tok.text }}: {% for c in t.cats %}{{ c.label }} {{ tok.counts[loop.index0] }}{{ ", " if not loop.last }}{% endfor %}">{{ tok.text }}<span class="b-hl-bar" aria-hidden="true">{% for sh in tok.shares %}{% if sh %}<i style="width: {{ (sh * 100)|round(1) }}%; background: {{ t.cats[loop.index0].color }}"></i>{% endif %}{% endfor %}</span></span>{% else %}{{ tok.text }}{% endif %}{% endfor %}</p>
+    {% endif %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Personen", "{n} people", n=t.n) }} · {% endif %}{{ ui("Balken: Anteil der Personen, die das Wort so markiert haben; nur Wörter, die mindestens {m} Personen markiert haben", "bars: share of the people who marked the word so; only words marked by at least {m} people", m=MIN_CELL) }}</p>
+  {% elif t.shape == "dist" %}
+    {% if t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ t.step or ui("Zeitraum", "Period") }}</th><th class="b-num">{{ ui("Anteil", "Share") }}</th><th class="b-num">{{ ui("Anzahl", "Count") }}</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}</td><td class="b-num">{{ pct(r.share) }}</td><td class="b-num">{{ r.count }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}{{ columns(t, t.rows, value) }}{% endif %}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Antworten", "{n} answers", n=t.n) }}{% endif %}{% if t.merged %}{{ " · " if t.n }}{{ ui("Zeiträume mit wenigen Antworten sind zusammengefasst", "periods with few answers are put together") }}{% endif %}</p>
+
+  {% elif t.shape == "scale" %}
+    {% set k = t.levels|length %}
+    {% if t.view == "means" %}
+    <p class="b-ends{% if not t.rows[0].label %} b-ends-flush{% endif %}"><span>{{ t.levels[0] }}</span><span>{{ t.levels[-1] }}</span></p>
+    {{ means(t, t.rows, t.first, t.first + k - 1, 2) }}
+    {% elif t.view == "table" and t.ordinal %}
+    {# an ordinal scale: the median as a level of the scale, no mean and SD (as on the results page) #}
+    <table class="b-table"><thead><tr><th>{{ ui("Aussage", "Statement") if t.rows|length > 1 else "" }}</th><th class="b-num">n</th><th class="b-num">Md</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label or t.title }}{% if r.reverse %} <span class="b-note">{{ ui("umgepolt", "reversed") }}</span>{% endif %}</td>{% if r.few %}<td class="b-num" colspan="2">{{ ui("noch zu wenige Antworten", "too few answers yet") }}</td>{% else %}<td class="b-num">{{ r.n }}</td><td class="b-num">{{ r.median }}</td>{% endif %}</tr>{% endfor %}</tbody></table>
+    {% elif t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Aussage", "Statement") if t.rows|length > 1 else "" }}</th><th class="b-num">n</th><th class="b-num">M</th><th class="b-num">SD</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label or t.title }}{% if r.reverse %} {{ reversed_note(t.levels) }}{% endif %}</td>{% if r.few %}<td class="b-num" colspan="3">{{ ui("noch zu wenige Antworten", "too few answers yet") }}</td>{% else %}<td class="b-num">{{ r.n }}</td><td class="b-num">{{ num(r.mean) }}</td><td class="b-num">{{ num(r.sd) }}</td>{% endif %}</tr>{% endfor %}</tbody></table>
+    {% else %}
+    <ul class="b-legend b-legend-row">{% for label in t.levels %}<li><span class="b-swatch" style="background: {{ level_colour(loop.index0, loop.index0, k) }}"></span>{{ t.first + loop.index0 }}{% if label and label|string != (t.first + loop.index0)|string %} {{ label }}{% endif %}</li>{% endfor %}</ul>
+    <ul class="b-stacks">
+      {% for r in t.rows %}{% set row = loop.index %}
+      <li{% if not r.label %} class="b-nolabel"{% endif %}>{% if r.label %}<span class="b-label">{{ r.label }}</span>{% endif %}
+        {% if r.few %}<span class="b-few-row">{{ ui("noch zu wenige Antworten", "too few answers yet") }}</span>{% else %}
+        <span class="b-stack">{% for s in r.segs if s.count %}<span class="b-seg" data-k="{{ t.key }}:s{{ row }}-{{ s.a }}" style="--v: {{ (s.share * 100)|round(2) }}%; background: {{ level_colour(s.a, s.b, k) }}" title="{{ t.levels[s.a] or (t.first + s.a) }}{% if s.b != s.a %} {{ ui("bis", "to") }} {{ t.levels[s.b] or (t.first + s.b) }}{% endif %}: {{ pct(s.share) }}">{% if s.share >= 0.09 %}{{ pct(s.share) }}{% endif %}</span>{% endfor %}</span>
+        {# segments too narrow for their number name it beside the row (V78) #}
+        {% set narrow = r.segs|selectattr("count")|selectattr("share", "lt", 0.09)|list %}
+        {% if t.n or narrow %}<span class="b-value">{% if t.n %}n {{ r.n }}{% endif %}{% for s in narrow %}{{ "<br>"|safe if loop.first and t.n else " · " if not loop.first }}{{ t.first + s.a }}{% if s.b != s.a %}–{{ t.first + s.b }}{% endif %}: {{ pct(s.share) }}{% endfor %}</span>{% endif %}
+        {% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if t.merged %}<p class="b-foot">{{ ui("Stufen mit weniger als {n} Antworten sind mit der Nachbarstufe zusammengefasst.", "Levels with fewer than {n} answers are put together with the neighbouring level.", n=MIN_CELL) }}{% if t.view != "stacked" %} {{ ui("Der Median ist aus den zusammengefassten Stufen bestimmt.", "The median is taken from the levels as put together.") if t.ordinal else ui("Mittelwert und SD sind aus den zusammengefassten Stufen geschätzt und weichen etwas von den exakten Werten ab.", "Mean and SD are estimated from the levels as put together and differ a little from the exact values.") }}{% endif %}</p>{% endif %}
+
+  {% elif t.shape in ("num", "nums") %}
+    {% set unit = (" " ~ t.unit) if t.unit else "" %}
+    {% if t.view == "table" %}
+    <table class="b-table"><thead><tr><th></th><th class="b-num">n</th><th class="b-num">M</th><th class="b-num">Md</th><th class="b-num">SD</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label or t.title }}</td>{% if r.few %}<td class="b-num" colspan="4">{{ ui("noch zu wenige Antworten", "too few answers yet") }}</td>{% else %}<td class="b-num">{{ r.n }}</td><td class="b-num">{{ num(r.mean, r.places|default(2)) }}{{ unit }}</td><td class="b-num">{{ num(r.median, r.md_places|default(2)) }}{{ unit }}</td><td class="b-num">{{ num(r.sd, r.places|default(2)) }}</td>{% endif %}</tr>{% endfor %}</tbody></table>
+    {% elif t.view == "means" %}
+    {% set lo = t.bounds[0] if t.bounds else 0 %}
+    {% set hi = t.bounds[1] if t.bounds else ((t.rows|rejectattr("few")|map(attribute="mean")|list + [1])|max * 1.2) %}
+    <p class="b-ends{% if not t.rows[0].label %} b-ends-flush{% endif %}"><span>{{ num(lo, 0) }}{{ unit }}</span><span>{{ num(hi, 0) }}{{ unit }}</span></p>
+    {{ means(t, t.rows, lo, hi, 2) }}
+    {% if t.note %}<p class="b-foot">{{ t.note }}</p>{% endif %}
+    {% elif t.view == "dist" and t.bins %}
+    {{ columns(t, t.bins, value) }}
+    <p class="b-foot">{% if t.n %}{{ ui("{n} Antworten", "{n} answers", n=t.n) }} · {% endif %}{{ ui("Mittelwert", "Mean") }} {{ num(t.rows[0].mean, t.rows[0].places|default(2)) }}{{ unit }}</p>
+    {% else %}
+    {% set r = t.rows[0] %}
+    <p class="b-number"><span data-n="{{ t.key }}">{{ num(r.mean, r.places|default(2)) }}</span>{% if unit %}<small>{{ unit }}</small>{% endif %}</p>
+    <p class="b-sub">{{ ui("Mittelwert", "Mean") }} · {{ ui("Median", "Median") }} {{ num(r.median, r.md_places|default(2)) }}{{ unit }}{% if r.sd is not none %} · SD {{ num(r.sd, r.places|default(2)) }}{% endif %}{% if t.n %} · {{ ui("{n} Antworten", "{n} answers", n=r.n) }}{% endif %}</p>
+    {% endif %}
+
+  {% elif t.shape == "quota" %}
+    {% if t.view == "ring" %}
+    {{ ring(t.sum.share, pct(t.sum.share), ui("{a} von {b} erreicht", "{a} of {b} reached", a=t.sum.done, b=t.sum.target) if t.n else "") }}
+    {% elif t.view == "compare" %}
+    {# how the sample is spread over the groups, next to how the targets spread it #}
+    {% set top = (t.rows|map(attribute="target_share")|list + t.rows|map(attribute="done_share")|list + [0.0001])|max %}
+    <ul class="b-legend b-legend-row"><li><span class="b-swatch b-swatch-target"></span>{{ ui("Soll", "Target") }}</li><li><span class="b-swatch" style="background: var(--accent)"></span>{{ ui("erreicht", "reached") }}</li></ul>
+    <ul class="b-bars b-pairs">
+      {% for r in t.rows %}
+      <li><span class="b-label">{{ r.label }}</span>
+        <span class="b-pair">
+          <span class="b-track"><span class="b-fill b-fill-target" data-k="{{ t.key }}:t{{ loop.index }}" style="--v: {{ (r.target_share / top * 100)|round(1) }}%"></span></span>
+          <span class="b-track"><span class="b-fill" data-k="{{ t.key }}:c{{ loop.index }}" style="--v: {{ (r.done_share / top * 100)|round(1) }}%"></span></span>
+        </span>
+        <span class="b-value">{{ pct(r.target_share) }}<br>{{ pct(r.done_share) }}{% if t.n %} · {{ r.done }}{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="b-foot">{{ ui("Anteile an allen Teilquoten: oben das Soll, unten die erreichte Verteilung", "Shares of all sub-quotas: the target above, the distribution reached below") }}{% if t.n %} ({{ ui("{a} von {b}", "{a} of {b}", a=t.sum.done, b=t.sum.target) }}){% endif %}</p>
+    {% elif t.view == "table" %}
+    <table class="b-table"><thead><tr><th>{{ ui("Teilquote", "Sub-quota") }}</th><th class="b-num">{{ ui("Soll", "Target") }}</th><th class="b-num">{{ ui("erreicht", "reached") }}</th><th class="b-num">{{ ui("Füllstand", "Filled") }}</th></tr></thead>
+      <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}</td><td class="b-num">{{ r.target }}</td><td class="b-num">{{ r.done }}</td><td class="b-num">{{ pct(r.share) }}</td></tr>{% endfor %}
+        <tr class="b-sum"><td>{{ ui("Summe", "Total") }}</td><td class="b-num">{{ t.sum.target }}</td><td class="b-num">{{ t.sum.done }}</td><td class="b-num">{{ pct(t.sum.share) }}</td></tr></tbody></table>
+    {% else %}
+    <ul class="b-bars b-quota">
+      {% for r in t.rows %}
+      <li><span class="b-label">{{ r.label }}</span>
+        <span class="b-track"><span class="b-fill{% if r.share >= 1 %} b-full{% endif %}" data-k="{{ t.key }}:q{{ loop.index }}" style="--v: {{ (r.share * 100)|round(1) }}%"></span></span>
+        <span class="b-value">{% if t.pct or not t.n %}{{ pct(r.share) }}{% endif %}{% if t.pct and t.n %} · {% endif %}{% if t.n %}{{ ui("{a} von {b}", "{a} of {b}", a=r.done, b=r.target) }}{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% if t.n %}<p class="b-foot">{{ ui("{a} von {b} erreicht", "{a} of {b} reached", a=t.sum.done, b=t.sum.target) }}</p>{% endif %}
+    {% endif %}
+    {% if t.basis %}<p class="b-foot">{{ t.basis }}</p>{% endif %}
+
+  {% elif t.shape == "field" %}
+    {% if t.name == "days" %}
+      {% if not t.rows %}<p class="b-few">{{ ui("Noch keine abgeschlossenen Teilnahmen", "No completed participations yet") }}</p>
+      {% elif t.view == "table" %}
+      <table class="b-table"><thead><tr><th>{{ ui("Tag", "Day") }}</th><th class="b-num">{{ ui("Teilnahmen", "Participations") }}</th></tr></thead>
+        <tbody>{% for r in t.rows %}<tr><td>{{ r.label }}</td><td class="b-num">{{ r.count }}</td></tr>{% endfor %}</tbody></table>
+      {% else %}{{ columns(t, t.rows, count_only) }}{% endif %}
+    {% elif t.view == "ring" %}{{ ring(t.share, pct(t.share) if not t.open else "–", t.sub) }}
+    {% elif t.view == "progress" %}
+    <p class="b-number b-number-small"><span>{{ t.value }}</span></p>
+    <span class="b-track b-progress"><span class="b-fill" data-k="{{ t.key }}:p" style="--v: {{ (t.share * 100)|round(1) }}%"></span></span>
+    <p class="b-sub">{{ t.sub }}</p>
+    {% else %}
+    <p class="b-number"><span>{{ t.value }}</span></p>
+    <p class="b-sub">{{ t.sub }}</p>
+    {% endif %}
+  {% endif %}
+  {% if t.unsplit %}<p class="b-foot">{{ ui("Noch nicht aufgeteilt: zu wenige Antworten je Gruppe", "Not split yet: too few answers per group") }}</p>{% endif %}
+</section>
+{% else %}
+{% if state.pending %}{# another request computes the first state (boards.pending); board.js asks again #}
+<p class="b-empty" role="status">{{ ui("Die Zahlen werden berechnet …", "The figures are being computed …") }}</p>
+{% else %}
+<p class="b-empty">{{ ui("Dieses Dashboard hat noch keine Kacheln.", "This dashboard has no tiles yet.") }}</p>
+{% endif %}
+{% endfor %}

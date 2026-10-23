@@ -1,0 +1,7 @@
+{# Placeholders for link fields (input[data-link-field]) to insert with a click: into the link field of the same
+   form that had the focus last, else the first one (app.js). chips: panel.link_chips(survey, …). #}
+{% macro link_chips(chips) -%}
+{% if chips %}<div class="link-chips" data-link-chips><span class="hint">{{ de_en("Platzhalter einfügen:", "Insert placeholder:") }}</span>
+  {% for token, label in chips %}<button type="button" class="chip" data-insert="{{ token }}" title="{{ de_en('{token} einfügen', 'Insert {token}', token=token) }}">{{ label }}</button>{% endfor %}
+</div>{% endif %}
+{%- endmacro %}

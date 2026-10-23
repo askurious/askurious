@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# Needs: since (ISO date), source (log.md from that day on), has_log, ai_ready. "Entwurf aus den Neuerungen"
+   (app/blog.py admin_draft; blog-konzept.md, E16). #}
+{% block title %}{{ de_en("Entwurf aus den Neuerungen", "Draft from what is new") }} · Blog · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "blog" %}{% include "admin/_tabs.html" %}
+<section class="panel">
+  <p class="small flush"><a href="{{ url_for('blog.admin_list') }}">{{ icon("back", 14) }} {{ de_en("Alle Einträge", "All entries") }}</a></p>
+  <h2>{{ de_en("Entwurf aus den Neuerungen", "Draft from what is new") }}</h2>
+  <p class="muted">{{ de_en("Die KI liest den Text unten, wählt aus, was Forschende bemerken, und schreibt daraus einen Entwurf auf Deutsch und Englisch. Er bleibt ein Entwurf, bis Sie ihn veröffentlichen. Die KI bekommt nur diesen Text.",
+    "The AI reads the text below, picks what researchers notice and writes a draft in German and English from it. It stays a draft until you publish it. The AI gets only this text.") }}</p>
+  <p class="muted">{{ de_en("Experimentelle Funktionen sehen die Leserinnen und Leser nicht; der Entwurf lässt sie weg. Über eine Funktion schreiben Sie erst, wenn sie für alle freigegeben ist.",
+    "Readers do not see experimental features; the draft leaves them out. Write about a feature only once it is open to everyone.") }}</p>
+  <form method="get" class="inline-controls">
+    <label>{{ de_en("Entwicklungsprotokoll ab", "Development log from") }} <input type="date" name="seit" value="{{ since }}"></label>
+    <button class="button button-small button-secondary">{{ de_en("Laden", "Load") }}</button>
+  </form>
+  {% if not has_log %}<p class="flash flash-warning">{{ de_en("Auf diesem Server liegt kein Entwicklungsprotokoll (log.md). Schreiben Sie die Neuerungen als Stichpunkte in das Feld.",
+    "There is no development log (log.md) on this server. Write what is new as notes into the field.") }}</p>{% endif %}
+  <form method="post" class="stack space-above">
+    {{ csrf() }}
+    <label><span class="label-title">{{ de_en("Grundlage", "Basis") }}</span> <span class="hint">{{ de_en("kürzen oder ergänzen Sie nach Belieben", "shorten or add as you like") }}</span>
+      <textarea name="source" rows="18" spellcheck="false">{{ source }}</textarea></label>
+    <div>{% if ai_ready %}<button class="button" data-ai-call>{{ icon("sparkles", 16) }} {{ de_en("Entwurf schreiben", "Write draft") }}</button> {{ ai_access_line() }}
+      {% else %}<button class="button" disabled>{{ icon("sparkles", 16) }} {{ de_en("Entwurf schreiben", "Write draft") }}</button>
+      <span class="hint">{{ de_en("Auf diesem Server ist keine KI eingerichtet.", "No AI is set up on this server.") }}</span>{% endif %}</div>
+  </form>
+</section>
+{% endblock %}

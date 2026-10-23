@@ -1,0 +1,16 @@
+{# One AI suggestion as two rows (items/text_review.html, items/prompt_review.html): above where it is and why,
+   below the old text and the suggestion (editable); the tick spans both rows. One <tbody> per suggestion, so the
+   rows of a suggestion share their stripe (app.css .review-table). #}
+{% macro suggestion(take_name, take_value, label, where, old, text_name, text, why) -%}
+<tbody>
+  <tr class="review-head">
+    <td class="check-col" rowspan="2"><input type="checkbox" name="{{ take_name }}" value="{{ take_value }}" checked aria-label="{{ de_en('{label} übernehmen', 'Apply {label}', label=label) }}"></td>
+    <td class="review-where">{{ where }}</td>
+    <td class="review-why">{{ why }}</td>
+  </tr>
+  <tr class="review-texts">
+    <td class="review-old"><span class="review-tag">{{ de_en("Bisher", "So far") }}</span>{{ old or de_en("(leer)", "(empty)") }}</td>
+    <td><span class="review-tag">{{ de_en("Vorschlag", "Suggestion") }}</span><textarea name="{{ text_name }}" rows="{{ 4 if text|length > 120 else 2 }}" aria-label="{{ de_en('Vorschlag für {label}', 'Suggestion for {label}', label=label) }}">{{ text }}</textarea></td>
+  </tr>
+</tbody>
+{%- endmacro %}

@@ -1,0 +1,10 @@
+{# Shared vocabulary for data scope; n is the count for this exact view or export selection. #}
+{% macro used_data(pool, n=none, weighted=false) %}
+{% set names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Proben", "trials") if survey is defined and survey.live is not none else de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+<p class="muted small used-data"><strong>{{ de_en("Verwendete Daten", "Data used") }}:</strong>
+{% for source in pool.sources %}{{ names[source]|after_colon if loop.first else names[source] }}{{ ", " if not loop.last }}{% endfor %}
+· {{ de_en("auch abgebrochene Teilnahmen", "including broken-off participations") if pool.all and not weighted else de_en("nur abgeschlossene Teilnahmen", "completed participations only") }}
+· {{ de_en("Markierte ausgeschlossen", "Marked participations excluded") if pool.drop or weighted else de_en("Markierte einbezogen", "Marked participations included") }}
+· {{ de_en("gewichtet", "weighted") if weighted else de_en("ungewichtet", "unweighted") }}
+{% if n is not none %}· {{ de_en("{n} Teilnahmen", "{n} participations", n=n) }}{% endif %}.</p>
+{% endmacro %}

@@ -1,0 +1,26 @@
+{# Topic map (app/items/topic_feedback.py): two variables of a loop as X and Y #}
+{% set question_label = de_en("Überschrift", "Heading") %}
+{% set question_hint = de_en("z. B. „So haben Sie die Themen eingeschätzt“", "e.g. “How you rated the topics”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Achsen", "Axes") }} <span class="hint">{{ de_en("zwei Bewertungen aus einer Schleife (Tabelle, Faktoren oder Vignetten) vor diesem Element, z. B. Risiko und Nutzen; jedes Thema der Schleife wird ein Punkt", "two evaluations from a loop (table, factors or vignettes) before this element, e.g. risk and benefit; every topic of the loop becomes a point") }}</span></legend>
+  {% set candidates = kind.candidates(item) %}
+  {% if candidates|length >= 2 %}
+  {% for name, label, idx in (("source", de_en("X-Achse (waagerecht)", "X axis (horizontal)"), 0), ("source_y", de_en("Y-Achse (senkrecht)", "Y axis (vertical)"), 1)) %}
+  <label>{{ label }}
+    <select name="{{ name }}" {% if not structural %}disabled{% endif %}>
+      <option value="">{{ de_en("– bitte wählen –", "– please choose –") }}</option>
+      {% set current = kind.chosen_value(item, idx) %}
+      {% for c in candidates %}{% for value, sub in kind.source_choices(c) %}
+      <option value="{{ value }}" {% if value == current %}selected{% endif %}>{{ c.code }} · {{ c.text("question", lang)|truncate(70) }}{% if sub %} – {{ de_en("Subskala „{sub}“", "subscale “{sub}”", sub=sub) }}{% endif %} ({{ c.kind.label }})</option>
+      {% endfor %}{% endfor %}
+    </select>
+  </label>
+  {% endfor %}
+  {% else %}
+  <p class="muted">{{ de_en("Vor diesem Element steht keine Schleife mit zwei passenden Fragen (Likert/Konstrukt, semantisches Differential, Bewertung). Das Element gehört hinter die Schleife.", "There is no loop with two suitable questions (Likert/construct, semantic differential, rating) before this element. The element belongs after the loop.") }}</p>
+  {% endif %}
+  <label class="check"><input type="checkbox" name="show_sample" value="1" {% if item.config.get("show_sample", true) %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("mit der Stichprobe vergleichen", "compare with the sample") }} <span class="hint">{{ de_en("je Thema der Mittelwert aller bisherigen Teilnehmenden als Ring, mit einer Linie zur eigenen Einschätzung", "per topic the mean of all participants so far as a ring, with a line to one's own rating") }}</span></label>
+</fieldset>
+<p class="muted small">{{ de_en("Werte der Stichprobe je Thema ab 5 Personen, die beide Fragen dazu beantwortet haben; im Export", "Sample values per topic from 5 people who answered both questions on it; in the export") }} <code>{{ item.code }}_n</code>.</p>
+{% include "items/_lock_answers.html" %}

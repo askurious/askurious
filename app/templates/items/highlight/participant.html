@@ -1,0 +1,17 @@
+{% set de = lang in ("de", "de-du") %}
+{% set marked = answers.get(item.id) or {} %}
+{% set cats = kind.cats(item, lang) %}
+{% include "items/_question.html" %}
+<div class="p-hl" data-hl="{{ item.id }}" style="{% for k, label, color in cats %}--hl{{ k }}: {{ color }};{% endfor %}">
+  <div class="p-hl-tools" {% if cats|length > 1 %}role="radiogroup" aria-label="{{ ui('Markierung wählen', 'Choose a marker') }}"{% endif %}>
+    {% for k, label, color in cats %}
+    <button type="button" class="p-hl-tool" data-hl-tool="{{ k }}" data-hl-name="{{ label }}" {% if cats|length > 1 %}role="radio" aria-checked="{{ 'true' if loop.first else 'false' }}"{% endif %}>
+      <span class="p-hl-swatch" aria-hidden="true">{% if cats|length > 1 %}{{ k }}{% endif %}</span>{{ label }}</button>
+    {% endfor %}
+    <button type="button" class="p-hl-clear" data-hl-clear hidden>{{ ui("Alle Markierungen entfernen", "Remove all markings") }}</button>
+  </div>
+  <p class="p-hl-text" data-hl-text aria-label="{{ ui('Text zum Markieren', 'Text to mark') }}">{{ kind.passage_html(item, lang, marked) }}</p>
+  <p class="p-hl-count" data-hl-count aria-live="polite"></p>
+  <input type="hidden" name="i{{ item.id }}" value="{{ marked|tojson|forceescape }}" data-hl-value data-keep>
+  <noscript><p class="p-error">{{ ui("Zum Markieren wird JavaScript benötigt.", "Marking needs JavaScript.") }}</p></noscript>
+</div>

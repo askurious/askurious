@@ -1,0 +1,222 @@
+{% from "_learn.html" import term %}
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields, row_tools %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{% block title %}{{ de_en("Schleife", "Loop") }} {{ loop.name or loop.code }} · {{ survey.title }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{# the survey's head as on the other tab pages: a band over the whole width, the column centred (Ralf, 2026-10-06) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "flow" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ icon("back", 16) }} {{ de_en("Ablauf", "Flow") }}</a>
+<div class="page-head">
+  <h1>🔁 {{ loop.name or de_en("Schleife", "Loop") }} <span class="hint">{{ de_en("Block", "Block") if blocks|length == 1 else de_en("Blöcke", "Blocks") }} {% for b in blocks %}{{ de_en("„{t}“", "“{t}”", t=b.title() or de_en("ohne Titel", "untitled")) }}{% if not loop.last %}, {% endif %}{% else %}{{ de_en("(noch keine)", "(none yet)") }}{% endfor %} {{ de_en("je Tabellenzeile wiederholt", "repeated per table row") }}</span></h1>
+</div>
+{% include "editor/_lang_note.html" %}
+{# running or closed: the cells of the default language are fixed (image keys and hidden codings hang on them) #}
+{% set locked = not survey.is_editable and lang == survey.default_language %}
+{% if not structural %}<div class="flash">{{ de_en("Die Befragung läuft oder ist geschlossen: Die Tabelle ist fest, weil KI-Bilder und erhobene Daten an ihren Werten hängen. Übersetzungen der Tabellenwerte lassen sich in der Ansicht der jeweiligen Sprache korrigieren.", "The survey is running or closed: the table is fixed because AI images and collected data depend on its values. Translations of the table values can be corrected in the view of each language.") if locked else (de_en("Übersetzungsansicht: Nur die Zellwerte werden übersetzt.", "Translation view: only the cell values are translated.") if survey.is_editable else de_en("Die Befragung läuft: Nur die Übersetzungen der Tabellenwerte lassen sich korrigieren.", "The survey is running: only the translations of the table values can be corrected.")) }}</div>{% endif %}
+{% for severity, message, item_id, block_id in findings %}<div class="flash flash-{{ 'error' if severity == 'error' else 'warning' }}">{{ icon("x" if severity == "error" else "alert", 16) }} <span>{{ message }}</span></div>{% endfor %}
+
+{% set starter = not loop.columns and structural %}
+{% set columns = loop.columns if loop.columns else ([{"id": "cstart", "name": "", "hidden": false}] if structural else []) %}
+{% set rows = loop.rows if loop.rows else ([{"id": "rstart1", "values": {}}, {"id": "rstart2", "values": {}}] if structural else []) %}
+
+{% set source = "table" %}{% include "editor/_loop_source.html" %}
+
+<section class="panel loop-intro">
+  <h2>{{ de_en("So funktioniert es", "How it works") }}</h2>
+  <p>{{ de_en("Die Blöcke dieser Schleife werden <strong>einmal je Tabellenzeile</strong> gezeigt (bei mehreren Blöcken jeweils alle zusammen: Zeile 1 mit Block A und B, dann Zeile 2 …). Welche Blöcke dazugehören, legen Sie im", "The blocks of this loop are shown <strong>once per table row</strong> (with several blocks, all of them together each time: row 1 with block A and B, then row 2 …). Which blocks belong to it you set in the")|safe }} <a href="{{ url_for('flow_page.index', survey_id=survey.id, lang=lang) }}">{{ de_en("Ablauf", "flow") }}</a> {{ de_en("per Ziehen fest.", "by dragging.") }}</p>
+  <p> {{ de_en("Jede <strong>Spalte</strong> ist ein Platzhalter, den Sie in den Fragen des Blocks als", "Each <strong>column</strong> is a placeholder: write it in the questions of the block as")|safe }} <code>{{ "{{name}}" }}</code> {{ de_en("schreiben; beim Durchlauf wird er durch den Wert der jeweiligen Zeile ersetzt, auch im Blocktitel. Der Wert steht so im Satz, wie er in der Zeile steht: Braucht der Satz einen anderen Fall („das Auto“, „mit dem Auto“), legen Sie eine Spalte je grammatischem Fall an.", "and in each pass it is replaced by the value of that row, also in the block title. The value appears in the sentence exactly as it is written in the row: if the sentence needs another form (“the car”, “with the car”), create one column per grammatical form.") }}</p>
+  <div class="loop-example">
+    <div><span class="label-title">{{ de_en("Tabelle", "Table") }}</span>
+      <table class="list-table is-edit small"><thead><tr><th>#</th><th>robot</th></tr></thead>
+        <tbody><tr><td>1</td><td>{{ de_en("einem humanoiden Roboter", "a humanoid robot") }}</td></tr><tr><td>2</td><td>{{ de_en("einem tierartigen Roboter", "an animal-like robot") }}</td></tr></tbody></table></div>
+    <div><span class="label-title">{{ de_en("Frage im Block", "Question in the block") }}</span><p class="loop-example-q">{{ de_en("Ich würde", "I would trust") }} <code>{{ "{{robot}}" }}</code>{{ de_en(" vertrauen.", ".") }}</p></div>
+    <div><span class="label-title">{{ de_en("Teilnehmende sehen", "Participants see") }}</span><p class="loop-example-q">{{ de_en("1. Durchlauf: Ich würde einem humanoiden Roboter vertrauen.", "Pass 1: I would trust a humanoid robot.") }}<br>{{ de_en("2. Durchlauf: Ich würde einem tierartigen Roboter vertrauen.", "Pass 2: I would trust an animal-like robot.") }}</p></div>
+  </div>
+</section>
+
+{# a draft saves by itself; a running survey keeps "Speichern" for its text corrections #}
+{# saves by itself, in the field too: translations then when a field is left (UI audit 2026-10-04, R17) #}
+{% set autosave = structural or not locked %}
+<form method="post" class="panel stack" data-loop-editor {{ "data-autosave-form" if autosave else "data-dirty-guard" }}{{ " data-autosave-on-leave" if autosave and not structural else "" }}>
+  {{ csrf() }}
+  {% if survey.can(current_user, "editor") %}{{ edit_guard_fields(survey, "loop:" ~ node.id, edit_guard.node_state(node),
+       url_for("flow_page.loop_node", survey_id=survey.id, nid=node.id, lang=lang)) }}{% endif %}
+  <h2><span class="step-no">1</span> {{ de_en("Tabelle ausfüllen", "Fill in the table") }}</h2>
+  <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("für Sie; erscheint im Ablauf", "for you; appears in the flow") }}</span>
+    <input name="name" value="{{ loop.name }}" placeholder="{{ de_en('z. B. Roboter', 'e.g. robots') }}" {% if not structural %}readonly{% endif %}></label>
+
+  {% if loop.rows and loop.columns %}<div><button type="button" class="button button-small button-secondary" data-copy-table title="{{ de_en('Kopfzeile und alle Zeilen in die Zwischenablage, zum Einfügen in Excel oder Word', 'Header and all rows to the clipboard, to paste into Excel or Word') }}">{{ de_en("Tabelle kopieren", "Copy table") }}</button>
+    <span class="muted small">{{ de_en("Als Datei mit allen Sprachen: im Reiter „Export“, „Schleifentabelle“.", "As a file with all languages: in the tab “Export”, “Loop table”.") }}</span></div>{% endif %}
+  <div class="loop-table-wrap">
+    <table class="list-table is-edit loop-table">
+      <thead>
+        <tr><th class="loop-rownum">#</th>
+          {% for c in columns %}
+          <th data-col-head="{{ c.id }}"><input type="hidden" name="col_id" value="{{ c.id }}">
+            <input name="col_name" data-varname="column" value="{{ c.name }}" class="loop-colname" placeholder="{{ de_en('Spaltenname, z. B. robot', 'Column name, e.g. robot') }}" {% if not structural %}readonly{% endif %} aria-label="{{ de_en('Spaltenname (Platzhalter)', 'Column name (placeholder)') }}">
+            <label class="check small" title="{{ de_en('Diese Spalte wird Teilnehmenden nie gezeigt: für Kodierungen (z. B. hum/tech) oder englische Bild-Prompts', 'This column is never shown to participants: for codings (e.g. hum/tech) or English image prompts') }}"><input type="checkbox" name="col_hidden" value="{{ c.id }}" {% if c.hidden %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("nur intern", "internal only") }}</label>
+            {% if structural %}<button type="button" class="icon-btn icon-btn-word danger" data-remove-col="{{ c.id }}" aria-label="{{ de_en('Spalte entfernen', 'Remove column') }}">{{ icon("x", 14) }} {{ de_en("Spalte entfernen", "Remove column") }}</button>{% endif %}
+          </th>
+          {% endfor %}
+          {% if structural %}<th class="loop-addcol"><button type="button" class="button button-small button-secondary" data-add-col>{{ de_en("+ Spalte", "+ Column") }}</button></th>{% endif %}
+        </tr>
+      </thead>
+      {% set plan_out = loop.mode == "plan" and plan_current %}
+      <tbody data-rows{% if structural %} data-row-list{% endif %}>
+        {% for r in rows %}
+        {% set row_no = loop.index %}
+        <tr{% if plan_out and r.id not in in_plan %} class="loop-row-out" title="{{ de_en('nicht im Versuchsplan', 'not in the experimental design') }}"{% endif %}><td class="loop-rownum"><input type="hidden" name="row_id" value="{{ r.id }}">{{ row_no }}</td>
+          {% for c in columns %}
+          {% set cell = (r["values"] or {}).get(c.id, {}) %}
+          <td data-col="{{ c.id }}"><input name="cell_{{ r.id }}_{{ c.id }}" aria-label="{{ de_en('{col}, Durchlauf {n}', '{col}, pass {n}', col=c.name or c.id, n=row_no) }}" value="{{ cell.get(lang, '') }}" placeholder="{{ cell.get(survey.default_language, '') or de_en('Wert für Durchlauf {n}', 'Value for pass {n}', n=row_no) }}" {% if locked %}readonly{% endif %}></td>
+          {% endfor %}
+          {% if structural %}{{ row_tools(de_en("Zeile entfernen", "Remove row")) }}{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if structural %}
+  <div><button type="button" class="button button-small button-secondary" data-add-row>{{ de_en("+ Zeile", "+ Row") }}</button>
+    <span class="muted small">{{ de_en("Eine Zeile = ein Durchlauf. Leere Zeilen zählen nicht. Spaltennamen: Buchstaben, Ziffern, _ (z. B.", "One row = one pass. Empty rows do not count. Column names: letters, digits, _ (e.g.") }} <code>robot</code>, <code>{{ de_en("szenario", "scenario") }}</code>).
+      {{ de_en("„nur intern“: Spalte wird nie angezeigt, z. B. für Kodierungen oder Bild-Prompts.", "“internal only”: the column is never shown, e.g. for codings or image prompts.") }}</span></div>
+  {% endif %}
+
+  <h2><span class="step-no">2</span> {{ de_en("Platzhalter in den Fragen verwenden", "Use the placeholders in the questions") }}</h2>
+  {% set names = loop.columns|map(attribute="name")|list %}
+  <div data-live="loop-placeholders">
+  {% if names %}
+  <p class="small">{{ de_en("Schreiben Sie in Fragetexte, Aussagen, Antwortoptionen oder Infotexte dieses Blocks:", "Write in question texts, statements, answer options or info texts of this block:") }}
+    {% for n in names %}<code class="copy-chip" role="button" tabindex="0" title="{{ de_en('Klicken oder Enter: kopieren', 'Click or Enter: copy') }}" data-copy-text="{{ '{{' ~ n ~ '}}' }}">{{ "{{" ~ n ~ "}}" }}</code> {% endfor %}</p>
+  <ul class="plain small loop-usage">
+    {% for item in blocks|map(attribute="items")|sum(start=[]) if item.type != "page_break" %}
+    {% set uses = item.kind.used_placeholders(item)|select("in", names)|list %}
+    <li>{{ icon("check", 14) if uses else icon("alert", 14) }} <code>{{ item.code }}</code>
+      {% if uses %}{{ de_en("verwendet {names}", "uses {names}", names=uses|map("string")|join(", ")) }}{% else %}<span class="muted">{{ de_en("verwendet noch keinen Platzhalter (wäre in jedem Durchlauf gleich)", "uses no placeholder yet (would be the same in every pass)") }}</span>{% endif %}
+      · <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}">{{ de_en("bearbeiten", "edit") }}</a></li>
+    {% else %}<li class="muted">{{ de_en("Die Blöcke der Schleife enthalten noch keine Fragen.", "The blocks of the loop contain no questions yet.") }}</li>{% endfor %}
+  </ul>
+  {# every text with a placeholder as it reads in each pass: a value in the wrong case shows here (UI audit 2026-10-12, U45) #}
+  {% if readings %}
+  <details class="res-dist loop-readings"><summary>{{ de_en("So lesen sich die Texte ({n})", "How the texts read ({n})", n=readings|length) }}</summary>
+    <p class="muted small">{{ de_en("Jeder Text mit Platzhalter, wie ihn Teilnehmende in jedem Durchlauf lesen. Passt ein Wert nicht in den Satz (etwa „Bewertung: dem Fahrrad“), den Text oder die Werte der Tabelle anpassen. Die KI-Prüfung der Texte liest diese Fassungen mit.", "Every text with a placeholder as participants read it in each pass. If a value does not fit the sentence, change the text or the values in the table. The AI check of the texts reads these versions too.") }}</p>
+    {% for r in readings %}
+    <div class="loop-reading">
+      <p class="loop-reading-head"><span class="muted small">{{ r.where }}</span> <code>{{ r.text }}</code></p>
+      <ol class="small loop-reading-rows">{% for n, text in r.rows %}<li value="{{ n }}">{{ text }}</li>{% endfor %}</ol>
+    </div>
+    {% endfor %}
+    {% if loop.rows|length > read_rows %}<p class="muted small">{{ de_en("Gezeigt: die ersten {k} von {n} Zeilen.", "Shown: the first {k} of {n} rows.", k=read_rows, n=loop.rows|length) }}</p>{% endif %}
+  </details>
+  {% endif %}
+  {% else %}
+  <p class="muted small">{{ de_en("Sobald die Tabelle Spalten hat, stehen hier die Platzhalter zum Kopieren.", "As soon as the table has columns, the placeholders are listed here for copying.") }}</p>
+  {% endif %}
+  </div>
+
+  <h2><span class="step-no">3</span> {{ de_en("Auswahl je Person", "Selection per person") }}</h2>
+  <fieldset {% if not structural %}disabled{% endif %}>
+    <div class="row-fields">
+      <label>{{ de_en("Zeilen", "Rows") }}
+        <select name="mode" data-show-for>
+          <option value="all" {% if loop.mode == "all" %}selected{% endif %}>{{ de_en("alle Zeilen (jede Person sieht jeden Durchlauf)", "all rows (each person sees every pass)") }}</option>
+          <option value="k" {% if loop.mode == "k" %}selected{% endif %}>{{ de_en("einige der Zeilen (jede Person sieht nur einen Teil)", "some of the rows (each person sees only a part)") }}</option>
+          <option value="level" {% if loop.mode == "level" %}selected{% endif %}>{{ de_en("eine Zeile je Stufe (z. B. eine Variante je Versuchsbedingung)", "one row per level (e.g. one variant per experimental condition)") }}</option>
+          <option value="plan" {% if loop.mode == "plan" %}selected{% endif %}>{{ de_en("Ausschnitt nach Versuchsplan (Decks je Person)", "subset by experimental design (decks per person)") }}</option>
+        </select>
+      </label>
+      <label data-when="plan">{{ de_en("Zeilen je Person", "Rows per person") }}
+        <select name="plan_per_person">{% for n in range(2, 41) %}<option value="{{ n }}" {% if subset.per_person == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+      <label data-when="plan">{{ de_en("Decks", "Decks") }} <span class="hint">{{ de_en("Deck = die Zeilen, die eine Person sieht", "deck = the rows one person sees") }}</span>
+        <select name="plan_decks">{% for n in range(1, 61) %}<option value="{{ n }}" {% if subset.decks == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+      <label data-when="k">{{ de_en("Anzahl je Person (k)", "Number per person (k)") }} <input type="number" name="k" min="1" value="{{ loop.k }}" class="narrow"></label>
+      {% set level_cols = loop.level_cols %}{# inside the for below, "loop" is Jinja's loop object #}
+      <div data-when="level" class="loop-plan-cols"><span class="label-title">{{ de_en("Stufen aus der Spalte", "Levels from the column") }}</span>
+        {% for c in loop.columns %}<label class="check"><input type="checkbox" name="level_col" value="{{ c.id }}" {% if c.id in level_cols %}checked{% endif %}> {{ c.name }}</label>{% else %}<span class="muted small">{{ de_en("erst Spalten anlegen", "create columns first") }}</span>{% endfor %}
+        <span class="hint">{{ de_en("je Wert (bei mehreren Spalten: je Kombination) wird eine Zeile gezogen", "one row is drawn per value (with several columns: per combination)") }}</span>
+      </div>
+      <div data-when="plan" class="loop-plan-cols"><span class="label-title">{{ de_en("Spalten, die Faktoren sind", "Columns that are factors") }}</span>
+        {% for c in loop.columns %}<label class="check"><input type="checkbox" name="plan_col" value="{{ c.id }}" {% if c.id in subset.cols %}checked{% endif %}> {{ c.name }}</label>{% endfor %}
+      </div>
+      <label>{{ de_en("Reihenfolge", "Order") }}
+        <select name="order">
+          <option value="random" {% if loop.order == "random" %}selected{% endif %}>{{ de_en("zufällig", "random") }}</option>
+          <option value="fixed" {% if loop.order == "fixed" %}selected{% endif %}>{{ de_en("wie in der Tabelle", "as in the table") }}</option>
+        </select>
+      </label>
+      <label class="check" data-when="k level"><input type="checkbox" name="balanced" value="1" {% if loop.balanced %}checked{% endif %}> {{ de_en("balanciert", "balanced") }} <span class="hint">{{ de_en("seltenste Zeilen zuerst", "rarest rows first") }}</span></label>
+      <label>{{ de_en("Variablenname", "Variable name") }} <input name="code" data-varname="full" value="{{ loop.code }}" class="narrow"></label>
+    </div>
+  </fieldset>
+  {% if autosave %}{{ autosave_bar() }}{% endif %}
+</form>
+
+{% if loop.mode == "plan" %}
+<section class="panel" id="auswahl">
+  <h2>{{ de_en("Ausschnitt nach Versuchsplan", "Subset by experimental design") }}</h2>
+  {% set found = loop_plan.problems(survey, node) %}
+  <p class="small">{{ de_en("Askurious wählt aus den Zeilen die {n}, die zusammen den besten Versuchsplan für die angekreuzten
+    Faktor-Spalten ergeben, und teilt sie in {d} Deck zu je {k}; jede Person bekommt ein Deck.", "From the rows, Askurious picks the {n} that together give the best experimental design for the ticked
+    factor columns, and splits them into {d} deck of {k}; each person gets one deck.", n=subset.per_person * subset.decks, d=subset.decks, k=subset.per_person) if subset.decks == 1 else de_en("Askurious wählt aus den Zeilen die {n}, die zusammen den besten Versuchsplan für die angekreuzten
+    Faktor-Spalten ergeben, und teilt sie in {d} Decks zu je {k}; jede Person bekommt ein Deck.", "From the rows, Askurious picks the {n} that together give the best experimental design for the ticked
+    factor columns, and splits them into {d} decks of {k}; each person gets one deck.", n=subset.per_person * subset.decks, d=subset.decks, k=subset.per_person) }}
+    {{ de_en("Nicht gewählte Zeilen bleiben in der Tabelle und werden nie gezeigt.", "Rows not chosen stay in the table and are never shown.") }}</p>
+  {% if structural %}
+  <form method="post" class="button-row">
+    {{ csrf() }}<input type="hidden" name="action" value="plan_generate">
+    <button class="button" {% if found %}disabled title="{{ found|join(' ') }}"{% endif %}>{{ de_en("Versuchsplan erzeugen", "Generate experimental design") }}</button>
+    <span class="muted small">{{ found|join(" ") if found else de_en("Erzeugen lässt sich rückgängig machen.", "Creating can be undone.") }}</span>
+  </form>
+  {% endif %}
+  {% if plan_current and subset.stats %}{% set s = subset.stats %}
+  <div class="vig-stats">
+    <div><span class="muted small">{{ de_en("Zeilen im Versuchsplan", "Rows in the experimental design") }}</span><strong>{{ de_en("{n} von {total}", "{n} of {total}", n=s.n, total=loop.rows|length) }}</strong></div>
+    <div><span class="muted small">{{ term("d_eff", de_en("D-Effizienz", "D-efficiency")) }}</span><strong class="{{ 'text-ok' if s.d_eff >= 90 else 'text-warn' }}">{{ s.d_eff|dec(1) }}</strong></div>
+    {% if s.deck_eff is not none %}<div><span class="muted small">{{ de_en("D-Effizienz in den Decks", "D-efficiency within the decks") }}</span><strong>{{ s.deck_eff|dec(1) }}</strong></div>{% endif %}
+    <div><span class="muted small">{{ de_en("größte Korrelation zweier Faktoren", "largest correlation of two factors") }}</span><strong>{{ s.max_corr|dec(2) }}</strong></div>
+  </div>
+  <p class="muted small">{{ de_en("D-Effizienz 100 heißt: Faktoren unkorreliert, Stufen gleich oft. Grau in der Tabelle: nicht im Versuchsplan. Nach einer Änderung der Tabelle, der Faktor-Spalten oder der Deckgröße neu erzeugen.", "A D-efficiency of 100 means: factors uncorrelated, levels equally often. Grey in the table: not in the experimental design. Create it again after changing the table, the factor columns or the deck size.") }}</p>
+  {% elif subset.decks_rows %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Der Versuchsplan passt nicht mehr zur Tabelle: bitte neu erzeugen.", "The experimental design no longer fits the table: please create it again.") }}</span></p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if structural and loop.rows and loop.columns %}
+{% set has_variant = loop.columns|selectattr("name", "equalto", variant_column)|list %}
+<section class="panel" id="varianten">
+  <h2>{{ de_en("Mehrere Varianten je Versuchsbedingung", "Several variants per experimental condition") }} <span class="hint">{{ de_en("Stimulus-Sampling", "stimulus sampling") }}</span></h2>
+  <p class="small">{{ de_en("Steht jede Bedingung für nur ein Bild oder einen Text, misst ein Vergleich der Bedingungen auch alles Zufällige an
+    diesem einen Reiz (Licht, Gesicht, Wortwahl). Mit mehreren Varianten je Versuchsbedingung, von denen jede Person eine zufällige sieht, lässt
+    sich die Bedingung davon trennen; die Variante steht im Export und kann in der Auswertung als Zufallsfaktor eingehen.", "If each condition stands for only one image or text, a comparison of the conditions also measures everything incidental about
+    this one stimulus (light, face, wording). With several variants per experimental condition, of which each person sees a random one,
+    the condition can be separated from it; the variant is in the export and can enter the analysis as a random factor.") }}</p>
+  {% if has_variant %}
+  <p class="small">{{ de_en("Die Tabelle hat eine Spalte", "The table has a column") }} <code>{{ variant_column }}</code>. {{ de_en("Unter „Auswahl je Person“ zieht „eine Zeile je Stufe“ je Versuchsbedingung eine Variante.", "Under “Selection per person”, “one row per level” draws one variant per experimental condition.") }}</p>
+  {% else %}
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="variants">
+    <div><span class="label-title">{{ de_en("Spalten, die die Versuchsbedingung angeben", "Columns that give the experimental condition") }}</span>
+      {% for c in loop.columns %}<label class="check"><input type="checkbox" name="variant_col" value="{{ c.id }}" {% if not c.hidden %}checked{% endif %}> {{ c.name }}</label>{% endfor %}</div>
+    <div class="row-fields"><label>{{ de_en("Varianten je Versuchsbedingung", "Variants per experimental condition") }}
+      <select name="variants">{% for n in range(2, 11) %}<option value="{{ n }}" {% if n == 3 %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label></div>
+    <p class="muted small">{{ de_en("Jede Bedingung bekommt so viele Zeilen (fehlende als Kopie, die Sie danach ändern), dazu die interne Spalte", "Each condition gets this many rows (missing ones as a copy that you change afterwards), plus the internal column") }}
+      <code>{{ variant_column }}</code> {{ de_en("mit 1, 2, 3 …; die Auswahl je Person wird „eine Zeile je Stufe“. Für eigene KI-Bilder je Variante", "with 1, 2, 3 …; the selection per person becomes “one row per level”. For separate AI images per variant, write") }}
+      <code>{{ "{{" ~ variant_column ~ "}}" }}</code> {{ de_en("in den Bild-Prompt schreiben. Lässt sich rückgängig machen.", "into the image prompt. Can be undone.") }}</p>
+    <div class="form-actions"><button class="button button-secondary">{{ de_en("Varianten anlegen", "Create variants") }}</button></div>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% if loop_sources %}<section class="panel">{{ grouped(loop_sources) }}</section>{% endif %}
+
+<section class="panel">
+  <h2>{{ de_en("Export", "Export") }}</h2>
+  <p class="small">{{ de_en("Jede Antwort wird je Durchlauf gespeichert; im Export entstehen Spalten mit der Zeilennummer als Suffix
+    (z. B.", "Each answer is stored per pass; the export gets columns with the row number as a suffix
+    (e.g.") }} <code>Q1_1 … Q1_{{ loop.rows|length or "n" }}</code>) {{ de_en("und", "and") }} <code>{{ loop.code }}_order</code> {{ de_en("mit der gezeigten Reihenfolge.", "with the order shown.") }}</p>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{# The links of several interviewers made at once (app/interviewer.add), shown only in the answer to that form: one
+   card per person with the name, the QR code and the link, to print and cut apart or to copy as a list (name, tab,
+   link) into a spreadsheet or a mail merge. Needs: survey, rows ({"name", "url", "qr"}), days. #}
+{% block title %}{{ de_en("Interviewlinks", "Interviewer links") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<section class="panel value-cards-head">
+  <a class="back-link value-cards-back" href="{{ url_for('interview_data.index', code=survey.code) }}#interviewende">{{ icon("back", 16) }} {{ de_en("Zurück zu den Interviews", "Back to the interviews") }}</a>
+  <h1>{{ survey.title }} <span class="hint">{{ de_en("{n} Interviewlinks", "{n} interviewer links", n=rows|length) }}</span></h1>
+  <p class="no-print"><strong>{{ de_en("Die Links werden nur jetzt angezeigt.", "The links are shown only now.") }}</strong> {{ de_en("Jetzt drucken oder kopieren; später gibt es für eine Person nur „Neuer Link“, der den alten ungültig macht. Jeder Link gilt {n} Tage. Jede Person bekommt nur ihren eigenen Link, nicht die Liste.", "Print or copy them now; later there is only “New link” for one person, which makes the old one invalid. Each link is valid for {n} days. Each person gets only their own link, not the list.", n=days) }}</p>
+  <div class="form-actions">
+    <button type="button" class="button" data-print>{{ de_en("Drucken", "Print") }}</button>
+    <button type="button" class="button button-secondary" data-copy-tsv="{% for row in rows %}{{ row.name }}&#9;{{ row.url }}{% if not loop.last %}&#10;{% endif %}{% endfor %}">{{ icon("copy", 16) }} {{ de_en("Alle Links kopieren", "Copy all links") }}</button>
+  </div>
+</section>
+<div class="value-cards">
+  {% for row in rows %}
+  {% set base, sep, key = row.url.partition("#") %}
+  <div class="value-card">
+    <p class="value-card-survey">{{ survey.title }}</p>
+    <p><strong>{{ row.name }}</strong></p>
+    {{ row.qr|safe }}
+    <p class="qr-url"><code><span class="qr-url-base">{{ base }}</span><wbr><span class="qr-url-base">#{{ key }}</span></code></p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

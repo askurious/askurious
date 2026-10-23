@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="{{ html_lang(survey.default_language) }}" dir="{{ html_dir(survey.default_language) }}" data-theme="light">
+{# The guide to print or save as PDF (app/interview.py, print): the same content as the Word guide (interview_docx,
+   "leitfaden"), drawn by the browser; "Drucken / als PDF speichern" opens its print dialog (participant.js,
+   data-print). No PDF library is needed on the server. The guide's questions in the survey's language; the frame in
+   the language of the person printing (as the Word guide, app/interview_docx.py). #}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ de_en("Leitfaden", "Guide") }} · {{ survey.title }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='participant.js') }}" defer></script>
+</head>
+{% from "_sources.html" import entry %}
+{% set lang = survey.default_language %}
+<body class="guide-print">
+  <div class="guide-print-bar">
+    <a class="back-link" href="{{ url_for('interview.export', code=survey.code) }}">‹ Export</a>
+    <button type="button" class="button" data-print>{{ de_en("Drucken / als PDF speichern", "Print / save as PDF") }}</button>
+  </div>
+  <main class="guide-print-page">
+    <h1>{{ survey.title }}</h1>
+    <p class="guide-print-note">{{ de_en("Interviewleitfaden · Stand {today} · geplante Dauer ca. {total} Min. · Reihenfolge: {order} ·
+      K = Kernfrage, soll in jedem Interview vorkommen · ☐ inhaltliche Aspekte nur abhaken, wenn sie von selbst zur Sprache kommen", "Interview guide · as of {today} · planned duration approx. {total} min · order: {order} ·
+      C = core question, should come up in every interview · ☐ tick content aspects only when they come up unprompted", today=today, total=total, order=order) }}</p>
+    {% if survey.research_question %}<p><strong>{{ de_en("Forschungsfrage:", "Research question:") }}</strong> {{ survey.research_question }}</p>{% endif %}
+    {% for which, block in rows %}
+    {% if which == "guide" %}
+    <h2>{{ block.title() }}{% if planned(block) %} <span class="guide-print-min">({{ de_en("ca. {n} Min.", "approx. {n} min", n=planned(block)) }})</span>{% endif %}</h2>
+    {% set subs = outline(block)|rejectattr(1, "none")|map(attribute=0)|list %}
+    {% for run in runs(block) %}
+      {% if run.table %}
+      <table class="guide-print-table">
+        <thead><tr><th>{{ de_en("Leitfrage / Erzählaufforderung", "Guide question / narrative prompt") }}</th><th>{{ de_en("Inhaltliche Aspekte (Check)", "Content aspects (check)") }}</th><th>{{ de_en("Aufrechterhaltungsfragen", "Maintenance questions") }}</th><th>{{ de_en("Konkrete Fragen", "Specific questions") }}</th></tr></thead>
+        <tbody>
+        {% for item in run.elements %}
+        {% if item in subs %}{# an Unterfrage: indented under its Leitfrage, with "Wann stellen?" (concept unterfragen) #}
+        <tr class="guide-print-sub">
+          <td>↳ {{ item.text("question")|striptags or de_en("(ohne Erzählaufforderung)", "(without narrative prompt)") }}
+            {% if item.text("when") %}<span class="guide-print-when">{{ item.text("when") }}</span>{% endif %}
+            {% if item.kind.case_text(item) %}<span class="guide-print-when">{{ item.kind.case_text(item) }}</span>{% endif %}
+            {% if item.text("hint") %}<div class="guide-print-hint">{{ item.text("hint") }}</div>{% endif %}</td>
+        {% else %}
+        <tr>
+          <td>{% if item.config.core %}<strong>{{ de_en("K", "C") }} </strong>{% endif %}{{ item.text("question")|striptags or de_en("(ohne Erzählaufforderung)", "(without narrative prompt)") }}
+            <div class="guide-print-hint">{% if item.text("hint") %}{{ item.text("hint") }} · {% endif %}{{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}</div></td>
+        {% endif %}
+          <td>{% for rid, text in item.kind.rows(item, "aspects") %}<div>☐ {{ text }}</div>{% endfor %}</td>
+          <td>{% for rid, text in item.kind.rows(item, "keep") %}<div>{{ text }}</div>{% endfor %}</td>
+          {# concrete questions: a condition above its question, Nachfragen indented (concept bedingungen-leitfaden) #}
+          <td>{% for p in item.kind.probe_tree(item) %}<div>{% if p.cond_text %}<span class="guide-print-when">{{ p.cond_text }}</span>{% endif %}{{ p.text }}</div>
+            {% for s in p.subs %}<div class="guide-print-probe-sub">{% set note = [s.when, s.cond_text]|select|join(" · ") %}{% if note %}<span class="guide-print-when">{{ note }}</span>{% endif %}↳ {{ s.text }}</div>{% endfor %}{% endfor %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      {% for item in run.elements %}<div class="guide-print-item">{% if item.type in task_item_types %}<p class="guide-print-when">{{ de_en("Aufgabe", "Task") }} · {{ task_kind(item) }}</p>{% endif %}{% with answers={}, errors={}, variables={}, preview=true, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}</div>{% endfor %}
+      {% endif %}
+    {% endfor %}
+    {% else %}
+    <h2 class="guide-print-form">{{ parts[which] }}{% if which == "post" %} {{ de_en("(nach dem Gespräch)", "(after the conversation)") }}{% endif %}</h2>
+    <p>{{ de_en("Interviewkennung:", "Interview identifier:") }} ______________ &nbsp; {{ de_en("Datum:", "Date:") }} ______________</p>
+    <fieldset class="bare" disabled>
+      {% for item in block.items if item.type != "page_break" %}
+      <div class="guide-print-item">{% with answers={}, errors={}, variables={}, preview=true, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}</div>
+      {% endfor %}
+    </fieldset>
+    {% endif %}
+    {% endfor %}
+    <h3>{{ de_en("Quellen", "Sources") }}</h3>
+    <ul class="guide-print-sources">{% for source in sources %}{{ entry(source) }}{% endfor %}</ul>
+  </main>
+{% include "participant/_scripts.html" %}
+</body>
+</html>

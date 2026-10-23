@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "items/_suggestion.html" import suggestion %}
+{% block title %}{{ de_en("KI-Feedback zu den Bild-Prompts", "AI feedback on the image prompts") }} · {{ item.code }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang, weg=request.values.get('weg')) }}">{{ icon("back", 16) }} {{ kind.image_set_label }}</a>
+<div class="page-head"><h1>{{ de_en("KI-Feedback zu den Bild-Prompts", "AI feedback on the image prompts") }} <span class="hint">{{ item.code }} · {{ de_en("Bildstil", "Image style") }}: {{ style_label }}</span></h1></div>
+<p class="muted small">{{ de_en("Geprüft wurden der Grundprompt und der Bildhinweis jeder Stufe der Bild-Merkmale, so wie die Bild-KI sie bekommt. Was Teilnehmende lesen, wurde nicht gesendet. Nichts ändert sich, bis Sie Vorschläge auswählen und übernehmen; schon erzeugte Bilder bleiben.", "Checked were the base prompt and the image hint of every level of the image attributes, as the image AI receives them. What participants read was not sent. Nothing changes until you select and apply suggestions; images already generated stay.") }}</p>
+
+{% if result.remarks %}
+<section class="panel">
+  <h2>{{ de_en("Allgemeine Hinweise", "General notes") }}</h2>
+  <ul>{% for r in result.remarks %}<li>{{ r }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if result.scene or result.levels %}
+<form method="post" action="{{ url_for('editor.item_images_review_apply', survey_id=survey.id, item_id=item.id, weg=request.values.get('weg')) }}" class="stack">
+  {{ csrf() }}
+  <section class="panel">
+    <table class="review-table">
+      <colgroup><col class="check-col"><col><col></colgroup>
+      {% if result.scene %}
+      {% set where %}<strong>{{ de_en("Grundprompt", "Base prompt") }}</strong>{% endset %}
+      {{ suggestion("take_scene", "1", de_en("Grundprompt", "Base prompt"), where, result.scene.old, "scene", result.scene.suggestion, result.scene.why) }}
+      {% endif %}
+      {% for s in result.levels %}
+      {% set where %}<code>{{ s.attribute }}</code> · <strong>{{ s.label }}</strong>{% endset %}
+      {{ suggestion("take_level", s.level, de_en("Bildhinweis für {label}", "Image hint for {label}", label=s.label), where, s.old, "hint_" ~ s.level, s.suggestion, s.why) }}
+      {% endfor %}
+    </table>
+    <div class="form-actions"><button class="button">{{ icon("check", 16) }} {{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+      <a class="button button-secondary" href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang, weg=request.values.get('weg')) }}">{{ de_en("Verwerfen", "Discard") }}</a></div>
+  </section>
+</form>
+{% else %}
+<p class="flash flash-success">{{ de_en("Die KI hat nichts zu verbessern gefunden.", "The AI found nothing to improve.") }}</p>
+{% endif %}
+{% endblock %}

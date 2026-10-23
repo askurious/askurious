@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ de_en("Rückmeldungen", "Feedback") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "feedback" %}{% include "admin/_tabs.html" %}
+{# in a panel like the other tabs of the administration (UI audit 2026-10-07, W101) #}
+<section class="panel feedback-panel">
+<div class="page-head"><h2>{{ icon("bug", 20) }} {{ de_en("Rückmeldungen", "Feedback") }} <span class="hint">{{ items|length }} {{ de_en("offen", "open") if show != "all" else de_en("insgesamt", "in total") }}</span></h2>
+  <nav class="segmented" aria-label="{{ de_en('Welche Rückmeldungen', 'Which feedback') }}"><a href="{{ url_for('feedback.index') }}" {% if show != "all" %}aria-current="page"{% endif %}>{{ de_en("offen", "open") }}</a><a href="{{ url_for('feedback.index', show='all') }}" {% if show == "all" %}aria-current="page"{% endif %}>{{ de_en("alle", "all") }}</a></nav>
+</div>
+<ul class="feedback-list">
+  {% for f in items %}
+  <li class="panel feedback-item{% if f.status == 'done' %} is-done{% endif %}{% if f.severity == 4 %} is-complaint{% endif %}">
+    <div class="feedback-meta">
+      <span class="badge sev-badge sev-{{ f.severity }}">{{ de_en(*severities[f.severity]) }}</span>
+      {% if f.tag %}<span class="badge badge-construct">{{ f.tag }}</span>{% endif %}
+      <span class="muted small feedback-source">{{ f.created_at|localdt }} · {% if f.severity == 4 %}{% if f.survey %}<a href="{{ url_for('surveys.detail', survey_id=f.survey.id) }}">{{ de_en("Befragung", "Survey") }} {{ f.survey.code }}</a> · <a href="{{ url_for('participate.privacy', uid=f.survey.public_key) }}" target="_blank" rel="noopener">{{ de_en("Datenschutzseite", "Privacy page") }}</a>{% else %}{{ de_en("Befragung gelöscht", "Survey deleted") }}{% endif %}{% if f.contact %} · {{ de_en("Kontakt:", "Contact:") }} {{ f.contact }}{% else %} · {{ de_en("ohne Kontakt", "no contact") }}{% endif %}{% else %}{{ f.user.display_name if f.user else de_en("unbekannt", "unknown") }}{% endif %}{% if f.page and f.severity != 4 %} · <a href="{{ f.page }}">{{ f.page|truncate(60) }}</a>{% endif %}</span>
+      <form class="inline" method="post" action="{{ url_for('feedback.set_status', fid=f.id, show=show) }}">{{ csrf() }}
+        <input type="hidden" name="status" value="{{ 'new' if f.status == 'done' else 'done' }}">
+        <button class="button button-small button-secondary">{{ de_en("wieder öffnen", "reopen") if f.status == "done" else de_en("erledigt", "done") }}</button></form>
+    </div>
+    <p class="feedback-text">{{ f.message }}</p>
+    {% if f.severity == 4 and f.status != "done" %}
+    {# the decision with its reasons, to the person who complained and to the survey's admins (Art. 16(5), 17 DSA;
+       copyright audit 2026-10-16, U11) #}
+    <details class="feedback-decide"><summary>{{ de_en("Entscheiden", "Decide") }}</summary>
+      <form method="post" action="{{ url_for('feedback.decide', fid=f.id, show=show) }}" class="stack">{{ csrf() }}
+        <label><span class="label-title">{{ de_en("Maßnahme", "Measure") }}</span>
+          <select name="measure" required>{% for key, names in measures.items() %}<option value="{{ key }}">{{ de_en(*names) }}</option>{% endfor %}</select></label>
+        <label><span class="label-title">{{ de_en("Begründung", "Reasons") }} <span class="hint">{{ de_en("geht an die Person, die sich beschwert hat, und bei einer Maßnahme an die Admins der Befragung", "goes to the person who complained and, with a measure, to the admins of the survey") }}</span></span>
+          <textarea name="reason" rows="3" maxlength="3000" required></textarea></label>
+        <div class="form-actions"><button class="button button-small">{{ de_en("Entscheidung festhalten und mitteilen", "Record and send the decision") }}</button></div>
+      </form>
+    </details>
+    {% endif %}
+  </li>
+  {% else %}<li class="muted feedback-empty">{{ de_en("Keine offenen Rückmeldungen.", "No open feedback.") if show != "all" else de_en("Keine Rückmeldungen.", "No feedback.") }}</li>{% endfor %}
+</ul>
+</section>
+{% endblock %}

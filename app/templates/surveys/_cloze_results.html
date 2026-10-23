@@ -1,0 +1,15 @@
+{# Cloze text: per gap the most frequent answers (lower case) #}
+<div class="res-cloze">
+  {% for g in e.cloze.gaps %}
+  <div class="res-cloze-gap">
+    <h4>{{ de_en("Lücke {k}", "Gap {k}", k=g.k) }} <span class="muted small">{% if g.before %}{{ de_en("nach „…{text}“", "after “…{text}”", text=g.before) }} · {% endif %}{{ de_en("{n} ausgefüllt, {d} verschiedene", "{n} filled in, {d} different", n=g.filled, d=g.distinct) }}</span></h4>
+    {% if g.answers %}
+    {% set top = g.answers[0][1] %}
+    <div class="res-scroll"><table class="res-terms"><tbody>
+      {% for word, n in g.answers %}<tr><td>{{ word }}</td><td><span class="res-terms-bar" style="width: {{ (60 * n / top)|round(1) }}px"></span> {{ n }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="muted small">{{ de_en("keine Antwort kommt fünfmal vor", "no answer occurs five times") if e.few_hidden and g.filled else de_en("noch keine Antworten", "no answers yet") }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+<p class="muted small">{{ de_en("Antworten in Kleinschreibung zusammengefasst, sonst wie eingegeben; je Lücke die häufigsten.", "Answers put together in lower case, otherwise as typed; the most frequent per gap.") }}{% if e.few_hidden %} {{ de_en("Antworten, die seltener als fünfmal vorkommen, zeigt die Rolle „Ansehen“ nicht.", "The role “View” does not see answers that occur fewer than five times.") }}{% endif %}</p>

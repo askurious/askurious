@@ -1,0 +1,11 @@
+{% if cmp and cmp.bins is not none and survey.can(current_user, "editor") %}
+{# the bounds of the classes: saved on change for the survey (surveys.results_bins), no button #}
+<form method="post" action="{{ url_for('surveys.results_bins', survey_id=survey.id) }}" class="res-group-pick" id="groups">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="item" value="{{ cmp.item_id }}">
+  <label><span class="label-title">{{ de_en("Grenzen der Klassen", "Class bounds") }}</span>
+    <input type="text" name="grenzen" value="{% for b in cmp.bins or [] %}{{ fmt_num(b) }}{{ '; ' if not loop.last }}{% endfor %}" size="24" inputmode="decimal" data-submit-on-change
+           aria-describedby="bins-hint"></label>
+  <span class="hint" id="bins-hint">{% if cmp.bins_origin == "saved" %}{{ de_en("gespeichert für diese Befragung: {bounds}; untere Grenzen, getrennt durch Semikolon (ein Komma ist ein Dezimalkomma); leer: wieder die vorgeschlagenen", "saved for this survey: {bounds}; lower bounds, separated by semicolons (a comma is a decimal comma); empty: the suggested ones again", bounds=cmp.bins|join("; ") if ui_language() == "en" else cmp.bins|map("string")|map("replace", ".", ",")|join("; ")) }}{% elif cmp.bins_origin == "age" %}{{ de_en("untere Grenzen, getrennt durch Semikolon; vorgeschlagen (übliche Altersstufen); eine Änderung gilt für diese Befragung", "lower bounds, separated by semicolons; suggested (the usual age bands); a change applies to this survey") }}{% else %}{{ de_en("untere Grenzen, getrennt durch Semikolon; vorgeschlagen (runde Werte nahe den Terzilen der Daten); eine Änderung gilt für diese Befragung", "lower bounds, separated by semicolons; suggested (round values near the tertiles of the data); a change applies to this survey") }}{% endif %}</span>
+  <noscript><button class="button button-small">{{ de_en("Übernehmen", "Apply") }}</button></noscript>
+</form>
+{% endif %}

@@ -1,0 +1,186 @@
+# nginx in front of both sides (compose.yaml). ${RESEARCHER_HOST} and ${PARTICIPANT_HOST} are filled in at the
+# start of the container; nginx's own variables ($host, $remote_addr, ...) stay as they are.
+
+# The containers get new addresses when a deploy recreates them; nginx looks the names up again through Docker's
+# DNS (resolve, every 10 s) instead of keeping the address from its own start. Without it, after the deploy of
+# 2026-10-08 the requests for ask.queryous.de (today ask.askurious.de) went to the researchers' container, which had taken the old address.
+resolver 127.0.0.11 valid=10s ipv6=off;
+upstream researcher  { zone researcher 64k;  server researcher:8000 resolve;  keepalive 16; }
+# The participants' side runs in two containers (compose.yaml). least_conn: each request goes to the one with fewer
+# running requests. Their server lines live in /etc/nginx/upstream/ (nginx/participant-upstream.sh): before a
+# deploy restarts one of them, restart.sh marks it "down" there and reloads nginx, so that no new request (and no
+# kept-alive connection) reaches it while it finishes the running ones.
+upstream participant {
+    zone participant 64k;
+    least_conn;
+    include /etc/nginx/upstream/participant-*.conf;
+    keepalive 32;
+}
+
+# A further brand with its own containers and database (datenbank-je-marke-konzept.md, prepared 2026-10-09):
+# nginx/brand-stack.sh writes these files at the start. With BRAND_STACK_DOMAIN its names go to brand-researcher and
+# brand-participant; without it the files are empty and every name goes to the containers above, as before.
+include /etc/nginx/brand/upstreams*.conf;
+map $host $researcher_pool  { default researcher;  include /etc/nginx/brand/researcher-map*.conf; }
+map $host $participant_pool { default participant; include /etc/nginx/brand/participant-map*.conf; }
+
+# Logs without IP addresses (code audit 2026-10-08, B2; Ralf: participants none at all, researchers only errors).
+# "off" here ends the image's own access log (format "main", with $remote_addr) for every server below; only the
+# researchers' and the status page's write one, for failed requests (4xx, 5xx), without address and without query
+# ($uri, not $request: no ?pid=, ?t=, ?uebergabe=). nginx's error log names the client's address in every line about
+# a request, so it gets only "crit" (practically nothing): the researchers' access log shows the failures, gunicorn the
+# app's errors. Docker keeps at most 3 x 20 MB of each container's output (compose.yaml).
+access_log off;
+error_log /var/log/nginx/error.log crit;      # the image links both files to the container's output
+# a failed request to an address with a bearer token in its path (a password, invitation or join link, a mailbox
+# proof, a deletion code) is logged without the token: only the path's fixed part (Abgleich 2026-10-15, KR-9)
+map $uri $logged_uri {
+    "~^(?<fixed>/(auth/password|invite|join|verify|privacy/delete|account/confirm-email))/" "$fixed/-";
+    default $uri;
+}
+log_format noaddress '$time_iso8601 $host "$request_method $logged_uri $server_protocol" $status $body_bytes_sent $request_time';
+map $status $failed { ~^[45] 1; default 0; }
+
+# no version in the "Server" header and on nginx's own error pages (audit 2026-10-09, BT8)
+server_tokens off;
+
+# Rate limits in front of the app (security audit 2026-10-13, TN-2/DP-3/TN-32/AU-9/KR-8). The app counts its own limits,
+# the ones that guard a secret in the database for all processes (app/limits.py); this is the second line, for floods
+# the app should not even see. Per address: an IPv4 address, an IPv6 address by its /64 (one connection gets a whole
+# /64; nginx writes the address shortened, so the map takes the first four groups, or what stands before "::" when the
+# rest is at most four groups; any other spelling counts by itself). nginx keeps the keys in shared memory only, never
+# in a log (error_log is "crit", the refusals are logged at "warn").
+# Wide on purpose: a lecture hall or a school sits behind ONE address (NAT, eduroam), and a live vote or a survey with a
+# QR code on the screen starts hundreds of phones within seconds.
+#   ask_pages   the participants' pages (/s/, /p/, /d/, /q/, /j/, /demo/) and the diary app (/api/diary/): 100 requests
+#               per second and address, 2000 at once on top (nodelay). 500 phones that open a survey at the same moment
+#               (link, page, consent: about 3 requests each) pass; a script beyond 100 per second gets 429.
+#   ask_live    the live vote's phones (/live/): every request, 1000 per second and address, 4000 at once on top. A hall
+#               of 1000 phones behind one address asks every 2 s (500 per second) and opens the page at about the same
+#               moment; a script far beyond gets 429 (audit 2026-10-15, NB-7/TN-2).
+#   ask_live_post  only the POSTs there (answers, reactions, questions, names): 50 per second and address, 1500 at
+#               once on top: 1000 phones that answer a quiz question within a few seconds pass; a script that sends a
+#               new device id with every POST is braked before the app (which limits new devices per run as well).
+#   ask_secret  addresses with a secret in them or behind them: deleting answers (/privacy/delete), checking a seal chain
+#               (/verify/), one-time links (/auth/password/), invitations (/invite/), join links (/join/), the data API
+#               (/api/v1/): 30 per minute and address, 100 at once on top (a seminar that opens one join link together).
+#   ask_signin  POST of sign-in, code and "Passwort vergessen?" (a GET, the empty form, is not counted): 20 per minute and
+#               address, 30 at once on top (a workshop that signs in together).
+#   ask_search  the construct toolbox (/constructs/), open to visitors and the most expensive page a visitor can ask for
+#               (filters and counts per facet): 10 per second and address, 100 at once on top (a seminar that opens it
+#               together); a script far beyond gets 429 (audit 2026-10-22, D-03).
+#   ask_conn    requests under way at the same time per address (with HTTP/2 each request counts): 400 on the
+#               participants' side (a hall of 1000 phones asking every 2 s has a few dozen under way), 100 on the
+#               researchers' side.
+map $remote_addr $limit_key {
+    "~^(?P<net>[0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}):" $net;
+    "~^(?P<net>(?:[0-9a-f]{1,4}:){1,3}):(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,3})?$" $net;
+    default $binary_remote_addr;
+}
+map $request_method $limit_post { POST $limit_key; default ""; }
+limit_req_zone $limit_key zone=ask_pages:20m rate=100r/s;
+limit_req_zone $limit_key zone=ask_secret:10m rate=30r/m;
+limit_req_zone $limit_post zone=ask_signin:10m rate=20r/m;
+limit_req_zone $limit_key zone=ask_live:20m rate=1000r/s;
+limit_req_zone $limit_post zone=ask_live_post:10m rate=50r/s;
+limit_req_zone $limit_key zone=ask_search:10m rate=10r/s;
+limit_conn_zone $limit_key zone=ask_conn:20m;
+limit_req_status 429;
+limit_conn_status 429;
+limit_req_log_level warn;
+limit_conn_log_level warn;
+
+# the researchers' name that belongs to a participants' name: ask.polltergeist.de -> polltergeist.de (BRANDS)
+map $host $researchers_host { ~^ask\.(?<rest>.+)$ $rest; default ${RESEARCHER_HOST}; }
+
+# the maintenance page (nginx/locations/wartung.conf): English for whom English comes first, else German; the page
+# for a browser, a line of text for a script; its own address passes the switch; Retry-After shorter for a failure
+map $http_accept_language $wartung_sprache { default de; "~*^\s*en" en; }
+map $http_accept $wartung_typ { default txt; "~*text/html" html; }
+map $uri $wartung_frei { default ""; "~^/_wartung/" 1; }
+map $uri $wartung_retry { default 30; /_wartung/schalter 120; }
+
+# 80: only Let's Encrypt and the redirect to https, for every name
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    location /.well-known/acme-challenge/ { root /var/www/acme; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+# 443 for a name that is not ours (the bare IP, someone else's domain): no answer. A request that came with one of
+# our names in the handshake but another one in its Host header lands here as well: the connection is closed without
+# an answer (444), instead of nginx's own start page or 404 (audit 2026-10-13, DP-13)
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+    return 444;
+}
+
+# Mozilla's "intermediate" profile (BSI TR-02102-2): TLS 1.2 only with forward secrecy and AEAD, no static RSA key
+# exchange and no CBC with SHA-1 (audit 2026-10-09, BT7). TLS 1.3 has its own, all of them strong.
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+ssl_prefer_server_ciphers off;
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 1d;
+ssl_session_tickets off;
+
+# The answers nginx gives itself (404, the redirects, 502 while a container restarts, the old names) carry the same
+# protective headers as the app's pages (audit 2026-10-13, DP-13). Only when the app (or the status page) did not
+# send one: its own stay as they are, once, and an embedded dashboard (frame-ancestors * in its CSP, no
+# X-Frame-Options) keeps working. nginx/servers.sh adds them in every server block (an empty value adds nothing).
+map $upstream_http_x_content_type_options $own_nosniff { "" nosniff; default ""; }
+map $upstream_http_content_security_policy $own_frame_options { "" DENY; default ""; }
+map $upstream_http_referrer_policy $own_referrer_policy { "" no-referrer; default ""; }
+map $upstream_http_x_frame_options $media_frame_options { "" DENY; default $upstream_http_x_frame_options; }
+map $upstream_http_referrer_policy $media_referrer_policy { "" no-referrer; default $upstream_http_referrer_policy; }
+
+# HSTS on every answer of the three https names, also on the ones nginx gives itself (404, the redirect to the
+# researchers' side) and on the status page, which sets none (BT9). The app sets the same header (app/__init__.py):
+# nginx drops it, so that it is sent once.
+proxy_hide_header Strict-Transport-Security;
+
+# Compression only for the static files (JS, CSS, SVG; 291 KB become 72 KB, N-9), never for pages: a compressed page
+# with a secret (CSRF token) and something the visitor typed would open the door to BREACH. That is why "gzip on"
+# stands only in the locations for /static/ below (nginx always compresses text/html where gzip is on).
+gzip_comp_level 6;
+gzip_types text/css application/javascript text/javascript application/json image/svg+xml text/plain;
+gzip_min_length 1024;
+gzip_proxied any;
+gzip_vary on;
+
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+proxy_set_header Host $host;
+# overwrite, not append: the app counts one proxy (PROXY_COUNT=1), so what the client sent must not get through
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto https;
+proxy_read_timeout 300s;
+
+# the status page (app/status_node.py), status.askurious.de and status.<brand>
+upstream status { zone status 64k; server status:8070 resolve; }
+
+# The https names, one server block each with its certificate at a fixed path (audit 2026-10-09b, B1): nginx/servers.sh
+# writes them at the start from RESEARCHER_HOST, PARTICIPANT_HOST, STATUS_HOST, BRAND_*_HOSTS (with status.<brand>) and
+# the old names OLD_*_HOST, which only redirect (left out when empty, B4). What each side answers stands in
+# nginx/locations/ (researcher.conf, participant.conf, status.conf), the same for all names of that side.
+include /etc/nginx/servers/*.conf;
+
+
+# The build's actual hashes: an old/new URL mismatch during rolling deployments must never cache for a year.
+map $uri $built_static_hash {
+    default "";
+    include /srv/static-hashes.conf;
+}
+map "$uri:$arg_v" $versioned_static_file {
+    default "";
+    include /srv/static-versions.conf;
+}
+map "$built_static_hash:$arg_v" $static_cache_policy {
+    default "no-cache";
+    "~^([a-f0-9]{12}):\1$" "public, max-age=31536000, immutable";
+}

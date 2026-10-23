@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="{{ html_lang(lang) }}" dir="{{ html_dir(lang) }}">
+<head>
+  <meta charset="utf-8">
+  <script src="{{ url_for('static', filename='participant-init.js') }}"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+  <style>body.participant { padding: 16px 18px 20px; } main.p-container { padding: 0; }
+    /* one empty state for every element (W39): one line, a link to the missing step, never a large grey box */
+    .preview-empty { margin: 0; padding: 12px 14px; max-height: 120px; border: 1px dashed currentColor; border-radius: 8px; opacity: 0.75; font-size: 0.95rem; }
+    .preview-empty a { font-weight: 600; text-decoration: none; }</style>
+  {% set theme_style = theme_css(survey) %}{% if theme_style %}<style>{{ theme_style|safe }}</style>{% endif %}
+</head>
+{# The element as participants see it, for the live preview in the element editor (inside an iframe) #}
+<body class="participant is-item-preview">
+  <main class="p-container">
+    {% set empty = kind.preview_empty(item) %}
+    {% if empty %}
+    {# in the language of the researcher: this line is for them, not for participants #}
+    <p class="preview-empty" lang="{{ ui_language() }}">{{ empty[0] }}{% if empty[1] and kind.editor_tabs %} <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}#tab-{{ empty[1] }}" target="_top">{% for key, title, hint in kind.editor_tabs if key == empty[1] %}{{ de_en("Zum Reiter „{t}“", "To the tab “{t}”", t=title) }}{% endfor %}</a>{% endif %}</p>
+    {% else %}
+    <form data-inert novalidate>
+      {# all_rows: also the statements that only some people see (a condition on an earlier answer, app/rows.py) #}
+      {% with answers={}, errors={}, variables={}, preview=true, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}
+    </form>
+    {% endif %}
+  </main>
+  <script src="{{ url_for('static', filename='participant.js') }}"></script>
+{% include "participant/_scripts.html" %}
+</body>
+</html>

@@ -1,0 +1,102 @@
+{% from "_macros.html" import row_list_hint %}
+{% set t = item.lang_texts(lang) %}
+{% set c = item.cfg %}
+{% set question_label = de_en("Aufgabe", "Task") %}
+{% set question_hint = de_en("z. B. „Wo sollte die nächste Ladesäule stehen? Setzen Sie bis zu drei Marker.“", "e.g. “Where should the next charging point be? Place up to three markers.”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>Marker</legend>
+  <div class="row-fields">
+    <label>{{ de_en("mindestens", "at least") }} <span class="hint">{{ de_en("leer = keine Vorgabe", "empty = no minimum") }}</span>
+      <input type="number" name="min" min="0" max="{{ kind.max_slots }}" value="{{ c.min or '' }}" class="narrow" {% if not structural %}readonly{% endif %}>
+    </label>
+    <label>{{ de_en("höchstens", "at most") }} <span class="hint">1–{{ kind.max_slots }}</span>
+      <input type="number" name="max" min="1" max="{{ kind.max_slots }}" value="{{ c.max or 3 }}" class="narrow" required {% if not structural %}readonly{% endif %}>
+    </label>
+    <label>{{ de_en("Form", "Shape") }}
+      <select name="shape" {% if not meta_editable %}disabled{% endif %}>
+        {% for k, l in kind.shapes.items() %}<option value="{{ k }}" {% if c.shape == k %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Farbe", "Colour") }}
+      <input type="color" name="color" {% if themes.swatches(survey) %}list="theme-colours"{% endif %} value="{{ c.color or '#d62828' }}" {% if not meta_editable %}disabled{% endif %}>
+      {% if themes.swatches(survey) %}<datalist id="theme-colours">{% for colour in themes.swatches(survey) %}<option value="{{ colour }}">{% endfor %}</datalist>
+      <span class="hint">{{ de_en("Die Farbauswahl schlägt die Farben des Farbschemas vor.", "The colour picker suggests the colours of the colour scheme.") }}</span>{% endif %}
+    </label>
+    <label>{{ de_en("Ergebnisse zuerst als", "Results first as") }} <span class="hint">{{ de_en("umschaltbar", "switchable") }}</span>
+      <select name="result_view" {% if not meta_editable %}disabled{% endif %}>
+        {% for k, l in kind.result_views.items() %}<option value="{{ k }}" {% if (c.result_view or "heat") == k %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Dichte: verbunden bis", "Density: connected up to") }} <span class="hint">{{ de_en("Meter Luftlinie, 1–1.000.000", "metres as the crow flies, 1–1,000,000") }}</span>
+      <input type="number" name="density_m" min="1" max="1000000" step="1" required value="{{ kind.density_m(item) }}" class="narrow" {% if not meta_editable %}disabled{% endif %}>
+    </label>
+  </div>
+  <p class="muted small">{{ de_en("Auswertung je Person (Luftlinie, ab 2 Markern): mittlerer, größter und kleinster Abstand, kürzester Pfad durch alle Marker, minimaler Spannbaum und Dichte = Anteil der Markerpaare, die höchstens so weit auseinanderliegen. Die Schwelle wirkt erst im Export und lässt sich jederzeit ändern.", "Analysis per person (as the crow flies, from 2 markers): mean, largest and smallest distance, shortest path through all markers, minimum spanning tree and density = share of marker pairs at most this far apart. The threshold only takes effect in the export and can be changed at any time.") }}</p>
+  <p class="muted small">{{ de_en("Teilnehmende setzen Marker per Klick oder Tippen (oder mit „Marker in der Mitte“), verschieben sie durch Ziehen und entfernen sie in der Liste unter der Karte. Der Export hat je Marker-Platz (bis zur Höchstanzahl) eigene Spalten, dazu eine JSON-Spalte mit allen Markern.", "Participants place markers by clicking or tapping (or with “Marker in the centre”), move them by dragging and remove them in the list below the map. The export has columns of its own per marker slot (up to the maximum), plus a JSON column with all markers.") }}</p>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Startausschnitt", "Starting view") }} <span class="hint">{{ de_en("Karte verschieben und zoomen: Mitte und Zoomstufe werden übernommen", "move and zoom the map: centre and zoom level are applied") }}</span></legend>
+  {% set map_cfg = {"center": c.center, "zoom": c.zoom, "tiles": config.MAP_TILE_URL, "attribution": config.MAP_TILE_ATTRIBUTION,
+                    "search": config.MAP_SEARCH_URL, "shape": c.shape, "color": c.color, "questions": [], "min": 0, "max": 0,
+                    "editor": structural} %}
+  <div class="map-editor" data-map-editor data-map='{{ map_cfg|tojson }}' data-no-live>
+    <div class="p-map-search" data-map-search hidden>
+      <input type="search" data-map-query aria-label="{{ de_en('Ort suchen', 'Search for a place') }}" placeholder="{{ de_en('Ort suchen, z. B. Aachen', 'Search for a place, e.g. Aachen') }}" autocomplete="off">
+      <button type="button" class="button button-small button-secondary" data-map-go>{{ de_en("Suchen", "Search") }}</button>
+    </div>
+    <ul class="p-map-results" data-map-results hidden></ul>
+    <div class="map-editor-canvas" data-map-canvas></div>
+  </div>
+  <div class="row-fields">
+    <label>{{ de_en("Breitengrad", "Latitude") }} <input name="center_lat" inputmode="decimal" value="{{ c.center[0] }}" class="narrow" data-map-lat {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Längengrad", "Longitude") }} <input name="center_lon" inputmode="decimal" value="{{ c.center[1] }}" class="narrow" data-map-lon {% if not structural %}readonly{% endif %}></label>
+    <label>Zoom <span class="hint">{{ de_en("1 = Welt, 19 = Haus", "1 = world, 19 = house") }}</span>
+      <input type="number" name="zoom" min="1" max="19" value="{{ c.zoom }}" class="narrow" data-map-zoom {% if not structural %}readonly{% endif %}></label>
+  </div>
+  <label class="check"><input type="checkbox" name="search" value="1" {% if c.search %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Ortssuche anzeigen", "Show place search") }}
+    <span class="hint">{{ de_en("über Nominatim (OpenStreetMap); sucht nur auf Absenden, höchstens eine Anfrage pro Sekunde", "via Nominatim (OpenStreetMap); searches only on submit, at most one request per second") }}</span></label>
+  <p class="muted small">{{ de_en("Kartenkacheln und Suche kommen von OpenStreetMap. Deren Server sehen dabei die IP-Adresse der Teilnehmenden; die Datenschutzseite der Befragung weist darauf hin. Bitte auch in der Einwilligung erwähnen.", "Map tiles and search come from OpenStreetMap. Its servers see the IP address of the participants; the privacy page of the survey points this out. Please also mention it in the consent.") }}</p>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Zusatzfragen je Marker", "Follow-up questions per marker") }} <span class="hint">{{ de_en("Texte auf {l}", "texts in {l}", l=languages[lang]) }}; {{ de_en("optional, höchstens 5; Variablenname leer = q1, q2, …", "optional, at most 5; variable name empty = q1, q2, …") }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit">
+    <thead><tr><th>{{ de_en("Frage", "Question") }}</th><th class="narrow-col">{{ de_en("Art", "Kind") }}</th><th class="narrow-col">{{ de_en("Stufen", "Points") }}</th>
+      <th>{{ de_en("Beschriftung", "Labels") }} <span class="hint">{{ de_en("Skala: Enden · Auswahl: Optionen", "scale: ends · choice: options") }}</span></th><th class="narrow-col">{{ de_en("Antwort", "Answer") }}</th><th class="narrow-col">Variable</th></tr></thead>
+    <tbody>
+    {% set qtexts = t.get("questions", {}) %}
+    {% set base = item.text("questions") or {} %}
+    {% for q in c.questions %}
+      {% set qt = qtexts.get(q.id, {}) %}{% set bt = base.get(q.id, {}) %}
+      <tr>
+        <td><input type="hidden" name="mq_id" value="{{ q.id }}"><input name="mq_text" aria-label="{{ de_en('Frage', 'Question') }}" value="{{ qt.get('text', '') }}" placeholder="{{ bt.get('text', '') }}"></td>
+        <td><select name="mq_kind" aria-label="{{ de_en('Art', 'Kind') }}" {% if not structural %}disabled{% endif %}>{% for k, l in kind.question_kinds.items() %}<option value="{{ k }}" {% if q.kind == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></td>
+        <td><select name="mq_points" aria-label="{{ de_en('Stufen', 'Points') }}" {% if not structural %}disabled{% endif %}>{% for n in kind.scale_points %}<option value="{{ n }}" {% if q.points == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></td>
+        <td data-mq-kind="{{ q.kind }}"><span class="mq-ends"><input name="mq_left" value="{{ qt.get('left', '') }}" placeholder="{{ bt.get('left', '') or de_en('links', 'left') }}" class="narrow" aria-label="{{ de_en('Beschriftung links', 'Label on the left') }}">
+            <input name="mq_right" value="{{ qt.get('right', '') }}" placeholder="{{ bt.get('right', '') or de_en('rechts', 'right') }}" class="narrow" aria-label="{{ de_en('Beschriftung rechts', 'Label on the right') }}"></span>
+            {% set own_options, base_options = qt.get("options") or {}, bt.get("options") or {} %}
+            <textarea name="mq_options" rows="3" class="mq-options" aria-label="{{ de_en('Antwortoptionen, eine je Zeile', 'Answer options, one per line') }}" placeholder="{% for o in q.options or [] %}{{ base_options.get(o, '') }}&#10;{% else %}{{ de_en('eine Option je Zeile', 'one option per line') }}{% endfor %}">{% if q.kind == "choice" and (lang == item.survey.default_language or own_options.values()|select|list) %}{% for o in q.options or [] %}{{ own_options.get(o, '') }}{% if not loop.last %}&#10;{% endif %}{% endfor %}{% endif %}</textarea></td>
+        <td><select name="mq_required" aria-label="{{ de_en('Antwort', 'Answer') }}" {% if not structural %}disabled{% endif %}><option value="">{{ de_en("freiwillig", "optional") }}</option><option value="1" {% if q.required %}selected{% endif %}>{{ de_en("Pflicht", "required") }}</option></select></td>
+        <td><input name="mq_code" aria-label="Variable" data-varname="part" value="{{ q.code }}" class="narrow" placeholder="{{ kind.question_code(item, loop.index0, q) }}" {% if not structural %}readonly{% endif %}></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range([5 - c.questions|length, 2]|min) %}
+      <tr class="new-row" data-max-rows="5">
+        <td><input type="hidden" name="mq_id" value="{{ new_id() }}"><input name="mq_text" aria-label="{{ de_en('Frage', 'Question') }}" placeholder="{{ de_en('z. B. Warum hier?', 'e.g. Why here?') }}"></td>
+        <td><select name="mq_kind" aria-label="{{ de_en('Art', 'Kind') }}">{% for k, l in kind.question_kinds.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></td>
+        <td><select name="mq_points" aria-label="{{ de_en('Stufen', 'Points') }}">{% for p in kind.scale_points %}<option value="{{ p }}" {% if p == 5 %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></td>
+        <td data-mq-kind="text"><span class="mq-ends"><input name="mq_left" placeholder="{{ de_en('links', 'left') }}" class="narrow" aria-label="{{ de_en('Beschriftung links', 'Label on the left') }}"> <input name="mq_right" placeholder="{{ de_en('rechts', 'right') }}" class="narrow" aria-label="{{ de_en('Beschriftung rechts', 'Label on the right') }}"></span>
+            <textarea name="mq_options" rows="3" class="mq-options" aria-label="{{ de_en('Antwortoptionen, eine je Zeile', 'Answer options, one per line') }}" placeholder="{{ de_en('eine Option je Zeile', 'one option per line') }}"></textarea></td>
+        <td><select name="mq_required" aria-label="{{ de_en('Antwort', 'Answer') }}"><option value="">{{ de_en("freiwillig", "optional") }}</option><option value="1">{{ de_en("Pflicht", "required") }}</option></select></td>
+        <td><input name="mq_code" aria-label="Variable" data-varname="part" class="narrow"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {{ row_list_hint(de_en("„Pflicht“ gilt für jeden gesetzten Marker. Antwortoptionen einer Einfachauswahl erhalten die Codes 1, 2, 3 … in ihrer Reihenfolge; läuft die Befragung, lässt sich nur noch ihr Wortlaut ändern.", "“Required” applies to every marker placed. Answer options of a single choice get the codes 1, 2, 3 … in their order; once the survey is running, only their wording can be changed.")) }}
+</fieldset>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='map_marker.js') }}"></script>

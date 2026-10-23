@@ -1,0 +1,40 @@
+{% set question_hint = de_en("z. B. „Welches Auto fahren Sie?“", "e.g. “Which car do you drive?”") %}
+{% include "items/_question_field.html" %}
+{% set lists = kind.lists(item, lang) %}
+{% set entries = item.config.get("entries", []) %}
+{# a short "So funktioniert es" with a small example (concept "Lernhilfen: fünfte Runde", H1, like the
+   side-by-side matrix after the pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Tabelle und Listen", "table and lists"), open=not entries) %}
+  <p>{{ de_en("Sie fügen eine Tabelle ein: in der ersten Zeile die Namen der Listen, darunter eine Zeile je erlaubter Kombination. Daraus werden Listen untereinander; jede bietet nur, was zur Wahl darüber passt. Eine Zeile darf früher enden, dann endet dort auch die Antwort.", "You paste a table: the names of the lists in the first row, below it one row per allowed combination. It becomes lists one below the other; each offers only what fits the choice above. A row may end early; the answer then ends there too.") }}</p>
+  <div class="table-scroll"><table class="list-table small">
+    <thead><tr><th>{{ de_en("Marke", "Brand") }}</th><th>{{ de_en("Modell", "Model") }}</th><th>{{ de_en("Baujahr", "Year") }}</th></tr></thead>
+    <tbody><tr><td>VW</td><td>Golf</td><td>2020</td></tr><tr><td>VW</td><td>Golf</td><td>2021</td></tr><tr><td>VW</td><td>Polo</td><td>2021</td></tr><tr><td>Opel</td><td>Corsa</td><td>2022</td></tr></tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("Wer „VW“ wählt, sieht danach nur Golf und Polo.", "Whoever picks “VW” then sees only Golf and Polo.") }}</p>
+{% endcall %}
+{% set own_structure = structural and lang == survey.default_language %}
+<fieldset>
+  <legend>{{ de_en("Listen und Einträge", "Lists and entries") }}</legend>
+  <div class="stack">
+    <p class="muted small">{% if own_structure %}{{ de_en("Eine Tabelle mit einer Spalte je Liste: in der ersten Zeile die Namen der Listen (z. B. Marke, Modell, Baujahr), darunter eine Zeile je möglicher Kombination (VW, Golf, 2019). Am einfachsten in Excel schreiben und hier einfügen; Semikolon oder Komma als Trennzeichen gehen auch. Eine Zeile darf früher enden, wenn darunter nichts mehr kommt. Höchstens 10.000 Einträge, alle Listen zusammen (jeder Wortlaut zählt unter jedem Eintrag darüber einzeln).", "A table with one column per list: the names of the lists in the first row (e.g. brand, model, year of manufacture), below them one row per possible combination (VW, Golf, 2019). Easiest written in Excel and pasted here; a semicolon or comma as separator works too. A row may end earlier when nothing comes below it. At most 10,000 entries, all lists together (each wording counts separately under each entry above it).") }}{% elif structural %}{{ de_en("Hier nur die Wortlaute in dieser Sprache ändern, Zeile für Zeile an derselben Stelle. Neue Zeilen und Spalten nimmt die Ausgangssprache auf.", "Only change the wordings in this language here, row by row at the same place. New rows and columns go into the source language.") }}{% else %}{{ de_en("Die Befragung läuft: Listen und Einträge stehen fest, nur die Wortlaute lassen sich an derselben Stelle ändern (gleich viele Zeilen und Spalten). Neue Zeilen nur vor dem Feldstart.", "The survey is running: lists and entries are fixed, only the wordings can be changed at the same place (as many rows and columns). New rows only before fieldwork starts.") }}{% endif %}</p>
+    <label><span class="label-title">{{ de_en("Tabelle", "Table") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span></span>
+      <textarea name="table" id="drill{{ item.id }}" rows="12" spellcheck="false" class="mono" data-reload-saved placeholder="{{ de_en('Marke;Modell;Baujahr\nVW;Golf;2019\nVW;Golf;2020\nVW;Polo;2021\nOpel;Corsa;2020', 'Brand;Model;Year\nVW;Golf;2019\nVW;Golf;2020\nVW;Polo;2021\nOpel;Corsa;2020') }}">{{ kind.table(item, lang) }}</textarea></label>
+    {% if own_structure %}
+    <label class="file-pick">{{ de_en("oder CSV-Datei laden", "or load a CSV file") }} <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" data-table-file="drill{{ item.id }}"></label>
+    {% from "coscine/_pick.html" import coscine_pick with context %}{{ coscine_pick(survey, "table", target="drill" ~ item.id) }}
+    {% endif %}
+    {% if lists %}
+    <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table">
+      <thead><tr><th>{{ de_en("Liste", "List") }}</th><th>{{ de_en("Spalte im Export", "Column in the export") }}</th><th class="num">{{ de_en("Einträge", "Entries") }}</th></tr></thead>
+      <tbody>
+      {% for x in lists %}
+        <tr><td>{{ x.label }}</td><td><code>{{ item.code }}_{{ x.code }}</code></td><td class="num">{{ entries|selectattr("list", "equalto", loop.index0)|list|length }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("Im Export steht je Liste der Code des gewählten Eintrags (1, 2, … in der Reihenfolge der Tabelle); das Codebuch nennt zu jedem Code den Eintrag. Leer heißt: nicht gewählt, oder der Zweig endet weiter oben.", "The export holds per list the code of the chosen entry (1, 2, … in the order of the table); the codebook names the entry of every code. Empty means: not chosen, or the branch ends further up.") }}</p>
+    {% endif %}
+    {% include "items/_places.html" %}
+  </div>
+</fieldset>

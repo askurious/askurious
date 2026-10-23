@@ -1,0 +1,50 @@
+{# Paired comparison (app/items/paired.py): one pair per page, the explanation page. The value of every radio button is
+   the category from the point of view of the option shown first (1 / -1, 0 = same, -m .. m on the strength scale).
+   "First" stands at the start of the line, so in a right-to-left survey on the right. #}
+{% set c = item.config %}
+{% set meta = page_meta if (page_meta is defined and page_meta) else {} %}
+{% set task = meta.task if meta.task is defined else 0 %}
+{% set state = (cj_state or {}).get(item.id, {}) if cj_state is defined else {} %}
+{% set version = meta.v if meta.v is defined else (state.version if state and state.version is defined else 0) %}
+{% set t = item.t(lang) %}
+{% set d = kind.default_texts(lang) %}
+{% set labels = kind.labels(item, lang) %}
+{% set answer = answers.get(item.id) or {} %}
+{% set pair = kind.task_pair(item, version, task) %}
+{% if not kind.design_current(item) or (not meta.explain and not pair) %}
+<div class="p-image-missing">{{ ui("Paarvergleich: Versuchsplan noch nicht erzeugt", "Paired comparison: experimental design not generated yet") }}</div>
+{% elif meta.explain %}
+<h2 class="p-question" id="q{{ item.id }}">{{ ui("Bevor es losgeht", "Before you start") }}</h2>
+{% set explain_default = (ui("Sie sehen gleich %d Paare. Wählen Sie in jedem Paar die Option, die Sie vorziehen. Manche Optionen kommen mehrmals vor, jeweils mit einer anderen zusammen.", "You will see %d pairs. In each pair, choose the option you prefer. Some options appear more than once, each time with a different one."))|format(kind.n_pairs(item)) %}
+{% if c.answer == "strength" %}{% set explain_default = explain_default ~ " " ~ ui("Auf der Skala darunter sagen Sie, wie deutlich.", "On the scale below, say how strongly.") %}{% endif %}
+<div class="p-info">{{ (t.get("explain_intro") or explain_default)|rich(variables) }}</div>
+{% else %}
+{% set chosen = answer.get("t" ~ task) %}
+{% set name = "i" ~ item.id ~ "_t" ~ task %}
+{% set a, b = pair[0], pair[1] %}
+{% macro card(idx, value) -%}
+{% set asset = kind.object_image(item, idx) %}
+{% if value is not none %}<label class="p-pair-card{% if asset %} has-image{% endif %}">{% else %}<div class="p-pair-card{% if asset %} has-image{% endif %}">{% endif %}
+  {% if asset %}{% set iw, ih = image_size(item.survey.uid, asset.filename) %}{% set small = image_thumbnail(item.survey.uid, asset.filename) %}{% set sw, sh = image_size(item.survey.uid, small) %}<img src="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=small) }}"{% if small != asset.filename %} srcset="{{ url_for('media.serve', survey_uid=item.survey.uid, filename=small) }} {{ sw }}w, {{ url_for('media.serve', survey_uid=item.survey.uid, filename=asset.filename) }} {{ iw }}w" sizes="(max-width: 600px) 45vw, 150px"{% endif %}{% if iw %} width="{{ iw }}" height="{{ ih }}"{% endif %} decoding="async" alt="{{ kind.object_alt(item, idx, lang) }}" loading="lazy">{% endif %}
+  <span class="p-pair-text">{% if value is not none %}<input type="radio" name="{{ name }}" value="{{ value }}" {% if chosen == value %}checked{% endif %}>{% endif %}<span{{ text_attrs(item, "objects") }}>{{ labels[idx]|fill(variables) }}</span></span>
+{% if value is not none %}</label>{% else %}</div>{% endif %}
+{%- endmacro %}
+<fieldset class="p-fieldset" aria-labelledby="q{{ item.id }}">
+<h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ t.get("question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
+<p class="p-hint">{{ (ui("Paar %d von %d", "Pair %d of %d"))|format(task + 1, kind.n_pairs(item)) }}</p>
+{% if c.answer == "strength" %}
+<div class="p-pair is-shown">{{ card(a, none) }}{{ card(b, none) }}</div>
+<div class="p-pair-scale" style="--k: {{ kind.scale_steps(item)|length }}">
+  {% for value, key in kind.scale_steps(item) %}
+  {% set caption = t.get(key) or d[key] %}
+  <label class="p-pair-step"><input type="radio" name="{{ name }}" value="{{ value }}" {% if chosen == value %}checked{% endif %} aria-label="{{ caption if value == 0 else ((labels[a] if value > 0 else labels[b])|fill(variables)|striptags ~ ': ' ~ caption) }}"><span>{{ caption }}</span></label>
+  {% endfor %}
+</div>
+{% else %}
+<div class="p-pair">{{ card(a, 1) }}{{ card(b, -1) }}</div>
+{% if c.answer == "tie" %}
+<label class="p-pair-tie"><input type="radio" name="{{ name }}" value="0" {% if chosen == 0 %}checked{% endif %}><span{{ text_attrs(item, "tie_label") }}>{{ t.get("tie_label") or d.tie_label }}</span></label>
+{% endif %}
+{% endif %}
+</fieldset>
+{% endif %}

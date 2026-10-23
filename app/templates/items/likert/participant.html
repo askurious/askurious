@@ -1,0 +1,45 @@
+{% set labels = kind.labels(item, lang) %}
+{% set points = item.cfg.points %}
+{% set once = item.cfg.get("label_display") == "once" %}
+{% set ans = answers.get(item.id) or {} %}
+{# "weiß nicht" (V41): a column of its own after the scale, set apart; it counts as missing #}
+{% set dk = item.cfg.get("dont_know") %}
+{% set dk_label = ui("weiß nicht", "don't know") %}
+{% include "items/_question.html" %}
+<div class="p-likert p-likert-{{ item.cfg.labeling }} {{ 'p-likert-once' if once else 'p-likert-each' }}{{ ' p-likert-dk' if dk }}{{ ' p-likert-many' if points >= 8 }}" style="--points: {{ points }}" role="group"{% if item.text("question", lang) %} aria-labelledby="q{{ item.id }}"{% endif %}>
+  <div class="p-likert-head" aria-hidden="true">
+    <span class="p-likert-corner"></span>
+    {% if item.cfg.labeling == "endpoints" %}
+      <span class="p-head-endpoints"{{ text_attrs(item, "labels") }}><span>{{ labels[0]|fill(variables) }}</span><span>{{ labels[-1]|fill(variables) }}</span></span>
+    {% else %}
+      {% for l in labels %}<span{{ text_attrs(item, "labels") }}>{{ l|fill(variables) }}</span>{% endfor %}
+    {% endif %}
+    {% if dk %}<span class="p-head-dk">{{ dk_label }}</span>{% endif %}
+  </div>
+  <div class="p-likert-rows">
+    {# without the statements that are not shown to this person (a condition on an earlier answer, app/rows.py) #}
+    {% for s in kind.statements(item, lang, (stmt_orders or {}).get(item.id) if stmt_orders is defined else none, none if all_rows is defined and all_rows else answers) %}
+    <fieldset class="p-likert-row{% if (errors.get(item.id) or (nudges is defined and (nudges or {}).get(item.id))) and ans.get(s.id) is none %} p-missing{% endif %}">
+      <legend class="p-statement">{% if (errors.get(item.id) or (nudges is defined and (nudges or {}).get(item.id))) and ans.get(s.id) is none %}<span class="p-missing-mark" aria-hidden="true">⚠ </span>{% endif %}{% if loop.length > 1 %}<span class="p-statement-count">{{ (ui("%d von %d", "%d of %d"))|format(loop.index, loop.length) }}</span>{% endif %}<span{{ text_attrs(item, "statements", s.id) }}>{{ s.text|fill(variables) }}</span></legend>
+      <div class="p-scale">
+        {% for l in labels %}
+        <label class="p-point">
+          <input type="radio" name="i{{ item.id }}_{{ s.id }}" value="{{ loop.index }}" {% if ans.get(s.id) == loop.index %}checked{% endif %}
+                 aria-label="{{ l|fill(variables)|striptags if l else loop.index }}">
+          <span class="p-point-label"{{ text_attrs(item, "labels") }}>{{ l|fill(variables) }}</span>
+        </label>
+        {% endfor %}
+        {% if dk %}
+        <label class="p-point p-point-dk">
+          <input type="radio" name="i{{ item.id }}_{{ s.id }}" value="dk" {% if ans.get(s.id) == "dk" %}checked{% endif %} aria-label="{{ dk_label }}">
+          <span class="p-point-label">{{ dk_label }}</span>
+        </label>
+        {% endif %}
+      </div>
+      {% if item.cfg.labeling == "endpoints" and not once %}
+      <div class="p-endpoints" aria-hidden="true"{{ text_attrs(item, "labels") }}><span>{{ labels[0]|fill(variables) }}</span><span>{{ labels[-1]|fill(variables) }}</span></div>
+      {% endif %}
+    </fieldset>
+    {% endfor %}
+  </div>
+</div>

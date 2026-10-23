@@ -1,0 +1,77 @@
+{% from "_learn.html" import term, why %}
+{# The comparison of one question by the groups chosen above (app/compare.py). Needs blocks (its list in cmp), cmp,
+   cmp_min. #}
+{% from "surveys/_compare_macros.html" import test_line %}
+{% from "_macros.html" import num %}
+{% from "surveys/_group_shares.html" import group_shares, group_key %}
+{# folded: the table "Unterschiede auf einen Blick" on top of the page leads here (UI/UX audit 2026-10-07, S6) #}
+<details class="res-dist res-compare" id="cmp-{{ cmp_item_id }}">
+  <summary>{{ de_en("Nach Gruppen", "By groups") }}: {{ cmp.question|readable_placeholders|truncate(90) }} <span class="hint">{{ cmp.code }}</span></summary>
+  {% for b in blocks %}
+  {# counts are whole; weighted ones with one decimal (V67: never "19.0") #}
+  {% set cd = 1 if b.weighted else 0 %}
+  <div class="res-freq">
+    {% if b.coding %}<p class="res-freq-head">{{ de_en("Kategorien", "Categories") }} · <code>{{ b.code }}</code>{% if blocks|selectattr("coding")|list|length > 1 %} <span class="hint">{{ b.label|truncate(60) }}</span>{% endif %}</p>
+    {% elif b.kind == "multi" %}{% if b.pass %}<p class="res-freq-head"><code>_{{ b.pass }}</code></p>{% endif %}
+    {% elif b.kind == "scale" %}<p class="res-freq-head">{{ b.label }}</p>
+    {% elif blocks|length > 1 %}<p class="res-freq-head"><code>{{ b.code }}</code> <span class="hint">{{ b.label|column_head(b.pass)|truncate(80) }}</span></p>{% endif %}
+    {% if b.groups|length >= 2 %}
+    {% if b.kind == "nominal" %}
+    <div class="res-scroll"><table class="res-table res-cross">
+      <thead><tr><th>{{ de_en("Kategorie", "Category") if b.coding else de_en("Antwort", "Answer") }}</th>{% for c, label in b.groups %}<th class="num">{{ group_key(loop.index0) }}{{ label|truncate(30) }}</th>{% endfor %}<th class="num">{{ de_en("gesamt", "total") }}</th></tr></thead>
+      <tbody>
+      {% for row in b.rows %}<tr><td>{{ row.label|truncate(60) }}</td>{% for share in row.shares %}<td class="num">{{ share|percent }} <span class="hint">({{ num(row.cells[loop.index0], cd) }})</span></td>{% endfor %}<td class="num">{{ num(row.count, cd) }}</td></tr>{% endfor %}
+      <tr class="quota-sum"><td>n</td>{% for n in b.n %}<td class="num">{{ num(n, cd) }}</td>{% endfor %}<td class="num">{{ num(b.n|sum, cd) }}</td></tr>
+      </tbody>
+    </table></div>
+    {{ group_shares(b, cd) }}
+    <p class="muted small">{% if b.coding %}{{ de_en("Spaltenprozente: Anteil der Kategorie an den kategorisierten Antworten der Gruppe (Anzahl), eine Kategorie je Antwort", "Column percentages: share of the category among the categorised answers of the group (count), one category per answer") }}{% else %}{{ de_en("Spaltenprozente: Anteil der Antwort in der Gruppe (Anzahl)", "Column percentages: share of the answer in the group (count)") }}{% endif %}{% if not b.weighted and b.rows|length > 2 %}{{ de_en("; Fehlerbalken: 95-%-Konfidenzintervall nach Wilson (ab 10 Antworten je Gruppe)", "; error bars: 95% confidence interval after Wilson (from 10 answers per group)") }}{% endif %} · {{ test_line(b, cmp_min) }}</p>
+    {% elif b.kind == "multi" %}
+    <div class="res-scroll"><table class="res-table res-cross">
+      <thead><tr><th>{{ de_en("Kategorie", "Category") if b.coding else "Option" }}</th>{% for c, label in b.groups %}<th class="num">{{ group_key(loop.index0) }}{{ label|truncate(30) }}</th>{% endfor %}<th>Test</th></tr></thead>
+      <tbody>
+      {% for row in b.rows %}<tr><td>{{ row.label|truncate(60) }}</td>{% for share in row.shares %}<td class="num">{{ share|percent }} <span class="hint">({{ num(row.cells[loop.index0], cd) }})</span></td>{% endfor %}<td class="small">{{ test_line({"kind": "multi", "test": row.test, "groups": b.groups, "weighted": b.weighted}, cmp_min, true) }}</td></tr>{% endfor %}
+      <tr class="quota-sum"><td>n</td>{% for n in b.n %}<td class="num">{{ num(n, cd) }}</td>{% endfor %}<td></td></tr>
+      </tbody>
+    </table></div>
+    {{ group_shares(b, cd) }}
+    <p class="muted small">{% if b.coding %}{{ de_en("Anteil derer in der Gruppe, deren Antwort die Kategorie erhalten hat (Basis: Personen mit kategorisierter Antwort; mehrere Kategorien je Antwort möglich) · ein Test je Kategorie", "Share of those in the group whose answer got the category (basis: people with a categorised answer; several categories per answer possible) · one test per category") }}{% else %}{{ de_en("Anteil derer in der Gruppe, die die Option angekreuzt haben (Basis: wer sie gesehen und die Frage beantwortet hat) · ein Test je Option", "Share of those in the group who ticked the option (basis: those who saw it and answered the question) · one test per option") }}{% endif %} ({{ term("chi2") }}, {{ term("p") }}, {{ term("cramer_v", de_en("Cramérs V", "Cramér's V")) }}){% if b.rows|length > 2 and not b.weighted %}{{ de_en("; Fehlerbalken: 95-%-Konfidenzintervall nach Wilson (ab 10 Antworten je Gruppe)", "; error bars: 95% confidence interval after Wilson (from 10 answers per group)") }}{% endif %}</p>
+    {% elif b.kind == "ordinal" %}
+    {{ group_shares(b, cd) }}
+    <p class="muted small">{{ test_line(b, cmp_min) }}</p>
+    {{ why("which_test") }}
+    {% else %}
+    {% set d = 0 if b.unit in ("ms", "m") else 2 %}
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ de_en("Gruppe", "Group") }}</th><th class="num">n</th><th class="num">M</th><th class="num" title="{{ de_en('Standardabweichung der Stichprobe (n − 1)', 'Sample standard deviation (n − 1)') }}">SD</th><th class="num" title="{{ de_en('t-Intervall; ab 10 Werten je Gruppe, wie oben auf der Seite', 't interval; from 10 values per group, as above on the page') }}">{{ de_en("95-%-KI für M", "95% CI for M") }}</th></tr></thead>
+      <tbody>
+      {% for g in b.per %}<tr><td>{{ b.groups[loop.index0][1]|truncate(40) }}</td><td class="num">{{ num(g.n, cd) }}</td><td class="num">{{ num(g.mean, d) }}{% if b.unit %} {{ b.unit }}{% endif %}</td><td class="num">{{ num(g.sd, d) }}</td>
+        <td class="num">{% if g.ci %}[{{ num(g.ci[0], d) }}; {{ num(g.ci[1], d) }}]{% else %}–{% endif %}</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+    {# the means as dots with their 95-% interval on one axis (V62) #}
+    {% set ends = [] %}{% for g in b.per %}{% if g.mean is not none %}{% set _ = ends.append(g.mean) %}{% endif %}{% if g.ci %}{% set _ = ends.extend([g.ci[0], g.ci[1]]) %}{% endif %}{% endfor %}
+    {% if ends|length >= 2 %}
+    {% set lo, hi = ends|min, ends|max %}{% set pad = ((hi - lo) or 1) * 0.08 %}{% set lo, hi = lo - pad, hi + pad %}
+    {% set W, L, R = 600, 170, 20 %}{% set step = 24 %}{% set k = b.per|length %}
+    {% set extra = 14 if b.unit else 0 %}
+    <svg class="res-ranks" viewBox="0 0 {{ W }} {{ k * step + 26 + extra }}" role="img" aria-label="{{ de_en('Mittelwerte je Gruppe mit 95-%-Intervall', 'Means per group with 95% interval') }}: {% for g in b.per %}{{ b.groups[loop.index0][1] }} {{ num(g.mean, d) }}{{ ', ' if not loop.last }}{% endfor %}">
+      {# round ticks at their true places (W64), labelled with one number of decimals; the unit at the end of the axis #}
+      {% set ticks = round_ticks(lo, hi) %}{% set labels = tick_labels(ticks) %}
+      {% for t in ticks %}{% set x = L + (t - lo) / (hi - lo) * (W - L - R) %}<line class="res-hist-grid" x1="{{ x|round(1) }}" x2="{{ x|round(1) }}" y1="4" y2="{{ k * step + 6 }}"/>
+      <text class="res-hist-tick" x="{{ x|round(1) }}" y="{{ k * step + 20 }}" text-anchor="middle">{{ labels[loop.index0] }}</text>{% endfor %}
+      {% if b.unit %}<text class="res-hist-tick" x="{{ W - R }}" y="{{ k * step + 20 + extra }}" text-anchor="end">{{ b.unit }}</text>{% endif %}
+      {% for g in b.per %}{% set y = loop.index0 * step + 16 %}
+      <g><title>{{ b.groups[loop.index0][1] }}: M = {{ num(g.mean, d) }}{% if g.ci %}, {{ de_en("95-%-KI", "95% CI") }} [{{ num(g.ci[0], d) }}; {{ num(g.ci[1], d) }}]{% endif %}, n = {{ g.n }}</title>
+        <text class="res-rank-label" x="{{ L - 10 }}" y="{{ y }}" text-anchor="end" dominant-baseline="central">{{ b.groups[loop.index0][1]|truncate(24, true, "…") }}</text>
+        {% if g.ci %}<line class="res-rank-ci" x1="{{ (L + (g.ci[0] - lo) / (hi - lo) * (W - L - R))|round(1) }}" x2="{{ (L + (g.ci[1] - lo) / (hi - lo) * (W - L - R))|round(1) }}" y1="{{ y }}" y2="{{ y }}"/>{% endif %}
+        {% if g.mean is not none %}<circle class="res-rank-dot" cx="{{ (L + (g.mean - lo) / (hi - lo) * (W - L - R))|round(1) }}" cy="{{ y }}" r="5"/>{% endif %}</g>
+      {% endfor %}
+    </svg>
+    {% endif %}
+    <p class="muted small">{% if ends|length >= 2 %}{{ de_en("Punkt: Mittelwert, Linie: 95-%-Konfidenzintervall (ab 10 Werten je Gruppe)", "Dot: mean, line: 95% confidence interval (from 10 values per group)") }} · {% endif %}{{ test_line(b, cmp_min) }}</p>
+    {% endif %}
+    {% else %}<p class="muted small">{{ test_line(b, cmp_min) }}</p>{{ why("which_test") }}{% endif %}
+  </div>
+  {% endfor %}
+</details>

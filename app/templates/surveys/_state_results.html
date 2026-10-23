@@ -1,0 +1,29 @@
+{# Federal states of one item (items/federal_state.py results()): the state outlines coloured by the number of answers.
+   The frequencies per state follow below as for every categorical question. Needs: e (entry). #}
+{% set s = e.states %}
+{% set outline = state_outline() %}
+{% if s.n and outline %}
+{# an outline map without map tiles, filled by the share as on the dashboard (UI/UX audit 2026-10-05, V58): no sea,
+   forests or place names that compete with the data #}
+{% set base = s.base if s.base is defined else s.n %}
+{% set top = (s.counts.values()|list + [1])|max %}
+{% set low = (s.counts.values()|select|list + [top])|min %}
+{% set unit_word = unit|default(de_en("Antworten", "answers")) %}
+<div class="res-map res-state-map">
+  <svg viewBox="0 0 {{ outline.width }} {{ outline.height }}" role="img" aria-label="{{ de_en('{unit} je Bundesland', '{unit} per federal state', unit=unit_word) }}">
+    {% for code, d in outline.paths.items() %}{% set c = s.counts.get(code, 0) %}
+    <path d="{{ d }}" class="res-state{% if not c %} is-none{% endif %}"{% if c %} style="fill: {{ sequential_colour(c, low, top) }}"{% endif %}><title>{{ s.names.get(code) or code }}: {{ c }} ({{ ((c / base) if base else 0)|percent }})</title></path>
+    {% endfor %}
+  </svg>
+  {# beside the map only the colour scale (UI/UX audit 2026-10-07, W67): shares and counts per state stand once, in the
+     list below (or the table above it) #}
+  <div class="res-state-scale">
+    <p class="small">{{ de_en("Anteil", "Share") }}</p>
+    <span class="res-state-ramp" aria-hidden="true">{% for i in range(5) %}<i style="background: var(--seq-{{ i + 1 }})"></i>{% endfor %}</span>
+    <span class="res-state-ends small"><span>{{ ((low / base) if base else 0)|percent }}</span><span>{{ ((top / base) if base else 0)|percent }}</span></span>
+    {% if s.empty %}<p class="small"><span class="res-swatch is-none"></span>{{ de_en("ohne {unit}", "without {unit}", unit=unit_word) }}: {% if s.empty == 1 %}{{ de_en("1 Land", "1 state") }}{% else %}{{ de_en("{n} Länder", "{n} states", n=s.empty) }}{% endif %}</p>{% endif %}
+  </div>
+</div>
+<p class="muted small">{{ de_en("Ländergrenzen:", "State borders:") }} {{ bkg_credit }}, {{ de_en("vereinfacht", "simplified") }}; {{ de_en("eingefärbt nach dem Anteil", "coloured by the share") }}{% if s.base is defined %} {{ de_en("an allen {n} {unit}", "of all {n} {unit}", n=s.base, unit=unit_word) }}{% if s.abroad %} {{ de_en("(auch „nicht in Deutschland“)", "(also “not in Germany”)") }}{% endif %}{{ de_en(", wie in der Liste unten", ", as in the list below") }}{% else %} {{ de_en("an den {n} {unit} mit Bundesland", "of the {n} {unit} with a federal state", n=s.n, unit=unit_word) }}{% endif %}{% if e.passes %} {{ de_en("aus {n} Teilnahmen", "from {n} participations", n=s.persons) }}{% endif %}{{ de_en("; je kräftiger die Farbe, desto mehr.", "; the stronger the colour, the more.") }}
+  {% if s.abroad or s.no_answer %}{{ de_en("Nicht auf der Karte:", "Not on the map:") }}{% if s.abroad %} <strong>{{ s.abroad }}</strong> {{ de_en("nicht in Deutschland", "not in Germany") }}{% endif %}{% if s.abroad and s.no_answer %},{% endif %}{% if s.no_answer %} <strong>{{ s.no_answer }}</strong> {{ de_en("ohne Angabe", "no answer") }}{% endif %}.{% endif %}</p>
+{% endif %}

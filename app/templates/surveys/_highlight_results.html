@@ -1,0 +1,14 @@
+{# Text highlighting: the text itself, under every word a stacked bar: the share of persons who marked it, per category #}
+{% set h = e.highlight %}
+<div class="res-hl" style="{% for k, label, color in h.cats %}--hl{{ k }}: {{ color }};{% endfor %}">
+  <p class="res-hl-legend">{% for k, label, color in h.cats %}<span class="res-hl-key"><i style="background: {{ color }}"></i>{{ label }}</span>{% endfor %}
+    <span class="muted small">{{ de_en("Balken unter jedem Wort: Anteil der {n} Personen, die es so markiert haben", "Bar under every word: share of the {n} people who marked it so", n=h.persons) }}</span></p>
+  <p class="res-hl-text">{% for t in h.tokens %}{% if t.n %}<span class="res-hl-w" title="{{ t.text }}: {% for k, label, color in h.cats %}{{ label }} {{ t.counts[loop.index0] }}{% if not loop.last %}, {% endif %}{% endfor %} ({{ de_en("von {n}", "of {n}", n=h.persons) }})">{{ t.text }}<span class="res-hl-bar" aria-hidden="true">{% for c in t.counts %}{% if c %}<i style="width: {{ (100 * c / (h.persons or 1))|round(1) }}%; background: var(--hl{{ loop.index }})"></i>{% endif %}{% endfor %}</span></span>{% else %}{{ t.text }}{% endif %}{% endfor %}</p>
+  <div class="res-hl-top">
+    {% for c in h.top %}
+    <div><h4><i style="background: {{ c.color }}"></i>{{ c.label }}: {{ de_en("am häufigsten markiert", "marked most often") }}</h4>
+      {% if c.words %}<ol class="plain">{% for w, n in c.words %}<li>{{ w }} <span class="muted">({{ n }})</span></li>{% endfor %}</ol>
+      {% else %}<p class="muted small">{{ de_en("noch keine Markierung", "no marks yet") }}</p>{% endif %}</div>
+    {% endfor %}
+  </div>
+</div>

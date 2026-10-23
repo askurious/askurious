@@ -1,0 +1,342 @@
+{# The structural equation model of the results page (app/sem_model.py): fit, path
+   diagram, paths with the hypotheses that named them, indirect effects, the bootstrap, the measurement model.
+   Needs: sem (sem_model.estimate), sem_boot (sem_model.boot_state), survey. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num %}
+{% from "_learn.html" import term %}
+{% set boot = (sem_boot or {}).get("result") %}
+{% set fit = sem.fit or {} %}
+{% set cb = sem.method != "pls" %}
+{# numbers as on the rest of the page (UI/UX audit 2026-10-07, W69): p with the places of pval (p_places), intervals
+   "[a; b]" in both languages; sources as short references linked to the list at the end of the page #}
+{% from "surveys/_compare_macros.html" import pval %}
+{% set S = sem_model.sem %}
+{% set S_MEANS = sem_model.sem_means %}
+{% set S_ORD = sem_model.sem_ordinal %}
+{% macro p_text(p) -%}{{ p_bare(p) }}{%- endmacro %}
+{# p with its sign in running text: "p = ,110", "p < ,001" #}
+{% macro p_line(p) -%}{% set bare = p_bare(p)|string %}p {{ "" if bare.strip().startswith("<") else "= " }}{{ bare }}{%- endmacro %}
+{% macro ci(pair, d=2) -%}{% if pair %}<span class="res-ci">[{{ num(pair[0], d) }}; {{ num(pair[1], d) }}]</span>{% else %}–{% endif %}{%- endmacro %}
+{# the bootstrap: with PLS above the paths and as the main button, since without it no path is judged (W70);
+   covariance-based under the indirect effects it is needed for #}
+{% macro boot_part(boot, cb) %}
+  <div class="sem-boot">
+  {% if sem_boot and sem_boot.state == "running" %}
+    {% set done = ((sem_boot.progress or 0) * 100)|round|int %}
+    <div class="batch-progress hb-progress" data-sem-running data-url="{{ url_for('surveys.results_sem_status', survey_id=survey.id, **({'gewichtet': '1'} if sem.weighted else {})) }}">
+      <div class="p-progress" role="progressbar" aria-label="{{ de_en('Bootstrap', 'Bootstrap') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ done }}"><span data-bar style="width:{{ done }}%"></span></div>
+      <span role="status">{% if sem_boot.queued %}{{ de_en("Bootstrap wartet auf einen freien Platz.", "Bootstrap is waiting for a free slot.") }}{% else %}{{ de_en("Bootstrap läuft:", "Bootstrap running:") }} <span data-status>{{ done|pctsign }}</span>{% endif %} {{ de_en("Das Ergebnis erscheint von selbst.", "The result appears automatically.") }}</span>
+    </div>
+  {% elif boot %}
+    <p class="muted small">{{ de_en("Bootstrap mit {d} Ziehungen (fester Startwert){f}.", "Bootstrap with {d} draws (fixed seed){f}.", d=boot.draws, f=(de_en(", {k} ({share}) ohne Lösung ausgelassen", ", {k} ({share}) without a solution left out", k=boot.failed, share=(boot.failed / boot.draws)|percent) if boot.failed else "")) }}{% if boot.inadmissible %} {{ de_en("{k} Ziehungen ({share}) mit nicht zulässiger Lösung (Heywood-Fall oder Konstrukte über 1 korreliert) sind in den Intervallen enthalten.", "{k} draws ({share}) with an inadmissible solution (Heywood case or constructs correlated above 1) are included in the intervals.", k=boot.inadmissible, share=(boot.inadmissible / boot.draws)|percent) }}{% endif %}</p>
+    {% if boot.unsure %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("Intervalle unsicher: {share} der Ziehungen ohne Lösung oder mit nicht zulässiger Lösung (Festlegung von Askurious: ab 5 %). Das Modell vereinfachen, z. B. Konstrukte mit mehr Aussagen oder weniger Pfade.", "Intervals unsure: {share} of the draws without a solution or with an inadmissible one (set by Askurious: from 5%). Simplify the model, e.g. constructs with more statements or fewer paths.", share=(((boot.failed or 0) + (boot.inadmissible or 0)) / boot.draws)|percent) }}</span></p>{% endif %}
+  {% else %}
+    {% if sem_boot and sem_boot.state == "error" %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("Der letzte Bootstrap ist abgebrochen.", "The last bootstrap stopped.") }} {{ sem_boot.message }}</span></p>{% endif %}
+    <form method="post" action="{{ url_for('surveys.results_sem_bootstrap', survey_id=survey.id, **({'gewichtet': '1'} if sem.weighted else {})) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="button {{ '' if not cb else 'button-secondary ' }}button-small">{{ de_en("Bootstrap rechnen ({d} Ziehungen)", "Run bootstrap ({d} draws)", d=sem_model.BOOT_DRAWS) }}</button>
+      <span class="hint">{{ de_en("läuft im Hintergrund; nötig für die Intervalle indirekter Effekte und für PLS-Pfade", "runs in the background; needed for the intervals of indirect effects and for PLS paths") }}</span>
+    </form>
+  {% endif %}
+  </div>
+{% endmacro %}
+<section class="panel" id="sem"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{% if sem.mode == "measurement" %}{{ de_en("Messmodell aller Skalen", "Measurement model of all scales") }}{% else %}{{ de_en("Strukturgleichungsmodell", "Structural equation model") }}{% endif %}
+    <span class="hint">{{ sem_model.methods()[sem.method] }}{% if sem.mode == "measurement" %} · {{ de_en("konfirmatorische Faktorenanalyse; mit Hypothesen im Studienplan (Verfahren „Strukturgleichungsmodell“) wird daraus das Strukturmodell", "confirmatory factor analysis; with hypotheses in the research plan (method “Structural equation model”) it becomes the structural model") }}{% endif %}</span></h2></summary>
+  {% if sem.skipped %}<p class="muted small">{{ de_en("Ohne die Subskalen mit nur einer Aussage (ein Konstrukt braucht mindestens zwei): {names}.", "Without the subscales with only one statement (a construct needs at least two): {names}.", names=sem.skipped|join(", ")) }}</p>{% endif %}
+  {% if sem.error %}
+  <p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ sem_model.error_text(sem) }}</span></p>
+  {# what helps to find the cause when there is no solution (Ralf, 2026-10-07) #}
+  {% if sem.diag %}
+  <div class="sem-diag">
+    <p class="small">{{ de_en("N = {n} vollständige Teilnahmen (nötig mindestens {need}).", "N = {n} complete participations (at least {need} needed).", n=sem.n, need=sem.need) }}</p>
+    {% if sem.diag.pairs %}
+    <p class="small"><strong>{{ de_en("Höchste Korrelationen zwischen Einflussgrößen eines Ziels", "Highest correlations between predictors of one target") }}</strong> <span class="hint">{{ de_en("Mittelwerte der Aussagen; ab 0,90 messen beide fast dasselbe", "means of the statements; from 0.90 both measure almost the same") }}</span></p>
+    <ul class="plain small">{% for a, b, r in sem.diag.pairs %}<li>{{ a }} · {{ b }}: <strong{% if r|abs >= sem_model.HIGH_R %} class="is-warn"{% endif %}>r = {{ num(r) }}</strong>{% if r|abs >= sem_model.HIGH_R %} {{ icon("alert", 14) }}{% endif %}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if sem.diag.scales %}
+    <p class="small"><strong>{{ de_en("Konstrukte", "Constructs") }}</strong> <span class="hint">{{ de_en("Cronbachs α ab 0,70 gilt als ausreichend; mit nur zwei Aussagen ist ein Konstrukt schwer zu schätzen", "Cronbach's α from 0.70 counts as sufficient; with only two statements a construct is hard to estimate") }}</span></p>
+    <ul class="plain small">{% for name, k, alpha in sem.diag.scales %}<li>{{ name }}: {{ de_en("{k} Aussagen", "{k} statements", k=k) }}{% if alpha is not none %}, α = <strong{% if alpha < 0.7 %} class="is-warn"{% endif %}>{{ num(alpha) }}</strong>{% endif %}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p class="muted small">{% if sem.missing == "fiml" %}{{ de_en("N = {n} Teilnahmen mit mindestens einer Antwort im Modell, davon {c} vollständig; Lücken über Full Information Maximum Likelihood (robust, MLR)", "N = {n} participations with at least one answer in the model, {c} of them complete; gaps by full information maximum likelihood (robust, MLR)", n=sem.n, c=sem.n_complete) }}{% else %}{{ de_en("N = {n} vollständige Teilnahmen", "N = {n} complete participations", n=sem.n) }}{% if sem.n_all > sem.n %} {{ de_en("({k} mit Lücken in den Fragen des Modells ausgelassen)", "({k} with gaps in the questions of the model left out)", k=sem.n_all - sem.n) }}{% endif %}{% endif %} · {% if sem.weighted %}{{ term("weighted_sem", de_en("gewichtet", "weighted")) }} (n<sub>eff</sub> = {{ num(sem.n_eff, 0) }}){% elif sem.unweighted %}{{ de_en("ungewichtet (Gewichte nur für das kovarianzbasierte Modell ohne FIML und WLSMV)", "unweighted (weights only for the covariance-based model without FIML and WLSMV)") }}{% else %}{{ de_en("ungewichtet", "unweighted") }}{% endif %} · {{ de_en("Datenpool oben, ohne Markierte", "data pool above, without the marked ones") }}</p>
+  {% if sem.missing == "fiml" %}<p class="muted small">{{ term("fiml", "FIML") }}: {{ de_en("Jede Teilnahme zählt mit dem, was sie beantwortet hat. Das setzt voraus, dass Lücken vom Beantworteten abhängen dürfen, aber nicht vom Wert der fehlenden Antwort selbst (MAR); Fragen, die jemand nach dem Ablauf nicht gesehen hat, zählen auch als Lücke", "Every participation counts with what it answered. This assumes that gaps may depend on what was answered but not on the value of the missing answer itself (MAR); questions someone did not see in the flow count as gaps too") }} {{ apa.cite([S_MEANS.ENDERS, S_MEANS.YUAN_BENTLER]) }}.</p>{% endif %}
+  {% if sem.small %}<p class="muted small">{{ de_en("Kleine Stichprobe (unter {k}): Schätzungen und Fit schwanken stark", "Small sample (under {k}): estimates and fit vary a lot", k=sem_model.SMALL_N) }} {{ apa.cite([S.WOLF]) }}.</p>{% endif %}
+  {% if sem.ordinal %}<p class="muted small">{{ term("wlsmv", "WLSMV") }}: {{ de_en("Die Aussagen gehen als geordnete Kategorien ein (polychorische Korrelationen, gewichtete kleinste Quadrate mit robusten Korrekturen); χ², CFI, TLI und RMSEA sind die mittelwert- und varianzkorrigierten Werte, Ladungen und Pfade auf der Skala der Neigungen hinter den Aussagen", "The statements enter as ordered categories (polychoric correlations, weighted least squares with robust corrections); χ², CFI, TLI and RMSEA are the mean- and variance-adjusted values, loadings and paths on the scale of the tendencies behind the statements") }} {{ apa.cite([S_ORD.MUTHEN, S_ORD.ASPAROUHOV]) }}.</p>{% endif %}
+  {% if sem.few_points and not sem.ordinal %}<p class="muted small">{{ de_en("Mindestens eine Aussage hat weniger als {k} Antwortstufen; ML behandelt sie als stetig, das unterschätzt Ladungen leicht", "At least one statement has fewer than {k} answer points; ML treats it as continuous, which slightly underestimates loadings", k=sem_model.MIN_POINTS) }} {{ apa.cite([S.RHEMTULLA]) }}. {{ de_en("Genauer sind geordnete Kategorien (WLSMV): im Studienplan unter „Weitere Einstellungen des Modells“.", "Ordered categories (WLSMV) are more precise: in the research plan under “Further settings of the model”.") }}</p>{% endif %}
+  {% for problem in fit.problems or [] %}
+  <p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{% if problem == "heywood" %}{{ de_en("Nicht zulässige Lösung (Heywood-Fall): Eine geschätzte Varianz ist negativ oder eine standardisierte Ladung größer als 1. Meist misst eine Aussage fast dasselbe wie eine andere, oder ein Konstrukt hat zu wenige Aussagen. Keine Urteile zu den Hypothesen.", "Inadmissible solution (Heywood case): an estimated variance is negative or a standardised loading exceeds 1. Usually one statement measures almost the same as another, or a construct has too few statements. No verdicts on the hypotheses.") }}{% elif problem == "latent_pd" %}{{ de_en("Nicht zulässige Lösung: Die geschätzten Korrelationen der Konstrukte sind nicht möglich (nicht positiv definit, z. B. zwei Konstrukte korrelieren über 1). Meist messen zwei Skalen dasselbe (HTMT im Messmodell) oder haben zu wenige Aussagen. Keine Urteile zu den Hypothesen.", "Inadmissible solution: the estimated correlations of the constructs are not possible (not positive definite, e.g. two constructs correlate above 1). Usually two scales measure the same thing (HTMT in the measurement model) or have too few statements. No verdicts on the hypotheses.") }}{% elif problem == "extreme" %}{{ de_en("Nicht zulässige Lösung: Die Schätzung ist gekippt (standardisierte Pfade weit über 1 oder ein R² unter 0). Meist hängen zwei Einflussgrößen fast vollständig zusammen (Multikollinearität), etwa zwei Skalen, die dasselbe messen, oder Test- und Beispieldaten ohne Zusammenhänge. Das Diagramm zeigt deshalb keine Werte; keine Urteile zu den Hypothesen.", "Inadmissible solution: the estimate has collapsed (standardised paths far above 1 or an R² below 0). Usually two predictors are almost the same (multicollinearity), e.g. two scales that measure the same thing, or test and example data without relations. The diagram therefore shows no values; no verdicts on the hypotheses.") }}{% elif problem == "identified" %}{{ de_en("Das Modell ist nicht identifiziert: Die Daten legen nicht alle Werte fest (z. B. ein Konstrukt mit zwei Aussagen ohne Verbindung zu anderen). Keine Urteile zu den Hypothesen.", "The model is not identified: the data do not determine every value (e.g. a construct with two statements not connected to others). No verdicts on the hypotheses.") }}{% else %}{{ problem }}{% endif %}</span></p>
+  {% endfor %}
+
+  {% if cb and fit.df %}
+  {% set marks = sem_model.fit_marks(fit) %}
+  <div class="sem-fit">
+    {% if fit.estimator == "wlsmv" %}<span class="sem-pill">χ²<sub>WLSMV</sub>({{ fit.df }}) = <b>{{ num(fit.scaled.chi2) }}</b>, {{ pval(fit.scaled.p) }}</span>{% else %}
+    <span class="sem-pill">χ²({{ fit.df }}) = <b>{{ num(fit.chi2) }}</b>, {{ pval(fit.p) }}</span>{% endif %}
+    {% if fit.scaled and fit.scaled.chi2 is not none and fit.estimator != "wlsmv" %}<span class="sem-pill" title="{{ de_en('Satorra-Bentler: korrigiert für nicht normalverteilte Antworten (Faktor {c})', 'Satorra-Bentler: corrected for non-normal answers (factor {c})', c=num(fit.scaled.c)) }}">χ²<sub>SB</sub> = <b>{{ num(fit.scaled.chi2) }}</b>, {{ pval(fit.scaled.p) }}</span>{% endif %}
+    {# the verdict also as a sign and a word, not only as the colour of the box (W68) #}
+    {% macro mark(ok, word) %}{% if ok %}<span class="sem-mark" title="{{ de_en('erfüllt die Orientierung', 'meets the orientation') }}">✓</span>{% else %}<span class="sem-mark">⚠ {{ word }}</span>{% endif %}{% endmacro %}
+    <span class="sem-pill {{ 'is-ok' if marks.cfi else 'is-warn' }}">{{ term("cfi", "CFI") }} = <b>{{ num(fit.cfi, 3) }}</b> {{ mark(marks.cfi, de_en("unter 0,95", "below 0.95")) }}</span>
+    <span class="sem-pill {{ 'is-ok' if marks.tli else 'is-warn' }}">TLI = <b>{{ num(fit.tli, 3) }}</b> {{ mark(marks.tli, de_en("unter 0,95", "below 0.95")) }}</span>
+    <span class="sem-pill {{ 'is-ok' if marks.rmsea else 'is-warn' }}">{{ term("rmsea") }} = <b>{{ num(fit.rmsea, 3) }}</b> {{ ci(fit.rmsea_ci, 3) }} {{ mark(marks.rmsea, de_en("über 0,06", "above 0.06")) }}</span>
+    <span class="sem-pill {{ 'is-ok' if marks.srmr else 'is-warn' }}">{{ term("srmr") }} = <b>{{ num(fit.srmr, 3) }}</b> {{ mark(marks.srmr, de_en("über 0,08", "above 0.08")) }}</span>
+    <span class="hint">{{ de_en("CFI, TLI, RMSEA normaltheoretisch", "CFI, TLI, RMSEA normal-theory") }}</span>
+  </div>
+  {% set rob = fit.robust_fit %}
+  {% if rob and rob.cfi is not none %}
+  <div class="sem-fit">
+    <span class="sem-pill {{ 'is-ok' if marks.cfi_r else 'is-warn' }}">CFI<sub>robust</sub> = <b>{{ num(rob.cfi, 3) }}</b> {{ mark(marks.cfi_r, de_en("unter 0,95", "below 0.95")) }}</span>
+    {% if rob.tli is not none %}<span class="sem-pill {{ 'is-ok' if marks.tli_r else 'is-warn' }}">TLI<sub>robust</sub> = <b>{{ num(rob.tli, 3) }}</b> {{ mark(marks.tli_r, de_en("unter 0,95", "below 0.95")) }}</span>{% endif %}
+    <span class="sem-pill {{ 'is-ok' if marks.rmsea_r else 'is-warn' }}">RMSEA<sub>robust</sub> = <b>{{ num(rob.rmsea, 3) }}</b> {{ ci(rob.rmsea_ci if rob.rmsea_ci[0] is not none else none, 3) }} {{ mark(marks.rmsea_r, de_en("über 0,06", "above 0.06")) }}</span>
+    <span class="hint">{{ term("robust_fit", de_en("korrigiert für nicht normalverteilte Antworten", "corrected for non-normal answers")) }}</span>
+  </div>
+  {% endif %}
+  <p class="muted small">{{ de_en("Orientierung nach", "Orientation after") }} {{ apa.cite([S.HU_BENTLER], narrative=true) }}{{ de_en(": CFI und TLI ab 0,95, RMSEA bis 0,06, SRMR bis 0,08 (✓, grün; sonst ⚠ mit dem Grund). Das sind Konventionen, kein Test; ein signifikantes χ² ist bei großen Stichproben die Regel. RMSEA mit 90-%-Intervall.", ": CFI and TLI from 0.95, RMSEA up to 0.06, SRMR up to 0.08 (✓, green; otherwise ⚠ with the reason). These are conventions, not a test; a significant χ² is the rule with large samples. RMSEA with its 90% interval.") }} {{ de_en("Die obere Zeile ist normaltheoretisch: aus dem ML-χ². Die untere ist mit den Satorra-Bentler-Faktoren des Modells und des Nullmodells korrigiert; bei schiefen oder gipfligen Antworten, wie oft bei Likert-Aussagen, ist sie die genauere.", "The upper row is normal-theory: from the ML χ². The lower one is corrected with the Satorra-Bentler factors of the model and of the null model; with skewed or peaked answers, as often with Likert statements, it is the more precise one.") }} {{ apa.cite([S.BROSSEAU_LIARD, S.BROSSEAU_SAVALEI]) }}.</p>
+  {% set resid = sem_model.residual_table(sem) %}
+  {% if resid %}
+  <details class="res-dist" id="sem-residuals"{% if resid|selectattr("large")|list %} open{% endif %}><summary>{{ term("residual_cor", de_en("Größte Residuen (Diagnose)", "Largest residuals (diagnosis)")) }}</summary>
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ de_en("Aussagen", "Statements") }}</th><th class="num">{{ de_en("beobachtet − Modell (r)", "observed − model (r)") }}</th></tr></thead>
+      <tbody>{% for r in resid %}<tr><td><code>{{ r.a }}</code> {{ r.text_a }}<br><code>{{ r.b }}</code> {{ r.text_b }}</td><td class="num{% if r.large %} is-warn{% endif %}">{{ num(r.value) }}{% if r.large %} <span class="sem-mark">⚠</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("Wie weit die beobachtete Korrelation zweier Aussagen von der abweicht, die das Modell erwartet. Über 0,10 (⚠) erklärt das Modell diesen Zusammenhang schlecht", "How far the observed correlation of two statements differs from the one the model expects. Above 0.10 (⚠) the model explains this relationship poorly") }} {{ apa.cite([S.KLINE]) }}. {{ de_en("Nur zum Verstehen des Fits: Wer nach diesen Werten Pfade oder Fehlerkorrelationen ergänzt, passt das Modell an den Zufall dieser Stichprobe an", "Only to understand the fit: adding paths or error correlations after these values fits the model to the chance of this sample") }} {{ apa.cite([S.MACCALLUM_1992]) }}{{ de_en("; deshalb gibt es hier keine Modifikationsindizes (im R-Skript auskommentiert).", "; that is why there are no modification indices here (commented out in the R script).") }}</p>
+  </details>
+  {% endif %}
+  {% elif cb %}
+  <p class="muted small">{{ de_en("Das Modell hat keine Freiheitsgrade (gesättigt): Es gibt die Daten genau wieder, ein Modelltest ist nicht möglich.", "The model has no degrees of freedom (saturated): it reproduces the data exactly, no test of the model is possible.") }}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("PLS hat keinen Test des ganzen Modells; Pfade prüft der Bootstrap", "PLS has no test of the whole model; the bootstrap tests the paths") }} {{ apa.cite([S.HAIR]) }}. {{ de_en("Pfade zwischen gewichteten Summen der Aussagen sind durch Messfehler meist kleiner als im kovarianzbasierten Modell.", "Paths between composites are usually smaller than in the covariance-based model because of measurement error.") }}</p>
+  {% endif %}
+
+  {# validity before the result (UI/UX audit 2026-10-09, X54): a construct whose measurement does not carry (CR under
+     0.70, a negative loading) is named above the diagram, and "Messmodell" below stands open with the loading marked #}
+  {% set mtable, htmt = sem_model.measurement_table(sem) %}
+  {% set weak = sem_model.weak_measurement(mtable) %}
+  {% for w in weak %}
+  <p class="flash flash-warning small sem-weak">{{ icon("alert", 16) }} <span>{% if w.low %}{{ de_en("Messmodell von „{c}“ ungenügend (CR {cr})", "Measurement model of “{c}” insufficient (CR {cr})", c=w.label, cr=num(w.cr)) }}{% else %}{{ de_en("Messmodell von „{c}“ fraglich", "Measurement model of “{c}” questionable", c=w.label) }}{% endif %}{% if w.negative %}; {{ de_en("{codes} lädt negativ, vielleicht nicht umgepolt", "{codes} loads negatively, perhaps not reversed", codes=w.negative|join(", ")) if w.negative|length == 1 else de_en("{codes} laden negativ, vielleicht nicht umgepolt", "{codes} load negatively, perhaps not reversed", codes=w.negative|join(", ")) }}{% endif %}.{% if sem.mode != "measurement" %} {{ de_en("Pfade nur unter Vorbehalt lesen.", "Read the paths with reservation only.") }}{% endif %} <a href="#sem-measure">{{ de_en("Zum Messmodell", "To the measurement model") }}</a></span></p>
+  {% endfor %}
+  {% set d = sem_model.diagram(sem, boot) %}
+  {% if d %}
+  {# moving the variables (static/sem_drag.js, Ralf 2026-10-12): people with "Bearbeiten" drag them here as in the
+     drawing of the study plan, and it is that same arrangement that changes; the others see the picture fixed #}
+  {% set movable = d.movable and survey.can(current_user, "editor") %}
+  {# the measurement model in the picture, on request (sem_drag.js; Ralf, 2026-10-17) #}
+  {% if d.nodes|selectattr("indicators")|list %}<p class="sem-measure-row"><button type="button" class="button button-secondary button-small" data-sem-measure aria-controls="sem-diagram" aria-pressed="false"
+    data-on="{{ de_en('Messmodell zeigen', 'Show measurement model') }}" data-off="{{ de_en('Messmodell ausblenden', 'Hide measurement model') }}">{{ de_en("Messmodell zeigen", "Show measurement model") }}</button>
+    <span class="hint">{{ de_en("die Aussagen jedes Konstrukts mit ihrer standardisierten Ladung", "the statements of each construct with their standardised loading") }}</span></p>{% endif %}
+  <div id="sem-diagram" class="res-scroll sem-diagram{% if movable %} is-movable{% endif %}"{% if movable %} data-sem-drag data-url="{{ url_for('surveys.results_sem_layout', survey_id=survey.id) }}"{% endif %}>
+  {% if movable %}<script type="application/json" data-sem-drag-data>{{ sem_model.drag_data(d)|tojson }}</script>{% endif %}
+  <svg viewBox="0 {{ (d.top or 0)|round|int }} {{ d.width|round|int }} {{ d.height|round|int }}" width="{{ d.width|round|int }}" role="{{ 'group' if movable else 'img' }}" aria-label="{{ de_en('Pfaddiagramm', 'Path diagram') }}">
+    <defs><marker id="sem-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="sem-arrowhead"/></marker></defs>
+    {% for e in d.edges %}
+    <path d="{{ e.d }}" fill="none" class="sem-edge{% if not e.sig %} is-ns{% endif %}"{% if e.cov %} marker-start="url(#sem-arrow)"{% endif %} marker-end="url(#sem-arrow)" data-edge="{{ loop.index0 }}"/>
+    {% if e.value is not none %}<text x="{{ e.lx }}" y="{{ e.ly }}" text-anchor="middle" class="sem-edge-label{% if e.sig %} is-sig{% endif %}" data-edge-label="{{ loop.index0 }}">{{ num(e.value) }}{% if e.sig %}*{% endif %}</text>{% endif %}
+    {% endfor %}
+    {% for n in d.nodes %}
+    <g class="sem-node{% if n.latent %} is-latent{% endif %}{% if n.condition %} is-condition{% endif %}"{% if movable %} data-node="{{ loop.index0 }}" tabindex="0" aria-label="{{ de_en('{name} verschieben: ziehen oder Pfeiltasten', 'Move {name}: drag or arrow keys', name=n.label) }}"{% endif %}>
+      <title>{{ n.label }}{% if n.question and n.question != n.label %}: {{ n.question }}{% endif %}{% if n.count %} ({{ n.count }}){% endif %}</title>
+      {% if n.latent %}<ellipse cx="{{ n.x + n.w / 2 }}" cy="{{ n.y + n.h / 2 }}" rx="{{ n.w / 2 }}" ry="{{ n.h / 2 }}"/>{% else %}<rect x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="4"/>{% endif %}
+      {# a long name on two lines (Ralf, 2026-10-17) #}
+      {% set top = -11 if n.lines|length > 1 else -3 %}
+      {% for row in n.lines %}<text x="{{ n.x + n.w / 2 }}" y="{{ n.y + n.h / 2 + top + 16 * loop.index0 }}" text-anchor="middle" class="sem-node-label">{{ row }}</text>{% endfor %}
+      <text x="{{ n.x + n.w / 2 }}" y="{{ n.y + n.h / 2 + top + 16 * n.lines|length + 1 }}" text-anchor="middle" class="sem-node-sub">{{ n.sub }}</text>
+      {% if n.indicators %}<g class="sem-indicators" aria-hidden="true">{% for i in n.indicators %}
+        <path d="{{ i.d }}" class="sem-indicator-line" marker-end="url(#sem-arrow)"/>
+        <g class="sem-indicator"><title>{{ i.title }}{% if i.value is not none %} · λ = {{ num(i.value) }}{% endif %}</title>
+          <rect x="{{ i.x|round(1) }}" y="{{ i.y|round(1) }}" width="{{ i.w }}" height="{{ i.h }}" rx="3"/>
+          <text x="{{ (i.x + i.w / 2)|round(1) }}" y="{{ (i.y + i.h / 2 + 4)|round(1) }}" text-anchor="middle">{{ num(i.value) if i.value is not none else "–" }}</text></g>{% endfor %}
+      </g>{% endif %}
+    </g>
+    {% endfor %}
+  </svg>
+  </div>
+  {% if sem.mode != "measurement" %}<p class="muted small">{{ de_en("Standardisierte Pfade (β); * und durchgezogen: p < ,05, gestrichelt: nicht signifikant oder (PLS) noch ohne Bootstrap. Ovale sind Konstrukte aus mehreren Aussagen, Kästen einzelne Fragen; die Aussagen stehen unter „Messmodell“.", "Standardised paths (β); * and solid: p < .05, dashed: not significant or (PLS) without bootstrap yet. Ovals are constructs of several statements, boxes single questions; the statements are under “Measurement model”.") }}{% if d.edges|selectattr("cov")|list %} {{ de_en("Bogen mit zwei Spitzen: Zusammenhang ohne Richtung (r).", "Arc with two heads: relationship without a direction (r).") }}{% endif %}{% if d.edges|selectattr("moderation")|list %} {{ de_en("Pfeil auf einen Pfad: Moderation, der Wert ist die Wechselwirkung (β).", "Arrow onto a path: moderation, the value is the interaction (β).") }}{% endif %}{% for code, coded in sem.coded.items() %} {{ code }}: {{ coded }}.{% endfor %}{% if movable %} {{ de_en("Ovale und Kästen lassen sich verschieben (ziehen, oder Pfeiltasten); das ändert auch die Zeichnung im Studienplan.", "Ovals and boxes can be moved (drag them, or use the arrow keys); this also changes the drawing in the research plan.") }}{% endif %}</p>{% endif %}
+  {% endif %}
+
+  {% for line in sem_model.control_notes(sem) %}<p class="muted small">{{ line }}</p>{% endfor %}
+  {% if sem.mode != "measurement" and not cb %}{{ boot_part(boot, cb) }}{% endif %}
+  {% set paths = sem_model.path_table(sem, boot) %}
+  {% if paths %}
+  <div class="res-scroll"><table class="res-table sem-paths">
+    <thead><tr><th>{{ de_en("Pfad", "Path") }}</th><th>{{ de_en("Hypothese", "Hypothesis") }}</th><th class="num">{{ term("beta") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th>{% if not cb %}<th class="num">{{ term("f2", "f²") }}</th><th class="num">{{ term("vif", "VIF") }}</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for r in paths %}
+      <tr{% if r.sig %} class="is-sig"{% endif %}><td>{{ r.from }} {{ "↔" if r.cov else "→" }} {{ r.to }}{% if r.cov %} <span class="hint">r{% if r.residual and cb %}, {{ de_en("Residuen", "residuals") }}{% endif %}</span>{% endif %}</td><td>{% for n in r.hyps %}H{{ n }}{{ ", " if not loop.last }}{% else %}<span class="hint">{% if r.control %}{{ de_en("Kontrollvariable", "control variable") }}{% else %}{{ de_en("direkter Effekt", "direct effect") }}{% endif %}</span>{% endfor %}</td>
+        <td class="num">{{ num(r.std) }}</td>{% if not cb and not boot %}<td class="num" colspan="2"><span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span></td>{% else %}<td class="num">{{ ci(r.ci) }}</td><td class="num">{{ p_text(r.p) }}</td>{% endif %}{% if not cb %}<td class="num">{% if r.f2 is not none %}{{ num(r.f2) }} <span class="hint">{{ sem_model.f2_word(r.f2) }}</span>{% endif %}</td><td class="num{% if r.vif is not none and r.vif >= sem_model.VIF_MAX %} is-warn{% endif %}">{{ num(r.vif) }}</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if cb %}<p class="muted small">{{ de_en("Intervall und p aus robusten Standardfehlern (Sandwich-Schätzer; Satorra & Bentler, 1994); p zweiseitig, ohne Korrektur für mehrere Pfade. R² der Zielgrößen im Diagramm.", "Interval and p from robust standard errors (sandwich estimator; Satorra & Bentler, 1994); p two-sided, without correction for several paths. R² of the outcomes in the diagram.") }}</p>
+  {% else %}<p class="muted small">{{ de_en("Intervall (Perzentil) und p (aus dem Bootstrap-Standardfehler, zweiseitig) aus dem Bootstrap. f²: wie viel R² der Zielgröße ohne den Pfad fehlt, ab 0,02 klein, 0,15 mittel, 0,35 groß", "Interval (percentile) and p (from the bootstrap standard error, two-sided) from the bootstrap. f²: how much R² of the outcome is lost without the path, from 0.02 small, 0.15 medium, 0.35 large") }} {{ apa.cite([S.COHEN_1988]) }}{{ de_en("; VIF: wie stark die Einflussgrößen eines Ziels zusammenhängen, ab 5 (⚠) kritisch", "; VIF: how strongly the predictors of one target are related, from 5 (⚠) critical") }} {{ apa.cite([S.HAIR]) }}.</p>
+  {% set r2s = sem_model.r2_table(sem) %}
+  {% if r2s %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Erklärte Größe", "Explained variable") }}</th><th class="num">R²</th><th class="num">{{ de_en("R² korrigiert", "Adjusted R²") }}</th></tr></thead>
+    <tbody>{% for r in r2s %}<tr><td>{{ r.label }}</td><td class="num">{{ num(r.r2) }}</td><td class="num">{{ num(r.r2_adj) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {# moderations (stage 2 of the drawing, modell-zeichnen-konzept.md F2): the interaction term with its simple slopes,
+     or the path in two groups and their difference; a small picture of the slopes beside each #}
+  {% set mods = sem_model.moderation_table(sem, boot) %}
+  {% if mods %}
+  <h3 class="sem-sub">{{ term("interaction", de_en("Moderationen", "Moderations")) }}</h3>
+  <div class="sem-mods">
+  {% for m in mods %}
+    <div class="sem-mod">
+      <p class="small"><strong>H{{ m.hyps|join(", H") }}</strong> · {{ m.label }}, {{ de_en("moderiert durch", "moderated by") }} {{ m.by }}</p>
+      {% if m.error %}<p class="small muted">{{ m.error }}</p>
+      {% elif m.kind == "product" %}
+      <p class="small">{{ de_en("Wechselwirkung", "Interaction") }} β = {{ num(m.std) }} {{ ci(m.ci) }}, {{ p_line(m.p) }}</p>
+      {# a moderation on a path of a mediation (stage 3, F9): the index and the conditional indirect effects #}
+      {% if m.jn %}<p class="small">{{ term("jn", "Johnson-Neyman") }}: {{ m.jn }}</p>{% endif %}
+      {% if m.modmed %}<p class="small">{{ de_en("Index der moderierten Vermittlung", "Index of moderated mediation") }} = {{ num(m.modmed.value) }}{% if m.modmed.ci %} {{ ci(m.modmed.ci) }} {{ de_en("(Bootstrap)", "(bootstrap)") }}, {{ p_line(m.modmed.p) }}{% else %} <span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span>{% endif %}{% if m.mm_lines %}<br>{{ de_en("bedingte indirekte Effekte", "conditional indirect effects") }}: {% for text, v in m.mm_lines %}{{ text }} {{ num(v) }}{{ "; " if not loop.last }}{% endfor %}{% endif %}</p>{% endif %}
+      {% else %}
+      <p class="small">{% for text, s in m.lines %}β({{ text }}) = {{ num(s) }}{{ "; " if not loop.last }}{% endfor %}<br>{% if m.diff is not none %}Δb = {{ num(m.diff) }}, z = {{ num(m.z) }}{% else %}χ²({{ m.df }}) = {{ num(m.chi2) }}{% endif %}, {{ p_line(m.p) }} <span class="hint">(n = {{ m.n|join(" / ") }})</span></p>
+      {% endif %}
+      {% if m.plot %}
+      <svg viewBox="0 0 {{ m.plot.width }} {{ m.plot.height }}" width="{{ m.plot.width }}" role="img" class="sem-slopes"
+           aria-label="{{ de_en('Einfache Steigungen', 'Simple slopes') }}: {% for l in m.plot.lines %}{{ l.label }} β = {{ num(l.slope) }}{{ '; ' if not loop.last }}{% endfor %}">
+        <line x1="10" y1="{{ m.plot.height / 2 }}" x2="{{ m.plot.width - 10 }}" y2="{{ m.plot.height / 2 }}" class="sem-slopes-axis"/>
+        {% for l in m.plot.lines %}<line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" class="sem-slope sem-slope-{{ loop.index }}"/>{% endfor %}
+      </svg>
+      <p class="small sem-slope-keys">{% for l in m.plot.lines %}<span class="sem-slope-key sem-slope-{{ loop.index }}">{{ l.label }}: β = {{ num(l.slope) }}</span>{% endfor %}</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  <p class="muted small">{{ de_en("Interaktion aus Produktindikatoren (doppelt zentriert) bzw. bei PLS zweistufig; einfache Steigungen: der Pfad, wo der Moderator eine Standardabweichung unter und über seinem Mittel liegt (Standardabweichungen aus dem geschätzten Modell), bei einem Moderator aus zwei Gruppen in jeder Gruppe; ebenso die bedingten indirekten Effekte einer moderierten Vermittlung. Zwei Gruppen als Moderator eines Pfads außerhalb einer Vermittlung: dasselbe Modell in beiden Gruppen mit gleichen Ladungen, der Unterschied des Pfads mit Wald-Test (Δb in den Einheiten der Daten). Die Linien zeigen die Steigung von −1 bis +1 SD der Einflussgröße.", "Interaction from product indicators (double mean centred), with PLS in two stages; simple slopes: the path where the moderator lies one standard deviation below and above its mean (standard deviations from the estimated model), for a moderator with two groups in each group; the same for the conditional indirect effects of a moderated mediation. Two groups as moderator of a path outside a mediation: the same model in both groups with equal loadings, the difference of the path with a Wald test (Δb in the units of the data). The lines show the slope from −1 to +1 SD of the predictor.") }}</p>
+  {% endif %}
+
+  {% set ind = sem_model.indirect_table(sem, boot) %}
+  {% if ind %}
+  <h3 class="sem-sub">{{ term("indirect", de_en("Indirekte Effekte (Vermittlung)", "Indirect effects (mediation)")) }}</h3>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Weg", "Path") }}</th><th>{{ de_en("Hypothese", "Hypothesis") }}</th><th class="num">{{ term("beta") }}</th><th class="num">{{ de_en("95-%-KI (Bootstrap)", "95% CI (bootstrap)") }}</th>{% if cb %}<th class="num">{{ de_en("95-%-KI (Delta)", "95% CI (delta)") }}</th>{% endif %}</tr></thead>
+    <tbody>{% for r in ind %}<tr><td>{{ r.path }}</td><td>H{{ r.hyps|join(", H") }}</td><td class="num">{{ num(r.std) }}</td><td class="num">{{ ci(r.boot_ci) if r.boot_ci else de_en("Bootstrap fehlt", "no bootstrap yet") }}</td>{% if cb %}<td class="num">{{ ci(r.delta_ci) }}</td>{% endif %}</tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("Indirekter Effekt = Produkt der standardisierten Pfade. Das Urteil folgt der gemeinsamen Signifikanz", "Indirect effect = product of the standardised paths. The verdict follows joint significance") }} {{ apa.cite([S.MACKINNON]) }}{{ de_en(": unterstützt, wenn beide Pfade p < ,05 haben; ihr größeres p geht in die Korrektur nach Holm ein. Das Bootstrap-Intervall (Perzentil)", ": supported when both paths have p < .05; the larger of their p enters Holm's correction. The bootstrap interval (percentile)") }} {{ apa.cite([S.PREACHER]) }} {{ de_en("zeigt die Größe des Effekts. Das Delta-Intervall", "shows the size of the effect. The delta interval") }} {{ apa.cite([S.SOBEL]) }} {{ de_en("ist nur zum Vergleich; es nimmt eine Normalverteilung an, die für Produkte selten passt.", "is only for comparison; it assumes a normal distribution, which rarely fits products.") }}</p>
+  {% endif %}
+
+  {% if sem.mode != "measurement" and cb and ind %}{{ boot_part(boot, cb) }}{% endif %}
+
+  {% if cb and fit.df and sem.mode != "measurement" %}
+  <p class="hyp-apa"><span class="label-title">{{ de_en("Modellfit für den Bericht", "Model fit for the report") }}</span> <code data-copy-text>{{ sem_model.fit_sentence(fit, ui_language()) }}</code></p>
+  {% elif cb and fit.df %}
+  <p class="hyp-apa"><span class="label-title">{{ de_en("Für den Bericht", "For the report") }}</span> <code data-copy-text>{{ sem_model.fit_sentence(fit, ui_language()) }}</code></p>
+  {% endif %}
+
+  {% if mtable %}
+  <details class="res-dist" id="sem-measure"{% if sem.mode == "measurement" or weak %} open{% endif %}><summary>{{ de_en("Messmodell", "Measurement model") }}</summary>
+    <div class="res-scroll"><table class="res-table sem-measure">
+      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("loading") }}</th>{% if not cb %}<th class="num">{{ de_en("Gewicht", "Weight") }}</th>{% endif %}<th class="num">{{ term("ave", "AVE") }}</th><th class="num">{{ de_en("Reliabilität (CR)", "Reliability (CR)") }}</th><th class="num">max. {{ term("htmt") }}</th></tr></thead>
+      <tbody>
+      {% for c in mtable %}
+        <tr class="sem-construct"><td><strong>{{ c.label }}</strong>{% if c.flags %} <span class="hint">{% for f in c.flags %}{% if f == "ave" %}{{ de_en("AVE unter 0,50", "AVE below 0.50") }}{% elif f == "cr" %}{{ de_en("CR unter 0,70", "CR below 0.70") }}{% else %}{{ de_en("HTMT über 0,85", "HTMT above 0.85") }}{% endif %}{{ " · " if not loop.last }}{% endfor %}</span>{% endif %}</td><td></td>{% if not cb %}<td></td>{% endif %}
+          <td class="num{% if 'ave' in c.flags %} is-warn{% endif %}">{{ num(c.ave) }}</td><td class="num{% if 'cr' in c.flags %} is-warn{% endif %}">{{ num(c.cr) }}</td><td class="num{% if 'htmt' in c.flags %} is-warn{% endif %}">{{ num(c.htmt_max) }}</td></tr>
+        {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}</td><td class="num{% if i.std is not none and i.std < 0 %} is-warn{% endif %}">{{ num(i.std) }}{% if i.std is not none and i.std < 0 %} <span class="sem-mark" title="{{ de_en('negative Ladung: vielleicht nicht umgepolt', 'negative loading: perhaps not reversed') }}">⚠</span>{% endif %}</td>{% if not cb %}<td class="num">{{ num(i.weight) }}</td>{% endif %}<td></td><td></td><td></td></tr>{% endfor %}
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("λ: standardisierte Ladung. AVE: durchschnittlich erfasste Varianz, ab 0,50 erklärt das Konstrukt mehr als der Messfehler", "λ: standardised loading. AVE: average variance extracted, from 0.50 the construct explains more than the measurement error") }} {{ apa.cite([S.FORNELL]) }}. {{ de_en("CR: Composite Reliability aus den Ladungen, ab 0,70. HTMT: Verhältnis der Korrelationen zwischen zu innerhalb der Konstrukte, über 0,85 trennen sich zwei Konstrukte kaum", "CR: composite reliability from the loadings, from 0.70. HTMT: ratio of the correlations between to within the constructs, above 0.85 two constructs hardly separate") }} {{ apa.cite([S.HENSELER]) }}. {{ de_en("Orientierungswerte, keine Tests.", "Orientation values, not tests.") }}</p>
+    {% set upper = sem_model.htmt_interval(sem, boot) %}
+    {% if htmt|length > 1 or upper %}
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ term("htmt") }}</th><th></th><th class="num">{{ de_en("Wert", "Value") }}</th>{% if upper %}<th class="num">{{ de_en("obere Grenze (95 %, einseitig)", "upper bound (95%, one-sided)") }}</th>{% endif %}</tr></thead>
+      <tbody>{% for a, b, v in htmt %}<tr><td>{{ a }}</td><td>{{ b }}</td><td class="num{% if v is not none and v > sem_model.HTMT_MAX %} is-warn{% endif %}">{{ num(v) }}</td>{% if upper %}{% set u = upper.get((a, b)) %}<td class="num{% if u is not none and u >= sem_model.HTMT_MAX %} is-warn{% endif %}">{{ num(u) }}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% if upper %}<p class="muted small">{{ de_en("Die obere Grenze kommt aus dem Bootstrap; liegt sie unter 0,85, trennen sich die beiden Konstrukte auch unter Berücksichtigung der Stichprobe", "The upper bound comes from the bootstrap; below 0.85 the two constructs are told apart also taking the sample into account") }} {{ apa.cite([S.FRANKE_SARSTEDT]) }}.</p>{% elif htmt|length > 1 %}<p class="muted small">{{ de_en("Mit dem Bootstrap kommt eine obere Grenze je HTMT dazu.", "With the bootstrap an upper bound per HTMT is added.") }}</p>{% endif %}
+    {% endif %}
+    {% set ftable = sem_model.formative_table(sem, boot) %}
+    {% if ftable %}
+    <h4 class="sem-sub">{{ term("formative", de_en("Formative Konstrukte", "Formative constructs")) }}</h4>
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ term("vif", "VIF") }}</th></tr></thead>
+      <tbody>{% for c in ftable %}<tr class="sem-construct"><td colspan="6"><strong>{{ c.label }}</strong></td></tr>
+      {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}</td><td class="num">{{ num(i.weight) }}</td><td class="num">{% if i.ci %}{{ ci(i.ci) }}{% else %}<span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span>{% endif %}</td><td class="num">{{ p_text(i.p) if i.p is not none else "" }}</td><td class="num">{{ num(i.loading) }}</td><td class="num{% if i.high_vif %} is-warn{% endif %}">{{ num(i.vif) }}{% if i.high_vif %} <span class="sem-mark">⚠</span>{% endif %}</td></tr>{% endfor %}
+      {% endfor %}</tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("Formativ: Die Aussagen bilden das Konstrukt (Modus B), statt es zu messen; deshalb keine AVE, CR oder HTMT. Ein Gewicht ohne Signifikanz bleibt im Konstrukt, wenn seine Ladung ab 0,50 liegt; VIF ab 5 (⚠): Die Aussagen überschneiden sich zu stark", "Formative: the statements form the construct (mode B) instead of measuring it; hence no AVE, CR or HTMT. A weight without significance stays in the construct when its loading is 0.50 or more; VIF from 5 (⚠): the statements overlap too much") }} {{ apa.cite([S.HAIR]) }}.</p>
+    {% endif %}
+  </details>
+  {% endif %}
+  {# the competing model planned in advance (SEM extensions 2026-10-17, point 11) #}
+  {% set cmp_ = sem.compare %}
+  {% if cmp_ %}
+  <h3 class="sem-sub" id="sem-compare">{{ term("model_compare", de_en("Konkurrenzmodell", "Competing model")) }} <span class="hint">{{ de_en("ohne {what}", "without {what}", what=cmp_.labels|join(", ")) }}</span></h3>
+  {% if cmp_.error %}<p class="muted small">{% if cmp_.error == "pls" %}{{ de_en("PLS hat keinen Test des ganzen Modells; der Vergleich geht nur kovarianzbasiert.", "PLS has no test of the whole model; the comparison works covariance-based only.") }}{% elif cmp_.error == "ordinal" %}{{ de_en("Mit geordneten Kategorien (WLSMV) braucht der Vergleich einen eigenen Differenztest (lavaan: lavTestLRT mit dem R-Skript).", "With ordered categories (WLSMV) the comparison needs a difference test of its own (lavaan: lavTestLRT with the R script).") }}{% else %}{{ de_en("Das Konkurrenzmodell ließ sich nicht schätzen.", "The competing model could not be estimated.") }}{% endif %}</p>
+  {% else %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Modell", "Model") }}</th><th class="num">χ² (df)</th><th class="num">{{ term("cfi", "CFI") }}</th><th class="num">{{ term("rmsea", "RMSEA") }}</th><th class="num">{{ term("srmr", "SRMR") }}</th></tr></thead>
+    <tbody>
+      <tr><td>{{ de_en("Modell der Hypothesen", "Model of the hypotheses") }}</td><td class="num">{{ num(cmp_.main.chi2) }} ({{ cmp_.main.df }})</td><td class="num">{{ num(cmp_.main.cfi, 3) }}</td><td class="num">{{ num(cmp_.main.rmsea, 3) }}</td><td class="num">{{ num(cmp_.main.srmr, 3) }}</td></tr>
+      <tr><td>{{ de_en("Konkurrenzmodell", "Competing model") }}</td><td class="num">{{ num(cmp_.alt.chi2) }} ({{ cmp_.alt.df }})</td><td class="num">{{ num(cmp_.alt.cfi, 3) }}</td><td class="num">{{ num(cmp_.alt.rmsea, 3) }}</td><td class="num">{{ num(cmp_.alt.srmr, 3) }}</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">{% if cmp_.diff %}Δχ²{% if cmp_.diff.scaled %}<sub>{{ de_en("skaliert", "scaled") }}</sub>{% endif %}({{ cmp_.diff.df }}) = {{ num(cmp_.diff.chi2) }}, {{ p_line(cmp_.diff.p) }}; {% endif %}ΔAIC = {{ num(cmp_.d_aic, 1) }}, ΔBIC = {{ num(cmp_.d_bic, 1) }}.
+    {% if cmp_.diff and cmp_.diff.p is not none %}{% if cmp_.diff.p < 0.05 %}{{ de_en("Das Konkurrenzmodell passt signifikant schlechter: Das Weggelassene trägt zur Erklärung bei.", "The competing model fits significantly worse: what was left out adds to the explanation.") }}{% else %}{{ de_en("Das Konkurrenzmodell passt nicht signifikant schlechter: Das sparsamere Modell genügt den Daten.", "The competing model does not fit significantly worse: the more parsimonious model suffices.") }}{% endif %}{% endif %}</p>
+  <p class="muted small">{{ de_en("ΔAIC und ΔBIC: Konkurrenzmodell minus Modell der Hypothesen; positive Werte sprechen für das Modell der Hypothesen, ab etwa 10 deutlich", "ΔAIC and ΔBIC: competing model minus model of the hypotheses; positive values speak for the model of the hypotheses, from about 10 clearly") }} {{ apa.cite([S.BURNHAM]) }}{{ de_en(". Der Differenztest prüft, ob das Weggelassene null ist", ". The difference test checks whether what was left out is zero") }} {{ apa.cite([S_MEANS.SATORRA_BENTLER_2001]) }}.</p>
+  {% endif %}
+  {% endif %}
+  {# measurement invariance across the groups the plan names (SEM extensions 2026-10-17, point 4) #}
+  {% set inv = sem.invariance %}
+  {% if inv %}
+  <h3 class="sem-sub" id="sem-invariance">{{ term("invariance", de_en("Messinvarianz", "Measurement invariance")) }} <span class="hint">{{ de_en("über {by}", "across {by}", by=inv.by) }}{% if inv.labels %}: {% for l in inv.labels %}{{ l }} (n = {{ inv.n[loop.index0] }}){{ ", " if not loop.last }}{% endfor %}{% endif %}</span></h3>
+  {% if inv.dropped %}<p class="muted small">{{ de_en("Ohne Gruppen unter {k} vollständigen Teilnahmen: {g}.", "Without groups under {k} complete participations: {g}.", k=sem_model.GROUP_MIN, g=inv.dropped|map("join", " n = ")|join(", ")) }}</p>{% endif %}
+  {% if inv.error %}
+  <p class="muted small">{% if inv.error == "few_groups" %}{{ de_en("Weniger als zwei Gruppen mit je mindestens {k} vollständigen Teilnahmen (Festlegung von Askurious).", "Fewer than two groups with at least {k} complete participations each (set by Askurious).", k=sem_model.GROUP_MIN) }}{% elif inv.error == "constructs" %}{{ de_en("Im Modell steht kein reflektives Konstrukt.", "The model holds no reflective construct.") }}{% else %}{{ de_en("Die Prüfung ließ sich nicht rechnen.", "The test could not be computed.") }}{% endif %}</p>
+  {% else %}
+  {% set level_names = {"configural": de_en("konfigural (gleiche Struktur)", "configural (same structure)"), "metric": de_en("metrisch (gleiche Ladungen)", "metric (equal loadings)"), "scalar": de_en("skalar (+ gleiche Achsenabschnitte)", "scalar (+ equal intercepts)"), "strict": de_en("strikt (+ gleiche Residuen)", "strict (+ equal residuals)")} %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Stufe", "Level") }}</th><th class="num">χ² (df)</th><th class="num">{{ term("cfi", "CFI") }}</th><th class="num">{{ term("rmsea", "RMSEA") }}</th><th class="num">{{ term("srmr", "SRMR") }}</th><th class="num">Δχ² (Δdf), p</th><th class="num">ΔCFI</th><th class="num">ΔRMSEA</th><th>{{ de_en("hält", "holds") }}</th></tr></thead>
+    <tbody>{% for r in inv.levels %}{% set f = r.fit %}<tr>
+      <td>{{ level_names[r.level] }}</td>
+      {% if f.converged %}<td class="num">{{ num(f.chi2) }} ({{ f.df }})</td><td class="num">{{ num(f.cfi, 3) }}</td><td class="num">{{ num(f.rmsea, 3) }}</td><td class="num">{{ num(f.srmr, 3) }}</td>
+      <td class="num">{% if r.get("diff") %}{{ num(r.diff.chi2) }} ({{ r.diff.df }}), {{ p_text(r.diff.p) }}{% endif %}</td><td class="num">{{ num(r.get("d_cfi"), 3) if r.get("d_cfi") is not none else "" }}</td><td class="num">{{ num(r.get("d_rmsea"), 3) if r.get("d_rmsea") is not none else "" }}</td>
+      <td>{% if r.get("holds") %}<span class="sem-mark">✓</span>{% elif r.get("holds") is sameas false %}<span class="sem-mark">⚠ {{ de_en("nein", "no") }}</span>{% endif %}</td>
+      {% else %}<td class="num" colspan="8"><span class="hint">{{ de_en("keine Lösung", "no solution") }}</span></td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted small">{% if inv.highest %}{{ de_en("Höchste Stufe, die in Folge hält: {l}.", "Highest level that holds in a row: {l}.", l=level_names[inv.highest]) }} {% endif %}{{ de_en("Jede Stufe legt mehr gleich als die vorige; sie hält, solange der CFI nicht um 0,010 oder mehr sinkt und zugleich RMSEA (ab 0,015) oder SRMR steigen", "Each level makes more equal than the one before; it holds as long as the CFI does not drop by 0.010 or more while the RMSEA (from 0.015) or the SRMR rise") }} {{ apa.cite([S_MEANS.CHEN]) }}{{ de_en(". Δχ² ist der skalierte Differenztest", ". Δχ² is the scaled difference test") }} {{ apa.cite([S_MEANS.SATORRA_BENTLER_2001]) }}{{ de_en("; bei großen Stichproben wird er fast immer signifikant. Orientierung, kein Urteil.", "; with large samples it is almost always significant. Orientation, not a verdict.") }}</p>
+  {% if inv.means and inv.highest in ("scalar", "strict") %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Konstrukt", "Construct") }}</th><th>{{ de_en("Gruppe", "Group") }}</th><th class="num">{{ term("latent_mean", de_en("Differenz zu „{g}“", "Difference to “{g}”", g=inv.labels[0])) }}</th><th class="num">{{ term("d", "d") }}</th><th class="num">z</th><th class="num">{{ term("p") }}</th></tr></thead>
+    <tbody>{% for c in inv.means %}{% for m in c.rows %}<tr><td>{{ c.label if loop.first else "" }}</td><td>{{ m.group }}</td><td class="num">{{ num(m.est) }}</td><td class="num">{{ num(m.d) }}</td><td class="num">{{ num(m.z) }}</td><td class="num">{{ p_text(m.p) }}</td></tr>{% endfor %}{% endfor %}</tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("Latente Mittelwerte im skalaren Modell: die Differenz in der Einheit der ersten Aussage und als d in Standardabweichungen der ersten Gruppe, ohne Messfehler und ohne Korrektur für mehrere Tests.", "Latent means in the scalar model: the difference in the unit of the first statement and as d in standard deviations of the first group, without measurement error and without correction for several tests.") }}</p>
+  {% elif inv.means %}
+  <p class="muted small">{{ de_en("Latente Mittelwerte lassen sich erst vergleichen, wenn die skalare Stufe hält.", "Latent means can only be compared once the scalar level holds.") }}</p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+  {# for the manuscript and other programs (SEM extensions 2026-10-17, points 15 and 18) #}
+  {% if fit and not sem.error %}
+  {% set syntax = sem_model.lavaan_syntax(survey) if sem.mode != "measurement" else none %}
+  {% if syntax %}
+  <details class="res-dist" id="sem-syntax"><summary>{{ de_en("Modell als lavaan-Syntax", "Model as lavaan syntax") }} <span class="hint">{{ de_en("für R, JASP und jamovi (SEMLj)", "for R, JASP and jamovi (SEMLj)") }}</span></summary>
+    <pre class="sem-syntax"><code data-copy-text="{{ syntax }}" role="button" tabindex="0" title="{{ de_en('Kopieren', 'Copy') }}">{{ syntax }}</code></pre>
+    <p class="muted small">{{ de_en("Klick auf die Syntax kopiert sie. Die Namen sind die Spalten des Exports; Wechselwirkungen, 0/1-Kodierungen und der Messfehler von Einzelfragen baut das R-Skript (Reiter „Export“) erst aus den Daten.", "A click on the syntax copies it. The names are the columns of the export; interactions, 0/1 codings and the measurement error of single questions are built from the data by the R script (tab “Export”).") }}</p>
+  </details>
+  {% endif %}
+  <p class="form-actions"><a class="button button-secondary button-small" href="{{ url_for('surveys.results_sem_docx', survey_id=survey.id, lang='de', **({'gewichtet': '1'} if sem.weighted else {})) }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Deutsch)", "Word table (German)") }}</a>
+    <a class="button button-secondary button-small" href="{{ url_for('surveys.results_sem_docx', survey_id=survey.id, lang='en', **({'gewichtet': '1'} if sem.weighted else {})) }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Englisch)", "Word table (English)") }}</a></p>
+  {% endif %}
+  {% set pred = sem_model.predict_table(sem) %}
+  {% if pred %}
+  <details class="res-dist" id="sem-predict"><summary>{{ term("plspredict", de_en("Vorhersagekraft (PLSpredict)", "Predictive power (PLSpredict)")) }} <span class="hint">{% for label, word in pred.constructs %}{{ label }}: {{ word }}{{ " · " if not loop.last }}{% endfor %}</span></summary>
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th><th class="num">Q²<sub>predict</sub></th><th class="num">RMSE PLS</th><th class="num">RMSE LM</th></tr></thead>
+      <tbody>{% for i in pred["items"] %}<tr><td><code>{{ i.item }}</code> {{ i.text }} <span class="hint">{{ i.label }}</span></td><td class="num{% if i.q2 <= 0 %} is-warn{% endif %}">{{ num(i.q2) }}</td><td class="num{% if i.better %} is-sig{% endif %}">{{ num(i.rmse, 3) }}</td><td class="num">{{ num(i.rmse_lm, 3) }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="muted small">{{ de_en("Jede Aussage der erklärten Konstrukte wird in {k} Durchgängen aus den anderen Fällen vorhergesagt, nur aus den Konstrukten am Anfang der Pfade. Q²_predict über 0: besser als der Mittelwert. Vorhersagekraft hoch, wenn bei allen Aussagen der Fehler (RMSE) des PLS-Modells kleiner ist als der eines linearen Modells aus allen Aussagen dieser Konstrukte (fett), mittel bei der Mehrheit, gering bei einer Minderheit", "Each statement of the explained constructs is predicted in {k} rounds from the other cases, only from the constructs at the start of the paths. Q²_predict above 0: better than the mean. Predictive power high when for all statements the error (RMSE) of the PLS model is smaller than that of a linear model from all statements of those constructs (bold), medium for the majority, low for a minority", k=pred.folds) }} {{ apa.cite([S.SHMUELI]) }}.</p>
+  </details>
+  {% endif %}
+  {% if sem.scores and survey.can(current_user, "editor") %}
+  <p class="small"><a href="{{ url_for('surveys.export_sem_scores', survey_id=survey.id) }}">{{ icon("download", 14) }} {{ de_en("Konstruktwerte herunterladen (CSV)", "Download construct scores (CSV)") }}</a> <span class="hint">{{ term("construct_score", de_en("je Teilnahme, verknüpfbar über resp_id", "per participation, linked by resp_id")) }}</span></p>
+  {% endif %}
+  {% endif %}
+</details></section>

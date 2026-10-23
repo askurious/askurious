@@ -1,0 +1,30 @@
+{# Page times against both thresholds of the tempo hint (app/tempo.py, calibration), on the page "Qualitätssicherung":
+   for choosing the rule in a pretest. Needs: tempo_pages. #}
+{% from "_sources.html" import cite %}
+{% macro sec(v) %}{% if v is none %}–{% else %}{{ ((v)|dec(1)) }}{% endif %}{% endmacro %}
+{% macro pct(v) %}{% if v is none %}–{% else %}{{ (v * 100)|fixed(0)|pctsign }}{% endif %}{% endmacro %}
+<section class="panel" id="tempo-pages">
+  <h2>{{ de_en("Tempo je Seite", "Speed per page") }} <span class="hint">{{ de_en("erster Besuch jeder Seite, Teilnahmen im gespeicherten Datenpool (auch abgebrochene)", "first visit of each page, participations in the saved data pool (also broken-off ones)") }}</span></h2>
+  {% if tempo_pages %}
+  <details class="res-freq" {% if tempo_pages|length <= 15 %}open{% endif %}>
+    <summary>{% if tempo_pages|length == 1 %}{{ de_en("{n} Seite, die der Tempo-Hinweis prüfen kann", "{n} page the speed prompt can check", n=tempo_pages|length) }}{% else %}{{ de_en("{n} Seiten, die der Tempo-Hinweis prüfen kann", "{n} pages the speed prompt can check", n=tempo_pages|length) }}{% endif %}</summary>
+    <table class="res-table">
+      <thead><tr><th>{{ de_en("Seite", "Page") }}</th><th>{{ de_en("Art", "Kind") }}</th><th title="{{ de_en('Teilnahmen, die diese Seite abgeschickt haben', 'Participations that sent this page') }}">n</th><th>{{ de_en("Median (s)", "Median (s)") }}</th>
+        <th title="{{ de_en('350 ms je Wort der Texte, die man lesen muss', '350 ms per word of the texts one has to read') }}">{{ de_en("Lesezeit (s)", "Reading time (s)") }}</th><th title="{{ de_en('Anteil der Teilnahmen unter der Lesezeit', 'Share of participations below the reading time') }}">{{ de_en("darunter", "below") }}</th>
+        <th title="{{ de_en('Hälfte der Median-Zeit der Seite', 'Half the median time of the page') }}">{{ de_en("halber Median (s)", "half median (s)") }}</th><th title="{{ de_en('Anteil der Teilnahmen unter dem halben Median', 'Share of participations below half the median') }}">{{ de_en("darunter", "below") }}</th>
+        <th>{{ de_en("Tempo-Hinweis", "Speed prompt") }}</th></tr></thead>
+      <tbody>
+      {% for row in tempo_pages %}
+        <tr><td><code>{{ row.name }}</code></td><td>{{ row.kind }}</td><td>{{ row.n }}</td><td>{{ sec(row.median) }}</td>
+          <td>{{ sec(row.words) }}</td><td>{{ pct(row.below_words) }}</td><td>{{ sec(row.half) }}</td><td>{{ pct(row.below_half) }}</td>
+          <td>{% if row.on %}{{ de_en("prüft diese Seite", "checks this page") }}{% else %}<span class="muted">–</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  <p class="muted small">{{ de_en("Die Tabelle zeigt, wie viele Teilnahmen je Seite den Hinweis bekämen: mit der festen Lesezeit ({ms} ms je Wort der Frage- und Aussagetexte)", "The table shows how many participations per page would get the prompt: with the fixed reading time ({ms} ms per word of the question and statement texts)", ms=tempo.MS_PER_WORD) }} {{ cite(tempo.CONRAD) }} {{ de_en("und mit der Hälfte der Median-Zeit der Seite", "and with half the median time of the page") }} {{ cite(tempo.GRESZKI) }}{{ de_en(". Welche Regel gilt, steht in den Einstellungen der Befragung (Ablauf, Tempo-Hinweis)", ". Which rule applies is set in the survey settings (flow, speed prompt)") }}{% if tempo.active(survey) %}{{ de_en("; gewählt ist:", "; chosen:") }} {{ dict(tempo.rules())[tempo.options(survey).rule] }}{% else %}{{ de_en("; der Tempo-Hinweis ist aus", "; the speed prompt is off") }}{% endif %}.
+      {{ de_en("Die Median-Schwelle gilt im Feld je Seite erst ab {n} Teilnahmen. Seiten heißen wie ihre Zeitspalte im Export", "In the field, the median threshold applies per page only from {n} participations on. Pages are named like their time column in the export", n=tempo.MEDIAN_MIN) }} (<code>t_…</code>){{ de_en(". Wo eine Teilnahme den ersten Besuch nicht einzeln festgehalten hat (ohne Tempo-Hinweis, oder vor dessen Erweiterung), zählt die Summe aller Besuche der Seite.", ". Where a participation did not record the first visit on its own (without the speed prompt, or before its extension), the sum of all visits of the page counts.") }}</p>
+  {% else %}
+  <p class="muted">{{ de_en("Der Fragebogen hat keine Seite, die der Tempo-Hinweis prüfen kann.", "The questionnaire has no page the speed prompt can check.") }}</p>
+  {% endif %}
+</section>

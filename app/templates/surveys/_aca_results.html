@@ -1,0 +1,29 @@
+{# Adaptive conjoint (items/aca.py results(), app/aca_analysis.py): importances (part-worths and self-explicated side by
+   side), part-worths as means of the values per person, the simulator. Needs: e, num, fn. #}
+{% from "_macros.html" import pct, signed %}
+{% from "_learn.html" import term, method %}
+{% from "surveys/_choice_model.html" import pw_chart with context %}
+{% set ac = e.aca %}
+{% set m = ac.model %}
+{% if ac.price %}<p class="flash flash-warning">{{ de_en("Preis ({names}): ACA unterschätzt seine Wichtigkeit, weil die Paare nur Teilprodukte zeigen. Für Preisfragen besser CBC oder ACBC.", "Price ({names}): ACA underestimates its importance because the pairs only show partial offers. For price questions CBC or ACBC are better.", names=ac.price|join(", ")) }}{{ fn("aca") }}</p>{% endif %}
+{% if m %}
+<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }} <span class="hint">{{ term("aca", "ACA") }}, {{ de_en("Mittel der Werte je Person", "mean of the values per person") }}</span>{{ fn("aca") }}</h3>
+<div class="res-scroll"><table class="res-table">
+  <thead><tr><th>{{ de_en("Merkmal", "Attribute") }}</th><th>{{ term("importance", de_en("Wichtigkeit", "Importance")) }}</th><th>{{ term("self_explicated", de_en("laut Selbstauskunft", "self-explicated")) }}</th></tr></thead>
+  <tbody>{% for a in m.attributes|sort(attribute="importance", reverse=true) %}
+    <tr><td>{{ a.label }}</td><td>{{ pct(a.importance) }}</td><td>{{ pct(a.prior_importance) }}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+<p class="muted small">{{ de_en("Wichtigkeit: je Person die Spannweite der Teilnutzen eines Merkmals als Anteil an allen Spannweiten, gemittelt; daneben dieselbe Zahl nur aus Selbstauskunft (Stufen bewerten mal Wichtigkeit). Große Abstände zeigen, wo die Paare die Selbstauskunft korrigiert haben.", "Importance: per person the range of an attribute's part-worths as a share of all ranges, averaged; next to it the same figure from the self-explication alone (rated levels times importance). Large gaps show where the pairs corrected the self-explication.") }}</p>
+<p class="res-group-head">{{ term("partworth", de_en("Teilnutzen", "Part-worths")) }} <span class="hint">{{ de_en("nullzentriert je Merkmal; Linie: 95-%-Intervall über Personen", "zero-centred per attribute; line: 95% interval over people") }}{% if ac.calibrated %}{{ de_en("; in Logit-Einheiten der Kalibrierung", "; in logit units of the calibration") }}{% endif %}</span></p>
+{% for attr in m.attributes %}
+{% set ch = m.charts[loop.index0] %}
+<p class="pw-head">{{ attr.label }}</p>
+{{ pw_chart(ch) }}
+{% endfor %}
+<p class="muted small">{{ de_en("{p} Personen, im Mittel {k} Paare.", "{p} people, {k} pairs on average.", p=m.persons, k=num(m.pairs_mean, 1)) }}{% if m.cal_r2 is not none %} {{ term("calibration", de_en("Kalibrierung", "Calibration")) }}: {{ de_en("R² im Mittel {r}.", "mean R² {r}.", r=num(m.cal_r2)) }}{% endif %}{% if ac.uncalibrated %} {% if ac.calibrated %}{{ de_en("Ohne Kalibrierung und daher nicht in Teilnutzen, Wichtigkeiten und Simulator: {n} Personen (ihre Werte stünden in anderen Einheiten).", "Without a calibration and so not in the part-worths, importances and simulator: {n} people (their values would be in other units).", n=ac.uncalibrated) }}{% else %}{{ de_en("Noch niemand hat die Kalibrierung beantwortet ({n} Personen): Die Teilnutzen stehen vorerst in Einheiten der Selbstauskunft, nicht in Logits.", "Nobody has answered the calibration yet ({n} people): for now the part-worths are in units of the self-explication, not in logits.", n=ac.uncalibrated) }}{% endif %}{% endif %}</p>
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{% call method(de_en("Wie ACA schätzt", "How ACA estimates")) %}<p>{{ de_en("Je Person zuerst Teilnutzen aus der Selbstauskunft (Stufen bewertet, zentriert, auf die Spannweite 1 gebracht, mal Wichtigkeit 1 bis 4), dann eine Regression der Paarurteile; beide werden auf dieselbe Summe der Spannweiten gebracht und nach der Zahl der Stufen und Paare gewichtet zusammengezählt (Johnson, 1987; Green et al., 1991; die Gewichte sind eine Festlegung von Askurious). Mit Kalibrierung werden die Teilnutzen so gestreckt, dass ihre Summen die Logits der genannten Wahrscheinlichkeiten treffen.", "Per person first part-worths from the self-explication (levels rated, centred, scaled to a range of 1, times importance 1 to 4), then a regression of the pair judgements; both are brought to the same sum of ranges and added, weighted by the numbers of levels and pairs (Johnson, 1987; Green et al., 1991; the weights are an Askurious default). With calibration the part-worths are stretched so that their sums match the logits of the likelihoods given.") }}</p>{% endcall %}
+{% elif ac.persons == 0 %}
+<p class="muted small">{{ de_en("Noch keine Antworten bis zur Wichtigkeit.", "No answers up to the importance yet.") }}</p>
+{% endif %}

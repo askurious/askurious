@@ -1,0 +1,38 @@
+{# Hot spot (items/image_mark.py results(), modes "areas" and "rate"): the areas on the image, coloured by their share,
+   and a table, most chosen (or best liked) first. Needs: e, survey #}
+{% set hs = e.hotspot %}
+{% set asset = e.item.kind.asset_for(e.item) %}
+{% if hs.persons %}
+{% if asset %}
+<div class="hot-res-stage">
+  <img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=asset.filename) }}" alt="{{ e.item.text('alt') }}">
+  {% for r in hs.rows %}
+  {% if hs.rate %}
+  {% set strength = ((r.net or 0)|abs * 70)|round|int %}
+  <span class="hot-res-area {{ 'is-like' if (r.net or 0) >= 0 else 'is-dislike' }}" style="left: {{ r.x }}%; top: {{ r.y }}%; width: {{ r.w }}%; height: {{ r.h }}%; --strength: {{ strength }}%" title="{{ r.label }}: {{ de_en('gefällt', 'like') }} {{ r.like|percent }}, {{ de_en('gefällt nicht', 'dislike') }} {{ r.dislike|percent }}"><b>{{ '+' if (r.net or 0) > 0 }}{{ ((r.net or 0) * 100)|round|int }}</b></span>
+  {% else %}
+  {% set strength = ((r.share or 0) * 70)|round|int %}
+  <span class="hot-res-area" style="left: {{ r.x }}%; top: {{ r.y }}%; width: {{ r.w }}%; height: {{ r.h }}%; --strength: {{ strength }}%" title="{{ r.label }}: {{ r.share|percent }}"><b>{{ r.share|percent }}</b></span>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+<div class="res-scroll"><table class="res-table">
+  {% if hs.rate %}
+  <thead><tr><th>{{ de_en("Bereich", "Area") }}</th><th>{{ de_en("gefällt", "like") }}</th><th>{{ de_en("gefällt nicht", "dislike") }}</th><th>{{ de_en("Saldo", "Net") }}</th></tr></thead>
+  <tbody>
+  {% for r in hs.rows|sort(attribute="net", reverse=true) %}
+    <tr><td>{{ r.label }} <span class="hint"><code>{{ e.item.code }}_{{ r.code }}</code></span></td><td>{{ r.like|percent }}</td><td>{{ r.dislike|percent }}</td><td>{{ '+' if r.net > 0 }}{{ (r.net * 100)|round|int }}</td></tr>
+  {% endfor %}
+  </tbody>
+  {% else %}
+  <thead><tr><th>{{ de_en("Bereich", "Area") }}</th><th>{{ de_en("gewählt von", "chosen by") }}</th></tr></thead>
+  <tbody>
+  {% for r in hs.rows|sort(attribute="share", reverse=true) %}
+    <tr><td>{{ r.label }} <span class="hint"><code>{{ e.item.code }}_{{ r.code }}</code></span></td><td>{{ r.share|percent }}</td></tr>
+  {% endfor %}
+  </tbody>
+  {% endif %}
+</table></div>
+<p class="muted small">{% if hs.rate %}{{ de_en("Anteil der {n} Personen mit Antwort, denen der Bereich gefällt oder nicht gefällt; Saldo = gefällt minus gefällt nicht in Prozentpunkten. Auf dem Bild: Grün überwiegt „gefällt“, rot „gefällt nicht“, je kräftiger, desto deutlicher.", "Share of the {n} people who answered and like or dislike the area; net = like minus dislike in percentage points. On the image: green, “like” prevails; red, “dislike”; the stronger, the clearer.", n=hs.persons) }}{% else %}{{ de_en("Anteil der {n} Personen mit Antwort, die den Bereich gewählt haben; auf dem Bild je kräftiger, desto häufiger.", "Share of the {n} people who answered and chose the area; on the image, the stronger, the more often.", n=hs.persons) }}{% endif %}</p>
+{% endif %}

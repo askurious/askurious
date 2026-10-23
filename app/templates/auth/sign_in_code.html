@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{# After the right password of a site admin (auth.sign_in_code): the code from the authenticator app or a backup code. #}
+{% block title %}{{ de_en("Code eingeben", "Enter code") }}{% endblock %}
+{% block content %}
+<h1>{{ de_en("Code aus der Authenticator-App", "Code from the authenticator app") }}</h1>
+<section class="panel">
+  <p>{{ de_en("Das Passwort stimmt. Bitte noch den aktuellen 6-stelligen Code aus Ihrer App eingeben, zum Beispiel 2FAS. Ohne Telefon geht einer Ihrer Ersatzcodes.",
+    "The password is right. Please also enter the current six-digit code from your app, for example 2FAS. Without the phone, one of your backup codes works.") }}</p>
+  <form method="post" action="{{ url_for('auth.sign_in_code') }}" class="row" autocomplete="off">
+    {{ csrf() }}
+    <label>{{ de_en("Code", "Code") }} <input type="text" name="code" maxlength="12" autocomplete="one-time-code" required autofocus class="narrow"></label>
+    <button class="button">{{ de_en("Anmelden", "Sign in") }}</button>
+  </form>
+</section>
+{% endblock %}

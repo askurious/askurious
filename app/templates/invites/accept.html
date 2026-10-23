@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon %}
+{# The link of an invitation by e-mail (app/invites.py). Needs: invite, title, role, token, signed_in; without a sign-in
+   also taken (the address has an account), orcid_on, min_length, form. #}
+{% block title %}{{ de_en("Einladung", "Invitation") }}{% endblock %}
+{% block content %}
+<div class="sign-in">
+  <h1>{{ de_en("Einladung", "Invitation") }}</h1>
+  <section class="panel">
+    <p>{% if invite.survey_id %}{{ de_en("Sie sind eingeladen, an der Befragung „{t}“ mitzuarbeiten, Rolle „{r}“.", "You are invited to work on the survey “{t}”, role “{r}”.", t=title, r=role) }}{% else %}{{ de_en("Sie sind in die Gruppe „{t}“ eingeladen, Rolle „{r}“.", "You are invited to the group “{t}”, role “{r}”.", t=title, r=role) }}{% endif %}</p>
+    {% if signed_in %}
+    <form method="post" class="button-row">
+      {{ csrf() }}
+      <button class="button">{{ de_en("Einladung annehmen als {n}", "Accept the invitation as {n}", n=current_user.display_name) }}</button>
+    </form>
+    {% else %}
+    {% if orcid_on %}
+    <h2>{{ de_en("Mit ORCID", "With ORCID") }} <span class="hint">{{ de_en("empfohlen", "recommended") }}</span></h2>
+    <form method="post" class="button-row">
+      {{ csrf() }}<input type="hidden" name="way" value="orcid">
+      <button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden und annehmen", "Sign in with ORCID and accept") }}</button>
+    </form>
+    {% endif %}
+    {% if taken %}
+    <h2>{{ de_en("Mit E-Mail-Adresse", "With email address") }}</h2>
+    <p class="muted">{{ de_en("Für {e} gibt es schon ein Konto. Nach dem Anmelden gelangen Sie zurück zu dieser Einladung und können sie annehmen.", "There is already an account for {e}. After signing in, you return to this invitation and can accept it.", e=invite.email) }}</p>
+    <p><a class="button button-secondary" href="{{ url_for('auth.sign_in', next=url_for('invites.accept', token=token)) }}">{{ de_en("Anmelden", "Sign in") }}</a></p>
+    {% else %}
+    <h2>{{ de_en("Mit E-Mail-Adresse und Passwort", "With email address and password") }}</h2>
+    <form method="post" class="stack">
+      {{ csrf() }}<input type="hidden" name="way" value="password">
+      <input type="email" name="username" value="{{ invite.email }}" autocomplete="username" readonly hidden>
+      <p class="muted small">{{ de_en("Sie melden sich künftig mit {e} und diesem Passwort an.", "From now on you sign in with {e} and this password.", e=invite.email) }}</p>
+      <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("so stehen Sie in den Listen der Beteiligten", "how you appear in the lists of people involved") }}</span>
+        <input name="name" maxlength="200" required value="{{ form.get('name', '') }}" autocomplete="name"></label>
+      <label>{{ de_en("Passwort", "Password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen; ein Satz aus mehreren Wörtern ist gut", "at least {n} characters; a sentence of several words is good", n=min_length) }}</span>
+        <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <label>{{ de_en("Passwort wiederholen", "Repeat password") }}
+        <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <div class="button-row"><button class="button">{{ de_en("Konto anlegen und annehmen", "Create account and accept") }}</button></div>
+    </form>
+    {% endif %}
+    {% endif %}
+    <p class="muted small">{{ de_en("Die Einladung gilt bis {d} und nur einmal.", "The invitation is valid until {d} and only once.", d=invite.expires_at|localdt) }}</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{# Verwaltung > Nutzertypen (app/org_admin.py, Ralf 2026-10-16): the types of this organisation; it starts with
+   "Mitarbeitende" only, the others come from templates (Bachelorarbeit, Masterarbeit, Praktikum, Lehrveranstaltung)
+   or are made new. Context: org, types, counts, templates. #}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_icons.html" import icon %}
+{% from "admin/_type_fields.html" import type_fields %}
+{% block title %}{{ de_en("Nutzertypen", "User types") }} · {{ org.name }}{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% include "org/_tabs.html" %}
+<section class="panel" id="nutzertypen">
+  <h2>{{ de_en("Nutzertypen", "User types") }} <span class="hint">{{ de_en("Vorlagen, die ein Konto einmal übernimmt, wenn es dazukommt: Laufzeit, Befragungstypen, Anlegerecht, Betreuung, Löschfrist", "templates copied once into an account when it comes in: period, survey types, right to create, supervisor, deletion period") }}</span></h2>
+  <div class="res-scroll">
+  {% call list_table("admin-people") %}
+    <thead><tr><th>{{ de_en("Typ", "Type") }}</th><th>{{ de_en("Laufzeit", "Period") }}</th><th>{{ de_en("Befragungstypen", "Survey types") }}</th><th>{{ de_en("legt an", "creates") }}</th><th>{{ de_en("Betreuung", "Supervisor") }}</th><th>{{ de_en("löschen nach Ende", "delete after end") }}</th><th>{{ de_en("Konten", "Accounts") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for t in types %}
+      <tr{% if t.hidden %} class="muted"{% endif %}><td class="admin-name">{{ account_type_name(t) }}
+          {% if t.is_default %}<span class="badge">{{ de_en("für neue Konten", "for new accounts") }}</span>{% endif %}{% if t.hidden %} <span class="hint">{{ de_en("ausgeblendet", "hidden") }}</span>{% endif %}</td>
+        <td>{{ period_describe(t.duration) }}</td>
+        <td>{% set lv = t.kinds or {} %}{% if lv %}{% for k in kind_keys if lv.get(k) %}{{ kind_label(k) }}: {{ kind_level_label(lv.get(k)) }}{{ ", " if not loop.last }}{% endfor %}{% else %}{{ de_en("alle bearbeiten", "edit all") }}{% endif %}</td>
+        <td>{{ de_en("ja", "yes") if "create" in (t.kinds or {}).values() else "–" }}</td>
+        <td>{{ de_en("ja", "yes") if t.supervised else "–" }}</td>
+        <td>{{ de_en("{n} Monate", "{n} months", n=t.delete_months) if t.delete_months else de_en("nie", "never") }}</td>
+        <td>{{ counts.get(t.id, 0) }}</td>
+        <td class="admin-account"><div class="admin-row-actions">
+          {% if not t.is_default and not counts.get(t.id, 0) %}<form class="inline" method="post" action="{{ url_for('org.types_action', org_id=org.id) }}"
+              data-confirm="{{ de_en('Nutzertyp „{t}“ löschen?', 'Delete the user type “{t}”?', t=account_type_name(t)) }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
+            {{ csrf() }}<input type="hidden" name="type_id" value="{{ t.id }}"><input type="hidden" name="action" value="delete">
+            <button class="icon-btn admin-act danger" title="{{ de_en('Löschen', 'Delete') }}" aria-label="{{ de_en('Löschen', 'Delete') }}: {{ account_type_name(t) }}">{{ icon("trash", 16) }}</button></form>{% endif %}
+          <a class="icon-btn admin-act" href="{{ url_for('org.type_page', org_id=org.id, type_id=t.id) }}" title="{{ de_en('Bearbeiten', 'Edit') }}" aria-label="{{ de_en('Bearbeiten', 'Edit') }}: {{ account_type_name(t) }}">{{ icon("edit", 16) }}</a>
+        </div></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% if templates %}
+  <div class="button-row">
+    <span class="muted small">{{ de_en("Aus Vorlage hinzufügen:", "Add from a template:") }}</span>
+    {% for tpl in templates %}<form class="inline" method="post" action="{{ url_for('org.types_action', org_id=org.id) }}">{{ csrf() }}<input type="hidden" name="action" value="template"><input type="hidden" name="template" value="{{ tpl.key }}">
+      <button class="button button-secondary button-small">{{ tpl.label }} ({{ period_describe(tpl.duration) }})</button></form>{% endfor %}
+  </div>
+  {% endif %}
+  <details><summary>{{ de_en("Neuer Nutzertyp", "New user type") }}</summary>
+    <form method="post" action="{{ url_for('org.types_action', org_id=org.id) }}" class="stack">
+      {{ csrf() }}<input type="hidden" name="action" value="new">
+      {{ type_fields(none) }}
+      <div class="button-row"><button class="button button-secondary">{{ de_en("Anlegen", "Create") }}</button></div>
+    </form></details>
+  <p class="muted small">{{ de_en("Die Laufzeit beginnt, wenn das Konto über seinen Link dazukommt (Einladung angenommen, erste Anmeldung, Passwort gesetzt), und endet am letzten Tag um 23:59 Uhr. Danach ist das Konto gesperrt; „Verwalten“ verlängert es. Nach der Löschfrist löscht Askurious das Konto, wenn nichts übergeben werden muss; sonst steht es unter „Löschung fällig“. Eine Änderung am Typ gilt für neue Konten; „Auf die Konten übertragen“ setzt Befragungstypen und Anlegerecht der bestehenden.", "The period starts when the account comes in through its link (invitation accepted, first sign-in, password set) and ends on the last day at 23:59. Then the account is blocked; “Manage” extends it. After the deletion period Askurious deletes the account if nothing has to be handed over; otherwise it is listed under “deletion due”. A change to the type applies to new accounts; “Carry over to the accounts” sets survey types and right to create of the existing ones.") }}</p>
+</section>
+
+{% endblock %}

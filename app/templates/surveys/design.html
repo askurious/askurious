@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields with context %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{# The page "Erscheinungsbild" of a survey, and the editor of a design (app/designs.py): the same form, the same
+   live preview. Needs: current (theme), u (addresses: save, sample, check, logo, logo_remove, partner, colours),
+   uid (upload folder), langs, presets, can_edit; survey or design. #}
+{% block title %}{{ de_en("Erscheinungsbild", "Appearance") }} · {{ survey.title if survey else design.name }}{% endblock %}
+{% block container_class %}tabpage{% endblock %}
+{% block content %}
+{% if survey %}
+<div class="tabpage-head">{% set active_tab = "settings" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('surveys.detail', survey_id=survey.id) }}#design">{{ icon("back", 16) }} {{ de_en("Einstellungen", "Settings") }}</a>
+<h2 class="design-title">{{ de_en("Erscheinungsbild", "Appearance") }} <span class="hint">{{ de_en("So sehen Teilnehmende die Befragung. Diese Seiten für Forschende bleiben, wie sie sind.", "This is how participants see the survey. These pages for researchers stay as they are.") }}</span></h2>
+{% if locked %}
+<div class="flash flash-warning"><span>{{ de_en("Das Erscheinungsbild gehört zu den Erhebungsbedingungen und ist wie der Fragebogen nur im Entwurf änderbar.", "The appearance is part of the conditions of data collection and, like the questionnaire, can only be changed in the draft.") }}
+  {% if survey.status == "closed" %}{{ de_en("Auf der Seite", "On the page") }} <a href="{{ url_for('surveys.field', survey_id=survey.id) }}">{{ de_en("Datenerhebung", "Data collection") }}</a> {{ de_en("lässt sich die Befragung zur Bearbeitung öffnen.", "you can open the survey for editing.") }}{% else %}{{ de_en("Dafür die Befragung pausieren und zur Bearbeitung öffnen (Seite", "For that, pause the survey and open it for editing (page") }} <a href="{{ url_for('surveys.field', survey_id=survey.id) }}">{{ de_en("Datenerhebung", "Data collection") }}</a>).{% endif %}</span></div>
+{% elif not can_edit %}
+<div class="flash role-note">{{ icon("eye", 16) }} <span>{{ de_en("Mit Ihrer Rolle können Sie das Erscheinungsbild ansehen, aber nicht ändern.", "With your role you can view the appearance, but not change it.") }}</span></div>
+{% endif %}
+{% elif org_edit is defined and org_edit %}
+<div class="design-edit-head">
+  <a class="back-link" href="{{ url_for('org.design', org_id=org_edit.org.id) }}">{{ icon("back", 16) }} {{ de_en("Verwaltung", "Management") }} · {{ org_edit.org.name }}</a>
+  <h1>{{ de_en("Organisationsdesign ({side}) „{name}“", "Organisation design ({side}) “{name}”", side=org_edit.label, name=design.name) }} <span class="hint">{{ de_en("Der Standard der Organisation. Befragungen, die es schon haben, behalten ihre Kopie. Das Logo ist das der Organisation.", "The standard of the organisation. Surveys that have it already keep their copy. The logo is the organisation's own.") }}</span></h1>
+</div>
+{% else %}
+<div class="design-edit-head">
+  <a class="back-link" href="{{ url_for('designs.index') }}">{{ icon("back", 16) }} Designs</a>
+  <h1>{{ de_en("Design „{name}“", "Design “{name}”", name=design.name) }} <span class="hint">{{ de_en("Änderungen gelten für künftiges Anwenden. Befragungen, die das Design schon verwenden, behalten ihre Kopie.", "Changes apply when the design is applied from now on. Surveys that already use the design keep their copy.") }}</span></h1>
+</div>
+{% endif %}
+<div class="design-page" data-design
+     data-sample="{{ u.sample }}" data-check="{{ u.check }}">
+  <section class="panel design-form">
+    {# saves by itself: the look of a draft, and a design of the Designs page #}
+    {% set autosave = can_edit and (not survey or survey.is_editable) %}
+    <form method="post" action="{{ u.save }}" class="stack" data-design-form {{ "data-autosave-form" if autosave else "data-dirty-guard" }}><fieldset class="bare" {% if not can_edit %}disabled{% endif %}>
+      {{ csrf() }}
+      {% if can_edit and survey %}{{ edit_guard_fields(survey, "settings:theme", edit_guard.settings_state(survey, "theme"), url_for('surveys.design', survey_id=survey.id)) }}{% endif %}
+      {% set orgs_shown = org_designs if survey and can_edit and org_designs is defined else [] %}
+      {% if orgs_shown %}
+      {# the organisation designs of one's organisations (app/org_designs.py): chosen on the server, which copies them
+         whole (tokens included), so they post to "choose" and are no colour buttons of this form #}
+      <div class="field">
+        <span class="label-title">{{ de_en("Organisationsdesign", "Organisation design") }} <span class="hint">{{ de_en("Standard Ihrer Organisation; ändern lässt es sich in der Kopie der Befragung", "the standard of your organisation; it can be changed in the survey's copy") }}</span></span>
+        <div class="design-presets">
+          {# the light one (dark on devices set to dark) and the dark one on its own (org_designs.for_user) #}
+          {% for entry in orgs_shown %}{% for o in entry.options %}
+          <button type="submit" form="org-design-choose" name="preset" value="{{ o.key }}" class="design-preset design-preset-org"
+                  aria-pressed="{{ 'true' if current.preset == themes.ORG and current.get('org') == entry.org.id and current.colors == o.colors and themes.is_auto(current) == themes.is_auto(o.theme) else 'false' }}">
+            <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ o.colors[c] }}"></span>{% endfor %}</span>
+            <span class="design-preset-text"><span class="design-preset-name">{{ o.name }}</span> <span class="muted">{{ entry.org.name }} · {{ o.note }}</span></span>
+          </button>
+          {% endfor %}{% endfor %}
+        </div>
+        {{ why("org_design") }}
+      </div>
+      {% endif %}
+      <div class="field">
+        <span class="label-title">{{ de_en("Farbschema", "Colour scheme") }}</span>
+        <div class="design-presets" role="group" aria-label="{{ de_en('Farbschema', 'Colour scheme') }}">
+          <input type="hidden" name="preset" value="{{ current.preset }}" data-preset-field>
+          {% if current.preset == themes.ORG %}
+          {# the organisation design this look is a copy of: it stays one while its colours stay #}
+          <button type="button" class="design-preset" data-preset="{{ themes.ORG }}" {% for c in themes.COLOURS %}data-{{ c }}="{{ current.colors[c] }}" {% endfor %}
+                  {% if current.fixed %}data-font="{{ current.fixed.font or current.font }}" data-radius="{{ current.fixed.radius or current.radius }}"{% endif %}
+                  {% if current.logo_position %}data-logo-position="{{ current.logo_position }}"{% endif %}
+                  {% if current.colors_dark %}{% for c in themes.COLOURS %}data-dark_{{ c }}="{{ current.colors_dark[c] }}" {% endfor %}{% endif %}
+                  aria-pressed="true">
+            <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ current.colors[c] }}"></span>{% endfor %}</span>
+            <span class="design-preset-text"><span class="design-preset-name">{{ themes.name(current) }}</span> <span class="muted">{{ de_en("Organisationsdesign", "organisation design") }}</span></span>
+          </button>
+          {% endif %}
+          {% for key, t in presets.items() %}
+          <button type="button" class="design-preset" data-preset="{{ key }}" {% for c in themes.COLOURS %}data-{{ c }}="{{ t.colors[c] }}" {% endfor %}
+                  {% if t.fixed is defined %}data-font="{{ t.fixed.font }}" data-radius="{{ t.fixed.radius }}"{% if t.logo_position is defined %} data-logo-position="{{ t.logo_position }}"{% endif %}{% endif %}
+                  {% if t.look is defined %}{% for k, v in t.look.items() %}data-look-{{ k|replace("_", "-") }}="{{ v }}" {% endfor %}{% endif %}
+                  {% if key in themes.PAIRS %}{% for c in themes.COLOURS %}data-dark_{{ c }}="{{ themes.BUILTIN[themes.PAIRS[key]].colors[c] }}" {% endfor %}{% endif %}
+                  aria-pressed="{{ 'true' if current.preset == key else 'false' }}">
+            <span class="theme-swatches" aria-hidden="true">{% for c in themes.COLOURS %}<span style="background: {{ (t.tile or {}).get(c, t.colors[c]) }}"></span>{% endfor %}</span>
+            {# the name in line 1, the note always in line 2 (UI audit 2026-10-12, U49) #}
+            <span class="design-preset-text"><span class="design-preset-name">{{ t.name }}</span> <span class="muted">{{ t.note }}</span></span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      <fieldset class="design-colours">
+        <legend>{{ de_en("Farben", "Colours") }} <span class="hint">{{ de_en("alle weiteren Töne werden daraus berechnet", "all other tones are derived from them") }}</span></legend>
+        {% for key, label, hint in [("accent", de_en("Akzent", "Accent"), de_en("Auswahl, Knöpfe, Regler", "choice, buttons, sliders")),
+                                    ("background", de_en("Hintergrund", "Background"), de_en("die Seite", "the page")),
+                                    ("text", de_en("Text", "Text"), de_en("Fragen und Antworten", "questions and answers")),
+                                    ("surface", de_en("Fläche", "Surface"), de_en("Antwortoptionen, Eingabefelder", "answer options, input fields"))] %}
+        <label class="design-colour">
+          <span>{{ label }} <span class="hint">{{ hint }}</span></span>
+          <span class="design-colour-inputs">
+            <input type="color" value="{{ current.colors[key] }}" data-colour-pick="{{ key }}" aria-label="{{ de_en('{label}: Farbe wählen', '{label}: choose colour', label=label) }}">
+            <input type="text" name="{{ key }}" value="{{ current.colors[key] }}" data-colour="{{ key }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" size="8"
+                   spellcheck="false" autocomplete="off" aria-label="{{ de_en('{label}: Farbwert, z. B. #2a5db0', '{label}: colour value, e.g. #2a5db0', label=label) }}">
+          </span>
+        </label>
+        {% endfor %}
+      </fieldset>
+      {% set fixed_by = (current.get("fixed") or themes.BUILTIN.get(current.preset, {}).get("fixed")) is not none %}
+      <p class="flash flash-warning design-fixed-note" data-fixed-note {% if not fixed_by %}hidden{% endif %}><span>{{ de_en('Bei diesem Design sind <strong>Schrift</strong>, <strong>Ecken</strong> und die <strong>Position des Logos</strong> durch das Corporate Design festgelegt und lassen sich nicht ändern. Für eine andere Schrift ein anderes Farbschema oder eigene Farben wählen.', 'With this design the <strong>font</strong>, the <strong>corners</strong> and the <strong>position of the logo</strong> are fixed by the corporate design and cannot be changed. For another font, choose another colour scheme or your own colours.')|safe }}</span></p>
+      {% set dark = themes.dark_colours(current) %}
+      {# an organisation design never follows the device: its light side stays light, its dark side is chosen on its own
+         in the list of colour schemes (Ralf, 2026-10-23), so no "Darstellung" for it #}
+      {% if (org_edit is defined and org_edit) or current.preset == themes.ORG %}<input type="hidden" name="scheme" value="fixed">{% else %}
+      <fieldset class="design-scheme">
+        <legend>{{ de_en("Darstellung", "Colour scheme") }}</legend>
+        {% set scheme_labels = themes.schemes() %}
+        <label class="check"><input type="radio" name="scheme" value="fixed" data-design-field {% if current.scheme != "auto" %}checked{% endif %}> {{ scheme_labels.fixed }}</label>
+        <label class="check"><input type="radio" name="scheme" value="auto" data-design-field {% if current.scheme == "auto" %}checked{% endif %}> {{ scheme_labels.auto }}</label>
+        <div class="design-dark" data-design-dark {% if current.scheme != "auto" %}hidden{% endif %}>
+          <p class="hint">{{ de_en("Damit sehen Teilnehmende zwei verschiedene Darstellungen, je nach Gerät. Welche gezeigt wurde, wird je
+            Teilnahme gespeichert (Spalte „scheme“ im Export) und in der Einwilligung genannt. Bei dunklem Hintergrund oben gilt
+            immer die eine Darstellung.", "Participants then see two different colour schemes, depending on their device. Which one was shown is
+            stored per participation (column “scheme” in the export) and named in the consent. With a dark background above, the one
+            scheme always applies.") }}</p>
+          {% for key, label in [("accent", de_en("Akzent", "Accent")), ("background", de_en("Hintergrund", "Background")), ("text", de_en("Text", "Text")), ("surface", de_en("Fläche", "Surface"))] %}
+          <label class="design-colour">
+            <span>{{ label }} <span class="hint">{{ de_en("dunkel", "dark") }}</span></span>
+            <span class="design-colour-inputs">
+              <input type="color" value="{{ dark[key] }}" data-colour-pick="dark_{{ key }}" aria-label="{{ de_en('{label} (dunkel): Farbe wählen', '{label} (dark): choose colour', label=label) }}">
+              <input type="text" name="dark_{{ key }}" value="{{ dark[key] }}" data-colour="dark_{{ key }}" pattern="#[0-9a-fA-F]{6}" maxlength="7" size="8"
+                     spellcheck="false" autocomplete="off" aria-label="{{ de_en('{label} (dunkel): Farbwert', '{label} (dark): colour value', label=label) }}">
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>{% endif %}
+      <label>{{ de_en("Karten", "Maps") }} <span class="hint">{{ de_en("nur bei Kartenfragen und dunklem Hintergrund", "only for map questions and a dark background") }}</span>
+        <select name="maps" data-design-field>
+          <option value="light" {% if current.get("maps") != "dark" %}selected{% endif %}>{{ de_en("hell (wie gewohnt)", "light (as usual)") }}</option>
+          <option value="dark" {% if current.get("maps") == "dark" %}selected{% endif %}>{{ de_en("dunkel, passend zum dunklen Hintergrund", "dark, to match the dark background") }}</option>
+        </select>
+        <span class="hint">{{ de_en("Die Karte bleibt dieselbe; sie wird im Browser abgedunkelt, ein weiterer Kartendienst wird dafür nicht aufgerufen.", "The map stays the same; it is darkened in the browser, no other map service is called for it.") }}</span>
+      </label>
+      <label>{{ de_en("Schrift", "Font") }}
+        <select name="font" data-design-field data-fixable {% if fixed_by %}disabled{% endif %}>
+          {% for key, label in themes.fonts().items() %}<option value="{{ key }}" {% if current.font == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <span class="hint">{{ de_en("Schriften kommen vom Gerät der Teilnehmenden; „Atkinson Hyperlegible Next“ liefert Askurious selbst mit. Von Dritten wird nichts geladen.", "Fonts come from the participants' device; Askurious ships “Atkinson Hyperlegible Next” itself. Nothing is loaded from third parties.") }}</span>
+      </label>
+      <label>{{ de_en("Schriftgröße", "Font size") }}
+        <select name="font_scale" data-design-field>
+          {% for scale in themes.FONT_SCALES %}<option value="{{ scale }}" {% if current.font_scale == scale %}selected{% endif %}>{{ de_en("Standard", "Standard") if scale == 100 else "%d %%"|format(scale) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ de_en("Ecken", "Corners") }}
+        <select name="radius" data-design-field data-fixable {% if fixed_by %}disabled{% endif %}>
+          {% for key, label in themes.radii().items() %}<option value="{{ key }}" {% if current.radius == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      {% if current.logo %}
+      <fieldset class="design-logo-fields">
+        <legend>Logo <span class="hint">{{ de_en("Datei unten unter „Logo“", "file below under “Logo”") }}</span></legend>
+        <input type="hidden" name="logo_fields" value="1">
+        {% for code in langs %}
+        <label>{{ de_en("Alternativtext", "Alternative text") }}{% if langs|length > 1 %} ({{ code|upper }}){% endif %}
+          <input type="text" name="logo_alt_{{ code }}" value="{{ current.logo.alt.get(code, '') }}" maxlength="200" placeholder="{{ de_en('z. B. Name der Einrichtung', 'e.g. name of the institution') }}">
+        </label>
+        {% endfor %}
+        <span class="hint">{{ de_en("Was Screenreader statt des Bildes vorlesen. Kein „Logo von …“, nur der Name.", "What screen readers read instead of the image. No “Logo of …”, only the name.") }}</span>
+        <label class="check"><input type="checkbox" name="logo_decorative" value="1" {% if current.logo.decorative %}checked{% endif %}> {{ de_en("Nur dekorativ (Screenreader überspringen das Logo)", "Decorative only (screen readers skip the logo)") }}</label>
+        <label>{{ de_en("Position", "Position") }}
+          <select name="logo_position" data-design-field data-fixable {% if fixed_by %}disabled{% endif %}>
+            {% for key, label in themes.logo_positions().items() %}<option value="{{ key }}" {% if current.logo.position == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>{{ de_en("Größe", "Size") }}
+          <select name="logo_size" data-design-field>
+            {% for key, (label, px) in themes.logo_sizes().items() %}<option value="{{ key }}" {% if current.logo.size == key %}selected{% endif %}>{{ de_en("{label} ({px} px hoch)", "{label} ({px} px high)", label=label, px=px) }}</option>{% endfor %}
+          </select>
+        </label>
+      </fieldset>
+      {% endif %}
+      {% if can_edit %}
+      {% if autosave %}{{ autosave_bar() }}{% endif %}
+      <div class="form-actions">
+        {% if not autosave %}<button class="button">{{ de_en("Speichern", "Save") }}</button>{% endif %}
+        {# no question: "Rückgängig" brings the colours back, the notice after it offers it (W28) #}
+        <button class="button button-secondary" name="reset" value="1">{{ de_en("Auf Standard zurücksetzen", "Reset to standard") }}</button>
+      </div>
+      {% endif %}
+    </fieldset></form>
+  </section>
+  {% if survey %}
+  <section class="panel design-mine" id="designs">
+    <h2>{{ de_en("Meine Designs", "My designs") }} <span class="hint">{{ de_en("aufbewahren, wiederverwenden,", "keep, reuse,") }} <a href="{{ url_for('designs.index') }}">{{ de_en("teilen", "share") }}</a></span></h2>
+    {% if designs and can_edit %}
+    {# a question only where something is lost for good: the logo files of the survey (undo keeps no files); else
+       "Rückgängig" brings the old look back (W28) #}
+    {% set has_files = (current.logo and current.logo.file) or current.partners %}
+    <form method="post" action="{{ url_for('surveys.apply_design', survey_id=survey.id) }}" class="design-apply"
+          {% if has_files %}data-confirm="{{ de_en('Das gewählte Design übernehmen?', 'Apply the chosen design?') }}" data-confirm-note="{{ de_en('Farben und Schrift lassen sich mit „Rückgängig“ zurückholen, das bisherige Logo nicht: Es wird durch das des Designs ersetzt und gelöscht.', 'Colours and font can be brought back with “Undo”, the current logo cannot: it is replaced by the one of the design and deleted.') }}"
+          data-confirm-ok="{{ de_en('Design übernehmen', 'Apply design') }}"{% endif %}>
+      {{ csrf() }}
+      <label>{{ de_en("Design anwenden", "Apply design") }}
+        <select name="design" required>
+          <option value="">{{ de_en("bitte wählen", "please choose") }}</option>
+          {% for d in designs %}<option value="{{ d.id }}">{{ d.name }}{% if d.owner_id != current_user.id %} {{ de_en("(von {owner})", "(by {owner})", owner=d.owner.display_name) }}{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="button button-secondary button-small">{{ de_en("Übernehmen", "Apply") }}</button>
+    </form>
+    {% elif not designs %}<p class="muted small">{{ de_en("Noch keine eigenen oder geteilten Designs.", "No own or shared designs yet.") }}</p>{% endif %}
+    {% if can_save %}
+    <form method="post" action="{{ url_for('surveys.save_design', survey_id=survey.id) }}" class="design-apply">
+      {{ csrf() }}
+      <label>{{ de_en("Gespeichertes Erscheinungsbild als Design aufbewahren", "Keep the saved appearance as a design") }}
+        <input type="text" name="name" maxlength="80" placeholder="{{ de_en('Name, z. B. Lehrstuhl-Design', 'Name, e.g. chair design') }}" required>
+      </label>
+      <button class="button button-secondary button-small">{{ de_en("Als Design speichern", "Save as design") }}</button>
+    </form>
+    {% elif save_refused %}<p class="muted small">{{ save_refused }}</p>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if not (org_edit is defined and org_edit) %}
+  <section class="panel design-logo" id="logo">
+    <h2>Logo <span class="hint">{{ de_en("steht über jeder Seite der Befragung", "appears above every page of the survey") }}</span></h2>
+    {% set logo = current.logo %}
+    {# the logo of the survey's organisation, uploaded by its admins (app/orgs.py, Ralf 2026-10-16) #}
+    {% if survey is defined and survey and can_edit and org_logo_for(survey) %}
+    <form method="post" action="{{ url_for('surveys.use_org_logo', survey_id=survey.id) }}" class="design-apply">
+      {{ csrf() }}<button class="button button-secondary button-small">{{ de_en("Logo der Organisation „{o}“ übernehmen", "Use the logo of the organisation “{o}”", o=org_label(org_get(org_of(survey)))) }}</button>
+    </form>
+    {% endif %}
+    {% for variant, title, key in [("light", "Logo", "file"), ("dark", de_en("Variante für dunkle Hintergründe", "Variant for dark backgrounds"), "file_dark")] %}
+    {% if variant == "light" or logo %}
+    <div class="design-logo-slot">
+      {% if variant == "dark" %}<h3>{{ title }} <span class="hint">{{ de_en("optional, z. B. ein weißes Logo", "optional, e.g. a white logo") }}</span></h3>{% endif %}
+      {% if logo and logo.get(key) %}
+      <div class="design-logo-current {{ 'is-dark' if variant == 'dark' }}">
+        <img src="{{ url_for('media.serve', survey_uid=uid, filename=logo[key]) }}" alt="">
+        {% if can_edit %}
+        <form method="post" action="{{ u.logo_remove }}"
+              data-confirm="{{ de_en('Variante für dunkle Hintergründe entfernen?', 'Remove the variant for dark backgrounds?') if variant == 'dark' else de_en('Logo entfernen?', 'Remove the logo?') }}" data-confirm-note="{{ de_en('Die Datei wird gelöscht.', 'The file is deleted.') }}"
+              data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>
+          {{ csrf() }}<input type="hidden" name="variant" value="{{ variant }}">
+          <button class="button button-danger button-small">{{ de_en("Entfernen", "Remove") }}</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if can_edit %}
+      <form method="post" enctype="multipart/form-data" action="{{ u.logo }}" class="stack design-logo-upload">
+        {{ csrf() }}<input type="hidden" name="variant" value="{{ variant }}">
+        <label>{{ de_en("Ersetzen", "Replace") if logo and logo.get(key) else de_en("Datei", "File") }}
+          <input type="file" name="file" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" required>
+        </label>
+        <label class="check"><input type="checkbox" name="rights" value="1" required> {{ de_en("Ich darf dieses Logo für die Befragung verwenden.", "I may use this logo for the survey.") }}</label>
+        <div class="form-actions"><button class="button button-secondary button-small">{{ de_en("Hochladen", "Upload") }}</button></div>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% if logo and can_edit %}
+    <div class="design-logo-colours" data-logo-colours="{{ u.colours }}">
+      <button type="button" class="button button-secondary button-small" data-logo-colours-load>{{ de_en("Farben aus dem Logo vorschlagen", "Suggest colours from the logo") }}</button>
+      <span class="design-logo-swatches" data-logo-colours-list aria-live="polite"></span>
+    </div>
+    {% endif %}
+    {% if logo %}{% set rules = themes.BUILTIN.get(current.preset, {}).get("logo_position") %}<p class="muted small">{% if logo.icon and not rules %}{{ de_en("Im Browser-Tab erscheint das Logo als kleines Symbol.", "In the browser tab the logo appears as a small icon.") }}{% elif rules %}{{ de_en("Ein Symbol für den Browser-Tab gibt es nur bei annähernd quadratischen Logos und nicht bei Farbschemata mit festen Logo-Regeln.", "An icon for the browser tab exists only for roughly square logos and not for colour schemes with fixed logo rules.") }}{% else %}{{ de_en("Ein Symbol für den Browser-Tab gibt es nur bei annähernd quadratischen Logos.", "An icon for the browser tab exists only for roughly square logos.") }}{% endif %}</p>{% endif %}
+    <p class="muted small">{{ de_en("PNG, JPEG, WebP (bis 2 MB) oder SVG (bis 200 KB). Das Logo wird nie umgefärbt oder verzerrt. Aus SVG-Dateien
+      werden Skripte, eingebettete Inhalte und Verweise nach außen entfernt.", "PNG, JPEG, WebP (up to 2 MB) or SVG (up to 200 KB). The logo is never recoloured or distorted. Scripts, embedded
+      content and links to the outside are removed from SVG files.") }}{% if not logo %} {{ de_en("Ohne Logo zeigt die Befragung keines.", "Without a logo the survey shows none.") }}{% endif %}</p>
+  </section>
+  <section class="panel design-partner" id="partner">
+    <h2>{{ de_en("Partnerlogos", "Partner logos") }} <span class="hint">{{ de_en("Förderer, Kooperationen; höchstens {n}", "funders, cooperations; at most {n}", n=themes.MAX_PARTNERS) }}</span></h2>
+    {% set partners = current.get("partners", []) %}
+    {% for p in partners %}
+    <div class="design-logo-current">
+      <img src="{{ url_for('media.serve', survey_uid=uid, filename=p.file) }}" alt="">
+      <span class="design-partner-name">{{ p.alt }}</span>
+      {% if can_edit %}
+      <form method="post" action="{{ u.partner }}"
+            data-confirm="{{ de_en('Logo „{name}“ entfernen?', 'Remove the logo “{name}”?', name=p.alt) }}" data-confirm-note="{{ de_en('Die Datei wird gelöscht.', 'The file is deleted.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>
+        {{ csrf() }}<input type="hidden" name="remove" value="{{ loop.index0 }}">
+        <button class="button button-danger button-small">{{ de_en("Entfernen", "Remove") }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if can_edit and partners|length < themes.MAX_PARTNERS %}
+    <form method="post" enctype="multipart/form-data" action="{{ u.partner }}" class="stack design-logo-upload">
+      {{ csrf() }}
+      <label>{{ de_en("Datei", "File") }} <input type="file" name="file" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" required></label>
+      <label>{{ de_en("Name des Partners", "Name of the partner") }} <span class="hint">{{ de_en("lesen Screenreader statt des Logos vor", "screen readers read it instead of the logo") }}</span>
+        <input type="text" name="alt" maxlength="200" placeholder="{{ de_en('z. B. Deutsche Forschungsgemeinschaft', 'e.g. Deutsche Forschungsgemeinschaft') }}" required></label>
+      <label class="check"><input type="checkbox" name="rights" value="1" required> {{ de_en("Ich darf dieses Logo für die Befragung verwenden.", "I may use this logo for the survey.") }}</label>
+      <div class="form-actions"><button class="button button-secondary button-small">{{ de_en("Hinzufügen", "Add") }}</button></div>
+    </form>
+    {% endif %}
+    <p class="muted small">{{ de_en("Partnerlogos stehen klein am Ende der ersten und der letzten Seite, nicht auf den Seiten mit Fragen. Auf dunklem
+      Hintergrund liegen sie auf einem weißen Streifen, weil sie meist für weißes Papier gemacht sind.", "Partner logos appear small at the end of the first and the last page, not on the pages with questions. On a dark
+      background they lie on a white strip, because they are mostly made for white paper.") }}</p>
+  </section>
+  {% endif %}
+  <div class="design-side">
+    <section class="panel design-preview">
+      <div class="design-preview-head">
+        <h2>{{ de_en("Vorschau", "Preview") }} <span class="hint" data-design-name>{{ themes.name(current) }}</span></h2>
+        <div class="design-widths" role="group" aria-label="{{ de_en('Breite der Vorschau', 'Width of the preview') }}">
+          <button type="button" class="chip" data-design-width="" aria-pressed="true">Desktop</button>
+          <button type="button" class="chip" data-design-width="390" aria-pressed="false">{{ de_en("Handy", "Phone") }}</button>
+          <button type="button" class="chip" data-design-show="dark" aria-pressed="false" {% if current.scheme != "auto" %}hidden{% endif %}>{{ de_en("dunkel zeigen", "show dark") }}</button>
+        </div>
+      </div>
+      <iframe class="design-frame" data-design-frame title="{{ de_en('Vorschau der Befragungsseite', 'Preview of the survey page') }}" src="{{ u.sample }}"></iframe>
+      <p class="muted small">{{ de_en("Beispielseite mit typischen Elementen.", "Sample page with typical elements.") }}{% if survey %} {{ de_en("Den eigenen Fragebogen zeigt die", "Your own questionnaire is shown in the") }}
+        <a href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ de_en("Vorschau", "preview") }} ↗</a>.{% endif %}</p>
+    </section>
+    <section class="panel design-contrast" id="kontrast">
+      <h2>{{ de_en("Lesbarkeit", "Legibility") }} <span class="hint">{{ de_en("Kontrast nach WCAG 2.2 AA: Text mindestens 4,5 : 1, Bedienelemente 3 : 1", "contrast after WCAG 2.2 AA: text at least 4.5 : 1, controls 3 : 1") }}</span></h2>
+      <ul class="design-checks" data-design-checks>
+        {% for c in themes.checks(current) %}
+        <li class="{{ 'is-ok' if c.ok else 'is-' ~ c.severity }}">
+          <span class="design-check-sample" style="color: {{ c.fg }}; background: {{ c.bg }}" aria-hidden="true">Aa</span>
+          <span class="design-check-label">{{ c.label }}</span>
+          <span class="design-check-ratio">{{ themes.num(c.ratio) }} : 1</span>
+          <span class="design-check-state">{{ de_en("in Ordnung", "fine") if c.ok else (de_en("zu schwach", "too weak") if c.severity == "error" else de_en("schwach", "weak")) }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="muted small">{{ de_en("Zu schwacher Text verhindert den Start der Befragung (Startprüfung). Die Schrift auf Knöpfen sowie Hinweis- und Fehlerfarben werden
+        automatisch passend zum Hintergrund gewählt.", "Text that is too weak prevents the start of the survey (pre-launch check). The text on buttons and the colours of hints and errors are
+        chosen automatically to suit the background.") }}</p>
+    </section>
+  </div>
+</div>
+{% if survey and org_designs is defined and org_designs %}
+<form id="org-design-choose" method="post" action="{{ url_for('surveys.choose_theme', survey_id=survey.id) }}" hidden>{{ csrf() }}<input type="hidden" name="back" value="design"></form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{# A task in the interview view (app/interview_tasks.py, concept konzept-interview-formate A): `item`, a ranking, card
+   sort, Likert or image choice, rendered as for participants (participant/_item.html). The interviewer enters the
+   result, or "Zum Zeigen" shows only [data-iv-show-area] full screen to hand the device over: the guide, notes, clock
+   and this head stay hidden (interview.js, .iv-showing); "Zurück", held down, ends it. A stored interview saves the
+   result as the Kurzfragebogen (interview_data.save_form, part "task"), with the clock when it was first given. #}
+<section class="iv-task" data-iv-task="{{ item.id }}" aria-label="{{ de_en('Aufgabe', 'Task') }}">
+  <div class="iv-task-head" data-iv-interviewer>
+    <span class="iv-task-title">{{ de_en("Aufgabe", "Task") }} · {{ task_kind(item) }}</span>
+    <span class="muted small iv-task-note">{{ de_en("Eintragen, was die Person sagt oder legt, oder das Gerät reichen", "Enter what the person says or lays out, or hand over the device") }}</span>
+    <button type="button" class="button button-small button-secondary iv-show-btn" data-iv-show
+            title="{{ de_en('Nur die Aufgabe im Vollbild zeigen, ohne Leitfaden und Notizen, um das Gerät hinüberzureichen; zurück mit „Zurück“, kurz gedrückt halten', 'Show only the task full screen, without guide and notes, to hand the device over; back with “Back”, held down briefly') }}">{{ de_en("Zum Zeigen", "Show") }}</button>
+  </div>
+  {% if screen and row %}
+  {# the interviewee's own screen (app/interview_screen.py): release this task there, see its result
+     come in, change it (E8, then marked); shown once a screen is connected or a result came from one
+     (interview-screen-view.js). While the task is out there or its result came from there, the form below is hidden:
+     a change goes through a freshly drawn form (screen_edit.html) #}
+  <div class="iv-task-screen" data-ivs-task="{{ item.id }}" hidden>
+    <p class="iv-task-screen-name" data-ivs-task-name hidden><strong>{{ item.text("question")|striptags|truncate(80, true, "…") }}</strong></p>
+    <p class="small iv-task-screen-state" data-ivs-task-state role="status"></p>
+    <p class="iv-task-result" data-ivs-result hidden><strong>{{ de_en("Ergebnis:", "Result:") }}</strong> <span data-ivs-result-text></span>
+      <span class="badge" data-ivs-result-by data-screen="{{ de_en('vom Teilnehmerbildschirm', 'from the participant screen') }}" data-changed="{{ de_en('vom Interviewenden geändert', 'changed by the interviewer') }}"></span></p>
+    <p class="ivs-view-buttons">
+      <button type="button" class="button button-small" data-ivs-show hidden>{{ de_en("Auf dem Teilnehmerbildschirm zeigen", "Show on the participant screen") }}</button>
+      <button type="button" class="button button-small button-secondary" data-ivs-hide hidden>{{ de_en("Zurücknehmen", "Take back") }}</button>
+      <button type="button" class="button button-small button-secondary" data-ivs-change hidden>{{ de_en("Ergebnis ändern", "Change result") }}</button>
+    </p>
+    <iframe class="iv-task-frame" data-ivs-frame hidden title="{{ de_en('Ergebnis der Aufgabe ändern', 'Change the result of the task') }}"></iframe>
+  </div>
+  {% endif %}
+  <div class="iv-task-show" data-iv-show-area>
+    {% if row %}
+    <form class="iv-form iv-task-form" data-iv-form data-iv-task-form action="{{ url_for('interview_data.save_form', code=survey.code, rid=row.id) }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="part" value="task"><input type="hidden" name="task" value="{{ item.id }}">
+      <input type="hidden" name="t" value="" data-iv-task-t>
+      {% with answers=form_answers, errors={}, variables={}, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}
+    </form>
+    {% else %}
+    {# a trial without saving: to try it out, nothing is stored #}
+    <div class="iv-form iv-task-form">{% with answers={}, errors={}, variables={}, all_rows=true %}{% include "participant/_item.html" %}{% endwith %}</div>
+    {% endif %}
+    <button type="button" class="button button-secondary iv-show-back" data-iv-show-back hidden>{{ ui("Zurück (gedrückt halten)", "Back (press and hold)") }}</button>
+  </div>
+</section>

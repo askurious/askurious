@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ de_en("Auswertung vorbereiten", "Prepare report") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<section class="panel" data-report-wait data-url="{{ poll }}" data-title="{{ survey.title }}" data-download="{{ '1' if download else '0' }}">
+  <h1>{{ de_en("Die Auswertung wird vorbereitet", "The report is being prepared") }}</h1>
+<p>{{ survey.title }}</p>
+  <p role="status">{{ de_en("Die Seite oder der Download öffnet sich, sobald die Berechnung abgeschlossen ist.", "The page or download opens when the calculation is complete.") }}</p>
+  <p data-report-checked></p>
+  <a data-report-check class="button" href="{{ poll }}">{{ de_en("Stand prüfen", "Check progress") }}</a>
+<p><a href="{{ url_for('surveys.field', survey_id=survey.id) }}">{{ de_en("Zurück zur Datenerhebung", "Back to data collection") }}</a> · <a href="{{ url_for('surveys.data', survey_id=survey.id) }}">{{ de_en("Zum Export", "Go to export") }}</a></p></section>
+<script src="{{ url_for('static', filename='report_wait.js') }}" defer></script>
+{% endblock %}

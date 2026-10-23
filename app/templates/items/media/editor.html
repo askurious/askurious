@@ -1,0 +1,89 @@
+{# Video / audio stimulus (items/stimulus.py): the file, sent in pieces by app.js [data-media-upload]; the rules for
+   seeking and going on; captions and transcript per language. #}
+{% from "_icons.html" import icon %}
+{% set t = item.lang_texts(lang) %}
+{% set question_label = de_en("Text über dem Player", "Text above the player") %}
+{% set question_hint = "optional" %}
+{% include "items/_question_field.html" %}
+{% macro file_row(key, label) %}
+{% set info = kind.info(item, key) %}
+{% set asset = item.assets|selectattr("key", "equalto", key)|first %}
+<div class="stack media-file">
+  {% if label %}<p class="label-title">{{ label }}</p>{% endif %}
+  {% if asset and info %}
+  {# × takes the file off the element at once, "Rückgängig" brings it back; the file itself stays on the server
+     until another one replaces it (UI/UX audit 2026-10-09, X31) #}
+  <div class="stack" data-media-current>
+  <p class="small"><strong>{{ info.name or asset.filename }}</strong> · {{ de_en("Video", "Video") if info.kind == "video" else de_en("Audio", "Audio") }}
+    · {{ "%d:%02d"|format((info.seconds or 0)|int // 60, (info.seconds or 0)|int % 60) }} · {{ "%.1f"|format(info.bytes / 1048576) }} MB</p>
+  {% if info.kind == "video" %}
+  <video class="media-preview" controls preload="metadata" src="{{ url_for('media.serve', survey_uid=survey.uid, filename=asset.filename) }}"></video>
+  {% else %}
+  <audio controls preload="metadata" src="{{ url_for('media.serve', survey_uid=survey.uid, filename=asset.filename) }}"></audio>
+  {% endif %}
+  {% if structural %}<p><input type="hidden" name="file_remove_{{ key }}" value="" data-remove-value><button type="button" class="icon-btn icon-btn-word danger" data-remove-flag="[data-media-current]" aria-label="{{ de_en('Datei entfernen', 'Remove file') }}" data-undo-what="{{ de_en('Datei entfernt', 'file removed') }}">{{ icon("x", 14) }} {{ de_en("Datei entfernen", "Remove file") }}</button></p>{% endif %}
+  </div>
+  {% else %}
+  <p class="muted small">{{ de_en("Noch keine Datei.", "No file yet.") }}</p>
+  {% endif %}
+  {% if structural %}
+  <label class="file-pick">{{ de_en("Datei hochladen", "Upload a file") if not asset else de_en("Andere Datei hochladen", "Upload another file") }}
+    <input type="file" accept="video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm,.mp4,.webm,.mp3,.m4a,.ogg,.wav"
+           data-media-upload="{{ url_for('editor.item_media_upload', survey_id=survey.id, item_id=item.id) }}" data-key="{{ key }}" data-chunk="{{ kind.chunk_bytes }}" data-max="{{ kind.max_mb() }}"></label>
+           {% include "_upload_rights.html" %}
+  {% if experimental("coscine_media") %}{% from "coscine/_pick.html" import coscine_pick with context %}{{ coscine_pick(survey, "media", item=item, lang=lang, key=key) }}{% endif %}
+  {% set from_coscine = ((item.config or {}).get("coscine_media") or {}).get(key) %}
+  {% if from_coscine and from_coscine.state == "error" %}<p class="small">{{ icon("alert", 14) }} {{ de_en("Aus Coscine fehlgeschlagen ({p}): {e}", "From Coscine failed ({p}): {e}", p=from_coscine.pfad, e=from_coscine.error) }}</p>
+  {% elif from_coscine and from_coscine.state == "done" %}<p class="muted small">{{ de_en("Aus Coscine: {p}, geholt am {d}", "From Coscine: {p}, taken on {d}", p=from_coscine.pfad, d=from_coscine.at) }}</p>
+  {% elif from_coscine and from_coscine.state == "running" %}<p class="muted small" role="status">{{ de_en("Wird aus Coscine geladen ({p}) …", "Loading from Coscine ({p}) …", p=from_coscine.pfad) }}</p>{% endif %}
+  <p class="small" role="status" data-media-status></p>
+  {% endif %}
+</div>
+{% endmacro %}
+<fieldset>
+  <legend>{{ de_en("Datei", "File") }}</legend>
+  <div class="stack">
+    {% set columns = kind.loop_columns(item) %}
+    {% if columns %}
+    <label>{{ de_en("Datei je Durchgang der Schleife", "File per pass of the loop") }}
+      <select name="by" data-reload-saved {% if not structural %}disabled{% endif %}>
+        <option value="">{{ de_en("dieselbe Datei in jedem Durchgang", "the same file in every pass") }}</option>
+        {% for c in columns %}<option value="{{ c }}" {% if kind.by(item) == c %}selected{% endif %}>{{ de_en("je Wert von", "per value of") }} {{ "{{" ~ c ~ "}}" }}</option>{% endfor %}
+      </select></label>
+    {% endif %}
+    {% for key, value in kind.required_keys(item) %}{{ file_row(key, value) }}{% endfor %}
+    <p class="muted small">{{ de_en("MP4 oder WebM (Video), MP3, M4A, OGG oder WAV (Audio), höchstens {mb} MB je Datei. Jede Person lädt die ganze Datei: Ein Video in 720p mit etwa 1,5 Mbit/s (z. B. HandBrake, Voreinstellung „Fast 720p30“) hat 10 bis 15 MB pro Minute.", "MP4 or WebM (video), MP3, M4A, OGG or WAV (audio), at most {mb} MB per file. Every person loads the whole file: a video in 720p at about 1.5 Mbit/s (e.g. HandBrake, preset “Fast 720p30”) takes 10 to 15 MB per minute.", mb=kind.max_mb()) }}</p>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Abspielen", "Playing") }}</legend>
+  <div class="option-group" role="radiogroup" aria-labelledby="seek-head-{{ item.id }}">
+    <p class="label-title" id="seek-head-{{ item.id }}">{{ de_en("Spulen", "Seeking") }}</p>
+    {% for value, label, note in [
+      ("back", de_en("nur zurück", "back only"), de_en("eine Stelle noch einmal ansehen, aber nichts überspringen", "watch a part again, but skip nothing")),
+      ("free", de_en("frei", "free"), de_en("vor und zurück wie in jedem Player", "back and forth as in any player")),
+      ("none", de_en("gar nicht", "not at all"), de_en("nur Start und Pause", "only play and pause")),
+      ("once", de_en("nur einmal abspielen", "play once only"), de_en("ohne Pause und ohne Wiederholen", "without pausing or replaying"))] %}
+    <label class="check"><input type="radio" name="seek" value="{{ value }}" {% if kind.seek(item) == value %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ label }} <span class="hint">{{ note }}</span></label>
+    {% endfor %}
+  </div>
+  <div class="option-group" role="radiogroup" aria-labelledby="advance-head-{{ item.id }}">
+    <p class="label-title" id="advance-head-{{ item.id }}">{{ de_en("Weiter zur nächsten Seite", "On to the next page") }}</p>
+    <label class="check"><input type="radio" name="advance" value="any" {% if kind.advance(item) == "any" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("jederzeit", "at any time") }} <span class="hint">{{ de_en("vor dem Ende einmal der Hinweis, dass es noch nicht zu Ende ist", "before the end, once the hint that it has not ended yet") }}</span></label>
+    <label class="check"><input type="radio" name="advance" value="end" {% if kind.advance(item) == "end" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("erst nach dem Ende", "only after the end") }}</label>
+    <label class="check"><input type="radio" name="advance" value="share" {% if kind.advance(item) == "share" %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("erst wenn mindestens", "only when at least") }}
+      <input name="share" class="narrow" inputmode="numeric" value="{{ kind.share(item) }}" aria-label="{{ de_en('Prozent', 'per cent') }}" {% if not structural %}disabled{% endif %}> {{ de_en("% gesehen bzw. gehört wurden", "% were seen or heard") }}</label>
+    <p class="muted small">{{ de_en("Spielt die Datei auf einem Gerät nicht ab, geht es trotzdem weiter. Strenge Regeln erhöhen Abbrüche; das Protokoll zeigt ohnehin, wer wie viel gesehen hat.", "If the file does not play on a device, the page goes on anyway. Strict rules raise break-offs; the log shows anyway who saw how much.") }}</p>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Barrierefreiheit", "Accessibility") }} <span class="hint">{{ de_en("auf {l}", "in {l}", l=languages[lang]) }}</span></legend>
+  <div class="stack">
+    <label><span class="label-title">{{ de_en("Untertitel (WebVTT)", "Captions (WebVTT)") }} <span class="hint">{{ de_en("zum Einschalten im Player; z. B. aus einem Untertitel-Programm", "to switch on in the player; e.g. from a captioning program") }}</span></span>
+      <textarea name="captions" id="vtt{{ item.id }}" rows="5" spellcheck="false" class="mono" placeholder="WEBVTT&#10;&#10;00:00.000 --> 00:04.000&#10;{{ de_en('Guten Tag und willkommen.', 'Hello and welcome.') }}">{{ t.get('captions', '') }}</textarea></label>
+    <label class="file-pick">{{ de_en("oder .vtt-Datei laden", "or load a .vtt file") }} <input type="file" accept=".vtt,text/vtt,text/plain" data-table-file="vtt{{ item.id }}"></label>
+    <label><span class="label-title">{{ de_en("Textfassung", "Transcript") }} <span class="hint">{{ de_en("zum Aufklappen unter dem Player; was gesagt wird und was zu sehen ist", "to unfold below the player; what is said and what can be seen") }}</span></span>
+      <textarea name="transcript" rows="5">{{ t.get('transcript', '') }}</textarea></label>
+  </div>
+</fieldset>
+<p class="muted small">{{ de_en("Das Protokoll ergibt je Person die Spalten {code}_started, _seen (Anteil gesehen), _complete, _seconds, _plays, _pauses, _seeks, _hidden (lief im Hintergrund), _muted und _stalls; jedes Ereignis steht im Langformat. Der Datenschutztext der Befragung nennt das Protokoll.", "The log gives per person the columns {code}_started, _seen (share seen), _complete, _seconds, _plays, _pauses, _seeks, _hidden (played in the background), _muted and _stalls; every event is in the long format. The privacy text of the survey mentions the log.", code=item.code) }}</p>

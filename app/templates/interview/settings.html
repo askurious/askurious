@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields with context %}
+{% from "_icons.html" import icon %}
+{# Einstellungen of an interview guide (app/interview.py, concept interviewleitfaden-konzept.md 4.2): two groups,
+   each saving by itself, and the members. Everything is picked or ticked; text only for title and research question. #}
+{% block title %}{{ de_en("Einstellungen", "Settings") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "settings" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set may = survey.can(current_user, "admin") %}
+{% set here = url_for('interview.settings', code=survey.code) %}
+<div class="tabpage-grid">
+<details class="panel settings-group" id="titel" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Interviewleitfaden", "Interview guide") }}</h2><span class="settings-sum" data-live="sum-befragung">{% for text, _ in sums["befragung"] %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span></summary>
+  <div class="settings-body">
+  <form method="post" class="stack" data-autosave-form><fieldset class="bare" {% if not may %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="titel">
+    {% if may %}{{ edit_guard_fields(survey, "settings:meta", edit_guard.settings_state(survey, "meta"), here ~ "#titel", presence_key=false) }}{% endif %}
+    <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
+      <input name="title" required maxlength="300" value="{{ survey.title }}"></label>
+    <label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("steht im Word-Leitfaden", "appears in the Word guide") }}</span></span>
+      <textarea name="research_question" rows="3" maxlength="3000">{{ survey.research_question }}</textarea></label>
+    {% if may %}{{ autosave_bar() }}{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+
+<details class="panel settings-group" id="members" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Beteiligte Forschende", "Researchers involved") }}</h2><span class="settings-sum" data-live="sum-beteiligte">{% for text, _ in sums["beteiligte"] %}{{ text }}{{ " · " if not loop.last }}{% endfor %}</span></summary>
+  <div class="settings-body">
+  {% set members_back = here ~ '#members' %}{% set members_search_url = here %}
+  {% include "surveys/_members.html" %}
+  </div>
+</details>
+
+<details class="panel settings-group" id="interview" data-settings-group open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>Interview</h2></summary>
+  <div class="settings-body">
+  <form method="post" class="stack" data-autosave-form><fieldset class="bare" {% if not may %}disabled{% endif %}>
+    {{ csrf() }}<input type="hidden" name="part" value="interview">
+    {% if may %}{{ edit_guard_fields(survey, "settings:interview", edit_guard.settings_state(survey, "interview"), here ~ "#interview", presence_key=false) }}{% endif %}
+    <div class="row-fields">
+      <label>{{ de_en("Zielgruppe", "Target group") }}
+        <select name="target"><option value="">{{ de_en("nicht angegeben", "not stated") }}</option>{% for key, name in targets.items() %}<option value="{{ key }}" {% if st.target == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Interviewform", "Interview mode") }}
+        <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}" {% if st.mode == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Kurzfragebogen", "Short questionnaire") }}
+        <select name="short">{% for key, name in shorts.items() %}<option value="{{ key }}" {% if st.short == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    </div>
+    <fieldset class="bare">
+      <legend>{{ de_en("Reihenfolge in der Interviewansicht", "Order in the interview view") }}</legend>
+      {% for key, (name, note) in orders.items() %}
+      <label class="check"><input type="radio" name="order" value="{{ key }}" {% if st.order == key %}checked{% endif %}> {{ name }} <span class="hint">{{ note }}</span></label>
+      {% endfor %}
+    </fieldset>
+    <fieldset class="bare">
+      {# the periods delete stored interviews, sound and transcripts; the template of the consent names them (UI audit R19) #}
+      <legend>{{ de_en("Interviews und Aufbewahrung", "Interviews and retention") }} <span class="hint">{{ de_en("gilt für die unter „Interviews“ gespeicherten Gespräche; die Vorlage „Information und Einwilligung“ nennt es", "applies to the conversations saved under “Interviews”; the template “Information and consent” states it") }}</span></legend>
+      <label class="check"><input type="checkbox" name="audio" value="1" {% if st.audio %}checked{% endif %}>
+        {{ de_en("Das Interview wird als Ton aufgenommen", "The interview is audio-recorded") }}</label>
+      <div class="row-fields">
+        <label>{{ de_en("Tonaufnahme aufbewahren", "Keep the audio recording") }}
+          <select name="audio_keep">{% for key, name in audio_keep.items() %}<option value="{{ key }}" {% if st.audio_keep == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Kennung der Interviews beginnt mit", "Interview identifiers begin with") }}
+          <select name="prefix">{% for key, name in prefixes.items() %}<option value="{{ key }}" {% if st.prefix == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Pseudonymisierte Transkripte aufbewahren", "Keep pseudonymised transcripts") }}
+          <select name="data_keep">{% for key, name in data_keep.items() %}<option value="{{ key }}" {% if st.data_keep == key %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+      </div>
+    </fieldset>
+    <fieldset class="bare">
+      {# the head of the transcript export (app/transcript_export.py) #}
+      <legend>{{ de_en("Transkript-Export", "Transcript export") }} <span class="hint">{{ de_en("Word und PDF mit Transkriptkopf und Zeilennummern, auf der Seite eines Transkripts", "Word and PDF with transcript head and line numbers, on the page of a transcript") }}</span></legend>
+      <div class="row-fields">
+        <label>{{ de_en("Kopfzeile jeder Seite beginnt mit", "Page header begins with") }} <span class="hint">{{ de_en("leer: der Titel des Leitfadens; dahinter das Kürzel des Interviews", "empty: the guide's title; followed by the interview's identifier") }}</span>
+          <input type="text" name="head_title" value="{{ st.head_title }}" maxlength="120" placeholder="{{ de_en('z. B. Methodenseminar', 'e.g. Methods seminar') }}"></label>
+      </div>
+      {# what the three choices fill: the line "Befragte(r)" of the transcript head (transcript_export.interviewee), from
+         answers to Kurzfragebogen questions; the tester could not tell what "Beruf aus" meant (pre-test 2026-10-20, 14) #}
+      <p class="muted small flush" id="head-person-hint">{{ de_en("Im Transkriptkopf beschreibt eine Zeile die interviewte Person, z. B. „Lehrerin, 42, weiblich“. Wählen Sie je Angabe die Frage des Kurzfragebogens, deren Antwort dort stehen soll; „nicht angeben“ lässt die Angabe weg. Auf der Seite eines Transkripts lässt sich die Zeile für jedes Interview noch ändern.", "In the transcript head the line “Interviewee” describes the person interviewed, e.g. “teacher, 42, female”. For each detail, choose the question of the short questionnaire whose answer goes there; “do not state” leaves the detail out. On the page of a transcript the line can still be changed for each interview.") }}
+        {% if not short_items %}{{ de_en("Der Kurzfragebogen hat noch keine Fragen: Legen Sie dort Fragen zu Beruf, Alter oder Geschlecht an, dann lassen sie sich hier wählen.", "The short questionnaire has no questions yet: add questions on occupation, age or gender there, then they can be chosen here.") }}{% endif %}</p>
+      <div class="row-fields">
+        {% for key, name in [("head_job", de_en("Beruf", "Occupation")), ("head_age", de_en("Alter", "Age")), ("head_gender", de_en("Geschlecht", "Gender"))] %}
+        <label>{{ de_en("{what} der interviewten Person: Antwort auf", "{what} of the interviewee: answer to", what=name) }}
+          <select name="{{ key }}" aria-describedby="head-person-hint"><option value="">{{ de_en("nicht angeben", "do not state") }}</option>{% for code, text in short_items %}<option value="{{ code }}" {% if st[key] == code %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label class="check"><input type="checkbox" name="post" value="1" {% if st.post %}checked{% endif %}>
+      {{ de_en("Postskript", "Postscript") }} <span class="hint">{{ de_en("Notizen der Interviewenden direkt nach dem Gespräch (Witzel, 2000); auf Papier oder im Aufzeichnungswerkzeug", "the interviewers' notes right after the conversation (Witzel, 2000); on paper or in the recording tool") }}</span></label>
+    <p class="muted small flush">{{ de_en("Ein Interviewleitfaden hat keinen Teilnahmelink: Die Interviews führen und speichern Sie unter „Interviews“, mit Einwilligung, Notizen und auf Wunsch Tonaufnahme. Ausgeschaltete Teile behalten ihre Fragen und erscheinen wieder, wenn Sie sie einschalten.", "An interview guide has no participation link: you conduct and save the interviews under “Interviews”, with consent, notes and, if you like, an audio recording. Parts switched off keep their questions and reappear when you switch them on.") }}</p>
+    {% if may %}{{ autosave_bar() }}{% elif survey.can(current_user, "editor") %}<p class="muted small flush">{{ de_en("Die Einstellungen ändern nur Admins des Leitfadens.", "Only admins of the guide change the settings.") }}</p>{% endif %}
+  </fieldset></form>
+  </div>
+</details>
+</div>
+{% endblock %}

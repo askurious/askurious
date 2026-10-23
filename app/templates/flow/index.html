@@ -1,0 +1,438 @@
+{% from "_learn.html" import why %}
+{% extends "base.html" %}
+{% set rich_text = true %}{# richtext.js for the formatted texts (base.html) #}
+{% from "_macros.html" import autosave_bar, csrf, content_lang %}
+{% from "_icons.html" import icon %}
+{% from "_condition.html" import cond_line, cond_add %}
+{% from "_link_chips.html" import link_chips %}
+{% block title %}{{ de_en("Ablauf", "Flow") }} · {{ survey.title }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{% block container_class %}tabpage{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "flow" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+
+{# the name of a trigger of an end (flow.END_TRIGGERS) in the language of the page #}
+{% macro trig(key) -%}
+  {%- set en = {"quotafull": "Quota full", "cellfull": "Sub-quota full", "nocell": "No sub-quota fits",
+                "screenout": "Screen-out", "excluded": "Exclusion"} -%}
+  {{ de_en(end_triggers[key][0], en.get(key, end_triggers[key][0])) }}
+{%- endmacro %}
+
+{# "1 Teilquote", "3 Teilquoten" #}
+{% macro n_cells(n) -%}
+  {{ de_en("{n} Teilquote", "{n} sub-quota", n=n) if n == 1 else de_en("{n} Teilquoten", "{n} sub-quotas", n=n) }}
+{%- endmacro %}
+
+{% macro block_row(node, can) -%}
+  {% set b = blocks.get(node.block) %}
+  <div class="fl-head">
+    {% if editable %}<span class="drag-handle" aria-hidden="true">⋮⋮</span>{% endif %}
+    <span class="fl-icon">{% if b and b.items|selectattr("type", "equalto", "consent")|list %}{{ icon("consent", 16) }}{% else %}▭{% endif %}</span>
+    <a class="fl-title" href="{{ url_for('editor.index', survey_id=survey.id, lang=lang) }}#block-{{ node.block }}"{% if b and b.title() %}{{ content_lang(survey.default_language) }}{% endif %}>{{ (b.title() if b else "") or de_en("Block", "Block") }}</a>
+    {% if b and survey.sampling is not none %}<span class="badge badge-diary" title="{{ de_en('Teil der Tagebuchstudie; ändern im Reiter „Fragebogen“', 'Part of the diary survey; change it on the tab “Questionnaire”') }}">{{ diary_part_label(b) }}</span>{% endif %}
+    {% if b %}{% set n_items = b.items|rejectattr("type", "equalto", "page_break")|list|length %}{% set n_pages = b.pages()|length %}<span class="hint">{{ de_en("{n} Seite", "{n} page", n=n_pages) if n_pages == 1 else de_en("{n} Seiten", "{n} pages", n=n_pages) }} · {{ de_en("{n} Element", "{n} element", n=n_items) if n_items == 1 else de_en("{n} Elemente", "{n} elements", n=n_items) }} · {{ de_en("ca. {d}", "approx. {d}", d=duration_estimate_short(stats.duration.per_block.get(b.id, 0))) }}</span>{% endif %}
+
+    {{ tools(node, can) }}
+  </div>
+{%- endmacro %}
+
+{# can: which moves are possible for this node at its place (up, down, into the group above, out of its group);
+   the same moves as by dragging, for keyboard and touch #}
+{% macro tools(node, can) -%}
+  {% if editable %}
+  {% set nid = "k" ~ node.block if node.t == "block" else node.id %}
+  <span class="fl-tools">
+    {# up and down always; into a group and out of it only while the row is pointed at or focused, "out" with its
+       word (UI audit 2026-10-04, R92) #}
+    {% for action, ic, title in [("up", "up", de_en("nach oben", "move up")), ("down", "down", de_en("nach unten", "move down")),
+                                 ("in", "block-down", de_en("in die Randomisierung, Bedingung oder Schleife darüber hinein (an ihr Ende)", "into the randomisation, condition or loop above (at its end)")), ("out", "back", de_en("herausnehmen (dahinter)", "take out (after it)"))] %}
+    {% if action in ("up", "down") or can[action] %}
+    <form class="inline{% if action in ('in', 'out') %} row-tool-more{% endif %}" method="post" action="{{ url_for('editor.flow_node', survey_id=survey.id, nid=nid, action=action, lang=lang) }}">{{ csrf() }}<button class="icon-btn{% if action == 'out' %} icon-btn-word{% endif %}" title="{{ title }}" aria-label="{{ title }}" {% if not can[action] %}disabled{% endif %}>{{ icon(ic, 16) }}{% if action == "out" %} {{ de_en("herausnehmen", "take out") }}{% endif %}</button></form>
+    {% endif %}
+    {% endfor %}
+    {% if node.t not in ("block", "split") %}
+    <form class="inline" method="post" action="{{ url_for('editor.flow_node', survey_id=survey.id, nid=nid, action='delete', lang=lang) }}">{{ csrf() }}{% set kind_de = {"rand": "Randomisierung", "loop": "Vignetten" if node.source == "factors" else "Schleife", "branch": "Bedingung", "quota": "Quotenberechnung", "ext": "Externer Abschnitt", "ws": "Web Service", "end": "Ende"} %}{% set kind_en = {"rand": "randomisation", "loop": "vignettes" if node.source == "factors" else "loop", "branch": "condition", "quota": "quota calculation", "ext": "external section", "ws": "web service", "end": "end"} %}{% set what = de_en("{kind}{name} entfernen", "Remove {kind}{name}", kind=(de_en(kind_de[node.t], kind_en[node.t]) if node.t in kind_de else de_en("Element", "element")), name=(de_en(" „{n}“", " “{n}”", n=node.name) if node.name else "")) %}<button class="icon-btn danger" title="{{ de_en('{what} (lässt sich rückgängig machen)', '{what} (can be undone)', what=what) }}" aria-label="{{ what }}">{{ icon("trash", 16) }}</button></form>
+    {% endif %}
+  </span>
+  {% endif %}
+{%- endmacro %}
+
+{# one trigger of an end (flow.cases). k: its number in the form; case: the stored trigger, or none for the
+   template of a new one (app.js puts the number in) #}
+{# compact (an end with many triggers, e.g. one per Teilquote from the quota assistant): the card is folded, its
+   text is a plain field, and of a long list of Teilquoten only the ticked ones are there until asked for #}
+{% macro case_card(k, case, removable, compact=false) -%}
+  {% set p = "case" ~ k %}
+  {% set when = case.when if case else "quotafull" %}
+  {% set off = "disabled" if not editable else "" %}
+  {% set chosen = (quotas|selectattr("id", "equalto", case.quota)|first) if case and case.quota else none %}
+  <details class="end-case" {% if not compact %}open {% endif %}data-case>
+    <summary{% if case and case.id %} data-live="case-{{ case.id }}"{% endif %}>{% if case %}{{ trig(when) }}{% if when == "cellfull" and chosen %}: {{ chosen.name }}{% for c in chosen.cells if c.code in (case.cells or []) %}{{ " · " if loop.first else ", " }}{{ c.name }}{% endfor %}{% elif when in ("quotafull", "nocell") %}{% for q in quotas if q.id in (case.quotas or []) %}{{ ": " if loop.first else (de_en(" und ", " and ") if case.rule == "all" else de_en(" oder ", " or ")) }}{{ q.name }}{% endfor %}{% endif %}{% if case.link %} <span class="hint">→ {{ link_host(case.link) }}</span>{% endif %}{% else %}{{ de_en("Neuer Auslöser", "New trigger") }}{% endif %}</summary>
+    <input type="hidden" name="case" value="{{ k }}"><input type="hidden" name="{{ p }}_id" value="{{ case.id if case else '' }}">
+    <div class="row-fields end-case-head">
+      <label class="grow-1">{{ de_en("Auslöser", "Trigger") }} <span class="hint">{{ de_en("bestimmt auch den Status der Teilnahme", "also sets the status of the participation") }}</span>
+        <select name="{{ p }}_when" data-case-when {{ off }}>{% for key, t in end_triggers.items() %}<option value="{{ key }}" {% if when == key %}selected{% endif %}>{{ trig(key) }}{{ de_en(" (greift immer)", " (always applies)") if key in ("screenout", "excluded") else "" }}</option>{% endfor %}</select></label>
+      {% if editable %}<span class="end-case-tools">
+        <button type="button" class="button button-small button-secondary" data-case-up title="{{ de_en('Diesen Auslöser früher prüfen', 'Check this trigger earlier') }}" aria-label="{{ de_en('Auslöser nach oben', 'Move trigger up') }}">↑</button>
+        <input type="hidden" name="{{ p }}_remove" value="" data-remove-value><button type="button" class="icon-btn danger" {% if not removable %}hidden{% endif %} data-case-remove data-remove-flag="[data-case]" title="{{ de_en('Auslöser entfernen', 'Remove trigger') }}" aria-label="{{ de_en('Auslöser entfernen', 'Remove trigger') }}">{{ icon("x", 16) }}</button>
+      </span>{% endif %}
+    </div>
+    <div class="stack" data-case-show="quotafull" {% if when != "quotafull" %}hidden{% endif %}>
+      <fieldset>
+        <legend>{{ de_en("Quoten", "Quotas") }} <span class="hint">{{ de_en("greift, wenn die Quote für die Person voll ist", "applies when the quota is full for the person") }}</span></legend>
+        {% for q in quotas %}
+        <label class="check"><input type="checkbox" name="{{ p }}_quotas" value="{{ q.id }}" {% if case and when == "quotafull" and q.id in (case.quotas or []) %}checked{% endif %} {{ off }}>
+          {{ q.name }} <span class="hint">{{ n_cells(q.cells|length) }}{% if not quota_used.get(q.id) %} · {{ de_en("wird im Ablauf noch nicht berechnet", "not yet calculated in the flow") }}{% endif %}</span></label>
+        {% else %}
+        <p class="muted small">{{ de_en("Noch keine Quote angelegt:", "No quota created yet:") }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id, lang=lang) }}">{{ de_en("zur Seite „Quoten“", "to the page “Quotas”") }}</a>.</p>
+        {% endfor %}
+      </fieldset>
+      <label>{{ de_en("Bei mehreren Quoten greift der Auslöser, wenn", "With several quotas, the trigger applies when") }}
+        <select name="{{ p }}_rule" {{ off }}>{% for key, label in quota_rules.items() %}<option value="{{ key }}" {% if case and (case.rule or "any") == key %}selected{% endif %}>{{ de_en(label, {"any": "at least one of the quotas is full", "all": "all quotas are full"}.get(key, label)) }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="stack" data-case-show="cellfull" {% if when != "cellfull" %}hidden{% endif %}>
+      {% set shown = chosen or (quotas|first) %}
+      {% set short = compact and shown and shown.cells|length > 12 %}
+      <label>{{ de_en("Quote", "Quota") }}
+        <select name="{{ p }}_quota" data-case-quota {{ off }}>{% for q in quotas %}<option value="{{ q.id }}" {% if shown and shown.id == q.id %}selected{% endif %}>{{ q.name }}</option>{% else %}<option value="">{{ de_en("– noch keine Quote angelegt –", "– no quota created yet –") }}</option>{% endfor %}</select></label>
+      <fieldset>
+        <legend>{{ de_en("Teilquoten", "Sub-quotas") }} <span class="hint">{{ de_en("greift, wenn die Teilquote der Person eine der angekreuzten ist und voll", "applies when the person’s sub-quota is one of those ticked and full") }}</span></legend>
+        <div class="end-case-cells" data-case-cells data-name="{{ p }}_cells">
+          {% for c in (shown.cells if shown else []) if not short or (chosen and c.code in (case.cells or [])) %}
+          <label class="check"><input type="checkbox" name="{{ p }}_cells" value="{{ c.code }}" {% if chosen and c.code in (case.cells or []) %}checked{% endif %} {{ off }}> {{ c.name }}</label>
+          {% endfor %}
+        </div>
+        {% if short and editable %}<button type="button" class="button button-small button-secondary" data-case-all>{{ de_en("Alle {n} Teilquoten zeigen", "Show all {n} sub-quotas", n=shown.cells|length) }}</button>{% endif %}
+      </fieldset>
+    </div>
+    <div class="stack" data-case-show="nocell" {% if when != "nocell" %}hidden{% endif %}>
+      <fieldset>
+        <legend>{{ de_en("Quoten", "Quotas") }} <span class="hint">{{ de_en("greift, wenn der Person in einer dieser Quoten keine Teilquote passt; zählt als Screen-out", "applies when no sub-quota of one of these quotas fits the person; counts as a screen-out") }}</span></legend>
+        {% for q in quotas %}
+        <label class="check"><input type="checkbox" name="{{ p }}_nquotas" value="{{ q.id }}" {% if case and when == "nocell" and q.id in (case.quotas or []) %}checked{% endif %} {{ off }}> {{ q.name }}</label>
+        {% else %}
+        <p class="muted small">{{ de_en("Noch keine Quote angelegt.", "No quota created yet.") }}</p>
+        {% endfor %}
+      </fieldset>
+    </div>
+    <p class="muted small" data-case-show="screenout excluded" {% if when not in ("screenout", "excluded") %}hidden{% endif %}>{{ de_en("Greift immer: Wer dieses Ende erreicht und von keinem Auslöser davor erfasst wurde, endet hier. Das Ende gehört dann in eine Bedingung, und dieser Auslöser ans Ende der Liste.", "Always applies: anyone who reaches this end and was not caught by a trigger before it ends here. The end then belongs in a condition, and this trigger at the end of the list.") }}</p>
+    {% for code in survey.languages %}
+    <label>{{ de_en("Text der Endseite ({name})", "Text of the end page ({name})", name=languages[code]) }} <textarea name="{{ p }}_text_{{ code }}" rows="2" {% if case and not compact %}data-rich="block"{% endif %} placeholder="{{ de_en('leer = Standardtext zu diesem Status', 'empty = standard text for this status') }}" {{ off }}>{{ (case.text or {}).get(code, '') if case else '' }}</textarea></label>
+    {% endfor %}
+    <div class="row-fields">
+      <label class="grow-1">{{ de_en("Abschlusslink", "Completion link") }} <span class="hint">{{ de_en("optional; leer = der Link für diesen Status aus den Einstellungen", "optional; empty = the link for this status from the settings") }}</span>
+        <input name="{{ p }}_link" value="{{ case.link if case else '' }}" placeholder="https://…" maxlength="1000" {{ off if may_link else "disabled" }} data-link-field></label>
+      <label class="link-mode">{{ de_en("Weiterleitung", "Redirect") }} <select name="{{ p }}_link_mode" {{ off if may_link else "disabled" }}>{% for key, text in link_modes.items() %}<option value="{{ key }}" {% if case and (case.link_mode or "now") == key %}selected{% endif %}>{{ de_en(text, {"now": "redirect at once", "button": "end page with a button", "auto": "end page, continue after 5 s"}.get(key, text)) }}</option>{% endfor %}</select></label>
+    </div>
+    {% if editable and may_link %}{{ link_chips(chips) }}{% endif %}
+  </details>
+{%- endmacro %}
+
+{% macro settings(node) -%}
+  {% set nid = node.id %}
+  <details class="fl-settings" {% if (node.t == "branch" and not node.cond.item and not node.cond.conds) or (node.t == "quota" and not node.quotas) or (node.t == "ext" and not node.url) or (node.t == "ws" and not node.url) or (ws_test and ws_test.nid == nid) or (node.t == "end" and not node.cases and node.kind == "quotafull" and not node.quotas) or request.args.get("open") == nid %}open{% endif %}>
+    <summary>{{ de_en("Einstellungen", "Settings") }}</summary>
+    {# saves by itself in a draft; the lines that say what the element does (data-live) follow #}
+    <form method="post" action="{{ url_for('editor.flow_node', survey_id=survey.id, nid=nid, action='update', lang=lang) }}" class="stack" {{ "data-autosave-form" if editable else "data-dirty-guard" }}>
+      {{ csrf() }}<input type="hidden" name="base" value="{{ edit_guard.node_state(node) }}">
+      {% if node.t == "rand" %}
+      <div class="row-fields">
+        <label class="wide-field">{{ de_en("Name", "Name") }} <input name="name" value="{{ node.name }}" {% if not editable %}disabled{% endif %}></label>
+        <label>{{ de_en("Variablenname", "Variable name") }} <input name="code" data-varname="full" value="{{ node.code }}" class="field-name" {% if not editable %}disabled{% endif %}></label>
+        <label>{{ de_en("Wie viele Blöcke zeigen?", "How many blocks to show?") }} <input type="number" name="k" min="1" value="{{ node.k }}" class="narrow" {% if not editable %}disabled{% endif %}></label>
+      </div>
+      <label class="check"><input type="checkbox" name="balanced" value="1" {% if node.balanced %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("balanciert", "balanced") }} <span class="hint">{{ de_en("seltenste Versuchsbedingung zuerst", "rarest experimental condition first") }}</span></label>
+      <label class="check"><input type="checkbox" name="shuffle" value="1" {% if node.shuffle %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("gezeigte Blöcke in zufälliger Reihenfolge", "shown blocks in random order") }}</label>
+      {% elif node.t == "branch" %}
+      <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("optional, z. B. „Altersfilter“ oder „Aufmerksamkeitscheck“", "optional, e.g. “Age filter” or “Attention check”") }}</span>
+        <input name="name" value="{{ node.name or '' }}" maxlength="100" placeholder="{{ de_en('Bedingung', 'Condition') }}" {% if not editable %}disabled{% endif %}></label>
+      {# the conditions are picked, not typed (_condition.html, app/conditions.py): one or several, all or one of
+         them must hold; the script builds the fields when another question is chosen and adds or removes lines #}
+      {% set parts = flow_parts(node.cond) %}
+      {% set lines = parts if parts and parts[0].item is not none else [none] %}
+      <div class="cond-list" data-conds>
+        <span class="label-title">{{ de_en("Wenn", "If") }}</span>
+        {% for c in lines %}{{ cond_line("c" ~ loop.index0, conditions.view(c, described) if c else none, described, cond_data.order, cond_modes,
+                                         cond_data.date_hint, editable, text=condition_text(survey, c) if c else "", removable=true) }}{% endfor %}
+        {{ cond_add("c", lines|length, cond_data.max_conds, rule=node.cond.rule or "all", editable=editable) }}
+      </div>
+      <p class="muted small">{{ de_en("Bei Auswahlfragen die Antworten ankreuzen (mehrere angekreuzt: Eine davon genügt), bei Zahlen und Datumsangaben „von … bis“ (nur „von“ heißt „ab“, nur „bis“ heißt „bis“; die Grenzen zählen mit). Eine Bedingung auf eine Quote gehört hinter deren Quotenberechnung.", "For choice questions, tick the answers (several ticked: one of them is enough); for numbers and dates, “from … to” (only “from” means “at least”, only “to” means “at most”; the limits count). A condition on a quota belongs after its quota calculation.") }}</p>
+      {% elif node.t == "end" %}
+      <p class="muted small">{{ de_en("Ein Ende hat einen oder mehrere Auslöser. Sie werden in dieser Reihenfolge geprüft: Der erste, der zutrifft, beendet die Teilnahme mit seinem Status, Text und Abschlusslink. Trifft keiner zu, läuft die Person an diesem Ende vorbei.", "An end has one or more triggers. They are checked in this order: the first that applies ends the participation with its status, text and completion link. If none applies, the person passes this end.") }}{% if end_cases(node, true)|length > 6 %} {{ de_en("Bei so vielen Auslösern sind die Karten zugeklappt: Ein Klick auf die Zeile öffnet sie.", "With this many triggers the cards are folded: a click on the line opens them.") }}{% endif %}</p>
+      <div class="end-cases" data-cases>
+        {% set found = end_cases(node, true) %}
+        {% for case in found %}{{ case_card(loop.index0, case, found|length > 1, found|length > 6) }}{% endfor %}
+        {% if editable %}
+        <template data-case-template>{{ case_card("__K__", none, true) }}</template>
+        <div><button type="button" class="button button-small button-secondary" data-case-add>{{ de_en("+ Auslöser", "+ Trigger") }}</button></div>
+        {% endif %}
+      </div>
+      {% if editable and not may_link %}<p class="muted small">{{ de_en("Abschlusslinks legt fest, wer in dieser Befragung die Rolle „Admin“ hat, wie bei den Links in den Einstellungen.", "Completion links are set by whoever has the role “Admin” in this survey, as with the links in the settings.") }}</p>{% endif %}
+      <p class="muted small">{{ de_en("Ein Auslöser auf eine Quote gehört hinter deren Quotenberechnung: Dann ist voll, wer dort keinen Platz bekommen hat. Steht das Ende davor, schaut es auf den Stand in diesem Augenblick und reserviert nichts. Platzhalter in Links wie in den Einstellungen: deklarierte URL-Parameter als", "A trigger on a quota belongs after its quota calculation: then anyone who got no place there counts as full. If the end comes before it, it looks at the state at that moment and reserves nothing. Placeholders in links as in the settings: declared URL parameters as") }} <code>{{ "{{name}}" }}</code> {{ de_en("und", "and") }} <code>{{ "{{pid}}" }}</code>, {{ de_en("nur nach dem Rechnernamen.", "only after the host name.") }}</p>
+      {% elif node.t == "quota" %}
+      <fieldset>
+        <legend>{{ de_en("Berechnete Quoten", "Calculated quotas") }} <span class="hint">{{ de_en("an dieser Stelle bekommt die Person in jeder dieser Quoten ihren Platz in der passenden Teilquote, wenn einer frei ist", "at this point the person gets a place in the matching sub-quota of each of these quotas, if one is free") }}</span></legend>
+        {% for q in quotas %}
+        {% set elsewhere = quota_used.get(q.id) and quota_used.get(q.id) != nid %}
+        <label class="check"><input type="checkbox" name="quotas" value="{{ q.id }}" {% if q.id in (node.quotas or []) %}checked{% endif %} {% if not editable or elsewhere %}disabled{% endif %}>
+          {{ q.name }} <span class="hint">{{ n_cells(q.cells|length) }}{% if elsewhere %} · {{ de_en("wird schon an anderer Stelle berechnet", "already calculated elsewhere") }}{% endif %}</span></label>
+        {% else %}
+        <p class="muted small">{{ de_en("Noch keine Quote angelegt.", "No quota created yet.") }}</p>
+        {% endfor %}
+        <p class="muted small">{{ de_en("Quoten anlegen und ändern:", "Create and change quotas:") }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id, lang=lang) }}">{{ de_en("auf der Seite „Quoten“", "on the page “Quotas”") }}</a>.</p>
+      </fieldset>
+      {% if "full" in node %}
+      {# a survey started with a "Quotenprüfung" (quotas.is_legacy): it keeps ending a full quota itself #}
+      <p class="muted small">{{ de_en("Diese Befragung wurde mit einer „Quotenprüfung“ gestartet und behält deren Verhalten:", "This survey was started with a “quota check” and keeps its behaviour:") }} {{ de_en("Ist eine der Quoten voll, endet die Teilnahme hier mit „Quote voll“", "if one of the quotas is full, the participation ends here with “Quota full”") if node.full == "end" else de_en("Ist eine der Quoten voll, läuft die Teilnahme ohne Platz weiter", "if one of the quotas is full, the participation goes on without a place") }}{% if node.full == "end" and node.link %}{{ de_en(", Abschlusslink: {host}", ", completion link: {host}", host=link_host(node.link)) }}{% endif %}.</p>
+      {% else %}
+      <p class="muted small">{{ de_en("Die Berechnung beendet niemanden. Was bei voller Quote geschieht, bestimmt ein Element „Ende“ der Art „Quote voll“ mit diesen Quoten, in der Regel direkt dahinter.", "The calculation ends nobody. What happens when a quota is full is decided by an element “End” of the kind “Quota full” with these quotas, usually directly after it.") }}</p>
+      {% endif %}
+      <p class="muted small">{{ de_en("Die Berechnung gehört hinter die Fragen, auf die sich die Teilquoten beziehen. Wo sie steht, entscheidet, wann der Platz vergeben wird; gezählt wird er mit dem Abschluss der Teilnahme. Danach führt „Zurück“ nicht mehr vor diese Stelle.", "The calculation belongs after the questions the sub-quotas refer to. Its position decides when the place is given; it is counted when the participation is completed. After it, “Back” no longer leads to before this point.") }}</p>
+      {% elif node.t == "ws" %}
+      {% include "flow/_webservice.html" %}
+      {% elif node.t == "ext" %}
+      {% set off = "disabled" if not editable else "" %}
+      <div class="ext-grid">
+        <label>{{ de_en("Name", "Name") }} <input name="name" value="{{ node.name }}" maxlength="100" {{ off }}></label>
+        <label>{{ de_en("Variablenname", "Variable name") }} <input name="code" data-varname="full" value="{{ node.code }}" {{ off }}></label>
+        <label>{{ de_en("Weiterleitung", "Redirect") }}
+          <select name="mode" {{ off }}>{% for key, label in external.MODES.items() %}<option value="{{ key }}" {% if (node.mode or "button") == key %}selected{% endif %}>{{ de_en(label, {"button": "page with a button", "auto": "page, continue after 2 s"}.get(key, label)) }}</option>{% endfor %}</select></label>
+        <label class="ext-wide">{{ de_en("Adresse der Web-App", "Address of the web app") }} <span class="hint">{{ de_en("mit", "with") }} <code>{{ "{{pid}}" }}</code> {{ de_en("und", "and") }} <code>{{ "{{return}}" }}</code></span>
+          <input name="url" value="{{ node.url }}" placeholder="https://webapp.example/task?pid={{ '{{pid}}' }}&amp;return={{ '{{return}}' }}" maxlength="1000" {{ off if may_link else "disabled" }} data-link-field></label>
+      {% if editable and may_link %}{{ link_chips(ext_chips) }}{% endif %}
+      </div>
+      {% if editable and not may_link %}<p class="muted small">{{ de_en("Die Adresse legt fest, wer in dieser Befragung die Rolle „Admin“ hat, wie bei den Abschlusslinks.", "The address is set by whoever has the role “Admin” in this survey, as with the completion links.") }}</p>{% endif %}
+      {% for code in survey.languages %}
+      <label>{{ de_en("Text der Seite vor der Weiterleitung ({name})", "Text of the page before the redirect ({name})", name=languages[code]) }} <textarea name="text_{{ code }}" rows="2" data-rich="block" placeholder="{{ de_en('leer = „Sie werden weitergeleitet …“ mit einem kurzen Hinweis', 'empty = “You are being redirected …” with a short note') }}" {{ off }}>{{ (node.text or {}).get(code, '') }}</textarea></label>
+      {% endfor %}
+      <fieldset>
+        <legend>{{ de_en("Rückgabewerte", "Return values") }} <span class="hint">{{ de_en("was die Web-App an den Rückkehrlink anhängen darf; nur diese Werte werden gespeichert und exportiert. Zahlen im Maschinenformat: Punkt als Dezimaltrenner", "what the web app may append to the return link; only these values are stored and exported. Numbers in machine format: point as decimal separator") }} (<code>2.5</code>), {{ de_en("ohne Tausendertrennzeichen; sonst wird der Wert nicht übernommen", "without thousands separators; otherwise the value is not taken") }}</span></legend>
+        <div data-rows>
+        <table class="list-table is-edit ext-values">
+          <thead><tr><th>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("wie im Rückkehrlink, z. B. score", "as in the return link, e.g. score") }}</span></th><th>{{ de_en("Art", "Type") }}</th><th>{{ de_en("Variablenname", "Variable name") }}</th>{% if editable %}<th><span class="visually-hidden">{{ de_en("entfernen", "remove") }}</span></th>{% endif %}</tr></thead>
+          <tbody>
+            {# the declared values, then the template of a new one (app.js, "+ Rückgabewert") #}
+            {% for v in external.values(node) + ([{"name": "", "kind": "number"}] if editable else []) %}
+            {% if editable and loop.last %}<template data-row-template>{% endif %}
+            <tr data-row>
+              <td><input name="value_name" value="{{ v.name }}" maxlength="31" placeholder="{{ de_en('z. B. score', 'e.g. score') if loop.first and not v.name else '' }}" aria-label="{{ de_en('Name des Rückgabewerts', 'Name of the return value') }}" {{ off }}></td>
+              <td><select name="value_kind" aria-label="{{ de_en('Art des Rückgabewerts', 'Type of the return value') }}" {{ off }}>{% for key, label in external.KINDS.items() %}<option value="{{ key }}" {% if v.kind == key %}selected{% endif %}>{{ de_en(label, {"number": "number", "text": "text"}.get(key, label)) }}</option>{% endfor %}</select></td>
+              <td>{% if v.name %}<code>{{ node.code }}_{{ v.name }}</code>{% endif %}</td>
+              {% if editable %}<td><button type="button" class="icon-btn danger" data-row-remove title="{{ de_en('Rückgabewert entfernen', 'Remove return value') }}" aria-label="{{ de_en('Rückgabewert {name} entfernen', 'Remove return value {name}', name=v.name) }}">{{ icon("x", 16) }}</button></td>{% endif %}
+            </tr>
+            {% if editable and loop.last %}</template>{% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if editable %}<button type="button" class="button button-small button-secondary" data-row-add>{{ de_en("+ Rückgabewert", "+ Return value") }}</button>{% endif %}
+        </div>
+        <p class="muted small">{{ de_en("Ein Wert ohne Namen wird nicht gespeichert. Beispiel für die Rückkehr:", "A value without a name is not stored. Example of the return:") }} <code>{{ "{{return}}" }}&amp;score=17</code>.</p>
+      </fieldset>
+      {% set signed = external.signs(node) %}
+      <fieldset class="ext-sign">
+        <legend>{{ de_en("Signatur der Rückgabewerte", "Signature of the return values") }}</legend>
+        <input type="hidden" name="sign_part" value="1">
+        <label class="check"><input type="checkbox" name="sign_values" value="1" {% if signed %}checked{% endif %} {{ off if may_link else "disabled" }}> {{ de_en("Rückgabewerte signieren", "Sign return values") }} <span class="hint">{{ de_en('die Web-App hängt <code>&amp;sig_v=2&amp;sig=…</code> an; Werte ohne gültige Signatur werden nicht gespeichert', 'the web app appends <code>&amp;sig_v=2&amp;sig=…</code>; values without a valid signature are not stored')|safe }}</span></label>
+        {% if may_link %}
+        <label>{{ de_en("Schlüssel für die Web-App", "Key for the web app") }} <span class="hint">{% if (node.sign or {}).key %}{{ de_en("nur für Admins sichtbar; geheim halten, nur auf dem Server der Web-App verwenden", "visible only to admins; keep it secret, use it only on the server of the web app") }}{% else %}{{ de_en("wird erzeugt, sobald das Signieren eingeschaltet ist", "is created as soon as signing is switched on") }}{% endif %}</span>
+          <input type="text" name="sign_key_shown" value="{{ external.sign_key(node) }}" readonly spellcheck="false" autocomplete="off" class="one-time-link" aria-label="{{ de_en('Schlüssel für die Signatur der Rückgabewerte', 'Key for the signature of the return values') }}"></label>
+        {% if signed and editable %}<p><button class="button button-secondary" name="sign_renew" value="1" data-confirm="{{ de_en('Neuen Schlüssel erzeugen?', 'Create a new key?') }}" data-confirm-note="{{ de_en('Der bisherige Schlüssel gilt dann nicht mehr; die Web-App braucht den neuen.', 'The current key then no longer works; the web app needs the new one.') }}" data-confirm-ok="{{ de_en('Erzeugen', 'Create') }}">{{ de_en("Neuen Schlüssel erzeugen", "Create a new key") }}</button></p>{% endif %}
+        {% elif (node.sign or {}).key %}
+        <p class="muted small">{{ de_en("Den Schlüssel sehen nur Admins dieser Befragung; nur sie schalten das Signieren ein oder aus.", "Only admins of this survey see the key; only they switch signing on or off.") }}</p>
+        {% endif %}
+        {% if signed %}
+        <p class="muted small">{{ de_en("Die Rückgabewerte werden nur mit gültiger Signatur gespeichert. Fehlt sie oder stimmt sie nicht, geht es trotzdem weiter, die Werte werden verworfen, und im Export steht", "The return values are stored only with a valid signature. If it is missing or wrong, the participation still goes on, the values are discarded, and the export shows") }} <code>{{ node.code }}_sig</code> = 0 {{ de_en("(sonst 1).", "(otherwise 1).") }}</p>
+        {% elif external.values(node) %}
+        <p class="muted small ext-unsigned"><strong>{{ de_en("Nicht signiert:", "Not signed:") }}</strong> {{ de_en("Die Rückgabewerte kommen aus dem Browser der Teilnehmenden. Wer den Rückkehrlink sieht, kann sie in der Adresse ändern oder die Web-App ganz überspringen. Für Werte, die zählen (eine Leistung, eine Vergütung), das Signieren einschalten.", "The return values come from the participants’ browser. Anyone who sees the return link can change them in the address or skip the web app altogether. For values that count (a performance, a payment), switch signing on.") }}</p>
+        {% endif %}
+      </fieldset>
+      <details class="ext-help">
+        <summary>{{ de_en("Was die Web-App tun muss", "What the web app has to do") }}</summary>
+        <ol>
+          <li>{{ de_en('<code>pid</code> und <code>return</code> aus ihrer Adresse lesen. <code>pid</code> ist die zufällige Teilnahme-ID dieser Person (auch im Export), <code>return</code> der Rückkehrlink.', 'Read <code>pid</code> and <code>return</code> from its address. <code>pid</code> is the random participation ID of this person (also in the export), <code>return</code> the return link.')|safe }}</li>
+          <li>{{ de_en('Eigene Daten unter <code>pid</code> speichern, wenn sie später mit den Antworten verbunden werden sollen.', 'Store its own data under <code>pid</code> if they are to be joined with the answers later.')|safe }}</li>
+          <li>{{ de_en('Am Ende auf <code>return</code> weiterleiten und Rückgabewerte mit <code>&amp;name=wert</code> anhängen (der Link enthält schon ein Fragezeichen: <code>return + "&amp;score=17"</code>).', 'At the end, redirect to <code>return</code> and append return values with <code>&amp;name=value</code> (the link already contains a question mark: <code>return + "&amp;score=17"</code>).')|safe }}</li>
+          <li>{{ de_en('Mit „Rückgabewerte signieren“ zusätzlich <code>&amp;sig_v=2&amp;sig=…</code> anhängen, <code>sig</code> auf dem Server der Web-App berechnet (nie im Browser, sonst ist der Schlüssel nicht geheim): HMAC-SHA256 mit dem Schlüssel (als UTF-8-Text) über den Text <code>sig_v=2&amp;t=&lt;Token&gt;&amp;name1=&lt;wert1&gt;&amp;name2=&lt;wert2&gt;</code>, hexadezimal in Kleinbuchstaben. <code>&lt;Token&gt;</code> ist der Wert des Parameters <code>t</code> im Rückkehrlink; danach folgen die deklarierten Rückgabewerte, die die Web-App anhängt, in der Reihenfolge der Liste oben. Jeder Wert steht dort prozentkodiert nach RFC 3986: jedes Byte seines UTF-8 außer <code>A–Z a–z 0–9 - . _ ~</code> als <code>%XX</code> (Python <code>quote(wert, safe="")</code>, PHP <code>rawurlencode</code>, JavaScript <code>encodeURIComponent</code> und dazu <code>! &#39; ( ) *</code> kodieren). Werte, die nicht angehängt werden, fehlen auch im signierten Text. Beispiel in Python: <code>hmac.new(key.encode(), ("sig_v=2&amp;t=" + quote(t, safe="") + "&amp;label=" + quote("gut gemacht", safe="")).encode(), hashlib.sha256).hexdigest()</code>. Die frühere Form ohne <code>sig_v</code> (Werte unkodiert) gilt nur noch bis zum {until}.', 'With “Sign return values”, also append <code>&amp;sig_v=2&amp;sig=…</code>, <code>sig</code> computed on the server of the web app (never in the browser, or the key is not secret): HMAC-SHA256 with the key (as UTF-8 text) over the text <code>sig_v=2&amp;t=&lt;Token&gt;&amp;name1=&lt;value1&gt;&amp;name2=&lt;value2&gt;</code>, hexadecimal in lower case. <code>&lt;Token&gt;</code> is the value of the parameter <code>t</code> in the return link; then follow the declared return values that the web app appends, in the order of the list above. Each value is percent-encoded there as in RFC 3986: every byte of its UTF-8 except <code>A–Z a–z 0–9 - . _ ~</code> as <code>%XX</code> (Python <code>quote(value, safe="")</code>, PHP <code>rawurlencode</code>, JavaScript <code>encodeURIComponent</code> plus encoding <code>! &#39; ( ) *</code>). Values that are not appended are also missing from the signed text. Example in Python: <code>hmac.new(key.encode(), ("sig_v=2&amp;t=" + quote(t, safe="") + "&amp;label=" + quote("well done", safe="")).encode(), hashlib.sha256).hexdigest()</code>. The earlier form without <code>sig_v</code> (values not encoded) is accepted only until {until}.', html=True, until=external.v1_last_day()) }}</li>
+        </ol>
+        <p class="muted small">{{ de_en("Der Rückkehrlink ist verschlüsselt und signiert, gilt für eine Rückkehr und bis 7 Tage nach dem ersten Verlassen; er setzt dieselbe Teilnahme direkt hinter diesem Element fort, auch in einem anderen Tab oder Browser. In einem anderen Browser geht es von hier an weiter: „Zurück“ führt dort nicht vor dieses Element. Die Zeit außerhalb wird gespeichert. Wer nicht zurückkommt, bleibt „begonnen“. Platzhalter in der Adresse wie bei Abschlusslinks: deklarierte URL-Parameter als", "The return link is encrypted and signed, is good for one return and for up to 7 days after first leaving; it continues the same participation directly after this element, also in another tab or browser. In another browser it goes on from here: “Back” there does not lead to before this element. The time away is stored. Anyone who does not come back stays “started”. Placeholders in the address as with completion links: declared URL parameters as") }} <code>{{ "{{name}}" }}</code>, <code>{{ "{{pid}}" }}</code>, <code>{{ "{{lang}}" }}</code>, {{ de_en("nur nach dem Rechnernamen. Einbetten als iframe ist nicht vorgesehen: Browser sperren dort oft Cookies und Speicher fremder Seiten.", "only after the host name. Embedding as an iframe is not intended: browsers there often block cookies and storage of other sites.") }}</p>
+      </details>
+      {% endif %}
+      {% if editable %}{{ autosave_bar(small=true) }}{% endif %}
+    </form>
+  </details>
+{%- endmacro %}
+
+{% macro render(children, at_root=false) -%}
+  {# a diary study has no separated section (app/diary.py, decision of 2026-10-11) #}
+  {% for node in children if node.t != "else" and not (node.t == "split" and survey.sampling is not none) %}
+  {% set nid = "k" ~ node.block if node.t == "block" else node.id %}
+  {% set can = {"up": not loop.first, "down": not loop.last, "out": not at_root,
+                "in": (not loop.first) and loop.previtem.t in ("rand", "loop", "branch")} %}
+  <li class="fl-node fl-{{ node.t }}" id="node-{{ nid }}" data-nid="{{ nid }}" data-group="{{ 1 if node.t in ('rand', 'loop') else 0 }}" {% if editable and node.t != "split" %}draggable="true"{% endif %}{% if editable and node.t == "block" and not (survey.consent_item and survey.consent_item.block_id == node.block) %} data-wrap{% endif %}>
+    {% if node.t == "block" %}
+      {{ block_row(node, can) }}
+    {% else %}
+      <div class="fl-head">
+        {% if editable and node.t != "split" %}<span class="drag-handle" aria-hidden="true">⋮⋮</span>{% endif %}
+        <span class="fl-live" data-live="head-{{ nid }}">
+        {% if node.t == "rand" %}
+          <span class="fl-icon">🎲</span><strong>{{ node.name }}</strong>
+          <span class="hint">{{ de_en("zeigt {k} von {n}", "shows {k} of {n}", k=node.k, n=node.children|length) }}{% if node.balanced %}{{ de_en(", balanciert", ", balanced") }}{% endif %}{% if node.shuffle %}{{ de_en(", zufällige Reihenfolge", ", random order") }}{% endif %} · {{ de_en("Export:", "Export:") }} <code>{{ node.code }}</code></span>
+        {% elif node.t == "loop" and node.source == "factors" %}
+          {% set n_rows = (node.rows or [])|length %}{% set p = node.plan or {} %}
+          <span class="fl-icon">🧩</span><strong>{{ node.name or node.code }}</strong>
+          <span class="hint">{% if n_rows %}{% set n_decks = (p.decks_rows or [])|length %}{{ de_en("{k} je Person aus {n} Vignetten in {d} Deck", "{k} per person from {n} vignettes in {d} deck", k=(p.decks_rows or [[]])[0]|length, n=n_rows, d=n_decks) if n_decks == 1 else de_en("{k} je Person aus {n} Vignetten in {d} Decks", "{k} per person from {n} vignettes in {d} decks", k=(p.decks_rows or [[]])[0]|length, n=n_rows, d=n_decks) }} · {{ de_en("Platzhalter", "Placeholders") }} {% for c in node.columns if not c.hidden %}<code>{{ "{{" ~ c.name ~ "}}" }}</code>{% if not loop.last %} {% endif %}{% endfor %}{% else %}{{ de_en("{n} Faktoren, noch kein Versuchsplan", "{n} factors, no experimental design yet", n=(node.attributes or [])|length) }}{% endif %} · {{ de_en("Export:", "Export:") }} <code>{{ node.code }}_order</code></span>
+          <a class="button button-small button-secondary" href="{{ url_for('flow_page.vignettes_node', survey_id=survey.id, nid=node.id, lang=lang) }}">{{ de_en("Faktoren &amp; Versuchsplan", "Factors &amp; experimental design")|safe }}</a>
+        {% elif node.t == "loop" %}
+          {% set n_rows = (node.rows or [])|length %}
+          <span class="fl-icon">🔁</span><strong>{{ node.name or node.code }}</strong>
+          <span class="hint">{% if n_rows %}{{ de_en("{k} von {n} Zeilen", "{k} of {n} rows", k=(loop_shown(node) if node.mode == "level" else node.k if node.mode == "k" else ((node.subset or {}).per_person or n_rows) if node.mode == "plan" else n_rows), n=n_rows) }}{% if node.mode == "plan" %}{{ de_en(" (Versuchsplan, {d} Decks)", " (experimental design, {d} decks)", d=((node.subset or {}).decks_rows or [])|length) }}{% endif %}{% if node.mode == "level" %}{{ de_en(" (eine je Stufe)", " (one per level)") }}{% endif %}{% if node.order == "random" %}{{ de_en(", zufällige Reihenfolge", ", random order") }}{% endif %} · {{ de_en("Platzhalter", "Placeholders") }} {% for c in node.columns %}<code>{{ "{{" ~ c.name ~ "}}" }}</code>{% if not loop.last %} {% endif %}{% endfor %}{% else %}{{ de_en("Tabelle noch leer", "Table still empty") }}{% endif %} · {{ de_en("Export:", "Export:") }} <code>{{ node.code }}_order</code></span>
+        {% elif node.t == "branch" %}
+          <span class="fl-icon">↳</span><strong>{{ node.name or de_en("Bedingung", "Condition") }}</strong>{% if node.name %}<span class="hint">{{ de_en("Bedingung", "Condition") }}</span>{% endif %}
+        {% elif node.t == "quota" %}
+          {% set checked = quotas|selectattr("id", "in", node.quotas or [])|list %}
+          <span class="fl-icon">⚖</span><strong>{{ de_en("Quotenberechnung", "Quota calculation") }}</strong>
+          <span class="hint">{% if checked %}{% for q in checked %}{{ q.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if "full" in node %} · {{ de_en("wenn voll:", "if full:") }} {{ de_en("weiter", "continue") if node.full == "continue" else de_en("Ende „Quote voll“", "end “Quota full”") }}{% endif %}{% else %}{{ de_en("noch keine Quote gewählt", "no quota chosen yet") }}{% endif %}</span>
+          <a class="button button-small button-secondary" href="{{ url_for('flow_page.quotas', survey_id=survey.id, lang=lang) }}">{{ de_en("Quoten", "Quotas") }}</a>
+        {% elif node.t == "ext" %}
+          {% set declared = external.values(node) %}
+          <span class="fl-icon">↗</span><strong>{{ node.name or de_en("Externer Abschnitt", "External section") }}</strong>
+          <span class="hint">{{ de_en("Externer Abschnitt", "External section") }} · {{ external.host(node) or de_en("noch keine Adresse", "no address yet") }}{% if declared %} · {{ de_en("zurück kommen", "coming back:") }} {% for v in declared %}<code>{{ node.code }}_{{ v.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{{ de_en(" (signiert)", " (signed)") if external.signs(node) else de_en(" (nicht signiert)", " (not signed)") }}{% endif %} · {{ de_en("Export:", "Export:") }} <code>{{ node.code }}</code></span>
+        {% elif node.t == "ws" %}
+          {% set taken = webservice.values(node) %}
+          <span class="fl-icon">⇄</span><strong>{{ node.name or de_en("Web Service", "Web service") }}</strong>
+          <span class="hint">{{ de_en("Web Service", "Web service") }} · {{ webservice.host(node) or de_en("noch keine Adresse", "no address yet") }}{% if taken %} · {{ de_en("Werte:", "values:") }} {% for v in taken %}<code>{{ "{{" ~ node.code ~ "_" ~ v.name ~ "}}" }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</span>
+        {% elif node.t == "split" %}
+          <span class="fl-icon">🔒</span><strong>{{ de_en("Getrennter Abschnitt", "Separated section") }}</strong><span class="hint">{{ de_en("alles darunter wird ohne Verbindung zu den übrigen Antworten gespeichert (z. B. für Feedback, Verlosung, Kontaktdaten); darf leer bleiben", "everything below is stored without a link to the other answers (e.g. for feedback, a prize draw, contact details); may stay empty") }}</span>
+        {% else %}
+          <span class="fl-icon">⏹</span><strong>{{ de_en("Ende ({label})", "End ({label})", label=end_label(node)) }}</strong>
+          {# its triggers in a line: "Quote voll: A oder B · Keine Teilquote passt: C · Screen-out" #}
+          {% set found = end_cases(node, true) %}
+          {% if found|length > 4 %}
+          <span class="hint">{% for group in found|groupby("when") %}{{ group.list|length }} × {{ trig(group.grouper) }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+          {% elif found|length > 1 or found[0].when not in ("screenout", "excluded") %}
+          <span class="hint">{% for c in found %}{{ trig(c.when) if found|length > 1 else de_en("wenn voll", "if full") if c.when == "quotafull" else trig(c.when) }}{% if c.when in ("quotafull", "nocell") %}{% set named = quotas|selectattr("id", "in", c.quotas or [])|list %}{% if named %}: {% for q in named %}{{ q.name }}{% if not loop.last %}{{ de_en(" und ", " and ") if c.rule == "all" else de_en(" oder ", " or ") }}{% endif %}{% endfor %}{% elif "quotas" in c %}: {{ de_en("noch keine Quote gewählt", "no quota chosen yet") }}{% endif %}{% elif c.when == "cellfull" %}{% set q = quotas|selectattr("id", "equalto", c.quota)|first %}: {{ q.name if q else de_en("noch keine Quote gewählt", "no quota chosen yet") }}, {{ n_cells((c.cells or [])|length) }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+          {% endif %}
+          {% set hosts = [] %}
+          {% for c in found if c.link and link_host(c.link) not in hosts %}{% set _ = hosts.append(link_host(c.link)) %}{% endfor %}
+          {% if hosts %}<span class="hint">{{ de_en("eigener Abschlusslink: {hosts}", "own completion link: {hosts}", hosts=hosts|join(", ")) }}</span>{% endif %}
+        {% endif %}
+        </span>
+        {% if node.t != "split" %}{{ tools(node, can) }}{% endif %}
+      </div>
+      {% if node.t in ("rand", "end", "quota", "ext", "ws") %}{{ settings(node) }}{% endif %}
+      {# the loop folds its settings like the other elements; table and selection are large, so they open on a page
+         of their own (UI audit 2026-10-04, R86) #}
+      {% if node.t == "loop" %}<details class="fl-settings"><summary>{{ de_en("Einstellungen", "Settings") }}</summary>
+        <p class="muted small">{{ de_en("Tabelle der Durchgänge, Auswahl je Person und Reihenfolge stehen auf einer eigenen Seite.", "The table of passes, the selection per person and the order are on a page of their own.") }}</p>
+        <p><a class="button button-small button-secondary" href="{{ url_for('flow_page.loop_node', survey_id=survey.id, nid=node.id, lang=lang) }}">{{ de_en("Tabelle und Auswahl öffnen", "Open table and selection") }}</a></p>
+      </details>{% endif %}
+      {% if node.t in ("rand", "loop") %}
+      <ul class="fl-list fl-children" data-parent="{{ nid }}">
+        {{ render(node.children) }}
+        <li class="fl-empty">{{ de_en("Blöcke hierher ziehen", "Drag blocks here") if editable else de_en("leer", "empty") }}</li>
+      </ul>
+      {% elif node.t == "branch" %}
+      {% set other = else_nodes.get(node.id) %}
+      <div class="fl-slots">
+        <div class="fl-slot fl-slot-if">
+          <div class="fl-slot-label">{{ de_en("Wenn", "If") }} <span class="fl-cond" data-live="cond-{{ node.id }}">{{ condition_text(survey, node.cond) }}</span></div>
+          {{ settings(node) }}
+        </div>
+        <div class="fl-slot">
+          <div class="fl-slot-label">{{ de_en("Dann", "Then") }} <span class="hint">{{ de_en("Blöcke, wenn die Bedingung zutrifft", "blocks if the condition holds") }}</span></div>
+          <ul class="fl-list fl-children" data-parent="{{ node.id }}">
+            {{ render(node.children) }}
+            <li class="fl-empty">{{ de_en("Blöcke hierher ziehen", "Drag blocks here") if editable else de_en("leer", "empty") }}</li>
+          </ul>
+        </div>
+        <div class="fl-slot fl-slot-else">
+          <div class="fl-slot-label">{{ de_en("Sonst", "Else") }} <span class="hint">{{ de_en("wenn nicht (auch unbeantwortet); leer lassen, wenn nichts gezeigt werden soll", "if not (also when unanswered); leave empty if nothing is to be shown") }}</span></div>
+          <ul class="fl-list fl-children" data-parent="{{ other.id if other else 'newelse:' ~ node.id }}">
+            {% if other %}{{ render(other.children) }}{% endif %}
+            <li class="fl-empty">{{ de_en("Blöcke hierher ziehen", "Drag blocks here") if editable else de_en("leer", "empty") }}</li>
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+    {% endif %}
+  </li>
+  {% endfor %}
+{%- endmacro %}
+
+<script type="application/json" data-cond-items>{{ cond_data|tojson }}</script>
+{# the Teilquoten of every quota ([code, name]): a trigger "Teilquote voll" lists those of the quota chosen #}
+<script type="application/json" data-quota-cells>{{ quota_cells|tojson }}</script>
+<div class="flow-page" data-flow-page data-cond-page data-at="{{ request.args.get('at', '') }}"
+     data-place-url="{{ url_for('editor.flow_node', survey_id=survey.id, nid='__NID__', action='place', lang=lang) }}">
+  {# the palette on the left, the figures and the check on the right: as on the page "Fragebogen" #}
+  <aside class="flow-palette">
+    {% if editable %}
+    <section class="panel">
+      <h2>{{ de_en("Hinzufügen", "Add") }} <span class="hint">{{ de_en("an die gewünschte Stelle im Ablauf ziehen; Schleife, Randomisierung und Bedingung auch auf einen Block, der dann hineinkommt. Ein Klick fügt am Ende ein.", "drag to the place you want in the flow; loop, randomisation and condition also onto a block, which then goes inside. A click adds at the end.") }}</span></h2>
+      <form method="post" action="{{ url_for('editor.flow_add', survey_id=survey.id, lang=lang) }}" class="flow-add-grid" data-flow-add>
+        {{ csrf() }}
+        <button class="fl-add" name="kind" value="loop"><span>🔁</span><strong>{{ de_en("Schleife", "Loop") }}</strong><span class="desc">{{ de_en("Blöcke je Tabellenzeile oder je Vignette wiederholen (z. B. je Roboter)", "repeat blocks per table row or per vignette (e.g. per robot)") }}</span></button>
+        <button class="fl-add" name="kind" value="rand"><span>🎲</span><strong>{{ de_en("Randomisierung", "Randomisation") }}</strong><span class="desc">{{ de_en("zeigt einen oder mehrere der Blöcke (z. B. Bild A oder B)", "shows one or more of the blocks (e.g. image A or B)") }}</span></button>
+        <button class="fl-add" name="kind" value="branch"><span>↳</span><strong>{{ de_en("Bedingung", "Condition") }}</strong><span class="desc">{{ de_en("Blöcke nur bei bestimmter Antwort oder URL-Parameter („dann“ und „sonst“)", "blocks only for a certain answer or URL parameter (“then” and “else”)") }}</span></button>
+        {# a diary study: ends, external sections, web services and quota calculations do nothing in its parts (runtime.build_layout, only) #}
+        {% if survey.sampling is none %}
+        <button class="fl-add" name="kind" value="end"><span>⏹</span><strong>{{ de_en("Ende", "End") }}</strong><span class="desc">{{ de_en("Screen-out (meist in einer Bedingung) oder „Quote voll“ hinter einer Quotenberechnung", "screen-out (mostly in a condition) or “Quota full” after a quota calculation") }}</span></button>
+        <button class="fl-add" name="kind" value="ext"><span>↗</span><strong>{{ de_en("Externer Abschnitt", "External section") }}</strong><span class="desc">{{ de_en("schickt Teilnehmende zu einer Web-App (z. B. ein Experiment) und holt sie mit Rückgabewerten an dieselbe Stelle zurück", "sends participants to a web app (e.g. an experiment) and brings them back to the same point with return values") }}</span></button>
+        {% if experimental("webservice", survey) %}<button class="fl-add" name="kind" value="ws"><span>⇄</span><strong>{{ de_en("Web Service", "Web service") }} <span class="badge badge-exp">{{ de_en("experimentell", "experimental") }}</span></strong><span class="desc">{{ de_en("der Server ruft eine Schnittstelle auf (z. B. Wetter zu einer Stadt) und speichert Felder der Antwort als Werte für spätere Texte und den Export", "the server calls an API (e.g. the weather for a city) and stores fields of the answer as values for later texts and the export") }}</span></button>{% endif %}
+        <button class="fl-add" name="kind" value="quota"><span>⚖</span><strong>{{ de_en("Quotenberechnung", "Quota calculation") }}</strong><span class="desc">{{ de_en("vergibt an dieser Stelle den Platz in der Teilquote der Person; die Quoten selbst stehen auf der Seite „Quoten“ (Link unten)", "gives the person their place in their sub-quota at this point; the quotas themselves are on the page “Quotas” (link below)") }}</span></button>
+        {% endif %}
+      </form>
+    </section>
+    {% endif %}
+  </aside>
+
+  <section class="panel flow-canvas">
+    <h2>{{ de_en("Ablauf", "Flow") }} <span class="hint">{{ de_en("Reihenfolge der Blöcke für Teilnehmende; Blöcke und Gruppen per Ziehen verschieben (davor, danach oder hinein)", "order of the blocks for participants; move blocks and groups by dragging (before, after or into)") }}</span></h2>
+    <ul class="fl-list fl-root" data-parent="root">
+      {{ render(root.children, true) }}
+      {% if editable %}<li class="fl-empty fl-root-end">{{ de_en("hierher ziehen: ans Ende des Ablaufs (auch aus einer Gruppe heraus)", "drag here: to the end of the flow (also out of a group)") }}</li>{% endif %}
+    </ul>
+  </section>
+
+  <aside class="flow-side">
+    {# the quotas belong to the flow: their page is a page below "Ablauf", no tab of its own (UI audit 2026-10-12, E4) #}
+    {% if survey.sampling is none or survey.quotas %}
+    <section class="panel flow-quotas">
+      <h2>{{ de_en("Quoten", "Quotas") }}</h2>
+      <p class="small">{% if survey.quotas %}{{ de_en_n(survey.quotas|length, ("{n} Quote", "{n} Quoten"), ("{n} quota", "{n} quotas")) }}: {{ survey.quotas|map(attribute="name")|join(", ") }}{% else %}{{ de_en("Noch keine Quoten.", "No quotas yet.") }}{% endif %}</p>
+      <a class="button button-secondary button-small" href="{{ url_for('flow_page.quotas', survey_id=survey.id, lang=lang) }}">{{ icon("scale", 16) }} {{ de_en("Quoten bearbeiten", "Edit quotas") if survey.quotas else de_en("Quoten anlegen", "Create quotas") }}</a>
+    </section>
+    {% endif %}
+    <section class="panel" data-live="flow-figures">
+      <h2>{{ de_en("Kennzahlen", "Key figures") }}</h2>
+      <dl class="figures">
+        {% if survey.sampling is not none %}{# a diary study: each part on its own (diary.part_durations) #}
+        {% for k, e in diary.part_durations(survey) %}<div class="fig-wide" title="{{ de_en('Geschätzte Dauer des ganzen Teils aus Lesezeit und typischer Antwortzeit; in Klammern die Spanne, wenn Bedingungen Fragen nur manchen zeigen. Einträge auf dem Handy mal 1,3.', 'Estimated duration of the whole part from reading time and typical answer time; in brackets the range when conditions show questions to some only. Entries on the phone times 1.3.') }}"><dt>{{ diary.part_label(k, survey) }}</dt><dd>{{ duration_label_html(e) }}</dd></div>{% endfor %}
+        {% else %}
+        <div class="fig-wide" title="{{ de_en('Schätzung aus Lesezeit und typischer Antwortzeit; Randomisierung: nur die gezeigten Blöcke; Bedingungen: Spanne ohne/mit bedingten Blöcken', 'Estimate from reading time and typical answering time; randomisation: only the blocks shown; conditions: range without/with the conditional blocks') }}">
+          <dt>{{ de_en("Geschätzte Dauer", "Estimated duration") }}</dt><dd>{{ duration_label_html(stats.duration) }}</dd></div>
+        {% endif %}
+        <div><dt>{{ de_en("Blöcke", "Blocks") }}</dt><dd>{{ stats.blocks }}</dd></div>
+        <div title="{{ de_en('Anzahl der Versuchsbedingungen aus Randomisierungen (Between-Subject-Zellen)', 'Number of experimental conditions from randomisations (between-subject cells)') }}"><dt>{{ de_en("Versuchs&shy;bedingungen", "Experimental conditions")|safe }}</dt><dd>{{ human_count(stats.conditions) }}</dd></div>
+        <div><dt>{{ de_en("Verzweigungen", "Branches") }}</dt><dd>{{ stats.branches }}</dd></div>
+        {# every tile half wide: the grid fills without a gap (UI audit 2026-10-12, U13) #}
+        <div title="{{ de_en('Verschiedene Wege durch die Blöcke: Randomisierungen, Schleifen und Bedingungen (obere Schranke); Reihenfolge von Aussagen innerhalb einer Skala zählt nicht.', 'Different paths through the blocks: randomisations, loops and conditions (upper bound); the order of statements within a scale does not count.') }}">
+          <dt>{{ de_en("Pfade durch den Ablauf", "Paths through the flow") }}</dt><dd>{{ human_count(stats.paths) }}{% if stats.orders != stats.paths %} <span class="hint">{{ de_en("inkl. Reihenfolge in Blöcken: {n}", "incl. order within blocks: {n}", n=human_count(stats.orders)) }}</span>{% endif %}</dd></div>
+      </dl>
+      {{ why("length") }}{{ why("random_assignment") }}
+    </section>
+    <section class="panel" data-live="flow-findings">
+      <h2>{{ de_en("Startprüfung", "Pre-launch check") }} <span class="hint">{{ de_en("Ablauf", "flow") }}</span></h2>
+      {% if findings %}
+      <ul class="plain findings">{% for f in findings %}<li class="finding finding-{{ f.severity }}">{{ icon("x" if f.severity == "error" else "alert", 16) }}
+        {% if f.link and f.anchor %}<a href="{{ url_for(f.link, survey_id=survey.id, lang=lang, _anchor=f.anchor) }}">{{ f.message }}</a>{% elif f.item_id %}<a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=f.item_id, lang=lang) }}">{{ f.message }}</a>{% elif f.block_id %}<a href="#node-k{{ f.block_id }}">{{ f.message }}</a>{% elif f.link %}<a href="{{ url_for(f.link, survey_id=survey.id, lang=lang) }}">{{ f.message }}</a>{% else %}<span>{{ f.message }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="ok">{{ icon("check", 16) }} {{ de_en("Der Ablauf ist in Ordnung.", "The flow is fine.") }}</p>{% endif %}
+      {# a start blocker elsewhere is said here too, so "in Ordnung" does not read as "ready" (UI audit 2026-10-12, U9) #}
+      {% if all_blockers is defined and all_blockers %}<p class="finding finding-error small">{{ icon("x", 16) }} <span>{{ de_en_n(all_blockers, ("Der Fragebogen hat {n} Fehler, der den Start verhindert.", "Der Fragebogen hat {n} Fehler, die den Start verhindern."), ("The questionnaire has {n} error that holds up the start.", "The questionnaire has {n} errors that hold up the start.")) }}</span></p>{% endif %}
+      {# the flow shows its part of the check; whoever reads "in Ordnung" also learns about the rest (R18) #}
+      {% if all_findings is defined and all_findings > findings|length %}<p class="small"><a href="{{ url_for('editor.index', survey_id=survey.id, lang=lang) }}">{{ de_en_n(all_findings, ("Die Meldung im Fragebogen ansehen", "Alle {n} Meldungen im Fragebogen"), ("See the message in the questionnaire", "All {n} messages in the questionnaire")) }}</a></p>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

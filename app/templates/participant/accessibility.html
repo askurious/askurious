@@ -1,0 +1,44 @@
+{% extends "participant/base.html" %}
+{# Accessibility statement (BGG NRW and BITV NRW for a public body of NRW; before BGG and BITV 2.0) for the pages of this survey, linked from the footer of every
+   participant page (accessibility concept D9, decision E7).
+   ENTWURF: Der Text ist ein Entwurf und vom Betreiber der Plattform zu prüfen (wie die Datenschutzerklärung), vor
+   allem der Stand der Vereinbarkeit, die Liste der Ausnahmen und die zuständige Stelle für das Schlichtungs- bzw.
+   Durchsetzungsverfahren (Bund: Schlichtungsstelle nach § 16 BGG; Stellen eines Landes, etwa einer Hochschule in
+   NRW, haben eine eigene Stelle nach Landesrecht). Datum der Prüfung: ACCESSIBILITY_STATEMENT in app/participate.py. #}
+{% block title %}{{ ui("Barrierefreiheit", "Accessibility") }} · {{ survey.title_in(lang) }}{% endblock %}
+{% block content %}
+<article class="p-privacy p-a11y">
+  <h1 class="p-page-title">{{ ui("Erklärung zur Barrierefreiheit", "Accessibility statement") }}</h1>
+  <p class="p-privacy-survey">{{ ui("Befragung", "Survey") }}: <strong>{{ survey.title_in(lang) }}</strong></p>
+  {% include "participant/_operator_a11y.html" %}
+
+  <h2>{{ ui("Stand der Vereinbarkeit", "Compliance status") }}</h2>
+  <p>{{ ui("Die Seiten der Befragungen sind teilweise mit diesen Anforderungen vereinbar. Die bekannten Ausnahmen stehen im nächsten Abschnitt.", "The pages of the surveys partially comply with these requirements. The known exceptions are listed in the next section.") }}
+    {{ ui("Diese Erklärung wurde am {date} erstellt und beruht auf einer Selbstbewertung der Betreiber.", "This statement was prepared on {date}; it is based on a self-assessment by the operators.", date=made) }}</p>
+
+  <h2>{{ ui("Was nicht barrierefrei ist", "Content that is not accessible") }}</h2>
+  <ul class="p-privacy-points">
+    <li>{{ ui("Aufgaben, die Reaktionszeiten messen (etwa der Implizite Assoziationstest), verlangen schnelle Tastendrücke oder Fingertipps. Das gehört zu ihrer Methode.", "Tasks that measure reaction times (such as the Implicit Association Test) require quick key presses or taps. This is part of their method.") }}</li>
+    <li>{{ ui("Hat ein Abschnitt eine Höchstzeit, die zum Versuch gehört, geht die Seite nach Ablauf der Zeit von selbst weiter.", "Where a section has a time limit that is part of the experiment, the page moves on automatically when the time is up.") }}</li>
+    <li>{{ ui("Freihand-Linien auf einem Bild lassen sich nur mit Maus, Stift oder Finger zeichnen.", "Freehand lines on an image can only be drawn with a mouse, pen or finger.") }}</li>
+    <li>{{ ui("Die Kartenbilder kommen von OpenStreetMap und sind für Screenreader nicht beschrieben. Orte lassen sich auch über die Suche und mit der Tastatur setzen.", "The map images come from OpenStreetMap and are not described for screen readers. Places can also be set through the search and with the keyboard.") }}</li>
+    <li>{{ ui("Texte, Bilder und Videos einer Befragung stellen ihre Forschenden ein. Die Plattform weist auf fehlende Alternativtexte und zu schwache Kontraste hin, kann aber nicht alles prüfen.", "The texts, images and videos of a survey are provided by its researchers. The platform points out missing alternative texts and weak contrasts, but cannot check everything.") }}</li>
+  </ul>
+
+  <h2>{{ ui("Barrieren melden", "Reporting barriers") }}</h2>
+  {# whom to write: the people responsible for this survey (its contact address, if set) and the provider of the
+     platform, plus the form for feedback and complaints (decision 4 of the UI/UX audit 2026-10-09, X51) #}
+  <p>{{ ui("Ist Ihnen eine Barriere aufgefallen, oder brauchen Sie einen Inhalt in einer anderen Form? Dann schreiben Sie:", "Have you come across a barrier, or do you need content in another form? Then write:") }}</p>
+  <ul class="p-privacy-points p-a11y-contacts">
+    {% if email %}<li>{{ ui("zu dieser Befragung an ihre Verantwortlichen:", "about this survey, to the people responsible for it:") }} <a href="mailto:{{ email }}">{{ email }}</a></li>{% endif %}
+    <li>{{ ui("zur Plattform an den Betreiber von Askurious:", "about the platform, to the provider of Askurious:") }}
+      {% if operator_email %}<a href="mailto:{{ operator_email }}">{{ operator_email }}</a>{% else %}<a href="{{ url_for('public.privacy') }}" target="_blank" rel="noopener">{{ ui("Impressum und Datenschutzerklärung der Plattform", "Legal notice and privacy policy of the platform") }}</a>{% endif %}</li>
+    <li><a href="{{ url_for('participate.complaint', uid=survey.public_key, lang=lang) }}">{{ ui("Rückmeldung oder Beschwerde über ein Formular senden", "Send feedback or a complaint through a form") }}</a></li>
+  </ul>
+
+  {% include "participant/_operator_enforcement.html" %}
+
+  <p class="p-privacy-back"><a href="{{ back }}" data-privacy-back><span class="p-flip" aria-hidden="true">←</span> {{ ui("Zurück zur Befragung", "Back to the survey") }}</a></p>
+</article>
+{% endblock %}
+{% block footer_links %}{% endblock %}

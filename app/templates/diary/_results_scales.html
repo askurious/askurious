@@ -1,0 +1,18 @@
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num %}
+{% from "_learn.html" import term %}
+{# The scales of a diary study in two levels (app/diary_scales.py): a factor within persons over their entries and one
+   between persons, with the reliability on each level. Needs: diary_scales. #}
+<section class="panel" id="diary-scales"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Skalen in zwei Ebenen", "Scales in two levels") }} <span class="hint">{{ de_en("Einträge in Personen: Zweiebenen-Faktorenanalyse je Skala", "entries within people: two-level factor analysis per scale") }}</span></h2></summary>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>{{ de_en("Skala", "Scale") }}</th><th class="num">{{ de_en("Personen", "People") }}</th><th class="num">{{ de_en("Einträge", "Entries") }}</th><th class="num">{{ term("omega_levels", "ω") }} {{ de_en("innerhalb", "within") }}</th><th class="num">ω {{ de_en("zwischen", "between") }}</th><th class="num">χ² (df)</th><th class="num">{{ term("cfi", "CFI") }}</th><th class="num">{{ term("rmsea", "RMSEA") }}</th><th class="num">{{ term("srmr", "SRMR") }} {{ de_en("innen / zwischen", "within / between") }}</th></tr></thead>
+    <tbody>{% for s in diary_scales %}<tr>
+      <td><code>{{ s.label }}</code> <span class="hint">{{ s.module }}</span></td><td class="num">{{ s.persons }}</td><td class="num">{{ s.entries }}</td>
+      {% if s.error %}<td class="num" colspan="6"><span class="hint">{% if s.error == "few" %}{{ de_en("erst ab {k} Personen (Festlegung von Askurious)", "only from {k} people (set by Askurious)", k=50) }}{% else %}{{ de_en("keine Lösung", "no solution") }}{% endif %}</span></td>
+      {% else %}{% set f = s.fit %}<td class="num">{{ num(s.omega_within) if s.omega_within is not none else "–" }}</td><td class="num">{{ num(s.omega_between) if s.omega_between is not none else "–" }}</td>
+      <td class="num">{{ num(f.chi2) if f.chi2 is not none and f.df > 0 else "–" }} ({{ f.df }})</td><td class="num">{{ num(f.cfi, 3) if f.cfi is not none else "–" }}</td><td class="num">{{ num(f.rmsea, 3) if f.rmsea is not none else "–" }}</td><td class="num">{{ num(f.srmr_within, 3) if f.srmr_within is not none else "–" }} / {{ num(f.srmr_between, 3) if f.srmr_between is not none else "–" }}{% if not f.admissible %} <span class="is-warn" title="{{ de_en('nicht zulässige Lösung, z. B. eine negative Varianz zwischen Personen', 'inadmissible solution, e.g. a negative variance between people') }}">⚠</span>{% endif %}</td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("ω innerhalb: wie verlässlich die Skala Momente derselben Person unterscheidet; ω zwischen: wie verlässlich sie Personen unterscheidet. Beides kann weit auseinanderliegen. Volle Maximum-Likelihood für ungleich viele Einträge, nur Einträge mit allen Aussagen", "ω within: how reliably the scale tells moments of the same person apart; ω between: how reliably it tells people apart. Both can lie far apart. Full maximum likelihood for unequal numbers of entries, only entries with all statements") }} {{ apa.cite(sources_twolevel) }}.{% if diary_scales|selectattr("fit")|selectattr("fit.df", "equalto", 0)|list %} {{ de_en("Mit drei Aussagen ist jede Ebene genau bestimmt (df = 0): ω ja, aber kein Test der Passung.", "With three statements each level is just identified (df = 0): ω yes, but no test of fit.") }}{% endif %}</p>
+</details></section>

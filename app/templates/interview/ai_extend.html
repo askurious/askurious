@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# A2 of the AI assistant (app/interview_ai.py): rows for one Leitfrage; inside the guide page it stays embedded. #}
+{% block title %}{{ de_en("Leitfrage ergänzen", "Complete guide question") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+{% set embed = request.args.get("embed") %}
+<section class="panel">
+  <h2>{{ icon("sparkles", 18) }} {{ de_en("Vorschläge für „{name}“", "Suggestions for “{name}”", name=item.text("question")|striptags|truncate(80, true, "…") or item.code) }} <span class="hint">{{ de_en("ankreuzen, bei Bedarf anpassen, übernehmen", "tick, adapt if needed, accept") }}</span></h2>
+  <form method="post" action="{{ url_for('interview_ai.extend_page', code=survey.code, item_id=item.id, embed=embed) }}" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="apply">
+    {% for part, title in [("aspects", de_en("Inhaltliche Aspekte", "Content aspects")), ("keep", de_en("Aufrechterhaltungsfragen", "Maintenance questions")), ("probe", de_en("Konkrete Fragen", "Specific questions"))] %}
+    {% if found[part] %}
+    <fieldset class="bare">
+      <legend>{{ title }}</legend>
+      {% for row in found[part] %}
+      <div class="ai-suggest-row"><input type="checkbox" name="take_{{ part }}" value="{{ loop.index0 }}" checked aria-label="{{ de_en('übernehmen', 'accept') }}">
+        <input name="{{ part }}{{ loop.index0 }}" value="{{ row.text }}" maxlength="300" aria-label="{{ title }}">{% if row.why %}<span class="muted small">{{ row.why }}</span>{% endif %}</div>
+      {% endfor %}
+    </fieldset>
+    {% endif %}
+    {% endfor %}
+    {% if found.subs %}
+    {# new Unterfragen (concept unterfragen, E5): not ticked, since each becomes an element of its own #}
+    <fieldset class="bare">
+      <legend>{{ de_en("Unterfragen", "Sub-questions") }} <span class="hint">{{ de_en("werden als eingerückte Leitfragen unter dieser angelegt", "are added as indented guide questions under this one") }}</span></legend>
+      {% for row in found.subs %}
+      <div class="ai-suggest-row"><input type="checkbox" name="take_subs" value="{{ loop.index0 }}" aria-label="{{ de_en('übernehmen', 'accept') }}">
+        <input name="subs_when{{ loop.index0 }}" value="{{ row.when }}" maxlength="100" aria-label="{{ de_en('Wann stellen?', 'When to ask?') }}" class="ai-suggest-when">
+        <input name="subs{{ loop.index0 }}" value="{{ row.text }}" maxlength="300" aria-label="{{ de_en('Unterfrage', 'Sub-question') }}">{% if row.why %}<span class="muted small">{{ row.why }}</span>{% endif %}</div>
+      {% endfor %}
+    </fieldset>
+    {% endif %}
+    <div class="row"><button class="button">{{ de_en("Ausgewählte übernehmen", "Accept selected") }}</button>
+      <a class="button button-secondary" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, embed=embed) }}">{{ de_en("Abbrechen", "Cancel") }}</a></div>
+  </form>
+</section>
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+{% endblock %}

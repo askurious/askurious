@@ -1,0 +1,63 @@
+{% set c = item.cfg %}
+{% set raw = answers.get(item.id) %}
+{% set ans = raw if raw is mapping else {} %}
+{% set sorts = ans.get("s") if ans.get("s") is mapping else {} %}
+{% set names = ans.get("own") if ans.get("own") is mapping else {} %}
+{% set start = (stmt_orders or {}).get(item.id) if stmt_orders is defined else none %}
+{% set cards = kind.ordered_options(item, lang, start) %}
+{% set by_code = {} %}{% for o in cards %}{% set _ = by_code.update({o.code: o}) %}{% endfor %}
+{% set placed = [] %}{% for g, codes in sorts.items() %}{% for code in codes %}{% set _ = placed.append(code) %}{% endfor %}{% endfor %}
+{% set rank = c.get("rank") %}
+{% set max_own = kind.own_allowed(item) %}
+{% include "items/_question.html" %}
+<div class="p-sort" data-sort="{{ item.id }}"{% if rank %} data-sort-rank{% endif %} data-sort-max-own="{{ max_own }}">
+  <p class="p-sort-hint">{{ ui("Wählen Sie eine Karte und dann den Stapel, auf den sie gehört.", "Choose a card, then the pile it belongs to.") }}<span class="p-if-mouse"> {{ ui("Sie können die Karten auch ziehen.", "You can also drag the cards.") }}</span><span class="p-if-js"> {{ ui("Mit der Tastatur: eine Karte mit Enter wählen, dann ebenso den Stapel.", "With the keyboard: pick a card with Enter, then the pile the same way.") }}</span>{% if rank %} {{ ui("Bringen Sie die Karten in jedem Stapel mit den Pfeilen in eine Reihenfolge (oben = Platz 1).", "Use the arrows to put the cards in each pile in order (top = rank 1).") }}{% endif %}</p>
+  <noscript><p class="p-error">{{ ui("Für diese Frage wird JavaScript benötigt.", "This question needs JavaScript.") }}</p></noscript>
+  <input type="hidden" name="i{{ item.id }}" value="{{ {'s': sorts, 'own': names}|tojson|forceescape if sorts else '' }}" data-sort-value>
+  <section class="p-sort-stack" data-group="">
+    <h3 class="p-sort-head"><button type="button" class="p-sort-drop" data-drop>{{ ui("Noch nicht sortiert", "Not sorted yet") }} <span class="p-sort-count" data-count></span></button></h3>
+    <ul class="p-sort-list" data-list>
+      {% for o in cards if o.code not in placed %}{% set pile = none %}{% include "items/_sort_card.html" %}{% endfor %}
+    </ul>
+  </section>
+  <div class="p-sort-groups" data-groups>
+    {% for g in kind.groups(item, lang) %}
+    <section class="p-sort-group" data-group="{{ g.code }}">
+      <h3 class="p-sort-head"><button type="button" class="p-sort-drop" data-drop><span{{ text_attrs(item, "groups", g.id) }}>{{ g.label|fill(variables) }}</span> <span class="p-sort-count" data-count></span></button></h3>
+      <ol class="p-sort-list" data-list>
+        {% for code in sorts.get(g.code, []) if code in by_code %}{% set o = by_code[code] %}{% set pile = none %}{% include "items/_sort_card.html" %}{% endfor %}
+      </ol>
+    </section>
+    {% endfor %}
+    {% for key, codes in sorts.items() if key not in kind.groups(item, lang)|map(attribute="code")|list %}
+    <section class="p-sort-group is-own" data-group="{{ key }}">
+      <h3 class="p-sort-head"><button type="button" class="p-sort-drop" data-drop>{{ ui("Hierher legen", "Put here") }} <span class="p-sort-count" data-count></span></button></h3>
+      <label class="p-sort-name"><span class="p-sr-only">{{ ui("Name des Stapels", "Name of the pile") }}</span><input type="text" dir="auto" maxlength="60" value="{{ names.get(key, '') }}" placeholder="{{ ui('Name des Stapels', 'Name of the pile') }}" data-name></label>
+      <ol class="p-sort-list" data-list>
+        {% for code in codes if code in by_code %}{% set o = by_code[code] %}{% set pile = none %}{% include "items/_sort_card.html" %}{% endfor %}
+      </ol>
+      <button type="button" class="p-sort-remove" data-remove>{{ ui("Stapel auflösen", "Remove pile") }}</button>
+    </section>
+    {% endfor %}
+  </div>
+  {% if max_own %}
+  <p class="p-sort-new"><button type="button" data-sort-new>{{ ui("+ Neuer Stapel", "+ New pile") }}</button> <span class="hint" data-sort-full hidden>{{ ui("Mehr Stapel sind nicht möglich.", "No more piles are possible.") }}</span></p>
+  {# the pattern of a new own group, copied by the script #}
+  <template data-sort-own>
+    <section class="p-sort-group is-own" data-group="">
+      <h3 class="p-sort-head"><button type="button" class="p-sort-drop" data-drop>{{ ui("Hierher legen", "Put here") }} <span class="p-sort-count" data-count></span></button></h3>
+      <label class="p-sort-name"><span class="p-sr-only">{{ ui("Name des Stapels", "Name of the pile") }}</span><input type="text" dir="auto" maxlength="60" placeholder="{{ ui('Name des Stapels', 'Name of the pile') }}" data-name></label>
+      <ol class="p-sort-list" data-list></ol>
+      <button type="button" class="p-sort-remove" data-remove>{{ ui("Stapel auflösen", "Remove pile") }}</button>
+    </section>
+  </template>
+  {% endif %}
+  {# what happened, said aloud and shown (WCAG 4.1.3, S20) #}
+  <p class="p-sort-said" aria-live="polite" data-sort-said data-text="{{ ui('%s: jetzt in %s', '%s: now in %s') }}"></p>
+  {# the targets as a bar at the bottom of a phone's screen while a card is picked (participant.js, S20) #}
+  <div class="p-sort-bar" data-sort-bar hidden>
+    <p class="p-sort-bar-head"><span class="p-sort-bar-card" data-bar-card></span><button type="button" class="p-sort-bar-close" data-bar-close aria-label="{{ ui('Auswahl aufheben', 'Clear selection') }}">✕</button></p>
+    <div class="p-sort-bar-targets" role="group" aria-label="{{ ui('Legen in', 'Put in') }}" data-bar-targets></div>
+    <p class="p-sort-bar-said" aria-hidden="true" data-bar-said></p>
+  </div>
+</div>

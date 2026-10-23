@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# Results that have to be computed first: this page opens at once, shows the progress bar and asks for the
+   results by itself (app.js sends the form at once; without JavaScript the button does). #}
+{% block title %}{{ de_en("Ergebnisse", "Results") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "results" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<div class="tabpage-grid results-page">
+{# the scenario of the market simulator goes along, so it stays open (static/simulator.js loads the page without kept results) #}
+{% set sim_args = request.args.items(multi=True)|list %}
+<form method="get" id="results-form" data-auto{% if request.args.get("sim") %} action="#sim-{{ request.args.get('sim')|int }}"{% endif %}>{% for k, v in sim_args if k.startswith("sim") and k != "sim_part" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}{% if not first %}{% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}{% if f.all %}<input type="hidden" name="all" value="1">{% endif %}<input type="hidden" name="drop" value="{{ 1 if f.drop else 0 }}">{% endif %}{% if f.weighted %}<input type="hidden" name="gewichtet" value="1">{% endif %}{% if not f.drop %}<input type="hidden" name="markierte" value="1">{% endif %}{% if by %}<input type="hidden" name="gruppen" value="{{ by.id }}">{% endif %}<input type="hidden" name="go" value="1"></form>
+<section class="panel res-run">
+  <p>{{ de_en("Die Ergebnisse werden berechnet: zum ersten Mal, oder weil sich die Datengrundlage seit der letzten Berechnung geändert hat.", "The results are being calculated: for the first time, or because the data basis has changed since the last calculation.") }}</p>
+  <div class="batch-progress is-waiting" data-results-progress data-url="{{ url_for('surveys.results_progress', survey_id=survey.id) }}">
+    <div class="p-progress" role="progressbar" aria-label="{{ de_en('Ergebnisse berechnen', 'Calculate results') }}" aria-valuemin="0" aria-valuemax="100"><span data-bar style="width:0"></span></div>
+    <span data-status role="status">{{ de_en("Die Ergebnisse werden berechnet …", "The results are being calculated …") }}</span>
+  </div>
+  <noscript><button class="button" form="results-form">{{ icon("chart", 16) }} {{ de_en("Ergebnisse berechnen", "Calculate results") }}</button></noscript>
+</section>
+</div>
+{% endblock %}

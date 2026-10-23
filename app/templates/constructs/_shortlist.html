@@ -1,0 +1,21 @@
+{# A "Schnellbox" list being kept (app/shortlist.py, K9): the organisation's under Verwaltung > Konstrukte, the
+   platform's under Administration > Konstrukte. Context: keep ("platform" or an organisation id), rows (constructs in
+   their order), max. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import csrf %}
+{% macro change(action, key, label, sign) %}<form method="post" action="{{ url_for('constructs.shortlist_change', keep=keep) }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="{{ action }}"><input type="hidden" name="key" value="{{ key }}"><button class="icon-btn" title="{{ label }}" aria-label="{{ label }}">{{ sign }}</button></form>{% endmacro %}
+{% if rows %}
+<ul class="plain shortlist-rows">
+  {% for c in rows %}
+  <li><span><strong>{{ c.name }}</strong> <span class="hint">{{ c.author_year }}</span></span>
+    <span class="shortlist-tools">
+      {% if not loop.first %}{{ change("up", c.key, de_en("{name} nach oben", "Move {name} up", name=c.name), "↑") }}{% endif %}
+      {% if not loop.last %}{{ change("down", c.key, de_en("{name} nach unten", "Move {name} down", name=c.name), "↓") }}{% endif %}
+      {{ change("remove", c.key, de_en("{name} aus der Liste nehmen", "Take {name} out of the list", name=c.name), "×") }}
+    </span></li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted small">{{ de_en("Noch keine Konstrukte in der Liste.", "No constructs in the list yet.") }}</p>{% endif %}
+{% if rows|length < max %}<p><button type="button" class="button button-secondary button-small" data-box-open>{{ icon("plus", 16) }} {{ de_en("Konstrukt", "Construct") }}</button></p>
+{% else %}<p class="muted small">{{ de_en("Die Liste ist voll ({n}); für ein weiteres erst eines herausnehmen.", "The list is full ({n}); take one out to add another.", n=max) }}</p>{% endif %}
+{% include "constructs/_box_dialog.html" %}

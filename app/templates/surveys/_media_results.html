@@ -1,0 +1,37 @@
+{# Video / audio stimulus (items/stimulus.py results): how many started and saw it to the end, the mean share seen,
+   and the curve "how many saw up to where" (share of the logs that played each point of the length). #}
+{% set m = e.media %}
+{% set ch = m.chart %}
+<div class="media-results">
+  <p class="small">{{ de_en("Protokolle", "Logs") }}: {{ m.persons }}{% if m.passes %} {{ de_en("(Personen × Durchgang)", "(people × pass)") }}{% endif %}
+    {% if m.persons %} · {{ de_en("gestartet", "started") }} {{ m.started|percent }} · {{ de_en("bis zum Ende", "to the end") }} {{ m.complete|percent }}{% if m.seen is not none %} · {{ de_en("im Mittel gesehen bzw. gehört", "seen or heard on average") }} {{ m.seen|percent }}{% endif %}{% endif %}</p>
+  {% if m.lines %}
+  <figure class="psm-chart media-chart">
+    <svg viewBox="0 0 {{ ch.w }} {{ ch.h }}" role="img" aria-label="{{ de_en('Anteil, der jede Stelle gesehen bzw. gehört hat, über die Länge', 'Share that saw or heard each point, over the length') }}">
+      {% for yy, v in ch.y_ticks %}
+      <line class="psm-grid" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ yy }}" y2="{{ yy }}"/>
+      <text class="psm-tick" x="{{ ch.x_lo - 6 }}" y="{{ yy + 4 }}" text-anchor="end">{{ v|percent }}</text>
+      {% endfor %}
+      {% for xx, p in ch.x_ticks %}
+      <text class="psm-tick" x="{{ xx }}" y="{{ ch.base_y + 18 }}" text-anchor="middle">{{ (p / 100)|percent }}</text>
+      {% endfor %}
+      <line class="psm-axis" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ ch.base_y }}" y2="{{ ch.base_y }}"/>
+      <text class="psm-tick" x="{{ ch.x_hi }}" y="{{ ch.h - 2 }}" text-anchor="end">{{ de_en("Stelle in der Länge", "Point in the length") }}</text>
+      {% for ln in m.lines %}
+      <polyline class="psm-line media-line media-c{{ loop.index0 % 6 }}" points="{{ ln.points }}"/>
+      {% endfor %}
+    </svg>
+  </figure>
+  {% if m.lines|length > 1 %}
+  <table class="list-table">
+    <thead><tr><th>{{ de_en("Datei (Wert der Schleife)", "File (value of the loop)") }}</th><th class="num">n</th><th class="num">{{ de_en("bei der Hälfte", "at the half") }}</th><th class="num">{{ de_en("bis zum Ende", "to the end") }}</th></tr></thead>
+    <tbody>
+    {% for ln in m.lines %}<tr><td><span class="media-key media-c{{ loop.index0 % 6 }}" aria-hidden="true"></span> {{ ln.label }}</td><td class="num">{{ ln.n }}</td><td class="num">{{ ln.mid|percent }}</td><td class="num">{{ ln.end|percent }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <p class="muted small">{{ de_en("Die Kurve zeigt je Stelle (in Prozent der Länge), welcher Anteil sie gesehen bzw. gehört hat; übersprungene Teile zählen nicht. Ein steiler Abfall zeigt, wo viele aufhören.", "The curve shows per point (in per cent of the length) which share saw or heard it; skipped parts do not count. A steep drop shows where many stop.") }}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Noch keine Protokolle (ohne JavaScript gibt es keins).", "No logs yet (there is none without JavaScript).") }}</p>
+  {% endif %}
+</div>

@@ -1,0 +1,16 @@
+{# The POLLtergeist ghost (Ralf 2026-10-09: a cute ghost as the logo, with a nod to what the program does). It
+   follows Askurious' own ghost of the live polls' big screen (hidden results, live.js GHOST_SVG, drawn in this
+   project on 2026-10-03, commit b69e723b), not a drawing from elsewhere: the outline of the ghost on the big screen, one hand up as in a vote, the bars of a result
+   on its belly. Colours from tokens (--ghost-fill, --ghost-line, --ghost-eye, --ghost-bars, --ghost-cheek, app.css),
+   so the same drawing serves the header, the start page and the night scene. #}
+{% macro ghost(width=40, cls="", label="") -%}
+<svg class="pg-ghost {{ cls }}" width="{{ width }}" height="{{ (width * 140 / 132)|round|int }}" viewBox="0 0 132 140"{% if label %} role="img" aria-label="{{ label }}"{% else %} aria-hidden="true"{% endif %}>
+  <g class="pg-ghost-line"><path d="M60 8C33 8 16 29 16 58v60c0 4 4 6 7 3l8-7 8 8c2 2 5 2 7 0l7-7 7 7c2 2 5 2 7 0l7-7 7 7c2 2 5 2 7 0l8-8 8 7c3 3 7 1 7-3V58C104 29 87 8 60 8z"/>
+  <path class="pg-ghost-hand" d="M103 66c9-5 15-16 15-27 0-6-8-8-10-2-2 8-5 15-10 19"/><path d="M17 68c-8 0-12 6-9 10 3 4 8 3 10 0"/></g>
+  <g class="pg-ghost-eyes"><ellipse cx="46" cy="54" rx="6.5" ry="9"/><ellipse cx="74" cy="54" rx="6.5" ry="9"/></g>
+  <g class="pg-ghost-shine"><circle cx="48.3" cy="50.5" r="2.2"/><circle cx="76.3" cy="50.5" r="2.2"/></g>
+  <g class="pg-ghost-cheeks"><ellipse cx="35" cy="68" rx="6" ry="3.4"/><ellipse cx="85" cy="68" rx="6" ry="3.4"/></g>
+  <path class="pg-ghost-smile" d="M54 70q6 5 12 0"/>
+  <g class="pg-ghost-bars"><rect x="45" y="94" width="8" height="14" rx="2"/><rect x="56" y="84" width="8" height="24" rx="2"/><rect x="67" y="90" width="8" height="18" rx="2"/></g>
+</svg>
+{%- endmacro %}

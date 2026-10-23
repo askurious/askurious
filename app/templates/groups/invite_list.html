@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# Sammeleinladung of a course (app/bulk_invites.py, konzept-nutzertypen-2026-10-15.md, N14). Needs: group, sorted (None
+   before the preview), text, days, day_choices, mail_on, max_list. #}
+{% block title %}{{ de_en("Adressliste einladen", "Invite an address list") }} · {{ group.name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('groups.detail', group_id=group.id) }}">{{ icon("back", 16) }} {{ group.name }}</a>
+<h1>{{ de_en("Adressliste einladen", "Invite an address list") }}</h1>
+<section class="panel">
+  {% if mail_on %}
+  <p>{{ de_en("Jede neue Adresse bekommt eine persönliche Einladung per E-Mail. Konten mit einer Adresse der Liste nimmt Askurious direkt in die Gruppe auf.", "Each new address gets a personal invitation by email. Accounts with an address of the list are added to the group at once.") }}</p>
+  {% else %}
+  <div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Auf diesem Server ist der E-Mail-Versand aus: Askurious verschickt nichts. Nach „Einladen“ laden Sie einmalig eine Datei mit einem persönlichen Link je Adresse herunter und verschicken die Links selbst, etwa als Serienbrief oder über Moodle. Wer einen Link hat, legt damit ein Konto mit dieser Adresse an; Askurious kann die Adresse nicht prüfen.", "Email sending is switched off on this server: Askurious sends nothing. After “Invite” you download once a file with a personal link per address and send the links yourself, e.g. as a mail merge or through Moodle. Anyone who has a link creates an account with that address; Askurious cannot check the address.") }}</span></div>
+  {% endif %}
+  <form method="post" class="stack">
+    {{ csrf() }}
+    <label>{{ de_en("E-Mail-Adressen", "Email addresses") }} <span class="hint">{{ de_en("eine je Zeile, oder durch Komma oder Semikolon getrennt; höchstens {n}", "one per line, or separated by comma or semicolon; at most {n}", n=max_list) }}</span>
+      <textarea name="addresses" rows="10" required>{{ text }}</textarea></label>
+    <label>{{ de_en("Einladungen gelten", "Invitations are valid for") }}
+      <select name="days">{% for d in day_choices %}<option value="{{ d }}"{{ " selected" if d == days }}>{{ de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+    {% if sorted %}
+    <div class="res-scroll"><table class="list-table">
+      <tbody>
+        <tr><th>{{ de_en("neu, wird eingeladen", "new, will be invited") }}</th><td>{{ sorted.new|length }}{% if sorted.new %}: <span class="muted small">{{ sorted.new|join(", ") }}</span>{% endif %}</td></tr>
+        <tr><th>{{ de_en("hat schon ein Konto, wird direkt Mitglied", "has an account, becomes a member at once") }}</th><td>{{ sorted.account|length }}{% if sorted.account %}: <span class="muted small">{% for e, u in sorted.account %}{{ e }} ({{ u.display_name }}){{ ", " if not loop.last }}{% endfor %}</span>{% endif %}</td></tr>
+        <tr><th>{{ de_en("schon in der Gruppe", "already in the group") }}</th><td>{{ sorted.member|length }}</td></tr>
+        <tr><th>{{ de_en("doppelt", "twice") }}</th><td>{{ sorted.twice|length }}</td></tr>
+        <tr><th>{{ de_en("ungültig", "invalid") }}</th><td>{{ sorted.invalid|length }}{% if sorted.invalid %}: <span class="muted small">{{ sorted.invalid|join(", ") }}</span>{% endif %}</td></tr>
+      </tbody></table></div>
+    {% endif %}
+    <div class="button-row">
+      <button class="button button-secondary" name="step" value="preview">{{ de_en("Vorschau", "Preview") }}</button>
+      {% if sorted and (sorted.new or sorted.account) %}<button class="button" name="step" value="send">{{ de_en("Einladen", "Invite") if mail_on else de_en("Einladen und Links herunterladen", "Invite and download links") }}</button>{% endif %}
+    </div>
+  </form>
+  <p class="muted small">{{ de_en("Die Datei mit den Links gibt es nur dieses eine Mal; Askurious speichert die Links nicht, nur einen Prüfwert. Offene Einladungen stehen bei den Mitgliedern der Gruppe und lassen sich dort zurückziehen.", "The file with the links exists only this once; Askurious does not keep the links, only a hash. Open invitations are listed with the members of the group and can be withdrawn there.") }}</p>
+</section>
+{% endblock %}

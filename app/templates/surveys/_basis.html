@@ -1,0 +1,8 @@
+{# The basis of every evaluation in one box on Qualitätssicherung (UI audit 2026-10-04, R12, G3): what is saved for
+   the survey (_basis_stored.html). Ergebnisse shows the same in the zone "Gespeichert für die Befragung" of its panel
+   "Grundlage und Ansicht" (_results_basis.html, UI/UX audit 2026-10-07, S6). Needs: survey, basis, by_source,
+   pool_frozen, pool_frozen_note, weighting_on. #}
+<section class="panel basis" id="pool">
+  <h2>{{ de_en("Grundlage der Auswertung", "Basis of the analysis") }}{% if "dummy" in basis.sources and by_source.get("dummy") %} <span class="badge" title="{{ de_en('Der Datenpool enthält simulierte Teilnahmen; sie folgen dem Studienplan', 'The data pool holds simulated participations; they follow the research plan') }}">{{ de_en("mit Dummy-Daten", "with dummy data") }}</span>{% endif %} <span class="hint">{{ de_en("gilt für Qualitätssicherung, Ergebnisse und Dashboards und ist die Vorauswahl beim Export; in Klammern: abgeschlossene Teilnahmen je Quelle", "applies to quality assurance, results and dashboards and is the preselection for the export; in brackets: completed participations per source") }}</span></h2>
+  {% include "surveys/_basis_stored.html" %}
+</section>

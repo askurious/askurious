@@ -1,0 +1,19 @@
+{# One list per part (items/date_time.py); the first entry of each names it and counts as "not chosen". #}
+{% set dk = answers.get(item.id) == "dk" %}
+{% set v = kind.picked(item, none if dk else answers.get(item.id)) %}
+{% set names = kind.names(lang) %}
+{% set shown = kind.layout(item, lang) %}
+<div class="p-date" role="group" {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %} data-date>
+  {% include "items/_question.html" %}
+  <div class="p-date-fields">
+    {% for f in shown %}
+    {% if f == "n" %}<span class="p-date-sep" aria-hidden="true">:</span>{% endif %}
+    <select name="i{{ item.id }}_{{ f }}" aria-label="{{ names[f] }}" data-date-part="{{ f }}" autocomplete="off">
+      <option value="">{{ names[f] }}</option>
+      {% for value, text in kind.choices(item, f, lang) %}<option value="{{ value }}" {% if v[f] == value %}selected{% endif %}>{{ text }}</option>{% endfor %}
+    </select>
+    {% if f == "n" and lang in ("de", "de-du") %}<span class="p-date-sep">Uhr</span>{% endif %}
+    {% endfor %}
+  </div>
+  {% include "items/_dont_know.html" %}
+</div>

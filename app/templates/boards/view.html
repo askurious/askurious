@@ -1,0 +1,69 @@
+{# A dashboard on a page of its own (app/boards/): what a link shows without signing in (`share`), and the same
+   for the members of the survey. In the look of the survey (app/theme.py), never indexed, no way into the app.
+   `hall`: the lecture hall view with the QR code of the survey. `frame`: the preview inside the designer. #}
+<!doctype html>
+<html lang="{{ html_lang(lang) }}" dir="{{ html_dir(lang) }}"{% if frame %} class="b-framed"{% elif embed %} class="b-embedded"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>{{ board.name }} · {{ survey.title_in(lang) }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='board.css') }}">
+  {% set tab_icon = theme_icon(survey) %}
+  {% if tab_icon %}<link rel="icon" type="{{ tab_icon.type }}" href="{{ url_for('media.serve', survey_uid=survey.uid, filename=tab_icon.file) }}">{% endif %}
+  {% set theme_style = theme_css(survey) %}{% if theme_style %}<style>{{ theme_style|safe }}</style>{% endif %}
+</head>
+<body class="participant board{% if hall %} board-hall{% endif %}">
+  {% if state.mixed %}<p class="b-band">{{ ui("Dieses Dashboard enthält auch Test- oder Beispieldaten oder abgebrochene Teilnahmen.", "This dashboard also holds test or example data, or broken-off participations.") }}</p>{% endif %}
+  <main class="b-page" id="board" data-url="{{ live_url }}" data-version="{{ version }}" data-every="{{ every if live else 0 }}"{% if state.pending %} data-pending="1"{% endif %}{% if arrange %} data-arrange="1"{% endif %}{% if images %} data-images="1"{% endif %}{% if images or arrange %}
+        data-t="{{ {'image_title': ui('Diese Kachel als Bild (PNG) speichern', 'Save this tile as an image (PNG)'), 'image_failed': ui('nicht möglich', 'not possible'), 'remove': ui('Vom Dashboard nehmen', 'Take off the dashboard')}|tojson|forceescape }}"{% endif %}>
+    <header class="b-head">
+      {% set logo = theme_logo(survey, lang) %}{% include "participant/_logo.html" %}
+      <div class="b-head-text">
+        <h1>{{ survey.title_in(lang) }}{% if board.name %} <span>{{ board.name }}</span>{% endif %}</h1>
+        <p class="b-stand"><span class="b-live" id="board-live"{% if not live %} hidden{% endif %}>{{ ui("Vorschau", "Preview") if frame else ui("live", "live") }}</span>
+          {{ ui("Endstand", "Final state") if closed else ui("Stand", "As of") }} <span id="board-stand">{{ stand }}</span>{% if state.n is not none %} · <span id="board-n">{{ state.n }}</span> {{ ui("Teilnahmen", "Participations") }}{% elif state.pending %}<span data-board-n hidden> · <span id="board-n"></span> {{ ui("Teilnahmen", "Participations") }}</span>{% endif %}</p>
+        {# a link per person speaks to the person, without the parameter (UI/UX audit 2026-10-09, X56) #}
+        {% if state.only and person_url %}<p class="b-stand">{{ ui("Nur Teilnahmen über Ihren persönlichen Link. Ergebnisse von Fragen zeigt dieser Link nicht.", "Only participations through your personal link. This link does not show results of questions.") }}</p>
+        {% elif state.only %}<p class="b-stand">{{ ui("Nur Teilnahmen mit {name} = {value}. Ergebnisse von Fragen zeigt dieser Link nicht.", "Only participations with {name} = {value}. This link does not show results of questions.", name=state.only[0], value=state.only[1]) }}</p>{% endif %}
+        {% if language_links %}<p class="b-languages" aria-label="{{ ui("Sprache", "Language") }}">{% for code, name, url, current in language_links %}<a href="{{ url }}" lang="{{ html_lang(code) }}"{% if current %} aria-current="true"{% endif %}>{{ name }}</a>{% endfor %}</p>{% endif %}
+      </div>
+      {% if hall %}<button type="button" class="b-button" id="board-full" data-on="{{ ui("Vollbild beenden", "Leave full screen") }}" data-off="{{ ui("Vollbild", "Full screen") }}">{{ ui("Vollbild", "Full screen") }}</button>
+      {% elif not frame and not embed %}<button type="button" class="b-button" id="board-print" title="{{ ui("Drucken oder als PDF sichern", "Print or save as PDF") }}">{{ ui("Drucken / PDF", "Print / PDF") }}</button>{% endif %}
+    </header>
+    {% if person_url %}
+    <section class="b-person" aria-labelledby="b-person-head">
+      <div class="b-person-text">
+        <p class="b-join-title" id="b-person-head">{{ ui("Ihr Teilnahmelink zum Weitergeben", "Your participation link to pass on") }}</p>
+        <p class="b-person-copy"><input value="{{ person_url }}" readonly id="b-person-url" aria-labelledby="b-person-head"><button type="button" class="b-button" data-b-copy="#b-person-url" data-done="{{ ui('Kopiert', 'Copied') }}">{{ ui("Kopieren", "Copy") }}</button></p>
+      </div>
+      <div class="b-qr b-person-qr">{{ person_qr }}</div>
+    </section>
+    {% endif %}
+    <div class="b-body">
+      {% if hall %}
+      <aside class="b-join">
+        <p class="b-join-title">{{ ui("Jetzt teilnehmen", "Take part now") }}</p>
+        <div class="b-qr">{{ qr }}</div>
+        <p class="b-join-url">{{ join_url|replace("https://", "")|replace("http://", "") }}</p>
+      </aside>
+      {% endif %}
+      <div class="b-tiles" id="board-tiles">{{ tiles }}</div>
+    </div>
+    {% if cited %}{% from "_sources.html" import grouped %}<div class="b-sources">{{ grouped(cited, ui("Literatur", "References"), ui("zu", "for")) }}</div>{% endif %}
+  </main>
+  {% set partner_logos = theme_partners(survey) %}{% include "participant/_partners.html" %}
+  <footer class="p-footer b-footer">
+    {% from "_wordmark.html" import wordmark %}<span class="p-brand">{{ wordmark(True) }}</span>
+    <span>{{ ui("Nur zusammengefasste Zahlen; Antworten einzelner Personen werden nicht gezeigt.", "Summarised numbers only; answers of single people are not shown.") }}{% if share and expires.year < 9999 %} {{ ui("Der Link gilt bis {date}.", "The link works until {date}.", date=expires|localdt) }}{% endif %}</span>
+    {# a way to report illegal content on every public page (Art. 16 DSA; copyright audit 2026-10-16, U11) #}
+    {# where the derived ODbL database of the postcode areas and every other source is to be had (ODbL 4.3 and 4.6;
+       licence audit 2026-10-21, D-6) #}
+    <span class="p-footer-legal"><a href="{{ url_for('public.sources') }}">{{ ui("Lizenzen und Datenquellen", "Licences and data sources") }}</a> ·
+    <a href="{{ url_for('participate.complaint', uid=survey.public_key) }}">{{ ui("Inhalt melden", "Report content") }}</a></span>
+  </footer>
+  <script src="{{ url_for('static', filename='board.js') }}"></script>
+</body>
+</html>

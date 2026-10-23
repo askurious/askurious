@@ -1,0 +1,39 @@
+/* status.askurious.de (app/status_node.py, templates/status/index.html): bars of the last 24 hours */
+.status-page { max-width: 880px; }
+.status-page h1 { margin: 24px 0 12px; }
+.status-overall { padding: 12px 16px; border-radius: var(--radius-panel); font-weight: 600; margin-bottom: 8px; border: 1px solid var(--border); }
+.status-overall.status-ok { background: var(--ok-soft); color: var(--ok); }
+.status-overall.status-down { background: var(--danger-soft); color: var(--danger); }
+.status-overall.status-none { background: var(--surface-2); color: var(--muted); }
+.status-service { margin-top: 14px; }
+.status-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.status-head h2 { margin: 0; font-size: 1.05rem; }
+.status-badge { font-size: 0.85rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+.status-badge.status-ok { background: var(--ok-soft); color: var(--ok); }
+.status-badge.status-down { background: var(--danger-soft); color: var(--danger); }
+.status-badge.status-none { background: var(--surface-3); color: var(--muted); }
+/* the state of a quarter hour also in the form, not only in colour (WCAG 1.4.1; UI/UX audit 2026-10-16, 63): the bar
+   gets one step lower per disrupted minute, from yellow at one minute to red at 14 (status-l1 to status-l14,
+   app/status_node.bar_level); every minute down leaves an empty place with its title (Ralf, 2026-10-18; before a red
+   X). Classes, not inline heights: the page's CSP (default-src 'self') refuses style attributes */
+.status-bars { list-style: none; display: flex; align-items: flex-end; gap: 2px; padding: 0; margin: 12px 0 4px; height: 32px; }
+.status-bars li { flex: 1 1 0; min-width: 1px; height: 100%; border-radius: 2px; background: var(--surface-3); }
+.status-bars li.status-ok { background: var(--ok); }
+.status-bars li.status-l1 { height: 93.3%; background: color-mix(in oklab, var(--danger) 0%, var(--warn-bar)); }
+.status-bars li.status-l2 { height: 86.7%; background: color-mix(in oklab, var(--danger) 8%, var(--warn-bar)); }
+.status-bars li.status-l3 { height: 80.0%; background: color-mix(in oklab, var(--danger) 15%, var(--warn-bar)); }
+.status-bars li.status-l4 { height: 73.3%; background: color-mix(in oklab, var(--danger) 23%, var(--warn-bar)); }
+.status-bars li.status-l5 { height: 66.7%; background: color-mix(in oklab, var(--danger) 31%, var(--warn-bar)); }
+.status-bars li.status-l6 { height: 60.0%; background: color-mix(in oklab, var(--danger) 38%, var(--warn-bar)); }
+.status-bars li.status-l7 { height: 53.3%; background: color-mix(in oklab, var(--danger) 46%, var(--warn-bar)); }
+.status-bars li.status-l8 { height: 46.7%; background: color-mix(in oklab, var(--danger) 54%, var(--warn-bar)); }
+.status-bars li.status-l9 { height: 40.0%; background: color-mix(in oklab, var(--danger) 62%, var(--warn-bar)); }
+.status-bars li.status-l10 { height: 33.3%; background: color-mix(in oklab, var(--danger) 69%, var(--warn-bar)); }
+.status-bars li.status-l11 { height: 26.7%; background: color-mix(in oklab, var(--danger) 77%, var(--warn-bar)); }
+.status-bars li.status-l12 { height: 20.0%; background: color-mix(in oklab, var(--danger) 85%, var(--warn-bar)); }
+.status-bars li.status-l13 { height: 13.3%; background: color-mix(in oklab, var(--danger) 92%, var(--warn-bar)); }
+.status-bars li.status-l14 { height: 6.7%; background: color-mix(in oklab, var(--danger) 100%, var(--warn-bar)); }
+.status-bars li.status-down { background: transparent; }
+.status-axis { display: flex; justify-content: space-between; }
+.status-facts { margin: 6px 0 0; color: var(--muted); }
+@media (max-width: 600px) { .status-bars { gap: 1px; height: 26px; } }

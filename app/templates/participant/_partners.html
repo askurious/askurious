@@ -1,0 +1,2 @@
+{# Needs: partner_logos (app/theme.py partners_for), survey #}
+{% if partner_logos %}<div class="p-partners"><div class="p-partners-strip">{% for p in partner_logos %}<img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=p.file) }}" alt="{{ p.alt }}" width="{{ p.w }}" height="{{ p.h }}">{% endfor %}</div></div>{% endif %}

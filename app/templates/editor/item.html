@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% set rich_text = true %}{# richtext.js for the formatted texts (base.html) #}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields, ai_access_line %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{% block title %}{{ (item_preset(item) or kind).label }} {{ item.code }} · {{ survey.title }}{% endblock %}
+{% block footer_stats %}<strong>{{ survey.title|truncate(60) }}</strong> ·{% endblock %}
+{# the survey's head as on the other tab pages: a band over the whole width, the column centred (Ralf, 2026-10-06) #}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{# not in an interview guide: its rules are those of questionnaires (the guide gets its own check, concept stage 2) #}
+{% set review_here = survey.is_editable and survey.can(current_user, "editor") and text_reviewable and survey.interview is none %}
+{% set in_live = request.args.get("embed") == "1" %}
+{% if not in_live %}<div class="tabpage-head">{% set active_tab = "editor" %}{% set sub_page = true %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% endif %}
+{% if in_live %}{# inside the page of a live vote: its list is the way back #}
+{% elif survey.live is not none %}<a class="back-link" href="{{ url_for('live.manage', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Live-Abstimmung", "Live poll") }}</a>
+{% else %}<a class="back-link" href="{{ url_for('editor.index', survey_id=survey.id, lang=lang) }}#item-{{ item.id }}">{{ icon("back", 16) }} {{ de_en("Fragebogen", "Questionnaire") }}</a>{% endif %}
+<div class="page-head">
+  {# icon, name and description in three columns: a long description wraps in its own column, never under the icon
+     (pre-test 2026-10-20, 23); a set-up type ("Bildauswahl") under its own name and icon, not that of its base type
+     (item_preset) #}
+  {% set preset = item_preset(item) %}{% set shown = preset or kind %}
+  <h1 class="item-head"><span class="item-icon big">{{ icon(preset.key if preset else item.type, 20) }}</span> <span class="item-head-label">{{ shown.label }}</span> <span class="hint">{{ shown.description }}</span></h1>
+  <div class="page-head-tools">
+    {% if review_here and ai_on() %}<button class="button button-ai button-small" form="text-review-form" title="{{ de_en('Formulierung nach den Regeln der Fragebogenkonstruktion prüfen (gespeicherter Stand); Vorschläge zum Auswählen, ein KI-Aufruf', 'Check the wording against the rules of questionnaire design (saved state); suggestions to choose from, one AI call') }}">{{ icon("sparkles", 16) }} {{ de_en("Element mit KI prüfen", "Check element with AI") }}</button>{{ ai_access_line() }}{% endif %}
+    {% if in_live %}{% include "editor/_undo.html" %}{% endif %}{# S2: else in the head of the survey #}
+  </div>
+</div>
+{# kept in the page when nothing is open: a draft saves by itself and fills it in (app.js) #}
+<div class="flash flash-warning" data-item-problems {% if not problems %}hidden{% endif %}>{{ icon("alert", 16) }} <span>{{ de_en("Noch offen:", "Still open:") }} <span data-item-problems-text>{{ problems|join("; ") }}</span></span></div>
+{% set can_edit = survey.can(current_user, "editor") %}
+{% if not can_edit %}
+<div class="flash">{{ icon("eye", 16) }} {{ de_en("Ihre Rolle ist „Ansehen“: nur lesen.", "Your role is “View”: read only.") }}</div>
+{% elif not survey.is_editable %}
+<div class="flash flash-warning">{{ icon("alert", 16) }} {{ de_en("Die Befragung läuft oder ist geschlossen: Nur Texte können korrigiert werden.", "The survey is running or closed: only texts can be corrected.") }}</div>
+{% elif lang != survey.default_language %}
+<div class="flash">{{ de_en("Übersetzungsansicht ({language}): Codes, Optionen und Skala werden in der Ausgangssprache ({source}) bearbeitet. Alle Texte der Befragung mit ihrem Stand und KI-Übersetzung:", "Translation view ({language}): codes, options and scale are edited in the source language ({source}). All texts of the survey with their state and AI translation:", language=languages[lang], source=languages[survey.default_language]) }} <a href="{{ url_for('translations.index', survey_id=survey.id, lang=lang) }}#item-{{ item.id }}">{{ de_en("Übersetzung", "Translation") }}</a> · <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id) }}">{{ de_en("zur Ausgangssprache", "to the source language") }}</a>.</div>
+{% endif %}
+{% if design_locked and can_edit %}
+<div class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ design_lock_message }}</span></div>
+{% endif %}
+
+{% if (item.config or {}).get("ai") and not item.kind.ai_scale %}{# drafted by the AI, but no scale (Conjoint, IAT … from AInstein) #}
+<div class="flash ai-note">
+  <div>
+    <strong>✨ {{ de_en("Von einer KI entworfen.", "Drafted by an AI.") }}</strong> {{ de_en("Entworfen zu: „{idea}“.", "Drafted for: “{idea}”.", idea=item.config.ai.idea) }}
+    {{ de_en("Bitte alle Texte prüfen und anpassen, bevor die Befragung startet; die Markierung bleibt am Element (Editor, Startprüfung).", "Please check and adapt all texts before the survey starts; the mark stays on the element (editor, pre-launch check).") }}
+  </div>
+</div>
+{% elif (item.config or {}).get("ai") %}
+<div class="flash ai-note">
+  <div>
+    <strong>✨ {{ de_en("KI-generiert, nicht validiert.", "AI-generated, not validated.") }}</strong> {{ de_en("Entworfen zu: „{idea}“.", "Drafted for: “{idea}”.", idea=item.config.ai.idea) }}
+    {{ de_en("Bitte jedes Item prüfen, anpassen oder löschen; die Markierung bleibt am Element (Editor, Codebuch, Startprüfung). Im Pretest die Reliabilität untersuchen.", "Please check, adapt or delete each item; the mark stays on the element (editor, codebook, pre-launch check). Examine the reliability in the pretest.") }}
+    {% if structural and ai_on() %}
+    <form method="post" action="{{ url_for('editor.ai_more', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="row-fields ai-more"
+          data-busy="{{ de_en('Wird entworfen …', 'Drafting …') }}">
+      {{ csrf() }}
+      <label>{{ de_en("weitere", "another") }} <input type="number" name="n" min="2" max="15" value="3" class="narrow"> {{ de_en("Items", "items") }}</label>
+      <label class="check"><input type="checkbox" name="reverse" value="1" checked> {{ de_en("etwa die Hälfte umgepolt", "about half reverse-keyed") }}</label>
+      <button class="button button-small button-ai">✨ {{ de_en("Weitere Items vorschlagen", "Suggest more items") }}</button>
+      {{ ai_access_line() }}
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% if linked and linked.element %}
+{% set el = linked.element %}
+<div class="construct-note linked-note{% if linked.adapted %} is-adapted{% endif %}">
+  <div>
+    <strong>{{ icon("link", 16) }} {{ de_en("Verknüpftes Element: {name}", "Linked element: {name}", name=el.name) }}</strong>
+    <span class="badge badge-linked">{{ de_en("Fassung {rev}", "Revision {rev}", rev=linked.version) }}</span>
+    {% if linked.adapted %}<span class="badge badge-paused">{{ de_en("angepasst", "adapted") }}</span>{% endif %}
+    <p class="small">{{ de_en("Dieselbe Frage in {n} Befragung", "The same question in {n} survey", n=linked.surveys) if linked.surveys == 1 else de_en("Dieselbe Frage in {n} Befragungen", "The same question in {n} surveys", n=linked.surveys) }}{% if linked.real %}, {{ de_en("{n} echte Teilnahme", "{n} real participation", n=linked.real) if linked.real == 1 else de_en("{n} echte Teilnahmen", "{n} real participations", n=linked.real) }}{% if linked.real_partial %} {{ de_en("in den Befragungen mit Ihrem Zugriff", "in the surveys you have access to") }}{% endif %}{% endif %}.
+      {% if linked.usable %}<a href="{{ url_for('constructs.linked', key=el.key) }}">{{ de_en("Seite des Elements", "Page of the element") }}</a>{% endif %}</p>
+    {% if linked.version < el.seed_version %}
+    <p class="small"><strong>{{ de_en("Fassung {rev} ist neuer.", "Revision {rev} is newer.", rev=el.seed_version) }}</strong> {% if linked.switch_refused %}{{ linked.switch_refused }}{% else %}{{ de_en("Diese Befragung kann sie übernehmen; Variablenname und Darstellung bleiben.", "This survey can take it over; variable name and display stay.") }}{% endif %}</p>
+    {% endif %}
+    {% if linked.adapted %}
+    <p class="small">{{ de_en("In dieser Befragung angepasst: Die Frage gehört weiter zum Element und wird in Codebuch und gemeinsamer Auswertung als angepasst gekennzeichnet.", "Adapted in this survey: the question still belongs to the element and is marked as adapted in the codebook and the joint analysis.") }}{% if construct.modifications %} {{ de_en("Abweichungen:", "Deviations:") }} {{ construct.modifications|join("; ") }}.{% endif %}</p>
+    {% elif linked.frozen %}
+    <p class="small">{{ icon("lock", 14) }} {{ de_en("Eingefroren:", "Frozen:") }} {{ linked.frozen }} {{ de_en("Aufbau und Wortlaut sind gesperrt, damit alle Befragungen dieselbe Frage stellen. Sprachen, die das Element noch nicht hat, lassen sich ergänzen; Variablenname, Antwortmodus und Darstellung bleiben frei.", "Structure and wording are locked so that all surveys ask the same question. Languages the element does not have yet can be added; variable name, answer mode and display stay free.") }}</p>
+    {% else %}
+    <p class="small">{{ de_en("Offen: Noch hat niemand echt geantwortet und keine Befragung damit läuft. Änderungen hier übernehmen alle Verwendungen im Entwurf. Sobald eine Befragung damit startet, wird das Element eingefroren.", "Open: nobody has really answered yet and no survey with it is running. Changes here apply to all uses in draft. As soon as a survey with it starts, the element is frozen.") }}</p>
+    {% endif %}
+  </div>
+  {% if survey.can(current_user, "editor") %}
+  <div class="linked-actions">
+    {% if linked.version < el.seed_version and not linked.switch_refused %}
+    <form method="post" action="{{ url_for('editor.switch_linked_version', survey_id=survey.id, item_id=item.id, lang=lang) }}">
+      {{ csrf() }}<button class="button small">{{ de_en("Fassung {rev} übernehmen", "Apply revision {rev}", rev=el.seed_version) }}</button>
+    </form>
+    {% endif %}
+    {% if linked.new_version %}
+    <form method="post" action="{{ url_for('editor.new_linked_version', survey_id=survey.id, item_id=item.id, lang=lang) }}">
+      {{ csrf() }}<button class="button button-secondary small" title="{{ de_en('Fassung {new} entsteht aus dieser Frage mit ihren Anpassungen und ist offen, bis eine Befragung damit läuft; Befragungen mit Fassung {rev} behalten diese', 'Revision {new} is made from this question with its adaptations and stays open until a survey with it runs; surveys with revision {rev} keep theirs', new=el.seed_version + 1, rev=el.seed_version) if linked.adapted else de_en('Fassung {new} entsteht aus dieser Frage und ist offen, bis eine Befragung damit läuft; Befragungen mit Fassung {rev} behalten diese', 'Revision {new} is made from this question and stays open until a survey with it runs; surveys with revision {rev} keep theirs', new=el.seed_version + 1, rev=el.seed_version) }}">{{ de_en("Anpassung als neue Fassung übernehmen", "Save adaptation as new revision") if linked.adapted else de_en("Neue Fassung anlegen", "Create new revision") }}</button>
+    </form>
+    {% endif %}
+    {% if linked.frozen and not linked.adapted and survey.is_editable %}
+    <form method="post" action="{{ url_for('editor.unlock_construct', survey_id=survey.id, item_id=item.id, lang=lang) }}">
+      {{ csrf() }}<button class="button button-secondary small" title="{{ de_en('Nur in dieser Befragung ändern; das Element bleibt verknüpft und gilt hier als angepasst', 'Change in this survey only; the element stays linked and counts as adapted here') }}">{{ de_en("In dieser Befragung anpassen", "Adapt in this survey") }}</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('editor.unlink_item', survey_id=survey.id, item_id=item.id, lang=lang) }}">
+      {{ csrf() }}<button class="button button-secondary small" title="{{ de_en('Die Frage wird eine gewöhnliche Kopie und zählt nicht mehr zum Element; ihre Antworten bleiben hier', 'The question becomes an ordinary copy and no longer counts towards the element; its answers stay here') }}">{{ de_en("Verknüpfung lösen", "Unlink") }}</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% elif construct %}
+<div class="construct-note{% if construct.unlocked or construct.modifications %} is-adapted{% endif %}">
+  <div>
+    <strong>{{ icon("construct", 16) }} {{ de_en("Validiertes Konstrukt: {name}", "Validated construct: {name}", name=construct.label) }}</strong>
+    {% if construct.modifications %}<span class="badge badge-paused">{{ de_en("angepasst", "adapted") }}</span>{% endif %}
+    <p class="small">{{ construct.citation }}</p>
+    {% if construct.scoring %}<p class="small muted">{{ construct.scoring }}</p>{% endif %}
+    {% if construct.notes %}<p class="small muted">{{ de_en("Nutzung:", "Use:") }} {{ construct.notes }}</p>{% endif %}
+    {% if construct.modifications %}
+    <p class="small"><strong>{{ de_en("Abweichungen vom Original:", "Deviations from the original:") }}</strong> {{ construct.modifications|join("; ") }}.
+      {{ de_en('Sie werden in Codebuch, <code>constructs.md</code> und bei studienübergreifenden Auswertungen ausgewiesen.', 'They are shown in the codebook, <code>constructs.md</code> and in analyses across surveys.')|safe }}</p>
+    {% endif %}
+    {% if construct.zis and (construct.unlocked or construct.modifications) %}
+    <p class="small" data-zis-terms><strong>{{ zis_changed }}</strong></p>
+    {% endif %}
+    {% if construct.unlocked %}
+    <p class="small">{{ de_en("Die Struktur ist entsperrt. Veränderte Items sind nicht mehr das validierte Instrument.", "The structure is unlocked. Changed items are no longer the validated instrument.") }}</p>
+    {% else %}
+    <p class="small muted">{{ de_en("Skala, Aussagen, Reihenfolge der Stufen und Umpolung sind gesperrt, damit die Validität erhalten bleibt. Tippfehler im Wortlaut lassen sich korrigieren; die zufällige Reihenfolge der Aussagen (Standard) lässt sich abschalten.", "Scale, statements, order of the levels and reverse keying are locked so that validity is kept. Typos in the wording can be corrected; the random order of the statements (standard) can be switched off.") }}
+      {# said here instead of in a question: unlocking can be taken back (Rückgängig) #}
+      {% if survey.is_editable %}{{ de_en("Entsperrte und veränderte Konstrukte sind nicht mehr das validierte Instrument; manche Quellen (z. B. GESIS) verlangen dafür das Einverständnis der Autorinnen und Autoren.", "Unlocked and changed constructs are no longer the validated instrument; some sources (e.g. GESIS) require the authors' permission for this.") }}{% endif %}</p>
+    {% endif %}
+  </div>
+  {% if not construct.unlocked and survey.is_editable %}
+  <form method="post" action="{{ url_for('editor.unlock_construct', survey_id=survey.id, item_id=item.id, lang=lang) }}">
+    {{ csrf() }}<button class="button button-secondary small">{{ de_en("Bearbeitung entsperren", "Unlock editing") }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if (loop_vars or pipe_sources) and not in_live %}
+<div class="loop-vars" data-loop-vars>
+  {% if loop_vars %}
+  <span class="label-title">🔁 {{ de_en("Platzhalter der Schleife", "Placeholders of the loop") }}</span>
+  {% for v in loop_vars %}<button type="button" class="chip" draggable="true" data-insert="{{ '{{' ~ v ~ '}}' }}">{{ '{{' ~ v ~ '}}' }}</button>{% endfor %}
+  {% endif %}
+  {% if loop_vars %}<span class="hint">{{ de_en("in einen Text ziehen oder anklicken (fügt im zuletzt angeklickten Textfeld ein, sonst im Fragetext)", "drag into a text or click (inserts into the text field clicked last, otherwise into the question text)") }}</span>{% endif %}
+  {% if pipe_sources %}
+  {# rarely needed: folded at first (Philipp, 2026-10-04) #}
+  <details class="pipe-fold">
+    <summary><span class="label-title">↪ {{ de_en("Antworten früherer Fragen", "Answers to earlier questions") }}</span> <span class="muted small">{{ pipe_sources|length }}</span></summary>
+    {% for code, question in pipe_sources %}<button type="button" class="chip chip-answer" draggable="true" data-insert="{{ '{{' ~ code ~ '}}' }}" title="{{ question }}">{{ (question or code)|truncate(40, true, "…") }} <small>{{ code }}</small></button>{% endfor %}
+    <span class="hint">{{ de_en("in einen Text ziehen oder anklicken (fügt im zuletzt angeklickten Textfeld ein, sonst im Fragetext). In Texten mit Formatierungsleiste: „Antwort einfügen“; ein Klick auf den eingesetzten Baustein legt den Ersatztext fest, der bei fehlender Antwort erscheint.", "drag into a text or click (inserts into the text field clicked last, otherwise into the question text). In texts with a formatting bar: “Insert answer”; a click on the inserted piece sets the fallback text shown when the answer is missing.") }}</span>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
+{# what the texts of this element can show in place of a placeholder (richtext.js) #}
+<script type="application/json" data-rich-vars>{{ rich_vars|tojson }}</script>
+{# saves by itself (app.js, "Element editor: saving by itself"); in the field when a text field is left, so a
+   half-typed correction never reaches participants (data-autosave-on-leave, as the settings; UI audit R17) #}
+{% set autosave = survey.can(current_user, "editor") %}
+<form method="post" class="stack panel item-editor" data-live-form{% if autosave %} data-autosave{% if not survey.is_editable %} data-autosave-on-leave{% endif %}{% endif %}>
+  {{ csrf() }}{% if not survey.is_editable %}<input type="hidden" name="opened_running" value="1">{% endif %}
+  {% if survey.can(current_user, "editor") %}{{ edit_guard_fields(survey, "item:%d" % item.id, edit_guard.item_state(item),
+       url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang)) }}{% endif %}
+  <div class="row-fields">
+    <label><span class="label-title">{{ de_en("Variablenname", "Variable name") }} <span class="hint">{{ de_en("für den Export", "for the export") }}</span></span>
+      <input name="code" value="{{ item.code }}" required pattern="[A-Za-z][A-Za-z0-9_]*" data-varname="full" data-taken='{{ survey.blocks|map(attribute="items")|sum(start=[])|rejectattr("id", "equalto", item.id)|map(attribute="code")|list|tojson }}' {% if not meta_editable %}disabled{% endif %}>
+    </label>
+    {% if kind.collects_answer and kind.has_answer_mode %}
+    <div class="field">
+      <span class="label-title">{{ de_en("Antwort erzwingen?", "Require an answer?") }}</span>
+      <div class="segmented" role="radiogroup" aria-label="{{ de_en('Antwortmodus', 'Answer mode') }}">
+        {% set modes = item.answer_mode_labels() %}
+        {% for value in item.ANSWER_MODES %}{% set label, tip = modes[value] %}
+        <label title="{{ tip }}"><input type="radio" name="answer_mode" value="{{ value }}" {% if item.answer_mode == value %}checked{% endif %} {% if not meta_editable %}disabled{% endif %}><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% set level_choices = kind.level_choices(item) %}
+    {% if level_choices|length > 1 %}
+    <div class="field">
+      <span class="label-title">{{ de_en("Messniveau", "Level of measurement") }} <span class="hint">{{ de_en("steuert die Statistiken", "controls the statistics") }}</span></span>
+      <div class="segmented" role="radiogroup" aria-label="{{ de_en('Messniveau', 'Level of measurement') }}">
+        {% for value in level_choices %}
+        {% set tip = {"nominal": de_en("Häufigkeiten und Modus", "Frequencies and mode"), "ordinal": de_en("Häufigkeiten, Median, Quartile; kein Mittelwert", "Frequencies, median, quartiles; no mean"),
+                      "metric": de_en("Mittelwert, Standardabweichung, bei Skalen Cronbachs α und Skalenmittelwert", "Mean, standard deviation, for scales Cronbach's α and scale mean")}[value] %}
+        <label title="{{ tip }}"><input type="radio" name="level" value="{{ value }}" {% if kind.level(item) == value %}checked{% endif %} {% if not (can_edit and lang == survey.default_language) %}disabled{% endif %}><span>{{ level_labels[value]|capitalize }}</span></label>
+        {% endfor %}
+      </div>
+      {# a scale counts with its score in the study plan, whatever is picked here (UI/UX audit 2026-10-05, V7) #}
+      {% if item.type == "likert" and ((item.config or {}).get("statements") or [])|length >= 2 %}
+      <span class="hint">{{ de_en("gilt für die einzelnen Aussagen; der Skalenwert (Mittel der Aussagen) zählt in Hypothesen des Studienplans als metrisch", "applies to the single statements; the scale score (mean of the statements) counts as metric in hypotheses of the research plan") }}</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% if kind.collects_answer and kind.has_answer_mode %}{{ why("answer_mode") }}{% endif %}
+  {% if kind.editor_tabs %}
+  {# e.g. conjoint: tabs on one page (one form; switching keeps everything, "Speichern" saves all tabs) #}
+  <nav class="cj-tabs" role="tablist" aria-label="{{ de_en('{name} einrichten', 'Set up {name}', name=kind.label) }}" data-cj-tabs data-item="{{ item.id }}">
+    {% for key, title, hint in kind.editor_tabs %}
+    <button type="button" role="tab" data-tab="{{ key }}"{% if hint %} title="{{ hint }}"{% endif %}>{{ title }}</button>
+    {% endfor %}
+  </nav>
+  {% endif %}
+  {# a frozen linked element: its fields stay in the form (and are sent as they are) but cannot be changed #}
+  {% if linked and linked.text_locked %}<div class="kind-fields-locked" inert>{% include kind.editor_template %}</div>
+  {% else %}{% include kind.editor_template %}{% endif %}
+  {% set optional_options = kind.optional_options(item, lang) %}
+  {% if optional_options %}
+  <input type="hidden" name="optional_options_shown" value="1">
+  {% for oid, label, shown in optional_options %}
+  <label class="check"><input type="checkbox" name="optional_option" value="{{ oid }}" data-reload-saved {% if shown %}checked{% endif %} {% if not meta_editable %}disabled{% endif %}>
+    {{ de_en("Option „{label}“ anbieten", "Offer option “{label}”", label=label|striptags) }}
+    <span class="hint">{{ de_en("gehört zum Konstrukt, darf aber fehlen; ohne Haken sehen Teilnehmende die Option nicht. Gilt nicht als Abweichung vom Konstrukt.", "belongs to the construct but may be left out; without the tick participants do not see the option. Does not count as a deviation from the construct.") }}</span></label>
+  {% endfor %}
+  {% endif %}
+  {% if kind.supports_dropdown and kind.supports_map %}
+  {% set shown = item.config.get("display") or "buttons" %}
+  <label>{{ de_en("Darstellung", "Display") }}
+    <span class="hint">{{ de_en("nur die Anzeige; Codes und Export bleiben gleich", "only the display; codes and export stay the same") }}</span>
+    <select name="display" {% if not meta_editable %}disabled{% endif %}>
+      <option value="buttons" {% if shown == "buttons" %}selected{% endif %}>{{ de_en("Auswahlknöpfe (Liste)", "Choice buttons (list)") }}</option>
+      <option value="dropdown" {% if shown == "dropdown" %}selected{% endif %}>{{ de_en("Dropdown-Liste", "Dropdown list") }}</option>
+      <option value="map" {% if shown == "map" %}selected{% endif %}>{{ de_en("Karte zum Anklicken (Umrisse mit Ländernamen)", "Clickable map (outlines with state names)") }}</option>
+    </select>
+  </label>
+  {{ why("dropdown") }}
+  {% elif kind.supports_dropdown %}
+  {% include "items/_presentation.html" %}
+  {% endif %}
+  {# a type with a fieldset "Darstellung" shows the tick inside it (auto_next_inline, W34) #}
+  {% if kind.supports_auto_next and not kind.auto_next_inline %}{% include "items/_auto_next.html" %}{% endif %}
+  {# a condition of the question itself (app/item_condition.py) #}
+  {% set ic = item_cond %}{% include "items/_item_condition.html" %}
+  {% if autosave %}
+  <div class="form-actions autosave-bar" data-autosave-bar>
+    <a class="button" data-autosave-done href="{{ url_for('editor.index', survey_id=survey.id, lang=lang) }}#item-{{ item.id }}">{{ de_en("Fertig", "Done") }}</a>
+    <span class="autosave-status" data-autosave-status>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span>
+    <button type="button" class="button button-small button-secondary" data-autosave-retry hidden>{{ de_en("Erneut versuchen", "Try again") }}</button>
+    <button type="button" class="button button-small button-secondary" data-autosave-theirs hidden>{{ de_en("Änderung der anderen Person laden", "Load the other person’s version") }}</button>
+    <button type="button" class="button button-small button-secondary" data-autosave-mine hidden>{{ de_en("Meine Änderung behalten", "Keep my version") }}</button>
+    <noscript><button class="button" name="after" value="back">{{ de_en("Speichern", "Save") }}</button></noscript>
+  </div>
+  {% endif %}
+</form>
+
+{# drawn anew after a save that changes them (app.js, autosave: d.stale), e.g. the images after "Anzeige je Option" #}
+<div data-item-panels>
+{% if kind.has_image %}<div {% if kind.editor_tabs %}data-cj-tab="display"{% endif %}>{% include "items/image/assets.html" %}</div>{% endif %}
+{% if kind.panel_template %}{% include kind.panel_template %}{% endif %}
+</div>
+{% set item_sources = kind.source_groups(item) %}
+{% if item_sources %}{% from "_sources.html" import grouped %}<section class="panel">{{ grouped(item_sources, de_en("Literatur zu diesem Element", "References for this element")) }}</section>{% endif %}
+
+{% if review_here %}
+{# the button "Element mit KI prüfen" stands in the page head; it sends this form of its own #}
+<form method="post" id="text-review-form" action="{{ url_for('editor.text_review_item', survey_id=survey.id, item_id=item.id) }}">{{ csrf() }}</form>
+{% endif %}
+{# the study plan (app/study_plan.py): this element measures what explains or what is explained in a hypothesis #}
+{% set plan_hyps = study_plan.plan_of(survey).hypotheses if kind.collects_answer and item.type != "consent" else [] %}
+{% if plan_hyps %}
+<section class="panel plan-assign">
+  {# one row per hypothesis with both roles (UI/UX audit 2026-10-05, V3): every role this element has is shown, a
+     click changes only that role #}
+  <form method="post" action="{{ url_for('study_plan.assign', survey_id=survey.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="code" value="{{ item.code }}"><input type="hidden" name="back" value="{{ request.full_path }}">
+    {% set plan_edit = survey.can(current_user, "editor") %}
+    <fieldset class="bare plan-assign-rows">
+      <legend class="label-title">{{ de_en("Im Studienplan", "In the research plan") }} <span class="hint">{{ de_en("welche Größe dieses Element in welcher Hypothese misst", "which variable this element measures in which hypothesis") }}</span></legend>
+      {# what to tick, once above the rows; each box says what its role means for the type of hypothesis (pre-test
+         2026-10-20, 11: "Gruppen" / "Verglichen wird" alone did not say which box to tick) #}
+      <p class="muted small plan-assign-intro">{{ de_en("Je Hypothese ankreuzen, welche Rolle dieses Element darin spielt; meist ist es eine. Unter jeder Rolle steht, was sie bei dieser Art von Hypothese bedeutet.", "For each hypothesis tick the role this element plays in it; usually it is one. Under each role it says what the role means for this type of hypothesis.") }}</p>
+      {% set kind_names = study_plan.kinds() %}
+      {% for h in plan_hyps %}
+      <div class="plan-assign-row">
+        <input type="hidden" name="h" value="{{ h.id }}">
+        <span class="plan-assign-text"><strong>H{{ loop.index }}</strong> {{ h.text|truncate(90) }}{% if kind_names.get(h.kind) %} <span class="hint plan-assign-kind">{{ kind_names[h.kind] }}</span>{% endif %}</span>
+        {% set named = study_plan.roles(h.kind) %}{% set hints = study_plan.role_hints(h.kind) %}
+        <span class="plan-assign-roles">
+        {% for role in study_plan.role_keys(h.kind) %}
+        <label class="check plan-assign-role"><input type="checkbox" name="role" value="{{ h.id }}:{{ role }}" {% if h[role] == item.code %}checked{% endif %} {% if not plan_edit %}disabled{% endif %}>
+          <span><span class="plan-assign-role-name">{{ named[role] }}</span>{% if hints[role] %} <span class="hint plan-assign-role-hint">{{ hints[role] }}</span>{% endif %}
+          {% if h[role] and h[role] != item.code %}<span class="hint">{{ de_en("bisher {code}", "so far {code}", code=h[role]) }}</span>{% endif %}</span></label>
+        {% endfor %}
+        </span>
+        {% if h.iv == item.code and h.dv == item.code %}<span class="field-error">{{ de_en("Die beiden Variablen müssen verschiedene Fragen sein", "The two variables must be different questions") }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </fieldset>
+    {{ autosave_bar(small=true) }}
+  </form>
+</section>
+{% endif %}
+<section class="panel" id="live-preview">
+  <h2>{{ de_en("Vorschau", "Preview") }} <span class="hint">{{ de_en("So erscheint das Element in der Interviewansicht", "This is how the element appears in the interview view") if survey.interview is not none else de_en("So sehen Teilnehmende dieses Element", "This is how participants see this element") }}{{ de_en("; ändert sich beim Tippen mit.", "; changes as you type.") }}</span>
+    {% if not autosave %}<span class="live-dirty" data-live-dirty hidden>{{ de_en("zeigt ungespeicherte Änderungen", "shows unsaved changes") }}</span>{% endif %}</h2>
+  <iframe class="item-frame" title="{{ de_en('Vorschau des Elements', 'Preview of the element') }}" src="{{ url_for('editor.item_frame', survey_id=survey.id, item_id=item.id, lang=lang) }}"
+          data-live-frame data-live-url="{{ url_for('editor.item_frame', survey_id=survey.id, item_id=item.id, lang=lang) }}"></iframe>
+</section>
+{# one question first, whether the element is to be used in another survey, then how: as a copy or linked
+   (Ralf, 2026-10-08); a copy of a question that is linked already stays linked #}
+{% set can_link = linked and not linked.element and not linked.reason %}
+{% if (copy_targets or can_link) and not in_live %}
+<section class="panel use-elsewhere">
+  <form method="post" action="{{ url_for('editor.copy_item_to', survey_id=survey.id, item_id=item.id) }}" data-use-elsewhere>
+    {{ csrf() }}
+    <h2 class="use-elsewhere-head">{{ icon("copy", 18) }} {{ de_en("In anderer Befragung verwenden", "Use in another survey") }}</h2>
+    <div class="row-fields">
+      <label><span class="label-title">{{ de_en("Befragung", "Survey") }} <span class="hint">{{ de_en("ans Ende, in einen eigenen Block; nur Entwürfe, die Sie bearbeiten dürfen", "at the end, into a block of its own; only drafts you may edit") }}</span></span>
+        <select name="target" data-copy-target>
+          <option value="" selected>{% if copy_targets %}{{ de_en("– Befragung wählen –", "– choose a survey –") }}{% else %}{{ de_en("– keine Entwürfe zum Einfügen –", "– no drafts to insert into –") }}{% endif %}</option>
+          {% for s in copy_targets %}<option value="{{ s.code }}">{{ s.title }} ({{ s.code }})</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    {% if can_link %}
+    <fieldset class="use-elsewhere-mode">
+      <legend class="label-title">{{ de_en("Wie?", "How?") }}</legend>
+      {# a copy needs a draft to go into (duplicate.item_targets): without one "Als Kopie" stays locked, and says why
+         beside it; a tester took the grey radio for a broken one (pre-test 2026-10-20, 17) #}
+      <label class="check"><input type="radio" name="mode" value="copy" {% if copy_targets %}checked{% else %}disabled aria-describedby="copy-locked"{% endif %} data-use-mode>
+        <span><strong>{{ de_en("Als Kopie", "As a copy") }}</strong> <span class="hint">{{ de_en("eine eigene Frage mit Bildern und Einstellungen; Änderungen hier oder dort bleiben getrennt", "a question of its own with images and settings; changes here or there stay separate") }}</span>
+          {% if not copy_targets %}<span class="hint use-elsewhere-locked" id="copy-locked">{{ icon("info", 14) }} {{ de_en("Gerade nicht wählbar: Eine Kopie geht nur in einen anderen Entwurf derselben Befragungsart, den Sie bearbeiten dürfen, und davon gibt es keinen. Legen Sie zuerst eine weitere Befragung an; laufende und beendete Befragungen nehmen keine Kopie auf.", "Not available right now: a copy only goes into another draft of the same survey type that you may edit, and there is none. Create another survey first; running and closed surveys take no copy.") }}</span>{% endif %}</span></label>
+      <label class="check"><input type="radio" name="mode" value="link" {% if not copy_targets %}checked{% endif %} data-use-mode>
+        <span><strong>{{ de_en("Verknüpft", "Linked") }}</strong> <span class="hint">{{ de_en("dieselbe Frage in beiden Befragungen, Antworten gemeinsam auswertbar; gesperrt, sobald eine Befragung damit läuft oder echte Antworten hat", "the same question in both surveys, answers can be analysed together; locked as soon as a survey with it runs or has real answers") }}</span></span></label>
+      <label class="use-elsewhere-name" data-use-name><span class="label-title">{{ de_en("Name des verknüpften Elements", "Name of the linked element") }} <span class="hint">{{ de_en("optional", "optional") }}</span></span>
+        <input name="name" maxlength="120" class="field-name-wide" placeholder="{{ de_en('z. B. Vorwissen Statistik (sonst der Fragetext)', 'e.g. prior knowledge of statistics (otherwise the question text)') }}"></label>
+    </fieldset>
+    {% elif linked and linked.element %}
+    <p class="hint">{{ de_en("Die Kopie bleibt mit „{name}“ verknüpft.", "The copy stays linked with “{name}”.", name=linked.element.name) }}</p>
+    {% endif %}
+    <div class="form-actions"><button class="button button-secondary" data-copy-go
+      data-copy-word="{{ de_en('Kopieren', 'Copy') }}" data-link-word="{{ de_en('Verknüpft einfügen', 'Insert linked') }}"
+      data-only-word="{{ de_en('Nur verknüpfbar machen', 'Only make linkable') }}">{{ de_en("Kopieren", "Copy") if copy_targets else de_en("Nur verknüpfbar machen", "Only make linkable") }}</button></div>
+  </form>
+</section>
+{% endif %}
+{% if can_link and linked.candidates and not in_live %}
+<section class="panel">
+  <form method="post" class="row-fields" action="{{ url_for('editor.join_linked', survey_id=survey.id, item_id=item.id, lang=lang) }}">
+    {{ csrf() }}
+    <label><span class="label-title">{{ icon("link", 16) }} {{ de_en("Mit einem verknüpften Element verbinden", "Connect with a linked element") }} <span class="hint">{{ de_en("wenn diese Frage schon dieselbe ist, z. B. aus einer Kopie; nichts an ihr ändert sich, Abweichungen gelten als Anpassung", "if this question already is the same, e.g. from a copy; nothing about it changes, deviations count as adaptation") }}</span></span>
+      <select name="key">{% for c in linked.candidates %}<option value="{{ c.key }}">{{ c.name }} ({{ de_en("Fassung {rev}", "revision {rev}", rev=c.seed_version) }})</option>{% endfor %}</select>
+    </label>
+    <div><button class="button button-secondary">{{ de_en("Verbinden", "Connect") }}</button></div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

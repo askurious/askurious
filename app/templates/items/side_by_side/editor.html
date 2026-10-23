@@ -1,0 +1,139 @@
+{# Side-by-side matrix (items/side_by_side.py): rows as the statements of the Likert matrix, columns as cards with
+   their own kind of answer. app.js ([data-sbs-col-editor]) fills the labels of an answer scale and shows the fields
+   of the chosen kind. #}
+{% from "_macros.html" import row_list_hint %}
+{% from "_icons.html" import icon %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+{% set question_hint = de_en("z. B. „Wie sind Sie in den letzten vier Wochen unterwegs gewesen?“", "e.g. “How did you get around in the last four weeks?”") %}
+{% include "items/_question_field.html" %}
+{% set lt = item.lang_texts(lang) %}
+{# a short "So funktioniert es" with a small example, open while no row has a text yet: the matrix was hard to grasp
+   at first (pre-test 2026-10-20, 24) #}
+{% from "_learn.html" import how %}
+{% call how(de_en("Zeilen und Spalten", "rows and columns"), open=not ((lt.get("rows") or {}).values()|select|list)) %}
+  <p>{{ de_en("Die <strong>Zeilen</strong> sind, was bewertet wird, z. B. Aussagen oder Eigenschaften. Jede <strong>Spalte</strong> ist eine eigene Frage zu allen Zeilen, mit eigener Antwortart. So stehen mehrere Fragen zur selben Zeile nebeneinander, z. B. „Wie wichtig?“ und „Wie zufrieden?“:", "The <strong>rows</strong> are what is rated, e.g. statements or features. Each <strong>column</strong> is a question of its own about all rows, with its own kind of answer. Several questions about the same row thus stand side by side, e.g. “How important?” and “How satisfied?”:")|safe }}</p>
+  <div class="table-scroll"><table class="list-table small sbs-example">
+    <thead><tr><th>{{ de_en("Zeile", "Row") }}</th><th>{{ de_en("Spalte 1: Wie wichtig ist Ihnen das?", "Column 1: How important is this to you?") }}</th><th>{{ de_en("Spalte 2: Wie zufrieden sind Sie damit?", "Column 2: How satisfied are you with it?") }}</th></tr></thead>
+    <tbody>
+    {% for row in (de_en("Pünktlichkeit", "Punctuality"), de_en("Preis", "Price"), de_en("Sauberkeit", "Cleanliness")) %}
+      <tr><td>{{ row }}</td><td><span aria-hidden="true">○ ○ ○ ○ ○</span><span class="visually-hidden">{{ de_en("Skala von 1 bis 5", "scale from 1 to 5") }}</span></td><td><span aria-hidden="true">○ ○ ○ ○ ○</span><span class="visually-hidden">{{ de_en("Skala von 1 bis 5", "scale from 1 to 5") }}</span></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p>{{ de_en("Die Zeilen tragen Sie unten unter „Zeilen“ ein, jede Spalte mit ihrer Frage und Antwortart unter „Spalte 1“, „Spalte 2“ … Eine Spalte kann auch Ja/Nein, eine Liste, eine Zahl oder einen kurzen Text abfragen, z. B. „Genutzt?“ vor „Wie zufrieden?“.", "Enter the rows below under “Rows”, and each column with its question and kind of answer under “Column 1”, “Column 2” … A column can also ask yes/no, a list, a number or a short text, e.g. “Used?” before “How satisfied?”.") }}</p>
+{% endcall %}
+<fieldset>
+  <legend>{{ de_en("Zeilen", "Rows") }} <span class="hint">{{ de_en("was bewertet wird, z. B. Verkehrsmittel; Texte auf {l}; Code leer = 1, 2, …", "what is rated, e.g. means of transport; texts in {l}; code empty = 1, 2, …", l=languages[lang]) }}</span></legend>
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit stack-phone" id="rows{{ item.id }}">
+    <thead><tr><th>{{ de_en("Zeile", "Row") }}</th><th class="narrow-col">Code</th></tr></thead>
+    <tbody>
+    {% set rtexts = lt.get("rows", {}) %}
+    {% for r in item.cfg.rows if not r.src %}
+      <tr>
+        <td><input type="hidden" name="row_id" value="{{ r.id }}"><input name="row_text" aria-label="{{ de_en('Zeile', 'Row') }}" value="{{ rtexts.get(r.id, '') }}" placeholder="{{ (item.text('rows') or {}).get(r.id, '') }}"></td>
+        <td><input name="row_code" aria-label="Code" data-varname="part" value="{{ r.code }}" class="narrow" placeholder="{{ loop.index }}" {% if not structural %}readonly{% endif %}></td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      <tr class="new-row">
+        <td><input type="hidden" name="row_id" value="{{ new_id() }}"><input name="row_text" aria-label="{{ de_en('Zeile', 'Row') }}" placeholder="{{ de_en('neue Zeile', 'new row') }}"></td>
+        <td><input name="row_code" aria-label="Code" data-varname="part" class="narrow"></td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {% call row_list_hint() %}{{ de_en("Im Export heißt jeder Wert {code}_Spalte_Zeile, z. B. {code}_s1_1.", "In the export each value is called {code}_column_row, e.g. {code}_s1_1.", code=item.code) }}{% endcall %}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.cfg.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Zeilen in zufälliger Reihenfolge zeigen", "Show the rows in random order") }}</label>
+</fieldset>
+
+{% set cols = item.cfg.columns %}
+<div class="sbs-cols" data-sbs-presets="{{ kind.anchor_presets(lang)|tojson|forceescape }}">
+{% set shown_cols = cols|list %}
+{% if structural and cols|length < 5 %}{% set shown_cols = shown_cols + [none] %}{% endif %}
+{% for c in shown_cols %}
+{% set is_new = c is none %}
+{% set cid = new_id() if is_new else c.id %}
+{% set ck = "single" if is_new else c.kind %}
+{% set labels = [] if is_new else kind.labels(item, c, lang) %}
+<fieldset class="sbs-col" data-sbs-col-editor data-kind="{{ ck }}">
+  <legend>{% if is_new %}{{ de_en("Neue Spalte", "New column") }} <span class="hint">{{ de_en("wird mit einer Frage gespeichert", "saved once it has a question") }}</span>{% else %}{{ de_en("Spalte {n}", "Column {n}", n=loop.index) }}{% endif %}</legend>
+  <input type="hidden" name="col_id" value="{{ cid }}">
+  {# the question of the column over the whole width, code and kind of answer in the row below (X28) #}
+  <label class="sbs-col-title">{{ de_en("Frage der Spalte", "Question of the column") }}
+    <input name="col_title_{{ cid }}" value="{{ '' if is_new else (lt.get('titles') or {}).get(cid, '') }}" placeholder="{{ de_en('z. B. Wie zufrieden waren Sie damit?', 'e.g. How satisfied were you with it?') if is_new else ((item.text('titles') or {}).get(cid, '')) }}"></label>
+  <div class="row-fields">
+    <label>Code
+      <input name="col_code_{{ cid }}" data-varname="part" class="narrow" value="{{ '' if is_new else c.code }}" placeholder="s{{ loop.index }}" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Antwortart", "Kind of answer") }}
+      <select name="col_kind_{{ cid }}" data-col-kind {% if not structural %}disabled{% endif %}>
+        {% for key, name in kind.kind_names() %}<option value="{{ key }}" {% if key == ck %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+  </div>
+  <div class="row-fields" data-for-kinds="single multi dropdown">
+    <label>{{ de_en("Antworten", "Answers") }}
+      <select name="col_points_{{ cid }}" data-col-points {% if not structural %}disabled{% endif %}>
+        {% for p in range(2, 21) %}<option value="{{ p }}" {% if (not is_new and p == c.points) or (is_new and p == 5) %}selected{% endif %} {% if p > 10 %}data-list-only{% endif %}>{{ p }}</option>{% endfor %}
+      </select></label>
+    <label data-for-kinds="single">{{ de_en("Antwortskala", "Answer scale") }}
+      <select name="col_anchors_{{ cid }}" data-col-anchors {% if not structural %}disabled{% endif %}>
+        {% for key, name in kind.anchor_names() %}<option value="{{ key }}" {% if (is_new and key == 'agree') or (not is_new and key == c.anchors) %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <label data-for-kinds="single">{{ de_en("Beschriftung", "Labels") }}
+      <select name="col_labeling_{{ cid }}" data-col-labeling {% if not structural %}disabled{% endif %}>
+        <option value="full">{{ de_en("alle Stufen verbalisiert", "all points labelled") }}</option>
+        <option value="endpoints" {% if not is_new and c.labeling == "endpoints" %}selected{% endif %}>{{ de_en("nur Endpunkte verbalisiert", "only end points labelled") }}</option>
+      </select></label>
+    <label>{{ de_en("Messniveau", "Level of measurement") }}
+      <select name="col_level_{{ cid }}" {% if not structural %}disabled{% endif %}>
+        {% for lv, name in kind.level_names({"kind": "single" if is_new else ck}) %}<option value="{{ lv }}" {% if not is_new and lv == c.level %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+  </div>
+  <ol class="scale-labels" data-for-kinds="single multi dropdown" data-col-labels data-name="col_label_{{ cid }}">
+    {% for l in labels %}<li><input name="col_label_{{ cid }}" aria-label="{{ de_en('Antwort {n}', 'Answer {n}', n=loop.index) }}" value="{{ l }}"></li>{% endfor %}
+  </ol>
+  <div class="row-fields" data-for-kinds="number">
+    <label>{{ de_en("Zahl", "Number") }}
+      <select name="col_number_{{ cid }}" {% if not structural %}disabled{% endif %}>
+        <option value="integer">{{ de_en("ganze Zahl", "whole number") }}</option>
+        <option value="decimal" {% if not is_new and c.number == "decimal" %}selected{% endif %}>{{ de_en("Dezimalzahl", "decimal number") }}</option>
+      </select></label>
+    <label>Minimum <input name="col_min_{{ cid }}" class="narrow" inputmode="decimal" value="{{ '' if is_new or c.min is none else c.min }}" {% if not structural %}readonly{% endif %}></label>
+    <label>Maximum <input name="col_max_{{ cid }}" class="narrow" inputmode="decimal" value="{{ '' if is_new or c.max is none else c.max }}" {% if not structural %}readonly{% endif %}></label>
+    <label>{{ de_en("Einheit", "Unit") }} <input name="col_unit_{{ cid }}" class="narrow" maxlength="30" value="{{ '' if is_new else (lt.get('units') or {}).get(cid, '') }}" placeholder="{{ de_en('z. B. €', 'e.g. €') }}"></label>
+  </div>
+  <div class="row-fields">
+    <label class="check"><input type="checkbox" name="col_required_{{ cid }}" value="1" {% if not is_new and c.required %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Pflicht", "Required") }}
+      <span class="hint">{{ de_en("jede gezeigte Zeile braucht hier eine Antwort", "every row shown needs an answer here") }}</span></label>
+    <label class="check" data-for-kinds="single"><input type="checkbox" name="col_dk_{{ cid }}" value="1" {% if not is_new and c.dont_know %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("„weiß nicht“ anbieten", "Offer “don't know”") }}
+      <span class="hint">{{ de_en("zählt als fehlend, im Export −98", "counts as missing, in the export −98") }}</span></label>
+  </div>
+  {# × as everywhere else (loop table, rows), no tick: the column leaves the form at once, "Rückgängig" brings it back
+     (UI/UX audit 2026-10-09, X21, S15) #}
+  {% if not is_new and structural %}<p class="sbs-col-remove"><input type="hidden" name="col_remove_{{ cid }}" value="" data-remove-value><button type="button" class="icon-btn icon-btn-word danger" data-remove-flag="[data-sbs-col-editor]" aria-label="{{ de_en('Spalte {n} entfernen', 'Remove column {n}', n=loop.index) }}" data-undo-what="{{ de_en('Spalte {n} entfernt', 'column {n} removed', n=loop.index) }}">{{ icon("x", 14) }} {{ de_en("Spalte entfernen", "Remove column") }}</button></p>{% endif %}
+  {% set sources = cols[:loop.index0]|selectattr("kind", "in", ["single", "dropdown"])|list %}
+  {% if sources %}
+  {% set when = {} if is_new else (c.when or {}) %}
+  <details class="sbs-when"{% if when %} open{% endif %}>
+    <summary>{{ de_en("Nur fragen, wenn …", "Ask only if …") }}{% if when %} <span class="hint">{{ kind.when_text(item, c, lang) }}</span>{% endif %}</summary>
+    <p class="hint">{{ de_en("Die Spalte erscheint in einer Zeile erst, wenn dort in einer Spalte links davon eine dieser Antworten gewählt ist (z. B. „Wie zufrieden?“ nur bei „Genutzt? = ja“). Sonst steht am Rechner „entfällt“, am Handy fehlt die Frage; im Export −77. Angekreuzt wird in einer Spalte.", "The column appears in a row only once one of these answers is chosen there in a column to its left (e.g. “How satisfied?” only for “Used? = yes”). Otherwise a computer shows “does not apply” and a phone leaves the question out; in the export −77. Tick answers in one column.") }}</p>
+    {% for s in sources %}
+    <fieldset class="sbs-when-src">
+      <legend>{{ kind.title(item, s, lang) or s.id }}</legend>
+      {% for l in kind.labels(item, s, lang) %}
+      <label class="check"><input type="checkbox" name="col_when_{{ cid }}" value="{{ s.id }}:{{ loop.index }}" {% if when.col == s.id and loop.index in when.codes %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ l or loop.index }}</label>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+  </details>
+  {% endif %}
+</fieldset>
+{% endfor %}
+</div>
+<p class="muted small">{{ de_en("Bis zu fünf Spalten. Am Rechner stehen die Spalten als Tabelle nebeneinander, die Seite wird dafür bis 1000 px breit; reicht der Platz nicht (Handy, schmales Fenster), erscheint jede Zeile als Karte mit den Spalten untereinander.", "Up to five columns. On a computer the columns appear side by side as a table, and the page grows up to 1000 px for it; where there is not enough room (phone, narrow window), each row shows as a card with the columns one below the other.") }}</p>
+{% from "_learn.html" import why %}{{ why("side_by_side") }}
+{% set cv, cv_rows = kind.carry_view(item, lang), de_en("Zeilen", "Rows") %}
+{% include "items/_carry.html" %}
+{% set rc, rc_what = kind.row_conditions(item, lang), de_en("Zeilen", "Rows") %}
+{% include "items/_row_conditions.html" %}

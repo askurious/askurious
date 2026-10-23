@@ -1,0 +1,71 @@
+{% from "_learn.html" import term %}
+{# Ratings-based conjoint: part-worths per person by hierarchical Bayes regression (app/cva_hb.py view(), summary()). The
+   parts "main" and "quality" as for the paired comparison (_paired_hb.html), so static/hb.js puts both in place.
+   Needs: e, f, survey, num. #}
+{% from "surveys/_choice_model.html" import pw_chart with context %}
+{% set h = e.cva.hb %}
+{% set res = h.result %}
+{% from "_macros.html" import pct, signed, abbr %}
+{% set hb_section = hb_section if hb_section is defined and hb_section else "main" %}
+{% set hb_now = h.state == "current" and res %}
+{% if hb_section == "main" %}
+<section class="hb-part"{% if hb_now %} data-hb-current{% endif %} id="hb-part-{{ e.item.id }}" data-hb-item="{{ e.item.id }}" data-hb-url="{{ url_for('surveys.results', survey_id=survey.id) }}">
+<h3 class="res-group-head" id="hb-{{ e.item.id }}">{{ de_en("Teilnutzen je Person (Hierarchical Bayes)", "Part-worths per person (hierarchical Bayes)") }}{{ fn("cva_hb") }}</h3>
+{% if h.state == "running" %}
+{% include "surveys/_hb_running.html" %}
+{% elif h.marker and h.marker.state == "error" %}
+<p class="flash flash-warning">{{ de_en("Die letzte {hb}-Schätzung ist fehlgeschlagen:", "The last {hb} estimation failed:", html=True, hb=abbr("hb")) }} {{ h.marker.message }}</p>
+{% elif h.marker and h.marker.state == "aborted" %}
+<p class="flash flash-warning">{{ de_en("Die letzte HB-Schätzung wurde abgebrochen (keine Rückmeldung mehr, z. B. weil der Server-Prozess neu gestartet wurde).", "The last HB estimation was aborted (no more response, e.g. because the server process was restarted).") }}</p>
+{% endif %}
+{% if h.state == "current" %}
+<p class="muted small"><strong>{{ de_en("fertig", "done") }}</strong> · {{ de_en("geschätzt am {d}", "estimated on {d}", d=res.created|localdt) }} · {{ de_en("Rechenzeit {s} s", "computing time {s} s", s=num(res.seconds, 1)) }} · {{ de_en("passt zu den Daten dieser Seite.", "matches the data on this page.") }}</p>
+{% elif h.state == "stale" %}
+<p class="flash flash-warning">{{ de_en("Für die Daten dieser Seite gibt es keine aktuelle HB-Schätzung; die frühere gehört zu einem anderen Datenstand.", "There is no current HB estimation for the data on this page; the earlier one belongs to other data.") }}</p>
+{% endif %}
+{% if h.state != "running" and h.state != "current" %}
+  {% if h.available %}
+  <div class="res-run-hb">
+    <form method="post" action="{{ url_for('surveys.results_hb', survey_id=survey.id, item_id=e.item.id) }}" data-hb-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+      {% if f.all %}<input type="hidden" name="all" value="1">{% endif %}
+      {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
+      <button class="button button-small">{{ de_en("Teilnutzen je Person schätzen (Hierarchical Bayes)", "Estimate part-worths per person (hierarchical Bayes)") }}</button>
+    </form>
+    <span class="muted small">{{ de_en("Ergänzt die Regression je Person: Personen mit wenigen oder widersprüchlichen Antworten borgen von den übrigen, auch wer weniger Aufgaben beantwortet hat, bekommt Werte. Läuft im Hintergrund; das Ergebnis geht in den Datenexport und den Simulator ein.", "Complements the regression per person: people with few or contradictory answers borrow from the others, and those who answered fewer tasks also get values. Runs in the background; the result goes into the data export and the simulator.") }}</span>
+  </div>
+  {% else %}
+  <p class="muted small">{{ de_en("Für eine HB-Schätzung fehlen Daten (mindestens {n} Personen mit beantworteten Aufgaben).", "An HB estimation lacks data (at least {n} people with answered tasks).", n=h.min_persons) }}</p>
+  {% endif %}
+{% endif %}
+{% if res and h.state != "running" %}
+{% for w in res.warnings %}{% if w == res.convergence_warning %}<div class="flash flash-warning hb-conv-note"><p>{{ w }}</p>{% include "surveys/_hb_longer.html" %}</div>{% else %}<p class="flash flash-warning">{{ w }}</p>{% endif %}{% endfor %}
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }}</p>
+<ul class="plain res-bars cm-importance-bars">
+  {% for a in res.attributes|sort(attribute="importance", reverse=true) %}
+  <li><span class="res-bar-label">{{ a.label }}</span>
+    <span class="res-bar"><span style="width: {{ (a.importance * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n">{{ pct(a.importance) }}</span></li>
+  {% endfor %}
+</ul>
+<p class="res-group-head">{{ term("partworth", de_en("Teilnutzen", "Part-worths")) }} <span class="hint">{{ de_en("Mittel der Werte je Person in Punkten der Antwortskala, nullzentriert je Merkmal; Linie: 95-%-Posterior-Intervall des Mittels", "mean of the values per person in points of the answer scale, zero-centred per attribute; line: 95% posterior interval of the mean") }}</span></p>
+{% for attr in res.attributes %}
+{% set ch = res.charts[loop.index0] %}
+<p class="pw-head">{{ attr.label }}</p>
+{{ pw_chart(ch) }}
+{% endfor %}
+<p class="muted small">{{ de_en("Die Werte je Person sind zum gemeinsamen Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind eher größer. Im Export je Person {u}.", "The values per person are shrunk towards the common mean: the real differences between people tend to be larger. In the export per person {u}.", u=e.item.code ~ "_hb_…") }}</p>
+{% endif %}
+</section>
+{% else %}
+<section class="hb-quality" id="hb-quality-{{ e.item.id }}" data-hb-quality="{{ e.item.id }}">
+{% if res and h.state != "running" %}
+<p class="muted small">{{ term("r2_person", de_en("R² je Person", "R² per person")) }} {{ de_en("aus den Posterior-Mitteln: im Mittel {m}, Median {md}", "from the posterior means: mean {m}, median {md}", m=num(res.r2.mean), md=num(res.r2.median)) }}{% if res.r2.low %} · {{ de_en("{n} Personen unter {lim}", "{n} people under {lim}", n=res.r2.low, lim=num(res.r2.limit, 1)) }}{% endif %}.</p>
+{% include "surveys/_hb_convergence.html" %}
+<p class="muted small">{{ de_en("Modell: {p} Personen, {s} Antworten; {burn} Burn-in- und {draws} weitere Iterationen, jede {thin}. behalten ({kept} Ziehungen).", "Model: {p} people, {s} answers; {burn} burn-in and {draws} further iterations, every {thin}th kept ({kept} draws).", p=res.persons, s=res.sets, burn=res.settings.burn, draws=res.settings.draws, thin=res.settings.thin, kept=res.kept) }}</p>
+{% else %}
+<p class="muted small">{{ de_en("Anpassung je Person (R²) und Konvergenz der HB-Schätzung erscheinen hier, sobald eine aktuelle Schätzung fertig ist.", "Fit per person (R²) and convergence of the HB estimation appear here as soon as a current estimation is done.") }}</p>
+{% endif %}
+</section>
+{% endif %}

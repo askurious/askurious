@@ -1,0 +1,9 @@
+{# One line about the study plan (app/study_plan.py) above Fragebogen and Ergebnisse: what it holds and what is still
+   missing, with the way to it. Only once a plan is begun. Needs: survey. #}
+{% set st = study_plan.status(survey) %}
+{% if st.hypotheses or st.target %}
+<p class="plan-line muted small">{{ de_en("Studienplan:", "Research plan:") }}
+  {% if st.hypotheses %}{{ de_en("{n} Hypothese, {m} mit Fragen verbunden", "{n} hypothesis, {m} linked to questions", n=st.hypotheses, m=st.measured) if st.hypotheses == 1 else de_en("{n} Hypothesen, {m} mit Fragen verbunden", "{n} hypotheses, {m} linked to questions", n=st.hypotheses, m=st.measured) }}{% endif %}
+  {%- if st.target %}{{ " · " if st.hypotheses }}{{ de_en("Ziel {n} Abschlüsse", "target {n} completions", n=st.target) }}{% endif %}
+  · <a href="{{ url_for('study_plan.page', survey_id=survey.id) }}">{{ de_en("Hypothesen verbinden", "Link hypotheses") if st.measured < st.hypotheses else de_en("ansehen", "view") }}</a></p>
+{% endif %}

@@ -1,0 +1,1244 @@
+{
+ "format": "askurious-survey",
+ "version": 6,
+ "exported_at": "2026-10-05T00:00:00Z",
+ "survey": {
+  "title": "Mobilität in Deutschland (Panel)",
+  "title_translations": {},
+  "project": "",
+  "description": "Wir möchten wissen, wie Sie im Alltag unterwegs sind.",
+  "research_question": "Wie unterscheiden sich Verkehrsmittel und Einstellung nach Alter und Bundesland?",
+  "study_plan": {
+   "goal": "describe",
+   "goals": [
+    "describe"
+   ],
+   "design": "cross",
+   "hypotheses": [
+    {
+     "id": "ea87de9d",
+     "text": "Ältere nutzen seltener das Fahrrad als Jüngere.",
+     "kind": "difference",
+     "direction": "",
+     "iv": "age",
+     "dv": "verkehrsmittel",
+     "analysis": "",
+     "effect": 0.15,
+     "basis": "sesoi",
+     "basis_note": "Beispielwert der Vorlage: kleinster Effekt, der praktisch zählt; vor der Erhebung mit Literatur oder einer Vorstudie begründen",
+     "power": 0.8
+    }
+   ],
+   "sample": {
+    "target": 500,
+    "recruitment": "quota",
+    "note": "",
+    "exclusions": null,
+    "response": null
+   },
+   "rules": "Speeder (unter 50 % der Median-Dauer); wer die Aufmerksamkeitsprüfung falsch beantwortet",
+   "holm": false,
+   "sem_method": "",
+   "sem": {
+    "controls": [],
+    "single": {},
+    "formative": [],
+    "invariance": "",
+    "missing": "",
+    "alternative": [],
+    "second": [],
+    "ordinal": ""
+   },
+   "diary": {
+    "lagged": false,
+    "slope": false
+   },
+   "layout": {
+    "v": 1,
+    "nodes": {}
+   },
+   "deviations": []
+  },
+  "default_language": "de",
+  "languages": [
+   "de"
+  ],
+  "allow_back": true,
+  "auto_advance": false,
+  "show_progress": true,
+  "language_choice": true,
+  "keep_test_runs": false,
+  "paradata": false,
+  "page_timing": false,
+  "focus_paste": false,
+  "focus_inputs": false,
+  "ai_bait": false,
+  "block_load": false,
+  "repeat_marker": false,
+  "erase_code": false,
+  "retention": {
+   "personal": 6,
+   "answers": 120
+  },
+  "geo_ip": false,
+  "tempo_hint": "off",
+  "tempo_dose": "once",
+  "tempo_options": null,
+  "tempo_texts": null,
+  "speeder_pct": 50,
+  "speeder_rule": "",
+  "speeder_rsi": 20,
+  "data_pool": null,
+  "quality_rules": null,
+  "quota_drop_marked": false,
+  "weighting": null,
+  "end_texts": null,
+  "contact": null,
+  "image_style": null,
+  "max_responses": null,
+  "panel": {
+   "params": [
+    {
+     "name": "PID",
+     "mode": "store",
+     "required": true,
+     "allowed": [],
+     "once": true
+    }
+   ],
+   "redirects": {
+    "completed": "https://panel.example/end?id={{PID}}&status=complete",
+    "screenout": "https://panel.example/end?id={{PID}}&status=screenout",
+    "quotafull": "https://panel.example/end?id={{PID}}&status=quotafull",
+    "excluded": "",
+    "duplicate": "",
+    "declined": "",
+    "closed": ""
+   },
+   "modes": {},
+   "rules": [],
+   "quota_placeholder": false,
+   "multi": false,
+   "sign": {
+    "alg": "sha256",
+    "enc": "hex",
+    "base": "amp",
+    "signed": false
+   }
+  },
+  "paper": null
+ },
+ "theme": null,
+ "blocks": [
+  {
+   "id": 1,
+   "titles": {
+    "de": "Einwilligung"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 1,
+     "type": "consent",
+     "code": "consent",
+     "answer_mode": "required",
+     "config": {
+      "duration": 5,
+      "min_age": null,
+      "open_data": false,
+      "repository": "",
+      "ethics": false,
+      "ethics_ref": "",
+      "license": "",
+      "funding": "",
+      "controller": "",
+      "dpo": "",
+      "special_categories": false,
+      "confirm": {
+       "age": false,
+       "voluntary": true,
+       "data": true,
+       "special": false,
+       "audio": false,
+       "commitment": true
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Einwilligung",
+       "agree_note": "",
+       "confirm_age": "",
+       "confirm_voluntary": "",
+       "confirm_data": "",
+       "confirm_special": "",
+       "confirm_audio": "",
+       "confirm_commitment": ""
+      }
+     },
+     "standard_body": []
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "titles": {
+    "de": "Demographische Angaben"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {
+    "demographics": true
+   },
+   "items": [
+    {
+     "id": 4,
+     "type": "text_input",
+     "code": "age",
+     "answer_mode": "required",
+     "config": {
+      "multiline": false,
+      "max_length": 3,
+      "validation": "integer",
+      "min": 10,
+      "max": 120,
+      "pattern": "",
+      "construct": {
+       "key": "age",
+       "version": 1,
+       "unlocked": false,
+       "template": {
+        "type": "text_input",
+        "code": "age",
+        "texts": {
+         "de": {
+          "question": "Wie alt sind Sie?",
+          "prefix": "",
+          "suffix": "Jahre",
+          "validation_message": ""
+         },
+         "en": {
+          "question": "How old are you?",
+          "prefix": "",
+          "suffix": "years",
+          "validation_message": ""
+         }
+        },
+        "config": {
+         "multiline": false,
+         "max_length": 3,
+         "validation": "integer",
+         "min": 10,
+         "max": 120,
+         "pattern": ""
+        }
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Wie alt sind Sie?",
+       "prefix": "",
+       "suffix": "Jahre",
+       "validation_message": ""
+      }
+     }
+    },
+    {
+     "id": 5,
+     "type": "single_choice",
+     "code": "gender",
+     "answer_mode": "nudge",
+     "config": {
+      "options": [
+       {
+        "id": "o1",
+        "code": "1"
+       },
+       {
+        "id": "o2",
+        "code": "2"
+       },
+       {
+        "id": "o3",
+        "code": "3"
+       },
+       {
+        "id": "o5",
+        "code": "4",
+        "text": true,
+        "optional": true
+       },
+       {
+        "id": "o4",
+        "code": "99",
+        "missing": true
+       }
+      ],
+      "layout": "vertical",
+      "construct": {
+       "key": "gender",
+       "version": 6,
+       "unlocked": false,
+       "template": {
+        "type": "single_choice",
+        "code": "gender",
+        "config": {
+         "options": [
+          {
+           "id": "o1",
+           "code": "1"
+          },
+          {
+           "id": "o2",
+           "code": "2"
+          },
+          {
+           "id": "o3",
+           "code": "3"
+          },
+          {
+           "id": "o5",
+           "code": "4",
+           "text": true,
+           "optional": true
+          },
+          {
+           "id": "o4",
+           "code": "99",
+           "missing": true
+          }
+         ],
+         "layout": "vertical"
+        },
+        "texts": {
+         "de": {
+          "question": "Welchem Geschlecht fühlen Sie sich zugehörig?",
+          "options": {
+           "o1": "weiblich",
+           "o2": "männlich",
+           "o3": "divers",
+           "o5": "Ich beschreibe mich selbst:",
+           "o4": "keine Angabe"
+          }
+         },
+         "en": {
+          "question": "What is your gender?",
+          "options": {
+           "o1": "female",
+           "o2": "male",
+           "o3": "diverse",
+           "o5": "Prefer to self-describe:",
+           "o4": "prefer not to disclose"
+          }
+         }
+        }
+       }
+      }
+     },
+     "texts": {
+      "de": {
+       "question": "Welchem Geschlecht fühlen Sie sich zugehörig?",
+       "options": {
+        "o1": "weiblich",
+        "o2": "männlich",
+        "o3": "divers",
+        "o5": "Ich beschreibe mich selbst:",
+        "o4": "keine Angabe"
+       }
+      }
+     }
+    },
+    {
+     "id": 6,
+     "type": "federal_state",
+     "code": "bundesland",
+     "answer_mode": "required",
+     "config": {
+      "options": [
+       {
+        "id": "s8",
+        "code": "8"
+       },
+       {
+        "id": "s9",
+        "code": "9"
+       },
+       {
+        "id": "s11",
+        "code": "11"
+       },
+       {
+        "id": "s12",
+        "code": "12"
+       },
+       {
+        "id": "s4",
+        "code": "4"
+       },
+       {
+        "id": "s2",
+        "code": "2"
+       },
+       {
+        "id": "s6",
+        "code": "6"
+       },
+       {
+        "id": "s13",
+        "code": "13"
+       },
+       {
+        "id": "s3",
+        "code": "3"
+       },
+       {
+        "id": "s5",
+        "code": "5"
+       },
+       {
+        "id": "s7",
+        "code": "7"
+       },
+       {
+        "id": "s10",
+        "code": "10"
+       },
+       {
+        "id": "s14",
+        "code": "14"
+       },
+       {
+        "id": "s15",
+        "code": "15"
+       },
+       {
+        "id": "s1",
+        "code": "1"
+       },
+       {
+        "id": "s16",
+        "code": "16"
+       },
+       {
+        "id": "abroad",
+        "code": "0"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {}
+     }
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "titles": {
+    "de": "Block 1"
+   },
+   "show_title": false,
+   "randomize_items": false,
+   "settings": {},
+   "items": [
+    {
+     "id": 2,
+     "type": "single_choice",
+     "code": "verkehrsmittel",
+     "answer_mode": "nudge",
+     "config": {
+      "options": [
+       {
+        "id": "o1",
+        "code": "1"
+       },
+       {
+        "id": "o2",
+        "code": "2"
+       },
+       {
+        "id": "o3",
+        "code": "3"
+       },
+       {
+        "id": "o4",
+        "code": "4"
+       }
+      ],
+      "layout": "vertical"
+     },
+     "texts": {
+      "de": {
+       "question": "Welches Verkehrsmittel nutzen Sie am häufigsten?",
+       "options": {
+        "o1": "Auto",
+        "o2": "Bus und Bahn",
+        "o3": "Fahrrad",
+        "o4": "zu Fuß"
+       }
+      }
+     }
+    },
+    {
+     "id": 3,
+     "type": "likert",
+     "code": "einstellung",
+     "answer_mode": "nudge",
+     "config": {
+      "points": 5,
+      "anchors": "agree",
+      "labeling": "full",
+      "label_display": "each",
+      "randomize": false,
+      "statements": [
+       {
+        "id": "s1",
+        "code": "",
+        "reverse": false
+       },
+       {
+        "id": "s2",
+        "code": "",
+        "reverse": false
+       }
+      ],
+      "dont_know": false
+     },
+     "texts": {
+      "de": {
+       "question": "Wie sehr stimmen Sie den folgenden Aussagen zu?",
+       "statements": {
+        "s1": "Ich würde gern öfter ohne Auto unterwegs sein.",
+        "s2": "Bus und Bahn sind in meiner Gegend gut erreichbar."
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "flow": {
+  "t": "root",
+  "children": [
+   {
+    "t": "block",
+    "block": 1
+   },
+   {
+    "t": "block",
+    "block": 3
+   },
+   {
+    "t": "branch",
+    "id": "b51f96c",
+    "name": "Wohnt nicht in Deutschland",
+    "cond": {
+     "item": 6,
+     "op": "eq",
+     "value": "0"
+    },
+    "by": "census",
+    "children": [
+     {
+      "t": "end",
+      "id": "e6d9e84",
+      "text": {},
+      "kind": "screenout",
+      "by": "census"
+     }
+    ]
+   },
+   {
+    "t": "branch",
+    "id": "ba41489",
+    "name": "Jünger als 18",
+    "cond": {
+     "item": 4,
+     "op": "lt",
+     "value": "18"
+    },
+    "by": "census",
+    "children": [
+     {
+      "t": "end",
+      "id": "e7b278c",
+      "text": {},
+      "kind": "screenout",
+      "by": "census"
+     }
+    ]
+   },
+   {
+    "t": "branch",
+    "id": "b9bc0e7",
+    "name": "Älter als 74",
+    "cond": {
+     "item": 4,
+     "op": "gt",
+     "value": "74"
+    },
+    "by": "census",
+    "children": [
+     {
+      "t": "end",
+      "id": "e196fce",
+      "text": {},
+      "kind": "screenout",
+      "by": "census"
+     }
+    ]
+   },
+   {
+    "t": "quota",
+    "id": "q009d45",
+    "quotas": [
+     1,
+     2,
+     3
+    ],
+    "by": "census",
+    "census": {
+     "table": "12411-0013",
+     "date": "2025-12-31",
+     "n": 500,
+     "cross": "none",
+     "lo": 18,
+     "hi": 74,
+     "scheme": "decades",
+     "regions": "states",
+     "state": "federal_state",
+     "age_item": 4,
+     "gender_item": 5,
+     "sexes": {
+      "m": "2",
+      "f": "1"
+     }
+    }
+   },
+   {
+    "t": "end",
+    "id": "e2ad7f6",
+    "cases": [
+     {
+      "id": "cb79e04",
+      "when": "nocell",
+      "quotas": [
+       2,
+       3
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c947772",
+      "when": "cellfull",
+      "quota": 1,
+      "cells": [
+       "m"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c18fc2f",
+      "when": "cellfull",
+      "quota": 1,
+      "cells": [
+       "w"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c24c944",
+      "when": "cellfull",
+      "quota": 2,
+      "cells": [
+       "a18_29"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c36510d",
+      "when": "cellfull",
+      "quota": 2,
+      "cells": [
+       "a30_39"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c592a1e",
+      "when": "cellfull",
+      "quota": 2,
+      "cells": [
+       "a40_49"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c361776",
+      "when": "cellfull",
+      "quota": 2,
+      "cells": [
+       "a50_59"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c17da63",
+      "when": "cellfull",
+      "quota": 2,
+      "cells": [
+       "a60_69"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c085dc4",
+      "when": "cellfull",
+      "quota": 2,
+      "cells": [
+       "a70_74"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "ccf7840",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "bw"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c9276f5",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "by"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c3565e8",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "be"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "ca91d43",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "bb"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c7fd60a",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "hb"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "cd61701",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "hh"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "caa2589",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "he"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c71d0a4",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "mv"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c6766c1",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "ni"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c7387fe",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "nw"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "cc0ac85",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "rp"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "cd995b7",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "sl"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c32821d",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "sn"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c875ff5",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "st"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c8f0d86",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "sh"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     },
+     {
+      "id": "c27792c",
+      "when": "cellfull",
+      "quota": 3,
+      "cells": [
+       "th"
+      ],
+      "text": {},
+      "link": "",
+      "link_mode": "now"
+     }
+    ],
+    "by": "census"
+   },
+   {
+    "t": "block",
+    "block": 2
+   },
+   {
+    "t": "split",
+    "id": "s112e21"
+   }
+  ]
+ },
+ "quotas": [
+  {
+   "id": 1,
+   "code": "de_geschlecht",
+   "name": "Bevölkerung DE: Geschlecht",
+   "mode": "hard",
+   "tolerance": 10,
+   "tolerance_pct": true,
+   "hold_minutes": 15,
+   "pick": "first",
+   "cells": [
+    {
+     "code": "m",
+     "name": "männlich",
+     "conds": [
+      {
+       "item": 5,
+       "op": "eq",
+       "value": "2"
+      }
+     ],
+     "target": 251
+    },
+    {
+     "code": "w",
+     "name": "weiblich",
+     "conds": [
+      {
+       "item": 5,
+       "op": "eq",
+       "value": "1"
+      }
+     ],
+     "target": 249
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "code": "de_alter",
+   "name": "Bevölkerung DE: Alter",
+   "mode": "hard",
+   "tolerance": 10,
+   "tolerance_pct": true,
+   "hold_minutes": 15,
+   "pick": "first",
+   "cells": [
+    {
+     "code": "a18_29",
+     "name": "18 bis 29",
+     "conds": [
+      {
+       "item": 4,
+       "op": "between",
+       "value": "18..29"
+      }
+     ],
+     "target": 91
+    },
+    {
+     "code": "a30_39",
+     "name": "30 bis 39",
+     "conds": [
+      {
+       "item": 4,
+       "op": "between",
+       "value": "30..39"
+      }
+     ],
+     "target": 90
+    },
+    {
+     "code": "a40_49",
+     "name": "40 bis 49",
+     "conds": [
+      {
+       "item": 4,
+       "op": "between",
+       "value": "40..49"
+      }
+     ],
+     "target": 88
+    },
+    {
+     "code": "a50_59",
+     "name": "50 bis 59",
+     "conds": [
+      {
+       "item": 4,
+       "op": "between",
+       "value": "50..59"
+      }
+     ],
+     "target": 94
+    },
+    {
+     "code": "a60_69",
+     "name": "60 bis 69",
+     "conds": [
+      {
+       "item": 4,
+       "op": "between",
+       "value": "60..69"
+      }
+     ],
+     "target": 100
+    },
+    {
+     "code": "a70_74",
+     "name": "70 bis 74",
+     "conds": [
+      {
+       "item": 4,
+       "op": "between",
+       "value": "70..74"
+      }
+     ],
+     "target": 37
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "code": "de_land",
+   "name": "Bevölkerung DE: Bundesland",
+   "mode": "hard",
+   "tolerance": 10,
+   "tolerance_pct": true,
+   "hold_minutes": 15,
+   "pick": "first",
+   "cells": [
+    {
+     "code": "bw",
+     "name": "Baden-Württemberg",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "8"
+      }
+     ],
+     "target": 67
+    },
+    {
+     "code": "by",
+     "name": "Bayern",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "9"
+      }
+     ],
+     "target": 80
+    },
+    {
+     "code": "be",
+     "name": "Berlin",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "11"
+      }
+     ],
+     "target": 23
+    },
+    {
+     "code": "bb",
+     "name": "Brandenburg",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "12"
+      }
+     ],
+     "target": 15
+    },
+    {
+     "code": "hb",
+     "name": "Bremen",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "4"
+      }
+     ],
+     "target": 4
+    },
+    {
+     "code": "hh",
+     "name": "Hamburg",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "2"
+      }
+     ],
+     "target": 11
+    },
+    {
+     "code": "he",
+     "name": "Hessen",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "6"
+      }
+     ],
+     "target": 38
+    },
+    {
+     "code": "mv",
+     "name": "Mecklenburg-Vorpommern",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "13"
+      }
+     ],
+     "target": 9
+    },
+    {
+     "code": "ni",
+     "name": "Niedersachsen",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "3"
+      }
+     ],
+     "target": 48
+    },
+    {
+     "code": "nw",
+     "name": "Nordrhein-Westfalen",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "5"
+      }
+     ],
+     "target": 108
+    },
+    {
+     "code": "rp",
+     "name": "Rheinland-Pfalz",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "7"
+      }
+     ],
+     "target": 25
+    },
+    {
+     "code": "sl",
+     "name": "Saarland",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "10"
+      }
+     ],
+     "target": 6
+    },
+    {
+     "code": "sn",
+     "name": "Sachsen",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "14"
+      }
+     ],
+     "target": 23
+    },
+    {
+     "code": "st",
+     "name": "Sachsen-Anhalt",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "15"
+      }
+     ],
+     "target": 13
+    },
+    {
+     "code": "sh",
+     "name": "Schleswig-Holstein",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "1"
+      }
+     ],
+     "target": 18
+    },
+    {
+     "code": "th",
+     "name": "Thüringen",
+     "conds": [
+      {
+       "item": 6,
+       "op": "eq",
+       "value": "16"
+      }
+     ],
+     "target": 12
+    }
+   ]
+  }
+ ],
+ "translation_marks": [],
+ "boards": [],
+ "files": {},
+ "live": null,
+ "interview": null,
+ "sampling": null
+}

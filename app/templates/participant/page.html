@@ -1,0 +1,58 @@
+{% extends "participant/base.html" %}
+{# a failed "Next" loads the same address again: the title says so first (tab, screen reader) #}
+{% block title %}{% if errors %}{{ ui("Fehler", "Error") }} – {% elif nudges or tempo_note %}{{ ui("Hinweis", "Note") }} – {% endif %}{{ ui("Seite", "Page") }} {{ page }} – {{ survey.title_in(lang) }}{% endblock %}
+{# the preview renders this page too (editor._run_preview, `preview`): the bar (base.html), the comments (aside) and
+   the page numbers for the phone view are all it adds (UI/UX audit 2026-10-07, S9, W47) #}
+{% block main_attrs %}{% if preview is defined and preview %}data-page="{{ page }}" data-page-count="{{ page_count }}" data-block="{{ block.title() or 'Block' }}"{% endif %}{% endblock %}
+{% block content %}
+{# in the diary app the app bar shows the title and the app sets the language (app/diary_api.py) #}
+{% if not (in_app is defined and in_app) %}{% include "participant/_langs.html" %}
+{% include "participant/_survey_head.html" %}{% endif %}
+{# the number of pages can change with the answers (branches), hence "about" #}
+{# no bar on a short survey of a diary study (app/diary.py, short_entry); the value is the page, as its text says
+   ("Seite 1 von etwa 10" was 0 before; UI/UX audit 2026-10-16, 96). The bar shows the pages done. #}
+{% if survey.show_progress and not short_entry %}<div class="p-progress" role="progressbar" aria-valuemin="1" aria-valuemax="{{ page_count }}" aria-valuenow="{{ [page, page_count]|min }}"
+     aria-label="{{ ui('Fortschritt', 'Progress') }}"
+     aria-valuetext="{{ (ui('Seite %d von etwa %d', 'Page %d of about %d'))|format(page, page_count) }}">
+  <span style="width: {{ ((page - 1) / page_count * 100)|round(1) }}%"></span>
+</div>{% endif %}
+{# the page sent before was not the current one (sent twice, an older tab): it was dropped, this is where the person is #}
+{% if stale_note %}<p class="p-tempo-note" role="status">{{ stale_note }}</p>{% endif %}
+{# a time that is part of the experiment cannot be extended: said before the page is read (accessibility concept D4;
+   shown by participant.js, without it no time runs out) #}
+{% if hold and hold.essential and hold.max and not block_sections is defined %}<p class="p-tempo-note" data-hold-note hidden>{{ (ui("Für diese Seite haben Sie %d Sekunden Zeit. Danach geht es von selbst weiter.", "You have %d seconds for this page. After that, the survey moves on automatically."))|format(hold.total) }}</p>{% elif hold and hold.extra and not block_sections is defined %}<p class="p-tempo-note" data-hold-note hidden>{{ (ui("Für diese Seite haben Sie %d Sekunden Zeit. Kurz vor Ablauf können Sie mit „Mehr Zeit“ verlängern.", "You have %d seconds for this page. Shortly before the end, “More time” lets you extend it."))|format(hold.total) }}</p>{% endif %}
+{% if separated %}<p class="p-separated">🔒 {{ ui("Diese Angaben werden getrennt von Ihren bisherigen Antworten gespeichert und können ihnen nicht zugeordnet werden.", "These details are stored separately from your previous answers and cannot be linked to them.") }}</p>{% endif %}
+{# the page sends itself after a choice: said beforehand, not only done (WCAG 3.2.2; participant.js shows it on pages
+   with choices, UI audit 2026-10-04, R59); also on pages without "Next" (auto_next: choice tasks, the timed tasks),
+   where the task's own line says it (accessibility concept D7) #}
+{% if auto_advance or (auto_next is defined and auto_next) %}<p class="p-auto-note" data-auto-note data-task-text="{{ ui('Nach der Aufgabe geht es automatisch weiter.', 'After the task, the survey moves on automatically.') }}" hidden>{{ ui("Nach der Auswahl geht es automatisch weiter.", "After your choice, the survey moves on automatically.") }}</p>{% endif %}
+<form method="post" novalidate autocomplete="off" {% if offline is defined and offline %}data-app-offline{% endif %} {% if auto_advance %}data-auto-advance{% endif %} {% if auto_next is defined and auto_next %}data-auto-next{% endif %} {% if survey.paradata %}data-paradata{% endif %} {% if survey.focus_paste and not separated %}data-focus{% if survey.focus_inputs %} data-focus-inputs{% endif %}{% endif %} {% if themes.is_auto(themes.of(survey)) %}data-scheme{% endif %} {% if keep_key is defined and keep_key %}data-keep="{{ keep_key }}"{% endif %} {% if block_sections is defined %}data-block data-block-url="{{ block_url }}" data-block-start="{{ block_first }}"{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="pos" value="{{ page_token }}">
+  {# the language of this page: the language switch sends the page along, and its numbers are read in this one #}
+  <input type="hidden" name="page_lang" value="{{ lang }}">
+  {% if block_sections is defined %}
+  {# a block loaded at once (app/blockload.py): all its pages, one shown; participant.js switches between them, says
+     the new page (live region) and keeps what cannot be sent yet (data-block-note) #}
+  <p class="p-sr-only" data-bpage-live aria-live="polite"></p>
+  {% for section in block_sections %}{{ section }}{% endfor %}
+  <div class="p-send-note" data-block-note aria-live="polite" data-offline="{{ ui('Keine Verbindung zum Internet. Ihre Antworten bleiben in diesem Tab und werden nachgesendet, sobald Sie wieder online sind.', 'No internet connection. Your answers stay in this tab and are sent as soon as you are back online.') }}"></div>
+  {% else %}
+  {% if nudge_shown %}<input type="hidden" name="nudge_ack" value="1">{% endif %}
+  {# not for people: out of sight, out of the tab order, hidden from screen readers (app/quality.py, TRAP_FIELD) #}
+  {% if not separated %}<div class="p-trap" aria-hidden="true"><label>More information <input type="text" name="more_info" tabindex="-1" autocomplete="off"></label></div>{% endif %}
+  {# a note to AI systems, out of sight and hidden from screen readers like the field above (app/quality.py, BAIT_FIELD) #}
+  {% if ai_bait and not separated %}<div class="p-trap" aria-hidden="true"><p>{{ ui(ai_bait[0], ai_bait[1]) }}</p><label>{{ ui("Kennwort für KI-Systeme", "Code word for AI systems") }} <input type="text" name="ki_kennwort" tabindex="-1" autocomplete="off"></label></div>{% endif %}
+  {% include "participant/_block.html" %}
+  {% endif %}
+  {# a dropped connection on "Weiter" (participant.js keeps the inputs in the tab): what happened, said next to the
+     buttons; the texts wait here in the language of the page #}
+  <div class="p-send-note" data-send-note aria-live="polite"
+       data-sending="{{ ui('Wird gesendet …', 'Sending …') }}"
+       data-offline="{{ ui('Keine Verbindung zum Internet. Ihre Antworten sind noch da. Bitte senden Sie die Seite erneut, sobald Sie wieder online sind.', 'No internet connection. Your answers are still here. Please send the page again once you are back online.') }}"
+       data-slow="{{ ui('Das Senden dauert ungewöhnlich lange. Ihre Antworten sind noch da. Wenn sich nichts tut, senden Sie die Seite bitte erneut.', 'Sending is taking unusually long. Your answers are still here. If nothing happens, please send the page again.') }}"
+       data-restored="{{ ui('Ihre Eingaben auf dieser Seite sind wieder da.', 'Your entries on this page have been restored.') }}"></div>
+  {% if block_sections is not defined %}{% include "participant/_nav.html" %}{% endif %}
+</form>
+{% endblock %}
+{% block aside %}{% if preview is defined and preview and not framed and comment_url %}{% with stage=false %}{% include "participant/_comments.html" %}{% endwith %}{% endif %}{% endblock %}

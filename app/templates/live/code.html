@@ -1,0 +1,15 @@
+{% extends "participant/base.html" %}
+{# The code page of live votes and surveys (app/live/, enter_code): the short address shown on the screen. #}
+{% block title %}{{ ui("Code eingeben", "Enter code") }} · Askurious{% endblock %}
+{% block content %}
+<h1 class="live-title">{{ ui("Code eingeben", "Enter code") }}</h1>
+<form method="get" action="{{ url_for('live_public.enter_code') }}" class="live-code-form" novalidate>
+  <label for="code">{{ ui("Den Code von der Leinwand oder aus der Einladung", "The code from the screen or from the invitation") }}</label>
+  <input id="code" name="code" value="{{ raw }}" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="text" autofocus
+         class="live-code-input" {% if error %}aria-invalid="true" aria-describedby="code-error"{% endif %}>
+  {% if blocked is defined and blocked %}<p class="p-error" role="alert">{{ ui("Zu viele falsche Codes. Bitte in einigen Minuten noch einmal versuchen.", "Too many wrong codes. Please try again in a few minutes.") }}</p>{% endif %}
+  {% if error %}<p class="p-error" id="code-error">{{ ui("Zu diesem Code gibt es keine laufende Abstimmung oder Befragung.", "There is no running vote or survey with this code.") }}</p>{% endif %}
+  <div class="p-nav"><button class="p-button" type="submit">{{ ui("Weiter", "Next") }}</button></div>
+</form>
+{% endblock %}
+{% block footer_links %}{% endblock %}

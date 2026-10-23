@@ -1,0 +1,39 @@
+{% set de = lang in ("de", "de-du") %}
+{% set ans = answers.get(item.id) %}
+{% set lo, hi = kind.limits(item) %}
+{% include "items/_question.html" %}
+<div class="p-map" data-map-marker="{{ item.id }}" data-map='{{ kind.map_settings(item, lang)|tojson }}'>
+  <p class="p-map-hint">
+    {# for every device; the keyboard way through the button, which needs the script like the map (UI/UX audit 2026-10-16, 95) #}
+    {{ ui("Setzen Sie Marker auf der Karte. Marker lassen sich verschieben und wieder entfernen.", "Place markers on the map. Markers can be moved and removed.") }}
+    <span class="p-if-js">{{ ui("Mit der Tastatur: „Marker in der Mitte“ setzt einen Marker.", "With the keyboard: “Marker in the centre” places a marker.") }}</span>
+    {% if lo and lo == hi %}{{ (ui("Bitte genau %d setzen.", "Please place exactly %d."))|format(hi) }}
+    {% elif lo %}{{ (ui("Mindestens %d, höchstens %d.", "At least %d, at most %d."))|format(lo, hi) }}
+    {% else %}{{ (ui("Höchstens %d.", "At most %d."))|format(hi) }}{% endif %}
+  </p>
+  <div class="p-map-search" data-map-search hidden>
+    <input type="search" data-map-query data-not-first placeholder="{{ ui('Ort oder Adresse suchen', 'Search for a place or address') }}"
+           aria-label="{{ ui('Ort suchen', 'Search place') }}" autocomplete="off">
+    <button type="button" class="p-map-btn" data-map-go data-not-first>{{ ui("Suchen", "Search") }}</button>
+  </div>
+  <ul class="p-map-results" data-map-results hidden></ul>
+  <div class="p-map-stage">
+    <div class="p-map-canvas" data-map-canvas role="application"
+         aria-label="{{ ui('Karte zum Setzen von Markern', 'Map for placing markers') }}"></div>
+    <noscript><p class="p-map-noscript">{{ ui("Für die Karte wird JavaScript benötigt.", "The map needs JavaScript.") }}</p></noscript>
+  </div>
+  <div class="p-map-bar">
+    <span class="p-map-count" aria-live="polite" data-map-count></span>
+    <button type="button" class="p-map-btn" data-map-locate hidden data-failed="{{ ui('Ihre Position ist gerade nicht verfügbar.', 'Your location is not available right now.') }}"
+            title="{{ ui('Die Karte zu Ihrer Position bewegen; gespeichert wird nur, wo Sie Marker setzen', 'Move the map to your location; only the markers you place are stored') }}">{{ ui("Meine Position", "My location") }}</button>
+    <button type="button" class="p-map-btn" data-map-center data-focus-target
+            title="{{ ui('Marker in der Kartenmitte setzen (ohne Maus)', 'Place a marker in the centre of the map (without a mouse)') }}">+ {{ ui("Marker in der Mitte", "Marker in the centre") }}</button>
+  </div>
+  <ol class="p-map-list" data-map-list></ol>
+  <input type="hidden" name="i{{ item.id }}" value='{{ ans|tojson if ans else "" }}' data-map-input>
+</div>
+{% if not assets.loaded_leaflet %}{% set assets.loaded_leaflet = true %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='map_marker.js') }}" defer></script>
+{% endif %}

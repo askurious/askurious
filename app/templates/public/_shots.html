@@ -1,0 +1,37 @@
+{# The changing screenshots of the start page (Ralf, 2026-10-04), in the head under both names; under
+   polltergeist.de the big screen of a live poll comes first (Ralf 2026-10-09: screenshots of important moments of the
+   software instead of the results of a live poll). Taken anew on 2026-10-09 from the demo surveys with dummy data,
+   once in each look: under polltergeist.de from img/screens/polltergeist/. A shot with a map names the source and licence
+   of its map data under it ("osm", "bkg"; review 2026-10-10). The choice task with AI images and the crowd (Philipp,
+   2026-10-14: back from the shots of 2026-10-08) exist in the standard look only (SHARED), under polltergeist.de too. #}
+{% set shots = [
+  ("01-fragebogen", de_en("Fragebogen-Editor mit Startprüfung", "Questionnaire editor with pre-launch check"), ""),
+  ("02-ablauf", de_en("Ablauf mit Bedingungen, Schleifen und Quoten", "Flow with conditions, loops and quotas"), ""),
+  ("07-conjoint", de_en("Auf dem Smartphone: Conjoint-Wahlaufgabe", "On a smartphone: a conjoint choice task"), ""),
+  ("07-bild-cbc", de_en("Auf dem Smartphone: Wahlaufgabe mit KI-generierten Bildern", "On a smartphone: a choice task with AI-generated images"), ""),
+  ("08-karte", de_en("Auf dem Smartphone: Orte auf der Karte markieren", "On a smartphone: marking places on a map"), "osm"),
+  ("08-menschenmenge", de_en("Rückmeldung als Menschenmenge: wo die anderen stehen (Realtime-Delphi)", "Crowd feedback: where the others stand (real-time Delphi)"), ""),
+  ("03-leinwand", de_en("Live-Abstimmung auf der Leinwand: Wortwolke und Fragen aus dem Publikum", "Live poll on the big screen: word cloud and questions from the audience"), ""),
+  ("04-interview", de_en("Interview führen mit dem Leitfaden", "Conducting an interview with the guide"), ""),
+  ("05-ergebnisse", de_en("Ergebnisse mit Karte der Bundesländer", "Results with a map of the federal states"), "bkg"),
+  ("06-skalen", de_en("Ergebnisse einer Likert-Matrix", "Results of a Likert matrix"), ""),
+] %}
+{% set folder = "polltergeist/" if site() == "polltergeist" else "" %}
+{% set shared = ["07-bild-cbc", "08-menschenmenge"] %}
+{% if site() == "polltergeist" %}{% set shots = shots|selectattr(0, "equalto", "03-leinwand")|list + shots|rejectattr(0, "equalto", "03-leinwand")|list %}{% endif %}
+<section class="shots" aria-roledescription="{{ de_en('Karussell', 'carousel') }}" aria-label="Screenshots" data-carousel data-autoplay>
+  <div class="shots-track" tabindex="0">
+    {% for file, de, credit in shots %}{% set shot_folder = '' if file in shared else folder %}
+    <figure class="shot" aria-roledescription="{{ de_en('Folie', 'slide') }}" aria-label="{{ de_en('{i} von {n}', '{i} of {n}', i=loop.index, n=shots|length) }}">
+      <a href="{{ url_for('static', filename='img/screens/' ~ shot_folder ~ file ~ '.webp') }}" target="_blank" rel="noopener" title="{{ de_en('Groß ansehen', 'View large') }}">
+        <img src="{{ url_for('static', filename='img/screens/' ~ shot_folder ~ file ~ '.webp') }}"
+             srcset="{{ url_for('static', filename='img/screens/' ~ shot_folder ~ file ~ '-640.webp') }} 640w, {{ url_for('static', filename='img/screens/' ~ shot_folder ~ file ~ '.webp') }} 1280w"
+             sizes="(max-width: 900px) 100vw, 600px" width="1280" height="800" alt="Screenshot: {{ de }}" {% if not loop.first %}loading="lazy"{% endif %}></a>
+      <figcaption>{{ de }}{% if credit == "osm" %}<span class="shot-credit">{{ de_en("Karte", "Map") }}: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© {{ de_en("OpenStreetMap-Mitwirkende", "OpenStreetMap contributors") }}</a> (ODbL)</span>{% elif credit == "bkg" %}<span class="shot-credit">{{ de_en("Ländergrenzen", "State borders") }}: {{ bkg_credit }}</span>{% endif %}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  <button type="button" class="shots-nav shots-prev" aria-label="{{ de_en('Vorheriger Screenshot', 'Previous screenshot') }}" data-prev>‹</button>
+  <button type="button" class="shots-nav shots-next" aria-label="{{ de_en('Nächster Screenshot', 'Next screenshot') }}" data-next>›</button>
+  <div class="shots-dots">{% for s in shots %}<button type="button" aria-label="Screenshot {{ loop.index }}" data-dot="{{ loop.index0 }}"></button>{% endfor %}</div>
+</section>

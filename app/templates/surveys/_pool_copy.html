@@ -1,0 +1,17 @@
+{# The pooled analysis of validated constructs (licence.md section 4) for the researchers' own data protection
+   information: the consent says it by itself, an information of the institution or an ethics application does not.
+   Needs: consent (the consent element). Settings page and wizard (wizard/_consent.html), tester feedback 2026-10-06. #}
+{% set pc = consent.kind.pool_copy(consent) if consent else none %}
+{% if pc %}
+<div class="pool-copy">
+  <p><strong>{{ de_en("Gemeinsame Auswertung standardisierter Fragebögen", "Pooled analysis of standardised questionnaires") }}</strong>
+    <span class="hint">{{ pc.names|join(", ") }}</span></p>
+  <p class="muted small">{{ de_en("Antworten auf validierte Konstrukte führt der Betreiber nach Ende der Feldphase pseudonymisiert mit anderen Befragungen zusammen (Metaanalysen,", "After fieldwork has ended, the provider of Askurious (see legal notice) combines answers to validated constructs, pseudonymised, with other surveys (meta-analyses,") }}
+    <a href="{{ url_for('terms.show') }}">{{ de_en("Nutzungsbedingungen, Abschnitt 4", "terms of use, section 4") }}</a>).
+    {{ de_en("Die Einwilligung nennt das von selbst. Geben Sie Teilnehmenden zusätzlich eine eigene Datenschutzinformation (z. B. Ihrer Einrichtung oder aus dem Ethikantrag), nehmen Sie diesen Absatz dort auf; Klicken kopiert ihn.", "The consent already says so. If you also give participants a data protection information of your own (e.g. of your institution or from the ethics application), include this paragraph there; a click copies it.") }}</p>
+  {% for lang, label in [("de", de_en("Deutsch", "German")), ("en", de_en("Englisch", "English"))] %}
+  <p class="small"><span class="label-title">{{ label }}</span>
+    <code class="copy-chip" role="button" tabindex="0" title="{{ de_en('Klicken oder Enter: kopieren', 'Click or Enter: copy') }}" data-copy-text="{{ pc[lang] }}">{{ pc[lang] }}</code></p>
+  {% endfor %}
+</div>
+{% endif %}

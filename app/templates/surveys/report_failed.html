@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}{{ de_en("Auswertung nicht abgeschlossen", "Report not completed") }} · {{ survey.title }}{% endblock %}
+{% block content %}<section class="panel"><h1>{{ de_en("Auswertung nicht abgeschlossen", "Report not completed") }}</h1>
+<p>{{ survey.title }}</p>
+<p>{{ de_en("Die Berechnung konnte nicht abgeschlossen werden. Bitte versuchen Sie es noch einmal.", "The calculation could not be completed. Please try again.") }}</p>
+<a class="button" href="{{ retry }}">{{ de_en("Erneut versuchen", "Try again") }}</a><p><a href="{{ url_for('surveys.field', survey_id=survey.id) }}">{{ de_en("Zurück zur Datenerhebung", "Back to data collection") }}</a> · <a href="{{ url_for('surveys.data', survey_id=survey.id) }}">{{ de_en("Zum Export", "Go to export") }}</a></p></section>{% endblock %}

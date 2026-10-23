@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon %}
+{% block title %}{{ de_en("Anmelden", "Sign in") }}{% endblock %}
+{% block content %}
+<div class="sign-in">
+  <h1>{{ de_en("Anmelden", "Sign in") }}</h1>
+  {% if config.ORCID_CLIENT_ID %}
+  <section class="panel">
+    <h2>{{ de_en("Mit ORCID", "With ORCID") }} <span class="hint">{{ de_en("empfohlen", "recommended") }}</span></h2>
+    <p class="muted">{{ de_en("Ihre ORCID iD weist Sie als Forschende oder Forschenden aus; ein eigenes Passwort für Askurious brauchen Sie dann nicht.",
+      "Your ORCID iD identifies you as a researcher; you then need no password of your own for Askurious.") }}</p>
+    <form method="post" action="{{ url_for('auth.login') }}">{{ csrf() }}
+      <input type="hidden" name="next" value="{{ nxt }}">
+      <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
+      <button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</button>
+    </form>
+  </section>
+  {% endif %}
+  <section class="panel">
+    <h2>{{ de_en("Mit E-Mail-Adresse und Passwort", "With email address and password") }}</h2>
+    <form method="post" action="{{ url_for('auth.sign_in') }}" class="stack">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
+      <label>{{ de_en("E-Mail-Adresse", "Email address") }}
+        <input type="email" name="email" value="{{ email }}" autocomplete="username" required autofocus></label>
+      <label>{{ de_en("Passwort", "Password") }}
+        <input type="password" name="password" autocomplete="current-password" required></label>
+      <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
+      <div class="button-row"><button class="button button-secondary">{{ de_en("Anmelden", "Sign in") }}</button>
+        <a href="{{ url_for('auth.forgot_password') }}">{{ de_en("Passwort vergessen?", "Forgot your password?") }}</a></div>
+    </form>
+    <p class="muted small">{% if mail_enabled() %}{{ de_en("Ein Konto mit Passwort können Sie über eine persönliche Einladung anlegen. Ohne Einladung wenden Sie sich bitte an einen Admin der Plattform",
+      "You can create a password account through a personal invitation. Without an invitation, please contact a platform admin") }}{% else %}{{ de_en("Für ein neues Konto mit Passwort wenden Sie sich bitte an einen Admin der Plattform", "For a new password account, please contact a platform admin") }}{% endif %}{% if config.IMPRINT_EMAIL %}
+      (<a href="mailto:{{ config.IMPRINT_EMAIL }}">{{ config.IMPRINT_EMAIL }}</a>){% endif %}{{ de_en(": Dort erfahren Sie, welche Zugangsmöglichkeiten verfügbar sind.", ": they can tell you which access options are available.") }}</p>
+  </section>
+</div>
+{% endblock %}

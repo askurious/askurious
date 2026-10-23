@@ -1,0 +1,22 @@
+<fieldset class="p-fieldset" {% if item.text("question", lang) %}aria-labelledby="q{{ item.id }}"{% endif %}>
+  {% with tag="legend" %}{% include "items/_question.html" %}{% endwith %}
+  {% set lo, hi = item.config.min, item.config.max %}
+  {% if lo and hi %}<p class="p-hint">{{ ((ui("Genau %d Antworten.", "Exactly %d answers."))|format(lo)) if lo == hi else ((ui("Mindestens %d und höchstens %d Antworten.", "At least %d and up to %d answers."))|format(lo, hi)) }}</p>
+  {% elif lo and lo > 1 %}<p class="p-hint">{{ (ui("Mindestens %d Antworten.", "At least %d answers."))|format(lo) }}</p>
+  {% elif hi %}<p class="p-hint">{{ (ui("Höchstens %d Antworten.", "Up to %d answers."))|format(hi) }}</p>
+  {% elif item.config.get("multi_hint", true) %}<p class="p-hint">{{ ui("Mehrere Antworten möglich.", "You can choose more than one answer.") }}</p>{% endif %}
+  {% set chosen, typed = kind.chosen(answers.get(item.id)) or [], kind.typed(answers.get(item.id)) %}
+  {% if kind.images(item) %}
+  {% with input_type="checkbox", chosen_codes=chosen %}{% include "items/_image_options.html" %}{% endwith %}
+  {% else %}
+  <div class="p-options {{ item.config.layout }}">
+    {% for o in kind.options(item, lang, none if all_rows is defined and all_rows else answers) %}
+    <label class="p-option p-check{% if o.text %} p-option-text{% endif %}">
+      <input type="checkbox" name="i{{ item.id }}" value="{{ o.code }}" {% if o.code in chosen %}checked{% endif %}{% if o.exclusive %} data-exclusive{% endif %}>
+      <span{{ text_attrs(item, "options", o.id) }}>{{ o.label|fill(variables) }}</span>
+      {% if o.text %}<input type="text" class="p-other" dir="auto" name="i{{ item.id }}_t_{{ o.id }}" maxlength="500" autocomplete="off" aria-label="{{ o.label }}" value="{{ typed.get(o.code, '') }}">{% endif %}
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+</fieldset>

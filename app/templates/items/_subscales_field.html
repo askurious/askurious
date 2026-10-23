@@ -1,0 +1,7 @@
+{# Subscales of a matrix (Likert, semantic differential): the box shows the column "Subskala" of the table
+   #rows<item id>; unticked it is hidden and emptied (app.js, data-toggle-cols). Needs sub_names: the names in use. #}
+{% if structural %}<input type="hidden" name="subscales_shown" value="1">{% endif %}
+<label class="check"><input type="checkbox" name="subscales" value="1" data-toggle-cols="rows{{ item.id }}" data-col="sub" {% if sub_names %}checked{% endif %} {% if not structural %}disabled{% endif %}>
+  {{ de_en("Unterdimensionen zuordnen", "Assign sub-dimensions") }}
+  <span class="hint">{{ de_en("z. B. die fünf Dimensionen der „Big Five“; Reliabilität, Skalenwerte im Export und Rückmeldungen gelten dann je Unterdimension", "e.g. the five dimensions of the “Big Five”; reliability, scale scores in the export and feedback then apply per sub-dimension") }}</span></label>
+<datalist id="subs{{ item.id }}">{% for name in sub_names %}<option value="{{ name }}">{% endfor %}</datalist>

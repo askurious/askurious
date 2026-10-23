@@ -1,0 +1,15 @@
+{# Scale profile (app/items/scale_profile.py): one's own value per scale or subscale, the sample's mean beside it #}
+{% set loop_row = (page_meta or {}).get("row") if page_meta is defined else none %}
+{% set is_preview = preview is defined and preview %}
+{% set pr = kind.profile(item, lang, answers, preview=is_preview, row=loop_row) %}
+{% include "items/_question.html" %}
+{% if is_preview %}<p class="p-sc-note">{{ ui("Vorschau: Zählt auch Test- und Dummy-Daten.", "Preview: includes test and dummy data.") }}</p>{% endif %}
+{% if pr %}
+<div class="p-sc-map">
+  {{ pr.svg }}
+  <p class="p-sc-meta"><span class="p-map-key own"></span> {{ ui("Ihr Wert", "your value") }}{% if pr.sample_shown %} ·
+    <span class="p-map-key p-topic-key-sample"></span> {{ ui("Durchschnitt aller Teilnehmenden", "average of all participants") }} · n = {{ pr.n }}{% endif %}</p>
+  {% if pr.few %}<p class="p-sc-few">{{ ui("Noch zu wenige Antworten für einen Vergleich.", "Not enough answers yet for a comparison.") }}</p>{% endif %}
+  <input type="hidden" name="i{{ item.id }}_n" value="{{ pr.n }}">
+</div>
+{% endif %}

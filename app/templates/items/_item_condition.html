@@ -1,0 +1,23 @@
+{% from "_condition.html" import cond_line %}
+{# "Nur zeigen, wenn …": a condition of the question itself (app/item_condition.py), set like the conditions of
+   statements and of the flow (a question is picked, its answers are ticked; app.js builds the fields when another
+   question is chosen). Needs: ic = item_condition.editor_view(...), meta_editable. #}
+{% if ic %}
+<fieldset class="row-conds item-cond" data-cond-page>
+  <legend>{{ de_en("Nur zeigen, wenn …", "Show only if …") }} <span class="hint">{{ de_en("abhängig von einer Antwort auf einer früheren Seite oder einem URL-Parameter", "depending on an answer on an earlier page or a URL parameter") }}</span></legend>
+  <script type="application/json" data-cond-items>{{ ic.data|tojson }}</script>
+  <details {% if ic.view %}open{% endif %}>
+    <summary>{% if ic.view %}{{ de_en("nur wenn {cond}", "only if {cond}", cond=ic.text) }}{% else %}{{ de_en("wird allen gezeigt", "shown to everyone") }}{% endif %}</summary>
+    {% if not meta_editable %}
+    <p class="muted small">{{ de_en("Die Bedingung gehört zur Logik der Befragung und lässt sich nur im Entwurf und in der Ausgangssprache ändern.", "The condition belongs to the logic of the survey and can only be changed in the draft and in the source language.") }}</p>
+    {% endif %}
+    {% if ic.data.order or ic.view %}
+    {{ cond_line("item_when", ic.view, ic.described, ic.data.order, ic.modes, ic.data.date_hint, meta_editable, empty=de_en("immer zeigen", "always show"),
+                 text=ic.text, option_prefix=de_en("nur wenn ", "only if ")) }}
+    {% else %}
+    <p class="muted small">{{ de_en("Auf früheren Seiten steht noch keine Frage, auf die sich eine Bedingung beziehen kann. Die Filterfrage muss auf einer Seite davor stehen: einen Seitenumbruch dazwischen setzen.", "There is no question on an earlier page yet that a condition can refer to. The filter question has to be on a page before: put a page break in between.") }}</p>
+    {% endif %}
+    <p class="muted small">{{ de_en("Die Frage sehen nur die Personen, auf die die Bedingung zutrifft (mehrere Antworten angekreuzt: Eine davon genügt). Für alle anderen bleiben ihre Spalten im Export leer, wie bei einem Block hinter einer Bedingung im Ablauf; Pflicht gilt nur, wenn sie gezeigt wird. Bleibt auf der Seite nichts übrig, wird die Seite übersprungen. Es zählen nur Antworten früherer Seiten.", "Only the people the condition applies to see the question (several answers ticked: one of them is enough). For everyone else its columns stay empty in the export, as for a block behind a condition in the flow; required applies only when it is shown. If nothing is left on the page, the page is skipped. Only answers on earlier pages count.") }}</p>
+  </details>
+</fieldset>
+{% endif %}

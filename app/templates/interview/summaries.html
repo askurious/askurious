@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{# Case summaries ("Interviews erheben", app/interview_summaries.py): interviews × Themenblöcke, each cell
+   saves by itself (summaries.js). #}
+{% block title %}{{ de_en("Fallzusammenfassungen", "Case summaries") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Fallzusammenfassungen", "Case summaries") }} <span class="hint">{{ n }} {{ "Interview" if n == 1 else de_en("Interviews", "interviews") }}{{ de_en(", ohne Probeinterviews", ", without trial interviews") }}</span></h2>
+    <span class="spacer"></span>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_summaries.file_docx', code=survey.code) }}">{{ icon("download", 16) }} Word</a>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_summaries.file_csv', code=survey.code) }}">{{ icon("download", 16) }} CSV</a>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+  </div>
+  <p class="muted small">{{ de_en("Je Interview und Themenblock eine kurze Zusammenfassung in Ihren Worten, dazu eine für den Fall insgesamt (thematische Matrix nach Kuckartz & Rädiker). Die Notizen aus dem Interview stehen klein darunter. Jedes Feld speichert von selbst.", "Per interview and topic block a short summary in your own words, plus one for the case as a whole (thematic matrix after Kuckartz & Rädiker). The notes from the interview appear in small print below. Each field saves automatically.") }}</p>
+  {% if options %}
+  <form method="get" class="row-fields">
+    <label>{{ de_en("Gruppieren nach", "Group by") }}
+      <select name="nach" data-submit-on-change><option value="">{{ de_en("nicht gruppieren", "do not group") }}</option>
+        {% for item in options %}<option value="{{ item.id }}" {% if grouper and grouper.id == item.id %}selected{% endif %}>{{ item.text("question")|striptags|truncate(60, true, "…") }}</option>{% endfor %}</select></label>
+    <noscript><div><button class="button button-small">{{ de_en("Zeigen", "Show") }}</button></div></noscript>
+  </form>
+  {% endif %}
+  <p class="small" data-summary-status role="status"></p>
+</section>
+
+{% if n %}
+<section class="panel summary-panel" data-summaries data-csrf="{{ csrf_token() }}">
+  <div class="res-scroll">
+  {% call list_table("is-wide summary-table") %}
+    <thead><tr><th>Interview</th>{% for b in blocks %}<th>{{ b.title() }}</th>{% endfor %}<th>{{ de_en("Fall insgesamt", "Case as a whole") }}</th></tr></thead>
+    <tbody>
+    {% for label, members in groups %}
+    {% if grouper %}<tr class="coverage-block"><td colspan="{{ blocks|length + 2 }}">{{ grouper.text("question")|striptags|truncate(50, true, "…") }}: {{ label }} ({{ members|length }})</td></tr>{% endif %}
+    {% for r in members %}{% set s = summaries(r) %}{% set notes = reminders(survey, r) %}
+    <tr>
+      <th scope="row">{{ r.interview.label }}</th>
+      {% for b in blocks %}
+      <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ b.title() }}"
+                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="{{ b.id }}">{{ s.get(b.id|string, "") }}</textarea>
+        {% for n_ in notes.get(b.id|string, []) %}<div class="summary-note">{{ n_ }}</div>{% endfor %}</td>
+      {% endfor %}
+      <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ de_en('Fall insgesamt', 'case as a whole') }}"
+                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="case">{{ s.get("case", "") }}</textarea></td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+</section>
+{% else %}
+<section class="panel"><p class="muted">{{ de_en("Noch keine Interviews. Unter „Interviews“ das erste beginnen; Zusammenfassungen entstehen aus den Transkripten.", "No interviews yet. Start the first one under “Interviews”; summaries are made from the transcripts.") }}</p></section>
+{% endif %}
+<section class="panel">{{ grouped(sources, de_en("Literatur", "References")) }}</section>
+<script src="{{ url_for('static', filename='summaries.js') }}" defer></script>
+{% endblock %}

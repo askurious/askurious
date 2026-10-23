@@ -1,0 +1,2 @@
+{# Needs: logo (app/theme.py logo_of) or none, survey #}
+{% if logo %}<div class="p-logo p-logo-{{ logo.position }}">{% if logo.file_on_dark %}<picture><source media="(prefers-color-scheme: dark)" srcset="{{ url_for('media.serve', survey_uid=survey.uid, filename=logo.file_on_dark) }}">{% endif %}<img src="{{ url_for('media.serve', survey_uid=survey.uid, filename=logo.file) }}" alt="{{ logo.alt }}" width="{{ logo.w }}" height="{{ logo.h }}">{% if logo.file_on_dark %}</picture>{% endif %}</div>{% endif %}

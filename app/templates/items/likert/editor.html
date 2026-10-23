@@ -1,0 +1,101 @@
+{% from "_macros.html" import row_list_hint %}
+{% from "_learn.html" import why %}
+{% set question_label = de_en("Instruktion", "Instruction") %}
+{% set question_hint = de_en("z. B. „Inwieweit stimmen Sie den folgenden Aussagen zu?“", "e.g. “To what extent do you agree with the following statements?”") %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Skala", "Scale") }}</legend>
+  <div class="row-fields">
+    <label>{{ de_en("Stufen", "Points") }}
+      <select name="points" data-points-select {% if not structural %}disabled{% endif %}>
+        {% for p in range(2, 11) %}<option value="{{ p }}" {% if p == item.cfg.points %}selected{% endif %}>{{ p }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Antwortskala", "Answer scale") }}
+      <select name="anchors" data-anchor-select {% if not structural %}disabled{% endif %}>
+        {% for key, name in kind.anchor_names() %}<option value="{{ key }}" {% if key == item.cfg.get("anchors", "agree") %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ de_en("Beschriftung", "Labels") }}
+      <select name="labeling" data-labeling-select {% if not structural %}disabled{% endif %}>
+        <option value="full" {% if item.cfg.labeling == "full" %}selected{% endif %}>{{ de_en("alle Stufen verbalisiert", "all points labelled") }}</option>
+        <option value="endpoints" {% if item.cfg.labeling == "endpoints" %}selected{% endif %}>{{ de_en("nur Endpunkte verbalisiert", "only end points labelled") }}</option>
+      </select>
+    </label>
+    <label>{{ de_en("Anzeige der Beschriftung", "Display of the labels") }}
+      <select name="label_display" {% if not structural %}disabled{% endif %}>
+        <option value="each" {% if item.cfg.get("label_display", "each") == "each" %}selected{% endif %}>{{ de_en("bei jeder Aussage (auf dem Handy)", "with every statement (on mobile phones)") }}</option>
+        <option value="once" {% if item.cfg.get("label_display") == "once" %}selected{% endif %}>{{ de_en("einmal oben (platzsparend)", "once at the top (saves space)") }}</option>
+      </select>
+    </label>
+  </div>
+  {# with "nur Endpunkte verbalisiert" the steps in between are empty and locked: no wording is suggested for them #}
+  {% set ends_only = item.cfg.labeling == "endpoints" %}
+  {% set labels = kind.shown_labels(item.lang_texts(lang).get("labels") or kind.default_labels(lang, item.cfg.points, item.cfg.get("anchors", "agree")), item.cfg.labeling) %}
+  <ol class="scale-labels" data-scale-labels data-presets="{{ kind.anchor_presets(lang)|tojson|forceescape }}" data-anchored="{{ 1 if item.cfg.anchors else 0 }}">
+    {% for l in labels %}
+    <li><input name="label" aria-label="{{ de_en('Beschriftung Stufe {n}', 'Label of point {n}', n=loop.index) }}" value="{{ l }}" {% if ends_only and not loop.first and not loop.last %}readonly class="dimmed" placeholder="{{ de_en('ohne Beschriftung', 'no label') }}" title="{{ de_en('Bei „nur Endpunkte verbalisiert“ bleiben die Stufen dazwischen ohne Beschriftung', 'With “only end points labelled” the points in between stay without a label') }}"{% endif %}></li>
+    {% endfor %}
+  </ol>
+  <p class="muted small"><strong>{{ de_en("Antwortskala", "Answer scale") }}</strong>: {{ de_en("Die Auswahl setzt ihre Standardbeschriftungen ein (in allen Sprachen). Eigene Beschriftungen bleiben beim Ändern der Stufenzahl erhalten: Die Enden bleiben, Stufen dazwischen werden ergänzt oder entfallen. Bei „nur Endpunkte verbalisiert“ sind nur die Enden beschriftet. Ab 8 Stufen sind die Vorschläge fein abgestuft („stimme etwas zu“); so viele Stufen lassen sich in Worten schwer unterscheiden, oft reichen die Endpunkte.", "choosing one fills in its standard labels (in all languages). Your own labels are kept when you change the number of points: the ends stay, points in between are added or dropped. With “only end points labelled” only the ends have labels. From 8 points the suggestions are finely graded (“somewhat agree”); so many points are hard to tell apart in words, and the end points are often enough.") }}</p>
+</fieldset>
+<fieldset>
+  <legend>{{ de_en("Aussagen", "Statements") }} <span class="hint">{{ de_en("Texte auf {l}; Variablenname leer = {code}_1, {code}_2, …", "texts in {l}; variable name empty = {code}_1, {code}_2, …", l=languages[lang], code=item.code) }}</span></legend>
+  {% set sub_names = item.config.statements|selectattr("subscale")|map(attribute="subscale")|unique|list %}
+  {% set has_checks = item.config.statements|selectattr("check")|list|length > 0 %}
+  <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit{% if not sub_names %} off-sub{% endif %}{% if not has_checks %} off-check{% endif %}" id="rows{{ item.id }}">
+    <thead><tr><th>{{ de_en("Aussage", "Statement") }}</th><th class="narrow-col">Variable</th><th class="narrow-col col-sub">{{ de_en("Subskala", "Subscale") }}</th><th class="narrow-col" title="{{ de_en('Wird beim Export umgepolt', 'Reversed in the export') }}">{{ de_en("umgepolt", "reversed") }}</th><th class="check-col col-check" title="{{ de_en('Aufmerksamkeitsprüfung: Die Aussage bittet darum, eine bestimmte Antwort zu wählen. Hier steht, welche richtig ist.', 'Attention check: the statement asks to choose a certain answer. This says which one is correct.') }}">{{ de_en("Prüfung", "Check") }}</th></tr></thead>
+    <tbody>
+    {% set stexts = item.lang_texts(lang).get("statements", {}) %}
+    {% macro check_select(sid, chosen) %}<select name="stmt_check_{{ sid }}" aria-label="{{ de_en('Aufmerksamkeitsprüfung: richtige Antwort', 'Attention check: correct answer') }}" {% if not structural %}disabled{% endif %}>
+          <option value="">{{ de_en("keine", "none") }}</option>
+          {% for l in labels %}<option value="{{ loop.index }}" {% if chosen == loop.index %}selected{% endif %}>{{ de_en("richtig: {label}", "correct: {label}", label=l or de_en("Stufe {n}", "point {n}", n=loop.index)) }}</option>{% endfor %}
+        </select>{% endmacro %}
+    {% for s in item.cfg.statements if not s.src %}
+      <tr>
+        <td><input type="hidden" name="stmt_id" value="{{ s.id }}"><input name="stmt_text" aria-label="{{ de_en('Aussage', 'Statement') }}" value="{{ stexts.get(s.id, '') }}" placeholder="{{ (item.text('statements') or {}).get(s.id, '') }}"></td>
+        <td><input name="stmt_code" aria-label="Variable" data-varname="part" value="{{ s.code }}" class="narrow" placeholder="{{ item.code }}_{{ loop.index }}" {% if not structural %}readonly{% endif %}></td>
+        <td class="col-sub"><input name="stmt_subscale" aria-label="{{ de_en('Subskala', 'Subscale') }}" list="subs{{ item.id }}" value="{{ s.subscale or '' }}" class="narrow" maxlength="100" {% if not structural %}readonly{% endif %}></td>
+        <td class="center"><input type="checkbox" name="stmt_reverse" aria-label="{{ de_en('umgepolt', 'reversed') }}" value="{{ s.id }}" {% if s.reverse %}checked{% endif %} {% if not structural %}disabled{% endif %}></td>
+        <td class="check-col col-check">{{ check_select(s.id, s.check) }}</td>
+      </tr>
+    {% endfor %}
+    {% if structural %}
+      {% for n in range(3) %}
+      {% set nid = new_id() %}
+      <tr class="new-row">
+        <td><input type="hidden" name="stmt_id" value="{{ nid }}"><input name="stmt_text" aria-label="{{ de_en('Aussage', 'Statement') }}" placeholder="{{ de_en('neue Aussage', 'new statement') }}"></td>
+        <td><input name="stmt_code" aria-label="Variable" data-varname="part" class="narrow"></td>
+        <td class="col-sub"><input name="stmt_subscale" aria-label="{{ de_en('Subskala', 'Subscale') }}" list="subs{{ item.id }}" class="narrow" maxlength="100"></td>
+        <td class="center"><input type="checkbox" name="stmt_reverse" aria-label="{{ de_en('umgepolt', 'reversed') }}" value="{{ nid }}"></td>
+        <td class="check-col col-check">{{ check_select(nid, none) }}</td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+  </table></div>
+  {# one sentence per column, the rest under "Mehr dazu" (UI/UX audit 2026-10-05, V96) #}
+  {% call row_list_hint() %}<strong>{{ de_en("umgepolt", "reversed") }}</strong>: {{ de_en("Wird beim Export rekodiert (Stufen + 1 − Wert).", "recoded in the export (points + 1 − value).") }} <strong>{{ de_en("Prüfung", "Check") }}</strong>: {{ de_en("Eine Zeile, die um eine bestimmte Antwort bittet (Aufmerksamkeitsprüfung).", "a row that asks for a certain answer (attention check).") }}{% endcall %}
+  {{ why("likert_grid") }}
+  {{ why("scale_points") }}
+  <label class="check"><input type="checkbox" name="randomize" value="1" {% if item.cfg.randomize %}checked{% endif %} {% if not (structural or (meta_editable and item.cfg.construct)) %}disabled{% endif %}> {{ de_en("Aussagen in zufälliger Reihenfolge zeigen", "Show the statements in random order") }}</label>
+  {{ why("randomize") }}
+  {% with dk_export="-98" %}{% include "items/_dont_know_field.html" %}{% endwith %}
+  {# below the statements and their options: the columns "Subskala" and "Prüfung" only while their box is ticked
+     (Philipp, 2026-10-08); unticked, the subscales and the check rows go #}
+  {% include "items/_subscales_field.html" %}
+  {% if structural %}<input type="hidden" name="checks_shown" value="1">{% endif %}
+  <label class="check"><input type="checkbox" name="checks" value="1" data-toggle-cols="rows{{ item.id }}" data-col="check" data-reveal="checkinfo{{ item.id }}" {% if has_checks %}checked{% endif %} {% if not structural %}disabled{% endif %}>
+    {{ de_en("Aufmerksamkeitsprüfung einbauen", "Include an attention check") }}
+    <span class="hint">{{ de_en("eine Zeile bittet um eine bestimmte Antwort; abhaken entfernt die Prüfzeilen", "a row asks for a certain answer; unticking removes the check rows") }}</span></label>
+  <div id="checkinfo{{ item.id }}" {% if not has_checks %}hidden{% endif %}>
+  <details class="hint-more"><summary>{{ de_en("Mehr dazu", "More on this") }}</summary>
+    <p class="hint">{{ de_en("Ohne eigenen Text der Prüfzeile wird „Bitte wählen Sie hier ‚…‘.“ eingesetzt. Sie zählt nicht in Skalenwert und Reliabilität; der Export zählt je Teilnahme die nicht bestandenen Prüfungen", "Without a text of its own, the check row reads “Please choose ‘…’ here.” It does not count towards the scale score and reliability; the export counts the failed checks per participation") }} (<code>attention_failed</code>){{ de_en(" und getrennt davon die ausgelassenen", " and apart from them those left out") }} (<code>attention_skipped</code>). {{ de_en("Sparsam einsetzen; wer durchfällt, hat die Anweisung zum Teil bewusst nicht befolgt, ausschließen sollte man deshalb nur zusammen mit weiteren Auffälligkeiten. In Experimenten gehört die Prüfung vor die Manipulation.", "Use sparingly; some who fail did not follow the instruction on purpose, so exclude only together with further anomalies. In experiments the check belongs before the manipulation.") }}</p>
+  </details>
+  {% from "_sources.html" import sources as cite %}{{ cite(kind.check_sources, de_en("Literatur zur Aufmerksamkeitsprüfung", "Literature on attention checks")) }}
+  </div>
+</fieldset>
+{% set cv, cv_rows = kind.carry_view(item, lang), de_en("Aussagen", "Statements") %}
+{% include "items/_carry.html" %}
+{% set rc, rc_what = kind.row_conditions(item, lang), de_en("Aussagen", "Statements") %}
+{% include "items/_row_conditions.html" %}

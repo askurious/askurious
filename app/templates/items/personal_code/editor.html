@@ -1,0 +1,39 @@
+{% from "_learn.html" import why %}
+{% set off = "" if structural else "disabled" %}
+{% set chosen = kind.parts(item) %}
+{% include "items/_question_field.html" %}
+<fieldset>
+  <legend>{{ de_en("Teile des Codes", "Parts of the code") }}</legend>
+  {{ why("personal_code") }}
+  <div class="stack">
+    <input type="hidden" name="parts_shown" value="1">
+    <p class="muted small">{{ de_en("Teilnehmende beantworten jeden Teil mit einem Buchstaben oder einer Zahl; daraus wird der Code, z. B. M07K1A. Die Fragen sind fest und in alle Befragungssprachen übersetzt, damit jede Welle genau dasselbe fragt. Üblich sind 5 bis 7 Teile; weniger Teile geben mehr Personen denselben Code, mehr Teile mehr Tippfehler", "Participants answer each part with a letter or a number; these form the code, e.g. M07K1A. The questions are fixed and translated into every survey language, so that every wave asks exactly the same. 5 to 7 parts are usual; fewer parts give more people the same code, more parts more typing errors") }} {{ apa.cite(kind.scheme_sources) }}.</p>
+    <div class="sgic-parts">
+    {% for key, part_kind, column, de, en in kind.part_table %}
+    <label class="check"><input type="checkbox" name="part" value="{{ key }}" {% if key in chosen %}checked{% endif %} {{ off }}> <span>{{ de_en(de, en) }}</span>
+      <span class="hint">{{ {"letter": de_en("1 Buchstabe", "1 letter"), "digit": de_en("1 Ziffer", "1 digit"), "day": de_en("2 Ziffern", "2 digits"), "month": de_en("2 Ziffern", "2 digits")}[part_kind] }}</span></label>
+    {% endfor %}
+    </div>
+    <p class="muted small">{{ de_en("Gewählt: {n} von 3 bis 6. Die Reihenfolge im Code ist die dieser Liste. Neben jedem Teil steht „weiß nicht“; im Code steht dafür ? (bei zwei Ziffern ??), damit ein echtes X davon zu unterscheiden ist.", "Chosen: {n} of 3 to 6. The order in the code is that of this list. Next to every part there is “don't know”; the code then holds ? (?? for two digits), so that a real X can be told apart.", n=chosen|length) }}{% if not structural %} {{ de_en("Die Teile stehen fest, sobald es echte Antworten gibt: Ein anderer Code verbände die Wellen nicht mehr.", "The parts are fixed once there are real answers: another code would no longer link the waves.") }}{% endif %}</p>
+    <label class="check"><input type="checkbox" name="export_parts" value="1" {% if item.config.get("export_parts") %}checked{% endif %} {{ off }}> {{ de_en("Teile zusätzlich als eigene Spalten exportieren", "Also export the parts as columns of their own") }}
+      <span class="hint">{{ de_en("Spalten {first} usw.; der ganze Code steht immer in {code}", "columns {first} etc.; the whole code is always in {code}", first=item.code ~ "_" ~ (kind.fields(item, "de")[0].column if chosen else "mo1"), code=item.code) }}</span></label>
+    <p class="muted small">{{ de_en("Der Code nennt allein niemanden, gilt aber wie Freitexte und Postleitzahlen als offene Angabe: Ein öffentliches Datenpaket (Zenodo, Coscine) enthält ihn nur mit ausdrücklichem Häkchen. Die Frist „Kennungen und Kontaktangaben“ leert ihn nicht, damit sich die Wellen auch Monate später noch verknüpfen lassen. Zusammengeführt wird auf der Seite „Export“ unter „Wellen zusammenführen“; welche Befragungen Wellen sind, legt der Studienplan fest.", "The code names nobody by itself, but like free texts and postal codes it counts as an open answer: a public data package (Zenodo, Coscine) holds it only with an explicit tick. The period “Identifiers and contact details” does not empty it, so that the waves can still be linked months later. Merging is done on the page “Export” under “Merge waves”; which surveys are waves is set in the research plan.") }}</p>
+  </div>
+</fieldset>
+{# how many would share a code (kind.collision, sgicCollision in app.js): live for the ticked parts and a sample size
+   on a logarithmic slider from 10 to 50,000, at first the planned maximum of responses or 50 #}
+{% set sgic_n, sgic_at = kind.estimate_start(item) %}
+<fieldset class="sgic-collision" data-sgic-collision data-shares='{{ kind.shares_json() }}' data-sizes='{{ kind.sizes_json() }}'>
+  <legend>{{ de_en("Abschätzung von Kollisionen", "Estimate of collisions") }}</legend>
+  <div class="sgic-cols">
+    <label class="sgic-n">
+      <input type="range" min="{{ kind.slider_min }}" max="{{ kind.slider_max }}" step="1" value="{{ sgic_at }}" data-sgic-range
+             aria-label="{{ de_en('Anzahl Teilnehmende (logarithmisch, 10 bis 50.000)', 'Number of participants (logarithmic, 10 to 50,000)') }}">
+      <span><output data-sgic-n>{{ sgic_n }}</output> {{ de_en("Teilnehmende", "participants") }}</span>
+    </label>
+    <div>
+      <ul class="sgic-result small" data-sgic-result aria-live="polite"></ul>
+      <p class="muted small">{{ de_en("Schätzung: Buchstaben sind nicht gleich häufig (viele Mütter heißen mit M oder S, viele Orte beginnen mit B oder H, der zweite Buchstabe ist meist ein Vokal), Geburtstage fast. Angenommen ist, dass alle jeden Teil kennen und die Teile voneinander unabhängig sind; Tippfehler und „weiß nicht“ kommen hinzu.", "Estimate: letters are not equally common (many mothers' names begin with M or S, many places with B or H, the second letter is mostly a vowel), birthdays nearly are. It assumes that everyone knows every part and that the parts are independent; typing errors and “don't know” come on top.") }}</p>
+    </div>
+  </div>
+</fieldset>

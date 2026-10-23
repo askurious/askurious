@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% from "_macros.html" import autosave_bar, csrf, edit_guard_fields, fixed_mark with context %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import cite, grouped %}
+{% from "_learn.html" import why, term %}
+{# The tab "Zeitplan" of a diary study (app/diary.py): the part of each block, the modules with their triggers, the
+   study period and the week preview; joining and the persons are on "Datenerhebung" (T5, 2026-10-17). The form
+   saves by itself, with "Rückgängig" (section "diary"); once the study is locked, only times, weekdays, expiry and
+   texts change (fixed_mark at what is fixed). #}
+{% block head %}<script src="{{ url_for('static', filename='diary-times.js') }}" defer></script>{% endblock %}
+{% block title %}{{ de_en("Zeitplan", "Schedule") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "schedule" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% set locked_why = de_en("die Tagebuchstudie läuft oder hat echte Antworten", "the diary survey runs or has real answers") %}
+{% set off = "disabled" if locked else "" %}
+<form method="post" action="{{ url_for('diary.schedule', survey_id=survey.id) }}" class="stack diary-schedule" id="schedule-form" {% if may_edit %}data-autosave-form{% endif %}>
+  {{ csrf() }}
+  {% if may_edit %}{{ edit_guard_fields(survey, "settings:diary", edit_guard.settings_state(survey, "diary"), presence_key=false) }}{% endif %}
+  <fieldset class="panel stack" {% if not may_edit %}disabled{% endif %}>
+    <legend><h2 class="flush">{{ de_en("Zeitraum je Person", "Period per person") }}</h2></legend>
+    {# a fixed number of days, or no end: each person takes part until the researchers end it for them
+       (diary.open_end); the number of days stays kept for switching back #}
+    <div class="row-fields">
+      <label>{{ de_en("Zeitraum", "Period") }} {% if locked %}{{ fixed_mark(true, locked_why) }}{% endif %}
+        <select name="period_kind" data-period-select {{ off }}>
+          <option value="days" {% if not open_end %}selected{% endif %}>{{ de_en("feste Anzahl Tage", "a fixed number of days") }}</option>
+          <option value="open" {% if open_end %}selected{% endif %}>{{ de_en("ohne Ende (bis Sie die Teilnahme beenden)", "no end (until you end the participation)") }}</option>
+        </select></label>
+      <label data-period-for="days" {% if open_end %}hidden{% endif %}>{{ de_en("Dauer je Person (Tage)", "Duration per person (days)") }} {% if locked %}{{ fixed_mark(true, locked_why) }}{% endif %}
+        <input type="number" name="period_days" min="1" max="365" value="{{ survey.sampling.period_days or 14 }}" {{ off }}></label>
+      <label>{{ de_en("Beginn", "Start") }} {% if locked %}{{ fixed_mark(true, locked_why) }}{% endif %}
+        <select name="start" {{ off }}>
+          <option value="same_day" {% if survey.sampling.start != "next_day" %}selected{% endif %}>{{ de_en("sofort, am Tag der Eingangsbefragung", "at once, on the day of the entry survey") }}</option>
+          <option value="next_day" {% if survey.sampling.start == "next_day" %}selected{% endif %}>{{ de_en("am Tag nach der Eingangsbefragung", "on the day after the entry survey") }}</option>
+        </select></label>
+    </div>
+    <p class="muted small flush" data-period-for="open" {% if not open_end %}hidden{% endif %}>{{ de_en("Ohne Ende bekommen die Personen Abfragen, bis Sie ihre Teilnahme beenden (Teilnehmende, „Beenden“), sie selbst in der App aussteigen oder Sie die Datenerhebung beenden. Die Abschlussbefragung öffnet sich, wenn Sie die Teilnahme einer Person beenden.",
+      "With no end, people get prompts until you end their participation (participants, “End”), they leave in the app themselves or you end data collection. The exit survey opens when you end a person's participation.") }}</p>
+    <label>{{ de_en("Kurzbeschreibung in der App", "Short description in the app") }} <span class="hint">{{ de_en("ein Satz für die Teilnehmenden, auf der Startseite der App und vor dem Beitritt, z. B. „Drei kurze Fragen am Tag zu Ihrer Stimmung, zwei Wochen lang.“", "one sentence for the participants, on the start page of the app and before joining, e.g. “Three short questions a day about your mood, for two weeks.”") }}</span>
+      <input name="summary" maxlength="{{ summary_max }}" value="{{ text_of(survey.sampling.summary, lang, survey) if survey.sampling.summary else '' }}"></label>
+      <div class="row-fields">
+      <label>{{ de_en("Abschlussbefragung: Name in der App", "Exit survey: name in the app") }} <span class="hint">{{ de_en("ihre Blöcke stehen im Reiter „Fragebogen“; leer = „Abschlussbefragung“", "its blocks are on the tab “Questionnaire”; empty = “Exit survey”") }}</span>
+        <input name="exit_name" maxlength="80" value="{{ text_of(exit.name, lang, survey) if exit.name else '' }}"></label>
+      <label>{{ de_en("offen nach dem letzten Tag (Tage)", "open after the last day (days)") }} {% if open_end %}<span class="hint">{{ de_en("ohne Ende: nach dem Tag, an dem Sie die Teilnahme der Person beenden", "no end: after the day you end the person's participation") }}</span>{% endif %}
+        <input type="number" name="exit_days" min="1" max="90" value="{{ exit.days or exit_days }}"></label>
+    </div>
+    <p class="muted small flush"><a href="{{ url_for('surveys.field', survey_id=survey.id) }}#links">{{ de_en("Wie die Teilnehmenden beitreten, legen Sie im Reiter „Datenerhebung“ unter „Beitreten“ fest.", "How participants join is set on the tab “Data collection” under “Joining”.") }}</a></p>
+  </fieldset>
+
+  <section class="panel stack" id="modules">
+    <h2 class="flush">{{ de_en("Kurzbefragungen", "Short surveys") }}</h2>
+    <p class="muted small flush">{{ de_en("Eine Kurzbefragung ist ein wiederkehrender Teil: zu festen Zeiten mit einer Benachrichtigung, zufällig in Zeitfenstern oder von den Teilnehmenden selbst begonnen (ein Knopf in der App). Ihre Fragen legen Sie im Reiter „Fragebogen“ fest, wo jede Kurzbefragung ein eigener Abschnitt ist. Zeiten gelten in der Ortszeit der Person. Unter zwei Minuten je Kurzbefragung und höchstens sechs Abfragen am Tag halten die Antwortquote hoch",
+      "A short survey is a recurring part: at fixed times with a notification, at random within time windows, or started by the participants themselves (a button in the app). You set its questions on the tab “Questionnaire”, where each short survey is a section of its own. Times are in the person's local time. Under two minutes per short survey and at most six prompts a day keep compliance high") }} {{ cite(sources) }}.</p>
+    {{ why("diary_trigger") }}
+    {% if locked %}<p class="muted small flush">{{ icon("lock", 14) }} {{ de_en("Die Tagebuchstudie läuft oder hat echte Antworten: Kurzbefragungen, Auslöser, Tage und die Zuordnung der Blöcke sind fest. Uhrzeiten, Wochentage, Ablauf und Texte lassen sich noch ändern; die Antwortquote zählt jede Abfrage nach den Zeiten, die damals galten.",
+      "The diary survey runs or has real answers: short surveys, triggers, days and the parts of the blocks are fixed. Times, weekdays, expiry and texts can still change; compliance counts each prompt by the times that applied then.") }}</p>{% endif %}
+    {% for m in modules %}{% set t = m.trigger or {} %}{% set p = m.key ~ "_" %}
+    <fieldset class="panel diary-module stack" {% if not may_edit %}disabled{% endif %}>
+      <legend><strong>{{ text_of(m.name, lang, survey) }}</strong> <span class="muted small">{{ m.key }}</span></legend>
+      <div class="row-fields">
+        <label>{{ de_en("Name", "Name") }} <input name="{{ p }}name" maxlength="80" value="{{ text_of(m.name, lang, survey) }}"></label>
+        <label>{{ de_en("Zeitgesteuert", "Timed") }} {% if locked %}{{ fixed_mark(true, locked_why) }}{% endif %}
+          <select name="{{ p }}trigger" data-trigger-select {{ off }}>
+            <option value="fixed" {% if (t.t or "fixed") == "fixed" %}selected{% endif %}>{{ de_en("feste Zeiten", "fixed times") }}</option>
+            <option value="random" {% if t.t == "random" %}selected{% endif %}>{{ de_en("zufällig in Zeitfenstern", "random within time windows") }}</option>
+            <option value="self" {% if t.t == "self" %}selected{% endif %}>{{ de_en("nicht zeitgesteuert (Knopf in der App, bei Ereignis)", "not timed (button in the app, on an event)") }}</option>
+          </select></label>
+      </div>
+      {# only what the trigger uses is shown: the page hides the rest for the stored trigger, app.js on every change
+         (data-trigger-select, data-trigger-for); hidden fields keep their values and are sent along, so switching back
+         loses nothing (Philipp, 2026-10-12) #}
+      {% set tt = t.t or "fixed" %}
+      <div class="row-fields" data-trigger-for="fixed" {% if tt != "fixed" %}hidden{% endif %}>
+        {# times as HH:MM with commas; the pattern marks a typo at once, the server reads the same (diary.TIME_RE);
+           no numeric keyboard: it lacks the colon on many phones (UI audit 2026-10-12, U34) #}
+        <div class="diary-time-editor stack" data-time-editor="times">
+          <div data-time-rows class="stack" hidden></div>
+          <button type="button" class="button button-secondary button-small" data-time-add hidden>{{ de_en("Uhrzeit hinzufügen", "Add time") }}</button>
+          <details data-time-bulk open><summary>{{ de_en("Als Text eingeben", "Enter as text") }}</summary>
+        <label>{{ de_en("Uhrzeiten", "Times") }} <span class="hint">{{ de_en("Stunde:Minute, mit Komma getrennt, z. B. 09:00, 14:00, 19:00", "hour:minute, separated by commas, e.g. 09:00, 14:00, 19:00") }}</span>
+          <input name="{{ p }}times" data-time-source value="{{ (t.times or [])|join(', ') }}" placeholder="09:00, 14:00, 19:00" autocomplete="off" spellcheck="false" pattern="\s*([01]?\d|2[0-3]):[0-5]\d([,;\s]+([01]?\d|2[0-3]):[0-5]\d)*[,;\s]*" title="{{ de_en('Uhrzeiten als Stunde:Minute, mit Komma getrennt, z. B. 09:00, 14:00', 'Times as hour:minute, separated by commas, e.g. 09:00, 14:00') }}"></label>
+          </details>
+          <p class="muted small flush" data-time-preview aria-live="polite" hidden></p>
+        </div>
+      </div>
+      <div class="row-fields" data-trigger-for="random" {% if tt != "random" %}hidden{% endif %}>
+        <label>{{ de_en("Abfragen am Tag", "Prompts a day") }}
+          <input type="number" name="{{ p }}per_day" min="1" max="20" value="{{ t.per_day or 3 }}"></label>
+        <div class="diary-time-editor stack" data-time-editor="windows">
+          <div data-time-rows class="stack" hidden></div>
+          <button type="button" class="button button-secondary button-small" data-time-add hidden>{{ de_en("Zeitfenster hinzufügen", "Add time window") }}</button>
+          <details data-time-bulk open><summary>{{ de_en("Als Text eingeben", "Enter as text") }}</summary>
+        <label>{{ de_en("Zeitfenster", "Time windows") }} <span class="hint">{{ de_en("von-bis, mit Komma getrennt, z. B. 09:00-12:00, 14:00-21:00", "from-to, separated by commas, e.g. 09:00-12:00, 14:00-21:00") }}</span>
+          <input name="{{ p }}windows" data-time-source placeholder="09:00-12:00, 14:00-21:00" autocomplete="off" spellcheck="false" pattern="\s*([01]?\d|2[0-3]):[0-5]\d\s*[\-–]\s*([01]?\d|2[0-4]):[0-5]\d(\s*[,;]\s*([01]?\d|2[0-3]):[0-5]\d\s*[\-–]\s*([01]?\d|2[0-4]):[0-5]\d)*[,;\s]*" title="{{ de_en('Zeitfenster als von-bis, mit Komma getrennt, z. B. 09:00-12:00, 14:00-21:00', 'Time windows as from-to, separated by commas, e.g. 09:00-12:00, 14:00-21:00') }}" value="{% for w in t.windows or [['09:00', '21:00']] %}{{ w[0] }}-{{ w[1] }}{{ ', ' if not loop.last }}{% endfor %}"></label>
+          </details>
+          <p class="muted small flush" data-time-preview aria-live="polite" hidden></p>
+        </div>
+        <label>{{ de_en("Mindestabstand (Minuten)", "Minimum gap (minutes)") }}
+          <input type="number" name="{{ p }}min_gap" min="0" max="720" value="{{ t.min_gap if t.min_gap is not none else 60 }}"></label>
+      </div>
+      <fieldset class="bare" data-trigger-for="fixed random" {% if tt == "self" %}hidden{% endif %}><legend>{{ de_en("Wochentage", "Weekdays") }}</legend>
+        {# one row of toggle chips Mo–So, the ticks inside them (UI audit 2026-10-12, U34) #}
+        <div class="weekday-row weekday-chips">{% for n, name in weekdays %}<label class="check weekday{% if n == 6 %} weekend-start{% endif %}{% if n >= 6 %} weekend{% endif %}"><input type="checkbox" name="{{ p }}weekdays" value="{{ n }}" {% if n in (t.weekdays or [1,2,3,4,5,6,7]) %}checked{% endif %}> {{ name }}</label>{% endfor %}</div>
+      </fieldset>
+      <div class="row-fields" data-trigger-for="fixed random" {% if tt == "self" %}hidden{% endif %}>
+        <label>{{ de_en("Läuft ab nach (Minuten)", "Expires after (minutes)") }} <span class="hint">{{ de_en("0 = läuft nie ab", "0 = never expires") }}</span>
+          <input type="number" name="{{ p }}expires" min="0" max="1440" value="{{ m.expires or 0 }}"></label>
+        <label>{{ de_en("Erinnerung nach (Minuten)", "Reminder after (minutes)") }} <span class="hint">{{ de_en("einmal, solange die Abfrage offen ist; 0 = ohne Erinnerung", "once, while the prompt is open; 0 = no reminder") }}</span>
+          <input type="number" name="{{ p }}reminder" min="0" max="1440" value="{{ m.reminder or 0 }}"></label>
+      </div>
+      {% include "diary/_per_day.html" %}
+      {% set ev = self_start(m) or {} %}
+      <div class="row-fields" data-trigger-for="self" {% if tt != "self" %}hidden{% endif %}>
+        <label>{{ de_en("Knopf in der App", "Button in the app") }} <span class="hint">{{ de_en("Kurz halten, am besten ein bis drei Wörter oder ein Emoji, damit der Text auf kleinen Bildschirmen in eine Zeile passt, z. B. „🎓 Gelernt“.", "Keep it short, ideally one to three words or an emoji, so the text fits on one line of a small screen, e.g. “🎓 Learned”.") }}</span>
+          <input name="{{ p }}label" maxlength="80" value="{{ text_of(ev.label, lang, survey) if ev.label else '' }}" placeholder="{{ de_en('z. B. „🎓 Gelernt“', 'e.g. “🎓 Learned”') }}"></label>
+        <label>{{ de_en("Höchstens je Tag", "At most per day") }} <span class="hint">{{ de_en("0 = beliebig oft", "0 = as often as they like") }}</span>
+          <input type="number" name="{{ p }}max_per_day" min="0" max="50" value="{{ ev.max_per_day or 0 }}"></label>
+      </div>
+      <div class="row-fields">
+        <label>{{ de_en("Ab Tag", "From day") }} {% if locked %}{{ fixed_mark(true, locked_why) }}{% endif %} <input type="number" name="{{ p }}day_from" min="1" max="365" value="{{ (m.days or [1])[0] or 1 }}" {{ off }}></label>
+        <label>{{ de_en("Bis Tag", "To day") }} <span class="hint">{{ de_en("leer = bis zum Ende", "empty = to the end") }}</span>
+          <input type="number" name="{{ p }}day_to" min="1" max="365" value="{{ (m.days or [1, none])[1] or '' }}" {{ off }}></label>
+      </div>
+      <label data-trigger-for="fixed random" {% if tt == "self" %}hidden{% endif %}>{{ de_en("Text der Benachrichtigung", "Text of the notification") }} <span class="hint">{{ de_en("Der Sperrbildschirm zeigt nur „Eine kurze Frage wartet“; dieser Text und der Titel der Tagebuchstudie erscheinen erst nach dem Entsperren. Nichts, was das Thema verrät; leer = „Eine kurze Frage wartet“", "The lock screen only shows “A short question is waiting”; this text and the title of the diary survey appear only after unlocking. Nothing that gives away the topic; empty = “A short question is waiting”") }}</span>
+        <input name="{{ p }}notify" maxlength="120" value="{{ text_of(m.notify, lang, survey) if m.notify else '' }}"></label>
+      <p class="muted small flush">{% if offline[m.key] %}{{ icon("check", 14) }} {{ de_en("Auch ohne Verbindung beantwortbar: Die App hält die Seite bereit und sendet die Antworten später.", "Can be answered without a connection too: the app keeps the page and sends the answers later.") }}{% else %}{{ de_en("Nur mit Verbindung beantwortbar. Ohne Verbindung geht eine Kurzbefragung mit einer Seite, ohne Bedingungen und Platzhalter und nur mit Auswahl, Bewertung, Likert, Schieberegler, semantischem Differential, Textfeld und Text.", "Can only be answered with a connection. Without one works a short survey with one page, without conditions and placeholders, and only with choice, rating, Likert, slider, semantic differential, text field and text.") }}{% endif %}</p>
+      {% if may_edit and not locked %}<div><button class="button button-secondary button-small" form="remove-{{ m.key }}"
+        data-confirm="{{ de_en('Kurzbefragung „{name}“ entfernen?', 'Remove the short survey “{name}”?', name=text_of(m.name, lang, survey)) }}"
+        data-confirm-note="{{ de_en('Ihre Blöcke kommen in die Eingangsbefragung. „Rückgängig“ holt sie zurück.', 'Its blocks go to the entry survey. “Undo” brings it back.') }}"
+        data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">{{ de_en("Kurzbefragung entfernen", "Remove short survey") }}</button></div>{% endif %}
+    </fieldset>
+    {% endfor %}
+    {% if may_edit and not locked and modules|length < max_modules %}<div><button class="button button-secondary button-small" form="add-module">{{ icon("plus", 16) }} {{ de_en("Kurzbefragung hinzufügen", "Add short survey") }}</button></div>{% endif %}
+  </section>
+
+  {% if may_edit %}{{ autosave_bar() }}{% endif %}
+</form>
+{% if may_edit and not locked %}
+<form method="post" action="{{ url_for('diary.add_module', survey_id=survey.id) }}" id="add-module" hidden>{{ csrf() }}</form>
+{% for m in modules %}<form method="post" action="{{ url_for('diary.remove_module', survey_id=survey.id, key=m.key) }}" id="remove-{{ m.key }}" hidden>{{ csrf() }}</form>{% endfor %}
+{% endif %}
+
+{% include "diary/_week.html" %}
+
+{# joining (code, QR code, test codes, invitation codes, the way to join) and the persons are on "Datenerhebung",
+   where a questionnaire has its participation link (Philipp, 2026-10-12; concept "Befragungstypen im Vergleich"
+   2026-10-17, T5); old links to their anchors on this page go on to the new place (app.js, data-moved-anchor) #}
+<span hidden data-moved-anchor="invites" data-moved-to="{{ url_for('surveys.field', survey_id=survey.id) }}#invites"></span>
+<span hidden data-moved-anchor="join" data-moved-to="{{ url_for('surveys.field', survey_id=survey.id) }}#links"></span>
+<span hidden data-moved-anchor="persons" data-moved-to="{{ url_for('surveys.field', survey_id=survey.id) }}#persons"></span>
+{{ grouped([(de_en("Länge der Kurzbefragungen, Zahl der Abfragen, Antwortquote", "Length of the short surveys, number of prompts, compliance"), sources), (de_en("Wiederholte Antworten über Einträge", "Repeated answers across entries"), [jaso])]) }}
+{% endblock %}
