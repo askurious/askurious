@@ -711,7 +711,9 @@ def steps(survey, opts):
 
 
 def _free_code(survey, base):
-    used = {i.code for b in survey.blocks for i in b.items}
+    from app import edit_guard
+
+    used = edit_guard.taken_codes(survey)  # read under the survey's row
     if base not in used:
         return base
     n = 2

@@ -2019,7 +2019,9 @@ def take_over(source, target, part, user):
             if not constructs.permitted_copy(item, target, user):
                 raise ValueError(constructs.permission_notice())
 
-    used = {i.code for b in target.blocks for i in b.items}
+    from app import edit_guard
+
+    used = edit_guard.taken_codes(target)  # read under the target's row
     made, left, notes = 0, [], []
     for block in sorted(source.blocks, key=lambda b: b.position):
         items = [i for i in block.items if i.type != "consent"]

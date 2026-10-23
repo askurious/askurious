@@ -212,26 +212,37 @@ def _may_stay_empty(survey, source, block):
     return ""
 
 
-def renamed(survey, old, new):
+def renamed(survey, old, new, touched=None):
     """The question with the variable name `old` is now called `new`: every {{old}} in the texts of the
-    questionnaire follows, in all languages. Returns the codes of the questions whose texts changed. Nothing
-    changes where the name also belongs to a URL parameter, or to a column of the loop a question stands in:
-    there the placeholder never showed the answer."""
-    from app import loops, panel
+    questionnaire follows, in all languages. Returns the codes of the questions whose texts changed; `touched`, a
+    list, gets their ids. Nothing changes where the name also belongs to a URL parameter, or to a column of the
+    loop a question stands in: there the placeholder never showed the answer.
+
+    Each question whose texts change is held and read anew first (edit_guard.lock), in the order of its id: a save
+    of it by another member that is under way ends before its texts are rewritten and is kept, and an editor of it
+    opened before gets a conflict instead of putting the old name back. The caller holds the survey's
+    row before (survey first, then questions)."""
+    from app import edit_guard, loops, panel
     from app.items.base import BUILTIN_VARIABLES
 
     if isinstance(old, (list, tuple)):  # the names of single values, before and after: each follows
-        return sorted({code for a, b in zip(old, new) for code in renamed(survey, a, b)})
+        return sorted({code for a, b in zip(old, new) for code in renamed(survey, a, b, touched)})
     if old == new or old in BUILTIN_VARIABLES | {p["name"] for p in panel.config(survey)["params"]}:
         return []
-    changed = []
+    users = []
     for block in survey.blocks:
         if loops.active(block) and old in {c["name"] for c in loops.config(block)["columns"]}:
             continue
-        for item in block.items:
-            if old in item.kind.used_placeholders(item):
-                item.texts = rename_placeholder(item.texts or {}, old, new)
-                changed.append(item.code)
+        users += [item for item in block.items if old in item.kind.used_placeholders(item)]
+    changed = []
+    for item in sorted(users, key=lambda i: i.id or 0):
+        if item.id is not None and edit_guard.lock(item) is None:
+            continue  # deleted meanwhile
+        if old in item.kind.used_placeholders(item):
+            item.texts = rename_placeholder(item.texts or {}, old, new)
+            changed.append(item.code)
+            if touched is not None and item.id is not None:
+                touched.append(item.id)
     return changed
 
 

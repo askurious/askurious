@@ -446,12 +446,15 @@ def _conflict(survey, step, keys, undoing):
         "overwritten.", what=what, who=who)
 
 
-def _free_codes(target, items):
+def _free_codes(survey, target):
     """A question the step brings back or renames back, whose variable name another question took in the
     meantime (someone else added one while the name was free), gets a number, as when it comes back from the
-    trash (trash.restore): two questions never share a name. Changes `target`; returns [(old name, new name)]."""
+    trash (trash.restore): two questions never share a name. The names taken are read from the database under the
+    survey's row (edit_guard.taken_codes). Changes `target`; returns [(old name, new name)]."""
+    from app import edit_guard
+
     mine = {int(k[5:]) for k in target if k.startswith("item:")}
-    used = {i.code for iid, i in items.items() if iid not in mine}
+    used = edit_guard.taken_codes(survey, but=mine)
     renamed = []
     for key, state in target.items():
         if not key.startswith("item:") or state is None:
@@ -555,7 +558,7 @@ def _apply(survey, step, undoing):
     in_trash = {e.data.get("id"): e for e in survey.trash}
     blocks = {b.id: b for b in survey.blocks}
     items = {i.id: i for b in survey.blocks for i in b.items}
-    renamed = _free_codes(target, items)
+    renamed = _free_codes(survey, target)
     gone = _gone_elements(target)
     locked = _answers_refused(survey, step, target, items, undoing) or _retention_refused(survey, step, target, undoing)
     if locked:
@@ -796,6 +799,7 @@ def _run(survey, user, undoing, upto):
     variable names that are taken by now, and the names its questions got instead."""
     done = []
     while True:
+        _hold(survey)
         steps = history(survey, user)["undo" if undoing else "redo"]
         if not steps or (upto is not None and not any(s.id == upto for s in steps)):
             if not done:  # the step asked for (or the next one) is there, but needs a role the person has not
@@ -805,6 +809,7 @@ def _run(survey, user, undoing, upto):
                     return done, refused_role(wanted)
             return done, None
         step = steps[0]
+        _hold_rows(survey, step)
         try:
             if need_now(survey, step) == "admin" and not survey.can(user, "admin"):
                 raise Refused(_cannot(step, undoing) + de_en(
@@ -829,6 +834,32 @@ def _run(survey, user, undoing, upto):
         done.append(step)
         if upto is None or step.id == upto:
             return done, None
+
+
+def _hold(survey):
+    """Hold the survey's row until the step is committed and read everything anew under it: the history, the
+    questionnaire, the step. Two members (or two tabs) taking back steps at once run one after the other, and a
+    renaming in the element editor, which holds the survey too, does not slip in between."""
+    from app import edit_guard
+
+    edit_guard.lock(survey)
+    db.session.expire_all()  # what the request loaded before the lock is read anew
+
+
+def _hold_rows(survey, step):
+    """Hold the questions, blocks and dashboards `step` writes, each kind in the order of the ids, before it is
+    compared with the questionnaire as it is now (_apply): always after the survey, as the element editor does. A
+    save of one of them under way ends first; its change is then a conflict of the step instead of being
+    overwritten by it."""
+    from app import edit_guard
+    from app.models import Board
+
+    parts = step.data.get("parts", {})
+    for prefix, model in (("item:", Item), ("block:", Block), ("board:", Board)):
+        for ident in sorted({int(k[len(prefix):]) for k in parts if k.startswith(prefix) and k[len(prefix):].isdigit()}):
+            row = db.session.get(model, ident)
+            if row is not None and getattr(row, "survey_id", survey.id) == survey.id:
+                edit_guard.lock(row)
 
 
 def undo(survey, user, upto=None):

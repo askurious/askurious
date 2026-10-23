@@ -32,6 +32,11 @@ KEY = "offline_packs"
 DAYS = 7          # E5 b: how long a pack and the data on the device last
 MAX_SLOTS = 20    # E2 a
 DEFAULT_SLOTS = 5
+# Packs still live at once: each one holds places, pids and deletion codes in the guide's settings (Survey.interview),
+# which every page of the guide reads. A field team of a few interviewers with a pack or two each stays far below;
+# a person or link asking again and again does not make the guide's settings grow without end.
+MAX_LIVE_PACKS = 50       # per guide
+MAX_LIVE_PACKS_EACH = 10  # per researcher or interviewer link
 
 
 # --- who may use it ------------------------------------------------------------------------------------------------
@@ -126,8 +131,33 @@ def _labels(survey, access, n):
     return out
 
 
+def _mine(pack, access):
+    """The pack was made by this interviewer link, or (access None) by the researcher signed in."""
+    if access is not None:
+        return pack.get("access") == access.id
+    return pack.get("access") is None and pack.get("by") == current_user.id
+
+
+def too_many(survey, access, now=None):
+    """Why no further pack is made now (MAX_LIVE_PACKS, MAX_LIVE_PACKS_EACH), or None."""
+    now = now or utcnow()
+    open_ = [p for p in packs(survey) if live(p, now)]
+    if len(open_) >= MAX_LIVE_PACKS:
+        return de_en("Für diesen Leitfaden sind schon {n} Feldpakete offen, mehr gehen nicht. Bitte erst abgleichen oder "
+                     "nicht mehr gebrauchte Feldpakete auf der Seite „Interviews“ zurückziehen.",
+                     "{n} field packs are open for this guide already, no more are possible. Please sync first or "
+                     "withdraw field packs no longer needed on the page “Interviews”.", n=MAX_LIVE_PACKS)
+    if sum(1 for p in open_ if _mine(p, access)) >= MAX_LIVE_PACKS_EACH:
+        return de_en("Sie haben für diesen Leitfaden schon {n} offene Feldpakete, mehr gehen nicht. Bitte erst abgleichen; "
+                     "ein Paket endet nach {days} Tagen von selbst.",
+                     "You already have {n} open field packs for this guide, no more are possible. Please sync first; "
+                     "a pack ends by itself after {days} days.", n=MAX_LIVE_PACKS_EACH, days=DAYS)
+    return None
+
+
 def make_pack(survey, access, n, device=None):
-    """Reserve n places (E1 b): pids, identifiers and the deletion codes, which go to the device only."""
+    """Reserve n places (E1 b): pids, identifiers and the deletion codes, which go to the device only. The caller
+    holds the survey's row (edit_guard.lock) and has checked `too_many`."""
     from app import erasure
 
     n = max(1, min(int(n or DEFAULT_SLOTS), MAX_SLOTS))
@@ -166,15 +196,25 @@ def erase_pending(code, survey=None):
         return None
     surveys = [survey] if survey is not None else db.session.scalars(
         db.select(Survey).filter(json_given(Survey.interview))).all()
-    for s in surveys:
+
+    def mark(s):
         items = packs(s)
         for p in items:
             for slot in p.get("slots") or []:
                 if not slot.get("rid") and not slot.get("erase") and erasure.raw_code(s, slot.get("pid", "")) == raw:
                     slot["erase"] = True
                     _store(s, items)
-                    db.session.commit()
-                    return s
+                    return True
+        return False
+
+    for s in surveys:
+        if any(not slot.get("rid") and not slot.get("erase") and erasure.raw_code(s, slot.get("pid", "")) == raw
+               for p in packs(s) for slot in p.get("slots") or []):
+            _hold(s)  # the packs read anew under the survey's row: a sync or a new pack at the same time is kept
+            if mark(s):
+                db.session.commit()
+                return s
+            db.session.rollback()
     return None
 
 
@@ -184,14 +224,25 @@ def run(now=None):
 
     now, gone = now or utcnow(), 0
     for survey in db.session.scalars(db.select(Survey).filter(json_given(Survey.interview))).all():
+        if all((_time(p.get("until")) or now) > now for p in packs(survey)):
+            continue
+        _hold(survey)  # read anew under the row: a pack made or synced meanwhile is kept
         items = packs(survey)
         keep = [p for p in items if (_time(p.get("until")) or now) > now]
         if len(keep) != len(items):
             gone += len(items) - len(keep)
             _store(survey, keep)
-    if gone:
-        db.session.commit()
+        db.session.commit()  # one survey at a time: its row is held only for this
     return gone
+
+
+def _hold(survey):
+    """Hold the survey's row until commit and read its packs anew: two devices syncing, a new pack and a withdrawal at
+    the same time each write the whole list (Survey.interview), and none may put back a list read before another's
+    commit."""
+    from app import edit_guard
+
+    return edit_guard.lock(survey)
 
 
 # --- the sync ------------------------------------------------------------------------------------------------------
@@ -205,6 +256,7 @@ def sync(survey, access, data):
 
     if not isinstance(data, dict):
         return 400, {"ok": False, "error": "bad"}
+    _hold(survey)
     pack, slot = find_slot(survey, str(data.get("pack") or ""), str(data.get("pid") or ""))
     if pack is None or slot is None or pack.get("device") != data.get("device"):
         return 404, {"ok": False, "error": "unknown"}
@@ -297,6 +349,11 @@ def pack_new(code):
         abort(404)
     data = request.get_json(silent=True) or {}
     device = str(data.get("device") or "")[:32] or None
+    _hold(survey)
+    refused = too_many(survey, access)
+    if refused:
+        db.session.rollback()
+        return make_response(jsonify(ok=False, error="limit", message=str(refused)), 429)
     pack, codes = make_pack(survey, access, data.get("n"), device)
     db.session.commit()
     return jsonify(ok=True, pack=pack["id"], device=pack["device"], until=pack["until"],
@@ -324,6 +381,7 @@ def switch(code):
     survey = interview_data._survey(code, need="editor")
     if not offered(survey, None):
         abort(404)
+    _hold(survey)
     survey.interview = {**(survey.interview or {}), "offline": bool(request.form.get("on"))}
     db.session.commit()
     flash(de_en("Offline-Modus für diesen Leitfaden eingeschaltet.", "Offline mode switched on for this guide.") if switched_on(survey)
@@ -338,6 +396,7 @@ def withdraw(code, pack_id):
     from app import interview_data
 
     survey = interview_data._survey(code, need="editor")
+    _hold(survey)
     items = packs(survey)
     for p in items:
         if p.get("id") == pack_id:

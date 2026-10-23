@@ -588,12 +588,13 @@ def copy_item(item, target):
     Texts are kept per language: the copy has those of the target's languages. If the question has none in the
     target's default language, the texts of the source's default language stand there, so it is not empty; the
     copy then has `.untranslated` (the language the texts are in), and translating them is the person's job."""
-    from app import flow
+    from app import edit_guard, flow
 
     if item.type in ("consent", "page_break"):
         raise ValueError(item.type)
     block = Block(position=len(target.blocks), titles={target.default_language: target.next_block_title()})
-    other = item_copy(item, target, {i.code for b in target.blocks for i in b.items})
+    # the names of the target read under its row: members editing it at the same time
+    other = item_copy(item, target, edit_guard.taken_codes(target))
     block.items.append(other)
     target.blocks.append(block)
     db.session.flush()
@@ -665,7 +666,9 @@ def twins(items, user=None):
     from app import constructs
 
     survey = items[0].block.survey
-    used = {i.code for b in survey.blocks for i in b.items}
+    from app import edit_guard
+
+    used = edit_guard.taken_codes(survey)  # read under the survey's row
     room = _MediaRoom(survey)
     pairs = []
     for item in items:

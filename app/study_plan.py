@@ -1094,8 +1094,9 @@ def sample_targets(survey):
 
 
 def rename_code(survey, old, new):
-    """A variable was renamed in the editor: the plan follows."""
-    rename_codes(survey, {old: new})
+    """A variable was renamed in the editor: the plan follows. True if the plan changed. The caller holds the
+    survey's row, read anew (edit_guard.lock): the plan rewritten is the one stored, not one loaded before."""
+    return rename_codes(survey, {old: new})
 
 
 def rename_codes(survey, names):
@@ -1103,7 +1104,7 @@ def rename_codes(survey, names):
     in one go, so that two names that swap places stay apart."""
     names = {old: new for old, new in (names or {}).items() if old and new and old != new}
     if not survey.study_plan or not names:
-        return
+        return False
     plan = copy.deepcopy(survey.study_plan)
     changed = False
     for h in plan.get("hypotheses") or []:
@@ -1128,6 +1129,7 @@ def rename_codes(survey, names):
         changed = True
     if changed:
         survey.study_plan = plan
+    return changed
 
 
 def _text(value, limit=TEXT):

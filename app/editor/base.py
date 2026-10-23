@@ -322,6 +322,17 @@ def _get_block(survey, block_id):
     return block
 
 
+def _hold(survey):
+    """Hold the survey's row until commit and read the questionnaire anew under it, before a change of its blocks
+    or flow (add, move, place, delete a block): such changes, renamings and undo/redo then run one after the other,
+    and none of them works on a list of blocks loaded before another one's commit."""
+    from app import edit_guard
+
+    edit_guard.lock(survey)
+    db.session.expire_all()
+    return survey
+
+
 def _get_item(survey, item_id):
     item = db.session.get(Item, item_id)
     if item is None or item.block.survey_id != survey.id:
@@ -413,7 +424,11 @@ def _block_beside(survey, neighbour, side, lang):
 
 
 def _unique_code(survey, base):
-    used = {i.code for b in survey.blocks for i in b.items}
+    """The first free name base1, base2 …, read under the survey's row (edit_guard.taken_codes): two questions added
+    at the same time by two members do not get the same name."""
+    from app import edit_guard
+
+    used = edit_guard.taken_codes(survey)
     n = 1
     while f"{base}{n}" in used:
         n += 1

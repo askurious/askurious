@@ -165,7 +165,13 @@
     device().then(function (dev) {
       return fetch(packUrl, { method: "POST", credentials: "same-origin", body: JSON.stringify({ n: n, device: dev }),
                               headers: { "Content-Type": "application/json", "X-CSRFToken": csrf || "", "X-Requested-With": "fetch" } });
-    }).then(function (r) { if (!r.ok) throw new Error(r.status === 401 ? "signin" : String(r.status)); return r.json(); }).then(function (d) {
+    }).then(function (r) {
+      if (r.status === 429) {  // too many packs open (interview_offline.too_many): the server says why
+        return r.json().catch(function () { return {}; }).then(function (d) { var e = new Error("limit"); e.text = d.message || ""; throw e; });
+      }
+      if (!r.ok) throw new Error(r.status === 401 ? "signin" : String(r.status));
+      return r.json();
+    }).then(function (d) {
       var old = pack && !expired() ? pack.slots.filter(function (s) { return !s.synced && !s.erased; }) : [];
       // a second pack: its places go after those still open; one pack id per place, so each syncs with its own
       pack = { until: d.until, device: d.device, slots: old.concat(d.slots.map(function (s) { return { pid: s.pid, label: s.label, code: s.code, pack: d.pack }; })) };
@@ -175,6 +181,10 @@
       if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ keep: location.href });
       return draw();
     }).catch(function (err) {
+      if (err && err.message === "limit") {
+        say(err.text || de_en("Zu viele offene Feldpakete: Bitte erst abgleichen.", "Too many open field packs: please sync first."), true);
+        return;
+      }
       say(err && err.message === "signin" ? de_en("Bitte zuerst anmelden (Interviewlink oder Anmeldung).", "Please sign in first (interviewer link or sign-in).")
                                          : de_en("Vorbereiten geht nur mit Netz. Bitte mit Verbindung erneut versuchen.", "Preparing needs a network. Please try again with a connection."), true);
     });

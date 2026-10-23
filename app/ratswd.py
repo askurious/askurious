@@ -521,7 +521,9 @@ def add_bundle(survey, parts, block):
     from app.models import Item
 
     keys = bundle_keys(parts)
-    used = {i.code for b in survey.blocks for i in b.items}
+    from app import edit_guard
+
+    used = edit_guard.taken_codes(survey)  # read under the survey's row
 
     def free(base, first=""):
         """base if free, else base_2, base_3 … (a page break: _pb1, _pb2 …, as the editor names them)."""

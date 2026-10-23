@@ -7,7 +7,7 @@ from flask import abort, flash
 from flask_login import current_user, login_required
 
 from app import duplicate, experimental, undo
-from app.editor.base import (_back, _block_beside, _block_name, _get_block, _get_item, _is_consent_block, _lang,
+from app.editor.base import (_back, _block_beside, _block_name, _get_block, _get_item, _hold, _is_consent_block, _lang,
                              _refuse_consent, _renumber, _require_draft, bp)
 from app.extensions import db
 from app.lang import de_en
@@ -57,6 +57,7 @@ def duplicate_item(survey_id, item_id):
         experimental.require(item.kind.experimental)
     if not _require_draft(survey):
         return _back(survey, lang)
+    item = _get_item(_hold(survey), item_id)  # read anew under the survey's row
     run = _run(survey, item)
     step = undo.begin(survey)
     try:
@@ -108,6 +109,7 @@ def duplicate_block(survey_id, block_id):
             abort(400)
     if not _require_draft(survey):
         return _back(survey, lang)
+    source = _get_block(_hold(survey), block_id)  # read anew under the survey's row
     # questions of an experimental type the person does not have stay behind (as when a survey is duplicated)
     locked = [i.code for i in source.items if duplicate._locked(i, current_user)]
     items = [i for i in source.items if not duplicate._locked(i, current_user) and i is not survey.consent_item]
