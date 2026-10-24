@@ -27,7 +27,7 @@ without changing it:
   that none of these texts went into the code: `python tools/public_export.py --check --instruments instruments.json`.
   `INSTRUMENT_WORDINGS` in the `.env` can name another file.
 
-Settings that are plain values (imprint name and address, donation links) stay in the `.env`.
+Settings that are plain values (imprint name and address) stay in the `.env`.
 
 Only this README is part of the code; everything else in this folder is ignored by git (`.gitignore`). The private
 repository of an installation copies its files here before the Docker build (`deploy/docker/Dockerfile` copies the
