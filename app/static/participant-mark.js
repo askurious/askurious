@@ -145,6 +145,10 @@ document.querySelectorAll("[data-hot]").forEach(function (box) {
       tell(uiT("Stelle {n} gesetzt, {where}.", "Spot {n} marked, {where}.", { n: marks.length, where: where(p) }));
     }
     function sync() {
+      // the list of spots is built anew and "↶"/"Neu" go grey without marks: a focus on what goes away moves on to the
+      // next "entfernen" in the list, else to the image, never to the top of the page (WCAG 2.4.3)
+      var had = document.activeElement, inside = had && had !== document.body && box.contains(had);
+      var spot = inside && list && list.contains(had) ? Array.prototype.indexOf.call(list.querySelectorAll("button"), had) : -1;
       while (svg.firstChild) svg.removeChild(svg.firstChild);
       marks.forEach(function (m) { svg.appendChild(shape(m)); });
       if (!lines) listSpots();
@@ -157,6 +161,14 @@ document.querySelectorAll("[data-hot]").forEach(function (box) {
       box.classList.toggle("is-full", n >= max);
       if (n && none) none.checked = false;
       if (n) { var item = box.closest(".p-item"); if (item) item.classList.remove("has-error", "has-nudge"); }
+      if (inside && (!had.isConnected || had.disabled)) refocus(spot);
+    }
+    function refocus(k) {
+      var buttons = list ? list.querySelectorAll("button") : [];
+      if (k >= 0 && buttons.length) { buttons[Math.min(k, buttons.length - 1)].focus(); return; }
+      if (!stage) return;
+      if (!stage.hasAttribute("tabindex")) stage.tabIndex = -1;  // free-hand lines: the image takes the focus, no Tab stop
+      stage.focus();
     }
     function layout() {
       W = img.naturalWidth || 1000; H = img.naturalHeight || 1000;

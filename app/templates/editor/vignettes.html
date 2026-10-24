@@ -58,7 +58,8 @@
     {% elif k == "pairs" %}
       {% for p in d %}<label class="check"><input type="checkbox" name="take" value="{{ p.a }}:{{ p.la }}|{{ p.b }}:{{ p.lb }}" checked> {{ p.label }} <span class="muted small">{{ p.why }}</span></label>{% endfor %}
     {% else %}
-      <textarea name="text" rows="4">{{ d.text }}</textarea>
+      <label>{{ de_en("Vignettentext prüfen und bearbeiten", "Check and edit the vignette text") }}
+        <textarea name="text" rows="4">{{ d.text }}</textarea></label>
       {% if d.missing %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ de_en("Es fehlen die Platzhalter", "The placeholders") }} {% for m in d.missing %}<code>{{ "{{" ~ m ~ "}}" }}</code> {% endfor %}{{ de_en("; bitte ergänzen.", " are missing; please add them.") }}</span></p>{% endif %}
       {% if d.why %}<p class="muted small">{{ d.why }}</p>{% endif %}
       <p class="muted small">{{ de_en("Wird als neues Text-Element am Anfang des Blocks der Schleife angelegt.", "Is created as a new text element at the start of the block of the loop.") }}</p>

@@ -54,6 +54,8 @@
     <h3 class="status-sub">{{ de_en("Gerade in der Befragung", "In the survey right now") }}</h3>
     <div class="live-strip" data-live-strip data-url="{{ url_for('surveys.field_live', survey_id=survey.id) }}" aria-label="{{ de_en('Wer gerade in der Befragung ist', 'Who is in the survey right now') }}">
       <svg viewBox="0 0 1000 124" role="img" aria-hidden="true"></svg>
+      {# the drawing in words, for screen readers: how many, where in the questionnaire, how recently (app.js) #}
+      <p class="visually-hidden" data-live-summary aria-live="polite"></p>
       <p class="muted small live-legend">
         {# the same opacities as in the drawing: just now, 3, 6 and 9 minutes without a new page #}
         {% for age, text in ((0, de_en("gerade eben", "just now")), (180, de_en("vor 3 Min.", "3 min ago")), (360, de_en("vor 6 Min.", "6 min ago")), (540, de_en("vor 9 Min.", "9 min ago"))) %}

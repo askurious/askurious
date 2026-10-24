@@ -50,7 +50,12 @@
         choose(Number(to.dataset.hlTool)); to.focus(); e.preventDefault();
       });
     });
-    clear.addEventListener("click", function () { words.forEach(function (w) { set(w, 0); }); sync(); });
+    clear.addEventListener("click", function () {
+      words.forEach(function (w) { set(w, 0); }); sync();
+      // the button hides itself: the focus goes into the text (the word one reaches with Tab), not to the top of the page
+      var to = words.filter(function (w) { return w.tabIndex === 0; })[0] || words[0];
+      if (to) to.focus();
+    });
     var painting = null, byMouse = false;  // the category a mouse drag paints with (0 = removes)
     root.addEventListener("pointerdown", function (e) {
       var w = e.target.closest("[data-hl-w]");

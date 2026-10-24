@@ -18063,6 +18063,18 @@
   "pt": "Na pré-visualização, o assistente de IA não responde. Experimente o chat num teste.",
   "ar": "لا يرد مساعد الذكاء الاصطناعي في المعاينة. جرّب المحادثة في تشغيل تجريبي."
  },
+ "placed": {
+  "es": "colocado",
+  "fr": "placé",
+  "it": "posizionato",
+  "pl": "umieszczone",
+  "ru": "размещено",
+  "tr": "yerleştirildi",
+  "zh-Hans": "已放置",
+  "nl": "geplaatst",
+  "pt": "colocado",
+  "ar": "تم وضعه"
+ },
  "The place search is unavailable right now. Please try again or use the map.": {
   "es": "La búsqueda de lugares no está disponible en este momento. Inténtelo de nuevo o utilice el mapa.",
   "fr": "La recherche de lieux est indisponible pour le moment. Veuillez réessayer ou utiliser la carte.",

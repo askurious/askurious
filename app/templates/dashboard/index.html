@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import orcid_link, status_badge, csrf %}
 {% from "_icons.html" import icon %}
+{% from "_listing.html" import pager %}
 {# "Bearbeiten" may duplicate; without the right to create surveys the button stays, greyed, and says why (Ralf, 2026-10-06) #}
 {% macro duplicate_button(s, my_role) -%}
 {# an example survey seen only as one: a copy of one's own, with the right to create (demo-befragungen-konzept.md, 5a) #}
@@ -8,16 +9,10 @@
 {%- elif my_role != "viewer" and kind_creates(s.kind) %}<a class="button button-small button-secondary card-act-end" href="{{ url_for('surveys.duplicate', survey_id=s.id) }}?from=dashboard">{{ icon("copy", 16) }} {{ de_en("Duplizieren", "Duplicate") }}</a>
 {%- elif my_role != "viewer" %}<button type="button" class="button button-small button-secondary card-act-end" disabled title="{{ de_en('Duplizieren legt eine eigene Befragung an; Ihr Konto darf keine eigenen Befragungen anlegen. Das schaltet ein Admin der Plattform frei.', 'Duplicating creates a survey of your own; your account may not create surveys of its own. A platform admin can allow that.') }}">{{ icon("copy", 16) }} {{ de_en("Duplizieren", "Duplicate") }}</button>{% endif %}
 {%- endmacro %}
-{# the words the search on the cards looks at besides title, project, code and people: kind and state as the card
-   shows them, never the labels of its buttons (UI audit W76) #}
-{% macro card_state(s) -%}
-{% if s.live is not none %}{{ de_en("Live-Abstimmung", "Live poll") }}{% elif s.interview is not none %}{{ de_en("Interviewleitfaden", "Interview guide") }}{% else %}{{ de_en("Fragebogen", "Questionnaire") }} {% if s.status == "closed" and s.close_reason == "paused" %}{{ de_en("Pausiert", "Paused") }}{% elif s.status == "running" %}{{ de_en("Läuft", "Running") }}{% elif s.status == "closed" %}{{ de_en("Geschlossen", "Closed") }}{% else %}{{ de_en("Entwurf", "Draft") }}{% endif %}{% endif %}{% if s.archived %} {{ de_en("Archiviert", "Archived") }}{% endif %}
-{%- endmacro %}
 {# one card of the list; also in the section of example surveys #}
 {% macro survey_card(s, anchor="survey-") -%}
   {% set running = (s.live is not none and live_now(s)) or (s.live is none and s.interview is none and s.status == "running" and not s.archived) %}
-  <li class="card{% if s.id in pinned %} is-pinned{% endif %}{% if running %} card-running{% endif %} card-kind{% if s.live is not none %} card-live{% elif s.interview is not none %} card-interview{% elif s.sampling is not none %} card-diary{% endif %}" id="{{ anchor }}{{ s.id }}" data-title="{{ s.title|lower }}" data-created="{{ s.created_at.isoformat() if s.created_at else '' }}" data-done="{{ done.get(s.id, 0) if s.interview is none else 0 }}" data-pinned="{{ 1 if s.id in pinned else 0 }}"
-      data-search="{{ [s.title, s.project or '', s.code, s.members|map(attribute='display_name')|join(' '), card_state(s)]|join(' ')|lower }}">
+  <li class="card{% if s.id in pinned %} is-pinned{% endif %}{% if running %} card-running{% endif %} card-kind{% if s.live is not none %} card-live{% elif s.interview is not none %} card-interview{% elif s.sampling is not none %} card-diary{% endif %}" id="{{ anchor }}{{ s.id }}">
     {# first action and title by state: build (draft), watch (running), resume (paused), read (closed);
        main = (link, icon, label, which page) #}
     {% set my_role = s.role_of(current_user) %}
@@ -127,7 +122,7 @@
   <span>{% if s.state == "accepted" %}{{ de_en("„{name}“ ist in „Konstrukte“ aufgenommen.", "“{name}” has been added to “Constructs”.", name=s.construct.name) }}{% elif s.state == "question" %}{{ de_en("Rückfrage zu „{name}“, das Sie für „Konstrukte“ eingereicht haben.", "A question about “{name}”, which you submitted for “Constructs”.", name=s.construct.name) }}{% else %}{{ de_en("„{name}“ wurde nicht in „Konstrukte“ aufgenommen.", "“{name}” was not added to “Constructs”.", name=s.construct.name) }}{% endif %}
     <a href="{{ url_for('constructs.linked', key=s.construct.key) }}#toolbox">{{ de_en("Öffnen", "Open") }}</a></span></div>
 {% endfor %}
-{% if surveys or group_filter or has_live or has_interview or has_diary %}
+{% if surveys or q or group_filter or has_live or has_interview or has_diary %}
 <div class="dash-toolbar">
 {% if group_filter or has_live or has_interview or has_diary %}
 {# two filters that combine: the kind (one name per kind, as on the cards) and, in a choice, the group (R29, R96) #}
@@ -144,23 +139,27 @@
   <noscript><button class="button button-small button-secondary">{{ de_en("Zeigen", "Show") }}</button></noscript>{% endif %}
 </form>
 {% endif %}
-{# search and sort in the browser (app.js), shown once the list is longer than the window (Ralf, 2026-10-05) #}
-{% if surveys|length > 1 %}<div class="dash-find" data-dash-find hidden>
-  <input type="search" placeholder="{{ de_en('Suchen', 'Search') }}" aria-label="{{ de_en('Befragungen durchsuchen', 'Search surveys') }}" data-dash-search>
-  <select aria-label="{{ de_en('Sortieren', 'Sort') }}" data-dash-sort>
-    <option value="">{{ de_en("Zuletzt geändert", "Last changed") }}</option><option value="title">{{ de_en("Titel A–Z", "Title A–Z") }}</option>
-    <option value="created">{{ de_en("Zuletzt angelegt", "Last created") }}</option><option value="done">{{ de_en("Meiste Teilnahmen", "Most participations") }}</option>
+{# search and order of one's own cards, done by the server over all of them; the list comes in pages of 10, 20 or
+   50 (app/dashboard.py own_cards; audit 2026-10-22, G-05). Shown once there is more than one page or a choice. #}
+{% if listing.total > listing.sizes[0] or q or sort %}<form method="get" class="dash-find" role="search" data-live-search>
+  {% for k in ("art", "group", "archived", "hidden", "d_n") if request.args.get(k) %}<input type="hidden" name="{{ k }}" value="{{ request.args.get(k) }}">{% endfor %}
+  <input type="search" name="d_q" value="{{ q }}" maxlength="100" placeholder="{{ de_en('Suchen', 'Search') }}" aria-label="{{ de_en('Befragungen durchsuchen', 'Search surveys') }}">
+  <select name="d_sort" aria-label="{{ de_en('Sortieren', 'Sort') }}" data-submit-on-change>
+    {% for key, label in (("", de_en("Zuletzt geändert", "Last changed")), ("title", de_en("Titel A–Z", "Title A–Z")), ("created", de_en("Zuletzt angelegt", "Last created")), ("done", de_en("Meiste Teilnahmen", "Most participations"))) %}<option value="{{ key }}"{{ " selected" if sort == key }}>{{ label }}</option>{% endfor %}
   </select>
-</div>{% endif %}
+  <button class="button button-secondary" data-live-search-button>{{ de_en("Suchen", "Search") }}</button>
+</form>{% endif %}
 </div>
 {% endif %}
 {% if surveys %}
 <ul class="card-list space-above" data-dash-list>
   {% for s in surveys %}{{ survey_card(s) }}{% endfor %}
 </ul>
-<p class="muted" data-dash-none hidden>{{ de_en("Keine Befragung passt zur Suche.", "No survey matches the search.") }}</p>
-{# the number of hits, said aloud while typing (UI audit W76) #}
-<p class="visually-hidden" role="status" data-dash-count></p>
+{# the number of hits of a search, said aloud when the page comes back (UI audit W76) #}
+<p class="{{ 'muted small' if q else 'visually-hidden' }}" role="status" data-dash-count>{% if q %}{{ de_en("1 Befragung gefunden", "1 survey found") if listing.total == 1 else de_en("{n} Befragungen gefunden", "{n} surveys found", n=listing.total) }} · <a href="{{ listing.url(q=none, page=none) }}">{{ de_en("Alle zeigen", "Show all") }}</a>{% endif %}</p>
+{{ pager(listing) }}
+{% elif q %}
+<p class="muted space-above" role="status" data-dash-count>{{ de_en("Keine Befragung passt zur Suche.", "No survey matches the search.") }} <a href="{{ listing.url(q=none, page=none) }}">{{ de_en("Alle zeigen", "Show all") }}</a></p>
 {% else %}
 <div class="panel empty-panel">
   <p class="muted">{{ de_en("Keine archivierten Befragungen.", "No archived surveys.") if show_archived else de_en("Keine ausgeblendeten Befragungen.", "No hidden surveys.") if show_hidden else (de_en("Mit dieser Gruppe ist keine aktive Befragung geteilt.", "No active survey is shared with this group.") if group else de_en("Noch keine Befragungen.", "No surveys yet.")) }}</p>

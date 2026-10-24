@@ -523,7 +523,9 @@ a.p-button { text-decoration: none; text-align: center; }
 .p-face:has(input:checked) { background: var(--accent-soft); }
 .p-face:has(input:checked) svg { transform: scale(1.12); }
 .p-face:has(input:checked) svg circle:first-child { fill: var(--face-on, hsl(var(--h) 70% var(--face-on-l))); stroke-width: 2.6; }
-.p-faces:has(input:checked) .p-face:not(:has(input:checked)) svg { opacity: 0.55; }
+/* the chosen face stands out by its background, size, edge and a ring; the others keep their full contrast (no veil:
+   faded features fell to about 2.5:1, WCAG 1.4.11) */
+.p-face:has(input:checked) { box-shadow: inset 0 0 0 2px var(--chosen-edge, var(--accent)); }
 .p-face:has(input:focus-visible), .p-star:has(input:focus-visible), .p-number:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .p-rating-smileys .p-endpoints { max-width: calc(var(--n, 5) * 72px); }
 
@@ -1426,8 +1428,12 @@ body:has(.p-comments-toggle) main.p-container { padding-bottom: 72px; }
 .p-pos-chip { border: 1px solid var(--border-strong); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit;
   max-width: 100%; text-align: start; }
 .p-pos-chip.is-selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); }
-.p-pos-chip.is-placed { opacity: 0.55; }
+/* a placed element stays fully readable and clickable: a dashed edge in the accent colour, the tick and the word
+   "placed", which is also part of its accessible name (no veil: faded text fell to about 3.5:1, WCAG 1.4.3) */
+.p-pos-chip.is-placed { border: 2px dashed var(--accent); padding: 5px 11px; }
 .p-pos-chip.is-placed::before { content: "✓ "; }
+.p-pos-placed { display: none; margin-inline-start: 6px; font-size: 0.8em; font-weight: 600; color: var(--fg); }
+.p-pos-chip.is-placed .p-pos-placed { display: inline; }
 .p-pos-skip { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 /* narrow for its text (a phone with large text: em follows the text size): the name of the y axis stands above the
    field instead of turned beside it, where a long one ran over the hint (UI/UX audit 2026-10-17, W-H01) */

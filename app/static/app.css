@@ -295,6 +295,8 @@ button.link:hover { color: var(--accent-hover); }
 .fig-save-icon { flex: none; width: 30px; height: 30px; }
 .fig-save-note { flex-basis: 100%; color: var(--muted); }
 form.inline { display: inline; margin: 0; }
+/* the tools of an editor row are one form (editor/index.html, audit G-05): its buttons stand in the toolbar as before */
+.toolbar > form.row-tools { display: contents; }
 .toolbar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .toolbar .button { margin-right: 4px; }
 
