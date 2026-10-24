@@ -5313,3 +5313,50 @@ form.live-add { display: flex; flex-wrap: wrap; gap: 8px; }  /* the "+ …" butt
 /* the element "KI-Chat" in the editor and its page "Modellzugang" (app/ai_chat.py): violet like every AI part */
 fieldset.ai-fieldset { border-color: var(--ai-border); }
 fieldset.ai-fieldset > legend { color: var(--ai); }
+
+/* The tab "Export" and the export of an interview guide (surveys/_export_rows.html; concept
+   exportseite-konzept-2026-10-24.md, variant A, Ralf 2026-10-24): the data pool open on top, then cards by purpose in
+   two columns, one row per content with its formats as buttons, long texts in the "i", more in a dialog */
+.xp-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.xp-head h2 { margin: 0; }
+.xp-pool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; margin-top: 12px; }
+.xp-field { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.xp-field > legend, .xp-sub > legend { padding: 0; margin-bottom: 4px; font-weight: 600; font-size: 0.95rem; }
+.xp-sub { border: 0; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 4px; }
+.xp-sep { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.95rem; }
+.xp-sep select { width: auto; min-width: 220px; font-weight: 400; }
+.xp-count { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.xp-count > * { margin: 0; }
+.xp-count [data-count-line] { font-weight: 600; }
+.xp-count .button { margin-left: auto; }
+.xp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.xp-grid > .panel { margin: 0; min-width: 0; }
+.xp-card > h2 { margin-bottom: 4px; }
+.xp-rows { list-style: none; margin: 4px 0 0; padding: 0; }
+.xp-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 8px 0; min-height: 44px; flex-wrap: wrap; }
+.xp-row + .xp-row { border-top: 1px solid var(--border); }
+.xp-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; flex: 1 1 220px; }
+.xp-name strong { font-weight: 600; font-size: 0.95rem; }
+.xp-note { color: var(--muted); font-size: 0.85rem; }
+.xp-btns { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; flex: 0 1 auto; }
+.xp-btns > .button, .xp-inline .button { min-height: 32px; padding: 4px 10px; font-size: 0.85rem; gap: 5px; }
+.xp-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.xp-inline input[type=text] { width: 230px; height: 34px; }
+.xp-inline label.check { font-size: 0.85rem; }
+.xp-info { display: inline; }
+.xp-status { display: inline-flex; align-items: center; gap: 6px; }
+.xp-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
+.xp-status.is-ok .xp-dot { background: var(--ok); }
+.xp-status.is-wait .xp-dot { background: var(--caution); }
+.xp-status.is-bad .xp-dot { background: var(--danger); }
+.xp-status.is-bad { color: var(--danger); font-weight: 600; }
+.xp-card .flash, #privacy .flash { margin: 8px 0; }
+.xp-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.xp-dialog-head h2 { margin: 0; }
+.xp-close { width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; background: none; border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--muted); cursor: pointer; }
+.xp-close:hover, .xp-close:focus-visible { color: var(--fg); border-color: var(--field-border); }
+.xp-dialog { overflow: auto; }
+.xp-dialog h3 { margin: 16px 0 6px; font-size: 1.05rem; }
+@media (max-width: 1100px) { .xp-pool-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .xp-grid, .xp-pool-grid { grid-template-columns: 1fr; } .xp-count .button { margin-left: 0; } }

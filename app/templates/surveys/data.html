@@ -1,209 +1,429 @@
 {% from "_learn.html" import why %}
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge, csrf %}
+{% from "_macros.html" import status_badge, csrf, computing %}
 {% from "_icons.html" import icon %}
+{% import "surveys/_export_rows.html" as xp %}
 {% block title %}{{ de_en("Export", "Export") }} · {{ survey.title }}{% endblock %}
 {% block container_class %}tabpage tabpage-single{% endblock %}
 {% block content %}
+{#- The tab "Export" (concept exportseite-konzept-2026-10-24.md, variant A, Ralf 2026-10-24): on top the data pool
+    with everything the answer files take, then cards by purpose in two columns: Antworten, Dokumentation,
+    Weitergeben, Nachweise, Archivieren und veröffentlichen, Datenschutz. One row per content with its formats as
+    buttons; long explanations in the "i", whatever needs more than a button in a dialog (xp.dialog). -#}
 {% set can_data = survey.can(current_user, "editor") %}
+{% set is_admin = survey.can(current_user, "admin") %}
 {# a live vote (app/live/) needs only part of this page: its answers per run, the audience questions and the slides;
    no data pool, analysis files, documentation, preregistration, Zenodo or contact data (Ralf, 2026-10-03) #}
 {% set live = survey.live is not none %}
+{% set diary = survey.sampling is not none %}
 <div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
 <div class="tabpage-grid">
-{% if can_data %}<p><a href="{{ url_for('editor.image_rights', survey_id=survey.id) }}">{{ de_en("Bildrechte für öffentliche Archivierung prüfen", "Review image rights for public archiving") }}</a></p>{% endif %}
 
-{% if live %}<form id="export-form" method="get" action="{{ url_for('surveys.data', survey_id=survey.id) }}" hidden></form>
-{% else %}{% with pool_form="export-form", pool_action=url_for('surveys.data', survey_id=survey.id) %}{% include "surveys/_pool.html" %}{% endwith %}{% endif %}
-
-<section class="panel">
-  <h2>{{ de_en("Export der Antworten", "Export of the answers") }} <span class="hint">{% if live %}{{ de_en("alle Durchgänge, Proben mit der Quelle „test“", "all runs, trials with the source “test”") }}{% else %}{{ de_en("nicht gespeicherte Testdurchläufe sind nie enthalten", "test runs that were not saved are never included") }}{% endif %}</span></h2>
-  {# the counts are those of real participations, whatever the data pool above holds (UI/UX audit 2026-10-07, W19) #}
-  <div class="stat-line">{% if not live %}<span class="muted">{{ de_en("Echte Teilnahmen:", "Real participations:") }}</span>{% endif %}<span><strong>{{ counts.completed }}</strong> {{ de_en("abgeschlossen", "completed") }}</span><span><strong>{{ counts.active }}</strong> {{ de_en("begonnen, nicht abgeschlossen", "started, not completed") }}</span>{% if not live %}<span title="{{ de_en('Abgelehnte Teilnahmen werden nicht gespeichert, nur gezählt', 'Declined participations are not saved, only counted') }}"><strong>{{ counts.declined }}</strong> {{ de_en("Einwilligung abgelehnt (nicht gespeichert)", "consent declined (not saved)") }}</span><span><strong>{{ counts.screenout }}</strong> {{ de_en("Screen-out", "screen-out") }}</span>{% endif %}{% if counts.quotafull %}<span><strong>{{ counts.quotafull }}</strong> {{ de_en("Quote voll", "quota full") }}</span>{% endif %}{% if counts.excluded %}<span><strong>{{ counts.excluded }}</strong> {{ de_en("Ausschluss", "excluded") }}</span>{% endif %}</div>
-  {# what the plan asks for, in the line of the sample model (S3): beside the counts of real participations #}
-  {% set sm = sample_model.of(survey) if not live else none %}
-  {% if sm %}{% from "_sample.html" import sample_line %}<p class="small sample-model">{{ sample_line(sm, lead=sample_model.lead_text(sm), basis=sm.basis != "end") }}</p>{% endif %}
-  {% if not live %}<div class="methods-callout">
-    <div><strong>{{ de_en("Methodenbeschreibung für ein Manuskript erzeugen", "Generate a methods section for a manuscript") }}</strong>
-      <span class="desc">{{ de_en("aus dem Datenpool der Ergebnisse: Feldphase, Stichprobe und Ausschlüsse, Konstrukte mit Quellen, Studienplan und Hypothesen; als Word oder mit KI, auf Deutsch oder Englisch", "from the data pool of the results: field period, sample and exclusions, constructs with sources, research plan and hypotheses; as Word or with AI, in German or English") }}</span></div>
-    {# one methods section on the data pool of the results (UI/UX audit 2026-10-05, V29): Word and the AI are there #}
-    <a class="button" href="{{ url_for('surveys.methods', survey_id=survey.id) }}">{{ de_en("Methodenteil öffnen", "Open methods section") }}</a>
-  </div>{% endif %}
-  {# one row per export: name, one line of explanation, a button of the same width. pooled: sent with the form
-     of the data pool (sources, speeders marked or left out, separator); otherwise a plain link. #}
-  {% macro export_row(title, desc, url, pooled=true, primary=false, opens=false) %}
-  <li><div><strong>{{ title }}</strong><span class="desc">{{ desc }}</span></div>
-    {% set cls = "button" if primary else "button button-secondary" %}
-    {% set what = de_en("{t} öffnen", "Open {t}", t=title) if opens else de_en("{t} herunterladen", "Download {t}", t=title) %}
-    {% if pooled %}<button class="{{ cls }}" form="export-form" formaction="{{ url }}" aria-label="{{ what }}">{% else %}<a class="{{ cls }}" href="{{ url }}" aria-label="{{ what }}">{% endif -%}
-    {% if opens %}{{ de_en("Öffnen", "Open") }}{% else %}{{ icon("download", 16) }} {{ de_en("Herunterladen", "Download") }}{% endif %}
-    {%- if pooled %}</button>{% else %}</a>{% endif %}</li>
-  {% endmacro %}
-  {% if not live %}<p><button type="submit" class="button button-small button-secondary" form="export-form" formaction="{{ url_for('surveys.data_selection', survey_id=survey.id) }}">{{ de_en("Exportumfang speichern (JSON)", "Save export selection (JSON)") }}</button></p>{% endif %}
-  <div class="export-groups">
-    <div class="export-group">
-      <h3>{{ de_en("Schreibweise der CSV-Dateien", "Format of the CSV files") }} <span class="hint">{{ de_en("gilt für Datensatz und Codebuch", "applies to data set and codebook") if live else de_en("gilt für Datensatz, Langformat, Codebuch und Schleifentabellen", "applies to data set, long format, codebook and loop tables") }}</span></h3>
-      <ul class="export-list">
-        <li><label for="export-sep"><strong>{{ de_en("Trennzeichen", "Separator") }}</strong><span class="desc">{{ de_en("Komma für R, Python und SPSS; Semikolon mit Dezimalkomma für ein deutsches Excel", "comma for R, Python and SPSS; semicolon with decimal comma for a German Excel") }}</span></label>
-          <select name="sep" id="export-sep" form="export-form">
-            <option value="comma">{{ de_en("Komma", "Comma") }}</option>
-            <option value="semicolon">{{ de_en("Semikolon", "Semicolon") }}</option>
-          </select></li>
-      </ul>
-    </div>
-
-    <div class="export-group">
-      <h3>{{ de_en("Datensatz", "Data set") }} <span class="hint">{{ de_en("alle Durchgänge", "all runs") if live else de_en("eine Zeile je Teilnahme aus dem Datenpool oben", "one row per participation from the data pool above") }}</span></h3>
-      {% if can_data %}
-      <ul class="export-list">
-        {% if scale_cols and not live %}
+{# ---- data pool and format: open, every choice in sight (E4) ---- #}
+<section class="panel xp-pool"{% if not live %} id="pool"{% endif %}>
+  <div class="xp-head"><h2>{{ de_en("Daten", "Data") if live else de_en("Datenpool und Format", "Data pool and format") }}</h2>
+    <span class="hint">{{ de_en("alle Durchgänge, Proben mit der Quelle „test“", "all runs, trials with the source “test”") if live else de_en("gilt für alle Antwortdateien dieser Seite", "applies to all answer files on this page") }}</span>
+    {% if not live %}{{ xp.info(de_en("Vorauswahl aus dem gespeicherten Datenpool (Reiter „Datenerhebung“); hier gilt sie nur für die Downloads dieser Seite. Ergebnisfilter und Gewichtung werden nicht übernommen. Langformate können mehrere Zeilen je Teilnahme enthalten. Nicht gespeicherte Testdurchläufe sind nie enthalten.", "Preselected from the saved data pool (tab “Data collection”); here it applies only to the downloads on this page. Result filters and weighting are not applied. Long formats may contain multiple rows per participation. Test runs that were not saved are never included.")) }}{% endif %}</div>
+  <form method="get" action="{{ url_for('surveys.data', survey_id=survey.id) }}" id="export-form">
+  <div class="xp-pool-grid">
+    {% if not live %}
+    {% set source_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
+    <fieldset class="xp-field"><legend>{{ de_en("Datenquellen", "Data sources") }}</legend>
+      {% for key in ("real", "test", "dummy") %}
+      <label class="check"><input type="checkbox" name="source" value="{{ key }}" {% if key in pool.sources %}checked{% endif %}> {{ source_names[key] }} ({{ by_source[key] }})</label>
+      {% endfor %}
+      <label class="check"><input type="checkbox" name="all" value="1" {% if pool.all %}checked{% endif %}> {{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}</label>
+      {{ why("data_pool") }}
+    </fieldset>
+    <fieldset class="xp-field" id="pool-speeders"><legend>{{ de_en("Markierte Teilnahmen", "Marked participations") }}
+        {{ xp.info(de_en("Speeder ({rule}) und Teilnahmen mit genug Auffälligkeiten; die Regeln stehen unter „Qualitätssicherung“. Die Ergebnisse lassen Markierte immer weg.", "Speeders ({rule}) and participations with enough anomalies; the rules are under “Quality assurance”. The results always leave marked ones out.", rule=speeder_rule_text(survey))) }}</legend>
+      <label class="check"><input type="radio" name="drop" value="0" {% if not pool.drop %}checked{% endif %}> {{ de_en("Einbeziehen und mit Qualitätskennzeichen exportieren", "Include and export with quality flags") }}</label>
+      <label class="check"><input type="radio" name="drop" value="1" {% if pool.drop %}checked{% endif %}> {{ de_en("Vom Export ausschließen", "Exclude from export") }}</label>
+    </fieldset>
+    {% endif %}
+    <div class="xp-field">
+      {% if can_data and not live and (scale_cols or standard_vars) %}
+      <fieldset class="xp-sub"><legend>{{ de_en("Anhängen", "Append") }}</legend>
+        {% if scale_cols %}
         {# off by default: the scores are derived, the data themselves are the answers (app/scales.py) #}
-        <li><label for="export-scales"><strong>{{ de_en("Skalenwerte anhängen", "Append scale scores") }}</strong><span class="desc">{{ de_en("Mittelwert je Skala und Subskala als zusätzliche Spalte nach ihrer Frage", "mean per scale and subscale as an extra column after its question") }} ({{ scale_cols[:4]|join(", ") }}{% if scale_cols|length > 4 %} …{% endif %}){{ de_en(", gerechnet wie auf der Ergebnisseite; auch im Codebuch", ", computed as on the results page; also in the codebook") }}</span></label>
-          <label class="check"><input type="checkbox" name="scales" value="1" id="export-scales" form="export-form"> {{ de_en("anhängen", "append") }}</label></li>
+        <label class="check" for="export-scales"><input type="checkbox" name="scales" value="1" id="export-scales"> {{ de_en("Skalenwerte", "Scale scores") }}
+          {{ xp.info(de_en("Mittelwert je Skala und Subskala als zusätzliche Spalte nach ihrer Frage", "mean per scale and subscale as an extra column after its question")|after_colon ~ " (" ~ scale_cols[:4]|join(", ") ~ (" …" if scale_cols|length > 4 else "") ~ ")" ~ de_en(", gerechnet wie auf der Ergebnisseite; auch im Codebuch.", ", computed as on the results page; also in the codebook.")) }}</label>
         {% endif %}
-        {% if standard_vars and not live %}
+        {% if standard_vars %}
         {# off by default: the KonsortSWD standard variables, derived from the RatSWD standard questions (app/standard_vars.py) #}
-        <li><label for="export-standard"><strong>{{ de_en("KonsortSWD-Zielvariablen anhängen", "Append KonsortSWD target variables") }}</strong><span class="desc">{{ de_en("x_sex, x_doby, x_age, x_citsc, x_bornsc, x_mbornsc, x_fbornsc, x_hhsize, x_marital, x_mainstatus am Ende, mit fehlenden Werten −1 bis −6 nach Schneider et al. (2026); auch im Codebuch. Ohne x_casmin: Die Ableitung aus BIL_1 und BIL_4 ist nicht dokumentiert.", "x_sex, x_doby, x_age, x_citsc, x_bornsc, x_mbornsc, x_fbornsc, x_hhsize, x_marital, x_mainstatus at the end, with missing values −1 to −6 after Schneider et al. (2026); also in the codebook. Without x_casmin: the derivation from BIL_1 and BIL_4 is not documented.") }}</span></label>
-          <label class="check"><input type="checkbox" name="standard" value="1" id="export-standard" form="export-form"> {{ de_en("anhängen", "append") }}</label></li>
+        <label class="check" for="export-standard"><input type="checkbox" name="standard" value="1" id="export-standard"> {{ de_en("KonsortSWD-Zielvariablen", "KonsortSWD target variables") }}
+          {{ xp.info(de_en("x_sex, x_doby, x_age, x_citsc, x_bornsc, x_mbornsc, x_fbornsc, x_hhsize, x_marital, x_mainstatus am Ende, mit fehlenden Werten −1 bis −6 nach Schneider et al. (2026); auch im Codebuch. Ohne x_casmin: Die Ableitung aus BIL_1 und BIL_4 ist nicht dokumentiert.", "x_sex, x_doby, x_age, x_citsc, x_bornsc, x_mbornsc, x_fbornsc, x_hhsize, x_marital, x_mainstatus at the end, with missing values −1 to −6 after Schneider et al. (2026); also in the codebook. Without x_casmin: the derivation from BIL_1 and BIL_4 is not documented.")) }}</label>
         {% endif %}
-        {{ export_row("CSV", de_en("für R, Python und Excel", "for R, Python and Excel"), url_for('surveys.export_csv', survey_id=survey.id, kind='data'), primary=true) }}
-        {% if not live %}
-        {{ export_row(de_en("SPSS und JASP (.sav)", "SPSS and JASP (.sav)"), de_en("fertige Datei mit Variablen- und Wertelabels und Messniveaus", "ready file with variable and value labels and levels of measurement"), url_for('surveys.export_sav', survey_id=survey.id)) }}
-        {{ export_row("jamovi (.omv)", de_en("fertige Datei mit Beschreibungen, Wertelabels, Messniveaus und fehlenden Werten", "ready file with descriptions, value labels, levels of measurement and missing values"), url_for('surveys.export_omv', survey_id=survey.id)) }}
-        {{ export_row("R (.rds)", de_en("fertige Datei für readRDS(): mit Variablen- und Wertelabels (lesbar mit haven), fehlende Werte als NA", "ready file for readRDS(): with variable and value labels (readable with haven), missing values as NA"), url_for('surveys.export_rds', survey_id=survey.id)) }}
-        {% if sem_model.build(survey) %}{{ export_row(de_en("Strukturgleichungsmodell für R (.R)", "Structural equation model for R (.R)"), de_en("lavaan-Skript (bei PLS auch seminr) zum R-Export: das Modell aus dem Studienplan zum Nachrechnen; experimentell", "lavaan script (for PLS also seminr) for the R export: the model of the research plan to recompute; experimental"), url_for('surveys.export_sem_r', survey_id=survey.id)) }}{% endif %}
-        {{ export_row(de_en("SPSS-Syntax mit Datendatei (.zip)", "SPSS syntax with data file (.zip)"), de_en("Syntax, die die Datendatei (.dat, durch Kommas getrennt, nur für SPSS) mit Variablen- und Wertelabels einliest", "syntax that reads the data file (.dat, comma-separated, for SPSS only) with variable and value labels"), url_for('surveys.export_spss', survey_id=survey.id)) }}
-        {% if survey.blocks|map(attribute="items")|sum(start=[])|selectattr("type", "equalto", "voice")|list %}
-        {{ export_row(de_en("Sprachnachrichten (.zip)", "Voice messages (.zip)"), de_en("die Aufnahmen aus dem Datenpool oben, benannt wie in der Spalte …_audio (WebM, Ogg oder M4A, wie der Browser aufgenommen hat)", "the recordings from the data pool above, named as in the column …_audio (WebM, Ogg or M4A, as the browser recorded them)"), url_for('surveys.export_voice', survey_id=survey.id)) }}
-        {% endif %}
-        {% endif %}
-      </ul>
-      {% if live %}<p class="muted small export-note">{{ de_en("Eine Zeile je Teilnahme; die Spalte", "One row per participation; the column") }} <code>durchgang</code> {{ de_en("nennt den Durchgang.", "names the run.") }}</p>{% else %}<p class="muted small export-note">{{ de_en("Umgepolte Items sind bereits rekodiert. Zufällige Reihenfolgen stehen in den Spalten", "Reversed items are already recoded. Random orders are in the columns") }} <code>…_order</code>, {{ de_en("Speeder in", "speeders in") }} <code>duration_rel</code> ({{ de_en("Dauer ÷ Median", "duration ÷ median") }}){% if survey.page_timing %}, <code>qc_rsi</code> (Relative Speed Index){% endif %} {{ de_en("und", "and") }} <code>speeder</code>, {{ de_en("die Markierung der Qualitätssicherung in", "the mark of the quality assurance in") }} <code>qc_marked</code>.</p>{% endif %}
-      {% else %}
-      <p class="muted small export-note">{{ de_en("Ihre Rolle „Ansehen“ erlaubt kein Herunterladen der Daten; Codebuch und Fragebogen schon.", "Your role “View” does not allow downloading the data; codebook and questionnaire it does.") }}</p>
+      </fieldset>
       {% endif %}
+      <label class="xp-sep" for="export-sep"><span class="label-title">{{ de_en("Trennzeichen der CSV-Dateien", "Separator of the CSV files") }}</span>
+        <select name="sep" id="export-sep">
+          <option value="comma">{{ de_en("Komma (R, Python, SPSS)", "Comma (R, Python, SPSS)") }}</option>
+          <option value="semicolon">{{ de_en("Semikolon (deutsches Excel)", "Semicolon (German Excel)") }}</option>
+        </select></label>
     </div>
-
-    {% set long_items = survey.blocks|map(attribute="items")|sum(start=[])|selectattr("kind.long_export")|list if can_data else [] %}
-    {% set vignette_loops = vignettes_of(survey) if can_data else [] %}
-    {% set long_loops = loop_long_of(survey) if can_data else [] %}
-    {% if long_items or vignette_loops or long_loops %}
-    <div class="export-group">
-      <h3>{{ de_en("Langformat", "Long format") }} <span class="hint">{{ de_en("eine Zeile je gezeigter Möglichkeit eines Auswahlexperiments, je Marker einer Karte oder je Durchgang einer Schleife, aus dem Datenpool oben", "one row per option shown in a choice experiment, per marker on a map or per pass of a loop, from the data pool above") }}</span></h3>
-      <ul class="export-list">
-        {% for it in long_items %}
-        {{ export_row(de_en("{label} „{code}“ (CSV)", "{label} “{code}” (CSV)", label=it.kind.label, code=it.code), it.kind.long_export_label, url_for('surveys.export_conjoint', survey_id=survey.id, item_id=it.id)) }}
-        {% endfor %}
-        {% for v in vignette_loops %}
-        {{ export_row(de_en("Vignetten „{name}“ (CSV)", "Vignettes “{name}” (CSV)", name=(v.name or v.code)), de_en("eine Zeile je Person und gezeigter Vignette: Deck, Position, Stufen der Faktoren, Antworten; für Mehrebenenmodelle, z. B. lmer(antwort ~ {f} + (1 | resp_id))", "one row per person and vignette shown: deck, position, levels of the factors, answers; for multilevel models, e.g. lmer(answer ~ {f} + (1 | resp_id))", f=(v.attributes or [])|map(attribute="code")|join(" + ")), url_for('surveys.export_vignettes', survey_id=survey.id, nid=v.id)) }}
-        {% endfor %}
-        {% for lp in long_loops %}
-        {{ export_row(de_en("Schleife „{name}“ (CSV)", "Loop “{name}” (CSV)", name=(lp.name or lp.code)), de_en("eine Zeile je Person und Durchgang: Position, Zeile der Tabelle mit ihren Werten, Antworten dieses Durchgangs; für Mehrebenenmodelle, z. B. lmer(antwort ~ 1 + (1 | resp_id))", "one row per person and pass: position, table row with its values, answers of this pass; for multilevel models, e.g. lmer(answer ~ 1 + (1 | resp_id))"), url_for('surveys.export_loop_long', survey_id=survey.id, nid=lp.id)) }}
-        {% endfor %}
-      </ul>
+  </div>
+  {# one count line: what the files hold, then the real participations in the field (E4) #}
+  <div class="xp-count">
+    {% if not live %}
+    {% from "surveys/_used_data.html" import used_data with context %}
+    {# the count line is the one live region, busy while it is computed (UI/UX audit 2026-10-16, 31) #}
+    <div data-export-counts data-url="{{ url_for('surveys.export_counts', survey_id=survey.id) }}">
+      {{ computing(de_en("Exportumfang wird berechnet …", "Calculating export selection …"), tag="p", attrs=" data-count-line"|safe) }}
+      <noscript><p>{{ de_en("Die genaue Fallzahl finden Sie ohne JavaScript in „Exportumfang speichern (JSON)“.", "Without JavaScript, find the exact count in “Save export selection (JSON)”.") }}</p></noscript>
+      <div hidden>{{ used_data(pool) }}</div>
     </div>
     {% endif %}
+    {# the counts are those of real participations, whatever the data pool above holds (UI/UX audit 2026-10-07, W19) #}
+    <p class="stat-line">{% if not live %}<span class="muted">{{ de_en("Echte Teilnahmen:", "Real participations:") }}</span>{% endif %}<span><strong>{{ counts.completed }}</strong> {{ de_en("abgeschlossen", "completed") }}</span><span><strong>{{ counts.active }}</strong> {{ de_en("begonnen, nicht abgeschlossen", "started, not completed") }}</span>{% if not live %}<span title="{{ de_en('Abgelehnte Teilnahmen werden nicht gespeichert, nur gezählt', 'Declined participations are not saved, only counted') }}"><strong>{{ counts.declined }}</strong> {{ de_en("Einwilligung abgelehnt (nicht gespeichert)", "consent declined (not saved)") }}</span><span><strong>{{ counts.screenout }}</strong> {{ de_en("Screen-out", "screen-out") }}</span>{% endif %}{% if counts.quotafull %}<span><strong>{{ counts.quotafull }}</strong> {{ de_en("Quote voll", "quota full") }}</span>{% endif %}{% if counts.excluded %}<span><strong>{{ counts.excluded }}</strong> {{ de_en("Ausschluss", "excluded") }}</span>{% endif %}</p>
+    {# what the plan asks for, in the line of the sample model (S3): beside the counts of real participations #}
+    {% set sm = sample_model.of(survey) if not live else none %}
+    {% if sm %}{% from "_sample.html" import sample_line %}<p class="small sample-model">{{ sample_line(sm, lead=sample_model.lead_text(sm), basis=sm.basis != "end") }}</p>{% endif %}
+    {% if not live %}<button type="submit" class="button button-small button-secondary" form="export-form" formaction="{{ url_for('surveys.data_selection', survey_id=survey.id) }}" title="{{ de_en('Exportumfang speichern (JSON)', 'Save export selection (JSON)') }}">{{ icon("download", 16) }} {{ de_en("Exportumfang", "Export selection") }}</button>{% endif %}
+  </div>
+  </form>
+</section>
 
-    {% if waves_view and can_data and not live %}
-    {# waves of a longitudinal design (app/waves.py): set on the page "Studienplan", merged here by the personal code;
-       each wave with its own saved data pool, not the one chosen above #}
-    <div class="export-group" id="wellen">
-      <h3>{{ de_en("Wellen zusammenführen", "Merge waves") }} <span class="hint">{{ de_en("verknüpft über den persönlichen Code; jede Welle mit ihrem gespeicherten Datenpool und den Markierungen ihrer Qualitätssicherung", "linked by the personal code; each wave with its saved data pool and the marks of its quality assurance") }}</span></h3>
-      <form id="waves-export" method="get" action="{{ url_for('waves.export_merged', survey_id=survey.id) }}" hidden></form>
-      <ul class="export-list">
-        <li><div><strong>{{ de_en("Wellen", "Waves") }}</strong><span class="desc">{% for r in waves_view.rows %}{{ r.n }}. {{ r.label }}: {{ r.title }}{% if r.problem %} <span class="finding-warning">({{ r.problem }})</span>{% endif %}{{ "; " if not loop.last }}{% endfor %}</span></div>
-          <a class="button button-secondary" href="{{ url_for('study_plan.page', survey_id=survey.id) }}#wellen">{{ de_en("Ändern", "Change") }}</a></li>
-        {% if waves_view.ready %}
-        <li><label for="waves-tolerant"><strong>{{ de_en("Toleranter Abgleich", "Tolerant matching") }}</strong><span class="desc">{{ de_en("verknüpft auch Codes, die sich in genau einem Teil unterscheiden, aber nur, wenn das in beide Richtungen eindeutig ist; in match_quality als „tolerant“ markiert", "also links codes that differ in exactly one part, but only where this is unique both ways; marked as “tolerant” in match_quality") }} {{ apa.cite(waves_sources) }}</span></label>
-          <label class="check"><input type="checkbox" name="tolerant" value="1" id="waves-tolerant" form="waves-export"{% if waves_report and waves_report.tolerant %} checked{% endif %}> {{ de_en("tolerant", "tolerant") }}</label></li>
-        <li><label for="waves-layout"><strong>{{ de_en("Aufbau", "Layout") }}</strong><span class="desc">{{ de_en("breit: eine Zeile je Person, Spalten je Welle mit t1_, t2_ …; lang: eine Zeile je Person und Welle mit der Spalte wave", "wide: one row per person, columns per wave with t1_, t2_ …; long: one row per person and wave with the column wave") }}</span></label>
-          <select name="layout" id="waves-layout" form="waves-export"><option value="wide">{{ de_en("breit", "wide") }}</option><option value="long">{{ de_en("lang", "long") }}</option></select></li>
-        <li><label for="waves-fmt"><strong>{{ de_en("Dateiformat", "File format") }}</strong><span class="desc">{{ de_en("dazu immer abgleich.csv mit dem Bericht des Abgleichs", "always with abgleich.csv, the report of the matching") }}</span></label>
-          <select name="fmt" id="waves-fmt" form="waves-export"><option value="csv">CSV</option><option value="sav">SPSS (.sav)</option><option value="rds">R (.rds)</option></select></li>
-        <li><div><strong>{{ de_en("Zusammengeführte Daten (.zip)", "Merged data (.zip)") }}</strong><span class="desc">{{ de_en("match_code, match_quality (exact, tolerant, partial, unmatched, duplicate, no_code) und alle Spalten der Wellen; doppelte Codes einer Welle bleiben unverknüpft", "match_code, match_quality (exact, tolerant, partial, unmatched, duplicate, no_code) and all columns of the waves; codes that occur twice in a wave stay unlinked") }}</span></div>
-          <span class="button-row"><button class="button button-secondary" form="waves-export" formaction="{{ url_for('surveys.data', survey_id=survey.id) }}#wellen" name="waves" value="report">{{ de_en("Abgleich ansehen", "View matching") }}</button>
-          <button class="button button-secondary" form="waves-export" aria-label="{{ de_en('Zusammengeführte Daten herunterladen', 'Download merged data') }}">{{ icon("download", 16) }} {{ de_en("Herunterladen", "Download") }}</button></span></li>
-        {% endif %}
-      </ul>
-      {% if waves_report and waves_report.busy %}
-      <p class="flash flash-warning" role="status">{{ de_en("Gerade laufen schon mehrere große Auswertungen auf dem Server. Bitte versuchen Sie es in einer Minute noch einmal.", "Several large evaluations are running on the server right now. Please try again in a minute.") }}</p>
-      {% elif waves_report %}{% set rep = waves_report.report %}
-      <div class="table-scroll"><table class="list-table">
-        <caption class="muted small">{{ de_en("Abgleich", "Matching") }}{{ de_en(" (tolerant)", " (tolerant)") if waves_report.tolerant else "" }}</caption>
-        <thead><tr><th>{{ de_en("Welle", "Wave") }}</th><th class="num">{{ de_en("Zeilen", "Rows") }}</th><th class="num">exact</th><th class="num">tolerant</th><th class="num">partial</th><th class="num">unmatched</th><th class="num">duplicate</th><th class="num">no_code</th></tr></thead>
-        <tbody>
-        {% for c in rep.waves %}{% set r = waves_report.waves[loop.index0] %}
-        <tr><td>{{ loop.index }}. {{ r.label }}</td><td class="num">{{ c.rows }}</td><td class="num">{{ c.exact }}</td><td class="num">{{ c.tolerant }}</td><td class="num">{{ c.partial }}</td><td class="num">{{ c.unmatched }}</td><td class="num">{{ c.duplicate }}</td><td class="num">{{ c.no_code }}</td></tr>
-        {% endfor %}
-        </tbody>
-      </table></div>
-      <p class="small">{{ de_en("{p} Personen mit Code, {l} in mehreren Wellen verknüpft (davon {t} tolerant, {q} mit „weiß nicht“ in einzelnen Teilen), {c} in allen Wellen, {u} nur in einer Welle; {d} Zeilen mit doppeltem Code, {n} ohne verwendbaren Code.", "{p} people with a code, {l} linked across waves ({t} of them tolerantly, {q} with “don’t know” in some parts), {c} in all waves, {u} in one wave only; {d} rows with a duplicate code, {n} without a usable code.", p=rep.persons, l=rep.linked, t=rep.tolerant, q=rep.partial, c=rep.complete, u=rep.unmatched, d=rep.duplicate, n=rep.no_code) }}</p>
+{% set long_items = survey.blocks|map(attribute="items")|sum(start=[])|selectattr("kind.long_export")|list if can_data else [] %}
+{% set vignette_loops = vignettes_of(survey) if can_data else [] %}
+{% set long_loops = loop_long_of(survey) if can_data else [] %}
+{% set has_voice = survey.blocks|map(attribute="items")|sum(start=[])|selectattr("type", "equalto", "voice")|list %}
+{% set drawn = get_flashed_messages(category_filter=["inline"]) %}
+
+<div class="xp-grid">
+{# ---- Antworten ---- #}
+<section class="panel xp-card" id="answers">
+  <h2>{{ de_en("Antworten", "Answers") }} <span class="hint">{{ de_en("alle Durchgänge", "all runs") if live else de_en("aus dem Datenpool oben", "from the data pool above") }}</span></h2>
+  {% if can_data %}
+  <ul class="xp-rows">
+    {% call xp.row(de_en("Datensatz", "Data set"), de_en("Eine Zeile je Teilnahme; die Spalte durchgang nennt den Durchgang", "One row per participation; the column durchgang names the run") if live else (de_en("Eine Zeile je Eintrag, die Spalte person nennt die Person", "One row per entry, the column person names the person") if diary else de_en("Eine Zeile je Teilnahme", "One row per participation")),
+                   "" if live else de_en("CSV für R, Python und Excel; SPSS und JASP (.sav) und jamovi (.omv) als fertige Datei mit Variablen- und Wertelabels und Messniveaus; R (.rds) für readRDS() mit Labels (lesbar mit haven), fehlende Werte als NA; SPSS-Syntax mit Datendatei (.zip): Syntax, die die Datendatei (.dat, durch Kommas getrennt, nur für SPSS) mit Labels einliest. Umgepolte Items sind bereits rekodiert; zufällige Reihenfolgen stehen in …_order, Speeder in duration_rel (Dauer ÷ Median) und speeder, die Markierung der Qualitätssicherung in qc_marked.", "CSV for R, Python and Excel; SPSS and JASP (.sav) and jamovi (.omv) as a ready file with variable and value labels and levels of measurement; R (.rds) for readRDS() with labels (readable with haven), missing values as NA; SPSS syntax with data file (.zip): syntax that reads the data file (.dat, comma-separated, for SPSS only) with labels. Reversed items are already recoded; random orders are in …_order, speeders in duration_rel (duration ÷ median) and speeder, the mark of the quality assurance in qc_marked.") ~ (" qc_rsi (Relative Speed Index)." if survey.page_timing else "")) %}
+      {{ xp.fmt("CSV", url_for('surveys.export_csv', survey_id=survey.id, kind='data'), de_en("Datensatz als CSV herunterladen", "Download data set as CSV"), primary=true) }}
+      {% if not live %}
+      {{ xp.fmt(".sav", url_for('surveys.export_sav', survey_id=survey.id), de_en("SPSS und JASP (.sav) herunterladen", "Download SPSS and JASP (.sav)")) }}
+      {{ xp.fmt(".omv", url_for('surveys.export_omv', survey_id=survey.id), de_en("jamovi (.omv) herunterladen", "Download jamovi (.omv)")) }}
+      {{ xp.fmt(".rds", url_for('surveys.export_rds', survey_id=survey.id), de_en("R (.rds) herunterladen", "Download R (.rds)")) }}
+      {{ xp.fmt(de_en("SPSS-Syntax", "SPSS syntax"), url_for('surveys.export_spss', survey_id=survey.id), de_en("SPSS-Syntax mit Datendatei (.zip) herunterladen", "Download SPSS syntax with data file (.zip)")) }}
       {% endif %}
-    </div>
+    {% endcall %}
+    {% if not live and sem_model.build(survey) %}
+    {% call xp.row(de_en("Strukturgleichungsmodell", "Structural equation model"), de_en("Das Modell aus dem Studienplan für R, experimentell", "The model of the research plan for R, experimental"), de_en("lavaan-Skript (bei PLS auch seminr) zum R-Export: das Modell aus dem Studienplan zum Nachrechnen; experimentell", "lavaan script (for PLS also seminr) for the R export: the model of the research plan to recompute; experimental")) %}
+      {{ xp.fmt(".R", url_for('surveys.export_sem_r', survey_id=survey.id), de_en("Strukturgleichungsmodell für R (.R) herunterladen", "Download structural equation model for R (.R)")) }}
+    {% endcall %}
     {% endif %}
-
+    {% if not live and has_voice %}
+    {% call xp.row(de_en("Sprachnachrichten", "Voice messages"), de_en("Die Aufnahmen aus dem Datenpool", "The recordings from the data pool"), de_en("die Aufnahmen aus dem Datenpool oben, benannt wie in der Spalte …_audio (WebM, Ogg oder M4A, wie der Browser aufgenommen hat)", "the recordings from the data pool above, named as in the column …_audio (WebM, Ogg or M4A, as the browser recorded them)")) %}
+      {{ xp.fmt("ZIP", url_for('surveys.export_voice', survey_id=survey.id), de_en("Sprachnachrichten (.zip) herunterladen", "Download voice messages (.zip)")) }}
+    {% endcall %}
+    {% endif %}
+    {# long formats: one row per option of a choice experiment, per marker of a map or per pass of a loop #}
+    {% for it in long_items %}
+    {% call xp.row(de_en("{label} „{code}“", "{label} “{code}”", label=it.kind.label, code=it.code), de_en("Langformat", "Long format"), it.kind.long_export_label) %}
+      {{ xp.fmt("CSV", url_for('surveys.export_conjoint', survey_id=survey.id, item_id=it.id), de_en("{label} „{code}“ (CSV) herunterladen", "Download {label} “{code}” (CSV)", label=it.kind.label, code=it.code)) }}
+    {% endcall %}
+    {% endfor %}
+    {% for v in vignette_loops %}
+    {% call xp.row(de_en("Vignetten „{name}“", "Vignettes “{name}”", name=(v.name or v.code)), de_en("Langformat", "Long format"), de_en("eine Zeile je Person und gezeigter Vignette: Deck, Position, Stufen der Faktoren, Antworten; für Mehrebenenmodelle, z. B. lmer(antwort ~ {f} + (1 | resp_id))", "one row per person and vignette shown: deck, position, levels of the factors, answers; for multilevel models, e.g. lmer(answer ~ {f} + (1 | resp_id))", f=(v.attributes or [])|map(attribute="code")|join(" + "))) %}
+      {{ xp.fmt("CSV", url_for('surveys.export_vignettes', survey_id=survey.id, nid=v.id), de_en("Vignetten „{name}“ (CSV) herunterladen", "Download vignettes “{name}” (CSV)", name=(v.name or v.code))) }}
+    {% endcall %}
+    {% endfor %}
+    {% for lp in long_loops %}
+    {% call xp.row(de_en("Schleife „{name}“", "Loop “{name}”", name=(lp.name or lp.code)), de_en("Langformat", "Long format"), de_en("eine Zeile je Person und Durchgang: Position, Zeile der Tabelle mit ihren Werten, Antworten dieses Durchgangs; für Mehrebenenmodelle, z. B. lmer(antwort ~ 1 + (1 | resp_id))", "one row per person and pass: position, table row with its values, answers of this pass; for multilevel models, e.g. lmer(answer ~ 1 + (1 | resp_id))")) %}
+      {{ xp.fmt("CSV", url_for('surveys.export_loop_long', survey_id=survey.id, nid=lp.id), de_en("Schleife „{name}“ (CSV) herunterladen", "Download loop “{name}” (CSV)", name=(lp.name or lp.code))) }}
+    {% endcall %}
+    {% endfor %}
+    {% if waves_view and not live %}
+    {# waves of a longitudinal design (app/waves.py): set on the page "Studienplan", merged by the personal code #}
+    {% call xp.row(de_en("Wellen zusammenführen", "Merge waves"), de_en("{n} Wellen, über den persönlichen Code", "{n} waves, by the personal code", n=waves_view.rows|length), id="wellen") %}
+      {{ xp.opens(de_en("Zusammenführen", "Merge"), "dlg-waves") }}
+    {% endcall %}
+    {% endif %}
+    {% call xp.row(de_en("Codebuch", "Codebook"), de_en("Alle Spalten mit Fragetext, Werten und Labels", "All columns with question text, values and labels"), "" if live else (de_en("nennt Speeder-Schwelle, Median und Datenpool", "names speeder threshold, median and data pool") ~ (de_en("; Schleifen: alle Durchgänge in einem Feld, als Tabelle mit Spalten unter „Schleifentabelle“", "; loops: every pass in one field, as a table with columns under “Loop table”") if loop_tables_of(survey) else ""))) %}
+      {{ xp.fmt("CSV", url_for('surveys.export_csv', survey_id=survey.id, kind='codebook'), de_en("Codebuch (CSV) herunterladen", "Download codebook (CSV)")) }}
+    {% endcall %}
+    {% if not live %}
+    {# the table of a loop: download in the separator chosen above, or copy as Excel copies cells (decisions.md,
+       "Schleifentabelle auffindbar", 2026-10-10) #}
+    {% for lp in loop_tables_of(survey) %}{% set lp_title = de_en("Schleifentabelle „{name}“ (CSV)", "Loop table “{name}” (CSV)", name=(lp.name or lp.code)) %}
+    {% call xp.row(de_en("Schleifentabelle „{name}“", "Loop table “{name}”", name=(lp.name or lp.code)), de_en("Eine Zeile je Durchgang", "One row per pass"), de_en("eine Zeile je Durchgang mit allen Spalten der Tabelle, auch den internen; „zeile“ ist die Nummer im Suffix _n der Antworten und in {code}_order. Für ein deutsches Excel oben „Semikolon“ wählen oder „Kopieren“ und in Excel einfügen.", "one row per pass with every column of the table, the internal ones too; “zeile” is the number in the suffix _n of the answers and in {code}_order. For a German Excel choose “Semicolon” above, or “Copy” and paste into Excel.", code=lp.code)) %}
+      <button class="button button-secondary" form="export-form" formaction="{{ url_for('surveys.export_loop_table', survey_id=survey.id, nid=lp.id) }}" aria-label="{{ de_en('{t} herunterladen', 'Download {t}', t=lp_title) }}">{{ icon("download", 16) }} CSV</button>
+      <button type="button" class="button button-secondary" data-copy-tsv="{{ loop_table_tsv(survey, lp) }}" aria-label="{{ de_en('Schleifentabelle „{name}“ kopieren, zum Einfügen in Excel oder Word', 'Copy loop table “{name}”, to paste into Excel or Word', name=(lp.name or lp.code)) }}">{{ de_en("Kopieren", "Copy") }}</button>
+    {% endcall %}
+    {% endfor %}
+    {% endif %}
     {% if live %}
-    <div class="export-group">
-      <h3>{{ de_en("Live-Abstimmung", "Live poll") }}</h3>
-      <ul class="export-list">
-        {{ export_row(de_en("Fragen aus dem Publikum (CSV)", "Questions from the audience (CSV)"), de_en("alle Fragen aller Durchgänge mit Stimmen, Status und Zeit", "all questions of all runs with votes, status and time"), url_for('live.qa_csv', code=survey.code), pooled=false) }}
-        {{ export_row(de_en("Reaktionen je Folie (CSV)", "Reactions per slide (CSV)"), de_en("je Durchgang, Folie und Emoji, wie oft es geschickt wurde", "per run, slide and emoji, how often it was sent"), url_for('live.reactions_csv', code=survey.code), pooled=false) }}
-        {{ export_row(de_en("Folien mit Ergebnissen (PDF)", "Slides with results (PDF)"), de_en("eine Frage je Seite, zum Drucken oder als PDF; Durchgänge auch im Vergleich", "one question per page, to print or as PDF; runs also compared"), url_for('live.slides', code=survey.code), pooled=false, opens=true) }}
-        {% if live_slides %}{{ export_row(de_en("Folien mit Notizen (PDF)", "Slides with notes (PDF)"), de_en("jede Präsentationsfolie mit dem, was Sie im laufenden Durchgang mit dem Stift darauf geschrieben haben, eine Seite je Folie; frühere Durchgänge unter „Folien mit Ergebnissen“", "every presentation slide with what you wrote on it with the pen in the current run, one page per slide; earlier runs under “Slides with results”"), url_for('live.ink_pdf', code=survey.code), pooled=false) }}{% endif %}
-        {{ export_row(de_en("Codebuch (CSV)", "Codebook (CSV)"), de_en("alle Spalten mit Fragetext, Werten und Labels", "all columns with question text, values and labels"), url_for('surveys.export_csv', survey_id=survey.id, kind='codebook')) }}
-      </ul>
-    </div>
-    {% else %}
-    <div class="export-group">
-      <h3>{{ de_en("Dokumentation", "Documentation") }}</h3>
-      {{ why("study_material") }}
-      <ul class="export-list">
-        {{ export_row(de_en("Fragebogen mit Codebuch (Word)", "Questionnaire with codebook (Word)"), de_en("zur Dokumentation, z. B. für eine Ethikkommission: Blöcke und Seiten, Fragen mit Variablennamen, Konstrukte mit Quellen, Randomisierung und Ablauf", "for documentation, e.g. for an ethics committee: blocks and pages, questions with variable names, constructs with sources, randomisation and flow"), url_for('surveys.export_docx', survey_id=survey.id, version='codebook'), pooled=false) }}
-        {{ export_row(de_en("Fragebogen für Papier (Word)", "Questionnaire for paper (Word)"), de_en("druckfertig, wie Teilnehmende ihn sehen: nur Fragen und Antworten, Pflichtangaben mit *, Schleifen ausgeschrieben", "ready to print, as participants see it: only questions and answers, required questions with *, loops written out"), url_for('surveys.export_docx', survey_id=survey.id, version='print'), pooled=false) }}
-        {{ export_row(de_en("Befragungsmaterial (PDF)", "Survey material (PDF)"), de_en("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen, nummeriert; Teil 2 denselben mit farbigen Anmerkungen neben jedem Element: Anzeigelogik und Bedingungen, Randomisierung, Pflicht- und Qualitätsprüfungen, Variablennamen und Quellen. Ohne KI erstellt; wird bei der Präregistrierung eingefroren und bei Zenodo und Coscine beigelegt", "Part 1 shows the questionnaire as participants see it, numbered; part 2 the same with coloured notes beside each element: display logic and conditions, randomisation, required answers and quality checks, variable names and sources. Made without AI; frozen with the pre-registration and added to Zenodo and Coscine"), url_for('surveys.export_study_material', survey_id=survey.id), pooled=false) }}
-        {{ export_row(de_en("Datenfluss (Word)", "Data flow (Word)"), de_en("von der Einwilligung bis zur Löschung: je Schritt Daten, Maßnahmen und Verantwortliche aus den Einstellungen dieser Befragung, z. B. für das Verzeichnis der Verarbeitungstätigkeiten oder die Datenschutzbeauftragte", "from consent to deletion: per step the data, measures and people responsible from the settings of this survey, e.g. for the record of processing activities or the data protection officer"), url_for('surveys.export_data_flow', survey_id=survey.id), pooled=false) }}
-        {{ export_row(de_en("Codebuch (CSV)", "Codebook (CSV)"), de_en("alle Spalten mit Fragetext, Werten und Labels; nennt Speeder-Schwelle, Median und Datenpool", "all columns with question text, values and labels; names speeder threshold, median and data pool") ~ (de_en("; Schleifen: alle Durchgänge in einem Feld, als Tabelle mit Spalten unter „Schleifentabelle“", "; loops: every pass in one field, as a table with columns under “Loop table”") if loop_tables_of(survey) else ""), url_for('surveys.export_csv', survey_id=survey.id, kind='codebook')) }}
-        {# the table of a loop: download in the separator chosen above, or copy as Excel copies cells, which pastes as
-           columns in any Excel (decisions.md, "Schleifentabelle auffindbar", 2026-10-10) #}
-        {% for lp in loop_tables_of(survey) %}{% set lp_title = de_en("Schleifentabelle „{name}“ (CSV)", "Loop table “{name}” (CSV)", name=(lp.name or lp.code)) %}
-        <li><div><strong>{{ lp_title }}</strong><span class="desc">{{ de_en("eine Zeile je Durchgang mit allen Spalten der Tabelle, auch den internen; „zeile“ ist die Nummer im Suffix _n der Antworten und in {code}_order. Für ein deutsches Excel oben „Semikolon“ wählen oder „Kopieren“ und in Excel einfügen.", "one row per pass with every column of the table, the internal ones too; “zeile” is the number in the suffix _n of the answers and in {code}_order. For a German Excel choose “Semicolon” above, or “Copy” and paste into Excel.", code=lp.code) }}</span></div>
-          <span class="button-row"><button class="button button-secondary" form="export-form" formaction="{{ url_for('surveys.export_loop_table', survey_id=survey.id, nid=lp.id) }}" aria-label="{{ de_en('{t} herunterladen', 'Download {t}', t=lp_title) }}">{{ icon("download", 16) }} {{ de_en("Herunterladen", "Download") }}</button>
-          <button type="button" class="button button-secondary" data-copy-tsv="{{ loop_table_tsv(survey, lp) }}" aria-label="{{ de_en('Schleifentabelle „{name}“ kopieren, zum Einfügen in Excel oder Word', 'Copy loop table “{name}”, to paste into Excel or Word', name=(lp.name or lp.code)) }}">{{ de_en("Kopieren", "Copy") }}</button></span></li>
-        {% endfor %}
-        {% if survey.codings and experimental("coding", survey) %}
-        {{ export_row(de_en("Kodierleitfaden (Markdown)", "Coding guide (Markdown)"), de_en("die Kategorien der offenen Antworten mit Definition und Ankerbeispiel, je Spalte wie weit kategorisiert", "the categories of the open answers with definition and anchor example, per column how far categorised"), url_for('coding.guide', survey_id=survey.id), pooled=false) }}
-        {% endif %}
-        {# the methods section is the box above ("Methodenteil öffnen"): no second row here (W19) #}
-        {% if used_constructs or used_linked %}
-        {{ export_row(de_en("Validierte Konstrukte und Quellen (Markdown)", "Validated constructs and sources (Markdown)") if not used_linked else (de_en("Verknüpfte Elemente (Markdown)", "Linked elements (Markdown)") if not used_constructs else de_en("Validierte Konstrukte, Quellen und verknüpfte Elemente (Markdown)", "Validated constructs, sources and linked elements (Markdown)")),
-                      (used_constructs + used_linked)|map(attribute=0)|map(attribute="name")|join(", "), url_for('surveys.export_constructs', survey_id=survey.id), pooled=false) }}
-        {{ export_row(de_en("Literatur der Konstrukte (BibTeX)", "References of the constructs (BibTeX)"), de_en("für LaTeX: jede Quelle der Konstrukte einmal, mit DOI", "for LaTeX: each source of the constructs once, with DOI"), url_for('surveys.export_references', survey_id=survey.id, fmt='bib'), pooled=false) }}
-        {{ export_row(de_en("Literatur der Konstrukte (RIS)", "References of the constructs (RIS)"), de_en("für Zotero, Citavi, EndNote und Mendeley", "for Zotero, Citavi, EndNote and Mendeley"), url_for('surveys.export_references', survey_id=survey.id, fmt='ris'), pooled=false) }}
-        {% endif %}
-      </ul>
-    </div>
+    {% call xp.row(de_en("Fragen aus dem Publikum", "Questions from the audience"), de_en("Mit Stimmen, Status und Zeit", "With votes, status and time"), de_en("alle Fragen aller Durchgänge mit Stimmen, Status und Zeit", "all questions of all runs with votes, status and time")) %}
+      {{ xp.fmt("CSV", url_for('live.qa_csv', code=survey.code), de_en("Fragen aus dem Publikum (CSV) herunterladen", "Download questions from the audience (CSV)"), pooled=false) }}
+    {% endcall %}
+    {% call xp.row(de_en("Reaktionen je Folie", "Reactions per slide"), de_en("Je Durchgang, Folie und Emoji", "Per run, slide and emoji"), de_en("je Durchgang, Folie und Emoji, wie oft es geschickt wurde", "per run, slide and emoji, how often it was sent")) %}
+      {{ xp.fmt("CSV", url_for('live.reactions_csv', code=survey.code), de_en("Reaktionen je Folie (CSV) herunterladen", "Download reactions per slide (CSV)"), pooled=false) }}
+    {% endcall %}
+    {% call xp.row(de_en("Folien mit Ergebnissen", "Slides with results"), de_en("Eine Frage je Seite, Durchgänge im Vergleich", "One question per page, runs compared"), de_en("eine Frage je Seite, zum Drucken oder als PDF; Durchgänge auch im Vergleich", "one question per page, to print or as PDF; runs also compared")) %}
+      <a class="button button-secondary" href="{{ url_for('live.slides', code=survey.code) }}" aria-label="{{ de_en('Folien mit Ergebnissen (PDF) öffnen', 'Open slides with results (PDF)') }}">{{ icon("download", 16) }} PDF</a>
+    {% endcall %}
+    {% if live_slides %}
+    {% call xp.row(de_en("Folien mit Notizen", "Slides with notes"), de_en("Mit dem Stift im laufenden Durchgang", "With the pen in the current run"), de_en("jede Präsentationsfolie mit dem, was Sie im laufenden Durchgang mit dem Stift darauf geschrieben haben, eine Seite je Folie; frühere Durchgänge unter „Folien mit Ergebnissen“", "every presentation slide with what you wrote on it with the pen in the current run, one page per slide; earlier runs under “Slides with results”")) %}
+      {{ xp.fmt("PDF", url_for('live.ink_pdf', code=survey.code), de_en("Folien mit Notizen (PDF) herunterladen", "Download slides with notes (PDF)"), pooled=false) }}
+    {% endcall %}
+    {% endif %}
+    {% endif %}
+  </ul>
+  {% else %}
+  <p class="muted small">{{ de_en("Ihre Rolle „Ansehen“ erlaubt kein Herunterladen der Daten; Codebuch und Fragebogen schon.", "Your role “View” does not allow downloading the data; codebook and questionnaire it does.") }}</p>
+  <ul class="xp-rows">
+    {% call xp.row(de_en("Codebuch", "Codebook"), de_en("Alle Spalten mit Fragetext, Werten und Labels", "All columns with question text, values and labels")) %}
+      {{ xp.fmt("CSV", url_for('surveys.export_csv', survey_id=survey.id, kind='codebook'), de_en("Codebuch (CSV) herunterladen", "Download codebook (CSV)")) }}
+    {% endcall %}
+  </ul>
+  {% endif %}
+</section>
 
+{% if not live %}
+{# ---- Dokumentation ---- #}
+<section class="panel xp-card" id="documentation">
+  <h2>{{ de_en("Dokumentation", "Documentation") }}</h2>
+  {{ why("study_material") }}
+  <ul class="xp-rows">
+    {% call xp.row(de_en("Fragebogen", "Questionnaire"), de_en("Mit Codebuch oder für Papier", "With codebook or for paper"), de_en("Mit Codebuch: zur Dokumentation, z. B. für eine Ethikkommission: Blöcke und Seiten, Fragen mit Variablennamen, Konstrukte mit Quellen, Randomisierung und Ablauf. Für Papier: druckfertig, wie Teilnehmende ihn sehen: nur Fragen und Antworten, Pflichtangaben mit *, Schleifen ausgeschrieben.", "With codebook: for documentation, e.g. for an ethics committee: blocks and pages, questions with variable names, constructs with sources, randomisation and flow. For paper: ready to print, as participants see it: only questions and answers, required questions with *, loops written out.")) %}
+      {{ xp.fmt(de_en("Word mit Codebuch", "Word with codebook"), url_for('surveys.export_docx', survey_id=survey.id, version='codebook'), de_en("Fragebogen mit Codebuch (Word) herunterladen", "Download questionnaire with codebook (Word)"), pooled=false) }}
+      {{ xp.fmt(de_en("Word für Papier", "Word for paper"), url_for('surveys.export_docx', survey_id=survey.id, version='print'), de_en("Fragebogen für Papier (Word) herunterladen", "Download questionnaire for paper (Word)"), pooled=false) }}
+    {% endcall %}
+    {% call xp.row(de_en("Befragungsmaterial", "Survey material"), de_en("Fragebogen mit Anmerkungen", "Questionnaire with notes"), de_en("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen, nummeriert; Teil 2 denselben mit farbigen Anmerkungen neben jedem Element: Anzeigelogik und Bedingungen, Randomisierung, Pflicht- und Qualitätsprüfungen, Variablennamen und Quellen. Ohne KI erstellt; wird bei der Präregistrierung eingefroren und bei Zenodo und Coscine beigelegt", "Part 1 shows the questionnaire as participants see it, numbered; part 2 the same with coloured notes beside each element: display logic and conditions, randomisation, required answers and quality checks, variable names and sources. Made without AI; frozen with the pre-registration and added to Zenodo and Coscine")) %}
+      {{ xp.fmt("PDF", url_for('surveys.export_study_material', survey_id=survey.id), de_en("Befragungsmaterial (PDF) herunterladen", "Download survey material (PDF)"), pooled=false) }}
+    {% endcall %}
+    {# one methods section on the data pool of the results (UI/UX audit 2026-10-05, V29), as a row (E5) #}
+    {% call xp.row(de_en("Methodenteil", "Methods section"), de_en("Für ein Manuskript, als Word oder mit KI", "For a manuscript, as Word or with AI"), de_en("aus dem Datenpool der Ergebnisse: Feldphase, Stichprobe und Ausschlüsse, Konstrukte mit Quellen, Studienplan und Hypothesen; als Word oder mit KI, auf Deutsch oder Englisch", "from the data pool of the results: field period, sample and exclusions, constructs with sources, research plan and hypotheses; as Word or with AI, in German or English")) %}
+      <a class="button button-secondary" href="{{ url_for('surveys.methods', survey_id=survey.id) }}">{{ de_en("Methodenteil öffnen", "Open methods section") }}</a>
+    {% endcall %}
+    {% call xp.row(de_en("Datenfluss", "Data flow"), de_en("Von der Einwilligung bis zur Löschung", "From consent to deletion"), de_en("von der Einwilligung bis zur Löschung: je Schritt Daten, Maßnahmen und Verantwortliche aus den Einstellungen dieser Befragung, z. B. für das Verzeichnis der Verarbeitungstätigkeiten oder die Datenschutzbeauftragte", "from consent to deletion: per step the data, measures and people responsible from the settings of this survey, e.g. for the record of processing activities or the data protection officer")) %}
+      {{ xp.fmt("Word", url_for('surveys.export_data_flow', survey_id=survey.id), de_en("Datenfluss (Word) herunterladen", "Download data flow (Word)"), pooled=false) }}
+    {% endcall %}
+    {% if used_constructs or used_linked %}
+    {% set c_title = de_en("Validierte Konstrukte und Quellen", "Validated constructs and sources") if not used_linked else (de_en("Verknüpfte Elemente", "Linked elements") if not used_constructs else de_en("Konstrukte und verknüpfte Elemente", "Constructs and linked elements")) %}
+    {% call xp.row(c_title, (used_constructs + used_linked)|map(attribute=0)|map(attribute="name")|join(", "), de_en("Markdown: die Konstrukte mit ihren Quellen. Literatur der Konstrukte: BibTeX für LaTeX, jede Quelle einmal, mit DOI; RIS für Zotero, Citavi, EndNote und Mendeley.", "Markdown: the constructs with their sources. References of the constructs: BibTeX for LaTeX, each source once, with DOI; RIS for Zotero, Citavi, EndNote and Mendeley.")) %}
+      {{ xp.fmt("Markdown", url_for('surveys.export_constructs', survey_id=survey.id), de_en("{t} (Markdown) herunterladen", "Download {t} (Markdown)", t=c_title), pooled=false) }}
+      {{ xp.fmt("BibTeX", url_for('surveys.export_references', survey_id=survey.id, fmt='bib'), de_en("Literatur der Konstrukte (BibTeX) herunterladen", "Download references of the constructs (BibTeX)"), pooled=false) }}
+      {{ xp.fmt("RIS", url_for('surveys.export_references', survey_id=survey.id, fmt='ris'), de_en("Literatur der Konstrukte (RIS) herunterladen", "Download references of the constructs (RIS)"), pooled=false) }}
+    {% endcall %}
+    {% endif %}
+    {% if survey.codings and experimental("coding", survey) %}
+    {% call xp.row(de_en("Kodierleitfaden", "Coding guide"), de_en("Kategorien der offenen Antworten", "Categories of the open answers"), de_en("die Kategorien der offenen Antworten mit Definition und Ankerbeispiel, je Spalte wie weit kategorisiert", "the categories of the open answers with definition and anchor example, per column how far categorised")) %}
+      {{ xp.fmt("Markdown", url_for('coding.guide', survey_id=survey.id), de_en("Kodierleitfaden (Markdown) herunterladen", "Download coding guide (Markdown)"), pooled=false) }}
+    {% endcall %}
+    {% endif %}
     {# the team's comments stay with the team on an example survey (access.showcase_only; audit 2026-10-11, M6) #}
     {% if not showcase_only(current_user, survey) %}
-    <div class="export-group">
-      <h3>{{ de_en("Testdurchläufe", "Test runs") }}</h3>
-      <ul class="export-list">
-        {% if comment_shots %}
-        {{ export_row(de_en("Kommentare aus Testdurchläufen mit Bildern (ZIP)", "Comments from test runs with images (ZIP)"), de_en("comments.csv mit Status, Bearbeitung, Notizen und Gerät, dazu der Ordner bilder/ mit den Bildern der Seiten", "comments.csv with status, handling, notes and device, plus the folder bilder/ with the images of the pages"), url_for('surveys.export_comments_zip', survey_id=survey.id), pooled=false) }}
-        {% else %}
-        {{ export_row(de_en("Kommentare aus Testdurchläufen (CSV)", "Comments from test runs (CSV)"), de_en("alle Kommentare mit Status (offen, erledigt, ignoriert), wer sie bearbeitet hat, Notizen und Gerät", "all comments with status (open, done, ignored), who handled them, notes and device"), url_for('surveys.export_comments', survey_id=survey.id), pooled=false) }}
-        {% endif %}
-      </ul>
-    </div>
+    {% call xp.row(de_en("Kommentare aus Testdurchläufen", "Comments from test runs"), de_en("Mit Status, Notizen und Gerät", "With status, notes and device"), de_en("comments.csv mit Status, Bearbeitung, Notizen und Gerät, dazu der Ordner bilder/ mit den Bildern der Seiten", "comments.csv with status, handling, notes and device, plus the folder bilder/ with the images of the pages") if comment_shots else de_en("alle Kommentare mit Status (offen, erledigt, ignoriert), wer sie bearbeitet hat, Notizen und Gerät", "all comments with status (open, done, ignored), who handled them, notes and device")) %}
+      {% if comment_shots %}{{ xp.fmt("ZIP", url_for('surveys.export_comments_zip', survey_id=survey.id), de_en("Kommentare aus Testdurchläufen mit Bildern (ZIP) herunterladen", "Download comments from test runs with images (ZIP)"), pooled=false) }}
+      {% else %}{{ xp.fmt("CSV", url_for('surveys.export_comments', survey_id=survey.id), de_en("Kommentare aus Testdurchläufen (CSV) herunterladen", "Download comments from test runs (CSV)"), pooled=false) }}{% endif %}
+    {% endcall %}
     {% endif %}
-    {% endif %}
-  </div>
+  </ul>
 </section>
+{% endif %}
+
+{# ---- Weitergeben: the survey file and the read tokens ---- #}
+{% if may_copy_out(survey) or (not live) %}
+<section class="panel xp-card" id="sharing">
+  <h2>{{ de_en("Weitergeben", "Sharing") }}</h2>
+  <ul class="xp-rows">
+    {# the survey file needs what duplicating needs: "Bearbeiten" or an example survey seen as one (AUTHZ-05) #}
+    {% if may_copy_out(survey) %}
+    {% call xp.row(de_en("Befragungsdatei", "Survey file"), de_en("Folien und Einstellungen, ohne Daten", "Slides and settings, without data") if live else de_en("Fragebogen und Einstellungen, ohne Daten", "Questionnaire and settings, without data"),
+                   de_en("Zum Sichern, Weitergeben oder für eine andere Installation von Askurious. Die Datei lässt sich über „+ Fragebogen“ › „Aus einer Datei anlegen“ unter „Meine Befragungen“ wieder einlesen. Sie enthält keine Antworten und nennt keine beteiligten Personen oder Gruppen", "To back up, pass on or use in another installation of Askurious. The file can be read in again via “+ Questionnaire” › “Create from a file” on “My surveys”. It holds no answers and names no people or groups involved") ~ (de_en("; Quoten stehen mit ihren Soll-Zahlen darin, ohne Zählerstände", "; quotas are in it with their targets, without their counts") if survey.quotas else "") ~ ". " ~ de_en("Als ZIP liegen die Bilder als eigene Dateien darin: rund ein Viertel kleiner, für Befragungen mit vielen Bildern. Ohne Häkchen bei „Bilder und Logos“ wird die Datei kleiner; Fragen mit Bild kommen dann ohne ihr Bild an. Mehrere Befragungen auf einmal: unter „Meine Befragungen“.", "As a ZIP the images are files of their own: about a quarter smaller, for surveys with many images. Without the tick at “Images and logos” the file is smaller; questions with an image then arrive without their image. Several surveys at once: under “My surveys”."), id="export-file") %}
+      <form method="get" action="{{ url_for('surveys.export_file', survey_id=survey.id) }}" id="survey-file-form" class="xp-inline">
+        <input type="hidden" name="files" value="0">
+        <label class="check"><input type="checkbox" name="files" value="1" checked> {{ de_en("Bilder und Logos", "Images and logos") }}</label>
+        <button class="button button-secondary" aria-label="{{ de_en('Als JSON-Datei herunterladen', 'Download as JSON file') }}">{{ icon("download", 16) }} JSON</button>
+        <button class="button button-secondary" formaction="{{ url_for('surveys.export_zip', survey_id=survey.id) }}" aria-label="{{ de_en('Als ZIP-Datei herunterladen', 'Download as ZIP file') }}">{{ icon("download", 16) }} ZIP</button>
+      </form>
+    {% endcall %}
+    {% endif %}
+    {% if not live %}
+    {# read tokens for scripts (app/data_access.py): the same files as the buttons above, fetched by R or Python with the
+       token in the header; made by who may download the data, shown once; admins of the survey see every token (E7) #}
+    {% call xp.row(de_en("Datenzugang für R und Python", "Data access for R and Python"), (de_en_n(data_tokens|length, ("{n} Token", "{n} Token"), ("{n} token", "{n} tokens")) if data_tokens else de_en("Noch kein Token", "No token yet")), de_en("Datensatz und Codebuch direkt ins Skript laden, ohne jedes Mal von Hand herunterzuladen. Ein Token je Person und Befragung; es liest nur und ändert nichts.", "Load data set and codebook straight into a script, without downloading by hand each time. One token per person and survey; it only reads, changes nothing."), id="data-access") %}
+      {{ xp.opens(de_en("Token anlegen", "Create token") if can_data and not data_tokens else de_en("Token", "Tokens"), "dlg-tokens") }}
+    {% endcall %}
+    {% endif %}
+  </ul>
+</section>
+{% endif %}
+
 {% if not live %}
-{# read tokens for scripts (app/data_access.py): the same files as the buttons above, fetched by R or Python with the
-   token in the header; made by who may download the data, shown once; admins of the survey see every token of it #}
-<section class="panel" id="data-access">
-  <h2>{{ de_en("Datenzugang für R und Python", "Data access for R and Python") }} <span class="hint">{{ de_en("Datensatz und Codebuch direkt ins Skript laden, ohne jedes Mal von Hand herunterzuladen", "load data set and codebook straight into a script, without downloading by hand each time") }}</span></h2>
+{# ---- Nachweise: pre-registration, seal chain, saved states ---- #}
+<section class="panel xp-card" id="evidence">
+  <h2>{{ de_en("Nachweise", "Evidence") }}</h2>
+  <ul class="xp-rows">
+    {% set newest = prereg[0] if prereg else none %}
+    {% call xp.row(de_en("Präregistrierung", "Pre-registration"),
+                   xp.status("ok", de_en_n(prereg|length, ("{n} Fassung eingefroren", "{n} Fassungen eingefroren"), ("{n} revision frozen", "{n} revisions frozen"))) if prereg else xp.status("wait", de_en("Entsteht beim Start der Feldphase", "Made when fieldwork starts") if survey.status == "draft" else de_en("Entsteht beim nächsten Start nach einer Bearbeitung", "Made at the next start after an edit")),
+                   de_en("Beim Start der Feldphase eingefroren, je Fragebogen-Fassung: Die ZIP-Datei enthält die Befragung als Datei, den Fragebogen als Markdown und als Word mit Codebuch, das Befragungsmaterial als PDF, das Codebuch und die Prüfsummen aller Dateien, mit Zeitstempel des DFN.", "Frozen at the start of fieldwork, per questionnaire revision: the ZIP file holds the survey as a file, the questionnaire as Markdown and as Word with codebook, the survey material as PDF, the codebook and the checksums of all files, with a timestamp of the DFN."), id="prereg") %}
+      {% if prereg %}<a class="button button-secondary" href="{{ url_for('surveys.prereg_file', survey_id=survey.id, name=newest[0]) }}" aria-label="{{ de_en('Neueste Präregistrierung (ZIP) herunterladen', 'Download newest pre-registration (ZIP)') }}">{{ icon("download", 16) }} ZIP</a>
+      {{ xp.opens(de_en("Details", "Details"), "dlg-prereg") }}{% endif %}
+    {% endcall %}
+    {% if seal_info %}
+    {% set st = seal_info.status %}
+    {% call xp.row(de_en("Siegelkette", "Seal chain"),
+                   (xp.status("ok", de_en("Intakt, {n} Fälle", "Intact, {n} cases", n=seal_info.cases)) if st.chain_ok and st.data_ok else xp.status("bad", de_en("Gebrochen", "Broken"))) if st else xp.status("wait", de_en("Noch nicht geprüft", "Not checked yet") if seal_info.entries else de_en("Noch keine Einträge", "No entries yet")),
+                   de_en("jeder beendete Fall mit Fallnummer, jede Löschung mit Löschvermerk; stündlich gegen die gespeicherten Daten geprüft, wenn sich etwas geändert hat, sonst täglich, und vom DFN gestempelt", "every case that ended with a case number, every deletion with a deletion record; checked against the stored data every hour when something has changed, otherwise daily, and stamped by the DFN"), id="seal") %}
+      {{ xp.opens(de_en("Prüfen und zitieren", "Check and cite"), "dlg-seal") }}
+    {% endcall %}
+    {% endif %}
+    {% if snapshots %}
+    {% call xp.row(de_en("Gesicherte Stände", "Saved states"), de_en_n(snapshots|length, ("{n} Stand", "{n} Stände"), ("{n} state", "{n} states")), de_en("vor jeder erneuten Bearbeitung des Fragebogens gespeichert", "saved before each new edit of the questionnaire"), id="snapshots") %}
+      {{ xp.opens(de_en("Anzeigen", "Show"), "dlg-snapshots") }}
+    {% endcall %}
+    {% endif %}
+  </ul>
+</section>
+
+{# ---- Archivieren und veröffentlichen: Zenodo, Coscine, image rights, publications ---- #}
+{% set z = survey.zenodo or {} %}
+{% set offered = zen|dictsort|selectattr("1.available")|map(attribute="0")|list %}
+{% set linked = [("zenodo", "Zenodo"), ("sandbox", de_en("Zenodo-Sandbox (Test)", "Zenodo sandbox (test)"))]|selectattr("0", "in", zen|dictsort|selectattr("1.available")|selectattr("1.connected")|map(attribute="0")|list)|list %}
+{% set cite_keys = citations.survey_keys(survey) %}
+<section class="panel xp-card" id="archive">
+  <h2>{{ de_en("Archivieren und veröffentlichen", "Archive and publish") }}</h2>
+  <ul class="xp-rows">
+    {# always on the page (Philipp, 2026-10-08): the state says what is missing; the form is in its dialog (E9) #}
+    {% call xp.row("Zenodo",
+                   (xp.status("ok", de_en("Veröffentlicht", "Published")) if z.state == "published" else xp.status("wait", de_en("Entwurf angelegt", "Draft created"))) if z.id
+                   else (xp.status("off", de_en("Auf diesem Server nicht eingerichtet", "Not set up on this server")) if not offered
+                   else (xp.status("off", de_en("Nur für Admins der Befragung", "Admins of the survey only")) if not is_admin
+                   else (xp.status("off", de_en("Nicht verbunden", "Not connected")) if not linked else xp.status("off", de_en("Noch nicht hochgeladen", "Not uploaded yet"))))),
+                   de_en("Daten, Codebuch und Fragebogen als Open-Data-Paket", "data, codebook and questionnaire as an open data package"), id="zenodo") %}
+      {% if z.id and z.url %}<a class="button button-secondary" href="{{ z.url }}" target="_blank" rel="noopener">{{ de_en("Öffnen ↗", "Open ↗") }}</a>{% endif %}
+      {% if offered and is_admin %}{{ xp.opens(de_en("Hochladen", "Upload") if linked else de_en("Verbinden", "Connect"), "dlg-zenodo") }}{% endif %}
+      {% if not offered %}{{ xp.opens(de_en("Mehr", "More"), "dlg-zenodo") }}{% endif %}
+    {% endcall %}
+    {% include "coscine/_block.html" %}
+    {% if can_data %}
+    {% call xp.row(de_en("Bildrechte", "Image rights"), de_en("Vor einer öffentlichen Ablage prüfen", "Check before storing publicly")) %}
+      <a class="button button-secondary" href="{{ url_for('editor.image_rights', survey_id=survey.id) }}" aria-label="{{ de_en('Bildrechte für öffentliche Archivierung prüfen', 'Review image rights for public archiving') }}">{{ de_en("Prüfen", "Review") }}</a>
+    {% endcall %}
+    {% endif %}
+    {% if cite_keys and survey.can(current_user, "editor") %}
+    {% set entered = citations.for_survey(survey) %}
+    {% call xp.row(de_en("Veröffentlichungen", "Publications"), de_en_n(entered|length, ("{n} DOI eingetragen", "{n} DOIs eingetragen"), ("{n} DOI entered", "{n} DOIs entered")) if entered else de_en("Artikel oder Datensätze zu dieser Befragung", "Articles or data sets on this survey"),
+                   (de_en("Eine DOI hier steht bei dem Konstrukt unter „Konstrukte“ in dieser Befragung unter „Verwendet in“, mit Titel, Autorinnen und Autoren aus doi.org.", "A DOI here appears with the construct under “Constructs” in this survey under “Used in”, with title and authors from doi.org.") if cite_keys|length == 1 else de_en("Eine DOI hier steht bei den {n} Konstrukten unter „Konstrukte“ in dieser Befragung unter „Verwendet in“, mit Titel, Autorinnen und Autoren aus doi.org.", "A DOI here appears with the {n} constructs under “Constructs” in this survey under “Used in”, with title and authors from doi.org.", n=cite_keys|length)) ~ " " ~ de_en("Genannt wird nur die Veröffentlichung, nie die Befragung selbst.", "Only the publication is named, never the survey itself."), id="publications") %}
+      {{ xp.opens(de_en("DOI eintragen", "Add DOI"), "dlg-publications") }}
+    {% endcall %}
+    {% endif %}
+  </ul>
+</section>
+{% endif %}{# not live #}
+
+{# ---- Datenschutz: retention, deleting answers, the separate section ---- #}
+{% set show_retention = keeping and not live %}
+{% set show_erasure = is_admin and not live %}
+{# not for a diary study: it has no separated section (app/diary.py, 2026-10-11) #}
+{% set show_contact = is_admin and not live and not diary %}
+{% if show_retention or show_erasure or show_contact %}
+<section class="panel xp-card" id="privacy">
+  <h2>{{ de_en("Datenschutz", "Data protection") }}</h2>
+  {% if show_retention %}{% for k in keeping if k.soon %}
+  <div class="flash flash-warning" role="status">{{ icon("alert", 16) }} <span>{% if k.key == "answers" %}<strong>{{ de_en("Alle Teilnahmen werden am {d} gelöscht.", "All participations will be deleted on {d}.", d=k.due|localdate) }}</strong> {{ de_en("Bitte die Daten vorher exportieren.", "Please export the data before then.") }}{% else %}<strong>{{ de_en("Kennungen und Kontaktangaben werden am {d} gelöscht.", "Identifiers and contact details will be deleted on {d}.", d=k.due|localdate) }}</strong> {{ de_en("Eine Verlosung oder Abrechnung muss bis dahin erledigt sein.", "A prize draw or payment must be done by then.") }}{% endif %}</span></div>
+  {% endfor %}{% endif %}
+  <ul class="xp-rows">
+    {% if show_retention %}
+    {% set lines = [] %}{% for k in keeping %}{% set _ = lines.append((de_en("Teilnahmen", "Participations") if k.key == "answers" else de_en("Kennungen", "Identifiers")) ~ " " ~ k.label ~ ((" " ~ de_en("(bis {d})", "(until {d})", d=k.due|localdate)) if k.due and k.holds else ((" " ~ de_en("(nichts mehr vorhanden)", "(nothing left)")) if k.due else ""))) %}{% endfor %}
+    {% call xp.row(de_en("Aufbewahrung", "Retention"), lines|join(", ") ~ " " ~ de_en("nach dem Feldende", "after the end of fieldwork") ~ (de_en("; die Frist beginnt, sobald die Befragung geschlossen ist", "; the period starts as soon as the survey is closed") if keeping|rejectattr("due")|list else ""), de_en("Fristen ab dem Feldende, festgelegt in den Einstellungen der Befragung. Die Fristen ruhen, solange die Befragung läuft, pausiert oder zur Bearbeitung geöffnet ist. Schon heruntergeladene Dateien und ein Datensatz auf Zenodo bleiben, wo sie sind.", "Periods from the end of fieldwork, set in the settings of the survey. The periods pause while the survey is running, paused or open for editing. Files already downloaded and a data set on Zenodo stay where they are."), id="retention") %}{% endcall %}
+    {% endif %}
+    {% if show_erasure %}
+    {% set erased_n = erased.responses + erased.contacts %}
+    {% call xp.row(de_en("Antworten löschen", "Delete answers"), de_en_n(erased_n, ("{n} gelöscht", "{n} gelöscht"), ("{n} deleted", "{n} deleted")) if erased_n else de_en("Auf Wunsch einer Person", "At a person's request"),
+                   de_en("Teilnehmende löschen ihre Antworten selbst über die Datenschutzseite der Befragung: im selben Browser bis 7 Tage nach der Teilnahme", "Participants delete their answers themselves on the privacy page of the survey: in the same browser up to 7 days after participation") ~ (de_en(", danach mit ihrem Löschcode", ", after that with their deletion code") if survey.erase_code else de_en("; einen Löschcode vergibt diese Befragung nicht", "; this survey gives no deletion code")) ~ ". " ~ de_en("Schreibt Ihnen jemand stattdessen, lässt sich die Teilnahme hier finden: mit dem Löschcode, der Teilnahme-ID oder einer gespeicherten Kennung aus dem Aufruf-Link; Einträge des getrennten Abschnitts mit der dort angegebenen E-Mail-Adresse. Gelöscht wird erst nach einer Rückfrage, die zeigt, was gefunden wurde. Dubletten, Bots oder unbrauchbare Antworten bitte nicht löschen, sondern in der Qualitätssicherung ausschließen.", "If someone writes to you instead, the participation can be found here: with the deletion code, the participation ID or a saved identifier from the entry link; entries of the separate section with the email address given there. Nothing is deleted until a confirmation shows what was found. Please do not delete duplicates, bots or unusable answers, but exclude them in the quality assurance.") ~ (" " ~ de_en("Jede Löschung hier hinterlässt in der Siegelkette einen Löschvermerk mit dem gewählten Grund.", "Every deletion here leaves a deletion record with the reason chosen in the seal chain.") if seal_info else ""), id="erasure") %}
+      {% if not erase_found %}
+      <form method="post" action="{{ url_for('surveys.erase_request', survey_id=survey.id) }}" class="xp-inline" autocomplete="off">
+        {{ csrf() }}
+        <input type="text" name="term" maxlength="300" required spellcheck="false" aria-label="{{ de_en('Löschcode, Teilnahme-ID, Kennung aus dem Link oder E-Mail-Adresse', 'Deletion code, participation ID, identifier from the link or email address') }}" placeholder="{{ de_en('Löschcode, ID oder E-Mail-Adresse', 'Deletion code, ID or email address') }}">
+        <button class="button button-secondary">{{ de_en("Suchen", "Search") }}</button>
+      </form>
+      {% endif %}
+      {% if erased_n %}{{ xp.opens(de_en("Bisher", "So far"), "dlg-erased") }}{% endif %}
+    {% endcall %}
+    {% endif %}
+    {% if show_contact %}
+    {% set n_entries = contact.count(survey) %}
+    {% call xp.row(de_en("Getrennter Abschnitt", "Separate section"), de_en_n(n_entries, ("{n} Eintrag", "{n} Einträge"), ("{n} entry", "{n} entries")) if (n_entries or contact.has_separated(survey)) else de_en("Leer", "Empty"),
+                   de_en("z. B. E-Mail-Adressen für eine Verlosung; nicht zuordenbar. Keine Verknüpfung zur Teilnahme, kein Zeitstempel, zufällige Kennung, keine Speicherreihenfolge; Export nach Inhalt sortiert; Abruf erst ab {n} abgeschlossenen Teilnahmen.", "e.g. email addresses for a prize draw; cannot be linked. No link to the participation, no time stamp, random identifier, no storage order; export sorted by content; available only from {n} completed participations.", n=contact.MIN_RESPONSES) if (n_entries or contact.has_separated(survey)) else de_en("Der getrennte Abschnitt ist leer. Zum Füllen im Reiter „Ablauf“ Blöcke unter die Linie „🔒 Getrennter Abschnitt“ ziehen; sie werden dann ohne Verbindung zu den übrigen Antworten gespeichert.", "The separate section is empty. To fill it, drag blocks below the line “🔒 Separate section” in the tab “Flow”; they are then saved without any link to the other answers."), id="contact-data") %}
+      {% if n_entries %}{{ xp.opens(de_en("Verwalten", "Manage"), "dlg-contacts") }}{% endif %}
+    {% endcall %}
+    {% endif %}
+  </ul>
+  {% if show_erasure and erase_found %}
+  {% set n_resp = erase_found.responses|length %}
+  <div class="flash flash-warning" role="status"><div><strong>{{ de_en("Gefunden:", "Found:") }} {% if erase_found.responses %}{{ n_resp }} {{ de_en("Teilnahme", "participation") if n_resp == 1 else de_en("Teilnahmen", "participations") }}{% endif %}{% if erase_found.responses and erase_found.entries %} {{ de_en("und", "and") }} {% endif %}{% if erase_found.entries %}{{ erase_found.entries }} {{ de_en("Eintrag des getrennten Abschnitts", "entry of the separate section") if erase_found.entries == 1 else de_en("Einträge des getrennten Abschnitts", "entries of the separate section") }}{% endif %}</strong>
+    {% if erase_found.persons %}<p class="small">{{ de_en("Das sind alle Einträge der Person in der Tagebuchstudie: Eine Person geht mit allen ihren Einträgen.", "These are all entries of the person in the diary survey: a person goes with all their entries.") if erase_found.persons == 1 else de_en("Das sind alle Einträge der {n} Personen in der Tagebuchstudie: Eine Person geht mit allen ihren Einträgen.", "These are all entries of the {n} people in the diary survey: a person goes with all their entries.", n=erase_found.persons) }}</p>{% endif %}
+    {% if erase_found.responses %}<ul class="plain small">{% for r in erase_found.responses[:10] %}<li>{{ de_en("begonnen am {d}", "started on {d}", d=r.started) }}, {{ {"completed": de_en("abgeschlossen", "completed"), "active": de_en("nicht abgeschlossen", "not completed"), "screenout": de_en("Screen-out", "screen-out"), "quotafull": de_en("Quote voll", "quota full"), "excluded": de_en("Ausschluss", "excluded")}.get(r.status, r.status) }}{% if r.source != "real" %} ({{ r.source }}){% endif %}</li>{% endfor %}{% if n_resp > 10 %}<li>{{ de_en("… und {n} weitere", "… and {n} more", n=n_resp - 10) }}</li>{% endif %}</ul>{% endif %}
+    <form method="post" action="{{ url_for('surveys.erase_request', survey_id=survey.id) }}" class="form-actions"
+          data-confirm="{{ de_en('1 Datensatz endgültig löschen?', 'Delete 1 record permanently?') if erase_found.n == 1 else de_en('{n} Datensätze endgültig löschen?', 'Delete {n} records permanently?', n=erase_found.n) }}" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}"
+          data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>
+      {{ csrf() }}<input type="hidden" name="term" value="{{ erase_found.term }}"><input type="hidden" name="confirm" value="{{ erase_found.n }}">
+      {% if erase_found.responses %}
+      {# the reason goes into the deletion record of the seal chain (siegelkette-konzept.md E4) #}
+      <fieldset class="erase-why">
+        <legend>{{ de_en("Grund der Löschung", "Reason for the deletion") }}</legend>
+        <label class="check"><input type="radio" name="why" value="wish" checked> {{ de_en("Löschwunsch oder Widerruf der Person", "the person's request or withdrawal of consent") }}</label>
+        <label class="check"><input type="radio" name="why" value="consent"> {{ de_en("keine wirksame Einwilligung (z. B. minderjährig)", "no valid consent (e.g. a minor)") }}</label>
+        <label class="check"><input type="radio" name="why" value="other"> {{ de_en("anderer Rechtsgrund:", "another legal ground:") }}</label>
+        <input type="text" name="why_text" maxlength="190" aria-label="{{ de_en('Anderer Rechtsgrund in wenigen Worten', 'Other legal ground in a few words') }}" placeholder="{{ de_en('in wenigen Worten, 10 bis 190 Zeichen', 'in a few words, 10 to 190 characters') }}">
+        <span class="hint">{{ de_en("Der Grund steht öffentlich in der Siegelkette (Prüfseite, seal.json) und lässt sich danach nicht mehr ändern. Bitte keine Namen oder anderen Angaben zu Personen.", "The reason is public in the seal chain (check page, seal.json) and cannot be changed afterwards. Please give no names or other details about people.") }}</span>
+      </fieldset>
+      {% endif %}
+      <button class="button button-danger">{{ de_en("Endgültig löschen", "Delete permanently") }}</button>
+      <a class="button button-secondary" href="{{ url_for('surveys.data', survey_id=survey.id) }}#erasure">{{ de_en("Abbrechen", "Cancel") }}</a>
+    </form></div></div>
+  {% endif %}
+</section>
+{% endif %}
+</div>{# xp-grid #}
+
+{# ================= dialogs ================= #}
+
+{% if waves_view and can_data and not live %}
+{# each wave with its own saved data pool, not the one chosen above #}
+{% call xp.dialog("dlg-waves", de_en("Wellen zusammenführen", "Merge waves"), open=waves_report is not none, wide=waves_report is not none) %}
+  <p class="small">{{ de_en("Verknüpft über den persönlichen Code; jede Welle mit ihrem gespeicherten Datenpool und den Markierungen ihrer Qualitätssicherung.", "Linked by the personal code; each wave with its saved data pool and the marks of its quality assurance.") }}</p>
+  <form id="waves-export" method="get" action="{{ url_for('waves.export_merged', survey_id=survey.id) }}" hidden></form>
+  <ul class="xp-rows">
+    {% call xp.row(de_en("Wellen", "Waves"), "") %}<a class="button button-secondary" href="{{ url_for('study_plan.page', survey_id=survey.id) }}#wellen">{{ de_en("Ändern", "Change") }}</a>{% endcall %}
+  </ul>
+  <p class="small">{% for r in waves_view.rows %}{{ r.n }}. {{ r.label }}: {{ r.title }}{% if r.problem %} <span class="finding-warning">({{ r.problem }})</span>{% endif %}{{ "; " if not loop.last }}{% endfor %}</p>
+  {% if waves_view.ready %}
+  <div class="stack">
+    <label class="check" for="waves-tolerant"><input type="checkbox" name="tolerant" value="1" id="waves-tolerant" form="waves-export"{% if waves_report and waves_report.tolerant %} checked{% endif %}> {{ de_en("Toleranter Abgleich", "Tolerant matching") }}
+      {{ xp.info(de_en("verknüpft auch Codes, die sich in genau einem Teil unterscheiden, aber nur, wenn das in beide Richtungen eindeutig ist; in match_quality als „tolerant“ markiert", "also links codes that differ in exactly one part, but only where this is unique both ways; marked as “tolerant” in match_quality") ~ " " ~ apa.cite(waves_sources)) }}</label>
+    <div class="row-fields">
+      <label for="waves-layout">{{ de_en("Aufbau", "Layout") }} {{ xp.info(de_en("breit: eine Zeile je Person, Spalten je Welle mit t1_, t2_ …; lang: eine Zeile je Person und Welle mit der Spalte wave", "wide: one row per person, columns per wave with t1_, t2_ …; long: one row per person and wave with the column wave")) }}
+        <select name="layout" id="waves-layout" form="waves-export"><option value="wide">{{ de_en("breit", "wide") }}</option><option value="long">{{ de_en("lang", "long") }}</option></select></label>
+      <label for="waves-fmt">{{ de_en("Dateiformat", "File format") }} {{ xp.info(de_en("dazu immer abgleich.csv mit dem Bericht des Abgleichs; im ZIP match_code, match_quality (exact, tolerant, partial, unmatched, duplicate, no_code) und alle Spalten der Wellen; doppelte Codes einer Welle bleiben unverknüpft", "always with abgleich.csv, the report of the matching; in the ZIP match_code, match_quality (exact, tolerant, partial, unmatched, duplicate, no_code) and all columns of the waves; codes that occur twice in a wave stay unlinked")) }}
+        <select name="fmt" id="waves-fmt" form="waves-export"><option value="csv">CSV</option><option value="sav">SPSS (.sav)</option><option value="rds">R (.rds)</option></select></label>
+    </div>
+    <div class="form-actions"><button class="button button-secondary" form="waves-export" formaction="{{ url_for('surveys.data', survey_id=survey.id) }}#wellen" name="waves" value="report">{{ de_en("Abgleich ansehen", "View matching") }}</button>
+      <button class="button" form="waves-export" aria-label="{{ de_en('Zusammengeführte Daten herunterladen', 'Download merged data') }}">{{ icon("download", 16) }} {{ de_en("Zusammengeführte Daten (.zip)", "Merged data (.zip)") }}</button></div>
+  </div>
+  {% endif %}
+  {% if waves_report and waves_report.busy %}
+  <p class="flash flash-warning" role="status">{{ de_en("Gerade laufen schon mehrere große Auswertungen auf dem Server. Bitte versuchen Sie es in einer Minute noch einmal.", "Several large evaluations are running on the server right now. Please try again in a minute.") }}</p>
+  {% elif waves_report %}{% set rep = waves_report.report %}
+  <div class="table-scroll"><table class="list-table">
+    <caption class="muted small">{{ de_en("Abgleich", "Matching") }}{{ de_en(" (tolerant)", " (tolerant)") if waves_report.tolerant else "" }}</caption>
+    <thead><tr><th>{{ de_en("Welle", "Wave") }}</th><th class="num">{{ de_en("Zeilen", "Rows") }}</th><th class="num">exact</th><th class="num">tolerant</th><th class="num">partial</th><th class="num">unmatched</th><th class="num">duplicate</th><th class="num">no_code</th></tr></thead>
+    <tbody>
+    {% for c in rep.waves %}{% set r = waves_report.waves[loop.index0] %}
+    <tr><td>{{ loop.index }}. {{ r.label }}</td><td class="num">{{ c.rows }}</td><td class="num">{{ c.exact }}</td><td class="num">{{ c.tolerant }}</td><td class="num">{{ c.partial }}</td><td class="num">{{ c.unmatched }}</td><td class="num">{{ c.duplicate }}</td><td class="num">{{ c.no_code }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="small">{{ de_en("{p} Personen mit Code, {l} in mehreren Wellen verknüpft (davon {t} tolerant, {q} mit „weiß nicht“ in einzelnen Teilen), {c} in allen Wellen, {u} nur in einer Welle; {d} Zeilen mit doppeltem Code, {n} ohne verwendbaren Code.", "{p} people with a code, {l} linked across waves ({t} of them tolerantly, {q} with “don’t know” in some parts), {c} in all waves, {u} in one wave only; {d} rows with a duplicate code, {n} without a usable code.", p=rep.persons, l=rep.linked, t=rep.tolerant, q=rep.partial, c=rep.complete, u=rep.unmatched, d=rep.duplicate, n=rep.no_code) }}</p>
+  {% endif %}
+{% endcall %}
+{% endif %}
+
+{% if not live %}
+{% call xp.dialog("dlg-tokens", de_en("Datenzugang für R und Python", "Data access for R and Python"), open=new_token is not none, wide=true) %}
   {% if new_token %}
   <div class="flash flash-warning" role="status"><div>
     <strong>{{ de_en("Ihr neues Token „{name}“, gültig bis {d}:", "Your new token “{name}”, valid until {d}:", name=new_token.name, d=new_token.expires_at|localdate) }}</strong>
@@ -213,79 +433,51 @@
     <pre class="env-lines"><code>ASKURIOUS_TOKEN={{ new_token.value }}</code></pre>
   </div></div>
   {% endif %}
-  <div class="export-groups">
-    <div class="export-group">
-      <h3>{{ de_en("Neues Token", "New token") }} <span class="hint">{{ de_en("je Person und Befragung; liest nur, ändert nichts", "per person and survey; only reads, changes nothing") }}</span></h3>
-      {% if can_data %}
-      <form method="post" action="{{ url_for('data_access.create', survey_id=survey.id) }}" class="stack" autocomplete="off">
-        {{ csrf() }}
-        <div class="row-fields">
-          <label class="grow-1">{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("wofür, z. B. „Auswertung Laptop“", "what for, e.g. “analysis laptop”") }}</span>
-            <input type="text" name="name" maxlength="80" required spellcheck="false"></label>
-          <label>{{ de_en("Gültig (Tage)", "Valid (days)") }} <span class="hint">{{ de_en("höchstens {n}", "at most {n}", n=token_days[1]) }}</span>
-            <input type="number" name="days" min="1" max="{{ token_days[1] }}" value="{{ token_days[0] }}" required></label>
-          <button class="button">{{ de_en("Token anlegen", "Create token") }}</button>
-        </div>
-      </form>
-      <p class="muted small export-note">{{ de_en("Das Token funktioniert, solange Sie die Daten dieser Befragung herunterladen dürfen (Rolle „Bearbeiten“ oder „Admin“) und es nicht abgelaufen oder widerrufen ist. Jeder Abruf steht wie ein Download im Protokoll.", "The token works as long as you may download the data of this survey (role “Edit” or “Admin”) and it has not expired or been revoked. Every download is in the access log like a download by hand.") }}</p>
-      {% else %}
-      <p class="muted small export-note">{{ de_en("Ihre Rolle „Ansehen“ erlaubt kein Herunterladen der Daten und damit kein Token.", "Your role “View” does not allow downloading the data, and so no token.") }}</p>
-      {% endif %}
+  {% if can_data %}
+  <form method="post" action="{{ url_for('data_access.create', survey_id=survey.id) }}" class="stack" autocomplete="off">
+    {{ csrf() }}
+    <div class="row-fields">
+      <label class="grow-1">{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("wofür, z. B. „Auswertung Laptop“", "what for, e.g. “analysis laptop”") }}</span>
+        <input type="text" name="name" maxlength="80" required spellcheck="false"></label>
+      <label>{{ de_en("Gültig (Tage)", "Valid (days)") }} <span class="hint">{{ de_en("höchstens {n}", "at most {n}", n=token_days[1]) }}</span>
+        <input type="number" name="days" min="1" max="{{ token_days[1] }}" value="{{ token_days[0] }}" required></label>
+      <button class="button">{{ de_en("Token anlegen", "Create token") }}</button>
     </div>
-
-    {% if data_tokens %}
-    <div class="export-group">
-      <h3>{{ de_en("Token dieser Befragung", "Tokens of this survey") if survey.can(current_user, "admin") else de_en("Ihre Token", "Your tokens") }} <span class="hint">{{ de_en("Admins der Befragung sehen und widerrufen alle", "admins of the survey see and revoke all of them") }}</span></h3>
-      <ul class="export-list">
-        {% for t in data_tokens %}
-        <li><div><strong>{{ t.row.name }}</strong><span class="desc">{% if t.owner %}{{ t.owner }} · {% endif %}{{ de_en("angelegt am {d}", "created on {d}", d=t.row.created_at|localdate) }} · {% if t.row.last_used_at %}{{ de_en("zuletzt benutzt am {d}", "last used on {d}", d=t.row.last_used_at|localdt) }}{% else %}{{ de_en("noch nie benutzt", "never used") }}{% endif %} · {% if t.state == "expired" %}<strong>{{ de_en("abgelaufen am {d}", "expired on {d}", d=t.row.expires_at|localdate) }}</strong>{% else %}{{ de_en("gültig bis {d}", "valid until {d}", d=t.row.expires_at|localdate) }}{% endif %}{% if t.state == "dormant" %} · <strong>{{ de_en("funktioniert nicht: Die Person darf die Daten derzeit nicht herunterladen", "does not work: the person may not download the data at present") }}</strong>{% endif %}</span></div>
-          <form method="post" action="{{ url_for('data_access.revoke', survey_id=survey.id, token_id=t.row.id) }}"
-                data-confirm="{{ de_en('Token „{name}“ widerrufen?', 'Revoke token “{name}”?', name=t.row.name) }}" data-confirm-note="{{ de_en('Skripte mit diesem Token bekommen danach keine Daten mehr.', 'Scripts with this token get no more data afterwards.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}" data-confirm-danger>
-            {{ csrf() }}<button class="button button-danger">{{ de_en("Widerrufen", "Revoke") }}</button></form></li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-
-    {% if can_data %}
-    <details class="export-group">
-      <summary>{{ de_en("Direkt mit R oder Python laden", "Load directly with R or Python") }}</summary>
-      <h3>{{ de_en("Abruf im Skript", "Fetching in a script") }} <span class="hint">{{ de_en("das Token im Header „Authorization: Bearer …“, nie in der Adresse", "the token in the header “Authorization: Bearer …”, never in the address") }}</span></h3>
-      <ul class="export-list">
-        <li><div><strong>{{ de_en("R (.rds), ohne zusätzliches Paket", "R (.rds), without an extra package") }}</strong><span class="desc">{{ de_en("mit Beschreibungen und Wertelabels wie der Download „R (.rds)“", "with descriptions and value labels as the download “R (.rds)”") }}</span>
-          <pre class="env-lines"><code>{{ data_urls.r }}</code></pre></div>
-          <span class="chip" role="button" tabindex="0" data-copy-text="{{ data_urls.r }}" title="{{ de_en('R-Code kopieren', 'Copy R code') }}">{{ de_en("kopieren", "copy") }}</span></li>
-        <li><div><strong>{{ de_en("Python (CSV mit pandas)", "Python (CSV with pandas)") }}</strong><span class="desc">{{ de_en("dieselbe Datei wie der Download „CSV“", "the same file as the download “CSV”") }}</span>
-          <pre class="env-lines"><code>{{ data_urls.python }}</code></pre></div>
-          <span class="chip" role="button" tabindex="0" data-copy-text="{{ data_urls.python }}" title="{{ de_en('Python-Code kopieren', 'Copy Python code') }}">{{ de_en("kopieren", "copy") }}</span></li>
-      </ul>
-      <p class="muted small export-note">{{ de_en("Adressen:", "Addresses:") }} <code>{{ data_urls.csv }}</code>, <code>{{ data_urls.rds }}</code>, {{ de_en("Codebuch", "codebook") }} <code>{{ data_urls.codebook }}</code>.
-        {{ de_en("Ohne Angaben gilt der Datenpool der Befragung, markierte Teilnahmen bleiben markiert. Wie oben wählbar mit", "Without further details the data pool of the survey applies, marked participations stay marked. As above, choose with") }}
-        <code>?drop=1</code> ({{ de_en("Markierte ausschließen", "exclude marked ones") }}), <code>?source=real&amp;source=test</code>, <code>?all=1</code>, <code>?sep=semicolon</code>{% if scale_cols %}, <code>?scales=1</code>{% endif %}{% if standard_vars %}, <code>?standard=1</code>{% endif %}.</p>
-    </details>
-    {% endif %}
-  </div>
-</section>
-{% endif %}
-{# the survey file needs what duplicating needs: "Bearbeiten" or an example survey seen as one (AUTHZ-05) #}
-{% if may_copy_out(survey) %}
-<section class="panel" id="export-file">
-  <h2>{{ de_en("Als Datei exportieren", "Export as a file") }} <span class="hint">{% if live %}{{ de_en("Folien und Einstellungen, ohne Teilnahmen und Daten", "slides and settings, without participations and data") }}{% else %}{{ de_en("Fragebogen und Einstellungen, ohne Teilnahmen und Daten", "questionnaire and settings, without participations and data") }}{% endif %}</span></h2>
-  <p class="small">{{ de_en("Zum Sichern, Weitergeben oder für eine andere Installation von Askurious. Die Datei lässt sich über „+ Fragebogen“ › „Aus einer Datei anlegen“ unter „Meine Befragungen“ wieder einlesen. Sie enthält keine Antworten und nennt keine beteiligten Personen oder Gruppen", "To back up, pass on or use in another installation of Askurious. The file can be read in again via “+ Questionnaire” › “Create from a file” on “My surveys”. It holds no answers and names no people or groups involved") }}{% if survey.quotas %}{{ de_en("; Quoten stehen mit ihren Soll-Zahlen darin, ohne Zählerstände", "; quotas are in it with their targets, without their counts") }}{% endif %}. {{ de_en("Als ZIP liegen die Bilder als eigene Dateien darin: rund ein Viertel kleiner, für Befragungen mit vielen Bildern. Mehrere Befragungen auf einmal: unter „Meine Befragungen“.", "As a ZIP the images are files of their own: about a quarter smaller, for surveys with many images. Several surveys at once: under “My surveys”.") }}</p>
-  <form method="get" action="{{ url_for('surveys.export_file', survey_id=survey.id) }}" class="stack">
-    <input type="hidden" name="files" value="0">
-    <label class="check"><input type="checkbox" name="files" value="1" checked> {{ de_en("Bilder und Logos einschließen", "Include images and logos") }}
-      <span class="hint">{{ de_en("ohne Häkchen wird die Datei kleiner; Fragen mit Bild kommen dann ohne ihr Bild an", "without the tick the file is smaller; questions with an image then arrive without their image") }}</span></label>
-    <div class="form-actions"><button class="button button-secondary">{{ icon("download", 16) }} {{ de_en("Als JSON-Datei herunterladen", "Download as JSON file") }}</button>
-      <button class="button button-secondary" formaction="{{ url_for('surveys.export_zip', survey_id=survey.id) }}">{{ icon("download", 16) }} {{ de_en("Als ZIP-Datei herunterladen", "Download as ZIP file") }}</button></div>
   </form>
-</section>
-{% endif %}
-{% if not live %}
-<section class="panel" id="prereg">
-  <h2>{{ de_en("Präregistrierung", "Pre-registration") }} <span class="hint">{{ de_en("beim Start der Feldphase eingefroren, je Fragebogen-Fassung", "frozen at the start of fieldwork, per questionnaire revision") }}</span></h2>
+  <p class="muted small">{{ de_en("Das Token funktioniert, solange Sie die Daten dieser Befragung herunterladen dürfen (Rolle „Bearbeiten“ oder „Admin“) und es nicht abgelaufen oder widerrufen ist. Jeder Abruf steht wie ein Download im Protokoll.", "The token works as long as you may download the data of this survey (role “Edit” or “Admin”) and it has not expired or been revoked. Every download is in the access log like a download by hand.") }}</p>
+  {% else %}
+  <p class="muted small">{{ de_en("Ihre Rolle „Ansehen“ erlaubt kein Herunterladen der Daten und damit kein Token.", "Your role “View” does not allow downloading the data, and so no token.") }}</p>
+  {% endif %}
+  {% if data_tokens %}
+  <h3>{{ de_en("Token dieser Befragung", "Tokens of this survey") if is_admin else de_en("Ihre Token", "Your tokens") }} <span class="hint">{{ de_en("Admins der Befragung sehen und widerrufen alle", "admins of the survey see and revoke all of them") }}</span></h3>
+  <ul class="export-list">
+    {% for t in data_tokens %}
+    <li><div><strong>{{ t.row.name }}</strong><span class="desc">{% if t.owner %}{{ t.owner }} · {% endif %}{{ de_en("angelegt am {d}", "created on {d}", d=t.row.created_at|localdate) }} · {% if t.row.last_used_at %}{{ de_en("zuletzt benutzt am {d}", "last used on {d}", d=t.row.last_used_at|localdt) }}{% else %}{{ de_en("noch nie benutzt", "never used") }}{% endif %} · {% if t.state == "expired" %}<strong>{{ de_en("abgelaufen am {d}", "expired on {d}", d=t.row.expires_at|localdate) }}</strong>{% else %}{{ de_en("gültig bis {d}", "valid until {d}", d=t.row.expires_at|localdate) }}{% endif %}{% if t.state == "dormant" %} · <strong>{{ de_en("funktioniert nicht: Die Person darf die Daten derzeit nicht herunterladen", "does not work: the person may not download the data at present") }}</strong>{% endif %}</span></div>
+      <form method="post" action="{{ url_for('data_access.revoke', survey_id=survey.id, token_id=t.row.id) }}"
+            data-confirm="{{ de_en('Token „{name}“ widerrufen?', 'Revoke token “{name}”?', name=t.row.name) }}" data-confirm-note="{{ de_en('Skripte mit diesem Token bekommen danach keine Daten mehr.', 'Scripts with this token get no more data afterwards.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}" data-confirm-danger>
+        {{ csrf() }}<button class="button button-danger">{{ de_en("Widerrufen", "Revoke") }}</button></form></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if can_data and data_urls %}
+  <h3>{{ de_en("Abruf im Skript", "Fetching in a script") }} <span class="hint">{{ de_en("das Token im Header „Authorization: Bearer …“, nie in der Adresse", "the token in the header “Authorization: Bearer …”, never in the address") }}</span></h3>
+  <ul class="export-list">
+    <li><div><strong>{{ de_en("R (.rds), ohne zusätzliches Paket", "R (.rds), without an extra package") }}</strong><span class="desc">{{ de_en("mit Beschreibungen und Wertelabels wie der Download „R (.rds)“", "with descriptions and value labels as the download “R (.rds)”") }}</span>
+      <pre class="env-lines"><code>{{ data_urls.r }}</code></pre></div>
+      <span class="chip" role="button" tabindex="0" data-copy-text="{{ data_urls.r }}" title="{{ de_en('R-Code kopieren', 'Copy R code') }}">{{ de_en("kopieren", "copy") }}</span></li>
+    <li><div><strong>{{ de_en("Python (CSV mit pandas)", "Python (CSV with pandas)") }}</strong><span class="desc">{{ de_en("dieselbe Datei wie der Download „CSV“", "the same file as the download “CSV”") }}</span>
+      <pre class="env-lines"><code>{{ data_urls.python }}</code></pre></div>
+      <span class="chip" role="button" tabindex="0" data-copy-text="{{ data_urls.python }}" title="{{ de_en('Python-Code kopieren', 'Copy Python code') }}">{{ de_en("kopieren", "copy") }}</span></li>
+  </ul>
+  <p class="muted small">{{ de_en("Adressen:", "Addresses:") }} <code>{{ data_urls.csv }}</code>, <code>{{ data_urls.rds }}</code>, {{ de_en("Codebuch", "codebook") }} <code>{{ data_urls.codebook }}</code>.
+    {{ de_en("Ohne Angaben gilt der Datenpool der Befragung, markierte Teilnahmen bleiben markiert. Wie oben wählbar mit", "Without further details the data pool of the survey applies, marked participations stay marked. As above, choose with") }}
+    <code>?drop=1</code> ({{ de_en("Markierte ausschließen", "exclude marked ones") }}), <code>?source=real&amp;source=test</code>, <code>?all=1</code>, <code>?sep=semicolon</code>{% if scale_cols %}, <code>?scales=1</code>{% endif %}{% if standard_vars %}, <code>?standard=1</code>{% endif %}.</p>
+  {% endif %}
+{% endcall %}
+
+{% if prereg %}
+{% call xp.dialog("dlg-prereg", de_en("Präregistrierung", "Pre-registration"), wide=true) %}
   {{ why("preregistration") }}
-  {% if prereg %}
   <ul class="plain snapshot-list">
     {% for name, version, at, digest in prereg %}
     <li><strong>{{ de_en("Fassung {v}", "Revision {v}", v=version) }}</strong> <span class="muted small">{{ de_en("eingefroren am {d}", "frozen on {d}", d=at|walldt) }}</span>
@@ -298,14 +490,11 @@
   </ul>
   <p class="muted small">{{ de_en("Die ZIP-Datei enthält die Befragung als Datei (wieder einlesbar), den Fragebogen als Markdown und als Word mit Codebuch, das Befragungsmaterial als PDF, das Codebuch und die Prüfsummen aller Dateien; ihre Prüfsumme steht auch in der Siegelkette. Sie wird nie verändert; die Prüfsumme oben lässt sich in einer Präregistrierung (z. B. OSF, AsPredicted) angeben.", "The ZIP file holds the survey as a file (can be read in again), the questionnaire as Markdown and as Word with codebook, the survey material as PDF, the codebook and the checksums of all files; its checksum is also in the seal chain. It is never changed; the checksum above can be given in a pre-registration (e.g. OSF, AsPredicted).") }}
     {{ de_en("Der Zeitstempel des DFN belegt, dass die ZIP-Datei spätestens zu diesem Zeitpunkt bestand; prüfbar mit", "The timestamp of the DFN proves that the ZIP file existed no later than that time; checkable with") }} <a href="{{ url_for('surveys.seal_checker', survey_id=survey.id) }}">seal_verify.py</a> (<code>python seal_verify.py {{ de_en("stempel.tsr datei.zip", "stamp.tsr file.zip") }}</code>).</p>
-  {% else %}
-  <p class="muted small">{% if survey.status == "draft" %}{{ de_en("Sobald die Feldphase startet, wird der Fragebogen mit seinen Einstellungen eingefroren und hier als ZIP-Datei mit Prüfsumme angeboten.", "As soon as fieldwork starts, the questionnaire is frozen with its settings and offered here as a ZIP file with checksum.") }}{% else %}{{ de_en("Diese Befragung ist vor Einführung der Präregistrierung gestartet. Ein eingefrorener Stand entsteht beim nächsten Start nach einer Bearbeitung.", "This survey started before pre-registration was introduced. A frozen state is made at the next start after an edit.") }}{% endif %}</p>
-  {% endif %}
-</section>
+{% endcall %}
+{% endif %}
 
 {% if seal_info %}
-<section class="panel" id="seal">
-  <h2>{{ de_en("Siegelkette", "Seal chain") }} <span class="hint">{{ de_en("jeder beendete Fall mit Fallnummer, jede Löschung mit Löschvermerk", "every case that ended with a case number, every deletion with a deletion record") }}</span></h2>
+{% call xp.dialog("dlg-seal", de_en("Siegelkette", "Seal chain"), wide=true) %}
   <div class="stat-line"><span><strong>{{ seal_info.cases }}</strong> {{ de_en("Fälle", "cases") }}</span><span><strong>{{ seal_info.deleted }}</strong> {{ de_en("mit Löschvermerk", "with a deletion record") }}</span><span><strong>{{ seal_info.entries }}</strong> {{ de_en("Einträge", "entries") }}</span></div>
   {% if seal_info.status %}{% import "surveys/_seal_parts.html" as sp with context %}{% set st = seal_info.status %}
   {# the last automatic check against the stored data (hourly, seal.check_due; siegelkette-konzept.md E1, E10) #}
@@ -333,14 +522,13 @@
   <div class="seal-result" data-seal-result hidden aria-live="polite"></div>{% endif %}
   <ul class="export-list">
     <li><div><strong>{{ de_en("Siegelkette mit Prüfprogramm", "Seal chain with checker") }}</strong><span class="desc">{{ de_en("ZIP mit seal.json, seal_verify.py und Anleitung; enthält keine Antworten. Prüft, ob einer Datendatei mit den Spalten seal_seq und seal_hash ein Fall ohne Löschvermerk fehlt.", "ZIP with seal.json, seal_verify.py and instructions; holds no answers. Checks whether a data file with the columns seal_seq and seal_hash lacks a case without a deletion record.") }}</span></div>
-      {% if can_data and seal_info.entries %}<a class="button button-secondary" href="{{ url_for('surveys.seal_chain', survey_id=survey.id) }}">{{ de_en("Herunterladen", "Download") }}</a>{% elif can_data %}<span class="hint">{{ de_en("noch keine Einträge", "no entries yet") }}</span>{% endif %}</li>
+      {% if can_data and seal_info.entries %}<a class="button button-secondary" href="{{ url_for('surveys.seal_chain', survey_id=survey.id) }}">{{ icon("download", 16) }} {{ de_en("Herunterladen", "Download") }}</a>{% elif can_data %}<span class="hint">{{ de_en("noch keine Einträge", "no entries yet") }}</span>{% endif %}</li>
   </ul>
-</section>
+{% endcall %}
 {% endif %}
 
 {% if snapshots %}
-<section class="panel" id="snapshots">
-  <h2>{{ de_en("Gesicherte Stände", "Saved states") }} <span class="hint">{{ de_en("vor jeder erneuten Bearbeitung des Fragebogens gespeichert", "saved before each new edit of the questionnaire") }}</span></h2>
+{% call xp.dialog("dlg-snapshots", de_en("Gesicherte Stände", "Saved states"), wide=true) %}
   <ul class="plain snapshot-list">
     {% for name, version, at in snapshots %}
     <li><strong>{{ de_en("Fassung {v}", "Revision {v}", v=version) }}</strong> <span class="muted small">{{ de_en("gesichert am {d}", "saved on {d}", d=at|walldt) }}</span>
@@ -351,24 +539,17 @@
     {% endfor %}
   </ul>
   <p class="muted small">{{ de_en("Die Daten enthalten alle Quellen (echt, Test, Dummy) und auch abgebrochene Teilnahmen, jeweils mit den Spalten des damaligen Fragebogens. Für Conjoint, MaxDiff und ACBC kommen Langformat und Versuchsplan (JSON) des damaligen Stands hinzu.", "The data hold all sources (real, test, dummy) and also broken-off participations, each with the columns of the questionnaire at the time. For conjoint, MaxDiff and ACBC the long format and experimental design (JSON) of that state are added.") }}</p>
-</section>
+{% endcall %}
 {% endif %}
 
-{# always on the page (Philipp, 2026-10-08; before only with a connection, Ralf 2026-10-04): the box says what
-   is missing, Zenodo not set up on this server, no connection in the account, or not an admin of the survey;
-   connecting happens on the account page; an earlier upload keeps its status line #}
-{% set z = survey.zenodo or {} %}
-{% set offered = zen|dictsort|selectattr("1.available")|map(attribute="0")|list %}
-{% set linked = [("zenodo", "Zenodo"), ("sandbox", de_en("Zenodo-Sandbox (Test)", "Zenodo sandbox (test)"))]|selectattr("0", "in", zen|dictsort|selectattr("1.available")|selectattr("1.connected")|map(attribute="0")|list)|list %}
-<section class="panel" id="zenodo">
-  <h2>Zenodo <span class="hint">{{ de_en("Daten, Codebuch und Fragebogen als Open-Data-Paket", "data, codebook and questionnaire as an open data package") }}</span></h2>
+{% call xp.dialog("dlg-zenodo", "Zenodo", wide=true) %}
   {% if z.id %}
   <p class="small">{{ (de_en("Veröffentlicht auf {t}", "Published on {t}", t=("Zenodo" if z.target == "zenodo" else de_en("Zenodo-Sandbox", "Zenodo sandbox"))) if z.state == "published" else de_en("Entwurf auf {t}", "Draft on {t}", t=("Zenodo" if z.target == "zenodo" else de_en("Zenodo-Sandbox", "Zenodo sandbox")))) }}{% if z.doi %} · DOI <code>{{ z.doi }}</code>{% endif %}
     · <a href="{{ z.url }}" target="_blank" rel="noopener">{{ de_en("auf Zenodo öffnen ↗", "open on Zenodo ↗") }}</a></p>
   {% endif %}
   {% if not offered %}
   <p class="muted small">{{ de_en("Zenodo ist auf diesem Server nicht eingerichtet, ein Upload ist hier deshalb nicht möglich. Für die Admins der Plattform: Zugangsdaten der Zenodo-Anwendung (ZENODO_CLIENT_ID, ZENODO_CLIENT_SECRET) in der Konfiguration eintragen.", "Zenodo is not set up on this server, so no upload is possible here. For the platform admins: enter the credentials of the Zenodo application (ZENODO_CLIENT_ID, ZENODO_CLIENT_SECRET) in the configuration.") }}</p>
-  {% elif not survey.can(current_user, "admin") %}
+  {% elif not is_admin %}
   <p class="muted small">{{ de_en("Hochladen können die Admins dieser Befragung.", "The admins of this survey can upload.") }}</p>
   {% else %}
   {% set consent = survey.consent_item %}
@@ -409,14 +590,10 @@
   </form>
   {% endif %}
   {% endif %}
-</section>
+{% endcall %}
 
-{% set cite_keys = citations.survey_keys(survey) %}
 {% if cite_keys and survey.can(current_user, "editor") %}
-<section class="panel" id="publications">
-  <h2>{{ de_en("Veröffentlichungen", "Publications") }} <span class="hint">{{ de_en("Artikel oder Datensätze zu dieser Befragung", "articles or data sets on this survey") }}</span></h2>
-  <p class="small">{% if cite_keys|length == 1 %}{{ de_en("Eine DOI hier steht bei dem Konstrukt unter „Konstrukte“ in dieser Befragung unter „Verwendet in“, mit Titel, Autorinnen und Autoren aus doi.org.", "A DOI here appears with the construct under “Constructs” in this survey under “Used in”, with title and authors from doi.org.") }}{% else %}{{ de_en("Eine DOI hier steht bei den {n} Konstrukten unter „Konstrukte“ in dieser Befragung unter „Verwendet in“, mit Titel, Autorinnen und Autoren aus doi.org.", "A DOI here appears with the {n} constructs under “Constructs” in this survey under “Used in”, with title and authors from doi.org.", n=cite_keys|length) }}{% endif %}
-    {{ de_en("Genannt wird nur die Veröffentlichung, nie die Befragung selbst.", "Only the publication is named, never the survey itself.") }}</p>
+{% call xp.dialog("dlg-publications", de_en("Veröffentlichungen", "Publications")) %}
   {% set entered = citations.for_survey(survey) %}
   {% if entered %}<ul class="plain small">
     {% for doi, meta in entered %}
@@ -431,93 +608,27 @@
     <label>DOI <input name="doi" required placeholder="10.1037/…"></label>
     <div><button class="button button-secondary">{{ de_en("Eintragen", "Add") }}</button></div>
   </form>
-</section>
+{% endcall %}
 {% endif %}
+{% endif %}{# not live: dialogs #}
 
-{% include "coscine/_block.html" %}
-
-{% endif %}{# not live: preregistration, snapshots, Zenodo, Coscine #}
-
-{% if keeping and not live %}
-<section class="panel" id="retention">
-  <h2>{{ de_en("Aufbewahrung", "Retention") }} <span class="hint">{{ de_en("Fristen ab dem Feldende, festgelegt in den Einstellungen der Befragung", "periods from the end of fieldwork, set in the settings of the survey") }}</span></h2>
-  {% for k in keeping if k.soon %}
-  <div class="flash flash-warning" role="status">{{ icon("alert", 16) }} <span>{% if k.key == "answers" %}<strong>{{ de_en("Alle Teilnahmen werden am {d} gelöscht.", "All participations will be deleted on {d}.", d=k.due|localdate) }}</strong> {{ de_en("Bitte die Daten vorher exportieren.", "Please export the data before then.") }}{% else %}<strong>{{ de_en("Kennungen und Kontaktangaben werden am {d} gelöscht.", "Identifiers and contact details will be deleted on {d}.", d=k.due|localdate) }}</strong> {{ de_en("Eine Verlosung oder Abrechnung muss bis dahin erledigt sein.", "A prize draw or payment must be done by then.") }}{% endif %}</span></div>
-  {% endfor %}
-  <ul class="plain small">
-    {% for k in keeping %}
-    <li><strong>{{ de_en("Alle Teilnahmen", "All participations") if k.key == "answers" else de_en("Kennungen und Kontaktangaben", "Identifiers and contact details") }}:</strong> {{ de_en("{p} nach dem Feldende", "{p} after the end of fieldwork", p=k.label) }}{% if k.due %}{{ de_en(", also am {d}", ", that is on {d}", d=k.due|localdate) }}{% if not k.holds %} {{ de_en("(nichts mehr vorhanden)", "(nothing left)") }}{% endif %}{% else %}{{ de_en("; die Frist beginnt, sobald die Befragung geschlossen ist", "; the period starts as soon as the survey is closed") }}{% endif %}</li>
-    {% endfor %}
-  </ul>
-  <p class="muted small">{{ de_en("Die Fristen ruhen, solange die Befragung läuft, pausiert oder zur Bearbeitung geöffnet ist. Schon heruntergeladene Dateien und ein Datensatz auf Zenodo bleiben, wo sie sind.", "The periods pause while the survey is running, paused or open for editing. Files already downloaded and a data set on Zenodo stay where they are.") }}</p>
-</section>
-{% endif %}
-
-{% if survey.can(current_user, "admin") and not live %}
-<section class="panel" id="erasure">
-  <h2>{{ de_en("Antworten löschen (Datenschutz)", "Delete answers (data protection)") }} <span class="hint">{{ de_en("eine Person möchte ihre Daten gelöscht haben, oder ein anderer Rechtsgrund verlangt es", "a person wants their data deleted, or another legal ground requires it") }}</span></h2>
-  {% set erased_n = erased.responses + erased.contacts %}
-  {% if erased_n %}
+{% if show_erasure and (erased.responses + erased.contacts) %}
+{% call xp.dialog("dlg-erased", de_en("Bisher gelöscht", "Deleted so far")) %}
   <div class="stat-line"><span><strong>{{ erased.responses }}</strong> {{ de_en("Teilnahme gelöscht", "participation deleted") if erased.responses == 1 else de_en("Teilnahmen gelöscht", "participations deleted") }}</span>{% if erased.contacts %}<span><strong>{{ erased.contacts }}</strong> {{ de_en("Eintrag des getrennten Abschnitts gelöscht", "entry of the separate section deleted") if erased.contacts == 1 else de_en("Einträge des getrennten Abschnitts gelöscht", "entries of the separate section deleted") }}</span>{% endif %}{% for way, n in erased.ways.items() %}<span><strong>{{ n }}</strong> {{ erase_ways.get(way, way) }}</span>{% endfor %}<span>{{ de_en("zuletzt am", "last on") }} <strong>{{ erased.last[8:10] }}.{{ erased.last[5:7] }}.{{ erased.last[:4] }}</strong></span></div>
   <p class="small">{{ de_en("Dateien, die vor dem letzten Löschen heruntergeladen wurden, enthalten diese Daten noch: bitte durch einen neuen Export ersetzen.", "Files downloaded before the last deletion still hold these data: please replace them with a new export.") }}{% if (survey.zenodo or {}).id %} {{ de_en("Das gilt auch für den Datensatz auf Zenodo: Ein Entwurf lässt sich unten aktualisieren, ein veröffentlichter Datensatz nur bei Zenodo selbst durch eine neue Version ersetzen.", "This also applies to the data set on Zenodo: a draft can be updated below, a published data set can only be replaced by a new version on Zenodo itself.") }}{% endif %} {{ de_en("Gesicherte Stände, gespeicherte Ergebnisse und HB-Schätzungen sind bereits bereinigt. Gezählt wird nur je Tag; wer gelöscht hat und welche Teilnahme es war, wird nicht festgehalten.", "Saved states, saved results and HB estimates are already cleaned. Only the count per day is kept; who deleted and which participation it was is not recorded.") }}</p>
-  {% endif %}
-  <p class="small">{{ de_en("Teilnehmende löschen ihre Antworten selbst über die Datenschutzseite der Befragung: im selben Browser bis 7 Tage nach der Teilnahme", "Participants delete their answers themselves on the privacy page of the survey: in the same browser up to 7 days after participation") }}{% if survey.erase_code %}{{ de_en(", danach mit ihrem Löschcode", ", after that with their deletion code") }}{% else %}{{ de_en("; einen Löschcode vergibt diese Befragung nicht", "; this survey gives no deletion code") }}{% endif %}. {{ de_en("Schreibt Ihnen jemand stattdessen, lässt sich die Teilnahme hier finden: mit dem Löschcode, der Teilnahme-ID oder einer gespeicherten Kennung aus dem Aufruf-Link; Einträge des getrennten Abschnitts mit der dort angegebenen E-Mail-Adresse. Ohne eine dieser Angaben lässt sich eine Teilnahme niemandem zuordnen.", "If someone writes to you instead, the participation can be found here: with the deletion code, the participation ID or a saved identifier from the entry link; entries of the separate section with the email address given there. Without one of these, a participation cannot be linked to anyone.") }}</p>
-  <p class="small muted">{{ de_en("Dubletten, Bots oder unbrauchbare Antworten bitte nicht löschen, sondern in der", "Please do not delete duplicates, bots or unusable answers, but exclude them in the") }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "quality assurance") }}</a>{{ de_en(" ausschließen: Dort bleiben sie nachvollziehbar und stehen im Export als Ausschluss.", ": there they stay traceable and appear in the export as excluded.") }}{% if seal_info %} {{ de_en("Jede Löschung hier hinterlässt in der Siegelkette einen Löschvermerk mit dem gewählten Grund.", "Every deletion here leaves a deletion record with the reason chosen in the seal chain.") }}{% endif %}</p>
-  {% if erase_found %}
-  {% set n_resp = erase_found.responses|length %}
-  <div class="flash flash-warning" role="status"><div><strong>{{ de_en("Gefunden:", "Found:") }} {% if erase_found.responses %}{{ n_resp }} {{ de_en("Teilnahme", "participation") if n_resp == 1 else de_en("Teilnahmen", "participations") }}{% endif %}{% if erase_found.responses and erase_found.entries %} {{ de_en("und", "and") }} {% endif %}{% if erase_found.entries %}{{ erase_found.entries }} {{ de_en("Eintrag des getrennten Abschnitts", "entry of the separate section") if erase_found.entries == 1 else de_en("Einträge des getrennten Abschnitts", "entries of the separate section") }}{% endif %}</strong>
-    {% if erase_found.persons %}<p class="small">{{ de_en("Das sind alle Einträge der Person in der Tagebuchstudie: Eine Person geht mit allen ihren Einträgen.", "These are all entries of the person in the diary survey: a person goes with all their entries.") if erase_found.persons == 1 else de_en("Das sind alle Einträge der {n} Personen in der Tagebuchstudie: Eine Person geht mit allen ihren Einträgen.", "These are all entries of the {n} people in the diary survey: a person goes with all their entries.", n=erase_found.persons) }}</p>{% endif %}
-    {% if erase_found.responses %}<ul class="plain small">{% for r in erase_found.responses[:10] %}<li>{{ de_en("begonnen am {d}", "started on {d}", d=r.started) }}, {{ {"completed": de_en("abgeschlossen", "completed"), "active": de_en("nicht abgeschlossen", "not completed"), "screenout": de_en("Screen-out", "screen-out"), "quotafull": de_en("Quote voll", "quota full"), "excluded": de_en("Ausschluss", "excluded")}.get(r.status, r.status) }}{% if r.source != "real" %} ({{ r.source }}){% endif %}</li>{% endfor %}{% if n_resp > 10 %}<li>{{ de_en("… und {n} weitere", "… and {n} more", n=n_resp - 10) }}</li>{% endif %}</ul>{% endif %}
-    <form method="post" action="{{ url_for('surveys.erase_request', survey_id=survey.id) }}" class="form-actions"
-          data-confirm="{{ de_en('1 Datensatz endgültig löschen?', 'Delete 1 record permanently?') if erase_found.n == 1 else de_en('{n} Datensätze endgültig löschen?', 'Delete {n} records permanently?', n=erase_found.n) }}" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}"
-          data-confirm-ok="{{ de_en('Endgültig löschen', 'Delete permanently') }}" data-confirm-danger>
-      {{ csrf() }}<input type="hidden" name="term" value="{{ erase_found.term }}"><input type="hidden" name="confirm" value="{{ erase_found.n }}">
-      {% if erase_found.responses %}
-      {# the reason goes into the deletion record of the seal chain (siegelkette-konzept.md E4) #}
-      <fieldset class="erase-why">
-        <legend>{{ de_en("Grund der Löschung", "Reason for the deletion") }}</legend>
-        <label class="check"><input type="radio" name="why" value="wish" checked> {{ de_en("Löschwunsch oder Widerruf der Person", "the person's request or withdrawal of consent") }}</label>
-        <label class="check"><input type="radio" name="why" value="consent"> {{ de_en("keine wirksame Einwilligung (z. B. minderjährig)", "no valid consent (e.g. a minor)") }}</label>
-        <label class="check"><input type="radio" name="why" value="other"> {{ de_en("anderer Rechtsgrund:", "another legal ground:") }}</label>
-        <input type="text" name="why_text" maxlength="190" aria-label="{{ de_en('Anderer Rechtsgrund in wenigen Worten', 'Other legal ground in a few words') }}" placeholder="{{ de_en('in wenigen Worten, 10 bis 190 Zeichen', 'in a few words, 10 to 190 characters') }}">
-        <span class="hint">{{ de_en("Der Grund steht öffentlich in der Siegelkette (Prüfseite, seal.json) und lässt sich danach nicht mehr ändern. Bitte keine Namen oder anderen Angaben zu Personen.", "The reason is public in the seal chain (check page, seal.json) and cannot be changed afterwards. Please give no names or other details about people.") }}</span>
-      </fieldset>
-      {% endif %}
-      <button class="button button-danger">{{ de_en("Endgültig löschen", "Delete permanently") }}</button>
-      <a class="button button-secondary" href="{{ url_for('surveys.data', survey_id=survey.id) }}#erasure">{{ de_en("Abbrechen", "Cancel") }}</a>
-    </form></div></div>
-  {% else %}
-  <form method="post" action="{{ url_for('surveys.erase_request', survey_id=survey.id) }}" class="stack" autocomplete="off">
-    {{ csrf() }}
-    <div class="row-fields">
-      <label class="grow-1">{{ de_en("Löschcode, Teilnahme-ID, Kennung aus dem Link oder E-Mail-Adresse", "Deletion code, participation ID, identifier from the link or email address") }}
-        <span class="hint">{{ de_en("was die Person in ihrer Anfrage genannt hat; gelöscht wird erst nach einer Rückfrage, die zeigt, was gefunden wurde", "what the person named in their request; nothing is deleted until a confirmation shows what was found") }}</span>
-        <input type="text" name="term" maxlength="300" required spellcheck="false"></label>
-      <button class="button button-secondary">{{ de_en("Suchen", "Search") }}</button>
-    </div>
-  </form>
-  {% endif %}
-</section>
+{% endcall %}
 {% endif %}
 
-{# not for a diary study: it has no separated section (app/diary.py, 2026-10-11) #}
-{% if survey.can(current_user, "admin") and not live and survey.sampling is none %}
-<section class="panel" id="contact-data">
-  <h2>{{ de_en("Getrennter Abschnitt", "Separate section") }} <span class="hint">{{ de_en("z. B. E-Mail-Adressen für eine Verlosung; nicht zuordenbar", "e.g. email addresses for a prize draw; cannot be linked") }}</span></h2>
-  {% if not contact.has_separated(survey) and not contact.count(survey) %}
-  <p class="muted small">{{ de_en("Der getrennte Abschnitt ist leer. Zum Füllen im Reiter „Ablauf“ Blöcke unter die Linie „🔒 Getrennter Abschnitt“ ziehen; sie werden dann ohne Verbindung zu den übrigen Antworten gespeichert.", "The separate section is empty. To fill it, drag blocks below the line “🔒 Separate section” in the tab “Flow”; they are then saved without any link to the other answers.") }}</p>
-  {% else %}
-  {% set n_entries = contact.count(survey) %}
-  <div class="stat-line"><span><strong>{{ n_entries }}</strong> {{ de_en("Einträge", "entries") }}</span></div>
+{% if show_contact and contact.count(survey) %}
+{% call xp.dialog("dlg-contacts", de_en("Getrennter Abschnitt", "Separate section"), open=drawn|length > 0) %}
   <p class="muted small">{{ de_en("Keine Verknüpfung zur Teilnahme, kein Zeitstempel, zufällige Kennung, keine Speicherreihenfolge; Export nach Inhalt sortiert; Abruf erst ab {n} abgeschlossenen Teilnahmen.", "No link to the participation, no time stamp, random identifier, no storage order; export sorted by content; available only from {n} completed participations.", n=contact.MIN_RESPONSES) }}</p>
-  {% for msg in get_flashed_messages(category_filter=["inline"]) %}
+  {% for msg in drawn %}
   <div class="flash flash-success" role="status"><div><strong>{{ msg }}</strong>
     <div class="muted small">{{ de_en("Bitte jetzt notieren: Die Ziehung wird nicht gespeichert, und jede weitere Ziehung wählt neu aus.", "Please note it now: the draw is not saved, and each further draw picks anew.") }}</div></div></div>
   {% endfor %}
-  {% if n_entries %}
   <div class="form-actions space-above">
     {% if contact.can_download(survey) %}
-    <a class="button button-secondary" href="{{ url_for('surveys.export_contacts', survey_id=survey.id) }}">{{ de_en("Einträge herunterladen", "Download entries") }}</a>
+    <a class="button button-secondary" href="{{ url_for('surveys.export_contacts', survey_id=survey.id) }}">{{ icon("download", 16) }} {{ de_en("Einträge herunterladen", "Download entries") }}</a>
     <form class="inline row" method="post" action="{{ url_for('surveys.draw_contacts', survey_id=survey.id) }}">
       {{ csrf() }}<input type="number" name="n" min="1" max="100" value="1" class="narrow" aria-label="{{ de_en('Anzahl', 'Number') }}">
       <button class="button button-secondary">{{ de_en("Zufällig ziehen", "Draw at random") }}</button>
@@ -526,14 +637,12 @@
     <span class="muted small">{{ de_en("Abruf ab {n} abgeschlossenen Teilnahmen (derzeit {c}).", "Available from {n} completed participations (currently {c}).", n=contact.MIN_RESPONSES, c=counts.completed) }}</span>
     {% endif %}
     <form class="inline" method="post" action="{{ url_for('surveys.delete_contacts', survey_id=survey.id) }}"
-          data-confirm="{{ de_en('Alle {n} Einträge des getrennten Abschnitts endgültig löschen?', 'Delete all {n} entries of the separate section permanently?', n=n_entries) }}" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}"
+          data-confirm="{{ de_en('Alle {n} Einträge des getrennten Abschnitts endgültig löschen?', 'Delete all {n} entries of the separate section permanently?', n=contact.count(survey)) }}" data-confirm-note="{{ de_en('Das lässt sich nicht rückgängig machen.', 'This cannot be undone.') }}"
           data-confirm-ok="{{ de_en('Einträge löschen', 'Delete entries') }}" data-confirm-danger>
       {{ csrf() }}<button class="button button-danger">{{ icon("trash", 16) }} {{ de_en("Alle Einträge löschen", "Delete all entries") }}</button>
     </form>
   </div>
-  {% endif %}
-  {% endif %}
-</section>
+{% endcall %}
 {% endif %}
 </div>
 {% endblock %}

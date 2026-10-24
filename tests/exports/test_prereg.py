@@ -17,7 +17,7 @@ def _start(client):
 def test_start_freezes_the_survey_once_per_version(app, client, survey):
     from app import lifecycle, prereg
 
-    assert "Sobald die Feldphase startet" in client.get("/surveys/1/data").data.decode()
+    assert "Entsteht beim Start der Feldphase" in client.get("/surveys/1/data").data.decode()
     assert "als Präregistrierung eingefroren" in _start(client).data.decode()
     with app.app_context():
         s = db.session.get(Survey, 1)

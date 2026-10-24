@@ -6603,3 +6603,20 @@ document.addEventListener("toggle", function (e) {
   if (!e.target.open || !e.target.querySelectorAll) return;
   e.target.querySelectorAll("audio[data-preload-open][preload=none]").forEach(function (a) { a.preload = "metadata"; a.load(); });
 }, true);
+
+// Dialogs of the export pages (surveys/_export_rows.html): a button with data-dialog-open opens the dialog of that
+// id, data-dialog-close closes it, and a dialog with data-open-now opens at once (the result of the last step:
+// a new token, a matching of waves, a draw). Without script the dialogs stay closed; the page still loads.
+(function () {
+  document.addEventListener("click", function (e) {
+    var opener = e.target.closest("[data-dialog-open]");
+    if (opener) {
+      var dialog = document.getElementById(opener.getAttribute("data-dialog-open"));
+      if (dialog && dialog.showModal && !dialog.open) { e.preventDefault(); dialog.showModal(); }
+      return;
+    }
+    var closer = e.target.closest("[data-dialog-close]");
+    if (closer) { var d = closer.closest("dialog"); if (d) d.close(); }
+  });
+  document.querySelectorAll("dialog[data-open-now]").forEach(function (d) { if (d.showModal && !d.open) d.showModal(); });
+})();

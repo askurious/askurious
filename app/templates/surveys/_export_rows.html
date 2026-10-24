@@ -1,0 +1,41 @@
+{# Parts of the export pages (surveys/data.html, interview/export.html), concept exportseite-konzept-2026-10-24.md,
+   variant A: cards by purpose, one row per content with format buttons; the long explanation sits in an "i" popup
+   (details.hint-more, app.js) and everything with more than a button opens a dialog (data-dialog-open, app.js). #}
+{% from "_icons.html" import icon %}
+
+{# the small "i": the text opens as a popup beside the row #}
+{% macro info(text, title="") -%}
+<details class="hint-more xp-info"><summary><span class="visually-hidden">{{ title or de_en("Mehr dazu", "More on this") }}</span></summary><p>{{ text }}</p></details>
+{%- endmacro %}
+
+{# one row: name, a short note (text or status), the "i" and, from the caller, the buttons #}
+{% macro row(name, note="", more="", id="") -%}
+<li class="xp-row"{% if id %} id="{{ id }}"{% endif %}><div class="xp-name"><strong>{{ name }}</strong>{% if note %} <span class="xp-note">{{ note }}</span>{% endif %}{% if more %} {{ info(more, name) }}{% endif %}</div>
+  <div class="xp-btns">{% if caller %}{{ caller() }}{% endif %}</div></li>
+{%- endmacro %}
+
+{# a format button with the download symbol: sent with the export form (pooled) or a plain link #}
+{% macro fmt(label, url, what, pooled=true, primary=false, form="export-form") -%}
+{% set cls = "button" if primary else "button button-secondary" %}
+{%- if pooled %}<button class="{{ cls }}" form="{{ form }}" formaction="{{ url }}" aria-label="{{ what }}">{{ icon("download", 16) }} {{ label }}</button>
+{%- else %}<a class="{{ cls }}" href="{{ url }}" aria-label="{{ what }}">{{ icon("download", 16) }} {{ label }}</a>{% endif %}
+{%- endmacro %}
+
+{# a button that opens one of the dialogs below #}
+{% macro opens(label, dialog, primary=false) -%}
+<button type="button" class="{{ 'button' if primary else 'button button-secondary' }}" data-dialog-open="{{ dialog }}" aria-haspopup="dialog">{{ label }}</button>
+{%- endmacro %}
+
+{# a coloured dot with a short state: ok (green), bad (red), wait (amber), off (grey) #}
+{% macro status(kind, text) -%}
+<span class="xp-status is-{{ kind }}"><span class="xp-dot" aria-hidden="true"></span>{{ text }}</span>
+{%- endmacro %}
+
+{# a dialog with a title and a close button; open: shown at once (a result of the last step) #}
+{% macro dialog(id, title, open=false, wide=false) -%}
+<dialog class="person-dialog xp-dialog{{ '' if wide else ' is-narrow' }}" id="{{ id }}" aria-labelledby="{{ id }}-title"{% if open %} data-open-now{% endif %}>
+  <div class="xp-dialog-head"><h2 id="{{ id }}-title">{{ title }}</h2>
+    <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  {{ caller() }}
+</dialog>
+{%- endmacro %}

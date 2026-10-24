@@ -83,7 +83,7 @@ def test_codebook_page_and_spss(app, client, survey):
     assert 'name="standard"' not in client.get("/surveys/1/data").data.decode()   # nothing to derive from
     _setup(app, client, ["ges", "alt", "fam1"])
     page = client.get("/surveys/1/data").data.decode()
-    assert 'name="standard"' in page and "KonsortSWD-Zielvariablen anhängen" in page and "Ohne x_casmin" in page
+    assert 'name="standard"' in page and "KonsortSWD-Zielvariablen" in page and "Ohne x_casmin" in page
     book = client.get("/surveys/1/export/codebook.csv", query_string={"standard": "1"}).data.decode("utf-8-sig")
     rows = {r["variable"]: r for r in csv.DictReader(io.StringIO(book))}
     assert rows["x_sex"]["values"].startswith("1 = männlich; 2 = weiblich; 3 = divers; 4 = kein Eintrag")

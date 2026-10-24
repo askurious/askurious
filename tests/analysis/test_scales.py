@@ -179,7 +179,7 @@ def test_scale_scores_only_on_request(app, client, survey):
     entry = next(r for r in book if r["variable"] == "TA_m")
     assert entry["type"] == "Skalenwert" and "TA_1, TA_2, TA_3" in entry["notes"]
     html = client.get("/surveys/1/data").data.decode()
-    assert 'name="scales" value="1" id="export-scales" form="export-form"' in html
+    assert 'name="scales" value="1" id="export-scales"' in html and 'id="export-form"' in html
     sav = client.get("/surveys/1/export/data.sav?scales=1")
     assert sav.status_code == 200 and b"TA_m" in sav.data
 

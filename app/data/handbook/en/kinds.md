@@ -83,6 +83,8 @@ The results of the **tasks** are in the case overview (CSV) with the columns of 
 
 ### Export of an interview guide {kind:interview}
 
+The same cards as for a questionnaire: Interviews, Documents, Evidence and archive, Data protection. “Record revision” opens a dialog with occasion, licence and third-party materials.
+
 The guide as Word, the interviews as text and as a REFI-QDA project, the revisions kept and **Delete an interview (data protection)**: with a deletion code or identifier the whole interview is deleted, as "Delete answers" in the export of a questionnaire.
 
 ---

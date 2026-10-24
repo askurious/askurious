@@ -40,7 +40,9 @@ def test_link_fields_offer_their_placeholders(client, survey):
     assert 'name="redirect_completed" value="" placeholder="https://…" data-link-field>' in html
 
 
-def test_export_pool_is_one_line_until_unfolded(client, survey):
+def test_export_pool_is_open(client, survey):
+    """Export page, variant A, E4 (Ralf 2026-10-24): sources, marked ones, appending and separator all in sight, no fold."""
     html = client.get("/surveys/1/data").data.decode()
-    assert '<details class="pool-fold" >' in html and "Vorauswahl aus dem gespeicherten Datenpool" in html
-    assert '<details class="pool-fold" open>' in client.get("/surveys/1/data?source=real&source=dummy").data.decode()
+    assert "pool-fold" not in html and "Vorauswahl aus dem gespeicherten Datenpool" in html
+    pool = html[html.index('id="pool"'):html.index('id="answers"')]
+    assert 'name="source"' in pool and 'name="drop"' in pool and 'name="sep"' in pool

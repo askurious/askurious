@@ -288,7 +288,7 @@ def test_method_section_draft_and_ai(app, client, survey, monkeypatch):
     assert "Entwurf ohne KI" in html and "Die Datenerhebung erfolgte im Zeitraum vom 01.09.2026" in html
     data_page = client.get("/surveys/1/data").data.decode()
     assert 'href="/surveys/1/methods">Methodenteil öffnen' in data_page  # one methods section, Word and AI there (V29)
-    assert data_page.index("Methodenbeschreibung für ein Manuskript erzeugen") < data_page.index("Schreibweise der CSV-Dateien")  # at the top
+    assert data_page.index('id="documentation"') < data_page.index('href="/surveys/1/methods"')  # a row of Dokumentation (E5)
 
 
 def test_field_days_count_first_and_last_day(app):
