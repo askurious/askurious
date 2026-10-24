@@ -469,6 +469,54 @@
      "en": "Test statement 25 of GDMS"
     }
    ]
+  },
+  "kuk": {
+   "question": {
+    "de": "Teststandardfrage zu KUK",
+    "en": "Test instruction for KUK"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von KUK",
+     "en": "Test statement 1 of KUK"
+    },
+    {
+     "de": "Testaussage 2 von KUK",
+     "en": "Test statement 2 of KUK"
+    },
+    {
+     "de": "Testaussage 3 von KUK",
+     "en": "Test statement 3 of KUK"
+    },
+    {
+     "de": "Testaussage 4 von KUK",
+     "en": "Test statement 4 of KUK"
+    },
+    {
+     "de": "Testaussage 5 von KUK",
+     "en": "Test statement 5 of KUK"
+    },
+    {
+     "de": "Testaussage 6 von KUK",
+     "en": "Test statement 6 of KUK"
+    },
+    {
+     "de": "Testaussage 7 von KUK",
+     "en": "Test statement 7 of KUK"
+    },
+    {
+     "de": "Testaussage 8 von KUK",
+     "en": "Test statement 8 of KUK"
+    },
+    {
+     "de": "Testaussage 9 von KUK",
+     "en": "Test statement 9 of KUK"
+    },
+    {
+     "de": "Testaussage 10 von KUK",
+     "en": "Test statement 10 of KUK"
+    }
+   ]
   }
  }
 }

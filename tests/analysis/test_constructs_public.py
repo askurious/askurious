@@ -1,5 +1,6 @@
 """The Konstrukte page for visitors who are not signed in (Ralf 2026-10-16, option 1): list, search, filters and the
 page of each construct, the wording only where its licence allows passing it on, nothing taken from surveys."""
+from pathlib import Path
 from app import constructs, ratswd
 
 
@@ -47,14 +48,17 @@ def test_open_wordings_are_the_licensed_ones(app):
 
 
 def test_own_scales_under_cc_by_show_their_wording_and_licence():
-    """KAMB, FITAI and KUK are released under CC BY 4.0 (Ralf, 2026-10-16)."""
+    """KAMB and FITAI are released under CC BY 4.0 (Ralf, 2026-10-16). KUK is printed in a chapter © 2015 IFIP without
+    an open licence: its wording is in the installation's instruments.json, not in the public code (Ralf, 2026-10-24)."""
     from app import constructs
 
     assert constructs.wording_public("kamb") and constructs.wording_public("fitai")
-    assert constructs.wording_public("kuk")
+    assert not constructs.wording_public("kuk") and "kuk" in constructs.INSTRUMENTS
     notes = {s["key"]: s["notes"] for s in constructs.SEEDS}
     assert notes["kamb"].startswith("Lizenz: CC BY 4.0") and notes["fitai"].startswith("Lizenz: CC BY 4.0")
-    assert notes["kuk"].startswith("Lizenz: CC BY 4.0")
+    assert "IFIP" in notes["kuk"] and "CC BY" not in notes["kuk"]
+    source = (Path(constructs.__file__)).read_text(encoding="utf-8")
+    assert "Ich fühle mich beim Kochen" not in source and "head chef" not in source
 
 
 def test_made_up_facets_cost_a_guest_nothing_extra(app, client):

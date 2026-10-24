@@ -721,14 +721,15 @@ def test_scales_of_others_need_the_installations_wording(app):
         app.config["INSTRUMENT_WORDINGS"] = ""
         try:
             assert constructs._instrument_spec("asku") is None and not constructs.instrument_available("bfi10")
-            assert constructs.instrument_available("kuk")  # an own wording, in the code
+            assert constructs.instrument_available("kamb")  # an own wording, in the code
+            assert not constructs.instrument_available("kuk")  # wording only in the installation (Ralf, 2026-10-24)
             Construct = type(constructs.get("asku"))
             db.session.execute(db.delete(constructs.construct_tag))
             db.session.execute(db.delete(Construct))
             db.session.commit()
             constructs.ensure_seed()
             seeded = {c.key for c in db.session.scalars(db.select(Construct))}
-            assert "kuk" in seeded and "gender" in seeded and not seeded & set(constructs.INSTRUMENTS)
+            assert "kamb" in seeded and "gender" in seeded and not seeded & set(constructs.INSTRUMENTS)
         finally:
             app.config["INSTRUMENT_WORDINGS"] = before
 
