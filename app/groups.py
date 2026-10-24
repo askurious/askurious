@@ -156,33 +156,139 @@ def remove(group):
 @bp.route("/")
 @login_required
 def index():
-    return render_template("groups/index.html", groups=of(current_user), may_create=may_create_surveys(current_user),
-                           max_groups=MAX_GROUPS)
+    new = new_form(orgs.get(orgs.for_new(current_user)))
+    return render_template("groups/index.html", groups=of(current_user),
+                           may_create=may_create_surveys(current_user) or new["admin"], max_groups=MAX_GROUPS, new=new)
+
+
+def new_form(org):
+    """What the one dialog "Neue Gruppe" (groups/_new.html) offers in `org`: the same dialog and the same way for every
+    page and everyone (Ralf 2026-10-24). Admins of the organisation and site admins also choose the lead, "Anlegen"
+    for who joins and a course; a lead link only site admins, since only theirs stays valid (joinlinks.paused)."""
+    site = orgs._site_admin(current_user)
+    admin = site or (org is not None and orgs.is_admin_of(current_user, org.id))
+    people = [u for u, _ in orgs.members_of(org) if u.id != current_user.id] if admin and org is not None else []
+    return {"org": org, "admin": admin, "lead_link": site, "people": people,
+            "types": orgs.allowed_types(org) if admin else [],
+            "may_create": admin and (org is None or org.may_create is not False)}
+
+
+def _course_end(form):
+    from datetime import date
+
+    from app.timeutil import local_today
+
+    try:
+        until = date.fromisoformat(form.get("course_until") or "")
+    except ValueError:
+        return None
+    return until if until >= local_today() else None
+
+
+def create(org, back_url):
+    """Make a group in `org` from the dialog "Neue Gruppe", whichever page it stands on (Gruppen, Organisation >
+    Gruppen, Administration > Gruppen). By default the maker leads it; an admin may name another lead instead and does
+    not become a member then. Returns the response."""
+    from app import account_types, accounts
+    from app.admin import _lead_from_outside, _lead_link, _make_lead
+    from app.timeutil import end_of_local_day_utc
+
+    form = request.form
+    offer = new_form(org)
+    admin = offer["admin"]
+    if not admin and not may_create_surveys(current_user):
+        abort(403)
+    back = redirect(back_url)
+
+    def refused(text):
+        flash(text, "error")
+        return back
+
+    name = _name(form.get("name"))
+    picked = form.get("lead_user", type=int) if admin else None
+    typed = (form.get("lead") or "").strip() if admin else ""
+    by_link = offer["lead_link"] and not picked and not typed and form.get("lead_link") == "1"
+    myself = not (picked or typed or by_link)
+    course = account_types.get(form.get("account_type")) if admin and form.get("account_type") else None
+    may_create = offer["may_create"] and form.get("members_create") == "1"
+    if not name:
+        return refused(de_en("Bitte einen Namen für die Gruppe angeben.", "Please give the group a name."))
+    if orgs.group_name_taken(name, org.id):  # unique within the organisation (2026-10-16)
+        return refused(orgs.name_taken_said(name))
+    until = None
+    if course is not None:
+        if course not in offer["types"]:
+            abort(400)
+        until = _course_end(form)
+        if until is None and account_types.needs_input(course.duration):
+            return refused(de_en("Bitte ein Enddatum der Lehrveranstaltung ab heute angeben.",
+                                 "Please give an end date of the course from today on."))
+    if not myself or may_create or course is not None:
+        again = accounts.need_fresh(back_url)  # it hands out rights: as fresh a sign-in as the other rights actions
+        if again:
+            return again
+    found = None
+    if picked:
+        user = db.session.get(User, picked)
+        if user is None or not orgs.is_member(user, org.id):
+            abort(400)
+        found = (user.orcid, user, user.name)
+    elif typed:
+        lead_name = form.get("lead_name") or ""
+        if not lead_name.strip() and not offer["lead_link"]:  # as before on the organisation's page: no ORCID lookup
+            from app import signin
+
+            key = signin.clean(typed) or typed
+            lead_name = orgs.display_name(key) or key
+        found = _lead_from_outside(typed, lead_name)
+        if isinstance(found, str):
+            return refused(found)
+        if found[1] is not None and not offer["lead_link"] and not orgs.is_member(found[1], org.id):
+            return refused(orgs.not_in_org())
+    elif myself and count_for(current_user.id) >= MAX_GROUPS:
+        return refused(de_en("Mehr als {n} Gruppen je Person sind nicht möglich.",
+                             "More than {n} groups per person are not possible.", n=MAX_GROUPS))
+    group = orgs.put(WorkGroup(name=name, description=(form.get("description") or "").strip()[:MAX_DESCRIPTION],
+                               created_by_id=current_user.id, may_create=may_create), org)
+    if course is not None:
+        group.account_type_id = course.id
+        group.course_until = end_of_local_day_utc(until) if until is not None else None
+    db.session.add(group)
+    if myself:
+        group.members.append(WorkGroupMember(user_id=current_user.id, name=current_user.name, role="lead",
+                                             invited_by_id=current_user.id))
+        kind_access.joined(group, current_user._get_current_object(), current_user)
+        db.session.commit()
+        said = de_en("Gruppe „{name}“ angelegt. Sie leiten sie; fügen Sie jetzt Mitglieder hinzu.",
+                     "Group “{name}” created. You lead it; now add members.", name=name)
+    elif by_link:
+        db.session.commit()
+        _lead_link(group)
+        said = de_en("Gruppe „{g}“ angelegt. Schicken Sie den Leitungslink der Person, die sie leiten soll; wer ihn "
+                     "zuerst öffnet und sich anmeldet, leitet die Gruppe.", "Group “{g}” created. Send the lead link to "
+                     "the person who is to lead it; the first person who opens it and signs in leads the group.",
+                     g=name)
+    else:
+        not_ok = _make_lead(group, found)
+        if not_ok:
+            db.session.rollback()
+            return refused(not_ok)
+        said = de_en("Gruppe „{g}“ angelegt; {name} leitet sie. Sie selbst sind nicht Mitglied.",
+                     "Group “{g}” created; {name} leads it. You are not a member yourself.", g=name,
+                     name=found[2] or found[0])
+    if admin:
+        from app import security_log
+
+        security_log.event("organisation_group_created", by=current_user.id, target=f"group {group.id}")
+    flash(said, "success")
+    return _back(group) if myself else back
 
 
 @bp.route("/new", methods=["POST"])
 @login_required
 def new():
-    if not may_create_surveys(current_user):
-        abort(403)
-    name = _name(request.form.get("name"))
-    if not name:
-        flash(de_en("Bitte einen Namen für die Gruppe angeben.", "Please give the group a name."), "error")
-    elif count_for(current_user.id) >= MAX_GROUPS:
-        flash(de_en("Mehr als {n} Gruppen je Person sind nicht möglich.", "More than {n} groups per person are not possible.", n=MAX_GROUPS), "error")
-    elif orgs.group_name_taken(name, orgs.for_new(current_user)):  # unique within the organisation (2026-10-16)
-        flash(orgs.name_taken_said(name), "error")
-    else:
-        group = WorkGroup(name=name, description=(request.form.get("description") or "").strip()[:MAX_DESCRIPTION],
-                          created_by_id=current_user.id)
-        group.members.append(WorkGroupMember(user_id=current_user.id, name=current_user.name,
-                                             role="lead", invited_by_id=current_user.id))
-        db.session.add(group)
-        db.session.commit()
-        flash(de_en("Gruppe „{name}“ angelegt. Sie leiten sie; fügen Sie jetzt Mitglieder hinzu.",
-                    "Group “{name}” created. You lead it; now add members.", name=name), "success")
-        return _back(group)
-    return redirect(url_for("groups.index"))
+    """The dialog "Neue Gruppe" on the page Gruppen: the group goes into the home organisation."""
+    return create(orgs.get(orgs.for_new(current_user)), url_for("groups.index"))
 
 
 @bp.route("/<int:group_id>")

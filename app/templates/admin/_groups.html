@@ -123,24 +123,4 @@
   {{ pager(listing) }}
   {% endif %}
 </section>
-{# "Neue Gruppe" as a dialog like "Person hinzufügen" (Ralf 2026-10-20, app.js); without scripts a panel #}
-<section class="panel person-add add-dialog-narrow" id="gruppe-anlegen" aria-labelledby="group-add-title" data-person-add-panel>
-  <div class="feedback-dialog-head"><h2 id="group-add-title">{{ de_en("Neue Gruppe", "New group") }}</h2>
-    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
-  <form method="post" action="{{ url_for('admin.group_new') }}" class="stack">
-    {{ csrf() }}{{ keep() }}
-    <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="80" required></label>
-    <label>{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
-      <input name="description" maxlength="500"></label>
-    <label>{{ de_en("Leitung", "Lead") }} <span class="hint">{{ de_en("ORCID iD oder E-Mail-Adresse eines Kontos; die Person braucht noch kein Konto", "ORCID iD or email address of an account; the person needs no account yet") }}</span>
-      <input name="lead" maxlength="254" placeholder="0000-0000-0000-0000"></label>
-    <label>{{ de_en("Name der Leitung", "Name of the lead") }} <span class="hint">{{ de_en("optional; sonst aus dem ORCID-Profil", "optional; otherwise from the ORCID profile") }}</span>
-      <input name="lead_name" maxlength="200"></label>
-    <label class="check"><input type="checkbox" name="lead_link" value="1"> {{ de_en("Leitung noch nicht bekannt: Leitungslink erzeugen", "Lead not known yet: create a lead link") }}
-      <span class="hint">{{ de_en("ohne Eintrag unter „Leitung“; wer den Link zuerst öffnet und sich anmeldet, leitet die Gruppe", "with “Lead” left empty; the first person who opens the link and signs in leads the group") }}</span></label>
-    <label class="check"><input type="checkbox" name="members_create" value="1" checked> {{ de_en("Wer dazukommt, bekommt „Anlegen“ (eigene Befragungen anlegen)", "Whoever joins gets “Create” (create own surveys)") }}</label>
-    <p class="muted small">{{ de_en("Sie selbst werden nicht Mitglied. Die Leitung nimmt danach Mitglieder auf; jedes Mitglied kann sich anmelden und, mit dem Häkchen, eigene Befragungen anlegen.",
-      "You do not become a member yourself. The lead then adds members; every member can sign in and, with the tick, create their own surveys.") }}</p>
-    <div class="button-row"><button class="button">{{ de_en("Gruppe anlegen", "Create group") }}</button></div>
-  </form>
-</section>
+{% with action=url_for('admin.group_new'), hidden_action=false %}{% include "groups/_new.html" %}{% endwith %}

@@ -1,0 +1,50 @@
+{# The one dialog "Neue Gruppe" of every page: Gruppen, Organisation > Gruppen, Administration > Gruppen (Ralf 2026-10-24:
+   the same way for admins and members; app/groups.py create, new_form). Opened by a button
+   <a href="#gruppe-anlegen" data-person-add> like "Person hinzufügen" (app.js); without scripts a panel.
+   Needs: new (groups.new_form), action (the address it posts to), hidden_action (the org page's form field). #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+<section class="panel person-add add-dialog-narrow" id="gruppe-anlegen" aria-labelledby="group-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="group-add-title">{{ de_en("Neue Gruppe", "New group") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form method="post" action="{{ action }}" class="stack">
+    {{ csrf() }}{% if hidden_action %}<input type="hidden" name="action" value="new">{% endif %}
+    <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="80" required class="name-field"></label>
+    <label>{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional; sehen nur die Mitglieder", "optional; only the members see it") }}</span>
+      <input name="description" maxlength="500" class="description-field"></label>
+    {% if new.admin %}
+    {# the lead: oneself by default; else picked from the organisation, found by typing, or someone not yet in it #}
+    <fieldset class="stack org-lead-pick">
+      <legend>{{ de_en("Leitung", "Lead") }}</legend>
+      <label>{{ de_en("Mitglied der Organisation", "Member of the organisation") }}
+        {% if new.people %}<input type="search" data-filter-select="lead-user" placeholder="{{ de_en('Name oder ORCID iD suchen …', 'Search name or ORCID iD …') }}" aria-label="{{ de_en('Mitglieder durchsuchen', 'Search members') }}" autocomplete="off">{% endif %}
+        <select name="lead_user" id="lead-user" aria-label="{{ de_en('Mitglied der Organisation', 'Member of the organisation') }}" size="{{ [new.people|length + 1, 6]|min if new.people|length > 1 else 1 }}">
+          <option value="" selected>{{ de_en("Sie selbst ({n})", "You ({n})", n=current_user.display_name) }}</option>
+          {% for u in new.people %}<option value="{{ u.id }}">{{ u.display_name }}{% if u.has_orcid %} · {{ u.orcid }}{% endif %}</option>{% endfor %}
+        </select></label>
+      <label>{{ de_en("oder ORCID iD oder E-Mail-Adresse einer Person, die noch nicht dazugehört", "or the ORCID iD or email address of someone not yet in it") }}
+        <input name="lead" maxlength="254" placeholder="0000-0000-0000-0000" autocomplete="off"></label>
+      <label>{{ de_en("Name der Leitung", "Name of the lead") }} <span class="hint">{{ de_en("optional; sonst aus dem ORCID-Profil", "optional; otherwise from the ORCID profile") }}</span>
+        <input name="lead_name" maxlength="200" autocomplete="off"></label>
+      {% if new.lead_link %}<label class="check"><input type="checkbox" name="lead_link" value="1"> {{ de_en("Leitung noch nicht bekannt: Leitungslink erzeugen", "Lead not known yet: create a lead link") }}
+        <span class="hint">{{ de_en("ohne Eintrag oben; wer den Link zuerst öffnet und sich anmeldet, leitet die Gruppe", "with nothing chosen above; the first person who opens the link and signs in leads the group") }}</span></label>{% endif %}
+      <p class="hint">{{ de_en("Leitet eine andere Person die Gruppe, werden Sie selbst nicht Mitglied.", "If someone else leads the group, you do not become a member yourself.") }}</p>
+    </fieldset>
+    {% if new.may_create %}<label class="check"><input type="checkbox" name="members_create" value="1"> {{ de_en("Wer dazukommt, bekommt „Anlegen“ (eigene Befragungen anlegen)", "Whoever joins gets “Create” (create own surveys)") }}</label>{% endif %}
+    {% if new.types %}
+    {# a course (app/account_types.py, N7): user type and end for the accounts that come in through the group #}
+    <fieldset class="stack">
+      <legend>{{ de_en("Lehrveranstaltung", "Course") }}</legend>
+      <label>{{ de_en("Nutzertyp neuer Konten", "User type of new accounts") }}
+        <select name="account_type"><option value="">{{ de_en("keine Lehrveranstaltung", "not a course") }}</option>
+          {% for t in new.types %}<option value="{{ t.id }}">{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}</select></label>
+      <label>{{ de_en("Ende der Lehrveranstaltung", "End of the course") }} <span class="hint">{{ de_en("gilt für alle, die über die Gruppe neu dazukommen, bis 23:59 Uhr", "applies to everyone newly joining through the group, until 23:59") }}</span>
+        <input type="date" name="course_until"></label>
+    </fieldset>
+    {% endif %}
+    {% else %}
+    <p class="muted small">{{ de_en("Sie leiten die Gruppe und fügen danach die Mitglieder hinzu.", "You lead the group and then add the members.") }}</p>
+    {% endif %}
+    <div class="button-row"><button class="button">{{ icon("plus", 16) }} {{ de_en("Gruppe anlegen", "Create group") }}</button></div>
+  </form>
+</section>

@@ -29,16 +29,7 @@
 </section>
 
 {% if may_create %}
-<section class="panel">
-  <h2>{{ de_en("Neue Gruppe", "New group") }} <span class="hint">{{ de_en("Sie leiten die Gruppe und fügen danach die Mitglieder hinzu", "you lead the group and then add the members") }}</span></h2>
-  <form method="post" action="{{ url_for('groups.new') }}" class="stack">
-    {{ csrf() }}
-    <label><span class="label-title">Name</span>
-      <input type="text" name="name" maxlength="80" required class="name-field"></label>
-    <label><span class="label-title">{{ de_en("Beschreibung", "Description") }} <span class="hint">{{ de_en("optional; sehen nur die Mitglieder", "optional; only the members see it") }}</span></span>
-      <input type="text" name="description" maxlength="500" class="description-field"></label>
-    <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Gruppe anlegen", "Create group") }}</button></div>
-  </form>
-</section>
+<div class="button-row"><a class="button" href="#gruppe-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Neue Gruppe …", "New group …") }}</a></div>
+{% with action=url_for('groups.new'), hidden_action=false %}{% include "groups/_new.html" %}{% endwith %}
 {% endif %}
 {% endblock %}

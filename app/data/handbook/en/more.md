@@ -24,6 +24,8 @@ A group is a list of people one works with regularly (a chair, a project).
 It shares surveys and designs all at once instead of person by person.
 A group owns nothing: anyone who leaves loses only what was shared through the group (decision of 2026-10-01).
 
+“New group …” opens the same dialog everywhere: under Groups, under Management > Groups and under Administration > Groups. Everyone enters a name and a description; whoever creates the group leads it. Admins of the organisation also see in the same dialog who leads the group (they then do not become a member themselves), whether everyone who joins gets “Create”, and whether the group is a course (user type and end for new accounts). The group belongs to the organisation of the page, under Groups to one’s own home organisation.
+
 ### Designs
 
 ![Designs of the platform, own designs and shared designs](img/designs.jpg)

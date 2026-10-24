@@ -699,59 +699,26 @@ def groups(org_id):
     org = g.org
     found = list(db.session.scalars(db.select(WorkGroup).where(orgs.column(WorkGroup.org_id) == org.id)
                                     .order_by(db.func.lower(WorkGroup.name), WorkGroup.id)))
-    people = [u for u, _ in orgs.members_of(org)]  # the lead is picked from them (Ralf, 2026-10-16)
-    return render_template("org/groups.html", org=org, groups=found, types=orgs.allowed_types(org), people=people,
-                           active="groups")
+    from app import groups as groups_mod
+
+    return render_template("org/groups.html", org=org, groups=found, types=orgs.allowed_types(org),
+                           new=groups_mod.new_form(org), active="groups")
 
 
 @bp.route("/<int:org_id>/groups", methods=["POST"])
 @autosave.aware
 def groups_action(org_id):
     org = g.org
+    from app import groups as groups_mod
+
+    if request.form.get("action") == "new":  # the one dialog "Neue Gruppe" of every page (Ralf 2026-10-24)
+        return groups_mod.create(org, url_for("org.groups", org_id=org.id))
     back = redirect(url_for("org.groups", org_id=org.id))
     again = _fresh("org.groups", org_id=org.id)
     if again:
         return again
-    from app import groups as groups_mod
 
     action = request.form.get("action")
-    if action == "new":
-        name = groups_mod._name(request.form.get("name"))
-        lead = (request.form.get("lead") or "").strip()
-        picked = request.form.get("lead_user", type=int)
-        from app.auth import ORCID_RE
-
-        if not name or not (picked or ORCID_RE.match(lead)):
-            flash(de_en("Bitte Name und Leitung angeben: ein Mitglied auswählen oder eine ORCID iD eintragen.",
-                        "Please give a name and the lead: choose a member or enter an ORCID iD."), "error")
-            return back
-        if orgs.group_name_taken(name, org.id):
-            flash(orgs.name_taken_said(name), "error")
-            return back
-        if picked:  # a member chosen from the list wins over a typed ORCID iD
-            user = db.session.get(User, picked)
-            if user is None:
-                abort(400)
-            person = user
-        else:
-            from app import people_keys
-
-            person = people_keys.account(lead)  # an iD before its first sign-in gets a pending account (B2)
-            user = person if person is not None and not person.pending else None
-        if user is not None and not orgs.is_member(user, org.id):
-            flash(orgs.not_in_org(), "error")
-            return back
-        may_create = org.may_create is not False and request.form.get("members_create") == "1"
-        group = orgs.put(WorkGroup(name=name, created_by_id=current_user.id, may_create=may_create), org)
-        group.members.append(WorkGroupMember(user=person, role="lead",
-                                             name=user.name if user else orgs.display_name(lead),
-                                             invited_by_id=current_user.id))
-        db.session.add(group)
-        kind_access.joined(group, user, current_user)  # "darf Befragungen anlegen": "create" once (E3)
-        db.session.commit()
-        _log("organisation_group_created", target=f"group {group.id}")
-        flash(de_en("Gruppe „{g}“ angelegt.", "Group “{g}” created.", g=name), "success")
-        return back
     group = db.session.get(WorkGroup, request.form.get("group_id", type=int) or 0)
     if group is None or orgs.of(group) != org.id:
         abort(404)

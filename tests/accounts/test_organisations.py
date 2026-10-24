@@ -2,6 +2,8 @@
 to start with, in which nothing looks different; a group made into an organisation with a preview, nobody losing
 access; and the fence: a group shares only within its organisation, the people search finds only one's own
 organisations, a lead adds no account of another organisation directly."""
+from datetime import date, timedelta
+
 from flask_login import login_user
 
 from app import access, orgs
@@ -222,6 +224,36 @@ def _org_with_admin(app, client, admin_orcid=OTHER, name="Kollegin"):
         db.session.commit()
     _convert(client, gid)
     return _new_org(app), gid
+
+
+def test_one_dialog_new_group_for_admins_and_members(app, client, survey):
+    """Ralf 2026-10-24: making a group is the same for admins of an organisation and plain members: one dialog on
+    Gruppen, Organisation > Gruppen and Administration > Gruppen; admins see more in it (another lead, "Anlegen", the
+    course), everyone leads the group by default."""
+    org_id, _ = _org_with_admin(app, client)
+    other = _as(app, OTHER, "Kollegin")
+    for path in ("/groups/", f"/org/{org_id}/groups"):
+        page = other.get(path).data.decode()
+        assert 'id="gruppe-anlegen"' in page and 'name="account_type"' in page and 'name="lead_user"' in page
+    assert 'id="gruppe-anlegen"' in client.get("/admin/groups").data.decode()
+    with app.app_context():
+        course = orgs.allowed_types(db.session.get(Organisation, org_id))[0].id
+        end = (date.today() + timedelta(days=30)).isoformat()
+    other.post("/groups/new", data={"name": "Kurs", "account_type": course, "course_until": end})
+    other.post(f"/org/{org_id}/groups", data={"action": "new", "name": "Team"})
+    allow(app, THIRD, keep=True)
+    third = _as(app, THIRD, "Dritte")                                    # a plain member of "main"
+    page = third.get("/groups/").data.decode()
+    assert 'id="gruppe-anlegen"' in page and 'name="account_type"' not in page and 'name="lead_user"' not in page
+    third.post("/groups/new", data={"name": "Projekt", "lead": OTHER, "account_type": course})  # admin fields ignored
+    with app.app_context():
+        by_name = {g.name: g for g in db.session.scalars(db.select(WorkGroup))}
+        kurs, team, projekt = by_name["Kurs"], by_name["Team"], by_name["Projekt"]
+        assert orgs.of(kurs) == orgs.of(team) == org_id and orgs.of(projekt) == orgs.default_id()
+        assert kurs.account_type_id == course and kurs.course_until is not None
+        assert projekt.account_type_id is None
+        assert [m.orcid for m in kurs.leads()] == [m.orcid for m in team.leads()] == [OTHER]
+        assert [m.orcid for m in projekt.leads()] == [THIRD] and len(projekt.members) == 1
 
 
 def test_the_management_is_for_the_organisations_admins(app, client, survey):
@@ -556,7 +588,7 @@ def test_a_new_groups_lead_is_picked_from_the_organisation(app, client, survey):
         outside = db.session.scalar(db.select(User).filter_by(orcid=THIRD)).id
     page = other.get(f"/org/{org_id}/groups").data.decode()
     pick = page.split('name="lead_user"')[1].split("</select>")[0]
-    assert f'value="{mine}"' in pick and "Kollegin" in pick and "Dritte Person" not in pick
+    assert "Sie selbst (Kollegin)" in pick and "Dritte Person" not in pick   # oneself first (2026-10-24)
     assert 'data-filter-select="lead-user"' in page
     # "Neue Gruppe …" opens a dialog, as "Person hinzufügen …" (Ralf 2026-10-20)
     assert '<a class="button" href="#gruppe-anlegen" data-person-add aria-haspopup="dialog">' in page
@@ -572,8 +604,9 @@ def test_a_new_groups_lead_is_picked_from_the_organisation(app, client, survey):
     other.post(f"/org/{org_id}/groups", data={"action": "new", "name": "Neu", "lead": FIFTH})   # not yet in it
     with app.app_context():
         assert db.session.scalar(db.select(WorkGroup).filter_by(name="Neu")).members[0].orcid == FIFTH
-    r = other.post(f"/org/{org_id}/groups", data={"action": "new", "name": "Leer"}, follow_redirects=True)
-    assert "ein Mitglied auswählen" in r.data.decode()
+    other.post(f"/org/{org_id}/groups", data={"action": "new", "name": "Leer"})   # nobody chosen: oneself leads
+    with app.app_context():
+        assert [m.orcid for m in db.session.scalar(db.select(WorkGroup).filter_by(name="Leer")).leads()] == [OTHER]
 
 
 def test_settings_of_organisations_save_by_themselves(app, client, survey):

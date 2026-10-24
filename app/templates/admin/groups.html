@@ -5,5 +5,5 @@
 {% block content %}
 {% set active = "groups" %}{% include "admin/_tabs.html" %}
 <p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
-{% with groups=gr.groups, listing=gr.listing, new_link=gr.new_link, lead_links=gr.lead_links, org_filter=gr.org, org_names=gr.org_names, org_options=gr.org_options %}{% include "admin/_groups.html" %}{% endwith %}
+{% with groups=gr.groups, listing=gr.listing, new_link=gr.new_link, lead_links=gr.lead_links, org_filter=gr.org, org_names=gr.org_names, org_options=gr.org_options, new=gr.new %}{% include "admin/_groups.html" %}{% endwith %}
 {% endblock %}
