@@ -110,3 +110,73 @@ def test_prereg_in_the_seal_chain_and_compared_with_the_field(app, client, surve
         count, said = prereg.compare(db.session.get(Survey, 1), name)
         assert count == 1 and item.code in said[0]
     assert "1 Unterschied(e) seit dem Einfrieren" in client.get("/surveys/1/data").data.decode()
+
+
+def test_note_colours_come_from_the_researcher_pages_and_are_readable():
+    """Design check of 2026-10-24 (thread "Data Colada 140"): the notes take the tokens of app.css, 4.5 : 1 on white,
+    and random orders do not take the violet of AI."""
+    import re
+
+    from app import theme
+
+    css = open("app/static/app.css", encoding="utf-8").read()
+    block = re.search(r":root\s*\{(.*?)\n\}", css, re.S).group(1)
+    for role, token in study_material.ROLES.items():
+        value = study_material.colours()[role]
+        assert re.search(rf"{token}:\s*{value}\b", block), (role, token, value)
+        assert theme.contrast(value, "#ffffff") >= 4.5, role
+    assert study_material.colours()["random"] not in block.split("--ai:")[1][:12]
+
+
+def test_part_one_without_codes_and_ends_by_name(app, client, survey):
+    """Part 1 shows options as participants see them (no answer codes); an end names its triggers once, by name."""
+    fill_consent(client)
+    add(client, "federal_state")
+    with app.test_request_context():
+        s = db.session.get(Survey, 1)
+        text = _text(study_material.build(s, "de"))
+        part1, part2 = text.split("Teil 2: Fragebogen mit Anmerkungen")
+        assert "( ) Bayern" in part1 and "[9]" not in part1 and "9 Bayern" not in part1
+        assert "( ) Bayern [9]" in part2
+        assert "\u25a0" not in text  # the legend draws its squares
+        doc = study_material._Doc(s, "de", False)
+        cells = [{"when": "cellfull", "quota": 1, "cells": [str(n)]} for n in range(24)]
+        node = {"t": "end", "cases": [{"when": "nocell", "quotas": [1]}] + cells}
+        assert study_material._end_cases(doc, node) == "Keine Teilquote passt, Teilquote voll (24 Zellen)"
+
+
+def test_capital_after_a_colon_and_named_checks(app, client, survey):
+    fill_consent(client)
+    add(client, "text_input")
+    with app.app_context():
+        item = db.session.scalar(db.select(Item).filter_by(type="text_input"))
+        item.config, item.answer_mode = {**item.config, "validation": "integer"}, "optional"
+        db.session.commit()
+    with app.test_request_context():
+        text = _text(study_material.build(db.session.get(Survey, 1), "de"))
+    assert "Antwort: Freiwillig" in text and "Prüfung der Eingabe: Ganze Zahl" in text
+    assert "integer" not in text and "Schnellantworter (Speeder): Schneller" in text
+
+
+def test_the_design_of_the_survey(app, client, survey):
+    """An own design: its logo on the first page (the bytes stay the same every time); without one no image."""
+    import io as _io
+
+    from PIL import Image
+
+    from app import media
+
+    fill_consent(client)
+    with app.test_request_context():
+        s = db.session.get(Survey, 1)
+        assert b"/Subtype /Image" not in study_material.build(s, "de")
+        png = _io.BytesIO()
+        Image.new("RGB", (200, 50), (0, 84, 159)).save(png, format="PNG")
+        saved = media.save_logo(s, png.getvalue())
+        s.theme = {"preset": "custom", "colors": {"accent": "#00549f", "background": "#ffffff", "text": "#1d1d1b",
+                                                  "surface": "#ffffff"},
+                   "logo": {"file": saved["file"], "w": saved["w"], "h": saved["h"]}}
+        db.session.commit()
+        first = study_material.build(s, "de")
+        assert b"/Subtype /Image" in first and first == study_material.build(s, "de")
+        assert study_material._look(s)[0] == "#00549f"
