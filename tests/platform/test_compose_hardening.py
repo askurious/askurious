@@ -254,8 +254,9 @@ def test_memory_limits_with_whisperx_stay_below_the_host():
         limits[name] = own.group(1) if own else app
     limits["participant-b"] = limits["participant-a"]
     total = sum(_bytes(v) for v in limits.values())
-    # 22 GB on the RWTH server since 2026-10-17: the limits leave some 2.5 GB to the host system
-    assert "whisper" in limits and total <= 19.5 * 1024 ** 3, limits
+    # the RWTH server has 24 GB, 22.9 GiB of it usable (checked 2026-10-24) plus 4 GiB swap: the limits leave some
+    # 2.4 GiB to the host system; WhisperX got 5 GiB on 2026-10-24 (German alignment, large-v3-turbo peak 3.27 GiB)
+    assert "whisper" in limits and total <= 20.5 * 1024 ** 3, limits
     assert total - _bytes(limits["whisper"]) <= 15.5 * 1024 ** 3
     # the table in BETRIEB.md names what compose.yaml sets
     betrieb = internal_text("deploy", "docker", "BETRIEB.md")
@@ -263,7 +264,7 @@ def test_memory_limits_with_whisperx_stay_below_the_host():
         return
     table = betrieb[betrieb.index("| Dienst | `mem_limit`"):]
     table = table[:table.index("\n\n")]
-    shown = {"2560m": "2,5 GB", "3g": "3 GB", "4g": "4 GB", "2g": "2 GB", "768m": "768 MB", "256m": "256 MB"}
+    shown = {"2560m": "2,5 GB", "3g": "3 GB", "4g": "4 GB", "5g": "5 GB", "2g": "2 GB", "768m": "768 MB", "256m": "256 MB"}
     for name in ("participant-a", "researcher", "compute", "housekeeping", "status", "db", "nginx", "certbot", "whisper"):
         row = next(line for line in table.splitlines() if f"`{name}" in line)
         assert shown[limits[name]] in row, (name, row)
