@@ -204,6 +204,14 @@ Optional local interview transcription with speaker labels: [WhisperX container]
 
 Storage accounting: `STORAGE_USAGE_ENABLED=1` uses a shared durable file inventory to avoid repeated quota tree walks. It defaults to off for a safe rolling introduction: deploy the accounting code to every writer first, then enable it and recreate the services sequentially. Existing file paths/sizes and transient reservations are kept in `instance/.storage-usage`; no answers or file contents are copied. Crashes rebuild from disk, unknown writers retain physical counting, and housekeeping periodically reconciles the inventory. See [operation instructions](deploy/docker/BETRIEB.md).
 
+## How to cite
+
+If you use Askurious in your research, please cite the software and name the release you used. [CITATION.cff](CITATION.cff) holds the details; GitHub turns it into APA and BibTeX under "Cite this repository". In APA style:
+
+Brauner, P., & Philipsen, R. (2026). *Askurious* (Version 2026.10.0) [Computer software]. RWTH Aachen University. https://github.com/askurious/askurious
+
+Releases are named by year and month (`2026.10.0`, see [docs/releases.md](docs/releases.md)); each one lists its changes on the [releases page](https://github.com/askurious/askurious/releases).
+
 ## Licence
 
 Copyright (c) 2026 RWTH Aachen University. Authors: Philipp Brauner, Ralf Philipsen.

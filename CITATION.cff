@@ -1,0 +1,32 @@
+# How to cite Askurious. GitHub shows this as "Cite this repository".
+# RWTH Aachen University holds the rights in the code (§ 69b UrhG) and licenses it under EUPL-1.2 (LICENSE, NOTICE).
+# The version is the release tag (docs/releases.md); this file names no version, so it stays right between releases.
+cff-version: 1.2.0
+message: >-
+  If you use Askurious in your research, please cite it as below and name the release you used
+  (for example 2026.10.0). RWTH Aachen University holds the rights in the software.
+type: software
+title: Askurious
+abstract: >-
+  Askurious is a web platform for planning, building, fielding and analysing surveys, live polls, interview guides
+  and diary studies in research and teaching.
+authors:
+  - given-names: Philipp
+    family-names: Brauner
+    affiliation: Chair of Communication Science, RWTH Aachen University
+  - given-names: Ralf
+    family-names: Philipsen
+    affiliation: Chair of Communication Science, RWTH Aachen University
+contact:
+  - given-names: Philipp
+    family-names: Brauner
+    email: brauner@comm.rwth-aachen.de
+    affiliation: Chair of Communication Science, RWTH Aachen University
+repository-code: "https://github.com/askurious/askurious"
+license: EUPL-1.2
+keywords:
+  - survey
+  - questionnaire
+  - research software
+  - conjoint analysis
+  - experience sampling

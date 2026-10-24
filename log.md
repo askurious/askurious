@@ -7239,3 +7239,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Nebenrepos: Conjoint-Import mit Größengrenzen und Fehlern für NaN/Infinity (conjointimport #10), Tagebuch-App mit App-Links für alle vier Adressen und Tageszähler per SQL (diary-android #40), Widget mit privatem Refresh und verschlüsselten Adressen (dashboard-android #3), GeekMagic nur noch HTTPS mit Zertifikatsprüfung und Veraltet-Bild (geekmagic #4).
 - Admins melden sich weiter per ORCID ohne lokalen zweiten Faktor an (Ralf, 2026-10-13, bestätigt 2026-10-24).
 - Rechtstexte: Datenschutzkonzept angepasst (Zähler der Schätzungen in rate_hit), sonst keine Änderung nötig.
+
+## 2026-10-24: Zitieren und Releases
+
+- `CITATION.cff` (Philipp Brauner, Ralf Philipsen; Rechte bei der RWTH Aachen University, EUPL-1.2), README-Abschnitt „How to cite“ mit APA-Beispiel.
+- `docs/releases.md`: Plattform nach Kalender `JJJJ.MM.N` (Tag ohne `v`), Tag nur auf einem Commit von `main`, der mit `--full` grün lief und auf dem RWTH-Server läuft; Release-Notes aus log.md mit Migrationsstand und Version der Nutzungsbedingungen. Tagebuch-App und Module bleiben bei SemVer. Zenodo folgt später (Ralf, 2026-10-24).
+- Rechtstexte geprüft, keine Änderung nötig.
