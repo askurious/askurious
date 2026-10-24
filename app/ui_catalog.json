@@ -18074,5 +18074,79 @@
   "nl": "geplaatst",
   "pt": "colocado",
   "ar": "تم وضعه"
+ },
+ "The place search is unavailable right now. Please try again or use the map.": {
+  "es": "La búsqueda de lugares no está disponible en este momento. Inténtelo de nuevo o utilice el mapa.",
+  "fr": "La recherche de lieux est indisponible pour le moment. Veuillez réessayer ou utiliser la carte.",
+  "it": "La ricerca dei luoghi non è disponibile al momento. Riprovi o usi la mappa.",
+  "pl": "Wyszukiwanie miejsc jest teraz niedostępne. Spróbuj ponownie lub użyj mapy.",
+  "ru": "Поиск мест сейчас недоступен. Попробуйте ещё раз или воспользуйтесь картой.",
+  "tr": "Yer arama şu anda kullanılamıyor. Lütfen tekrar deneyin veya haritayı kullanın.",
+  "zh-Hans": "地点搜索当前不可用。请重试或直接使用地图。",
+  "nl": "Het zoeken naar plaatsen is op dit moment niet beschikbaar. Probeer het opnieuw of gebruik de kaart.",
+  "pt": "A pesquisa de locais não está disponível neste momento. Tente novamente ou utilize o mapa.",
+  "ar": "البحث عن الأماكن غير متاح حاليًا. يُرجى المحاولة مرة أخرى أو استخدام الخريطة."
+ },
+ "Places found: {n}": {
+  "es": "Lugares encontrados: {n}",
+  "fr": "Lieux trouvés : {n}",
+  "it": "Luoghi trovati: {n}",
+  "pl": "Znalezione miejsca: {n}",
+  "ru": "Найдено мест: {n}",
+  "tr": "Bulunan yerler: {n}",
+  "zh-Hans": "找到的地点：{n}",
+  "nl": "Gevonden plaatsen: {n}",
+  "pt": "Locais encontrados: {n}",
+  "ar": "الأماكن التي عُثر عليها: {n}"
+ },
+ "Searching …": {
+  "es": "Buscando …",
+  "fr": "Recherche en cours …",
+  "it": "Ricerca in corso …",
+  "pl": "Wyszukiwanie …",
+  "ru": "Идёт поиск …",
+  "tr": "Aranıyor …",
+  "zh-Hans": "正在搜索……",
+  "nl": "Bezig met zoeken …",
+  "pt": "A pesquisar …",
+  "ar": "جارٍ البحث …"
+ },
+ "Not sent yet: the server did not answer just now. You can go on; your answers stay in this tab and are sent later. Please keep the tab open until everything is sent.": {
+  "es": "Aún no enviado: el servidor no ha respondido en este momento. Puede continuar; sus respuestas se quedan en esta pestaña y se enviarán más tarde. Mantenga la pestaña abierta hasta que se haya enviado todo.",
+  "fr": "Pas encore envoyé : le serveur n’a pas répondu pour le moment. Vous pouvez continuer ; vos réponses restent dans cet onglet et seront envoyées plus tard. Veuillez garder l’onglet ouvert jusqu’à ce que tout soit envoyé.",
+  "it": "Non ancora inviato: il server non ha risposto in questo momento. Può continuare; le Sue risposte restano in questa scheda e verranno inviate più tardi. Tenga aperta la scheda finché tutto non è stato inviato.",
+  "pl": "Jeszcze nie wysłano: serwer w tej chwili nie odpowiedział. Możesz kontynuować; Twoje odpowiedzi pozostają w tej karcie i zostaną wysłane później. Nie zamykaj karty, dopóki wszystko nie zostanie wysłane.",
+  "ru": "Ещё не отправлено: сервер сейчас не ответил. Вы можете продолжать; ваши ответы остаются в этой вкладке и будут отправлены позже. Пожалуйста, не закрывайте вкладку, пока всё не будет отправлено.",
+  "tr": "Henüz gönderilmedi: sunucu şu anda yanıt vermedi. Devam edebilirsiniz; yanıtlarınız bu sekmede kalır ve daha sonra gönderilir. Lütfen her şey gönderilene kadar sekmeyi açık tutun.",
+  "zh-Hans": "尚未发送：服务器刚才没有响应。您可以继续作答；您的回答保留在此标签页中，稍后会自动发送。请在全部发送完成前保持此标签页打开。",
+  "nl": "Nog niet verzonden: de server reageerde zojuist niet. U kunt doorgaan; uw antwoorden blijven in dit tabblad en worden later verzonden. Houd het tabblad open tot alles is verzonden.",
+  "pt": "Ainda não enviado: o servidor não respondeu neste momento. Pode continuar; as suas respostas ficam neste separador e serão enviadas mais tarde. Mantenha o separador aberto até tudo ser enviado.",
+  "ar": "لم يُرسَل بعد: لم يستجب الخادم الآن. يمكنك المتابعة؛ تبقى إجاباتك في علامة التبويب هذه وستُرسَل لاحقًا. يُرجى إبقاء علامة التبويب مفتوحة حتى يُرسَل كل شيء.",
+  "de-du": "Noch nicht übertragen: Der Server hat gerade nicht geantwortet. Du kannst weitermachen; deine Antworten bleiben in diesem Tab und werden nachgesendet. Bitte lass den Tab geöffnet, bis alles übertragen ist."
+ },
+ "Not sent yet. This browser cannot keep the answers for later; they go along with the last page. Please keep the tab open until then.": {
+  "es": "Aún no enviado. Este navegador no puede guardar las respuestas para más tarde; se enviarán con la última página. Mantenga la pestaña abierta hasta entonces.",
+  "fr": "Pas encore envoyé. Ce navigateur ne peut pas conserver les réponses pour plus tard ; elles partiront avec la dernière page. Veuillez garder l’onglet ouvert jusque-là.",
+  "it": "Non ancora inviato. Questo browser non può conservare le risposte per dopo; verranno inviate con l’ultima pagina. Tenga aperta la scheda fino ad allora.",
+  "pl": "Jeszcze nie wysłano. Ta przeglądarka nie może przechować odpowiedzi na później; zostaną wysłane razem z ostatnią stroną. Do tego czasu nie zamykaj karty.",
+  "ru": "Ещё не отправлено. Этот браузер не может сохранить ответы на потом; они будут отправлены вместе с последней страницей. Пожалуйста, не закрывайте вкладку до этого момента.",
+  "tr": "Henüz gönderilmedi. Bu tarayıcı yanıtları sonrası için saklayamıyor; yanıtlar son sayfayla birlikte gönderilecek. Lütfen o zamana kadar sekmeyi açık tutun.",
+  "zh-Hans": "尚未发送。此浏览器无法暂存回答；它们将随最后一页一起发送。在此之前请保持此标签页打开。",
+  "nl": "Nog niet verzonden. Deze browser kan de antwoorden niet bewaren voor later; ze gaan mee met de laatste pagina. Houd het tabblad tot dan open.",
+  "pt": "Ainda não enviado. Este navegador não consegue guardar as respostas para mais tarde; serão enviadas com a última página. Mantenha o separador aberto até lá.",
+  "ar": "لم يُرسَل بعد. لا يستطيع هذا المتصفح حفظ الإجابات لوقت لاحق؛ ستُرسَل مع الصفحة الأخيرة. يُرجى إبقاء علامة التبويب مفتوحة حتى ذلك الحين.",
+  "de-du": "Noch nicht übertragen. Dieser Browser kann die Antworten nicht zwischenspeichern; sie gehen mit der letzten Seite mit. Bitte lass den Tab bis dahin geöffnet."
+ },
+ "All answers have been sent.": {
+  "es": "Todas las respuestas se han enviado.",
+  "fr": "Toutes les réponses ont été envoyées.",
+  "it": "Tutte le risposte sono state inviate.",
+  "pl": "Wszystkie odpowiedzi zostały wysłane.",
+  "ru": "Все ответы отправлены.",
+  "tr": "Tüm yanıtlar gönderildi.",
+  "zh-Hans": "所有回答均已发送。",
+  "nl": "Alle antwoorden zijn verzonden.",
+  "pt": "Todas as respostas foram enviadas.",
+  "ar": "أُرسلت جميع الإجابات."
  }
 }

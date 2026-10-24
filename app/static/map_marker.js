@@ -49,7 +49,20 @@
     if (!bar || !url) return;
     var input = bar.querySelector("[data-map-query]"), go = bar.querySelector("[data-map-go]");
     bar.hidden = false;
+    // what the search did, for screen readers: "Suche läuft", the number of places, or the failure (WCAG 4.1.3)
+    var said = document.createElement("span");
+    said.setAttribute("role", "status");
+    said.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
+    bar.appendChild(said);
+    function failed() {
+      list.innerHTML = "";
+      list.appendChild(el("li", { class: "p-map-empty" }, uiT("Die Ortssuche ist gerade nicht erreichbar. Bitte erneut versuchen oder die Karte verwenden.",
+                                                              "The place search is unavailable right now. Please try again or use the map.")));
+      list.hidden = false;
+      said.textContent = list.firstChild.textContent;
+    }
     function show(results) {
+      said.textContent = results.length ? uiT("Gefundene Orte: {n}", "Places found: {n}", { n: results.length }) : uiT("Nichts gefunden.", "Nothing found.");
       list.innerHTML = "";
       if (!results.length) list.appendChild(el("li", { class: "p-map-empty" }, uiT("Nichts gefunden.", "Nothing found.")));
       results.forEach(function (r) {
@@ -76,11 +89,19 @@
         lastSearch = Date.now();
         var u = url + (url.indexOf("?") < 0 ? "?" : "&") + "format=jsonv2&limit=5&q=" + encodeURIComponent(q)
           + "&accept-language=" + encodeURIComponent(document.documentElement.lang || "de");
-        fetch(u, { headers: { Accept: "application/json" } })
-          .then(function (r) { return r.ok ? r.json() : []; })
-          .then(function (results) { if (results.length === 1) pick(results[0]); else show(results || []); })
-          .catch(function () { list.innerHTML = ""; list.appendChild(el("li", { class: "p-map-empty" }, uiT("Suche gerade nicht erreichbar.", "Search is unavailable right now."))); list.hidden = false; })
-          .then(function () { setTimeout(function () { go.disabled = false; }, Math.max(0, lastSearch + 1000 - Date.now())); });
+        // a failing service (429, 503 ...) is not "nothing found"; a hanging one ends after 10 s, and the button
+        // comes back either way
+        var ctrl = window.AbortController ? new AbortController() : null;
+        var limit = setTimeout(function () { if (ctrl) ctrl.abort(); }, 10000);
+        said.textContent = uiT("Suche läuft …", "Searching …");
+        fetch(u, { headers: { Accept: "application/json" }, signal: ctrl ? ctrl.signal : undefined })
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .then(function (results) {
+            results = Array.isArray(results) ? results : [];
+            if (results.length === 1) { said.textContent = uiT("Gefundene Orte: {n}", "Places found: {n}", { n: 1 }); pick(results[0]); } else show(results);
+          })
+          .catch(failed)
+          .then(function () { clearTimeout(limit); setTimeout(function () { go.disabled = false; }, Math.max(0, lastSearch + 1000 - Date.now())); });
       }, wait);
     }
     go.addEventListener("click", search);

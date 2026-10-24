@@ -30,9 +30,11 @@ function uiPercent(share) {
 }
 
 // An action sent in the background (drag and drop in the editor and in the flow) did not work: say so where
-// messages appear, instead of leaving the page as if nothing had been tried. status 0: no connection.
-function actionFailed(status) {
-  var text = pageError((status ? de_en("Das Verschieben wurde nicht übernommen (Fehler " + status + ").", "The move was not applied (error " + status + ").")
+// messages appear, instead of leaving the page as if nothing had been tried. status 0: no connection. what: the
+// sentence for another action than moving ("Der Stern wurde nicht gespeichert.").
+function actionFailed(status, what) {
+  var text = pageError((what ? what + (status ? " " + de_en("(Fehler " + status + ").", "(error " + status + ").") : " " + de_en("Keine Verbindung zum Server.", "No connection to the server."))
+                        : status ? de_en("Das Verschieben wurde nicht übernommen (Fehler " + status + ").", "The move was not applied (error " + status + ").")
                                : de_en("Keine Verbindung zum Server: Das Verschieben wurde nicht übernommen.", "No connection to the server: the move was not applied.")) +
     de_en(" Die Seite zeigt möglicherweise nicht mehr den gespeicherten Stand. ", " The page may no longer show the saved state. "));
   if (!text) return;
@@ -243,6 +245,33 @@ function saveHeadSummary(list) {  // list: the sources in the order of the page 
 }
 // end of the rules of the save head
 function saveClock() { return new Date().toLocaleTimeString(de_en("de-DE", "en-GB"), { hour: "2-digit", minute: "2-digit" }); }
+
+// Something fetched in the background did not arrive (a status, a live view, a preview): one line after its box says
+// so with the time of the last state that did arrive and "Erneut abrufen", instead of a bar that stands still or old
+// data that look current. stale(box, text, retry) shows or updates it; stale(box) takes it away once data arrive again.
+// A preview (iframe) gets the line above it: under a long preview it would stand out of sight.
+function stale(box, text, retry) {
+  var above = box.tagName === "IFRAME", near = above ? box.previousElementSibling : box.nextElementSibling;
+  var note = near && near.matches("[data-stale-note]") ? near : null;
+  if (!text) { if (note) note.remove(); box.classList.remove("is-stale"); return; }
+  if (!note) {
+    note = document.createElement("p");
+    note.className = "stale-note small";
+    note.setAttribute("role", "status");
+    note.setAttribute("data-stale-note", "");
+    if (above) box.before(note); else box.after(note);
+  }
+  box.classList.add("is-stale");
+  note.textContent = text + " ";
+  if (retry) {
+    var again = document.createElement("button");
+    again.type = "button";
+    again.className = "link-button";
+    again.textContent = de_en("Erneut abrufen", "Fetch again");
+    again.addEventListener("click", function () { note.textContent = de_en("Wird abgerufen …", "Fetching …"); retry(); });
+    note.appendChild(again);
+  }
+}
 function saveState() { return false; }  // a page without the head (outside a survey); below: with it
 (function () {
   var head = document.querySelector("[data-autosave-head]");
@@ -1776,7 +1805,7 @@ document.querySelectorAll("[data-cond-page]").forEach(function (page) {
         btn.title = data.starred ? de_en("Favorit: Steht in dieser Liste. Klicken entfernt den Stern.", "Favourite: listed here. A click removes the star.")
                                  : de_en("Als Favorit merken: Steht dann in dieser Liste", "Mark as favourite: it is then listed here");
       })
-      .catch(function () { btn.disabled = false; actionFailed(0); });
+      .catch(function (err) { btn.disabled = false; actionFailed(parseInt(err && err.message, 10) || 0, de_en("Der Stern wurde nicht gespeichert.", "The star was not saved.")); });
   });
   function searchConstructs(q, now) {
     clearTimeout(timer);
@@ -3514,9 +3543,11 @@ document.addEventListener("dragenter", function (e) {
   function refresh() {
     var mine = ++seq;
     fetch(frame.dataset.liveUrl, { method: "POST", body: new FormData(form), headers: { "X-Requested-With": "fetch" } })
-      .then(function (r) { return r.ok ? r.text() : null; })
-      .then(function (html) { if (html && mine === seq) frame.srcdoc = html; })
-      .catch(function () { /* keep the last preview */ });
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (html) { if (mine !== seq) return; stale(frame); if (html) frame.srcdoc = html; })
+      .catch(function () {  // keep the last preview, but say it is not the current state of the form
+        if (mine === seq) stale(frame, de_en("Die Vorschau ist nicht aktuell: Der Server hat nicht geantwortet.", "The preview is not current: the server did not answer."), refresh);
+      });
   }
   function changed(e) {
     if (e.target.type === "file" || e.target.closest("[data-no-live]")) return;
@@ -4098,8 +4129,15 @@ document.addEventListener("change", function (e) {
                      style: "fill-opacity:" + (0.08 + 0.92 * fresh).toFixed(2) });
     });
   }
+  var seen = null;  // the time of the last state that arrived; a failure keeps the picture and says how old it is
   function load() {
-    fetch(box.dataset.url, { headers: { Accept: "application/json" } }).then(function (r) { return r.json(); }).then(draw).catch(function () {});
+    fetch(box.dataset.url, { headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) { seen = saveClock(); stale(box); draw(d); })
+      .catch(function () {
+        stale(box, seen ? de_en("Aktualisierung unterbrochen, das Bild zeigt den Stand von " + seen + ".", "Update interrupted; the picture shows the state of " + seen + ".")
+                        : de_en("Wer gerade in der Befragung ist, konnte nicht geladen werden.", "Who is in the survey right now could not be loaded."), load);
+      });
   }
   load();
   setInterval(function () { if (!document.hidden) load(); }, 30000);
@@ -4981,27 +5019,39 @@ document.addEventListener("change", function (e) {
   // when it has ended the page loads again (its results are kept, so that is quick)
   document.querySelectorAll("[data-sem-running]").forEach(function (box) {
     var bar = box.querySelector("[data-bar]"), meter = box.querySelector("[role=progressbar]");
-    var text = box.querySelector("[data-status]"), failed = 0;
+    var text = box.querySelector("[data-status]"), failed = 0, seen = saveClock();
     (function poll() {
       fetch(box.getAttribute("data-url"), { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } })
         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(function (d) {
-          failed = 0;
+          failed = 0; seen = saveClock(); stale(box);
           if (d.state !== "running") { window.location.reload(); return; }
           var pct = Math.round(d.progress * 100);
           bar.style.width = pct + "%"; meter.setAttribute("aria-valuenow", pct);
           if (text) text.textContent = pct + de_en(" %", "%");
           setTimeout(poll, 2000);
         })
-        .catch(function () { if (++failed < 5) setTimeout(poll, 4000); });
+        .catch(function () {
+          if (++failed < 5) { setTimeout(poll, 4000); return; }
+          // the estimate goes on on the server; only its status did not come: say so and let it be fetched again
+          stale(box, de_en("Der Stand kommt gerade nicht an (zuletzt " + seen + "). Die Schätzung läuft auf dem Server weiter.",
+                           "The status is not coming through right now (last " + seen + "). The estimate goes on on the server."),
+                function () { failed = 0; poll(); });
+        });
     })();
   });
   // "Stand gegen die Poweranalyse" on the page "Datenerhebung" (PA4): fetched after the page
+  // an empty answer means there is nothing to compare (the box goes); a failure says so instead of vanishing
   document.querySelectorAll("[data-power-progress]").forEach(function (box) {
-    fetch(box.getAttribute("data-power-progress"), { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
-      .then(function (r) { return r.ok ? r.text() : ""; })
-      .then(function (html) { if (html.trim()) { box.innerHTML = html; box.removeAttribute("aria-busy"); } else box.remove(); })
-      .catch(function () { box.remove(); });
+    (function load() {
+      fetch(box.getAttribute("data-power-progress"), { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+        .then(function (html) { stale(box); if (html.trim()) { box.innerHTML = html; box.removeAttribute("aria-busy"); } else box.remove(); })
+        .catch(function () {
+          box.removeAttribute("aria-busy");
+          stale(box, de_en("Der Stand gegen die Poweranalyse konnte nicht geladen werden.", "The progress against the power analysis could not be loaded."), load);
+        });
+    })();
   });
   // "verwertbar" in the table of links per value (concept "Werbelinks", 2026-10-08): fetched after the page, since
   // it reads the quality assurance
@@ -6457,10 +6507,41 @@ document.addEventListener("keydown", function (e) {
         return r.json();
       });
   }
+  // a step in the box that did not work: said on its card, inside the open dialog (the page behind it is inert), with
+  // what was tried and why; "Erneut versuchen" where the server answered with a failure of its own (5xx), so nothing
+  // happened. Without an answer at all the step may have arrived: the page loads anew on closing and shows the real state.
+  function failed(card, what, err, again) {
+    var status = parseInt(err && err.message, 10) || 0;
+    changed = true;
+    var note = card.querySelector("[data-box-error]");
+    if (!note) {
+      note = document.createElement("p");
+      note.className = "cbox-error small";
+      note.setAttribute("role", "alert");
+      note.setAttribute("data-box-error", "");
+      card.appendChild(note);
+    }
+    var why = status === 0 ? de_en(" Keine Antwort vom Server; nach dem Schließen zeigt die Seite den gespeicherten Stand.", " No answer from the server; after closing, the page shows the saved state.")
+      : status === 401 || status === 403 ? de_en(" Sie sind nicht mehr angemeldet oder dürfen das nicht. Bitte die Seite neu laden.", " You are no longer signed in or may not do this. Please reload the page.")
+      : status === 409 ? de_en(" Die Befragung wurde inzwischen geändert. Bitte die Seite neu laden.", " The survey has changed in the meantime. Please reload the page.")
+      : " " + de_en("(Fehler " + status + ").", "(error " + status + ").");
+    note.textContent = what + why;
+    if (status >= 500 && again) {
+      var retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "link-button";
+      retry.textContent = de_en("Erneut versuchen", "Try again");
+      retry.addEventListener("click", function () { note.remove(); again.click(); again.focus(); });
+      note.appendChild(document.createTextNode(" "));
+      note.appendChild(retry);
+    }
+  }
   content.addEventListener("click", function (e) {
     var insert = e.target.closest("[data-box-insert]"), keep = e.target.closest("[data-box-keep]");
     var star = e.target.closest("[data-box-star]"), undoBtn = e.target.closest("[data-box-undo]");
     var card = e.target.closest(".cbox-card"), done = card && card.querySelector("[data-box-done]");
+    var old = card && card.querySelector("[data-box-error]");
+    if (old && (insert || keep || star || undoBtn)) old.remove();
     if (insert && target) {
       insert.disabled = true;
       post(target.value, { type: insert.dataset.boxInsert, box: "1" }).then(function (d) {
@@ -6470,12 +6551,12 @@ document.addEventListener("keydown", function (e) {
         done.innerHTML = "✓ " + esc(de_en("in „" + d.block + "“ eingefügt", "inserted into “" + d.block + "”")) +
           (d.undo_id ? ' · <button type="button" class="link-button" data-box-undo="' + d.undo_id + '">' + de_en("Rückgängig", "Undo") + "</button>" : "");
         if (d.note) done.insertAdjacentHTML("beforeend", '<span class="muted"> ' + esc(d.note) + "</span>");
-      }).catch(function () { insert.disabled = false; actionFailed(0); });
+      }).catch(function (err) { insert.disabled = false; failed(card, de_en("Das Konstrukt wurde nicht eingefügt.", "The construct was not inserted."), err, insert); });
     } else if (undoBtn) {
       undoBtn.disabled = true;
       post(box.dataset.undoUrl, { only: undoBtn.dataset.boxUndo }).then(function (d) {
         done.textContent = d.done ? de_en("Zurückgenommen.", "Undone.") : de_en("Nicht mehr der letzte Schritt: bitte im Editor zurücknehmen.", "No longer the last step: please undo it in the editor.");
-      }).catch(function () { undoBtn.disabled = false; actionFailed(0); });
+      }).catch(function (err) { undoBtn.disabled = false; failed(card, de_en("Das Zurücknehmen hat nicht geklappt.", "Undoing did not work."), err, undoBtn); });
     } else if (keep) {
       keep.disabled = true;
       post(box.dataset.keepUrl, { action: "add", key: keep.dataset.boxKeep, json: "1" }).then(function (d) {
@@ -6483,14 +6564,14 @@ document.addEventListener("keydown", function (e) {
         done.hidden = false;
         done.textContent = d.done ? "✓ " + de_en("in die Liste aufgenommen", "added to the list") : de_en("Nicht aufgenommen: Die Liste ist voll.", "Not added: the list is full.");
         keep.hidden = true;
-      }).catch(function () { keep.disabled = false; actionFailed(0); });
+      }).catch(function (err) { keep.disabled = false; failed(card, de_en("Das Konstrukt wurde nicht in die Liste aufgenommen.", "The construct was not added to the list."), err, keep); });
     } else if (star) {
       star.disabled = true;
       post(star.dataset.boxStar, { json: "1", survey: box.dataset.survey || "" }).then(function (d) {
         changed = true;
         star.disabled = false;
         star.setAttribute("aria-pressed", d.starred ? "true" : "false");
-      }).catch(function () { star.disabled = false; actionFailed(0); });
+      }).catch(function (err) { star.disabled = false; failed(card, de_en("Der Stern wurde nicht gespeichert.", "The star was not saved."), err, star); });
     }
   });
 })();

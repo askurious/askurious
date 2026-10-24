@@ -36,7 +36,9 @@
      the new page (live region) and keeps what cannot be sent yet (data-block-note) #}
   <p class="p-sr-only" data-bpage-live aria-live="polite"></p>
   {% for section in block_sections %}{{ section }}{% endfor %}
-  <div class="p-send-note" data-block-note aria-live="polite" data-offline="{{ ui('Keine Verbindung zum Internet. Ihre Antworten bleiben in diesem Tab und werden nachgesendet, sobald Sie wieder online sind.', 'No internet connection. Your answers stay in this tab and are sent as soon as you are back online.') }}"></div>
+  <div class="p-send-note" data-block-note aria-live="polite" data-offline="{{ ui('Keine Verbindung zum Internet. Ihre Antworten bleiben in diesem Tab und werden nachgesendet, sobald Sie wieder online sind.', 'No internet connection. Your answers stay in this tab and are sent as soon as you are back online.') }}" data-unsent="{{ ui('Noch nicht übertragen: Der Server hat gerade nicht geantwortet. Sie können weitermachen; Ihre Antworten bleiben in diesem Tab und werden nachgesendet. Bitte lassen Sie den Tab geöffnet, bis alles übertragen ist.', 'Not sent yet: the server did not answer just now. You can go on; your answers stay in this tab and are sent later. Please keep the tab open until everything is sent.') }}"
+       data-nostore="{{ ui('Noch nicht übertragen. Dieser Browser kann die Antworten nicht zwischenspeichern; sie gehen mit der letzten Seite mit. Bitte lassen Sie den Tab bis dahin geöffnet.', 'Not sent yet. This browser cannot keep the answers for later; they go along with the last page. Please keep the tab open until then.') }}"
+       data-sent="{{ ui('Alle Antworten sind übertragen.', 'All answers have been sent.') }}"></div>
   {% else %}
   {% if nudge_shown %}<input type="hidden" name="nudge_ack" value="1">{% endif %}
   {# not for people: out of sight, out of the tab order, hidden from screen readers (app/quality.py, TRAP_FIELD) #}
