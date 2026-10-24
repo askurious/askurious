@@ -254,16 +254,17 @@ def reopen_expired(orcid):
     return False
 
 
-def course_way(link, group):
-    """A course without mail: whoever has the link creates an account with e-mail address and password here
-    (konzept-nutzertypen-2026-10-15.md, N14). With mail on, the address is confirmed by an invitation instead."""
+def password_way(link, group):
+    """Without mail, whoever has the link creates an account with e-mail address and password here: first for courses
+    (konzept-nutzertypen-2026-10-15.md, N14), since 2026-10-24 for every group link, so a person without ORCID can
+    join (Ralf). With mail on, the address is confirmed by an invitation instead."""
     from app import mail
 
-    return group.account_type_id is not None and link.role == "member" and not mail.enabled()
+    return not mail.enabled()
 
 
 def _create_with_password(link, group):
-    """The account of the course way: (response, None) or (None, message)."""
+    """The account made on the link's page: (response, None) or (None, message)."""
     from app import account_types, accounts, auth, passwords
 
     name = " ".join(request.form.get("name", "").split())[:200]
@@ -277,6 +278,12 @@ def _create_with_password(link, group):
         error = de_en("Die beiden Eingaben stimmen nicht überein.", "The two entries do not match.")
     if error:
         return None, error
+    from app import orgs
+
+    if orgs.accounts_left(orgs.get(orgs.of(group))) == 0:  # the account's home would be the group's organisation
+        return None, de_en("Diese Organisation hat keine freien Konten mehr. Bitte wenden Sie sich an die Leitung der "
+                           "Gruppe.", "This organisation has no free accounts left. Please contact the lead of the "
+                           "group.")
     if not accounts.email_free(email):
         # without mail no confirmation can stand in for the answer, so it says no more than needed and counts as a try
         # that led nowhere: whoever holds the link cannot ask address after address (audit 2026-10-18, AUTH-5)
@@ -352,7 +359,7 @@ def page(token):
     elif request.method == "POST" and request.form.get("way") == "orcid":
         session[SESSION_KEY] = {"box": secrets_box.encrypt(token), "at": time.time()}
         return redirect(url_for("auth.login"))
-    elif request.method == "POST" and request.form.get("way") == "password" and course_way(link, group):
+    elif request.method == "POST" and request.form.get("way") == "password" and password_way(link, group):
         done, said = _create_with_password(link, group)
         if done is not None:
             return done
@@ -380,7 +387,8 @@ def page(token):
     return _no_store(render_template("joinlinks/join.html", link=link, group=group, leads=leads, token=token,
                                      orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID")),
                                      by_mail=mail.enabled() and link.role == "member",
-                                     by_password=course_way(link, group), min_length=passwords.MIN_LENGTH,
+                                     by_password=password_way(link, group),
+                                     course=group.account_type_id is not None, min_length=passwords.MIN_LENGTH,
                                      form=request.form if request.method == "POST" else {}))
 
 
