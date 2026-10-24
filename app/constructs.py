@@ -57,7 +57,7 @@ ZIS = frozenset({"bfi10", "asku", "ie4", "kusiv3", "i8", "nfck", "tb", "r1", "au
 # the licence lets anyone pass it on (the RatSWD standard questions, CC BY 4.0, ratswd.KEYS) and Askurious' own
 # wordings. Everything else (GESIS/ZIS, journal articles, APA PsycTests, constructs submitted by researchers) shows
 # its source instead. PERMISSION_REQUIRED also applies to signed-in researchers.
-OWN_WORDING = {"age", "sorgfalt", "kamb", "fitai", "kuk"}  # kamb, fitai, kuk: CC BY 4.0 (Ralf, 2026-10-16)
+OWN_WORDING = {"age", "sorgfalt", "kamb", "fitai"}  # kamb, fitai: CC BY 4.0 (Ralf, 2026-10-16); kuk: see INSTRUMENTS
 
 
 def permission_notice():
@@ -293,6 +293,12 @@ LIKELY7 = {
 GDMS_STYLES = ["Rational", "Intuitive", "Dependent", "Avoidant", "Spontaneous"]
 
 
+def _agreement6():
+    from app.items.likert import AGREEMENT
+
+    return {"de": AGREEMENT["de"][6], "en": AGREEMENT["en"][6]}
+
+
 def _agreement7():
     from app.items.likert import AGREEMENT
 
@@ -340,6 +346,10 @@ INSTRUMENTS = {
     "tam_pu": ("PU", 7, LIKELY7, "full", _items(*[(None, False)] * 6)),
     "tam_peou": ("PEOU", 7, LIKELY7, "full", _items(*[(None, False)] * 6)),
     "tam_bi": ("BI", 7, _agreement7, "full", _items((None, False), (None, False))),
+    # KUK (Wittland, Brauner & Ziefle, 2015): the wording is printed in a chapter © 2015 IFIP without an open licence,
+    # so it is no longer in the public code but in the installation's wordings (Ralf, 2026-10-24, licence audit O2)
+    "kuk": ("KUK", 6, _agreement6, "full", _items(*((None, r) for r in (True, False, False, False, True, False, False,
+                                                                        False, True, False)))),
     # GDMS (Scott & Bruce, 1995): 25 items, styles in turn; English only
     "gdms": ("GDMS", 5, {"en": ["strongly disagree", "2", "3", "4", "strongly agree"]}, "endpoints",
              _items(*((GDMS_STYLES[n % 5], False) for n in range(25)))),
@@ -396,7 +406,7 @@ def _instrument(key):
 
 TAM_CITATION = ("Davis, F. D. (1989). Perceived usefulness, perceived ease of use, and user acceptance of information "
                 "technology. MIS Quarterly, 13(3), 319–340.")
-# own instruments the authors released under CC BY 4.0 (Ralf, 2026-10-16: KAMB, FITAI, KUK)
+# own instruments the authors released under CC BY 4.0 (Ralf, 2026-10-16: KAMB, FITAI)
 CC_BY_TERMS = ("Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar und anpassbar mit "
                "Quellenangabe und Hinweis auf Änderungen. ")
 CC_BY_TERMS_EN = ("Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use and adapt with "
@@ -442,31 +452,6 @@ def _kamb_spec():
         {"subscale": A, "de": ("negativ", "positiv"), "en": ("negative", "positive")},
         {"subscale": K, "reverse": True, "de": ("neutral", "parteiisch"), "en": ("neutral", "biased")},
         {"subscale": A, "de": ("langweilig", "interessant"), "en": ("boring", "interesting")},
-    ])
-
-
-def _kuk_spec():
-    # Wittland, Brauner & Ziefle (2015); English translated for Askurious and released as validated by the authors' group
-    from app.items.likert import AGREEMENT
-
-    return _scale("KUK", 6, {"de": AGREEMENT["de"][6], "en": AGREEMENT["en"][6]}, {
-        "de": "Sie als Koch: Nun möchten wir von Ihnen wissen, wie Sie sich persönlich als Koch einschätzen.",
-        "en": "You as a cook: We would now like to know how you personally rate yourself as a cook."}, [
-        {"reverse": True, "de": "Ich fühle mich beim Kochen hilflos überfordert.", "en": "I feel helplessly overwhelmed when cooking."},
-        {"de": "Ich bin bei uns zuhause der Chefkoch.", "en": "I am the head chef in our home."},
-        {"de": "Ich probiere gerne neue Gerichte aus, die ich vorher noch nie gekocht habe.",
-         "en": "I like to try out new dishes that I have never cooked before."},
-        {"de": "Ich koche leidenschaftlich gerne und habe viel Spaß dabei.", "en": "I am passionate about cooking and enjoy it a lot."},
-        {"reverse": True, "de": "Ich koche in der Regel altbewährte Rezepte, da ich weiß, dass sie mir gelingen.",
-         "en": "I usually cook tried-and-tested recipes because I know they will turn out well."},
-        {"de": "Ich werde häufig von anderen wegen meiner Kochkünste gelobt.", "en": "Others often praise me for my cooking skills."},
-        {"de": "Ich könnte ohne Schwierigkeiten für ein großes Familientreffen kochen.",
-         "en": "I could cook for a large family gathering without difficulty."},
-        {"de": "Ich kann Anderen beim Kochen noch etwas beibringen.", "en": "I can still teach others a thing or two about cooking."},
-        {"reverse": True, "de": "Ich koche lieber für mich alleine, da ich mich schäme, wenn es mal nicht gelingt.",
-         "en": "I prefer to cook just for myself because I am embarrassed when something does not turn out well."},
-        {"de": "Ich lerne beim Kochen gerne von Anderen und probiere es dann selber aus.",
-         "en": "I like to learn from others when cooking and then try it out myself."},
     ])
 
 
@@ -748,8 +733,10 @@ SEEDS = [
      "doi": "10.1007/978-3-319-22701-6_34",
      "scoring": "Skalenwert = Mittelwert der 10 Items (1 bis 6); die negativ formulierten Items 1, 5 und 9 sind im Export "
                 "bereits rekodiert, hohe Werte stehen also für hohe Kontrollüberzeugung beim Kochen.",
-     "notes": CC_BY_TERMS + "Englische Fassung: Übersetzung für Askurious, von den Autoren als Fassung der Skala freigegeben.",
-     "spec": _kuk_spec,
+     "notes": "Der Wortlaut steht im Kapitel der Quelle (© 2015 IFIP) und ist nicht frei lizenziert; er ist nur in "
+              "Installationen hinterlegt, die dazu berechtigt sind. Die Quelle ist immer anzugeben. Englische Fassung: "
+              "Übersetzung für Askurious, von den Autoren als Fassung der Skala freigegeben.",
+     "spec": _instrument("kuk"),
      "tags": ["status:validiert", "art:Selbstwirksamkeit", "thema:Kochen", "thema:Kontrollüberzeugung", "fach:Psychologie"]},
     {"key": "kamb", "seed_version": 2, "name": "Kognitive und Affektive Medienbewertungsskala", "status": "verified",
      "short": "8 Begriffspaare, 6 Stufen; affektive und kognitive Bewertung eines Medienbeitrags",
@@ -1016,7 +1003,9 @@ SEEDS_EN = {
                        "serious games for cognitive training in ambient assisted living.",
         "scoring": "Scale score = mean of the 10 items (1 to 6); the negatively worded items 1, 5 and 9 are already "
                    "recoded in the export, so high values stand for a strong sense of control in cooking.",
-        "notes": CC_BY_TERMS_EN + "English version: translation for Askurious, approved by the authors as a version of the scale."},
+        "notes": "The wording is printed in the chapter of the source (© 2015 IFIP) and is not openly licensed; only "
+                 "installations entitled to it hold it. Always cite the source. English version: translation for "
+                 "Askurious, approved by the authors as a version of the scale."},
     "kamb": {
         "name": "Cognitive and Affective Media Evaluation Scale",
         "short": "8 word pairs, 6 points; affective and cognitive evaluation of a media item",
