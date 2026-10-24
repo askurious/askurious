@@ -141,6 +141,9 @@ The terms below are the ones a social scientist or a student meets first.
 | usable participations | verwertbare Teilnahmen | completions that pass the quality rules and go into the analysis |
 | exclusions | Ausschlüsse | completions that the quality rules take out; break-offs are not completions |
 | end page | Endseite | what comes after the last page, e.g. with the deletion code |
+| screen-out | Screen-out | not part of the target group and ended early (panels: “Screen out”); explained under “What do the statuses mean?” at the ends of the flow |
+| quota full | Quote voll | part of the target group, but the quota of their group is already met (panels: “Quota full”) |
+| duplicate | Duplikat | has taken part already; nothing new is stored |
 | deletion code | Löschcode | a code a participant can use to delete their own answers later, also from another device |
 
 ### Analysing

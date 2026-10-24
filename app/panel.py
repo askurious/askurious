@@ -90,6 +90,36 @@ def outcomes():
     return {key: OUTCOMES[key] for key in OUTCOMES}
 
 
+def outcome_help():
+    """[(status, the word panels use, one sentence)] for the help "Was bedeuten die Status?" at the ends of the flow
+    and at the completion links (Ralf, 2026-10-24: newcomers do not know screen-out and the like), in the language of
+    the page. Every status of OUTCOMES, in their order."""
+    texts = {
+        "completed": ("Complete", de_en("bis zum Ende der Befragung gekommen; zählt als gültige Teilnahme.",
+                                        "reached the end of the survey; counts as a valid participation.")),
+        "screenout": ("Screen out", de_en("gehört nicht zur Zielgruppe, etwa wegen des Alters, und wird früh beendet. "
+                                          "Panels vergüten das meist geringer.",
+                                          "is not part of the target group, for instance because of age, and is ended "
+                                          "early. Panels usually pay less for it.")),
+        "quotafull": ("Quota full", de_en("gehört zur Zielgruppe, aber die Quote für die eigene Gruppe ist schon erfüllt. "
+                                          "„Teilquote voll“ prüft nur bestimmte Gruppen; „Keine Teilquote passt“ zählt "
+                                          "als Screen-out.",
+                                          "is part of the target group, but the quota for their group is already met. "
+                                          "“Sub-quota full” checks certain groups only; “No sub-quota fits” counts as a "
+                                          "screen-out.")),
+        "excluded": ("Quality", de_en("wegen der Datenqualität beendet, etwa nach einer nicht bestandenen "
+                                      "Aufmerksamkeitsprüfung.",
+                                      "ended because of data quality, for instance after a failed attention check.")),
+        "duplicate": ("Duplicate", de_en("hat schon teilgenommen; nichts Neues wird gespeichert.",
+                                         "has taken part already; nothing new is stored.")),
+        "declined": ("", de_en("hat der Einwilligung nicht zugestimmt; endet vor der ersten Frage.",
+                               "did not give consent; ends before the first question.")),
+        "closed": ("", de_en("kam, als die Befragung nicht mehr lief; endet vor der ersten Frage.",
+                             "came when the survey was no longer running; ends before the first question.")),
+    }
+    return [(OUTCOMES[key], texts[key][0], texts[key][1]) for key in OUTCOMES if key in texts]
+
+
 def config(survey):
     cfg = survey.panel or {}
     return {"params": cfg.get("params") or [], "redirects": cfg.get("redirects") or {}, "multi": bool(cfg.get("multi")),
