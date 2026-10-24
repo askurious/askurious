@@ -141,6 +141,9 @@ Hier stehen die, denen Sozialwissenschaftlerinnen, Sozialwissenschaftler und Stu
 | verwertbare Teilnahmen | usable participations | Abschlüsse, die die Qualitätsregeln bestehen und in die Auswertung gehen |
 | Ausschlüsse | exclusions | Abschlüsse, die die Qualitätsregeln herausnehmen; Abbrüche sind keine Abschlüsse |
 | Endseite | end page | was nach der letzten Seite kommt, z. B. mit dem Löschcode |
+| Screen-out | screen-out | gehört nicht zur Zielgruppe und wird früh beendet (im Panel „Screen out“); erklärt unter „Was bedeuten die Status?“ am Ende im Ablauf |
+| Quote voll | quota full | gehört zur Zielgruppe, aber die Quote der eigenen Gruppe ist schon erfüllt (im Panel „Quota full“) |
+| Duplikat | duplicate | hat schon teilgenommen; nichts Neues wird gespeichert |
 | Löschcode | deletion code | ein Code, mit dem Teilnehmende ihre eigenen Antworten später löschen können, auch von einem anderen Gerät |
 
 ### Auswerten

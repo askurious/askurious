@@ -159,6 +159,7 @@
       <p class="muted small">{{ de_en("Bei Auswahlfragen die Antworten ankreuzen (mehrere angekreuzt: Eine davon genügt), bei Zahlen und Datumsangaben „von … bis“ (nur „von“ heißt „ab“, nur „bis“ heißt „bis“; die Grenzen zählen mit). Eine Bedingung auf eine Quote gehört hinter deren Quotenberechnung.", "For choice questions, tick the answers (several ticked: one of them is enough); for numbers and dates, “from … to” (only “from” means “at least”, only “to” means “at most”; the limits count). A condition on a quota belongs after its quota calculation.") }}</p>
       {% elif node.t == "end" %}
       <p class="muted small">{{ de_en("Ein Ende hat einen oder mehrere Auslöser. Sie werden in dieser Reihenfolge geprüft: Der erste, der zutrifft, beendet die Teilnahme mit seinem Status, Text und Abschlusslink. Trifft keiner zu, läuft die Person an diesem Ende vorbei.", "An end has one or more triggers. They are checked in this order: the first that applies ends the participation with its status, text and completion link. If none applies, the person passes this end.") }}{% if end_cases(node, true)|length > 6 %} {{ de_en("Bei so vielen Auslösern sind die Karten zugeklappt: Ein Klick auf die Zeile öffnet sie.", "With this many triggers the cards are folded: a click on the line opens them.") }}{% endif %}</p>
+      {% include "surveys/_outcome_help.html" %}
       <div class="end-cases" data-cases>
         {% set found = end_cases(node, true) %}
         {% for case in found %}{{ case_card(loop.index0, case, found|length > 1, found|length > 6) }}{% endfor %}

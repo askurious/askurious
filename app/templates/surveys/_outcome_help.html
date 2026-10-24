@@ -1,0 +1,8 @@
+{# "Was bedeuten die Status?": one sentence per status with the word panels use (app/panel.py, outcome_help; Ralf,
+   2026-10-24). A help, so it opens as a popup (app.js, details.hint-more); used at the ends of the flow and at the
+   completion links. #}
+<details class="hint-more outcome-help"><summary>{{ de_en("Was bedeuten die Status?", "What do the statuses mean?") }}</summary>
+  {% for label, word, text in panel_outcome_help() %}
+  <p class="hint"><strong>{{ label|capitalize if label[:1].islower() else label }}</strong>{% if word %} <span class="muted">({{ de_en("im Panel „{w}“", "panels: “{w}”", w=word) }})</span>{% endif %}: {{ text }}</p>
+  {% endfor %}
+</details>

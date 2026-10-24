@@ -53,6 +53,7 @@
   </details>
   <fieldset>
     <legend>{{ de_en("Abschlusslinks", "Completion links") }} <span class="hint">{{ de_en("Weiterleitung am Ende, optional; die Knöpfe unter „Platzhalter einfügen“ setzen Teilnahme-ID, Sprache, Parameter und Befragung ein", "redirect at the end, optional; the buttons under “Insert placeholder” insert participation ID, language, parameters and survey") }}</span></legend>
+    {% include "surveys/_outcome_help.html" %}
     {{ link_chips(panel.link_chips(survey)) }}
     {# a line per outcome that has a link; "+ Abschlusslink" shows the line of another outcome, and the kind of
        forwarding only once a link is there (UI/UX audit 2026-10-05, V20; app.js: data-link-rows) #}

@@ -451,3 +451,19 @@ def test_translation_tab_only_with_more_than_one_language(app, client, survey):
         db.session.commit()
     assert "/translation" not in nav("/surveys/1/flow/")
     assert "/translation" in nav("/surveys/1/translation/")           # the page itself still names its tab
+
+
+def test_ends_and_completion_links_explain_the_statuses(client, survey):
+    """Ralf, 2026-10-24: newcomers do not know screen-out and the like. An end in the flow and the completion links
+    have the help "Was bedeuten die Status?" with one sentence per status and the word panels use."""
+    from app import panel
+
+    client.post(E + "/flow/add", data={"kind": "end"})
+    page = client.get("/surveys/1/flow/").data.decode()
+    assert page.count('class="hint-more outcome-help"') == 1 and "Was bedeuten die Status?" in page
+    for label, word, text in panel.outcome_help():
+        assert text.split(";")[0][:30] in page.replace("&#34;", '"'), label
+    assert "im Panel „Screen out“" in page and "im Panel „Quota full“" in page
+    assert len(panel.outcome_help()) == len(panel.OUTCOMES)
+    field = client.get("/surveys/1/field").data.decode()
+    assert "Was bedeuten die Status?" in field

@@ -434,6 +434,9 @@ def create_app(config_class=Config, server=False):
     from app import org_designs
 
     app.jinja_env.globals.update(org_designs_for=org_designs.for_user)
+    from app import panel as panel_mod
+
+    app.jinja_env.globals.update(panel_outcome_help=panel_mod.outcome_help)  # "Was bedeuten die Status?"
     from app import groups
 
     app.register_blueprint(groups.bp)
