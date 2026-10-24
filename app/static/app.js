@@ -5816,50 +5816,6 @@ document.querySelectorAll("[data-match-name]").forEach(function (input) {
   check();
 });
 
-// "Meine Befragungen": search and sort in the browser, shown once the cards reach below the window or a search is
-// typed (Ralf, 2026-10-05); pinned cards stay first; the sort is remembered in this browser
-(function () {
-  var find = document.querySelector("[data-dash-find]");
-  var list = document.querySelector("[data-dash-list]");  // one's own list, not the section of example surveys
-  if (!find || !list) return;
-  var search = find.querySelector("[data-dash-search]"), sort = find.querySelector("[data-dash-sort]");
-  var none = document.querySelector("[data-dash-none]"), count = document.querySelector("[data-dash-count]");
-  var cards = Array.prototype.slice.call(list.children);
-  cards.forEach(function (c, i) { c.dataset.order = i; });
-  function needed() {
-    if (!find.hidden) return;
-    if (list.getBoundingClientRect().bottom > window.innerHeight) find.hidden = false;
-  }
-  function apply() {
-    var q = search.value.trim().toLowerCase(), key = sort.value, shown = 0;
-    cards.forEach(function (c) {
-      // title, project, code, people and state only, never the labels of the buttons (UI audit W76)
-      var hit = !q || (c.dataset.search || "").indexOf(q) !== -1;
-      c.hidden = !hit;
-      if (hit) shown++;
-    });
-    if (none) none.hidden = shown > 0;
-    if (count) count.textContent = !q ? "" : shown === 1 ? de_en("1 Befragung gefunden", "1 survey found")
-      : de_en("{n} Befragungen gefunden", "{n} surveys found").replace("{n}", shown);
-    var sorted = cards.slice().sort(function (a, b) {
-      var p = (+b.dataset.pinned) - (+a.dataset.pinned);
-      if (p) return p;
-      if (key === "title") return a.dataset.title.localeCompare(b.dataset.title, "de");
-      if (key === "created") return (b.dataset.created || "").localeCompare(a.dataset.created || "");
-      if (key === "done") return (+b.dataset.done) - (+a.dataset.done) || (+a.dataset.order) - (+b.dataset.order);
-      return (+a.dataset.order) - (+b.dataset.order);
-    });
-    sorted.forEach(function (c) { list.appendChild(c); });
-  }
-  try { var kept = localStorage.getItem("dash-sort"); if (kept && sort.querySelector('option[value="' + kept + '"]')) { sort.value = kept; find.hidden = false; } } catch (e) {}
-  search.addEventListener("input", apply);
-  search.addEventListener("keydown", function (e) { if (e.key === "Escape") { search.value = ""; apply(); } });
-  sort.addEventListener("change", function () { try { localStorage.setItem("dash-sort", sort.value); } catch (e) {} apply(); });
-  window.addEventListener("resize", needed);
-  needed();
-  apply();
-})();
-
 // "Meine Befragungen": the section of example surveys stays as one left it, open or folded, in this browser; without
 // a choice the server decides (open while one has no survey of one's own; demo-befragungen-konzept.md, 2b)
 (function () {

@@ -221,6 +221,19 @@ def create_app(config_class=Config, server=False):
 
     app.get_send_file_max_age = _static_max_age
 
+    def _icon_sprite():
+        """The address of app/static/icons.svg with its ?v= (tools/icon_sprite.py), once per request: the icon()
+        macro of _icons.html points every icon there instead of drawing it inline (audit 2026-10-22, G-05)."""
+        from flask import has_request_context, url_for
+
+        if not has_request_context():
+            return app.static_url_path + "/icons.svg"
+        if "icon_sprite" not in g:
+            g.icon_sprite = url_for("static", filename="icons.svg")
+        return g.icon_sprite
+
+    app.jinja_env.globals["icon_sprite"] = _icon_sprite
+
     @app.after_request
     def _licence_as_text(response):
         """The licence files of the vendored code (static/vendor/*/LICENSE, LICENSE_CORE_JS, ...) have no extension:

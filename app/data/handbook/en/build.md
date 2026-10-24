@@ -14,7 +14,7 @@ It lists all surveys a person may open (their own and those shared with them or 
 Three buttons create the three kinds of survey: **+ Questionnaire**, **+ Interview guide**, **+ Live poll**.
 
 **Main controls.**
-Search, filter by kind and group, sort (last changed, title, last created, most participations), pin to the top, and quick links per survey (questionnaire, settings, results, export, duplicate, archive).
+Search, filter by kind and group, sort (last changed, title, last created, most participations) across all your surveys, pages of 10, 20 or 50 surveys, pin to the top, and quick links per survey (questionnaire, settings, results, export, duplicate, archive).
 
 **Why it looks like this.**
 The three kinds have fixed names everywhere (glossary: "Fragebogen, Interviewleitfaden, Live-Abstimmung"), so that a button, a label and a filter always mean the same thing.
