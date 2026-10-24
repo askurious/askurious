@@ -18062,5 +18062,17 @@
   "nl": "In de voorvertoning antwoordt de AI-assistent niet. Probeer de chat in een testronde.",
   "pt": "Na pré-visualização, o assistente de IA não responde. Experimente o chat num teste.",
   "ar": "لا يرد مساعد الذكاء الاصطناعي في المعاينة. جرّب المحادثة في تشغيل تجريبي."
+ },
+ "placed": {
+  "es": "colocado",
+  "fr": "placé",
+  "it": "posizionato",
+  "pl": "umieszczone",
+  "ru": "размещено",
+  "tr": "yerleştirildi",
+  "zh-Hans": "已放置",
+  "nl": "geplaatst",
+  "pt": "colocado",
+  "ar": "تم وضعه"
  }
 }
