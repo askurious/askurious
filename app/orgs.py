@@ -725,8 +725,9 @@ def _current_user():
 
 def place(thing, user=None):
     """Put a new survey, group, design, linked element or research project into the organisation of who makes it: the
-    one chosen on the start page, else the home (A6, A12). "main" stays empty."""
-    if getattr(thing, "org_id", None) is not None:
+    one chosen on the start page, else the home (A6, A12). "main" stays empty. A thing made for a chosen
+    organisation (put()) stays there, "main" included: its empty org_id is a choice, not a gap."""
+    if getattr(thing, "org_id", None) is not None or getattr(thing, "_org_chosen", False):
         return
     user = user or _current_user()
     if user is None or not getattr(user, "id", None):
@@ -734,6 +735,15 @@ def place(thing, user=None):
     target = for_new(user)
     if target is not None and target != default_id():
         thing.org_id = target
+
+
+def put(thing, org):
+    """A new thing made for this organisation (its management page): "main" stays empty, and place() does not move it
+    into the home of who makes it (Ralf 2026-10-24: groups made under Organisation > Gruppen of "main" landed in the
+    admin's home)."""
+    thing.org_id = None if org is None or org.key == MAIN else org.id
+    thing._org_chosen = True
+    return thing
 
 
 def _on_flush(session, context, instances):

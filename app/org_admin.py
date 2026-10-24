@@ -741,8 +741,8 @@ def groups_action(org_id):
         if user is not None and not orgs.is_member(user, org.id):
             flash(orgs.not_in_org(), "error")
             return back
-        group = WorkGroup(name=name, created_by_id=current_user.id, org_id=None if org.key == orgs.MAIN else org.id,
-                          may_create=org.may_create is not False and request.form.get("members_create") == "1")
+        may_create = org.may_create is not False and request.form.get("members_create") == "1"
+        group = orgs.put(WorkGroup(name=name, created_by_id=current_user.id, may_create=may_create), org)
         group.members.append(WorkGroupMember(user=person, role="lead",
                                              name=user.name if user else orgs.display_name(lead),
                                              invited_by_id=current_user.id))
