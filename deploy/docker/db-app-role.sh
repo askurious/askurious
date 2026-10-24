@@ -11,6 +11,13 @@
 #                              "docker compose exec db psql -U askurious" inside the container (backup.sh, restart.sh)
 #   ./db-app-role.sh --unlock  the superuser gets POSTGRES_PASSWORD back: before a rollback to code from before this
 #                              script (its compose.yaml signs in as "askurious")
+#   ./db-app-role.sh --new-install
+#                              a new server only (deploy-docker.sh NEW_ENV=1 wrote all names and passwords to the
+#                              .env; restart.sh runs this on its first start, on the still empty database): this owner
+#                              role, the runtime role "askurious_run" of isolation/runtime-role.sql and, when
+#                              PARTICIPANT_DB_USER is set, the participants' role "askurious_participant"
+#                              (participant-db-role.sh); then the superuser loses its network password as with --lock.
+#                              Refused on a database that holds anything already.
 #
 # The official postgres image makes POSTGRES_USER ("askurious") the cluster's first superuser, which PostgreSQL never
 # lets lose that right; so the app gets a role of its own instead.
@@ -25,7 +32,65 @@ ENV_FILE=$(readlink -f .env)
 value() { sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1 | tr -d '\r'; }
 psql_su() { $C exec -T db psql -U askurious -d askurious -v ON_ERROR_STOP=1 -q -X; }
 
+RUN=askurious_run
+PARTICIPANT=askurious_participant
+refuse() { echo "$1 Nothing changed in the database." >&2; exit 1; }
+
+# a new server's three roles at once, on the empty database, before its first migration (restart.sh); the passwords
+# come from the .env (deploy-docker.sh NEW_ENV=1) and go to PostgreSQL through stdin only
+new_install() {
+  local app_pw run_pw part_user part_pw pw objects runtime
+  [ "$(value DB_APP_USER)" = "$ROLE" ] || refuse "DB_APP_USER is not $ROLE in the .env."
+  [ "$(value DB_RUN_USER)" = "$RUN" ] || refuse "DB_RUN_USER is not $RUN in the .env."
+  app_pw=$(value DB_APP_PASSWORD); run_pw=$(value DB_RUN_PASSWORD)
+  part_user=$(value PARTICIPANT_DB_USER); part_pw=$(value PARTICIPANT_DB_PASSWORD)
+  if [ -n "$part_user$part_pw" ] && { [ "$part_user" != "$PARTICIPANT" ] || [ -z "$part_pw" ]; }; then
+    refuse "PARTICIPANT_DB_USER ($PARTICIPANT) and PARTICIPANT_DB_PASSWORD: both or neither in the .env."
+  fi
+  for pw in "$app_pw" "$run_pw" ${part_user:+"$part_pw"}; do
+    [[ "$pw" =~ ^[A-Za-z0-9]+$ ]] || refuse "A database password in the .env is empty or not letters and digits."
+  done
+  objects=$($C exec -T db psql -U askurious -d askurious -AtX -c \
+    "SELECT 'objects:' || count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public'")
+  [ "$(echo "$objects" | tr -d '[:space:]')" = objects:0 ] \
+    || refuse "The database is not empty: --new-install is for a new server only (BETRIEB.md, isolation/README.md)."
+  psql_su <<SQL
+DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$ROLE') THEN CREATE ROLE $ROLE LOGIN; END IF;
+END \$\$;
+ALTER ROLE $ROLE LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '$app_pw';
+ALTER DATABASE askurious OWNER TO $ROLE;
+ALTER SCHEMA public OWNER TO $ROLE;
+SQL
+  # the runtime role as on askurious.de (isolation/README.md); one transaction, so it is there whole or not at all
+  runtime=$($C exec -T db psql -U askurious -d askurious -AtX -c "SELECT 'runtime:' || count(*) FROM pg_roles WHERE rolname = '$RUN'")
+  if [ "$(echo "$runtime" | tr -d '[:space:]')" = runtime:0 ]; then psql_su < isolation/runtime-role.sql; fi
+  echo "ALTER ROLE $RUN LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '$run_pw';" | psql_su
+  if [ -n "$part_user" ]; then
+    # as participant-db-role.sh; its table rights come from the migration job (PARTICIPANT_ROLE, app/participant_grants.py)
+    psql_su <<SQL
+DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$PARTICIPANT') THEN CREATE ROLE $PARTICIPANT LOGIN NOINHERIT; END IF;
+END \$\$;
+ALTER ROLE $PARTICIPANT LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '$part_pw';
+GRANT CONNECT ON DATABASE askurious TO $PARTICIPANT;
+GRANT USAGE ON SCHEMA public TO $PARTICIPANT;
+SQL
+  fi
+  # the cluster's other databases closed to PUBLIC (as on askurious.de, isolation/README.md), and the superuser signs
+  # in only inside the db container (as --lock): nothing on a new server uses its password over the network
+  psql_su <<SQL
+REVOKE CONNECT, TEMP ON DATABASE postgres FROM PUBLIC;
+REVOKE CONNECT, TEMP ON DATABASE template1 FROM PUBLIC;
+ALTER ROLE askurious PASSWORD NULL;
+SQL
+  echo "Roles $ROLE (migrations), $RUN (runtime)${part_user:+ and $PARTICIPANT (participants)} set up; the superuser askurious signs in only inside the db container."
+}
+
 case "${1:-}" in
+  --new-install)
+    new_install
+    exit 0 ;;
   --lock)
     [ "$(value DB_APP_USER)" = "$ROLE" ] || { echo "DB_APP_USER is not $ROLE in the .env: run ./db-app-role.sh first." >&2; exit 1; }
     running=$($C exec -T db psql -U askurious -d askurious -AtX -c \
@@ -41,7 +106,7 @@ case "${1:-}" in
     echo "The superuser askurious has its password (POSTGRES_PASSWORD) again."
     exit 0 ;;
   "") ;;
-  *) echo "usage: $0 [--lock|--unlock]" >&2; exit 2 ;;
+  *) echo "usage: $0 [--lock|--unlock|--new-install]" >&2; exit 2 ;;
 esac
 
 pw=$(value DB_APP_PASSWORD)

@@ -29,7 +29,10 @@
 # server with the file ~/askurious-env/overlay-required refuses a deploy without it.
 # MODULES_SRC names add-on modules (app/plugins.py) as local checkouts, separated by spaces: the committed state of each
 # is built into a wheel here and goes up under modules/, where the Dockerfile installs it. Without it no module goes up.
-# NEW_ENV=1 creates ~/askurious-env/.env with fresh secrets:
+# NEW_ENV=1 creates ~/askurious-env/.env with fresh secrets and the database's restricted roles from the start
+# (DB_ISOLATION=1: owner role askurious_app for the migration job, runtime role askurious_run for the app,
+# askurious_participant for the participants' containers; restart.sh creates them on the empty database,
+# db-app-role.sh --new-install; the server needs python3 and Docker Compose 2.24.4 or newer, isolation/README.md):
 # only on a new server; where any .env is left (also in ~/askurious.old) the deploy stops instead.
 # DOCKER_HOST_SSH names the target, an SSH alias of ~/.ssh/config or user@host (required; the private repository of the
 # installation sets it in its wrapper, instance_overlay/README.md), PYTHON the Python for tests and the vulnerability check, TEST_WORKERS the
@@ -343,11 +346,19 @@ SECRET_KEY=\$(openssl rand -hex 32)
 TOKEN_KEY=\$(openssl rand -hex 32)
 RESEARCHER_SESSION_KEY=\$(openssl rand -hex 32)
 POSTGRES_PASSWORD=\$(openssl rand -hex 24)
+DB_ISOLATION=1
+COMPOSE_FILE=compose.yaml:isolation/roles.yaml:isolation/networks.yaml
+DB_APP_USER=askurious_app
+DB_APP_PASSWORD=\$(openssl rand -hex 24)
+DB_RUN_USER=askurious_run
+DB_RUN_PASSWORD=\$(openssl rand -hex 24)
+PARTICIPANT_DB_USER=askurious_participant
+PARTICIPANT_DB_PASSWORD=\$(openssl rand -hex 24)
 PUBLIC_BASE_URL=https://$RESEARCHER_HOST
 RESEARCHER_HOST=$RESEARCHER_HOST
 PARTICIPANT_HOST=$PARTICIPANT_HOST
 EOF
-    echo '    created with fresh secrets'
+    echo '    created with fresh secrets and restricted database roles (DB_ISOLATION=1; restart.sh sets them up)'
   fi
   grep -q '^COMPUTE_SECRET=.' $ENV_DIR/.env || { echo COMPUTE_SECRET=\$(openssl rand -hex 32) >> $ENV_DIR/.env; echo '    COMPUTE_SECRET added'; }
   # the box the participants' containers open (app/secrets_box.py; audit 2026-10-22, E-01): safe to add, TOKEN_KEY

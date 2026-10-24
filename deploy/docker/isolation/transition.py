@@ -18,6 +18,13 @@ class Refused(RuntimeError):
     pass
 
 
+# A new server's database before its first migration (restart.sh, db-app-role.sh --new-install): nothing in the
+# schema yet, so the checks of single tables (the migration marker, the participants' sample rights) have nothing to
+# look at; the migration job's preflight right after checks them in full. Any object in the schema means the full checks.
+EMPTY_SCHEMA = """NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid
+                WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','S'))"""
+
+
 def command(args, env=None, optional=False):
     result = subprocess.run(args, env=env, capture_output=True, text=True)
     if result.returncode and not optional:
@@ -173,8 +180,9 @@ class Transition:
               'sequences', NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid
                 WHERE n.nspname='public' AND CASE WHEN c.relkind='S' THEN
                 NOT has_sequence_privilege('{runtime}',c.oid,'USAGE') ELSE FALSE END),
-              'marker', has_table_privilege('{runtime}','public.alembic_version','SELECT') AND
-                NOT has_table_privilege('{runtime}','public.alembic_version','INSERT,UPDATE,DELETE'))"""
+              'marker', CASE WHEN {EMPTY_SCHEMA} THEN TRUE ELSE
+                has_table_privilege('{runtime}','public.alembic_version','SELECT') AND
+                NOT has_table_privilege('{runtime}','public.alembic_version','INSERT,UPDATE,DELETE') END)"""
             result = json.loads(self.compose("exec", "-T", "db", "psql", "-U", "askurious", "-d", database,
                                              "-AtX", "-v", "ON_ERROR_STOP=1", "-c", sql))
             if not all(result.values()):
@@ -220,12 +228,14 @@ class Transition:
           'tables', NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid
             WHERE n.nspname='public' AND c.relkind IN ('r','p') AND (has_table_privilege('{role}',c.oid,'TRUNCATE')
               OR has_table_privilege('{role}',c.oid,'REFERENCES') OR has_table_privilege('{role}',c.oid,'TRIGGER'))),
-          'marker', has_table_privilege('{role}','public.alembic_version','SELECT') AND
-            NOT has_table_privilege('{role}','public.alembic_version','INSERT,UPDATE,DELETE'),
-          'granted', has_table_privilege('{role}','public.survey','SELECT')
-            AND has_table_privilege('{role}','public.response','INSERT'),
-          'closed', NOT has_table_privilege('{role}','public.user_login','SELECT,INSERT,UPDATE,DELETE')
-            AND NOT has_table_privilege('{role}','public.login_session','SELECT,INSERT,UPDATE,DELETE'))"""
+          'marker', CASE WHEN {EMPTY_SCHEMA} THEN TRUE ELSE
+            has_table_privilege('{role}','public.alembic_version','SELECT') AND
+            NOT has_table_privilege('{role}','public.alembic_version','INSERT,UPDATE,DELETE') END,
+          'granted', CASE WHEN {EMPTY_SCHEMA} THEN TRUE ELSE has_table_privilege('{role}','public.survey','SELECT')
+            AND has_table_privilege('{role}','public.response','INSERT') END,
+          'closed', CASE WHEN {EMPTY_SCHEMA} THEN TRUE ELSE
+            NOT has_table_privilege('{role}','public.user_login','SELECT,INSERT,UPDATE,DELETE')
+            AND NOT has_table_privilege('{role}','public.login_session','SELECT,INSERT,UPDATE,DELETE') END)"""
         result = json.loads(self.compose("exec", "-T", "db", "psql", "-U", "askurious", "-d", database,
                                          "-AtX", "-v", "ON_ERROR_STOP=1", "-c", sql))
         if not all(result.values()):

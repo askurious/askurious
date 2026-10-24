@@ -100,11 +100,8 @@ def test_no_app_container_reads_the_whole_env_and_participants_get_no_researcher
     assert "<<: *app-env" in _service("housekeeping")  # sends what waits in the queue
     assert "participant-b: *participant" in SERVICES
     assert "<<: [*app-env, *researcher-secrets]" in _service("researcher")
-    # the superuser's password only inside DATABASE_URL, and only while the app role is missing (BT4); the
-    # participants' line falls back to the same (audit 2026-10-18, CFG-04)
-    assert COMPOSE.count("${POSTGRES_PASSWORD}") == 3
-    assert all(line.strip().startswith(("DATABASE_URL:", "POSTGRES_PASSWORD:"))
-               for line in COMPOSE.splitlines() if "${POSTGRES_PASSWORD}" in line and not line.strip().startswith("#"))
+    # the superuser's password only for the db service: no DATABASE_URL falls back to it any more (BT4, CFG-04)
+    assert COMPOSE.count("${POSTGRES_PASSWORD}") == 1
     assert "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}" in _service("db")
     # the Rechenknecht and the status page stay without the app's keys
     for name in ("compute", "status"):
