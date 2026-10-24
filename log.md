@@ -7245,3 +7245,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - `CITATION.cff` (Philipp Brauner, Ralf Philipsen; Rechte bei der RWTH Aachen University, EUPL-1.2), README-Abschnitt „How to cite“ mit APA-Beispiel.
 - `docs/releases.md`: Plattform nach Kalender `JJJJ.MM.N` (Tag ohne `v`), Tag nur auf einem Commit von `main`, der mit `--full` grün lief und auf dem RWTH-Server läuft; Release-Notes aus log.md mit Migrationsstand und Version der Nutzungsbedingungen. Tagebuch-App und Module bleiben bei SemVer. Zenodo folgt später (Ralf, 2026-10-24).
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-24: Release 2026.10.0 mit DOI
+
+- 2026.10.0 auf de677a7 veröffentlicht (Ralf, 2026-10-24); Zenodo archiviert es: DOI 10.5281/zenodo.23612929, für alle Versionen 10.5281/zenodo.23612928. README mit DOI-Badge und DOI im APA-Beispiel, `CITATION.cff` mit beiden DOIs.
+- Rechtstexte geprüft, keine Änderung nötig.

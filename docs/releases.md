@@ -45,5 +45,6 @@ git log --oneline 2026.10.0..<commit>     # what came since the previous release
 gh release create 2026.11.0 --target <commit> --title "Askurious 2026.11.0" --notes-file notes.md --draft
 ```
 
-Check the draft on GitHub, then publish it there; publishing creates the tag. `CITATION.cff` names no version, so it
+Check the draft on GitHub, then publish it there; publishing creates the tag. Zenodo archives every published release and gives it a DOI of its own within minutes;
+the DOI for all versions (10.5281/zenodo.23612928) stays the same. `CITATION.cff` names no version, so it
 needs no change for a release.
