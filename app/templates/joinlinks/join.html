@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, orcid_icon %}
-{# The page of a join link (app/joinlinks.py). Needs: link, group, leads, token, orcid_on, by_mail. #}
+{# The page of a join link (app/joinlinks.py). Needs: link, group, leads, token, orcid_on, by_mail, by_password, course. #}
 {% block title %}{{ group.name }}{% endblock %}
 {% block content %}
 <div class="sign-in">
@@ -31,9 +31,10 @@
       <div class="button-row"><button class="button button-secondary">{{ de_en("E-Mail schicken", "Send email") }}</button></div>
     </form>
     {% endif %}
-    {% if by_password %}{# a course without mail (app/account_types.py, N14): an account with e-mail address and password #}
+    {% if by_password %}{# without mail (app/joinlinks.py, password_way): an account with e-mail address and password #}
     <h2>{{ de_en("Mit E-Mail-Adresse und Passwort", "With email address and password") }}</h2>
-    <p class="muted small">{{ de_en("Sie legen hier ein Konto für diese Lehrveranstaltung an; Sie melden sich künftig mit Ihrer E-Mail-Adresse und diesem Passwort an. Der Zugang endet mit der Lehrveranstaltung.", "Here you create an account for this course; from now on you sign in with your email address and this password. Access ends with the course.") }}</p>
+    {% if course %}<p class="muted small">{{ de_en("Sie legen hier ein Konto für diese Lehrveranstaltung an; Sie melden sich künftig mit Ihrer E-Mail-Adresse und diesem Passwort an. Der Zugang endet mit der Lehrveranstaltung.", "Here you create an account for this course; from now on you sign in with your email address and this password. Access ends with the course.") }}</p>
+    {% else %}<p class="muted small">{{ de_en("Ohne ORCID legen Sie hier ein Konto an; Sie melden sich künftig mit Ihrer E-Mail-Adresse und diesem Passwort an.", "Without ORCID you create an account here; from now on you sign in with your email address and this password.") }}</p>{% endif %}
     <form method="post" class="stack">
       {{ csrf() }}<input type="hidden" name="way" value="password">
       <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="200" required value="{{ form.get('name', '') }}" autocomplete="name"></label>

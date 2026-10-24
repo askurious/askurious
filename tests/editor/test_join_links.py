@@ -140,6 +140,34 @@ def test_join_by_mail_sends_an_invitation_of_the_lead(app, client):
     assert "gilt nicht mehr" in guest.get(f"/join/{token}", follow_redirects=True).data.decode()
 
 
+def test_without_mail_every_group_link_offers_an_account_with_password(app, client):
+    """Ralf 2026-10-24: a person without ORCID must be able to join by a link; before, the account with e-mail address
+    and password stood only on links of courses."""
+    gid = _admin_group(client)
+    token, _page = _make(client, gid)
+    guest = app.test_client()
+    page = guest.get(f"/join/{token}").data.decode()
+    assert "Konto anlegen und beitreten" in page and "Lehrveranstaltung" not in page
+    good = "lange genug passphrase 2026"
+    page = guest.post(f"/join/{token}", data={"way": "password", "name": "Ohne Orcid", "email": "ohne@example.org",
+                                              "password": good, "repeat": good}, follow_redirects=True).data.decode()
+    assert "Konto angelegt, Sie sind jetzt in „Seminar " in page
+    with app.app_context():
+        member = db.session.scalar(db.select(WorkGroupMember).filter_by(group_id=gid, name="Ohne Orcid"))
+        assert member is not None and member.role == "member" and member.via == "link"
+    with app.app_context():                             # the organisation's cap of accounts holds here too
+        from app import orgs
+
+        orgs.main().max_accounts = orgs.counts(orgs.main())["homes"]
+        db.session.commit()
+    full = app.test_client().post(f"/join/{token}", data={"way": "password", "name": "Zu Viel",
+                                                          "email": "zuviel@example.org", "password": good,
+                                                          "repeat": good}, follow_redirects=True).data.decode()
+    assert "keine freien Konten" in full
+    mail_on(app)                                       # with mail on, the address is confirmed by an invitation
+    assert "Konto anlegen und beitreten" not in app.test_client().get(f"/join/{token}").data.decode()
+
+
 def test_admin_lead_link(app, client):
     page = client.post("/admin/groups/new", data={"name": "Ohne Leitung", "lead": "", "lead_link": "1", "members_create": "1"},
                        follow_redirects=True).data.decode()
