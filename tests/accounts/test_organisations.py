@@ -179,6 +179,23 @@ def test_new_things_go_into_the_home_organisation(app, client, survey):
         assert db.session.scalar(db.select(WorkGroup).filter_by(name="Projekt")).org_id == org_id
 
 
+def test_a_group_made_for_main_stays_in_main_whatever_the_makers_home(app, client, survey):
+    """Bug 2026-10-24: a group made under Organisation > Gruppen of "main" landed in the home organisation of the admin
+    who made it, because its empty org_id ("main") was taken for "not placed yet"."""
+    gid = _group(client, members=())
+    _convert(client, gid)
+    org_id = _new_org(app)
+    with app.app_context():
+        main = orgs.default_id()
+        assert orgs.home_id_of_orcid(ME) == org_id                    # the maker's home is the other organisation
+    client.post(f"/org/{main}/groups", data={"action": "new", "name": "Für Main", "lead": ME})
+    client.post(f"/org/{org_id}/groups", data={"action": "new", "name": "Für Org", "lead": ME})
+    client.post("/groups/new", data={"name": "Ohne Wahl"})                 # no choice: still the home
+    with app.app_context():
+        where = {g.name: orgs.of(g) for g in db.session.scalars(db.select(WorkGroup))}
+        assert (where["Für Main"], where["Für Org"], where["Ohne Wahl"]) == (main, org_id, org_id)
+
+
 def test_an_organisation_goes_only_empty_and_never_the_first(app, client, survey):
     gid = _group(client, members=())
     _convert(client, gid)
