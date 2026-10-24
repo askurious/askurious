@@ -54,6 +54,46 @@ function postAndGo(url, body) {
     }).catch(function () { actionFailed(0); });
 }
 
+// A field that sends its form at once (data-submit-on-change: the views, groups and weighting of "Ergebnisse", the
+// filters of "Meine Befragungen" ...) loads the page anew. That stays: no "Anwenden" button (settings without save
+// buttons). But the new page opens where the old one was, with the focus back on the field just changed, so that
+// several choices in a row need no scrolling back and a screen reader keeps its place (UI/UX audit 2026-10-24, D).
+// Only on the same page (path) within half a minute, and not when the address names a place of its own (#...).
+(function () {
+  var KEY = "submit-on-change";
+  document.addEventListener("change", function (e) {
+    var el = e.target;
+    if (!el.matches || !el.matches("select[data-submit-on-change], input[data-submit-on-change]") || !el.form || !el.name) return;
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ path: location.pathname, form: el.form.id || "", name: el.name,
+        value: el.type === "radio" || el.type === "checkbox" ? el.value : null, y: window.scrollY, at: Date.now() }));
+    } catch (err) { /* no storage: the page opens at the top as before */ }
+  }, true);
+  var was = null;
+  try { was = JSON.parse(sessionStorage.getItem(KEY) || "null"); sessionStorage.removeItem(KEY); } catch (err) { was = null; }
+  if (!was || was.path !== location.pathname || Date.now() - was.at > 30000 || location.hash) return;
+  function field() {  // looked up anew: parts of the page may be drawn again after the script
+    var scope = (was.form && document.getElementById(was.form)) || document;
+    return Array.prototype.filter.call(scope.querySelectorAll("[data-submit-on-change]"), function (f) {
+      return f.name === was.name && (was.value === null || f.value === was.value);
+    })[0];
+  }
+  var moved = false;  // the person scrolled or typed meanwhile: then the page is theirs
+  function place() {
+    if (moved) return;
+    window.scrollTo(0, was.y);
+    var f = field();
+    if (f && document.activeElement !== f) { try { f.focus({ preventScroll: true }); } catch (err) { f.focus(); } }
+  }
+  place();
+  window.addEventListener("wheel", function () { moved = true; }, { once: true, passive: true });
+  window.addEventListener("keydown", function () { moved = true; }, { once: true });
+  window.addEventListener("pointerdown", function () { moved = true; }, { once: true });
+  // figures and parts loaded after the script can push the page or take the focus: once more when all is in
+  if (document.readyState === "complete") setTimeout(place, 0);
+  else window.addEventListener("load", function () { setTimeout(place, 0); }, { once: true });
+})();
+
 // Small things without inline code (the CSP allows no inline script), for every page: a select or field with
 // data-submit-on-change saves its form at once (requestSubmit, so a question on the form, data-confirm, is asked; on
 // the document, so it also holds for parts drawn anew; a number as its value waits that many milliseconds after the
