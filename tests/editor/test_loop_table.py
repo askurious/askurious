@@ -129,6 +129,6 @@ def test_findable_from_codebook_and_export_page(app, client, survey):
     assert lines[1] == "1\tPflegeroboter\tzu Hause"
     assert lines[2] == '2\tPflegeroboter\t"Ein Roboter, der hilft; sagt: ""Hallo""\nund geht"'  # one cell, as Excel quotes
     page = client.get("/surveys/1/data").data.decode()
-    assert "Codebuch und Schleifentabellen" in page and "als Tabelle mit Spalten unter" in page
+    assert "Schleifentabelle „" in page and "als Tabelle mit Spalten unter" in page
     attr = page.split('data-copy-tsv="', 1)[1].split('"', 1)[0]
     assert html.unescape(attr).startswith("zeile\trobot\tsetting\r\n1\tPflegeroboter")

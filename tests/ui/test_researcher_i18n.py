@@ -518,13 +518,13 @@ def test_export_page_and_survey_file_zip_follow_the_downloader(app, client, surv
     import zipfile
 
     page = client.get("/surveys/1/data").get_data(as_text=True)
-    assert "Export der Antworten" in page and "Als ZIP-Datei herunterladen" in page
+    assert "Datenpool und Format" in page and "Als ZIP-Datei herunterladen" in page
     with zipfile.ZipFile(io.BytesIO(client.get("/surveys/1/export/survey.zip").data)) as z:
         german_readme, german_file = z.read("README.md").decode(), z.read("survey.json")
     assert german_readme.startswith("Befragungen aus Askurious")
     client.post("/account/language", data={"lang": "en"})
     page = client.get("/surveys/1/data").get_data(as_text=True)
-    assert "Export of the answers" in page and "Download as ZIP file" in page and "Export der Antworten" not in page
+    assert "Data pool and format" in page and "Download as ZIP file" in page and "Datenpool und Format" not in page
     with zipfile.ZipFile(io.BytesIO(client.get("/surveys/1/export/survey.zip").data)) as z:
         assert {"README.md", "survey.json"} <= set(z.namelist())
         readme, english_file = z.read("README.md").decode(), z.read("survey.json")

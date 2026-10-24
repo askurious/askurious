@@ -151,7 +151,7 @@ def test_median_comes_from_the_chosen_pool(app, client, survey):
     assert "echte Teilnahmen + Dummy-Daten" in book.data.decode("utf-8-sig")
     html = client.get("/surveys/1/data?source=real&source=dummy", follow_redirects=True).data.decode()
     assert "Datenpool" in html and "Basis nur echte Daten" not in html
-    assert html.index('id="pool"') < html.index('id="pool-speeders"') < html.index("Export der Antworten")
+    assert html.index('id="pool"') < html.index('id="pool-speeders"') < html.index('id="answers"')
 
 
 def test_a_negative_duration_is_no_speeder(app, client, survey):

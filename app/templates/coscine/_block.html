@@ -3,10 +3,22 @@
 {# The block "Coscine" on the export page of a survey and of an interview guide (app/coscine.py): the
    last uploads and the way to the page "In Coscine ablegen". Only with the feature (or a survey that uses it) and the role "Verwalten", like Zenodo. #}
 {% if survey.can(current_user, "admin") %}
+{% import "surveys/_export_rows.html" as xp %}
 {% set c = survey.coscine or {} %}
 {% set connected = coscine_connected(current_user) %}
-<section class="panel" id="coscine">
-  <h2>Coscine <span class="hint">{{ de_en("Ablage im Forschungsdatenarchiv der RWTH Aachen", "storage in the research data archive of RWTH Aachen") }}</span></h2>
+{% set a = c.auto or {} %}
+{# a row in the card "Archivieren und veröffentlichen" (export page, variant A, E9): the state in a word, the uploads,
+   the automatic upload and the links in the dialog #}
+{% set problem = (a.on and a.token) or a.error or (a.on and c.space and c.space.percent >= coscine_space_warn) or (c.uploads and c.uploads[0].partial) %}
+{% call xp.row("Coscine",
+               xp.status("bad", de_en("Bitte prüfen", "Please check")) if problem
+               else (xp.status("wait", de_en("Ablage läuft", "Upload running")) if a.running
+               else (xp.status("ok", de_en_n(c.uploads|length, ("{n} Ablage", "{n} Ablagen"), ("{n} upload", "{n} uploads"))) if c.uploads
+               else xp.status("off", de_en("Noch nicht abgelegt", "Not stored yet") if connected else de_en("Kein Token hinterlegt", "No token added")))),
+               de_en("Ablage im Forschungsdatenarchiv der RWTH Aachen", "storage in the research data archive of RWTH Aachen"), id="coscine") %}
+  {% if connected %}<a class="button button-secondary" href="{{ url_for('coscine.store', survey_id=survey.id) }}">{{ icon("archive", 16) }} {{ de_en("In Coscine ablegen", "Store in Coscine") }}</a>{% endif %}
+  {{ xp.opens(de_en("Details", "Details") if (c.uploads or connected) else de_en("Verbinden", "Connect"), "dlg-coscine") }}
+{% call xp.dialog("dlg-coscine", "Coscine", wide=true) %}
   {% if c.uploads %}
   <ul class="plain snapshot-list">
     {% for u in c.uploads[:5] %}
@@ -23,7 +35,6 @@
     {% endfor %}
   </ul>
   {% endif %}
-  {% set a = c.auto or {} %}
   {% if a.running %}
   {# the automatic upload runs in a thread of its own after the new revision or the start (app/coscine.py, I13) #}
   <p class="small" role="status">{{ de_en("Automatische Ablage läuft, gestartet am {d}. Das Ergebnis steht hier, sobald Coscine geantwortet hat (Seite neu laden).", "Automatic upload running, started on {d}. The outcome shows here once Coscine has answered (reload the page).", d=a.running) }}</p>
@@ -57,11 +68,10 @@
     · <a href="{{ url_for('coscine.people_page', survey_id=survey.id) }}">{{ de_en("Wer sieht die Dateien", "Who sees the files") }}</a>
     · <a href="{{ url_for('coscine.publish_page', survey_id=survey.id) }}">{{ de_en("Veröffentlichung beantragen", "Request publication") }}</a></p>
   {% endif %}
-  {% if connected %}
-  <a class="button button-secondary" href="{{ url_for('coscine.store', survey_id=survey.id) }}">{{ icon("archive", 16) }} {{ de_en("In Coscine ablegen", "Store in Coscine") }}</a>
-  {% else %}
+  {% if not connected %}
   <p class="muted small">{{ de_en("Zum Ablegen unter", "To store, add a Coscine token under") }} <a href="{{ url_for('accounts.connections') }}#coscine">{{ de_en("Konto › Verbindungen", "Account › Connections") }}</a>{{ de_en(" ein Coscine-Token hinterlegen.", ".") }}</p>
   {% endif %}
   <p class="muted small">{% if survey.interview is not none %}{{ de_en("Die festgehaltenen Fassungen des Leitfadens", "The recorded revisions of the guide") }}{% else %}{{ de_en("Das Datenpaket wie bei Zenodo, auf Wunsch mit abgebrochenen Teilnahmen, und die Präregistrierung", "The data package as with Zenodo, optionally with broken-off participations, and the pre-registration") }}{% endif %} {{ de_en("mit Metadaten nach dem Profil der Ressource, in einem neuen Ordner je Ablage. Wer die Dateien sieht, legt das Coscine-Projekt fest.", "with metadata after the profile of the resource, in a new folder per upload. The Coscine project decides who sees the files.") }}</p>
-</section>
+{% endcall %}
+{% endcall %}
 {% endif %}

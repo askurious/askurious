@@ -83,6 +83,8 @@ Die Ergebnisse der **Aufgaben** stehen in der Fallübersicht (CSV) mit den Spalt
 
 ### Export eines Interviewleitfadens {kind:interview}
 
+Dieselben Karten wie beim Fragebogen: Interviews, Dokumente, Nachweise und Archiv, Datenschutz. „Fassung festhalten“ öffnet einen Dialog mit Anlass, Lizenz und Fremdmaterialien.
+
 Der Leitfaden als Word, die Interviews als Text und als REFI-QDA-Projekt, die festgehaltenen Fassungen und **Interview löschen (Datenschutz)**: Mit Löschcode oder Kennung wird das ganze Interview gelöscht, wie bei einem Fragebogen „Antworten löschen“ im Export.
 
 ---
