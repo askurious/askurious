@@ -33,12 +33,13 @@ def _rule(selector):
 
 
 def test_w76_the_search_of_the_cards_looks_at_title_project_code_people_and_state_only(client, survey):
-    page = client.get("/dashboard/").data.decode()
-    search = re.search(r'data-search="([^"]*)"', page).group(1)
-    assert "test" in search and "entwurf" in search and "fragebogen" in search
-    assert "einstellungen" not in search and "export" not in search and "duplizieren" not in search
-    assert 'role="status" data-dash-count' in page
-    assert "c.dataset.search" in JS and "c.textContent.toLowerCase()" not in JS
+    # since the audit of 2026-10-22 (G-05) the server searches (app/dashboard.py card_words), over all pages
+    def hits(q):
+        return 'id="survey-' in client.get(f"/dashboard/?d_q={q}").data.decode()
+
+    assert hits("test") and hits("entwurf") and hits("fragebogen")
+    assert not hits("einstellungen") and not hits("export") and not hits("duplizieren")
+    assert 'role="status" data-dash-count' in client.get("/dashboard/?d_q=test").data.decode()
 
 
 def test_w77_the_red_button_of_ending_a_share_speaks_english(app):
