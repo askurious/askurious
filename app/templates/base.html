@@ -83,19 +83,16 @@
           {% if kind_sees("survey") %}<a href="{{ url_for('samplesize.index') }}">{{ icon("users", 18) }} {{ de_en("Stichprobengröße", "Sample size") }}</a>{% endif %}
           {# add-on modules (app/plugins.py, add_tool), each with its experimental feature #}
           {% if plugin_tools is defined %}{% for t in plugin_tools() %}<a href="{{ url_for(t.endpoint) }}">{{ icon(t.icon, 18) }} {{ de_en(t.de, t.en) }}</a>{% endfor %}{% endif %}
-          <hr>
-          <button type="button" data-feedback-open>{{ icon("bug", 18) }} {{ de_en("Fehler melden oder Vorschlag machen", "Report a problem or make a suggestion") }}</button>
-          {% if open_fb %}<a href="{{ url_for('feedback.index') }}">{{ icon("message", 18) }} {{ de_en_n(open_fb, ("{n} offene Rückmeldung", "{n} offene Rückmeldungen"), ("{n} open feedback item", "{n} open feedback items")) }}</a>{% endif %}
+          {% if open_fb %}<hr><a href="{{ url_for('feedback.index') }}">{{ icon("message", 18) }} {{ de_en_n(open_fb, ("{n} offene Rückmeldung", "{n} offene Rückmeldungen"), ("{n} open feedback item", "{n} open feedback items")) }}</a>{% endif %}
         </div>
       </details>
-      {# prices and donations stay a point of their own in the bar (Ralf, 2026-10-12) #}
-      {% if donations_on %}<a class="icon-btn donate-link" href="{{ url_for('public.pricing') }}" title="{{ de_en('Preise und Spenden', 'Prices and donations') }}" aria-label="{{ de_en('Preise und Spenden', 'Prices and donations') }}">{{ icon("gift", 18) }}</a>{% endif %}
+      {# feedback in the bar, where prices and donations stood until they left the code (Ralf, 2026-10-24) #}
+      <button type="button" class="icon-btn feedback-btn" data-feedback-open title="{{ de_en('Fehler melden oder Vorschlag machen', 'Report a problem or make a suggestion') }}" aria-label="{{ de_en('Fehler melden oder Vorschlag machen', 'Report a problem or make a suggestion') }}">{{ icon("bug", 18) }}</button>
       <details class="menu nav-menu" data-nav-menu>
         <summary aria-label="{{ de_en('Menü für {name}', 'Menu for {name}', name=current_user.display_name) }}" title="{{ de_en('Konto von {name}', 'Account of {name}', name=current_user.display_name) }}">{{ icon("user", 18) }}{{ icon("menu", 18) }}<span class="nav-menu-name">{{ current_user.display_name }}</span>{{ icon("chevron-down", 14) }}</summary>
         <div class="nav-menu-panel">
           {# from where one works to the session (Ralf 2026-10-10): work areas and Administration (narrow only), own
-             collections (designs = saved themes, groups: opened seldom, so not in the areas), settings, prices (narrow
-             only), sign out. The legal notice is in the footer only, which no longer cuts it (X67). #}
+             collections (designs = saved themes, groups: opened seldom, so not in the areas), settings, sign out. The legal notice is in the footer only, which no longer cuts it (X67). #}
           {% if areas_shown %}<div class="nav-narrow nav-narrow-areas">
             {{ areas() }}
             {% if not current_user.is_admin %}<hr>{% endif %}
@@ -123,12 +120,6 @@
           <a href="{{ url_for('ai_access.page') }}" class="nav-ai"{% if request.endpoint == "ai_access.page" %} aria-current="page"{% endif %}>{{ icon("sparkles", 18) }} {{ de_en("KI-Nutzung", "AI usage") }}</a>
           <button type="button" data-theme-toggle data-mode-url="{{ url_for('accounts.display_mode') }}">{{ theme_icons() }} {{ de_en("Hell / Dunkel", "Light / Dark") }}</button>
           <hr>
-          {% if donations_on %}
-          <div class="nav-narrow nav-narrow-more">
-            <a href="{{ url_for('public.pricing') }}">{{ icon("gift", 18) }} {{ de_en("Preise und Spenden", "Prices and donations") }}</a>
-            <hr>
-          </div>
-          {% endif %}
           <form method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button>{{ icon("logout", 18) }} {{ de_en("Abmelden", "Sign out") }}</button>
@@ -140,7 +131,6 @@
     <nav>
       <button type="button" class="theme-toggle" data-theme-toggle title="{{ de_en('Hell / Dunkel', 'Light / Dark') }}" aria-label="{{ de_en('Zwischen hellem und dunklem Modus wechseln', 'Switch between light and dark mode') }}">{{ theme_icons() }}</button>
       <a class="icon-btn handbook-link" href="{{ url_for('handbook.index') }}" title="{{ de_en('Handbuch: Konzept, Anleitungen, Seiten und Dialoge, KI', 'Handbook: concept, guides, pages and dialogs, AI') }}" aria-label="{{ de_en('Handbuch', 'Handbook') }}"{% if request.blueprint == "handbook" %} aria-current="page"{% endif %}>{{ icon("book", 18) }}</a>
-      {% if donations_on %}<a class="icon-btn donate-link" href="{{ url_for('public.pricing') }}" title="{{ de_en('Preise und Spenden', 'Prices and donations') }}" aria-label="{{ de_en('Preise und Spenden', 'Prices and donations') }}">{{ icon("gift", 18) }}</a>{% endif %}
       {# the language before signing in (public.language); signed in, it is chosen on "Konto" #}
       <form method="post" action="{{ url_for('public.language') }}" class="lang-pick" aria-label="{{ de_en('Sprache', 'Language') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path }}">

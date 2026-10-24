@@ -38,7 +38,7 @@ RENAMED = {
     "neu": "new", "neu-zaehlen": "recount", "neue-fassung": "new-version", "notizen.docx": "notes.docx",
     "notizen.zip": "notes.zip", "nutzungsbedingungen": "terms", "passwort": "password",
     "passwort-vergessen": "forgot-password", "plz": "postcode", "praeregistrierung": "preregistration",
-    "praesentieren": "present", "preise": "pricing", "protokoll": "log", "pruefen": "check",
+    "praesentieren": "present", "protokoll": "log", "pruefen": "check",
     "qualitaet": "quality", "quelle.<fmt>": "source.<fmt>", "quoten": "quotas", "reaktion": "reaction",
     "referent": "speaker", "schleife": "loop", "siegelkette": "seal-chain", "siegelkette.zip": "seal-chain.zip",
     "sitzungen": "sessions", "skala": "scale", "skalen": "scales", "skalen.docx": "scales.docx",

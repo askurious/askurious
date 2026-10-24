@@ -467,10 +467,7 @@ def feed():
 @bp.route("/sitemap.xml")
 def sitemap():
     base = brand.public_base()
-    from app.public import donations_on
-
     pages = [(url_for("public.index"), None), (url_for("blog.index"), None)]
-    pages += [(url_for("public.pricing"), None)] if donations_on() else []
     pages += [(url_for("public.features"), None), (url_for("public.privacy"), None)]
     pages += [(url_for("blog.post", slug=p.slug), p.content_changed_at or p.published_at) for p in visible_posts()]
     out = ['<?xml version="1.0" encoding="utf-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
