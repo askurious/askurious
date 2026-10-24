@@ -1,6 +1,8 @@
 """A stricter CSP on the participants' side (bucket list 2026-10-18; participant address E8, decisions.md): their pages
 load images only from this site and the tile servers; since the audit 2026-10-18 (INJ-1) the researchers' pages as
-well, and their forms go only to this site, ORCID and the participants' address."""
+well, and their forms go only to this site, ORCID, Zenodo and the participants' address."""
+import time
+
 from app import _tile_source
 from app.extensions import db
 from app.models import Survey
@@ -40,6 +42,22 @@ def test_researcher_pages_load_images_and_send_forms_only_where_needed(app, clie
         assert forms[:2] == ["form-action", "'self'"] and "https:" not in forms
         assert "https://orcid.org" in forms and "https://ask.example.org" in forms  # sign-in, a test run
         assert _directive(page, "style-src") == "style-src 'self' 'unsafe-inline'"  # inline styles: see app/__init__.py
+        assert "https://zenodo.org" not in forms  # no Zenodo application on this server: not needed
+
+
+def test_zenodo_connect_redirect_is_allowed_by_form_action(app, client):
+    """Bug 2026-10-24: "Mit Zenodo verbinden" did nothing. The POST form redirects to Zenodo's sign-in, and the
+    browser stops a redirect after a form that form-action does not allow."""
+    app.config.update(ZENODO_CLIENT_ID="id", ZENODO_CLIENT_SECRET="s",
+                      ZENODO_SANDBOX_CLIENT_ID="sid", ZENODO_SANDBOX_CLIENT_SECRET="ss")
+    page = client.get("/account/connections")
+    assert "Mit Zenodo verbinden" in page.data.decode()
+    forms = _directive(page, "form-action").split(" ")
+    assert "https://zenodo.org" in forms and "https://sandbox.zenodo.org" in forms and "https:" not in forms
+    with client.session_transaction() as s:
+        s["signed_in_at"] = time.time()  # a fresh sign-in, as need_fresh asks
+    r = client.post("/zenodo/connect/zenodo", data={"next": "/account/connections"})
+    assert r.status_code == 302 and r.headers["Location"].startswith("https://zenodo.org/oauth/authorize?")
 
 
 def test_tile_sources():
