@@ -22,6 +22,14 @@ contact:
     family-names: Brauner
     email: brauner@comm.rwth-aachen.de
     affiliation: Chair of Communication Science, RWTH Aachen University
+doi: 10.5281/zenodo.23612928
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23612928
+    description: All versions on Zenodo (resolves to the latest release)
+  - type: doi
+    value: 10.5281/zenodo.23612929
+    description: Release 2026.10.0
 repository-code: "https://github.com/askurious/askurious"
 license: EUPL-1.2
 keywords:

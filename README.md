@@ -7,6 +7,8 @@
 
 <p align="center"><em>/ɑːˈskjʊə.ri.əs/, from <strong>ask</strong> and <strong>curious</strong></em></p>
 
+<p align="center"><a href="https://doi.org/10.5281/zenodo.23612928"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.23612928.svg" alt="DOI 10.5281/zenodo.23612928"></a></p>
+
 Askurious is a web platform for social science research: plan a study, build the questionnaire, take it to the field, check the data quality and analyse the results, all in one place.
 It is developed and run by the [Chair of Communication Science of RWTH Aachen University](https://www.comm.rwth-aachen.de) for research and teaching. Authors: Philipp Brauner and Ralf Philipsen; contact: Dr. Philipp Brauner ([brauner@comm.rwth-aachen.de](mailto:brauner@comm.rwth-aachen.de)).
 
@@ -208,7 +210,9 @@ Storage accounting: `STORAGE_USAGE_ENABLED=1` uses a shared durable file invento
 
 If you use Askurious in your research, please cite the software and name the release you used. [CITATION.cff](CITATION.cff) holds the details; GitHub turns it into APA and BibTeX under "Cite this repository". In APA style:
 
-Brauner, P., & Philipsen, R. (2026). *Askurious* (Version 2026.10.0) [Computer software]. RWTH Aachen University. https://github.com/askurious/askurious
+Brauner, P., & Philipsen, R. (2026). *Askurious* (Version 2026.10.0) [Computer software]. RWTH Aachen University. https://doi.org/10.5281/zenodo.23612929
+
+Every release is archived on Zenodo. [10.5281/zenodo.23612928](https://doi.org/10.5281/zenodo.23612928) stands for all versions and leads to the latest; each release has a DOI of its own, shown on its Zenodo page.
 
 Releases are named by year and month (`2026.10.0`, see [docs/releases.md](docs/releases.md)); each one lists its changes on the [releases page](https://github.com/askurious/askurious/releases).
 
