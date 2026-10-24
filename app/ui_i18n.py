@@ -110,6 +110,7 @@ def _walk(de, en, lang):
 JS_TEXTS = ("All terms sorted. You can continue.", "new pile", "This column is full.", "line", "lines", "spot", "spots", "maximum reached",
             "{n} word marked", "{n} words marked", "marker", "markers", "at least {n}", "questions open for marker {list}",
             "Nothing found.", "Search: Nominatim · data © OpenStreetMap contributors", "Search is unavailable right now.",
+            "The place search is unavailable right now. Please try again or use the map.", "Places found: {n}", "Searching …",
             "Show on the map", "✕ Remove", " (required)", "Drag to move", "put back",
             # accessibility concept D2, D5, D7: the keyboard on images, the IAT's way out, what timed tasks say
             "{x}% from the left, {y}% from the top", "Spot {n} marked, {where}.", "Spot {n} removed.", "Spot {n}: {where}",

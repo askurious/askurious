@@ -1895,17 +1895,19 @@ var blockPages = null;
     return out;
   }
   function queued() { try { return JSON.parse(store.getItem(QUEUE) || "[]") || []; } catch (e) { return []; } }
+  // true when the list is kept in the tab; false without sessionStorage or when it is full (the page then says so)
   function keep(list) {
-    if (!store) return;
-    try { if (list.length) store.setItem(QUEUE, JSON.stringify(list)); else store.removeItem(QUEUE); } catch (e) { /* full */ }
+    if (!store) return false;
+    try { if (list.length) store.setItem(QUEUE, JSON.stringify(list)); else store.removeItem(QUEUE); return true; } catch (e) { return false; }
   }
-  function enqueue(body) { keep(queued().filter(function (b) { return b.page !== body.page; }).concat([body])); }
-  // one page to the server: resolves with its answer, rejects without a connection (or after 8 s, or a server error)
+  function enqueue(body) { return keep(queued().filter(function (b) { return b.page !== body.page; }).concat([body])); }
+  // one page to the server: resolves with its answer, rejects with why: "offline" (the device says so), "timeout"
+  // (8 s), "server" (an error answer or no JSON) or "network" (no answer at all)
   function send(body) {
     return new Promise(function (resolve, reject) {
-      if (!window.fetch || navigator.onLine === false) { reject(); return; }
+      if (!window.fetch || navigator.onLine === false) { reject("offline"); return; }
       var ctrl = window.AbortController ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject(); }, 8000);
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); reject("timeout"); }, 8000);
       fetch(url, { method: "POST", credentials: "same-origin", keepalive: true, signal: ctrl ? ctrl.signal : undefined,
                    headers: { "Content-Type": "application/json", "X-CSRFToken": csrf }, body: JSON.stringify(body) })
         .then(function (r) {
@@ -1918,9 +1920,9 @@ var blockPages = null;
             }, function () {}).then(function () { location.reload(); });
             return;
           }
-          if (!r.ok) { reject(); return; }
-          return r.json().then(resolve, reject);
-        }, function () { clearTimeout(timer); reject(); });
+          if (!r.ok) { reject("server"); return; }
+          return r.json().then(resolve, function () { reject("server"); });
+        }, function () { clearTimeout(timer); reject(navigator.onLine === false ? "offline" : "network"); });
     });
   }
   // one block POST at a time: "Back", "Next" and the queue wait for each other, so two pages never reach the server
@@ -1942,6 +1944,8 @@ var blockPages = null;
     flushing = true;
     serial(list[0]).then(function () {
       flushing = false;
+      // the last waiting page arrived: the note about it gives way to that
+      if (!queued().length && note && note.textContent) note.textContent = note.getAttribute("data-sent");
       flush();
     }, function () { flushing = false; });
   }
@@ -2042,12 +2046,14 @@ var blockPages = null;
       }
       mark(p, {});
       show(pages[i + 1]);
-    }, function () {
+    }, function (why) {
       busy = false;
       form.removeAttribute("aria-busy");
-      enqueue(b);  // kept in the tab and sent later; the server checks the page again at the end of the block
+      var kept = enqueue(b);  // kept in the tab and sent later; the server checks the page again at the end of the block
       show(pages[i + 1]);
-      if (note) note.textContent = note.getAttribute("data-offline");
+      // what is true: no internet, or the server did not answer; and whether the tab could keep the page at all
+      // (without it the page goes along with the last one, while the tab stays open)
+      if (note) note.textContent = note.getAttribute(!kept ? "data-nostore" : why === "offline" ? "data-offline" : "data-unsent");
     });
   }
   form.addEventListener("submit", function (e) {

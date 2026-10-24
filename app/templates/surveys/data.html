@@ -36,7 +36,7 @@
       {{ why("data_pool") }}
     </fieldset>
     <fieldset class="xp-field" id="pool-speeders"><legend>{{ de_en("Markierte Teilnahmen", "Marked participations") }}
-        {{ xp.info(de_en("Speeder ({rule}) und Teilnahmen mit genug Auffälligkeiten; die Regeln stehen unter „Qualitätssicherung“. Die Ergebnisse lassen Markierte immer weg.", "Speeders ({rule}) and participations with enough anomalies; the rules are under “Quality assurance”. The results always leave marked ones out.", rule=speeder_rule_text(survey))) }}</legend>
+        {{ xp.info(de_en("Speeder ({rule}) und Teilnahmen mit genug Auffälligkeiten; die Regeln stehen unter „Qualitätssicherung“. Ergebnisse und Dashboards lassen Markierte standardmäßig weg; in den Ergebnissen lassen sie sich mit „Markierte einbeziehen“ zum Vergleich zeigen. Für diesen Export gilt die Auswahl hier.", "Speeders ({rule}) and participations with enough anomalies; the rules are under “Quality assurance”. Results and dashboards leave marked ones out by default; in the results “Include marked ones” shows them for comparison. For this export the choice here applies.", rule=speeder_rule_text(survey))) }}</legend>
       <label class="check"><input type="radio" name="drop" value="0" {% if not pool.drop %}checked{% endif %}> {{ de_en("Einbeziehen und mit Qualitätskennzeichen exportieren", "Include and export with quality flags") }}</label>
       <label class="check"><input type="radio" name="drop" value="1" {% if pool.drop %}checked{% endif %}> {{ de_en("Vom Export ausschließen", "Exclude from export") }}</label>
     </fieldset>
