@@ -1527,6 +1527,8 @@ function interruptibleTask(root, stage, task, reset) {
     function chip(code) { return box.querySelector('[data-pos-chip="' + code + '"]'); }
     function input(code) { return box.querySelector('[data-pos-value="' + code + '"]'); }
     function skip(code) { return box.querySelector('[data-pos-skip="' + code + '"]'); }
+    // the element's own name, without the word "placed" the chip shows once it is in the field
+    function name(code) { var n = chip(code).querySelector("[data-pos-name]"); return (n || chip(code)).textContent.trim(); }
     function select(code) {
       selected = code;
       box.querySelectorAll("[data-pos-chip]").forEach(function (c) {
@@ -1545,7 +1547,7 @@ function interruptibleTask(root, stage, task, reset) {
         m.className = "p-pos-marker"; m.tabIndex = 0; m.setAttribute("role", "group");
         m.innerHTML = '<span class="p-pos-dot" aria-hidden="true"></span><span class="p-pos-name" aria-hidden="true"></span><button type="button" class="p-pos-remove">×</button>';
         m.querySelector(".p-pos-remove").setAttribute("aria-label", uiT("zurücklegen", "put back"));
-        m.querySelector(".p-pos-name").textContent = chip(code).textContent;
+        m.querySelector(".p-pos-name").textContent = name(code);
         m.querySelector(".p-pos-remove").addEventListener("click", function (e) { e.stopPropagation(); unset(code); });
         m.addEventListener("pointerdown", function (e) { if (e.target.closest(".p-pos-remove")) return; drag(e, code); });
         m.addEventListener("keydown", function (e) {
@@ -1557,7 +1559,7 @@ function interruptibleTask(root, stage, task, reset) {
         field.appendChild(m); markers[code] = m;
       }
       m.style.left = x + "%"; m.style.top = (100 - y) + "%";
-      m.setAttribute("aria-label", chip(code).textContent.trim() + ": " + Math.round(x) + " / " + Math.round(y));
+      m.setAttribute("aria-label", name(code) + ": " + Math.round(x) + " / " + Math.round(y));
       m.classList.toggle("is-right", x > 70);
       input(code).value = x + "," + y;
       chip(code).classList.add("is-placed");
@@ -1565,10 +1567,13 @@ function interruptibleTask(root, stage, task, reset) {
       box.dispatchEvent(new Event("change", {bubbles: true}));
     }
     function unset(code) {
+      // the focus was on the marker or its ×: it goes back to the element in the tray, not to the top of the page
+      var back = markers[code] && markers[code].contains(document.activeElement);
       if (markers[code]) { markers[code].remove(); delete markers[code]; }
       input(code).value = "";
       chip(code).classList.remove("is-placed");
       if (selected === code) select(null);
+      if (back) chip(code).focus();
     }
     function point(e) {
       var r = field.getBoundingClientRect();
@@ -1959,8 +1964,18 @@ var blockPages = null;
   flush();
   // the server's errors and notes on a page, as a page shown again would have them (_item.html)
   function mark(p, answer) {
-    p.querySelectorAll("[data-block-message]").forEach(function (el) { el.remove(); });
-    p.querySelectorAll(".has-error, .has-nudge").forEach(function (el) { el.classList.remove("has-error", "has-nudge"); });
+    // what the last answer marked goes, also from the inputs: their link to the message (the hints the server wrote
+    // stay in aria-describedby) and aria-invalid, so a question answered now is no longer read out as wrong
+    var gone = [];
+    p.querySelectorAll("[data-block-message]").forEach(function (el) { gone.push(el.id); el.remove(); });
+    p.querySelectorAll(".has-error, .has-nudge").forEach(function (el) {
+      el.querySelectorAll("input:not([type=hidden]), textarea, select").forEach(function (input) {
+        var ids = (input.getAttribute("aria-describedby") || "").split(" ").filter(function (x) { return x && gone.indexOf(x) < 0; });
+        if (ids.length) input.setAttribute("aria-describedby", ids.join(" ")); else input.removeAttribute("aria-describedby");
+        input.removeAttribute("aria-invalid");
+      });
+      el.classList.remove("has-error", "has-nudge");
+    });
     var first = null;
     [["errors", "has-error", "p-error", "alert"], ["nudges", "has-nudge", "p-nudge", "status"]].forEach(function (k) {
       Object.keys(answer[k[0]] || {}).forEach(function (id) {
@@ -1973,7 +1988,9 @@ var blockPages = null;
         msg.textContent = answer[k[0]][id];
         item.appendChild(msg);
         item.querySelectorAll("input:not([type=hidden]), textarea, select").forEach(function (input) {
-          input.setAttribute("aria-describedby", msg.id);
+          // added to the hints, not in their place (as on a page the server shows again)
+          var ids = (input.getAttribute("aria-describedby") || "").split(" ").filter(Boolean);
+          if (ids.indexOf(msg.id) < 0) input.setAttribute("aria-describedby", [msg.id].concat(ids).join(" "));
           if (k[0] === "errors") input.setAttribute("aria-invalid", "true");
         });
         first = first || item;

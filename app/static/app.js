@@ -4047,9 +4047,34 @@ document.addEventListener("change", function (e) {
   var box = document.querySelector("[data-live-strip]");
   if (!box) return;
   var svg = box.querySelector("svg"), NS = "http://www.w3.org/2000/svg", last = null;
+  var said = box.querySelector("[data-live-summary]");
+  // the dots in words (WCAG 1.1.1): how many, by third of the questionnaire and by how recently they sent a page;
+  // only counts, nobody to pick out. Written only when it changed, so the live region does not repeat itself every 30 s.
+  function summary(data) {
+    if (!said) return;
+    var thirds = [0, 0, 0], recent = 0, older = 0;
+    data.people.forEach(function (p) {
+      if (p.a >= data.window) return;
+      thirds[Math.min(2, Math.floor(Math.max(0, p.p) * 3))] += 1;
+      if (p.a < 180) recent += 1; else older += 1;
+    });
+    var n = recent + older, text;
+    if (!n) text = de_en("Gerade ist niemand in der Befragung.", "Nobody is in the survey right now.");
+    else {
+      text = (n === 1 ? de_en("1 Person ist gerade in der Befragung.", "1 person is in the survey right now.")
+        : de_en("{n} Personen sind gerade in der Befragung.", "{n} people are in the survey right now.").replace("{n}", n))
+        + " " + de_en("Im ersten Drittel des Fragebogens: {a}, im zweiten: {b}, im letzten: {c}.",
+                      "In the first third of the questionnaire: {a}, in the second: {b}, in the last: {c}.")
+          .replace("{a}", thirds[0]).replace("{b}", thirds[1]).replace("{c}", thirds[2])
+        + " " + de_en("Letzte Seite vor weniger als 3 Minuten: {r}, vor 3 bis 10 Minuten: {o}.",
+                      "Last page less than 3 minutes ago: {r}, 3 to 10 minutes ago: {o}.").replace("{r}", recent).replace("{o}", older);
+    }
+    if (said.textContent !== text) said.textContent = text;
+  }
   function el(name, attrs) { var e = document.createElementNS(NS, name); for (var k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; }
   function draw(data) {
     last = data;
+    summary(data);
     if (data.outside) {  // who is in an external section right now (app/external.py)
       var now = document.querySelector("[data-outside-now]"), gone = document.querySelector("[data-outside-gone]");
       if (now) now.textContent = data.outside.now;

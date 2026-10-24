@@ -20,7 +20,7 @@
     {% for o in kind.ordered_options(item, lang, start) %}
     {% set xy = ans.get(o.code) if ans is mapping else none %}
     <span class="p-pos-el">
-      <button type="button" class="p-pos-chip" data-pos-chip="{{ o.code }}" {% if xy %}data-x="{{ xy[0] }}" data-y="{{ xy[1] }}"{% endif %}>{{ o.label|fill(variables) }}</button>
+      <button type="button" class="p-pos-chip" data-pos-chip="{{ o.code }}" {% if xy %}data-x="{{ xy[0] }}" data-y="{{ xy[1] }}"{% endif %}><span class="p-pos-chip-name" data-pos-name>{{ o.label|fill(variables) }}</span><span class="p-pos-placed">{{ ui("platziert", "placed") }}</span></button>
       <input type="hidden" name="i{{ item.id }}_{{ o.code }}" value="{{ '%s,%s'|format(xy[0], xy[1]) if xy else '' }}" data-pos-value="{{ o.code }}">
       {% if c.allow_skip %}<label class="p-pos-skip"><input type="checkbox" name="i{{ item.id }}_skip" value="{{ o.code }}" data-pos-skip="{{ o.code }}" {% if o.code in skipped %}checked{% endif %}> {{ ui("kann ich nicht einschätzen", "can't say") }}</label>{% endif %}
     </span>

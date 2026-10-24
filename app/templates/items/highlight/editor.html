@@ -21,7 +21,7 @@
       <tr><td>{{ k }}</td>
         <td><input name="cat_label" aria-label="{{ de_en('Name der Kategorie {k}', 'Name of category {k}', k=k) }}" value="{{ own }}" maxlength="40" placeholder="{{ label }}"></td>
         <td><span class="hl-swatch" style="background: {{ color }}"></span>
-          <select name="cat_color" {% if not structural %}disabled{% endif %}>
+          <select name="cat_color" {% if not structural %}disabled{% endif %} aria-label="{{ de_en('Farbe der Kategorie {k}', 'Colour of category {k}', k=k) }}">
             {% for key, (name, css) in hl_colors().items() %}<option value="{{ key }}" {% if item.config.cats[k - 1].color == key %}selected{% endif %}>{{ de_en(name, en_colours.get(key, name)) }}</option>{% endfor %}
           </select></td></tr>
     {% endfor %}
