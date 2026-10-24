@@ -68,6 +68,9 @@ BLUEPRINT_SIDES = {
     "paper": RESEARCHER,
     # the news page /blog with its feed and sitemap, and its administration: on the address of the landing page
     "blog": RESEARCHER,
+    # registration links of the platform (app/signup_links.py): whoever opens one signs in with ORCID as a new
+    # researcher, so it lives on the researchers' address like the sign-in itself
+    "signup_links": RESEARCHER,
     # the rest needs a sign-in, is for machines (cron, Slack, Rechenknecht, ORCID and Zenodo callbacks) or is the
     # landing page and the legal pages of the platform
     **{name: RESEARCHER for name in (
