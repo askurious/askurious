@@ -191,6 +191,6 @@ def test_admin_lead_link(app, client):
     assert "Leitungslink für „Ohne Leitung“ erzeugt" in client.post(f"/admin/groups/{gid}/lead", data={"action": "link"},
                                                                    follow_redirects=True).data.decode()
     assert guest.post(f"/admin/groups/{gid}/lead", data={"action": "link"}).status_code == 403
-    # without lead and without the tick: refused
-    assert "Bitte eine ORCID iD" in client.post("/admin/groups/new", data={"name": "X", "lead": ""},
-                                                follow_redirects=True).data.decode()
+    # without lead and without the tick: the site admin leads it, as everyone does by default (2026-10-24)
+    assert "Sie leiten sie" in client.post("/admin/groups/new", data={"name": "X", "lead": ""},
+                                           follow_redirects=True).data.decode()

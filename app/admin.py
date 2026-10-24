@@ -1445,7 +1445,8 @@ def _groups_part():
     return {"groups": [by_id[i] for i in ids], "listing": listing, "new_link": new_link,
             "lead_links": joinlinks.open_lead_links(ids), "org": org,
             "org_options": [(o.id, orgs.label(o)) for o in orgs.all_orgs(guests=False)] if orgs.several() else [],
-            "org_names": orgs.names() if orgs.several() else None}
+            "org_names": orgs.names() if orgs.several() else None,
+            "new": groups_new_form()}
 
 
 def _member_match(group, *where):
@@ -1636,52 +1637,20 @@ def _lead_link(group):
     return None
 
 
+def groups_new_form():
+    from app import groups as groups_mod, orgs
+
+    return groups_mod.new_form(orgs.get(orgs.for_new(current_user)))
+
+
 @bp.route("/groups/new", methods=["POST"])
 def group_new():
-    """A group made by a site admin who does not become a member of it, with its first lead
-    (gruppen-freischaltung-konzept.md, Ralf 2026-10-10, E1 and E2). "Mitglieder dürfen eigene Befragungen anlegen" is
-    ticked at first (E4): its lead then lets in people who may create surveys, through the tick only a site admin
-    sets. A lead hands out the group's rights: fresh sign-in, as for the other rights actions (V5)."""
-    from app import accounts, groups as groups_mod
-    from app.extensions import db
-    from app.models import WorkGroup
+    """The dialog "Neue Gruppe" on Administration > Gruppen, the same as on every page (groups.create, Ralf
+    2026-10-24): a site admin leads the group or names its first lead and is then no member
+    (gruppen-freischaltung-konzept.md, E1 and E2); the group goes into the site admin's home organisation."""
+    from app import groups as groups_mod, orgs
 
-    again = accounts.need_fresh(url_for("admin.groups", _anchor="gruppen"))
-    if again:
-        return again
-    name = groups_mod._name(request.form.get("name"))
-    if not name:
-        flash(de_en("Bitte einen Namen für die Gruppe angeben.", "Please give the group a name."), "error")
-        return _back("admin.groups", "gruppen")
-    from app import orgs
-
-    if orgs.group_name_taken(name, orgs.for_new(current_user)):
-        flash(orgs.name_taken_said(name), "error")
-        return _back("admin.groups", "gruppen")
-    by_link = not (request.form.get("lead") or "").strip() and bool(request.form.get("lead_link"))
-    found = None if by_link else _lead_from_outside(request.form.get("lead"), request.form.get("lead_name"))
-    if isinstance(found, str):
-        flash(found, "error")
-        return _back("admin.groups", "gruppen")
-    group = WorkGroup(name=name, description=(request.form.get("description") or "").strip()[:groups_mod.MAX_DESCRIPTION],
-                      created_by_id=current_user.id, may_create=bool(request.form.get("members_create")))
-    db.session.add(group)
-    if by_link:
-        db.session.commit()
-        _lead_link(group)
-        flash(de_en("Gruppe „{g}“ angelegt. Schicken Sie den Leitungslink der Person, die sie leiten soll; wer ihn zuerst "
-                    "öffnet und sich anmeldet, leitet die Gruppe.", "Group “{g}” created. Send the lead link to the person "
-                    "who is to lead it; the first person who opens it and signs in leads the group.", g=name), "success")
-        return _back("admin.groups", "gruppen")
-    refused = _make_lead(group, found)
-    if refused:
-        db.session.rollback()
-        flash(refused, "error")
-        return _back("admin.groups", "gruppen")
-    flash(de_en("Gruppe „{g}“ angelegt; {name} leitet sie. Sie selbst sind nicht Mitglied.",
-                "Group “{g}” created; {name} leads it. You are not a member yourself.", g=name,
-                name=found[2] or found[0]), "success")
-    return _back("admin.groups", "gruppen")
+    return groups_mod.create(orgs.get(orgs.for_new(current_user)), url_for("admin.groups", _anchor="gruppen"))
 
 
 @bp.route("/groups/<int:group_id>/lead", methods=["POST"])

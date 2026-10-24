@@ -24,6 +24,8 @@ Eine Gruppe ist eine Liste von Menschen, mit denen man regelmäßig arbeitet (ei
 Sie teilt Befragungen und Designs auf einmal statt Person für Person.
 Eine Gruppe besitzt nichts: Wer geht, verliert nur, was über die Gruppe geteilt war (Entscheidung vom 2026-10-01).
 
+„Neue Gruppe …“ öffnet überall denselben Dialog: unter Gruppen, unter Verwaltung > Gruppen und unter Administration > Gruppen. Name und Beschreibung trägt jede Person ein; wer die Gruppe anlegt, leitet sie. Admins der Organisation sehen im selben Dialog zusätzlich, wer die Gruppe leitet (dann werden sie selbst nicht Mitglied), ob alle, die dazukommen, „Anlegen“ bekommen, und ob die Gruppe eine Lehrveranstaltung ist (Nutzertyp und Ende für neue Konten). Die Gruppe gehört zur Organisation der Seite, unter Gruppen zur eigenen Stammorganisation.
+
 ### Designs
 
 ![Designs der Plattform, eigene Designs und geteilte Designs](img/designs.jpg)

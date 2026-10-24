@@ -70,29 +70,5 @@
   {% else %}<li class="muted">{{ de_en("Noch keine Gruppen.", "No groups yet.") }}</li>{% endfor %}
   </ul>
 </section>
-{# "Neue Gruppe" as a dialog like "Person hinzufügen" (Ralf 2026-10-20, app.js); without scripts a panel #}
-<section class="panel person-add add-dialog-narrow" id="gruppe-anlegen" aria-labelledby="group-add-title" data-person-add-panel>
-  <div class="feedback-dialog-head"><h2 id="group-add-title">{{ de_en("Neue Gruppe", "New group") }}</h2>
-    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
-  <form method="post" action="{{ url_for('org.groups_action', org_id=org.id) }}" class="stack">
-    {{ csrf() }}<input type="hidden" name="action" value="new">
-    <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="80" required></label>
-    {# the lead picked from everyone in the organisation, found by typing; an ORCID iD for someone not yet in it (Ralf, 2026-10-16) #}
-    <fieldset class="stack org-lead-pick">
-      <legend>{{ de_en("Leitung", "Lead") }}</legend>
-      {% if people %}
-      <label>{{ de_en("Mitglied der Organisation", "Member of the organisation") }}
-        <input type="search" data-filter-select="lead-user" placeholder="{{ de_en('Name oder ORCID iD suchen …', 'Search name or ORCID iD …') }}" aria-label="{{ de_en('Mitglieder durchsuchen', 'Search members') }}" autocomplete="off">
-        <select name="lead_user" id="lead-user" aria-label="{{ de_en('Mitglied der Organisation', 'Member of the organisation') }}" size="{{ [people|length + 1, 6]|min }}">
-          <option value="" selected>{{ de_en("– niemand ausgewählt –", "– nobody chosen –") }}</option>
-          {% for u in people %}<option value="{{ u.id }}">{{ u.display_name }}{% if u.has_orcid %} · {{ u.orcid }}{% endif %}</option>{% endfor %}
-        </select></label>
-      {% endif %}
-      <label>{{ de_en("oder ORCID iD einer Person, die noch nicht dazugehört", "or the ORCID iD of someone not yet in it") if people else de_en("ORCID iD", "ORCID iD") }}
-        <input name="lead" maxlength="19" placeholder="0000-0000-0000-0000" autocomplete="off"></label>
-    </fieldset>
-    {% if org.may_create is not sameas false %}<label class="check"><input type="checkbox" name="members_create" value="1"> {{ de_en("Wer dazukommt, bekommt „Anlegen“ (eigene Befragungen anlegen)", "Whoever joins gets “Create” (create own surveys)") }}</label>{% endif %}
-    <div class="button-row"><button class="button">{{ de_en("Gruppe anlegen", "Create group") }}</button></div>
-  </form>
-</section>
+{% with action=url_for('org.groups_action', org_id=org.id), hidden_action=true %}{% include "groups/_new.html" %}{% endwith %}
 {% endblock %}
