@@ -17,8 +17,8 @@ Only a commit that
 1. is on `main`,
 2. ran green with the whole test suite (`pytest tests --full` on that tree; `python tools/green_run.py` says so on
    the machine that ran it), and
-3. runs on the RWTH server: the second line of `~/askurious/app/deployed_at.txt` is the commit, with no
-   `skipped=` line after it.
+3. runs on the RWTH server: the second line of `~/askurious/app/deployed_at.txt` is the commit. A `skipped=`
+   line there means the deploy did not run the tests itself; then point 2 has to be shown on its own.
 
 ```bash
 ssh queryous-rwth 'cat ~/askurious/app/deployed_at.txt'
