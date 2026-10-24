@@ -90,10 +90,12 @@ def test_bt10_participant_upstream_keeps_max_fails_zero():
     assert 'echo "server $1:8000 resolve max_fails=0$2;"' in script
 
 
-def test_bt4_app_role_with_the_old_one_as_fallback():
+def test_bt4_app_role_without_a_superuser_fallback():
+    """Since 2026-10-24 compose stops without the app's role instead of signing in as the superuser."""
     compose = _read("deploy", "docker", "compose.yaml")
-    assert ("DATABASE_URL: postgresql://${DB_APP_USER:-askurious}:${DB_APP_PASSWORD:-${POSTGRES_PASSWORD}}@db/askurious"
-            in compose)
+    assert ("DATABASE_URL: postgresql://${DB_APP_USER:?DB_APP_USER missing in the .env (db-app-role.sh)}:"
+            "${DB_APP_PASSWORD:?DB_APP_PASSWORD missing in the .env (db-app-role.sh)}@db/askurious" in compose)
+    assert "${DB_APP_USER:-askurious}" not in compose and "${POSTGRES_PASSWORD}}" not in compose
     script = _read("deploy", "docker", "db-app-role.sh")
     assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS" in script
     assert "ALTER DATABASE askurious OWNER TO $ROLE;" in script and "set -euo pipefail" in script

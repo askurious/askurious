@@ -195,7 +195,14 @@ BASE = {"DB_APP_USER": "askurious_app", "DB_APP_PASSWORD": "app", "POSTGRES_PASS
 ON = dict(BASE, PARTICIPANT_DB_USER="askurious_participant", PARTICIPANT_DB_PASSWORD="part")
 
 
-@pytest.mark.parametrize("env", [BASE, {"POSTGRES_PASSWORD": "su"}])
+def test_without_the_app_role_compose_stops_instead_of_the_superuser():
+    """No fallback to the superuser "askurious" any more (2026-10-24): the researchers' and the participants' lines."""
+    for anchor in ("x-app-fixed: &app-fixed", "  participant-a: &participant"):
+        with pytest.raises(KeyError, match="DB_APP_USER missing"):
+            _interpolate(_line(COMPOSE, anchor), {"POSTGRES_PASSWORD": "su"})
+
+
+@pytest.mark.parametrize("env", [BASE, {"POSTGRES_PASSWORD": "su", "DB_APP_USER": "askurious_app", "DB_APP_PASSWORD": "a"}])
 def test_off_the_participants_keep_the_url_of_before(env):
     app_url = _interpolate(_line(COMPOSE, "x-app-fixed: &app-fixed"), env)
     assert _interpolate(_line(COMPOSE, "  participant-a: &participant"), env) == app_url

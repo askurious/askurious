@@ -19,7 +19,7 @@ x-logging: &logging
 # What the app containers read from the .env (audit 2026-10-13, SV-2/DP-6). No container gets the whole .env any
 # more (env_file): each gets the lines it needs, by name. A name without a value takes the line of the same name from
 # the .env (the file compose reads anyway, a link to ~/askurious-env/.env); a line missing there stays missing in the
-# container, so config.py keeps its default. POSTGRES_PASSWORD, DB_APP_PASSWORD (both only inside DATABASE_URL below),
+# container, so config.py keeps its default. POSTGRES_PASSWORD (the db service only), DB_APP_PASSWORD (in DATABASE_URL),
 # BRAND_COMPUTE_SECRET, OFFSITE_* and the other lines for the scripts reach no app container.
 # The settings: every name config.py reads, except the ones compose sets itself below and DEV_LOGIN (never on a
 # server). A new setting in config.py goes here as well (tests/platform/test_compose_hardening.py says so).
@@ -238,9 +238,11 @@ x-mail-secrets: &mail-secrets
 
 # what compose.yaml sets itself in every app container
 x-app-fixed: &app-fixed
-  # the app's own role without superuser rights (audit 2026-10-09, BT4), once db-app-role.sh has written
-  # DB_APP_USER and DB_APP_PASSWORD to the .env; until then the superuser "askurious" as before (BETRIEB.md)
-  DATABASE_URL: postgresql://${DB_APP_USER:-askurious}:${DB_APP_PASSWORD:-${POSTGRES_PASSWORD}}@db/askurious
+  # the app's own role without superuser rights (audit 2026-10-09, BT4): DB_APP_USER and DB_APP_PASSWORD in the .env
+  # (deploy-docker.sh NEW_ENV=1 writes them on a new server, db-app-role.sh on one from before). Without them compose
+  # stops instead of signing in as the superuser "askurious"; with DB_ISOLATION=1 isolation/roles.yaml replaces this
+  # line by the runtime role, and restart.sh refuses a superuser or a role that may create roles
+  DATABASE_URL: postgresql://${DB_APP_USER:?DB_APP_USER missing in the .env (db-app-role.sh)}:${DB_APP_PASSWORD:?DB_APP_PASSWORD missing in the .env (db-app-role.sh)}@db/askurious
   PROXY_COUNT: "1"
   LIFECYCLE_IN_REQUEST: "0"
   MEDIA_X_ACCEL: "1"
@@ -380,7 +382,7 @@ services:
       # the participants' own database role with the rights of app/participant_grants.py only (CFG-04), once
       # participant-db-role.sh has written PARTICIPANT_DB_USER and PARTICIPANT_DB_PASSWORD to the .env (needs
       # DB_ISOLATION=1, compose-env.sh; isolation/roles.yaml takes the same pair); until then the app's role as above
-      DATABASE_URL: postgresql://${PARTICIPANT_DB_USER:-${DB_APP_USER:-askurious}}:${PARTICIPANT_DB_PASSWORD:-${DB_APP_PASSWORD:-${POSTGRES_PASSWORD}}}@db/askurious
+      DATABASE_URL: postgresql://${PARTICIPANT_DB_USER:-${DB_APP_USER:?DB_APP_USER missing in the .env (db-app-role.sh)}}:${PARTICIPANT_DB_PASSWORD:-${DB_APP_PASSWORD:?DB_APP_PASSWORD missing in the .env (db-app-role.sh)}}@db/askurious
       SIDE: participant                      # answers only the participants' paths (app/hosts.py)
     command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "12", "--threads", "4",
               "--timeout", "60", "--graceful-timeout", "60", "--keep-alive", "75", "passenger_wsgi:application"]

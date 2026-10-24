@@ -1,8 +1,26 @@
 # DP-15: Datenbankrechte und Docker-Netze
 
 Stand: 2026-10-14. **Auf askurious.de aktiviert und live abgenommen.** Laufzeitrolle `askurious_run`, separate
-Migrationsjobs und Zielnetze sind produktiv aktiv. Weitere Server benötigen weiterhin die folgende Bereitstellung
-und Abnahme; ohne Opt-in bleibt dort der bisherige Betrieb erhalten.
+Migrationsjobs und Zielnetze sind produktiv aktiv. Ein bestehender Server ohne Isolation benötigt weiterhin die
+folgende Bereitstellung und Abnahme; ohne Opt-in bleibt dort der bisherige Betrieb erhalten, aber nie mehr als
+Superuser: `compose.yaml` bricht ohne `DB_APP_USER`/`DB_APP_PASSWORD` ab, und `restart.sh` verweigert den Start, wenn
+eine Rolle aus einer `DATABASE_URL` fehlt, Superuser ist oder Rollen oder Datenbanken anlegen, replizieren oder RLS
+umgehen darf. Ein **neuer Server** ist von Anfang an isoliert (Abschnitt „Neuer Server“).
+
+## Neuer Server
+
+`NEW_ENV=1 deploy/docker/deploy-docker.sh` schreibt in die neue `~/askurious-env/.env` neben den Schlüsseln
+`DB_ISOLATION=1`, die relative `COMPOSE_FILE`-Auswahl und je eine Rolle mit zufälligem Passwort:
+`DB_APP_USER=askurious_app` (Eigentümerin, nur im Migrationsjob), `DB_RUN_USER=askurious_run` (Laufzeit) und
+`PARTICIPANT_DB_USER=askurious_participant` (Teilnahme-Container, Rechte aus `app/participant_grants.py`).
+`POSTGRES_PASSWORD` dient nur dem ersten Start des Datenbank-Images. Der erste `restart.sh` erkennt die neue Installation
+(keine Teilnahme-Container, keine Datenbankversion, kein `~/askurious-env/isolation-db-*.json`), startet die Datenbank
+mit `compose.yaml` allein wie einen Server von vor der Isolation und richtet auf dem noch leeren Schema mit
+`db-app-role.sh --new-install` die Rollen ein (Laufzeitrolle über `runtime-role.sql`; Passwörter nur über stdin). Dabei
+verlieren `postgres` und `template1` CONNECT/TEMP für PUBLIC, und der Superuser `askurious` verliert sein
+Netzwerkpasswort (wie `db-app-role.sh --lock`). Danach läuft der Deploy wie jeder isolierte: Netze, Migrationsjob,
+Rechteprüfung, Forschende-App, Teilnahme-Container nacheinander, `finalize`. Voraussetzungen wie unten: Host-Python 3 und
+Docker Compose >= 2.24.4. Ohne eigene Teilnahmerolle: die beiden `PARTICIPANT_DB_*`-Zeilen vor dem ersten Start löschen.
 
 ## Rollen
 
@@ -81,8 +99,8 @@ Quellen: [Docker-Merge-Regeln](https://docs.docker.com/reference/compose-file/me
 3. Rollen bereitstellen und prüfen. Bei aktiver Marke: eigener Owner und Runtime, `.env.brand` mit **Runtime**-URL;
    `.env.brand-migration` mit **nur** `DATABASE_URL=<Owner-URL>` und `RUNTIME_ROLE=<Runtime-Rolle>`, Modus 600 in
    `~/askurious-env`. Der Deploy verlinkt wie bisher `.env*`. Die Runtime darf keine Rolle erben und kein Eigentum
-   besitzen. Haupt- und Marken-Datenbanken müssen verschieden sein. Ein neuer Server wird zunächst mit dem bisherigen
-   Ablauf aufgebaut; danach Owner/Schema/Runtime bereitstellen, erst dann Opt-in. Kein stiller Superuser-/SQLite-Fallback.
+   besitzen. Haupt- und Marken-Datenbanken müssen verschieden sein. Ein neuer Server braucht diese Schritte nicht
+   (Abschnitt „Neuer Server“). Kein stiller Superuser-/SQLite-Fallback.
 4. Erst nach dieser Prüfung in der geschützten `.env` setzen:
    ```dotenv
    DB_ISOLATION=1

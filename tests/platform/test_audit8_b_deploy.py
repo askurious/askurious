@@ -89,6 +89,16 @@ case "$*" in
   "run --rm --entrypoint cat askurious:previous /app/app/deployed_at.txt") cat "$(img previous)" ;;
   "compose build"*) cp "$PWD/../../app/deployed_at.txt" "$(img latest)" ;;
   *"SELECT version_num"*) echo "${FAKE_DB_VERSION:-}" ;;
+  # the roles of the app containers (restart.sh check_db_roles; FAKE_DB_USERS, FAKE_BAD_ROLES) and a new server's
+  # roles (db-app-role.sh --new-install: FAKE_OBJECTS in the schema, FAKE_RUNTIME_ROLE there already; its SQL from
+  # stdin goes to psql-stdin.log)
+  "compose config --format json")
+    printf '{"services": {"researcher": {"environment": {"DATABASE_URL": "postgresql://%s:pw@db/askurious"}}}}\n' \
+      ${FAKE_DB_USERS-askurious_run} ;;
+  *"'roles-checked:'"*) echo "roles-checked:${FAKE_BAD_ROLES:-}" ;;
+  *"'objects:'"*) echo "objects:${FAKE_OBJECTS:-0}" ;;
+  *"'runtime:'"*) echo "runtime:${FAKE_RUNTIME_ROLE:-0}" ;;
+  *"psql -U askurious -d askurious -v ON_ERROR_STOP=1 -q -X") cat >> "$SERVER/psql-stdin.log" ;;
   "compose ps --services --status running") printf '%b' "${FAKE_RUNNING:-}" ;;
   "compose ps -q participant-a participant-b") [ -z "${FAKE_PARTICIPANTS:-}" ] || echo running ;;
   *"FROM pg_database"*) echo "${FAKE_DATABASES:-}" ;;
@@ -124,6 +134,7 @@ class World:
                     "deploy/docker/requirements-docker.lock"):
             _write(os.path.join(r, rel), "# stand-in\n")
         for rel in ("compose.yaml", "compose-env.sh", "deploy-docker.sh", "restart.sh", "backup.sh", "alarm.sh", "wartung.sh",
+                    "db-app-role.sh",
                     "nginx/askurious.conf.template", "nginx/self-signed.sh", "nginx/participant-upstream.sh",
                     "nginx/brand-stack.sh", "nginx/servers.sh", "nginx/locations/researcher.conf",
                     "nginx/locations/participant.conf", "nginx/locations/status.conf",
@@ -222,6 +233,8 @@ def test_b1_no_new_secrets_while_an_old_env_lies_anywhere_and_only_on_request(wo
     assert out.returncode != 0 and "NEW_ENV=1" in out.stderr
     assert not world.path("askurious-env", ".env").exists()
     assert world.text("askurious", "app", "deployed_at.txt") == "before\n"
+    # a new .env is isolated from the start (DB_ISOLATION=1): isolation/transition.py as a stand-in here
+    _write(str(world.bin / "python3"), '#!/usr/bin/env bash\necho "isolation $2" >> "$SERVER/docker.log"\n', 0o755)
     out = world.run(NEW_ENV="1")
     assert out.returncode == 0, out.stdout + out.stderr
     env = world.text("askurious-env", ".env")
@@ -229,6 +242,11 @@ def test_b1_no_new_secrets_while_an_old_env_lies_anywhere_and_only_on_request(wo
     # the keys that keep the two sides apart (audit 2026-10-22, E-01)
     for name in ("PARTICIPANT_TOKEN_KEY", "RESEARCHER_SESSION_KEY", "TOKEN_KEY"):
         assert re.search(rf"^{name}=fresh\d+$", env, re.M), name
+    # restricted database roles from the start, never the superuser (tests/platform/test_install_db_roles.py)
+    for name, role in (("DB_APP", "askurious_app"), ("DB_RUN", "askurious_run"), ("PARTICIPANT_DB", "askurious_participant")):
+        assert re.search(rf"^{name}_USER={role}$", env, re.M) and re.search(rf"^{name}_PASSWORD=fresh\d+$", env, re.M), name
+    assert re.search(r"^DB_ISOLATION=1$", env, re.M)
+    assert re.search(r"^COMPOSE_FILE=compose.yaml:isolation/roles.yaml:isolation/networks.yaml$", env, re.M)
 
 
 # --- B8: the image before stays as askurious:previous, rollback puts image and code folder back together -------

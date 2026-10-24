@@ -1,4 +1,5 @@
--- DP-15 preparation: apply only as the local PostgreSQL administrator, after a backup.
+-- DP-15 preparation: apply only as the local PostgreSQL administrator, after a backup (on a new server
+-- db-app-role.sh --new-install applies it on the empty database).
 -- Fixed existing migration owner askurious_app; a new role, with no inherited privileges.
 -- No password in this file. Set a generated runtime password separately through stdin.
 \set ON_ERROR_STOP on
@@ -32,6 +33,11 @@ ALTER DEFAULT PRIVILEGES FOR ROLE askurious_app IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO askurious_run;
 ALTER DEFAULT PRIVILEGES FOR ROLE askurious_app IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO askurious_run;
--- The runtime must never change the migration marker.
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.alembic_version FROM askurious_run;
+-- The runtime must never change the migration marker. A new server's still empty database has none yet
+-- (db-app-role.sh --new-install): the migration job revokes it there after the first migration.
+DO $$ BEGIN
+  IF to_regclass('public.alembic_version') IS NOT NULL THEN
+    REVOKE INSERT, UPDATE, DELETE ON TABLE public.alembic_version FROM askurious_run;
+  END IF;
+END $$;
 COMMIT;

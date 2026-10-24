@@ -96,6 +96,9 @@ TARGET_COMPOSE_FILE=${COMPOSE_FILE:-}
 if [ "$ISOLATION_ACTIVE" = 1 ]; then
   command -v python3 >/dev/null || { echo 'DB_ISOLATION requires host python3.' >&2; exit 1; }
 fi
+# compose.yaml no longer falls back to the database superuser: a .env without DB_APP_USER/DB_APP_PASSWORD (or, with
+# DB_ISOLATION=1, without DB_RUN_USER/DB_RUN_PASSWORD) stops here with compose's own message, before anything changes
+$C config --quiet || { echo "The compose configuration is incomplete (above). Nothing restarted." >&2; exit 1; }
 
 healthy() {  # waits until the service answers /healthz inside its container (at most 120 s)
   local i
@@ -216,6 +219,40 @@ check_participant_role() {
 }
 check_participant_role
 
+# No app container may sign in to the database as a role that may hand out rights or step past them (superuser,
+# CREATEROLE, CREATEDB, REPLICATION, BYPASSRLS): every role named in a DATABASE_URL of the configuration (Askurious,
+# participants, housekeeping, a brand) must exist and have none of these. Checked once the database runs (and, with
+# DB_ISOLATION=1, after the migration job), before the first app container restarts; a refusal leaves the app
+# containers running as they were. The configuration holds passwords: it is
+# read into this function only, never printed. compose.yaml no longer falls back to the superuser "askurious"; a local
+# test setup that wants it names it in the .env (DB_APP_USER=askurious) and does not use this script.
+check_db_roles() {
+  local users user out i
+  users=$($C config --format json | grep -o '"DATABASE_URL": *"[a-z+]*://[^:@/"]*' | sed 's|.*://||' | sort -u \
+    | tr '\n' ' ' || true)
+  users=${users% }
+  [ -n "$users" ] || { echo "No DATABASE_URL in the compose configuration: database roles not checked. Nothing restarted." >&2; exit 1; }
+  for user in $users; do
+    [[ "$user" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || { echo "Unexpected database role name in a DATABASE_URL. Nothing restarted." >&2; exit 1; }
+  done
+  out=""
+  for i in $(seq 1 30); do
+    out=$($C exec -T db psql -U askurious -d askurious -AtX -c "SELECT 'roles-checked:' || coalesce(string_agg(u, ' '), '')
+      FROM unnest(string_to_array('$users', ' ')) AS u WHERE NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = u
+        AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolreplication AND NOT r.rolbypassrls)" \
+      2>/dev/null) && break
+    sleep 2
+  done
+  out=$(echo "$out" | tr -d '\r' | tail -n 1)
+  case "$out" in
+    roles-checked:) ;;
+    roles-checked:*)
+      echo "Refused: the app containers would sign in to the database as ${out#roles-checked:}, a role that is missing or a superuser or may create roles or databases (DB_APP_USER, DB_RUN_USER, PARTICIPANT_DB_USER; db-app-role.sh, isolation/README.md). Nothing restarted." >&2
+      exit 1 ;;
+    *) echo "The database roles could not be checked (database not answering). Nothing restarted." >&2; exit 1 ;;
+  esac
+}
+
 # Serialise manual deploys, rollback and maintenance against each other as well. A stale lock blocks safely;
 # remove it only after checking that no restart is running (BETRIEB.md). One from before the server's last boot is
 # the exception: no process of before the boot runs any more (a reboot during a deploy or the maintenance window
@@ -264,6 +301,18 @@ if [ -z "$current" ] && [ "$fresh" != 1 ]; then
   echo "Deploy refused: running participants but no database version to compare. Nothing restarted." >&2; exit 1
 fi
 check_migrations "$current"
+# A new server (deploy-docker.sh NEW_ENV=1) is isolated from its first start: DB_ISOLATION=1, but no database, roles or
+# isolation state yet. Its database starts as on a server from before the isolation (compose.yaml alone), so that
+# isolation/transition.py adopts it the way it adopted askurious.de's; on the still empty database it gets its
+# restricted roles (db-app-role.sh --new-install), and the deploy goes on as every isolated one: the migration job builds
+# the schema as the owner role, the containers sign in with the runtime role. Never on a server with participants'
+# containers, a database version or an isolation state (~/askurious-env/isolation-db-*.json).
+if [ "$ISOLATION_ACTIVE" = 1 ] && [ "$fresh" = 1 ] && [ -z "$current" ] \
+    && ! compgen -G "$HOME/askurious-env/isolation-db-*.json" >/dev/null; then
+  echo "    new installation: the database and its restricted roles first"
+  COMPOSE_FILE="$PWD/compose.yaml" $C up -d --no-deps --no-recreate --wait db
+  bash ./db-app-role.sh --new-install  # by bash: the code of a public checkout may lack the executable bit
+fi
 if [ "$ISOLATION_ACTIVE" = 1 ]; then
   python3 isolation/transition.py preflight
   if $C config --services | grep -qx brand-researcher; then
@@ -358,6 +407,7 @@ else
   # created if missing, otherwise the next maintenance window (maintenance.sh, after its dump) takes it over
   $C up -d --no-deps --no-recreate db
 fi
+check_db_roles
 # the researchers' side has one container: the maintenance page from its stop until it answers again (the trap
 # switches it off if the deploy stops; then nginx shows the page only while the container does not answer)
 wartung_an forschende 15 deploy
