@@ -76,7 +76,7 @@
             data-confirm="{{ de_en('Das gefundene Interview endgültig löschen?', 'Delete the interview found permanently?') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
         {{ csrf() }}
         <input type="text" name="term" maxlength="60" autocomplete="off" aria-label="{{ de_en('Löschcode oder Kennung', 'Deletion code or identifier') }}" placeholder="{{ de_en('Löschcode oder Kennung', 'Deletion code or identifier') }}">
-        <button class="button button-secondary">{{ icon("trash", 16) }} {{ de_en("Löschen", "Delete") }}</button>
+        <button class="button button-danger">{{ icon("trash", 16) }} {{ de_en("Löschen", "Delete") }}</button>
       </form>
     {% endcall %}
   </ul>
