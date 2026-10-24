@@ -1036,7 +1036,7 @@ def create_app(config_class=Config, server=False):
                                                 " ".join(["img-src 'self' data: blob:", *tiles]))
     # The researchers' pages (audit 2026-10-18, INJ-1): images likewise only from this site, the tile servers and the
     # status page of the brand (the dot in the footer); forms only to this site and where a sent form of theirs goes
-    # on to: ORCID (sign-in, connecting an account) and the participants' address of the brand (a test run). Both
+    # on to: ORCID (sign-in, connecting an account), Zenodo (connecting an account) and the participants' address of the brand (a test run). Both
     # depend on the brand of the request (app/brand.py), so they are filled in per request (_researcher_policy).
     # style-src keeps 'unsafe-inline': several hundred style="" attributes in the templates and the survey's theme
     # set as inline styles; a nonce does not cover attributes, so this needs a rebuild of the templates first.
@@ -1044,11 +1044,14 @@ def create_app(config_class=Config, server=False):
         "img-src 'self' data: blob:", "img-src 'self' data: blob:{images}", 1)
 
     def _researcher_policy():
-        from app import brand
+        from app import brand, zenodo_auth
 
         images = [o for o in (_origin(brand.status_url()),) if o and o not in tiles]
+        # "Mit Zenodo verbinden" is a POST form that redirects to Zenodo's sign-in: without its address here the
+        # browser stops that redirect and the button does nothing (only targets this server has an application for)
+        zenodo = [zenodo_auth.BASES[t] for t in zenodo_auth.BASES if zenodo_auth.available(t)]
         forms = [o for o in dict.fromkeys((_origin(app.config.get("ORCID_BASE_URL")), _origin(brand.public_base()),
-                                           _origin(brand.participant_base_url()))) if o]
+                                           _origin(brand.participant_base_url()), *zenodo)) if o]
         return researcher_policy.format(images="".join(" " + o for o in images), forms="".join(" " + o for o in forms))
 
     from app import audit
