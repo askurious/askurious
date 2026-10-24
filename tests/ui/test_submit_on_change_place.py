@@ -14,7 +14,7 @@ APP_JS = Path(__file__).parents[2] / "app" / "static" / "app.js"
 
 HARNESS = r"""
 const fs = require("fs");
-const src = fs.readFileSync(process.argv[1], "utf8");
+const src = fs.readFileSync(process.argv[1], "utf8").split("\r\n").join("\n");  // a Windows checkout has CRLF
 const a = src.indexOf("(function () {\n  var KEY = \"submit-on-change\";");
 const b = src.indexOf("// Small things without inline code", a);
 if (a < 0 || b < 0) throw new Error("markers not found");
