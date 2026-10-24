@@ -14,7 +14,7 @@ Sie listet alle Befragungen, die eine Person öffnen darf (eigene und solche, di
 Drei Knöpfe legen die drei Arten von Befragungen an: **+ Fragebogen**, **+ Interviewleitfaden**, **+ Live-Abstimmung**.
 
 **Wichtigste Bedienelemente.**
-Suche, Filter nach Art und Gruppe, Sortierung (zuletzt geändert, Titel, zuletzt angelegt, meiste Teilnahmen), oben anheften und Schnelllinks je Befragung (Fragebogen, Einstellungen, Ergebnisse, Export, Duplizieren, Archivieren).
+Suche, Filter nach Art und Gruppe, Sortierung (zuletzt geändert, Titel, zuletzt angelegt, meiste Teilnahmen) über alle eigenen Befragungen, Seiten mit 10, 20 oder 50 Befragungen, oben anheften und Schnelllinks je Befragung (Fragebogen, Einstellungen, Ergebnisse, Export, Duplizieren, Archivieren).
 
 **Warum es so aussieht.**
 Die drei Arten heißen überall gleich, damit ein Knopf, ein Etikett und ein Filter immer dasselbe meinen.

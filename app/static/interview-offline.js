@@ -338,6 +338,12 @@
     navigator.serviceWorker.register(swUrl, { scope: location.pathname }).then(function () { return navigator.serviceWorker.ready; }).then(function (reg) {
       var files = Array.prototype.map.call(document.querySelectorAll("script[src], link[rel=stylesheet][href], link[rel~=icon][href], img[src]"),
                                            function (el) { return el.src || el.href; });
+      // the icons of the page come from one file (/static/icons.svg, the icon() macro): kept with the rest
+      Array.prototype.forEach.call(document.querySelectorAll("svg use[href]"), function (el) {
+        var url = new URL(el.getAttribute("href"), location.href);
+        url.hash = "";
+        if (files.indexOf(url.href) === -1) files.push(url.href);
+      });
       if (reg && reg.active) reg.active.postMessage({ keep: location.href, files: files });
     }).catch(function () { say(de_en("Dieser Browser kann die Seite nicht für ohne Netz behalten.", "This browser cannot keep the page for use without a network."), true); });
   }

@@ -7250,3 +7250,12 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - 2026.10.0 auf de677a7 veröffentlicht (Ralf, 2026-10-24); Zenodo archiviert es: DOI 10.5281/zenodo.23612929, für alle Versionen 10.5281/zenodo.23612928. README mit DOI-Badge und DOI im APA-Beispiel, `CITATION.cff` mit beiden DOIs.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-24: Kleinere Seiten für Forschende (Gesamtaudit 2026-10-22, G-05)
+
+- Icons aus einer Datei: `icon()` in `_icons.html` setzt nur noch `<svg><use href="/static/icons.svg?v=…#name"/></svg>`; die Zeichnungen stehen einmal in `app/static/icons.svg` (gzip, ein Jahr im Cache), geschrieben von `tools/icon_sprite.py`, geprüft von `tests/ui/test_icon_sprite.py`. `icon(name, inline=true)` zeichnet wie bisher in die Seite. Die Offline-Seite des Interviews behält die Datei mit (`interview-offline.js`).
+- Editor: die Werkzeuge einer Zeile (hoch, runter, Block wechseln, duplizieren, löschen) sind ein Formular mit `formaction` je Knopf, ein CSRF-Token statt sechs. Die Rückfrage beim Löschen mit Antworten hängt am Löschknopf.
+- Editor-Übersicht mit 66 Elementen: 577 KB → 424 KB (Panel-Vorlage des Audits), 532 KB → 386 KB (66 Freitextfragen).
+- „Meine Befragungen“: 10, 20 oder 50 Karten je Seite; Suche (Titel, Projekt, Code, Personen, Art und Stand) und Sortierung macht der Server über alle eigenen Befragungen (`dashboard.own_cards`), angeheftete zuerst; Seitenlinks behalten Art, Gruppe, Archiv und Ausgeblendet. 26 Befragungen: 149 KB → 48 KB. Die Suche im Browser ist entfernt.
+- HTML bleibt unkomprimiert (BREACH, nginx-Vorlage); die 250 KB aus dem Audit sind damit nicht erreicht.
+- Rechtstexte geprüft, keine Änderung nötig. Handbuch („Meine Befragungen“) um die Seiten ergänzt.

@@ -115,6 +115,11 @@
   "palette": '<ellipse cx="12" cy="12" rx="9" ry="7.5"/><circle cx="15.5" cy="15" r="1.8"/><circle cx="7.5" cy="11" r=".6" fill="currentColor"/><circle cx="10.5" cy="8" r=".6" fill="currentColor"/><circle cx="15" cy="8.5" r=".6" fill="currentColor"/>',
   "users": '<circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20.5c.5-3.8 3.2-6 6.5-6s6 2.2 6.5 6"/><circle cx="17" cy="7" r="2.5"/><path d="M16.5 12.5c3 0 5 2 5.5 5.5"/>',
 } %}
-{% macro icon(name, size=18) -%}
-<svg class="icon" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ _paths.get(name, "")|safe }}</svg>
+{# The drawings above go once into app/static/icons.svg (python tools/icon_sprite.py after a change;
+   tests/ui/test_icon_sprite.py checks it): a page refers to them instead of carrying each icon whole, which was a
+   third of the editor overview (audit 2026-10-22, G-05). icon(name, inline=true) draws it in the page, for HTML
+   that leaves the app (a file to download, a mail). #}
+{% macro icon(name, size=18, inline=false) -%}
+{% if inline %}<svg class="icon" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ _paths.get(name, "")|safe }}</svg>
+{%- else %}<svg class="icon" width="{{ size }}" height="{{ size }}" aria-hidden="true"><use href="{{ icon_sprite() }}#{{ name }}"/></svg>{% endif %}
 {%- endmacro %}

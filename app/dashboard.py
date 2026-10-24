@@ -5,10 +5,73 @@ from sqlalchemy.orm import selectinload
 
 from app.extensions import db, get_or_create, json_given, json_missing
 from app.lang import de_en
-from app import access, kind_access
+from app import access, kind_access, tables
 from app.models import Survey, SurveyGroup, SurveyHide, SurveyPin
 
 bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
+
+# "Meine Befragungen" in pages of 10, 20 or 50 cards, searched and sorted here (audit 2026-10-22, G-05: the page drew
+# every survey, about 4.5 KB each, 672 KB at 150 surveys; search and sort ran in the browser over all of them)
+SORTS = ("", "title", "created", "done")
+
+
+class CardPage(tables.ListPage):
+    """One page of one's own cards. Its links keep the filters of the page (kind, group, archive, hidden)."""
+
+    KEEP = ("art", "live", "interview", "group", "archived", "hidden")
+
+    def url(self, **changes):
+        args = {k: v for k, v in request.args.items() if k in self.KEEP or k.startswith(self.prefix + "_")}
+        for name, value in changes.items():
+            args[f"{self.prefix}_{name}"] = value
+        if str(args.get(f"{self.prefix}_page")) == "1":
+            args.pop(f"{self.prefix}_page")
+        return url_for(request.endpoint, **{k: v for k, v in args.items() if v not in ("", None)})
+
+
+def card_words(s):
+    """The kind and state as the card shows them: found by the search besides title, project, code and people,
+    never the labels of the buttons (UI audit W76)."""
+    if s.live is not None:
+        words = [de_en("Live-Abstimmung", "Live poll")]
+    elif s.interview is not None:
+        words = [de_en("Interviewleitfaden", "Interview guide")]
+    else:
+        state = (de_en("Pausiert", "Paused") if s.status == "closed" and s.close_reason == "paused"
+                 else de_en("Läuft", "Running") if s.status == "running"
+                 else de_en("Geschlossen", "Closed") if s.status == "closed" else de_en("Entwurf", "Draft"))
+        words = [de_en("Fragebogen", "Questionnaire"), state]
+    if s.archived:
+        words.append(de_en("Archiviert", "Archived"))
+    return words
+
+
+def _found(s, words):
+    text = tables.text_key(" ".join([s.title or "", s.project or "", s.code or "",
+                                     *(m.display_name or "" for m in s.members), *card_words(s)]))
+    return all(w in text for w in words)
+
+
+def own_cards(surveys, pinned):
+    """The search (d_q), the order (d_sort) and the page (d_page, d_n) of one's own cards; pinned ones first."""
+    from datetime import datetime
+
+    q = " ".join(request.args.get("d_q", "").split())[:100]
+    sort = request.args.get("d_sort", "")
+    sort = sort if sort in SORTS else ""
+    if q:
+        words = [tables.text_key(w) for w in q.split()[:tables.MAX_WORDS]]
+        surveys = [s for s in surveys if _found(s, words)]
+    if sort == "title":
+        surveys = sorted(surveys, key=lambda s: tables.text_key(s.title or ""))
+    elif sort == "created":
+        surveys = sorted(surveys, key=lambda s: s.created_at or datetime.min, reverse=True)
+    elif sort == "done":  # as the cards count: completed participations, diary reports; guides none
+        counts = completed_counts([s.id for s in surveys])
+        counts.update(diary_counts([s.id for s in surveys if s.sampling is not None]))
+        surveys = sorted(surveys, key=lambda s: -(counts.get(s.id, 0) if s.interview is None else 0))
+    surveys = sorted(surveys, key=lambda s: s.id not in pinned)  # stable: pinned first, else the order above
+    return CardPage("d", surveys), q, sort
 
 
 @bp.route("/")
@@ -56,6 +119,8 @@ def index():
 
     surveys = [s for s in surveys if not plugins.hidden(s)]  # what an add-on module keeps for itself
     surveys = sorted(surveys, key=lambda s: s.id not in pinned)  # pinned first; otherwise last changed first (stable)
+    listing, q, sort = own_cards(surveys, pinned)
+    surveys = listing.items
     # example surveys (Survey.showcase): a folded section below one's own, open while one has nothing of one's own yet
     # (demo-befragungen-konzept.md, 2b); their team opens and edits them there (Ralf 2026-10-11)
     showcase = []
@@ -83,7 +148,7 @@ def index():
                                                    db.or_(Survey.id.in_(mine), Survey.id.in_(access.showcase_ids(current_user))))
     )
     return render_template(
-        "dashboard/index.html", surveys=surveys, done=done, dummies=dummies, show_archived=show_archived, archived_count=archived_count,
+        "dashboard/index.html", surveys=surveys, listing=listing, q=q, sort=sort, sorts=SORTS, done=done, dummies=dummies, show_archived=show_archived, archived_count=archived_count,
         show_hidden=show_hidden, hidden_count=hidden_count, showcase=showcase, foreign_examples=foreign_examples, has_own=has_own,
         group_filter=group_filter, group=group, access=access, has_live=has_live, live_only=live_only,
         has_interview=has_interview, interview_only=interview_only, kind=kind, has_diary=has_diary,
