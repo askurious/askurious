@@ -19,7 +19,6 @@ def _labels(markup):
 
 
 def test_header_of_an_admin(app, client):
-    app.config["DONATION_URL"] = "https://paypal.example/spende"  # the gift only with a donation link (test_surveys.py)
     head = _header(client, "/constructs/")
     areas = _part(head, "nav-areas")
     # Designs and Gruppen are in the menu at the name (Ralf 2026-10-10); the sample size calculator in the menu
@@ -27,23 +26,25 @@ def test_header_of_an_admin(app, client):
     assert _labels(areas) == ["Meine Befragungen", "Konstrukte"]
     assert re.search(r'<a href="/constructs/" aria-current="page">Konstrukte</a>', areas)   # the page one is on
     assert areas.count("aria-current") == 1
-    # Administration and prices stay in the bar (prices as a point of their own, Ralf 2026-10-12); handbook,
-    # glossary and feedback are one menu "Hilfe" with words (UI audit 2026-10-12, E11)
+    # Administration stays in the bar; handbook, glossary and tools are one menu "Hilfe" with words (UI audit
+    # 2026-10-12, E11); "Fehler melden oder Vorschlag machen" is the bug in the bar, where the gift for prices and
+    # donations stood until they left the code (Ralf, 2026-10-24)
     bar = _part(head, "nav-tools")
     assert ">Administration</a>" in bar and 'class="menu nav-menu help-menu"' in bar
-    assert 'class="icon-btn donate-link" href="/pricing"' in head.split('class="nav-tools"')[1].split("</nav>")[0]
+    tools = head.split('class="nav-tools"')[1].split("</nav>")[0]
+    assert 'class="icon-btn feedback-btn" data-feedback-open' in tools and "donate-link" not in tools and "/pricing" not in head
+    assert tools.index('class="menu nav-menu help-menu"') < tools.index("feedback-btn") < tools.index('class="menu nav-menu"')
     help_menu = head.split('class="menu nav-menu help-menu"')[1].split("</details>")[0]
-    assert ">Hilfe und Werkzeuge</span>" in help_menu and "data-feedback-open" in help_menu and 'href="/pricing"' not in help_menu
+    assert ">Hilfe und Werkzeuge</span>" in help_menu and "data-feedback-open" not in help_menu
     # "Hilfe zu dieser Seite" first where the handbook has a section on the page (UI/UX audit 2026-10-16, 17)
-    assert _labels(help_menu) == ["Hilfe zu dieser Seite", "Handbuch", "Glossar der Kennzahlen", "Elementtypen", "Stichprobengröße",
-                                  "Fehler melden oder Vorschlag machen"]
+    assert _labels(help_menu) == ["Hilfe zu dieser Seite", "Handbuch", "Glossar der Kennzahlen", "Elementtypen", "Stichprobengröße"]
     assert ">Werkzeuge</p>" in help_menu
     # the menu, from where one works to the session: areas and Administration (narrow only), own collections,
     # settings, prices (narrow only), sign out; the legal notice only in the footer (X67 fixed it there)
     panel = head.split('class="menu nav-menu"')[1].split('class="nav-menu-panel"')[1]
     assert _labels(panel) == ["Meine Befragungen", "Konstrukte", "Administration", "Designs", "Gruppen",
                               "Profil und Anmeldung", "Verbindungen", "Anzeige und Sprache", "KI-Nutzung", "Hell / Dunkel",
-                              "Preise und Spenden", "Abmelden"]
+                              "Abmelden"]
     assert "Impressum" not in panel
     assert 'action="/auth/logout"' in panel and "data-theme-toggle" in panel
     assert "Menü für Philipp" in head
@@ -53,7 +54,7 @@ def test_header_of_an_admin(app, client):
     assert _labels(narrow) == ["Meine Befragungen", "Konstrukte"]
     assert ">Meine Sammlungen</p>" in panel and ">Konto</p>" in panel
     more = [_labels(part.split("</div>")[0]) for part in panel.split('class="nav-narrow nav-narrow-more"')[1:]]
-    assert more == [["Administration"], ["Preise und Spenden"]]
+    assert more == [["Administration"]]
     assert head.count("data-theme-toggle") == 1 and head.count("data-feedback-open") == 1
 
 
@@ -74,19 +75,16 @@ def test_header_marks_the_area_of_a_survey_and_the_account(client, survey):
 
 
 def test_header_without_admin_right_and_without_groups(app):
-    app.config["DONATION_URL"] = "https://paypal.example/spende"
     guest = app.test_client()
     guest.get(f"/auth/dev-login?orcid={GUEST}&name=Gast")
     guest.post("/terms/", data={"accept": "1"})
     head = _header(guest, "/dashboard/")
     assert re.findall(r">([^<>]+)</a>", _part(head, "nav-areas")) == ["Meine Befragungen", "Konstrukte"]
     assert "Administration" not in head and "Gruppen" not in head and " Designs</a>" in head
-    assert "Preise und Spenden</a>" in _part(head, "nav-narrow nav-narrow-more")
+    assert "nav-narrow-more" not in head and "data-feedback-open" in head
 
 
 def test_header_signed_out(app):
     head = _header(app.test_client(), "/")
     assert "nav-menu" not in head and "nav-areas" not in head and "signed-in" not in head
-    assert "Mit ORCID anmelden" in head and "data-theme-toggle" in head and "donate-link" not in head  # no link set
-    app.config["DONATION_URL"] = "https://paypal.example/spende"
-    assert 'class="icon-btn donate-link"' in _header(app.test_client(), "/")
+    assert "Mit ORCID anmelden" in head and "data-theme-toggle" in head and "donate-link" not in head

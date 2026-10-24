@@ -93,26 +93,6 @@ def source_file(name):
     return send_file(full, mimetype="text/plain; charset=utf-8", as_attachment=False, max_age=86400)
 
 
-def donations_on():
-    """The page "Preise und Spenden" and the gift in the header: only with a donation link (DONATION_URL,
-    DONATION_WERO_URL), which only the operator's .env sets."""
-    from flask import current_app
-
-    return bool(current_app.config.get("DONATION_URL") or current_app.config.get("DONATION_WERO_URL"))
-
-
-@bp.route("/pricing")
-def pricing():
-    """Pricing: free to use; donations welcome to cover the AI credits. Only where the operator set a donation link."""
-    from flask import abort, current_app
-
-    if not donations_on():
-        abort(404)
-    return render_template("public/pricing.html", donation_url=current_app.config.get("DONATION_URL", ""),
-                           wero_url=current_app.config.get("DONATION_WERO_URL", ""),
-                           email=current_app.config.get("IMPRINT_EMAIL", ""))
-
-
 @bp.route("/listofallfeatures")
 def features():
     """All features by topic, experimental ones marked, with a footnote: on reasonable request (app/feature_list.py)."""

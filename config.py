@@ -249,11 +249,6 @@ class Config:
     # on participant pages), for a development server: UNDER_CONSTRUCTION=1 in its .env. Off (the standard since
     # 2026-10-07, Ralf) the band under the header has the accent colour of the look; no tape markup or CSS is sent
     UNDER_CONSTRUCTION = _bool("UNDER_CONSTRUCTION", False)
-    # Donations (page "Preise und Spenden"): Wero payment link (created in the banking app; preferred) and PayPal. Both
-    # empty (the standard of the public code; the operator's links go into its .env, Ralf 2026-10-19): no such page
-    # and no gift in the header
-    DONATION_WERO_URL = os.environ.get("DONATION_WERO_URL", "")
-    DONATION_URL = os.environ.get("DONATION_URL", "")
     # Imprint (Impressum): shown on /impressum once an address is set; lines of the address separated by "|"; also
     # under "Datenschutz: Verantwortlich". No default: the operator's contact goes into its .env, its legal entity and
     # texts into instance_overlay/ (Ralf 2026-10-19; the RWTH installation: askurious-instance-rwth)

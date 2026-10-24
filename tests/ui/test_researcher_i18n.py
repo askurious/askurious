@@ -744,7 +744,6 @@ def test_sample_size_groups_account_deletion_and_feedback_in_english(app, client
     page = client.post("/feedback/scale", data={"title": ""}, follow_redirects=True).data.decode()
     assert "Please fill in: Title, Description, Justification, Source, DOI." in page and "Suggest a construct" in page
     app.config["DONATION_URL"] = "https://paypal.example/spende"
-    assert "Pricing and donations" in client.get("/pricing").data.decode()
     with app.test_request_context():
         from flask import g
 

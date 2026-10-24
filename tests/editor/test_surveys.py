@@ -303,29 +303,16 @@ def test_static_files_are_versioned_by_content(app, client):
 
 
 
-def test_pricing_page_and_donate_link(app, client):
-    """The page and the gift in the header only with a donation link, which only the operator's .env sets (Ralf,
-    2026-10-19): the public code names no account of its own."""
+def test_no_pricing_page_and_no_donation_settings(app, client):
+    """Prices and donations left the code (Ralf, 2026-10-24): no page, no gift in the header, no settings for it."""
     from pathlib import Path
 
-    config = (Path(__file__).resolve().parents[2] / "config.py").read_text(encoding="utf-8")
-    assert 'os.environ.get("DONATION_URL", "")' in config and 'os.environ.get("DONATION_WERO_URL", "")' in config
-    app.config["DONATION_URL"] = app.config["DONATION_WERO_URL"] = ""
+    root = Path(__file__).resolve().parents[2]
+    assert "DONATION" not in (root / "config.py").read_text(encoding="utf-8")
+    assert "DONATION" not in (root / "deploy" / "docker" / "compose.yaml").read_text(encoding="utf-8")
     assert client.get("/pricing").status_code == 404
-    assert "donate-link" not in client.get("/").data.decode() and "/pricing" not in client.get("/sitemap.xml").data.decode()
-    app.config["DONATION_URL"] = "https://paypal.example/spende"
-    html = client.get("/pricing").data.decode()
-    assert "0 €" in html and "KI-Guthaben" in html and 'class="icon-btn donate-link" href="/pricing"' in html
-    assert "/pricing" in client.get("/sitemap.xml").data.decode()
-    assert 'href="https://paypal.example/spende" target="_blank" rel="noopener">Mit PayPal spenden' in html
-    assert "Mit Wero spenden" not in html
-    app.config["DONATION_WERO_URL"] = "https://example.org/wero"
-    html = client.get("/pricing").data.decode()
-    assert html.index("Mit Wero spenden") < html.index("Mit PayPal spenden")            # Wero first, PayPal secondary
-    app.config["DONATION_URL"] = ""
-    assert "Mit PayPal spenden" not in client.get("/pricing").data.decode()            # Wero alone still opens it
-    app.config["DONATION_WERO_URL"] = ""
-    assert client.get("/pricing").status_code == 404
+    page = client.get("/").data.decode()
+    assert "donate-link" not in page and "Spende" not in page and "/pricing" not in client.get("/sitemap.xml").data.decode()
 
 
 def test_landing_links_the_introduction_survey(client):

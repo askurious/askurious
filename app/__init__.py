@@ -1140,12 +1140,6 @@ def create_app(config_class=Config, server=False):
         return response
 
     @app.context_processor
-    def _donations():
-        from app.public import donations_on
-
-        return {"donations_on": donations_on()}
-
-    @app.context_processor
     def _feedback():
         from flask_login import current_user
 

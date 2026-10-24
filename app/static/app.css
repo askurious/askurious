@@ -161,18 +161,18 @@ code { font-size: 0.85rem; word-break: break-all; background: var(--surface-3); 
 :root[data-theme="dark"] .nav-menu-panel .theme-sun { display: block; }
 .nav-narrow { display: none; }
 @media (max-width: 1120px) { .nav-menu-name { display: none; } }
-/* Narrower windows (UI audit 2026-10-07, W82): first Administration and the prices go into the menu, the areas
+/* Narrower windows (UI audit 2026-10-07, W82): first Administration goes into the menu, the areas
    only below about 820 px; with a larger text size on "Konto" (112 %, 125 %) these steps come that much earlier. */
 @media (max-width: 1000px) {
-  .site-header .nav-wide, .site-header .nav-tools > .donate-link { display: none; }
+  .site-header .nav-wide { display: none; }
   .nav-narrow-more { display: grid; gap: 1px; }
 }
 @media (max-width: 1120px) {
-  :root[data-size="112"] .site-header .nav-wide, :root[data-size="112"] .site-header .nav-tools > .donate-link { display: none; }
+  :root[data-size="112"] .site-header .nav-wide { display: none; }
   :root[data-size="112"] .nav-narrow-more { display: grid; gap: 1px; }
 }
 @media (max-width: 1250px) {
-  :root[data-size="125"] .site-header .nav-wide, :root[data-size="125"] .site-header .nav-tools > .donate-link { display: none; }
+  :root[data-size="125"] .site-header .nav-wide { display: none; }
   :root[data-size="125"] .nav-narrow-more { display: grid; gap: 1px; }
 }
 /* Narrow windows and phones: one line; the areas, Administration and prices are in the menu */
@@ -184,6 +184,8 @@ code { font-size: 0.85rem; word-break: break-all; background: var(--surface-3); 
   .nav-menu > summary { width: 32px; padding: 0; justify-content: center; }
   .nav-menu > summary > .icon { display: none; }
   .nav-menu > summary > .icon:nth-child(2) { display: block; }
+  .help-menu > summary > .icon { display: block; }
+  .help-menu-label { display: none; }  /* the book alone: its words ran under the bug and the menu (Ralf, 2026-10-24) */
   .site-header details.nav-menu { position: static; }
   .nav-menu-panel { left: 8px; right: 8px; top: calc(100% + 6px); max-height: calc(100vh - 120px); overflow-y: auto; }
   .site-header .nav-menu-panel a:not(.button), .nav-menu-panel button { padding: 11px 12px; font-size: 1.05rem; }
@@ -196,6 +198,8 @@ code { font-size: 0.85rem; word-break: break-all; background: var(--surface-3); 
   :root[data-size="112"] .nav-menu > summary { width: 32px; padding: 0; justify-content: center; }
   :root[data-size="112"] .nav-menu > summary > .icon { display: none; }
   :root[data-size="112"] .nav-menu > summary > .icon:nth-child(2) { display: block; }
+  :root[data-size="112"] .help-menu > summary > .icon { display: block; }
+  :root[data-size="112"] .help-menu-label { display: none; }  /* the book alone: its words ran under the bug and the menu (Ralf, 2026-10-24) */
   :root[data-size="112"] .site-header details.nav-menu { position: static; }
   :root[data-size="112"] .nav-menu-panel { left: 8px; right: 8px; top: calc(100% + 6px); max-height: calc(100vh - 120px); overflow-y: auto; }
   :root[data-size="112"] .site-header .nav-menu-panel a:not(.button), :root[data-size="112"] .nav-menu-panel button { padding: 11px 12px; font-size: 1.05rem; }
@@ -208,6 +212,8 @@ code { font-size: 0.85rem; word-break: break-all; background: var(--surface-3); 
   :root[data-size="125"] .nav-menu > summary { width: 32px; padding: 0; justify-content: center; }
   :root[data-size="125"] .nav-menu > summary > .icon { display: none; }
   :root[data-size="125"] .nav-menu > summary > .icon:nth-child(2) { display: block; }
+  :root[data-size="125"] .help-menu > summary > .icon { display: block; }
+  :root[data-size="125"] .help-menu-label { display: none; }  /* the book alone: its words ran under the bug and the menu (Ralf, 2026-10-24) */
   :root[data-size="125"] .site-header details.nav-menu { position: static; }
   :root[data-size="125"] .nav-menu-panel { left: 8px; right: 8px; top: calc(100% + 6px); max-height: calc(100vh - 120px); overflow-y: auto; }
   :root[data-size="125"] .site-header .nav-menu-panel a:not(.button), :root[data-size="125"] .nav-menu-panel button { padding: 11px 12px; font-size: 1.05rem; }
@@ -2356,15 +2362,6 @@ td[data-mq-kind="text"] .mq-options { display: none; }
 .res-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(8, 48, 107, 0.5); }
 .res-swatch.is-none { background: #ffffff; }  /* as the states nobody chose on the map */
 .res-map .q-map-icon svg { display: block; overflow: visible; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35)); }
-
-/* Menu bar: "€" link to pricing and donations */
-/* Pricing page */
-.pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: stretch; }
-.pricing .price-card { margin: 0; }
-.price-card h2 { margin-top: 0; }
-.price-card .price { font-family: var(--font-serif); font-size: 2rem; font-weight: 600; margin: 4px 0 12px; }
-.price-card ul { padding-left: 20px; }
-.price-card-donate { border-color: var(--accent); }
 
 /* Method section page: facts in columns, then the AI description */
 .mfacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; margin-bottom: 16px; }
