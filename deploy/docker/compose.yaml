@@ -422,8 +422,8 @@ services:
     logging: *logging
     cpus: 8                       # 24 vCPU with AVX2/FMA since 2026-10-17; nice 15 and the lowest share keep it behind the app
     cpu_shares: 64
-    mem_limit: 4g
-    memswap_limit: 4g
+    mem_limit: 5g
+    memswap_limit: 5g
     oom_score_adj: 500
     pids_limit: 256
     tmpfs: ["/tmp:size=64m,mode=1777"]

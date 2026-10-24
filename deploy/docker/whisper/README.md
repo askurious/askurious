@@ -43,7 +43,7 @@ neu beurteilt ist. Referenzen:
 | Einstellung | Vorbereitung |
 |---|---|
 | CPU | höchstens 8 CPUs, 8 Rechenthreads (`WHISPER_THREADS`), `nice 15`, CPU-Shares 64 |
-| Speicher | 4 GiB einschließlich Dateicache, kein zusätzlicher Swap |
+| Speicher | 5 GiB einschließlich Dateicache, kein zusätzlicher Swap (seit 2026-10-24; vorher 4 GiB, Spitze mit `large-v3-turbo` und deutschem Alignment 3,27 GiB) |
 | Host-Speicherdruck | `oom_score_adj=500`: der Kernel bevorzugt den Transkriptionsprozess gegenüber den App-Prozessen |
 | Prozesse | höchstens 256 einschließlich Threads |
 | Parallelität | ein Rechenauftrag; höchstens 8 offene Aufträge im Dienst, weitere Anfragen warten in der App auf einen freien Platz (`/v1/status` meldet `free`) |
