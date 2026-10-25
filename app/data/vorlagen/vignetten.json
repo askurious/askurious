@@ -16,7 +16,7 @@
    "design": "vignettes",
    "hypotheses": [
     {
-     "id": "fbce3328",
+     "id": "f7ce224b",
      "text": "Wie hängt die Beurteilung humanoider Roboter vom Einsatzort (Pflegeheim oder zu Hause) ab?",
      "kind": "open",
      "direction": "",
@@ -130,6 +130,7 @@
        "data": true,
        "special": false,
        "audio": false,
+       "ai_chat": false,
        "commitment": true
       }
      },
@@ -142,6 +143,7 @@
        "confirm_data": "",
        "confirm_special": "",
        "confirm_audio": "",
+       "confirm_ai_chat": "",
        "confirm_commitment": ""
       }
      },
@@ -199,7 +201,7 @@
    },
    {
     "t": "loop",
-    "id": "l662de1",
+    "id": "l6e3fa2",
     "name": "Roboter",
     "code": "vig",
     "columns": [
@@ -296,7 +298,7 @@
    },
    {
     "t": "split",
-    "id": "sae67fb"
+    "id": "sfb604b"
    }
   ]
  },

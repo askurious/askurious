@@ -195,7 +195,7 @@ def test_importance_bars_most_important_first(app, client, survey):
     simulate(app, 120, price_beta=-0.02)
     html = client.get("/surveys/1/results").data.decode()
     bars = re.search(r'<ul class="plain res-bars cm-importance-bars">(.*?)</ul>', html, re.S).group(1)
-    shares = [int(x) for x in re.findall(r'class="res-bar-n">(\d+)\s*%', bars)]
+    shares = [float(x.replace(",", ".")) for x in re.findall(r'class="res-bar-n">(\d+,\d)\s*%', bars)]
     labels = re.findall(r'class="res-bar-label">([^<]+?)\s*(?:<|$)', bars)
     assert len(shares) == 3 and shares == sorted(shares, reverse=True)
     m = entry_of(app)["cbc"]["model"]

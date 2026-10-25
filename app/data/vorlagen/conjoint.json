@@ -16,7 +16,7 @@
    "design": "cross",
    "hypotheses": [
     {
-     "id": "aaf9409b",
+     "id": "35f588d7",
      "text": "Welche Eigenschaft bestimmt die Wahl am stärksten: Preis, Datenschutz oder Aussehen?",
      "kind": "open",
      "direction": "",
@@ -130,6 +130,7 @@
        "data": true,
        "special": false,
        "audio": false,
+       "ai_chat": false,
        "commitment": true
       }
      },
@@ -142,6 +143,7 @@
        "confirm_data": "",
        "confirm_special": "",
        "confirm_audio": "",
+       "confirm_ai_chat": "",
        "confirm_commitment": ""
       }
      },
@@ -235,32 +237,8 @@
         [
          [
           [
-           2,
-           2,
-           0
-          ],
-          [
-           0,
-           0,
-           1
-          ]
-         ],
-         [
-          [
-           2,
-           1,
-           0
-          ],
-          [
            0,
            2,
-           1
-          ]
-         ],
-         [
-          [
-           1,
-           1,
            0
           ],
           [
@@ -272,13 +250,37 @@
          [
           [
            0,
-           0,
-           0
+           1,
+           1
           ],
           [
            1,
+           0,
+           0
+          ]
+         ],
+         [
+          [
            1,
+           0,
            1
+          ],
+          [
+           2,
+           2,
+           0
+          ]
+         ],
+         [
+          [
+           1,
+           2,
+           1
+          ],
+          [
+           0,
+           1,
+           0
           ]
          ]
         ]
@@ -334,7 +336,7 @@
    },
    {
     "t": "split",
-    "id": "sd667a1"
+    "id": "s0541a1"
    }
   ]
  },

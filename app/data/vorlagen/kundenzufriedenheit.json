@@ -16,7 +16,7 @@
    "design": "cross",
    "hypotheses": [
     {
-     "id": "72b25090",
+     "id": "5688bf4b",
      "text": "Wer zufriedener ist, empfiehlt die Mensa eher weiter.",
      "kind": "correlation",
      "direction": "pos",
@@ -29,7 +29,7 @@
      "power": 0.8
     },
     {
-     "id": "3d430f61",
+     "id": "5a3f71de",
      "text": "Studierende, Beschäftigte und Gäste unterscheiden sich in der Weiterempfehlung.",
      "kind": "difference",
      "direction": "",
@@ -146,6 +146,7 @@
        "data": true,
        "special": false,
        "audio": false,
+       "ai_chat": false,
        "commitment": true
       }
      },
@@ -158,6 +159,7 @@
        "confirm_data": "",
        "confirm_special": "",
        "confirm_audio": "",
+       "confirm_ai_chat": "",
        "confirm_commitment": ""
       }
      },
@@ -313,7 +315,7 @@
    },
    {
     "t": "split",
-    "id": "s78bc3c"
+    "id": "sbd59eb"
    }
   ]
  },
