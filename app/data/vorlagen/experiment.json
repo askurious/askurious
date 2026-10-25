@@ -16,7 +16,7 @@
    "design": "experiment",
    "hypotheses": [
     {
-     "id": "73ba2e0a",
+     "id": "143b825a",
      "text": "Der Text mit dem Nutzen führt zu einer positiveren Einstellung als der Text mit den Risiken.",
      "kind": "causal",
      "direction": "",
@@ -133,7 +133,6 @@
        "data": true,
        "special": false,
        "audio": false,
-       "ai_chat": false,
        "commitment": true
       }
      },
@@ -146,7 +145,6 @@
        "confirm_data": "",
        "confirm_special": "",
        "confirm_audio": "",
-       "confirm_ai_chat": "",
        "confirm_commitment": ""
       }
      },
@@ -286,7 +284,7 @@
    },
    {
     "t": "split",
-    "id": "s82ec71"
+    "id": "s802daf"
    }
   ]
  },

@@ -16,7 +16,7 @@
    "design": "cross",
    "hypotheses": [
     {
-     "id": "47fbc354",
+     "id": "073e888d",
      "text": "Je nützlicher die App erscheint, desto höher die Nutzungsabsicht.",
      "kind": "correlation",
      "direction": "pos",
@@ -29,7 +29,7 @@
      "power": 0.8
     },
     {
-     "id": "4452528f",
+     "id": "85e9fd14",
      "text": "Je einfacher die App zu bedienen ist, desto höher die Nutzungsabsicht.",
      "kind": "correlation",
      "direction": "pos",
@@ -146,7 +146,6 @@
        "data": true,
        "special": false,
        "audio": false,
-       "ai_chat": false,
        "commitment": true
       }
      },
@@ -159,7 +158,6 @@
        "confirm_data": "",
        "confirm_special": "",
        "confirm_audio": "",
-       "confirm_ai_chat": "",
        "confirm_commitment": ""
       }
      },
@@ -791,7 +789,7 @@
    },
    {
     "t": "split",
-    "id": "sad9fbe"
+    "id": "se7adc4"
    }
   ]
  },

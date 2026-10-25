@@ -16,7 +16,7 @@
    "design": "cross",
    "hypotheses": [
     {
-     "id": "453d2d56",
+     "id": "ea87de9d",
      "text": "Ältere nutzen seltener das Fahrrad als Jüngere.",
      "kind": "difference",
      "direction": "",
@@ -162,7 +162,6 @@
        "data": true,
        "special": false,
        "audio": false,
-       "ai_chat": false,
        "commitment": true
       }
      },
@@ -175,7 +174,6 @@
        "confirm_data": "",
        "confirm_special": "",
        "confirm_audio": "",
-       "confirm_ai_chat": "",
        "confirm_commitment": ""
       }
      },
@@ -535,7 +533,7 @@
    },
    {
     "t": "branch",
-    "id": "bdcf19f",
+    "id": "b51f96c",
     "name": "Wohnt nicht in Deutschland",
     "cond": {
      "item": 6,
@@ -546,7 +544,7 @@
     "children": [
      {
       "t": "end",
-      "id": "e4cd28b",
+      "id": "e6d9e84",
       "text": {},
       "kind": "screenout",
       "by": "census"
@@ -555,7 +553,7 @@
    },
    {
     "t": "branch",
-    "id": "b81bdc5",
+    "id": "ba41489",
     "name": "Jünger als 18",
     "cond": {
      "item": 4,
@@ -566,7 +564,7 @@
     "children": [
      {
       "t": "end",
-      "id": "e4ade94",
+      "id": "e7b278c",
       "text": {},
       "kind": "screenout",
       "by": "census"
@@ -575,7 +573,7 @@
    },
    {
     "t": "branch",
-    "id": "b07a45c",
+    "id": "b9bc0e7",
     "name": "Älter als 74",
     "cond": {
      "item": 4,
@@ -586,7 +584,7 @@
     "children": [
      {
       "t": "end",
-      "id": "ee99685",
+      "id": "e196fce",
       "text": {},
       "kind": "screenout",
       "by": "census"
@@ -595,7 +593,7 @@
    },
    {
     "t": "quota",
-    "id": "q114d87",
+    "id": "q009d45",
     "quotas": [
      1,
      2,
@@ -622,10 +620,10 @@
    },
    {
     "t": "end",
-    "id": "ef3f1ec",
+    "id": "e2ad7f6",
     "cases": [
      {
-      "id": "cbb5fb4",
+      "id": "cb79e04",
       "when": "nocell",
       "quotas": [
        2,
@@ -636,7 +634,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c4bb930",
+      "id": "c947772",
       "when": "cellfull",
       "quota": 1,
       "cells": [
@@ -647,7 +645,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cd35ff9",
+      "id": "c18fc2f",
       "when": "cellfull",
       "quota": 1,
       "cells": [
@@ -658,7 +656,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c836eb3",
+      "id": "c24c944",
       "when": "cellfull",
       "quota": 2,
       "cells": [
@@ -669,7 +667,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c1d688d",
+      "id": "c36510d",
       "when": "cellfull",
       "quota": 2,
       "cells": [
@@ -680,7 +678,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c706ec6",
+      "id": "c592a1e",
       "when": "cellfull",
       "quota": 2,
       "cells": [
@@ -691,7 +689,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cb6085d",
+      "id": "c361776",
       "when": "cellfull",
       "quota": 2,
       "cells": [
@@ -702,7 +700,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cda2876",
+      "id": "c17da63",
       "when": "cellfull",
       "quota": 2,
       "cells": [
@@ -713,7 +711,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cf87fdc",
+      "id": "c085dc4",
       "when": "cellfull",
       "quota": 2,
       "cells": [
@@ -724,7 +722,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c0a78db",
+      "id": "ccf7840",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -735,7 +733,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cb4abec",
+      "id": "c9276f5",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -746,7 +744,7 @@
       "link_mode": "now"
      },
      {
-      "id": "ca08eb3",
+      "id": "c3565e8",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -757,7 +755,7 @@
       "link_mode": "now"
      },
      {
-      "id": "ce3d1b5",
+      "id": "ca91d43",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -768,7 +766,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c061a1a",
+      "id": "c7fd60a",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -779,7 +777,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cff5773",
+      "id": "cd61701",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -790,7 +788,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cf4f578",
+      "id": "caa2589",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -801,7 +799,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cb85839",
+      "id": "c71d0a4",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -812,7 +810,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c12c375",
+      "id": "c6766c1",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -823,7 +821,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c172fc9",
+      "id": "c7387fe",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -834,7 +832,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c0956b5",
+      "id": "cc0ac85",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -845,7 +843,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c4dd687",
+      "id": "cd995b7",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -856,7 +854,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cdcaa98",
+      "id": "c32821d",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -867,7 +865,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cbca0f5",
+      "id": "c875ff5",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -878,7 +876,7 @@
       "link_mode": "now"
      },
      {
-      "id": "c06670d",
+      "id": "c8f0d86",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -889,7 +887,7 @@
       "link_mode": "now"
      },
      {
-      "id": "cb1fd84",
+      "id": "c27792c",
       "when": "cellfull",
       "quota": 3,
       "cells": [
@@ -908,7 +906,7 @@
    },
    {
     "t": "split",
-    "id": "scb62a6"
+    "id": "s112e21"
    }
   ]
  },
