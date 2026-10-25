@@ -16,6 +16,12 @@
    no data pool, analysis files, documentation, preregistration, Zenodo or contact data (Ralf, 2026-10-03) #}
 {% set live = survey.live is not none %}
 {% set diary = survey.sampling is not none %}
+{# a survey an add-on module keeps without fieldwork of its own (app/plugins.py, add_view without "quality", e.g. an
+   imported analysis): only real participations, no questionnaire, quality rules, pre-registration or participants of
+   ours, so the page keeps the answer files, the codebook and the data access; no survey file, Zenodo or Coscine package
+   of data from another program (Ralf, 2026-10-26) #}
+{% set pv = plugin_view(survey) if plugin_view is defined else none %}
+{% set outside = pv is not none and "quality" not in pv.tabs %}
 <div class="tabpage-head">{% set active_tab = "data" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
 <div class="tabpage-grid">
 
@@ -29,17 +35,18 @@
     {% if not live %}
     {% set source_names = {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")} %}
     <fieldset class="xp-field"><legend>{{ de_en("Datenquellen", "Data sources") }}</legend>
-      {% for key in ("real", "test", "dummy") %}
+      {% for key in (("real",) if outside else ("real", "test", "dummy")) %}
       <label class="check"><input type="checkbox" name="source" value="{{ key }}" {% if key in pool.sources %}checked{% endif %}> {{ source_names[key] }} ({{ by_source[key] }})</label>
       {% endfor %}
-      <label class="check"><input type="checkbox" name="all" value="1" {% if pool.all %}checked{% endif %}> {{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}</label>
+      <label class="check"><input type="checkbox" name="all" value="1" {% if pool.all %}checked{% endif %}> {% if outside %}{{ de_en("auch die nicht abgeschlossenen", "also those not completed") }}{% else %}{{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}{% endif %}</label>
       {{ why("data_pool") }}
     </fieldset>
+    {% if outside %}<input type="hidden" name="drop" value="{{ 1 if pool.drop else 0 }}">{% else %}
     <fieldset class="xp-field" id="pool-speeders"><legend>{{ de_en("Markierte Teilnahmen", "Marked participations") }}
         {{ xp.info(de_en("Speeder ({rule}) und Teilnahmen mit genug Auffälligkeiten; die Regeln stehen unter „Qualitätssicherung“. Ergebnisse und Dashboards lassen Markierte standardmäßig weg; in den Ergebnissen lassen sie sich mit „Markierte einbeziehen“ zum Vergleich zeigen. Für diesen Export gilt die Auswahl hier.", "Speeders ({rule}) and participations with enough anomalies; the rules are under “Quality assurance”. Results and dashboards leave marked ones out by default; in the results “Include marked ones” shows them for comparison. For this export the choice here applies.", rule=speeder_rule_text(survey))) }}</legend>
       <label class="check"><input type="radio" name="drop" value="0" {% if not pool.drop %}checked{% endif %}> {{ de_en("Einbeziehen und mit Qualitätskennzeichen exportieren", "Include and export with quality flags") }}</label>
       <label class="check"><input type="radio" name="drop" value="1" {% if pool.drop %}checked{% endif %}> {{ de_en("Vom Export ausschließen", "Exclude from export") }}</label>
-    </fieldset>
+    </fieldset>{% endif %}
     {% endif %}
     <div class="xp-field">
       {% if can_data and not live and (scale_cols or standard_vars) %}
@@ -178,7 +185,7 @@
   {% endif %}
 </section>
 
-{% if not live %}
+{% if not live and not outside %}
 {# ---- Dokumentation ---- #}
 <section class="panel xp-card" id="documentation">
   <h2>{{ de_en("Dokumentation", "Documentation") }}</h2>
@@ -228,7 +235,7 @@
   <h2>{{ de_en("Weitergeben", "Sharing") }}</h2>
   <ul class="xp-rows">
     {# the survey file needs what duplicating needs: "Bearbeiten" or an example survey seen as one (AUTHZ-05) #}
-    {% if may_copy_out(survey) %}
+    {% if may_copy_out(survey) and not outside %}
     {% call xp.row(de_en("Befragungsdatei", "Survey file"), de_en("Folien und Einstellungen, ohne Daten", "Slides and settings, without data") if live else de_en("Fragebogen und Einstellungen, ohne Daten", "Questionnaire and settings, without data"),
                    de_en("Zum Sichern, Weitergeben oder für eine andere Installation von Askurious. Die Datei lässt sich über „+ Fragebogen“ › „Aus einer Datei anlegen“ unter „Meine Befragungen“ wieder einlesen. Sie enthält keine Antworten und nennt keine beteiligten Personen oder Gruppen", "To back up, pass on or use in another installation of Askurious. The file can be read in again via “+ Questionnaire” › “Create from a file” on “My surveys”. It holds no answers and names no people or groups involved") ~ (de_en("; Quoten stehen mit ihren Soll-Zahlen darin, ohne Zählerstände", "; quotas are in it with their targets, without their counts") if survey.quotas else "") ~ ". " ~ de_en("Als ZIP liegen die Bilder als eigene Dateien darin: rund ein Viertel kleiner, für Befragungen mit vielen Bildern. Ohne Häkchen bei „Bilder und Logos“ wird die Datei kleiner; Fragen mit Bild kommen dann ohne ihr Bild an. Mehrere Befragungen auf einmal: unter „Meine Befragungen“.", "As a ZIP the images are files of their own: about a quarter smaller, for surveys with many images. Without the tick at “Images and logos” the file is smaller; questions with an image then arrive without their image. Several surveys at once: under “My surveys”."), id="export-file") %}
       <form method="get" action="{{ url_for('surveys.export_file', survey_id=survey.id) }}" id="survey-file-form" class="xp-inline">
@@ -251,6 +258,7 @@
 {% endif %}
 
 {% if not live %}
+{% if not outside %}
 {# ---- Nachweise: pre-registration, seal chain, saved states ---- #}
 <section class="panel xp-card" id="evidence">
   <h2>{{ de_en("Nachweise", "Evidence") }}</h2>
@@ -277,12 +285,14 @@
     {% endif %}
   </ul>
 </section>
+{% endif %}
 
 {# ---- Archivieren und veröffentlichen: Zenodo, Coscine, image rights, publications ---- #}
 {% set z = survey.zenodo or {} %}
 {% set offered = zen|dictsort|selectattr("1.available")|map(attribute="0")|list %}
 {% set linked = [("zenodo", "Zenodo"), ("sandbox", de_en("Zenodo-Sandbox (Test)", "Zenodo sandbox (test)"))]|selectattr("0", "in", zen|dictsort|selectattr("1.available")|selectattr("1.connected")|map(attribute="0")|list)|list %}
 {% set cite_keys = citations.survey_keys(survey) %}
+{% if not outside %}
 <section class="panel xp-card" id="archive">
   <h2>{{ de_en("Archivieren und veröffentlichen", "Archive and publish") }}</h2>
   <ul class="xp-rows">
@@ -312,13 +322,14 @@
     {% endif %}
   </ul>
 </section>
+{% endif %}
 {% endif %}{# not live #}
 
 {# ---- Datenschutz: retention, deleting answers, the separate section ---- #}
 {% set show_retention = keeping and not live %}
-{% set show_erasure = is_admin and not live %}
+{% set show_erasure = is_admin and not live and not outside %}
 {# not for a diary study: it has no separated section (app/diary.py, 2026-10-11) #}
-{% set show_contact = is_admin and not live and not diary %}
+{% set show_contact = is_admin and not live and not diary and not outside %}
 {% if show_retention or show_erasure or show_contact %}
 <section class="panel xp-card" id="privacy">
   <h2>{{ de_en("Datenschutz", "Data protection") }}</h2>
