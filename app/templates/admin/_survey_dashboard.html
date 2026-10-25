@@ -25,7 +25,7 @@
     <span class="hint">{{ de_en("im Zeitraum {a} erstmals gestartet, {b} beendet", "in the period {a} started for the first time, {b} closed", a=sv.opened, b=sv.ended) }}</span></div>
   <div><span class="aic-big">{{ p.started|thousands }}</span><span class="muted">{{ de_en("Teilnahmen begonnen", "Participations begun") }}</span>{{ before(p.started, p.prev_started) }}</div>
   <div><span class="aic-big">{{ p.completed|thousands }}</span><span class="muted">{{ de_en("Teilnahmen abgeschlossen", "Participations completed") }}</span>
-    {% if p.rate is not none %}<span class="hint">{{ de_en("{r} der begonnenen", "{r} of those begun", r=p.rate|percent) }}</span>{% endif %}{{ before(p.completed, p.prev_completed) }}</div>
+    {% if p.rate is not none %}<span class="hint">{{ de_en("{r} der begonnenen", "{r} of those begun", r=p.rate|percent0) }}</span>{% endif %}{{ before(p.completed, p.prev_completed) }}</div>
   <div><span class="aic-big">{{ d.with_input|thousands }}</span><span class="muted">{{ de_en("Befragungen mit Eingang", "Surveys with participations") }}</span>
     <span class="hint">{{ de_en("{n} laufende ohne neue Teilnahme seit {d} Tagen", "{n} running without a new participation for {d} days", n=d.quiet, d=stats_mod.QUIET_DAYS) }}</span></div>
   <div><span class="aic-big">{{ cell(d.active_now) }}</span><span class="muted">{{ de_en("gerade aktiv", "active now") }}</span>

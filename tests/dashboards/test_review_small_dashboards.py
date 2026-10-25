@@ -23,15 +23,15 @@ from tests.dashboards.test_boards import D, study  # noqa: F401  (the fixture)
 
 def test_percentages_are_rounded_half_up(app, study):
     with app.app_context():
-        assert boards._pct(0.125) == "13 %" and boards._pct(0.225) == "23 %" and boards._pct(0.124) == "12 %"
+        assert boards._pct(0.125) == "12,5 %" and boards._pct(0.225) == "22,5 %" and boards._pct(0.124) == "12,4 %"
         with boards.speaking("en"):
-            assert boards._pct(0.125) == "13%"
+            assert boards._pct(0.125) == "12.5%" and boards._pct(0.1225) == "12.3%"  # half up, not to even
     test_boards._board(study, "empty")
     study.post(f"{D}/1", data=MultiDict([("name", "A"), ("pick", "item:2"), ("view-item:2", "table"), ("n-item:2", "1"), ("pct-item:2", "1")]))
     test_boards._answer(app, {"2": "1"}, n=5)
     test_boards._answer(app, {"2": "2"}, n=35)
     page = study.get(f"{D}/1/view").data.decode()
-    assert dict(re.findall(r'<td>(Auto|Rad)</td><td class="b-num">([^<]*)</td>', page)) == {"Auto": "13 %", "Rad": "88 %"}
+    assert dict(re.findall(r'<td>(Auto|Rad)</td><td class="b-num">([^<]*)</td>', page)) == {"Auto": "12,5 %", "Rad": "87,5 %"}
 
 
 # --- K2 ("Alle Fragen, auch künftige") is gone with the option (Ralf, 2026-10-03): tests/dashboards/test_boards.py ------
@@ -231,7 +231,7 @@ def test_a_provider_link_counts_real_participations_whatever_the_data_pool(app, 
     own, figures = test_boards._figures(app, ("src", "a"))
     assert own["n"] == 12 and not own["mixed"]
     assert figures["count"]["value"] == "12" and figures["count"]["sub"] == "16 begonnen · 12 abgeschlossen"
-    assert figures["rate"]["value"] == "75 %" and "12 von 16" in figures["rate"]["sub"]
+    assert figures["rate"]["value"] == "75,0 %" and "12 von 16" in figures["rate"]["sub"]
     assert sum(r["count"] for r in figures["days"]["rows"]) == 12
     # the link for everyone still rests on the data pool
     everyone, figures = test_boards._figures(app)

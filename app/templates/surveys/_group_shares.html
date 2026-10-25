@@ -16,7 +16,7 @@
       {% for g in b.per %}{% set glabel = b.groups[loop.index0][1] %}
       <div class="res-stack-row"><span class="res-stack-label">{{ group_key(loop.index0) }}{{ glabel|truncate(40) }} <span class="hint">Md {% if g.median_hi %}{{ g.median }}–{{ g.median_hi }}{% else %}{{ g.median if g.median is not none else "–" }}{% endif %}</span></span>
         <span class="res-stack" role="img" aria-label="{{ glabel|truncate(40) }}: {% for lv in b.levels %}{{ lv.label or lv.value }} {{ (g.shares[lv.value] or 0)|percent }}{{ ', ' if not loop.last }}{% endfor %}">
-          {%- for lv in b.levels %}{% set bg = level_colour(loop.index0, k) %}{% set sh = g.shares[lv.value] or 0 %}{% if sh %}<span class="{{ 'is-strong' if bg[1] }}" style="width: {{ (sh * 100)|round(2) }}%; background: {{ bg[0] }}" title="{{ lv.label or lv.value }}: {{ sh|percent }}">{% if sh >= 0.08 %}{{ sh|pct }}{% endif %}</span>{% endif %}{% endfor -%}
+          {%- for lv in b.levels %}{% set bg = level_colour(loop.index0, k) %}{% set sh = g.shares[lv.value] or 0 %}{% if sh %}<span class="{{ 'is-strong' if bg[1] }}" style="width: {{ (sh * 100)|round(2) }}%; background: {{ bg[0] }}" title="{{ lv.label or lv.value }}: {{ sh|percent }}">{% if sh >= 0.08 %}{{ (sh * 100)|dec(1) }}{% endif %}</span>{% endif %}{% endfor -%}
         </span>
         <span class="res-stack-n">n = {{ num(g.n, cd) }}</span></div>
       {% endfor %}

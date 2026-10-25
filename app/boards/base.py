@@ -209,10 +209,10 @@ def _num(value, places=2):
 
 
 def _pct(share):
-    """A share as a whole percentage, rounded as on the results page (half up: 12,5 % reads 13 %)."""
+    """A share with one decimal, as on the results page (half up: 12,45 % reads 12,5 %)."""
     from app import units
 
-    return f"{units.percent(share)}%" if _point() else f"{units.percent(share)} %"
+    return units.percent_text(share, "en" if _point() else "de")
 
 
 def _time(seconds):

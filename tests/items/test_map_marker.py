@@ -310,7 +310,7 @@ def test_long_format_one_row_per_marker(app, client, survey):
     r = client.get("/surveys/1/export/conjoint/2.csv")
     assert r.status_code == 200 and "marker,lat,lon" in r.data.decode()
     html = client.get("/surveys/1/results").data.decode()
-    assert "Auto: 1 (50 %)" in html
+    assert "Auto: 1 (50,0 %)" in html
 
 
 DEG = 111195.08  # metres per degree along the equator (mean earth radius)

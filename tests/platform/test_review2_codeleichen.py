@@ -35,7 +35,7 @@ def test_number_macros_in_one_place(app):
         assert [str(m.num(v, 0)) for v in (3, 3.0, -0.2, 2.5)] == ["3", "3", "0", "3"]
         assert [str(m.one(v)) for v in (None, -0.04, 1.25)] == ["–", "0,0", "1,3"]
         assert [str(m.signed(v)) for v in (None, -0.001, 0.5, -1.5)] == ["–", "0,00", "+0,50", "−1,50"]
-        assert [str(m.pct(v)) for v in (None, 0.125)] == ["–", "13 %"]
+        assert [str(m.pct(v)) for v in (None, 0.125)] == ["–", "12,5 %"]
 
 
 def test_one_reader_for_numbers_and_ai_answers(app):

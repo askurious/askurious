@@ -14,7 +14,7 @@
     {% set y_labels = tick_labels(ch.y_ticks|map(attribute=1)|list, false, 4) %}
     {% for yy, v, lab in ch.y_ticks %}
     <line class="psm-grid" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ yy }}" y2="{{ yy }}"/>
-    <text class="psm-tick" x="{{ ch.x_lo - 6 }}" y="{{ yy + 4 }}" text-anchor="end">{{ v|percent if y_fmt == "pct" else y_labels[loop.index0] }}</text>
+    <text class="psm-tick" x="{{ ch.x_lo - 6 }}" y="{{ yy + 4 }}" text-anchor="end">{{ v|percent0 if y_fmt == "pct" else y_labels[loop.index0] }}</text>
     {% endfor %}
     {% set x_labels = tick_labels(ch.x_values, false, 4) if ch.x_values is defined else ch.x_ticks|map(attribute=1)|list %}
     {% for xx, v in ch.x_ticks %}

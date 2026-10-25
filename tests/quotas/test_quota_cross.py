@@ -311,7 +311,7 @@ def test_results_page_and_method_section_show_the_quotas(app, client, survey):
     screen(app, uid, "2").get(f"/s/{uid}")
     html = client.get("/surveys/1/results").data.decode()
     assert "<h2>Quoten" in html and "zählt bei Abschluss, hart" in html
-    assert '<td class="num">50 %</td>' in html and '<td class="num">75 %</td>' in html         # men 1 of 2, sum 3 of 4
+    assert '<td class="num">50,0 %</td>' in html and '<td class="num">75,0 %</td>' in html         # men 1 of 2, sum 3 of 4
     from app import methods
 
     with app.app_context():
@@ -340,7 +340,7 @@ def test_marked_completions_do_not_count_as_reached(app, client, survey):
         db.session.commit()
     html = client.get("/surveys/1/results").data.decode()
     assert "markiert</th>" in html
-    assert '<td class="num">50 %</td>' in html and '<td class="num">75 %</td>' not in html   # women 1 of 2, sum 2 of 4
+    assert '<td class="num">50,0 %</td>' in html and '<td class="num">75,0 %</td>' not in html   # women 1 of 2, sum 2 of 4
     from app import methods
 
     with app.app_context():

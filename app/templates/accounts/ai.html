@@ -54,7 +54,7 @@
     {% set top = calls[0].share %}
     {% for c in calls %}
     <tr><td>{{ c.label }}</td>
-      <td><span class="ai-usage-cell"><span class="res-bar"><span style="width: {{ (c.share / top * 100)|round(1) if top else 0 }}%"></span></span> {{ c.share|percent }} ({{ c.calls }})</span></td>
+      <td><span class="ai-usage-cell"><span class="res-bar"><span style="width: {{ (c.share / top * 100)|round(1) if top else 0 }}%"></span></span> {{ c.share|percent0 }} ({{ c.calls }})</span></td>
       <td class="num">{{ c.failed }}</td><td class="num">{{ c.platform }}</td><td class="num">{{ c.own }}</td>
       <td class="num">{{ c.tokens|thousands }}</td><td class="num">{{ c.images }}</td></tr>
     {% endfor %}

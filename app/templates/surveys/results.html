@@ -91,7 +91,7 @@
     {% set name = c.label|replace(" (rekodiert)", "")|column_head(passes) %}
     <div class="res-stack-row"><span class="res-stack-label">{{ name|truncate(80) }}{% if c.reversed %} <span class="badge">{{ de_en("umgepolt", "reversed") }}</span>{% endif %}</span>
       <span class="res-stack" role="img" aria-label="{{ c.label|replace(' (rekodiert)', '')|column_head(passes)|truncate(80) }}: {% for row in (c.rows|reverse if c.reversed else c.rows) %}{{ row.label or row.value }} {{ row.share|percent }}{{ ', ' if not loop.last }}{% endfor %}">
-        {%- for row in (c.rows|reverse if c.reversed else c.rows) %}{% set bg = level_colour(loop.index0, k) %}{% if row.share %}<span class="{{ 'is-strong' if bg[1] }}" style="width: {{ (row.share * 100)|round(2) }}%; background: {{ bg[0] }}" title="{{ row.label or row.value }}: {{ row.count }} ({{ row.share|percent }})">{% if row.share >= 0.08 %}{{ row.share|pct }}{% endif %}</span>{% endif %}{% endfor -%}
+        {%- for row in (c.rows|reverse if c.reversed else c.rows) %}{% set bg = level_colour(loop.index0, k) %}{% if row.share %}<span class="{{ 'is-strong' if bg[1] }}" style="width: {{ (row.share * 100)|round(2) }}%; background: {{ bg[0] }}" title="{{ row.label or row.value }}: {{ row.count }} ({{ row.share|percent }})">{% if row.share >= 0.08 %}{{ (row.share * 100)|dec(1) }}{% endif %}</span>{% endif %}{% endfor -%}
       </span>
       <span class="res-stack-n">n = {{ c.n }}</span></div>
     {% endfor %}

@@ -161,7 +161,7 @@ here (only typed or found in the registry) gets ORCID's "unauthenticated" icon a
 {% macro pct(v) %}{% if v is none %}–{% else %}{{ v|percent }}{% endif %}{% endmacro %}
 
 {# a share as a bar; its 95 % interval (Wilson) as an error bar on it, the numbers when pointing at it (Ralf, 2026-10-06) #}
-{% macro share_bar(row, top, cls="") %}<span class="res-bar{{ " " ~ cls if cls }}"{% if row.ci %} title="95-%-Konfidenzintervall (Wilson): {{ row.ci[0]|pct }}–{{ row.ci[1]|percent }}"{% endif %}><span style="width: {{ (row.share / top * 100)|round(1) }}%"></span>{% if row.ci %}<i class="res-ci-bar" style="left: {{ [row.ci[0] / top * 100, 100]|min|round(1) }}%; width: {{ ([row.ci[1] / top * 100, 100]|min - [row.ci[0] / top * 100, 100]|min)|round(1) }}%"></i>{% endif %}</span>{% endmacro %}
+{% macro share_bar(row, top, cls="") %}<span class="res-bar{{ " " ~ cls if cls }}"{% if row.ci %} title="95-%-Konfidenzintervall (Wilson): {{ (row.ci[0] * 100)|dec(1) }}–{{ row.ci[1]|percent }}"{% endif %}><span style="width: {{ (row.share / top * 100)|round(1) }}%"></span>{% if row.ci %}<i class="res-ci-bar" style="left: {{ [row.ci[0] / top * 100, 100]|min|round(1) }}%; width: {{ ([row.ci[1] / top * 100, 100]|min - [row.ci[0] / top * 100, 100]|min)|round(1) }}%"></i>{% endif %}</span>{% endmacro %}
 {# the share first, the count in brackets #}
 {% macro share_n(row) %}{{ row.share|percent }} ({{ row.count }}){% endmacro %}
 

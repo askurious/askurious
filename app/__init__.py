@@ -802,6 +802,10 @@ def create_app(config_class=Config, server=False):
         return units.percent_text(share, units.page_lang(ctx.name))
 
     @pass_context
+    def _percent0(ctx, share):
+        return units.percent_text(share, units.page_lang(ctx.name), places=0)
+
+    @pass_context
     def _pctsign(ctx, value):
         pre, suf = units.affixes("percent", lang=units.page_lang(ctx.name))
         return f"{pre}{value}{suf}"
@@ -826,7 +830,9 @@ def create_app(config_class=Config, server=False):
     from app.hypotheses import note_html, sentence_html
     app.jinja_env.filters["hyp_note"] = note_html  # notes of the hypotheses: only their subscripts as HTML (X1)
     app.jinja_env.filters["hyp_sentence"] = sentence_html  # their sentences: only i/sub/sup as HTML (C-01)
-    app.jinja_env.filters["percent"] = _percent  # a share with its sign in the page language: 13 % or 13%
+    # a share with its sign in the page language and one decimal: 12,5 % or 12.5% (results, dashboards, downloads)
+    app.jinja_env.filters["percent"] = _percent
+    app.jinja_env.filters["percent0"] = _percent0  # whole: progress and other shares of the operation, axis ticks
     # a number already in per cent (shown as it is) with the sign of the page language: 13 % or 13% (W111)
     app.jinja_env.filters["pctsign"] = _pctsign
     app.jinja_env.filters["dec"] = _dec  # fixed(places) with the page's decimal mark: 2,5 or 2.5

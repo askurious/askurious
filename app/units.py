@@ -223,12 +223,22 @@ def whole_text(value, lang="de"):
     return text if writes_like_english(lang) else text.replace(",", ".")
 
 
-def percent_text(share, lang="de"):
-    """A share as a whole percentage with its sign: 13 % in German, 13% in English (affixes)."""
+def percent_text(share, lang="de", places=1):
+    """A share as a percentage with its sign, one decimal by default: 12,5 % in German, 12.5% in English (affixes).
+    Shares in results, dashboards and downloads all keep one decimal, also when whole (30,0 %), so a column or a
+    figure reads alike (Ralf, 2026-10-26; APA 7, 6.36 leaves the places open). places=0 for progress and other
+    shares of the operation (|percent0). Rounded half up from the decimal text of the share: 0.6145 -> 61,5."""
     if share is None:
         return "–"
     pre, suf = affixes("percent", lang=lang)
-    return f"{pre}{percent(share)}{suf}"
+    try:
+        value = (Decimal(repr(float(share))) * 100).quantize(Decimal(1).scaleb(-int(places)), rounding=ROUND_HALF_UP)
+    except (TypeError, ValueError, InvalidOperation):
+        return "–"
+    if value == 0:
+        value = abs(value)  # no "-0,0 %"
+    text = f"{value:.{int(places)}f}"
+    return f"{pre}{text if writes_like_english(lang) else text.replace('.', ',')}{suf}"
 
 
 

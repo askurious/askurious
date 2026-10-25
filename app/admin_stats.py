@@ -324,4 +324,4 @@ def change(current, before):
         return ""
     share = (current - before) / before
     sign = "+" if share > 0 else "−" if share < 0 else "±"
-    return sign + units.percent_text(abs(share), "en" if english() else "de")
+    return sign + units.percent_text(abs(share), "en" if english() else "de", places=0)

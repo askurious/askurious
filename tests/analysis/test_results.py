@@ -728,7 +728,7 @@ def test_multiple_choice_is_one_list_sorted_by_frequency(app, client, survey):
         # Kiwi: 8 of the 10 who saw it (80 %, not 40 %); "weiß nicht" last although 15 ticked it
         assert rows == [("Apfel", 20, 20), ("Kiwi", 8, 10), ("Birne", 5, 20), ("Weiß nicht / keine Angabe", 15, 20)]
     page = client.get("/surveys/1/results").data.decode()
-    assert "80 % (8)" in page and "die Anteile ergeben zusammen nicht 100 %" in page and "Gini-Simpson" not in page
+    assert "80,0 % (8)" in page and "die Anteile ergeben zusammen nicht 100 %" in page and "Gini-Simpson" not in page
     assert page.index(">Apfel<") < page.index(">Kiwi<") < page.index(">Birne<") < page.index(">Weiß nicht / keine Angabe<")
 
 
@@ -785,8 +785,8 @@ def test_shares_and_means_get_95_percent_intervals(app, client, survey):
         assert num["ci"] == intervals.mean_ci(9.5, num["sd"], 20)
     page = client.get("/surveys/1/results").data.decode()
     # the share first, the count in brackets; the interval as an error bar with the numbers as its title (Ralf, 2026-10-06)
-    assert 'title="95-%-Konfidenzintervall (Wilson): 18–57 %"' in page and ">35 % (7)</span>" in page and 'class="res-ci-bar"' in page
-    assert "70 % (7) <span class=\"hint\">von 10</span>" in page     # Kiwi on its base
+    assert 'title="95-%-Konfidenzintervall (Wilson): 18,1–56,7 %"' in page and ">35,0 % (7)</span>" in page and 'class="res-ci-bar"' in page
+    assert "70,0 % (7) <span class=\"hint\">von 10</span>" in page     # Kiwi on its base
     assert "Fehlerbalken: 95-%-Konfidenzintervall nach Wilson" in page and "res-bars res-bars-ci" in page
     assert "95-%-KI für M" in page and "Wilson, E. B. (1927)" in page
     lo, hi = intervals.mean_ci(9.5, num["sd"], 20)
