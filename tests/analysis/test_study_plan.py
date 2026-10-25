@@ -312,7 +312,7 @@ def test_descriptive_assumption_names_one_variable_and_reports_its_value(app, cl
         table = [{"gruppe": "1", "minuten": "10"}, {"gruppe": "1", "minuten": "20"}, {"gruppe": "2", "minuten": "30"}]
         r1, r2 = hypotheses.evaluate(s, table)
         assert r1["verdict"] == r2["verdict"] == "beschrieben" and r1.get("p") is None
-        assert r1["sentence"].startswith("am häufigsten „A“: 67 %") and r1["n"] == 3
+        assert r1["sentence"].startswith("am häufigsten „A“: 66,7 %") and r1["n"] == 3
         assert r2["sentence"] == "M = 20,00, SD = 10,00, Mdn = 20,00"
         assert "Gemessene Größe minuten" in study_plan.markdown(s, "de")
     page = client.get("/surveys/1/researchdesign").data.decode()

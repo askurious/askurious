@@ -518,7 +518,7 @@ def test_tempo_per_page_on_the_quality_page(app, client, survey):
         assert (first["median"], first["words"], first["below_words"], first["half"], first["below_half"]) == (8.0, 7.0, 0.5, 4.0, 0.25)
         assert rows[1]["median"] is None and rows[1]["words"] == 3.5 and rows[1]["below_words"] is None
     page = client.get("/surveys/1/quality").data.decode()
-    assert "Tempo je Seite" in page and "<td>50 %</td>" in page and "<td>25 %</td>" in page and "Greszki" in page
+    assert "Tempo je Seite" in page and "<td>50,0 %</td>" in page and "<td>25,0 %</td>" in page and "Greszki" in page
     client.post("/surveys/1/meta", data={**META, "page_timing": "1", "tempo_hint": "off"})  # page times alone are enough
     page = client.get("/surveys/1/quality").data.decode()
     assert "Tempo je Seite" in page and "der Tempo-Hinweis ist aus" in page

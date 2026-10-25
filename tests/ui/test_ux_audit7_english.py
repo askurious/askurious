@@ -192,9 +192,9 @@ def test_w111_pctsign_and_percent_follow_the_page(app, client):
     from flask import render_template_string
 
     with app.test_request_context(**EN):
-        assert render_template_string("{{ 13|pctsign }} {{ 0.125|percent }}") == "13% 13%"
+        assert render_template_string("{{ 13|pctsign }} {{ 0.125|percent }}") == "13% 12.5%"
     with app.test_request_context():
-        assert render_template_string("{{ 13|pctsign }} {{ 0.125|percent }}") == "13 % 13 %"
+        assert render_template_string("{{ 13|pctsign }} {{ 0.125|percent }}") == "13 % 12,5 %"
 
 
 # --- W112: hints of the weighting -------------------------------------------------------------------------------

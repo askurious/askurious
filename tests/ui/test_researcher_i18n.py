@@ -350,12 +350,12 @@ def test_numbers_and_dates_follow_the_page_language(app, client, survey):
                 client.get("/surveys/1/editor/blocks/2/preview", follow_redirects=True).data.decode())
 
     dash, res, comments, preview = pages()                          # German: as before
-    assert "06.10.2026" in dash and "9,50" in res and ">35 % (7)</span>" in res and "06.10.2026 14:05" in comments
+    assert "06.10.2026" in dash and "9,50" in res and ">35,0 % (7)</span>" in res and "06.10.2026 14:05" in comments
     assert "06.10.2026 14:05" in preview
     client.post("/account/language", data={"lang": "en"})
     dash, res, comments, preview = pages()
     assert "until 6 Oct 2026" in dash and "06.10.2026" not in dash
-    assert "9.50" in res and "9,50" not in res and ">35% (7)</span>" in res
+    assert "9.50" in res and "9,50" not in res and ">35.0% (7)</span>" in res
     assert "6 Oct 2026, 14:05" in comments
     assert "06.10.2026 14:05" in preview and "6 Oct 2026" not in preview    # the participants' part keeps its format
     with app.test_request_context("/s/abc"):                         # the participants' blueprint: German numbers

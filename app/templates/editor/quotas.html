@@ -208,7 +208,7 @@
     {% if w.margins %}
     <details class="res-dist"><summary>{{ de_en("Zielwerte", "Target values") }}</summary>
       {% for m in w.margins %}
-      <p class="small"><strong>{{ m.name }}</strong>: {% for g in m.groups if g.share %}{{ g.name }} {{ g.share|percent }}{{ ", " if not loop.last }}{% endfor %}</p>
+      <p class="small"><strong>{{ m.name }}</strong>: {% for g in m.groups if g.share %}{{ g.name }} {{ g.share|percent0 }}{{ ", " if not loop.last }}{% endfor %}</p>
       {% endfor %}
     </details>
     {% endif %}

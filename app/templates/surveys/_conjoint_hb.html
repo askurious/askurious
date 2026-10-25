@@ -43,18 +43,26 @@
 {% if res and h.state != "running" %}
 {# the convergence note carries the button for a longer run right away (it repeats in "Konvergenz der Kette") #}
 {% for w in res.warnings %}{% if w == res.convergence_warning %}<div class="flash flash-warning hb-conv-note"><p>{{ w }}{% if res.convergence %} <span class="hint">{{ de_en("Begriffe:", "Terms:") }} {{ term("rhat") }} {{ term("ess") }}</span>{% endif %}</p>{% include "surveys/_hb_longer.html" %}</div>{% else %}<p class="flash flash-warning">{{ w }}</p>{% endif %}{% endfor %}
-<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }} <span class="hint">{{ de_en("je Person aus ihren Teilnutzen berechnet, dann gemittelt", "computed per person from their part-worths, then averaged") }}</span></p>
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }} <span class="hint">{{ de_en("je Person aus ihren Teilnutzen berechnet, dann gemittelt; Linie: mittlere Hälfte der Personen (Q1 bis Q3), Strich: Median", "computed per person from their part-worths, then averaged; line: middle half of the people (Q1 to Q3), tick: median") }}</span></p>
 {# most important first; the tables and charts below keep the order of the questionnaire #}
 {% set imp_rows = [] %}
-{% for attr in res.attributes if attr.importance is not none %}{% set _ = imp_rows.append({"label": attr.label, "linear": false, "importance": attr.importance, "sd": attr.importance_sd, "lo": attr.imp_lo, "hi": attr.imp_hi}) %}{% endfor %}
-{% if res.price and res.price.importance is not none %}{% set _ = imp_rows.append({"label": res.price.label or de_en("Preis", "Price"), "linear": true, "importance": res.price.importance, "sd": res.price.importance_sd, "lo": res.price.imp_lo, "hi": res.price.imp_hi}) %}{% endif %}
-<ul class="plain res-bars cm-importance-bars hb-importance">
+{% for attr in res.attributes if attr.importance is not none %}{% set _ = imp_rows.append({"label": attr.label, "linear": false, "importance": attr.importance, "sd": attr.importance_sd, "q": attr.importance_q, "lo": attr.imp_lo, "hi": attr.imp_hi}) %}{% endfor %}
+{% if res.price and res.price.importance is not none %}{% set _ = imp_rows.append({"label": res.price.label or de_en("Preis", "Price"), "linear": true, "importance": res.price.importance, "sd": res.price.importance_sd, "q": res.price.importance_q, "lo": res.price.imp_lo, "hi": res.price.imp_hi}) %}{% endif %}
+<ul class="plain res-bars res-bars-ci cm-importance-bars hb-importance">
   {% for row in imp_rows|sort(attribute="importance", reverse=true) %}
   <li><span class="res-bar-label">{{ row.label }}{% if row.linear %} <span class="hint">linear</span>{% endif %}</span>
-    <span class="res-bar"><span style="width: {{ (row.importance * 100)|round(1) }}%"></span></span>
-    <span class="res-bar-n" title="{{ de_en('Streuung über die Personen: SD {sd}', 'Spread over the people: SD {sd}', sd=pct(row.sd)) }}">{{ pct(row.importance) }}{% if row.lo is not none %} <span class="hint">[{{ pct(row.lo) }}; {{ pct(row.hi) }}]</span>{% endif %}</span></li>
+    <span class="res-bar"{% if row.q %} title="{{ de_en('Mittlere Hälfte der Personen: {a} bis {b}, Median {m}', 'Middle half of the people: {a} to {b}, median {m}', a=pct(row.q[0]), b=pct(row.q[2]), m=pct(row.q[1])) }}"{% endif %}><span style="width: {{ (row.importance * 100)|round(1) }}%"></span>{% if row.q %}<i class="res-ci-bar" style="left: {{ (row.q[0] * 100)|round(1) }}%; width: {{ ((row.q[2] - row.q[0]) * 100)|round(1) }}%"></i><i class="res-med-tick" style="left: {{ (row.q[1] * 100)|round(1) }}%"></i>{% endif %}</span>
+    <span class="res-bar-n">{{ pct(row.importance) }}{% if row.sd is not none %} <span class="hint">SD {{ (row.sd * 100)|dec(1) }}</span>{% endif %}{% if row.lo is not none %} <span class="hint">[{{ pct(row.lo) }}; {{ pct(row.hi) }}]</span>{% endif %}</span></li>
   {% endfor %}
 </ul>
+{# the numbers of the figure as a table, as other results offer it (Ralf, 2026-10-26) #}
+<details class="res-dist"><summary>{{ de_en("Als Tabelle", "As a table") }}</summary>
+  <div class="res-scroll"><table class="res-table hb-importance-table">
+    <thead><tr><th>{{ de_en("Merkmal", "Attribute") }}</th><th class="num">{{ de_en("Mittel", "Mean") }}</th><th class="num">SD</th><th class="num">Median</th><th class="num">Q1</th><th class="num">Q3</th></tr></thead>
+    <tbody>{% for row in imp_rows|sort(attribute="importance", reverse=true) %}<tr><td>{{ row.label }}{% if row.linear %} <span class="hint">linear</span>{% endif %}</td><td class="num">{{ pct(row.importance) }}</td><td class="num">{{ (row.sd * 100)|dec(1) if row.sd is not none else "–" }}</td><td class="num">{{ pct(row.q[1]) if row.q else "–" }}</td><td class="num">{{ pct(row.q[0]) if row.q else "–" }}</td><td class="num">{{ pct(row.q[2]) if row.q else "–" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("Wichtigkeit in Prozent je Person, über {n} Personen; SD, Median und Quartile beschreiben die Unterschiede zwischen den Personen, nicht die Unsicherheit des Mittels.", "Importance in per cent per person, over {n} people; SD, median and quartiles describe the differences between the people, not the uncertainty of the mean.", n=res.persons|thousands) }}</p>
+</details>
 <p class="muted small">{{ de_en("Bei schwachen oder zufälligen Vorlieben steigt die individuelle Wichtigkeit mit der Zahl der Stufen eines Merkmals: Unter mehr Stufen liegt die Spannweite schon durch Zufall höher. Eine hohe Wichtigkeit bei Teilnutzen nahe 0 und kleiner Streuung (SD) ist deshalb kein Befund.", "With weak or random preferences the individual importance rises with the number of levels of an attribute: with more levels the range is higher by chance alone. A high importance with part-worths near 0 and a small spread (SD) is therefore no finding.") }}</p>
 <p class="res-group-head">{{ de_en("Mittlere", "Mean") }} {{ term("partworth", de_en("Teilnutzen", "part-worths")) }} <span class="hint">{{ de_en("Mittel der individuellen, je Merkmal nullzentrierten Teilnutzen; Linie: 95-%-Posterior-Intervall des Mittelwerts; gleiche Skala für alle Merkmale", "mean of the individual part-worths, zero-centred per attribute; line: 95% posterior interval of the mean; same scale for all attributes") }}</span></p>
 {% for attr in res.attributes %}

@@ -67,7 +67,7 @@
     <tr{% if row.sub %} class="coverage-sub"{% endif %}>
       <td>{% if row.sub %}<span aria-hidden="true">↳ </span><span class="visually-hidden">{{ de_en("Unterfrage:", "Sub-question:") }} </span>{% endif %}{{ row.item.text("question")|striptags|truncate(70, true, "…") }}{% if row.item.config.core %} <strong class="iv-core-mark">{{ de_en("K", "C") }}</strong>{% endif %}</td>
       {% for s in row.states %}<td class="center coverage-{{ s or 'none' }}{% if row.item.config.core and s not in ('asked', 'spontaneous') %} coverage-missing{% endif %}" title="{{ words.get(s, de_en('kein Stand', 'no status')) }}">{{ marks.get(s, "·") }}</td>{% endfor %}
-      <td class="coverage-aspects">{% for a in row.aspects %}<span class="coverage-aspect"><span class="coverage-bar" style="width: {{ (a.share * 60)|round|int }}px"></span>{{ a.text }} {{ (a.share * 100)|round|int|pctsign }}</span>{% endfor %}</td>
+      <td class="coverage-aspects">{% for a in row.aspects %}<span class="coverage-aspect"><span class="coverage-bar" style="width: {{ (a.share * 60)|round|int }}px"></span>{{ a.text }} {{ (a.share * 100)|dec(1)|pctsign }}</span>{% endfor %}</td>
     </tr>
     {% endfor %}
     {% endfor %}

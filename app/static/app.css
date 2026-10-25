@@ -2004,6 +2004,8 @@ fieldset.bare { border: 0; padding: 0; margin: 0; min-width: 0; display: content
 .res-ci-bar { position: absolute; top: -3px; bottom: -3px; border-left: 1.5px solid var(--fg); border-right: 1.5px solid var(--fg); pointer-events: none; }
 .res-ci-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1.5px solid var(--fg); }
 .res-ci { white-space: nowrap; }
+/* the median of the people on the line of their middle half (HB importances, Ralf 2026-10-26) */
+.res-med-tick { position: absolute; top: -5px; bottom: -5px; border-left: 2px solid var(--fg); pointer-events: none; }
 /* ordinal answers carry the cumulated share too ("20 % (150) Σ 100 %"): a wider column, the numbers on one line
    (Ralf, 2026-10-16: "Σ 100 %" broke) */
 .results-page .res-bars.res-bars-cum > li { grid-template-columns: minmax(120px, 220px) minmax(0, 1fr) 170px; }

@@ -213,7 +213,7 @@ def test_a_link_shows_the_dashboard_without_signing_in(app, study):
     page = r.data.decode()
     assert r.status_code == 200 and r.headers["X-Robots-Tag"] == "noindex, nofollow" and r.headers["Cache-Control"] == "no-store"
     assert "Set-Cookie" not in r.headers
-    assert "Womit fahren Sie?" in page and "Auto" in page and "58 %" in page and "12</span> Teilnahmen" in page
+    assert "Womit fahren Sie?" in page and "Auto" in page and "58,3 %" in page and "12</span> Teilnahmen" in page
     assert "/surveys/" not in page and "/dashboard/" not in page                     # no way into the application
     # counted, not who
     with app.app_context():
@@ -366,7 +366,7 @@ def test_the_open_page_gets_a_new_state_with_every_participation(app, study):
     assert guest.get(f"/d/{token}/state?v={first['v']}").get_json() == {"v": first["v"]}     # nothing new: nothing sent
     _answer(app, {"2": "1", "3": ["1"], "4": {"s1": 4, "s2": 2}, "5": 10})
     second = guest.get(f"/d/{token}/state?v={first['v']}").get_json()
-    assert second["v"] != first["v"] and second["n"] == 13 and "62 %" in second["html"]
+    assert second["v"] != first["v"] and second["n"] == 13 and "61,5 %" in second["html"]
     # changing the dashboard gives a new state as well
     study.post(f"{D}/1", data=MultiDict([("name", "A"), ("pick", "item:2")]))
     third = guest.get(f"/d/{token}/state?v={second['v']}").get_json()
@@ -421,20 +421,20 @@ def test_field_figures_and_quotas(app, study):
     token = _link(study)
     _fill(app)
     page = _stranger(app).get(f"/d/{token}").data.decode()
-    assert "Fortschritt zum Stichprobenziel" in page and "12 von 48" in page and "25 % des Stichprobenziels" in page
+    assert "Fortschritt zum Stichprobenziel" in page and "12 von 48" in page and "25,0 % des Stichprobenziels" in page
     assert "Geschlecht" in page and "5 von 20" in page and "20 von 20" in page and "b-full" in page
     assert "Teilnahmen pro Tag" in page and "5:00 Min." in page and "Abschlussquote" in page
     # only percent for the quota
     study.post(f"{D}/1", data=MultiDict([("name", "A"), ("pick", "quota:1"), ("view-quota:1", "bars"), ("pct-quota:1", "1")]))
     page = _stranger(app).get(f"/d/{token}").data.decode()
-    assert "25 %" in page and "5 von 20" not in page
+    assert "25,0 %" in page and "5 von 20" not in page
     # the spread of the sample next to the spread of the targets: 5 and 20 of 25 reached, the targets half and half
     study.post(f"{D}/1", data=MultiDict([("name", "A"), ("pick", "quota:1"), ("view-quota:1", "compare"), ("pct-quota:1", "1"), ("n-quota:1", "1")]))
     with app.app_context():
         tile = boards.state(db.session.get(Board, 1), fresh=True)["tiles"][0]
         assert [(r["target_share"], r["done_share"]) for r in tile["rows"]] == [(0.5, 0.2), (0.5, 0.8)]
     page = _stranger(app).get(f"/d/{token}").data.decode()
-    assert "b-pairs" in page and "50 %<br>20 % · 5" in page and "50 %<br>80 % · 20" in page
+    assert "b-pairs" in page and "50,0 %<br>20,0 % · 5" in page and "50,0 %<br>80,0 % · 20" in page
 
 
 def test_lecture_hall_shows_the_way_into_the_survey(app, study):
@@ -830,10 +830,10 @@ def test_a_dashboard_speaks_the_languages_of_its_survey(app, study):
     _fill(app)
     guest = _stranger(app)
     german = guest.get(f"/d/{token}").data.decode()
-    assert '<html lang="de"' in german and "Womit fahren Sie?" in german and "58 %" in german and "Weitere Antworten" in german
+    assert '<html lang="de"' in german and "Womit fahren Sie?" in german and "58,3 %" in german and "Weitere Antworten" in german
     assert german.count("?lang=") == 2 and 'aria-current="true">Deutsch<' in german        # the switch: the two languages of the survey
     english = guest.get(f"/d/{token}?lang=en").data.decode()
-    assert '<html lang="en"' in english and "How do you travel?" in english and "Car" in english and "58%" in english
+    assert '<html lang="en"' in english and "How do you travel?" in english and "Car" in english and "58.3%" in english
     assert "Other answers" in english and "rare answers are put together" in english and "Too few answers yet" in english
     assert "Womit fahren Sie?" not in english and "Weitere Antworten" not in english and "Teilnahmen" not in english and "Noch zu wenige" not in english
     assert "12</span> Participations" in english and "Summarised numbers only" in english and 'aria-current="true">English<' in english
@@ -1038,7 +1038,7 @@ def test_a_link_for_a_provider_counts_its_participations_and_shows_no_questions(
     own, figures = _figures(app, ("src", "a"))
     assert own["only"] == ["src", "a"] and own["n"] == 12
     assert figures["count"]["value"] == "12" and "16 begonnen · 12 abgeschlossen" in figures["count"]["sub"]
-    assert figures["rate"]["value"] == "75 %" and sum(r["count"] for r in figures["days"]["rows"]) == 12
+    assert figures["rate"]["value"] == "75,0 %" and sum(r["count"] for r in figures["days"]["rows"]) == 12
     assert not any(t.get("key") == "item:2" for t in own["tiles"])            # no results of questions
     assert _figures(app, ("src", "b"))[1]["count"]["value"] == "6"
 

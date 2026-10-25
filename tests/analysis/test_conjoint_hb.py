@@ -103,9 +103,14 @@ def test_cbc_button_estimate_recovers_segments_and_exports(app, client, survey):
     assert "hb-utilities" in html and "md-rlh-chart" in html and "bevorzugt" in html and "Akzeptanzrate" in html
     import re
 
-    bars = re.search(r'<ul class="plain res-bars cm-importance-bars hb-importance">(.*?)</ul>', html, re.S).group(1)
-    shares = [int(x) for x in re.findall(r'<span class="res-bar-n"[^>]*>(\d+)\s*%', bars)]
-    assert len(shares) == 3 and shares == sorted(shares, reverse=True)          # most important first
+    bars = re.search(r'<ul class="plain res-bars res-bars-ci cm-importance-bars hb-importance">(.*?)</ul>', html, re.S).group(1)
+    shares = [float(x.replace(",", ".")) for x in re.findall(r'<span class="res-bar-n"[^>]*>(\d+,\d)\s*%', bars)]
+    assert len(shares) == 3 and shares == sorted(shares, reverse=True)          # most important first, one decimal
+    # the spread of the people: Q1 to Q3 with the median on the bar, SD beside the share, all in a table (Ralf, 2026-10-26)
+    assert bars.count('class="res-ci-bar"') == 3 and bars.count('class="res-med-tick"') == 3 and bars.count(">SD ") == 3
+    table = html.split('class="res-table hb-importance-table"', 1)[1].split("</table>", 1)[0]
+    assert "<th class=\"num\">Q1</th>" in table and table.count("<tr>") == 4
+    assert all(q[0] <= q[1] <= q[2] for q in [a["importance_q"] for a in view["attributes"]] if q)
     assert "(oft der Preis), etwas wichtiger" in html                          # H-12: the convention's bias
     # C-2: prices 50 to 150, coefficient per 10 currency units in both blocks (was per unit, 4 decimals)
     assert html.count("Preiskoeffizient je 10 Währungseinheiten") == 2

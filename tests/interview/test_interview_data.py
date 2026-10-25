@@ -156,7 +156,7 @@ def test_evaluation_and_exports(app, client):
         {"states": {str(q): "spontaneous"}, "ticks": [], "notes": {}, "marks": [], "elapsed": 600_000, "blocks": {}}))
     start(app, client, code, trial="1")
     page = client.get(f"/guide/{code}/interviews/analysis").data.decode()
-    assert "Abdeckung" in page and "Sturz 2023" in page and "#01:02:05-0#" in page and "50 %" in page   # 1 of 2 interviews
+    assert "Abdeckung" in page and "Sturz 2023" in page and "#01:02:05-0#" in page and "50,0 %" in page   # 1 of 2 interviews
     assert "I03" not in page and "I03" in client.get(f"/guide/{code}/interviews/analysis?probe=1").data.decode()
     csv_ = client.get(f"/guide/{code}/interviews/cases.csv").data.decode("utf-8-sig")
     head, first_row = csv_.splitlines()[:2]

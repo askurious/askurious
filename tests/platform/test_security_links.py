@@ -49,11 +49,11 @@ def test_languages_and_dashboards_of_a_survey_rest_on_the_same_step(app, study):
     _answer(app, "2", 8)
     _answer(app, "4", 5)                                            # 21 participations, train 24 %
     guest = test_boards._stranger(app)
-    assert _n(guest, first) == 21 and "24 %" in guest.get(f"/d/{first}").data.decode()
+    assert _n(guest, first) == 21 and "23,8 %" in guest.get(f"/d/{first}").data.decode()
     _answer(app, "4")                                               # one more person takes the train
     # the report's way round the steps: another language, a second dashboard. Every variant shows the step
     assert _n(guest, first) == 21 and _n(guest, first, "en") == 21
-    assert "24%" in guest.get(f"/d/{first}?lang=en").data.decode() and "27%" not in guest.get(f"/d/{first}?lang=en").data.decode()
+    assert "23.8%" in guest.get(f"/d/{first}?lang=en").data.decode() and "27.3%" not in guest.get(f"/d/{first}?lang=en").data.decode()
     test_boards._board(study)                                       # dashboard 2, made after the step
     study.post(f"{D}/2", data=MultiDict([("name", "B"), ("pick", "item:2"), ("view-item:2", "table"), ("pct-item:2", "1")]))
     study.post(f"{D}/2/link", data={"valid": "30"})

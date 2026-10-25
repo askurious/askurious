@@ -2,7 +2,7 @@
    for choosing the rule in a pretest. Needs: tempo_pages. #}
 {% from "_sources.html" import cite %}
 {% macro sec(v) %}{% if v is none %}–{% else %}{{ ((v)|dec(1)) }}{% endif %}{% endmacro %}
-{% macro pct(v) %}{% if v is none %}–{% else %}{{ (v * 100)|fixed(0)|pctsign }}{% endif %}{% endmacro %}
+{% macro pct(v) %}{% if v is none %}–{% else %}{{ (v * 100)|dec(1)|pctsign }}{% endif %}{% endmacro %}
 <section class="panel" id="tempo-pages">
   <h2>{{ de_en("Tempo je Seite", "Speed per page") }} <span class="hint">{{ de_en("erster Besuch jeder Seite, Teilnahmen im gespeicherten Datenpool (auch abgebrochene)", "first visit of each page, participations in the saved data pool (also broken-off ones)") }}</span></h2>
   {% if tempo_pages %}

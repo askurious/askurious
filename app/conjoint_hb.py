@@ -480,6 +480,14 @@ def importances(res):
     return out
 
 
+def _quartiles(column):
+    """[Q1, median, Q3] of the importances of the people (shares 0 … 1): the spread the figure draws, since importances
+    are bounded and often skewed, where ± SD would run past 0 or 100 % (Ralf, 2026-10-26)."""
+    column = np.asarray(column, dtype=float)
+    column = column[np.isfinite(column)]
+    return [float(q) for q in np.percentile(column, [25, 50, 75])] if len(column) else None
+
+
 def summary(item, res, lang):
     """Rows, charts and model info of a stored result."""
     from app.timeutil import to_local
@@ -509,6 +517,7 @@ def summary(item, res, lang):
                      "levels": levels, "loose": a in loose,
                      "importance": None if a in loose else float(imp[:, j].mean()),
                      "importance_sd": None if a in loose else float(imp[:, j].std()),
+                     "importance_q": None if a in loose else _quartiles(imp[:, j]),
                      "imp_lo": None if res["imp_lo"] is None else res["imp_lo"][j],
                      "imp_hi": None if res["imp_hi"] is None else res["imp_hi"][j]})
     price = None
@@ -522,6 +531,7 @@ def summary(item, res, lang):
                  "label": attrs[pa]["label"] if pa is not None else None,
                  "importance": float(imp[:, j].mean()) if res.get("has_price_importance") else None,
                  "importance_sd": float(imp[:, j].std()) if res.get("has_price_importance") else None,
+                 "importance_q": _quartiles(imp[:, j]) if res.get("has_price_importance") else None,
                  "imp_lo": res["imp_lo"][j] if res.get("has_price_importance") and res["imp_lo"] else None,
                  "imp_hi": res["imp_hi"][j] if res.get("has_price_importance") and res["imp_hi"] else None}
     asc = None

@@ -33,7 +33,7 @@
     <tr><td><code>{{ e.item.code }}_…_{{ s.q.export_code }}</code> <span class="hint">{{ s.q.text|truncate(60) }}</span></td>
       <td>{{ s.n }}</td>
       {% if s.q.kind == "scale" %}<td>{{ num(s.mean) }} <span class="hint">1–{{ s.q.points }}</span></td><td>{{ num(s.sd) }}</td><td>{{ num(s.person_mean) }} <span class="hint">n = {{ s.persons }}</span></td>
-      {% elif s.q.kind == "choice" %}<td colspan="3" class="small">{% for label, count in s.counts %}{{ label }}: {{ count }}{% if s.n %} ({{ num(100 * count / s.n, 0)|pctsign }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+      {% elif s.q.kind == "choice" %}<td colspan="3" class="small">{% for label, count in s.counts %}{{ label }}: {{ count }}{% if s.n %} ({{ num(100 * count / s.n, 1)|pctsign }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</td>
       {% else %}<td colspan="3" class="muted small">{{ de_en("Text; im Export lesen", "Text; read it in the export") }}</td>{% endif %}</tr>
   {% endfor %}
   </tbody>

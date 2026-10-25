@@ -10,10 +10,10 @@
     <svg viewBox="0 0 {{ ch.w }} {{ ch.h }}" role="img" aria-label="{{ de_en('Anteil, der jede Stelle gesehen bzw. gehört hat, über die Länge', 'Share that saw or heard each point, over the length') }}">
       {% for yy, v in ch.y_ticks %}
       <line class="psm-grid" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ yy }}" y2="{{ yy }}"/>
-      <text class="psm-tick" x="{{ ch.x_lo - 6 }}" y="{{ yy + 4 }}" text-anchor="end">{{ v|percent }}</text>
+      <text class="psm-tick" x="{{ ch.x_lo - 6 }}" y="{{ yy + 4 }}" text-anchor="end">{{ v|percent0 }}</text>
       {% endfor %}
       {% for xx, p in ch.x_ticks %}
-      <text class="psm-tick" x="{{ xx }}" y="{{ ch.base_y + 18 }}" text-anchor="middle">{{ (p / 100)|percent }}</text>
+      <text class="psm-tick" x="{{ xx }}" y="{{ ch.base_y + 18 }}" text-anchor="middle">{{ (p / 100)|percent0 }}</text>
       {% endfor %}
       <line class="psm-axis" x1="{{ ch.x_lo }}" x2="{{ ch.x_hi }}" y1="{{ ch.base_y }}" y2="{{ ch.base_y }}"/>
       <text class="psm-tick" x="{{ ch.x_hi }}" y="{{ ch.h - 2 }}" text-anchor="end">{{ de_en("Stelle in der Länge", "Point in the length") }}</text>

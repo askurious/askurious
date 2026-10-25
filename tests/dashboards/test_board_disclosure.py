@@ -39,7 +39,7 @@ def test_split_means_give_no_hidden_level_back(app, client, survey):
     with app.app_context():
         token = db.session.scalars(db.select(BoardShare)).first().token
     whole = app.test_client().get(f"/d/{token}").data.decode()
-    assert "stimme eher nicht zu bis teils/teils: 17 %" in whole  # the tile of everyone puts levels 2 and 3 together
+    assert "stimme eher nicht zu bis teils/teils: 16,7 %" in whole  # the tile of everyone puts levels 2 and 3 together
     client.post(f"{D}/1", data=MultiDict([("name", "A"), ("pick", "item:3"), ("view-item:3", "means"), ("by-item:3", "item:2")]))
     split = app.test_client().get(f"/d/{token}").data.decode()
     bars = [float(v) for v in re.findall(r'class="b-fill" data-k="item:3:g1-\d" style="--v: ([0-9.]+)%', split)]
