@@ -119,6 +119,29 @@ def test_module_view_without_fieldwork_has_a_short_basis(app, client, survey, mo
     with app.app_context():
         assert db.session.get(Survey, survey).data_pool["all"] is True
 
+
+def test_module_view_without_fieldwork_has_a_short_export_page(app, client, survey, monkeypatch):
+    """The export page of a survey a module keeps without fieldwork of its own: the answer files, the codebook and the
+    data access, but no questionnaire documents, test runs, pre-registration, survey file or Zenodo (Ralf, 2026-10-26)."""
+    from app.extensions import db
+    from app.models import Survey
+
+    _isolate(monkeypatch)
+    monkeypatch.setattr(plugins, "VIEWS", [])
+    plugins.add_view(lambda s: s.title == "Analyse", ("results", "data"), "dashboard.index", "Zur Liste", "To the list")
+    app.jinja_env.globals["plugin_view"] = plugins.view
+    gone = ("Fragebogen für Papier (Word)", "Befragungsmaterial (PDF)", 'id="evidence"', 'id="zenodo"', 'id="archive"',
+            'id="documentation"', "Testdurchläufe (", "Bildrechte für öffentliche Archivierung", "Markierte Teilnahmen",
+            "Befragungsdatei")
+    page = client.get(f"/surveys/{survey}/data").data.decode()
+    assert all(g in page for g in gone)  # an ordinary survey: all of it
+    with app.app_context():
+        db.session.get(Survey, survey).title = "Analyse"
+        db.session.commit()
+    page = client.get(f"/surveys/{survey}/data").data.decode()
+    assert not [g for g in gone if g in page]
+    assert "Codebuch (CSV)" in page and "auch die nicht abgeschlossenen" in page and 'id="export-form"' in page
+
 def test_imported_surveys_stay_out_of_the_statistics(app, client, monkeypatch):
     """Analyses an add-on module imports (the conjoint import) are no surveys of the platform: the dashboard,
     the monitoring feed and the totals leave them and their participations out (Ralf, 2026-10-22)."""
