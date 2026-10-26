@@ -1,0 +1,55 @@
+{# The versions of the structural equation model (app/sem_versions.py, model versions 2026-10-26): the list, two of
+   them side by side, the actions for "Bearbeiten". Needs: vpage (sem_versions.page), survey, num, apa, S. #}
+{% set editor = survey.can(current_user, "editor") %}
+{% set rows = vpage.versions %}
+<details class="res-dist" id="sem-versions"{% if request.args.get('va') %} open{% endif %}><summary>{{ de_en("Versionen des Modells", "Versions of the model") }} <span class="hint">{{ de_en("{k} Versionen", "{k} versions", k=rows|length) }}{% if vpage.current %} · {{ de_en("gezeigt: Version {k}", "shown: version {k}", k=vpage.current.number) }}{% endif %}</span></summary>
+  <p class="muted small">{{ de_en("Jede Schätzung mit anderen Einstellungen des Modells ist eine Version; ihre Kennzahlen bleiben, wie sie damals waren. Hauptmodell ist die Version, die bei Beginn der Erhebung vorab festgelegt war (Präregistrierung), sonst die erste; alle anderen sind explorativ", "Every estimate with other settings of the model is a version; its figures stay as they were. The main model is the version set in advance at the start of the fieldwork (pre-registration), otherwise the first; all others are exploratory") }} {{ apa.cite([S.MACCALLUM_1992, sem_versions.SIMMONS]) }}.</p>
+  <form method="get" action="{{ url_for('surveys.results', survey_id=survey.id) }}#sem-versions">
+  <div class="res-scroll"><table class="res-table sem-versions">
+    <thead><tr><th>{{ de_en("A", "A") }}</th><th>{{ de_en("B", "B") }}</th><th>{{ de_en("Version", "Version") }}</th><th>{{ de_en("Was sich geändert hat", "What changed") }}</th><th class="num">N</th><th class="num">{{ de_en("höchstes R²", "highest R²") }}</th><th class="num">{{ term("bic", "BIC") }}</th><th>{{ de_en("Stand", "Date") }}</th></tr></thead>
+    <tbody>{% for r in rows|reverse %}{% set v = r.v %}
+      <tr{% if vpage.current and v.id == vpage.current.id %} class="is-current"{% endif %}>
+        <td><input type="radio" name="va" value="{{ v.id }}" aria-label="{{ de_en('Version {k} als A', 'version {k} as A', k=v.number) }}"{% if request.args.get('va') == v.id|string or (not request.args.get('va') and r.main) %} checked{% endif %}></td>
+        <td><input type="radio" name="vb" value="{{ v.id }}" aria-label="{{ de_en('Version {k} als B', 'version {k} as B', k=v.number) }}"{% if request.args.get('vb') == v.id|string or (not request.args.get('vb') and vpage.current and v.id == vpage.current.id) %} checked{% endif %}></td>
+        <td><strong>V{{ v.number }}</strong>{% if v.name %} „{{ v.name }}“{% endif %} {% if r.main %}<span class="badge badge-approved">{{ de_en("Hauptmodell", "main model") }}{% if vpage.prereg %} · {{ de_en("vorab festgelegt", "set in advance") }}{% endif %}</span>{% else %}<span class="badge">{{ de_en("explorativ", "exploratory") }}</span>{% endif %}</td>
+        <td>{{ r.changes|join("; ") }}</td>
+        <td class="num">{{ r.n }}</td><td class="num">{{ num(r.r2) }}</td><td class="num">{{ num(r.score, 1) }}</td>
+        <td>{{ v.created_at|localdt }}</td>
+      </tr>{% endfor %}</tbody>
+  </table></div>
+  <p><button type="submit" class="button button-secondary button-small">{{ de_en("A und B vergleichen", "Compare A and B") }}</button></p>
+  </form>
+  {% set va = request.args.get('va', '') %}{% set vb = request.args.get('vb', '') %}
+  {% set a = (rows|selectattr("v.id", "equalto", va|int)|list or [none])[0] if va.isdigit() else none %}
+  {% set b = (rows|selectattr("v.id", "equalto", vb|int)|list or [none])[0] if vb.isdigit() else none %}
+  {% if a and b and a.v.id != b.v.id %}{% set cmp = sem_versions.compare(a.v, b.v) %}
+  <h4 class="sem-sub" id="sem-compare-versions">{{ de_en("Vergleich V{a} ↔ V{b}", "Comparison V{a} ↔ V{b}", a=a.v.number, b=b.v.number) }}</h4>
+  <p class="small">{{ de_en("Geändert in B:", "Changed in B:") }} {{ cmp.changes|join("; ") }}</p>
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th></th><th class="num">V{{ a.v.number }}{% if a.main %} ({{ de_en("Hauptmodell", "main model") }}){% endif %}</th><th class="num">V{{ b.v.number }}{% if b.main %} ({{ de_en("Hauptmodell", "main model") }}){% endif %}</th><th class="num">{{ de_en("Differenz", "Difference") }}</th></tr></thead>
+    <tbody><tr><td>N</td><td class="num">{{ cmp.n[0] }}</td><td class="num">{{ cmp.n[1] }}</td><td></td></tr>
+    {% for r in cmp.rows %}<tr><td>{{ r.label }}</td><td class="num">{{ num(r.a) }}{% if r.pa is not none %} <span class="hint">p {{ num(r.pa, 3) }}</span>{% endif %}</td><td class="num">{{ num(r.b) }}{% if r.pb is not none %} <span class="hint">p {{ num(r.pb, 3) }}</span>{% endif %}</td><td class="num">{% if r.diff is not none %}{{ "+" if r.diff > 0 else "" }}{{ num(r.diff) }}{% endif %}</td></tr>{% endfor %}
+    {% for w in cmp.weights %}<tr><td>{{ de_en("BIC-Gewicht {c}", "BIC weight {c}", c=w.label) }}</td><td class="num">{{ w.a|percent }}</td><td class="num">{{ w.b|percent }}</td><td></td></tr>{% endfor %}
+    {% if cmp.predict[0] or cmp.predict[1] %}<tr><td>{{ de_en("PLSpredict: Aussagen besser als lineares Modell", "PLSpredict: statements better than a linear model") }}</td><td class="num">{% if cmp.predict[0] %}{{ cmp.predict[0][0] }}/{{ cmp.predict[0][1] }}{% endif %}</td><td class="num">{% if cmp.predict[1] %}{{ cmp.predict[1][0] }}/{{ cmp.predict[1][1] }}{% endif %}</td><td></td></tr>{% endif %}
+    </tbody>
+  </table></div>
+  <p class="muted small">{{ de_en("BIC je erklärtem Konstrukt: n·ln(1 − R²) + (k + 1)·ln(n); kleiner ist besser, das BIC-Gewicht ist die Wahrscheinlichkeit, dass die Version unter beiden die bessere ist", "BIC per explained construct: n·ln(1 − R²) + (k + 1)·ln(n); smaller is better, the BIC weight is the probability that the version is the better of the two") }} {{ apa.cite([sem_versions.SHARMA]) }}. {{ de_en("Bei unterschiedlichem N sind BIC und AIC nicht vergleichbar.", "With different N, BIC and AIC are not comparable.") }}</p>
+  {% endif %}
+  {% if editor %}
+  <div class="sem-version-actions">
+    <form method="post" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="refresh">
+      <button type="submit" class="button button-secondary button-small">{{ de_en("Mit aktuellen Daten neu rechnen", "Compute again with the current data") }}</button></form>
+    {% for r in rows|reverse %}{% set v = r.v %}
+    <details class="sem-version-edit"><summary>V{{ v.number }}{% if v.name %} „{{ v.name }}“{% endif %}: {{ de_en("umbenennen, übernehmen, löschen", "rename, adopt, delete") }}</summary>
+      <form method="post" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}" class="row-fields"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="version" value="{{ v.id }}"><input type="hidden" name="action" value="name">
+        <label class="sr-only" for="vname-{{ v.id }}">{{ de_en("Name", "Name") }}</label><input type="text" id="vname-{{ v.id }}" name="name" maxlength="80" value="{{ v.name }}" placeholder="{{ de_en('Name der Version', 'Name of the version') }}">
+        <button type="submit" class="button button-secondary button-small">{{ de_en("Umbenennen", "Rename") }}</button></form>
+      <form method="post" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="version" value="{{ v.id }}"><input type="hidden" name="action" value="adopt">
+        <button type="submit" class="button button-secondary button-small">{{ de_en("Einstellungen dieser Version übernehmen", "Adopt the settings of this version") }}</button> <span class="hint">{{ de_en("setzt die Einstellungen des Modells im Studienplan zurück; die Hypothesen bleiben", "resets the settings of the model in the research plan; the hypotheses stay") }}</span></form>
+      {% if not r.main %}<form method="post" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}" data-confirm="{{ de_en('Version {k} löschen?', 'Delete version {k}?', k=v.number) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="version" value="{{ v.id }}"><input type="hidden" name="action" value="delete">
+        <button type="submit" class="button button-secondary button-small">{{ de_en("Löschen", "Delete") }}</button></form>{% endif %}
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
+</details>

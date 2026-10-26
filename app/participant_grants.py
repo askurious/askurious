@@ -132,6 +132,7 @@ NOT_GRANTED = {
     "edit_mark": "who edits which part of a draft",
     "edit_step": "undo and redo of the editor",
     "experiment_grant": "experimental features switched on for researchers",
+    "sem_version": "versions of the structural equation model on the results page of researchers",
     "group_join_link": "join links of researchers' groups",
     "id_floor": "highest ids of deleted surveys, blocks and questions: written when researchers delete (participations: on SQLite only)",
     "interviewer_access": "interviewer links of the interview guide (researchers' side)",

@@ -390,7 +390,7 @@ def test_control_variables_and_a_single_question_with_its_reliability(app, clien
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
     with app.app_context():
         s = db.session.get(Survey, 1)
-        assert study_plan.plan_of(s)["sem"] == {"controls": ["alter"], "single": {"zufr": 0.6}, "formative": [], "global": {}, "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": [], "hoc": [], "higher_formative": []}
+        assert study_plan.plan_of(s)["sem"] == {"controls": ["alter"], "single": {"zufr": 0.6}, "formative": [], "global": {}, "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": [], "hoc": [], "higher_formative": [], "dropped": {}}
         model = sem_model.build(s)
         assert model["spec"]["latent"]["zufr"] == ["zufr°"] and model["spec"]["single"] == {"zufr": 0.6}
         assert "zufr" not in model["spec"]["observed"]
@@ -407,7 +407,7 @@ def test_control_variables_and_a_single_question_with_its_reliability(app, clien
     with app.app_context():
         s = db.session.get(Survey, 1)
         study_plan.rename_codes(s, {"alter": "age", "zufr": "sat"})
-        assert study_plan.plan_of(s)["sem"] == {"controls": ["age"], "single": {"sat": 0.6}, "formative": [], "global": {}, "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": [], "hoc": [], "higher_formative": []}
+        assert study_plan.plan_of(s)["sem"] == {"controls": ["age"], "single": {"sat": 0.6}, "formative": [], "global": {}, "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": [], "hoc": [], "higher_formative": [], "dropped": {}}
 
 
 def test_a_single_question_with_a_reliability_recovers_the_path():

@@ -19,6 +19,12 @@
 {% macro ci(pair, d=2) -%}{% if pair %}<span class="res-ci">[{{ num(pair[0], d) }}; {{ num(pair[1], d) }}]</span>{% else %}–{% endif %}{%- endmacro %}
 {# one line per criterion of a step: ✓ met, ⚠ not met, a plain number to read (two-step check 2026-10-26) #}
 {% macro checks(rows) %}{% if rows %}<ul class="sem-checks">{% for state, text in rows %}<li class="is-{{ state or 'info' }}">{% if state == "ok" %}<span aria-hidden="true">✓</span> {% elif state == "warn" %}<span aria-hidden="true">⚠</span> {% endif %}{{ text }}</li>{% endfor %}</ul>{% endif %}{% endmacro %}
+{# leave a statement out in a new version, with its reason (model versions 2026-10-26, E8): never automatically #}
+{% macro drop_form(code) %}{% if survey.can(current_user, "editor") %}<details class="sem-drop"><summary>{{ de_en("in neuer Version weglassen", "leave out in a new version") }}</summary>
+  <form method="post" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="drop"><input type="hidden" name="code" value="{{ code }}">
+    <label for="drop-{{ code }}">{{ de_en("Grund (Pflicht)", "Reason (required)") }}</label> <input type="text" id="drop-{{ code }}" name="reason" maxlength="200" required>
+    <button type="submit" class="button button-secondary button-small">{{ de_en("Weglassen", "Leave out") }}</button>
+    <span class="hint">{{ de_en("Eine weggelassene Aussage ändert, was das Konstrukt bedeutet. Das Hauptmodell bleibt; die neue Version ist explorativ.", "A statement left out changes what the construct means. The main model stays; the new version is exploratory.") }}</span></form></details>{% endif %}{% endmacro %}
 {# the bootstrap: with PLS above the paths and as the main button, since without it no path is judged (W70);
    covariance-based under the indirect effects it is needed for #}
 {% macro boot_part(boot, cb) %}
@@ -53,6 +59,8 @@
 <section class="panel" id="sem"><details class="res-fold" open>
   <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{% if sem.mode == "measurement" %}{{ de_en("Messmodell aller Skalen", "Measurement model of all scales") }}{% else %}{{ de_en("Strukturgleichungsmodell", "Structural equation model") }}{% endif %}
     <span class="hint">{{ sem_model.methods()[sem.method] }}{% if sem.mode == "measurement" %} · {{ de_en("konfirmatorische Faktorenanalyse; mit Hypothesen im Studienplan (Verfahren „Strukturgleichungsmodell“) wird daraus das Strukturmodell", "confirmatory factor analysis; with hypotheses in the research plan (method “Structural equation model”) it becomes the structural model") }}{% endif %}</span></h2></summary>
+  {% set vhead = sem_versions.page(survey) if sem.fit and not sem.error and not sem.weighted else none %}
+  {% if vhead and vhead.current %}<p class="small sem-version-line">{% if vhead.exploratory %}<span class="badge">{{ de_en("Version {k} · explorativ", "Version {k} · exploratory", k=vhead.current.number) }}</span> {{ de_en("Abweichend vom Hauptmodell (Version {m}); Methodenteil und Word-Tabellen sagen das.", "Differs from the main model (version {m}); the methods draft and the Word tables say so.", m=vhead.main.number) }}{% else %}<span class="badge badge-approved">{{ de_en("Hauptmodell · Version {k}", "Main model · version {k}", k=vhead.current.number) }}</span>{% endif %} <a href="#sem-versions">{{ de_en("Versionen", "Versions") }}</a></p>{% endif %}
   {% if sem.skipped %}<p class="muted small">{{ de_en("Ohne die Subskalen mit nur einer Aussage (ein Konstrukt braucht mindestens zwei): {names}.", "Without the subscales with only one statement (a construct needs at least two): {names}.", names=sem.skipped|join(", ")) }}</p>{% endif %}
   {% if sem.error %}
   <p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ sem_model.error_text(sem) }}</span></p>
@@ -134,6 +142,8 @@
   {% endfor %}
   {% if mtable %}
   <details class="res-dist" id="sem-measure"{% if sem.mode == "measurement" or weak %} open{% endif %}><summary>{{ de_en("Messmodell", "Measurement model") }}</summary>
+    {% set dropped = study_plan.plan_of(survey).sem.dropped %}
+    {% if dropped %}<ul class="plain small sem-dropped">{% for code, reason in dropped.items() %}<li>{{ de_en("Weggelassen: {c} · Grund: „{r}“", "Left out: {c} · reason: “{r}”", c=code, r=reason) }}{% if survey.can(current_user, "editor") %} <form method="post" class="inline" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="undrop"><input type="hidden" name="code" value="{{ code }}"><button type="submit" class="link-button">{{ de_en("wieder aufnehmen", "take in again") }}</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
     <div class="res-scroll"><table class="res-table sem-measure">
       <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("loading") }}</th>{% if not cb %}<th class="num">{{ de_en("Gewicht", "Weight") }}</th>{% endif %}<th class="num">{{ term("alpha") }}</th>{% if not cb %}<th class="num">ρ<sub>A</sub></th>{% endif %}<th class="num">{{ term("ave", "AVE") }}</th><th class="num">{{ de_en("Reliabilität (CR)", "Reliability (CR)") }}</th><th class="num">max. {{ term("htmt") }}</th></tr></thead>
       <tbody>
@@ -141,7 +151,7 @@
         <tr class="sem-construct"><td><strong>{{ c.label }}</strong>{% if c.flags %} <span class="hint">{% for f in c.flags %}{% if f == "ave" %}{{ de_en("AVE unter 0,50", "AVE below 0.50") }}{% elif f == "cr" %}{{ de_en("CR unter 0,70", "CR below 0.70") }}{% elif f == "alpha" %}{{ de_en("α unter 0,70", "α below 0.70") }}{% elif f == "rel_high" %}{{ de_en("α oder CR über 0,95: Aussagen fast gleich", "α or CR above 0.95: statements almost the same") }}{% else %}{{ de_en("HTMT über 0,85", "HTMT above 0.85") }}{% endif %}{{ " · " if not loop.last }}{% endfor %}</span>{% endif %}</td><td></td>{% if not cb %}<td></td>{% endif %}
           <td class="num{% if 'alpha' in c.flags or (c.alpha is not none and c.alpha > sem_model.REL_MAX) %} is-warn{% endif %}">{{ num(c.alpha) }}</td>{% if not cb %}<td class="num">{{ num(c.rho_a) }}</td>{% endif %}
           <td class="num{% if 'ave' in c.flags %} is-warn{% endif %}">{{ num(c.ave) }}</td><td class="num{% if 'cr' in c.flags or (c.cr is not none and c.cr > sem_model.REL_MAX) %} is-warn{% endif %}">{{ num(c.cr) }}</td><td class="num{% if 'htmt' in c.flags %} is-warn{% endif %}">{{ num(c.htmt_max) }}</td></tr>
-        {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}</td><td class="num{% if (i.std is not none and i.std < 0) or i.level %} is-warn{% endif %}">{{ num(i.std) }}{% if i.std is not none and i.std < 0 %} <span class="sem-mark" title="{{ de_en('negative Ladung: vielleicht nicht umgepolt', 'negative loading: perhaps not reversed') }}">⚠</span>{% elif i.level == "low" %} <span class="sem-mark" title="{{ de_en('unter 0,40: weglassen', 'below 0.40: leave out') }}">⚠</span>{% elif i.level == "mid" %} <span class="sem-mark" title="{{ de_en('0,40 bis 0,70: nur weglassen, wenn CR und AVE dadurch steigen', '0.40 to 0.70: leave out only if CR and AVE rise') }}">△</span>{% endif %}</td>{% if not cb %}<td class="num">{{ num(i.weight) }}</td>{% endif %}<td></td>{% if not cb %}<td></td>{% endif %}<td></td><td></td><td></td></tr>{% endfor %}
+        {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}{% if i.level and c.name in (sem.spec or {}).get("latent", {}) %} {{ drop_form(i.code) }}{% endif %}</td><td class="num{% if (i.std is not none and i.std < 0) or i.level %} is-warn{% endif %}">{{ num(i.std) }}{% if i.std is not none and i.std < 0 %} <span class="sem-mark" title="{{ de_en('negative Ladung: vielleicht nicht umgepolt', 'negative loading: perhaps not reversed') }}">⚠</span>{% elif i.level == "low" %} <span class="sem-mark" title="{{ de_en('unter 0,40: weglassen', 'below 0.40: leave out') }}">⚠</span>{% elif i.level == "mid" %} <span class="sem-mark" title="{{ de_en('0,40 bis 0,70: nur weglassen, wenn CR und AVE dadurch steigen', '0.40 to 0.70: leave out only if CR and AVE rise') }}">△</span>{% endif %}</td>{% if not cb %}<td class="num">{{ num(i.weight) }}</td>{% endif %}<td></td>{% if not cb %}<td></td>{% endif %}<td></td><td></td><td></td></tr>{% endfor %}
       {% endfor %}
       </tbody>
     </table></div>
@@ -178,7 +188,7 @@
     <div class="res-scroll"><table class="res-table">
       <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("vif", "VIF") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
       <tbody>{% for c in ftable %}<tr class="sem-construct"><td colspan="9"><strong>{{ c.label }}</strong></td></tr>
-      {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}</td>
+      {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}{% if i.verdict in ("check", "content") and c.lv in (sem.spec or {}).get("latent", {}) %} {{ drop_form(i.code) }}{% endif %}</td>
         <td class="num{% if i.vif_level %} is-warn{% endif %}">{{ num(i.vif) }}{% if i.vif_level == "high" %} <span class="sem-mark">⚠</span>{% elif i.vif_level == "hint" %} <span class="sem-mark">△</span>{% endif %}</td>
         <td class="num">{{ num(i.weight) }}{% if i.sign %} <span class="sem-mark">△</span>{% endif %}</td>
         {% if i.ci %}<td class="num">{{ ci(i.ci) }}</td><td class="num">{{ p_text(i.p) if i.p is not none else "" }}</td>{% else %}<td class="num" colspan="2"><span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span></td>{% endif %}
@@ -371,6 +381,9 @@
   {% endif %}
   {% endif %}
   {% endif %}
+  {# the versions of the model (model versions 2026-10-26) #}
+  {% set vpage = sem_versions.page(survey) if fit and not sem.error and not sem.weighted else none %}
+  {% if vpage %}{% include "surveys/_sem_versions.html" %}{% endif %}
   {# the "Rechenweg": how the estimate came about, step by step (trace 2026-10-26) #}
   {% if fit and not sem.error %}{% set tr = sem_model.trace_view(sem, boot) %}
   <details class="res-dist" id="sem-trace"><summary>{{ de_en("Rechenweg dieser Schätzung", "How this estimate was computed") }}</summary>
