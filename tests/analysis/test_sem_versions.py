@@ -127,3 +127,24 @@ def test_a_viewer_cannot_change_versions(app, client, survey):
     response = other.post("/surveys/1/results/sem-version", data={"action": "refresh"})
     assert response.status_code in (302, 303, 403)
     assert len(_versions(app)) == 1
+
+
+def test_figures_are_plain_json_without_nan():
+    """PostgreSQL refuses NaN in a JSON column (a version of a saturated model broke the results page, 2026-10-26):
+    NaN and infinity become None, numpy numbers floats."""
+    import numpy as np
+
+    out = sem_versions._plain({"a": float("nan"), "b": [np.float64(0.5), float("inf")], "c": {1: np.int64(3)}, "d": True})
+    assert out == {"a": None, "b": [0.5, None], "c": {"1": 3.0}, "d": True}
+    import json
+
+    json.dumps(out, allow_nan=False)
+
+
+def test_the_simulation_buttons_of_the_plan_are_actions(app, client, survey):
+    """The autosave of the plan form keeps a submit without a name to itself (app.js): the buttons that start a
+    simulation carry a name, so that the browser sends them to their own route."""
+    from pathlib import Path
+
+    text = Path("app/templates/surveys/_fields_plan.html").read_text(encoding="utf-8")
+    assert 'name="sem_power" value="1" formaction=' in text and 'name="panel_power" value="1" formaction=' in text
