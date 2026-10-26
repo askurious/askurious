@@ -3,7 +3,7 @@
    Needs: sem (sem_model.estimate), sem_boot (sem_model.boot_state), survey. #}
 {% from "_icons.html" import icon %}
 {% from "_macros.html" import num %}
-{% from "_learn.html" import term %}
+{% from "_learn.html" import why, term %}
 {% set boot = (sem_boot or {}).get("result") %}
 {% set fit = sem.fit or {} %}
 {% set cb = sem.method != "pls" %}
@@ -24,7 +24,7 @@
   <form method="post" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="drop"><input type="hidden" name="code" value="{{ code }}">
     <label for="drop-{{ code }}">{{ de_en("Grund (Pflicht)", "Reason (required)") }}</label> <input type="text" id="drop-{{ code }}" name="reason" maxlength="200" required>
     <button type="submit" class="button button-secondary button-small">{{ de_en("Weglassen", "Leave out") }}</button>
-    <span class="hint">{{ de_en("Eine weggelassene Aussage ändert, was das Konstrukt bedeutet. Das Hauptmodell bleibt; die neue Version ist explorativ.", "A statement left out changes what the construct means. The main model stays; the new version is exploratory.") }}</span></form></details>{% endif %}{% endmacro %}
+    <span class="hint">{{ de_en("Eine weggelassene Aussage ändert, was das Konstrukt bedeutet. Das Hauptmodell bleibt; die neue Version ist explorativ.", "A statement left out changes what the construct means. The main model stays; the new version is exploratory.") }}</span></form>{{ why("sem_drop") }}</details>{% endif %}{% endmacro %}
 {# the bootstrap: with PLS above the paths and as the main button, since without it no path is judged (W70);
    covariance-based under the indirect effects it is needed for #}
 {% macro boot_part(boot, cb) %}
@@ -136,7 +136,7 @@
      2026-10-26, E1, E2) #}
   {% set steps = sem_model.step_checks(sem, boot) if sem.mode != "measurement" else none %}
   {% if steps %}<h3 class="sem-step" id="sem-step1">{{ de_en("Schritt 1 · Messmodell", "Step 1 · Measurement model") }}</h3>
-  {{ checks(steps.one) }}{% endif %}
+  {{ why("sem_two_steps") }}{{ checks(steps.one) }}{% endif %}
   {% for w in weak %}
   <p class="flash flash-warning small sem-weak">{{ icon("alert", 16) }} <span>{% if w.low %}{{ de_en("Messmodell von „{c}“ ungenügend (CR {cr})", "Measurement model of “{c}” insufficient (CR {cr})", c=w.label, cr=num(w.cr)) }}{% else %}{{ de_en("Messmodell von „{c}“ fraglich", "Measurement model of “{c}” questionable", c=w.label) }}{% endif %}{% if w.negative %}; {{ de_en("{codes} lädt negativ, vielleicht nicht umgepolt", "{codes} loads negatively, perhaps not reversed", codes=w.negative|join(", ")) if w.negative|length == 1 else de_en("{codes} laden negativ, vielleicht nicht umgepolt", "{codes} load negatively, perhaps not reversed", codes=w.negative|join(", ")) }}{% endif %}.{% if sem.mode != "measurement" %} {{ de_en("Pfade nur unter Vorbehalt lesen.", "Read the paths with reservation only.") }}{% endif %} <a href="#sem-measure">{{ de_en("Zum Messmodell", "To the measurement model") }}</a></span></p>
   {% endfor %}
@@ -145,7 +145,7 @@
     {% set dropped = study_plan.plan_of(survey).sem.dropped %}
     {% if dropped %}<ul class="plain small sem-dropped">{% for code, reason in dropped.items() %}<li>{{ de_en("Weggelassen: {c} · Grund: „{r}“", "Left out: {c} · reason: “{r}”", c=code, r=reason) }}{% if survey.can(current_user, "editor") %} <form method="post" class="inline" action="{{ url_for('surveys.results_sem_version', survey_id=survey.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="undrop"><input type="hidden" name="code" value="{{ code }}"><button type="submit" class="link-button">{{ de_en("wieder aufnehmen", "take in again") }}</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
     <div class="res-scroll"><table class="res-table sem-measure">
-      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("loading") }}</th>{% if not cb %}<th class="num">{{ de_en("Gewicht", "Weight") }}</th>{% endif %}<th class="num">{{ term("alpha") }}</th>{% if not cb %}<th class="num">ρ<sub>A</sub></th>{% endif %}<th class="num">{{ term("ave", "AVE") }}</th><th class="num">{{ de_en("Reliabilität (CR)", "Reliability (CR)") }}</th><th class="num">max. {{ term("htmt") }}</th></tr></thead>
+      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("loading") }}</th>{% if not cb %}<th class="num">{{ term("outer_weight", de_en("Gewicht", "Weight")) }}</th>{% endif %}<th class="num">{{ term("alpha") }}</th>{% if not cb %}<th class="num">{{ term("rho_a", "ρ<sub>A</sub>"|safe) }}</th>{% endif %}<th class="num">{{ term("ave", "AVE") }}</th><th class="num">{{ de_en("Reliabilität (CR)", "Reliability (CR)") }}</th><th class="num">max. {{ term("htmt") }}</th></tr></thead>
       <tbody>
       {% for c in mtable %}
         <tr class="sem-construct"><td><strong>{{ c.label }}</strong>{% if c.flags %} <span class="hint">{% for f in c.flags %}{% if f == "ave" %}{{ de_en("AVE unter 0,50", "AVE below 0.50") }}{% elif f == "cr" %}{{ de_en("CR unter 0,70", "CR below 0.70") }}{% elif f == "alpha" %}{{ de_en("α unter 0,70", "α below 0.70") }}{% elif f == "rel_high" %}{{ de_en("α oder CR über 0,95: Aussagen fast gleich", "α or CR above 0.95: statements almost the same") }}{% else %}{{ de_en("HTMT über 0,85", "HTMT above 0.85") }}{% endif %}{{ " · " if not loop.last }}{% endfor %}</span>{% endif %}</td><td></td>{% if not cb %}<td></td>{% endif %}
@@ -176,7 +176,7 @@
     <h5 class="sem-sub">{{ term("redundancy", de_en("1 Redundanzanalyse (Konvergenzvalidität)", "1 Redundancy analysis (convergent validity)")) }}</h5>
     {% if rtable %}
     <div class="res-scroll"><table class="res-table">
-      <thead><tr><th>{{ de_en("Konstrukt", "Construct") }}</th><th>{{ de_en("Globalmaß", "Global measure") }}</th><th class="num">{{ term("n", "N") }}</th><th class="num">{{ term("beta") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">R²</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
+      <thead><tr><th>{{ de_en("Konstrukt", "Construct") }}</th><th>{{ de_en("Globalmaß", "Global measure") }}</th><th class="num">{{ term("n", "N") }}</th><th class="num">{{ term("beta") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("r2", "R²") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
       <tbody>{% for r in rtable %}<tr><td>{{ r.label }}</td><td><code>{{ r.global }}</code> {{ r.global_label }}</td><td class="num">{{ r.n }}</td>
         {% if r.error %}<td colspan="4"><span class="hint">{% if r.error == "few" %}{{ de_en("zu wenige vollständige Fälle (unter {m})", "too few complete cases (below {m})", m=sem_model.MIN_N) }}{% else %}{{ de_en("nicht schätzbar", "cannot be estimated") }}{% endif %}</span></td>
         {% else %}<td class="num">{{ num(r.path) }}</td><td class="num">{% if r.ci %}{{ ci(r.ci) }}{% else %}<span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span>{% endif %}</td><td class="num">{{ num(r.r2) }}</td>
@@ -186,7 +186,7 @@
     {% if rmissing %}<p class="small">{{ icon("info", 16) }} {{ de_en("Ohne Globalmaß, daher keine Redundanzanalyse: {c}. Ein Globalmaß wählen Sie im Studienplan unter „Weitere Einstellungen des Modells“; dafür braucht der Fragebogen eine Frage, die das Konstrukt im Ganzen misst.", "Without a global measure, hence no redundancy analysis: {c}. You choose a global measure in the research plan under “Further settings of the model”; the questionnaire needs a question that measures the construct as a whole.", c=rmissing|join(", ")) }}</p>{% endif %}
     <h5 class="sem-sub">{{ de_en("2 Kollinearität, 3 Gewichte und Ladungen", "2 Collinearity, 3 weights and loadings") }}</h5>
     <div class="res-scroll"><table class="res-table">
-      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("vif", "VIF") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
+      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("vif", "VIF") }}</th><th class="num">{{ term("outer_weight", de_en("Gewicht", "Weight")) }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
       <tbody>{% for c in ftable %}<tr class="sem-construct"><td colspan="9"><strong>{{ c.label }}</strong></td></tr>
       {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}{% if i.verdict in ("check", "content") and c.lv in (sem.spec or {}).get("latent", {}) %} {{ drop_form(i.code) }}{% endif %}</td>
         <td class="num{% if i.vif_level %} is-warn{% endif %}">{{ num(i.vif) }}{% if i.vif_level == "high" %} <span class="sem-mark">⚠</span>{% elif i.vif_level == "hint" %} <span class="sem-mark">△</span>{% endif %}</td>
@@ -264,7 +264,7 @@
   {% set r2s = sem_model.r2_table(sem) %}
   {% if r2s %}
   <div class="res-scroll"><table class="res-table">
-    <thead><tr><th>{{ de_en("Erklärte Größe", "Explained variable") }}</th><th class="num">R²</th><th class="num">{{ de_en("R² korrigiert", "Adjusted R²") }}</th><th>{{ de_en("Größe", "Size") }}</th></tr></thead>
+    <thead><tr><th>{{ de_en("Erklärte Größe", "Explained variable") }}</th><th class="num">{{ term("r2", "R²") }}</th><th class="num">{{ de_en("R² korrigiert", "Adjusted R²") }}</th><th>{{ de_en("Größe", "Size") }}</th></tr></thead>
     <tbody>{% for r in r2s %}<tr><td>{{ r.label }}</td><td class="num">{{ num(r.r2) }}</td><td class="num">{{ num(r.r2_adj) }}</td><td>{{ r.word }}</td></tr>{% endfor %}</tbody>
   </table></div>
   <p class="muted small">{{ de_en("R² ab 0,75 substanziell, ab 0,50 mittel, ab 0,25 schwach; was hoch ist, hängt vom Fach ab", "R² from 0.75 substantial, from 0.50 moderate, from 0.25 weak; what counts as high depends on the field") }} {{ apa.cite([S.HAIR_2011]) }}. {{ de_en("Die Vorhersagekraft prüft PLSpredict (Q²predict); es ersetzt das frühere Blindfolding-Q²", "Predictive power is checked by PLSpredict (Q²predict); it replaces the former blindfolding Q²") }} {{ apa.cite([S.SHMUELI]) }}.</p>
@@ -325,7 +325,7 @@
   {# total effects: direct + indirect (two-step check 2026-10-26, E8) #}
   {% set totals = sem_model.total_table(sem, boot) if sem.mode != "measurement" else [] %}
   {% if totals %}
-  <h3 class="sem-sub">{{ de_en("Gesamteffekte", "Total effects") }}</h3>
+  <h3 class="sem-sub">{{ term("total_effect", de_en("Gesamteffekte", "Total effects")) }}</h3>
   <div class="res-scroll"><table class="res-table">
     <thead><tr><th>{{ de_en("Von → zu", "From → to") }}</th><th class="num">{{ de_en("direkt", "direct") }}</th><th class="num">{{ de_en("indirekt", "indirect") }}</th><th class="num">{{ de_en("gesamt", "total") }}</th><th class="num">{{ de_en("95-%-KI (Bootstrap)", "95% CI (bootstrap)") }}</th></tr></thead>
     <tbody>{% for r in totals %}<tr><td>{{ r.from }} → {{ r.to }}</td><td class="num">{{ num(r.direct) }}</td><td class="num">{{ num(r.indirect) }}</td><td class="num">{{ num(r.total) }}</td><td class="num">{% if r.ci %}{{ ci(r.ci) }}{% elif r.stale %}<span class="hint">{{ de_en("Bootstrap neu rechnen", "run the bootstrap again") }}</span>{% else %}<span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span>{% endif %}</td></tr>{% endfor %}</tbody>

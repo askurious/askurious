@@ -7289,3 +7289,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Rechenweg je Schätzung (Daten, Algorithmus mit Kurve der Gewichtsänderung, Schritte, Bootstrap, PLSpredict). PLSpredict und Redundanzanalyse jetzt auch für Konstrukte höherer Ordnung (zwei Stufen wie im Hauptmodell).
 - Modellversionen (Tabelle `sem_version`, Migration 0100, ohne Fremdschlüssel wie live_ink): jede Schätzung mit neuen Einstellungen ist eine Version mit eingefrorenen Kennzahlen; Hauptmodell aus der Präregistrierung, sonst die erste; explorative Versionen im Methodenteil und in Word benannt. Vergleich zweier Versionen (Pfade, R², CR/AVE, Redundanz, BIC mit BIC-Gewichten nach Sharma et al., 2019; bei CB AIC/BIC und Fit), Einstellungen übernehmen, umbenennen, löschen (nicht das Hauptmodell), mit aktuellen Daten neu rechnen, höchstens 30 je Befragung. Aussagen lassen sich mit Pflichtgrund „in neuer Version weglassen“ und wieder aufnehmen.
 - Rechtstexte geprüft, keine Änderung nötig (nur Einstellungen und aggregierte Kennzahlen, keine personenbezogenen Daten).
+
+## 2026-10-26: Lernhilfen für die neuen SEM-Teile
+
+- Drei „Warum?“ auf der Ergebnisseite: „Erst das Messmodell, dann das Strukturmodell?“ bei Schritt 1 (Anderson & Gerbing, 1988), „Eine Aussage weglassen?“ am Weglassen in neuer Version (einmal je Seite), „Hauptmodell oder explorative Version?“ bei den Versionen des Modells (MacCallum et al., 1992; Simmons et al., 2011; Nosek et al., 2018); im Glossar unter Analyse.
+- Fünf „?“: ρA, R² (Tabellenköpfe), Gesamteffekt, Gewicht w (PLS) und BIC-Gewicht (Modellvergleich, getrennt vom BIC der Segmente); Glossar-Abschnitte Strukturgleichungsmodelle, SEM: Schätzung und Passung, PLS.
+- Rechtstexte geprüft, keine Änderung nötig (nur Texte, keine neuen Daten).

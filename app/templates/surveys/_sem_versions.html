@@ -1,9 +1,11 @@
 {# The versions of the structural equation model (app/sem_versions.py, model versions 2026-10-26): the list, two of
    them side by side, the actions for "Bearbeiten". Needs: vpage (sem_versions.page), survey, num, apa, S. #}
+{% from "_learn.html" import why, term %}
 {% set editor = survey.can(current_user, "editor") %}
 {% set rows = vpage.versions %}
 <details class="res-dist" id="sem-versions"{% if request.args.get('va') %} open{% endif %}><summary>{{ de_en("Versionen des Modells", "Versions of the model") }} <span class="hint">{{ de_en("{k} Versionen", "{k} versions", k=rows|length) }}{% if vpage.current %} · {{ de_en("gezeigt: Version {k}", "shown: version {k}", k=vpage.current.number) }}{% endif %}</span></summary>
   <p class="muted small">{{ de_en("Jede Schätzung mit anderen Einstellungen des Modells ist eine Version; ihre Kennzahlen bleiben, wie sie damals waren. Hauptmodell ist die Version, die bei Beginn der Erhebung vorab festgelegt war (Präregistrierung), sonst die erste; alle anderen sind explorativ", "Every estimate with other settings of the model is a version; its figures stay as they were. The main model is the version set in advance at the start of the fieldwork (pre-registration), otherwise the first; all others are exploratory") }} {{ apa.cite([S.MACCALLUM_1992, sem_versions.SIMMONS]) }}.</p>
+  {{ why("sem_versions") }}
   <form method="get" action="{{ url_for('surveys.results', survey_id=survey.id) }}#sem-versions">
   <div class="res-scroll"><table class="res-table sem-versions">
     <thead><tr><th>{{ de_en("A", "A") }}</th><th>{{ de_en("B", "B") }}</th><th>{{ de_en("Version", "Version") }}</th><th>{{ de_en("Was sich geändert hat", "What changed") }}</th><th class="num">N</th><th class="num">{{ de_en("höchstes R²", "highest R²") }}</th><th class="num">{{ term("bic", "BIC") }}</th><th>{{ de_en("Stand", "Date") }}</th></tr></thead>
@@ -29,7 +31,7 @@
     <thead><tr><th></th><th class="num">V{{ a.v.number }}{% if a.main %} ({{ de_en("Hauptmodell", "main model") }}){% endif %}</th><th class="num">V{{ b.v.number }}{% if b.main %} ({{ de_en("Hauptmodell", "main model") }}){% endif %}</th><th class="num">{{ de_en("Differenz", "Difference") }}</th></tr></thead>
     <tbody><tr><td>N</td><td class="num">{{ cmp.n[0] }}</td><td class="num">{{ cmp.n[1] }}</td><td></td></tr>
     {% for r in cmp.rows %}<tr><td>{{ r.label }}</td><td class="num">{{ num(r.a) }}{% if r.pa is not none %} <span class="hint">p {{ num(r.pa, 3) }}</span>{% endif %}</td><td class="num">{{ num(r.b) }}{% if r.pb is not none %} <span class="hint">p {{ num(r.pb, 3) }}</span>{% endif %}</td><td class="num">{% if r.diff is not none %}{{ "+" if r.diff > 0 else "" }}{{ num(r.diff) }}{% endif %}</td></tr>{% endfor %}
-    {% for w in cmp.weights %}<tr><td>{{ de_en("BIC-Gewicht {c}", "BIC weight {c}", c=w.label) }}</td><td class="num">{{ w.a|percent }}</td><td class="num">{{ w.b|percent }}</td><td></td></tr>{% endfor %}
+    {% for w in cmp.weights %}<tr><td>{% if loop.first %}{{ term("bic_weight", de_en("BIC-Gewicht {c}", "BIC weight {c}", c=w.label)) }}{% else %}{{ de_en("BIC-Gewicht {c}", "BIC weight {c}", c=w.label) }}{% endif %}</td><td class="num">{{ w.a|percent }}</td><td class="num">{{ w.b|percent }}</td><td></td></tr>{% endfor %}
     {% if cmp.predict[0] or cmp.predict[1] %}<tr><td>{{ de_en("PLSpredict: Aussagen besser als lineares Modell", "PLSpredict: statements better than a linear model") }}</td><td class="num">{% if cmp.predict[0] %}{{ cmp.predict[0][0] }}/{{ cmp.predict[0][1] }}{% endif %}</td><td class="num">{% if cmp.predict[1] %}{{ cmp.predict[1][0] }}/{{ cmp.predict[1][1] }}{% endif %}</td><td></td></tr>{% endif %}
     </tbody>
   </table></div>

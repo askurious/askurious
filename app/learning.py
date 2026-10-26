@@ -88,6 +88,11 @@ FIORELLA_MAYER_2016 = ("Fiorella, L., & Mayer, R. E. (2016). Effects of observin
                        "from multimedia messages. Journal of Educational Psychology, 108(4), 528–546. "
                        "https://doi.org/10.1037/edu0000065")
 
+# SEM evaluation in two steps, model versions (2026-10-26)
+ANDERSON_GERBING = ("Anderson, J. C., & Gerbing, D. W. (1988). Structural equation modeling in practice: A review and "
+                    "recommended two-step approach. Psychological Bulletin, 103(3), 411–423. "
+                    "https://doi.org/10.1037/0033-2909.103.3.411")
+
 # key: (title of the fold, text, sources as constants of this module or (module, NAME))
 REASONS = {
     "answer_mode": (
@@ -494,6 +499,27 @@ REASONS = {
         "kleinen bis mittleren Lerneffekt. Vor dem Publikum zu zeichnen kann das Verstehen zusätzlich fördern, zu viele "
         "Striche lenken dagegen ab: Folie leeren, wenn die Notiz ihren Zweck erfüllt hat.",
         (SCHNEIDER_2018, FIORELLA_MAYER_2016)),
+    # SEM evaluation in two steps, statements left out, model versions (2026-10-26)
+    "sem_two_steps": (
+        "Erst das Messmodell, dann das Strukturmodell?",
+        "Ein Pfad zwischen zwei Konstrukten ist nur so gut wie ihre Messung: Bei schwachen Ladungen, geringer "
+        "Reliabilität oder zu ähnlichen Konstrukten misst er etwas anderes als gemeint. Darum zuerst Reliabilität und "
+        "Validität jedes Konstrukts prüfen und erst dann Pfade, R² und Effekte deuten.",
+        (ANDERSON_GERBING, ("app.sem", "HAIR_2019"))),
+    "sem_drop": (
+        "Eine Aussage weglassen?",
+        "Reflektiv: unter einer Ladung von 0,40 weglassen, zwischen 0,40 und 0,70 nur, wenn CR und AVE dadurch steigen "
+        "und der Inhalt des Konstrukts erhalten bleibt. Formativ erst, wenn das Gewicht nicht signifikant und die "
+        "Ladung unter 0,50 ist, und nur, wenn die Aussage inhaltlich verzichtbar ist; jede Aussage trägt einen Teil der "
+        "Bedeutung. Der Grund wird festgehalten, denn eine Änderung nach Sicht der Daten macht die Version explorativ.",
+        (("app.sem", "HAIR"), ("app.sem", "CENFETELLI"), ("app.sem", "DIAMANTOPOULOS_W"))),
+    "sem_versions": (
+        "Hauptmodell oder explorative Version?",
+        "Das vorab festgelegte Modell prüft die Hypothesen; jede Änderung nach Sicht der Ergebnisse (eine Aussage "
+        "weglassen, einen Pfad ergänzen) passt das Modell an diese Stichprobe an und macht Zufallsbefunde "
+        "wahrscheinlicher. Darum bleibt das Hauptmodell das Ergebnis, Varianten werden als explorativ berichtet, alle "
+        "genannt und am besten mit neuen Daten geprüft.",
+        (("app.sem", "MACCALLUM_1992"), SIMMONS_2011, NOSEK_2018)),
 }
 
 # key: (symbol as shown, name, what it means, example, sources)
@@ -876,6 +902,31 @@ TERMS = {
     "compliance": ("Antwortquote", "Antwortquote (Compliance)", "Der Anteil der Abfragen, die eine Person beantwortet hat, "
                    "unter allen, die sie bekommen hat. Unter der Hälfte gilt sie meist als auffällig.",
                    "18 von 24 Abfragen: Antwortquote 75 %.", (("app.diary", "WRZUS"),)),
+    # SEM evaluation in two steps and model versions (2026-10-26)
+    "rho_a": ("ρA", "Reliabilität ρA", "Die Reliabilität eines Konstrukts bei PLS, aus den Gewichten geschätzt. Sie liegt "
+              "meist zwischen Cronbachs Alpha (untere Grenze) und CR (obere Grenze); wie diese ab 0,70, über 0,95 sagen "
+              "die Aussagen fast dasselbe.", "α = 0,78, ρA = 0,81, CR = 0,86: Das Konstrukt ist zuverlässig gemessen.",
+              (("app.sem", "DIJKSTRA"), ("app.sem", "HAIR_2019"))),
+    "r2": ("R²", "Erklärte Varianz (R²)", "Welcher Anteil der Unterschiede in einer Zielgröße durch die Größen erklärt "
+           "wird, die auf sie zeigen, von 0 bis 1. Das korrigierte R² berücksichtigt die Zahl der Einflussgrößen; bei PLS "
+           "gilt ab 0,25 schwach, ab 0,50 mittel, ab 0,75 substanziell, je nach Fach.",
+           "R² = 0,42: Die Einflussgrößen erklären gut zwei Fünftel der Unterschiede in der Kaufabsicht.",
+           (("app.sem", "HAIR_2011"), ("app.sem", "HAIR"))),
+    "total_effect": ("Gesamteffekt", "Gesamteffekt", "Der direkte Effekt plus die Summe aller indirekten Wege von einer "
+                     "Größe zu einer anderen. Er zeigt, wie stark eine Größe insgesamt wirkt, auch wenn der direkte Pfad "
+                     "klein ist; ein Intervall ohne die Null spricht für einen Gesamteffekt.",
+                     "direkt 0,08, indirekt 0,21, gesamt 0,29 [0,17; 0,40]: Die Wirkung läuft vor allem über die "
+                     "vermittelnde Größe.", (("app.sem", "HAIR"),)),
+    "outer_weight": ("w", "Gewicht (PLS)", "Wie stark eine Aussage in den Wert ihres Konstrukts eingeht. Bei einem "
+                     "formativen Konstrukt ihr eigener Beitrag neben den anderen Aussagen, wie ein Regressionsgewicht; ein "
+                     "kleines Gewicht heißt dann nicht unwichtig, es zählt auch die Ladung.",
+                     "w = 0,12, nicht signifikant, Ladung 0,63: Die Aussage bleibt, sie überschneidet sich nur mit den "
+                     "anderen.", (("app.sem", "CENFETELLI"), ("app.sem", "HAIR"))),
+    "bic_weight": ("BIC-Gewicht", "BIC-Gewicht (Modellvergleich)", "Aus dem Unterschied der BIC zweier Modelle: die "
+                   "Wahrscheinlichkeit, dass ein Modell unter den verglichenen das bessere ist, wenn vorher beide als gleich "
+                   "wahrscheinlich galten. Kleineres BIC ist besser; es belohnt Erklärung und bestraft zusätzliche Pfade.",
+                   "BIC-Gewicht 88,0 % für Version 3: Sie ist unter beiden sehr wahrscheinlich die bessere.",
+                   (("app.sem", "BURNHAM"), ("app.sem_versions", "SHARMA"))),
 }
 
 # the sections of the glossary page, in this order; within a section alphabetical (headings only, no row of jump links)
@@ -895,10 +946,10 @@ SECTIONS = (
       "hb", "mnl", "holdout")),
     ("Segmente", "", ("bic", "entropy", "membership", "odds_ratio")),
     ("Strukturgleichungsmodelle", "", ("beta", "indirect", "interaction", "jn", "control", "single_item",
-                                       "second_order", "higher_order", "formative", "redundancy")),
-    ("SEM: Schätzung und Passung", "", ("fiml", "wlsmv", "weighted_sem", "model_compare", "cfi", "rmsea", "srmr",
+                                       "second_order", "higher_order", "formative", "redundancy", "r2", "total_effect")),
+    ("SEM: Schätzung und Passung", "", ("fiml", "wlsmv", "weighted_sem", "model_compare", "bic_weight", "cfi", "rmsea", "srmr",
                                         "robust_fit", "residual_cor", "ave", "htmt")),
-    ("PLS", "", ("f2", "vif", "plspredict", "construct_score")),
+    ("PLS", "", ("f2", "vif", "plspredict", "construct_score", "rho_a", "outer_weight")),
     ("Längsschnitt und Gruppenvergleich", "", ("invariance", "latent_mean", "riclpm", "growth")),
     ("Planung und Power", "", ("power", "mde", "p_holm", "mc_power")),
     ("Offene Antworten und Sortierungen", "", ("kripp", "similarity")),
@@ -1224,6 +1275,22 @@ REASONS_EN = {
         "Highlighting and pointing draws the eye to what matters right now; a meta-analysis finds a small to medium "
         "effect on learning. Drawing in front of the audience can help understanding further, while too many strokes "
         "distract: clear the slide once a note has done its job."),
+    "sem_two_steps": (
+        "Measurement model first, then the structural model?",
+        "A path between two constructs is only as good as their measurement: with weak loadings, low reliability or "
+        "constructs that are too similar it measures something other than intended. So check the reliability and "
+        "validity of every construct first and only then interpret paths, R² and effects."),
+    "sem_drop": (
+        "Leave a statement out?",
+        "Reflective: leave it out below a loading of 0.40, between 0.40 and 0.70 only if CR and AVE rise and the "
+        "content of the construct is kept. Formative only when the weight is not significant and the loading is below "
+        "0.50, and only if the statement can be spared for its content; every statement carries part of the meaning. "
+        "The reason is recorded, because a change after seeing the data makes the version exploratory."),
+    "sem_versions": (
+        "Main model or exploratory version?",
+        "The model set in advance tests the hypotheses; every change after seeing the results (leaving out a "
+        "statement, adding a path) fits the model to this sample and makes chance findings more likely. So the main "
+        "model stays the result, variants are reported as exploratory, all of them named and best tested on new data."),
 }
 
 TERMS_EN = {
@@ -1537,6 +1604,25 @@ TERMS_EN = {
                      "analysis.", "ω within .62, between .91: good for people, weaker for fluctuations in everyday life."),
     "compliance": ("Compliance", "Compliance", "The share of the prompts a person answered out of all the prompts they "
                    "received. Below half it usually counts as conspicuous.", "18 of 24 prompts: compliance 75%."),
+    "rho_a": ("ρA", "Reliability ρA", "The reliability of a construct in PLS, estimated from the weights. It usually "
+              "lies between Cronbach's alpha (lower bound) and CR (upper bound); like them from 0.70, above 0.95 the "
+              "statements say almost the same.", "α = 0.78, ρA = 0.81, CR = 0.86: the construct is measured reliably."),
+    "r2": ("R²", "Explained variance (R²)", "Which share of the differences in an outcome is explained by the variables "
+           "pointing at it, from 0 to 1. The adjusted R² takes the number of predictors into account; in PLS from 0.25 "
+           "counts as weak, from 0.50 moderate, from 0.75 substantial, depending on the field.",
+           "R² = 0.42: the predictors explain a good two fifths of the differences in purchase intention."),
+    "total_effect": ("Total effect", "Total effect", "The direct effect plus the sum of all indirect routes from one "
+                     "variable to another. It shows how strongly a variable acts overall, even when the direct path is "
+                     "small; an interval without zero speaks for a total effect.",
+                     "direct 0.08, indirect 0.21, total 0.29 [0.17; 0.40]: the effect runs mainly through the mediator."),
+    "outer_weight": ("w", "Weight (PLS)", "How strongly a statement enters the score of its construct. For a formative "
+                     "construct its own contribution beside the other statements, like a regression weight; a small "
+                     "weight then does not mean unimportant, the loading counts too.",
+                     "w = 0.12, not significant, loading 0.63: the statement stays, it only overlaps with the others."),
+    "bic_weight": ("BIC weight", "BIC weight (model comparison)", "From the difference of the BIC of two models: the "
+                   "probability that a model is the better one among those compared, when both counted as equally likely "
+                   "beforehand. Smaller BIC is better; it rewards explanation and penalises extra paths.",
+                   "BIC weight 88.0% for version 3: it is very likely the better of the two."),
 }
 
 # title and note of each section of SECTIONS, in the same order
@@ -1628,6 +1714,9 @@ REASON_PLACES = {
     "validated_scale": ("Konstrukte einfügen", "inserting constructs"),
     "copy_or_loop": ("Fragebogen, Block duplizieren oder Schleife", "questionnaire, duplicating a block or a loop"),
     "ink_slides": ("Live-Abstimmung, Präsentieren", "live poll, present"),
+    "sem_two_steps": ("Ergebnisse, Strukturgleichungsmodell, Schritt 1", "results, structural equation model, step 1"),
+    "sem_drop": ("Ergebnisse, Messmodell, in neuer Version weglassen", "results, measurement model, leave out in a new version"),
+    "sem_versions": ("Ergebnisse, Versionen des Modells", "results, versions of the model"),
 }
 
 
@@ -1657,7 +1746,7 @@ BEGINNER_REASONS = {"answer_mode", "scale_points", "missing_option", "randomize"
 
 
 # folds that would repeat under every group comparison of a page: only the first one is drawn (per request)
-ONCE_REASONS = {"which_test"}
+ONCE_REASONS = {"which_test", "sem_drop"}
 
 
 def show_reason(key):
@@ -1725,7 +1814,8 @@ REASON_PHASES = {key: 1 for key in ("attention_check", "speeder", "reminders", "
                                     "paper_check", "ink_slides")}
 REASON_PHASES.update({key: 2 for key in ("data_pool", "hb_or_logit", "segments_k", "segments_covariates",
                                          "segments_describe", "which_test", "weighting_scope", "preregistration",
-                                         "second_coding", "transcript_export", "transcript_check", "archive_where")})
+                                         "second_coding", "transcript_export", "transcript_check", "archive_where",
+                                         "sem_two_steps", "sem_drop", "sem_versions")})
 
 
 def decisions():

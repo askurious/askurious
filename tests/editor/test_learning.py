@@ -314,3 +314,15 @@ def test_fifth_round_how_folds_sections_decision_groups_and_transcript(app, clie
     assert decisions.index("Warum das Transkript gegenlesen?") > decisions.index("Analyse</h3>")
     assert learning.reason("transcript_check")["sources"]
 
+
+
+def test_sem_two_steps_versions_and_new_statistics_have_their_aids():
+    """SEM 2026-10-26: the two steps, leaving a statement out and the model versions explain their decision (results,
+    phase Analyse); rho_A, R², total effect, weight w and BIC weight are in the glossary, in German and English."""
+    for key in ("sem_two_steps", "sem_drop", "sem_versions"):
+        assert key in learning.REASONS_EN and learning.REASON_PHASES[key] == 2 and key in learning.REASON_PLACES
+    assert "sem_drop" in learning.ONCE_REASONS  # one fold under many statements of a table
+    listed = {k for _title, _note, keys in learning.SECTIONS for k in keys}
+    for key in ("rho_a", "r2", "total_effect", "outer_weight", "bic_weight"):
+        assert key in listed and key in learning.TERMS_EN
+    assert "Anderson" in learning.reason("sem_two_steps")["sources"][0]
