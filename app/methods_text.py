@@ -94,7 +94,9 @@ TEXT = {
                           "metrisch, skalar, strikt; Vandenberg & Lance, 2000): Eine Stufe galt als nicht gehalten, wenn "
                           "der CFI um 0,010 oder mehr sank und zugleich RMSEA oder SRMR stiegen (Chen, 2007); dazu der "
                           "skalierte χ²-Differenztest (Satorra & Bentler, 2001).",
-        "sem_pls_more": "Berichtet werden R² und korrigiertes R², die Effektstärke f² je Pfad (Cohen, 1988), die VIF der "
+        "sem_pls_more": "Bewertet wurde in zwei Schritten, zuerst das Messmodell (Ladungen, Cronbachs α, ρ_A, CR, AVE, "
+                        "HTMT; Dijkstra & Henseler, 2015), dann das Strukturmodell (Hair et al., 2022). "
+                        "Berichtet werden R² und korrigiertes R², die Effektstärke f² je Pfad (Cohen, 1988), die VIF der "
                         "Einflussgrößen und die Vorhersagekraft der erklärten Konstrukte mit PLSpredict (10-fache "
                         "Kreuzvalidierung; Shmueli et al., 2019).",
         "sem_formative": "Formativ gemessen (Modus B) wurden {c}. Geprüft wurden die Kollinearität der Indikatoren mit "
@@ -186,7 +188,9 @@ TEXT = {
                           "metric, scalar, strict; Vandenberg & Lance, 2000): a level was taken as not holding when the "
                           "CFI dropped by .010 or more while the RMSEA or the SRMR rose (Chen, 2007), together with the "
                           "scaled χ² difference test (Satorra & Bentler, 2001).",
-        "sem_pls_more": "R² and adjusted R², the effect size f² per path (Cohen, 1988), the VIF of the predictors and the "
+        "sem_pls_more": "The evaluation took two steps, first the measurement model (loadings, Cronbach's α, ρ_A, CR, "
+                        "AVE, HTMT; Dijkstra & Henseler, 2015), then the structural model (Hair et al., 2022). "
+                        "R² and adjusted R², the effect size f² per path (Cohen, 1988), the VIF of the predictors and the "
                         "predictive power of the explained constructs with PLSpredict (10-fold cross-validation; Shmueli "
                         "et al., 2019) are reported.",
         "sem_formative": "{c} were measured formatively (mode B). The collinearity of the indicators was checked with "

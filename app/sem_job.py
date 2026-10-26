@@ -71,5 +71,6 @@ def run(inp, progress=None):
             "modmed": [[*t, *flat(v)] for t, v in found["modmed"].items()],
             "weights": [[lv, i, *flat(v)] for (lv, i), v in found["weights"].items()],
             "loadings": [[lv, i, *flat(v)] for (lv, i), v in found["loadings"].items()],
+            "total": [[a, b, *flat(v)] for (a, b), v in found["total"].items()],
             "redundancy": redundancy,
             "htmt": [[a, b, *(flat(v)[:2] + [v["upper95"]] if v else [None, None, None])] for (a, b), v in found["htmt"].items()]}

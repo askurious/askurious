@@ -1324,7 +1324,10 @@ def boot_state(survey, result):
             "loadings": {(lv, i): {"ci": (lo, hi), "se": se} for lv, i, lo, hi, se in stored.get("loadings") or []
                          if lo is not None},
             "redundancy": {lv: {"ci": (lo, hi), "se": se} for lv, lo, hi, se in stored.get("redundancy") or []
-                           if lo is not None}}}
+                           if lo is not None},
+            # total effects (two-step check 2026-10-26)
+            "total": {(a, b): {"ci": (lo, hi), "se": se} for a, b, lo, hi, se in stored.get("total") or []
+                      if lo is not None}}}
     return {"state": "none"}
 
 
@@ -1731,6 +1734,10 @@ def path_row(result, a, b, boot=None):
                 if row.get("p") is None and found.get("se"):  # PLS: a normal p from the bootstrap error
                     row["p"] = sem._normal_p(row["std"] / found["se"]) if found["se"] > 0 else None
                     row["ci"] = found["ci"]
+                if row.get("t") is None and found.get("se"):  # the t value beside p (two-step check 2026-10-26, E10)
+                    row["t"] = row["std"] / found["se"] if found["se"] > 0 else None
+            if row.get("t") is None and row.get("se") and row.get("est") is not None:  # covariance-based: z
+                row["t"] = row["est"] / row["se"]
             return row
     return None
 
@@ -2171,7 +2178,7 @@ def path_table(result, boot=None):
             continue
         fit = result.get("fit") or {}
         rows.append({"from": names.get(a, (a, a))[1], "to": names.get(b, (b, b))[1], "hyps": by_path.get((a, b), []),
-                     "std": row["std"], "ci": row.get("ci"), "p": row.get("p"), "boot_ci": row.get("boot_ci"),
+                     "std": row["std"], "ci": row.get("ci"), "p": row.get("p"), "boot_ci": row.get("boot_ci"), "t": row.get("t"),
                      "sig": row.get("p") is not None and row["p"] < 0.05,
                      # PLS (point 13): the effect size f² and the collinearity of the predictors of the target
                      "f2": (fit.get("f2") or {}).get((a, b)), "vif": (fit.get("vif") or {}).get((a, b)),
@@ -2287,13 +2294,51 @@ def f2_word(v):
     return de_en("kaum", "negligible")
 
 
+R2_STEPS = (0.25, 0.50, 0.75)  # weak, moderate, substantial (Hair et al., 2011)
+
+
+def r2_word(v):
+    """The size of an R² in words (Hair et al., 2011; what counts as high depends on the field)."""
+    if v is None:
+        return ""
+    if v >= R2_STEPS[2]:
+        return de_en("substanziell", "substantial")
+    if v >= R2_STEPS[1]:
+        return de_en("mittel", "moderate")
+    if v >= R2_STEPS[0]:
+        return de_en("schwach", "weak")
+    return de_en("sehr schwach", "very weak")
+
+
 def r2_table(result):
-    """[{"label", "r2", "r2_adj"}] of the explained variables (PLS: with the adjusted R², point 13)."""
+    """[{"label", "r2", "r2_adj", "word"}] of the explained variables (PLS: with the adjusted R², point 13)."""
     fit = result.get("fit") or {}
     names = result.get("nodes") or {}
     adj = fit.get("r2_adj") or {}
-    return [{"label": names.get(v, (v, v))[1], "r2": r2, "r2_adj": adj.get(v)} for v, r2 in (fit.get("r2") or {}).items()
-            if v in names]
+    return [{"label": names.get(v, (v, v))[1], "r2": r2, "r2_adj": adj.get(v), "word": r2_word(r2)}
+            for v, r2 in (fit.get("r2") or {}).items() if v in names]
+
+
+def total_table(result, boot=None):
+    """[{"from", "to", "direct", "indirect", "total", "ci"}] of the pairs a route over a variable in between joins
+    (two-step check 2026-10-26, E8): the total effect = direct + indirect, its interval from the bootstrap; "stale"
+    when a bootstrap is there but from before the total effects. Interaction terms left out."""
+    fit = result.get("fit") or {}
+    spec = result.get("spec") or {}
+    names = result.get("nodes") or {}
+    values = {(r["from"], r["to"]): r["std"] for r in fit.get("paths") or [] if r.get("std") is not None}
+    if not values:
+        return []
+    pairs = sem.total_routes(list(values), skip=set(spec.get("products") or {}))
+    found = (boot or {}).get("total") or {}
+    out = []
+    for (a, b), v in sem.total_effects(values, pairs).items():
+        if a not in names or b not in names:
+            continue
+        got = found.get((a, b))
+        out.append({"from": names[a][1], "to": names[b][1], **v, "ci": got["ci"] if got else None,
+                    "stale": bool(boot) and not got})
+    return out
 
 
 VIF_HINT = 3.0  # formative statements: from 3 possibly overlapping (Becker et al., 2015; Hair et al., 2019)
@@ -2416,9 +2461,16 @@ def htmt_mixed(result):
             for a, b in (fit.get("quality") or {}).get("htmt_mixed") or [] if not {a, b} & products]
 
 
+LOADING_REFL = 0.70  # a reflective statement: loading from 0.70 (Hair et al., 2022)
+LOADING_DROP = 0.40  # below it leave the statement out; between 0.40 and 0.70 only when CR and AVE rise without it
+REL_MAX = 0.95  # α or CR above it: the statements say almost the same (Hair et al., 2019)
+ALPHA_MIN = 0.70
+
+
 def measurement_table(result):
-    """[{"name", "label", "items": [{"code", "text", "std"}], "ave", "cr", "htmt_max", "flags"}] and the HTMT
-    pairs [(a, b, value)]."""
+    """[{"name", "label", "items": [{"code", "text", "std", "level"}], "alpha", "rho_a", "ave", "cr", "htmt_max",
+    "flags"}] and the HTMT pairs [(a, b, value)]. "level" of a loading: "low" below LOADING_DROP, "mid" up to
+    LOADING_REFL (two-step check 2026-10-26, E8); flags "rel_high" when α or CR exceed REL_MAX, "alpha" below 0.70."""
     fit = result.get("fit") or {}
     quality = fit.get("quality") or {}
     names = result.get("nodes") or {}
@@ -2434,7 +2486,12 @@ def measurement_table(result):
             continue
         mine = [v for (a, b), v in htmt.items() if lv in (a, b) and v is not None]
         ave, cr = quality.get("ave", {}).get(lv), quality.get("cr", {}).get(lv)
+        alpha, rho = (quality.get("alpha") or {}).get(lv), (quality.get("rho_a") or {}).get(lv)
         flags = []
+        if alpha is not None and alpha < ALPHA_MIN:
+            flags.append("alpha")
+        if any(v is not None and v > REL_MAX for v in (alpha, cr)):
+            flags.append("rel_high")
         if ave is not None and ave < AVE_MIN:
             flags.append("ave")
         if cr is not None and cr < CR_MIN:
@@ -2443,14 +2500,85 @@ def measurement_table(result):
             flags.append("htmt")
         out.append({"name": lv, "label": names.get(lv, (lv, lv))[1],
                     "items": [{"code": r["item"], "text": statements.get(r["item"], ""), "std": r["std"],
-                               "weight": r.get("weight")} for r in rows],
-                    "ave": ave, "cr": cr, "htmt_max": max(mine) if mine else None, "flags": flags})
+                               "weight": r.get("weight"), "level": _loading_level(r["std"])} for r in rows],
+                    "alpha": alpha, "rho_a": rho, "ave": ave, "cr": cr, "htmt_max": max(mine) if mine else None,
+                    "flags": flags})
     for h, rows in (fit.get("higher") or {}).items():  # second order (point 8): the subscales as its indicators
         out.append({"name": h, "label": de_en("{h} (zweite Ordnung)", "{h} (second order)", h=names.get(h, (h, h))[1]),
                     "items": [{"code": names.get(r["item"], (r["item"], r["item"]))[1], "text": "", "std": r["std"]}
-                              for r in rows], "ave": None, "cr": None, "htmt_max": None, "flags": []})
+                              for r in rows], "alpha": None, "rho_a": None, "ave": None, "cr": None, "htmt_max": None,
+                    "flags": []})
     pairs = [(names.get(a, (a, a))[1], names.get(b, (b, b))[1], v) for (a, b), v in htmt.items()]
     return out, pairs
+
+
+def _loading_level(v):
+    if v is None or v < 0:
+        return None  # a negative loading has its own mark
+    return "low" if v < LOADING_DROP else "mid" if v < LOADING_REFL else None
+
+
+def step_checks(result, boot=None):
+    """The two steps of the evaluation (two-step check 2026-10-26, E1, E2): first the measurement model, then the
+    structural model (Hair et al., 2022). {"one": [(state, text)], "two": [...], "one_warn": bool}; state "ok",
+    "warn" or "" (a number to read, not a criterion). Counts only, no overall verdict."""
+    fit = result.get("fit") or {}
+    cb = result.get("method") != "pls"
+    mtable, _ = measurement_table(result)
+    reflective = [c for c in mtable if c.get("ave") is not None]
+    one, two = [], []
+
+    def count(ok, total, text):
+        if total:
+            one.append(("ok" if ok == total else "warn", text.format(k=ok, n=total)))
+
+    items = [i for c in reflective for i in c["items"] if i.get("std") is not None]
+    count(sum(1 for i in items if i["std"] >= LOADING_REFL), len(items),
+          de_en("Ladungen ab 0,70: {k} von {n}", "loadings from 0.70: {k} of {n}"))
+    count(sum(1 for c in reflective if not {"alpha", "cr", "rel_high"} & set(c["flags"])), len(reflective),
+          de_en("α und CR zwischen 0,70 und 0,95: {k} von {n}", "α and CR between 0.70 and 0.95: {k} of {n}"))
+    count(sum(1 for c in reflective if "ave" not in c["flags"]), len(reflective),
+          de_en("AVE ab 0,50: {k} von {n}", "AVE from 0.50: {k} of {n}"))
+    upper = (boot or {}).get("htmt") or {}
+    htmt = {pair: v for pair, v in ((fit.get("quality") or {}).get("htmt") or {}).items() if v is not None
+            and not set(pair) & set((result.get("spec") or {}).get("products") or {})}
+    if htmt:
+        ok = sum(1 for pair, v in htmt.items()
+                 if ((upper.get(pair) or {}).get("upper95") if upper.get(pair) else v) < HTMT_MAX)
+        count(ok, len(htmt), de_en("HTMT unter 0,85: {k} von {n} Paaren", "HTMT below 0.85: {k} of {n} pairs"))
+    red = [r for r in redundancy_table(result, boot) if r.get("path") is not None]
+    count(sum(1 for r in red if r["ok"]), len(red),
+          de_en("Redundanzanalyse ab 0,70: {k} von {n}", "redundancy analysis from 0.70: {k} of {n}"))
+    ftable = formative_table(result, boot)
+    fitems = [i for c in ftable for i in c["items"]]
+    count(sum(1 for i in fitems if i["vif_level"] != "high"), len(fitems),
+          de_en("formative Aussagen mit VIF unter 5: {k} von {n}", "formative statements with a VIF below 5: {k} of {n}"))
+    check = [i["code"] for i in fitems if i["verdict"] == "check"]
+    if check:
+        one.append(("warn", de_en("Weglassen prüfen: {c}", "consider leaving out: {c}", c=", ".join(check))))
+    # step 2
+    names = result.get("nodes") or {}
+    vifs = [v for v in (fit.get("vif") or {}).values() if v is not None]
+    if vifs:
+        bad = sum(1 for v in vifs if v >= VIF_MAX)
+        two.append(("warn" if bad else "ok", de_en("VIF der Einflussgrößen unter 5: {k} von {n}",
+                                                   "VIF of the predictors below 5: {k} of {n}", k=len(vifs) - bad, n=len(vifs))))
+    rows = [path_row(result, r["from"], r["to"], boot) for r in fit.get("paths") or []]
+    rows = [r for r in rows if r]
+    if rows and (cb or boot):
+        sig = sum(1 for r in rows if r.get("p") is not None and r["p"] < ALPHA)
+        two.append(("", de_en("Pfade mit p < ,05: {k} von {n}", "paths with p < .05: {k} of {n}", k=sig, n=len(rows))))
+    elif rows:
+        two.append(("", de_en("Pfade: Bootstrap fehlt", "paths: no bootstrap yet")))
+    for r in r2_table(result):
+        two.append(("", f"R² {r['label']} {_num(r['r2'], 'en' if english() else 'de')} · {r['word']}"))
+    pred = predict_table(result)
+    if pred and pred["items"]:
+        better = sum(1 for i in pred["items"] if i["better"])
+        two.append(("ok" if better == len(pred["items"]) else "", de_en(
+            "PLSpredict: {k} von {n} Aussagen besser als ein lineares Modell",
+            "PLSpredict: {k} of {n} statements better than a linear model", k=better, n=len(pred["items"]))))
+    return {"one": one, "two": two, "one_warn": any(s == "warn" for s, _ in one)}
 
 
 def weak_measurement(table):
@@ -3508,6 +3636,9 @@ def sources(result):
     elif fit.get("quality", {}).get("htmt"):
         out.append((de_en("Strukturgleichungsmodell: HTMT mit Bootstrap-Grenze", "Structural equation model: HTMT with bootstrap bound"),
                     [sem.FRANKE_SARSTEDT]))
+    if fit:  # the two steps, α, ρ_A, R² in words, total effects (two-step check 2026-10-26)
+        out.append((de_en("Strukturgleichungsmodell: Bewertung in zwei Schritten", "Structural equation model: evaluation in two steps"),
+                    [sem.HAIR, sem.HAIR_2011, sem.HAIR_2019] + ([sem.DIJKSTRA] if result.get("method") == "pls" else [])))
     if fit.get("formative"):  # the check of formative constructs (formative check 2026-10-26)
         out.append((de_en("Strukturgleichungsmodell (PLS): formative Konstrukte", "Structural equation model (PLS): formative constructs"),
                     list(sem.FORMATIVE_SOURCES)))
