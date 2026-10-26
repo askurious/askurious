@@ -366,7 +366,9 @@ def harvested(rep, root, skip=()):
             longest_word = max((len(w) for t in texts for w in t.split()), default=1)
             need.append(max(longest_word, min(40, max((len(t) for t in texts), default=1))))
         total = sum(need) or 1
-        widths = [n / total for n in need]
+        least = min(0.06, 0.9 / cols)  # every column wide enough for its padding and a short number
+        widths = [max(least, n / total) for n in need]
+        widths = [w / sum(widths) for w in widths]
         title = _heading_of(table) or rep.say("Ergebnisse", "Results")
         if len(title) > 90 and ":" in title[:90]:  # a fold's summary with its explanation: the name before it
             title = title.split(":", 1)[0]
