@@ -103,6 +103,9 @@ TEXT = {
                          "dem VIF (ab 3 mögliche, ab 5 kritische Überschneidung; Hair et al., 2019) sowie Gewichte und "
                          "Ladungen mit dem Bootstrap; ein Indikator mit nicht signifikantem Gewicht blieb bei einer "
                          "Ladung ab ,50 im Konstrukt (Cenfetelli & Bassellier, 2009; Hair et al., 2022).",
+        "sem_higher": "Konstrukte höherer Ordnung ({c}) wurden zweistufig geschätzt (disjoint two-stage): Stufe 1 lieferte "
+                      "die Werte der Konstrukte unterer Ordnung, Stufe 2 nahm sie als Indikatoren (Becker et al., 2012; "
+                      "Sarstedt et al., 2019).",
         "sem_redundancy": "Die Konvergenzvalidität wurde mit einer Redundanzanalyse geprüft: Das formative Konstrukt "
                           "sagte ein Globalmaß desselben Konstrukts vorher ({c}), ausreichend ab einem Pfad von ,70 "
                           "(Chin, 1998; Cheah et al., 2018).",
@@ -197,6 +200,9 @@ TEXT = {
                          "the VIF (possible overlap from 3, critical from 5; Hair et al., 2019), weights and loadings "
                          "with the bootstrap; an indicator with a non-significant weight stayed in the construct when "
                          "its loading was .50 or more (Cenfetelli & Bassellier, 2009; Hair et al., 2022).",
+        "sem_higher": "Higher-order constructs ({c}) were estimated in two stages (disjoint two-stage): stage 1 gave the "
+                      "scores of the lower-order constructs, stage 2 took them as indicators (Becker et al., 2012; "
+                      "Sarstedt et al., 2019).",
         "sem_redundancy": "Convergent validity was checked with a redundancy analysis: the formative construct "
                           "predicted a global measure of the same construct ({c}), sufficient from a path of .70 "
                           "(Chin, 1998; Cheah et al., 2018).",
@@ -387,6 +393,8 @@ def sections(survey, data, table, summary, lang="de", n=None, facts=None, sem=No
                 analysis.append(t["sem_invariance"].format(g=group))
             if sem_model.method_of(survey) == "pls":
                 analysis.append(t["sem_pls_more"])
+                if opts["second"] or opts["hoc"]:  # higher-order constructs (2026-10-26)
+                    analysis.append(t["sem_higher"].format(c=", ".join(opts["second"] + [g["name"] for g in opts["hoc"]])))
                 if opts["formative"]:
                     analysis.append(t["sem_formative"].format(c=", ".join(opts["formative"])))
                     if opts["global"]:  # the redundancy analysis (formative check 2026-10-26)

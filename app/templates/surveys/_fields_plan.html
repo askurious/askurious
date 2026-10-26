@@ -251,6 +251,33 @@
     </fieldset>
     {{ why("sem_formative") }}
     {% endif %}
+    {% if plan.sem_method == "pls" %}
+    {# constructs of a higher order (higher-order constructs 2026-10-26, E5-E7): an instrument with subscales, or
+       several scales together; disjoint two-stage #}
+    {% set subs = sem_model.subscale_candidates(survey) if survey.id else [] %}
+    {% set parts = sem_model.hoc_candidates(survey) if survey.id else [] %}
+    {% macro hmode(key) %}{% set formative = key in sopt.higher_formative %}<span class="segmented" role="radiogroup" aria-label="{{ de_en('Beziehung zu den Teilen', 'Relation to the parts') }}">
+      <label><input type="radio" name="sem_hmode_{{ key }}" value="reflective"{% if not formative %} checked{% endif %}> <span>{{ de_en("reflektiv", "reflective") }}</span></label>
+      <label><input type="radio" name="sem_hmode_{{ key }}" value="formative"{% if formative %} checked{% endif %}> <span>{{ de_en("formativ", "formative") }}</span></label></span>{% endmacro %}
+    {% if subs or parts|length >= 2 %}
+    <fieldset class="plan-sem-hoc"><legend>{{ term("higher_order", de_en("Konstrukte höherer Ordnung", "Higher-order constructs")) }} <span class="hint">{{ de_en("zweistufig (disjoint two-stage): Stufe 1 schätzt die Konstrukte unterer Ordnung, Stufe 2 nimmt ihre Werte als Indikatoren; reflektiv, wenn das Ganze die Teile prägt, formativ, wenn die Teile das Ganze bilden", "two-stage (disjoint two-stage): stage 1 estimates the lower-order constructs, stage 2 takes their scores as indicators; reflective when the whole shapes the parts, formative when the parts form the whole") }}</span></legend>
+      {% for code, text in subs %}<div class="plan-sem-mode"><label class="check plan-sem-mode-label"><input type="checkbox" name="sem_second" value="{{ code }}"{% if code in sopt.second %} checked{% endif %}> {{ text }} <span class="hint">{{ de_en("über seinen Subskalen", "over its subscales") }}</span></label>{{ hmode(code) }}</div>{% endfor %}
+      {% if parts|length >= 2 %}
+      {% for k in range(1, study_plan.MAX_HOC + 1) %}{% set g = sopt.hoc[k - 1] if sopt.hoc|length >= k else none %}
+      {% if g or k == sopt.hoc|length + 1 %}
+      <div class="plan-sem-hoc-group">
+        <label for="hoc-name-{{ k }}">{{ de_en("Name", "Name") }}</label>
+        <input type="text" id="hoc-name-{{ k }}" name="hoc_name_{{ k }}" maxlength="80" value="{{ g.name if g else '' }}" placeholder="{{ de_en('z. B. Digitale Kompetenz', 'e.g. Digital competence') }}">
+        <div class="plan-sem-list" role="group" aria-label="{{ de_en('besteht aus', 'consists of') }}">{% for code, text in parts %}<label class="check"><input type="checkbox" name="hoc_part_{{ k }}" value="{{ code }}"{% if g and code in g.parts %} checked{% endif %}> {{ text }}</label>{% endfor %}</div>
+        {{ hmode("hoc" ~ k) }}
+      </div>
+      {% endif %}{% endfor %}
+      <p class="hint">{{ de_en("Mindestens zwei Skalen und ein Name. Hypothesen, die eine dieser Skalen nennen, meinen dann das Konstrukt höherer Ordnung. Nach dem Speichern erscheint ein weiteres leeres Feld (höchstens {m}).", "At least two scales and a name. Hypotheses naming one of these scales then mean the higher-order construct. After saving, another empty field appears (at most {m}).", m=study_plan.MAX_HOC) }}</p>
+      {% endif %}
+    </fieldset>
+    {{ why("sem_higher") }}
+    {% endif %}
+    {% endif %}
     {% if plan.sem_method != "pls" %}
     <div class="row-fields plan-sem-estimation">
       <div class="field-with-term"><label for="sem-missing">{{ de_en("Fehlende Werte", "Missing values") }}</label>{{ term("fiml", "") }}

@@ -150,6 +150,12 @@ HAIR_2019 = ("Hair, J. F., Risher, J. J., Sarstedt, M., & Ringle, C. M. (2019). 
              "of PLS-SEM. European Business Review, 31(1), 2–24. https://doi.org/10.1108/EBR-11-2018-0203")
 HAIR_2011 = ("Hair, J. F., Ringle, C. M., & Sarstedt, M. (2011). PLS-SEM: Indeed a silver bullet. Journal of Marketing "
              "Theory and Practice, 19(2), 139–152. https://doi.org/10.2753/MTP1069-6679190202")
+BECKER_2012 = ("Becker, J.-M., Klein, K., & Wetzels, M. (2012). Hierarchical latent variable models in PLS-SEM: "
+               "Guidelines for using reflective-formative type models. Long Range Planning, 45(5–6), 359–394. "
+               "https://doi.org/10.1016/j.lrp.2012.10.001")
+SARSTEDT_2019 = ("Sarstedt, M., Hair, J. F., Cheah, J.-H., Becker, J.-M., & Ringle, C. M. (2019). How to specify, estimate, "
+                 "and validate higher-order constructs in PLS-SEM. Australasian Marketing Journal, 27(3), 197–211. "
+                 "https://doi.org/10.1016/j.ausmj.2019.05.003")
 DIJKSTRA = ("Dijkstra, T. K., & Henseler, J. (2015). Consistent partial least squares path modeling. MIS Quarterly, "
             "39(2), 297–316. https://doi.org/10.25300/MISQ/2015/39.2.02")
 FORMATIVE_SOURCES = (HAIR, HAIR_2019, CHIN_1998, CHEAH, CENFETELLI, BECKER_2015, DIAMANTOPOULOS_W)
@@ -229,7 +235,8 @@ def check(spec):
     if spec.get("ordinal"):  # the statements as ordered categories, WLSMV (point 3, app/sem_ordinal.py)
         out["ordinal"] = True
     # formative constructs (PLS mode B, SEM extensions 2026-10-17, point 9): their indicators form them
-    formative = [k for k in dict.fromkeys(spec.get("formative") or ()) if k in latent and k not in single]
+    # (also a construct of a higher order with PLS: its parts form it; higher-order constructs 2026-10-26)
+    formative = [k for k in dict.fromkeys(spec.get("formative") or ()) if (k in latent or k in higher) and k not in single]
     if formative:
         out["formative"] = formative
     if cov:  # only when there are any: the key of a stored bootstrap of a model without stays the same
@@ -1042,12 +1049,78 @@ def _pls_two_stage(x, cols, spec, light):
     return out
 
 
+def _pls_higher(x, cols, spec, light=False, scores=False):
+    """PLS with constructs of a higher order by the disjoint two-stage approach (Becker et al., 2012; Sarstedt et al.,
+    2019): stage 1 puts the constructs of the lower order (spec["higher"] {H: [lower ones]}) where H stands, each
+    linked to everything H is linked to, and gives their scores; stage 2 takes these scores as the indicators of H
+    (mode A, or mode B when H is in spec["formative"]) beside the indicators of the other constructs. The result is
+    that of stage 2, with the measurement of the lower-order constructs from stage 1: their loadings and quality,
+    "higher" {H: rows} for a reflective H (its loadings over the lower ones) and "higher_quality" {H: {"ave", "cr",
+    "alpha", "rho_a"}}; HTMT between two parts of the same H left out (they are meant to be related)."""
+    higher = spec["higher"]
+    lowers = [l for parts in higher.values() for l in parts]
+    formative = set(spec.get("formative") or ())
+
+    def swap(v):
+        return higher.get(v, [v])
+
+    paths1, cov1 = [], []
+    for a, b in spec["paths"]:
+        for a1 in swap(a):
+            for b1 in swap(b):
+                if (a1, b1) not in paths1:
+                    paths1.append((a1, b1))
+    for a, b in spec.get("cov") or ():
+        cov1 += [(a1, b1) for a1 in swap(a) for b1 in swap(b) if (a1, b1) not in paths1 and (b1, a1) not in paths1]
+    stage1 = {"latent": spec["latent"], "observed": spec["observed"], "paths": paths1, "indirect": [],
+              "formative": [f for f in formative if f in spec["latent"]], **({"cov": cov1} if cov1 else {})}
+    first = fit_pls(x, cols, stage1, light=True, scores=True)
+    if not first["converged"]:
+        return {"method": "pls", "converged": False, "problems": ["converge"]}
+    pos = {c: k for k, c in enumerate(cols)}
+    gone = {i for l in lowers for i in spec["latent"][l]}
+    keep = [c for c in cols if c not in gone]
+    x2 = np.column_stack([x[:, [pos[c] for c in keep]]] + [first["scores"][l] for l in lowers])
+    latent2 = {lv: items for lv, items in spec["latent"].items() if lv not in lowers}
+    latent2.update({h: list(parts) for h, parts in higher.items()})
+    spec2 = {"latent": latent2, "observed": spec["observed"], "paths": spec["paths"], "indirect": spec["indirect"],
+             "formative": [f for f in formative if f in latent2],
+             **({"cov": list(spec["cov"])} if spec.get("cov") else {})}
+    second = fit_pls(x2, keep + lowers, spec2, light=light, scores=scores)
+    if light:
+        if scores and "scores" in second:
+            second["scores"].update({l: first["scores"][l] for l in lowers})
+        return second
+    full1 = fit_pls(x, cols, stage1)
+    out = dict(second)
+    out["loadings"] = {**{l: full1["loadings"][l] for l in lowers},
+                       **{lv: rows for lv, rows in second["loadings"].items() if lv not in higher or lv in formative}}
+    out["higher"] = {h: second["loadings"][h] for h in higher if h not in formative}
+    q2 = second["quality"]
+    out["higher_quality"] = {h: {k: (q2.get(k) or {}).get(h) for k in ("ave", "cr", "alpha", "rho_a")}
+                             for h in higher if h not in formative}
+    quality1 = dict(full1["quality"])
+    same = {frozenset((a, b)) for parts in higher.values() for i, a in enumerate(parts) for b in parts[i + 1:]}
+    quality1["htmt"] = {pair: v for pair, v in quality1["htmt"].items() if frozenset(pair) not in same}
+    quality1["htmt_mixed"] = [p for p in quality1.get("htmt_mixed") or [] if frozenset(p) not in same]
+    out["quality"] = quality1
+    out["formative"] = {**{l: v for l, v in full1["formative"].items() if l in lowers}, **second["formative"]}
+    out["stages"] = {"first": bool(full1["converged"]), "second": bool(second["converged"])}
+    out["converged"] = bool(full1["converged"] and second["converged"])
+    out["admissible"] = out["converged"]
+    return out
+
+
 def fit_pls(x, cols, spec, light=False, scores=False):
     """PLS path modelling: mode A, path weighting scheme. Observed variables are constructs with one indicator.
     Interaction terms (spec["products"]) in two stages (_pls_two_stage); scores: the light result carries the
     construct scores."""
     spec = check(spec)
     x = np.asarray(x, dtype=float)
+    if spec.get("higher"):
+        if spec.get("products"):
+            raise SemError("higher_products")
+        return _pls_higher(x, cols, spec, light, scores)
     if spec.get("products"):
         return _pls_two_stage(x, cols, spec, light)
     n, p = x.shape
@@ -1204,7 +1277,7 @@ def pls_predict(x, cols, spec, folds=PREDICT_FOLDS, seed=1):
     exogenous constructs (LM benchmark). {"items": [{"item", "construct", "q2", "rmse", "rmse_lm"}], "constructs":
     {name: "high" | "medium" | "low" | "none"}} or None (interaction terms, no paths)."""
     spec = check(spec)
-    if spec.get("products") or not spec["paths"]:
+    if spec.get("products") or spec.get("higher") or not spec["paths"]:  # higher order: no cross-validation yet
         return None
     x = np.asarray(x, dtype=float)
     n = len(x)
@@ -1293,7 +1366,8 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
     ind_vals = {t: [] for t in spec["indirect"]}
     cov_vals = {pair: [] for pair in spec.get("cov", ())}
     mm_vals = {t: [] for t in spec.get("modmed", ())}
-    w_vals = {(lv, i): [] for lv in spec.get("formative", ()) for i in spec["latent"][lv]} if method == "pls" else {}
+    w_vals = {(lv, i): [] for lv in spec.get("formative", ())
+              for i in (spec["latent"].get(lv) or (spec.get("higher") or {}).get(lv) or ())} if method == "pls" else {}
     l_vals = {k: [] for k in w_vals}  # their loadings too: the absolute contribution (Cenfetelli & Bassellier, 2009)
     routes = total_routes(spec["paths"], skip=set(spec.get("products") or {}))
     t_vals = {pair: [] for pair in routes}  # total effects (two-step check 2026-10-26)
@@ -1347,9 +1421,10 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
                 stage, tx, tm, ty, txw = t
                 mm_vals[t].append(paths[(txw, tm)] * paths[(tm, ty)] if stage == "a" else paths[(tx, tm)] * paths[(txw, ty)])
             for lv, ws in (r.get("weights") or {}).items():  # formative weights (point 9)
-                for item, w in zip(spec["latent"][lv], ws):
+                parts = spec["latent"].get(lv) or (spec.get("higher") or {}).get(lv) or ()
+                for item, w in zip(parts, ws):
                     w_vals[(lv, item)].append(w)
-                for item, value in zip(spec["latent"][lv], (r.get("loadings") or {}).get(lv) or ()):
+                for item, value in zip(parts, (r.get("loadings") or {}).get(lv) or ()):
                     l_vals[(lv, item)].append(value)
             if htmt_vals:  # discriminant validity with an interval (Franke & Sarstedt, 2019; point 13)
                 corr = np.corrcoef(sample[:, [pos[i] for i in items_r]], rowvar=False)

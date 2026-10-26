@@ -4406,6 +4406,9 @@ button.learn-term { padding: 0; background: none; cursor: pointer; line-height: 
 .plan-sem-global { display: grid; gap: 4px; margin: 6px 0 0 18px; max-width: 42em; }
 .plan-sem-global select { height: 42px; }
 .plan-sem-mode-row:has(input[value="reflective"]:checked) .plan-sem-global { display: none; }
+/* constructs of a higher order (higher-order constructs 2026-10-26) */
+.plan-sem-hoc-group { display: grid; gap: 6px; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); max-width: 42em; }
+.plan-sem-hoc-group input[type="text"] { height: 42px; }
 .plan-power { margin: 12px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .plan-power:empty, .plan-power:not(:has(p)) { display: none; }
 .plan-power p { margin: 0; }

@@ -208,7 +208,9 @@ def build(survey, every=False):
     infos, nodes, out_hyps = {}, {}, {}
     latent, observed, paths, indirect, cov = {}, [], [], [], []
     higher = {}  # factors of the second order (point 8): {instrument: [its subscales]}
-    second = set(plan["sem"]["second"]) if method_of(survey) != "pls" else set()
+    second = set(plan["sem"]["second"])  # with PLS too: disjoint two-stage (higher-order constructs 2026-10-26)
+    # constructs of a higher order over several scales (PLS, E6): a hypothesis naming one of them names the whole
+    hoc_of = {m: g for g in plan["sem"]["hoc"] for m in g["parts"]} if method_of(survey) == "pls" else {}
     products, groups, legs = {}, {}, {}
     # roles a variable with more than two groups cannot take (stage 3): what is explained, what mediates
     explained = {"mediation": (1, 2), "moderation": (2,), "correlation": ()}
@@ -217,6 +219,9 @@ def build(survey, every=False):
     by_groups = method_of(survey) != "pls"  # two groups as moderator: compared in two groups (covariance-based)
 
     def use(code):
+        if code in hoc_of and code not in infos:
+            infos[code] = _hoc_info(survey, hoc_of[code], infos, latent, nodes, higher)
+            return infos[code]
         if code not in infos:
             infos[code] = variable(survey, code) if code else {"code": "", "error": "missing"}
             info = infos[code]
@@ -251,7 +256,8 @@ def build(survey, every=False):
                  [h.get("iv"), h.get("wv"), h.get("dv")] if h.get("kind") == "moderation" else [h.get("iv"), h.get("dv")])
         found = [use(c) for c in codes]
         bad = [f for f in found if "error" in f]
-        if len(set(c for c in codes if c)) < len(codes) or not all(codes):
+        # two parts of one construct of a higher order are one variable in the model
+        if len(set((hoc_of[c]["id"] if c in hoc_of else c) for c in codes if c)) < len(codes) or not all(codes):
             entry["errors"].append("roles")
         elif bad:
             entry["errors"] += [(f["code"], f["error"]) for f in bad]
@@ -364,7 +370,9 @@ def build(survey, every=False):
         spec["missing"] = "fiml"  # cases with gaps by full information ML (point 2); interactions need complete cases
     if method_of(survey) == "pls":  # scales whose statements form the construct (mode B, point 9)
         formative = [n for code in opts["formative"] if (infos.get(code) or {}).get("kind") == "latent"
-                     for n in _nodes(infos[code]) if n in latent]
+                     for n in _own_nodes(survey, code, infos) if n in latent]
+        # a construct of a higher order formed by its parts (reflective-formative type, E7)
+        formative += [h for h in opts["higher_formative"] if h in higher]
         if formative:
             spec["formative"] = formative
             redundancy, global_vars = _redundancy_entries(survey, opts, infos, latent, formative)
@@ -401,6 +409,41 @@ def build(survey, every=False):
     return out
 
 
+def _own_nodes(survey, code, infos):
+    """The node names of the scale `code` itself, also when it is a part of a construct of a higher order."""
+    info = infos.get(code) or {}
+    if info.get("higher") or "members" in info:
+        info = (info.get("members") or {}).get(code) or variable(survey, code)
+    if info.get("kind") != "latent":
+        return []
+    return [name for name, _, _ in info["parts"]]
+
+
+def _hoc_info(survey, group, infos, latent, nodes, higher):
+    """One construct of a higher order over several scales of the plan (higher-order constructs 2026-10-26, E6):
+    an info like that of an instrument with subscales, whose parts are the subscales of all its scales; "members"
+    keeps each scale's own info for the data matrix."""
+    key = group["id"]
+    if key in infos:
+        return infos[key]
+    members = {m: variable(survey, m) for m in group["parts"]}
+    bad = [(m, i) for m, i in members.items() if "error" in i or i.get("kind") != "latent"]
+    if bad:
+        info = {"code": bad[0][0], "error": bad[0][1].get("error") or "hoc_part"}
+        infos[key] = info
+        return info
+    parts = [p for i in members.values() for p in i["parts"]]
+    info = {"code": key, "label": group["name"], "kind": "latent", "parts": parts, "higher": key, "members": members}
+    for m, i in members.items():
+        for name, title, items in i["parts"]:
+            latent[name] = [c for c, _, _ in items]
+            nodes[name] = (m, title)
+    higher[key] = [name for name, _, _ in parts]
+    nodes[key] = (key, group["name"])
+    infos[key] = info
+    return info
+
+
 def global_measure(info):
     """How a variable can be the global measure of a formative construct (redundancy analysis): (node, [columns])
     of a single question with numbers or of a scale of one part with at least two statements; None otherwise."""
@@ -427,12 +470,12 @@ def _redundancy_entries(survey, opts, infos, latent, formative):
         info = infos.get(code) or {}
         if not g or g == code or g in opts["formative"] or info.get("kind") != "latent":
             continue
-        ginfo = infos.get(g) or variable(survey, g)
+        ginfo = variable(survey, g) if (infos.get(g) or {}).get("higher") else (infos.get(g) or variable(survey, g))
         measure = global_measure(ginfo)
         if measure is None:
             continue
         found[g] = ginfo
-        for n in _nodes(info):
+        for n in _own_nodes(survey, code, infos):
             if n in formative and n in latent:
                 entries.append({"lv": n, "code": code, "global": g, "node": measure[0], "glob_items": measure[1]})
     return entries, found
@@ -458,8 +501,30 @@ def scale_candidates(survey):
     model = build(survey) if survey is not None and survey.id else None
     if not model or model.get("mode") != "structural":
         return []
-    return [(code, f"{code} · {info.get('label') or code}") for code, info in model["vars"].items()
-            if "error" not in info and info.get("kind") == "latent"]
+    return [(code, f"{code} · {(_scale_label(survey, code, info))}") for code, info in model["vars"].items()
+            if "error" not in info and info.get("kind") == "latent" and not str(code).startswith(HOC_PREFIX)]
+
+
+HOC_PREFIX = "hoc"  # the id of a construct of a higher order over several scales: hoc1, hoc2, ...
+
+
+def _scale_label(survey, code, info):
+    if info.get("members"):
+        info = info["members"].get(code) or info
+    return info.get("label") or code
+
+
+def hoc_candidates(survey):
+    """[(variable name, label)] of the scales of the plan that can be parts of a construct of a higher order (PLS):
+    every scale with numbers, whether a hypothesis names it or not."""
+    from app import study_plan
+
+    out = []
+    for code, label in study_plan.measures(survey):
+        info = variable(survey, code)
+        if "error" not in info and info.get("kind") == "latent":
+            out.append((code, label))
+    return out
 
 
 INVARIANCE_MAX_GROUPS = 10  # a variable with more groups is no grouping for the test of invariance
@@ -784,10 +849,15 @@ def matrix(survey, model, table, spec=None, extra=(), with_ids=False, positions=
     products = {f"{a}{TIMES}{b}": (a, b) for part in (spec.get("products") or {}).values() for a, b in part["pairs"]}
     want = [c for c in cols if c not in products] + [c for c in extra if c not in cols]
     found = {}
-    for code, info in model["vars"].items():
+    every = []
+    for code, info in model["vars"].items():  # a construct of a higher order over several scales: each scale
+        every += list(info["members"].items()) if info.get("members") else [(code, info)]
+    for code, info in every:
         if "error" in info:
             continue
         if info["kind"] == "latent":
+            if all(c in found for _, _, items in info["parts"] for c, _, _ in items if c in want):
+                continue  # a scale met twice (as itself and as a part)
             item = info["item"]
             codes = [c for _, _, items in info["parts"] for c, _, _ in items if c in want]
             if not codes:
@@ -2390,7 +2460,8 @@ def formative_table(result, boot=None):
             p = sem._normal_p(r["weight"] / b["se"]) if b and b.get("se") else None
             lp = sem._normal_p(r["std"] / bl["se"]) if bl and bl.get("se") else None
             level = None if vif is None else "high" if vif >= VIF_MAX else "hint" if vif >= VIF_HINT else None
-            items.append({"code": r["item"], "text": statements.get(r["item"], ""), "weight": r["weight"],
+            items.append({"code": r["item"], "text": statements.get(r["item"], "") or
+                          (names.get(r["item"], (r["item"], ""))[1] if r["item"] in names else ""), "weight": r["weight"],
                           "loading": r["std"], "vif": vif, "ci": b["ci"] if b else None, "p": p,
                           "loading_ci": bl["ci"] if bl else None, "loading_p": lp, "vif_level": level,
                           "high_vif": level == "high", "verdict": formative_verdict(p, r["std"], lp),
@@ -2417,11 +2488,20 @@ def redundancy_table(result, boot=None):
     return out
 
 
+def higher_formative_labels(result):
+    """[label] of the formative constructs of a higher order (no redundancy analysis for them yet)."""
+    names = result.get("nodes") or {}
+    higher = (result.get("spec") or {}).get("higher") or {}
+    return [names.get(h, (h, h))[1] for h in (result.get("fit") or {}).get("formative") or {} if h in higher]
+
+
 def redundancy_missing(result):
     """[label] of the formative constructs without a redundancy analysis (no global measure chosen)."""
     names = result.get("nodes") or {}
     done = {r["lv"] for r in result.get("redundancy") or []}
-    return [names.get(lv, (lv, lv))[1] for lv in (result.get("fit") or {}).get("formative") or {} if lv not in done]
+    higher = set((result.get("spec") or {}).get("higher") or {})  # a higher order has no global measure yet
+    return [names.get(lv, (lv, lv))[1] for lv in (result.get("fit") or {}).get("formative") or {}
+            if lv not in done and lv not in higher]
 
 
 def htmt_interval(result, boot=None):
@@ -2504,10 +2584,16 @@ def measurement_table(result):
                     "alpha": alpha, "rho_a": rho, "ave": ave, "cr": cr, "htmt_max": max(mine) if mine else None,
                     "flags": flags})
     for h, rows in (fit.get("higher") or {}).items():  # second order (point 8): the subscales as its indicators
-        out.append({"name": h, "label": de_en("{h} (zweite Ordnung)", "{h} (second order)", h=names.get(h, (h, h))[1]),
-                    "items": [{"code": names.get(r["item"], (r["item"], r["item"]))[1], "text": "", "std": r["std"]}
-                              for r in rows], "alpha": None, "rho_a": None, "ave": None, "cr": None, "htmt_max": None,
-                    "flags": []})
+        hq = (fit.get("higher_quality") or {}).get(h) or {}  # PLS: stage 2 of the two-stage approach
+        flags = (["ave"] if hq.get("ave") is not None and hq["ave"] < AVE_MIN else []) + \
+                (["cr"] if hq.get("cr") is not None and hq["cr"] < CR_MIN else [])
+        label = (de_en("{h} (höhere Ordnung)", "{h} (higher order)", h=names.get(h, (h, h))[1]) if result.get("method") == "pls"
+                 else de_en("{h} (zweite Ordnung)", "{h} (second order)", h=names.get(h, (h, h))[1]))
+        out.append({"name": h, "label": label,
+                    "items": [{"code": names.get(r["item"], (r["item"], r["item"]))[1], "text": "", "std": r["std"],
+                               "weight": r.get("weight"), "level": _loading_level(r["std"])} for r in rows],
+                    "alpha": hq.get("alpha"), "rho_a": hq.get("rho_a"), "ave": hq.get("ave"), "cr": hq.get("cr"),
+                    "htmt_max": None, "flags": flags})
     pairs = [(names.get(a, (a, a))[1], names.get(b, (b, b))[1], v) for (a, b), v in htmt.items()]
     return out, pairs
 
@@ -3143,6 +3229,12 @@ def r_script(survey, rds_name, lang="de"):
                  for lv, items in spec["latent"].items() if lv not in products]
         parts += [f'  composite("{observed[o]}", single_item("{observed[o]}"))' for o in spec["observed"]
                   if o not in products]
+        # constructs of a higher order (higher-order constructs 2026-10-26): seminr's two_stage is the embedded
+        # variant (repeated indicators in stage 1); the app uses the disjoint one, so the numbers can differ slightly
+        for h, lows in (spec.get("higher") or {}).items():
+            dims = ", ".join(chr(34) + latent[l] + chr(34) for l in lows)
+            parts.append(f'  higher_composite("{latent[h]}", c({dims}), method = two_stage'
+                         + (", weights = mode_B)" if h in formative else ")"))
         # interactions in two stages, as in the app (Hair et al., 2022)
         for name, part in (spec.get("products") or {}).items():
             names[name] = f"{names[part['x']]}*{names[part['w']]}"
@@ -3654,6 +3746,9 @@ def sources(result):
     if fit:  # the two steps, α, ρ_A, R² in words, total effects (two-step check 2026-10-26)
         out.append((de_en("Strukturgleichungsmodell: Bewertung in zwei Schritten", "Structural equation model: evaluation in two steps"),
                     [sem.HAIR, sem.HAIR_2011, sem.HAIR_2019] + ([sem.DIJKSTRA] if result.get("method") == "pls" else [])))
+    if (result.get("spec") or {}).get("higher") and result.get("method") == "pls":  # higher-order constructs
+        out.append((de_en("Strukturgleichungsmodell (PLS): Konstrukte höherer Ordnung", "Structural equation model (PLS): higher-order constructs"),
+                    [sem.BECKER_2012, sem.SARSTEDT_2019]))
     if fit.get("formative"):  # the check of formative constructs (formative check 2026-10-26)
         out.append((de_en("Strukturgleichungsmodell (PLS): formative Konstrukte", "Structural equation model (PLS): formative constructs"),
                     list(sem.FORMATIVE_SOURCES)))
