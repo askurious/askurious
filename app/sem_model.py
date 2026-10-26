@@ -375,7 +375,7 @@ def build(survey, every=False):
         formative += [h for h in opts["higher_formative"] if h in higher]
         if formative:
             spec["formative"] = formative
-            redundancy, global_vars = _redundancy_entries(survey, opts, infos, latent, formative)
+            redundancy, global_vars = _redundancy_entries(survey, opts, infos, latent, formative, higher)
         else:
             redundancy, global_vars = [], {}
     else:
@@ -460,10 +460,11 @@ def global_measure(info):
     return None
 
 
-def _redundancy_entries(survey, opts, infos, latent, formative):
+def _redundancy_entries(survey, opts, infos, latent, formative, higher=None):
     """The redundancy analyses the plan names (formative check 2026-10-26, E1): [{"lv", "code", "global", "node",
     "glob_items"}] and the variables of the global measures ({code: info}, for the data matrix)."""
     entries, found = [], {}
+    higher = higher or {}
     chosen = opts.get("global") or {}
     for code in opts["formative"]:
         g = chosen.get(code)
@@ -478,6 +479,18 @@ def _redundancy_entries(survey, opts, infos, latent, formative):
         for n in _own_nodes(survey, code, infos):
             if n in formative and n in latent:
                 entries.append({"lv": n, "code": code, "global": g, "node": measure[0], "glob_items": measure[1]})
+    # a formative construct of a higher order (trace 2026-10-26): the same two stages as in the main model
+    for key in opts.get("higher_formative") or ():
+        g = chosen.get(key)
+        if not g or key not in higher or key not in formative:
+            continue
+        ginfo = variable(survey, g) if (infos.get(g) or {}).get("higher") else (infos.get(g) or variable(survey, g))
+        measure = global_measure(ginfo)
+        if measure is None or any(c in [i for l in higher[key] for i in latent.get(l, ())] for c in measure[1]):
+            continue
+        found[g] = ginfo
+        entries.append({"lv": key, "code": key, "global": g, "node": measure[0], "glob_items": measure[1],
+                        "parts": list(higher[key])})
     return entries, found
 
 
@@ -1078,7 +1091,9 @@ def _redundancy_input(survey, model, table):
         return out
     both = {**model, "vars": {**model["vars"], **(model.get("global_vars") or {})}}
     for e in model["redundancy"]:
-        rspec = sem.redundancy_spec(e["lv"], model["spec"]["latent"][e["lv"]], e["node"], e["glob_items"])
+        parts = {l: model["spec"]["latent"][l] for l in e["parts"]} if e.get("parts") else None
+        rspec = sem.redundancy_spec(e["lv"], None if parts else model["spec"]["latent"][e["lv"]], e["node"],
+                                    e["glob_items"], parts=parts)
         rows, cols, _ = matrix(survey, both, table, spec=rspec)
         out.append({"lv": e["lv"], "global": e["global"], "rows": rows, "cols": cols,
                     "spec": {**rspec, "paths": [list(p) for p in rspec["paths"]]}})
@@ -2488,20 +2503,11 @@ def redundancy_table(result, boot=None):
     return out
 
 
-def higher_formative_labels(result):
-    """[label] of the formative constructs of a higher order (no redundancy analysis for them yet)."""
-    names = result.get("nodes") or {}
-    higher = (result.get("spec") or {}).get("higher") or {}
-    return [names.get(h, (h, h))[1] for h in (result.get("fit") or {}).get("formative") or {} if h in higher]
-
-
 def redundancy_missing(result):
     """[label] of the formative constructs without a redundancy analysis (no global measure chosen)."""
     names = result.get("nodes") or {}
     done = {r["lv"] for r in result.get("redundancy") or []}
-    higher = set((result.get("spec") or {}).get("higher") or {})  # a higher order has no global measure yet
-    return [names.get(lv, (lv, lv))[1] for lv in (result.get("fit") or {}).get("formative") or {}
-            if lv not in done and lv not in higher]
+    return [names.get(lv, (lv, lv))[1] for lv in (result.get("fit") or {}).get("formative") or {} if lv not in done]
 
 
 def htmt_interval(result, boot=None):
@@ -2596,6 +2602,63 @@ def measurement_table(result):
                     "htmt_max": None, "flags": flags})
     pairs = [(names.get(a, (a, a))[1], names.get(b, (b, b))[1], v) for (a, b), v in htmt.items()]
     return out, pairs
+
+
+def trace_view(result, boot=None):
+    """The "Rechenweg" of an estimate (trace 2026-10-26): [{"state", "text", "anchor"}] from the data over the
+    algorithm to the checks, and "spark": the points of a small line of the largest weight change per PLS iteration
+    (log scale), or None."""
+    fit = result.get("fit") or {}
+    pls = result.get("method") == "pls"
+    steps = [{"state": "ok", "anchor": "", "text": de_en("Daten: {n} vollständige Teilnahmen von {a}; die Aussagen standardisiert",
+                                                          "Data: {n} complete participations of {a}; statements standardised",
+                                                          n=result.get("n"), a=result.get("n_all"))
+              if pls else de_en("Daten: N = {n}", "Data: N = {n}", n=result.get("n"))}]
+    trace = fit.get("trace") or {}
+    if pls:
+        it = fit.get("iterations") or len(trace.get("changes") or [])
+        scheme = de_en("Pfadgewichtung", "path weighting") if trace.get("scheme") != "factor" else de_en("Faktorgewichtung", "factor weighting")
+        steps.append({"state": "ok" if fit.get("converged") else "warn", "anchor": "", "text": de_en(
+            "PLS-Algorithmus ({s}): {k} Iterationen, bis sich kein Gewicht mehr um 10⁻⁷ änderte",
+            "PLS algorithm ({s}): {k} iterations, until no weight changed by 10⁻⁷ any more", s=scheme, k=it)})
+        if fit.get("stages"):
+            steps.append({"state": "ok", "anchor": "", "text": de_en(
+                "Konstrukte höherer Ordnung zweistufig: Stufe 1 schätzte die Teile, Stufe 2 nahm ihre Werte als Indikatoren",
+                "Higher-order constructs in two stages: stage 1 estimated the parts, stage 2 took their scores as indicators")})
+    else:
+        est = ("WLSMV" if result.get("ordinal") else "FIML (MLR)" if result.get("missing") == "fiml" else
+               de_en("Maximum Likelihood, robuste Standardfehler", "maximum likelihood, robust standard errors"))
+        steps.append({"state": "ok" if fit.get("converged", True) else "warn", "anchor": "",
+                      "text": de_en("Schätzung: {e}, konvergiert", "Estimation: {e}, converged", e=est)})
+    checks = step_checks(result, boot) if result.get("mode") != "measurement" else None
+    if checks:
+        warn = sum(1 for s_, _ in checks["one"] if s_ == "warn")
+        steps.append({"state": "warn" if warn else "ok", "anchor": "sem-step1", "text": de_en(
+            "Schritt 1 · Messmodell: {k} Hinweise", "Step 1 · measurement model: {k} notes", k=warn) if warn else
+            de_en("Schritt 1 · Messmodell: alle Kriterien erfüllt", "Step 1 · measurement model: all criteria met")})
+        steps.append({"state": "", "anchor": "sem-step2", "text": de_en("Schritt 2 · Strukturmodell", "Step 2 · structural model")})
+    if boot:
+        steps.append({"state": "warn" if boot.get("unsure") else "ok", "anchor": "sem", "text": de_en(
+            "Bootstrap: {d} Ziehungen, {f} ohne Lösung", "Bootstrap: {d} draws, {f} without a solution",
+            d=boot.get("draws"), f=boot.get("failed") or 0)})
+    else:
+        steps.append({"state": "", "anchor": "sem", "text": de_en("Bootstrap: noch nicht gerechnet", "Bootstrap: not run yet")})
+    if pls and result.get("mode") != "measurement":
+        pred = result.get("predict")
+        steps.append({"state": "ok" if pred else "", "anchor": "sem-predict" if pred else "", "text": de_en(
+            "PLSpredict: {f} Teile", "PLSpredict: {f} folds", f=pred.get("folds")) if pred else
+            de_en("PLSpredict: entfällt (Interaktionen oder keine Pfade)", "PLSpredict: not possible (interactions or no paths)")})
+    spark = None
+    changes = [c for c in trace.get("changes") or [] if c and c > 0]
+    if len(changes) >= 2:
+        import math
+
+        logs = [math.log10(c) for c in changes]
+        top, low = max(logs), min(min(logs), math.log10(trace.get("tol") or 1e-7))
+        span = (top - low) or 1.0
+        w = 116 / (len(logs) - 1)
+        spark = " ".join(f"{2 + k * w:.1f},{2 + 20 * (top - v) / span:.1f}" for k, v in enumerate(logs))
+    return {"steps": steps, "spark": spark}
 
 
 def _loading_level(v):
@@ -3268,7 +3331,8 @@ def _r_redundancy(model, latent, en):
     its own complete cases, as on the results page."""
     out = []
     for k, e in enumerate(model.get("redundancy") or [], 1):
-        items = model["spec"]["latent"][e["lv"]]
+        parts = e.get("parts") or []  # a formative construct of a higher order: its parts, then two stages
+        items = [i for l in parts for i in model["spec"]["latent"][l]] if parts else model["spec"]["latent"][e["lv"]]
         glob = "G_" + _r_name(e["global"])
         cols = ", ".join(_r_str(_r_name(c)) for c in list(items) + list(e["glob_items"]))
         quoted = ", ".join(chr(34) + _r_name(i) + chr(34) for i in items)
@@ -3281,7 +3345,11 @@ def _r_redundancy(model, latent, en):
                             f"Redundanzanalyse von {latent[e['lv']]} mit dem Globalmaß {e['global']} "
                             "(Konvergenzvalidität, ausreichend ab einem Pfad von 0,70; Chin, 1998; Cheah et al., 2018)"),
                 f"daten_r{k} <- daten[complete.cases(daten[, c({cols})]), ]",
-                f'messung_r{k} <- constructs(composite("{latent[e["lv"]]}", c({quoted}), weights = mode_B), {target})',
+                (f'messung_r{k} <- constructs(' + ", ".join(
+                    f'composite("{latent[l]}", c({", ".join(chr(34) + _r_name(i) + chr(34) for i in model["spec"]["latent"][l])}))'
+                    for l in parts) + f', higher_composite("{latent[e["lv"]]}", c({", ".join(chr(34) + latent[l] + chr(34) for l in parts)}), '
+                 f'method = two_stage, weights = mode_B), {target})' if parts else
+                 f'messung_r{k} <- constructs(composite("{latent[e["lv"]]}", c({quoted}), weights = mode_B), {target})'),
                 f'struktur_r{k} <- relationships(paths(from = "{latent[e["lv"]]}", to = "{glob}"))',
                 f"pls_r{k} <- estimate_pls(data = daten_r{k}, measurement_model = messung_r{k}, structural_model = struktur_r{k})",
                 f"summary(pls_r{k})$paths",

@@ -386,9 +386,6 @@ def sem_options(raw):
         if isinstance(code, str) and code.strip() and rel is not None:
             single[_text(code, 64)] = rel
     formative = [_text(c, 64) for c in raw.get("formative") or [] if isinstance(c, str) and c.strip()]
-    found = raw.get("global") if isinstance(raw.get("global"), dict) else {}
-    glob = {_text(c, 64): _text(g, 64) for c, g in list(found.items())[:MAX_HYPOTHESES * 3]
-            if isinstance(c, str) and isinstance(g, str) and c.strip() and g.strip() and c in formative and c != g}
     invariance = raw.get("invariance") if isinstance(raw.get("invariance"), str) else ""
     hoc = []
     for k, g in enumerate([g for g in raw.get("hoc") or [] if isinstance(g, dict)][:MAX_HOC], 1):
@@ -398,6 +395,11 @@ def sem_options(raw):
             hoc.append({"id": f"hoc{len(hoc) + 1}", "name": name.strip(), "parts": parts})
     higher_formative = list(dict.fromkeys(_text(c, 64) for c in raw.get("higher_formative") or []
                                           if isinstance(c, str) and c.strip()))[:MAX_HYPOTHESES * 3]
+    # the global measure of a formative scale or of a formative construct of a higher order (redundancy analysis)
+    found = raw.get("global") if isinstance(raw.get("global"), dict) else {}
+    glob = {_text(c, 64): _text(g, 64) for c, g in list(found.items())[:MAX_HYPOTHESES * 3]
+            if isinstance(c, str) and isinstance(g, str) and c.strip() and g.strip() and c != g
+            and (c in formative or c in higher_formative)}
     return {"controls": list(dict.fromkeys(controls))[:MAX_CONTROLS], "single": single,
             "formative": list(dict.fromkeys(formative))[:MAX_HYPOTHESES * 3], "global": glob,
             "invariance": _text(invariance, 64),
@@ -1297,7 +1299,10 @@ def from_form(survey, form):
                 single[code] = _reliability(form.get(f"sem_rel_{code}")) or SINGLE_REL
         out["sem"] = sem_options({"controls": [c for c in form.getlist("sem_control") if c in codes], "single": single,
                                   "formative": _formative_of(form, codes),
-                                  "global": {c: form.get(f"sem_global_{c}") for c in _formative_of(form, codes)
+                                  "global": {c: form.get(f"sem_global_{c}") for c in
+                                             _formative_of(form, codes) + [k[len("sem_hmode_"):] for k in form
+                                                                          if k.startswith("sem_hmode_")
+                                                                          and form.get(k) == "formative"]
                                              if form.get(f"sem_global_{c}") in codes},
                                   "invariance": form.get("sem_invariance") if form.get("sem_invariance") in codes
                                   or form.get("sem_invariance") == LANG_GROUPS else "",

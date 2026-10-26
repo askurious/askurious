@@ -1154,6 +1154,7 @@ def fit_pls(x, cols, spec, light=False, scores=False):
         return out
 
     converged = False
+    changes = []  # the largest change of an outer weight per iteration: the "Rechenweg" (trace 2026-10-26)
     for it in range(PLS_ITER):
         y = scores(weights)
         new = {}
@@ -1179,6 +1180,7 @@ def fit_pls(x, cols, spec, light=False, scores=False):
             s = z[:, idx] @ w
             new[v] = w / (s.std() if s.std() > 0 else 1.0)
         change = max(float(np.max(np.abs(new[v] - weights[v]))) for v in names)
+        changes.append(change)
         weights = new
         if change < PLS_TOL:
             converged = True
@@ -1206,7 +1208,8 @@ def fit_pls(x, cols, spec, light=False, scores=False):
                 "loadings": {lv: [r["std"] for r in rows] for lv, rows in loadings.items()},
                 "weights": {lv: [float(w) for w in weights[lv]] for lv in formative},
                 **({"scores": y} if scores else {})}
-    out = {"method": "pls", "converged": converged, "n": n, "iterations": it + 1, "problems": [] if converged else ["converge"]}
+    out = {"method": "pls", "converged": converged, "n": n, "iterations": it + 1, "problems": [] if converged else ["converge"],
+           "trace": {"changes": changes, "tol": PLS_TOL, "scheme": "path" if spec["paths"] else "factor"}}
     out["paths"] = [{"from": a, "to": b, "std": est[(a, b)], "se": None, "p": None, "ci": None} for a, b in spec["paths"]]
     out["indirect"] = [{"x": a, "m": m, "y": b, "std": indirect[(a, m, b)], "se": None, "p": None, "ci": None}
                        for a, m, b in spec["indirect"]]
@@ -1277,15 +1280,20 @@ def pls_predict(x, cols, spec, folds=PREDICT_FOLDS, seed=1):
     exogenous constructs (LM benchmark). {"items": [{"item", "construct", "q2", "rmse", "rmse_lm"}], "constructs":
     {name: "high" | "medium" | "low" | "none"}} or None (interaction terms, no paths)."""
     spec = check(spec)
-    if spec.get("products") or spec.get("higher") or not spec["paths"]:  # higher order: no cross-validation yet
+    if spec.get("products") or not spec["paths"]:
         return None
+    higher = spec.get("higher") or {}
+    lowers = {l for parts in higher.values() for l in parts}
     x = np.asarray(x, dtype=float)
     n = len(x)
     if n < 2 * folds:
         return None
     pos = {c: k for k, c in enumerate(cols)}
-    blocks = {lv: list(items) for lv, items in spec["latent"].items()}
+    blocks = {lv: list(items) for lv, items in spec["latent"].items() if lv not in lowers}
     blocks.update({o: [o] for o in spec["observed"]})
+    # a construct of a higher order (trace 2026-10-26): its indicators are those of its parts, its score the weighted
+    # scores of the parts (two stages, as estimated)
+    blocks.update({h: [i for l in parts for i in spec["latent"][l]] for h, parts in higher.items()})
     endo = endogenous(spec)
     exo = [v for v in blocks if v not in endo]
     order = []
@@ -1311,24 +1319,45 @@ def pls_predict(x, cols, spec, folds=PREDICT_FOLDS, seed=1):
         mean, sd = train.mean(axis=0), train.std(axis=0)
         sd = np.where(sd > 0, sd, 1.0)
         zt, ztr = (test - mean) / sd, (train - mean) / sd
-        weights = {lv: np.array([r["weight"] for r in rows]) for lv, rows in fit["loadings"].items()}
-        loads = {lv: {r["item"]: r["std"] for r in rows} for lv, rows in fit["loadings"].items()}
+        rows_of = {**(fit.get("higher") or {}), **fit["loadings"]}
+        weights = {lv: np.array([r["weight"] for r in rows]) for lv, rows in rows_of.items()}
+        loads = {lv: {r["item"]: r["std"] for r in rows} for lv, rows in rows_of.items()}
         paths = {(r["from"], r["to"]): r["std"] for r in fit["paths"]}
+
+        def score(v, z_new, z_train):
+            """The standardised score of v for z_new, scaled like the training cases' scores."""
+            if v in higher:
+                parts = higher[v]
+                new = np.column_stack([score(l, z_new, z_train) for l in parts])
+                old = np.column_stack([score(l, z_train, z_train) for l in parts])
+                s_new, s_old = new @ weights[v], old @ weights[v]
+            else:
+                idx = [pos[i] for i in (spec["latent"].get(v) or blocks[v])]
+                w = weights.get(v, np.ones(len(idx)))
+                s_new, s_old = z_new[:, idx] @ w, z_train[:, idx] @ w
+            return (s_new - s_old.mean()) / (s_old.std() or 1.0)
+
         hat = {}
         for v in order:
-            idx = [pos[i] for i in blocks[v]]
             if v in exo:  # the holdout's scores, standardised like the training cases' scores
-                w = weights.get(v, np.ones(len(idx)))
-                train_score = ztr[:, idx] @ w
-                hat[v] = (zt[:, idx] @ w - train_score.mean()) / (train_score.std() or 1.0)
+                hat[v] = score(v, zt, ztr)
             else:
                 hat[v] = sum(paths[(a, b)] * hat[a] for a, b in spec["paths"] if b == v)
+        for h, parts in higher.items():  # an explained higher order: its parts through their loadings on it
+            if h in endo:
+                for l in parts:
+                    hat[l] = loads[h].get(l, 1.0) * hat[h]
+        part_of = {i: l for h, parts in higher.items() for l in parts for i in spec["latent"][l]}
         xs_train = np.column_stack([np.ones(len(train)), train[:, lm_inputs]])
         xs_test = np.column_stack([np.ones(len(test)), test[:, lm_inputs]])
         for v, item in targets:
             j = pos[item]
-            load = loads.get(v, {}).get(item, 1.0)
-            pred = mean[j] + sd[j] * load * hat[v]
+            if v in higher:  # through the part the statement belongs to
+                load = loads.get(part_of[item], {}).get(item, 1.0)
+                pred = mean[j] + sd[j] * load * hat[part_of[item]]
+            else:
+                load = loads.get(v, {}).get(item, 1.0)
+                pred = mean[j] + sd[j] * load * hat[v]
             err[(v, item)] += list(test[:, j] - pred)
             beta = np.linalg.lstsq(xs_train, train[:, j], rcond=None)[0]
             err_lm[(v, item)] += list(test[:, j] - xs_test @ beta)
@@ -1503,14 +1532,16 @@ def total_effects(values, pairs):
     return out
 
 
-def redundancy_spec(lv, items, glob, glob_items):
+def redundancy_spec(lv, items, glob, glob_items, parts=None):
     """The model of the redundancy analysis of a formative construct (Chin, 1998; Hair et al., 2022): the construct
     in mode B explains a global measure of the same construct, a single question (glob_items of one column, observed)
-    or a reflective scale (mode A). Its path is the convergent validity."""
+    or a reflective scale (mode A). Its path is the convergent validity. parts {lower: [items]}: lv is a construct of
+    a higher order over them (two stages, as in the main model; trace 2026-10-26)."""
     single = len(glob_items) == 1
-    return check({"latent": {lv: list(items), **({} if single else {glob: list(glob_items)})},
+    own = dict(parts) if parts else {lv: list(items)}
+    return check({"latent": {**own, **({} if single else {glob: list(glob_items)})},
                   "observed": [glob_items[0]] if single else [], "paths": [(lv, glob_items[0] if single else glob)],
-                  "indirect": [], "formative": [lv]})
+                  "indirect": [], "formative": [lv], **({"higher": {lv: list(parts)}} if parts else {})})
 
 
 def redundancy(x, cols, spec):
