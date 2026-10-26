@@ -113,6 +113,12 @@
       {{ xp.fmt(de_en("SPSS-Syntax", "SPSS syntax"), url_for('surveys.export_spss', survey_id=survey.id), de_en("SPSS-Syntax mit Datendatei (.zip) herunterladen", "Download SPSS syntax with data file (.zip)")) }}
       {% endif %}
     {% endcall %}
+    {% if not live %}
+    {# all results of the saved pool as one PDF after APA 7 (app/results_pdf.py, Ralf 2026-10-26) #}
+    {% call xp.row(de_en("Ergebnisbericht", "Results report"), de_en("Alle Ergebnisse nach APA 7", "All results after APA 7"), de_en("alle berechneten Ergebnisse des gespeicherten Datenpools: Datengrundlage, je Frage nummerierte Abbildungen und Tabellen, Skalen, Wahlexperimente und Literatur, nach APA 7; ohne Freitexte, ohne KI", "all computed results of the saved data pool: data basis, numbered figures and tables per question, scales, choice experiments and references, after APA 7; without free texts, without AI")) %}
+      {{ xp.fmt("PDF", url_for('surveys.export_results_pdf', survey_id=survey.id), de_en("Ergebnisbericht (PDF) herunterladen", "Download results report (PDF)"), pooled=false) }}
+    {% endcall %}
+    {% endif %}
     {% if not live and sem_model.build(survey) %}
     {% call xp.row(de_en("Strukturgleichungsmodell", "Structural equation model"), de_en("Das Modell aus dem Studienplan für R, experimentell", "The model of the research plan for R, experimental"), de_en("lavaan-Skript (bei PLS auch seminr) zum R-Export: das Modell aus dem Studienplan zum Nachrechnen; experimentell", "lavaan script (for PLS also seminr) for the R export: the model of the research plan to recompute; experimental")) %}
       {{ xp.fmt(".R", url_for('surveys.export_sem_r', survey_id=survey.id), de_en("Strukturgleichungsmodell für R (.R) herunterladen", "Download structural equation model for R (.R)")) }}

@@ -211,6 +211,34 @@ def export_docx(survey_id, version="codebook"):
     })
 
 
+def _report_kept(survey, **_):
+    """The report can answer in the request: the results of the saved pool are kept and current."""
+    from app import results as res, results_store
+
+    f = {**data_pool(survey, values={}, drop=True), "drop": True, "speed_real": True, "weighted": False}
+    kept = results_store.load(survey, results_store.fingerprint(survey, f), f)
+    return kept is not None and not res.refresh_estimates(kept[0], survey)
+
+
+@bp.route("/<sid:survey_id>/export/ergebnisbericht.pdf")
+@login_required
+@report_jobs.background(ready=_report_kept)
+def export_results_pdf(survey_id):
+    """All results of the saved data pool as one PDF after APA 7 (app/results_pdf.py), for every role that sees the
+    results; aggregates only, no free texts, in the language of the person downloading (Ralf, 2026-10-26)."""
+    from flask import Response as FlaskResponse
+
+    from app import results_pdf
+
+    survey = get_survey(survey_id)
+    body = results_pdf.build(survey)
+    return FlaskResponse(body, headers={
+        "Content-Type": "application/pdf",
+        "Content-Disposition": f'attachment; filename="{results_pdf.filename(survey)}"',
+        "Cache-Control": "no-store",
+    })
+
+
 @bp.route("/<sid:survey_id>/export/survey-material.pdf")
 @login_required
 @heavy.limited
