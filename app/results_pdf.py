@@ -25,7 +25,7 @@ from app.items.base import plain
 
 NAME = "ergebnisbericht.pdf"
 # printed in the standard font Symbol, which reportlab fills from these Unicode characters (cp1252 has none of them)
-GREEK = set("αωχηβρεσμΔτκλνπ−")
+GREEK = set("αωχηβρεσμΔτκλνπ−→≤≥∞")
 SYMBOLS = ("M", "SD", "Mdn", "n", "N", "p", "Q1", "Q3", "RLH", "KI", "CI")
 WIDTH_MM = 174  # the text width of A4 with 18 mm margins
 BAR_MAX = 14  # rows of a bar figure; more categories: only the table
@@ -58,7 +58,7 @@ class Report:
         self.survey, self.ui = survey, ui
         self.tables = self.figures = 0
         self.cited = []  # the full citations the report cites; only these go into the references (APA 7, 8.1)
-        self.accent, self.logo = sm._look(survey)
+        self.accent, self.logo = sm._look(survey) if survey is not None else (sm.tokens()["--accent"], None)
         self.styles = sm._styles(self.accent)
         ink, muted = sm.tokens()["--fg"], sm.tokens()["--muted"]
         body = self.styles["body"]
@@ -127,7 +127,7 @@ class Report:
         return out
 
     # --- tables and figures -------------------------------------------------------------------------------------
-    def table(self, title, head, rows, note=None, widths=None, numeric_from=1):
+    def table(self, title, head, rows, note=None, widths=None, numeric_from=1, numeric=None):
         """[flowables] of one APA table: "Tabelle n" bold, its title in italics, horizontal rules only, the note."""
         from reportlab.lib import colors
         from reportlab.lib.units import mm
@@ -141,6 +141,8 @@ class Report:
         right = ParagraphStyle("cellr", parent=cell, alignment=TA_RIGHT)  # numbers flush right, under their head
 
         def style(i):
+            if numeric is not None:
+                return right if i < len(numeric) and numeric[i] else cell
             return right if i >= numeric_from else cell
 
         data = [[Paragraph(self.sym(h), style(i)) for i, h in enumerate(head)]]
@@ -246,6 +248,173 @@ def collect(survey):
     data = res.compute(survey, f["sources"], f["all"], f["drop"], f["speeder"], f["speed_real"], weighted=False)
     results_store.save(survey, key, data, f, basis=key)
     return data, f, utcnow()
+
+
+# --- what the results page shows beyond the questions (round 2) ---------------------------------------------------
+# The hypotheses of the research plan, the structural equation model, the panel models, the segments and the market
+# simulator of a choice experiment, and the displays of the rarer kinds of question are read from the results page
+# itself, as the person sees it (the same numbers, the same rounding): its tables become APA tables, their heading the
+# title, the small print under them the note. The page is made by its own view within this request, from the results
+# kept for the saved pool, so the report and the page never disagree.
+
+def page_tree(survey):
+    """The results page of the saved pool as an lxml tree, or None when it cannot be read (then the report keeps to
+    what it renders itself)."""
+    import inspect
+
+    import lxml.html
+    from flask import current_app
+
+    from app.surveys import results as page
+
+    try:
+        view = inspect.unwrap(page.results)
+        out = view(survey.id)
+        html = out.get_data(as_text=True) if hasattr(out, "get_data") else str(out)
+        return _readable(lxml.html.fromstring(html))
+    except Exception:  # noqa: BLE001 - the report stays useful without the page's extra parts
+        current_app.logger.exception("results report: the results page could not be read")
+        return None
+
+
+def _readable(root):
+    """The page as text a report can take over: no buttons (the "?" of the explanations), icons, scripts or hidden
+    parts; a selection shows its chosen option and a field its value, as the page shows them."""
+    for el in root.xpath("//button|//svg|//script|//style|//template|//*[@hidden]|//*[contains(@class, 'sr-only')]"
+                         "|//*[contains(@class, 'term-help')]"):
+        el.drop_tree()
+    for sel in root.xpath("//select"):
+        chosen = sel.xpath(".//option[@selected]") or sel.xpath(".//option")
+        span = sel.makeelement("span", {})
+        span.text = _text(chosen[0]) if chosen else ""
+        span.tail = sel.tail
+        sel.getparent().replace(sel, span)
+    for inp in root.xpath("//input[not(@type='hidden')]"):
+        span = inp.makeelement("span", {})
+        span.text = inp.get("value") or ""
+        span.tail = inp.tail
+        inp.getparent().replace(inp, span)
+    return root
+
+
+NUMBER = re.compile(r"^[−\-+]?[\d.,]+\s*(%|€)?$|^\[.*\]$|^–$")
+
+
+def _text_of_markup(markup):
+    return " ".join(re.sub(r"<[^>]+>", "", str(markup)).split())
+
+
+def _text(el):
+    return " ".join((el.text_content() if el is not None else "").split())
+
+
+def _inline(el):
+    """The text of an element as Paragraph markup: italics, sub- and superscripts kept, everything else as text."""
+    tags = {"i": "i", "em": "i", "var": "i", "sub": "sub", "sup": "super", "b": "b", "strong": "b"}
+
+    def walk(node):
+        out = _safe(node.text or "")
+        for child in node:
+            tag = tags.get(child.tag if isinstance(child.tag, str) else "")
+            inner = walk(child)
+            out += f"<{tag}>{inner}</{tag}>" if tag else inner
+            out += _safe(child.tail or "")
+        return out
+
+    return " ".join(walk(el).split())
+
+
+def _heading_of(table):
+    """The heading a table stands under on the page: the nearest heading, group head or fold summary before it."""
+    found = table.xpath("preceding::*[self::h2 or self::h3 or self::summary or contains(concat(' ', @class, ' '), "
+                        "' res-group-head ') or contains(concat(' ', @class, ' '), ' res-freq-head ')][1]")
+    return _text(found[0]) if found else ""
+
+
+def _note_of(table):
+    """The small print right after a table (in its scroll box or after it), as the note."""
+    parent = table.getparent()
+    box = parent if parent is not None and "res-scroll" in (parent.get("class") or "") else table
+    nxt = box.getnext()
+    if nxt is not None and nxt.tag == "p" and "small" in (nxt.get("class") or ""):
+        return _text(nxt)
+    return None
+
+
+def harvested(rep, root, skip=()):
+    """[flowables]: every table under root as an APA table (head, rows, note), in the page's order."""
+    out = []
+    for table in root.xpath(".//table"):
+        cls = table.get("class") or ""
+        if any(k in cls for k in skip):
+            continue
+        head = [_text(th) for th in table.xpath("./thead/tr[1]/th")]
+        rows = [[Markup(_inline(td)) for td in tr.xpath("./th|./td")] for tr in table.xpath("./tbody/tr|./tr")]
+        rows = [r for r in rows if any(str(c).strip() for c in r)]
+        if not rows:
+            continue
+        cols = max([len(head)] + [len(r) for r in rows])
+        head = (head + [""] * cols)[:cols]
+        rows = [(r + [""] * cols)[:cols] for r in rows]
+        # widths by the longest word and the length of each column, numbers flush right (a column of numbers)
+        plain = [[_text_of_markup(c) for c in r] for r in rows]
+        numeric = [bool(col) and sum(bool(NUMBER.match(x)) for x in col if x) >= max(1, len([x for x in col if x])) * 0.7
+                   for col in zip(*plain)]
+        need = []
+        for i in range(cols):
+            texts = [head[i]] + [r[i] for r in plain]
+            longest_word = max((len(w) for t in texts for w in t.split()), default=1)
+            need.append(max(longest_word, min(40, max((len(t) for t in texts), default=1))))
+        total = sum(need) or 1
+        widths = [n / total for n in need]
+        title = _heading_of(table) or rep.say("Ergebnisse", "Results")
+        if len(title) > 90 and ":" in title[:90]:  # a fold's summary with its explanation: the name before it
+            title = title.split(":", 1)[0]
+        elif len(title) > 140:
+            title = title[:138].rsplit(" ", 1)[0] + " …"
+        out += rep.table(title, head, rows, _note_of(table), widths=widths, numeric=numeric)
+    return out
+
+
+def _hypotheses(rep, root):
+    """The results per hypothesis of the page as one table: hypothesis, result in APA form, n, verdict."""
+    from reportlab.platypus import Paragraph
+
+    items = root.xpath("//section[@id='hypothesen']//li[contains(@class, 'hyp-result')]")
+    if not items:
+        return []
+    body = []
+    for i, li in enumerate(items, 1):
+        head = li.xpath(".//p[contains(@class, 'hyp-head')]")
+        verdict = li.xpath(".//span[contains(@class, 'hyp-verdict')]")
+        sentence = li.xpath(".//span[contains(@class, 'hyp-apa')]//code")
+        n = li.xpath(".//p[contains(@class, 'hyp-line')]/span[contains(@class, 'hint')]")
+        text = re.sub(r"^H\d+\s*", "", _text(head[0]) if head else "")
+        body.append([f"H{i}", Markup(_safe(text)), Markup(_inline(sentence[0])) if sentence else "–",
+                     (re.findall(r"\d[\d.,]*", _text(n[0])) or [""])[0] if n else "", _text(verdict[0]) if verdict else ""])
+    rules = root.xpath("//section[@id='hypothesen']/details/p[contains(@class, 'small')]")
+    out = [Paragraph(_safe(rep.say("Hypothesen", "Hypotheses")), rep.styles["h1"])]
+    out += rep.table(rep.say("Ergebnisse je Hypothese des Studienplans", "Results per hypothesis of the research plan"),
+                     ["", rep.say("Hypothese", "Hypothesis"), rep.say("Ergebnis", "Result"), "n", rep.say("Urteil", "Verdict")],
+                     body, _text(rules[-1]) if rules else None, widths=[0.06, 0.34, 0.34, 0.08, 0.18], numeric_from=99)
+    return out
+
+
+def _section(rep, root, sid, heading):
+    """A whole section of the page (the structural equation model, the panel models) with its tables."""
+    from reportlab.platypus import Paragraph
+
+    found = root.xpath(sid if sid.startswith("/") else f"//section[@id='{sid}']")
+    if not found:
+        return []
+    body = harvested(rep, found[0])
+    if not body:
+        # no tables yet (too few participations, still being estimated): what the page says instead
+        text = _text(found[0])
+        if not text:
+            return []
+        body = [Paragraph(_safe(text[:900]), rep.styles["muted"])]
+    return [Paragraph(_safe(heading), rep.styles["h1"])] + body
 
 
 # --- the parts ----------------------------------------------------------------------------------------------------
@@ -509,7 +678,11 @@ def _para(rep, text, style="body"):
     return Paragraph(_safe(text), rep.styles[style])
 
 
-def _item(rep, e, number):
+HANDLED = {"single_choice", "multiple_choice", "likert", "rating", "text_input", "number", "slider", "dropdown", "conjoint",
+           "federal_state", "semantic", "matrix", "date_time"}
+
+
+def _item(rep, e, number, root=None):
     """[flowables] of one question: heading, then its tables and figures."""
     from reportlab.platypus import Paragraph
 
@@ -543,6 +716,14 @@ def _item(rep, e, number):
                                        "{n} open answers; not printed in the report (data set and results page).", n=texts),
                           "muted"))
     body += _scales(rep, e, short)
+    section = root.xpath(f"//section[@id='res-{item.code}']") if root is not None else []
+    if section and e.get("cbc"):
+        # the segments (latent class) and the market simulator of the page, below the models
+        for part in section[0].xpath(".//section[contains(@class, 'lc-part')]|.//section[contains(@class, 'sim-section')]"):
+            body += harvested(rep, part)
+    elif section and (item.type not in HANDLED or not body):
+        # a rarer kind of question: the tables of its display on the page (MaxDiff, rankings, card sorting, maps, ...)
+        body += harvested(rep, section[0])
     if not body:
         body.append(_para(rep, rep.say("Für diese Art Frage enthält der Bericht keine Darstellung; die Auswertung steht "
                                        "auf der Ergebnisseite.", "The report has no display for this kind of question; "
@@ -575,8 +756,9 @@ def _greek_markup(html):
     return "".join(out)
 
 
-def build(survey, ui=None, data=None, pool=None, computed_at=None):
-    """The report as PDF bytes. ui: the language of the frame ("de"/"en"; None: the page's)."""
+def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
+    """The report as PDF bytes. ui: the language of the frame ("de"/"en"; None: the page's). page: also read the
+    results page for the hypotheses, models, segments, simulator and rarer displays (needs a request of a person)."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib.styles import ParagraphStyle
@@ -595,11 +777,19 @@ def build(survey, ui=None, data=None, pool=None, computed_at=None):
                        ParagraphStyle("toc2", parent=rep.styles["body"], leftIndent=12, spaceBefore=0)]
     story += [Spacer(1, 6 * mm), Paragraph(_safe(rep.say("Inhalt", "Contents")), rep.styles["front"]), toc, PageBreak()]
     story += _sample(rep, pool)
+    root = page_tree(survey) if page else None
+    if root is not None:
+        story += _section(rep, root, "//section[.//table[contains(@class, 'quota-results')]]", rep.say("Quoten", "Quotas"))
+        story += _hypotheses(rep, root)
     entries = [e for e in data.get("items") or []]
     if entries:
         story += [Paragraph(_safe(rep.say("Ergebnisse je Frage", "Results per question")), rep.styles["h1"])]
         for i, e in enumerate(entries, 1):
-            story += _item(rep, e, f"{i}.")
+            story += _item(rep, e, f"{i}.", root)
+    if root is not None:
+        story += _section(rep, root, "scales", rep.say("Skalen im Überblick", "Scales at a glance"))
+        story += _section(rep, root, "sem", rep.say("Strukturgleichungsmodell", "Structural equation model"))
+        story += _section(rep, root, "panel", rep.say("Modelle über die Wellen", "Models over the waves"))
     refs = _references(rep, data)
     if refs:
         story += [PageBreak()] + refs
