@@ -7283,3 +7283,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Pfadabbildung: „Messmodell zeigen“ zeichnet formative Aussagen mit Pfeil zum Konstrukt und Gewicht w; Werte unter der Schwelle rot; die Wahl bleibt im Browser.
 - PLS: Konstrukte höherer Ordnung zweistufig (disjoint two-stage; Becker et al., 2012; Sarstedt et al., 2019), reflektiv oder formativ, über den Subskalen eines Instruments oder frei aus bis zu drei Gruppen von Skalen; Hypothesen, die eine Teilskala nennen, meinen das Ganze. Methodenteil, Studienplantext und R-Skript (seminr `higher_composite`) ergänzt. PLSpredict und Redundanzanalyse entfallen für Konstrukte höherer Ordnung vorerst.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-26: SEM-Rechenweg, Modellversionen, höhere Ordnung vervollständigt
+
+- Rechenweg je Schätzung (Daten, Algorithmus mit Kurve der Gewichtsänderung, Schritte, Bootstrap, PLSpredict). PLSpredict und Redundanzanalyse jetzt auch für Konstrukte höherer Ordnung (zwei Stufen wie im Hauptmodell).
+- Modellversionen (Tabelle `sem_version`, Migration 0100, ohne Fremdschlüssel wie live_ink): jede Schätzung mit neuen Einstellungen ist eine Version mit eingefrorenen Kennzahlen; Hauptmodell aus der Präregistrierung, sonst die erste; explorative Versionen im Methodenteil und in Word benannt. Vergleich zweier Versionen (Pfade, R², CR/AVE, Redundanz, BIC mit BIC-Gewichten nach Sharma et al., 2019; bei CB AIC/BIC und Fit), Einstellungen übernehmen, umbenennen, löschen (nicht das Hauptmodell), mit aktuellen Daten neu rechnen, höchstens 30 je Befragung. Aussagen lassen sich mit Pflichtgrund „in neuer Version weglassen“ und wieder aufnehmen.
+- Rechtstexte geprüft, keine Änderung nötig (nur Einstellungen und aggregierte Kennzahlen, keine personenbezogenen Daten).

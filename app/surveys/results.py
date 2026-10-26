@@ -244,6 +244,11 @@ def results(survey_id):
                 from app import study_plan as plan_mod
 
                 sem_boot = sem_model.boot_state(survey, sem_result)
+                # the estimate shown is a version of the model (model versions 2026-10-26); not the weighted page
+                if not f.get("weighted") and not sem_result.get("error"):
+                    from app import sem_versions
+
+                    sem_versions.record(survey, sem_result, (sem_boot or {}).get("result"))
                 if hyps:  # the sentences in the language of the page like the other hypotheses
                     sem_model.apply(hyps, sem_result, plan_mod.plan_of(survey)["hypotheses"],
                                     (sem_boot or {}).get("result"), lang=hyp_lang)
@@ -488,6 +493,68 @@ def results_sem_fit_status(survey_id):
     response = jsonify(state=state["state"], progress=state.get("progress") or 0.0, queued=bool(state.get("queued")))
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@bp.route("/<sid:survey_id>/results/sem-version", methods=["POST"])
+@login_required
+def results_sem_version(survey_id):
+    """A version of the structural equation model (app/sem_versions.py): "name" (rename), "delete", "adopt" (take
+    its settings into the plan), "refresh" (a new version of the current settings with the current data), "drop" /
+    "undrop" a statement with its reason. "Bearbeiten" and "Admin" only."""
+    from app import sem_versions
+    from app.models import SemVersion
+
+    survey = get_survey(survey_id, need="editor")
+    action = request.form.get("action", "")
+    back = url_for("surveys.results", survey_id=survey.id) + "#sem-versions"
+    version = None
+    if request.form.get("version", "").isdigit():
+        version = db.session.get(SemVersion, int(request.form["version"]))
+        if version is None or version.survey_id != survey.id:
+            abort(404)
+    if action == "name" and version:
+        version.name = " ".join(request.form.get("name", "").split())[:80]
+        flash(de_en("Version umbenannt.", "Version renamed."), "success")
+    elif action == "delete" and version:
+        if sem_versions.main_of(survey) and sem_versions.main_of(survey).id == version.id:
+            flash(de_en("Das Hauptmodell bleibt.", "The main model stays."), "error")
+            return redirect(back)
+        db.session.delete(version)
+        flash(de_en("Version gelöscht.", "Version deleted."), "success")
+    elif action == "adopt" and version:
+        sem_versions.adopt(survey, version)
+        flash(de_en("Die Einstellungen von Version {k} gelten jetzt im Studienplan.",
+                    "The settings of version {k} now apply in the research plan.", k=version.number), "success")
+    elif action == "refresh":
+        result, _ = _sem_of_page(survey)
+        if sem_versions.record(survey, result, None, force=True) is None:
+            flash(de_en("Für eine neue Version fehlt ein geschätztes Modell.", "A new version needs an estimated model."), "error")
+            return redirect(back)
+        flash(de_en("Neue Version mit den aktuellen Daten angelegt.", "New version with the current data made."), "success")
+    elif action in ("drop", "undrop"):
+        from app import study_plan
+
+        code = request.form.get("code", "")[:64]
+        reason = " ".join(request.form.get("reason", "").split())[:200]
+        plan = dict(survey.study_plan or {})
+        opts = study_plan.sem_options(plan.get("sem"))
+        if action == "drop":
+            if not code or not reason:
+                flash(de_en("Bitte einen Grund angeben, warum die Aussage wegfällt.",
+                            "Please give a reason why the statement is left out."), "error")
+                return redirect(back.replace("#sem-versions", "#sem-measure"))
+            opts["dropped"][code] = reason
+            flash(de_en("{c} fällt im Modell weg; die nächste Schätzung ist eine neue, explorative Version.",
+                        "{c} is left out of the model; the next estimate is a new, exploratory version.", c=code), "success")
+        else:
+            opts["dropped"].pop(code, None)
+            flash(de_en("{c} ist wieder im Modell.", "{c} is in the model again.", c=code), "success")
+        plan["sem"] = opts
+        survey.study_plan = plan
+    else:
+        abort(400)
+    db.session.commit()
+    return redirect(back)
 
 
 @bp.route("/<sid:survey_id>/results/sem-bootstrap", methods=["POST"])

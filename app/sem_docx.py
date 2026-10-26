@@ -29,6 +29,7 @@ TEXT = {
                       "(Fornell & Larcker, 1981); HTMT = größtes Heterotrait-Monotrait-Verhältnis mit einem anderen "
                       "Konstrukt, ursprüngliche Form, nicht HTMT+ (Henseler et al., 2015)."),
            "formative": "Formative Konstrukte", "mode_b": " Formative Konstrukte in Modus B.",
+           "exploratory": " Explorativ: Version {k} weicht vom vorab festgelegten Hauptmodell (Version {m}) ab ({c}).",
            "f_body": ("VIF = Varianzinflationsfaktor (ab 3 mögliche, ab 5 kritische Überschneidung; Hair et al., 2019); "
                       "Gewicht und Ladung mit 95-%-Perzentil-Bootstrap-Intervall und p ({d} Ziehungen). Ein Gewicht ohne "
                       "Signifikanz bleibt bei einer Ladung ab ,50 (Cenfetelli & Bassellier, 2009; Hair et al., 2022)."),
@@ -51,6 +52,7 @@ TEXT = {
                       "Larcker, 1981); HTMT = largest heterotrait-monotrait ratio with another construct, original form, "
                       "not HTMT+ (Henseler et al., 2015)."),
            "formative": "Formative Constructs", "mode_b": " Formative constructs in mode B.",
+           "exploratory": " Exploratory: version {k} differs from the main model set in advance (version {m}) ({c}).",
            "f_body": ("VIF = variance inflation factor (possible overlap from 3, critical from 5; Hair et al., 2019); "
                       "weight and loading with their 95% percentile bootstrap interval and p ({d} resamples). A weight "
                       "without significance stays when its loading is .50 or more (Cenfetelli & Bassellier, 2009; Hair "
@@ -161,6 +163,12 @@ def build(survey, result, boot=None, lang="de"):
             body += t["mode_b"]
         if not cb and not boot:
             body += t["noboot"]
+        from app import sem_versions
+
+        versions = sem_versions.page(survey) if not result.get("weighted") else None  # model versions 2026-10-26
+        if versions and versions["exploratory"]:
+            body += t["exploratory"].format(k=versions["current"].number, m=versions["main"].number, c="; ".join(
+                sem_versions.changes(versions["main"].settings, versions["current"].settings)))
         sentence = sem_model.fit_sentence(fit, lang) if cb else ""
         if sentence:
             body += t["fit"].format(fit=sentence)

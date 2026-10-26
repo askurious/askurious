@@ -106,6 +106,9 @@ TEXT = {
         "sem_higher": "Konstrukte höherer Ordnung ({c}) wurden zweistufig geschätzt (disjoint two-stage): Stufe 1 lieferte "
                       "die Werte der Konstrukte unterer Ordnung, Stufe 2 nahm sie als Indikatoren (Becker et al., 2012; "
                       "Sarstedt et al., 2019).",
+        "sem_exploratory": "Das berichtete Modell (Version {k}) weicht vom vorab festgelegten Hauptmodell (Version {m}) ab "
+                           "und ist explorativ ({c}); die Abweichung entstand nach Sichtung der Daten (MacCallum et "
+                           "al., 1992; Simmons et al., 2011).",
         "sem_redundancy": "Die Konvergenzvalidität wurde mit einer Redundanzanalyse geprüft: Das formative Konstrukt "
                           "sagte ein Globalmaß desselben Konstrukts vorher ({c}), ausreichend ab einem Pfad von ,70 "
                           "(Chin, 1998; Cheah et al., 2018).",
@@ -203,6 +206,9 @@ TEXT = {
         "sem_higher": "Higher-order constructs ({c}) were estimated in two stages (disjoint two-stage): stage 1 gave the "
                       "scores of the lower-order constructs, stage 2 took them as indicators (Becker et al., 2012; "
                       "Sarstedt et al., 2019).",
+        "sem_exploratory": "The reported model (version {k}) differs from the main model set in advance (version {m}) and "
+                           "is exploratory ({c}); the difference arose after seeing the data (MacCallum et al., 1992; "
+                           "Simmons et al., 2011).",
         "sem_redundancy": "Convergent validity was checked with a redundancy analysis: the formative construct "
                           "predicted a global measure of the same construct ({c}), sufficient from a path of .70 "
                           "(Chin, 1998; Cheah et al., 2018).",
@@ -391,6 +397,12 @@ def sections(survey, data, table, summary, lang="de", n=None, facts=None, sem=No
                 group = (("die Sprache der Befragung" if lang == "de" else "the language of the survey")
                          if opts["invariance"] == study_plan.LANG_GROUPS else opts["invariance"])
                 analysis.append(t["sem_invariance"].format(g=group))
+            from app import sem_versions
+
+            versions = sem_versions.page(survey)  # an exploratory version is named as one (model versions 2026-10-26)
+            if versions and versions["exploratory"]:
+                analysis.append(t["sem_exploratory"].format(k=versions["current"].number, m=versions["main"].number, c="; ".join(
+                    sem_versions.changes(versions["main"].settings, versions["current"].settings))))
             if sem_model.method_of(survey) == "pls":
                 analysis.append(t["sem_pls_more"])
                 if opts["second"] or opts["hoc"]:  # higher-order constructs (2026-10-26)

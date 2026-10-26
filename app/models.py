@@ -1961,6 +1961,26 @@ class Board(db.Model):
         back_populates="board", cascade="all, delete-orphan", order_by="BoardShare.id")
 
 
+class SemVersion(db.Model):
+    """A version of the structural equation model of a survey (app/sem_versions.py, model versions 2026-10-26): the
+    settings of the model ("settings": method, the model settings of the plan, the hypotheses of the model) with
+    their key, and the figures as they were when the version was made ("figures": N, paths, R², measurement,
+    redundancy, BIC or fit, PLSpredict; no answers, no participation). number counts per survey; name is optional.
+    No foreign key, like live_ink: the rows go in
+    code with the survey (lifecycle.delete)."""
+
+    __tablename__ = "sem_version"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    survey_id: Mapped[int] = mapped_column(index=True)
+    number: Mapped[int] = mapped_column(default=1)
+    name: Mapped[str] = mapped_column(String(80), default="")
+    key: Mapped[str] = mapped_column(String(32), default="")
+    settings: Mapped[dict | None] = mapped_column(JSON)
+    figures: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class LiveReaction(db.Model):
     """An emoji sent from a phone to the screen of a live vote (app/live/, concept package G). Kept for a short
     while only: the screen shows the new ones, and older rows go when the next one comes."""

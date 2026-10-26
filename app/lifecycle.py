@@ -494,7 +494,7 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
                             InterviewerAccess,
                             LiveFeedback, LiveInk,
                             LiveQuestion, LiveReaction, MemberInvite, OnceValue, PreviewComment, ResearchProject,
-                            SplitSession, SurveyHide, SurveyLabel)
+                            SemVersion, SplitSession, SurveyHide, SurveyLabel)
 
     if not force and not deletable(survey):
         raise LifecycleError(de_en("Nur Entwürfe ohne echte Teilnahmen lassen sich löschen. Andere Befragungen können "
@@ -514,7 +514,7 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
 
     for model in (ResponsePoolRevision, ResponseRevision, BrowserReceipt, ContactEntry, SplitSession, PreviewComment, EditMark, EditStep, LiveFeedback, LiveInk,
                   LiveQuestion, LiveReaction,
-                  OnceValue, MemberInvite, DataToken, SurveyHide, InterviewerAccess):  # not everywhere removed by the database itself
+                  OnceValue, MemberInvite, DataToken, SurveyHide, InterviewerAccess, SemVersion):  # not everywhere removed by the database itself
         db.session.execute(db.delete(model).where(model.survey_id == survey.id))
     from app import paper
 

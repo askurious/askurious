@@ -736,6 +736,9 @@ def create_app(config_class=Config, server=False):
     from app import sem_model
 
     app.jinja_env.globals["sem_model"] = sem_model  # structural equation models (experimental): results page
+    from app import sem_versions
+
+    app.jinja_env.globals["sem_versions"] = sem_versions  # versions of the model (model versions 2026-10-26)
     from app import panel_models
 
     app.jinja_env.globals["panel_models"] = panel_models  # models over the waves: power of the hypotheses over time

@@ -347,6 +347,11 @@ def build(survey, every=False):
         observed = [o for o in observed if o in used or o in grouped
                     or any(o == g["w"] or o in g["w_nodes"] for g in groups.values())]
         nodes = {k: v for k, v in nodes.items() if k in latent or k in observed or k in higher}
+    # statements left out with a reason (model versions 2026-10-26, E8); a construct keeps at least two
+    for lv, items in latent.items():
+        kept = [i for i in items if i not in opts["dropped"]]
+        if len(kept) >= 2 and len(kept) < len(items):
+            latent[lv] = kept
     spec = {"latent": latent, "observed": observed, "paths": paths, "indirect": list(dict.fromkeys(indirect))}
     if higher and mode == "structural":
         spec["higher"] = higher

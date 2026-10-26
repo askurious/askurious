@@ -372,7 +372,8 @@ def sem_options(raw):
     categories with WLSMV (point 3, otherwise as numbers with ML); "second" [variable names] are instruments with
     subscales that enter as one factor of the second order over their subscales (point 8); "alternative" ["h:<id>"
     (the paths of a hypothesis), "d:<id>" (the direct effect of a mediation)] what a competing model planned in advance
-    leaves out (point 11); "global" {variable name of a formative scale: variable name} the global measure of its
+    leaves out (point 11); "dropped" {column: reason} statements left out of the model (model versions 2026-10-26);
+    "global" {variable name of a formative scale: variable name} the global measure of its
     redundancy analysis (formative check 2026-10-26, E1); "hoc" [{"id", "name", "parts": [scale codes]}] constructs of a
     higher order over several scales (PLS, higher-order constructs 2026-10-26, E6) and "higher_formative" [keys of
     constructs of a higher order: instrument codes of "second" or hoc ids] those formed by their parts (E7). Anything
@@ -395,6 +396,10 @@ def sem_options(raw):
             hoc.append({"id": f"hoc{len(hoc) + 1}", "name": name.strip(), "parts": parts})
     higher_formative = list(dict.fromkeys(_text(c, 64) for c in raw.get("higher_formative") or []
                                           if isinstance(c, str) and c.strip()))[:MAX_HYPOTHESES * 3]
+    # statements left out of the model, each with its reason (model versions 2026-10-26, E8): {column: reason}
+    found = raw.get("dropped") if isinstance(raw.get("dropped"), dict) else {}
+    dropped = {_text(c, 64): _text(r, 200) for c, r in list(found.items())[:50]
+               if isinstance(c, str) and isinstance(r, str) and c.strip() and r.strip()}
     # the global measure of a formative scale or of a formative construct of a higher order (redundancy analysis)
     found = raw.get("global") if isinstance(raw.get("global"), dict) else {}
     glob = {_text(c, 64): _text(g, 64) for c, g in list(found.items())[:MAX_HYPOTHESES * 3]
@@ -408,7 +413,7 @@ def sem_options(raw):
                                               if isinstance(c, str) and re.fullmatch(r"[hd]:[\w-]{1,32}", c)))[:MAX_HYPOTHESES * 2],
             "second": list(dict.fromkeys(_text(c, 64) for c in raw.get("second") or [] if isinstance(c, str) and c.strip()))[:MAX_HYPOTHESES * 3],
             "ordinal": "ordinal" if raw.get("ordinal") == "ordinal" else "",
-            "hoc": hoc, "higher_formative": higher_formative}
+            "hoc": hoc, "higher_formative": higher_formative, "dropped": dropped}
 MAX_HOC = 3  # constructs of a higher order over several scales in one plan
 
 
