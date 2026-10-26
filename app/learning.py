@@ -433,6 +433,13 @@ REASONS = {
         "Aussage kommen statt vom Konstrukt. Metrisch erlaubt den Vergleich von Zusammenhängen, skalar den von "
         "Mittelwerten.",
         (("app.sem_means", "VANDENBERG"), ("app.sem_means", "CHEN"))),
+    "sem_higher": (
+        "Wann ein Konstrukt höherer Ordnung?",
+        "Wenn die Theorie ein Ganzes aus mehreren Teilen kennt und die Hypothesen über das Ganze sprechen. Es macht das "
+        "Modell sparsamer und vermeidet Kollinearität zwischen eng verwandten Teilen. Die Teile werden in Schritt 1 wie "
+        "jedes Konstrukt geprüft, das Ganze in Schritt 2 über die Werte der Teile: reflektiv mit Ladungen, CR und AVE, "
+        "formativ mit VIF und Gewichten.",
+        (("app.sem", "SARSTEDT_2019"), ("app.sem", "BECKER_2012"))),
     "sem_formative": (
         "Reflektiv oder formativ?",
         "Reflektiv, wenn das Konstrukt die Antworten verursacht: Die Aussagen sind austauschbar und hängen eng zusammen "
@@ -768,6 +775,12 @@ TERMS = {
                      "Subskala. Passt, wenn das Manual einen Gesamtwert vorsieht.",
                      "Die Big-Five-Subskalen bleiben getrennt; die drei Facetten von Technikbereitschaft bilden einen "
                      "Faktor zweiter Ordnung.", (("app.sem", "KLINE"),)),
+    "higher_order": ("HOC", "Konstrukt höherer Ordnung", "Ein Konstrukt über mehreren Konstrukten unterer Ordnung (den "
+                     "Subskalen eines Instruments oder mehreren Skalen). Bei PLS zweistufig geschätzt: Stufe 1 liefert die "
+                     "Werte der Teile, Stufe 2 nimmt sie als Indikatoren. Reflektiv, wenn das Ganze die Teile prägt; "
+                     "formativ, wenn die Teile das Ganze bilden.",
+                     "Bedienen, Informieren und Kommunizieren bilden zusammen „Digitale Kompetenz“ (formativ).",
+                     (("app.sem", "SARSTEDT_2019"), ("app.sem", "BECKER_2012"))),
     "model_compare": ("ΔAIC", "Modellvergleich", "Zwei vorab festgelegte Modelle, das eine eine Einschränkung des anderen "
                       "(z. B. ohne direkten Effekt): Der Differenztest zeigt, ob das Weggelassene fehlt; AIC und BIC "
                       "wägen Fit gegen Sparsamkeit ab, kleiner ist besser.",
@@ -882,7 +895,7 @@ SECTIONS = (
       "hb", "mnl", "holdout")),
     ("Segmente", "", ("bic", "entropy", "membership", "odds_ratio")),
     ("Strukturgleichungsmodelle", "", ("beta", "indirect", "interaction", "jn", "control", "single_item",
-                                       "second_order", "formative", "redundancy")),
+                                       "second_order", "higher_order", "formative", "redundancy")),
     ("SEM: Schätzung und Passung", "", ("fiml", "wlsmv", "weighted_sem", "model_compare", "cfi", "rmsea", "srmr",
                                         "robust_fit", "residual_cor", "ave", "htmt")),
     ("PLS", "", ("f2", "vif", "plspredict", "construct_score")),
@@ -1169,6 +1182,12 @@ REASONS_EN = {
         "in all of them. If it does not, a difference of the means can come from the translation or from how a "
         "statement is understood instead of from the construct. Metric allows comparing relations, scalar comparing "
         "means."),
+    "sem_higher": (
+        "When a higher-order construct?",
+        "When the theory knows a whole of several parts and the hypotheses speak about the whole. It makes the model "
+        "more parsimonious and avoids collinearity between closely related parts. The parts are checked in step 1 like "
+        "any construct, the whole in step 2 through the scores of the parts: reflective with loadings, CR and AVE, "
+        "formative with VIF and weights."),
     "sem_formative": (
         "Reflective or formative?",
         "Reflective when the construct causes the answers: the statements are interchangeable and closely related (almost "
@@ -1441,6 +1460,11 @@ TERMS_EN = {
                      "Fits when the manual provides a total score.",
                      "The Big Five subscales stay apart; the three facets of readiness for technology form a second-order "
                      "factor."),
+    "higher_order": ("HOC", "Higher-order construct", "A construct over several lower-order constructs (the subscales "
+                     "of an instrument or several scales). With PLS estimated in two stages: stage 1 gives the scores of "
+                     "the parts, stage 2 takes them as indicators. Reflective when the whole shapes the parts; formative "
+                     "when the parts form the whole.",
+                     "Operating, informing and communicating together form “digital competence” (formative)."),
     "model_compare": ("ΔAIC", "Model comparison", "Two models set in advance, one a restriction of the other (e.g. "
                       "without the direct effect): the difference test shows whether what was left out is missing; AIC "
                       "and BIC weigh fit against parsimony, smaller is better.",
@@ -1597,6 +1621,7 @@ REASON_PLACES = {
     "clpm_or_riclpm": ("Studienplan, Wellen, Längsschnitt auf der Ergebnisseite", "research plan, waves, longitudinal analysis on the results page"),
     "centring": ("Studienplan, Mehrebenenmodell der Tagebuchstudie", "research plan, multilevel model of the diary survey"),
     "sem_formative": ("Studienplan, Strukturgleichungsmodell, formative Konstrukte (PLS)", "research plan, structural equation model, formative constructs (PLS)"),
+    "sem_higher": ("Studienplan, Strukturgleichungsmodell, Konstrukte höherer Ordnung (PLS)", "research plan, structural equation model, higher-order constructs (PLS)"),
     "org_design": ("Verwaltung, Design; Erscheinungsbild", "management, design; appearance"),
     "seal": ("Einstellungen, Siegelkette", "settings, seal chain"),
     "archive_where": ("Export, In Coscine ablegen", "export, store in Coscine"),

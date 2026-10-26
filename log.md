@@ -7276,3 +7276,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Bootstrap „Endfassung: 10.000 Ziehungen“ neben den 2.000 zum Ansehen; Word-Tabellen nennen die tatsächliche Zahl. Ein Bootstrap von vor dieser Änderung zählt bei formativen Modellen als keiner (ihm fehlen Ladungen und Redundanzpfade).
 - Methodenteil, Word (Tabelle „Formative Konstrukte“), R-Skript (Redundanzmodelle mit seminr) und Glossar („Redundanzanalyse“) ergänzt.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-26: SEM in zwei Schritten, äußeres Modell, Konstrukte höherer Ordnung (PLS)
+
+- Ergebnisse: „Schritt 1 · Messmodell“ vor „Schritt 2 · Strukturmodell“, je mit einer Zeile von Prüfungen (✓/⚠, nur Zählungen). Messmodell mit Cronbachs α und bei PLS ρ_A (Dijkstra & Henseler, 2015); λ unter 0,70 und α/CR über 0,95 markiert. Gesamteffekte mit Bootstrap-KI, R² mit Worten (Hair et al., 2011), t als Tooltip und in Word. Blindfolding-Q² bewusst nicht, PLSpredict ersetzt es.
+- Pfadabbildung: „Messmodell zeigen“ zeichnet formative Aussagen mit Pfeil zum Konstrukt und Gewicht w; Werte unter der Schwelle rot; die Wahl bleibt im Browser.
+- PLS: Konstrukte höherer Ordnung zweistufig (disjoint two-stage; Becker et al., 2012; Sarstedt et al., 2019), reflektiv oder formativ, über den Subskalen eines Instruments oder frei aus bis zu drei Gruppen von Skalen; Hypothesen, die eine Teilskala nennen, meinen das Ganze. Methodenteil, Studienplantext und R-Skript (seminr `higher_composite`) ergänzt. PLSpredict und Redundanzanalyse entfallen für Konstrukte höherer Ordnung vorerst.
+- Rechtstexte geprüft, keine Änderung nötig.

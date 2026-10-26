@@ -174,6 +174,8 @@
     </table></div>
     {% endif %}
     {% if rmissing %}<p class="small">{{ icon("info", 16) }} {{ de_en("Ohne Globalmaß, daher keine Redundanzanalyse: {c}. Ein Globalmaß wählen Sie im Studienplan unter „Weitere Einstellungen des Modells“; dafür braucht der Fragebogen eine Frage, die das Konstrukt im Ganzen misst.", "Without a global measure, hence no redundancy analysis: {c}. You choose a global measure in the research plan under “Further settings of the model”; the questionnaire needs a question that measures the construct as a whole.", c=rmissing|join(", ")) }}</p>{% endif %}
+    {% set hform = sem_model.higher_formative_labels(sem) %}
+    {% if hform %}<p class="small">{{ icon("info", 16) }} {{ de_en("Für Konstrukte höherer Ordnung ({c}) gibt es noch keine Redundanzanalyse; ihre Teile sind die Konstruktwerte aus Stufe 1.", "Higher-order constructs ({c}) have no redundancy analysis yet; their parts are the construct scores of stage 1.", c=hform|join(", ")) }}</p>{% endif %}
     <h5 class="sem-sub">{{ de_en("2 Kollinearität, 3 Gewichte und Ladungen", "2 Collinearity, 3 weights and loadings") }}</h5>
     <div class="res-scroll"><table class="res-table">
       <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("vif", "VIF") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>

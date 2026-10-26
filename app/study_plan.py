@@ -373,7 +373,10 @@ def sem_options(raw):
     subscales that enter as one factor of the second order over their subscales (point 8); "alternative" ["h:<id>"
     (the paths of a hypothesis), "d:<id>" (the direct effect of a mediation)] what a competing model planned in advance
     leaves out (point 11); "global" {variable name of a formative scale: variable name} the global measure of its
-    redundancy analysis (formative check 2026-10-26, E1). Anything else read as empty."""
+    redundancy analysis (formative check 2026-10-26, E1); "hoc" [{"id", "name", "parts": [scale codes]}] constructs of a
+    higher order over several scales (PLS, higher-order constructs 2026-10-26, E6) and "higher_formative" [keys of
+    constructs of a higher order: instrument codes of "second" or hoc ids] those formed by their parts (E7). Anything
+    else read as empty."""
     raw = raw if isinstance(raw, dict) else {}
     controls = [_text(c, 64) for c in raw.get("controls") or [] if isinstance(c, str) and c.strip()]
     single = {}
@@ -387,6 +390,14 @@ def sem_options(raw):
     glob = {_text(c, 64): _text(g, 64) for c, g in list(found.items())[:MAX_HYPOTHESES * 3]
             if isinstance(c, str) and isinstance(g, str) and c.strip() and g.strip() and c in formative and c != g}
     invariance = raw.get("invariance") if isinstance(raw.get("invariance"), str) else ""
+    hoc = []
+    for k, g in enumerate([g for g in raw.get("hoc") or [] if isinstance(g, dict)][:MAX_HOC], 1):
+        parts = list(dict.fromkeys(_text(c, 64) for c in g.get("parts") or [] if isinstance(c, str) and c.strip()))
+        name = _text(g.get("name"), 80) if isinstance(g.get("name"), str) else ""
+        if len(parts) >= 2 and name.strip() and not any(c in p["parts"] for p in hoc for c in parts):
+            hoc.append({"id": f"hoc{len(hoc) + 1}", "name": name.strip(), "parts": parts})
+    higher_formative = list(dict.fromkeys(_text(c, 64) for c in raw.get("higher_formative") or []
+                                          if isinstance(c, str) and c.strip()))[:MAX_HYPOTHESES * 3]
     return {"controls": list(dict.fromkeys(controls))[:MAX_CONTROLS], "single": single,
             "formative": list(dict.fromkeys(formative))[:MAX_HYPOTHESES * 3], "global": glob,
             "invariance": _text(invariance, 64),
@@ -394,7 +405,11 @@ def sem_options(raw):
             "alternative": list(dict.fromkeys(_text(c, 40) for c in raw.get("alternative") or []
                                               if isinstance(c, str) and re.fullmatch(r"[hd]:[\w-]{1,32}", c)))[:MAX_HYPOTHESES * 2],
             "second": list(dict.fromkeys(_text(c, 64) for c in raw.get("second") or [] if isinstance(c, str) and c.strip()))[:MAX_HYPOTHESES * 3],
-            "ordinal": "ordinal" if raw.get("ordinal") == "ordinal" else ""}
+            "ordinal": "ordinal" if raw.get("ordinal") == "ordinal" else "",
+            "hoc": hoc, "higher_formative": higher_formative}
+MAX_HOC = 3  # constructs of a higher order over several scales in one plan
+
+
 def _formative_of(form, codes):
     """The formative scales of the plan form: the switch reflective/formative of each scale ("sem_mode_<code>",
     formative check 2026-10-26, E6) or, from an older form, the ticks "sem_formative"."""
@@ -1137,6 +1152,11 @@ def rename_codes(survey, names):
             opts["global"], changed = {names.get(c, c): names.get(g, g) for c, g in opts["global"].items()}, True
         if any(c in names for c in opts.get("second") or []):
             opts["second"], changed = [names.get(c, c) for c in opts["second"]], True
+        if any(c in names for c in opts.get("higher_formative") or []):
+            opts["higher_formative"], changed = [names.get(c, c) for c in opts["higher_formative"]], True
+        for g in opts.get("hoc") or []:  # the parts of a construct of a higher order
+            if isinstance(g, dict) and any(c in names for c in g.get("parts") or []):
+                g["parts"], changed = [names.get(c, c) for c in g["parts"]], True
         if opts.get("invariance") in names:
             opts["invariance"], changed = names[opts["invariance"]], True
     places = (plan.get("layout") or {}).get("nodes")
@@ -1283,6 +1303,11 @@ def from_form(survey, form):
                                   or form.get("sem_invariance") == LANG_GROUPS else "",
                                   "missing": form.get("sem_missing"), "ordinal": form.get("sem_ordinal"),
                                   "second": [c for c in form.getlist("sem_second") if c in codes],
+                                  "hoc": [{"name": form.get(f"hoc_name_{k}") or "",
+                                           "parts": [c for c in form.getlist(f"hoc_part_{k}") if c in codes]}
+                                          for k in range(1, MAX_HOC + 1)],
+                                  "higher_formative": [k[len("sem_hmode_"):] for k in form if k.startswith("sem_hmode_")
+                                                       and form.get(k) == "formative"],
                                   "alternative": form.getlist("sem_alternative")})
     # the multilevel model of a diary study; a form without the fields keeps what was chosen
     out["diary"] = plan_of(survey)["diary"]
@@ -1486,6 +1511,13 @@ def markdown(survey, lang=None):
                 if opts["global"]:
                     lines.append(t("- Redundanzanalyse mit Globalmaß: {c}", "- Redundancy analysis with a global measure: {c}")
                                  .format(c=", ".join(f"{c} → {g}" for c, g in opts["global"].items())))
+            if plan["sem_method"] == "pls" and (opts["second"] or opts["hoc"]):
+                kinds = {k: t("formativ", "formative") if k in opts["higher_formative"] else t("reflektiv", "reflective")
+                         for k in opts["second"] + [g["id"] for g in opts["hoc"]]}
+                shown = [f"{c} ({kinds[c]})" for c in opts["second"]] + \
+                        [f"{g['name']} = {' + '.join(g['parts'])} ({kinds[g['id']]})" for g in opts["hoc"]]
+                lines.append(t("- Konstrukte höherer Ordnung (PLS, disjoint two-stage): {c}",
+                               "- Higher-order constructs (PLS, disjoint two-stage): {c}").format(c="; ".join(shown)))
         if plan.get("holm") and len(tested(survey)) >= 2:
             lines.append(t("- Korrektur für mehrere Hypothesen: Holm (1979); jede Hypothese mit α = {a} geplant",
                            "- Correction for several hypotheses: Holm (1979); every hypothesis planned with α = {a}")
