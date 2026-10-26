@@ -342,4 +342,12 @@ document.addEventListener("click", function (e) {
   svg.setAttribute("viewBox", view.join(" "));
   button.setAttribute("aria-pressed", on ? "true" : "false");
   button.textContent = on ? button.getAttribute("data-off") : button.getAttribute("data-on");
+  // the choice stays for the next visit, in this browser only (two-step check 2026-10-26, E3)
+  try { localStorage.setItem("semMeasure", on ? "1" : "0"); } catch (err) { /* private window: not kept */ }
+});
+document.addEventListener("DOMContentLoaded", function () {
+  var keep = null;
+  try { keep = localStorage.getItem("semMeasure"); } catch (err) { /* private window */ }
+  if (keep !== "1") return;
+  document.querySelectorAll("[data-sem-measure]").forEach(function (button) { button.click(); });
 });

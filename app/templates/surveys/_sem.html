@@ -206,7 +206,7 @@
   {# the measurement model in the picture, on request (sem_drag.js; Ralf, 2026-10-17) #}
   {% if d.nodes|selectattr("indicators")|list %}<p class="sem-measure-row"><button type="button" class="button button-secondary button-small" data-sem-measure aria-controls="sem-diagram" aria-pressed="false"
     data-on="{{ de_en('Messmodell zeigen', 'Show measurement model') }}" data-off="{{ de_en('Messmodell ausblenden', 'Hide measurement model') }}">{{ de_en("Messmodell zeigen", "Show measurement model") }}</button>
-    <span class="hint">{{ de_en("die Aussagen jedes Konstrukts mit ihrer standardisierten Ladung", "the statements of each construct with their standardised loading") }}</span></p>{% endif %}
+    <span class="hint">{{ de_en("die Aussagen jedes Konstrukts: reflektiv mit Pfeil zur Aussage und Ladung λ, formativ mit Pfeil zum Konstrukt und Gewicht w; rot unter der Schwelle (λ unter 0,70, formativ „nur mit inhaltlichem Grund“ oder „Weglassen prüfen“)", "the statements of each construct: reflective with the arrow to the statement and loading λ, formative with the arrow to the construct and weight w; red below the threshold (λ below 0.70, formative “keep only for a reason of content” or “consider leaving out”)") }}</span></p>{% endif %}
   <div id="sem-diagram" class="res-scroll sem-diagram{% if movable %} is-movable{% endif %}"{% if movable %} data-sem-drag data-url="{{ url_for('surveys.results_sem_layout', survey_id=survey.id) }}"{% endif %}>
   {% if movable %}<script type="application/json" data-sem-drag-data>{{ sem_model.drag_data(d)|tojson }}</script>{% endif %}
   <svg viewBox="0 {{ (d.top or 0)|round|int }} {{ d.width|round|int }} {{ d.height|round|int }}" width="{{ d.width|round|int }}" role="{{ 'group' if movable else 'img' }}" aria-label="{{ de_en('Pfaddiagramm', 'Path diagram') }}">
@@ -224,8 +224,8 @@
       {% for row in n.lines %}<text x="{{ n.x + n.w / 2 }}" y="{{ n.y + n.h / 2 + top + 16 * loop.index0 }}" text-anchor="middle" class="sem-node-label">{{ row }}</text>{% endfor %}
       <text x="{{ n.x + n.w / 2 }}" y="{{ n.y + n.h / 2 + top + 16 * n.lines|length + 1 }}" text-anchor="middle" class="sem-node-sub">{{ n.sub }}</text>
       {% if n.indicators %}<g class="sem-indicators" aria-hidden="true">{% for i in n.indicators %}
-        <path d="{{ i.d }}" class="sem-indicator-line" marker-end="url(#sem-arrow)"/>
-        <g class="sem-indicator"><title>{{ i.title }}{% if i.value is not none %} · λ = {{ num(i.value) }}{% endif %}</title>
+        <path d="{{ i.d }}" class="sem-indicator-line{% if i.warn %} is-warn{% endif %}" marker-end="url(#sem-arrow)"/>
+        <g class="sem-indicator{% if i.warn %} is-warn{% endif %}{% if i.formative %} is-formative{% endif %}"><title>{{ i.title }}{% if i.value is not none %} · {{ i.sym }} = {{ num(i.value) }}{% endif %}</title>
           <rect x="{{ i.x|round(1) }}" y="{{ i.y|round(1) }}" width="{{ i.w }}" height="{{ i.h }}" rx="3"/>
           <text x="{{ (i.x + i.w / 2)|round(1) }}" y="{{ (i.y + i.h / 2 + 4)|round(1) }}" text-anchor="middle">{{ num(i.value) if i.value is not none else "–" }}</text></g>{% endfor %}
       </g>{% endif %}
