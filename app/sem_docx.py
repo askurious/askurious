@@ -143,13 +143,17 @@ def build(survey, result, boot=None, lang="de"):
         values = [f"{label(a)} → {label(b)} ({tag})"]
         if cb:
             values += [fmt(row.get("est"), lang), fmt(row.get("se"), lang)]
-        values += [fmt(row["std"], lang), fmt_ci(row.get("ci"), lang, bounded=False) or "–", _p(row.get("p"), lang)]
+        values += [fmt(row["std"], lang), fmt_ci(row.get("ci"), lang, bounded=False) or "–"]
+        if not cb:  # t from the bootstrap error beside p (two-step check 2026-10-26, E10)
+            values.append(fmt(row.get("t"), lang) if row.get("t") is not None else "–")
+        values.append(_p(row.get("p"), lang))
         if not cb:
             values.append(fmt((fit.get("f2") or {}).get((a, b)), lang))
         rows.append(values)
     if rows:
         _title(doc, number, t["paths"], t)
-        head = [t["path"]] + (["b", "SE"] if cb else []) + ["β", "95% CI" if lang == "en" else "95-%-KI", "p"] + ([] if cb else ["f²"])
+        head = ([t["path"]] + (["b", "SE"] if cb else []) + ["β", "95% CI" if lang == "en" else "95-%-KI"]
+                + ([] if cb else ["t"]) + ["p"] + ([] if cb else ["f²"]))
         _table(doc, head, rows, italic=set(range(1, len(head))))
         draws = (boot or {}).get("draws") or sem_model.BOOT_DRAWS
         body = (t["cb"] if cb else t["pls"]).format(n=result.get("n"), d=draws)

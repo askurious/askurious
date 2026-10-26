@@ -148,6 +148,10 @@ STREUKENS = ("Streukens, S., & Leroi-Werelds, S. (2016). Bootstrapping and PLS-S
              "https://doi.org/10.1016/j.emj.2016.06.003")
 HAIR_2019 = ("Hair, J. F., Risher, J. J., Sarstedt, M., & Ringle, C. M. (2019). When to use and how to report the results "
              "of PLS-SEM. European Business Review, 31(1), 2–24. https://doi.org/10.1108/EBR-11-2018-0203")
+HAIR_2011 = ("Hair, J. F., Ringle, C. M., & Sarstedt, M. (2011). PLS-SEM: Indeed a silver bullet. Journal of Marketing "
+             "Theory and Practice, 19(2), 139–152. https://doi.org/10.2753/MTP1069-6679190202")
+DIJKSTRA = ("Dijkstra, T. K., & Henseler, J. (2015). Consistent partial least squares path modeling. MIS Quarterly, "
+            "39(2), 297–316. https://doi.org/10.25300/MISQ/2015/39.2.02")
 FORMATIVE_SOURCES = (HAIR, HAIR_2019, CHIN_1998, CHEAH, CENFETELLI, BECKER_2015, DIAMANTOPOULOS_W)
 JOHNSON_NEYMAN = ("Johnson, P. O., & Neyman, J. (1936). Tests of certain linear hypotheses and their application to some "
                   "educational problems. Statistical Research Memoirs, 1, 57–93.")
@@ -799,7 +803,7 @@ def _tables(ram, spec, theta, vcov, factor, unit, corr):
                                        "ci": (std[label] - Z975 * std_se[label], std[label] + Z975 * std_se[label])})
     # admissible: no negative variance, no standardised loading beyond 1, no constructs correlated beyond 1
     out["inadmissible"] = _inadmissible(ram, theta, std)
-    out["quality"] = quality(spec, out["loadings"], corr, list(ram.manifest))
+    out["quality"] = quality(spec, out["loadings"], corr, list(ram.manifest), sds=unit)
     out["latent_corr"] = _latent_correlations(ram, theta)
     out["latent_sd"] = _latent_sds(ram, theta, unit)
     # the (robust) covariance of the unstandardised paths, for the joint test of several paths (wald)
@@ -953,14 +957,16 @@ def _latent_correlations(ram, theta):
 
 # --- measurement quality, both approaches -------------------------------------------------------------------------
 
-def quality(spec, loadings, corr, cols):
+def quality(spec, loadings, corr, cols, sds=None):
     """Per construct AVE and composite reliability of the standardised loadings (Fornell & Larcker, 1981), and HTMT
     for each pair of constructs (Henseler et al., 2015): the mean correlation between their indicators over the
     geometric mean of the mean correlations within each. This is the original HTMT, not HTMT+ (Ringle et al., 2023,
     with absolute correlations) and not HTMT2 (Roemer et al., 2021, geometric means); Ralf kept it (audit 2026-10-23,
     R-M1). Mixed signs among the correlations between two constructs cancel in its mean, so the value can be too
-    favourable: "htmt_mixed" lists such pairs [a, b] for a warning. corr: the correlations of the columns cols."""
-    out = {"ave": {}, "cr": {}, "htmt": {}, "htmt_mixed": []}
+    favourable: "htmt_mixed" lists such pairs [a, b] for a warning. corr: the correlations of the columns cols.
+    "alpha": Cronbach's α of each reflective construct (two-step check 2026-10-26), from the covariances when sds
+    (the SD of each column) is given, else standardised."""
+    out = {"ave": {}, "cr": {}, "htmt": {}, "htmt_mixed": [], "alpha": {}}
     single = set(spec.get("single") or {}) | set(spec.get("formative") or ())  # AVE, CR, HTMT need reflective ones
     loadings = {lv: rows for lv, rows in loadings.items() if lv not in single}
     for lv, rows in loadings.items():
@@ -970,6 +976,17 @@ def quality(spec, loadings, corr, cols):
         out["cr"][lv] = total / (total + float(np.sum(1 - lam ** 2))) if total > 0 else None
     pos = {c: k for k, c in enumerate(cols)}
     names = [lv for lv in spec["latent"] if lv not in single]
+    for lv in names:
+        idx = [pos[i] for i in spec["latent"][lv] if i in pos]
+        k = len(idx)
+        if k < 2:
+            continue
+        sub = corr[np.ix_(idx, idx)]
+        if sds is not None:
+            sd = np.asarray(sds, dtype=float)[idx]
+            sub = sub * np.outer(sd, sd)
+        total = float(np.sum(sub))
+        out["alpha"][lv] = k / (k - 1) * (1 - float(np.trace(sub)) / total) if total > 0 else None
 
     def within(items):
         idx = [pos[i] for i in items]
@@ -1123,7 +1140,11 @@ def fit_pls(x, cols, spec, light=False, scores=False):
     out["covariances"] = [{"a": a, "b": b, "std": v, "se": None, "p": None, "ci": None} for (a, b), v in cov.items()]
     out["r2"] = r2
     out["loadings"] = loadings
-    out["quality"] = quality(spec, loadings, np.corrcoef(x, rowvar=False), list(cols))
+    corr_x = np.corrcoef(x, rowvar=False)
+    out["quality"] = quality(spec, loadings, corr_x, list(cols), sds=x.std(axis=0, ddof=1))
+    # ρ_A of each reflective construct (Dijkstra & Henseler, 2015): between α and CR
+    out["quality"]["rho_a"] = {lv: rho_a(weights[lv], corr_x[np.ix_(blocks[lv], blocks[lv])])
+                               for lv in out["quality"]["ave"] if lv in weights and len(blocks[lv]) >= 2}
     out.update(_pls_structure(y, preds, r2, n))
     out["formative"] = {lv: _block_vif(z[:, blocks[lv]]) for lv in formative}
     corr = np.corrcoef(np.column_stack([y[v] for v in names]), rowvar=False)
@@ -1274,6 +1295,8 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
     mm_vals = {t: [] for t in spec.get("modmed", ())}
     w_vals = {(lv, i): [] for lv in spec.get("formative", ()) for i in spec["latent"][lv]} if method == "pls" else {}
     l_vals = {k: [] for k in w_vals}  # their loadings too: the absolute contribution (Cenfetelli & Bassellier, 2009)
+    routes = total_routes(spec["paths"], skip=set(spec.get("products") or {}))
+    t_vals = {pair: [] for pair in routes}  # total effects (two-step check 2026-10-26)
     reflective = [lv for lv in spec["latent"] if lv not in (spec.get("single") or {}) and lv not in
                   spec.get("formative", ()) and lv not in (spec.get("products") or {})]
     pos = {c: k for k, c in enumerate(cols)}
@@ -1317,6 +1340,9 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
                 ind_vals[t].append(ind[t])
             for pair in cov_vals:
                 cov_vals[pair].append(cov[pair])
+            if t_vals:
+                for pair, v in total_effects({p: paths[p] for p in spec["paths"]}, routes).items():
+                    t_vals[pair].append(v["total"])
             for t in mm_vals:  # index of moderated mediation (Hayes, 2015): a3 b or a b3
                 stage, tx, tm, ty, txw = t
                 mm_vals[t].append(paths[(txw, tm)] * paths[(tm, ty)] if stage == "a" else paths[(tx, tm)] * paths[(txw, ty)])
@@ -1350,7 +1376,56 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
             "modmed": {k: summary(v) for k, v in mm_vals.items()},
             "weights": {k: summary(v) for k, v in w_vals.items()},
             "loadings": {k: summary(v) for k, v in l_vals.items()},
+            "total": {k: summary(v) for k, v in t_vals.items()},
             "htmt": {k: summary(v) for k, v in htmt_vals.items()}}
+
+
+def rho_a(w, s):
+    """ρ_A of a construct of mode A (Dijkstra & Henseler, 2015): (w'w)² · w'(S − diag S)w / w'(ww' − diag ww')w with
+    the outer weights w (scaled to a composite of variance 1) and the correlations S of its indicators."""
+    w = np.asarray(w, dtype=float)
+    s = np.asarray(s, dtype=float)
+    ww = np.outer(w, w)
+    den = float(w @ (ww - np.diag(np.diag(ww))) @ w)
+    if den <= 0:
+        return None
+    return float((w @ w) ** 2 * (w @ (s - np.diag(np.diag(s))) @ w) / den)
+
+
+def total_routes(paths, skip=()):
+    """[(a, b)] of the pairs that a route over at least one variable in between joins (paths [(from, to)], an
+    acyclic model; skip: variables left out, the interaction terms): where a total effect differs from the direct one."""
+    succ = {}
+    for a, b in paths:
+        if a not in skip and b not in skip:
+            succ.setdefault(a, []).append(b)
+    out = []
+    for a in succ:
+        far, frontier = set(), set(succ[a])
+        while frontier:  # what is reached in two steps or more
+            nxt = {c for v in frontier for c in succ.get(v, ())}
+            far |= nxt
+            frontier = nxt
+        out += [(a, b) for b in sorted(far)]
+    return out
+
+
+def total_effects(values, pairs):
+    """{(a, b): {"direct", "indirect", "total"}} of the standardised paths `values` {(from, to): β} for the pairs
+    (total_routes): total = (I − B)⁻¹ − I, indirect = total − direct (Hair et al., 2022)."""
+    names = sorted({v for p in values for v in p})
+    pos = {v: k for k, v in enumerate(names)}
+    b = np.zeros((len(names), len(names)))
+    for (a, c), v in values.items():
+        b[pos[c], pos[a]] = v
+    total = np.linalg.inv(np.eye(len(names)) - b) - np.eye(len(names))
+    out = {}
+    for a, c in pairs:
+        if a in pos and c in pos:
+            t = float(total[pos[c], pos[a]])
+            d = float(values.get((a, c), 0.0))
+            out[(a, c)] = {"direct": d, "indirect": t - d, "total": t}
+    return out
 
 
 def redundancy_spec(lv, items, glob, glob_items):
