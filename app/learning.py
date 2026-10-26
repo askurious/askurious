@@ -437,9 +437,12 @@ REASONS = {
         "Reflektiv oder formativ?",
         "Reflektiv, wenn das Konstrukt die Antworten verursacht: Die Aussagen sind austauschbar und hängen eng zusammen "
         "(fast alle Skalen). Formativ, wenn die Aussagen das Konstrukt erst bilden und je etwas Eigenes beitragen (ein "
-        "Index); dann fehlt mit einer Aussage ein Teil der Bedeutung. Im Zweifel reflektiv: Ein validiertes Instrument "
-        "ist fast immer so gebaut.",
-        (("app.sem", "HAIR"),)),
+        "Index); dann fehlt mit einer Aussage ein Teil der Bedeutung. Vier Fragen helfen: Verläuft die Ursache vom "
+        "Konstrukt zu den Aussagen (reflektiv) oder umgekehrt (formativ)? Sind die Aussagen austauschbar? Ändern sie "
+        "sich gemeinsam? Haben sie dieselben Ursachen und Folgen? Im Zweifel reflektiv: Ein validiertes Instrument ist "
+        "fast immer so gebaut. Für ein formatives Konstrukt eine Frage einplanen, die es im Ganzen misst; sie dient der "
+        "Redundanzanalyse.",
+        (("app.sem", "JARVIS"), ("app.sem", "HAIR"), ("app.sem", "CHEAH"))),
     "moderation_mediation": (
         "Vermittlung oder Moderation?",
         "Vermittlung (Mediation) beschreibt, wie eine Wirkung zustande kommt: über eine Größe dazwischen. Moderation "
@@ -730,6 +733,11 @@ TERMS = {
                   "weg, ändert sich seine Bedeutung (z. B. ein Index aus Ausstattungsmerkmalen). Geschätzt mit Gewichten "
                   "(PLS Modus B); AVE, CR und HTMT gelten nur für reflektive Konstrukte.",
                   "Gewicht 0,42, p = ,003: Die Aussage trägt deutlich zum Index bei.", (("app.sem", "HAIR"),)),
+    "redundancy": ("Redundanzanalyse", "Redundanzanalyse", "Prüft die Konvergenzvalidität eines formativen Konstrukts: "
+                   "Es sagt ein Globalmaß desselben Konstrukts vorher, meist eine einzelne Frage, die es im Ganzen misst. "
+                   "Ab einem Pfad von 0,70 (R² ab 0,50) gilt es als ausreichend.",
+                   "Pfad 0,74: Der Index erfasst, was die globale Frage meint.",
+                   (("app.sem", "CHIN_1998"), ("app.sem", "CHEAH"))),
     "plspredict": ("Q²predict", "Vorhersagekraft (PLSpredict)", "Wie gut das Modell die Aussagen der erklärten "
                    "Konstrukte für neue Fälle vorhersagt, geprüft durch Kreuzvalidierung: Q²_predict über 0 ist besser "
                    "als der Mittelwert; verglichen wird der Fehler mit einem einfachen linearen Modell.",
@@ -874,7 +882,7 @@ SECTIONS = (
       "hb", "mnl", "holdout")),
     ("Segmente", "", ("bic", "entropy", "membership", "odds_ratio")),
     ("Strukturgleichungsmodelle", "", ("beta", "indirect", "interaction", "jn", "control", "single_item",
-                                       "second_order", "formative")),
+                                       "second_order", "formative", "redundancy")),
     ("SEM: Schätzung und Passung", "", ("fiml", "wlsmv", "weighted_sem", "model_compare", "cfi", "rmsea", "srmr",
                                         "robust_fit", "residual_cor", "ave", "htmt")),
     ("PLS", "", ("f2", "vif", "plspredict", "construct_score")),
@@ -1165,8 +1173,11 @@ REASONS_EN = {
         "Reflective or formative?",
         "Reflective when the construct causes the answers: the statements are interchangeable and closely related (almost "
         "all scales). Formative when the statements form the construct and each adds something of its own (an index); "
-        "then leaving one out removes part of the meaning. When in doubt reflective: a validated instrument is almost "
-        "always built that way."),
+        "then leaving one out removes part of the meaning. Four questions help: does the cause run from the construct "
+        "to the statements (reflective) or the other way round (formative)? Are the statements interchangeable? Do they "
+        "change together? Do they share their causes and consequences? When in doubt reflective: a validated instrument "
+        "is almost always built that way. For a formative construct, plan a question that measures it as a whole; it "
+        "serves the redundancy analysis."),
     "moderation_mediation": (
         "Mediation or moderation?",
         "Mediation describes how an effect comes about: through a variable in between. Moderation describes for whom "
@@ -1401,6 +1412,10 @@ TERMS_EN = {
                   "out changes its meaning (e.g. an index of equipment features). Estimated with weights (PLS mode B); "
                   "AVE, CR and HTMT only apply to reflective constructs.",
                   "Weight 0.42, p = .003: the statement adds clearly to the index."),
+    "redundancy": ("Redundancy analysis", "Redundancy analysis", "Checks the convergent validity of a formative "
+                   "construct: it predicts a global measure of the same construct, mostly a single question that "
+                   "measures it as a whole. From a path of 0.70 (R² from 0.50) it counts as sufficient.",
+                   "Path 0.74: the index captures what the global question means."),
     "plspredict": ("Q²predict", "Predictive power (PLSpredict)", "How well the model predicts the statements of the "
                    "explained constructs for new cases, checked by cross-validation: Q²_predict above 0 is better than "
                    "the mean; the error is compared with a simple linear model.",

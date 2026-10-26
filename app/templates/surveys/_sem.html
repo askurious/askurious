@@ -38,6 +38,14 @@
       <span class="hint">{{ de_en("läuft im Hintergrund; nötig für die Intervalle indirekter Effekte und für PLS-Pfade", "runs in the background; needed for the intervals of indirect effects and for PLS paths") }}</span>
     </form>
   {% endif %}
+  {% if boot and boot.draws < sem_model.BOOT_DRAWS_FINAL and not (sem_boot and sem_boot.state == "running") %}
+    {# the final version for a report (formative check 2026-10-26, E5) #}
+    <form method="post" class="sem-boot-final" action="{{ url_for('surveys.results_sem_bootstrap', survey_id=survey.id, **({'gewichtet': '1'} if sem.weighted else {})) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="draws" value="final">
+      <button type="submit" class="button button-secondary button-small">{{ de_en("Endfassung: {d} Ziehungen", "Final version: {d} draws", d=sem_model.BOOT_DRAWS_FINAL|thousands) }}</button>
+      <span class="hint">{{ de_en("für die Veröffentlichung empfohlen; dauert etwa fünfmal so lange", "recommended for publication; takes about five times as long") }} {{ apa.cite([S.STREUKENS]) }}</span>
+    </form>
+  {% endif %}
   </div>
 {% endmacro %}
 <section class="panel" id="sem"><details class="res-fold" open>
@@ -254,14 +262,41 @@
     {% for a, b in sem_model.htmt_mixed(sem) %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("HTMT von {a} und {b}: Die Korrelationen zwischen ihren Aussagen haben gemischte Vorzeichen und heben sich im Mittel teilweise auf, der Wert kann daher zu günstig ausfallen. Umgepolte Aussagen prüfen.", "HTMT of {a} and {b}: the correlations between their statements have mixed signs and partly cancel in the mean, so the value may be too favourable. Check reversed statements.", a=a, b=b) }}</span></p>{% endfor %}
     {% set ftable = sem_model.formative_table(sem, boot) %}
     {% if ftable %}
+    {# the check of formative constructs in the order of the literature: redundancy, VIF, weights and loadings
+       (formative check 2026-10-26, E1-E4, E7) #}
     <h4 class="sem-sub">{{ term("formative", de_en("Formative Konstrukte", "Formative constructs")) }}</h4>
+    {% set words = sem_model.formative_words() %}
+    {% set rtable = sem_model.redundancy_table(sem, boot) %}
+    {% set rmissing = sem_model.redundancy_missing(sem) %}
+    <h5 class="sem-sub">{{ term("redundancy", de_en("1 Redundanzanalyse (Konvergenzvalidität)", "1 Redundancy analysis (convergent validity)")) }}</h5>
+    {% if rtable %}
     <div class="res-scroll"><table class="res-table">
-      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ term("vif", "VIF") }}</th></tr></thead>
-      <tbody>{% for c in ftable %}<tr class="sem-construct"><td colspan="6"><strong>{{ c.label }}</strong></td></tr>
-      {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}</td><td class="num">{{ num(i.weight) }}</td><td class="num">{% if i.ci %}{{ ci(i.ci) }}{% else %}<span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span>{% endif %}</td><td class="num">{{ p_text(i.p) if i.p is not none else "" }}</td><td class="num">{{ num(i.loading) }}</td><td class="num{% if i.high_vif %} is-warn{% endif %}">{{ num(i.vif) }}{% if i.high_vif %} <span class="sem-mark">⚠</span>{% endif %}</td></tr>{% endfor %}
+      <thead><tr><th>{{ de_en("Konstrukt", "Construct") }}</th><th>{{ de_en("Globalmaß", "Global measure") }}</th><th class="num">{{ term("n", "N") }}</th><th class="num">{{ term("beta") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">R²</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
+      <tbody>{% for r in rtable %}<tr><td>{{ r.label }}</td><td><code>{{ r.global }}</code> {{ r.global_label }}</td><td class="num">{{ r.n }}</td>
+        {% if r.error %}<td colspan="4"><span class="hint">{% if r.error == "few" %}{{ de_en("zu wenige vollständige Fälle (unter {m})", "too few complete cases (below {m})", m=sem_model.MIN_N) }}{% else %}{{ de_en("nicht schätzbar", "cannot be estimated") }}{% endif %}</span></td>
+        {% else %}<td class="num">{{ num(r.path) }}</td><td class="num">{% if r.ci %}{{ ci(r.ci) }}{% else %}<span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span>{% endif %}</td><td class="num">{{ num(r.r2) }}</td>
+        <td>{% if r.ok %}<span class="badge badge-approved">{{ de_en("ausreichend (ab 0,70)", "sufficient (0.70 or more)") }}</span>{% else %}<span class="badge badge-pending">{{ de_en("unter 0,70", "below 0.70") }}</span>{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+    {% if rmissing %}<p class="small">{{ icon("info", 16) }} {{ de_en("Ohne Globalmaß, daher keine Redundanzanalyse: {c}. Ein Globalmaß wählen Sie im Studienplan unter „Weitere Einstellungen des Modells“; dafür braucht der Fragebogen eine Frage, die das Konstrukt im Ganzen misst.", "Without a global measure, hence no redundancy analysis: {c}. You choose a global measure in the research plan under “Further settings of the model”; the questionnaire needs a question that measures the construct as a whole.", c=rmissing|join(", ")) }}</p>{% endif %}
+    <h5 class="sem-sub">{{ de_en("2 Kollinearität, 3 Gewichte und Ladungen", "2 Collinearity, 3 weights and loadings") }}</h5>
+    <div class="res-scroll"><table class="res-table">
+      <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("vif", "VIF") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
+      <tbody>{% for c in ftable %}<tr class="sem-construct"><td colspan="9"><strong>{{ c.label }}</strong></td></tr>
+      {% for i in c["items"] %}<tr><td class="sem-item"><code>{{ i.code }}</code> {{ i.text }}</td>
+        <td class="num{% if i.vif_level %} is-warn{% endif %}">{{ num(i.vif) }}{% if i.vif_level == "high" %} <span class="sem-mark">⚠</span>{% elif i.vif_level == "hint" %} <span class="sem-mark">△</span>{% endif %}</td>
+        <td class="num">{{ num(i.weight) }}{% if i.sign %} <span class="sem-mark">△</span>{% endif %}</td>
+        {% if i.ci %}<td class="num">{{ ci(i.ci) }}</td><td class="num">{{ p_text(i.p) if i.p is not none else "" }}</td>{% else %}<td class="num" colspan="2"><span class="hint">{{ de_en("Bootstrap fehlt", "no bootstrap yet") }}</span></td>{% endif %}
+        <td class="num">{{ num(i.loading) }}</td>
+        {% if i.loading_ci %}<td class="num">{{ ci(i.loading_ci) }}</td><td class="num">{{ p_text(i.loading_p) if i.loading_p is not none else "" }}</td>{% else %}<td class="num" colspan="2"></td>{% endif %}
+        <td>{% if i.verdict %}{% set w = words[i.verdict] %}<span class="badge {{ {'ok': 'badge-approved', 'hint': 'badge-pending', 'bad': 'badge-error'}[w[1]] }}">{{ w[0] }}</span>{% endif %}</td></tr>{% endfor %}
       {% endfor %}</tbody>
     </table></div>
-    <p class="muted small">{{ de_en("Formativ: Die Aussagen bilden das Konstrukt (Modus B), statt es zu messen; deshalb keine AVE, CR oder HTMT. Ein Gewicht ohne Signifikanz bleibt im Konstrukt, wenn seine Ladung ab 0,50 liegt; VIF ab 5 (⚠): Die Aussagen überschneiden sich zu stark", "Formative: the statements form the construct (mode B) instead of measuring it; hence no AVE, CR or HTMT. A weight without significance stays in the construct when its loading is 0.50 or more; VIF from 5 (⚠): the statements overlap too much") }} {{ apa.cite([S.HAIR]) }}.</p>
+    {% for c in ftable %}{% set flipped = c["items"]|selectattr("sign")|map(attribute="code")|list %}
+    {% if flipped %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("{c}: Gewicht und Ladung haben verschiedene Vorzeichen ({i}, △). Das kann ein Suppressoreffekt oder Folge von Kollinearität sein; prüfen Sie, ob die Richtung inhaltlich passt.", "{c}: weight and loading have opposite signs ({i}, △). This can be a suppressor effect or a result of collinearity; check whether the direction makes sense in terms of content.", c=c.label, i=flipped|join(", ")) }} {{ apa.cite([S.CENFETELLI]) }}</span></p>{% endif %}
+    {% if c.many %}<p class="small">{{ icon("info", 16) }} {{ de_en("{c} hat {k} Aussagen: Bei so vielen werden kleine Gewichte ohne Signifikanz wahrscheinlich, auch wenn jede Aussage etwas beiträgt; die Ladung zeigt den Beitrag dann besser.", "{c} has {k} statements: with so many, small weights without significance become likely even when each statement adds something; the loading then shows the contribution better.", c=c.label, k=c["items"]|length) }} {{ apa.cite([S.CENFETELLI]) }}</p>{% endif %}
+    {% endfor %}
+    <p class="muted small">{{ de_en("Formativ: Die Aussagen bilden das Konstrukt (Modus B), statt es zu messen; deshalb keine AVE, CR oder HTMT. Prüfreihenfolge: Erstens die Redundanzanalyse, das Konstrukt sagt ein Globalmaß desselben Konstrukts vorher, ab einem Pfad von 0,70 (R² ab 0,50) gilt es als konvergent valide", "Formative: the statements form the construct (mode B) instead of measuring it; hence no AVE, CR or HTMT. Order of the check: first the redundancy analysis, the construct predicts a global measure of the same construct; from a path of 0.70 (R² from 0.50) it counts as convergent valid") }} {{ apa.cite([S.CHIN_1998, S.CHEAH]) }}{{ de_en(". Zweitens die Kollinearität: VIF ab 3 (△) mögliche Überschneidung, ab 5 (⚠) kritisch", ". Second, collinearity: VIF from 3 (△) possible overlap, from 5 (⚠) critical") }} {{ apa.cite([S.BECKER_2015, S.HAIR_2019]) }}{{ de_en(". Drittens Gewichte und Ladungen: Ein signifikantes Gewicht zeigt den eigenen Beitrag; ohne Signifikanz bleibt die Aussage, wenn ihre Ladung ab 0,50 liegt; ist die Ladung kleiner, aber signifikant, nur mit inhaltlichem Grund; sonst ist das Weglassen zu prüfen", ". Third, weights and loadings: a significant weight shows the statement's own contribution; without significance the statement stays when its loading is 0.50 or more; if the loading is smaller but significant, only for a reason of content; otherwise leaving it out is to be considered") }} {{ apa.cite([S.CENFETELLI, S.HAIR]) }}{{ de_en(". Die Einordnung ist ein Vorschlag: Eine weggelassene Aussage ändert, was das Konstrukt bedeutet, deshalb entscheidet der Inhalt mit", ". The assessment is a suggestion: a statement left out changes what the construct means, so its content decides too") }} {{ apa.cite([S.DIAMANTOPOULOS_W]) }}.</p>
     {% endif %}
   </details>
   {% endif %}

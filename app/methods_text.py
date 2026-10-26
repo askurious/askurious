@@ -97,8 +97,13 @@ TEXT = {
         "sem_pls_more": "Berichtet werden R² und korrigiertes R², die Effektstärke f² je Pfad (Cohen, 1988), die VIF der "
                         "Einflussgrößen und die Vorhersagekraft der erklärten Konstrukte mit PLSpredict (10-fache "
                         "Kreuzvalidierung; Shmueli et al., 2019).",
-        "sem_formative": "Formativ gemessen (Modus B) wurden {c}; ihre Gewichte wurden mit dem Bootstrap geprüft, ihre "
-                         "Kollinearität mit dem VIF (Hair et al., 2022).",
+        "sem_formative": "Formativ gemessen (Modus B) wurden {c}. Geprüft wurden die Kollinearität der Indikatoren mit "
+                         "dem VIF (ab 3 mögliche, ab 5 kritische Überschneidung; Hair et al., 2019) sowie Gewichte und "
+                         "Ladungen mit dem Bootstrap; ein Indikator mit nicht signifikantem Gewicht blieb bei einer "
+                         "Ladung ab ,50 im Konstrukt (Cenfetelli & Bassellier, 2009; Hair et al., 2022).",
+        "sem_redundancy": "Die Konvergenzvalidität wurde mit einer Redundanzanalyse geprüft: Das formative Konstrukt "
+                          "sagte ein Globalmaß desselben Konstrukts vorher ({c}), ausreichend ab einem Pfad von ,70 "
+                          "(Chin, 1998; Cheah et al., 2018).",
         "sem_single": "Einzelfragen gingen als Konstrukte mit einer angenommenen Reliabilität ein ({c}); ihre "
                       "Fehlervarianz wurde auf (1 − Reliabilität) ihrer Varianz festgelegt (Petrescu, 2013).",
     },
@@ -184,8 +189,13 @@ TEXT = {
         "sem_pls_more": "R² and adjusted R², the effect size f² per path (Cohen, 1988), the VIF of the predictors and the "
                         "predictive power of the explained constructs with PLSpredict (10-fold cross-validation; Shmueli "
                         "et al., 2019) are reported.",
-        "sem_formative": "{c} were measured formatively (mode B); their weights were tested with the bootstrap, their "
-                         "collinearity with the VIF (Hair et al., 2022).",
+        "sem_formative": "{c} were measured formatively (mode B). The collinearity of the indicators was checked with "
+                         "the VIF (possible overlap from 3, critical from 5; Hair et al., 2019), weights and loadings "
+                         "with the bootstrap; an indicator with a non-significant weight stayed in the construct when "
+                         "its loading was .50 or more (Cenfetelli & Bassellier, 2009; Hair et al., 2022).",
+        "sem_redundancy": "Convergent validity was checked with a redundancy analysis: the formative construct "
+                          "predicted a global measure of the same construct ({c}), sufficient from a path of .70 "
+                          "(Chin, 1998; Cheah et al., 2018).",
         "sem_single": "Single questions entered as constructs with an assumed reliability ({c}); their error variance "
                       "was fixed at (1 − reliability) of their variance (Petrescu, 2013).",
     },
@@ -375,6 +385,9 @@ def sections(survey, data, table, summary, lang="de", n=None, facts=None, sem=No
                 analysis.append(t["sem_pls_more"])
                 if opts["formative"]:
                     analysis.append(t["sem_formative"].format(c=", ".join(opts["formative"])))
+                    if opts["global"]:  # the redundancy analysis (formative check 2026-10-26)
+                        analysis.append(t["sem_redundancy"].format(
+                            c=", ".join(f"{c} → {g}" for c, g in opts["global"].items())))
             if opts["single"] and sem_model.method_of(survey) != "pls":
                 rel = (lambda r: f"{r:.2f}" if lang == "en" else f"{r:.2f}".replace(".", ","))
                 analysis.append(t["sem_single"].format(c=", ".join(f"{c}: {rel(r)}" for c, r in opts["single"].items())))

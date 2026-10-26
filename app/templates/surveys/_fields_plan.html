@@ -225,8 +225,29 @@
     {{ why("sem_controls") }}
     {% set scales = sem_model.scale_candidates(survey) if survey.id else [] %}
     {% if plan.sem_method == "pls" and scales %}
-    <fieldset class="plan-sem-formative"><legend>{{ term("formative", de_en("Formative Konstrukte", "Formative constructs")) }} <span class="hint">{{ de_en("die Aussagen bilden das Konstrukt (z. B. ein Index aus Ausstattungsmerkmalen), statt es zu messen; PLS Modus B", "the statements form the construct (e.g. an index of equipment features) instead of measuring it; PLS mode B") }}</span></legend>
-      {% for code, text in scales %}<label class="check"><input type="checkbox" name="sem_formative" value="{{ code }}"{% if code in sopt.formative %} checked{% endif %}> {{ text }}</label>{% endfor %}
+    {# reflective or formative per scale, and the global measure of a formative one for its redundancy analysis
+       (formative check 2026-10-26, E1, E6) #}
+    <fieldset class="plan-sem-formative"><legend>{{ term("formative", de_en("Messmodell je Konstrukt", "Measurement model per construct")) }} <span class="hint">{{ de_en("reflektiv: die Aussagen messen das Konstrukt (PLS Modus A); formativ: die Aussagen bilden es, z. B. ein Index aus Ausstattungsmerkmalen (Modus B)", "reflective: the statements measure the construct (PLS mode A); formative: the statements form it, e.g. an index of equipment features (mode B)") }}</span></legend>
+      {% for code, text in scales %}{% set formative = code in sopt.formative %}
+      <div class="plan-sem-mode-row">
+        <div class="plan-sem-mode" role="radiogroup" aria-label="{{ de_en('Messmodell von {c}', 'Measurement model of {c}', c=code) }}">
+          <span class="plan-sem-mode-label">{{ text }}</span>
+          <span class="segmented">
+            <label><input type="radio" name="sem_mode_{{ code }}" value="reflective"{% if not formative %} checked{% endif %}> <span>{{ de_en("reflektiv", "reflective") }}</span></label>
+            <label><input type="radio" name="sem_mode_{{ code }}" value="formative"{% if formative %} checked{% endif %}> <span>{{ de_en("formativ", "formative") }}</span></label>
+          </span>
+        </div>
+        {% set globs = sem_model.global_candidates(survey, code) %}
+        <div class="plan-sem-global">
+          <label for="sem-global-{{ code }}">{{ term("redundancy", de_en("Globalmaß für die Redundanzanalyse", "Global measure for the redundancy analysis")) }}</label>
+          <select name="sem_global_{{ code }}" id="sem-global-{{ code }}">
+            <option value="">{{ de_en("– keins (Prüfung entfällt) –", "– none (no check) –") }}</option>
+            {% for g, gtext in globs %}<option value="{{ g }}"{% if sopt.global.get(code) == g %} selected{% endif %}>{{ gtext }}</option>{% endfor %}
+          </select>
+          <span class="hint">{{ de_en("eine Einzelfrage oder reflektive Skala, die dasselbe Konstrukt im Ganzen misst (z. B. „Alles in allem: Wie gut ist Ihr Zuhause technisch ausgestattet?“); am besten schon beim Fragebogenbau einplanen", "a single question or reflective scale that measures the same construct as a whole (e.g. “All in all: how well equipped is your home technically?”); best planned when building the questionnaire") }}</span>
+        </div>
+      </div>
+      {% endfor %}
     </fieldset>
     {{ why("sem_formative") }}
     {% endif %}

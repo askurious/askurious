@@ -6,6 +6,10 @@ places and progress (maxdiff_hb._estimate_and_store). No database: the input hol
 from app import sem
 
 
+def flat(summary):
+    return [None, None, None] if summary is None else [summary["ci"][0], summary["ci"][1], summary["se"]]
+
+
 def run(inp, progress=None):
     """{"key", "draws", "failed", "inadmissible", "paths": [[from, to, lo, hi, se]],
     "indirect": [[x, m, y, lo, hi, se]], "cov": [[a, b, lo, hi, se]]}."""
@@ -38,12 +42,26 @@ def run(inp, progress=None):
         start = sem_means.fit_fiml(inp["rows"], inp["cols"], spec, light=True).get("theta")
     elif inp["method"] == "cb":  # every draw starts at the estimate of the whole sample: a few steps instead of many
         start = sem.fit_ml(inp["rows"], inp["cols"], spec, robust=False, light=True, weights=inp.get("weights")).get("theta")
+    red = inp.get("redundancy") or []
+    share = 1.0 / (1 + 0.25 * len(red))  # the redundancy models are small: about a quarter of the main one each
     found = sem.bootstrap(inp["rows"], inp["cols"], spec, inp["method"], draws=inp["draws"], seed=inp.get("seed", 1),
-                          progress=(lambda done, total: progress(done / total)) if progress else None, start=start,
-                          weights=inp.get("weights"))
+                          progress=(lambda done, total: progress(share * done / total)) if progress else None,
+                          start=start, weights=inp.get("weights"))
+    redundancy = []
+    for k, entry in enumerate(red):  # the paths of the redundancy analyses (formative check 2026-10-26)
+        rspec = {**entry["spec"], "paths": [tuple(p) for p in entry["spec"]["paths"]]}
+        base = share + k * (1 - share) / len(red)
 
-    def flat(summary):
-        return [None, None, None] if summary is None else [summary["ci"][0], summary["ci"][1], summary["se"]]
+        def step(done, total, base=base):
+            if progress:
+                progress(base + (1 - share) / len(red) * done / total)
+
+        try:
+            got = sem.bootstrap(entry["rows"], entry["cols"], rspec, "pls", draws=inp["draws"],
+                                seed=inp.get("seed", 1), progress=step)
+            redundancy.append([entry["lv"], *flat(next(iter(got["paths"].values())))])
+        except sem.SemError:  # too few rows or a constant column: the row stays without an interval
+            redundancy.append([entry["lv"], None, None, None])
 
     return {"key": inp["key"], "method": inp["method"], "draws": found["draws"], "failed": found["failed"],
             "inadmissible": found["inadmissible"],
@@ -52,4 +70,6 @@ def run(inp, progress=None):
             "cov": [[a, b, *flat(v)] for (a, b), v in found["cov"].items()],
             "modmed": [[*t, *flat(v)] for t, v in found["modmed"].items()],
             "weights": [[lv, i, *flat(v)] for (lv, i), v in found["weights"].items()],
+            "loadings": [[lv, i, *flat(v)] for (lv, i), v in found["loadings"].items()],
+            "redundancy": redundancy,
             "htmt": [[a, b, *(flat(v)[:2] + [v["upper95"]] if v else [None, None, None])] for (a, b), v in found["htmt"].items()]}

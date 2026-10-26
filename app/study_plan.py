@@ -372,7 +372,8 @@ def sem_options(raw):
     categories with WLSMV (point 3, otherwise as numbers with ML); "second" [variable names] are instruments with
     subscales that enter as one factor of the second order over their subscales (point 8); "alternative" ["h:<id>"
     (the paths of a hypothesis), "d:<id>" (the direct effect of a mediation)] what a competing model planned in advance
-    leaves out (point 11). Anything else read as empty."""
+    leaves out (point 11); "global" {variable name of a formative scale: variable name} the global measure of its
+    redundancy analysis (formative check 2026-10-26, E1). Anything else read as empty."""
     raw = raw if isinstance(raw, dict) else {}
     controls = [_text(c, 64) for c in raw.get("controls") or [] if isinstance(c, str) and c.strip()]
     single = {}
@@ -382,14 +383,27 @@ def sem_options(raw):
         if isinstance(code, str) and code.strip() and rel is not None:
             single[_text(code, 64)] = rel
     formative = [_text(c, 64) for c in raw.get("formative") or [] if isinstance(c, str) and c.strip()]
+    found = raw.get("global") if isinstance(raw.get("global"), dict) else {}
+    glob = {_text(c, 64): _text(g, 64) for c, g in list(found.items())[:MAX_HYPOTHESES * 3]
+            if isinstance(c, str) and isinstance(g, str) and c.strip() and g.strip() and c in formative and c != g}
     invariance = raw.get("invariance") if isinstance(raw.get("invariance"), str) else ""
     return {"controls": list(dict.fromkeys(controls))[:MAX_CONTROLS], "single": single,
-            "formative": list(dict.fromkeys(formative))[:MAX_HYPOTHESES * 3], "invariance": _text(invariance, 64),
+            "formative": list(dict.fromkeys(formative))[:MAX_HYPOTHESES * 3], "global": glob,
+            "invariance": _text(invariance, 64),
             "missing": "fiml" if raw.get("missing") == "fiml" else "",
             "alternative": list(dict.fromkeys(_text(c, 40) for c in raw.get("alternative") or []
                                               if isinstance(c, str) and re.fullmatch(r"[hd]:[\w-]{1,32}", c)))[:MAX_HYPOTHESES * 2],
             "second": list(dict.fromkeys(_text(c, 64) for c in raw.get("second") or [] if isinstance(c, str) and c.strip()))[:MAX_HYPOTHESES * 3],
             "ordinal": "ordinal" if raw.get("ordinal") == "ordinal" else ""}
+def _formative_of(form, codes):
+    """The formative scales of the plan form: the switch reflective/formative of each scale ("sem_mode_<code>",
+    formative check 2026-10-26, E6) or, from an older form, the ticks "sem_formative"."""
+    found = [c for c in form.getlist("sem_formative") if c in codes]
+    found += [k[len("sem_mode_"):] for k in form if k.startswith("sem_mode_") and form.get(k) == "formative"
+              and k[len("sem_mode_"):] in codes]
+    return list(dict.fromkeys(found))
+
+
 def diary_options(raw):
     """The settings of the multilevel model of a diary study (longitudinal and multilevel concept 2026-10-17, E8):
     "lagged" takes what explains from the person's entry before (the effect over time), "slope" lets the effect within
@@ -1119,6 +1133,8 @@ def rename_codes(survey, names):
             opts["single"], changed = {names.get(c, c): r for c, r in opts["single"].items()}, True
         if any(c in names for c in opts.get("formative") or []):
             opts["formative"], changed = [names.get(c, c) for c in opts["formative"]], True
+        if isinstance(opts.get("global"), dict) and any(c in names or g in names for c, g in opts["global"].items()):
+            opts["global"], changed = {names.get(c, c): names.get(g, g) for c, g in opts["global"].items()}, True
         if any(c in names for c in opts.get("second") or []):
             opts["second"], changed = [names.get(c, c) for c in opts["second"]], True
         if opts.get("invariance") in names:
@@ -1260,7 +1276,9 @@ def from_form(survey, form):
             if code in codes:
                 single[code] = _reliability(form.get(f"sem_rel_{code}")) or SINGLE_REL
         out["sem"] = sem_options({"controls": [c for c in form.getlist("sem_control") if c in codes], "single": single,
-                                  "formative": [c for c in form.getlist("sem_formative") if c in codes],
+                                  "formative": _formative_of(form, codes),
+                                  "global": {c: form.get(f"sem_global_{c}") for c in _formative_of(form, codes)
+                                             if form.get(f"sem_global_{c}") in codes},
                                   "invariance": form.get("sem_invariance") if form.get("sem_invariance") in codes
                                   or form.get("sem_invariance") == LANG_GROUPS else "",
                                   "missing": form.get("sem_missing"), "ordinal": form.get("sem_ordinal"),
@@ -1465,6 +1483,9 @@ def markdown(survey, lang=None):
             if opts["formative"] and plan["sem_method"] == "pls":
                 lines.append(t("- Formative Konstrukte (PLS, Modus B): {c}", "- Formative constructs (PLS, mode B): {c}")
                              .format(c=", ".join(opts["formative"])))
+                if opts["global"]:
+                    lines.append(t("- Redundanzanalyse mit Globalmaß: {c}", "- Redundancy analysis with a global measure: {c}")
+                                 .format(c=", ".join(f"{c} → {g}" for c, g in opts["global"].items())))
         if plan.get("holm") and len(tested(survey)) >= 2:
             lines.append(t("- Korrektur für mehrere Hypothesen: Holm (1979); jede Hypothese mit α = {a} geplant",
                            "- Correction for several hypotheses: Holm (1979); every hypothesis planned with α = {a}")

@@ -28,6 +28,12 @@ TEXT = {
            "m_body": ("λ = standardisierte Ladung; AVE = durchschnittlich erfasste Varianz; CR = Composite Reliability "
                       "(Fornell & Larcker, 1981); HTMT = größtes Heterotrait-Monotrait-Verhältnis mit einem anderen "
                       "Konstrukt, ursprüngliche Form, nicht HTMT+ (Henseler et al., 2015)."),
+           "formative": "Formative Konstrukte", "mode_b": " Formative Konstrukte in Modus B.",
+           "f_body": ("VIF = Varianzinflationsfaktor (ab 3 mögliche, ab 5 kritische Überschneidung; Hair et al., 2019); "
+                      "Gewicht und Ladung mit 95-%-Perzentil-Bootstrap-Intervall und p ({d} Ziehungen). Ein Gewicht ohne "
+                      "Signifikanz bleibt bei einer Ladung ab ,50 (Cenfetelli & Bassellier, 2009; Hair et al., 2022)."),
+           "redundancy": (" Redundanzanalyse (Konvergenzvalidität; Chin, 1998; Cheah et al., 2018): {r}; ausreichend "
+                          "ab einem Pfad von ,70."),
            "hyp": "H{n}"},
     "en": {"t1": "Table {k}", "paths": "Path Coefficients of the Structural Equation Model", "path": "Path",
            "ind": "Indirect Effects", "via": "Path", "measure": "Measurement Model", "construct": "Construct / item",
@@ -44,6 +50,13 @@ TEXT = {
            "m_body": ("λ = standardized loading; AVE = average variance extracted; CR = composite reliability (Fornell & "
                       "Larcker, 1981); HTMT = largest heterotrait-monotrait ratio with another construct, original form, "
                       "not HTMT+ (Henseler et al., 2015)."),
+           "formative": "Formative Constructs", "mode_b": " Formative constructs in mode B.",
+           "f_body": ("VIF = variance inflation factor (possible overlap from 3, critical from 5; Hair et al., 2019); "
+                      "weight and loading with their 95% percentile bootstrap interval and p ({d} resamples). A weight "
+                      "without significance stays when its loading is .50 or more (Cenfetelli & Bassellier, 2009; Hair "
+                      "et al., 2022)."),
+           "redundancy": (" Redundancy analysis (convergent validity; Chin, 1998; Cheah et al., 2018): {r}; sufficient "
+                          "from a path of .70."),
            "hyp": "H{n}"},
 }
 
@@ -138,7 +151,10 @@ def build(survey, result, boot=None, lang="de"):
         _title(doc, number, t["paths"], t)
         head = [t["path"]] + (["b", "SE"] if cb else []) + ["β", "95% CI" if lang == "en" else "95-%-KI", "p"] + ([] if cb else ["f²"])
         _table(doc, head, rows, italic=set(range(1, len(head))))
-        body = (t["cb"] if cb else t["pls"]).format(n=result.get("n"), d=sem_model.BOOT_DRAWS)
+        draws = (boot or {}).get("draws") or sem_model.BOOT_DRAWS
+        body = (t["cb"] if cb else t["pls"]).format(n=result.get("n"), d=draws)
+        if not cb and fit.get("formative"):
+            body += t["mode_b"]
         if not cb and not boot:
             body += t["noboot"]
         sentence = sem_model.fit_sentence(fit, lang) if cb else ""
@@ -166,7 +182,7 @@ def build(survey, result, boot=None, lang="de"):
             rows.append([f"{r['path']} ({t['hyp'].format(n=r['hyps'][0])})", fmt(r["std"], lang),
                          fmt_ci(r.get("boot_ci"), lang, bounded=False) or "–", _p(p, lang)])
         _table(doc, [t["via"], "β", "95% CI" if lang == "en" else "95-%-KI", "p"], rows, italic={1, 2, 3})
-        _note(doc, t["ind_body"].format(d=sem_model.BOOT_DRAWS), t)
+        _note(doc, t["ind_body"].format(d=(boot or {}).get("draws") or sem_model.BOOT_DRAWS), t)
         number += 1
     # Table 3: the measurement model
     mtable, _ = sem_model.measurement_table(result)
@@ -180,6 +196,27 @@ def build(survey, result, boot=None, lang="de"):
                 rows.append([f" {i['code']} {i['text']}".rstrip(), fmt(i["std"], lang, True), "", "", ""])
         _table(doc, [t["construct"], "λ", "AVE", "CR", "HTMT"], rows, italic={1, 2, 3, 4})
         _note(doc, t["m_body"], t)
+        number += 1
+    # Table 4: the formative constructs (formative check 2026-10-26)
+    ftable = sem_model.formative_table(result, boot)
+    if ftable:
+        doc.add_paragraph()
+        _title(doc, number, t["formative"], t)
+        rows = []
+        for c in ftable:
+            rows.append([c["label"], "", "", "", "", "", ""])
+            for i in c["items"]:
+                rows.append([f" {i['code']} {i['text']}".rstrip(), fmt(i["vif"], lang),
+                             fmt(i["weight"], lang), fmt_ci(i["ci"], lang, bounded=False) or "–", _p(i["p"], lang),
+                             fmt(i["loading"], lang), _p(i["loading_p"], lang)])
+        head = [t["construct"], "VIF", t["weight"], "95% CI" if lang == "en" else "95-%-KI", "p", "λ", "p"]
+        _table(doc, head, rows, italic={1, 2, 3, 4, 5, 6})
+        body = t["f_body"].format(d=(boot or {}).get("draws") or sem_model.BOOT_DRAWS)
+        found = [r for r in sem_model.redundancy_table(result, boot) if r.get("path") is not None]
+        if found:
+            body += t["redundancy"].format(r="; ".join(
+                f"{r['label']} → {r['global']}: β = {fmt(r['path'], lang)}, R² = {fmt(r['r2'], lang, True)}" for r in found))
+        _note(doc, body, t)
     out = io.BytesIO()
     doc.save(out)
     return out.getvalue()

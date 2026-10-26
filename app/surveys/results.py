@@ -500,7 +500,10 @@ def results_sem_bootstrap(survey_id):
     survey = get_survey(survey_id)
     result, f = _sem_of_page(survey)
     pool = {k: f[k] for k in ("sources", "all", "drop", "speeder")}
-    state = sem_model.start_bootstrap(survey, result, pool, background=not current_app.config.get("HB_SYNC"))
+    # "final": the final version with BOOT_DRAWS_FINAL draws for a report (formative check 2026-10-26, E5)
+    draws = sem_model.BOOT_DRAWS_FINAL if request.form.get("draws") == "final" else sem_model.BOOT_DRAWS
+    state = sem_model.start_bootstrap(survey, result, pool, background=not current_app.config.get("HB_SYNC"),
+                                      draws=draws)
     if state == "started":
         flash(de_en("Bootstrap gestartet; er läuft im Hintergrund, die Seite zeigt den Stand.",
                     "Bootstrap started; it runs in the background, the page shows how far it is."), "success")
