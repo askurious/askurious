@@ -29,6 +29,7 @@ GREEK = set("αωχηβρεσμΔτκλνπ−→≤≥∞")
 SYMBOLS = ("M", "SD", "Mdn", "n", "N", "p", "Q1", "Q3", "RLH", "KI", "CI")
 WIDTH_MM = 174  # the text width of A4 with 18 mm margins
 BAR_MAX = 14  # rows of a bar figure; more categories: only the table
+MAX_COLUMNS = 9  # columns of one table on A4; a wider one is split into parts
 
 
 def _safe(text):
@@ -128,7 +129,28 @@ class Report:
 
     # --- tables and figures -------------------------------------------------------------------------------------
     def table(self, title, head, rows, note=None, widths=None, numeric_from=1, numeric=None):
-        """[flowables] of one APA table: "Tabelle n" bold, its title in italics, horizontal rules only, the note."""
+        """[flowables] of one APA table: "Tabelle n" bold, its title in italics, horizontal rules only, the note. A table
+        wider than the page is split into parts of columns, each with the first column again (continued tables, APA 7,
+        7.21); one that still does not fit becomes a note that points to the results page, never a failed report."""
+        cols = len(head)
+        most = MAX_COLUMNS
+        if cols > most:
+            out, rest = [], list(range(1, cols))
+            parts = [rest[k:k + most - 1] for k in range(0, len(rest), most - 1)]
+            for n, part in enumerate(parts, 1):
+                keep = [0] + part
+                sub_widths = None
+                if widths:
+                    chosen = [widths[i] for i in keep]
+                    sub_widths = [w / sum(chosen) for w in chosen]
+                sub_numeric = [numeric[i] for i in keep] if numeric is not None else None
+                label = title + self.say(" (Teil {n} von {k})", " (part {n} of {k})", n=n, k=len(parts))
+                out += self._table(label, [head[i] for i in keep], [[r[i] for i in keep] for r in rows],
+                                   note if n == len(parts) else None, sub_widths, numeric_from, sub_numeric)
+            return out
+        return self._table(title, head, rows, note, widths, numeric_from, numeric)
+
+    def _table(self, title, head, rows, note=None, widths=None, numeric_from=1, numeric=None):
         from reportlab.lib import colors
         from reportlab.lib.units import mm
         from reportlab.platypus import KeepTogether, Paragraph, Table, TableStyle
@@ -154,6 +176,13 @@ class Report:
             first = 0.42 if len(head) > 2 else 0.6
             col = [first * total] + [(1 - first) * total / max(1, len(head) - 1)] * (len(head) - 1)
         t = Table(data, colWidths=col, repeatRows=1, hAlign="LEFT")
+        try:
+            t.wrap(total, 10 ** 6)  # a cell narrower than its padding fails here, not later in the whole report
+        except (ValueError, ZeroDivisionError):
+            self.tables -= 1
+            return [Paragraph(_safe(self.say("„{t}“: Tabelle zu breit für den Bericht; sie steht auf der Ergebnisseite.",
+                                              "“{t}”: table too wide for the report; it is on the results page.", t=title)),
+                              self.styles["muted"])]
         t.setStyle(TableStyle([
             ("LINEABOVE", (0, 0), (-1, 0), 0.8, ink), ("LINEBELOW", (0, 0), (-1, 0), 0.5, ink),
             ("LINEBELOW", (0, -1), (-1, -1), 0.8, ink), ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -280,8 +309,8 @@ def page_tree(survey):
 def _readable(root):
     """The page as text a report can take over: no buttons (the "?" of the explanations), icons, scripts or hidden
     parts; a selection shows its chosen option and a field its value, as the page shows them."""
-    for el in root.xpath("//button|//svg|//script|//style|//template|//*[@hidden]|//*[contains(@class, 'sr-only')]"
-                         "|//*[contains(@class, 'term-help')]"):
+    for el in root.xpath("//button|//svg[contains(@class, 'icon') or @aria-hidden='true']|//script|//style|//template"
+                         "|//*[@hidden]|//*[contains(@class, 'sr-only')]|//*[contains(@class, 'term-help')]"):
         el.drop_tree()
     for sel in root.xpath("//select"):
         chosen = sel.xpath(".//option[@selected]") or sel.xpath(".//option")
@@ -341,13 +370,40 @@ def _note_of(table):
     return None
 
 
+def _value_of(rows):
+    """The value written at a bar: the page's own text of that row."""
+    written = {label: text for label, _, text in rows}
+    return lambda v, label: written.get(label, "")
+
+
 def harvested(rep, root, skip=()):
     """[flowables]: every table under root as an APA table (head, rows, note), in the page's order."""
     out = []
-    for table in root.xpath(".//table"):
+    for el in root.xpath(".//table|.//ul[contains(@class, 'res-bars')]|.//svg"):
+        tag = el.tag if isinstance(el.tag, str) else ""
+        if tag.endswith("svg"):
+            if el.xpath("ancestor::table"):
+                continue
+            drawing = svg_drawing(el, rep)
+            if drawing is not None:
+                out += rep.figure(_figure_title(el, rep), drawing, _note_of(el.getparent() if el.getparent() is not None
+                                                                              and "res-scroll" not in (el.getparent().get("class") or "")
+                                                                              else el))
+            continue
+        if tag == "ul":
+            bars = _bar_list(el)
+            if bars:
+                out += rep.figure(_figure_title(el, rep), rep.bars([(b[0], b[1]) for b in bars],
+                                                                    _value_of(bars), top=1), _note_of(el))
+            continue
+        table = el
         cls = table.get("class") or ""
         if any(k in cls for k in skip):
             continue
+        cell_bars = _cell_bars(table)
+        if cell_bars:
+            out += rep.figure(_figure_title(table, rep), rep.bars([(b[0], b[1]) for b in cell_bars], _value_of(cell_bars),
+                                                                  top=1))
         head = [_text(th) for th in table.xpath("./thead/tr[1]/th")]
         rows = [[Markup(_inline(td)) for td in tr.xpath("./th|./td")] for tr in table.xpath("./tbody/tr|./tr")]
         rows = [r for r in rows if any(str(c).strip() for c in r)]
@@ -376,6 +432,279 @@ def harvested(rep, root, skip=()):
             title = title[:138].rsplit(" ", 1)[0] + " …"
         out += rep.table(title, head, rows, _note_of(table), widths=widths, numeric=numeric)
     return out
+
+
+
+# --- figures of the page --------------------------------------------------------------------------------------------
+# The diagrams of the page (path diagram of the structural equation model, simple slopes, the paths over the waves,
+# the charts of rarer question types) are SVG; the standard tools of reportlab draw no SVG, so a small reader turns
+# their shapes into a drawing: rectangles, circles, ellipses, lines, polylines, polygons, paths (M, L, H, V, C, S, Q,
+# Z, absolute and relative), text and translated groups, arrowheads where a path has a marker. Colours follow APA's
+# plain style: ink lines, white fills, a dashed line where the page dashes (not significant). Bar lists of the page
+# (shares of the simulator, segment sizes, a bar in a table cell) become the report's own bar figures.
+
+_NUM = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+_CMD = re.compile(r"[MmLlHhVvCcSsQqTtZzAa]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+
+
+def _f(value, default=0.0):
+    try:
+        return float(_NUM.match(str(value).strip()).group(0))
+    except (AttributeError, ValueError, TypeError):
+        return default
+
+
+def _path_points(d):
+    """[(op, points)] of an SVG path in absolute coordinates: op "M", "L", "C" (with three points) or "Z"."""
+    out, tokens, i = [], _CMD.findall(d or ""), 0
+    x = y = sx = sy = 0.0
+    last_c = None
+    cmd = None
+    while i < len(tokens):
+        if re.fullmatch(r"[A-Za-z]", tokens[i]):
+            cmd = tokens[i]
+            i += 1
+            if cmd in "Zz":
+                out.append(("Z", []))
+                x, y = sx, sy
+                continue
+        if cmd is None:
+            break
+
+        def take(k):
+            nonlocal i
+            vals = [float(t) for t in tokens[i:i + k]]
+            i += k
+            return vals if len(vals) == k else None
+
+        rel = cmd.islower()
+        c = cmd.upper()
+        if c == "M":
+            v = take(2)
+            if v is None:
+                break
+            x, y = (x + v[0], y + v[1]) if rel else (v[0], v[1])
+            sx, sy = x, y
+            out.append(("M", [(x, y)]))
+            cmd = "l" if rel else "L"
+        elif c == "L" or c == "T":
+            v = take(2)
+            if v is None:
+                break
+            x, y = (x + v[0], y + v[1]) if rel else (v[0], v[1])
+            out.append(("L", [(x, y)]))
+        elif c == "H":
+            v = take(1)
+            if v is None:
+                break
+            x = x + v[0] if rel else v[0]
+            out.append(("L", [(x, y)]))
+        elif c == "V":
+            v = take(1)
+            if v is None:
+                break
+            y = y + v[0] if rel else v[0]
+            out.append(("L", [(x, y)]))
+        elif c == "C":
+            v = take(6)
+            if v is None:
+                break
+            pts = [(x + v[0], y + v[1]), (x + v[2], y + v[3]), (x + v[4], y + v[5])] if rel else \
+                [(v[0], v[1]), (v[2], v[3]), (v[4], v[5])]
+            out.append(("C", pts))
+            last_c = pts[1]
+            x, y = pts[2]
+        elif c == "S":
+            v = take(4)
+            if v is None:
+                break
+            first = (2 * x - last_c[0], 2 * y - last_c[1]) if last_c else (x, y)
+            pts = [first, (x + v[0], y + v[1]), (x + v[2], y + v[3])] if rel else [first, (v[0], v[1]), (v[2], v[3])]
+            out.append(("C", pts))
+            last_c = pts[1]
+            x, y = pts[2]
+        elif c == "Q":
+            v = take(4)
+            if v is None:
+                break
+            q = (x + v[0], y + v[1]) if rel else (v[0], v[1])
+            end = (x + v[2], y + v[3]) if rel else (v[2], v[3])
+            pts = [(x + 2 / 3 * (q[0] - x), y + 2 / 3 * (q[1] - y)), (end[0] + 2 / 3 * (q[0] - end[0]),
+                   end[1] + 2 / 3 * (q[1] - end[1])), end]
+            out.append(("C", pts))
+            x, y = end
+        elif c == "A":  # an arc as a straight line to its end (rare in the page's diagrams)
+            v = take(7)
+            if v is None:
+                break
+            x, y = (x + v[5], y + v[6]) if rel else (v[5], v[6])
+            out.append(("L", [(x, y)]))
+        else:
+            i += 1
+        if c != "C" and c != "S":
+            last_c = None
+    return out
+
+
+def svg_drawing(svg, rep, max_height_mm=200):
+    """A reportlab drawing of an SVG element of the page, scaled to the text width; None when it has nothing drawable."""
+    from reportlab.graphics.shapes import Circle, Drawing, Ellipse, Group, Line, Path, PolyLine, Polygon, Rect, String
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+
+    box = [_f(v) for v in (svg.get("viewBox") or svg.get("viewbox") or "").replace(",", " ").split()]
+    if len(box) != 4:
+        box = [0, 0, _f(svg.get("width"), 600), _f(svg.get("height"), 300)]
+    minx, miny, w, h = box
+    if w <= 0 or h <= 0:
+        return None
+    scale = min(WIDTH_MM * mm / w, 0.75, max_height_mm * mm / h)
+    ink = colors.HexColor(sm.tokens()["--fg"])
+    muted = colors.HexColor(sm.tokens()["--muted"])
+    accent = colors.HexColor(rep.accent)
+    d = Drawing(w * scale, h * scale)
+    top = Group()
+    count = 0
+
+    def pt(x, y, dx, dy):
+        return ((x + dx - minx) * scale, (h - (y + dy - miny)) * scale)
+
+    def style_of(el):
+        cls = " ".join(a.get("class") or "" for a in [el] + list(el.iterancestors()) if a.tag != "svg")
+        dashed = "is-ns" in cls or "dash" in cls or el.get("stroke-dasharray")
+        fill = el.get("fill")
+        bar = any(k in cls for k in ("bar", "area", "dot", "point", "fill"))
+        return dashed, fill, bar, cls
+
+    def arrow(p0, p1):
+        import math as m
+
+        ang = m.atan2(p1[1] - p0[1], p1[0] - p0[0])
+        size = 5
+        a = (p1[0] - size * m.cos(ang - 0.4), p1[1] - size * m.sin(ang - 0.4))
+        b = (p1[0] - size * m.cos(ang + 0.4), p1[1] - size * m.sin(ang + 0.4))
+        return Polygon([p1[0], p1[1], a[0], a[1], b[0], b[1]], fillColor=ink, strokeColor=ink, strokeWidth=0.3)
+
+    def walk(node, dx, dy):
+        nonlocal count
+        for el in node:
+            tag = el.tag if isinstance(el.tag, str) else ""
+            tag = tag.split("}")[-1]
+            if tag in ("defs", "title", "desc", "marker", "style", "clipPath"):
+                continue
+            ox, oy = dx, dy
+            tr = re.search(r"translate\(\s*([-\d.e]+)[ ,]*([-\d.e]*)\s*\)", el.get("transform") or "")
+            if tr:
+                ox, oy = dx + float(tr.group(1)), dy + (float(tr.group(2)) if tr.group(2) else 0.0)
+            dashed, fill, bar, cls = style_of(el)
+            line_kw = {"strokeColor": muted if dashed else ink, "strokeWidth": 0.7,
+                       "strokeDashArray": [3, 2] if dashed else None}
+            fill_colour = accent if bar else (None if fill == "none" else colors.white)
+            if tag == "g":
+                walk(el, ox, oy)
+            elif tag == "rect":
+                x, y = pt(_f(el.get("x")), _f(el.get("y")) + _f(el.get("height")), ox, oy)
+                top.add(Rect(x, y, _f(el.get("width")) * scale, _f(el.get("height")) * scale, fillColor=fill_colour,
+                             strokeColor=None if bar else ink, strokeWidth=0.6))
+                count += 1
+            elif tag in ("circle", "ellipse"):
+                cx, cy = pt(_f(el.get("cx")), _f(el.get("cy")), ox, oy)
+                if tag == "circle":
+                    top.add(Circle(cx, cy, _f(el.get("r")) * scale, fillColor=fill_colour or colors.white,
+                                   strokeColor=ink, strokeWidth=0.6))
+                else:
+                    top.add(Ellipse(cx, cy, _f(el.get("rx")) * scale, _f(el.get("ry")) * scale,
+                                    fillColor=fill_colour or colors.white, strokeColor=ink, strokeWidth=0.7))
+                count += 1
+            elif tag == "line":
+                a = pt(_f(el.get("x1")), _f(el.get("y1")), ox, oy)
+                b = pt(_f(el.get("x2")), _f(el.get("y2")), ox, oy)
+                top.add(Line(a[0], a[1], b[0], b[1], **line_kw))
+                if el.get("marker-end"):
+                    top.add(arrow(a, b))
+                count += 1
+            elif tag in ("polyline", "polygon"):
+                nums = [float(v) for v in _NUM.findall(el.get("points") or "")]
+                pts = []
+                for k in range(0, len(nums) - 1, 2):
+                    pts += list(pt(nums[k], nums[k + 1], ox, oy))
+                if len(pts) >= 4:
+                    top.add(Polygon(pts, fillColor=fill_colour, strokeColor=ink, strokeWidth=0.6) if tag == "polygon"
+                            else PolyLine(pts, **line_kw))
+                    count += 1
+            elif tag == "path":
+                ops = _path_points(el.get("d"))
+                if not ops:
+                    continue
+                path = Path(fillColor=None if fill == "none" or not bar else accent, **line_kw)
+                prev = last = None
+                for op, pts in ops:
+                    tp = [pt(px, py, ox, oy) for px, py in pts]
+                    if op == "M":
+                        path.moveTo(*tp[0])
+                        last = tp[0]
+                    elif op == "L":
+                        path.lineTo(*tp[0])
+                        prev, last = last, tp[0]
+                    elif op == "C":
+                        path.curveTo(tp[0][0], tp[0][1], tp[1][0], tp[1][1], tp[2][0], tp[2][1])
+                        prev, last = tp[1], tp[2]
+                    elif op == "Z":
+                        path.closePath()
+                top.add(path)
+                if el.get("marker-end") and prev is not None and last is not None:
+                    top.add(arrow(prev, last))
+                count += 1
+            elif tag == "text":
+                text = _text(el)
+                if not text:
+                    continue
+                x, y = pt(_f(el.get("x")), _f(el.get("y")), ox, oy)
+                size = max(5.5, min(9, _f(el.get("font-size"), 12) * scale * 1.0)) if el.get("font-size") else \
+                    max(5.5, min(8.5, 11 * scale))
+                anchor = {"middle": "middle", "end": "end"}.get(el.get("text-anchor"), "start")
+                top.add(String(x, y, _cp(text), fontName="Helvetica", fontSize=size, textAnchor=anchor, fillColor=ink))
+                count += 1
+    walk(svg, 0.0, 0.0)
+    if not count:
+        return None
+    d.add(top)
+    return d
+
+
+def _bar_list(ul):
+    """[(label, share 0…1 of the drawn width, the value as written)] of a bar list of the page."""
+    rows = []
+    for li in ul.xpath("./li"):
+        label = li.xpath(".//*[contains(@class, 'res-bar-label')]")
+        bar = li.xpath(".//*[contains(concat(' ', @class, ' '), ' res-bar ')]/span[1]")
+        value = li.xpath(".//*[contains(@class, 'res-bar-n')]")
+        m = re.search(r"width:\s*([\d.]+)%", (bar[0].get("style") or "") if bar else "")
+        if not label or not m:
+            continue
+        rows.append((_text(label[0]), float(m.group(1)) / 100, _text(value[0]) if value else ""))
+    return rows
+
+
+def _cell_bars(table):
+    """A bar in a column of a table (the course of a diary study): [(row label, share, value)] or []."""
+    rows = []
+    for tr in table.xpath("./tbody/tr|./tr"):
+        cells = tr.xpath("./th|./td")
+        bar = tr.xpath(".//*[contains(concat(' ', @class, ' '), ' res-bar ')]/span[1]")
+        m = re.search(r"width:\s*([\d.]+)%", (bar[0].get("style") or "") if bar else "")
+        if not cells or not m:
+            return []
+        holder = next((c for c in cells if c.xpath(".//*[contains(concat(' ', @class, ' '), ' res-bar ')]")), cells[-1])
+        rows.append((_text(cells[0]), float(m.group(1)) / 100, _text(holder)))
+    return rows
+
+
+def _figure_title(el, rep):
+    title = _heading_of(el) or rep.say("Abbildung der Ergebnisseite", "Figure of the results page")
+    if len(title) > 90 and ":" in title[:90]:
+        title = title.split(":", 1)[0]
+    return title if len(title) <= 140 else title[:138].rsplit(" ", 1)[0] + " …"
 
 
 def _hypotheses(rep, root):
@@ -782,6 +1111,10 @@ def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
     root = page_tree(survey) if page else None
     if root is not None:
         story += _section(rep, root, "//section[.//table[contains(@class, 'quota-results')]]", rep.say("Quoten", "Quotas"))
+        # a diary study: the course over the days and hours with ICC(1), the scales in two levels
+        story += _section(rep, root, "//section[.//table[contains(@class, 'diary-time-table')]]",
+                          rep.say("Verlauf der Tagebuchstudie", "Course of the diary survey"))
+        story += _section(rep, root, "diary-scales", rep.say("Skalen in zwei Ebenen", "Scales in two levels"))
         story += _hypotheses(rep, root)
     entries = [e for e in data.get("items") or []]
     if entries:
