@@ -321,14 +321,20 @@ label.p-question { display: block; }
   .p-likert-each .p-statement { font-weight: 600; margin-bottom: 12px; }
 }
 @media (min-width: 700px) { .p-statement-count { display: none; } }
-/* Fully labelled scales on narrow phones: vertical list, labels readable */
+/* Fully labelled scales on narrow phones: vertical list, labels readable. "Labels once" too: seven or more labels
+   over columns of 40 px ran word by word down the screen and pushed the page out to the right (participant
+   feedback 2026-10-26), so on a phone each statement lists its labels like "labels at each" */
 @media (max-width: 560px) {
-  .p-likert-each.p-likert-full .p-scale { grid-template-columns: 1fr; gap: 4px; }
-  .p-likert-each.p-likert-full .p-point { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); text-align: start; }
-  .p-likert-each.p-likert-full .p-point-label { font-size: 0.95rem; color: var(--fg); }
+  .p-likert-full:is(.p-likert-each, .p-likert-once) .p-scale { grid-template-columns: 1fr; gap: 4px; }
+  .p-likert-full:is(.p-likert-each, .p-likert-once) .p-point { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); text-align: start; }
+  .p-likert-full:is(.p-likert-each, .p-likert-once) .p-point-label,
+  .p-likert-dk.p-likert-once.p-likert-full .p-point-dk .p-point-label { display: block; font-size: 0.95rem; color: var(--fg); }
+  .p-likert-once.p-likert-full .p-likert-head { display: none; }
+  .p-likert-once.p-likert-full .p-likert-row:first-child { border-top: 1px solid var(--line); }
 }
-/* "Labels once": one sticky header row, statements show circles only (all screen sizes) */
-.p-likert-once .p-likert-head { display: grid; grid-template-columns: repeat(var(--points), 1fr); gap: 6px;
+/* "Labels once": one sticky header row, statements show circles only (endpoints on all screen sizes, full labels
+   from 561 px). minmax(0, 1fr) as in the rows: a long word no longer widens its head column past its circles */
+.p-likert-once .p-likert-head { display: grid; grid-template-columns: repeat(var(--points), minmax(0, 1fr)); gap: 6px;
   position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0 6px; border-bottom: 1px solid var(--line);
   font-size: 0.8rem; line-height: 1.2; color: var(--muted); text-align: center; align-items: end; hyphens: auto; }
 .p-likert-once .p-likert-corner { display: none; }
@@ -362,7 +368,7 @@ label.p-question { display: block; }
 .p-likert-dk .p-scale { grid-template-columns: repeat(var(--points), 1fr) minmax(64px, 1fr); }
 .p-point-dk { border-inline-start: 1px dashed var(--border-strong); border-radius: 0; border-start-end-radius: 8px; border-end-end-radius: 8px; margin-inline-start: 4px; }
 .p-likert .p-point-dk .p-point-label { display: block; }
-.p-likert-dk.p-likert-once .p-likert-head { grid-template-columns: repeat(var(--points), 1fr) minmax(64px, 1fr); }
+.p-likert-dk.p-likert-once .p-likert-head { grid-template-columns: repeat(var(--points), minmax(0, 1fr)) minmax(64px, 1fr); }
 .p-likert-dk.p-likert-once .p-head-endpoints { grid-column: 1 / -2; }
 .p-likert-dk.p-likert-once .p-point-dk .p-point-label { display: none; }
 /* anchors under each statement end where the scale ends, not under "weiß nicht" (W43): the dk column is one 1fr
@@ -370,7 +376,7 @@ label.p-question { display: block; }
 .p-likert-dk .p-likert-row > .p-endpoints {
   padding-inline-end: calc(max(64px, (100% - var(--points) * 6px) / (var(--points) + 1)) + 10px); }
 @media (max-width: 560px) {
-  .p-likert-each.p-likert-full .p-point-dk { margin: 6px 0 0; border: 1px dashed var(--border-strong); border-radius: 8px; }
+  .p-likert-full:is(.p-likert-each, .p-likert-once) .p-point-dk { margin: 6px 0 0; border: 1px dashed var(--border-strong); border-radius: 8px; }
 }
 @media (min-width: 700px) {
   .p-likert-dk .p-likert-head, .p-likert-dk.p-likert-full .p-likert-row, .p-likert-dk.p-likert-once .p-likert-row {
