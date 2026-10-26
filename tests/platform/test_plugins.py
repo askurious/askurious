@@ -114,7 +114,7 @@ def test_module_view_without_fieldwork_has_a_short_basis(app, client, survey, mo
     basis = page.split('id="basis-line"', 1)[1].split('class="res-fold-row"', 1)[0]
     assert "Testdurchläufe" not in basis and "Dummy-Daten" not in basis and "keine Gruppen" not in basis
     assert "ungewichtet" not in basis and "Verwendete Daten" not in page and "Nur diese Ansicht" not in basis
-    assert "auch die nicht abgeschlossene Teilnahme einbeziehen" in basis
+    assert "auch die eine Ausgeschlossene einbeziehen" in basis
     client.post(f"/surveys/{survey}/pool", data={"source": "real", "all": "1", "back": f"/surveys/{survey}/results"})
     with app.app_context():
         assert db.session.get(Survey, survey).data_pool["all"] is True
@@ -140,7 +140,7 @@ def test_module_view_without_fieldwork_has_a_short_export_page(app, client, surv
         db.session.commit()
     page = client.get(f"/surveys/{survey}/data").data.decode()
     assert not [g for g in gone if g in page]
-    assert "Codebuch (CSV)" in page and "auch die nicht abgeschlossenen" in page and 'id="export-form"' in page
+    assert "Codebuch (CSV)" in page and "auch die 0 Ausgeschlossenen mit exportieren" in page and 'id="export-form"' in page
 
 def test_imported_surveys_stay_out_of_the_statistics(app, client, monkeypatch):
     """Analyses an add-on module imports (the conjoint import) are no surveys of the platform: the dashboard,

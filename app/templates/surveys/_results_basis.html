@@ -46,7 +46,7 @@
       <form method="post" action="{{ url_for('surveys.update_pool', survey_id=survey.id) }}" id="pool-form" class="stack results-filter"{{ " data-autosave-form" if can_edit else "" }}>
         {{ csrf() }}<input type="hidden" name="back" value="{{ request.path }}">
         {% for s in basis.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
-        <label class="check"><input type="checkbox" name="all" value="1" {% if basis.all %}checked{% endif %} {% if not can_edit %}disabled{% endif %}> {{ de_en("auch die {n} nicht abgeschlossenen Teilnahmen einbeziehen", "also include the {n} participations that were not completed", n=unfinished|thousands) if unfinished != 1 else de_en("auch die nicht abgeschlossene Teilnahme einbeziehen", "also include the participation that was not completed") }}
+        <label class="check"><input type="checkbox" name="all" value="1" {% if basis.all %}checked{% endif %} {% if not can_edit %}disabled{% endif %}> {{ de_en("auch die {n} Ausgeschlossenen einbeziehen", "also include the {n} excluded participations", n=unfinished|thousands) if unfinished != 1 else de_en("auch die eine Ausgeschlossene einbeziehen", "also include the one excluded participation") }} <span class="hint">{{ de_en("laut Quelle nicht abgeschlossen", "not completed according to the source") }}</span>
           <span class="hint">{{ de_en("gilt für Ergebnisse, Dashboards und die Vorauswahl beim Export", "applies to results, dashboards and the preselection for the export") }}</span></label>
         {% if pool_frozen and survey.can(current_user, "editor") %}<p class="muted small">{{ pool_frozen_note }}</p>{% endif %}
         {% if can_edit %}{{ autosave_bar(small=true) }}{% endif %}
