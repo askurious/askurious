@@ -88,7 +88,24 @@ def figures_of(result, boot=None):
         if chi2 is not None and q:
             out["fit"]["aic"] = chi2 + 2 * q
             out["fit"]["bic"] = chi2 + q * math.log(n) if n else None
-    return json.loads(json.dumps(out, default=float))
+    return _plain(out)
+
+
+def _plain(value):
+    """Plain JSON: numpy numbers as floats, NaN and infinity as None (PostgreSQL refuses NaN in a JSON column)."""
+    if isinstance(value, dict):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    if isinstance(value, bool) or value is None or isinstance(value, str):
+        return value
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if isinstance(value, int):
+        return value
+    return number if math.isfinite(number) else None
 
 
 def versions(survey):
@@ -113,7 +130,7 @@ def record(survey, result, boot=None, force=False):
             db.session.commit()
         return last
     v = SemVersion(survey_id=survey.id, number=(every[-1].number + 1) if every else 1, key=key, name="",
-                   settings=json.loads(json.dumps(settings)), figures=figures_of(result, boot))
+                   settings=_plain(settings), figures=figures_of(result, boot))
     db.session.add(v)
     db.session.flush()
     _prune(survey, every + [v])

@@ -127,3 +127,41 @@ def test_a_viewer_cannot_change_versions(app, client, survey):
     response = other.post("/surveys/1/results/sem-version", data={"action": "refresh"})
     assert response.status_code in (302, 303, 403)
     assert len(_versions(app)) == 1
+
+
+def test_figures_are_plain_json_without_nan():
+    """PostgreSQL refuses NaN in a JSON column (a version of a saturated model broke the results page, 2026-10-26):
+    NaN and infinity become None, numpy numbers floats."""
+    import numpy as np
+
+    out = sem_versions._plain({"a": float("nan"), "b": [np.float64(0.5), float("inf")], "c": {1: np.int64(3)}, "d": True})
+    assert out == {"a": None, "b": [0.5, None], "c": {"1": 3.0}, "d": True}
+    import json
+
+    json.dumps(out, allow_nan=False)
+
+
+def test_the_simulation_buttons_of_the_plan_are_actions(app, client, survey):
+    """The autosave of the plan form keeps a submit without a name to itself (app.js): the buttons that start a
+    simulation carry a name, so that the browser sends them to their own route."""
+    from pathlib import Path
+
+    text = Path("app/templates/surveys/_fields_plan.html").read_text(encoding="utf-8")
+    assert 'name="sem_power" value="1" formaction=' in text and 'name="panel_power" value="1" formaction=' in text
+
+
+def test_a_pls_model_with_a_relation_without_direction_shows(app, client, survey):
+    """Results page of n99rgg (2026-10-26): a PLS model with a relation without a direction broke the path table
+    (its row had no f² and VIF)."""
+    from tests.analysis.test_sem_survey import _survey as base_survey
+
+    base_survey(app, client, n=300, plan=False)
+    client.post("/surveys/1/researchdesign", data=MultiDict({
+        "research_question": "TB", "goal": "correlation", "design": "cross", "h_id": ["", ""],
+        "h_text": ["TB wirkt auf Absicht", "Einstellung hängt mit TB zusammen"], "h_kind": ["effect", "correlation"],
+        "h_dir": ["pos", "pos"], "h_iv": ["tb", "einst"], "h_dv": ["absicht", "tb"], "h_mv": ["", ""],
+        "h_analysis": ["sem", "sem"], "sem_method": "pls"}))
+    response = client.get("/surveys/1/results?go=1")
+    assert response.status_code == 200
+    page = response.data.decode()
+    assert "↔" in page[page.index('id="sem"'):]

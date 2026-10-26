@@ -179,7 +179,7 @@
     <p class="small" role="status">{{ de_en("Simulation läuft: {p}. Das Ergebnis steht hier beim nächsten Laden der Seite.", "Simulation running: {p}. The result is here when the page is loaded again.", p=((pp_.progress or 0) * 100)|round|int|pctsign) }}</p>
     {% else %}
     {% if pp_.state == "error" %}<p class="flash flash-warning small">{{ de_en("Die letzte Simulation ist abgebrochen.", "The last simulation stopped.") }}</p>{% endif %}
-    <p class="small"><button type="submit" class="button button-secondary button-small" formaction="{{ url_for('study_plan.panel_power', survey_id=survey.id) }}" formnovalidate>{{ de_en("Power der Hypothesen über die Zeit prüfen", "Check the power of the hypotheses over time") }}</button>
+    <p class="small"><button type="submit" class="button button-secondary button-small" name="panel_power" value="1" formaction="{{ url_for('study_plan.panel_power', survey_id=survey.id) }}" formnovalidate>{{ de_en("Power der Hypothesen über die Zeit prüfen", "Check the power of the hypotheses over time") }}</button>
       <span class="hint">{{ de_en("{r} Panels mit N = {n} und {w} Wellen{a}, im Hintergrund", "{r} panels with N = {n} and {w} waves{a}, in the background", r=panel_models.POWER_REPS, n=pp_.n, w=pp_.waves, a=(de_en(" (angenommen, solange keine Wellen verknüpft sind)", " (assumed while no waves are linked)") if pp_.assumed else "")) }}</span></p>
     {% endif %}
     <p class="muted small">{{ de_en("Angenommen (Festlegung von Askurious): die Hälfte der Varianz stabil zwischen Personen, Stabilität 0,40 innerhalb, der erwartete Effekt als standardisierter Pfad; ohne Messfehler und ohne fehlende Wellen, daher eine obere Grenze", "Assumed (set by Askurious): half of the variance stable between people, stability 0.40 within, the expected effect as a standardised path; without measurement error and without missing waves, so an upper bound") }} {{ apa.cite([panel_models.MULDER]) }}.</p>
@@ -206,7 +206,7 @@
     <p class="small" role="status">{{ de_en("Simulation läuft: {p}. Das Ergebnis steht hier beim nächsten Laden der Seite.", "Simulation running: {p}. The result is here when the page is loaded again.", p=((ps_.progress or 0) * 100)|round|int|pctsign) }}</p>
     {% else %}
     {% if ps_.state == "error" %}<p class="flash flash-warning small">{{ de_en("Die letzte Simulation ist abgebrochen.", "The last simulation stopped.") }}</p>{% endif %}
-    <p class="small"><button type="submit" class="button button-secondary button-small" formaction="{{ url_for('study_plan.sem_power', survey_id=survey.id) }}" formnovalidate>{{ de_en("Power per Simulation prüfen", "Check power by simulation") }}</button>
+    <p class="small"><button type="submit" class="button button-secondary button-small" name="sem_power" value="1" formaction="{{ url_for('study_plan.sem_power', survey_id=survey.id) }}" formnovalidate>{{ de_en("Power per Simulation prüfen", "Check power by simulation") }}</button>
       <span class="hint">{{ de_en("{r} Datensätze mit N = {n} aus dem geplanten Modell, im Hintergrund; genauer als die Näherung bei Vermittlung, Moderation und kleinen Stichproben", "{r} data sets with N = {n} from the planned model, in the background; more precise than the approximation for mediation, moderation and small samples", r=sem_model.POWER_REPS, n=ps_.n) }}</span></p>
     {% endif %}
   </div>

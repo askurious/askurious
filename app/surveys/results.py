@@ -248,7 +248,11 @@ def results(survey_id):
                 if not f.get("weighted") and not sem_result.get("error"):
                     from app import sem_versions
 
-                    sem_versions.record(survey, sem_result, (sem_boot or {}).get("result"))
+                    try:  # keeping a version never costs the page (a failed save is logged, the page shows)
+                        sem_versions.record(survey, sem_result, (sem_boot or {}).get("result"))
+                    except Exception:
+                        db.session.rollback()
+                        current_app.logger.exception("version of the model of survey %s not kept", survey.id)
                 if hyps:  # the sentences in the language of the page like the other hypotheses
                     sem_model.apply(hyps, sem_result, plan_mod.plan_of(survey)["hypotheses"],
                                     (sem_boot or {}).get("result"), lang=hyp_lang)
