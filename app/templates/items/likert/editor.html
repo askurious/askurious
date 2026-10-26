@@ -25,7 +25,7 @@
     <label>{{ de_en("Anzeige der Beschriftung", "Display of the labels") }}
       <select name="label_display" {% if not structural %}disabled{% endif %}>
         <option value="each" {% if item.cfg.get("label_display", "each") == "each" %}selected{% endif %}>{{ de_en("bei jeder Aussage (auf dem Handy)", "with every statement (on mobile phones)") }}</option>
-        <option value="once" {% if item.cfg.get("label_display") == "once" %}selected{% endif %}>{{ de_en("einmal oben (platzsparend)", "once at the top (saves space)") }}</option>
+        <option value="once" {% if item.cfg.get("label_display") == "once" %}selected{% endif %}>{{ de_en("einmal oben (platzsparend; auf schmalen Handys bei jeder Aussage)", "once at the top (saves space; with every statement on narrow phones)") }}</option>
       </select>
     </label>
   </div>
