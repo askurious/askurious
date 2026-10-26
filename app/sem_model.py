@@ -2284,7 +2284,9 @@ def path_table(result, boot=None):
             continue
         rows.append({"from": names.get(a, (a, a))[1], "to": names.get(b, (b, b))[1], "hyps": by_cov.get((a, b), []),
                      "std": row["std"], "ci": row.get("ci"), "p": row.get("p"), "boot_ci": row.get("boot_ci"),
-                     "sig": row.get("p") is not None and row["p"] < 0.05, "cov": True, "residual": row["residual"]})
+                     "sig": row.get("p") is not None and row["p"] < 0.05, "cov": True, "residual": row["residual"],
+                     # the columns of a path (PLS f², VIF; t) stay empty for a relation without a direction
+                     "t": None, "f2": None, "vif": None, "control": False})
     return rows
 
 
