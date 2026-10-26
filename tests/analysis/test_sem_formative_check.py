@@ -142,3 +142,24 @@ def test_without_a_global_measure_the_page_says_so(app, client, survey):
     page = client.get("/surveys/1/results?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Ohne Globalmaß, daher keine Redundanzanalyse" in part
+
+
+def test_the_diagram_draws_formative_statements_with_their_weights(app, client, survey, monkeypatch):
+    """The outer model in the picture (two-step check 2026-10-26, E3): reflective statements with λ and the arrow to
+    them, formative ones with w, a dashed frame and the arrow to the construct."""
+    form = _survey(app, client)
+    form.update(sem_mode_tb="formative")
+    client.post("/surveys/1/researchdesign", data=MultiDict(form))
+    monkeypatch.setattr(sem_model, "BOOT_DRAWS", 120)
+    app.config["HB_SYNC"] = True
+    client.get("/surveys/1/results?go=1")
+    client.post("/surveys/1/results/sem-bootstrap")
+    page = client.get("/surveys/1/results").data.decode()
+    part = page[page.index('id="sem-diagram"'):]
+    assert part.count('class="sem-indicator is-formative"') + part.count('class="sem-indicator is-warn is-formative"') == 4
+    assert " · w = " in part and " · λ = " in part
+    d_part = part[:part.index("</svg>")]
+    first = d_part.index('class="sem-indicator is-')
+    line = d_part.rfind('<path d="M', 0, first)
+    x1, y1, x2, y2 = (float(v) for v in d_part[line + 10:d_part.index('"', line + 10)].replace("L", "").split())
+    assert y2 < y1  # formative: from the statement below up to the construct

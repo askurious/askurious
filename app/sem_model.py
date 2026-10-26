@@ -3401,10 +3401,13 @@ def _name_lines(text, size=24):
 MEASURE_IW, MEASURE_IH, MEASURE_GAP, MEASURE_RISE = 38, 20, 6, 34  # a statement's box below its construct
 
 
-def _indicators(node, rows, statements):
+def _indicators(node, rows, statements, formative=False, verdicts=None):
     """The statements of a construct as boxes in a row below it (above run the arcs of the paths that skip a
     column), each with its standardised loading (Ralf, 2026-10-17: the measurement model in the picture, shown on
-    request): [{x, y, w, h, value, title, d}]."""
+    request): [{x, y, w, h, value, title, d, sym, warn}]. A formative construct (outer model, two-step check
+    2026-10-26, E3): the arrow runs from the statement to the construct and the box shows its weight; "warn" marks a
+    loading below 0.70 (reflective) or a statement whose verdict is "content" or "check" (formative)."""
+    verdicts = verdicts or {}
     count = len(rows)
     if not count:
         return []
@@ -3417,8 +3420,16 @@ def _indicators(node, rows, statements):
         bx = x + MEASURE_IW / 2
         x1, y1 = _rim(cx, cy, bx, top, node["latent"])
         text = statements.get(r["item"], "") or r["item"]
-        out.append({"x": x, "y": top, "w": MEASURE_IW, "h": MEASURE_IH, "value": r.get("std"), "code": r["item"],
-                    "title": f"{k + 1}: {text}", "d": f"M{x1:.1f} {y1:.1f} L{bx:.1f} {top - 4:.1f}"})
+        if formative:
+            value, sym = r.get("weight"), "w"
+            warn = verdicts.get(r["item"]) in ("content", "check")
+            d = f"M{bx:.1f} {top:.1f} L{x1:.1f} {y1:.1f}"
+        else:
+            value, sym = r.get("std"), "λ"
+            warn = value is not None and 0 <= value < LOADING_REFL
+            d = f"M{x1:.1f} {y1:.1f} L{bx:.1f} {top - 4:.1f}"
+        out.append({"x": x, "y": top, "w": MEASURE_IW, "h": MEASURE_IH, "value": value, "code": r["item"],
+                    "title": f"{k + 1}: {text}", "d": d, "sym": sym, "warn": warn, "formative": formative})
     return out
 
 
@@ -3572,8 +3583,12 @@ def diagram(result, boot=None):
     # the measurement model of each construct, drawn only on request (the button above the diagram, sem_drag.js)
     loadings = (fit.get("loadings") or {}) if shown else {}
     statements = result.get("statements") or {}
+    formative = set((result.get("spec") or {}).get("formative") or ())
+    verdicts = {c["lv"]: {i["code"]: i["verdict"] for i in c["items"]} for c in formative_table(result, boot)} \
+        if formative and shown else {}
     for n in nodes:
-        n["indicators"] = _indicators(n, loadings.get(n["name"]) or [], statements) if n["latent"] else []
+        n["indicators"] = _indicators(n, loadings.get(n["name"]) or [], statements, n["name"] in formative,
+                                      verdicts.get(n["name"])) if n["latent"] else []
     # the space reserved above for the arcs is more than their tops need: the picture starts at the highest arc or
     # label (viewBox from "top"), not with an empty band
     tops = [y for _, y in pos.values()] + [e["ly"] - 14 for e in edges] + [e["apex"] for e in edges if "apex" in e]
