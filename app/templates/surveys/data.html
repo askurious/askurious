@@ -38,7 +38,7 @@
       {% for key in (("real",) if outside else ("real", "test", "dummy")) %}
       <label class="check"><input type="checkbox" name="source" value="{{ key }}" {% if key in pool.sources %}checked{% endif %}> {{ source_names[key] }} ({{ by_source[key] }})</label>
       {% endfor %}
-      <label class="check"><input type="checkbox" name="all" value="1" {% if pool.all %}checked{% endif %}> {% if outside %}{{ de_en("auch die nicht abgeschlossenen", "also those not completed") }}{% else %}{{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}{% endif %}</label>
+      <label class="check"><input type="checkbox" name="all" value="1" {% if pool.all %}checked{% endif %}> {% if outside %}{{ de_en("auch die {n} Ausgeschlossenen mit exportieren", "also export the {n} excluded participations", n=counts.excluded|thousands) }} <span class="hint">{{ de_en("laut Quelle nicht abgeschlossen; Spalte status", "not completed according to the source; column status") }}</span>{% else %}{{ de_en("auch abgebrochene, Screen-outs, „Quote voll“ und im Ablauf ausgeschlossene", "also broken-off ones, screen-outs, “quota full” and those excluded in the flow") }}{% endif %}</label>
       {{ why("data_pool") }}
     </fieldset>
     {% if outside %}<input type="hidden" name="drop" value="{{ 1 if pool.drop else 0 }}">{% else %}

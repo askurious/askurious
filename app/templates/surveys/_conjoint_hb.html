@@ -43,15 +43,15 @@
 {% if res and h.state != "running" %}
 {# the convergence note carries the button for a longer run right away (it repeats in "Konvergenz der Kette") #}
 {% for w in res.warnings %}{% if w == res.convergence_warning %}<div class="flash flash-warning hb-conv-note"><p>{{ w }}{% if res.convergence %} <span class="hint">{{ de_en("Begriffe:", "Terms:") }} {{ term("rhat") }} {{ term("ess") }}</span>{% endif %}</p>{% include "surveys/_hb_longer.html" %}</div>{% else %}<p class="flash flash-warning">{{ w }}</p>{% endif %}{% endfor %}
-<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }} <span class="hint">{{ de_en("je Person aus ihren Teilnutzen berechnet, dann gemittelt; Linie: mittlere Hälfte der Personen (Q1 bis Q3), Strich: Median", "computed per person from their part-worths, then averaged; line: middle half of the people (Q1 to Q3), tick: median") }}</span></p>
+<p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }} <span class="hint">{{ de_en("je Person aus ihren Teilnutzen berechnet, dann gemittelt", "computed per person from their part-worths, then averaged") }}</span></p>
 {# most important first; the tables and charts below keep the order of the questionnaire #}
 {% set imp_rows = [] %}
 {% for attr in res.attributes if attr.importance is not none %}{% set _ = imp_rows.append({"label": attr.label, "linear": false, "importance": attr.importance, "sd": attr.importance_sd, "q": attr.importance_q, "lo": attr.imp_lo, "hi": attr.imp_hi}) %}{% endfor %}
 {% if res.price and res.price.importance is not none %}{% set _ = imp_rows.append({"label": res.price.label or de_en("Preis", "Price"), "linear": true, "importance": res.price.importance, "sd": res.price.importance_sd, "q": res.price.importance_q, "lo": res.price.imp_lo, "hi": res.price.imp_hi}) %}{% endif %}
-<ul class="plain res-bars res-bars-ci cm-importance-bars hb-importance">
+<ul class="plain res-bars cm-importance-bars hb-importance">
   {% for row in imp_rows|sort(attribute="importance", reverse=true) %}
   <li><span class="res-bar-label">{{ row.label }}{% if row.linear %} <span class="hint">linear</span>{% endif %}</span>
-    <span class="res-bar"{% if row.q %} title="{{ de_en('Mittlere Hälfte der Personen: {a} bis {b}, Median {m}', 'Middle half of the people: {a} to {b}, median {m}', a=pct(row.q[0]), b=pct(row.q[2]), m=pct(row.q[1])) }}"{% endif %}><span style="width: {{ (row.importance * 100)|round(1) }}%"></span>{% if row.q %}<i class="res-ci-bar" style="left: {{ (row.q[0] * 100)|round(1) }}%; width: {{ ((row.q[2] - row.q[0]) * 100)|round(1) }}%"></i><i class="res-med-tick" style="left: {{ (row.q[1] * 100)|round(1) }}%"></i>{% endif %}</span>
+    <span class="res-bar"><span style="width: {{ (row.importance * 100)|round(1) }}%"></span></span>
     <span class="res-bar-n">{{ pct(row.importance) }}{% if row.sd is not none %} <span class="hint">SD {{ (row.sd * 100)|dec(1) }}</span>{% endif %}{% if row.lo is not none %} <span class="hint">[{{ pct(row.lo) }}; {{ pct(row.hi) }}]</span>{% endif %}</span></li>
   {% endfor %}
 </ul>
