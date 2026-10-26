@@ -4399,6 +4399,13 @@ button.learn-term { padding: 0; background: none; cursor: pointer; line-height: 
 .plan-sem-single-row .check { min-width: 14em; margin: 0; }
 .stack .plan-sem-rel, .plan-sem-rel { display: inline-flex; flex-direction: row; gap: 8px; align-items: center; margin: 0; font-weight: 400; }
 .plan-sem-rel input { width: 5.5em; }
+/* reflective or formative per scale; the global measure only under a formative one (formative check 2026-10-26) */
+.plan-sem-mode-row { margin: 6px 0 10px; }
+.plan-sem-mode { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
+.plan-sem-mode-label { min-width: 14em; }
+.plan-sem-global { display: grid; gap: 4px; margin: 6px 0 0 18px; max-width: 42em; }
+.plan-sem-global select { height: 42px; }
+.plan-sem-mode-row:has(input[value="reflective"]:checked) .plan-sem-global { display: none; }
 .plan-power { margin: 12px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .plan-power:empty, .plan-power:not(:has(p)) { display: none; }
 .plan-power p { margin: 0; }

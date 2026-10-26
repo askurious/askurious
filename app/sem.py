@@ -126,6 +126,29 @@ KLINE = "Kline, R. B. (2016). Principles and practice of structural equation mod
 MACCALLUM_1992 = ("MacCallum, R. C., Roznowski, M., & Necowitz, L. B. (1992). Model modifications in covariance structure "
                   "analysis: The problem of capitalization on chance. Psychological Bulletin, 111(3), 490–504. "
                   "https://doi.org/10.1037/0033-2909.111.3.490")
+# the check of formative constructs (PLS mode B; formative check 2026-10-26)
+CHIN_1998 = ("Chin, W. W. (1998). The partial least squares approach to structural equation modeling. In G. A. "
+             "Marcoulides (Ed.), Modern methods for business research (pp. 295–336). Lawrence Erlbaum.")
+CHEAH = ("Cheah, J.-H., Sarstedt, M., Ringle, C. M., Ramayah, T., & Ting, H. (2018). Convergent validity assessment of "
+         "formatively measured constructs in PLS-SEM: On using single-item versus multi-item measures in redundancy "
+         "analyses. International Journal of Contemporary Hospitality Management, 30(11), 3192–3210. "
+         "https://doi.org/10.1108/IJCHM-10-2017-0649")
+CENFETELLI = ("Cenfetelli, R. T., & Bassellier, G. (2009). Interpretation of formative measurement in information "
+              "systems research. MIS Quarterly, 33(4), 689–708. https://doi.org/10.2307/20650323")
+BECKER_2015 = ("Becker, J.-M., Ringle, C. M., Sarstedt, M., & Völckner, F. (2015). How collinearity affects mixture "
+               "regression results. Marketing Letters, 26(4), 643–659. https://doi.org/10.1007/s11002-014-9299-9")
+DIAMANTOPOULOS_W = ("Diamantopoulos, A., & Winklhofer, H. M. (2001). Index construction with formative indicators: An "
+                    "alternative to scale development. Journal of Marketing Research, 38(2), 269–277. "
+                    "https://doi.org/10.1509/jmkr.38.2.269.18845")
+JARVIS = ("Jarvis, C. B., MacKenzie, S. B., & Podsakoff, P. M. (2003). A critical review of construct indicators and "
+          "measurement model misspecification in marketing and consumer research. Journal of Consumer Research, "
+          "30(2), 199–218. https://doi.org/10.1086/376806")
+STREUKENS = ("Streukens, S., & Leroi-Werelds, S. (2016). Bootstrapping and PLS-SEM: A step-by-step guide to get more out "
+             "of your bootstrap results. European Management Journal, 34(6), 618–632. "
+             "https://doi.org/10.1016/j.emj.2016.06.003")
+HAIR_2019 = ("Hair, J. F., Risher, J. J., Sarstedt, M., & Ringle, C. M. (2019). When to use and how to report the results "
+             "of PLS-SEM. European Business Review, 31(1), 2–24. https://doi.org/10.1108/EBR-11-2018-0203")
+FORMATIVE_SOURCES = (HAIR, HAIR_2019, CHIN_1998, CHEAH, CENFETELLI, BECKER_2015, DIAMANTOPOULOS_W)
 JOHNSON_NEYMAN = ("Johnson, P. O., & Neyman, J. (1936). Tests of certain linear hypotheses and their application to some "
                   "educational problems. Statistical Research Memoirs, 1, 57–93.")
 CB_SOURCES = (BOLLEN, MCARDLE, SATORRA, BENTLER, STEIGER, HU_BENTLER, BROSSEAU_LIARD, BROSSEAU_SAVALEI,
@@ -1250,6 +1273,7 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
     cov_vals = {pair: [] for pair in spec.get("cov", ())}
     mm_vals = {t: [] for t in spec.get("modmed", ())}
     w_vals = {(lv, i): [] for lv in spec.get("formative", ()) for i in spec["latent"][lv]} if method == "pls" else {}
+    l_vals = {k: [] for k in w_vals}  # their loadings too: the absolute contribution (Cenfetelli & Bassellier, 2009)
     reflective = [lv for lv in spec["latent"] if lv not in (spec.get("single") or {}) and lv not in
                   spec.get("formative", ()) and lv not in (spec.get("products") or {})]
     pos = {c: k for k, c in enumerate(cols)}
@@ -1299,6 +1323,8 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
             for lv, ws in (r.get("weights") or {}).items():  # formative weights (point 9)
                 for item, w in zip(spec["latent"][lv], ws):
                     w_vals[(lv, item)].append(w)
+                for item, value in zip(spec["latent"][lv], (r.get("loadings") or {}).get(lv) or ()):
+                    l_vals[(lv, item)].append(value)
             if htmt_vals:  # discriminant validity with an interval (Franke & Sarstedt, 2019; point 13)
                 corr = np.corrcoef(sample[:, [pos[i] for i in items_r]], rowvar=False)
                 found = quality({"latent": {lv: spec["latent"][lv] for lv in reflective}},
@@ -1323,7 +1349,27 @@ def bootstrap(x, cols, spec, method, draws=2000, seed=1, progress=None, start=No
             "cov": {k: summary(v) for k, v in cov_vals.items()},
             "modmed": {k: summary(v) for k, v in mm_vals.items()},
             "weights": {k: summary(v) for k, v in w_vals.items()},
+            "loadings": {k: summary(v) for k, v in l_vals.items()},
             "htmt": {k: summary(v) for k, v in htmt_vals.items()}}
+
+
+def redundancy_spec(lv, items, glob, glob_items):
+    """The model of the redundancy analysis of a formative construct (Chin, 1998; Hair et al., 2022): the construct
+    in mode B explains a global measure of the same construct, a single question (glob_items of one column, observed)
+    or a reflective scale (mode A). Its path is the convergent validity."""
+    single = len(glob_items) == 1
+    return check({"latent": {lv: list(items), **({} if single else {glob: list(glob_items)})},
+                  "observed": [glob_items[0]] if single else [], "paths": [(lv, glob_items[0] if single else glob)],
+                  "indirect": [], "formative": [lv]})
+
+
+def redundancy(x, cols, spec):
+    """The path and R² of the redundancy model `spec` (redundancy_spec) on the complete cases x: {"path", "r2",
+    "converged"}. From a path of 0.70 (R² 0.50) the construct counts as convergent valid (Hair et al., 2022)."""
+    fit = fit_pls(x, cols, spec, light=True)
+    (pair,) = spec["paths"]
+    path = fit["paths"][pair]
+    return {"path": float(path), "r2": float(path * path), "converged": bool(fit["converged"])}
 
 
 # --- power by RMSEA (MacCallum, Browne & Sugawara, 1996) ----------------------------------------------------------

@@ -50,6 +50,7 @@ PER_PARAMETER = 5
 PLS_TIMES = 10
 MIN_POINTS = 5
 BOOT_DRAWS = 2000
+BOOT_DRAWS_FINAL = 10000  # the final version for a report (Hair et al., 2022; Streukens & Leroi-Werelds, 2016)
 METHODS = {"cb": "kovarianzbasiert (Maximum Likelihood)", "pls": "varianzbasiert (PLS)"}
 METHODS_EN = {"cb": "covariance-based (maximum likelihood)", "pls": "variance-based (PLS)"}
 
@@ -366,13 +367,18 @@ def build(survey, every=False):
                      for n in _nodes(infos[code]) if n in latent]
         if formative:
             spec["formative"] = formative
+            redundancy, global_vars = _redundancy_entries(survey, opts, infos, latent, formative)
+        else:
+            redundancy, global_vars = [], {}
+    else:
+        redundancy, global_vars = [], {}
     if mode == "measurement":
         try:
             spec = sem.check(spec)
         except sem.SemError as e:
             return {"mode": mode, "error": e.reason, "hyps": out_hyps, "vars": infos, "nodes": nodes, "skipped": skipped}
         return {"mode": mode, "spec": spec, "vars": infos, "nodes": nodes, "names": nodes, "hyps": out_hyps,
-                "skipped": skipped}
+                "skipped": skipped, "redundancy": redundancy, "global_vars": global_vars}
     # the main model: without what only the moderations by two groups name (they have models of their own)
     used_lowers = {p for h, parts in higher.items() if h in used for p in parts}
     main = {**spec, "latent": {k: v for k, v in latent.items() if k in used or k in used_lowers},
@@ -390,6 +396,60 @@ def build(survey, every=False):
            "names": nodes, "hyps": out_hyps, "controls": controls, "control_errors": control_errors}
     if group_models:
         out["groups"] = group_models
+    out["redundancy"] = [e for e in redundancy if e["lv"] in (main.get("formative") or ())]
+    out["global_vars"] = global_vars
+    return out
+
+
+def global_measure(info):
+    """How a variable can be the global measure of a formative construct (redundancy analysis): (node, [columns])
+    of a single question with numbers or of a scale of one part with at least two statements; None otherwise."""
+    if not info or "error" in info:
+        return None
+    if info.get("kind") == "observed":
+        if info.get("coding") or info.get("dummies") or info.get("condition") or info.get("groups"):
+            return None
+        return info["code"], [info["code"]]
+    if info.get("kind") == "latent" and len(info.get("parts") or []) == 1:
+        name, _, items = info["parts"][0]
+        if len(items) >= 2:
+            return name, [c for c, _, _ in items]
+    return None
+
+
+def _redundancy_entries(survey, opts, infos, latent, formative):
+    """The redundancy analyses the plan names (formative check 2026-10-26, E1): [{"lv", "code", "global", "node",
+    "glob_items"}] and the variables of the global measures ({code: info}, for the data matrix)."""
+    entries, found = [], {}
+    chosen = opts.get("global") or {}
+    for code in opts["formative"]:
+        g = chosen.get(code)
+        info = infos.get(code) or {}
+        if not g or g == code or g in opts["formative"] or info.get("kind") != "latent":
+            continue
+        ginfo = infos.get(g) or variable(survey, g)
+        measure = global_measure(ginfo)
+        if measure is None:
+            continue
+        found[g] = ginfo
+        for n in _nodes(info):
+            if n in formative and n in latent:
+                entries.append({"lv": n, "code": code, "global": g, "node": measure[0], "glob_items": measure[1]})
+    return entries, found
+
+
+def global_candidates(survey, code):
+    """[(variable name, label)] of what can be the global measure of the formative scale `code`: single questions
+    with numbers and reflective scales of one part (Cheah et al., 2018: a single global question is enough)."""
+    from app import study_plan
+
+    out = []
+    formative = set(study_plan.plan_of(survey)["sem"]["formative"])
+    for c, label in study_plan.measures(survey):
+        if c == code or c in formative:
+            continue
+        if global_measure(variable(survey, c)) is not None:
+            out.append((c, label))
     return out
 
 
@@ -824,11 +884,14 @@ def diagnosis(rows, cols, spec, names):
     return {"pairs": pairs[:5], "scales": scales}
 
 
-def data_key(rows, cols, spec, method, weights=None):
+def data_key(rows, cols, spec, method, weights=None, extra=None):
     """What a bootstrap result belongs to: the data, the model and the method, and the version of the bootstrap
     (2: estimated in units of the SD, inadmissible draws counted; audit 2026-10-06, SEM-2 and SEM-7; 3: with the
-    intervals of HTMT and of formative weights, SEM extensions 2026-10-17)."""
-    body = json.dumps([rows, cols, spec, method, 3] + ([weights] if weights else []), sort_keys=True, default=list)
+    intervals of HTMT and of formative weights, SEM extensions 2026-10-17). extra: with formative constructs the
+    data of their redundancy models (formative check 2026-10-26: their bootstrap carries loadings and redundancy
+    paths too, so an older one counts as none)."""
+    body = json.dumps([rows, cols, spec, method, 3] + ([weights] if weights else [])
+                      + (["formative-4", extra] if extra is not None else []), sort_keys=True, default=list)
     return hashlib.sha256(body.encode()).hexdigest()[:24]
 
 
@@ -866,7 +929,8 @@ def prepare(survey, table, method=None, weighted=False):
            # control variables and single questions with a fixed reliability (SEM extensions 2026-10-17, 6 and 7)
            "controls": model.get("controls") or {}, "control_errors": model.get("control_errors") or [],
            "single": dict((model.get("spec") or {}).get("single") or {})}
-    out["labels"] = {code: info.get("label") or code for code, info in model["vars"].items() if "error" not in info}
+    out["labels"] = {code: info.get("label") or code for code, info in
+                     {**(model.get("global_vars") or {}), **model["vars"]}.items() if "error" not in info}
     out["coded"] = {code: info["coded"] for code, info in model["vars"].items() if info.get("coded")}
     # randomisations: drawn as "Zuteilung: …" with a dashed frame, not as a question (Ralf, 2026-10-07)
     out["conditions"] = [code for code, info in model["vars"].items() if info.get("condition")]
@@ -922,15 +986,50 @@ def prepare(survey, table, method=None, weighted=False):
         invariance = {"error": "estimate"}
     out["_ids"] = ids  # the participations of the construct scores: they stay here, the job gets numbers only
     out["_binary"] = _binary(survey, model, spec, rows, cols)
-    out["boot_key"] = data_key(rows, cols, spec, method, wts)
+    red = _redundancy_input(survey, model, table) if method == "pls" else []
+    out["boot_key"] = data_key(rows, cols, spec, method, wts,
+                               extra=[[e["lv"], e["global"], e["rows"]] for e in red] if spec.get("formative") else None)
+    out["_red"] = red  # for the bootstrap of the redundancy paths; kept on the server like _rows
     out["cols"] = cols
     out["_rows"] = rows  # for the bootstrap; kept on the server with the results, never shown
     out["_weights"] = wts
     job = {"rows": rows, "cols": cols, "spec": spec, "method": method, "weights": wts, "fiml": fiml,
            "mode": model["mode"], "nodes": model["nodes"], "groups": groups,
            "alternative": alternative if alternative is None or alternative == "error" else list(alternative),
-           "invariance": invariance}
+           "invariance": invariance, "redundancy": red}
     return out, job
+
+
+def _redundancy_input(survey, model, table):
+    """The complete cases of each redundancy model (its own: a gap in the global measure does not take a case out of
+    the main model): [{"lv", "global", "spec", "rows", "cols"}], numbers only."""
+    out = []
+    if not model.get("redundancy"):
+        return out
+    both = {**model, "vars": {**model["vars"], **(model.get("global_vars") or {})}}
+    for e in model["redundancy"]:
+        rspec = sem.redundancy_spec(e["lv"], model["spec"]["latent"][e["lv"]], e["node"], e["glob_items"])
+        rows, cols, _ = matrix(survey, both, table, spec=rspec)
+        out.append({"lv": e["lv"], "global": e["global"], "rows": rows, "cols": cols,
+                    "spec": {**rspec, "paths": [list(p) for p in rspec["paths"]]}})
+    return out
+
+
+REDUNDANCY_MIN = 0.70  # convergent validity: path from 0.70, R² from 0.50 (Chin, 1998; Hair et al., 2022)
+
+
+def redundancy_numbers(entry):
+    """The redundancy analysis of one job entry: {"lv", "global", "n", "path", "r2"} or with "error"."""
+    out = {"lv": entry["lv"], "global": entry["global"], "n": len(entry["rows"])}
+    if out["n"] < MIN_N:
+        return {**out, "error": "few"}
+    try:
+        found = sem.redundancy(entry["rows"], entry["cols"], _respec(entry["spec"]))
+    except Exception:  # SemError, numpy's LinAlgError and the like: only this row says so
+        return {**out, "error": "estimate"}
+    if not found["converged"]:
+        return {**out, "error": "converge"}
+    return {**out, "path": found["path"], "r2": found["r2"]}
 
 
 def _respec(spec):
@@ -999,6 +1098,8 @@ def numbers(job, progress=None):
                                "values": [[float(scored["scores"][v][k]) for v in names] for k in range(len(rows))]}
         except (sem.SemError, ValueError, ArithmeticError):
             found["scores"] = None
+    if job.get("redundancy"):  # convergent validity of the formative constructs (formative check 2026-10-26)
+        found["redundancy"] = [redundancy_numbers(e) for e in job["redundancy"]]
     step()
     try:  # the competing model planned in advance (point 11): its failure hits only its own part of the page
         alternative = job["alternative"]
@@ -1027,7 +1128,7 @@ def finish(out, found):
     if found.get("ordinal"):
         out["ordinal"] = True
     if found.get("error"):
-        for k in ("boot_key", "cols", "_rows", "_weights"):
+        for k in ("boot_key", "cols", "_rows", "_weights", "_red"):
             out.pop(k, None)
         out["error"] = found["error"]
         if "diag" in found:
@@ -1042,6 +1143,7 @@ def finish(out, found):
         out["scores"] = None if found["scores"] is None else {"ids": ids, **found["scores"]}
     out["compare"] = found.get("compare")
     out["invariance"] = found.get("invariance")
+    out["redundancy"] = found.get("redundancy") or []
     return out
 
 
@@ -1217,12 +1319,19 @@ def boot_state(survey, result):
             "weights": {(lv, i): {"ci": (lo, hi), "se": se} for lv, i, lo, hi, se in stored.get("weights") or []
                         if lo is not None},
             "htmt": {(a, b): {"ci": (lo, hi), "upper95": up} for a, b, lo, hi, up in stored.get("htmt") or []
-                     if lo is not None}}}
+                     if lo is not None},
+            # loadings of formative statements and redundancy paths (formative check 2026-10-26)
+            "loadings": {(lv, i): {"ci": (lo, hi), "se": se} for lv, i, lo, hi, se in stored.get("loadings") or []
+                         if lo is not None},
+            "redundancy": {lv: {"ci": (lo, hi), "se": se} for lv, lo, hi, se in stored.get("redundancy") or []
+                           if lo is not None}}}
     return {"state": "none"}
 
 
-def start_bootstrap(survey, result, pool, background=True):
-    """Start the bootstrap of the estimate: "started", "running", "current" or "nodata"."""
+def start_bootstrap(survey, result, pool, background=True, draws=BOOT_DRAWS):
+    """Start the bootstrap of the estimate: "started", "running", "current" or "nodata". draws: BOOT_DRAWS to look at,
+    BOOT_DRAWS_FINAL for the final version (formative check 2026-10-26, E5); a stored one with fewer draws is
+    replaced."""
     from flask import current_app
 
     from app import jobs
@@ -1230,11 +1339,13 @@ def start_bootstrap(survey, result, pool, background=True):
     if not result or not result.get("_rows") or not result.get("spec"):
         return "nodata"
     state = boot_state(survey, result)
-    if state and state["state"] == "done":
+    if state and state["state"] == "done" and (state["result"].get("draws") or 0) >= draws:
         return "current"
     spec = result["spec"]
     inp = {"key": result["boot_key"], "rows": result["_rows"], "cols": result["cols"], "method": result["method"],
-           "draws": BOOT_DRAWS, "seed": 1, **({"weights": result["_weights"]} if result.get("_weights") else {}),
+           "draws": draws, "seed": 1,
+           **({"redundancy": [{"lv": e["lv"], "spec": e["spec"], "rows": e["rows"], "cols": e["cols"]}
+                              for e in result["_red"]]} if result.get("_red") else {}), **({"weights": result["_weights"]} if result.get("_weights") else {}),
            "spec": {"latent": spec["latent"], "observed": spec["observed"], "paths": [list(p) for p in spec["paths"]],
                     "indirect": [list(t) for t in spec["indirect"]], "cov": [list(p) for p in spec.get("cov", ())],
                     **({"products": spec["products"]} if spec.get("products") else {}),
@@ -2185,24 +2296,87 @@ def r2_table(result):
             if v in names]
 
 
+VIF_HINT = 3.0  # formative statements: from 3 possibly overlapping (Becker et al., 2015; Hair et al., 2019)
+LOADING_MIN = 0.50  # a weight without significance stays when the loading reaches 0.50 (Hair et al., 2022)
+FORMATIVE_MANY = 8  # with more statements small weights without significance become likely (Cenfetelli & Bassellier)
+ALPHA = 0.05
+
+
+def formative_verdict(weight_p, loading, loading_p):
+    """Where a formative statement stands (Cenfetelli & Bassellier, 2009; Hair et al., 2022): "weight" (its weight
+    is significant: relative contribution), "loading" (loading from 0.50: absolute contribution), "content" (loading
+    below 0.50 but significant: keep only for a reason of content), "check" (neither: whether to leave it out, which
+    is a question of content validity, Diamantopoulos & Winklhofer, 2001); None without a bootstrap."""
+    if weight_p is None:
+        return None
+    if weight_p < ALPHA:
+        return "weight"
+    if loading is not None and loading >= LOADING_MIN:
+        return "loading"
+    if loading_p is not None and loading_p < ALPHA:
+        return "content"
+    return "check"
+
+
+def formative_words():
+    """{verdict key: (word, kind of the mark)} for the page and the Word file."""
+    return {"weight": (de_en("behalten · Gewicht signifikant", "keep · weight significant"), "ok"),
+            "loading": (de_en("behalten · Ladung ab 0,50", "keep · loading 0.50 or more"), "ok"),
+            "content": (de_en("nur mit inhaltlichem Grund behalten", "keep only for a reason of content"), "hint"),
+            "check": (de_en("Weglassen prüfen", "consider leaving out"), "bad")}
+
+
 def formative_table(result, boot=None):
-    """[{"label", "items": [{"code", "text", "weight", "loading", "vif", "ci", "p"}]}] of the formative constructs
-    (PLS mode B, point 9): weights with their bootstrap interval and p, loadings, the VIF of each indicator."""
+    """[{"lv", "label", "many", "items": [{"code", "text", "weight", "ci", "p", "loading", "loading_ci",
+    "loading_p", "vif", "vif_level", "verdict", "sign"}]}] of the formative constructs (PLS mode B, point 9;
+    formative check 2026-10-26, E3, E4, E7): weights and loadings with their bootstrap interval and p, the VIF of
+    each statement in two levels ("hint" from 3, "high" from 5), the verdict (formative_verdict) and "sign" when
+    weight and loading point in opposite directions (Cenfetelli & Bassellier, 2009)."""
     fit = result.get("fit") or {}
     names = result.get("nodes") or {}
     statements = result.get("statements") or {}
-    found = (boot or {}).get("weights") or {}
+    weights = (boot or {}).get("weights") or {}
+    loads = (boot or {}).get("loadings") or {}
     out = []
     for lv, vifs in (fit.get("formative") or {}).items():
         items = []
         for r, vif in zip((fit.get("loadings") or {}).get(lv) or [], vifs):
-            b = found.get((lv, r["item"]))
+            b, bl = weights.get((lv, r["item"])), loads.get((lv, r["item"]))
             p = sem._normal_p(r["weight"] / b["se"]) if b and b.get("se") else None
+            lp = sem._normal_p(r["std"] / bl["se"]) if bl and bl.get("se") else None
+            level = None if vif is None else "high" if vif >= VIF_MAX else "hint" if vif >= VIF_HINT else None
             items.append({"code": r["item"], "text": statements.get(r["item"], ""), "weight": r["weight"],
                           "loading": r["std"], "vif": vif, "ci": b["ci"] if b else None, "p": p,
-                          "high_vif": vif is not None and vif >= VIF_MAX})
-        out.append({"label": names.get(lv, (lv, lv))[1], "items": items})
+                          "loading_ci": bl["ci"] if bl else None, "loading_p": lp, "vif_level": level,
+                          "high_vif": level == "high", "verdict": formative_verdict(p, r["std"], lp),
+                          "sign": r["weight"] * r["std"] < 0})
+        out.append({"lv": lv, "label": names.get(lv, (lv, lv))[1], "items": items,
+                    "many": len(items) > FORMATIVE_MANY})
     return out
+
+
+def redundancy_table(result, boot=None):
+    """[{"label", "global", "kind", "n", "path", "r2", "ci", "ok", "error"}] of the redundancy analyses
+    (formative check 2026-10-26, E1, E2): "ok" when the path reaches REDUNDANCY_MIN (Chin, 1998; Hair et al.,
+    2022); the interval from the bootstrap."""
+    names = result.get("nodes") or {}
+    labels = result.get("labels") or {}
+    found = (boot or {}).get("redundancy") or {}
+    out = []
+    for r in result.get("redundancy") or []:
+        b = found.get(r["lv"])
+        out.append({"label": names.get(r["lv"], (r["lv"], r["lv"]))[1], "global": r["global"],
+                    "global_label": labels.get(r["global"], r["global"]), "n": r.get("n"),
+                    "path": r.get("path"), "r2": r.get("r2"), "ci": b["ci"] if b else None,
+                    "ok": r.get("path") is not None and r["path"] >= REDUNDANCY_MIN, "error": r.get("error")})
+    return out
+
+
+def redundancy_missing(result):
+    """[label] of the formative constructs without a redundancy analysis (no global measure chosen)."""
+    names = result.get("nodes") or {}
+    done = {r["lv"] for r in result.get("redundancy") or []}
+    return [names.get(lv, (lv, lv))[1] for lv in (result.get("fit") or {}).get("formative") or {} if lv not in done]
 
 
 def htmt_interval(result, boot=None):
@@ -2865,7 +3039,34 @@ def r_script(survey, rds_name, lang="de"):
                   "# " + ("PLSpredict (10 folds, earliest antecedents; other random folds than the app's)" if en else
                           "PLSpredict (10 Teile, früheste Einflussgrößen; andere Zufallsteilung als in der App)"),
                   "summary(predict_pls(pls, technique = predict_EA, noFolds = 10))"]
+        lines += _r_redundancy(model, latent, en)
     return "\n".join(lines) + "\n"
+
+
+def _r_redundancy(model, latent, en):
+    """R lines (seminr) of the redundancy analyses of the formative constructs (formative check 2026-10-26): each on
+    its own complete cases, as on the results page."""
+    out = []
+    for k, e in enumerate(model.get("redundancy") or [], 1):
+        items = model["spec"]["latent"][e["lv"]]
+        glob = "G_" + _r_name(e["global"])
+        cols = ", ".join(_r_str(_r_name(c)) for c in list(items) + list(e["glob_items"]))
+        quoted = ", ".join(chr(34) + _r_name(i) + chr(34) for i in items)
+        if len(e["glob_items"]) == 1:
+            target = f'composite("{glob}", single_item("{_r_name(e["glob_items"][0])}"))'
+        else:
+            target = f'composite("{glob}", c({", ".join(chr(34) + _r_name(i) + chr(34) for i in e["glob_items"])}))'
+        out += ["", "# " + (f"redundancy analysis of {latent[e['lv']]} with the global measure {e['global']} "
+                            "(convergent validity, sufficient from a path of 0.70; Chin, 1998; Cheah et al., 2018)" if en else
+                            f"Redundanzanalyse von {latent[e['lv']]} mit dem Globalmaß {e['global']} "
+                            "(Konvergenzvalidität, ausreichend ab einem Pfad von 0,70; Chin, 1998; Cheah et al., 2018)"),
+                f"daten_r{k} <- daten[complete.cases(daten[, c({cols})]), ]",
+                f'messung_r{k} <- constructs(composite("{latent[e["lv"]]}", c({quoted}), weights = mode_B), {target})',
+                f'struktur_r{k} <- relationships(paths(from = "{latent[e["lv"]]}", to = "{glob}"))',
+                f"pls_r{k} <- estimate_pls(data = daten_r{k}, measurement_model = messung_r{k}, structural_model = struktur_r{k})",
+                f"summary(pls_r{k})$paths",
+                f"summary(bootstrap_model(pls_r{k}, nboot = {BOOT_DRAWS}, seed = 1))$bootstrapped_paths"]
+    return out
 
 
 # --- the diagram --------------------------------------------------------------------------------------------------
@@ -3296,6 +3497,8 @@ def sources(result):
             found.append(sem.JOHNSON_NEYMAN)
         out.append((de_en("Strukturgleichungsmodell: Moderation", "Structural equation model: moderation"), found))
     out.append((de_en("Strukturgleichungsmodell: Stichprobengröße", "Structural equation model: sample size"), [sem.WOLF]))
+    out.append((de_en("Strukturgleichungsmodell: Zahl der Bootstrap-Ziehungen", "Structural equation model: number of bootstrap draws"),
+                [sem.STREUKENS]))
     # what the SEM extensions of 2026-10-17 cite on the page, each only where it is shown
     fit = result.get("fit") or {}
     if result.get("method") == "pls" and fit:
@@ -3305,6 +3508,9 @@ def sources(result):
     elif fit.get("quality", {}).get("htmt"):
         out.append((de_en("Strukturgleichungsmodell: HTMT mit Bootstrap-Grenze", "Structural equation model: HTMT with bootstrap bound"),
                     [sem.FRANKE_SARSTEDT]))
+    if fit.get("formative"):  # the check of formative constructs (formative check 2026-10-26)
+        out.append((de_en("Strukturgleichungsmodell (PLS): formative Konstrukte", "Structural equation model (PLS): formative constructs"),
+                    list(sem.FORMATIVE_SOURCES)))
     if result.get("single"):
         out.append((de_en("Strukturgleichungsmodell: Einzelfragen mit Reliabilität", "Structural equation model: single questions with a reliability"),
                     [sem.PETRESCU]))

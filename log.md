@@ -7268,3 +7268,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ergebnisse und andere sofort wirksame Auswahlfelder: Sie wirken weiter ohne „Anwenden“-Knopf, aber die neu geladene Seite steht an derselben Stelle und der Fokus liegt wieder auf dem geänderten Feld.
 - Tagebuch-App (diary-android #41): Meldungen gehen von selbst und stauen sich nicht mehr; Hinweis, wenn der Benachrichtigungskanal einer Studie (mit oder ohne Ton) aus ist, mit Weg in die Einstellungen; Dialoge und Ruhezeiten-Entwurf überstehen das Drehen; gleiche Anfangs- und Endzeit wird angemahnt statt still verworfen; Berechtigungshinweise nennen nur die fehlende Berechtigung; ein QR-Code ohne Beitrittscode wird gemeldet; die Datei-Alternative bei Audiofragen öffnet die Dateiauswahl.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-26: PLS-SEM, formative Konstrukte nach Methodenliteratur
+
+- Studienplan: je Skala ein Umschalter reflektiv/formativ (Modus A/B) statt der Häkchenliste; unter einer formativen Skala die Wahl eines Globalmaßes (Einzelfrage mit Zahlen oder reflektive Skala) für die Redundanzanalyse. Die Lernhilfe „Reflektiv oder formativ?“ nennt die vier Kriterien von Jarvis et al. (2003).
+- Ergebnisseite: Prüfung in der Reihenfolge der Literatur. 1 Redundanzanalyse (Pfad mit Bootstrap-KI, R², ausreichend ab 0,70; eigene vollständige Fälle), 2 VIF in zwei Stufen (△ ab 3, ⚠ ab 5), 3 Gewichte und Ladungen mit Bootstrap-KI und p, Einordnung je Aussage (Gewicht signifikant, Ladung ab 0,50, nur mit inhaltlichem Grund, Weglassen prüfen; Cenfetelli & Bassellier, 2009; Hair et al., 2022). Hinweise bei verschiedenen Vorzeichen von Gewicht und Ladung und bei mehr als 8 Aussagen.
+- Bootstrap „Endfassung: 10.000 Ziehungen“ neben den 2.000 zum Ansehen; Word-Tabellen nennen die tatsächliche Zahl. Ein Bootstrap von vor dieser Änderung zählt bei formativen Modellen als keiner (ihm fehlen Ladungen und Redundanzpfade).
+- Methodenteil, Word (Tabelle „Formative Konstrukte“), R-Skript (Redundanzmodelle mit seminr) und Glossar („Redundanzanalyse“) ergänzt.
+- Rechtstexte geprüft, keine Änderung nötig.

@@ -390,7 +390,7 @@ def test_control_variables_and_a_single_question_with_its_reliability(app, clien
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
     with app.app_context():
         s = db.session.get(Survey, 1)
-        assert study_plan.plan_of(s)["sem"] == {"controls": ["alter"], "single": {"zufr": 0.6}, "formative": [], "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": []}
+        assert study_plan.plan_of(s)["sem"] == {"controls": ["alter"], "single": {"zufr": 0.6}, "formative": [], "global": {}, "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": []}
         model = sem_model.build(s)
         assert model["spec"]["latent"]["zufr"] == ["zufr°"] and model["spec"]["single"] == {"zufr": 0.6}
         assert "zufr" not in model["spec"]["observed"]
@@ -407,7 +407,7 @@ def test_control_variables_and_a_single_question_with_its_reliability(app, clien
     with app.app_context():
         s = db.session.get(Survey, 1)
         study_plan.rename_codes(s, {"alter": "age", "zufr": "sat"})
-        assert study_plan.plan_of(s)["sem"] == {"controls": ["age"], "single": {"sat": 0.6}, "formative": [], "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": []}
+        assert study_plan.plan_of(s)["sem"] == {"controls": ["age"], "single": {"sat": 0.6}, "formative": [], "global": {}, "invariance": "", "missing": "", "ordinal": "", "second": [], "alternative": []}
 
 
 def test_a_single_question_with_a_reliability_recovers_the_path():
@@ -450,8 +450,8 @@ def test_pls_figures_formative_constructs_and_scores(app, client, survey):
             "h_mv": ["", ""], "h_analysis": ["sem", "sem"], "sem_method": "pls", "sem_shown": "1"}
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
     page = client.get("/surveys/1/researchdesign").data.decode()
-    assert 'name="sem_formative" value="tb"' in page and "Warum? Reflektiv oder formativ?" in page
-    form["sem_formative"] = ["tb"]
+    assert 'name="sem_mode_tb" value="formative"' in page and "Warum? Reflektiv oder formativ?" in page
+    form["sem_mode_tb"] = "formative"
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
     with app.app_context():
         s = db.session.get(Survey, 1)
