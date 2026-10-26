@@ -67,3 +67,37 @@ def test_bounded_values_without_leading_zero(app):
         assert rep.bounded(0.823) == ",82" and rep.ci((0.71, 0.9), bounded=True) == "[,71; ,90]"
         rep.ui = "en"
         assert rep.bounded(0.823) == ".82" and rep.ci((0.71, 0.9), bounded=True) == "[.71, .90]"
+
+
+def _flow_text(flowables):
+    """The text of report flowables, as a PDF of them would read."""
+    from reportlab.platypus import SimpleDocTemplate
+
+    out = io.BytesIO()
+    SimpleDocTemplate(out).build(list(flowables))
+    return _text(out.getvalue())
+
+
+def test_tables_of_the_results_page_become_apa_tables(app):
+    """Round 2: hypotheses, models, segments, simulator and rarer displays are read from the results page itself; a
+    table there becomes an APA table with the heading as title and the small print as note."""
+    import lxml.html
+
+    page = lxml.html.fromstring(
+        '<div><section class="panel" id="hypothesen"><details><ol class="hyp-results">'
+        '<li class="hyp-result"><p class="hyp-head"><strong>H1</strong> Je mehr, desto besser.</p>'
+        '<p class="hyp-line"><span class="hyp-verdict">Unterstützt</span> <span class="hyp-apa"><code><i>r</i>(98) = ,30, '
+        '<i>p</i> = ,002</code></span> <span class="hint"><button>?</button>n = 100</span></p></li></ol>'
+        '<p class="muted small">Signifikanz bei p &lt; ,05.</p></details></section>'
+        '<section id="sem"><p class="res-group-head">Pfade</p><div class="res-scroll"><table class="res-table">'
+        '<thead><tr><th>Pfad</th><th>β</th></tr></thead><tbody><tr><td>A → B</td><td>0,41</td></tr></tbody></table></div>'
+        '<p class="muted small">Standardisierte Pfade.</p><select><option>x</option><option selected>gewählt</option></select>'
+        '</section></div>')
+    root = results_pdf._readable(page)
+    assert "gewählt" in results_pdf._text(root) and "?" not in results_pdf._text(root.xpath("//li")[0])
+    with app.app_context():
+        rep = results_pdf.Report(None, "de")
+        text = _flow_text(results_pdf._hypotheses(rep, root) + results_pdf._section(rep, root, "sem", "Strukturgleichungsmodell"))
+    assert "Tabelle 1" in text and "Ergebnisse je Hypothese des Studienplans" in text and "Unterstützt" in text
+    assert "Je mehr, desto besser." in text and "100" in text
+    assert "Tabelle 2" in text and "Pfade" in text and "Anmerkung. Standardisierte Pfade." in text and "0,41" in text
