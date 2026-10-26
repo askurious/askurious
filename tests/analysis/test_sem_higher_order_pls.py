@@ -42,7 +42,7 @@ def test_disjoint_two_stage_reflective_and_formative():
     assert len(r["formative"]["H"]) == 3 and "H" in r["loadings"] and not r["higher"]
     boot = sem.bootstrap(x, cols, spec, "pls", draws=40)
     assert boot["failed"] == 0 and set(boot["weights"]) == {("H", "L0"), ("H", "L1"), ("H", "L2")}
-    assert sem.pls_predict(x, cols, spec) is None
+    assert sem.pls_predict(x, cols, spec)["constructs"]["Y"] == "high"
 
 
 def test_several_scales_as_one_construct_from_the_plan(app, client, survey, monkeypatch):
@@ -76,13 +76,27 @@ def test_several_scales_as_one_construct_from_the_plan(app, client, survey, monk
     page = client.get("/surveys/1/results?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Haltung" in part and "Formative Konstrukte" in part and "Becker" in page
-    assert "Für Konstrukte höherer Ordnung (Haltung) gibt es noch keine Redundanzanalyse" in part
+    assert "Ohne Globalmaß, daher keine Redundanzanalyse: Haltung" in part
+    assert 'id="sem-trace"' in part and "PLS-Algorithmus" in part and "zweistufig" in part
     client.post("/surveys/1/results/sem-bootstrap")
     page = client.get("/surveys/1/results").data.decode()
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "Unterstützt" in hyp
     md = client.get("/surveys/1/export/methods-section.md").data.decode()
     assert "disjoint two-stage" in md
+    # a global measure for the formative higher order: its redundancy analysis runs in two stages too
+    page = client.get("/surveys/1/researchdesign").data.decode()
+    assert 'name="sem_global_hoc1"' in page
+    form.update(sem_global_hoc1="absicht")
+    client.post("/surveys/1/researchdesign", data=MultiDict(form))
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert study_plan.plan_of(s)["sem"]["global"] == {"hoc1": "absicht"}
+        (entry,) = sem_model.build(s)["redundancy"]
+        assert entry["lv"] == "hoc1" and entry["parts"] == ["tb", "einst"]
+    page = client.get("/surveys/1/results?go=1").data.decode()
+    part = page[page.index('id="sem"'):]
+    assert "1 Redundanzanalyse" in part and "Ohne Globalmaß" not in part
 
 
 def test_an_instrument_with_subscales_as_higher_order_in_pls(app, client, survey):
@@ -125,3 +139,19 @@ def test_an_instrument_with_subscales_as_higher_order_in_pls(app, client, survey
     page = client.get("/surveys/1/results?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "(höhere Ordnung)" in part and "Schritt 1 · Messmodell" in part
+
+
+def test_plspredict_and_redundancy_for_a_higher_order():
+    """Trace 2026-10-26: PLSpredict through the parts of a higher order (exogenous and explained), and the redundancy
+    analysis of a formative higher order in two stages."""
+    x, cols, spec = _data()
+    found = sem.pls_predict(x, cols, spec)
+    assert found["constructs"]["Y"] == "high"
+    explained = {"latent": spec["latent"], "observed": [], "higher": spec["higher"], "paths": [("Y", "H")], "indirect": []}
+    found = sem.pls_predict(x, cols, explained)
+    assert len(found["items"]) == 9 and all(i["q2"] > 0 for i in found["items"])
+    rs = sem.redundancy_spec("H", None, "g", ["v3_0"], parts={l: spec["latent"][l] for l in ("L0", "L1", "L2")})
+    got = sem.redundancy(x, cols, rs)
+    assert got["converged"] and 0.2 < got["path"] < 0.6  # Y's first statement is no global measure of H: below 0.70
+    r = sem.fit_pls(x, cols, spec)
+    assert r["trace"]["changes"][-1] < sem.PLS_TOL

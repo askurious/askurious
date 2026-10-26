@@ -174,8 +174,6 @@
     </table></div>
     {% endif %}
     {% if rmissing %}<p class="small">{{ icon("info", 16) }} {{ de_en("Ohne Globalmaß, daher keine Redundanzanalyse: {c}. Ein Globalmaß wählen Sie im Studienplan unter „Weitere Einstellungen des Modells“; dafür braucht der Fragebogen eine Frage, die das Konstrukt im Ganzen misst.", "Without a global measure, hence no redundancy analysis: {c}. You choose a global measure in the research plan under “Further settings of the model”; the questionnaire needs a question that measures the construct as a whole.", c=rmissing|join(", ")) }}</p>{% endif %}
-    {% set hform = sem_model.higher_formative_labels(sem) %}
-    {% if hform %}<p class="small">{{ icon("info", 16) }} {{ de_en("Für Konstrukte höherer Ordnung ({c}) gibt es noch keine Redundanzanalyse; ihre Teile sind die Konstruktwerte aus Stufe 1.", "Higher-order constructs ({c}) have no redundancy analysis yet; their parts are the construct scores of stage 1.", c=hform|join(", ")) }}</p>{% endif %}
     <h5 class="sem-sub">{{ de_en("2 Kollinearität, 3 Gewichte und Ladungen", "2 Collinearity, 3 weights and loadings") }}</h5>
     <div class="res-scroll"><table class="res-table">
       <thead><tr><th>{{ de_en("Konstrukt / Aussage", "Construct / statement") }}</th><th class="num">{{ term("vif", "VIF") }}</th><th class="num">{{ de_en("Gewicht", "Weight") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th class="num">{{ term("loading") }}</th><th class="num">{{ de_en("95-%-KI", "95% CI") }}</th><th class="num">{{ term("p") }}</th><th>{{ de_en("Einordnung", "Assessment") }}</th></tr></thead>
@@ -372,6 +370,13 @@
   <p class="muted small">{{ de_en("Latente Mittelwerte lassen sich erst vergleichen, wenn die skalare Stufe hält.", "Latent means can only be compared once the scalar level holds.") }}</p>
   {% endif %}
   {% endif %}
+  {% endif %}
+  {# the "Rechenweg": how the estimate came about, step by step (trace 2026-10-26) #}
+  {% if fit and not sem.error %}{% set tr = sem_model.trace_view(sem, boot) %}
+  <details class="res-dist" id="sem-trace"><summary>{{ de_en("Rechenweg dieser Schätzung", "How this estimate was computed") }}</summary>
+    <ol class="sem-trace">{% for st in tr.steps %}<li class="is-{{ st.state or 'info' }}">{% if st.state == "ok" %}<span aria-hidden="true">✓</span> {% elif st.state == "warn" %}<span aria-hidden="true">⚠</span> {% endif %}{% if st.anchor %}<a href="#{{ st.anchor }}">{{ st.text }}</a>{% else %}{{ st.text }}{% endif %}
+      {% if loop.index == 2 and tr.spark %} <svg class="sem-spark" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="{{ de_en('Änderung der Gewichte je Iteration, logarithmisch', 'change of the weights per iteration, logarithmic') }}"><polyline points="{{ tr.spark }}"/></svg>{% endif %}</li>{% endfor %}</ol>
+  </details>
   {% endif %}
   {# for the manuscript and other programs (SEM extensions 2026-10-17, points 15 and 18) #}
   {% if fit and not sem.error %}
