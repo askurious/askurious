@@ -4773,7 +4773,7 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 /* the two steps of the evaluation and their check lines (two-step check 2026-10-26) */
 .sem-step { margin: 22px 0 6px; padding-left: 10px; border-left: 4px solid var(--accent); font-size: 1.05rem; }
 .sem-checks { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 4px 0 12px; }
-.sem-checks li { font-size: 0.85rem; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); }
+.sem-checks li { font-size: 0.85rem; padding: 2px 10px; border-radius: var(--radius-tag); border: 1px solid var(--border); background: var(--surface-2); }
 .sem-checks li.is-ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
 .sem-checks li.is-warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 /* versions of the model (model versions 2026-10-26) */
@@ -4787,7 +4787,7 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 .sem-dropped .link-button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; }
 /* the "Rechenweg" of an estimate (trace 2026-10-26) */
 .sem-trace { margin: 6px 0; padding-left: 1.4em; }
-.sem-trace li { margin: 3px 0; font-size: 0.92rem; }
+.sem-trace li { margin: 3px 0; font-size: 0.95rem; }
 .sem-trace li.is-warn { color: var(--warn); }
 .sem-spark { vertical-align: middle; }
 .sem-spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.6; }
