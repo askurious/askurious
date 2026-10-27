@@ -8,7 +8,7 @@ from datetime import timedelta
 
 import pytest
 
-from app import boards, constructs, export, zenodo
+from app import boards, constructs, ddi, export, zenodo
 from app.boards.pages import _public
 from app.extensions import db
 from app.models import Board, BoardShare, Item, Response, Survey, utcnow
@@ -53,6 +53,12 @@ def test_public_deposit_has_ids_and_numeric_codes_without_anchor_wording(app, cl
             text = files[name].decode()
             _forbidden(text)
             assert "renamed_1" in text and "wording not included" in text.lower()
+        # the DDI and CDIF files of the deposit describe the column without the wording (2026-10-27)
+        for name in ("ddi-lifecycle.xml", "cdif.jsonld"):
+            text = files[name].decode()
+            _forbidden(text)
+            assert "renamed_1" in text
+        assert "Protected instruction de" in ddi.build(survey).decode()  # the team's download keeps it
         rows = {r["variable"]: r for r in csv.DictReader(io.StringIO(files["codebook.csv"].decode("utf-8-sig")))}
         assert rows["renamed_1"]["label"] == "renamed_1"
         assert rows["renamed_1"]["values"].startswith("1 | 2 | 3 | 4 | 5")

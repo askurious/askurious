@@ -1948,15 +1948,26 @@ def codebook_csv(survey, separator="comma", speeder=None, speed_real=True, speed
     """The codebook as CSV. lang: the language of the person it is written for (None: the page's, German outside a
     request): labels of Askurious's own columns, types, notes and describing values (codebook()); the header row and
     the variable names stay, as do the question texts and the value labels."""
-    from app.items.base import reader
-
-    lang = reader(lang)
     buf = io.StringIO()
     buf.write("﻿")
     writer = csv.writer(buf, delimiter=";" if separator == "semicolon" else ",", lineterminator="\r\n")
     writer.writerow(["variable", "label", "type", "values", "notes"])
-    from app import vignette_positions
+    for row in codebook_rows(survey, speeder, speed_real, speed_sources, public, open_answers, drop_speeders, scales,
+                             lang, standard):
+        writer.writerow([safe_text(v) if k < 3 else codebook_text(v) for k, v in enumerate(row)])
+    return buf.getvalue()
 
+
+def codebook_rows(survey, speeder=None, speed_real=True, speed_sources=None, public=False, open_answers=False,
+                  drop_speeders=False, scales=False, lang=None, standard=False):
+    """The rows (variable, label, type, values, notes) of codebook_csv before writing. public: the columns of a
+    deposit, without the wording of instruments that have no general publication permission; the DDI and CDIF files
+    of a deposit (app/ddi.py, app/cdif.py) describe the same columns."""
+    from app import vignette_positions
+    from app.items.base import reader
+
+    lang = reader(lang)
+    out = []
     hidden = vignette_positions.hidden(survey, open_columns(survey)) if public and not open_answers else set()
     kept_back = withheld_columns(survey, scales=scales) if public else {}
     for row in spss_notes(vignette_positions.codebook(survey, codebook(survey, speeder, speed_real, speed_sources,
@@ -1974,9 +1985,8 @@ def codebook_csv(survey, separator="comma", speeder=None, speed_real=True, speed
             # Value anchors and condition/modification notes can also contain protected wording. The numeric
             # response codes stay useful without redistributing those texts, including loop and score columns.
             row = (row[0], row[0], row[2], kept_back[row[0]], WITHHELD)
-        row = (row[0], row[1], type_text(row[2], lang), *row[3:])
-        writer.writerow([safe_text(v) if k < 3 else codebook_text(v) for k, v in enumerate(row)])
-    return buf.getvalue()
+        out.append((row[0], row[1], type_text(row[2], lang), *row[3:]))
+    return out
 
 
 def used_constructs(survey, linked=False):
@@ -2495,6 +2505,11 @@ def readme_md(survey, open_answers=False, include_incomplete=False):
         "wording of instruments without a general publication permission is left out, as in `questionnaire.md`.",
         "- `survey-material.pdf`: the questionnaire as participants saw it (part 1) and with notes beside each element "
         "on display logic, conditions, randomisation, required answers and checks (part 2).",
+        "- `ddi-lifecycle.xml`: study, questionnaire with flow, questions, answer codes and every column of `data.csv` "
+        "after the standard of the Data Documentation Initiative (DDI Lifecycle 4.0, public review draft), with the "
+        "DDI controlled vocabularies for mode of collection, time method and sampling procedure; for data archives.",
+        "- `cdif.jsonld`: the data set and its columns as schema.org JSON-LD after the Cross-Domain Interoperability "
+        "Framework (CDIF 1.1: Core, Discovery, Data Description), for catalogues across disciplines.",
     ]
     for note in dict.fromkeys(i.kind.long_export_note for b in survey.blocks for i in b.items
                               if i.kind.long_export and (open_answers or not i.kind.long_private)):
