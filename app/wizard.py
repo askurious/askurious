@@ -515,6 +515,7 @@ def step(survey_id, key):
         consent=survey.consent_item, image_styles=image_styles, style_cfg=image_styles.settings(survey),
         contact=contact, demographics=demographic_choices() if key == "studienplan" else None,
         demographics_now=demographics_kind(survey) if key == "studienplan" else None,
+        wizard_keys=KEYS,
     )
 
 
