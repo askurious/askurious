@@ -129,6 +129,7 @@
   {# "Studiendesign": "Design" alone also meant the appearance and the plan of choice tasks (UI/UX audit 2026-10-16, Ralf 2026-10-17) #}
   <label>{{ de_en("Studiendesign", "Research design") }} {{ select("design", study_plan.design_choices(), plan.design, de_en("Studiendesign", "Research design")) }}</label>
 </div>
+{{ why("time_method") }}
 {# the method finder: what the goal suggests, drawn in the browser as soon as the goal is picked (UI/UX audit
    2026-10-05, V6, app.js); an empty "Design" takes the suggestion, another one gets "übernehmen" #}
 {% set finder_pages = {"editor": url_for('editor.index', survey_id=survey.id) if survey.id else "",
@@ -367,16 +368,26 @@
   <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("abgeschlossene Teilnahmen", "completed participations") }}</span>
     <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow"></label>
   <label>{{ de_en("Rekrutierung", "Recruitment") }} {{ select("recruitment", study_plan.recruitment(), plan.sample.recruitment, de_en("Rekrutierung", "Recruitment")) }}</label>
+  {# the kind of panel or random sample, for archives (DDI SamplingProcedure, app/ddi.py; Ralf 2026-10-27) #}
+  <label data-show-when="recruitment:panel" {% if plan.sample.recruitment != "panel" %}hidden{% endif %}>{{ de_en("Art des Panels", "Kind of panel") }} {{ select("panel_kind", study_plan.panel_kinds(), plan.sample.panel_kind, de_en("Art des Panels", "Kind of panel")) }}</label>
+  <label data-show-when="recruitment:random" {% if plan.sample.recruitment != "random" %}hidden{% endif %}>{{ de_en("Art der Zufallsstichprobe", "Kind of random sample") }} {{ select("random_kind", study_plan.random_kinds(), plan.sample.random_kind, de_en("Art der Zufallsstichprobe", "Kind of random sample")) }}</label>
   <label>{{ de_en("Erwartete Ausschlüsse (%)", "Expected exclusions (%)") }} <span class="hint">{{ de_en("Abschlüsse, die die Qualitätsregeln aussortieren; Abbrüche zählen nicht als Abschluss", "completions the quality rules leave out; break-offs do not count as completions") }}</span>
     <input type="number" name="sample_exclusions" min="0" max="90" value="{{ plan.sample.exclusions if plan.sample.exclusions is not none else study_plan.EXCLUSIONS }}" class="narrow"></label>
   {# an online panel invites more people than complete: the invitations of the sample model (S3) #}
   <label data-show-when="recruitment:panel" {% if plan.sample.recruitment != "panel" %}hidden{% endif %}>{{ de_en("Rücklaufquote (%)", "Response rate (%)") }} <span class="hint">{{ de_en("Anteil der Eingeladenen, die abschließen; leer: keine Zahl der Einladungen", "share of those invited who complete; empty: no number of invitations") }}</span>
     <input type="number" name="sample_response" min="1" max="100" value="{{ plan.sample.response or '' }}" class="narrow"></label>
+  {# who the survey speaks for and where: for archives (DDI Universe and coverage, app/ddi.py; Ralf 2026-10-27) #}
+  <label class="wide-field">{{ de_en("Grundgesamtheit", "Population") }} <span class="hint">{{ de_en("für wen die Ergebnisse gelten sollen", "who the results are meant to speak for") }}</span>
+    <input name="population" maxlength="300" value="{{ plan.sample.population }}" placeholder="{{ de_en('z. B. Studierende der RWTH Aachen ab 18 Jahren', 'e.g. students of RWTH Aachen aged 18 and over') }}"></label>
+  <label>{{ de_en("Land", "Country") }} {{ select("country", study_plan.countries(), plan.sample.country, de_en("Land", "Country")) }}</label>
+  <label>{{ de_en("Region", "Region") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
+    <input name="region" maxlength="120" value="{{ plan.sample.region }}" placeholder="{{ de_en('z. B. Nordrhein-Westfalen', 'e.g. North Rhine-Westphalia') }}"></label>
   <label class="wide-field">{{ de_en("Anmerkung", "Note") }} <input name="sample_note" maxlength="600" value="{{ plan.sample.note }}" placeholder="{{ de_en('z. B. Studierende der RWTH über den Uni-Verteiler', 'e.g. RWTH students via the university mailing list') }}"></label>
 </div>
 {# only without a power analysis, which gives the number above; one name for the tool (UI/UX audit 2026-10-09, X10) #}
 {% if survey.id and not ps %}<p class="muted small">{{ de_en("Die Zahl rechnet der", "The") }} <a href="{{ url_for('samplesize.index', survey=survey.id) }}">{{ de_en("Rechner Stichprobengröße", "sample size calculator") }}</a> {{ de_en("aus.", "works out the number.") }}</p>{% endif %}
 {{ why("sample_size") }}
+{{ why("sampling_procedure") }}
 <label><span class="label-title">{{ de_en("Ausschlussregeln", "Exclusion rules") }} <span class="hint">{{ de_en("vor der Erhebung festgelegt: wer nicht in die Auswertung eingeht", "set before data collection: who is left out of the analysis") }}</span></span>
   <textarea name="rules" rows="2" maxlength="1200" placeholder="{{ de_en('z. B. Speeder (unter 50 % der Median-Dauer), falsch beantwortete Aufmerksamkeitsprüfung', 'e.g. speeders (under 50% of the median duration), failed attention check') }}">{{ plan.rules }}</textarea>
 </label>

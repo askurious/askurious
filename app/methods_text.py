@@ -217,7 +217,8 @@ TEXT = {
     },
 }
 RECRUITMENT_EN = {"convenience": "convenience sample (acquaintances, mailing lists)", "snowball": "snowball sampling",
-                  "panel": "online panel", "quota": "quota sample", "random": "random sample", "census": "full census of the group"}
+                  "panel": "online panel", "quota": "quota sample", "random": "random sample", "census": "full census of the group",
+                  "purposive": "purposive sample", "theoretical": "theoretical sampling (grounded theory)"}
 ANALYSES_EN = {"r": "Pearson correlation", "rho": "Spearman rank correlation", "t": "Welch's t-test for two groups",
                "anova": "Welch's ANOVA for several groups", "u": "Mann-Whitney U test", "kw": "Kruskal-Wallis test",
                "chi2": "χ² test (cross table)", "describe": "description only", "": "–",
