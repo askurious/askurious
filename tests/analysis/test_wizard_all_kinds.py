@@ -25,7 +25,7 @@ def test_diary_survey_through_the_wizard(app, client):
         sid, code = s.id, s.code
     base = step.rsplit("/", 1)[0] + "/"
     page = client.get(step).data.decode()
-    assert "Schritt 2 von 7" in page and "Zeitplan und Beitritt" in page and "Später weiter und jetzt zum Zeitplan" in page
+    assert "Schritt 2 von 7" in page and "Zeitplan und Beitritt" in page and "Später weiter" not in page
     client.post(step, data={"recruitment": "convenience", "population": "Studierende", "country": "DE",
                             "region": "Nordrhein-Westfalen", "autosave": "1"})
     page = client.get(base + "schedule").data.decode()

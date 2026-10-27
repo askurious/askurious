@@ -7440,6 +7440,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Einstieg: am Ende des Einrichtungsassistenten („Mit dem KI-Assistenten Design und Fragen planen“) und im Reiter „Zeitplan“ („Mit KI planen“), nur mit eingeschalteter KI und solange die Tagebuchstudie bearbeitbar ist.
 - Handbuch: KI-Tabelle Zeile 16, Tagebuchstudie. Rechtstexte geprüft, keine Änderung nötig: Datenschutzerklärung und Datenschutzkonzept nennen die KI-Funktionen für Forschende allgemein (Eingaben der Forschenden, Fragebogentexte), keine neuen personenbezogenen Daten und kein neuer Dienst.
 
+## 2026-10-27: Einrichtungsassistent ohne „Später weiter“
+
+- Ralf: der Link „Später weiter und jetzt zum Zeitplan/Leitfaden“ unter den Schritten von Tagebuchstudie und Interviewleitfaden „kann raus“. Entfernt; wer den Assistenten verlässt, kommt mit „Anlegen fortsetzen“ auf „Meine Befragungen“ zurück. Handbuch angepasst.
+- Rechtstexte geprüft, keine Änderung nötig.
 ## 2026-10-27: Tagebuchstudie und Offline-Interviews nicht mehr experimentell
 
 - Ralf: Tagebuchstudien (samt KI-Assistent) und „Interviews ohne Netz (Offline-Modus)“ sind für alle da. Die Schalter `diary` und `offline_interviews` sind aus `app/experimental.py` entfernt, mit allen Abfragen (Anlegen, Zeitplan-Seiten, Duplizieren, Befragungsdatei, Glossar, Startseite, Offline-Feldmappe). Gespeicherte Schalter und Freigaben dafür werden ignoriert. Das Recht „Anlegen“ je Art (`app/kind_access.py`) gilt weiter.
