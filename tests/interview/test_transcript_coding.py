@@ -85,7 +85,7 @@ def test_analysis_from_the_guide_with_the_keys_of_the_codebook(app, client):
         sub = subs[0]
         assert sub.guid == qdc._guid(survey, "item", int(sub.source.split(":")[1]))
         first = blocks[0].id
-    page = client.get(f"/guide/{code}/interviews/coding/{pid}").data.decode()
+    page = client.get(f"/guide/{code}/interviews/coding/{pid}?view=categories").data.decode()
     assert "Kategoriensystem" in page and mains[0].name in page
     # only some topic blocks; empty; a copy
     some = _new(client, code, "Nur Block 1", which="some", blocks=str(first))
@@ -150,7 +150,7 @@ def test_categories_rights_similar_names_proposals_and_undo(app, client):
     assert bea.post(f"{base}/categories/{candidate[0]}/promote").status_code == 404
     client.post(f"{base}/categories/{candidate[0]}/promote")
     assert {c[2] for c in _cats(app, pid, "main")} == {"Belastung", "Unterstützung"}
-    assert "Verlauf" in client.get(base).data.decode()
+    assert "Verlauf" in client.get(f"{base}/overview").data.decode()
 
 
 def test_interviewer_links_stay_as_they_are(app, client):
@@ -202,9 +202,9 @@ def test_coding_link(app, client):
     with app.app_context():
         assert db.session.scalar(db.select(db.func.count(CodingLink.id))) == 0    # at most 90 days
     client.post(f"{base}/links", data={"name": "Lea", "days": "30", "devices": "9"})
-    page = client.get(base).data.decode()
+    page = client.get(f"{base}?view=settings").data.decode()
     key = re.search(rf"/guide/{code}/coding-link#([A-Za-z0-9_\-]+)", page).group(1)
-    assert key not in client.get(base).data.decode()                               # shown once
+    assert key not in client.get(f"{base}?view=settings").data.decode()            # shown once
     with app.app_context():
         link = db.session.scalar(db.select(CodingLink))
         assert link.token_hash != key and link.max_devices == 3 and (link.expires_at - utcnow()).days in (29, 30)
@@ -213,7 +213,8 @@ def test_coding_link(app, client):
     r = lea.post(f"/guide/{code}/coding-link", data={"key": key, "hints": "2026-10-27"})
     assert r.status_code == 302 and r.headers["Location"].endswith(base)
     page = lea.get(base).data.decode()
-    assert "Kodieren als Lea" in page and "Kodierlinks ohne Konto" not in page
+    assert "Kodieren als Lea" in page and "Kodierlinks ohne Konto" not in page and "view=settings" not in page
+    assert lea.get(f"{base}?view=settings").status_code == 404                    # the settings are the team's
     assert lea.get(f"/guide/{code}/interviews/coding/{second}").status_code == 404
     for url in (f"/guide/{code}", f"/guide/{code}/interviews", f"/guide/{code}/interviews/analysis", "/dashboard/"):
         assert lea.get(url).status_code in (302, 404), url
@@ -238,7 +239,7 @@ def test_own_interviews_only_and_groups(app, client):
         anna = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Anna Neu"))
     client.post(f"{base}/settings", data={"name": "Seminar", "question": "", "visibility": "own"})
     client.post(f"{base}/links", data={"name": "Gruppe 1", "days": "30", "access": str(anna)})
-    key = re.search(rf"/guide/{code}/coding-link#([A-Za-z0-9_\-]+)", client.get(base).data.decode()).group(1)
+    key = re.search(rf"/guide/{code}/coding-link#([A-Za-z0-9_\-]+)", client.get(f"{base}?view=settings").data.decode()).group(1)
     g1 = app.test_client()
     g1.post(f"/guide/{code}/coding-link", data={"key": key, "hints": "2026-10-27"})
     page = g1.get(base).data.decode()

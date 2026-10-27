@@ -318,5 +318,5 @@ def allow_ai(code, pid):
     db.session.commit()
     flash(de_en("KI-Vorschläge erlaubt.", "AI suggestions allowed.") if project.ai_allowed
           else de_en("KI-Vorschläge ausgeschaltet.", "AI suggestions switched off."), "success")
-    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id) + "#einstellungen")
+    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="settings") + "#einstellungen")
 

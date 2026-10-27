@@ -169,7 +169,7 @@ def _team(code, pid):
 
 
 def _back(survey, project):
-    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id) + "#kodierlinks")
+    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="settings") + "#kodierlinks")
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/links", methods=["POST"])

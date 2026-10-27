@@ -13,15 +13,29 @@
   <div class="row results-head">
     <h2>{{ title }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</h2>
     <span class="spacer"></span>
-    {% set here = request.endpoint %}
-    {% for endpoint, label in [("transcript_coding.overview", de_en("Übersicht", "Overview")), ("transcript_coding.passages", de_en("Stellen je Kategorie", "Passages per category")),
-                              ("transcript_coding.matrix", de_en("Kategorie × Interview", "Category × interview")), ("transcript_coding.check", de_en("Gegenseitige Probe", "Mutual check"))] %}
-    {% if endpoint != here %}<a class="button button-small button-secondary" href="{{ url_for(endpoint, code=survey.code, pid=project.id) }}">{{ label }}</a>{% endif %}
-    {% endfor %}
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}">{{ icon("back", 16) }} {{ project.name }}</a>
+    {{ views(survey, project, who) }}
   </div>
   {{ caller() if caller else "" }}
 </section>
+{%- endmacro %}
+
+{# the views of an analysis as a switch in the head row of a section (no row of its own, decision "no extra menu
+   band"): Interviews (the default), Kategoriensystem, Übersicht, Gegenseitige Probe and, for the team, Einstellungen;
+   the active one marked like "Tabelle / Karte"; then the way back #}
+{% macro views(survey, project, who, current=none) -%}
+{% set here = current or (request.args.get("view") or "interviews" if request.endpoint == "transcript_coding.project" else request.endpoint) %}
+{% if here in ("transcript_coding.passages", "transcript_coding.matrix", "transcript_coding.full_history") %}{% set here = "transcript_coding.overview" %}{% endif %}
+<div role="group" aria-label="{{ de_en('Ansicht der Auswertung', 'View of the analysis') }}" class="tc-switch">
+  {% for key, href, label in [("interviews", url_for('transcript_coding.project', code=survey.code, pid=project.id), "Interviews"),
+                              ("categories", url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories'), de_en("Kategoriensystem", "Category system")),
+                              ("transcript_coding.overview", url_for('transcript_coding.overview', code=survey.code, pid=project.id), de_en("Übersicht", "Overview")),
+                              ("transcript_coding.check", url_for('transcript_coding.check', code=survey.code, pid=project.id), de_en("Gegenseitige Probe", "Mutual check"))]
+                             + ([("settings", url_for('transcript_coding.project', code=survey.code, pid=project.id, view='settings'), de_en("Einstellungen", "Settings"))] if who.team else []) %}
+  <a class="button button-small {{ '' if key == here else 'button-secondary' }}" href="{{ href }}"{% if key == here %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</div>
+{% if who.team %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Auswertungen", "Analyses") }}</a>
+{% elif who.kind == "interviewer" %}<a class="button button-small button-secondary" href="{{ url_for('interviewer.home', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Meine Interviews", "My interviews") }}</a>{% endif %}
 {%- endmacro %}
 
 {# the changes by others that carry the reader's own passages: a fold, open while there are any; gone once answered #}

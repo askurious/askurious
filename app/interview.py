@@ -962,8 +962,12 @@ def documents(survey):
 def export(code):
     from app import interview_versions, qdc
 
+    from app import interview_tasks
+
     survey = _survey(code)
+    trials = request.args.get("probe") == "1"  # the interviews' downloads with the trial interviews too
     return render_template("interview/export.html", survey=survey, documents=documents(survey), day=day_text,
+                           trials=trials, has_tasks=bool(interview_tasks.tasks(survey)),
                            versions=interview_versions.listing(survey), notes=interview_versions.notes(),
                            material_licenses=interview_versions.MATERIAL_LICENSES,
                            editable=survey.can(current_user, "editor"), zenodo_targets=_zenodo_targets(survey),

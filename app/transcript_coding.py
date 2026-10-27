@@ -728,8 +728,23 @@ def add_member(project, kind, by, user=None, group=None, access=None):
 # --- the pages -----------------------------------------------------------------------------------------------------
 
 
-def _project_url(survey, project, anchor=""):
-    return url_for("transcript_coding.project", code=survey.code, pid=project.id) + (f"#{anchor}" if anchor else "")
+VIEWS = ("interviews", "categories", "settings")  # the views of the page of an analysis; overview and check have routes
+SETTINGS_ANCHORS = ("einstellungen", "mitglieder", "kodierlinks")
+
+
+def view_of(anchor):
+    """The view of the page an anchor of before belongs to (the page had all of them on one page until 2026-10-28)."""
+    if anchor in SETTINGS_ANCHORS:
+        return "settings"
+    if anchor == "kategorien" or (anchor[:1] == "k" and anchor[1:].isdigit()):
+        return "categories"
+    return "interviews"
+
+
+def _project_url(survey, project, anchor="", view=None):
+    view = view or view_of(anchor)
+    return (url_for("transcript_coding.project", code=survey.code, pid=project.id, view=None if view == "interviews" else view)
+            + (f"#{anchor}" if anchor else ""))
 
 
 @bp.route("/<code>/interviews/coding")
@@ -788,12 +803,16 @@ def new(code):
 def project(code, pid):
     survey, project, who = _in(code, pid)
     from app import interviewer, transcript_coding_links, transcript_coding_review
+
+    view = request.args.get("view") if request.args.get("view") in VIEWS else "interviews"
+    if view == "settings" and not who.team:
+        abort(404)  # the settings are the team's (checked here, not only hidden)
     from app.groups import of as groups_of
 
     mains, candidates = tree(project)
     names = {c.id: c.name for c in live(project)}
     proposals = open_proposals(project)
-    context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates,
+    context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view,
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
                    history=history(project), event_text=lambda e: event_text(e, names),
