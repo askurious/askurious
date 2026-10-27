@@ -229,6 +229,24 @@ def export_ddi(survey_id):
     })
 
 
+@bp.route("/<sid:survey_id>/export/ddi-codebook.xml")
+@login_required
+@heavy.limited
+def export_ddi_codebook(survey_id):
+    """The survey as DDI Codebook 2.5 XML (app/ddi_codebook.py), the version CESSDA's catalogue, validator and
+    European Question Bank read; no answers, for every role like the Lifecycle file."""
+    from flask import Response as FlaskResponse
+
+    from app import ddi_codebook, export
+
+    survey = get_survey(survey_id)
+    body = ddi_codebook.build(survey)
+    return FlaskResponse(body, mimetype="application/xml", headers={
+        "Content-Disposition": f'attachment; filename="{export.filename(survey, "ddi-codebook-2-5")[:-4]}.xml"',
+        "Cache-Control": "no-store",
+    })
+
+
 @bp.route("/<sid:survey_id>/export/cdif.jsonld")
 @login_required
 @heavy.limited

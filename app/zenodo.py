@@ -174,11 +174,12 @@ def package(survey, open_answers=False, include_incomplete=False, require_public
         # may not be passed on, without images (they are in images.zip)
         ("survey.json", transfer.dumps(survey, with_files=False, public=True).encode("utf-8")),
     ]
-    from app import cdif, ddi
+    from app import cdif, ddi, ddi_codebook
 
-    # the same for archives and catalogues (Ralf 2026-10-27): DDI Lifecycle 4.0 and CDIF, describing the columns of
-    # codebook.csv, without the wording codebook.csv and questionnaire.md leave out
+    # the same for archives and catalogues (Ralf 2026-10-27): DDI Lifecycle 4.0, DDI Codebook 2.5 (CESSDA) and CDIF,
+    # describing the columns of codebook.csv, without the wording codebook.csv and questionnaire.md leave out
     files += [("ddi-lifecycle.xml", ddi.build(survey, lang="en", public=True, open_answers=open_answers)),
+              ("ddi-codebook.xml", ddi_codebook.build(survey, lang="en", public=True, open_answers=open_answers)),
               ("cdif.jsonld", cdif.build(survey, lang="en", public=True, open_answers=open_answers))]
     from app import packages
 

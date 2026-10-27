@@ -2582,6 +2582,8 @@ def readme_md(survey, open_answers=False, include_incomplete=False):
         "- `ddi-lifecycle.xml`: study, questionnaire with flow, questions, answer codes and every column of `data.csv` "
         "after the standard of the Data Documentation Initiative (DDI Lifecycle 4.0, public review draft), with the "
         "DDI controlled vocabularies for mode of collection, time method and sampling procedure; for data archives.",
+        "- `ddi-codebook.xml`: the study description and every column of `data.csv` as DDI Codebook 2.5, the version "
+        "the CESSDA Data Catalogue and the European Question Bank read.",
         "- `cdif.jsonld`: the data set and its columns as schema.org JSON-LD after the Cross-Domain Interoperability "
         "Framework (CDIF 1.1: Core, Discovery, Data Description), for catalogues across disciplines.",
     ]
