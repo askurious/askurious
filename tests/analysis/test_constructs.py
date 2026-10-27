@@ -29,8 +29,8 @@ def test_search_tags_and_explore(app, client):
         assert len(constructs.search(tags=["quelle:gesis-zis"])) == 9
         assert constructs.search("xyzzy") == []
         assert set(keys(constructs.search(tags=["status:validiert"]))) == {"bfi10", "kut", "kuk", "kamb", "fitai", "asku", "ie4", "kusiv3", "i8", "nfck",
-                                                                     "tam_pu", "tam_peou", "tam_bi", "tb", "r1", "aub", "gdms"}
-        assert set(keys(constructs.search("validiert technik"))) == {"kut", "tam_pu", "tam_peou", "tam_bi", "tb"}
+                                                                     "tam_pu", "tam_peou", "tam_bi", "tb", "r1", "aub", "gdms", "ati"}
+        assert set(keys(constructs.search("validiert technik"))) == {"kut", "tam_pu", "tam_peou", "tam_bi", "tb", "ati"}
         # (aub too with its real wording, where two items name "Technik")
     page = client.get("/constructs/?q=technik").data.decode()
     assert "Kontrollüberzeugung" in page and "Big Five" not in page and "Fachgebiet" in page
@@ -742,3 +742,17 @@ def test_deploy_ships_the_wording_file():
     root = Path(__file__).resolve().parents[2]
     assert "parts+=(instruments.json)" in (root / "deploy/docker/deploy-docker.sh").read_text(encoding="utf-8")
     assert "COPY instance_overlay ./instance_overlay" in (root / "deploy/docker/Dockerfile").read_text(encoding="utf-8")
+
+
+def test_ati_structure_as_in_the_source(app):
+    """ATI (Franke, Attig & Wessel, 2019): 9 items, 6 labelled points, items 3, 6 and 8 reversed, German and English."""
+    with app.app_context():
+        c = constructs.get("ati")
+        spec = c.spec
+        assert c.doi == "10.1080/10447318.2018.1456150" and not constructs.non_commercial(c)
+        cfg = spec["config"]
+        assert cfg["points"] == 6 and cfg["labeling"] == "full"
+        assert [st["reverse"] for st in cfg["statements"]] == [n in (3, 6, 8) for n in range(1, 10)]
+        assert spec["texts"]["de"]["labels"][0] == "stimmt gar nicht" and spec["texts"]["de"]["labels"][-1] == "stimmt völlig"
+        assert spec["texts"]["en"]["labels"][2] == "slightly disagree"
+        assert keys(constructs.search("Franke Attig")) == ["ati"]

@@ -517,6 +517,50 @@
      "en": "Test statement 10 of KUK"
     }
    ]
+  },
+  "ati": {
+   "question": {
+    "de": "Teststandardfrage zu ATI",
+    "en": "Test instruction for ATI"
+   },
+   "statements": [
+    {
+     "de": "Testaussage 1 von ATI",
+     "en": "Test statement 1 of ATI"
+    },
+    {
+     "de": "Testaussage 2 von ATI",
+     "en": "Test statement 2 of ATI"
+    },
+    {
+     "de": "Testaussage 3 von ATI",
+     "en": "Test statement 3 of ATI"
+    },
+    {
+     "de": "Testaussage 4 von ATI",
+     "en": "Test statement 4 of ATI"
+    },
+    {
+     "de": "Testaussage 5 von ATI",
+     "en": "Test statement 5 of ATI"
+    },
+    {
+     "de": "Testaussage 6 von ATI",
+     "en": "Test statement 6 of ATI"
+    },
+    {
+     "de": "Testaussage 7 von ATI",
+     "en": "Test statement 7 of ATI"
+    },
+    {
+     "de": "Testaussage 8 von ATI",
+     "en": "Test statement 8 of ATI"
+    },
+    {
+     "de": "Testaussage 9 von ATI",
+     "en": "Test statement 9 of ATI"
+    }
+   ]
   }
  }
 }
