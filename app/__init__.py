@@ -647,7 +647,7 @@ def create_app(config_class=Config, server=False):
 
     app.register_blueprint(interview_screen.bp)
     app.register_blueprint(interview_screen.public_bp)
-    from app import interview_offline  # interviews without a network, experimental
+    from app import interview_offline  # interviews without a network
 
     app.register_blueprint(interview_offline.bp)
     from app import interviewer

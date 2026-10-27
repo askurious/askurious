@@ -1,5 +1,6 @@
 """Interviews without a network (offline mode, concept "Konzept Offline-Modus für Interviews", Ralf 2026-10-22, E1-E8
-as recommended). Experimental (FEATURE), and switched on per guide (Survey.interview["offline"]).
+as recommended), switched on per guide (Survey.interview["offline"]); for everyone since 2026-10-27 (experimental
+"offline_interviews" before, Ralf).
 
 Before a day in the field, with a network, the device takes a field pack: the server reserves a number of interviews
 for it (E1 b, E2 a: 1 to MAX_SLOTS), each with its participation ID, its identifier and its deletion code, so the
@@ -27,7 +28,6 @@ from app.models import Response, new_pid, utcnow
 
 bp = Blueprint("interview_offline", __name__, url_prefix="/guide")
 
-FEATURE = "offline_interviews"
 KEY = "offline_packs"
 DAYS = 7          # E5 b: how long a pack and the data on the device last
 MAX_SLOTS = 20    # E2 a
@@ -43,16 +43,16 @@ MAX_LIVE_PACKS_EACH = 10  # per researcher or interviewer link
 
 
 def offered(survey, access=None):
-    """The feature for whoever asks: a researcher who has it, an interviewer whose link was made by one who has it
-    and may still edit the guide (as the participant screen, app/interview_screen.offered)."""
-    from app import experimental, interviewer
+    """The feature for whoever asks: a researcher, an interviewer whose link was made by one who may still edit the
+    guide (as the participant screen, app/interview_screen.offered)."""
+    from app import interviewer
     from app.models import User
 
     access = access if access is not None else interviewer.actor(survey)
     if access is None:
-        return experimental.enabled(FEATURE, survey=survey)
+        return True
     creator = db.session.get(User, access.created_by_id) if access.created_by_id else None
-    return creator is not None and survey.can(creator, "editor") and experimental.enabled(FEATURE, user=creator, survey=survey)
+    return creator is not None and survey.can(creator, "editor")
 
 
 def switched_on(survey):

@@ -37,8 +37,6 @@ def test_glossary_page_lists_every_term_with_its_anchor(client):
     page = client.get("/learn/glossary").data.decode()
     # the section of the experimental feature "sem" only for whom it is on (tests/analysis/test_sem_survey.py)
     sem = next(keys for title, _note, keys in learning.SECTIONS if title == learning.SEM_SECTION)
-    # the diary section only with the experimental diary study (concept "Lernhilfen: vierte Runde", G4)
-    sem += next(keys for title, _note, keys in learning.SECTIONS if title == learning.DIARY_SECTION)
     for key, (symbol, name, *_rest) in learning.TERMS.items():
         assert (f'id="{key}"' in page and name in page) or (key in sem and f'id="{key}"' not in page)
     assert "Leiner, D. J. (2019)" in page
@@ -280,9 +278,7 @@ def test_fourth_round_folds_terms_start_list_and_method_sentence(app, client, su
                                    "getippt; 7 von 10 Personen sprachen ihre Antwort ein, 3 tippten sie.")
     assert methods.voice_en({**v, "typing": False}).endswith("7 of 10 spoke their answer")
     page = client.get("/learn/glossary").data.decode()
-    assert 'id="zeta"' in page and 'id="bt_worth"' in page and 'id="icc"' not in page
-    experiments_on(client, "diary")
-    page = client.get("/learn/glossary").data.decode()
+    assert 'id="zeta"' in page and 'id="bt_worth"' in page and 'id="icc"' in page  # diary for everyone since 2026-10-27
     assert "<h2>Tagebuchstudie</h2>" in page and 'id="compliance"' in page
 
 

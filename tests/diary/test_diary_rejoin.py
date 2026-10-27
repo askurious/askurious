@@ -21,9 +21,7 @@ def _codes(app, code):
 
 
 def test_a_new_diary_survey_asks_how_people_join_and_makes_the_codes(app, client):
-    from tests.conftest import experiments_on
 
-    experiments_on(client, "diary")
     # the question is the wizard's step "Zeitplan und Beitritt" (app/wizard.py, Ralf 2026-10-27)
     first = client.post("/diary/new", data={"title": "Neu", "language": "de"}).headers["Location"]
     page = client.get(first.replace("/researchdesign", "/schedule")).get_data(as_text=True)

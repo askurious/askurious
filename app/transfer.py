@@ -1685,16 +1685,10 @@ def create(data, user, title="", fetch=None, budget=None):
             from app import interview
 
             new.interview = interview.guide_state(Survey(interview=data["interview"]))
-        elif isinstance(data.get("sampling"), dict):  # a diary study: only for whoever has the feature (experimental)
-            from app import diary, experimental
+        elif isinstance(data.get("sampling"), dict):  # a diary study (app/diary.py)
+            from app import diary
 
-            if experimental.enabled("diary", user=user):
-                new.sampling = diary.clean(data["sampling"])
-            else:
-                notes.append(de_en("Die Datei enthält eine Tagebuchstudie; die experimentelle Funktion „Tagebuchstudie“ ist "
-                                   "für Sie nicht freigeschaltet. Sie wurde als Fragebogen eingelesen, ohne Zeitplan.",
-                                   "The file holds a diary survey; the experimental feature “Diary survey” is not switched on "
-                                   "for you. It was read in as a questionnaire, without its schedule."))
+            new.sampling = diary.clean(data["sampling"])
         from app import kind_access
 
         if not kind_access.may_create(user, new.kind):  # "Anlegen" for the type (app/kind_access.py)

@@ -23,7 +23,8 @@ voice message, video / audio with a playback log, the sound of the video confere
 blättern, auch bei schwachem Netz" since 2026-10-16: app/items/voice.py, app/items/stimulus.py, app/interview.py,
 app/blockload.py; live feedback on a talk (the template "Fragen & Feedback zum Vortrag", slides from a PDF, the
 slides on the phones) since 2026-10-17: app/live/; Coscine since 2026-10-20: app/coscine.py; the participant screen
-in the interview since 2026-10-22: app/interview_screen.py.)
+in the interview since 2026-10-22: app/interview_screen.py; the diary study with its AI assistant and interviews without a
+network since 2026-10-27: app/diary.py, app/diary_ai.py, app/interview_offline.py.)
 
 A new experimental feature: one entry in FEATURES, then gate its parts with its key; it is on for nobody until an
 admin switches it on. A feature that leaves the experimental group: remove its entry and its checks; switches and
@@ -50,13 +51,6 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "mit Platzhaltern für frühere Antworten; Felder der Antwort werden als Werte gespeichert, stehen in späteren Texten "
      "({{ws1_temp}}) und im Export. Nur https, nur öffentliche Server, höchstens 5 Sekunden. Erscheint im Reiter "
      "„Ablauf“ unter „Hinzufügen“."),
-    ("diary", "Tagebuchstudie mit der Android-App (Experience Sampling)",
-     "Die vierte Art einer Befragung: Teilnehmende treten mit der App Askurious für Android bei (QR-Code oder "
-     "Beitrittscode), beantworten einmal eine Eingangsbefragung, danach kurze Kurzbefragungen im Alltag (zu "
-     "festen Zeiten mit einer Benachrichtigung, zufällig oder wann immer sie etwas melden möchten) und am Ende eine "
-     "Abschlussbefragung. Im Reiter „Fragebogen“ steht jeder Teil für sich; Reiter „Zeitplan“ mit den Zeiten; "
-     "Beitreten, Testcode, Einladungscodes und die Antwortquote je Person im Reiter „Datenerhebung“; Export im Langformat (ein Eintrag je Zeile). Knopf „+ Tagebuchstudie“ auf „Meine "
-     "Befragungen“. Experimentell, bis die App im Play Store ist."),
     ("agent", "KI-Agenten-Schnittstelle (MCP): Fragebögen mit einem eigenen KI-Agenten lesen und Entwürfe bearbeiten",
      "Ein persönliches Token auf der Seite „Konto › Verbindungen“ verbindet einen KI-Agenten (etwa Claude Code oder Claude Desktop) "
      "über das Model Context Protocol mit Askurious: Er liest Fragebögen (ohne Antworten und Daten) und legt in "
@@ -72,11 +66,6 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Am Element „Video / Audio“ neben „Datei hochladen“ der Knopf „aus Coscine wählen“: eine Video- oder Tondatei aus "
      "einer Coscine-Ressource, die Ihr Token sieht. Askurious lädt sie im Hintergrund und prüft sie wie einen Upload "
      "(Format, Größe, Platz der Befragung); sie wird kopiert, nicht verknüpft. Braucht ein Coscine-Token unter „Konto“."),
-    ("offline_interviews", "Interviews ohne Netz (Offline-Modus)",
-     "Unter „Interviews“ eines Leitfadens der Schalter „Offline-Modus“ und die „Feldmappe“: Mit Netz reserviert das Gerät "
-     "einige Interviews samt Kennung und Löschcode (höchstens 20, sieben Tage gültig); ohne Netz führt es sie "
-     "nacheinander, mit Aufnahme, Kurzfragebogen und Postskript, verschlüsselt mit einer Geräte-PIN; mit Netz gleicht es "
-     "alles ab und löscht seine Kopie. Handy-Aufnahme, Teilnehmerbildschirm und Transkription bleiben online."),
     ("ai_chat", "KI-Chat für Teilnehmende: Gespräch mit einem KI-Assistenten, vollständig protokolliert",
      "Ein Element „KI-Chat“: Teilnehmende schreiben auf einer Seite des Fragebogens oder eines Tagebuchmoduls mit einem "
      "KI-Assistenten. Jede Nachricht beider Seiten wird als Studiendaten gespeichert und als eigene Datei mit einer "
@@ -101,14 +90,6 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                    "placeholders for earlier answers; fields of the answer are stored as values, appear in later texts "
                    "({{ws1_temp}}) and in the export. https only, public servers only, at most 5 seconds. Appears in the "
                    "tab “Flow” under “Add”."),
-    "diary": ("Diary survey with the Android app (experience sampling)",
-              "The fourth kind of survey: participants join with the app Askurious for Android (QR code or join code), "
-              "answer an entry survey once, then short surveys in daily life (at fixed times with a notification, at random "
-              "or whenever they want to report something) and an exit survey at the end. On the tab “Questionnaire” "
-              "each part stands on its own; tab “Schedule” with the times; joining, "
-              "test code, invitation codes and compliance per person on the tab “Data collection”; export in long format "
-              "(one entry per row). Button “+ Diary survey” on “My surveys”. "
-              "Experimental until the app is in the Play Store."),
     "agent": ("AI agent interface (MCP): read questionnaires and edit drafts with your own AI agent",
               "A personal token on the page “Account › Connections” connects an AI agent (such as Claude Code or Claude Desktop) with "
               "Askurious through the Model Context Protocol: it reads questionnaires (without answers and data) and, in "
@@ -125,12 +106,6 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                       "or sound file from a Coscine resource your token sees. Askurious loads it in the background and "
                       "checks it like an upload (format, size, room of the survey); it is copied, not linked. Needs a "
                       "Coscine token under “Account”."),
-    "offline_interviews": ("Interviews without a network (offline mode)",
-                           "Under “Interviews” of a guide the switch “Offline mode” and the “field kit”: with a network "
-                           "the device reserves some interviews with identifier and deletion code (at most 20, valid seven "
-                           "days); without a network it conducts them one after the other, with recording, short "
-                           "questionnaire and postscript, encrypted with a device PIN; with a network it syncs everything and "
-                           "deletes its copy. Phone recording, participant screen and transcription stay online."),
     "ai_chat": ("AI chat for participants: a conversation with an AI assistant, logged in full",
                 "An element “AI chat”: participants write with an AI assistant on a page of the questionnaire or of a "
                 "diary module. Every message of both sides is stored as study data and exported as a file of its own "
@@ -254,8 +229,6 @@ def in_use(feature, survey):
         from app import webservice
 
         return bool(webservice.nodes(survey))
-    if feature == "diary":  # a diary study (app/diary.py)
-        return survey.sampling is not None
     if feature == "agent":  # an AI agent changed the survey (app/agent_tools.py): its team sees the banner and marks
         from app.edit_guard import AGENT_KEY
         from app.extensions import db
@@ -289,8 +262,6 @@ def uses(feature):
                 if isinstance(flow, dict) and '"t": "ws"' in __import__("json").dumps(flow))
     elif feature == "coding":
         n = sum(1 for value in db.session.scalars(db.select(Survey.codings).where(Survey.codings.is_not(None))) if value)
-    elif feature == "diary":
-        n = db.session.scalar(db.select(db.func.count(Survey.id)).where(json_given(Survey.sampling))) or 0
     elif feature == "ainstein":
         n = db.session.scalar(db.select(db.func.count(ResearchProject.id))) or 0
         # "genutzt in 0 Projekten": the dative after "in" (UI/UX audit 2026-10-09, X77)

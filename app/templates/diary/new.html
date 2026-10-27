@@ -9,7 +9,7 @@
 <div class="survey-head">
   <a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
   <span class="crumb-sep" aria-hidden="true">/</span>
-  <h1>{{ de_en("Neue Tagebuchstudie", "New diary survey") }}</h1> <span class="badge badge-diary">{{ de_en("Tagebuchstudie", "Diary survey") }}</span> <span class="badge badge-exp" title="{{ de_en('Experimentell, bis die App im Play Store ist', 'Experimental until the app is in the Play Store') }}">{{ de_en("experimentell", "experimental") }}</span>
+  <h1>{{ de_en("Neue Tagebuchstudie", "New diary survey") }}</h1> <span class="badge badge-diary">{{ de_en("Tagebuchstudie", "Diary survey") }}</span>
 </div>
 {{ start_cards("diary.new", starts, start) }}
 {% if start == "datei" %}

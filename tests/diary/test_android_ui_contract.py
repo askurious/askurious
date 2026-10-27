@@ -3,10 +3,8 @@ from datetime import timedelta, timezone
 from app import diary
 from app.extensions import db
 from app.models import Response, Survey, utcnow
-from tests.conftest import experiments_on
 
 def test_app_overview_keeps_contact_and_confirmed_prompt_keys(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "App UI", "language": "de"})
     with app.app_context():
         survey = db.session.scalar(db.select(Survey))

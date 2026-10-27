@@ -7445,6 +7445,12 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf: der Link „Später weiter und jetzt zum Zeitplan/Leitfaden“ unter den Schritten von Tagebuchstudie und Interviewleitfaden „kann raus“. Entfernt; wer den Assistenten verlässt, kommt mit „Anlegen fortsetzen“ auf „Meine Befragungen“ zurück. Handbuch angepasst.
 - Rechtstexte geprüft, keine Änderung nötig.
 
+## 2026-10-27: Tagebuchstudie und Offline-Interviews nicht mehr experimentell
+
+- Ralf: Tagebuchstudien (samt KI-Assistent) und „Interviews ohne Netz (Offline-Modus)“ sind für alle da. Die Schalter `diary` und `offline_interviews` sind aus `app/experimental.py` entfernt, mit allen Abfragen (Anlegen, Zeitplan-Seiten, Duplizieren, Befragungsdatei, Glossar, Startseite, Offline-Feldmappe). Gespeicherte Schalter und Freigaben dafür werden ignoriert. Das Recht „Anlegen“ je Art (`app/kind_access.py`) gilt weiter.
+- Abzeichen „experimentell“ an Tagebuchstudie und Offline-Modus entfernt; Liste aller Funktionen ohne Markierung.
+- Rechtstexte: Nutzungsbedingungen Version 2026-10-27 (Abschnitt 3 ohne „experimentell“, Änderungseintrag), Datenschutzerklärung (Offline-Modus), Datenschutzkonzept (Tagebuch und Offline-Modus, Stand der Tätigkeiten), Handbuch und Glossar, README.
+
 ## 2026-10-27: DDI: Ablauf maschinenlesbar, abgeleitete Variablen, Stichprobe, Panelwellen; Konformität durch Tests
 
 - Ralf (alles außer den Statistiken je Variable und ohne Prüfung in der App): Der Ablauf steht in Lifecycle 4.0 jetzt als Konstrukte aus dem Ablaufbaum (app/flow.py): ein Zweig als IfThenElse mit der Bedingung in Worten und als Ausdruck (`Command`, Sprache „Askurious expression“, beschrieben in app/ddi.py: `gender == 1`, `x in (1, 2)`, `contains()`, `answered()`, `between()`, `param()`, `quota_full()`), „sonst“ als Else-Teil, eine Randomisierung als Split, eine Schleife als Loop (`rows_left(loop1)`); die Bedingung eines Elements ebenso mit Ausdruck.

@@ -4,7 +4,6 @@ ways on at the end (into the survey, or the kind's AI assistant)."""
 from app import ddi, diary, study_plan, wizard
 from app.extensions import db
 from app.models import Survey
-from tests.conftest import experiments_on
 
 
 def test_steps_of_each_kind():
@@ -15,7 +14,6 @@ def test_steps_of_each_kind():
 
 
 def test_diary_survey_through_the_wizard(app, client):
-    experiments_on(client, "diary")
     r = client.post("/diary/new", data={"title": "Lernen im Alltag", "language": "de", "description": "Wie lernen Studierende?",
                                         "keywords": "Lernen, Alltag", "demographics": "1", "exit": "1"})
     step = r.headers["Location"]

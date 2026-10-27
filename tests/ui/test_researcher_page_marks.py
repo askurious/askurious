@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.extensions import db
 from app.models import Survey
-from tests.conftest import experiments_on
+
 from tests.interview.test_interview import make
 
 CSS = (Path(__file__).resolve().parents[2] / "app" / "static" / "app.css").read_text(encoding="utf-8")
@@ -71,19 +71,18 @@ def test_interview_view_has_a_heading_and_a_neutral_core_mark(app, client):
     assert "--interview" not in _rule(".iv-core-mark")
 
 
-def test_diary_says_experimental_and_not_template_for_the_ticks(app, client):
-    """U36: "Vorlage" is the word of the survey templates; the diary study is marked as experimental."""
-    experiments_on(client, "diary")
+def test_diary_says_not_template_for_the_ticks_and_is_not_experimental(app, client):
+    """U36: "Vorlage" is the word of the survey templates; the diary study is no longer experimental (2026-10-27)."""
     new = client.get("/diary/new?start=leer").data.decode()
-    assert "<legend>Mit anlegen</legend>" in new and "badge-exp" in new
+    assert "<legend>Mit anlegen</legend>" in new and "badge-exp" not in new
     dash = client.get("/dashboard/").data.decode()
-    assert 'href="/diary/new">' in dash and dash.split('href="/diary/new">', 1)[1].split("</a>", 1)[0].count("experimentell") == 1
+    assert 'href="/diary/new">' in dash and dash.split('href="/diary/new">', 1)[1].split("</a>", 1)[0].count("experimentell") == 0
     client.post("/diary/new", data={"title": "Lernen", "language": "de"})
     with app.app_context():
         code = db.session.scalar(db.select(Survey.code).filter_by(title="Lernen"))
     assert code
     page = client.get("/surveys/1/editor/").data.decode()
-    assert page.split("<h1", 1)[1].split("</div>", 1)[0].count("experimentell") == 1
+    assert page.split("<h1", 1)[1].split("</div>", 1)[0].count("experimentell") == 0
 
 
 def test_design_templates_put_the_note_under_the_name(app, client, survey):

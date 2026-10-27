@@ -1000,7 +1000,6 @@ SECTIONS = (
     ("IAT und Belohnungsaufschub", "", ("iat_d", "k_discount")),
     ("Tagebuchstudie", "", ("icc", "compliance", "within_between", "random_slope", "omega_levels")),
 )
-DIARY_SECTION = "Tagebuchstudie"  # only with the experimental diary study (app/experimental.py), like SEM before
 SEM_SECTION = "Strukturgleichungsmodelle"  # for everyone since 2026-10-11 (before only with the experimental feature)
 
 # the same in English (concept "Mehrsprachige Oberfläche", E13): title and text of each fold, symbol, name, meaning
@@ -1870,13 +1869,8 @@ def term(key):
 
 def glossary():
     """[(section, note, [term, …])] in the order of SECTIONS, each section alphabetical by name."""
-    from flask import has_request_context
-
-    from app import experimental
-
-    diary = not has_request_context() or experimental.enabled("diary")  # outside a page (tests, scripts): all
     sections = [SECTIONS_EN[i] + (keys,) if english() else (title, note, keys)
-                for i, (title, note, keys) in enumerate(SECTIONS) if title != DIARY_SECTION or diary]
+                for i, (title, note, keys) in enumerate(SECTIONS)]
     return [(title, note, sorted((term(k) for k in keys), key=lambda t: t["name"].lower()))
             for title, note, keys in sections]
 

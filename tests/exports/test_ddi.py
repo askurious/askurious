@@ -272,7 +272,6 @@ def test_new_interview_guide_and_diary_ask_who_takes_part(app, client, schema):
     """A new interview guide and diary survey ask who takes part on the wizard's step "Wer nimmt teil?":
     recruitment, population, country and region (Ralf 2026-10-27); the guide's target group and the more precise
     words become the DDI Universe."""
-    from tests.conftest import experiments_on
 
     r = client.post("/guide/new", data={"title": "Pflege", "language": "de", "template": "leer", "order": "free"})
     step = r.headers["Location"]
@@ -290,7 +289,6 @@ def test_new_interview_guide_and_diary_ask_who_takes_part(app, client, schema):
         "Fachleute (Experteninterview): Pflegedienstleitungen in NRW"]
     assert doc.xpath("//d:TypeOfModeOfCollection/d:StringValue/text()", namespaces=NS) == ["Interview.Telephone"]
     assert doc.xpath("//d:SpatialCoverage/d:CountryCode/d:StringValue/text()", namespaces=NS) == ["DE"]
-    experiments_on(client, "diary")
     step = client.post("/diary/new", data={"title": "Tagebuch", "language": "de"}).headers["Location"]
     page = client.get(step).data.decode()
     assert "Wer nimmt teil?" in page and 'name="population"' in page and 'name="region"' in page
