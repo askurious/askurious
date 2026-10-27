@@ -42,7 +42,7 @@ def test_diary_survey_through_the_wizard(app, client):
         assert client.get(base + key).status_code == 200
     done = client.get(base + "done").data.decode()
     assert "Für Datenarchive" in done and "Als Nächstes: Zeitplan und Fragebogen" in done and "persönliche Codes" in done
-    assert 'value="ai"' not in done  # no AI assistant for diary surveys yet
+    assert 'value="ai"' in done  # the diary's AI assistant (app/diary_ai.py)
     r = client.post(base + "done", data={"wizard": "next"})
     assert r.headers["Location"].endswith("/schedule") and "/setup/" not in r.headers["Location"]
     with app.app_context():

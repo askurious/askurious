@@ -14,6 +14,8 @@
 <div class="tabpage-head">{% set active_tab = "schedule" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
 {% set locked_why = de_en("die Tagebuchstudie läuft oder hat echte Antworten", "the diary survey runs or has real answers") %}
 {% set off = "disabled" if locked else "" %}
+{# the diary's AI assistant (app/diary_ai.py), where the other kinds have theirs: on the page of what it plans #}
+{% if may_edit and not locked and ai_on() %}<p class="row"><a class="button button-ai button-secondary" href="{{ url_for('diary_ai.assistant', survey_id=survey.id) }}">{{ icon("sparkles", 16) }} {{ de_en("Mit KI planen", "Plan with AI") }}</a> <span class="hint">{{ de_en("Design, Moment-Fragen und Prüfung vorschlagen lassen", "have design, moment questions and a check suggested") }}</span></p>{% endif %}
 <form method="post" action="{{ url_for('diary.schedule', survey_id=survey.id) }}" class="stack diary-schedule" id="schedule-form" {% if may_edit %}data-autosave-form{% endif %}>
   {{ csrf() }}
   {% if may_edit %}{{ edit_guard_fields(survey, "settings:diary", edit_guard.settings_state(survey, "diary"), presence_key=false) }}{% endif %}

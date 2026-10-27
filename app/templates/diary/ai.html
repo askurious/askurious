@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, ai_access_line %}
+{% from "_icons.html" import icon %}
+{# AI assistant of a diary survey (app/diary_ai.py): three steps, each suggests on request; nothing changes until the
+   researchers tick and take over (one step for "Rückgängig"). Each step can be skipped. #}
+{% block title %}{{ de_en("KI-Assistent", "AI assistant") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "schedule" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{# the route answers 404 while AI is off (diary_ai._survey); the page asks too, as every page with an AI button #}
+{% if ai_on() %}
+<section class="panel diary-ai">
+  <h2>{{ de_en("Tagebuchstudie mit KI planen", "Plan the diary survey with AI") }}</h2>
+  <p class="muted small flush">{{ de_en("Titel, Forschungsfrage, Beschreibung, Grundgesamtheit, die Teile der Tagebuchstudie mit ihren Fragen und der Zeitplan gehen an {to}; keine Antworten und keine Teilnehmenden. Jeder Schritt ist freiwillig; übernommen wird nur, was Sie ankreuzen.", "Title, research question, description, population, the parts of the diary survey with their questions and the schedule go to {to}; no answers and no participants. Every step is optional; only what you tick is accepted.", to=ai_recipient()) }} {{ ai_access_line() }}</p>
+  <ol class="wizard-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
+    {% for k, name in steps %}<li class="wizard-step {{ 'current' if k == step else 'todo' }}"><a href="{{ url_for('diary_ai.assistant', survey_id=survey.id, step=k) }}"><span class="wizard-num">{{ loop.index }}</span><span class="wizard-label">{{ name }}</span></a></li>{% endfor %}
+  </ol>
+</section>
+
+{% if step == "design" %}
+<section class="panel diary-ai">
+  <h3>{{ de_en("Design: wann gefragt wird", "Design: when people are asked") }}</h3>
+  <p class="small">{{ de_en("Die KI schlägt ein Auswahlschema für die Kurzbefragung vor (intervall-, signal- oder ereignisgesteuert oder einmal am Tagesende), Abfragen pro Tag und Dauer der Tagebuchstudie, mit Begründung nach Bolger und Laurenceau (2013).", "The AI suggests a scheme for the short survey (interval-, signal- or event-contingent, or once at the end of the day), prompts per day and length of the study, with reasons after Bolger and Laurenceau (2013).") }}</p>
+  <form method="post" class="row">{{ csrf() }}<input type="hidden" name="step" value="design"><input type="hidden" name="action" value="design">
+    <button class="button button-ai">{{ icon("sparkles", 16) }} {{ de_en("Design vorschlagen", "Suggest a design") }}</button>
+    <a class="button button-secondary" href="{{ url_for('diary_ai.assistant', survey_id=survey.id, step='fragen') }}">{{ de_en("Überspringen", "Skip") }}</a></form>
+  {% if design %}
+  <form method="post" class="stack">{{ csrf() }}<input type="hidden" name="step" value="design"><input type="hidden" name="action" value="apply_design">
+    <div class="row-fields">
+      <label>{{ de_en("Schema", "Scheme") }} <select name="scheme">{% for k, (name, note) in schemes.items() %}<option value="{{ k }}"{% if k == design.scheme %} selected{% endif %}>{{ name }}: {{ note }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Abfragen pro Tag", "Prompts per day") }} <input type="number" name="per_day" min="1" max="10" value="{{ design.per_day }}"></label>
+      <label>{{ de_en("Tage", "Days") }} <input type="number" name="days" min="1" max="60" value="{{ design.days }}"></label>
+    </div>
+    <div class="row-fields">
+      <label>{{ de_en("Feste Zeiten", "Fixed times") }} <span class="hint">{{ de_en("bei intervallgesteuert und am Tagesende; durch Komma getrennt", "for interval-contingent and end of day; separated by commas") }}</span>
+        <input name="times" value="{{ design.times|join(', ') }}"></label>
+      <label>{{ de_en("Zeitfenster von", "Window from") }} <input name="start" value="{{ design.window[0] }}" maxlength="5"></label>
+      <label>{{ de_en("bis", "to") }} <input name="end" value="{{ design.window[1] }}" maxlength="5"></label>
+    </div>
+    {% if design.why %}<p class="muted small flush">{{ design.why }}</p><input type="hidden" name="why" value="{{ design.why }}">{% endif %}
+    <div><button class="button">{{ de_en("Zeitplan übernehmen", "Accept the schedule") }}</button></div>
+    <p class="hint">{{ de_en("Ersetzt den Auslöser der ersten Kurzbefragung und die Dauer der Tagebuchstudie; „Rückgängig“ stellt den bisherigen Zeitplan wieder her.", "Replaces the trigger of the first short survey and the length of the diary survey; “Undo” brings back the schedule of before.") }}</p>
+  </form>
+  {% endif %}
+</section>
+{% elif step == "fragen" %}
+<section class="panel diary-ai">
+  <h3>{{ de_en("Moment-Fragen", "Moment questions") }}</h3>
+  <p class="small">{{ de_en("Kurze Fragen zum Augenblick (Stimmung, Kontext, Ereignis, Verhalten) für die Forschungsfrage: wo es passt, ein Konstrukt aus den Konstrukten mit wenigen Items, sonst ein Entwurf, der als „KI-generiert“ markiert wird.", "Short questions about the moment (affect, context, event, behaviour) for the research question: where one fits, a construct with few items from the constructs, else a draft marked “AI-generated”.") }}</p>
+  <form method="post" class="row">{{ csrf() }}<input type="hidden" name="step" value="fragen"><input type="hidden" name="action" value="questions">
+    <button class="button button-ai">{{ icon("sparkles", 16) }} {{ de_en("Fragen vorschlagen", "Suggest questions") }}</button>
+    <a class="button button-secondary" href="{{ url_for('diary_ai.assistant', survey_id=survey.id, step='pruefen') }}">{{ de_en("Überspringen", "Skip") }}</a></form>
+  {% if questions %}
+  <form method="post" class="stack">{{ csrf() }}<input type="hidden" name="step" value="fragen"><input type="hidden" name="action" value="apply_questions">
+    <ol class="plain live-ai-list">
+      {% for q in questions %}{% set n = loop.index0 %}
+      <li class="live-ai-item">
+        <div class="live-ai-pick"><label class="check"><input type="checkbox" name="take" value="{{ n }}" checked> <strong>{{ loop.index }}.</strong>
+          {% if q.construct %}{{ de_en("Konstrukt", "Construct") }}{% else %}<span class="badge badge-ai">✨ {{ de_en("KI-Entwurf", "AI draft") }}</span>{% endif %}</label>
+          <input type="hidden" name="q{{ n }}_construct" value="{{ q.construct }}"><input type="hidden" name="q{{ n }}_type" value="{{ q.type }}"><input type="hidden" name="q{{ n }}_why" value="{{ q.why }}"></div>
+        <div class="live-ai-fields">
+          {% if q.construct %}<p class="flush"><strong>{{ q.name }}</strong> <span class="hint">{{ de_en("aus den Konstrukten, mit Quelle", "from the constructs, with its source") }}</span></p>
+          {% else %}<label><span class="label-title">{{ de_en("Frage", "Question") }}</span><textarea name="q{{ n }}_question" rows="2" maxlength="500">{{ q.question }}</textarea></label>
+            {% if q.options %}<label><span class="label-title">{{ de_en("Antworten", "Answers") }} <span class="hint">{{ de_en("eine je Zeile", "one per line") }}</span></span><textarea name="q{{ n }}_options" rows="{{ q.options|length }}">{{ q.options|join("\n") }}</textarea></label>{% endif %}{% endif %}
+          {% if q.why %}<p class="muted small flush">{{ q.why }}</p>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    <div><button class="button">{{ de_en("Ausgewählte in die Kurzbefragung übernehmen", "Add selected to the short survey") }}</button></div>
+  </form>
+  {% endif %}
+</section>
+{% else %}
+<section class="panel diary-ai">
+  <h3>{{ de_en("Prüfen", "Check") }}</h3>
+  <p class="small">{{ de_en("Was der Plan von einer Person verlangt (gezählt, nicht von der KI): Fragen je Kurzbefragung {i}, etwa {s} Sekunden; {d}.", "What the plan asks of a person (counted, not by the AI): questions per short survey {i}, about {s} seconds; {d}.", i=burden.questions, s=burden.seconds, d=(de_en("{p} Abfragen am Tag, {t} insgesamt", "{p} prompts a day, {t} in all", p=burden.per_day, t=burden.total) if burden.total else de_en("die Person beginnt selbst", "the person starts by themselves"))) }}</p>
+  <form method="post" class="row">{{ csrf() }}<input type="hidden" name="step" value="pruefen"><input type="hidden" name="action" value="check">
+    <button class="button button-ai">{{ icon("sparkles", 16) }} {{ de_en("Plan prüfen", "Check the plan") }}</button>
+    <a class="button button-secondary" href="{{ url_for('diary.schedule', survey_id=survey.id) }}">{{ de_en("Zum Zeitplan", "To the schedule") }}</a></form>
+  {% if notes %}
+  <ul class="plain diary-ai-notes">{% for note in notes %}<li><strong>{{ topics[note.topic] }}:</strong> {{ note.text }}</li>{% endfor %}</ul>
+  <p class="hint">{{ de_en("Nur Hinweise; ändern Sie Zeitplan und Fragen selbst im Reiter „Zeitplan“ und „Fragebogen“.", "Notes only; change the schedule and questions yourself on the tabs “Schedule” and “Questionnaire”.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% from "_sources.html" import grouped %}
+<section class="panel">{{ grouped([(de_en("Design von Tagebuchstudien", "Design of diary surveys"), [bolger])], de_en("Literatur", "References")) }}</section>
+{% endif %}
+{% endblock %}
