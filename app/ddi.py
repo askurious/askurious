@@ -710,6 +710,7 @@ def readiness(survey):
     sample = plan.get("sample") or {}
     archive = study_plan.archive_of(plan.get("archive"))
     mode = MODE_NAMES.get(modes(survey)[0], ("", ""))
+    kind = ("Qualitativ", "qualitative") if getattr(survey, "interview", None) is not None else ("Quantitativ", "quantitative")
     tm, sp = time_method(survey), sampling(survey)
     consent = getattr(survey, "consent_item", None)
     funding = ((consent.config or {}).get("funding") or "") if consent is not None else ""
@@ -729,7 +730,7 @@ def readiness(survey):
         row(bool((survey.description or "").strip()), "Beschreibung (Zusammenfassung)", "Description (abstract)", "projekt"),
         row(any(m.orcid_id for m in survey.members), "Team mit ORCID", "Team with ORCID", "team"),
         ("auto", f"Erhebungsart: {mode[0]}", f"Mode of collection: {mode[1]}", ""),
-        ("auto", "Datenart und Analyseeinheit", "Kind of data and unit of analysis", ""),
+        ("auto", f"Datenart: {kind[0]} · Analyseeinheit: Individuum", f"Kind of data: {kind[1]} · unit of analysis: individual", ""),
         ("auto", "Erhebungszeitraum: ab dem Start der Datenerhebung", "Field period: from the start of data collection", ""),
         row(bool(tm), "Zeitbezug (Studiendesign)", "Time method (research design)", "studienplan"),
         row(bool(sp), "Auswahlverfahren (Rekrutierung)", "Sampling procedure (recruitment)", "studienplan"),
