@@ -324,9 +324,8 @@ class Config:
     ORCID_CLIENT_SECRET = os.environ.get("ORCID_CLIENT_SECRET", "")
     ORCID_BASE_URL = os.environ.get("ORCID_BASE_URL", "https://orcid.org").rstrip("/")
     # Admins may always sign in. Who else may is kept in the database and changed in Administration > Forschende
-    # (app/signin.py); ALLOWED_ORCIDS ("*" = every ORCID holder) is only taken over from here once and then not read
+    # (app/signin.py)
     ADMIN_ORCIDS = _list("ADMIN_ORCIDS")
-    ALLOWED_ORCIDS = _list("ALLOWED_ORCIDS")
     # a new account (first ORCID sign-in, or made by a site admin) may create surveys of its own; a site admin can
     # take that back on its page. 0 = only the whitelist, the tick of an admin and groups decide (as before 2026-10-05)
     NEW_ACCOUNTS_MAY_CREATE = _bool("NEW_ACCOUNTS_MAY_CREATE", True)

@@ -113,13 +113,13 @@ def test_participation_stays_within_the_list(app, client, survey):
 def test_participant_start_leaves_the_data_upkeep_to_the_researchers(app, tmp_path, monkeypatch):
     """The participants' role reads no accounts or organisations: create_app with SIDE=participant runs none of the
     start-up data steps (the researchers' container does, restart.sh starts it first)."""
-    from app import account_types, create_app, orgs, quotas, signin
+    from app import account_types, create_app, orgs, quotas
     from app.extensions import db
     from tests.conftest import _config
 
     with app.app_context():
         address = str(db.engine.url)
-    for module, name in ((quotas, "upgrade_drafts"), (signin, "adopt_config"), (account_types, "ensure_seed"),
+    for module, name in ((quotas, "upgrade_drafts"), (account_types, "ensure_seed"),
                          (orgs, "ensure_seed")):
         monkeypatch.setattr(module, name, lambda *a, **k: pytest.fail("data upkeep on the participants' side"))
     config = _config(tmp_path, address)

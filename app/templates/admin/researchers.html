@@ -125,8 +125,6 @@
 </section>
 <section class="panel" id="freischalten">
   <h2>{{ de_en("Freigeschaltete ORCID iDs", "Allowed ORCID iDs") }} <span class="hint">{{ de_en("wer sich mit ORCID anmelden darf, ohne eingeladen oder in einer Gruppe zu sein; neue über „Person hinzufügen …“", "who may sign in with ORCID without being invited or in a group; new ones through “Add person …”") }}</span></h2>
-  {% if sign_in.leftover %}<div class="flash flash-warning"><span>{{ de_en("In der Konfiguration des Servers steht noch", "The server configuration still contains") }} <code>ALLOWED_ORCIDS</code>. {% if sign_in.taken_over %}{{ de_en("Es wurde am {date} hierher übernommen", "It was copied here on {date}", date=sign_in.taken_over) }}{% else %}{{ de_en("Es wurde hierher übernommen", "It was copied here") }}{% endif %}
-    {{ de_en("und wird nicht mehr gelesen; der Eintrag kann aus der", "and is no longer read; the entry can be deleted from the") }} <code>.env</code> {{ de_en("gelöscht werden.", "file.") }}</span></div>{% endif %}
   {# "every ORCID holder": off, up to a limit, without a limit (gruppen-freischaltung-konzept.md, Stufe 3, E9-E13) #}
   <form method="post" action="{{ url_for('admin.sign_in_orcids') }}" class="signin-mode">
     {{ csrf() }}<input type="hidden" name="action" value="mode">

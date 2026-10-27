@@ -148,7 +148,6 @@ def _config(folder, url=None):
         TSA_URL = ""  # never the DFN from a test; tests/exports/test_seal.py stands in for the service
         SEAL_DEFAULT = False  # the tests switch the seal chain on where they need it (tests/exports/test_seal.py)
         ADMIN_ORCIDS = ["0000-0000-0000-001X"]
-        ALLOWED_ORCIDS = []
         NEW_ACCOUNTS_MAY_CREATE = False  # tests sign in people who only work on what is shared; see tests/accounts/test_new_accounts.py
         ACCOUNT_SETUP = False  # new accounts go straight to their pages; tests/accounts/test_account_setup.py switches it on
         OPENAI_API_KEY = ""
@@ -293,7 +292,7 @@ CREATE_ALL = {"survey": "create", "live": "create", "interview": "create", "diar
 def allow(app, *orcids, keep=False):
     """Let exactly these iDs sign in by themselves, as ALLOWED_ORCIDS of the configuration did until 2026-10-06:
     the list of the administration ("*": the switch "every ORCID holder", app/signin.py), and the right to create
-    surveys for their accounts, those there now (as the takeover gives it) and those made at a first sign-in.
+    surveys for their accounts, those there now (as the takeover gave it) and those made at a first sign-in.
     keep: add to the list instead of replacing it."""
     from app import signin
     from app.extensions import db

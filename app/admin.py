@@ -854,7 +854,7 @@ def _sign_in_list():
     granted = set(db.session.scalars(db.select(SignInGrant.user_id)))
     return {"rows": [{"entry": row, "user": user, "stays": ids.get(row.orcid) in other or (user is not None and user.id in granted)}
                      for row, user in rows],
-            "everyone": signin.everyone(), "leftover": signin.leftover(), "taken_over": signin.setting(signin.TAKEN_OVER),
+            "everyone": signin.everyone(),
             # "every ORCID holder" up to a limit (gruppen-freischaltung-konzept.md, Stufe 3)
             "mode": signin.mode(), "limit": signin.limit(), "steps": signin.STEPS, "used": signin.open_count(),
             "level": signin.level(), "waiting": signin.waiting()}

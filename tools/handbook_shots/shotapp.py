@@ -19,7 +19,6 @@ def setup_env(work_dir):
     os.environ["MAIL_HOST"] = ""
     os.environ["SLACK_WEBHOOK_URL"] = ""
     os.environ["COMPUTE_URL"] = ""
-    os.environ["ALLOWED_ORCIDS"] = "*"
     os.environ.setdefault("HB_PARALLEL", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
     os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -48,6 +47,13 @@ def make_app(work_dir):
 
     app_pkg.Flask = flask_here
     try:
-        return app_pkg.create_app(ShotConfig)
+        app = app_pkg.create_app(ShotConfig)
     finally:
         app_pkg.Flask = original
+    with app.app_context():  # the screenshots show "every ORCID holder" switched on (Administration > Personen)
+        from app import signin
+        from app.extensions import db
+
+        signin.set_mode(signin.MODE_ALL, None)
+        db.session.commit()
+    return app
