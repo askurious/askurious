@@ -1,24 +1,22 @@
-{# Step "Teilnahme und Datenqualität" of the setup wizard (UI/UX audit 2026-10-05, V24): only how people take part.
-   Privacy, retention and the paradata keep their recommended settings; one line each says what is set and leads
-   to the place where it is changed (settings page, page "Datenerhebung"). #}
+{# Step "Teilnahme" of the setup wizard: three lines say what is set as recommended (participation, privacy, data
+   quality); each opens a fold right here to adjust it, no new browser tab (Ralf 2026-10-27; before: links "ändern ↗"
+   to the settings page and the page "Qualitätssicherung"). Saved by wizard._save ("ablauf"). #}
 {% set on_, off_ = de_en("an", "on"), de_en("aus", "off") %}
-<p class="small">{{ de_en("Wie empfohlen voreingestellt:", "Set as recommended:") }} {{ de_en("Zurück", "Back") }} {{ on_ if values.allow_back else off_ }} · {{ de_en("Fortschrittsanzeige", "progress bar") }} {{ on_ if values.show_progress else off_ }} · {{ de_en("automatisch weiter", "auto-advance") }} {{ on_ if values.auto_advance else off_ }}</p>
-<details class="plan-more" id="settings-participation-fold"><summary>{{ de_en("Teilnahme anpassen", "Adjust participation") }} <span class="hint">{{ de_en("Navigation, schneller blättern, erneute Teilnahme", "navigation, faster paging, taking part again") }}</span></summary>
+{% set ret = values.retention or {} %}
+{% set quality = [(de_en("Seitenzeiten", "page times"), values.page_timing), (de_en("technische Angaben", "technical details"), values.paradata),
+                  (de_en("Fensterwechsel und Einfügen", "window switches and pasting"), values.focus_paste), (de_en("Köder für KI-Agenten", "bait for AI agents"), values.ai_bait)] %}
+<p class="small">{{ de_en("Wie empfohlen voreingestellt. Die Einwilligung nennt, was davon erhoben wird.", "Set as recommended. The consent names what of this is recorded.") }}</p>
+<details class="plan-more" id="settings-participation-fold"><summary>{{ de_en("Teilnahme:", "Participation:") }} <span class="hint">{{ de_en("Zurück", "Back") }} {{ on_ if values.allow_back else off_ }} · {{ de_en("Fortschrittsanzeige", "progress bar") }} {{ on_ if values.show_progress else off_ }} · {{ de_en("automatisch weiter", "auto-advance") }} {{ on_ if values.auto_advance else off_ }}</span></summary>
 <fieldset id="settings-participation">
   <legend>{{ de_en("Teilnahme", "Participation") }}</legend>
   {% include "surveys/_fields_participation.html" %}
 </fieldset>
 </details>
-{% set ret = values.retention or {} %}
-{% set quality = [(de_en("Seitenzeiten", "page times"), values.page_timing), (de_en("technische Angaben", "technical details"), values.paradata),
-                  (de_en("Fensterwechsel und Einfügen", "window switches and pasting"), values.focus_paste), (de_en("Köder für KI-Agenten", "bait for AI agents"), values.ai_bait)] %}
-{% set on_, off_ = de_en("an", "on"), de_en("aus", "off") %}
-<div class="wizard-defaults">
-  <p class="small"><strong>{{ de_en("Datenschutz:", "Privacy:") }}</strong>
-    {{ de_en("Löschcode", "Deletion code") }} {{ on_ if values.erase_code else off_ }} · {{ de_en("Region aus der IP", "Region from the IP") }} {{ on_ if values.geo_ip else off_ }}{% if ret %} · {{ de_en("personenbezogene Angaben {p} Monate, Antworten {a} Monate", "personal data {p} months, answers {a} months", p=ret.get("personal"), a=ret.get("answers")) }}{% endif %}
-    · <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#einwilligung" target="_blank" rel="noopener">{{ de_en("ändern ↗", "change ↗") }}</a></p>
-  <p class="small"><strong>{{ de_en("Datenqualität:", "Data quality:") }}</strong>
-    {% set on = quality|selectattr(1)|map(attribute=0)|list %}{{ on|join(", ") if on else de_en("keine Paradaten", "no paradata") }}{% if values.tempo_hint and values.tempo_hint != "off" %} · {{ de_en("Tempo-Hinweis an", "speed prompt on") }}{% endif %}
-    · <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}#prevent" target="_blank" rel="noopener">{{ de_en("ändern ↗", "change ↗") }}</a></p>
-  <p class="muted small">{{ de_en("Die empfohlenen Voreinstellungen; die Einwilligung nennt, was davon erhoben wird. Geändert wird beides später in den Einstellungen bzw. im Reiter „Qualitätssicherung“.", "The recommended defaults; the consent names what of this is recorded. Both are changed later in the settings or on the tab “Quality assurance”.") }}</p>
-</div>
+<details class="plan-more" id="settings-privacy-fold"><summary>{{ de_en("Datenschutz:", "Privacy:") }} <span class="hint">{{ de_en("Löschcode", "Deletion code") }} {{ on_ if values.erase_code else off_ }} · {{ de_en("Region aus der IP", "Region from the IP") }} {{ on_ if values.geo_ip else off_ }}{% if ret %} · {{ de_en("personenbezogene Angaben {p} Monate, Antworten {a} Monate", "personal data {p} months, answers {a} months", p=ret.get("personal"), a=ret.get("answers")) }}{% endif %}</span></summary>
+  <input type="hidden" name="privacy_shown" value="1">
+  {% include "surveys/_fields_privacy.html" %}
+</details>
+<details class="plan-more" id="settings-quality-fold"><summary>{{ de_en("Datenqualität:", "Data quality:") }} <span class="hint">{% set on = quality|selectattr(1)|map(attribute=0)|list %}{{ on|join(", ") if on else de_en("keine Paradaten", "no paradata") }}{% if values.tempo_hint and values.tempo_hint != "off" %} · {{ de_en("Tempo-Hinweis an", "speed prompt on") }}{% endif %}</span></summary>
+  <input type="hidden" name="quality_shown" value="1">
+  {% include "surveys/_fields_quality.html" %}
+</details>

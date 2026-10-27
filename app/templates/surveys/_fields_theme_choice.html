@@ -2,7 +2,8 @@
    own_designs (designs_for(current_user)). Used in the settings and in the setup wizard. The organisation designs of
    one's organisations come first (app/org_designs.py, Ralf 2026-10-19). #}
 <fieldset class="theme-choice-list">
-  <legend>{{ de_en("Farbschema", "Colour scheme") }}</legend>
+  {# the wizard's step "Erscheinungsbild" is only this: its heading is enough, the legend stays for screen readers #}
+  <legend{% if theme_quiet is defined and theme_quiet %} class="visually-hidden"{% endif %}>{{ de_en("Farbschema", "Colour scheme") }}</legend>
   {# the light one and the dark one, each staying as chosen (org_designs.for_user, Ralf 2026-10-23) #}
   {% for entry in org_designs_for(current_user) %}{% for o in entry.options %}
   <label class="theme-choice-item">

@@ -58,17 +58,15 @@
     {% elif key == "ablauf" %}
       {% include "wizard/_options.html" %}
     {% elif key == "gestaltung" %}
-      {# first what every participant sees, then the style that only matters for AI images (Ralf, 2026-10-07) #}
-      <h3>{{ de_en("Farben und Schrift", "Colours and font") }} <span class="hint">{{ de_en("der Seiten für Teilnehmende", "of the participants' pages") }}</span></h3>
+      {# one part only: no heading of its own under the step's (Ralf 2026-10-27) #}
       {% set look = themes.of(survey) %}{% set own_designs = designs_for(current_user) %}
       <p class="muted small">{{ de_en("So sehen Teilnehmende die Befragung. Eigene Farben, ein Logo und alles Weitere später unter Einstellungen → Erscheinungsbild → „Erscheinungsbild öffnen“.", "This is how participants see the survey. Your own colours, a logo and everything else later under Settings → Appearance → “Open appearance”.") }}</p>
-      {% include "surveys/_fields_theme_choice.html" %}
-      <p class="muted small">{{ de_en("Den Stil der KI-Bilder wählen Sie beim ersten KI-Bild; er steht danach unter Einstellungen → Erscheinungsbild.", "You choose the style of the AI images with the first AI image; it is then under Settings → Appearance.") }}</p>
+      {% set theme_quiet = true %}{% include "surveys/_fields_theme_choice.html" %}
     {% elif key == "fertig" %}
       {% include "wizard/_summary.html" %}
     {% endif %}
 
-    {% if survey and key != "fertig" %}{{ autosave_bar() }}{% endif %}
+    {% if survey and key != "fertig" %}{{ autosave_bar(quiet=true) }}{% endif %}
     <div class="wizard-nav">
       {% if index > 0 and survey %}<button class="button button-secondary" name="wizard" value="back" formnovalidate>{{ icon("back", 16) }} {{ de_en("Zurück", "Back") }}</button>{% endif %}
       <span class="wizard-spacer"></span>

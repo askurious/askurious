@@ -112,9 +112,11 @@ here (only typed or found in the registry) gets ORCID's "unauthenticated" icon a
 {# The line is no live region of its own: the head of the survey (or the page's line) says what happened; only an
    error or a conflict is said here, as role=alert set by app.js, and the head stays silent then (UI/UX audit
    2026-10-16, 30). The buttons after a conflict name whose change they load (54). #}
-{% macro autosave_bar(small=false, form_id="") -%}
+{# quiet: no standing note "Änderungen werden automatisch gespeichert." (the setup wizard, Ralf 2026-10-27); the
+   status still says "Gespeichert" or an error when it happens #}
+{% macro autosave_bar(small=false, form_id="", quiet=false) -%}
 <div class="form-actions autosave-bar" data-autosave-bar="{{ form_id }}">
-  <span class="autosave-status" data-autosave-status>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span>
+  <span class="autosave-status" data-autosave-status>{% if not quiet %}{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}{% endif %}</span>
   <button type="button" class="button button-small button-secondary" data-autosave-retry hidden>{{ de_en("Erneut versuchen", "Try again") }}</button>
   <button type="button" class="button button-small button-secondary" data-autosave-theirs hidden>{{ de_en("Änderung der anderen Person laden", "Load the other person’s version") }}</button>
   <button type="button" class="button button-small button-secondary" data-autosave-mine hidden>{{ de_en("Meine Änderung behalten", "Keep my version") }}</button>
