@@ -4,7 +4,9 @@
 {% from "wizard/_import.html" import import_panel with context %}
 {% from "_start_cards.html" import start_cards %}
 {% set title, subtitle, optional = steps[index][1], steps[index][2], steps[index][3] %}
-{% block title %}{{ title }} · {{ de_en("Neuer Fragebogen", "New questionnaire") }}{% endblock %}
+{% set kind = kind|default("survey") %}
+{% set kind_name = {"diary": de_en("Neue Tagebuchstudie", "New diary survey"), "interview": de_en("Neuer Interviewleitfaden", "New interview guide")}.get(kind, de_en("Neuer Fragebogen", "New questionnaire")) %}
+{% block title %}{{ title }} · {{ kind_name }}{% endblock %}
 {% block content %}
 <div class="survey-head">
   <a class="back-link crumb" href="{{ url_for('dashboard.index') }}">{{ icon("back", 16) }} {{ de_en("Meine Befragungen", "My surveys") }}</a>
@@ -14,17 +16,7 @@
 {% if not survey %}{{ start_cards("wizard.new", starts, start) }}{% endif %}
 {% if survey or start == "leer" %}
 {# on the phone the steps shrink to their numbers and this line says where one is (UI/UX audit 2026-10-09, X12) #}
-<p class="wizard-count">{{ de_en("Schritt {n} von {m} · {title}", "Step {n} of {m} · {title}", n=index + 1, m=steps|length, title=steps[index][1]) }}</p>
-<ol class="wizard-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
-  {% for k, t, st, opt in steps %}
-  {% set state = "current" if loop.index0 == index else ("done" if loop.index0 < index or (reached is defined and loop.index0 <= reached) else "todo") %}
-  <li class="wizard-step {{ state }}">
-    {% if survey and state == "done" %}<a href="{{ url_for('wizard.step', survey_id=survey.id, key=k) }}" aria-label="{{ de_en('Schritt {n}: {title}', 'Step {n}: {title}', n=loop.index, title=t) }}">{% endif %}
-    <span class="wizard-num">{{ "✓" if state == "done" else loop.index }}</span><span class="wizard-label">{{ t }}</span>
-    {% if survey and state == "done" %}</a>{% endif %}
-  </li>
-  {% endfor %}
-</ol>
+{% include "wizard/_bar.html" %}
 
 <section class="panel wizard-panel wizard-step-{{ key }}">
   <h2>{{ title }} <span class="hint">{{ subtitle }}{% if optional %} · optional{% endif %}</span></h2>
@@ -47,10 +39,17 @@
       {% with values=(survey or form) %}{% include "surveys/_fields_project.html" %}{% endwith %}
       {% include "wizard/_aims.html" %}
       {% with values=(survey or form) %}{% include "surveys/_fields_languages.html" %}{% endwith %}
+    {% elif key == "studienplan" and kind == "interview" %}
+      {% with population_label=de_en("Genauer", "More precisely"), population_hint=de_en("optional; wen die Zielgruppe genau meint, z. B. Region oder Einschluss", "optional; whom the target group means exactly, e.g. region or inclusion") %}{% include "_who_takes_part.html" %}{% endwith %}
+    {% elif key == "studienplan" and kind == "diary" %}
+      {% with population_label=de_en("Für wen sollen die Ergebnisse gelten?", "Who should the results speak for?"), population_hint=de_en("Grundgesamtheit", "population") %}{% include "_who_takes_part.html" %}{% endwith %}
     {% elif key == "studienplan" %}
       {% set plan_wizard = true %}{% include "surveys/_fields_plan.html" %}
     {% elif key == "team" %}
-      {% if consent %}{% include "wizard/_responsible.html" %}{% endif %}
+      {% if consent %}{% include "wizard/_responsible.html" %}{% else %}{% include "wizard/_affiliations.html" %}{% endif %}
+    {% elif key == "zeitplan" %}
+      {% with new_survey=true %}{% include "diary/_join_mode.html" %}{% endwith %}
+      <p class="muted small">{{ de_en("Wann gefragt wird (feste Zeiten, zufällige Signale oder auf Meldung), die Dauer der Tagebuchstudie und die Erinnerungen legen Sie im Reiter „Zeitplan“ fest; nach dem Assistenten geht es dort weiter.", "When people are asked (fixed times, random signals or on report), the length of the diary survey and the reminders are set on the tab “Schedule”; after the assistant you continue there.") }}</p>
     {% elif key == "einwilligung" %}
       {% set consent_only = true %}{% include "wizard/_consent.html" %}
     {% elif key == "ablauf" %}
@@ -65,12 +64,19 @@
     {% endif %}
 
     {% if survey and key != "fertig" %}{{ autosave_bar(quiet=true) }}{% endif %}
+    {% set to_survey = {"diary": de_en("Zum Zeitplan", "To the schedule"), "interview": de_en("Zum Leitfaden", "To the guide")}.get(kind, de_en("Zum Fragebogen", "To the questionnaire")) %}
     <div class="wizard-nav">
       {% if index > 0 and survey %}<button class="button button-secondary" name="wizard" value="back" formnovalidate>{{ icon("back", 16) }} {{ de_en("Zurück", "Back") }}</button>{% endif %}
       <span class="wizard-spacer"></span>
-      {# no "Überspringen": every change is saved at once, so it only differed from "Weiter" in a mark (Ralf 2026-10-27) #}
-      <button class="button" name="wizard" value="next">{{ de_en("Zum Fragebogen", "To the questionnaire") if key == "fertig" else (de_en("Anlegen und weiter", "Create and continue") if not survey else de_en("Weiter", "Next")) }}</button>
+      {# no "Überspringen": every change is saved at once, so it only differed from "Weiter" in a mark (Ralf 2026-10-27).
+         At the end two ways on: into the survey, or into the kind's AI assistant where there is one (wizard.ai_way;
+         no AI exit halfway, Ralf 2026-10-27) #}
+      {% if key == "fertig" and ai_way %}<button class="button button-ai button-secondary" name="wizard" value="ai">{{ icon("sparkles", 16) }} {{ ai_way[1] }}</button>{% endif %}
+      <button class="button" name="wizard" value="next">{{ to_survey if key == "fertig" else (de_en("Anlegen und weiter", "Create and continue") if not survey else de_en("Weiter", "Next")) }}</button>
     </div>
+    {# a diary survey or guide is created after step 1 and every step saves at once: the guide or schedule is open
+       right away, the dashboard offers to continue the setup #}
+    {% if survey and kind != "survey" and key != "fertig" %}<p class="small wizard-later"><a href="{{ finish }}">{{ de_en("Später weiter und jetzt zum Leitfaden", "Continue later, go to the guide now") if kind == "interview" else de_en("Später weiter und jetzt zum Zeitplan", "Continue later, go to the schedule now") }}</a></p>{% endif %}
   </form>
 </section>
 

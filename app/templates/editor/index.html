@@ -159,7 +159,7 @@
       </div>
     </section>
     {% if ai_on() %}
-    <section class="ai-ideas" data-ai-ideas data-url="{{ url_for('editor.ai_ideas', survey_id=survey.id) }}"
+    <section class="ai-ideas" id="ai-scales" data-ai-ideas data-url="{{ url_for('editor.ai_ideas', survey_id=survey.id) }}"
              data-constructs="{{ url_for('constructs.index', survey=survey.id) }}">
       <h2>{{ de_en("Anregungen", "Suggestions") }}</h2>
       <button type="button" class="button button-ai palette-block" data-ai-ideas-go

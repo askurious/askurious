@@ -1,4 +1,11 @@
-"""Setup wizard for new surveys: the settings page, step by step.
+"""Setup wizard for new surveys of every kind: the settings page, step by step.
+
+One wizard for questionnaires, diary surveys and interview guides (Ralf 2026-10-27), each kind with its own list of
+steps (KIND_KEYS) over the same fields: a diary survey has "Zeitplan und Beitritt" instead of "Teilnahme", an
+interview guide only what it is about, who is interviewed and who carries it (interviewees see no pages and
+Askurious does not collect their consent). The first step of a diary survey and an interview guide is the page that
+creates it (diary.new, interview.new); every kind ends on the overview with the box "Für Datenarchive" and the two
+ways on: into the survey, or into the kind's AI assistant where there is one (no AI exit halfway, Ralf 2026-10-27).
 
 The survey is created after the first step; afterwards every step saves by itself, like the settings page
 (UI/UX audit 2026-10-05, V23: data-autosave-form, `autosave=1`); "Weiter" moves on (and saves what a page without
@@ -27,13 +34,29 @@ STEPS = [
     ("projekt", "Worum geht es?", "Titel, Beschreibung, Forschungsfrage und Sprachen", False),
     ("studienplan", "Wer nimmt teil?", "Studiendesign, Auswahl, Grundgesamtheit und Angaben zur Person", True),
     ("team", "Verantwortung", "Beteiligte, verantwortliche Personen, Kontakt und Förderung", True),
+    # a diary survey: how people join; when they are asked stays on the tab "Zeitplan" (app/diary.py)
+    ("zeitplan", "Zeitplan und Beitritt", "wie Teilnehmende beitreten; wann gefragt wird, steht im Reiter „Zeitplan“", True),
     ("ablauf", "Teilnahme", "Navigation und erneute Teilnahme; Datenschutz und Paradaten wie empfohlen", True),
     ("einwilligung", "Einwilligung", "wozu Teilnehmende zustimmen", False),
     # the look of the participants' pages; the style of AI images is chosen with the first AI image (images page)
     ("gestaltung", "Erscheinungsbild", "Farben und Schrift der Seiten", True),
-    ("fertig", "Übersicht", "Zusammenfassung und nächste Schritte", False),
+    ("fertig", "Übersicht", "Alle Angaben auf einen Blick", False),
 ]
-KEYS = [k for k, *_ in STEPS]
+KEYS = [k for k, *_ in STEPS if k != "zeitplan"]  # the steps of a questionnaire
+# the steps of each kind (Survey.kind), in their order
+KIND_KEYS = {"survey": KEYS,
+             "diary": ["projekt", "studienplan", "team", "zeitplan", "einwilligung", "gestaltung", "fertig"],
+             "interview": ["projekt", "studienplan", "team", "fertig"]}
+# what a step is about where a kind asks something else in it: {kind: {key: ((de), (en))}}
+KIND_SUBTITLES = {
+    "diary": {"projekt": ("Titel, Beschreibung, Schlagwörter und Sprache", "Title, description, keywords and language"),
+              "studienplan": ("Auswahl, Grundgesamtheit, Land und Region", "Selection, population, country and region")},
+    "interview": {"projekt": ("Titel, Beschreibung, Forschungsfrage, Schlagwörter und Sprache",
+                              "Title, description, research question, keywords and language"),
+                  "studienplan": ("Zielgruppe, Auswahl, Grundgesamtheit, Land und Interviewform",
+                                  "Target group, selection, population, country and interview mode"),
+                  "team": ("Beteiligte und ihre Organisation", "People involved and their organisation")},
+}
 # addresses and setup_step from before 2026-10-07, and "sprachen" from before 2026-10-27 (now in "projekt")
 FORMER_KEYS = {"bildstil": "gestaltung", "aussehen": "gestaltung", "sprachen": "projekt"}
 # the same steps in English: {key: (title, subtitle)}
@@ -41,25 +64,72 @@ STEPS_EN = {"projekt": ("What is it about?", "Title, description, research quest
             "studienplan": ("Who takes part?", "Research design, selection, population and details about the person"),
             "team": ("Responsibility", "People involved, responsible persons, contact and funding"),
             "ablauf": ("Participation", "Navigation and taking part again; privacy and paradata as recommended"),
+            "zeitplan": ("Schedule and joining", "how participants join; when they are asked is on the tab “Schedule”"),
             "einwilligung": ("Consent", "what participants agree to"),
             "gestaltung": ("Appearance", "Colours and font of the pages"),
-            "fertig": ("Overview", "Summary and next steps")}
+            "fertig": ("Overview", "All details at a glance")}
 
 
-def steps():
-    """STEPS as the wizard shows them, in the language of the page."""
-    if not english():
-        return STEPS
-    return [(k, *STEPS_EN[k], optional) for k, _, _, optional in STEPS]
+def kind_of(survey):
+    """"survey", "diary" or "interview": whose steps the wizard shows; None for a live poll (it has no wizard)."""
+    kind = survey.kind if survey is not None else "survey"
+    return kind if kind in KIND_KEYS else None
+
+
+def keys_of(kind="survey"):
+    return KIND_KEYS[kind]
+
+
+def steps(kind="survey"):
+    """The steps of a kind as the wizard shows them, in the language of the page: [(key, title, subtitle, optional)]."""
+    own = KIND_SUBTITLES.get(kind, {})
+    out = []
+    for k, title, subtitle, optional in STEPS:
+        if k not in KIND_KEYS[kind]:
+            continue
+        if english():
+            title, subtitle = STEPS_EN[k]
+        if k in own:
+            subtitle = own[k][1 if english() else 0]
+        out.append((k, title, subtitle, optional))
+    return sorted(out, key=lambda row: KIND_KEYS[kind].index(row[0]))
 
 
 def _step_url(survey, key, **kw):
     return url_for("wizard.step", survey_id=survey.id, key=key, **kw)
 
 
-def _neighbours(key):
-    i = KEYS.index(key)
-    return (KEYS[i - 1] if i > 0 else None), (KEYS[i + 1] if i + 1 < len(KEYS) else None)
+def _neighbours(key, keys=KEYS):
+    i = keys.index(key)
+    return (keys[i - 1] if i > 0 else None), (keys[i + 1] if i + 1 < len(keys) else None)
+
+
+def finish_url(survey):
+    """Where the wizard ends: the questionnaire, the diary's schedule or the interview guide."""
+    kind = kind_of(survey)
+    if kind == "diary":
+        return url_for("diary.schedule", survey_id=survey.id)
+    if kind == "interview":
+        return url_for("interview.guide", code=survey.code)
+    return url_for("editor.index", survey_id=survey.id)
+
+
+def ai_way(survey):
+    """(url, label) of the kind's AI assistant at the end of the wizard, or None: the guide's assistant (develop
+    questions) for an interview guide, the construct suggestions of the editor for a questionnaire; a diary survey
+    has none yet. Only where AI is on for the person (ai_access.ai_on, as every AI button)."""
+    from app import ai_access
+
+    if not ai_access.ai_on():
+        return None
+    kind = kind_of(survey)
+    if kind == "interview":
+        return url_for("interview_ai.develop", code=survey.code), de_en("Mit dem KI-Assistenten Leitfragen entwickeln",
+                                                                         "Develop guide questions with the AI assistant")
+    if kind == "survey":
+        return (url_for("editor.index", survey_id=survey.id) + "#ai-scales",
+                de_en("Mit KI passende Skalen vorschlagen lassen", "Have AI suggest matching scales"))
+    return None
 
 
 DEMOGRAPHICS = {"de": "Demographische Angaben", "en": "Demographics"}
@@ -443,9 +513,11 @@ def step(survey_id, key):
         db.session.commit()
     if key in FORMER_KEYS:
         return redirect(_step_url(survey, FORMER_KEYS[key]))
-    if key not in KEYS:
+    kind = kind_of(survey)
+    if kind is None or key not in keys_of(kind):
         abort(404)
-    prev_key, next_key = _neighbours(key)
+    keys = keys_of(kind)
+    prev_key, next_key = _neighbours(key, keys)
     lang = survey.default_language
 
     if request.method == "POST" and autosave.wanted():
@@ -461,7 +533,7 @@ def step(survey_id, key):
             flash(error, "error")
             return redirect(_step_url(survey, key))
         what = autosave.what()
-        name = undo.both(STEPS[KEYS.index(key)][1], STEPS_EN[key][0])
+        name = undo.both(next(t for k, t, *_ in STEPS if k == key), STEPS_EN[key][0])
         recorder.done(undo.both("Assistent, {name}: {what} geändert", "Assistant, {name}: {what} changed", name=name, what=what) if what
                       else undo.both("Assistent: {name} geändert", "Assistant: {name} changed", name=name),
                       page="settings", merge=autosave.merge(f"wizard:{key}"))
@@ -482,27 +554,50 @@ def step(survey_id, key):
         if action != "back" and (key == "fertig" or target is None):
             survey.setup_step = None
             db.session.commit()
-            return redirect(url_for("editor.index", survey_id=survey.id))
+            way = ai_way(survey) if action == "ai" else None  # the second way on of the overview
+            return redirect(way[0] if way else finish_url(survey))
         # remember the furthest step reached (for "Einrichtung fortsetzen")
-        if survey.setup_step and action != "back" and KEYS.index(target) > KEYS.index(survey.setup_step):
+        if survey.setup_step in keys and action != "back" and keys.index(target) > keys.index(survey.setup_step):
             survey.setup_step = target
         db.session.commit()
         return redirect(_step_url(survey, target))
 
     q = request.args.get("q", "").strip()
+    extra = {}
+    if kind != "survey" and key == "studienplan":
+        from app import study_plan
+
+        extra = {"who": (study_plan.plan_of(survey).get("sample") or {}),
+                 "recruitment": study_plan.interview_recruitment() if kind == "interview" else study_plan.recruitment()}
+        if kind == "interview":
+            from app import interview
+
+            extra.update(lead_targets=interview.targets(), lead_modes=interview.modes(),
+                         who_target=(survey.interview or {}).get("target") or "",
+                         who_mode=(survey.interview or {}).get("mode") or "")
     return render_template(
-        "wizard/step.html", survey=survey, key=key, steps=steps(), index=KEYS.index(key), form={},
+        "wizard/step.html", survey=survey, key=key, steps=steps(kind), index=keys.index(key), form={}, kind=kind,
         # steps up to the furthest one reached stay open for a visit, also after going back
-        reached=KEYS.index(survey.setup_step) if survey.setup_step in KEYS else len(KEYS) - 1,
+        reached=keys.index(survey.setup_step) if survey.setup_step in keys else len(keys) - 1,
+        ai_way=ai_way(survey) if key == "fertig" else None, finish=finish_url(survey), **extra,
         projects=surveys._my_projects(), languages=surveys.LANGUAGE_NAMES, lang=lang,
         values=survey, values_languages=survey.languages, lang_editable=survey.is_editable,
         # as on the settings page: only admins of the survey add people, so only they search
         q=q, results=surveys._search_people(q, survey) if q and survey.can(current_user, "admin") else None,
         consent=survey.consent_item, image_styles=image_styles, style_cfg=image_styles.settings(survey),
-        contact=contact, demographics=demographic_choices() if key == "studienplan" else None,
-        demographics_now=demographics_kind(survey) if key == "studienplan" else None,
-        wizard_keys=KEYS,
+        contact=contact, demographics=demographic_choices() if key == "studienplan" and kind == "survey" else None,
+        demographics_now=demographics_kind(survey) if key == "studienplan" and kind == "survey" else None,
+        wizard_keys=keys, personal=bool((survey.sampling or {}).get("invite_only")), **_interview_names(kind),
     )
+
+
+def _interview_names(kind):
+    """The names of interview modes and target groups for the overview of an interview guide."""
+    if kind != "interview":
+        return {}
+    from app import interview
+
+    return {"interview_modes": interview.modes(), "interview_targets": interview.targets()}
 
 
 def _save(survey, key, form, lang):
@@ -518,6 +613,21 @@ def _save(survey, key, form, lang):
         if form.getlist("languages") or "default_language" in form:
             surveys.apply_languages(survey, form)
         return None
+    if key == "studienplan" and kind_of(survey) != "survey":
+        # a diary survey or an interview guide: who takes part, as on its creating page before (_who_takes_part.html)
+        from app import study_plan
+
+        study_plan.apply_who(survey, form)
+        if kind_of(survey) == "interview":
+            from app import interview
+
+            st = dict(survey.interview or {})
+            if "target" in form:
+                st["target"] = form.get("target") if form.get("target") in interview.TARGETS else ""
+            if form.get("mode") in interview.MODES:
+                st["mode"] = form.get("mode")
+            survey.interview = st
+        return None
     if key == "studienplan":
         from app import study_plan
 
@@ -528,6 +638,17 @@ def _save(survey, key, form, lang):
         # the responsible researchers, contact and funding are facts of the consent (items/consent.update_facts)
         item = survey.consent_item
         item.kind.apply_facts(item, form, lang)
+    elif key == "team":  # an interview guide has no consent: the organisation of each person (publisher, DDI)
+        for m in survey.members:
+            if f"aff_{m.id}" in form:
+                m.affiliation = form.get(f"aff_{m.id}", "").strip()[:300]
+    elif key == "zeitplan" and survey.sampling is not None:
+        from app import diary
+
+        survey.sampling = {**survey.sampling, **diary.join_settings(form, survey.sampling)}
+        if diary.invite_only(survey) and not diary.invites(survey):  # the codes, once, when personal codes are chosen
+            db.session.flush()
+            diary.make_invites(survey, diary._int(form.get("persons"), 20, 1, 500))
     elif key == "ablauf":  # participation, and privacy and data quality where their fold was sent (wizard/_options.html)
         def change():
             surveys.apply_participation(survey, form)

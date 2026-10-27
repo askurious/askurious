@@ -1,15 +1,26 @@
-{# "Wer nimmt teil?" on the single page of a new interview guide or diary survey: recruitment, population, country
-   (research plan, app/study_plan.start_plan; for DDI and data archives, Ralf 2026-10-27). Needs: recruitment (choices),
-   population_label, population_hint. #}
-<fieldset class="bare stack"><legend>{{ de_en("Wer nimmt teil?", "Who takes part?") }}</legend>
+{# "Wer nimmt teil?" of a diary survey or an interview guide, the second step of the setup wizard (app/wizard.py,
+   Ralf 2026-10-27): recruitment, population, country and region (research plan, app/study_plan.apply_who; for DDI
+   and data archives), for a guide also the target group and the interview mode. Needs: recruitment (choices),
+   population_label, population_hint; who (the plan's sample), lead_targets/who_target and lead_modes/who_mode for a
+   guide. #}
+{% set who = who if who is defined and who else {} %}
+<div class="stack">
   <div class="row-fields">
     {% if lead_targets is defined and lead_targets %}<label>{{ de_en("Zielgruppe", "Target group") }}
-      <select name="target"><option value="">{{ de_en("nicht angegeben", "not stated") }}</option>{% for key, name in lead_targets.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>{% endif %}
+      <select name="target"><option value="">{{ de_en("nicht angegeben", "not stated") }}</option>{% for key, name in lead_targets.items() %}<option value="{{ key }}"{% if key == who_target|default("") %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>{% endif %}
     <label class="wide-field">{{ population_label }} <span class="hint">{{ population_hint }}</span>
-      <input name="population" maxlength="300" placeholder="{{ de_en('z. B. pflegende Angehörige im Kreis Düren', 'e.g. family carers in the district of Düren') }}"></label>
-    <label>{{ de_en("Auswahl", "Selection") }}
-      <select name="recruitment">{% for key, name in recruitment.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
-    <label>{{ de_en("Land", "Country") }}
-      <select name="country">{% for code, name in study_plan.countries().items() %}<option value="{{ code }}"{% if code == study_plan.default_country(language=ui_language()) %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+      <input name="population" maxlength="300" value="{{ who.population or '' }}" placeholder="{{ de_en('z. B. pflegende Angehörige im Kreis Düren', 'e.g. family carers in the district of Düren') }}"></label>
   </div>
-</fieldset>
+  <div class="row-fields">
+    <label>{{ de_en("Auswahl", "Selection") }}
+      <select name="recruitment">{% for key, name in recruitment.items() %}<option value="{{ key }}"{% if key == who.recruitment|default("") %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Land", "Country") }}
+      {% set country = who.country if who.country is defined else study_plan.default_country(language=ui_language()) %}
+      <select name="country">{% for code, name in study_plan.countries().items() %}<option value="{{ code }}"{% if code == country %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Region", "Region") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
+      <input name="region" maxlength="120" value="{{ who.region or '' }}" placeholder="{{ de_en('z. B. Nordrhein-Westfalen', 'e.g. North Rhine-Westphalia') }}"></label>
+    {% if lead_modes is defined and lead_modes %}<label>{{ de_en("Interviewform", "Interview mode") }}
+      <select name="mode">{% for key, name in lead_modes.items() %}<option value="{{ key }}"{% if key == who_mode|default("") %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>{% endif %}
+  </div>
+  <p class="hint">{{ de_en("Für den Studienplan und für Datenarchive (DDI): für wen die Ergebnisse gelten, wie ausgewählt wird und wo.", "For the research plan and for data archives (DDI): whom the results speak for, how people are selected and where.") }}</p>
+</div>

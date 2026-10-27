@@ -267,7 +267,7 @@ def test_six_steps_responsibility_consent_and_details_about_the_person(app, clie
     with app.app_context():
         s = db.session.get(Survey, 1)
         assert wizard.demographics_kind(s) == "basis"
-        assert [k for k, *_ in wizard.STEPS] == ["projekt", "studienplan", "team", "ablauf", "einwilligung", "gestaltung", "fertig"]
+        assert wizard.KEYS == ["projekt", "studienplan", "team", "ablauf", "einwilligung", "gestaltung", "fertig"]
     page = client.get(W + "researchdesign").data.decode()
     assert "Welche Angaben zur Person erheben?" in page and "Zu Ihren Erkenntniszielen passt" in page
     client.post(W + "researchdesign", data={"demografie": "ratswd", "autosave": "1"})
@@ -288,6 +288,7 @@ def test_six_steps_responsibility_consent_and_details_about_the_person(app, clie
         assert c["funding"] == "Deutsche Forschungsgemeinschaft, Förderkennzeichen 123"
     consent = client.get(W + "consent").data.decode()
     assert '<select name="license"' in consent and "wie diese Installation" in consent
-    for url in ("/guide/new",):
-        page = client.get(url).data.decode()
-        assert page.index("Worum geht es?") < page.index("Wer nimmt teil?") < page.index("Wie läuft es ab?")
+    # a new interview guide shows the steps of its kind (one wizard for all kinds, Ralf 2026-10-27)
+    page = client.get("/guide/new").data.decode()
+    assert page.index("Worum geht es?") < page.index("Wer nimmt teil?") < page.index("Verantwortung") < page.index("Übersicht")
+    assert "Einwilligung" not in page.split("wizard-steps", 1)[1].split("</ol>", 1)[0]

@@ -1,0 +1,10 @@
+{# "Verantwortung" of an interview guide, which has no consent: the organisation of each person involved; the first
+   person's is the publisher of the study for data archives (app/ddi.publisher). Saved by wizard._save. #}
+<div>
+  <span class="label-title">{{ de_en("Organisation der Beteiligten", "Organisation of the people involved") }} <span class="hint">{{ de_en("für die Autorenliste und als Herausgeber in Datenarchiven (DDI)", "for the list of authors and as publisher in data archives (DDI)") }}</span></span>
+  <ul class="plain">
+    {% for m in survey.members %}
+    <li><label class="consent-aff grow-1 min-180">{{ m.display_name }} <input name="aff_{{ m.id }}" value="{{ m.affiliation }}" maxlength="300" aria-label="{{ de_en('Einrichtung von {name}', 'Institution of {name}', name=m.display_name) }}"></label></li>
+    {% endfor %}
+  </ul>
+</div>

@@ -15,30 +15,25 @@
 {% if start == "datei" %}
 {{ import_panel("leitfaden", de_en("Die Datei eines Leitfadens entsteht im Reiter „Export“ unter „Befragungsdatei“, auch in einer anderen Installation von Askurious.", "The file of a guide is made on the tab “Export” under “Survey file”, also in another installation of Askurious.")) }}
 {% else %}
-<form method="post" action="{{ url_for('interview.new') }}" class="panel stack interview-new">
+{% include "wizard/_bar.html" %}
+<form method="post" action="{{ url_for('interview.new') }}" class="panel stack interview-new wizard-panel">
   {{ csrf() }}
+  <h2>{{ steps[0][1] }} <span class="hint">{{ steps[0][2] }}</span></h2>
   <p class="muted small flush">{{ de_en("Ein Leitfaden für leitfadengestützte Interviews. Sie führen das Interview mit der Interviewansicht auf
     Tablet oder Laptop oder mit dem ausgedruckten Leitfaden; unter „Interviews“ speichern Sie es auf Wunsch mit Notizen,
     Tonaufnahme und Transkript.", "A guide for semi-structured interviews. You conduct the interview with the interview view on
     a tablet or laptop or with the printed guide; under “Interviews” you can save it with notes,
     audio recording and transcript.") }}</p>
-  {# three parts as on every page that creates a survey (Ralf 2026-10-27): what it is about, who takes part, how it runs #}
-  <fieldset class="bare stack"><legend>{{ de_en("Worum geht es?", "What is it about?") }}</legend>
-  <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
-    <input name="title" maxlength="300" placeholder="{{ de_en('z. B. „Pflegende Angehörige im ländlichen Raum“', 'e.g. “Family carers in rural areas”') }}" autofocus></label>
+  {# what it is about, with the same fields as the questionnaire's first step; who is interviewed and who carries it
+     come as the next steps of the setup wizard (app/wizard.py, Ralf 2026-10-27) #}
+  {% with values=form %}{% include "surveys/_fields_project.html" %}{% endwith %}
   <label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("optional; steht im Word-Leitfaden", "optional; appears in the Word guide") }}</span></span>
     <textarea name="research_question" rows="2" maxlength="3000"></textarea></label>
   <div class="row-fields">
     <label>{{ de_en("Sprache des Leitfadens", "Language of the guide") }}
       <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if code == ui_language() %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
   </div>
-  </fieldset>
-  {% with recruitment=study_plan.interview_recruitment(), population_label=de_en("Genauer", "More precisely"), population_hint=de_en("optional; wen die Zielgruppe genau meint, z. B. Region oder Einschluss", "optional; whom the target group means exactly, e.g. region or inclusion") %}{% set lead_targets = targets %}{% include "_who_takes_part.html" %}{% endwith %}
-  <fieldset class="bare stack"><legend>{{ de_en("Wie läuft es ab?", "How does it run?") }}</legend>
-  <div class="row-fields">
-    <label>{{ de_en("Interviewform", "Interview mode") }}
-      <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
-  </div>
+  <fieldset class="bare stack"><legend>{{ de_en("Aufbau", "Structure") }}</legend>
   {% if start == "vorlage" %}
   <fieldset class="bare">
     <legend>{{ de_en("Vorlage", "Template") }}</legend>
@@ -57,10 +52,8 @@
     {% endfor %}
   </fieldset>
   </fieldset>
-  <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Anlegen", "Create") }}</button>
-    {% if ai_on() %}
-    <button class="button button-ai button-secondary" name="then" value="ki" title="{{ de_en('Danach mit dem KI-Assistenten Fragen sammeln, prüfen, sortieren und zu Leitfragen bündeln', 'Then collect, check and sort questions with the AI assistant and bundle them into guide questions') }}">{{ icon("sparkles", 16) }} {{ de_en("Anlegen und mit KI entwickeln", "Create and develop with AI") }}</button></div>
-    {% endif %}
+  {# the AI assistant comes at the end of the wizard, not here (Ralf 2026-10-27: no AI exit halfway) #}
+  <div class="wizard-nav"><span class="wizard-spacer"></span><button class="button">{{ de_en("Anlegen und weiter", "Create and continue") }}</button></div>
 </form>
 {% if start == "vorlage" %}
 {% from "_sources.html" import grouped %}

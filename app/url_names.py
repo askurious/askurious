@@ -58,6 +58,7 @@ RENAMED = {
     "modell.R": "model.R", "projekt.qdpx": "project.qdpx", "widerrufen": "withdraw",
     "titel": "title", "frage": "question",  # the steps of a live vote's set-up (live.STEPS)
     "projekt": "project", "sprachen": "languages", "einwilligung": "consent", "gestaltung": "design", "fertig": "done",
+    "zeitplan": "schedule",  # the diary survey's step "Zeitplan und Beitritt" (Ralf 2026-10-27)
 }
 
 class StepConverter(BaseConverter):

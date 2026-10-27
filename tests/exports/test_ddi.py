@@ -269,16 +269,19 @@ def test_wizard_cards_keywords_topic_and_archive_box(app, client, survey, schema
 
 
 def test_new_interview_guide_and_diary_ask_who_takes_part(app, client, schema):
-    """The single pages of a new interview guide and diary survey: recruitment, population and country (Ralf
-    2026-10-27); the guide's target group and the more precise words become the DDI Universe."""
+    """A new interview guide and diary survey ask who takes part on the wizard's step "Wer nimmt teil?":
+    recruitment, population, country and region (Ralf 2026-10-27); the guide's target group and the more precise
+    words become the DDI Universe."""
     from tests.conftest import experiments_on
 
-    page = client.get("/guide/new").data.decode()
-    assert "Wer nimmt teil?" in page and 'value="purposive"' in page
+    r = client.post("/guide/new", data={"title": "Pflege", "language": "de", "template": "leer", "order": "free"})
+    step = r.headers["Location"]
+    assert step.endswith("/setup/researchdesign")
+    page = client.get(step).data.decode()
+    assert "Wer nimmt teil?" in page and 'value="purposive"' in page and 'name="mode"' in page
     assert page.index('value="purposive"') < page.index('value="convenience"')  # purposive comes first
-    client.post("/guide/new", data={"title": "Pflege", "language": "de", "template": "leer", "target": "fachleute",
-                                    "mode": "telefon", "order": "free", "recruitment": "theoretical",
-                                    "population": "Pflegedienstleitungen in NRW", "country": "DE"})
+    client.post(step, data={"target": "fachleute", "mode": "telefon", "recruitment": "theoretical",
+                            "population": "Pflegedienstleitungen in NRW", "country": "DE", "region": "", "autosave": "1"})
     with app.app_context():
         s = db.session.scalar(db.select(Survey).filter_by(title="Pflege"))
         doc = valid(schema, ddi.build(s))
@@ -288,5 +291,6 @@ def test_new_interview_guide_and_diary_ask_who_takes_part(app, client, schema):
     assert doc.xpath("//d:TypeOfModeOfCollection/d:StringValue/text()", namespaces=NS) == ["Interview.Telephone"]
     assert doc.xpath("//d:SpatialCoverage/d:CountryCode/d:StringValue/text()", namespaces=NS) == ["DE"]
     experiments_on(client, "diary")
-    page = client.get("/diary/new").data.decode()
-    assert "Wer nimmt teil?" in page and 'name="population"' in page
+    step = client.post("/diary/new", data={"title": "Tagebuch", "language": "de"}).headers["Location"]
+    page = client.get(step).data.decode()
+    assert "Wer nimmt teil?" in page and 'name="population"' in page and 'name="region"' in page
