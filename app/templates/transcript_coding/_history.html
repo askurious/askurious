@@ -1,0 +1,25 @@
+{# The history of an analysis (transcript_coding/overview.html, history.html): who did what when, with the reason;
+   a merge can be taken back by whoever made it or the researchers; every entry can be commented. Needs: history,
+   event_text, survey, project, who. #}
+{% from "_macros.html" import csrf %}
+{% if history %}
+<ul class="tc-history">
+{% for e in history %}{% set d = e.data or {} %}
+  <li><span class="muted small">{{ e.at|localdt }}</span> {{ e.actor_name or de_en("Forschende", "researchers") }}
+    {% if e.kind == "comment" %}{{ de_en("kommentiert:", "comments:") }} „{{ e.reason }}“
+    {% elif e.kind == "fits" %}{{ de_en("bestätigt: Passt", "confirms: fits") }}
+    {% elif e.kind == "split_off" %}{{ de_en("löst eigene Stellen heraus ({n})", "takes own passages out ({n})", n=d.moved) }}
+    {% elif e.kind == "merged" %}{{ de_en("führt „{a}“ mit „{b}“ zusammen", "merges “{a}” with “{b}”", a=d.source_name, b=d.target_name) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% if d.undone %} <span class="muted small">({{ de_en("zurückgenommen", "taken back") }})</span>{% endif %}
+    {% elif e.kind == "unmerged" %}{{ de_en("nimmt das Zusammenführen von „{a}“ zurück", "takes back the merge of “{a}”", a=d.source_name) }}
+    {% else %}{{ event_text(e) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% endif %}
+    {% if e.kind == "merged" and not d.undone and (who.team or e.actor_key == who.key) %}
+    <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='undo') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Zurücknehmen", "Take back") }}</button></form>{% endif %}
+    {% if e.kind in ("merged", "changed", "proposal", "split_off") %}
+    <details class="tc-comment"><summary>{{ de_en("Kommentieren", "Comment") }}</summary>
+      <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='comment') }}" class="row-fields">{{ csrf() }}
+        <label class="wide-field">{{ de_en("Kommentar", "Comment") }} <input name="text" maxlength="1000" required></label>
+        <div><button class="button button-small button-secondary">{{ de_en("Senden", "Send") }}</button></div></form></details>{% endif %}
+  </li>
+{% endfor %}
+</ul>
+{% else %}<p class="muted">{{ de_en("Noch keine Änderungen.", "No changes yet.") }}</p>{% endif %}

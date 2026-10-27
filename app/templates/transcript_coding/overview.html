@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_icons.html" import icon %}
+{% from "transcript_coding/_parts.html" import head, notices_fold with context %}
+{# The category system of an analysis at a glance (app/transcript_coding_review.py, overview): as a table or as a
+   map; the blurring pairs with their ways to tidy up; the latest of the history. #}
+{% block title %}{{ de_en("Übersicht", "Overview") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Übersicht", "Overview"), de_en("{n} Interviews", "{n} interviews", n=n_interviews)) %}
+  <div class="row-fields">
+    <div role="group" aria-label="{{ de_en('Darstellung', 'View') }}" class="tc-switch">
+      <a class="button button-small {{ '' if view == 'table' else 'button-secondary' }}" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}" {% if view == 'table' %}aria-current="page"{% endif %}>{{ de_en("Tabelle", "Table") }}</a>
+      <a class="button button-small {{ '' if view == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id, view='map') }}" {% if view == 'map' %}aria-current="page"{% endif %}>{{ de_en("Karte", "Map") }}</a>
+    </div>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.coding_guide', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Kodierleitfaden (Word)", "Coding guide (Word)") }}</a>
+    {% if view == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Karte als SVG", "Map as SVG") }}</a>{% endif %}
+  </div>
+{% endcall %}
+
+{% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
+
+<div class="tc-overview{% if view == 'map' %} is-map{% endif %}">
+<section class="panel tc-overview-main">
+  {% if view == "map" %}
+  <div class="res-scroll tc-map">{{ svg|safe }}</div>
+  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}</p>
+  {% else %}
+  <div class="res-scroll">
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th>{{ de_en("Definition", "Definition") }}</th><th class="num">{{ de_en("Stellen", "Passages") }}</th><th class="num">{{ de_en("Interviews", "Interviews") }}</th><th>{{ de_en("Kodiert von", "Coded by") }}</th><th class="num" title="{{ de_en('wie oft andere bei der gegenseitigen Probe dieselbe Kategorie gewählt haben', 'how often others chose the same category in the mutual check') }}">{{ de_en("Probe", "Check") }}</th></tr></thead>
+    <tbody>
+    {% for main, subs in mains %}
+    <tr class="coverage-block"><td colspan="6">{{ main.name }} <span class="muted small">({{ de_en("{n} Stellen", "{n} passages", n=stats[main.id].n) }})</span></td></tr>
+    {% for s in subs %}{% set st = stats[s.id] %}{% set pr = probes.get(s.id) %}
+    <tr><td><a href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=s.id) }}">{{ s.name }}</a>{% if s.id in blurred %} <span class="tc-flag">{{ de_en("unscharf", "blurred") }}</span>{% endif %}
+        {% if s.former_names %}<div class="muted small">{{ de_en("früher auch: {names}", "formerly also: {names}", names=s.former_names|join(", ")) }}</div>{% endif %}</td>
+      <td>{{ s.definition|truncate(140, true, "…") }}</td><td class="num">{{ st.n }}</td><td class="num">{{ st.interviews|length }}</td>
+      <td>{{ st.coders|sort|join(", ")|truncate(60, true, "…") }}</td>
+      <td class="num">{% if pr %}{{ (100 * pr[0] / pr[1])|round|int }} %<span class="muted small"> ({{ pr[1] }})</span>{% else %}–{% endif %}</td></tr>
+    {% endfor %}
+    {% endfor %}
+    {% for c in candidates %}
+    <tr><td><em>{{ c.name }}</em> <span class="muted small">{{ de_en("Kandidat", "candidate") }}</span></td><td>{{ c.definition|truncate(140, true, "…") }}</td><td class="num">{{ stats[c.id].n }}</td><td class="num">{{ stats[c.id].interviews|length }}</td><td>{{ stats[c.id].coders|sort|join(", ") }}</td><td class="num">–</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  <p class="muted small">{{ de_en("Probe: wie oft andere bei der gegenseitigen Probe dieselbe Kategorie gewählt haben (Zahl der Proben in Klammern). Die Zeile einer Hauptkategorie zählt ihre Unterkategorien mit.", "Check: how often others chose the same category in the mutual check (number of checks in brackets). The row of a main category counts its subcategories too.") }}</p>
+  {% endif %}
+</section>
+
+<aside class="tc-overview-side">
+  <section class="panel">
+    <h2>{{ de_en("Unscharf", "Blurred") }}</h2>
+    {% if pairs %}
+    {% for p in pairs %}
+    <div class="tc-pair">
+      <p class="small"><strong>{{ p.a.name }}</strong> {{ de_en("und", "and") }} <strong>{{ p.b.name }}</strong></p>
+      <p class="muted small">{% set bits = [] %}{% if p.overlap %}{% set _ = bits.append(de_en("{n} Stellen in beiden", "{n} passages in both", n=p.overlap)) %}{% endif %}{% if p.checks %}{% set _ = bits.append(de_en("Probe {n}-mal abweichend", "check differed {n} times", n=p.checks)) %}{% endif %}{% if p.names %}{% set _ = bits.append(de_en("ähnliche Namen", "similar names")) %}{% endif %}{{ bits|join(" · ") }}</p>
+      <div class="tc-info-actions">
+        <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[p.a.id, p.b.id]) }}">{{ de_en("Stellen ansehen", "View passages") }}</a>
+        <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
+      </div>
+      <details class="tc-propose"><summary>{{ de_en("Zusammenführen", "Merge") }}</summary>
+        <form method="post" action="{{ url_for('transcript_coding.merge_categories', code=survey.code, pid=project.id) }}" class="stack">
+          {{ csrf() }}
+          <fieldset class="stack"><legend>{{ de_en("Was bleibt", "What stays") }}</legend>
+            <label class="check"><input type="radio" name="dir" value="ab" checked data-tc-merge="{{ p.b.id }}:{{ p.a.id }}"> {{ de_en("„{a}“ geht in „{b}“ auf", "“{a}” goes into “{b}”", a=p.a.name, b=p.b.name) }}</label>
+            <label class="check"><input type="radio" name="dir" value="ba" data-tc-merge="{{ p.a.id }}:{{ p.b.id }}"> {{ de_en("„{a}“ geht in „{b}“ auf", "“{a}” goes into “{b}”", a=p.b.name, b=p.a.name) }}</label>
+          </fieldset>
+          <input type="hidden" name="source" value="{{ p.a.id }}"><input type="hidden" name="target" value="{{ p.b.id }}">
+          <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000" required></label>
+          <div><button class="button button-small">{{ de_en("Zusammenführen", "Merge") }}</button></div>
+        </form>
+      </details>
+    </div>
+    {% endfor %}
+    {% else %}<p class="muted small">{{ de_en("Keine unscharfen Paare: keine Stellen in zwei Kategorien, keine abweichende Probe, keine ähnlichen Namen.", "No blurring pairs: no passages in two categories, no differing check, no similar names.") }}</p>{% endif %}
+    <details class="tc-propose"><summary>{{ de_en("Zwei andere Kategorien zusammenführen", "Merge two other categories") }}</summary>
+      <form method="post" action="{{ url_for('transcript_coding.merge_categories', code=survey.code, pid=project.id) }}" class="stack">
+        {{ csrf() }}
+        {% set flat = [] %}{% for main, subs in mains %}{% set _ = flat.append(main) %}{% for s in subs %}{% set _ = flat.append(s) %}{% endfor %}{% endfor %}{% for c in candidates %}{% set _ = flat.append(c) %}{% endfor %}
+        <label>{{ de_en("Diese Kategorie …", "This category …") }} <select name="source">{% for c in flat %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("… geht auf in", "… goes into") }} <select name="target">{% for c in flat %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000" required></label>
+        <p class="muted small">{{ de_en("Unterkategorien führen alle zusammen, Hauptkategorien nur die Forschenden. Es gilt sofort; wer eigene Stellen darin hat, sieht das und kann sie herauslösen.", "Anyone merges subcategories, only the researchers main categories. It takes effect at once; whoever has passages in it sees this and can take them out.") }}</p>
+        <div><button class="button button-small">{{ de_en("Zusammenführen", "Merge") }}</button></div>
+      </form>
+    </details>
+  </section>
+  <section class="panel" id="verlauf">
+    <h2>{{ de_en("Verlauf", "History") }}</h2>
+    {% include "transcript_coding/_history.html" %}
+    <a href="{{ url_for('transcript_coding.full_history', code=survey.code, pid=project.id) }}">{{ de_en("Ganzen Verlauf zeigen", "Show the whole history") }}</a>
+  </section>
+</aside>
+</div>
+<script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
+{% endblock %}

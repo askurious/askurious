@@ -75,7 +75,8 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Hilfe bei Krisenwörtern, ein eigenes Häkchen in der Einwilligung."),
     ("transcript_coding", "Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen",
      "Unter „Ergebnisse“ eines Interviewleitfadens der Knopf „Kodieren“: Textstellen markieren und Kategorien zuordnen "
-     "(Tasten 1 bis 9, Ankerbeispiele), Auswertungen mit eigener Forschungsfrage und "
+     "(Tasten 1 bis 9, Ankerbeispiele), Übersicht als Tabelle oder Karte, unscharfe Kategorien zusammenführen, "
+     "gegenseitige Probe und Kodierleitfaden, Auswertungen mit eigener Forschungsfrage und "
      "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
      "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
      "Namen erscheinen zuerst. Mitkodieren können Personen, Askurious-Gruppen, Interviewende mit ihrem Interviewlink "
@@ -122,7 +123,8 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                 "hint to help on crisis words, a tick of its own in the consent."),
     "transcript_coding": ("Code interviews: assign passages of transcripts to categories together",
                           "Under “Results” of an interview guide the button “Code”: mark passages and assign categories "
-                          "(keys 1 to 9, anchor examples), create analyses with their own "
+                          "(keys 1 to 9, anchor examples), an overview as a table or map, merging blurred categories, a "
+                          "mutual check and a coding guide, create analyses with their own "
                           "research question and category system, from the guide, empty or as a copy. You set the main "
                           "categories, members add subcategories with a definition, delimitation and author without "
                           "overwriting each other; similar names show first. People, Askurious groups, interviewers with "

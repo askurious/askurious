@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf %}
 {% from "_icons.html" import icon %}
+{% from "transcript_coding/_parts.html" import notices_fold with context %}
 {# The coding view of one interview in one analysis (app/transcript_coding_view.py, page): the transcript on the left,
    the category system on the right. Marking a passage opens a small list to assign a category (typing filters it,
    1-9 take the categories used last, Enter takes the first); a click on a coded passage shows its categories with
@@ -43,7 +44,8 @@
     {% endif %}
   </section>
   <aside class="panel tc-side" aria-label="{{ de_en('Kategoriensystem', 'Category system') }}">
-    <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
+    <h2>{{ de_en("Kategoriensystem", "Category system") }} <a class="small" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}">{{ de_en("Übersicht", "Overview") }}</a></h2>
+    {{ notices_fold(survey, project, notices) }}
     <ul class="tc-side-list" data-tc-side></ul>
     <p class="muted small">{{ de_en("Die Zahlen zählen Stellen in allen Interviews, die Sie in dieser Auswertung sehen.", "The numbers count passages in all interviews you see in this analysis.") }}</p>
   </aside>

@@ -9,6 +9,7 @@
     {% if cat.colour %}<span class="tc-dot" style="background: {{ cat.colour }}" aria-hidden="true"></span>{% endif %}
     <strong class="tc-name" data-live="tc-name-{{ cat.id }}">{{ cat.name }}</strong>
     {% if cat.kind == "main" and project.mains_fixed %}<span class="muted" title="{{ de_en('Hauptkategorien festgelegt: ändern nur die Forschenden', 'Main categories fixed: only the researchers change them') }}">{{ icon("lock", 14) }}<span class="visually-hidden">{{ de_en("festgelegt", "fixed") }}</span></span>{% endif %}
+    {% if cat.former_names %}<span class="muted small">{{ de_en("früher auch: {names}", "formerly also: {names}", names=cat.former_names|join(", ")) }}</span>{% endif %}
     {% if cat.kind == "candidate" %}<span class="muted small">{{ de_en("Kandidat für eine neue Hauptkategorie", "candidate for a new main category") }}</span>{% endif %}
     <span class="muted small tc-author">{{ de_en("von {who}, {when}", "by {who}, {when}", who=cat.author_name or de_en("Forschende", "researchers"), when=cat.created_at|localdt) }}</span>
     <span class="spacer"></span>
