@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# The coding view of one interview in one analysis (app/transcript_coding_view.py, page): the transcript on the left,
+   the category system on the right. Marking a passage opens a small list to assign a category (typing filters it,
+   1-9 take the categories used last, Enter takes the first); a click on a coded passage shows its categories with
+   "Entfernen" and "Als Ankerbeispiel". Everything is drawn by transcript_coding_code.js from the data below; without
+   script the transcript stands as plain text. #}
+{% block title %}{{ row.interview.label }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% if who.team %}
+<div class="tabpage-head">{% set active_tab = "analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% else %}
+<div class="tabpage-head"><p class="muted small">{{ survey.title }} · {{ project.name }}</p><h1>{{ de_en("Interview {label}", "Interview {label}", label=row.interview.label) }}</h1></div><!--flashes-->
+{% endif %}
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Interview {label}", "Interview {label}", label=row.interview.label) }} <span class="hint">{{ project.name }}{% if (row.interview.transcript or {}).checked %} · {{ de_en("Transkript geprüft", "transcript checked") }}{% else %} · {{ de_en("Transkript noch nicht geprüft", "transcript not checked yet") }}{% endif %} · {{ de_en("kodierte Stellen:", "coded passages:") }} <span data-tc-count>{{ placed|length }}</span></span></h2>
+    <span class="spacer"></span>
+    {% if prev %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=prev.id) }}">{{ de_en("Voriges Interview", "Previous interview") }}</a>{% endif %}
+    {% if nxt %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=nxt.id) }}">{{ de_en("Nächstes Interview", "Next interview") }}</a>{% endif %}
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
+  </div>
+  <p class="muted small">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories.") }}</p>
+  <p class="small" data-tc-status role="status" aria-live="polite"></p>
+</section>
+
+<div class="tc-code" data-tc-code data-csrf="{{ csrf_token() }}"
+     data-add-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
+     data-base-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
+     data-quick-url="{{ url_for('transcript_coding.quick_category', code=survey.code, pid=project.id) }}"
+     data-project="{{ project.id }}" data-may-main="{{ '1' if may_main else '' }}">
+  <section class="panel tc-transcript" aria-label="{{ de_en('Transkript', 'Transcript') }}">
+    <div class="tc-text-body" data-tc-text>{% for line in text.split("\n") %}<p>{{ line }}</p>{% endfor %}</div>
+    {% if lost %}
+    <div class="tc-lost">
+      <h3>{{ de_en("Nicht mehr zuzuordnen", "Can no longer be placed") }}</h3>
+      <p class="muted small">{{ de_en("Der Wortlaut dieser Stellen steht nach einer Korrektur des Transkripts nicht mehr darin. Bitte die Stelle neu markieren und die alte entfernen.", "The wording of these passages is no longer in the transcript after a correction. Please mark the passage anew and remove the old one.") }}</p>
+      <ul>{% for c in lost %}<li><strong>{{ c.name }}</strong>: „{{ c.quote }}“ <span class="muted small">{{ c.by_name }}</span>
+        {% if c.mine %}<button type="button" class="button button-small button-secondary" data-tc-remove="{{ c.id }}">{{ de_en("Entfernen", "Remove") }}</button>{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="panel tc-side" aria-label="{{ de_en('Kategoriensystem', 'Category system') }}">
+    <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
+    <ul class="tc-side-list" data-tc-side></ul>
+    <p class="muted small">{{ de_en("Die Zahlen zählen Stellen in allen Interviews, die Sie in dieser Auswertung sehen.", "The numbers count passages in all interviews you see in this analysis.") }}</p>
+  </aside>
+</div>
+
+{# the list to assign a category to the marked passage #}
+<div class="tc-pop" data-tc-pop hidden role="dialog" aria-label="{{ de_en('Kategorie zuordnen', 'Assign category') }}">
+  <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off"></label>
+  <ul class="tc-pop-list" data-tc-list></ul>
+  <form class="stack tc-quick" data-tc-quick hidden>
+    <p class="small"><strong>{{ de_en("Neue Kategorie", "New category") }}</strong></p>
+    <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="120" required></label>
+    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-parents></select></label>
+    <label>{{ de_en("Definition", "Definition") }} <span class="hint">{{ de_en("Pflicht", "required") }}</span> <textarea name="definition" rows="2" maxlength="4000" required></textarea></label>
+    <p class="small danger-text" data-tc-quick-error hidden></p>
+    <div class="form-actions"><button type="button" class="button button-small button-secondary" data-tc-quick-cancel>{{ de_en("Abbrechen", "Cancel") }}</button>
+      <button class="button button-small" data-tc-quick-ok>{{ de_en("Anlegen und zuordnen", "Create and assign") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Tasten 1–9 für zuletzt benutzte, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, Enter takes it, Esc closes") }}</p>
+</div>
+{# what a click on a coded passage shows #}
+<div class="tc-pop" data-tc-info hidden role="dialog" aria-label="{{ de_en('Kodierte Stelle', 'Coded passage') }}"></div>
+
+<script type="application/json" id="tc-data">{{ {"text": text, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable}|tojson }}</script>
+<script src="{{ url_for('static', filename='transcript_coding_code.js') }}" defer></script>
+{% if who.kind == "link" %}<script src="{{ url_for('static', filename='coding_link.js') }}" defer></script>{% endif %}
+{% endblock %}

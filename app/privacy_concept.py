@@ -684,19 +684,25 @@ def _activities():
                        "Konto- oder Linknummer) und Zeit; Verlauf jeder Änderung und jedes Vorschlags mit Namen und Zeit; "
                        "Mitglieder (Konto, Gruppe oder Interviewlink); Kodierlinks: Name oder Kürzel, Hash des Links, Art "
                        "der Geräte, Zeit der ersten und letzten Nutzung, bestätigte Fassung der Hinweise; Sitzungs-Cookie "
-                       "mit Link, Gerät und letzter Anfrage. Die Transkripte selbst gehören zu „Interviews“.",
+                       "mit Link, Gerät und letzter Anfrage. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
+                       "Position und Wortlaut der Stelle, Name, Zeit) und je Kategorie ein Ankerbeispiel (Wortlaut einer "
+                       "Stelle). Die Transkripte selbst gehören zu „Interviews“.",
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
                        "(name, account or link number) and time; history of every change and proposal with names and time; "
                        "members (account, group or interviewer link); coding links: name or initials, hash of the link, "
                        "kind of devices, time of first and last use, confirmed version of the notes; session cookie with "
-                       "link, device and last request. The transcripts themselves belong to “Interviews”."),
+                       "link, device and last request. In the interview the coded passages (analysis, category, position "
+                       "and wording of the passage, name, time) and per category an anchor example (wording of a passage). "
+                       "The transcripts themselves belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens; die Mitglieder der Auswertung.",
                              "Members with Edit or Manage on the guide; the members of the analysis."),
-         "deletion": de_en("Mit dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Konto verliert seine "
+         "deletion": de_en("Kodierte Stellen und Ankerbeispiele mit dem Interview (Löschantrag, Frist, Leitfaden); "
+                           "die übrigen Angaben mit dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Konto verliert seine "
                            "Mitgliedschaften und seine Kontonummer an den Einträgen, die Namen bleiben als Angabe, wer sie "
                            "gemacht hat. Kodierlinks enden mit ihrem Ablaufdatum (höchstens 90 Tage), Sitzungen nach 60 "
                            "Minuten ohne Aktivität.",
-                           "With the deletion of the analysis or the guide; a deleted account loses its memberships and its "
+                           "Coded passages and anchor examples with the interview (deletion request, period, guide); everything "
+                           "else with the deletion of the analysis or the guide; a deleted account loses its memberships and its "
                            "account number on the entries, the names stay as who made them. Coding links end with their "
                            "expiry date (at most 90 days), sessions after 60 minutes without activity."),
          "controller": researchers,

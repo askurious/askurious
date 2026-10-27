@@ -776,7 +776,8 @@ def project(code, pid):
                    history=history(project), event_text=lambda e: event_text(e, names),
                    interviews=interviews(project, who), has_transcript=has_transcript,
                    own_proposal=lambda c: bool(open_proposals(project, c.id, who.key)),
-                   proposals_of=lambda c: [e for e in proposals if e.category_id == c.id])
+                   proposals_of=lambda c: [e for e in proposals if e.category_id == c.id],
+                   coded=lambda r: sum(1 for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id))
     if who.team:
         accesses = interviewer.accesses(survey)
         context.update(members=members(project), member_name=member_name, accesses=accesses,

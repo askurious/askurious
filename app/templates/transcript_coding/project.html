@@ -80,15 +80,17 @@
   <h2>{{ de_en("Interviews dieser Auswertung", "Interviews of this analysis") }}</h2>
   {% if interviews %}
   {% call list_table() %}
-    <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Interviewende", "Interviewer") }}</th><th>{{ de_en("Transkript", "Transcript") }}</th></tr></thead>
+    <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Interviewende", "Interviewer") }}</th><th>{{ de_en("Transkript", "Transcript") }}</th><th class="num">{{ de_en("Stellen", "Passages") }}</th><th></th></tr></thead>
     <tbody>
     {% for r in interviews %}{% set t = r.interview.transcript or {} %}
     <tr><td><strong>{{ r.interview.label }}</strong></td><td>{{ r.interview.by_name or "–" }}</td>
-      <td>{% if not has_transcript(r) %}<span class="muted">{{ de_en("noch keines", "none yet") }}</span>{% elif t.checked %}{{ de_en("geprüft", "checked") }}{% else %}{{ de_en("Entwurf", "draft") }}{% endif %}</td></tr>
+      <td>{% if not has_transcript(r) %}<span class="muted">{{ de_en("noch keines", "none yet") }}</span>{% elif t.checked %}{{ de_en("geprüft", "checked") }}{% else %}{{ de_en("Entwurf", "draft") }}{% endif %}</td>
+      <td class="num">{{ coded(r) }}</td>
+      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Kodieren", "Code") }}</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   {% endcall %}
-  <p class="muted small">{{ de_en("Das Markieren und Zuordnen von Textstellen folgt im nächsten Schritt dieser Funktion.", "Marking and assigning passages follows in the next step of this feature.") }}</p>
+  <p class="muted small">{{ de_en("Kodiert wird im Transkript; geprüfte Transkripte ändern sich nicht mehr. Wird ein Transkript danach noch korrigiert, finden die Stellen ihren Wortlaut wieder; was nicht mehr darin steht, erscheint als „nicht mehr zuzuordnen“.", "Coding happens in the transcript; checked transcripts no longer change. If a transcript is corrected afterwards, the passages find their wording again; what is no longer in it shows as “can no longer be placed”.") }}</p>
   {% else %}
   <p class="muted">{{ de_en("Noch keine Interviews für Sie in dieser Auswertung.", "No interviews for you in this analysis yet.") }}</p>
   {% endif %}
@@ -226,7 +228,7 @@
   <label>{{ de_en("Definition", "Definition") }} <span class="hint">{{ de_en("Pflicht: Wann gehört eine Stelle hierher?", "required: when does a passage belong here?") }}</span>
     <textarea name="definition" rows="2" maxlength="4000" data-tc-definition></textarea></label>
   <label>{{ de_en("Abgrenzung", "Delimitation") }} <span class="hint">{{ de_en("freiwillig", "optional") }}</span> <textarea name="delimitation" rows="2" maxlength="4000"></textarea></label>
-  <p class="muted small">{{ de_en("Das Ankerbeispiel wählen Sie später aus einer kodierten Stelle.", "You choose the anchor example later from a coded passage.") }}</p>
+  <p class="muted small">{{ de_en("Das Ankerbeispiel wählen Sie in der Kodieransicht: Klick auf eine kodierte Stelle, „Als Ankerbeispiel“.", "You choose the anchor example in the coding view: click a coded passage, “As anchor example”.") }}</p>
   <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button>
     <button class="button" data-tc-submit>{{ de_en("Anlegen", "Create") }}</button></div>
 </form>
