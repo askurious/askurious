@@ -239,10 +239,13 @@
   <form method="post" action="{{ url_for('admin.signup_links_action') }}" class="stack">
     {{ csrf() }}<input type="hidden" name="action" value="create">
     <label>{{ de_en("Organisation", "Organisation") }} <span class="hint">{{ de_en("die Heimat der neuen Konten", "the home of the new accounts") }}</span>
-      <select name="org">{% for o, _ in signup.orgs %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select></label>
+      <select name="org" data-org-pick>{% for o, _ in signup.orgs %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select></label>
+    {# only the types of the chosen organisation; app.js fills the list anew when the organisation changes and drops
+       a choice that no longer fits; without scripts the first organisation's types are shown (the server refuses a
+       type of another organisation) #}
     <label>{{ de_en("Nutzertyp", "User type") }}
-      <select name="account_type"><option value="">{{ de_en("Standard für neue Konten der Organisation", "Default for new accounts of the organisation") }}</option>
-        {% for o, ts in signup.orgs %}{% if ts %}<optgroup label="{{ o.name }}">{% for t in ts %}<option value="{{ t.id }}">{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}</optgroup>{% endif %}{% endfor %}</select></label>
+      <select name="account_type" data-org-types><option value="">{{ de_en("Standard für neue Konten der Organisation", "Default for new accounts of the organisation") }}</option>
+        {% for o, ts in signup.orgs %}{% set first = loop.first %}{% for t in ts %}<option value="{{ t.id }}" data-org="{{ o.id }}"{{ " hidden disabled" if not first }}>{{ account_type_name(t) }} ({{ period_describe(t.duration) }})</option>{% endfor %}{% endfor %}</select></label>
     <label>{{ de_en("Laufzeit der Konten", "Period of the accounts") }} <span class="hint">{{ de_en("beginnt mit der Registrierung; danach wird das Konto gesperrt", "starts with the registration; afterwards the account is blocked") }}</span>
       <select name="period">{% for value, label in signup.periods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
     <label>{{ de_en("Enddatum", "End date") }} <span class="hint">{{ de_en("nur bei „bis zu einem Datum“", "only with “until a date”") }}</span>

@@ -125,3 +125,25 @@ def test_only_site_admins_make_links(app, client):
     assert r.status_code in (403, 404)
     with app.app_context():
         assert db.session.scalar(db.select(SignUpLink.id)) is None
+
+
+def test_the_dialog_offers_only_the_chosen_organisations_types(app, client):
+    """"Einladungslink anlegen": each user type is tied to its organisation in the list (app.js shows only those of
+    the chosen one), and the server refuses a type of another organisation instead of swapping it silently."""
+    own, other = _org(app), _org(app)
+    with app.app_context():
+        account_types.ensure_per_org()
+        mine = account_types.default_type(own).id
+        foreign = account_types.default_type(other).id
+    page = client.get("/admin/people").data.decode()
+    dialog = page.split('id="einladungslink-anlegen"', 1)[1].split("</form>", 1)[0]
+    assert "<optgroup" not in dialog
+    assert re.search(rf'<option value="{mine}" data-org="{own}"', dialog)
+    assert re.search(rf'<option value="{foreign}" data-org="{other}"', dialog)
+
+    assert _make(client, own, account_type=str(foreign)) is None
+    with app.app_context():
+        assert db.session.scalar(db.select(db.func.count(SignUpLink.id))) == 0
+    assert _make(client, own, account_type=str(mine))
+    with app.app_context():
+        assert db.session.scalar(db.select(SignUpLink.account_type_id)) == mine

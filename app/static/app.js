@@ -2770,6 +2770,24 @@ document.querySelectorAll("[data-display-form]").forEach(function (form) {
 // (W84) comes back with its field marked: the dialog opens by itself, at that field. So it does after signing in
 // again for this action (accounts.need_fresh), which leads back to #person-hinzufuegen. "Neue Organisation …" and
 // "Neue Gruppe …" work the same way (Ralf 2026-10-20): each panel belongs to the button that leads to its id.
+// "Einladungslink anlegen …": the list "Nutzertyp" offers only the types of the chosen organisation (plus its
+// default); a choice of another organisation goes back to the default when the organisation changes.
+document.querySelectorAll("[data-org-pick]").forEach(function (pick) {
+  var types = pick.form && pick.form.querySelector("[data-org-types]");
+  if (!types) return;
+  function fill() {
+    Array.prototype.forEach.call(types.options, function (o) {
+      if (!o.dataset.org) return;
+      var other = o.dataset.org !== pick.value;
+      o.hidden = other;
+      o.disabled = other;
+    });
+    if (types.selectedOptions[0] && types.selectedOptions[0].disabled) types.value = "";
+  }
+  pick.addEventListener("change", fill);
+  fill();
+});
+
 document.querySelectorAll("[data-person-add-panel]").forEach(function (panel) {
   var open = document.querySelector('[data-person-add][href="#' + panel.id + '"]');
   if (!open || typeof HTMLDialogElement === "undefined") return;
