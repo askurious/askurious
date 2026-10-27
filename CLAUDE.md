@@ -54,6 +54,11 @@ write one sentence: "Rechtstexte geprüft, keine Änderung nötig." (Ralf, 2026-
 dieser Seite" from the menu "Hilfe und Werkzeuge" (`TAB_ANCHORS` and `PAGE_ANCHORS` in app/handbook.py);
 `tests/platform/test_handbook.py` refuses a tab without an anchor in both languages (UI/UX audit 2026-10-16, 156).
 
+Ändert ein PR den Metadatenexport (DDI Lifecycle 4.0 in app/ddi.py: neue Einträge, Verweise oder Inhalte), zieht er
+die Abbildung „Askurious-Metadaten“ im Handbuch (/docs/metadata) mit: `tools/ddi_figure.py` anpassen und ausführen
+(schreibt `app/static/handbook/<lang>/ddi-structure.svg`). `tests/exports/test_ddi_figure.py` verlangt jede Art aus
+`ddi.CONTAINER_ORDER` in der Abbildung und dass die Dateien der Ausgabe des Skripts entsprechen (Ralf 2026-10-27).
+
 ## Blog: no experimental features
 
 Readers of the public blog (/blog, app/blog.py) do not see experimental features (app/experimental.py).

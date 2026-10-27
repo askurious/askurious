@@ -59,6 +59,16 @@ def shot(src):
     return own if os.path.exists(os.path.join(current_app.static_folder, own)) else "handbook/" + name
 
 
+def _svg(filename):
+    """The text of an SVG figure under static/ (one of ours, never an upload), to be put into the page as it is."""
+    import os
+
+    from flask import current_app
+
+    with open(os.path.join(current_app.static_folder, filename), encoding="utf-8") as f:
+        return f.read()
+
+
 def _image(src):
     return url_for("static", filename=shot(src))
 
@@ -158,6 +168,10 @@ def render(md):
             from app import media
 
             filename = shot(src)
+            if filename.endswith(".svg"):  # a figure of our own (tools/ddi_figure.py): inline, in the page's colours
+                html.append(f'<figure class="handbook-figure">{_svg(filename)}<figcaption>{inline(alt)}</figcaption></figure>')
+                i += 1
+                continue
             width, height = media.size_static(filename)
             dimensions = f' width="{width}" height="{height}"' if width and height else ""
             html.append(f'<figure class="handbook-shot"><a href="{escape(_image(src))}" target="_blank" rel="noopener">'

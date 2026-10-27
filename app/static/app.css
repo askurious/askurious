@@ -5238,6 +5238,9 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 .handbook-shot { margin: 1rem 0 1.4rem; }
 .handbook-shot img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; }
 .handbook-shot figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+.handbook-figure { margin: 1rem 0 1.4rem; overflow-x: auto; }
+.handbook-figure svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.handbook-figure figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
 .handbook-inline-shot { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; }
 .handbook-body pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
 @media (max-width: 860px) {

@@ -15,6 +15,12 @@ What goes in:
 - Instrument: one Sequence for the survey, one per block (pages in order, "random order" as TypeOfSequence), a
   QuestionConstruct per question column, a StatementItem per element without answers (texts, images), an IfThenElse
   around an element shown only under a condition (the condition in words, as in the questionnaire).
+- Instruction per hint for the interviewers of an interview guide (a Leitfrage's "Hinweis für Interviewende" and the
+  "Wann stellen?" of an Unterfrage), attached to the element's construct (InterviewerInstructionAttachment, the 4.0
+  counterpart of InterviewerInstruction in 3.x) and gathered in an InterviewerInstructionScheme of the DataCollection.
+- Organization per institution of the team (the affiliations, the publisher): the Publisher points at it, and a
+  Relation ties each creator with ORCID (Individual) to their institution; an OrganizationScheme holds them. Only the
+  names already in the file go in, nothing more about the people.
 - QuestionItem per answer column with the question text in every survey language and its response domain: codes
   (CodeList and Categories, missing codes marked as missing), numbers, dates or text.
 - Variable per column of the codebook (also Askurious's own columns), with label, notes, the question it comes from
@@ -113,6 +119,7 @@ class _Doc:
         self.base = f"{brand.public_base().rstrip('/')}/ddi/{survey.code}/"
         self.root = ET.Element(f"{{{NS}}}ItemContainer")
         self.items = []
+        self.instructions = []  # (id, element) of the Instruction items, in the order of the questionnaire
 
     def ident(self, kind, key=""):
         return str(uuid.uuid5(uuid.NAMESPACE_URL, f"{self.base}{kind}/{key}"))
@@ -461,6 +468,55 @@ def question_texts(survey, item, langs, withheld):
     return {lng: _plain(((item.t(lng) if lng == default else item.lang_texts(lng)) or {}).get("question")) for lng in langs}
 
 
+# what an interview guide tells its interviewers (app/items/guide_question.py): (text key, English name)
+INSTRUCTION_KEYS = (("hint", "Hint for the interviewer"), ("when", "When to ask"))
+
+
+def instruction_texts(survey, item, langs, withheld):
+    """[(name, {lang: text})] of the hints for the interviewers of an element: a Leitfrage's "Hinweis für
+    Interviewende" and the "Wann stellen?" of an Unterfrage; [] for any other element, or one whose wording a deposit
+    leaves out."""
+    if item.type != "guide_question" or item.id in withheld:
+        return []
+    default = survey.default_language
+    out = []
+    for key, name in INSTRUCTION_KEYS:
+        if key == "when" and not (item.config or {}).get("sub"):
+            continue
+        texts = {lng: _plain(((item.t(lng) if lng == default else item.lang_texts(lng)) or {}).get(key))
+                 for lng in langs}
+        if any(texts.values()):
+            out.append((name, texts))
+    return out
+
+
+def _attach_instructions(doc, survey, item, langs, withheld, construct):
+    """Instruction items for the interviewer hints of an element, attached to its construct right after the
+    ConstructName (the order of ControlConstruct in the schema)."""
+    position = 5  # URN, Agency, ID, Version, ConstructName
+    for n, (name, texts) in enumerate(instruction_texts(survey, item, langs, withheld)):
+        el, ident = doc.item("Instruction", f"item-{item.id}-{n}")
+        _lang(el, "InstructionName", {"en": f"{item.code}: {name}"})
+        content = _sub(_sub(el, "InstructionText"), "TextContent")
+        content.set(f"{{{XSI}}}type", "ddi:LiteralTextType")
+        _lang(content, "Text", texts)
+        doc.instructions.append((ident, el))
+        attachment = ET.Element(_q("InterviewerInstructionAttachment"))
+        doc.ref(attachment, "InterviewerInstructionReference", "Instruction", ident)
+        _sub(attachment, "IsDisplayed", "true")
+        construct.insert(position + n, attachment)
+
+
+def organizations(survey):
+    """The institutions of the team, each once: the publisher's first, then the affiliations in the author order."""
+    names = []
+    publisher_name, from_institution = publisher(survey)
+    if from_institution:
+        names.append(publisher_name)
+    names += [affiliation for _, affiliation, _ in creators(survey) if affiliation]
+    return list(dict.fromkeys(names))
+
+
 # ---- the document ---------------------------------------------------------------------------------------------------
 
 
@@ -789,6 +845,13 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
     doc.ref(event, "InstrumentReference", "Instrument", instrument_id)
     doc.ref(collection, "QuestionSchemeReference", "QuestionScheme", qscheme_id)
     doc.ref(collection, "ControlConstructSchemeReference", "ControlConstructScheme", cscheme_id)
+    ischeme = None
+    if doc.instructions:  # the hints for the interviewers
+        ischeme, ischeme_id = doc.item("InterviewerInstructionScheme")
+        _lang(ischeme, "Label", {"en": "Hints for the interviewers"})
+        for ident, _ in doc.instructions:
+            doc.ref(ischeme, "InstructionReference", "Instruction", ident)
+        doc.ref(collection, "InterviewerInstructionSchemeReference", "InterviewerInstructionScheme", ischeme_id)
     doc.ref(collection, "InstrumentReference", "Instrument", instrument_id)
 
     # -- the population the survey speaks for (research plan, "Grundgesamtheit")
@@ -816,6 +879,33 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
         _sub(researcher, "URI", f"https://orcid.org/{orcid}")
         people.append((orcid, person_id, person))
     person_of = {orcid: ident for orcid, ident, _ in people}
+    orgs = {}  # name -> (id, element): the institutions of the team
+    for name in organizations(survey):
+        org, org_id = doc.item("Organization", name)
+        # the name as written in the team, marked "en" like the names of the people and the publisher
+        _lang(_sub(_sub(org, "OrganizationIdentification"), "OrganizationName"), "MultilingualStringValue", {"en": name})
+        orgs[name] = (org_id, org)
+    relations = []  # (id, element): a creator with ORCID and their institution
+    for name, affiliation, orcid in creators(survey):
+        if not orcid or affiliation not in orgs:
+            continue
+        relation, relation_id = doc.item("Relation", f"orcid-{orcid}-{affiliation}")
+        doc.ref(_sub(relation, "SourceObject"), "IndividualReference", "Individual", person_of[orcid])
+        target = _sub(relation, "TargetObject")
+        doc.ref(target, "OrganizationReference", "Organization", orgs[affiliation][0])
+        _lang(_sub(target, "Role"), "Description", {"en": "Affiliation"})
+        _lang(relation, "Description", {"en": f"{name} is affiliated with {affiliation}."})
+        relations.append((relation_id, relation))
+    oscheme = None
+    if orgs:
+        oscheme, _ = doc.item("OrganizationScheme")
+        _lang(oscheme, "Label", {"en": "Team and institutions"})
+        for org_id, _ in orgs.values():
+            doc.ref(oscheme, "OrganizationReference", "Organization", org_id)
+        for _, person_id, _ in people:
+            doc.ref(oscheme, "IndividualReference", "Individual", person_id)
+        for relation_id, _ in relations:
+            doc.ref(oscheme, "RelationReference", "Relation", relation_id)
     materials = []
     for pub_doi, title in publications(survey):
         publication, material_id = doc.item("OtherMaterial", f"doi-{pub_doi.lower()}")
@@ -862,9 +952,12 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
             _sub(creator_name, "Affiliation", affiliation)
         if orcid:
             doc.ref(creator, "CreatorReference", "Individual", person_of[orcid])
-    publisher_name = publisher(survey)[0]
+    publisher_name, from_institution = publisher(survey)
     if publisher_name:
-        _lang(_sub(_sub(citation, "Publisher"), "PublisherName"), "Name", {"en": publisher_name})
+        published = _sub(citation, "Publisher")
+        _lang(_sub(published, "PublisherName"), "Name", {"en": publisher_name})
+        if from_institution and publisher_name in orgs:
+            doc.ref(published, "PublisherReference", "Organization", orgs[publisher_name][0])
     for lng in langs:
         _sub(_sub(citation, "Language"), "StringValue", lng)
     if doi(survey):
@@ -931,6 +1024,11 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
     items = ([("StudyUnit", study), ("DataCollection", collection), ("Instrument", instrument)]
              + ([("Archive", conditions_of_use)] if archive_id else [])
              + [("Individual", el) for _, _, el in people]
+             + [("Instruction", el) for _, el in doc.instructions]
+             + ([("InterviewerInstructionScheme", ischeme)] if ischeme is not None else [])
+             + [("Organization", el) for _, el in orgs.values()]
+             + ([("OrganizationScheme", oscheme)] if oscheme is not None else [])
+             + [("Relation", el) for _, el in relations]
              + [("OtherMaterial", el) for _, el in materials]
              + [("Concept", el) for _, el in concepts.values()]
              + ([("Methodology", method)] if method_id else [])
@@ -964,8 +1062,9 @@ def _schema_order(items):
 CONTAINER_ORDER = [
     "Archive", "Category", "CategoryScheme", "CodeList", "CodeListScheme", "Concept", "ControlConstructScheme",
     "DataCollection",
-    "GenerationInstruction", "IfThenElse", "Individual", "Instrument", "LogicalProduct", "Loop", "Methodology",
-    "OtherMaterial", "PhysicalInstance", "QuestionConstruct", "QuestionItem", "QuestionScheme", "Sample", "Sequence",
+    "GenerationInstruction", "IfThenElse", "Individual", "Instruction", "Instrument", "InterviewerInstructionScheme",
+    "LogicalProduct", "Loop", "Methodology", "Organization", "OrganizationScheme", "OtherMaterial", "PhysicalInstance",
+    "QuestionConstruct", "QuestionItem", "QuestionScheme", "Relation", "Sample", "Sequence",
     "Split", "StatementItem", "StudyUnit", "Universe", "Variable", "VariableScheme", "Weighting"]
 
 
@@ -1295,6 +1394,7 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
     if not cols:  # a text, an image, a stimulus: shown, nothing answered
         st, st_id = doc.item("StatementItem", f"item-{item.id}")
         _lang(st, "ConstructName", {"en": item.code})
+        _attach_instructions(doc, survey, item, langs, withheld, st)
         if any(texts.values()):
             display = _sub(st, "DisplayText")
             content = _sub(display, "TextContent")
@@ -1322,6 +1422,8 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
             question_of[col] = q_id
             qc, qc_id = doc.item("QuestionConstruct", col)
             _lang(qc, "ConstructName", {"en": col})
+            if not any(kind == "QuestionConstruct" for kind, _ in out):  # the hints once, at the element's first question
+                _attach_instructions(doc, survey, item, langs, withheld, qc)
             doc.ref(qc, "QuestionReference", "QuestionItem", q_id)
             constructs_.append(("QuestionConstruct", qc_id, qc))
             out.append(("QuestionConstruct", qc_id))
