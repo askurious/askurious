@@ -988,11 +988,13 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
 # ---- what an archive gets (the box "Für Datenarchive" on the last step of the wizard) ------------------------------
 
 
-def readiness(survey):
+def readiness(survey, keys=None):
     """The study description a data archive asks for (CESSDA Metadata Model, DDI), as rows {state, de, en, value_de,
     value_en, why_de, why_en, step}: state "ok" (given), "auto" (Askurious sets it), "missing" (recommended, not
     given) or "optional"; value: what is given; why: what it is for, shown while it is missing; step: the wizard
-    step to fill it in. Shown on the wizard's overview (wizard/_summary.html; Ralf 2026-10-27, variant A)."""
+    step to fill it in. Shown on the wizard's overview (wizard/_summary.html; Ralf 2026-10-27, variant A). keys: the
+    wizard steps of the survey's kind; a row asked on a step the kind does not have stays out, and so do licence and
+    funding where there is no consent to hold them (an interview guide)."""
     from app import geoip, study_plan
 
     plan = _plan(survey)
@@ -1026,7 +1028,7 @@ def readiness(survey):
     population = population_text(survey)
     publisher_name, from_institution = publisher(survey)
     own_doi = doi(survey)
-    return [
+    rows = [
         row("ok", "Titel", "Title", "projekt", (short(survey.title), short(survey.title))),
         row(given(from_institution), "Herausgeber", "Publisher", "team", (short(publisher_name), short(publisher_name)),
             ("die Organisation der Person, die die Befragung angelegt hat; tragen Sie sie im Team ein",
@@ -1060,6 +1062,13 @@ def readiness(survey):
         row("auto", "Datenart · Analyseeinheit", "Kind of data · unit of analysis", value=(f"{kind[0]} · Individuum", f"{kind[1]} · individual")),
         row("auto", "Erhebungszeitraum", "Field period", value=("ab dem Start der Datenerhebung", "from the start of data collection")),
     ]
+    if keys is not None:
+        rows = [r for r in rows if not r["step"] or r["step"] in keys]
+    if consent is None:
+        rows = [r for r in rows if r["en"] not in ("Licence", "Funding")]
+    if getattr(survey, "interview", None) is not None:  # a guide is not asked for one (wizard step "Wer nimmt teil?")
+        rows = [r for r in rows if r["en"] != "Time method"]
+    return rows
 
 
 MODE_NAMES = {"SelfAdministeredQuestionnaire.CAWI": ("Selbstausgefüllter Fragebogen: Webbasiert (CAWI)",

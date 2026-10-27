@@ -592,10 +592,12 @@ def new():
         survey = Survey(title=title, created_by_id=current_user.id,
                         languages=[lang], default_language=lang, language_choice=False, interview=st,
                         research_question=request.form.get("research_question", "").strip()[:3000],
-                        erase_code=False, retention=None, setup_step=None)
+                        erase_code=False, retention=None, setup_step="studienplan")  # on into the setup wizard
         from app import study_plan
+        from app.diary import _project_fields
 
-        survey.study_plan = study_plan.start_plan(request.form, lang)  # who is interviewed (DDI; Ralf 2026-10-27)
+        survey.study_plan = study_plan.start_plan(request.form, lang)  # the country from the language (DDI)
+        _project_fields(survey, request.form)
         db.session.add(survey)
         surveys._add_member(survey, current_user, current_user.name)
         db.session.flush()
@@ -604,14 +606,15 @@ def new():
         reflow(survey)
         db.session.commit()
         flash(de_en("Interviewleitfaden angelegt.", "Interview guide created."), "success")
-        if request.form.get("then") == "ki":  # the AI assistant's first step (concept 7.3)
-            return redirect(url_for("interview_ai.develop", code=survey.code))
-        return redirect(url_for("interview.guide", code=survey.code))
+        # on into the setup wizard; its overview offers the AI assistant (concept 7.3; Ralf 2026-10-27: no AI exit
+        # halfway, so "then=ki" of an old page also continues in the wizard)
+        return redirect(url_for("wizard.step", survey_id=survey.id, key="studienplan"))
     from app import wizard
 
     return render_template("interview/new.html", templates=template_names(), orders=orders(), targets=targets(), modes=modes(),
                            languages=surveys.LANGUAGE_NAMES, sources=template_sources(), starts=wizard.starts("leitfaden"),
-                           start=wizard.start_of())
+                           start=wizard.start_of(), steps=wizard.steps("interview"), index=0, survey=None,
+                           form=request.form)
 
 
 # --- the guide -------------------------------------------------------------------------------------------------
@@ -1232,7 +1235,7 @@ def guard():
     elif blueprint == "surveys":
         if view in OPEN_SURVEY_PAGES:
             return None
-    elif blueprint not in ("flow_page", "translations", "boards", "wizard"):
+    elif blueprint not in ("flow_page", "translations", "boards"):  # the setup wizard has steps for guides (app/wizard.py)
         return None
     survey = db.session.get(Survey, survey_id)
     if survey is None or survey.interview is None:

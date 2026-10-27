@@ -504,6 +504,22 @@ def start_plan(form, language):
     return {"sample": sample}
 
 
+def apply_who(survey, form):
+    """"Wer nimmt teil?" of a diary survey or an interview guide in the setup wizard (Ralf 2026-10-27): recruitment,
+    population, country and region into the research plan, only the fields the form sends; the rest of the plan
+    stays."""
+    plan = dict(survey.study_plan or {})
+    sample = dict(plan.get("sample") or {})
+    new = start_plan(form, survey.default_language)["sample"]
+    for key, fields in (("recruitment", ("recruitment",)), ("panel_kind", ("recruitment", "panel_kind")),
+                        ("random_kind", ("random_kind",)), ("population", ("population",)), ("country", ("country",)),
+                        ("region", ("region",))):
+        if any(f in form for f in fields):
+            sample[key] = new[key]
+    plan["sample"] = sample
+    survey.study_plan = plan
+
+
 def countries():
     """{code: name} for the country of the survey: the countries of app/geoip.py (ISO 3166-1 alpha-2)."""
     from app import geoip

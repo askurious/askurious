@@ -7,6 +7,7 @@ Each has tabs of its own; what they share with the questionnaire is under [Build
 
 A diary survey asks the same people several short times over days or weeks, in the app or in the browser.
 It has the tabs of a questionnaire plus the tab "Schedule"; in the tab "Data collection" participants join with a code.
+It is created with the same assistant as a questionnaire, step by step: **What is it about?** (title, description, keywords, topic, language, what is created along with it), **Who takes part?** (selection, population, country, region), **Responsibility**, **Schedule and joining** (one shared code or personal codes; when people are asked is set afterwards on the tab "Schedule"), **Consent**, **Appearance** and the **Overview** with the box "For data archives". Every step saves at once; "Continue later, go to the schedule now" leaves the assistant, "Continue setting up" on "My surveys" leads back.
 
 ### Schedule of a diary survey {kind:diary}
 
@@ -29,6 +30,7 @@ The tab "Schedule" holds only the times.
 
 **What it is.**
 A survey type for guided, qualitative interviews, with its own tabs: Settings · Guide · Interviews · Results · Export.
+It is created with the same assistant as a questionnaire, in four steps: **What is it about?** (title, description, keywords, topic, research question, language, template and order), **Who takes part?** (target group, selection, population, country, region, interview mode), **Responsibility** (the organisation of the people involved, for the list of authors and the publisher in data archives) and the **Overview** with the box "For data archives". From the overview you go on to the guide, or with "Develop guide questions with the AI assistant" to the AI assistant.
 
 - **Guide**: topic blocks, each with **guide questions** in four parts after Helfferich (2011): a narrative prompt read out, content aspects to tick off, maintaining questions and specific questions; plus notes, stimuli (images), a short questionnaire before and a postscript after the conversation (Witzel, 2000).
   Templates: empty, problem-centred interview, expert interview, narrative interview.

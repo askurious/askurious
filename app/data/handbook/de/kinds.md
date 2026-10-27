@@ -7,6 +7,7 @@ Jede hat eigene Reiter; was sie mit dem Fragebogen teilen, steht unter [Eine Bef
 
 Eine Tagebuchstudie befragt dieselben Personen über Tage oder Wochen mehrmals kurz, in der App oder im Browser.
 Sie hat die Reiter eines Fragebogens und dazu den Reiter „Zeitplan“; im Reiter „Datenerhebung“ treten Teilnehmende mit einem Code bei.
+Angelegt wird sie mit demselben Assistenten wie ein Fragebogen, Schritt für Schritt: **Worum geht es?** (Titel, Beschreibung, Schlagwörter, Thema, Sprache, was mit angelegt wird), **Wer nimmt teil?** (Auswahl, Grundgesamtheit, Land, Region), **Verantwortung**, **Zeitplan und Beitritt** (ein gemeinsamer Code oder persönliche Codes; wann gefragt wird, steht danach im Reiter „Zeitplan“), **Einwilligung**, **Erscheinungsbild** und die **Übersicht** mit dem Kasten „Für Datenarchive“. Jeder Schritt speichert sofort; „Später weiter und jetzt zum Zeitplan“ verlässt den Assistenten, „Anlegen fortsetzen“ auf „Meine Befragungen“ führt zurück.
 
 ### Zeitplan einer Tagebuchstudie {kind:diary}
 
@@ -29,6 +30,7 @@ Der Reiter „Zeitplan“ enthält nur noch die Zeiten.
 
 **Was es ist.**
 Eine Art von Befragung für leitfadengestützte, qualitative Interviews, mit eigenen Reitern: Einstellungen · Leitfaden · Interviews · Ergebnisse · Export.
+Angelegt wird er mit demselben Assistenten wie ein Fragebogen, in vier Schritten: **Worum geht es?** (Titel, Beschreibung, Schlagwörter, Thema, Forschungsfrage, Sprache, Vorlage und Reihenfolge), **Wer nimmt teil?** (Zielgruppe, Auswahl, Grundgesamtheit, Land, Region, Interviewform), **Verantwortung** (die Organisation der Beteiligten, für Autorenliste und Herausgeber in Datenarchiven) und die **Übersicht** mit dem Kasten „Für Datenarchive“. Von der Übersicht geht es zum Leitfaden oder mit „Mit dem KI-Assistenten Leitfragen entwickeln“ zum KI-Assistenten.
 
 - **Leitfaden**: Themenblöcke, jeder mit **Leitfragen** in vier Teilen nach Helfferich (2011): eine vorgelesene Erzählaufforderung, inhaltliche Aspekte zum Abhaken, Aufrechterhaltungsfragen und konkrete Fragen; dazu Notizen, Stimuli (Bilder), ein Kurzfragebogen vor und ein Postskript nach dem Gespräch (Witzel, 2000).
   Vorlagen: leer, problemzentriertes Interview, Experteninterview, narratives Interview.

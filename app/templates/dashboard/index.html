@@ -65,8 +65,11 @@
       <a class="button button-small button-secondary" href="{{ url_for('surveys.results', survey_id=s.id) }}">{{ icon("chart", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
       <a class="button button-small button-secondary" href="{{ url_for('surveys.data', survey_id=s.id) }}">{{ icon("download", 16) }} {{ de_en("Export", "Export") }}</a>
       {% elif s.interview is not none %}
-      {# an interview guide (app/interview.py): no data collection, no results #}
-      <a class="button button-small" href="{{ main[0] }}">{{ icon("edit", 16) }} {{ de_en("Leitfaden", "Guide") }}</a>
+      {# an interview guide (app/interview.py): no data collection, no results; setting up goes on in the wizard
+         (app/wizard.py, Ralf 2026-10-27) #}
+      {% if s.setup_step and my_role != "viewer" %}<a class="button button-small" href="{{ url_for('wizard.step', survey_id=s.id, key=s.setup_step) }}">{{ icon("play", 16) }} {{ de_en("Anlegen fortsetzen", "Continue setting up") }}</a>
+      <a class="button button-small button-secondary" href="{{ main[0] }}">{{ icon("edit", 16) }} {{ de_en("Leitfaden", "Guide") }}</a>
+      {% else %}<a class="button button-small" href="{{ main[0] }}">{{ icon("edit", 16) }} {{ de_en("Leitfaden", "Guide") }}</a>{% endif %}
       <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=s.code) }}">{{ icon("chart", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
       <a class="button button-small button-secondary" href="{{ url_for('interview.export', code=s.code) }}">{{ icon("download", 16) }} {{ de_en("Export", "Export") }}</a>
       {% else %}

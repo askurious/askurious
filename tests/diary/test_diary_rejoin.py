@@ -24,13 +24,20 @@ def test_a_new_diary_survey_asks_how_people_join_and_makes_the_codes(app, client
     from tests.conftest import experiments_on
 
     experiments_on(client, "diary")
-    page = client.get("/diary/new").get_data(as_text=True)
+    # the question is the wizard's step "Zeitplan und Beitritt" (app/wizard.py, Ralf 2026-10-27)
+    first = client.post("/diary/new", data={"title": "Neu", "language": "de"}).headers["Location"]
+    page = client.get(first.replace("/researchdesign", "/schedule")).get_data(as_text=True)
     assert 'name="join" value="shared"' in page and 'name="join" value="personal"' in page
     assert 'name="rejoin"' not in page  # "at any time" is no choice any more (NB-1)
+    client.post(first.replace("/researchdesign", "/schedule"), data={"join": "personal", "persons": "5", "autosave": "1"})
+    with app.app_context():
+        made = db.session.scalar(db.select(Survey).filter_by(title="Neu"))
+        assert diary.invite_only(made) and len(diary.invites(made)) == 5
+    # the creating page of before still takes the answer (a page left open over an update)
     client.post("/diary/new", data={"title": "Codes", "language": "de", "join": "personal", "persons": "7",
                                     "rejoin": "auto"})
     with app.app_context():
-        survey = db.session.scalar(db.select(Survey))
+        survey = db.session.scalar(db.select(Survey).filter_by(title="Codes"))
         assert diary.invite_only(survey) and diary.rejoin_mode(survey) == "release"
         assert survey.sampling["rejoin"] == "release"
         assert len(diary.invites(survey)) == 7

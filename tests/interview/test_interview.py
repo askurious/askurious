@@ -15,7 +15,8 @@ def make(app, client, title="Pflegende Angehörige", template="witzel", order="f
                                             "target": "erwachsene", "mode": "praesenz", "research_question": "Wie erleben sie die Pflege?"})
     with app.app_context():
         survey = db.session.scalar(db.select(Survey).filter_by(title=title))
-        assert r.headers["Location"].endswith(f"/guide/{survey.code}")
+        # on into the setup wizard (app/wizard.py, Ralf 2026-10-27)
+        assert r.headers["Location"].endswith("/setup/researchdesign")
         return survey.code, survey.id
 
 

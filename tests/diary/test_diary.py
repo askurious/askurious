@@ -13,7 +13,7 @@ API = "/api/diary/v1"
 def _new(app, client, running=True):
     experiments_on(client, "diary")
     page = client.post("/diary/new", data={"title": "Lernen im Alltag", "language": "de"})
-    assert page.status_code == 302 and "/schedule" in page.headers["Location"]
+    assert page.status_code == 302 and "/setup/researchdesign" in page.headers["Location"]  # on into the wizard
     with app.app_context():
         survey = db.session.get(Survey, 1)
         assert survey.kind == "diary" and diary.modules(survey)[0]["key"] == "m1"

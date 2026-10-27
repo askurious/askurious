@@ -1918,10 +1918,11 @@ def new():
         chosen = chosen if chosen in DIARY_TEMPLATES else None  # the card "Aus einer Vorlage"
         survey = Survey(title=title, created_by_id=current_user.id, languages=[lang], default_language=lang,
                         sampling=from_template(chosen, lang) if chosen else defaults(lang), repeat_marker=False,
-                        setup_step=None)
+                        setup_step="studienplan")  # on into the setup wizard (app/wizard.py, Ralf 2026-10-27)
         from app import study_plan
 
-        survey.study_plan = study_plan.start_plan(request.form, lang)  # who takes part (DDI; Ralf 2026-10-27)
+        survey.study_plan = study_plan.start_plan(request.form, lang)  # the country from the language (DDI)
+        _project_fields(survey, request.form)
         if "join" in request.form:  # the question "Beitreten" of the blank form; a template joins with the shared code
             survey.sampling = {**survey.sampling, **join_settings(request.form, survey.sampling)}
         db.session.add(survey)
@@ -1949,22 +1950,34 @@ def new():
                         n=len(codes)), "success")
         if chosen:
             flash(de_en("Die Tagebuchstudie „{name}“ ist angelegt, mit Eingangsbefragung, der Kurzbefragung „Moment“ und "
-                        "Abschlussbefragung. Hier steht, wann gefragt wird; alles lässt sich ändern.",
-                        "The diary survey “{name}” is created, with entry survey, the short survey “Moment” and exit survey. "
-                        "Here you see when the questions come; you can change everything.",
+                        "Abschlussbefragung; Zeitplan und Fragen lassen sich ändern.",
+                        "The diary survey “{name}” is created, with entry survey, the short survey “Moment” and exit survey; "
+                        "you can change the schedule and the questions.",
                         name=diary_templates()[chosen][0]), "success")
-            return redirect(url_for("diary.schedule", survey_id=survey.id))
-        flash(de_en("Die Tagebuchstudie ist angelegt. Im Reiter „Fragebogen“ steht jeder Teil für sich: die Eingangsbefragung "
-                    "einmal nach dem Beitritt, die Kurzbefragung „Moment“ dreimal am Tag und die Abschlussbefragung einmal am "
-                    "Ende. Legen Sie hier fest, wann gefragt wird.",
-                    "The diary survey is created. On the tab “Questionnaire” each part stands on its own: the entry survey "
-                    "once after joining, the short survey “Moment” three times a day and the exit survey once at the end. "
-                    "Set here when the questions come."), "success")
-        return redirect(url_for("diary.schedule", survey_id=survey.id))
+        else:
+            flash(de_en("Die Tagebuchstudie ist angelegt: Eingangsbefragung, Kurzbefragung „Moment“ und Abschlussbefragung "
+                        "stehen im Reiter „Fragebogen“ je für sich.",
+                        "The diary survey is created: entry survey, short survey “Moment” and exit survey each stand on "
+                        "their own on the tab “Questionnaire”."), "success")
+
+        return redirect(url_for("wizard.step", survey_id=survey.id, key="studienplan"))
     from app import wizard
 
     return render_template("diary/new.html", languages=surveys.LANGUAGE_NAMES, starts=wizard.starts("tagebuch"),
-                           start=wizard.start_of(), templates=diary_templates(), bolger=BOLGER)
+                           start=wizard.start_of(), templates=diary_templates(), bolger=BOLGER,
+                           steps=wizard.steps("diary"), index=0, survey=None, form=request.form)
+
+
+def _project_fields(survey, form):
+    """Description, project, keywords and topic of the first step (the questionnaire's fields, surveys.apply_project),
+    without its check of the title: a diary survey or guide gets a title of its own when left empty."""
+    from werkzeug.datastructures import MultiDict
+
+    from app import surveys
+
+    fields = MultiDict(form)
+    fields["title"] = survey.title
+    surveys.apply_project(survey, fields)
 
 
 def _mood_item(survey, lang):

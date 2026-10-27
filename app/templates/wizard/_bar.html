@@ -1,0 +1,14 @@
+{# The steps of the setup wizard (app/wizard.py), on its pages and on the pages that create a diary survey or an
+   interview guide (their first step). Needs: steps, index; survey (None before it exists), reached. On the phone the
+   steps shrink to their numbers and the first line says where one is (UI/UX audit 2026-10-09, X12). #}
+<p class="wizard-count">{{ de_en("Schritt {n} von {m} · {title}", "Step {n} of {m} · {title}", n=index + 1, m=steps|length, title=steps[index][1]) }}</p>
+<ol class="wizard-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
+  {% for k, t, st, opt in steps %}
+  {% set state = "current" if loop.index0 == index else ("done" if loop.index0 < index or (reached is defined and loop.index0 <= reached) else "todo") %}
+  <li class="wizard-step {{ state }}">
+    {% if survey and state == "done" %}<a href="{{ url_for('wizard.step', survey_id=survey.id, key=k) }}" aria-label="{{ de_en('Schritt {n}: {title}', 'Step {n}: {title}', n=loop.index, title=t) }}">{% endif %}
+    <span class="wizard-num">{{ "✓" if state == "done" else loop.index }}</span><span class="wizard-label">{{ t }}</span>
+    {% if survey and state == "done" %}</a>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
