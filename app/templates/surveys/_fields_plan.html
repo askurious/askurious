@@ -147,6 +147,8 @@
   <label>{{ de_en("Studiendesign", "Research design") }} {{ select("design", study_plan.design_choices(), plan.design, de_en("Studiendesign", "Research design")) }}</label>
 </div>
 {% endif %}
+{# the design lays out the questionnaire once (app/design_layout.py; user test 2026-10-27) #}
+{% if survey.status == "draft" %}<p class="muted small">{{ de_en("Experiment, Messwiederholung und Vignetten legen beim Wählen ihre Bedingungen im Fragebogen an (Blöcke und Ablauf), solange dort noch keine Randomisierung oder Schleife steht.", "Experiment, repeated measures and vignettes lay out their conditions in the questionnaire when chosen (blocks and flow), as long as it has no randomisation or loop yet.") }}</p>{% endif %}
 {{ why("time_method") }}
 {# the method finder: what the goal suggests, drawn in the browser as soon as the goal is picked (UI/UX audit
    2026-10-05, V6, app.js); an empty "Design" takes the suggestion, another one gets "übernehmen" #}
