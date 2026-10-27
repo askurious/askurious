@@ -58,7 +58,7 @@
     var undo = cell.querySelector("[data-summary-undo]");
     if (undo) undo.hidden = false;
   }
-  box.addEventListener("click", function (e) {
+  if (box.addEventListener) box.addEventListener("click", function (e) {
     var cell = e.target.closest("td");
     if (!cell) return;
     var prefill = e.target.closest("[data-summary-prefill]");
@@ -90,7 +90,7 @@
 // the table "Fälle × Unterkategorien" (interview/summaries.html): sorting by a column and showing only the cases with
 // a subcategory
 (function () {
-  var body = document.querySelector("[data-types-body]");
+  var body = document.querySelector ? document.querySelector("[data-types-body]") : null;
   if (!body) return;
   var asc = {};
   document.querySelectorAll("[data-types-sort]").forEach(function (b) {
