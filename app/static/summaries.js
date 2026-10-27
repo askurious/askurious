@@ -47,4 +47,72 @@
     });
   });
   window.addEventListener("pagehide", function () { flushes.forEach(function (f) { f(); }); });
+
+  // with an analysis of "Interviews kodieren" as the columns (app/transcript_coding_cases.py): a draft from the
+  // passages of a cell, or from the AI, only into an empty field; "Rückgängig" empties it again
+  function fill(cell, text) {
+    var area = cell.querySelector("textarea");
+    if (!area || area.value.trim() || !text) return;
+    area.value = text;
+    area.dispatchEvent(new Event("input"));
+    var undo = cell.querySelector("[data-summary-undo]");
+    if (undo) undo.hidden = false;
+  }
+  if (box.addEventListener) box.addEventListener("click", function (e) {
+    var cell = e.target.closest("td");
+    if (!cell) return;
+    var prefill = e.target.closest("[data-summary-prefill]");
+    if (prefill) { fill(cell, prefill.getAttribute("data-summary-prefill")); return; }
+    var undo = e.target.closest("[data-summary-undo]");
+    if (undo) {
+      var area = cell.querySelector("textarea");
+      area.value = "";
+      area.dispatchEvent(new Event("input"));
+      undo.hidden = true;
+      return;
+    }
+    var ai = e.target.closest("[data-summary-ai]");
+    if (ai) {
+      var field = cell.querySelector("textarea");
+      if (field.value.trim()) { say(de_en("Das Feld ist nicht leer.", "The field is not empty."), "error", field); return; }
+      var data = new FormData();
+      data.append("key", field.getAttribute("data-summary-key"));
+      ai.disabled = true;
+      say(de_en("KI schreibt einen Entwurf …", "AI is writing a draft …"), "busy", field);
+      fetch(ai.getAttribute("data-summary-ai"), { method: "POST", body: data, credentials: "same-origin", headers: { "X-CSRFToken": csrf || "", "X-Requested-With": "fetch" } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { ai.disabled = false; if (d.ok) fill(cell, d.text); else say(d.error || "", "error", field); })
+        .catch(function () { ai.disabled = false; say(de_en("Die KI hat nicht geantwortet.", "The AI did not answer."), "error", field); });
+    }
+  });
+})();
+
+// the table "Fälle × Unterkategorien" (interview/summaries.html): sorting by a column and showing only the cases with
+// a subcategory
+(function () {
+  var body = document.querySelector ? document.querySelector("[data-types-body]") : null;
+  if (!body) return;
+  var asc = {};
+  document.querySelectorAll("[data-types-sort]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var i = Number(b.getAttribute("data-types-sort"));
+      asc[i] = !asc[i];
+      var rows = Array.prototype.slice.call(body.rows);
+      rows.sort(function (x, y) {
+        var a = x.cells[i].getAttribute("data-v"), c = y.cells[i].getAttribute("data-v");
+        var na = Number(a), nc = Number(c);
+        var cmp = i === 0 || isNaN(na) || isNaN(nc) ? String(a).localeCompare(String(c)) : na - nc;
+        return asc[i] ? cmp : -cmp;
+      });
+      rows.forEach(function (r) { body.appendChild(r); });
+    });
+  });
+  var filter = document.querySelector("[data-types-filter]");
+  if (filter) filter.addEventListener("change", function () {
+    var sub = filter.value;
+    Array.prototype.forEach.call(body.rows, function (r) {
+      var cell = sub ? r.querySelector('[data-sub="' + sub + '"]') : null;
+      r.hidden = !!sub && (!cell || cell.getAttribute("data-v") === "0");
+    });
+  });
 })();

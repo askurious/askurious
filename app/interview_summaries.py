@@ -112,13 +112,34 @@ def _survey(code):
 @bp.route("/<code>/interviews/summaries")
 @login_required
 def page(code):
+    from app import transcript_coding_cases as cases
+
     survey = _survey(code)
     options = groupers(survey)
-    grouper = next((i for i in options if i.id == request.args.get("nach", type=int)), None)
     interviews = rows(survey)
+    # with an analysis of "Interviews kodieren": its main categories as the columns (app/transcript_coding_cases.py);
+    # without, the Themenblöcke as before
+    analyses = cases.projects_for(survey)
+    project = cases.chosen(survey, request.args.get("auswertung", type=int))
+    coding = None
+    grouper = next((i for i in options if i.id == request.args.get("nach", type=int)), None)
+    groups = None
+    if project is not None:
+        from app import transcript_coding_ai
+        from app.transcript_coding import tree
+
+        mains, _candidates = tree(project)
+        pairs, counts = cases.types(project, interviews)
+        sub = next((s for _m, s in pairs if f"sub{s.id}" == request.args.get("nach")), None)
+        if sub is not None:
+            groups, grouper = cases.grouped_by_sub(interviews, counts, sub), None
+        cells = cases.cells(project, interviews)
+        coding = {"project": project, "mains": [m for m, _s in mains], "cells": cells, "draft": cases.draft,
+                  "pairs": pairs, "counts": counts, "sub": sub,
+                  "ai": transcript_coding_ai.state(project, cases.team_actor()) == "on"}
     return render_template("interview/summaries.html", survey=survey, blocks=interview.guide_blocks(survey),
-                           groups=grouped(survey, interviews, grouper), grouper=grouper, options=options,
-                           summaries=summaries, reminders=reminders, n=len(interviews),
+                           groups=groups or grouped(survey, interviews, grouper), grouper=grouper, options=options,
+                           summaries=summaries, reminders=reminders, n=len(interviews), analyses=analyses, coding=coding,
                            sources=[(de_en("Thematische Matrix und Fallzusammenfassungen", "Thematic matrix and case summaries"), [KUCKARTZ]),
                                     (de_en("Fallvergleich und Typenbildung", "Case comparison and typology"), [MEUSER_NAGEL, KELLE_KLUGE])])
 
@@ -131,7 +152,10 @@ def save(code, rid):
     row = interview_data._interview(survey, rid)
     key = request.form.get("key", "")
     if key != "case" and key not in {str(b.id) for b in interview.guide_blocks(survey)}:
-        abort(400)
+        from app import transcript_coding_cases
+
+        if not transcript_coding_cases.valid_key(survey, key):  # a cell per main category of an analysis
+            abort(400)
     text = request.form.get("text", "").replace("\r\n", "\n")[:MAX_TEXT].strip()
 
     def store():
@@ -163,3 +187,8 @@ def file_docx(code):
     return send_file(io.BytesIO(matrix_docx(survey)), as_attachment=True,
                      mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                      download_name=f"fallzusammenfassungen-{survey.code}.docx")
+
+
+from app import transcript_coding_cases as _cases  # noqa: E402  the routes of the case comparison from codings
+
+_cases.register(bp, _survey)
