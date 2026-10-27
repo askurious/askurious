@@ -7330,3 +7330,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Bilderseite: ohne gewählten Bildstil ein Hinweis mit Link zur Wahl (der Assistent fragt nicht mehr danach).
 - Interviewleitfaden und Tagebuchstudie: dieselben Abschnitte „Worum geht es?“, „Wer nimmt teil?“, „Wie läuft es ab?“.
 - Rechtstexte geprüft, keine Änderung nötig (gleiche Daten wie bisher, nur anders verteilt; Förderung wie zuvor in der Einwilligung).
+
+## 2026-10-27: „Wer nimmt teil?“ ruhiger
+
+- Der DDI-Begriff steht nur unter der gewählten Karte, die anderen nennen ihn beim Darüberfahren (Ralf).
+- Zufallsstichprobe und Zufallspanel sind eine Karte „Zufallsstichprobe“ (für DDI ohnehin dieselbe Wahrscheinlichkeitsauswahl); die Rücklaufquote fragt der Studienplan jetzt auch bei der Zufallsstichprobe (`sample_model.RESPONSE_FOR`). Ein gespeichertes Zufallspanel zeigt die Karte „Zufallsstichprobe“ gewählt.
+- Stichprobenziel mit Beispiel „z. B. 200“; `data-show-when` nimmt mehrere Werte mit „|“.
+- Schriftgrößen von .pick-group und .archive-box h3 auf die erlaubten Stufen (0,85 rem, 1,05 rem).
+- Rechtstexte geprüft, keine Änderung nötig.
