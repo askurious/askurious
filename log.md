@@ -7357,3 +7357,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Der Kasten auf der Übersicht ordnet in drei Gruppen mit Überschrift: „Schon angegeben“, „Setzt Askurious selbst“, „Fehlt noch“; das Zahnrad entfällt (Ralf: nicht als „automatisch“ erkennbar). Die automatische Zeile nennt die Werte: „Datenart: Quantitativ · Analyseeinheit: Individuum“.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Wartungsseite statt nackter nginx-503
+
+- Beim Deploy zeigte die Forschendenseite nginx' eigene Seite „503 Service Temporarily Unavailable“ statt der Wartungsseite (Ralf). Ursache: Die Freigabe der Wartungsseite stand in `map $uri $wartung_frei`; nginx behält den Wert einer map aus der ersten Auswertung, nach der internen Umleitung auf `/_wartung/schalter` galt die Seite also weiter als gesperrt, der Schalter schlug ein zweites Mal zu.
+- `nginx/locations/wartung.conf` prüft jetzt `$uri` selbst (`if ($uri ~ "^/_wartung/")`), die map ist weg. Die Ausfallseite (502) war nicht betroffen.
+- Wirkt erst, wenn nginx die neue Datei liest: restart.sh startet nginx beim nächsten Deploy neu, weil sich seine Dateien geändert haben (kurze Lücke für alle).
+- Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
