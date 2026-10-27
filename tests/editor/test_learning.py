@@ -326,3 +326,15 @@ def test_sem_two_steps_versions_and_new_statistics_have_their_aids():
     for key in ("rho_a", "r2", "total_effect", "outer_weight", "bic_weight"):
         assert key in listed and key in learning.TERMS_EN
     assert "Anderson" in learning.reason("sem_two_steps")["sources"][0]
+
+
+def test_the_selection_for_interviews_and_diaries_explains_its_choices():
+    """Ralf 2026-10-27: "Auswahl" of "Wer nimmt teil?" (interview guide, diary survey) has its own "Warum?" that weighs
+    purposive, theoretical, snowball and convenience samples, in German and English, in the phase Planen."""
+    r = learning.reason("qual_sampling")
+    assert "theoretische Stichprobe" in r["text"] and "Schneeball" in r["text"] and len(r["sources"]) == 3
+    assert "qual_sampling" in learning.REASONS_EN and learning.REASON_PHASES.get("qual_sampling", 0) == 0
+    from pathlib import Path
+
+    page = (Path(__file__).resolve().parents[2] / "app" / "templates" / "_who_takes_part.html").read_text(encoding="utf-8")
+    assert 'why("qual_sampling")' in page

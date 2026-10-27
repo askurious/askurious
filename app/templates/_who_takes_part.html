@@ -3,6 +3,7 @@
    and data archives), for a guide also the target group and the interview mode. Needs: recruitment (choices),
    population_label, population_hint; who (the plan's sample), lead_targets/who_target and lead_modes/who_mode for a
    guide. #}
+{% from "_learn.html" import why %}
 {% set who = who if who is defined and who else {} %}
 <div class="stack">
   <div class="row-fields">
@@ -22,5 +23,6 @@
     {% if lead_modes is defined and lead_modes %}<label>{{ de_en("Interviewform", "Interview mode") }}
       <select name="mode">{% for key, name in lead_modes.items() %}<option value="{{ key }}"{% if key == who_mode|default("") %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>{% endif %}
   </div>
+  {{ why("qual_sampling") }}
   <p class="hint">{{ de_en("Für den Studienplan und für Datenarchive (DDI): für wen die Ergebnisse gelten, wie ausgewählt wird und wo.", "For the research plan and for data archives (DDI): whom the results speak for, how people are selected and where.") }}</p>
 </div>
