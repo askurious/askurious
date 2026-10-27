@@ -8,7 +8,7 @@ Markdown.
 """
 import io
 
-from app import study_plan
+from app import item_source, study_plan
 
 TEXT = {
     "de": {
@@ -307,8 +307,10 @@ def sections(survey, data, table, summary, lang="de", n=None, facts=None, sem=No
             label = (info or {}).get("label") or plain(item.text("question", survey.default_language))[:80] or item.code
             row = rows.get((item.code, None))
             if row and row.get("k"):
-                key = "scale" if info and info.get("citation") else "scale_nosrc"
-                measures.append(t[key].format(label=label, k=row["k"], source=(info or {}).get("citation", ""),
+                # the construct's citation, else the source typed at the scale (app/item_source.py)
+                source = (info or {}).get("citation") or item_source.text(item)
+                key = "scale" if source else "scale_nosrc"
+                measures.append(t[key].format(label=label, k=row["k"], source=source,
                                               alpha=_bounded(row.get("alpha"), lang), omega=_bounded(row.get("omega"), lang)))
             elif info:
                 measures.append(t["single"].format(label=label, code=item.code)

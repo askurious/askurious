@@ -249,7 +249,7 @@ def test_single_values_of_answers_with_several(app, client, survey):
         assert offered["akku"] == "Der Akku – Wie zuverlässig?" and offered["wtp_c"] == "Preis „günstig“ – Was darf es kosten?"
         assert offered["rang_rank1"].startswith("Platz 1") and offered["sd_1"].startswith("teuer – günstig")
     page = client.get("/surveys/1/editor/items/10").data.decode()                 # rarely needed: folded at first
-    assert '<details class="pipe-fold">' in page and "↪ Antworten früherer Fragen" in page
+    assert '<details class="pipe-fold">' in page and "↪ Frühere Antworten einsetzen" in page
     with app.app_context():
         # the pre-launch check: these names are known; the matrix as a whole is not a text
         _set(10, question="{{zuv}} {{akku|–}} {{nichts}}")
@@ -291,7 +291,7 @@ def test_design_check_name_also_url_parameter(app, client, survey):
 def test_editor_offers_earlier_answers(app, client, survey):
     build(app, client)
     html = client.get("/surveys/1/editor/items/5").data.decode()
-    assert "Antworten früherer Fragen" in html and 'data-insert="{{marke}}"' in html and 'title="Welche Marke?"' in html
+    assert "Frühere Antworten einsetzen" in html and 'data-insert="{{marke}}"' in html and 'title="Welche Marke?"' in html
     assert 'data-insert="{{zuv}}"' not in html
     assert ">Welche Marke? <small>marke</small></button>" in html              # the chip reads as the question
     # the formatting field gets the same list: words on the placeholders, the list behind "Antwort einfügen"

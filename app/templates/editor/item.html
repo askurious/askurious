@@ -141,7 +141,8 @@
 {% endif %}
 
 {% if (loop_vars or pipe_sources) and not in_live %}
-<div class="loop-vars" data-loop-vars>
+{# only earlier answers: one quiet line, not the green box of a loop (user test 2026-10-27, point 8) #}
+<div class="loop-vars{% if not loop_vars %} pipe-only{% endif %}" data-loop-vars>
   {% if loop_vars %}
   <span class="label-title">🔁 {{ de_en("Platzhalter der Schleife", "Placeholders of the loop") }}</span>
   {% for v in loop_vars %}<button type="button" class="chip" draggable="true" data-insert="{{ '{{' ~ v ~ '}}' }}">{{ '{{' ~ v ~ '}}' }}</button>{% endfor %}
@@ -150,7 +151,7 @@
   {% if pipe_sources %}
   {# rarely needed: folded at first (Philipp, 2026-10-04) #}
   <details class="pipe-fold">
-    <summary><span class="label-title">↪ {{ de_en("Antworten früherer Fragen", "Answers to earlier questions") }}</span> <span class="muted small">{{ pipe_sources|length }}</span></summary>
+    <summary><span class="label-title">↪ {{ de_en("Frühere Antworten einsetzen", "Insert earlier answers") }}</span> <span class="muted small">{{ pipe_sources|length }}</span></summary>
     {% for code, question in pipe_sources %}<button type="button" class="chip chip-answer" draggable="true" data-insert="{{ '{{' ~ code ~ '}}' }}" title="{{ question }}">{{ (question or code)|truncate(40, true, "…") }} <small>{{ code }}</small></button>{% endfor %}
     <span class="hint">{{ de_en("in einen Text ziehen oder anklicken (fügt im zuletzt angeklickten Textfeld ein, sonst im Fragetext). In Texten mit Formatierungsleiste: „Antwort einfügen“; ein Klick auf den eingesetzten Baustein legt den Ersatztext fest, der bei fehlender Antwort erscheint.", "drag into a text or click (inserts into the text field clicked last, otherwise into the question text). In texts with a formatting bar: “Insert answer”; a click on the inserted piece sets the fallback text shown when the answer is missing.") }}</span>
   </details>
@@ -261,6 +262,8 @@
 {% if review_here %}
 {# the button "Element mit KI prüfen" stands in the page head; it sends this form of its own #}
 <form method="post" id="text-review-form" action="{{ url_for('editor.text_review_item', survey_id=survey.id, item_id=item.id) }}">{{ csrf() }}</form>
+{# the items of a construct into this scale (items/_take_construct.html; user test 2026-10-27, point 8) #}
+{% if structural and item_source.applies(item) %}<form method="post" id="take-construct-form" action="{{ url_for('editor.take_construct', survey_id=survey.id, item_id=item.id, lang=lang) }}">{{ csrf() }}</form>{% endif %}
 {% endif %}
 {# the study plan (app/study_plan.py): this element measures what explains or what is explained in a hypothesis #}
 {% set plan_hyps = study_plan.plan_of(survey).hypotheses if kind.collects_answer and item.type != "consent" else [] %}

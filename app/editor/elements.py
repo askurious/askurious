@@ -4,13 +4,13 @@ import copy
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import answer_lock, constructs, edit_guard, experimental, heavy, item_condition, item_texts, items, linked, undo
+from app import answer_lock, constructs, edit_guard, experimental, heavy, item_condition, item_source, item_texts, items, linked, undo
 from app.editor.arrange import _draft_consent
 from app.editor.base import (PRESETS, _CONSENT_BLOCK_ONLY, _admin_step, _back, _block_beside, _consent_admin,
                              _consent_to_flow_start, _embed, _get_block, _get_item, _hold, _is_consent_block, _lang,
                              _renumber, _require_draft, _unique_code, bp)
 from app.extensions import db
-from app.items.base import CODE_RE, LEVEL_LABELS, TEXT_MAX, too_long_text
+from app.items.base import CODE_RE, LEVEL_LABELS, TEXT_MAX, new_id, too_long_text
 from app.lang import de_en
 from app.models import Item, utcnow
 from app.sav import RESERVED as SPSS_RESERVED
@@ -290,6 +290,7 @@ def edit_item(survey_id, item_id):
         all_texts_before = copy.deepcopy(item.texts)
         item.kind.update_from_form(item, request.form, lang, structural)
         _read_lock(item, request.form, structural)
+        item_source.from_form(item, request.form)  # where the items of a scale come from (user test 2026-10-27)
         if kept_texts is not None:
             item.texts = kept_texts
         from app import carry, units
@@ -579,6 +580,66 @@ def item_frame(survey_id, item_id):
             db.session.rollback()  # nothing of the trial is kept
         return html
     return render_template("editor/item_frame.html", survey=survey, item=item, kind=item.kind, lang=lang)
+
+
+@bp.route("/items/<int:item_id>/take-construct", methods=["POST"])
+@login_required
+def take_construct(survey_id, item_id):
+    """The items of a construct into this scale (user test 2026-10-27, point 8): "replace" makes the element that
+    construct (statements, points, labels, reversed items, subscales, source, badge "validierte Skala"); "append" adds
+    its statements to the end as a scale of its own, with the construct's citation as the source of the items."""
+    survey = get_survey(survey_id)
+    item = _get_item(survey, item_id)
+    lang = _lang(survey)
+    if not _require_draft(survey):
+        return _back(survey, lang)
+    key, _, mode = (request.form.get("take") or "").partition("|")
+    source = constructs.get(key) if key and not constructs.is_linked_key(key) else None
+    if source is None or mode not in ("replace", "append") or not item_source.applies(item) or constructs.info(item):
+        abort(400)
+    if not constructs.permitted(key, survey, current_user):
+        flash(constructs.permission_notice(), "error")
+        return redirect(url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang))
+    kind_key, base, config, texts = constructs.build(key, survey.languages, source, survey=survey)
+    if mode == "append" and kind_key != item.type:
+        abort(400)
+    step = undo.begin(survey)
+    name = constructs.shown_text(source, "name")
+    if mode == "replace":
+        used = edit_guard.taken_codes(survey, but=(item.id,))
+        code = base if base not in used else _unique_code(survey, base)
+        item.type, item.config, item.texts, item.code = kind_key, config, texts, code
+        if code != base:
+            from app import duplicate
+
+            duplicate.number_rows(kind_key, item.config, code)
+        message = de_en("„{code}“ ist jetzt „{name}“.", "“{code}” is now “{name}”.", code=code, name=name)
+    else:
+        own = copy.deepcopy(item.config)
+        own_texts = copy.deepcopy(item.texts or {})
+        taken = {s.get("code") for s in own.get("statements", []) if s.get("code")}
+        for s in config.get("statements", []):
+            if s.get("check"):
+                continue
+            new = {"id": new_id(), "code": "" if s.get("code") in taken else s.get("code", ""),
+                   "reverse": bool(s.get("reverse"))}
+            own.setdefault("statements", []).append(new)
+            for code_lang, words in texts.items():
+                text = ((words or {}).get("statements") or {}).get(s["id"])
+                if text:
+                    own_texts.setdefault(code_lang, {}).setdefault("statements", {})[new["id"]] = text
+        cited = (source.citation or "").strip()
+        before = (own.get("source") or {}).get("text") or ""
+        if cited and cited not in before:  # the source of the items: the construct's citation, after any given
+            own["source"] = {"text": f"{before}; {cited}" if before else cited, "own": bool((own.get("source") or {}).get("own"))}
+        item.config, item.texts = own, own_texts
+        message = de_en("Aussagen aus „{name}“ angehängt; als eigene Skala ohne Abzeichen.",
+                        "Statements from “{name}” added; as a scale of its own without the badge.", name=name)
+    step.done(undo.both("Konstrukt „{name}“ in „{code}“ übernommen", "Construct “{name}” taken into “{code}”",
+                        name=name, code=item.code), page="item", item=item.id)
+    db.session.commit()
+    flash(message, "undo")
+    return redirect(url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang))
 
 
 @bp.route("/items/<int:item_id>/unlock", methods=["POST"])

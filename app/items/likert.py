@@ -9,7 +9,7 @@ config "check" names the scale point to choose. Such a row is exported as answer
 out of scale scores and reliability; app/quality.py counts the checks a person failed.
 """
 
-from app import carry, rows, scales
+from app import carry, item_paste, rows, scales
 from app.items import register
 from app.items.base import FactSheet  # what the type can do and is for (app/element_types.py)
 from app.lang import Both, de_en, english
@@ -323,6 +323,21 @@ class Likert(ItemType):
                     if subscale:  # an instrument with several dimensions (constructs, or ticked in the editor)
                         statements[-1]["subscale"] = subscale
                 stexts[sid] = text.strip()
+            # a list pasted into "Aussagen einfügen" goes to the end (app/item_paste.py; user test 2026-10-27)
+            pasted = item_paste.parse(form.get("stmt_paste")) if (form.get("stmt_paste") or "").strip() else []
+            used = {s["code"] for s in statements if s.get("code")}
+            for code, line, reverse in pasted:
+                if code in used or not CODE_RE.match(code or ""):
+                    code = ""
+                new_sid = _new_id()
+                statements.append({"id": new_sid, "code": code, "reverse": reverse})
+                stexts[new_sid] = line
+                used.add(code)
+            if pasted:
+                from flask import flash
+
+                flash(de_en("{n} Aussage übernommen.", "{n} statement added.", n=len(pasted)) if len(pasted) == 1 else
+                      de_en("{n} Aussagen übernommen.", "{n} statements added.", n=len(pasted)), "success")
             # shown only to some: the condition of each statement (an attention check is for everyone)
             rows.from_form(item, [s for s in statements if "check" not in s], form, before, lang)
             config["statements"] = statements
