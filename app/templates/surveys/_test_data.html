@@ -9,7 +9,7 @@
   <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Testen", "Testing") }}</h2><span class="settings-sum">{{ de_en("Vorschau, Pretest-Link, Testdurchläufe und Dummy-Daten; zählen nie als Teilnahmen", "preview, pretest link, test runs and dummy data; never count as participations") }}</span></summary>
   <div class="settings-body">
   <div class="row testing-actions">
-    <a class="button button-secondary" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("eye", 16) }} {{ de_en("Vorschau ↗", "Preview ↗") }}</a>
+    <a class="button button-secondary" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("play", 16) }} {{ de_en("Vorschau ↗", "Preview ↗") }}</a>
     <a class="button button-secondary" href="{{ url_for('editor.comments_page', survey_id=survey.id) }}">{{ de_en("Kommentare aus Testdurchläufen", "Comments from test runs") }}{% if open_comments %} <span class="badge" title="{{ de_en('offen', 'open') }}">{{ open_comments }}</span>{% endif %}</a>
   </div>
   <h3 class="sub-head" id="pretest">{{ de_en("Pretest-Link", "Pretest link") }} <span class="hint">{{ de_en("für Testpersonen ohne Konto: die Vorschau mit Kommentarfunktion, nichts zählt als Teilnahme", "for test participants without an account: the preview with comments, nothing counts as participation") }}</span></h3>

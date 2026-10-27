@@ -184,6 +184,7 @@ Someone who may only look but may make a copy (for example of an example survey,
 - **Add** (left): the element types (38, from single choice and Likert matrix to conjoint, MaxDiff, maps, image marking and live feedback), the validated constructs from the pool, and "Draft a scale with AI".
   Drag into a block or click **+**.
 - **Blocks** (middle): the consent first (block 0), then the blocks with their elements; page breaks divide a block into pages.
+  **+ New block** is under the last block. ▾ before the name folds a block (it then only shows how many elements and pages it has); the browser remembers this. ▷ opens the preview of the block.
   Constructs show a green badge "validated scale".
 - **Pre-launch check** (right): the research plan in one line, and warnings about the questionnaire: too many demanding questions on one page, a missing contact email in the consent, unreplaced placeholders such as "[System]", missing translations, an estimated completion time.
 
