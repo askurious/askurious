@@ -10,6 +10,7 @@ Seiten außerhalb einer Befragung: Konstrukte, Gruppen, Designs, Stichprobengrö
 
 Der Bestand an validierten Skalen und Standardfragen (z. B. BFI-10, Technikakzeptanz), durchsuchbar nach Name, Autorinnen und Autoren, Jahr und Wortlaut, mit Filtern nach Art, Quelle (z. B. GESIS ZIS, APA PsycTests) und Fach.
 Mit Stern markierte Konstrukte erscheinen in der Seitenleiste des Editors.
+„In Befragung einfügen“ an jeder Karte führt zur Wahl des Entwurfs und des Blocks. Kurz- und Langfassungen desselben Instruments sind verknüpft: Die Karte nennt die weiteren Fassungen, die Seite des Konstrukts vergleicht sie unter „Fassungen“ (Admins legen die Familie unter Administration › Konstrukte fest).
 Forschende können neue Konstrukte vorschlagen.
 
 **Warum.**

@@ -9,10 +9,16 @@
       <button class="pin-btn" title="{{ de_en('Favorit: Steht im Fragebogen-Editor in der Liste. Klicken entfernt den Stern.', 'Favourite: listed in the questionnaire editor. Click to remove the star.') if on else de_en('Als Favorit merken: Steht dann im Fragebogen-Editor in der Liste', 'Mark as favourite: it is then listed in the questionnaire editor') }}"
               aria-label="{{ c.name }}: {{ de_en('Favorit entfernen', 'remove favourite') if on else de_en('als Favorit merken', 'mark as favourite') }}" aria-pressed="{{ 'true' if on else 'false' }}">{{ "★" if on else "☆" }}</button></form>{% endif %}
     <a class="card-title" href="{{ url_for('constructs.detail', key=c.key, survey=survey.id if survey else none) }}">{{ c.name }}</a>
+    {% if current_user.is_authenticated and not survey %}<a class="card-insert small" href="{{ url_for('constructs.detail', key=c.key) }}#einfuegen">{{ de_en("In Befragung einfügen", "Insert into a survey") }}</a>{% endif %}
     {# the wording's own state in words, not in the yellow of "Pausiert" and not as a second status beside
        "validierte Skala" (UI audit 2026-10-07, W88) #}
     {% if c.status == "review" %}<span class="construct-wording">{{ de_en("Wortlaut noch nicht gegen die Quelle geprüft", "Wording not yet checked against the source") }}</span>{% endif %}
     <p class="construct-short">{{ c.short }}</p>
+    {# short and long versions linked (app/construct_families.py; user test 2026-10-27, point 13) #}
+    {% set fam = (families|default({})).get(c.key) %}
+    {% if fam %}{% set others = [] %}{% for k, v in (families|default({})).items() if v[0] == fam[0] and k != c.key %}{% set _ = others.append((k, v[1])) %}{% endfor %}
+    <p class="card-versions small"><strong>{{ fam[1] or fam[0] }}</strong>{% if others %} · {{ de_en("weitere Fassungen:", "other versions:") }}
+      {% for k, v in others|sort(attribute=1) %}<a href="{{ url_for('constructs.detail', key=k, survey=survey.id if survey else none) }}">{{ v or family_names.get(k, k) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>{% endif %}
     {% set n_cited = (cite_counts|default({})).get(c.key, 0) %}
     <p class="card-meta">{{ c.author_year }} · {{ de_en_n(c.n_items, ("{n} Item", "{n} Items"), ("{n} item", "{n} items")) }}{% if c.points %} · {{ de_en("{n} Stufen", "{n} points", n=c.points) }}{% endif %} · {{ c.languages|map("upper")|join(", ") }}{% if n_cited %} · {{ de_en("verwendet in {n} Veröffentlichung", "used in {n} publication", n=n_cited) if n_cited == 1 else de_en("verwendet in {n} Veröffentlichungen", "used in {n} publications", n=n_cited) }}{% endif %}</p>
     <div class="tag-row">{% for f in facets %}{% for t in c.tags if t.facet == f %}<a class="tag tag-{{ t.facet }}" href="{{ url_for('constructs.index', tag=t.slug, survey=survey.id if survey else none) }}" title="{{ facets.get(t.facet, t.facet) }}">{{ tag_name(t) }}</a>{% endfor %}{% endfor %}</div>

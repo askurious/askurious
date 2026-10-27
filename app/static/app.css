@@ -723,6 +723,10 @@ input.dimmed { opacity: 0.45; }
 .take-list > li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--surface-3); }
 .take-list > li > details { flex: 1; min-width: 0; }
 .take-list ol { margin: 6px 0; padding-left: 22px; }
+/* constructs: the other versions on a card, and inserting from the list (user test 2026-10-27, 13) */
+.card-versions { margin: 2px 0 0; }
+.card-insert { margin-left: 10px; font-weight: 600; }
+.list-table tr.is-current td { background: var(--accent-soft); }
 /* the question text: the example beside its name selectable, "übernehmen" puts it in (user test 2026-10-27, 11) */
 .question-field-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; }
 .question-field-head .link-button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; }
