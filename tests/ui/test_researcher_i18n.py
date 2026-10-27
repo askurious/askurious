@@ -911,7 +911,7 @@ def test_interview_guide_frame_in_english_guide_content_in_the_survey_language(a
     page = client.get(f"/guide/{code}").data.decode()
     assert "Topic block" in page and "Check guide with AI" in page and "Einstieg" in page and "Themenblock nach oben" not in page
     page = client.get(f"/guide/{code}/settings").data.decode()
-    assert "Target group" in page and "In person" in page and "Zielgruppe" not in page
+    assert "Target group" in page and "Face-to-face interview" in page and "Zielgruppe" not in page
     page = client.get(f"/guide/{code}/interviews").data.decode()
     assert "Start interview" in page and "in writing (signed)" in page and "Interview beginnen" not in page
     r = client.post(f"/guide/{code}/interviews/new", data={"label": "", "date": "2026-10-12", "mode": "praesenz",

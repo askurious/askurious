@@ -209,7 +209,7 @@ def test_methods_page_is_the_one_methods_section(app, client, survey):
 def test_the_design_is_the_arrangement_not_a_method():
     """Conjoint, MaxDiff and the price questions are elements, not designs: a survey with them is cross-sectional;
     plans that still say so read as "cross"; repeated measures is a design of its own (Philipp, 2026-10-06)."""
-    assert set(study_plan.DESIGNS) == {"cross", "experiment", "within", "vignettes", "panel"}
+    assert set(study_plan.DESIGNS) == {"cross", "experiment", "within", "vignettes", "panel", "trend"}  # trend: Ralf 2026-10-27 (DDI)
     assert [study_plan.design_key(v) for v in ("conjoint", "maxdiff", "psm", "within", "nonsense", None)] == \
         ["cross", "cross", "cross", "within", "", ""]
     assert all(f[0] in study_plan.DESIGNS for f in study_plan.FINDER.values())

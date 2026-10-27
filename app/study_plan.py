@@ -33,7 +33,9 @@ GOALS = {"describe": "beschreiben, wie verbreitet etwas ist", "correlation": "Zu
 # cross-sectional survey (Philipp, 2026-10-06); plans that still say "conjoint" and the like read as "cross"
 DESIGNS = {"cross": "Querschnittsbefragung", "experiment": "Experiment mit Zufallszuteilung",
            "within": "Messwiederholung (innerhalb der Personen)", "vignettes": "Vignettenstudie",
-           "panel": "Längsschnitt (mehrere Wellen)"}
+           "panel": "Längsschnitt (mehrere Wellen)",
+           # the same questions to new people at several times (DDI TimeMethod Longitudinal.TrendRepeatedCrossSection)
+           "trend": "Wiederholter Querschnitt (Trend)"}
 FORMER_DESIGNS = {"conjoint": "cross", "maxdiff": "cross", "psm": "cross"}
 
 
@@ -70,7 +72,19 @@ KINDS = {"correlation": "Zusammenhang",
 DIRECTIONS = {"": "ohne Richtung", "pos": "positiv / A größer", "neg": "negativ / A kleiner"}
 RECRUITMENT = {"": "noch offen", "convenience": "Gelegenheitsstichprobe (Bekanntenkreis, Verteiler)",
                "snowball": "Schneeball", "panel": "Online-Panel", "quota": "Quotenstichprobe",
-               "random": "Zufallsstichprobe", "census": "Vollerhebung (alle der Gruppe)"}
+               "random": "Zufallsstichprobe", "census": "Vollerhebung (alle der Gruppe)",
+               # chosen on purpose, and chosen step by step from what the analysis finds (DDI SamplingProcedure
+               # Nonprobability.Purposive and TheoreticalSampling; Ralf 2026-10-27, for interview guides above all)
+               "purposive": "Bewusste Auswahl (z. B. Fachleute, typische Fälle)",
+               "theoretical": "Theoretische Stichprobe (Grounded Theory)"}
+# the recruitment in more detail, as archives describe a sample (DDI vocabulary SamplingProcedure, app/ddi.py; Ralf
+# 2026-10-27): an online panel is either an access panel (people sign up themselves) or a probability panel (drawn at
+# random and invited); a random sample has its kind of drawing
+PANEL_KINDS = {"": "noch offen", "access": "Access-Panel (Personen melden sich selbst an)",
+               "probability": "Zufallspanel (zufällig gezogen und eingeladen)"}
+RANDOM_KINDS = {"": "noch offen", "simple": "einfache Zufallsstichprobe", "systematic": "systematische Zufallsstichprobe",
+                "stratified": "geschichtete Zufallsstichprobe", "cluster": "Klumpenstichprobe",
+                "multistage": "mehrstufige Zufallsstichprobe"}
 ANALYSES = {"": "noch offen", "r": "Korrelation (Pearson)", "rho": "Rangkorrelation (Spearman)",
             "t": "t-Test (Welch) für zwei Gruppen", "anova": "Varianzanalyse (Welch) für mehrere Gruppen",
             "u": "Mann-Whitney-U für zwei Gruppen", "kw": "Kruskal-Wallis für mehrere Gruppen",
@@ -186,7 +200,7 @@ GOALS_EN = {"describe": "describe how common something is", "correlation": "test
             "price": "find the willingness to pay", "explore": "explore openly"}
 DESIGNS_EN = {"cross": "Cross-sectional survey", "experiment": "Experiment with random assignment",
               "within": "Repeated measures (within people)", "vignettes": "Vignette study",
-              "panel": "Longitudinal (several waves)"}
+              "panel": "Longitudinal (several waves)", "trend": "Repeated cross-section (trend)"}
 KINDS_EN = {"correlation": "Relationship", "effect": "Influence (directed path in the model)",
             "difference": "Difference between groups",
             "causal": "Effect of a condition (experiment)",
@@ -197,7 +211,13 @@ KINDS_EN = {"correlation": "Relationship", "effect": "Influence (directed path i
 DIRECTIONS_EN = {"": "no direction", "pos": "positive / A larger", "neg": "negative / A smaller"}
 RECRUITMENT_EN = {"": "not yet decided", "convenience": "Convenience sample (acquaintances, mailing lists)",
                   "snowball": "Snowball", "panel": "Online panel", "quota": "Quota sample",
-                  "random": "Random sample", "census": "Full census (everyone in the group)"}
+                  "random": "Random sample", "census": "Full census (everyone in the group)",
+                  "purposive": "Purposive sample (e.g. experts, typical cases)",
+                  "theoretical": "Theoretical sampling (grounded theory)"}
+PANEL_KINDS_EN = {"": "not yet decided", "access": "Access panel (people sign up themselves)",
+                  "probability": "Probability panel (drawn at random and invited)"}
+RANDOM_KINDS_EN = {"": "not yet decided", "simple": "simple random sample", "systematic": "systematic random sample",
+                   "stratified": "stratified random sample", "cluster": "cluster sample", "multistage": "multistage random sample"}
 ANALYSES_EN = {"": "not yet decided", "r": "Correlation (Pearson)", "rho": "Rank correlation (Spearman)",
                "t": "t-test (Welch) for two groups", "anova": "Analysis of variance (Welch) for several groups",
                "u": "Mann-Whitney U for two groups", "kw": "Kruskal-Wallis for several groups",
@@ -296,6 +316,32 @@ def directions_all():
 
 def recruitment():
     return _local(RECRUITMENT, RECRUITMENT_EN)
+
+
+def panel_kinds():
+    return _local(PANEL_KINDS, PANEL_KINDS_EN)
+
+
+def random_kinds():
+    return _local(RANDOM_KINDS, RANDOM_KINDS_EN)
+
+
+def _pick(value, table):
+    return value if isinstance(value, str) and value in table else ""
+
+
+def countries():
+    """{code: name} for the country of the survey: the countries of app/geoip.py (ISO 3166-1 alpha-2)."""
+    from app import geoip
+
+    lang = "en" if english() else "de"
+    return {"": "not yet decided" if lang == "en" else "noch offen", **dict(geoip.country_options(lang))}
+
+
+def _country(value):
+    from app import geoip
+
+    return value if isinstance(value, str) and value in {c for c, _, _ in geoip.COUNTRIES} else ""
 
 
 def analyses(survey=None):
@@ -454,6 +500,7 @@ def plan_of(survey):
     return {"goal": goals[0] if goals else "", "goals": goals, "design": design_key(raw.get("design")), "hypotheses": list(raw.get("hypotheses") or []),
             "sem_method": raw.get("sem_method") if raw.get("sem_method") in SEM_METHODS else "",
             "sample": {"target": None, "recruitment": "", "note": "", "exclusions": None, "response": None,
+                       "panel_kind": "", "random_kind": "", "population": "", "country": "", "region": "",
                        **(raw.get("sample") or {})},
             "rules": raw.get("rules", ""), "holm": raw.get("holm") is True,
             "deviations": list(raw.get("deviations") or []), "layout": layout_of(raw.get("layout")),
@@ -1286,7 +1333,13 @@ def from_form(survey, form):
               "note": _text(form.get("sample_note")),
               "exclusions": _percent(form.get("sample_exclusions")),
               # the response rate of an online panel: the invitations of the sample model (S3); kept while hidden
-              "response": _rate(form.get("sample_response"))}
+              "response": _rate(form.get("sample_response")),
+              # the kind of panel or random sample; kept while hidden, read only with its recruitment (app/ddi.py)
+              "panel_kind": _pick(form.get("panel_kind"), PANEL_KINDS),
+              "random_kind": _pick(form.get("random_kind"), RANDOM_KINDS),
+              # who the survey speaks for, and where (DDI Universe and spatial coverage, app/ddi.py; Ralf 2026-10-27)
+              "population": _text(form.get("population"), 300), "country": _country(form.get("country")),
+              "region": _text(form.get("region"), 120)}
     goals = _goals({"goals": form.getlist("goal")})
     out = {"goal": goals[0] if goals else "", "goals": goals,
            "design": design_key(form.get("design")),
@@ -1416,7 +1469,11 @@ def clean(raw):
             "sample": {"target": _int(sample.get("target")),
                        "recruitment": sample.get("recruitment") if sample.get("recruitment") in RECRUITMENT else "",
                        "note": _text(sample.get("note")), "exclusions": _percent(sample.get("exclusions")),
-                       "response": _rate(sample.get("response"))},
+                       "response": _rate(sample.get("response")),
+                       "panel_kind": _pick(sample.get("panel_kind"), PANEL_KINDS),
+                       "random_kind": _pick(sample.get("random_kind"), RANDOM_KINDS),
+                       "population": _text(sample.get("population"), 300), "country": _country(sample.get("country")),
+                       "region": _text(sample.get("region"), 120)},
             "deviations": [], "layout": layout_of(raw.get("layout")), "sem": sem_options(raw.get("sem")),
             "diary": diary_options(raw.get("diary")),
             **({"sem_method": raw["sem_method"]} if raw.get("sem_method") in SEM_METHODS else {})}
@@ -1534,7 +1591,7 @@ def markdown(survey, lang=None):
                          .format(a=alpha_text(alpha_for(survey), "en" if en else "de")))
         lines.append("")
     s = plan["sample"]
-    if s["target"] or s["recruitment"] or s["note"] or power_summary(survey):
+    if s["target"] or s["recruitment"] or s["note"] or s.get("population") or s.get("country") or power_summary(survey):
         lines += [t("## Stichprobe", "## Sample"), ""]
         if s["target"]:
             lines.append(t("- Ziel: {n} abgeschlossene Teilnahmen", "- Target: {n} completed participations").format(n=s["target"]))
@@ -1544,7 +1601,19 @@ def markdown(survey, lang=None):
         if m:  # the line of the sample model, as every page shows it (S3)
             lines.append(t("- Stichprobenmodell: {line}", "- Sample model: {line}").format(line=sample_model.text(m, "en" if en else "de")))
         if s["recruitment"]:
-            lines.append(t("- Rekrutierung: {how}", "- Recruitment: {how}").format(how=recruitment_[s["recruitment"]]))
+            key, kinds = {"panel": ("panel_kind", table(PANEL_KINDS, PANEL_KINDS_EN)),
+                          "random": ("random_kind", table(RANDOM_KINDS, RANDOM_KINDS_EN))}.get(s["recruitment"], ("", {}))
+            kind = kinds.get(s.get(key) or "") if key and s.get(key) else ""
+            how = recruitment_[s["recruitment"]] + (f" ({kind})" if kind else "")
+            lines.append(t("- Rekrutierung: {how}", "- Recruitment: {how}").format(how=how))
+        if s.get("population"):
+            lines.append(t("- Grundgesamtheit: {p}", "- Population: {p}").format(p=s["population"]))
+        if s.get("country") or s.get("region"):
+            from app import geoip
+
+            where = ", ".join(x for x in (geoip.country_name(s.get("country"), "en" if en else "de") if s.get("country") else "",
+                                          s.get("region") or "") if x)
+            lines.append(t("- Land und Region: {w}", "- Country and region: {w}").format(w=where))
         if s["note"]:
             lines.append(f"- {s['note']}")
         ps = power_summary(survey)

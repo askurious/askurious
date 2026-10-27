@@ -47,7 +47,9 @@ FORM_TYPES = {"single_choice": "Einfachauswahl", "multiple_choice": "Mehrfachaus
 TARGETS = {"erwachsene": "Erwachsene", "jugendliche": "Jugendliche", "kinder": "Kinder",
            "fachleute": "Fachleute (Experteninterview)", "beschaeftigte": "Beschäftigte einer Organisation",
            "patienten": "Patientinnen und Patienten", "andere": "andere Zielgruppe"}
-MODES = {"praesenz": "Präsenz", "video": "Videogespräch", "telefon": "Telefon", "gemischt": "Gemischt"}
+# the words of the DDI vocabulary ModeOfCollection (Interview.FaceToFace, .WebBased, .Telephone; Ralf 2026-10-27)
+MODES = {"praesenz": "Persönliches Interview", "video": "Webbasiertes Interview (Video)", "telefon": "Telefonisches Interview",
+         "gemischt": "Gemischt"}
 ORDERS = {"free": ("Frei springen", "Themenblöcke in beliebiger Reihenfolge, wie das Gespräch es ergibt"),
           "linear": ("Der Reihe nach", "eine Leitfrage nach der anderen mit „Weiter“ und „Zurück“")}
 SHORT = {"after": "nach dem Gespräch", "before": "vor dem Gespräch", "off": "ohne Kurzfragebogen"}
@@ -71,7 +73,8 @@ FORM_TYPES_EN = {"single_choice": "Single choice", "multiple_choice": "Multiple 
 TARGETS_EN = {"erwachsene": "Adults", "jugendliche": "Adolescents", "kinder": "Children",
               "fachleute": "Experts (expert interview)", "beschaeftigte": "Employees of an organisation",
               "patienten": "Patients", "andere": "other target group"}
-MODES_EN = {"praesenz": "In person", "video": "Video call", "telefon": "Telephone", "gemischt": "Mixed"}
+MODES_EN = {"praesenz": "Face-to-face interview", "video": "Web-based interview (video)", "telefon": "Telephone interview",
+            "gemischt": "Mixed"}
 ORDERS_EN = {"free": ("Jump freely", "topic blocks in any order, as the conversation goes"),
              "linear": ("In order", "one guide question after the other with “Next” and “Back”")}
 SHORT_EN = {"after": "after the conversation", "before": "before the conversation", "off": "without short questionnaire"}

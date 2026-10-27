@@ -211,6 +211,24 @@ def export_docx(survey_id, version="codebook"):
     })
 
 
+@bp.route("/<sid:survey_id>/export/ddi-lifecycle.xml")
+@login_required
+@heavy.limited
+def export_ddi(survey_id):
+    """The survey as DDI Lifecycle 4.0 XML (app/ddi.py): study, questionnaire with flow, questions, code lists and
+    variables, no answers; for every role, like the codebook."""
+    from flask import Response as FlaskResponse
+
+    from app import ddi, export
+
+    survey = get_survey(survey_id)
+    body = ddi.build(survey)
+    return FlaskResponse(body, mimetype="application/xml", headers={
+        "Content-Disposition": f'attachment; filename="{export.filename(survey, "ddi-lifecycle-4")[:-4]}.xml"',
+        "Cache-Control": "no-store",
+    })
+
+
 def _report_kept(survey, **_):
     """The report can answer in the request: the results of the saved pool are kept and current."""
     from app import results as res, results_store

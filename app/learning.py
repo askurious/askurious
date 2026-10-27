@@ -59,6 +59,14 @@ NOSEK_2018 = ("Nosek, B. A., Ebersole, C. R., DeHaven, A. C., & Mellor, D. T. (2
 AUSPURG_HINZ = ("Auspurg, K., & Hinz, T. (2015). Factorial survey experiments. SAGE. "
                 "https://doi.org/10.4135/9781483398075")
 # Coscine-Ausbau 2026-10-20: where data are kept
+BAKER_2013 = ("Baker, R., Brick, J. M., Bates, N. A., Battaglia, M., Couper, M. P., Dever, J. A., Gile, K. J., & "
+              "Tourangeau, R. (2013). Summary report of the AAPOR task force on non-probability sampling. Journal of Survey "
+              "Statistics and Methodology, 1(2), 90–143. https://doi.org/10.1093/jssam/smt008")
+GLASER_STRAUSS = "Glaser, B. G., & Strauss, A. L. (1967). The discovery of grounded theory. Aldine."
+DDI_CV = ("DDI Alliance. (2026). DDI controlled vocabularies [Kontrollierte Vokabulare: ModeOfCollection 5.0.1, "
+          "TimeMethod 1.2.3, SamplingProcedure 2.0.2]. CESSDA Vocabulary Service. https://vocabularies.cessda.eu/")
+DDI_L4 = ("DDI Alliance. (2026). DDI Lifecycle 4.0 public review (Version v4.0-pr). "
+          "https://github.com/ddialliance/ddimodel/releases/tag/v4.0-pr")
 DFG_KODEX = ("Deutsche Forschungsgemeinschaft. (2019). Leitlinien zur Sicherung guter wissenschaftlicher Praxis: Kodex. "
              "https://doi.org/10.5281/zenodo.3923602")
 SIMMONS_2011 = ("Simmons, J. P., Nelson, L. D., & Simonsohn, U. (2011). False-positive psychology: Undisclosed "
@@ -474,6 +482,28 @@ REASONS = {
         "Ob die Antworten ehrlich oder sorgfältig gegeben wurden, belegt sie nicht; dafür gibt es die "
         "Qualitätskontrolle.",
         (RFC_3161,)),
+    # the words of the DDI controlled vocabularies (DDI export, app/ddi.py; Ralf 2026-10-27)
+    "sampling_procedure": (
+        "Wahrscheinlichkeitsauswahl oder nicht?",
+        "Nur bei einer Wahrscheinlichkeitsauswahl (Zufallsauswahl, Zufallspanel) hat jede Person der Grundgesamtheit "
+        "eine bekannte Chance, ausgewählt zu werden; dann gelten Konfidenzintervalle und p-Werte für die Grundgesamtheit. "
+        "Willkürliche Auswahl, Quotenstichprobe, respondentengesteuerte Auswahl (Schneeball) und Access-Panel sind "
+        "Nicht-Wahrscheinlichkeitsauswahlen, eine bewusste Auswahl oder theoretische Stichprobe ist das Mittel "
+        "qualitativer Studien.",
+        (BAKER_2013, GLASER_STRAUSS, DDI_CV)),
+    "time_method": (
+        "Querschnitt, Panel oder Trend?",
+        "Ein Querschnitt befragt einmal; ein Längsschnitt als Panel befragt dieselben Personen mehrmals und zeigt "
+        "Veränderung in den Personen. Ein Trend (wiederholter Querschnitt) befragt jedes Mal neue Personen und zeigt "
+        "Veränderung in der Grundgesamtheit, nicht in einzelnen Personen.",
+        (DOERING, DDI_CV)),
+    "ddi_export": (
+        "Wozu DDI?",
+        "DDI ist der Standard, mit dem Datenarchive wie GESIS und der CESSDA-Katalog Studien beschreiben. Die Datei "
+        "nennt Erhebungsart, Zeitbezug und Auswahlverfahren mit den festen Begriffen der DDI-Vokabulare, etwa "
+        "„Selbstausgefüllter Fragebogen: Webbasiert (CAWI)“, und bringt Fragebogen und Codebuch in eine Form, die "
+        "ein Archiv ohne Abtippen übernehmen kann.",
+        (DDI_L4, DDI_CV)),
     "archive_where": (
         "Zenodo oder Coscine?",
         "Coscine bewahrt Daten in der Hochschule auf, auch nicht öffentliche, wie die DFG es für Forschungsdaten "
@@ -1261,6 +1291,23 @@ REASONS_EN = {
         "What does the seal chain prove?",
         "It shows later that since the timestamp no case was changed, removed or added unnoticed. It does not prove "
         "that the answers were honest or careful; that is what the quality control is for."),
+    "sampling_procedure": (
+        "Probability sample or not?",
+        "Only in a probability sample (random sample, probability panel) does every person of the population have a "
+        "known chance to be chosen; then confidence intervals and p values hold for the population. An availability "
+        "sample, a quota sample, respondent-assisted sampling (snowball) and an access panel are non-probability "
+        "samples, a purposive sample or theoretical sampling is the means of qualitative studies."),
+    "time_method": (
+        "Cross-section, panel or trend?",
+        "A cross-section asks once; a longitudinal panel asks the same people several times and shows change within "
+        "people. A trend (repeated cross-section) asks new people each time and shows change in the population, not "
+        "in single people."),
+    "ddi_export": (
+        "Why DDI?",
+        "DDI is the standard data archives such as GESIS and the CESSDA catalogue describe studies with. The file "
+        "names mode, time method and sampling procedure with the fixed terms of the DDI vocabularies, such as "
+        "“Self-administered questionnaire: Web-based (CAWI)”, and brings questionnaire and codebook into a form an "
+        "archive can take over without retyping."),
     "archive_where": (
         "Zenodo or Coscine?",
         "Coscine keeps data within the university, also non-public ones, as the DFG requires for research data for at "
@@ -1711,6 +1758,9 @@ REASON_PLACES = {
     "org_design": ("Verwaltung, Design; Erscheinungsbild", "management, design; appearance"),
     "seal": ("Einstellungen, Siegelkette", "settings, seal chain"),
     "archive_where": ("Export, In Coscine ablegen", "export, store in Coscine"),
+    "sampling_procedure": ("Studienplan, Rekrutierung", "research plan, recruitment"),
+    "time_method": ("Studienplan, Studiendesign", "research plan, research design"),
+    "ddi_export": ("Export, Dokumentation, DDI Lifecycle 4.0", "export, documentation, DDI Lifecycle 4.0"),
     "validated_scale": ("Konstrukte einfügen", "inserting constructs"),
     "copy_or_loop": ("Fragebogen, Block duplizieren oder Schleife", "questionnaire, duplicating a block or a loop"),
     "ink_slides": ("Live-Abstimmung, Präsentieren", "live poll, present"),

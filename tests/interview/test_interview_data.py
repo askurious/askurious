@@ -339,7 +339,7 @@ def test_project_for_qda_programs(app, client):
         cases = root.findall("p:Cases/p:Case", ns)
         assert [c.get("name") for c in cases] == ["I01", "I02"]                       # no Probeinterview
         values = [v.find("p:TextValue", ns).text for v in cases[0].findall("p:VariableValue", ns)]
-        assert "57" in values and "Präsenz" in values
+        assert "57" in values and "Persönliches Interview" in values
         src = root.find("p:Sources/p:TextSource", ns)
         path = src.get("plainTextPath").replace("internal://", "Sources/")
         assert path in names and z.read(path).decode() == "I: Erzählen Sie. #00:00:09-0#"
