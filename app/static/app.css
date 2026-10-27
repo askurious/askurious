@@ -732,7 +732,9 @@ input.dimmed { opacity: 0.45; }
 .drag-handle { color: var(--muted); cursor: grab; font-weight: 700; letter-spacing: -2px; padding: 0 2px; user-select: none; }
 /* Dragging (app.js): an element is taken anywhere on its row, a block anywhere on its head, except on what is
    clicked or typed into. Nothing moves while dragging: lines show where the drop goes. */
-.item-row[data-drag], .block-head:has([data-block-handle]) { cursor: grab; }
+.block-head:has([data-block-handle]) { cursor: grab; }
+/* a click on a row opens the element, pressing and moving drags it (user test 2026-10-27, 4) */
+.item-row[data-drag] { cursor: pointer; }
 .item-row[data-drag] label, .block-head:has([data-block-handle]) label { cursor: default; }
 .editor-grid .drag-handle, .row-drag { touch-action: none; }  /* a finger on the handle drags at once instead of scrolling */
 .row-drag { display: inline-block; padding: 6px 4px; vertical-align: middle; }

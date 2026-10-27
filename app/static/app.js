@@ -936,6 +936,19 @@ document.addEventListener("keydown", function (e) {
     setFold(block, !block.classList.contains("is-folded"));
   });
 
+  // A click anywhere on a row opens the element; pressing and moving still drags it (pointerDrag swallows the
+  // click that ends a drag). What has its own job in the row (buttons, links, badges, fields) keeps it; selected
+  // text is not a click (user test 2026-10-27, point 4)
+  grid.addEventListener("click", function (e) {
+    var row = e.target.closest(".item-row[data-drag]");
+    if (!row || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.target.closest("a, button, input, select, textarea, label, summary, .badge, .drag-handle, .toolbar, [contenteditable=true]")) return;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).trim()) return;
+    var link = row.querySelector("a.item-code[href]");
+    if (link) location.href = link.href;
+  });
+
   // "+" next to a palette element adds it at the end of the highlighted block
   // (delegated: construct rows are re-rendered by the sidebar search)
   document.addEventListener("click", function (e) {
