@@ -22,6 +22,8 @@
     Tonaufnahme und Transkript.", "A guide for semi-structured interviews. You conduct the interview with the interview view on
     a tablet or laptop or with the printed guide; under “Interviews” you can save it with notes,
     audio recording and transcript.") }}</p>
+  {# three parts as on every page that creates a survey (Ralf 2026-10-27): what it is about, who takes part, how it runs #}
+  <fieldset class="bare stack"><legend>{{ de_en("Worum geht es?", "What is it about?") }}</legend>
   <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
     <input name="title" maxlength="300" placeholder="{{ de_en('z. B. „Pflegende Angehörige im ländlichen Raum“', 'e.g. “Family carers in rural areas”') }}" autofocus></label>
   <label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("optional; steht im Word-Leitfaden", "optional; appears in the Word guide") }}</span></span>
@@ -29,12 +31,14 @@
   <div class="row-fields">
     <label>{{ de_en("Sprache des Leitfadens", "Language of the guide") }}
       <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if code == ui_language() %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
-    <label>{{ de_en("Zielgruppe", "Target group") }}
-      <select name="target"><option value="">{{ de_en("nicht angegeben", "not stated") }}</option>{% for key, name in targets.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+  </div>
+  </fieldset>
+  {% with recruitment=study_plan.interview_recruitment(), population_label=de_en("Genauer", "More precisely"), population_hint=de_en("optional; wen die Zielgruppe genau meint, z. B. Region oder Einschluss", "optional; whom the target group means exactly, e.g. region or inclusion") %}{% set lead_targets = targets %}{% include "_who_takes_part.html" %}{% endwith %}
+  <fieldset class="bare stack"><legend>{{ de_en("Wie läuft es ab?", "How does it run?") }}</legend>
+  <div class="row-fields">
     <label>{{ de_en("Interviewform", "Interview mode") }}
       <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
   </div>
-  {% with recruitment=study_plan.interview_recruitment(), population_label=de_en("Genauer", "More precisely"), population_hint=de_en("optional; wen die Zielgruppe genau meint, z. B. Region oder Einschluss", "optional; whom the target group means exactly, e.g. region or inclusion") %}{% include "_who_takes_part.html" %}{% endwith %}
   {% if start == "vorlage" %}
   <fieldset class="bare">
     <legend>{{ de_en("Vorlage", "Template") }}</legend>
@@ -47,10 +51,11 @@
   </fieldset>
   {% else %}<input type="hidden" name="template" value="leer">{% endif %}
   <fieldset class="bare">
-    <legend>{{ de_en("Reihenfolge im Interview", "Order in the interview") }}</legend>
+    <legend class="small">{{ de_en("Reihenfolge im Interview", "Order in the interview") }}</legend>
     {% for key, (name, note) in orders.items() %}
     <label class="check"><input type="radio" name="order" value="{{ key }}" {% if key == "free" %}checked{% endif %}> {{ name }} <span class="hint">{{ note }}</span></label>
     {% endfor %}
+  </fieldset>
   </fieldset>
   <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Anlegen", "Create") }}</button>
     {% if ai_on() %}

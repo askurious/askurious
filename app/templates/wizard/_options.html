@@ -1,10 +1,14 @@
 {# Step "Teilnahme und Datenqualität" of the setup wizard (UI/UX audit 2026-10-05, V24): only how people take part.
    Privacy, retention and the paradata keep their recommended settings; one line each says what is set and leads
    to the place where it is changed (settings page, page "Datenerhebung"). #}
+{% set on_, off_ = de_en("an", "on"), de_en("aus", "off") %}
+<p class="small">{{ de_en("Wie empfohlen voreingestellt:", "Set as recommended:") }} {{ de_en("Zurück", "Back") }} {{ on_ if values.allow_back else off_ }} · {{ de_en("Fortschrittsanzeige", "progress bar") }} {{ on_ if values.show_progress else off_ }} · {{ de_en("automatisch weiter", "auto-advance") }} {{ on_ if values.auto_advance else off_ }}</p>
+<details class="plan-more" id="settings-participation-fold"><summary>{{ de_en("Teilnahme anpassen", "Adjust participation") }} <span class="hint">{{ de_en("Navigation, schneller blättern, erneute Teilnahme", "navigation, faster paging, taking part again") }}</span></summary>
 <fieldset id="settings-participation">
   <legend>{{ de_en("Teilnahme", "Participation") }}</legend>
   {% include "surveys/_fields_participation.html" %}
 </fieldset>
+</details>
 {% set ret = values.retention or {} %}
 {% set quality = [(de_en("Seitenzeiten", "page times"), values.page_timing), (de_en("technische Angaben", "technical details"), values.paradata),
                   (de_en("Fensterwechsel und Einfügen", "window switches and pasting"), values.focus_paste), (de_en("Köder für KI-Agenten", "bait for AI agents"), values.ai_bait)] %}

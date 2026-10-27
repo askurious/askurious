@@ -35,18 +35,23 @@
   {{ csrf() }}
   <p class="muted small flush">{{ de_en("Teilnehmende treten mit der Askurious-App (Android) bei. Sie beantworten einmal eine Eingangsbefragung mit der Einwilligung, danach im Alltag kurze, wiederkehrende Kurzbefragungen (zu festen Zeiten, zufällig oder wann immer sie etwas melden möchten) und am Ende einmal eine Abschlussbefragung. Jede Antwort ist ein Eintrag; alle Einträge einer Person gehören zu ihrer Teilnahme.",
     "Participants join with the Askurious app (Android). They answer an entry survey with the consent once, then short, recurring short surveys in daily life (at fixed times, at random, or whenever they want to report something), and at the end an exit survey once. Each answer is an entry; all entries of a person belong to their participation.") }}</p>
+  {# three parts as on every page that creates a survey (Ralf 2026-10-27), then what comes along #}
+  <fieldset class="bare stack"><legend>{{ de_en("Worum geht es?", "What is it about?") }}</legend>
   <label><span class="label-title">{{ de_en("Titel", "Title") }}</span>
     <input name="title" maxlength="300" placeholder="{{ de_en('z. B. „Lernen im Alltag“', 'e.g. “Learning in daily life”') }}" autofocus></label>
   <label>{{ de_en("Sprache", "Language") }}
     <select name="language">{% for code, name in languages.items() %}<option value="{{ code }}" {% if code == ui_language() %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+  </fieldset>
+  {% with recruitment=study_plan.recruitment(), population_label=de_en("Für wen sollen die Ergebnisse gelten?", "Who should the results speak for?"), population_hint=de_en("Grundgesamtheit", "population") %}{% include "_who_takes_part.html" %}{% endwith %}
+  <fieldset class="bare stack"><legend>{{ de_en("Wie läuft es ab?", "How does it run?") }}</legend>
+  {% with new_survey=true %}{% include "diary/_join_mode.html" %}{% endwith %}
+  </fieldset>
   <fieldset class="bare stack"><legend>{{ de_en("Mit anlegen", "Create along with it") }}</legend>{# "Vorlage" is the word of the survey templates (W94; UI audit 2026-10-12, U36) #}
     <label class="check"><input type="checkbox" name="demographics" value="1" checked> {{ de_en("Alter und Geschlecht in die Eingangsbefragung (einmal je Person, nicht bei jeder Kurzbefragung)", "Age and gender in the entry survey (once per person, not in every short survey)") }}</label>
     <label class="check"><input type="checkbox" name="exit" value="1" checked> {{ de_en("Abschlussbefragung anlegen, mit einer offenen Frage zum Schluss", "Create an exit survey, with one open question at the end") }}</label>
     <p class="muted small flush">{{ de_en("Eine Kurzbefragung „Moment“ mit einer Frage kommt immer dazu. Alles lässt sich danach im Reiter „Fragebogen“ ändern; dort können Sie auch einen bestehenden Fragebogen als Eingangs- oder Abschlussbefragung übernehmen.",
       "A short survey “Moment” with one question is always added. You can change everything afterwards on the tab “Questionnaire”; there you can also copy an existing questionnaire as entry or exit survey.") }}</p>
   </fieldset>
-  {% with recruitment=study_plan.recruitment(), population_label=de_en("Für wen sollen die Ergebnisse gelten?", "Who should the results speak for?"), population_hint=de_en("Grundgesamtheit", "population") %}{% include "_who_takes_part.html" %}{% endwith %}
-  {% with new_survey=true %}{% include "diary/_join_mode.html" %}{% endwith %}
   <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Anlegen", "Create") }}</button></div>
 </form>
 {% endif %}

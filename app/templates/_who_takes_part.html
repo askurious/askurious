@@ -3,6 +3,8 @@
    population_label, population_hint. #}
 <fieldset class="bare stack"><legend>{{ de_en("Wer nimmt teil?", "Who takes part?") }}</legend>
   <div class="row-fields">
+    {% if lead_targets is defined and lead_targets %}<label>{{ de_en("Zielgruppe", "Target group") }}
+      <select name="target"><option value="">{{ de_en("nicht angegeben", "not stated") }}</option>{% for key, name in lead_targets.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>{% endif %}
     <label class="wide-field">{{ population_label }} <span class="hint">{{ population_hint }}</span>
       <input name="population" maxlength="300" placeholder="{{ de_en('z. B. pflegende Angehörige im Kreis Düren', 'e.g. family carers in the district of Düren') }}"></label>
     <label>{{ de_en("Auswahl", "Selection") }}

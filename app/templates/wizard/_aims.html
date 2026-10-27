@@ -1,0 +1,12 @@
+{# Research question and aims on the wizard's first step "Worum geht es?" (Ralf 2026-10-27): they say what the
+   survey is about, and the aims suggest the research design on the next step. Saved by study_plan.apply_aims. #}
+{% set aims_plan = study_plan.plan_of(survey) if survey else {"goals": []} %}
+<label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("optional; ein Satz: was, über wen; nicht sichtbar für Teilnehmende; Kontext für die KI-Unterstützung", "optional; one sentence: what, about whom; not visible to participants; context for the AI support") }}</span></span>
+  <textarea name="research_question" rows="2" maxlength="2000"
+            placeholder="{{ de_en('z. B. „Welche Faktoren bestimmen, ob Ältere Pflegeroboter im Alltag akzeptieren?“', 'e.g. “Which factors determine whether older people accept care robots in everyday life?”') }}">{{ (survey.research_question if survey else form.get("research_question", "")) or '' }}</textarea>
+</label>
+<input type="hidden" name="goals_shown" value="1">
+<fieldset class="plan-goals">
+  <legend>{{ de_en("Erkenntnisziele", "Research goals") }} <span class="hint">{{ de_en("optional, mehrere möglich; schlagen im nächsten Schritt ein Studiendesign vor", "optional, several possible; suggest a research design on the next step") }}</span></legend>
+  {% for k, label in study_plan.goals().items() %}<label class="check"><input type="checkbox" name="goal" value="{{ k }}"{% if k in aims_plan.goals %} checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+</fieldset>

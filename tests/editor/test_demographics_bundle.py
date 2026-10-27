@@ -71,8 +71,8 @@ def test_parts_can_be_left_out(app, client, survey):
 
 def test_wizard_default_gender_is_ges1_and_the_bundle_can_be_chosen(app, client):
     app.config["NEW_SURVEY_DEMOGRAPHICS"] = True
-    page = client.get("/surveys/new").data.decode()
-    assert 'name="demografie"' in page and "Demografie kurz (RatSWD)" in page
+    # the choice is on the step "Wer nimmt teil?" since 2026-10-27; a new survey still takes it when sent
+    assert 'name="demografie"' not in client.get("/surveys/new").data.decode()
     client.post("/surveys/new", data={"title": "Kurz", "languages": ["de"], "default_language": "de"})
     assert [k for _c, k, _w in _demo_layout(app, 1)] == ["age", "ratswd_ges1"]
     client.post("/surveys/new", data={"title": "Lang", "languages": ["de"], "default_language": "de",
