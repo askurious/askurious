@@ -31,7 +31,7 @@
       <div class="tc-diff-act">
         {% if d.kind == "match" %}<span class="small">{{ de_en("übereinstimmend", "matching") }}</span>
         {% else %}
-        <span class="small tc-flag">{{ {"only_a": de_en("nur A", "only A"), "only_b": de_en("nur B", "only B"), "other": de_en("andere Kategorie", "other category")}[d.kind] }}</span>
+        <span class="small tc-flag">{{ {"only_a": de_en("nur A", "only A"), "only_b": de_en("nur B", "only B"), "other": de_en("abweichend: andere Kategorie oder Grenze", "differing: other category or borders")}[d.kind] }}</span>
         {% if dec %}<p class="small">{{ de_en("Entschieden: {c} ({who})", "Decided: {c} ({who})", c={"a": de_en("A übernehmen", "take A"), "b": de_en("B übernehmen", "take B"), "both": de_en("beide behalten", "keep both"), "none": de_en("keine", "none")}[dec.choice], who=dec.by_name) }}{% if dec.comment %} · „{{ dec.comment }}“{% endif %}</p>{% endif %}
         <form method="post" class="tc-diff-form">
           {{ csrf() }}<input type="hidden" name="diff" value="{{ d.id }}"><input type="hidden" name="anchor" value="{{ loop.index }}">

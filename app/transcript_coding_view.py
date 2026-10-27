@@ -171,7 +171,7 @@ def add(project, who, row, start, end, cat_id):
 
     def change(items):
         if any(c.get("project") == project.id and c.get("cat") == cat.id and c.get("start") == span[0] and c.get("end") == span[1]
-               for c in items):
+               and c.get("by") == who.key for c in items):  # twice by the same person; two people may (double coding)
             problem.append(de_en("Diese Stelle hat diese Kategorie schon.", "This passage already has this category."))
             return items
         if len(items) >= MAX_PER_INTERVIEW:

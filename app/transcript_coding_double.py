@@ -145,7 +145,7 @@ def coder_codings(row, project, key):
 def differences(a_items, b_items, threshold=OVERLAP):
     """[{"id", "kind": "match"|"only_a"|"only_b"|"other", "a": coding or None, "b": coding or None}]: each passage of
     A paired with the best passage of B of the same category (overlap ≥ threshold), each used once; the rest of A and B
-    with "other" where a passage of the other coder overlaps it (any category), else "only"."""
+    with "other" where a passage of the other coder overlaps it (another category or other borders), else "only"."""
     out, used_b = [], set()
     for a in sorted(a_items, key=lambda c: (c["start"], c["end"])):
         best, score = None, 0.0
@@ -163,7 +163,7 @@ def differences(a_items, b_items, threshold=OVERLAP):
     rest_b = [b for b in b_items if b["id"] not in used_b]
     paired_b = set()
     for a in rest_a:
-        other = next((b for b in rest_b if b["id"] not in paired_b and _overlap(a, b) >= threshold), None)
+        other = next((b for b in rest_b if b["id"] not in paired_b and _overlap(a, b) > 0), None)
         if other is not None:
             paired_b.add(other["id"])
             out.append({"id": f"{a['id']}|{other['id']}", "kind": "other", "a": a, "b": other})
