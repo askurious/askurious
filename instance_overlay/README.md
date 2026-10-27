@@ -20,7 +20,7 @@ without changing it:
   The public code protects none of its own.
 
 - `instruments.json`: the wording of the scales of others in the construct toolbox (GESIS/ZIS short scales, TAM,
-  KUT, GDMS; `INSTRUMENTS` in app/constructs.py), which the public code does not carry because their licences do not
+  KUT, GDMS, ATI; `INSTRUMENTS` in app/constructs.py), which the public code does not carry because their licences do not
   allow passing them on: `{"instruments": {"<key>": {"question": {"<lang>": "..."}, "statements": [{"<lang>": "..."},
   ...]}}}`, one statement per item of the code's structure, in its order. Without it these constructs are left out of
   the toolbox; the study template "Technikakzeptanz" then goes without them. The installation checks before an export

@@ -7376,3 +7376,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf wählte Variante A: In der Übersicht des Assistenten steht „Fehlt noch“ jetzt zuerst, in einem farbig abgesetzten Feld mit Zahl. Jede Zeile sagt, wofür die Angabe gebraucht wird, und hat einen Knopf „Ergänzen in Schritt N“ (hervorgehoben, wenn empfohlen; schlicht, wenn optional).
 - Darunter stehen zwei Spalten mit fetten Überschriften und Zahl: „Schon angegeben“ mit den Werten (etwa „Lizenz: CC BY 4.0“) und „Setzt Askurious automatisch“. `ddi.readiness` liefert dafür Wert, Zweck und Schritt je Zeile.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Konstrukt ATI (interaktionsbezogene Technikaffinität)
+
+- Neues Konstrukt `ati`: Franke, Attig & Wessel (2019), 9 Aussagen, 6 beschriftete Stufen, Items 3, 6 und 8 umgepolt, ein Skalenwert als Mittelwert; deutsch und englisch, DOI 10.1080/10447318.2018.1456150.
+- Lizenz: ati-scale.org nennt die Skala „free to use“ und bittet um Zitation, gibt aber keine offene Lizenz zur Weitergabe des Wortlauts an. Der Code trägt deshalb wie bei den anderen fremden Skalen nur die Struktur; der Wortlaut liegt in `instruments.json` der Installation (RWTH-Overlay).
+- Test in `tests/analysis/test_constructs.py`.
+- Rechtstexte geprüft, keine Änderung nötig.
