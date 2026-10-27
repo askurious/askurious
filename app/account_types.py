@@ -498,17 +498,31 @@ def extend(user, spec, by, now=None):
     security_log.event("account_extended", account=user.id, by=by.id if by is not None else None, reason=spec or "open")
 
 
+def kept_create(before, type_levels):
+    """The levels after a change of type: the type's, but a "create" given to the account stays where the type says
+    only "edit" (its "no restriction"); a type that says "view" or "off" still lowers it. Before 2026-10-28 every
+    change of type took a "create" set on the account's page away without a word (Ralf: "Überall anlegen" was gone
+    after picking "Mitarbeitende")."""
+    from app import kind_access
+
+    old, new = kind_access.full(before), kind_access.full(type_levels)
+    return kind_access.clean({k: kind_access.CREATE if new[k] == kind_access.EDIT and old[k] == kind_access.CREATE
+                              else new[k] for k in kind_access.KINDS})
+
+
 def change_type(user, t, by):
     """Another type on the account's page (Masterarbeit becomes Mitarbeitende): its survey types and its right to
-    create come along, the period stays (change it beside)."""
+    create come along (a "create" of the account's own stays where the type says "edit", kept_create), the period
+    stays (change it beside). The same type again changes no level."""
     from app import kind_access
 
     row = _row(user)
+    same = t is not None and row.account_type_id == t.id
     row.account_type_id = t.id if t is not None else None
     if t is None or not t.supervised:  # e.g. a thesis candidate taken on as staff: no supervisors (Ralf 2026-10-18)
         set_supervisors(user, [])
-    if t is not None:
-        kind_access.store(user, t.kinds, by)
+    if t is not None and not same:
+        kind_access.store(user, kept_create(kind_access.stored(user), t.kinds), by)
     from app import security_log
 
     security_log.event("account_type_set", account=user.id, by=by.id if by is not None else None,

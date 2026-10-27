@@ -517,3 +517,24 @@ def test_one_account_that_fails_to_go_leaves_the_others(app, client, monkeypatch
         assert account_types.delete_due() == 1
         assert db.session.get(User, first) is not None
         assert db.session.scalar(db.select(db.func.count(User.id)).where(User.orcid.in_([OTHER, third]))) == 1
+
+
+def test_a_change_of_type_keeps_a_create_given_on_the_account_page(app, client):
+    """Ralf 2026-10-28: "Überall anlegen", then the type "Mitarbeitende" (all "edit") took "create" away without a
+    word, and so did the unchanged field saved again. Now "create" stays where the type says "edit"; a type that
+    says "view" lowers it; the same type again changes nothing."""
+    from app import kind_access
+
+    allow(app, OTHER)
+    _as(app.test_client(), OTHER)
+    uid, staff, master = _uid(app), _type(app, "staff"), _type(app, "master")
+    client.post(f"/admin/accounts/{uid}", data={"action": "may_create", "value": "0"})
+    client.post(f"/admin/accounts/{uid}", data={"action": "may_create", "value": "1"})
+    assert _login(app).account_type_id is None
+    for _ in range(2):  # a different type, then the same again (the autosave field sent once more)
+        client.post(f"/admin/accounts/{uid}", data={"action": "account_type", "account_type": str(staff)})
+        assert set(kind_access.full(_login(app).kinds).values()) == {"create"}
+    assert "legt an" in client.get("/admin/people").data.decode()
+    client.post(f"/admin/accounts/{uid}", data={"action": "account_type", "account_type": str(master)})
+    assert kind_access.full(_login(app).kinds) == {"survey": "create", "live": "view", "interview": "view",
+                                                   "diary": "view"}

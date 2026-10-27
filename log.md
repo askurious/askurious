@@ -7465,3 +7465,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf: ein eigenes Kapitel statt verstreuter Stellen. Neue Seite `/docs/metadata` (app/data/handbook/de|en/metadata.md, wie das KI-Kapitel eine eigene Datei, in der Übersicht verlinkt): 1 Wozu Metadaten (FAIR); 2 die drei Dateien (DDI Lifecycle 4.0, DDI Codebook 2.5 für CESSDA, CDIF) und wer sie liest, CESSDA sammelt über die Archive, der CESSDA-Validator als eigene Prüfung; 3 woher die Angaben kommen (Tabelle Eingabe → Metadatenfeld; Herausgeber, Studiennummer, Agency `de.askurious`, DOI; Kasten „Für Datenarchive“); 4 Vergleichbarkeit (Konstrukte als Konzepte, feste Kennungen, Ablauf als Ausdruck, abgeleitete Variablen, Wellen als Reihe, Aussagenbatterien); 5 Archivieren nur bei Zenodo und Coscine, Paketinhalt, Lizenzen, was nie mitgeht; 6 Präregistrierung, Siegelkette, Prüfsummen; 7 Konformität durch Tests, keine Prüfung in der App.
 - Verweise aus „15. Export und offene Daten“ und aus dem Kasten „Für Datenarchive“ („Was das bedeutet“).
 - Rechtstexte geprüft, keine Änderung nötig (nur Handbuch).
+
+## 2026-10-28: Nutzertypwechsel nimmt „Anlegen“ nicht mehr still weg
+
+- Ralf: bei Anne Heuser (RiSK) war „Überall anlegen“ nach Verlassen der Seite weg. RWTH-Protokoll: 5 s nach „Überall anlegen“ wurde der Nutzertyp „Mitarbeitende“ gesetzt, und `account_types.change_type` hat die Befragungstypen vom Typ übernommen (überall „Bearbeiten“).
+- Jetzt `account_types.kept_create`: ein einzeln gegebenes „Anlegen“ bleibt, wo der neue Typ „Bearbeiten“ hat; „Ansehen“/„Aus“ des Typs senken weiter. Derselbe Typ noch einmal (das automatisch speichernde Feld ohne Änderung) ändert keine Stufe. Hinweis am Feld und Meldung sagen das.
+- Test `test_a_change_of_type_keeps_a_create_given_on_the_account_page` (vorher rot).
+- Rechtstexte geprüft, keine Änderung nötig.
