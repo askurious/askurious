@@ -66,7 +66,7 @@
     {% endif %}{% endfor %}
     </tbody>
   {% endcall %}
-  <p class="muted small">{{ de_en("Wortebene: jedes Wort je Kategorie kodiert oder nicht; κ nach Cohen (1960), gelesen nach Landis & Koch (1977). Stellenebene: Stellen beider mit einem Gegenstück derselben Kategorie bei mindestens {t} % Überlappung. Ab {m} Stellen je Kategorie.", "Word level: every word coded or not per category; κ after Cohen (1960), read after Landis & Koch (1977). Passage level: passages of both with a counterpart of the same category overlapping by at least {t} %. From {m} passages per category.", t=threshold, m=min_passages) }}</p>
+  <p class="muted small">{{ de_en("Wortebene: jedes Wort je Kategorie kodiert oder nicht; κ nach Cohen (1960), gelesen nach Landis & Koch (1977). Stellenebene: Stellen beider mit einem Gegenstück derselben Kategorie bei mindestens {t} % Überlappung. Ab {m} Stellen je Kategorie.", "Word level: every word coded or not per category; κ after Cohen (1960), read after Landis & Koch (1977). Passage level: passages of both with a counterpart of the same category overlapping by at least {t}%. From {m} passages per category.", t=threshold, m=min_passages) }}</p>
   {{ grouped(sources) }}
 </section>
 {% endblock %}

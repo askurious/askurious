@@ -465,14 +465,14 @@ def guide_docx(project, survey, who):
         doc.add_paragraph(de_en("{n} abgeschlossene Doppelkodierungen; Wortebene mit Cohens κ (Cohen, 1960; Lesart nach Landis "
                                 "& Koch, 1977), Stellenebene bei mindestens {t} % Überlappung.",
                                 "{n} finished double codings; word level with Cohen's κ (Cohen, 1960; reading after Landis & "
-                                "Koch, 1977), passage level at an overlap of at least {t} %.", n=agree["_pairs"], t=round(double.OVERLAP * 100)))
+                                "Koch, 1977), passage level at an overlap of at least {t}%.", n=agree["_pairs"], t=round(double.OVERLAP * 100)))
         names = {c.id: c.name for c in live(project)}
         for key, label in [("all", de_en("Alle Kategorien", "All categories"))] + list(names.items()):
             f = agree[key]
             if not f["enough"]:
                 continue
             kappa = f"{f['kappa']:.2f} ({double.reading(f['kappa'])})" if f["kappa"] is not None else "–"
-            doc.add_paragraph(f"{label}: " + de_en("Wörter {p} %, κ = {k}; Stellen {m} von {n}", "words {p} %, κ = {k}; passages {m} of {n}",
+            doc.add_paragraph(f"{label}: " + de_en("Wörter {p} %, κ = {k}; Stellen {m} von {n}", "words {p}%, κ = {k}; passages {m} of {n}",
                                                    p=round(100 * f["p_o"], 1), k=kappa, m=f["passages"][0], n=f["passages"][1]))
     _note(doc, de_en("Inhaltlich strukturierende qualitative Inhaltsanalyse nach ", "Content-structuring qualitative content analysis after ")
           + KUCKARTZ + " " + MAYRING)
