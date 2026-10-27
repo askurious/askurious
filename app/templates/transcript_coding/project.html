@@ -3,11 +3,12 @@
 {% from "_icons.html" import icon %}
 {% from "surveys/_export_rows.html" import dialog %}
 {% from "transcript_coding/_category.html" import category with context %}
-{% from "transcript_coding/_parts.html" import notices_fold with context %}
-{# One analysis of an interview guide (app/transcript_coding.py, project). The team: settings, category system,
-   members, coding links, history. Members, coding links and interviewers with the tick: the category system with
-   their rights, the interviews they see, the history. Fields save by themselves; "Rückgängig" takes back one's own
-   last step. #}
+{% from "transcript_coding/_parts.html" import notices_fold, views with context %}
+{# One analysis of an interview guide (app/transcript_coding.py, project), in views switched in the head row (no row of
+   its own): Interviews (the default: the interviews to code), Kategoriensystem, and for the team Einstellungen (name,
+   research question, visibility, main categories fixed, AI suggestions, members, coding links, deleting); Übersicht
+   and Gegenseitige Probe are pages of their own. Fields save by themselves; "Rückgängig" takes back one's own last
+   step. #}
 {% block title %}{{ project.name }} · {{ de_en("Kodieren", "Code") }} · {{ survey.title }}{% endblock %}
 {% block container_class %}tabpage tabpage-single{% endblock %}
 {% block content %}
@@ -21,13 +22,10 @@
     {% if who.team %}<h2>{{ project.name }} <span class="hint">{{ de_en("Auswertung", "analysis") }}, {{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}</span></h2>
     {% else %}<h2>{{ de_en("Kodieren als {name}", "Coding as {name}", name=who.name) }} <span class="hint">{{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}</span></h2>{% endif %}
     <span class="spacer"></span>
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}">{{ de_en("Übersicht", "Overview") }}</a>
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.check', code=survey.code, pid=project.id) }}">{{ de_en("Gegenseitige Probe", "Mutual check") }}</a>
-    {% if who.team %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Auswertungen", "Analyses") }}</a>
-    {% elif who.kind == "interviewer" %}<a class="button button-small button-secondary" href="{{ url_for('interviewer.home', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Meine Interviews", "My interviews") }}</a>
-    {% elif who.kind == "link" %}<form method="post" action="{{ url_for('transcript_coding.link_logout', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ icon("logout", 16) }} {{ de_en("Abmelden", "Sign out") }}</button></form>{% endif %}
+    {{ views(survey, project, who) }}
+    {% if who.kind == "link" %}<form method="post" action="{{ url_for('transcript_coding.link_logout', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ icon("logout", 16) }} {{ de_en("Abmelden", "Sign out") }}</button></form>{% endif %}
   </div>
-  {% if not who.team %}
+  {% if not who.team and view == "categories" %}
   {% if project.question %}<p><strong>{{ de_en("Forschungsfrage:", "Research question:") }}</strong> {{ project.question }}</p>{% endif %}
   <p class="muted small">{{ de_en("Sie ergänzen das Kategoriensystem: Unterkategorien mit Name und Definition, auf Wunsch mit Abgrenzung. Ihre eigenen Einträge ändern Sie selbst, bei den anderen schlagen Sie eine Änderung vor. Ähnliche Namen erscheinen beim Anlegen zuerst.", "You add to the category system: subcategories with a name and definition, if you like with a delimitation. You change your own entries yourself; for the others you propose a change. Similar names show first when you create one.") }}
     {% if project.mains_fixed %}{{ de_en("Die Hauptkategorien sind festgelegt: Neue schlagen Sie als Kandidaten vor.", "The main categories are fixed: you propose new ones as candidates.") }}{% endif %}</p>
@@ -35,7 +33,7 @@
   {% endif %}
 </section>
 
-{% if who.team %}
+{% if who.team and view == "settings" %}
 <section class="panel" id="einstellungen">
   <h2>{{ de_en("Einstellungen", "Settings") }}</h2>
   <form method="post" action="{{ url_for('transcript_coding.settings', code=survey.code, pid=project.id) }}" class="stack" data-autosave-form>
@@ -61,7 +59,8 @@
 </section>
 {% endif %}
 
-{% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
+{% if notices and view != "settings" %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
+{% if view == "categories" %}
 <section class="panel" id="kategorien">
   <div class="row results-head">
     <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
@@ -88,6 +87,9 @@
   </div>
 </section>
 
+{% endif %}
+
+{% if view == "interviews" %}
 <section class="panel" id="interviews">
   <h2>{{ de_en("Interviews dieser Auswertung", "Interviews of this analysis") }}</h2>
   {% if interviews %}
@@ -98,17 +100,17 @@
     <tr><td><strong>{{ r.interview.label }}</strong></td><td>{{ r.interview.by_name or "–" }}</td>
       <td>{% if not has_transcript(r) %}<span class="muted">{{ de_en("noch keines", "none yet") }}</span>{% elif t.checked %}{{ de_en("geprüft", "checked") }}{% else %}{{ de_en("Entwurf", "draft") }}{% endif %}</td>
       <td class="num">{{ coded(r) }}</td>
-      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Kodieren", "Code") }}</a>{% endif %}</td></tr>
+      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Kodieren", "Code") }}</a>{% else %}<span class="muted small">{{ de_en("erst mit Transkript", "once there is a transcript") }}</span>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   {% endcall %}
-  <p class="muted small">{{ de_en("Kodiert wird im Transkript; geprüfte Transkripte ändern sich nicht mehr. Wird ein Transkript danach noch korrigiert, finden die Stellen ihren Wortlaut wieder; was nicht mehr darin steht, erscheint als „nicht mehr zuzuordnen“.", "Coding happens in the transcript; checked transcripts no longer change. If a transcript is corrected afterwards, the passages find their wording again; what is no longer in it shows as “can no longer be placed”.") }}</p>
   {% else %}
   <p class="muted">{{ de_en("Noch keine Interviews für Sie in dieser Auswertung.", "No interviews for you in this analysis yet.") }}</p>
   {% endif %}
 </section>
+{% endif %}
 
-{% if who.team %}
+{% if who.team and view == "settings" %}
 <section class="panel" id="mitglieder">
   <h2>{{ de_en("Mitglieder", "Members") }} <span class="hint">{{ de_en("Rolle „Kodieren“: kodieren und ergänzen das Kategoriensystem, ändern den Leitfaden nicht", "role “Code”: code and add to the category system, do not change the guide") }}</span></h2>
   <p class="muted small">{{ de_en("Sie fügen die Kodierenden hinzu und sorgen dafür, dass sie zur Verschwiegenheit verpflichtet sind; alle mit „Bearbeiten“ oder „Admin“ am Leitfaden arbeiten hier ohnehin mit. Mitglieder mit Konto öffnen die Auswertung nach der Anmeldung unter dieser Adresse:", "You add the coders and make sure they are bound to confidentiality; everyone with “Edit” or “Manage” on the guide works here anyway. Members with an account open the analysis after signing in at this address:") }}</p>
@@ -210,14 +212,9 @@
 </section>
 {% endif %}
 
-<section class="panel" id="verlauf">
-  <h2>{{ de_en("Verlauf", "History") }}</h2>
-  {% if history %}
-  <ul class="tc-history">{% for e in history %}<li><span class="muted small">{{ e.at|localdt }}</span> {{ e.actor_name or de_en("Forschende", "researchers") }} {{ event_text(e) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}</li>{% endfor %}</ul>
-  {% else %}<p class="muted">{{ de_en("Noch keine Änderungen.", "No changes yet.") }}</p>{% endif %}
-</section>
+{# the history: under „Übersicht“ (transcript_coding/overview.html) #}
 
-{% if who.team %}
+{% if who.team and view == "settings" %}
 <section class="panel">
   <form method="post" action="{{ url_for('transcript_coding.delete', code=survey.code, pid=project.id) }}"
         data-confirm="{{ de_en('Auswertung „{name}“ löschen?', 'Delete the analysis “{name}”?', name=project.name) }}" data-confirm-note="{{ de_en('Kategoriensystem, Verlauf, Mitglieder und Kodierlinks gehen mit. Die Interviews bleiben.', 'Category system, history, members and coding links go with it. The interviews stay.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>

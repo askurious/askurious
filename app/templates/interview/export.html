@@ -14,17 +14,28 @@
 
 {# the stored interviews first: they are the data (UI audit 2026-10-04, R22) #}
 <section class="panel xp-card" id="interviews">
-  <h2>Interviews <span class="hint">{{ de_en("ohne Probeinterviews", "without trial interviews") }}</span>
-    {{ xp.info(de_en("Ohne Probeinterviews; mit ihnen und als Textdateien je Interview unter „Ergebnisse“.", "Without trial interviews; with them and as text files per interview under “Results”.")) }}</h2>
+  <h2>Interviews <span class="hint">{{ de_en("mit Probeinterviews", "with trial interviews") if trials else de_en("ohne Probeinterviews", "without trial interviews") }}</span>
+    <a class="button button-small button-secondary xp-trials" href="{{ url_for('interview.export', code=survey.code, probe=none if trials else 1) }}#interviews">{{ de_en("ohne Probeinterviews", "without trial interviews") if trials else de_en("mit Probeinterviews", "with trial interviews") }}</a></h2>
   <ul class="xp-rows">
     {% call xp.row(de_en("Projekt für QDA-Programme", "Project for QDA software"), de_en("Alles in einer Datei (REFI-QDA)", "Everything in one file (REFI-QDA)"), de_en("Transkripte, Kategoriensystem, Kurzfragebogen als Fallmerkmale und Notizen als Memos in einer Datei (REFI-QDA)", "transcripts, category system, short questionnaire as case variables and notes as memos in one file (REFI-QDA)")) %}
       {{ xp.fmt(".qdpx", url_for('interview_results.project_file', code=survey.code), de_en("Projekt für QDA-Programme (.qdpx) herunterladen", "Download project for QDA software (.qdpx)"), pooled=false, primary=true) }}
     {% endcall %}
+    {% call xp.row(de_en("Transkripte", "Transcripts"), de_en("Je Interview eine Datei, alle in einem ZIP", "One file per interview, all in one ZIP"), de_en("je Interview eine Datei mit Transkriptkopf und Zeilennummern, alle in einem ZIP; nicht geprüfte als Entwurf markiert", "one file per interview with transcript head and line numbers, all in one ZIP; unchecked ones marked as drafts")) %}
+      <form method="get" action="{{ url_for('interview_results.transcripts_file', code=survey.code) }}" class="xp-btns">
+        {% if trials %}<input type="hidden" name="probe" value="1">{% endif %}
+        <label class="check"><input type="checkbox" name="marks" value="1"> {{ de_en("Zeitmarken behalten", "Keep time marks") }}</label>
+        {% if has_tasks %}<input type="hidden" name="tasks" value="0"><label class="check" title="{{ de_en('Je Aufgabe eine Zeile an ihrer Zeitmarke, kursiv und ohne Sprecherkürzel; der Transkriptkopf nennt diese Einfügungen', 'One line per task at its time mark, in italics and without a speaker label; the transcript head names these insertions') }}"><input type="checkbox" name="tasks" value="1" checked> {{ de_en("Ergebnisse der Aufgaben einfügen", "Insert the results of the tasks") }}</label>{% endif %}
+        <button class="button button-secondary" name="format" value="docx">{{ icon("download", 16) }} Word (ZIP)</button>
+        <button class="button button-secondary" name="format" value="pdf">{{ icon("download", 16) }} PDF (ZIP)</button>
+        <button class="button button-secondary" name="format" value="both">{{ icon("download", 16) }} {{ de_en("beides (ZIP)", "both (ZIP)") }}</button>
+      </form>
+    {% endcall %}
     {% call xp.row(de_en("Fallübersicht", "Case overview"), de_en("Eine Zeile je Interview", "One row per interview"), de_en("eine Zeile je Interview: Kennung, Datum, Form, Dauer, je Leitfrage Stand und Aspekte, Kurzfragebogen und Postskript", "one row per interview: identifier, date, mode, duration, per guide question status and aspects, short questionnaire and postscript")) %}
-      {{ xp.fmt("CSV", url_for('interview_results.overview_file', code=survey.code), de_en("Fallübersicht (CSV) herunterladen", "Download case overview (CSV)"), pooled=false) }}
+      {{ xp.fmt("CSV", url_for('interview_results.overview_file', code=survey.code, probe=1 if trials else none), de_en("Fallübersicht (CSV) herunterladen", "Download case overview (CSV)"), pooled=false) }}
     {% endcall %}
     {% call xp.row(de_en("Notizen und Postskripte", "Notes and postscripts"), de_en("Je Interview mit Zeitmarken", "Per interview with time marks"), de_en("je Interview Stand, Aspekte, Notizen und Zeitmarken", "per interview status, aspects, notes and time marks")) %}
-      {{ xp.fmt("Word", url_for('interview_results.notes_word', code=survey.code), de_en("Notizen und Postskripte (Word) herunterladen", "Download notes and postscripts (Word)"), pooled=false) }}
+      {{ xp.fmt("Word", url_for('interview_results.notes_word', code=survey.code, probe=1 if trials else none), de_en("Notizen und Postskripte (Word) herunterladen", "Download notes and postscripts (Word)"), pooled=false) }}
+      {{ xp.fmt(de_en("Text (ZIP)", "Text (ZIP)"), url_for('interview_results.notes_files', code=survey.code, probe=1 if trials else none), de_en("Notizen als Textdatei je Interview (ZIP) herunterladen", "Download notes as a text file per interview (ZIP)"), pooled=false) }}
     {% endcall %}
     {% if may_copy_out(survey) %}
     {% call xp.row(de_en("Befragungsdatei", "Survey file"), de_en("Der ganze Leitfaden maschinenlesbar", "The whole guide machine-readable"), de_en("der ganze Leitfaden maschinenlesbar (JSON), zum Einlesen in Askurious oder in ein Aufzeichnungswerkzeug", "the whole guide machine-readable (JSON), to read into Askurious or into a recording tool")) %}

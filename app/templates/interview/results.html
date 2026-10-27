@@ -12,36 +12,24 @@
 <section class="panel">
   <div class="row results-head">
     <h2>{{ de_en("Ergebnisse", "Results") }} <span class="hint">{{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}{{ de_en(" mit Probeinterviews", " with trial interviews") if trials else "" }}</span></h2>
-    <span class="spacer"></span>
-    <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code, probe=none if trials else 1) }}">{{ de_en("ohne Probeinterviews", "without trial interviews") if trials else de_en("mit Probeinterviews", "with trial interviews") }}</a>
-    <a class="button button-small button-secondary" href="{{ url_for('interview_search.page', code=survey.code) }}">{{ de_en("Suche in den Transkripten", "Search in the transcripts") }}</a>
-    <a class="button button-small button-secondary" href="{{ url_for('interview_summaries.page', code=survey.code) }}">{{ de_en("Fallzusammenfassungen", "Case summaries") }}</a>
-    {% if experimental("transcript_coding", survey) %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ de_en("Kodieren", "Code") }}</a>{% endif %}
   </div>
-  {% if not interviews %}<p class="muted">{{ de_en("Noch keine Interviews", "No interviews") }}{{ de_en(" und Probeinterviews", " or trial interviews") if trials else "" }}{{ de_en(". Die Ergebnisse füllen sich, sobald unter", " yet. The results fill up as soon as the first one is saved under") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}">Interviews</a>{{ de_en(" das erste gespeichert ist.", ".") }}</p>{% endif %}
-  <ul class="export-rows">
-    <li class="export-row"><div><strong>{{ de_en("Projekt für QDA-Programme", "Project for QDA software") }}</strong> <span class="muted small">{{ de_en("Transkripte, Kategoriensystem aus dem Leitfaden, Kurzfragebogen und Ergebnisse der Aufgaben als Fallmerkmale und Notizen als Memos in einer Datei (REFI-QDA), für MAXQDA, ATLAS.ti, NVivo und QDA Miner; ohne Probeinterviews", "transcripts, category system from the guide, short questionnaire and results of the tasks as case variables and notes as memos in one file (REFI-QDA), for MAXQDA, ATLAS.ti, NVivo and QDA Miner; without trial interviews") }}</span></div>
-      <a class="button button-small button-secondary" href="{{ url_for('interview_results.project_file', code=survey.code) }}">{{ icon("download", 16) }} .qdpx</a></li>
-    <li class="export-row"><div><strong>{{ de_en("Transkripte", "Transcripts") }}</strong> <span class="muted small">{{ de_en("je Interview eine Datei mit Transkriptkopf und Zeilennummern, alle in einem ZIP; nicht geprüfte als Entwurf markiert", "one file per interview with transcript head and line numbers, all in one ZIP; unchecked ones marked as drafts") }}</span></div>
-      <form method="get" action="{{ url_for('interview_results.transcripts_file', code=survey.code) }}" class="export-row-buttons">
-        {% if trials %}<input type="hidden" name="probe" value="1">{% endif %}
-        <label class="check"><input type="checkbox" name="marks" value="1"> {{ de_en("Zeitmarken behalten", "Keep time marks") }}</label>
-        {% if has_tasks %}<input type="hidden" name="tasks" value="0"><label class="check" title="{{ de_en('Je Aufgabe eine Zeile an ihrer Zeitmarke, kursiv und ohne Sprecherkürzel; der Transkriptkopf nennt diese Einfügungen', 'One line per task at its time mark, in italics and without a speaker label; the transcript head names these insertions') }}"><input type="checkbox" name="tasks" value="1" checked> {{ de_en("Ergebnisse der Aufgaben einfügen", "Insert the results of the tasks") }}</label>{% endif %}
-        <button class="button button-small button-secondary" name="format" value="docx">{{ icon("download", 16) }} Word (ZIP)</button>
-        <button class="button button-small button-secondary" name="format" value="pdf">{{ icon("download", 16) }} PDF (ZIP)</button>
-        <button class="button button-small button-secondary" name="format" value="both">{{ icon("download", 16) }} {{ de_en("beides (ZIP)", "both (ZIP)") }}</button></form></li>
-    <li class="export-row"><div><strong>{{ de_en("Fallübersicht", "Case overview") }}</strong> <span class="muted small">{{ de_en("eine Zeile je Interview: Kennung, Datum, Form, Dauer, je Leitfrage Stand und Aspekte (0/1), Aufgaben, Kurzfragebogen und Postskript", "one row per interview: identifier, date, mode, duration, per guide question status and aspects (0/1), tasks, short questionnaire and postscript") }}</span></div>
-      <a class="button button-small button-secondary" href="{{ url_for('interview_results.overview_file', code=survey.code, probe=1 if trials else none) }}">{{ icon("download", 16) }} CSV</a></li>
-    <li class="export-row"><div><strong>{{ de_en("Notizen und Postskripte", "Notes and postscripts") }}</strong> <span class="muted small">{{ de_en("je Interview Stand, Aspekte, Notizen und Zeitmarken (#hh:mm:ss-0#), dazu Kurzfragebogen und Postskript", "per interview status, aspects, notes and time marks (#hh:mm:ss-0#), with short questionnaire and postscript") }}</span></div>
-      <span class="export-row-buttons">
-        <a class="button button-small button-secondary" href="{{ url_for('interview_results.notes_word', code=survey.code, probe=1 if trials else none) }}">{{ icon("download", 16) }} Word</a>
-        <a class="button button-small button-secondary" href="{{ url_for('interview_results.notes_files', code=survey.code, probe=1 if trials else none) }}" title="{{ de_en('eine Textdatei je Interview, zum Einlesen neben dem Transkript', 'one text file per interview, to read in next to the transcript') }}">{{ icon("download", 16) }} Text (ZIP)</a></span></li>
+  {# the three ways to work on with the interviews, one line each (the downloads are in the tab "Export") #}
+  <ul class="iv-tools">
+    {% if experimental("transcript_coding", survey) %}<li><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ de_en("Kodieren", "Code") }}</a>
+      <span class="muted small">{{ de_en("Textstellen der Transkripte Kategorien zuordnen, auch gemeinsam mit anderen", "assign passages of the transcripts to categories, also together with others") }}</span></li>{% endif %}
+    <li><a class="button button-small button-secondary" href="{{ url_for('interview_summaries.page', code=survey.code) }}">{{ de_en("Fallzusammenfassungen", "Case summaries") }}</a>
+      <span class="muted small">{{ de_en("je Interview und Themenblock eine kurze Zusammenfassung (thematische Matrix)", "a short summary per interview and topic block (thematic matrix)") }}</span></li>
+    <li><a class="button button-small button-secondary" href="{{ url_for('interview_search.page', code=survey.code) }}">{{ de_en("Suche in den Transkripten", "Search in the transcripts") }}</a>
+      <span class="muted small">{{ de_en("Wörter und Wendungen über alle Transkripte finden", "find words and phrases across all transcripts") }}</span></li>
   </ul>
+  {% if not interviews %}<p class="muted">{{ de_en("Noch keine Interviews", "No interviews") }}{{ de_en(" und Probeinterviews", " or trial interviews") if trials else "" }}{{ de_en(". Die Ergebnisse füllen sich, sobald unter", " yet. The results fill up as soon as the first one is saved under") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}">Interviews</a>{{ de_en(" das erste gespeichert ist.", ".") }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Die Dateien zum Herunterladen (Projekt für QDA-Programme, Transkripte, Fallübersicht, Notizen) stehen im Reiter", "The files to download (project for QDA software, transcripts, case overview, notes) are in the tab") }} <a href="{{ url_for('interview.export', code=survey.code) }}#interviews">Export</a>.</p>
 </section>
 
 {% if interviews %}
 <section class="panel">
-  <h2>{{ de_en("Fallübersicht", "Case overview") }}</h2>
+  <div class="row results-head"><h2>{{ de_en("Fallübersicht", "Case overview") }}</h2><span class="spacer"></span>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code, probe=none if trials else 1) }}">{{ de_en("ohne Probeinterviews", "without trial interviews") if trials else de_en("mit Probeinterviews", "with trial interviews") }}</a></div>
   <div class="res-scroll">
   {% call list_table("is-wide") %}
     <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Datum", "Date") }}</th><th>{{ de_en("Form", "Mode") }}</th><th>{{ de_en("Dauer", "Duration") }}</th>{% for item in form_items %}<th>{{ item.text("question")|striptags|truncate(30, true, "…") }}</th>{% endfor %}</tr></thead>

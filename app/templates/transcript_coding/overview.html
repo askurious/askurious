@@ -13,6 +13,8 @@
       <a class="button button-small {{ '' if view == 'table' else 'button-secondary' }}" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}" {% if view == 'table' %}aria-current="page"{% endif %}>{{ de_en("Tabelle", "Table") }}</a>
       <a class="button button-small {{ '' if view == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id, view='map') }}" {% if view == 'map' %}aria-current="page"{% endif %}>{{ de_en("Karte", "Map") }}</a>
     </div>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id) }}">{{ de_en("Stellen je Kategorie", "Passages per category") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id) }}">{{ de_en("Kategorie × Interview", "Category × interview") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.coding_guide', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Kodierleitfaden (Word)", "Coding guide (Word)") }}</a>
     {% if who.team %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project_file', code=survey.code, pid=project.id) }}" title="{{ de_en('Kategoriensystem, Transkripte und kodierte Stellen für MAXQDA, ATLAS.ti, NVivo und QDA Miner', 'Category system, transcripts and coded passages for MAXQDA, ATLAS.ti, NVivo and QDA Miner') }}">{{ icon("download", 16) }} .qdpx</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.codebook_file', code=survey.code, pid=project.id) }}" title="{{ de_en('nur das Kategoriensystem', 'only the category system') }}">{{ icon("download", 16) }} .qdc</a>{% endif %}
@@ -62,7 +64,7 @@
       <p class="muted small">{% set bits = [] %}{% if p.overlap %}{% set _ = bits.append(de_en("{n} Stellen in beiden", "{n} passages in both", n=p.overlap)) %}{% endif %}{% if p.checks %}{% set _ = bits.append(de_en("Probe {n}-mal abweichend", "check differed {n} times", n=p.checks)) %}{% endif %}{% if p.names %}{% set _ = bits.append(de_en("ähnliche Namen", "similar names")) %}{% endif %}{{ bits|join(" · ") }}</p>
       <div class="tc-info-actions">
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[p.a.id, p.b.id]) }}">{{ de_en("Stellen ansehen", "View passages") }}</a>
-        <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
+        <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
       </div>
       <details class="tc-propose"><summary>{{ de_en("Zusammenführen", "Merge") }}</summary>
         <form method="post" action="{{ url_for('transcript_coding.merge_categories', code=survey.code, pid=project.id) }}" class="stack">

@@ -465,7 +465,9 @@ def guide_docx(project, survey, who):
 
 
 def _back(survey, project, anchor=""):
-    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id) + (f"#{anchor}" if anchor else ""))
+    from app.transcript_coding import _project_url
+
+    return redirect(_project_url(survey, project, anchor))
 
 
 def _context(survey, project, who):

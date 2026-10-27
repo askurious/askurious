@@ -2178,6 +2178,8 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-similar li { display: grid; gap: 4px; justify-items: start; }
 .tc-indent { margin-left: 24px; }
 .tc-add { margin-top: 12px; }
+.iv-tools { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 8px; }
+.iv-tools li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .tc-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 /* the coding view (transcript_coding/code.html): transcript and category system side by side, on a phone one under
    the other; a coded passage carries the colour of its category, two or more a thicker line below */

@@ -61,7 +61,7 @@ def test_code_remove_and_anchor(app, client):
     assert sub in [c[0] for c in _cats(app, pid, "sub")]
     # the anchor example, shown on the page of the analysis
     assert client.post(f"{base}/codings/{cid}/anchor").json["ok"]
-    assert "Abends bin ich einfach fertig" in client.get(f"/guide/{code}/interviews/coding/{pid}").data.decode()
+    assert "Abends bin ich einfach fertig" in client.get(f"/guide/{code}/interviews/coding/{pid}?view=categories").data.decode()
     # another member may neither remove it nor choose the anchor of a category not theirs
     bea, _ = _person(app)
     client.post(f"/guide/{code}/interviews/coding/{pid}/members", data={"kind": "person", "person": BEA})
