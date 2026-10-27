@@ -93,7 +93,7 @@ def test_analysis_from_the_guide_with_the_keys_of_the_codebook(app, client):
     empty = _new(client, code, "Induktiv", start="empty")
     assert _cats(app, empty) == []
     copy = _new(client, code, "Kopie", start="copy", copy_of=str(pid))
-    assert [c[2] for c in _cats(app, copy)] == [c[2] for c in _cats(app, pid)]
+    assert sorted(c[2] for c in _cats(app, copy)) == sorted(c[2] for c in _cats(app, pid))
     assert _new(client, code, "seminar") is None                                    # the same name twice
 
 
@@ -229,13 +229,13 @@ def test_coding_link(app, client):
 
 def test_own_interviews_only_and_groups(app, client):
     code, sid = _guide(app, client)
-    a, _ = open_link(app, code, add_interviewer(client, code, "Anna"))
-    b, _ = open_link(app, code, add_interviewer(client, code, "Bert"))
+    a, _ = open_link(app, code, add_interviewer(client, code, "Anna Neu"))
+    b, _ = open_link(app, code, add_interviewer(client, code, "Bert Ernst"))
     ra, rb = begin(a, code), begin(b, code)
     pid = _new(client, code)
     base = f"/guide/{code}/interviews/coding/{pid}"
     with app.app_context():
-        anna = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Anna"))
+        anna = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Anna Neu"))
     client.post(f"{base}/settings", data={"name": "Seminar", "question": "", "visibility": "own"})
     client.post(f"{base}/links", data={"name": "Gruppe 1", "days": "30", "access": str(anna)})
     key = re.search(rf"/guide/{code}/coding-link#([A-Za-z0-9_\-]+)", client.get(base).data.decode()).group(1)

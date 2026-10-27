@@ -523,7 +523,8 @@ def change(project, cat, who, values, merge=None):
 
 def _last(project, cat_id):
     return db.session.scalar(db.select(CodingEvent).filter_by(project_id=project.id, category_id=cat_id)
-                             .where(CodingEvent.kind != "proposal").order_by(CodingEvent.id.desc()).limit(1))
+                             .where(CodingEvent.kind.not_in(("proposal", "accepted", "declined")))
+                             .order_by(CodingEvent.id.desc()).limit(1))  # the answers to a proposal change nothing themselves
 
 
 def remove(project, cat, who):
