@@ -27,5 +27,10 @@ def upgrade():
 
 
 def downgrade():
+    # SQLite copies the tables for this; the revision triggers name them and go first (app/data_revision.py)
+    from app.data_revision import install, uninstall
+
+    uninstall(op.get_bind())
     with op.batch_alter_table("survey") as batch:
         batch.drop_column("scale_default")
+    install(op.get_bind())
