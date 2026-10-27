@@ -16,6 +16,7 @@ It explains what the tool is for, which ideas shape it, which words it uses, wha
 | [Analysis](analysis.md) | Results, dashboards, export and open data |
 | [Other kinds of survey](kinds.md) | Diary survey, interview guide and live poll |
 | [Other pages](more.md) | Constructs, groups, designs, sample size, account, element types and learning aids |
+| [Metadata, archiving and publication](metadata.md) | Which description Askurious writes for data archives (DDI, CDIF), where the details come from, what makes them comparable, what goes into the package for Zenodo and Coscine and what never goes along |
 | [AI in Askurious](ai.md) | Where and how AI is used, what is sent, how AI output is labelled, and what AI deliberately does not do |
 
 The screenshots show a demo survey, the study templates and made-up people with dummy data (October 2026), taken with tools/handbook_shots.

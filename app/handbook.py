@@ -20,6 +20,7 @@ TITLES = {"index": ("Das Konzept", "The concept"), "guides": ("Anleitungen", "Gu
           "build": ("Eine Befragung aufbauen", "Building a survey"), "field": ("Feldphase", "Fieldwork"),
           "analysis": ("Auswerten", "Analysis"), "kinds": ("Weitere Befragungsarten", "Other kinds of survey"),
           "more": ("Weitere Seiten", "Other pages"), "ai": ("KI in Askurious", "AI in Askurious"),
+          "metadata": ("Metadaten, Archivierung und Veröffentlichung", "Metadata, archiving and publication"),
           "dialogs": ("Seiten und Dialoge", "Pages and dialogs")}
 # the pages that were "Seiten und Dialoge" until 2026-10-22, in their order (the overview /docs/dialogs lists them)
 DIALOG_PAGES = ("build", "field", "analysis", "kinds", "more")

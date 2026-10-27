@@ -55,7 +55,7 @@ Die Abwägung: weniger Einzelheiten für die Lesenden, dafür Schutz der Teilneh
 ![Export: Datenpool, Export der Antworten, Methodenteil, Formate](img/export.jpg)
 
 **Was es ist.**
-Alles, was die Plattform verlässt:
+Alles, was die Plattform verlässt. Wie Metadaten, Archivierung und Veröffentlichung zusammenhängen, beschreibt das Kapitel [Metadaten, Archivierung und Veröffentlichung](metadata.md).
 
 - **Antworten** als CSV (Komma oder Semikolon), SPSS/JASP (.sav), jamovi (.omv), R (.rds), mit **Codebuch**; auf Wunsch mit Skalenwerten.
 - **Fragebogen** als Word (Codebuch oder Druckfassung), Konstrukte und **Literatur** (.bib, .ris).

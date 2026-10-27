@@ -16,6 +16,7 @@ Es erklärt, wofür das Werkzeug da ist, welche Ideen es prägen, welche Begriff
 | [Auswerten](analysis.md) | Ergebnisse, Dashboards, Export und offene Daten |
 | [Weitere Befragungsarten](kinds.md) | Tagebuchstudie, Interviewleitfaden und Live-Abstimmung |
 | [Weitere Seiten](more.md) | Konstrukte, Gruppen, Designs, Stichprobengröße, Konto, Elementtypen und Lernhilfen |
+| [Metadaten, Archivierung und Veröffentlichung](metadata.md) | Welche Beschreibung Askurious für Datenarchive schreibt (DDI, CDIF), woher die Angaben kommen, was sie vergleichbar macht, was bei Zenodo und Coscine ins Paket kommt und was nie mitgeht |
 | [KI in Askurious](ai.md) | Wo und wie KI eingesetzt wird, was übermittelt wird, wie KI-Ergebnisse gekennzeichnet sind und was KI bewusst nicht tut |
 
 Die Bildschirmfotos zeigen eine Demo-Befragung, die Studienvorlagen und erfundene Personen mit Dummy-Daten (Oktober 2026), aufgenommen mit tools/handbook_shots.

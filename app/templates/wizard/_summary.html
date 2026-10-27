@@ -40,7 +40,7 @@
 {% set auto = ready|selectattr("state", "equalto", "auto")|list %}
 {% set keys = wizard_keys %}
 <div class="archive-box">
-  <h3>{{ de_en("Für Datenarchive", "For data archives") }} <span class="hint">DDI, CESSDA</span></h3>
+  <h3>{{ de_en("Für Datenarchive", "For data archives") }} <span class="hint">DDI, CESSDA · <a href="{{ url_for('handbook.page', name='metadata') }}">{{ de_en("Was das bedeutet", "What this means") }}</a></span></h3>
   <p class="small muted flush">{{ de_en("{n} von {m} empfohlenen Angaben sind da; der DDI-Export unter „Dokumentation“ und die Pakete für Zenodo und Coscine nutzen sie.", "{n} of {m} recommended details are there; the DDI export under “Documentation” and the packages for Zenodo and Coscine use them.", n=have, m=counted|length) }}</p>
   <div class="archive-meter" aria-hidden="true"><span style="width: {{ (100 * have / (counted|length or 1))|round|int }}%"></span></div>
   {% if missing %}

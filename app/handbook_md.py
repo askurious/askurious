@@ -15,7 +15,7 @@ from markupsafe import Markup, escape
 
 # the pages in the order of the side navigation; "Seiten und Dialoge" was one page until 2026-10-22 (Ralf: split it,
 # with guides by goal in front), /docs/dialogs is now an overview that leads to them
-PAGES = ("index", "guides", "build", "field", "analysis", "kinds", "more", "ai")
+PAGES = ("index", "guides", "build", "field", "analysis", "kinds", "more", "metadata", "ai")
 
 
 def slug(text):
