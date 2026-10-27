@@ -55,7 +55,9 @@ def test_the_answer_keeps_the_protective_headers_and_says_when_to_try_again(tmp_
     for header in ("Retry-After $wartung_retry", "Strict-Transport-Security $askurious_hsts", "X-Content-Type-Options nosniff",
                    "X-Frame-Options DENY", "Referrer-Policy no-referrer", 'Cache-Control "no-store"'):
         assert f"add_header {header} always;" in page
-    assert re.search(r"map \$uri \$wartung_retry \{ default 30; /_wartung/schalter 120; \}", conf)
+    assert re.search(r"map \$uri \$wartung_retry_nach \{ default 30; /_wartung/schalter 120; \}", conf)
+    # taken before try_files, which sets $uri to the page's file (then the map always said 30)
+    assert page.index("set $wartung_retry $wartung_retry_nach;") < page.index("try_files /wartung/")
     assert 'map $http_accept $wartung_typ { default txt; "~*text/html" html; }' in conf
 
 

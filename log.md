@@ -7383,3 +7383,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Lizenz: ati-scale.org nennt die Skala „free to use“ und bittet um Zitation, gibt aber keine offene Lizenz zur Weitergabe des Wortlauts an. Der Code trägt deshalb wie bei den anderen fremden Skalen nur die Struktur; der Wortlaut liegt in `instruments.json` der Installation (RWTH-Overlay).
 - Test in `tests/analysis/test_constructs.py`.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Retry-After der Wartungsseite
+
+- Die Wartungsseite schickte bei eingeschaltetem Schalter Retry-After 30 statt 120 (Ralf). Ursache: `try_files` setzt `$uri` auf die Datei der Seite, und die map `$uri` → Retry-After wurde erst von `add_header` gelesen, also mit dem Dateipfad (immer 30).
+- `wartung.conf` liest den Wert jetzt vor `try_files` (`set $wartung_retry $wartung_retry_nach;`): 120 beim Schalter, 30 beim Ausfall.
+- Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
