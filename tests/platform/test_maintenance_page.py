@@ -36,12 +36,15 @@ def test_researcher_and_participant_names_carry_the_switch_and_the_failure_page(
         assert f'set $wartung_name "{name}";' in block
         # the side is set before the switch is read, the page's own address passes it
         assert block.index(f"set $wartung_seite {side};") < block.index("if (-f /etc/nginx/wartung/$wartung_seite.an)")
-        assert "if ($wartung_frei) { set $wartung_an \"\"; }" in block
+        # $uri itself: a map's value stays from before the internal redirect and the page met the switch again
+        assert 'if ($uri ~ "^/_wartung/") { set $wartung_an ""; }' in block
+        assert block.index("set $wartung_an 1;") < block.index('if ($uri ~ "^/_wartung/")') < block.index("return 503;")
         assert "error_page 502 =503 /_wartung/ausfall;" in block and "error_page 503 /_wartung/schalter;" in block
         assert "internal;" in block[block.index("location ^~ /_wartung/"):]
     # the status page and the redirects of the old names are never behind it
     for host in ("status.askurious.de", "queryous.de", "www.askurious.de"):
         assert "wartung" not in blocks[host]
+    assert "$wartung_frei" not in conf                   # no map in the switch's way (cached across the redirect)
     assert "proxy_intercept_errors" not in conf          # the app's own 503 (backup window) stays as it is
 
 
