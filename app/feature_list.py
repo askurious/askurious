@@ -19,7 +19,7 @@ def groups():
             (de_en("Live-Abstimmung für Vorlesungen und Veranstaltungen",
                    "Live poll for lectures and events"), None),
             (de_en("Tagebuchstudie (Experience Sampling) mit der Android-App",
-                   "Diary survey (experience sampling) with the Android app"), "diary"),
+                   "Diary survey (experience sampling) with the Android app"), None),
             (de_en("Papierfragebogen: gedruckt, gescannt und auf dem Server ausgelesen",
                    "Paper questionnaire: printed, scanned and read on the server"), None),
             (de_en("Sechs Vorlagen mit Studienplan, Fragebogen und Dummy-Daten zum Ausprobieren",
@@ -277,7 +277,7 @@ def groups():
             (de_en("Offline-Modus: Interviews ohne Netz führen, mit reservierten Kennungen und Löschcodes, verschlüsselt "
                    "auf dem Gerät, abends abgleichen",
                    "Offline mode: conduct interviews without a network, with reserved identifiers and deletion codes, "
-                   "encrypted on the device, synced in the evening"), "offline_interviews"),
+                   "encrypted on the device, synced in the evening"), None),
             (de_en("Interviewlinks: Interviewende ohne Konto führen, nehmen auf und transkribieren nur ihre eigenen "
                    "Interviews, bis sie das Transkript übergeben",
                    "Interviewer links: interviewers without an account conduct, record and transcribe only their own "
@@ -313,13 +313,13 @@ def groups():
         ]),
         ("tagebuch", de_en("Tagebuchstudie", "Diary survey"), [
             (de_en("Eigene App für Tagebuchstudien und Experience Sampling: für Android, iOS folgt",
-                   "Own app for diary surveys and experience sampling: for Android, iOS to follow"), "diary"),
+                   "Own app for diary surveys and experience sampling: for Android, iOS to follow"), None),
             (de_en("Beitreten per QR-Code oder Beitrittscode; Eingangs-, Kurz- und Abschlussbefragungen",
-                   "Join by QR code or join code; entry, short and exit surveys"), "diary"),
+                   "Join by QR code or join code; entry, short and exit surveys"), None),
             (de_en("Benachrichtigungen zu festen oder zufälligen Zeiten in Zeitfenstern, Ruhezeiten, Erinnerungen",
-                   "Prompts at fixed or random times within windows, quiet hours, reminders"), "diary"),
+                   "Prompts at fixed or random times within windows, quiet hours, reminders"), None),
             (de_en("Antwortquote je Person, Verlauf über Tage und Stunden mit ICC(1), Export im Langformat",
-                   "Compliance per person, course over days and hours with ICC(1), export in long format"), "diary"),
+                   "Compliance per person, course over days and hours with ICC(1), export in long format"), None),
             (de_en("KI-Chat für Teilnehmende: Gespräch mit einem KI-Assistenten über den eigenen Modellzugang der "
                    "Befragung, jede Nachricht als Daten gespeichert",
                    "AI chat for participants: a conversation with an AI assistant over the survey's own model access, "

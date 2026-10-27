@@ -52,7 +52,6 @@ def test_new_preview_links_contain_no_orcid(app, client, survey):
 
 
 def test_diary_viewer_sees_no_enrolment_identifiers(app, client):
-    from tests.conftest import experiments_on
     from tests.diary.test_diary import _enrol, _new
     from app.models import Enrolment
 
@@ -60,7 +59,6 @@ def test_diary_viewer_sees_no_enrolment_identifiers(app, client):
     _enrol(app, code)
     allow(app, OTHER, keep=True)
     viewer = _as(app, OTHER, "Viewer")
-    experiments_on(viewer, "diary", orcid=OTHER)
     with app.app_context():
         db.session.add(SurveyMember(survey_id=1, orcid=OTHER, role="viewer"))
         db.session.commit()

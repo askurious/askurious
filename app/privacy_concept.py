@@ -312,8 +312,8 @@ def roles():
 ACTIVITY_META = (
     ("accounts", "2026-09-26", "2026-10-20"), ("participation", "2026-09-26", "2026-10-20"),
     ("pool", "2026-10-04", "2026-10-15"), ("live", "2026-10-03", "2026-10-19"),
-    ("interviews", "2026-10-04", "2026-10-20"), ("interviewer_links", "2026-10-15", "2026-10-15"),
-    ("participant_screen", "2026-10-20", "2026-10-20"), ("diary", "2026-10-11", "2026-10-20"),
+    ("interviews", "2026-10-04", "2026-10-27"), ("interviewer_links", "2026-10-15", "2026-10-15"),
+    ("participant_screen", "2026-10-20", "2026-10-20"), ("diary", "2026-10-11", "2026-10-27"),
     ("invitations", "2026-09-26", "2026-10-20"), ("paper", "2026-10-10", "2026-10-17"),
     ("comments", "2026-09-30", "2026-10-17"), ("feedback", "2026-09-27", "2026-10-16"),
     ("audit_log", "2026-10-04", "2026-10-19"), ("ai", "2026-10-01", "2026-10-20"),
@@ -611,7 +611,7 @@ def _activities():
                            "(Service Worker) außerdem eine Kopie der Interviewseite mit den Notizen und der Stand des "
                            "Interviews bis zu seinem Ende, höchstens 12 Stunden nach der letzten Nutzung. Wartende Tonstücke "
                            "lassen sich auf Wunsch als Datei sichern; diese Datei verwaltet die Person auf ihrem Gerät selbst "
-                           "und löscht sie nach dem Einlesen. Offline-Modus (experimentell, je Leitfaden): Der Server "
+                           "und löscht sie nach dem Einlesen. Offline-Modus (je Leitfaden): Der Server "
                            "reserviert vorab Plätze (pid, Kennung, Löschcode) für ein Gerät, ohne Zeile in der Datenbank; "
                            "das Gerät hält die ohne Netz geführten Interviews mit einer PIN verschlüsselt (AES-GCM, "
                            "Schlüssel aus PBKDF2, ohne Generalschlüssel) bis zur Übertragung, höchstens sieben Tage; "
@@ -623,7 +623,7 @@ def _activities():
                            "it is deleted there. For opening without a connection (service worker) also a copy of the "
                            "interview page with the notes and the state of the interview until it ends, at most 12 hours "
                            "after its last use. Waiting audio pieces can be saved as a file on request; the person manages "
-                           "that file on their device and deletes it after reading it in. Offline mode (experimental, per "
+                           "that file on their device and deletes it after reading it in. Offline mode (per "
                            "guide): the server reserves places (pid, identifier, deletion code) for one device in advance, "
                            "without a database row; the device keeps the interviews conducted without a network encrypted "
                            "with a PIN (AES-GCM, key from PBKDF2, no master key) until the transfer, at most seven days; then "
@@ -686,7 +686,7 @@ def _activities():
          "basis": de_en("Einwilligung der interviewten Person, eingeholt von den Forschenden (die Vorlage „Information und "
                         "Einwilligung“ nennt den Teilnehmerbildschirm)", "Consent of the interviewee, obtained by the "
                         "researchers (the template “Information and consent” names the participant screen)")},
-        {"name": de_en("Tagebuchstudien mit der App (experimentell)", "Diary surveys with the app (experimental)"),
+        {"name": de_en("Tagebuchstudien mit der App", "Diary surveys with the app"),
          "purpose": de_en("Wiederholte kurze Befragungen im Alltag (Experience Sampling) der Forschenden.",
                           "Repeated short surveys in daily life (experience sampling) by the researchers."),
          "subjects": de_en("Teilnehmende einer Tagebuchstudie", "Participants of a diary survey"),
@@ -1023,7 +1023,6 @@ def _services():
     whisper = c.get("WHISPER_URL", "")
     mail_on = mail.enabled()
     ws_on, ws_text = _feature_state("webservice")
-    diary_state = _feature_state("diary")
     rows += [
         {"name": de_en("Transkription (Whisper)", "Transcription (Whisper)"), "words": ("Whisper", "Transkription"),
          "data": de_en("Tonaufnahmen von Interviews, Titel des Leitfadens und Namen der Blöcke.",
@@ -1082,8 +1081,8 @@ def _services():
                        "content-autofill.googleapis.com (characteristics of the form, no answers, the phone's IP "
                        "address). The WebView's usage statistics are switched off and the questionnaires are excluded "
                        "from autofill; the WebView offers no way to switch the prediction requests off."),
-         "who": de_en("Teilnehmende", "Participants"), "switch": de_en("experimentell „diary“", "experimental “diary”"),
-         "state": diary_state, "where": usa},
+         "who": de_en("Teilnehmende", "Participants"), "switch": de_en("für alle", "for everyone"),
+         "state": _on(True), "where": usa},
         {"name": de_en("E-Mail (SMTP-Relay)", "Email (SMTP relay)"), "words": ("E-Mail", "Mail"),
          "data": de_en("Empfängeradressen und Inhalt von Einladungen und Kontonachrichten.",
                        "Recipient addresses and content of invitations and account messages."),
@@ -1673,7 +1672,7 @@ def risks():
                "noch nicht übergebenen Interviews einer Person; die Forschenden geben ihn nur ihr selbst, verpflichten sie "
                "auf Vertraulichkeit und sperren ihn bei Verlust oder Ende der Arbeit. Mit dem Teilnehmerbildschirm: "
                "Der Link öffnet nur die gerade freigegebene Aufgabe eines Interviews auf einem einzigen "
-               "Gerät; die Forschenden geben ihn nur der interviewten Person. Mit dem Offline-Modus (experimentell): "
+               "Gerät; die Forschenden geben ihn nur der interviewten Person. Mit dem Offline-Modus: "
                "Interviews liegen bis zu sieben Tage auf mobilen Geräten; Maßnahmen: Verschlüsselung mit einer "
                "Geräte-PIN, Frist, Löschen nach der Übertragung, Zurückziehen eines Feldpakets bei Verlust; die "
                "Forschenden beziehen das in ihre Prüfung (ggf. DSFA) ein und verlangen eine Gerätesperre.",
@@ -1681,7 +1680,7 @@ def risks():
                "person's interviews not yet handed over; the researchers give it only to that person, oblige them to "
                "confidentiality and block it on loss or when the work ends. With the participant screen: "
                "the link opens only the task of one interview released at that moment, on a single "
-               "device; the researchers give it only to the interviewee. With the offline mode (experimental): "
+               "device; the researchers give it only to the interviewee. With the offline mode: "
                "interviews stay on mobile devices for up to seven days; measures: encryption with a device PIN, the "
                "period, deletion after the transfer, withdrawing a field pack on loss; the researchers include this in "
                "their check (an impact assessment if needed) and require a device lock.")),

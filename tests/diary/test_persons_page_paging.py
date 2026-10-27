@@ -9,13 +9,11 @@ from sqlalchemy import event
 
 from app.extensions import db
 from app.models import Enrolment, Response, Survey, utcnow
-from tests.conftest import experiments_on
 
 PATH = "/surveys/1/field"
 
 
 def _study(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Stimmung im Alltag", "language": "de"})
 
 

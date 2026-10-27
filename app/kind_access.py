@@ -13,7 +13,7 @@ Stored are only the levels that differ from "edit" (UserLogin.kinds): accounts f
 without an entry, keep all four types to edit (Ralf: existing users have all four rights, they can be taken away
 later); migration 0080 wrote "create" where the former right to create held. A group with "darf Befragungen anlegen"
 raises "edit" to "create" once, when someone joins it (joined), not for as long as they are a member (E3).
-Site admins (ADMIN_ORCIDS) are never capped. The diary study stays experimental besides (experimental "diary").
+Site admins (ADMIN_ORCIDS) are never capped.
 
 New accounts start with the default of Administration > Personen (SiteSetting "new_account_kinds"), or with what
 "Person hinzufügen" chose for an iD on the sign-in list (SignInOrcid.kinds), or with the preset of a group they come

@@ -8,7 +8,7 @@ from app import design, diary
 from app.extensions import db
 from app.models import Response, Survey, SurveyMember
 from app.request_values import safe_loads
-from tests.conftest import allow, experiments_on
+from tests.conftest import allow
 from tests.diary.test_diary import API, _active_from_today, _bearer, _enrol, _entries_of, _new, _path
 from tests.dashboards.test_showcase import OTHER, _as
 
@@ -126,7 +126,6 @@ def test_test_codes_only_for_editors_and_never_on_an_example(app, client):
     _new(app, client)
     allow(app, OTHER, keep=True)
     other = _as(app, OTHER, "Kollegin")
-    experiments_on(other, "diary", orcid=OTHER)
     with app.app_context():
         db.session.add(SurveyMember(survey_id=1, orcid=OTHER, name="Kollegin", role="viewer", position=1))
         db.session.commit()

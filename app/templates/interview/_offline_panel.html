@@ -1,8 +1,8 @@
-{# Interviews without a network (app/interview_offline.py, experimental): the guide's switch (researchers), the link to
+{# Interviews without a network (app/interview_offline.py): the guide's switch (researchers), the link to
    the field kit, and the field packs with their state. Needs: survey, offline (dict from interview_offline.panel). #}
 {% if offline.offered %}
 <section class="panel" id="offline">
-  <h2>{{ de_en("Offline-Modus", "Offline mode") }} <span class="badge">{{ de_en("experimentell", "experimental") }}</span></h2>
+  <h2>{{ de_en("Offline-Modus", "Offline mode") }}</h2>
   <p class="muted small flush">{{ de_en("Für Interviews ohne Netz: Mit Netz reserviert das Gerät einige Interviews samt Kennung und Löschcode, ohne Netz führt es sie nacheinander, mit Netz gleicht es alles ab. Die Daten liegen bis dahin verschlüsselt auf dem Gerät, höchstens {d} Tage.", "For interviews without a network: with a network the device reserves some interviews with identifier and deletion code, without a network it conducts them one after the other, with a network it syncs everything. Until then the data stay encrypted on the device, at most {d} days.", d=offline.days) }}</p>
   {% if offline.may_switch %}
   <form method="post" action="{{ url_for('interview_offline.switch', code=survey.code) }}" class="row-fields">

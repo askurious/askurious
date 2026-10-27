@@ -229,15 +229,6 @@ def duplicate(survey_id):
     if not dup.may(current_user, survey):
         flash(dup.not_allowed(), "error")
         return redirect(url_for("dashboard.index"))
-    from app import experimental
-
-    if survey.sampling is not None and not experimental.enabled("diary"):
-        # a new diary study needs the feature, also by copying (decisions.md, "Experimentelles nur mit Freischaltung")
-        flash(de_en("Eine Tagebuchstudie duplizieren kann nur, wem die experimentelle Funktion „Tagebuchstudie“ "
-                    "freigeschaltet ist. Das schaltet ein Admin der Plattform frei.",
-                    "Only someone with the experimental feature “Diary survey” switched on can duplicate a diary survey. "
-                    "A site admin switches it on."), "error")
-        return redirect(url_for("dashboard.index"))
     title, with_people, link, error = dup.suggested_title(survey), not copy_only, False, None
     if request.method == "POST":
         title, with_people = request.form.get("title", ""), bool(request.form.get("with_people")) and not copy_only
