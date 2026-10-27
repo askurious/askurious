@@ -10,6 +10,7 @@ Pages outside a survey: constructs, groups, designs, sample size, account and el
 
 The pool of validated scales and standard questions (e.g. BFI-10, technology acceptance), searchable by name, author, year and wording, with filters by type, source (e.g. GESIS ZIS, APA PsycTests) and discipline.
 Starred constructs appear in the editor's sidebar.
+“Insert into a survey” on each card leads to the choice of draft and block. Short and long versions of one instrument are linked: the card names the other versions, the construct's page compares them under “Versions” (admins set the family under Administration › Constructs).
 Researchers can suggest new constructs.
 
 **Why.**

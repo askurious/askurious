@@ -86,4 +86,15 @@
     <div><button class="button button-secondary">{{ de_en("Eintragen", "Add") }}</button></div>
   </form>
 </section>
+
+{# short and long versions of one instrument, linked (app/construct_families.py; user test 2026-10-27, point 13) #}
+<section class="panel" id="fassung">
+  <h2>{{ de_en("Fassung", "Version") }} <span class="hint">{{ de_en("verknüpft Kurz- und Langfassungen desselben Instruments", "links short and long versions of the same instrument") }}</span></h2>
+  <form method="post" action="{{ url_for('admin.construct_family', key=c.key) }}" class="row-fields">{{ csrf() }}
+    <label>{{ de_en("Familie", "Family") }} <input name="family" maxlength="100" value="{{ family[0] if family else '' }}" placeholder="{{ de_en('z. B. Big Five', 'e.g. Big Five') }}"></label>
+    <label>{{ de_en("Diese Fassung", "This version") }} <input name="version" maxlength="95" value="{{ family[1] if family else '' }}" placeholder="{{ de_en('z. B. Kurzfassung BFI-10', 'e.g. short version BFI-10') }}"></label>
+    <div><button class="button button-secondary">{{ de_en("Speichern", "Save") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Konstrukte mit derselben Familie zeigen einander in der Liste und auf ihrer Seite als Fassungen; ein leeres Feld „Familie“ löst die Verknüpfung.", "Constructs with the same family show each other as versions in the list and on their page; an empty field “Family” removes the link.") }}</p>
+</section>
 {% endblock %}
