@@ -74,9 +74,6 @@
       {% if key == "fertig" and ai_way and ai_on() %}<button class="button button-ai button-secondary" name="wizard" value="ai">{{ icon("sparkles", 16) }} {{ ai_way[1] }}</button>{% endif %}
       <button class="button" name="wizard" value="next">{{ to_survey if key == "fertig" else (de_en("Anlegen und weiter", "Create and continue") if not survey else de_en("Weiter", "Next")) }}</button>
     </div>
-    {# a diary survey or guide is created after step 1 and every step saves at once: the guide or schedule is open
-       right away, the dashboard offers to continue the setup #}
-    {% if survey and kind != "survey" and key != "fertig" %}<p class="small wizard-later"><a href="{{ finish }}">{{ de_en("Später weiter und jetzt zum Leitfaden", "Continue later, go to the guide now") if kind == "interview" else de_en("Später weiter und jetzt zum Zeitplan", "Continue later, go to the schedule now") }}</a></p>{% endif %}
   </form>
 </section>
 
