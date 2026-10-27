@@ -24,6 +24,15 @@
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
   </div>
   <p class="muted small">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories.") }}</p>
+  {% if ai_on_state == "on" %}
+  <div class="row-fields">
+    <button type="button" class="button button-small button-ai" data-tc-suggest
+            data-url="{{ url_for('transcript_coding.suggest_passages', code=survey.code, pid=project.id, rid=row.id) }}" data-sections="{{ sections }}">{{ icon("sparkles", 16) }} {{ de_en("Stellen vorschlagen", "Suggest passages") }}</button>
+    <span class="muted small">{{ de_en("Das Transkript geht abschnittsweise an Ihren eigenen KI-Zugang ({to}). Vorschläge erscheinen gestrichelt; erst „Übernehmen“ macht eine kodierte Stelle daraus.", "The transcript goes section by section to your own AI access ({to}). Suggestions show dashed; only “Accept” turns one into a coded passage.", to=ai_recipient()) }}</span>
+  </div>
+  {% elif ai_on_state == "needs_own" %}
+  <p class="muted small">{{ de_en("KI-Vorschläge sind in dieser Auswertung erlaubt. Sie laufen nur über einen eigenen KI-Zugang; richten Sie ihn unter „KI-Nutzung“ bzw. Konto › Verbindungen ein.", "AI suggestions are allowed in this analysis. They run only over an own AI access; set it up under “AI usage” or Account › Connections.") }}</p>
+  {% endif %}
   <p class="small" data-tc-status role="status" aria-live="polite"></p>
 </section>
 
@@ -31,7 +40,8 @@
      data-add-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-base-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-quick-url="{{ url_for('transcript_coding.quick_category', code=survey.code, pid=project.id) }}"
-     data-project="{{ project.id }}" data-may-main="{{ '1' if may_main else '' }}">
+     data-project="{{ project.id }}" data-may-main="{{ '1' if may_main else '' }}"
+     data-sugg-url="{{ url_for('transcript_coding.suggestion_action', code=survey.code, pid=project.id, rid=row.id, action='ACTION') }}">
   <section class="panel tc-transcript" aria-label="{{ de_en('Transkript', 'Transcript') }}">
     <div class="tc-text-body" data-tc-text>{% for line in text.split("\n") %}<p>{{ line }}</p>{% endfor %}</div>
     {% if lost %}
@@ -69,7 +79,7 @@
 {# what a click on a coded passage shows #}
 <div class="tc-pop" data-tc-info hidden role="dialog" aria-label="{{ de_en('Kodierte Stelle', 'Coded passage') }}"></div>
 
-<script type="application/json" id="tc-data">{{ {"text": text, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable}|tojson }}</script>
+<script type="application/json" id="tc-data">{{ {"text": text, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable, "suggestions": suggestions}|tojson }}</script>
 <script src="{{ url_for('static', filename='transcript_coding_code.js') }}" defer></script>
 {% if who.kind == "link" %}<script src="{{ url_for('static', filename='coding_link.js') }}" defer></script>{% endif %}
 {% endblock %}

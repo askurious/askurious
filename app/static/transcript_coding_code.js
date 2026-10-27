@@ -7,7 +7,7 @@
   var dataEl = document.getElementById("tc-data");
   if (!root || !dataEl) return;
   var data = JSON.parse(dataEl.textContent);
-  var text = data.text, codings = data.codings, cats = data.categories;
+  var text = data.text, codings = data.codings, cats = data.categories, sugg = data.suggestions || [];
   var anchors = data.anchors || {}, editable = data.editable || {};
   var box = root.querySelector("[data-tc-text]"), side = root.querySelector("[data-tc-side]");
   var pop = document.querySelector("[data-tc-pop]"), info = document.querySelector("[data-tc-info]");
@@ -47,7 +47,7 @@
     var cuts = {};
     var pos = 0;
     text.split("\n").forEach(function (line) { cuts[pos] = 1; cuts[pos + line.length] = 1; pos += line.length + 1; });
-    codings.forEach(function (c) { cuts[c.start] = 1; cuts[c.end] = 1; });
+    codings.concat(sugg).forEach(function (c) { cuts[c.start] = 1; cuts[c.end] = 1; });
     var points = Object.keys(cuts).map(Number).sort(function (a, b) { return a - b; });
     box.textContent = "";
     var start = 0;
@@ -70,6 +70,15 @@
           span.style.setProperty("--tc2", colour(last));
           span.setAttribute("data-codings", here.map(function (c) { return c.id; }).join(" "));
           span.title = here.map(function (c) { var k = catOf(c.cat); return k ? k.name : ""; }).join(", ");
+          span.tabIndex = 0;
+        }
+        // AI suggestions not taken yet: dashed, in the colour of their category (app/transcript_coding_ai.py)
+        var hereS = sugg.filter(function (c) { return c.start <= s && c.end >= e; });
+        if (hereS.length) {
+          span.classList.add("tc-sug");
+          if (!here.length) span.classList.add("tc-hl");
+          span.style.setProperty("--ts", colour(catOf(hereS[0].cat)));
+          span.setAttribute("data-sugg", hereS.map(function (c) { return c.id; }).join(" "));
           span.tabIndex = 0;
         }
         p.appendChild(span);
@@ -291,7 +300,33 @@
   // --- a coded passage: its categories, removing, the anchor example ----------------------------------------------
   function showInfo(span) {
     var ids = (span.getAttribute("data-codings") || "").split(" ");
+    var sids = (span.getAttribute("data-sugg") || "").split(" ");
     info.textContent = "";
+    sugg.filter(function (c) { return sids.indexOf(c.id) >= 0; }).forEach(function (c) {
+      var cat = catOf(c.cat), row = document.createElement("div");
+      row.className = "tc-info-row tc-info-sug";
+      var head = document.createElement("p");
+      head.className = "small";
+      var strong = document.createElement("strong");
+      strong.textContent = de_en("KI-Vorschlag: ", "AI suggestion: ") + (cat ? label(cat) : "");
+      head.appendChild(strong);
+      row.appendChild(head);
+      if (c.reason) { var why = document.createElement("p"); why.className = "small muted"; why.textContent = c.reason; row.appendChild(why); }
+      var actions = document.createElement("div");
+      actions.className = "tc-info-actions";
+      [["accept", de_en("Übernehmen", "Accept"), { ids: [c.id] }], ["discard", de_en("Verwerfen", "Discard"), { ids: [c.id] }],
+       ["accept", de_en("Alle dieser Kategorie übernehmen", "Accept all of this category"), { cat: c.cat }],
+       ["discard", de_en("Alle dieser Kategorie verwerfen", "Discard all of this category"), { cat: c.cat }]].forEach(function (a, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "button button-small " + (i === 0 ? "button-ai" : "button-secondary");
+        b.textContent = a[1];
+        b.addEventListener("click", function () { suggestionAction(a[0], a[2]); });
+        actions.appendChild(b);
+      });
+      row.appendChild(actions);
+      info.appendChild(row);
+    });
     codings.filter(function (c) { return ids.indexOf(c.id) >= 0; }).forEach(function (c) {
       var cat = catOf(c.cat), row = document.createElement("div");
       row.className = "tc-info-row";
@@ -300,7 +335,7 @@
       var strong = document.createElement("strong");
       strong.textContent = cat ? label(cat) : "";
       head.appendChild(strong);
-      head.appendChild(document.createTextNode(" · " + (c.by_name || "")));
+      head.appendChild(document.createTextNode(" · " + (c.origin === "ai" ? de_en("KI-Vorschlag, übernommen von ", "AI suggestion, accepted by ") + (c.accepted_by || c.by_name || "") : (c.by_name || ""))));
       if (anchors[String(c.cat)] === c.id) head.appendChild(document.createTextNode(" · " + de_en("Ankerbeispiel", "anchor example")));
       row.appendChild(head);
       var q = document.createElement("p");
@@ -345,6 +380,63 @@
       info.hidden = true;
       draw();
       say(de_en("Entfernt.", "Removed."));
+    });
+  }
+
+  // --- AI suggestions: ask section by section, accept, discard, take back -----------------------------------------
+  var suggUrl = root.getAttribute("data-sugg-url") || "";
+  var undoBox = null;
+  function offerUndo(ids, message) {
+    say(message);
+    if (!status) return;
+    undoBox = document.createElement("button");
+    undoBox.type = "button";
+    undoBox.className = "button button-small button-secondary tc-undo";
+    undoBox.textContent = de_en("Rückgängig", "Undo");
+    undoBox.addEventListener("click", function () {
+      post(suggUrl.replace("ACTION", "undo"), { ids: ids }).then(function (d) {
+        if (d.ok) location.reload();
+      });
+    });
+    status.appendChild(document.createTextNode(" "));
+    status.appendChild(undoBox);
+  }
+  function suggestionAction(action, body) {
+    var chosen = sugg.filter(function (c) { return body.ids ? body.ids.indexOf(c.id) >= 0 : c.cat === body.cat; });
+    post(suggUrl.replace("ACTION", action), body).then(function (d) {
+      if (!d.ok) { say(de_en("Nicht gespeichert.", "Not saved.")); return; }
+      var ids = chosen.map(function (c) { return c.id; });
+      sugg = sugg.filter(function (c) { return ids.indexOf(c.id) < 0; });
+      if (action === "accept") {
+        (d.codings || []).forEach(function (c) { codings.push(c); var k = catOf(c.cat); if (k) k.n += 1; });
+        codings.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
+      }
+      info.hidden = true;
+      draw();
+      offerUndo(ids, action === "accept" ? de_en("Übernommen: ", "Accepted: ") + ids.length : de_en("Verworfen: ", "Discarded: ") + ids.length);
+    });
+  }
+  var suggestButton = document.querySelector("[data-tc-suggest]");
+  if (suggestButton) {
+    suggestButton.addEventListener("click", function () {
+      var total = Number(suggestButton.getAttribute("data-sections")) || 1, found = 0;
+      suggestButton.disabled = true;
+      function next(i) {
+        if (i >= total) {
+          suggestButton.disabled = false;
+          say(de_en("Fertig: ", "Done: ") + found + de_en(" Vorschläge. Gestrichelte Stellen anklicken, um sie zu übernehmen oder zu verwerfen.", " suggestions. Click a dashed passage to accept or discard it."));
+          return;
+        }
+        say(de_en("KI liest Abschnitt ", "AI reads section ") + (i + 1) + de_en(" von ", " of ") + total + " …");
+        post(suggestButton.getAttribute("data-url"), { section: i }).then(function (d) {
+          if (!d.ok) { suggestButton.disabled = false; say(d.error || de_en("Die KI hat nicht geantwortet.", "The AI did not answer.")); return; }
+          sugg = sugg.concat(d.suggestions || []);
+          found += (d.suggestions || []).length;
+          draw();
+          next(i + 1);
+        });
+      }
+      next(0);
     });
   }
 

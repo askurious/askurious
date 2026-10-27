@@ -271,14 +271,14 @@ def _categories(project, who):
 
 
 def _json_coding(c, project, who):
-    return {**{k: c.get(k) for k in ("id", "cat", "start", "end", "quote", "by_name", "at")},
+    return {**{k: c.get(k) for k in ("id", "cat", "start", "end", "quote", "by_name", "at", "origin", "accepted_by")},
             "mine": may_change(project, who, c)}
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>")
 @signed_in_or_coder
 def page(code, pid, rid):
-    from app import transcript_coding_review
+    from app import transcript_coding_ai, transcript_coding_review
 
     survey, project, who = _in(code, pid)
     row = _row(project, who, rid)
@@ -296,7 +296,10 @@ def page(code, pid, rid):
                            categories=cats, nxt=nxt, prev=prev, anchors={c.id: (c.anchor or {}).get("coding") for c in live(project)},
                            editable={c.id: may_edit(project, c, who) for c in live(project)},
                            may_main=who.team or not project.mains_fixed,
-                           notices=transcript_coding_review.notices(project, who))
+                           notices=transcript_coding_review.notices(project, who),
+                           ai_on_state=transcript_coding_ai.state(project, who),  # includes ai_on() (app/ai_access.py)
+                           suggestions=transcript_coding_ai.open_suggestions(row, project),
+                           sections=len(transcript_coding_ai.sections(transcript(row))))
 
 
 def _payload():

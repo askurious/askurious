@@ -144,6 +144,9 @@ def build_qdpx(project, survey):
                                                           "name": " ".join(c.get("quote", "").split())[:60],
                                                           "startPosition": str(c["start"]), "endPosition": str(c["end"]),
                                                           "creatingUser": user, "creationDateTime": at})
+                if c.get("origin") == "ai":  # an accepted AI suggestion stays recognisable
+                    _el(sel, ns, "Description", text=de_en("KI-Vorschlag, übernommen von {who}", "AI suggestion, accepted by {who}",
+                                                           who=c.get("accepted_by") or c.get("by_name") or ""))
                 coding = _el(sel, ns, "Coding", {"guid": _guid(survey, project, "coding", c["id"]), "creatingUser": user,
                                                  "creationDateTime": at})
                 _el(coding, ns, "CodeRef", {"targetGUID": guids[c["cat"]]})

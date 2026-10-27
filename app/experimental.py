@@ -75,7 +75,7 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Hilfe bei Krisenwörtern, ein eigenes Häkchen in der Einwilligung."),
     ("transcript_coding", "Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen",
      "Unter „Ergebnisse“ eines Interviewleitfadens der Knopf „Kodieren“: Textstellen markieren und Kategorien zuordnen "
-     "(Tasten 1 bis 9, Ankerbeispiele), Übersicht als Tabelle oder Karte, unscharfe Kategorien zusammenführen, "
+     "(Tasten 1 bis 9, Ankerbeispiele, KI-Vorschläge über den eigenen KI-Zugang, wenn erlaubt), Übersicht als Tabelle oder Karte, unscharfe Kategorien zusammenführen, "
      "gegenseitige Probe, Kodierleitfaden und Export für QDA-Programme (.qdpx, .qdc), Auswertungen mit eigener "
      "Forschungsfrage und "
      "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
@@ -124,7 +124,7 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                 "hint to help on crisis words, a tick of its own in the consent."),
     "transcript_coding": ("Code interviews: assign passages of transcripts to categories together",
                           "Under “Results” of an interview guide the button “Code”: mark passages and assign categories "
-                          "(keys 1 to 9, anchor examples), an overview as a table or map, merging blurred categories, a "
+                          "(keys 1 to 9, anchor examples, AI suggestions over the own AI access where allowed), an overview as a table or map, merging blurred categories, a "
                           "mutual check, a coding guide and an export for QDA software (.qdpx, .qdc), create analyses with their own "
                           "research question and category system, from the guide, empty or as a copy. You set the main "
                           "categories, members add subcategories with a definition, delimitation and author without "

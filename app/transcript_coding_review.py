@@ -427,6 +427,9 @@ def guide_docx(project, survey, who):
         p.add_run(project.question)
     st = stats(project, who)
     mains, candidates = tree(project)
+    from app.transcript_coding_ai import taken_from_ai
+
+    from_ai = taken_from_ai(project, interviews(project, who))
 
     def entry(cat, level):
         doc.add_heading(cat.name, level=level)
@@ -434,7 +437,9 @@ def guide_docx(project, survey, who):
                  (de_en("Ankerbeispiel", "Anchor example"), (f"„{(cat.anchor or {}).get('quote')}“ ({(cat.anchor or {}).get('label', '')})"
                                                              if (cat.anchor or {}).get("quote") else "")),
                  (de_en("Früher auch", "Formerly also"), ", ".join(cat.former_names or [])),
-                 (de_en("Stellen", "Passages"), str(st.get(cat.id, {}).get("n", 0)))]
+                 (de_en("Stellen", "Passages"), str(st.get(cat.id, {}).get("n", 0))
+                  + (de_en(", davon {n} aus KI-Vorschlägen übernommen", ", of them {n} accepted from AI suggestions", n=from_ai[cat.id])
+                     if from_ai.get(cat.id) else ""))]
         for label, text in lines:
             if text:
                 p = doc.add_paragraph()
