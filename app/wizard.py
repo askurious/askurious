@@ -3,8 +3,8 @@
 The survey is created after the first step; afterwards every step saves by itself, like the settings page
 (UI/UX audit 2026-10-05, V23: data-autosave-form, `autosave=1`); "Weiter" moves on (and saves what a page without
 script sends). Survey.setup_step remembers where to continue; everything stays editable later on the single
-settings page ("Einstellungen"). The steps left with "Überspringen" are remembered in the session and shown with a
-dash instead of a tick (V22).
+settings page ("Einstellungen"). No "Überspringen" (Ralf 2026-10-27): with every change saved at once it differed
+from "Weiter" only in a mark; a posted "skip" (an old page) still moves on without saving.
 """
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
@@ -431,18 +431,6 @@ def _too_large(error):
     return redirect(_import_back())
 
 
-def _skipped(survey):
-    """The steps of this survey left with "Überspringen" in this session."""
-    return set((session.get("wizard_skipped") or {}).get(str(survey.id), []))
-
-
-def _mark_skipped(survey, key, skipped):
-    marks = dict(session.get("wizard_skipped") or {})
-    keys = _skipped(survey) | {key} if skipped else _skipped(survey) - {key}
-    marks[str(survey.id)] = sorted(keys)
-    session["wizard_skipped"] = marks
-
-
 @bp.route("/<sid:survey_id>/setup/<step:key>", methods=["GET", "POST"])
 @login_required
 @autosave.aware
@@ -483,8 +471,6 @@ def step(survey_id, key):
 
     if request.method == "POST":
         action = request.form.get("wizard", "next")
-        if action in ("skip", "next"):
-            _mark_skipped(survey, key, action == "skip")
         if action != "skip":
             error = _save(survey, key, request.form, lang)
             if error:
@@ -507,7 +493,7 @@ def step(survey_id, key):
     return render_template(
         "wizard/step.html", survey=survey, key=key, steps=steps(), index=KEYS.index(key), form={},
         # steps up to the furthest one reached stay open for a visit, also after going back
-        reached=KEYS.index(survey.setup_step) if survey.setup_step in KEYS else len(KEYS) - 1, skipped=_skipped(survey),
+        reached=KEYS.index(survey.setup_step) if survey.setup_step in KEYS else len(KEYS) - 1,
         projects=surveys._my_projects(), languages=surveys.LANGUAGE_NAMES, lang=lang,
         values=survey, values_languages=survey.languages, lang_editable=survey.is_editable,
         # as on the settings page: only admins of the survey add people, so only they search

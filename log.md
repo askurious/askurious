@@ -7396,4 +7396,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Editor (#65): „+ Neuer Block“ unter dem letzten Block statt in der Leiste; ▷ statt Auge für die Vorschau, die Fahne für den Start; Blöcke ein- und ausklappen (je Browser gemerkt); ein Klick in die Zeile öffnet das Element, Drücken und Bewegen zieht es.
 - Skalen (#70): „Aussagen einfügen“ eine je Zeile, auch aus PDFs (`app/item_paste.py`); „Quelle der Items“ bei Likert, Differenzial und Schieberegler mit Warnung in der Startprüfung (`app/item_source.py`); „Items aus den Konstrukten übernehmen“ (ersetzen oder anhängen); „Frühere Antworten einsetzen“ als ruhige Zeile; der Beispieltext beim Fragetext lässt sich markieren und übernehmen.
 - Export: Wahl „Antworten im CSV-Datensatz als Codes oder als Beschriftungen“ (`export.labelled_csv_file`), Beschriftungen aus den Wertelabels des SPSS-Exports; Mehrfachauswahl behält die 0/1-Spalten und bekommt eine Spalte mit den gewählten Optionen.
+
+## 2026-10-27: Assistent ohne „Überspringen“
+
+- Ralf: Wozu „Überspringen“ neben „Weiter“, wenn es keine Pflichtangaben gibt? Der Assistent speichert jede Änderung sofort, daher unterschied sich „Überspringen“ nur in der Markierung „übersprungen“ (Strich statt Haken) in der Schrittleiste. Knopf und Markierung sind entfallen, es bleiben „Zurück“ und „Weiter“. Ein noch gesendetes „skip“ (alte Seite) geht weiter ohne zu speichern. Der Live-Assistent und die Kontoeinrichtung behalten ihr „Überspringen“, weil es dort etwas anderes bedeutet.
 - Rechtstexte geprüft, keine Änderung nötig.

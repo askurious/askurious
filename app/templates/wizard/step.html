@@ -18,11 +18,9 @@
 <ol class="wizard-steps" aria-label="{{ de_en('Schritte', 'Steps') }}">
   {% for k, t, st, opt in steps %}
   {% set state = "current" if loop.index0 == index else ("done" if loop.index0 < index or (reached is defined and loop.index0 <= reached) else "todo") %}
-  {# a step left with "Überspringen" gets a dash, not a tick (UI/UX audit 2026-10-05, V22) #}
-  {% set left = state == "done" and skipped is defined and k in skipped %}
-  <li class="wizard-step {{ state }}{% if left %} skipped{% endif %}">
-    {% if survey and state == "done" %}<a href="{{ url_for('wizard.step', survey_id=survey.id, key=k) }}" aria-label="{{ de_en('Schritt {n}: {title}', 'Step {n}: {title}', n=loop.index, title=t) }}{% if left %} {{ de_en('(übersprungen)', '(skipped)') }}{% endif %}">{% endif %}
-    <span class="wizard-num">{{ "–" if left else "✓" if state == "done" else loop.index }}</span><span class="wizard-label">{{ t }}</span>
+  <li class="wizard-step {{ state }}">
+    {% if survey and state == "done" %}<a href="{{ url_for('wizard.step', survey_id=survey.id, key=k) }}" aria-label="{{ de_en('Schritt {n}: {title}', 'Step {n}: {title}', n=loop.index, title=t) }}">{% endif %}
+    <span class="wizard-num">{{ "✓" if state == "done" else loop.index }}</span><span class="wizard-label">{{ t }}</span>
     {% if survey and state == "done" %}</a>{% endif %}
   </li>
   {% endfor %}
@@ -70,7 +68,7 @@
     <div class="wizard-nav">
       {% if index > 0 and survey %}<button class="button button-secondary" name="wizard" value="back" formnovalidate>{{ icon("back", 16) }} {{ de_en("Zurück", "Back") }}</button>{% endif %}
       <span class="wizard-spacer"></span>
-      {% if optional %}<button class="button button-secondary" name="wizard" value="skip" formnovalidate>{{ de_en("Überspringen", "Skip") }}</button>{% endif %}
+      {# no "Überspringen": every change is saved at once, so it only differed from "Weiter" in a mark (Ralf 2026-10-27) #}
       <button class="button" name="wizard" value="next">{{ de_en("Zum Fragebogen", "To the questionnaire") if key == "fertig" else (de_en("Anlegen und weiter", "Create and continue") if not survey else de_en("Weiter", "Next")) }}</button>
     </div>
   </form>

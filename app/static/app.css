@@ -1170,8 +1170,6 @@ body.dragging-var [data-var-target] {
 .wizard-step.current { border-top-color: var(--accent); color: var(--fg); font-weight: 650; }
 .wizard-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-3); font-size: 0.75rem; font-weight: 700; }
 .wizard-step.done .wizard-num { background: var(--accent-soft); color: var(--accent); }
-.wizard-step.done.skipped { border-top-color: var(--border); }
-.wizard-step.done.skipped .wizard-num { background: var(--surface-3); color: var(--muted); }
 .lang-default select { width: auto; min-width: 220px; max-width: 100%; }
 .wizard-defaults { border-top: 1px solid var(--border); padding-top: 12px; }
 .wizard-defaults p { margin: 0 0 6px; }
