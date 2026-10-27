@@ -159,7 +159,8 @@ def test_codebook25_of_a_bare_survey_and_an_interview_guide(app, client, schema2
     with app.app_context():
         bare = valid25(schema25, ddi_codebook.build(db.session.scalar(db.select(Survey).filter_by(title="Leer"))))
         guide = valid25(schema25, ddi_codebook.build(db.session.get(Survey, sid)))
-    assert not bare.xpath("//ddi:sampProc | //ddi:IDNo[@agency='DOI'] | //ddi:abstract", namespaces=NS)
+    assert not bare.xpath("//ddi:sampProc | //ddi:IDNo[@agency='DOI']", namespaces=NS)
+    assert bare.xpath("//ddi:abstract/text()", namespaces=NS) == ["Leer"]  # CESSDA requires it: the title, no description
     assert bare.xpath("//ddi:distrbtr/text()", namespaces=NS) == ["Philipp"]  # no institution: the owner's name
     assert guide.xpath("//ddi:dataKind/ddi:concept/text()", namespaces=NS) == ["Qualitative"]
     assert guide.xpath("//ddi:collMode/ddi:concept/text()", namespaces=NS) == ["Interview.FaceToFace"]

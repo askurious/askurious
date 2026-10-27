@@ -530,7 +530,10 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
     _lang(top, "ConstructName", {"en": "questionnaire"})
     blocks = []
     badges = _badges(survey)
-    for n, block in enumerate(survey.blocks, start=getattr(survey, "block_start", 1)):
+    number = {b.id: n for n, b in enumerate(survey.blocks, start=getattr(survey, "block_start", 1))}
+
+    def block_sequence(block):
+        n = number[block.id]
         seq, seq_id = doc.item("Sequence", f"block-{block.id}")
         _lang(seq, "Label", {lng: (block.titles or {}).get(lng) for lng in langs})
         flow_text = "; ".join(badges.get(block.id, []))
@@ -548,8 +551,84 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
         for kind, ident in children:
             doc.ref(seq, "ControlConstructReference", kind, ident)
         blocks.append((seq_id, seq))
-    for seq_id, _ in blocks:
-        doc.ref(top, "ControlConstructReference", "Sequence", seq_id)
+        return seq_id
+
+    # the flow (app/flow.py) as constructs: a branch as IfThenElse with its condition as an expression, its "else" as
+    # the else part, a randomizer as Split, a loop as Loop; blocks the tree does not reach follow at the end
+    by_id = {b.id: b for b in survey.blocks}
+    seen, branches = set(), {}
+
+    def sequence_of(kind_key, refs):
+        seq, seq_id = doc.item("Sequence", kind_key)
+        for kind, ident in refs:
+            doc.ref(seq, "ControlConstructReference", kind, ident)
+        constructs_.append(("Sequence", seq_id, seq))
+        return seq_id
+
+    def walk(nodes):
+        refs = []
+        for node in nodes or []:
+            t = node.get("t")
+            if t == "block" and node.get("block") in by_id and node["block"] not in seen:
+                seen.add(node["block"])
+                refs.append(("Sequence", block_sequence(by_id[node["block"]])))
+            elif t == "branch":
+                then_id = sequence_of(f"then-{node.get('id')}", walk(node.get("children")))
+                ite, ite_id = doc.item("IfThenElse", f"branch-{node.get('id')}")
+                _condition(ite, survey, node.get("cond") or {}, "IfCondition")
+                doc.ref(ite, "ThenConstructReference", "Sequence", then_id)
+                branches[node.get("id")] = ite
+                constructs_.append(("IfThenElse", ite_id, ite))
+                refs.append(("IfThenElse", ite_id))
+            elif t == "else":
+                else_id = sequence_of(f"else-{node.get('id')}", walk(node.get("children")))
+                if node.get("of") in branches:
+                    doc.ref(branches[node["of"]], "ElseConstructReference", "Sequence", else_id)
+                else:
+                    refs.append(("Sequence", else_id))
+            elif t == "rand":
+                split, split_id = doc.item("Split", f"rand-{node.get('id')}")
+                _lang(split, "ConstructName", {"en": node.get("code") or "randomizer"})
+                kids = [c for c in node.get("children") or [] if c.get("t") != "else"]
+                k = node.get("k") or 1
+                _lang(split, "Description", {"en": f"Random assignment: each participant gets {k} of the {len(kids)} "
+                                                    f"parts below" + (", balanced" if node.get("balanced") else "")
+                                                    + (", in random order" if node.get("shuffle") else "")
+                                                    + f"; the part shown is in the column {node.get('code') or ''}."})
+                _sub(_sub(split, "TypeOfSequence"), "StringValue", "RandomSubset")
+                for n, child in enumerate(kids):
+                    inner = walk([child])
+                    if len(inner) == 1:
+                        doc.ref(split, "ControlConstructReference", inner[0][0], inner[0][1])
+                    elif inner:
+                        doc.ref(split, "ControlConstructReference", "Sequence",
+                                sequence_of(f"rand-{node.get('id')}-{n}", inner))
+                constructs_.append(("Split", split_id, split))
+                refs.append(("Split", split_id))
+            elif t == "loop":
+                body_id = sequence_of(f"loop-{node.get('id')}", walk(node.get("children")))
+                loop, loop_id = doc.item("Loop", f"loop-{node.get('id')}")
+                _lang(loop, "ConstructName", {"en": node.get("code") or "loop"})
+                how = ("all rows" if (node.get("mode") or "all") == "all" else f"{node.get('k') or 1} rows") + \
+                    (", in random order" if node.get("order") == "random" else "")
+                _lang(loop, "Description", {"en": f"Once per selected row of the loop table ({how}); the answers of "
+                                                   f"pass n are in the columns <name>_n, the order in {node.get('code') or 'loop'}_order."})
+                cond = _sub(loop, "LoopWhile")
+                _lang(cond, "Description", {"en": "while rows of the loop table are left"})
+                command = _sub(cond, "Command")
+                _sub(_sub(command, "ProgramLanguage"), "StringValue", PROGRAM_LANGUAGE)
+                _sub(command, "CommandContent", f"rows_left({node.get('code') or 'loop'})")
+                doc.ref(loop, "ControlConstructReference", "Sequence", body_id)
+                constructs_.append(("Loop", loop_id, loop))
+                refs.append(("Loop", loop_id))
+        return refs
+
+    from app import flow as flow_mod
+
+    top_refs = walk((flow_mod.tree(survey) or {}).get("children"))
+    top_refs += [("Sequence", block_sequence(b)) for b in survey.blocks if b.id not in seen]
+    for kind, ident in top_refs:
+        doc.ref(top, "ControlConstructReference", kind, ident)
 
     # -- the validated constructs the questions come from, one Concept each
     concepts = {}  # construct key -> (id, element)
@@ -568,7 +647,11 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
             concepts[key] = (concept_id, concept)
         concept_of[it.id] = concepts[key][0]
 
-    # -- variables
+    # -- variables (a column worked out from others: its inputs here, its calculation as GenerationInstruction)
+    made = derived(survey, book, column_item)
+    from app import weights as weights_mod
+
+    weight_col = weights_mod.COLUMN[0] if weights_mod.active(survey) else None
     variables = []
     for row in book:
         col = row[0]
@@ -578,6 +661,9 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
         if row[4]:
             _lang(var, "Description", {survey.default_language: row[4]})
         item = column_item.get(col)
+        for source in (made.get(col) or ("", "", []))[2]:
+            if source != col:
+                doc.ref(var, "SourceVariableReference", "Variable", doc.ident("Variable", source))
         if item is not None and item.id in concept_of:
             doc.ref(var, "ConceptReference", "Concept", concept_of[item.id])
         if col in question_of:
@@ -596,7 +682,29 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
             value.set(f"{{{XSI}}}type", {"date": "ddi:DateTimeRepresentationBaseType",
                                          "number": "ddi:NumericRepresentationBaseType"}.get(
                 kind, "ddi:TextRepresentationBaseType"))
+        if col == weight_col:
+            _sub(var, "IsWeight", "true")
         variables.append((var_id, var))
+    instructions = []
+    for col, (words, command, inputs) in made.items():
+        if col == weight_col:
+            continue
+        gen, gen_id = doc.item("GenerationInstruction", f"derived-{col}")
+        _lang(gen, "Description", {"en": f"{col}: {words}"})
+        for source in inputs:
+            doc.ref(gen, "InputVariableReference", "Variable", doc.ident("Variable", source))
+        code = _sub(gen, "CommandCode")
+        _lang(code, "Description", {"en": words})
+        if command:
+            cmd = _sub(code, "Command")
+            _sub(_sub(cmd, "ProgramLanguage"), "StringValue", PROGRAM_LANGUAGE)
+            _sub(cmd, "CommandContent", command)
+        _sub(gen, "IsDerived", "true")
+        instructions.append(gen)
+    weighting = None
+    if weight_col and weight_col in made:
+        weighting, _ = doc.item("Weighting")
+        _lang(weighting, "Description", {"en": made[weight_col][0]})
 
     # -- schemes and products
     qscheme, qscheme_id = doc.item("QuestionScheme")
@@ -637,6 +745,16 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
     for lng in langs:
         _sub(_sub(instrument, "FieldedLanguages"), "StringValue", lng)
 
+    target, sample_words = sample_facts(survey)
+    sample_el = sample_id = None
+    if target or sample_words:  # the planned sample of the research plan
+        sample_el, sample_id = doc.item("Sample")
+        _lang(sample_el, "Label", {"en": "Planned sample"})
+        if sample_words:
+            _lang(sample_el, "Description", {"en": sample_words[0].upper() + sample_words[1:] + "."})
+        if target:
+            size = _sub(_sub(sample_el, "OverallTargetSampleSize"), "PrimaryPopulation")
+            _sub(size, "NumberOfUnits", str(target))
     tm, sp, how = time_method(survey), sampling(survey), _method_text(survey)
     note = ((_plan(survey).get("sample") or {}).get("note") or "").strip()
     if tm or sp or how or note:
@@ -651,6 +769,8 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
             procedure = doc.inner(method, "SamplingProcedure")
             _code_value(procedure, "TypeOfSamplingProcedure", "SamplingProcedure", sp)
             _lang(procedure, "Description", {"en": sampling_text(survey)})
+            if sample_el is not None:
+                doc.ref(procedure, "SampleReference", "Sample", sample_id)
     _lang(collection, "Label", {lng: _title(survey, lng) for lng in langs})
     if method_id:
         doc.ref(collection, "MethodologyReference", "Methodology", method_id)
@@ -756,6 +876,11 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
         _lang(study, "Abstract", {survey.default_language: abstract})
     if universe_id:
         doc.ref(study, "UniverseReference", "Universe", universe_id)
+    panel = series(survey)
+    if panel:
+        statement = _sub(study, "SeriesStatement")
+        _lang(statement, "SeriesName", {survey.default_language: panel["name"]})
+        _lang(statement, "SeriesDescription", {"en": "Panel waves: " + series_text(panel)})
     line, _, grant = funding(survey)
     if line or grant:
         money = _sub(study, "FundingInformation")
@@ -818,7 +943,10 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
              + [("CodeList", el) for _, el in code_lists.values()]
              + [("Category", el) for _, el in categories.values()]
              + [("Variable", el) for _, el in variables]
-             + ([("Universe", universe)] if universe_id else []))
+             + ([("Universe", universe)] if universe_id else [])
+             + [("GenerationInstruction", el) for el in instructions]
+             + ([("Weighting", weighting)] if weighting is not None else [])
+             + ([("Sample", sample_el)] if sample_el is not None else []))
     for kind, el in _schema_order(items):
         doc.root.append(el)
     ET.register_namespace("ddi", NS)
@@ -836,10 +964,9 @@ def _schema_order(items):
 CONTAINER_ORDER = [
     "Archive", "Category", "CategoryScheme", "CodeList", "CodeListScheme", "Concept", "ControlConstructScheme",
     "DataCollection",
-    "IfThenElse", "Individual", "Instrument", "LogicalProduct", "Methodology", "OtherMaterial", "PhysicalInstance",
-    "QuestionConstruct",
-    "QuestionItem", "QuestionScheme", "Sequence", "StatementItem", "StudyUnit", "Universe", "Variable",
-    "VariableScheme"]
+    "GenerationInstruction", "IfThenElse", "Individual", "Instrument", "LogicalProduct", "Loop", "Methodology",
+    "OtherMaterial", "PhysicalInstance", "QuestionConstruct", "QuestionItem", "QuestionScheme", "Sample", "Sequence",
+    "Split", "StatementItem", "StudyUnit", "Universe", "Variable", "VariableScheme", "Weighting"]
 
 
 def _title(survey, lang):
@@ -859,6 +986,234 @@ def _badges(survey):
         return flow.badges(survey, "en")
     except Exception:  # noqa: BLE001 - the flow words are a note; a survey without a flow tree has none
         return {}
+
+
+# ---- the flow as expressions ---------------------------------------------------------------------------------------
+
+PROGRAM_LANGUAGE = "Askurious expression"
+# The expressions of conditions and calculations, so that tools can read the flow: a variable is the name of its
+# column; numbers stay numbers, codes and texts are in double quotes. Comparisons ==, !=, <, <=, >, >=; x in ("1", "2")
+# and x not in (...); contains(x, "3") (one of the chosen answers of a multiple choice); answered(x), empty(x);
+# between(x, 18, 29) (both ends included); param("src") is a URL parameter, quota_full("code") and quota_cell("code")
+# a quota, state(x) the federal state of a postal code; parts are joined with "and" or "or", "not (...)" is the
+# "else" of a branch. A loop runs while rows_left(<loop>). A calculation is "<column> = <expression>".
+OPERATORS = {"eq": "==", "ne": "!=", "lt": "<", "le": "<=", "gt": ">", "ge": ">="}
+NUMBER_RE = re.compile(r"-?\d+(?:[.,]\d+)?")
+
+
+def _literal(value):
+    import json
+
+    text = str(value if value is not None else "").strip()
+    if NUMBER_RE.fullmatch(text):
+        return text.replace(",", ".")
+    return json.dumps(text, ensure_ascii=False)
+
+
+def condition_expression(survey, cond):
+    """A condition of the flow or of an element (flow.holds) as an expression (PROGRAM_LANGUAGE); "" if unreadable."""
+    from app import flow
+    from app.conditions import own_item
+
+    if not isinstance(cond, dict):
+        return ""
+    if isinstance(cond.get("conds"), list):
+        found = [condition_expression(survey, c) for c in flow.parts(cond)]
+        found = [f"({f})" if " and " in f or " or " in f else f for f in found if f]
+        return (" or " if cond.get("rule") == "any" else " and ").join(found)
+    ref = cond.get("item")
+    if ref is None:
+        return ""
+    if isinstance(ref, str) and ref.startswith(flow.STATE_REF):
+        source = own_item(survey, flow.source_id(ref))
+        var = f"state({source.code})" if source is not None else ""
+    elif isinstance(ref, str) and ref.startswith("p:"):
+        var = f"param({_literal(ref[2:])})"
+    elif isinstance(ref, str) and ref.startswith(("q:", "qc:")):
+        kind, _, qid = ref.partition(":")
+        quota = next((q for q in (getattr(survey, "quotas", None) or []) if str(q.id) == qid), None)
+        var = f"{'quota_full' if kind == 'q' else 'quota_cell'}({_literal(quota.code if quota else qid)})"
+    else:
+        source = own_item(survey, ref) if isinstance(ref, int) else None
+        var = source.code if source is not None else ""
+    if not var:
+        return ""
+    op, value = cond.get("op", "eq"), cond.get("value", "")
+    if op in OPERATORS:
+        return f"{var} {OPERATORS[op]} {_literal(value)}"
+    if op in ("in", "nin"):
+        codes = ", ".join(_literal(c) for c in flow.code_list(value))
+        return f"{var} {'in' if op == 'in' else 'not in'} ({codes})"
+    if op == "contains":
+        return f"contains({var}, {_literal(value)})"
+    if op in ("answered", "empty"):
+        return f"{op}({var})"
+    if op == "between":
+        lo, hi = flow.bounds(value)
+        return f"between({var}, {_literal(lo)}, {_literal(hi)})"
+    return ""
+
+
+def condition_text(survey, cond):
+    """The condition in English words, as the codebook writes it for readers."""
+    from app import conditions, flow
+
+    try:
+        if isinstance(cond, dict) and isinstance(cond.get("conds"), list):
+            joint = " or " if cond.get("rule") == "any" else " and "
+            return joint.join(conditions.text(survey, c, survey.default_language, ui="en") for c in flow.parts(cond))
+        return conditions.text(survey, cond, survey.default_language, ui="en")
+    except Exception:  # noqa: BLE001 - the words are a description; an odd stored condition must not stop the file
+        return ""
+
+
+def _condition(parent, survey, cond, tag, prefix=""):
+    """<tag> (CommandCodeType): the condition in words and as an expression."""
+    el = _sub(parent, tag)
+    words = condition_text(survey, cond)
+    if words:
+        _lang(el, "Description", {"en": prefix + words})
+    expression = condition_expression(survey, cond)
+    if expression:
+        command = _sub(el, "Command")
+        _sub(_sub(command, "ProgramLanguage"), "StringValue", PROGRAM_LANGUAGE)
+        _sub(command, "CommandContent", expression)
+    return el
+
+
+def shown_if(survey):
+    """{item id: [(words, expression)]}: under which conditions each element is asked: the branches around its block
+    (an "else" as the negation of its branch) and its own condition."""
+    from app import flow, item_condition
+
+    out, conds_of_block = {}, {}
+
+    def walk(nodes, stack):
+        last = {}
+        for node in nodes or []:
+            t = node.get("t")
+            if t == "block":
+                conds_of_block[node.get("block")] = list(stack)
+            elif t == "branch":
+                c = node.get("cond") or {}
+                pair = (condition_text(survey, c), condition_expression(survey, c))
+                last[node.get("id")] = pair
+                walk(node.get("children"), stack + [pair])
+            elif t == "else":
+                words, expr = last.get(node.get("of"), ("", ""))
+                walk(node.get("children"), stack + [(f"not ({words})" if words else "", f"not ({expr})" if expr else "")])
+            elif t in flow.GROUPS:
+                walk(node.get("children"), stack)
+
+    walk((flow.tree(survey) or {}).get("children"), [])
+    for block in survey.blocks:
+        for item in block.items:
+            found = list(conds_of_block.get(block.id, []))
+            own = item_condition.of(item)
+            if own:
+                found.append((condition_text(survey, own), condition_expression(survey, own)))
+            found = [(w, e) for w, e in found if w or e]
+            if found:
+                out[item.id] = found
+    return out
+
+
+# ---- derived variables ------------------------------------------------------------------------------------------------
+
+
+def derived(survey, book, column_item):
+    """{column: (words, command, [input columns])} of the columns of the data file that Askurious works out from others:
+    a Rechenwert (its calculation), a reverse-coded statement (recoded in the export) and the weight (raking,
+    app/weights.py). Scale scores are in the data file only when asked for, so not here."""
+    from app import weights
+    from app.conditions import own_item
+
+    cols = [row[0] for row in book]
+    present = set(cols)
+    out = {}
+    for col in cols:
+        item = column_item.get(col)
+        if item is None:
+            continue
+        if item.type == "calc":
+            from app.items.calc import read_questions
+
+            formula = item.kind.formula(item, "en")
+            inputs = []
+            for qid in sorted(read_questions(survey, item)):
+                source = own_item(survey, qid)
+                if source is not None:
+                    inputs += [c for c, _ in source.kind.export_columns(source) if c in present]
+            command = formula.replace("×", "*").replace("÷", "/").replace("−", "-")
+            out[col] = (f"Calculated from earlier answers: {formula}", f"{col} = {command}", inputs)
+            continue
+        points = _reversed_points(item, col)
+        if points:
+            out[col] = (f"Reverse-coded statement, already recoded in the export: value = {points + 1} - answer",
+                        f"{col} = {points + 1} - {col}", [col])
+    if weights.active(survey) and weights.COLUMN[0] in present:
+        out[weights.COLUMN[0]] = ("Weight of the participation: " + weights.codebook_note(survey, "en"), "", [])
+    return out
+
+
+def _reversed_points(item, col):
+    """The number of points of a reverse-coded statement of a Likert battery behind this column, else 0 (as the
+    codebook finds it, export.codebook_rows)."""
+    if item.type != "likert":
+        return 0
+    try:
+        points = int((item.config or {}).get("points") or 0)
+    except (TypeError, ValueError):
+        return 0
+    base = _base_column(item, col)
+    stmt = next((s for s in item.kind.statements(item, item.block.survey.default_language) if s.get("export_code") == base), None)
+    return points if stmt and stmt.get("reverse") else 0
+
+
+# ---- sample and waves ----------------------------------------------------------------------------------------------
+
+
+def sample_facts(survey):
+    """(target size or None, English words on exclusions, response and quotas) of the research plan."""
+    sample = _plan(survey).get("sample") or {}
+    target = sample.get("target") if isinstance(sample.get("target"), int) and sample.get("target") > 0 else None
+    parts = []
+    if sample.get("exclusions") is not None and target:
+        parts.append(f"expected exclusions by the quality rules: {sample['exclusions']} %")
+    if sample.get("recruitment") == "panel" and sample.get("response"):
+        parts.append(f"expected response rate of the panel: {sample['response']} %")
+    quotas = [q.name or q.code for q in (getattr(survey, "quotas", None) or [])]
+    if quotas:
+        parts.append("quotas: " + "; ".join(quotas))
+    return target, "; ".join(parts)
+
+
+def series(survey):
+    """The panel waves this survey belongs to (app/waves.py): {"name", "n", "total", "label", "others": [(n, label,
+    study number)]}, or None. Other waves are named by their label and study number, not by their title."""
+    found = wave(survey)
+    if not found:
+        return None
+    from app import waves
+    from app.extensions import db
+    from app.models import Survey
+
+    n, total, label = found
+    others = []
+    for k, row in enumerate(waves.of(survey), start=1):
+        if row["survey"] == survey.id:
+            continue
+        other = db.session.get(Survey, row["survey"])
+        others.append((k, row["label"], study_number(other) if other is not None else ""))
+    name = (getattr(survey, "project", None) or "").strip() or survey.title
+    return {"name": name, "n": n, "total": total, "label": label, "others": others}
+
+
+def series_text(s):
+    parts = [f"Wave {s['n']} of {s['total']}" + (f" ({s['label']})" if s["label"] else "")]
+    for k, label, number in s["others"]:
+        parts.append(f"wave {k}" + (f" ({label})" if label else "") + (f": study number {number}" if number else ""))
+    return "; ".join(parts) + "."
 
 
 def _codebook(survey, lang, public=False, open_answers=False):
@@ -972,8 +1327,7 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
             out.append(("QuestionConstruct", qc_id))
     if item_condition.of(item) and out and not hidden:
         ite, ite_id = doc.item("IfThenElse", f"item-{item.id}")
-        cond = _sub(ite, "IfCondition")
-        _lang(cond, "Description", {"en": "Shown only if: " + item_condition.text(item, survey.default_language, "en")})
+        _condition(ite, survey, item_condition.of(item), "IfCondition", prefix="Shown only if: ")
         # the element's constructs as the "then" branch: one sequence around them
         then, then_id = doc.item("Sequence", f"then-{item.id}")
         for kind, ident in out:
