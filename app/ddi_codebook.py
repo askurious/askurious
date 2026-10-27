@@ -12,8 +12,10 @@ What goes in:
   sampling procedure and mode of collection as vocabulary terms with words; the conditions of use from the licence;
   the publications entered on the export page.
 - fileDscr: the data file (data.csv of a deposit) with its languages and number of variables.
-- dataDscr: a var per column of the codebook with label, question text in every survey language, categories (missing
-  codes marked) and format.
+- dataDscr: a var per column of the codebook with its language, label, question text in every survey language (a
+  statement of a battery as the question, its stem before it as preQTxt), categories (missing codes marked), the
+  validated construct as concept (vocab its source, vocabURI its DOI) and format.
+- collDate with the wave of a panel (cycle); otherMat for the other files of a deposit (material).
 
 No answers go in. public=True (Zenodo, Coscine) describes the columns of their codebook.csv and leaves out the
 wording of constructs without a general publication permission (export.withheld), as app/ddi.build does.
@@ -56,8 +58,9 @@ def _concept(parent, vocabulary, term, words="", lang="en"):
         _sub(parent, "txt", words, lang=lang)
 
 
-def build(survey, lang=None, public=False, open_answers=False):
-    """The DDI Codebook 2.5 XML of the survey as bytes (UTF-8); arguments as app/ddi.build."""
+def build(survey, lang=None, public=False, open_answers=False, material=()):
+    """The DDI Codebook 2.5 XML of the survey as bytes (UTF-8); arguments as app/ddi.build; material: the names of
+    the other files of a deposit (app/zenodo.package), listed as otherMat with what they hold."""
     from app import export, geoip, study_plan
 
     langs = ddi._languages(survey)
@@ -125,11 +128,13 @@ def build(survey, lang=None, public=False, open_answers=False):
     if abstract:
         _sub(info, "abstract", abstract, lang=default)
     summary = _sub(info, "sumDscr")
+    cycle = ddi.wave_text(survey)  # the wave of a panel ("Wave 2 of 3")
     if survey.opened_at:
-        _sub(summary, "collDate", f"{survey.opened_at:%Y-%m-%d}", lang="en", event="start", date=f"{survey.opened_at:%Y-%m-%d}")
+        _sub(summary, "collDate", f"{survey.opened_at:%Y-%m-%d}", lang="en", event="start", date=f"{survey.opened_at:%Y-%m-%d}",
+             cycle=cycle)
         if survey.closed_at:
             _sub(summary, "collDate", f"{survey.closed_at:%Y-%m-%d}", lang="en", event="end",
-                 date=f"{survey.closed_at:%Y-%m-%d}")
+                 date=f"{survey.closed_at:%Y-%m-%d}", cycle=cycle)
     country, region = sample.get("country") or "", sample.get("region") or ""
     if country:  # ISO 3166-1 alpha-2, as the CESSDA list CountryNamesAndCodes
         _sub(summary, "nation", geoip.country_name(country, "en") or country, lang="en", abbr=country)
@@ -187,6 +192,7 @@ def build(survey, lang=None, public=False, open_answers=False):
 
     data = _sub(root, "dataDscr")
     column_item = ddi._columns_by_item(survey)
+    constructs = {i.id: c for i in set(column_item.values()) if (c := ddi.construct_of(i))}
     for n, row in enumerate(book, start=1):
         col = row[0]
         item = column_item.get(col)
@@ -194,10 +200,16 @@ def build(survey, lang=None, public=False, open_answers=False):
         kind = "code" if pairs else ddi._kind(row, item, col)
         var = _sub(data, "var", ID=f"V{n}", name=col, files="F1",
                    intrvl="contin" if kind == "number" else "discrete")
+        var.set(XML_LANG, default)
         _sub(var, "labl", row[1] or col, lang=default)
-        texts = ddi.question_texts(survey, item, langs, withheld) if item is not None else {}
+        # a statement of a battery: its stem before the question, the statement as the question itself
+        split = ddi.statement_texts(survey, item, col, langs, withheld)
+        pre, texts = split if split else ({}, ddi.question_texts(survey, item, langs, withheld) if item is not None else {})
         if any(texts.values()):
             qstn = _sub(var, "qstn")
+            for lng, words in pre.items():
+                if words:
+                    _sub(qstn, "preQTxt", words, lang=lng)
             for lng, words in texts.items():
                 if words:
                     _sub(qstn, "qstnLit", words, lang=lng)
@@ -208,8 +220,19 @@ def build(survey, lang=None, public=False, open_answers=False):
             cat = _sub(var, "catgry", missing="Y" if code in missing else None)
             _sub(cat, "catValu", code)
             _sub(cat, "labl", label, lang=default)
+        construct = constructs.get(item.id) if item is not None else None
+        if construct is not None:  # the validated construct the question comes from, with its source
+            _sub(var, "concept", construct[1], lang=default, vocab=construct[2] or None,
+                 vocabURI=f"https://doi.org/{construct[3]}" if construct[3] else None)
         numeric = kind == "number" or (pairs and all(ddi.VALUE_RE.fullmatch(f"{c}={lb}") for c, lb in pairs))
         _sub(var, "varFormat", type="numeric" if numeric else "character", schema="other")
+
+    # -- the other files of a deposit
+    for name in material:
+        if name in ddi.PACKAGE_MATERIAL:
+            other = _sub(root, "otherMat", type="Documentation", level="study", URI=name)
+            _sub(other, "labl", name, lang="en")
+            _sub(other, "txt", ddi.PACKAGE_MATERIAL[name], lang="en")
 
     ET.register_namespace("", NS)
     ET.register_namespace("xsi", XSI)

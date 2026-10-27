@@ -382,6 +382,76 @@ def holdings_url(survey):
     return participant_url(survey)
 
 
+def construct_of(item):
+    """(key, name, source, doi) of the toolbox construct an element was built from, or None."""
+    from app import constructs
+    from app.extensions import db
+    from app.models import Construct
+
+    key = constructs.toolbox_key(item)
+    if not key:
+        return None
+    found = db.session.scalar(db.select(Construct).filter_by(key=key))
+    if found is None:
+        return None
+    authors = (found.authors or "").strip()
+    source = f"{authors} ({found.year})" if authors and found.year else authors or (found.citation or "").strip()
+    return key, found.name, source[:300], (found.doi or "").strip()
+
+
+def wave(survey):
+    """(number from 1, number of waves, label) of this survey in its panel waves (app/waves.py), or None."""
+    from app import waves
+
+    rows = waves.of(survey)
+    for n, row in enumerate(rows, start=1):
+        if row["survey"] == survey.id:
+            return n, len(rows), row["label"]
+    return None
+
+
+def wave_text(survey):
+    """The wave in English words: "Wave 2 of 3 (nachher)", "" outside a panel."""
+    found = wave(survey)
+    if not found:
+        return ""
+    n, total, label = found
+    return f"Wave {n} of {total}" + (f" ({label})" if label else "")
+
+
+# the files of a deposit beside the DDI files (app/zenodo.package), in English words
+PACKAGE_MATERIAL = {
+    "codebook.csv": "Codebook: variables, labels, value labels and notes",
+    "questionnaire.md": "Questionnaire with flow, randomisation and loops",
+    "survey-material.pdf": "Survey material: the questionnaire as participants saw it, and with notes beside each element",
+    "survey.json": "The questionnaire as a survey file of Askurious, to be read in again",
+    "constructs.md": "The validated constructs used, with their sources",
+    "kodierleitfaden.md": "Coding guide of the open answers",
+}
+
+
+def statement_texts(survey, item, col, langs, withheld):
+    """({lang: stem}, {lang: statement}) of a column that is one statement or row of an element (a Likert battery,
+    a matrix): the stem goes before the question (preQTxt), the statement is the question; None for an element whose
+    column is the question itself, or whose wording a deposit leaves out."""
+    if item is None or item.id in withheld:
+        return None
+    base = _base_column(item, col)
+    label = dict(item.kind.export_columns(item)).get(base)
+    default = survey.default_language
+    own = item.t(default) or {}
+    for group in ("statements", "rows"):
+        found = next((k for k, v in (own.get(group) or {}).items() if v and _plain(v) == _plain(label or "")), None)
+        if found is None:
+            continue
+        lits = {}
+        for lng in langs:
+            texts = (item.t(lng) if lng == default else item.lang_texts(lng)) or {}
+            lits[lng] = _plain(((texts.get(group) or {}).get(found)) or "")
+        return question_texts(survey, item, langs, withheld), lits
+    return None
+
+
 def question_texts(survey, item, langs, withheld):
     """{lang: question text} of an element in the survey languages (only translations that exist); {} for an
     instrument whose wording a deposit leaves out (withheld)."""
@@ -394,11 +464,12 @@ def question_texts(survey, item, langs, withheld):
 # ---- the document ---------------------------------------------------------------------------------------------------
 
 
-def build(survey, lang=None, public=False, open_answers=False):
+def build(survey, lang=None, public=False, open_answers=False, material=()):
     """The DDI Lifecycle 4.0 XML of the survey as bytes (UTF-8). lang: the language of Askurious's own labels and
     notes in the codebook part ("de"/"en"; None: the reader's). public: for a deposit (Zenodo, Coscine): the columns
     of its codebook.csv, without the wording of instruments that have no general publication permission
-    (export.withheld); open_answers: the deposit holds the open answers (export.codebook_rows)."""
+    (export.withheld); open_answers: the deposit holds the open answers (export.codebook_rows); material: the names
+    of the other files of a deposit, written as OtherMaterial."""
     from app import export
 
     doc = _Doc(survey)
@@ -480,6 +551,23 @@ def build(survey, lang=None, public=False, open_answers=False):
     for seq_id, _ in blocks:
         doc.ref(top, "ControlConstructReference", "Sequence", seq_id)
 
+    # -- the validated constructs the questions come from, one Concept each
+    concepts = {}  # construct key -> (id, element)
+    concept_of = {}  # item id -> concept id
+    for it in {i.id: i for i in column_item.values()}.values():
+        found = construct_of(it)
+        if not found:
+            continue
+        key, name, source, construct_doi = found
+        if key not in concepts:
+            concept, concept_id = doc.item("Concept", f"construct-{key}")
+            _lang(concept, "ConceptName", {"en": name})
+            words = "; ".join(p for p in (source, f"https://doi.org/{construct_doi}" if construct_doi else "") if p)
+            if words:
+                _lang(concept, "Description", {"en": words})
+            concepts[key] = (concept_id, concept)
+        concept_of[it.id] = concepts[key][0]
+
     # -- variables
     variables = []
     for row in book:
@@ -489,11 +577,13 @@ def build(survey, lang=None, public=False, open_answers=False):
         _lang(var, "Label", {survey.default_language: row[1] or col})
         if row[4]:
             _lang(var, "Description", {survey.default_language: row[4]})
+        item = column_item.get(col)
+        if item is not None and item.id in concept_of:
+            doc.ref(var, "ConceptReference", "Concept", concept_of[item.id])
         if col in question_of:
             doc.ref(var, "QuestionReference", "QuestionItem", question_of[col])
         rep = _sub(var, "VariableRepresentation")
         pairs = _pairs(row)
-        item = column_item.get(col)
         if pairs:
             missing = {str(m) for m in item.kind.missing_codes(item, _base_column(item, col))} if item else set()
             ident, _ = code_list(pairs, missing)
@@ -570,6 +660,8 @@ def build(survey, lang=None, public=False, open_answers=False):
         _sub(date, "StartDate", f"{survey.opened_at:%Y-%m-%d}")
         if survey.closed_at:
             _sub(date, "EndDate", f"{survey.closed_at:%Y-%m-%d}")
+        if wave(survey):  # the wave of a panel
+            _sub(date, "Cycle", str(wave(survey)[0]))
     for term in modes(survey):
         mode = doc.inner(event, "ModeOfCollection", term)
         _code_value(mode, "TypeOfModeOfCollection", "ModeOfCollection", term)
@@ -606,15 +698,24 @@ def build(survey, lang=None, public=False, open_answers=False):
     person_of = {orcid: ident for orcid, ident, _ in people}
     materials = []
     for pub_doi, title in publications(survey):
-        material, material_id = doc.item("OtherMaterial", f"doi-{pub_doi.lower()}")
-        _sub(_sub(material, "TypeOfMaterial"), "StringValue", "Publication")
-        cited = _sub(material, "Citation")
+        publication, material_id = doc.item("OtherMaterial", f"doi-{pub_doi.lower()}")
+        _sub(_sub(publication, "TypeOfMaterial"), "StringValue", "Publication")
+        cited = _sub(publication, "Citation")
         _lang(cited, "Title", {"en": title or pub_doi})
         number = _sub(cited, "InternationalIdentifier")
         _sub(number, "IdentifierContent", pub_doi)
         _sub(_sub(number, "ManagingAgency"), "StringValue", "DOI")
-        _sub(material, "ExternalURLReference", f"https://doi.org/{quote(pub_doi, safe='/:;()._-')}")
-        materials.append((material_id, material))
+        _sub(publication, "ExternalURLReference", f"https://doi.org/{quote(pub_doi, safe='/:;()._-')}")
+        materials.append((material_id, publication))
+    for name in material:  # the other files of a deposit
+        if name not in PACKAGE_MATERIAL:
+            continue
+        file_material, material_id = doc.item("OtherMaterial", f"file-{name}")
+        _sub(_sub(file_material, "TypeOfMaterial"), "StringValue", "Documentation")
+        _lang(file_material, "Description", {"en": PACKAGE_MATERIAL[name]})
+        _lang(_sub(file_material, "Citation"), "Title", {"en": name})
+        _sub(file_material, "ExternalURLReference", quote(name))
+        materials.append((material_id, file_material))
     conditions = access_text(survey)
     archive_id = None
     if conditions:
@@ -706,6 +807,7 @@ def build(survey, lang=None, public=False, open_answers=False):
              + ([("Archive", conditions_of_use)] if archive_id else [])
              + [("Individual", el) for _, _, el in people]
              + [("OtherMaterial", el) for _, el in materials]
+             + [("Concept", el) for _, el in concepts.values()]
              + ([("Methodology", method)] if method_id else [])
              + [("QuestionScheme", qscheme), ("ControlConstructScheme", cscheme), ("LogicalProduct", logical),
                 ("CategoryScheme", catscheme), ("CodeListScheme", clscheme), ("VariableScheme", vscheme),
@@ -732,7 +834,8 @@ def _schema_order(items):
 
 # the ItemContainer's element order (lifecycle40.xsd, ItemContainerType)
 CONTAINER_ORDER = [
-    "Archive", "Category", "CategoryScheme", "CodeList", "CodeListScheme", "ControlConstructScheme", "DataCollection",
+    "Archive", "Category", "CategoryScheme", "CodeList", "CodeListScheme", "Concept", "ControlConstructScheme",
+    "DataCollection",
     "IfThenElse", "Individual", "Instrument", "LogicalProduct", "Methodology", "OtherMaterial", "PhysicalInstance",
     "QuestionConstruct",
     "QuestionItem", "QuestionScheme", "Sequence", "StatementItem", "StudyUnit", "Universe", "Variable",
