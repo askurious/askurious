@@ -1613,6 +1613,12 @@ def apply(survey, form):
                 "at": _today(), "what": ", ".join(changed),
                 "by": getattr(current_user, "name", "") or "", "by_id": getattr(current_user, "id", None)}]
     survey.study_plan = after
+    # the design lays out the questionnaire once: conditions in a randomisation, a vignette loop (user test 2026-10-27)
+    from app import design_layout
+
+    laid_out = design_layout.lay_out(survey, before["design"], after["design"])
+    if laid_out:
+        flash(laid_out, "info")
 
 
 def clean(raw):
