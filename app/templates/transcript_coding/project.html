@@ -100,7 +100,20 @@
     <tr><td><strong>{{ r.interview.label }}</strong></td><td>{{ r.interview.by_name or "–" }}</td>
       <td>{% if not has_transcript(r) %}<span class="muted">{{ de_en("noch keines", "none yet") }}</span>{% elif t.checked %}{{ de_en("geprüft", "checked") }}{% else %}{{ de_en("Entwurf", "draft") }}{% endif %}</td>
       <td class="num">{{ coded(r) }}</td>
-      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Kodieren", "Code") }}</a>{% else %}<span class="muted small">{{ de_en("erst mit Transkript", "once there is a transcript") }}</span>{% endif %}</td></tr>
+      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Kodieren", "Code") }}</a>{% else %}<span class="muted small">{{ de_en("erst mit Transkript", "once there is a transcript") }}</span>{% endif %}
+        {% set dbl = double_of(r.id) %}
+        {% if dbl %}<div class="small">{{ de_en("Doppelkodierung:", "Double coding:") }} {% for k in dbl.coders %}{{ dbl.names.get(k, k) }}{% if k in (dbl.done or []) %} ✓{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+          {% if double_finished(dbl) or who.team %} · <a href="{{ url_for('transcript_coding.compare', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Vergleich", "Comparison") }}</a>{% endif %}</div>{% endif %}
+        {% if who.team and has_transcript(r) %}
+        <details class="tc-propose"><summary class="small">{{ de_en("Doppelkodierung zuweisen", "Assign double coding") }}</summary>
+          <form method="post" action="{{ url_for('transcript_coding.assign_coders', code=survey.code, pid=project.id, rid=r.id) }}" class="stack">
+            {{ csrf() }}
+            {% for key, name in double_people %}<label class="check"><input type="checkbox" name="coder" value="{{ key }}" {% if dbl and key in dbl.coders %}checked{% endif %}> {{ name }}</label>{% endfor %}
+            <p class="muted small">{{ de_en("Mindestens zwei. Bis alle „Kodierung abgeschlossen“ melden, sieht jede Person in diesem Interview nur ihre eigenen Stellen.", "At least two. Until everyone reports “Coding finished”, each person sees only their own passages in this interview.") }}</p>
+            <div><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></div>
+          </form>
+        </details>
+        {% endif %}</td></tr>
     {% endfor %}
     </tbody>
   {% endcall %}

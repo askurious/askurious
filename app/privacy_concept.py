@@ -688,7 +688,9 @@ def _activities():
                        "Position und Wortlaut der Stelle, Name, Zeit), die Antworten der gegenseitigen Probe (geprüfte "
                        "Stelle, gewählte Kategorie, Name, Zeit), KI-Vorschläge (Stelle, Kategorie, kurze Begründung, wer "
                        "gefragt und wer übernommen oder verworfen hat; nur wo die Auswertung sie erlaubt, nur über den "
-                       "eigenen KI-Zugang der fragenden Person) und je Kategorie ein Ankerbeispiel (Wortlaut einer Stelle); "
+                       "eigenen KI-Zugang der fragenden Person), bei Doppelkodierung die Zuweisung (welche Kodierenden), wer "
+                       "abgeschlossen hat, und die Entscheidungen zum Vergleich mit Namen und Kommentar; die Einzelkodierungen "
+                       "bleiben der jeweiligen Person zugeordnet, und je Kategorie ein Ankerbeispiel (Wortlaut einer Stelle); "
                        "Zusammenführen, Umbenennen, Antworten und Kommentare im Verlauf mit Namen. Die Transkripte selbst "
                        "gehören zu „Interviews“.",
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
@@ -699,7 +701,9 @@ def _activities():
                        "and wording of the passage, name, time), the answers of the mutual check (passage checked, category "
                        "chosen, name, time), AI suggestions (passage, category, short reason, who asked and who "
                        "accepted or discarded; only where the analysis allows them, only over the own AI access of the "
-                       "person asking) and per category an anchor example (wording of a passage); merging, renaming, "
+                       "person asking), with double coding the assignment (which coders), who has finished, and the "
+                       "decisions of the comparison with names and comments; the single codings stay assigned to their "
+                       "person, and per category an anchor example (wording of a passage); merging, renaming, "
                        "answers and comments in the history with names. The transcripts themselves belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
                              "(.qdpx mit Transkripten, kodierten Stellen und den Namen der Kodierenden; nur sie exportieren); "

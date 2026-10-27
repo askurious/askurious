@@ -58,7 +58,7 @@ def all_codings(project, who):
     for row in interviews(project, who):
         if not has_transcript(row):
             continue
-        ok, _lost = placed(row, project)
+        ok, _lost = placed(row, project, who)
         out.extend((row, c) for c in ok)
     return out
 
@@ -315,10 +315,13 @@ def undo_merge(project, event, who):
 
 def next_check(project, who):
     """A passage someone else coded and the actor has not checked yet: (interview, coding) or None."""
+    from app.transcript_coding_double import assignment, finished
+
     pool = []
     for row in interviews(project, who):
-        if not has_transcript(row):
-            continue
+        entry = assignment(project, row.id)
+        if not has_transcript(row) or (entry is not None and not finished(entry)):
+            continue  # nobody checks passages of a double coding before it is finished
         done = {c.get("coding") for c in (row.interview or {}).get("checks") or []
                 if isinstance(c, dict) and c.get("by") == who.key and c.get("project") == project.id}
         ok, _lost = placed(row, project)
@@ -454,6 +457,23 @@ def guide_docx(project, survey, who):
             entry(s, 2)
     for c in candidates:
         entry(c, 2)
+    from app import transcript_coding_double as double
+
+    agree = double.agreement(project, interviews(project, who))
+    if agree["_pairs"]:
+        doc.add_heading(de_en("Übereinstimmung", "Agreement"), level=1)
+        doc.add_paragraph(de_en("{n} abgeschlossene Doppelkodierungen; Wortebene mit Cohens κ (Cohen, 1960; Lesart nach Landis "
+                                "& Koch, 1977), Stellenebene bei mindestens {t} % Überlappung.",
+                                "{n} finished double codings; word level with Cohen's κ (Cohen, 1960; reading after Landis & "
+                                "Koch, 1977), passage level at an overlap of at least {t} %.", n=agree["_pairs"], t=round(double.OVERLAP * 100)))
+        names = {c.id: c.name for c in live(project)}
+        for key, label in [("all", de_en("Alle Kategorien", "All categories"))] + list(names.items()):
+            f = agree[key]
+            if not f["enough"]:
+                continue
+            kappa = f"{f['kappa']:.2f} ({double.reading(f['kappa'])})" if f["kappa"] is not None else "–"
+            doc.add_paragraph(f"{label}: " + de_en("Wörter {p} %, κ = {k}; Stellen {m} von {n}", "words {p} %, κ = {k}; passages {m} of {n}",
+                                                   p=round(100 * f["p_o"], 1), k=kappa, m=f["passages"][0], n=f["passages"][1]))
     _note(doc, de_en("Inhaltlich strukturierende qualitative Inhaltsanalyse nach ", "Content-structuring qualitative content analysis after ")
           + KUCKARTZ + " " + MAYRING)
     out = io.BytesIO()

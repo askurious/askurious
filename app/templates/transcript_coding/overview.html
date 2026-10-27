@@ -15,6 +15,7 @@
     </div>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id) }}">{{ de_en("Stellen je Kategorie", "Passages per category") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id) }}">{{ de_en("Kategorie × Interview", "Category × interview") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.agreement_page', code=survey.code, pid=project.id) }}">{{ de_en("Übereinstimmung", "Agreement") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.coding_guide', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Kodierleitfaden (Word)", "Coding guide (Word)") }}</a>
     {% if who.team %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project_file', code=survey.code, pid=project.id) }}" title="{{ de_en('Kategoriensystem, Transkripte und kodierte Stellen für MAXQDA, ATLAS.ti, NVivo und QDA Miner', 'Category system, transcripts and coded passages for MAXQDA, ATLAS.ti, NVivo and QDA Miner') }}">{{ icon("download", 16) }} .qdpx</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.codebook_file', code=survey.code, pid=project.id) }}" title="{{ de_en('nur das Kategoriensystem', 'only the category system') }}">{{ icon("download", 16) }} .qdc</a>{% endif %}

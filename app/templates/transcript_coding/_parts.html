@@ -24,7 +24,7 @@
    the active one marked like "Tabelle / Karte"; then the way back #}
 {% macro views(survey, project, who, current=none) -%}
 {% set here = current or (request.args.get("view") or "interviews" if request.endpoint == "transcript_coding.project" else request.endpoint) %}
-{% if here in ("transcript_coding.passages", "transcript_coding.matrix", "transcript_coding.full_history") %}{% set here = "transcript_coding.overview" %}{% endif %}
+{% if here in ("transcript_coding.passages", "transcript_coding.matrix", "transcript_coding.full_history", "transcript_coding.agreement_page", "transcript_coding.compare") %}{% set here = "transcript_coding.overview" %}{% endif %}
 <div role="group" aria-label="{{ de_en('Ansicht der Auswertung', 'View of the analysis') }}" class="tc-switch">
   {% for key, href, label in [("interviews", url_for('transcript_coding.project', code=survey.code, pid=project.id), "Interviews"),
                               ("categories", url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories'), de_en("Kategoriensystem", "Category system")),

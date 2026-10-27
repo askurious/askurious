@@ -2234,6 +2234,15 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-check-group { display: flex; flex-wrap: wrap; gap: 6px; border: 0; padding: 0; margin: 0 0 8px; }
 .tc-check-group legend { font-weight: 600; margin-bottom: 4px; }
 .tc-comment summary { cursor: pointer; font-size: 0.85rem; }
+/* the comparison of a double coding (transcript_coding/compare.html): A and B side by side, the decision beside */
+.tc-compare { display: grid; gap: 10px; }
+.tc-diff { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 12px; }
+.tc-diff.is-match { border-style: dashed; }
+.tc-diff.is-only_a, .tc-diff.is-only_b, .tc-diff.is-other { border-color: var(--caution); }
+.tc-diff p { margin: 4px 0 0; }
+.tc-diff-form { display: grid; gap: 6px; margin-top: 6px; }
+@media (max-width: 800px) { .tc-diff { grid-template-columns: minmax(0, 1fr); } }
 .qr-actions { justify-content: center; }
 @media print {
   .qr-actions, .site-header, .site-footer, header, footer { display: none !important; }
