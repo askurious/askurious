@@ -218,9 +218,12 @@ def link_change(code, pid, lid, action):
         row.revision, row.devices = _revision(), []
         message = de_en("Alle Geräte von {name} abgemeldet.", "All devices of {name} signed out.", name=name)
     elif action == "extend":  # never further than MAX_DAYS from today
+        from app.lang import current
+        from app.timeutil import fmt
+
         row.expires_at = utcnow() + timedelta(days=MAX_DAYS)
         message = de_en("Kodierlink von {name} gilt bis {day}.", "Coding link of {name} valid until {day}.", name=name,
-                        day=f"{row.expires_at:%d.%m.%Y}")
+                        day=fmt(row.expires_at, with_time=False, lang=current()))
     else:  # the categories of the link stay, with its name
         db.session.delete(row)
         message = de_en("Kodierlink von {name} gelöscht. Seine Kategorien bleiben.", "Coding link of {name} deleted. Its categories stay.", name=name)

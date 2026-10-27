@@ -213,7 +213,7 @@
 <section class="panel">
   <form method="post" action="{{ url_for('transcript_coding.delete', code=survey.code, pid=project.id) }}"
         data-confirm="{{ de_en('Auswertung „{name}“ löschen?', 'Delete the analysis “{name}”?', name=project.name) }}" data-confirm-note="{{ de_en('Kategoriensystem, Verlauf, Mitglieder und Kodierlinks gehen mit. Die Interviews bleiben.', 'Category system, history, members and coding links go with it. The interviews stay.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
-    {{ csrf() }}<button class="button button-small button-secondary">{{ icon("trash", 16) }} {{ de_en("Auswertung löschen", "Delete analysis") }}</button></form>
+    {{ csrf() }}<button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Auswertung löschen", "Delete analysis") }}</button></form>
 </section>
 {% endif %}
 
