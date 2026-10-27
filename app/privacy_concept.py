@@ -697,8 +697,12 @@ def _activities():
                        "and wording of the passage, name, time), the answers of the mutual check (passage checked, category "
                        "chosen, name, time) and per category an anchor example (wording of a passage); merging, renaming, "
                        "answers and comments in the history with names. The transcripts themselves belong to “Interviews”."),
-         "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens; die Mitglieder der Auswertung.",
-                             "Members with Edit or Manage on the guide; the members of the analysis."),
+         "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
+                             "(.qdpx mit Transkripten, kodierten Stellen und den Namen der Kodierenden; nur sie exportieren); "
+                             "die Mitglieder der Auswertung.",
+                             "Members with Edit or Manage on the guide, also as an export for QDA software (.qdpx with "
+                             "transcripts, coded passages and the names of the coders; only they export); the members of the "
+                             "analysis."),
          "deletion": de_en("Kodierte Stellen, Proben und Ankerbeispiele mit dem Interview (Löschantrag, Frist, Leitfaden); "
                            "die übrigen Angaben mit dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Konto verliert seine "
                            "Mitgliedschaften und seine Kontonummer an den Einträgen, die Namen bleiben als Angabe, wer sie "

@@ -76,7 +76,8 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
     ("transcript_coding", "Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen",
      "Unter „Ergebnisse“ eines Interviewleitfadens der Knopf „Kodieren“: Textstellen markieren und Kategorien zuordnen "
      "(Tasten 1 bis 9, Ankerbeispiele), Übersicht als Tabelle oder Karte, unscharfe Kategorien zusammenführen, "
-     "gegenseitige Probe und Kodierleitfaden, Auswertungen mit eigener Forschungsfrage und "
+     "gegenseitige Probe, Kodierleitfaden und Export für QDA-Programme (.qdpx, .qdc), Auswertungen mit eigener "
+     "Forschungsfrage und "
      "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
      "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
      "Namen erscheinen zuerst. Mitkodieren können Personen, Askurious-Gruppen, Interviewende mit ihrem Interviewlink "
@@ -124,7 +125,7 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
     "transcript_coding": ("Code interviews: assign passages of transcripts to categories together",
                           "Under “Results” of an interview guide the button “Code”: mark passages and assign categories "
                           "(keys 1 to 9, anchor examples), an overview as a table or map, merging blurred categories, a "
-                          "mutual check and a coding guide, create analyses with their own "
+                          "mutual check, a coding guide and an export for QDA software (.qdpx, .qdc), create analyses with their own "
                           "research question and category system, from the guide, empty or as a copy. You set the main "
                           "categories, members add subcategories with a definition, delimitation and author without "
                           "overwriting each other; similar names show first. People, Askurious groups, interviewers with "
