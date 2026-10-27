@@ -315,8 +315,8 @@ def test_consent_text_follows_what_is_recorded_and_wizard_asks_in_that_order(app
         notes = [f.message for f in design.check(s) if "der Text nennt das nicht" in f.message]
         assert any("technische Angaben" in n and "Deutsch (Sie)" in n for n in notes) and not any("Zeit je Seite" in n for n in notes)
     # steps already reached stay open for a visit after going back
-    html = client.get("/surveys/1/setup/languages").data.decode()
-    assert 'aria-label="Schritt 1: Befragung"' in html
+    html = client.get("/surveys/1/setup/team").data.decode()  # six steps by question since 2026-10-27
+    assert 'aria-label="Schritt 1: Worum geht es?"' in html
 
 
 def test_consent_duration_far_from_the_estimate_is_reported(app, client, survey):

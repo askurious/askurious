@@ -122,6 +122,7 @@
 </div>
 {%- endmacro %}
 
+{% if not plan_cards %}
 <label><span class="label-title">{{ de_en("Forschungsfrage", "Research question") }} <span class="hint">{{ de_en("ein Satz: was, über wen; nicht sichtbar für Teilnehmende; Kontext für die KI-Unterstützung", "one sentence: what, about whom; not visible to participants; context for the AI support") }}</span></span>
   <textarea name="research_question" rows="2" maxlength="2000"
             placeholder="{{ de_en('z. B. „Welche Faktoren bestimmen, ob Ältere Pflegeroboter im Alltag akzeptieren?“', 'e.g. “Which factors determine whether older people accept care robots in everyday life?”') }}">{{ survey.research_question or '' }}</textarea>
@@ -129,8 +130,13 @@
 {# several goals in one survey, e.g. compare groups and measure preferences (Ralf, 2026-10-06) #}
 <fieldset class="plan-goals">
   <legend>{{ de_en("Erkenntnisziele", "Research goals") }} <span class="hint">{{ de_en("mehrere möglich", "several possible") }}</span></legend>
+  <input type="hidden" name="goals_shown" value="1">
   {% for k, label in study_plan.goals().items() %}<label class="check"><input type="checkbox" name="goal" value="{{ k }}"{% if k in plan.goals %} checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
 </fieldset>
+{% else %}
+{% set suggested = study_plan.suggested_design(plan) %}
+{% if suggested and not plan.design %}<p class="small">{{ de_en("Zu Ihren Erkenntniszielen passt: {d}.", "Your research goals suggest: {d}.", d=study_plan.designs()[suggested]) }}</p>{% endif %}
+{% endif %}
 {% if plan_cards %}
 <fieldset class="bare plan-cards"><legend>{{ de_en("Studiendesign", "Research design") }} <span class="hint">{{ de_en("wie oft und wie wird befragt?", "how often and how is the survey run?") }}</span></legend>
   <div class="pick-cards">{% for key, title, text, term in study_plan.design_cards() %}{{ pick_card("design", key, plan.design, title, text, term) }}{% endfor %}</div>
@@ -178,6 +184,13 @@
   <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
     <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow"></label>
 </div>
+{% if demographics is defined and demographics %}
+{# what the block "Demographische Angaben" holds (wizard.set_demographics; Ralf 2026-10-27) #}
+<label>{{ de_en("Welche Angaben zur Person erheben?", "Which details about the person to ask?") }}
+  {% if demographics_now %}<select name="demografie">{% for value, label in [("none", de_en("keine", "none"))] + demographics %}<option value="{{ value }}"{% if value == demographics_now %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <span class="hint">{{ de_en("ein eigener Block nach der Einwilligung; beschreibt die Stichprobe und zeigt, wie gut sie zur Grundgesamtheit passt. Die RatSWD-Fragen sind Standardfragen des Rats für Sozial- und Wirtschaftsdaten (2023).", "a block of its own after the consent; describes the sample and shows how well it matches the population. The RatSWD questions are standard questions of the German Data Forum (RatSWD, 2023).") }}</span>
+  {% else %}<span class="hint">{{ de_en("Der Block „Demographische Angaben“ wurde im Fragebogen geändert; dort bearbeiten.", "The block “Demographics” was changed in the questionnaire; edit it there.") }}</span>{% endif %}</label>
+{% endif %}
 <details class="plan-more"><summary>{{ de_en("Hypothesen, Ausschlüsse und Ausschlussregeln", "Hypotheses, exclusions and exclusion rules") }} <span class="hint">{{ de_en("optional, oft erst, wenn der Fragebogen steht", "optional, often only once the questionnaire stands") }}</span></summary>
 {% endif %}
 <script type="application/json" data-plan-roles>{{ study_plan.roles_all()|tojson }}</script>

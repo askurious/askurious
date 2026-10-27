@@ -7322,3 +7322,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Neuer Interviewleitfaden und neue Tagebuchstudie: Abschnitt „Wer nimmt teil?“ mit Auswahl (beim Leitfaden Bewusste Auswahl zuerst), Grundgesamtheit bzw. „Genauer“ zur Zielgruppe und Land; im DDI wird die Zielgruppe mit „Genauer“ zum Universe.
 - Das Land neuer Befragungen ist bei deutscher Sprache „Deutschland“ (Organisationen nennen noch kein Land).
 - Rechtstexte geprüft: app/data/README.md und NOTICE nennen die CESSDA-Themenliste (CC BY 4.0); Datenschutzerklärung, Nutzungsbedingungen und Datenschutzkonzept unverändert (keine personenbezogenen Daten, kein neuer Dienst).
+
+## 2026-10-27: Einrichtungsassistent in sechs Schritten nach Fragen
+
+- Fragebogen (`app/wizard.py`): **Worum geht es?** (Titel, Beschreibung, Forschungsfrage, Erkenntnisziele, Projekt, Schlagwörter, Thema, Sprachen; der frühere Schritt „Sprachen“ führt hierher), **Wer nimmt teil?** (Karten, Grundgesamtheit, Land, Region, Ziel, Vorschlag aus den Erkenntniszielen, „Welche Angaben zur Person erheben?“ mit Austausch des unveränderten Blocks samt seinem Platz im Ablauf, `wizard.set_demographics`), **Verantwortung** (Beteiligte, verantwortliche Personen mit Organisation, Kontakt-E-Mail, Förderung als Fördergeber und Förderkennzeichen, `wizard/_responsible.html`), **Teilnahme** (wie empfohlen, Anpassen in einer Falte; ohne Kurzname im Link, der beim Teilnahmelink bleibt), **Einwilligung** (Mindestalter, Art. 9, Ethik, Vergütung, Open Data mit Lizenz als Auswahl; verantwortliche Stelle, Datenschutzbeauftragte und Pool-Text in Falten), **Erscheinungsbild** (nur Farben und Schrift), danach die **Übersicht**.
+- Die Einwilligung speichert ihre Eckdaten in zwei Teilen (`ConsentType.update_facts`): ein Formular behält, was es nicht zeigt; Einstellungsseite unverändert. Fördergeber und Förderkennzeichen ergeben die Zeile „Förderung“ der Einwilligung.
+- Bilderseite: ohne gewählten Bildstil ein Hinweis mit Link zur Wahl (der Assistent fragt nicht mehr danach).
+- Interviewleitfaden und Tagebuchstudie: dieselben Abschnitte „Worum geht es?“, „Wer nimmt teil?“, „Wie läuft es ab?“.
+- Rechtstexte geprüft, keine Änderung nötig (gleiche Daten wie bisher, nur anders verteilt; Förderung wie zuvor in der Einwilligung).

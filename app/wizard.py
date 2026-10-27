@@ -19,31 +19,31 @@ bp = Blueprint("wizard", __name__, url_prefix="/surveys")
 
 # key, title, subtitle, optional
 STEPS = [
-    # the names of the steps are those of the groups of the settings (UI audit 2026-10-04, R13); the keys stay
-    ("projekt", "Befragung", "Titel, Projektzugehörigkeit und Beschreibung", False),
-    # the research plan (app/study_plan.py): optional; the elements of a hypothesis are chosen once the questionnaire stands
-    ("studienplan", "Studienplan", "Forschungsfrage, Hypothesen, Studiendesign und Stichprobe", True),
-    ("sprachen", "Sprachen", "In welchen Sprachen wird befragt?", False),
-    ("team", "Beteiligte Forschende", "Wer ist beteiligt? (Reihenfolge wie Autorenliste)", True),
-    # what is recorded comes before the consent, whose text names it
-    ("ablauf", "Teilnahme und Datenqualität", "Navigation und erneute Teilnahme; Datenschutz und Paradaten wie empfohlen", False),
-    ("einwilligung", "Einwilligung und Datenschutz", "Eckdaten und Text der informierten Einwilligung", False),
-    # look of the participants' pages and style of the AI images in one step, as the settings group "Erscheinungsbild"
-    # (Ralf, 2026-10-07; before: the steps "bildstil" and "aussehen")
-    ("gestaltung", "Erscheinungsbild", "Farben und Schrift der Seiten, Stil der KI-Bilder", True),
-    ("fertig", "Fertig", "Zusammenfassung", False),
+    # six steps, each answers one question, then the overview (Ralf 2026-10-27, after checking every step for content):
+    # what it is about (title, description, research question, aims, keywords, languages), who takes part (design,
+    # selection, population, details about the person), who carries it (team, contact, funding), how people take part
+    # (before the consent, whose text names it), what they agree to, how it looks. The keys stay, so addresses and
+    # Survey.setup_step of before still lead somewhere; "sprachen" is now part of "projekt" (FORMER_KEYS).
+    ("projekt", "Worum geht es?", "Titel, Beschreibung, Forschungsfrage und Sprachen", False),
+    ("studienplan", "Wer nimmt teil?", "Studiendesign, Auswahl, Grundgesamtheit und Angaben zur Person", True),
+    ("team", "Verantwortung", "Beteiligte, verantwortliche Personen, Kontakt und Förderung", True),
+    ("ablauf", "Teilnahme", "Navigation und erneute Teilnahme; Datenschutz und Paradaten wie empfohlen", True),
+    ("einwilligung", "Einwilligung", "wozu Teilnehmende zustimmen", False),
+    # the look of the participants' pages; the style of AI images is chosen with the first AI image (images page)
+    ("gestaltung", "Erscheinungsbild", "Farben und Schrift der Seiten", True),
+    ("fertig", "Übersicht", "Zusammenfassung und nächste Schritte", False),
 ]
 KEYS = [k for k, *_ in STEPS]
-FORMER_KEYS = {"bildstil": "gestaltung", "aussehen": "gestaltung"}  # addresses and setup_step from before 2026-10-07
+# addresses and setup_step from before 2026-10-07, and "sprachen" from before 2026-10-27 (now in "projekt")
+FORMER_KEYS = {"bildstil": "gestaltung", "aussehen": "gestaltung", "sprachen": "projekt"}
 # the same steps in English: {key: (title, subtitle)}
-STEPS_EN = {"projekt": ("Survey", "Title, project and description"),
-            "studienplan": ("Research plan", "Research question, hypotheses, research design and sample"),
-            "sprachen": ("Languages", "In which languages is the survey run?"),
-            "team": ("Researchers involved", "Who is involved? (order as in a list of authors)"),
-            "ablauf": ("Participation and data quality", "Navigation and taking part again; privacy and paradata as recommended"),
-            "einwilligung": ("Consent and privacy", "Key facts and text of the informed consent"),
-            "gestaltung": ("Appearance", "Colours and font of the pages, style of the AI images"),
-            "fertig": ("Done", "Summary")}
+STEPS_EN = {"projekt": ("What is it about?", "Title, description, research question and languages"),
+            "studienplan": ("Who takes part?", "Research design, selection, population and details about the person"),
+            "team": ("Responsibility", "People involved, responsible persons, contact and funding"),
+            "ablauf": ("Participation", "Navigation and taking part again; privacy and paradata as recommended"),
+            "einwilligung": ("Consent", "what participants agree to"),
+            "gestaltung": ("Appearance", "Colours and font of the pages"),
+            "fertig": ("Overview", "Summary and next steps")}
 
 
 def steps():
@@ -82,6 +82,69 @@ def demographic_choices():
                              "occupation, income, origin, household, marital status"))]
 
 
+def demographics_block(survey):
+    return next((b for b in survey.blocks if (b.settings or {}).get("demographics")), None)
+
+
+def demographics_kind(survey):
+    """"basis", "ratswd" or "none": what the block "Demographische Angaben" holds; "" once it was changed by hand
+    (its questions are no longer those the wizard put there, settings "made")."""
+    block = demographics_block(survey)
+    if block is None:
+        return "none"
+    made = (block.settings or {}).get("made") or {}
+    if made.get("kind") in DEMOGRAPHIC_CHOICES and sorted(made.get("codes") or []) == sorted(i.code for i in block.items):
+        return made["kind"]
+    return ""
+
+
+def set_demographics(survey, kind):
+    """The choice "Welche Angaben zur Person erheben?" on the step "Wer nimmt teil?" (Ralf 2026-10-27): replaces the
+    block "Demographische Angaben" while it is as the wizard made it and the survey is a draft; a block changed by
+    hand stays (the questionnaire is the place for it)."""
+    from app import flow
+
+    now = demographics_kind(survey)
+    if kind == now or now == "" or survey.status != "draft":
+        return False
+    import copy
+
+    block = demographics_block(survey)
+    root = copy.deepcopy(flow.tree(survey))
+    old_id = block.id if block is not None else None
+    if block is not None:
+        if any(i.kind.has_real_answers(i) for i in block.items):
+            return False
+        survey.blocks.remove(block)  # delete-orphan removes it with its questions
+        db.session.flush()
+    new_id = None
+    if kind in DEMOGRAPHIC_CHOICES:
+        added = add_demographics(survey, kind)
+        db.session.flush()
+        new_id = added.id
+    # the flow keeps the place: the new block takes the old one's node; a first one goes right after the consent
+    consent_block = survey.consent_item.block_id if survey.consent_item is not None else None
+
+    def swap(node):
+        kids = []
+        for child in node.get("children", []):
+            if child.get("t") == "block" and child.get("block") == old_id:
+                if new_id is not None:
+                    kids.append({**child, "block": new_id})
+                continue
+            if child.get("t") in flow.GROUPS:
+                swap(child)
+            kids.append(child)
+            if old_id is None and new_id is not None and child.get("t") == "block" and child.get("block") == consent_block:
+                kids.append({"t": "block", "block": new_id})
+        node["children"] = kids
+
+    swap(root)
+    survey.flow = root
+    flow.normalize(survey)
+    return True
+
+
 def add_demographics(survey, kind="basis"):
     """Append the block "Demographische Angaben": "basis" asks age and gender from the construct toolbox (age in
     years and GES_1, DEFAULT_GENDER), "ratswd" the bundle "Demografie kurz (RatSWD)" with all its parts. The survey
@@ -94,6 +157,7 @@ def add_demographics(survey, kind="basis"):
     survey.blocks.append(block)
     if kind == "ratswd":
         ratswd.add_bundle(survey, ratswd.PARTS, block)
+        _mark_made(block, kind)
         return block
     rows = []
     for key in ("age", DEFAULT_GENDER):
@@ -102,7 +166,13 @@ def add_demographics(survey, kind="basis"):
         kind_key, code, config, texts = constructs.build(key, survey.languages)
         rows.append(Item(type=kind_key, answer_mode="nudge", code=code, config=config, texts=texts, position=len(rows)))
     block.items = rows
+    _mark_made(block, kind)
     return block
+
+
+def _mark_made(block, kind):
+    """What the wizard put into the block, so "Wer nimmt teil?" may still swap it (set_demographics)."""
+    block.settings = {**(block.settings or {}), "made": {"kind": kind, "codes": [i.code for i in block.items]}}
 
 
 @bp.route("/new", methods=["GET", "POST"])
@@ -127,6 +197,7 @@ def new():
         plan = dict(survey.study_plan or {})  # the country starts from the language (DDI; Ralf 2026-10-27)
         plan["sample"] = {**(plan.get("sample") or {}), "country": study_plan.default_country(language=first)}
         survey.study_plan = plan
+        study_plan.apply_aims(survey, request.form)  # research question and aims of the first step
         label = links.normalize(request.form.get("label"))
         if not error and label:
             error = links.label_error(label, current_user) or (
@@ -170,7 +241,8 @@ def new():
     start = request.args.get("start") if request.args.get("start") in STARTS else "leer"
     return render_template("wizard/step.html", survey=None, key="projekt", steps=steps(), index=0, starts=starts(), start=start,
                            form=request.form, projects=surveys._my_projects(), languages=surveys.LANGUAGE_NAMES,
-                           demographics=demographic_choices())
+                           values_languages=request.form.getlist("languages") or ["en" if current() == "en" else "de"],
+                           lang_editable=True, demographics=demographic_choices())
 
 
 # the cards of the new questionnaire: key: (title, what it does)
@@ -392,7 +464,7 @@ def step(survey_id, key):
         # the page saves by itself, like the settings page: one step for "Rückgängig", the page stays where it is
         from app import undo
 
-        if key in ("team", "fertig"):
+        if key == "fertig":
             return redirect(_step_url(survey, key))
         recorder = undo.begin(survey)
         error = _save(survey, key, request.form, lang)
@@ -441,7 +513,8 @@ def step(survey_id, key):
         # as on the settings page: only admins of the survey add people, so only they search
         q=q, results=surveys._search_people(q, survey) if q and survey.can(current_user, "admin") else None,
         consent=survey.consent_item, image_styles=image_styles, style_cfg=image_styles.settings(survey),
-        contact=contact,
+        contact=contact, demographics=demographic_choices() if key == "studienplan" else None,
+        demographics_now=demographics_kind(survey) if key == "studienplan" else None,
     )
 
 
@@ -449,13 +522,25 @@ def _save(survey, key, form, lang):
     from app import surveys
 
     if key == "projekt":
-        return surveys.apply_project(survey, form)
+        error = surveys.apply_project(survey, form)
+        if error:
+            return error
+        from app import study_plan
+
+        study_plan.apply_aims(survey, form)  # research question and aims, nothing else of the plan
+        if form.getlist("languages") or "default_language" in form:
+            surveys.apply_languages(survey, form)
+        return None
     if key == "studienplan":
         from app import study_plan
 
         study_plan.apply(survey, form)
-    if key == "sprachen":
-        surveys.apply_languages(survey, form)
+        if form.get("demografie") in DEMOGRAPHIC_CHOICES + ("none",):
+            set_demographics(survey, form.get("demografie"))
+    if key == "team" and survey.consent_item is not None:
+        # the responsible researchers, contact and funding are facts of the consent (items/consent.update_facts)
+        item = survey.consent_item
+        item.kind.apply_facts(item, form, lang)
     elif key == "ablauf":  # only how people take part (wizard/_options.html, V24); the rest keeps its settings
         surveys._with_consent(survey, lambda: surveys.apply_participation(survey, form))
     elif key == "gestaltung":

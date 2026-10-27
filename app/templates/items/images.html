@@ -26,7 +26,8 @@
 <section class="panel">
   <div class="stat-line">
     <span><strong>{{ n_ok }}</strong> {{ de_en("freigegeben", "approved") }}</span>{% if ki %}<span><strong>{{ n_pending }}</strong> {{ de_en("zu prüfen", "to review") }}</span>{% endif %}<span><strong>{{ n_missing }}</strong> {{ de_en("fehlen", "missing") }}</span>
-    {% if ki %}<span>{{ de_en("Bildstil:", "Image style:") }} <strong>{{ style_label }}</strong> <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#image-style">{{ de_en("ändern", "change") }}</a></span>{% endif %}
+    {% if ki %}<span>{{ de_en("Bildstil:", "Image style:") }} <strong>{{ style_label }}</strong> <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#image-style">{{ de_en("ändern", "change") }}</a></span>
+    {% if not style_id %}<span class="hint">{{ de_en("Noch kein Stil gewählt: Vor dem ersten KI-Bild lohnt sich die Wahl, damit alle Bilder zusammenpassen.", "No style chosen yet: choose one before the first AI image, so that all images match.") }} <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#image-style">{{ de_en("Stil wählen", "Choose a style") }}</a></span>{% endif %}{% endif %}
     {% if weg == "hochladen" and ai_on() %}<a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang, weg='ki') }}">{{ de_en("Stattdessen mit KI erzeugen", "Generate with AI instead") }}</a>
     {% elif weg == "ki" and can_upload %}<a href="{{ url_for('editor.item_images', survey_id=survey.id, item_id=item.id, lang=lang, weg='hochladen') }}">{{ de_en("Stattdessen eigene Bilder hochladen", "Upload your own images instead") }}</a>{% endif %}
   </div>

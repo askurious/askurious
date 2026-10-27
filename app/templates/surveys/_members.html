@@ -127,7 +127,8 @@
   {# an example survey: every signed-in researcher may view it; only site admins who are its admins switch it
      (app/access.py, demo-befragungen-konzept.md), with the second factor while ADMIN_TOTP is on (audit 2026-10-11, M7) #}
   {% set showcase_switch = manage and admin_rights(current_user) %}
-  {% if showcase_switch or survey.showcase %}
+  {# not in the wizard's step "Verantwortung": publishing as an example is a later decision (Ralf 2026-10-27) #}
+  {% if (showcase_switch or survey.showcase) and not (members_wizard is defined and members_wizard) %}
   <div class="member-showcase" id="showcase">
     <h3>{{ de_en("Beispielbefragung", "Example survey") }} <span class="hint">{{ de_en("für alle angemeldeten Forschenden sichtbar", "visible to all signed-in researchers") }}</span></h3>
     {% if showcase_switch %}

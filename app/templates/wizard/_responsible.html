@@ -1,0 +1,25 @@
+{# Who carries the survey: the responsible researchers with their organisation, the contact address and the funding.
+   The wizard step "Verantwortung" (Ralf 2026-10-27) and, with the rest of the consent, the settings page. Needs:
+   consent, survey; sets researchers_box so a form without the consent's other facts keeps them (update_facts). #}
+{% set c = consent.config %}
+<input type="hidden" name="researchers_box" value="1">
+<div>
+  <span class="label-title">{{ de_en("Verantwortliche Forschende", "Responsible researchers") }}</span>
+  <ul class="plain">
+    {% for m in survey.members %}{% set key = "u" ~ m.user_id if m.user_id else "m" ~ m.id %}{# items/consent.member_ref #}
+    <li><label class="check"><input type="checkbox" name="researchers" value="{{ key }}" {% if key in c.researchers %}checked{% endif %}> {{ m.display_name }}</label>
+      <label class="consent-aff grow-1 min-180"><span class="hint">{{ de_en("Organisation", "Organisation") }}</span> <input name="aff_{{ m.id }}" value="{{ m.affiliation }}" aria-label="{{ de_en('Einrichtung von {name}', 'Institution of {name}', name=m.display_name) }}"></label></li>
+    {% endfor %}
+  </ul>
+</div>
+{# researchers of several institutions: one line where it applies, no banner (Ralf, 2026-10-20; Art. 26 GDPR) #}
+{% if consent.kind.joint(consent) %}<p class="hint">{{ de_en("Die verantwortlichen Personen kommen aus mehreren Einrichtungen: Diese sind gemeinsam Verantwortliche und brauchen eine Vereinbarung nach Art. 26 DSGVO. Die Einwilligung nennt alle Einrichtungen und die Kontakt-E-Mail als Anlaufstelle.", "The people responsible come from several institutions: these are joint controllers and need an arrangement under Art. 26 GDPR. The consent names all institutions and the contact email as the point of contact.") }}</p>{% endif %}
+<label>{{ de_en("Kontakt-E-Mail", "Contact email") }} <input type="email" name="contact_email" class="email-field" value="{{ c.contact_email }}" placeholder="{{ de_en('studie@uni.de', 'survey@uni.edu') }}"></label>
+{% set funder, grant = consent.kind.funder_parts(consent) %}
+<div class="row-fields">
+  <label>{{ de_en("Förderung: Fördergeber", "Funding: funder") }} <span class="hint">{{ de_en("optional; nur falls gefördert", "optional; only if funded") }}</span>
+    <input name="funder" value="{{ funder }}" maxlength="150" placeholder="{{ de_en('z. B. Deutsche Forschungsgemeinschaft', 'e.g. German Research Foundation') }}"></label>
+  <label>{{ de_en("Förderkennzeichen", "Grant number") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
+    <input name="grant_number" value="{{ grant }}" maxlength="60" placeholder="{{ de_en('z. B. 123456789', 'e.g. 123456789') }}"></label>
+</div>
+<p class="hint">{{ de_en("Die Förderung erscheint in der Einwilligung beim Thema der Befragung und geht an Datenarchive (DDI).", "The funding appears in the consent with the topic of the survey and goes to data archives (DDI).") }}</p>

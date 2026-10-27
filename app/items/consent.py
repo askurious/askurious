@@ -297,6 +297,16 @@ def _keeps_answers(survey):
     return bool(retention.of(survey)["answers"])
 
 
+def funding_line(funder, grant, survey=None):
+    """The line the consent names: "Deutsche Forschungsgemeinschaft, Förderkennzeichen 123456789"."""
+    if not funder:
+        return grant
+    if not grant:
+        return funder
+    en = survey is not None and (survey.default_language or "de").split("-")[0] != "de"
+    return f"{funder}, {'grant number' if en else 'Förderkennzeichen'} {grant}"
+
+
 # the facts on publishing the data; fixed after the first real consent (apply_facts)
 OPEN_DATA_FACTS = ("open_data", "repository", "license")
 
@@ -466,24 +476,42 @@ class Consent(ItemType):
         """Only the key facts (used by the setup wizard); texts and confirmations stay as they are.
         The duration is not asked there (the questionnaire does not exist yet); it keeps its value."""
         duration, min_age = form.get("duration", "").strip(), form.get("min_age", "").strip()
-        item.config = {
-            **item.config,
-            "duration": whole(duration) if "duration" in form else item.config.get("duration"),
-            "min_age": whole(min_age),
-            "open_data": bool(form.get("open_data")),
-            # the details of ethics vote, open data and compensation only count while their box is ticked
-            "repository": form.get("repository", "").strip()[:200] if form.get("open_data") else "",
-            "ethics": bool(form.get("ethics")),
-            "ethics_ref": form.get("ethics_ref", "").strip()[:200] if form.get("ethics") else "",
-            "license": (form.get("license", "").strip()[:100] or "CC BY 4.0") if form.get("open_data") else "",
-            "researchers": [member_ref(m) for m in item.survey.members if _ticked(m, form.getlist("researchers"))],
-            "contact_email": form.get("contact_email", "").strip()[:MAX_EMAIL],
-            "special_categories": bool(form.get("special_categories")) if "special_box" in form
-            else bool(item.config.get("special_categories")),  # forms without the box keep it
-            # forms of before and scripts without these fields keep what is there
-            **{key: form.get(key, "").strip()[:size] if key in form else item.config.get(key, "")
-               for key, size in (("funding", 200), ("controller", 300), ("dpo", 300))},
-        }
+        c = item.config
+        # the wizard asks these facts on two steps (Ralf 2026-10-27): "Verantwortung" (researchers, contact, funding)
+        # and "Einwilligung" (age, ethics, open data, ...); a form keeps what it does not show. A part counts as shown
+        # with its field or its box ("…_box", for ticks that send nothing when unticked)
+        consent_part = any(k in form for k in ("min_age", "open_data_box", "open_data", "ethics", "ethics_ref", "license",
+                                               "repository"))
+        people_part = "researchers_box" in form or "contact_email" in form or "researchers" in form
+        if not consent_part and not people_part:  # a form of before: everything on one page
+            consent_part = people_part = True
+        new = {"duration": whole(duration) if "duration" in form else c.get("duration")}
+        if consent_part:
+            new.update({
+                "min_age": whole(min_age),
+                "open_data": bool(form.get("open_data")),
+                # the details of ethics vote, open data and compensation only count while their box is ticked
+                "repository": form.get("repository", "").strip()[:200] if form.get("open_data") else "",
+                "ethics": bool(form.get("ethics")),
+                "ethics_ref": form.get("ethics_ref", "").strip()[:200] if form.get("ethics") else "",
+                "license": (form.get("license", "").strip()[:100] or "CC BY 4.0") if form.get("open_data") else "",
+            })
+        if people_part:
+            new.update({
+                "researchers": [member_ref(m) for m in item.survey.members if _ticked(m, form.getlist("researchers"))],
+                "contact_email": form.get("contact_email", "").strip()[:MAX_EMAIL],
+            })
+        new["special_categories"] = (bool(form.get("special_categories")) if "special_box" in form
+                                     else bool(c.get("special_categories")))  # forms without the box keep it
+        # forms of before and scripts without these fields keep what is there
+        new.update({key: form.get(key, "").strip()[:size] if key in form else c.get(key, "")
+                    for key, size in (("funding", 200), ("controller", 300), ("dpo", 300))})
+        if "funder" in form or "grant_number" in form:
+            # funder and grant number apart (data archives, app/ddi.py), the consent names both in one line
+            funder = " ".join(form.get("funder", "").split())[:150]
+            grant = " ".join(form.get("grant_number", "").split())[:60]
+            new.update({"funder": funder, "grant_number": grant, "funding": funding_line(funder, grant, item.survey)})
+        item.config = {**c, **new}
         texts = dict(item.texts or {})
         paid = bool(form.get("compensation_on")) if form.get("compensation_box") else True  # forms without the box
         texts[lang] = {**texts.get(lang, {}), "compensation": form.get("compensation", "").strip() if paid else ""}
@@ -491,6 +519,15 @@ class Consent(ItemType):
         for m in item.survey.members:
             if f"aff_{m.id}" in form:
                 m.affiliation = form.get(f"aff_{m.id}", "").strip()[:300]
+
+    @staticmethod
+    def funder_parts(item):
+        """(funder, grant number) as the wizard shows them: the two fields, or for a consent saved before they were
+        apart the old line as the funder."""
+        c = item.config or {}
+        if "funder" in c or "grant_number" in c:
+            return c.get("funder") or "", c.get("grant_number") or ""
+        return c.get("funding") or "", ""
 
     def confirmation_keys(self, item):
         """The confirmations this consent can ask: in a draft "special" with the switch for special categories and

@@ -357,6 +357,14 @@ RECRUITMENT_CARDS = [
 ]
 
 
+def suggested_design(plan):
+    """The design the first aim suggests (FINDER), "" without aims."""
+    for goal in plan.get("goals") or []:
+        if goal in FINDER:
+            return FINDER[goal][0]
+    return ""
+
+
 def design_cards():
     """[(key, title, text, ddi term)] in the language of the page."""
     i = 2 if english() else 1
@@ -1485,7 +1493,8 @@ def from_form(survey, form):
               # who the survey speaks for, and where (DDI Universe and spatial coverage, app/ddi.py; Ralf 2026-10-27)
               "population": _text(form.get("population"), 300), "country": _country(form.get("country")),
               "region": _text(form.get("region"), 120)}
-    goals = _goals({"goals": form.getlist("goal")})
+    # the aims: from the form when it shows them ("goals_shown"); the wizard asks them on its first step
+    goals = _goals({"goals": form.getlist("goal")}) if "goals_shown" in form or "goal" in form else plan_of(survey)["goals"]
     out = {"goal": goals[0] if goals else "", "goals": goals,
            "design": design_key(form.get("design")),
            "hypotheses": hypotheses[:MAX_HYPOTHESES], "sample": sample, "rules": _text(form.get("rules"), 1200),
@@ -1569,6 +1578,25 @@ def _changes(before, after):
             out.append(f"H{n} geändert")
     out += ["eine Hypothese entfernt"] * len(set(b) - set(a))
     return out
+
+
+def apply_aims(survey, form):
+    """Research question and aims from the wizard's first step "Worum geht es?" (Ralf 2026-10-27); the rest of the plan
+    stays. After the start a change is a deviation, as on the plan page."""
+    if "goals_shown" not in form and "research_question" not in form:
+        return
+    plan = dict(survey.study_plan or {})
+    before = plan_of(survey)
+    if "goals_shown" in form:
+        plan["goals"] = _goals({"goals": form.getlist("goal")})
+        plan["goal"] = plan["goals"][0] if plan["goals"] else ""
+    if "research_question" in form:
+        survey.research_question = (form.get("research_question") or "").strip()[:2000]
+    if survey.id and survey.status != "draft" and before["goals"] != plan.get("goals", before["goals"]):
+        plan["deviations"] = before["deviations"] + [{
+            "at": _today(), "what": "Erkenntnisziele", "by": getattr(current_user, "name", "") or "",
+            "by_id": getattr(current_user, "id", None)}]
+    survey.study_plan = plan
 
 
 def apply(survey, form):

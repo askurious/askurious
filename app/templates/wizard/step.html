@@ -31,31 +31,30 @@
 <section class="panel wizard-panel wizard-step-{{ key }}">
   <h2>{{ title }} <span class="hint">{{ subtitle }}{% if optional %} · optional{% endif %}</span></h2>
 
-  {% if key == "ablauf" %}
-    {# the participant link label has its own form (confirmation, check), so it stands before the step's form #}
-    <h3 class="wizard-sub">{{ de_en("Link", "Link") }}</h3>
-    {% set next = "wizard" %}{% include "surveys/_label.html" %}
-  {% endif %}
+  {# the short name of the link is set where the link is used ("Datenerhebung › Teilnahmelink"), not here
+     (Ralf 2026-10-27) #}
 
   {% if key == "team" %}
     {% set members_back = url_for('wizard.step', survey_id=survey.id, key='team') %}
     {% set members_search_url = members_back %}
-    <div id="members">{% include "surveys/_members.html" %}</div>
-    <p class="muted small">{{ de_en("Hinzugefügte Personen sehen die Befragung nach dem Anmelden. Die Reihenfolge wird z. B. in der Einwilligung verwendet.", "People added here see the survey after signing in. The order is used e.g. in the consent.") }}{% if mail_enabled() %} {{ de_en("Bei einer E-Mail-Einladung muss zunächst die Einladung angenommen werden; dabei ist auch ein neues Konto mit Passwort möglich.", "An email invitation must first be accepted; a new password account can also be created then.") }}{% endif %}</p>
+    {% set members_wizard = true %}<div id="members">{% include "surveys/_members.html" %}</div>
+    <p class="muted small">{{ de_en("Hinzugefügte Personen sehen die Befragung nach dem Anmelden. Die Reihenfolge wird z. B. in der Einwilligung und als Autorenliste verwendet.", "People added here see the survey after signing in. The order is used e.g. in the consent and as the list of authors.") }}{% if mail_enabled() %} {{ de_en("Bei einer E-Mail-Einladung muss zunächst die Einladung angenommen werden; dabei ist auch ein neues Konto mit Passwort möglich.", "An email invitation must first be accepted; a new password account can also be created then.") }}{% endif %}</p>
   {% endif %}
 
   <form method="post" action="{{ url_for('wizard.new') if not survey else url_for('wizard.step', survey_id=survey.id, key=key) }}"
-        class="stack" {% if key == "gestaltung" %}data-style-form{% endif %}{% if survey and key not in ("team", "fertig") %} data-autosave-form{% endif %}>
+        class="stack" {% if key == "gestaltung" %}data-style-form{% endif %}{% if survey and key != "fertig" %} data-autosave-form{% endif %}>
     {{ csrf() }}
     {% if key == "projekt" %}
+      {# what it is about: title, description, research question, aims, keywords, languages (Ralf 2026-10-27) #}
       {% with values=(survey or form) %}{% include "surveys/_fields_project.html" %}{% endwith %}
-      {% if not survey %}{% include "surveys/_fields_demographics.html" %}{% endif %}
+      {% include "wizard/_aims.html" %}
+      {% with values=(survey or form) %}{% include "surveys/_fields_languages.html" %}{% endwith %}
     {% elif key == "studienplan" %}
       {% set plan_wizard = true %}{% include "surveys/_fields_plan.html" %}
-    {% elif key == "sprachen" %}
-      {% include "surveys/_fields_languages.html" %}
+    {% elif key == "team" %}
+      {% if consent %}{% include "wizard/_responsible.html" %}{% endif %}
     {% elif key == "einwilligung" %}
-      {% include "wizard/_consent.html" %}
+      {% set consent_only = true %}{% include "wizard/_consent.html" %}
     {% elif key == "ablauf" %}
       {% include "wizard/_options.html" %}
     {% elif key == "gestaltung" %}
@@ -64,13 +63,12 @@
       {% set look = themes.of(survey) %}{% set own_designs = designs_for(current_user) %}
       <p class="muted small">{{ de_en("So sehen Teilnehmende die Befragung. Eigene Farben, ein Logo und alles Weitere später unter Einstellungen → Erscheinungsbild → „Erscheinungsbild öffnen“.", "This is how participants see the survey. Your own colours, a logo and everything else later under Settings → Appearance → “Open appearance”.") }}</p>
       {% include "surveys/_fields_theme_choice.html" %}
-      <h3 class="panel-sub-sep">{{ de_en("Stil der KI-Bilder", "Style of the AI images") }}</h3>
-      {% include "surveys/_fields_image_style.html" %}
+      <p class="muted small">{{ de_en("Den Stil der KI-Bilder wählen Sie beim ersten KI-Bild; er steht danach unter Einstellungen → Erscheinungsbild.", "You choose the style of the AI images with the first AI image; it is then under Settings → Appearance.") }}</p>
     {% elif key == "fertig" %}
       {% include "wizard/_summary.html" %}
     {% endif %}
 
-    {% if survey and key not in ("team", "fertig") %}{{ autosave_bar() }}{% endif %}
+    {% if survey and key != "fertig" %}{{ autosave_bar() }}{% endif %}
     <div class="wizard-nav">
       {% if index > 0 and survey %}<button class="button button-secondary" name="wizard" value="back" formnovalidate>{{ icon("back", 16) }} {{ de_en("Zurück", "Back") }}</button>{% endif %}
       <span class="wizard-spacer"></span>

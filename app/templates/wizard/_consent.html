@@ -2,32 +2,14 @@
 {% set t = (consent.texts or {}).get(lang, {}) %}
 <p class="muted small">{{ de_en("Freiwilligkeit und Anonymität sind immer enthalten. Aus diesen Eckdaten entsteht ein Standardtext; er lässt sich später im Fragebogen bei der Einwilligung bearbeiten.", "Voluntariness and anonymity are always included. A standard text is made from these key facts; it can be edited later in the questionnaire at the consent.") }}</p>
 {% from "_macros.html" import fixed_mark %}
+<input type="hidden" name="open_data_box" value="1">
 <label><span>{{ de_en("Mindestalter", "Minimum age") }}{% if fixed_marks is defined and fixed_marks %} {{ fixed_mark(consent.survey.status != "draft", de_en("Teilnehmende haben es bestätigt", "Participants have confirmed it")) }}{% endif %}</span> <input type="number" name="min_age" min="0" class="narrow" value="{{ c.min_age or '' }}"></label>
 <p class="hint">{{ de_en("Teilnehmende bestätigen das Mindestalter nur mit einem Häkchen in der Einwilligung; geprüft wird es damit nicht. Jüngere beendet erst eine Altersfrage mit einem Ende im Ablauf (in den Einstellungen mit einem Klick anzulegen).", "Participants only confirm the minimum age with a tick in the consent; it is not checked by that. Younger people are only ended by an age question with an end in the flow (one click in the settings).") }}</p>
-<div>
-  <span class="label-title">{{ de_en("Verantwortliche Forschende", "Responsible researchers") }}</span>
-  <ul class="plain">
-    {% for m in survey.members %}{% set key = "u" ~ m.user_id if m.user_id else "m" ~ m.id %}{# items/consent.member_ref #}
-    <li><label class="check"><input type="checkbox" name="researchers" value="{{ key }}" {% if key in c.researchers %}checked{% endif %}> {{ m.display_name }}</label>
-      <label class="consent-aff grow-1 min-180"><span class="hint">{{ de_en("Organisation", "Organisation") }}</span> <input name="aff_{{ m.id }}" value="{{ m.affiliation }}" aria-label="{{ de_en('Einrichtung von {name}', 'Institution of {name}', name=m.display_name) }}"></label></li>
-    {% endfor %}
-  </ul>
-</div>
-{# researchers of several institutions: one line where it applies, no banner (Ralf, 2026-10-20; Art. 26 GDPR) #}
-{% if consent.kind.joint(consent) %}<p class="hint">{{ de_en("Die verantwortlichen Personen kommen aus mehreren Einrichtungen: Diese sind gemeinsam Verantwortliche und brauchen eine Vereinbarung nach Art. 26 DSGVO. Die Einwilligung nennt alle Einrichtungen und die Kontakt-E-Mail als Anlaufstelle.", "The people responsible come from several institutions: these are joint controllers and need an arrangement under Art. 26 GDPR. The consent names all institutions and the contact email as the point of contact.") }}</p>{% endif %}
-<label>{{ de_en("Kontakt-E-Mail", "Contact email") }} <input type="email" name="contact_email" class="email-field" value="{{ c.contact_email }}" placeholder="{{ de_en('studie@uni.de', 'survey@uni.edu') }}"></label>
+{% if not (consent_only is defined and consent_only) %}{% include "wizard/_responsible.html" %}{% endif %}
 {# special categories (Art. 9 GDPR; L8): explicit consent with a tick of its own, fixed from the start on #}
 <input type="hidden" name="special_box" value="1">
 <label class="check"><input type="checkbox" name="special_categories" value="1" {% if c.special_categories %}checked{% endif %}{% if consent.survey.status != "draft" %} disabled{% endif %}> {{ de_en("Befragung erhebt besondere Kategorien (Art. 9 DSGVO)", "The survey collects special categories (Art. 9 GDPR)") }}{% if fixed_marks is defined and fixed_marks %} {{ fixed_mark(consent.survey.status != "draft", de_en("Teilnehmende haben ausdrücklich eingewilligt", "Participants have given explicit consent")) }}{% endif %}
   <span class="hint">{{ de_en("z. B. Gesundheit, ethnische Herkunft, politische, religiöse oder weltanschauliche Überzeugungen, Gewerkschaftszugehörigkeit, Sexualleben oder sexuelle Orientierung. Die Einwilligung bekommt dann einen Satz dazu und ein eigenes Häkchen für die ausdrückliche Einwilligung; prüfen Sie mit Ihrer Datenschutzbeauftragten, ob eine Datenschutz-Folgenabschätzung nötig ist.", "e.g. health, racial or ethnic origin, political, religious or philosophical beliefs, trade union membership, sex life or sexual orientation. The consent then gets a sentence on it and a tick of its own for explicit consent; check with your data protection officer whether a data protection impact assessment is needed.") }}</span></label>
-{# Art. 13 GDPR (comparison with the RWTH template 2026-10-20, L2 L3 L10): empty fields leave the installation's
-   paragraphs on the privacy page (participant/_controller.html, _dpo.html) #}
-<label>{{ de_en("Förderung", "Funding") }} <span class="hint">{{ de_en("optional; erscheint in der Einwilligung beim Thema der Befragung", "optional; appears in the consent with the topic of the survey") }}</span>
-  <input name="funding" value="{{ c.funding or '' }}" maxlength="200" placeholder="{{ de_en('z. B. Deutsche Forschungsgemeinschaft, Förderkennzeichen 123456789', 'e.g. German Research Foundation, grant number 123456789') }}"></label>
-<label>{{ de_en("Verantwortliche Stelle im Sinne der DSGVO", "Controller under the GDPR") }} <span class="hint">{{ de_en("optional; leer: die Angabe dieser Installation auf der Datenschutzseite der Befragung", "optional; empty: the details of this installation on the privacy page of the survey") }}</span>
-  <input name="controller" value="{{ c.controller or '' }}" maxlength="300" placeholder="{{ de_en('z. B. Universität Musterstadt, vertreten durch die Präsidentin, Musterstraße 1, 12345 Musterstadt', 'e.g. University of Exampletown, represented by its President, 1 Example Street, Exampletown') }}"></label>
-<label>{{ de_en("Datenschutzbeauftragte", "Data protection officer") }} <span class="hint">{{ de_en("optional; leer: die Angabe dieser Installation", "optional; empty: the details of this installation") }}</span>
-  <input name="dpo" value="{{ c.dpo or '' }}" maxlength="300" placeholder="{{ de_en('z. B. Datenschutzbeauftragte der Universität Musterstadt, datenschutz@uni-musterstadt.de', 'e.g. Data protection officer of the University of Exampletown, dataprotection@example.edu') }}"></label>
 <label class="check"><input type="checkbox" name="ethics" value="1" {% if c.ethics %}checked{% endif %} data-reveal="ethics-details"> {{ de_en("Ethikvotum liegt vor", "Ethics approval obtained") }} <span class="hint">{{ de_en("falls schon bekannt; erscheint in der Einwilligung", "if already known; appears in the consent") }}</span></label>
 <div id="ethics-details" class="reveal" {% if not c.ethics %}hidden{% endif %}>
   <label>{{ de_en("Ethikkommission und Aktenzeichen", "Ethics committee and reference number") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
@@ -45,6 +27,26 @@
 <label class="check"><input type="checkbox" name="open_data" value="1" {% if c.open_data %}checked{% endif %}{% if od_fixed %} disabled{% endif %} data-reveal="open-data-details"> {{ de_en("Open Data: Anonyme Daten werden veröffentlicht", "Open data: anonymous data are published") }}{% if od_fixed and fixed_marks is defined and fixed_marks %} {{ fixed_mark(true, de_en("Teilnehmende haben zugestimmt; zum Ändern die Befragung duplizieren", "participants have agreed to it; to change it, duplicate the survey")) }}{% endif %}</label>
 <div id="open-data-details" class="reveal row-fields" {% if not c.open_data %}hidden{% endif %}>
   <label>{{ de_en("Repositorium", "Repository") }} <span class="hint">{{ de_en("falls schon bekannt", "if already known") }}</span> <input name="repository" value="{{ c.repository }}" placeholder="{{ de_en('z. B. OSF, Zenodo', 'e.g. OSF, Zenodo') }}"{% if od_fixed %} disabled{% endif %}></label>
-  <label>{{ de_en("Lizenz", "Licence") }} <input name="license" value="{{ c.license or 'CC BY 4.0' }}" placeholder="CC BY 4.0"{% if od_fixed %} disabled{% endif %}></label>
+  <label>{{ de_en("Lizenz", "Licence") }} {% set lic = c.license or 'CC BY 4.0' %}<select name="license"{% if od_fixed %} disabled{% endif %}>{% for name in ["CC BY 4.0", "CC BY-SA 4.0", "CC BY-NC 4.0", "CC0 1.0"] + ([lic] if lic not in ["CC BY 4.0", "CC BY-SA 4.0", "CC BY-NC 4.0", "CC0 1.0"] else []) %}<option{% if name == lic %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
 </div>
+{% if consent_only is defined and consent_only %}
+<details class="plan-more"><summary>{{ de_en("Verantwortliche Stelle und Datenschutzbeauftragte", "Controller and data protection officer") }} <span class="hint">{{ de_en("leer: wie diese Installation", "empty: as this installation") }}</span></summary>
+{# Art. 13 GDPR (comparison with the RWTH template 2026-10-20, L2 L3 L10): empty fields leave the installation's
+   paragraphs on the privacy page (participant/_controller.html, _dpo.html) #}
+<label>{{ de_en("Verantwortliche Stelle im Sinne der DSGVO", "Controller under the GDPR") }} <span class="hint">{{ de_en("optional; leer: die Angabe dieser Installation auf der Datenschutzseite der Befragung", "optional; empty: the details of this installation on the privacy page of the survey") }}</span>
+  <input name="controller" value="{{ c.controller or '' }}" maxlength="300" placeholder="{{ de_en('z. B. Universität Musterstadt, vertreten durch die Präsidentin, Musterstraße 1, 12345 Musterstadt', 'e.g. University of Exampletown, represented by its President, 1 Example Street, Exampletown') }}"></label>
+<label>{{ de_en("Datenschutzbeauftragte", "Data protection officer") }} <span class="hint">{{ de_en("optional; leer: die Angabe dieser Installation", "optional; empty: the details of this installation") }}</span>
+  <input name="dpo" value="{{ c.dpo or '' }}" maxlength="300" placeholder="{{ de_en('z. B. Datenschutzbeauftragte der Universität Musterstadt, datenschutz@uni-musterstadt.de', 'e.g. Data protection officer of the University of Exampletown, dataprotection@example.edu') }}"></label>
+</details>
+<details class="plan-more"><summary>{{ de_en("Text zur gemeinsamen Auswertung standardisierter Fragebögen", "Text on the joint analysis of standardised questionnaires") }}</summary>
 {% include "surveys/_pool_copy.html" %}
+</details>
+{% else %}
+{# Art. 13 GDPR (comparison with the RWTH template 2026-10-20, L2 L3 L10): empty fields leave the installation's
+   paragraphs on the privacy page (participant/_controller.html, _dpo.html) #}
+<label>{{ de_en("Verantwortliche Stelle im Sinne der DSGVO", "Controller under the GDPR") }} <span class="hint">{{ de_en("optional; leer: die Angabe dieser Installation auf der Datenschutzseite der Befragung", "optional; empty: the details of this installation on the privacy page of the survey") }}</span>
+  <input name="controller" value="{{ c.controller or '' }}" maxlength="300" placeholder="{{ de_en('z. B. Universität Musterstadt, vertreten durch die Präsidentin, Musterstraße 1, 12345 Musterstadt', 'e.g. University of Exampletown, represented by its President, 1 Example Street, Exampletown') }}"></label>
+<label>{{ de_en("Datenschutzbeauftragte", "Data protection officer") }} <span class="hint">{{ de_en("optional; leer: die Angabe dieser Installation", "optional; empty: the details of this installation") }}</span>
+  <input name="dpo" value="{{ c.dpo or '' }}" maxlength="300" placeholder="{{ de_en('z. B. Datenschutzbeauftragte der Universität Musterstadt, datenschutz@uni-musterstadt.de', 'e.g. Data protection officer of the University of Exampletown, dataprotection@example.edu') }}"></label>
+{% include "surveys/_pool_copy.html" %}
+{% endif %}
