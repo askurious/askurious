@@ -1,0 +1,169 @@
+<svg class="ddi-figure" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 880" role="img" aria-label="Structure of the Askurious metadata after DDI Lifecycle 4.0: on the left the study with researchers, institutions, access and other material; on the right the reusable metadata with population, concept, data collection (methodology, sample, instrument, flow, questions, hints for interviewers), data set (variables, calculation, weighting, codes, categories) and data file.">
+<title>Structure of the Askurious metadata after DDI Lifecycle 4.0: on the left the study with researchers, institutions, access and other material; on the right the reusable metadata with population, concept, data collection (methodology, sample, instrument, flow, questions, hints for interviewers), data set (variables, calculation, weighting, codes, categories) and data file.</title>
+<style>
+.ddf-panel{fill:var(--surface,#fff);stroke:var(--border-strong,#cfcdc5)}
+.ddf-sub{fill:var(--surface-2,#f8f8f5);stroke:var(--border-strong,#cfcdc5)}
+.ddf-box{fill:var(--surface,#fff);stroke:var(--border-strong,#cfcdc5)}
+.ddf-head{fill:var(--fg,#1c1c1a);font-size:17px;font-weight:650}
+.ddf-brand{fill:var(--fg,#1c1c1a);font-size:22px;font-weight:600;font-family:var(--font-serif,Georgia,serif)}
+.ddf-title{fill:var(--fg,#1c1c1a);font-size:13px;font-weight:650}
+.ddf-line{fill:var(--muted,#6b6b66);font-size:11.5px}
+.ddf-tagbg{fill:var(--accent-soft,rgba(41,87,164,.1))}
+.ddf-tag{fill:var(--accent,#2957a4);font-size:11px;font-family:var(--mono,ui-monospace,monospace)}
+.ddf-ref,.ddf-has{fill:none;stroke:var(--muted,#6b6b66);stroke-width:1.2}
+.ddf-ref{stroke-dasharray:3 3}
+.ddf-tip{fill:var(--muted,#6b6b66)}
+.ddf-label{fill:var(--muted,#6b6b66);font-size:11px;font-style:italic}
+</style>
+<defs><marker id="ddf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ddf-tip" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="ddf-brand" x="28" y="40">Askurious metadata</text>
+<rect class="ddf-tagbg" x="259.8" y="26" width="190" height="17" rx="6"/><text class="ddf-tag" x="265.8" y="38.5">= ItemContainer (DDI-L 4.0)</text>
+<rect class="ddf-panel" x="28" y="64" width="320" height="792" rx="12"/>
+<text class="ddf-head" x="44" y="90">Study</text>
+<rect class="ddf-tagbg" x="102.75" y="76" width="137" height="17" rx="6"/><text class="ddf-tag" x="108.75" y="88.5">= TopLevelReference</text>
+<rect class="ddf-panel" x="370" y="64" width="770" height="792" rx="12"/>
+<text class="ddf-head" x="386" y="90">Reusable metadata</text>
+<rect class="ddf-sub" x="392" y="180" width="726" height="300" rx="12"/>
+<text class="ddf-head" x="408" y="206">Data collection</text>
+<rect class="ddf-tagbg" x="560.25" y="192" width="118" height="17" rx="6"/><text class="ddf-tag" x="566.25" y="204.5">= DataCollection</text>
+<rect class="ddf-sub" x="392" y="500" width="726" height="214" rx="12"/>
+<text class="ddf-head" x="408" y="526">Data set</text>
+<rect class="ddf-tagbg" x="494.8" y="512" width="118" height="17" rx="6"/><text class="ddf-tag" x="500.8" y="524.5">= LogicalProduct</text>
+<rect class="ddf-sub" x="392" y="734" width="726" height="104" rx="12"/>
+<text class="ddf-head" x="408" y="760">Data file</text>
+<rect class="ddf-tagbg" x="504.15" y="746" width="131" height="17" rx="6"/><text class="ddf-tag" x="510.15" y="758.5">= PhysicalInstance</text>
+<g><rect class="ddf-box" x="48" y="128" width="280" height="178" rx="8"/>
+<text class="ddf-title" x="60" y="147">Study</text>
+<rect class="ddf-tagbg" x="244.6" y="134" width="71" height="17" rx="6"/><text class="ddf-tag" x="250.6" y="146.5">StudyUnit</text>
+<text class="ddf-line" x="60" y="165">Title, abstract, study number</text>
+<text class="ddf-line" x="60" y="179.5">DOI, funding, keywords</text>
+<text class="ddf-line" x="60" y="194">CESSDA topic, coverage (country, time)</text>
+<text class="ddf-line" x="60" y="208.5">Publisher → organisation</text>
+<rect class="ddf-tagbg" x="60" y="280" width="203" height="17" rx="6"/><text class="ddf-tag" x="66" y="292.5">Panel waves = SeriesStatement</text>
+</g>
+<g><rect class="ddf-box" x="48" y="330" width="280" height="62" rx="8"/>
+<text class="ddf-title" x="60" y="349">Researchers</text>
+<rect class="ddf-tagbg" x="238" y="336" width="78" height="17" rx="6"/><text class="ddf-tag" x="244" y="348.5">Individual</text>
+<text class="ddf-line" x="60" y="367">Name, ORCID, role</text>
+</g>
+<g><rect class="ddf-box" x="48" y="420" width="280" height="62" rx="8"/>
+<text class="ddf-title" x="60" y="439">Institution</text>
+<rect class="ddf-tagbg" x="224.8" y="426" width="91" height="17" rx="6"/><text class="ddf-tag" x="230.8" y="438.5">Organization</text>
+<text class="ddf-line" x="60" y="457">Organisation, team; publisher</text>
+</g>
+<g><rect class="ddf-box" x="48" y="506" width="280" height="58" rx="8"/>
+<text class="ddf-title" x="60" y="525">Team and institutions</text>
+<rect class="ddf-tagbg" x="60" y="530" width="131" height="17" rx="6"/><text class="ddf-tag" x="66" y="542.5">OrganizationScheme</text>
+<text class="ddf-line" x="60" y="560">People, institutions, affiliation</text>
+</g>
+<g><rect class="ddf-box" x="48" y="600" width="280" height="62" rx="8"/>
+<text class="ddf-title" x="60" y="619">Access</text>
+<rect class="ddf-tagbg" x="257.8" y="606" width="58" height="17" rx="6"/><text class="ddf-tag" x="263.8" y="618.5">Archive</text>
+<text class="ddf-line" x="60" y="637">Licence, access conditions</text>
+</g>
+<g><rect class="ddf-box" x="48" y="688" width="280" height="78" rx="8"/>
+<text class="ddf-title" x="60" y="707">Other material</text>
+<rect class="ddf-tagbg" x="218.2" y="694" width="98" height="17" rx="6"/><text class="ddf-tag" x="224.2" y="706.5">OtherMaterial</text>
+<text class="ddf-line" x="60" y="725">Publications (DOI)</text>
+<text class="ddf-line" x="60" y="739.5">Files in the package</text>
+</g>
+<g><rect class="ddf-box" x="392" y="104" width="220" height="48" rx="8"/>
+<text class="ddf-title" x="404" y="123">Population</text>
+<rect class="ddf-tagbg" x="535.2" y="110" width="65" height="17" rx="6"/><text class="ddf-tag" x="541.2" y="122.5">Universe</text>
+</g>
+<g><rect class="ddf-box" x="904" y="104" width="214" height="62" rx="8"/>
+<text class="ddf-title" x="916" y="123">Concept</text>
+<text class="ddf-line" x="916" y="141">validated constructs</text>
+</g>
+<g><rect class="ddf-box" x="410" y="240" width="200" height="62" rx="8"/>
+<text class="ddf-title" x="422" y="259">Methodology</text>
+<text class="ddf-line" x="422" y="277">Time method, sampling</text>
+</g>
+<g><rect class="ddf-box" x="410" y="326" width="200" height="62" rx="8"/>
+<text class="ddf-title" x="422" y="345">Sample</text>
+<text class="ddf-line" x="422" y="363">Target size, exclusions, quotas</text>
+</g>
+<g><rect class="ddf-box" x="410" y="404" width="200" height="62" rx="8"/>
+<text class="ddf-title" x="422" y="423">Collection event</text>
+<rect class="ddf-tagbg" x="422" y="428" width="111" height="17" rx="6"/><text class="ddf-tag" x="428" y="440.5">CollectionEvent</text>
+<text class="ddf-line" x="422" y="458">Period, mode, wave</text>
+</g>
+<g><rect class="ddf-box" x="640" y="240" width="190" height="46" rx="8"/>
+<text class="ddf-title" x="652" y="259">Instrument</text>
+</g>
+<g><rect class="ddf-box" x="640" y="310" width="190" height="154" rx="8"/>
+<text class="ddf-title" x="652" y="329">Flow</text>
+<rect class="ddf-tagbg" x="652" y="334" width="157" height="17" rx="6"/><text class="ddf-tag" x="658" y="346.5">ControlConstructScheme</text>
+<text class="ddf-line" x="652" y="364">Sequence (blocks)</text>
+<text class="ddf-line" x="652" y="378.5">IfThenElse (conditions)</text>
+<text class="ddf-line" x="652" y="393">Loop (loops)</text>
+<text class="ddf-line" x="652" y="407.5">Split (randomisation)</text>
+<text class="ddf-line" x="652" y="422">QuestionConstruct,</text>
+<text class="ddf-line" x="652" y="436.5">StatementItem</text>
+</g>
+<g><rect class="ddf-box" x="858" y="240" width="240" height="46" rx="8"/>
+<text class="ddf-title" x="870" y="259">Questions</text>
+<rect class="ddf-tagbg" x="981.6" y="246" width="104" height="17" rx="6"/><text class="ddf-tag" x="987.6" y="258.5">QuestionScheme</text>
+</g>
+<g><rect class="ddf-box" x="858" y="310" width="240" height="62" rx="8"/>
+<text class="ddf-title" x="870" y="329">Question</text>
+<rect class="ddf-tagbg" x="994.8" y="316" width="91" height="17" rx="6"/><text class="ddf-tag" x="1000.8" y="328.5">QuestionItem</text>
+<text class="ddf-line" x="870" y="347">Question text, response domain</text>
+</g>
+<g><rect class="ddf-box" x="858" y="394" width="240" height="70" rx="8"/>
+<text class="ddf-title" x="870" y="413">Hints</text>
+<rect class="ddf-tagbg" x="870" y="418" width="197" height="17" rx="6"/><text class="ddf-tag" x="876" y="430.5">InterviewerInstructionScheme</text>
+<text class="ddf-line" x="870" y="448">Instruction: hints for interviewers,</text>
+<text class="ddf-line" x="870" y="462.5">attached to the question in the flow</text>
+</g>
+<g><rect class="ddf-box" x="410" y="560" width="210" height="46" rx="8"/>
+<text class="ddf-title" x="422" y="579">Variables</text>
+<rect class="ddf-tagbg" x="503.6" y="566" width="104" height="17" rx="6"/><text class="ddf-tag" x="509.6" y="578.5">VariableScheme</text>
+</g>
+<g><rect class="ddf-box" x="410" y="630" width="210" height="62" rx="8"/>
+<text class="ddf-title" x="422" y="649">Variable</text>
+<text class="ddf-line" x="422" y="667">points at question and concept</text>
+</g>
+<g><rect class="ddf-box" x="642" y="560" width="220" height="62" rx="8"/>
+<text class="ddf-title" x="654" y="579">Calculation</text>
+<rect class="ddf-tagbg" x="654" y="584" width="151" height="17" rx="6"/><text class="ddf-tag" x="660" y="596.5">GenerationInstruction</text>
+<text class="ddf-line" x="654" y="614">derived variables, formula</text>
+</g>
+<g><rect class="ddf-box" x="642" y="640" width="220" height="52" rx="8"/>
+<text class="ddf-title" x="654" y="659">Weighting</text>
+<text class="ddf-line" x="654" y="677">weighting procedure</text>
+</g>
+<g><rect class="ddf-box" x="886" y="560" width="212" height="46" rx="8"/>
+<text class="ddf-title" x="898" y="579">Codes</text>
+<rect class="ddf-tagbg" x="898" y="584" width="177" height="17" rx="6"/><text class="ddf-tag" x="904" y="596.5">CodeListScheme → CodeList</text>
+</g>
+<g><rect class="ddf-box" x="886" y="630" width="212" height="62" rx="8"/>
+<text class="ddf-title" x="898" y="649">Categories</text>
+<rect class="ddf-tagbg" x="898" y="654" width="177" height="17" rx="6"/><text class="ddf-tag" x="904" y="666.5">CategoryScheme → Category</text>
+<text class="ddf-line" x="898" y="684">Answer levels, missing values</text>
+</g>
+<g><rect class="ddf-box" x="600" y="762" width="300" height="58" rx="8"/>
+<text class="ddf-title" x="612" y="781">File</text>
+<rect class="ddf-tagbg" x="730.8" y="768" width="157" height="17" rx="6"/><text class="ddf-tag" x="736.8" y="780.5">DataFileIdentification</text>
+<text class="ddf-line" x="612" y="799">data.csv, languages</text>
+</g>
+<path class="ddf-has" d="M188 306V330" marker-end="url(#ddf-arrow)"/>
+<text class="ddf-label" x="196" y="322">Creator</text>
+<path class="ddf-has" d="M188 392V420" marker-end="url(#ddf-arrow)"/>
+<text class="ddf-label" x="196" y="410">Affiliation = Relation</text>
+<path class="ddf-ref" d="M188 482V506" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M48 217H38V631H48" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M38 631V727H48" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M328 217H356V128H392" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M356 217V330H392" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M356 330V607H392" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M356 607V786H392" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M510 302V326" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M735 286V310" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M830 341H858" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M978 286V310" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M515 606V630" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M620 661H631V591H642" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-has" d="M992 606V630" marker-end="url(#ddf-arrow)"/>
+<path class="ddf-ref" d="M1098 341H1128V583H1098" marker-end="url(#ddf-arrow)"/>
+</svg>
