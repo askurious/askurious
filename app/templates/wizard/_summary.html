@@ -17,20 +17,33 @@
   <dt>{{ de_en("Erscheinungsbild", "Appearance") }}</dt><dd>{{ themes.name(themes.of(survey)) }}</dd>
 </dl>
 <p class="muted small">{{ de_en("Alles lässt sich später ändern: in den Einstellungen, die Datenqualität im Reiter „Qualitätssicherung“, Testdurchläufe im Reiter „Datenerhebung“. Als Nächstes: den Fragebogen gestalten.", "Everything can be changed later: in the settings, data quality on the tab “Quality assurance”, test runs on the tab “Data collection”. Next: design the questionnaire.") }}{% if open_h > 0 %} {{ de_en("Danach die Hypothesen mit ihren Fragen verbinden.", "Then link the hypotheses with their questions.") }}{% endif %}</p>
-{# what a data archive gets (DDI, CESSDA; app/ddi.readiness, Ralf 2026-10-27) #}
+{# what a data archive gets (DDI, CESSDA; app/ddi.readiness): what is missing first and set apart, each with what it
+   is for and a button to its step; below in two columns what is given and what Askurious sets itself (Ralf
+   2026-10-27, variant A) #}
 {% set ready = ddi.readiness(survey) %}
-{% set counted = ready|rejectattr(0, "equalto", "optional")|list %}
-{% set have = counted|selectattr(0, "in", ["ok", "auto"])|list|length %}
+{% set counted = ready|rejectattr("state", "equalto", "optional")|list %}
+{% set have = counted|selectattr("state", "in", ["ok", "auto"])|list|length %}
+{% set missing = ready|selectattr("state", "in", ["missing", "optional"])|list %}
+{% set given = ready|selectattr("state", "equalto", "ok")|list %}
+{% set auto = ready|selectattr("state", "equalto", "auto")|list %}
+{% set keys = wizard_keys %}
 <div class="archive-box">
   <h3>{{ de_en("Für Datenarchive", "For data archives") }} <span class="hint">DDI, CESSDA</span></h3>
   <p class="small muted flush">{{ de_en("{n} von {m} empfohlenen Angaben sind da; der DDI-Export unter „Dokumentation“ und die Pakete für Zenodo und Coscine nutzen sie.", "{n} of {m} recommended details are there; the DDI export under “Documentation” and the packages for Zenodo and Coscine use them.", n=have, m=counted|length) }}</p>
   <div class="archive-meter" aria-hidden="true"><span style="width: {{ (100 * have / (counted|length or 1))|round|int }}%"></span></div>
-  {# three groups with words instead of marks (Ralf 2026-10-27: a gear did not read as "filled in by itself") #}
-  {% for states, title in [(["ok"], de_en("Schon angegeben", "Already given")), (["auto"], de_en("Setzt Askurious selbst", "Set by Askurious itself")), (["missing", "optional"], de_en("Fehlt noch", "Still missing"))] %}
-  {% set rows = ready|selectattr(0, "in", states)|list %}
-  {% if rows %}<p class="archive-group">{{ title }}</p>
-  <ul>{% for state, de, en, step in rows %}
-    <li class="is-{{ 'missing' if state == 'optional' else state }}">{{ de_en(de, en) }}{% if state in ("missing", "optional") and step %} · <a href="{{ url_for('wizard.step', survey_id=survey.id, key=step) }}">{{ de_en("ergänzen", "add") }}</a>{% endif %}{% if state == "optional" %} <span class="hint">{{ de_en("optional", "optional") }}</span>{% endif %}</li>{% endfor %}
-  </ul>{% endif %}
-  {% endfor %}
+  {% if missing %}
+  <div class="archive-missing">
+    <h4>{{ de_en("Fehlt noch", "Still missing") }} <span class="archive-count">{{ missing|length }}</span></h4>
+    <ul>{% for r in missing %}
+      <li class="{{ 'is-optional' if r.state == 'optional' else '' }}"><span><strong>{{ de_en(r.de, r.en) }}</strong> <span class="hint">{{ de_en(r.why_de, r.why_en) }}{% if r.state == "optional" %} · {{ de_en("optional", "optional") }}{% endif %}</span></span>
+        {% if r.step %}<a class="button button-small{% if r.state == 'optional' %} button-secondary{% endif %}" href="{{ url_for('wizard.step', survey_id=survey.id, key=r.step) }}">{{ de_en("Ergänzen in Schritt {n}", "Add in step {n}", n=keys.index(r.step) + 1) }}</a>{% endif %}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  <div class="archive-cols">
+    <div><h4>{{ de_en("Schon angegeben", "Already given") }} <span class="archive-count is-ok">{{ given|length }}</span></h4>
+      <ul>{% for r in given %}<li class="is-ok">{{ de_en(r.de, r.en) }}{% if r.value_de %}: {{ de_en(r.value_de, r.value_en) }}{% endif %}</li>{% endfor %}</ul></div>
+    <div><h4>{{ de_en("Setzt Askurious automatisch", "Set by Askurious automatically") }} <span class="archive-count is-auto">{{ auto|length }}</span></h4>
+      <ul>{% for r in auto %}<li class="is-auto">{{ de_en(r.de, r.en) }}: {{ de_en(r.value_de, r.value_en) }}</li>{% endfor %}</ul></div>
+  </div>
 </div>

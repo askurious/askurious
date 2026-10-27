@@ -7370,3 +7370,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Nutzertest: Im Rechner „Stichprobengröße“ waren die Felder für Effektstärken, Anteile, ρ, ICC usw. Zahlenfelder, die kein Komma annehmen. „0,3“ wurde je nach Browser zu nichts („–“) oder zu „03“, also d = 3 und n = 8.
 - Die 24 Felder mit Nachkommastellen sind jetzt Textfelder mit Zifferntastatur (`inputmode="decimal"`), zeigen ihren Wert auf Deutsch mit Komma und rechnen mit Komma oder Punkt; die Knöpfe „klein/mittel/groß“ setzen den Wert mit Komma. Test in `tests/analysis/test_samplesize.py`.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Box „Für Datenarchive“ zeigt zuerst, was fehlt
+
+- Ralf wählte Variante A: In der Übersicht des Assistenten steht „Fehlt noch“ jetzt zuerst, in einem farbig abgesetzten Feld mit Zahl. Jede Zeile sagt, wofür die Angabe gebraucht wird, und hat einen Knopf „Ergänzen in Schritt N“ (hervorgehoben, wenn empfohlen; schlicht, wenn optional).
+- Darunter stehen zwei Spalten mit fetten Überschriften und Zahl: „Schon angegeben“ mit den Werten (etwa „Lizenz: CC BY 4.0“) und „Setzt Askurious automatisch“. `ddi.readiness` liefert dafür Wert, Zweck und Schritt je Zeile.
+- Rechtstexte geprüft, keine Änderung nötig.

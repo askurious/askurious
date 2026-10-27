@@ -701,10 +701,11 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
 
 
 def readiness(survey):
-    """[(state, German, English, step)] of the study description a data archive asks for (CESSDA Metadata Model,
-    DDI): state "ok" (given), "auto" (Askurious sets it), "missing" (recommended, not given) or "optional"; step: the
-    wizard step to fill it in. Shown on the last step of the wizard (wizard/_summary.html; Ralf 2026-10-27)."""
-    from app import study_plan
+    """The study description a data archive asks for (CESSDA Metadata Model, DDI), as rows {state, de, en, value_de,
+    value_en, why_de, why_en, step}: state "ok" (given), "auto" (Askurious sets it), "missing" (recommended, not
+    given) or "optional"; value: what is given; why: what it is for, shown while it is missing; step: the wizard
+    step to fill it in. Shown on the wizard's overview (wizard/_summary.html; Ralf 2026-10-27, variant A)."""
+    from app import geoip, study_plan
 
     plan = _plan(survey)
     sample = plan.get("sample") or {}
@@ -713,7 +714,8 @@ def readiness(survey):
     kind = ("Qualitativ", "qualitative") if getattr(survey, "interview", None) is not None else ("Quantitativ", "quantitative")
     tm, sp = time_method(survey), sampling(survey)
     consent = getattr(survey, "consent_item", None)
-    funding = ((consent.config or {}).get("funding") or "") if consent is not None else ""
+    config = (consent.config or {}) if consent is not None else {}
+    funding = config.get("funding") or ""
     licence = None
     try:
         from app import cdif
@@ -721,27 +723,46 @@ def readiness(survey):
         licence = cdif.licence(survey)
     except Exception:  # noqa: BLE001
         licence = None
+    design = study_plan.design_key(plan.get("design") or "")
+    how = sample.get("recruitment") or ""
+    orcid = [m.display_name for m in survey.members if m.orcid_id]
 
-    def row(ok, de, en, step, optional=False):
-        return ("ok" if ok else "optional" if optional else "missing", de, en, step)
+    def row(state, de, en, step="", value=("", ""), why=("", "")):
+        return {"state": state, "de": de, "en": en, "value_de": value[0], "value_en": value[1], "why_de": why[0],
+                "why_en": why[1], "step": step}
 
-    out = [
-        row(True, "Titel", "Title", "projekt"),
-        row(bool((survey.description or "").strip()), "Beschreibung (Zusammenfassung)", "Description (abstract)", "projekt"),
-        row(any(m.orcid_id for m in survey.members), "Team mit ORCID", "Team with ORCID", "team"),
-        ("auto", f"Erhebungsart: {mode[0]}", f"Mode of collection: {mode[1]}", ""),
-        ("auto", f"Datenart: {kind[0]} · Analyseeinheit: Individuum", f"Kind of data: {kind[1]} · unit of analysis: individual", ""),
-        ("auto", "Erhebungszeitraum: ab dem Start der Datenerhebung", "Field period: from the start of data collection", ""),
-        row(bool(tm), "Zeitbezug (Studiendesign)", "Time method (research design)", "studienplan"),
-        row(bool(sp), "Auswahlverfahren (Rekrutierung)", "Sampling procedure (recruitment)", "studienplan"),
-        row(bool(population_text(survey)), "Grundgesamtheit", "Population", "studienplan"),
-        row(bool(sample.get("country")), "Land", "Country", "studienplan"),
-        row(bool(licence), "Lizenz der Daten", "Licence of the data", "einwilligung"),
-        row(bool(archive["keywords"] or archive["topic"]), "Schlagwörter und Thema", "Keywords and topic", "projekt",
-            optional=True),
-        row(bool(funding), "Förderung (nur falls gefördert)", "Funding (only if funded)", "einwilligung", optional=True),
+    def given(ok, optional=False):
+        return "ok" if ok else "optional" if optional else "missing"
+
+    short = lambda text: text if len(text) <= 70 else text[:67] + "…"  # noqa: E731
+    population = population_text(survey)
+    return [
+        row("ok", "Titel", "Title", "projekt", (short(survey.title), short(survey.title))),
+        row(given((survey.description or "").strip()), "Beschreibung (Zusammenfassung)", "Description (abstract)", "projekt",
+            why=("für Einwilligung, DDI und Zenodo", "for the consent, DDI and Zenodo")),
+        row(given(orcid), "Team mit ORCID", "Team with ORCID", "team", (", ".join(orcid), ", ".join(orcid)),
+            ("für die Autorenliste in Archiven", "for the list of authors in archives")),
+        row(given(tm), "Zeitbezug", "Time method", "studienplan",
+            (study_plan.DESIGNS.get(design, "Tagebuchstudie" if tm else ""), study_plan.DESIGNS_EN.get(design, "diary survey" if tm else "")),
+            ("Querschnitt, Panel oder Trend", "cross-section, panel or trend")),
+        row(given(sp), "Auswahlverfahren", "Sampling procedure", "studienplan",
+            (study_plan.RECRUITMENT.get(how, ""), study_plan.RECRUITMENT_EN.get(how, "")),
+            ("sagt, für wen die Ergebnisse gelten", "says whom the results hold for")),
+        row(given(population), "Grundgesamtheit", "Population", "studienplan", (short(population), short(population)),
+            ("für wen die Ergebnisse gelten sollen", "whom the results are meant to speak for")),
+        row(given(sample.get("country")), "Land", "Country", "studienplan",
+            (geoip.country_name(sample.get("country"), "de"), geoip.country_name(sample.get("country"), "en")) if sample.get("country") else ("", ""),
+            ("für die Suche in Katalogen", "for search in catalogues")),
+        row(given(licence), "Lizenz", "Licence", "einwilligung", (config.get("license") or "", config.get("license") or ""),
+            ("wer die Daten nachnutzen darf", "who may reuse the data")),
+        row(given(archive["keywords"] or archive["topic"], optional=True), "Schlagwörter und Thema", "Keywords and topic", "projekt",
+            (", ".join(archive["keywords"]), ", ".join(archive["keywords"])), ("für die Suche in Archiven", "for search in archives")),
+        row(given(funding, optional=True), "Förderung", "Funding", "team", (short(funding), short(funding)),
+            ("nur falls gefördert", "only if funded")),
+        row("auto", "Erhebungsart", "Mode of collection", value=(mode[0], mode[1])),
+        row("auto", "Datenart · Analyseeinheit", "Kind of data · unit of analysis", value=(f"{kind[0]} · Individuum", f"{kind[1]} · individual")),
+        row("auto", "Erhebungszeitraum", "Field period", value=("ab dem Start der Datenerhebung", "from the start of data collection")),
     ]
-    return out
 
 
 MODE_NAMES = {"SelfAdministeredQuestionnaire.CAWI": ("Selbstausgefüllter Fragebogen: Webbasiert (CAWI)",
