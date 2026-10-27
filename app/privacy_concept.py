@@ -1044,13 +1044,13 @@ def _services():
                  "words": ("KI:connect", "KI-Zugang", "eigenen KI-Schlüssel", "eigener KI-Schlüssel"),
                  "data": de_en("Alle Textaufrufe der Person mit eigenem Zugang (auch Antworttexte der KI-Kodierhilfe und, "
                                "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte pseudonymisierter Interviewtranskripte "
-                               "mit dem Kategoriensystem) "
+                               "mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
                                "gehen über deren Schlüssel, Kontingent und Bedingungen an KI:connect.nrw, OpenAI oder "
                                "eine selbst eingetragene Adresse; Bilder weiter über den Schlüssel der Installation. "
                                "Der Schlüssel ist verschlüsselt gespeichert und wird nie wieder angezeigt.",
                                "All text calls of a person with their own access (also answer texts of the AI coding "
                                "help and, where an analysis allows AI suggestions, sections of pseudonymised interview "
-                               "transcripts with the category system) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
+                               "transcripts with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
                                "typed; images keep using the installation's key. The key is stored encrypted and "
                                "never shown again."),
                  "who": de_en("Forschende", "Researchers"), "switch": de_en("Konto › KI-Nutzung, für alle",

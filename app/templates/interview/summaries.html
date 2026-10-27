@@ -17,18 +17,80 @@
     <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
   </div>
   <p class="muted small">{{ de_en("Je Interview und Themenblock eine kurze Zusammenfassung in Ihren Worten, dazu eine für den Fall insgesamt (thematische Matrix nach Kuckartz & Rädiker). Die Notizen aus dem Interview stehen klein darunter. Jedes Feld speichert von selbst.", "Per interview and topic block a short summary in your own words, plus one for the case as a whole (thematic matrix after Kuckartz & Rädiker). The notes from the interview appear in small print below. Each field saves automatically.") }}</p>
-  {% if options %}
+  {% if options or analyses %}
   <form method="get" class="row-fields">
+    {% if analyses %}
+    <label>{{ de_en("Spalten", "Columns") }}
+      <select name="auswertung" data-submit-on-change><option value="">{{ de_en("Themenblöcke des Leitfadens", "Topic blocks of the guide") }}</option>
+        {% for p in analyses %}<option value="{{ p.id }}" {% if coding and coding.project.id == p.id %}selected{% endif %}>{{ de_en("Hauptkategorien von „{name}“", "Main categories of “{name}”", name=p.name) }}</option>{% endfor %}</select></label>
+    {% endif %}
     <label>{{ de_en("Gruppieren nach", "Group by") }}
       <select name="nach" data-submit-on-change><option value="">{{ de_en("nicht gruppieren", "do not group") }}</option>
-        {% for item in options %}<option value="{{ item.id }}" {% if grouper and grouper.id == item.id %}selected{% endif %}>{{ item.text("question")|striptags|truncate(60, true, "…") }}</option>{% endfor %}</select></label>
+        {% for item in options %}<option value="{{ item.id }}" {% if grouper and grouper.id == item.id %}selected{% endif %}>{{ item.text("question")|striptags|truncate(60, true, "…") }}</option>{% endfor %}
+        {% if coding %}{% for m, sub in coding.pairs %}<option value="sub{{ sub.id }}" {% if coding.sub and coding.sub.id == sub.id %}selected{% endif %}>{{ de_en("Unterkategorie „{name}“ (mit/ohne)", "Subcategory “{name}” (with/without)", name=sub.name) }}</option>{% endfor %}{% endif %}</select></label>
     <noscript><div><button class="button button-small">{{ de_en("Zeigen", "Show") }}</button></div></noscript>
   </form>
   {% endif %}
   <p class="small" data-summary-status role="status"></p>
 </section>
 
-{% if n %}
+{% if n and coding %}
+{% set cols = coding.mains %}
+<section class="panel summary-panel" data-summaries data-csrf="{{ csrf_token() }}">
+  <p class="muted small">{{ de_en("Spalten: die Hauptkategorien der Auswertung „{name}“. In jeder Zelle stehen die kodierten Stellen als Grundlage; „aus Stellen vorbefüllen“ schreibt einen Entwurf in ein leeres Feld.", "Columns: the main categories of the analysis “{name}”. Each cell shows the coded passages as the ground; “Prefill from passages” writes a draft into an empty field.", name=coding.project.name) }}</p>
+  <div class="res-scroll">
+  {% call list_table("is-wide summary-table") %}
+    <thead><tr><th>Interview</th>{% for m in cols %}<th>{{ m.name }}</th>{% endfor %}<th>{{ de_en("Fall insgesamt", "Case as a whole") }}</th></tr></thead>
+    <tbody>
+    {% for label, members in groups %}
+    {% if label %}<tr class="coverage-block"><td>{{ (grouper.text("question")|striptags|truncate(50, true, "…") ~ ": ") if grouper else "" }}{{ label }} ({{ members|length }})</td>
+      {% for m in cols %}<td class="muted small">{% set hits = namespace(n=0) %}{% for r in members %}{% if coding.cells.get((r.id, m.id)) %}{% set hits.n = hits.n + 1 %}{% endif %}{% endfor %}{{ de_en("{n} mit Stellen", "{n} with passages", n=hits.n) }}</td>{% endfor %}<td></td></tr>{% endif %}
+    {% for r in members %}{% set s = summaries(r) %}
+    <tr>
+      <th scope="row">{{ r.interview.label }}</th>
+      {% for m in cols %}{% set key = "c" ~ coding.project.id ~ ":" ~ m.id %}{% set items = coding.cells.get((r.id, m.id)) or [] %}
+      <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ m.name }}"
+                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="{{ key }}">{{ s.get(key, "") }}</textarea>
+        {% if items %}
+        <div class="summary-tools">
+          <button type="button" class="button button-small button-secondary" data-summary-prefill="{{ coding.draft(items) }}">{{ de_en("aus Stellen vorbefüllen", "Prefill from passages") }}</button>
+          {% if coding.ai and ai_on() %}<button type="button" class="button button-small button-ai" data-summary-ai="{{ url_for('interview_summaries.suggest_summary', code=survey.code, rid=r.id) }}">{{ de_en("Zusammenfassung vorschlagen", "Suggest a summary") }}</button>{% endif %}
+          <button type="button" class="button button-small button-secondary" data-summary-undo hidden>{{ de_en("Rückgängig", "Undo") }}</button>
+        </div>
+        <details class="summary-note"><summary>{{ de_en("{n} Stellen", "{n} passages", n=items|length) }}</summary>
+          <ul class="tc-passages">{% for it in items %}<li><p class="small">{% if it.sub %}<strong>{{ it.sub }}</strong>: {% endif %}„{{ it.quote|truncate(240, true, "…") }}“{% if it.mark %} <span class="muted">#{{ it.mark }}#</span>{% endif %}
+            <a href="{{ url_for('transcript_coding.page', code=survey.code, pid=coding.project.id, rid=r.id) }}">{{ de_en("im Transkript", "in the transcript") }}</a></p></li>{% endfor %}</ul></details>
+        {% endif %}</td>
+      {% endfor %}
+      <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ de_en('Fall insgesamt', 'case as a whole') }}"
+                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="case">{{ s.get("case", "") }}</textarea></td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+</section>
+
+<section class="panel" id="typen">
+  <div class="row results-head"><h2>{{ de_en("Fälle × Unterkategorien", "Cases × subcategories") }} <span class="hint">{{ de_en("Stellen je Interview; erster Schritt der Typenbildung", "passages per interview; a first step of building types") }}</span></h2>
+    <span class="spacer"></span>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_summaries.types_csv', code=survey.code, auswertung=coding.project.id) }}">{{ icon("download", 16) }} CSV</a></div>
+  {% if coding.pairs %}
+  <label class="row-fields">{{ de_en("Nur Fälle mit", "Only cases with") }} <select data-types-filter><option value="">{{ de_en("alle Fälle", "all cases") }}</option>{% for m, sub in coding.pairs %}<option value="{{ sub.id }}">{{ sub.name }}</option>{% endfor %}</select></label>
+  <div class="res-scroll">
+  {% call list_table("is-wide types-table") %}
+    <thead><tr><th><button type="button" class="link-button" data-types-sort="0">Interview</button></th>{% for m, sub in coding.pairs %}<th class="num"><button type="button" class="link-button" data-types-sort="{{ loop.index }}" title="{{ m.name }}">{{ sub.name }}</button></th>{% endfor %}</tr></thead>
+    <tbody data-types-body>
+    {% for r in groups|map("last")|sum(start=[]) %}
+    <tr>{% set row_counts = [] %}<th scope="row" data-v="{{ r.interview.label }}">{{ r.interview.label }}</th>{% for m, sub in coding.pairs %}{% set c = coding.counts.get((r.id, sub.id), 0) %}<td class="num" data-sub="{{ sub.id }}" data-v="{{ c }}">{{ c if c else "·" }}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% else %}<p class="muted">{{ de_en("Die Auswertung hat noch keine Unterkategorien.", "The analysis has no subcategories yet.") }}</p>{% endif %}
+</section>
+{% elif n %}
 <section class="panel summary-panel" data-summaries data-csrf="{{ csrf_token() }}">
   <div class="res-scroll">
   {% call list_table("is-wide summary-table") %}

@@ -76,7 +76,7 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
     ("transcript_coding", "Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen",
      "Unter „Ergebnisse“ eines Interviewleitfadens der Knopf „Kodieren“: Textstellen markieren und Kategorien zuordnen "
      "(Tasten 1 bis 9, Ankerbeispiele, KI-Vorschläge über den eigenen KI-Zugang, wenn erlaubt), Übersicht als Tabelle oder Karte, unscharfe Kategorien zusammenführen, "
-     "gegenseitige Probe, Doppelkodierung mit Übereinstimmung (Cohens κ), Kodierleitfaden und Export für QDA-Programme (.qdpx, .qdc), Auswertungen mit eigener "
+     "gegenseitige Probe, Fallvergleich nach Hauptkategorien mit Fälle × Unterkategorien, Doppelkodierung mit Übereinstimmung (Cohens κ), Kodierleitfaden und Export für QDA-Programme (.qdpx, .qdc), Auswertungen mit eigener "
      "Forschungsfrage und "
      "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
      "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
@@ -125,7 +125,7 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
     "transcript_coding": ("Code interviews: assign passages of transcripts to categories together",
                           "Under “Results” of an interview guide the button “Code”: mark passages and assign categories "
                           "(keys 1 to 9, anchor examples, AI suggestions over the own AI access where allowed), an overview as a table or map, merging blurred categories, a "
-                          "mutual check, double coding with agreement (Cohen's κ), a coding guide and an export for QDA software (.qdpx, .qdc), create analyses with their own "
+                          "mutual check, comparing cases by main category with cases × subcategories, double coding with agreement (Cohen's κ), a coding guide and an export for QDA software (.qdpx, .qdc), create analyses with their own "
                           "research question and category system, from the guide, empty or as a copy. You set the main "
                           "categories, members add subcategories with a definition, delimitation and author without "
                           "overwriting each other; similar names show first. People, Askurious groups, interviewers with "
