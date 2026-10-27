@@ -24,7 +24,8 @@ def test_new_page_offers_what_coscine_lists_with_suggestions(app, client, survey
     assert 'value="l1" selected' in page and 'value="t-s3" selected' in page          # CC BY 4.0, S3
     assert "t-gitlab" not in page                                                       # a type without storage
     assert 'name="gb" value="1"' in page and "RWTH Aachen" in page                     # at least 1 GB
-    assert 'value="sub:p1"' in page and 'value="in:p1"' in page and "p2" not in page   # a guest project is left out
+    assert 'value="sub:p1"' in page and 'value="in:p1"' in page                        # a guest project is left out:
+    assert ':p2"' not in page and "Fremd" not in page  # not "p2" anywhere: a random CSRF token can hold it (2026-10-27)
 
 
 def test_create_project_with_resource(app, client, survey, fake):
