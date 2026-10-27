@@ -239,6 +239,19 @@ def _method_text(survey):
     return " ".join(parts)
 
 
+def population_text(survey):
+    """Who the survey speaks for: the population of the research plan; for an interview guide its target group
+    with the more precise words after it ("Fachleute (Experteninterview): Pflegedienstleitungen in NRW")."""
+    population = ((_plan(survey).get("sample") or {}).get("population") or "").strip()
+    target = (getattr(survey, "interview", None) or {}).get("target") if getattr(survey, "interview", None) else ""
+    if target:
+        from app import interview
+
+        name = interview.TARGETS.get(target, "")
+        return f"{name}: {population}" if name and population else name or population
+    return population
+
+
 def time_method(survey):
     if getattr(survey, "sampling", None) is not None:  # a diary study: entries at intervals per person
         return "Longitudinal.Panel.Interval"
@@ -441,7 +454,7 @@ def build(survey, lang=None, public=False, open_answers=False):
 
     # -- the population the survey speaks for (research plan, "Grundgesamtheit")
     universe_id = None
-    population = ((_plan(survey).get("sample") or {}).get("population") or "").strip()
+    population = population_text(survey)
     if population:
         universe, universe_id = doc.item("Universe")
         _lang(universe, "Label", {survey.default_language: population})
@@ -470,8 +483,19 @@ def build(survey, lang=None, public=False, open_answers=False):
         doc.ref(study, "UniverseReference", "Universe", universe_id)
     sample = _plan(survey).get("sample") or {}
     country, region = sample.get("country") or "", sample.get("region") or ""
-    if country or region or survey.opened_at:
+    from app import study_plan
+
+    archive = study_plan.archive_of(_plan(survey).get("archive"))
+    if country or region or survey.opened_at or archive["keywords"] or archive["topic"]:
         coverage = _sub(study, "Coverage")
+        if archive["keywords"] or archive["topic"]:  # topic of the CESSDA Topic Classification, the keywords
+            topical = doc.inner(coverage, "TopicalCoverage")
+            if archive["topic"]:
+                subject = _sub(topical, "Subject")
+                _sub(subject, "MultilingualStringValue", study_plan.topic_name(archive["topic"], "en")).set(XML_LANG, "en")
+                _sub(subject, "ControlledVocabularyID", archive["topic"])
+            for word in archive["keywords"]:
+                _sub(_sub(topical, "Keyword"), "MultilingualStringValue", word).set(XML_LANG, survey.default_language)
         if country or region:
             spatial = doc.inner(coverage, "SpatialCoverage")
             if region:
@@ -671,3 +695,57 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
         constructs_.append(("IfThenElse", ite_id, ite))
         return [("IfThenElse", ite_id)]
     return out
+
+
+# ---- what an archive gets (the box "Für Datenarchive" on the last step of the wizard) ------------------------------
+
+
+def readiness(survey):
+    """[(state, German, English, step)] of the study description a data archive asks for (CESSDA Metadata Model,
+    DDI): state "ok" (given), "auto" (Askurious sets it), "missing" (recommended, not given) or "optional"; step: the
+    wizard step to fill it in. Shown on the last step of the wizard (wizard/_summary.html; Ralf 2026-10-27)."""
+    from app import study_plan
+
+    plan = _plan(survey)
+    sample = plan.get("sample") or {}
+    archive = study_plan.archive_of(plan.get("archive"))
+    mode = MODE_NAMES.get(modes(survey)[0], ("", ""))
+    tm, sp = time_method(survey), sampling(survey)
+    consent = getattr(survey, "consent_item", None)
+    funding = ((consent.config or {}).get("funding") or "") if consent is not None else ""
+    licence = None
+    try:
+        from app import cdif
+
+        licence = cdif.licence(survey)
+    except Exception:  # noqa: BLE001
+        licence = None
+
+    def row(ok, de, en, step, optional=False):
+        return ("ok" if ok else "optional" if optional else "missing", de, en, step)
+
+    out = [
+        row(True, "Titel", "Title", "projekt"),
+        row(bool((survey.description or "").strip()), "Beschreibung (Zusammenfassung)", "Description (abstract)", "projekt"),
+        row(any(m.orcid_id for m in survey.members), "Team mit ORCID", "Team with ORCID", "team"),
+        ("auto", f"Erhebungsart: {mode[0]}", f"Mode of collection: {mode[1]}", ""),
+        ("auto", "Datenart und Analyseeinheit", "Kind of data and unit of analysis", ""),
+        ("auto", "Erhebungszeitraum: ab dem Start der Datenerhebung", "Field period: from the start of data collection", ""),
+        row(bool(tm), "Zeitbezug (Studiendesign)", "Time method (research design)", "studienplan"),
+        row(bool(sp), "Auswahlverfahren (Rekrutierung)", "Sampling procedure (recruitment)", "studienplan"),
+        row(bool(population_text(survey)), "Grundgesamtheit", "Population", "studienplan"),
+        row(bool(sample.get("country")), "Land", "Country", "studienplan"),
+        row(bool(licence), "Lizenz der Daten", "Licence of the data", "einwilligung"),
+        row(bool(archive["keywords"] or archive["topic"]), "Schlagwörter und Thema", "Keywords and topic", "projekt",
+            optional=True),
+        row(bool(funding), "Förderung (nur falls gefördert)", "Funding (only if funded)", "einwilligung", optional=True),
+    ]
+    return out
+
+
+MODE_NAMES = {"SelfAdministeredQuestionnaire.CAWI": ("Selbstausgefüllter Fragebogen: Webbasiert (CAWI)",
+                                                     "Self-administered questionnaire: Web-based (CAWI)"),
+              "Interview": ("Interview", "Interview"),
+              "Interview.FaceToFace": ("Persönliches Interview", "Face-to-face interview"),
+              "Interview.Telephone": ("Telefonisches Interview", "Telephone interview"),
+              "Interview.WebBased": ("Webbasiertes Interview", "Web-based interview")}

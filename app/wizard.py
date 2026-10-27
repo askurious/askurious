@@ -122,6 +122,11 @@ def new():
         first = "en" if current() == "en" else "de"
         survey = Survey(title="", created_by_id=current_user.id, languages=[first], default_language=first)
         error = surveys.apply_project(survey, request.form)
+        from app import study_plan
+
+        plan = dict(survey.study_plan or {})  # the country starts from the language (DDI; Ralf 2026-10-27)
+        plan["sample"] = {**(plan.get("sample") or {}), "country": study_plan.default_country(language=first)}
+        survey.study_plan = plan
         label = links.normalize(request.form.get("label"))
         if not error and label:
             error = links.label_error(label, current_user) or (

@@ -18,3 +18,15 @@
   <dt>{{ de_en("Erscheinungsbild", "Appearance") }}</dt><dd>{{ themes.name(themes.of(survey)) }}</dd>
 </dl>
 <p class="muted small">{{ de_en("Alles lässt sich später ändern: in den Einstellungen, die Datenqualität im Reiter „Qualitätssicherung“, Testdurchläufe im Reiter „Datenerhebung“. Als Nächstes: den Fragebogen gestalten.", "Everything can be changed later: in the settings, data quality on the tab “Quality assurance”, test runs on the tab “Data collection”. Next: design the questionnaire.") }}{% if open_h > 0 %} {{ de_en("Danach die Hypothesen mit ihren Fragen verbinden.", "Then link the hypotheses with their questions.") }}{% endif %}</p>
+{# what a data archive gets (DDI, CESSDA; app/ddi.readiness, Ralf 2026-10-27) #}
+{% set ready = ddi.readiness(survey) %}
+{% set counted = ready|rejectattr(0, "equalto", "optional")|list %}
+{% set have = counted|selectattr(0, "in", ["ok", "auto"])|list|length %}
+<div class="archive-box">
+  <h3>{{ de_en("Für Datenarchive", "For data archives") }} <span class="hint">DDI, CESSDA</span></h3>
+  <p class="small muted flush">{{ de_en("{n} von {m} empfohlenen Angaben sind da; der DDI-Export unter „Dokumentation“ und die Pakete für Zenodo und Coscine nutzen sie.", "{n} of {m} recommended details are there; the DDI export under “Documentation” and the packages for Zenodo and Coscine use them.", n=have, m=counted|length) }}</p>
+  <div class="archive-meter" aria-hidden="true"><span style="width: {{ (100 * have / (counted|length or 1))|round|int }}%"></span></div>
+  <ul>{% for state, de, en, step in ready %}
+    <li class="is-{{ 'missing' if state == 'optional' else state }}">{{ de_en(de, en) }}{% if state in ("missing", "optional") and step %} · <a href="{{ url_for('wizard.step', survey_id=survey.id, key=step) }}">{{ de_en("ergänzen", "add") }}</a>{% endif %}{% if state == "optional" %} <span class="hint">{{ de_en("optional", "optional") }}</span>{% endif %}</li>{% endfor %}
+  </ul>
+</div>

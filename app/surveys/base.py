@@ -52,6 +52,16 @@ def apply_project(survey, form):
     survey.description = form.get("description", "").strip()[:20000]  # as a survey file holds it (transfer._settings)
     if "research_question" in form:
         survey.research_question = form.get("research_question", "").strip()[:2000]
+    if "keywords" in form or "topic" in form:
+        # keywords and topic for data archives (DDI, CDIF, Zenodo; Ralf 2026-10-27), kept in the research plan
+        from app import study_plan
+
+        plan = dict(survey.study_plan or {})
+        old = study_plan.archive_of(plan.get("archive"))
+        plan["archive"] = study_plan.archive_of({
+            "keywords": study_plan.keywords_from_text(form.get("keywords")) if "keywords" in form else old["keywords"],
+            "topic": form.get("topic") if "topic" in form else old["topic"]})
+        survey.study_plan = plan
     if not title:  # the caller does not save; the other fields are set so the form can be shown again as filled in
         return de_en("Der Titel der Befragung darf nicht leer sein.", "The title of the survey must not be empty.")
     survey.title = title[:300]

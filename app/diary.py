@@ -1919,6 +1919,9 @@ def new():
         survey = Survey(title=title, created_by_id=current_user.id, languages=[lang], default_language=lang,
                         sampling=from_template(chosen, lang) if chosen else defaults(lang), repeat_marker=False,
                         setup_step=None)
+        from app import study_plan
+
+        survey.study_plan = study_plan.start_plan(request.form, lang)  # who takes part (DDI; Ralf 2026-10-27)
         if "join" in request.form:  # the question "Beitreten" of the blank form; a template joins with the shared code
             survey.sampling = {**survey.sampling, **join_settings(request.form, survey.sampling)}
         db.session.add(survey)

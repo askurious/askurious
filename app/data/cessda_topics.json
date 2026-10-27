@@ -1,0 +1,481 @@
+{
+"source": "CESSDA Topic Classification, version 4.2.3 (CESSDA Vocabulary Service, CC BY 4.0), retrieved 2026-10-27",
+"vocabulary": "https://vocabularies.cessda.eu/vocabulary/TopicClassification/4.2.3",
+"topics": [
+[
+"Demography",
+"Bevölkerungsstatistik",
+"Demography (population, vital statistics, and censuses)"
+],
+[
+"Demography.Censuses",
+"Volkszählungen",
+"Censuses"
+],
+[
+"Demography.Migration",
+"Migration",
+"Migration"
+],
+[
+"Demography.MorbidityAndMortality",
+"Morbidität und Mortalität",
+"Morbidity and mortality"
+],
+[
+"Economics",
+"Wirtschaft",
+"Economics"
+],
+[
+"Economics.ConsumptionAndConsumerBehaviour",
+"Konsum und Konsumverhalten",
+"Consumption and consumer behaviour"
+],
+[
+"Economics.EconomicConditionsAndIndicators",
+"Wirtschaftliche Lage und Indikatoren",
+"Economic conditions and indicators"
+],
+[
+"Economics.EconomicPolicyPublicExpenditureAndRevenue",
+"Wirtschaftspolitik, öffentliche Ausgaben und Einnahmen",
+"Economic policy,  public expenditure and revenue"
+],
+[
+"Economics.EconomicSystemsAndDevelopment",
+"Wirtschaftssysteme und wirtschaftliche Entwicklung",
+"Economic systems and development"
+],
+[
+"Economics.IncomePropertyAndInvestmentSaving",
+"Einkommen, Vermögen und Geldanlagen/Sparen",
+"Income, property and investment/saving"
+],
+[
+"Education",
+"Bildung",
+"Education"
+],
+[
+"Education.CompulsoryAndPreschoolEducation",
+"Vorschulerziehung und Bildung in der Pflichtschulzeit",
+"Compulsory and pre-school education"
+],
+[
+"Education.EducationalPolicy",
+"Bildungspolitik",
+"Educational policy"
+],
+[
+"Education.HigherAndFurtherEducation",
+"Höhere Bildung",
+"Higher and further education"
+],
+[
+"Education.LifelongContinuingEducation",
+"Lebenslanges Lernen",
+"Life-long/continuing education"
+],
+[
+"Education.VocationalEducationAndTraining",
+"Berufsausbildung",
+"Vocational education and training"
+],
+[
+"Health",
+"Gesundheit",
+"Health"
+],
+[
+"Health.DietAndNutrition",
+"Ernährung",
+"Diet and nutrition"
+],
+[
+"Health.DrugAbuseAlcoholAndSmoking",
+"Drogenmissbrauch, Alkoholkonsum und Rauchen",
+"Drug abuse, alcohol and smoking"
+],
+[
+"Health.GeneralHealthAndWellbeing",
+"Allgemeine Gesundheit und Wohlbefinden",
+"General health and well-being"
+],
+[
+"Health.HealthCareServicesAndPolicies",
+"Gesundheitswesen",
+"Health care services and policies"
+],
+[
+"Health.MedicationAndTreatment",
+"Medizinische Behandlung und Medikation",
+"Medication and treatment"
+],
+[
+"Health.OccupationalHealth",
+"Arbeitsmedizin",
+"Occupational health"
+],
+[
+"Health.PhysicalFitnessAndExercise",
+"Körperliche Fitness und Bewegung",
+"Physical fitness and exercise"
+],
+[
+"Health.PublicHealth",
+"Öffentliche Gesundheit/Public Health",
+"Public health"
+],
+[
+"Health.ReproductiveHealth",
+"Reproduktionsmedizin",
+"Reproductive health"
+],
+[
+"Health.SignsAndSymptomsPathologicalConditions",
+"Krankheitszeichen, Symptome und krankhafte Befunde",
+"Signs and symptoms; pathological conditions"
+],
+[
+"Health.SpecificDiseasesDisordersAndMedicalConditions",
+"Spezifische Krankheiten, Störungen und Gesundheitsprobleme",
+"Specific diseases, disorders and medical conditions"
+],
+[
+"Health.WoundsAndInjuries",
+"Verwundungen und Verletzungen",
+"Wounds and injuries"
+],
+[
+"History",
+"Geschichte",
+"History"
+],
+[
+"HousingAndLandUse",
+"Wohnraum und Flächennutzung",
+"Housing and land use"
+],
+[
+"HousingAndLandUse.Housing",
+"Wohnraum",
+"Housing"
+],
+[
+"HousingAndLandUse.LandUseAndPlanning",
+"Flächennutzung und Raumplanung",
+"Land use and planning"
+],
+[
+"LabourAndEmployment",
+"Arbeit und Beschäftigung",
+"Labour and employment"
+],
+[
+"LabourAndEmployment.EmployeeTraining",
+"Berufliche Weiterbildung",
+"Employee training"
+],
+[
+"LabourAndEmployment.Employment",
+"Beschäftigung und Erwerbstätigkeit",
+"Employment"
+],
+[
+"LabourAndEmployment.LabourAndEmploymentPolicy",
+"Beschäftigungspolitik",
+"Labour and employment policy"
+],
+[
+"LabourAndEmployment.LabourRelationsConflict",
+"Arbeitsbeziehungen und Arbeitskonflikte",
+"Labour relations/conflict"
+],
+[
+"LabourAndEmployment.Retirement",
+"Ruhestand",
+"Retirement"
+],
+[
+"LabourAndEmployment.Unemployment",
+"Arbeitslosigkeit",
+"Unemployment"
+],
+[
+"LabourAndEmployment.WorkingConditions",
+"Arbeitsbedingungen",
+"Working conditions"
+],
+[
+"LawCrimeAndLegalSystems",
+"Gesetz, Kriminalität und Rechtssysteme",
+"Law, crime and legal systems"
+],
+[
+"LawCrimeAndLegalSystems.CrimeAndLawEnforcement",
+"Kriminalität und Gesetzesvollzug",
+"Crime and law enforcement"
+],
+[
+"LawCrimeAndLegalSystems.LegislationAndLegalSystems",
+"Gesetzgebung und Rechtssysteme",
+"Legislation and legal systems"
+],
+[
+"MediaCommunicationAndLanguage",
+"Medien, Kommunikation und Sprache",
+"Media, communication and language"
+],
+[
+"MediaCommunicationAndLanguage.InformationSociety",
+"Informationsgesellschaft",
+"Information society"
+],
+[
+"MediaCommunicationAndLanguage.LanguageAndLinguistics",
+"Sprache und Sprachwissenschaft",
+"Language and linguistics"
+],
+[
+"MediaCommunicationAndLanguage.Media",
+"Medien",
+"Media"
+],
+[
+"MediaCommunicationAndLanguage.PublicRelations",
+"Öffentlichkeitsarbeit/Public Relations",
+"Public relations"
+],
+[
+"NaturalEnvironment",
+"Umwelt und Natur",
+"Natural environment"
+],
+[
+"NaturalEnvironment.EnergyAndNaturalResources",
+"Energiequellen und natürliche Rohstoffquellen",
+"Energy and natural resources"
+],
+[
+"NaturalEnvironment.EnvironmentAndConservation",
+"Umweltschutz und Naturschutz",
+"Environment and conservation"
+],
+[
+"NaturalEnvironment.NaturalLandscapes",
+"Naturlandschaften",
+"Natural landscapes"
+],
+[
+"NaturalEnvironment.PlantsAndAnimals",
+"Pflanzen und Tiere",
+"Plants and animals"
+],
+[
+"Politics",
+"Politik",
+"Politics"
+],
+[
+"Politics.ConflictSecurityAndPeace",
+"Konflikte, Sicherheit und Frieden",
+"Conflict, security and peace"
+],
+[
+"Politics.Elections",
+"Wahlen",
+"Elections"
+],
+[
+"Politics.GovernmentPoliticalSystemsAndOrganisations",
+"Regierung, politische Systeme, Parteien und Organisationen",
+"Government, political systems and organisations"
+],
+[
+"Politics.InternationalPoliticsAndOrganisations",
+"Internationale Politik und Internationale Organisationen",
+"International politics and organisations"
+],
+[
+"Politics.PoliticalBehaviourAndAttitudes",
+"Politisches Verhalten und politische Einstellungen",
+"Political behaviour and attitudes"
+],
+[
+"Politics.PoliticalIdeology",
+"Politische Ideologie",
+"Political ideology"
+],
+[
+"Psychology",
+"Psychologie",
+"Psychology"
+],
+[
+"ScienceAndTechnology",
+"Wissenschaft und Technik",
+"Science and technology"
+],
+[
+"ScienceAndTechnology.Biotechnology",
+"Biotechnologie",
+"Biotechnology"
+],
+[
+"ScienceAndTechnology.InformationTechnology",
+"Informations- und Kommunikationstechnologie",
+"Information technology"
+],
+[
+"SocialStratificationAndGroupings",
+"Soziale Schichtung und Gruppierungen",
+"Social stratification and groupings"
+],
+[
+"SocialStratificationAndGroupings.Children",
+"Kinder",
+"Children"
+],
+[
+"SocialStratificationAndGroupings.Elderly",
+"Ältere Menschen",
+"Elderly"
+],
+[
+"SocialStratificationAndGroupings.ElitesAndLeadership",
+"Eliten und Führungspersönlichkeiten",
+"Elites and leadership"
+],
+[
+"SocialStratificationAndGroupings.EqualityInequalityAndSocialExclusion",
+"Gleichheit, Ungleichheit und soziale Ausgrenzung",
+"Equality, inequality and social exclusion"
+],
+[
+"SocialStratificationAndGroupings.FamilyLifeAndMarriage",
+"Familie und Ehe",
+"Family life and marriage"
+],
+[
+"SocialStratificationAndGroupings.GenderAndGenderRoles",
+"Geschlecht und Geschlechterrollen",
+"Gender and gender roles"
+],
+[
+"SocialStratificationAndGroupings.Minorities",
+"Minderheiten",
+"Minorities"
+],
+[
+"SocialStratificationAndGroupings.SocialAndOccupationalMobility",
+"Soziale und berufliche Mobilität",
+"Social and occupational mobility"
+],
+[
+"SocialStratificationAndGroupings.Youth",
+"Jugend",
+"Youth"
+],
+[
+"SocialWelfarePolicyAndSystems",
+"Sozialpolitik, Sozialfürsorge und Sozialsysteme",
+"Social welfare policy and systems"
+],
+[
+"SocialWelfarePolicyAndSystems.SocialWelfarePolicy",
+"Sozialpolitik",
+"Social welfare policy"
+],
+[
+"SocialWelfarePolicyAndSystems.SocialWelfareSystemsStructures",
+"Sozialsysteme und Strukturen der Sozialfürsorge",
+"Social welfare systems/structures"
+],
+[
+"SocialWelfarePolicyAndSystems.SpecificSocialServicesUseAndAvailability",
+"Inanspruchnahme sozialer Dienstleistungen",
+"Specific social services: use and availability"
+],
+[
+"SocietyAndCulture",
+"Gesellschaft und Kultur",
+"Society and culture"
+],
+[
+"SocietyAndCulture.CommunityUrbanAndRuralLife",
+"Gemeinde, Wohnumgebung, Stadtleben und Landleben",
+"Community, urban and rural life"
+],
+[
+"SocietyAndCulture.CulturalActivitiesAndParticipation",
+"Kulturelle Aktivitäten und kulturelle Teilhabe",
+"Cultural activities and participation"
+],
+[
+"SocietyAndCulture.CulturalAndNationalIdentity",
+"Kulturelle und nationale Identität",
+"Cultural and national identity"
+],
+[
+"SocietyAndCulture.LeisureTourismAndSport",
+"Freizeit, Tourismus und Sport",
+"Leisure, tourism and sport"
+],
+[
+"SocietyAndCulture.ReligionAndValues",
+"Religion und Werte",
+"Religion and values"
+],
+[
+"SocietyAndCulture.SocialBehaviourAndAttitudes",
+"Soziales Verhalten und soziale Einstellungen",
+"Social behaviour and attitudes"
+],
+[
+"SocietyAndCulture.SocialChange",
+"Sozialer Wandel",
+"Social change"
+],
+[
+"SocietyAndCulture.SocialConditionsAndIndicators",
+"Soziale Lage und soziale Indikatoren",
+"Social conditions and indicators"
+],
+[
+"SocietyAndCulture.TimeUse",
+"Zeitbudget",
+"Time use"
+],
+[
+"TradeIndustryAndMarkets",
+"Handel, Industrie und Märkte",
+"Trade, industry and markets"
+],
+[
+"TradeIndustryAndMarkets.AgricultureAndRuralIndustry",
+"Landwirtschaft und Agrarindustrie",
+"Agriculture and rural industry"
+],
+[
+"TradeIndustryAndMarkets.BusinessIndustrialManagementAndOrganisation",
+"Management und Organisation von Betrieben",
+"Business/industrial management and organisation"
+],
+[
+"TradeIndustryAndMarkets.ForeignTrade",
+"Außenhandel",
+"Foreign trade"
+],
+[
+"TransportAndTravel",
+"Transport und Reisen",
+"Transport and travel"
+],
+[
+"Other",
+"Sonstiges",
+"Other"
+]
+]
+}

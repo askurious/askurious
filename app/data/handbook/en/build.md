@@ -33,7 +33,7 @@ ORCID links a person to their publications; the order of the researchers on a su
 **What it is.**
 A wizard with three ways to start:
 
-- **Start empty**: step by step through survey, research plan, languages, researchers involved, participation and data quality, consent and privacy, appearance.
+- **Start empty**: step by step through survey, research plan, languages, researchers involved, participation and data quality, consent and privacy, appearance. The step “Survey” also has keywords and a topic from the CESSDA topic list. In the research plan you choose research design and recruitment as cards, recruitment split into “with chance” and “without chance”, with the term of the DDI vocabulary under each card. Then population, country (preset for German), region and sample target; hypotheses, exclusions and exclusion rules sit in a fold. The last page shows in the box “For data archives” which details an archive gets, which Askurious sets itself and which are missing, with a link to add them.
 - **From a template**: one of six typical study designs, each with a research plan, a questionnaire and 120 dummy participations, so that the results page can be read at once.
 - **From a file**: an exported survey file (.json or .zip), e.g. from a colleague.
 

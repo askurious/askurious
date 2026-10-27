@@ -45,6 +45,7 @@
     <p class="muted small flush">{{ de_en("Eine Kurzbefragung „Moment“ mit einer Frage kommt immer dazu. Alles lässt sich danach im Reiter „Fragebogen“ ändern; dort können Sie auch einen bestehenden Fragebogen als Eingangs- oder Abschlussbefragung übernehmen.",
       "A short survey “Moment” with one question is always added. You can change everything afterwards on the tab “Questionnaire”; there you can also copy an existing questionnaire as entry or exit survey.") }}</p>
   </fieldset>
+  {% with recruitment=study_plan.recruitment(), population_label=de_en("Für wen sollen die Ergebnisse gelten?", "Who should the results speak for?"), population_hint=de_en("Grundgesamtheit", "population") %}{% include "_who_takes_part.html" %}{% endwith %}
   {% with new_survey=true %}{% include "diary/_join_mode.html" %}{% endwith %}
   <div class="form-actions"><button class="button">{{ icon("plus", 16) }} {{ de_en("Anlegen", "Create") }}</button></div>
 </form>

@@ -318,6 +318,63 @@ def recruitment():
     return _local(RECRUITMENT, RECRUITMENT_EN)
 
 
+# the cards of the wizard (Ralf 2026-10-27): design and recruitment in plain words, the DDI term below (German, English)
+DESIGN_CARDS = [
+    ("cross", ("Querschnitt", "einmal befragen", "Querschnitt"), ("Cross-section", "asked once", "Cross-section")),
+    ("panel", ("Längsschnitt (Panel)", "dieselben Personen mehrmals", "Längsschnitt: Panel"),
+     ("Longitudinal (panel)", "the same people several times", "Longitudinal: Panel")),
+    ("trend", ("Wiederholter Querschnitt (Trend)", "mehrmals, jedes Mal neue Personen",
+               "Längsschnitt: Trend/Wiederholter Querschnitt"),
+     ("Repeated cross-section (trend)", "several times, new people each time", "Longitudinal: Trend/Repeated cross-section")),
+    ("within", ("Messwiederholung", "dieselben Personen, mehrere Bedingungen", "Längsschnitt: Panel"),
+     ("Repeated measures", "the same people, several conditions", "Longitudinal: Panel")),
+    ("experiment", ("Experiment", "Bedingungen zufällig zuteilen", "Querschnitt, Web-basiertes Experiment"),
+     ("Experiment", "assign conditions at random", "Cross-section, web-based experiment")),
+    ("vignettes", ("Vignettenstudie", "Beschreibungen mit wechselnden Merkmalen", "Querschnitt, Web-basiertes Experiment"),
+     ("Vignette study", "descriptions with varying features", "Cross-section, web-based experiment")),
+]
+# recruitment cards: value as sent ("panel:access" sets the kind of panel too), with or without chance
+RECRUITMENT_CARDS = [
+    (True, "random", ("Zufallsstichprobe", "aus einer Liste aller gezogen", "Wahrscheinlichkeitsauswahl"),
+     ("Random sample", "drawn from a list of everyone", "Probability")),
+    (True, "panel:probability", ("Zufallspanel", "zufällig gezogen und eingeladen", "Wahrscheinlichkeitsauswahl"),
+     ("Probability panel", "drawn at random and invited", "Probability")),
+    (True, "census", ("Vollerhebung", "alle der Gruppe", "Vollerhebung"), ("Full census", "everyone in the group",
+                                                                         "Total universe/Complete enumeration")),
+    (False, "convenience", ("Gelegenheitsstichprobe", "Bekanntenkreis, Verteiler, soziale Medien",
+                            "Nicht-Wahrscheinlichkeitsauswahl: Willkürliche Auswahl"),
+     ("Convenience sample", "acquaintances, mailing lists, social media", "Non-probability: Availability")),
+    (False, "panel:access", ("Access-Panel", "Personen melden sich selbst an", "Nicht-Wahrscheinlichkeitsauswahl"),
+     ("Access panel", "people sign up themselves", "Non-probability")),
+    (False, "quota", ("Quotenstichprobe", "nach Merkmalen auffüllen", "Nicht-Wahrscheinlichkeitsauswahl: Quotenstichprobe"),
+     ("Quota sample", "filled up by characteristics", "Non-probability: Quota")),
+    (False, "snowball", ("Schneeball", "Teilnehmende werben weitere", "Nicht-Wahrscheinlichkeitsauswahl: Respondenten gesteuerte Auswahl"),
+     ("Snowball", "participants recruit others", "Non-probability: Respondent-assisted")),
+    (False, "purposive", ("Bewusste Auswahl", "Fachleute, typische Fälle", "Nicht-Wahrscheinlichkeitsauswahl: Bewusste Auswahl"),
+     ("Purposive sample", "experts, typical cases", "Non-probability: Purposive")),
+    (False, "theoretical", ("Theoretische Stichprobe", "nach und nach aus der Analyse", "Theoretische Stichprobenziehung"),
+     ("Theoretical sampling", "step by step from the analysis", "Theoretical sampling")),
+]
+
+
+def design_cards():
+    """[(key, title, text, ddi term)] in the language of the page."""
+    i = 2 if english() else 1
+    return [(c[0], *c[i]) for c in DESIGN_CARDS]
+
+
+def recruitment_cards():
+    """[(with chance, value, title, text, ddi term)] in the language of the page."""
+    i = 3 if english() else 2
+    return [(c[0], c[1], *c[i]) for c in RECRUITMENT_CARDS]
+
+
+def recruitment_value(sample):
+    """The card value of a stored sample: "panel:access" for a panel with its kind, else the recruitment."""
+    how = sample.get("recruitment") or ""
+    return f"panel:{sample['panel_kind']}" if how == "panel" and sample.get("panel_kind") else how
+
+
 def panel_kinds():
     return _local(PANEL_KINDS, PANEL_KINDS_EN)
 
@@ -328,6 +385,92 @@ def random_kinds():
 
 def _pick(value, table):
     return value if isinstance(value, str) and value in table else ""
+
+
+MAX_KEYWORDS = 12
+
+
+def topics():
+    """[(code, German, English)] of the CESSDA Topic Classification 4.2.3 (app/data/cessda_topics.json, CC BY 4.0)."""
+    global _TOPICS
+    if _TOPICS is None:
+        import json
+        import os
+
+        with open(os.path.join(os.path.dirname(__file__), "data", "cessda_topics.json"), encoding="utf-8") as f:
+            _TOPICS = [tuple(t) for t in json.load(f)["topics"]]
+    return _TOPICS
+
+
+_TOPICS = None
+TOPIC_VOCABULARY = "https://vocabularies.cessda.eu/vocabulary/TopicClassification/4.2.3"
+
+
+def topic_choices():
+    """{code: name} in the language of the page, subtopics after their topic with "› " (for the select)."""
+    en = english()
+    names = {code: (e if en else d) for code, d, e in topics()}
+    out = {"": "not yet decided" if en else "noch offen"}
+    for code, _, _ in topics():
+        head = code.split(".")[0]
+        out[code] = names[code] if code == head else f"{names.get(head, head)} › {names[code]}"
+    return out
+
+
+def topic_name(code, lang=None):
+    found = {c: (e if lang == "en" else d) for c, d, e in topics()}
+    if not code or code not in found:
+        return ""
+    head = code.split(".")[0]
+    return found[code] if code == head else f"{found.get(head, head)} › {found[code]}"
+
+
+def archive_of(raw):
+    """{"keywords": [...], "topic": code} of a plan, anything else read as empty."""
+    raw = raw if isinstance(raw, dict) else {}
+    words = raw.get("keywords") if isinstance(raw.get("keywords"), list) else []
+    keywords = []
+    for w in words:
+        w = _text(w if isinstance(w, str) else "", 60)
+        if w and w.lower() not in {k.lower() for k in keywords}:
+            keywords.append(w)
+    topic = raw.get("topic") if isinstance(raw.get("topic"), str) and raw.get("topic") in {c for c, _, _ in topics()} else ""
+    return {"keywords": keywords[:MAX_KEYWORDS], "topic": topic}
+
+
+def keywords_from_text(text):
+    """Keywords as typed in one field, separated by commas or semicolons."""
+    import re as _re
+
+    return archive_of({"keywords": [w for w in _re.split(r"[,;]", text or "")]})["keywords"]
+
+
+def default_country(user=None, language=None):
+    """The country a new survey starts with (DDI spatial coverage): German as the language of the survey means
+    Germany as long as nothing else is known; other languages leave it open (Ralf 2026-10-27: from the organisation,
+    else from the language; organisations name no country yet)."""
+    return "DE" if (language or "").split("-")[0] == "de" else ""
+
+
+# the choice "Auswahl der Interviewten" of a new interview guide: purposive first (Ralf 2026-10-27)
+INTERVIEW_RECRUITMENT = ("purposive", "theoretical", "snowball", "convenience")
+
+
+def interview_recruitment():
+    names = recruitment()
+    return {k: names[k] for k in INTERVIEW_RECRUITMENT}
+
+
+def start_plan(form, language):
+    """The research plan of a new interview guide or diary survey from its single page: who takes part (recruitment,
+    population, country, region); the country starts from the language (default_country) when the page sends none."""
+    how, _, card_kind = (form.get("recruitment") or "").partition(":")
+    country = form.get("country") if "country" in form else default_country(language=language)
+    sample = {"target": None, "recruitment": how if how in RECRUITMENT else "", "note": "", "exclusions": None,
+              "response": None, "panel_kind": _pick(card_kind or form.get("panel_kind"), PANEL_KINDS),
+              "random_kind": _pick(form.get("random_kind"), RANDOM_KINDS), "population": _text(form.get("population"), 300),
+              "country": _country(country), "region": _text(form.get("region"), 120)}
+    return {"sample": sample}
 
 
 def countries():
@@ -504,7 +647,8 @@ def plan_of(survey):
                        **(raw.get("sample") or {})},
             "rules": raw.get("rules", ""), "holm": raw.get("holm") is True,
             "deviations": list(raw.get("deviations") or []), "layout": layout_of(raw.get("layout")),
-            "sem": sem_options(raw.get("sem")), "diary": diary_options(raw.get("diary"))}
+            "sem": sem_options(raw.get("sem")), "diary": diary_options(raw.get("diary")),
+            "archive": archive_of(raw.get("archive"))}
 
 
 LAYOUT_NODES = 200  # places kept for the drawing of the model; more variables than a plan can name
@@ -1328,14 +1472,15 @@ def from_form(survey, form):
         if keep.get("after_start") or (hid not in old and survey.status != "draft"):
             h["after_start"] = True
         hypotheses.append(h)
+    how, _, card_kind = (form.get("recruitment") or "").partition(":")  # a card of the wizard: "panel:access"
     sample = {"target": _int(form.get("sample_target")),
-              "recruitment": form.get("recruitment") if form.get("recruitment") in RECRUITMENT else "",
+              "recruitment": how if how in RECRUITMENT else "",
               "note": _text(form.get("sample_note")),
               "exclusions": _percent(form.get("sample_exclusions")),
               # the response rate of an online panel: the invitations of the sample model (S3); kept while hidden
               "response": _rate(form.get("sample_response")),
               # the kind of panel or random sample; kept while hidden, read only with its recruitment (app/ddi.py)
-              "panel_kind": _pick(form.get("panel_kind"), PANEL_KINDS),
+              "panel_kind": _pick(card_kind or form.get("panel_kind"), PANEL_KINDS),
               "random_kind": _pick(form.get("random_kind"), RANDOM_KINDS),
               # who the survey speaks for, and where (DDI Universe and spatial coverage, app/ddi.py; Ralf 2026-10-27)
               "population": _text(form.get("population"), 300), "country": _country(form.get("country")),
@@ -1376,6 +1521,8 @@ def from_form(survey, form):
     out["diary"] = plan_of(survey)["diary"]
     if "diary_shown" in form:
         out["diary"] = diary_options({"lagged": form.get("diary_lagged") == "1", "slope": form.get("diary_slope") == "1"})
+    # keywords and topic for archives (the survey's own fields, app/surveys.apply_project); kept here
+    out["archive"] = plan_of(survey)["archive"]
     # the drawing of the model (static/model.js); a form without it (the wizard) keeps the stored one
     out["layout"] = plan_of(survey)["layout"]
     if "plan_layout" in form:
@@ -1475,7 +1622,7 @@ def clean(raw):
                        "population": _text(sample.get("population"), 300), "country": _country(sample.get("country")),
                        "region": _text(sample.get("region"), 120)},
             "deviations": [], "layout": layout_of(raw.get("layout")), "sem": sem_options(raw.get("sem")),
-            "diary": diary_options(raw.get("diary")),
+            "diary": diary_options(raw.get("diary")), "archive": archive_of(raw.get("archive")),
             **({"sem_method": raw["sem_method"]} if raw.get("sem_method") in SEM_METHODS else {})}
 
 

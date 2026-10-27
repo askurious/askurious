@@ -23,7 +23,7 @@ Parts NOT licensed under the EUPL-1.2. They keep their own licences or terms, an
   plz_areas/** (derived from OpenStreetMap, ODbL 1.0), plz_states_de.tsv (derived, ODbL 1.0), states_de.json.gz
   (© BKG (2025) dl-de/by-2-0), population_de.json.gz (© Destatis, dl-de/by-2-0), geo_ip.bin.gz (DB-IP,
   CC BY 4.0), paper_digits.npz (UCI Machine Learning Repository, CC BY 4.0) and common_passwords.txt (derived from
-  zxcvbn, MIT; licence text in the file).
+  zxcvbn, MIT; licence text in the file), cessda_topics.json (CESSDA Topic Classification 4.2.3, © CESSDA ERIC, CC BY 4.0).
 - tests/data/ddi/lifecycle40.xsd.gz: the XML schema of DDI Lifecycle 4.0 (public review), © DDI Alliance, CC BY 4.0
   (https://github.com/ddialliance/ddimodel/releases/tag/v4.0-pr), used only by the tests; tests/data/ddi/xml.xsd: the
   schema of the XML namespace, © W3C, W3C Software and Document License. The vocabulary terms and their URIs in

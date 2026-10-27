@@ -1,0 +1,13 @@
+{# "Wer nimmt teil?" on the single page of a new interview guide or diary survey: recruitment, population, country
+   (research plan, app/study_plan.start_plan; for DDI and data archives, Ralf 2026-10-27). Needs: recruitment (choices),
+   population_label, population_hint. #}
+<fieldset class="bare stack"><legend>{{ de_en("Wer nimmt teil?", "Who takes part?") }}</legend>
+  <div class="row-fields">
+    <label class="wide-field">{{ population_label }} <span class="hint">{{ population_hint }}</span>
+      <input name="population" maxlength="300" placeholder="{{ de_en('z. B. pflegende Angehörige im Kreis Düren', 'e.g. family carers in the district of Düren') }}"></label>
+    <label>{{ de_en("Auswahl", "Selection") }}
+      <select name="recruitment">{% for key, name in recruitment.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Land", "Country") }}
+      <select name="country">{% for code, name in study_plan.countries().items() %}<option value="{{ code }}"{% if code == study_plan.default_country(language=ui_language()) %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+  </div>
+</fieldset>
