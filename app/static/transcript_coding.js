@@ -59,7 +59,7 @@
       if (r.kind === "candidate") meta.push(de_en("Kandidat", "candidate"));
       if (r.author) meta.push(de_en("von ", "by ") + r.author);
       if (r.former && r.former.length) meta.push(de_en("früher: ", "formerly: ") + r.former.join(", "));
-      if (meta.length) { var m = document.createElement("span"); m.className = "muted small"; m.textContent = " · " + meta.join(" · "); li.appendChild(m); }
+      if (meta.length) { var m = document.createElement("span"); m.className = "muted small"; m.textContent = meta.join(" · "); li.appendChild(m); }
       if (r.definition) { var d = document.createElement("div"); d.className = "small"; d.textContent = r.definition; li.appendChild(d); }
       var take = document.createElement("a");
       take.href = "#k" + r.id;

@@ -2164,7 +2164,7 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-subs > .tc-cat { justify-self: stretch; }
 .tc-cat { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface); }
 .tc-cat.tc-main { border-width: 2px; }
-.tc-cat.tc-candidate { border-style: dashed; }
+.tc-cat.tc-candidate { border: 2px dashed var(--border-strong); }
 .tc-cat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tc-cat-head .spacer { flex: 1; }
 .tc-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
@@ -2177,6 +2177,7 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-similar ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .tc-similar li { display: grid; gap: 4px; justify-items: start; }
 .tc-indent { margin-left: 24px; }
+.tc-add { margin-top: 12px; }
 .tc-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 .qr-actions { justify-content: center; }
 @media print {

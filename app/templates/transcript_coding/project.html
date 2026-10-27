@@ -115,21 +115,19 @@
     </tbody>
   {% endcall %}
   {% endif %}
-  <div class="row-fields">
-    <form method="post" action="{{ url_for('transcript_coding.add_members', code=survey.code, pid=project.id) }}" class="row-fields">
-      {{ csrf() }}<input type="hidden" name="kind" value="person">
-      <label>{{ de_en("Person", "Person") }} <input name="person" list="tc-people" placeholder="{{ de_en('ORCID iD oder aus der Liste', 'ORCID iD or from the list') }}" required>
-        <datalist id="tc-people">{% for key, name in people %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</datalist></label>
-      <div><button class="button button-small button-secondary">{{ de_en("Hinzufügen", "Add") }}</button></div>
-    </form>
-    {% if groups %}
-    <form method="post" action="{{ url_for('transcript_coding.add_members', code=survey.code, pid=project.id) }}" class="row-fields">
-      {{ csrf() }}<input type="hidden" name="kind" value="group">
-      <label>{{ de_en("Gruppe", "Group") }} <select name="group">{% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></label>
-      <div><button class="button button-small button-secondary">{{ de_en("Hinzufügen", "Add") }}</button></div>
-    </form>
-    {% endif %}
-  </div>
+  <form method="post" action="{{ url_for('transcript_coding.add_members', code=survey.code, pid=project.id) }}" class="row-fields tc-add">
+    {{ csrf() }}<input type="hidden" name="kind" value="person">
+    <label class="wide-field">{{ de_en("Person hinzufügen", "Add a person") }} <input name="person" list="tc-people" placeholder="{{ de_en('ORCID iD oder aus der Liste', 'ORCID iD or from the list') }}" required>
+      <datalist id="tc-people">{% for key, name in people %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</datalist></label>
+    <div><button class="button button-small button-secondary">{{ de_en("Hinzufügen", "Add") }}</button></div>
+  </form>
+  {% if groups %}
+  <form method="post" action="{{ url_for('transcript_coding.add_members', code=survey.code, pid=project.id) }}" class="row-fields tc-add">
+    {{ csrf() }}<input type="hidden" name="kind" value="group">
+    <label class="wide-field">{{ de_en("Gruppe hinzufügen", "Add a group") }} <select name="group">{% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></label>
+    <div><button class="button button-small button-secondary">{{ de_en("Hinzufügen", "Add") }}</button></div>
+  </form>
+  {% endif %}
   <h3>{{ de_en("Interviewende mit Interviewlink", "Interviewers with an interviewer link") }}</h3>
   {% if accesses %}
   <form method="post" action="{{ url_for('transcript_coding.interviewers', code=survey.code, pid=project.id) }}" class="stack" data-autosave-form>
