@@ -1239,9 +1239,11 @@ def _period_action(user, action):
             abort(400)
         account_types.change_type(user, t, current_user)
         db.session.commit()
-        flash(de_en("{who} hat jetzt den Nutzertyp „{t}“; Befragungstypen und Anlegerecht kommen vom Typ, die Laufzeit "
-                    "bleibt.", "{who} now has the user type “{t}”; survey types and the right to create come from the "
-                    "type, the period stays.", who=user.display_name, t=account_types.name(t)), "success")
+        flash(de_en("{who} hat jetzt den Nutzertyp „{t}“; Befragungstypen kommen vom Typ, ein einzeln gegebenes "
+                    "„Anlegen“ bleibt, wo der Typ „Bearbeiten“ hat; die Laufzeit bleibt.",
+                    "{who} now has the user type “{t}”; survey types come from the type, a “Create” given on its own "
+                    "stays where the type has “Edit”; the period stays.", who=user.display_name,
+                    t=account_types.name(t)), "success")
         return back
     if action == "extend":
         spec, error = account_types.spec_from_form(request.form, None)

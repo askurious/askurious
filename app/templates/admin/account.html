@@ -102,7 +102,7 @@
   </form>
   <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="account-form period-form" data-autosave-form>
     {{ csrf() }}<input type="hidden" name="action" value="account_type">
-    <label for="account-type">{{ de_en("Nutzertyp wechseln", "Change the user type") }} <span class="hint">{{ de_en("die Befragungstypen kommen vom neuen Typ, die Laufzeit bleibt", "the survey types come from the new type, the period stays") }}</span></label>
+    <label for="account-type">{{ de_en("Nutzertyp wechseln", "Change the user type") }} <span class="hint">{{ de_en("die Befragungstypen kommen vom neuen Typ, ein einzeln gegebenes „Anlegen“ bleibt; die Laufzeit bleibt", "the survey types come from the new type, a “Create” given on its own stays; the period stays") }}</span></label>
     <div class="row"><select id="account-type" name="account_type"><option value="">{{ de_en("ohne Typ", "no type") }}</option>
       {% for t in types %}<option value="{{ t.id }}"{{ " selected" if period.type and period.type.id == t.id }}>{{ account_type_name(t) }}</option>{% endfor %}</select>
 </div>
