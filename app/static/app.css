@@ -2156,6 +2156,29 @@ label.check + .hint-more { margin-left: 25px; }
 .qr-url code { word-break: break-all; }
 /* the QR code of an interviewer link, shown once (app/interviewer.py) */
 .interviewer-qr { width: min(220px, 100%); height: auto; display: block; margin: 12px 0; background: #fff; }
+/* coding interview transcripts (app/transcript_coding.py): the category system as a tree; a candidate for a new main
+   category is drawn dashed until the team takes it on */
+.tc-tree { display: grid; gap: 14px; }
+.tc-branch { display: grid; gap: 8px; }
+.tc-subs { display: grid; gap: 8px; margin-left: 28px; justify-items: start; }
+.tc-subs > .tc-cat { justify-self: stretch; }
+.tc-cat { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface); }
+.tc-cat.tc-main { border-width: 2px; }
+.tc-cat.tc-candidate { border: 2px dashed var(--border-strong); }
+.tc-cat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tc-cat-head .spacer { flex: 1; }
+.tc-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.tc-name { font-size: 1.05rem; }
+.tc-text { margin: 6px 0 0; white-space: pre-line; }
+.tc-fields { margin-top: 8px; }
+.tc-propose { margin-top: 6px; }
+.tc-proposal { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); }
+.tc-similar { border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 10px 12px; }
+.tc-similar ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tc-similar li { display: grid; gap: 4px; justify-items: start; }
+.tc-indent { margin-left: 24px; }
+.tc-add { margin-top: 12px; }
+.tc-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 .qr-actions { justify-content: center; }
 @media print {
   .qr-actions, .site-header, .site-footer, header, footer { display: none !important; }

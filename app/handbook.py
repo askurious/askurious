@@ -57,7 +57,8 @@ TAB_ANCHORS["diary"] = {**TAB_ANCHORS["survey"],
 PAGE_ANCHORS = {"dashboard": ("1-meine-befragungen", "1-my-surveys"), "wizard": ("2-eine-befragung-anlegen", "2-creating-a-survey"),
                 "constructs": ("konstrukte", "constructs"), "groups": ("gruppen", "groups"), "designs": ("designs", "designs"),
                 "samplesize": ("stichprobengröße", "sample-size"), "accounts": ("konto", "account"), "ai_access": ("konto", "account"),
-                "element_types": ("elementtypen", "element-types"), "learning": ("21-lernhilfen", "21-learning-aids")}
+                "element_types": ("elementtypen", "element-types"), "learning": ("21-lernhilfen", "21-learning-aids"),
+                "transcript_coding": ("interviews-kodieren", "coding-interviews")}
 
 
 def survey_kind(survey):

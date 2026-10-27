@@ -1,0 +1,1061 @@
+"""Interviews kodieren: passages of interview transcripts assigned to categories, together and without overwriting each
+other (experimental "transcript_coding", app/experimental.py; concept "Interviews kodieren", all as recommended, Ralf
+2026-10-27). Stage 1: the analyses, their category systems, members, coding links and history; the coding view
+(stage 2), the overviews and merging (stage 3) and the REFI-QDA exchange (stage 4) build on it.
+
+Analyses (E12, CodingProject): several per guide, each with a name, a research question, a category system of its own
+and members of its own, all on the same transcripts (Response.interview["transcript"]). An analysis starts from the
+guide (all of it or some Themenblöcke: a Themenblock becomes a main category, its Leitfragen subcategories, with the
+GUIDs of app/qdc.py, so that the codebook of the guide and this system name the same category the same way), empty, or
+as a copy of another analysis.
+
+Who (E2), the actor of a request (`actor`):
+- the team: "Bearbeiten" or "Admin" on the guide, everything;
+- members with the role "Kodieren" (CodingMember): a person or an Askurious group (app/groups.py), signed in; they code
+  and add to the category system, never change the guide;
+- an interviewer link (app/interviewer.py) the team ticked in an analysis ("darf eigene Interviews kodieren", off by
+  default): its holder sees only the own interviews, also after "Transkript geprüft". The interviewer link itself, its
+  sessions, revisions, devices and its access to interviews stay exactly as they are: the tick is a row of this
+  module, read only here;
+- a coding link without an account (CodingLink, app/transcript_coding_links.py): a name, an expiry date of at most 90
+  days, at most 3 devices; it sees the interviews of its analysis.
+
+Which interviews (E3): "alle sehen alle Interviews" (the default) or "jede Gruppe ihre eigenen": then a person sees the
+interviews they conducted, a group those of its members, and a member or coding link also those of the interviewer
+links the team assigned to it; the team always sees all.
+
+The category system: main categories, subcategories and candidates (proposed main categories, drawn dashed). With
+"Hauptkategorien festgelegt" (E4) only the team changes main categories; everyone may add candidates and propose a
+new name or a sharper definition, which the team takes on or declines. Without it main categories follow the rules of
+subcategories: every member adds them (name and definition required, delimitation optional; the anchor example, a
+coded passage, comes with stage 2), with author and time; the author and the team change them, everyone else
+proposes. Before a new one is made, categories with a similar name are shown first (`similar`). Every change is an
+entry of the history (CodingEvent) with the state before and after, so that "Rückgängig" takes back one's own last
+step as long as nobody changed that category since."""
+import difflib
+import uuid
+from dataclasses import dataclass, field
+from functools import wraps
+
+from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user
+
+from app import autosave
+from app.extensions import db
+from app.lang import de_en
+from app.models import CodingCategory, CodingEvent, CodingLink, CodingMember, CodingProject, Survey, utcnow
+
+bp = Blueprint("transcript_coding", __name__, url_prefix="/guide")
+
+FEATURE = "transcript_coding"
+NAME_MAX = 120
+TEXT_MAX = 4000
+QUESTION_MAX = 2000
+SIMILAR = 0.6  # SequenceMatcher ratio from which a name counts as similar
+MAX_PROJECTS = 30  # analyses per guide
+MAX_CATEGORIES = 500  # live categories per analysis
+UNDO_KINDS = ("created", "changed", "removed", "promoted")
+
+
+# --- who asks ------------------------------------------------------------------------------------------------------
+
+
+@dataclass
+class Actor:
+    """Who works in an analysis in this request. kind: "team", "member", "link" or "interviewer"; key: what their
+    entries are marked with ("u:<user id>", "l:<coding link id>", "i:<interviewer link id>")."""
+
+    kind: str
+    key: str
+    name: str
+    user_id: int | None = None
+    link: CodingLink | None = None
+    access: object | None = None  # the InterviewerAccess of an interviewer
+    members: list = field(default_factory=list)  # the CodingMember rows that let a member in
+
+    @property
+    def team(self):
+        return self.kind == "team"
+
+
+def _user_actor(kind, user, members=()):
+    return Actor(kind, f"u:{user.id}", user.display_name, user_id=user.id, members=list(members))
+
+
+def team(survey, user=None):
+    user = current_user if user is None else user
+    return bool(getattr(user, "is_authenticated", False)) and survey.can(user, "editor")
+
+
+def memberships(project, user):
+    """The rows that make `user` a member of `project`: as a person or through one of their groups."""
+    from app.groups import ids_of
+
+    if not getattr(user, "is_authenticated", False):
+        return []
+    return list(db.session.scalars(db.select(CodingMember).where(
+        CodingMember.project_id == project.id,
+        db.or_(db.and_(CodingMember.kind == CodingMember.PERSON, CodingMember.user_id == user.id),
+               db.and_(CodingMember.kind == CodingMember.GROUP, CodingMember.group_id.in_(ids_of(user)))))))
+
+
+def interviewer_member(project, access):
+    """The row that lets this interviewer link code in `project`, or None (the tick is off)."""
+    if access is None:
+        return None
+    return db.session.scalar(db.select(CodingMember).filter_by(project_id=project.id, kind=CodingMember.INTERVIEWER,
+                                                               access_id=access.id))
+
+
+def actor(survey, project):
+    """The actor of this request in `project`, or None. A signed-in person with "Bearbeiten" on the guide is the team,
+    else a member if a row lets them in; then a coding link held in this browser; then an interviewer link the team
+    ticked. Nobody but the team works in an analysis of an archived guide."""
+    from app import experimental, interviewer, transcript_coding_links
+
+    if current_user.is_authenticated:
+        if team(survey):
+            return _user_actor("team", current_user) if experimental.enabled(FEATURE, survey=survey) else None
+        rows = memberships(project, current_user)
+        if rows and not survey.archived and experimental.enabled(FEATURE, survey=survey):
+            return _user_actor("member", current_user, rows)
+    link = transcript_coding_links.current(survey, project)
+    if link is not None:
+        return Actor("link", f"l:{link.id}", link.name, link=link)
+    if interviewer.any_session() and not survey.archived:
+        access = interviewer.current(survey)
+        row = interviewer_member(project, access)
+        if row is not None:
+            return Actor("interviewer", f"i:{access.id}", access.name, access=access, members=[row])
+    return None
+
+
+def signed_in_or_coder(view):
+    """Instead of login_required: lets through a signed-in person, a browser holding a coding link and one holding an
+    interviewer link; `actor` decides about the analysis itself (404 for everyone else)."""
+
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        from app import interviewer, transcript_coding_links
+
+        if current_user.is_authenticated or transcript_coding_links.any_session() or interviewer.any_session():
+            return view(*args, **kwargs)
+        return current_app.login_manager.unauthorized()
+
+    return wrapper
+
+
+def guide(code):
+    survey = db.session.scalar(db.select(Survey).filter_by(code=code))
+    if survey is None or survey.interview is None:
+        abort(404)
+    return survey
+
+
+def project_of(survey, pid):
+    project = db.session.get(CodingProject, pid)
+    if project is None or project.survey_id != survey.id:
+        abort(404)
+    return project
+
+
+def _team_survey(code):
+    """The guide for a page only the team opens: "Bearbeiten" and the feature (or a guide that uses it)."""
+    from app import experimental, interview_data
+
+    survey = interview_data._survey(code, need="editor")
+    experimental.require(FEATURE, survey)
+    return survey
+
+
+def _in(code, pid, team_only=False):
+    """(survey, project, actor) of a request, else 404."""
+    survey = guide(code)
+    project = project_of(survey, pid)
+    who = actor(survey, project)
+    if who is None or (team_only and not who.team):
+        abort(404)
+    if who.team:
+        from flask import g
+
+        g.audit_survey = survey  # the access log (app/audit.py) names the guide of a change of members or links
+    return survey, project, who
+
+
+# --- analyses ------------------------------------------------------------------------------------------------------
+
+
+def projects(survey):
+    return list(db.session.scalars(db.select(CodingProject).filter_by(survey_id=survey.id)
+                                   .order_by(CodingProject.created_at, CodingProject.id)))
+
+
+def projects_for(survey, user):
+    """The analyses `user` works in as a member (for the link to them on the interviewer and results pages)."""
+    return [p for p in projects(survey) if memberships(p, user)]
+
+
+def interviewer_projects(survey, access):
+    """The analyses this interviewer link may code its own interviews in."""
+    if access is None:
+        return []
+    ids = set(db.session.scalars(db.select(CodingMember.project_id).filter_by(kind=CodingMember.INTERVIEWER, access_id=access.id)))
+    return [p for p in projects(survey) if p.id in ids]
+
+
+def _clean(value, limit):
+    return " ".join(str(value or "").split())[:limit]
+
+
+def _text(value, limit=TEXT_MAX):
+    return str(value or "").replace("\r\n", "\n").strip()[:limit]
+
+
+def new_guid():
+    return str(uuid.uuid4()).upper()
+
+
+def create_project(survey, name, question="", start="guide", blocks=None, copy_of=None, by=None):
+    """A new analysis; returns (project, problem). start: "guide" (with `blocks`, the ids of the Themenblöcke to take,
+    None = all), "empty" or "copy" (of the analysis `copy_of`). The caller commits."""
+    name = _clean(name, NAME_MAX)
+    if not name:
+        return None, de_en("Bitte einen Namen angeben.", "Please enter a name.")
+    if any(p.name.casefold() == name.casefold() for p in projects(survey)):
+        return None, de_en("Eine Auswertung „{name}“ gibt es schon.", "There is already an analysis “{name}”.", name=name)
+    if len(projects(survey)) >= MAX_PROJECTS:
+        return None, de_en("Höchstens {n} Auswertungen je Leitfaden.", "At most {n} analyses per guide.", n=MAX_PROJECTS)
+    source = None
+    if start == "copy":
+        source = db.session.get(CodingProject, copy_of) if isinstance(copy_of, int) else None
+        if source is None or source.survey_id != survey.id:
+            return None, de_en("Bitte die Auswertung wählen, die kopiert wird.", "Please choose the analysis to copy.")
+    elif start not in ("guide", "empty"):
+        return None, de_en("Bitte wählen, womit die Auswertung beginnt.", "Please choose what the analysis starts with.")
+    project = CodingProject(survey_id=survey.id, name=name, question=_text(question, QUESTION_MAX),
+                            visibility=source.visibility if source else CodingProject.ALL,
+                            mains_fixed=source.mains_fixed if source else False,
+                            created_by_id=getattr(by, "id", None), created_by_name=(getattr(by, "name", "") or "")[:200])
+    db.session.add(project)
+    db.session.flush()
+    who = _user_actor("team", by) if by is not None and getattr(by, "id", None) else Actor("team", "", "")
+    if start == "guide":
+        from_guide(survey, project, blocks, who)
+    elif start == "copy":
+        copy_categories(source, project, who)
+    return project, None
+
+
+def from_guide(survey, project, block_ids, who):
+    """Themenblöcke as main categories, their Leitfragen as subcategories (the narrative prompt, the definition and
+    delimitation the AI assistant proposed and the researchers kept, and the content aspects as the definition), with
+    the GUIDs of the guide's codebook (app/qdc.py). Unterfragen and tasks stay out: they belong to their Leitfrage."""
+    from app import interview, qdc
+    from app.items.base import plain
+
+    lang = survey.default_language
+    wanted = None if block_ids is None else {int(b) for b in block_ids}
+    for n, block in enumerate(interview.guide_blocks(survey)):
+        if wanted is not None and block.id not in wanted:
+            continue
+        colour = qdc.COLOURS[n % len(qdc.COLOURS)]
+        main = _add(project, who, CodingCategory.MAIN, qdc._name(block.title(lang), f"Themenblock {n + 1}"), "", "",
+                    guid=qdc._guid(survey, "block", block.id), source=f"block:{block.id}", colour=colour, event=False)
+        for item, leitfrage in interview.outline(block):
+            if item.type != "guide_question" or leitfrage is not None:
+                continue
+            text = qdc.leitfrage_description(item, lang)
+            aspects = [t for _rid, t in item.kind.rows(item, "aspects", lang)]
+            if aspects:
+                text += ("\n\n" if text else "") + de_en("Inhaltliche Aspekte: ", "Content aspects: ") + "; ".join(plain(a) for a in aspects)
+            delimit = ((item.config or {}).get("category") or {}).get("delimit") or ""
+            _add(project, who, CodingCategory.SUB, qdc._name(item.text("question", lang), item.code), text[:TEXT_MAX],
+                 delimit[:TEXT_MAX], parent=main, guid=qdc._guid(survey, "item", item.id), source=f"item:{item.id}",
+                 colour=colour, event=False)
+
+
+def copy_categories(source, project, who):
+    """The live categories of `source` into `project`, with their GUIDs (the same category in another analysis) and
+    their authors; the history stays with `source`."""
+    ids = {}
+    for cat in live(source):
+        if cat.kind == CodingCategory.SUB:
+            continue
+        ids[cat.id] = _copy(cat, project, None)
+    for cat in live(source):
+        if cat.kind == CodingCategory.SUB and cat.parent_id in ids:
+            _copy(cat, project, ids[cat.parent_id])
+
+
+def _copy(cat, project, parent_id):
+    new = CodingCategory(project_id=project.id, parent_id=parent_id, kind=cat.kind, guid=cat.guid, source=cat.source,
+                         name=cat.name, definition=cat.definition, delimitation=cat.delimitation, colour=cat.colour,
+                         position=cat.position, author_key=cat.author_key, author_id=cat.author_id,
+                         author_name=cat.author_name, created_at=cat.created_at)
+    db.session.add(new)
+    db.session.flush()
+    return new.id
+
+
+def delete_project(project):
+    """An analysis with its categories, history, members and coding links (its codings in the interviews: stage 2)."""
+    for model in (CodingCategory, CodingEvent, CodingMember, CodingLink):
+        db.session.execute(db.delete(model).where(model.project_id == project.id))
+    db.session.delete(project)
+
+
+def forget_survey(survey_id):
+    """Everything of the analyses of a guide that goes (lifecycle.delete)."""
+    ids = list(db.session.scalars(db.select(CodingProject.id).filter_by(survey_id=survey_id)))
+    if ids:
+        for model in (CodingCategory, CodingEvent, CodingMember, CodingLink):
+            db.session.execute(db.delete(model).where(model.project_id.in_(ids)))
+        db.session.execute(db.delete(CodingProject).where(CodingProject.id.in_(ids)))
+
+
+# --- which interviews ----------------------------------------------------------------------------------------------
+
+
+def _group_users(group_ids):
+    from app.models import WorkGroupMember
+
+    if not group_ids:
+        return set()
+    return set(db.session.scalars(db.select(WorkGroupMember.user_id).where(WorkGroupMember.group_id.in_(group_ids),
+                                                                           WorkGroupMember.user_id.is_not(None))))
+
+
+def scope(who):
+    """(user ids, interviewer link ids) whose interviews count as the actor's own."""
+    users, accesses = set(), set()
+    if who.link is not None:
+        accesses |= {int(a) for a in (who.link.access_ids or []) if str(a).isdigit()}
+    for row in who.members:
+        if row.kind == CodingMember.PERSON and row.user_id:
+            users.add(row.user_id)
+        accesses |= {int(a) for a in (row.access_ids or []) if str(a).isdigit()}
+    users |= _group_users([r.group_id for r in who.members if r.kind == CodingMember.GROUP])
+    return users, accesses
+
+
+def interviews(project, who):
+    """The real interviews of the guide the actor sees in `project` (E3). An interviewer link sees its own ones, also
+    after "Transkript geprüft"; the team all."""
+    from app import interview_data
+
+    survey = db.session.get(Survey, project.survey_id)
+    rows = [r for r in interview_data.interviews(survey, source="real")]
+    if who.kind == "interviewer":
+        return [r for r in rows if (r.interview or {}).get("access") == who.access.id]
+    if who.team or project.visibility == CodingProject.ALL:
+        return rows
+    users, accesses = scope(who)
+    return [r for r in rows if (r.interview or {}).get("by") in users or (r.interview or {}).get("access") in accesses]
+
+
+def has_transcript(row):
+    return bool(((row.interview or {}).get("transcript") or {}).get("text"))
+
+
+# --- the category system -------------------------------------------------------------------------------------------
+
+
+def live(project):
+    """The categories in use: not removed, not merged into another; in their order."""
+    return list(db.session.scalars(db.select(CodingCategory).where(
+        CodingCategory.project_id == project.id, CodingCategory.removed_at.is_(None), CodingCategory.merged_into.is_(None))
+        .order_by(CodingCategory.position, CodingCategory.id)))
+
+
+def tree(project):
+    """[(main category, [subcategories])] and the candidates."""
+    cats = live(project)
+    mains = [c for c in cats if c.kind == CodingCategory.MAIN]
+    subs = {}
+    for c in cats:
+        if c.kind == CodingCategory.SUB:
+            subs.setdefault(c.parent_id, []).append(c)
+    return [(m, subs.get(m.id, [])) for m in mains], [c for c in cats if c.kind == CodingCategory.CANDIDATE]
+
+
+def _key(name):
+    return " ".join(name.casefold().split())
+
+
+def similar(project, name, limit=5):
+    """Categories whose name (or a former name) is like `name`, most alike first: [(category, score)]."""
+    wanted = _key(name)
+    if len(wanted) < 2:
+        return []
+    found = []
+    for cat in live(project):
+        best = 0.0
+        for other in [cat.name] + list(cat.former_names or []):
+            other = _key(other)
+            score = difflib.SequenceMatcher(None, wanted, other).ratio()
+            if wanted in other or other in wanted:
+                score = max(score, 0.8)
+            if set(wanted.split()) & set(other.split()):
+                score = max(score, 0.65)
+            best = max(best, score)
+        if best >= SIMILAR:
+            found.append((cat, best))
+    return sorted(found, key=lambda f: -f[1])[:limit]
+
+
+def may_create_main(project, who):
+    return who.team or not project.mains_fixed
+
+
+def may_edit(project, cat, who):
+    """Change or remove directly: the team always; with "Hauptkategorien festgelegt" no one else a main category;
+    otherwise the author of the entry."""
+    if who.team:
+        return True
+    if cat.kind == CodingCategory.MAIN and project.mains_fixed:
+        return False
+    return bool(cat.author_key) and cat.author_key == who.key
+
+
+def uses(project, cat_id):
+    """How many coded passages carry the category (stage 2 stores them in Response.interview["codings"])."""
+    survey = db.session.get(Survey, project.survey_id)
+    from app import interview_data
+
+    return sum(1 for r in interview_data.interviews(survey) for c in ((r.interview or {}).get("codings") or [])
+               if c.get("project") == project.id and c.get("cat") == cat_id)
+
+
+def _state(cat):
+    return {"name": cat.name, "definition": cat.definition, "delimitation": cat.delimitation, "kind": cat.kind,
+            "removed": cat.removed_at is not None}
+
+
+def _event(project, who, kind, cat=None, data=None, reason="", status="", reply_to=None, merge=None):
+    event = CodingEvent(project_id=project.id, category_id=getattr(cat, "id", None), kind=kind, data=data,
+                        reason=_text(reason, 1000), status=status, reply_to=reply_to, actor_key=who.key,
+                        actor_id=who.user_id, actor_name=who.name[:200], merge=merge)
+    db.session.add(event)
+    project.updated_at = utcnow()
+    return event
+
+
+def _add(project, who, kind, name, definition, delimitation, parent=None, guid=None, source=None, colour="", event=True):
+    position = (db.session.scalar(db.select(db.func.max(CodingCategory.position)).filter_by(project_id=project.id)) or 0) + 1
+    cat = CodingCategory(project_id=project.id, parent_id=getattr(parent, "id", None), kind=kind, guid=guid or new_guid(),
+                         source=source, name=name, definition=definition, delimitation=delimitation,
+                         colour=colour or getattr(parent, "colour", "") or "", position=position, author_key=who.key,
+                         author_id=who.user_id, author_name=who.name[:200])
+    db.session.add(cat)
+    db.session.flush()
+    if event:
+        _event(project, who, "created", cat, {"after": _state(cat)})
+    return cat
+
+
+def create(project, who, kind, name, definition="", delimitation="", parent_id=None):
+    """A new category; returns (category, problem). Whoever may not add a main category adds a candidate instead."""
+    name, definition, delimitation = _clean(name, NAME_MAX), _text(definition), _text(delimitation)
+    if kind not in (CodingCategory.MAIN, CodingCategory.SUB, CodingCategory.CANDIDATE):
+        abort(400)
+    if kind == CodingCategory.MAIN and not may_create_main(project, who):
+        kind = CodingCategory.CANDIDATE
+    if not name:
+        return None, de_en("Bitte einen Namen angeben.", "Please enter a name.")
+    parent = None
+    if kind == CodingCategory.SUB:
+        parent = db.session.get(CodingCategory, parent_id) if isinstance(parent_id, int) else None
+        if (parent is None or parent.project_id != project.id or parent.kind != CodingCategory.MAIN
+                or parent.removed_at is not None or parent.merged_into is not None):
+            return None, de_en("Bitte die Hauptkategorie wählen.", "Please choose the main category.")
+    if not definition and (kind != CodingCategory.MAIN or not who.team):
+        return None, de_en("Bitte eine Definition angeben: Wann gehört eine Stelle hierher?",
+                           "Please enter a definition: when does a passage belong here?")
+    siblings = [c for c in live(project) if (c.parent_id == getattr(parent, "id", None)) and
+                (c.kind == CodingCategory.SUB) == (kind == CodingCategory.SUB)]
+    if any(_key(c.name) == _key(name) for c in siblings):
+        return None, de_en("„{name}“ gibt es hier schon.", "“{name}” already exists here.", name=name)
+    if len(live(project)) >= MAX_CATEGORIES:
+        return None, de_en("Höchstens {n} Kategorien je Auswertung.", "At most {n} categories per analysis.", n=MAX_CATEGORIES)
+    return _add(project, who, kind, name, definition, delimitation, parent=parent), None
+
+
+FIELDS = ("name", "definition", "delimitation")
+
+
+def _values(form):
+    return {"name": _clean(form.get("name"), NAME_MAX), "definition": _text(form.get("definition")),
+            "delimitation": _text(form.get("delimitation"))}
+
+
+def change(project, cat, who, values, merge=None):
+    """Name, definition and delimitation of a category the actor may edit; returns a problem or None. The saves of one
+    visit to a field are one entry of the history (`merge`)."""
+    if not may_edit(project, cat, who):
+        return de_en("Diese Kategorie ändern nur {who}; Sie können eine Änderung vorschlagen.",
+                     "Only {who} change this category; you can propose a change.",
+                     who=de_en("die Forschenden des Leitfadens", "the researchers of the guide") if cat.kind == CodingCategory.MAIN and project.mains_fixed
+                     else de_en("die Person, die sie angelegt hat, und die Forschenden", "the person who created it and the researchers"))
+    values = {k: v for k, v in values.items() if k in FIELDS}
+    if "name" in values and not values["name"]:
+        return de_en("Bitte einen Namen angeben.", "Please enter a name.")
+    if "definition" in values and not values["definition"] and (cat.kind != CodingCategory.MAIN or not who.team):
+        return de_en("Die Definition bleibt Pflicht.", "The definition stays required.")
+    if "name" in values and _key(values["name"]) != _key(cat.name):
+        siblings = [c for c in live(project) if c.id != cat.id and c.parent_id == cat.parent_id
+                    and (c.kind == CodingCategory.SUB) == (cat.kind == CodingCategory.SUB)]
+        if any(_key(c.name) == _key(values["name"]) for c in siblings):
+            return de_en("„{name}“ gibt es hier schon.", "“{name}” already exists here.", name=values["name"])
+    before = _state(cat)
+    for k, v in values.items():
+        setattr(cat, k, v)
+    if _state(cat) == before:
+        return None
+    cat.updated_at = utcnow()
+    last = _last(project, cat.id)
+    if merge and last is not None and last.kind == "changed" and last.merge == merge and last.actor_key == who.key:
+        last.data = {**(last.data or {}), "after": _state(cat)}
+        last.at = utcnow()
+    else:
+        _event(project, who, "changed", cat, {"before": before, "after": _state(cat)}, merge=merge)
+    return None
+
+
+def _last(project, cat_id):
+    return db.session.scalar(db.select(CodingEvent).filter_by(project_id=project.id, category_id=cat_id)
+                             .where(CodingEvent.kind.not_in(("proposal", "accepted", "declined")))
+                             .order_by(CodingEvent.id.desc()).limit(1))  # the answers to a proposal change nothing themselves
+
+
+def remove(project, cat, who):
+    """Remove a category nobody coded with; a main category only without subcategories. Returns a problem or None."""
+    if not may_edit(project, cat, who):
+        return de_en("Diese Kategorie entfernen nur die Forschenden oder wer sie angelegt hat.",
+                     "Only the researchers or whoever created it remove this category.")
+    if any(c.parent_id == cat.id for c in live(project)):
+        return de_en("Erst die Unterkategorien entfernen oder verschieben.", "Remove or move the subcategories first.")
+    if uses(project, cat.id):
+        return de_en("Mit dieser Kategorie ist schon kodiert; sie lässt sich zusammenführen, nicht entfernen.",
+                     "Passages are already coded with this category; it can be merged, not removed.")
+    before = _state(cat)
+    cat.removed_at = utcnow()
+    _event(project, who, "removed", cat, {"before": before, "after": _state(cat)})
+    return None
+
+
+def promote(project, cat, who):
+    """The team takes a candidate on as a main category."""
+    if not who.team or cat.kind != CodingCategory.CANDIDATE:
+        abort(404)
+    before = _state(cat)
+    cat.kind = CodingCategory.MAIN
+    _event(project, who, "promoted", cat, {"before": before, "after": _state(cat)})
+
+
+def propose(project, cat, who, values, reason=""):
+    """A proposed change of name, definition or delimitation by someone who may not change the category directly."""
+    values = {k: v for k, v in values.items() if k in FIELDS and v and v != getattr(cat, k)}
+    if not values:
+        return de_en("Der Vorschlag ändert nichts.", "The proposal changes nothing.")
+    if open_proposals(project, cat.id, who.key):
+        return de_en("Sie haben hier schon einen offenen Vorschlag.", "You already have an open proposal here.")
+    _event(project, who, "proposal", cat, {"proposed": values, "before": {k: getattr(cat, k) for k in values}},
+           reason=reason, status="open")
+    return None
+
+
+def open_proposals(project, cat_id=None, actor_key=None):
+    query = db.select(CodingEvent).filter_by(project_id=project.id, kind="proposal", status="open")
+    if cat_id is not None:
+        query = query.filter_by(category_id=cat_id)
+    if actor_key is not None:
+        query = query.filter_by(actor_key=actor_key)
+    return list(db.session.scalars(query.order_by(CodingEvent.id)))
+
+
+def decide(project, event, who, accept):
+    """Take on or decline a proposal: whoever may change the category directly."""
+    cat = db.session.get(CodingCategory, event.category_id) if event.category_id else None
+    if cat is None or cat.project_id != project.id or event.kind != "proposal" or event.status != "open":
+        abort(404)
+    if not may_edit(project, cat, who):
+        abort(403)
+    if accept:
+        problem = change(project, cat, who, dict((event.data or {}).get("proposed") or {}))
+        if problem:
+            return problem
+    event.status = "accepted" if accept else "declined"
+    _event(project, who, "accepted" if accept else "declined", cat, reply_to=event.id)
+    return None
+
+
+def undoable(project, who):
+    """The own last step that can still be taken back: one of UNDO_KINDS not taken back, after which nobody changed
+    that category."""
+    for event in db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id, actor_key=who.key)
+                                    .where(CodingEvent.kind.in_(UNDO_KINDS)).order_by(CodingEvent.id.desc()).limit(20)):
+        if (event.data or {}).get("undone"):
+            continue
+        last = _last(project, event.category_id)
+        return event if last is not None and last.id == event.id else None
+    return None
+
+
+def undo(project, who):
+    """Take back the own last step (`undoable`); returns a problem or None."""
+    event = undoable(project, who)
+    cat = db.session.get(CodingCategory, event.category_id) if event is not None and event.category_id else None
+    if cat is None:
+        return de_en("Nichts zum Zurücknehmen.", "Nothing to take back.")
+    if not may_edit(project, cat, who):  # e.g. the main categories were fixed since
+        return de_en("Diese Kategorie ändern inzwischen nur die Forschenden.", "Only the researchers change this category now.")
+    before = (event.data or {}).get("before")
+    if event.kind == "created":
+        if uses(project, cat.id) or any(c.parent_id == cat.id for c in live(project)):
+            return de_en("Die Kategorie wird schon genutzt.", "The category is already in use.")
+        cat.removed_at = utcnow()
+    else:
+        for k in FIELDS + ("kind",):
+            setattr(cat, k, before[k])
+        cat.removed_at = utcnow() if before.get("removed") else None
+    cat.updated_at = utcnow()
+    event.data = {**(event.data or {}), "undone": True}
+    _event(project, who, "undone", cat, {"after": _state(cat)}, reply_to=event.id)
+    return None
+
+
+def undo_label(event):
+    if event is None:
+        return ""
+    name = ((event.data or {}).get("after") or {}).get("name") or ""
+    return {"created": de_en("„{name}“ angelegt", "“{name}” created", name=name),
+            "changed": de_en("„{name}“ geändert", "“{name}” changed", name=name),
+            "removed": de_en("„{name}“ entfernt", "“{name}” removed", name=name),
+            "promoted": de_en("„{name}“ übernommen", "“{name}” taken on", name=name)}.get(event.kind, "")
+
+
+def history(project, limit=30):
+    return list(db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id)
+                                   .order_by(CodingEvent.id.desc()).limit(limit)))
+
+
+def event_text(event, names):
+    """One line of the history in words."""
+    data = event.data or {}
+    name = (data.get("after") or data.get("before") or {}).get("name") or names.get(event.category_id, "")
+    return {"created": de_en("legt „{name}“ an", "creates “{name}”", name=name),
+            "changed": de_en("ändert „{name}“", "changes “{name}”", name=name),
+            "removed": de_en("entfernt „{name}“", "removes “{name}”", name=name),
+            "restored": de_en("holt „{name}“ zurück", "restores “{name}”", name=name),
+            "promoted": de_en("übernimmt „{name}“ als Hauptkategorie", "takes “{name}” on as a main category", name=name),
+            "proposal": de_en("schlägt eine Änderung an „{name}“ vor", "proposes a change to “{name}”", name=name),
+            "accepted": de_en("übernimmt den Vorschlag zu „{name}“", "takes on the proposal for “{name}”", name=name),
+            "declined": de_en("lehnt den Vorschlag zu „{name}“ ab", "declines the proposal for “{name}”", name=name),
+            "undone": de_en("nimmt den letzten Schritt an „{name}“ zurück", "takes back the last step on “{name}”", name=name),
+            }.get(event.kind, event.kind)
+
+
+# --- members -------------------------------------------------------------------------------------------------------
+
+
+def members(project):
+    return list(db.session.scalars(db.select(CodingMember).filter_by(project_id=project.id).order_by(CodingMember.id)))
+
+
+def member_name(row):
+    from app.models import InterviewerAccess, User, WorkGroup
+
+    if row.kind == CodingMember.PERSON:
+        user = db.session.get(User, row.user_id) if row.user_id else None
+        return user.display_name if user is not None else de_en("gelöschtes Konto", "deleted account")
+    if row.kind == CodingMember.GROUP:
+        group = db.session.get(WorkGroup, row.group_id) if row.group_id else None
+        return group.name if group is not None else de_en("gelöschte Gruppe", "deleted group")
+    access = db.session.get(InterviewerAccess, row.access_id) if row.access_id else None
+    return access.name if access is not None else de_en("gelöschter Interviewlink", "deleted interviewer link")
+
+
+def add_member(project, kind, by, user=None, group=None, access=None):
+    """A person, a group or an interviewer link as member with the role "Kodieren"; returns a problem or None."""
+    if kind == CodingMember.PERSON:
+        if user is None:
+            return de_en("Diese Person ist nicht bekannt.", "This person is not known.")
+        if db.session.scalar(db.select(CodingMember.id).filter_by(project_id=project.id, kind=kind, user_id=user.id)):
+            return de_en("{name} kodiert hier schon.", "{name} already codes here.", name=user.display_name)
+        row = CodingMember(project_id=project.id, kind=kind, user_id=user.id)
+    elif kind == CodingMember.GROUP:
+        if group is None:
+            return de_en("Diese Gruppe ist nicht bekannt.", "This group is not known.")
+        if db.session.scalar(db.select(CodingMember.id).filter_by(project_id=project.id, kind=kind, group_id=group.id)):
+            return de_en("Die Gruppe {name} kodiert hier schon.", "The group {name} already codes here.", name=group.name)
+        row = CodingMember(project_id=project.id, kind=kind, group_id=group.id)
+    elif kind == CodingMember.INTERVIEWER:
+        if access is None or access.survey_id != project.survey_id:
+            abort(404)
+        if interviewer_member(project, access) is not None:
+            return None
+        row = CodingMember(project_id=project.id, kind=kind, access_id=access.id)
+    else:
+        abort(400)
+    row.added_by_id, row.added_by_name = by.id, (by.name or "")[:200]
+    db.session.add(row)
+    return None
+
+
+# --- the pages -----------------------------------------------------------------------------------------------------
+
+
+def _project_url(survey, project, anchor=""):
+    return url_for("transcript_coding.project", code=survey.code, pid=project.id) + (f"#{anchor}" if anchor else "")
+
+
+@bp.route("/<code>/interviews/coding")
+@signed_in_or_coder
+def index(code):
+    """The analyses of a guide: the team sees all and makes new ones; a member is led to their analysis."""
+    survey = guide(code)
+    if not team(survey):
+        from app import experimental
+
+        mine = projects_for(survey, current_user) if current_user.is_authenticated and experimental.enabled(FEATURE, survey=survey) else []
+        if len(mine) == 1:
+            return redirect(_project_url(survey, mine[0]))
+        if not mine:
+            abort(404)
+        return render_template("transcript_coding/mine.html", survey=survey, projects=mine)
+    survey = _team_survey(code)
+    rows = projects(survey)
+    counts = {p.id: (len([c for c in live(p) if c.kind == CodingCategory.MAIN]), len([c for c in live(p) if c.kind == CodingCategory.SUB]),
+                     len(members(p)) + len(db.session.scalars(db.select(CodingLink.id).filter_by(project_id=p.id)).all()))
+              for p in rows}
+    from app import interview
+
+    return render_template("transcript_coding/index.html", survey=survey, projects=rows, counts=counts,
+                           blocks=interview.guide_blocks(survey), n_interviews=len(interviews_all(survey)))
+
+
+def interviews_all(survey):
+    from app import interview_data
+
+    return interview_data.interviews(survey, source="real")
+
+
+@bp.route("/<code>/interviews/coding/new", methods=["POST"])
+@signed_in_or_coder
+def new(code):
+    survey = _team_survey(code)
+    start = request.form.get("start", "guide")
+    blocks = request.form.getlist("blocks", type=int) if request.form.get("which") == "some" else None
+    if blocks is not None and not blocks:
+        flash(de_en("Bitte mindestens einen Themenblock wählen.", "Please choose at least one topic block."), "error")
+        return redirect(url_for("transcript_coding.index", code=survey.code))
+    project, problem = create_project(survey, request.form.get("name"), request.form.get("question"), start, blocks,
+                                      request.form.get("copy_of", type=int), current_user)
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+        return redirect(url_for("transcript_coding.index", code=survey.code))
+    db.session.commit()
+    flash(de_en("Auswertung „{name}“ angelegt.", "Analysis “{name}” created.", name=project.name), "success")
+    return redirect(_project_url(survey, project))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>")
+@signed_in_or_coder
+def project(code, pid):
+    survey, project, who = _in(code, pid)
+    from app import interviewer, transcript_coding_links
+    from app.groups import of as groups_of
+
+    mains, candidates = tree(project)
+    names = {c.id: c.name for c in live(project)}
+    proposals = open_proposals(project)
+    context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates,
+                   proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
+                   may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
+                   history=history(project), event_text=lambda e: event_text(e, names),
+                   interviews=interviews(project, who), has_transcript=has_transcript,
+                   own_proposal=lambda c: bool(open_proposals(project, c.id, who.key)),
+                   proposals_of=lambda c: [e for e in proposals if e.category_id == c.id])
+    if who.team:
+        accesses = interviewer.accesses(survey)
+        context.update(members=members(project), member_name=member_name, accesses=accesses,
+                       ticked={m.access_id for m in members(project) if m.kind == CodingMember.INTERVIEWER},
+                       groups=groups_of(current_user, within=survey), people=_people(survey, project),
+                       links=transcript_coding_links.links(project), link_state=transcript_coding_links.state,
+                       new_link=transcript_coding_links.show_once(survey, project),
+                       link_days=transcript_coding_links.MAX_DAYS, link_devices=transcript_coding_links.MAX_DEVICES,
+                       access_names={a.id: a.name for a in accesses},
+                       others=[p for p in projects(survey) if p.id != project.id])
+    return render_template("transcript_coding/project.html", **context)
+
+
+def _people(survey, project):
+    """Whom the team can add as a person: the survey's people without "Bearbeiten" and the colleagues of the groups of
+    the one asking, without those already in: [(key, name)]."""
+    from app import people_keys
+    from app.groups import colleagues
+
+    taken = {m.user_id for m in members(project) if m.kind == CodingMember.PERSON}
+    out = {}
+    for m in survey.members:
+        if m.user_id and m.user_id not in taken and m.role == "viewer" and m.user is not None:
+            out[m.user_id] = (people_keys.key_for(m.user), m.display_name)
+    editors = {m.user_id for m in survey.members if m.role != "viewer"}
+    for key, name in colleagues(current_user):
+        user = people_keys.account(key, create=False)
+        if user is not None and user.id not in taken and user.id not in editors:
+            out.setdefault(user.id, (key, name))
+    return sorted(out.values(), key=lambda kv: kv[1].casefold())
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/settings", methods=["POST"])
+@signed_in_or_coder
+@autosave.aware
+def settings(code, pid):
+    """Name, research question, which interviews members see, "Hauptkategorien festgelegt" (the team)."""
+    survey, project, who = _in(code, pid, team_only=True)
+    name = _clean(request.form.get("name"), NAME_MAX)
+    if not name:
+        flash(de_en("Bitte einen Namen angeben.", "Please enter a name."), "error")
+        return redirect(_project_url(survey, project))
+    if any(p.id != project.id and p.name.casefold() == name.casefold() for p in projects(survey)):
+        flash(de_en("Eine Auswertung „{name}“ gibt es schon.", "There is already an analysis “{name}”.", name=name), "error")
+        return redirect(_project_url(survey, project))
+    project.name = name
+    project.question = _text(request.form.get("question"), QUESTION_MAX)
+    project.visibility = CodingProject.OWN if request.form.get("visibility") == CodingProject.OWN else CodingProject.ALL
+    project.mains_fixed = bool(request.form.get("mains_fixed"))
+    project.updated_at = utcnow()
+    db.session.commit()
+    flash(de_en("Gespeichert.", "Saved."), "success")
+    return redirect(_project_url(survey, project))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/delete", methods=["POST"])
+@signed_in_or_coder
+def delete(code, pid):
+    survey, project, who = _in(code, pid, team_only=True)
+    name = project.name
+    delete_project(project)
+    db.session.commit()
+    flash(de_en("Auswertung „{name}“ gelöscht.", "Analysis “{name}” deleted.", name=name), "success")
+    return redirect(url_for("transcript_coding.index", code=survey.code))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/similar")
+@signed_in_or_coder
+def similar_names(code, pid):
+    """The categories like a name being typed, for the dialog "Neue Kategorie" (shown before anything is made)."""
+    survey, project, who = _in(code, pid)
+    names = {c.id: c.name for c in live(project)}
+    return jsonify([{"id": c.id, "name": c.name, "kind": c.kind, "parent": names.get(c.parent_id, ""),
+                     "definition": c.definition[:300], "author": c.author_name,
+                     "former": list(c.former_names or [])} for c, _score in similar(project, request.args.get("q", ""))])
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/new", methods=["POST"])
+@signed_in_or_coder
+def add(code, pid):
+    survey, project, who = _in(code, pid)
+    name = request.form.get("name", "")
+    # the similar ones first: a new one only once they were shown (the dialog shows them while typing)
+    if similar(project, name) and not request.form.get("anyway"):
+        flash(de_en("Es gibt schon ähnliche Kategorien: {names}. Bitte prüfen, ob eine davon passt, sonst „Trotzdem neu anlegen“.",
+                    "There are similar categories already: {names}. Please check whether one of them fits, else “Create anyway”.",
+                    names=", ".join(f"„{c.name}“" for c, _s in similar(project, name))), "error")
+        return redirect(_project_url(survey, project, "kategorien"))
+    cat, problem = create(project, who, request.form.get("kind", CodingCategory.SUB), name, request.form.get("definition"),
+                          request.form.get("delimitation"), request.form.get("parent", type=int))
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("„{name}“ angelegt.", "“{name}” created.", name=cat.name) if cat.kind != CodingCategory.CANDIDATE else
+              de_en("„{name}“ als Kandidat für eine neue Hauptkategorie angelegt.", "“{name}” created as a candidate for a new main category.", name=cat.name),
+              "success")
+    return redirect(_project_url(survey, project, f"k{cat.id}" if cat else "kategorien"))
+
+
+def _category(project, cat_id):
+    cat = db.session.get(CodingCategory, cat_id)
+    if cat is None or cat.project_id != project.id or cat.removed_at is not None or cat.merged_into is not None:
+        abort(404)
+    return cat
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>", methods=["POST"])
+@signed_in_or_coder
+@autosave.aware
+def edit(code, pid, cid):
+    """Name, definition and delimitation of one category, as the page saves them while typing."""
+    survey, project, who = _in(code, pid)
+    cat = _category(project, cid)
+    problem = change(project, cat, who, _values(request.form), merge=autosave.merge(f"cat{cat.id}"))
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("Gespeichert.", "Saved."), "success")
+    return redirect(_project_url(survey, project, f"k{cat.id}"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/remove", methods=["POST"])
+@signed_in_or_coder
+def remove_category(code, pid, cid):
+    survey, project, who = _in(code, pid)
+    cat = _category(project, cid)
+    problem = remove(project, cat, who)
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("„{name}“ entfernt.", "“{name}” removed.", name=cat.name), "success")
+    return redirect(_project_url(survey, project, "kategorien"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/promote", methods=["POST"])
+@signed_in_or_coder
+def promote_category(code, pid, cid):
+    survey, project, who = _in(code, pid, team_only=True)
+    cat = _category(project, cid)
+    promote(project, cat, who)
+    db.session.commit()
+    flash(de_en("„{name}“ ist jetzt eine Hauptkategorie.", "“{name}” is now a main category.", name=cat.name), "success")
+    return redirect(_project_url(survey, project, f"k{cat.id}"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/propose", methods=["POST"])
+@signed_in_or_coder
+def propose_change(code, pid, cid):
+    survey, project, who = _in(code, pid)
+    cat = _category(project, cid)
+    problem = propose(project, cat, who, _values(request.form), request.form.get("reason", ""))
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("Vorschlag gesendet.", "Proposal sent."), "success")
+    return redirect(_project_url(survey, project, f"k{cat.id}"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/proposals/<int:eid>/<answer>", methods=["POST"])
+@signed_in_or_coder
+def answer_proposal(code, pid, eid, answer):
+    survey, project, who = _in(code, pid)
+    event = db.session.get(CodingEvent, eid)
+    if event is None or event.project_id != project.id or answer not in ("accept", "decline"):
+        abort(404)
+    problem = decide(project, event, who, answer == "accept")
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("Vorschlag übernommen.", "Proposal taken on.") if answer == "accept" else
+              de_en("Vorschlag abgelehnt.", "Proposal declined."), "success")
+    return redirect(_project_url(survey, project, "kategorien"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/undo", methods=["POST"])
+@signed_in_or_coder
+def undo_step(code, pid):
+    survey, project, who = _in(code, pid)
+    problem = undo(project, who)
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("Zurückgenommen.", "Taken back."), "success")
+    return redirect(_project_url(survey, project, "kategorien"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/members", methods=["POST"])
+@signed_in_or_coder
+def add_members(code, pid):
+    """A person or a group as member (role "Kodieren")."""
+    from app import people_keys
+    from app.models import WorkGroup
+
+    survey, project, who = _in(code, pid, team_only=True)
+    kind = request.form.get("kind")
+    if kind == CodingMember.GROUP:
+        group = db.session.get(WorkGroup, request.form.get("group", type=int) or 0)
+        from app.groups import of as groups_of
+
+        if group is not None and group.id not in {g.id for g in groups_of(current_user, within=survey)}:
+            group = None  # only a group of the one adding, of the guide's organisation
+        problem = add_member(project, kind, current_user, group=group)
+    else:
+        key = " ".join(request.form.get("person", "").split())
+        user = people_keys.account(key) if key else None
+        problem = add_member(project, CodingMember.PERSON, current_user, user=user)
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("Mitglied hinzugefügt: kodiert mit, ändert den Leitfaden nicht.", "Member added: codes along, does not change the guide."), "success")
+    return redirect(_project_url(survey, project, "mitglieder"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/members/<int:mid>/remove", methods=["POST"])
+@signed_in_or_coder
+def remove_member(code, pid, mid):
+    survey, project, who = _in(code, pid, team_only=True)
+    row = db.session.get(CodingMember, mid)
+    if row is None or row.project_id != project.id:
+        abort(404)
+    db.session.delete(row)
+    db.session.commit()
+    flash(de_en("Mitglied entfernt. Seine Kategorien bleiben.", "Member removed. Their categories stay."), "success")
+    return redirect(_project_url(survey, project, "mitglieder"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/members/<int:mid>/interviews", methods=["POST"])
+@signed_in_or_coder
+@autosave.aware
+def member_interviews(code, pid, mid):
+    """With "jede Gruppe ihre eigenen": the interviewer links whose interviews count as this member's own."""
+    from app import interviewer
+
+    survey, project, who = _in(code, pid, team_only=True)
+    row = db.session.get(CodingMember, mid)
+    if row is None or row.project_id != project.id or row.kind == CodingMember.INTERVIEWER:
+        abort(404)
+    known = {a.id for a in interviewer.accesses(survey)}
+    row.access_ids = sorted({a for a in request.form.getlist("access", type=int) if a in known})
+    db.session.commit()
+    flash(de_en("Gespeichert.", "Saved."), "success")
+    return redirect(_project_url(survey, project, "mitglieder"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/interviewers", methods=["POST"])
+@signed_in_or_coder
+@autosave.aware
+def interviewers(code, pid):
+    """The tick "darf eigene Interviews kodieren" per interviewer link (off by default). Only rows of this module
+    change; the interviewer links stay as they are."""
+    from app import interviewer
+
+    survey, project, who = _in(code, pid, team_only=True)
+    accesses = {a.id: a for a in interviewer.accesses(survey)}
+    wanted = {a for a in request.form.getlist("access", type=int) if a in accesses}
+    for row in [m for m in members(project) if m.kind == CodingMember.INTERVIEWER]:
+        if row.access_id not in wanted:
+            db.session.delete(row)
+    for aid in wanted:
+        add_member(project, CodingMember.INTERVIEWER, current_user, access=accesses[aid])
+    db.session.commit()
+    flash(de_en("Gespeichert.", "Saved."), "success")
+    return redirect(_project_url(survey, project, "mitglieder"))
+
+
+@bp.app_context_processor
+def _helpers():
+    return {"coding_projects_of_interviewer": interviewer_projects}

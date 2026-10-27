@@ -334,6 +334,138 @@ class InterviewerAccess(db.Model):
     last_used_at: Mapped[datetime | None]
 
 
+# --- coding interview transcripts (app/transcript_coding.py, experimental "transcript_coding") ---------------------
+# No foreign keys, like interviewer_access: the rows go in code with the guide (lifecycle.delete) and lose only names
+# and ids of a deleted account (accounts.delete). The interviewer links themselves are never changed by them.
+
+
+class CodingProject(db.Model):
+    """An analysis of an interview guide's transcripts ("Auswertung"): a name, a research question, a category system
+    of its own and members of its own; several per guide, all on the same transcripts. `visibility`: "all" (every
+    member sees every interview) or "own" (each member, group or coding link sees only its own interviews; the team
+    always sees all). `mains_fixed`: only the team changes the main categories; the others add candidates and
+    propose changes."""
+
+    __tablename__ = "coding_project"
+    ALL, OWN = "all", "own"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    survey_id: Mapped[int] = mapped_column(index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    question: Mapped[str] = mapped_column(Text, default="")
+    visibility: Mapped[str] = mapped_column(String(10), default=ALL)
+    mains_fixed: Mapped[bool] = mapped_column(default=False)
+    created_by_id: Mapped[int | None] = mapped_column(index=True)
+    created_by_name: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class CodingCategory(db.Model):
+    """A category of an analysis: "main" (a main category), "sub" (a subcategory under `parent_id`) or "candidate" (a
+    proposed main category, drawn dashed, until the team takes it on). `guid`: the key for REFI-QDA (from the guide as
+    in app/qdc.py, else a new one); `source`: where it came from in the guide ("block:12", "item:34"). The author
+    (`author_key` "u:<user>", "l:<coding link>", "i:<interviewer link>") and the time stay with each entry. Removed
+    entries keep their row (`removed_at`), so that "Rückgängig" and the history find them; `merged_into` and
+    `former_names` belong to merging and renaming (stage 3)."""
+
+    __tablename__ = "coding_category"
+    MAIN, SUB, CANDIDATE = "main", "sub", "candidate"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(index=True)
+    parent_id: Mapped[int | None] = mapped_column(index=True)
+    kind: Mapped[str] = mapped_column(String(10), default=SUB)
+    guid: Mapped[str] = mapped_column(String(36))
+    source: Mapped[str | None] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(120))
+    definition: Mapped[str] = mapped_column(Text, default="")
+    delimitation: Mapped[str] = mapped_column(Text, default="")
+    anchor: Mapped[dict | None] = mapped_column(JSON)  # a coded passage (stage 2): {"interview", "coding"}
+    colour: Mapped[str] = mapped_column(String(7), default="")
+    position: Mapped[int] = mapped_column(default=0)
+    author_key: Mapped[str] = mapped_column(String(40), default="")
+    author_id: Mapped[int | None] = mapped_column(index=True)
+    author_name: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow)
+    removed_at: Mapped[datetime | None]
+    merged_into: Mapped[int | None] = mapped_column(index=True)
+    former_names: Mapped[list | None] = mapped_column(JSON)
+
+
+class CodingEvent(db.Model):
+    """One entry of an analysis's history: a category made, changed, removed, taken on, a change proposed and decided,
+    a step taken back ("created", "changed", "removed", "restored", "promoted", "proposal", "undone"; stage 3 adds
+    merging with its answers "Passt" and "herausgelöst"). `data`: the state before and after, or what is proposed;
+    `reply_to`: the entry this one answers; `status` of a proposal: "open", "accepted", "declined". `merge`: the
+    saves of one visit to a text field are one entry (app/autosave.py, merge)."""
+
+    __tablename__ = "coding_event"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(index=True)
+    category_id: Mapped[int | None] = mapped_column(index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    reply_to: Mapped[int | None] = mapped_column(index=True)
+    status: Mapped[str] = mapped_column(String(10), default="")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    data: Mapped[dict | None] = mapped_column(JSON)
+    actor_key: Mapped[str] = mapped_column(String(40), default="")
+    actor_id: Mapped[int | None] = mapped_column(index=True)
+    actor_name: Mapped[str] = mapped_column(String(200), default="")
+    merge: Mapped[str | None] = mapped_column(String(80))
+    at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
+
+
+class CodingMember(db.Model):
+    """Who codes in an analysis besides the team of the guide, with the role "Kodieren" (codes, never changes the
+    guide): a person ("person", `user_id`), an Askurious group ("group", `group_id`, live for its members) or an
+    interviewer link whose holder may code their own interviews ("interviewer", `access_id`; off until the team ticks
+    it). `access_ids`: with "own" interviews, the interviewer links whose interviews count as theirs."""
+
+    __tablename__ = "coding_member"
+    PERSON, GROUP, INTERVIEWER = "person", "group", "interviewer"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(index=True)
+    kind: Mapped[str] = mapped_column(String(12))
+    user_id: Mapped[int | None] = mapped_column(index=True)
+    group_id: Mapped[int | None] = mapped_column(index=True)
+    access_id: Mapped[int | None] = mapped_column(index=True)
+    role: Mapped[str] = mapped_column(String(10), default="coder")
+    access_ids: Mapped[list | None] = mapped_column(JSON)
+    added_by_id: Mapped[int | None] = mapped_column(index=True)
+    added_by_name: Mapped[str] = mapped_column(String(200), default="")
+    added_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class CodingLink(db.Model):
+    """A coding link of one analysis for a person without an account (app/transcript_coding_links.py): a name, an
+    expiry date (required, at most 90 days ahead), at most 3 devices; the key after "#" as with the interviewer link,
+    only its hash stored. `revision` changes when the link is blocked, renewed or its devices are signed out.
+    `access_ids`: with "own" interviews, the interviewer links whose interviews it sees."""
+
+    __tablename__ = "coding_link"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(index=True)
+    survey_id: Mapped[int] = mapped_column(index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    revision: Mapped[str] = mapped_column(String(32))
+    blocked: Mapped[bool] = mapped_column(default=False)
+    max_devices: Mapped[int] = mapped_column(default=3)
+    devices: Mapped[list | None] = mapped_column(JSON)
+    access_ids: Mapped[list | None] = mapped_column(JSON)
+    hints_version: Mapped[str | None] = mapped_column(String(20))
+    created_by_id: Mapped[int | None] = mapped_column(index=True)
+    created_by_name: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    expires_at: Mapped[datetime]
+    last_used_at: Mapped[datetime | None]
+
+
 class SurveyInvite(db.Model):
     """An address on the invitation list of a survey (app/survey_invites.py, mailversand-konzept.md M6, M7; mail on
     only). The participation never stores the token: the row only knows "open, started, done" (no time, no

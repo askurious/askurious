@@ -89,6 +89,12 @@ ACTIONS = {
     "admin.group_lead": "Gruppe: Leitung von Admin eingesetzt",
     "groups.share": "Gruppe: Befragung/Design geteilt",
     "groups.delete": "Gruppe gelöscht",
+    # coding interview transcripts (app/transcript_coding.py): who may read the transcripts of an analysis
+    "transcript_coding.add_members": "Kodieren: Mitglied aufgenommen",
+    "transcript_coding.remove_member": "Kodieren: Mitglied entfernt",
+    "transcript_coding.interviewers": "Kodieren: Interviewlinks freigegeben/entfernt",
+    "transcript_coding.link_add": "Kodieren: Kodierlink angelegt",
+    "transcript_coding.link_change": "Kodieren: Kodierlink geändert",
     "admin.group_action": "Gruppe gelöscht",  # only "delete" (done() in the view); renaming and "darf anlegen" stay out
     # accounts and the database (site admins)
     "admin.new_account": "Konto angelegt",
@@ -162,6 +168,11 @@ ACTIONS_EN = {
     "admin.group_lead": "Group: lead set by an admin",
     "groups.share": "Group: survey/design shared",
     "groups.delete": "Group deleted",
+    "transcript_coding.add_members": "Coding: member added",
+    "transcript_coding.remove_member": "Coding: member removed",
+    "transcript_coding.interviewers": "Coding: interviewer links given access/removed",
+    "transcript_coding.link_add": "Coding: coding link created",
+    "transcript_coding.link_change": "Coding: coding link changed",
     "admin.group_action": "Group deleted",
     "admin.new_account": "Account created",
     "admin.block_account": "Account blocked/unblocked",

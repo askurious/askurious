@@ -85,6 +85,15 @@
   {% else %}<p class="muted">{{ de_en("Noch kein Interview. Oben unter „Interview beginnen“ das erste anlegen.", "No interview yet. Create the first one above under “Start interview”.") }}</p>{% endif %}
   <p class="muted small">{{ de_en("Möchte eine interviewte Person ihre Daten löschen lassen, wendet sie sich mit ihrem Löschcode an die Forschenden.", "If an interviewed person wants their data deleted, they contact the researchers with their deletion code.") }}</p>
 </section>
+{# only once the team ticked "darf eigene Interviews kodieren" in an analysis (app/transcript_coding.py) #}
+{% set coding = coding_projects_of_interviewer(survey, access) %}
+{% if coding %}
+<section class="panel">
+  <h2>{{ de_en("Kodieren", "Code") }}</h2>
+  <p class="muted small">{{ de_en("Ihre eigenen Interviews in diesen Auswertungen, auch nach der Übergabe des Transkripts:", "Your own interviews in these analyses, also after handing over the transcript:") }}</p>
+  <ul>{% for p in coding %}<li><a href="{{ url_for('transcript_coding.project', code=survey.code, pid=p.id) }}">{{ p.name }}</a></li>{% endfor %}</ul>
+</section>
+{% endif %}
 <script src="{{ url_for('static', filename='interviewer.js') }}" defer></script>
 <script src="{{ url_for('static', filename='transcription-progress.js') }}" defer></script>
 {% endblock %}

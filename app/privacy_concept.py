@@ -290,6 +290,21 @@ def roles():
                        "übergeben ist; nicht den Leitfaden bearbeiten, keine Auswertung, keine Exporte, keine Interviews "
                        "anderer.", "Only their own interviews: conduct, record, transcribe, until the transcript is handed "
                        "over as checked; no editing of the guide, no analysis, no exports, no interviews of others.")},
+        {"who": de_en("Kodierende (Rolle „Kodieren“, experimentell)", "Coders (role “Code”, experimental)"),
+         "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet: als Person "
+                      "oder Gruppe mit Konto, als Interviewende mit Interviewlink und Häkchen „darf eigene Interviews "
+                      "kodieren“ (aus, bis es gesetzt wird) oder ohne Konto über einen Kodierlink: nur als Hash gespeichert, "
+                      "Ablaufdatum Pflicht (höchstens 90 Tage), höchstens drei Geräte, sperrbar",
+                      "assigned to an analysis of the guide by members with Edit or Manage: as a person or group with an "
+                      "account, as interviewers with an interviewer link and the tick “may code own interviews” (off until "
+                      "set), or without an account through a coding link: stored as a hash only, expiry date required (at "
+                      "most 90 days), at most three devices, can be blocked"),
+         "sees": de_en("Die Transkripte der Interviews dieser einen Auswertung (je nach Einstellung alle oder nur die eigenen; "
+                       "Interviewende nur ihre eigenen) und ihr Kategoriensystem; ergänzen Kategorien und schlagen Änderungen "
+                       "vor; nicht den Leitfaden, keine Aufnahmen, keine Exporte, keine anderen Auswertungen.",
+                       "The transcripts of the interviews of that one analysis (depending on the setting all or only their "
+                       "own; interviewers only their own) and its category system; add categories and propose changes; not "
+                       "the guide, no recordings, no exports, no other analyses.")},
         {"who": de_en("Interviewte Personen", "Interviewees"),
          "how": de_en("Eingetragen von Forschenden; mit dem Teilnehmerbildschirm ein Link je Interview "
                       "für ein einziges eigenes Gerät, ohne Konto",
@@ -313,6 +328,7 @@ ACTIVITY_META = (
     ("accounts", "2026-09-26", "2026-10-20"), ("participation", "2026-09-26", "2026-10-20"),
     ("pool", "2026-10-04", "2026-10-15"), ("live", "2026-10-03", "2026-10-19"),
     ("interviews", "2026-10-04", "2026-10-27"), ("interviewer_links", "2026-10-15", "2026-10-15"),
+    ("transcript_coding", "2026-10-27", "2026-10-27"),
     ("participant_screen", "2026-10-20", "2026-10-20"), ("diary", "2026-10-11", "2026-10-27"),
     ("invitations", "2026-09-26", "2026-10-20"), ("paper", "2026-10-10", "2026-10-17"),
     ("comments", "2026-09-30", "2026-10-17"), ("feedback", "2026-09-27", "2026-10-16"),
@@ -338,6 +354,8 @@ INTERNAL = {
                    "Researchers of the guide by role; interviewers through their link only their interviews"),
     "interviewer_links": ("Forschende des Leitfadens; die Interviewenden selbst", "Researchers of the guide; the "
                           "interviewers themselves"),
+    "transcript_coding": ("Forschende des Leitfadens mit Bearbeiten oder Verwalten; die Mitglieder der jeweiligen Auswertung",
+                          "Researchers of the guide with Edit or Manage; the members of the respective analysis"),
     "participant_screen": ("Forschende des Leitfadens nach Rolle", "Researchers of the guide by role"),
     "diary": ("Forschende der Studie nach Rolle", "Researchers of the study by role"),
     "invitations": ("Forschende der Befragung mit Verwalten", "Researchers of the survey with Manage"),
@@ -600,9 +618,11 @@ def _activities():
                        "(place of recording and details of the interviewee from the short questionnaire, for the export "
                        "as Word and PDF; only researchers export), confirmation that everyone who speaks consented. Not anonymous."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten; die Interviewenden des jeweiligen Interviews "
-                             "(Interviewlink) bis zur Übergabe; Transkriptionsserver (Whisper), wenn eingeschaltet.",
+                             "(Interviewlink) bis zur Übergabe; die Mitglieder einer Auswertung („Interviews kodieren“) "
+                             "die Transkripte, die sie dort sehen; Transkriptionsserver (Whisper), wenn eingeschaltet.",
                              "Members with Edit or Manage; the interviewers of the respective interview (interviewer link) "
-                             "until it is handed over; transcription server (Whisper) when switched on."),
+                             "until it is handed over; the members of an analysis (“Coding interviews”) the transcripts "
+                             "they see there; transcription server (Whisper) when switched on."),
          "deletion": de_en("Ab Ende des Interviews: Tonaufnahme nach eigener Frist (Voreinstellung: bis das Transkript "
                            "geprüft ist), übrige Angaben nach der Frist des Leitfadens (Voreinstellung 10 Jahre). Auf dem "
                            "Interviewgerät: Was den Server noch nicht erreicht hat (Tonstücke, Notizen, Antworten), bleibt im "
@@ -652,6 +672,40 @@ def _activities():
          "basis": de_en("Durchführung des Forschungsvorhabens im Auftrag der Forschenden (Art. 6 Abs. 1 lit. b oder e DSGVO, "
                         "je nach Verhältnis zur Einrichtung)", "Carrying out the research project on behalf of the researchers "
                         "(Art. 6(1)(b) or (e) GDPR, depending on the relation to the institution)")},
+        {"name": de_en("Interviews kodieren (experimentell)", "Coding interviews (experimental)"),
+         "purpose": de_en("Textstellen der Transkripte gemeinsam Kategorien zuordnen, etwa in einer Lehrveranstaltung: "
+                          "Lehrende geben Hauptkategorien vor, Studierende ergänzen Unterkategorien.",
+                          "Assigning passages of the transcripts to categories together, e.g. in a course: teachers set "
+                          "main categories, students add subcategories."),
+         "subjects": de_en("Kodierende (Forschende, Mitglieder, Interviewende, Personen mit Kodierlink); mittelbar die "
+                           "interviewten Personen", "Coders (researchers, members, interviewers, people with a coding link); "
+                           "indirectly the interviewees"),
+         "data": de_en("Je Auswertung Name und Forschungsfrage; Kategorien mit Name, Definition, Abgrenzung, Autor (Name, "
+                       "Konto- oder Linknummer) und Zeit; Verlauf jeder Änderung und jedes Vorschlags mit Namen und Zeit; "
+                       "Mitglieder (Konto, Gruppe oder Interviewlink); Kodierlinks: Name oder Kürzel, Hash des Links, Art "
+                       "der Geräte, Zeit der ersten und letzten Nutzung, bestätigte Fassung der Hinweise; Sitzungs-Cookie "
+                       "mit Link, Gerät und letzter Anfrage. Die Transkripte selbst gehören zu „Interviews“.",
+                       "Per analysis name and research question; categories with name, definition, delimitation, author "
+                       "(name, account or link number) and time; history of every change and proposal with names and time; "
+                       "members (account, group or interviewer link); coding links: name or initials, hash of the link, "
+                       "kind of devices, time of first and last use, confirmed version of the notes; session cookie with "
+                       "link, device and last request. The transcripts themselves belong to “Interviews”."),
+         "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens; die Mitglieder der Auswertung.",
+                             "Members with Edit or Manage on the guide; the members of the analysis."),
+         "deletion": de_en("Mit dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Konto verliert seine "
+                           "Mitgliedschaften und seine Kontonummer an den Einträgen, die Namen bleiben als Angabe, wer sie "
+                           "gemacht hat. Kodierlinks enden mit ihrem Ablaufdatum (höchstens 90 Tage), Sitzungen nach 60 "
+                           "Minuten ohne Aktivität.",
+                           "With the deletion of the analysis or the guide; a deleted account loses its memberships and its "
+                           "account number on the entries, the names stay as who made them. Coding links end with their "
+                           "expiry date (at most 90 days), sessions after 60 minutes without activity."),
+         "controller": researchers,
+         "basis": de_en("Durchführung des Forschungsvorhabens oder der Lehrveranstaltung im Auftrag der Forschenden (Art. 6 "
+                        "Abs. 1 lit. b oder e DSGVO, je nach Verhältnis zur Einrichtung); die Forschenden sorgen dafür, dass "
+                        "die Kodierenden zur Verschwiegenheit verpflichtet sind",
+                        "Carrying out the research project or course on behalf of the researchers (Art. 6(1)(b) or (e) GDPR, "
+                        "depending on the relation to the institution); the researchers make sure the coders are bound to "
+                        "confidentiality")},
         {"name": de_en("Teilnehmerbildschirm im Interview", "Participant screen in the interview"),
          "purpose": de_en("Die interviewte Person löst eine Aufgabe des Leitfadens oder füllt den Kurzfragebogen auf "
                           "ihrem eigenen Gerät aus, auch im Videogespräch.", "The interviewee solves a task of the guide or "
@@ -1248,6 +1302,18 @@ def measures():
                    "Interviewer links stored as hashes only, key after “#” (not in logs); per access only own interviews "
                    "until handed over, otherwise 404; limited in time and devices, blocking, a new link and signing out "
                    "devices end every session at once; no researcher interface without an account"), "app/interviewer.py"),
+            (de_en("Interviews kodieren: Kodierlinks nur als Hash gespeichert, Schlüssel nach „#“ (nicht in Protokollen), "
+                   "Ablaufdatum Pflicht und höchstens 90 Tage, höchstens drei Geräte, Sperren, neuer Link und Geräte "
+                   "abmelden beenden alle Sitzungen sofort; ein Link öffnet nur seine eine Auswertung, sonst 404; "
+                   "Interviewende kodieren nur nach eigenem Häkchen je Auswertung (aus, bis es gesetzt wird) und nur eigene "
+                   "Interviews, ihr Interviewlink selbst bleibt unverändert; Kodierende ändern den Leitfaden nicht und "
+                   "sehen keine Aufnahmen und Exporte; jede Änderung im Verlauf mit Namen",
+                   "Coding interviews: coding links stored as hashes only, key after “#” (not in logs), expiry date "
+                   "required and at most 90 days, at most three devices, blocking, a new link and signing out devices end "
+                   "every session at once; a link opens only its one analysis, otherwise 404; interviewers code only after "
+                   "a tick of their own per analysis (off until set) and only their own interviews, their interviewer link "
+                   "itself stays unchanged; coders do not change the guide and see no recordings or exports; every change "
+                   "in the history with a name"), "app/transcript_coding.py, app/transcript_coding_links.py"),
             (de_en("Teilnehmerbildschirm im Interview: Link je Interview mit 256 zufälligen Bits, nur als Hash gespeichert, "
                    "Schlüssel nach „#“ (nicht in Protokollen); ein einziges Gerät, an Sitzung und zufällige Gerätekennung "
                    "gebunden; ungeöffnet 30 Minuten, verbunden höchstens 6 Stunden, endet mit dem Interview, beim Trennen "
@@ -1675,7 +1741,10 @@ def risks():
                "Gerät; die Forschenden geben ihn nur der interviewten Person. Mit dem Offline-Modus: "
                "Interviews liegen bis zu sieben Tage auf mobilen Geräten; Maßnahmen: Verschlüsselung mit einer "
                "Geräte-PIN, Frist, Löschen nach der Übertragung, Zurückziehen eines Feldpakets bei Verlust; die "
-               "Forschenden beziehen das in ihre Prüfung (ggf. DSFA) ein und verlangen eine Gerätesperre.",
+               "Forschenden beziehen das in ihre Prüfung (ggf. DSFA) ein und verlangen eine Gerätesperre. Mit "
+               "„Interviews kodieren“: Mitglieder und Kodierlinks lesen die Transkripte einer Auswertung; die Forschenden "
+               "fügen die Kodierenden hinzu, verpflichten sie auf Verschwiegenheit, wählen „jede Gruppe ihre eigenen“, "
+               "wo nicht alle alles sehen sollen, und sperren Kodierlinks bei Verlust oder Ende der Lehrveranstaltung.",
                "The researchers check per project. With interviewer links also: the link alone gives access to a "
                "person's interviews not yet handed over; the researchers give it only to that person, oblige them to "
                "confidentiality and block it on loss or when the work ends. With the participant screen: "
@@ -1683,7 +1752,10 @@ def risks():
                "device; the researchers give it only to the interviewee. With the offline mode: "
                "interviews stay on mobile devices for up to seven days; measures: encryption with a device PIN, the "
                "period, deletion after the transfer, withdrawing a field pack on loss; the researchers include this in "
-               "their check (an impact assessment if needed) and require a device lock.")),
+               "their check (an impact assessment if needed) and require a device lock. With “Coding interviews”: "
+               "members and coding links read the transcripts of one analysis; the researchers add the coders, oblige "
+               "them to confidentiality, choose “each group its own” where not everyone should see everything, and block "
+               "coding links on loss or at the end of the course.")),
         (de_en("Live-Sitzungen, Kommentare, Rückmeldungen, Protokoll, Betrieb",
                "Live sessions, comments, feedback, log, operation"), de_en("keines", "none"),
          de_en("Keine DSFA nötig.", "No impact assessment needed.")),

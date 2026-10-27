@@ -653,6 +653,9 @@ def create_app(config_class=Config, server=False):
     from app import interviewer
 
     app.register_blueprint(interviewer.bp)  # links for interviewers without an account
+    from app import transcript_coding, transcript_coding_links  # noqa: F401  coding transcripts, experimental; the links' routes join its blueprint
+
+    app.register_blueprint(transcript_coding.bp)
     from app import ainstein
 
     app.register_blueprint(ainstein.bp)  # experimental (app/experimental.py)

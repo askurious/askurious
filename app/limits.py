@@ -484,6 +484,11 @@ def allow_interviewer_try(count=True):
     return _shared_sender_limit("interviewer_try", "TOKEN_TRY_LIMIT", "TOKEN_TRY_WINDOW", count)
 
 
+def allow_coding_link_try(count=True):
+    """As allow_interviewer_try, for the coding links of app/transcript_coding_links.py, counted on their own."""
+    return _shared_sender_limit("coding_link_try", "TOKEN_TRY_LIMIT", "TOKEN_TRY_WINDOW", count)
+
+
 def allow_screen_try(count=True):
     """Whether this sender may present another link of a participant screen that leads nowhere
     (app/interview_screen.py): as the interviewer links, TOKEN_TRY_LIMIT within TOKEN_TRY_WINDOW. In the database."""
