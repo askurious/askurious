@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# The mutual check (app/transcript_coding_review.py, check): a passage someone else coded, without its category;
+   the reader chooses one. The share of the same choice shows as "Probe" in the overview. #}
+{% block title %}{{ de_en("Gegenseitige Probe", "Mutual check") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Gegenseitige Probe", "Mutual check"), de_en("{n} von Ihnen geprüft", "{n} checked by you", n=done)) %}
+  <p class="muted small">{{ de_en("Eine Stelle, die jemand anderes kodiert hat, ohne ihre Kategorie. Wählen Sie die Kategorie, die Sie vergeben würden; die Übereinstimmung erscheint je Kategorie in der Übersicht.", "A passage someone else coded, without its category. Choose the category you would give; the agreement shows per category in the overview.") }}</p>
+{% endcall %}
+<section class="panel">
+  {% if item %}
+  <p class="muted small">{{ de_en("Interview {label}", "Interview {label}", label=item.row.interview.label) }}</p>
+  <p class="tc-check-text">…{{ item.before }}<mark>{{ item.quote }}</mark>{{ item.after }}…</p>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="rid" value="{{ item.row.id }}"><input type="hidden" name="coding" value="{{ item.coding.id }}">
+    {% for main, subs in mains %}
+    <fieldset class="tc-check-group"><legend>{{ main.name }}</legend>
+      <button class="button button-small button-secondary" name="cat" value="{{ main.id }}">{{ main.name }}</button>
+      {% for s in subs %}<button class="button button-small button-secondary" name="cat" value="{{ s.id }}">{{ s.name }}</button>{% endfor %}
+    </fieldset>
+    {% endfor %}
+    {% for c in candidates %}<button class="button button-small button-secondary" name="cat" value="{{ c.id }}">{{ c.name }}</button>{% endfor %}
+  </form>
+  {% else %}
+  <p class="muted">{{ de_en("Keine Stellen mehr zum Prüfen: Alle Stellen der anderen in Ihren Interviews sind von Ihnen geprüft.", "No passages left to check: you have checked all passages of the others in your interviews.") }}</p>
+  {% endif %}
+</section>
+{% endblock %}

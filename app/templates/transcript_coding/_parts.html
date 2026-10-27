@@ -1,0 +1,45 @@
+{# Shared parts of the pages of one analysis (app/transcript_coding_review.py): the head with the way to the other
+   views as buttons in its row (no extra menu band), and the changes that carry the reader's own passages. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+
+{% macro head(survey, project, who, title, hint="") -%}
+{% if who.team %}
+<div class="tabpage-head">{% set active_tab = "analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+{% else %}
+<div class="tabpage-head"><p class="muted small">{{ survey.title }}</p><h1>{{ project.name }}</h1></div><!--flashes-->
+{% endif %}
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ title }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</h2>
+    <span class="spacer"></span>
+    {% set here = request.endpoint %}
+    {% for endpoint, label in [("transcript_coding.overview", de_en("Übersicht", "Overview")), ("transcript_coding.passages", de_en("Stellen je Kategorie", "Passages per category")),
+                              ("transcript_coding.matrix", de_en("Kategorie × Interview", "Category × interview")), ("transcript_coding.check", de_en("Gegenseitige Probe", "Mutual check"))] %}
+    {% if endpoint != here %}<a class="button button-small button-secondary" href="{{ url_for(endpoint, code=survey.code, pid=project.id) }}">{{ label }}</a>{% endif %}
+    {% endfor %}
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}">{{ icon("back", 16) }} {{ project.name }}</a>
+  </div>
+  {{ caller() if caller else "" }}
+</section>
+{%- endmacro %}
+
+{# the changes by others that carry the reader's own passages: a fold, open while there are any; gone once answered #}
+{% macro notices_fold(survey, project, notices) -%}
+{% if notices %}
+<details class="tc-notices" open>
+  <summary><strong>{{ de_en("{n} Änderungen betreffen Ihre Stellen", "{n} changes concern your passages", n=notices|length) if notices|length != 1 else de_en("1 Änderung betrifft Ihre Stellen", "1 change concerns your passages") }}</strong></summary>
+  {% for e, n in notices %}{% set d = e.data or {} %}
+  <div class="tc-notice">
+    {% if e.kind == "merged" %}<p class="small"><strong>{{ e.actor_name }}</strong> {{ de_en("hat „{a}“ mit „{b}“ zusammengeführt", "merged “{a}” with “{b}”", a=d.source_name, b=d.target_name) }}</p>
+    {% else %}<p class="small"><strong>{{ e.actor_name }}</strong> {{ de_en("hat „{a}“ in „{b}“ umbenannt", "renamed “{a}” to “{b}”", a=d.before.name, b=d.after.name) }}</p>{% endif %}
+    <p class="muted small">{{ e.at|localdt }}{% if e.reason %} · „{{ e.reason }}“{% endif %} · {{ de_en("Ihre Stellen darin: {n}", "Your passages in it: {n}", n=n) }}</p>
+    <div class="tc-info-actions">
+      <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='fits') }}" class="inline">{{ csrf() }}<button class="button button-small">{{ de_en("Passt", "Fits") }}</button></form>
+      <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='split_off') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Meine Stellen herauslösen", "Take my passages out") if e.kind == "merged" else de_en("Alten Namen behalten", "Keep the old name") }}</button></form>
+    </div>
+  </div>
+  {% endfor %}
+</details>
+{% endif %}
+{%- endmacro %}

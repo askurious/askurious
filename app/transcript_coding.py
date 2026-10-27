@@ -417,13 +417,34 @@ def may_edit(project, cat, who):
     return bool(cat.author_key) and cat.author_key == who.key
 
 
+def resolver(project):
+    """category id -> the live category its codings count for now: itself, or, after merging, the category it was
+    merged into (followed along a chain); None for a removed one. The codings keep the id they were made with
+    (Response.interview["codings"]), so that undoing a merge and taking one's passages out need no rewrite of
+    every interview."""
+    rows = {c.id: c for c in db.session.scalars(db.select(CodingCategory).filter_by(project_id=project.id))}
+
+    def resolve(cat_id):
+        seen = set()
+        while cat_id in rows and cat_id not in seen:
+            seen.add(cat_id)
+            cat = rows[cat_id]
+            if cat.merged_into is None:
+                return None if cat.removed_at is not None else cat_id
+            cat_id = cat.merged_into
+        return None
+
+    return resolve
+
+
 def uses(project, cat_id):
-    """How many coded passages carry the category (stage 2 stores them in Response.interview["codings"])."""
+    """How many coded passages count for the category (Response.interview["codings"]), merged ones included."""
     survey = db.session.get(Survey, project.survey_id)
     from app import interview_data
 
+    resolve = resolver(project)
     return sum(1 for r in interview_data.interviews(survey) for c in ((r.interview or {}).get("codings") or [])
-               if c.get("project") == project.id and c.get("cat") == cat_id)
+               if c.get("project") == project.id and resolve(c.get("cat")) == cat_id)
 
 
 def _state(cat):
@@ -511,6 +532,8 @@ def change(project, cat, who, values, merge=None):
         setattr(cat, k, v)
     if _state(cat) == before:
         return None
+    if _key(before["name"]) != _key(cat.name) and before["name"] not in (cat.former_names or []):
+        cat.former_names = (cat.former_names or []) + [before["name"]]  # found again under its old name (similar)
     cat.updated_at = utcnow()
     last = _last(project, cat.id)
     if merge and last is not None and last.kind == "changed" and last.merge == merge and last.actor_key == who.key:
@@ -764,7 +787,7 @@ def new(code):
 @signed_in_or_coder
 def project(code, pid):
     survey, project, who = _in(code, pid)
-    from app import interviewer, transcript_coding_links
+    from app import interviewer, transcript_coding_links, transcript_coding_review
     from app.groups import of as groups_of
 
     mains, candidates = tree(project)
@@ -777,6 +800,7 @@ def project(code, pid):
                    interviews=interviews(project, who), has_transcript=has_transcript,
                    own_proposal=lambda c: bool(open_proposals(project, c.id, who.key)),
                    proposals_of=lambda c: [e for e in proposals if e.category_id == c.id],
+                   notices=transcript_coding_review.notices(project, who),
                    coded=lambda r: sum(1 for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id))
     if who.team:
         accesses = interviewer.accesses(survey)

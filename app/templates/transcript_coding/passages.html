@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# The passages of one or more categories over the interviews the reader sees (app/transcript_coding_review.py,
+   passages), each with its interview and a way into the coding view. #}
+{% block title %}{{ de_en("Stellen je Kategorie", "Passages per category") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Stellen je Kategorie", "Passages per category"), de_en("{n} Stellen", "{n} passages", n=rows|length)) %}
+  <form method="get" class="row-fields">
+    <label>{{ de_en("Kategorie", "Category") }} <select name="cat" data-submit-on-change>{% for c in cats %}<option value="{{ c.id }}" {% if c.id in wanted %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+    <noscript><div><button class="button button-small">{{ de_en("Zeigen", "Show") }}</button></div></noscript>
+  </form>
+{% endcall %}
+<section class="panel">
+  {% if rows %}
+  <ul class="tc-passages">
+  {% for r, c in rows %}
+    <li><p>„{{ c.quote }}“</p>
+      <p class="muted small">{% if wanted|length > 1 %}<strong>{{ names.get(c.cat, "") }}</strong> · {% endif %}{{ de_en("Interview {label}", "Interview {label}", label=r.interview.label) }} · {{ c.by_name }}
+        · <a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("im Transkript", "in the transcript") }}</a></p></li>
+  {% endfor %}
+  </ul>
+  {% else %}<p class="muted">{{ de_en("Noch keine Stellen in dieser Kategorie.", "No passages in this category yet.") }}</p>{% endif %}
+</section>
+{% endblock %}
