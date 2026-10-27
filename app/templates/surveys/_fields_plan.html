@@ -174,7 +174,12 @@
   <div class="pick-cards">{% for chance, value, title, text, term in study_plan.recruitment_cards() if chance %}{{ pick_card("recruitment", value, rec, title, text, term) }}{% endfor %}</div>
   <p class="pick-group">{{ de_en("ohne Zufall – die Ergebnisse gelten für die Teilnehmenden", "without chance – the results hold for the participants") }}</p>
   <div class="pick-cards">{% for chance, value, title, text, term in study_plan.recruitment_cards() if not chance %}{{ pick_card("recruitment", value, rec, title, text, term) }}{% endfor %}</div>
-  <label class="sub-pick" data-show-when="recruitment:random" {% if plan.sample.recruitment != "random" %}hidden{% endif %}>{{ de_en("Art der Zufallsstichprobe", "Kind of random sample") }} {{ select("random_kind", study_plan.random_kinds(), plan.sample.random_kind, de_en("Art der Zufallsstichprobe", "Kind of random sample")) }}</label>
+  {# the kind of random sample, with a line on the chosen kind and a fold that compares them (Ralf 2026-10-27) #}
+  <div class="sub-pick" data-show-when="recruitment:random" {% if plan.sample.recruitment != "random" %}hidden{% endif %}>
+  <label>{{ de_en("Art der Zufallsstichprobe", "Kind of random sample") }} {{ select("random_kind", study_plan.random_kinds(), plan.sample.random_kind, de_en("Art der Zufallsstichprobe", "Kind of random sample")) }}</label>
+    {% for key, text in study_plan.random_kind_hints().items() %}<p class="hint" data-show-when="random_kind:{{ key }}" {% if plan.sample.random_kind != key %}hidden{% endif %}>{{ text }}</p>{% endfor %}
+    {{ why("random_kind") }}
+  </div>
 </fieldset>
 {{ why("sampling_procedure") }}
 <div class="row-fields">
@@ -186,6 +191,7 @@
   <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
     <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow" placeholder="{{ de_en('z. B. 200', 'e.g. 200') }}"></label>
 </div>
+{{ why("population") }}
 {% if demographics is defined and demographics %}
 {# what the block "Demographische Angaben" holds (wizard.set_demographics; Ralf 2026-10-27) #}
 <label>{{ de_en("Welche Angaben zur Person erheben?", "Which details about the person to ask?") }}

@@ -386,6 +386,26 @@ def recruitment_value(sample):
     return f"panel:{sample['panel_kind']}" if how == "panel" and sample.get("panel_kind") else how
 
 
+RANDOM_KIND_HINTS = {
+    "simple": ("Jede Person der Liste hat dieselbe Chance, etwa per Zufallszahl gezogen.",
+               "Every person on the list has the same chance, drawn e.g. by random numbers."),
+    "systematic": ("Jede k-te Person einer Liste ab einem zufälligen Start, etwa jede zehnte Matrikelnummer.",
+                   "Every k-th person of a list from a random start, e.g. every tenth student number."),
+    "stratified": ("Erst in Gruppen (Schichten) teilen, etwa nach Fakultät, dann in jeder Gruppe zufällig ziehen.",
+                   "First split into groups (strata), e.g. by faculty, then draw at random within each group."),
+    "cluster": ("Ganze Gruppen zufällig ziehen, etwa Schulklassen, und dort alle befragen.",
+                "Draw whole groups at random, e.g. school classes, and ask everyone in them."),
+    "multistage": ("In Stufen ziehen, etwa erst Gemeinden, dann Haushalte, dann eine Person je Haushalt.",
+                   "Draw in stages, e.g. first municipalities, then households, then one person per household."),
+}
+
+
+def random_kind_hints():
+    """{kind: one line on it} in the language of the page, under the pick "Art der Zufallsstichprobe"."""
+    i = 1 if english() else 0
+    return {k: v[i] for k, v in RANDOM_KIND_HINTS.items()}
+
+
 def panel_kinds():
     return _local(PANEL_KINDS, PANEL_KINDS_EN)
 
