@@ -7364,3 +7364,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - `nginx/locations/wartung.conf` prüft jetzt `$uri` selbst (`if ($uri ~ "^/_wartung/")`), die map ist weg. Die Ausfallseite (502) war nicht betroffen.
 - Wirkt erst, wenn nginx die neue Datei liest: restart.sh startet nginx beim nächsten Deploy neu, weil sich seine Dateien geändert haben (kurze Lücke für alle).
 - Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
+
+## 2026-10-27: Stichprobenrechner nimmt das Dezimalkomma
+
+- Nutzertest: Im Rechner „Stichprobengröße“ waren die Felder für Effektstärken, Anteile, ρ, ICC usw. Zahlenfelder, die kein Komma annehmen. „0,3“ wurde je nach Browser zu nichts („–“) oder zu „03“, also d = 3 und n = 8.
+- Die 24 Felder mit Nachkommastellen sind jetzt Textfelder mit Zifferntastatur (`inputmode="decimal"`), zeigen ihren Wert auf Deutsch mit Komma und rechnen mit Komma oder Punkt; die Knöpfe „klein/mittel/groß“ setzen den Wert mit Komma. Test in `tests/analysis/test_samplesize.py`.
+- Rechtstexte geprüft, keine Änderung nötig.
