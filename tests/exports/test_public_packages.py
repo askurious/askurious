@@ -141,9 +141,9 @@ def test_broken_off_upload_is_noted(app, client, survey, monkeypatch):
         entry = db.session.get(Survey, 1).coscine["uploads"][0]
         assert entry["partial"] and entry["failed"] == "README.md" and entry["worm"]
         assert [f["name"] for f in entry["files"]] == ["data.csv", "codebook.csv", "questionnaire.md"]
-        assert entry["planned"] == 9 and entry["folder"] in page
+        assert entry["planned"] == 10 and entry["folder"] in page
     page = client.get("/surveys/1/data").data.decode()
-    assert "Abgebrochen: nur 3 von 9 Dateien" in page and "fehlgeschlagen bei <code>README.md</code>" in page
+    assert "Abgebrochen: nur 3 von 10 Dateien" in page and "fehlgeschlagen bei <code>README.md</code>" in page
     # nothing in Coscine yet: an ordinary error, nothing noted
     monkeypatch.setattr(coscine.requests, "request", lambda method, url, **kw: (_ for _ in ()).throw(
         coscine.requests.ConnectionError("Netz weg")) if method == "PUT" else real(method, url, **kw))

@@ -7,8 +7,10 @@ of 3.3 and writes it as one flat ItemContainer of identifiable items that point 
 project library); the schema is checked by tests/exports/test_ddi.py against the XSD of the review package.
 
 What goes in:
-- StudyUnit: title in every survey language, the team as creators (ORCID as URI), description as abstract, kind of
-  data, unit of analysis; DataCollection with the field period and the mode of collection; Methodology with time
+- StudyUnit: title in every survey language, the study number (UserID), the DOI of a Zenodo deposit, the team as
+  creators with affiliation and ORCID (Individual), the publisher (the researchers' institution, publisher()), funding,
+  the publications entered on the export page (OtherMaterial), the conditions of use from the licence (Archive),
+  description as abstract, kind of data, unit of analysis; DataCollection with the field period and the mode of collection; Methodology with time
   method and sampling procedure, as far as the research plan names them (an open field stays out, nothing is guessed).
 - Instrument: one Sequence for the survey, one per block (pages in order, "random order" as TypeOfSequence), a
   QuestionConstruct per question column, a StatementItem per element without answers (texts, images), an IfThenElse
@@ -272,6 +274,123 @@ def sampling(survey):
     return SAMPLING.get(how)
 
 
+# ---- what both DDI files (Lifecycle 4.0 here, Codebook 2.5 in app/ddi_codebook.py) say about the study -----------
+
+
+def study_number(survey):
+    """The study's own number: the survey's stable id, under the agency (agency())."""
+    return survey.uid or survey.code
+
+
+def doi(survey):
+    """The DOI of the survey's Zenodo deposit (reserved or published), or ""; DataCite manages Zenodo's DOIs."""
+    return ((getattr(survey, "zenodo", None) or {}).get("doi") or "").strip()
+
+
+def owner(survey):
+    """The member who created the survey, else the first in the author order; None without members."""
+    members = list(survey.members)
+    created = getattr(survey, "created_by_id", None)
+    return next((m for m in members if created and m.user_id == created), members[0] if members else None)
+
+
+def publisher(survey):
+    """(name, from an institution): who publishes the study (Ralf 2026-10-27: the researchers, not the operator of
+    the installation): the owner's affiliation, else the first affiliation in the author order, else the owner's
+    name (from an institution = False, the archive box asks for the institution)."""
+    first = owner(survey)
+    for m in ([first] if first else []) + list(survey.members):
+        if (m.affiliation or "").strip():
+            return m.affiliation.strip(), True
+    return ((first.display_name if first else "") or "").strip(), False
+
+
+def creators(survey):
+    """[(name, affiliation, orcid)] of the team in the author order; orcid "" without one."""
+    return [(m.display_name, (m.affiliation or "").strip(), m.orcid_id or "") for m in survey.members if m.display_name]
+
+
+def _consent_config(survey):
+    consent = getattr(survey, "consent_item", None)
+    return (consent.config or {}) if consent is not None else {}
+
+
+def funding(survey):
+    """(line, funder, grant number) of the consent ("Förderung"); "" where not given."""
+    config = _consent_config(survey)
+    line = (config.get("funding") or "").strip()
+    funder = (config.get("funder") or "").strip() if "funder" in config or "grant_number" in config else line
+    return line, funder, (config.get("grant_number") or "").strip()
+
+
+def licence(survey):
+    """(name, url) of the data licence of the consent, or None (app/cdif.licence)."""
+    try:
+        from app import cdif
+
+        return cdif.licence(survey)
+    except Exception:  # noqa: BLE001 - a broken consent must not stop the documentation
+        return None
+
+
+def access_text(survey):
+    """The conditions of use in English words, from the licence; "" without one."""
+    found = licence(survey)
+    if not found:
+        return ""
+    name, url = found
+    return f"The data may be used under the licence {name} ({url})." if url else f"Licence: {name}."
+
+
+def publications(survey):
+    """[(doi, title)] of the publications the researchers entered (Export > "Veröffentlichungen", app/citations.py),
+    without the survey's own data set."""
+    if getattr(survey, "id", None) is None:
+        return []
+    from app import citations
+
+    own = doi(survey).lower()
+    return [(d, ((meta or {}).get("title") or "").strip()) for d, meta in citations.for_survey(survey) if d.lower() != own]
+
+
+def mode_text(term):
+    """A mode of collection in English words."""
+    return MODE_NAMES.get(term, ("", term))[1]
+
+
+def sampling_text(survey):
+    """The recruitment of the research plan in English words, "" if open."""
+    from app import study_plan
+
+    how = (_plan(survey).get("sample") or {}).get("recruitment") or ""
+    return study_plan.RECRUITMENT_EN.get(how, "") if how else ""
+
+
+def data_file_name(survey, public):
+    """The data file the columns describe: data.csv of a deposit, else the CSV export's file name."""
+    from app import export
+
+    return "data.csv" if public else export.filename(survey, "data")
+
+
+def holdings_url(survey):
+    """Where the study can be found: its DOI, else its participant link."""
+    if doi(survey):
+        return f"https://doi.org/{doi(survey)}"
+    from app.links import participant_url
+
+    return participant_url(survey)
+
+
+def question_texts(survey, item, langs, withheld):
+    """{lang: question text} of an element in the survey languages (only translations that exist); {} for an
+    instrument whose wording a deposit leaves out (withheld)."""
+    if item.id in withheld:
+        return {}
+    default = survey.default_language
+    return {lng: _plain(((item.t(lng) if lng == default else item.lang_texts(lng)) or {}).get("question")) for lng in langs}
+
+
 # ---- the document ---------------------------------------------------------------------------------------------------
 
 
@@ -413,7 +532,11 @@ def build(survey, lang=None, public=False, open_answers=False):
     doc.ref(logical, "CodeListSchemeReference", "CodeListScheme", clscheme_id)
     doc.ref(logical, "VariableSchemeReference", "VariableScheme", vscheme_id)
     physical, physical_id = doc.item("PhysicalInstance")
-    _sub(_sub(_sub(physical, "DataFileIdentification"), "DataFileURI"), "AnyURIValue", quote(export.filename(survey, "data")))
+    data_citation = _sub(physical, "Citation")  # the languages of the data file: those of the survey
+    _lang(data_citation, "Title", {"en": data_file_name(survey, public)})
+    for lng in langs:
+        _sub(_sub(data_citation, "Language"), "StringValue", lng)
+    _sub(_sub(_sub(physical, "DataFileIdentification"), "DataFileURI"), "AnyURIValue", quote(data_file_name(survey, public)))
 
     # -- instrument and data collection
     _lang(instrument, "Label", {lng: _title(survey, lng) for lng in langs})
@@ -435,7 +558,9 @@ def build(survey, lang=None, public=False, open_answers=False):
         if tm:
             _code_value(doc.inner(method, "TimeMethod"), "TypeOfTimeMethod", "TimeMethod", tm)
         if sp:
-            _code_value(doc.inner(method, "SamplingProcedure"), "TypeOfSamplingProcedure", "SamplingProcedure", sp)
+            procedure = doc.inner(method, "SamplingProcedure")
+            _code_value(procedure, "TypeOfSamplingProcedure", "SamplingProcedure", sp)
+            _lang(procedure, "Description", {"en": sampling_text(survey)})
     _lang(collection, "Label", {lng: _title(survey, lng) for lng in langs})
     if method_id:
         doc.ref(collection, "MethodologyReference", "Methodology", method_id)
@@ -446,7 +571,9 @@ def build(survey, lang=None, public=False, open_answers=False):
         if survey.closed_at:
             _sub(date, "EndDate", f"{survey.closed_at:%Y-%m-%d}")
     for term in modes(survey):
-        _code_value(doc.inner(event, "ModeOfCollection", term), "TypeOfModeOfCollection", "ModeOfCollection", term)
+        mode = doc.inner(event, "ModeOfCollection", term)
+        _code_value(mode, "TypeOfModeOfCollection", "ModeOfCollection", term)
+        _lang(mode, "Description", {"en": mode_text(term)})
     doc.ref(event, "InstrumentReference", "Instrument", instrument_id)
     doc.ref(collection, "QuestionSchemeReference", "QuestionScheme", qscheme_id)
     doc.ref(collection, "ControlConstructSchemeReference", "ControlConstructScheme", cscheme_id)
@@ -463,24 +590,78 @@ def build(survey, lang=None, public=False, open_answers=False):
             _lang(universe, "GeographyOfUniverse", {survey.default_language: region})
         _sub(universe, "IsInclusive", "true")
 
+    # -- the people with an ORCID, the publications, the conditions of use
+    people = []  # (id, element) of an Individual per creator with ORCID
+    for name, _, orcid in creators(survey):
+        if not orcid:
+            continue
+        person, person_id = doc.item("Individual", f"orcid-{orcid}")
+        ident = _sub(person, "IndividualIdentification")
+        _lang(_sub(ident, "IndividualName"), "FullName", {"en": name})
+        researcher = _sub(ident, "ResearcherID")
+        _sub(_sub(researcher, "TypeOfID"), "StringValue", "ORCID")
+        _sub(researcher, "ResearcherIdentification", orcid)
+        _sub(researcher, "URI", f"https://orcid.org/{orcid}")
+        people.append((orcid, person_id, person))
+    person_of = {orcid: ident for orcid, ident, _ in people}
+    materials = []
+    for pub_doi, title in publications(survey):
+        material, material_id = doc.item("OtherMaterial", f"doi-{pub_doi.lower()}")
+        _sub(_sub(material, "TypeOfMaterial"), "StringValue", "Publication")
+        cited = _sub(material, "Citation")
+        _lang(cited, "Title", {"en": title or pub_doi})
+        number = _sub(cited, "InternationalIdentifier")
+        _sub(number, "IdentifierContent", pub_doi)
+        _sub(_sub(number, "ManagingAgency"), "StringValue", "DOI")
+        _sub(material, "ExternalURLReference", f"https://doi.org/{quote(pub_doi, safe='/:;()._-')}")
+        materials.append((material_id, material))
+    conditions = access_text(survey)
+    archive_id = None
+    if conditions:
+        conditions_of_use, archive_id = doc.item("Archive")
+        _lang(conditions_of_use, "Label", {"en": "Conditions of use"})
+        access = doc.inner(_sub(conditions_of_use, "ArchiveSpecific"), "DefaultAccess")
+        _lang(access, "AccessConditions", {"en": conditions})
+
     # -- the study, its parts in the order of the schema
+    number = _sub(study, "UserID")  # the study number under the agency
+    _sub(number, "StringValue", study_number(survey))
+    _sub(_sub(number, "TypeOfUserID"), "StringValue", doc.agency)
+    for material_id, _ in materials:
+        doc.ref(study, "RelatedOtherMaterialReference", "OtherMaterial", material_id)
     software = _sub(study, "Software")
     _lang(software, "SoftwareName", {"en": brand.name()})
     citation = _sub(study, "Citation")
     _lang(citation, "Title", {lng: _title(survey, lng) for lng in langs})
-    for m in survey.members:
-        if not m.display_name:
-            continue
-        creator = _sub(_sub(citation, "Creator"), "CreatorName")
-        _lang(creator, "Name", {"en": m.display_name})
-        if m.affiliation:
-            _sub(creator, "Affiliation", m.affiliation)
-    _sub(_sub(citation, "Language"), "StringValue", survey.default_language)
+    for name, affiliation, orcid in creators(survey):
+        creator = _sub(citation, "Creator")
+        creator_name = _sub(creator, "CreatorName")
+        _lang(creator_name, "Name", {"en": name})
+        if affiliation:
+            _sub(creator_name, "Affiliation", affiliation)
+        if orcid:
+            doc.ref(creator, "CreatorReference", "Individual", person_of[orcid])
+    publisher_name = publisher(survey)[0]
+    if publisher_name:
+        _lang(_sub(_sub(citation, "Publisher"), "PublisherName"), "Name", {"en": publisher_name})
+    for lng in langs:
+        _sub(_sub(citation, "Language"), "StringValue", lng)
+    if doi(survey):
+        number = _sub(citation, "InternationalIdentifier")
+        _sub(number, "IdentifierContent", doi(survey))
+        _sub(_sub(number, "ManagingAgency"), "StringValue", "DataCite")
     abstract = " ".join((survey.description or "").split())
     if abstract:
         _lang(study, "Abstract", {survey.default_language: abstract})
     if universe_id:
         doc.ref(study, "UniverseReference", "Universe", universe_id)
+    line, _, grant = funding(survey)
+    if line or grant:
+        money = _sub(study, "FundingInformation")
+        if grant:
+            _sub(money, "GrantNumber", grant)
+        if line:
+            _lang(money, "Description", {survey.default_language: line})
     sample = _plan(survey).get("sample") or {}
     country, region = sample.get("country") or "", sample.get("region") or ""
     from app import study_plan
@@ -516,10 +697,15 @@ def build(survey, lang=None, public=False, open_answers=False):
     doc.ref(study, "DataCollectionReference", "DataCollection", collection_id)
     doc.ref(study, "LogicalProductReference", "LogicalProduct", logical_id)
     doc.ref(study, "PhysicalInstanceReference", "PhysicalInstance", physical_id)
+    if archive_id:
+        doc.ref(study, "ArchiveReference", "Archive", archive_id)
 
     # -- write: the top-level reference, then the items in the order of the schema (ItemContainer is a choice list)
     doc.ref(doc.root, "TopLevelReference", "StudyUnit", study_id)
     items = ([("StudyUnit", study), ("DataCollection", collection), ("Instrument", instrument)]
+             + ([("Archive", conditions_of_use)] if archive_id else [])
+             + [("Individual", el) for _, _, el in people]
+             + [("OtherMaterial", el) for _, el in materials]
              + ([("Methodology", method)] if method_id else [])
              + [("QuestionScheme", qscheme), ("ControlConstructScheme", cscheme), ("LogicalProduct", logical),
                 ("CategoryScheme", catscheme), ("CodeListScheme", clscheme), ("VariableScheme", vscheme),
@@ -546,8 +732,9 @@ def _schema_order(items):
 
 # the ItemContainer's element order (lifecycle40.xsd, ItemContainerType)
 CONTAINER_ORDER = [
-    "Category", "CategoryScheme", "CodeList", "CodeListScheme", "ControlConstructScheme", "DataCollection",
-    "IfThenElse", "Instrument", "LogicalProduct", "Methodology", "PhysicalInstance", "QuestionConstruct",
+    "Archive", "Category", "CategoryScheme", "CodeList", "CodeListScheme", "ControlConstructScheme", "DataCollection",
+    "IfThenElse", "Individual", "Instrument", "LogicalProduct", "Methodology", "OtherMaterial", "PhysicalInstance",
+    "QuestionConstruct",
     "QuestionItem", "QuestionScheme", "Sequence", "StatementItem", "StudyUnit", "Universe", "Variable",
     "VariableScheme"]
 
@@ -645,10 +832,8 @@ def _item_constructs(doc, survey, item, langs, withheld, public, book, question_
     cols = [c for c, _ in item.kind.export_columns(item)]
     loop_cols = [c for c, it in column_item.items() if it is item and c not in cols]
     out = []
-    default = survey.default_language
     hidden = item.id in withheld  # no wording of a protected instrument in a deposit
-    texts = {} if hidden else {lng: _plain(((item.t(lng) if lng == default else item.lang_texts(lng)) or {}).get("question"))
-                               for lng in langs}
+    texts = question_texts(survey, item, langs, withheld)
     if not cols:  # a text, an image, a stimulus: shown, nothing answered
         st, st_id = doc.item("StatementItem", f"item-{item.id}")
         _lang(st, "ConstructName", {"en": item.code})
@@ -736,8 +921,13 @@ def readiness(survey):
 
     short = lambda text: text if len(text) <= 70 else text[:67] + "…"  # noqa: E731
     population = population_text(survey)
+    publisher_name, from_institution = publisher(survey)
+    own_doi = doi(survey)
     return [
         row("ok", "Titel", "Title", "projekt", (short(survey.title), short(survey.title))),
+        row(given(from_institution), "Herausgeber", "Publisher", "team", (short(publisher_name), short(publisher_name)),
+            ("die Organisation der Person, die die Befragung angelegt hat; tragen Sie sie im Team ein",
+             "the organisation of the person who created the survey; enter it in the team")),
         row(given((survey.description or "").strip()), "Beschreibung (Zusammenfassung)", "Description (abstract)", "projekt",
             why=("für Einwilligung, DDI und Zenodo", "for the consent, DDI and Zenodo")),
         row(given(orcid), "Team mit ORCID", "Team with ORCID", "team", (", ".join(orcid), ", ".join(orcid)),
@@ -759,6 +949,10 @@ def readiness(survey):
             (", ".join(archive["keywords"]), ", ".join(archive["keywords"])), ("für die Suche in Archiven", "for search in archives")),
         row(given(funding, optional=True), "Förderung", "Funding", "team", (short(funding), short(funding)),
             ("nur falls gefördert", "only if funded")),
+        row(given(own_doi, optional=True), "DOI", "DOI", value=(own_doi, own_doi),
+            why=("kommt mit der Veröffentlichung bei Zenodo", "comes with publishing on Zenodo")),
+        row("auto", "Kennung der Befragung", "Survey identifier", value=(f"{study_number(survey)} ({agency()})",
+                                                            f"{study_number(survey)} ({agency()})")),
         row("auto", "Erhebungsart", "Mode of collection", value=(mode[0], mode[1])),
         row("auto", "Datenart · Analyseeinheit", "Kind of data · unit of analysis", value=(f"{kind[0]} · Individuum", f"{kind[1]} · individual")),
         row("auto", "Erhebungszeitraum", "Field period", value=("ab dem Start der Datenerhebung", "from the start of data collection")),
@@ -770,4 +964,7 @@ MODE_NAMES = {"SelfAdministeredQuestionnaire.CAWI": ("Selbstausgefüllter Frageb
               "Interview": ("Interview", "Interview"),
               "Interview.FaceToFace": ("Persönliches Interview", "Face-to-face interview"),
               "Interview.Telephone": ("Telefonisches Interview", "Telephone interview"),
-              "Interview.WebBased": ("Webbasiertes Interview", "Web-based interview")}
+              "Interview.WebBased": ("Webbasiertes Interview", "Web-based interview"),
+              "SelfAdministeredQuestionnaire.Paper": ("Selbstausgefüllter Fragebogen: Papier",
+                                                      "Self-administered questionnaire: Paper"),
+              "Experiment.WebBased": ("Webbasiertes Experiment", "Web-based experiment")}
