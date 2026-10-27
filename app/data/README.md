@@ -39,3 +39,5 @@ Licence: MIT (zxcvbn); the full licence text is in the head of the file. Modifie
 Built with `tools/passwort_sperrliste.py <path to passwords.txt>`.
 
 `THIRD_PARTY_LICENSES.txt`: the Python packages of the lock files with version and licence; written by `tools/third_party_licences.py`, not by hand. The page `/sources` lists every source of data, texts, fonts, icons and libraries.
+
+`cessda_topics.json`: the CESSDA Topic Classification, version 4.2.3 (95 topics and subtopics with their German and English names), for the topic of a survey in the setup wizard and in the DDI and CDIF exports (`app/study_plan.py`). Source: CESSDA Vocabulary Service, https://vocabularies.cessda.eu/vocabulary/TopicClassification/4.2.3, retrieved 2026-10-27, licence CC BY 4.0 (© CESSDA ERIC); the names of the main topics were changed from capitals to ordinary case.

@@ -34,6 +34,7 @@
     <label>{{ de_en("Interviewform", "Interview mode") }}
       <select name="mode">{% for key, name in modes.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</select></label>
   </div>
+  {% with recruitment=study_plan.interview_recruitment(), population_label=de_en("Genauer", "More precisely"), population_hint=de_en("optional; wen die Zielgruppe genau meint, z. B. Region oder Einschluss", "optional; whom the target group means exactly, e.g. region or inclusion") %}{% include "_who_takes_part.html" %}{% endwith %}
   {% if start == "vorlage" %}
   <fieldset class="bare">
     <legend>{{ de_en("Vorlage", "Template") }}</legend>

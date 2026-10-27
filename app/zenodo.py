@@ -129,7 +129,8 @@ def metadata(survey, *, material_licence=None):
         "description": (f"<p>{description}</p>" if description else "")
                        + "<p>Anonymous survey data (completed participations), codebook, and the full questionnaire "
                          "including randomization and flow.</p>",
-        "keywords": [k for k in [survey.project] if k and k != "None"][:8] or ["survey data"],
+        # the keywords of the survey (Befragung › Schlagwörter, app/study_plan.archive_of), else the project
+        "keywords": _keywords(survey),
         # where the data come from: the survey's address and the tool (Philipp, 2026-10-04)
         "related_identifiers": [
             {"identifier": participant_url(survey), "relation": "isDerivedFrom", "resource_type": "other"},
@@ -144,6 +145,13 @@ def metadata(survey, *, material_licence=None):
         "license": licence,
         "language": {"de": "deu", "en": "eng"}.get(survey.default_language, "eng"),
     }
+
+
+def _keywords(survey):
+    from app import study_plan
+
+    words = study_plan.archive_of((survey.study_plan or {}).get("archive"))["keywords"]
+    return (words or [k for k in [survey.project] if k and k != "None"])[:8] or ["survey data"]
 
 
 def package(survey, open_answers=False, include_incomplete=False, require_public_image_rights=True):

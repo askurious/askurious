@@ -593,6 +593,9 @@ def new():
                         languages=[lang], default_language=lang, language_choice=False, interview=st,
                         research_question=request.form.get("research_question", "").strip()[:3000],
                         erase_code=False, retention=None, setup_step=None)
+        from app import study_plan
+
+        survey.study_plan = study_plan.start_plan(request.form, lang)  # who is interviewed (DDI; Ralf 2026-10-27)
         db.session.add(survey)
         surveys._add_member(survey, current_user, current_user.name)
         db.session.flush()

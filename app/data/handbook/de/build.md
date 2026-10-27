@@ -33,7 +33,7 @@ ORCID verbindet eine Person mit ihren Veröffentlichungen; die Reihenfolge der F
 **Was es ist.**
 Ein Assistent mit drei Wegen zum Start:
 
-- **Leer beginnen**: Schritt für Schritt durch Befragung, Studienplan, Sprachen, beteiligte Forschende, Teilnahme und Datenqualität, Einwilligung und Datenschutz, Erscheinungsbild.
+- **Leer beginnen**: Schritt für Schritt durch Befragung, Studienplan, Sprachen, beteiligte Forschende, Teilnahme und Datenqualität, Einwilligung und Datenschutz, Erscheinungsbild. Im Schritt „Befragung“ stehen auch Schlagwörter und ein Thema aus der Themenliste von CESSDA. Im Studienplan wählen Sie Studiendesign und Rekrutierung als Karten, die Rekrutierung getrennt nach „mit Zufall“ und „ohne Zufall“, unter jeder Karte der Begriff des DDI-Vokabulars. Dazu kommen Grundgesamtheit, Land (bei deutscher Sprache vorbelegt), Region und Stichprobenziel; Hypothesen, Ausschlüsse und Ausschlussregeln stehen in einer Falte. Die letzte Seite zeigt im Kasten „Für Datenarchive“, welche Angaben ein Archiv bekommt, welche Askurious selbst setzt und welche fehlen, mit einem Link zum Ergänzen.
 - **Aus einer Vorlage**: eines von sechs typischen Studiendesigns, jedes mit Studienplan, Fragebogen und 120 Dummy-Teilnahmen, sodass sich die Ergebnisseite sofort lesen lässt.
 - **Aus einer Datei**: eine exportierte Befragungsdatei (.json oder .zip), z. B. von einer Kollegin oder einem Kollegen.
 

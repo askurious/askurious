@@ -78,7 +78,13 @@ def build(survey, lang=None, public=False, open_answers=False):
     lic = licence(survey)
     if lic:
         record["schema:license"] = [{"@type": ["schema:CreativeWork"], "schema:name": lic[0], "schema:url": lic[1]}]
-    keywords = [k for k in [getattr(survey, "project", None)] if k and k != "None"]
+    from app import study_plan
+
+    archive = study_plan.archive_of(plan.get("archive"))
+    keywords = list(archive["keywords"])
+    if archive["topic"]:  # the CESSDA topic as a defined term (CDIF: keywords may be DefinedTerms)
+        keywords.append({"@type": ["schema:DefinedTerm"], "schema:name": study_plan.topic_name(archive["topic"], "en"),
+                         "schema:termCode": archive["topic"], "schema:inDefinedTermSet": study_plan.TOPIC_VOCABULARY})
     if keywords:
         record["schema:keywords"] = keywords
     if survey.opened_at:
@@ -100,8 +106,8 @@ def build(survey, lang=None, public=False, open_answers=False):
              "schema:inDefinedTermSet": f"{ddi.CV}ModeOfCollection/{ddi.VOCABULARIES['ModeOfCollection']}",
              "schema:identifier": f"{ddi.CV}ModeOfCollection/{ddi.VOCABULARIES['ModeOfCollection']}/"
                                   f"{ddi.TERMS[('ModeOfCollection', term)]}"} for term in methods]
-    if (sample.get("population") or "").strip():
-        record["schema:audience"] = {"@type": ["schema:Audience"], "schema:audienceType": sample["population"].strip()}
+    if ddi.population_text(survey):
+        record["schema:audience"] = {"@type": ["schema:Audience"], "schema:audienceType": ddi.population_text(survey)}
     record["schema:variableMeasured"] = _variables(survey, lang, public, open_answers, ident)
     record["schema:distribution"] = [{"@type": ["schema:DataDownload"], "schema:name": "data.csv",
                                       "schema:encodingFormat": ["text/csv"],

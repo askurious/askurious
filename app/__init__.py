@@ -724,6 +724,9 @@ def create_app(config_class=Config, server=False):
     # "Hilfe zu dieser Seite": the tab notes itself, the header links its section (UI/UX audit 2026-10-16, 17)
     app.jinja_env.globals.update(help_note=handbook.note_tab, help_url=handbook.help_url)
     app.jinja_env.globals["study_plan"] = study_plan  # the study plan: settings, wizard, editor, results
+    from app import ddi
+
+    app.jinja_env.globals["ddi"] = ddi  # what a data archive gets: the last step of the wizard
     from app import sample_model
 
     app.jinja_env.globals["sample_model"] = sample_model  # one sample model for every page (UI/UX audit 2026-10-07, S3)

@@ -225,3 +225,68 @@ def test_cdif_file_and_the_files_in_the_deposit(app, client, survey, schema):
         assert "pid" not in {v["schema:name"] for v in deposit["schema:variableMeasured"]}
         assert deposit["schema:distribution"][0]["schema:contentUrl"] == "data.csv"
         assert "ddi-lifecycle.xml" in files["README.md"].decode() and "cdif.jsonld" in files["README.md"].decode()
+
+
+def test_wizard_cards_keywords_topic_and_archive_box(app, client, survey, schema):
+    """The setup wizard (Ralf 2026-10-27): design and recruitment as cards with the DDI term, "panel:access" sets the
+    kind of panel; keywords and topic on the step "Befragung"; the last step shows what a data archive gets."""
+    import json
+
+    from app import cdif, study_plan, zenodo
+
+    build(client)
+    with app.app_context():
+        code = db.session.get(Survey, 1).code
+    page = client.get(f"/surveys/{code}/setup/researchdesign").data.decode()
+    assert 'class="pick-card"' in page and 'value="panel:access"' in page and "DDI: Nicht-Wahrscheinlichkeitsauswahl" in page
+    client.post(f"/surveys/{code}/setup/researchdesign", data={
+        "research_question": "", "design": "trend", "recruitment": "panel:access", "population": "Pflegekräfte",
+        "country": "AT", "sample_target": "250", "wizard": "next"})
+    client.post(f"/surveys/{code}/setup/project", data={
+        "title": "Test", "project": "", "description": "Worum es geht.", "keywords": "Pflege, Roboter; pflege",
+        "topic": "Health.HealthCareServicesAndPolicies", "wizard": "next"})
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        plan = study_plan.plan_of(s)
+        assert (plan["design"], plan["sample"]["recruitment"], plan["sample"]["panel_kind"]) == ("trend", "panel", "access")
+        assert plan["archive"] == {"keywords": ["Pflege", "Roboter"], "topic": "Health.HealthCareServicesAndPolicies"}
+        doc = valid(schema, ddi.build(s))
+        data = json.loads(cdif.build(s))
+        meta = zenodo.metadata(s) if s.consent_item and (s.consent_item.config or {}).get("license") else None
+    assert doc.xpath("//d:TypeOfTimeMethod/d:StringValue/text()", namespaces=NS) == ["Longitudinal.TrendRepeatedCrossSection"]
+    assert doc.xpath("//d:TypeOfSamplingProcedure/d:StringValue/text()", namespaces=NS) == ["Nonprobability"]
+    assert doc.xpath("//d:TopicalCoverage/d:Subject/d:ControlledVocabularyID/text()", namespaces=NS) == [
+        "Health.HealthCareServicesAndPolicies"]
+    assert doc.xpath("//d:TopicalCoverage/d:Keyword/d:MultilingualStringValue/text()", namespaces=NS) == ["Pflege", "Roboter"]
+    assert "Pflege" in data["schema:keywords"] and data["schema:keywords"][-1]["schema:termCode"].startswith("Health.")
+    if meta:
+        assert meta["keywords"] == ["Pflege", "Roboter"]
+    done = client.get(f"/surveys/{code}/setup/done").data.decode()
+    assert "Für Datenarchive" in done and "Grundgesamtheit" in done and "archive-meter" in done
+    # the settings page keeps the select lists
+    settings = client.get(f"/surveys/{code}/researchdesign").data.decode()
+    assert 'name="recruitment"' in settings and 'class="pick-card"' not in settings
+
+
+def test_new_interview_guide_and_diary_ask_who_takes_part(app, client, schema):
+    """The single pages of a new interview guide and diary survey: recruitment, population and country (Ralf
+    2026-10-27); the guide's target group and the more precise words become the DDI Universe."""
+    from tests.conftest import experiments_on
+
+    page = client.get("/guide/new").data.decode()
+    assert "Wer nimmt teil?" in page and 'value="purposive"' in page
+    assert page.index('value="purposive"') < page.index('value="convenience"')  # purposive comes first
+    client.post("/guide/new", data={"title": "Pflege", "language": "de", "template": "leer", "target": "fachleute",
+                                    "mode": "telefon", "order": "free", "recruitment": "theoretical",
+                                    "population": "Pflegedienstleitungen in NRW", "country": "DE"})
+    with app.app_context():
+        s = db.session.scalar(db.select(Survey).filter_by(title="Pflege"))
+        doc = valid(schema, ddi.build(s))
+    assert doc.xpath("//d:TypeOfSamplingProcedure/d:StringValue/text()", namespaces=NS) == ["TheoreticalSampling"]
+    assert doc.xpath("//d:Universe/d:Label/text()", namespaces=NS) == [
+        "Fachleute (Experteninterview): Pflegedienstleitungen in NRW"]
+    assert doc.xpath("//d:TypeOfModeOfCollection/d:StringValue/text()", namespaces=NS) == ["Interview.Telephone"]
+    assert doc.xpath("//d:SpatialCoverage/d:CountryCode/d:StringValue/text()", namespaces=NS) == ["DE"]
+    experiments_on(client, "diary")
+    page = client.get("/diary/new").data.decode()
+    assert "Wer nimmt teil?" in page and 'name="population"' in page

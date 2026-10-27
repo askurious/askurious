@@ -11,3 +11,11 @@
             placeholder="{{ de_en('z. B. „Wir untersuchen, wie Menschen Pflegeroboter im Alltag wahrnehmen und unter welchen Bedingungen sie ihnen vertrauen. Sie sehen kurze Szenarien und beantworten Fragen dazu.“', 'e.g. “We investigate how people perceive care robots in everyday life and under which conditions they trust them. You will see short scenarios and answer questions about them.”') }}">{{ values.description or '' }}</textarea>
   <span class="hint" data-description-count></span>
 </label>
+{# keywords and topic for data archives (DDI, CDIF, Zenodo; app/ddi.py, Ralf 2026-10-27) #}
+{% set archive = study_plan.archive_of((values.study_plan or {}).get("archive")) if values.study_plan is defined else {"keywords": [], "topic": ""} %}
+<div class="row-fields">
+  <label class="wide-field">{{ de_en("Schlagwörter", "Keywords") }} <span class="hint">{{ de_en("optional; durch Komma getrennt; für Datenarchive und Zenodo", "optional; separated by commas; for data archives and Zenodo") }}</span>
+    <input name="keywords" maxlength="800" value="{{ archive.keywords|join(', ') }}" placeholder="{{ de_en('z. B. Pflegeroboter, Technikakzeptanz', 'e.g. care robots, technology acceptance') }}"></label>
+  <label>{{ de_en("Thema", "Topic") }} <span class="hint">{{ de_en("optional; Themenliste von CESSDA", "optional; CESSDA topic list") }}</span>
+    <select name="topic" aria-label="{{ de_en('Thema', 'Topic') }}">{% for code, name in study_plan.topic_choices().items() %}<option value="{{ code }}"{% if code == archive.topic %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+</div>
