@@ -7338,3 +7338,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Stichprobenziel mit Beispiel „z. B. 200“; `data-show-when` nimmt mehrere Werte mit „|“.
 - Schriftgrößen von .pick-group und .archive-box h3 auf die erlaubten Stufen (0,85 rem, 1,05 rem).
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Assistent aufgeräumt
+
+- Schritt „Teilnahme“: Teilnahme, Datenschutz und Datenqualität sind je eine aufklappbare Zeile mit der Zusammenfassung; geändert wird im Assistenten selbst (`_fields_privacy`, `_fields_quality`), statt über Links „ändern ↗“ in neue Browser-Tabs (Ralf).
+- Schritt „Erscheinungsbild“: nur die Überschrift des Schritts (Legende „Farbschema“ nur für Screenreader), kein Hinweis auf KI-Bilder.
+- Im ganzen Assistenten kein stehender Satz „Änderungen werden automatisch gespeichert.“; die Statuszeile meldet weiterhin Speichern und Fehler (`autosave_bar(quiet=true)`).
+- Übersicht ohne die Zeile „Bildstil“.
+- Rechtstexte geprüft, keine Änderung nötig.

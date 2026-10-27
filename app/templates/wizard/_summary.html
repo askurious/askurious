@@ -14,7 +14,6 @@
     <span class="hint">{{ de_en("Einstellungen › Teilnahme", "Settings › Participation") }}</span></dd>
   <dt>{{ de_en("Datenqualität", "Data quality") }}</dt><dd>{{ de_en("technische Angaben", "technical details") }} {{ on if survey.paradata else off }} · {{ de_en("Tempo-Hinweis", "speed prompt") }} {{ on if tempo.active(survey) else off }} · {{ de_en("Testdurchläufe", "Test runs") }} {{ de_en("gespeichert", "saved") if survey.keep_test_runs else de_en("nicht gespeichert", "not saved") }}
     <span class="hint">{{ de_en("Qualitätssicherung › Datenqualität steigern; Datenerhebung › Testen", "Quality assurance › Improve data quality; Data collection › Test") }}</span></dd>
-  <dt>{{ de_en("Bildstil", "Image style") }}</dt><dd>{{ image_styles.style_label(survey) }}</dd>
   <dt>{{ de_en("Erscheinungsbild", "Appearance") }}</dt><dd>{{ themes.name(themes.of(survey)) }}</dd>
 </dl>
 <p class="muted small">{{ de_en("Alles lässt sich später ändern: in den Einstellungen, die Datenqualität im Reiter „Qualitätssicherung“, Testdurchläufe im Reiter „Datenerhebung“. Als Nächstes: den Fragebogen gestalten.", "Everything can be changed later: in the settings, data quality on the tab “Quality assurance”, test runs on the tab “Data collection”. Next: design the questionnaire.") }}{% if open_h > 0 %} {{ de_en("Danach die Hypothesen mit ihren Fragen verbinden.", "Then link the hypotheses with their questions.") }}{% endif %}</p>
