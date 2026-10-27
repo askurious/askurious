@@ -67,6 +67,7 @@ DDI_CV = ("DDI Alliance. (2026). DDI controlled vocabularies [Kontrollierte Voka
           "TimeMethod 1.2.3, SamplingProcedure 2.0.2]. CESSDA Vocabulary Service. https://vocabularies.cessda.eu/")
 DDI_L4 = ("DDI Alliance. (2026). DDI Lifecycle 4.0 public review (Version v4.0-pr). "
           "https://github.com/ddialliance/ddimodel/releases/tag/v4.0-pr")
+LOHR = "Lohr, S. L. (2022). Sampling: Design and analysis (3rd ed.). CRC Press. https://doi.org/10.1201/9780429298899"
 DFG_KODEX = ("Deutsche Forschungsgemeinschaft. (2019). Leitlinien zur Sicherung guter wissenschaftlicher Praxis: Kodex. "
              "https://doi.org/10.5281/zenodo.3923602")
 SIMMONS_2011 = ("Simmons, J. P., Nelson, L. D., & Simonsohn, U. (2011). False-positive psychology: Undisclosed "
@@ -491,6 +492,19 @@ REASONS = {
         "Nicht-Wahrscheinlichkeitsauswahlen, eine bewusste Auswahl oder theoretische Stichprobe ist das Mittel "
         "qualitativer Studien.",
         (BAKER_2013, GLASER_STRAUSS, DDI_CV)),
+    "random_kind": (
+        "Welche Art von Zufallsauswahl?",
+        "Die einfache Zufallsauswahl braucht eine Liste aller und ist am leichtesten auszuwerten; die systematische "
+        "zieht jede k-te Person und ist ebenso gut, solange die Liste keine Regelmäßigkeit hat. Geschichtet wird, damit "
+        "kleine Gruppen sicher vorkommen (genauer, aber ungleich gewichtet, wenn nicht proportional), Klumpen und Stufen "
+        "sparen Wege und Listen, machen die Schätzung aber ungenauer, weil sich Personen einer Gruppe ähneln (Designeffekt).",
+        (LOHR, DDI_CV)),
+    "population": (
+        "Wie genau die Grundgesamtheit beschreiben?",
+        "So genau, dass man sagen kann, wer dazugehört und wer nicht: wer (z. B. Studierende), wo (RWTH Aachen), wann "
+        "(Wintersemester 2026/27) und mit welchen Grenzen (ab 18 Jahren). Nur für diese Gruppe lassen sich Ergebnisse "
+        "verallgemeinern, und Archive ordnen die Studie danach ein.",
+        (DOERING, DDI_CV)),
     "time_method": (
         "Querschnitt, Panel oder Trend?",
         "Ein Querschnitt befragt einmal; ein Längsschnitt als Panel befragt dieselben Personen mehrmals und zeigt "
@@ -1297,6 +1311,17 @@ REASONS_EN = {
         "known chance to be chosen; then confidence intervals and p values hold for the population. An availability "
         "sample, a quota sample, respondent-assisted sampling (snowball) and an access panel are non-probability "
         "samples, a purposive sample or theoretical sampling is the means of qualitative studies."),
+    "random_kind": (
+        "Which kind of random sampling?",
+        "Simple random sampling needs a list of everyone and is the easiest to analyse; systematic sampling takes every "
+        "k-th person and is just as good as long as the list has no regular pattern. Stratifying makes sure small groups "
+        "appear (more precise, but unequally weighted unless proportional), clusters and stages save travel and lists "
+        "but make the estimate less precise, because people of one group are alike (design effect)."),
+    "population": (
+        "How precisely to describe the population?",
+        "Precisely enough to say who belongs and who does not: who (e.g. students), where (RWTH Aachen), when (winter "
+        "term 2026/27) and with which limits (aged 18 and over). Results can be generalised only to this group, and "
+        "archives classify the study by it."),
     "time_method": (
         "Cross-section, panel or trend?",
         "A cross-section asks once; a longitudinal panel asks the same people several times and shows change within "
@@ -1760,6 +1785,8 @@ REASON_PLACES = {
     "archive_where": ("Export, In Coscine ablegen", "export, store in Coscine"),
     "sampling_procedure": ("Studienplan, Rekrutierung", "research plan, recruitment"),
     "time_method": ("Studienplan, Studiendesign", "research plan, research design"),
+    "random_kind": ("Studienplan, Art der Zufallsstichprobe", "research plan, kind of random sample"),
+    "population": ("Studienplan, Grundgesamtheit", "research plan, population"),
     "ddi_export": ("Export, Dokumentation, DDI Lifecycle 4.0", "export, documentation, DDI Lifecycle 4.0"),
     "validated_scale": ("Konstrukte einfügen", "inserting constructs"),
     "copy_or_loop": ("Fragebogen, Block duplizieren oder Schleife", "questionnaire, duplicating a block or a loop"),

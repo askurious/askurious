@@ -7346,3 +7346,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Im ganzen Assistenten kein stehender Satz „Änderungen werden automatisch gespeichert.“; die Statuszeile meldet weiterhin Speichern und Fehler (`autosave_bar(quiet=true)`).
 - Übersicht ohne die Zeile „Bildstil“.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Mehr Hilfe bei „Wer nimmt teil?“
+
+- Unter „Art der Zufallsstichprobe“ eine Zeile zur gewählten Art (`study_plan.RANDOM_KIND_HINTS`) und eine Lernhilfe „Welche Art von Zufallsauswahl?“ (Lohr, 2022): einfach, systematisch, geschichtet, Klumpen, mehrstufig, mit Designeffekt (Ralf).
+- Lernhilfe „Wie genau die Grundgesamtheit beschreiben?“ unter der Grundgesamtheit: wer, wo, wann, mit welchen Grenzen.
+- Rechtstexte geprüft, keine Änderung nötig.
