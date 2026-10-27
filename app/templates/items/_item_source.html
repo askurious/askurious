@@ -1,0 +1,18 @@
+{# where the items of a scale come from (app/item_source.py; user test 2026-10-27, point 7): an APA reference or a
+   DOI, or "selbst formuliert"; a construct of the toolbox brings its own. Missing: a warning in the pre-launch check #}
+{% set cited = item_source.construct_citation(item) %}
+<fieldset class="item-source">
+  <legend>{{ de_en("Quelle der Items", "Source of the items") }}</legend>
+  {% if cited %}
+  <p class="small">{{ cited }} <span class="hint">{{ de_en("aus den Konstrukten", "from the constructs") }}</span></p>
+  {% elif cited is not none %}
+  <p class="small muted">{{ de_en("Ein Konstrukt ohne veröffentlichte Quelle.", "A construct without a published source.") }}</p>
+  {% else %}
+  {% set src = item_source.stored(item) %}
+  <input type="hidden" name="item_source_shown" value="1">
+  <label class="wide-field"><span class="label-title">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("APA-Angabe oder DOI; eine DOI ergänzt Askurious beim Speichern über doi.org", "APA reference or DOI; Askurious completes a DOI through doi.org when saving") }}</span></span>
+    <input name="item_source" maxlength="600" value="{{ src.text or '' }}" placeholder="{{ de_en('z. B. Franke, T., Attig, C., & Wessel, D. (2019) … oder 10.1080/10447318.2018.1456150', 'e.g. Franke, T., Attig, C., & Wessel, D. (2019) … or 10.1080/10447318.2018.1456150') }}"></label>
+  <label class="check"><input type="checkbox" name="item_source_own" value="1"{% if src.own %} checked{% endif %}> {{ de_en("selbst formuliert", "written by us") }}
+    <span class="hint">{{ de_en("eigene Items ohne veröffentlichte Vorlage", "own items without a published original") }}</span></label>
+  {% endif %}
+</fieldset>

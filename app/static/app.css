@@ -714,6 +714,9 @@ input.dimmed { opacity: 0.45; }
 .palette-row .palette-item .desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
   hyphens: manual; }  /* the short text of a type fits; never "mehre-ren" (UI audit 2026-10-12, U20) */
 .palette-block { width: 100%; }
+/* statements pasted as a list (user test 2026-10-27, 7): the box as wide as the table, the preview below it */
+.stmt-paste textarea { width: 100%; }
+.stmt-paste-preview ol { margin: 4px 0 10px; padding-left: 22px; }
 .item-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
 .item-icon.big { display: inline-grid; width: 38px; height: 38px; vertical-align: middle; margin-right: 4px; }
 

@@ -6722,3 +6722,86 @@ document.addEventListener("toggle", function (e) {
   });
   document.querySelectorAll("dialog[data-open-now]").forEach(function (d) { if (d.showModal && !d.open) d.showModal(); });
 })();
+
+// Statements of a Likert matrix pasted as a list (user test 2026-10-27, point 7): the same rules as
+// app/item_paste.py, here only for the preview "n Aussagen erkannt"; "Übernehmen" sends the box once and the page
+// loads with the new rows. Several lines pasted into the field of one statement go the same way.
+(function () {
+  var box = document.querySelector("[data-stmt-paste]");
+  if (!box) return;
+  var area = box.querySelector("[data-stmt-paste-box]"), value = box.querySelector("[data-stmt-paste-value]");
+  var preview = box.querySelector("[data-stmt-paste-preview]"), list = box.querySelector("[data-stmt-paste-list]");
+  var NUMBER = /^\(?(\d{1,3}|[a-zA-Z])[.):]\s+|^(\d{1,3})\s+(?=\S)/, REVERSED = /\s*\((?:R|r|-|−|umgepolt|reversed|rev\.?)\)\s*$/;
+  var CODE = /^[A-Za-z][A-Za-z0-9_]{0,31}$/, END = /[.!?…:"“”»«)]$/;
+  function numbered(line) {
+    var m = NUMBER.exec(line);
+    return m ? [line.slice(m[0].length).trim(), true] : [line, false];
+  }
+  function parse(text) {
+    var raw = text.replace(/\r\n?/g, "\n").split("\n"), tab = raw.some(function (l) { return l.indexOf("\t") >= 0; });
+    var rows = raw.map(function (line) {
+      line = line.trim();
+      if (!line) return null;
+      var code = "", cells = (tab ? line.split("\t") : [line]).map(function (c) { return c.trim(); }).filter(Boolean);
+      if (cells.length > 1 && CODE.test(cells[0])) { code = cells[0]; line = cells.slice(1).join(" "); }
+      else if (cells.length > 1) line = cells.join(" ");
+      else if (line.indexOf(";") > 0) {
+        var first = line.slice(0, line.indexOf(";")).trim(), rest = line.slice(line.indexOf(";") + 1).trim();
+        if (CODE.test(first) && rest) { code = first; line = rest; }
+      }
+      return [code, line.replace(/\s+/g, " ")];
+    });
+    var hasNumbers = rows.filter(function (r) { return r && numbered(r[1])[1]; }).length >= 2, out = [], open = false;
+    var started = !hasNumbers;  // with numbers, what comes before the first one is a heading
+    rows.forEach(function (r) {
+      if (!r) { open = false; return; }
+      var n = hasNumbers ? numbered(r[1]) : [r[1], false], line = n[0];
+      started = started || n[1];
+      if (!started || !line) return;
+      var last = out[out.length - 1];
+      var joins = open && last && !r[0] && !n[1] && (hasNumbers || (!END.test(last[1]) && line[0] === line[0].toLowerCase() && line[0] !== line[0].toUpperCase()));
+      if (joins) {
+        if (/-$/.test(last[1])) last[1] = (line[0] === line[0].toLowerCase() ? last[1].slice(0, -1) : last[1]) + line;
+        else last[1] += " " + line;
+      } else out.push([r[0], line]);
+      open = true;
+    });
+    return out.slice(0, 100).map(function (s) {
+      return { code: s[0], text: s[1].replace(REVERSED, "").trim(), reverse: REVERSED.test(s[1]) };
+    }).filter(function (s) { return s.text; });
+  }
+  function show() {
+    var found = parse(area.value);
+    preview.hidden = !found.length;
+    box.querySelector("[data-stmt-paste-count]").textContent = found.length === 1 ? de_en("1 Aussage erkannt", "1 statement found")
+      : de_en(found.length + " Aussagen erkannt", found.length + " statements found");
+    list.innerHTML = "";
+    found.forEach(function (s) {
+      var li = document.createElement("li");
+      li.textContent = (s.code ? s.code + ": " : "") + s.text + (s.reverse ? de_en(" (umgepolt)", " (reversed)") : "");
+      list.appendChild(li);
+    });
+  }
+  area.addEventListener("input", function (e) { e.stopPropagation(); show(); });
+  area.addEventListener("change", function (e) { e.stopPropagation(); });
+  area.addEventListener("focusout", function (e) { e.stopPropagation(); });
+  box.querySelector("[data-stmt-paste-take]").addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (!parse(area.value).length) return;
+    value.value = area.value;
+    value.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  // several lines pasted into the field of one statement: into the box, with the preview
+  document.addEventListener("paste", function (e) {
+    var field = e.target.closest && e.target.closest('input[name="stmt_text"]');
+    if (!field || !e.clipboardData) return;
+    var text = e.clipboardData.getData("text");
+    if (text.replace(/\r/g, "").trim().indexOf("\n") < 0) return;
+    e.preventDefault();
+    box.open = true;
+    area.value = (area.value ? area.value + "\n" : "") + text;
+    show();
+    area.focus();
+    box.scrollIntoView({ block: "nearest" });
+  });
+})();

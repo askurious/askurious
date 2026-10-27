@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 from app import brand
 from app import constructs, theme, units
-from app import item_condition
+from app import item_condition, item_source
 from app import rows as row_logic
 from app.extensions import db
 from app.items.base import DONT_KNOW_CODE, LEVEL_LABELS
@@ -2590,6 +2590,8 @@ def readme_md(survey, open_answers=False, include_incomplete=False):
                 # a construct without a source (the standard question on age) by its name (audit 2026-10-10, E-7)
                 cite = (c["citation"] or "").strip() or f"{c['label']} (no published source)."
                 used.setdefault(cite, []).append(f"`{i.code}`" + (" (modified)" if c["modifications"] else ""))
+            elif item_source.text(i):  # a scale of its own with the source given at it (app/item_source.py)
+                used.setdefault(item_source.text(i), []).append(f"`{i.code}`")
     if used:
         lines += ["## Instruments", "", "Details, wording, and references: `constructs.md`. The wording of these "
                   "instruments is not covered by the licence of this deposit: it stays with its authors and publishers "

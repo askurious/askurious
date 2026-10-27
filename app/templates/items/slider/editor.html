@@ -67,3 +67,4 @@
   {{ row_list_hint() }}
   <label class="check"><input type="checkbox" name="randomize" value="1" {% if c.randomize %}checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("Aussagen in zufälliger Reihenfolge zeigen", "Show the statements in random order") }}</label>
 </fieldset>
+{% include "items/_item_source.html" %}

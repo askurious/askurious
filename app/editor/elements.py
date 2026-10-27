@@ -4,7 +4,7 @@ import copy
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import answer_lock, constructs, edit_guard, experimental, heavy, item_condition, item_texts, items, linked, undo
+from app import answer_lock, constructs, edit_guard, experimental, heavy, item_condition, item_source, item_texts, items, linked, undo
 from app.editor.arrange import _draft_consent
 from app.editor.base import (PRESETS, _CONSENT_BLOCK_ONLY, _admin_step, _back, _block_beside, _consent_admin,
                              _consent_to_flow_start, _embed, _get_block, _get_item, _hold, _is_consent_block, _lang,
@@ -290,6 +290,7 @@ def edit_item(survey_id, item_id):
         all_texts_before = copy.deepcopy(item.texts)
         item.kind.update_from_form(item, request.form, lang, structural)
         _read_lock(item, request.form, structural)
+        item_source.from_form(item, request.form)  # where the items of a scale come from (user test 2026-10-27)
         if kept_texts is not None:
             item.texts = kept_texts
         from app import carry, units
