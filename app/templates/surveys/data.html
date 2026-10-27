@@ -83,7 +83,7 @@
     {# the count line is the one live region, busy while it is computed (UI/UX audit 2026-10-16, 31) #}
     <div data-export-counts data-url="{{ url_for('surveys.export_counts', survey_id=survey.id) }}">
       {{ computing(de_en("Exportumfang wird berechnet …", "Calculating export selection …"), tag="p", attrs=" data-count-line"|safe) }}
-      <noscript><p>{{ de_en("Die genaue Fallzahl finden Sie ohne JavaScript in „Exportumfang speichern (JSON)“.", "Without JavaScript, find the exact count in “Save export selection (JSON)”.") }}</p></noscript>
+      <noscript><p>{{ de_en("Ohne JavaScript wird die Fallzahl hier nicht berechnet; die Zeilen des heruntergeladenen Datensatzes zeigen sie.", "Without JavaScript, the count is not calculated here; the rows of the downloaded data set show it.") }}</p></noscript>
       <div hidden>{{ used_data(pool) }}</div>
     </div>
     {% endif %}
@@ -92,7 +92,6 @@
     {# what the plan asks for, in the line of the sample model (S3): beside the counts of real participations #}
     {% set sm = sample_model.of(survey) if not live else none %}
     {% if sm %}{% from "_sample.html" import sample_line %}<p class="small sample-model">{{ sample_line(sm, lead=sample_model.lead_text(sm), basis=sm.basis != "end") }}</p>{% endif %}
-    {% if not live %}<button type="submit" class="button button-small button-secondary" form="export-form" formaction="{{ url_for('surveys.data_selection', survey_id=survey.id) }}" title="{{ de_en('Exportumfang speichern (JSON)', 'Save export selection (JSON)') }}">{{ icon("download", 16) }} {{ de_en("Exportumfang", "Export selection") }}</button>{% endif %}
   </div>
   </form>
 </section>

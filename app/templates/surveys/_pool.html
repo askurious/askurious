@@ -46,7 +46,7 @@
     <div data-export-counts data-url="{{ url_for('surveys.export_counts', survey_id=survey.id) }}">
       {{ used_data(pool) }}
       {{ computing(de_en("Exportumfang wird berechnet …", "Calculating export selection …"), tag="p", attrs=" data-count-line"|safe) }}
-      <noscript><p>{{ de_en("Die genaue Fallzahl finden Sie ohne JavaScript in „Exportumfang speichern (JSON)“.", "Without JavaScript, find the exact count in “Save export selection (JSON)”.") }}</p></noscript>
+      <noscript><p>{{ de_en("Ohne JavaScript wird die Fallzahl hier nicht berechnet; die Zeilen des heruntergeladenen Datensatzes zeigen sie.", "Without JavaScript, the count is not calculated here; the rows of the downloaded data set show it.") }}</p></noscript>
     </div>
     <p class="hint">{{ de_en("Diese Auswahl gilt für die Antwortdateien dieser Seite. Ergebnisfilter und Gewichtung werden nicht übernommen. Langformate können mehrere Zeilen je Teilnahme enthalten.", "This selection applies to the answer files on this page. Result filters and weighting are not applied. Long formats may contain multiple rows per participation.") }}</p>
     {% endif %}

@@ -69,8 +69,8 @@ It is developed and run by the [Chair of Communication Science of RWTH Aachen Un
 
 Some features are still experimental and appear only when switched on under "Konto" or by the admins (list in [app/experimental.py](app/experimental.py)): AInstein for developing a research question, categorising open answers, Web Services in the flow and the participant screen in interviews (the interviewee solves a task of the guide on their own device, also in a video interview: a link per interview for one device, only the released task, the result back into the interview view).
 
-The Web export shows the exact selected participation count, including quality exclusions, and offers a downloadable
-`data-selection.json` describing sources, completion status, exclusions and unweighted scope. View filters and
+The Web export shows the exact selected participation count, including quality exclusions; the codebook names sources,
+speeder rule and exclusions. View filters and
 weighting of results do not change exported answer files; dashboards use the saved pool without test runs.
 
 Diary schedules offer individual time fields for fixed times and random windows, with an adjacent weekday preview,
