@@ -15,7 +15,9 @@ import math
 
 from app.lang import de_en
 
-RESPONSE_FOR = ("panel",)  # recruitments that invite people: only an online panel asks for a response rate
+# recruitments that invite people and so ask for a response rate: an online panel and a random sample (which may be
+# a probability panel; Ralf 2026-10-27)
+RESPONSE_FOR = ("panel", "random")
 
 
 def completions(usable, exclusions):

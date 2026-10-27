@@ -158,9 +158,6 @@
         <p class="muted small palette-empty" data-pg-empty hidden>{{ de_en("Keine passenden Rückmeldungen.", "No matching feedback.") }}</p>
       </div>
     </section>
-    <form method="post" action="{{ url_for('editor.add_block', survey_id=survey.id, lang=lang) }}">
-      {{ csrf() }}<button class="button button-secondary palette-block" title="{{ de_en('Neuer Block', 'New block') }}">{{ icon("plus", 16) }}<span> {{ de_en("Neuer Block", "New block") }}</span></button>
-    </form>
     {% if ai_on() %}
     <section class="ai-ideas" data-ai-ideas data-url="{{ url_for('editor.ai_ideas', survey_id=survey.id) }}"
              data-constructs="{{ url_for('constructs.index', survey=survey.id) }}">
@@ -208,11 +205,20 @@
     </summary>
     {%- endmacro %}
     {% set part_fixed = diary.locked(survey) if part_heads or part_tail else true %}
+    {# "+ Neuer Block" under the last block of the regular part, before the separated section (user test 2026-10-27,
+       point 3: it was in the column "Hinzufügen" among the elements); a diary has "Neuer Block hier" per part #}
+    {% macro new_block_button() -%}
+    {% if editable and not (part_heads or part_tail) %}
+    <form method="post" action="{{ url_for('editor.add_block', survey_id=survey.id, lang=lang) }}" class="new-block-form">
+      {{ csrf() }}<button class="new-block-btn">{{ icon("plus", 16) }} {{ de_en("Neuer Block", "New block") }}</button>
+    </form>
+    {% endif %}
+    {%- endmacro %}
     {% for block in canvas_blocks %}
     {% for h in part_heads.get(block.id, []) %}{% include "diary/_part_head.html" %}{% endfor %}
     {# a diary study: ↑/↓ stay in the part (diary.move_in_part), so the first and last block of each part are edges #}
     {% set block_first = loop.first or block.id in part_heads %}{% set block_last = loop.last or (loop.nextitem and loop.nextitem.id in part_heads) %}
-    {% if split and split_after and block.id == split_after[0] %}{{ split_divider(true) }}<div class="separated-area">{% endif %}
+    {% if split and split_after and block.id == split_after[0] %}{{ new_block_button() }}{{ split_divider(true) }}<div class="separated-area">{% endif %}
     {% set pinned = [survey.consent_item] if (block.items|length == 1 and block.items[0] is sameas survey.consent_item) else [] %}
     {% if pinned %}
     {% set c = pinned[0] %}
@@ -223,7 +229,7 @@
         <div class="pinned-title">{{ icon("consent") }} <span class="label-title">{{ de_en("Einwilligung", "Consent") }}</span>
           <span class="hint">{{ de_en("steht allein in ihrem Block", "is alone in its block") }}{% if editable %} · {{ de_en("verschiebbar", "movable") }}{% if survey.can(current_user, "admin") %} · {{ de_en("entfernbar", "removable") }}{% endif %}{% endif %}</span></div>
         <div class="toolbar">
-          <a class="icon-btn" href="{{ url_for('editor.preview_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" target="_blank" rel="noopener" title="{{ de_en('Vorschau', 'Preview') }}" aria-label="{{ de_en('Vorschau', 'Preview') }}">{{ icon("eye") }}</a>
+          <a class="icon-btn" href="{{ url_for('editor.preview_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" target="_blank" rel="noopener" title="{{ de_en('Vorschau', 'Preview') }}" aria-label="{{ de_en('Vorschau', 'Preview') }}">{{ icon("play") }}</a>
           {% if editable %}
           <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='up', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach oben', 'Block up') }}" aria-label="{{ de_en('Block nach oben', 'Block up') }}" {% if block_first %}disabled{% endif %}>{{ icon("up") }}</button></form>
           <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='down', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach unten', 'Block down') }}" aria-label="{{ de_en('Block nach unten', 'Block down') }}" {% if block_last %}disabled{% endif %}>{{ icon("down") }}</button></form>
@@ -256,10 +262,18 @@
             {% for b in flow_badges.get(block.id, []) %}<a class="flow-badge" href="{{ url_for('flow_page.index', survey_id=survey.id) }}">{{ b }}</a>{% endfor %}
           </div>{% endif %}
           {% set pc = block.pages()|length %}
-          <label class="block-name">
-            <input name="title"{{ content_lang(lang) }} aria-label="{{ de_en('Name des Blocks', 'Name of the block') }}" value="{{ (block.titles or {}).get(lang, '') }}" placeholder="{{ de_en('Block {n} benennen, z. B. „Szenario A“', 'Name block {n}, e.g. “Scenario A”', n=loop.index0 + survey.block_start) }}"
-                   maxlength="300" data-block-name title="{{ de_en('Name des Blocks: Erscheint im Ablauf, bei Randomisierungen und im Export; Enter speichert', 'Name of the block: shown in the flow, in randomisations and in the export; Enter saves') }}" {% if not can_edit %}disabled{% endif %}>
-          </label>
+          {# folded and unfolded with ▾/▸; folded, the line says what is in it; remembered per browser (app.js,
+             user test 2026-10-27, point 6) #}
+          {% set n_items = block.items|rejectattr("type", "equalto", "page_break")|list|length %}
+          <div class="block-title-row">
+            <button type="button" class="icon-btn block-fold" data-block-fold aria-expanded="true" aria-controls="items-{{ block.id }}"
+                    title="{{ de_en('Block ein- oder ausklappen', 'Fold or unfold the block') }}" aria-label="{{ de_en('Block ein- oder ausklappen', 'Fold or unfold the block') }}"><span aria-hidden="true">▾</span></button>
+            <label class="block-name">
+              <input name="title"{{ content_lang(lang) }} aria-label="{{ de_en('Name des Blocks', 'Name of the block') }}" value="{{ (block.titles or {}).get(lang, '') }}" placeholder="{{ de_en('Block {n} benennen, z. B. „Szenario A“', 'Name block {n}, e.g. “Scenario A”', n=loop.index0 + survey.block_start) }}"
+                     maxlength="300" data-block-name title="{{ de_en('Name des Blocks: Erscheint im Ablauf, bei Randomisierungen und im Export; Enter speichert', 'Name of the block: shown in the flow, in randomisations and in the export; Enter saves') }}" {% if not can_edit %}disabled{% endif %}>
+            </label>
+            <span class="hint block-folded-note">{{ de_en("{n} Element", "{n} element", n=n_items) if n_items == 1 else de_en("{n} Elemente", "{n} elements", n=n_items) }} · {{ de_en("{n} Seite", "{n} page", n=pc) if pc == 1 else de_en("{n} Seiten", "{n} pages", n=pc) }}</span>
+          </div>
           {% if blockload_info is not none and block.id in blockload_info %}{% set bl_why = blockload_info[block.id] %}
           {% if bl_why %}<span class="badge" title="{{ de_en('Wird Seite für Seite geladen: {why}', 'Loaded page by page: {why}', why=bl_why|join('; ')) }}">{{ de_en("seitenweise", "page by page") }}<span class="visually-hidden">: {{ bl_why|join("; ") }}</span></span>
           {% else %}<span class="badge badge-running" title="{{ de_en('Einfacher Block: Alle Seiten kommen in einem Stück in den Browser (Einstellungen: Teilnahme)', 'Simple block: all pages come to the browser in one piece (settings: participation)') }}">{{ de_en("am Stück", "at once") }}</span>{% endif %}
@@ -310,7 +324,7 @@
              outside the form of the block, which may not hold another #}
           <form id="loop-form-{{ block.id }}" class="inline" method="post" action="{{ url_for('editor.loop_table', survey_id=survey.id, block_id=block.id, lang=lang) }}" hidden>{{ csrf() }}</form>
           {% endif %}
-          <a class="icon-btn" href="{{ url_for('editor.preview_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" target="_blank" rel="noopener" title="{{ de_en('Vorschau', 'Preview') }}" aria-label="{{ de_en('Vorschau', 'Preview') }}">{{ icon("eye") }}</a>
+          <a class="icon-btn" href="{{ url_for('editor.preview_block', survey_id=survey.id, block_id=block.id, lang=lang) }}" target="_blank" rel="noopener" title="{{ de_en('Vorschau', 'Preview') }}" aria-label="{{ de_en('Vorschau', 'Preview') }}">{{ icon("play") }}</a>
           {% if editable %}
           <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='up', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach oben', 'Block up') }}" aria-label="{{ de_en('Block nach oben', 'Block up') }}" {% if block_first %}disabled{% endif %}>{{ icon("up") }}</button></form>
           <form class="inline" method="post" action="{{ url_for('editor.move_block', survey_id=survey.id, block_id=block.id, direction='down', lang=lang) }}">{{ csrf() }}<button class="icon-btn" title="{{ de_en('Block nach unten', 'Block down') }}" aria-label="{{ de_en('Block nach unten', 'Block down') }}" {% if block_last %}disabled{% endif %}>{{ icon("down") }}</button></form>
@@ -322,7 +336,7 @@
         </div>
       </div>
 
-      <ol class="item-list" data-dropzone>
+      <ol class="item-list" data-dropzone id="items-{{ block.id }}">
         {% for item in block.items %}
         <li class="item-row {% if comment_items.get(item.id) %}has-comments {% endif %}{% if item.type == 'page_break' %}page-break-row{% elif (item.config or {}).get('ai') %}row-ai{% elif ((item.config or {}).get('construct') or {}).get('key', '')[:2] == 'v-' %}row-linked{% elif (item.config or {}).get('construct') %}row-construct{% elif item.kind.category == 'feedback' %}row-feedback{% endif %}" id="item-{{ item.id }}" data-item-id="{{ item.id }}" {% if editable %}data-drag{% endif %}>
           {% if editable %}<span class="drag-handle" title="{{ de_en('Ziehen zum Verschieben: hier oder an jeder freien Stelle der Zeile, auch in einen anderen Block oder zwischen zwei Blöcke (neuer Block)', 'Drag to move: here or at any free spot of the row, also into another block or between two blocks (new block)') }}" aria-hidden="true">⋮⋮</span>{% endif %}
@@ -385,6 +399,7 @@
     </div>
     {% endfor %}
     {% for h in part_tail %}{% include "diary/_part_head.html" %}{% endfor %}
+    {% if not (split and split_after) and canvas_blocks %}{{ new_block_button() }}{% endif %}
 
     {% if split and split_after %}</div></details>{% endif %}
     {# a diary study has no separated section: every part is stored with the person (decision of 2026-10-11) #}

@@ -14,7 +14,6 @@
     <span class="hint">{{ de_en("Einstellungen › Teilnahme", "Settings › Participation") }}</span></dd>
   <dt>{{ de_en("Datenqualität", "Data quality") }}</dt><dd>{{ de_en("technische Angaben", "technical details") }} {{ on if survey.paradata else off }} · {{ de_en("Tempo-Hinweis", "speed prompt") }} {{ on if tempo.active(survey) else off }} · {{ de_en("Testdurchläufe", "Test runs") }} {{ de_en("gespeichert", "saved") if survey.keep_test_runs else de_en("nicht gespeichert", "not saved") }}
     <span class="hint">{{ de_en("Qualitätssicherung › Datenqualität steigern; Datenerhebung › Testen", "Quality assurance › Improve data quality; Data collection › Test") }}</span></dd>
-  <dt>{{ de_en("Bildstil", "Image style") }}</dt><dd>{{ image_styles.style_label(survey) }}</dd>
   <dt>{{ de_en("Erscheinungsbild", "Appearance") }}</dt><dd>{{ themes.name(themes.of(survey)) }}</dd>
 </dl>
 <p class="muted small">{{ de_en("Alles lässt sich später ändern: in den Einstellungen, die Datenqualität im Reiter „Qualitätssicherung“, Testdurchläufe im Reiter „Datenerhebung“. Als Nächstes: den Fragebogen gestalten.", "Everything can be changed later: in the settings, data quality on the tab “Quality assurance”, test runs on the tab “Data collection”. Next: design the questionnaire.") }}{% if open_h > 0 %} {{ de_en("Danach die Hypothesen mit ihren Fragen verbinden.", "Then link the hypotheses with their questions.") }}{% endif %}</p>
@@ -26,7 +25,12 @@
   <h3>{{ de_en("Für Datenarchive", "For data archives") }} <span class="hint">DDI, CESSDA</span></h3>
   <p class="small muted flush">{{ de_en("{n} von {m} empfohlenen Angaben sind da; der DDI-Export unter „Dokumentation“ und die Pakete für Zenodo und Coscine nutzen sie.", "{n} of {m} recommended details are there; the DDI export under “Documentation” and the packages for Zenodo and Coscine use them.", n=have, m=counted|length) }}</p>
   <div class="archive-meter" aria-hidden="true"><span style="width: {{ (100 * have / (counted|length or 1))|round|int }}%"></span></div>
-  <ul>{% for state, de, en, step in ready %}
+  {# three groups with words instead of marks (Ralf 2026-10-27: a gear did not read as "filled in by itself") #}
+  {% for states, title in [(["ok"], de_en("Schon angegeben", "Already given")), (["auto"], de_en("Setzt Askurious selbst", "Set by Askurious itself")), (["missing", "optional"], de_en("Fehlt noch", "Still missing"))] %}
+  {% set rows = ready|selectattr(0, "in", states)|list %}
+  {% if rows %}<p class="archive-group">{{ title }}</p>
+  <ul>{% for state, de, en, step in rows %}
     <li class="is-{{ 'missing' if state == 'optional' else state }}">{{ de_en(de, en) }}{% if state in ("missing", "optional") and step %} · <a href="{{ url_for('wizard.step', survey_id=survey.id, key=step) }}">{{ de_en("ergänzen", "add") }}</a>{% endif %}{% if state == "optional" %} <span class="hint">{{ de_en("optional", "optional") }}</span>{% endif %}</li>{% endfor %}
-  </ul>
+  </ul>{% endif %}
+  {% endfor %}
 </div>

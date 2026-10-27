@@ -94,10 +94,9 @@ limit_conn_log_level warn;
 map $host $researchers_host { ~^ask\.(?<rest>.+)$ $rest; default ${RESEARCHER_HOST}; }
 
 # the maintenance page (nginx/locations/wartung.conf): English for whom English comes first, else German; the page
-# for a browser, a line of text for a script; its own address passes the switch; Retry-After shorter for a failure
+# for a browser, a line of text for a script; Retry-After shorter for a failure
 map $http_accept_language $wartung_sprache { default de; "~*^\s*en" en; }
 map $http_accept $wartung_typ { default txt; "~*text/html" html; }
-map $uri $wartung_frei { default ""; "~^/_wartung/" 1; }
 map $uri $wartung_retry { default 30; /_wartung/schalter 120; }
 
 # 80: only Let's Encrypt and the redirect to https, for every name
