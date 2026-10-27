@@ -5,7 +5,7 @@
 <section class="diary-part-head" id="part-{{ h }}">
   <h2 class="flush">{{ diary.part_label(h, survey) }}</h2>
   <p class="muted small flush">{{ diary.when_asked(h, survey) }} · <a href="{{ url_for('diary.schedule', survey_id=survey.id) }}">{{ de_en("Zeitplan", "Schedule") }}</a>
-    · <a href="{{ url_for('editor.preview_survey', survey_id=survey.id, lang=lang, part=h) }}" target="_blank" rel="noopener" title="{{ de_en('Nur diesen Teil durchgehen, so wie eine Person ihn bekommt', 'Go through this part only, as a person gets it') }}">{{ icon("eye", 14) }} {{ de_en("Vorschau dieses Teils", "Preview of this part") }}</a></p>
+    · <a href="{{ url_for('editor.preview_survey', survey_id=survey.id, lang=lang, part=h) }}" target="_blank" rel="noopener" title="{{ de_en('Nur diesen Teil durchgehen, so wie eine Person ihn bekommt', 'Go through this part only, as a person gets it') }}">{{ icon("play", 14) }} {{ de_en("Vorschau dieses Teils", "Preview of this part") }}</a></p>
   {% if editable and not part_fixed %}
   <div class="row-fields diary-part-actions">
     <form method="post" action="{{ url_for('editor.add_block', survey_id=survey.id, lang=lang) }}">{{ csrf() }}<input type="hidden" name="part" value="{{ h }}">

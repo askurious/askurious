@@ -910,6 +910,32 @@ document.addEventListener("keydown", function (e) {
     b.addEventListener("focusin", function () { activate(b); });
   });
 
+  // Folding a block (user test 2026-10-27, point 6): ▾/▸ before its name; the folded ones are remembered per
+  // survey in this browser. What is added to a folded block, or dragged over it for a moment, unfolds it.
+  var foldKey = "editor-folded:" + location.pathname.split("/editor")[0];
+  function folded() {
+    try { return JSON.parse(localStorage.getItem(foldKey) || "[]"); } catch (err) { return []; }
+  }
+  function setFold(block, fold) {
+    block.classList.toggle("is-folded", fold);
+    var btn = block.querySelector("[data-block-fold]");
+    if (btn) btn.setAttribute("aria-expanded", fold ? "false" : "true");
+    var ids = folded().filter(function (id) { return id !== block.dataset.blockId; });
+    if (fold) ids.push(block.dataset.blockId);
+    try { localStorage.setItem(foldKey, JSON.stringify(ids)); } catch (err) { /* storage unavailable */ }
+  }
+  function unfold(block) { if (block && block.classList.contains("is-folded")) setFold(block, false); }
+  folded().forEach(function (id) {
+    var b = document.querySelector('.block[data-block-id="' + id + '"]');
+    if (b && b.querySelector("[data-block-fold]")) setFold(b, true);
+  });
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-block-fold]");
+    if (!btn) return;
+    var block = btn.closest(".block");
+    setFold(block, !block.classList.contains("is-folded"));
+  });
+
   // "+" next to a palette element adds it at the end of the highlighted block
   // (delegated: construct rows are re-rendered by the sidebar search)
   document.addEventListener("click", function (e) {
@@ -918,6 +944,7 @@ document.addEventListener("keydown", function (e) {
     var blocks = document.querySelectorAll(".block[data-block-id]");
     var block = document.querySelector(".block.is-active[data-block-id]") || blocks[blocks.length - 1];
     if (!block) { alertNoBlock(); return; }
+    unfold(block);
     if (btn.dataset.type === "ai_scale") { openAiDialog(block.dataset.blockId, ""); return; }
     post(urlFor(addUrl, block.dataset.blockId), { type: btn.dataset.type });
   });
@@ -1027,6 +1054,13 @@ document.addEventListener("keydown", function (e) {
     var under = document.elementFromPoint(drag.x, drag.y);
     var closed = under && under.closest("details[data-area]:not([open]):not(.trash-area)");
     if (closed) closed.open = true;
+    // a folded block opens when an element rests over it for a moment
+    var shut = drag.kind !== "block" && under && under.closest(".block.is-folded");
+    if (shut !== drag.shut) {
+      clearTimeout(drag.shutTimer);
+      drag.shut = shut;
+      if (shut) drag.shutTimer = setTimeout(function () { unfold(shut); if (drag) update(); }, 600);
+    }
     clearMarks();
     var t = drag.target = drag.kind === "block" ? blockTarget() : itemTarget();
     if (!t) return;
@@ -1048,6 +1082,8 @@ document.addEventListener("keydown", function (e) {
     // after the reload the page shows what was moved, marked briefly
     try { if (drag.kind !== "new") sessionStorage.setItem(movedKey, drag.el.id); } catch (err) { /* storage unavailable */ }
     if (drag.kind === "block") { post(urlFor(blockPlaceUrl, drag.el.dataset.dragId), { target: blockId, mode: t.mode }); return; }
+    clearTimeout(drag.shutTimer);
+    if (t.list) unfold(t.block);  // shows where the element went
     var where = t.list ? { position: t.index } : { new_block: t.mode };
     if (drag.kind === "item") {
       where.block_id = blockId;
@@ -1078,6 +1114,7 @@ document.addEventListener("keydown", function (e) {
     move: update,
     drop: drop,
     end: function (d) {
+      clearTimeout(d.shutTimer);
       clearMarks();
       if (grid.classList.contains("dragging-block")) keepInPlace(d.el, function () { grid.classList.remove("dragging-block"); });
       d.el.classList.remove("is-dragged");

@@ -184,6 +184,7 @@ Wer nur ansehen darf, eine Kopie aber anlegen darf (etwa von einer Beispielbefra
 - **Hinzufügen** (links): die Elementtypen (38, von Einfachauswahl und Likert-Matrix bis Conjoint, MaxDiff, Karten, Bild markieren und Rückmeldung an Teilnehmende), die validierten Konstrukte aus dem Bestand und „Skala mit KI entwerfen“.
   In einen Block ziehen oder auf **+** klicken.
 - **Blöcke** (Mitte): zuerst die Einwilligung (Block 0), dann die Blöcke mit ihren Elementen; Seitenumbrüche teilen einen Block in Seiten.
+  **+ Neuer Block** steht unter dem letzten Block. ▾ vor dem Namen klappt einen Block ein (er zeigt dann nur, wie viele Elemente und Seiten er hat); das merkt sich der Browser. ▷ öffnet die Vorschau des Blocks.
   Konstrukte tragen ein grünes Abzeichen „validierte Skala“.
 - **Startprüfung** (rechts): der Studienplan in einer Zeile und Hinweise zum Fragebogen: zu viele anspruchsvolle Fragen auf einer Seite, eine fehlende Kontakt-E-Mail in der Einwilligung, nicht ersetzte Platzhalter wie „[System]“, fehlende Übersetzungen, eine geschätzte Bearbeitungszeit.
 

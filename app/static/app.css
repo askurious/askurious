@@ -714,6 +714,12 @@ input.dimmed { opacity: 0.45; }
 .palette-row .palette-item .desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
   hyphens: manual; }  /* the short text of a type fits; never "mehre-ren" (UI audit 2026-10-12, U20) */
 .palette-block { width: 100%; }
+/* "+ Neuer Block" under the last block (user test 2026-10-27, 3): a dashed strip as wide as the blocks */
+.new-block-form { margin: 0 0 18px; }
+.new-block-btn { display: flex; width: 100%; justify-content: center; align-items: center; gap: 6px; padding: 12px; font: inherit;
+  font-weight: 600; color: var(--accent); background: transparent; border: 2px dashed var(--border); border-radius: var(--radius-panel); cursor: pointer; }
+.new-block-btn:hover, .new-block-btn:focus-visible { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.new-block-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 .item-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
 .item-icon.big { display: inline-grid; width: 38px; height: 38px; vertical-align: middle; margin-right: 4px; }
 
@@ -1480,6 +1486,16 @@ ol.plain.tl-events li { border: 0; padding: 0; }  /* plain dates and actions, no
 
 /* Block name as an editable heading */
 .block-name { display: block; position: relative; }
+/* ▾/▸ before the name folds the block (user test 2026-10-27, 6); folded, only the head with what is in it */
+.block-title-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.block-title-row .block-name { flex: 1; min-width: 0; }
+.block-fold { flex: none; width: 28px; height: 28px; color: var(--muted); }
+.block-fold span { display: inline-block; }
+.block.is-folded .block-fold span { transform: rotate(-90deg); }
+.block-folded-note { display: none; flex: none; white-space: nowrap; }
+.block.is-folded .block-folded-note { display: inline; }
+.block.is-folded > .item-list, .block.is-folded .block-settings, .block.is-folded > .block-palette-btn { display: none; }
+.block.is-folded > .block-head { border-bottom: 0; border-radius: var(--radius-panel); }
 .block-name input { width: 100%; font-size: 1.05rem; font-weight: 650; color: var(--fg); background: transparent;
   border: 1px solid transparent; border-radius: 8px; padding: 4px 8px; margin-left: -8px; }
 .block-name input:hover { border-color: var(--border); }
