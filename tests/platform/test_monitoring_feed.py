@@ -110,8 +110,10 @@ def test_quarters_count_the_last_day_in_fifteen_minutes_with_the_running_quarter
 
 # ---- the token ---------------------------------------------------------------------------------------------------
 def _page(response):
-    """The 404 page without its CSRF token, which carries the second it was made (two requests can straddle one)."""
-    return re.sub(rb'name="csrf-token" content="[^"]*"', b'name="csrf-token"', response.data)
+    """The 404 page without its CSRF tokens (the meta tag and the hidden field of every form on it, e.g. the feedback
+    dialog), which carry the second they were made: two requests can straddle one (a full run under load, 2026-10-27)."""
+    page = re.sub(rb'name="csrf-token" content="[^"]*"', b'name="csrf-token"', response.data)
+    return re.sub(rb'name="csrf_token" value="[^"]*"', b'name="csrf_token"', page)
 
 
 def test_without_a_token_there_is_no_feed(app, client):
