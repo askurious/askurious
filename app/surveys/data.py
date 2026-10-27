@@ -436,23 +436,3 @@ def export_counts(survey_id):
     response = jsonify(_export_counts(survey, data_pool(survey)))
     response.headers["Cache-Control"] = "no-store"
     return response
-
-
-@bp.route("/<sid:survey_id>/data-selection.json")
-@login_required
-@report_jobs.background(ready=_counts_ready)
-def data_selection(survey_id):
-    from flask import jsonify
-    from app.models import utcnow
-
-    survey = get_survey(survey_id)
-    pool = data_pool(survey)
-    response = jsonify({"format": 1, "survey": survey.uid, "qversion": survey.qversion,
-                        "generated_at": utcnow().isoformat(), "sources": pool["sources"],
-                        "include_incomplete": pool["all"], "exclude_marked": pool["drop"],
-                        "speeder_threshold": pool["speeder"], "weighted": False,
-                        "counts": _export_counts(survey, pool),
-                        "scope": "answer files; long formats may have multiple rows per participation"})
-    response.headers["Content-Disposition"] = 'attachment; filename="data-selection.json"'
-    response.headers["Cache-Control"] = "no-store"
-    return response
