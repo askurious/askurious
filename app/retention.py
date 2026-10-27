@@ -311,6 +311,9 @@ def purge(survey):
     from app import coding
 
     coding.forget_all(survey)  # anchor examples quoting the answers and the AI's proposals (audit 2026-10-10, L-2)
+    from app import transcript_coding_view
+
+    transcript_coding_view.forget_survey_anchors(survey.id)  # anchor examples quoting the interviews ("Interviews kodieren")
     from app import paper
 
     paper.forget_survey_scans(survey)  # scans of paper sheets hold answers

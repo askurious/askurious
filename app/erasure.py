@@ -269,6 +269,10 @@ def _remove(survey, responses, entries, reason):
         from app import coding
 
         coding.forget(survey, responses)
+    if responses and survey.interview is not None:  # anchor examples of "Interviews kodieren" quoting them go
+        from app import transcript_coding_view
+
+        transcript_coding_view.forget(responses)
     from app import paper
 
     paper.forget_responses(survey, responses)  # the scans of paper sheets go too; the paper is to be destroyed
