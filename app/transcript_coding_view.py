@@ -96,7 +96,7 @@ def codings(row, project_id=None):
     return [c for c in out if project_id is None or c.get("project") == project_id]
 
 
-def placed(row, project):
+def placed(row, project, who=None):
     """The codings of `project` in this interview as the page shows them: ({...coding, "start", "end"} placed,
     [codings no longer to be placed])."""
     from app.transcript_coding import resolver
@@ -104,7 +104,12 @@ def placed(row, project):
     text = transcript(row)
     ok, lost = [], []
     resolve = resolver(project)
-    for c in codings(row, project.id):
+    items = codings(row, project.id)
+    if who is not None:  # double coding: blind until everyone is done (app/transcript_coding_double.py)
+        from app.transcript_coding_double import visible
+
+        items = visible(project, who, row, items)
+    for c in items:
         cat = resolve(c.get("cat"))
         if cat is None:
             continue  # a category removed
@@ -166,7 +171,7 @@ def add(project, who, row, start, end, cat_id):
 
     def change(items):
         if any(c.get("project") == project.id and c.get("cat") == cat.id and c.get("start") == span[0] and c.get("end") == span[1]
-               for c in items):
+               and c.get("by") == who.key for c in items):  # twice by the same person; two people may (double coding)
             problem.append(de_en("Diese Stelle hat diese Kategorie schon.", "This passage already has this category."))
             return items
         if len(items) >= MAX_PER_INTERVIEW:
@@ -215,9 +220,11 @@ def counts(project, who):
     """{category id: coded passages} over the interviews the actor sees."""
     from app.transcript_coding import resolver
 
+    from app.transcript_coding_double import visible
+
     out, resolve = {}, resolver(project)
     for row in interviews(project, who):
-        for c in codings(row, project.id):
+        for c in visible(project, who, row, codings(row, project.id)):
             cat = resolve(c.get("cat"))
             out[cat] = out.get(cat, 0) + 1
     return out
@@ -278,11 +285,11 @@ def _json_coding(c, project, who):
 @bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>")
 @signed_in_or_coder
 def page(code, pid, rid):
-    from app import transcript_coding_ai, transcript_coding_review
+    from app import transcript_coding_ai, transcript_coding_double, transcript_coding_review
 
     survey, project, who = _in(code, pid)
     row = _row(project, who, rid)
-    ok, lost = placed(row, project)
+    ok, lost = placed(row, project, who)
     rows = [r for r in interviews(project, who) if has_transcript(r)]
     ids = [r.id for r in rows]
     at = ids.index(row.id) if row.id in ids else -1
@@ -299,7 +306,10 @@ def page(code, pid, rid):
                            notices=transcript_coding_review.notices(project, who),
                            ai_on_state=transcript_coding_ai.state(project, who),  # includes ai_on() (app/ai_access.py)
                            suggestions=transcript_coding_ai.open_suggestions(row, project),
-                           sections=len(transcript_coding_ai.sections(transcript(row))))
+                           sections=len(transcript_coding_ai.sections(transcript(row))),
+                           double=transcript_coding_double.assignment(project, row.id),
+                           blind=transcript_coding_double.blind_for(project, who, row.id),
+                           double_done=transcript_coding_double.finished(transcript_coding_double.assignment(project, row.id)))
 
 
 def _payload():

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_sources.html" import grouped %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# Comparing the double coding of one interview (app/transcript_coding_double.py, compare): the passages of two coders
+   next to each other, the differences with their decision, the agreement per category, the consensual coding. #}
+{% block title %}{{ de_en("Vergleich", "Comparison") }} {{ row.interview.label }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% set na, nb = entry.names.get(a_key, a_key), entry.names.get(b_key, b_key) %}
+{% call head(survey, project, who, de_en("Vergleich der Doppelkodierung: Interview {label}", "Comparison of the double coding: interview {label}", label=row.interview.label), "A = " ~ na ~ " · B = " ~ nb) %}
+  <form method="get" class="row-fields">
+    {% if entry.coders|length > 2 %}
+    <label>A <select name="a" data-submit-on-change>{% for k in entry.coders %}<option value="{{ k }}" {% if k == a_key %}selected{% endif %}>{{ entry.names.get(k, k) }}</option>{% endfor %}</select></label>
+    <label>B <select name="b" data-submit-on-change>{% for k in entry.coders %}<option value="{{ k }}" {% if k == b_key %}selected{% endif %}>{{ entry.names.get(k, k) }}</option>{% endfor %}</select></label>
+    {% else %}<input type="hidden" name="a" value="{{ a_key }}"><input type="hidden" name="b" value="{{ b_key }}">{% endif %}
+    <label>{{ de_en("Mindestüberlappung (%)", "Minimum overlap (%)") }} <input type="number" name="min" min="10" max="100" value="{{ threshold }}" class="narrow"></label>
+    <div><button class="button button-small button-secondary">{{ de_en("Neu vergleichen", "Compare again") }}</button></div>
+  </form>
+  {% if not finished %}<p class="muted small">{{ de_en("Noch nicht alle haben „Kodierung abgeschlossen“ gemeldet; die Kodierenden selbst sehen den Vergleich erst danach.", "Not everyone has reported “Coding finished” yet; the coders themselves see the comparison only then.") }}</p>{% endif %}
+{% endcall %}
+
+<section class="panel">
+  <h2>{{ de_en("Abweichungen und Übereinstimmungen", "Differences and matches") }} <span class="hint">{{ de_en("{n} Stellen in der gemeinsamen Kodierung", "{n} passages in the consensual coding", n=consensus|length) }}</span></h2>
+  {% if diffs %}
+  <div class="tc-compare">
+  {% for d in diffs %}{% set dec = decisions.get(d.id) %}
+    <div class="tc-diff is-{{ d.kind }}" id="d-{{ loop.index }}">
+      <div class="tc-diff-side">{% if d.a %}<span class="small"><strong>A:</strong> {{ names.get(d.a.cat, "") }}</span><p>„{{ d.a.quote }}“</p>{% else %}<span class="muted small">{{ de_en("A: keine Stelle", "A: no passage") }}</span>{% endif %}</div>
+      <div class="tc-diff-side">{% if d.b %}<span class="small"><strong>B:</strong> {{ names.get(d.b.cat, "") }}</span><p>„{{ d.b.quote }}“</p>{% else %}<span class="muted small">{{ de_en("B: keine Stelle", "B: no passage") }}</span>{% endif %}</div>
+      <div class="tc-diff-act">
+        {% if d.kind == "match" %}<span class="small">{{ de_en("übereinstimmend", "matching") }}</span>
+        {% else %}
+        <span class="small tc-flag">{{ {"only_a": de_en("nur A", "only A"), "only_b": de_en("nur B", "only B"), "other": de_en("abweichend: andere Kategorie oder Grenze", "differing: other category or borders")}[d.kind] }}</span>
+        {% if dec %}<p class="small">{{ de_en("Entschieden: {c} ({who})", "Decided: {c} ({who})", c={"a": de_en("A übernehmen", "take A"), "b": de_en("B übernehmen", "take B"), "both": de_en("beide behalten", "keep both"), "none": de_en("keine", "none")}[dec.choice], who=dec.by_name) }}{% if dec.comment %} · „{{ dec.comment }}“{% endif %}</p>{% endif %}
+        <form method="post" class="tc-diff-form">
+          {{ csrf() }}<input type="hidden" name="diff" value="{{ d.id }}"><input type="hidden" name="anchor" value="{{ loop.index }}">
+          <input type="hidden" name="a" value="{{ a_key }}"><input type="hidden" name="b" value="{{ b_key }}">
+          <label class="visually-hidden" for="c-{{ loop.index }}">{{ de_en("Kommentar", "Comment") }}</label>
+          <input id="c-{{ loop.index }}" name="comment" maxlength="1000" placeholder="{{ de_en('Kommentar (freiwillig)', 'Comment (optional)') }}" value="{{ dec.comment if dec else '' }}">
+          <div class="tc-info-actions">
+            {% if d.a %}<button class="button button-small button-secondary" name="choice" value="a">{{ de_en("A übernehmen", "Take A") }}</button>{% endif %}
+            {% if d.b %}<button class="button button-small button-secondary" name="choice" value="b">{{ de_en("B übernehmen", "Take B") }}</button>{% endif %}
+            {% if d.a and d.b %}<button class="button button-small button-secondary" name="choice" value="both">{{ de_en("Beide behalten", "Keep both") }}</button>{% endif %}
+            <button class="button button-small button-secondary" name="choice" value="none">{{ de_en("Keine", "None") }}</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+  {% else %}<p class="muted">{{ de_en("Noch keine Stellen.", "No passages yet.") }}</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>{{ de_en("Übereinstimmung in diesem Interview", "Agreement in this interview") }}</h2>
+  {% call list_table() %}
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">κ</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
+    <tbody>
+    {% for cid, name in names.items() %}{% set f = figures[cid] %}{% if f.passages[1] %}
+    <tr><td>{{ name }}</td>
+      {% if f.passages[1] >= min_passages %}<td class="num">{{ (100 * f.p_o)|round(1) }} %</td><td class="num">{{ "%.2f"|format(f.kappa) if f.kappa is not none else "–" }}{% if f.kappa is not none %} <span class="muted small">{{ reading(f.kappa) }}</span>{% endif %}</td>
+      {% else %}<td class="num muted" colspan="2">{{ de_en("zu wenige Stellen", "too few passages") }}</td>{% endif %}
+      <td class="num">{{ f.passages[0] }} / {{ f.passages[1] }}</td></tr>
+    {% endif %}{% endfor %}
+    </tbody>
+  {% endcall %}
+  <p class="muted small">{{ de_en("Wortebene: jedes Wort je Kategorie kodiert oder nicht; κ nach Cohen (1960), gelesen nach Landis & Koch (1977). Stellenebene: Stellen beider mit einem Gegenstück derselben Kategorie bei mindestens {t} % Überlappung. Ab {m} Stellen je Kategorie.", "Word level: every word coded or not per category; κ after Cohen (1960), read after Landis & Koch (1977). Passage level: passages of both with a counterpart of the same category overlapping by at least {t}%. From {m} passages per category.", t=threshold, m=min_passages) }}</p>
+  {{ grouped(sources) }}
+</section>
+{% endblock %}

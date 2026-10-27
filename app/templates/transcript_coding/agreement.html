@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import grouped %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# The agreement of the double coding of an analysis (app/transcript_coding_double.py, agreement_page): per category and
+   over all, on word level (share and Cohen's kappa) and on passage level, over the finished double codings. #}
+{% block title %}{{ de_en("Übereinstimmung", "Agreement") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Übereinstimmung der Doppelkodierung", "Agreement of the double coding"), de_en("{n} abgeschlossene Doppelkodierungen", "{n} finished double codings", n=figures._pairs)) %}
+  <form method="get" class="row-fields">
+    <label>{{ de_en("Mindestüberlappung (%)", "Minimum overlap (%)") }} <input type="number" name="min" min="10" max="100" value="{{ threshold }}" class="narrow"></label>
+    <div><button class="button button-small button-secondary">{{ de_en("Neu berechnen", "Calculate again") }}</button></div>
+    <div><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.agreement_page', code=survey.code, pid=project.id, min=threshold, format='csv') }}">{{ icon("download", 16) }} CSV</a></div>
+  </form>
+{% endcall %}
+
+<section class="panel">
+  {% if figures._pairs %}
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">κ</th><th>{{ de_en("Lesart", "Reading") }}</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
+    <tbody>
+    {% set rows = [("all", de_en("Alle Kategorien", "All categories"))] %}{% for c in cats %}{% set _ = rows.append((c.id, c.name)) %}{% endfor %}
+    {% for key, name in rows %}{% set f = figures[key] %}{% if f.passages[1] or key == "all" %}
+    <tr{% if key == "all" %} class="coverage-block"{% endif %}><td>{{ name }}</td>
+      {% if f.enough %}<td class="num">{{ (100 * f.p_o)|round(1) }} %</td><td class="num">{{ "%.2f"|format(f.kappa) if f.kappa is not none else "–" }}</td><td>{{ reading(f.kappa) }}</td>
+      {% else %}<td class="num muted" colspan="3">{{ de_en("zu wenige Stellen für eine Kennzahl", "too few passages for a figure") }}</td>{% endif %}
+      <td class="num">{{ f.passages[0] }} / {{ f.passages[1] }}{% if f.share is not none %} <span class="muted small">({{ (100 * f.share)|round|int }} %)</span>{% endif %}</td></tr>
+    {% endif %}{% endfor %}
+    </tbody>
+  {% endcall %}
+  <p class="muted small">{{ de_en("Wortebene: jedes Wort des Transkripts je Kategorie von beiden kodiert oder nicht; Anteil übereinstimmender Wörter und κ nach Cohen (1960), gelesen nach Landis & Koch (1977). Stellenebene: Anteil der Stellen beider, die ein Gegenstück derselben Kategorie mit mindestens {t} % Überlappung haben. Gezählt werden die ersten beiden Kodierenden jeder abgeschlossenen Doppelkodierung; eine Kennzahl erst ab {m} Stellen.", "Word level: every word of the transcript coded or not by both per category; share of agreeing words and κ after Cohen (1960), read after Landis & Koch (1977). Passage level: share of the passages of both that have a counterpart of the same category overlapping by at least {t}%. The first two coders of every finished double coding count; a figure only from {m} passages.", t=threshold, m=min_passages) }}</p>
+  {% else %}
+  <p class="muted">{{ de_en("Noch keine abgeschlossene Doppelkodierung. Weisen Sie ein Interview unter „Interviews dieser Auswertung“ zwei Kodierenden zu; die Kennzahlen erscheinen, wenn beide „Kodierung abgeschlossen“ gemeldet haben.", "No finished double coding yet. Assign an interview to two coders under “Interviews of this analysis”; the figures appear once both have reported “Coding finished”.") }}</p>
+  {% endif %}
+</section>
+
+{% if double %}
+<section class="panel">
+  <h2>{{ de_en("Doppelkodierte Interviews", "Double-coded interviews") }}</h2>
+  <ul>{% for r, e in double %}<li>{{ r.interview.label }}: {% for k in e.coders %}{{ e.names.get(k, k) }}{% if not loop.last %}, {% endif %}{% endfor %} · {% if finished(e) %}<a href="{{ url_for('transcript_coding.compare', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Vergleich", "Comparison") }}</a>{% else %}<span class="muted">{{ de_en("abgeschlossen: {n} von {m}", "finished: {n} of {m}", n=(e.done or [])|length, m=e.coders|length) }}</span>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+<section class="panel">{{ grouped(sources) }}</section>
+{% endblock %}

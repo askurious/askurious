@@ -802,7 +802,7 @@ def new(code):
 @signed_in_or_coder
 def project(code, pid):
     survey, project, who = _in(code, pid)
-    from app import interviewer, transcript_coding_links, transcript_coding_review
+    from app import interviewer, transcript_coding_double, transcript_coding_links, transcript_coding_review
 
     view = request.args.get("view") if request.args.get("view") in VIEWS else "interviews"
     if view == "settings" and not who.team:
@@ -821,6 +821,9 @@ def project(code, pid):
                    proposals_of=lambda c: [e for e in proposals if e.category_id == c.id],
                    notices=transcript_coding_review.notices(project, who),
                    ai_switch=who.team and _ai_on(),
+                   double_of=lambda rid: transcript_coding_double.assignment(project, rid),
+                   double_finished=transcript_coding_double.finished,
+                   double_people=transcript_coding_double.assignable(project, survey) if who.team else [],
                    coded=lambda r: sum(1 for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id))
     if who.team:
         accesses = interviewer.accesses(survey)

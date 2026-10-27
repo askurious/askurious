@@ -33,6 +33,17 @@
   {% elif ai_on_state == "needs_own" %}
   <p class="muted small">{{ de_en("KI-Vorschläge sind in dieser Auswertung erlaubt. Sie laufen nur über einen eigenen KI-Zugang; richten Sie ihn unter „KI-Nutzung“ bzw. Konto › Verbindungen ein.", "AI suggestions are allowed in this analysis. They run only over an own AI access; set it up under “AI usage” or Account › Connections.") }}</p>
   {% endif %}
+  {% if double %}
+  <div class="row-fields">
+    {% if blind %}<p class="small">{{ de_en("Doppelkodierung, blind: Sie sehen hier nur Ihre eigenen Stellen, bis alle „Kodierung abgeschlossen“ gemeldet haben.", "Double coding, blind: you see only your own passages here until everyone has reported “Coding finished”.") }}</p>{% endif %}
+    {% if who.key in double.coders %}
+    <form method="post" action="{{ url_for('transcript_coding.coding_done', code=survey.code, pid=project.id, rid=row.id) }}" class="inline">{{ csrf() }}
+      {% if who.key in (double.done or []) %}<input type="hidden" name="undo" value="1"><button class="button button-small button-secondary">{{ de_en("Doch noch nicht abgeschlossen", "Not finished after all") }}</button>
+      {% else %}<button class="button button-small">{{ de_en("Kodierung abgeschlossen", "Coding finished") }}</button>{% endif %}</form>
+    {% endif %}
+    {% if double_done %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.compare', code=survey.code, pid=project.id, rid=row.id) }}">{{ de_en("Vergleich", "Comparison") }}</a>{% endif %}
+  </div>
+  {% endif %}
   <p class="small" data-tc-status role="status" aria-live="polite"></p>
 </section>
 
