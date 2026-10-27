@@ -4,13 +4,13 @@
 renders; once licence.md has a newer version, the page shows the German text under a note until this file is
 translated again. -#}
 {% from "_terms_pending.html" import pending_head, pending_form with context %}
-{% set translated = "2026-10-23c" %}
+{% set translated = "2026-10-27" %}
 {% if pending %}{{ pending_head(error, changes, older_changes) }}{% endif %}
 <p class="flash terms-binding" lang="en"><strong>This translation is provided for convenience. Only the German version is legally binding.</strong></p>
 {% if version == translated %}
 <article class="panel prose terms" lang="en">
 <h1>Terms of use for researchers</h1>
-<p>Version: 2026-10-23c (English translation of the German version 2026-10-23c)</p>
+<p>Version: 2026-10-27 (English translation of the German version 2026-10-27)</p>
 <p>These terms apply to all researchers who create or edit surveys on this platform with an account (sign-in with an ORCID iD or with an email address and password).
 How the platform processes the data of your account is set out in the <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p>
 <h2 id="abschnitt-1">1. Operator and purpose</h2>
@@ -57,7 +57,7 @@ You obtain the consent to the interview and to the audio recording yourself, in 
 You make an audio recording only if everyone who speaks in the conversation has consented: the interviewee, you or the interviewers and anyone else in the room (section 201 German Criminal Code); you confirm this at the start of every interview with the tick “Consent of everyone who speaks given”. If you upload a recording from a video conference (e.g. Zoom, Microsoft Teams, Webex, BigBlueButton), you follow your institution's rules for these services, upload the sound only and delete the copy at the provider and on your computer as soon as it is on the platform.
 You do not write names in notes, and you pseudonymise transcripts before passing them on or publishing them.
 With an interviewer link (the “Interviews” page of the guide) people without an account conduct interviews on your behalf: you choose these people, oblige them to confidentiality and instruct them (Art. 29 and Art. 32(4) GDPR). The link alone gives access to that person's interviews including audio recordings and transcripts, until they hand the transcript over as checked: you give it only to the person themselves, not to group chats or several people, and block or delete the access when the work ends or a device is lost.</p>
-<p>Diary studies (experimental) are pseudonymous: the entries of one person are linked by a random person identifier, together with the times of the prompts and the time zone of their phone.
+<p>Diary studies are pseudonymous: the entries of one person are linked by a random person identifier, together with the times of the prompts and the time zone of their phone.
 You write the texts of the notifications so that they do not give away the topic; the lock screen does not show them, but once unlocked anyone holding the phone reads them.
 You keep the number and length of the prompts as small as your research question allows, and obtain an ethics approval for intensive data collection or distressing topics.
 You do not pass the test code of a study on to participants.</p>

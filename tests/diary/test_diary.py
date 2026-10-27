@@ -11,7 +11,6 @@ API = "/api/diary/v1"
 
 
 def _new(app, client, running=True):
-    experiments_on(client, "diary")
     page = client.post("/diary/new", data={"title": "Lernen im Alltag", "language": "de"})
     assert page.status_code == 302 and "/setup/researchdesign" in page.headers["Location"]  # on into the wizard
     with app.app_context():
@@ -322,12 +321,15 @@ def test_the_export_has_one_row_per_entry_with_person_part_and_time(app, client)
 
 # --- review 2026-10-11 (pruefung-tagebuchstudie-2026-10-11.md) ---------------------------------------------------
 
-def test_without_the_feature_there_is_no_diary_study(app, client):
+def test_the_diary_study_needs_no_experimental_feature(app, client):
+    """For everyone since 2026-10-27 (Ralf): no experimental switch any more."""
+    from app import experimental
+
     experiments_on(client)
-    assert client.get("/diary/new").status_code == 404
-    assert "kind-diary" not in client.get("/dashboard/").get_data(as_text=True)
-    experiments_on(client, "diary")
-    assert "kind-diary" in client.get("/dashboard/").get_data(as_text=True)
+    assert "diary" not in experimental.KEYS and "offline_interviews" not in experimental.KEYS
+    assert client.get("/diary/new").status_code == 200
+    dash = client.get("/dashboard/").get_data(as_text=True)
+    assert "kind-diary" in dash and "badge-exp" not in dash.split('href="/diary/new"', 1)[1].split("</a>", 1)[0]
 
 
 def test_the_plain_link_leads_to_the_join_page_not_to_the_questionnaire(app, client):
@@ -398,7 +400,7 @@ def test_duplicate_and_file_keep_the_diary_study(app, client):
     experiments_on(client)
     client.post("/surveys/1/duplicate", data={"title": "Noch eine"})
     with app.app_context():
-        assert db.session.scalar(db.select(db.func.count(Survey.id))) == 3  # refused without the feature
+        assert db.session.scalar(db.select(db.func.count(Survey.id))) == 4  # no feature needed since 2026-10-27
 
 
 def test_a_test_person_joins_the_draft_with_the_test_code(app, client):
@@ -976,7 +978,6 @@ def test_dummy_persons_answer_over_their_days(app, client):
 # --- the three parts (Ralf, 2026-10-11): entry survey, short surveys, exit survey ------------------------------------
 
 def test_the_template_ticks_add_demographics_and_an_exit_survey(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Mit allem", "language": "de", "demographics": "1", "exit": "1"})
     client.post("/diary/new", data={"title": "Schlank", "language": "de"})
     with app.app_context():
@@ -989,7 +990,6 @@ def test_the_template_ticks_add_demographics_and_an_exit_survey(app, client):
 
 
 def test_the_editor_shows_each_part_as_a_section(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Teile", "language": "de", "demographics": "1", "exit": "1"})
     page = client.get("/surveys/1/editor/").get_data(as_text=True)
     heads = [page.index(f'id="part-{k}"') for k in ("entry", "m1", "exit")]
@@ -1090,7 +1090,6 @@ def test_a_short_survey_has_no_progress_bar_and_a_short_thanks(app, client):
 
 
 def test_copies_keep_the_exit_survey(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Mit Abschluss", "language": "de", "exit": "1"})
     client.post("/diary/1/schedule", data={"exit_name": "Rückblick", "exit_days": "5", "m1_name": "Moment",
                                            "m1_trigger": "fixed", "m1_times": "09:00"})
@@ -1104,7 +1103,6 @@ def test_copies_keep_the_exit_survey(app, client):
 # --- six improvements after the three parts (Ralf, 2026-10-11) -------------------------------------------------------
 
 def _full(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Teile", "language": "de", "demographics": "1", "exit": "1"})
 
 

@@ -302,7 +302,7 @@ def _consent(survey, doc, ctx):
              "Interviews, mit der Zeit, zu der Sie es gegeben haben, und wie das übrige Interview gelöscht. Angaben zu "
              "Ihrem Gerät und Ihre IP-Adresse werden nicht gespeichert; Ihr Browser erhält nur ein technisch notwendiges "
              "Sitzungs-Cookie für diese Verbindung. Sie können die Aufgaben auch ohne eigenes Gerät lösen.")
-    if _offline(survey):  # interviews without a network (app/interview_offline.py, experimental)
+    if _offline(survey):  # interviews without a network (app/interview_offline.py)
         part("Interview ohne Internetverbindung",
              "Wird das Interview ohne Internetverbindung geführt, bleiben Notizen, Antworten und die Tonaufnahme bis zur "
              "Übertragung verschlüsselt auf dem Gerät der Interviewenden, höchstens sieben Tage, und werden dort nach "

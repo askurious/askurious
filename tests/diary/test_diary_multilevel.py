@@ -10,11 +10,10 @@ from werkzeug.datastructures import MultiDict
 
 from app.extensions import db
 from app.models import Block, Enrolment, Response, Survey, utcnow
-from tests.conftest import add, experiments_on
+from tests.conftest import add
 
 
 def _study(app, client, persons=60):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Stimmung im Alltag", "language": "de"})
     with app.app_context():
         survey = db.session.get(Survey, 1)

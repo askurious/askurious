@@ -6,7 +6,6 @@ import json
 from app import ai, diary
 from app.extensions import db
 from app.models import Survey
-from tests.conftest import experiments_on
 
 DESIGN = {"scheme": "signal", "per_day": 5, "days": 10, "window": ["09:00", "21:00"], "why": "Stimmung schwankt"}
 QUESTIONS = {"questions": [
@@ -21,7 +20,6 @@ NOTES = {"notes": [{"topic": "burden", "text": "Fünf Abfragen über zehn Tage s
 
 
 def _new(app, client):
-    experiments_on(client, "diary")
     client.post("/diary/new", data={"title": "Stress im Studium", "language": "de", "description": "Wie erleben Studierende Stress?",
                                     "demographics": "1", "exit": "1"})
     with app.app_context():

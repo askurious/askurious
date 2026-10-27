@@ -1,5 +1,5 @@
 """Diary studies (Tagebuchstudie; experience sampling, concepts/experiencesampling.md): the fourth kind of survey,
-experimental ("diary", app/experimental.py) until the Android app is in the store (Ralf, 2026-10-11).
+for everyone since 2026-10-27 (experimental "diary" from 2026-10-11 until then, Ralf).
 
 A diary study is a questionnaire with a schedule around it. A person joins in the Android app (QR code or join code,
 app/diary_api.py), answers the entry part once (consent, demographics), and then the modules again and again: at
@@ -1887,13 +1887,11 @@ def sweep(now=None):
 # --- the researchers' pages -------------------------------------------------------------------------------------
 
 def _survey(survey_id, need="viewer"):
-    from app import experimental
     from app.surveys import get_survey
 
     survey = get_survey(survey_id, need=need)
     if survey.sampling is None:
         abort(404)
-    experimental.require("diary", survey=survey)
     return survey
 
 
@@ -1901,12 +1899,11 @@ def _survey(survey_id, need="viewer"):
 @login_required
 def new():
     """A new diary study: the consent and the demographics as entry part, one module "Moment" with one question."""
-    from app import experimental, flow, kind_access, surveys
+    from app import flow, kind_access, surveys
     from app.items.consent import ensure_consent_block
     from app.lang import current
     from app.wizard import add_demographics
 
-    experimental.require("diary")
     refused = kind_access.creation_refused(current_user, "diary")
     if refused:
         return refused

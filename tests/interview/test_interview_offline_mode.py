@@ -8,7 +8,6 @@ from pathlib import Path
 
 from app.extensions import db
 from app.models import Response, Survey, utcnow
-from tests.conftest import experiments_on
 from tests.interview.test_interview import make
 
 STATIC = Path(__file__).parents[2] / "app" / "static"
@@ -17,7 +16,6 @@ WEBM = b"\x1a\x45\xdf\xa3"
 
 def _on(app, client, switch=True):
     code, sid = make(app, client)
-    experiments_on(client, "offline_interviews")
     if switch:
         assert client.post(f"/guide/{code}/offline/switch", data={"on": "1"}).status_code == 302
     return code, sid
@@ -39,14 +37,11 @@ def _sync(client, code, pack, slot, **extra):
     return client.post(f"/guide/{code}/offline/sync", json=body)
 
 
-def test_off_without_the_feature_or_the_switch(app, client):
+def test_off_without_the_switch(app, client):
+    """No experimental feature any more (2026-10-27): only the guide's switch."""
     code, _ = make(app, client)
-    assert client.get(f"/guide/{code}/offline").status_code == 404
-    assert client.post(f"/guide/{code}/offline/pack", json={"n": 2}).status_code == 404
     page = client.get(f"/guide/{code}/interviews").get_data(as_text=True)
-    assert "Offline-Modus" not in page
-    experiments_on(client, "offline_interviews")
-    page = client.get(f"/guide/{code}/interviews").get_data(as_text=True)
+    assert "experimentell" not in page.split("Offline-Modus", 1)[1][:200]
     assert "Offline-Modus für diesen Leitfaden erlauben" in page and "Feldmappe öffnen" not in page
     assert client.get(f"/guide/{code}/offline").status_code == 404   # E6 a: the guide's switch too
 

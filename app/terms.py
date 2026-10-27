@@ -69,6 +69,10 @@ def version():
 # entries since then above the text, each with links to its sections (#abschnitt-N, the headings of licence.md and
 # terms_en.html). A new "Version:" line in licence.md needs its entry here (tests/ui/test_ux_audit9_e.py).
 CHANGES = (
+    ("2026-10-27", "Tagebuchstudien (Abschnitt 3) sind nicht mehr experimentell: für alle Forschenden mit dem Recht, "
+                   "Tagebuchstudien anzulegen.",
+     "Diary studies (section 3) are no longer experimental: for all researchers with the right to create diary "
+     "studies.", (3,)),
     ("2026-10-23c", "Organisationen (Abschnitt 2): Admins können festlegen, dass nur sie Personen von außen in die "
                     "Organisation, ihre Gruppen und Befragungen holen. Konten über einen Einladungslink der Plattform "
                     "können ab der Registrierung befristet sein. Eine Organisation kann die Namen ihrer Mitglieder "

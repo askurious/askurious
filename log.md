@@ -7444,3 +7444,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Ralf: der Link „Später weiter und jetzt zum Zeitplan/Leitfaden“ unter den Schritten von Tagebuchstudie und Interviewleitfaden „kann raus“. Entfernt; wer den Assistenten verlässt, kommt mit „Anlegen fortsetzen“ auf „Meine Befragungen“ zurück. Handbuch angepasst.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Tagebuchstudie und Offline-Interviews nicht mehr experimentell
+
+- Ralf: Tagebuchstudien (samt KI-Assistent) und „Interviews ohne Netz (Offline-Modus)“ sind für alle da. Die Schalter `diary` und `offline_interviews` sind aus `app/experimental.py` entfernt, mit allen Abfragen (Anlegen, Zeitplan-Seiten, Duplizieren, Befragungsdatei, Glossar, Startseite, Offline-Feldmappe). Gespeicherte Schalter und Freigaben dafür werden ignoriert. Das Recht „Anlegen“ je Art (`app/kind_access.py`) gilt weiter.
+- Abzeichen „experimentell“ an Tagebuchstudie und Offline-Modus entfernt; Liste aller Funktionen ohne Markierung.
+- Rechtstexte: Nutzungsbedingungen Version 2026-10-27 (Abschnitt 3 ohne „experimentell“, Änderungseintrag), Datenschutzerklärung (Offline-Modus), Datenschutzkonzept (Tagebuch und Offline-Modus, Stand der Tätigkeiten), Handbuch und Glossar, README.

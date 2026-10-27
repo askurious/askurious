@@ -16,9 +16,7 @@ def _file(client, path):
 
 def test_new_pages_offer_reading_in_a_file(client):
     """The same three cards on every page that makes something new (Ralf, 2026-10-12): the file under "Aus einer Datei"."""
-    from tests.conftest import experiments_on
 
-    experiments_on(client, "diary")
     for page, origin in (("/presenter/new", "live"), ("/guide/new", "leitfaden"), ("/diary/new", "tagebuch")):
         html = client.get(page).data.decode()
         assert html.count('<a class="start-card') == 3 and 'id="import"' not in html
@@ -68,9 +66,7 @@ def test_interview_guide_from_its_own_page(app, client):
 def test_templates_on_their_own_card(app, client):
     """"Aus einer Vorlage" on the pages of a live vote, an interview guide and a diary study (Ralf, 2026-10-12)."""
     from app import diary
-    from tests.conftest import experiments_on
 
-    experiments_on(client, "diary")
     # live: the questions of the template at once, then the step "Fertig"
     html = client.get("/presenter/new?start=vorlage").data.decode()
     assert "Feedback zur Sitzung" in html and 'name="template" value="muddiest"' in html and "wizard-steps" not in html
