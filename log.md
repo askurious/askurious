@@ -7389,3 +7389,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Die Wartungsseite schickte bei eingeschaltetem Schalter Retry-After 30 statt 120 (Ralf). Ursache: `try_files` setzt `$uri` auf die Datei der Seite, und die map `$uri` → Retry-After wurde erst von `add_header` gelesen, also mit dem Dateipfad (immer 30).
 - `wartung.conf` liest den Wert jetzt vor `try_files` (`set $wartung_retry $wartung_retry_nach;`): 120 beim Schalter, 30 beim Ausfall.
 - Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
+
+## 2026-10-27: Nutzertest: Studiendesign, Editor, Skalen, Export
+
+- Studiendesign legt den Fragebogen an (#64, `app/design_layout.py`): Experiment → „Bedingung A/B“ in der Randomisierung „Versuchsbedingung“ (1 von 2), Messwiederholung → beide in zufälliger Reihenfolge, Vignetten → Vignetten-Schleife; einmal je Entwurf, nur ohne vorhandene Randomisierung oder Schleife.
+- Editor (#65): „+ Neuer Block“ unter dem letzten Block statt in der Leiste; ▷ statt Auge für die Vorschau, die Fahne für den Start; Blöcke ein- und ausklappen (je Browser gemerkt); ein Klick in die Zeile öffnet das Element, Drücken und Bewegen zieht es.
+- Skalen (#70): „Aussagen einfügen“ eine je Zeile, auch aus PDFs (`app/item_paste.py`); „Quelle der Items“ bei Likert, Differenzial und Schieberegler mit Warnung in der Startprüfung (`app/item_source.py`); „Items aus den Konstrukten übernehmen“ (ersetzen oder anhängen); „Frühere Antworten einsetzen“ als ruhige Zeile; der Beispieltext beim Fragetext lässt sich markieren und übernehmen.
+- Export: Wahl „Antworten im CSV-Datensatz als Codes oder als Beschriftungen“ (`export.labelled_csv_file`), Beschriftungen aus den Wertelabels des SPSS-Exports; Mehrfachauswahl behält die 0/1-Spalten und bekommt eine Spalte mit den gewählten Optionen.
+- Rechtstexte geprüft, keine Änderung nötig.

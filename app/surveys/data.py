@@ -359,9 +359,14 @@ def export_csv(survey_id, kind):
     if kind == "data":
         from flask import send_file
 
-        body = export.csv_file(survey, include_incomplete=pool["all"], separator=sep, sources=pool["sources"],
-                               speed_sources=pool["sources"], drop_speeders=pool["drop"], scales=with_scales(),
-                           standard=with_standard())
+        if request.args.get("answers") == "labels":  # the answers as their labels (user test 2026-10-27, 12)
+            body = export.labelled_csv_file(survey, include_incomplete=pool["all"], separator=sep, sources=pool["sources"],
+                                            speed_sources=pool["sources"], drop_speeders=pool["drop"], scales=with_scales(),
+                                            standard=with_standard())
+        else:
+            body = export.csv_file(survey, include_incomplete=pool["all"], separator=sep, sources=pool["sources"],
+                                   speed_sources=pool["sources"], drop_speeders=pool["drop"], scales=with_scales(),
+                                   standard=with_standard())
         # "text/csv": the response adds "; charset=utf-8" itself, given twice it stood twice (audit 2026-10-18, INJ-6)
         response = send_file(body, mimetype="text/csv", conditional=False, download_name=export.filename(survey, kind))
         response.headers["Content-Disposition"] = f'attachment; filename="{export.filename(survey, kind)}"'
