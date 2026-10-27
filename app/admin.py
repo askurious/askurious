@@ -651,9 +651,15 @@ def signup_links_action():
     org = orgs.get(request.form.get("org", type=int)) or orgs.get(orgs.default_id())
     if org is None or org.key == orgs.GUEST:
         abort(400)
-    t = account_types.get(request.form.get("account_type"))
-    if t is not None and account_types.org_of(t) != org.id:
-        t = None  # a type of another organisation: the organisation's type for new accounts
+    t = None
+    if request.form.get("account_type"):
+        t = account_types.get(request.form.get("account_type"))
+        if t is None or account_types.org_of(t) != org.id:
+            # the dialog offers only the chosen organisation's types; a type of another one is refused, not swapped
+            flash(de_en("Dieser Nutzertyp gehört nicht zur gewählten Organisation. Bitte wählen Sie einen ihrer Nutzertypen.",
+                        "This user type does not belong to the chosen organisation. Please choose one of its user types."),
+                  "error")
+            return redirect(back)
     uses, days = request.form.get("max_uses", type=int), request.form.get("days", type=int)
     if uses not in signup_links.USES or days not in signup_links.DAYS:
         abort(400)
