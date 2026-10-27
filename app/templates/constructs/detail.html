@@ -67,8 +67,22 @@
 </section>
 {% endif %}
 
+{# short and long versions of the same instrument side by side (app/construct_families.py; user test 2026-10-27, 13) #}
+{% if versions|length > 1 %}
+<section class="panel" id="fassungen">
+  <h2>{{ de_en("Fassungen", "Versions") }} <span class="hint">{{ family[0] }}</span></h2>
+  <div class="table-scroll"><table class="list-table">
+    <thead><tr><th>{{ de_en("Fassung", "Version") }}</th><th>{{ de_en("Konstrukt", "Construct") }}</th><th class="num">Items</th><th class="num">{{ de_en("Stufen", "Points") }}</th><th>{{ de_en("Quelle", "Source") }}</th></tr></thead>
+    <tbody>{% for o, v in versions %}<tr{% if o.key == c.key %} class="is-current"{% endif %}>
+      <td>{{ v or "–" }}</td>
+      <td>{% if o.key == c.key %}<strong>{{ o.name }}</strong> <span class="hint">{{ de_en("diese Seite", "this page") }}</span>{% else %}<a href="{{ url_for('constructs.detail', key=o.key, survey=survey.id if survey else none) }}">{{ o.name }}</a>{% endif %}</td>
+      <td class="num">{{ o.n_items }}</td><td class="num">{{ o.points or "–" }}</td><td>{{ o.author_year }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+
 {% if survey %}
-<section class="panel">
+<section class="panel" id="einfuegen">
   <h2>{{ de_en("In „{title}“ einfügen", "Insert into “{title}”", title=survey.title) }}</h2>
   {% if not insert_allowed %}
   <p class="muted">{{ permission_notice }}</p>
@@ -86,6 +100,20 @@
   {% else %}
   <p class="muted">{{ de_en("Noch kein Block für Fragen vorhanden. Legen Sie im Fragebogen zuerst einen Block an.", "No block for questions yet. First add a block in the questionnaire.") }}</p>
   {% endif %}
+</section>
+{% elif drafts %}
+{# opened from the list, not from the editor: first the questionnaire, then the block (user test 2026-10-27, 13) #}
+<section class="panel" id="einfuegen">
+  <h2>{{ de_en("In eine Befragung einfügen", "Insert into a survey") }}</h2>
+  <form method="get" action="{{ url_for('constructs.detail', key=c.key) }}#einfuegen" class="row">
+    {% if request.args.get("lang") %}<input type="hidden" name="lang" value="{{ request.args.get('lang') }}">{% endif %}
+    <label>{{ de_en("Befragung", "Survey") }} <select name="survey" required>
+      <option value="">{{ de_en("– Entwurf wählen –", "– choose a draft –") }}</option>
+      {% for s in drafts %}<option value="{{ s.id }}">{{ s.title }}</option>{% endfor %}
+    </select></label>
+    <button class="button button-secondary">{{ de_en("Weiter zur Blockwahl", "On to the block") }}</button>
+  </form>
+  <p class="muted small">{{ de_en("Entwürfe, in denen Sie bearbeiten dürfen; laufende Befragungen nehmen nichts mehr auf.", "Drafts you may edit; running surveys take nothing new.") }}</p>
 </section>
 {% endif %}
 

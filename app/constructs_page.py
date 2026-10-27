@@ -20,6 +20,20 @@ def _context_survey():
     return get_survey(sid) if sid and current_user.is_authenticated else None
 
 
+def _drafts(user):
+    """The questionnaires the person may build in, newest first: where a construct opened from the list can go
+    (user test 2026-10-27, point 13; before, inserting needed the page to be opened from the editor)."""
+    from app import access
+    from app.extensions import db
+    from app.models import Survey, SurveyMember
+
+    rows = db.session.scalars(db.select(Survey).filter(Survey.id.in_(access.survey_ids(user)), Survey.status == Survey.DRAFT)
+                              .order_by(Survey.id.desc()))
+    rows = [s for s in rows if s.kind == "survey" and s.live is None]
+    roles = access.roles_of_user(user, rows)
+    return [s for s in rows if roles[s.id] is not None and SurveyMember.LEVEL[roles[s.id]] >= SurveyMember.LEVEL["editor"]]
+
+
 def _target_blocks(survey):
     from app.editor import _is_consent_block
 
@@ -44,13 +58,17 @@ def index():
         words = q.lower().split()
         linked_list = [c for c in linked_list
                        if all(w in " ".join((c.name, (c.spec or {}).get("code", ""), c.search_text or "")).lower() for w in words)]
+    from app import construct_families
+
+    families = construct_families.all_()  # the other versions on each card (user test 2026-10-27, point 13)
     return render_template(
         "constructs/index.html", q=q, selected=selected, rows=[constructs.shown(c) for c in rows], facets=constructs.facets(),
         tag_name=constructs.tag_name,
         counts=constructs.facet_counts(rows, q, selected), all_tags=constructs.all_tags(), total=len(constructs.search()),
         cite_counts={} if guest else citations.counts(),
         survey=survey, stars=set() if guest else constructs.starred(current_user), linked_list=linked_list, own_only=own_only,
-        has_linked=bool(linked_list) or own_only,
+        has_linked=bool(linked_list) or own_only, families=families,
+        family_names={k: constructs.shown_text(constructs.get(k), "name") for k in families if constructs.get(k)},
     )
 
 
@@ -382,6 +400,13 @@ def detail(key):
     if not guest and orgs.several():  # counted only over surveys of one's own organisations (app/orgs.py, A14)
         mine = orgs.ids_of(current_user)
         uses = [(item, s) for item, s in uses if orgs.of(s) in mine]
+    from app import construct_families
+
+    known = construct_families.all_()
+    family = construct_families.of(c.key, known)
+    # the versions of the family side by side, this one first (user test 2026-10-27, point 13)
+    versions = [(constructs.shown(o), v) for o, v in ([(c, family[1])] if family else [])
+                + [(constructs.get(k), v) for k, v in construct_families.siblings(c.key, known)] if o is not None]
     return render_template(
         "constructs/detail.html", c=constructs.shown(c), lang=lang, texts=c.spec["texts"][lang], config=c.spec["config"],
         languages=LANGUAGE_NAMES, facets=constructs.facets(), tag_name=constructs.tag_name, survey=survey, blocks=_target_blocks(survey),
@@ -393,6 +418,8 @@ def detail(key):
         and constructs.permitted(c.key, survey, current_user, [lang]),
         insert_allowed=constructs.permitted(c.key, survey, current_user),
         permission_required=c.key in constructs.PERMISSION_REQUIRED, permission_notice=constructs.permission_notice(),
+        drafts=_drafts(current_user) if not guest and survey is None else [],
+        family=family, versions=versions,
     )
 
 

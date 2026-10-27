@@ -200,8 +200,29 @@ def construct_pool_detail(key):
         abort(404)
     from app import citations
 
+    from app import construct_families
+
     return render_template("admin/construct_pool.html", c=constructs.shown(c), r=construct_pool.report(c), sources=construct_pool.sources(),
-                           cited=citations.listing(c))
+                           cited=citations.listing(c), family=construct_families.of(c.key))
+
+
+@bp.route("/constructs/<key>/family", methods=["POST"])
+def construct_family(key):
+    """The family and version of a construct: short and long versions linked (app/construct_families.py; user test
+    2026-10-27, point 13)."""
+    from app import construct_families, constructs
+    from app.extensions import db
+    from app.models import Construct
+
+    c = db.session.scalar(db.select(Construct).filter(Construct.key == key))
+    if c is None or constructs.is_linked_key(c.key):
+        abort(404)
+    if construct_families.put(c.key, request.form.get("family"), request.form.get("version"), current_user):
+        db.session.commit()
+        flash(de_en("Fassung gespeichert.", "Version saved."), "success")
+    else:
+        flash(de_en("Der Schlüssel des Konstrukts ist zu lang für eine Familie.", "The key of the construct is too long for a family."), "error")
+    return redirect(url_for("admin.construct_pool_detail", key=key) + "#fassung")
 
 
 @bp.route("/constructs/<key>/citations", methods=["POST"])
