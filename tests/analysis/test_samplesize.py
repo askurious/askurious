@@ -15,6 +15,18 @@ def test_calculator_page_and_menu_link(app, client, survey):
     assert 'href="/sample-size/"' in client.get("/dashboard/", follow_redirects=True).data.decode()
 
 
+def test_decimal_fields_take_a_comma(client):
+    """User test 2026-10-27: a number field takes no decimal comma, "0,3" became nothing or d = 3. Decimal fields are
+    text fields with the decimal keyboard and show their value with a comma in German."""
+    import re
+
+    html = client.get("/sample-size/?design=anova&f=0.4").data.decode()
+    fields = re.findall(r'<input[^>]*data-ss="(?:effect|f|w|r2|alpha0|rho|icc)"[^>]*>', html)
+    assert len(fields) == 7 and all('type="text" inputmode="decimal"' in f for f in fields)
+    assert 'value="0,4" data-ss="f"' in html and 'value="0,5" data-ss="effect"' in html
+    assert not re.search(r'type="number"[^>]*step="0', html)
+
+
 def test_linked_from_status_with_conjoint_values_and_apply(app, client, survey):
     add(client, "conjoint")                                         # item 2
     client.post("/surveys/1/editor/items/2", data=MultiDict([("code", "cbc"), ("tasks", "10"), ("alternatives", "3")]))

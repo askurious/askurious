@@ -968,7 +968,8 @@
   box.querySelectorAll("[data-ss-set]").forEach(function (b) {
     b.addEventListener("click", function () {
       var kv = b.dataset.ssSet.split("=");
-      box.querySelector('[data-ss="' + kv[0] + '"]').value = kv[1];
+      // in German with a decimal comma, as the fields show it (user test 2026-10-27)
+      box.querySelector('[data-ss="' + kv[0] + '"]').value = document.documentElement.lang === "en" ? kv[1] : kv[1].replace(".", ",");
       calc();
       later();
     });

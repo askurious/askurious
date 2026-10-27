@@ -3,6 +3,8 @@
 {% from "_macros.html" import csrf %}
 {% from "_learn.html" import why, term %}
 {% from "_sample.html" import sample_line %}
+{# decimal fields as text: a number field takes no decimal comma (user test 2026-10-27) #}
+{% macro dec(x) -%}{{ ("%g"|format(x|float)) if ui_language() == "en" else ("%g"|format(x|float)).replace(".", ",") }}{%- endmacro %}
 {% block title %}{{ de_en("Stichprobengröße", "Sample size") }}{% endblock %}
 {% block content %}
 {% if survey %}
@@ -52,11 +54,11 @@
         <input type="number" min="2" value="200" data-ss="avail"></label>
 
       <div class="ss-input" data-ss-for="groups paired corr" data-ss-mode="n"><span class="ss-name"><label for="ss-effect"><span data-ss-for="groups">{{ de_en("Effektstärke", "Effect size") }} <em>d</em></span><span data-ss-for="paired">{{ de_en("Effektstärke", "Effect size") }} <em>d</em> <span class="hint">{{ de_en("wie zwischen Gruppen", "as between groups") }}</span></span><span data-ss-for="corr">{{ de_en("Korrelation", "Correlation") }} <em>r</em></span></label><span data-ss-for="groups">{{ term("d", "") }}</span></span>
-        <input type="number" step="0.01" min="0.01" max="3" value="{{ prefill.effect or 0.5 }}" data-ss="effect" id="ss-effect"></div>
+        <input type="text" inputmode="decimal" value="{{ dec(prefill.effect or 0.5) }}" data-ss="effect" id="ss-effect"></div>
       <label data-ss-for="anova factorial rm" data-ss-mode="n"><span class="ss-name">{{ de_en("Effektstärke", "Effect size") }} <em>f</em></span>
-        <input type="number" step="0.01" min="0.01" max="2" value="{{ prefill.f or 0.25 }}" data-ss="f"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(prefill.f or 0.25) }}" data-ss="f"></label>
       <label data-ss-for="chi2" data-ss-mode="n"><span class="ss-name">{{ de_en("Effektstärke", "Effect size") }} <em>w</em></span>
-        <input type="number" step="0.01" min="0.01" max="2" value="{{ prefill.w or 0.3 }}" data-ss="w"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(prefill.w or 0.3) }}" data-ss="w"></label>
       <div class="ss-presets" data-ss-for="anova factorial rm" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Effektstärken f', 'usual effect sizes f') }}">
         <button type="button" class="button button-secondary" data-ss-set="f=0.10">{{ small }} {{ de_en("0,10", "0.10") }}</button>
         <button type="button" class="button button-secondary" data-ss-set="f=0.25">{{ medium }} {{ de_en("0,25", "0.25") }}</button>
@@ -75,9 +77,9 @@
         <button type="button" class="button button-secondary" data-ss-set="w=0.5">{{ large }} {{ de_en("0,5", "0.5") }}</button></div>
 
       <label data-ss-for="props"><span class="ss-name">{{ de_en("Anteil in Gruppe 1 (%)", "Proportion in group 1 (%)") }}</span>
-        <input type="number" min="0.1" max="99.9" step="0.1" value="50" data-ss="p1"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(50) }}" data-ss="p1"></label>
       <label data-ss-for="props" data-ss-mode="n"><span class="ss-name">{{ de_en("erwarteter Anteil in Gruppe 2 (%)", "expected proportion in group 2 (%)") }}</span>
-        <input type="number" min="0.1" max="99.9" step="0.1" value="60" data-ss="p2"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(60) }}" data-ss="p2"></label>
 
       <label data-ss-for="factorial"><span class="ss-name">{{ de_en("Stufen von Faktor A", "Levels of factor A") }}</span>
         <input type="number" min="2" max="10" value="2" data-ss="fa"></label>
@@ -94,9 +96,9 @@
       <label data-ss-for="equiv"><span class="ss-name">Design</span>
         <select data-ss="eqdesign" data-ss-text><option value="groups" selected>{{ de_en("zwei unabhängige Gruppen", "two independent groups") }}</option><option value="paired">{{ de_en("dieselben Personen zweimal", "the same people twice") }}</option></select></label>
       <label data-ss-for="equiv" data-ss-mode="n"><span class="ss-name">{{ de_en("Äquivalenzgrenzen ± (in", "Equivalence bounds ± (in") }} <em>d</em>)</span>
-        <input type="number" step="0.01" min="0.01" max="3" value="0.5" data-ss="bound"> <span class="hint">{{ de_en("kleinster Unterschied, der zählt", "smallest difference that matters") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.5) }}" data-ss="bound"> <span class="hint">{{ de_en("kleinster Unterschied, der zählt", "smallest difference that matters") }}</span></label>
       <label data-ss-for="equiv"><span class="ss-name">{{ de_en("erwarteter wahrer Unterschied (in", "expected true difference (in") }} <em>d</em>)</span>
-        <input type="number" step="0.01" min="0" max="3" value="0" data-ss="truediff"> <span class="hint">{{ de_en("meist 0", "usually 0") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0) }}" data-ss="truediff"> <span class="hint">{{ de_en("meist 0", "usually 0") }}</span></label>
 
       <label data-ss-for="rm"><span class="ss-name">{{ de_en("Messungen je Person", "Measurements per person") }}</span>
         <input type="number" min="2" max="20" value="3" data-ss="meas"></label>
@@ -105,16 +107,16 @@
       <label data-ss-for="rm"><span class="ss-name">{{ de_en("Getesteter Effekt", "Tested effect") }}</span>
         <select data-ss="rmeffect" data-ss-text><option value="within" selected>{{ de_en("Zeit (innerhalb der Personen)", "Time (within people)") }}</option><option value="between">{{ de_en("Gruppen (zwischen den Personen)", "Groups (between people)") }}</option><option value="inter">{{ de_en("Wechselwirkung Zeit × Gruppe", "Interaction time × group") }}</option></select></label>
       <label data-ss-for="rm"><span class="ss-name">{{ de_en("Sphärizität ε", "Sphericity ε") }}</span>
-        <input type="number" step="0.05" min="0.05" max="1" value="1" data-ss="eps"> <span class="hint">{{ de_en("1 = erfüllt; untere Grenze 1/(Messungen − 1)", "1 = met; lower bound 1/(measurements − 1)") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(1) }}" data-ss="eps"> <span class="hint">{{ de_en("1 = erfüllt; untere Grenze 1/(Messungen − 1)", "1 = met; lower bound 1/(measurements − 1)") }}</span></label>
 
       <label data-ss-for="reg"><span class="ss-name">{{ de_en("Prädiktoren im Modell", "Predictors in the model") }}</span>
         <input type="number" min="1" max="50" value="5" data-ss="preds"></label>
       <label data-ss-for="reg"><span class="ss-name">{{ de_en("davon getestet", "of which tested") }}</span>
         <input type="number" min="1" max="50" placeholder="{{ de_en('alle', 'all') }}" data-ss="tested"> <span class="hint">{{ de_en("leer = R² des ganzen Modells", "empty = R² of the whole model") }}</span></label>
       <label data-ss-for="reg" data-ss-mode="n"><span class="ss-name">{{ de_en("erwartetes R² des Modells", "expected R² of the model") }}</span>
-        <input type="number" step="0.01" min="0.001" max="0.99" value="0.13" data-ss="r2"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.13) }}" data-ss="r2"></label>
       <label data-ss-for="reg" data-ss-mode="n"><span class="ss-name">{{ de_en("Zuwachs ΔR² der getesteten", "Increase ΔR² of the tested ones") }}</span>
-        <input type="number" step="0.01" min="0.001" max="0.99" placeholder="{{ de_en('nur bei Teilmenge', 'only for a subset') }}" data-ss="dr2"></label>
+        <input type="text" inputmode="decimal" placeholder="{{ de_en('nur bei Teilmenge', 'only for a subset') }}" data-ss="dr2"></label>
       <div class="ss-presets" data-ss-for="reg" data-ss-mode="n" role="group" aria-label="{{ de_en('übliche Werte für R²', 'usual values of R²') }}">
         <button type="button" class="button button-secondary" data-ss-set="r2=0.02">{{ small }} {{ de_en("0,02", "0.02") }}</button>
         <button type="button" class="button button-secondary" data-ss-set="r2=0.13">{{ medium }} {{ de_en("0,13", "0.13") }}</button>
@@ -123,31 +125,31 @@
       <label data-ss-for="alpha"><span class="ss-name">{{ de_en("Items der Skala", "Items of the scale") }}</span>
         <input type="number" min="2" max="200" value="10" data-ss="items"></label>
       <label data-ss-for="alpha"><span class="ss-name">{{ de_en("α, das widerlegt werden soll (α₀)", "α to be refuted (α₀)") }}</span>
-        <input type="number" step="0.01" min="0.01" max="0.99" value="0.7" data-ss="alpha0"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.7) }}" data-ss="alpha0"></label>
       <label data-ss-for="alpha"><span class="ss-name">{{ de_en("erwartetes α (α₁)", "expected α (α₁)") }}</span>
-        <input type="number" step="0.01" min="0.01" max="0.99" value="0.8" data-ss="alpha1"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.8) }}" data-ss="alpha1"></label>
 
       <label data-ss-for="sem"><span class="ss-name">{{ de_en("Freiheitsgrade des Modells", "Degrees of freedom of the model") }}</span>
         <input type="number" min="1" max="5000" value="{{ prefill.df or 50 }}" data-ss="semdf"> <span class="hint">{{ de_en("Studienplan oder SEM-Ausgabe: df", "research plan or SEM output: df") }}</span></label>
       <label data-ss-for="sem"><span class="ss-name">{{ de_en("RMSEA bei gutem Fit (ε₀)", "RMSEA of close fit (ε₀)") }}</span>
-        <input type="number" step="0.01" min="0" max="0.2" value="0.05" data-ss="eps0"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.05) }}" data-ss="eps0"></label>
       <label data-ss-for="sem"><span class="ss-name">{{ de_en("RMSEA bei schlechtem Fit (ε₁)", "RMSEA of poor fit (ε₁)") }}</span>
-        <input type="number" step="0.01" min="0.01" max="0.3" value="0.08" data-ss="eps1"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.08) }}" data-ss="eps1"></label>
       <label data-ss-for="{{ tests }} alpha sem pairedcmp"><span class="ss-name">{{ de_en("Signifikanzniveau α", "Significance level α") }}</span>
         {# a hypothesis of a study plan with Holm's correction opens with α / k (PA-5) #}
         <select data-ss="alpha">{% if holm %}<option value="{{ holm.value }}" selected>{% if holm.k %}{{ de_en("{a} (Holm, {k} Hypothesen)", "{a} (Holm, {k} hypotheses)", a=holm.text, k=holm.k) }}{% else %}{{ holm.text }}{% endif %}</option>{% endif %}{% for level, de, en in [(0.05, ",05", ".05"), (0.01, ",01", ".01"), (0.1, ",10", ".10")] %}<option value="{{ level }}" {% if not holm and level == (prefill.alpha or 0.05) %}selected{% endif %}>{{ de_en(de, en) }}</option>{% endfor %}</select></label>
       <label data-ss-for="{{ tests }} alpha sem pairedcmp"><span class="ss-name">{{ de_en("Power", "Power") }}</span>
         <select data-ss="power">{% for level in (0.8, 0.9, 0.95) %}<option value="{{ level }}" {% if level == (prefill.power or 0.8) %}selected{% endif %}>{{ (level * 100)|round|int|pctsign }}</option>{% endfor %}</select></label>
       <label data-ss-for="groups props"><span class="ss-name">{{ de_en("Größenverhältnis Gruppe 2 : Gruppe 1", "Size ratio group 2 : group 1") }}</span>
-        <input type="number" step="0.1" min="0.1" max="10" value="1" data-ss="ratio"> <span class="hint">{{ de_en("1 = gleich groß, 2 = doppelt so viele", "1 = equal size, 2 = twice as many") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(1) }}" data-ss="ratio"> <span class="hint">{{ de_en("1 = gleich groß, 2 = doppelt so viele", "1 = equal size, 2 = twice as many") }}</span></label>
       <label class="check ss-wide" data-ss-for="{{ sided }}"><input type="checkbox" data-ss="onesided"> {{ de_en("einseitig", "one-sided") }} <span class="hint">{{ de_en("nur mit gerichteter Hypothese", "only with a directional hypothesis") }}</span></label>
 
       <label data-ss-for="prop" data-ss-mode="n"><span class="ss-name">{{ de_en("Fehlerspanne ± (Prozentpunkte)", "Margin of error ± (percentage points)") }}</span>
-        <input type="number" min="0.5" max="25" step="0.5" value="5" data-ss="margin"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(5) }}" data-ss="margin"></label>
       <label data-ss-for="mean"><span class="ss-name">{{ de_en("erwartete Standardabweichung", "expected standard deviation") }}</span>
-        <input type="number" step="0.1" min="0.01" value="1" data-ss="sd"> <span class="hint">{{ de_en("z. B. 1 auf einer Skala von 1 bis 5", "e.g. 1 on a scale from 1 to 5") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(1) }}" data-ss="sd"> <span class="hint">{{ de_en("z. B. 1 auf einer Skala von 1 bis 5", "e.g. 1 on a scale from 1 to 5") }}</span></label>
       <label data-ss-for="mean" data-ss-mode="n"><span class="ss-name">{{ de_en("Fehlerspanne ± (Skalenpunkte)", "Margin of error ± (scale points)") }}</span>
-        <input type="number" step="0.01" min="0.01" value="0.1" data-ss="emargin"></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.1) }}" data-ss="emargin"></label>
       <label data-ss-for="prop mean"><span class="ss-name">{{ de_en("Vertrauensniveau", "Confidence level") }}</span>
         <select data-ss="conf"><option value="0.9">{{ 90|pctsign }}</option><option value="0.95" selected>{{ 95|pctsign }}</option><option value="0.99">{{ 99|pctsign }}</option></select></label>
       <label data-ss-for="prop"><span class="ss-name">{{ de_en("erwarteter Anteil (%)", "expected proportion (%)") }}</span>
@@ -167,7 +169,7 @@
       <label data-ss-for="pairedcmp"><span class="ss-name">{{ de_en("Paare je Person", "Pairs per person") }}</span>
         <input type="number" min="1" max="190" value="{{ paired.pairs if paired else 28 }}" data-ss="pcp"></label>
       <label data-ss-for="pairedcmp"><span class="ss-name">{{ de_en("kleinster Effekt δ (Logit)", "smallest effect δ (logit)") }}</span>
-        <input type="number" step="0.05" min="0.01" max="5" value="0.2" data-ss="pcdelta"> <span class="hint">{{ de_en("Abweichung einer Option vom Mittel aller, die von 0 verschieden sein soll", "deviation of an option from the mean of all that is to differ from 0") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.2) }}" data-ss="pcdelta"> <span class="hint">{{ de_en("Abweichung einer Option vom Mittel aller, die von 0 verschieden sein soll", "deviation of an option from the mean of all that is to differ from 0") }}</span></label>
       <label data-ss-for="maxdiff"><span class="ss-name">{{ de_en("Aussagen", "Statements") }}</span>
         <input type="number" min="4" max="300" value="{{ maxdiff.statements if maxdiff else 12 }}" data-ss="mdk"></label>
       <label data-ss-for="maxdiff"><span class="ss-name">{{ de_en("Aussagen je Set", "Statements per set") }}</span>
@@ -183,7 +185,7 @@
         <input type="number" min="1" max="1000" value="5" data-ss="vdeck"> <span class="hint">{{ de_en("Vorgabe 5 (Festlegung von Askurious)", "default 5 (set by Askurious)") }}</span></label>
 
       <label data-ss-for="paired rm equiv"><span class="ss-name">{{ de_en("Korrelation der Messungen ρ", "Correlation of the measurements ρ") }}</span>
-        <input type="number" step="0.05" min="-0.95" max="0.95" value="0.5" data-ss="rho"> <span class="hint"><span data-ss-for="equiv">{{ de_en("nur bei denselben Personen; ", "only for the same people; ") }}</span>{{ de_en("aus Vorstudien, 0,5 ohne Anhaltspunkt", "from pilot data, 0.5 without any clue") }}</span></label>
+        <input type="text" inputmode="decimal" value="{{ dec(0.5) }}" data-ss="rho"> <span class="hint"><span data-ss-for="equiv">{{ de_en("nur bei denselben Personen; ", "only for the same people; ") }}</span>{{ de_en("aus Vorstudien, 0,5 ohne Anhaltspunkt", "from pilot data, 0.5 without any clue") }}</span></label>
       <label data-ss-for="anova"><span class="ss-name">{{ de_en("Gruppen / Versuchsbedingungen", "Groups / experimental conditions") }}</span>
         <input type="number" min="2" max="20" value="{{ prefill.groups or 3 }}" data-ss="groups"> <span class="hint">{{ de_en("zwischen den Personen, gleich groß", "between people, of equal size") }}</span></label>
       <label data-ss-mode="n"><span class="ss-name">{{ de_en("erwartete Ausschlüsse (%)", "expected exclusions (%)") }}</span>
@@ -197,7 +199,7 @@
         <script type="application/json" data-ss-choice-data>{{ cp|tojson }}</script>
         <div class="ss-choice-fields">
           <label><span class="ss-name">{{ de_en("kleinster Effekt δ (Logit)", "smallest effect δ (logit)") }}</span>
-            <input type="number" step="0.05" min="0.01" max="5" value="0.2" data-ss-choice="delta"> <span class="hint">{{ de_en("Abweichung einer Stufe vom Mittel ihres Merkmals, die von 0 verschieden sein soll", "deviation of a level from the mean of its attribute that is to differ from 0") if key == "conjoint" else de_en("Abweichung einer Aussage vom Mittel aller, die von 0 verschieden sein soll", "deviation of a statement from the mean of all that is to differ from 0") }}</span></label>
+            <input type="text" inputmode="decimal" value="{{ dec(0.2) }}" data-ss-choice="delta"> <span class="hint">{{ de_en("Abweichung einer Stufe vom Mittel ihres Merkmals, die von 0 verschieden sein soll", "deviation of a level from the mean of its attribute that is to differ from 0") if key == "conjoint" else de_en("Abweichung einer Aussage vom Mittel aller, die von 0 verschieden sein soll", "deviation of a statement from the mean of all that is to differ from 0") }}</span></label>
           <label><span class="ss-name">{{ de_en("Power", "Power") }}</span>
             <select data-ss-choice="power"><option value="0.8" selected>80 %</option><option value="0.9">90 %</option><option value="0.95">95 %</option></select></label>
         </div>
@@ -216,11 +218,11 @@
         <summary>{{ de_en("Klumpen, Gewichtung, Teilgruppe", "Clusters, weighting, subgroup") }}</summary>
         <div class="ss-inputs">
           <label><span class="ss-name">{{ de_en("Personen je Klumpen", "People per cluster") }}</span>
-            <input type="number" min="1" step="0.1" placeholder="{{ de_en('keine Klumpen', 'no clusters') }}" data-ss="cluster"> <span class="hint">{{ de_en("z. B. Schülerinnen und Schüler je Klasse", "e.g. pupils per class") }}</span></label>
+            <input type="text" inputmode="decimal" placeholder="{{ de_en('keine Klumpen', 'no clusters') }}" data-ss="cluster"> <span class="hint">{{ de_en("z. B. Schülerinnen und Schüler je Klasse", "e.g. pupils per class") }}</span></label>
           <label><span class="ss-name">{{ de_en("Intraklassenkorrelation (ICC)", "Intraclass correlation (ICC)") }}</span>
-            <input type="number" min="0" max="0.99" step="0.01" placeholder="{{ de_en('z. B. 0,05', 'e.g. 0.05') }}" data-ss="icc"> <span class="hint">{{ de_en("Ähnlichkeit innerhalb eines Klumpens", "similarity within a cluster") }}</span></label>
+            <input type="text" inputmode="decimal" placeholder="{{ de_en('z. B. 0,05', 'e.g. 0.05') }}" data-ss="icc"> <span class="hint">{{ de_en("Ähnlichkeit innerhalb eines Klumpens", "similarity within a cluster") }}</span></label>
           <label><span class="ss-name">{{ de_en("Variationskoeffizient der Gewichte", "Coefficient of variation of the weights") }}</span>
-            <input type="number" min="0" max="10" step="0.05" placeholder="{{ de_en('ungewichtet', 'unweighted') }}" data-ss="cv"> <span class="hint">{{ de_en("Standardabweichung / Mittelwert der Gewichte", "standard deviation / mean of the weights") }}</span></label>
+            <input type="text" inputmode="decimal" placeholder="{{ de_en('ungewichtet', 'unweighted') }}" data-ss="cv"> <span class="hint">{{ de_en("Standardabweichung / Mittelwert der Gewichte", "standard deviation / mean of the weights") }}</span></label>
           <label><span class="ss-name">{{ de_en("kleinste getrennt ausgewertete Teilgruppe (%)", "smallest subgroup analysed separately (%)") }}</span>
             <input type="number" min="1" max="100" placeholder="{{ de_en('alle', 'all') }}" data-ss="share"> <span class="hint">{{ de_en("das Ziel gilt dann für diese Teilgruppe", "the target then applies to this subgroup") }}</span></label>
         </div>
