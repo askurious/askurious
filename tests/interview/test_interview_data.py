@@ -329,7 +329,7 @@ def test_project_for_qda_programs(app, client):
     client.post(f"/guide/{code}/interviews/{r1}/form", data={f"i{age.id}": "57"})
     client.post(f"/guide/{code}/interviews/{r1}/transcript/upload",
                 data={"file": (io.BytesIO("I: Erzählen Sie. #00:00:09-0#".encode()), "I01.txt")}, content_type="multipart/form-data")
-    assert "project.qdpx" in client.get(f"/guide/{code}/interviews/analysis").data.decode()
+    assert "project.qdpx" in client.get(f"/guide/{code}/export").data.decode()
     data = client.get(f"/guide/{code}/interviews/project.qdpx").data
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         names = z.namelist()

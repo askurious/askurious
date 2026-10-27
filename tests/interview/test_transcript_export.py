@@ -106,7 +106,7 @@ def test_all_transcripts_as_zip(app, client):
     r = client.get(f"/guide/{code}/interviews/transcripts.zip?format=both")
     names = sorted(zipfile.ZipFile(io.BytesIO(r.data)).namelist())
     assert names == [f"{code}-KFZ_42-transkript.docx", f"{code}-KFZ_42-transkript.pdf"]
-    assert "transcripts.zip" in client.get(f"/guide/{code}/interviews/analysis").data.decode()
+    assert "transcripts.zip" in client.get(f"/guide/{code}/export").data.decode()
 
 
 def test_turns_keep_speakers_and_drop_marks():
