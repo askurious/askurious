@@ -68,6 +68,12 @@
           <option value="comma">{{ de_en("Komma (R, Python, SPSS)", "Comma (R, Python, SPSS)") }}</option>
           <option value="semicolon">{{ de_en("Semikolon (deutsches Excel)", "Semicolon (German Excel)") }}</option>
         </select></label>
+      {# codes or their labels in the data CSV (user test 2026-10-27, point 12); SPSS, jamovi and R carry both anyway #}
+      {% if not live %}<label class="xp-sep" for="export-answers"><span class="label-title">{{ de_en("Antworten im CSV-Datensatz", "Answers in the CSV data set") }}</span>
+        <select name="answers" id="export-answers">
+          <option value="codes">{{ de_en("als Codes (1, 2, 3 …)", "as codes (1, 2, 3 …)") }}</option>
+          <option value="labels">{{ de_en("als Beschriftungen („stimme eher zu“)", "as labels (“agree somewhat”)") }}</option>
+        </select></label>{% endif %}
     </div>
   </div>
   {# one count line: what the files hold, then the real participations in the field (E4) #}

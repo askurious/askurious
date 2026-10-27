@@ -7376,3 +7376,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf wählte Variante A: In der Übersicht des Assistenten steht „Fehlt noch“ jetzt zuerst, in einem farbig abgesetzten Feld mit Zahl. Jede Zeile sagt, wofür die Angabe gebraucht wird, und hat einen Knopf „Ergänzen in Schritt N“ (hervorgehoben, wenn empfohlen; schlicht, wenn optional).
 - Darunter stehen zwei Spalten mit fetten Überschriften und Zahl: „Schon angegeben“ mit den Werten (etwa „Lizenz: CC BY 4.0“) und „Setzt Askurious automatisch“. `ddi.readiness` liefert dafür Wert, Zweck und Schritt je Zeile.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Nutzertest: Studiendesign, Editor, Skalen, Export
+
+- Studiendesign legt den Fragebogen an (#64, `app/design_layout.py`): Experiment → „Bedingung A/B“ in der Randomisierung „Versuchsbedingung“ (1 von 2), Messwiederholung → beide in zufälliger Reihenfolge, Vignetten → Vignetten-Schleife; einmal je Entwurf, nur ohne vorhandene Randomisierung oder Schleife.
+- Editor (#65): „+ Neuer Block“ unter dem letzten Block statt in der Leiste; ▷ statt Auge für die Vorschau, die Fahne für den Start; Blöcke ein- und ausklappen (je Browser gemerkt); ein Klick in die Zeile öffnet das Element, Drücken und Bewegen zieht es.
+- Skalen (#70): „Aussagen einfügen“ eine je Zeile, auch aus PDFs (`app/item_paste.py`); „Quelle der Items“ bei Likert, Differenzial und Schieberegler mit Warnung in der Startprüfung (`app/item_source.py`); „Items aus den Konstrukten übernehmen“ (ersetzen oder anhängen); „Frühere Antworten einsetzen“ als ruhige Zeile; der Beispieltext beim Fragetext lässt sich markieren und übernehmen.
+- Export: Wahl „Antworten im CSV-Datensatz als Codes oder als Beschriftungen“ (`export.labelled_csv_file`), Beschriftungen aus den Wertelabels des SPSS-Exports; Mehrfachauswahl behält die 0/1-Spalten und bekommt eine Spalte mit den gewählten Optionen.
+- Rechtstexte geprüft, keine Änderung nötig.
