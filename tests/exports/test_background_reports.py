@@ -10,6 +10,11 @@ from app.models import Response, Survey, SurveyMember, utcnow
 from tests.conftest import add, allow
 from tests.dashboards.test_showcase import OTHER, _as
 
+# how long a test waits for the separate process of a background report: starting a Python process and the app takes
+# seconds on Windows, and under a full run with eight workers it took more than 45 (full suite 2026-10-28: 202 instead
+# of 204 at the deadline); the conftest's TEST_TIMEOUT still ends a hanging test
+JOB_WAIT = 180
+
 
 def _answer(app):
     with app.app_context():
@@ -41,7 +46,7 @@ def test_csv_is_created_by_a_separate_process_and_is_identical(app, client, surv
     response = client.get("/surveys/1/export/data.csv")
     assert response.status_code == 202 and children[0].pid != os.getpid()
     url = _poll_url(response)
-    deadline = time.monotonic() + 45
+    deadline = time.monotonic() + JOB_WAIT
     while time.monotonic() < deadline:
         poll = client.get(url, headers={"X-Report-Poll": "1"})
         if poll.status_code != 202:
@@ -112,7 +117,7 @@ def test_binary_exports_are_delivered_after_the_background_job(app, client, surv
     first = client.get(f"/surveys/1/export/{suffix}")
     assert first.status_code == 202
     url = _poll_url(first)
-    deadline = time.monotonic() + 45
+    deadline = time.monotonic() + JOB_WAIT
     while time.monotonic() < deadline:
         poll = client.get(url, headers={"X-Report-Poll": "1"})
         if poll.status_code != 202:
@@ -247,7 +252,7 @@ def test_large_results_are_computed_outside_the_request(app, client, survey):
     first = client.get("/surveys/1/results?go=1")
     assert first.status_code == 202
     url = _poll_url(first)
-    deadline = time.monotonic() + 45
+    deadline = time.monotonic() + JOB_WAIT
     while time.monotonic() < deadline:
         poll = client.get(url, headers={"X-Report-Poll": "1"})
         if poll.status_code != 202:
