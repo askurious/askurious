@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# The whole history of an analysis (app/transcript_coding_review.py, full_history). #}
+{% block title %}{{ de_en("Verlauf", "History") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Verlauf", "History")) %}{% endcall %}
+<section class="panel" id="verlauf">{% include "transcript_coding/_history.html" %}</section>
+{% endblock %}

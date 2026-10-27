@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "_icons.html" import icon %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# Categories × interviews: the number of passages per subcategory and interview (app/transcript_coding_review.py,
+   matrix), also as CSV. #}
+{% block title %}{{ de_en("Kategorie × Interview", "Category × interview") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Kategorie × Interview", "Category × interview")) %}
+  <div><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id, format='csv') }}">{{ icon("download", 16) }} CSV</a></div>
+{% endcall %}
+<section class="panel">
+  {% if cats and rows %}
+  <div class="res-scroll">
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th>{% for r in rows %}<th class="num"><a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ r.interview.label }}</a></th>{% endfor %}<th class="num">{{ de_en("Summe", "Total") }}</th></tr></thead>
+    <tbody>
+    {% for c in cats %}{% set total = namespace(n=0) %}
+    <tr><td>{{ c.name }}{% if c.parent_id %} <span class="muted small">{{ parents.get(c.parent_id, "") }}</span>{% endif %}</td>
+      {% for r in rows %}{% set n = cells.get((c.id, r.id), 0) %}{% set total.n = total.n + n %}<td class="num{% if not n %} muted{% endif %}">{{ n if n else "·" }}</td>{% endfor %}
+      <td class="num"><strong>{{ total.n }}</strong></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% else %}<p class="muted">{{ de_en("Noch keine Unterkategorien oder Transkripte.", "No subcategories or transcripts yet.") }}</p>{% endif %}
+</section>
+{% endblock %}

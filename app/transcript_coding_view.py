@@ -99,12 +99,16 @@ def codings(row, project_id=None):
 def placed(row, project):
     """The codings of `project` in this interview as the page shows them: ({...coding, "start", "end"} placed,
     [codings no longer to be placed])."""
+    from app.transcript_coding import resolver
+
     text = transcript(row)
     ok, lost = [], []
-    cats = {c.id for c in live(project)}
+    resolve = resolver(project)
     for c in codings(row, project.id):
-        if c.get("cat") not in cats:
-            continue  # a category removed or merged away (stage 3 moves its codings first)
+        cat = resolve(c.get("cat"))
+        if cat is None:
+            continue  # a category removed
+        c = {**c, "cat": cat, "orig": c.get("cat")}  # merged ones count for the category they were merged into
         where = place(text, c)
         if where is None:
             lost.append(c)
@@ -193,7 +197,9 @@ def set_anchor(project, who, row, coding_id):
     found = next((c for c in codings(row, project.id) if c.get("id") == coding_id), None)
     if found is None:
         abort(404)
-    cat = db.session.get(CodingCategory, found.get("cat"))
+    from app.transcript_coding import resolver
+
+    cat = db.session.get(CodingCategory, resolver(project)(found.get("cat")) or 0)
     if cat is None or cat.project_id != project.id:
         abort(404)
     if not may_edit(project, cat, who):
@@ -207,10 +213,13 @@ def set_anchor(project, who, row, coding_id):
 
 def counts(project, who):
     """{category id: coded passages} over the interviews the actor sees."""
-    out = {}
+    from app.transcript_coding import resolver
+
+    out, resolve = {}, resolver(project)
     for row in interviews(project, who):
         for c in codings(row, project.id):
-            out[c.get("cat")] = out.get(c.get("cat"), 0) + 1
+            cat = resolve(c.get("cat"))
+            out[cat] = out.get(cat, 0) + 1
     return out
 
 
@@ -269,6 +278,8 @@ def _json_coding(c, project, who):
 @bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>")
 @signed_in_or_coder
 def page(code, pid, rid):
+    from app import transcript_coding_review
+
     survey, project, who = _in(code, pid)
     row = _row(project, who, rid)
     ok, lost = placed(row, project)
@@ -284,7 +295,8 @@ def page(code, pid, rid):
                            lost=[{**_json_coding(c, project, who), "name": names.get(c.get("cat"), "")} for c in lost],
                            categories=cats, nxt=nxt, prev=prev, anchors={c.id: (c.anchor or {}).get("coding") for c in live(project)},
                            editable={c.id: may_edit(project, c, who) for c in live(project)},
-                           may_main=who.team or not project.mains_fixed)
+                           may_main=who.team or not project.mains_fixed,
+                           notices=transcript_coding_review.notices(project, who))
 
 
 def _payload():

@@ -95,6 +95,7 @@ ACTIONS = {
     "transcript_coding.interviewers": "Kodieren: Interviewlinks freigegeben/entfernt",
     "transcript_coding.link_add": "Kodieren: Kodierlink angelegt",
     "transcript_coding.link_change": "Kodieren: Kodierlink geändert",
+    "transcript_coding.project_file": "Kodieren: REFI-QDA-Projekt heruntergeladen",
     "admin.group_action": "Gruppe gelöscht",  # only "delete" (done() in the view); renaming and "darf anlegen" stay out
     # accounts and the database (site admins)
     "admin.new_account": "Konto angelegt",
@@ -173,6 +174,7 @@ ACTIONS_EN = {
     "transcript_coding.interviewers": "Coding: interviewer links given access/removed",
     "transcript_coding.link_add": "Coding: coding link created",
     "transcript_coding.link_change": "Coding: coding link changed",
+    "transcript_coding.project_file": "Coding: REFI-QDA project downloaded",
     "admin.group_action": "Group deleted",
     "admin.new_account": "Account created",
     "admin.block_account": "Account blocked/unblocked",

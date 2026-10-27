@@ -14,6 +14,15 @@
     sync();
   }
 
+  // "Zusammenführen" of a blurring pair (overview.html): the direction chosen sets what goes into what
+  document.addEventListener("change", function (e) {
+    var radio = e.target.closest && e.target.closest("[data-tc-merge]");
+    if (!radio) return;
+    var parts = radio.getAttribute("data-tc-merge").split(":"), f = radio.form;
+    f.elements.target.value = parts[0];
+    f.elements.source.value = parts[1];
+  });
+
   var form = document.querySelector("[data-tc-form]");
   if (!form) return;
   var dialog = form.closest("dialog");
