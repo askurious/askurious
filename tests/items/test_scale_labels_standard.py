@@ -54,3 +54,12 @@ def test_the_standard_for_new_scales_the_check_and_apply_all(app, client, survey
     with app.app_context():
         assert db.session.get(Item, 2).config["points"] == 6
     assert 'id="skalen-standard"' in client.get("/surveys/1").data.decode()
+
+
+def test_the_standard_goes_with_the_survey_file_and_a_duplicate():
+    from app import scale_default, transfer
+
+    assert "scale_default" in transfer.SETTINGS
+    assert scale_default.clean({"points": 6, "anchors": "agree", "labeling": "full", "label_display": "each", "numbers": "1"}) == {
+        "points": 6, "anchors": "agree", "labeling": "full", "label_display": "each", "numbers": "1"}
+    assert scale_default.clean({"points": 99}) is None and scale_default.clean("x") is None
