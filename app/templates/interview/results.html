@@ -16,6 +16,7 @@
     <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code, probe=none if trials else 1) }}">{{ de_en("ohne Probeinterviews", "without trial interviews") if trials else de_en("mit Probeinterviews", "with trial interviews") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('interview_search.page', code=survey.code) }}">{{ de_en("Suche in den Transkripten", "Search in the transcripts") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('interview_summaries.page', code=survey.code) }}">{{ de_en("Fallzusammenfassungen", "Case summaries") }}</a>
+    {% if experimental("transcript_coding", survey) %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ de_en("Kodieren", "Code") }}</a>{% endif %}
   </div>
   {% if not interviews %}<p class="muted">{{ de_en("Noch keine Interviews", "No interviews") }}{{ de_en(" und Probeinterviews", " or trial interviews") if trials else "" }}{{ de_en(". Die Ergebnisse füllen sich, sobald unter", " yet. The results fill up as soon as the first one is saved under") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}">Interviews</a>{{ de_en(" das erste gespeichert ist.", ".") }}</p>{% endif %}
   <ul class="export-rows">

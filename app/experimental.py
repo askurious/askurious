@@ -73,6 +73,12 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Schlüssel, Modell), nie aus dem persönlichen KI-Zugang oder dem der Plattform; seine Herkunft steht in der "
      "Dokumentation der Befragung. Anweisungen an das Modell je Sprache, Grenzen je Gespräch und Tag, ein Hinweis auf "
      "Hilfe bei Krisenwörtern, ein eigenes Häkchen in der Einwilligung."),
+    ("transcript_coding", "Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen",
+     "Unter „Ergebnisse“ eines Interviewleitfadens der Knopf „Kodieren“: Auswertungen mit eigener Forschungsfrage und "
+     "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
+     "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
+     "Namen erscheinen zuerst. Mitkodieren können Personen, Askurious-Gruppen, Interviewende mit ihrem Interviewlink "
+     "(nur eigene Interviews, Häkchen je Auswertung) und Personen ohne Konto über einen Kodierlink mit Ablaufdatum."),
 ]
 KEYS = [key for key, _label, _text in FEATURES]
 FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks them when the page is English
@@ -113,6 +119,13 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                 "address, key, model), never from the personal AI access or the platform's; its origin is part of the "
                 "survey's documentation. Instructions for the model per language, limits per conversation and day, a "
                 "hint to help on crisis words, a tick of its own in the consent."),
+    "transcript_coding": ("Code interviews: assign passages of transcripts to categories together",
+                          "Under “Results” of an interview guide the button “Code”: create analyses with their own "
+                          "research question and category system, from the guide, empty or as a copy. You set the main "
+                          "categories, members add subcategories with a definition, delimitation and author without "
+                          "overwriting each other; similar names show first. People, Askurious groups, interviewers with "
+                          "their interviewer link (only their own interviews, a tick per analysis) and people without an "
+                          "account with a coding link with an expiry date can code along."),
 }
 
 
@@ -229,6 +242,12 @@ def in_use(feature, survey):
         from app import webservice
 
         return bool(webservice.nodes(survey))
+    if feature == "transcript_coding":  # an analysis of the guide's transcripts (app/transcript_coding.py)
+        from app.extensions import db
+        from app.models import CodingProject
+
+        return getattr(survey, "id", None) is not None and db.session.scalar(
+            db.select(CodingProject.id).filter_by(survey_id=survey.id).limit(1)) is not None
     if feature == "agent":  # an AI agent changed the survey (app/agent_tools.py): its team sees the banner and marks
         from app.edit_guard import AGENT_KEY
         from app.extensions import db
@@ -262,6 +281,11 @@ def uses(feature):
                 if isinstance(flow, dict) and '"t": "ws"' in __import__("json").dumps(flow))
     elif feature == "coding":
         n = sum(1 for value in db.session.scalars(db.select(Survey.codings).where(Survey.codings.is_not(None))) if value)
+    elif feature == "transcript_coding":
+        from app.models import CodingProject
+
+        n = db.session.scalar(db.select(db.func.count(db.distinct(CodingProject.survey_id)))) or 0
+        return n, de_en("Interviewleitfaden", "interview guide") if n == 1 else de_en("Interviewleitfäden", "interview guides")
     elif feature == "ainstein":
         n = db.session.scalar(db.select(db.func.count(ResearchProject.id))) or 0
         # "genutzt in 0 Projekten": the dative after "in" (UI/UX audit 2026-10-09, X77)

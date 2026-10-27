@@ -524,6 +524,9 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
     survey_invites.forget(survey)  # the address list for invitation mails and its waiting mails
     # labels stay taken; complaints stay, with the code in their text; sources entered for the survey and research
     # projects stay without it: "SET NULL" of their keys, which SQLite does not do by itself (audit 2026-10-12, E-10)
+    from app import transcript_coding
+
+    transcript_coding.forget_survey(survey.id)  # the analyses of an interview guide's transcripts (app/transcript_coding.py)
     for model in (SurveyLabel, Feedback, ConstructCitation, ResearchProject):
         db.session.execute(db.update(model).where(model.survey_id == survey.id).values(survey_id=None))
     # the participations in one statement (their OnceValue rows went above), as retention.purge does: through the

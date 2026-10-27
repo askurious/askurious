@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{# The analyses a member (role "Kodieren", not on the guide's team) works in (app/transcript_coding.py, index). #}
+{% block title %}{{ de_en("Kodieren", "Code") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<div class="tabpage-head"><p class="muted small">{{ survey.title }}</p><h1>{{ de_en("Kodieren", "Code") }}</h1></div><!--flashes-->
+<section class="panel">
+  <h2>{{ de_en("Ihre Auswertungen", "Your analyses") }}</h2>
+  <ul>{% for p in projects %}<li><a href="{{ url_for('transcript_coding.project', code=survey.code, pid=p.id) }}">{{ p.name }}</a>{% if p.question %} <span class="muted small">{{ p.question|truncate(90, true, "…") }}</span>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endblock %}

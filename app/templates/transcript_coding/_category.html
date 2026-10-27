@@ -1,0 +1,57 @@
+{# One category of an analysis (transcript_coding/project.html): its fields where the person may change it (they save
+   by themselves), else the text with "Änderung vorschlagen"; author and time; open proposals for whoever decides. #}
+{% from "_macros.html" import csrf, autosave_bar %}
+{% from "_icons.html" import icon %}
+{% macro category(cat, kind_class) -%}
+{% set editable = may_edit(cat) %}
+<div class="tc-cat {{ kind_class }}" id="k{{ cat.id }}">
+  <div class="tc-cat-head">
+    {% if cat.colour %}<span class="tc-dot" style="background: {{ cat.colour }}" aria-hidden="true"></span>{% endif %}
+    <strong class="tc-name">{{ cat.name }}</strong>
+    {% if cat.kind == "main" and project.mains_fixed %}<span class="muted" title="{{ de_en('Hauptkategorien festgelegt: ändern nur die Forschenden', 'Main categories fixed: only the researchers change them') }}">{{ icon("lock", 14) }}<span class="visually-hidden">{{ de_en("festgelegt", "fixed") }}</span></span>{% endif %}
+    {% if cat.kind == "candidate" %}<span class="muted small">{{ de_en("Kandidat für eine neue Hauptkategorie", "candidate for a new main category") }}</span>{% endif %}
+    <span class="muted small tc-author">{{ de_en("von {who}, {when}", "by {who}, {when}", who=cat.author_name or de_en("Forschende", "researchers"), when=cat.created_at|localdt) }}</span>
+    <span class="spacer"></span>
+    {% if cat.kind == "candidate" and who.team %}<form method="post" action="{{ url_for('transcript_coding.promote_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Als Hauptkategorie übernehmen", "Take on as main category") }}</button></form>{% endif %}
+    {% if editable %}<form method="post" action="{{ url_for('transcript_coding.remove_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="inline"
+          data-confirm="{{ de_en('„{name}“ entfernen?', 'Remove “{name}”?', name=cat.name) }}" data-confirm-note="{{ de_en('„Rückgängig“ holt sie zurück.', '“Undo” brings it back.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>
+      {{ csrf() }}<button class="icon-btn danger" title="{{ de_en('Entfernen', 'Remove') }}" aria-label="{{ de_en('„{name}“ entfernen', 'Remove “{name}”', name=cat.name) }}">{{ icon("trash", 14) }}</button></form>{% endif %}
+  </div>
+  {% if editable %}
+  <form method="post" action="{{ url_for('transcript_coding.edit', code=survey.code, pid=project.id, cid=cat.id) }}" class="stack tc-fields" data-autosave-form>
+    {{ csrf() }}
+    <label>{{ de_en("Name", "Name") }} <input name="name" value="{{ cat.name }}" maxlength="120" required></label>
+    <label>{{ de_en("Definition", "Definition") }}{% if cat.kind != "main" %} <span class="hint">{{ de_en("Pflicht: Wann gehört eine Stelle hierher?", "required: when does a passage belong here?") }}</span>{% endif %}
+      <textarea name="definition" rows="2" maxlength="4000">{{ cat.definition }}</textarea></label>
+    <label>{{ de_en("Abgrenzung", "Delimitation") }} <span class="hint">{{ de_en("Wann gehört eine Stelle nicht hierher, sondern woanders hin?", "When does a passage not belong here but elsewhere?") }}</span>
+      <textarea name="delimitation" rows="2" maxlength="4000">{{ cat.delimitation }}</textarea></label>
+    {{ autosave_bar(small=true, quiet=true) }}
+  </form>
+  {% else %}
+  {% if cat.definition %}<p class="tc-text">{{ cat.definition }}</p>{% endif %}
+  {% if cat.delimitation %}<p class="tc-text muted small">{{ de_en("Abgrenzung:", "Delimitation:") }} {{ cat.delimitation }}</p>{% endif %}
+  {% if own_proposal(cat) %}<p class="muted small">{{ de_en("Ihr Vorschlag wartet auf eine Entscheidung.", "Your proposal is waiting for a decision.") }}</p>
+  {% else %}
+  <details class="tc-propose">
+    <summary>{{ de_en("Änderung vorschlagen", "Propose a change") }}</summary>
+    <form method="post" action="{{ url_for('transcript_coding.propose_change', code=survey.code, pid=project.id, cid=cat.id) }}" class="stack">
+      {{ csrf() }}
+      <label>{{ de_en("Name", "Name") }} <input name="name" value="{{ cat.name }}" maxlength="120"></label>
+      <label>{{ de_en("Definition", "Definition") }} <textarea name="definition" rows="2" maxlength="4000">{{ cat.definition }}</textarea></label>
+      <label>{{ de_en("Abgrenzung", "Delimitation") }} <textarea name="delimitation" rows="2" maxlength="4000">{{ cat.delimitation }}</textarea></label>
+      <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000"></label>
+      <div><button class="button button-small">{{ de_en("Vorschlag senden", "Send proposal") }}</button></div>
+    </form>
+  </details>
+  {% endif %}
+  {% endif %}
+  {% if editable %}{% for e in proposals_of(cat) %}
+  <div class="tc-proposal">
+    <p class="small"><strong>{{ de_en("Vorschlag von {who}", "Proposal by {who}", who=e.actor_name) }}</strong>{% if e.reason %}: {{ e.reason }}{% endif %}</p>
+    {% for field, value in (e.data.proposed or {}).items() %}<p class="small">{{ {"name": de_en("Name", "Name"), "definition": de_en("Definition", "Definition"), "delimitation": de_en("Abgrenzung", "Delimitation")}[field] }}: {{ value }}</p>{% endfor %}
+    <form method="post" action="{{ url_for('transcript_coding.answer_proposal', code=survey.code, pid=project.id, eid=e.id, answer='accept') }}" class="inline">{{ csrf() }}<button class="button button-small">{{ de_en("Übernehmen", "Take on") }}</button></form>
+    <form method="post" action="{{ url_for('transcript_coding.answer_proposal', code=survey.code, pid=project.id, eid=e.id, answer='decline') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Ablehnen", "Decline") }}</button></form>
+  </div>
+  {% endfor %}{% endif %}
+</div>
+{%- endmacro %}

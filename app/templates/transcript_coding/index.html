@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, list_table %}
+{% from "_icons.html" import icon %}
+{% from "surveys/_export_rows.html" import dialog %}
+{# The analyses of an interview guide (app/transcript_coding.py, index), below "Ergebnisse": the team sees all of
+   them and makes a new one with the button "Neue Auswertung", which opens a dialog. #}
+{% block title %}{{ de_en("Kodieren", "Code") }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<section class="panel">
+  <div class="row results-head">
+    <h2>{{ de_en("Kodieren", "Code") }} <span class="hint">{{ de_en("Auswertungen der Transkripte", "analyses of the transcripts") }}, {{ n_interviews }} {{ "Interview" if n_interviews == 1 else de_en("Interviews", "interviews") }}</span></h2>
+    <span class="spacer"></span>
+    <button type="button" class="button button-small" data-dialog-open="tc-new" aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Neue Auswertung", "New analysis") }}</button>
+    <a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+  </div>
+  <p class="muted small">{{ de_en("Textstellen der Transkripte Kategorien zuordnen, auch gemeinsam mit Studierenden. Jede Auswertung hat ihre eigene Forschungsfrage, ihr eigenes Kategoriensystem und eigene Mitglieder; alle arbeiten mit denselben Transkripten. Sie geben die Hauptkategorien vor, die Mitglieder ergänzen Unterkategorien mit Definition, ohne sich zu überschreiben.", "Assign passages of the transcripts to categories, also together with students. Each analysis has its own research question, its own category system and its own members; all work with the same transcripts. You set the main categories, the members add subcategories with a definition without overwriting each other.") }}</p>
+  {% if projects %}
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Auswertung", "Analysis") }}</th><th>{{ de_en("Forschungsfrage", "Research question") }}</th><th class="num">{{ de_en("Hauptkategorien", "Main categories") }}</th><th class="num">{{ de_en("Unterkategorien", "Subcategories") }}</th><th class="num">{{ de_en("Mitglieder und Links", "Members and links") }}</th></tr></thead>
+    <tbody>
+    {% for p in projects %}{% set c = counts[p.id] %}
+    <tr><td><a href="{{ url_for('transcript_coding.project', code=survey.code, pid=p.id) }}">{{ p.name }}</a>{% if p.mains_fixed %} <span class="muted" title="{{ de_en('Hauptkategorien festgelegt', 'Main categories fixed') }}">{{ icon("lock", 14) }}</span>{% endif %}</td>
+      <td>{{ p.question|truncate(90, true, "…") }}</td><td class="num">{{ c[0] }}</td><td class="num">{{ c[1] }}</td><td class="num">{{ c[2] }}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% else %}
+  <p class="muted">{{ de_en("Noch keine Auswertung. „Neue Auswertung“ legt die erste an, auf Wunsch mit den Themenblöcken des Leitfadens als Hauptkategorien.", "No analysis yet. “New analysis” creates the first one, if you like with the topic blocks of the guide as main categories.") }}</p>
+  {% endif %}
+</section>
+
+{% call dialog("tc-new", de_en("Neue Auswertung", "New analysis")) %}
+<form method="post" action="{{ url_for('transcript_coding.new', code=survey.code) }}" class="stack" data-tc-new-project>
+  {{ csrf() }}
+  <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="120" required placeholder="{{ de_en('z. B. Seminar Pflege WS 2026/27', 'e.g. Seminar care, winter term 2026/27') }}"></label>
+  <label>{{ de_en("Forschungsfrage", "Research question") }} <textarea name="question" rows="2" maxlength="2000"></textarea></label>
+  <fieldset class="stack">
+    <legend>{{ de_en("Beginnen mit", "Start with") }}</legend>
+    <label class="check"><input type="radio" name="start" value="guide" checked data-tc-start> {{ de_en("dem Leitfaden", "the guide") }} <span class="hint">{{ de_en("Themenblöcke als Hauptkategorien, ihre Leitfragen als Unterkategorien (deduktiv)", "topic blocks as main categories, their guide questions as subcategories (deductive)") }}</span></label>
+    {% if blocks %}
+    <div class="stack tc-blocks" data-tc-blocks>
+      <label class="check"><input type="radio" name="which" value="all" checked> {{ de_en("alle Themenblöcke", "all topic blocks") }}</label>
+      <label class="check"><input type="radio" name="which" value="some"> {{ de_en("nur diese:", "only these:") }}</label>
+      {% for b in blocks %}<label class="check tc-indent"><input type="checkbox" name="blocks" value="{{ b.id }}"> {{ b.title() }}</label>{% endfor %}
+    </div>
+    {% endif %}
+    <label class="check"><input type="radio" name="start" value="empty" data-tc-start> {{ de_en("einem leeren Kategoriensystem", "an empty category system") }} <span class="hint">{{ de_en("induktiv, die Kategorien entstehen beim Kodieren", "inductive, the categories arise while coding") }}</span></label>
+    {% if projects %}
+    <label class="check"><input type="radio" name="start" value="copy" data-tc-start> {{ de_en("einer Kopie von", "a copy of") }}
+      <select name="copy_of" aria-label="{{ de_en('Auswertung, die kopiert wird', 'Analysis to copy') }}">{% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></label>
+    {% endif %}
+  </fieldset>
+  <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button>
+    <button class="button">{{ de_en("Anlegen", "Create") }}</button></div>
+</form>
+{% endcall %}
+{% endblock %}

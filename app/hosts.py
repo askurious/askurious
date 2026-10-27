@@ -78,7 +78,7 @@ BLUEPRINT_SIDES = {
         "admin", "designs", "compute", "groups", "org", "samplesize", "wizard", "surveys", "cron", "editor", "flow_page",
         "boards", "translations", "zenodo_auth", "coscine", "ai_access", "slack", "live", "interview", "interview_ai", "diary_ai",
         "interview_data", "interview_results", "interview_audio", "interview_transcribe", "interview_search",
-        "interview_summaries", "interview_remote", "interview_screen", "interview_offline", "interviewer", "ainstein", "learning", "study_plan", "data_access",
+        "interview_summaries", "interview_remote", "interview_screen", "interview_offline", "interviewer", "transcript_coding", "ainstein", "learning", "study_plan", "data_access",
         "agent_access", "mcp",
         "handbook")},
 }
