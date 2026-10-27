@@ -1,4 +1,7 @@
 {% set labels = kind.labels(item, lang) %}
+{# numbers and emoji beside the labels, shown only: the codes stay 1..n (user test 2026-10-27, point 9) #}
+{% set marks = kind.point_marks(item) %}
+{% macro mark(i, l) -%}{% set n, e = marks[i] %}{% if e %}<span class="p-point-emoji" aria-hidden="true">{{ e }}</span> {% endif %}{{ l|fill(variables) }}{% if n %}{{ " " if l }}<span class="p-point-num">{{ "(" ~ n ~ ")" if l else n }}</span>{% endif %}{%- endmacro %}
 {% set points = item.cfg.points %}
 {% set once = item.cfg.get("label_display") == "once" %}
 {% set ans = answers.get(item.id) or {} %}
@@ -6,13 +9,13 @@
 {% set dk = item.cfg.get("dont_know") %}
 {% set dk_label = ui("weiß nicht", "don't know") %}
 {% include "items/_question.html" %}
-<div class="p-likert p-likert-{{ item.cfg.labeling }} {{ 'p-likert-once' if once else 'p-likert-each' }}{{ ' p-likert-dk' if dk }}{{ ' p-likert-many' if points >= 8 }}" style="--points: {{ points }}" role="group"{% if item.text("question", lang) %} aria-labelledby="q{{ item.id }}"{% endif %}>
+<div class="p-likert p-likert-{{ item.cfg.labeling }} {{ 'p-likert-once' if once else 'p-likert-each' }}{{ ' p-likert-dk' if dk }}{{ ' p-likert-many' if points >= 8 }}{{ ' p-likert-marked' if marks|map(attribute=0)|select|list or marks|map(attribute=1)|select|list }}" style="--points: {{ points }}" role="group"{% if item.text("question", lang) %} aria-labelledby="q{{ item.id }}"{% endif %}>
   <div class="p-likert-head" aria-hidden="true">
     <span class="p-likert-corner"></span>
     {% if item.cfg.labeling == "endpoints" %}
       <span class="p-head-endpoints"{{ text_attrs(item, "labels") }}><span>{{ labels[0]|fill(variables) }}</span><span>{{ labels[-1]|fill(variables) }}</span></span>
     {% else %}
-      {% for l in labels %}<span{{ text_attrs(item, "labels") }}>{{ l|fill(variables) }}</span>{% endfor %}
+      {% for l in labels %}<span{{ text_attrs(item, "labels") }}>{{ mark(loop.index0, l) }}</span>{% endfor %}
     {% endif %}
     {% if dk %}<span class="p-head-dk">{{ dk_label }}</span>{% endif %}
   </div>
@@ -26,7 +29,8 @@
         <label class="p-point">
           <input type="radio" name="i{{ item.id }}_{{ s.id }}" value="{{ loop.index }}" {% if ans.get(s.id) == loop.index %}checked{% endif %}
                  aria-label="{{ l|fill(variables)|striptags if l else loop.index }}">
-          <span class="p-point-label"{{ text_attrs(item, "labels") }}>{{ l|fill(variables) }}</span>
+          {# with words only at the ends, a point shows its number or emoji alone; the words stand in the row of ends #}
+          <span class="p-point-label"{{ text_attrs(item, "labels") }}>{{ mark(loop.index0, "" if item.cfg.labeling == "endpoints" else l) }}</span>
         </label>
         {% endfor %}
         {% if dk %}

@@ -540,6 +540,8 @@ IMPORT_COMMON = {
     "level": r_one("nominal", "ordinal", "metric"), "auto_next": r_flag, "construct": r_any,
     "ai": r_dict(idea=r_maybe(r_text(500)), model=r_maybe(r_text(100)), at=r_maybe(r_text(40))),
     "when": r_when,
+    # where the items of a scale come from (app/item_source.py; user test 2026-10-27)
+    "source": r_dict(text=r_maybe(r_text(600)), doi=r_maybe(r_text(200)), own=r_maybe(r_flag)),
 }
 
 

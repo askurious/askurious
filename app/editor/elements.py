@@ -105,6 +105,9 @@ def add_item(survey_id, block_id):
             # nothing for the standard wordings: they come in the language of the page when shown (item_texts, S9)
             texts=item_texts.new(kind, survey.languages, survey.default_language),
         )
+        from app import scale_default
+
+        scale_default.apply_new(survey, item)  # a new scale starts from the survey's standard (user test 2026-10-27)
     rows = list(block.items)
     rows.insert(_position(block, request.form.get("position")), item)
     block.items = rows
