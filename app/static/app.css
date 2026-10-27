@@ -5427,5 +5427,6 @@ details.plan-more > summary { cursor: pointer; font-weight: 600; margin: 8px 0; 
 .archive-meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 6px 0 2px; }
 .archive-meter span { display: block; height: 100%; background: var(--ok); }
 .archive-box .is-ok::before { content: "✓ "; color: var(--ok); font-weight: 700; }
-.archive-box .is-auto::before { content: "⚙ "; color: var(--muted); }
+.archive-box .is-auto::before { content: "– "; color: var(--muted); }
+.archive-group { margin: 10px 0 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 .archive-box .is-missing::before { content: "○ "; color: var(--warn); font-weight: 700; }

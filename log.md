@@ -7352,3 +7352,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Unter „Art der Zufallsstichprobe“ eine Zeile zur gewählten Art (`study_plan.RANDOM_KIND_HINTS`) und eine Lernhilfe „Welche Art von Zufallsauswahl?“ (Lohr, 2022): einfach, systematisch, geschichtet, Klumpen, mehrstufig, mit Designeffekt (Ralf).
 - Lernhilfe „Wie genau die Grundgesamtheit beschreiben?“ unter der Grundgesamtheit: wer, wo, wann, mit welchen Grenzen.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Kasten „Für Datenarchive“ in Worten
+
+- Der Kasten auf der Übersicht ordnet in drei Gruppen mit Überschrift: „Schon angegeben“, „Setzt Askurious selbst“, „Fehlt noch“; das Zahnrad entfällt (Ralf: nicht als „automatisch“ erkennbar). Die automatische Zeile nennt die Werte: „Datenart: Quantitativ · Analyseeinheit: Individuum“.
+- Rechtstexte geprüft, keine Änderung nötig.
