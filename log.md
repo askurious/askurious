@@ -7383,3 +7383,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Lizenz: ati-scale.org nennt die Skala „free to use“ und bittet um Zitation, gibt aber keine offene Lizenz zur Weitergabe des Wortlauts an. Der Code trägt deshalb wie bei den anderen fremden Skalen nur die Struktur; der Wortlaut liegt in `instruments.json` der Installation (RWTH-Overlay).
 - Test in `tests/analysis/test_constructs.py`.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Assistent ohne „Überspringen“
+
+- Ralf: Wozu „Überspringen“ neben „Weiter“, wenn es keine Pflichtangaben gibt? Der Assistent speichert jede Änderung sofort, daher unterschied sich „Überspringen“ nur in der Markierung „übersprungen“ (Strich statt Haken) in der Schrittleiste. Knopf und Markierung sind entfallen, es bleiben „Zurück“ und „Weiter“. Ein noch gesendetes „skip“ (alte Seite) geht weiter ohne zu speichern. Der Live-Assistent und die Kontoeinrichtung behalten ihr „Überspringen“, weil es dort etwas anderes bedeutet.
+- Rechtstexte geprüft, keine Änderung nötig.
