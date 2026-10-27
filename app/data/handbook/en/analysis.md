@@ -55,7 +55,7 @@ The trade-off is less detail for the reader in exchange for protecting the parti
 ![Export: data pool, export of the answers, methods section, formats](img/export.jpg)
 
 **What it is.**
-Everything that leaves the platform:
+Everything that leaves the platform. How metadata, archiving and publication fit together is described in the chapter [Metadata, archiving and publication](metadata.md).
 
 - **Answers** as CSV (comma or semicolon), SPSS/JASP (.sav), jamovi (.omv), R (.rds), with a **codebook**; optionally with scale scores.
 - **Questionnaire** as Word (codebook or print version), constructs and **references** (.bib, .ris).
