@@ -801,6 +801,7 @@ def project(code, pid):
                    own_proposal=lambda c: bool(open_proposals(project, c.id, who.key)),
                    proposals_of=lambda c: [e for e in proposals if e.category_id == c.id],
                    notices=transcript_coding_review.notices(project, who),
+                   ai_switch=who.team and _ai_on(),
                    coded=lambda r: sum(1 for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id))
     if who.team:
         accesses = interviewer.accesses(survey)
@@ -813,6 +814,12 @@ def project(code, pid):
                        access_names={a.id: a.name for a in accesses},
                        others=[p for p in projects(survey) if p.id != project.id])
     return render_template("transcript_coding/project.html", **context)
+
+
+def _ai_on():
+    from app import ai_access
+
+    return ai_access.ai_on()
 
 
 def _people(survey, project):

@@ -2188,6 +2188,9 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-hl { background: color-mix(in srgb, var(--tc) 16%, transparent); border-bottom: 2px solid var(--tc2); cursor: pointer; }
 .tc-hl.tc-hl-more { border-bottom-width: 4px; }
 .tc-hl:focus-visible { outline: 2px solid var(--accent); }
+.tc-sug { outline: 2px dashed var(--ts); outline-offset: 1px; border-radius: 2px; }  /* an AI suggestion not taken yet */
+.tc-hl.tc-sug { background: color-mix(in srgb, var(--ts) 8%, transparent); }
+.tc-undo { margin-left: 6px; }
 .tc-side { position: sticky; top: 12px; }
 .tc-side-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
 .tc-side-list li { display: flex; align-items: center; gap: 8px; }

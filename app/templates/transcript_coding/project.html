@@ -50,6 +50,14 @@
     <label class="check"><input type="checkbox" name="mains_fixed" value="1" {% if project.mains_fixed %}checked{% endif %}> {{ de_en("Hauptkategorien festgelegt", "Main categories fixed") }} <span class="hint">{{ de_en("dann ändern nur Sie die Hauptkategorien; die Mitglieder legen Kandidaten an und schlagen Umbenennen oder eine schärfere Definition vor", "then only you change the main categories; the members add candidates and propose renaming or a sharper definition") }}</span></label>
     {{ autosave_bar(quiet=true) }}
   </form>
+  {% if ai_switch %}
+  <form method="post" action="{{ url_for('transcript_coding.allow_ai', code=survey.code, pid=project.id) }}" class="stack tc-ai-switch">
+    {{ csrf() }}
+    <label class="check"><input type="checkbox" name="ai_allowed" value="1" {% if project.ai_allowed %}checked{% endif %} data-submit-on-change> {{ de_en("KI-Vorschläge erlauben", "Allow AI suggestions") }}
+      <span class="hint">{{ de_en("Dann schlägt die KI in der Kodieransicht Stellen zu den Kategorien vor. Der Transkripttext geht dafür abschnittsweise an den eigenen KI-Zugang der Person, die fragt (nie an den Zugang der Plattform); ohne eigenen Zugang gibt es keine Vorschläge. Die Vorlage „Information und Einwilligung“ nennt das, sobald es erlaubt ist.", "Then the AI suggests passages for the categories in the coding view. For this the transcript text goes section by section to the own AI access of the person who asks (never to the platform's access); without an own access there are no suggestions. The template “Information and consent” names this once it is allowed.") }}</span></label>
+    <noscript><div><button class="button button-small">{{ de_en("Speichern", "Save") }}</button></div></noscript>
+  </form>
+  {% endif %}
 </section>
 {% endif %}
 

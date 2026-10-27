@@ -249,6 +249,15 @@ def _offline(survey):
     return interview_offline.switched_on(survey)
 
 
+def _ai_coding(survey):
+    """Whether the template names AI suggestions while coding: an analysis of the guide allows them
+    (app/transcript_coding_ai.py)."""
+    from app.extensions import db
+    from app.models import CodingProject
+
+    return db.session.scalar(db.select(CodingProject.id).filter_by(survey_id=survey.id, ai_allowed=True).limit(1)) is not None
+
+
 def _screen(survey):
     """Whether the template names the interviewee's own screen: the guide has tasks, and the screen is offered to the
     person who downloads it or the guide used it (app/interview_screen.py)."""
@@ -307,6 +316,12 @@ def _consent(survey, doc, ctx):
              "Wird das Interview ohne Internetverbindung geführt, bleiben Notizen, Antworten und die Tonaufnahme bis zur "
              "Übertragung verschlüsselt auf dem Gerät der Interviewenden, höchstens sieben Tage, und werden dort nach "
              "der Übertragung gelöscht. Ihr Löschcode gilt schon in dieser Zeit.")
+    if _ai_coding(survey):  # AI suggestions while coding the transcripts (app/transcript_coding_ai.py)
+        part("Auswertung mit KI-Unterstützung",
+             "Ausschnitte des pseudonymisierten Transkripts können mit Unterstützung eines KI-Dienstes ausgewertet "
+             "werden: Der Dienst schlägt vor, welche Stellen zu welchen Kategorien passen; die Forschenden prüfen jeden "
+             "Vorschlag selbst. Der Dienst erhält keine Tonaufnahme und keine Angaben zu Ihrer Person außer dem, was im "
+             "pseudonymisierten Transkript steht.")
     part("Pseudonymisierung und Aufbewahrung",
          "Im Transkript werden Ihr Name und alle Angaben, die auf Sie schließen lassen (Orte, Namen anderer Personen, "
          "Einrichtungen), durch Platzhalter ersetzt. Die Liste, die Ihren Namen mit Ihrer Interviewkennung verbindet, "
@@ -385,6 +400,11 @@ def _consent_en(survey, doc, ctx):
              "If the interview is conducted without an internet connection, notes, answers and the audio recording stay "
              "encrypted on the interviewer's device until they are transferred, at most seven days, and are deleted there "
              "after the transfer. Your deletion code already works during this time.")
+    if _ai_coding(survey):
+        part("Analysis with AI support",
+             "Excerpts of the pseudonymised transcript may be analysed with the support of an AI service: the service "
+             "suggests which passages fit which categories; the researchers check every suggestion themselves. The "
+             "service receives no audio recording and no details about you beyond what is in the pseudonymised transcript.")
     data_keep = (f"for {DATA_KEEP_EN[st['data_keep']]}" if st["data_keep"] != "end" else DATA_KEEP_EN["end"])
     part("Pseudonymisation and retention",
          "In the transcript, your name and all details that could identify you (places, names of other people, "

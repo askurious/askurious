@@ -686,7 +686,9 @@ def _activities():
                        "der Geräte, Zeit der ersten und letzten Nutzung, bestätigte Fassung der Hinweise; Sitzungs-Cookie "
                        "mit Link, Gerät und letzter Anfrage. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
                        "Position und Wortlaut der Stelle, Name, Zeit), die Antworten der gegenseitigen Probe (geprüfte "
-                       "Stelle, gewählte Kategorie, Name, Zeit) und je Kategorie ein Ankerbeispiel (Wortlaut einer Stelle); "
+                       "Stelle, gewählte Kategorie, Name, Zeit), KI-Vorschläge (Stelle, Kategorie, kurze Begründung, wer "
+                       "gefragt und wer übernommen oder verworfen hat; nur wo die Auswertung sie erlaubt, nur über den "
+                       "eigenen KI-Zugang der fragenden Person) und je Kategorie ein Ankerbeispiel (Wortlaut einer Stelle); "
                        "Zusammenführen, Umbenennen, Antworten und Kommentare im Verlauf mit Namen. Die Transkripte selbst "
                        "gehören zu „Interviews“.",
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
@@ -695,7 +697,9 @@ def _activities():
                        "kind of devices, time of first and last use, confirmed version of the notes; session cookie with "
                        "link, device and last request. In the interview the coded passages (analysis, category, position "
                        "and wording of the passage, name, time), the answers of the mutual check (passage checked, category "
-                       "chosen, name, time) and per category an anchor example (wording of a passage); merging, renaming, "
+                       "chosen, name, time), AI suggestions (passage, category, short reason, who asked and who "
+                       "accepted or discarded; only where the analysis allows them, only over the own AI access of the "
+                       "person asking) and per category an anchor example (wording of a passage); merging, renaming, "
                        "answers and comments in the history with names. The transcripts themselves belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
                              "(.qdpx mit Transkripten, kodierten Stellen und den Namen der Kodierenden; nur sie exportieren); "
@@ -1034,12 +1038,15 @@ def _services():
     own_on, own_text = _own_access_state()
     rows.append({"name": de_en("Eigener KI-Zugang (z. B. KI:connect.nrw)", "Own AI access (e.g. KI:connect.nrw)"),
                  "words": ("KI:connect", "KI-Zugang", "eigenen KI-Schlüssel", "eigener KI-Schlüssel"),
-                 "data": de_en("Alle Textaufrufe der Person mit eigenem Zugang (auch Antworttexte der KI-Kodierhilfe) "
+                 "data": de_en("Alle Textaufrufe der Person mit eigenem Zugang (auch Antworttexte der KI-Kodierhilfe und, "
+                               "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte pseudonymisierter Interviewtranskripte "
+                               "mit dem Kategoriensystem) "
                                "gehen über deren Schlüssel, Kontingent und Bedingungen an KI:connect.nrw, OpenAI oder "
                                "eine selbst eingetragene Adresse; Bilder weiter über den Schlüssel der Installation. "
                                "Der Schlüssel ist verschlüsselt gespeichert und wird nie wieder angezeigt.",
                                "All text calls of a person with their own access (also answer texts of the AI coding "
-                               "help) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
+                               "help and, where an analysis allows AI suggestions, sections of pseudonymised interview "
+                               "transcripts with the category system) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
                                "typed; images keep using the installation's key. The key is stored encrypted and "
                                "never shown again."),
                  "who": de_en("Forschende", "Researchers"), "switch": de_en("Konto › KI-Nutzung, für alle",

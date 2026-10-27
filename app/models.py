@@ -359,6 +359,10 @@ class CodingProject(db.Model):
     created_by_name: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # "KI-Vorschläge erlauben" (app/transcript_coding_ai.py): off until the team switches it on
+    ai_allowed: Mapped[bool] = mapped_column(default=False, server_default="0")
+    # further settings of the analysis that need no column of their own (e.g. double coding)
+    settings: Mapped[dict | None] = mapped_column(JSON)
 
 
 class CodingCategory(db.Model):
