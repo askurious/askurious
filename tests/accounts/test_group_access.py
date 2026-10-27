@@ -286,8 +286,10 @@ def test_several_groups_and_a_note_when_none_is_left(app, client, survey):
     assert "Zugriff geben" not in page and "data-no-more-groups" in page and "Ihre Gruppe hat schon Zugriff" in page
     second = _group(client, "Zweite", members=((OTHER, "Kollegin"),))
     page = client.get("/surveys/1").data.decode()
-    assert "Zugriff geben" in page and f'<option value="{second}">Zweite</option>' in page
-    assert f'<option value="{first}">' not in page and "data-no-more-groups" not in page
+    # the group choice only (other selects on the page, such as the scale default, have options "1" too)
+    choice = re.search(r'<select name="group"[^>]*>(.*?)</select>', page, re.S).group(1)
+    assert "Zugriff geben" in page and f'<option value="{second}">Zweite</option>' in choice
+    assert f'<option value="{first}">' not in choice and "data-no-more-groups" not in page
     _share(client, second, "editor")
     page = client.get("/surveys/1").data.decode()
     assert "Alle Ihre Gruppen haben schon Zugriff" in page and "Erste" in page and "Zweite" in page

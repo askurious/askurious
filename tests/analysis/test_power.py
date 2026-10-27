@@ -99,9 +99,10 @@ def test_rule_of_thumb_and_pilot_get_their_hint(app, client, survey):
 
 def test_calculator_opens_with_the_values_of_a_hypothesis(client):
     html = client.get("/sample-size/?design=anova&f=0.4&groups=4&power=0.9").data.decode()
-    assert 'value="anova" selected' in html and 'value="0.4" data-ss="f"' in html and 'value="4" data-ss="groups"' in html
+    # effect sizes in the reader's decimal format (German: comma), typed into a text field
+    assert 'value="anova" selected' in html and 'value="0,4" data-ss="f"' in html and 'value="4" data-ss="groups"' in html
     assert 'value="0.9" selected' in html
-    assert 'value="0.25" data-ss="f"' in client.get("/sample-size/?f=99").data.decode()   # out of range: the default
+    assert 'value="0,25" data-ss="f"' in client.get("/sample-size/?f=99").data.decode()   # out of range: the default
 
 
 def test_survey_file_keeps_the_power_analysis():
