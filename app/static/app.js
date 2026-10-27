@@ -5181,8 +5181,10 @@ document.addEventListener("change", function (e) {
       var rule = part.getAttribute("data-show-when").split(":"), form = part.closest("form");
       var field = form && form.elements[rule[0]];
       if (!field) return;
-      var value = field.value, not = rule[1].charAt(0) === "!", want = not ? rule[1].slice(1) : rule[1];
-      part.hidden = not ? value === want : value !== want;
+      // several values with "|" ("recruitment:panel|random"); the value part of a rule may itself hold ":"
+      var value = field.value, spec = rule.slice(1).join(":"), not = spec.charAt(0) === "!";
+      var want = (not ? spec.slice(1) : spec).split("|"), hit = want.indexOf(value) !== -1;
+      part.hidden = not ? hit : !hit;
     });
   }
   document.addEventListener("change", update);

@@ -335,10 +335,11 @@ DESIGN_CARDS = [
 ]
 # recruitment cards: value as sent ("panel:access" sets the kind of panel too), with or without chance
 RECRUITMENT_CARDS = [
-    (True, "random", ("Zufallsstichprobe", "aus einer Liste aller gezogen", "Wahrscheinlichkeitsauswahl"),
-     ("Random sample", "drawn from a list of everyone", "Probability")),
-    (True, "panel:probability", ("Zufallspanel", "zufällig gezogen und eingeladen", "Wahrscheinlichkeitsauswahl"),
-     ("Probability panel", "drawn at random and invited", "Probability")),
+    # one card for drawn at random, from a list or as a probability panel: the same for DDI, and both invite
+    # people, so both ask for the response rate (Ralf 2026-10-27)
+    (True, "random", ("Zufallsstichprobe", "aus einer Liste aller gezogen oder als Zufallspanel eingeladen",
+                      "Wahrscheinlichkeitsauswahl"),
+     ("Random sample", "drawn from a list of everyone or invited as a probability panel", "Probability")),
     (True, "census", ("Vollerhebung", "alle der Gruppe", "Vollerhebung"), ("Full census", "everyone in the group",
                                                                          "Total universe/Complete enumeration")),
     (False, "convenience", ("Gelegenheitsstichprobe", "Bekanntenkreis, Verteiler, soziale Medien",
@@ -380,6 +381,8 @@ def recruitment_cards():
 def recruitment_value(sample):
     """The card value of a stored sample: "panel:access" for a panel with its kind, else the recruitment."""
     how = sample.get("recruitment") or ""
+    if how == "panel" and sample.get("panel_kind") == "probability":
+        return "random"  # a probability panel of before: the card "Zufallsstichprobe" since 2026-10-27
     return f"panel:{sample['panel_kind']}" if how == "panel" and sample.get("panel_kind") else how
 
 

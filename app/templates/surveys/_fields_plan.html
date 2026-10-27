@@ -16,7 +16,7 @@
 {# the wizard shows design and recruitment as cards with the DDI term below (Ralf 2026-10-27) #}
 {% set plan_cards = plan_wizard is defined and plan_wizard %}
 {% macro pick_card(name, value, chosen, title, text, term) -%}
-<label class="pick-card"><input type="radio" name="{{ name }}" value="{{ value }}"{% if value == chosen %} checked{% endif %}>
+<label class="pick-card" title="DDI: {{ term }}"><input type="radio" name="{{ name }}" value="{{ value }}"{% if value == chosen %} checked{% endif %}>
   <strong>{{ title }}</strong><span class="small muted">{{ text }}</span><span class="ddi-term">DDI: {{ term }}</span></label>
 {%- endmacro %}
 {% macro select(name, options, value, label) -%}
@@ -182,14 +182,14 @@
   <label>{{ de_en("Region", "Region") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
     <input name="region" maxlength="120" value="{{ plan.sample.region }}" placeholder="{{ de_en('z. B. Nordrhein-Westfalen', 'e.g. North Rhine-Westphalia') }}"></label>
   <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("optional", "optional") }}</span>
-    <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow"></label>
+    <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow" placeholder="{{ de_en('z. B. 200', 'e.g. 200') }}"></label>
 </div>
 {% if demographics is defined and demographics %}
 {# what the block "Demographische Angaben" holds (wizard.set_demographics; Ralf 2026-10-27) #}
 <label>{{ de_en("Welche Angaben zur Person erheben?", "Which details about the person to ask?") }}
   {% if demographics_now %}<select name="demografie">{% for value, label in [("none", de_en("keine", "none"))] + demographics %}<option value="{{ value }}"{% if value == demographics_now %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <span class="hint">{{ de_en("ein eigener Block nach der Einwilligung; beschreibt die Stichprobe und zeigt, wie gut sie zur Grundgesamtheit passt. Die RatSWD-Fragen sind Standardfragen des Rats für Sozial- und Wirtschaftsdaten (2023).", "a block of its own after the consent; describes the sample and shows how well it matches the population. The RatSWD questions are standard questions of the German Data Forum (RatSWD, 2023).") }}</span>
-  {% else %}<span class="hint">{{ de_en("Der Block „Demographische Angaben“ wurde im Fragebogen geändert; dort bearbeiten.", "The block “Demographics” was changed in the questionnaire; edit it there.") }}</span>{% endif %}</label>
+  {% else %}<span class="hint">{{ de_en("Den Block „Demographische Angaben“ bearbeiten Sie im Fragebogen.", "You edit the block “Demographics” in the questionnaire.") }}</span>{% endif %}</label>
 {% endif %}
 <details class="plan-more"><summary>{{ de_en("Hypothesen, Ausschlüsse und Ausschlussregeln", "Hypotheses, exclusions and exclusion rules") }} <span class="hint">{{ de_en("optional, oft erst, wenn der Fragebogen steht", "optional, often only once the questionnaire stands") }}</span></summary>
 {% endif %}
@@ -414,7 +414,7 @@
 <div class="row-fields">
   {% if not plan_cards %}
   <label>{{ de_en("Stichprobenziel", "Sample target") }} <span class="hint">{{ de_en("abgeschlossene Teilnahmen", "completed participations") }}</span>
-    <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow"></label>
+    <input type="number" name="sample_target" min="1" max="1000000" value="{{ plan.sample.target or '' }}" class="narrow" placeholder="{{ de_en('z. B. 200', 'e.g. 200') }}"></label>
   <label>{{ de_en("Rekrutierung", "Recruitment") }} {{ select("recruitment", study_plan.recruitment(), plan.sample.recruitment, de_en("Rekrutierung", "Recruitment")) }}</label>
   {# the kind of panel or random sample, for archives (DDI SamplingProcedure, app/ddi.py; Ralf 2026-10-27) #}
   <label data-show-when="recruitment:panel" {% if plan.sample.recruitment != "panel" %}hidden{% endif %}>{{ de_en("Art des Panels", "Kind of panel") }} {{ select("panel_kind", study_plan.panel_kinds(), plan.sample.panel_kind, de_en("Art des Panels", "Kind of panel")) }}</label>
@@ -423,7 +423,7 @@
   <label>{{ de_en("Erwartete Ausschlüsse (%)", "Expected exclusions (%)") }} <span class="hint">{{ de_en("Abschlüsse, die die Qualitätsregeln aussortieren; Abbrüche zählen nicht als Abschluss", "completions the quality rules leave out; break-offs do not count as completions") }}</span>
     <input type="number" name="sample_exclusions" min="0" max="90" value="{{ plan.sample.exclusions if plan.sample.exclusions is not none else study_plan.EXCLUSIONS }}" class="narrow"></label>
   {# an online panel invites more people than complete: the invitations of the sample model (S3) #}
-  <label data-show-when="recruitment:panel" {% if plan.sample.recruitment != "panel" %}hidden{% endif %}>{{ de_en("Rücklaufquote (%)", "Response rate (%)") }} <span class="hint">{{ de_en("Anteil der Eingeladenen, die abschließen; leer: keine Zahl der Einladungen", "share of those invited who complete; empty: no number of invitations") }}</span>
+  <label data-show-when="recruitment:panel|panel:access|random" {% if plan.sample.recruitment not in ("panel", "random") %}hidden{% endif %}>{{ de_en("Rücklaufquote (%)", "Response rate (%)") }} <span class="hint">{{ de_en("Anteil der Eingeladenen, die abschließen; leer: keine Zahl der Einladungen", "share of those invited who complete; empty: no number of invitations") }}</span>
     <input type="number" name="sample_response" min="1" max="100" value="{{ plan.sample.response or '' }}" class="narrow"></label>
   {# who the survey speaks for and where: for archives (DDI Universe and coverage, app/ddi.py; Ralf 2026-10-27) #}
   {% if not plan_cards %}

@@ -5413,13 +5413,16 @@ fieldset.ai-fieldset > legend { color: var(--ai); }
 .pick-card:hover { border-color: var(--accent); }
 .pick-card:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .pick-card:has(input:focus-visible) { outline: var(--focus-outline); outline-offset: 2px; }
+/* the DDI term only under the chosen card (Ralf 2026-10-27: not on every card); the others name it on hover */
 .ddi-term { font-size: 0.75rem; color: var(--muted); }
-.pick-group { margin: 10px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.pick-card .ddi-term { display: none; }
+.pick-card:has(input:checked) .ddi-term { display: block; }
+.pick-group { margin: 10px 0 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 .sub-pick { display: block; margin-top: 6px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 6px; }
 details.plan-more > summary { cursor: pointer; font-weight: 600; margin: 8px 0; }
 /* the box "Für Datenarchive" on the last step of the wizard (wizard/_summary.html, ddi.readiness) */
 .archive-box { border: 1px solid var(--border); border-radius: var(--radius-panel, 12px); padding: 14px 16px; margin-top: 18px; }
-.archive-box h3 { margin: 0 0 4px; font-size: 1rem; }
+.archive-box h3 { margin: 0 0 4px; font-size: 1.05rem; }
 .archive-box ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 24px; }
 .archive-meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 6px 0 2px; }
 .archive-meter span { display: block; height: 100%; background: var(--ok); }
