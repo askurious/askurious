@@ -206,3 +206,55 @@ def test_readiness_without_institution_or_doi(app, client, survey):
     assert rows["DOI"]["state"] == "optional"
     page = client.get("/surveys/1/data").data.decode()
     assert "DDI Codebook 2.5" in page
+
+
+def test_strict_extras_statement_construct_wave_and_material(app, client, survey, schema, schema25, monkeypatch):
+    """The recommended and optional parts of CESSDA's strict check (Ralf 2026-10-27): the language at every variable,
+    the stem of a battery before its statement (preQTxt, qstnLit), the validated construct as concept (vocab its
+    source, vocabURI its DOI; 4.0: a Concept), the wave of a panel (collDate/@cycle; 4.0: Cycle) and the other files of
+    a deposit (otherMat; 4.0: OtherMaterial)."""
+    from app import zenodo
+    from app.models import Item
+
+    filled(app, client, monkeypatch)
+    with app.app_context():
+        battery = db.session.scalar(db.select(Item).filter_by(code="A"))
+        battery.config = {**(battery.config or {}), "construct": {"key": "tb"}}
+        s = db.session.get(Survey, 1)
+        s.waves = {"waves": [{"survey": 1, "label": "vorher"}, {"survey": 99, "label": "nachher"}]}
+        db.session.commit()
+        s = db.session.get(Survey, 1)
+        doc = valid25(schema25, ddi_codebook.build(s))
+        doc40 = valid(schema, ddi.build(s))
+        files = dict(zenodo.package(s))
+        deposit = valid25(schema25, files["ddi-codebook.xml"])
+        deposit40 = valid(schema, files["ddi-lifecycle.xml"])
+    def one(path, d=doc):
+        return d.xpath(path, namespaces=NS)
+
+    assert one("//ddi:var[not(@xml:lang)]") == [] and one("//ddi:var/@xml:lang")[0] == "de"
+    statement = one("//ddi:var[@name='A_1']")[0]
+    assert statement.xpath("ddi:qstn/ddi:preQTxt[@xml:lang='de']/text()", namespaces=NS) == ["Wie sehr stimmen Sie zu?"]
+    assert statement.xpath("ddi:qstn/ddi:qstnLit[@xml:lang='de']/text()", namespaces=NS) == ["Aussage A"]
+    assert not one("//ddi:var[@name='gender']/ddi:qstn/ddi:preQTxt")  # a single question has no stem
+    concept = statement.xpath("ddi:concept", namespaces=NS)[0]
+    assert concept.text == "Kurzskala Technikbereitschaft (TB)" and concept.get("vocabURI") == "https://doi.org/10.6102/zis244"
+    assert concept.get("vocab")
+    assert set(one("//ddi:collDate/@cycle")) == {"Wave 1 of 2 (vorher)"}
+    assert not one("//ddi:otherMat")  # the download names no package files
+    names = set(one("//ddi:otherMat/@URI", deposit))
+    assert {"codebook.csv", "questionnaire.md", "survey.json"} <= names and names <= set(files)
+    assert all(one("//ddi:otherMat/ddi:txt[@xml:lang='en']/text()", deposit))
+    # the same in Lifecycle 4.0
+    assert doc40.xpath("//d:Concept/d:ConceptName/text()", namespaces=NS40) == ["Kurzskala Technikbereitschaft (TB)"]
+    assert doc40.xpath("//d:Variable[d:VariableName='A_1']/d:ConceptReference", namespaces=NS40)
+    assert doc40.xpath("//d:DataCollectionDate/d:Cycle/text()", namespaces=NS40) == ["1"]
+    urls = set(deposit40.xpath("//d:OtherMaterial/d:ExternalURLReference/text()", namespaces=NS40))
+    assert {"codebook.csv", "questionnaire.md"} <= urls
+    # every mandatory path of both profiles is still there
+    for name in ("cdc25_profile.xml", "eqb25_profile.xml"):
+        for xpath, level, if_parent in profile(name):
+            if level == "Mandatory" and if_parent:
+                parent, _, last = xpath.rpartition("/")
+                for node in deposit.xpath(parent, namespaces=NS):
+                    assert node.xpath(last, namespaces=NS), f"{name}: {xpath} missing"

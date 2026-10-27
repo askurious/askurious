@@ -174,23 +174,25 @@ def package(survey, open_answers=False, include_incomplete=False, require_public
         # may not be passed on, without images (they are in images.zip)
         ("survey.json", transfer.dumps(survey, with_files=False, public=True).encode("utf-8")),
     ]
-    from app import cdif, ddi, ddi_codebook
+    from app import cdif, ddi, ddi_codebook, packages
 
-    # the same for archives and catalogues (Ralf 2026-10-27): DDI Lifecycle 4.0, DDI Codebook 2.5 (CESSDA) and CDIF,
-    # describing the columns of codebook.csv, without the wording codebook.csv and questionnaire.md leave out
-    files += [("ddi-lifecycle.xml", ddi.build(survey, lang="en", public=True, open_answers=open_answers)),
-              ("ddi-codebook.xml", ddi_codebook.build(survey, lang="en", public=True, open_answers=open_answers)),
-              ("cdif.jsonld", cdif.build(survey, lang="en", public=True, open_answers=open_answers))]
-    from app import packages
-
-    files += packages.study_material(survey, "en", public=True)  # the PDF of what participants saw, with notes (E10 C)
+    extra = list(packages.study_material(survey, "en", public=True))  # the PDF of what participants saw, with notes (E10 C)
     if export.used_constructs(survey) or export.used_constructs(survey, linked=True):
-        files.append(("constructs.md", export.constructs_md(survey, public=True).encode("utf-8")))
+        extra.append(("constructs.md", export.constructs_md(survey, public=True).encode("utf-8")))
     from app import coding
 
     guide = coding.guide_md(survey, examples=open_answers)  # the categories of open answers
     if guide:
-        files.append(("kodierleitfaden.md", guide.encode("utf-8")))
+        extra.append(("kodierleitfaden.md", guide.encode("utf-8")))
+    # the same for archives and catalogues (Ralf 2026-10-27): DDI Lifecycle 4.0, DDI Codebook 2.5 (CESSDA) and CDIF,
+    # describing the columns of codebook.csv, without the wording codebook.csv and questionnaire.md leave out; both
+    # DDI files list the other files of the package as material
+    material = [name for name, _ in files + extra]
+    files += [("ddi-lifecycle.xml", ddi.build(survey, lang="en", public=True, open_answers=open_answers, material=material)),
+              ("ddi-codebook.xml", ddi_codebook.build(survey, lang="en", public=True, open_answers=open_answers,
+                                                      material=material)),
+              ("cdif.jsonld", cdif.build(survey, lang="en", public=True, open_answers=open_answers))]
+    files += extra
     from app import packages
 
     files += [(name, text.encode("utf-8")) for name, text in packages.long_files(

@@ -7410,3 +7410,14 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Kasten „Für Datenarchive“ (app/ddi.readiness): neue Zeilen „Herausgeber“ (fehlt, solange keine Organisation eingetragen ist, mit Hinweis auf das Team), „DOI“ (optional, kommt mit Zenodo) und „Kennung der Befragung“ (setzt Askurious).
 - Tests (tests/exports/test_ddi_codebook.py): gültig gegen das XSD von DDI Codebook 2.5 (tests/data/ddi/codebook25-xsd.tar.gz, unverändert, LGPL 3.0), alle Pflichtpfade beider CESSDA-Profile (tests/data/ddi/*_profile.xml, CC BY 4.0) für eine vollständig ausgefüllte Befragung, empfohlene Pfade, wo die Angaben da sind; die neuen 4.0-Felder bleiben gültig; ausgelassener Wortlaut im Paket.
 - Rechtstexte geprüft: README (Exportliste) und NOTICE (Schema DDI Codebook 2.5, LGPL 3.0; CESSDA-Profile, CC BY 4.0) ergänzt; Datenschutzerklärung, Nutzungsbedingungen und Datenschutzkonzept unverändert (keine neuen personenbezogenen Daten: Namen, Organisation und ORCID des Teams standen schon in den DDI-, CDIF- und Zenodo-Angaben).
+
+## 2026-10-27: DDI Codebook 2.5 nach der strengen CESSDA-Prüfung ergänzt
+
+- Ralf ließ die Datei mit dem CESSDA-Prüfwerkzeug prüfen: BASIC (CDC-Profil) ohne Befund, STRICT (EQB-Profil) 44 Hinweise auf optionale und empfohlene Angaben, kein Fehler. Ergänzt, was sich aus vorhandenen Angaben füllen lässt (Ralf: „ja“), ohne neue Eingabefelder:
+- Sprache an jeder Variablen (`var/@xml:lang`).
+- Aussagenbatterien (Likert, Matrix): die Aussage als Frage (`qstnLit`), der Fragestamm davor (`preQTxt`), je Sprache; vorher stand bei jeder Aussage nur der Fragestamm.
+- Validiertes Konstrukt einer Frage als `var/concept` (Name, `vocab` = Autorinnen und Jahr, `vocabURI` = DOI); in Lifecycle 4.0 ein `Concept` je Konstrukt mit `ConceptReference` an der Variablen.
+- Welle eines Panels als `collDate/@cycle` („Wave 1 of 2 (vorher)“); in 4.0 `DataCollectionDate/Cycle`. Tagebuchstudien haben keine einzelne Welle und bleiben ohne.
+- Im Paket für Zenodo und Coscine die übrigen Dateien (Codebuch, Fragebogen, Befragungsmaterial, Befragungsdatei, Konstrukte, Kodierleitfaden) als `otherMat` mit Beschreibung; in 4.0 als `OtherMaterial`. Der Download auf der Exportseite nennt keine Paketdateien.
+- Bleibt weg, weil Askurious die Angabe nicht hat: Kürzel des Herausgebers, Studienreihe (`serStmt`), Text nach der Frage (`postQTxt`); Hinweise für Interviewende (`ivuInstr`) gehören zu Leitfadenfragen, die keine Variablen haben.
+- Rechtstexte geprüft, keine Änderung nötig.
