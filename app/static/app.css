@@ -714,6 +714,20 @@ input.dimmed { opacity: 0.45; }
 .palette-row .palette-item .desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
   hyphens: manual; }  /* the short text of a type fits; never "mehre-ren" (UI audit 2026-10-12, U20) */
 .palette-block { width: 100%; }
+/* statements pasted as a list (user test 2026-10-27, 7): the box as wide as the table, the preview below it */
+.stmt-paste textarea { width: 100%; }
+.stmt-paste-preview ol { margin: 4px 0 10px; padding-left: 22px; }
+/* "Items aus den Konstrukten übernehmen" (user test 2026-10-27, 8): one row per scale, its items folded */
+.take-construct input[type=search] { width: 100%; }
+.take-list { max-height: 420px; overflow-y: auto; }
+.take-list > li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--surface-3); }
+.take-list > li > details { flex: 1; min-width: 0; }
+.take-list ol { margin: 6px 0; padding-left: 22px; }
+/* the question text: the example beside its name selectable, "übernehmen" puts it in (user test 2026-10-27, 11) */
+.question-field-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; }
+.question-field-head .link-button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; }
+.question-field textarea { width: 100%; }
+label:not(.check) .hint { -webkit-user-select: text; user-select: text; cursor: text; }
 /* "+ Neuer Block" under the last block (user test 2026-10-27, 3): a dashed strip as wide as the blocks */
 .new-block-form { margin: 0 0 18px; }
 .new-block-btn { display: flex; width: 100%; justify-content: center; align-items: center; gap: 6px; padding: 12px; font: inherit;
@@ -3883,6 +3897,8 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 
 /* answers of earlier questions in the element editor: folded at first */
 .pipe-fold { flex-basis: 100%; }
+.loop-vars.pipe-only { background: none; border: 0; padding: 0; }
+.loop-vars.pipe-only .pipe-fold > summary .label-title { font-weight: 600; }
 .pipe-fold > summary { cursor: pointer; list-style-position: inside; }
 .pipe-fold[open] > summary { margin-bottom: 6px; }
 .pipe-fold .chip { margin: 0 4px 4px 0; }

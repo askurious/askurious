@@ -150,7 +150,7 @@ def test_design_check(app, client, survey):
     with app.app_context():
         s = db.session.get(Survey, 1)
         item = db.session.get(Item, 4)
-        assert not [f for f in design.check(s) if f.item_id == 4]
+        assert not [f for f in design.check(s) if f.item_id == 4 and "Quelle der Items" not in f.message]  # the source: its own warning
         stmts = [dict(x) for x in item.config["statements"]]
         stmts[0]["when"] = {"item": 2, "op": "eq", "value": ""}       # nothing ticked
         stmts[1]["when"] = {"item": 5, "op": "answered", "value": ""}   # a question on the same page

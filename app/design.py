@@ -5,7 +5,7 @@ M5 extends this with the randomization planner (asset space, coverage per row).
 import re
 from dataclasses import dataclass
 
-from app import item_condition
+from app import item_condition, item_source
 from app.lang import de_en
 from app.units import fixed
 
@@ -357,6 +357,11 @@ def check(survey, start=False):
             for problem in item_condition.problems(item):
                 findings.append(Finding(ERROR, f"{named(item)}: {problem}", item_id=item.id, block_id=block.id))
             findings.extend(option_findings(item))
+            # where the items of a scale come from (app/item_source.py; user test 2026-10-27): a warning only
+            if item_source.missing(item):
+                findings.append(Finding(WARNING, de_en("{named}: Quelle der Items fehlt. Bitte die Quelle angeben oder „selbst formuliert“ ankreuzen.",
+                                                       "{named}: the source of the items is missing. Please give the source or tick “written by us”.",
+                                                       named=named(item)), item_id=item.id, block_id=block.id))
             for hint in item.kind.check_warnings(item):
                 findings.append(Finding(WARNING, f"{named(item)}: {hint}", item_id=item.id, block_id=block.id))
             for col, _ in item.kind.export_columns(item):

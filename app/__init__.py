@@ -730,6 +730,9 @@ def create_app(config_class=Config, server=False):
     from app import sample_model
 
     app.jinja_env.globals["sample_model"] = sample_model  # one sample model for every page (UI/UX audit 2026-10-07, S3)
+    from app import item_source
+
+    app.jinja_env.globals["item_source"] = item_source  # the source of a scale's items (user test 2026-10-27)
     from app import constructs as constructs_mod
     from app.wizard import DEMOGRAPHICS
 

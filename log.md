@@ -7377,6 +7377,19 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Darunter stehen zwei Spalten mit fetten Überschriften und Zahl: „Schon angegeben“ mit den Werten (etwa „Lizenz: CC BY 4.0“) und „Setzt Askurious automatisch“. `ddi.readiness` liefert dafür Wert, Zweck und Schritt je Zeile.
 - Rechtstexte geprüft, keine Änderung nötig.
 
+## 2026-10-27: Konstrukt ATI (interaktionsbezogene Technikaffinität)
+
+- Neues Konstrukt `ati`: Franke, Attig & Wessel (2019), 9 Aussagen, 6 beschriftete Stufen, Items 3, 6 und 8 umgepolt, ein Skalenwert als Mittelwert; deutsch und englisch, DOI 10.1080/10447318.2018.1456150.
+- Lizenz: ati-scale.org nennt die Skala „free to use“ und bittet um Zitation, gibt aber keine offene Lizenz zur Weitergabe des Wortlauts an. Der Code trägt deshalb wie bei den anderen fremden Skalen nur die Struktur; der Wortlaut liegt in `instruments.json` der Installation (RWTH-Overlay).
+- Test in `tests/analysis/test_constructs.py`.
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Retry-After der Wartungsseite
+
+- Die Wartungsseite schickte bei eingeschaltetem Schalter Retry-After 30 statt 120 (Ralf). Ursache: `try_files` setzt `$uri` auf die Datei der Seite, und die map `$uri` → Retry-After wurde erst von `add_header` gelesen, also mit dem Dateipfad (immer 30).
+- `wartung.conf` liest den Wert jetzt vor `try_files` (`set $wartung_retry $wartung_retry_nach;`): 120 beim Schalter, 30 beim Ausfall.
+- Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
+
 ## 2026-10-27: Nutzertest: Studiendesign, Editor, Skalen, Export
 
 - Studiendesign legt den Fragebogen an (#64, `app/design_layout.py`): Experiment → „Bedingung A/B“ in der Randomisierung „Versuchsbedingung“ (1 von 2), Messwiederholung → beide in zufälliger Reihenfolge, Vignetten → Vignetten-Schleife; einmal je Entwurf, nur ohne vorhandene Randomisierung oder Schleife.
