@@ -353,6 +353,13 @@ INSTRUMENTS = {
     # GDMS (Scott & Bruce, 1995): 25 items, styles in turn; English only
     "gdms": ("GDMS", 5, {"en": ["strongly disagree", "2", "3", "4", "strongly agree"]}, "endpoints",
              _items(*((GDMS_STYLES[n % 5], False) for n in range(25)))),
+    # ATI (Franke, Attig & Wessel, 2019): 9 items, one dimension; items 3, 6 and 8 reversed; all six points labelled as
+    # in the German and English scale sheets of ati-scale.org (2022-02-25)
+    "ati": ("ATI", 6, {"de": ["stimmt gar nicht", "stimmt weitgehend nicht", "stimmt eher nicht", "stimmt eher",
+                              "stimmt weitgehend", "stimmt völlig"],
+                       "en": ["completely disagree", "largely disagree", "slightly disagree", "slightly agree",
+                              "largely agree", "completely agree"]}, "full",
+            _items(*((None, n in (3, 6, 8)) for n in range(1, 10)))),
 }
 _WORDINGS = {}  # path: (modification time, wordings)
 
@@ -806,6 +813,31 @@ SEEDS = [
      "spec": _instrument("gdms"),
      "tags": ["status:validiert", "quelle:APA PsycTests", "art:Persönlichkeit", "thema:Entscheidungsstil",
               "fach:Psychologie"]},
+    {"key": "ati", "seed_version": 1, "name": "Interaktionsbezogene Technikaffinität (ATI)", "status": "verified",
+     "short": "9 Aussagen, 6 Stufen; Neigung, sich aktiv und intensiv mit technischen Systemen zu beschäftigen",
+     "description": "Erfasst die interaktionsbezogene Technikaffinität (Affinity for Technology Interaction): ob eine "
+                    "Person sich gern und eingehend mit technischen Systemen (Apps, Software, digitale Geräte) "
+                    "beschäftigt oder Technik eher meidet. Als persönliche Ressource im Umgang mit Technik gedacht, "
+                    "theoretisch an Need for Cognition angelehnt. Eindimensional; in mehreren Studien mit zusammen "
+                    "über 1500 Personen gute bis sehr gute Reliabilität. Häufig zur Beschreibung von Stichproben in "
+                    "Nutzerstudien eingesetzt. Validiert auf Deutsch und Englisch.",
+     "authors": "Franke, Attig & Wessel", "year": 2019,
+     "citation": "Franke, T., Attig, C., & Wessel, D. (2019). A personal resource for technology interaction: "
+                 "Development and validation of the Affinity for Technology Interaction (ATI) scale. International "
+                 "Journal of Human–Computer Interaction, 35(6), 456–467.",
+     "doi": "10.1080/10447318.2018.1456150",
+     "scoring": "Skalenwert = Mittelwert der 9 Items (1 bis 6); die negativ formulierten Items 3, 6 und 8 sind im "
+                "Export bereits rekodiert, hohe Werte stehen also für hohe Technikaffinität. Die Autoren empfehlen, "
+                "Mittelwert, Standardabweichung und Cronbachs Alpha mit zwei Nachkommastellen zu berichten.",
+     "notes": "Laut den Autoren frei nutzbar (ati-scale.org, „Conditions of Use“: „The scale is free to use“); sie "
+              "bitten um Zitation und freuen sich über eine kurze Nachricht zum Einsatz (ati@imis.uni-luebeck.de). "
+              "Eine offene Lizenz zur Weitergabe des Wortlauts ist nicht angegeben, deshalb steht er nicht im "
+              "öffentlichen Code. Deutsche und englische Fassung im Wortlaut der Skalenblätter auf ati-scale.org "
+              "(Stand 2022-02-25), alle sechs Stufen beschriftet. Im Original ist die Reihenfolge der Aussagen fest; "
+              "hier zufällig, im Editor abschaltbar. Eine Kurzfassung mit 4 Items (ATI-S) gibt es ebenfalls.",
+     "spec": _instrument("ati"),
+     "tags": ["status:validiert", "art:Persönlichkeit", "thema:Technik", "thema:Technikaffinität", "fach:Psychologie",
+              "fach:HCI"]},
 ]
 
 # the demographic standard questions of the RatSWD (2023), one construct per item (app/ratswd.py)
@@ -821,7 +853,7 @@ REFERENCE = {
     "tb": "Person: stabil", "r1": "Person: stabil", "kuk": "Person: stabil",
     "aub": "Person: veränderlich", "sorgfalt": "Person: veränderlich", "fitai": "Person: veränderlich",
     "tam_pu": "Gegenstand", "tam_peou": "Gegenstand", "tam_bi": "Gegenstand", "kamb": "Gegenstand",
-    "gdms": "Person: stabil",
+    "gdms": "Person: stabil", "ati": "Person: stabil",
     **{seed["key"]: seed["reference"] for seed in ratswd.SEEDS},
 }
 for _seed in SEEDS:
@@ -1057,6 +1089,23 @@ SEEDS_EN = {
                  "translation of your own is not validated. Only the endpoints are labelled (original: 5 points from "
                  "“strongly disagree” to “strongly agree”). Statements in random order; in the original the styles "
                  "take turns."},
+    "ati": {
+        "name": "Affinity for Technology Interaction (ATI)",
+        "short": "9 statements, 6 points; tendency to engage actively and intensively with technical systems",
+        "description": "Measures affinity for technology interaction: whether a person likes to engage with technical "
+                       "systems (apps, software, digital devices) in depth or rather avoids it. Meant as a personal "
+                       "resource for coping with technology, rooted in need for cognition. One dimension; good to "
+                       "excellent reliability in several studies with more than 1500 people in total. Often used to "
+                       "describe samples in user studies. Validated in German and English.",
+        "scoring": "Scale score = mean of the 9 items (1 to 6); the negatively worded items 3, 6 and 8 are already "
+                   "recoded in the export, so high values stand for high affinity. The authors recommend reporting "
+                   "mean, standard deviation and Cronbach's alpha with two decimals.",
+        "notes": "Free to use according to the authors (ati-scale.org, “Conditions of Use”: “The scale is free to "
+                 "use”); they ask to cite the scale and welcome a short message on its use (ati@imis.uni-luebeck.de). "
+                 "No open licence to pass the wording on is stated, so it is not in the public code. German and "
+                 "English version worded as in the scale sheets on ati-scale.org (2022-02-25), all six points "
+                 "labelled. The original keeps the statements in a fixed order; here random, can be switched off in "
+                 "the editor. A 4-item short version (ATI-S) also exists."},
 }
 
 SEEDS_EN.update(ratswd.EN)
@@ -1073,6 +1122,7 @@ TAGS_EN = {
     "Umwelt": "Environment", "Umweltbewusstsein": "Environmental awareness", "Technikakzeptanz": "Technology acceptance",
     "Kochen": "Cooking", "Medien": "Media", "Medienbewertung": "Media evaluation",
     "Künstliche Intelligenz": "Artificial intelligence", "Entscheidungsstil": "Decision-making style",
+    "Technikaffinität": "Affinity for technology",
     "Psychologie": "Psychology", "Soziologie": "Sociology", "Wirtschaftsinformatik": "Information systems",
     "Kommunikationswissenschaft": "Communication science",
     "Bildung": "Education", "Erwerbstätigkeit": "Employment", "Beruf": "Occupation", "Einkommen": "Income",

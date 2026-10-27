@@ -1328,6 +1328,80 @@ def csv_file(survey, include_incomplete=False, separator="comma", sources=("real
         raise
 
 
+def labelled_csv_file(survey, include_incomplete=False, separator="comma", sources=("real",), speeder=None,
+                      speed_real=True, speed_sources=None, drop_speeders=False, scales=False, standard=False):
+    """The data set as CSV with the answers as their labels instead of codes ("stimme eher zu" for 4; user test
+    2026-10-27, point 12). The labels are the value labels of the SPSS export (_spss_dictionary), so they always match
+    the codebook; a value without a label stays as it is. A multiple choice keeps its 0/1 column per option and gets a
+    column named after the question with the chosen options ("Bus; Bahn") before them. Only for the researchers'
+    download, never the public package."""
+    import tempfile
+
+    from app.items.choice import MultipleChoice
+
+    cols, data, meta = _spss_dictionary(survey, include_incomplete, sources, speeder, speed_real, speed_sources,
+                                        drop_speeders=drop_speeders, scales=scales, standard=standard)
+    lang = survey.default_language
+    chosen = {}  # first option column -> (question column, [(option column, label)])
+    plain = set()  # the 0/1 columns of the options stay numbers
+    for block in survey.blocks:
+        for item in block.items:
+            if isinstance(item.kind, MultipleChoice):
+                labels = item.text("options", lang) or {}
+                opts = [(f"{item.code}_{o['code']}", labels.get(o["id"], "") or o["code"]) for o in item.config.get("options", [])]
+                opts = [(c, lab) for c, lab in opts if c in meta]
+                if opts:
+                    chosen[opts[0][0]] = (item.code, opts)
+                    plain.update(c for c, _ in opts)
+
+    def label(c, value):
+        if value in (None, "") or c in plain:
+            return value
+        m = meta.get(c) or {}
+        for v, lab in m.get("text_pairs") or ():
+            if str(value) == str(v):
+                return lab
+        try:
+            number_ = float(value)
+        except (TypeError, ValueError):
+            return value
+        for v, lab in m.get("pairs") or ():
+            if float(v) == number_:
+                return lab
+        return value
+
+    names = []
+    for c, _ in cols:
+        if c in chosen and chosen[c][0] not in meta:
+            names.append(("multi", c))
+        names.append(("col", c))
+    semicolon = separator == "semicolon"
+    out = tempfile.SpooledTemporaryFile(max_size=2 * 1024 * 1024, mode="w+b", suffix=".csv")
+    try:
+        buf = io.StringIO()
+        buf.write("﻿")  # BOM: Excel opens UTF-8 correctly
+        writer = csv.writer(buf, delimiter=";" if semicolon else ",", lineterminator="\r\n")
+        writer.writerow([chosen[c][0] if kind == "multi" else c for kind, c in names])
+        for row in data:
+            cells = []
+            for kind, c in names:
+                if kind == "multi":
+                    cells.append(safe_text("; ".join(lab for oc, lab in chosen[c][1] if str(row.get(oc)) in ("1", "1.0", "True"))))
+                else:
+                    cells.append(_cell(label(c, row.get(c)), semicolon))
+            writer.writerow(cells)
+            if buf.tell() >= 65536:
+                out.write(buf.getvalue().encode("utf-8"))
+                buf.seek(0)
+                buf.truncate(0)
+        out.write(buf.getvalue().encode("utf-8"))
+        out.seek(0)
+        return out
+    except BaseException:
+        out.close()
+        raise
+
+
 def resp_id_note(lang=None, public=False):
     """The codebook note of resp_id (audit Datenspeicherung + Berechnungen 2026-10-21): a running number of this export
     that depends on its pool, so pid joins exports (C6; a public package has no pid); and what an empty cell of a whole

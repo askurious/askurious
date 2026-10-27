@@ -44,7 +44,7 @@ def test_wizard_walkthrough(app, client):
     step = client.get(W + "design").data.decode()
     assert 'name="preset" value="askurious" checked' in step and 'name="preset" value="askurious-dark"' in step
     # the style of AI images is chosen with the first AI image (Ralf 2026-10-27); the step names it only
-    assert "Überspringen" in step and "Stil der KI-Bilder" not in step and "Farben und Schrift</h3>" not in step
+    assert "Überspringen" not in step and "Stil der KI-Bilder" not in step and "Farben und Schrift</h3>" not in step
     r = client.post(W + "design", data={"preset": "askurious-dark", "key": "flat", "custom": ""})
     assert r.headers["Location"].endswith("/setup/done")
     r = client.post(W + "done", data={"wizard": "back"})
@@ -162,9 +162,10 @@ def test_consent_step_details_only_with_their_box(app, client):
         assert c.texts["de"]["compensation"] == "" and "Gutschein" not in c.texts["de"]["body"]
 
 
-def test_wizard_saves_by_itself_and_marks_skipped_steps(app, client):
-    """UI/UX audit 2026-10-05, V22 to V24: the steps save like the settings page ("Weiter" only moves on), a skipped
-    step gets a dash instead of a tick, and the step "Teilnahme" asks only how people take part."""
+def test_wizard_saves_by_itself_without_skip(app, client):
+    """UI/UX audit 2026-10-05, V23 and V24: the steps save like the settings page ("Weiter" only moves on), and the step
+    "Teilnahme" asks only how people take part. No "Überspringen" and no skipped mark (Ralf 2026-10-27): every change
+    is saved at once, so it only differed from "Weiter" in that mark."""
     client.post("/surveys/new", data={"title": "T"})
     W = "/surveys/1/setup/"
     page = client.get(W + "researchdesign").data.decode()
@@ -179,7 +180,8 @@ def test_wizard_saves_by_itself_and_marks_skipped_steps(app, client):
     client.post(W + "researchdesign", data={"wizard": "skip"})
     page = client.get(W + "team").data.decode()
     steps = page.split('class="wizard-steps"')[1].split("</ol>")[0]
-    assert 'class="wizard-step done skipped"' in steps and "(übersprungen)" in steps and steps.count("✓") == 1
+    assert "skipped" not in steps and "(übersprungen)" not in steps and steps.count("✓") == 2
+    assert 'value="skip"' not in page and "Überspringen" not in page
     with app.app_context():
         s = db.session.get(Survey, 1)
         s.erase_code, s.geo_ip = True, True

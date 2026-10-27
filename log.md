@@ -7376,3 +7376,28 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf wählte Variante A: In der Übersicht des Assistenten steht „Fehlt noch“ jetzt zuerst, in einem farbig abgesetzten Feld mit Zahl. Jede Zeile sagt, wofür die Angabe gebraucht wird, und hat einen Knopf „Ergänzen in Schritt N“ (hervorgehoben, wenn empfohlen; schlicht, wenn optional).
 - Darunter stehen zwei Spalten mit fetten Überschriften und Zahl: „Schon angegeben“ mit den Werten (etwa „Lizenz: CC BY 4.0“) und „Setzt Askurious automatisch“. `ddi.readiness` liefert dafür Wert, Zweck und Schritt je Zeile.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Konstrukt ATI (interaktionsbezogene Technikaffinität)
+
+- Neues Konstrukt `ati`: Franke, Attig & Wessel (2019), 9 Aussagen, 6 beschriftete Stufen, Items 3, 6 und 8 umgepolt, ein Skalenwert als Mittelwert; deutsch und englisch, DOI 10.1080/10447318.2018.1456150.
+- Lizenz: ati-scale.org nennt die Skala „free to use“ und bittet um Zitation, gibt aber keine offene Lizenz zur Weitergabe des Wortlauts an. Der Code trägt deshalb wie bei den anderen fremden Skalen nur die Struktur; der Wortlaut liegt in `instruments.json` der Installation (RWTH-Overlay).
+- Test in `tests/analysis/test_constructs.py`.
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Retry-After der Wartungsseite
+
+- Die Wartungsseite schickte bei eingeschaltetem Schalter Retry-After 30 statt 120 (Ralf). Ursache: `try_files` setzt `$uri` auf die Datei der Seite, und die map `$uri` → Retry-After wurde erst von `add_header` gelesen, also mit dem Dateipfad (immer 30).
+- `wartung.conf` liest den Wert jetzt vor `try_files` (`set $wartung_retry $wartung_retry_nach;`): 120 beim Schalter, 30 beim Ausfall.
+- Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
+
+## 2026-10-27: Nutzertest: Studiendesign, Editor, Skalen, Export
+
+- Studiendesign legt den Fragebogen an (#64, `app/design_layout.py`): Experiment → „Bedingung A/B“ in der Randomisierung „Versuchsbedingung“ (1 von 2), Messwiederholung → beide in zufälliger Reihenfolge, Vignetten → Vignetten-Schleife; einmal je Entwurf, nur ohne vorhandene Randomisierung oder Schleife.
+- Editor (#65): „+ Neuer Block“ unter dem letzten Block statt in der Leiste; ▷ statt Auge für die Vorschau, die Fahne für den Start; Blöcke ein- und ausklappen (je Browser gemerkt); ein Klick in die Zeile öffnet das Element, Drücken und Bewegen zieht es.
+- Skalen (#70): „Aussagen einfügen“ eine je Zeile, auch aus PDFs (`app/item_paste.py`); „Quelle der Items“ bei Likert, Differenzial und Schieberegler mit Warnung in der Startprüfung (`app/item_source.py`); „Items aus den Konstrukten übernehmen“ (ersetzen oder anhängen); „Frühere Antworten einsetzen“ als ruhige Zeile; der Beispieltext beim Fragetext lässt sich markieren und übernehmen.
+- Export: Wahl „Antworten im CSV-Datensatz als Codes oder als Beschriftungen“ (`export.labelled_csv_file`), Beschriftungen aus den Wertelabels des SPSS-Exports; Mehrfachauswahl behält die 0/1-Spalten und bekommt eine Spalte mit den gewählten Optionen.
+
+## 2026-10-27: Assistent ohne „Überspringen“
+
+- Ralf: Wozu „Überspringen“ neben „Weiter“, wenn es keine Pflichtangaben gibt? Der Assistent speichert jede Änderung sofort, daher unterschied sich „Überspringen“ nur in der Markierung „übersprungen“ (Strich statt Haken) in der Schrittleiste. Knopf und Markierung sind entfallen, es bleiben „Zurück“ und „Weiter“. Ein noch gesendetes „skip“ (alte Seite) geht weiter ohne zu speichern. Der Live-Assistent und die Kontoeinrichtung behalten ihr „Überspringen“, weil es dort etwas anderes bedeutet.
+- Rechtstexte geprüft, keine Änderung nötig.
