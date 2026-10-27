@@ -728,6 +728,12 @@ input.dimmed { opacity: 0.45; }
 .question-field-head .link-button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; }
 .question-field textarea { width: 100%; }
 label:not(.check) .hint { -webkit-user-select: text; user-select: text; cursor: text; }
+/* "+ Neuer Block" under the last block (user test 2026-10-27, 3): a dashed strip as wide as the blocks */
+.new-block-form { margin: 0 0 18px; }
+.new-block-btn { display: flex; width: 100%; justify-content: center; align-items: center; gap: 6px; padding: 12px; font: inherit;
+  font-weight: 600; color: var(--accent); background: transparent; border: 2px dashed var(--border); border-radius: var(--radius-panel); cursor: pointer; }
+.new-block-btn:hover, .new-block-btn:focus-visible { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.new-block-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 .item-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
 .item-icon.big { display: inline-grid; width: 38px; height: 38px; vertical-align: middle; margin-right: 4px; }
 
@@ -740,7 +746,9 @@ label:not(.check) .hint { -webkit-user-select: text; user-select: text; cursor: 
 .drag-handle { color: var(--muted); cursor: grab; font-weight: 700; letter-spacing: -2px; padding: 0 2px; user-select: none; }
 /* Dragging (app.js): an element is taken anywhere on its row, a block anywhere on its head, except on what is
    clicked or typed into. Nothing moves while dragging: lines show where the drop goes. */
-.item-row[data-drag], .block-head:has([data-block-handle]) { cursor: grab; }
+.block-head:has([data-block-handle]) { cursor: grab; }
+/* a click on a row opens the element, pressing and moving drags it (user test 2026-10-27, 4) */
+.item-row[data-drag] { cursor: pointer; }
 .item-row[data-drag] label, .block-head:has([data-block-handle]) label { cursor: default; }
 .editor-grid .drag-handle, .row-drag { touch-action: none; }  /* a finger on the handle drags at once instead of scrolling */
 .row-drag { display: inline-block; padding: 6px 4px; vertical-align: middle; }
@@ -1494,6 +1502,16 @@ ol.plain.tl-events li { border: 0; padding: 0; }  /* plain dates and actions, no
 
 /* Block name as an editable heading */
 .block-name { display: block; position: relative; }
+/* ▾/▸ before the name folds the block (user test 2026-10-27, 6); folded, only the head with what is in it */
+.block-title-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.block-title-row .block-name { flex: 1; min-width: 0; }
+.block-fold { flex: none; width: 28px; height: 28px; color: var(--muted); }
+.block-fold span { display: inline-block; }
+.block.is-folded .block-fold span { transform: rotate(-90deg); }
+.block-folded-note { display: none; flex: none; white-space: nowrap; }
+.block.is-folded .block-folded-note { display: inline; }
+.block.is-folded > .item-list, .block.is-folded .block-settings, .block.is-folded > .block-palette-btn { display: none; }
+.block.is-folded > .block-head { border-bottom: 0; border-radius: var(--radius-panel); }
 .block-name input { width: 100%; font-size: 1.05rem; font-weight: 650; color: var(--fg); background: transparent;
   border: 1px solid transparent; border-radius: 8px; padding: 4px 8px; margin-left: -8px; }
 .block-name input:hover { border-color: var(--border); }
@@ -5429,16 +5447,32 @@ fieldset.ai-fieldset > legend { color: var(--ai); }
 .pick-card:hover { border-color: var(--accent); }
 .pick-card:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .pick-card:has(input:focus-visible) { outline: var(--focus-outline); outline-offset: 2px; }
+/* the DDI term only under the chosen card (Ralf 2026-10-27: not on every card); the others name it on hover */
 .ddi-term { font-size: 0.75rem; color: var(--muted); }
-.pick-group { margin: 10px 0 0; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.pick-card .ddi-term { display: none; }
+.pick-card:has(input:checked) .ddi-term { display: block; }
+.pick-group { margin: 10px 0 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 .sub-pick { display: block; margin-top: 6px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 6px; }
 details.plan-more > summary { cursor: pointer; font-weight: 600; margin: 8px 0; }
-/* the box "Für Datenarchive" on the last step of the wizard (wizard/_summary.html, ddi.readiness) */
-.archive-box { border: 1px solid var(--border); border-radius: var(--radius-panel, 12px); padding: 14px 16px; margin-top: 18px; }
-.archive-box h3 { margin: 0 0 4px; font-size: 1rem; }
-.archive-box ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 24px; }
-.archive-meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 6px 0 2px; }
+/* the box "Für Datenarchive" on the wizard's overview (wizard/_summary.html, ddi.readiness): what is missing first and
+   set apart, then what is given and what Askurious sets in two columns (Ralf 2026-10-27, variant A) */
+.archive-box { border: 1px solid var(--border); border-radius: var(--radius-panel, 12px); padding: 16px 18px; margin-top: 18px; }
+.archive-box h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.archive-box h4 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 700; }
+.archive-meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 8px 0 14px; }
 .archive-meter span { display: block; height: 100%; background: var(--ok); }
+.archive-missing { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; }
+.archive-missing ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.archive-missing li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surface); border-radius: 8px; padding: 8px 12px; }
+.archive-missing li.is-optional { opacity: 0.85; }
+.archive-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.archive-cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .archive-box .is-ok::before { content: "✓ "; color: var(--ok); font-weight: 700; }
-.archive-box .is-auto::before { content: "⚙ "; color: var(--muted); }
+.archive-box li.is-auto::before { content: "↻ "; color: var(--muted); }
+.archive-count { display: inline-block; min-width: 22px; padding: 0 7px; margin-left: 6px; border-radius: 11px; background: var(--warn);
+  color: var(--surface); font-size: 0.85rem; text-align: center; }
+.archive-count.is-ok { background: var(--ok); }
+.archive-count.is-auto { background: var(--muted); }
+.archive-count.is-ok::before { content: none; }
 .archive-box .is-missing::before { content: "○ "; color: var(--warn); font-weight: 700; }

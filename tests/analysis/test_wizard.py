@@ -44,7 +44,7 @@ def test_wizard_walkthrough(app, client):
     step = client.get(W + "design").data.decode()
     assert 'name="preset" value="askurious" checked' in step and 'name="preset" value="askurious-dark"' in step
     # the style of AI images is chosen with the first AI image (Ralf 2026-10-27); the step names it only
-    assert "Überspringen" in step and "Den Stil der KI-Bilder wählen Sie beim ersten KI-Bild" in step
+    assert "Überspringen" in step and "Stil der KI-Bilder" not in step and "Farben und Schrift</h3>" not in step
     r = client.post(W + "design", data={"preset": "askurious-dark", "key": "flat", "custom": ""})
     assert r.headers["Location"].endswith("/setup/done")
     r = client.post(W + "done", data={"wizard": "back"})
@@ -52,7 +52,8 @@ def test_wizard_walkthrough(app, client):
     client.post(W + "design", data={"wizard": "skip", "preset": "askurious", "key": ""})   # skipped: nothing is taken
     assert client.get(W + "bildstil").headers["Location"].endswith("/setup/design")      # former addresses
     html = client.get(W + "done").data.decode()
-    assert "Flache Vektorgrafik" in html and "Deutsch (Sie) (Ausgangssprache), English" in html and "Forschungsfrage" in html
+    # the overview names no image style: the wizard does not ask for it (Ralf 2026-10-27)
+    assert "Flache Vektorgrafik" not in html and "Deutsch (Sie) (Ausgangssprache), English" in html and "Forschungsfrage" in html
     assert "<dt>Erscheinungsbild</dt><dd>Askurious dunkel</dd>" in html
     summary = html.split('class="summary"')[1].split("</dl>")[0]
     assert "Getrennter Abschnitt" not in summary and "Einwilligung" not in summary
@@ -167,7 +168,8 @@ def test_wizard_saves_by_itself_and_marks_skipped_steps(app, client):
     client.post("/surveys/new", data={"title": "T"})
     W = "/surveys/1/setup/"
     page = client.get(W + "researchdesign").data.decode()
-    assert "data-autosave-form" in page and "Änderungen werden automatisch gespeichert" in page
+    # saves by itself; no standing note on it in the wizard (Ralf 2026-10-27)
+    assert "data-autosave-form" in page and "Änderungen werden automatisch gespeichert" not in page
     r = client.post(W + "project", data=MultiDict([("title", "T"), ("languages", "de"), ("languages", "en"),
                                                   ("default_language", "de"), ("autosave", "1")]))
     assert r.get_json()["status"] == "saved"
@@ -183,13 +185,19 @@ def test_wizard_saves_by_itself_and_marks_skipped_steps(app, client):
         s.erase_code, s.geo_ip = True, True
         db.session.commit()
     page = client.get(W + "flow").data.decode()
-    assert 'name="allow_back"' in page and 'name="geo_ip"' not in page and 'name="paradata"' not in page
-    assert "Region aus der IP an" in page and "ändern ↗" in page
+    # privacy and data quality in folds on the page itself, no links into new tabs (Ralf 2026-10-27)
+    assert 'name="allow_back"' in page and 'name="geo_ip"' in page and 'name="paradata"' in page
+    assert "Region aus der IP" in page and "#einwilligung\" target=\"_blank\"" not in page and "#prevent\" target" not in page
     assert "data-label-form" not in page  # the short name of the link is set with the link (Ralf 2026-10-27)
     client.post(W + "flow", data={"allow_back": "1", "autosave": "1"})
     with app.app_context():
         s = db.session.get(Survey, 1)
-        assert s.allow_back and s.geo_ip and s.erase_code                  # the rest keeps its settings
+        assert s.allow_back and s.geo_ip and s.erase_code                  # without its fold sent, the rest stays
+    client.post(W + "flow", data={"allow_back": "1", "privacy_shown": "1", "erase_code_shown": "1", "quality_shown": "1",
+                                  "paradata": "1", "autosave": "1"})
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert not s.geo_ip and not s.erase_code and s.paradata          # the folds save where they were sent
 
 
 def test_new_questionnaire_starts_with_three_cards(app, client):

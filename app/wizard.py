@@ -515,6 +515,7 @@ def step(survey_id, key):
         consent=survey.consent_item, image_styles=image_styles, style_cfg=image_styles.settings(survey),
         contact=contact, demographics=demographic_choices() if key == "studienplan" else None,
         demographics_now=demographics_kind(survey) if key == "studienplan" else None,
+        wizard_keys=KEYS,
     )
 
 
@@ -541,8 +542,17 @@ def _save(survey, key, form, lang):
         # the responsible researchers, contact and funding are facts of the consent (items/consent.update_facts)
         item = survey.consent_item
         item.kind.apply_facts(item, form, lang)
-    elif key == "ablauf":  # only how people take part (wizard/_options.html, V24); the rest keeps its settings
-        surveys._with_consent(survey, lambda: surveys.apply_participation(survey, form))
+    elif key == "ablauf":  # participation, and privacy and data quality where their fold was sent (wizard/_options.html)
+        def change():
+            surveys.apply_participation(survey, form)
+            from app.surveys import base as survey_base
+
+            if "privacy_shown" in form:
+                survey_base.apply_privacy(survey, form)
+            if "quality_shown" in form:
+                survey_base.apply_quality_options(survey, form)
+
+        surveys._with_consent(survey, change)
     elif key == "gestaltung":
         if form.get("preset"):
             ok, message = surveys.apply_theme_choice(survey, form.get("preset"))

@@ -7330,3 +7330,49 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Bilderseite: ohne gewählten Bildstil ein Hinweis mit Link zur Wahl (der Assistent fragt nicht mehr danach).
 - Interviewleitfaden und Tagebuchstudie: dieselben Abschnitte „Worum geht es?“, „Wer nimmt teil?“, „Wie läuft es ab?“.
 - Rechtstexte geprüft, keine Änderung nötig (gleiche Daten wie bisher, nur anders verteilt; Förderung wie zuvor in der Einwilligung).
+
+## 2026-10-27: „Wer nimmt teil?“ ruhiger
+
+- Der DDI-Begriff steht nur unter der gewählten Karte, die anderen nennen ihn beim Darüberfahren (Ralf).
+- Zufallsstichprobe und Zufallspanel sind eine Karte „Zufallsstichprobe“ (für DDI ohnehin dieselbe Wahrscheinlichkeitsauswahl); die Rücklaufquote fragt der Studienplan jetzt auch bei der Zufallsstichprobe (`sample_model.RESPONSE_FOR`). Ein gespeichertes Zufallspanel zeigt die Karte „Zufallsstichprobe“ gewählt.
+- Stichprobenziel mit Beispiel „z. B. 200“; `data-show-when` nimmt mehrere Werte mit „|“.
+- Schriftgrößen von .pick-group und .archive-box h3 auf die erlaubten Stufen (0,85 rem, 1,05 rem).
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Assistent aufgeräumt
+
+- Schritt „Teilnahme“: Teilnahme, Datenschutz und Datenqualität sind je eine aufklappbare Zeile mit der Zusammenfassung; geändert wird im Assistenten selbst (`_fields_privacy`, `_fields_quality`), statt über Links „ändern ↗“ in neue Browser-Tabs (Ralf).
+- Schritt „Erscheinungsbild“: nur die Überschrift des Schritts (Legende „Farbschema“ nur für Screenreader), kein Hinweis auf KI-Bilder.
+- Im ganzen Assistenten kein stehender Satz „Änderungen werden automatisch gespeichert.“; die Statuszeile meldet weiterhin Speichern und Fehler (`autosave_bar(quiet=true)`).
+- Übersicht ohne die Zeile „Bildstil“.
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Mehr Hilfe bei „Wer nimmt teil?“
+
+- Unter „Art der Zufallsstichprobe“ eine Zeile zur gewählten Art (`study_plan.RANDOM_KIND_HINTS`) und eine Lernhilfe „Welche Art von Zufallsauswahl?“ (Lohr, 2022): einfach, systematisch, geschichtet, Klumpen, mehrstufig, mit Designeffekt (Ralf).
+- Lernhilfe „Wie genau die Grundgesamtheit beschreiben?“ unter der Grundgesamtheit: wer, wo, wann, mit welchen Grenzen.
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Kasten „Für Datenarchive“ in Worten
+
+- Der Kasten auf der Übersicht ordnet in drei Gruppen mit Überschrift: „Schon angegeben“, „Setzt Askurious selbst“, „Fehlt noch“; das Zahnrad entfällt (Ralf: nicht als „automatisch“ erkennbar). Die automatische Zeile nennt die Werte: „Datenart: Quantitativ · Analyseeinheit: Individuum“.
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Wartungsseite statt nackter nginx-503
+
+- Beim Deploy zeigte die Forschendenseite nginx' eigene Seite „503 Service Temporarily Unavailable“ statt der Wartungsseite (Ralf). Ursache: Die Freigabe der Wartungsseite stand in `map $uri $wartung_frei`; nginx behält den Wert einer map aus der ersten Auswertung, nach der internen Umleitung auf `/_wartung/schalter` galt die Seite also weiter als gesperrt, der Schalter schlug ein zweites Mal zu.
+- `nginx/locations/wartung.conf` prüft jetzt `$uri` selbst (`if ($uri ~ "^/_wartung/")`), die map ist weg. Die Ausfallseite (502) war nicht betroffen.
+- Wirkt erst, wenn nginx die neue Datei liest: restart.sh startet nginx beim nächsten Deploy neu, weil sich seine Dateien geändert haben (kurze Lücke für alle).
+- Rechtstexte geprüft, keine Änderung nötig. Kein Fremdcode.
+
+## 2026-10-27: Stichprobenrechner nimmt das Dezimalkomma
+
+- Nutzertest: Im Rechner „Stichprobengröße“ waren die Felder für Effektstärken, Anteile, ρ, ICC usw. Zahlenfelder, die kein Komma annehmen. „0,3“ wurde je nach Browser zu nichts („–“) oder zu „03“, also d = 3 und n = 8.
+- Die 24 Felder mit Nachkommastellen sind jetzt Textfelder mit Zifferntastatur (`inputmode="decimal"`), zeigen ihren Wert auf Deutsch mit Komma und rechnen mit Komma oder Punkt; die Knöpfe „klein/mittel/groß“ setzen den Wert mit Komma. Test in `tests/analysis/test_samplesize.py`.
+- Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-27: Box „Für Datenarchive“ zeigt zuerst, was fehlt
+
+- Ralf wählte Variante A: In der Übersicht des Assistenten steht „Fehlt noch“ jetzt zuerst, in einem farbig abgesetzten Feld mit Zahl. Jede Zeile sagt, wofür die Angabe gebraucht wird, und hat einen Knopf „Ergänzen in Schritt N“ (hervorgehoben, wenn empfohlen; schlicht, wenn optional).
+- Darunter stehen zwei Spalten mit fetten Überschriften und Zahl: „Schon angegeben“ mit den Werten (etwa „Lizenz: CC BY 4.0“) und „Setzt Askurious automatisch“. `ddi.readiness` liefert dafür Wert, Zweck und Schritt je Zeile.
+- Rechtstexte geprüft, keine Änderung nötig.

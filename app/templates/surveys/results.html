@@ -194,7 +194,7 @@
   {% if left_out %}<p class="small">{{ de_en("Der Datenpool oben lässt Teilnahmen weg:", "The data pool above leaves out participations:") }} {% for src in left_out %}{{ {"real": de_en("echte Teilnahmen", "real participations"), "test": de_en("Testdurchläufe", "test runs"), "dummy": de_en("Dummy-Daten", "dummy data")}[src] }} ({{ by_source[src] }}){{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
   <p class="button-row res-empty-ways">
     {% if "dummy" in f.sources and survey.can(current_user, "editor") %}<a class="button" href="{{ url_for('surveys.field', survey_id=survey.id) }}#testing">{{ de_en("Dummy-Daten erzeugen", "Create dummy data") }}</a>{% endif %}
-    <a class="button button-secondary" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("eye", 16) }} {{ de_en("Vorschau durchklicken", "Click through the preview") }} ↗</a>
+    <a class="button button-secondary" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("play", 16) }} {{ de_en("Vorschau durchklicken", "Click through the preview") }} ↗</a>
   </p>
 </section>
 {% else %}

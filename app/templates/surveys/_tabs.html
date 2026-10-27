@@ -31,11 +31,11 @@
   <div class="survey-head-actions">
     {# an interview is begun (and so saved) under "Interviews"; the view without one is a trial (UI audit R20) #}
     {% if survey.interview is not none %}<a class="button button-secondary button-small" href="{{ url_for('interview_data.index', code=survey.code) }}#neu">{{ icon("play", 16) }} {{ de_en("Interview beginnen", "Begin interview") }}</a>
-    {% elif survey.live is none and not pv %}<a class="button button-secondary button-small" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("eye", 16) }} {{ de_en("Vorschau", "Preview") }} ↗</a>{% endif %}
+    {% elif survey.live is none and not pv %}<a class="button button-secondary button-small" href="{{ url_for('editor.preview_survey', survey_id=survey.id) }}" target="_blank" rel="noopener">{{ icon("play", 16) }} {{ de_en("Vorschau", "Preview") }} ↗</a>{% endif %}
     {# the next step of the survey's life, from every tab (UI/UX audit 2026-10-16, 142): the start list, the link, the
        resumption, the closing list; all on "Datenerhebung", so not there. A button in this row, no band of its own. #}
     {% if survey.live is none and survey.interview is none and active_tab != "field" and not pv and survey.can(current_user, "editor") %}
-    {% if survey.status == "draft" %}{% set next_step = ("status", "play", de_en("Zum Start", "To the start")) %}
+    {% if survey.status == "draft" %}{% set next_step = ("status", "flag", de_en("Zum Start", "To the start")) %}
     {% elif survey.status == "running" %}{% set next_step = ("links", "link", de_en("Teilnahmelink", "Participation link")) %}
     {% elif survey.close_reason == "paused" %}{% set next_step = ("status", "play", de_en("Fortsetzen …", "Resume …")) %}
     {% else %}{% set next_step = ("abschluss", "check", de_en("Abschluss", "Wrap-up")) %}{% endif %}
