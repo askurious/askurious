@@ -619,6 +619,9 @@ def create_app(config_class=Config, server=False):
     from app import interview_ai
 
     app.register_blueprint(interview_ai.bp)
+    from app import diary_ai
+
+    app.register_blueprint(diary_ai.bp)  # the AI assistant of a diary survey (design, moment questions, check)
     from app import interview_data
 
     app.register_blueprint(interview_data.bp)

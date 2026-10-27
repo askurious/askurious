@@ -116,8 +116,9 @@ def finish_url(survey):
 
 def ai_way(survey):
     """(url, label) of the kind's AI assistant at the end of the wizard, or None: the guide's assistant (develop
-    questions) for an interview guide, the construct suggestions of the editor for a questionnaire; a diary survey
-    has none yet. Only where AI is on for the person (ai_access.ai_on, as every AI button)."""
+    questions) for an interview guide, the construct suggestions of the editor for a questionnaire, the diary's
+    assistant (app/diary_ai.py: design, moment questions, check) for a diary survey. Only where AI is on for the
+    person (ai_access.ai_on, as every AI button)."""
     from app import ai_access
 
     if not ai_access.ai_on():
@@ -129,6 +130,9 @@ def ai_way(survey):
     if kind == "survey":
         return (url_for("editor.index", survey_id=survey.id) + "#ai-scales",
                 de_en("Mit KI passende Skalen vorschlagen lassen", "Have AI suggest matching scales"))
+    if kind == "diary":
+        return url_for("diary_ai.assistant", survey_id=survey.id), de_en("Mit dem KI-Assistenten Design und Fragen planen",
+                                                                           "Plan design and questions with the AI assistant")
     return None
 
 
