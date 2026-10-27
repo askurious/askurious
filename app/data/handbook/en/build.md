@@ -92,7 +92,7 @@ Undo works across pages and checks the role when it is carried out.
 ![Settings: foldable groups, each with a one-line summary](img/settings.jpg)
 
 **What it is.**
-Everything about the survey that is not a question, in foldable groups: **Survey** (title, project, description, languages), **Researchers involved**, **Participation**, **Consent and data protection**, **End pages**, **Appearance**.
+Everything about the survey that is not a question, in foldable groups: **Survey** (title, project, description, languages), **Researchers involved**, **Participation**, **Consent and data protection**, **End pages**, **Appearance** (with the **standard of the scales**: points, answer scale, labels and numbers that every new Likert scale takes; “apply to all scales” aligns the existing ones, the pre-launch check reports deviations, deviations on purpose are ticked in the element).
 The wizard and this page use the same fields, so a setting means the same in both places.
 Once real participations exist, the settings that the consent names are locked (shown with a padlock).
 

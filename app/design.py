@@ -5,7 +5,7 @@ M5 extends this with the randomization planner (asset space, coverage per row).
 import re
 from dataclasses import dataclass
 
-from app import item_condition, item_source
+from app import item_condition, item_source, scale_default
 from app.lang import de_en
 from app.units import fixed
 
@@ -357,6 +357,12 @@ def check(survey, start=False):
             for problem in item_condition.problems(item):
                 findings.append(Finding(ERROR, f"{named(item)}: {problem}", item_id=item.id, block_id=block.id))
             findings.extend(option_findings(item))
+            # a scale apart from the survey's standard (app/scale_default.py; user test 2026-10-27, point 10)
+            apart = scale_default.differs(survey, item)
+            if apart:
+                findings.append(Finding(WARNING, de_en("{named}: weicht vom Standard der Skalen ab ({what}). Angleichen unter Einstellungen › Erscheinungsbild oder im Element als gewollte Abweichung ankreuzen.",
+                                                       "{named}: differs from the standard of the scales ({what}). Align it under Settings › Appearance or tick it in the element as a deviation on purpose.",
+                                                       named=named(item), what=", ".join(apart)), item_id=item.id, block_id=block.id))
             # where the items of a scale come from (app/item_source.py; user test 2026-10-27): a warning only
             if item_source.missing(item):
                 findings.append(Finding(WARNING, de_en("{named}: Quelle der Items fehlt. Bitte die Quelle angeben oder „selbst formuliert“ ankreuzen.",

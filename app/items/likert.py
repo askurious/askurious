@@ -13,7 +13,7 @@ from app import carry, item_paste, rows, scales
 from app.items import register
 from app.items.base import FactSheet  # what the type can do and is for (app/element_types.py)
 from app.lang import Both, de_en, english
-from app.items.base import r_flag, r_id, r_int, r_maybe, r_one, r_rows, r_text  # rules for survey files, see base.py
+from app.items.base import r_flag, r_id, r_int, r_list, r_maybe, r_one, r_rows, r_text  # rules for survey files, see base.py
 from app.items.base import CODE_RE, DONT_KNOW, DONT_KNOW_CODE, AnswerError, ItemType, dont_know, whole, read_cfg
 from app.items.base import form_ids, new_id as _new_id
 from app.items.base import prepared
@@ -154,6 +154,22 @@ def anchor_labels(lang, points, anchors="agree"):
     return [seven[0]] + [""] * (points - 2) + [seven[-1]]
 
 
+NUMBERINGS = ("1", "0", "center")  # 1..n, 0..n-1, -k..+k (user test 2026-10-27, point 9)
+
+
+def numbering(kind, points):
+    """The numbers shown beside the points: ["1", "2", …], ["0", …], ["−2", "−1", "0", "+1", "+2"], or empty strings."""
+    if kind == "1":
+        return [str(i) for i in range(1, points + 1)]
+    if kind == "0":
+        return [str(i) for i in range(points)]
+    if kind == "center":  # an even number of points has no middle: −2 −1 +1 +2
+        k = points // 2
+        values = list(range(-k, k + 1)) if points % 2 else [v for v in range(-k, k + 1) if v]
+        return ["0" if v == 0 else ("+" if v > 0 else "−") + str(abs(v)) for v in values]
+    return [""] * points
+
+
 def shown_labels(labels, labeling):
     """The labels as participants see them: with "endpoints" the steps in between stay empty (editor, saving,
     exports and codebooks use the same rule, so no wording of a step in between turns up anywhere)."""
@@ -184,7 +200,8 @@ class Likert(ItemType):
                     "labeling": r_one("full", "endpoints"), "label_display": r_one("each", "once"), "randomize": r_flag,
                     "statements": r_rows(300, id=r_id, code=r_text(64), reverse=r_maybe(r_flag), subscale=r_maybe(r_text(100)),
                                          check=r_maybe(r_int(1, POINTS[-1])), when=rows.r_when, src=carry.r_src),
-                    "carry": carry.r_carry, "dont_know": r_flag}
+                    "carry": carry.r_carry, "dont_know": r_flag,
+                    "numbers": r_one("", "1", "0", "center"), "emoji": r_list(10, r_text(8)), "own_scale": r_flag}
     uses_answers = True  # which statements a person sees can depend on earlier answers (config "when", app/rows.py)
     result_kind = 'scale'
     levels = ("ordinal", "metric")
@@ -298,6 +315,15 @@ class Likert(ItemType):
             config["points"] = points
             config["labeling"] = "endpoints" if form.get("labeling") == "endpoints" else "full"
             config["label_display"] = "once" if form.get("label_display") == "once" else "each"
+            # numbers beside the words and an emoji per point: shown only, the codes stay 1..n (user test 2026-10-27, 9)
+            config["numbers"] = form.get("numbers") if form.get("numbers") in NUMBERINGS else ""
+            if form.get("own_scale_shown"):  # apart from the survey's standard on purpose (app/scale_default.py)
+                config["own_scale"] = bool(form.get("own_scale"))
+            emoji = [" ".join((e or "").split())[:8] for e in form.getlist("emoji")][:points]
+            if any(emoji):
+                config["emoji"] = emoji + [""] * (points - len(emoji))
+            else:
+                config.pop("emoji", None)
             config["randomize"] = bool(form.get("randomize"))
             config["dont_know"] = bool(form.get("dont_know"))
             statements = []
@@ -495,6 +521,15 @@ class Likert(ItemType):
                     return ""
                 return plain(self.labels(item, lang)[v - 1]) or str(v)
         return ""
+
+    def point_marks(self, item):
+        """[(number, emoji)] per point as participants see them beside the labels; the codes stay 1..n."""
+        cfg = read_cfg(item)
+        points = cfg["points"]
+        numbers = numbering(cfg.get("numbers") or "", points)
+        emoji = list(cfg.get("emoji") or [])
+        emoji = (emoji + [""] * points)[:points]
+        return list(zip(numbers, emoji))
 
     def labels(self, item, lang):
         labels = item.t(lang).get("labels") or self.default_labels(

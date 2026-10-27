@@ -961,6 +961,9 @@ class Survey(db.Model):
     contact: Mapped[dict | None] = mapped_column(JSON)
     # Survey flow tree (randomizers, branches, end nodes over blocks), see app/flow.py
     flow: Mapped[dict | None] = mapped_column(JSON)
+    # the standard of the scales of this survey (app/scale_default.py; user test 2026-10-27, point 10): {"points",
+    # "anchors", "labeling", "label_display", "numbers"}; None: no standard, each scale as set at it
+    scale_default: Mapped[dict | None] = mapped_column(JSON)
     # Declined consents are not stored; only this bare number is kept (for reporting decline rates)
     declined_count: Mapped[int] = mapped_column(default=0, server_default="0")
     # Illustration style for all AI images: {"key": "watercolor" | ... | "custom", "custom": "..."}

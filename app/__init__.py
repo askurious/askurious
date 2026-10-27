@@ -733,6 +733,9 @@ def create_app(config_class=Config, server=False):
     from app import item_source
 
     app.jinja_env.globals["item_source"] = item_source  # the source of a scale's items (user test 2026-10-27)
+    from app import scale_default
+
+    app.jinja_env.globals["scale_default"] = scale_default  # the standard of a survey's scales (user test 2026-10-27)
     from app import constructs as constructs_mod
     from app.wizard import DEMOGRAPHICS
 

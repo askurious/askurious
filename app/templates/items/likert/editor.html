@@ -22,6 +22,13 @@
         <option value="endpoints" {% if item.cfg.labeling == "endpoints" %}selected{% endif %}>{{ de_en("nur Endpunkte verbalisiert", "only end points labelled") }}</option>
       </select>
     </label>
+    {# numbers beside the words, also with only the ends in words (user test 2026-10-27, point 9) #}
+    <label>{{ de_en("Zahlen zeigen", "Show numbers") }}
+      <select name="numbers" {% if not structural %}disabled{% endif %}>
+        {% for key, name in [("", de_en("keine", "none")), ("1", de_en("1 bis {n}", "1 to {n}", n=item.cfg.points)), ("0", de_en("0 bis {n}", "0 to {n}", n=item.cfg.points - 1)), ("center", de_en("um 0 (−2 … +2)", "around 0 (−2 … +2)"))] %}
+        <option value="{{ key }}" {% if (item.cfg.get("numbers") or "") == key %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </label>
     <label>{{ de_en("Anzeige der Beschriftung", "Display of the labels") }}
       <select name="label_display" {% if not structural %}disabled{% endif %}>
         <option value="each" {% if item.cfg.get("label_display", "each") == "each" %}selected{% endif %}>{{ de_en("bei jeder Aussage (auf dem Handy)", "with every statement (on mobile phones)") }}</option>
@@ -37,6 +44,21 @@
     <li><input name="label" aria-label="{{ de_en('Beschriftung Stufe {n}', 'Label of point {n}', n=loop.index) }}" value="{{ l }}" {% if ends_only and not loop.first and not loop.last %}readonly class="dimmed" placeholder="{{ de_en('ohne Beschriftung', 'no label') }}" title="{{ de_en('Bei „nur Endpunkte verbalisiert“ bleiben die Stufen dazwischen ohne Beschriftung', 'With “only end points labelled” the points in between stay without a label') }}"{% endif %}></li>
     {% endfor %}
   </ol>
+  {# the survey's standard of the scales (app/scale_default.py; user test 2026-10-27, point 10) #}
+  {% set std = scale_default.of(survey) %}
+  {% if std %}{% set apart = scale_default.differs(survey, item) if not item.cfg.get("own_scale") else [] %}
+  <input type="hidden" name="own_scale_shown" value="1">
+  <p class="small">{{ de_en("Standard dieser Befragung: {n} Stufen", "Standard of this survey: {n} points", n=std.points) }}{% if apart %} · <span class="finding-warning">{{ de_en("weicht ab:", "differs:") }} {{ apart|join(", ") }}</span>{% endif %}
+    · <a href="{{ url_for('surveys.detail', survey_id=survey.id) }}#skalen-standard">{{ de_en("ändern", "change") }}</a></p>
+  <label class="check"><input type="checkbox" name="own_scale" value="1"{% if item.cfg.get("own_scale") %} checked{% endif %} {% if not structural %}disabled{% endif %}> {{ de_en("gewollte Abweichung vom Standard", "deviation from the standard on purpose") }}
+    <span class="hint">{{ de_en("z. B. ein validiertes Instrument mit anderer Stufenzahl; die Startprüfung warnt dann nicht", "e.g. a validated instrument with another number of points; the pre-launch check then does not warn") }}</span></label>
+  {% endif %}
+  {# an emoji (or a short sign) per point, e.g. smileys for children; shown above the label (point 9) #}
+  {% set emoji = (item.cfg.get("emoji") or []) + [""] * item.cfg.points %}
+  <details class="scale-emoji"{% if item.cfg.get("emoji") %} open{% endif %}>
+    <summary>{{ de_en("Emoji je Stufe", "Emoji per point") }} <span class="hint">{{ de_en("optional, z. B. 😞 🙁 😐 🙂 😀", "optional, e.g. 😞 🙁 😐 🙂 😀") }}</span></summary>
+    <ol class="scale-labels">{% for n in range(item.cfg.points) %}<li><input name="emoji" maxlength="8" value="{{ emoji[n] }}" aria-label="{{ de_en('Emoji Stufe {n}', 'Emoji of point {n}', n=loop.index) }}" {% if not structural %}readonly{% endif %}></li>{% endfor %}</ol>
+  </details>
   <p class="muted small"><strong>{{ de_en("Antwortskala", "Answer scale") }}</strong>: {{ de_en("Die Auswahl setzt ihre Standardbeschriftungen ein (in allen Sprachen). Eigene Beschriftungen bleiben beim Ändern der Stufenzahl erhalten: Die Enden bleiben, Stufen dazwischen werden ergänzt oder entfallen. Bei „nur Endpunkte verbalisiert“ sind nur die Enden beschriftet. Ab 8 Stufen sind die Vorschläge fein abgestuft („stimme etwas zu“); so viele Stufen lassen sich in Worten schwer unterscheiden, oft reichen die Endpunkte.", "choosing one fills in its standard labels (in all languages). Your own labels are kept when you change the number of points: the ends stay, points in between are added or dropped. With “only end points labelled” only the ends have labels. From 8 points the suggestions are finely graded (“somewhat agree”); so many points are hard to tell apart in words, and the end points are often enough.") }}</p>
 </fieldset>
 <fieldset>

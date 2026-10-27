@@ -163,6 +163,22 @@
 {% endcall %}
 
 {% call group("gestaltung") %}
+  {# the standard of the scales of this survey (app/scale_default.py; user test 2026-10-27, point 10) #}
+  {% set std = scale_default.of(survey) or {} %}
+  <form method="post" action="{{ url_for('editor.scale_default', survey_id=survey.id) }}" class="stack panel-sub-sep" id="skalen-standard">{{ csrf() }}
+    <h3>{{ de_en("Standard der Skalen", "Standard of the scales") }} <span class="hint">{{ de_en("neue Likert-Skalen übernehmen ihn, die Startprüfung meldet Abweichungen", "new Likert scales take it, the pre-launch check reports deviations") }}</span></h3>
+    <div class="row-fields">
+      <label>{{ de_en("Stufen", "Points") }} <select name="sd_points"><option value="">{{ de_en("kein Standard", "no standard") }}</option>{% for p in range(2, 11) %}<option value="{{ p }}"{% if std.points == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Antwortskala", "Answer scale") }} <select name="sd_anchors">{% for key, name in scale_default.anchor_names() %}<option value="{{ key }}"{% if (std.anchors or "agree") == key %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Beschriftung", "Labels") }} <select name="sd_labeling"><option value="full">{{ de_en("alle Stufen verbalisiert", "all points labelled") }}</option><option value="endpoints"{% if std.labeling == "endpoints" %} selected{% endif %}>{{ de_en("nur Endpunkte verbalisiert", "only end points labelled") }}</option></select></label>
+      <label>{{ de_en("Anzeige der Beschriftung", "Display of the labels") }} <select name="sd_label_display"><option value="each">{{ de_en("bei jeder Aussage", "with every statement") }}</option><option value="once"{% if std.label_display == "once" %} selected{% endif %}>{{ de_en("einmal oben", "once at the top") }}</option></select></label>
+      <label>{{ de_en("Zahlen zeigen", "Show numbers") }} <select name="sd_numbers">{% for key, name in [("", de_en("keine", "none")), ("1", de_en("ab 1", "from 1")), ("0", de_en("ab 0", "from 0")), ("center", de_en("um 0", "around 0"))] %}<option value="{{ key }}"{% if (std.numbers or "") == key %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="button-row">
+      <button class="button button-secondary">{{ de_en("Standard festlegen", "Set the standard") }}</button>
+      {% if survey.is_editable %}<button class="button button-secondary" name="apply" value="1" data-confirm="{{ de_en('Alle Likert-Skalen auf diesen Standard bringen? Konstrukte und gewollte Abweichungen bleiben, wie sie sind.', 'Bring all Likert scales to this standard? Constructs and deviations on purpose stay as they are.') }}">{{ de_en("Festlegen und auf alle Skalen anwenden", "Set and apply to all scales") }}</button>{% endif %}
+    </div>
+  </form>
   {% set look = themes.of(survey) %}
   <div id="design">
   {# headings that say what they act on, not two words for "looks" (Ralf, 2026-10-07) #}

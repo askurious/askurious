@@ -132,6 +132,29 @@ def add_block(survey_id):
     return _back(survey, lang)
 
 
+@bp.route("/scale-default", methods=["POST"])
+@login_required
+def scale_default(survey_id):
+    """The standard of the scales of this survey; "apply" also brings the scales of the draft to it (user test
+    2026-10-27, point 10, app/scale_default.py)."""
+    from app import scale_default as sd
+
+    survey = get_survey(survey_id)
+    if not survey.can(current_user, "editor"):
+        abort(403)
+    step = undo.begin(survey)
+    survey.scale_default = sd.from_form(request.form)
+    n = sd.apply_all(survey) if request.form.get("apply") and survey.is_editable else 0
+    step.done(undo.both("Standard der Skalen geändert", "Standard of the scales changed"))
+    db.session.commit()
+    if request.form.get("apply"):
+        flash(de_en("{n} Skala angepasst.", "{n} scale adjusted.", n=n) if n == 1 else
+              de_en("{n} Skalen angepasst.", "{n} scales adjusted.", n=n), "success")
+    else:
+        flash(de_en("Standard der Skalen gespeichert.", "Standard of the scales saved."), "success")
+    return redirect(url_for("surveys.detail", survey_id=survey.id) + "#skalen-standard")
+
+
 @bp.route("/blocks/<int:block_id>", methods=["POST"])
 @login_required
 def update_block(survey_id, block_id):

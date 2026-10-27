@@ -92,7 +92,7 @@ Rückgängig wirkt über Seiten hinweg und prüft beim Ausführen die Rolle.
 ![Einstellungen: aufklappbare Gruppen, jede mit einer Zusammenfassung in einer Zeile](img/settings.jpg)
 
 **Was es ist.**
-Alles an der Befragung, was keine Frage ist, in aufklappbaren Gruppen: **Befragung** (Titel, Projekt, Beschreibung, Sprachen), **Beteiligte Forschende**, **Teilnahme**, **Einwilligung und Datenschutz**, **Endseiten**, **Erscheinungsbild**.
+Alles an der Befragung, was keine Frage ist, in aufklappbaren Gruppen: **Befragung** (Titel, Projekt, Beschreibung, Sprachen), **Beteiligte Forschende**, **Teilnahme**, **Einwilligung und Datenschutz**, **Endseiten**, **Erscheinungsbild** (mit dem **Standard der Skalen**: Stufen, Antwortskala, Beschriftung und Zahlen, die jede neue Likert-Skala übernimmt; „auf alle Skalen anwenden“ gleicht die bestehenden an, die Startprüfung meldet Abweichungen, gewollte Abweichungen kreuzt man im Element an).
 Der Assistent und diese Seite verwenden dieselben Felder, sodass eine Einstellung an beiden Stellen dasselbe bedeutet.
 Sobald es echte Teilnahmen gibt, sind die Einstellungen gesperrt, die die Einwilligung nennt (zu erkennen am Schloss).
 

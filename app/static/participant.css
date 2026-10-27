@@ -310,6 +310,10 @@ label.p-question { display: block; }
 }
 .p-point-label { font-size: 0.8rem; line-height: 1.2; color: var(--muted); hyphens: auto; }
 .p-likert-endpoints .p-point-label { display: none; }
+/* numbers or emoji per point (user test 2026-10-27, 9): shown also where only the ends have words */
+.p-likert-endpoints.p-likert-marked .p-point-label { display: block; }
+.p-point-emoji { display: block; font-size: 1.35rem; line-height: 1.2; }
+.p-point-num { white-space: nowrap; }
 .p-endpoints { display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--muted); margin-top: 2px; gap: 16px; }
 .p-endpoints span:last-child { text-align: end; }
 
