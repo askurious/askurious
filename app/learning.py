@@ -63,6 +63,10 @@ BAKER_2013 = ("Baker, R., Brick, J. M., Bates, N. A., Battaglia, M., Couper, M. 
               "Tourangeau, R. (2013). Summary report of the AAPOR task force on non-probability sampling. Journal of Survey "
               "Statistics and Methodology, 1(2), 90–143. https://doi.org/10.1093/jssam/smt008")
 GLASER_STRAUSS = "Glaser, B. G., & Strauss, A. L. (1967). The discovery of grounded theory. Aldine."
+# the selection for interviews and diary surveys (Ralf 2026-10-27)
+PATTON = "Patton, M. Q. (2015). Qualitative research & evaluation methods (4th ed.). SAGE."
+BIERNACKI_WALDORF = ("Biernacki, P., & Waldorf, D. (1981). Snowball sampling: Problems and techniques of chain referral "
+                     "sampling. Sociological Methods & Research, 10(2), 141–163. https://doi.org/10.1177/004912418101000205")
 DDI_CV = ("DDI Alliance. (2026). DDI controlled vocabularies [Kontrollierte Vokabulare: ModeOfCollection 5.0.1, "
           "TimeMethod 1.2.3, SamplingProcedure 2.0.2]. CESSDA Vocabulary Service. https://vocabularies.cessda.eu/")
 DDI_L4 = ("DDI Alliance. (2026). DDI Lifecycle 4.0 public review (Version v4.0-pr). "
@@ -492,6 +496,15 @@ REASONS = {
         "Nicht-Wahrscheinlichkeitsauswahlen, eine bewusste Auswahl oder theoretische Stichprobe ist das Mittel "
         "qualitativer Studien.",
         (BAKER_2013, GLASER_STRAUSS, DDI_CV)),
+    "qual_sampling": (
+        "Bewusst, theoretisch, Schneeball oder Gelegenheit?",
+        "Bei Interviews und anderen kleinen, tiefen Studien zählt nicht, dass die Fälle die Grundgesamtheit abbilden, "
+        "sondern dass sie viel über die Frage verraten. Eine bewusste Auswahl legt vorab fest, welche Fälle gebraucht "
+        "werden (Fachleute, typische oder gegensätzliche Fälle); eine theoretische Stichprobe wählt die nächsten Fälle "
+        "erst nach der Auswertung der ersten, bis neue Fälle nichts Neues mehr zeigen (Sättigung). Schneeball erreicht "
+        "schwer zugängliche Gruppen über Empfehlungen, bleibt aber in deren Netzwerken; eine Gelegenheitsstichprobe ist "
+        "am bequemsten und gehört als Grenze in den Bericht.",
+        (PATTON, GLASER_STRAUSS, BIERNACKI_WALDORF)),
     "random_kind": (
         "Welche Art von Zufallsauswahl?",
         "Die einfache Zufallsauswahl braucht eine Liste aller und ist am leichtesten auszuwerten; die systematische "
@@ -1310,6 +1323,14 @@ REASONS_EN = {
         "known chance to be chosen; then confidence intervals and p values hold for the population. An availability "
         "sample, a quota sample, respondent-assisted sampling (snowball) and an access panel are non-probability "
         "samples, a purposive sample or theoretical sampling is the means of qualitative studies."),
+    "qual_sampling": (
+        "Purposive, theoretical, snowball or convenience?",
+        "In interviews and other small, in-depth studies what counts is not that the cases mirror the population but "
+        "that they reveal much about the question. A purposive sample fixes in advance which cases are needed (experts, "
+        "typical or contrasting cases); theoretical sampling picks the next cases only after analysing the first ones, "
+        "until new cases show nothing new (saturation). Snowball sampling reaches hard-to-reach groups through "
+        "referrals but stays within their networks; a convenience sample is the easiest and belongs in the report as a "
+        "limitation."),
     "random_kind": (
         "Which kind of random sampling?",
         "Simple random sampling needs a list of everyone and is the easiest to analyse; systematic sampling takes every "
@@ -1783,6 +1804,8 @@ REASON_PLACES = {
     "seal": ("Einstellungen, Siegelkette", "settings, seal chain"),
     "archive_where": ("Export, In Coscine ablegen", "export, store in Coscine"),
     "sampling_procedure": ("Studienplan, Rekrutierung", "research plan, recruitment"),
+    "qual_sampling": ("Neuer Interviewleitfaden und neue Tagebuchstudie, Wer nimmt teil?, Auswahl",
+                      "new interview guide and new diary survey, who takes part, selection"),
     "time_method": ("Studienplan, Studiendesign", "research plan, research design"),
     "random_kind": ("Studienplan, Art der Zufallsstichprobe", "research plan, kind of random sample"),
     "population": ("Studienplan, Grundgesamtheit", "research plan, population"),
