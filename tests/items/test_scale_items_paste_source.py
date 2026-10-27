@@ -94,3 +94,47 @@ def test_a_doi_is_completed_once(app, client, survey, monkeypatch):
         stored = item.config["source"]["text"]
     client.post("/surveys/1/editor/items/2", data=_form(item_source_shown="1", item_source=stored))
     assert calls == ["10.1080/10447318.2018.1456150"]
+
+
+def _first_scale(app, kind="likert"):
+    with app.app_context():
+        from app import constructs
+
+        return next(c.key for c in constructs.search() if (c.spec or {}).get("type") == kind and c.citation)
+
+
+def test_take_a_construct_replaces_or_appends(app, client, survey):
+    key = _first_scale(app)
+    add(client, "likert")
+    page = client.get("/surveys/1/editor/items/2").data.decode()
+    assert "Items aus den Konstrukten übernehmen" in page and f'value="{key}|replace"' in page
+    client.post("/surveys/1/editor/items/2", data=_form())
+    client.post("/surveys/1/editor/items/2/take-construct", data={"take": f"{key}|append"})
+    with app.app_context():
+        item = db.session.get(Item, 2)
+        texts = item.texts["de"]["statements"]
+        assert texts[item.config["statements"][0]["id"]] == "Vorhanden" and len(item.config["statements"]) > 1
+        assert "construct" not in item.config and item_source.text(item)  # the construct's citation as the source
+    client.post("/surveys/1/editor/items/2/take-construct", data={"take": f"{key}|replace"})
+    with app.app_context():
+        item = db.session.get(Item, 2)
+        assert item.config["construct"]["key"] == key and "Vorhanden" not in item.texts["de"]["statements"].values()
+    # a construct is one already: nothing more to take
+    assert client.post("/surveys/1/editor/items/2/take-construct", data={"take": f"{key}|append"}).status_code == 400
+
+
+def test_earlier_answers_are_one_quiet_line(app, client, survey):
+    add(client, "text_input")
+    add(client, "page_break")
+    add(client, "likert")
+    page = client.get("/surveys/1/editor/items/4").data.decode()
+    assert 'class="loop-vars pipe-only"' in page and "↪ Frühere Antworten einsetzen" in page
+
+
+def test_the_example_of_the_question_can_be_selected_and_taken(app, client, survey):
+    """Point 11: the hint stood inside the label of the question text, so every click on it went into the field."""
+    add(client, "likert")
+    page = client.get("/surveys/1/editor/items/2").data.decode()
+    head = page.split('<div class="question-field-head">', 1)[1].split("</div>", 1)[0]
+    assert '<label class="label-title" for="question-2">' in head and "</label>" in head.split('<span class="hint">')[0]
+    assert 'data-take-example="Inwieweit stimmen Sie den folgenden Aussagen zu?"' in head

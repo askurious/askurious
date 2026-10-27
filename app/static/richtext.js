@@ -591,7 +591,9 @@
     var mode = area.dataset.rich === "block" ? "block" : "inline", opts = { gaps: area.hasAttribute("data-rich-gaps") };
     var locked = area.readOnly || area.matches(":disabled"), fixedGaps = area.hasAttribute("data-rich-gaps-fixed");
     var wrap = el("div", "rt" + (area.dataset.richBar === "float" ? " rt-float" : "")), bar = el("div", "rt-bar"), ed = el("div", "rt-ed rt-" + mode);
-    var label = area.closest("label"), hint = (label || area).nextElementSibling;
+    // the question text has its label beside it, not around it (items/_question_field.html, user test 2026-10-27)
+    var box = area.closest(".question-field"), label = area.closest("label") || (box && box.querySelector("label"));
+    var hint = (box || label || area).nextElementSibling;
     if (!hint || !hint.classList.contains("format-hint")) hint = null;
     var source = false, composing = false, undo = [], redo = [], lastTyped = 0, valueAtFocus = area.value, buttons = [];
 
@@ -997,6 +999,7 @@
       label.addEventListener("click", function (e) {
         if (source && !wrap.contains(e.target)) return;
         if (e.target.closest("button")) return;
+        if (e.target.closest(".hint")) { e.preventDefault(); return; }  // an example is there to be selected and copied
         e.preventDefault();
         if (!wrap.contains(e.target)) ed.focus();
       });

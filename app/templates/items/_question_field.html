@@ -1,7 +1,13 @@
-<label><span class="label-title">{{ question_label|default(de_en("Fragetext", "Question text")) }}
-  {% if question_hint is defined %}<span class="hint">{{ question_hint }}</span>{% endif %}</span>
-  <textarea name="question" rows="3" data-var-target{% if question_rich|default("inline") %} data-rich="{{ question_rich|default("inline") }}"{% endif %}>{{ item.lang_texts(lang).get("question", "") }}</textarea>
-</label>
+{# the example beside the name can be selected and copied, and "übernehmen" puts it into the empty field: inside the
+   label every click on it, also to select, went into the field (user test 2026-10-27, point 11) #}
+{% set example = question_hint.split("„", 1)[1].split("“", 1)[0] if question_hint is defined and "„" in question_hint and "“" in question_hint
+                 else (question_hint.split("“", 1)[1].split("”", 1)[0] if question_hint is defined and "“" in question_hint and "”" in question_hint else "") %}
+<div class="question-field">
+  <div class="question-field-head"><label class="label-title" for="question-{{ item.id }}">{{ question_label|default(de_en("Fragetext", "Question text")) }}</label>
+    {% if question_hint is defined %}<span class="hint">{{ question_hint }}</span>{% endif %}
+    {% if example and not item.lang_texts(lang).get("question") %}<button type="button" class="link-button small" data-take-example="{{ example }}" data-for="question-{{ item.id }}">{{ de_en("übernehmen", "use it") }}</button>{% endif %}</div>
+  <textarea name="question" id="question-{{ item.id }}" rows="3" data-var-target{% if question_rich|default("inline") %} data-rich="{{ question_rich|default("inline") }}"{% endif %}>{{ item.lang_texts(lang).get("question", "") }}</textarea>
+</div>
 <p class="muted small format-hint">{{ de_en("Formatierung:", "Formatting:") }} {% if question_rich|default("inline") == "block" %}{{ de_en("Leerzeile = neuer Absatz, „- “ = Aufzählung,", "blank line = new paragraph, “- ” = list,") }} {% endif %}{{ de_en(format_hint(), "**bold**, *italic*, `code`, H~2~O subscript, x^2^ superscript; also <u>, <small>, <sub>, <sup>, <br>") }}</p>
 {% if lang != survey.default_language and not item.lang_texts(lang).get("question") %}
 <p class="muted small">{{ de_en("Ausgangssprache:", "Source language:") }} {{ item.text("question") }}</p>

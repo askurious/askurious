@@ -6805,3 +6805,35 @@ document.addEventListener("toggle", function (e) {
     box.scrollIntoView({ block: "nearest" });
   });
 })();
+
+// "Items aus den Konstrukten übernehmen": the list filtered as one types (user test 2026-10-27, point 8)
+(function () {
+  var box = document.querySelector("[data-take-construct]");
+  if (!box) return;
+  var search = box.querySelector("[data-take-search]");
+  function quiet(e) { e.stopPropagation(); }  // not a change of the element's form
+  ["input", "change", "focusout"].forEach(function (t) { search.addEventListener(t, quiet); });
+  search.addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });  // never sends the element
+  search.addEventListener("input", function () {
+    var q = search.value.trim().toLowerCase();
+    box.querySelectorAll("[data-take-row]").forEach(function (row) { row.hidden = q && row.dataset.search.indexOf(q) < 0; });
+  });
+})();
+
+// An example in a hint can be selected and copied: a click on a hint inside a label (also the one that ends a
+// selection) does not move into the field. "übernehmen" beside the example of the question text puts it into the
+// empty field, also into the formatted one (richtext.js). User test 2026-10-27, point 11.
+document.addEventListener("click", function (e) {
+  var hint = e.target.closest && e.target.closest("label .hint");
+  var control = hint && hint.closest("label").control;  // a tick or a choice still answers a click on its hint
+  if (hint && !(control && /^(checkbox|radio)$/.test(control.type)) && !e.target.closest("a, button, input, select, textarea, [data-term]")) e.preventDefault();
+  var take = e.target.closest && e.target.closest("[data-take-example]");
+  if (!take) return;
+  var area = document.getElementById(take.dataset.for);
+  if (!area || area.value.trim()) return;
+  area.value = take.dataset.takeExample;
+  if (area.richText && area.richText.refresh) area.richText.refresh();
+  area.dispatchEvent(new Event("input", { bubbles: true }));
+  area.dispatchEvent(new Event("change", { bubbles: true }));
+  take.hidden = true;
+});

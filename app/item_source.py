@@ -104,3 +104,23 @@ def from_form(item, form):
         config.pop("source", None)
     item.config = config
 
+
+
+def takeable(item, lang):
+    """The constructs whose items can be taken into the scale `item` (editor, "Items aus den Konstrukten übernehmen";
+    user test 2026-10-27, point 8): [{"key", "name", "by", "same", "items": [statement texts]}], scales only."""
+    from app import constructs
+
+    out = []
+    for c in constructs.search():
+        spec = c.spec or {}
+        if spec.get("type") not in SCALE_TYPES or constructs.is_linked_key(c.key):
+            continue
+        texts = spec.get("texts") or {}
+        words = texts.get(lang) or texts.get("de" if lang == "de-du" else "en") or texts.get("en") or next(iter(texts.values()), {})
+        stexts = (words or {}).get("statements") or {}
+        statements = [stexts.get(s["id"], "") for s in (spec.get("config") or {}).get("statements", []) if not s.get("check")]
+        out.append({"key": c.key, "name": constructs.shown_text(c, "name"),
+                    "by": f"{c.authors} ({c.year})" if c.authors and c.year else (c.authors or ""),
+                    "same": spec.get("type") == item.type, "items": [t for t in statements if t]})
+    return out

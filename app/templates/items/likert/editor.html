@@ -58,6 +58,7 @@
     </div>
   </details>
   {% endif %}
+  {% include "items/_take_construct.html" %}
   {% set sub_names = item.config.statements|selectattr("subscale")|map(attribute="subscale")|unique|list %}
   {% set has_checks = item.config.statements|selectattr("check")|list|length > 0 %}
   <div class="table-scroll" role="region" tabindex="0" aria-label="{{ de_en('Bearbeitungstabelle, bei Bedarf seitlich scrollen', 'Editing table, scroll horizontally if needed') }}"><table class="list-table is-edit{% if not sub_names %} off-sub{% endif %}{% if not has_checks %} off-check{% endif %}" id="rows{{ item.id }}">

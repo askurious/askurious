@@ -1,0 +1,26 @@
+{# the items of a construct into this scale (app/editor/elements.take_construct; user test 2026-10-27, point 8):
+   "Übernehmen" makes the element that construct, "Anhängen" adds its statements as a scale of its own. The buttons
+   belong to a form outside the element's form (editor/item.html, #take-construct-form) #}
+{% if structural and item_source.construct_citation(item) is none %}
+{% set choices = item_source.takeable(item, lang) %}
+{% set has_items = (item.lang_texts(lang).get("statements") or {}).values()|select|list %}
+{% if choices %}
+<details class="stack take-construct" data-take-construct>
+  <summary>{{ de_en("Items aus den Konstrukten übernehmen", "Take the items of a construct") }} <span class="hint">{{ de_en("{n} validierte Skalen", "{n} validated scales", n=choices|length) }}</span></summary>
+  <input type="search" placeholder="{{ de_en('Suchen: Name, Autorin, Thema', 'Search: name, author, topic') }}" aria-label="{{ de_en('Konstrukte durchsuchen', 'Search the constructs') }}" data-take-search>
+  <ul class="plain take-list">
+    {% for c in choices %}
+    <li data-take-row data-search="{{ (c.name ~ ' ' ~ c.by ~ ' ' ~ c["items"]|join(' '))|lower }}">
+      <details><summary><strong>{{ c.name }}</strong> <span class="hint">{{ c.by }}{% if c.by %} · {% endif %}{{ de_en("{n} Items", "{n} items", n=c["items"]|length) }}</span></summary>
+        <ol class="small">{% for t in c["items"] %}<li>{{ t }}</li>{% endfor %}</ol></details>
+      <span class="button-row">
+        <button class="button button-small button-secondary" form="take-construct-form" name="take" value="{{ c.key }}|replace"
+                {% if has_items %}data-confirm="{{ de_en('Die Aussagen dieses Elements durch „{name}“ ersetzen?', 'Replace the statements of this element with “{name}”?', name=c.name) }}" data-confirm-ok="{{ de_en('Ersetzen', 'Replace') }}"{% endif %}>{{ de_en("Übernehmen", "Use") }}</button>
+        {% if has_items and c.same %}<button class="button button-small button-secondary" form="take-construct-form" name="take" value="{{ c.key }}|append" title="{{ de_en('ans Ende anhängen; das Element bleibt eine eigene Skala ohne Abzeichen', 'add to the end; the element stays a scale of its own without the badge') }}">{{ de_en("Anhängen", "Append") }}</button>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endif %}

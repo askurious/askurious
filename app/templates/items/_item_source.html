@@ -10,7 +10,7 @@
   {% else %}
   {% set src = item_source.stored(item) %}
   <input type="hidden" name="item_source_shown" value="1">
-  <label class="wide-field"><span class="label-title">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("APA-Angabe oder DOI; eine DOI ergänzt Askurious beim Speichern über doi.org", "APA reference or DOI; Askurious completes a DOI through doi.org when saving") }}</span></span>
+  <label class="wide-field"><span class="label-title">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("APA-Angabe oder DOI; eine DOI ergänzt Askurious über doi.org", "APA reference or DOI; Askurious completes a DOI through doi.org") }}</span></span>
     <input name="item_source" maxlength="600" value="{{ src.text or '' }}" placeholder="{{ de_en('z. B. Franke, T., Attig, C., & Wessel, D. (2019) … oder 10.1080/10447318.2018.1456150', 'e.g. Franke, T., Attig, C., & Wessel, D. (2019) … or 10.1080/10447318.2018.1456150') }}"></label>
   <label class="check"><input type="checkbox" name="item_source_own" value="1"{% if src.own %} checked{% endif %}> {{ de_en("selbst formuliert", "written by us") }}
     <span class="hint">{{ de_en("eigene Items ohne veröffentlichte Vorlage", "own items without a published original") }}</span></label>
