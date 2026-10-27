@@ -105,6 +105,7 @@ OPEN = {"surveys.export_data_flow", "surveys.export_file", "surveys.export_zip",
         "surveys.export_results_pdf",  # the results report: aggregates as on the results page, no answers or free texts
         "surveys.prereg_stamp", "surveys.seal_checker",  # the timestamp of the pre-registration, the checker
         "surveys.export_ddi",  # DDI Lifecycle 4.0: questionnaire and codebook as XML, no answers
+        "surveys.export_cdif",  # CDIF JSON-LD: the data set and its columns, no answers
         "surveys.seal_check"}  # a POST that checks the seal chain: for the editor role (EDIT_ENDPOINTS)
 
 

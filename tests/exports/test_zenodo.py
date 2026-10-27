@@ -72,7 +72,8 @@ def test_upload_update_and_read_the_state_back(app, client, survey, fake):
     r = client.post("/surveys/1/zenodo", data={"target": "sandbox", "action": "upload"},
                     follow_redirects=True)
     assert "Entwurf auf Zenodo angelegt" in r.data.decode()
-    assert set(fake.files) == {"data.csv", "codebook.csv", "questionnaire.md", "README.md", "survey.json", "survey-material.pdf", "checksums.sha256"}
+    assert set(fake.files) == {"data.csv", "codebook.csv", "questionnaire.md", "README.md", "survey.json", "survey-material.pdf", "checksums.sha256",
+                               "ddi-lifecycle.xml", "cdif.jsonld"}
     assert [c["orcid"] for c in fake.meta["creators"]] == ["0000-0000-0000-001X", "0000-0002-0000-0001"]
     assert fake.meta["creators"][1]["name"] == "Offermann, Julia" and fake.meta["license"] == "cc-by-4.0"
     assert fake.meta["title"].endswith(" (survey data and materials)") and not fake.meta["title"].startswith("Data and")

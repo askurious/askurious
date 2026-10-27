@@ -20,10 +20,10 @@ What goes in:
 Controlled vocabularies of the DDI Alliance (CESSDA Vocabulary Service, CC BY 4.0) carry the term, the vocabulary
 URI and the term URI (CodeValue in 4.0).
 
-No answers go in, only the questionnaire and the description of the columns: the export is documentation for the team,
-like the Word questionnaire with codebook, and carries the full wording. A file for publication (Zenodo, Coscine) would
-first have to leave out the wording of constructs without a general publication permission (export.withheld), as those
-packages do; that is not built yet.
+No answers go in, only the questionnaire and the description of the columns. The download on the export page is
+documentation for the team, like the Word questionnaire with codebook, and carries the full wording; the file in the
+Zenodo and Coscine packages (public=True) describes the columns of their codebook.csv and leaves out the wording of
+constructs without a general publication permission (export.withheld), as questionnaire.md there does.
 """
 import re
 import uuid
@@ -262,13 +262,16 @@ def sampling(survey):
 # ---- the document ---------------------------------------------------------------------------------------------------
 
 
-def build(survey, lang=None):
+def build(survey, lang=None, public=False, open_answers=False):
     """The DDI Lifecycle 4.0 XML of the survey as bytes (UTF-8). lang: the language of Askurious's own labels and
-    notes in the codebook part ("de"/"en"; None: the reader's)."""
+    notes in the codebook part ("de"/"en"; None: the reader's). public: for a deposit (Zenodo, Coscine): the columns
+    of its codebook.csv, without the wording of instruments that have no general publication permission
+    (export.withheld); open_answers: the deposit holds the open answers (export.codebook_rows)."""
     from app import export
 
     doc = _Doc(survey)
     langs = _languages(survey)
+    withheld = export.withheld(survey) if public else set()
 
     study, study_id = doc.item("StudyUnit")
     collection, collection_id = doc.item("DataCollection")
@@ -303,7 +306,7 @@ def build(survey, lang=None):
         code_lists[key] = (ident, el)
         return code_lists[key]
 
-    book = _codebook(survey, lang)
+    book = _codebook(survey, lang, public, open_answers)
     column_item = _columns_by_item(survey)
 
     def response_domain(parent, col, row, item):
@@ -337,7 +340,7 @@ def build(survey, lang=None):
             for item in page:
                 if item.type == "page_break":
                     continue
-                children += _item_constructs(doc, survey, item, langs, book, question_of, questions,
+                children += _item_constructs(doc, survey, item, langs, withheld, public, book, question_of, questions,
                                              constructs_, response_domain, column_item)
         for kind, ident in children:
             doc.ref(seq, "ControlConstructReference", kind, ident)
@@ -544,11 +547,11 @@ def _badges(survey):
         return {}
 
 
-def _codebook(survey, lang):
-    """Rows (variable, label, type, values, notes) as the codebook CSV writes them for the team."""
-    from app import export, vignette_positions
+def _codebook(survey, lang, public=False, open_answers=False):
+    """Rows (variable, label, type, values, notes) as the codebook CSV writes them (export.codebook_rows)."""
+    from app import export
 
-    return list(export.spss_notes(vignette_positions.codebook(survey, export.codebook(survey, lang=lang), lang), lang))
+    return export.codebook_rows(survey, public=public, open_answers=open_answers, lang=lang)
 
 
 def _columns_by_item(survey):
@@ -609,7 +612,7 @@ def _kind(row, item, col):
     return "number" if col in NUMBER_COLUMNS else "text"
 
 
-def _item_constructs(doc, survey, item, langs, book, question_of, questions, constructs_, response_domain,
+def _item_constructs(doc, survey, item, langs, withheld, public, book, question_of, questions, constructs_, response_domain,
                      column_item):
     """The constructs of one element: [(kind, id)] for its block's sequence."""
     from app import item_condition
@@ -619,7 +622,8 @@ def _item_constructs(doc, survey, item, langs, book, question_of, questions, con
     loop_cols = [c for c, it in column_item.items() if it is item and c not in cols]
     out = []
     default = survey.default_language
-    texts = {lng: _plain(((item.t(lng) if lng == default else item.lang_texts(lng)) or {}).get("question"))
+    hidden = item.id in withheld  # no wording of a protected instrument in a deposit
+    texts = {} if hidden else {lng: _plain(((item.t(lng) if lng == default else item.lang_texts(lng)) or {}).get("question"))
                                for lng in langs}
     if not cols:  # a text, an image, a stimulus: shown, nothing answered
         st, st_id = doc.item("StatementItem", f"item-{item.id}")
@@ -633,6 +637,8 @@ def _item_constructs(doc, survey, item, langs, book, question_of, questions, con
         out.append(("StatementItem", st_id))
     else:
         for col in cols + loop_cols:
+            if public and col not in rows:  # a column the deposit leaves out (open answers, technical columns)
+                continue
             q, q_id = doc.item("QuestionItem", col)
             _lang(q, "QuestionItemName", {"en": col})
             label = (rows.get(col) or (col, ""))[1]
@@ -652,7 +658,7 @@ def _item_constructs(doc, survey, item, langs, book, question_of, questions, con
             doc.ref(qc, "QuestionReference", "QuestionItem", q_id)
             constructs_.append(("QuestionConstruct", qc_id, qc))
             out.append(("QuestionConstruct", qc_id))
-    if item_condition.of(item) and out:
+    if item_condition.of(item) and out and not hidden:
         ite, ite_id = doc.item("IfThenElse", f"item-{item.id}")
         cond = _sub(ite, "IfCondition")
         _lang(cond, "Description", {"en": "Shown only if: " + item_condition.text(item, survey.default_language, "en")})

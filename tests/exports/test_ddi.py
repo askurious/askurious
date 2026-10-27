@@ -191,3 +191,37 @@ def test_ddi_population_country_and_sample_description(app, client, survey, sche
     how = " ".join(doc.xpath("//d:Methodology/d:Description/text()", namespaces=NS))
     assert "Planned sample: 300" in how and "response rate of the panel: 25 %" in how and "Hochschulpanel" in how
     assert doc.xpath("//d:TypeOfSamplingProcedure/d:StringValue/text()", namespaces=NS) == ["Probability"]
+
+
+def test_cdif_file_and_the_files_in_the_deposit(app, client, survey, schema):
+    """CDIF JSON-LD (app/cdif.py): a schema.org Dataset with the CDIF profiles, the team, the period and every column
+    as an InstanceVariable with its codes; the Zenodo/Coscine package holds it and the DDI file, both valid."""
+    import json
+
+    from app import zenodo
+
+    build(client)
+    assert 'export/cdif.jsonld"' in client.get("/surveys/1/data").data.decode()
+    r = client.get("/surveys/1/export/cdif.jsonld")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith('.jsonld"')
+    data = json.loads(r.data)
+    assert data["@type"] == ["schema:Dataset"] and data["schema:name"] == "Test"
+    assert {"https://w3id.org/cdif/core/1.1", "https://w3id.org/cdif/discovery/1.1",
+            "https://w3id.org/cdif/data_description/1.1"} == {
+        c["@id"] for c in data["schema:subjectOf"]["dcterms:conformsTo"]}
+    variables = {v["schema:name"]: v for v in data["schema:variableMeasured"]}
+    assert {"resp_id", "gender", "kommentar"} <= set(variables)
+    gender = variables["gender"]
+    assert gender["@type"] == ["schema:PropertyValue", "cdi:InstanceVariable"]
+    assert [(t["schema:termCode"], t["schema:name"]) for t in gender["schema:valueReference"]] == [
+        ("1", "weiblich"), ("2", "männlich")]
+    assert data["schema:measurementTechnique"][0]["schema:termCode"] == "SelfAdministeredQuestionnaire.CAWI"
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        files = dict(zenodo.package(s))
+        valid(schema, files["ddi-lifecycle.xml"])
+        deposit = json.loads(files["cdif.jsonld"])
+        # the deposit describes the columns of its codebook.csv: no participation id or URL parameters
+        assert "pid" not in {v["schema:name"] for v in deposit["schema:variableMeasured"]}
+        assert deposit["schema:distribution"][0]["schema:contentUrl"] == "data.csv"
+        assert "ddi-lifecycle.xml" in files["README.md"].decode() and "cdif.jsonld" in files["README.md"].decode()

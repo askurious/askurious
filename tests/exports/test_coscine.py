@@ -302,12 +302,13 @@ def test_store_the_package_with_risk_metadata(app, client, survey, fake):
     r = client.post("/coscine/survey/1", data={**form, fields["N Rohdaten"]: "0", fields["Ethikantrag"]: "Ja"})
     assert r.status_code == 400 and "zwischen 1 und 20000" in r.data.decode()
     r = client.post("/coscine/survey/1", data={**form, fields["Ethikantrag"]: "Ja"}, follow_redirects=True)
-    assert "7 Dateien in Coscine abgelegt" in r.data.decode()
+    assert "9 Dateien in Coscine abgelegt" in r.data.decode()
 
     folders = {name.rsplit("/", 1)[0] for name in fake.files}
     assert len(folders) == 1 and re.fullmatch(r"askurious/[\w-]+/\d{4}-\d\d-\d\d_\d{6}", folders.pop())
     names = {name.rsplit("/", 1)[1] for name in fake.files}
-    assert names == {"data.csv", "codebook.csv", "questionnaire.md", "README.md", "survey.json", "survey-material.pdf", "checksums.sha256"}
+    assert names == {"data.csv", "codebook.csv", "questionnaire.md", "README.md", "survey.json", "survey-material.pdf", "checksums.sha256",
+                     "ddi-lifecycle.xml", "cdif.jsonld"}
     meta = next(t for n, t in fake.meta.items() if n.endswith("/data.csv"))
     assert meta.startswith("_:m a <https://purl.org/coscine/ap/base/>")
     assert '<http://purl.org/dc/terms/title> "Test – data.csv"^^<http://www.w3.org/2001/XMLSchema#string>' in meta
@@ -320,7 +321,7 @@ def test_store_the_package_with_risk_metadata(app, client, survey, fake):
         s = db.session.get(Survey, 1)
         entry = s.coscine["uploads"][0]
         assert (s.coscine["project"], s.coscine["resource"], entry["pid"]) == ("p1", "r1", "21.11102/r1")
-        assert len(entry["files"]) == 7 and s.coscine["values"][RISK]["http://purl.org/dc/terms/identifier"] == "Ja"
+        assert len(entry["files"]) == 9 and s.coscine["values"][RISK]["http://purl.org/dc/terms/identifier"] == "Ja"
     page = client.get("/surveys/1/data").data.decode()
     assert "Akzeptanzstudie › Befragungsdaten" in page and "https://hdl.handle.net/21.11102/r1" in page
     page = client.get("/coscine/survey/1?ziel=p1:r1").data.decode()
@@ -388,7 +389,7 @@ def test_s3_and_worm(app, client, survey, fake):
     assert "Archiv</strong> (WORM, unveränderlich)" in page and "lässt sich nie ändern" in page
     assert "lässt sich nie ändern" not in client.get("/coscine/survey/1?ziel=p1:r2").data.decode()
     client.post("/coscine/survey/1", data=_basis_form("p1:r3", paket="1"))
-    assert set(fake.where.values()) == {"r3"} and len(fake.files) == 7
+    assert set(fake.where.values()) == {"r3"} and len(fake.files) == 9
     r = client.get("/coscine/survey/1?ziel=p1:r4", follow_redirects=True)
     assert "nimmt keine Dateien über Askurious an" in r.data.decode()
 

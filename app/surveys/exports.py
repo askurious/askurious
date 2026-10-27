@@ -229,6 +229,23 @@ def export_ddi(survey_id):
     })
 
 
+@bp.route("/<sid:survey_id>/export/cdif.jsonld")
+@login_required
+@heavy.limited
+def export_cdif(survey_id):
+    """The survey as CDIF JSON-LD (app/cdif.py): the data set and its columns for catalogues, no answers; for every
+    role, like the codebook."""
+    from flask import Response as FlaskResponse
+
+    from app import cdif, export
+
+    survey = get_survey(survey_id)
+    return FlaskResponse(cdif.build(survey), mimetype="application/ld+json", headers={
+        "Content-Disposition": f'attachment; filename="{export.filename(survey, "cdif")[:-4]}.jsonld"',
+        "Cache-Control": "no-store",
+    })
+
+
 def _report_kept(survey, **_):
     """The report can answer in the request: the results of the saved pool are kept and current."""
     from app import results as res, results_store

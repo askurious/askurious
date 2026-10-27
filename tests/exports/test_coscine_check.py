@@ -38,7 +38,7 @@ def test_check_an_upload_in_coscine(app, client, survey, fake):
     fake.files[f"{folder}/notiz.txt"] = b"von Hand in Coscine"
     fake.where[f"{folder}/notiz.txt"] = "r2"
     page = _check(client, entry)
-    assert "2 von 7 Dateien fehlen in Coscine oder weichen ab." in page
+    assert "2 von 9 Dateien fehlen in Coscine oder weichen ab." in page
     assert "<strong>fehlt</strong>" in page and "<strong>geändert</strong>" in page
     assert "zusätzlich, nicht von Askurious abgelegt" in page
     with app.app_context():
@@ -53,7 +53,7 @@ def test_thorough_check_compares_checksums(app, client, survey, fake):
     fake.files[name] = bytes(reversed(fake.files[name]))  # same size, other content
     assert "Vollständig" in _check(client, entry)          # the quick check sees only the size
     page = _check(client, entry, deep=True)
-    assert "1 von 7 Dateien fehlen in Coscine oder weichen ab." in page and "Gründlich geprüft" in page
+    assert "1 von 9 Dateien fehlen in Coscine oder weichen ab." in page and "Gründlich geprüft" in page
     with app.app_context():
         assert db.session.get(Survey, 1).coscine["uploads"][0]["check"]["deep"] is True
 
