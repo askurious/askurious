@@ -34,6 +34,15 @@ def from_form(form):
             "numbers": form.get("sd_numbers") if form.get("sd_numbers") in NUMBERINGS else ""}
 
 
+def clean(raw):
+    """A standard read from a survey file, as the settings form would store it; None for anything else."""
+    if not isinstance(raw, dict):
+        return None
+    return from_form({"sd_points": str(raw.get("points") or ""), "sd_anchors": raw.get("anchors"),
+                      "sd_labeling": raw.get("labeling"), "sd_label_display": raw.get("label_display"),
+                      "sd_numbers": raw.get("numbers") or ""})
+
+
 def _apply(item, std, langs):
     """Points, answer scale, labels and numbers of the standard on one Likert scale (labels in every language)."""
     config = dict(item.config or {})

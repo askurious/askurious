@@ -57,7 +57,7 @@ FORMATS = (FORMAT, "queryous-survey")  # files written before the rename to Asku
 # copied as they are on export and rebuilt value by value on import (_settings)
 SETTINGS = ("project", "description", "research_question", "study_plan", "default_language", "languages", "allow_back", "auto_advance",
             "show_progress", "language_choice", "keep_test_runs", "paradata", "page_timing", "focus_paste", "focus_inputs", "ai_bait", "block_load", "repeat_marker", "erase_code", "retention", "geo_ip", "tempo_hint", "tempo_dose", "tempo_options", "tempo_texts", "speeder_pct", "speeder_rule", "speeder_rsi", "data_pool", "quality_rules", "quota_drop_marked", "weighting", "end_texts",
-            "contact", "image_style", "max_responses")
+            "contact", "image_style", "max_responses", "scale_default")
 ASSET_FIELDS = ("key", "source", "prompt", "model", "status", "style", "rights")
 MEDIA_FIELDS = ("kind", "seconds", "name")  # of a video or audio file (stimulus.info), beside its file name and key
 MAX_MEDIA = 200            # video and audio files read from one survey file
@@ -523,6 +523,9 @@ def _settings(raw, title):
     # a file from before the periods existed names none; only values the lists offer are taken
     periods = retention.of(type("Saved", (), {"retention": _dict(raw.get("retention"))}))
     out["retention"] = periods if any(periods.values()) else None
+    from app import scale_default  # the standard of the scales (user test 2026-10-27, point 10)
+
+    out["scale_default"] = scale_default.clean(raw.get("scale_default"))
     out["tempo_texts"] = tempo.clean_texts({l: t for l, t in _dict(raw.get("tempo_texts")).items() if l in languages})
     pct = raw.get("speeder_pct")
     out["speeder_pct"] = pct if type(pct) is int and 5 <= pct <= 100 else 50
