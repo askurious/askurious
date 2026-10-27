@@ -97,7 +97,7 @@ map $host $researchers_host { ~^ask\.(?<rest>.+)$ $rest; default ${RESEARCHER_HO
 # for a browser, a line of text for a script; Retry-After shorter for a failure
 map $http_accept_language $wartung_sprache { default de; "~*^\s*en" en; }
 map $http_accept $wartung_typ { default txt; "~*text/html" html; }
-map $uri $wartung_retry { default 30; /_wartung/schalter 120; }
+map $uri $wartung_retry_nach { default 30; /_wartung/schalter 120; }
 
 # 80: only Let's Encrypt and the redirect to https, for every name
 server {
