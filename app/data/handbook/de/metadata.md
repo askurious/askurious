@@ -20,6 +20,8 @@ Unter Export › Dokumentation stehen drei Dateien, und dieselben Dateien liegen
 
 Beide DDI-Dateien beschreiben die Studie (Titel in allen Sprachen, Team, Zusammenfassung, Zeitraum, Land, Stichprobe, Auswahlverfahren, Erhebungsart, Lizenz, Förderung, Veröffentlichungen) und jede Spalte des Datensatzes (Fragetext, Antwortcodes mit fehlenden Codes, Format). Erhebungsart, Zeitbezug, Auswahlverfahren, Analyseeinheit und Datenart stehen als Begriffe der kontrollierten Vokabulare der DDI Alliance darin, mit Vokabular- und Begriffsadresse.
 
+Die Datei DDI Lifecycle 4.0 führt außerdem die Hinweise für Interviewende eines Interviewleitfadens (den Hinweis einer Leitfrage und das „Wann stellen?“ einer Unterfrage) als eigene Anweisungen, die an ihrer Frage hängen, und die Einrichtungen des Teams als eigene Organisationen: Der Herausgeber verweist auf seine Einrichtung, jede Person mit ORCID auf die ihre. Darin stehen nur die Namen, die die Datei ohnehin enthält.
+
 CESSDA nimmt selbst keine Studien an; der Katalog sammelt die Beschreibungen der Archive, die zu CESSDA gehören. Ob eine Datei die Profile erfüllt, können Sie zusätzlich selbst im CESSDA Metadata Validator prüfen (die Datei DDI Codebook 2.5 hochladen, Profil CDC oder EQB wählen).
 
 ## 3. Woher die Angaben kommen

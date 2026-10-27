@@ -20,6 +20,8 @@ Under Export › Documentation there are three files, and the same files are in 
 
 Both DDI files describe the study (title in every language, team, abstract, period, country, sample, sampling procedure, mode of collection, licence, funding, publications) and every column of the data set (question text, answer codes with missing codes, format). Mode of collection, time method, sampling procedure, unit of analysis and kind of data appear as terms of the DDI Alliance's controlled vocabularies, with the vocabulary and term address.
 
+The DDI Lifecycle 4.0 file also carries the hints for the interviewers of an interview guide (the hint of a Leitfrage and the "when to ask" of an Unterfrage) as instructions of their own, attached to their question, and the team's institutions as organisations of their own: the publisher points at its institution, every person with ORCID at theirs. Only the names the file holds anyway go in.
+
 CESSDA does not accept studies itself; its catalogue collects the descriptions of the archives that belong to CESSDA. You can additionally check yourself whether a file meets the profiles in the CESSDA Metadata Validator (upload the DDI Codebook 2.5 file, choose the CDC or EQB profile).
 
 ## 3. Where the details come from
