@@ -297,7 +297,7 @@ def page(code, pid, rid):
                            editable={c.id: may_edit(project, c, who) for c in live(project)},
                            may_main=who.team or not project.mains_fixed,
                            notices=transcript_coding_review.notices(project, who),
-                           ai_state=transcript_coding_ai.state(project, who),
+                           ai_on_state=transcript_coding_ai.state(project, who),  # includes ai_on() (app/ai_access.py)
                            suggestions=transcript_coding_ai.open_suggestions(row, project),
                            sections=len(transcript_coding_ai.sections(transcript(row))))
 

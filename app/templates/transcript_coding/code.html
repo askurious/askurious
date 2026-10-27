@@ -24,13 +24,13 @@
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
   </div>
   <p class="muted small">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories.") }}</p>
-  {% if ai_state == "on" %}
+  {% if ai_on_state == "on" %}
   <div class="row-fields">
     <button type="button" class="button button-small button-ai" data-tc-suggest
             data-url="{{ url_for('transcript_coding.suggest_passages', code=survey.code, pid=project.id, rid=row.id) }}" data-sections="{{ sections }}">{{ icon("sparkles", 16) }} {{ de_en("Stellen vorschlagen", "Suggest passages") }}</button>
     <span class="muted small">{{ de_en("Das Transkript geht abschnittsweise an Ihren eigenen KI-Zugang ({to}). Vorschläge erscheinen gestrichelt; erst „Übernehmen“ macht eine kodierte Stelle daraus.", "The transcript goes section by section to your own AI access ({to}). Suggestions show dashed; only “Accept” turns one into a coded passage.", to=ai_recipient()) }}</span>
   </div>
-  {% elif ai_state == "needs_own" %}
+  {% elif ai_on_state == "needs_own" %}
   <p class="muted small">{{ de_en("KI-Vorschläge sind in dieser Auswertung erlaubt. Sie laufen nur über einen eigenen KI-Zugang; richten Sie ihn unter „KI-Nutzung“ bzw. Konto › Verbindungen ein.", "AI suggestions are allowed in this analysis. They run only over an own AI access; set it up under “AI usage” or Account › Connections.") }}</p>
   {% endif %}
   <p class="small" data-tc-status role="status" aria-live="polite"></p>
