@@ -285,8 +285,10 @@ def reading(kappa):
     """The words of Landis & Koch (1977) for a kappa."""
     if kappa is None:
         return ""
-    for limit, de, en in ((0.0, "schlecht", "poor"), (0.2, "gering", "slight"), (0.4, "ausreichend", "fair"),
-                          (0.6, "mittelmäßig", "moderate"), (0.8, "beträchtlich", "substantial")):
+    if kappa < 0:
+        return de_en("schlechter als Zufall", "poor")
+    for limit, de, en in ((0.2, "sehr gering", "slight"), (0.4, "gering", "fair"), (0.6, "mittelmäßig", "moderate"),
+                          (0.8, "beträchtlich", "substantial")):
         if kappa <= limit:
             return de_en(de, en)
     return de_en("fast vollkommen", "almost perfect")

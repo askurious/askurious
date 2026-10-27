@@ -23,7 +23,11 @@ def test_kappa_by_hand():
     assert double.table_kappa(0, 5, 5, 0) == (0.0, -1.0)                             # complete disagreement
     assert double.table_kappa(0, 0, 0, 10) == (1.0, None)                            # nobody coded: no kappa
     assert double.table_kappa(0, 0, 0, 0) == (None, None)
-    assert double.reading(0.4) == "ausreichend" and double.reading(-0.1) == "schlecht" and double.reading(0.85) == "fast vollkommen"
+    # Landis & Koch (1977): < 0 poor, 0.00-0.20 slight, 0.21-0.40 fair, 0.41-0.60 moderate, 0.61-0.80 substantial,
+    # 0.81-1.00 almost perfect
+    assert [double.reading(k) for k in (-0.1, 0.0, 0.2, 0.4, 0.41, 0.6, 0.8, 0.85)] == [
+        "schlechter als Zufall", "sehr gering", "sehr gering", "gering", "mittelmäßig", "mittelmäßig", "beträchtlich",
+        "fast vollkommen"]
 
 
 def test_word_table_and_matching():
