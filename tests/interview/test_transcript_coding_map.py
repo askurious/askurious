@@ -1,7 +1,7 @@
 """Interviews kodieren: the category system as a place to drag (Ralf 2026-10-28). The map on the page carries the
 nodes to drag (only where the person may move them) and the root as "als Hauptkategorie", the SVG to download stays
 plain; reordering among siblings; merging that harmonises name, definition, delimitation and anchor, taken back
-exactly; the dialog's data; the link "Karte" in the coding view; the rules of a drop (app/static/transcript_coding_drop.js)
+exactly; the dialog's data; the link "Diagramm" in the coding view; the rules of a drop (app/static/transcript_coding_drop.js)
 run with Node."""
 import json
 import shutil
@@ -26,19 +26,19 @@ def _names(app, pid, parent):
 def test_map_to_drag_and_the_plain_svg(app, client):
     code, pid, rid, base, main, bea = _setup(app, client)
     sub = _sub(client, base, main, "Erschöpfung")
-    page = client.get(f"{base}?view=categories&show=map").data.decode()
+    page = client.get(f"{base}?view=categories&show=diagram").data.decode()
     assert f'data-tc-cat="{sub}"' in page and f'data-tc-grab="{sub}"' in page and "data-tc-drop-main" in page
     assert 'id="tc-drop-data"' in page and "data-tc-drop-dialog" in page and "transcript_coding_drop.js" in page
     svg = client.get(f"{base}/map.svg").data.decode()
     assert "data-tc-" not in svg and "<title>" not in svg                           # the download stays a plain picture
     # with the main categories fixed a member drags subcategories, not the main ones
     client.post(f"{base}/settings", data={"name": "Seminar", "question": "", "visibility": "all", "mains_fixed": "1"})
-    page = bea.get(f"{base}?view=categories&show=map").data.decode()
+    page = bea.get(f"{base}?view=categories&show=diagram").data.decode()
     assert f'data-tc-grab="{sub}"' in page and f'data-tc-grab="{main}"' not in page and f'data-tc-cat="{main}"' in page
     data = json.loads(page.split('id="tc-drop-data">', 1)[1].split("</script>", 1)[0])
     assert data["cats"][str(main)]["move"] is False and data["fixed"] and not data["team"] and data["max"] == tc.MAX_DEPTH
     # the coding view leads to the map
-    assert f"{base}?view=categories&amp;show=map" in client.get(f"{base}/i/{rid}").data.decode()
+    assert f"{base}?view=categories&amp;show=diagram" in client.get(f"{base}/i/{rid}").data.decode()
 
 
 def test_reorder_among_siblings_and_take_it_back(app, client):

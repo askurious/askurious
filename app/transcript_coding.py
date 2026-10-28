@@ -1072,7 +1072,10 @@ def project(code, pid):
     names = {c.id: c.name for c in live(project)}
     proposals = open_proposals(project)
     # the category system as a list (the default) or as a map (from "Übersicht" until 2026-10-28)
-    show = "map" if view == "categories" and request.args.get("show") == "map" else "list"
+    if view == "categories" and request.args.get("show") == "map":  # the name of before (Ralf 2026-10-28: "Diagramm")
+        return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="diagram",
+                                **({"merge": request.args["merge"]} if request.args.get("merge") else {})))
+    show = "map" if view == "categories" and request.args.get("show") == "diagram" else "list"
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
                    drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
