@@ -128,9 +128,9 @@
     <p class="muted small">{{ de_en("Den QR-Code ausdrucken oder vom Bildschirm scannen lassen. Nicht in Gruppen-Chats oder E-Mails an mehrere schicken.", "Print the QR code or let it be scanned from the screen. Do not send it to group chats or emails to several people.") }}</p>
   </div>
   {% endif %}
+  {% set coding_on = experimental("transcript_coding", survey) %}
   {% if accesses %}
   {% call list_table("is-wide") %}
-    {% set coding_on = experimental("transcript_coding", survey) %}
     <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("gültig bis", "valid until") }}</th><th>{{ de_en("Geräte", "Devices") }}</th><th>{{ de_en("Rechte", "Rights") }}</th><th>{{ de_en("zuletzt genutzt", "last used") }}</th><th>{{ de_en("Interviews", "Interviews") }}</th><th></th></tr></thead>
     <tbody>
     {% for a in accesses %}{% set state_ = access_state(a) %}
@@ -167,8 +167,8 @@
   <form method="post" action="{{ url_for('interviewer.rights', code=survey.code, aid=a.id) }}" class="stack" data-autosave-form>
     {{ csrf() }}<input type="hidden" name="has_interview" value="1">
     <label class="check"><input type="checkbox" name="may_interview" value="1" data-iv-interview {% if a.may_interview %}checked{% endif %}> {{ de_en("darf Interviews führen", "may conduct interviews") }}</label>
-    <label class="check iv-sub"><input type="checkbox" name="may_record" value="1" data-iv-needs-interview {% if a.may_record %}checked{% endif %} {% if not a.may_interview %}disabled{% endif %}> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
-    <label class="check iv-sub"><input type="checkbox" name="may_transcribe" value="1" data-iv-needs-interview {% if a.may_transcribe %}checked{% endif %} {% if not a.may_interview %}disabled{% endif %}> {{ de_en("darf transkribieren", "may transcribe") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_record" value="1" data-iv-needs-interview {% if a.may_record %}checked{% endif %} {% if not a.may_interview %}disabled{% endif %}> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_transcribe" value="1" data-iv-needs-interview {% if a.may_transcribe %}checked{% endif %} {% if not a.may_interview %}disabled{% endif %}> {{ de_en("darf transkribieren", "may transcribe") }}</label>
     {% if coding_on %}<label>{{ de_en("darf kodieren", "may code") }}
       <select name="may_code">{% for key, label in [("none", de_en("nein", "no")), ("own", de_en("eigene Interviews", "own interviews")), ("all", de_en("alle Interviews", "all interviews"))] %}<option value="{{ key }}" {% if a.may_code == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endif %}
     <p class="muted small">{{ de_en("Gilt beim nächsten Aufruf; der Link und seine Geräte bleiben gültig.", "Applies with the next request; the link and its devices stay valid.") }}</p>
@@ -200,8 +200,8 @@ Ben Yilmaz') }}"></textarea></label>
     </div>
     <input type="hidden" name="has_interview" value="1">
     <label class="check"><input type="checkbox" name="may_interview" value="1" data-iv-interview checked> {{ de_en("darf Interviews führen", "may conduct interviews") }}</label>
-    <label class="check iv-sub"><input type="checkbox" name="may_record" value="1" data-iv-needs-interview checked> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
-    <label class="check iv-sub"><input type="checkbox" name="may_transcribe" value="1" data-iv-needs-interview checked> {{ de_en("darf transkribieren", "may transcribe") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_record" value="1" data-iv-needs-interview checked> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_transcribe" value="1" data-iv-needs-interview checked> {{ de_en("darf transkribieren", "may transcribe") }}</label>
     {% if experimental("transcript_coding", survey) %}<label>{{ de_en("darf kodieren", "may code") }} <span class="hint">{{ de_en("in den Auswertungen, denen Sie die Person zuweisen", "in the analyses you assign the person to") }}</span>
       <select name="may_code"><option value="none" selected>{{ de_en("nein", "no") }}</option><option value="own">{{ de_en("eigene Interviews", "own interviews") }}</option><option value="all">{{ de_en("alle Interviews", "all interviews") }}</option></select></label>{% endif %}
     <p class="muted small">{{ de_en("Bei mehreren erscheinen alle Links mit QR-Code einmal auf einer Seite zum Drucken.", "With several, all links with their QR codes appear once on a page to print.") }}</p>

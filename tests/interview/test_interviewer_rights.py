@@ -137,6 +137,7 @@ def test_new_links_with_rights_and_the_page(app, client):
     page = client.get(f"/guide/{code}/interviews").data.decode()
     assert 'data-dialog-open="iv-add"' in page and 'data-dialog-open="iv-rights-' in page
     assert "Kodieren: alle" in page and "Interviews · Aufnahme · Transkript" in page
+    assert page.count('name="may_code"') == 3                                       # the add dialog and one per person
 
 
 @pytest.mark.sqlite_foreign_keys_off  # goes down and up again: SQLite's batch mode (tests/conftest.py, B8)
