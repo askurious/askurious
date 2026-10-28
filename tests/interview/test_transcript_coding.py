@@ -249,7 +249,9 @@ def test_coding_link(app, client):
     lea = app.test_client()
     assert lea.post(f"/guide/{code}/coding-link", data={"key": key}).status_code == 400   # notes not confirmed
     r = lea.post(f"/guide/{code}/coding-link", data={"key": key, "hints": "2026-10-27"})
-    assert r.status_code == 302 and r.headers["Location"].endswith(base)
+    # since 2026-10-28 it opens as the interviewer link it becomes, which leads to its one analysis
+    assert r.status_code == 302 and r.headers["Location"].endswith(f"/i/{code}/interviews")
+    assert lea.get(f"/i/{code}/interviews").headers["Location"].endswith(base)
     page = lea.get(base).data.decode()
     assert "Kodieren als Lea" in page and "Kodierlinks ohne Konto" not in page and "view=settings" not in page
     assert lea.get(f"{base}?view=settings").status_code == 404                    # the settings are the team's
@@ -260,8 +262,11 @@ def test_coding_link(app, client):
     lea.post(f"{base}/categories/new", data={"kind": "sub", "parent": main, "name": "Neu von Lea", "definition": "d"})
     with app.app_context():
         assert db.session.scalar(db.select(CodingCategory).filter_by(name="Neu von Lea")).author_name == "Lea"
-    # blocking ends the session at once; a wrong key is refused
-    client.post(f"{base}/links/{link.id}/block")
+    # blocking (now that of the interviewer link) ends the session at once; a wrong key is refused
+    with app.app_context():
+        access = db.session.scalar(db.select(InterviewerAccess).filter_by(name="Lea"))
+    assert client.post(f"{base}/links/{link.id}/block").status_code == 404           # looked after as an interviewer link
+    client.post(f"/guide/{code}/interviewers/{access.id}/block")
     assert lea.get(base).status_code in (302, 404)
     assert app.test_client().post(f"/guide/{code}/coding-link", data={"key": "falsch", "hints": "2026-10-27"}).status_code == 404
 

@@ -22,7 +22,7 @@ from flask_login import current_user
 
 from app.extensions import db
 from app.lang import de_en
-from app.models import CodingLink, CodingProject, utcnow
+from app.models import CodingLink, CodingProject, Survey, utcnow
 from app.transcript_coding import bp, guide, project_of, signed_in_or_coder
 
 SESSION_KEY = "ck"
@@ -47,8 +47,89 @@ def link(survey, key):
 
 
 def links(project):
-    return list(db.session.scalars(db.select(CodingLink).filter_by(project_id=project.id)
-                                   .order_by(CodingLink.created_at, CodingLink.id)))
+    """The coding links of before still to look after: those not yet taken over as an interviewer link."""
+    return [row for row in db.session.scalars(db.select(CodingLink).filter_by(project_id=project.id)
+                                              .order_by(CodingLink.created_at, CodingLink.id)) if _member_of(row) is None]
+
+
+# --- a coding link of before becomes an interviewer link (Ralf 2026-10-28) ------------------------------------------
+# Coding links go into the interviewer links: one that "darf kodieren" and does not conduct interviews is exactly a
+# coding link. A coding link of before is taken over the first time it is used (its address opened, or a request of
+# a session it holds): an interviewer link with its key, revision, devices and expiry, without the rights to conduct,
+# record and transcribe, with "Kodieren: alle" (its view as before, with the interviewer links its row named), assigned
+# to its analysis. Its row of coding_member keeps "l:<coding link id>" in `role`, the key its codings, categories and
+# history carry, so that they stay its own. The other analyses of the guide keep exactly the coders they have. The
+# coding link itself is blocked then: from now on blocking, extending and deleting are those of the interviewer link.
+# Its session goes over to the interviewer link without signing in again. No migration changes data; the table stays
+# until a later deploy drops it.
+
+
+def _member_of(row):
+    from app.models import CodingMember
+
+    return db.session.scalar(db.select(CodingMember).filter_by(project_id=row.project_id, kind=CodingMember.INTERVIEWER,
+                                                               role=f"l:{row.id}"))
+
+
+def converted(row):
+    """The interviewer link this coding link became, None if not yet; False if it became one that is gone since."""
+    from app.models import InterviewerAccess
+
+    member = _member_of(row)
+    if member is None:
+        return None
+    return db.session.get(InterviewerAccess, member.access_id) or False
+
+
+def convert(row):
+    """Take the coding link over as an interviewer link (see above); returns it. The caller commits."""
+    from app import transcript_coding as tc
+    from app.models import CodingMember, InterviewerAccess
+
+    done = converted(row)
+    if done is not None:
+        return done or None
+    survey = db.session.get(Survey, row.survey_id)
+    taken = {a.name for a in db.session.scalars(db.select(InterviewerAccess).filter_by(survey_id=row.survey_id))}
+    name = row.name if row.name not in taken else f"{row.name} ({de_en('Kodieren', 'coding')})"[:80]
+    keep = {p.id: [a for a in db.session.scalars(db.select(InterviewerAccess).filter_by(survey_id=row.survey_id))
+                   if tc.interviewer_codes_in(p, a)]
+            for p in tc.projects(survey) if p.id != row.project_id and tc.coder_mode(p) == tc.CODERS_ALL}
+    access = InterviewerAccess(survey_id=row.survey_id, name=name, token_hash=row.token_hash, revision=row.revision,
+                               blocked=row.blocked, may_interview=False, may_record=False, may_transcribe=False,
+                               may_code=InterviewerAccess.CODE_ALL, max_devices=row.max_devices,
+                               devices=list(row.devices or []), created_by_id=row.created_by_id,
+                               created_by_name=row.created_by_name, created_at=row.created_at,
+                               expires_at=row.expires_at, last_used_at=row.last_used_at)
+    db.session.add(access)
+    db.session.flush()
+    db.session.add(CodingMember(project_id=row.project_id, kind=CodingMember.INTERVIEWER, access_id=access.id,
+                                role=f"l:{row.id}", access_ids=list(row.access_ids or []) or None,
+                                added_by_id=row.created_by_id, added_by_name=row.created_by_name))
+    for pid, coders in keep.items():  # the other analyses: exactly their coders, not the one taken over
+        project = db.session.get(CodingProject, pid)
+        project.settings = {**(project.settings or {}), "interviewers": tc.CODERS_SELECTED}
+        have = {m.access_id for m in db.session.scalars(db.select(CodingMember).filter_by(project_id=pid, kind=CodingMember.INTERVIEWER))}
+        for a in coders:
+            if a.id not in have:
+                db.session.add(CodingMember(project_id=pid, kind=CodingMember.INTERVIEWER, access_id=a.id))
+    row.blocked = True  # the old way in is closed; its key opens the interviewer link now
+    return access
+
+
+def _hand_over(survey, row, device_id):
+    """A session of the coding link becomes one of the interviewer link it became, on the same device."""
+    from app import interviewer
+
+    access = convert(row)
+    db.session.commit()
+    if access is None or not interviewer.usable(access, survey) or device_id not in {d.get("id") for d in (access.devices or [])}:
+        return None
+    now = utcnow().isoformat(timespec="seconds")
+    session.permanent = True
+    session[interviewer.SESSION_KEY] = {**interviewer._entries(), str(survey.id): {"a": access.id, "r": access.revision,
+                                                                                    "d": device_id, "t": now}}
+    return access
 
 
 def create(project, name, days, devices=MAX_DEVICES, by=None, access_ids=()):
@@ -127,6 +208,15 @@ def current(survey, project):
     except (TypeError, ValueError):
         last = None
     devices = {d.get("id"): d for d in (row.devices or [])} if row is not None else {}
+    if row is not None and last is not None and last > now - timedelta(minutes=IDLE):
+        done = converted(row)
+        # taken over (here or on another device) or to be taken over now: the session goes to the interviewer link
+        if done or (done is None and usable(row, survey, project, now) and entry.get("r") == row.revision
+                    and entry.get("d") in devices):
+            if not done or entry.get("r") == done.revision:
+                _hand_over(survey, row, entry.get("d"))
+            _forget(project.id)
+            return None
     valid = usable(row, survey, project, now) and entry.get("r") == row.revision and entry.get("d") in devices
     if not valid or last is None or last <= now - timedelta(minutes=IDLE):
         if valid:
@@ -200,8 +290,8 @@ def link_change(code, pid, lid, action):
 
     survey, project, who = _team(code, pid)
     row = db.session.get(CodingLink, lid)
-    if row is None or row.project_id != project.id or action not in LINK_ACTIONS:
-        abort(404)
+    if row is None or row.project_id != project.id or action not in LINK_ACTIONS or _member_of(row) is not None:
+        abort(404)  # one taken over is looked after as an interviewer link
     name = row.name
     if action == "link":
         key = secrets.token_urlsafe(32)
@@ -258,6 +348,18 @@ def link_start(code):
         return _refused(survey, de_en("Dieser Link gilt nicht (mehr). Bitte bei den Forschenden einen neuen erbitten.",
                                       "This link is not (or no longer) valid. Please ask the researchers for a new one."), 404)
     project = db.session.get(CodingProject, row.project_id)
+    done = converted(row)
+    if done is None and usable(row, survey, project) and HINTS_VERSION in (row.hints_version, request.form.get("hints")):
+        done = convert(row)  # the notes confirmed as before
+        db.session.commit()
+    if done:  # its address of before opens the interviewer link it became (blocked, expired, deleted: refused there)
+        from app import interviewer
+
+        if not interviewer.usable(done, survey):
+            security_log.event("coding_link_refused", target=survey.code, reason=interviewer.state(done))
+            return _refused(survey, de_en("Dieser Kodierlink ist gesperrt oder abgelaufen. Bitte an die Forschenden wenden.",
+                                          "This coding link is blocked or has expired. Please contact the researchers."), 403)
+        return interviewer.open_link(survey, done)
     if not usable(row, survey, project):
         security_log.event("coding_link_refused", target=survey.code, reason=state(row))
         return _refused(survey, de_en("Dieser Kodierlink ist gesperrt oder abgelaufen. Bitte an die Forschenden wenden.",

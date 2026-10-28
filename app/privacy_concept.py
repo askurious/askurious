@@ -293,11 +293,11 @@ def roles():
         {"who": de_en("Kodierende (Rolle „Kodieren“, experimentell)", "Coders (role “Code”, experimental)"),
          "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet: als Person "
                       "oder Gruppe mit Konto, als Interviewende mit Interviewlink, dessen Recht „darf kodieren“ (eigene "
-                      "oder alle Interviews; aus, bis es gesetzt wird) und Zuweisung zur Auswertung oder ohne Konto über einen Kodierlink (nur noch die bis 28.10.2026 angelegten; neue Personen ohne Konto sind Interviewlinks mit dem Recht „darf kodieren“ und ohne „darf Interviews führen“): nur als Hash gespeichert, "
+                      "oder alle Interviews; aus, bis es gesetzt wird) und Zuweisung zur Auswertung oder ohne Konto über einen Kodierlink (nur noch die bis 28.10.2026 angelegten, die beim ersten Öffnen zu einem Interviewlink mit „darf kodieren“ und ohne „darf Interviews führen“ werden; neue Personen ohne Konto sind gleich solche Interviewlinks): nur als Hash gespeichert, "
                       "Ablaufdatum Pflicht (höchstens 90 Tage), höchstens drei Geräte, sperrbar",
                       "assigned to an analysis of the guide by members with Edit or Manage: as a person or group with an "
                       "account, as interviewers with an interviewer link with the right “may code” (own or all interviews; "
-                      "off until set) and assigned to the analysis, or without an account through a coding link (only those made until 28 Oct 2026; new people without an account are interviewer links with the right “may code” and without “may conduct interviews”): stored as a hash only, expiry date required (at "
+                      "off until set) and assigned to the analysis, or without an account through a coding link (only those made until 28 Oct 2026, which become, when first opened, an interviewer link with “may code” and without “may conduct interviews”; new people without an account are such interviewer links at once): stored as a hash only, expiry date required (at "
                       "most 90 days), at most three devices, can be blocked"),
          "sees": de_en("Die Transkripte der Interviews dieser einen Auswertung (je nach Einstellung alle oder nur die eigenen; "
                        "Interviewende ihre eigenen oder, mit dem Recht „alle“, alle der Auswertung, fremde nur zum Kodieren) und ihr "
