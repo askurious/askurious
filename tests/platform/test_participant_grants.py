@@ -87,6 +87,16 @@ def test_a_column_outside_a_column_right_is_reported():
     assert set(participant_sql.violations(seen)) == {("user_login", "SELECT:password_hash")}
 
 
+def test_an_update_outside_a_column_right_is_reported():
+    """seal_entry may only lose salt and participation id (seal._forget); its hashes stay unchangeable."""
+    assert participant_grants.columns("seal_entry", "UPDATE") == {"salt", "response_id"}
+    forget = participant_sql.pairs("UPDATE seal_entry SET salt=?, response_id=? WHERE seal_entry.response_id = ?")
+    assert participant_sql.violations({pair: {"participate.erase"} for pair in forget}) == {}
+    rewrite = participant_sql.pairs('UPDATE seal_entry SET "content"=?, salt=? WHERE seal_entry.id = ?')
+    assert set(participant_sql.violations({pair: {"participate.erase"} for pair in rewrite})) == {
+        ("seal_entry", "UPDATE:content")}
+
+
 def test_a_right_outside_the_list_is_reported():
     assert participant_sql.violations({("login_session", "SELECT"): {"participate.page"}}) == {
         ("login_session", "SELECT"): ["participate.page"]}
