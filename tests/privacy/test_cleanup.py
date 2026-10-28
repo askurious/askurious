@@ -6,9 +6,12 @@ import time
 def test_two_deletions_at_once_keep_both_in_the_note(app, monkeypatch):
     """Code review 2026-10-15, D4: note() read the note and wrote it back without a lock; two deletions at once kept
     only one's IDs, and a cleanup of the other that failed was never tried again."""
-    from app import cleanup
+    from app import cleanup, storage_room
 
     read = cleanup.read
+    # the other deletion waits for the storage room while this one holds it; on a loaded Windows machine with several
+    # test workers that took longer than the 30 s of production (full run 2026-10-28), so the test waits longer
+    monkeypatch.setattr(storage_room, "WAIT", 180)
 
     def slow(uid):
         found = read(uid)
