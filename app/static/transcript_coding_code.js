@@ -98,6 +98,7 @@
     cats.forEach(function (c) {
       var li = document.createElement("li");
       li.className = "tc-side-" + c.kind;
+      if (c.level > 2) li.style.paddingLeft = (18 * (c.level - 1)) + "px";  // deeper levels further in
       var dot = document.createElement("span");
       dot.className = "tc-dot";
       dot.style.background = colour(c);
@@ -286,10 +287,10 @@
     quick.elements.name.value = name || "";
     var sel = quick.querySelector("[data-tc-parents]");
     sel.textContent = "";
-    cats.filter(function (c) { return c.kind === "main"; }).forEach(function (c) {
+    cats.filter(function (c) { return c.kind !== "candidate" && c.deeper !== false; }).forEach(function (c) {
       var o = document.createElement("option");
       o.value = c.id;
-      o.textContent = c.name;
+      o.textContent = label(c);  // the whole path: a subcategory may stand under any level
       sel.appendChild(o);
     });
     var top = document.createElement("option");

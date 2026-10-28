@@ -2163,7 +2163,12 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-head:last-child { margin-bottom: 0; }
 .tc-branch { display: grid; gap: 8px; }
 .tc-subs { display: grid; gap: 8px; margin-left: 28px; justify-items: start; }
-.tc-subs > .tc-cat { justify-self: stretch; }
+.tc-subs > .tc-cat, .tc-subs > .tc-level { justify-self: stretch; }
+.tc-level { margin-left: calc(var(--lvl, 0) * 24px); }  /* deeper levels of the category system further in */
+.tc-fold { transition: transform 0.15s; }
+.tc-fold.is-folded { transform: rotate(-90deg); }
+.tc-add-below { margin-left: auto; }
+.tc-indent { padding-left: calc(var(--lvl, 0) * 16px); }
 .tc-cat { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface); }
 .tc-cat.tc-main { border-width: 2px; }
 .tc-cat.tc-candidate { border: 2px dashed var(--border-strong); }

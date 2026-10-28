@@ -74,9 +74,9 @@ def codes(project, parent, ns):
 
     for n, (main, subs) in enumerate(mains):
         colour = main.colour or COLOURS[n % len(COLOURS)]
-        e = code(holder, main, colour)
-        for s in subs:
-            code(e, s, colour)
+        at = {main.id: code(holder, main, colour)}
+        for s in subs:  # nested as deep as they stand (REFI-QDA allows any depth)
+            at[s.id] = code(at.get(s.parent_id, at[main.id]), s, colour)
     for c in candidates:
         code(holder, c, COLOURS[-1])
     return guids

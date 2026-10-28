@@ -40,6 +40,16 @@
     submit.textContent = de_en("Anlegen", "Create");
   }
 
+  // the list of the category system: fold what stands below a category (data-tc-anc names the ids above each one)
+  document.addEventListener("click", function (e) {
+    var fold = e.target.closest("[data-tc-fold]");
+    if (!fold) return;
+    var open = fold.getAttribute("aria-expanded") !== "false";
+    fold.setAttribute("aria-expanded", open ? "false" : "true");
+    fold.classList.toggle("is-folded", open);
+    document.querySelectorAll('[data-tc-anc~="' + fold.getAttribute("data-tc-fold") + '"]').forEach(function (el) { el.hidden = open; });
+  });
+
   document.addEventListener("click", function (e) {
     var opener = e.target.closest("[data-tc-new]");
     if (!opener || !dialog) return;

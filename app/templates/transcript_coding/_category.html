@@ -7,7 +7,9 @@
 <div class="tc-cat {{ kind_class }}" id="k{{ cat.id }}">
   <div class="tc-cat-head">
     {% if cat.colour %}<span class="tc-dot" style="background: {{ cat.colour }}" aria-hidden="true"></span>{% endif %}
+    {% if cat.kids %}<button type="button" class="icon-btn tc-fold" data-tc-fold="{{ cat.id }}" aria-expanded="true" title="{{ de_en('Darunter zu- oder aufklappen', 'Fold or unfold what is below') }}" aria-label="{{ de_en('Darunter zuklappen: {name}', 'Fold what is below: {name}', name=cat.name) }}">{{ icon("chevron-down", 14) }}</button>{% endif %}
     <strong class="tc-name" data-live="tc-name-{{ cat.id }}">{{ cat.name }}</strong>
+    {% if cat.kind == "sub" and cat.level < max_depth %}<button type="button" class="button button-small button-secondary tc-add-below" data-tc-new data-kind="sub" data-parent="{{ cat.id }}" data-parent-name="{{ cat.path }}">{{ icon("plus", 14) }} {{ de_en("Unterkategorie", "Subcategory") }}</button>{% endif %}
     {% if cat.kind == "main" and project.mains_fixed %}<span class="muted" title="{{ de_en('Hauptkategorien festgelegt: ändern nur die Forschenden', 'Main categories fixed: only the researchers change them') }}">{{ icon("lock", 14) }}<span class="visually-hidden">{{ de_en("festgelegt", "fixed") }}</span></span>{% endif %}
     {% if cat.former_names %}<span class="muted small">{{ de_en("früher auch: {names}", "formerly also: {names}", names=cat.former_names|join(", ")) }}</span>{% endif %}
     {% if cat.kind == "candidate" %}<span class="muted small">{{ de_en("Kandidat für eine neue Hauptkategorie", "candidate for a new main category") }}</span>{% endif %}

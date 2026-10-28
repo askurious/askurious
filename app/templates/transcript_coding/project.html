@@ -86,7 +86,7 @@
     <div class="tc-branch">
       {{ category(main, "tc-main") }}
       <div class="tc-subs">
-        {% for sub in subs %}{{ category(sub, "tc-sub") }}{% endfor %}
+        {% for sub in subs %}<div class="tc-level" style="--lvl: {{ sub.level - 2 }}" data-tc-anc="{{ sub.anc|join(' ') }}">{{ category(sub, "tc-sub") }}</div>{% endfor %}
         <button type="button" class="button button-small button-secondary" data-tc-new data-kind="sub" data-parent="{{ main.id }}" data-parent-name="{{ main.name }}">{{ icon("plus", 16) }} {{ de_en("Unterkategorie", "Subcategory") }}</button>
       </div>
     </div>

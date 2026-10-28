@@ -62,9 +62,10 @@ def mark_after(text, end):
 
 def cells(project, rows):
     """{(interview id, main category id): [{"sub", "quote", "mark", "rid", "cat"}]} of the codings of `rows`."""
-    from app.transcript_coding import live
+    from app.transcript_coding import live, top_of, tree
     from app.transcript_coding_view import placed, transcript
 
+    tree(project)  # sets `rel`, the path below the main category
     cats = {c.id: c for c in live(project)}
     out = {}
     for row in rows:
@@ -74,8 +75,8 @@ def cells(project, rows):
             cat = cats.get(c["cat"])
             if cat is None:
                 continue
-            main = cat.id if cat.parent_id is None else cat.parent_id
-            out.setdefault((row.id, main), []).append({"sub": cat.name if cat.parent_id else "", "quote": c.get("quote", ""),
+            main = top_of(cat, cats).id  # the cell of its main category, on every level
+            out.setdefault((row.id, main), []).append({"sub": getattr(cat, "rel", "") or (cat.name if cat.parent_id else ""), "quote": c.get("quote", ""),
                                                       "mark": mark_after(text, c["end"]), "rid": row.id, "cat": cat.id})
     return out
 

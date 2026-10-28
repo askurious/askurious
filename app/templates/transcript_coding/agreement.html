@@ -21,7 +21,7 @@
   {% call list_table("is-wide") %}
     <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">κ</th><th>{{ de_en("Lesart", "Reading") }}</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
     <tbody>
-    {% set rows = [("all", de_en("Alle Kategorien", "All categories"))] %}{% for c in cats %}{% set _ = rows.append((c.id, c.name)) %}{% endfor %}
+    {% set rows = [("all", de_en("Alle Kategorien", "All categories"))] %}{% for c in cats %}{% set _ = rows.append((c.id, c.name)) %}{% if ("sum:" ~ c.id) in figures %}{% set _ = rows.append(("sum:" ~ c.id, de_en("{name} mit allem darunter", "{name} with all below it", name=c.name))) %}{% endif %}{% endfor %}
     {% for key, name in rows %}{% set f = figures[key] %}{% if f.passages[1] or key == "all" %}
     <tr{% if key == "all" %} class="coverage-block"{% endif %}><td>{{ name }}</td>
       {% if f.enough %}<td class="num">{{ (100 * f.p_o)|round(1) }} %</td><td class="num">{{ "%.2f"|format(f.kappa) if f.kappa is not none else "–" }}</td><td>{{ reading(f.kappa) }}</td>
