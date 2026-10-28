@@ -558,6 +558,14 @@ def start(code):
                                       "This access is blocked or has expired. Please contact the researchers."), 403)
     if access.hints_version != HINTS_VERSION and not request.form.get("hints"):
         return _refused(survey, de_en("Bitte die Hinweise lesen und bestätigen.", "Please read and confirm the notes."))
+    return open_link(survey, access)
+
+
+def open_link(survey, access):
+    """Open a usable access in this browser: a device of its own (those idle no longer count, this browser's own one is
+    replaced), the session, then its page. Also for a coding link of before (app/transcript_coding_links.py)."""
+    from app import security_log
+
     # those idle no longer count, and this browser's own device is replaced, not added once more (K1)
     old = _entries().get(str(survey.id))
     mine = old.get("d") if isinstance(old, dict) and old.get("a") == access.id and old.get("r") == access.revision else None

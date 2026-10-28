@@ -129,7 +129,9 @@ def actor(survey, project):
         access = interviewer.current(survey)
         if access is not None and interviewer_codes_in(project, access):
             row = interviewer_member(project, access)
-            return Actor("interviewer", f"i:{access.id}", access.name, access=access, members=[row] if row else [])
+            # a coding link of before (app/transcript_coding_links.py, convert): its own codings carry "l:<id>"
+            key = row.role if row is not None and str(row.role or "").startswith("l:") else f"i:{access.id}"
+            return Actor("interviewer", key, access.name, access=access, members=[row] if row else [])
     return None
 
 
