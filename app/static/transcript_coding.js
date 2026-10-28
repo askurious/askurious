@@ -14,7 +14,7 @@
     sync();
   }
 
-  // "Zusammenführen" of a blurring pair (overview.html): the direction chosen sets what goes into what
+  // merging a blurring pair (overview.html): the direction chosen sets what goes into what
   document.addEventListener("change", function (e) {
     var radio = e.target.closest && e.target.closest("[data-tc-merge]");
     if (!radio) return;
@@ -181,13 +181,13 @@
     if (dialogDrop.showModal && !dialogDrop.open) dialogDrop.showModal();
   }
   if (dialogDrop) {
-    dialogDrop.addEventListener("click", function (e) {  // "von A übernehmen": the field as A has it
+    dialogDrop.addEventListener("click", function (e) {  // the buttons to take a field over: the field as the dragged one has it
       var btn = e.target.closest("[data-take]");
       if (!btn) return;
       var a = catOf(btn.getAttribute("data-from")), field = btn.getAttribute("data-take");
       dialogDrop.querySelector("[data-tc-drop-merge]").elements[field].value = a[field] || "";
     });
-    var wanted = /[?&]merge=(\d+),(\d+)/.exec(location.search);  // from "Zusammenführen" under „Unscharf“
+    var wanted = /[?&]merge=(\d+),(\d+)/.exec(location.search);  // from merging a blurring pair on the overview
     if (wanted && data) {
       var a0 = catOf(wanted[1]);
       openDrop(wanted[1], wanted[2], a0 && document.querySelector('[data-tc-grab="' + wanted[1] + '"]')
