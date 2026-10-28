@@ -2171,6 +2171,20 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-grab { cursor: grab; touch-action: none; user-select: none; color: var(--muted); padding: 0 4px; }
 .tc-cat.is-dragged { opacity: 0.5; }
 .tc-cat.is-drop, .tc-drop-main.is-drop { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tc-cat.is-before { box-shadow: 0 -3px 0 var(--accent); }  /* between siblings: the line where it goes */
+.tc-cat.is-after { box-shadow: 0 3px 0 var(--accent); }
+.tc-cat.is-off, .tc-map-node.is-off { opacity: 0.35; }
+/* the map as a place to drag (app/transcript_coding_review.py map_svg, interactive) */
+.tc-map .tc-map-node[data-tc-grab] { cursor: grab; touch-action: pan-x pan-y; }
+.tc-map .tc-map-node.is-dragged { opacity: 0.45; }
+.tc-map .tc-map-node.is-drop :is(rect, circle):first-of-type, .tc-map .tc-map-root.is-drop rect { stroke: var(--accent); stroke-width: 3; }
+.tc-map .tc-map-node.is-before rect.tc-hit { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 0; }
+.tc-map .tc-map-node.is-after rect.tc-hit { stroke: var(--accent); stroke-width: 2; }
+.tc-drop-dialog { width: min(760px, calc(100vw - 32px)); }
+.tc-drop-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-bottom: 12px; }
+.tc-drop-side { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.tc-drop-side p { margin: 0 0 4px; }
+.tc-drop-merge { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
 .tc-drop-main { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 12px; text-align: center; color: var(--muted); }
 body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-indent { padding-left: calc(var(--lvl, 0) * 16px); }

@@ -9,7 +9,7 @@
     {% if e.kind == "comment" %}{{ de_en("kommentiert:", "comments:") }} „{{ e.reason }}“
     {% elif e.kind == "fits" %}{{ de_en("bestätigt: Passt", "confirms: fits") }}
     {% elif e.kind == "split_off" %}{{ de_en("löst eigene Stellen heraus ({n})", "takes own passages out ({n})", n=d.moved) }}
-    {% elif e.kind == "merged" %}{{ de_en("führt „{a}“ mit „{b}“ zusammen", "merges “{a}” with “{b}”", a=d.source_name, b=d.target_name) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% if d.undone %} <span class="muted small">({{ de_en("zurückgenommen", "taken back") }})</span>{% endif %}
+    {% elif e.kind == "merged" %}{{ de_en("führt „{a}“ mit „{b}“ zusammen und vereinheitlicht sie als „{c}“", "merges “{a}” with “{b}” and harmonises them as “{c}”", a=d.source_name, b=d.target_name, c=d.after_name) if d.unified else de_en("führt „{a}“ mit „{b}“ zusammen", "merges “{a}” with “{b}”", a=d.source_name, b=d.target_name) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% if d.undone %} <span class="muted small">({{ de_en("zurückgenommen", "taken back") }})</span>{% endif %}
     {% elif e.kind == "unmerged" %}{{ de_en("nimmt das Zusammenführen von „{a}“ zurück", "takes back the merge of “{a}”", a=d.source_name) }}
     {% else %}{{ event_text(e) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% endif %}
     {% if e.kind == "merged" and not d.undone and (who.team or e.actor_key == who.key) %}
