@@ -164,7 +164,7 @@ Ein Längsschnitt befragt dieselben Personen mehrmals, etwa vor und nach einem S
 
 ![Der persönliche Code aus Sicht der Teilnehmenden](img/guide-waves-code.jpg)
 
-**2. Weitere Wellen anlegen.** Jede Welle ist eine eigene Befragung. Am einfachsten entsteht Welle 2 mit „Duplizieren“ unter „Meine Befragungen“: Dann hat sie denselben persönlichen Code mit denselben Teilen und dieselben Skalen, und Sie ändern nur, was sich unterscheiden soll.
+**2. Weitere Wellen anlegen.** Jede Welle ist eine eigene Befragung. Am einfachsten entsteht Welle 2 mit „Duplizieren“ unter „Meine Befragungen“: Dann hat sie denselben persönlichen Code mit denselben Teilen und dieselben Skalen, und Sie ändern nur, was sich unterscheiden soll. Fragen, die im Original verknüpfte Elemente sind, bleiben im Duplikat nur verknüpft, wenn das Häkchen „Fragen mit dem Original verknüpfen“ gesetzt ist; es ist dann schon vorab gesetzt. Ohne Häkchen werden sie gewöhnliche Kopien, und Änderungen im Duplikat erreichen das Original nicht.
 
 **3. Wellen verknüpfen.** Im Reiter „Studienplan“ steht unter dem Plan der Abschnitt **„Wellen“**. Dort wählen Sie die Befragungen der einzelnen Wellen und geben jeder einen Namen, etwa „vorher“ und „nachher“. Die Liste gilt für alle Wellen darin. Das Verknüpfen gehört nicht zum Plan selbst: Eine Welle später hinzuzufügen, ist keine Abweichung von der Präregistrierung. Ebenfalls im Studienplan legen Sie fest, welche Größen über die Zeit modelliert werden; eine Hypothese der Art **„Wirkung über die Zeit“** (X in einer Welle auf Y in der nächsten) wird im Cross-Lagged-Panel-Modell geprüft.
 
