@@ -62,7 +62,7 @@
 {% if notices and view != "settings" %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
 {% if view == "categories" %}
 <section class="panel" id="kategorien">
-  <div class="row results-head">
+  <div class="row results-head tc-head">
     <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
     <span class="spacer"></span>
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}

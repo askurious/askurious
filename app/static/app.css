@@ -2159,6 +2159,8 @@ label.check + .hint-more { margin-left: 25px; }
 /* coding interview transcripts (app/transcript_coding.py): the category system as a tree; a candidate for a new main
    category is drawn dashed until the team takes it on */
 .tc-tree { display: grid; gap: 14px; }
+.tc-head { margin-bottom: 14px; }  /* the head row (views, "Hauptkategorie") keeps its distance to the buttons and categories below */
+.tc-head:last-child { margin-bottom: 0; }
 .tc-branch { display: grid; gap: 8px; }
 .tc-subs { display: grid; gap: 8px; margin-left: 28px; justify-items: start; }
 .tc-subs > .tc-cat { justify-self: stretch; }
@@ -2221,7 +2223,7 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-overview.is-map { grid-template-columns: minmax(0, 1fr); }  /* the map takes the whole width, the pairs below */
 @media (max-width: 1000px) { .tc-overview { grid-template-columns: minmax(0, 1fr); } }
 .tc-overview-side { display: grid; gap: 16px; min-width: 0; }
-.tc-switch { display: flex; gap: 6px; }
+.tc-switch { display: flex; flex-wrap: wrap; gap: 6px; }
 .tc-flag { font-size: 0.75rem; color: var(--caution); border: 1px solid var(--caution); border-radius: var(--radius-tag); padding: 0 6px; }
 .tc-pair { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 6px; margin-bottom: 10px; }
 .tc-pair p { margin: 0; }
