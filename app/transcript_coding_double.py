@@ -260,8 +260,15 @@ def passage_agreement(a_items, b_items, cat=None, threshold=OVERLAP):
 def agreement(project, rows, threshold=OVERLAP):
     """Per category id and "all": {"words": [a, b, c, d], "p_o", "kappa", "passages": (matched, total), "share",
     "enough"} summed over the double-coded, finished interviews (first two coders of each)."""
+    from app.transcript_coding import subtree
+
     cats = [c.id for c in live(project)]
-    sums = {cid: {"words": [0, 0, 0, 0], "passages": [0, 0]} for cid in cats + ["all"]}
+    groups = {}  # a category with something below it: its whole subtree as one (Ralf 2026-10-28)
+    for c in live(project):
+        tree_ids = subtree(project, c)
+        if len(tree_ids) > 1:
+            groups[f"sum:{c.id}"] = tree_ids
+    sums = {cid: {"words": [0, 0, 0, 0], "passages": [0, 0]} for cid in cats + ["all"] + list(groups)}
     pairs = 0
     for row in rows:
         entry = assignment(project, row.id)
@@ -277,6 +284,13 @@ def agreement(project, rows, threshold=OVERLAP):
             for key in (cid, "all"):
                 sums[key]["words"] = [x + y for x, y in zip(sums[key]["words"], t)]
                 sums[key]["passages"] = [sums[key]["passages"][0] + m, sums[key]["passages"][1] + n]
+        for key, ids in groups.items():  # the codings of the subtree as one category
+            a_sum = [{**c, "cat": key} for c in a_items if c["cat"] in ids]
+            b_sum = [{**c, "cat": key} for c in b_items if c["cat"] in ids]
+            t = word_table(text, a_sum, b_sum, key)
+            m, n = passage_agreement(a_sum, b_sum, key, threshold)
+            sums[key]["words"] = [x + y for x, y in zip(sums[key]["words"], t)]
+            sums[key]["passages"] = [sums[key]["passages"][0] + m, sums[key]["passages"][1] + n]
     out = {}
     for key, s in sums.items():
         p_o, kappa = table_kappa(*s["words"])

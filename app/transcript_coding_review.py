@@ -64,12 +64,17 @@ def all_codings(project, who):
 
 
 def stats(project, who):
-    """{category id: {"n": passages, "interviews": set of ids, "coders": set of names}} with the main categories
-    counting their subcategories too."""
+    """{category id: {"n": passages, "interviews": set of ids, "coders": set of names, "own": passages coded with it
+    itself}}; every category counts what stands below it too, on every level."""
+    from app.transcript_coding import chain
+
     cats = {c.id: c for c in live(project)}
-    out = {cid: {"n": 0, "interviews": set(), "coders": set()} for cid in cats}
+    out = {cid: {"n": 0, "interviews": set(), "coders": set(), "own": 0} for cid in cats}
     for row, c in all_codings(project, who):
-        for cid in {c["cat"], getattr(cats.get(c["cat"]), "parent_id", None)} - {None}:
+        cat = cats.get(c["cat"])
+        if cat is not None:
+            out[cat.id]["own"] += 1
+        for cid in ({cat.id} | {a.id for a in chain(cat, cats)} if cat is not None else set()):
             if cid in out:
                 out[cid]["n"] += 1
                 out[cid]["interviews"].add(row.id)
@@ -154,6 +159,10 @@ def may_merge(project, source, target, who):
     candidate: the team."""
     if source.id == target.id or source.project_id != project.id or target.project_id != project.id:
         return False
+    from app.transcript_coding import subtree
+
+    if target.id in subtree(project, source):  # not into something below itself
+        return False
     if source.kind == CodingCategory.SUB and target.kind == CodingCategory.SUB:
         return True
     return who.team and target.kind == CodingCategory.MAIN and source.kind in (CodingCategory.MAIN, CodingCategory.CANDIDATE)
@@ -205,12 +214,15 @@ def merge(project, source, target, who, reason):
     reason = " ".join(str(reason or "").split())[:1000]
     if not reason:
         return de_en("Bitte kurz begründen, warum die beiden zusammengehören.", "Please say briefly why the two belong together.")
+    from app.transcript_coding import MAX_DEPTH, height, level_of
+
+    kids = [c for c in live(project) if c.parent_id == source.id]
+    if kids and level_of(target, {c.id: c for c in live(project)}) + height(project, source) - 1 > MAX_DEPTH:
+        return de_en("Dann stünde etwas tiefer als {n} Ebenen.", "Something would then stand deeper than {n} levels.", n=MAX_DEPTH)
     moved = []
-    if source.kind == CodingCategory.MAIN:  # its subcategories go along under the target
-        for c in live(project):
-            if c.parent_id == source.id:
-                c.parent_id = target.id
-                moved.append(c.id)
+    for c in kids:  # what stood below it goes along under the target, on every level
+        c.parent_id = target.id
+        moved.append(c.id)
     ids = _merged_ids(project, source.id)
     source.merged_into = target.id
     target.former_names = list(dict.fromkeys((target.former_names or []) + [source.name] + list(source.former_names or [])))
@@ -357,55 +369,78 @@ def record_check(project, who, row, coding_id, cat_id):
 
 
 def map_svg(project, who, survey):
-    """The category system as a tree: the research question, main categories, subcategories with a bar of their
-    passages; blurring pairs joined by a dashed line. Plain SVG with its own colours, to download as it is."""
+    """The category system as a tree: the research question, then one column per level; every subcategory with a
+    bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
+    colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box."""
     mains, candidates = tree(project)
     st = stats(project, who)
     pairs = [p for p in fuzzy(project, who) if p["overlap"] or p["checks"]]
-    biggest = max([st[s.id]["n"] for _m, subs in mains for s in subs] + [1])
-    row_h, x0, x1, x2 = 34, 20, 300, 610
-    y, rows, main_pos, sub_pos = 20, [], {}, {}
-    for main, subs in mains:
-        top = y
-        for s in subs or [None]:
-            if s is not None:
-                sub_pos[s.id] = y + 14
+    subs = [s for _m, ss in mains for s in ss]
+    biggest = max([st[s.id]["n"] for s in subs] + [1])
+    depth = max([s.level for s in subs] + [1])
+    row_h, x0, col, box = 34, 20, 290, 250
+    below = {}
+    for s in subs:
+        below.setdefault(s.parent_id, []).append(s)
+    pos, y = {}, 20
+
+    def place(cat):  # leaves one row each, a category in the middle of what stands below it
+        nonlocal y
+        kids = below.get(cat.id, [])
+        if not kids:
+            pos[cat.id] = y + 14
             y += row_h
-        main_pos[main.id] = (top + y - row_h) / 2 + 14
-        rows.append((main, subs))
+            return pos[cat.id]
+        ys = [place(k) for k in kids]
+        pos[cat.id] = (ys[0] + ys[-1]) / 2
+        return pos[cat.id]
+
+    for main, _ss in mains:
+        place(main)
         y += 14
+    width = x0 + 250 + 50 + depth * col + 140
     height = max(y + 30, 120)
     mid = height / 2
     title = escape(project.question or project.name)[:90]
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="980" height="{int(height)}" viewBox="0 0 980 {int(height)}" '
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
              f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Karte", "Category system as a map"))}">',
              '<rect width="100%" height="100%" fill="#ffffff"/>',
              f'<rect x="{x0}" y="{mid - 26}" width="250" height="52" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
              f'<text x="{x0 + 12}" y="{mid - 4}" font-weight="bold" fill="#1c1c1a">{escape(project.name)[:34]}</text>',
              f'<text x="{x0 + 12}" y="{mid + 14}" fill="#5f5e59" font-size="11">{title[:42]}</text>']
-    for main, subs in rows:
-        my = main_pos[main.id]
-        parts.append(f'<path d="M{x0 + 250} {mid} C {x1 - 25} {mid}, {x1 - 25} {my}, {x1} {my}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
-        parts.append(f'<rect x="{x1}" y="{my - 15}" width="250" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
+
+    def x_of(level):
+        return x0 + 250 + 50 + (level - 1) * col
+
+    def link(xa, ya, xb, yb):
+        parts.append(f'<path d="M{xa} {ya} C {xb - 25} {ya}, {xb - 25} {yb}, {xb} {yb}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
+
+    for main, ss in mains:
+        my, x1 = pos[main.id], x_of(1)
+        link(x0 + 250, mid, x1, my)
+        parts.append(f'<rect x="{x1}" y="{my - 15}" width="{box}" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
         parts.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name)[:30]}</text>')
         parts.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
-        for s in subs:
-            sy = sub_pos[s.id]
-            parts.append(f'<path d="M{x1 + 250} {my} C {x2 - 25} {my}, {x2 - 25} {sy}, {x2} {sy}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
+        for s in ss:
+            sy, xs = pos[s.id], x_of(s.level)
+            above = pos.get(s.parent_id, my)
+            link(x_of(s.level - 1) + box, above, xs, sy)
             colour = s.colour or main.colour or "#2957A4"
-            parts.append(f'<circle cx="{x2 + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
-            parts.append(f'<text x="{x2 + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name)[:34]}</text>')
-            width = int(80 * st[s.id]["n"] / biggest)
-            parts.append(f'<rect x="{x2 + 250}" y="{sy - 5}" width="80" height="10" rx="2" fill="#efeee9"/>')
-            if width:
-                parts.append(f'<rect x="{x2 + 250}" y="{sy - 5}" width="{width}" height="10" rx="2" fill="#378ccf"/>')
-            parts.append(f'<text x="{x2 + 360}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
+            parts.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
+            parts.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name)[:22]}</text>')
+            bar = int(60 * st[s.id]["n"] / biggest)
+            parts.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
+            if bar:
+                parts.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
+            parts.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
+    levels = {s.id: s.level for s in subs}
     for p in pairs:
-        a, b = sub_pos.get(p["a"].id), sub_pos.get(p["b"].id)
-        if a is None or b is None:
+        a, b = pos.get(p["a"].id), pos.get(p["b"].id)
+        if a is None or b is None or p["a"].id not in levels or p["b"].id not in levels:
             continue
-        bend = x2 + 230 + min(120, abs(a - b) / 3)
-        parts.append(f'<path d="M{x2 + 232} {a} C {bend} {a}, {bend} {b}, {x2 + 232} {b}" fill="none" stroke="#b35c00" '
+        xa, xb = x_of(levels[p["a"].id]) + 150, x_of(levels[p["b"].id]) + 150
+        bend = max(xa, xb) + min(120, abs(a - b) / 3)
+        parts.append(f'<path d="M{xa} {a} C {bend} {a}, {bend} {b}, {xb} {b}" fill="none" stroke="#b35c00" '
                      f'stroke-width="1.5" stroke-dasharray="6 5"/>')
     if candidates:
         parts.append(f'<text x="{x0}" y="{height - 12}" fill="#5f5e59" font-size="11">'
@@ -434,8 +469,8 @@ def guide_docx(project, survey, who):
 
     from_ai = taken_from_ai(project, interviews(project, who))
 
-    def entry(cat, level):
-        doc.add_heading(cat.name, level=level)
+    def entry(cat, level, number=""):
+        doc.add_heading(f"{number} {cat.name}".strip(), level=min(level, 9))
         lines = [(de_en("Definition", "Definition"), cat.definition), (de_en("Abgrenzung", "Delimitation"), cat.delimitation),
                  (de_en("Ankerbeispiel", "Anchor example"), (f"„{(cat.anchor or {}).get('quote')}“ ({(cat.anchor or {}).get('label', '')})"
                                                              if (cat.anchor or {}).get("quote") else "")),
@@ -451,10 +486,15 @@ def guide_docx(project, survey, who):
         p = doc.add_paragraph()
         p.add_run(de_en("angelegt von {who}", "created by {who}", who=cat.author_name or "–")).italic = True
 
-    for main, subs in mains:
-        entry(main, 1)
+    numbers = {}
+    for n, (main, subs) in enumerate(mains, 1):  # numbered 1, 1.1, 1.1.1 … down every level
+        numbers[main.id] = str(n)
+        entry(main, 1, numbers[main.id])
+        count = {}
         for s in subs:
-            entry(s, 2)
+            count[s.parent_id] = count.get(s.parent_id, 0) + 1
+            numbers[s.id] = f"{numbers.get(s.parent_id, numbers[main.id])}.{count[s.parent_id]}"
+            entry(s, s.level, numbers[s.id])
     for c in candidates:
         entry(c, 2)
     from app import transcript_coding_double as double
@@ -467,7 +507,9 @@ def guide_docx(project, survey, who):
                                 "{n} finished double codings; word level with Cohen's κ (Cohen, 1960; reading after Landis & "
                                 "Koch, 1977), passage level at an overlap of at least {t}%.", n=agree["_pairs"], t=round(double.OVERLAP * 100)))
         names = {c.id: c.name for c in live(project)}
-        for key, label in [("all", de_en("Alle Kategorien", "All categories"))] + list(names.items()):
+        sums = [(f"sum:{cid}", de_en("{name} mit allem darunter", "{name} with all below it", name=names[cid]))
+                for cid in names if f"sum:{cid}" in agree]
+        for key, label in [("all", de_en("Alle Kategorien", "All categories"))] + list(names.items()) + sums:
             f = agree[key]
             if not f["enough"]:
                 continue
@@ -482,6 +524,12 @@ def guide_docx(project, survey, who):
 
 
 # --- the pages -------------------------------------------------------------------------------------------------------
+
+
+def _paths(project):
+    """{category id: its path "A › B › C"} for naming the category above one."""
+    tree(project)
+    return {c.id: getattr(c, "path", c.name) for c in live(project)}
 
 
 def _back(survey, project, anchor=""):
@@ -559,7 +607,7 @@ def matrix(code, pid):
         return send_file(io.BytesIO(("﻿" + buf.getvalue()).encode("utf-8")), as_attachment=True, mimetype="text/csv",
                          download_name=f"kategorien-interviews-{survey.code}-{project.id}.csv")
     return render_template("transcript_coding/matrix.html", cats=cats, rows=rows, cells=cells,
-                           parents={c.id: c.name for c in live(project)}, **_context(survey, project, who))
+                           parents=_paths(project), **_context(survey, project, who))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/history")

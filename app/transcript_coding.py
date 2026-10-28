@@ -55,6 +55,7 @@ QUESTION_MAX = 2000
 SIMILAR = 0.6  # SequenceMatcher ratio from which a name counts as similar
 MAX_PROJECTS = 30  # analyses per guide
 MAX_CATEGORIES = 500  # live categories per analysis
+MAX_DEPTH = 8  # levels of a category system: a main category and up to seven below it (Ralf 2026-10-28: 3 to 6 or more)
 UNDO_KINDS = ("created", "changed", "removed", "promoted")
 
 
@@ -321,13 +322,14 @@ def copy_categories(source, project, who):
     """The live categories of `source` into `project`, with their GUIDs (the same category in another analysis) and
     their authors; the history stays with `source`."""
     ids = {}
-    for cat in live(source):
-        if cat.kind == CodingCategory.SUB:
-            continue
+    mains, candidates = tree(source)
+    for main, below in mains:
+        ids[main.id] = _copy(main, project, None)
+        for cat in below:  # depth first: the one above is always copied before
+            if cat.parent_id in ids:
+                ids[cat.id] = _copy(cat, project, ids[cat.parent_id])
+    for cat in candidates:
         ids[cat.id] = _copy(cat, project, None)
-    for cat in live(source):
-        if cat.kind == CodingCategory.SUB and cat.parent_id in ids:
-            _copy(cat, project, ids[cat.parent_id])
 
 
 def _copy(cat, project, parent_id):
@@ -418,14 +420,86 @@ def live(project):
 
 
 def tree(project):
-    """[(main category, [subcategories])] and the candidates."""
+    """[(main category, [everything below it, depth first])] and the candidates. A subcategory may stand under a main
+    category or under another subcategory, down to MAX_DEPTH levels. Each category gets for the pages `level` (1: a
+    main category or candidate), `path` (the names from its main category down, "A › B › C"), `rel` (the path below
+    its main category), `anc` (the ids above it) and `kids` (how many stand directly below it)."""
     cats = live(project)
-    mains = [c for c in cats if c.kind == CodingCategory.MAIN]
-    subs = {}
+    below = {}
     for c in cats:
         if c.kind == CodingCategory.SUB:
-            subs.setdefault(c.parent_id, []).append(c)
-    return [(m, subs.get(m.id, [])) for m in mains], [c for c in cats if c.kind == CodingCategory.CANDIDATE]
+            below.setdefault(c.parent_id, []).append(c)
+    seen = set()
+
+    def walk(cat, level, anc):
+        out = []
+        for k in below.get(cat.id, []):
+            if k.id in seen:  # a loop in the data: shown once
+                continue
+            seen.add(k.id)
+            k.level, k.path, k.anc = level, f"{cat.path} › {k.name}", anc + [cat.id]
+            k.rel = k.name if level == 2 else f"{cat.rel} › {k.name}"
+            k.kids = len(below.get(k.id, []))
+            out.append(k)
+            out.extend(walk(k, level + 1, k.anc))
+        return out
+
+    tops = [c for c in cats if c.kind != CodingCategory.SUB]
+    for c in tops:
+        c.level, c.path, c.rel, c.anc, c.kids = 1, c.name, "", [], len(below.get(c.id, []))
+        seen.add(c.id)
+    mains = [c for c in tops if c.kind == CodingCategory.MAIN]
+    return [(m, walk(m, 2, [])) for m in mains], [c for c in tops if c.kind == CodingCategory.CANDIDATE]
+
+
+def chain(cat, by_id):
+    """The categories above `cat`, its main category last (empty for a main category or a candidate)."""
+    out, seen = [], {cat.id}
+    while cat.parent_id and cat.parent_id in by_id and cat.parent_id not in seen:
+        cat = by_id[cat.parent_id]
+        seen.add(cat.id)
+        out.append(cat)
+    return out
+
+
+def top_of(cat, by_id):
+    """The main category (or candidate) `cat` stands under, or itself."""
+    above = chain(cat, by_id)
+    return above[-1] if above else cat
+
+
+def level_of(cat, by_id):
+    return len(chain(cat, by_id)) + 1
+
+
+def subtree(project, cat):
+    """The ids of `cat` and of everything below it."""
+    below = {}
+    for c in live(project):
+        if c.parent_id:
+            below.setdefault(c.parent_id, []).append(c.id)
+    out, todo = set(), [cat.id]
+    while todo:
+        cid = todo.pop()
+        if cid in out:
+            continue
+        out.add(cid)
+        todo.extend(below.get(cid, []))
+    return out
+
+
+def height(project, cat):
+    """How many levels `cat` spans with everything below it (1: nothing below)."""
+    below = {}
+    for c in live(project):
+        if c.parent_id:
+            below.setdefault(c.parent_id, []).append(c.id)
+
+    def h(cid, seen):
+        kids = [k for k in below.get(cid, []) if k not in seen]
+        return 1 + max([h(k, seen | {k}) for k in kids] or [0])
+
+    return h(cat.id, {cat.id})
 
 
 def _key(name):
@@ -536,9 +610,11 @@ def create(project, who, kind, name, definition="", delimitation="", parent_id=N
     parent = None
     if kind == CodingCategory.SUB:
         parent = db.session.get(CodingCategory, parent_id) if isinstance(parent_id, int) else None
-        if (parent is None or parent.project_id != project.id or parent.kind != CodingCategory.MAIN
+        if (parent is None or parent.project_id != project.id or parent.kind not in (CodingCategory.MAIN, CodingCategory.SUB)
                 or parent.removed_at is not None or parent.merged_into is not None):
-            return None, de_en("Bitte die Hauptkategorie wählen.", "Please choose the main category.")
+            return None, de_en("Bitte die übergeordnete Kategorie wählen.", "Please choose the category above.")
+        if level_of(parent, {c.id: c for c in live(project)}) >= MAX_DEPTH:
+            return None, de_en("Tiefer als {n} Ebenen geht es nicht.", "It does not go deeper than {n} levels.", n=MAX_DEPTH)
     if not definition and (kind != CodingCategory.MAIN or not who.team):
         return None, de_en("Bitte eine Definition angeben: Wann gehört eine Stelle hierher?",
                            "Please enter a definition: when does a passage belong here?")
@@ -865,6 +941,7 @@ def project(code, pid):
     # the category system as a list (the default) or as a map (from "Übersicht" until 2026-10-28)
     show = "map" if view == "categories" and request.args.get("show") == "map" else "list"
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
+                   max_depth=MAX_DEPTH,
                    map_svg=transcript_coding_review.map_svg(project, who, survey) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
@@ -956,7 +1033,8 @@ def delete(code, pid):
 def similar_names(code, pid):
     """The categories like a name being typed, for the dialog "Neue Kategorie" (shown before anything is made)."""
     survey, project, who = _in(code, pid)
-    names = {c.id: c.name for c in live(project)}
+    tree(project)  # sets `path`
+    names = {c.id: getattr(c, "path", c.name) for c in live(project)}
     return jsonify([{"id": c.id, "name": c.name, "kind": c.kind, "parent": names.get(c.parent_id, ""),
                      "definition": c.definition[:300], "author": c.author_name,
                      "former": list(c.former_names or [])} for c, _score in similar(project, request.args.get("q", ""))])

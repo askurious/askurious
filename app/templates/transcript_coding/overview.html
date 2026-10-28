@@ -29,9 +29,9 @@
     {% for main, subs in mains %}
     <tr class="coverage-block"><td colspan="6">{{ main.name }} <span class="muted small">({{ de_en("{n} Stellen", "{n} passages", n=stats[main.id].n) }})</span></td></tr>
     {% for s in subs %}{% set st = stats[s.id] %}{% set pr = probes.get(s.id) %}
-    <tr><td><a href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=s.id) }}">{{ s.name }}</a>{% if s.id in blurred %} <span class="tc-flag">{{ de_en("unscharf", "blurred") }}</span>{% endif %}
+    <tr><td class="tc-indent" style="--lvl: {{ s.level - 2 }}"><a href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=s.id) }}">{{ s.name }}</a>{% if s.id in blurred %} <span class="tc-flag">{{ de_en("unscharf", "blurred") }}</span>{% endif %}
         {% if s.former_names %}<div class="muted small">{{ de_en("früher auch: {names}", "formerly also: {names}", names=s.former_names|join(", ")) }}</div>{% endif %}</td>
-      <td>{{ s.definition|truncate(140, true, "…") }}</td><td class="num">{{ st.n }}</td><td class="num">{{ st.interviews|length }}</td>
+      <td>{{ s.definition|truncate(140, true, "…") }}</td><td class="num">{{ st.n }}{% if s.kids %}<div class="muted small" title="{{ de_en('mit dieser Kategorie selbst kodiert, ohne die darunter', 'coded with this category itself, without those below') }}">{{ de_en("selbst {n}", "itself {n}", n=st.own) }}</div>{% endif %}</td><td class="num">{{ st.interviews|length }}</td>
       <td>{{ st.coders|sort|join(", ")|truncate(60, true, "…") }}</td>
       <td class="num">{% if pr %}{{ (100 * pr[0] / pr[1])|round|int }} %<span class="muted small"> ({{ pr[1] }})</span>{% else %}–{% endif %}</td></tr>
     {% endfor %}
@@ -42,7 +42,7 @@
     </tbody>
   {% endcall %}
   </div>
-  <p class="muted small">{{ de_en("Probe: wie oft andere bei der gegenseitigen Probe dieselbe Kategorie gewählt haben (Zahl der Proben in Klammern). Die Zeile einer Hauptkategorie zählt ihre Unterkategorien mit.", "Check: how often others chose the same category in the mutual check (number of checks in brackets). The row of a main category counts its subcategories too.") }}</p>
+  <p class="muted small">{{ de_en("Probe: wie oft andere bei der gegenseitigen Probe dieselbe Kategorie gewählt haben (Zahl der Proben in Klammern). Jede Kategorie zählt alles darunter mit, auf jeder Ebene; „selbst“: nur mit ihr selbst kodiert.", "Check: how often others chose the same category in the mutual check (number of checks in brackets). Every category counts everything below it, on every level; “itself”: coded with it only.") }}</p>
 </section>
 
 <aside class="tc-overview-side">

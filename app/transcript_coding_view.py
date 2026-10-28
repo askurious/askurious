@@ -261,16 +261,20 @@ def forget_survey_anchors(survey_id):
 
 
 def _categories(project, who):
-    """The categories for the page's list: main categories with their subcategories, then candidates."""
+    """The categories for the page's list: main categories with everything below them (depth first, with the path
+    of the one above as "parent" and the `level`), then candidates."""
+    from app.transcript_coding import MAX_DEPTH
+
     mains, candidates = tree(project)
     n = counts(project, who)
     out = []
     for main, subs in mains:
         out.append({"id": main.id, "name": main.name, "kind": "main", "parent": "", "colour": main.colour or "",
-                    "n": n.get(main.id, 0), "definition": main.definition[:300]})
+                    "n": n.get(main.id, 0), "definition": main.definition[:300], "level": 1, "deeper": MAX_DEPTH > 1})
         for s in subs:
-            out.append({"id": s.id, "name": s.name, "kind": "sub", "parent": main.name, "parent_id": main.id,
-                        "colour": s.colour or main.colour or "", "n": n.get(s.id, 0), "definition": s.definition[:300]})
+            out.append({"id": s.id, "name": s.name, "kind": "sub", "parent": s.path.rsplit(" › ", 1)[0], "parent_id": s.parent_id,
+                        "colour": s.colour or main.colour or "", "n": n.get(s.id, 0), "definition": s.definition[:300],
+                        "level": s.level, "deeper": s.level < MAX_DEPTH})
     for c in candidates:
         out.append({"id": c.id, "name": c.name, "kind": "candidate", "parent": "", "colour": c.colour or "",
                     "n": n.get(c.id, 0), "definition": c.definition[:300]})
@@ -374,10 +378,15 @@ def quick_category(code, pid):
         db.session.rollback()
         return jsonify(ok=False, error=problem), 400
     db.session.commit()
+    from app.transcript_coding import MAX_DEPTH
+
+    tree(project)
     parent_cat = db.session.get(CodingCategory, cat.parent_id) if cat.parent_id else None
+    level = getattr(cat, "level", 1)
     return jsonify(ok=True, category={"id": cat.id, "name": cat.name, "kind": cat.kind,
-                                      "parent": parent_cat.name if parent_cat else "", "parent_id": cat.parent_id,
-                                      "colour": cat.colour or "", "n": 0, "definition": cat.definition[:300]})
+                                      "parent": getattr(parent_cat, "path", "") if parent_cat else "", "parent_id": cat.parent_id,
+                                      "colour": cat.colour or getattr(parent_cat, "colour", "") or "", "n": 0,
+                                      "definition": cat.definition[:300], "level": level, "deeper": level < MAX_DEPTH})
 
 
 def interview_url(survey, project, row):
