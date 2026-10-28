@@ -95,7 +95,23 @@ def writing(survey, size, check=True):
                 storage_usage.finish()
             finally:
                 _held.roots = active
+                _unlock(handle)
                 handle.close()
+
+
+def _unlock(handle):
+    """Release the lock before closing: Windows frees a lock left at closing only later, and under load the next
+    writer then waited out its WAIT ("Gerade werden viele Dateien gespeichert"; full run 2026-10-28). fcntl frees it
+    at closing anyway."""
+    if os.name != "nt":
+        return
+    import msvcrt
+
+    try:
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    except OSError:  # not held (any more): closing is enough
+        pass
 
 
 def held():
