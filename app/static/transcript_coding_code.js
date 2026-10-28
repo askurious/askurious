@@ -12,7 +12,9 @@
   var box = root.querySelector("[data-tc-text]"), side = root.querySelector("[data-tc-side]");
   var pop = document.querySelector("[data-tc-pop]"), info = document.querySelector("[data-tc-info]");
   var filter = pop.querySelector("[data-tc-filter]"), list = pop.querySelector("[data-tc-list]");
-  var quick = pop.querySelector("[data-tc-quick]"), status = document.querySelector("[data-tc-status]");
+  var quickDialog = document.querySelector("[data-tc-quick-dialog]"), quick = quickDialog.querySelector("[data-tc-quick]");
+  var status = document.querySelector("[data-tc-status]");
+  var pending = null, created = false;  // the marked passage while the dialog "Neue Kategorie" is open
   var csrf = root.getAttribute("data-csrf"), base = root.getAttribute("data-base-url");
   var PALETTE = ["#8A4B14", "#2957A4", "#1F6B2A", "#7A3FD1", "#B3261E", "#0B6E86", "#7A5B00"];
   var RECENT_KEY = "tc-recent-" + root.getAttribute("data-project");
@@ -148,12 +150,47 @@
     if (top + el.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - el.offsetHeight - 8);
     el.style.top = top + "px";
     el.style.left = left + "px";
+    keepInView(el);
   }
+
+  // the box stays inside the window: after it grew (the form "Neue Kategorie" opened), after the window changed, and
+  // while it is dragged by its handle (Ralf 2026-10-28: it stuck out at the bottom and could not be moved)
+  function keepInView(el) {
+    if (el.hidden || (el.tagName === "DIALOG" && !el.open)) return;
+    var r = el.getBoundingClientRect();
+    var top = Math.min(r.top, window.innerHeight - 8 - r.height), left = Math.min(r.left, window.innerWidth - 8 - r.width);
+    el.style.top = Math.max(8, top) + "px";
+    el.style.left = Math.max(8, left) + "px";
+  }
+  window.addEventListener("resize", function () { keepInView(pop); keepInView(info); if (quickDialog.open && quickDialog.style.margin === "0px") keepInView(quickDialog); });
+  [quickDialog].forEach(function (el) {
+    var handle = el.querySelector("[data-tc-drag]");
+    if (!handle) return;
+    handle.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (e.target.closest("button")) return;  // the close button stays a button
+      var r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+      el.style.margin = "0";  // a modal dialog is centred by its margins: from now on placed by left and top
+      el.style.left = r.left + "px";
+      el.style.top = r.top + "px";
+      handle.setPointerCapture(e.pointerId);
+      function move(ev) {
+        el.style.left = ev.clientX - dx + "px";
+        el.style.top = ev.clientY - dy + "px";
+        keepInView(el);
+      }
+      function up() {
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", up);
+      }
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", up);
+    });
+  });
 
   function openPop(m) {
     selection = m;
     info.hidden = true;
-    quick.hidden = true;
     filter.value = "";
     fill();
     placeBox(pop, m.rect);
@@ -226,7 +263,12 @@
 
   // a new category on the spot: under a main category (a subcategory), or a main category / candidate
   function openQuick(name) {
-    quick.hidden = false;
+    pending = selection;
+    created = false;
+    pop.hidden = true;  // the list closes; the passage stays marked for the dialog
+    quickDialog.style.margin = "";
+    quickDialog.style.left = quickDialog.style.top = "";
+    if (quickDialog.showModal && !quickDialog.open) quickDialog.showModal();
     quick.elements.name.value = name || "";
     var sel = quick.querySelector("[data-tc-parents]");
     sel.textContent = "";
@@ -266,10 +308,20 @@
       quick.removeAttribute("data-anyway");
       cats.push(d.category);
       editable[String(d.category.id)] = true;
+      created = true;
+      selection = pending;
+      quickDialog.close();
       assign(d.category.id);
     });
   });
-  pop.querySelector("[data-tc-quick-cancel]").addEventListener("click", function () { quick.hidden = true; filter.focus(); });
+  quickDialog.querySelectorAll("[data-tc-quick-cancel]").forEach(function (b) {
+    b.addEventListener("click", function () { quickDialog.close(); });
+  });
+  // Esc or "Abbrechen": back to the list of the marked passage
+  quickDialog.addEventListener("close", function () {
+    if (!created && pending) openPop(pending);
+    pending = null;
+  });
 
   filter.addEventListener("input", fill);
   filter.addEventListener("keydown", function (e) {

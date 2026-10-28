@@ -76,8 +76,14 @@
 <div class="tc-pop" data-tc-pop hidden role="dialog" aria-label="{{ de_en('Kategorie zuordnen', 'Assign category') }}">
   <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off"></label>
   <ul class="tc-pop-list" data-tc-list></ul>
-  <form class="stack tc-quick" data-tc-quick hidden>
-    <p class="small"><strong>{{ de_en("Neue Kategorie", "New category") }}</strong></p>
+  <p class="muted small">{{ de_en("Tasten 1–9 für zuletzt benutzte, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, Enter takes it, Esc closes") }}</p>
+</div>
+{# a new category from the coding view: a dialog of its own in the middle of the window, moved by its title bar; Esc
+   and "Abbrechen" go back to the list of the marked passage (Ralf 2026-10-28) #}
+<dialog class="person-dialog xp-dialog is-narrow tc-quick-dialog" data-tc-quick-dialog aria-labelledby="tc-quick-title">
+  <div class="xp-dialog-head tc-drag" data-tc-drag title="{{ de_en('Zum Verschieben ziehen', 'Drag to move') }}"><h2 id="tc-quick-title">{{ de_en("Neue Kategorie", "New category") }}</h2>
+    <button type="button" class="xp-close" data-tc-quick-cancel aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form class="stack tc-quick" data-tc-quick>
     <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="120" required></label>
     <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-parents></select></label>
     <label>{{ de_en("Definition", "Definition") }} <span class="hint">{{ de_en("Pflicht", "required") }}</span> <textarea name="definition" rows="2" maxlength="4000" required></textarea></label>
@@ -85,8 +91,7 @@
     <div class="form-actions"><button type="button" class="button button-small button-secondary" data-tc-quick-cancel>{{ de_en("Abbrechen", "Cancel") }}</button>
       <button class="button button-small" data-tc-quick-ok>{{ de_en("Anlegen und zuordnen", "Create and assign") }}</button></div>
   </form>
-  <p class="muted small">{{ de_en("Tasten 1–9 für zuletzt benutzte, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, Enter takes it, Esc closes") }}</p>
-</div>
+</dialog>
 {# what a click on a coded passage shows #}
 <div class="tc-pop" data-tc-info hidden role="dialog" aria-label="{{ de_en('Kodierte Stelle', 'Coded passage') }}"></div>
 

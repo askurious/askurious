@@ -91,7 +91,13 @@ def assignable(project, survey):
                     out.setdefault(f"u:{m.user_id}", m.display_name)
         elif row.kind == CodingMember.INTERVIEWER and row.access_id:
             access = db.session.get(InterviewerAccess, row.access_id)
-            if access is not None:
+            if access is not None and access.may_code != InterviewerAccess.CODE_NONE:
+                out.setdefault(f"i:{access.id}", access.name)
+    from app import interviewer, transcript_coding
+
+    if transcript_coding.coder_mode(project) == transcript_coding.CODERS_ALL:
+        for access in interviewer.accesses(survey):
+            if transcript_coding.may_code(access):
                 out.setdefault(f"i:{access.id}", access.name)
     for link in db.session.scalars(db.select(CodingLink).filter_by(project_id=project.id)):
         out.setdefault(f"l:{link.id}", link.name)

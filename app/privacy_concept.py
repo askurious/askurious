@@ -292,18 +292,20 @@ def roles():
                        "over as checked; no editing of the guide, no analysis, no exports, no interviews of others.")},
         {"who": de_en("Kodierende (Rolle „Kodieren“, experimentell)", "Coders (role “Code”, experimental)"),
          "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet: als Person "
-                      "oder Gruppe mit Konto, als Interviewende mit Interviewlink und Häkchen „darf eigene Interviews "
-                      "kodieren“ (aus, bis es gesetzt wird) oder ohne Konto über einen Kodierlink: nur als Hash gespeichert, "
+                      "oder Gruppe mit Konto, als Interviewende mit Interviewlink, dessen Recht „darf kodieren“ (eigene "
+                      "oder alle Interviews; aus, bis es gesetzt wird) und Zuweisung zur Auswertung oder ohne Konto über einen Kodierlink (nur noch die bis 28.10.2026 angelegten; neue Personen ohne Konto sind Interviewlinks mit dem Recht „darf kodieren“ und ohne „darf Interviews führen“): nur als Hash gespeichert, "
                       "Ablaufdatum Pflicht (höchstens 90 Tage), höchstens drei Geräte, sperrbar",
                       "assigned to an analysis of the guide by members with Edit or Manage: as a person or group with an "
-                      "account, as interviewers with an interviewer link and the tick “may code own interviews” (off until "
-                      "set), or without an account through a coding link: stored as a hash only, expiry date required (at "
+                      "account, as interviewers with an interviewer link with the right “may code” (own or all interviews; "
+                      "off until set) and assigned to the analysis, or without an account through a coding link (only those made until 28 Oct 2026; new people without an account are interviewer links with the right “may code” and without “may conduct interviews”): stored as a hash only, expiry date required (at "
                       "most 90 days), at most three devices, can be blocked"),
          "sees": de_en("Die Transkripte der Interviews dieser einen Auswertung (je nach Einstellung alle oder nur die eigenen; "
-                       "Interviewende nur ihre eigenen) und ihr Kategoriensystem; ergänzen Kategorien und schlagen Änderungen "
+                       "Interviewende ihre eigenen oder, mit dem Recht „alle“, alle der Auswertung, fremde nur zum Kodieren) und ihr "
+                       "Kategoriensystem; ergänzen Kategorien und schlagen Änderungen "
                        "vor; nicht den Leitfaden, keine Aufnahmen, keine Exporte, keine anderen Auswertungen.",
                        "The transcripts of the interviews of that one analysis (depending on the setting all or only their "
-                       "own; interviewers only their own) and its category system; add categories and propose changes; not "
+                       "own; interviewers their own or, with the right “all”, all of the analysis, those of others only for "
+                       "coding) and its category system; add categories and propose changes; not "
                        "the guide, no recordings, no exports, no other analyses.")},
         {"who": de_en("Interviewte Personen", "Interviewees"),
          "how": de_en("Eingetragen von Forschenden; mit dem Teilnehmerbildschirm ein Link je Interview "
@@ -1329,13 +1331,15 @@ def measures():
             (de_en("Interviews kodieren: Kodierlinks nur als Hash gespeichert, Schlüssel nach „#“ (nicht in Protokollen), "
                    "Ablaufdatum Pflicht und höchstens 90 Tage, höchstens drei Geräte, Sperren, neuer Link und Geräte "
                    "abmelden beenden alle Sitzungen sofort; ein Link öffnet nur seine eine Auswertung, sonst 404; "
-                   "Interviewende kodieren nur nach eigenem Häkchen je Auswertung (aus, bis es gesetzt wird) und nur eigene "
-                   "Interviews, ihr Interviewlink selbst bleibt unverändert; Kodierende ändern den Leitfaden nicht und "
+                   "Interviewende kodieren nur mit dem Recht am Link (aus, bis es gesetzt wird) und Zuweisung je Auswertung, "
+                   "eigene oder alle Interviews (fremde nur lesend zum Kodieren); der Server prüft Rechte bei jedem "
+                   "Aufruf, ihr Interviewlink selbst bleibt unverändert; Kodierende ändern den Leitfaden nicht und "
                    "sehen keine Aufnahmen und Exporte; jede Änderung im Verlauf mit Namen",
                    "Coding interviews: coding links stored as hashes only, key after “#” (not in logs), expiry date "
                    "required and at most 90 days, at most three devices, blocking, a new link and signing out devices end "
                    "every session at once; a link opens only its one analysis, otherwise 404; interviewers code only after "
-                   "a tick of their own per analysis (off until set) and only their own interviews, their interviewer link "
+                   "the right at the link (off until set) and an assignment per analysis, own or all interviews (those of "
+                   "others read only, for coding); the server checks rights with every request, their interviewer link "
                    "itself stays unchanged; coders do not change the guide and see no recordings or exports; every change "
                    "in the history with a name"), "app/transcript_coding.py, app/transcript_coding_links.py"),
             (de_en("Teilnehmerbildschirm im Interview: Link je Interview mit 256 zufälligen Bits, nur als Hash gespeichert, "

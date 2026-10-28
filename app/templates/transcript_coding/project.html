@@ -65,10 +65,21 @@
   <div class="row results-head tc-head">
     <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
     <span class="spacer"></span>
+    <div role="group" aria-label="{{ de_en('Darstellung', 'View') }}" class="tc-switch">
+      <a class="button button-small {{ '' if show == 'list' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}" {% if show == 'list' %}aria-current="page"{% endif %}>{{ de_en("Liste", "List") }}</a>
+      <a class="button button-small {{ '' if show == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='map') }}" {% if show == 'map' %}aria-current="page"{% endif %}>{{ de_en("Karte", "Map") }}</a>
+    </div>
+    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Karte als SVG", "Map as SVG") }}</a>{% endif %}
+    {% if show == "list" %}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
     <button type="button" class="button button-small" data-tc-new data-kind="{{ 'main' if may_main else 'candidate' }}">{{ icon("plus", 16) }} {{ de_en("Hauptkategorie", "Main category") if may_main else de_en("Kandidat vorschlagen", "Propose a candidate") }}</button>
+    {% endif %}
   </div>
+  {% if show == "map" %}
+  <div class="res-scroll tc-map">{{ map_svg|safe }}</div>
+  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}</p>
+  {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
   <div class="tc-tree">
   {% for main, subs in mains %}
@@ -85,6 +96,7 @@
     {% for c in candidates %}{{ category(c, "tc-candidate") }}{% endfor %}
   {% endif %}
   </div>
+  {% endif %}
 </section>
 
 {% endif %}
@@ -158,21 +170,36 @@
   </form>
   {% endif %}
   <h3>{{ de_en("Interviewende mit Interviewlink", "Interviewers with an interviewer link") }}</h3>
-  {% if accesses %}
+  {# who of the interviewer links with the right "darf kodieren" codes here: all of them (the default) or the ones
+     ticked (Ralf 2026-10-28); the right itself, own or all interviews, is set at the link on the page "Interviews" #}
+  {% if coders %}
   <form method="post" action="{{ url_for('transcript_coding.interviewers', code=survey.code, pid=project.id) }}" class="stack" data-autosave-form>
     {{ csrf() }}
-    {% for a in accesses %}<label class="check"><input type="checkbox" name="access" value="{{ a.id }}" {% if a.id in ticked %}checked{% endif %}> {{ de_en("{name} darf eigene Interviews kodieren", "{name} may code own interviews", name=a.name) }}</label>{% endfor %}
-    <p class="muted small">{{ de_en("Die Person sieht über ihren Interviewlink dann nur ihre eigenen Interviews, auch nachdem sie das Transkript als geprüft übergeben hat. Am Interviewlink selbst ändert sich nichts.", "Through their interviewer link the person then sees only their own interviews, also after handing the transcript over as checked. Nothing changes on the interviewer link itself.") }}</p>
+    <fieldset class="stack"><legend>{{ de_en("Wer kodiert", "Who codes") }}</legend>
+      <label class="check"><input type="radio" name="who" value="all" data-reload-saved {% if coder_mode == "all" %}checked{% endif %}> {{ de_en("alle mit Kodierrecht", "everyone with the coding right") }} <span class="hint">{{ de_en("wer das Recht später bekommt, kodiert hier von selbst mit", "whoever gets the right later codes here by themselves") }}</span></label>
+      <label class="check"><input type="radio" name="who" value="selected" data-reload-saved {% if coder_mode == "selected" %}checked{% endif %}> {{ de_en("nur ausgewählte", "only selected ones") }}</label>
+    </fieldset>
+    {% if coder_mode == "selected" %}
+    {% if coders|length > 1 %}<label class="check"><input type="checkbox" data-check-all-box="access" {% if coders|map(attribute="id")|select("in", ticked)|list|length == coders|length %}checked{% endif %}> <strong>{{ de_en("Alle", "All") }}</strong></label>{% endif %}
+    {% for a in coders %}<label class="check"><input type="checkbox" name="access" value="{{ a.id }}" {% if a.id in ticked %}checked{% endif %}> {{ de_en("{name} kodiert in dieser Auswertung", "{name} codes in this analysis", name=a.name) }}
+      <span class="hint">{{ de_en("alle Interviews", "all interviews") if a.may_code == "all" else de_en("eigene Interviews", "own interviews") }}</span></label>{% endfor %}
+    {% else %}
+    <ul class="small">{% for a in coders %}<li>{{ a.name }} <span class="hint">{{ de_en("alle Interviews", "all interviews") if a.may_code == "all" else de_en("eigene Interviews", "own interviews") }}</span></li>{% endfor %}</ul>
+    {% endif %}
+    <p class="muted small">{{ de_en("Welche Interviews jemand kodiert (eigene oder alle), steht am Interviewlink unter „Interviewende ohne Konto“. „Alle“ heißt alle Transkripte, die diese Auswertung zeigt (bei „jede Gruppe ihre eigenen“ nur die eigenen), zum Kodieren, nicht zum Bearbeiten. Am Interviewlink selbst ändert sich nichts.", "Which interviews someone codes (own or all) is set at the interviewer link under “Interviewers without an account”. “All” means every transcript this analysis shows (with “each group its own” only their own), for coding, not for editing. Nothing changes on the interviewer link itself.") }}</p>
     {{ autosave_bar(quiet=true) }}
   </form>
   {% else %}
-  <p class="muted small">{{ de_en("Noch keine Interviewlinks; sie entstehen auf der Seite", "No interviewer links yet; they are made on the page") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}#interviewende">Interviews</a>.</p>
+  <p class="muted small">{{ de_en("Noch keine Person mit Interviewlink darf kodieren. Das Recht „darf kodieren“ setzen Sie auf der Seite", "No person with an interviewer link may code yet. You set the right “may code” on the page") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}#interviewende">{{ de_en("Interviews, „Interviewende ohne Konto“", "Interviews, “Interviewers without an account”") }}</a>.</p>
   {% endif %}
 </section>
 
+{# coding links of before (2026-10-27): only to look after the ones there are; new ones are interviewer links with
+   the right "darf kodieren" (Ralf 2026-10-28). Their addresses and sessions keep working. #}
+{% if links or new_link %}
 <section class="panel" id="kodierlinks">
   <h2>{{ de_en("Kodierlinks ohne Konto", "Coding links without an account") }}</h2>
-  <p class="muted small">{{ de_en("Jede Person bekommt einen eigenen Link mit QR-Code. Damit kodiert sie in dieser Auswertung, ohne Konto, bis zum Ablaufdatum (höchstens {n} Tage) und auf höchstens {d} Geräten. Der Link allein gibt Zugang zu den Transkripten: Geben Sie ihn nur der Person selbst und sperren Sie ihn, wenn die Arbeit endet.", "Each person gets a link of their own with a QR code. With it they code in this analysis, without an account, until the expiry date (at most {n} days) and on at most {d} devices. The link alone gives access to the transcripts: give it only to the person themselves and block it when the work ends.", n=link_days, d=link_devices) }}</p>
+  <p class="muted small">{{ de_en("Diese Links gelten weiter, bis zum Ablaufdatum. Neue Personen ohne Konto legen Sie als Interviewlink mit dem Recht „darf kodieren“ an:", "These links stay valid until their expiry date. New people without an account you add as an interviewer link with the right “may code”:") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}#interviewende">{{ de_en("Interviewende ohne Konto", "Interviewers without an account") }}</a>.</p>
   {% if new_link %}
   <div class="option-group" id="coding-link-new">
     <p><strong>{{ de_en("Link für {name}", "Link for {name}", name=new_link.link.name) }}</strong> · <strong>{{ de_en("wird nur jetzt angezeigt", "shown only now") }}</strong>. {{ de_en("Ein neuer Link macht ihn ungültig.", "A new link makes it invalid.") }}</p>
@@ -209,20 +236,8 @@
     </tbody>
   {% endcall %}
   {% endif %}
-  <form method="post" action="{{ url_for('transcript_coding.link_add', code=survey.code, pid=project.id) }}" class="stack">
-    {{ csrf() }}
-    <div class="row-fields">
-      <label class="grow-2">{{ de_en("Name oder Kürzel", "Name or initials") }} <input name="name" maxlength="80" required></label>
-      <label>{{ de_en("gültig für Tage", "valid for days") }} <input type="number" name="days" min="1" max="{{ link_days }}" value="{{ link_days }}" required class="narrow"></label>
-      <label>{{ de_en("Geräte", "Devices") }} <input type="number" name="devices" min="1" max="{{ link_devices }}" value="{{ link_devices }}" class="narrow"></label>
-    </div>
-    {% if project.visibility == "own" and accesses %}
-    <fieldset class="stack"><legend>{{ de_en("Sieht die Interviews von", "Sees the interviews of") }}</legend>
-      {% for a in accesses %}<label class="check"><input type="checkbox" name="access" value="{{ a.id }}"> {{ a.name }}</label>{% endfor %}</fieldset>
-    {% endif %}
-    <div><button class="button button-small">{{ icon("plus", 16) }} {{ de_en("Kodierlink anlegen", "Create coding link") }}</button></div>
-  </form>
 </section>
+{% endif %}
 {% endif %}
 
 {# the history: under „Übersicht“ (transcript_coding/overview.html) #}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf, list_table %}
+{% from "_macros.html" import csrf, list_table, autosave_bar %}
 {% from "_icons.html" import icon %}
+{% from "surveys/_export_rows.html" import dialog %}
 {# The interviews of an interview guide ("Interviews erheben", app/interview_data.py): starting one after
    the consent step, the list with continuing, deleting on request. #}
 {% block title %}Interviews · {{ survey.title }}{% endblock %}
@@ -115,7 +116,9 @@
 {# interviewers without an account (app/interviewer.py, concept konzept-interviewer-zugang-2026-10-15.md) #}
 <section class="panel" id="interviewende">
   <h2>{{ de_en("Interviewende ohne Konto", "Interviewers without an account") }}</h2>
-  <p class="muted small">{{ de_en("Jede Person bekommt einen eigenen Link mit QR-Code. Damit führt sie Interviews dieses Leitfadens, nimmt auf und transkribiert, ohne Konto. Sie sieht nur ihre eigenen Interviews, und jedes nur, bis sie das Transkript als geprüft übergibt. Der Link allein gibt Zugang: Geben Sie ihn nur der Person selbst und sperren Sie ihn, wenn die Arbeit endet.", "Each person gets a link of their own with a QR code. With it they conduct interviews of this guide, record and transcribe, without an account. They see only their own interviews, and each only until they hand the transcript over as checked. The link alone gives access: give it only to the person themselves and block it when the work ends.") }}</p>
+  <p class="muted small">{{ de_en("Jede Person bekommt einen eigenen Link mit QR-Code. Damit führt sie Interviews dieses Leitfadens, nimmt auf und transkribiert, ohne Konto. Sie sieht nur ihre eigenen Interviews, und jedes nur, bis sie das Transkript als geprüft übergibt. Der Link allein gibt Zugang: Geben Sie ihn nur der Person selbst und sperren Sie ihn, wenn die Arbeit endet.", "Each person gets a link of their own with a QR code. With it they conduct interviews of this guide, record and transcribe, without an account. They see only their own interviews, and each only until they hand the transcript over as checked. The link alone gives access: give it only to the person themselves and block it when the work ends.") }}
+    {{ de_en("Die Rechte lassen sich jederzeit unter „Rechte“ ändern; der Link und seine Geräte bleiben gültig, die Änderung gilt beim nächsten Aufruf.", "The rights can be changed at any time under “Rights”; the link and its devices stay valid, the change applies with the next request.") }}
+    {% if experimental("transcript_coding", survey) %}{{ de_en("„Kodieren“: eigene oder alle Interviews, in den Auswertungen, denen Sie die Person unter „Ergebnisse“, „Kodieren“, Einstellungen zuweisen; fremde Transkripte nur zum Kodieren, nicht zum Bearbeiten.", "“Coding”: own or all interviews, in the analyses you assign the person to under “Results”, “Code”, settings; transcripts of others only for coding, not for editing.") }}{% endif %}</p>
   {% if new_link %}
   <div class="option-group" id="interviewer-link-new">
     <p><strong>{{ de_en("Link für {name}", "Link for {name}", name=new_link.access.name) }}</strong> · <strong>{{ de_en("wird nur jetzt angezeigt", "shown only now") }}</strong>. {{ de_en("Ein neuer Link macht ihn ungültig.", "A new link makes it invalid.") }}</p>
@@ -125,17 +128,20 @@
     <p class="muted small">{{ de_en("Den QR-Code ausdrucken oder vom Bildschirm scannen lassen. Nicht in Gruppen-Chats oder E-Mails an mehrere schicken.", "Print the QR code or let it be scanned from the screen. Do not send it to group chats or emails to several people.") }}</p>
   </div>
   {% endif %}
+  {% set coding_on = experimental("transcript_coding", survey) %}
   {% if accesses %}
   {% call list_table("is-wide") %}
-    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("gültig bis", "valid until") }}</th><th>{{ de_en("Geräte", "Devices") }}</th><th>{{ de_en("zuletzt genutzt", "last used") }}</th><th>{{ de_en("Interviews", "Interviews") }}</th><th></th></tr></thead>
+    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("gültig bis", "valid until") }}</th><th>{{ de_en("Geräte", "Devices") }}</th><th>{{ de_en("Rechte", "Rights") }}</th><th>{{ de_en("zuletzt genutzt", "last used") }}</th><th>{{ de_en("Interviews", "Interviews") }}</th><th></th></tr></thead>
     <tbody>
     {% for a in accesses %}{% set state_ = access_state(a) %}
     <tr>
-      <td><strong>{{ a.name }}</strong>{% if not a.may_record %} <span class="badge">{{ de_en("ohne Aufnahme", "no recording") }}</span>{% endif %}{% if not a.may_transcribe %} <span class="badge">{{ de_en("ohne Transkript", "no transcript") }}</span>{% endif %}
+      <td><strong>{{ a.name }}</strong>
         <div class="muted small">{{ de_en("angelegt von {by}", "created by {by}", by=person_name_of(a.created_by_id, a.created_by_name) or "–") }}</div></td>
       <td>{% if state_ == "blocked" %}<span class="danger-text">{{ de_en("gesperrt", "blocked") }}</span>{% elif state_ == "expired" %}<span class="danger-text">{{ de_en("abgelaufen", "expired") }}</span>{% elif state_ == "invited" %}{{ de_en("noch nicht geöffnet", "not opened yet") }}{% else %}{{ de_en("aktiv", "active") }}{% endif %}</td>
       <td>{{ a.expires_at|localdt(false) }}</td>
       <td>{{ (a.devices or [])|length }} / {{ a.max_devices }}{% for d in (a.devices or []) %}<div class="muted small">{{ d.kind }}</div>{% endfor %}</td>
+      <td><span data-live="iv-rights-{{ a.id }}">{% set parts = [] %}{% if a.may_interview %}{% set _ = parts.append(de_en("Interviews", "Interviews")) %}{% endif %}{% if a.may_interview and a.may_record %}{% set _ = parts.append(de_en("Aufnahme", "Recording")) %}{% endif %}{% if a.may_interview and a.may_transcribe %}{% set _ = parts.append(de_en("Transkript", "Transcript")) %}{% endif %}{% if coding_on and a.may_code in ("own", "all") %}{% set _ = parts.append(de_en("Kodieren: alle", "Coding: all") if a.may_code == "all" else de_en("Kodieren: eigene", "Coding: own")) %}{% endif %}
+        <button type="button" class="link-button" data-dialog-open="iv-rights-{{ a.id }}" aria-haspopup="dialog" title="{{ de_en('Rechte ändern', 'Change rights') }}">{{ parts|join(" · ") if parts else de_en("keine", "none") }}</button></span></td>
       <td>{{ a.last_used_at|localdt if a.last_used_at else "–" }}</td>
       <td>{{ access_counts.get(a.id, 0) }}</td>
       <td class="row-actions">
@@ -155,28 +161,53 @@
     {% endfor %}
     </tbody>
   {% endcall %}
+  {# the rights of each person afterwards, without a new link (app/interviewer.py, rights; Ralf 2026-10-28) #}
+  {% for a in accesses %}
+  {% call dialog("iv-rights-" ~ a.id, de_en("Rechte ändern – {name}", "Change rights – {name}", name=a.name)) %}
+  <form method="post" action="{{ url_for('interviewer.rights', code=survey.code, aid=a.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}<input type="hidden" name="has_interview" value="1">
+    <label class="check"><input type="checkbox" name="may_interview" value="1" data-iv-interview {% if a.may_interview %}checked{% endif %}> {{ de_en("darf Interviews führen", "may conduct interviews") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_record" value="1" data-iv-needs-interview {% if a.may_record %}checked{% endif %} {% if not a.may_interview %}disabled{% endif %}> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_transcribe" value="1" data-iv-needs-interview {% if a.may_transcribe %}checked{% endif %} {% if not a.may_interview %}disabled{% endif %}> {{ de_en("darf transkribieren", "may transcribe") }}</label>
+    {% if coding_on %}<label>{{ de_en("darf kodieren", "may code") }}
+      <select name="may_code">{% for key, label in [("none", de_en("nein", "no")), ("own", de_en("eigene Interviews", "own interviews")), ("all", de_en("alle Interviews", "all interviews"))] %}<option value="{{ key }}" {% if a.may_code == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endif %}
+    <p class="muted small">{{ de_en("Gilt beim nächsten Aufruf; der Link und seine Geräte bleiben gültig.", "Applies with the next request; the link and its devices stay valid.") }}</p>
+    {{ autosave_bar(small=true, quiet=true) }}
+  </form>
+  {% if accesses|length > 1 %}
+  <form method="post" action="{{ url_for('interviewer.rights_all', code=survey.code, aid=a.id) }}">
+    {{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Für alle Personen dieses Leitfadens übernehmen", "Apply to everyone of this guide") }}</button></form>
   {% endif %}
-  {# one or several at once, as the links for persons on the survey side (surveys/_links.html), Ralf 2026-10-15 #}
+  {% endcall %}
+  {% endfor %}
+  {% endif %}
+  <div><button type="button" class="button button-secondary" data-dialog-open="iv-add" aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Interviewende hinzufügen", "Add interviewers") }}</button></div>
+  {# one or several at once, as the links for persons on the survey side (surveys/_links.html), Ralf 2026-10-15; in a
+     dialog like "Rechte ändern" (Ralf 2026-10-28), same route and fields as before #}
+  {% call dialog("iv-add", de_en("Interviewende hinzufügen", "Add interviewers")) %}
   <form method="post" action="{{ url_for('interviewer.add', code=survey.code) }}" class="stack">
     {{ csrf() }}<input type="hidden" name="batch" value="{{ interviewer_batch() }}">
-    <div class="row-fields value-links-add-fields">
-      <label class="grow-2">{{ de_en("Name oder Kürzel", "Name or initials") }} <span class="hint">{{ de_en("eine Person je Zeile, z. B. die Teilnehmenden eines Seminars aus einer Tabelle kopiert", "one person per line, e.g. the participants of a seminar copied from a spreadsheet") }}</span>
-        <textarea name="names" rows="3" placeholder="{{ de_en('Anna Becker
+    <label>{{ de_en("Name oder Kürzel", "Name or initials") }} <span class="hint">{{ de_en("eine Person je Zeile, z. B. die Teilnehmenden eines Seminars aus einer Tabelle kopiert", "one person per line, e.g. the participants of a seminar copied from a spreadsheet") }}</span>
+      <textarea name="names" rows="3" placeholder="{{ de_en('Anna Becker
 Ben Yilmaz', 'Anna Becker
 Ben Yilmaz') }}"></textarea></label>
-      <label>{{ de_en("oder nur eine Anzahl", "or just a number") }} <span class="hint">{{ de_en("benannt als „Person 1“, „Person 2“ usw.", "named “Person 1”, “Person 2” and so on") }}</span>
-        <input type="number" name="count" min="1" max="{{ max_batch }}" class="narrow"></label>
-    </div>
+    <label>{{ de_en("oder nur eine Anzahl", "or just a number") }} <span class="hint">{{ de_en("benannt als „Person 1“, „Person 2“ usw.", "named “Person 1”, “Person 2” and so on") }}</span>
+      <input type="number" name="count" min="1" max="{{ max_batch }}" class="narrow"></label>
     <div class="row-fields">
       <label>{{ de_en("Gültig für", "Valid for") }}
         <select name="days">{% for d in link_days %}<option value="{{ d }}" {% if d == default_days %}selected{% endif %}>{{ de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
       <label>{{ de_en("Höchstens Geräte", "At most devices") }} <input type="number" name="devices" min="1" max="{{ max_devices }}" value="{{ default_devices }}" class="narrow"></label>
     </div>
-    <label class="check"><input type="checkbox" name="may_record" value="1" checked> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
-    <label class="check"><input type="checkbox" name="may_transcribe" value="1" checked> {{ de_en("darf transkribieren", "may transcribe") }}</label>
-    <div><button class="button button-secondary">{{ icon("plus", 16) }} {{ de_en("Interviewende hinzufügen", "Add interviewers") }}</button>
-      <span class="hint">{{ de_en("Bei mehreren erscheinen alle Links mit QR-Code einmal auf einer Seite zum Drucken.", "With several, all links with their QR codes appear once on a page to print.") }}</span></div>
+    <input type="hidden" name="has_interview" value="1">
+    <label class="check"><input type="checkbox" name="may_interview" value="1" data-iv-interview checked> {{ de_en("darf Interviews führen", "may conduct interviews") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_record" value="1" data-iv-needs-interview checked> {{ de_en("darf Tonaufnahmen machen", "may record audio") }}</label>
+    <label class="check iv-right-sub"><input type="checkbox" name="may_transcribe" value="1" data-iv-needs-interview checked> {{ de_en("darf transkribieren", "may transcribe") }}</label>
+    {% if experimental("transcript_coding", survey) %}<label>{{ de_en("darf kodieren", "may code") }} <span class="hint">{{ de_en("in den Auswertungen, denen Sie die Person zuweisen", "in the analyses you assign the person to") }}</span>
+      <select name="may_code"><option value="none" selected>{{ de_en("nein", "no") }}</option><option value="own">{{ de_en("eigene Interviews", "own interviews") }}</option><option value="all">{{ de_en("alle Interviews", "all interviews") }}</option></select></label>{% endif %}
+    <p class="muted small">{{ de_en("Bei mehreren erscheinen alle Links mit QR-Code einmal auf einer Seite zum Drucken.", "With several, all links with their QR codes appear once on a page to print.") }}</p>
+    <div><button class="button">{{ icon("plus", 16) }} {{ de_en("Hinzufügen", "Add") }}</button></div>
   </form>
+  {% endcall %}
 </section>
 {% endif %}
 

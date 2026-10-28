@@ -4691,6 +4691,40 @@ document.addEventListener("click", function (e) {
   el.form.querySelectorAll('input[type="checkbox"]').forEach(function (box) { if (box.name === name && !box.disabled) box.checked = on; });
 });
 
+// A box "Alle" over a list of boxes of one name (data-check-all-box="access"; it has no name itself): ticks or unticks
+// them all at once and is half ticked (indeterminate) while only some are. It works on the boxes before the form
+// hears of the change, so an autosave form saves them as one step with one "Rückgängig" (Ralf 2026-10-28).
+(function () {
+  function boxes(all) {
+    var name = all.getAttribute("data-check-all-box");
+    return Array.prototype.filter.call(all.form ? all.form.querySelectorAll('input[type="checkbox"]') : [],
+      function (b) { return b.name === name && !b.disabled; });
+  }
+  function show(all) {
+    var list = boxes(all), on = list.filter(function (b) { return b.checked; }).length;
+    all.checked = list.length > 0 && on === list.length;
+    all.indeterminate = on > 0 && on < list.length;
+  }
+  document.querySelectorAll("[data-check-all-box]").forEach(function (all) {
+    show(all);
+    all.addEventListener("change", function () {  // on the box itself: before the form's listeners on the document
+      boxes(all).forEach(function (b) { b.checked = all.checked; });
+      all.indeterminate = false;
+    });
+    if (all.form) all.form.addEventListener("change", function (e) {
+      if (e.target !== all && e.target.name === all.getAttribute("data-check-all-box")) show(all);
+    });
+  });
+})();
+
+// The rights of an interviewer link (page "Interviews"): recording and transcribing only with "darf Interviews
+// führen"; switched off with it, the boxes are greyed and not sent (the server sets them off as well)
+document.addEventListener("change", function (e) {
+  var box = e.target;
+  if (!box.matches || !box.matches("[data-iv-interview]") || !box.form) return;
+  box.form.querySelectorAll("[data-iv-needs-interview]").forEach(function (el) { el.disabled = !box.checked; });
+}, true);
+
 // Forms that wait for the server a while (data-busy="Wird berechnet …"): the button says so and is not pressed a
 // second time. Back in the browser history (the page comes from its cache) the button is as it was.
 (function () {

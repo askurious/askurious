@@ -2,35 +2,26 @@
 {% from "_macros.html" import csrf, list_table %}
 {% from "_icons.html" import icon %}
 {% from "transcript_coding/_parts.html" import head, notices_fold with context %}
-{# The category system of an analysis at a glance (app/transcript_coding_review.py, overview): as a table or as a
-   map; the blurring pairs with their ways to tidy up; the latest of the history. #}
+{# The category system of an analysis in numbers (app/transcript_coding_review.py, overview): the table; the
+   blurring pairs with their ways to tidy up; the latest of the history. The map is in the view "Kategoriensystem". #}
 {% block title %}{{ de_en("Übersicht", "Overview") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
 {% block container_class %}tabpage tabpage-single{% endblock %}
 {% block content %}
 {% call head(survey, project, who, de_en("Übersicht", "Overview"), de_en("{n} Interviews", "{n} interviews", n=n_interviews)) %}
   <div class="row-fields">
-    <div role="group" aria-label="{{ de_en('Darstellung', 'View') }}" class="tc-switch">
-      <a class="button button-small {{ '' if view == 'table' else 'button-secondary' }}" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}" {% if view == 'table' %}aria-current="page"{% endif %}>{{ de_en("Tabelle", "Table") }}</a>
-      <a class="button button-small {{ '' if view == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id, view='map') }}" {% if view == 'map' %}aria-current="page"{% endif %}>{{ de_en("Karte", "Map") }}</a>
-    </div>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id) }}">{{ de_en("Stellen je Kategorie", "Passages per category") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id) }}">{{ de_en("Kategorie × Interview", "Category × interview") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.agreement_page', code=survey.code, pid=project.id) }}">{{ de_en("Übereinstimmung", "Agreement") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.coding_guide', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Kodierleitfaden (Word)", "Coding guide (Word)") }}</a>
     {% if who.team %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project_file', code=survey.code, pid=project.id) }}" title="{{ de_en('Kategoriensystem, Transkripte und kodierte Stellen für MAXQDA, ATLAS.ti, NVivo und QDA Miner', 'Category system, transcripts and coded passages for MAXQDA, ATLAS.ti, NVivo and QDA Miner') }}">{{ icon("download", 16) }} .qdpx</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.codebook_file', code=survey.code, pid=project.id) }}" title="{{ de_en('nur das Kategoriensystem', 'only the category system') }}">{{ icon("download", 16) }} .qdc</a>{% endif %}
-    {% if view == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Karte als SVG", "Map as SVG") }}</a>{% endif %}
   </div>
 {% endcall %}
 
 {% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
 
-<div class="tc-overview{% if view == 'map' %} is-map{% endif %}">
+<div class="tc-overview">
 <section class="panel tc-overview-main">
-  {% if view == "map" %}
-  <div class="res-scroll tc-map">{{ svg|safe }}</div>
-  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}</p>
-  {% else %}
   <div class="res-scroll">
   {% call list_table("is-wide") %}
     <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th>{{ de_en("Definition", "Definition") }}</th><th class="num">{{ de_en("Stellen", "Passages") }}</th><th class="num">{{ de_en("Interviews", "Interviews") }}</th><th>{{ de_en("Kodiert von", "Coded by") }}</th><th class="num" title="{{ de_en('wie oft andere bei der gegenseitigen Probe dieselbe Kategorie gewählt haben', 'how often others chose the same category in the mutual check') }}">{{ de_en("Probe", "Check") }}</th></tr></thead>
@@ -52,7 +43,6 @@
   {% endcall %}
   </div>
   <p class="muted small">{{ de_en("Probe: wie oft andere bei der gegenseitigen Probe dieselbe Kategorie gewählt haben (Zahl der Proben in Klammern). Die Zeile einer Hauptkategorie zählt ihre Unterkategorien mit.", "Check: how often others chose the same category in the mutual check (number of checks in brackets). The row of a main category counts its subcategories too.") }}</p>
-  {% endif %}
 </section>
 
 <aside class="tc-overview-side">

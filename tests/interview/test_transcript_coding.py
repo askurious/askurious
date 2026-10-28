@@ -173,6 +173,9 @@ def test_interviewer_links_stay_as_they_are(app, client):
     with app.app_context():
         aid = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Anna Becker"))
     client.post(f"{base}/interviewers", data={"access": str(aid)})
+    assert c.get(base).status_code == 404                                         # assigned, but no right at the link
+    client.post(f"/guide/{code}/interviewers/{aid}/rights", data={"may_record": "1", "may_transcribe": "1", "may_code": "own"})
+    client.post(f"{base}/interviewers", data={"access": str(aid)})
     assert _snapshot(app) == before                                                # nothing of the links changed
     home = c.get(f"/i/{code}/interviews").data.decode()
     assert f"/interviews/coding/{pid}" in home
@@ -187,10 +190,45 @@ def test_interviewer_links_stay_as_they_are(app, client):
     assert other.get(base).status_code == 404
     assert c.get(f"/guide/{code}/interviews/coding").status_code in (302, 404)    # no list of analyses
     assert c.post(f"{base}/settings", data={"name": "x"}).status_code == 404       # no team rights
-    # the tick off again
-    client.post(f"{base}/interviewers", data={})
+    # "nur ausgewählte" without this person: not here any more; the right off: nowhere
+    client.post(f"{base}/interviewers", data={"who": "selected", "access": str(aid)})
+    assert c.get(base).status_code == 200
+    client.post(f"{base}/interviewers", data={"who": "selected"})
+    assert c.get(base).status_code == 404
+    client.post(f"{base}/interviewers", data={"who": "all"})
+    assert c.get(base).status_code == 200
+    client.post(f"/guide/{code}/interviewers/{aid}/rights", data={"may_record": "1", "may_transcribe": "1", "may_code": "none"})
     assert c.get(base).status_code == 404
     assert _snapshot(app) == before
+
+
+def test_box_all_over_the_interviewer_ticks(app, client):
+    """Ralf 2026-10-28: a box "Alle" over the people with the right "darf kodieren", only with two of them or more;
+    ticked when all are assigned (the half state is drawn by app.js); it has no name, so the form saves the single
+    boxes. The level of the right stands behind the name."""
+    code, sid = _guide(app, client)
+    add_interviewer(client, code, "Anna Becker", may_code="own")
+    pid = _new(client, code)
+    base = f"/guide/{code}/interviews/coding/{pid}"
+    assert "data-check-all-box" not in client.get(f"{base}?view=settings").data.decode()     # one person: no box
+    add_interviewer(client, code, "Bert", may_code="all")
+    with app.app_context():
+        ids = db.session.scalars(db.select(InterviewerAccess.id).order_by(InterviewerAccess.id)).all()
+    page = client.get(f"{base}?view=settings").data.decode()
+    assert "data-check-all-box" not in page and "alle mit Kodierrecht" in page                # "alle": no ticks
+    client.post(f"{base}/interviewers", data={"who": "selected"})                             # switching over keeps all
+    with app.app_context():
+        assert len(db.session.scalars(db.select(CodingMember).filter_by(project_id=pid, kind=CodingMember.INTERVIEWER)).all()) == 2
+    client.post(f"{base}/interviewers", data={"who": "selected"})                             # now untick both
+    page = client.get(f"{base}?view=settings").data.decode()
+    box = re.search(r'<input type="checkbox" data-check-all-box="access"[^>]*>', page).group(0)
+    assert "checked" not in box and "name=" not in box
+    assert "eigene Interviews" in page and "alle Interviews" in page
+    client.post(f"{base}/interviewers", data={"who": "selected", "access": [str(i) for i in ids]})
+    box = re.search(r'<input type="checkbox" data-check-all-box="access"[^>]*>', client.get(f"{base}?view=settings").data.decode()).group(0)
+    assert "checked" in box
+    with app.app_context():
+        assert len(db.session.scalars(db.select(CodingMember).filter_by(project_id=pid, kind=CodingMember.INTERVIEWER)).all()) == 2
 
 
 def test_coding_link(app, client):
