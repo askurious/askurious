@@ -65,10 +65,21 @@
   <div class="row results-head tc-head">
     <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
     <span class="spacer"></span>
+    <div role="group" aria-label="{{ de_en('Darstellung', 'View') }}" class="tc-switch">
+      <a class="button button-small {{ '' if show == 'list' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}" {% if show == 'list' %}aria-current="page"{% endif %}>{{ de_en("Liste", "List") }}</a>
+      <a class="button button-small {{ '' if show == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='map') }}" {% if show == 'map' %}aria-current="page"{% endif %}>{{ de_en("Karte", "Map") }}</a>
+    </div>
+    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Karte als SVG", "Map as SVG") }}</a>{% endif %}
+    {% if show == "list" %}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
     <button type="button" class="button button-small" data-tc-new data-kind="{{ 'main' if may_main else 'candidate' }}">{{ icon("plus", 16) }} {{ de_en("Hauptkategorie", "Main category") if may_main else de_en("Kandidat vorschlagen", "Propose a candidate") }}</button>
+    {% endif %}
   </div>
+  {% if show == "map" %}
+  <div class="res-scroll tc-map">{{ map_svg|safe }}</div>
+  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}</p>
+  {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
   <div class="tc-tree">
   {% for main, subs in mains %}
@@ -85,6 +96,7 @@
     {% for c in candidates %}{{ category(c, "tc-candidate") }}{% endfor %}
   {% endif %}
   </div>
+  {% endif %}
 </section>
 
 {% endif %}

@@ -812,7 +812,10 @@ def project(code, pid):
     mains, candidates = tree(project)
     names = {c.id: c.name for c in live(project)}
     proposals = open_proposals(project)
-    context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view,
+    # the category system as a list (the default) or as a map (from "Übersicht" until 2026-10-28)
+    show = "map" if view == "categories" and request.args.get("show") == "map" else "list"
+    context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
+                   map_svg=transcript_coding_review.map_svg(project, who, survey) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
                    history=history(project), event_text=lambda e: event_text(e, names),

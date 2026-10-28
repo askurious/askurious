@@ -42,12 +42,20 @@ def test_pages_of_the_overview(app, client):
     code, pid, rid, base, main, bea = _setup(app, client)
     sub = _sub(client, base, main, "Erschöpfung")
     _code(client, base, rid, "Abends", sub, 29)
-    for url in (f"{base}/overview", f"{base}/overview?view=map", f"{base}/passages?cat={sub}", f"{base}/matrix",
+    for url in (f"{base}/overview", f"{base}/passages?cat={sub}", f"{base}/matrix",
                 f"{base}/history", f"{base}/check"):
         r = client.get(url)
         assert r.status_code == 200, url
     assert "Abends bin ich einfach fertig" in client.get(f"{base}/passages?cat={sub}").data.decode()
     assert client.get(f"{base}/map.svg").data.startswith(b"<svg")
+    # the map is in the view "Kategoriensystem" (Liste / Karte, the list by default); an old link to it leads there
+    old = client.get(f"{base}/overview?view=map")
+    assert old.status_code == 302 and old.headers["Location"].endswith(f"{base}?view=categories&show=map")
+    listed, mapped = client.get(f"{base}?view=categories").data.decode(), client.get(f"{base}?view=categories&show=map").data.decode()
+    assert 'class="tc-tree"' in listed and "tc-map" not in listed and "Karte als SVG" not in listed
+    assert "tc-map" in mapped and "<svg" in mapped and "Karte als SVG" in mapped and 'class="tc-tree"' not in mapped
+    assert "tc-map" not in client.get(f"{base}/overview").data.decode()
+    assert "tc-map" in bea.get(f"{base}?view=categories&show=map").data.decode()   # members too
     assert "Erschöpfung;1" in client.get(f"{base}/matrix?format=csv").data.decode("utf-8-sig")
     docx = client.get(f"{base}/kodierleitfaden.docx")
     assert docx.status_code == 200 and docx.data[:2] == b"PK"

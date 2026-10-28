@@ -503,13 +503,14 @@ def overview(code, pid):
     from app.transcript_coding import history
 
     survey, project, who = _in(code, pid)
+    if request.args.get("view") == "map":  # the map moved to the view "Kategoriensystem" (Ralf 2026-10-28)
+        return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="map"))
     mains, candidates = tree(project)
     pairs = fuzzy(project, who)
     probes = probe(project, who)
-    view = request.args.get("view") if request.args.get("view") in ("table", "map") else "table"
     return render_template("transcript_coding/overview.html", mains=mains, candidates=candidates, stats=stats(project, who),
-                           probes=probes, pairs=pairs[:12], blurred=blurred(project, who, pairs, probes), view=view,
-                           svg=map_svg(project, who, survey) if view == "map" else "", history=history(project, 8),
+                           probes=probes, pairs=pairs[:12], blurred=blurred(project, who, pairs, probes),
+                           history=history(project, 8),
                            notices=notices(project, who), n_interviews=len(interviews(project, who)),
                            **_context(survey, project, who))
 
