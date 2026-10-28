@@ -65,7 +65,8 @@ def is_right(item, quiz, value):
         return False
     if item.type == "slider":
         v = next(iter(value.values()), None) if isinstance(value, dict) else None
-        return isinstance(v, (int, float)) and abs(v - quiz["value"]) <= (quiz.get("tol") or 0)
+        # a hair of slack for decimals: 2.4 - 2.3 is 0.10000000000000009 in floats, so 2.4 was wrong at 2.3 ± 0.1
+        return isinstance(v, (int, float)) and abs(v - quiz["value"]) <= (quiz.get("tol") or 0) + 1e-9
     chosen = selected(value)
     chosen = set(chosen if isinstance(chosen, list) else [chosen])
     return chosen == set(quiz["correct"]) if item.type == "multiple_choice" else bool(chosen & set(quiz["correct"]))
