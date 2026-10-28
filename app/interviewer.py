@@ -461,10 +461,15 @@ def rights_all(code, aid):
     source = db.session.get(InterviewerAccess, aid)
     if source is None or source.survey_id != survey.id:
         abort(404)
+    from app import experimental
+
     step = undo.begin(survey)
+    coding = experimental.enabled("transcript_coding", survey=survey)  # without it the coding right stays as it is
     for access in accesses(survey):
         access.may_interview, access.may_record = source.may_interview, source.may_record
-        access.may_transcribe, access.may_code = source.may_transcribe, source.may_code
+        access.may_transcribe = source.may_transcribe
+        if coding:
+            access.may_code = source.may_code
     step.done(undo.both("Rechte von „{name}“ für alle", "Rights of “{name}” for everyone", name=source.name), page="interviewers")
     db.session.commit()
     flash(de_en("Die Rechte von {name} gelten jetzt für alle Personen dieses Leitfadens.",
@@ -616,7 +621,9 @@ def home(code):
         coding = transcript_coding.interviewer_projects(survey, access)
         if len(coding) == 1:
             return redirect(url_for("transcript_coding.project", code=survey.code, pid=coding[0].id))
-    return render_template("interviewer/home.html", survey=survey, access=access, rows=own_interviews(survey, access),
+    from app import transcript_coding
+
+    return render_template("interviewer/home.html", coding_closed=not transcript_coding.open_for_link(survey, access), survey=survey, access=access, rows=own_interviews(survey, access),
                            visible=visible, label=next_label(survey, access), st=interview.state(survey),
                            modes=interview.modes(), forms=interview_data.consent_forms(), day=interview.day_text,
                            today=f"{utcnow():%Y-%m-%d}", parts=interview_audio.parts,

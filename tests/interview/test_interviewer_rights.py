@@ -168,3 +168,45 @@ def test_migration_0104_keeps_links_and_their_sessions(app, client):
     assert c.get(f"/i/{code}/interviews").status_code == 200                       # the same session
     assert c.get(_urls(app, code, rid)["record"]).status_code == 200
     assert c.get(f"/guide/{code}/interviews/coding/{pid}").status_code == 200
+
+
+def test_feature_off_for_whoever_made_the_link(app, client):
+    """Ralf 2026-10-28: with "Interviews kodieren" off (here: kept out by an admin) a link without the right looks
+    exactly as before, a link with it keeps its interview functions but codes nowhere, a link that only codes says
+    so kindly; the rights stay stored, and with the feature on again all is as before. Saving the dialog without the
+    feature does not touch the coding right."""
+    from app import experimental
+    from app.models import User
+
+    code, sid = _guide(app, client)
+    plain, _ = open_link(app, code, add(client, code, "Anna"))
+    coder, _ = open_link(app, code, add(client, code, "Bert", may_code="own"))
+    only, _ = open_link(app, code, add(client, code, "Cora", has_interview="1", may_interview="", may_code="all"))
+    rid = begin(coder, code)
+    _transcript(app, rid)
+    pid = _new(client, code)
+    base = f"/guide/{code}/interviews/coding/{pid}"
+    before = plain.get(f"/i/{code}/interviews").data.decode()
+    assert coder.get(base).status_code == 200 and only.get(base).status_code == 200
+
+    def switch(state):
+        with app.app_context():
+            user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+            experimental.set_person(user, "transcript_coding", state, user)
+            db.session.commit()
+
+    switch("blocked")
+    assert plain.get(f"/i/{code}/interviews").data.decode() == before               # (1) exactly as before
+    assert coder.get(f"/i/{code}/interviews").status_code == 200                     # (2) interviews as before
+    assert coder.get(_urls(app, code, rid)["record"]).status_code == 200
+    assert coder.get(base).status_code == 404 and "/interviews/coding/" not in coder.get(f"/i/{code}/interviews").data.decode()
+    page = only.get(f"/i/{code}/interviews")                                        # (3) kindly, no error
+    assert page.status_code == 200 and "Kodieren ist derzeit nicht verfügbar" in page.data.decode()
+    assert only.get(base).status_code == 404
+    bert = _access(app, "Bert")
+    client.post(f"/guide/{code}/interviewers/{bert.id}/rights", data={**RIGHTS, "may_code": "none"})
+    assert _access(app, "Bert").may_code == "own"                                    # no feature: right untouched
+    switch("off")
+    experiments_on_again = __import__("tests.conftest", fromlist=["experiments_on"]).experiments_on
+    experiments_on_again(client, "transcript_coding")
+    assert coder.get(base).status_code == 200 and only.get(base).status_code == 200  # (4) as before

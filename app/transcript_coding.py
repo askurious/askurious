@@ -202,6 +202,18 @@ def may_code(access):
     return access is not None and access.may_code in (InterviewerAccess.CODE_OWN, InterviewerAccess.CODE_ALL)
 
 
+def open_for_link(survey, access):
+    """Whether "Interviews kodieren" is open for an interviewer link without an account: as for the researcher who
+    made it (else for an admin of the guide), since the link itself has no account to switch it on for. Off: the link
+    codes nowhere (its stored right stays as it is) and works as an interviewer link as before."""
+    from app import experimental
+    from app.models import User
+
+    by = db.session.get(User, access.created_by_id) if access is not None and access.created_by_id else None
+    people = [by] if by is not None else [m.user for m in survey.admins() if m.user is not None]
+    return any(experimental.enabled(FEATURE, user=person, survey=survey) for person in people)
+
+
 CODERS_ALL, CODERS_SELECTED = "all", "selected"
 
 
@@ -220,12 +232,14 @@ def interviewer_codes_in(project, access):
     ticked."""
     if not may_code(access) or access.survey_id != project.survey_id:
         return False
+    if not open_for_link(db.session.get(Survey, project.survey_id), access):
+        return False
     return coder_mode(project) == CODERS_ALL or interviewer_member(project, access) is not None
 
 
 def interviewer_projects(survey, access):
     """The analyses this interviewer link codes in: it has the right and is assigned to them (or all with it are)."""
-    if not may_code(access):
+    if not may_code(access) or not open_for_link(survey, access):
         return []
     ids = set(db.session.scalars(db.select(CodingMember.project_id).filter_by(kind=CodingMember.INTERVIEWER, access_id=access.id)))
     return [p for p in projects(survey) if p.id in ids or coder_mode(p) == CODERS_ALL]

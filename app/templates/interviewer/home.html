@@ -90,7 +90,7 @@
 {# only with the right "darf kodieren" at the link and assigned to an analysis (app/transcript_coding.py) #}
 {% set coding = coding_projects_of_interviewer(survey, access) %}
 {% if not access.may_interview and not coding %}
-<section class="panel"><p class="muted">{{ de_en("Noch keine Auswertung zum Kodieren.", "No analysis to code yet.") }}</p></section>
+<section class="panel"><p class="muted">{{ de_en("Kodieren ist derzeit nicht verfügbar.", "Coding is not available at the moment.") if coding_closed and access.may_code != "none" else de_en("Noch keine Auswertung zum Kodieren.", "No analysis to code yet.") }}</p></section>
 {% endif %}
 {% if coding %}
 <section class="panel">
