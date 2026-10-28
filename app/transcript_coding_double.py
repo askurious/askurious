@@ -409,7 +409,9 @@ def agreement_page(code, pid):
         w = csv.writer(buf, delimiter=";")
         w.writerow(["kategorie", "woerter_beide", "woerter_nur_a", "woerter_nur_b", "woerter_keiner", "p_o", "kappa",
                     "stellen_passend", "stellen_gesamt", "anteil_stellen", "mindestueberlappung"])
-        for key, label in [(c.id, c.name) for c in cats] + [("all", de_en("alle Kategorien", "all categories"))]:
+        sums = [(f"sum:{c.id}", de_en("{name} mit allem darunter", "{name} with all below it", name=c.name)) for c in cats
+                if f"sum:{c.id}" in figures]
+        for key, label in [(c.id, c.name) for c in cats] + sums + [("all", de_en("alle Kategorien", "all categories"))]:
             f = figures[key]
             w.writerow([safe_text(label)] + f["words"] + [_num(f["p_o"]), _num(f["kappa"]), f["passages"][0], f["passages"][1],
                                                          _num(f["share"]), round(threshold * 100)])
