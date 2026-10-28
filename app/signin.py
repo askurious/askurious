@@ -1,8 +1,6 @@
 """Which ORCID iDs may sign in by themselves, kept in the database and changed in Administration > Personen
 (Ralf, 2026-10-06): a list of iDs (SignInOrcid) and a switch "every ORCID holder" (SiteSetting "all_orcids").
-Until then both were ALLOWED_ORCIDS in the server's configuration ("*" for the switch); adopt_config takes them
-over once at the start of the server and the configuration is not read for them after that. ADMIN_ORCIDS stay in
-the configuration: the way in when the database says no to everyone (app/auth.py on_whitelist).
+ADMIN_ORCIDS stay in the configuration: the way in when the database says no to everyone (app/auth.py on_whitelist).
 
 The list is about signing in only. Creating surveys is the level "create" on the account (app/kind_access.py): a new
 account gets it at its first sign-in (NEW_ACCOUNTS_MAY_CREATE), an account that is there already gets it when its
@@ -21,10 +19,9 @@ import re
 from flask import current_app, g, has_request_context
 
 from app.extensions import db
-from app.models import ORCID_RE, SignInOrcid, SignInWait, SiteSetting, User, UserLogin, is_orcid, utcnow
+from app.models import ORCID_RE, SignInOrcid, SignInWait, SiteSetting, User, UserLogin, utcnow
 
 EVERYONE = "all_orcids"  # "1": every ORCID holder may sign in; "cap": up to the limit LIMIT; else off
-TAKEN_OVER = "allowed_orcids_taken_over"  # when ALLOWED_ORCIDS of the configuration was taken over
 WAIT_DAYS = 90  # an entry of the waiting list (ORCID iD and name) goes after this long (audit 2026-10-10, L-10)
 
 _URL = re.compile(r"^(?:https?://)?(?:www\.)?orcid\.org/", re.I)
@@ -333,39 +330,3 @@ def remove(orcid):
     if row is not None:
         db.session.delete(row)
         db.session.commit()
-
-
-def leftover():
-    """What still stands in ALLOWED_ORCIDS of the configuration although it is not read any more."""
-    return list(current_app.config.get("ALLOWED_ORCIDS") or ())
-
-
-def adopt_config():
-    """Take ALLOWED_ORCIDS over into the database, once, at the start of the server (create_app). The iDs go on
-    the list, "*" turns the switch on; accounts the configuration let create surveys (every ORCID account with "*")
-    get the tick, so nobody loses anything. Returns how many iDs were taken over, None if done before. Never raises."""
-    try:
-        if setting(TAKEN_OVER) is not None:
-            return None
-        values = leftover()
-        orcids = list(dict.fromkeys(v for v in (clean(v) for v in values) if v))
-        for orcid in orcids:
-            if db.session.get(SignInOrcid, orcid) is None:
-                db.session.add(SignInOrcid(orcid=orcid, note="aus ALLOWED_ORCIDS übernommen"))
-        if "*" in values:
-            _set(EVERYONE, "1")
-            users = [u for u in db.session.scalars(db.select(User).where(User.pending.is_(False))) if is_orcid(u.orcid)]
-        else:
-            users = db.session.scalars(db.select(User).filter(User.orcid.in_(orcids), User.pending.is_(False))) if orcids else []
-        _may_create(list(users))
-        _set(TAKEN_OVER, utcnow().strftime("%Y-%m-%d %H:%M"))
-        db.session.commit()
-        if values:
-            current_app.logger.warning("ALLOWED_ORCIDS taken over into the database (%d iDs%s); it is not read any more",
-                                       len(orcids), ", every ORCID holder" if "*" in values else "")
-        return len(orcids)
-    except Exception:
-        db.session.rollback()
-        current_app.logger.exception("signin.adopt_config: ALLOWED_ORCIDS was not taken over")
-        return 0
-

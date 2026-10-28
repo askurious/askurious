@@ -1207,6 +1207,10 @@ def create_app(config_class=Config, server=False):
             # side may run under a role that reads and writes only its own tables (app/participant_grants.py,
             # audit 2026-10-18, CFG-04), and accounts, organisations or the sign-in list are none of them
             return app
+        if os.environ.get("ALLOWED_ORCIDS", "").strip():
+            # a line left in the .env from before 2026-10-06: nothing reads it any more (app/signin.py)
+            app.logger.warning("ALLOWED_ORCIDS is set but no longer read; who may sign in is kept in "
+                               "Administration > Personen")
         with start_up_lock():  # PostgreSQL: one server process at a time (several start together after a deploy)
             from app import constructs
 
@@ -1227,9 +1231,6 @@ def create_app(config_class=Config, server=False):
             from app import experimental
 
             experimental.upgrade_legacy()  # the old single tick: one tick per experimental feature (data)
-            from app import signin
-
-            signin.adopt_config()  # ALLOWED_ORCIDS of the configuration into the administration, once (data)
             from app import account_types
 
             account_types.ensure_seed()  # the five user types, once (data; konzept-nutzertypen-2026-10-15.md)

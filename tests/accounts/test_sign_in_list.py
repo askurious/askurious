@@ -1,9 +1,9 @@
 """Who may sign in with ORCID by themselves, kept in Administration > Forschende (app/signin.py; Ralf, 2026-10-06):
-the list of iDs and the switch "every ORCID holder" in place of ALLOWED_ORCIDS, which is taken over once at the
-start of the server. Being on the list is about signing in; creating surveys is the tick on the account."""
+the list of iDs and the switch "every ORCID holder" (formerly ALLOWED_ORCIDS of the configuration).
+Being on the list is about signing in; creating surveys is the tick on the account."""
 from app import signin
 from app.extensions import db
-from app.models import SignInOrcid, SiteSetting, User, UserLogin
+from app.models import SignInOrcid, User, UserLogin
 
 ME = "0000-0000-0000-001X"       # site admin (tests/conftest.py)
 OTHER = "0000-0002-1825-0097"
@@ -25,32 +25,6 @@ def _may_create(app, orcid):
 
 def _post(client, **data):
     return client.post("/admin/admit", data=data, follow_redirects=True).data.decode()
-
-
-def test_the_configuration_is_taken_over_once(app):
-    _as(app.test_client(), OTHER, "Kollegin")                                 # an account from before, no tick
-    with app.app_context():
-        db.session.execute(db.delete(SiteSetting))                            # as on a server before this version
-        db.session.commit()
-        app.config["ALLOWED_ORCIDS"] = [OTHER, f"https://orcid.org/{THIRD}", "kein-orcid"]
-        assert signin.adopt_config() == 2
-        assert sorted(db.session.scalars(db.select(SignInOrcid.orcid))) == sorted([OTHER, THIRD])
-        assert not signin.everyone()
-        app.config["ALLOWED_ORCIDS"] = [NEW]
-        assert signin.adopt_config() is None                                  # once: later changes are not read
-        assert not signin.listed(NEW)
-    assert _may_create(app, OTHER)                                            # nobody loses what the list gave
-
-
-def test_a_star_turns_the_switch_on_and_keeps_creating_for_everyone(app):
-    _as(app.test_client(), OTHER, "Kollegin")
-    with app.app_context():
-        db.session.execute(db.delete(SiteSetting))
-        db.session.commit()
-        app.config["ALLOWED_ORCIDS"] = ["*"]
-        assert signin.adopt_config() == 0
-        assert signin.everyone()
-    assert _may_create(app, OTHER)
 
 
 def test_the_list_lets_in_and_taking_off_signs_out(app, client):
@@ -119,13 +93,6 @@ def test_only_site_admins_change_the_list_and_bad_ids_are_refused(app, client):
     assert 'value="Frau X"' in page and 'aria-invalid="true" aria-describedby="allow-orcid-error"' in page
     with app.app_context():
         assert not signin.listed(THIRD) and db.session.scalar(db.select(db.func.count()).select_from(SignInOrcid)) == 0
-
-
-def test_the_configuration_left_over_is_named(app, client):
-    app.config["ALLOWED_ORCIDS"] = [OTHER]
-    assert "steht noch <code>ALLOWED_ORCIDS</code>" in client.get("/admin/people").data.decode()
-    app.config["ALLOWED_ORCIDS"] = []
-    assert "ALLOWED_ORCIDS</code>. Es wurde" not in client.get("/admin/people").data.decode()
 
 
 def test_deleting_the_admin_who_listed_keeps_the_entry(app, client):
@@ -201,3 +168,27 @@ def test_taking_the_last_right_away_ends_the_kept_yes_at_once(app, client, surve
         assert auth._may_sign_in_kept(OTHER)
         signin.remove(OTHER)
         assert not auth._may_sign_in_kept(OTHER)                              # off the sign-in list
+
+
+def test_a_left_over_allowed_orcids_is_named_once_at_the_start(app, tmp_path, monkeypatch, caplog):
+    """ALLOWED_ORCIDS is no longer read: a line left in the .env gives one warning on the researchers' side, none on
+    the participants' side, and changes nothing in the database."""
+    from app import create_app
+    from tests.conftest import _config
+
+    with app.app_context():
+        address = str(db.engine.url)
+        before = db.session.scalar(db.select(db.func.count()).select_from(SignInOrcid))
+    monkeypatch.setenv("ALLOWED_ORCIDS", f"*,{OTHER}")
+    caplog.set_level("WARNING")
+    for side, expected in (("", 1), ("participant", 0)):
+        caplog.clear()
+        config = _config(tmp_path, address)
+        config.SIDE = side
+        config.PARTICIPANT_BASE_URL = "https://ask.example.org" if side else ""
+        started = create_app(config)
+        with started.app_context():
+            assert sum("ALLOWED_ORCIDS" in r.getMessage() for r in caplog.records) == expected
+            assert db.session.scalar(db.select(db.func.count()).select_from(SignInOrcid)) == before
+            assert not signin.everyone()
+            db.engine.dispose()

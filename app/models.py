@@ -686,8 +686,8 @@ class SignInWait(db.Model):
 
 class SignInOrcid(db.Model):
     """An ORCID iD a site admin lets in (Administration > Personen), whether it has an account yet or not
-    (app/signin.py). Until October 2026 this list was ALLOWED_ORCIDS in the server's configuration; it was taken
-    over once at the start of the server and is kept here since (Ralf, 2026-10-06)."""
+    (app/signin.py). Until October 2026 this list was ALLOWED_ORCIDS in the server's configuration; it is kept here
+    since (Ralf, 2026-10-06)."""
 
     __tablename__ = "sign_in_orcid"
 
