@@ -114,9 +114,24 @@ def test_an_open_prompt_does_not_lower_compliance(app, client):
         assert diary.compliance(survey, person, now=utcnow() + timedelta(hours=2)) == (0, 1)
 
 
+def _daytime_zone():
+    """A time zone in which it is day now (6 to 18 o'clock): a prompt "30 minutes ago" then lies on today in the
+    person's time, whatever the clock of the machine says (the test failed in the half hour after midnight, when the
+    prompt lay on the day before, which a pause from today rightly does not cover; full run 2026-10-28)."""
+    from zoneinfo import ZoneInfo
+
+    for name in ("Europe/Berlin", "America/New_York", "Asia/Tokyo", "America/Los_Angeles", "Asia/Kolkata", "Pacific/Auckland"):
+        if 6 <= datetime.now(ZoneInfo(name)).hour < 18:
+            return name
+    return "Europe/Berlin"
+
+
 def test_resume_on_the_same_day_keeps_the_pause_until_then(app, client):
     code = _new(app, client)
     _enrol(app, code)
+    with app.app_context():
+        db.session.scalar(db.select(Enrolment)).tz = _daytime_zone()
+        db.session.commit()
     _active_from_today(app)
     _prompt(app, minutes_ago=30, expires=10)
     with app.app_context():
