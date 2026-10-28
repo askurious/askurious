@@ -21,7 +21,7 @@
 
 {# the views of an analysis as a switch in the head row of a section (no row of its own, decision "no extra menu
    band"): Interviews (the default), Kategoriensystem, Übersicht, Gegenseitige Probe and, for the team, Einstellungen;
-   the active one marked like "Tabelle / Karte"; then the way back #}
+   the active one marked like "Liste / Diagramm"; then the way back #}
 {% macro views(survey, project, who, current=none) -%}
 {% set here = current or (request.args.get("view") or "interviews" if request.endpoint == "transcript_coding.project" else request.endpoint) %}
 {% if here in ("transcript_coding.passages", "transcript_coding.matrix", "transcript_coding.full_history", "transcript_coding.agreement_page", "transcript_coding.compare") %}{% set here = "transcript_coding.overview" %}{% endif %}

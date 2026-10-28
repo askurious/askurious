@@ -443,7 +443,7 @@ def map_svg(project, who, survey, interactive=False):
     mid = height / 2
     title = escape(project.question or project.name)[:90]
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
-             f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Karte", "Category system as a map"))}">',
+             f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Diagramm", "Category system as a diagram"))}">',
              '<rect width="100%" height="100%" fill="#ffffff"/>',
              ('<g class="tc-map-root" data-tc-drop-main>' if interactive else "<g>"),
              f'<rect x="{x0}" y="{mid - 26}" width="250" height="52" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
@@ -611,7 +611,7 @@ def overview(code, pid):
 
     survey, project, who = _in(code, pid)
     if request.args.get("view") == "map":  # the map moved to the view "Kategoriensystem" (Ralf 2026-10-28)
-        return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="map"))
+        return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="diagram"))
     mains, candidates = tree(project)
     pairs = fuzzy(project, who)
     probes = probe(project, who)
