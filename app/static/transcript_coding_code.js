@@ -144,8 +144,22 @@
     return { start: Math.min(a, b), end: Math.max(a, b), rect: rect };
   }
 
+  // touch (Ralf 2026-10-28): the last pointer decides; a phone shows the list and the info box as a sheet from below
+  var lastPointer = window.matchMedia && window.matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
+  document.addEventListener("pointerdown", function (e) { lastPointer = e.pointerType || "mouse"; }, true);
+  function touching() { return lastPointer !== "mouse"; }
+  function narrow() { return !!(window.matchMedia && window.matchMedia("(max-width: 600px)").matches); }
+
   function placeBox(el, rect) {
     el.hidden = false;
+    var sheet = narrow() && (el === pop || el === info);
+    el.classList.toggle("is-sheet", sheet);
+    if (sheet) {  // fixed at the bottom by its class; the marked passage stays visible above it
+      el.style.top = el.style.left = "";
+      var free = window.innerHeight - el.offsetHeight - 16;
+      if (rect.bottom > free) window.scrollBy(0, rect.bottom - free);
+      return;
+    }
     var top = rect.bottom + 8, left = Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8));
     if (top + el.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - el.offsetHeight - 8);
     el.style.top = top + "px";
@@ -156,7 +170,7 @@
   // the box stays inside the window: after it grew (the form "Neue Kategorie" opened), after the window changed, and
   // while it is dragged by its handle (Ralf 2026-10-28: it stuck out at the bottom and could not be moved)
   function keepInView(el) {
-    if (el.hidden || (el.tagName === "DIALOG" && !el.open)) return;
+    if (el.hidden || (el.tagName === "DIALOG" && !el.open) || el.classList.contains("is-sheet")) return;
     var r = el.getBoundingClientRect();
     var top = Math.min(r.top, window.innerHeight - 8 - r.height), left = Math.min(r.left, window.innerWidth - 8 - r.width);
     el.style.top = Math.max(8, top) + "px";
@@ -194,7 +208,7 @@
     filter.value = "";
     fill();
     placeBox(pop, m.rect);
-    filter.focus();
+    if (!touching()) filter.focus();  // on a phone or tablet the keyboard would cover the list
   }
   function closePop() { pop.hidden = true; selection = null; }
 
@@ -339,7 +353,23 @@
   });
 
   box.addEventListener("mouseup", function () {
+    if (touching()) return;  // a tap's mouseup: the selection below decides
     setTimeout(function () { var m = marked(); if (m) openPop(m); }, 0);
+  });
+  // marking by touch (long press, then the handles): the list opens once the selection rests a moment, and follows
+  // the handles while it is open
+  var resting = null, shown = "";
+  document.addEventListener("selectionchange", function () {
+    if (!touching()) return;
+    clearTimeout(resting);
+    resting = setTimeout(function () {
+      var m = marked();
+      if (!m) return;
+      var key = m.start + ":" + m.end;
+      if (!pop.hidden && key === shown) return;
+      shown = key;
+      openPop(m);
+    }, 450);
   });
   document.addEventListener("keyup", function (e) {
     if (e.shiftKey && pop.hidden) { var m = marked(); if (m) openPop(m); }  // marked with the keyboard

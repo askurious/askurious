@@ -23,7 +23,8 @@
     {% if nxt %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=nxt.id) }}">{{ de_en("Nächstes Interview", "Next interview") }}</a>{% endif %}
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
   </div>
-  <p class="muted small">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories.") }}</p>
+  <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories.") }}</p>
+  <p class="muted small tc-hint-touch">{{ de_en("Auf eine Textstelle lange drücken und die Griffe ziehen; kurz danach öffnet sich die Liste der Kategorien. Markiert wird immer ganze Wörter. Antippen einer kodierten Stelle zeigt ihre Kategorien.", "Press and hold a passage and drag the handles; a moment later the list of categories opens. Whole words are always marked. Tapping a coded passage shows its categories.") }}</p>
   {% if ai_on_state == "on" %}
   <div class="row-fields">
     <button type="button" class="button button-small button-ai" data-tc-suggest
@@ -76,7 +77,7 @@
 <div class="tc-pop" data-tc-pop hidden role="dialog" aria-label="{{ de_en('Kategorie zuordnen', 'Assign category') }}">
   <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off"></label>
   <ul class="tc-pop-list" data-tc-list></ul>
-  <p class="muted small">{{ de_en("Tasten 1–9 für zuletzt benutzte, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, Enter takes it, Esc closes") }}</p>
+  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 für zuletzt benutzte, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, Enter takes it, Esc closes") }}</p>
 </div>
 {# a new category from the coding view: a dialog of its own in the middle of the window, moved by its title bar; Esc
    and "Abbrechen" go back to the list of the marked passage (Ralf 2026-10-28) #}
