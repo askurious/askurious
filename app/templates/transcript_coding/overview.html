@@ -57,18 +57,11 @@
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[p.a.id, p.b.id]) }}">{{ de_en("Stellen ansehen", "View passages") }}</a>
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
       </div>
-      <details class="tc-propose"><summary>{{ de_en("Zusammenführen", "Merge") }}</summary>
-        <form method="post" action="{{ url_for('transcript_coding.merge_categories', code=survey.code, pid=project.id) }}" class="stack">
-          {{ csrf() }}
-          <fieldset class="stack"><legend>{{ de_en("Was bleibt", "What stays") }}</legend>
-            <label class="check"><input type="radio" name="dir" value="ab" checked data-tc-merge="{{ p.b.id }}:{{ p.a.id }}"> {{ de_en("„{a}“ geht in „{b}“ auf", "“{a}” goes into “{b}”", a=p.a.name, b=p.b.name) }}</label>
-            <label class="check"><input type="radio" name="dir" value="ba" data-tc-merge="{{ p.a.id }}:{{ p.b.id }}"> {{ de_en("„{a}“ geht in „{b}“ auf", "“{a}” goes into “{b}”", a=p.b.name, b=p.a.name) }}</label>
-          </fieldset>
-          <input type="hidden" name="source" value="{{ p.a.id }}"><input type="hidden" name="target" value="{{ p.b.id }}">
-          <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000" required></label>
-          <div><button class="button button-small">{{ de_en("Zusammenführen", "Merge") }}</button></div>
-        </form>
-      </details>
+      {# merging harmonises name, definition and delimitation in the dialog of the category system #}
+      <div class="tc-info-actions">
+        <a class="button button-small" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=p.a.id ~ ',' ~ p.b.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=p.a.name, b=p.b.name) }}</a>
+        <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=p.b.id ~ ',' ~ p.a.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=p.b.name, b=p.a.name) }}</a>
+      </div>
     </div>
     {% endfor %}
     {% else %}<p class="muted small">{{ de_en("Keine unscharfen Paare: keine Stellen in zwei Kategorien, keine abweichende Probe, keine ähnlichen Namen.", "No blurring pairs: no passages in two categories, no differing check, no similar names.") }}</p>{% endif %}

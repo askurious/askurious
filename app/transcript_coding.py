@@ -56,7 +56,7 @@ SIMILAR = 0.6  # SequenceMatcher ratio from which a name counts as similar
 MAX_PROJECTS = 30  # analyses per guide
 MAX_CATEGORIES = 500  # live categories per analysis
 MAX_DEPTH = 8  # levels of a category system: a main category and up to seven below it (Ralf 2026-10-28: 3 to 6 or more)
-UNDO_KINDS = ("created", "changed", "removed", "promoted", "moved")
+UNDO_KINDS = ("created", "changed", "removed", "promoted", "moved", "ordered")
 
 
 # --- who asks ------------------------------------------------------------------------------------------------------
@@ -712,6 +712,22 @@ def may_move(project, cat, who):
     return who.team or (not project.mains_fixed and may_edit(project, cat, who))
 
 
+def drop_data(project, who, mains, candidates):
+    """What the page's script needs to offer "unterhängen" and "zusammenführen" after a drop, with the rules of move()
+    and may_merge(): the categories with kind, level, what stands above, may_move, and the texts for the dialog."""
+    from app.transcript_coding_review import stats
+
+    st = stats(project, who)
+    cats = {}
+    for c in [c for m, below in mains for c in [m] + below] + list(candidates):
+        cats[str(c.id)] = {"id": c.id, "name": c.name, "kind": c.kind, "level": c.level, "anc": c.anc, "parent": c.parent_id,
+                           "definition": c.definition, "delimitation": c.delimitation,
+                           "anchor": (c.anchor or {}).get("quote", ""), "n": st.get(c.id, {}).get("n", 0),
+                           "move": may_move(project, c, who), "author": bool(c.author_key) and c.author_key == who.key}
+    return {"cats": cats, "team": who.team, "fixed": bool(project.mains_fixed), "max": MAX_DEPTH,
+            "may_main": may_create_main(project, who)}
+
+
 def move_targets(project, cat, who, mains):
     """[(id, path)] where `cat` may be hung: not under itself or what stands below it, not deeper than MAX_DEPTH,
     not where it stands; (None, …) first for "as a main category" where allowed. `mains` from tree()."""
@@ -764,6 +780,28 @@ def move(project, cat, who, parent_id):
     _event(project, who, "moved", cat, {"before": before, "after": {"parent": cat.parent_id, "kind": cat.kind, "name": cat.name,
                                                                     "where": getattr(parent, "path", "") if parent else ""},
                                         "ids": sorted(below), "affected": affected(project, below, but=who.key)})
+    return None
+
+
+def reorder(project, cat, who, before_id):
+    """Put `cat` among the categories under the same one (or the main categories) before `before_id`, at the end for
+    None (dragging between siblings, Ralf 2026-10-28). One step in the history, to take back. Returns a problem or None."""
+    if not may_move(project, cat, who):
+        return de_en("Hauptkategorien ändern nur die Forschenden.", "Only the researchers change main categories.")
+    siblings = [c for c in live(project) if c.parent_id == cat.parent_id and
+                (c.kind == CodingCategory.SUB) == (cat.kind == CodingCategory.SUB)]
+    if before_id is not None and before_id not in {c.id for c in siblings}:
+        return de_en("Nur zwischen Kategorien derselben Ebene.", "Only between categories of the same level.")
+    before = {c.id: c.position for c in siblings}
+    rest = [c for c in siblings if c.id != cat.id]
+    at = next((n for n, c in enumerate(rest) if c.id == before_id), len(rest))
+    ordered = rest[:at] + [cat] + rest[at:]
+    slots = sorted(c.position for c in siblings)  # the same positions, in the new order (others keep theirs)
+    for c, p in zip(ordered, slots):
+        c.position = p
+    if all(before[c.id] == c.position for c in siblings):
+        return None
+    _event(project, who, "ordered", cat, {"before": {str(k): v for k, v in before.items()}, "after": {"name": cat.name}})
     return None
 
 
@@ -823,6 +861,16 @@ def undo(project, who):
     if cat is None:
         return de_en("Nichts zum Zurücknehmen.", "Nothing to take back.")
     before = (event.data or {}).get("before")
+    if event.kind == "ordered":  # the order of before among its siblings
+        if not may_move(project, cat, who):
+            return de_en("Hauptkategorien ändern inzwischen nur die Forschenden.", "Only the researchers change main categories now.")
+        for cid, pos in (before or {}).items():
+            c = db.session.get(CodingCategory, int(cid))
+            if c is not None and c.project_id == project.id:
+                c.position = pos
+        event.data = {**(event.data or {}), "undone": True}
+        _event(project, who, "undone", cat, {"after": _state(cat)}, reply_to=event.id)
+        return None
     if event.kind == "moved":  # back where it stood, if that still works
         back = before.get("parent")
         cats = {c.id: c for c in live(project)}
@@ -860,7 +908,8 @@ def undo_label(event):
             "changed": de_en("„{name}“ geändert", "“{name}” changed", name=name),
             "removed": de_en("„{name}“ entfernt", "“{name}” removed", name=name),
             "promoted": de_en("„{name}“ übernommen", "“{name}” taken on", name=name),
-            "moved": de_en("„{name}“ umgehängt", "“{name}” moved", name=name)}.get(event.kind, "")
+            "moved": de_en("„{name}“ umgehängt", "“{name}” moved", name=name),
+            "ordered": de_en("„{name}“ umsortiert", "“{name}” reordered", name=name)}.get(event.kind, "")
 
 
 def history(project, limit=30):
@@ -881,6 +930,7 @@ def event_text(event, names):
             "accepted": de_en("übernimmt den Vorschlag zu „{name}“", "takes on the proposal for “{name}”", name=name),
             "declined": de_en("lehnt den Vorschlag zu „{name}“ ab", "declines the proposal for “{name}”", name=name),
             "undone": de_en("nimmt den letzten Schritt an „{name}“ zurück", "takes back the last step on “{name}”", name=name),
+            "ordered": de_en("sortiert „{name}“ um", "reorders “{name}”", name=name),
             "moved": (de_en("hängt „{name}“ unter „{where}“", "puts “{name}” under “{where}”", name=name, where=(data.get("after") or {}).get("where"))
                       if (data.get("after") or {}).get("where") else
                       de_en("macht „{name}“ zur Hauptkategorie", "makes “{name}” a main category", name=name)),
@@ -1025,8 +1075,9 @@ def project(code, pid):
     show = "map" if view == "categories" and request.args.get("show") == "map" else "list"
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
+                   drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
                    move_targets=lambda c: move_targets(project, c, who, mains),
-                   map_svg=transcript_coding_review.map_svg(project, who, survey) if show == "map" else "",
+                   map_svg=transcript_coding_review.map_svg(project, who, survey, interactive=True) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
                    history=history(project), event_text=lambda e: event_text(e, names),
@@ -1187,6 +1238,24 @@ def move_category(code, pid, cid):
     else:
         db.session.commit()
         flash(de_en("„{name}“ umgehängt.", "“{name}” moved.", name=cat.name), "success")
+    if request.form.get("json"):
+        return jsonify(ok=not problem, error=str(problem or ""))
+    return redirect(_project_url(survey, project, f"k{cat.id}", view="categories"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/order", methods=["POST"])
+@signed_in_or_coder
+def order_category(code, pid, cid):
+    """Dragging between siblings (list and map): `before` the sibling to stand before, empty for the end."""
+    survey, project, who = _in(code, pid)
+    cat = _category(project, cid)
+    raw = str(request.form.get("before", ""))
+    problem = reorder(project, cat, who, int(raw) if raw.isdigit() else None)
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
     if request.form.get("json"):
         return jsonify(ok=not problem, error=str(problem or ""))
     return redirect(_project_url(survey, project, f"k{cat.id}", view="categories"))

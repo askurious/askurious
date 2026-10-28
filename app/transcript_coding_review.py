@@ -205,8 +205,14 @@ def _merged_ids(project, cat_id):
     return ids
 
 
-def merge(project, source, target, who, reason):
-    """Merge `source` into `target` at once; returns a problem or None."""
+UNIFY = ("name", "definition", "delimitation", "anchor", "former_names")
+
+
+def merge(project, source, target, who, reason, values=None):
+    """Merge `source` into `target` at once; returns a problem or None. `values` (the dialog "Zusammenführen und
+    vereinheitlichen", Ralf 2026-10-28): the name, definition and delimitation the merged category keeps, and which
+    anchor example ("target" or "source"); old names go into "früher auch". Everything before is kept in the history,
+    so that taking it back restores both exactly."""
     if not may_merge(project, source, target, who):
         return de_en("Diese beiden lassen sich so nicht zusammenführen.", "These two cannot be merged like this.")
     if target.removed_at is not None or target.merged_into is not None or source.merged_into is not None:
@@ -223,14 +229,36 @@ def merge(project, source, target, who, reason):
     for c in kids:  # what stood below it goes along under the target, on every level
         c.parent_id = target.id
         moved.append(c.id)
+    from app.transcript_coding import NAME_MAX, _clean, _key, _text
+
+    before = {k: (list(getattr(target, k)) if isinstance(getattr(target, k), list) else
+                  dict(getattr(target, k)) if isinstance(getattr(target, k), dict) else getattr(target, k)) for k in UNIFY}
+    values = values or {}
+    name = _clean(values.get("name"), NAME_MAX) or target.name
+    if _key(name) != _key(target.name):
+        siblings = [c for c in live(project) if c.id not in (source.id, target.id) and c.parent_id == target.parent_id
+                    and (c.kind == CodingCategory.SUB) == (target.kind == CodingCategory.SUB)]
+        if any(_key(c.name) == _key(name) for c in siblings):
+            return de_en("„{name}“ gibt es dort schon.", "“{name}” already exists there.", name=name)
     ids = _merged_ids(project, source.id)
     source.merged_into = target.id
-    target.former_names = list(dict.fromkeys((target.former_names or []) + [source.name] + list(source.former_names or [])))
-    if not target.anchor and source.anchor:
+    old_names = [target.name] if name != target.name else []
+    target.former_names = [n for n in dict.fromkeys((target.former_names or []) + old_names + [source.name]
+                                                     + list(source.former_names or [])) if n != name] or None
+    target.name = name
+    if "definition" in values:
+        target.definition = _text(values.get("definition"))
+    if "delimitation" in values:
+        target.delimitation = _text(values.get("delimitation"))
+    if values.get("anchor") == "source" and source.anchor:
+        target.anchor = source.anchor
+    elif not target.anchor and source.anchor:
         target.anchor = source.anchor
     target.updated_at = source.updated_at = utcnow()
+    unified = any(before[k] != getattr(target, k) for k in ("name", "definition", "delimitation"))
     _event(project, who, "merged", target, {"source": source.id, "source_name": source.name, "target": target.id,
-                                            "target_name": target.name, "moved": moved,
+                                            "target_name": before["name"], "moved": moved, "before": before,
+                                            "unified": unified, "after_name": target.name,
                                             "affected": affected(project, ids, but=who.key)}, reason=reason)
     return None
 
@@ -320,7 +348,11 @@ def undo_merge(project, event, who):
     if source is None or target is None or source.merged_into != target.id:
         return de_en("Das lässt sich nicht mehr zurücknehmen.", "This can no longer be taken back.")
     source.merged_into = None
-    target.former_names = [n for n in (target.former_names or []) if n != source.name] or None
+    if data.get("before"):  # merged and harmonised: the target exactly as it was
+        for k, v in data["before"].items():
+            setattr(target, k, v)
+    else:
+        target.former_names = [n for n in (target.former_names or []) if n != source.name] or None
     for cid in data.get("moved") or []:
         c = db.session.get(CodingCategory, cid)
         if c is not None and c.parent_id == target.id:
@@ -376,7 +408,7 @@ def record_check(project, who, row, coding_id, cat_id):
 # --- the map --------------------------------------------------------------------------------------------------------
 
 
-def map_svg(project, who, survey):
+def map_svg(project, who, survey, interactive=False):
     """The category system as a tree: the research question, then one column per level; every subcategory with a
     bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
     colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box."""
@@ -413,12 +445,25 @@ def map_svg(project, who, survey):
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
              f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Karte", "Category system as a map"))}">',
              '<rect width="100%" height="100%" fill="#ffffff"/>',
+             ('<g class="tc-map-root" data-tc-drop-main>' if interactive else "<g>"),
              f'<rect x="{x0}" y="{mid - 26}" width="250" height="52" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
              f'<text x="{x0 + 12}" y="{mid - 4}" font-weight="bold" fill="#1c1c1a">{escape(project.name)[:34]}</text>',
-             f'<text x="{x0 + 12}" y="{mid + 14}" fill="#5f5e59" font-size="11">{title[:42]}</text>']
+             f'<text x="{x0 + 12}" y="{mid + 14}" fill="#5f5e59" font-size="11">{title[:42]}</text>', "</g>"]
 
     def x_of(level):
         return x0 + 250 + 50 + (level - 1) * col
+
+    from flask import url_for
+
+    from app.transcript_coding import may_move
+
+    def node(cat):  # on the page: a node to drag where the person may move it (app/static/transcript_coding.js)
+        if not interactive:
+            return "<g>"
+        grab = (f' data-tc-grab="{cat.id}" data-tc-move-url="{escape(url_for("transcript_coding.move_category", code=survey.code, pid=project.id, cid=cat.id))}"'
+                if may_move(project, cat, who) else "")
+        return (f'<g class="tc-map-node" data-tc-cat="{cat.id}" data-tc-anc-of="{" ".join(str(a) for a in cat.anc)}"{grab}>'
+                f'<title>{escape(cat.path)}</title>')
 
     def link(xa, ya, xb, yb):
         parts.append(f'<path d="M{xa} {ya} C {xb - 25} {ya}, {xb - 25} {yb}, {xb} {yb}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
@@ -426,14 +471,19 @@ def map_svg(project, who, survey):
     for main, ss in mains:
         my, x1 = pos[main.id], x_of(1)
         link(x0 + 250, mid, x1, my)
+        parts.append(node(main))
         parts.append(f'<rect x="{x1}" y="{my - 15}" width="{box}" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
         parts.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name)[:30]}</text>')
         parts.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
+        parts.append("</g>")
         for s in ss:
             sy, xs = pos[s.id], x_of(s.level)
             above = pos.get(s.parent_id, my)
             link(x_of(s.level - 1) + box, above, xs, sy)
             colour = s.colour or main.colour or "#2957A4"
+            parts.append(node(s))
+            if interactive:  # a whole row to grab and to drop onto, not only the small dot
+                parts.append(f'<rect class="tc-hit" x="{xs - 4}" y="{sy - 14}" width="{box + 20}" height="28" rx="6" fill="#ffffff" fill-opacity="0.01" stroke="none"/>')
             parts.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
             parts.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name)[:22]}</text>')
             bar = int(60 * st[s.id]["n"] / biggest)
@@ -441,6 +491,7 @@ def map_svg(project, who, survey):
             if bar:
                 parts.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
             parts.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
+            parts.append("</g>")
     levels = {s.id: s.level for s in subs}
     for p in pairs:
         a, b = pos.get(p["a"].id), pos.get(p["b"].id)
@@ -635,7 +686,9 @@ def merge_categories(code, pid):
     target = db.session.get(CodingCategory, request.form.get("target", type=int) or 0)
     if source is None or target is None or source.removed_at or target.removed_at:
         abort(404)
-    problem = merge(project, source, target, who, request.form.get("reason"))
+    values = {k: request.form.get(k) for k in ("name", "definition", "delimitation", "anchor") if k in request.form}
+    names = (source.name, target.name)  # as they were, for the message
+    problem = merge(project, source, target, who, request.form.get("reason"), values)
     if problem:
         db.session.rollback()
         flash(problem, "error")
@@ -643,7 +696,8 @@ def merge_categories(code, pid):
         db.session.commit()
         flash(de_en("„{a}“ ist mit „{b}“ zusammengeführt. Wer Stellen darin hat, sieht das und kann seine herauslösen.",
                     "“{a}” is merged with “{b}”. Whoever has passages in it sees this and can take theirs out.",
-                    a=source.name, b=target.name), "success")
+                    a=names[0], b=names[1])
+              + (de_en(" Neuer Name: „{c}“.", " New name: “{c}”.", c=target.name) if target.name != names[1] else ""), "success")
     return redirect(request.form.get("back") if (request.form.get("back") or "").startswith("/") and not (request.form.get("back") or "").startswith("//")
                     else url_for("transcript_coding.overview", code=survey.code, pid=project.id))
 

@@ -70,15 +70,16 @@
       <a class="button button-small {{ '' if show == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='map') }}" {% if show == 'map' %}aria-current="page"{% endif %}>{{ de_en("Karte", "Map") }}</a>
     </div>
     {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Karte als SVG", "Map as SVG") }}</a>{% endif %}
-    {% if show == "list" %}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
+    {% if show == "list" %}
     <button type="button" class="button button-small" data-tc-new data-kind="{{ 'main' if may_main else 'candidate' }}">{{ icon("plus", 16) }} {{ de_en("Hauptkategorie", "Main category") if may_main else de_en("Kandidat vorschlagen", "Propose a candidate") }}</button>
     {% endif %}
   </div>
   {% if show == "map" %}
-  <div class="res-scroll tc-map">{{ map_svg|safe }}</div>
-  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}</p>
+  <div class="res-scroll tc-map" data-tc-csrf="{{ csrf_token() }}">{{ map_svg|safe }}</div>
+  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}
+    {{ de_en("Ziehen (am Finger kurz halten): auf eine Kategorie fragt nach „darunter hängen“ oder „zusammenführen“; an ihren oberen oder unteren Rand zwischen Kategorien derselben Ebene ändert die Reihenfolge; auf den Kasten links macht zur Hauptkategorie. Esc bricht ab; ohne Maus „Verschieben nach …“ in der Liste.", "Drag (with a finger, hold a moment): onto a category asks “put below” or “merge”; onto its upper or lower edge between categories of the same level changes the order; onto the box on the left makes a main category. Esc cancels; without a mouse “Move to …” in the list.") }}</p>
   {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
   <div class="tc-tree" data-tc-csrf="{{ csrf_token() }}">
@@ -271,6 +272,47 @@
     <button class="button" data-tc-submit>{{ de_en("Anlegen", "Create") }}</button></div>
 </form>
 {% endcall %}
+{% if drop_data %}
+<script type="application/json" id="tc-drop-data">{{ drop_data|tojson }}</script>
+{# after a drop of one category onto another (list and map): put it below, or merge and harmonise (Ralf 2026-10-28) #}
+<dialog class="person-dialog xp-dialog tc-drop-dialog" data-tc-drop-dialog aria-labelledby="tc-drop-title">
+  <div class="xp-dialog-head"><h2 id="tc-drop-title" data-tc-drop-title></h2>
+    <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <div class="tc-drop-compare">
+    {% for side, label in [("a", de_en("gezogen", "dragged")), ("b", de_en("Ziel", "target"))] %}
+    <div class="tc-drop-side" data-tc-drop-{{ side }}>
+      <p class="muted small">{{ label }}</p>
+      <p><strong data-f="name"></strong> <span class="muted small">(<span data-f="n"></span> {{ de_en("Stellen", "passages") }})</span></p>
+      <p class="small"><span class="muted">{{ de_en("Definition", "Definition") }}:</span> <span data-f="definition"></span></p>
+      <p class="small"><span class="muted">{{ de_en("Abgrenzung", "Delimitation") }}:</span> <span data-f="delimitation"></span></p>
+      <p class="small"><span class="muted">{{ de_en("Ankerbeispiel", "Anchor example") }}:</span> <span data-f="anchor"></span></p>
+    </div>
+    {% endfor %}
+  </div>
+  <form method="post" action="" class="row-fields" data-tc-drop-hang>
+    {{ csrf() }}<input type="hidden" name="parent" value="">
+    <div><button class="button"></button></div><span class="hint" data-why></span>
+  </form>
+  <form method="post" action="{{ url_for('transcript_coding.merge_categories', code=survey.code, pid=project.id) }}" class="stack tc-drop-merge" data-tc-drop-merge>
+    <h3 data-tc-drop-merge-title></h3>
+    {{ csrf() }}<input type="hidden" name="source"><input type="hidden" name="target"><input type="hidden" name="back">
+    <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="120" required></label>
+    <div><button type="button" class="button button-small button-secondary" data-take="name">{{ de_en("Name des Gezogenen übernehmen", "Take the dragged one's name") }}</button></div>
+    <label>{{ de_en("Definition", "Definition") }} <textarea name="definition" rows="3" maxlength="4000"></textarea></label>
+    <div><button type="button" class="button button-small button-secondary" data-take="definition">{{ de_en("Definition des Gezogenen übernehmen", "Take the dragged one's definition") }}</button></div>
+    <label>{{ de_en("Abgrenzung", "Delimitation") }} <textarea name="delimitation" rows="2" maxlength="4000"></textarea></label>
+    <div><button type="button" class="button button-small button-secondary" data-take="delimitation">{{ de_en("Abgrenzung des Gezogenen übernehmen", "Take the dragged one's delimitation") }}</button></div>
+    <fieldset class="stack"><legend>{{ de_en("Ankerbeispiel", "Anchor example") }}</legend>
+      <label class="check"><input type="radio" name="anchor" value="target" checked> {{ de_en("das des Ziels", "the target's") }}</label>
+      <label class="check"><input type="radio" name="anchor" value="source"> {{ de_en("das des Gezogenen", "the dragged one's") }}</label></fieldset>
+    <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000" required></label>
+    <p class="muted small">{{ de_en("Alte Namen stehen danach unter „früher auch“. Wer Stellen darin hat, wird gefragt; „Rückgängig“ im Verlauf stellt beide wieder her.", "Old names then show under “formerly also”. Whoever has passages in it is asked; “Undo” in the history restores both.") }}</p>
+    <div class="row-fields"><button class="button">{{ de_en("Zusammenführen", "Merge") }}</button><span class="hint" data-why></span></div>
+  </form>
+  <div><button type="button" class="button button-secondary" data-dialog-close data-keep>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+</dialog>
+<script src="{{ url_for('static', filename='transcript_coding_drop.js') }}" defer></script>
+{% endif %}
 <script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
 {% if who.kind == "link" %}<script src="{{ url_for('static', filename='coding_link.js') }}" defer></script>{% endif %}
 {% endblock %}

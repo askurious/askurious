@@ -66,7 +66,7 @@
     {% endif %}
   </section>
   <aside class="panel tc-side" aria-label="{{ de_en('Kategoriensystem', 'Category system') }}">
-    <h2>{{ de_en("Kategoriensystem", "Category system") }} <a class="small" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}">{{ de_en("Übersicht", "Overview") }}</a></h2>
+    <h2>{{ de_en("Kategoriensystem", "Category system") }} <a class="small" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='map') }}">{{ de_en("Karte", "Map") }}</a></h2>
     {{ notices_fold(survey, project, notices) }}
     <ul class="tc-side-list" data-tc-side></ul>
     <p class="muted small">{{ de_en("Die Zahlen zählen Stellen in allen Interviews, die Sie in dieser Auswertung sehen.", "The numbers count passages in all interviews you see in this analysis.") }}</p>

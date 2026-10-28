@@ -40,61 +40,160 @@
     submit.textContent = de_en("Anlegen", "Create");
   }
 
-  // the list of the category system: drag a category by its handle onto another (it then stands below it) or onto
-  // "als Hauptkategorie"; merging stays its own action. The server checks everything (app/transcript_coding.py, move)
-  var tree = document.querySelector("[data-tc-csrf]"), dropMain = document.querySelector("[data-tc-drop-main]");
-  var drag = null;
-  function dropAt(x, y, own) {
+  // the category system, list and map: drag a category (the handle ⋮⋮ in the list, the node on the map; with a finger
+  // on the map after holding it a moment, so that the map still scrolls). Onto a category: a dialog asks "unter B
+  // hängen" or "mit B zusammenführen und vereinheitlichen"; onto its upper or lower edge between siblings: reordered;
+  // onto "als Hauptkategorie" (the list's zone, the map's root): a main category. The server checks everything.
+  var area = document.querySelector("[data-tc-csrf]"), dropMain = document.querySelector("[data-tc-drop-main]");
+  var info = document.getElementById("tc-drop-data"), data = info ? JSON.parse(info.textContent) : null;
+  var dialogDrop = document.querySelector("[data-tc-drop-dialog]");
+  var drag = null, hold = null;
+  function catOf(id) { return data && data.cats[String(id)]; }
+  function edgeOf(target, y) {  // "before", "after" (between siblings) or "on"
+    var r = target.getBoundingClientRect(), edge = Math.min(10, r.height / 4);
+    return y < r.top + edge ? "before" : y > r.bottom - edge ? "after" : "on";
+  }
+  function dropAt(x, y) {
     var el = document.elementFromPoint(x, y);
     var target = el && el.closest("[data-tc-drop-main], [data-tc-cat]");
-    if (!target || target === own) return null;
-    if (target.hasAttribute("data-tc-cat") && (" " + target.getAttribute("data-tc-anc-of") + " ").indexOf(" " + drag.id + " ") >= 0) return null;
-    return target;  // not onto something below itself
+    if (!target || target === drag.card) return null;
+    if (target.hasAttribute("data-tc-drop-main")) return { el: target, how: "main" };
+    var a = catOf(drag.id), b = catOf(target.getAttribute("data-tc-cat"));
+    if (!a || !b) return null;
+    var how = edgeOf(target, y);
+    if (how !== "on" && !window.tcDrop.siblings(a, b)) how = "on";
+    if (how === "on" && (b.anc || []).indexOf(a.id) >= 0) return null;  // not onto something below itself
+    return { el: target, how: how };
+  }
+  function mark(over) {
+    if (drag.over && drag.over.el) drag.over.el.classList.remove("is-drop", "is-before", "is-after");
+    if (over) over.el.classList.add(over.how === "before" ? "is-before" : over.how === "after" ? "is-after" : "is-drop");
+    drag.over = over;
+  }
+  function start() {
+    drag.moved = true;
+    drag.card.classList.add("is-dragged");
+    document.body.classList.add("tc-dragging");
+    if (dropMain && dropMain.tagName !== "g") dropMain.hidden = false;
+    document.querySelectorAll("[data-tc-cat]").forEach(function (el) {  // where it cannot go: greyed
+      var c = catOf(el.getAttribute("data-tc-cat"));
+      if (c && el !== drag.card && (c.anc || []).indexOf(Number(drag.id)) >= 0) el.classList.add("is-off");
+    });
+  }
+  function post(url, fields) {
+    var body = new FormData();
+    body.append("csrf_token", area.getAttribute("data-tc-csrf"));
+    body.append("json", "1");
+    Object.keys(fields).forEach(function (k) { body.append(k, fields[k]); });
+    return fetch(url, { method: "POST", body: body, credentials: "same-origin" })
+      .then(function () { location.reload(); }, function () { location.reload(); });  // the page says what happened
   }
   document.addEventListener("pointerdown", function (e) {
     var handle = e.target.closest && e.target.closest("[data-tc-grab]");
-    if (!handle || !tree || e.button > 0) return;
-    e.preventDefault();
+    if (!handle || !area || e.button > 0) return;
     drag = { id: handle.getAttribute("data-tc-grab"), url: handle.getAttribute("data-tc-move-url"),
-             card: handle.closest("[data-tc-cat]"), x: e.clientX, y: e.clientY, moved: false, over: null };
-    handle.setPointerCapture(e.pointerId);
+             card: handle.closest("[data-tc-cat]"), x: e.clientX, y: e.clientY, moved: false, over: null, pointer: e.pointerId };
+    if (e.pointerType === "touch" && handle.tagName === "g") {  // the map: hold a moment, else it scrolls
+      hold = setTimeout(function () { if (drag && !drag.moved) { start(); if (navigator.vibrate) navigator.vibrate(10); } }, 400);
+      return;
+    }
+    e.preventDefault();
+    try { handle.setPointerCapture(e.pointerId); } catch (err) { /* an SVG element in an old browser */ }
   });
+  document.addEventListener("touchmove", function (e) { if (drag && drag.moved) e.preventDefault(); }, { passive: false });
   document.addEventListener("pointermove", function (e) {
     if (!drag) return;
-    if (!drag.moved && Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 6) return;
     if (!drag.moved) {
-      drag.moved = true;
-      drag.card.classList.add("is-dragged");
-      document.body.classList.add("tc-dragging");
-      if (dropMain) dropMain.hidden = false;
+      if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 6) return;
+      if (hold) { clearTimeout(hold); hold = null; drag = null; return; }  // a finger that scrolls the map
+      start();
     }
-    var over = dropAt(e.clientX, e.clientY, drag.card);
-    if (over !== drag.over) {
-      if (drag.over) drag.over.classList.remove("is-drop");
-      if (over) over.classList.add("is-drop");
-      drag.over = over;
-    }
+    var over = dropAt(e.clientX, e.clientY);
+    if (!over || !drag.over || over.el !== drag.over.el || over.how !== drag.over.how) mark(over);
   });
-  function endDrag(send) {
+  function end(send) {
+    if (hold) { clearTimeout(hold); hold = null; }
     if (!drag) return;
     var d = drag;
     drag = null;
     d.card.classList.remove("is-dragged");
     document.body.classList.remove("tc-dragging");
-    if (dropMain) dropMain.hidden = true;
-    if (d.over) d.over.classList.remove("is-drop");
-    if (!send || !d.moved || !d.over) return;
-    var body = new FormData();
-    body.append("csrf_token", tree.getAttribute("data-tc-csrf"));
-    body.append("parent", d.over.hasAttribute("data-tc-drop-main") ? "" : d.over.getAttribute("data-tc-cat"));
-    body.append("json", "1");
-    fetch(d.url, { method: "POST", body: body, credentials: "same-origin" })
-      .then(function () { location.reload(); })  // the page shows what happened (or why not)
-      .catch(function () { location.reload(); });
+    document.querySelectorAll(".is-off").forEach(function (el) { el.classList.remove("is-off"); });
+    if (dropMain && dropMain.tagName !== "g") dropMain.hidden = true;
+    var over = d.over;
+    if (over) over.el.classList.remove("is-drop", "is-before", "is-after");
+    if (!send || !d.moved || !over) return;
+    if (over.how === "main") { post(d.url, { parent: "" }); return; }
+    var b = over.el.getAttribute("data-tc-cat");
+    if (over.how === "before" || over.how === "after") {
+      var next = over.how === "before" ? b : nextSibling(d.id, b);
+      post(d.url.replace(/\/move$/, "/order"), { before: next || "" });
+      return;
+    }
+    openDrop(d.id, b, d.url);
   }
-  document.addEventListener("pointerup", function () { endDrag(true); });
-  document.addEventListener("pointercancel", function () { endDrag(false); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") endDrag(false); });
+  function nextSibling(id, b) {  // the sibling after b (not the dragged one), for "after b"
+    var a = catOf(id), list = Object.keys(data.cats).map(function (k) { return data.cats[k]; })
+      .filter(function (c) { return window.tcDrop.siblings(a, c) || c.id === a.id; });
+    var nodes = Array.prototype.map.call(document.querySelectorAll("[data-tc-cat]"), function (el) { return Number(el.getAttribute("data-tc-cat")); });
+    list.sort(function (x, y) { return nodes.indexOf(x.id) - nodes.indexOf(y.id); });
+    var rest = list.filter(function (c) { return c.id !== a.id; }).map(function (c) { return c.id; });
+    var at = rest.indexOf(Number(b));
+    return at >= 0 && at + 1 < rest.length ? rest[at + 1] : "";
+  }
+  document.addEventListener("pointerup", function () { end(true); });
+  document.addEventListener("pointercancel", function () { end(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") end(false); });
+
+  // the dialog after a drop onto a category: both side by side, "unter B hängen", or merge and harmonise
+  function openDrop(aid, bid, moveUrl) {
+    var a = catOf(aid), b = catOf(bid);
+    if (!dialogDrop || !a || !b) return;
+    var f = dialogDrop.querySelector("[data-tc-drop-merge]"), hangForm = dialogDrop.querySelector("[data-tc-drop-hang]");
+    dialogDrop.querySelector("[data-tc-drop-title]").textContent = de_en("„{a}“ auf „{b}“ abgelegt", "“{a}” dropped onto “{b}”").replace("{a}", a.name).replace("{b}", b.name);
+    [["a", a], ["b", b]].forEach(function (pair) {
+      var box = dialogDrop.querySelector("[data-tc-drop-" + pair[0] + "]");
+      box.querySelector("[data-f=name]").textContent = pair[1].name;
+      box.querySelector("[data-f=definition]").textContent = pair[1].definition || "–";
+      box.querySelector("[data-f=delimitation]").textContent = pair[1].delimitation || "–";
+      box.querySelector("[data-f=anchor]").textContent = pair[1].anchor ? "„" + pair[1].anchor + "“" : "–";
+      box.querySelector("[data-f=n]").textContent = pair[1].n;
+    });
+    var h = window.tcDrop.hang(data, a, b), m = window.tcDrop.merge(data, a, b);
+    hangForm.action = moveUrl || "";
+    hangForm.elements.parent.value = b.id;
+    hangForm.querySelector("button").textContent = de_en("Unter „{b}“ hängen", "Put under “{b}”").replace("{b}", b.name);
+    hangForm.querySelector("button").disabled = !h.ok || !moveUrl;
+    hangForm.querySelector("[data-why]").textContent = h.why;
+    f.elements.source.value = a.id;
+    f.elements.target.value = b.id;
+    f.elements.back.value = location.pathname + location.search;
+    f.elements.name.value = b.name;
+    f.elements.definition.value = b.definition || "";
+    f.elements.delimitation.value = b.delimitation || "";
+    f.querySelector("input[name=anchor][value=target]").checked = true;
+    f.querySelector("input[name=anchor][value=source]").disabled = !a.anchor;
+    f.querySelectorAll("[data-take]").forEach(function (btn) { btn.setAttribute("data-from", a.id); });
+    f.querySelector("[data-tc-drop-merge-title]").textContent = de_en("Mit „{b}“ zusammenführen und vereinheitlichen", "Merge with “{b}” and harmonise").replace("{b}", b.name);
+    f.querySelectorAll("input, textarea, button").forEach(function (el) { if (!el.hasAttribute("data-keep")) el.disabled = !m.ok; });
+    f.querySelector("[data-why]").textContent = m.why;
+    if (!a.anchor) f.querySelector("input[name=anchor][value=source]").disabled = true;
+    if (dialogDrop.showModal && !dialogDrop.open) dialogDrop.showModal();
+  }
+  if (dialogDrop) {
+    dialogDrop.addEventListener("click", function (e) {  // "von A übernehmen": the field as A has it
+      var btn = e.target.closest("[data-take]");
+      if (!btn) return;
+      var a = catOf(btn.getAttribute("data-from")), field = btn.getAttribute("data-take");
+      dialogDrop.querySelector("[data-tc-drop-merge]").elements[field].value = a[field] || "";
+    });
+    var wanted = /[?&]merge=(\d+),(\d+)/.exec(location.search);  // from "Zusammenführen" under „Unscharf“
+    if (wanted && data) {
+      var a0 = catOf(wanted[1]);
+      openDrop(wanted[1], wanted[2], a0 && document.querySelector('[data-tc-grab="' + wanted[1] + '"]')
+        ? document.querySelector('[data-tc-grab="' + wanted[1] + '"]').getAttribute("data-tc-move-url") : "");
+    }
+  }
 
   // the list of the category system: fold what stands below a category (data-tc-anc names the ids above each one)
   document.addEventListener("click", function (e) {
