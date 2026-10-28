@@ -26,13 +26,6 @@ The DDI Lifecycle 4.0 file also carries the hints for the interviewers of an int
 
 How to read the figure: every box is an item of the file, its blue tag gives its name in DDI. A solid arrow shows what an item contains or where it leads within one area. A dashed arrow is a reference across areas (by URN). All items stand side by side in one flat ItemContainer, and the study is its entry point (TopLevelReference).
 
-Differences from figure 1 of the GESIS guide (DDI Lifecycle profile of the DDILimDAS project, DDI 3.2):
-
-- There is no wrapper of DDIInstance, Group and ResourcePackage. DDI 4.0 only has the flat ItemContainer.
-- A series is no item of its own: panel waves are a SeriesStatement of the study.
-- Geography is part of the study's coverage (country, region), not a geography scheme of its own.
-- Askurious writes no RepresentedVariable, ManagedRepresentation or RecordLayout. The variable carries its representation itself, and the file data.csv is described by its name and languages.
-
 CESSDA does not accept studies itself; its catalogue collects the descriptions of the archives that belong to CESSDA. You can additionally check yourself whether a file meets the profiles in the CESSDA Metadata Validator (upload the DDI Codebook 2.5 file, choose the CDC or EQB profile).
 
 ## 3. Where the details come from

@@ -26,13 +26,6 @@ Die Datei DDI Lifecycle 4.0 führt außerdem die Hinweise für Interviewende ein
 
 So lesen Sie die Abbildung: Jeder Kasten ist ein Eintrag der Datei, das blaue Schild nennt seinen Namen in DDI. Ein durchgezogener Pfeil zeigt, was ein Eintrag enthält oder wohin er innerhalb eines Bereichs führt. Ein gestrichelter Pfeil ist ein Verweis über die Bereiche hinweg (per URN). Alle Einträge stehen flach nebeneinander in einem ItemContainer, die Studie ist sein Einstieg (TopLevelReference).
 
-Unterschiede zur Abbildung 1 des GESIS-Leitfadens (DDI-Lifecycle-Profil des DDILimDAS-Projekts, DDI 3.2):
-
-- Es gibt keine Hülle aus DDIInstance, Group und ResourcePackage. DDI 4.0 kennt nur den flachen ItemContainer.
-- Eine Reihe (Series) ist kein eigener Eintrag: Panelwellen stehen als SeriesStatement in der Studie.
-- Die Geografie steht in der Abdeckung der Studie (Land, Region), nicht in einem eigenen Geografie-Schema.
-- RepresentedVariable, ManagedRepresentation und RecordLayout schreibt Askurious nicht. Die Variable trägt ihre Darstellung selbst, die Datei data.csv ist mit Namen und Sprachen beschrieben.
-
 CESSDA nimmt selbst keine Studien an; der Katalog sammelt die Beschreibungen der Archive, die zu CESSDA gehören. Ob eine Datei die Profile erfüllt, können Sie zusätzlich selbst im CESSDA Metadata Validator prüfen (die Datei DDI Codebook 2.5 hochladen, Profil CDC oder EQB wählen).
 
 ## 3. Woher die Angaben kommen
