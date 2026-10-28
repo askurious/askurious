@@ -9,6 +9,7 @@ into (table, privilege) pairs the way PostgreSQL checks them:
 - every other table named after FROM or JOIN needs SELECT;
 - SELECT ... FOR UPDATE / FOR SHARE needs UPDATE on the locked table;
 - INSERT ... ON CONFLICT DO UPDATE needs UPDATE;
+- an UPDATE of a table granted for some columns only ("UPDATE (a, b)") may set those columns only;
 - the cache triggers of app/data_revision.py run with the caller's rights: a write to response writes
   response_revision, a write to block or item updates survey.
 
@@ -77,6 +78,12 @@ def pairs(statement, compiled=None):
         if allowed_columns is not None:
             for column in re.findall(r'(?<![A-Za-z0-9_])"?' + table + r'"?\."?([A-Za-z_][A-Za-z0-9_]*)', text):
                 found.add((table, "SELECT:" + column))
+    # tables whose UPDATE is granted for some columns only: every column the UPDATE sets must be one of them
+    if target is not None and (target, "UPDATE") in found and _UPDATE.match(text):
+        allowed_columns = columns(target, "UPDATE")
+        if allowed_columns is not None:
+            for column in _set_columns(text):
+                found.add((target, "UPDATE:" + column))
     lock = getattr(getattr(compiled, "statement", None), "_for_update_arg", None)
     if lock is not None:
         stmt = compiled.statement
@@ -84,6 +91,12 @@ def pairs(statement, compiled=None):
         locked = {t.name for t in froms if getattr(t, "name", None) in known}
         found |= {(name, "UPDATE") for name in locked}
     return found
+
+
+def _set_columns(text):
+    """The columns an UPDATE statement sets (the names before "=" in its SET list)."""
+    m = re.search(r"\bSET\s+(.*?)(?:\bWHERE\b|\bRETURNING\b|\bFROM\b|$)", text, re.I | re.S)
+    return set(re.findall(r'(?:^|,)\s*"?([A-Za-z_][A-Za-z0-9_]*)"?\s*=', m.group(1))) if m else set()
 
 
 def _side():
@@ -146,6 +159,8 @@ def violations(seen):
     def ok(table, privilege):
         if privilege.startswith("SELECT:"):
             return privilege[len("SELECT:"):] in (columns(table) or ())
+        if privilege.startswith("UPDATE:"):
+            return privilege[len("UPDATE:"):] in (columns(table, "UPDATE") or ())
         return privilege in allowed(table)
 
     return {pair: sorted(where) for pair, where in seen.items() if not ok(*pair)}

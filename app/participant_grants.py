@@ -16,7 +16,8 @@ tests/platform/test_participant_grants.py refuses a table (model or migration) t
 NOT_GRANTED. Run `PARTICIPANT_SQL_RECORD=<file> pytest tests/<folder>` to measure anew.
 
 Every write includes SELECT: PostgreSQL needs it for WHERE and RETURNING. SELECT ... FOR UPDATE needs UPDATE.
-"SELECT (a, b)" grants those columns only: a query that names another column of the table is refused.
+"SELECT (a, b)" grants those columns only: a query that names another column of the table is refused; "UPDATE (a, b)"
+likewise lets an UPDATE set those columns only.
 """
 
 R = ("SELECT",)
@@ -70,7 +71,12 @@ GRANTS = {
     "quota_share": (R, "the quota links (/q/...)"),
     "board": (R, "the dashboards the public links show"),
     "board_share": (("SELECT", "UPDATE"), "the dashboard links (/d/...): last use"),
-    "seal_entry": (("SELECT", "INSERT"), "the seal chain gets the hash of each ended case and deletion"),
+    # column rights: a deletion on the participants' side (deletion code, the diary app, a word taken back in a
+    # live word cloud) empties salt and participation id of that case's entries (seal._forget); neither goes into
+    # the hash, so the chain itself stays unchangeable for the participants' side. Without them the deletion was
+    # refused and rolled back, and the answers stayed (2026-10-28)
+    "seal_entry": (("SELECT", "INSERT", "UPDATE (salt, response_id)"), "the seal chain gets the hash of each ended "
+                   "case and deletion; a deletion empties salt and participation id of that case's entries"),
     # a new survey starts with the chain on but without an entry (SEAL_DEFAULT): its first ended case begins the chain
     # and names the survey here (seal._remember). Closed, every first answer of a new live vote and the first finished
     # participation of a new survey ended in a server error (live quiz, 2026-10-23)
@@ -166,11 +172,12 @@ NOT_GRANTED = {
 }
 
 
-def columns(table):
-    """The columns of a SELECT granted for some columns only ("SELECT (a, b)"), else None (all of them)."""
+def columns(table, verb="SELECT"):
+    """The columns of a privilege granted for some columns only ("SELECT (a, b)", "UPDATE (a)"), else None (all of
+    them, or the privilege is not granted at all: allowed() decides that)."""
     for privilege in GRANTS.get(table, ((), ""))[0]:
-        if privilege.startswith("SELECT ("):
-            return {c.strip() for c in privilege[len("SELECT ("):-1].split(",")}
+        if privilege.startswith(verb + " ("):
+            return {c.strip() for c in privilege[len(verb) + 2:-1].split(",")}
     return None
 
 
