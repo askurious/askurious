@@ -74,7 +74,7 @@ def visible(project, who, row, items):
 def assignable(project, survey):
     """[(key, name)] of the people who can be assigned: the team (Bearbeiten, Admin), members as persons and through
     their groups, coding links, interviewers with the tick."""
-    from app.models import CodingLink, InterviewerAccess, User, WorkGroupMember
+    from app.models import InterviewerAccess, User, WorkGroupMember
 
     out = {}
     for m in survey.members:
@@ -99,8 +99,6 @@ def assignable(project, survey):
         for access in interviewer.accesses(survey):
             if transcript_coding.may_code(access):
                 out.setdefault(f"i:{access.id}", access.name)
-    for link in db.session.scalars(db.select(CodingLink).filter_by(project_id=project.id)):
-        out.setdefault(f"l:{link.id}", link.name)
     return sorted(out.items(), key=lambda kv: kv[1].casefold())
 
 

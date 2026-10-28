@@ -33,6 +33,9 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIRECTORY = os.path.join(HERE, "migrations")
 # kept out of the comparison: not in the models (see the module text)
 OUTSIDE = ("construct_fts", "alembic_version")
+# tables the models no longer map and a later migration drops (DROPS_UNUSED_SINCE): kept out of the comparison until
+# then; the drop migration takes its name out again (coding_link: 0105 stopped mapping it, 0106 drops it)
+DROPPED_SOON = ("coding_link",)
 LOCK_KEY = 4713  # pg_advisory_lock of the migrations (START_UP_LOCK + 1)
 
 _head = []
@@ -46,7 +49,7 @@ class SchemaMismatch(RuntimeError):
 def include_object(obj, name, type_, reflected, compare_to):
     """Alembic's filter: the full-text table of the constructs (and the tables SQLite makes for it), and indexes
     no model declares (the expression index of linked elements), stay out of comparison and autogenerate."""
-    if type_ == "table" and name and (name in OUTSIDE or name.startswith("construct_fts")):
+    if type_ == "table" and name and (name in OUTSIDE or name in DROPPED_SOON or name.startswith("construct_fts")):
         return False
     if type_ == "index" and reflected and compare_to is None:
         return False  # an index only the database has (linked.ensure_index): not the models' business
