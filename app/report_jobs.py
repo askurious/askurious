@@ -146,6 +146,9 @@ def _claim(path):
 
             file.seek(0)
             msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, 1)
+            from app.storage_room import _unlock
+
+            stack.callback(_unlock, file)  # runs before the file is closed (the stack unwinds in reverse)
         else:
             import fcntl
 
