@@ -17,8 +17,8 @@ Who (E2), the actor of a request (`actor`):
   default): its holder sees only the own interviews, also after "Transkript geprüft". The interviewer link itself, its
   sessions, revisions, devices and its access to interviews stay exactly as they are: the tick is a row of this
   module, read only here;
-- a coding link without an account (CodingLink, app/transcript_coding_links.py): a name, an expiry date of at most 90
-  days, at most 3 devices; it sees the interviews of its analysis.
+- (a person without an account codes by an interviewer link with the right "darf kodieren" and without "darf
+  Interviews führen"; the coding links of 2026-10-27 are gone, app/transcript_coding_links.py.)
 
 Which interviews (E3): "alle sehen alle Interviews" (the default) or "jede Gruppe ihre eigenen": then a person sees the
 interviews they conducted, a group those of its members, and a member or coding link also those of the interviewer
@@ -43,8 +43,7 @@ from flask_login import current_user
 from app import autosave
 from app.extensions import db
 from app.lang import de_en
-from app.models import (CodingCategory, CodingEvent, CodingLink, CodingMember, CodingProject, InterviewerAccess, Survey,
-                        utcnow)
+from app.models import CodingCategory, CodingEvent, CodingMember, CodingProject, InterviewerAccess, Survey, utcnow
 
 bp = Blueprint("transcript_coding", __name__, url_prefix="/guide")
 
@@ -65,13 +64,13 @@ UNDO_KINDS = ("created", "changed", "removed", "promoted", "moved", "ordered")
 @dataclass
 class Actor:
     """Who works in an analysis in this request. kind: "team", "member", "link" or "interviewer"; key: what their
-    entries are marked with ("u:<user id>", "l:<coding link id>", "i:<interviewer link id>")."""
+    entries are marked with ("u:<user id>", "i:<interviewer link id>"; "l:<id>" on entries of the
+    coding links of 2026-10-27)."""
 
     kind: str
     key: str
     name: str
     user_id: int | None = None
-    link: CodingLink | None = None
     access: object | None = None  # the InterviewerAccess of an interviewer
     members: list = field(default_factory=list)  # the CodingMember rows that let a member in
 
@@ -111,10 +110,10 @@ def interviewer_member(project, access):
 
 def actor(survey, project):
     """The actor of this request in `project`, or None. A signed-in person with "Bearbeiten" on the guide is the team,
-    else a member if a row lets them in; then a coding link held in this browser; then an interviewer link with the
+    else a member if a row lets them in; then an interviewer link with the
     right "darf kodieren" the team assigned to this analysis. Nobody but the team works in an analysis of an
     archived guide."""
-    from app import experimental, interviewer, transcript_coding_links
+    from app import experimental, interviewer
 
     if current_user.is_authenticated:
         if team(survey):
@@ -122,28 +121,23 @@ def actor(survey, project):
         rows = memberships(project, current_user)
         if rows and not survey.archived and experimental.enabled(FEATURE, survey=survey):
             return _user_actor("member", current_user, rows)
-    link = transcript_coding_links.current(survey, project)
-    if link is not None:
-        return Actor("link", f"l:{link.id}", link.name, link=link)
     if interviewer.any_session() and not survey.archived:
         access = interviewer.current(survey)
         if access is not None and interviewer_codes_in(project, access):
             row = interviewer_member(project, access)
-            # a coding link of before (app/transcript_coding_links.py, convert): its own codings carry "l:<id>"
-            key = row.role if row is not None and str(row.role or "").startswith("l:") else f"i:{access.id}"
-            return Actor("interviewer", key, access.name, access=access, members=[row] if row else [])
+            return Actor("interviewer", f"i:{access.id}", access.name, access=access, members=[row] if row else [])
     return None
 
 
 def signed_in_or_coder(view):
-    """Instead of login_required: lets through a signed-in person, a browser holding a coding link and one holding an
-    interviewer link; `actor` decides about the analysis itself (404 for everyone else)."""
+    """Instead of login_required: lets through a signed-in person and a browser holding an interviewer link; `actor`
+    decides about the analysis itself (404 for everyone else)."""
 
     @wraps(view)
     def wrapper(*args, **kwargs):
-        from app import interviewer, transcript_coding_links
+        from app import interviewer
 
-        if current_user.is_authenticated or transcript_coding_links.any_session() or interviewer.any_session():
+        if current_user.is_authenticated or interviewer.any_session():
             return view(*args, **kwargs)
         return current_app.login_manager.unauthorized()
 
@@ -345,8 +339,8 @@ def _copy(cat, project, parent_id):
 
 
 def delete_project(project):
-    """An analysis with its categories, history, members and coding links (its codings in the interviews: stage 2)."""
-    for model in (CodingCategory, CodingEvent, CodingMember, CodingLink):
+    """An analysis with its categories, history and members (its codings in the interviews: stage 2)."""
+    for model in (CodingCategory, CodingEvent, CodingMember):
         db.session.execute(db.delete(model).where(model.project_id == project.id))
     db.session.delete(project)
 
@@ -355,7 +349,7 @@ def forget_survey(survey_id):
     """Everything of the analyses of a guide that goes (lifecycle.delete)."""
     ids = list(db.session.scalars(db.select(CodingProject.id).filter_by(survey_id=survey_id)))
     if ids:
-        for model in (CodingCategory, CodingEvent, CodingMember, CodingLink):
+        for model in (CodingCategory, CodingEvent, CodingMember):
             db.session.execute(db.delete(model).where(model.project_id.in_(ids)))
         db.session.execute(db.delete(CodingProject).where(CodingProject.id.in_(ids)))
 
@@ -1023,7 +1017,7 @@ def index(code):
     survey = _team_survey(code)
     rows = projects(survey)
     counts = {p.id: (len([c for c in live(p) if c.kind == CodingCategory.MAIN]), len([c for c in live(p) if c.kind == CodingCategory.SUB]),
-                     len(members(p)) + len(db.session.scalars(db.select(CodingLink.id).filter_by(project_id=p.id)).all()))
+                     len(members(p)))
               for p in rows}
     from app import interview
 
@@ -1061,7 +1055,7 @@ def new(code):
 @signed_in_or_coder
 def project(code, pid):
     survey, project, who = _in(code, pid)
-    from app import interviewer, transcript_coding_double, transcript_coding_links, transcript_coding_review
+    from app import interviewer, transcript_coding_double, transcript_coding_review
 
     view = request.args.get("view") if request.args.get("view") in VIEWS else "interviews"
     if view == "settings" and not who.team:
@@ -1099,9 +1093,6 @@ def project(code, pid):
                        coders=[a for a in accesses if may_code(a)], coder_mode=coder_mode(project),
                        ticked={m.access_id for m in members(project) if m.kind == CodingMember.INTERVIEWER},
                        groups=groups_of(current_user, within=survey), people=_people(survey, project),
-                       links=transcript_coding_links.links(project), link_state=transcript_coding_links.state,
-                       new_link=transcript_coding_links.show_once(survey, project),
-                       link_days=transcript_coding_links.MAX_DAYS, link_devices=transcript_coding_links.MAX_DEVICES,
                        access_names={a.id: a.name for a in accesses},
                        others=[p for p in projects(survey) if p.id != project.id])
     return render_template("transcript_coding/project.html", **context)

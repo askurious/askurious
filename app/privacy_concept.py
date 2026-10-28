@@ -293,12 +293,11 @@ def roles():
         {"who": de_en("Kodierende (Rolle „Kodieren“, experimentell)", "Coders (role “Code”, experimental)"),
          "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet: als Person "
                       "oder Gruppe mit Konto, als Interviewende mit Interviewlink, dessen Recht „darf kodieren“ (eigene "
-                      "oder alle Interviews; aus, bis es gesetzt wird) und Zuweisung zur Auswertung oder ohne Konto über einen Kodierlink (nur noch die bis 28.10.2026 angelegten, die beim ersten Öffnen zu einem Interviewlink mit „darf kodieren“ und ohne „darf Interviews führen“ werden; neue Personen ohne Konto sind gleich solche Interviewlinks): nur als Hash gespeichert, "
-                      "Ablaufdatum Pflicht (höchstens 90 Tage), höchstens drei Geräte, sperrbar",
+                      "oder alle Interviews; aus, bis es gesetzt wird) und Zuweisung zur Auswertung (ohne Konto: ein solcher Interviewlink ohne „darf Interviews führen“)",
                       "assigned to an analysis of the guide by members with Edit or Manage: as a person or group with an "
                       "account, as interviewers with an interviewer link with the right “may code” (own or all interviews; "
-                      "off until set) and assigned to the analysis, or without an account through a coding link (only those made until 28 Oct 2026, which become, when first opened, an interviewer link with “may code” and without “may conduct interviews”; new people without an account are such interviewer links at once): stored as a hash only, expiry date required (at "
-                      "most 90 days), at most three devices, can be blocked"),
+                      "off until set) and assigned to the analysis (without an account: such an interviewer link without “may "
+                      "conduct interviews”)"),
          "sees": de_en("Die Transkripte der Interviews dieser einen Auswertung (je nach Einstellung alle oder nur die eigenen; "
                        "Interviewende ihre eigenen oder, mit dem Recht „alle“, alle der Auswertung, fremde nur zum Kodieren) und ihr "
                        "Kategoriensystem; ergänzen Kategorien und schlagen Änderungen "
@@ -679,14 +678,12 @@ def _activities():
                           "Lehrende geben Hauptkategorien vor, Studierende ergänzen Unterkategorien.",
                           "Assigning passages of the transcripts to categories together, e.g. in a course: teachers set "
                           "main categories, students add subcategories."),
-         "subjects": de_en("Kodierende (Forschende, Mitglieder, Interviewende, Personen mit Kodierlink); mittelbar die "
-                           "interviewten Personen", "Coders (researchers, members, interviewers, people with a coding link); "
+         "subjects": de_en("Kodierende (Forschende, Mitglieder, Interviewende); mittelbar die "
+                           "interviewten Personen", "Coders (researchers, members, interviewers); "
                            "indirectly the interviewees"),
          "data": de_en("Je Auswertung Name und Forschungsfrage; Kategorien mit Name, Definition, Abgrenzung, Autor (Name, "
                        "Konto- oder Linknummer) und Zeit; Verlauf jeder Änderung und jedes Vorschlags mit Namen und Zeit; "
-                       "Mitglieder (Konto, Gruppe oder Interviewlink); Kodierlinks: Name oder Kürzel, Hash des Links, Art "
-                       "der Geräte, Zeit der ersten und letzten Nutzung, bestätigte Fassung der Hinweise; Sitzungs-Cookie "
-                       "mit Link, Gerät und letzter Anfrage. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
+                       "Mitglieder (Konto, Gruppe oder Interviewlink), je Interviewlink sein Recht zu kodieren. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
                        "Position und Wortlaut der Stelle, Name, Zeit), die Antworten der gegenseitigen Probe (geprüfte "
                        "Stelle, gewählte Kategorie, Name, Zeit), KI-Vorschläge (Stelle, Kategorie, kurze Begründung, wer "
                        "gefragt und wer übernommen oder verworfen hat; nur wo die Auswertung sie erlaubt, nur über den "
@@ -697,9 +694,7 @@ def _activities():
                        "gehören zu „Interviews“.",
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
                        "(name, account or link number) and time; history of every change and proposal with names and time; "
-                       "members (account, group or interviewer link); coding links: name or initials, hash of the link, "
-                       "kind of devices, time of first and last use, confirmed version of the notes; session cookie with "
-                       "link, device and last request. In the interview the coded passages (analysis, category, position "
+                       "members (account, group or interviewer link), per interviewer link its right to code. In the interview the coded passages (analysis, category, position "
                        "and wording of the passage, name, time), the answers of the mutual check (passage checked, category "
                        "chosen, name, time), AI suggestions (passage, category, short reason, who asked and who "
                        "accepted or discarded; only where the analysis allows them, only over the own AI access of the "
@@ -716,12 +711,10 @@ def _activities():
          "deletion": de_en("Kodierte Stellen, Proben und Ankerbeispiele mit dem Interview (Löschantrag, Frist, Leitfaden); "
                            "die übrigen Angaben mit dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Konto verliert seine "
                            "Mitgliedschaften und seine Kontonummer an den Einträgen, die Namen bleiben als Angabe, wer sie "
-                           "gemacht hat. Kodierlinks enden mit ihrem Ablaufdatum (höchstens 90 Tage), Sitzungen nach 60 "
-                           "Minuten ohne Aktivität.",
+                           "gemacht hat.",
                            "Coded passages, checks and anchor examples with the interview (deletion request, period, guide); everything "
                            "else with the deletion of the analysis or the guide; a deleted account loses its memberships and its "
-                           "account number on the entries, the names stay as who made them. Coding links end with their "
-                           "expiry date (at most 90 days), sessions after 60 minutes without activity."),
+                           "account number on the entries, the names stay as who made them."),
          "controller": researchers,
          "basis": de_en("Durchführung des Forschungsvorhabens oder der Lehrveranstaltung im Auftrag der Forschenden (Art. 6 "
                         "Abs. 1 lit. b oder e DSGVO, je nach Verhältnis zur Einrichtung); die Forschenden sorgen dafür, dass "
@@ -1328,20 +1321,17 @@ def measures():
                    "Interviewer links stored as hashes only, key after “#” (not in logs); per access only own interviews "
                    "until handed over, otherwise 404; limited in time and devices, blocking, a new link and signing out "
                    "devices end every session at once; no researcher interface without an account"), "app/interviewer.py"),
-            (de_en("Interviews kodieren: Kodierlinks nur als Hash gespeichert, Schlüssel nach „#“ (nicht in Protokollen), "
-                   "Ablaufdatum Pflicht und höchstens 90 Tage, höchstens drei Geräte, Sperren, neuer Link und Geräte "
-                   "abmelden beenden alle Sitzungen sofort; ein Link öffnet nur seine eine Auswertung, sonst 404; "
-                   "Interviewende kodieren nur mit dem Recht am Link (aus, bis es gesetzt wird) und Zuweisung je Auswertung, "
+            (de_en("Interviews kodieren: Personen ohne Konto kodieren nur über einen Interviewlink (dessen Schutz "
+                   "oben); Interviewende kodieren nur mit dem Recht am Link (aus, bis es gesetzt wird) und Zuweisung je Auswertung, "
                    "eigene oder alle Interviews (fremde nur lesend zum Kodieren); der Server prüft Rechte bei jedem "
                    "Aufruf, ihr Interviewlink selbst bleibt unverändert; Kodierende ändern den Leitfaden nicht und "
                    "sehen keine Aufnahmen und Exporte; jede Änderung im Verlauf mit Namen",
-                   "Coding interviews: coding links stored as hashes only, key after “#” (not in logs), expiry date "
-                   "required and at most 90 days, at most three devices, blocking, a new link and signing out devices end "
-                   "every session at once; a link opens only its one analysis, otherwise 404; interviewers code only after "
+                   "Coding interviews: people without an account code only through an interviewer link (protected as "
+                   "above); interviewers code only after "
                    "the right at the link (off until set) and an assignment per analysis, own or all interviews (those of "
                    "others read only, for coding); the server checks rights with every request, their interviewer link "
                    "itself stays unchanged; coders do not change the guide and see no recordings or exports; every change "
-                   "in the history with a name"), "app/transcript_coding.py, app/transcript_coding_links.py"),
+                   "in the history with a name"), "app/transcript_coding.py"),
             (de_en("Teilnehmerbildschirm im Interview: Link je Interview mit 256 zufälligen Bits, nur als Hash gespeichert, "
                    "Schlüssel nach „#“ (nicht in Protokollen); ein einziges Gerät, an Sitzung und zufällige Gerätekennung "
                    "gebunden; ungeöffnet 30 Minuten, verbunden höchstens 6 Stunden, endet mit dem Interview, beim Trennen "
@@ -1770,9 +1760,9 @@ def risks():
                "Interviews liegen bis zu sieben Tage auf mobilen Geräten; Maßnahmen: Verschlüsselung mit einer "
                "Geräte-PIN, Frist, Löschen nach der Übertragung, Zurückziehen eines Feldpakets bei Verlust; die "
                "Forschenden beziehen das in ihre Prüfung (ggf. DSFA) ein und verlangen eine Gerätesperre. Mit "
-               "„Interviews kodieren“: Mitglieder und Kodierlinks lesen die Transkripte einer Auswertung; die Forschenden "
+               "„Interviews kodieren“: Mitglieder und Interviewlinks mit Kodierrecht lesen die Transkripte einer Auswertung; die Forschenden "
                "fügen die Kodierenden hinzu, verpflichten sie auf Verschwiegenheit, wählen „jede Gruppe ihre eigenen“, "
-               "wo nicht alle alles sehen sollen, und sperren Kodierlinks bei Verlust oder Ende der Lehrveranstaltung.",
+               "wo nicht alle alles sehen sollen, und sperren Interviewlinks bei Verlust oder Ende der Lehrveranstaltung.",
                "The researchers check per project. With interviewer links also: the link alone gives access to a "
                "person's interviews not yet handed over; the researchers give it only to that person, oblige them to "
                "confidentiality and block it on loss or when the work ends. With the participant screen: "
@@ -1781,9 +1771,9 @@ def risks():
                "interviews stay on mobile devices for up to seven days; measures: encryption with a device PIN, the "
                "period, deletion after the transfer, withdrawing a field pack on loss; the researchers include this in "
                "their check (an impact assessment if needed) and require a device lock. With “Coding interviews”: "
-               "members and coding links read the transcripts of one analysis; the researchers add the coders, oblige "
+               "members and interviewer links with the right to code read the transcripts of one analysis; the researchers add the coders, oblige "
                "them to confidentiality, choose “each group its own” where not everyone should see everything, and block "
-               "coding links on loss or at the end of the course.")),
+               "interviewer links on loss or at the end of the course.")),
         (de_en("Live-Sitzungen, Kommentare, Rückmeldungen, Protokoll, Betrieb",
                "Live sessions, comments, feedback, log, operation"), de_en("keines", "none"),
          de_en("Keine DSFA nötig.", "No impact assessment needed.")),

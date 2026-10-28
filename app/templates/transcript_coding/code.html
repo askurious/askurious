@@ -98,5 +98,4 @@
 
 <script type="application/json" id="tc-data">{{ {"text": text, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable, "suggestions": suggestions}|tojson }}</script>
 <script src="{{ url_for('static', filename='transcript_coding_code.js') }}" defer></script>
-{% if who.kind == "link" %}<script src="{{ url_for('static', filename='coding_link.js') }}" defer></script>{% endif %}
 {% endblock %}

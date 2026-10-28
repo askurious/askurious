@@ -227,10 +227,10 @@ def groups():
                    "market simulator"), None),
             (de_en("Offene Antworten kategorisieren (nach Mayring), mit KI-Vorschlägen",
                    "Categorise open answers (after Mayring), with AI suggestions"), "coding"),
-            (de_en("Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen, mit Kodierlinks ohne "
-                   "Konto, Zusammenführen, gegenseitiger Probe, Kodierleitfaden und Export für QDA-Programme",
-                   "Code interviews: assign passages of transcripts to categories together, with coding links without "
-                   "an account, merging, a mutual check, a coding guide and an export for QDA software"), "transcript_coding"),
+            (de_en("Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen, auch über Interviewlinks "
+                   "ohne Konto, Zusammenführen, gegenseitiger Probe, Kodierleitfaden und Export für QDA-Programme",
+                   "Code interviews: assign passages of transcripts to categories together, also through interviewer "
+                   "links without an account, merging, a mutual check, a coding guide and an export for QDA software"), "transcript_coding"),
             (de_en("Methodenteil auf Deutsch oder Englisch aus den Zahlen der Befragung, mit oder ohne KI",
                    "Methods section in German or English from the survey's own figures, with or without AI"), None),
             (de_en("Dashboards mit Feld- oder Ergebnisbericht, öffentlichen Links, Live-Aktualisierung und Einbetten; "

@@ -4,7 +4,7 @@ members, the tick for interviewer links and coding links. Above all: the intervi
 exactly as before, with the feature on or off, ticked or not."""
 import re
 from app.extensions import db
-from app.models import (CodingCategory, CodingEvent, CodingLink, CodingMember, CodingProject, InterviewerAccess, Response,
+from app.models import (CodingCategory, CodingEvent, CodingMember, CodingProject, InterviewerAccess, Response,
                         Survey, User, utcnow)
 from tests.conftest import experiments_on
 from tests.interview.test_interview import make
@@ -231,45 +231,15 @@ def test_box_all_over_the_interviewer_ticks(app, client):
         assert len(db.session.scalars(db.select(CodingMember).filter_by(project_id=pid, kind=CodingMember.INTERVIEWER)).all()) == 2
 
 
-def test_coding_link(app, client):
+def test_the_address_of_a_coding_link_of_before(app, client):
+    """The coding links of 2026-10-27 are gone (Ralf 2026-10-28): their address says so kindly, never an error."""
     code, sid = _guide(app, client)
+    for c in (app.test_client(), client):
+        page = c.get(f"/guide/{code}/coding-link")
+        assert page.status_code == 410 and "Dieser Link gilt nicht mehr" in page.data.decode()
+        assert c.post(f"/guide/{code}/coding-link", data={"key": "abc", "hints": "2026-10-27"}).status_code == 410
     pid = _new(client, code)
-    second = _new(client, code, "Zweite", start="empty")
-    base = f"/guide/{code}/interviews/coding/{pid}"
-    client.post(f"{base}/links", data={"name": "Lea", "days": "120"})
-    with app.app_context():
-        assert db.session.scalar(db.select(db.func.count(CodingLink.id))) == 0    # at most 90 days
-    client.post(f"{base}/links", data={"name": "Lea", "days": "30", "devices": "9"})
-    page = client.get(f"{base}?view=settings").data.decode()
-    key = re.search(rf"/guide/{code}/coding-link#([A-Za-z0-9_\-]+)", page).group(1)
-    assert key not in client.get(f"{base}?view=settings").data.decode()            # shown once
-    with app.app_context():
-        link = db.session.scalar(db.select(CodingLink))
-        assert link.token_hash != key and link.max_devices == 3 and (link.expires_at - utcnow()).days in (29, 30)
-    lea = app.test_client()
-    assert lea.post(f"/guide/{code}/coding-link", data={"key": key}).status_code == 400   # notes not confirmed
-    r = lea.post(f"/guide/{code}/coding-link", data={"key": key, "hints": "2026-10-27"})
-    # since 2026-10-28 it opens as the interviewer link it becomes, which leads to its one analysis
-    assert r.status_code == 302 and r.headers["Location"].endswith(f"/i/{code}/interviews")
-    assert lea.get(f"/i/{code}/interviews").headers["Location"].endswith(base)
-    page = lea.get(base).data.decode()
-    assert "Kodieren als Lea" in page and "Kodierlinks ohne Konto" not in page and "view=settings" not in page
-    assert lea.get(f"{base}?view=settings").status_code == 404                    # the settings are the team's
-    assert lea.get(f"/guide/{code}/interviews/coding/{second}").status_code == 404
-    for url in (f"/guide/{code}", f"/guide/{code}/interviews", f"/guide/{code}/interviews/analysis", "/dashboard/"):
-        assert lea.get(url).status_code in (302, 404), url
-    main = _cats(app, pid, "main")[0][0]
-    lea.post(f"{base}/categories/new", data={"kind": "sub", "parent": main, "name": "Neu von Lea", "definition": "d"})
-    with app.app_context():
-        assert db.session.scalar(db.select(CodingCategory).filter_by(name="Neu von Lea")).author_name == "Lea"
-    # blocking (now that of the interviewer link) ends the session at once; a wrong key is refused
-    with app.app_context():
-        access = db.session.scalar(db.select(InterviewerAccess).filter_by(name="Lea"))
-    assert client.post(f"{base}/links/{link.id}/block").status_code == 404           # looked after as an interviewer link
-    client.post(f"/guide/{code}/interviewers/{access.id}/block")
-    assert lea.get(base).status_code in (302, 404)
-    assert app.test_client().post(f"/guide/{code}/coding-link", data={"key": "falsch", "hints": "2026-10-27"}).status_code == 404
-
+    assert "Kodierlinks ohne Konto" not in client.get(f"/guide/{code}/interviews/coding/{pid}?view=settings").data.decode()
 
 def test_own_interviews_only_and_groups(app, client):
     code, sid = _guide(app, client)
@@ -281,10 +251,15 @@ def test_own_interviews_only_and_groups(app, client):
     with app.app_context():
         anna = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Anna Neu"))
     client.post(f"{base}/settings", data={"name": "Seminar", "question": "", "visibility": "own"})
-    client.post(f"{base}/links", data={"name": "Gruppe 1", "days": "30", "access": str(anna)})
-    key = re.search(rf"/guide/{code}/coding-link#([A-Za-z0-9_\-]+)", client.get(f"{base}?view=settings").data.decode()).group(1)
-    g1 = app.test_client()
-    g1.post(f"/guide/{code}/coding-link", data={"key": key, "hints": "2026-10-27"})
+    # a person without an account who codes "all" by an interviewer link, assigned Anna's interviews
+    g1, _ = open_link(app, code, add_interviewer(client, code, "Gruppe 1", has_interview="1", may_interview="", may_code="all"))
+    with app.app_context():
+        gid1 = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Gruppe 1"))
+    client.post(f"{base}/interviewers", data={"who": "selected", "access": str(gid1)})
+    with app.app_context():
+        row = db.session.scalar(db.select(CodingMember).filter_by(project_id=pid, access_id=gid1))
+        row.access_ids = [anna]
+        db.session.commit()
     page = g1.get(base).data.decode()
     assert "AN-01" in page and "BE-01" not in page
     team = client.get(base).data.decode()
@@ -315,26 +290,12 @@ def test_everything_goes_with_the_guide_and_the_account(app, client):
     pid = _new(client, code)
     bea, bea_id = _person(app)
     client.post(f"/guide/{code}/interviews/coding/{pid}/members", data={"kind": "person", "person": BEA})
-    client.post(f"/guide/{code}/interviews/coding/{pid}/links", data={"name": "Lea", "days": "30"})
     with app.app_context():
         user = db.session.get(User, bea_id)
         accounts.delete(user, "self")
         assert db.session.scalar(db.select(db.func.count(CodingMember.id)).filter_by(user_id=bea_id)) == 0
         transcript_coding.forget_survey(sid)
         db.session.commit()
-        for model in (CodingProject, CodingCategory, CodingEvent, CodingMember, CodingLink):
+        for model in (CodingProject, CodingCategory, CodingEvent, CodingMember):
             assert db.session.scalar(db.select(db.func.count(model.id))) == 0, model
     assert lifecycle  # lifecycle.delete calls forget_survey (app/lifecycle.py)
-
-
-def test_block_of_account_blocks_its_coding_links(app, client):
-    from app import account_access
-
-    code, sid = _guide(app, client)
-    pid = _new(client, code)
-    client.post(f"/guide/{code}/interviews/coding/{pid}/links", data={"name": "Lea", "days": "30"})
-    with app.app_context():
-        link = db.session.scalar(db.select(CodingLink))
-        account_access.revoke(link.created_by_id)
-        db.session.commit()
-        assert db.session.get(CodingLink, link.id).blocked

@@ -452,32 +452,6 @@ class CodingMember(db.Model):
     added_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
-class CodingLink(db.Model):
-    """A coding link of one analysis for a person without an account (app/transcript_coding_links.py): a name, an
-    expiry date (required, at most 90 days ahead), at most 3 devices; the key after "#" as with the interviewer link,
-    only its hash stored. `revision` changes when the link is blocked, renewed or its devices are signed out.
-    `access_ids`: with "own" interviews, the interviewer links whose interviews it sees."""
-
-    __tablename__ = "coding_link"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(index=True)
-    survey_id: Mapped[int] = mapped_column(index=True)
-    name: Mapped[str] = mapped_column(String(80))
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    revision: Mapped[str] = mapped_column(String(32))
-    blocked: Mapped[bool] = mapped_column(default=False)
-    max_devices: Mapped[int] = mapped_column(default=3)
-    devices: Mapped[list | None] = mapped_column(JSON)
-    access_ids: Mapped[list | None] = mapped_column(JSON)
-    hints_version: Mapped[str | None] = mapped_column(String(20))
-    created_by_id: Mapped[int | None] = mapped_column(index=True)
-    created_by_name: Mapped[str] = mapped_column(String(200), default="")
-    created_at: Mapped[datetime] = mapped_column(default=utcnow)
-    expires_at: Mapped[datetime]
-    last_used_at: Mapped[datetime | None]
-
-
 class SurveyInvite(db.Model):
     """An address on the invitation list of a survey (app/survey_invites.py, mailversand-konzept.md M6, M7; mail on
     only). The participation never stores the token: the row only knows "open, started, done" (no time, no

@@ -81,7 +81,7 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
      "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
      "Namen erscheinen zuerst. Mitkodieren können Personen, Askurious-Gruppen, Interviewende mit ihrem Interviewlink "
-     "(nur eigene Interviews, Häkchen je Auswertung) und Personen ohne Konto über einen Kodierlink mit Ablaufdatum."),
+     "mit dem Recht „darf kodieren“ (eigene oder alle Interviews), auch ohne Interviews zu führen."),
 ]
 KEYS = [key for key, _label, _text in FEATURES]
 FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks them when the page is English
@@ -129,8 +129,8 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                           "research question and category system, from the guide, empty or as a copy. You set the main "
                           "categories, members add subcategories with a definition, delimitation and author without "
                           "overwriting each other; similar names show first. People, Askurious groups, interviewers with "
-                          "their interviewer link (only their own interviews, a tick per analysis) and people without an "
-                          "account with a coding link with an expiry date can code along."),
+                          "their interviewer link with the right “may code” (own or all interviews), also without conducting "
+                          "interviews, can code along."),
 }
 
 

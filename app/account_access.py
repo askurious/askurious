@@ -17,9 +17,6 @@ def revoke(user_id):
             condition = db.or_(condition, AuthToken.created_by_id == user_id)
         db.session.execute(db.delete(model).where(condition))
     block_interviewers(user_id)
-    from app import transcript_coding_links
-
-    transcript_coding_links.block_of_account(user_id)  # its coding links, likewise (app/transcript_coding_links.py)
     return disconnect_services(user_id)
 
 

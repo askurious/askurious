@@ -563,7 +563,7 @@ def start(code):
 
 def open_link(survey, access):
     """Open a usable access in this browser: a device of its own (those idle no longer count, this browser's own one is
-    replaced), the session, then its page. Also for a coding link of before (app/transcript_coding_links.py)."""
+    replaced), the session, then its page."""
     from app import security_log
 
     # those idle no longer count, and this browser's own device is replaced, not added once more (K1)

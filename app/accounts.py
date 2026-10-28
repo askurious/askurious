@@ -577,7 +577,7 @@ def delete(user, by, choices=None, admin=None, heirs=None):
 
     db.session.execute(db.delete(OrgAlias).where(OrgAlias.user_id == uid))  # the number of the alias (app/names.py)
     from app.models import AgentToken, BlogPost, DataToken, InterviewerAccess, MailOutbox, MemberInvite, OrgDeletion
-    from app.models import CodingCategory, CodingEvent, CodingLink, CodingMember, CodingProject
+    from app.models import CodingCategory, CodingEvent, CodingMember, CodingProject
 
     # coding transcripts (app/transcript_coding.py): the person leaves the analyses; the categories and the history
     # keep the name the entries were made with, as the interviews keep the interviewer's name, but no account id
@@ -615,8 +615,7 @@ def delete(user, by, choices=None, admin=None, heirs=None):
                    BlogPost.created_by_id, BlogPost.updated_by_id, AiCall.user_id,  # AiCall: "KI-Nutzung" (E6)
                    PaperRun.created_by, PaperSheet.checked_by, PaperPage.uploaded_by,  # paper questionnaires
                    InterviewerAccess.created_by_id, OrgDeletion.requested_by_id,
-                   CodingProject.created_by_id, CodingCategory.author_id, CodingEvent.actor_id, CodingMember.added_by_id,
-                   CodingLink.created_by_id):  # interviewer links stay with the guide (app/interviewer.py)
+                   CodingProject.created_by_id, CodingCategory.author_id, CodingEvent.actor_id, CodingMember.added_by_id):  # interviewer links stay with the guide (app/interviewer.py)
         db.session.execute(db.update(column.class_).where(column == uid).values({column.key: None}))
     db.session.add(DeletedAccount(user_id=uid, number=user.number, by=by))
     db.session.expire_all()

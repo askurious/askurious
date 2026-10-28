@@ -23,7 +23,6 @@
     {% else %}<h2>{{ de_en("Kodieren als {name}", "Coding as {name}", name=who.name) }} <span class="hint">{{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}</span></h2>{% endif %}
     <span class="spacer"></span>
     {{ views(survey, project, who) }}
-    {% if who.kind == "link" %}<form method="post" action="{{ url_for('transcript_coding.link_logout', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ icon("logout", 16) }} {{ de_en("Abmelden", "Sign out") }}</button></form>{% endif %}
   </div>
   {% if not who.team and view == "categories" %}
   {% if project.question %}<p><strong>{{ de_en("Forschungsfrage:", "Research question:") }}</strong> {{ project.question }}</p>{% endif %}
@@ -196,50 +195,6 @@
   {% endif %}
 </section>
 
-{# coding links of before (2026-10-27): only to look after the ones there are; new ones are interviewer links with
-   the right "darf kodieren" (Ralf 2026-10-28). Their addresses and sessions keep working. #}
-{% if links or new_link %}
-<section class="panel" id="kodierlinks">
-  <h2>{{ de_en("Kodierlinks ohne Konto", "Coding links without an account") }}</h2>
-  <p class="muted small">{{ de_en("Diese Links gelten weiter, bis zum Ablaufdatum. Neue Personen ohne Konto legen Sie als Interviewlink mit dem Recht „darf kodieren“ an:", "These links stay valid until their expiry date. New people without an account you add as an interviewer link with the right “may code”:") }} <a href="{{ url_for('interview_data.index', code=survey.code) }}#interviewende">{{ de_en("Interviewende ohne Konto", "Interviewers without an account") }}</a>.</p>
-  {% if new_link %}
-  <div class="option-group" id="coding-link-new">
-    <p><strong>{{ de_en("Link für {name}", "Link for {name}", name=new_link.link.name) }}</strong> · <strong>{{ de_en("wird nur jetzt angezeigt", "shown only now") }}</strong>. {{ de_en("Ein neuer Link macht ihn ungültig.", "A new link makes it invalid.") }}</p>
-    <div class="copy-row"><input class="one-time-link" id="coding-link" value="{{ new_link.url }}" readonly aria-label="{{ de_en('Kodierlink', 'Coding link') }}" data-select-all>
-      <button type="button" class="button button-secondary" data-copy="#coding-link">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
-    <img class="interviewer-qr" src="{{ new_link.qr }}" alt="{{ de_en('QR-Code des Kodierlinks', 'QR code of the coding link') }}" width="220" height="220">
-    <p class="muted small">{{ de_en("Den QR-Code ausdrucken oder vom Bildschirm scannen lassen. Nicht in Gruppen-Chats oder E-Mails an mehrere schicken.", "Print the QR code or let it be scanned from the screen. Do not send it to group chats or emails to several people.") }}</p>
-  </div>
-  {% endif %}
-  {% if links %}
-  {% call list_table("is-wide") %}
-    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("gültig bis", "valid until") }}</th><th>{{ de_en("Geräte", "Devices") }}</th>{% if project.visibility == "own" %}<th>{{ de_en("Interviews von", "Interviews from") }}</th>{% endif %}<th></th></tr></thead>
-    <tbody>
-    {% for l in links %}{% set st = link_state(l) %}
-    <tr><td><strong>{{ l.name }}</strong></td>
-      <td>{% if st == "blocked" %}<span class="danger-text">{{ de_en("gesperrt", "blocked") }}</span>{% elif st == "expired" %}<span class="danger-text">{{ de_en("abgelaufen", "expired") }}</span>{% elif st == "invited" %}{{ de_en("noch nicht geöffnet", "not opened yet") }}{% else %}{{ de_en("aktiv", "active") }}{% endif %}</td>
-      <td>{{ l.expires_at|localdt(false) }}</td>
-      <td>{{ (l.devices or [])|length }} / {{ l.max_devices }}</td>
-      {% if project.visibility == "own" %}<td>{% for aid in (l.access_ids or []) %}{{ access_names.get(aid, "–") }}{% if not loop.last %}, {% endif %}{% else %}<span class="muted">–</span>{% endfor %}</td>{% endif %}
-      <td class="row-actions">
-        <form method="post" action="{{ url_for('transcript_coding.link_change', code=survey.code, pid=project.id, lid=l.id, action='link') }}" class="inline"
-              data-confirm="{{ de_en('Neuen Link für {name} erzeugen?', 'Create a new link for {name}?', name=l.name) }}" data-confirm-note="{{ de_en('Der bisherige Link öffnet danach nichts mehr.', 'The previous link then opens nothing.') }}" data-confirm-ok="{{ de_en('Neuer Link', 'New link') }}">
-          {{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Neuer Link", "New link") }}</button></form>
-        {% if l.devices %}<form method="post" action="{{ url_for('transcript_coding.link_change', code=survey.code, pid=project.id, lid=l.id, action='signout') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Geräte abmelden", "Sign out devices") }}</button></form>{% endif %}
-        {% if l.blocked %}<form method="post" action="{{ url_for('transcript_coding.link_change', code=survey.code, pid=project.id, lid=l.id, action='unblock') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Entsperren", "Unblock") }}</button></form>
-        {% else %}<form method="post" action="{{ url_for('transcript_coding.link_change', code=survey.code, pid=project.id, lid=l.id, action='block') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Sperren", "Block") }}</button></form>{% endif %}
-        <form method="post" action="{{ url_for('transcript_coding.link_change', code=survey.code, pid=project.id, lid=l.id, action='extend') }}" class="inline">{{ csrf() }}
-          <button class="button button-small button-secondary" title="{{ de_en('gilt dann {n} Tage ab heute', 'then valid for {n} days from today', n=link_days) }}">{{ de_en("Verlängern", "Extend") }}</button></form>
-        <form method="post" action="{{ url_for('transcript_coding.link_change', code=survey.code, pid=project.id, lid=l.id, action='delete') }}" class="inline"
-              data-confirm="{{ de_en('Kodierlink von {name} löschen?', 'Delete the coding link of {name}?', name=l.name) }}" data-confirm-note="{{ de_en('Der Link öffnet danach nichts mehr. Die Kategorien bleiben mit dem Namen.', 'The link then opens nothing. The categories stay with the name.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
-          {{ csrf() }}<button class="icon-btn danger" title="{{ de_en('Kodierlink löschen', 'Delete coding link') }}" aria-label="{{ de_en('Kodierlink von {name} löschen', 'Delete the coding link of {name}', name=l.name) }}">{{ icon("trash", 14) }}</button></form>
-      </td></tr>
-    {% endfor %}
-    </tbody>
-  {% endcall %}
-  {% endif %}
-</section>
-{% endif %}
 {% endif %}
 
 {# the history: under „Übersicht“ (transcript_coding/overview.html) #}
@@ -314,5 +269,4 @@
 <script src="{{ url_for('static', filename='transcript_coding_drop.js') }}" defer></script>
 {% endif %}
 <script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
-{% if who.kind == "link" %}<script src="{{ url_for('static', filename='coding_link.js') }}" defer></script>{% endif %}
 {% endblock %}
