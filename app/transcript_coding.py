@@ -56,7 +56,7 @@ SIMILAR = 0.6  # SequenceMatcher ratio from which a name counts as similar
 MAX_PROJECTS = 30  # analyses per guide
 MAX_CATEGORIES = 500  # live categories per analysis
 MAX_DEPTH = 8  # levels of a category system: a main category and up to seven below it (Ralf 2026-10-28: 3 to 6 or more)
-UNDO_KINDS = ("created", "changed", "removed", "promoted")
+UNDO_KINDS = ("created", "changed", "removed", "promoted", "moved")
 
 
 # --- who asks ------------------------------------------------------------------------------------------------------
@@ -701,6 +701,70 @@ def promote(project, cat, who):
     _event(project, who, "promoted", cat, {"before": before, "after": _state(cat)})
 
 
+def may_move(project, cat, who):
+    """Moving: a subcategory anyone in the analysis may hang elsewhere, also under another main category; the main
+    level (making something a main category, putting a main category below another) is the team's while the main
+    categories are fixed, else also the author's (Ralf 2026-10-28)."""
+    if cat.kind == CodingCategory.SUB:
+        return True
+    return who.team or (not project.mains_fixed and may_edit(project, cat, who))
+
+
+def move_targets(project, cat, who, mains):
+    """[(id, path)] where `cat` may be hung: not under itself or what stands below it, not deeper than MAX_DEPTH,
+    not where it stands; (None, …) first for "as a main category" where allowed. `mains` from tree()."""
+    flat = [c for m, below in mains for c in [m] + below]
+    mine = [c for c in flat if c.id == cat.id or cat.id in c.anc]
+    span = (max(c.level for c in mine) - getattr(cat, "level", 1) + 1) if mine else 1
+    out = []
+    if cat.kind != CodingCategory.MAIN and may_create_main(project, who):
+        out.append((None, de_en("— als Hauptkategorie —", "— as a main category —")))
+    for c in flat:
+        if c.id == cat.id or cat.id in c.anc or c.id == cat.parent_id or c.level + span > MAX_DEPTH:
+            continue
+        out.append((c.id, c.path))
+    return out
+
+
+def move(project, cat, who, parent_id):
+    """Hang `cat` with everything below it under the category `parent_id` (None: as a main category). One step in the
+    history ("moved"), to be taken back; whoever has passages in it is asked "Passt / Meine Stellen herauslösen".
+    Returns a problem or None."""
+    cats = {c.id: c for c in live(project)}
+    if cat.id not in cats:
+        abort(404)
+    parent = cats.get(parent_id) if parent_id is not None else None
+    if parent_id is not None and (parent is None or parent.kind == CodingCategory.CANDIDATE):
+        return de_en("Bitte die Kategorie wählen, unter die sie kommt.", "Please choose the category to put it under.")
+    if parent is None and cat.kind == CodingCategory.MAIN:
+        return de_en("„{name}“ ist schon eine Hauptkategorie.", "“{name}” is already a main category.", name=cat.name)
+    if parent is not None and parent.id == cat.parent_id:
+        return de_en("„{name}“ steht schon dort.", "“{name}” already stands there.", name=cat.name)
+    if not may_move(project, cat, who) or (parent is None and not may_create_main(project, who)):
+        return de_en("Hauptkategorien ändern nur die Forschenden.", "Only the researchers change main categories.")
+    below = subtree(project, cat)
+    if parent is not None and parent.id in below:
+        return de_en("Nicht unter sich selbst oder etwas, das darunter steht.", "Not under itself or something below it.")
+    if parent is not None and level_of(parent, cats) + height(project, cat) > MAX_DEPTH:
+        return de_en("Dann stünde etwas tiefer als {n} Ebenen.", "Something would then stand deeper than {n} levels.", n=MAX_DEPTH)
+    new_kind = CodingCategory.SUB if parent is not None else CodingCategory.MAIN
+    siblings = [c for c in cats.values() if c.id != cat.id and c.parent_id == getattr(parent, "id", None) and
+                (c.kind == CodingCategory.SUB) == (new_kind == CodingCategory.SUB)]
+    if any(_key(c.name) == _key(cat.name) for c in siblings):
+        return de_en("Dort gibt es „{name}“ schon.", "“{name}” already exists there.", name=cat.name)
+    tree(project)  # paths for the history
+    old = cats.get(cat.parent_id)
+    before = {"parent": cat.parent_id, "kind": cat.kind, "name": cat.name, "where": getattr(old, "path", "") if old else ""}
+    cat.parent_id, cat.kind = getattr(parent, "id", None), new_kind
+    cat.updated_at = utcnow()
+    from app.transcript_coding_review import affected
+
+    _event(project, who, "moved", cat, {"before": before, "after": {"parent": cat.parent_id, "kind": cat.kind, "name": cat.name,
+                                                                    "where": getattr(parent, "path", "") if parent else ""},
+                                        "ids": sorted(below), "affected": affected(project, below, but=who.key)})
+    return None
+
+
 def propose(project, cat, who, values, reason=""):
     """A proposed change of name, definition or delimitation by someone who may not change the category directly."""
     values = {k: v for k, v in values.items() if k in FIELDS and v and v != getattr(cat, k)}
@@ -756,9 +820,22 @@ def undo(project, who):
     cat = db.session.get(CodingCategory, event.category_id) if event is not None and event.category_id else None
     if cat is None:
         return de_en("Nichts zum Zurücknehmen.", "Nothing to take back.")
+    before = (event.data or {}).get("before")
+    if event.kind == "moved":  # back where it stood, if that still works
+        back = before.get("parent")
+        cats = {c.id: c for c in live(project)}
+        if before.get("kind") == CodingCategory.MAIN and not may_create_main(project, who) or not may_move(project, cat, who):
+            return de_en("Hauptkategorien ändern inzwischen nur die Forschenden.", "Only the researchers change main categories now.")
+        if back is not None and (back not in cats or back in subtree(project, cat)
+                                 or level_of(cats[back], cats) + height(project, cat) > MAX_DEPTH):
+            return de_en("Der alte Platz ist nicht mehr frei.", "The old place is no longer free.")
+        cat.parent_id, cat.kind = back, before.get("kind")
+        cat.updated_at = utcnow()
+        event.data = {**(event.data or {}), "undone": True}
+        _event(project, who, "undone", cat, {"after": _state(cat)}, reply_to=event.id)
+        return None
     if not may_edit(project, cat, who):  # e.g. the main categories were fixed since
         return de_en("Diese Kategorie ändern inzwischen nur die Forschenden.", "Only the researchers change this category now.")
-    before = (event.data or {}).get("before")
     if event.kind == "created":
         if uses(project, cat.id) or any(c.parent_id == cat.id for c in live(project)):
             return de_en("Die Kategorie wird schon genutzt.", "The category is already in use.")
@@ -780,7 +857,8 @@ def undo_label(event):
     return {"created": de_en("„{name}“ angelegt", "“{name}” created", name=name),
             "changed": de_en("„{name}“ geändert", "“{name}” changed", name=name),
             "removed": de_en("„{name}“ entfernt", "“{name}” removed", name=name),
-            "promoted": de_en("„{name}“ übernommen", "“{name}” taken on", name=name)}.get(event.kind, "")
+            "promoted": de_en("„{name}“ übernommen", "“{name}” taken on", name=name),
+            "moved": de_en("„{name}“ umgehängt", "“{name}” moved", name=name)}.get(event.kind, "")
 
 
 def history(project, limit=30):
@@ -801,6 +879,9 @@ def event_text(event, names):
             "accepted": de_en("übernimmt den Vorschlag zu „{name}“", "takes on the proposal for “{name}”", name=name),
             "declined": de_en("lehnt den Vorschlag zu „{name}“ ab", "declines the proposal for “{name}”", name=name),
             "undone": de_en("nimmt den letzten Schritt an „{name}“ zurück", "takes back the last step on “{name}”", name=name),
+            "moved": (de_en("hängt „{name}“ unter „{where}“", "puts “{name}” under “{where}”", name=name, where=(data.get("after") or {}).get("where"))
+                      if (data.get("after") or {}).get("where") else
+                      de_en("macht „{name}“ zur Hauptkategorie", "makes “{name}” a main category", name=name)),
             }.get(event.kind, event.kind)
 
 
@@ -941,7 +1022,8 @@ def project(code, pid):
     # the category system as a list (the default) or as a map (from "Übersicht" until 2026-10-28)
     show = "map" if view == "categories" and request.args.get("show") == "map" else "list"
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
-                   max_depth=MAX_DEPTH,
+                   max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
+                   move_targets=lambda c: move_targets(project, c, who, mains),
                    map_svg=transcript_coding_review.map_svg(project, who, survey) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
@@ -1086,6 +1168,26 @@ def edit(code, pid, cid):
         db.session.commit()
         flash(de_en("Gespeichert.", "Saved."), "success")
     return redirect(_project_url(survey, project, f"k{cat.id}"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/move", methods=["POST"])
+@signed_in_or_coder
+def move_category(code, pid, cid):
+    """"Verschieben nach …" and drag & drop in the list: `parent` the category to put it under, empty for a main
+    category; `json=1` answers with JSON for the list's script."""
+    survey, project, who = _in(code, pid)
+    cat = _category(project, cid)
+    raw = str(request.form.get("parent", ""))
+    problem = move(project, cat, who, int(raw) if raw.isdigit() else None)
+    if problem:
+        db.session.rollback()
+        flash(problem, "error")
+    else:
+        db.session.commit()
+        flash(de_en("„{name}“ umgehängt.", "“{name}” moved.", name=cat.name), "success")
+    if request.form.get("json"):
+        return jsonify(ok=not problem, error=str(problem or ""))
+    return redirect(_project_url(survey, project, f"k{cat.id}", view="categories"))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/remove", methods=["POST"])

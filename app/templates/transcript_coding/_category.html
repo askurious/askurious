@@ -4,8 +4,9 @@
 {% from "_icons.html" import icon %}
 {% macro category(cat, kind_class) -%}
 {% set editable = may_edit(cat) %}
-<div class="tc-cat {{ kind_class }}" id="k{{ cat.id }}">
+<div class="tc-cat {{ kind_class }}" id="k{{ cat.id }}" data-tc-cat="{{ cat.id }}" data-tc-anc-of="{{ (cat.anc or [])|join(' ') }}">
   <div class="tc-cat-head">
+    {% if may_move(cat) %}<span class="drag-handle tc-grab" data-tc-grab="{{ cat.id }}" data-tc-move-url="{{ url_for('transcript_coding.move_category', code=survey.code, pid=project.id, cid=cat.id) }}" title="{{ de_en('Ziehen zum Umhängen: auf eine Kategorie (dann steht sie darunter) oder oben auf „Als Hauptkategorie“', 'Drag to move: onto a category (it then stands below it) or onto “As a main category” at the top') }}" aria-hidden="true">⋮⋮</span>{% endif %}
     {% if cat.colour %}<span class="tc-dot" style="background: {{ cat.colour }}" aria-hidden="true"></span>{% endif %}
     {% if cat.kids %}<button type="button" class="icon-btn tc-fold" data-tc-fold="{{ cat.id }}" aria-expanded="true" title="{{ de_en('Darunter zu- oder aufklappen', 'Fold or unfold what is below') }}" aria-label="{{ de_en('Darunter zuklappen: {name}', 'Fold what is below: {name}', name=cat.name) }}">{{ icon("chevron-down", 14) }}</button>{% endif %}
     <strong class="tc-name" data-live="tc-name-{{ cat.id }}">{{ cat.name }}</strong>
@@ -25,6 +26,15 @@
   {% if cat.delimitation %}<p class="tc-text muted small">{{ de_en("Abgrenzung:", "Delimitation:") }} {{ cat.delimitation }}</p>{% endif %}
   {% if cat.anchor and cat.anchor.quote %}<p class="tc-text small">{{ de_en("Ankerbeispiel:", "Anchor example:") }} <em>„{{ cat.anchor.quote|truncate(300, true, "…") }}“</em>{% if cat.anchor.label %} <span class="muted">({{ cat.anchor.label }})</span>{% endif %}</p>{% endif %}</div>
   {% if editable %}
+  {% if may_move(cat) %}{% set targets = move_targets(cat) %}{% if targets %}
+  <details class="tc-propose"><summary>{{ de_en("Verschieben nach …", "Move to …") }}</summary>
+  <form method="post" action="{{ url_for('transcript_coding.move_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="row-fields">
+    {{ csrf() }}
+    <label>{{ de_en("Unter", "Under") }} <select name="parent">{% for tid, tpath in targets %}<option value="{{ tid if tid is not none else '' }}">{{ tpath }}</option>{% endfor %}</select></label>
+    <div><button class="button button-small">{{ de_en("Verschieben", "Move") }}</button></div>
+  </form>
+  <p class="muted small">{{ de_en("Alles darunter geht mit; wer Stellen darin hat, wird gefragt. Rückgängig oben im Kategoriensystem.", "Everything below goes along; whoever has passages in it is asked. Undo at the top of the category system.") }}</p>
+  </details>{% endif %}{% endif %}
   {# folded, so that the tree stays readable at a glance; the fields save by themselves #}
   <details class="tc-propose"><summary>{{ de_en("Bearbeiten", "Edit") }}</summary>
   <form method="post" action="{{ url_for('transcript_coding.edit', code=survey.code, pid=project.id, cid=cat.id) }}" class="stack tc-fields" data-autosave-form>

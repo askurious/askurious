@@ -81,7 +81,8 @@
   <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}</p>
   {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
-  <div class="tc-tree">
+  <div class="tc-tree" data-tc-csrf="{{ csrf_token() }}">
+  <div class="tc-drop-main" data-tc-drop-main hidden>{{ de_en("Hierher ziehen: als Hauptkategorie", "Drop here: as a main category") }}</div>
   {% for main, subs in mains %}
     <div class="tc-branch">
       {{ category(main, "tc-main") }}

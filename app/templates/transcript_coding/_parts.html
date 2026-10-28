@@ -46,11 +46,12 @@
   {% for e, n in notices %}{% set d = e.data or {} %}
   <div class="tc-notice">
     {% if e.kind == "merged" %}<p class="small"><strong>{{ e.actor_name }}</strong> {{ de_en("hat „{a}“ mit „{b}“ zusammengeführt", "merged “{a}” with “{b}”", a=d.source_name, b=d.target_name) }}</p>
+    {% elif e.kind == "moved" %}<p class="small"><strong>{{ e.actor_name }}</strong> {{ de_en("hat „{a}“ unter „{b}“ gehängt", "put “{a}” under “{b}”", a=d.after.name, b=d.after.where) if d.after.where else de_en("hat „{a}“ zur Hauptkategorie gemacht", "made “{a}” a main category", a=d.after.name) }}</p>
     {% else %}<p class="small"><strong>{{ e.actor_name }}</strong> {{ de_en("hat „{a}“ in „{b}“ umbenannt", "renamed “{a}” to “{b}”", a=d.before.name, b=d.after.name) }}</p>{% endif %}
     <p class="muted small">{{ e.at|localdt }}{% if e.reason %} · „{{ e.reason }}“{% endif %} · {{ de_en("Ihre Stellen darin: {n}", "Your passages in it: {n}", n=n) }}</p>
     <div class="tc-info-actions">
       <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='fits') }}" class="inline">{{ csrf() }}<button class="button button-small">{{ de_en("Passt", "Fits") }}</button></form>
-      <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='split_off') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Meine Stellen herauslösen", "Take my passages out") if e.kind == "merged" else de_en("Alten Namen behalten", "Keep the old name") }}</button></form>
+      <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='split_off') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Meine Stellen herauslösen", "Take my passages out") if e.kind in ("merged", "moved") else de_en("Alten Namen behalten", "Keep the old name") }}</button></form>
     </div>
   </div>
   {% endfor %}
