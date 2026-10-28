@@ -164,7 +164,7 @@ A longitudinal study asks the same people several times, for example before and 
 
 ![The personal code as participants see it](img/guide-waves-code.jpg)
 
-**2. Create more waves.** Each wave is a survey of its own. Wave 2 is easiest made with "Duplicate" under "My surveys": it then has the same personal code with the same parts and the same scales, and you change only what is to differ.
+**2. Create more waves.** Each wave is a survey of its own. Wave 2 is easiest made with "Duplicate" under "My surveys": it then has the same personal code with the same parts and the same scales, and you change only what is to differ. Questions that are linked elements in the original stay linked in the duplicate only with the tick “Link questions to the original”, which is then set beforehand. Without the tick they become ordinary copies, and changes in the duplicate do not reach the original.
 
 **3. Link the waves.** On the tab "Research plan" the section **"Waves"** stands below the plan. There you choose the surveys of the single waves and give each a name, such as "before" and "after". The list holds for all waves in it. Linking is no part of the plan itself: adding a wave later is no deviation from the pre-registration. Also in the research plan you set which variables are modelled over time; a hypothesis of the kind **"effect over time"** (X in one wave on Y in the next) is tested in the cross-lagged panel model.
 

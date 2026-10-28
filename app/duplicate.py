@@ -1,7 +1,9 @@
 """Duplicate a survey: a new draft with the questionnaire and the settings of another survey, and nothing of
 what was collected with it.
 
-The copy shares no row and no file with its source. Everything gets new ids (survey, blocks, questions,
+The copy shares no row and no file with its source. Linked elements (app/linked.py) stay linked only with the tick
+"Fragen mit dem Original verknüpfen" (`create(link=True)`); without it their copies become ordinary questions, so
+that editing the copy never changes the original through the shared element (Ralf, 2026-10-28). Everything gets new ids (survey, blocks, questions,
 images; ids of deleted rows are never given again, models.IdFloor), and what points at blocks and questions by
 id is rewritten to the new ones: the flow tree, the conditions in it, the questions a feedback element shows
 and the marks of the translation page. Image and logo files are copied into the folder of the copy under new
@@ -148,13 +150,13 @@ def _locked(item, user):
     return bool(feature) and not experimental.enabled(feature, user=user)
 
 
-def _questionnaire(source, new, user=None, locked=None, room=None):
+def _questionnaire(source, new, user=None, locked=None, room=None, keep_links=False):
     """Blocks, questions and images, built but not yet written to the database (`new` is not in the session
     yet, see create); returns the pairs (question, its copy). Questions of an experimental type `user` does not
     have are left out, as when a survey file is read in (transfer._questionnaire); their codes go to `locked`.
     What pointed at them points at nothing in the copy (conditions, quotas, sources, carried options, tiles), as
     for a question with no twin anywhere below; the pre-launch check names such conditions and quota cells. `room` (_MediaRoom): video and audio files only as
-    far as they fit."""
+    far as they fit. `keep_links`: copies of linked elements stay linked (the tick); otherwise ordinary copies."""
     pairs = []
     for block in source.blocks:
         twin = Block(position=block.position, titles=_copy.deepcopy(block.titles), show_title=block.show_title,
@@ -168,8 +170,8 @@ def _questionnaire(source, new, user=None, locked=None, room=None):
                          config=answer_lock.without_since(_copy.deepcopy(item.config)), texts=_copy.deepcopy(item.texts))
             from app import linked
 
-            if (user is not None and linked.is_linked(item)
-                    and (not source.can(user, "editor") or not linked.usable(user, linked.element(item)))):
+            if linked.is_linked(item) and (not keep_links or (user is not None and (
+                    not source.can(user, "editor") or not linked.usable(user, linked.element(item))))):
                 other.config = {k: v for k, v in other.config.items() if k != "construct"}
             for asset in item.assets:
                 if room is not None and not room.take(item, other, asset, source.uid):
@@ -418,8 +420,9 @@ def _marks(source, new, blocks, items):
 def create(source, user, title, with_people=True, link=False):
     """A new draft like `source` under the title `title`, committed. Returns (survey, notes for the researcher).
     If anything fails, nothing stays: neither rows nor copied files. With `link` ("Fragen mit dem Original
-    verknüpfen") every question of the original that can be linked becomes a linked element first (app/linked.py),
-    and its copy is a second use of it.
+    verknüpfen") the questions already linked stay linked in the copy, and for a questionnaire (kind "survey") every
+    other question of the original that can be linked becomes a linked element first (app/linked.py), its copy a
+    second use of it. Without `link` the copy has no linked element of the original.
 
     The image files are copied before anything is written to the database, as in transfer.create: SQLite has
     one writer, and from the first INSERT (which comes as soon as the new survey is in the session and anything
@@ -443,7 +446,7 @@ def create(source, user, title, with_people=True, link=False):
     new.paper = paper.copied(source.paper)
     try:
         locked, room = [], _MediaRoom()
-        pairs = _questionnaire(source, new, user, locked, room)
+        pairs = _questionnaire(source, new, user, locked, room, keep_links=link)
         if room.note():
             notes.append(room.note())
         if locked:
@@ -461,7 +464,7 @@ def create(source, user, title, with_people=True, link=False):
                 "Conditions and quotas that tested them test nothing in the copy; please adjust them in the flow and "
                 "the quotas."),
                 codes=", ".join(locked[:10]) + (" …" if len(locked) > 10 else "")))
-        if link:
+        if link and source.kind == "survey":
             _link(source, pairs, user, notes)
         own_look = _theme(source, new, user)
         db.session.add(new)

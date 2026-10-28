@@ -157,11 +157,74 @@ def test_duplicate_with_link(app, client, survey):
         assert db.session.get(Survey, 1).consent_item.config.get("construct") is None
         c = linked.get(linked.key_of(source[0]))
         assert len(linked.uses(c)) == 2
-    # without the tick: plain copies, as before
+    # without the tick: plain copies, even though the original's questions are linked by now (Ralf, 2026-10-28)
     client.post("/surveys/1/duplicate", data={"title": "Semester 3"})
     with app.app_context():
         third = [i for b in db.session.get(Survey, 3).blocks for i in b.items if i.type != "consent"]
-        assert all(linked.is_linked(i) for i in third)  # the original's questions are linked by now: copies keep it
+        assert third and not any(linked.is_linked(i) for i in third)
+        assert len(linked.uses(c)) == 2
+
+
+
+def _copy_of(app, survey_id):
+    """The id of the copy of question "g" in survey `survey_id`."""
+    with app.app_context():
+        return next(i.id for b in db.session.get(Survey, survey_id).blocks for i in b.items if i.code == "g")
+
+
+def test_duplicate_keeps_a_linked_question_only_with_the_tick(app, client, survey):
+    """Without the tick a linked question becomes an ordinary copy: editing it in the duplicate never changes the
+    original through the shared element (Ralf, 2026-10-28). With the tick it stays linked, and both drafts follow."""
+    from app import duplicate
+    from app.models import User
+
+    key = _linked_question(app, client)
+    with app.app_context(), app.test_request_context():
+        user = db.session.get(User, 1)
+        plain, _ = duplicate.create(db.session.get(Survey, 1), user, "Ohne Häkchen")
+        kept, _ = duplicate.create(db.session.get(Survey, 1), user, "Mit Häkchen", link=True)
+        plain_id, kept_id = plain.id, kept.id
+        assert not linked.is_linked(db.session.get(Item, _copy_of(app, plain_id)))
+        assert linked.key_of(db.session.get(Item, _copy_of(app, kept_id))) == key
+        assert len(linked.uses(linked.get(key))) == 2  # the original and the copy with the tick
+    choice(client, plain_id, _copy_of(app, plain_id), question="Nur im Duplikat")
+    with app.app_context():
+        assert db.session.get(Item, 2).texts["de"]["question"] == "Frage"
+        assert linked.get(key).spec["texts"]["de"]["question"] == "Frage"
+    choice(client, kept_id, _copy_of(app, kept_id), question="In beiden")
+    with app.app_context():
+        assert db.session.get(Item, 2).texts["de"]["question"] == "In beiden"
+
+
+def test_duplicate_page_sets_the_tick_for_linked_questions(app, client, survey):
+    add(client, "single_choice")
+    choice(client, 1, 2)
+    page = client.get("/surveys/1/duplicate").data.decode()
+    assert 'name="link" value="1" >' in page and "schon verknüpft" not in page  # offered, not set
+    client.post(f"{E}/items/2/link", data={"name": "Vorwissen"})
+    page = client.get("/surveys/1/duplicate").data.decode()
+    assert 'name="link" value="1" checked>' in page
+    assert "1 Frage des Originals ist schon verknüpft. Ohne Häkchen wird sie eine gewöhnliche Kopie" in page
+
+
+def test_duplicate_page_of_a_diary_offers_the_tick_only_for_linked_questions(app, client):
+    """A diary has no "link all questions"; the tick there only keeps the elements already linked."""
+    assert client.post("/diary/new", data={"title": "Lernen im Alltag", "language": "de"}).status_code == 302
+    assert 'name="link"' not in client.get("/surveys/1/duplicate").data.decode()
+    with app.app_context():
+        block = next(b.id for b in db.session.get(Survey, 1).blocks if not any(i.type == "consent" for i in b.items))
+    add(client, "single_choice", block=block)
+    with app.app_context():
+        item = max(i.id for b in db.session.get(Survey, 1).blocks for i in b.items if i.type == "single_choice")
+    choice(client, 1, item)
+    client.post(f"{E}/items/{item}/link", data={"name": "Stimmung"})
+    page = client.get("/surveys/1/duplicate").data.decode()
+    assert 'name="link" value="1" checked>' in page and "1 Frage des Originals ist schon verknüpft" in page
+    assert "Original und Duplikat stellen dann dieselben Fragen" not in page
+    client.post("/surveys/1/duplicate", data={"title": "Kopie", "link": "1"})
+    with app.app_context():
+        copy = db.session.get(Survey, 2)
+        assert copy.kind == "diary" and any(linked.is_linked(i) for b in copy.blocks for i in b.items)
 
 
 def test_dissolve(app, client, survey):

@@ -217,7 +217,7 @@ def delete(survey_id):
 def duplicate(survey_id):
     """A new draft with the questionnaire and settings of this survey, without anything collected with it
     (app/duplicate.py). The page asks for the new title and whether the co-owners come along."""
-    from app import access, constructs, duplicate as dup
+    from app import access, constructs, duplicate as dup, linked
 
     # an example survey seen only as one: "Als Kopie übernehmen", alone and without links to the original
     found = db.session.get(Survey, survey_id)
@@ -229,10 +229,13 @@ def duplicate(survey_id):
     if not dup.may(current_user, survey):
         flash(dup.not_allowed(), "error")
         return redirect(url_for("dashboard.index"))
-    title, with_people, link, error = dup.suggested_title(survey), not copy_only, False, None
+    # questions already linked stay linked only with the tick, which is set beforehand then (Ralf, 2026-10-28)
+    has_linked = sum(1 for b in survey.blocks for i in b.items if linked.is_linked(i))
+    offer_link = not copy_only and (survey.kind == "survey" or has_linked > 0)
+    title, with_people, link, error = dup.suggested_title(survey), not copy_only, offer_link and has_linked > 0, None
     if request.method == "POST":
         title, with_people = request.form.get("title", ""), bool(request.form.get("with_people")) and not copy_only
-        link = bool(request.form.get("link")) and survey.kind == "survey" and not copy_only
+        link = bool(request.form.get("link")) and offer_link
         error = dup.title_error(survey, title)
         if not error:
             new, notes = dup.create(survey, current_user, title, with_people, link=link)
@@ -246,7 +249,7 @@ def duplicate(survey_id):
     groups = [l.group for l in survey.group_links if l.group.member_of(current_user) is not None]
     return render_template("surveys/duplicate.html", survey=survey, title=title, with_people=with_people, link=link, error=error,
                            others=others, groups=groups, skipped_groups=len(survey.group_links) - len(groups),
-                           copy_only=copy_only)
+                           copy_only=copy_only, offer_link=offer_link, has_linked=has_linked)
 
 
 @bp.route("/<sid:survey_id>/reopen", methods=["POST"])
