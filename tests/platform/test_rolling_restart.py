@@ -172,6 +172,8 @@ ROLLING_ALLOWED = {
                        "may meet an IntegrityError in the rolling window (audit 2026-10-21, B18; applied, left as it is)"},
     "0035": {"type": "seal_entry.reason String(20) -> String(200): longer, the old code writes shorter values"},
     "0049": {"data": "fills the new column response.part from occasion; the old code does not read it"},
+    "0104": {"data": "fills the new column interviewer_access.may_code ('own' where an analysis had the tick); the "
+                     "old code does not read it"},
     "0050": {"data": "fills the new column response.due_at; the old code does not read it",
              "unique": "partial unique indexes on new, empty columns (due_at, uuid) the old code never writes"},
     "0058": {"trigger": TRIGGERS},

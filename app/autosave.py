@@ -70,7 +70,9 @@ def arrows():
     """What ↶ and ↷ offer after this save, for the survey of the request (empty outside a draft)."""
     from app import undo
 
-    survey = db.session.get(Survey, (request.view_args or {}).get("survey_id") or 0)
+    args = request.view_args or {}
+    survey = (db.session.get(Survey, args.get("survey_id") or 0) if args.get("survey_id") or not args.get("code")
+              else db.session.scalar(db.select(Survey).filter_by(code=str(args["code"]))))  # pages of a guide: its code
     if survey is None or not current_user.is_authenticated:
         return {"undo": "", "redo": ""}
     steps = undo.history(survey, current_user)

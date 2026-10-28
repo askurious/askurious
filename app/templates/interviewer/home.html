@@ -7,6 +7,7 @@
 {% block title %}{{ de_en("Meine Interviews", "My interviews") }} · {{ survey.title }}{% endblock %}
 {% block content %}
 <div class="tabpage-head"><p class="muted small">{{ survey.title }}</p><h1>{{ de_en("Meine Interviews", "My interviews") }}</h1></div><!--flashes-->
+{% if access.may_interview %}
 <section class="panel" id="neu" data-interviewer-home>
   <h2>{{ de_en("Interview beginnen", "Start interview") }}</h2>
   <form method="post" action="{{ url_for('interviewer.new', code=survey.code) }}" class="stack">
@@ -85,12 +86,16 @@
   {% else %}<p class="muted">{{ de_en("Noch kein Interview. Oben unter „Interview beginnen“ das erste anlegen.", "No interview yet. Create the first one above under “Start interview”.") }}</p>{% endif %}
   <p class="muted small">{{ de_en("Möchte eine interviewte Person ihre Daten löschen lassen, wendet sie sich mit ihrem Löschcode an die Forschenden.", "If an interviewed person wants their data deleted, they contact the researchers with their deletion code.") }}</p>
 </section>
-{# only once the team ticked "darf eigene Interviews kodieren" in an analysis (app/transcript_coding.py) #}
+{% endif %}
+{# only with the right "darf kodieren" at the link and assigned to an analysis (app/transcript_coding.py) #}
 {% set coding = coding_projects_of_interviewer(survey, access) %}
+{% if not access.may_interview and not coding %}
+<section class="panel"><p class="muted">{{ de_en("Noch keine Auswertung zum Kodieren.", "No analysis to code yet.") }}</p></section>
+{% endif %}
 {% if coding %}
 <section class="panel">
   <h2>{{ de_en("Kodieren", "Code") }}</h2>
-  <p class="muted small">{{ de_en("Ihre eigenen Interviews in diesen Auswertungen, auch nach der Übergabe des Transkripts:", "Your own interviews in these analyses, also after handing over the transcript:") }}</p>
+  <p class="muted small">{{ de_en("Alle Interviews dieser Auswertungen, fremde nur zum Kodieren:", "All interviews of these analyses, those of others only for coding:") if access.may_code == "all" else de_en("Ihre eigenen Interviews in diesen Auswertungen, auch nach der Übergabe des Transkripts:", "Your own interviews in these analyses, also after handing over the transcript:") }}</p>
   <ul>{% for p in coding %}<li><a href="{{ url_for('transcript_coding.project', code=survey.code, pid=p.id) }}">{{ p.name }}</a></li>{% endfor %}</ul>
 </section>
 {% endif %}

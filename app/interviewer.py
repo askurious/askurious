@@ -28,6 +28,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect, render_templa
                    url_for)
 from flask_login import current_user, login_required
 
+from app import autosave
 from app.extensions import db
 from app.lang import de_en
 from app.models import InterviewerAccess, Response, Survey, new_pid, utcnow
@@ -73,16 +74,38 @@ def accesses(survey):
                               .order_by(InterviewerAccess.created_at, InterviewerAccess.id)).all()
 
 
-def create(survey, name, days=DEFAULT_DAYS, devices=DEFAULT_DEVICES, may_record=True, may_transcribe=True, by=None):
+def create(survey, name, days=DEFAULT_DAYS, devices=DEFAULT_DEVICES, may_record=True, may_transcribe=True, by=None,
+           may_code=InterviewerAccess.CODE_NONE, may_interview=True):
     """A new access; returns (access, key). The caller commits; the key is shown once."""
     key = secrets.token_urlsafe(32)
     access = InterviewerAccess(survey_id=survey.id, name=" ".join(str(name).split())[:80], token_hash=_digest(key),
-                               revision=_revision(), may_record=bool(may_record), may_transcribe=bool(may_transcribe),
+                               revision=_revision(), may_interview=bool(may_interview),
+                               may_record=bool(may_interview and may_record), may_transcribe=bool(may_interview and may_transcribe),
+                               may_code=may_code if may_code in CODE_RIGHTS else InterviewerAccess.CODE_NONE,
                                max_devices=max(1, min(int(devices), MAX_DEVICES)), devices=[],
                                created_by_id=getattr(by, "id", None), created_by_name=(getattr(by, "name", "") or "")[:200],
                                expires_at=utcnow() + timedelta(days=int(days)))
     db.session.add(access)
     return access, key
+
+
+CODE_RIGHTS = (InterviewerAccess.CODE_NONE, InterviewerAccess.CODE_OWN, InterviewerAccess.CODE_ALL)
+
+
+def _code_right(survey):
+    """The right "darf kodieren" sent with the form, only where the person sees "Interviews kodieren"."""
+    from app import experimental
+
+    value = request.form.get("may_code")
+    if value not in CODE_RIGHTS or not experimental.enabled("transcript_coding", survey=survey):
+        return None
+    return value
+
+
+def _interview_right():
+    """"darf Interviews führen": sent by the forms that show it (the field `has_interview` says so); a form of before
+    without it keeps the right, as every link had it until 2026-10-28."""
+    return bool(request.form.get("may_interview")) if request.form.get("has_interview") else True
 
 
 def new_key(access):
@@ -257,7 +280,7 @@ def row_for(code, rid, need="editor", right=None):
             return survey, interview_data._interview(survey, rid)
         abort(404)
     row = db.session.get(Response, rid)
-    if (row is None or row.survey_id != survey.id or row.interview is None or not mine(access, row)
+    if (row is None or row.survey_id != survey.id or row.interview is None or not mine(access, row) or not access.may_interview
             or (right == "record" and not access.may_record) or (right == "transcribe" and not access.may_transcribe)):
         abort(404)
     return survey, row
@@ -358,7 +381,8 @@ def add(code):
     days = _number("days", DEFAULT_DAYS, 1, 365)
     devices = _number("devices", DEFAULT_DEVICES, 1, MAX_DEVICES)
     made = [create(survey, name, days, devices, bool(request.form.get("may_record")),
-                   bool(request.form.get("may_transcribe")), current_user) for name in names]
+                   bool(request.form.get("may_transcribe")), current_user,
+                   _code_right(survey) or InterviewerAccess.CODE_NONE, _interview_right()) for name in names]
     db.session.commit()
     for _ in made:
         security_log.event("interviewer_access_created", account=current_user.id, target=survey.code)
@@ -398,6 +422,54 @@ def show_once(survey):
 
 
 ACTIONS = ("link", "block", "unblock", "signout", "extend", "delete")
+
+
+@bp.route("/guide/<code>/interviewers/<int:aid>/rights", methods=["POST"])
+@login_required
+@autosave.aware
+def rights(code, aid):
+    """The rights of an interviewer link afterwards (Ralf 2026-10-28): Tonaufnahmen, Transkribieren and, with
+    "Interviews kodieren", Kodieren (nein, eigene, alle). The link stays as it is: no new key, no new revision, no
+    device signed out; the server reads the rights with the next request. One step for "Rückgängig"."""
+    from app import undo
+
+    survey = _manage(code)
+    access = db.session.get(InterviewerAccess, aid)
+    if access is None or access.survey_id != survey.id:
+        abort(404)
+    step = undo.begin(survey)
+    access.may_interview = _interview_right()
+    access.may_record = access.may_interview and bool(request.form.get("may_record"))
+    access.may_transcribe = access.may_interview and bool(request.form.get("may_transcribe"))
+    may_code = _code_right(survey)
+    if may_code is not None:
+        access.may_code = may_code
+    step.done(undo.both("Rechte von „{name}“", "Rights of “{name}”", name=access.name), page="interviewers")
+    db.session.commit()
+    flash(de_en("Gespeichert.", "Saved."), "success")
+    return _back(survey)
+
+
+@bp.route("/guide/<code>/interviewers/<int:aid>/rights/all", methods=["POST"])
+@login_required
+def rights_all(code, aid):
+    """The rights of this interviewer link for every link of the guide ("Für alle Personen dieses Leitfadens
+    übernehmen"): one step for "Rückgängig"; the links themselves stay as they are."""
+    from app import undo
+
+    survey = _manage(code)
+    source = db.session.get(InterviewerAccess, aid)
+    if source is None or source.survey_id != survey.id:
+        abort(404)
+    step = undo.begin(survey)
+    for access in accesses(survey):
+        access.may_interview, access.may_record = source.may_interview, source.may_record
+        access.may_transcribe, access.may_code = source.may_transcribe, source.may_code
+    step.done(undo.both("Rechte von „{name}“ für alle", "Rights of “{name}” for everyone", name=source.name), page="interviewers")
+    db.session.commit()
+    flash(de_en("Die Rechte von {name} gelten jetzt für alle Personen dieses Leitfadens.",
+                "The rights of {name} now apply to everyone of this guide.", name=source.name), "success")
+    return _back(survey)
 
 
 @bp.route("/guide/<code>/interviewers/<int:aid>/<action>", methods=["POST"])
@@ -538,6 +610,12 @@ def home(code):
     survey, access = _mine(code)
     if access is None:
         return _again(survey)
+    if not access.may_interview:  # a link that only codes: its analysis at once, if there is just one
+        from app import transcript_coding
+
+        coding = transcript_coding.interviewer_projects(survey, access)
+        if len(coding) == 1:
+            return redirect(url_for("transcript_coding.project", code=survey.code, pid=coding[0].id))
     return render_template("interviewer/home.html", survey=survey, access=access, rows=own_interviews(survey, access),
                            visible=visible, label=next_label(survey, access), st=interview.state(survey),
                            modes=interview.modes(), forms=interview_data.consent_forms(), day=interview.day_text,
@@ -564,6 +642,8 @@ def new(code):
     survey, access = _mine(code)
     if access is None:
         return _again(survey)
+    if not access.may_interview:
+        abort(404)
     back = redirect(url_for("interviewer.home", code=survey.code))
     if not request.form.get("consent"):
         flash(de_en("Ohne Einwilligung beginnt kein Interview: bitte „Einwilligung aller Sprechenden liegt vor“ ankreuzen.",

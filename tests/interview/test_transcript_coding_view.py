@@ -92,7 +92,8 @@ def test_who_codes_which_interview(app, client):
         aid = db.session.scalar(db.select(InterviewerAccess.id).filter_by(name="Anna"))
     sub = _cats(app, pid, "sub")[0][0]
     own, theirs = f"/guide/{code}/interviews/coding/{pid}/i/{rid}", f"/guide/{code}/interviews/coding/{pid}/i/{other}"
-    assert anna.get(own).status_code == 404                                       # without the tick
+    assert anna.get(own).status_code == 404                                       # without the right
+    client.post(f"/guide/{code}/interviewers/{aid}/rights", data={"may_record": "1", "may_transcribe": "1", "may_code": "own"})
     client.post(f"/guide/{code}/interviews/coding/{pid}/interviewers", data={"access": str(aid)})
     _transcript(app, rid, TEXT, checked=True)
     assert anna.get(own).status_code == 200 and anna.get(theirs).status_code == 404

@@ -72,7 +72,7 @@ def _who(code):
     if current_user.is_authenticated and survey.can(current_user, "editor"):
         return survey, None
     access = interviewer.current(survey)
-    if access is None or not interviewer.usable(access, survey):
+    if access is None or not interviewer.usable(access, survey) or not access.may_interview:
         abort(404)
     return survey, access
 

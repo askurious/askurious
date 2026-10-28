@@ -43,7 +43,8 @@ from flask_login import current_user
 from app import autosave
 from app.extensions import db
 from app.lang import de_en
-from app.models import CodingCategory, CodingEvent, CodingLink, CodingMember, CodingProject, Survey, utcnow
+from app.models import (CodingCategory, CodingEvent, CodingLink, CodingMember, CodingProject, InterviewerAccess, Survey,
+                        utcnow)
 
 bp = Blueprint("transcript_coding", __name__, url_prefix="/guide")
 
@@ -109,8 +110,9 @@ def interviewer_member(project, access):
 
 def actor(survey, project):
     """The actor of this request in `project`, or None. A signed-in person with "Bearbeiten" on the guide is the team,
-    else a member if a row lets them in; then a coding link held in this browser; then an interviewer link the team
-    ticked. Nobody but the team works in an analysis of an archived guide."""
+    else a member if a row lets them in; then a coding link held in this browser; then an interviewer link with the
+    right "darf kodieren" the team assigned to this analysis. Nobody but the team works in an analysis of an
+    archived guide."""
     from app import experimental, interviewer, transcript_coding_links
 
     if current_user.is_authenticated:
@@ -124,9 +126,9 @@ def actor(survey, project):
         return Actor("link", f"l:{link.id}", link.name, link=link)
     if interviewer.any_session() and not survey.archived:
         access = interviewer.current(survey)
-        row = interviewer_member(project, access)
-        if row is not None:
-            return Actor("interviewer", f"i:{access.id}", access.name, access=access, members=[row])
+        if access is not None and interviewer_codes_in(project, access):
+            row = interviewer_member(project, access)
+            return Actor("interviewer", f"i:{access.id}", access.name, access=access, members=[row] if row else [])
     return None
 
 
@@ -195,12 +197,38 @@ def projects_for(survey, user):
     return [p for p in projects(survey) if memberships(p, user)]
 
 
+def may_code(access):
+    """Whether this interviewer link has the right "darf kodieren" (its own interviews or all)."""
+    return access is not None and access.may_code in (InterviewerAccess.CODE_OWN, InterviewerAccess.CODE_ALL)
+
+
+CODERS_ALL, CODERS_SELECTED = "all", "selected"
+
+
+def coder_mode(project):
+    """Who of the interviewer links with the right codes in `project`: "all" (the default) or "selected" (those with
+    a row). An analysis of before without the setting, with links ticked, keeps exactly them (Ralf 2026-10-28)."""
+    mode = (project.settings or {}).get("interviewers")
+    if mode in (CODERS_ALL, CODERS_SELECTED):
+        return mode
+    ticked = db.session.scalar(db.select(CodingMember.id).filter_by(project_id=project.id, kind=CodingMember.INTERVIEWER).limit(1))
+    return CODERS_SELECTED if ticked else CODERS_ALL
+
+
+def interviewer_codes_in(project, access):
+    """Whether this interviewer link codes in `project`: it has the right, and all with it code there or it is
+    ticked."""
+    if not may_code(access) or access.survey_id != project.survey_id:
+        return False
+    return coder_mode(project) == CODERS_ALL or interviewer_member(project, access) is not None
+
+
 def interviewer_projects(survey, access):
-    """The analyses this interviewer link may code its own interviews in."""
-    if access is None:
+    """The analyses this interviewer link codes in: it has the right and is assigned to them (or all with it are)."""
+    if not may_code(access):
         return []
     ids = set(db.session.scalars(db.select(CodingMember.project_id).filter_by(kind=CodingMember.INTERVIEWER, access_id=access.id)))
-    return [p for p in projects(survey) if p.id in ids]
+    return [p for p in projects(survey) if p.id in ids or coder_mode(p) == CODERS_ALL]
 
 
 def _clean(value, limit):
@@ -339,13 +367,20 @@ def scope(who):
 
 
 def interviews(project, who):
-    """The real interviews of the guide the actor sees in `project` (E3). An interviewer link sees its own ones, also
-    after "Transkript geprüft"; the team all."""
+    """The real interviews of the guide the actor sees in `project` (E3). An interviewer link with the right "eigene"
+    sees its own ones, also after "Transkript geprüft"; with "alle" what a coding link sees: all of them, with "jede
+    Gruppe ihre eigenen" its own ones (and those its row names). Read only, for coding. The team sees all."""
     from app import interview_data
 
     survey = db.session.get(Survey, project.survey_id)
     rows = [r for r in interview_data.interviews(survey, source="real")]
     if who.kind == "interviewer":
+        row = who.members[0] if who.members else None
+        if who.access.may_code == InterviewerAccess.CODE_ALL:
+            if project.visibility == CodingProject.ALL:
+                return rows
+            mine = {who.access.id} | {int(a) for a in ((row.access_ids if row is not None else None) or []) if str(a).isdigit()}
+            return [r for r in rows if (r.interview or {}).get("access") in mine]
         return [r for r in rows if (r.interview or {}).get("access") == who.access.id]
     if who.team or project.visibility == CodingProject.ALL:
         return rows
@@ -831,6 +866,7 @@ def project(code, pid):
     if who.team:
         accesses = interviewer.accesses(survey)
         context.update(members=members(project), member_name=member_name, accesses=accesses,
+                       coders=[a for a in accesses if may_code(a)], coder_mode=coder_mode(project),
                        ticked={m.access_id for m in members(project) if m.kind == CodingMember.INTERVIEWER},
                        groups=groups_of(current_user, within=survey), people=_people(survey, project),
                        links=transcript_coding_links.links(project), link_state=transcript_coding_links.state,
@@ -1096,18 +1132,30 @@ def member_interviews(code, pid, mid):
 @signed_in_or_coder
 @autosave.aware
 def interviewers(code, pid):
-    """The tick "darf eigene Interviews kodieren" per interviewer link (off by default). Only rows of this module
-    change; the interviewer links stay as they are."""
-    from app import interviewer
+    """Which interviewer links with the right "darf kodieren" code in this analysis (the right itself, own or all
+    interviews, is set at the link on the page "Interviews"). Only rows of this module change; the interviewer links
+    stay as they are. The assignment of a link without the right stays, unseen, until it gets the right again.
+    One step for "Rückgängig"."""
+    from app import interviewer, undo
 
     survey, project, who = _in(code, pid, team_only=True)
-    accesses = {a.id: a for a in interviewer.accesses(survey)}
+    accesses = {a.id: a for a in interviewer.accesses(survey) if may_code(a)}
     wanted = {a for a in request.form.getlist("access", type=int) if a in accesses}
-    for row in [m for m in members(project) if m.kind == CodingMember.INTERVIEWER]:
-        if row.access_id not in wanted:
-            db.session.delete(row)
-    for aid in wanted:
-        add_member(project, CodingMember.INTERVIEWER, current_user, access=accesses[aid])
+    step = undo.begin(survey)
+    mode = request.form.get("who")
+    if mode not in (CODERS_ALL, CODERS_SELECTED):
+        mode = coder_mode(project)
+    elif mode == CODERS_SELECTED and coder_mode(project) == CODERS_ALL:
+        wanted = set(accesses)  # just switched over: everyone who coded here so far stays, then untick
+    project.settings = {**(project.settings or {}), "interviewers": mode}
+    if mode == CODERS_SELECTED:  # with "alle" the ticks stay as they are, for switching back
+        for row in [m for m in members(project) if m.kind == CodingMember.INTERVIEWER]:
+            if row.access_id in accesses and row.access_id not in wanted:
+                db.session.delete(row)
+        for aid in wanted:
+            add_member(project, CodingMember.INTERVIEWER, current_user, access=accesses[aid])
+    step.done(undo.both("Interviewende in „{name}“", "Interviewers in “{name}”", name=project.name), page="coding",
+              node=str(project.id))
     db.session.commit()
     flash(de_en("Gespeichert.", "Saved."), "success")
     return redirect(_project_url(survey, project, "mitglieder"))

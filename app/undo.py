@@ -56,7 +56,8 @@ from app.timeutil import fmt, to_local
 
 KEEP = 20
 # what a running or closed survey may still change, and so take back: the structure is fixed from the start on
-FIELD_PARTS = ("settings:", "board:", "quota:", "item:", "plan:layout")
+FIELD_PARTS = ("settings:", "board:", "quota:", "item:", "plan:layout", "access:", "tcassign:")
+ACCESS_FIELDS = ("may_record", "may_transcribe", "may_code")  # the rights of an interviewer link (app/interviewer.py)
 DAYS = 7
 MERGE_MINUTES = 10  # a change that continues the step before it (done(merge=...)) joins it for this long
 SHOWN = 5  # the list shows this many at first, the rest unfolds
@@ -167,7 +168,54 @@ def _state(survey):
         parts[f"board:{b.id}"] = {f: getattr(b, f) for f in BOARD_FIELDS}
     for c in _elements(survey):
         parts[f"linked:{c.key}"] = {f: getattr(c, f) for f in LINKED_FIELDS}
+    if survey.interview is not None:  # an interview guide: rights of its interviewer links, who codes in an analysis
+        parts.update(_interviewer_parts(survey))
     return {k: _dump(v) for k, v in parts.items()}
+
+
+def _interviewer_parts(survey):
+    """access:<id> the rights of an interviewer link; tcassign:<analysis id> the links assigned to code there."""
+    from app.models import CodingMember, CodingProject, InterviewerAccess
+
+    parts = {}
+    for a in db.session.scalars(db.select(InterviewerAccess).filter_by(survey_id=survey.id)):
+        parts[f"access:{a.id}"] = {f: getattr(a, f) for f in ACCESS_FIELDS}
+    projects = db.session.scalars(db.select(CodingProject).filter_by(survey_id=survey.id)).all()
+    if projects:
+        rows = db.session.execute(db.select(CodingMember.project_id, CodingMember.access_id).where(
+            CodingMember.project_id.in_([p.id for p in projects]), CodingMember.kind == CodingMember.INTERVIEWER)).all()
+        for p in projects:
+            parts[f"tcassign:{p.id}"] = {"mode": (p.settings or {}).get("interviewers"),
+                                         "ids": sorted(aid for pid, aid in rows if pid == p.id and aid)}
+    return parts
+
+
+def _apply_interviewers(survey, target):
+    """Put the rights of interviewer links and the assignments to analyses back (parts access: and tcassign:)."""
+    from app.models import CodingMember, CodingProject, InterviewerAccess
+
+    for key, state in target.items():
+        if key.startswith("access:") and state is not None:
+            access = db.session.get(InterviewerAccess, int(key.partition(":")[2]))
+            if access is not None and access.survey_id == survey.id:
+                for f in ACCESS_FIELDS:
+                    setattr(access, f, state[f])
+        if key.startswith("tcassign:") and state is not None:
+            pid = int(key.partition(":")[2])
+            project = db.session.get(CodingProject, pid)
+            if project is None or project.survey_id != survey.id:
+                continue
+            settings = {k: v for k, v in (project.settings or {}).items() if k != "interviewers"}
+            project.settings = {**settings, **({"interviewers": state["mode"]} if state["mode"] else {})}
+            rows = db.session.scalars(db.select(CodingMember).filter_by(project_id=pid, kind=CodingMember.INTERVIEWER)).all()
+            for row in rows:
+                if row.access_id not in state["ids"]:
+                    db.session.delete(row)
+            have = {row.access_id for row in rows}
+            for aid in state["ids"]:
+                if aid not in have:
+                    db.session.add(CodingMember(project_id=pid, kind=CodingMember.INTERVIEWER, access_id=aid,
+                                                added_by_id=current_user.id, added_by_name=(current_user.name or "")[:200]))
 
 
 def _elements(survey):
@@ -656,6 +704,7 @@ def _apply(survey, step, undoing):
         if "flow" in target:
             survey.flow = copy.deepcopy(target["flow"])
             flag_modified(survey, "flow")
+        _apply_interviewers(survey, target)
         from app import study_plan
 
         # the plan followed the renaming in the editor (study_plan.rename_code): it follows the step back too,

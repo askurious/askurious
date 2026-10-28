@@ -310,9 +310,14 @@ class InterviewerAccess(db.Model):
     without an account and sees only their own (Response.interview["access"]). The link alone is the key; only its
     hash is stored, and it is shown once. `revision` changes when the access is blocked, gets a new link or its
     devices are signed out, so that every session of it ends with its next request. `devices`: the browsers that
-    opened it, [{"id", "kind", "first", "last"}], at most `max_devices`."""
+    opened it, [{"id", "kind", "first", "last"}], at most `max_devices`. The rights (`may_record`,
+    `may_transcribe`, `may_code`) change on the page "Interviews" without a new link: the server reads them with every
+    request, and neither the revision nor a session changes with them. Without `may_interview` the link only codes:
+    no interview to begin, record or transcribe (the server refuses them). `may_code` (experimental "transcript_coding"):
+    "none", "own" (its own interviews) or "all" (all interviews of an analysis it is assigned to; Ralf 2026-10-28)."""
 
     __tablename__ = "interviewer_access"
+    CODE_NONE, CODE_OWN, CODE_ALL = "none", "own", "all"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # no foreign keys, like data_token: the rows go in code with the guide (lifecycle.delete); the account that made
@@ -322,8 +327,10 @@ class InterviewerAccess(db.Model):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     revision: Mapped[str] = mapped_column(String(32))
     blocked: Mapped[bool] = mapped_column(default=False)
+    may_interview: Mapped[bool] = mapped_column(default=True, server_default="1")
     may_record: Mapped[bool] = mapped_column(default=True)
     may_transcribe: Mapped[bool] = mapped_column(default=True)
+    may_code: Mapped[str] = mapped_column(String(8), default="none", server_default="none")
     max_devices: Mapped[int] = mapped_column(default=3)
     devices: Mapped[list | None] = mapped_column(JSON)
     hints_version: Mapped[str | None] = mapped_column(String(20))
@@ -425,8 +432,9 @@ class CodingEvent(db.Model):
 class CodingMember(db.Model):
     """Who codes in an analysis besides the team of the guide, with the role "Kodieren" (codes, never changes the
     guide): a person ("person", `user_id`), an Askurious group ("group", `group_id`, live for its members) or an
-    interviewer link whose holder may code their own interviews ("interviewer", `access_id`; off until the team ticks
-    it). `access_ids`: with "own" interviews, the interviewer links whose interviews count as theirs."""
+    interviewer link assigned to this analysis ("interviewer", `access_id`; it codes here only while the link has
+    the right InterviewerAccess.may_code, which says which interviews). `access_ids`: with "own" interviews, the
+    interviewer links whose interviews count as theirs."""
 
     __tablename__ = "coding_member"
     PERSON, GROUP, INTERVIEWER = "person", "group", "interviewer"

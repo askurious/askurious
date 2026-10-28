@@ -277,6 +277,11 @@ def _to_step(survey, step, lang):
         return redirect(url_for("translations.index", survey_id=survey.id, lang=data.get("node")))
     if data.get("page") == "item" and item is not None:
         return redirect(url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang))
+    if data.get("page") == "interviewers":  # the rights of the interviewer links (app/interviewer.py, rights)
+        return redirect(url_for("interview_data.index", code=survey.code) + "#interviewende")
+    if data.get("page") == "coding":  # who of them codes in an analysis (app/transcript_coding.py, interviewers)
+        return redirect(url_for("transcript_coding.project", code=survey.code, pid=int(data.get("node") or 0),
+                                view="settings") + "#mitglieder")
     if data.get("page") == "results":  # the path diagram moved on the results page (surveys.results_sem_layout)
         return redirect(url_for("surveys.results", survey_id=survey.id) + "#sem")
     return _back(survey, lang, f"#item-{item.id}" if item is not None else f"#block-{block.id}" if block is not None else "")
