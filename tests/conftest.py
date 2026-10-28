@@ -131,6 +131,9 @@ def _config(folder, url=None):
         SEM_BACKGROUND = False  # the model estimated in the request; tests/analysis/test_sem_fit_job.py covers the job
         ESTIMATE_PROCESS = False  # threads, which the tests join; tests/analysis/test_estimate.py covers the process
         SQLITE_JOURNAL = ""  # the tests keep their own fast settings (_fast_sqlite); tests/platform/test_scaling.py covers WAL
+        # a background job's thread and the request share the file: wait longer for the other writer than the 20 s of
+        # production, which a loaded machine with several workers exceeded ("database is locked", full run 2026-10-28)
+        SQLITE_BUSY_SECONDS = 60
         BALANCE_SECONDS = 0  # counts and comparison pools always fresh; tests/quotas/test_balance.py covers the keeping
         SIGN_IN_SECONDS = 0  # a changed sign-in list holds at once; tests/accounts/test_sign_in_list.py covers the keeping
         BOARD_PUBLIC_SECONDS = 0  # a link sees every new state at once; tests/dashboards/test_review_small_dashboards.py covers the keeping

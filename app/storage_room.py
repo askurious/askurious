@@ -19,6 +19,7 @@ from app import storage_usage
 from app.lang import de_en
 
 _held = threading.local()
+WAIT = 30  # seconds a writer waits for the storage room before "Gerade werden viele Dateien gespeichert"
 
 
 class StorageFull(ValueError):
@@ -49,7 +50,7 @@ def writing(survey, size, check=True):
             if os.name == "nt" and os.fstat(handle.fileno()).st_size == 0:
                 handle.write(b"0")
                 handle.flush()
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + WAIT
             while True:
                 try:
                     if os.name == "nt":
