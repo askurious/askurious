@@ -186,7 +186,12 @@ def test_feature_off_for_whoever_made_the_link(app, client):
     _transcript(app, rid)
     pid = _new(client, code)
     base = f"/guide/{code}/interviews/coding/{pid}"
-    before = plain.get(f"/i/{code}/interviews").data.decode()
+    import re
+
+    def page_of(c):  # without the CSRF token, which carries the second it was made
+        return re.sub(r'name="csrf_token" value="[^"]*"', "", c.get(f"/i/{code}/interviews").data.decode())
+
+    before = page_of(plain)
     # the feature only for the owner of the guide (tests.conftest switches it on for that one account, nobody else)
     assert coder.get(base).status_code == 200 and only.get(base).status_code == 200
     assert "/interviews/coding/" in coder.get(f"/i/{code}/interviews").data.decode()     # the list of analyses
@@ -203,7 +208,7 @@ def test_feature_off_for_whoever_made_the_link(app, client):
             db.session.commit()
 
     switch("blocked")
-    assert plain.get(f"/i/{code}/interviews").data.decode() == before               # (1) exactly as before
+    assert page_of(plain) == before                                                 # (1) exactly as before
     assert coder.get(f"/i/{code}/interviews").status_code == 200                     # (2) interviews as before
     assert coder.get(_urls(app, code, rid)["record"]).status_code == 200
     assert coder.get(base).status_code == 404 and "/interviews/coding/" not in coder.get(f"/i/{code}/interviews").data.decode()
