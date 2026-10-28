@@ -2215,6 +2215,18 @@ label.check + .hint-more { margin-left: 25px; }
   background: transparent; color: inherit; font: inherit; text-align: left; padding: 4px 8px; cursor: pointer; }
 .tc-pop-item:hover, .tc-pop-item:focus-visible { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tc-pop-item kbd { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+/* touch (Ralf 2026-10-28): a phone shows the list and the info box as a sheet from below, at most half the window;
+   targets of 44 px only for a finger, the desktop keeps its look; hints for keys or for touch */
+.tc-pop.is-sheet { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 50vh; max-height: 50dvh;
+  border-radius: var(--radius) var(--radius) 0 0; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.tc-hint-touch { display: none; }
+@media (pointer: coarse) {
+  .tc-pop-item { min-height: 44px; }
+  .tc-pop .button-small, .tc-info-actions .button-small, .tc-cat .button-small, .tc-quick .button-small { min-height: 44px; }
+  .tc-propose > summary { min-height: 44px; display: flex; align-items: center; }
+  .tc-pop-item kbd, .tc-hint-keys { display: none; }
+  .tc-hint-touch { display: block; }
+}
 .tc-pop-new { color: var(--accent); }
 .tc-info-row { display: grid; gap: 4px; }
 .tc-info-row + .tc-info-row { border-top: 1px solid var(--border); padding-top: 8px; }
