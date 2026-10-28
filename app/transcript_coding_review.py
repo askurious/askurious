@@ -245,7 +245,7 @@ def notices(project, who):
     [(event, own passages)]."""
     out = []
     for e in db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id)
-                                .where(CodingEvent.kind.in_(("merged", "changed"))).order_by(CodingEvent.id.desc()).limit(200)):
+                                .where(CodingEvent.kind.in_(("merged", "changed", "moved"))).order_by(CodingEvent.id.desc()).limit(200)):
         data = e.data or {}
         if e.actor_key == who.key or data.get("undone") or _answered(project, e.id, who.key):
             continue
@@ -253,6 +253,8 @@ def notices(project, who):
             ids = _merged_ids(project, data.get("source"))
             if db.session.get(CodingCategory, data.get("source")).merged_into != data.get("target"):
                 continue  # taken back meanwhile
+        elif e.kind == "moved":
+            ids = set(data.get("ids") or [e.category_id])
         else:
             before, after = (data.get("before") or {}).get("name"), (data.get("after") or {}).get("name")
             if not before or before == after:
@@ -273,6 +275,12 @@ def split_off(project, event, who):
         ids = _merged_ids(project, old.id)
         name, definition, delimitation, parent = old.name, old.definition, old.delimitation, old.parent_id
         kind = old.kind if old.kind != CodingCategory.MAIN else CodingCategory.SUB
+    elif event.kind == "moved":  # the own passages into a category of the old name at the old place
+        cat = db.session.get(CodingCategory, event.category_id)
+        ids = set(data.get("ids") or [cat.id])
+        name, definition, delimitation = cat.name, cat.definition, cat.delimitation
+        parent = (data.get("before") or {}).get("parent")
+        kind = CodingCategory.SUB if parent else (CodingCategory.MAIN if who.team else CodingCategory.CANDIDATE)
     else:
         cat = db.session.get(CodingCategory, event.category_id)
         before = data.get("before") or {}
@@ -662,7 +670,7 @@ def answer(code, pid, eid, answer):
             db.session.commit()
             flash(de_en("Zusammenführen zurückgenommen.", "Merge taken back."), "success")
         return redirect(url_for("transcript_coding.overview", code=survey.code, pid=project.id))
-    if event.kind not in ("merged", "changed") or _answered(project, event.id, who.key):
+    if event.kind not in ("merged", "changed", "moved") or _answered(project, event.id, who.key):
         abort(404)
     if answer == "fits":
         _event(project, who, "fits", db.session.get(CodingCategory, event.category_id), reply_to=event.id)

@@ -40,6 +40,62 @@
     submit.textContent = de_en("Anlegen", "Create");
   }
 
+  // the list of the category system: drag a category by its handle onto another (it then stands below it) or onto
+  // "als Hauptkategorie"; merging stays its own action. The server checks everything (app/transcript_coding.py, move)
+  var tree = document.querySelector("[data-tc-csrf]"), dropMain = document.querySelector("[data-tc-drop-main]");
+  var drag = null;
+  function dropAt(x, y, own) {
+    var el = document.elementFromPoint(x, y);
+    var target = el && el.closest("[data-tc-drop-main], [data-tc-cat]");
+    if (!target || target === own) return null;
+    if (target.hasAttribute("data-tc-cat") && (" " + target.getAttribute("data-tc-anc-of") + " ").indexOf(" " + drag.id + " ") >= 0) return null;
+    return target;  // not onto something below itself
+  }
+  document.addEventListener("pointerdown", function (e) {
+    var handle = e.target.closest && e.target.closest("[data-tc-grab]");
+    if (!handle || !tree || e.button > 0) return;
+    e.preventDefault();
+    drag = { id: handle.getAttribute("data-tc-grab"), url: handle.getAttribute("data-tc-move-url"),
+             card: handle.closest("[data-tc-cat]"), x: e.clientX, y: e.clientY, moved: false, over: null };
+    handle.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 6) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      drag.card.classList.add("is-dragged");
+      document.body.classList.add("tc-dragging");
+      if (dropMain) dropMain.hidden = false;
+    }
+    var over = dropAt(e.clientX, e.clientY, drag.card);
+    if (over !== drag.over) {
+      if (drag.over) drag.over.classList.remove("is-drop");
+      if (over) over.classList.add("is-drop");
+      drag.over = over;
+    }
+  });
+  function endDrag(send) {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    d.card.classList.remove("is-dragged");
+    document.body.classList.remove("tc-dragging");
+    if (dropMain) dropMain.hidden = true;
+    if (d.over) d.over.classList.remove("is-drop");
+    if (!send || !d.moved || !d.over) return;
+    var body = new FormData();
+    body.append("csrf_token", tree.getAttribute("data-tc-csrf"));
+    body.append("parent", d.over.hasAttribute("data-tc-drop-main") ? "" : d.over.getAttribute("data-tc-cat"));
+    body.append("json", "1");
+    fetch(d.url, { method: "POST", body: body, credentials: "same-origin" })
+      .then(function () { location.reload(); })  // the page shows what happened (or why not)
+      .catch(function () { location.reload(); });
+  }
+  document.addEventListener("pointerup", function () { endDrag(true); });
+  document.addEventListener("pointercancel", function () { endDrag(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") endDrag(false); });
+
   // the list of the category system: fold what stands below a category (data-tc-anc names the ids above each one)
   document.addEventListener("click", function (e) {
     var fold = e.target.closest("[data-tc-fold]");

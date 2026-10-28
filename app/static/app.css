@@ -2168,6 +2168,11 @@ label.check + .hint-more { margin-left: 25px; }
 .tc-fold { transition: transform 0.15s; }
 .tc-fold.is-folded { transform: rotate(-90deg); }
 .tc-add-below { margin-left: auto; }
+.tc-grab { cursor: grab; touch-action: none; user-select: none; color: var(--muted); padding: 0 4px; }
+.tc-cat.is-dragged { opacity: 0.5; }
+.tc-cat.is-drop, .tc-drop-main.is-drop { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tc-drop-main { border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 12px; text-align: center; color: var(--muted); }
+body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-indent { padding-left: calc(var(--lvl, 0) * 16px); }
 .tc-cat { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface); }
 .tc-cat.tc-main { border-width: 2px; }
