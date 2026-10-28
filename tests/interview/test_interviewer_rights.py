@@ -7,7 +7,7 @@ import pytest
 from flask import url_for
 
 from app.extensions import db
-from app.models import InterviewerAccess
+from app.models import CodingCategory, InterviewerAccess
 from tests.interview.test_interviewer import add, begin, open_link
 from tests.interview.test_transcript_coding import _guide, _new, _transcript
 
@@ -187,7 +187,14 @@ def test_feature_off_for_whoever_made_the_link(app, client):
     pid = _new(client, code)
     base = f"/guide/{code}/interviews/coding/{pid}"
     before = plain.get(f"/i/{code}/interviews").data.decode()
+    # the feature only for the owner of the guide (tests.conftest switches it on for that one account, nobody else)
     assert coder.get(base).status_code == 200 and only.get(base).status_code == 200
+    assert "/interviews/coding/" in coder.get(f"/i/{code}/interviews").data.decode()     # the list of analyses
+    with app.app_context():
+        sub = db.session.scalar(db.select(CodingCategory.id).filter_by(project_id=pid, kind=CodingCategory.SUB))
+    assert coder.get(f"{base}/i/{rid}").status_code == 200                          # the coding view
+    saved = coder.post(f"{base}/i/{rid}/codings", json={"start": 0, "end": 5, "cat": sub})
+    assert saved.status_code == 200 and saved.json["ok"]
 
     def switch(state):
         with app.app_context():

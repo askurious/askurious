@@ -203,15 +203,16 @@ def may_code(access):
 
 
 def open_for_link(survey, access):
-    """Whether "Interviews kodieren" is open for an interviewer link without an account: as for the researcher who
-    made it (else for an admin of the guide), since the link itself has no account to switch it on for. Off: the link
+    """Whether "Interviews kodieren" is open for an interviewer link without an account: through the guide, as soon as
+    the researcher who made the link or anyone of its team ("Bearbeiten", "Admin") has the feature; the link itself
+    has no account to switch it on for, and an anonymous session is never asked (Ralf 2026-10-28). Off: the link
     codes nowhere (its stored right stays as it is) and works as an interviewer link as before."""
     from app import experimental
     from app.models import User
 
-    by = db.session.get(User, access.created_by_id) if access is not None and access.created_by_id else None
-    people = [by] if by is not None else [m.user for m in survey.admins() if m.user is not None]
-    return any(experimental.enabled(FEATURE, user=person, survey=survey) for person in people)
+    people = [db.session.get(User, access.created_by_id)] if access is not None and access.created_by_id else []
+    people += [m.user for m in survey.members if m.role in ("editor", "admin")]
+    return any(experimental.enabled(FEATURE, user=person, survey=survey) for person in people if person is not None)
 
 
 CODERS_ALL, CODERS_SELECTED = "all", "selected"
