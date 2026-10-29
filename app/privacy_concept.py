@@ -1256,6 +1256,22 @@ def measures():
             (de_en("Verschlüsselte Übertragung, HSTS; Cookies Secure, HttpOnly, Präfix __Host-, SameSite=Lax",
                    "Encrypted transfer, HSTS; cookies Secure, HttpOnly, prefix __Host-, SameSite=Lax"),
              "config.py, app/__init__.py"),
+            (de_en("Im Browser nur technisch notwendige Cookies und Speicher (§ 25 Abs. 2 Nr. 2 TDDDG, daher kein "
+                   "Cookie-Banner): Sitzung (mit CSRF-Schutz und Sprache), „Angemeldet bleiben“ (30 Tage, nur auf Wunsch), "
+                   "bekannter Browser nach Passwortanmeldung (90 Tage), Fortschritt einer Ergebnisberechnung (höchstens fünf "
+                   "Minuten) und, nur wenn eine Befragung es einschaltet und ihre Einwilligung es nennt, die Marke gegen "
+                   "erneute Teilnahme. Im lokalen Speicher: Live-Gerätekennung, Folien-Notizen, Offline-Interviews und "
+                   "Tonstücke bis zum Abgleich, Anzeige-Einstellungen; im Sitzungsspeicher des Tabs: Blockantworten bis "
+                   "zum Senden, Stelle und Reiter einer Seite. Keine Tracking- oder Analyse-Cookies, keine Skripte "
+                   "Dritter",
+                   "Only technically necessary cookies and storage in the browser (section 25(2) no. 2 TDDDG, hence no "
+                   "cookie banner): session (with CSRF protection and language), “stay signed in” (30 days, only on "
+                   "request), known browser after a password sign-in (90 days), progress of a results calculation (at most five "
+                   "minutes) and, only when a survey switches it on and its consent names it, the marker against taking "
+                   "part again. In local storage: live device identifier, slide notes, offline interviews and audio "
+                   "pieces until synced, display settings; in the tab's session storage: block answers until sent, "
+                   "position and tab of a page. No tracking or analytics cookies, no third-party scripts"),
+             "config.py, app/passwords.py, app/participate.py, app/static/*.js"),
             (de_en("Passwort-Reset über eine dauerhafte verschlüsselte Warteschlange, gleiche Annahme bekannter und unbekannter Adressen; Aufträge eine Stunde gültig, danach Löschung beim nächsten Wartungsdurchlauf. Neue selbst gewählte Anmeldeadressen erst nach Bestätigung im selben angemeldeten Konto; Bestätigungsaufträge 24 Stunden gültig, danach Löschung beim nächsten Wartungsdurchlauf; Link nur als Hash und Passwort-Hash verschlüsselt, kein Klartextpasswort. Bestehende und administrative Zugänge bleiben nutzbar.",
                    "Password resets through a durable encrypted queue, identical submission for known and unknown addresses; jobs valid for one hour, then deleted during the next maintenance pass. New self-chosen sign-in addresses only after confirmation in the same signed-in account; confirmation jobs valid for 24 hours, then deleted during the next maintenance pass; links stored as hashes and password hashes encrypted, no plaintext password. Existing and administrative access remains usable."), "app/account_jobs.py, app/email_confirmation.py"),
             (de_en("KI-Kategorisierung: erkennbare Kontaktdaten vor Versand entfernt, Antworten als fremde Daten behandelt, kleinere Stapel und Prüfung konzentrierter Vorschläge. KI-Übersetzung: bekannte Personenangaben und Kontaktdaten lokal ersetzt und wieder eingesetzt. Keine vollständige Anonymisierung freier Texte.",
