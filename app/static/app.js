@@ -5501,8 +5501,25 @@ document.addEventListener("click", function (e) {
     if (btn) { e.preventDefault(); if (owner === btn) close(); else open(btn); return; }
     if (pop && !pop.contains(e.target)) close();
   });
+  // the popup stands at the end of the page: Tab from its term leads into it, Tab from its link on to what follows
+  // the term, Shift+Tab back to the term (UI/UX audit 2026-10-29, A11Y-04)
+  function after(btn) {
+    var all = Array.prototype.filter.call(document.querySelectorAll("a[href], button, input, select, textarea, summary, [tabindex]"),
+      function (el) { return !el.disabled && el.tabIndex >= 0 && !(pop && pop.contains(el)) && el.getClientRects().length; });
+    return all[all.indexOf(btn) + 1] || null;
+  }
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && owner) { var back = owner; close(); back.focus(); }
+    if (e.key === "Escape" && owner) { var back = owner; close(); back.focus(); return; }
+    if (e.key !== "Tab" || !owner || !pop) return;
+    var link = pop.querySelector("a");
+    if (e.target === owner && !e.shiftKey && link) { e.preventDefault(); link.focus(); }
+    else if (e.target === link && e.shiftKey) { e.preventDefault(); owner.focus(); }
+    else if (e.target === link) {
+      e.preventDefault();
+      var term = owner, next = after(term);
+      close();
+      (next || term).focus();
+    }
   });
   document.addEventListener("focusin", function (e) {
     if (owner && e.target !== owner && !(pop && pop.contains(e.target))) close();
@@ -5932,8 +5949,14 @@ document.addEventListener("click", function (e) {
         field.setSelectionRange(field.value.length, field.value.length);
       }
     } catch (e) { /* no storage: the cursor stays where the browser puts it */ }
-    field.addEventListener("input", function () {
+    // not while an input method composes a word (IME), the page would load in the middle of it (UI/UX audit
+    // 2026-10-29, A11Y-05); the word ends with compositionend, which starts the pause anew
+    var composing = false;
+    field.addEventListener("compositionstart", function () { composing = true; clearTimeout(timer); });
+    field.addEventListener("compositionend", function () { composing = false; field.dispatchEvent(new Event("input")); });
+    field.addEventListener("input", function (e) {
       clearTimeout(timer);
+      if (composing || e.isComposing) return;
       timer = setTimeout(function () {
         if (field.value.trim() === last.trim()) return;
         try { sessionStorage.setItem(KEY, field.name); } catch (e) { /* see above */ }
