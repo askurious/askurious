@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# After "Treffer kodieren als …" (app/transcript_coding_search.py, code_hits): how many were coded, "Rückgängig"
+   and back to the search. #}
+{% block title %}{{ de_en("Treffer kodiert", "Hits coded") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Treffer kodiert", "Hits coded"), cat.name) %}{% endcall %}
+<section class="panel">
+  <p>{{ de_en("{n} Stellen mit „{cat}“ kodiert.", "{n} passages coded with “{cat}”.", n=made|length, cat=cat.name) }}{% if skipped %} {{ de_en("{n} übersprungen (schon so kodiert oder zu lang).", "{n} skipped (already coded so or too long).", n=skipped) }}{% endif %}</p>
+  <div class="row-fields">
+    {% if made %}<form method="post" action="{{ url_for('transcript_coding.undo_hits', code=survey.code, pid=project.id) }}" class="inline">
+      {{ csrf() }}<input type="hidden" name="q" value="{{ q }}">{% if words %}<input type="hidden" name="words" value="1">{% endif %}
+      {% for m in made %}<input type="hidden" name="made" value="{{ m }}">{% endfor %}
+      <button class="button button-secondary">{{ de_en("Rückgängig", "Undo") }}</button></form>{% endif %}
+    <a class="button" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, q=q, words='1' if words else none) }}#suche">{{ de_en("Zurück zur Suche", "Back to the search") }}</a>
+  </div>
+</section>
+{% endblock %}

@@ -5,6 +5,7 @@
 {% from "transcript_coding/_category.html" import category with context %}
 {% from "transcript_coding/_parts.html" import notices_fold, views with context %}
 {% from "_learn.html" import why %}
+{% from "transcript_coding/_search.html" import search_box with context %}
 {# One analysis of an interview guide (app/transcript_coding.py, project), in views switched in the head row (no row of
    its own): Interviews (the default: the interviews to code), Kategoriensystem, and for the team Einstellungen (name,
    research question, visibility, main categories fixed, AI suggestions, members, coding links, deleting); Übersicht
@@ -105,6 +106,7 @@
 {% endif %}
 
 {% if view == "interviews" %}
+{{ search_box(survey, project, search) }}
 <section class="panel" id="interviews">
   <h2>{{ de_en("Interviews dieser Auswertung", "Interviews of this analysis") }}</h2>
   {% if interviews %}

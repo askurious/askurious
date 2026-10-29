@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{# The preview of "Treffer kodieren als …" (app/transcript_coding_search.py, code_hits): the passages as they would be
+   stored; "Speichern" codes them, "Zurück" leaves everything as it is. #}
+{% block title %}{{ de_en("Treffer kodieren", "Code hits") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Treffer kodieren", "Code hits"), de_en("Vorschau", "Preview")) %}{% endcall %}
+<section class="panel">
+  <p>{{ de_en("{n} Stellen werden mit „{cat}“ kodiert ({unit}):", "{n} passages will be coded with “{cat}” ({unit}):", n=chosen|length, cat=path,
+       unit=de_en("je der Satz um den Treffer", "each the sentence around the hit") if kind == "sentence" else de_en("je der Absatz um den Treffer", "each the paragraph around the hit")) }}</p>
+  <ul class="tc-hits">
+  {% for row, start, end, quote, where in chosen %}
+    <li><span class="muted small">{{ where }}</span><p class="tc-hit-text">„{{ quote }}“</p></li>
+  {% endfor %}
+  </ul>
+  <form method="post" action="{{ url_for('transcript_coding.code_hits', code=survey.code, pid=project.id) }}" class="row-fields">
+    {{ csrf() }}<input type="hidden" name="q" value="{{ q }}">{% if words %}<input type="hidden" name="words" value="1">{% endif %}
+    <input type="hidden" name="cat" value="{{ cat.id }}"><input type="hidden" name="unit" value="{{ kind }}">
+    {% for k in keys %}<input type="hidden" name="hit" value="{{ k }}">{% endfor %}
+    <a class="button button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, q=q, words='1' if words else none) }}#suche">{{ de_en("Zurück", "Back") }}</a>
+    {% if chosen %}<button class="button" name="action" value="save">{{ de_en("Speichern", "Save") }}</button>{% endif %}
+  </form>
+</section>
+{% endblock %}

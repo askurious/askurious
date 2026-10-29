@@ -1,0 +1,42 @@
+{# Searching the material of an analysis (app/transcript_coding_search.py): the field at the top of the view
+   "Interviews", the hits with their place and context, jumping to a hit and coding several at once. #}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{% from "_learn.html" import why %}
+{% macro search_box(survey, project, s) -%}
+<section class="panel" id="suche">
+  <form method="get" action="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#suche" class="row-fields tc-search" role="search">
+    <label class="tc-search-q">{{ de_en("Im Material suchen", "Search the material") }} <span class="hint">{{ de_en("mehrere Begriffe mit ODER oder Komma", "several terms with OR or a comma") }}</span>
+      <input type="search" name="q" value="{{ s.q if s else '' }}" maxlength="500" placeholder="{{ de_en('z. B. müde ODER erschöpft', 'e.g. tired OR exhausted') }}"></label>
+    <label class="check"><input type="checkbox" name="words" value="1" {% if s and s.words %}checked{% endif %}> {{ de_en("nur ganze Wörter", "whole words only") }}</label>
+    <div><button class="button button-small">{{ de_en("Suchen", "Search") }}</button></div>
+  </form>
+  {% if s and s.q %}
+  <p class="small">{% if s.total %}{{ de_en("{n} Treffer in {i} Interviews", "{n} hits in {i} interviews", n=s.total, i=s.interviews) }}{% if s.capped %} · {{ de_en("nur die ersten {n}; bitte genauer suchen", "only the first {n}; please search more narrowly", n=s.total) }}{% endif %}{% else %}{{ de_en("Keine Treffer.", "No hits.") }}{% endif %}</p>
+  {% if s.total %}
+  {{ why("search_hits") }}
+  <form method="post" action="{{ url_for('transcript_coding.code_hits', code=survey.code, pid=project.id) }}" class="stack" data-tc-search-form>
+    {{ csrf() }}<input type="hidden" name="q" value="{{ s.q }}">{% if s.words %}<input type="hidden" name="words" value="1">{% endif %}
+    <ul class="tc-hits">
+    {% for h in s.hits %}
+      <li><label class="check"><input type="checkbox" name="hit" value="{{ h.key }}"> <span class="muted small">{{ h.where }}</span></label>
+        <p class="tc-hit-text">{% if h.before %}… {{ h.before }} {% endif %}<mark>{{ h.match }}</mark>{% if h.after %} {{ h.after }} …{% endif %}</p>
+        <a class="small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=h.rid, at=h.start ~ '-' ~ h.end) }}">{{ de_en("Zur Stelle und dort kodieren", "Go to the passage and code it there") }}</a></li>
+    {% endfor %}
+    </ul>
+    {% if s.pages > 1 %}
+    <nav class="row-fields" aria-label="{{ de_en('Seiten der Treffer', 'Pages of the hits') }}">
+      {% if s.page > 1 %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, q=s.q, words='1' if s.words else none, p=s.page - 1) }}#suche">{{ de_en("Zurück", "Previous") }}</a>{% endif %}
+      <span class="muted small">{{ de_en("Seite {p} von {n}", "Page {p} of {n}", p=s.page, n=s.pages) }}</span>
+      {% if s.page < s.pages %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, q=s.q, words='1' if s.words else none, p=s.page + 1) }}#suche">{{ de_en("Weiter", "Next") }}</a>{% endif %}
+    </nav>{% endif %}
+    <fieldset class="row-fields tc-hits-code"><legend>{{ de_en("Angekreuzte Treffer kodieren als …", "Code the ticked hits as …") }}</legend>
+      <label>{{ de_en("Kategorie", "Category") }} <select name="cat" required><option value="">{{ de_en("bitte wählen", "please choose") }}</option>{% for cid, name in s.categories %}<option value="{{ cid }}">{{ name }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Stelle", "Passage") }} <select name="unit"><option value="sentence">{{ de_en("der Satz um den Treffer", "the sentence around the hit") }}</option><option value="paragraph">{{ de_en("der Absatz um den Treffer", "the paragraph around the hit") }}</option></select></label>
+      <div><button class="button button-small" name="action" value="preview">{{ de_en("Vorschau", "Preview") }}</button></div>
+    </fieldset>
+  </form>
+  {% endif %}
+  {% endif %}
+</section>
+{%- endmacro %}

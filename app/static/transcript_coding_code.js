@@ -556,4 +556,30 @@
   });
 
   draw();
+
+  // a hit of the search (app/transcript_coding_search.py) opened with ?at=start-end: marked, in view, categories open
+  (function () {
+    var at = /[?&]at=(\d+)-(\d+)/.exec(location.search);
+    if (!at) return;
+    var a = Number(at[1]), b = Number(at[2]);
+    function point(off) {
+      var spans = box.querySelectorAll("[data-s]");
+      for (var i = 0; i < spans.length; i++) {
+        var s = Number(spans[i].getAttribute("data-s")), node = spans[i].firstChild;
+        if (node && off >= s && off <= s + node.length) return [node, off - s];
+      }
+      return null;
+    }
+    var p = point(a), q = point(b);
+    if (!p || !q) return;
+    var range = document.createRange();
+    range.setStart(p[0], p[1]);
+    range.setEnd(q[0], q[1]);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    p[0].parentNode.scrollIntoView({ block: "center" });
+    var m = marked();
+    if (m) openPop(m);
+  })();
 })();

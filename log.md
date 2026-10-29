@@ -7511,3 +7511,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Migration 0108: Spalte interviewer_access.show_learning, server_default an (Ralf: auch bestehende Links an), ROLLING = True. Link, Revision, Geräte und Sitzungen bleiben.
 - learning.on() gilt für Sitzungen eines Links mit dem Haken wie für Forschende mit eingeschaltetem Schalter; ohne den Haken zeigen sie keine Klappe. „Nicht mehr zeigen“ nur mit Konto (learning.may_hide). Die Klappen zu Aufnahme, Teilnehmerbildschirm und Transkriptprüfung, bisher nur für Angemeldete, sehen jetzt auch Links mit dem Haken.
 - Handbuch (de/en) beim Dialog „Rechte ändern“ ergänzt. Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-29: Suche im Material bei „Interviews kodieren“
+
+- Ralf: Suchfeld in der Ansicht „Interviews“ einer Auswertung (app/transcript_coding_search.py): über alle Transkripte, die die Person dort sieht; Groß/klein egal, optional ganze Wörter, mehrere Begriffe mit ODER/Komma; Treffer mit Interview, Fundstelle („Pos. n“, Zeitmarke) und Kontext (± ein Satz), Treffer markiert, 20 je Seite.
+- Je Treffer „Zur Stelle und dort kodieren“ (Kodieransicht mit ?at=, Stelle markiert, Kategorienliste offen); Mehrfachauswahl „Angekreuzte Treffer kodieren als …“ mit Kategorie, Satz oder Absatz um den Treffer (ohne Sprecherkürzel und Zeitmarke), Vorschau, Speichern über transcript_coding_view.add (gleiche Rechte und Grenzen) und Rückgängig.
+- Lernhilfe „Warum Treffer einzeln prüfen?“ (Kuckartz & Rädiker). Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (keine neuen Daten; kodierte Stellen wie bisher).
