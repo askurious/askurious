@@ -17,6 +17,8 @@
     });
     return h;
   }
+  // with the setting "only team and author" (data.guarded) someone else's subcategory is proposed, not moved: ok with
+  // propose, the dialog says "vorschlagen" (app/transcript_coding.py, may_propose_move)
   function hang(data, a, b) {
     if (!a.move) return { ok: false, why: de_en("Hauptkategorien hängen nur die Forschenden um.", "Only the researchers move main categories.") };
     if (b.kind === "candidate") return { ok: false, why: de_en("Unter einen Kandidaten kommt nichts.", "Nothing goes under a candidate.") };
@@ -25,6 +27,7 @@
     if (b.level + height(data, a) > data.max) {
       return { ok: false, why: de_en("Dann stünde etwas tiefer als {n} Ebenen.", "Something would then stand deeper than {n} levels.", { n: data.max }) };
     }
+    if (a.propose) return { ok: true, propose: true, why: de_en("Fremde Kategorie: wird als Vorschlag gesendet.", "Someone else's category: sent as a proposal.") };
     return { ok: true, why: "" };
   }
   function merge(data, a, b) {
@@ -36,6 +39,9 @@
     if (mains && !data.team) return { ok: false, why: de_en("Hauptkategorien führen nur die Forschenden zusammen.", "Only the researchers merge main categories.") };
     if (b.level + height(data, a) - 1 > data.max) {
       return { ok: false, why: de_en("Dann stünde etwas tiefer als {n} Ebenen.", "Something would then stand deeper than {n} levels.", { n: data.max }) };
+    }
+    if (subs && data.guarded && !data.team && !(a.author && b.author)) {
+      return { ok: true, propose: true, why: de_en("Fremde Kategorie: wird als Vorschlag gesendet.", "Someone else's category: sent as a proposal.") };
     }
     return { ok: true, why: "" };
   }
