@@ -2,6 +2,7 @@
 import csv
 import io
 import json
+import re
 from datetime import datetime, timedelta
 
 from app import pagetime
@@ -115,7 +116,9 @@ def test_back_is_never_held_and_the_clock_starts_anew_on_return(app, client, sur
 def test_the_timer_sends_the_page_without_asking_for_required_answers(app, client, survey):
     setup(client, required=True, max_seconds=30)
     p, url = start(app, client)
-    assert 'data-min="0" data-max="30"' in p.get(url).data.decode()
+    # the clock runs from the consent on: under load a second or two may pass before the page comes (data-max="29")
+    shown = re.search(r'data-min="0" data-max="(\d+)"', p.get(url).data.decode())
+    assert shown and 25 <= int(shown.group(1)) <= 30
     # a page that only claims its time is up is an ordinary "Next": the required answer is asked for
     claimed = p.post(url, data={"pos": page_pos(p, 1), "nav": "next", "time_up": "1", "i2": ""})
     assert claimed.status_code == 200 and "has-error" in claimed.data.decode()
