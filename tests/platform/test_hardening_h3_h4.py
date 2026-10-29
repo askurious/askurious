@@ -17,7 +17,7 @@ def test_estimations_wait_for_a_free_place(app, tmp_path):
 
     def slow(inp, progress):
         started.append(inp["key"])
-        go.wait(10)
+        go.wait(120)
         return {"key": inp["key"]}
 
     paths = [(str(tmp_path / f"r{n}.json"), str(tmp_path / f"m{n}.json")) for n in range(2)]
@@ -28,23 +28,31 @@ def test_estimations_wait_for_a_free_place(app, tmp_path):
                for n, p in enumerate(paths)]
     with app.app_context():
         threads[0].start()
-        for _ in range(100):
-            if started:
-                break
+        # under load (full run 2026-10-29) a thread took longer than 5 s to start: wait on the state, not a fixed time
+        deadline = time.monotonic() + 120
+        while not started and time.monotonic() < deadline:
             time.sleep(0.05)
         threads[1].start()
-        time.sleep(0.5)
+        while not _queued(paths[1][1]) and time.monotonic() < deadline:
+            time.sleep(0.05)
         assert started == ["k0"]                                                # only one computes
-        with open(paths[1][1], encoding="utf-8") as f:
-            assert json.load(f)["queued"] is True                               # the other one says that it waits
+        assert _queued(paths[1][1])                                             # the other one says that it waits
         go.set()
         for t in threads:
-            t.join(15)
+            t.join(120)
     assert started == ["k0", "k1"]
     for result, marker in paths:
         with open(result, encoding="utf-8") as f:
             assert json.load(f)["key"] in ("k0", "k1")
         assert not os.path.exists(marker)                                       # done, nothing left behind
+
+
+def _queued(marker):
+    try:
+        with open(marker, encoding="utf-8") as f:
+            return json.load(f).get("queued") is True
+    except (OSError, ValueError):
+        return False
 
 
 def _lock():
