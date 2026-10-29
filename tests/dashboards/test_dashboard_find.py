@@ -58,3 +58,15 @@ def test_search_looks_at_title_project_code_people_and_state_but_not_buttons(app
         assert _ids(client.get(f"/dashboard/?d_q={q}").data.decode()) == [1], q
     for q in ("einstellungen", "export", "duplizieren"):
         assert _ids(client.get(f"/dashboard/?d_q={q}").data.decode()) == [], q
+
+
+def test_a_diary_survey_is_found_by_its_kind(app, client):
+    """The card says "Tagebuchstudie", so the search finds it by that word and not as "Fragebogen" (UI/UX audit
+    2026-10-29, WQ-05)."""
+    client.post("/diary/new", data={"title": "Alltag", "language": "de", "description": "x"})
+    client.post("/surveys/new", data={"title": "Umfrage"})
+    with app.app_context():
+        diary = db.session.scalar(db.select(Survey.id).filter_by(title="Alltag"))
+        other = db.session.scalar(db.select(Survey.id).filter_by(title="Umfrage"))
+    assert _ids(client.get("/dashboard/?d_q=tagebuchstudie").data.decode()) == [diary]
+    assert _ids(client.get("/dashboard/?d_q=fragebogen").data.decode()) == [other]

@@ -2,6 +2,7 @@
 to start with, in which nothing looks different; a group made into an organisation with a preview, nobody losing
 access; and the fence: a group shares only within its organisation, the people search finds only one's own
 organisations, a lead adds no account of another organisation directly."""
+import re
 from datetime import date, timedelta
 
 from flask_login import login_user
@@ -691,3 +692,21 @@ def test_only_site_admins_create_organisations(app, client, survey):
     other = _as(app, OTHER, "Kollegin")
     assert other.post("/admin/orgs/new", data={"name": "Fremd"}).status_code in (302, 403, 404)
     assert _new_org(app) is None
+
+
+def test_only_the_open_organisation_is_marked_current(app, client, survey):
+    """Two organisations administered: the menu marks only the one whose page is open (UI/UX audit 2026-10-29,
+    WQ-11)."""
+    _as(app, OTHER, "Kollegin")
+    for name in ("Lehrstuhl X", "Lehrstuhl Y"):
+        gid = _group(client, name=name, members=((OTHER, "Kollegin"),))
+        with app.app_context():
+            db.session.scalar(db.select(WorkGroupMember).filter_by(group_id=gid, orcid=OTHER)).role = "lead"
+            db.session.commit()
+        _convert(client, gid, name=name)
+    with app.app_context():
+        ids = {o.name: o.id for o in db.session.scalars(db.select(Organisation).where(Organisation.key.is_(None)))}
+    other = _as(app, OTHER, "Kollegin")
+    page = other.get(f"/org/{ids['Lehrstuhl Y']}/people").data.decode()
+    current = re.findall(r'<a href="/org/(\d+)/surveys" aria-current="page"', page)
+    assert current == [str(ids["Lehrstuhl Y"])]

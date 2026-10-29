@@ -108,7 +108,7 @@
           {# the management of the organisations this person is an admin of (app/org_admin.py) #}
           {% set orgs_admin = orgs_administered(current_user) %}
           {% if orgs_admin %}<hr><p class="nav-menu-head">{{ de_en("Organisationsverwaltung", "Organisation management") }}</p>{% endif %}
-          {% for o in orgs_admin %}<a href="{{ url_for('org.surveys', org_id=o.id) }}"{% if here == "org" %} aria-current="page"{% endif %}>{{ icon("settings", 18) }} {{ o.name }}</a>{% endfor %}
+          {% for o in orgs_admin %}<a href="{{ url_for('org.surveys', org_id=o.id) }}"{% if here == "org" and (request.view_args or {}).get("org_id") == o.id %} aria-current="page"{% endif %}>{{ icon("settings", 18) }} {{ o.name }}</a>{% endfor %}
           <hr>
           <p class="nav-menu-head">{{ de_en("Konto", "Account") }}</p>
           {# the four account pages under the head "Konto" (Konto-Seiten B2, Ralf 2026-10-20): what belongs to the account

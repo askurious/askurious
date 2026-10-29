@@ -36,11 +36,11 @@ def card_words(s):
         words = [de_en("Live-Abstimmung", "Live poll")]
     elif s.interview is not None:
         words = [de_en("Interviewleitfaden", "Interview guide")]
-    else:
+    else:  # a diary survey is found by the name its card shows, besides its state (UI/UX audit 2026-10-29, WQ-05)
         state = (de_en("Pausiert", "Paused") if s.status == "closed" and s.close_reason == "paused"
                  else de_en("Läuft", "Running") if s.status == "running"
                  else de_en("Geschlossen", "Closed") if s.status == "closed" else de_en("Entwurf", "Draft"))
-        words = [de_en("Fragebogen", "Questionnaire"), state]
+        words = [de_en("Tagebuchstudie", "Diary survey") if s.sampling is not None else de_en("Fragebogen", "Questionnaire"), state]
     if s.archived:
         words.append(de_en("Archiviert", "Archived"))
     return words

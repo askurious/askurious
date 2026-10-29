@@ -75,12 +75,12 @@
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("lock", 18) }}</span>{% endif %}{{ de_en("Offene Wissenschaft", "Open science") }}</h3><ul>
       <li>{{ de_en("Präregistrierung: eingefrorener Stand mit Prüfsumme", "Pre-registration: a frozen state with a checksum") }}</li>
       {# the words of the seal chain lead to a real example to check (Philipp, 2026-10-12) #}
-      <li>{{ de_en("Manipulationssichere Daten:", "Tamper-proof data:") }} <a href="{{ url_for('public.verify', code='42-7-3b8797c9b05d110e') }}">{{ de_en("Siegelkette mit Zeitstempeln des DFN", "a seal chain with timestamps of the DFN") }}</a>{{ de_en(", die niemand unbemerkt ändern kann", " that nobody can change unnoticed") }}</li>
+      <li>{{ de_en("Änderungen an den Daten nachweisbar:", "Tamper-evident data:") }} <a href="{{ url_for('public.verify', code='42-7-3b8797c9b05d110e') }}">{{ de_en("Siegelkette mit Zeitstempeln des DFN", "a seal chain with timestamps of the DFN") }}</a>{{ de_en(": Herkunft und Vollständigkeit der Fälle prüfbar", ": origin and completeness of the cases can be checked") }}</li>
       <li>{{ de_en("Open-Data-Paket, optional mit automatischem Upload zu Zenodo", "Open data package, optional automatic upload to Zenodo") }}</li>
       <li>{{ de_en("Löschfristen und Löschcode für Teilnehmende", "Retention periods and a deletion code for participants") }}</li></ul></div>
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("user", 18) }}</span>{% endif %}{{ de_en("Im Team", "In a team") }}</h3><ul>
       <li>{{ de_en("Anmeldung mit ORCID oder E-Mail-Adresse", "Sign-in with ORCID or email address") }}</li>
-      <li>{{ de_en("Arbeitsgruppen mit Rollen (Admin, Bearbeiten, Ansehen)", "Work groups with roles (Admin, Edit, View)") }}</li>
+      <li>{{ de_en("Arbeitsgruppen mit Leitung und Mitgliedern; Befragungen teilen mit den Rechten Ansehen, Bearbeiten oder Admin", "Work groups with a lead and members; sharing surveys with the rights View, Edit or Admin") }}</li>
       <li>{{ de_en("Designs und verknüpfte Elemente teilen", "Sharing designs and linked elements") }}</li>
       <li>{{ de_en("Bald als Open Source:", "Soon open source:") }} <a href="https://github.com/askurious" target="_blank" rel="noopener">github.com/askurious</a> ({{ de_en("sehr bald", "very soon") }})</li></ul></div>
   </div>
