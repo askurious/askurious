@@ -1635,6 +1635,7 @@ def study_json(survey, enrolment, lang, entries=None):
     completed_prompts = [f"{part}|{int(datetime.fromisoformat(due).replace(tzinfo=timezone.utc).timestamp() * 1000)}"
                          for part, due in completed if part and due]
     out = []
+    today = local_today(enrolment)
     for m in modules(survey):
         t = m.get("trigger") or {}
         first, last = _days_range(m)
@@ -1647,6 +1648,12 @@ def study_json(survey, enrolment, lang, entries=None):
         item = {"key": m["key"], "name": text_of(m.get("name"), lang, survey), "trigger": trigger,
                 "expires": int(m.get("expires") or 0), "reminder": reminder_of(m), "days": [first, last or 100000],
                 "notify": text_of(m.get("notify"), lang, survey), "offline": offline_ok(survey, m["key"])}
+        if t.get("t") == "self" and status == Enrolment.ACTIVE:
+            # the reports already sent off today, counted as the daily limit counts them: the app shows what is left
+            # and offers no start the server would refuse (UI/UX audit 2026-10-29, AND-05)
+            from app import diary_api
+
+            item["self_today"] = diary_api._today_count(enrolment, m["key"], today, entries)
         out.append(item)
     return {"code": survey.code, "title": survey.title_in(lang), "summary": summary_of(survey, lang),
             "contact": (survey.consent_item.config or {}).get("contact_email", "") if survey.consent_item else "",
@@ -1656,6 +1663,7 @@ def study_json(survey, enrolment, lang, entries=None):
             "open_end": open_end(survey), "status": status, "first_day": enrolment.first_day.isoformat() if enrolment.first_day else None,
             "last_day": enrolment.last_day.isoformat() if enrolment.last_day else None,
             "modules": out if status == Enrolment.ACTIVE else [],
+            "self_date": today.isoformat(),  # the person's local date the counts "self_today" belong to
             # the random prompts: the person's seed and quiet hours (random_times, the same on the phone)
             "seed": seed_of(enrolment), "quiet": quiet_history(enrolment), "pauses": pauses(enrolment),
             "tz": enrolment.tz, "tz_history": tz_history(enrolment),
