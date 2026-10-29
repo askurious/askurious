@@ -602,6 +602,12 @@ REASONS = {
         "zählen ebenso; so findet jede Person ein Zitat im Transkript wieder. Der Transkript-Export des Leitfadens hat "
         "dagegen Zeilennummern, weil er eine feste Datei mit festem Zeilenumbruch ist.",
         (("app.transcript_coding_review", "KUCKARTZ"), ("app.interview_results", "DRESING_PEHL"))),
+    "search_hits": (
+        "Warum Treffer einzeln prüfen?",
+        "Eine Suche nach Wörtern findet Wörter, nicht Bedeutungen: Sie übersieht Umschreibungen und trifft Verneinungen "
+        "(„nicht müde“) oder andere Bedeutungen desselben Worts. Lesen Sie deshalb jeden Treffer im Zusammenhang, bevor "
+        "Sie ihn kodieren, und nutzen Sie die Suche zum Finden, nicht als Ersatz für das Lesen.",
+        (("app.transcript_coding_review", "KUCKARTZ"),)),
 }
 
 # key: (symbol as shown, name, what it means, example, sources)
@@ -1433,6 +1439,11 @@ REASONS_EN = {
         "The paragraph number (“Pos. 12”) does not depend on window width or font, and QDA software such as MAXQDA "
         "counts the same way; so anyone finds a quote again in the transcript. The transcript export of the guide "
         "has line numbers instead, because it is a fixed file with fixed line breaks."),
+    "search_hits": (
+        "Why check hits one by one?",
+        "A search for words finds words, not meanings: it misses paraphrases and hits negations (“not tired”) or other "
+        "meanings of the same word. So read every hit in its context before you code it, and use the search for "
+        "finding, not as a substitute for reading."),
 }
 
 TERMS_EN = {
@@ -1839,6 +1850,7 @@ REASON_PLACES = {
     "mains_fixed": ("Interviews kodieren, Einstellungen, Hauptkategorien festgelegt",
                     "coding interviews, settings, main categories fixed"),
     "position": ("Interviews kodieren, Übersicht, Kategoriensystem (Excel)", "coding interviews, overview, category system (Excel)"),
+    "search_hits": ("Interviews kodieren, Im Material suchen", "coding interviews, search the material"),
     "reminders": ("Einladungen, Erinnerungen", "invitations, reminders"),
     "voice": ("Sprachnachricht im Editor; Startliste", "voice message in the editor; start list"),
     "ai_chat": ("KI-Chat im Editor; KI-Chat: Modellzugang", "AI chat in the editor; AI chat: model access"),
@@ -1979,7 +1991,7 @@ def glossary():
 
 # folds of an experimental feature (app/experimental.py): on the glossary page only for whom it is on
 REASON_FEATURES = {"ai_chat": "ai_chat", "category_rules": "transcript_coding", "anchor_choice": "transcript_coding",
-                   "mains_fixed": "transcript_coding", "position": "transcript_coding"}  # the participant screen is regular since 2026-10-22
+                   "mains_fixed": "transcript_coding", "position": "transcript_coding", "search_hits": "transcript_coding"}  # the participant screen is regular since 2026-10-22
 
 # the groups of the section "Entscheidungen" of the glossary page, named like the groups of the tabs (_tabs.html;
 # concept "Lernhilfen: fünfte Runde", H3); a fold belongs where its decision is taken. Not listed: "Planen".
@@ -1990,7 +2002,7 @@ REASON_PHASES.update({key: 2 for key in ("data_pool", "hb_or_logit", "segments_k
                                          "segments_describe", "which_test", "weighting_scope", "preregistration",
                                          "second_coding", "transcript_export", "transcript_check", "archive_where",
                                          "sem_two_steps", "sem_drop", "sem_versions", "category_rules", "anchor_choice",
-                                         "mains_fixed", "position")})
+                                         "mains_fixed", "position", "search_hits")})
 
 
 def decisions():
