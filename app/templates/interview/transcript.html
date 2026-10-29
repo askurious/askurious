@@ -18,7 +18,15 @@
     <a class="button button-small button-secondary" href="{{ interviews_url(survey) }}">{{ icon("back", 16) }} Interviews</a>
   </div>
   {% if (row.interview.audio or []) %}
-  <div class="iv-audio-part">{% for p in row.interview.audio %}<audio controls preload="metadata" src="{{ url_for('interview_audio.listen', code=survey.code, rid=row.id, part=p.part) }}"></audio>{% endfor %}</div>
+  <div class="iv-audio-part">{% for p in row.interview.audio %}<audio controls preload="metadata" data-tp-part data-start="{{ p.start or 0 }}" src="{{ url_for('interview_audio.listen', code=survey.code, rid=row.id, part=p.part) }}"></audio>{% endfor %}</div>
+  {# listening while correcting (transcript_player.js): only while the recording is there #}
+  <div class="row-fields tp-bar" data-tp>
+    <button type="button" class="button button-small button-secondary" data-tp-play>{{ icon("play", 14) }} {{ de_en("Hier abspielen", "Play from here") }}</button>
+    <span class="muted small" data-tp-pos aria-live="polite"></span>
+    <span class="tp-rates" role="group" aria-label="{{ de_en('Tempo', 'Speed') }}">{% for r, t in [("0.75", de_en("0,75×", "0.75×")), ("1", "1×"), ("1.25", de_en("1,25×", "1.25×"))] %}<button type="button" class="tp-rate" data-tp-rate="{{ r }}" aria-pressed="{{ 'true' if r == '1' else 'false' }}">{{ t }}</button>{% endfor %}</span>
+    <span class="hint">{{ de_en("F4 oder Esc im Text: abspielen und anhalten, weiter 2 s früher", "F4 or Esc in the text: play and pause, going on 2 s earlier") }}</span>
+  </div>
+  <script src="{{ url_for('static', filename='transcript_player.js') }}" defer></script>
   {% endif %}
   <p class="muted small">{{ de_en("Absätze enden mit einer Zeitmarke #hh:mm:ss-0# nach Dresing & Pehl (2018), gemessen an der Uhr des Interviews. Falls automatische Sprecherlabels vorhanden sind: P1-S1 bezeichnet die erste Stimme in Aufnahmeteil 1. Die Zuordnung gilt nur innerhalb eines Teils und erkennt keine Namen oder Rollen. Bitte beim Prüfen „I:“ (Interviewende) und „B:“ (befragte Person) setzen und Namen sowie erkennbare Angaben durch Platzhalter ersetzen.", "Paragraphs end with a time mark #hh:mm:ss-0# after Dresing & Pehl (2018), measured on the interview clock. If automatic speaker labels are present: P1-S1 denotes the first voice in recording part 1. Labels apply only within one part and identify no names or roles. Please set “I:” (interviewer) and “B:” (interviewee) while checking and replace names and identifying details with placeholders.") }}</p>
   <form method="post" action="{{ url_for('interview_transcribe.upload', code=survey.code, rid=row.id) }}" enctype="multipart/form-data" class="row-fields transcript-upload"
