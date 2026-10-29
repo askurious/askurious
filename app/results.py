@@ -930,7 +930,7 @@ def _compute(survey, sources=("real",), include_incomplete=False, drop_speeders=
         if item.type == "semantic":  # a polarity profile in place of a list of frequencies per pair
             entry["profile"] = item.kind.profile(item, entry["columns"], passes, captions if loop_rows else {}, lang)
         if item.type == "psm":
-            entry["psm"] = psm_curves(table, item, passes)
+            entry["psm"] = psm_curves(table, item, passes, persons=person_ids)
         if item.type == "position2d":
             entry["pos2d"] = item.kind.map_points(item, table, lang, passes)
         if item.type == "association":
@@ -938,7 +938,7 @@ def _compute(survey, sources=("real",), include_incomplete=False, drop_speeders=
         if item.type == "ranking":
             entry["ranks_norm"] = item.kind.results(item, table, lang, passes)
             if not entry["ranks_norm"]:
-                entry["ranks_mean"] = item.kind.summary(item, table, lang, passes)
+                entry["ranks_mean"] = item.kind.summary(item, table, lang, passes, persons=person_ids)
         if item.type == "card_sort":  # cards per group, pairs sorted together, names of own groups
             entry["cardsort"] = item.kind.results(item, table, lang, passes)
             entry["answered"] = entry["cardsort"]["persons"]
@@ -1795,7 +1795,7 @@ class _Price:
         return units.fmt(value, "number", "EUR", self.item.text("unit", "de") or "", lang, self.places)
 
 
-def psm_curves(table, item, passes=()):
+def psm_curves(table, item, passes=(), persons=None):
     """Van Westendorp analysis plus chart geometry for the results page."""
     a = psm_analysis.analyse(table, item, passes)
     if not a["curves"]:
@@ -1809,7 +1809,8 @@ def psm_curves(table, item, passes=()):
     # the table of the curves: at most psm_analysis.MAX_POINTS prices, evenly spread (P9 of the audit of 2026-10-06)
     a["table_rows"] = psm_analysis.thin(range(len(cv["prices"])))
     # 95 % bootstrap intervals of the price points over persons (results page only, not the dashboards)
-    a["ci"] = psm_analysis.point_intervals([c for c in psm_analysis.cases(table, item, passes) if psm_analysis.consistent(c)])
+    a["ci"] = psm_analysis.point_intervals([c for c in psm_analysis.cases(table, item, passes, persons)
+                                            if psm_analysis.consistent(c)])
     a["ci_min"] = intervals.MIN_BOOT
     a["chart"] = psm_analysis.chart(cv["prices"], [(k, cv[k]) for k, _ in PSM_SERIES], rng, markers=a["points"])
     if a["nms"]:

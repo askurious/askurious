@@ -142,6 +142,20 @@ def evaluate(survey, h, table, xs, ys, out, lang="de"):
         X = np.column_stack([np.ones(len(y)), xw, xb])
         names = ["(Intercept)", "within", "between"]
         Z = np.column_stack([np.ones(len(y)), xw]) if settings["slope"] else None
+    # the rows the model is fitted on (mixed.fit drops those without what explains, its mean or the previous entry):
+    # the minimum holds for them, not for all rows with the outcome (audit storage and calculations 2026-10-28, M6)
+    fitted = np.isfinite(y) & np.all(np.isfinite(X), axis=1) & (np.all(np.isfinite(Z), axis=1) if Z is not None else True)
+    per = Counter(group[fitted].tolist())
+    if len(per) < MIN_PERSONS or statistics.median(per.values()) < MIN_MEDIAN:
+        out["notes"].append(de_en("Für das Mehrebenenmodell zu wenige Daten: {k} Personen mit im Median {m} Einträgen "
+                                  "mit allen Werten des Modells (nötig: {kk} Personen, im Median {mm}; Festlegung von "
+                                  "Askurious).",
+                                  "Too few data for the multilevel model: {k} people with a median of {m} entries "
+                                  "with every value of the model (needed: {kk} people, a median of {mm}; set by "
+                                  "Askurious).", k=len(per),
+                                  m=_num(statistics.median(per.values()), lang, 0) if per else 0,
+                                  kk=MIN_PERSONS, mm=MIN_MEDIAN))
+        return True
     try:
         res = mixed.fit(y, X, group, names, Z=Z)
     except (mixed.MixedError, np.linalg.LinAlgError, ValueError, ArithmeticError):
