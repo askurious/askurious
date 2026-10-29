@@ -16,6 +16,8 @@ COPY requirements-cpu.txt requirements.txt ./
 RUN pip install --require-hashes --no-deps --index-url https://download.pytorch.org/whl/cpu -r requirements-cpu.txt \
     && pip install --require-hashes --no-deps -r requirements.txt && pip check
 COPY whisper_service ./whisper_service
+# licence texts of the wheels that ship none (licenses/README.txt)
+COPY licenses ./licenses
 RUN useradd --system --uid 1000 --home /tmp whisper \
     && mkdir -p /state/tmp /models && chown -R whisper:whisper /state
 USER whisper

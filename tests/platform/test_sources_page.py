@@ -23,6 +23,36 @@ def test_sources_page_is_open_and_describes_the_derived_data_without_downloads(c
         assert f"/sources/{name}" not in html and client.get(f"/sources/{name}").status_code == 404, name
 
 
+def test_sources_page_serves_the_licence_notice_and_links_the_source_code(client, app):
+    """EUPL Art. 5: the licence texts, NOTICE (the parts not under the EUPL) and where the source code is, on the page
+    of every installation; the Docker image copies the three files (deploy/docker/Dockerfile)."""
+    html = client.get("/sources").data.decode()
+    for name, marker in (("LICENSE", "EUROPEAN UNION PUBLIC LICENCE"), ("LICENSE.de.txt", "EUPL"),
+                         ("NOTICE", "Parts NOT licensed under the EUPL-1.2")):
+        assert f"/sources/{name}" in html
+        r = client.get(f"/sources/{name}")
+        assert r.status_code == 200 and r.mimetype == "text/plain" and marker in r.data.decode()
+    assert "Datei NOTICE" in html and "Anfang der Datei LICENSE" not in html
+    assert 'href="https://github.com/askurious/askurious"' in html
+    app.config["SOURCE_CODE_URL"] = "https://example.org/fork"
+    assert 'href="https://example.org/fork"' in client.get("/sources").data.decode()
+    dockerfile = (ROOT / "deploy/docker/Dockerfile").read_text(encoding="utf-8")
+    assert re.search(r"^COPY .*LICENSE LICENSE\.de\.txt NOTICE", dockerfile, re.M)
+    whisper = (ROOT / "deploy/docker/whisper/Dockerfile").read_text(encoding="utf-8")
+    assert "COPY licenses ./licenses" in whisper
+    for name in ("ctranslate2-4.8.3", "flatbuffers-25.12.19", "tokenizers-0.22.2", "primepy-1.3"):
+        assert (ROOT / f"deploy/docker/whisper/licenses/{name}.LICENSE.txt").is_file(), name
+
+
+def test_lgpl_test_schemas_come_with_the_gnu_texts():
+    """The DDI Codebook 2.5 schemas (LGPL 3.0 or later) are passed on with the code; the LGPL and the GPL it builds on
+    lie next to them."""
+    ddi = ROOT / "tests/data/ddi"
+    assert "GNU LESSER GENERAL PUBLIC LICENSE" in (ddi / "codebook25-lgpl-3.0.txt").read_text(encoding="utf-8")
+    assert "GNU GENERAL PUBLIC LICENSE" in (ddi / "codebook25-gpl-3.0.txt").read_text(encoding="utf-8")
+    assert "codebook25-lgpl-3.0.txt" in (ROOT / "NOTICE").read_text(encoding="utf-8")
+
+
 def test_privacy_and_terms_pages_link_the_sources(client):
     """Not the footer any more: there only the imprint, the accessibility statement and the terms (Ralf, 2026-10-17)."""
     page = client.get("/imprint").data.decode()

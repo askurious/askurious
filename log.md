@@ -7551,3 +7551,12 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf: neben „Diagramm als SVG“ auch PNG und PDF (map.png, map.pdf), und das Diagramm im Word-Kodierleitfaden nach der Forschungsfrage (seitenbreit, nie höher als die Seite; mehr als 2,2-mal so breit wie hoch: eigene Seite quer).
 - Ohne neue Abhängigkeit: app/svg_png.py zeichnet das SVG mit Pillow (rect, circle, line, path mit M/L/C, text, Strichelung), Schrift Bitstream Vera aus reportlab (Pillows eigene Schrift hat keine Umlaute); reportlabs renderPM fehlt hier die Zusatzbibliothek. Das PDF (reportlab, A4, bei breiten Diagrammen quer) nimmt das PNG in Druckauflösung, weil results_pdf.svg_drawing Grafiken in grauem APA-Stil neu zeichnet und die Farben der Kategorien verlöre.
 - Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (dieselben Angaben wie das SVG).
+
+## 2026-10-29: Lizenzhinweise im Image, auf /sources und bei den Testdaten
+
+- Das App-Image enthält jetzt LICENSE, LICENSE.de.txt und NOTICE; /sources zeigt die drei Dateien als Text und verlinkt den Quellcode (neue Einstellung SOURCE_CODE_URL, Standard github.com/askurious/askurious; eine Installation mit geändertem Code trägt ihre eigene Kopie ein). Der Satz „die genaue Liste steht am Anfang der Datei LICENSE“ zeigt jetzt richtig auf NOTICE, ebenso im README.
+- Transkriptionsdienst: die Lizenztexte der vier Wheels ohne eigene Lizenzdatei (ctranslate2, flatbuffers, tokenizers, primePy) liegen in deploy/docker/whisper/licenses/ und kommen ins Image.
+- Die LGPL-Schemata von DDI Codebook 2.5 in den Testdaten haben jetzt die Volltexte von LGPL 3.0 und GPL 3.0 neben sich.
+- NOTICE nennt beim BKG das Bezugsjahr 2026 wie README, Oberfläche und Nutzungsbedingungen.
+- Beispielaussagen im Likert-Editor („Aussagen einfügen“) und im zugehörigen Test sind jetzt eigene Formulierungen statt Aussagen einer veröffentlichten Skala.
+- Rechtstexte geprüft: README angepasst; Datenschutzerklärung, Nutzungsbedingungen und Datenschutzkonzept brauchen keine Änderung (keine neuen Daten, nur Lizenzhinweise).

@@ -7,23 +7,24 @@ from app.extensions import db
 from app.models import Item, Survey
 from tests.conftest import add
 
-ATI = """Fragebogen zur interaktionsbezogenen Technikaffinität
+# own example statements (no wording of a published scale in the code, NOTICE), broken over lines as in a PDF
+PDF_COPY = """Fragebogen zum Umgang mit neuen Geräten
 
-01 Ich beschäftige mich gern genauer mit technischen
-Systemen.
-02 Ich probiere gern die Funktionen neuer technischer
-Systeme aus.
-03 In erster Linie beschäftige ich mich mit technischen
-Systemen, weil ich muss. (R)
+01 Ich lese die Anleitung, bevor ich ein neues
+Gerät benutze.
+02 Neue Apps richte ich am liebsten
+selbst ein.
+03 Bei neuen Geräten warte ich lieber, bis mir jemand
+hilft. (R)
 """
 
 
 def test_a_pdf_copy_becomes_one_statement_per_item():
-    got = item_paste.parse(ATI)
+    got = item_paste.parse(PDF_COPY)
     # the heading before the numbered items is left out
-    assert [t for _, t, _ in got] == ["Ich beschäftige mich gern genauer mit technischen Systemen.",
-                                          "Ich probiere gern die Funktionen neuer technischer Systeme aus.",
-                                          "In erster Linie beschäftige ich mich mit technischen Systemen, weil ich muss."]
+    assert [t for _, t, _ in got] == ["Ich lese die Anleitung, bevor ich ein neues Gerät benutze.",
+                                      "Neue Apps richte ich am liebsten selbst ein.",
+                                      "Bei neuen Geräten warte ich lieber, bis mir jemand hilft."]
     assert [r for _, _, r in got] == [False, False, True]
 
 
