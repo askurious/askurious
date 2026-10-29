@@ -1547,6 +1547,14 @@ def page(uid):
             # the first page was stored, but the answer never reached the browser (no signal, a gateway timeout):
             # it sends the page again with the cookie from before. The stored participation goes on
             return _resume_stored(survey, stored, uid)
+        if request.method == "POST" and pending and pending.get("q") not in (None, survey.qversion) \
+                and _accepting(survey):
+            # the first page was shown from an earlier version of the questionnaire (changed and started again in
+            # the meantime): its answers would be stored under the new one with another meaning (a 5 of five steps
+            # read as 5 of seven). The current first page is shown instead, and says so
+            session.pop(_pending_key(survey), None)
+            session[_stale_key(survey)] = True
+            return redirect(url_for("participate.page", uid=uid), code=303)
         if request.method == "POST" and pending and _accepting(survey) \
                 and (request.form.get("set_lang") or request.form.get("nav") == "back"):
             # the language switch (or "Back") on a page that is not stored yet: nothing is stored or counted, there

@@ -29,6 +29,8 @@
 <form method="post" novalidate autocomplete="off" {% if offline is defined and offline %}data-app-offline{% endif %} {% if auto_advance %}data-auto-advance{% endif %} {% if auto_next is defined and auto_next %}data-auto-next{% endif %} {% if survey.paradata %}data-paradata{% endif %} {% if survey.focus_paste and not separated %}data-focus{% if survey.focus_inputs %} data-focus-inputs{% endif %}{% endif %} {% if themes.is_auto(themes.of(survey)) %}data-scheme{% endif %} {% if keep_key is defined and keep_key %}data-keep="{{ keep_key }}"{% endif %} {% if block_sections is defined %}data-block data-block-url="{{ block_url }}" data-block-start="{{ block_first }}"{% endif %}>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="pos" value="{{ page_token }}">
+  {# the questionnaire version the page shows: a page of an earlier one is not taken (runtime._step) #}
+  {% if not separated %}<input type="hidden" name="qv" value="{{ survey.qversion or 1 }}">{% endif %}
   {# the language of this page: the language switch sends the page along, and its numbers are read in this one #}
   <input type="hidden" name="page_lang" value="{{ lang }}">
   {% if block_sections is defined %}
