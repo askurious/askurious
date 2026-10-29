@@ -20,7 +20,9 @@ canonical text) in hex. Version 2 of the canonical text (code review 2026-10-07,
 "&name=<value>" for each declared value the link carries, in the order of the declaration, each value percent-encoded
 as RFC 3986 says (every byte of its UTF-8 except A-Z a-z 0-9 - . _ ~; Python quote(v, safe=""), PHP rawurlencode), so
 no value can hold a "&name=" that moves text into another value (signed_text). Version 1 (no sig_v, the values as they
-are, not encoded) was ambiguous; it is still taken until V1_UNTIL, so the web apps have time to change. Values with a
+are, not encoded) was ambiguous; it is still taken until V1_UNTIL, so the web apps have time to change, but only
+for a key drawn before 2026-10-29: a key drawn since (a new node, "Neuen Schlüssel erzeugen", a copy) carries
+"v2": True and takes version 2 only (V2_ONLY). Values with a
 missing or wrong signature are not kept; the return itself counts (the person is not stuck), and the export says so
 (<code>_sig). docs/externer-abschnitt-signatur.md is the guide for the developers of a web app.
 
@@ -65,6 +67,7 @@ SIG_VERSION = "sig_v"  # the parameter that names the version of the signed text
 # Version 1 of the signed text (values not encoded, ambiguous) is taken up to and including the day before this one:
 # half a year for the web apps that sign already (signing exists since 2026-10-03) to send version 2
 V1_UNTIL = date(2027, 4, 1)
+V2_ONLY = "v2"  # in node["sign"]: the key was drawn after version 1 was given up; returns signed in version 1 do not count
 PARAMS = "_params"  # in Response.external: the URL parameters held while the person is outside (leave)
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{20,400}\Z")
 _EPOCH = datetime(1970, 1, 1)
@@ -225,6 +228,7 @@ def sign_from_form(node, form):
     on = bool(form.get("sign_values"))
     if on and (not sign.get("key") or form.get("sign_renew") or not secrets_box.decrypt(sign["key"], secrets_box.PARTICIPANT)):
         sign["key"] = secrets_box.encrypt(secrets.token_urlsafe(32), secrets_box.PARTICIPANT)
+        sign[V2_ONLY] = True  # a web app that gets this key from now on signs in version 2
     if not sign.get("key"):
         return None
     sign["on"] = on
@@ -282,17 +286,22 @@ def signed_version(args, now=None):
     return None
 
 
+def v2_only(node):
+    """Whether the node's key takes version 2 only (drawn since 2026-10-29)."""
+    return bool(((node or {}).get("sign") or {}).get(V2_ONLY))
+
+
 def signature(key, text):
     return hmac.new(key.encode(), text.encode(), hashlib.sha256).hexdigest()
 
 
 def signature_ok(node, args, now=None):
     """The return link carries the right signature of its values (compared in constant time), in version 2 or, until
-    V1_UNTIL, version 1 (signed_version). False without a key that can be read."""
+    V1_UNTIL, version 1 (signed_version) for a key drawn before V2_ONLY. False without a key that can be read."""
     key = sign_key(node)
     given = (args.get(SIG) or "").strip().lower()
     version = signed_version(args, now)
-    if not key or not given or version is None:
+    if not key or not given or version is None or (version == 1 and v2_only(node)):
         return False
     expected = signature(key, signed_text(node, args.get("t") or "", args, version))
     return hmac.compare_digest(expected.encode(), given.encode("utf-8", "replace"))
