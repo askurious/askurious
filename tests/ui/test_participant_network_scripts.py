@@ -6,7 +6,8 @@ import pytest
 from tests.helpers.bounded_run import run
 
 
-@pytest.mark.parametrize("script", ["task_interruption_cases.js", "feedback_network_cases.js", "voice_recovery_cases.js"])
+@pytest.mark.parametrize("script", ["task_interruption_cases.js", "feedback_network_cases.js", "voice_recovery_cases.js",
+                                    "blockload_navigation_cases.js"])
 def test_participant_recovery_scripts(script):
     node = shutil.which("node")
     if not node:
