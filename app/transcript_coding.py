@@ -1129,6 +1129,10 @@ def project(code, pid):
                        groups=groups_of(current_user, within=survey), people=_people(survey, project),
                        access_names={a.id: a.name for a in accesses},
                        others=[p for p in projects(survey) if p.id != project.id])
+    if view == "interviews":  # the search of the material (app/transcript_coding_search.py)
+        from app import transcript_coding_search
+
+        context["search"] = transcript_coding_search.results(project, who, request.args) if request.args.get("q") else None
     return render_template("transcript_coding/project.html", **context)
 
 

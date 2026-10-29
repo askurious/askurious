@@ -7519,3 +7519,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Oberfläche: Sprechblasen-Symbol mit Zahl an Kategorie und Interview, „Memo“ im Popover einer kodierten Stelle; ein Dialog je Seite; Liste „Memos“ in der Übersicht (Art, Kategorie, Interview, sortiert, 10/20/50 je Seite).
 - Export: .qdpx mit REFI-QDA Notes und NoteRef an Code, TextSource und PlainTextSelection; Excel-Blatt „Memos“. Der Word-Kodierleitfaden bleibt ohne Memos.
 - Löschen mit der Stelle, dem Interview (Löschantrag, Frist), der Auswertung, dem Leitfaden und dem Konto der Person. table_notes, participant_grants (nicht freigegeben), Datenschutzkonzept, Datenschutzerklärung (Abschnitt Kodierende, de/en), Handbuch (de/en) und Glossar ergänzt. README, Lizenz und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Suche im Material bei „Interviews kodieren“
+
+- Ralf: Suchfeld in der Ansicht „Interviews“ einer Auswertung (app/transcript_coding_search.py): über alle Transkripte, die die Person dort sieht; Groß/klein egal, optional ganze Wörter, mehrere Begriffe mit ODER/Komma; Treffer mit Interview, Fundstelle („Pos. n“, Zeitmarke) und Kontext (± ein Satz), Treffer markiert, 20 je Seite.
+- Je Treffer „Zur Stelle und dort kodieren“ (Kodieransicht mit ?at=, Stelle markiert, Kategorienliste offen); Mehrfachauswahl „Angekreuzte Treffer kodieren als …“ mit Kategorie, Satz oder Absatz um den Treffer (ohne Sprecherkürzel und Zeitmarke), Vorschau, Speichern über transcript_coding_view.add (gleiche Rechte und Grenzen) und Rückgängig.
+- Lernhilfe „Warum Treffer einzeln prüfen?“ (Kuckartz & Rädiker). Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (keine neuen Daten; kodierte Stellen wie bisher).
