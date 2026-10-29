@@ -488,8 +488,10 @@ def _rescaled(groups):
     top = max((abs(v) for g in groups for v in g if v is not None), default=0.0)
     if not top or not math.isfinite(top) or 1e-50 <= top <= 1e50:
         return groups
-    factor = 2.0 ** -math.frexp(top)[1]
-    return [[None if v is None else v * factor for v in g] for g in groups]
+    # math.ldexp per value: 2 ** 1027 (a top of 6e-310, subnormal) is no float of its own, the scaled values are
+    # (audit storage and calculations 2026-10-28, M4-R)
+    shift = -math.frexp(top)[1]
+    return [[None if v is None else math.ldexp(v, shift) for v in g] for g in groups]
 
 
 def welch_t(x, y, weights=None):

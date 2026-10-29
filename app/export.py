@@ -7,6 +7,7 @@ Separator "comma" writes decimal points (R, Python, SPSS); "semicolon" writes de
 """
 import csv
 import io
+import math
 import re
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -49,6 +50,10 @@ META = [
 DEFAULT_SPEEDER_PCT = 50  # Leiner (2019): less than half the median completion time
 LEINER = ("Leiner, D. J. (2019). Too fast, too straight, too weird: Non-reactive indicators for meaningless "
           "data in internet surveys. Survey Research Methods, 13(3), 229–248. https://doi.org/10.18148/srm/2019.v13i3.7403")
+
+
+PLAIN_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")  # a number as text that a numeric column keeps (E-1)
+EXACT_INT = 2 ** 53  # integers up to this are exact in a float
 
 
 def speeder_pct(value):
@@ -2715,13 +2720,23 @@ def _spss_dictionary(survey, include_incomplete, sources, speeder, speed_real, s
                          standard=standard), "de")}
 
     def number(v):
+        """A value a numeric column keeps exactly: finite, and an integer within 2^53 (float's exact range). Text
+        must be written as a plain decimal: answer codes such as "nan", "inf", "1e5" or two long digit strings that
+        float() reads alike stay text, so no code is lost or merged (audit storage and calculations 2026-10-28, E-1)."""
         if v in (None, "") or isinstance(v, bool):
             return True
+        if isinstance(v, str):
+            text = v.strip()
+            if not PLAIN_NUMBER.fullmatch(text):
+                return False
+            return "." in text or abs(int(text)) <= EXACT_INT
+        if isinstance(v, int):
+            return abs(v) <= EXACT_INT
         try:
-            float(str(v))
-            return True
-        except ValueError:
+            f = float(v)
+        except (TypeError, ValueError):
             return False
+        return math.isfinite(f) and (not f.is_integer() or abs(f) <= EXACT_INT)
 
     def integer(v):
         return v in (None, "") or isinstance(v, bool) or float(str(v)).is_integer()
