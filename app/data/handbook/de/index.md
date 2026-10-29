@@ -51,7 +51,7 @@ Die Seitenbeschreibungen ab [Eine Befragung aufbauen](build.md) zeigen, wo jeder
    Teilnehmende können ihre eigenen Antworten mit einem Löschcode löschen.
    Aufbewahrungsfristen löschen Daten, ohne dass jemand daran denken muss.
 5. **Offene Daten leicht gemacht.**
-   Der Weg vom Feld zum zitierbaren Datenpaket ist kurz: Codebuch, SPSS, jamovi, R, Zenodo, eine Präregistrierung, die beim Start der Datenerhebung festgehalten wird, und eine manipulationssichere Siegelkette.
+   Der Weg vom Feld zum zitierbaren Datenpaket ist kurz: Codebuch, SPSS, jamovi, R, Zenodo, eine Präregistrierung, die beim Start der Datenerhebung festgehalten wird, und eine Siegelkette, die Änderungen an den Fällen nachweisbar macht.
 6. **Wiederverwenden statt neu erfinden.**
    Validierte Skalen kommen aus einem gemeinsamen Bestand an Konstrukten.
    Sie stehen im Fragebogen als gewöhnliche Elemente, gesperrt in ihrem validierten Wortlaut, und jede Befragung, die sie nutzt, trägt zu ihrer gemeinsamen Reliabilität bei.
