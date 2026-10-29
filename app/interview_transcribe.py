@@ -265,6 +265,19 @@ def _store(rid, change, tries=5):
         db.session.close()
 
 
+def _still_mine(rid, mine):
+    """Whether the run that asks is still the interview's current one (mine); True when that cannot be read, so a
+    failure is never hidden."""
+    try:
+        row = db.session.get(Response, rid, populate_existing=True)
+        return row is not None and mine(state(row))
+    except Exception:  # noqa: BLE001 - the database itself is gone: report the failure as before
+        db.session.rollback()
+        return True
+    finally:
+        db.session.close()
+
+
 def _waiting(app, rid, mine, job):
     """job() (the request to Whisper) in a thread of its own, meanwhile a sign of life every BEAT seconds."""
     from concurrent.futures import ThreadPoolExecutor
@@ -422,8 +435,13 @@ def work(app, survey_id, rid, run=None):
         except _Cancelled:
             return
         except Exception as e:  # noqa: BLE001 - the list shows the reason, the log the details
-            app.logger.exception("transcription of interview %s failed", rid)
             db.session.rollback()
+            if not _still_mine(rid, mine):
+                # cancelled ("Abbrechen") or started anew meanwhile: Whisper then reports the job as cancelled, which is
+                # no failure; the interview already shows its state (log check after the deploy 2026-10-29)
+                app.logger.info("transcription of interview %s ended: cancelled or started anew", rid)
+                return
+            app.logger.exception("transcription of interview %s failed", rid)
             reason = str(e) if isinstance(e, RuntimeError) else "Die Transkription ist fehlgeschlagen."
             from app.whisper_jobs import MemoryLimitError
             error_code = 'memory_limit' if isinstance(e, MemoryLimitError) else ''

@@ -456,6 +456,38 @@ def test_sign_of_life_while_waiting_and_cancel_drops_the_result(app, client, mon
     assert not interview_transcribe.busy(rid)
 
 
+def test_job_cancelled_by_abbrechen_is_no_failure_in_the_log(app, client, monkeypatch, caplog):
+    """"Abbrechen" while Whisper works: the service then answers with an error (its job was cancelled). The run ends
+    quietly, keeps the state "Abgebrochen." and logs no failure (log check after the deploy 2026-10-29); a failure of
+    the current run is still logged."""
+    from app import interview_transcribe
+
+    def answer(name, data):
+        with app.app_context():
+            row = db.session.get(Response, rid)
+            interview_transcribe._set(row, state="error", error="Abgebrochen.", run="")   # "Abbrechen" meanwhile
+            db.session.commit()
+        raise RuntimeError("Der Transkriptionsauftrag wurde abgebrochen oder konnte nicht verarbeitet werden.")
+
+    code, sid, rid, calls = _whisper(app, client, monkeypatch, answer)
+    with caplog.at_level("INFO"):
+        client.post(f"/guide/{code}/interviews/{rid}/transcribe")
+    tr = _tr(app, rid)
+    assert tr["state"] == "error" and tr["error"] == "Abgebrochen."
+    assert not [r for r in caplog.records if r.levelname == "ERROR" and "failed" in r.getMessage()]
+    assert any("cancelled or started anew" in r.getMessage() for r in caplog.records)
+
+    def broken(name, data):
+        raise RuntimeError("Whisper kaputt.")
+
+    monkeypatch.setattr(interview_transcribe.requests, "post", lambda *a, **k: broken(None, None))
+    caplog.clear()
+    client.post(f"/guide/{code}/interviews/{rid}/transcribe")
+    tr = _tr(app, rid)
+    assert tr["state"] == "error" and tr["error"] == "Whisper kaputt."
+    assert [r for r in caplog.records if r.levelname == "ERROR" and "failed" in r.getMessage()]
+
+
 def test_parts_are_kept_one_by_one_and_only_missing_ones_sent_again(app, client, monkeypatch):
     """I-21: part 1 done, part 2 fails: part 1 stays, the next run sends part 2 only; a part whose file is gone is
     noted in the draft."""
