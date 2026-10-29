@@ -20,7 +20,7 @@
     <ul class="tc-hits">
     {% for h in s.hits %}
       <li><label class="check"><input type="checkbox" name="hit" value="{{ h.key }}"> <span class="muted small">{{ h.where }}</span></label>
-        <p class="tc-hit-text">{% if h.before %}… {{ h.before }} {% endif %}<mark>{{ h.match }}</mark>{% if h.after %} {{ h.after }} …{% endif %}</p>
+        <p class="tc-hit-text">{% if h.before %}… {{ h.before }}{% endif %}<mark>{{ h.match }}</mark>{% if h.after %}{{ h.after }} …{% endif %}</p>
         <a class="small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=h.rid, at=h.start ~ '-' ~ h.end) }}">{{ de_en("Zur Stelle und dort kodieren", "Go to the passage and code it there") }}</a></li>
     {% endfor %}
     </ul>

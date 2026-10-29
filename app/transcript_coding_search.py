@@ -33,6 +33,11 @@ _MARK = re.compile(r"\s*#\d{1,2}:\d{2}:\d{2}(?:-\d+)?#\s*$")
 _SPEAKER = re.compile(r"[A-ZÄÖÜ][\w-]{0,15}:\s+")  # "B: ", "I: ", "Anna: " at the start of a turn
 
 
+def _squash(part):
+    """Runs of spaces and line breaks as one space, as they stand (a space before or after the hit stays)."""
+    return re.sub(r"\s+", " ", part)
+
+
 def terms(q):
     """The terms of a query: separated by ODER, OR, |, comma or semicolon; quotes around a term are dropped."""
     out = []
@@ -112,8 +117,8 @@ def hits(project, who, q, words=False):
         for m in rx.finditer(text):
             c0, c1 = around(text, m.start(), m.end(), paras)
             out.append({"rid": row.id, "label": label, "start": m.start(), "end": m.end(),
-                        "where": spot(label, text, m.start(), paras), "before": " ".join(text[c0:m.start()].split()),
-                        "match": text[m.start():m.end()], "after": " ".join(text[m.end():c1].split()),
+                        "where": spot(label, text, m.start(), paras), "before": _squash(text[c0:m.start()]),
+                        "match": text[m.start():m.end()], "after": _squash(text[m.end():c1]),
                         "key": f"{row.id}:{m.start()}:{m.end()}"})
             if len(out) >= MAX_HITS:
                 return out
