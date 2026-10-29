@@ -17,8 +17,9 @@ WORKDIR /app
 COPY requirements.lock deploy/docker/requirements-docker.lock ./
 RUN pip install --require-hashes --no-deps -r requirements.lock -r requirements-docker.lock
 
-# log.md: the source of "Entwurf aus den Neuerungen" on the news page (app/blog.py)
-COPY config.py passenger_wsgi.py licence.md log.md ./
+# log.md: the source of "Entwurf aus den Neuerungen" on the news page (app/blog.py); LICENSE, LICENSE.de.txt and
+# NOTICE travel with every image and are served on /sources (app/public.py, SOURCE_FILES)
+COPY config.py passenger_wsgi.py licence.md log.md LICENSE LICENSE.de.txt NOTICE ./
 COPY app ./app
 COPY migrations ./migrations
 # the installation's own files over the code (instance_overlay/README.md); only the README in the public code

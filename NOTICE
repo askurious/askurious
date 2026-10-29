@@ -17,11 +17,11 @@ Parts NOT licensed under the EUPL-1.2. They keep their own licences or terms, an
   (BSD-2-Clause, LICENSE_OPENJPEG, LICENSE_PDFJS_OPENJPEG) and core-js (MIT, LICENSE_CORE_JS).
 - app/static/fonts/**: Atkinson Hyperlegible Next, SIL Open Font License 1.1
   (app/static/fonts/atkinson-hyperlegible-next/OFL.txt).
-- app/static/geo/state-outlines.svg: © BKG (2025) dl-de/by-2-0 (Datenlizenz Deutschland Namensnennung 2.0).
+- app/static/geo/state-outlines.svg: © BKG (2026) dl-de/by-2-0 (Datenlizenz Deutschland Namensnennung 2.0).
 - app/static/img/orcid/**: ORCID iD icons of ORCID, Inc., used under the ORCID trademark and iD display guidelines.
 - Data files of others in app/data, as listed in app/data/README.md: plz_de.tsv (GeoNames, CC BY 4.0),
   plz_areas/** (derived from OpenStreetMap, ODbL 1.0), plz_states_de.tsv (derived, ODbL 1.0), states_de.json.gz
-  (© BKG (2025) dl-de/by-2-0), population_de.json.gz (© Destatis, dl-de/by-2-0), geo_ip.bin.gz (DB-IP,
+  (© BKG (2026) dl-de/by-2-0), population_de.json.gz (© Destatis, dl-de/by-2-0), geo_ip.bin.gz (DB-IP,
   CC BY 4.0), paper_digits.npz (UCI Machine Learning Repository, CC BY 4.0) and common_passwords.txt (derived from
   zxcvbn, MIT; licence text in the file), cessda_topics.json (CESSDA Topic Classification 4.2.3, © CESSDA ERIC, CC BY 4.0).
 - tests/data/ddi/lifecycle40.xsd.gz: the XML schema of DDI Lifecycle 4.0 (public review), © DDI Alliance, CC BY 4.0
@@ -30,7 +30,8 @@ Parts NOT licensed under the EUPL-1.2. They keep their own licences or terms, an
   app/ddi.py come from the DDI Controlled Vocabularies of the DDI Alliance (CESSDA Vocabulary Service), CC BY 4.0.
 - tests/data/ddi/codebook25-xsd.tar.gz: the XML schema of DDI Codebook 2.5 with its Dublin Core and XHTML modules,
   unchanged, © DDI Alliance, GNU Lesser General Public License 3.0 or later (https://www.gnu.org/licenses/lgpl-3.0;
-  https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/), used only by the tests.
+  https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/), used only by the tests; the full texts of the
+  LGPL 3.0 and of the GPL 3.0 it builds on are tests/data/ddi/codebook25-lgpl-3.0.txt and codebook25-gpl-3.0.txt.
 - tests/data/ddi/cdc25_profile.xml and eqb25_profile.xml: the CESSDA metadata profiles CDC 2.5 and EQB 2.5,
   © CESSDA ERIC, CC BY 4.0 (https://github.com/cessda/cessda.metadata.profiles), used only by the tests.
 - The names "Askurious" and "POLLtergeist" and their logos and icons (among them docs/logo.png, docs/logo-dark.png,

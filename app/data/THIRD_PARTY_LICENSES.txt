@@ -3,8 +3,8 @@ Third-party software of Askurious
 
 The Python packages the lock files of the repository install, with version and licence as PyPI states them
 (written by tools/third_party_licences.py; do not edit by hand). Most wheels bring their licence texts;
-ctranslate2 4.8.3, flatbuffers 25.12.19, tokenizers 0.22.2 and primepy 1.3 ship no licence file, their licence
-is the one PyPI and their repositories state.
+ctranslate2 4.8.3, flatbuffers 25.12.19, tokenizers 0.22.2 and primepy 1.3 ship no licence file; the texts of their
+repositories are in deploy/docker/whisper/licenses/ and in the image of the transcription service.
 Askurious runs them as a web service and passes none of them on; whoever passes on an image or a copy of the
 installed packages adds their licence texts and NOTICE files.
 

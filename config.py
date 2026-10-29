@@ -255,6 +255,9 @@ class Config:
     IMPRINT_NAME = os.environ.get("IMPRINT_NAME", "")
     IMPRINT_ADDRESS = [l.strip() for l in os.environ.get("IMPRINT_ADDRESS", "").split("|") if l.strip()]
     IMPRINT_EMAIL = os.environ.get("IMPRINT_EMAIL", "")
+    # Where the source code of this installation is offered (EUPL-1.2 Art. 5), linked on /sources; an installation that
+    # runs changed code sets the address of its own copy
+    SOURCE_CODE_URL = os.environ.get("SOURCE_CODE_URL", "https://github.com/askurious/askurious")
     # The files of one installation over the public code (instance_overlay/README.md): a template in its templates/
     # takes the place of the template of the same name in app/templates/, such as the imprint and privacy texts of the
     # operator. Empty or missing folder: the code's own templates only.

@@ -68,10 +68,15 @@ def accessibility():
 # the texts behind /sources, shown as plain text: how the data files came about (README.md, the "method of making
 # the alterations" of ODbL 4.6 b) and the server's libraries with their licences. The derived data files themselves are
 # no longer downloads; ODbL 4.6 is met by that description and a copy on request (Ralf, 2026-10-23, licence audit A1).
+# Paths relative to the app package. LICENSE, LICENSE.de.txt and NOTICE (the parts that are not under the EUPL) sit in
+# the root of the code and are copied into the image (deploy/docker/Dockerfile).
 SOURCE_FILES = {
-    "README.md": "README.md",
+    "README.md": "data/README.md",
     # tools/third_party_licences.py writes it from the lock files
-    "THIRD_PARTY_LICENSES.txt": "THIRD_PARTY_LICENSES.txt",
+    "THIRD_PARTY_LICENSES.txt": "data/THIRD_PARTY_LICENSES.txt",
+    "LICENSE": "../LICENSE",
+    "LICENSE.de.txt": "../LICENSE.de.txt",
+    "NOTICE": "../NOTICE",
 }
 
 
@@ -89,7 +94,7 @@ def source_file(name):
 
     if name not in SOURCE_FILES:
         abort(404)
-    full = os.path.join(current_app.root_path, "data", SOURCE_FILES[name])
+    full = os.path.normpath(os.path.join(current_app.root_path, SOURCE_FILES[name]))
     return send_file(full, mimetype="text/plain; charset=utf-8", as_attachment=False, max_age=86400)
 
 
