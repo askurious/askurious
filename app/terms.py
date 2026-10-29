@@ -69,6 +69,10 @@ def version():
 # entries since then above the text, each with links to its sections (#abschnitt-N, the headings of licence.md and
 # terms_en.html). A new "Version:" line in licence.md needs its entry here (tests/ui/test_ux_audit9_e.py).
 CHANGES = (
+    ("2026-10-29", "Konstrukte (Abschnitt 7): auch für KUK ist keine allgemeine Freigabe dokumentiert; Katalogwortlaut "
+                   "und neues Einfügen brauchen wie bei TAM und KUT eine hinterlegte Berechtigung.",
+     "Constructs (section 7): no general permission is documented for KUK either; like TAM and KUT, catalogue wording "
+     "and new insertion need a recorded permission.", (7,)),
     ("2026-10-27", "Tagebuchstudien (Abschnitt 3) sind nicht mehr experimentell: für alle Forschenden mit dem Recht, "
                    "Tagebuchstudien anzulegen.",
      "Diary studies (section 3) are no longer experimental: for all researchers with the right to create diary "

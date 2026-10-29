@@ -7560,3 +7560,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - NOTICE nennt beim BKG das Bezugsjahr 2026 wie README, Oberfläche und Nutzungsbedingungen.
 - Beispielaussagen im Likert-Editor („Aussagen einfügen“) und im zugehörigen Test sind jetzt eigene Formulierungen statt Aussagen einer veröffentlichten Skala.
 - Rechtstexte geprüft: README angepasst; Datenschutzerklärung, Nutzungsbedingungen und Datenschutzkonzept brauchen keine Änderung (keine neuen Daten, nur Lizenzhinweise).
+
+## 2026-10-29: KUK braucht eine hinterlegte Berechtigung
+
+- KUK (Wittland, Brauner & Ziefle, 2015) gehört jetzt zu den Instrumenten mit hinterlegter Berechtigung wie GDMS, KUT und TAM (constructs.PERMISSION_REQUIRED). Der Wortlaut steht im Kapitel © 2015 IFIP, die Rechte des Verlags sind nicht belegt. Katalogwortlaut und neues Einfügen brauchen eine Berechtigung für Person, Studie und Sprache (INSTRUMENT_WORDING_PERMISSIONS). Veröffentlichungen, KI-Funktionen und die Agenten-Schnittstelle lassen den Wortlaut weg. Laufende Studien mit KUK bleiben unverändert.
+- Nutzungsbedingungen Abschnitt 7 (de/en) ergänzt, Version 2026-10-29 mit Eintrag in den Änderungen. Datenschutzerklärung, Datenschutzkonzept, README und LICENSE geprüft, keine Änderung nötig.

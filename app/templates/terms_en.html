@@ -4,13 +4,13 @@
 renders; once licence.md has a newer version, the page shows the German text under a note until this file is
 translated again. -#}
 {% from "_terms_pending.html" import pending_head, pending_form with context %}
-{% set translated = "2026-10-27" %}
+{% set translated = "2026-10-29" %}
 {% if pending %}{{ pending_head(error, changes, older_changes) }}{% endif %}
 <p class="flash terms-binding" lang="en"><strong>This translation is provided for convenience. Only the German version is legally binding.</strong></p>
 {% if version == translated %}
 <article class="panel prose terms" lang="en">
 <h1>Terms of use for researchers</h1>
-<p>Version: 2026-10-27 (English translation of the German version 2026-10-27)</p>
+<p>Version: 2026-10-29 (English translation of the German version 2026-10-29)</p>
 <p>These terms apply to all researchers who create or edit surveys on this platform with an account (sign-in with an ORCID iD or with an email address and password).
 How the platform processes the data of your account is set out in the <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p>
 <h2 id="abschnitt-1">1. Operator and purpose</h2>
@@ -86,13 +86,13 @@ The AI help for categorising open answers and the AI reading of handwriting on p
 <ul><li><strong>Constructs:</strong> the item texts of the construct collection come from the publications stated in each case. Conditions and source are given with each construct and in the codebook.
 Scales from the Collection of Items and Scales for the Social Sciences (ZIS) by GESIS are free of charge for non-commercial research purposes; for other purposes or for a form other than the documented one, you obtain the consent of the authors.
 Before new insertion or access to the catalogue wording of GDMS from APA PsycTests, the operator must check and record documented permission for the account, study and language version. Signing in alone is not permission; this does not authorize general distribution.
-No general use or publication permission is documented for TAM and KUT, including their translations. Stating “non-commercial research and teaching” alone does not replace rights evidence. Catalogue wording and new insertion remain blocked until the operator has checked and recorded evidence covering the account, study and language version.
+No general use or publication permission is documented for TAM, KUT and KUK, including their translations. Stating “non-commercial research and teaching” alone does not replace rights evidence. Catalogue wording and new insertion remain blocked until the operator has checked and recorded evidence covering the account, study and language version.
 “Non-commercial” also rules out commissioned research for companies; the editor says so when such a construct is inserted.
 English versions that are adaptations of their own (such as GSE-3 for ASKU) have their own source and licence; both are given with the construct.
 You cite the source of a construct in all works resulting from its use.
 Versions marked as working translations are not authorised translations, in whatever language.
 If you publish data via Zenodo or Coscine, the licence of the publication does not cover the wording of the constructs.
-You do not generally pass the restricted wording of GDMS, KUT and TAM on to third parties, AI agents included; the platform leaves it out of publications, AI functions and the agent interface. Preregistrations hold it in full: upload them only into a Coscine project you do not share with others.</li><li><strong>Demographic standard questions:</strong> the standard questions on demographics (month and year of birth, sex, education, employment situation, occupation, income, citizenship, country of birth, household size, marital status) come from the catalogue of standard questions of the German Data Forum (Rat für Sozial- und Wirtschaftsdaten): RatSWD (2023), “Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen”, https://doi.org/10.17620/02671.76, licence <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+You do not generally pass the restricted wording of GDMS, KUT, KUK and TAM on to third parties, AI agents included; the platform leaves it out of publications, AI functions and the agent interface. Preregistrations hold it in full: upload them only into a Coscine project you do not share with others.</li><li><strong>Demographic standard questions:</strong> the standard questions on demographics (month and year of birth, sex, education, employment situation, occupation, income, citizenship, country of birth, household size, marital status) come from the catalogue of standard questions of the German Data Forum (Rat für Sozial- und Wirtschaftsdaten): RatSWD (2023), “Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen”, https://doi.org/10.17620/02671.76, licence <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
 The target variables <code>x_…</code> that the export appends on request follow the sociodemographic standard variables of KonsortSWD: Schneider, Palm, Partsch, Ortmanns &amp; Müller (2026), version 1.1, https://doi.org/10.5281/zenodo.18300602, licence <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
 The English versions are working translations; the codebook lists changes to the wording. If you publish these questions or variables, you name these sources.</li><li><strong>Maps and map data:</strong> © OpenStreetMap contributors, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">Open Database License (ODbL) 1.0</a>, see <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">openstreetmap.org/copyright</a>.
 The attribution on the maps remains visible, also in screenshots and figures that you publish.</li><li><strong>Postcodes:</strong> places and positions come from <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a>, licence <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
