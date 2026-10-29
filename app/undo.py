@@ -58,7 +58,7 @@ KEEP = 20
 # what a running or closed survey may still change, and so take back: the structure is fixed from the start on
 FIELD_PARTS = ("settings:", "board:", "quota:", "item:", "plan:layout", "access:", "tcassign:")
 # the rights of an interviewer link (app/interviewer.py); a step from before may_interview was kept leaves it as it is
-ACCESS_FIELDS = ("may_interview", "may_record", "may_transcribe", "may_code")
+ACCESS_FIELDS = ("may_interview", "may_record", "may_transcribe", "may_code", "show_learning")
 DAYS = 7
 MERGE_MINUTES = 10  # a change that continues the step before it (done(merge=...)) joins it for this long
 SHOWN = 5  # the list shows this many at first, the rest unfolds

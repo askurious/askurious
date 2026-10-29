@@ -12,8 +12,8 @@
   <summary>{{ de_en("Warum?", "Why?") }} {{ r.title }}</summary>
   <p>{{ r.text }}{% if r.sources %} {{ cite(r.sources, link=false) }}{% endif %}</p>
   {% if r.sources %}<ul class="learn-sources">{% for e in apa.references(r.sources) %}<li>{{ e.html }}</li>{% endfor %}</ul>{% endif %}
-  <button type="button" class="learn-hide" data-learn-hide="{{ key }}"
-    data-url="{{ url_for('learning.hide', key=key) }}" data-unhide-url="{{ url_for('learning.unhide', key=key) }}">{{ de_en("Nicht mehr zeigen", "Don’t show again") }}</button>
+  {% if learning.may_hide() %}<button type="button" class="learn-hide" data-learn-hide="{{ key }}"
+    data-url="{{ url_for('learning.hide', key=key) }}" data-unhide-url="{{ url_for('learning.unhide', key=key) }}">{{ de_en("Nicht mehr zeigen", "Don’t show again") }}</button>{% endif %}
 </details>
 {% endif %}
 {%- endmacro %}

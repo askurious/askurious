@@ -7497,3 +7497,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Fundstelle „B03, Pos. 12, 00:14:32“ (`transcript_coding_view.spot`): Absatz, in dem die Stelle beginnt (Trennung durch Leerzeile, ohne Leerzeile jede Zeile), Zeitmarke #hh:mm:ss-0# des Absatzes, wenn vorhanden. Dieselbe Angabe beim Ankerbeispiel im Kodierleitfaden (Word) und in der Beschreibung für .qdpx/.qdc. Nummerierung des Kodierleitfadens und der Tabelle aus einer Funktion (`transcript_coding.numbers`).
 - Kodieransicht: Absatznummern dezent am linken Rand (CSS aus `data-pos`, nicht markierbar, keine Klicks).
 - Datenschutzkonzept (Kodieren, Empfänger) nennt den Excel-Export; Handbuch (de/en) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Interviewlink „Lernhilfen zeigen“
+
+- Ralf: Interviewende ohne Konto sahen die „?“ an Kennzahlen und die Anfänger-Klappen nie (learning.on verlangte ein Konto), „Nicht mehr zeigen“ ging bei ihnen ins Leere. Neu: Recht „Lernhilfen zeigen“ am Interviewlink im Dialog „Interviewende hinzufügen“ und „Rechte ändern“, auch bei „Für alle Personen übernehmen“ und „Rückgängig“.
+- Migration 0108: Spalte interviewer_access.show_learning, server_default an (Ralf: auch bestehende Links an), ROLLING = True. Link, Revision, Geräte und Sitzungen bleiben.
+- learning.on() gilt für Sitzungen eines Links mit dem Haken wie für Forschende mit eingeschaltetem Schalter; ohne den Haken zeigen sie keine Klappe. „Nicht mehr zeigen“ nur mit Konto (learning.may_hide). Die Klappen zu Aufnahme, Teilnehmerbildschirm und Transkriptprüfung, bisher nur für Angemeldete, sehen jetzt auch Links mit dem Haken.
+- Handbuch (de/en) beim Dialog „Rechte ändern“ ergänzt. Rechtstexte geprüft, keine Änderung nötig.

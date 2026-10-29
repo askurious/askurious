@@ -129,7 +129,7 @@
       <label class="check small" title="{{ de_en('Beim Start teilt der Browser den Tab der Videokonferenz oder den ganzen Bildschirm mit Ton; gespeichert wird nur der Ton, gemischt mit dem Mikrofon. Nur Chrome und Edge; mit Headset.', 'On start the browser shares the tab of the video conference or the whole screen with sound; only the sound is stored, mixed with the microphone. Chrome and Edge only; use a headset.') }}"><input type="checkbox" data-iv-conference> {{ de_en("Ton der Videokonferenz mit aufnehmen", "Also record the sound of the video conference") }}</label>
       {% endif %}
     </span>
-    {% if current_user.is_authenticated %}{{ why("conference") }}{% endif %}
+    {% if current_user.is_authenticated or learning.on() %}{{ why("conference") }}{% endif %}
     {# a second device records (app/interview_remote.py): the smartphone opens this link, the view shows its state;
        not offline (E8 b: the phone finds the tablet only through the server) #}
     {% if not offline %}
@@ -169,7 +169,7 @@
           <button type="button" class="button button-small button-secondary" data-ivs-renew hidden>{{ de_en("Neuen Link erzeugen", "Make a new link") }}</button>
           <button type="button" class="button button-small button-secondary" data-ivs-disconnect hidden>{{ de_en("Bildschirm trennen", "Disconnect screen") }}</button>
         </p>
-        {% if current_user.is_authenticated %}{{ why("interview_screen") }}{% endif %}
+        {% if current_user.is_authenticated or learning.on() %}{{ why("interview_screen") }}{% endif %}
       </div>
     </details>
     <span class="small iv-remote-state" data-ivs-badge role="status" hidden></span>

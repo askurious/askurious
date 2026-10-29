@@ -1819,8 +1819,21 @@ REASON_PLACES = {
 }
 
 
+def _interviewer():
+    """For a request of an interviewer link without an account: whether the link shows the learning aids ("Lernhilfen
+    zeigen", InterviewerAccess.show_learning, set by app/interviewer.current); None for every other request."""
+    from flask import g, has_request_context
+
+    if not has_request_context() or getattr(current_user, "is_authenticated", False):
+        return None
+    return g.get("interviewer_learning")
+
+
 def on(user=None):
-    """Are the learning aids shown to this person (the current one by default)?"""
+    """Are the learning aids shown to this person (the current one by default)? An interviewer link without an account
+    shows them when it has "Lernhilfen zeigen" (Ralf 2026-10-29)."""
+    if user is None and _interviewer() is not None:
+        return _interviewer()
     user = user if user is not None else current_user
     return bool(getattr(user, "is_authenticated", False) and getattr(user, "learning_aids", False))
 
@@ -1848,8 +1861,15 @@ BEGINNER_REASONS = {"answer_mode", "scale_points", "missing_option", "randomize"
 ONCE_REASONS = {"which_test", "sem_drop"}
 
 
+def may_hide():
+    """"Nicht mehr zeigen" is kept at the account: offered only to a signed-in person, not to an interviewer link."""
+    return bool(getattr(current_user, "is_authenticated", False))
+
+
 def show_reason(key):
     """Is the fold "Warum?" of this decision shown to the current person (and not shown on this page yet)?"""
+    if _interviewer() is False:  # an interviewer link without "Lernhilfen zeigen": none at all
+        return False
     if key in BEGINNER_REASONS and not on():
         return False
     if key in (getattr(current_user, "learning_hidden", None) or []):
