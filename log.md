@@ -7525,3 +7525,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf: Suchfeld in der Ansicht „Interviews“ einer Auswertung (app/transcript_coding_search.py): über alle Transkripte, die die Person dort sieht; Groß/klein egal, optional ganze Wörter, mehrere Begriffe mit ODER/Komma; Treffer mit Interview, Fundstelle („Pos. n“, Zeitmarke) und Kontext (± ein Satz), Treffer markiert, 20 je Seite.
 - Je Treffer „Zur Stelle und dort kodieren“ (Kodieransicht mit ?at=, Stelle markiert, Kategorienliste offen); Mehrfachauswahl „Angekreuzte Treffer kodieren als …“ mit Kategorie, Satz oder Absatz um den Treffer (ohne Sprecherkürzel und Zeitmarke), Vorschau, Speichern über transcript_coding_view.add (gleiche Rechte und Grenzen) und Rückgängig.
 - Lernhilfe „Warum Treffer einzeln prüfen?“ (Kuckartz & Rädiker). Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (keine neuen Daten; kodierte Stellen wie bisher).
+
+## 2026-10-29: Transkript korrigieren mit der Aufnahme
+
+- Ralf: Abspielen beim Korrigieren des Transkripts (app/static/transcript_player.js, templates/interview/transcript.html). Nur solange die Aufnahme da ist: Leiste über dem Text mit dem Absatz der Schreibmarke („Pos. n · ab hh:mm:ss“, gezählt wie in Kodieransicht und Exporten), „Hier abspielen“ (Absatzanfang = Zeitmarke des Absatzes davor, 2 s früher; der richtige Aufnahmeteil nach seiner Startzeit), Tempo 0,75/1/1,25 (Knöpfe 30 px), F4 oder Esc im Text = abspielen/anhalten, weiter 2 s früher.
+- Absatznummern im Editor als Anzeige der Schreibmarke (ein Textfeld kann keine Randnummern tragen); Strg+Leertaste nicht genommen (schaltet auf manchen Systemen die Eingabesprache).
+- Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (keine neuen Daten, nur Anzeige der vorhandenen Aufnahme).
