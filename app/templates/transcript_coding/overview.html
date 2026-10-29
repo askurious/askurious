@@ -3,6 +3,7 @@
 {% from "_icons.html" import icon %}
 {% from "transcript_coding/_parts.html" import head, notices_fold with context %}
 {% from "_learn.html" import why %}
+{% from "transcript_coding/_memos.html" import memo_button, memo_dialog with context %}
 {# The category system of an analysis in numbers (app/transcript_coding_review.py, overview): the table; the
    blurring pairs with their ways to tidy up; the latest of the history. The map is in the view "Kategoriensystem". #}
 {% block title %}{{ de_en("Übersicht", "Overview") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
@@ -87,5 +88,43 @@
   </section>
 </aside>
 </div>
+{# memos of the analysis (app/transcript_coding_memos.py, memo_list): filtered, sorted, paged; no row of its own #}
+{% set ml = memo_rows %}
+<section class="panel" id="memos">
+  <h2>{{ de_en("Memos", "Memos") }} <span class="hint">{{ de_en("{n} von {all}", "{n} of {all}", n=ml.total, all=ml.all) }}</span></h2>
+  {% if ml.all %}
+  <form method="get" action="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}#memos" class="row-fields tc-memo-filter">
+    <label>{{ de_en("Art", "Kind") }} <select name="mk"><option value="">{{ de_en("alle", "all") }}</option>{% for k in ("passage", "category", "interview") %}<option value="{{ k }}" {% if ml.kind == k %}selected{% endif %}>{{ memo_kind(k) }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Kategorie", "Category") }} <select name="mc"><option value="">{{ de_en("alle", "all") }}</option>{% for cid, name in ml.categories %}<option value="{{ cid }}" {% if ml.cat == cid %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Interview", "Interview") }} <select name="mi"><option value="">{{ de_en("alle", "all") }}</option>{% for rid, label in ml.interviews %}<option value="{{ rid }}" {% if ml.rid == rid %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Sortieren", "Sort") }} <select name="ms">{% for k, t in [("new", de_en("neueste zuerst", "newest first")), ("old", de_en("älteste zuerst", "oldest first")), ("kind", de_en("nach Art und Kategorie", "by kind and category")), ("author", de_en("nach Person", "by person"))] %}<option value="{{ k }}" {% if ml.sort == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("je Seite", "per page") }} <select name="mn">{% for n in (10, 20, 50) %}<option value="{{ n }}" {% if ml.per == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+    <div><button class="button button-small button-secondary">{{ de_en("Anzeigen", "Show") }}</button></div>
+  </form>
+  <div class="res-scroll">
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Art", "Kind") }}</th><th>{{ de_en("Bezug", "About") }}</th><th>{{ de_en("Memo", "Memo") }}</th><th>{{ de_en("von", "by") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for m, about, mine in ml.rows %}
+    <tr><td>{{ memo_kind(m.kind) }}</td>
+      <td>{% if m.kind == "category" %}{{ about.number }} {{ about.category }}{% elif m.kind == "passage" %}{% if about.where %}<a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=m.response_id) }}">{{ about.where }}</a>{% else %}{{ about.interview }}{% endif %}<div class="muted small">{{ about.number }} {{ about.category }}{% if about.quote %} · „{{ about.quote|truncate(80, true, "…") }}“{% endif %}</div>{% else %}<a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=m.response_id) }}">{{ about.interview }}</a>{% endif %}</td>
+      <td class="tc-memo-text">{{ m.text|truncate(400, true, "…") }}</td>
+      <td>{{ m.author_name }}<div class="muted small">{{ m.updated_at|localdt }}</div></td>
+      <td>{{ memo_button(m.kind, 0, rid=m.response_id, coding=m.coding_id, cat=m.category_id, title=(about.where or about.category or about.interview)) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% if ml.pages > 1 %}{% set args = request.args.to_dict() %}
+  <nav class="row-fields tc-memo-pages" aria-label="{{ de_en('Seiten der Memos', 'Pages of the memos') }}">
+    {% if ml.page > 1 %}{% set _ = args.update(mp=ml.page - 1) %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id, **args) }}#memos">{{ de_en("Zurück", "Previous") }}</a>{% endif %}
+    <span class="muted small">{{ de_en("Seite {p} von {n}", "Page {p} of {n}", p=ml.page, n=ml.pages) }}</span>
+    {% if ml.page < ml.pages %}{% set _ = args.update(mp=ml.page + 1) %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id, **args) }}#memos">{{ de_en("Weiter", "Next") }}</a>{% endif %}
+  </nav>{% endif %}
+  {% else %}
+  <p class="muted small">{{ de_en("Noch keine Memos. Ein Memo schreiben Sie mit dem Sprechblasen-Symbol an einer Kategorie, an einem Interview oder an einer kodierten Stelle (Klick auf die Stelle, „Memo“).", "No memos yet. You write a memo with the speech bubble symbol at a category, at an interview or at a coded passage (click the passage, “Memo”).") }}</p>
+  {% endif %}
+</section>
+{{ memo_dialog(survey, project, who, memos) }}
 <script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
 {% endblock %}

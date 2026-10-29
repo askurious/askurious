@@ -610,10 +610,16 @@ def overview(code, pid):
     survey, project, who = _in(code, pid)
     if request.args.get("view") == "map":  # the map moved to the view "Kategoriensystem" (Ralf 2026-10-28)
         return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="diagram"))
+    from app import transcript_coding_memos
+
     mains, candidates = tree(project)
     pairs = fuzzy(project, who)
     probes = probe(project, who)
+    memo_rows = transcript_coding_memos.memo_list(project, who, request.args)
+    all_memos = transcript_coding_memos.visible(project, who)
     return render_template("transcript_coding/overview.html", mains=mains, candidates=candidates, stats=stats(project, who),
+                           memo_rows=memo_rows, memos=[transcript_coding_memos.as_json(m, who) for m in all_memos],
+                           memo_kind=transcript_coding_memos.kind_name,
                            probes=probes, pairs=pairs[:12], blurred=blurred(project, who, pairs, probes),
                            history=history(project, 8),
                            notices=notices(project, who), n_interviews=len(interviews(project, who)),

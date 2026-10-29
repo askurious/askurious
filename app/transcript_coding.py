@@ -43,7 +43,7 @@ from flask_login import current_user
 from app import autosave
 from app.extensions import db
 from app.lang import de_en
-from app.models import CodingCategory, CodingEvent, CodingMember, CodingProject, InterviewerAccess, Survey, utcnow
+from app.models import CodingCategory, CodingEvent, CodingMember, CodingMemo, CodingProject, InterviewerAccess, Survey, utcnow
 
 bp = Blueprint("transcript_coding", __name__, url_prefix="/guide")
 
@@ -350,17 +350,21 @@ def _copy(cat, project, parent_id):
 
 
 def delete_project(project):
-    """An analysis with its categories, history and members (its codings in the interviews: stage 2)."""
-    for model in (CodingCategory, CodingEvent, CodingMember):
+    """An analysis with its categories, history, members and memos (its codings in the interviews: stage 2)."""
+    from app.models import CodingMemo
+
+    for model in (CodingCategory, CodingEvent, CodingMember, CodingMemo):
         db.session.execute(db.delete(model).where(model.project_id == project.id))
     db.session.delete(project)
 
 
 def forget_survey(survey_id):
     """Everything of the analyses of a guide that goes (lifecycle.delete)."""
+    from app.models import CodingMemo
+
     ids = list(db.session.scalars(db.select(CodingProject.id).filter_by(survey_id=survey_id)))
     if ids:
-        for model in (CodingCategory, CodingEvent, CodingMember):
+        for model in (CodingCategory, CodingEvent, CodingMember, CodingMemo):
             db.session.execute(db.delete(model).where(model.project_id.in_(ids)))
         db.session.execute(db.delete(CodingProject).where(CodingProject.id.in_(ids)))
 
@@ -1112,6 +1116,11 @@ def project(code, pid):
                    double_people=transcript_coding_double.assignable(project, survey) if who.team else [],
                    coded=lambda r: len(transcript_coding_double.visible(project, who, r, [
                        c for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id])))
+    from app import transcript_coding_memos
+
+    cat_memos = transcript_coding_memos.visible(project, who, kind=CodingMemo.CATEGORY)
+    context.update(memos=[transcript_coding_memos.as_json(m, who) for m in cat_memos],
+                   memo_counts=transcript_coding_memos.counts(cat_memos))
     if who.team:
         accesses = interviewer.accesses(survey)
         context.update(members=members(project), member_name=member_name, accesses=accesses,

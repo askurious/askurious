@@ -454,6 +454,20 @@
         });
         actions.appendChild(a);
       }
+      // memos at this passage (app/transcript_coding_memos.py): the dialog of transcript_coding_memos.js
+      var memoEl = document.getElementById("tc-memos"), memoN = 0;
+      if (memoEl) JSON.parse(memoEl.textContent || "[]").forEach(function (m) { if (m.kind === "passage" && m.coding === c.id) memoN++; });
+      var mb = document.createElement("button");
+      mb.type = "button";
+      mb.className = "button button-small button-secondary";
+      mb.textContent = de_en("Memo", "Memo") + (memoN ? " (" + memoN + ")" : "");
+      mb.setAttribute("data-memo-open", "");
+      mb.setAttribute("data-kind", "passage");
+      mb.setAttribute("data-rid", root.getAttribute("data-rid") || "");
+      mb.setAttribute("data-coding", c.id);
+      mb.setAttribute("data-title", "„" + (c.quote.length > 60 ? c.quote.slice(0, 60) + "…" : c.quote) + "“");
+      mb.addEventListener("click", function () { info.hidden = true; });
+      actions.appendChild(mb);
       if (c.mine) {
         var r = document.createElement("button");
         r.type = "button";

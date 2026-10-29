@@ -146,6 +146,7 @@ NOT_GRANTED = {
     "coding_category": "category systems of those analyses (researchers' side)",
     "coding_event": "history of those analyses (researchers' side)",
     "coding_member": "members of those analyses (researchers' side)",
+    "coding_memo": "memos of those analyses (researchers' side)",
     "live_ink": "the presenter's pen notes on slides, drawn and shown only on the researchers' side",
     "login_session": "researchers' sign-ins per browser",
     "member_invite": "invitations of researchers to surveys and groups",

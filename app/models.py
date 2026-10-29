@@ -432,6 +432,31 @@ class CodingEvent(db.Model):
     at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
 
 
+class CodingMemo(db.Model):
+    """A memo of an analysis (app/transcript_coding_memos.py, after Kuckartz & Rädiker; Ralf 2026-10-29): a note at a
+    coded passage ("passage": `response_id` and `coding_id`), at a category ("category": `category_id`) or at an
+    interview ("interview": `response_id`), with its author (`author_key` as in CodingCategory) and time. Only the
+    author and the team change or delete it; a deleted one keeps its row for a day (`deleted_at`), so that
+    "Rückgängig" brings it back. It goes with the analysis, the interview, the coded passage and the author's account."""
+
+    __tablename__ = "coding_memo"
+    PASSAGE, CATEGORY, INTERVIEW = "passage", "category", "interview"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(index=True)
+    kind: Mapped[str] = mapped_column(String(10))
+    response_id: Mapped[int | None] = mapped_column(index=True)
+    coding_id: Mapped[str | None] = mapped_column(String(24))
+    category_id: Mapped[int | None] = mapped_column(index=True)
+    text: Mapped[str] = mapped_column(Text)
+    author_key: Mapped[str] = mapped_column(String(40), default="")
+    author_id: Mapped[int | None] = mapped_column(index=True)
+    author_name: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow)
+    deleted_at: Mapped[datetime | None]
+
+
 class CodingMember(db.Model):
     """Who codes in an analysis besides the team of the guide, with the role "Kodieren" (codes, never changes the
     guide): a person ("person", `user_id`), an Askurious group ("group", `group_id`, live for its members) or an

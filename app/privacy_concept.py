@@ -686,8 +686,10 @@ def _activities():
                        "eigenen KI-Zugang der fragenden Person), bei Doppelkodierung die Zuweisung (welche Kodierenden), wer "
                        "abgeschlossen hat, und die Entscheidungen zum Vergleich mit Namen und Kommentar; die Einzelkodierungen "
                        "bleiben der jeweiligen Person zugeordnet, und je Kategorie ein Ankerbeispiel (Wortlaut einer Stelle); "
-                       "Zusammenführen, Umbenennen, Antworten und Kommentare im Verlauf mit Namen. Die Transkripte selbst "
-                       "gehören zu „Interviews“.",
+                       "Zusammenführen, Umbenennen, Antworten und Kommentare im Verlauf mit Namen. Memos (freier Text "
+                       "an einer kodierten Stelle, einer Kategorie oder einem Interview, mit Name, Konto- oder Linknummer "
+                       "und Zeit; sehen alle, die die Stelle oder das Interview sehen, bei Doppelkodierung erst nach dem "
+                       "Abschluss aller). Die Transkripte selbst gehören zu „Interviews“.",
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
                        "(name, account or link number) and time; history of every change and proposal with names and time; "
                        "members (account, group or interviewer link), per interviewer link its right to code. In the interview the coded passages (analysis, category, position "
@@ -697,24 +699,30 @@ def _activities():
                        "person asking), with double coding the assignment (which coders), who has finished, and the "
                        "decisions of the comparison with names and comments; the single codings stay assigned to their "
                        "person, and per category an anchor example (wording of a passage); merging, renaming, "
-                       "answers and comments in the history with names. The transcripts themselves belong to “Interviews”."),
+                       "answers and comments in the history with names. Memos (free text at a coded passage, a category or "
+                       "an interview, with name, account or link number and time; seen by everyone who sees the passage or "
+                       "the interview, with double coding only once everyone has finished). The transcripts themselves "
+                       "belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
-                             "(.qdpx mit Transkripten, kodierten Stellen und den Namen der Kodierenden) und als Excel-Tabelle des "
-                             "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle und den Namen der Kodierenden); "
+                             "(.qdpx mit Transkripten, kodierten Stellen, Memos und den Namen der Kodierenden) und als Excel-Tabelle des "
+                             "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle, Memos und den Namen der Kodierenden); "
                              "nur sie exportieren; "
                              "die Mitglieder der Auswertung.",
                              "Members with Edit or Manage on the guide, also as an export for QDA software (.qdpx with "
-                             "transcripts, coded passages and the names of the coders) and as an Excel table of the category "
-                             "system (quotes of the coded passages with their location and the names of the coders); only "
+                             "transcripts, coded passages, memos and the names of the coders) and as an Excel table of the category "
+                             "system (quotes of the coded passages with their location, memos and the names of the coders); only "
                              "they export; the members of the "
                              "analysis."),
-         "deletion": de_en("Kodierte Stellen, Proben und Ankerbeispiele mit dem Interview (Löschantrag, Frist, Leitfaden); "
-                           "die übrigen Angaben mit dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Konto verliert seine "
-                           "Mitgliedschaften und seine Kontonummer an den Einträgen, die Namen bleiben als Angabe, wer sie "
-                           "gemacht hat.",
-                           "Coded passages, checks and anchor examples with the interview (deletion request, period, guide); everything "
-                           "else with the deletion of the analysis or the guide; a deleted account loses its memberships and its "
-                           "account number on the entries, the names stay as who made them."),
+         "deletion": de_en("Kodierte Stellen, Proben, Ankerbeispiele und Memos an Interview und Stellen mit dem Interview "
+                           "(Löschantrag, Frist, Leitfaden), Memos an einer Stelle auch mit der Stelle; die übrigen Angaben mit "
+                           "dem Löschen der Auswertung oder des Leitfadens; ein gelöschtes Memo bleibt einen Tag für "
+                           "„Rückgängig“; ein gelöschtes Konto verliert seine Mitgliedschaften, seine Memos und seine "
+                           "Kontonummer an den Einträgen, die Namen bleiben als Angabe, wer sie gemacht hat.",
+                           "Coded passages, checks, anchor examples and memos at the interview and its passages with the interview "
+                           "(deletion request, period, guide), memos at a passage also with the passage; everything else with "
+                           "the deletion of the analysis or the guide; a deleted memo stays one day for “Undo”; a deleted "
+                           "account loses its memberships, its memos and its account number on the entries, the names stay as "
+                           "who made them."),
          "controller": researchers,
          "basis": de_en("Durchführung des Forschungsvorhabens oder der Lehrveranstaltung im Auftrag der Forschenden (Art. 6 "
                         "Abs. 1 lit. b oder e DSGVO, je nach Verhältnis zur Einrichtung); die Forschenden sorgen dafür, dass "

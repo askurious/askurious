@@ -269,6 +269,9 @@ def remove(project, who, row, coding_id):
     if not may_change(project, who, found):
         abort(403)
     _store(row, lambda items: [c for c in items if c.get("id") != coding_id])
+    from app import transcript_coding_memos
+
+    transcript_coding_memos.forget_coding(project, row, coding_id)  # its memos go with it
     for cat in live(project):
         if (cat.anchor or {}).get("coding") == coding_id:
             cat.anchor = None
@@ -314,7 +317,10 @@ def forget(responses):
     survey_ids = {r.survey_id for r in responses}
     if not ids:
         return
-    from app.models import CodingProject
+    from app.models import CodingMemo, CodingProject
+
+    # the memos at these interviews and their passages go with them
+    db.session.execute(db.delete(CodingMemo).where(CodingMemo.response_id.in_(ids)))
 
     projects = list(db.session.scalars(db.select(CodingProject.id).where(CodingProject.survey_id.in_(survey_ids))))
     if not projects:
@@ -331,6 +337,10 @@ def forget_survey_anchors(survey_id):
 
     projects = list(db.session.scalars(db.select(CodingProject.id).filter_by(survey_id=survey_id)))
     if projects:
+        from app.models import CodingMemo
+
+        db.session.execute(db.delete(CodingMemo).where(CodingMemo.project_id.in_(projects),
+                                                       CodingMemo.response_id.is_not(None)))  # memos at interviews
         db.session.execute(db.update(CodingCategory).where(CodingCategory.project_id.in_(projects))
                            .values(anchor=None).execution_options(synchronize_session=False))
 
@@ -367,10 +377,11 @@ def _json_coding(c, project, who):
 @bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>")
 @signed_in_or_coder
 def page(code, pid, rid):
-    from app import transcript_coding_ai, transcript_coding_double, transcript_coding_review
+    from app import transcript_coding_ai, transcript_coding_double, transcript_coding_memos, transcript_coding_review
 
     survey, project, who = _in(code, pid)
     row = _row(project, who, rid)
+    memos = transcript_coding_memos.visible(project, who, rid=row.id)
     ok, lost = placed(row, project, who)
     rows = [r for r in interviews(project, who) if has_transcript(r)]
     ids = [r.id for r in rows]
@@ -391,7 +402,9 @@ def page(code, pid, rid):
                            sections=len(transcript_coding_ai.sections(transcript(row))),
                            double=transcript_coding_double.assignment(project, row.id),
                            blind=transcript_coding_double.blind_for(project, who, row.id),
-                           double_done=transcript_coding_double.finished(transcript_coding_double.assignment(project, row.id)))
+                           double_done=transcript_coding_double.finished(transcript_coding_double.assignment(project, row.id)),
+                           memos=[transcript_coding_memos.as_json(m, who) for m in memos],
+                           memo_counts=transcript_coding_memos.counts(memos))
 
 
 def _payload():
