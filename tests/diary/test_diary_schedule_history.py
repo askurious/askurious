@@ -74,21 +74,67 @@ def test_the_app_learns_from_when_the_prompts_count(app):
         assert diary.prompts_from(survey, person) is None
 
 
-def test_the_first_set_of_times_is_never_dropped(app):
-    """G2: past MAX_EARLIER changes the set of the study's start still counts for the first days; the set dropped is
-    the one that held for the shortest time."""
+def _times(k):
+    return [{**MODULE, "trigger": {**MODULE["trigger"], "times": [f"{k % 24:02d}:{(k // 24) % 60:02d}"]}}]
+
+
+def test_no_set_of_times_is_dropped(app):
+    """G2 and audit storage and calculations 2026-10-28, SD-N1: every earlier set stays, also in the middle: each
+    decides which prompts were due on its days."""
     old = [{**MODULE, "trigger": {**MODULE["trigger"], "times": ["08:00"]}}]
     t0 = datetime(2026, 5, 1, 12)
     earlier = [{"until": t0.isoformat(), "modules": old}]
     current = [MODULE]
     for k in range(1, diary.MAX_EARLIER + 10):
-        new = [{**MODULE, "trigger": {**MODULE["trigger"], "times": [f"{k % 24:02d}:{k // 24:02d}"]}}]
-        gap = timedelta(minutes=30) if k == 7 else timedelta(days=1)
-        earlier = diary._with_earlier(earlier, current, new, now=datetime.fromisoformat(earlier[-1]["until"]) + gap)
+        new = _times(k)
+        earlier = diary._with_earlier(earlier, current, new, now=datetime.fromisoformat(earlier[-1]["until"]) + timedelta(days=1))
         current = new
-    assert len(earlier) == diary.MAX_EARLIER
+    assert len(earlier) == diary.MAX_EARLIER + 10
     assert earlier[0] == {"until": t0.isoformat(), "modules": old}
-    assert not any(e["until"] == (t0 + timedelta(days=6, minutes=30)).isoformat() for e in earlier)
+
+
+def test_times_are_not_changed_past_the_ceiling_and_past_counts_stay(app):
+    """SD-N1: past MAX_EARLIER sets the times are no longer changed (the rest of the form is saved), so a prompt of a
+    day in the middle stays due at its time and stays answered."""
+    from werkzeug.datastructures import MultiDict
+
+    t0 = datetime(2026, 1, 1, 12)
+    earlier = [{"until": (t0 + timedelta(days=k)).isoformat(), "modules": _times(k)} for k in range(diary.MAX_EARLIER)]
+    survey = SimpleNamespace(sampling={"modules": [MODULE], "period_days": 90, "start": "same_day", "earlier": earlier},
+                             status="running", closed_at=None, is_editable=False, has_real_responses=lambda: True,
+                             blocks=[])
+    person = SimpleNamespace(id=1, pid="sd", first_day=date(2026, 1, 1), last_day=date(2026, 3, 31), tz="UTC",
+                             settings={})
+    until = datetime(2026, 1, 5, 23, 59)
+    with app.app_context():
+        before = [(m, t) for m, t in diary.prompts(survey, person, until=until) if t.date() == date(2026, 1, 3)]
+        form = MultiDict({"m1_trigger": "fixed", "m1_times": "07:15", "m1_weekdays": "1", "m1_expires": "60",
+                          "m1_name": "Neu", "summary": "Text"})
+        assert diary._save(survey, form, "de") is True
+        assert survey.sampling["earlier"] == earlier and survey.sampling["modules"][0]["trigger"] == MODULE["trigger"]
+        assert survey.sampling["modules"][0]["name"]["de"] == "Neu"  # the rest of the form is saved
+        assert [(m, t) for m, t in diary.prompts(survey, person, until=until) if t.date() == date(2026, 1, 3)] == before
+        survey.sampling = {**survey.sampling, "earlier": earlier[:-2]}
+        assert diary._save(survey, form, "de") is False  # below the ceiling the change is taken
+        assert survey.sampling["modules"][0]["trigger"]["times"] == ["07:15"]
+
+
+def test_a_resume_of_the_first_days_stays(app):
+    """SD-N1: resumed more than 50 times, the first resume still counts (only the last of each day is kept), so a
+    prompt before it on that day stays not due."""
+    from app.models import Enrolment
+
+    with app.app_context():
+        person = Enrolment(tz="UTC", status=Enrolment.ACTIVE, first_day=date(2026, 1, 1), settings={})
+        first = datetime(2026, 1, 1, 12)
+        for k in range(60):
+            day = first + timedelta(days=k)
+            for hour in (0, 3):  # twice a day: only the later one is kept
+                person.status = Enrolment.PAUSED
+                diary.resume(person, now=day + timedelta(hours=hour))
+        kept = diary.resumes(person)
+        assert len(kept) == 60 and kept[0] == (first + timedelta(hours=3)).isoformat()
+        assert diary._resumed_days(person)[date(2026, 1, 1)] == first + timedelta(hours=3)
 
 
 def test_a_set_of_times_changed_again_within_minutes_is_not_kept(app):
