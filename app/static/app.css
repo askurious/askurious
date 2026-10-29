@@ -2213,6 +2213,16 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-code { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .tc-code { grid-template-columns: minmax(0, 1fr); } }
 .tc-text-body { line-height: 1.7; padding-left: 2.6em; }
+/* memos (app/transcript_coding_memos.py): a quiet speech bubble, its number beside it once there are memos */
+.tc-memo-btn { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px; border: 0; background: none;
+  color: var(--muted); cursor: pointer; border-radius: 6px; font-size: 0.75rem; }
+.tc-memo-btn:hover, .tc-memo-btn:focus-visible { color: var(--accent); }
+.tc-memo-btn.has-memos { color: var(--accent); }
+.tc-memo-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; max-height: 50vh; overflow: auto; }
+.tc-memo-list li p { margin: 0 0 4px; }
+.tc-memo-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tc-memo-dialog label { display: block; }
+.tc-memo-dialog textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; }
 /* paragraph numbers in the margin (app/transcript_coding_view.py, line_numbers): no text, not markable, no taps */
 .tc-text-body p[data-pos] { position: relative; }
 .tc-text-body p[data-pos]::before { content: attr(data-pos); content: attr(data-pos) / ""; position: absolute; left: -2.6em;

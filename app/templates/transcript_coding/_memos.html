@@ -1,0 +1,29 @@
+{# Memos of an analysis (app/transcript_coding_memos.py): a quiet button with the note symbol at a passage, a category
+   or an interview, and one dialog per page that lists the memos of that place and takes a new one
+   (transcript_coding_memos.js). Without script the buttons do nothing; the list on the overview still shows them. #}
+{% from "_icons.html" import icon %}
+
+{% macro memo_button(kind, n=0, rid=none, coding=none, cat=none, title="", small=true) -%}
+<button type="button" class="tc-memo-btn{% if n %} has-memos{% endif %}" data-memo-open data-kind="{{ kind }}"
+  {% if rid %}data-rid="{{ rid }}"{% endif %} {% if coding %}data-coding="{{ coding }}"{% endif %} {% if cat %}data-cat="{{ cat }}"{% endif %}
+  data-title="{{ title }}" title="{{ de_en('Memos', 'Memos') }}{% if n %} ({{ n }}){% endif %}"
+  aria-label="{{ de_en('Memos zu {t}', 'Memos on {t}', t=title) }}{% if n %} ({{ n }}){% endif %}">{{ icon("message", 14) }}{% if n %}<span class="tc-memo-n">{{ n }}</span>{% endif %}</button>
+{%- endmacro %}
+
+{% macro memo_dialog(survey, project, who, memos) -%}
+<dialog class="person-dialog xp-dialog is-narrow tc-memo-dialog" data-memo-dialog aria-labelledby="tc-memo-title"
+  data-add-url="{{ url_for('transcript_coding.add_memo', code=survey.code, pid=project.id) }}"
+  data-base-url="{{ url_for('transcript_coding.add_memo', code=survey.code, pid=project.id) }}"
+  data-csrf="{{ csrf_token() }}">
+  <div class="xp-dialog-head"><h2 id="tc-memo-title">{{ de_en("Memos", "Memos") }} <span class="muted small" data-memo-title></span></h2>
+    <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <ul class="tc-memo-list" data-memo-list></ul>
+  <label>{{ de_en("Neues Memo", "New memo") }} <span class="hint">{{ de_en("Gedanken, Zweifel, Zusammenhänge; sehen alle, die hier kodieren", "thoughts, doubts, connections; seen by everyone coding here") }}</span>
+    <textarea rows="4" maxlength="4000" data-memo-text></textarea></label>
+  <p class="small danger-text" data-memo-error hidden></p>
+  <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Schließen", "Close") }}</button>
+    <button type="button" class="button" data-memo-save>{{ de_en("Speichern", "Save") }}</button></div>
+</dialog>
+<script type="application/json" id="tc-memos">{{ memos|tojson }}</script>
+<script src="{{ url_for('static', filename='transcript_coding_memos.js') }}" defer></script>
+{%- endmacro %}

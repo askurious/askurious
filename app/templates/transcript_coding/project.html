@@ -5,6 +5,7 @@
 {% from "transcript_coding/_category.html" import category with context %}
 {% from "transcript_coding/_parts.html" import notices_fold, views with context %}
 {% from "_learn.html" import why %}
+{% from "transcript_coding/_memos.html" import memo_dialog with context %}
 {# One analysis of an interview guide (app/transcript_coding.py, project), in views switched in the head row (no row of
    its own): Interviews (the default: the interviews to code), Kategoriensystem, and for the team Einstellungen (name,
    research question, visibility, main categories fixed, AI suggestions, members, coding links, deleting); Übersicht
@@ -274,4 +275,5 @@
 <script src="{{ url_for('static', filename='transcript_coding_drop.js') }}" defer></script>
 {% endif %}
 <script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
+{{ memo_dialog(survey, project, who, memos) }}
 {% endblock %}

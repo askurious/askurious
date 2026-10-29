@@ -3,6 +3,7 @@
 {% from "_icons.html" import icon %}
 {% from "transcript_coding/_parts.html" import notices_fold with context %}
 {% from "_learn.html" import why %}
+{% from "transcript_coding/_memos.html" import memo_button, memo_dialog with context %}
 {# The coding view of one interview in one analysis (app/transcript_coding_view.py, page): the transcript on the left,
    the category system on the right. Marking a passage opens a small list to assign a category (typing filters it,
    1-9 take the categories used last, Enter takes the first); a click on a coded passage shows its categories with
@@ -20,6 +21,7 @@
   <div class="row results-head">
     <h2>{{ de_en("Interview {label}", "Interview {label}", label=row.interview.label) }} <span class="hint">{{ project.name }}{% if (row.interview.transcript or {}).checked %} · {{ de_en("Transkript geprüft", "transcript checked") }}{% else %} · {{ de_en("Transkript noch nicht geprüft", "transcript not checked yet") }}{% endif %} · {{ de_en("kodierte Stellen:", "coded passages:") }} <span data-tc-count>{{ placed|length }}</span></span></h2>
     <span class="spacer"></span>
+    {{ memo_button("interview", memo_counts.get("interview:" ~ row.id, 0), rid=row.id, title=de_en("Interview {label}", "Interview {label}", label=row.interview.label)) }}
     {% if prev %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=prev.id) }}">{{ de_en("Voriges Interview", "Previous interview") }}</a>{% endif %}
     {% if nxt %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=nxt.id) }}">{{ de_en("Nächstes Interview", "Next interview") }}</a>{% endif %}
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
@@ -50,7 +52,7 @@
   <p class="small" data-tc-status role="status" aria-live="polite"></p>
 </section>
 
-<div class="tc-code" data-tc-code data-csrf="{{ csrf_token() }}"
+<div class="tc-code" data-tc-code data-csrf="{{ csrf_token() }}" data-rid="{{ row.id }}"
      data-add-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-base-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-quick-url="{{ url_for('transcript_coding.quick_category', code=survey.code, pid=project.id) }}"
@@ -100,4 +102,5 @@
 
 <script type="application/json" id="tc-data">{{ {"text": text, "pos": line_pos, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable, "suggestions": suggestions}|tojson }}</script>
 <script src="{{ url_for('static', filename='transcript_coding_code.js') }}" defer></script>
+{{ memo_dialog(survey, project, who, memos) }}
 {% endblock %}
