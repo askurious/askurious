@@ -2,6 +2,7 @@
 {% from "_macros.html" import csrf, list_table %}
 {% from "_icons.html" import icon %}
 {% from "transcript_coding/_parts.html" import head, notices_fold with context %}
+{% from "_learn.html" import why %}
 {# The category system of an analysis in numbers (app/transcript_coding_review.py, overview): the table; the
    blurring pairs with their ways to tidy up; the latest of the history. The map is in the view "Kategoriensystem". #}
 {% block title %}{{ de_en("Übersicht", "Overview") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
@@ -17,6 +18,7 @@
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.codebook_file', code=survey.code, pid=project.id) }}" title="{{ de_en('nur das Kategoriensystem', 'only the category system') }}">{{ icon("download", 16) }} .qdc</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.categories_xlsx', code=survey.code, pid=project.id) }}" title="{{ de_en('Kategoriensystem nach Mayring mit Ankerbeispielen und allen kodierten Stellen samt Fundstelle (Interview, Absatz, Zeitmarke)', 'Category system after Mayring with anchor examples and all coded passages with their location (interview, paragraph, time mark)') }}">{{ icon("download", 16) }} {{ de_en("Kategoriensystem (Excel)", "Category system (Excel)") }}</a>{% endif %}
   </div>
+  {% if who.team %}{{ why("position") }}{% endif %}
 {% endcall %}
 
 {% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}

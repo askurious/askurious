@@ -2,6 +2,7 @@
 {% from "_macros.html" import csrf, list_table %}
 {% from "_sources.html" import grouped %}
 {% from "transcript_coding/_parts.html" import head with context %}
+{% from "_learn.html" import term with context %}
 {# Comparing the double coding of one interview (app/transcript_coding_double.py, compare): the passages of two coders
    next to each other, the differences with their decision, the agreement per category, the consensual coding. #}
 {% block title %}{{ de_en("Vergleich", "Comparison") }} {{ row.interview.label }} · {{ project.name }} · {{ survey.title }}{% endblock %}
@@ -56,7 +57,7 @@
 <section class="panel">
   <h2>{{ de_en("Übereinstimmung in diesem Interview", "Agreement in this interview") }}</h2>
   {% call list_table() %}
-    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">κ</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">{{ term("kappa") }}</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
     <tbody>
     {% for cid, name in names.items() %}{% set f = figures[cid] %}{% if f.passages[1] %}
     <tr><td>{{ name }}</td>
