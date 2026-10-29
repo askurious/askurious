@@ -17,6 +17,7 @@ import unicodedata
 
 from flask import abort, current_app, jsonify, request, send_file
 
+from app import pdf_fonts
 from app.extensions import db
 from app.live import ink
 from app.live.audience import _device, _public
@@ -31,7 +32,7 @@ MAX_BYTES = 6_000_000  # the notes of all slides as sent (MAX_CONTENT_LENGTH is 
 # the PDF: A4 portrait for a slide with a typed note, the slide's own shape (landscape for a wide slide) without
 A4_W, A4_H = 595.28, 841.89
 MARGIN = 42
-FONT, SIZE, LEADING = "Helvetica", 11, 15
+FONT, SIZE, LEADING = pdf_fonts.REGULAR, 11, 15
 
 
 def _slides(survey, st):
@@ -111,30 +112,10 @@ def clean_strokes(raw):
     return out
 
 
-def _printable(text):
-    """What the standard PDF font prints (cp1252, as the other PDFs of the platform); the rest as "?"."""
-    return text.encode("cp1252", "replace").decode("cp1252")
-
-
 def _lines(c, text, width):
-    """The note wrapped to `width`: paragraphs at its line breaks, words that do not fit split by characters."""
-    out = []
-    for para in _printable(text).split("\n"):
-        line = ""
-        for word in para.split(" "):
-            candidate = f"{line} {word}" if line else word
-            if c.stringWidth(candidate, FONT, SIZE) <= width:
-                line = candidate
-                continue
-            if line:
-                out.append(line)
-            while c.stringWidth(word, FONT, SIZE) > width:  # a word longer than the line
-                cut = max(1, next((n for n in range(len(word), 0, -1) if c.stringWidth(word[:n], FONT, SIZE) <= width), 1))
-                out.append(word[:cut])
-                word = word[cut:]
-            line = word
-        out.append(line)
-    return out
+    """The note wrapped to `width`: paragraphs at its line breaks, words that do not fit split by characters (in the
+    fonts of app/pdf_fonts.py, every survey language)."""
+    return pdf_fonts.lines(text, SIZE, width, FONT)
 
 
 def audience_pdf(survey, pages):
@@ -146,6 +127,7 @@ def audience_pdf(survey, pages):
     lang = survey.default_language
     out = io.BytesIO()
     c = canvas.Canvas(out)
+    pdf_fonts.register()
     c.setTitle(survey.title)
     c.setAuthor("Askurious")
     for n, (item, theirs, mine, text) in enumerate(pages, start=1):
@@ -157,7 +139,7 @@ def audience_pdf(survey, pages):
             c.showPage()
             continue
         c.setPageSize((A4_W, A4_H))
-        label = _printable(tr(lang, "Folie {n}", "Slide {n}", n=n))
+        label = tr(lang, "Folie {n}", "Slide {n}", n=n)
         width = A4_W - 2 * MARGIN
         slide_w, slide_h = width, ink.slide_height(picture, width)
         if slide_h > A4_H * 0.55:  # a tall slide leaves room for the note
@@ -166,7 +148,7 @@ def audience_pdf(survey, pages):
         top = A4_H - MARGIN
         c.setFont(FONT, 9)
         c.setFillGray(0.4)
-        c.drawString(MARGIN, top - 9, label)
+        pdf_fonts.draw(c, MARGIN, top - 9, label, 9, FONT)
         c.setFillGray(0)
         top -= 18
         ink.draw_slide(c, survey, item, picture, MARGIN + (width - slide_w) / 2, top - slide_h, slide_w, slide_h, [theirs, mine])
@@ -178,11 +160,14 @@ def audience_pdf(survey, pages):
                 c.setPageSize((A4_W, A4_H))
                 c.setFont(FONT, 9)
                 c.setFillGray(0.4)
-                c.drawString(MARGIN, A4_H - MARGIN - 9, label)
+                pdf_fonts.draw(c, MARGIN, A4_H - MARGIN - 9, label, 9, FONT)
                 c.setFillGray(0)
                 c.setFont(FONT, SIZE)
                 y = A4_H - MARGIN - 9 - 24
-            c.drawString(MARGIN, y, line)
+            if pdf_fonts.rtl(line):  # a note in Arabic runs from the right margin
+                pdf_fonts.draw(c, A4_W - MARGIN, y, line, SIZE, FONT, anchor="end")
+            else:
+                pdf_fonts.draw(c, MARGIN, y, line, SIZE, FONT)
             y -= LEADING
         c.showPage()
     c.save()

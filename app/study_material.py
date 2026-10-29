@@ -14,14 +14,13 @@ The PDF is made without AI, from the survey alone, and it is deterministic: the 
 Coscine package carry it (public: without the wording of instruments that may not be passed on).
 
 The texts of the questionnaire are in the survey's default language; the frame (headings, notes) in the language of the
-person who downloads or freezes it. The standard PDF fonts print Western European scripts (cp1252), as on the paper
-questionnaire (app/paper_pdf.py); other characters show as "?"."""
+person who downloads or freezes it. The fonts are those of app/pdf_fonts.py, as on the paper questionnaire: Noto Sans
+for Latin, Greek and Cyrillic everywhere, Arabic (right to left) and Chinese where the image has their fonts."""
 import functools
 import io
 import os
 import re
-from xml.sax.saxutils import escape
-
+from app import pdf_fonts
 from app.items.base import plain
 
 # The notes of part 2 take the colours of the researcher pages (app/static/app.css, read below, so the two never drift
@@ -74,8 +73,13 @@ def _cap(text):
 
 
 def _safe(text):
-    """What the standard fonts can print (cp1252), escaped for a Paragraph."""
-    return escape(str(text or "").encode("cp1252", "replace").decode("cp1252"))
+    """Escaped for a Paragraph, every character in a font that has it (app/pdf_fonts.py)."""
+    return pdf_fonts.markup(text)
+
+
+def Paragraph(text, style, **kw):
+    """reportlab's Paragraph, set right to left or broken between Chinese characters where the text needs it."""
+    return pdf_fonts.paragraph(text, style, **kw)
 
 
 def _words(text):
@@ -121,21 +125,22 @@ def _styles(accent):
     from reportlab.lib.enums import TA_LEFT
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
+    pdf_fonts.register()
     base, ink, muted = getSampleStyleSheet(), tokens()["--fg"], tokens()["--muted"]
     out = {
-        "title": ParagraphStyle("t", parent=base["Title"], fontName="Helvetica-Bold", fontSize=18, leading=22,
+        "title": ParagraphStyle("t", parent=base["Title"], fontName=pdf_fonts.BOLD, fontSize=18, leading=22,
                                 alignment=TA_LEFT, textColor=ink, spaceAfter=2),
-        "subtitle": ParagraphStyle("st", parent=base["BodyText"], fontName="Helvetica", fontSize=9.5, leading=12.5,
+        "subtitle": ParagraphStyle("st", parent=base["BodyText"], fontName=pdf_fonts.REGULAR, fontSize=9.5, leading=12.5,
                                    textColor=muted, spaceBefore=0),
-        "h1": ParagraphStyle("h1", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=14, leading=18,
+        "h1": ParagraphStyle("h1", parent=base["Heading1"], fontName=pdf_fonts.BOLD, fontSize=14, leading=18,
                              spaceBefore=6, spaceAfter=6, textColor=accent),
-        "h2": ParagraphStyle("h2", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=11.5, leading=15,
+        "h2": ParagraphStyle("h2", parent=base["Heading2"], fontName=pdf_fonts.BOLD, fontSize=11.5, leading=15,
                              spaceBefore=8, spaceAfter=3, textColor=accent, keepWithNext=1),
-        "body": ParagraphStyle("b", parent=base["BodyText"], fontName="Helvetica", fontSize=9.5, leading=12.5,
+        "body": ParagraphStyle("b", parent=base["BodyText"], fontName=pdf_fonts.REGULAR, fontSize=9.5, leading=12.5,
                                spaceBefore=5, spaceAfter=1, textColor=ink),
-        "answer": ParagraphStyle("a", parent=base["BodyText"], fontName="Helvetica", fontSize=9.5, leading=12,
+        "answer": ParagraphStyle("a", parent=base["BodyText"], fontName=pdf_fonts.REGULAR, fontSize=9.5, leading=12,
                                  spaceBefore=0, spaceAfter=0, leftIndent=10, textColor=ink),
-        "small": ParagraphStyle("s", parent=base["BodyText"], fontName="Helvetica", fontSize=8, leading=10, textColor=ink),
+        "small": ParagraphStyle("s", parent=base["BodyText"], fontName=pdf_fonts.REGULAR, fontSize=8, leading=10, textColor=ink),
     }
     for key, colour in colours().items():
         out[key] = ParagraphStyle(key, parent=out["small"], textColor=colour)
@@ -222,7 +227,6 @@ def _label(doc, item):
 
 def _element(doc, styles, item, annotated=False):
     """[Paragraph] of one element as participants see it (annotated: with the codes of the answers)."""
-    from reportlab.platypus import Paragraph
 
     t = item.t(doc.lang)
     number = doc.numbers.get(item.id)
@@ -382,7 +386,7 @@ def _part(doc, styles, order, blocks, annotated):
 def _node(doc, styles, node, after_last_block, blocks, annotated, width):
     """[flowable] of one node of the flow: a block with its elements, or (part 2) the note of any other node."""
     from reportlab.lib.units import mm
-    from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import KeepTogether, Spacer, Table, TableStyle
 
     out = []
     if node.get("t") != "block":
@@ -428,7 +432,7 @@ def _node(doc, styles, node, after_last_block, blocks, annotated, width):
 def _legend(doc, styles):
     """The legend of part 2: a drawn square in each note colour and what it marks."""
     from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, Table, TableStyle
+    from reportlab.platypus import Table, TableStyle
 
     rows = (("logic", doc.say("Anzeigelogik und Bedingungen", "Display logic and conditions")),
             ("random", doc.say("Zufallsreihenfolgen, Randomisierungen, Schleifen", "Random orders, randomisations, loops")),
@@ -447,7 +451,7 @@ def build(survey, ui=None, public=False):
     public: for a deposit, without the wording of instruments that may not be passed on (export.withheld)."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
-    from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Spacer
 
     from app import brand
     from app.items.base import reader
@@ -457,7 +461,8 @@ def build(survey, ui=None, public=False):
     blocks = {b.id: b for b in survey.blocks}
     order = _ordered_blocks(survey)
     _number(doc, order, blocks)
-    title = _safe(plain(survey.title_in(doc.lang) if hasattr(survey, "title_in") else survey.title))
+    plain_title = plain(survey.title_in(doc.lang) if hasattr(survey, "title_in") else survey.title)
+    title = _safe(plain_title)
     version, maker = survey.qversion or 1, brand.name()
     story = []
     if doc.logo:  # the survey's logo, as on its pages: never altered, only scaled
@@ -493,27 +498,24 @@ def build(survey, ui=None, public=False):
         canvas.setLineWidth(0.8)
         left, right = 18 * mm + PAD, width - 18 * mm - PAD  # flush with the text (the frame's padding)
         canvas.line(left, height - 13 * mm, right, height - 13 * mm)
-        canvas.setFont("Helvetica", 7.5)
+        canvas.setFont(pdf_fonts.REGULAR, 7.5)
         canvas.setFillColor(muted)
-        canvas.drawString(left, 10 * mm, _plain_footer(title, version, doc))
+        pdf_fonts.draw(canvas, left, 10 * mm, _plain_footer(plain_title, version, doc), 7.5)
         number = str(canvas.getPageNumber())
         canvas.drawRightString(right, 10 * mm, number)
-        canvas.setFont("Times-Bold", 8)
-        canvas.drawRightString(right - canvas.stringWidth(number, "Helvetica", 7.5) - 4 * mm, 10 * mm,
-                               str(maker).encode("cp1252", "replace").decode("cp1252"))
+        pdf_fonts.draw(canvas, right - canvas.stringWidth(number, pdf_fonts.REGULAR, 7.5) - 4 * mm, 10 * mm, str(maker),
+                       8, "Times-Bold", anchor="end")
         canvas.restoreState()
 
     out = io.BytesIO()
     SimpleDocTemplate(out, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=20 * mm,
-                      bottomMargin=18 * mm, title=title, author=maker, invariant=1).build(
+                      bottomMargin=18 * mm, title=plain_title, author=maker, invariant=1).build(
         story, onFirstPage=frame, onLaterPages=frame)
     return out.getvalue()
 
 
 def _plain_footer(title, version, doc):
-    from html import unescape
-
-    return unescape(title)[:90] + " | " + doc.say("Fassung {v}", "version {v}").format(v=version)
+    return str(title or "")[:90] + " | " + doc.say("Fassung {v}", "version {v}").format(v=version)
 
 
 def _quality(doc):

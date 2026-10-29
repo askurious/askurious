@@ -255,9 +255,12 @@ def draw_slide(c, survey, item, picture, x, y, w, h, layers):
     if picture:
         c.drawImage(ImageReader(picture), x, y, w, h)
     else:
-        c.setFont("Helvetica", 14)
-        c.drawCentredString(x + w / 2, y + h / 2, (plain(item.text("alt", survey.default_language)) or
-                                                   de_en("Das Bild dieser Folie fehlt.", "The picture of this slide is missing."))[:120])
+        from app import pdf_fonts
+
+        c.setFont(pdf_fonts.font(), 14)
+        pdf_fonts.draw(c, x + w / 2, y + h / 2, (plain(item.text("alt", survey.default_language)) or
+                                                 de_en("Das Bild dieser Folie fehlt.", "The picture of this slide is missing."))[:120],
+                       14, anchor="middle")
     c.saveState()
     c.translate(x, y)
     for strokes in layers:

@@ -14,8 +14,10 @@ OpenBLAS in NumPy, libjpeg/libpng/FreeType in Pillow, OpenSSL in cryptography, l
 lxml, RE2/Abseil in google-re2), each under its own licence.
 FreeType, inside the wheels of Pillow and matplotlib: Portions of this software are copyright © The FreeType
 Project (www.freetype.org). All rights reserved.
-The font Bitstream Vera inside the reportlab wheel (Copyright (c) 2003 by Bitstream, Inc.; Bitstream Vera Fonts
-Copyright licence) draws the text of PNG figures on the server (app/svg_png.py); it is not passed on as a font.
+The fonts of the PDFs and PNG figures the server makes (app/pdf_fonts.py, app/svg_png.py): Noto Sans in
+app/data/fonts and, in the Docker image (tools/fetch_pdf_fonts.py), Noto Sans Arabic and Noto Sans SC, all under the
+SIL Open Font License 1.1 (texts next to the files); subsets of them are embedded in the PDFs.
+python-bidi (LGPL-3.0) is used unchanged as an installed library.
 In the browser: Leaflet, Leaflet.heat with simpleheat, PDF.js with OpenJPEG and core-js, the font Atkinson
 Hyperlegible Next and the icons, see /sources. The PDF.js bundles include core-js 3.39.0 (MIT, Copyright (c) 2014-2024 Denis Pushkarev).
 Its unchanged licence is app/static/vendor/pdfjs/LICENSE_CORE_JS, from
@@ -46,6 +48,7 @@ Web-App / web app
 alembic==1.20.0  MIT
 annotated-types==0.8.0  MIT
 anyio==4.15.1  MIT
+arabic-reshaper==3.0.1  MIT
 blinker==1.9.0  MIT License
 certifi==2026.10.19  MPL-2.0
 cffi==2.1.1  MIT-0
@@ -81,6 +84,7 @@ pycparser==3.11  BSD-3-Clause
 pydantic==2.14.1  MIT
 pydantic-core==2.50.1  MIT
 pypdf==6.21.2  BSD-3-Clause
+python-bidi==0.6.12  GNU Library or Lesser General Public License (LGPL)
 python-docx==1.2.0  MIT
 python-dotenv==1.2.3  BSD-3-Clause
 reportlab==4.5.1  BSD License

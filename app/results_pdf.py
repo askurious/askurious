@@ -11,21 +11,20 @@ APA 7 (Publication Manual, 7th ed., ch. 7): every table and every figure has a n
 above it, numbered through the whole report (Tabelle 1, 2, ...; Abbildung 1, 2, ...), notes below starting with
 "Anmerkung." in italics; tables only with horizontal rules (above and below the head, at the end); statistical symbols
 in italics (M, SD, Mdn, n, N, p); no leading zero for values that cannot exceed 1 (α, ω, p); percentages with one
-decimal (as on the results page). Greek letters come from the standard font Symbol, as the standard PDF fonts print
-only Western European scripts (cp1252).
+decimal (as on the results page). The fonts are those of app/pdf_fonts.py (Noto Sans with Greek, Cyrillic and every
+Latin letter; Arabic and Chinese where the image has them).
 
 The frame (headings, notes, names of statistics) is in the language of the person downloading; the questionnaire's
 texts are in its default language. Layout, font and colours as the survey material (app/study_material.py)."""
 import io
 import re
-from xml.sax.saxutils import escape
+from html import unescape
 
+from app import pdf_fonts
 from app import study_material as sm
 from app.items.base import plain
 
 NAME = "ergebnisbericht.pdf"
-# printed in the standard font Symbol, which reportlab fills from these Unicode characters (cp1252 has none of them)
-GREEK = set("αωχηβρεσμΔτκλνπ−→≤≥∞")
 SYMBOLS = ("M", "SD", "Mdn", "n", "N", "p", "Q1", "Q3", "RLH", "KI", "CI")
 WIDTH_MM = 174  # the text width of A4 with 18 mm margins
 BAR_MAX = 14  # rows of a bar figure; more categories: only the table
@@ -33,14 +32,13 @@ MAX_COLUMNS = 9  # columns of one table on A4; a wider one is split into parts
 
 
 def _safe(text):
-    """Escaped for a Paragraph, Greek letters in the font Symbol, the rest as the standard fonts print it."""
-    out = []
-    for ch in str(text if text is not None else ""):
-        if ch in GREEK:
-            out.append(f'<font face="Symbol">{ch}</font>')
-        else:
-            out.append(escape(ch.encode("cp1252", "replace").decode("cp1252")))
-    return "".join(out)
+    """Escaped for a Paragraph, every character in a font that has it (app/pdf_fonts.py)."""
+    return pdf_fonts.markup("" if text is None else text)
+
+
+def Paragraph(text, style, **kw):
+    """reportlab's Paragraph, set right to left or broken between Chinese characters where the text needs it."""
+    return pdf_fonts.paragraph(text, style, **kw)
 
 
 def _q(text):
@@ -64,9 +62,9 @@ class Report:
         ink, muted = sm.tokens()["--fg"], sm.tokens()["--muted"]
         body = self.styles["body"]
         self.styles.update({
-            "label": ParagraphStyle("lab", parent=body, fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=0,
+            "label": ParagraphStyle("lab", parent=body, fontName=pdf_fonts.BOLD, spaceBefore=10, spaceAfter=0,
                                     keepWithNext=1, textColor=ink),
-            "caption": ParagraphStyle("cap", parent=body, fontName="Helvetica-Oblique", spaceBefore=1, spaceAfter=4,
+            "caption": ParagraphStyle("cap", parent=body, fontName=pdf_fonts.ITALIC, spaceBefore=1, spaceAfter=4,
                                       keepWithNext=1, textColor=ink),
             "note": ParagraphStyle("note", parent=body, fontSize=8, leading=10.5, spaceBefore=3, spaceAfter=6,
                                    textColor=ink),
@@ -153,7 +151,7 @@ class Report:
     def _table(self, title, head, rows, note=None, widths=None, numeric_from=1, numeric=None):
         from reportlab.lib import colors
         from reportlab.lib.units import mm
-        from reportlab.platypus import KeepTogether, Paragraph, Table, TableStyle
+        from reportlab.platypus import KeepTogether, Table, TableStyle
 
         self.tables += 1
         from reportlab.lib.enums import TA_RIGHT
@@ -196,14 +194,13 @@ class Report:
 
     def figure(self, title, drawing, note=None):
         """[flowables] of one APA figure: "Abbildung n" bold and its title in italics above it, the note below."""
-        from reportlab.platypus import KeepTogether, Paragraph
+        from reportlab.platypus import KeepTogether
 
         self.figures += 1
         return [KeepTogether([Paragraph(_safe(self.say("Abbildung {n}", "Figure {n}", n=self.figures)), self.styles["label"]),
                               Paragraph(_safe(title), self.styles["caption"]), drawing] + self._note(note))]
 
     def _note(self, note):
-        from reportlab.platypus import Paragraph
 
         if not note:
             return []
@@ -212,7 +209,7 @@ class Report:
     def bars(self, rows, value_text, axis_text=None, top=None):
         """A horizontal bar figure: rows [(label, value 0…top)], the value written at each bar's end, a thin axis with
         0 and the top; grey-blue bars in the accent, no frame and no grid (APA 7, 7.22: as simple as it can be)."""
-        from reportlab.graphics.shapes import Drawing, Line, Rect, String
+        from reportlab.graphics.shapes import Drawing, Line, Rect
         from reportlab.lib import colors
         from reportlab.lib.units import mm
 
@@ -230,18 +227,15 @@ class Report:
                 text = text[:-2]
             if text != str(label):
                 text = text.rstrip() + "…"
-            d.add(String(label_w - 2 * mm, y + 1.2 * mm, _cp(text), fontName="Helvetica", fontSize=8,
-                         textAnchor="end", fillColor=ink))
+            _add(d, label_w - 2 * mm, y + 1.2 * mm, text, 8, "end", ink)
             w = 0 if value is None else max(0.3, plot_w * value / top)
             d.add(Rect(label_w, y, w, bar_h, fillColor=accent, strokeColor=None))
-            d.add(String(label_w + w + 1.5 * mm, y + 1.2 * mm, _cp(value_text(value, label)), fontName="Helvetica",
-                         fontSize=8, fillColor=ink))
+            _add(d, label_w + w + 1.5 * mm, y + 1.2 * mm, value_text(value, label), 8, "start", ink)
         d.add(Line(label_w, 6 * mm, label_w, height - 2 * mm, strokeColor=ink, strokeWidth=0.5))
         d.add(Line(label_w, 6 * mm, label_w + plot_w, 6 * mm, strokeColor=ink, strokeWidth=0.5))
-        d.add(String(label_w, 2 * mm, "0", fontName="Helvetica", fontSize=7, textAnchor="middle", fillColor=ink))
+        _add(d, label_w, 2 * mm, "0", 7, "middle", ink)
         if axis_text:
-            d.add(String(label_w + plot_w, 2 * mm, _cp(axis_text), fontName="Helvetica", fontSize=7,
-                         textAnchor="end", fillColor=ink))
+            _add(d, label_w + plot_w, 2 * mm, axis_text, 7, "end", ink)
         return d
 
 
@@ -249,15 +243,14 @@ class Markup(str):
     """A cell already written as Paragraph markup."""
 
 
-def _cp(text):
-    """What the standard fonts draw on a figure: the minus sign as a hyphen there (no font change inside a String)."""
-    return str(text).replace("−", "-").encode("cp1252", "replace").decode("cp1252")
+def _add(drawing, x, y, text, size, anchor, ink):
+    """One line of text on a figure, in the fonts of every survey language."""
+    for part in pdf_fonts.strings(x, y, str(text), size, anchor=anchor, fillColor=ink):
+        drawing.add(part)
 
 
 def _width(text, size):
-    from reportlab.pdfbase.pdfmetrics import stringWidth
-
-    return stringWidth(_cp(text), "Helvetica", size)
+    return pdf_fonts.width(str(text), size)
 
 
 # --- the data -----------------------------------------------------------------------------------------------------
@@ -548,7 +541,7 @@ def _path_points(d):
 
 def svg_drawing(svg, rep, max_height_mm=200):
     """A reportlab drawing of an SVG element of the page, scaled to the text width; None when it has nothing drawable."""
-    from reportlab.graphics.shapes import Circle, Drawing, Ellipse, Group, Line, Path, PolyLine, Polygon, Rect, String
+    from reportlab.graphics.shapes import Circle, Drawing, Ellipse, Group, Line, Path, PolyLine, Polygon, Rect
     from reportlab.lib import colors
     from reportlab.lib.units import mm
 
@@ -663,7 +656,7 @@ def svg_drawing(svg, rep, max_height_mm=200):
                 size = max(5.5, min(9, _f(el.get("font-size"), 12) * scale * 1.0)) if el.get("font-size") else \
                     max(5.5, min(8.5, 11 * scale))
                 anchor = {"middle": "middle", "end": "end"}.get(el.get("text-anchor"), "start")
-                top.add(String(x, y, _cp(text), fontName="Helvetica", fontSize=size, textAnchor=anchor, fillColor=ink))
+                _add(top, x, y, text, size, anchor, ink)
                 count += 1
     walk(svg, 0.0, 0.0)
     if not count:
@@ -709,7 +702,6 @@ def _figure_title(el, rep):
 
 def _hypotheses(rep, root):
     """The results per hypothesis of the page as one table: hypothesis, result in APA form, n, verdict."""
-    from reportlab.platypus import Paragraph
 
     items = root.xpath("//section[@id='hypothesen']//li[contains(@class, 'hyp-result')]")
     if not items:
@@ -733,7 +725,6 @@ def _hypotheses(rep, root):
 
 def _section(rep, root, sid, heading):
     """A whole section of the page (the structural equation model, the panel models) with its tables."""
-    from reportlab.platypus import Paragraph
 
     found = root.xpath(sid if sid.startswith("/") else f"//section[@id='{sid}']")
     if not found:
@@ -752,7 +743,7 @@ def _section(rep, root, sid, heading):
 
 def _title_page(rep, data, f, computed_at):
     from reportlab.lib.units import mm
-    from reportlab.platypus import Image, Paragraph, Spacer
+    from reportlab.platypus import Image, Spacer
 
     from app import brand, weights
 
@@ -794,7 +785,6 @@ def _title_page(rep, data, f, computed_at):
 
 def _sample(rep, f):
     """The participations of the pool's sources by their end, and the field period of a survey with fieldwork."""
-    from reportlab.platypus import Paragraph
 
     from app import plugins
     from app.models import Response as R
@@ -1004,7 +994,6 @@ def _cbc(rep, e, title):
 
 
 def _para(rep, text, style="body"):
-    from reportlab.platypus import Paragraph
 
     return Paragraph(_safe(text), rep.styles[style])
 
@@ -1015,7 +1004,6 @@ HANDLED = {"single_choice", "multiple_choice", "likert", "rating", "text_input",
 
 def _item(rep, e, number, root=None):
     """[flowables] of one question: heading, then its tables and figures."""
-    from reportlab.platypus import Paragraph
 
     item = e["item"]
     question = _q(e.get("question")) or item.code
@@ -1063,7 +1051,6 @@ def _item(rep, e, number, root=None):
 
 
 def _references(rep, data):
-    from reportlab.platypus import Paragraph
 
     from app import apa
 
@@ -1080,11 +1067,8 @@ def _references(rep, data):
 
 
 def _greek_markup(html):
-    """Greek letters of an already escaped markup string into the font Symbol, other characters made printable."""
-    out = []
-    for ch in html:
-        out.append(f'<font face="Symbol">{ch}</font>' if ch in GREEK else ch.encode("cp1252", "replace").decode("cp1252"))
-    return "".join(out)
+    """An already escaped markup string (only <i>, <b>, <a> in it) with every character in a font that has it."""
+    return re.sub(r"(<[^>]+>)|([^<]+)", lambda m: m.group(1) or pdf_fonts.markup(unescape(m.group(2))), html)
 
 
 def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
@@ -1093,7 +1077,7 @@ def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import PageBreak, SimpleDocTemplate, Spacer
     from reportlab.platypus.tableofcontents import TableOfContents
 
     from app import brand
@@ -1104,7 +1088,7 @@ def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
     rep = Report(survey, reader(ui))
     story = _title_page(rep, data, pool, computed_at)
     toc = TableOfContents()
-    toc.levelStyles = [ParagraphStyle("toc1", parent=rep.styles["body"], fontName="Helvetica-Bold", spaceBefore=3),
+    toc.levelStyles = [ParagraphStyle("toc1", parent=rep.styles["body"], fontName=pdf_fonts.BOLD, spaceBefore=3),
                        ParagraphStyle("toc2", parent=rep.styles["body"], leftIndent=12, spaceBefore=0)]
     story += [Spacer(1, 6 * mm), Paragraph(_safe(rep.say("Inhalt", "Contents")), rep.styles["front"]), toc, PageBreak()]
     story += _sample(rep, pool)
@@ -1138,13 +1122,13 @@ def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
         canvas.setLineWidth(0.8)
         left, right = 18 * mm + sm.PAD, width - 18 * mm - sm.PAD
         canvas.line(left, height - 13 * mm, right, height - 13 * mm)
-        canvas.setFont("Helvetica", 7.5)
+        canvas.setFont(pdf_fonts.REGULAR, 7.5)
         canvas.setFillColor(muted)
-        canvas.drawString(left, 10 * mm, _cp(title[:80] + " | " + rep.say("Ergebnisbericht", "Results report")))
+        pdf_fonts.draw(canvas, left, 10 * mm, title[:80] + " | " + rep.say("Ergebnisbericht", "Results report"), 7.5)
         number = str(canvas.getPageNumber())
         canvas.drawRightString(right, 10 * mm, number)
-        canvas.setFont("Times-Bold", 8)
-        canvas.drawRightString(right - canvas.stringWidth(number, "Helvetica", 7.5) - 4 * mm, 10 * mm, _cp(maker))
+        pdf_fonts.draw(canvas, right - canvas.stringWidth(number, pdf_fonts.REGULAR, 7.5) - 4 * mm, 10 * mm, maker, 8,
+                       "Times-Bold", anchor="end")
         canvas.restoreState()
 
     class Doc(SimpleDocTemplate):
@@ -1152,11 +1136,12 @@ def build(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
             """The headings into the table of contents: chapters (h1) and questions (h2)."""
             name = getattr(getattr(flowable, "style", None), "name", "")
             if name in ("h1", "h2") and flowable is not None and getattr(flowable, "_toc", True):
-                self.notify("TOCEntry", (0 if name == "h1" else 1, flowable.getPlainText(), self.page))
+                self.notify("TOCEntry", (0 if name == "h1" else 1,
+                                         pdf_fonts.markup(flowable.getPlainText(), order=False), self.page))
 
     out = io.BytesIO()
     Doc(out, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=20 * mm, bottomMargin=18 * mm,
-        title=_cp(title), author=_cp(maker), invariant=1).multiBuild(story, onFirstPage=frame, onLaterPages=frame)
+        title=title, author=maker, invariant=1).multiBuild(story, onFirstPage=frame, onLaterPages=frame)
     return out.getvalue()
 
 

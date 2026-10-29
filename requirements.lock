@@ -7,6 +7,8 @@ annotated-types==0.8.0 \
     --hash=sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0
 anyio==4.15.1 \
     --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101
+arabic-reshaper==3.0.1 \
+    --hash=sha256:41c5adc2420f85758eada7e880251c4b6a2adbd83377bd27e5d4eba71f648bc7
 blinker==1.9.0 \
     --hash=sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc
 certifi==2026.10.19 \
@@ -83,6 +85,9 @@ pydantic-core==2.50.1 \
     --hash=sha256:93ba4e9d8210d941c200431a56b2c0400b131865947903937ed3ec5404307d2e
 pypdf==6.21.2 \
     --hash=sha256:1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084
+python-bidi==0.6.12 \
+    --hash=sha256:37dc0384605729d1556cfe47aa84900ae67963f17d6a19c930449d1493a01f96 \
+    --hash=sha256:96d620f9d1617b0a22ed606eb94339fb763deec9ed97ae4bdba858131b2d7759
 python-docx==1.2.0 \
     --hash=sha256:3fd478f3250fbbbfd3b94fe1e985955737c145627498896a8a6bf81f4baf66c7
 python-dotenv==1.2.3 \

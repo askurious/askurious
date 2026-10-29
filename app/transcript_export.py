@@ -24,8 +24,9 @@ checked, Whisper's model and who checked it) and from the Kurzfragebogen questio
 A transcript not yet checked is exported, marked "Entwurf" in the head and the page header. Names in the text are not
 replaced: the page says to replace them before exporting.
 
-The PDF is laid out here with reportlab (as app/paper_pdf.py), with the standard fonts Courier and Helvetica (same
-widths as Courier New, close to Tahoma; Latin script only, as the paper version); it numbers every printed line, which
+The PDF is laid out here with reportlab (as app/paper_pdf.py), with the standard font Courier (same widths as Courier
+New) and Noto Sans (close to Tahoma); a character Courier lacks (Polish, Turkish, Cyrillic, ...) is set in Noto Sans,
+Arabic and Chinese where the image has their fonts (app/pdf_fonts.py); it numbers every printed line, which
 matches Word's numbering almost always but not by guarantee (Word wraps by its own measure)."""
 import io
 import re
@@ -289,16 +290,13 @@ BODY_LEADING = BODY_SIZE * 1.133   # Courier New, single spacing
 HEAD_LEADING = HEAD_SIZE * 1.207   # Tahoma, single spacing
 
 
-def _safe(text):
-    from app.paper_pdf import _safe as safe
-
-    return safe(text)
-
-
 def _wrap(text, font, size, first, rest):
     """Lines of `text` in `font`: the first no wider than `first` points, the others than `rest`; an overlong word is
     broken."""
-    from reportlab.pdfbase.pdfmetrics import stringWidth
+    from app import pdf_fonts
+
+    def stringWidth(text, font, size):
+        return pdf_fonts.width(text, size, font)
 
     lines, line, width = [], "", first
     for word in text.split(" "):
@@ -320,8 +318,9 @@ def _wrap(text, font, size, first, rest):
 
 def pdf(survey, row, ui=None, marks=False, tasks=True):
     from reportlab.lib.pagesizes import A4
-    from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen import canvas
+
+    from app import pdf_fonts
 
     lang = lang_of(survey, ui)
     values, turns_, title = _parts(survey, row, lang, marks, tasks)
@@ -331,15 +330,16 @@ def pdf(survey, row, ui=None, marks=False, tasks=True):
     width = right - left
     out = io.BytesIO()
     c = canvas.Canvas(out, pagesize=A4, invariant=1)
-    c.setTitle(_safe(title))
+    pdf_fonts.register()
+    c.setTitle(str(title or ""))
     state = {"page": 0, "y": 0.0, "number": 0}
 
     def new_page():
         if state["page"]:
             c.showPage()
         state["page"] += 1
-        c.setFont("Helvetica", PAGE_SIZE)
-        c.drawString(left, h - EDGE * CM - PAGE_SIZE, _safe(title))
+        c.setFont(pdf_fonts.REGULAR, PAGE_SIZE)
+        pdf_fonts.draw(c, left, h - EDGE * CM - PAGE_SIZE, title, PAGE_SIZE)
         c.drawRightString(right, EDGE * CM, str(state["page"]))
         state["y"] = top
 
@@ -351,20 +351,19 @@ def pdf(survey, row, ui=None, marks=False, tasks=True):
 
     new_page()
     for label, value in values:
-        text = _safe(label if value is None else f"{label}: {value}")
-        for line in _wrap(text, "Helvetica", HEAD_SIZE, width, width):
+        text = label if value is None else f"{label}: {value}"
+        for line in _wrap(text, pdf_fonts.REGULAR, HEAD_SIZE, width, width):
             y = line_room(HEAD_LEADING)
-            c.setFont("Helvetica", HEAD_SIZE)
-            c.drawString(left, y, line)
+            pdf_fonts.draw(c, left, y, line, HEAD_SIZE)
     line_room(HEAD_LEADING)
     tab = TAB * CM
     for speaker, words, bold, inserted in turns_:
         font = "Courier-Bold" if bold else "Courier-Oblique" if inserted else "Courier"
-        words = _safe(words)
+        words = str(words or "")
         start = 0.0
         if speaker:
-            label = _safe(f"{speaker}:")
-            used = stringWidth(label, font, BODY_SIZE)
+            label = f"{speaker}:"
+            used = pdf_fonts.width(label, BODY_SIZE, font)
             start = (int(used // tab) + 1) * tab  # the next tab stop after the label
         lines = _wrap(words, font, BODY_SIZE, width - start, width)
         for n, line in enumerate(lines):
@@ -372,12 +371,11 @@ def pdf(survey, row, ui=None, marks=False, tasks=True):
             state["number"] += 1
             c.setFont("Courier", BODY_SIZE)
             c.drawRightString(left - NUMBER_GAP * CM, y, str(state["number"]))
-            c.setFont(font, BODY_SIZE)
             if n == 0 and speaker:
-                c.drawString(left, y, label)
-                c.drawString(left + start, y, line)
+                pdf_fonts.draw(c, left, y, label, BODY_SIZE, font)
+                pdf_fonts.draw(c, left + start, y, line, BODY_SIZE, font)
             else:
-                c.drawString(left, y, line)
+                pdf_fonts.draw(c, left, y, line, BODY_SIZE, font)
     c.showPage()
     c.save()
     return out.getvalue()

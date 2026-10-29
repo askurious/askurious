@@ -15,4 +15,7 @@ alembic==1.20.0
 Flask-Migrate==4.1.0
 reportlab==4.5.1
 pypdf==6.21.2
+# Arabic in the PDFs (app/pdf_fonts.py): joined letter forms and right-to-left order
+arabic-reshaper==3.0.1
+python-bidi==0.6.12
 google-re2==1.1.20251105
