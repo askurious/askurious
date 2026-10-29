@@ -7,7 +7,7 @@
 {% block content %}
 {% set active = "orgs" %}{% include "admin/_tabs.html" %}
 {% macro names(items, attr) %}{% for x in items %}{{ x[attr] if attr else x }}{{ ", " if not loop.last }}{% else %}{{ de_en("keine", "none") }}{% endfor %}{% endmacro %}
-{% macro kind_label(kind) %}{{ {"survey": de_en("Befragung", "Survey"), "design": de_en("Design", "Design"), "element": de_en("Verknüpftes Element", "Linked element"), "project": de_en("Forschungsprojekt", "Research project")}[kind] }}{% endmacro %}
+{% macro kind_label(kind) %}{{ {"survey": de_en("Befragung", "Survey"), "design": de_en("Design", "Design"), "element": de_en("Verknüpftes Element", "Linked element"), "project": de_en("Forschungsprojekt", "Research project"), "coding": de_en("Analyse eines Interviewleitfadens", "Analysis of an interview guide")}[kind] }}{% endmacro %}
 {% macro thing_name(kind, thing) %}{{ thing.title if kind == "survey" else thing.name }}{% endmacro %}
 <section class="panel">
   <h2>{{ de_en("„{g}“ zur Organisation machen", "Make “{g}” an organisation", g=group.name) }}</h2>

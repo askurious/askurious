@@ -338,7 +338,8 @@ def _site_admin(user):
 
 def personal_shares(uid):
     """What other people shared with the account `uid` personally, as (organisation, owner id) pairs: designs it may
-    use or edit, linked elements and AInstein projects (audit 2026-10-22, B-01). A one-time link to the account hands
+    use or edit, linked elements, AInstein projects (audit 2026-10-22, B-01) and analyses of interview guides it codes
+    in as a person (the owner: who added it). A one-time link to the account hands
     these over with it, so they count for outside_roles and bulk_invites.beyond_course."""
     from app.models import Construct, ConstructShare, Design, DesignEditor, DesignShare, ResearchProject
 
@@ -353,6 +354,14 @@ def personal_shares(uid):
                                            .where(ResearchProject.shares.is_not(None), ResearchProject.user_id != uid)):
         if any(isinstance(x, dict) and x.get("kind") == "person" and x.get("user_id") == uid for x in shares or []):
             out.add((key(o), w))
+    from app.models import CodingMember, CodingProject
+
+    # the role "Kodieren" in an analysis of an interview guide, given to the account in person: it reads the
+    # transcripts of that guide, so it ties the account to the guide's organisation like a personal share
+    out |= {(key(o), w) for o, w in db.session.execute(
+        db.select(Survey.org_id, CodingMember.added_by_id).join(CodingProject, CodingProject.id == CodingMember.project_id)
+        .join(Survey, Survey.id == CodingProject.survey_id)
+        .where(CodingMember.kind == CodingMember.PERSON, CodingMember.user_id == uid))}
     return out
 
 
@@ -898,6 +907,8 @@ def crossing(p, keep_group):
              | {("element", c.id) for c in p["elements"]} | {("project", r.id) for r in p["projects"]})
 
     def org_after(kind, thing):
+        if kind == "coding":  # an analysis lives in its interview guide
+            return org_after("survey", db.session.get(Survey, thing.survey_id))
         return new if (kind, thing.id) in moved else of(thing)
 
     def group_after(g):
@@ -926,18 +937,39 @@ def crossing(p, keep_group):
                 g = db.session.get(WorkGroup, share.get("group_id") or 0)
                 if g is not None and (g.id == group.id or r.id in moving):
                     check("project", r, g, share.get("role"))
+    from app.models import CodingMember, CodingProject
+
+    # the role "Kodieren" of a group in an analysis of an interview guide: it reads the guide's transcripts, so it
+    # must not cross the fence either (new members of the group would read them)
+    guides = [s.id for s in p["surveys"]] or [0]
+    rows = db.select(CodingMember, CodingProject).join(CodingProject, CodingProject.id == CodingMember.project_id).where(
+        CodingMember.kind == CodingMember.GROUP,
+        db.or_(CodingMember.group_id == group.id, CodingProject.survey_id.in_(guides)))
+    for row, analysis in db.session.execute(rows).all():
+        g = db.session.get(WorkGroup, row.group_id or 0)
+        if g is not None:
+            check("coding", analysis, g, row.role)
     return found
 
 
 def _personal(kind, thing, g, role, by):
     """A share with group `g` becomes personal entries of its members, so nobody loses access. Returns how many."""
-    from app.models import ConstructShare, DesignShare, SurveyMember
+    from app.models import CodingMember, ConstructShare, DesignShare, SurveyMember
 
+    coders = list(db.session.scalars(db.select(CodingMember).filter_by(project_id=thing.id))) if kind == "coding" else []
     n = 0
     for m in g.members:
         if m.user_id is None:
             continue  # the entry of a deleted account: nobody to keep access for
-        if kind == "survey":
+        if kind == "coding":
+            if any(x.kind == CodingMember.PERSON and x.user_id == m.user_id for x in coders):
+                continue
+            row = CodingMember(project_id=thing.id, kind=CodingMember.PERSON, user_id=m.user_id, role=role or "coder",
+                               added_by_id=by.id if by is not None else None,
+                               added_by_name=((by.name or "") if by is not None else "")[:200])
+            db.session.add(row)
+            coders.append(row)
+        elif kind == "survey":
             if any(x.user_id == m.user_id for x in thing.members):
                 continue
             thing.members.append(SurveyMember(user_id=m.user_id, name=m.display_name,
@@ -962,7 +994,11 @@ def _personal(kind, thing, g, role, by):
                            "role": role or "view"})
             thing.shares = shares
         n += 1
-    if kind == "survey":
+    if kind == "coding":
+        db.session.execute(db.delete(CodingMember).where(CodingMember.project_id == thing.id,
+                                                         CodingMember.kind == CodingMember.GROUP,
+                                                         CodingMember.group_id == g.id))
+    elif kind == "survey":
         thing.group_links = [x for x in thing.group_links if x.group_id != g.id]
     elif kind in ("design", "element"):
         thing.group_shares = [x for x in thing.group_shares if x.group_id != g.id]
