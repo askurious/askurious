@@ -2,6 +2,7 @@
 that no longer parses, e.g. after a merge that dropped a closing line: the browser then runs none of it."""
 import glob
 import os
+import re
 import shutil
 import subprocess
 
@@ -15,10 +16,12 @@ NAMES = [os.path.basename(p) for p in SCRIPTS]
 @pytest.mark.parametrize("path", SCRIPTS, ids=NAMES)
 def test_every_section_of_a_script_is_closed(path):
     """Works without node: each script is a row of sections "(function () { ... })();" that start and end
-    in the first column. A merge that swallows one closing line leaves more openings than closings."""
+    in the first column, a section may also hand its result to a name ("var x = (function () {", as
+    transcript_player.js does for its Node tests). A merge that swallows one closing line leaves more openings than
+    closings."""
     with open(path, encoding="utf-8") as f:
         lines = f.read().splitlines()
-    opened = sum(1 for line in lines if line.startswith("(function"))
+    opened = sum(1 for line in lines if re.match(r"(var [A-Za-z_$][\w$]* = )?\(function", line))
     closed = sum(1 for line in lines if line.startswith("})(") and line.rstrip().endswith(");"))
     assert opened == closed, f"{os.path.basename(path)}: {opened} sections opened, {closed} closed"
 
