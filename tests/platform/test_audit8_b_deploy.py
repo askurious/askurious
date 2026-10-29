@@ -128,7 +128,7 @@ class World:
     def _make_repo(self):
         tmp = self.tmp
         r = str(self.repo)
-        for rel in (".dockerignore", "config.py", "passenger_wsgi.py", "licence.md", "log.md", "requirements.lock", "requirements-postgres.txt",
+        for rel in (".dockerignore", "config.py", "passenger_wsgi.py", "licence.md", "log.md", "LICENSE", "LICENSE.de.txt", "NOTICE", "requirements.lock", "requirements-postgres.txt",
                     "app/__init__.py", "migrations/env.py", "tools/check_vulnerabilities.py", "tools/vendor_versions.txt", "tools/build_static.py", "tools/storage_backup_lock.py",
                     "tests/privacy/storage_guard_probe.py", "instance_overlay/README.md",
                     "deploy/docker/requirements-docker.lock"):
