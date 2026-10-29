@@ -28,7 +28,9 @@ def test_two_deletions_at_once_keep_both_in_the_note(app, monkeypatch):
     for w in workers:
         w.start()
     for w in workers:
-        w.join(30)
+        # join as long as the storage room may make the second one wait (full run 2026-10-29: 30 s cut it off)
+        w.join(storage_room.WAIT + 20)
+    assert not any(w.is_alive() for w in workers)
     with app.app_context():
         assert read("u1") == {"pids": ["a", "b"]}
         cleanup.done("u1", pids=["a"])
