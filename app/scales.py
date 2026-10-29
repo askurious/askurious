@@ -502,8 +502,15 @@ def pearson(xs, ys):
     n = len(pairs)
     if n < 3:
         return None, n, None
-    # Correlation is invariant under positive rescaling. Normalize before centering
-    # so both subnormal measurements and large finite values remain representable.
+    # Correlation does not change under a shift or a positive rescaling. First the median of each variable is taken
+    # off: near equal large values (9e14 + 1, 9e14 + 2) keep their differences exactly, where scaling first rounded
+    # them away (audit storage and calculations 2026-10-28, M5). Only if that overflows (values of both signs near
+    # the largest float) it is left out. Then each is normalised, so subnormal and large values stay representable.
+    rx = statistics.median_low([x for x, _ in pairs])
+    ry = statistics.median_low([y for _, y in pairs])
+    shifted = [(x - rx, y - ry) for x, y in pairs]
+    if all(math.isfinite(x) and math.isfinite(y) for x, y in shifted):
+        pairs = shifted
     ax = max(abs(x) for x, _ in pairs)
     ay = max(abs(y) for _, y in pairs)
     if not ax or not ay:
