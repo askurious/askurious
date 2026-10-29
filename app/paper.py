@@ -271,7 +271,7 @@ def run_pdf_path(survey, run):
 
 def languages(survey):
     """The survey's languages that can go on paper."""
-    return [lang for lang in survey.languages if lang in paper_pdf.LANGUAGES]
+    return [lang for lang in survey.languages if lang in paper_pdf.languages()]
 
 
 # --- print runs ----------------------------------------------------------------------------------

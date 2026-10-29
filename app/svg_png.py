@@ -1,8 +1,9 @@
 """A plain SVG drawn as PNG with Pillow, without an outside renderer (reportlab's renderPM needs an extension that is not
 installed; Ralf 2026-10-29: no new dependency). It knows what Askurious's own drawings use: rect (with rx), circle,
 line, path with M, L and C (cubic Bézier), text (x, y, text-anchor, font-size, font-weight bold, fill), fill, stroke,
-stroke-width, stroke-dasharray, fill-opacity and groups. Anything else is left out. The font is Bitstream Vera, which
-comes with reportlab (already a dependency) and has the Latin letters with umlauts and ß; Pillow's own font lacks them.
+stroke-width, stroke-dasharray, fill-opacity and groups. Anything else is left out. The fonts are those of the PDFs
+(app/pdf_fonts.py): Noto Sans for Latin, Greek and Cyrillic, Arabic and Chinese where the image has their fonts, a text
+drawn font run by font run; Pillow's own font lacks even the umlauts.
 
 First use: the diagram of a category system (app/transcript_coding_review.py, map_svg) as PNG and in the Word coding
 guide."""
@@ -12,17 +13,11 @@ from xml.etree import ElementTree as ET
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
+from app import pdf_fonts
+
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
 MAX_SIDE = 12000  # pixels of the longer side at most
-WIDER = 0.9  # Vera runs about a tenth wider than Arial, which the drawings are laid out for
-
-
-def _font_file(bold=False):
-    import os
-
-    import reportlab
-
-    return os.path.join(os.path.dirname(reportlab.__file__), "fonts", "VeraBd.ttf" if bold else "Vera.ttf")
+WIDER = 0.95  # Noto Sans runs a little wider than Arial, which the drawings are laid out for
 
 
 def _f(value, default=0.0):
@@ -112,11 +107,11 @@ def render(svg, scale=2.0):
     draw = ImageDraw.Draw(img)
     fonts = {}
 
-    def font(size, bold=False):
+    def font(size, name):
         size = max(6, int(round(size * scale)))
-        if (size, bold) not in fonts:
-            fonts[(size, bold)] = ImageFont.truetype(_font_file(bold), size)
-        return fonts[(size, bold)]
+        if (size, name) not in fonts:
+            fonts[(size, name)] = ImageFont.truetype(pdf_fonts.file_of(name), size)
+        return fonts[(size, name)]
 
     def walk(el, inherited):
         style = dict(inherited)
@@ -158,12 +153,16 @@ def render(svg, scale=2.0):
             content = "".join(el.itertext())
             if content and fill:
                 bold = style.get("font-weight") in ("bold", "600", "700")
-                f = font(_f(style.get("font-size"), 13) * WIDER, bold)
+                size = _f(style.get("font-size"), 13) * WIDER
+                parts = [(font(size, name), part) for name, part in
+                         pdf_fonts.runs(pdf_fonts.visual(content), pdf_fonts.font(bold=bold))]
                 x, y = _f(el.get("x")) * s, _f(el.get("y")) * s
-                length = draw.textlength(content, font=f)
+                length = sum(draw.textlength(part, font=f) for f, part in parts)
                 anchor = style.get("text-anchor", "start")
                 x -= length if anchor == "end" else length / 2 if anchor == "middle" else 0
-                draw.text((x, y), content, font=f, fill=fill, anchor="ls")
+                for f, part in parts:
+                    draw.text((x, y), part, font=f, fill=fill, anchor="ls")
+                    x += draw.textlength(part, font=f)
             return
         elif tag == "title":
             return

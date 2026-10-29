@@ -77,6 +77,7 @@ SOURCE_FILES = {
     "LICENSE": "../LICENSE",
     "LICENSE.de.txt": "../LICENSE.de.txt",
     "NOTICE": "../NOTICE",
+    "OFL-NotoSans.txt": "data/fonts/OFL.txt",
 }
 
 

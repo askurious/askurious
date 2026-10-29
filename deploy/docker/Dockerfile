@@ -16,6 +16,11 @@ WORKDIR /app
 
 COPY requirements.lock deploy/docker/requirements-docker.lock ./
 RUN pip install --require-hashes --no-deps -r requirements.lock -r requirements-docker.lock
+# the PDF fonts for Arabic and Chinese (app/pdf_fonts.py; Noto Sans for Latin, Greek and Cyrillic is in app/data/fonts),
+# about 21 MB, each file checked against its SHA-256; SIL Open Font License 1.1, its texts next to them
+COPY tools/fetch_pdf_fonts.py /tmp/fetch_pdf_fonts.py
+RUN python /tmp/fetch_pdf_fonts.py /usr/share/fonts/askurious && rm /tmp/fetch_pdf_fonts.py
+ENV PDF_FONT_DIR=/usr/share/fonts/askurious
 
 # log.md: the source of "Entwurf aus den Neuerungen" on the news page (app/blog.py); LICENSE, LICENSE.de.txt and
 # NOTICE travel with every image and are served on /sources (app/public.py, SOURCE_FILES)

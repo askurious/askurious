@@ -726,7 +726,10 @@ def map_pdf(project, who, survey):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Image, SimpleDocTemplate, Spacer
+
+    from app import pdf_fonts
 
     png = map_png(project, who, survey, scale=3.0)
     w, h = PILImage.open(io.BytesIO(png)).size
@@ -734,14 +737,17 @@ def map_pdf(project, who, survey):
     margin = 15 * mm
     room_w, room_h = size[0] - 2 * margin, size[1] - 2 * margin - 22 * mm
     factor = min(room_w / w, room_h / h)
-    styles = getSampleStyleSheet()
+    pdf_fonts.register()
+    sample = getSampleStyleSheet()
+    styles = {"Heading2": ParagraphStyle("h2", parent=sample["Heading2"], fontName=pdf_fonts.BOLD),
+              "Normal": ParagraphStyle("n", parent=sample["Normal"], fontName=pdf_fonts.REGULAR)}
     buf = io.BytesIO()
     title = de_en("Kategoriensystem: {name}", "Category system: {name}", name=project.name)
     doc = SimpleDocTemplate(buf, pagesize=size, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin,
                             title=title)
-    head = [Paragraph(escape(title), styles["Heading2"])]
+    head = [pdf_fonts.paragraph(pdf_fonts.markup(title), styles["Heading2"])]
     if project.question:
-        head.append(Paragraph(escape(project.question), styles["Normal"]))
+        head.append(pdf_fonts.paragraph(pdf_fonts.markup(project.question), styles["Normal"]))
     doc.build(head + [Spacer(1, 4 * mm), Image(io.BytesIO(png), width=w * factor, height=h * factor)])
     return buf.getvalue()
 

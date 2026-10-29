@@ -38,6 +38,9 @@ Source: the frequency list `passwords.txt` of [zxcvbn](https://github.com/dropbo
 Licence: MIT (zxcvbn); the full licence text is in the head of the file. Modified: the first 10,000 entries, each normalised as the app compares passwords, without duplicates.
 Built with `tools/passwort_sperrliste.py <path to passwords.txt>`.
 
+`fonts/`: Noto Sans Regular, Bold and Italic (TrueType, unhinted, from [notofonts.github.io](https://github.com/notofonts/notofonts.github.io) at commit c1d3718, version 2.015), the fonts of every PDF and PNG figure the server makes (`app/pdf_fonts.py`): Latin with all accents, Greek, Cyrillic.
+Licence: SIL Open Font License 1.1, © 2022 The Noto Project Authors; the text is `fonts/OFL.txt`. Unchanged; reportlab embeds subsets of them in the PDFs. Arabic and Chinese (Noto Sans Arabic, Noto Sans SC, also OFL 1.1) are too large for the repository: `tools/fetch_pdf_fonts.py` puts them into the Docker image, each file checked against its SHA-256.
+
 `THIRD_PARTY_LICENSES.txt`: the Python packages of the lock files with version and licence; written by `tools/third_party_licences.py`, not by hand. The page `/sources` lists every source of data, texts, fonts, icons and libraries.
 
 `cessda_topics.json`: the CESSDA Topic Classification, version 4.2.3 (95 topics and subtopics with their German and English names), for the topic of a survey in the setup wizard and in the DDI and CDIF exports (`app/study_plan.py`). Source: CESSDA Vocabulary Service, https://vocabularies.cessda.eu/vocabulary/TopicClassification/4.2.3, retrieved 2026-10-27, licence CC BY 4.0 (© CESSDA ERIC); the names of the main topics were changed from capitals to ordinary case.

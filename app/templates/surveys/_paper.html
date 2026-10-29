@@ -28,7 +28,7 @@
     <button class="button button-secondary">{{ icon("download", 16) }} {{ de_en("PDF erzeugen", "Create PDF") }}</button>
   </form>
   {% else %}
-  <p class="muted small">{{ de_en("Die Sprachen dieser Befragung lassen sich noch nicht drucken (auf Papier vorerst nur Sprachen in lateinischer Schrift ohne Sonderzeichen außerhalb Westeuropas).", "The languages of this survey cannot be printed yet (on paper, for now only languages in Latin script without special characters outside Western Europe).") }}</p>
+  <p class="muted small">{{ de_en("Die Sprachen dieser Befragung lassen sich noch nicht drucken (auf Papier Sprachen in lateinischer und kyrillischer Schrift, Chinesisch nur, wo der Server die Schrift hat; Arabisch noch nicht).", "The languages of this survey cannot be printed yet (on paper: languages in Latin and Cyrillic script, Chinese only where the server has its font; Arabic not yet).") }}</p>
   {% endif %}
   {% if paper.runs %}
   <ul class="plain small">{% for run in paper.runs %}

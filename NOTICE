@@ -17,6 +17,9 @@ Parts NOT licensed under the EUPL-1.2. They keep their own licences or terms, an
   (BSD-2-Clause, LICENSE_OPENJPEG, LICENSE_PDFJS_OPENJPEG) and core-js (MIT, LICENSE_CORE_JS).
 - app/static/fonts/**: Atkinson Hyperlegible Next, SIL Open Font License 1.1
   (app/static/fonts/atkinson-hyperlegible-next/OFL.txt).
+- app/data/fonts/**: Noto Sans (Regular, Bold, Italic), © 2022 The Noto Project Authors, SIL Open Font License 1.1
+  (app/data/fonts/OFL.txt), the fonts of the PDFs. tools/fetch_pdf_fonts.py fetches Noto Sans Arabic and Noto Sans SC
+  (SIL Open Font License 1.1) into the Docker image; they are not part of this repository.
 - app/static/geo/state-outlines.svg: © BKG (2026) dl-de/by-2-0 (Datenlizenz Deutschland Namensnennung 2.0).
 - app/static/img/orcid/**: ORCID iD icons of ORCID, Inc., used under the ORCID trademark and iD display guidelines.
 - Data files of others in app/data, as listed in app/data/README.md: plz_de.tsv (GeoNames, CC BY 4.0),

@@ -16,7 +16,9 @@ field = {"p": page of the sheet (0-based), "x", "y", "w", "h" (mm), "k": "box" |
 the layout, "f": form field, "v": its value (box), "g": group, "item", "row", "lab": a short label for the review,
 "fmt": "text" | "num" | "int" (write), "rank": option code (a rank written for ranking)}.
 
-Only Latin script for now (WIN_ANSI languages): the standard fonts of PDF hold no more. Built with reportlab (BSD)."""
+The texts are set in the fonts of app/pdf_fonts.py (Noto Sans: Latin, Greek, Cyrillic; Chinese where the image has
+its font). Arabic stays online only: the sheet is laid out from the left (boxes before the answer), a right-to-left
+sheet would have to be mirrored. Built with reportlab (BSD)."""
 import contextvars
 import functools
 import hashlib
@@ -27,6 +29,7 @@ import os
 import re
 import tempfile
 
+from app import pdf_fonts
 from app.items.base import DONT_KNOW, PLACEHOLDER, dont_know, plain
 
 MM = 72 / 25.4  # points per millimetre
@@ -38,10 +41,12 @@ CODE_BITS = 64  # 40 bits sheet key, 8 bits page, 16 bits CRC
 LEFT, RIGHT, TOP, BOTTOM = 18.0, 192.0, 22.0, 272.0
 WIDTH = RIGHT - LEFT
 BOX = 4.2  # side of a box to tick
-FONT, BOLD = "Helvetica", "Helvetica-Bold"
+FONT, BOLD = pdf_fonts.REGULAR, pdf_fonts.BOLD
 SIZE = 10.0
-# survey languages whose texts the standard PDF fonts can print (cp1252); the others are offered once fonts are in
-LANGUAGES = ("de", "de-du", "en", "es", "fr", "it", "nl", "pt")
+# survey languages that go on paper: Noto Sans prints them in every installation; Chinese only where its font is
+# (languages()); Arabic not (see above)
+LANGUAGES = ("de", "de-du", "en", "es", "fr", "it", "nl", "pt", "pl", "tr", "ru")
+CJK_LANGUAGES = ("zh-Hans",)
 # answered on paper: boxes, writing fields or both; every other type is left out of the paper version
 ON_PAPER = ("single_choice", "multiple_choice", "federal_state", "likert", "semantic", "rating", "consent",
             "text_input", "slider", "date_time", "postal_code", "ranking", "constant_sum", "psm", "cloze",
@@ -117,15 +122,18 @@ def code_cells():
 # --- texts -------------------------------------------------------------------------------------
 
 
-def _safe(text):
-    """What the standard fonts can print: cp1252, the rest as "?"."""
-    return str(text or "").encode("cp1252", "replace").decode("cp1252")
+def languages():
+    """The survey languages that can go on paper on this installation."""
+    return LANGUAGES + (CJK_LANGUAGES if pdf_fonts.available("NotoSansSC") else ())
 
 
 def _width(text, size, bold=False):
-    from reportlab.pdfbase.pdfmetrics import stringWidth
+    return pdf_fonts.width(str(text or ""), size * _SCALE.get(), BOLD if bold else FONT) / MM
 
-    return stringWidth(_safe(text), BOLD if bold else FONT, size * _SCALE.get()) / MM
+
+def _text(c, x, y, text, size, bold=False, anchor="start"):
+    """One line at (x, y) in points, in the fonts of every survey language."""
+    pdf_fonts.draw(c, x, y, text, size, BOLD if bold else FONT, anchor)
 
 
 def wrap(text, width, size=SIZE, bold=False):
@@ -144,27 +152,7 @@ def _wrapped(text, width, size, bold, scale):
 
 
 def _wrap(text, width, size=SIZE, bold=False):
-    out = []
-    for para in str(text or "").replace("\r\n", "\n").split("\n"):
-        words, line = para.split(), ""
-        if not words:
-            out.append("")
-            continue
-        for word in words:
-            trial = f"{line} {word}" if line else word
-            if _width(trial, size, bold) <= width:
-                line = trial
-                continue
-            if line:
-                out.append(line)
-            while _width(word, size, bold) > width and len(word) > 1:  # a word longer than the line
-                cut = len(word)
-                while cut > 1 and _width(word[:cut], size, bold) > width:
-                    cut -= 1
-                out.append(word[:cut])
-                word = word[cut:]
-            line = word
-        out.append(line)
+    out = pdf_fonts.lines(str(text or "").replace("\r\n", "\n"), size * _SCALE.get(), width * MM, BOLD if bold else FONT)
     while out and out[-1] == "":
         out.pop()
     return out
@@ -1327,30 +1315,25 @@ def _draw_keep(c, title, lines):
     head, keep, code, use, number = lines
     y = 30.0
     for line in wrap(title, WIDTH, 12, True):
-        c.setFont(BOLD, 12)
-        c.drawString(LEFT * MM, _y(y), _safe(line))
+        _text(c, LEFT * MM, _y(y), line, 12, True)
         y += line_height(12)
     y += 8
-    c.setFont(BOLD, 16)
-    c.drawString(LEFT * MM, _y(y), _safe(head))
+    _text(c, LEFT * MM, _y(y), head, 16, True)
     y += 9
-    c.setFont(FONT, SIZE)
     for line in wrap(keep, WIDTH, SIZE):
-        c.drawString(LEFT * MM, _y(y), _safe(line))
+        _text(c, LEFT * MM, _y(y), line, SIZE)
         y += line_height(SIZE)
     y += 8
     c.setLineWidth(0.4 * MM)
     c.rect(LEFT * MM, _y(y + 16), WIDTH * MM, 16 * MM, stroke=1, fill=0)  # the code in a frame
-    c.setFont(BOLD, 20)
-    c.drawCentredString((LEFT + WIDTH / 2) * MM, _y(y + 10.5), _safe(code))
+    _text(c, (LEFT + WIDTH / 2) * MM, _y(y + 10.5), code, 20, True, "middle")
     y += 26
-    c.setFont(FONT, SIZE)
     for line in wrap(use, WIDTH, SIZE):
-        c.drawString(LEFT * MM, _y(y), _safe(line))
+        _text(c, LEFT * MM, _y(y), line, SIZE)
         y += line_height(SIZE)
     y += 4
     c.setFillGray(0.35)
-    c.drawString(LEFT * MM, _y(y), _safe(number))
+    _text(c, LEFT * MM, _y(y), number, SIZE)
     c.setFillGray(0)
 
 
@@ -1363,15 +1346,9 @@ def _draw_page(c, ops, key, page, pages, title, lang, images=None):
         kind = op[0]
         if kind == "text":
             _, x, y, size, bold, text, grey, align = op
-            c.setFont(BOLD if bold else FONT, size)
             c.setFillGray(grey)
             base = _y(y + size * 0.78 / MM)
-            if align == "center":
-                c.drawCentredString(x * MM, base, _safe(text))
-            elif align == "right":
-                c.drawRightString(x * MM, base, _safe(text))
-            else:
-                c.drawString(x * MM, base, _safe(text))
+            _text(c, x * MM, base, text, size, bold, {"center": "middle", "right": "end"}.get(align, "start"))
         elif kind == "rect":
             _, x, y, w, h, width, fill, stroke = op
             c.setLineWidth(width * MM)
@@ -1405,11 +1382,10 @@ def _draw_page(c, ops, key, page, pages, title, lang, images=None):
     for bit, (x, y, w, h) in zip(code_bits(key, page), code_cells()):
         if bit:
             c.rect(x * MM, _y(y + h), w * MM, h * MM, stroke=0, fill=1)
-    c.setFont(FONT, 7)
     c.setFillGray(0.35)
     label = tr(lang, "Bogen {number} · Seite {page} von {pages}", "Sheet {number} · page {page} of {pages}")
-    c.drawCentredString(PAGE_W / 2 * MM, _y(279.5), _safe(label.format(number=sheet_number(key), page=page + 1, pages=pages)
-                                                         + " · " + title[:60]))
+    _text(c, PAGE_W / 2 * MM, _y(279.5), label.format(number=sheet_number(key), page=page + 1, pages=pages)
+          + " · " + title[:60], 7, anchor="middle")
     c.setFillGray(0)
 
 
@@ -1426,7 +1402,8 @@ def render(sheets, title, lang, duplex=False):
     with tempfile.TemporaryDirectory(prefix="askurious-paper-") as folder:
         images = _print_images(sheets, folder)
         c = canvas.Canvas(buf, pagesize=A4, pageCompression=1, invariant=1)
-        c.setTitle(_safe(title))
+        pdf_fonts.register()
+        c.setTitle(str(title or ""))
         c.setCreator("Askurious")
         for key, pages, keep in sheets:
             for n, ops in enumerate(pages):
