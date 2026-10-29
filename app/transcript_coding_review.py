@@ -569,6 +569,37 @@ def map_svg(project, who, survey, interactive=False):
 # --- the coding guide ------------------------------------------------------------------------------------------------
 
 
+def _guide_diagram(doc, project, who, survey):
+    """The diagram of the category system in the coding guide (Ralf 2026-10-29): as wide as the text, never taller
+    than the page; one more than 2.2 times as wide as high on a page of its own across, then back upright."""
+    from PIL import Image
+    from docx.enum.section import WD_ORIENT, WD_SECTION
+    from docx.shared import Cm
+
+    mains, candidates = tree(project)
+    if not mains and not candidates:
+        return
+    png = map_png(project, who, survey, scale=2.5)
+    w, h = Image.open(io.BytesIO(png)).size
+    across = w / max(h, 1) > 2.2
+
+    def turn(section):
+        section.orientation = WD_ORIENT.LANDSCAPE if section.orientation == WD_ORIENT.PORTRAIT else WD_ORIENT.PORTRAIT
+        section.page_width, section.page_height = section.page_height, section.page_width
+
+    if across:
+        turn(doc.add_section(WD_SECTION.NEW_PAGE))
+    section = doc.sections[-1]
+    room_w = section.page_width - section.left_margin - section.right_margin
+    room_h = section.page_height - section.top_margin - section.bottom_margin - Cm(3)
+    width = min(room_w, int(room_h * w / max(h, 1)))
+    p = doc.add_paragraph()
+    p.add_run(de_en("Kategoriensystem", "Category system")).bold = True
+    doc.add_picture(io.BytesIO(png), width=width)
+    if across:
+        turn(doc.add_section(WD_SECTION.NEW_PAGE))
+
+
 def guide_docx(project, survey, who):
     from app.interview_docx import _document, _head, _note
     from app.lang import english
@@ -580,6 +611,7 @@ def guide_docx(project, survey, who):
         p = doc.add_paragraph()
         p.add_run(de_en("Forschungsfrage: ", "Research question: ")).bold = True
         p.add_run(project.question)
+    _guide_diagram(doc, project, who, survey)
     st = stats(project, who)
     mains, candidates = tree(project)
     from app.transcript_coding_ai import taken_from_ai
@@ -684,6 +716,57 @@ def overview(code, pid):
                            history=history(project, 8),
                            notices=notices(project, who), n_interviews=len(interviews(project, who)),
                            **_context(survey, project, who))
+
+
+def map_pdf(project, who, survey):
+    """The diagram as a PDF page with reportlab, A4 across when the diagram is wide, scaled to fit. The picture is the
+    PNG of app/svg_png.py at print resolution: the vector way of the results report (results_pdf.svg_drawing) redraws
+    figures in its own grey APA style and would lose the colours of the categories and the boxes."""
+    from PIL import Image as PILImage
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer
+
+    png = map_png(project, who, survey, scale=3.0)
+    w, h = PILImage.open(io.BytesIO(png)).size
+    size = landscape(A4) if w > h else A4
+    margin = 15 * mm
+    room_w, room_h = size[0] - 2 * margin, size[1] - 2 * margin - 22 * mm
+    factor = min(room_w / w, room_h / h)
+    styles = getSampleStyleSheet()
+    buf = io.BytesIO()
+    title = de_en("Kategoriensystem: {name}", "Category system: {name}", name=project.name)
+    doc = SimpleDocTemplate(buf, pagesize=size, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin,
+                            title=title)
+    head = [Paragraph(escape(title), styles["Heading2"])]
+    if project.question:
+        head.append(Paragraph(escape(project.question), styles["Normal"]))
+    doc.build(head + [Spacer(1, 4 * mm), Image(io.BytesIO(png), width=w * factor, height=h * factor)])
+    return buf.getvalue()
+
+
+def map_png(project, who, survey, scale=2.0):
+    """The diagram as PNG (app/svg_png.py, Pillow; no outside renderer)."""
+    from app import svg_png
+
+    return svg_png.render(map_svg(project, who, survey), scale=scale)
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/map.png")
+@signed_in_or_coder
+def map_png_file(code, pid):
+    survey, project, who = _in(code, pid)
+    return HttpResponse(map_png(project, who, survey), mimetype="image/png",
+                        headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.png"'})
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/map.pdf")
+@signed_in_or_coder
+def map_pdf_file(code, pid):
+    survey, project, who = _in(code, pid)
+    return HttpResponse(map_pdf(project, who, survey), mimetype="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.pdf"'})
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/map.svg")

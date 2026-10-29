@@ -74,7 +74,9 @@
       <a class="button button-small {{ '' if show == 'list' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}" {% if show == 'list' %}aria-current="page"{% endif %}>{{ de_en("Liste", "List") }}</a>
       <a class="button button-small {{ '' if show == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='diagram') }}" {% if show == 'map' %}aria-current="page"{% endif %}>{{ de_en("Diagramm", "Diagram") }}</a>
     </div>
-    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>{% endif %}
+    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_png_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PNG</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_pdf_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PDF</a>{% endif %}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
     {% if show == "list" %}

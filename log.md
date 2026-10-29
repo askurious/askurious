@@ -7545,3 +7545,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf: „Zurücknehmen“ im Verlauf auch für Verschieben (Team, Autor der Kategorie, wer verschoben hat); wurde die Kategorie seither geändert, fragt ein Dialog nach (force), spätere Änderungen an Name und Definition bleiben (transcript_coding_review.undo_move, changed_since).
 - Einstellung je Auswertung „Fremde Kategorien verschieben und zusammenführen nur Team und Autor“ (CodingProject.settings["guarded"], Standard aus, keine Migration): andere Mitglieder schlagen Verschieben und Zusammenführen fremder Unterkategorien vor (Vorschlag mit data.move bzw. data.merge, entschieden über decide wie Änderungen), auch per Ziehen in Liste und Diagramm (Drop-Dialog „… vorschlagen“); Umsortieren fremder Kategorien ist dann nicht möglich.
 - Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (Vorschläge und Verlauf wie bisher mit Namen und Zeit).
+
+## 2026-10-29: Diagramm des Kategoriensystems als PNG, PDF und im Kodierleitfaden
+
+- Ralf: neben „Diagramm als SVG“ auch PNG und PDF (map.png, map.pdf), und das Diagramm im Word-Kodierleitfaden nach der Forschungsfrage (seitenbreit, nie höher als die Seite; mehr als 2,2-mal so breit wie hoch: eigene Seite quer).
+- Ohne neue Abhängigkeit: app/svg_png.py zeichnet das SVG mit Pillow (rect, circle, line, path mit M/L/C, text, Strichelung), Schrift Bitstream Vera aus reportlab (Pillows eigene Schrift hat keine Umlaute); reportlabs renderPM fehlt hier die Zusatzbibliothek. Das PDF (reportlab, A4, bei breiten Diagrammen quer) nimmt das PNG in Druckauflösung, weil results_pdf.svg_drawing Grafiken in grauem APA-Stil neu zeichnet und die Farben der Kategorien verlöre.
+- Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (dieselben Angaben wie das SVG).
