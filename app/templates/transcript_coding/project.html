@@ -49,6 +49,8 @@
     </fieldset>
     <label class="check"><input type="checkbox" name="mains_fixed" value="1" {% if project.mains_fixed %}checked{% endif %}> {{ de_en("Hauptkategorien festgelegt", "Main categories fixed") }} <span class="hint">{{ de_en("dann ändern nur Sie die Hauptkategorien; die Mitglieder legen Kandidaten an und schlagen Umbenennen oder eine schärfere Definition vor", "then only you change the main categories; the members add candidates and propose renaming or a sharper definition") }}</span></label>
     {{ why("mains_fixed") }}
+    <input type="hidden" name="has_guarded" value="1">
+    <label class="check"><input type="checkbox" name="guarded" value="1" {% if guarded %}checked{% endif %}> {{ de_en("Fremde Kategorien verschieben und zusammenführen nur Team und Autor", "Only the team and the author move and merge others' categories") }} <span class="hint">{{ de_en("dann schlagen die anderen Mitglieder Verschieben und Zusammenführen vor, wie eine Änderung; Sie oder wer die Kategorie angelegt hat, entscheiden", "then the other members propose moving and merging, like a change; you or whoever created the category decide") }}</span></label>
     {{ autosave_bar(quiet=true) }}
   </form>
   {% if ai_switch %}
@@ -72,7 +74,9 @@
       <a class="button button-small {{ '' if show == 'list' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}" {% if show == 'list' %}aria-current="page"{% endif %}>{{ de_en("Liste", "List") }}</a>
       <a class="button button-small {{ '' if show == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='diagram') }}" {% if show == 'map' %}aria-current="page"{% endif %}>{{ de_en("Diagramm", "Diagram") }}</a>
     </div>
-    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>{% endif %}
+    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_png_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PNG</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_pdf_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PDF</a>{% endif %}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
     {% if show == "list" %}

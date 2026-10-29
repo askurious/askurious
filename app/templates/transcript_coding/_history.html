@@ -14,6 +14,10 @@
     {% else %}{{ event_text(e) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% endif %}
     {% if e.kind == "merged" and not d.undone and (who.team or e.actor_key == who.key) %}
     <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='undo') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Zurücknehmen", "Take back") }}</button></form>{% endif %}
+    {% if e.kind == "moved" and move_back and move_back(e) %}{% set later = changed_since(e) %}
+    <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='undo') }}" class="inline"
+      {% if later %}data-confirm="{{ de_en('Verschieben zurücknehmen?', 'Take back the move?') }}" data-confirm-note="{{ de_en('Die Kategorie wurde seither weiter geändert. Sie kommt trotzdem an ihren alten Platz; die späteren Änderungen an Name und Definition bleiben.', 'The category was changed since. It still goes back to its old place; the later changes of name and definition stay.') }}" data-confirm-ok="{{ de_en('Zurücknehmen', 'Take back') }}"{% endif %}>
+      {{ csrf() }}{% if later %}<input type="hidden" name="force" value="1">{% endif %}<button class="button button-small button-secondary">{{ de_en("Zurücknehmen", "Take back") }}</button></form>{% endif %}
     {% if e.kind in ("merged", "changed", "proposal", "split_off") %}
     <details class="tc-comment"><summary>{{ de_en("Kommentieren", "Comment") }}</summary>
       <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='comment') }}" class="row-fields">{{ csrf() }}
