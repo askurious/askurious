@@ -51,7 +51,7 @@
        own over the first block (UI/UX audit 2026-10-16, 29); pages with folds set fold_all #}
     {% if fold_all is defined and fold_all %}{% from "_macros.html" import fold_all_button %}{{ fold_all_button() }}{% endif %}
     {% if survey.can(current_user, "editor") %}
-    {% set arrows = active_tab in ("settings", "plan", "editor", "flow", "translation", "quotas", "field", "quality", "results", "boards") %}
+    {% set arrows = active_tab in ("settings", "plan", "editor", "flow", "schedule", "translation", "quotas", "field", "quality", "results", "boards") %}
     {% set steps = edit_history(survey) %}
     {% set neutral = de_en("Ihre letzte Änderung: {when}", "Your last change: {when}", when=undo_when(steps.undo[0])) if steps and steps.undo else de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") %}
     {# without the arrows (Export) the line and the arrows keep their place, invisible, so that "Vorschau" stands where

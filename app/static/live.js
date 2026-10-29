@@ -807,11 +807,15 @@
       document.addEventListener("fullscreenchange", function () {
         if (!document.fullscreenElement && frame) { frame.remove(); frame = null; }
       });
-      var twoGo = function (details) {
+      var twoTarget = function (details) {  // the other screen for the audience, an external one first
         var here = details.currentScreen, others = details.screens.filter(function (s) { return s !== here; });
-        var target = others.filter(function (s) { return !s.isInternal; })[0] || others[0];
+        return others.filter(function (s) { return !s.isInternal; })[0] || others[0];
+      };
+      var twoLost = function () { return navigator.userActivation && !navigator.userActivation.isActive; };
+      var twoGo = function (details) {
+        var here = details.currentScreen, target = twoTarget(details);
         if (!target) { twoRefresh(); return; }
-        if (navigator.userActivation && !navigator.userActivation.isActive) {  // the browser's question took the click
+        if (twoLost()) {  // the browser's question took the click
           twoNote(de_en("Erlaubt. Bitte noch einmal auf „Auf zweitem Bildschirm präsentieren“ klicken.", "Allowed. Please click “Present on a second screen” once more."));
           return;
         }
@@ -837,11 +841,15 @@
         body.append("csrf_token", two.dataset.csrf);
         body.append("action", "start");
         two.disabled = true;
-        // from the beginning first (both views follow the state anyway), then the screens; the click stays valid a
-        // few seconds, the browser's question about screens may outlast it (twoGo says so)
-        fetch(two.dataset.control, { method: "POST", body: body, credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
-          .then(function (r) { if (!r.ok) throw new Error(r.status); return window.getScreenDetails(); })
-          .then(twoGo)
+        // the screens first, then from the beginning: without the permission the running vote stays as it is (UI/UX
+        // audit 2026-10-29, WQ-12); the click stays valid a few seconds, the browser's question about screens may
+        // outlast it (twoGo says so)
+        window.getScreenDetails()
+          .then(function (details) {
+            if (!twoTarget(details) || twoLost()) { twoGo(details); return null; }  // nothing starts: only the note
+            return fetch(two.dataset.control, { method: "POST", body: body, credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+              .then(function (r) { if (!r.ok) throw new Error(r.status); twoGo(details); });
+          })
           .catch(function () {
             twoNote(de_en("Ohne die Erlaubnis, Fenster auf allen Bildschirmen zu platzieren, geht es nicht (Schloss-Symbol in der Adresszeile). Sonst: „Ansicht zum Vortragen“ (bzw. „Von vorn beginnen“) und „Ansicht fürs Publikum“ wie bisher.",
               "Without the permission to place windows on all screens this does not work (lock icon in the address bar). Otherwise: “Presenter view” and “Audience view” as before."));

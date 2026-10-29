@@ -78,9 +78,12 @@
   <form method="post" action="{{ url_for('surveys.consent_facts', survey_id=survey.id) }}" class="stack" data-autosave-form{{ on_leave }}>
     {{ csrf() }}
     {{ form_error("settings:consent") }}
+    {# only admins may save the key facts (consent_facts): for "Bearbeiten" and "Ansehen" read only, like the other
+       groups of the page (UI/UX audit 2026-10-29, WQ-01) #}
+    <fieldset class="bare" {% if not is_admin %}disabled{% endif %}>
     {% with consent=survey.consent_item, lang=survey.default_language, fixed_marks=true %}{% include "wizard/_consent.html" %}{% endwith %}
     {{ autosave_bar() }}
-  </form>
+  </fieldset></form>
   {# the minimum age as a screen-out behind the age question (app/min_age.py; pre-test 2026-10-16) #}
   {% set age_q, age_end, min_years = min_age.age_item(survey), min_age.node(survey), (survey.consent_item.config or {}).get("min_age") %}
   {% if min_years %}
