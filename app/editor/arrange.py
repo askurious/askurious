@@ -255,6 +255,8 @@ def _to_step(survey, step, lang):
     if data.get("page") == "settings":
         if data.get("node") == "theme":
             return redirect(url_for("surveys.design", survey_id=survey.id))
+        if data.get("node") == "diary":  # times and short surveys of a diary live on "Zeitplan" (UI/UX audit 2026-10-29, WQ-02)
+            return redirect(url_for("diary.schedule", survey_id=survey.id))
         if data.get("node") == "panel":  # parameters and completion links live on "Datenerhebung" (Ralf, 2026-10-06)
             return redirect(url_for("surveys.field", survey_id=survey.id) + "#panel")
         if data.get("node") == "value-links":  # own links per person and their maximum (X59)

@@ -498,14 +498,15 @@
     </div>
   </aside>
 </div>
-{% if editable and ai_on() %}
+{# the construct box also without AI: its opener stands beside the palette for everyone who may edit (UI/UX audit 2026-10-29, WQ-09) #}
 {% if editable %}{% include "constructs/_box_dialog.html" %}{% endif %}
-<dialog class="ai-dialog" data-ai-dialog>
+{% if editable and ai_on() %}
+<dialog class="ai-dialog" data-ai-dialog aria-labelledby="ai-dialog-title">
   <form method="post" class="stack" data-ai-form data-url="{{ url_for('editor.ai_scale', survey_id=survey.id, block_id=0, lang=lang) }}"
         data-busy="{{ de_en('Wird entworfen … (bis zu 1 Minute)', 'Drafting … (up to 1 minute)') }}">
     {{ csrf() }}
     <input type="hidden" name="position" value="">
-    <h2>✨ {{ de_en("Skala mit KI entwerfen", "Draft a scale with AI") }}</h2>
+    <h2 id="ai-dialog-title">✨ {{ de_en("Skala mit KI entwerfen", "Draft a scale with AI") }}</h2>
     <label>{{ de_en("Was soll die Skala messen?", "What should the scale measure?") }} <span class="hint">{{ de_en("ein bis zwei Sätze; die Beschreibung der Befragung geht als Kontext mit", "one or two sentences; the description of the survey goes along as context") }}</span>
       <textarea name="idea" rows="3" required maxlength="500" placeholder="{{ de_en('z. B. „Wie sehr Menschen einem Pflegeroboter zutrauen, sie im Alltag zuverlässig zu unterstützen“', 'e.g. “How much people trust a care robot to support them reliably in everyday life”') }}"></textarea></label>
     <div class="row-fields">
