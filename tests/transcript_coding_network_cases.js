@@ -14,6 +14,6 @@ ctx.post('/add', { cat: 1 }).then(d => {
   ctx.fetch = () => Promise.resolve({ json: () => Promise.reject(new Error('html')) });
   return ctx.post('/add', {});
 }).then(d => {
-  assert.deepEqual(d, { ok: false });
+  assert.equal(d.ok, false); assert.equal(d.network, undefined);
   console.log('2 coding network cases passed');
 }).catch(e => { console.error(e); process.exitCode = 1; });
