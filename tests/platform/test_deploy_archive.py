@@ -34,3 +34,11 @@ def test_every_file_the_dockerfile_copies_goes_up_with_the_archive():
     missing = [s for s in _copied() if s != "modules"
                and not any(s == a or s.startswith(a.rstrip("/") + "/") for a in archived)]
     assert not missing, f"deploy-docker.sh's archive lacks what the Dockerfile copies: {missing}"
+
+
+def test_every_tool_the_dockerfile_copies_passes_the_dockerignore():
+    """.dockerignore leaves out tools/**; a tool the Dockerfile copies needs its own "!" line (#162 shipped
+    tools/fetch_pdf_fonts.py without one)."""
+    ignore = _read(".dockerignore").splitlines()
+    missing = [s for s in _copied() if s.startswith("tools/") and f"!{s}" not in ignore]
+    assert not missing, f".dockerignore keeps these tools out of the build: {missing}"
