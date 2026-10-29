@@ -145,6 +145,11 @@ def remove(group):
     from app.models import GroupJoinLink
 
     db.session.execute(db.delete(GroupJoinLink).where(GroupJoinLink.group_id == group.id))  # its join links (app/joinlinks.py)
+    from app.models import CodingMember
+
+    # its role "Kodieren" in analyses of interview guides (app/transcript_coding.py)
+    db.session.execute(db.delete(CodingMember).where(CodingMember.kind == CodingMember.GROUP,
+                                                     CodingMember.group_id == group.id))
     for project in db.session.scalars(db.select(ResearchProject).where(ResearchProject.shares.isnot(None))):
         shares = project.shares if isinstance(project.shares, list) else []
         kept = [s for s in shares if not (isinstance(s, dict) and s.get("kind") == "group" and s.get("group_id") == group.id)]

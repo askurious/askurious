@@ -92,12 +92,23 @@ def memberships(project, user):
     """The rows that make `user` a member of `project`: as a person or through one of their groups."""
     from app.groups import ids_of
 
+    from app import orgs
+    from app.models import WorkGroup
+
     if not getattr(user, "is_authenticated", False):
         return []
-    return list(db.session.scalars(db.select(CodingMember).where(
+    rows = list(db.session.scalars(db.select(CodingMember).where(
         CodingMember.project_id == project.id,
         db.or_(db.and_(CodingMember.kind == CodingMember.PERSON, CodingMember.user_id == user.id),
                db.and_(CodingMember.kind == CodingMember.GROUP, CodingMember.group_id.in_(ids_of(user)))))))
+    # a group shares only within its organisation: a group row lets in only while the group and the guide are in the
+    # same one, however the group got elsewhere
+    guide = db.session.get(Survey, project.survey_id)
+    return [r for r in rows if r.kind != CodingMember.GROUP or _same_org(db.session.get(WorkGroup, r.group_id or 0), guide, orgs)]
+
+
+def _same_org(group, guide, orgs):
+    return group is not None and guide is not None and orgs.same(group, guide)
 
 
 def interviewer_member(project, access):

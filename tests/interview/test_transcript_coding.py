@@ -299,3 +299,60 @@ def test_everything_goes_with_the_guide_and_the_account(app, client):
         for model in (CodingProject, CodingCategory, CodingEvent, CodingMember):
             assert db.session.scalar(db.select(db.func.count(model.id))) == 0, model
     assert lifecycle  # lifecycle.delete calls forget_survey (app/lifecycle.py)
+
+
+def test_a_coding_group_does_not_cross_the_organisation_fence(app, client):
+    """A group with the role "Kodieren" becomes an organisation of its own while the guide stays where it is: its
+    members keep coding as persons, a person who joins the group later does not read the transcripts, and a group
+    that ends up in another organisation lets nobody in (audit 2026-10-28, S01). The personal role counts as a share
+    beyond the organisation (V01)."""
+    from app import orgs
+    from app.models import Organisation, WorkGroup, WorkGroupMember
+
+    code, sid = _guide(app, client)
+    pid = _new(client, code)
+    base = f"/guide/{code}/interviews/coding/{pid}"
+    bea, bea_id = _person(app)
+    carl, carl_id = _person(app, orcid="0000-0003-1415-9269", name="Carl")
+    with app.app_context():
+        me = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+        group = WorkGroup(name="Seminar WS")
+        group.members.append(WorkGroupMember(orcid=BEA, user_id=bea_id, name="Bea", role="lead"))
+        db.session.add(group)
+        db.session.flush()
+        gid = group.id
+        # the team added the group while it was in the guide's organisation (the guide's admin is not in it)
+        db.session.add(CodingMember(project_id=pid, kind=CodingMember.GROUP, group_id=gid, added_by_id=me.id))
+        db.session.commit()
+    assert bea.get(base).status_code == 200
+    with app.app_context():
+        group = db.session.get(WorkGroup, gid)
+        shares = orgs.crossing(orgs.plan(group), keep_group=True)
+        assert [(kind, thing.id) for kind, thing, _g, _r in shares] == [("coding", pid)]
+        me = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+        orgs.make_from_group(group, "Lehrstuhl", by=me)
+        db.session.commit()
+        rows = db.session.scalars(db.select(CodingMember).filter_by(project_id=pid)).all()
+        assert [(r.kind, r.user_id) for r in rows] == [(CodingMember.PERSON, bea_id)]   # personal now, group row gone
+        group = db.session.get(WorkGroup, gid)
+        group.members.append(WorkGroupMember(orcid="0000-0003-1415-9269", user_id=carl_id, name="Carl", role="member"))
+        db.session.commit()
+        assert orgs.personal_shares(bea_id) == {(orgs.of(db.session.get(Survey, sid)), me.id)}
+    assert bea.get(base).status_code == 200                       # keeps coding in person
+    assert carl.get(base).status_code == 404                      # the newcomer reads nothing
+    # a group row that points across the fence some other way lets nobody in
+    with app.app_context():
+        db.session.add(CodingMember(project_id=pid, kind=CodingMember.GROUP, group_id=gid))
+        db.session.commit()
+    assert carl.get(base).status_code == 404
+    with app.app_context():
+        other = db.session.scalar(db.select(Organisation).filter_by(name="Lehrstuhl"))
+        db.session.get(Survey, sid).org_id = other.id             # the guide moves there too: same organisation
+        db.session.commit()
+    assert carl.get(base).status_code == 200
+    with app.app_context():
+        from app import groups
+
+        groups.remove(db.session.get(WorkGroup, gid))
+        db.session.commit()
+        assert db.session.scalar(db.select(CodingMember).filter_by(kind=CodingMember.GROUP, group_id=gid)) is None
