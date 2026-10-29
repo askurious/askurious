@@ -379,7 +379,8 @@ def _rho_moments(n):
     fractions. E(rho^2) = 1/(n - 1) and E(rho^4) = 3(25n^3 - 38n^2 - 35n + 72) / (25n(n + 1)(n - 1)^3) (Kendall &
     Gibbons, 1990). The moments of S are polynomials in n (David, Kendall & Stuart, 1951); the sixth central moment
     of S, n^3 (n - 1)(n + 1)^3 P(n) / 3 810 240 with P below, Askurious fitted exactly (rational arithmetic) to the
-    exact distributions of n = 1 ... 16 and checked against n = 17; all three agree with the exact distributions."""
+    exact distributions of n = 1 ... 16 and checked against n = 17; all three agree with the exact distributions.
+    The same coefficients stand in Zhao, Wang & Feng (2026), arXiv:2605.25380, eq. 2.16."""
     from fractions import Fraction
 
     p6 = (1225 * n ** 8 - 4361 * n ** 7 - 178 * n ** 6 + 23818 * n ** 5 - 22783 * n ** 4 - 50081 * n ** 3
