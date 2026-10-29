@@ -7498,6 +7498,13 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Kodieransicht: Absatznummern dezent am linken Rand (CSS aus `data-pos`, nicht markierbar, keine Klicks).
 - Datenschutzkonzept (Kodieren, Empfänger) nennt den Excel-Export; Handbuch (de/en) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.
 
+## 2026-10-29: Lernhilfen für „Interviews kodieren“
+
+- Ralf: Lernhilfen für das Kodieren von Interviews. Neue Klappen „Warum?“ (app/learning.py, de/en, Quellen Mayring 2022, Kuckartz & Rädiker 2022, Dresing & Pehl): Definition, Ankerbeispiel und Kodierregel (Dialog „Neue Kategorie“), welche Stelle als Ankerbeispiel (Dialog und Kodieransicht), Hauptkategorien festlegen oder aus dem Material bilden (Einstellungen), Fundstellen mit „Pos.“ (Übersicht, beim Excel-Export, nur Team). „Warum eine zweite Person kodieren lassen?“ jetzt auch bei „Doppelkodierung zuweisen“.
+- κ als Lesehilfe mit Glossareintrag (Cohen 1960, Landis & Koch 1977) in „Übereinstimmung“ und „Vergleich“.
+- Die neuen Klappen gehören zum experimentellen Feature (REASON_FEATURES) und stehen im Glossar unter „Analyse“.
+- Rechtstexte geprüft, keine Änderung nötig.
+
 ## 2026-10-29: Interviewlink „Lernhilfen zeigen“
 
 - Ralf: Interviewende ohne Konto sahen die „?“ an Kennzahlen und die Anfänger-Klappen nie (learning.on verlangte ein Konto), „Nicht mehr zeigen“ ging bei ihnen ins Leere. Neu: Recht „Lernhilfen zeigen“ am Interviewlink im Dialog „Interviewende hinzufügen“ und „Rechte ändern“, auch bei „Für alle Personen übernehmen“ und „Rückgängig“.

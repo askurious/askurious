@@ -577,6 +577,31 @@ REASONS = {
         "wahrscheinlicher. Darum bleibt das Hauptmodell das Ergebnis, Varianten werden als explorativ berichtet, alle "
         "genannt und am besten mit neuen Daten geprüft.",
         (("app.sem", "MACCALLUM_1992"), SIMMONS_2011, NOSEK_2018)),
+    # Interviews kodieren (app/transcript_coding.py; Ralf 2026-10-29)
+    "category_rules": (
+        "Warum Definition, Ankerbeispiel und Kodierregel?",
+        "Erst eine Definition, ein typisches Ankerbeispiel und eine Regel für Grenzfälle machen eine Kategorie so klar, "
+        "dass andere sie gleich anwenden und Ihre Zuordnungen nachvollziehen. Fehlt eines davon, entscheidet beim "
+        "Kodieren das Gefühl, und benachbarte Kategorien verschwimmen.",
+        (("app.transcript_coding_review", "MAYRING"), ("app.transcript_coding_review", "KUCKARTZ"))),
+    "anchor_choice": (
+        "Welche Stelle als Ankerbeispiel?",
+        "Wählen Sie eine typische, eindeutige Stelle, die ohne weiteren Zusammenhang zeigt, was die Kategorie meint; "
+        "Grenzfälle gehören in die Kodierregel. Ein Ankerbeispiel brauchen die Kategorien, mit denen direkt kodiert "
+        "wird, meist die unterste Ebene eines Zweiges; eine Oberkategorie, die nur bündelt, braucht keins.",
+        (("app.transcript_coding_review", "MAYRING"), ("app.transcript_coding_review", "KUCKARTZ"))),
+    "mains_fixed": (
+        "Hauptkategorien festlegen oder aus dem Material bilden?",
+        "Vorab festgelegte Hauptkategorien (deduktiv, etwa aus den Leitfragen oder einer Theorie) halten die Auswertung "
+        "an der Forschungsfrage und machen mehrere Kodierende vergleichbar; am Material gebildete (induktiv) finden "
+        "auch Unerwartetes. Oft werden die Hauptkategorien festgelegt und die Unterkategorien am Material gebildet.",
+        (("app.transcript_coding_review", "KUCKARTZ"), ("app.transcript_coding_review", "MAYRING"))),
+    "position": (
+        "Warum Fundstellen mit „Pos.“?",
+        "Die Absatznummer („Pos. 12“) hängt nicht von Fensterbreite oder Schrift ab, und QDA-Programme wie MAXQDA "
+        "zählen ebenso; so findet jede Person ein Zitat im Transkript wieder. Der Transkript-Export des Leitfadens hat "
+        "dagegen Zeilennummern, weil er eine feste Datei mit festem Zeilenumbruch ist.",
+        (("app.transcript_coding_review", "KUCKARTZ"), ("app.interview_results", "DRESING_PEHL"))),
 }
 
 # key: (symbol as shown, name, what it means, example, sources)
@@ -921,6 +946,10 @@ TERMS = {
     "kripp": ("α", "Krippendorffs Alpha", "Wie sehr zwei Kodierende über den Zufall hinaus übereinstimmen: 1 = völlig "
               "gleich, 0 = wie zufällig. Ab etwa 0,80 verlässlich.", "α = 0,74: brauchbar für vorläufige Schlüsse.",
               (("app.coding_check", "KRIPPENDORFF"),)),
+    "kappa": ("κ", "Cohens Kappa", "Wie sehr zwei Kodierende über den Zufall hinaus übereinstimmen, hier je Wort und "
+              "Kategorie (kodiert oder nicht): 1 = völlig gleich, 0 = wie zufällig. Nach Landis und Koch ab 0,61 "
+              "substanziell, ab 0,81 fast vollkommen.", "κ = 0,72: substanzielle Übereinstimmung.",
+              (("app.transcript_coding_double", "COHEN"), ("app.transcript_coding_double", "LANDIS_KOCH"))),
     "similarity": ("Ähnlichkeit", "Ähnlichkeit zweier Karten", "Der Anteil der Personen, die zwei Karten auf denselben "
                    "Stapel legten, unter denen, die beide sortiert haben.", "62 %: Die meisten sehen die beiden "
                    "Karten zusammen.", (("app.items.card_sort", "RUGG"),)),
@@ -1009,7 +1038,7 @@ SECTIONS = (
     ("PLS", "", ("f2", "vif", "plspredict", "construct_score", "rho_a", "outer_weight")),
     ("Längsschnitt und Gruppenvergleich", "", ("invariance", "latent_mean", "riclpm", "growth")),
     ("Planung und Power", "", ("power", "mde", "p_holm", "mc_power")),
-    ("Offene Antworten und Sortierungen", "", ("kripp", "similarity")),
+    ("Offene Antworten und Sortierungen", "", ("kripp", "kappa", "similarity")),
     ("IAT und Belohnungsaufschub", "", ("iat_d", "k_discount")),
     ("Tagebuchstudie", "", ("icc", "compliance", "within_between", "random_slope", "omega_levels")),
 )
@@ -1383,6 +1412,27 @@ REASONS_EN = {
         "The model set in advance tests the hypotheses; every change after seeing the results (leaving out a "
         "statement, adding a path) fits the model to this sample and makes chance findings more likely. So the main "
         "model stays the result, variants are reported as exploratory, all of them named and best tested on new data."),
+    "category_rules": (
+        "Why a definition, an anchor example and a coding rule?",
+        "Only a definition, a typical anchor example and a rule for borderline cases make a category clear enough for "
+        "others to apply it the same way and follow your assignments. If one is missing, gut feeling decides while "
+        "coding, and neighbouring categories blur."),
+    "anchor_choice": (
+        "Which passage as the anchor example?",
+        "Choose a typical, clear passage that shows without further context what the category means; borderline "
+        "cases belong in the coding rule. Anchor examples are needed by the categories passages are coded with "
+        "directly, mostly the lowest level of a branch; a parent category that only groups others needs none."),
+    "mains_fixed": (
+        "Fix the main categories or build them from the material?",
+        "Main categories fixed in advance (deductive, for instance from the guide questions or a theory) keep the "
+        "analysis on the research question and make several coders comparable; categories built from the material "
+        "(inductive) also find the unexpected. Often the main categories are fixed and the subcategories built from "
+        "the material."),
+    "position": (
+        "Why locations with “Pos.”?",
+        "The paragraph number (“Pos. 12”) does not depend on window width or font, and QDA software such as MAXQDA "
+        "counts the same way; so anyone finds a quote again in the transcript. The transcript export of the guide "
+        "has line numbers instead, because it is a fixed file with fixed line breaks."),
 }
 
 TERMS_EN = {
@@ -1666,6 +1716,9 @@ TERMS_EN = {
                "compared with 0.05 as usual.", "p = 0.012, corrected for three hypotheses 0.036: still significant."),
     "kripp": ("α", "Krippendorff’s alpha", "How much two coders agree beyond chance: 1 = completely the same, 0 = as "
               "by chance. From about 0.80 reliable.", "α = 0.74: usable for tentative conclusions."),
+    "kappa": ("κ", "Cohen’s kappa", "How much two coders agree beyond chance, here per word and category (coded or "
+              "not): 1 = completely the same, 0 = as by chance. After Landis and Koch from 0.61 substantial, from 0.81 "
+              "almost perfect.", "κ = 0.72: substantial agreement."),
     "similarity": ("Similarity", "Similarity of two cards", "The share of people who put two cards on the same pile, "
                    "among those who sorted both.", "62 %: most see the two cards together."),
     "iat_d": ("D", "IAT D score", "How much faster a person is with one pairing than with the other, in standard "
@@ -1779,7 +1832,13 @@ REASON_PLACES = {
     "holm": ("Studienplan, Korrektur für mehrere Hypothesen", "study plan, correction for several hypotheses"),
     "preregistration": ("Export, Präregistrierung", "export, pre-registration"),
     "study_material": ("Export, Dokumentation, Befragungsmaterial", "export, documentation, survey material"),
-    "second_coding": ("Offene Antworten kategorisieren, Zweitkodierung", "categorising open answers, second coding"),
+    "second_coding": ("Offene Antworten kategorisieren, Zweitkodierung; Interviews kodieren, Doppelkodierung",
+                      "categorising open answers, second coding; coding interviews, double coding"),
+    "category_rules": ("Interviews kodieren, neue Kategorie", "coding interviews, new category"),
+    "anchor_choice": ("Interviews kodieren, Kodieransicht und neue Kategorie", "coding interviews, coding view and new category"),
+    "mains_fixed": ("Interviews kodieren, Einstellungen, Hauptkategorien festgelegt",
+                    "coding interviews, settings, main categories fixed"),
+    "position": ("Interviews kodieren, Übersicht, Kategoriensystem (Excel)", "coding interviews, overview, category system (Excel)"),
     "reminders": ("Einladungen, Erinnerungen", "invitations, reminders"),
     "voice": ("Sprachnachricht im Editor; Startliste", "voice message in the editor; start list"),
     "ai_chat": ("KI-Chat im Editor; KI-Chat: Modellzugang", "AI chat in the editor; AI chat: model access"),
@@ -1919,7 +1978,8 @@ def glossary():
 
 
 # folds of an experimental feature (app/experimental.py): on the glossary page only for whom it is on
-REASON_FEATURES = {"ai_chat": "ai_chat"}  # the participant screen is regular since 2026-10-22
+REASON_FEATURES = {"ai_chat": "ai_chat", "category_rules": "transcript_coding", "anchor_choice": "transcript_coding",
+                   "mains_fixed": "transcript_coding", "position": "transcript_coding"}  # the participant screen is regular since 2026-10-22
 
 # the groups of the section "Entscheidungen" of the glossary page, named like the groups of the tabs (_tabs.html;
 # concept "Lernhilfen: fünfte Runde", H3); a fold belongs where its decision is taken. Not listed: "Planen".
@@ -1929,7 +1989,8 @@ REASON_PHASES = {key: 1 for key in ("attention_check", "speeder", "reminders", "
 REASON_PHASES.update({key: 2 for key in ("data_pool", "hb_or_logit", "segments_k", "segments_covariates",
                                          "segments_describe", "which_test", "weighting_scope", "preregistration",
                                          "second_coding", "transcript_export", "transcript_check", "archive_where",
-                                         "sem_two_steps", "sem_drop", "sem_versions")})
+                                         "sem_two_steps", "sem_drop", "sem_versions", "category_rules", "anchor_choice",
+                                         "mains_fixed", "position")})
 
 
 def decisions():

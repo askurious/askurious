@@ -3,6 +3,7 @@
 {% from "_icons.html" import icon %}
 {% from "_sources.html" import grouped %}
 {% from "transcript_coding/_parts.html" import head with context %}
+{% from "_learn.html" import term with context %}
 {# The agreement of the double coding of an analysis (app/transcript_coding_double.py, agreement_page): per category and
    over all, on word level (share and Cohen's kappa) and on passage level, over the finished double codings. #}
 {% block title %}{{ de_en("Übereinstimmung", "Agreement") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
@@ -19,7 +20,7 @@
 <section class="panel">
   {% if figures._pairs %}
   {% call list_table("is-wide") %}
-    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">κ</th><th>{{ de_en("Lesart", "Reading") }}</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
+    <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th><th class="num">{{ de_en("Übereinstimmung (Wörter)", "Agreement (words)") }}</th><th class="num">{{ term("kappa") }}</th><th>{{ de_en("Lesart", "Reading") }}</th><th class="num">{{ de_en("Stellen passend", "Passages matching") }}</th></tr></thead>
     <tbody>
     {% set rows = [("all", de_en("Alle Kategorien", "All categories"))] %}{% for c in cats %}{% set _ = rows.append((c.id, c.name)) %}{% if ("sum:" ~ c.id) in figures %}{% set _ = rows.append(("sum:" ~ c.id, de_en("{name} mit allem darunter", "{name} with all below it", name=c.name))) %}{% endif %}{% endfor %}
     {% for key, name in rows %}{% set f = figures[key] %}{% if f.passages[1] or key == "all" %}
