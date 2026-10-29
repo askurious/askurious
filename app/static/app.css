@@ -4169,6 +4169,12 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 .iv-audio summary { cursor: pointer; }
 .iv-audio-part { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .iv-audio-part audio { height: 32px; max-width: 280px; }
+/* listening while correcting (transcript_player.js): the paragraph at the cursor, play from there, tempo */
+.tp-bar { align-items: center; gap: 8px; margin: 4px 0 8px; }
+.tp-rates { display: inline-flex; gap: 4px; }
+.tp-rate { min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface);
+  color: inherit; font-size: 0.85rem; cursor: pointer; }
+.tp-rate[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
 /* transcripts (app/interview_transcribe.py) */
 .iv-transcript { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
