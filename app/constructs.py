@@ -48,7 +48,9 @@ GESIS_TERMS = ("GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. F
                "dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation "
                "ist in allen resultierenden Arbeiten als Quelle anzugeben.")
 # No general distribution permission is documented; public outputs use neutral IDs and sources instead.
-PERMISSION_REQUIRED = frozenset({"gdms", "kut", "tam_pu", "tam_peou", "tam_bi"})
+# kuk: printed in a chapter © 2015 IFIP; the authors released the English version, the publisher's rights are not
+# documented, so it is gated like the others (Ralf, 2026-10-29)
+PERMISSION_REQUIRED = frozenset({"gdms", "kut", "tam_pu", "tam_peou", "tam_bi", "kuk"})
 NOT_SHARED = PERMISSION_REQUIRED
 # Scales of the GESIS/ZIS collection: another form than the documented one (a translation) needs the consent of the
 # authors (GESIS_TERMS); the translation page says so (rights review 2026-10-21)

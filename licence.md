@@ -1,6 +1,6 @@
 # Nutzungsbedingungen für Forschende
 
-Version: 2026-10-27
+Version: 2026-10-29
 
 Diese Bedingungen gelten für alle Forschenden, die mit einem Konto (Anmeldung mit ORCID iD oder mit E-Mail-Adresse und Passwort) Befragungen auf dieser Plattform anlegen oder bearbeiten.
 Wie die Plattform die Daten Ihres Kontos verarbeitet, steht in der [Datenschutzerklärung](/imprint).
@@ -129,13 +129,13 @@ Askurious enthält Daten, Texte und Software anderer; was woher stammt und unter
 - **Konstrukte:** Die Itemtexte der Konstrukt-Toolbox stammen aus den jeweils angegebenen Veröffentlichungen. Bedingungen und Quelle stehen bei jedem Konstrukt und im Codebuch.
   Skalen aus der Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS) von GESIS sind kostenfrei für nichtkommerzielle Forschungszwecke; für andere Zwecke oder eine andere als die dokumentierte Form holen Sie das Einverständnis der Autorinnen und Autoren ein.
   Für GDMS aus APA PsycTests muss der Betreiber vor einem neuen Einfügen oder dem Zugriff auf den Katalogwortlaut eine dokumentierte Berechtigung für Person, Studie und Sprachfassung prüfen und hinterlegen. Eine Anmeldung allein ist keine Berechtigung; eine allgemeine Weitergabe wird dadurch nicht erlaubt.
-  Für TAM und KUT einschließlich ihrer Übersetzungen ist keine allgemeine Nutzungs- oder Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ allein ersetzt keinen Rechtebeleg. Katalogwortlaut und neues Einfügen bleiben gesperrt, bis der Betreiber eine Berechtigung für Person, Studie und Sprachfassung anhand eines Nachweises geprüft und hinterlegt hat.
+  Für TAM, KUT und KUK einschließlich ihrer Übersetzungen ist keine allgemeine Nutzungs- oder Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ allein ersetzt keinen Rechtebeleg. Katalogwortlaut und neues Einfügen bleiben gesperrt, bis der Betreiber eine Berechtigung für Person, Studie und Sprachfassung anhand eines Nachweises geprüft und hinterlegt hat.
   „Nichtkommerziell“ schließt auch Auftragsforschung für Unternehmen aus; beim Einfügen eines solchen Konstrukts weist der Editor darauf hin.
   Englische Fassungen, die eigene Adaptionen sind (etwa GSE-3 zu ASKU), haben ihre eigene Quelle und Lizenz; beide stehen beim Konstrukt.
   Die Quelle eines Konstrukts geben Sie in allen daraus entstehenden Arbeiten an.
   Fassungen, die als Arbeitsübersetzung gekennzeichnet sind, sind keine autorisierten Übersetzungen, gleich in welcher Sprache.
   Veröffentlichen Sie Daten über Zenodo oder Coscine, gilt die Lizenz der Veröffentlichung nicht für die Wortlaute der Konstrukte.
-  Den gesperrten Wortlaut von GDMS, KUT und TAM geben Sie nicht allgemein an Dritte weiter, auch nicht an KI-Agenten; die Plattform lässt ihn bei Veröffentlichungen, in KI-Funktionen und an der Agenten-Schnittstelle weg. Präregistrierungen enthalten ihn vollständig: Laden Sie sie nur in ein Coscine-Projekt, das Sie nicht mit anderen teilen.
+  Den gesperrten Wortlaut von GDMS, KUT, KUK und TAM geben Sie nicht allgemein an Dritte weiter, auch nicht an KI-Agenten; die Plattform lässt ihn bei Veröffentlichungen, in KI-Funktionen und an der Agenten-Schnittstelle weg. Präregistrierungen enthalten ihn vollständig: Laden Sie sie nur in ein Coscine-Projekt, das Sie nicht mit anderen teilen.
 - **Demografische Standardfragen:** Die Standardfragen zur Demografie (Geburtsmonat und -jahr, Geschlecht, Bildung, Erwerbssituation, Beruf, Einkommen, Staatsangehörigkeit, Geburtsland, Haushaltsgröße, Familienstand) stammen aus dem Standardfragenkatalog des Rats für Sozial- und Wirtschaftsdaten: RatSWD (2023), *Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen*, https://doi.org/10.17620/02671.76, Lizenz [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
   Die Zielvariablen `x_…`, die der Export auf Wunsch anhängt, folgen den soziodemographischen Standardvariablen von KonsortSWD: Schneider, Palm, Partsch, Ortmanns & Müller (2026), *Soziodemographische Standardvariablen zur Output-Harmonisierung von Umfragedaten* (Version 1.1), https://doi.org/10.5281/zenodo.18300602, Lizenz [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
   Die englischen Fassungen sind Arbeitsübersetzungen; Änderungen am Wortlaut nennt das Codebuch. Wenn Sie diese Fragen oder Variablen veröffentlichen, nennen Sie diese Quellen.
