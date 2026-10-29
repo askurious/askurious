@@ -298,6 +298,8 @@ label.p-question { display: block; }
 .p-point { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: 8px; cursor: pointer; text-align: center; }
 .p-point:hover { background: var(--hover); }
 .p-point:has(input:checked) { background: var(--accent-soft); }
+/* the keyboard focus shows on the whole target, like hover and the choice */
+.p-point:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: -3px; }
 .p-point input { width: 24px; height: 24px; margin: 0; accent-color: var(--accent); }
 /* a point may get narrower than its content: 9 steps or 7 with "weiß nicht" did not fit 320 px and the last
    points were cut off (WCAG 1.4.10; UI/UX audit 2026-10-16, 75) */
@@ -364,6 +366,12 @@ label.p-question { display: block; }
      slid into the statement's column. Placed by hand, the points line up with the head in every browser. */
   .p-likert-full .p-scale > .p-point:first-child, .p-likert-once .p-scale > .p-point:first-child { grid-column-start: 2; }
   .p-likert-each.p-likert-endpoints .p-likert-head { display: none; }
+  /* Fitts' law (Ralf, 2026-10-29): in the table a point fills its whole cell, as high as the row with the longest
+     statement, so the target is the cell and not only the circle; the circle stays in the middle. The row's padding
+     moves into the statement and the points, so no strip above or below a point is dead */
+  :is(.p-likert-full, .p-likert-once) .p-likert-row { align-items: stretch; padding: 0; }
+  :is(.p-likert-full, .p-likert-once) .p-statement { align-self: center; padding-block: 8px; }
+  :is(.p-likert-full, .p-likert-once) .p-scale > .p-point { justify-content: center; border-radius: 0; padding-block: 8px; }
   /* the column heads stay in view over a long matrix, as with "labels once" (V47) */
   .p-likert-full .p-likert-head { position: sticky; top: 0; z-index: 2; background: var(--bg); padding-top: 8px; }
 }
