@@ -4,6 +4,7 @@
 {% from "surveys/_export_rows.html" import dialog %}
 {% from "transcript_coding/_category.html" import category with context %}
 {% from "transcript_coding/_parts.html" import notices_fold, views with context %}
+{% from "_learn.html" import why %}
 {# One analysis of an interview guide (app/transcript_coding.py, project), in views switched in the head row (no row of
    its own): Interviews (the default: the interviews to code), Kategoriensystem, and for the team Einstellungen (name,
    research question, visibility, main categories fixed, AI suggestions, members, coding links, deleting); Übersicht
@@ -45,6 +46,7 @@
       <label class="check"><input type="radio" name="visibility" value="own" {% if project.visibility == "own" %}checked{% endif %}> {{ de_en("jede Gruppe ihre eigenen", "each group its own") }} <span class="hint">{{ de_en("die selbst geführten und die der Interviewlinks, die Sie ihr unter „Mitglieder“ zuordnen; Sie sehen immer alle", "those they conducted and those of the interviewer links you assign to them under “Members”; you always see all") }}</span></label>
     </fieldset>
     <label class="check"><input type="checkbox" name="mains_fixed" value="1" {% if project.mains_fixed %}checked{% endif %}> {{ de_en("Hauptkategorien festgelegt", "Main categories fixed") }} <span class="hint">{{ de_en("dann ändern nur Sie die Hauptkategorien; die Mitglieder legen Kandidaten an und schlagen Umbenennen oder eine schärfere Definition vor", "then only you change the main categories; the members add candidates and propose renaming or a sharper definition") }}</span></label>
+    {{ why("mains_fixed") }}
     {{ autosave_bar(quiet=true) }}
   </form>
   {% if ai_switch %}
@@ -123,6 +125,7 @@
             {{ csrf() }}
             {% for key, name in double_people %}<label class="check"><input type="checkbox" name="coder" value="{{ key }}" {% if dbl and key in dbl.coders %}checked{% endif %}> {{ name }}</label>{% endfor %}
             <p class="muted small">{{ de_en("Mindestens zwei. Bis alle „Kodierung abgeschlossen“ melden, sieht jede Person in diesem Interview nur ihre eigenen Stellen.", "At least two. Until everyone reports “Coding finished”, each person sees only their own passages in this interview.") }}</p>
+            {{ why("second_coding") }}
             <div><button class="button button-small button-secondary">{{ de_en("Speichern", "Save") }}</button></div>
           </form>
         </details>
@@ -223,6 +226,8 @@
     <textarea name="definition" rows="2" maxlength="4000" data-tc-definition></textarea></label>
   <label>{{ de_en("Abgrenzung", "Delimitation") }} <span class="hint">{{ de_en("freiwillig", "optional") }}</span> <textarea name="delimitation" rows="2" maxlength="4000"></textarea></label>
   <p class="muted small">{{ de_en("Das Ankerbeispiel wählen Sie in der Kodieransicht: Klick auf eine kodierte Stelle, „Als Ankerbeispiel“.", "You choose the anchor example in the coding view: click a coded passage, “As anchor example”.") }}</p>
+  {{ why("category_rules") }}
+  {{ why("anchor_choice") }}
   <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button>
     <button class="button" data-tc-submit>{{ de_en("Anlegen", "Create") }}</button></div>
 </form>

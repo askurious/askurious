@@ -7497,3 +7497,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Fundstelle „B03, Pos. 12, 00:14:32“ (`transcript_coding_view.spot`): Absatz, in dem die Stelle beginnt (Trennung durch Leerzeile, ohne Leerzeile jede Zeile), Zeitmarke #hh:mm:ss-0# des Absatzes, wenn vorhanden. Dieselbe Angabe beim Ankerbeispiel im Kodierleitfaden (Word) und in der Beschreibung für .qdpx/.qdc. Nummerierung des Kodierleitfadens und der Tabelle aus einer Funktion (`transcript_coding.numbers`).
 - Kodieransicht: Absatznummern dezent am linken Rand (CSS aus `data-pos`, nicht markierbar, keine Klicks).
 - Datenschutzkonzept (Kodieren, Empfänger) nennt den Excel-Export; Handbuch (de/en) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Lernhilfen für „Interviews kodieren“
+
+- Ralf: Lernhilfen für das Kodieren von Interviews. Neue Klappen „Warum?“ (app/learning.py, de/en, Quellen Mayring 2022, Kuckartz & Rädiker 2022, Dresing & Pehl): Definition, Ankerbeispiel und Kodierregel (Dialog „Neue Kategorie“), welche Stelle als Ankerbeispiel (Dialog und Kodieransicht), Hauptkategorien festlegen oder aus dem Material bilden (Einstellungen), Fundstellen mit „Pos.“ (Übersicht, beim Excel-Export, nur Team). „Warum eine zweite Person kodieren lassen?“ jetzt auch bei „Doppelkodierung zuweisen“.
+- κ als Lesehilfe mit Glossareintrag (Cohen 1960, Landis & Koch 1977) in „Übereinstimmung“ und „Vergleich“.
+- Die neuen Klappen gehören zum experimentellen Feature (REASON_FEATURES) und stehen im Glossar unter „Analyse“.
+- Rechtstexte geprüft, keine Änderung nötig.
