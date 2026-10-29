@@ -209,7 +209,7 @@
         if (sending) { again = true; return; }
         send();
       });
-    } else if (shown) {
+    } else if (shown && shown.indexOf("slide-") !== 0) {  // a presentation slide comes drawn with the page: kept
       draw(shown);
     }
     var leftBox = document.querySelector("[data-live-countdown]");
@@ -231,6 +231,10 @@
         if (mine !== ticked) return;
         if (leftBox) { leftBox.hidden = s.left == null; if (s.left != null) leftBox.textContent = fill(stage.dataset.seconds, { s: s.left }); }
         if (Date.now() < hold) return;  // a note that stays a few seconds
+        // the audience's notes on the slides (live_notes.js): they hear every state, and a new slide on the screen
+        // does not load the page again while they are open (whoever pages back stays where they are)
+        stage.dispatchEvent(new CustomEvent("live:poll", { detail: s }));
+        if (s.key.indexOf("slide-") === 0 && stage.querySelector("[data-live-notes]")) { shown = s.key; return; }
         if (s.quiz && s.key !== shown) { shown = s.key; quizNote(s.quiz); return; }
         if (s.key === shown) return;  // also while an answer is being changed (shown: "answered-…")
         if (/^(q|p|slide|full)-/.test(s.key)) { if (!sending) fresh(); return; }  // a new question or page, or the form again for one more word

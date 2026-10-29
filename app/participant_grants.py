@@ -97,6 +97,7 @@ GRANTS = {
     "live_reaction": (("SELECT", "INSERT", "DELETE"), "emoji reactions in a live vote, the old ones dropped after two "
                       "minutes"),
     "live_feedback": (("SELECT", "INSERT"), "emojis per slide in a live vote"),
+    "live_ink": (R, "the presenter's pen notes on slides, shown on the audience's devices with their notes (app/live/notes.py)"),
     "paper_sheet": (("SELECT", "UPDATE"), "a deletion code typed for a paper sheet not taken over yet marks it erased "
                     "(app/paper.py, erase_unscanned; locked FOR UPDATE)"),
     # the element "KI-Chat" (app/ai_chat.py): the participants' containers call the model of the survey, so they read
@@ -147,7 +148,6 @@ NOT_GRANTED = {
     "coding_event": "history of those analyses (researchers' side)",
     "coding_member": "members of those analyses (researchers' side)",
     "coding_memo": "memos of those analyses (researchers' side)",
-    "live_ink": "the presenter's pen notes on slides, drawn and shown only on the researchers' side",
     "login_session": "researchers' sign-ins per browser",
     "member_invite": "invitations of researchers to surveys and groups",
     "org_alias": "numbers of hidden names in organisations, shown on researchers' pages only",

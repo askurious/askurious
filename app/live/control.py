@@ -363,6 +363,10 @@ def control(code):
         before = st.pop("closed_before_end", [])
         if action not in ("start", "new_run", "restart"):
             st["closed"] = [i for i in before if i in ids]
+    if st.get("screen") in ids:  # the audience's notes reach as far as the presenter's place (base.notes_slides, E3)
+        st["notes_at"] = st["screen"]
+    elif action in ("new_run", "restart"):  # a new audience sees nothing before it is shown
+        st.pop("notes_at", None)
     st["at"] = time.time()  # the participants' pages notice every change
     survey.live = st
     db.session.commit()

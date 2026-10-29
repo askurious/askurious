@@ -383,6 +383,7 @@ label.check, .stack label.check { flex-direction: row; align-items: center; gap:
 /* a hint (.hint) is no such text: it always stands under the text, flush with it, also next to a lock (V83) */
 label.check:has(> input:first-child + span:last-child:not(.hint)) { flex-wrap: nowrap; align-items: flex-start; }
 label.check > input:first-child + span:last-child:not(.hint) { flex: 1 1 0; min-width: 0; }
+label.check.live-indent { margin-inline-start: 28px; }  /* a tick that counts only with the one above (live settings: notes on the slides) */
 label.check > input:is([type=checkbox], [type=radio]) { margin: 0; }
 label.check:has(> input:first-child + span:last-child:not(.hint)) > input { margin-top: 3px; }
 input, textarea, select { font: inherit; font-size: 0.95rem; padding: 8px 11px; border: 1px solid var(--field-border);

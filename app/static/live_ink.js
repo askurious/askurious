@@ -3,7 +3,7 @@
 // where the notes may be changed, takes the pen: a pen always, a finger or the mouse only in drawing mode. Changes go
 // to the server while they are drawn, one request at a time per sheet, the changes in between gathered. A stroke keeps
 // the pen's pressure per point (harder is broader); coordinates run from 0 to 1 over the picture, so the notes sit on
-// the same spot on every screen.
+// the same spot on every screen. Drawing, placing and taking strokes are shared with the audience's notes (ink_core.js).
 // Two pages use it: the presenter view and the audience view (live/screen.html: one sheet for the slide on the screen;
 // live.js sends every state as the event "live:state"; the audience view fetches the strokes only when their revision
 // changed, every half second while someone draws) and the page "Alle Folien" (live/slides.html: a sheet per
@@ -16,37 +16,8 @@
   var UI_LANG = root.dataset.uiLang || document.documentElement.lang;
   function de_en(de, en) { return UI_LANG === "en" ? en : de; }
   var SEND_EVERY = 200, FAST = 500, LASER_EVERY = 100;
-  var WIDTH = { pen: 0.004, marker: 0.022 };  // as a share of the slide's width (app/live/ink.py, stroke_width)
-
-  // --- drawing: the same formula as the PDF (ink.stroke_width) ---------------------------------------------------
-  function strokeWidth(s, pressure, w) { return s.m ? s.w * w : s.w * w * (0.4 + 1.2 * pressure); }
-  function drawStroke(ctx, s, w, h) {
-    var p = s.p;
-    if (!p || !p.length) return;
-    ctx.strokeStyle = s.c;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    if (s.m) {  // the highlighter: one path, see-through, so crossings within a stroke stay even
-      ctx.globalAlpha = 0.4;
-      ctx.lineWidth = strokeWidth(s, 0.5, w);
-      ctx.beginPath();
-      ctx.moveTo(p[0][0] * w, p[0][1] * h);
-      for (var i = 1; i < p.length; i++) ctx.lineTo(p[i][0] * w, p[i][1] * h);
-      if (p.length === 1) ctx.lineTo(p[0][0] * w + 0.01, p[0][1] * h);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      return;
-    }
-    if (p.length === 1) p = [p[0], p[0]];
-    for (var j = 1; j < p.length; j++) {  // the pen: segment by segment, as broad as the pressure at its ends
-      ctx.lineWidth = strokeWidth(s, (p[j - 1][2] + p[j][2]) / 2, w);
-      ctx.beginPath();
-      ctx.moveTo(p[j - 1][0] * w, p[j - 1][1] * h);
-      ctx.lineTo(p[j][0] * w + (p[j] === p[j - 1] ? 0.01 : 0), p[j][1] * h);
-      ctx.stroke();
-    }
-  }
-  function newId() { return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  var Ink = window.AskInk;  // the shared parts (ink_core.js): drawing, placing, the eraser's hit test, the pen
+  if (!Ink) return;
 
   // --- the tools: one toolbar per page, shared by its sheets ----------------------------------------------------
   var tools = root.querySelector("[data-ink-tools]") || document.querySelector("[data-ink-tools]");
@@ -80,22 +51,10 @@
     if (this.editable) this.bind();
     if (img.complete) this.place(); else img.addEventListener("load", function () { self.place(); }, { once: true });
   }
-  Sheet.prototype.place = function () {  // exactly over the drawn picture (object-fit: contain leaves bands beside it)
-    var img = this.img, layer = this.layer;
-    if (!img.naturalWidth || !layer.isConnected) return;
-    var wrap = layer.parentNode.getBoundingClientRect(), r = img.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    var zoom = wrap.width / (layer.parentNode.offsetWidth || wrap.width) || 1;  // CSS zoom of the printable slides
-    var scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
-    var w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-    layer.style.left = (r.left - wrap.left + (r.width - w) / 2) / zoom + "px";
-    layer.style.top = (r.top - wrap.top + (r.height - h) / 2) / zoom + "px";
-    layer.style.width = w / zoom + "px";
-    layer.style.height = h / zoom + "px";
-    var dpr = window.devicePixelRatio || 1;
-    var pw = Math.round(w * dpr), ph = Math.round(h * dpr);
-    if (layer.width !== pw || layer.height !== ph) { layer.width = pw; layer.height = ph; }
-    this.box = { w: w, h: h, dpr: dpr };
+  Sheet.prototype.place = function () {  // exactly over the drawn picture (Ink.fit)
+    var box = Ink.fit(this.img, this.layer);
+    if (!box) return;
+    this.box = box;
     this.paint();
   };
   Sheet.prototype.paint = function () {
@@ -104,8 +63,8 @@
     ctx.setTransform(b.dpr, 0, 0, b.dpr, 0, 0);
     ctx.clearRect(0, 0, b.w, b.h);
     if (this.hidden) return;
-    this.strokes.forEach(function (s) { drawStroke(ctx, s, b.w, b.h); });
-    if (this.drawing) drawStroke(ctx, this.drawing, b.w, b.h);
+    this.strokes.forEach(function (s) { Ink.drawStroke(ctx, s, b.w, b.h); });
+    if (this.drawing) Ink.drawStroke(ctx, this.drawing, b.w, b.h);
     if (this.laser && Date.now() - this.laserAt < 2000) {  // the laser dot: red with a glow
       var x = this.laser[0] * b.w, y = this.laser[1] * b.h, r = Math.max(6, b.w * 0.007);
       var g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6);
@@ -184,25 +143,11 @@
     record({ sheet: this, del: gone });
     this.paint();
   };
-  Sheet.prototype.near = function (s, x, y, reach) {  // the eraser touches a stroke: a segment of it within reach
-    var ratio = this.box.h / (this.box.w || 1), r = reach + s.w / 2, p = s.p;
-    y *= ratio;
-    for (var i = 0; i < p.length; i++) {
-      var ax = p[i][0], ay = p[i][1] * ratio, b = p[i + 1] || p[i], bx = b[0], by = b[1] * ratio;
-      var dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
-      var t = len ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len)) : 0;
-      var cx = ax + t * dx - x, cy = ay + t * dy - y;
-      if (cx * cx + cy * cy < r * r) return true;
-    }
-    return false;
+  Sheet.prototype.near = function (s, x, y, reach) {  // the eraser touches a stroke (Ink.near)
+    return Ink.near(s, x, y, reach, this.box.h / (this.box.w || 1));
   };
-  Sheet.prototype.bind = function () {  // the pointer: pen, highlighter, eraser, laser
-    var self = this, el = this.layer, active = null, mode = null, erased = [], lastSend = 0, penDown = false;
-    function at(e) {
-      var r = el.getBoundingClientRect();
-      return [Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))];
-    }
-    function pressure(e) { return e.pointerType === "pen" && e.pressure > 0 ? Math.round(e.pressure * 100) / 100 : 0.5; }
+  Sheet.prototype.bind = function () {  // the pointer: pen, highlighter, eraser, laser (taken by Ink.pen)
+    var self = this, erased = [], lastSend = 0, penDown = false;
     function erase(p) {
       var hit = self.strokes.filter(function (s) { return self.near(s, p[0], p[1], 0.012); });
       if (!hit.length) return;
@@ -212,61 +157,42 @@
       self.queue({ del: ids });
       self.paint();
     }
-    el.addEventListener("pointerdown", function (e) {
-      if (active !== null || !T.on) return;
-      var pen = e.pointerType === "pen";
-      if (!pen && (!T.draw || penDown)) return;  // a finger or the mouse only in drawing mode; the palm never beside a pen
-      if (!pen && e.pointerType === "mouse" && e.button !== 0) return;
-      e.preventDefault();
-      active = e.pointerId;
-      penDown = pen;
-      el.setPointerCapture(e.pointerId);
-      mode = (pen && (e.button === 5 || (e.buttons & 32))) ? "eraser" : T.tool;  // the eraser end of the pen
-      if (mode === "laser" && !self.laserOn) mode = "pen";
-      var p = at(e);
-      if (mode === "laser") { self.laser = p; self.laserAt = Date.now(); self.laserSend = p; self.flush(); self.paint(); return; }
-      if (mode === "eraser") { erased = []; erase(p); return; }
-      self.drawing = { id: newId(), c: T.colour, w: WIDTH[mode === "marker" ? "marker" : "pen"], m: mode === "marker" ? 1 : 0,
-                       p: [[+p[0].toFixed(4), +p[1].toFixed(4), pressure(e)]] };
-      lastSend = Date.now();
-      self.paint();
+    Ink.pen(this.layer, {
+      start: function (e) {
+        if (!T.on) return null;
+        var pen = e.pointerType === "pen";
+        if (!pen && (!T.draw || penDown)) return null;  // a finger or the mouse only in drawing mode; the palm never beside a pen
+        if (!pen && e.pointerType === "mouse" && e.button !== 0) return null;
+        penDown = pen;
+        var mode = (pen && (e.button === 5 || (e.buttons & 32))) ? "eraser" : T.tool;  // the eraser end of the pen
+        if (mode === "laser" && !self.laserOn) mode = "pen";
+        if (mode === "eraser") erased = [];
+        lastSend = Date.now();
+        return mode;
+      },
+      colour: function () { return T.colour; },
+      laser: function (p, phase) {
+        if (phase === "up") { self.laser = null; self.laserSend = null; self.flush(); self.paint(); return; }
+        self.laser = p; self.laserAt = Date.now(); self.paint();
+        if (phase === "down" || Date.now() - lastSend > LASER_EVERY) { lastSend = Date.now(); self.laserSend = p; self.flush(); }
+      },
+      erase: erase,
+      erased: function () { if (erased.length) record({ sheet: self, del: erased }); erased = []; },
+      draw: function (stroke, phase) {
+        if (phase !== "up") {
+          self.drawing = stroke;
+          self.paint();
+          if (phase === "move" && Date.now() - lastSend > SEND_EVERY) { lastSend = Date.now(); self.queue({ put: JSON.parse(JSON.stringify(stroke)) }); }
+          return;
+        }
+        self.drawing = null;
+        self.strokes.push(stroke);
+        self.queue({ put: stroke });
+        record({ sheet: self, add: stroke });
+        self.paint();
+      },
+      end: function () { penDown = false; }
     });
-    el.addEventListener("pointermove", function (e) {
-      if (e.pointerId !== active) return;
-      var events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-      if (!events.length) events = [e];
-      if (mode === "laser") {
-        self.laser = at(e); self.laserAt = Date.now(); self.paint();
-        if (Date.now() - lastSend > LASER_EVERY) { lastSend = Date.now(); self.laserSend = self.laser; self.flush(); }
-        return;
-      }
-      if (mode === "eraser") { events.forEach(function (ev) { erase(at(ev)); }); return; }
-      var d = self.drawing;
-      if (!d) return;
-      events.forEach(function (ev) {
-        var p = at(ev), last = d.p[d.p.length - 1];
-        if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) < 0.0008) return;
-        if (d.p.length < 4000) d.p.push([+p[0].toFixed(4), +p[1].toFixed(4), pressure(ev)]);
-      });
-      self.paint();
-      if (Date.now() - lastSend > SEND_EVERY) { lastSend = Date.now(); self.queue({ put: JSON.parse(JSON.stringify(d)) }); }
-    });
-    function end(e) {
-      if (e.pointerId !== active) return;
-      active = null; penDown = false;
-      if (mode === "laser") { self.laser = null; self.laserSend = null; self.flush(); self.paint(); return; }
-      if (mode === "eraser") { if (erased.length) record({ sheet: self, del: erased }); erased = []; return; }
-      var done = self.drawing;
-      if (!done) return;
-      self.drawing = null;
-      self.strokes.push(done);
-      self.queue({ put: done });
-      record({ sheet: self, add: done });
-      self.paint();
-    }
-    el.addEventListener("pointerup", end);
-    el.addEventListener("pointercancel", end);
-    el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   };
 
   var sheets = [];

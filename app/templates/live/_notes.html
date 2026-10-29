@@ -1,0 +1,31 @@
+{# The presentation slide on the phone with the audience's notes (app/live/notes.py, live_notes.js): the slide, the
+   note field (beside it from 900 px on, else under it), the pen on wide screens, the strip of the slides so far #}
+<div class="live-mynotes" data-live-notes data-current="{{ current }}">
+  <div class="live-mynotes-main">
+    <div class="live-mynotes-slide">
+      <div class="live-mynotes-pic"><img class="live-mynotes-img" data-notes-img alt=""></div>
+      <p class="live-mynotes-behind" data-notes-behind hidden><span>{{ ui("Sie sehen eine frühere Folie.", "You are looking at an earlier slide.") }}</span>
+        <button type="button" class="p-button p-button-secondary" data-notes-now>{{ ui("Zur aktuellen Folie", "To the current slide") }}</button></p>
+    </div>
+    <div class="live-mynotes-side">
+      <div class="live-ink-tools live-mynotes-tools" data-notes-tools role="toolbar" aria-label="{{ ui('Stift', 'Pen') }}" hidden>
+        <div class="live-ink-row">
+          <button type="button" class="live-ink-btn" data-notes-tool="pen" data-notes-colour="black" aria-pressed="true" title="{{ ui('Stift schwarz', 'Black pen') }}"><span class="live-ink-dot is-black"></span><span class="p-sr-only">{{ ui("Stift schwarz", "Black pen") }}</span></button>
+          <button type="button" class="live-ink-btn" data-notes-tool="pen" data-notes-colour="red" aria-pressed="false" title="{{ ui('Stift rot', 'Red pen') }}"><span class="live-ink-dot is-red"></span><span class="p-sr-only">{{ ui("Stift rot", "Red pen") }}</span></button>
+          <button type="button" class="live-ink-btn" data-notes-tool="pen" data-notes-colour="blue" aria-pressed="false" title="{{ ui('Stift blau', 'Blue pen') }}"><span class="live-ink-dot is-blue"></span><span class="p-sr-only">{{ ui("Stift blau", "Blue pen") }}</span></button>
+          <button type="button" class="live-ink-btn" data-notes-tool="marker" aria-pressed="false" title="{{ ui('Textmarker', 'Highlighter') }}"><span class="live-ink-dot is-marker"></span><span class="p-sr-only">{{ ui("Textmarker", "Highlighter") }}</span></button>
+          <button type="button" class="live-ink-btn live-ink-word" data-notes-tool="eraser" aria-pressed="false">{{ ui("Radierer", "Eraser") }}</button>
+          <button type="button" class="live-ink-btn live-ink-word" data-notes-undo disabled>↶ {{ ui("Rückgängig", "Undo") }}</button>
+        </div>
+        <p class="live-mynotes-hint">{{ ui("Mit Stift oder Maus auf die Folie schreiben; der Finger scrollt.", "Write on the slide with a pen or the mouse; a finger scrolls.") }}</p>
+      </div>
+      <label class="live-mynotes-label" for="live-mynotes-text">{{ ui("Meine Notiz zu dieser Folie", "My note on this slide") }}</label>
+      <textarea id="live-mynotes-text" class="live-mynotes-text" data-notes-text rows="6" maxlength="5000"></textarea>
+      <label class="live-mynotes-theirs"><input type="checkbox" data-notes-theirs checked> {{ ui("Notizen der Vortragenden zeigen", "Show the presenter's notes") }}</label>
+      <p class="live-mynotes-hint" data-notes-saved>{{ ui("Ihre Notizen bleiben auf diesem Gerät.", "Your notes stay on this device.") }}</p>
+      <p class="live-mynotes-hint p-error" data-notes-error role="status" hidden></p>
+      <p><button type="button" class="p-button p-button-secondary" data-notes-download hidden>{{ ui("Folien mit Notizen herunterladen", "Download slides with notes") }}</button></p>
+    </div>
+  </div>
+  <nav class="live-mynotes-strip" data-notes-strip aria-label="{{ ui('Folien', 'Slides') }}"></nav>
+</div>
