@@ -29,6 +29,7 @@ from xml.etree import ElementTree as ET
 from flask import send_file
 
 from app import brand
+from app.extensions import db
 from app.lang import de_en
 from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
 from app.transcript_coding_view import anchor_spots, has_transcript, paragraphs, placed, spot, transcript
@@ -63,8 +64,9 @@ def description(cat, where=""):
     return "\n\n".join(lines)
 
 
-def codes(project, parent, ns):
-    """The tree of categories under `parent` (a CodeBook): {category id: guid}."""
+def codes(project, parent, ns, notes=None):
+    """The tree of categories under `parent` (a CodeBook): {category id: guid}. `notes`: {category id: [guid of a
+    Note]} for the memos at a category (NoteRef)."""
     holder = _el(parent, ns, "Codes")
     mains, candidates = tree(project)
     spots = anchor_spots(project)
@@ -76,6 +78,8 @@ def codes(project, parent, ns):
         text = description(cat, spots.get(cat.id, ""))
         if text:
             _el(e, ns, "Description", text=text)
+        for note in (notes or {}).get(cat.id, []):  # before the codes below it, as the schema wants
+            _el(e, ns, "NoteRef", {"targetGUID": note})
         guids[cat.id] = attrs["guid"]
         return e
 
@@ -96,9 +100,19 @@ def build_qdc(project):
     return ('<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode")).encode("utf-8")
 
 
+def _memos(project):
+    """The memos of the analysis that go into an export (the team's: all that are not deleted), oldest first."""
+    from app.models import CodingMemo
+
+    return list(db.session.scalars(db.select(CodingMemo).where(CodingMemo.project_id == project.id,
+                                                               CodingMemo.deleted_at.is_(None))
+                                   .order_by(CodingMemo.created_at, CodingMemo.id)))
+
+
 def build_qdpx(project, survey):
     from app import interview_qdpx
-    from app.models import utcnow
+    from app.models import CodingMemo, utcnow
+    from app.transcript_coding import resolver
 
     ET.register_namespace("", PROJECT_NS)
     ns = PROJECT_NS
@@ -114,12 +128,27 @@ def build_qdpx(project, survey):
     for items in coded.values():
         for c in items:
             people.setdefault(c.get("by") or "", c.get("by_name") or de_en("unbekannt", "unknown"))
+    # memos as REFI-QDA notes: at a code, a text source or a selection (NoteRef); only those whose place is exported
+    placed_ids = {c["id"] for items in coded.values() for c in items}
+    resolve = resolver(project)
+    memo_at = {"category": {}, "interview": {}, "passage": {}}
+    memos = []
+    for m in _memos(project):
+        key = (resolve(m.category_id) if m.kind == CodingMemo.CATEGORY else m.response_id if m.kind == CodingMemo.INTERVIEW
+               else m.coding_id)
+        if key is None or (m.kind == CodingMemo.INTERVIEW and m.response_id not in coded) or (
+                m.kind == CodingMemo.PASSAGE and m.coding_id not in placed_ids):
+            continue
+        note = _guid(survey, project, "memo", m.id)
+        memo_at[m.kind].setdefault(key, []).append(note)
+        memos.append((note, m))
+        people.setdefault(m.author_key or "", m.author_name or de_en("unbekannt", "unknown"))
     user_of = {}
     for key, name in sorted(people.items(), key=lambda kv: kv[1].casefold()):
         user_of[key] = _guid(survey, project, "user", key or "none")
         _el(users, ns, "User", {"guid": user_of[key], "name": name[:200]})
     codebook = _el(root, ns, "CodeBook")
-    guids = codes(project, codebook, ns)
+    guids = codes(project, codebook, ns, memo_at["category"])
     variables = interview_qdpx.variables(survey)
     if variables:
         holder = _el(root, ns, "Variables")
@@ -157,7 +186,18 @@ def build_qdpx(project, survey):
                 coding = _el(sel, ns, "Coding", {"guid": _guid(survey, project, "coding", c["id"]), "creatingUser": user,
                                                  "creationDateTime": at})
                 _el(coding, ns, "CodeRef", {"targetGUID": guids[c["cat"]]})
+                for note in memo_at["passage"].get(c["id"], []):
+                    _el(sel, ns, "NoteRef", {"targetGUID": note})
+            for note in memo_at["interview"].get(r.id, []):  # after the selections, as the schema wants
+                _el(src, ns, "NoteRef", {"targetGUID": note})
             files[f"Sources/{guid}.txt"] = text.encode("utf-8")
+    if memos:
+        holder = _el(root, ns, "Notes")
+        for note, m in memos:
+            n = _el(holder, ns, "Note", {"guid": note, "name": ("Memo: " + " ".join(m.text.split()))[:60],
+                                         "creatingUser": user_of.get(m.author_key or "", owner),
+                                         "creationDateTime": m.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")})
+            _el(n, ns, "PlainTextContent", text=m.text)
     _el(root, ns, "Description", text=de_en("Auswertung „{name}“ des Interviewleitfadens „{title}“, exportiert aus {brand} am {day}.",
                                             "Analysis “{name}” of the interview guide “{title}”, exported from {brand} on {day}.",
                                             name=project.name, title=survey.title, brand=brand.name(), day=now[:10])
@@ -223,8 +263,22 @@ def build_xlsx(project, survey):
             for cid, label, where, quote, who in passages]
     head2 = [de_en("Nummer", "Number"), de_en("Kategorie", "Category"), de_en("Interview", "Interview"),
              de_en("Fundstelle", "Location"), de_en("Zitat", "Quote"), de_en("Kodiert von", "Coded by")]
-    return xlsx.workbook([(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 40, 9, 12, 20]),
-                          (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])])
+    sheets = [(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 40, 9, 12, 20]),
+              (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])]
+    memos = _memos(project)
+    if memos:  # memos at passages, categories and interviews (app/transcript_coding_memos.py)
+        from app import transcript_coding_memos
+        from app.lang import english
+        from app.timeutil import fmt
+
+        about = transcript_coding_memos.targets(project, memos)
+        head3 = [de_en("Art", "Kind"), de_en("Nummer", "Number"), de_en("Kategorie", "Category"), de_en("Interview", "Interview"),
+                 de_en("Fundstelle", "Location"), de_en("Memo", "Memo"), de_en("von", "by"), de_en("am", "on")]
+        sheets.append((de_en("Memos", "Memos"), head3,
+                       [[transcript_coding_memos.kind_name(m.kind), about[m.id]["number"], about[m.id]["category"],
+                         about[m.id]["interview"], about[m.id]["where"], m.text, m.author_name, fmt(m.updated_at, lang="en" if english() else "de")]
+                        for m in memos], [11, 9, 28, 14, 24, 80, 20, 17]))
+    return xlsx.workbook(sheets)
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.xlsx")

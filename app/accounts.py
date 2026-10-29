@@ -584,6 +584,10 @@ def delete(user, by, choices=None, admin=None, heirs=None):
     db.session.execute(db.delete(CodingMember).where(CodingMember.kind == CodingMember.PERSON, CodingMember.user_id == uid))
     db.session.execute(db.update(CodingCategory).where(CodingCategory.author_key == f"u:{uid}").values(author_key=""))
     db.session.execute(db.update(CodingEvent).where(CodingEvent.actor_key == f"u:{uid}").values(actor_key=""))
+    from app.models import CodingMemo
+
+    # memos are the person's own free text: they go with the account (app/transcript_coding_memos.py)
+    db.session.execute(db.delete(CodingMemo).where(db.or_(CodingMemo.author_id == uid, CodingMemo.author_key == f"u:{uid}")))
 
     # mails it queued and that wait still go with it, address and text (audit 2026-10-09b, E10); sent rows keep no
     # address and only lose the sender

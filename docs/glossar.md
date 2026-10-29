@@ -27,6 +27,7 @@ Begriffe, die die Oberfläche für Forschende einheitlich verwendet. Entstanden 
 | **Teilnahmelink** | der Link, über den Teilnehmende eine Befragung öffnen | Teilnahme-Link |
 | **Kategorisieren**, **Kategorie**, **Kodierleitfaden** | offene Antworten in Kategorien einordnen (Seite „Kategorisieren“ von der Ergebnisseite aus); jede Kategorie mit Definition, **Ankerbeispiel** und wahlweise **Oberkategorie**; der Kodierleitfaden ist die Datei mit allen Kategorien; eine Kategorie in zwei teilen heißt **Aufteilen** | Codieren, Codierleitfaden, Teilen (für eine Kategorie) |
 | **Interviews kodieren**, **Auswertung** (beim Kodieren), **Hauptkategorie**, **Unterkategorie**, **Kandidat**, **Kodierlink** | Textstellen in Transkripten eines Interviewleitfadens Kategorien zuordnen (experimentell, „Ergebnisse“ › „Kodieren“); eine Auswertung hat Forschungsfrage, Kategoriensystem und Mitglieder mit der Rolle **Kodieren**; ein Kandidat ist eine vorgeschlagene Hauptkategorie, gestrichelt, bis die Forschenden ihn übernehmen; ohne Konto kodiert eine Person über einen Interviewlink mit „darf kodieren“ (früher „Kodierlink“); das Kategoriensystem als Bild heißt **Diagramm** (Umschalter „Liste / Diagramm“) | Kodier-Link, Oberkategorie (beim Kodieren von Interviews), Karte (für das Diagramm des Kategoriensystems) |
+| **Memo**, **Fundstelle** | Memo: eigene Notiz an einer kodierten Stelle, einer Kategorie oder einem Interview einer Auswertung (Kuckartz & Rädiker); Fundstelle: „B03, Pos. 12“, Interview und Absatz einer Stelle | Belegstelle |
 | **Teilnahmeadresse** | die eigene Adresse für Teilnehmende (ask.queryous.de), neben der Hauptadresse der Forschenden | Teilnehmer-Domain |
 | **Datenerhebung** | der Reiter mit Testen, Status (mit Zeitverlauf), Teilnahmelink und Kurzfassung der Quoten; Oberbegriff für das Erheben | Feld (als Name des Reiters), Feld → |
 | **Feldphase**, **Feldende**, **im Feld** | der Zeitraum, in dem eine Befragung Antworten annimmt, sein geplantes Ende und der Zustand einer laufenden Befragung; „Datenerhebung“ bleibt Reitername und Oberbegriff (UI/UX-Audit 16.10.2026, 53) | Feldzeit |
@@ -187,6 +188,7 @@ Die Oberfläche für Forschende und Admins gibt es auch auf Englisch (Konto › 
 | Teilnahmeadresse, Hauptadresse | participant address, main address | participant domain |
 | Kategorisieren, Kategorie, Kodierleitfaden, Ankerbeispiel, Oberkategorie, Aufteilen | categorise, category, coding guide, anchor example, main category, split | code (als Verb für Kategorien) |
 | Interviews kodieren, Auswertung (beim Kodieren), Hauptkategorie, Unterkategorie, Kandidat, Kodierlink, Kodieren (Rolle), Diagramm (des Kategoriensystems) | code interviews, analysis, main category, subcategory, candidate, coding link, Code (role), diagram | map (for the diagram of the category system) |
+| Memo, Fundstelle | memo, location | |
 | Reiter | tab | |
 | Planen, Erheben, Analyse; Personen und Organisationen, Inhalte, Betrieb | plan, collect, analysis; people and organisations, contents, operation | evaluate (als Name der Gruppe) |
 | Folie | slide | question (for a text slide) |
