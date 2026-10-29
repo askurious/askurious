@@ -1,6 +1,7 @@
 """The page /sources (Lizenzen und Datenquellen) and the files behind it (copyright audit 2026-10-16, U8, U15,
 U21, U41; licence audit 2026-10-23, A1): open without an account, the derived ODbL data described (no
 downloads), the lists in step with the lock files."""
+import hashlib
 import re
 from pathlib import Path
 
@@ -72,49 +73,21 @@ def test_third_party_list_has_every_locked_package():
             assert f"{name.lower().replace('_', '-')}=={version}  " in listed, (lock, name, version)
 
 
-# Paths of the icons that followed Feather Icons or Lucide before they were redrawn (provenance check 2026-10-22, K7).
-OLD_ICON_PATHS = (
-    'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
-    'M12 19V5M5 12l7-7 7 7',
-    'M12 5v14M19 12l-7 7-7-7',
-    'M19 12H5M12 19l-7-7 7-7',
-    'M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3',
-    'M9 21H5V3h4M16 17l5-5-5-5M21 12H9',
-    'M11 5L6 9H3v6h3l5 4z',
-    'M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13',
-    'M22 9l-6 6M16 9l6 6',
-    'M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z',
-    'M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z',
-    'M9 14L4 9l5-5',
-    'M4 9h11a5 5 0 010 10h-3',
-    'M15 14l5-5-5-5',
-    'M20 9H9a5 5 0 000 10h3',
-    'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5',
-    'M2 12s3.5-7 10-7c2 0 3.7.6 5.1 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.1-1.5',
-    'M9.9 9.9a3 3 0 004.2 4.2',
-    'M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8',
-    'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',
-    'M12 8v13M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',
-    'M12 8C11 5 9.5 3 7.5 3a2.5 2.5 0 0 0 0 5M12 8c1-3 2.5-5 4.5-5a2.5 2.5 0 0 1 0 5',
-    'M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.8-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z',
-    'M2 21c0-4 3-6.5 7-6.5s7 2.5 7 6.5',
-    'M16 4.2a4 4 0 0 1 0 7.6M18.5 14.8c2 .8 3.5 2.8 3.5 6.2',
-    'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z',
-    'M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3',
-    'M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1',
-    'M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
-    'M21 16l-5-5-9 9',
-    'M5 9v10h14V9M10 13h4',
-    'M5 7l-3 7a3 3 0 0 0 6 0z',
-    'M19 7l-3 7a3 3 0 0 0 6 0z',
-    'M12 7v5l3 2',
-    'M8 11V7a4 4 0 0 1 8 0v4',
-    'M3 7l9 6 9-6',
-    'M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4',
-    'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
-    'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
-    'M3 12a9 9 0 1 0 3-6.7',
-)
+# SHA-256 (first 16 hex digits) of the paths of the icons that followed Feather Icons or Lucide before they were
+# redrawn (provenance check 2026-10-22, K7). Only the hashes stand here, so the old drawings are not passed on
+# with the tests (licence audit 2026-10-29, EXT-01).
+OLD_ICON_PATH_HASHES = frozenset({
+    "467e9794ce50a22c", "af0ef5978954a256", "493a59c82d4c9c1c", "9e60f6eac28da111",
+    "d41035f7a59f2b24", "d3d129c66f9a6dc8", "101085557a261429", "06a333e2eb3d73b2",
+    "21e7740068752316", "59a19f624eac67e7", "9783503d23cdbf2b", "c76bff783f35ac39",
+    "e3516a3c393006be", "aa91fc24fc2b5863", "160e1b97d1d91b38", "2c8e93e0b9cac46b",
+    "5395745855e7ab8e", "8a235148b1aff914", "83b1b91192f30750", "e0431baa0f2f34bb",
+    "342f9ad1bb301bb6", "d75fd3c897dc6a06", "f147121a42a41bcb", "b7132300a271fdfd",
+    "9f886b80125ac098", "2ae45fa3675a893f", "8e5bdcda6ed228f2", "94dc0776fa10f249",
+    "cfae6658088f8d22", "27e56d16b1b36dc2", "83d8b4fe812cf869", "be083e3c9450ffa2",
+    "5a1052da2c025bd8", "fc5f4739d95cff25", "5802c8d8920384b0", "3a950e9342638be1",
+    "245d53607000b307", "77219c77b8f7917d", "6c0a221da14f828e", "69c790aac6ebfa68",
+})
 
 
 def test_icons_are_own_drawings_without_feather_or_lucide_paths(client):
@@ -123,8 +96,8 @@ def test_icons_are_own_drawings_without_feather_or_lucide_paths(client):
     files = [*(ROOT / "app/templates").rglob("*.html"), *(ROOT / "app/static").glob("*.js")]
     for f in files:
         text = f.read_text(encoding="utf-8")
-        for d in OLD_ICON_PATHS:
-            assert f'd="{d}"' not in text, (f.name, d)
+        for d in re.findall(r'["\'](M[^"\'<>]*)["\']', text):
+            assert hashlib.sha256(d.encode("utf-8")).hexdigest()[:16] not in OLD_ICON_PATH_HASHES, (f.name, d)
     listed = (ROOT / "app/data/THIRD_PARTY_LICENSES.txt").read_text(encoding="utf-8")
     html = client.get("/sources").data.decode()
     head = (ROOT / "app/templates/_icons.html").read_text(encoding="utf-8").split("{% set _paths", 1)[0]
