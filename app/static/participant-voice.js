@@ -83,8 +83,11 @@
       }).catch(function () {
         if (stream) stream.getTracks().forEach(function (track) { track.stop(); });
         recorder = null; stream = null;
-        say(uiT("Aufnahme fehlgeschlagen. Prüfen Sie Mikrofon und Browserfreigabe und versuchen Sie es erneut.",
-                "Recording failed. Check your microphone and browser permission and try again.") +
+        say((box.hasAttribute("data-in-app")  // the diary app: its own settings, not a browser's (AND-09)
+              ? uiT("Aufnahme fehlgeschlagen. Prüfen Sie Mikrofon und Mikrofonfreigabe in den Einstellungen der App und versuchen Sie es erneut.",
+                    "Recording failed. Check your microphone and the microphone permission in the app’s settings and try again.")
+              : uiT("Aufnahme fehlgeschlagen. Prüfen Sie Mikrofon und Browserfreigabe und versuchen Sie es erneut.",
+                    "Recording failed. Check your microphone and browser permission and try again.")) +
             (text ? " " + uiT("Oder schreiben Sie Ihre Antwort:", "Or type your answer:") : ""));
       });
     }
