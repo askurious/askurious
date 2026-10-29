@@ -20,6 +20,7 @@ tests
 tools/**
 !tools/build_static.py
 !tools/storage_backup_lock.py
+!tools/fetch_pdf_fonts.py
 concepts
 docs
 .venv
