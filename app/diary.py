@@ -60,7 +60,7 @@ MAX_MODULES = 12
 MAX_TIMES = 12  # fixed times of one module a day
 MAX_PERIOD = 365
 SUMMARY_MAX = 160  # characters of the sentence about the study in the app (summary_of)
-MAX_EARLIER = 50  # earlier sets of times kept for the counts
+MAX_EARLIER = 50  # earlier sets of times kept for the counts; past it the times stay as they are (_save)
 MAX_PERSON_HISTORY = 1000  # entries of a person's quiet hours or time zones: at most one per day, so this only ends a
 # study of years; every earlier entry still holds for its days (audit 2026-10-17, T2)
 MERGE_SECONDS = 10 * 60  # a set of times replaced within this time was an intermediate state (autosave), not kept
@@ -601,10 +601,21 @@ def resume(enrolment, now=None):
         history = history[:-1] + ([[history[-1][0], end]] if end >= history[-1][0] else [])
     enrolment.status = Enrolment.ACTIVE
     moment = (now or utcnow()).replace(microsecond=0).isoformat()
+    # one moment per day of the person, the last of the day (all _resumed_days reads): bounded by the days of the
+    # study, and a resume of the first days is never dropped (the last 50 were kept before, so a person resumed
+    # more often had prompts of those days due again; audit storage and calculations 2026-10-28, SD-N1)
+    day = _resume_day(enrolment, moment)
     enrolment.settings = {**(enrolment.settings or {}), "pauses": history,
-                          "resumed": (resumes(enrolment) + [moment])[-50:]}
+                          "resumed": [x for x in resumes(enrolment) if _resume_day(enrolment, x) != day] + [moment]}
     _revoke_web(enrolment)
     return True
+
+
+def _resume_day(enrolment, moment):
+    try:
+        return local_date(enrolment, virtual(enrolment, datetime.fromisoformat(moment)))
+    except (TypeError, ValueError):
+        return None
 
 
 def resumes(enrolment):
@@ -2138,8 +2149,19 @@ def _save(survey, form, lang):
                      "trigger": trigger, "expires": _int(form.get(p + "expires"), 60, 0, 24 * 60),
                      "reminder": _int(form.get(p + "reminder"), 0, 0, 24 * 60), "days": days,
                      "notify": {**(m.get("notify") or {}), lang: form.get(p + "notify", "").strip()[:120]}})
+    refused = False
     if survey.status != Survey.DRAFT and _times_of(kept) != _times_of(modules(survey)):
-        sampling["earlier"] = _with_earlier(sampling.get("earlier"), modules(survey), kept)
+        earlier = _with_earlier(sampling.get("earlier"), modules(survey), kept)
+        if len(earlier) > MAX_EARLIER:
+            # every earlier set still decides which prompts were due on its days; dropping one changed the counts of
+            # those days afterwards (audit storage and calculations 2026-10-28, SD-N1). So no further change of the
+            # times: the modules keep the times they have, everything else of the form is saved
+            refused = True
+            old = {m["key"]: m.get("trigger") for m in modules(survey)}
+            kept = [{**m, "trigger": old[m["key"]]} if m["key"] in old and (old[m["key"]] or {}).get("t") in SCHEDULED
+                    else m for m in kept]
+        else:
+            sampling["earlier"] = earlier
     sampling["modules"] = kept
     # the exit questionnaire (name in the app, days it stays open) and "nur mit Einladung": changeable at any time
     sampling["exit"] = {"name": {**((sampling.get("exit") or {}).get("name") or {}), lang: form.get("exit_name", "").strip()[:80]},
@@ -2153,14 +2175,14 @@ def _save(survey, form, lang):
             if part in keys:
                 block.settings = {**(block.settings or {}), "part": part}
     survey.sampling = sampling
+    return refused
 
 
 def _with_earlier(earlier, current, new, now=None):
     """survey.sampling["earlier"] after the times change from the modules `current` to `new` (review 2026-10-15, G2).
     A set of times replaced within MERGE_SECONDS of its start (the autosave of the tab "Zeitplan" while typing) is
-    not kept: the new set holds from its start, and a return to the set before ends the excursion altogether. Past
-    MAX_EARLIER the shortest-lived set goes, never the first: it holds from the start of the study, and dropping it
-    let a later set count for the first days of every person."""
+    not kept: the new set holds from its start, and a return to the set before ends the excursion altogether. No set
+    is dropped: each decides the prompts of its days (the caller refuses a change past MAX_EARLIER)."""
     now = (now or utcnow()).replace(microsecond=0)
     earlier = [e for e in earlier or [] if isinstance(e, dict) and e.get("until")]
     try:
@@ -2171,14 +2193,6 @@ def _with_earlier(earlier, current, new, now=None):
         earlier.append({"until": now.isoformat(), "modules": current})
     elif _times_of(earlier[-1].get("modules") or []) == _times_of(new):
         earlier.pop()
-
-    def life(i):
-        try:
-            return datetime.fromisoformat(earlier[i]["until"]) - datetime.fromisoformat(earlier[i - 1]["until"])
-        except (TypeError, ValueError):
-            return timedelta(0)
-    while len(earlier) > MAX_EARLIER:
-        del earlier[min(range(1, len(earlier)), key=life)]
     return earlier
 
 
@@ -2219,7 +2233,7 @@ def schedule(survey_id):
     lang = survey.default_language
     if request.method == "POST":
         conflict = surveys._settings_conflict(survey, "diary")
-        _save(survey, request.form, lang)
+        refused = _save(survey, request.form, lang)
         if conflict:
             return edit_guard.show_again(lambda: _page(survey))
         surveys._settings_saved(survey, "diary")
@@ -2228,7 +2242,15 @@ def schedule(survey_id):
             autosave.part("diary-week", render_template("diary/_week.html", **_week_context(survey)))
             for m in modules(survey):  # "Etwa n Abfragen am Tag" in the form
                 autosave.part(f"diary-per-day-{m['key']}", render_template("diary/_per_day.html", m=m, per_day=per_day))
-        flash(de_en("Zeitplan gespeichert.", "Schedule saved."), "success")
+        if refused:
+            flash(de_en("Zeitplan gespeichert, die Uhrzeiten aber nicht: Sie wurden schon {n}-mal geändert. Jede "
+                        "frühere Fassung zählt weiter für die Abfragen ihrer Tage, deshalb sind keine weiteren "
+                        "Änderungen der Uhrzeiten möglich.",
+                        "Schedule saved, but not the times: they have already been changed {n} times. Every earlier "
+                        "version still counts for the prompts of its days, so the times cannot be changed again.",
+                        n=MAX_EARLIER), "warning")
+        else:
+            flash(de_en("Zeitplan gespeichert.", "Schedule saved."), "success")
         return redirect(url_for("diary.schedule", survey_id=survey.id))
     return _page(survey)
 
