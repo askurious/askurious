@@ -7488,3 +7488,12 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Registrierungslinks auch „ohne Grenze“ und „ohne Ablauf“; Widerrufen beendet sie weiterhin.
 - Verwaltung › Personen, „Offene Einladungen“ der Hauptorganisation zeigt jetzt auch iDs aus „Person hinzufügen“ der Administration und zieht sie zurück.
 - Rechtstexte: Datenschutzerklärung (de/en) und Datenschutzkonzept ohne Warteliste; Handbuch (de/en) angepasst; README, Lizenz und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Kategoriensystem einer Kodier-Auswertung als Excel, Absatznummern als Fundstelle
+
+- Ralf: In „Interviews kodieren“ das Kategoriensystem auch als Excel-Tabelle (nach Mayring) ausgeben, mit Fundstellen wie in MAXQDA.
+- Übersicht einer Auswertung: Knopf „Kategoriensystem (Excel)“ neben .qdpx/.qdc (nur das Team des Leitfadens, wie bei .qdpx). Blatt „Kategoriensystem“ (Nummer 1, 1.2, 1.2.3, Ebene, Kategorie, Definition, Ankerbeispiel, Fundstelle des Ankers, Kodierregel/Abgrenzung, Stellen selbst und mit Unterkategorien, früher auch; Kandidaten am Ende ohne Nummer), Blatt „Stellen“ (je kodierte, platzierbare Stelle mit Kategorie, Interview, Fundstelle, Zitat, kodiert von). Kopfzeile fett und fixiert, Filter, Spaltenbreiten, Zeilenumbruch.
+- Die xlsx-Datei schreibt `app/xlsx.py` selbst (zip + SpreadsheetML), ohne neue Abhängigkeit; Texte als Inline-Strings, also nie als Formel.
+- Fundstelle „B03, Pos. 12, 00:14:32“ (`transcript_coding_view.spot`): Absatz, in dem die Stelle beginnt (Trennung durch Leerzeile, ohne Leerzeile jede Zeile), Zeitmarke #hh:mm:ss-0# des Absatzes, wenn vorhanden. Dieselbe Angabe beim Ankerbeispiel im Kodierleitfaden (Word) und in der Beschreibung für .qdpx/.qdc. Nummerierung des Kodierleitfadens und der Tabelle aus einer Funktion (`transcript_coding.numbers`).
+- Kodieransicht: Absatznummern dezent am linken Rand (CSS aus `data-pos`, nicht markierbar, keine Klicks).
+- Datenschutzkonzept (Kodieren, Empfänger) nennt den Excel-Export; Handbuch (de/en) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.

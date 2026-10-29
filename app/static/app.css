@@ -2212,7 +2212,12 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
    the other; a coded passage carries the colour of its category, two or more a thicker line below */
 .tc-code { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .tc-code { grid-template-columns: minmax(0, 1fr); } }
-.tc-text-body { line-height: 1.7; }
+.tc-text-body { line-height: 1.7; padding-left: 2.6em; }
+/* paragraph numbers in the margin (app/transcript_coding_view.py, line_numbers): no text, not markable, no taps */
+.tc-text-body p[data-pos] { position: relative; }
+.tc-text-body p[data-pos]::before { content: attr(data-pos); content: attr(data-pos) / ""; position: absolute; left: -2.6em;
+  width: 2em; text-align: right; color: var(--muted); font-size: 0.75em; line-height: 2.27; font-variant-numeric: tabular-nums;
+  user-select: none; -webkit-user-select: none; pointer-events: none; }
 .tc-text-body p { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tc-hl { background: color-mix(in srgb, var(--tc) 16%, transparent); border-bottom: 2px solid var(--tc2); cursor: pointer; }
 .tc-hl.tc-hl-more { border-bottom-width: 4px; }

@@ -16,7 +16,14 @@ and line breaks between them). A passage whose wording is gone is "nicht mehr zu
 own, nothing is moved by guesswork, and the person who coded it (or the team) removes it or marks it anew.
 
 The anchor example of a category is one of its coded passages (CodingCategory.anchor = {"interview", "coding",
-"quote"}), chosen by whoever may change the category. It goes when its interview or its coding goes (`forget`)."""
+"quote"}), chosen by whoever may change the category. It goes when its interview or its coding goes (`forget`).
+
+Where a passage stands (`spot`): "<interview>, Pos. <paragraph>", as MAXQDA names a place, plus the time of the
+paragraph when it carries a Dresing & Pehl mark #hh:mm:ss-0# (app/interview_results.stamp), e.g. "B03, Pos. 12,
+00:14:32". Paragraphs are separated by an empty line, as the transcription writes them; a transcript without any empty
+line counts each line as a paragraph. The coding view shows the numbers in the margin, the Excel export of the
+category system, the coding guide and the REFI-QDA description of the anchor name the place this way."""
+import bisect
 import re
 import secrets
 
@@ -85,6 +92,77 @@ def place(text, coding):
             best = min(matches, key=lambda m: abs(m.start() - old))
             return best.start(), best.end()
     return None
+
+
+_EMPTY_LINE = re.compile(r"\n[ \t\r]*\n")
+_TIME = re.compile(r"#(\d{1,2}):(\d{2}):(\d{2})(?:-\d+)?#")
+
+
+def paragraphs(text):
+    """[[start, end]] of the paragraphs of a transcript: runs of lines with text, separated by an empty line; in a
+    transcript without any empty line each line with text is a paragraph of its own."""
+    by_empty = bool(_EMPTY_LINE.search(text.strip()))
+    out, pos, gap = [], 0, True
+    for line in text.split("\n"):
+        end = pos + len(line)
+        if line.strip():
+            if gap or not by_empty:
+                out.append([pos, end])
+            else:
+                out[-1][1] = end
+            gap = False
+        else:
+            gap = True
+        pos = end + 1
+    return out
+
+
+def line_numbers(text):
+    """For each line of the transcript (split at line breaks) the number of the paragraph it begins, else None: the
+    numbers in the margin of the coding view."""
+    starts = {p[0]: n for n, p in enumerate(paragraphs(text), 1)}
+    out, pos = [], 0
+    for line in text.split("\n"):
+        out.append(starts.get(pos))
+        pos += len(line) + 1
+    return out
+
+
+def position(text, start, paras=None):
+    """(paragraph number, "hh:mm:ss" or "") of the place `start` in the transcript: the paragraph the passage begins
+    in, and the time mark of that paragraph."""
+    paras = paragraphs(text) if paras is None else paras
+    if not paras:
+        return 1, ""
+    n = max(1, bisect.bisect_right([p[0] for p in paras], start))
+    begin, end = paras[n - 1]
+    m = _TIME.search(text, begin, end)
+    return n, (f"{int(m.group(1)):02d}:{m.group(2)}:{m.group(3)}" if m else "")
+
+
+def spot(label, text, start, paras=None):
+    """"B03, Pos. 12, 00:14:32": the interview, the paragraph and, when the paragraph has one, its time mark."""
+    n, time = position(text, start, paras)
+    return f"{label}, Pos. {n}" + (f", {time}" if time else "")
+
+
+def anchor_spots(project):
+    """{category id: place of its anchor example} for the categories in use; the interview's label alone when the
+    anchor can no longer be placed in its transcript."""
+    out = {}
+    for cat in live(project):
+        anchor = cat.anchor or {}
+        if not anchor.get("quote"):
+            continue
+        row = db.session.get(Response, anchor.get("interview") or 0)
+        found = None
+        if row is not None and row.survey_id == project.survey_id:
+            found = next((c for c in codings(row, project.id) if c.get("id") == anchor.get("coding")), None)
+        label = (row.interview or {}).get("label") if row is not None and row.interview else None
+        label = label or anchor.get("label", "")
+        where = place(transcript(row), found) if found is not None else None
+        out[cat.id] = spot(label, transcript(row), where[0]) if where else label
+    return out
 
 
 def transcript(row):
@@ -302,7 +380,7 @@ def page(code, pid, rid):
     cats = _categories(project, who)
     names = {c["id"]: c["name"] for c in cats}
     return render_template("transcript_coding/code.html", survey=survey, project=project, who=who, row=row,
-                           text=transcript(row), placed=[_json_coding(c, project, who) for c in ok],
+                           text=transcript(row), line_pos=line_numbers(transcript(row)), placed=[_json_coding(c, project, who) for c in ok],
                            lost=[{**_json_coding(c, project, who), "name": names.get(c.get("cat"), "")} for c in lost],
                            categories=cats, nxt=nxt, prev=prev, anchors={c.id: (c.anchor or {}).get("coding") for c in live(project)},
                            editable={c.id: may_edit(project, c, who) for c in live(project)},

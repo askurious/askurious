@@ -459,6 +459,19 @@ def tree(project):
     return [(m, walk(m, 2, [])) for m in mains], [c for c in tops if c.kind == CodingCategory.CANDIDATE]
 
 
+def numbers(mains):
+    """{category id: "1", "1.2", "1.2.3" ...} for the main categories of tree() and everything below them, numbered in
+    their order down every level (candidates have none): the coding guide and the Excel export number alike."""
+    out = {}
+    for n, (main, subs) in enumerate(mains, 1):
+        out[main.id] = str(n)
+        count = {}
+        for s in subs:
+            count[s.parent_id] = count.get(s.parent_id, 0) + 1
+            out[s.id] = f"{out.get(s.parent_id, out[main.id])}.{count[s.parent_id]}"
+    return out
+
+
 def chain(cat, by_id):
     """The categories above `cat`, its main category last (empty for a main category or a candidate)."""
     out, seen = [], {cat.id}

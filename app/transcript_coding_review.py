@@ -35,8 +35,9 @@ from flask import abort, flash, redirect, render_template, request, send_file, u
 from app.extensions import db
 from app.lang import de_en
 from app.models import CodingCategory, CodingEvent, Response, utcnow
-from app.transcript_coding import _add, _event, _in, _key, bp, interviews, live, resolver, signed_in_or_coder, tree
-from app.transcript_coding_view import codings, has_transcript, placed, transcript
+from app.transcript_coding import (_add, _event, _in, _key, bp, interviews, live, numbers, resolver, signed_in_or_coder,
+                                   tree)
+from app.transcript_coding_view import anchor_spots, codings, has_transcript, placed, transcript
 
 KUCKARTZ = ("Kuckartz, U., & Rädiker, S. (2022). Qualitative Inhaltsanalyse: Methoden, Praxis, Computerunterstützung "
             "(5. Aufl.). Beltz Juventa.")
@@ -527,11 +528,12 @@ def guide_docx(project, survey, who):
     from app.transcript_coding_ai import taken_from_ai
 
     from_ai = taken_from_ai(project, interviews(project, who))
+    spots = anchor_spots(project)  # "(B03, Pos. 12, 00:14:32)": where the anchor stands
 
     def entry(cat, level, number=""):
         doc.add_heading(f"{number} {cat.name}".strip(), level=min(level, 9))
         lines = [(de_en("Definition", "Definition"), cat.definition), (de_en("Abgrenzung", "Delimitation"), cat.delimitation),
-                 (de_en("Ankerbeispiel", "Anchor example"), (f"„{(cat.anchor or {}).get('quote')}“ ({(cat.anchor or {}).get('label', '')})"
+                 (de_en("Ankerbeispiel", "Anchor example"), (f"„{(cat.anchor or {}).get('quote')}“ ({spots.get(cat.id) or (cat.anchor or {}).get('label', '')})"
                                                              if (cat.anchor or {}).get("quote") else "")),
                  (de_en("Früher auch", "Formerly also"), ", ".join(cat.former_names or [])),
                  (de_en("Stellen", "Passages"), str(st.get(cat.id, {}).get("n", 0))
@@ -545,15 +547,11 @@ def guide_docx(project, survey, who):
         p = doc.add_paragraph()
         p.add_run(de_en("angelegt von {who}", "created by {who}", who=cat.author_name or "–")).italic = True
 
-    numbers = {}
-    for n, (main, subs) in enumerate(mains, 1):  # numbered 1, 1.1, 1.1.1 … down every level
-        numbers[main.id] = str(n)
-        entry(main, 1, numbers[main.id])
-        count = {}
+    number = numbers(mains)  # 1, 1.1, 1.1.1 … down every level
+    for main, subs in mains:
+        entry(main, 1, number[main.id])
         for s in subs:
-            count[s.parent_id] = count.get(s.parent_id, 0) + 1
-            numbers[s.id] = f"{numbers.get(s.parent_id, numbers[main.id])}.{count[s.parent_id]}"
-            entry(s, s.level, numbers[s.id])
+            entry(s, s.level, number[s.id])
     for c in candidates:
         entry(c, 2)
     from app import transcript_coding_double as double
