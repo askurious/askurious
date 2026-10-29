@@ -2032,7 +2032,8 @@ var blockPages = null;
       try { heading.focus({ preventScroll: true }); } catch (e) { heading.focus(); }
     }
     if (say) { say.textContent = ""; setTimeout(function () { say.textContent = target.getAttribute("data-announce"); }, 50); }
-    if (note) note.textContent = "";
+    // the note on pages still waiting stays while the queue holds one (UI/UX audit 2026-10-29, A11Y-07)
+    if (note && !queued().length) note.textContent = "";
     document.dispatchEvent(new CustomEvent("p:page", { detail: { page: target } }));
   }
   function body(p, extra) {
@@ -2046,15 +2047,22 @@ var blockPages = null;
     return out;
   }
   var busy = false;
+  // which move the participant made last: an answer to an older "Next" saves, but moves on only while no "Back"
+  // came in between (UI/UX audit 2026-10-29, A11Y-06)
+  var move = 0;
+  function unsent(kept, why) {
+    if (note) note.textContent = note.getAttribute(!kept ? "data-nostore" : why === "offline" ? "data-offline" : "data-unsent");
+  }
   function forward(p) {
     if (busy) return;
-    var i = pages.indexOf(p), b = body(p);
+    var i = pages.indexOf(p), b = body(p), mine = ++move;
     if (p.hasAttribute("data-nudged")) b.ack = 1;
     busy = true;
     form.setAttribute("aria-busy", "true");
     serial(b).then(function (answer) {
       busy = false;
       form.removeAttribute("aria-busy");
+      if (mine !== move) return;  // gone back meanwhile: the page stays; the server checks it again at the block's end
       var errors = answer && Object.keys(answer.errors || {}).length, nudges = answer && Object.keys(answer.nudges || {}).length;
       if ((errors || (nudges && !b.ack)) && !b.up) {
         if (nudges && !errors) { of(p).ack = true; p.setAttribute("data-nudged", ""); }
@@ -2067,10 +2075,10 @@ var blockPages = null;
       busy = false;
       form.removeAttribute("aria-busy");
       var kept = enqueue(b);  // kept in the tab and sent later; the server checks the page again at the end of the block
-      show(pages[i + 1]);
+      if (mine === move) show(pages[i + 1]);
       // what is true: no internet, or the server did not answer; and whether the tab could keep the page at all
       // (without it the page goes along with the last one, while the tab stays open)
-      if (note) note.textContent = note.getAttribute(!kept ? "data-nostore" : why === "offline" ? "data-offline" : "data-unsent");
+      unsent(kept, why);
     });
   }
   form.addEventListener("submit", function (e) {
@@ -2083,8 +2091,10 @@ var blockPages = null;
     if (back && i > 0) {
       e.preventDefault();
       var b = body(current, { back: 1 });
-      // without a connection kept in the queue like "Next", replacing an older copy of the page there (A4)
-      serial(b).catch(function () { enqueue(b); });
+      move++;
+      // without a connection kept in the queue like "Next", replacing an older copy of the page there (A4), and
+      // said so as there
+      serial(b).catch(function (why) { unsent(enqueue(b), why); });
       show(pages[i - 1]);
       return;
     }
