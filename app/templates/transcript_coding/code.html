@@ -100,7 +100,7 @@
 {# what a click on a coded passage shows #}
 <div class="tc-pop" data-tc-info hidden role="dialog" aria-label="{{ de_en('Kodierte Stelle', 'Coded passage') }}"></div>
 
-<script type="application/json" id="tc-data">{{ {"text": text, "pos": line_pos, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable, "suggestions": suggestions}|tojson }}</script>
+<script type="application/json" id="tc-data">{{ {"text": text, "pos": line_pos, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable, "examples": examples, "suggestions": suggestions}|tojson }}</script>
 <script src="{{ url_for('static', filename='transcript_coding_code.js') }}" defer></script>
 {{ memo_dialog(survey, project, who, memos) }}
 {% endblock %}

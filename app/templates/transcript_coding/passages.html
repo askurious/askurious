@@ -16,8 +16,8 @@
   <ul class="tc-passages">
   {% for r, c in rows %}
     <li><p>„{{ c.quote }}“</p>
-      <p class="muted small">{% if wanted|length > 1 %}<strong>{{ names.get(c.cat, "") }}</strong> · {% endif %}{{ de_en("Interview {label}", "Interview {label}", label=r.interview.label) }} · {{ c.by_name }}
-        · <a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("im Transkript", "in the transcript") }}</a></p></li>
+      <p class="muted small">{% if wanted|length > 1 %}<strong>{{ names.get(c.cat, "") }}</strong> · {% endif %}{{ where.get(c.id) or de_en("Interview {label}", "Interview {label}", label=r.interview.label) }} · {{ c.by_name }}
+        · <a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id, at=c.start ~ '-' ~ c.end) }}">{{ de_en("im Transkript", "in the transcript") }}</a></p></li>
   {% endfor %}
   </ul>
   {% else %}<p class="muted">{{ de_en("Noch keine Stellen in dieser Kategorie.", "No passages in this category yet.") }}</p>{% endif %}

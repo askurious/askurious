@@ -84,15 +84,15 @@ def test_excel_category_system_and_passages(app, client):
     assert "kategoriensystem-" in r.headers["Content-Disposition"] and ".xlsx" in r.headers["Content-Disposition"]
     (name1, system, root1), (name2, passages, _root2) = _sheets(r.data)
     assert (name1, name2) == ("Kategoriensystem", "Stellen")
-    assert system[0] == ["Nummer", "Ebene", "Kategorie", "Definition", "Ankerbeispiel", "Fundstelle des Ankers",
+    assert system[0] == ["Nummer", "Ebene", "Kategorie", "Definition", "Ankerbeispiel", "Fundstelle des Ankers", "Weitere Beispiele",
                          "Kodierregel / Abgrenzung", "Stellen", "Stellen mit Unterkategorien", "Früher auch"]
     by_name = {row[2]: row for row in system[1:]}
     assert [row[0] for row in system[1:4]] == ["1", "1.1", "1.1.1"] and by_name["Zweifel"][0] == "1.2"
     assert [by_name[n][1] for n in ("Belastung", "Müdigkeit", "Abends")] == ["1", "2", "3"]
     tired_row = by_name["Müdigkeit"]
     assert tired_row[4] == "Abends bin ich einfach fertig" and tired_row[5] == f"{label}, Pos. 2, 00:14:32"
-    assert tired_row[6] == "nicht: Krankheit" and tired_row[7:9] == ["1", "2"]   # itself, with the one below
-    assert by_name["Belastung"][4:6] == ["", ""] and by_name["Belastung"][8] == "3"  # no anchor: empty
+    assert tired_row[7] == "nicht: Krankheit" and tired_row[8:10] == ["1", "2"]   # itself, with the one below
+    assert by_name["Belastung"][4:6] == ["", ""] and by_name["Belastung"][9] == "3"  # no anchor: empty
     assert system[-1][:3] == ["", "Kandidat", "Geld"]                    # candidates at the end, without a number
     assert passages[0] == ["Nummer", "Kategorie", "Interview", "Fundstelle", "Zitat", "Kodiert von"]
     rows = {(row[1], row[4]): row for row in passages[1:]}

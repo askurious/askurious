@@ -7531,3 +7531,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ralf: Abspielen beim Korrigieren des Transkripts (app/static/transcript_player.js, templates/interview/transcript.html). Nur solange die Aufnahme da ist: Leiste über dem Text mit dem Absatz der Schreibmarke („Pos. n · ab hh:mm:ss“, gezählt wie in Kodieransicht und Exporten), „Hier abspielen“ (Absatzanfang = Zeitmarke des Absatzes davor, 2 s früher; der richtige Aufnahmeteil nach seiner Startzeit), Tempo 0,75/1/1,25 (Knöpfe 30 px), F4 oder Esc im Text = abspielen/anhalten, weiter 2 s früher.
 - Absatznummern im Editor als Anzeige der Schreibmarke (ein Textfeld kann keine Randnummern tragen); Strg+Leertaste nicht genommen (schaltet auf manchen Systemen die Eingabesprache).
 - Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (keine neuen Daten, nur Anzeige der vorhandenen Aufnahme).
+
+## 2026-10-29: Kodieren – weitere Beispiele, Zitate ohne Zeitmarken, Zwischenspeicher, Fundstellen
+
+- Ralf: bis zu zwei weitere Beispiele je Kategorie (Spalte coding_category.examples, Migration 0110, ROLLING = True), in der Kodieransicht „Als weiteres Beispiel“ wählbar wie das Ankerbeispiel, sonst die ersten Stellen; im Word-Kodierleitfaden und als Spalte „Weitere Beispiele“ im Excel, mit Fundstelle. Sie gehen mit der Stelle und dem Interview.
+- Zitate in den Exporten (Excel, Kodierleitfaden, .qdpx-Namen, Memo-Liste) ohne Dresing-&-Pehl-Zeitmarken (transcript_coding_view.clean_quote).
+- placed() einmal je Anfrage zwischengespeichert (g.tc_placed, beim Speichern von Kodierungen verworfen); Übersicht und Exporte platzieren jede Stelle nur noch einmal.
+- „Stellen je Kategorie“ zeigt die Fundstelle und springt zur Stelle. Fundstellen im Transkript-Editor folgen mit dem Player-PR (Absatznummern dort).
+- Handbuch (de/en) und Datenschutzkonzept (weitere Beispiele bei Daten und Löschung) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.

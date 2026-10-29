@@ -25,7 +25,7 @@ from app.lang import de_en, english
 from app.models import CodingCategory, CodingMemo, Response, utcnow
 from app.timeutil import fmt
 from app.transcript_coding import _in, bp, interviews, signed_in_or_coder, tree
-from app.transcript_coding_view import codings, paragraphs, placed, spot, transcript
+from app.transcript_coding_view import clean_quote, codings, paragraphs, placed, spot, transcript
 
 TEXT_MAX = 4000
 KEEP_DELETED = timedelta(days=1)
@@ -189,7 +189,7 @@ def targets(project, memos):
                 c = next((c for c in placed(row, project)[0] if c.get("id") == memo.coding_id), None)
                 if c is not None:
                     text = transcript(row)
-                    entry.update(where=spot(label, text, c["start"], paragraphs(text)), quote=" ".join(c.get("quote", "").split()),
+                    entry.update(where=spot(label, text, c["start"], paragraphs(text)), quote=clean_quote(c.get("quote")),
                                  category=names.get(c["cat"], ""), number=number.get(c["cat"], ""), cat=c["cat"])
             elif row is not None:
                 entry["where"] = label
