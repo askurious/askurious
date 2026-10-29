@@ -3,7 +3,7 @@ const source = fs.readFileSync('app/static/participant-voice.js', 'utf8');
 async function check(fallback, api, errorName) {
   const nodes = new Map();
   function node(key) { if (!nodes.has(key)) nodes.set(key,{hidden:true,value:'',textContent:'',addEventListener(type, fn){this[type]=fn;},getAttribute(){return null;}}); return nodes.get(key); }
-  const box = {querySelector(key){return key === '.p-voice-text .p-hint' && !fallback ? null : node(key);},closest(){return {};},getAttribute(){return '60';},classList:{contains(){return false;}}};
+  const box = {querySelector(key){return key === '.p-voice-text .p-hint' && !fallback ? null : node(key);},closest(){return {};},getAttribute(){return '60';},hasAttribute(){return false;},classList:{contains(){return false;}}};
   const doc = {querySelectorAll(){return [box];},addEventListener(){}};
   const ctx = {document:doc,window:{MediaRecorder:api,DataTransfer:api},MediaRecorder:{isTypeSupported(){return true;}},navigator:{mediaDevices:{getUserMedia(){return Promise.reject({name:errorName});}}},uiT(de,en){return en;}};
   vm.runInNewContext(source,ctx);

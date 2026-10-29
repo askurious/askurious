@@ -2,7 +2,7 @@
 // like the server with ok false and a message, so every caller says it and frees its buttons (UI/UX audit
 // 2026-10-29, WQ-10).
 const fs = require('node:fs'), vm = require('node:vm'), assert = require('node:assert/strict');
-const src = fs.readFileSync('app/static/transcript_coding_code.js', 'utf8');
+const src = fs.readFileSync('app/static/transcript_coding_code.js', 'utf8').replace(/\r\n/g, '\n');  // also in a CRLF checkout
 const start = src.indexOf('  function post(url, body) {');
 const post = src.slice(start, src.indexOf('\n  }\n', start) + 4);
 const ctx = { csrf: 'x', JSON, de_en: (de, en) => en, fetch: () => Promise.reject(new TypeError('Failed to fetch')) };
