@@ -14,10 +14,12 @@
   </label>
 </div>
 {% else %}
-<div class="p-voice" data-voice data-max="{{ kind.max_seconds(item) }}">
+{# in the diary app the permission lives in the app's settings, not in a browser (UI/UX audit 2026-10-29, AND-09) #}
+{% set in_app_view = in_app is defined and in_app %}
+<div class="p-voice" data-voice data-max="{{ kind.max_seconds(item) }}"{% if in_app_view %} data-in-app{% endif %}>
   {% include "items/_question.html" %}
   {% if not kind.text_fallback(item) %}
-  <p class="p-hint">{% if item.required %}{{ ui("Diese Pflichtfrage benötigt eine Sprachaufnahme. Sie brauchen ein Mikrofon und müssen den Zugriff im Browser erlauben. Ohne Aufnahme können Sie nicht weitergehen. Zum Beenden der Teilnahme schließen Sie diese Seite.", "This required question needs a voice recording. You need a microphone and must allow browser access. You cannot continue without a recording. To stop taking part, close this page.") }}{% else %}{{ ui("Ohne Aufnahme können Sie diese Frage mit „Weiter“ überspringen.", "Without a recording, you can skip this question with “Next”.") }}{% endif %}</p>
+  <p class="p-hint">{% if item.required and in_app_view %}{{ ui("Diese Pflichtfrage benötigt eine Sprachaufnahme. Sie brauchen ein Mikrofon und müssen den Mikrofonzugriff in den Einstellungen der App erlauben. Ohne Aufnahme können Sie nicht weitergehen. Zum Beenden der Teilnahme schließen Sie diese Seite.", "This required question needs a voice recording. You need a microphone and must allow microphone access in the app’s settings. You cannot continue without a recording. To stop taking part, close this page.") }}{% elif item.required %}{{ ui("Diese Pflichtfrage benötigt eine Sprachaufnahme. Sie brauchen ein Mikrofon und müssen den Zugriff im Browser erlauben. Ohne Aufnahme können Sie nicht weitergehen. Zum Beenden der Teilnahme schließen Sie diese Seite.", "This required question needs a voice recording. You need a microphone and must allow browser access. You cannot continue without a recording. To stop taking part, close this page.") }}{% else %}{{ ui("Ohne Aufnahme können Sie diese Frage mit „Weiter“ überspringen.", "Without a recording, you can skip this question with “Next”.") }}{% endif %}</p>
   {% endif %}
   {% set notice = item.text("notice", lang) %}
   {% if notice %}<p class="p-hint p-voice-notice"{{ text_attrs(item, "notice") }}>{{ notice|inline(variables) }}</p>{% endif %}

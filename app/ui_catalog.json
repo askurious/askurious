@@ -18148,5 +18148,31 @@
   "nl": "Alle antwoorden zijn verzonden.",
   "pt": "Todas as respostas foram enviadas.",
   "ar": "أُرسلت جميع الإجابات."
+ },
+ "This required question needs a voice recording. You need a microphone and must allow microphone access in the app’s settings. You cannot continue without a recording. To stop taking part, close this page.": {
+  "es": "Esta pregunta obligatoria requiere una grabación de voz. Necesita un micrófono y permitir el acceso al micrófono en los ajustes de la aplicación. No puede continuar sin grabación. Para dejar de participar, cierre esta página.",
+  "fr": "Cette question obligatoire nécessite un enregistrement vocal. Vous avez besoin d’un microphone et devez autoriser l’accès au microphone dans les réglages de l’application. Vous ne pouvez pas continuer sans enregistrement. Pour arrêter votre participation, fermez cette page.",
+  "it": "Questa domanda obbligatoria richiede una registrazione vocale. Serve un microfono e occorre autorizzare l’accesso al microfono nelle impostazioni dell’app. Non può continuare senza una registrazione. Per interrompere la partecipazione, chiuda questa pagina.",
+  "pl": "To obowiązkowe pytanie wymaga nagrania głosowego. Potrzebny jest mikrofon i zgoda na dostęp do mikrofonu w ustawieniach aplikacji. Bez nagrania nie można kontynuować. Aby przerwać udział, należy zamknąć tę stronę.",
+  "ru": "Этот обязательный вопрос требует голосовой записи. Нужен микрофон и разрешение на доступ к микрофону в настройках приложения. Без записи продолжить нельзя. Чтобы прекратить участие, закройте эту страницу.",
+  "tr": "Bu zorunlu soru ses kaydı gerektirir. Bir mikrofonunuz olmalı ve uygulamanın ayarlarında mikrofon erişimine izin vermelisiniz. Kayıt olmadan devam edemezsiniz. Katılımı bırakmak için bu sayfayı kapatın.",
+  "zh-Hans": "此必答题需要录音。您需要麦克风，并在应用设置中允许访问麦克风。没有录音无法继续。如需停止参与，请关闭此页面。",
+  "nl": "Deze verplichte vraag vereist een spraakopname. U hebt een microfoon nodig en moet in de instellingen van de app toegang tot de microfoon geven. Zonder opname kunt u niet verder. Sluit deze pagina om uw deelname te stoppen.",
+  "pt": "Esta pergunta obrigatória exige uma gravação de voz. Precisa de um microfone e de permitir o acesso ao microfone nas definições da aplicação. Não pode continuar sem gravação. Para interromper a participação, feche esta página.",
+  "ar": "يتطلب هذا السؤال الإلزامي تسجيلًا صوتيًا. تحتاج إلى ميكروفون والسماح بالوصول إليه في إعدادات التطبيق. لا يمكنك المتابعة دون تسجيل. لإنهاء مشاركتك، أغلق هذه الصفحة.",
+  "de-du": "Diese Pflichtfrage benötigt eine Sprachaufnahme. Du brauchst ein Mikrofon und musst den Mikrofonzugriff in den Einstellungen der App erlauben. Ohne Aufnahme kannst du nicht weitergehen. Zum Beenden der Teilnahme schließe diese Seite."
+ },
+ "Recording failed. Check your microphone and the microphone permission in the app’s settings and try again.": {
+  "es": "La grabación falló. Compruebe el micrófono y el permiso del micrófono en los ajustes de la aplicación e inténtelo de nuevo.",
+  "fr": "L’enregistrement a échoué. Vérifiez le microphone et l’autorisation du microphone dans les réglages de l’application, puis réessayez.",
+  "it": "La registrazione non è riuscita. Controlli il microfono e il permesso del microfono nelle impostazioni dell’app e riprovi.",
+  "pl": "Nagrywanie nie powiodło się. Proszę sprawdzić mikrofon i uprawnienie do mikrofonu w ustawieniach aplikacji, a następnie spróbować ponownie.",
+  "ru": "Не удалось записать звук. Проверьте микрофон и разрешение на микрофон в настройках приложения и повторите попытку.",
+  "tr": "Kayıt başarısız oldu. Mikrofonu ve uygulamanın ayarlarındaki mikrofon iznini kontrol edip tekrar deneyin.",
+  "zh-Hans": "录音失败。请检查麦克风以及应用设置中的麦克风权限，然后重试。",
+  "nl": "Opnemen is mislukt. Controleer uw microfoon en de microfoontoestemming in de instellingen van de app en probeer het opnieuw.",
+  "pt": "A gravação falhou. Verifique o microfone e a permissão do microfone nas definições da aplicação e tente novamente.",
+  "ar": "فشل التسجيل. تحقق من الميكروفون وإذن الميكروفون في إعدادات التطبيق وحاول مرة أخرى.",
+  "de-du": "Aufnahme fehlgeschlagen. Prüfe Mikrofon und Mikrofonfreigabe in den Einstellungen der App und versuche es erneut."
  }
 }
