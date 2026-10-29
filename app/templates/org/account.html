@@ -24,6 +24,32 @@
     <input name="valid_n" type="number" min="1" max="520" aria-label="{{ de_en('Anzahl', 'Number') }}"> <input name="valid_date" type="date" aria-label="{{ de_en('Enddatum', 'End date') }}">
     <button class="button button-secondary button-small">{{ de_en("Laufzeit ändern", "Change period") }}</button></form>
 
+  {# Betreuung: set or changed later (Ralf 2026-10-29), as on the admin's account page; shown for a type with
+     supervision, or while someone still supervises (so they can be taken out) #}
+  {% if (current_type and current_type.supervised) or supervisors %}
+  <div class="supervisor-pick" id="betreuung">
+    <h3>{{ de_en("Betreuung", "Supervisors") }} <span class="hint">{{ de_en("Personen dieser Organisation; jede wird Admin in jeder Befragung, die die Person neu anlegt, und bekommt die Nachricht vor dem Ende", "people of this organisation; each becomes admin of every survey the person newly creates and gets the notice before the end") }}</span></h3>
+    <ul class="supervisor-list">
+    {% for s in supervisors %}
+      <li>{{ s.display_name }}
+        <form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="supervisor_remove"><input type="hidden" name="supervisor" value="{{ s.id }}">
+          <button class="icon-btn" title="{{ de_en('Aus der Betreuung nehmen', 'Remove from the supervisors') }}" aria-label="{{ de_en('{n} aus der Betreuung nehmen', 'Remove {n} from the supervisors', n=s.display_name) }}">{{ icon("x", 14) }}</button></form></li>
+    {% else %}<li class="muted">{{ de_en("noch niemand", "nobody yet") }}</li>{% endfor %}
+    </ul>
+    {% if supervisor_choices and current_type and current_type.supervised %}
+    {% set many = supervisor_choices|length > 10 %}
+    <label for="supervisor">{{ de_en("Person hinzufügen", "Add a person") }}</label>
+    {% if many %}<input type="search" data-filter-select="supervisor" data-filter-keep placeholder="{{ de_en('Name suchen …', 'Search name …') }}" aria-label="{{ de_en('Personen für die Betreuung durchsuchen', 'Search people for the supervisors') }}" autocomplete="off">{% endif %}
+    <form method="post" aria-label="{{ de_en('Betreuung hinzufügen', 'Add a supervisor') }}">
+      {{ csrf() }}<input type="hidden" name="action" value="supervisor">
+      <select id="supervisor" name="supervisor" data-submit-on-change{% if many %} size="6"{% endif %}>{% if not many %}<option value="">{{ de_en("– wählen –", "– choose –") }}</option>{% endif %}
+        {% for u in supervisor_choices %}<option value="{{ u.id }}">{{ u.display_name }}</option>{% endfor %}</select>
+      <noscript><button class="button button-secondary button-small">{{ de_en("Hinzufügen", "Add") }}</button></noscript>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <h3>{{ de_en("Befragungstypen", "Survey types") }} <span class="hint">{{ de_en("höchstens, was die Organisation erlaubt; „Anlegen“: auch eigene Befragungen der Art anlegen", "at most what the organisation allows; “Create”: also create own surveys of the type") }}</span></h3>
   {% for k in kind_keys %}
   <form method="post" class="inline button-row">{{ csrf() }}<input type="hidden" name="action" value="kind"><input type="hidden" name="kind" value="{{ k }}">
