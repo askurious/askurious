@@ -41,7 +41,14 @@
     return fetch(url, { method: "POST", credentials: "same-origin",
                         headers: { "Content-Type": "application/json", "X-CSRFToken": csrf, "X-Requested-With": "fetch" },
                         body: JSON.stringify(body || {}) })
-      .then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
+      .then(function (r) { return r.json().catch(function () { return { ok: false }; }); },
+            // no connection: an answer like the server's, so every caller says it and frees its buttons (UI/UX audit
+            // 2026-10-29, WQ-10); whether it arrived is open, the list of codings shows it after a reload
+            function () {
+              return { ok: false, network: true,
+                       error: de_en("Nicht gespeichert: Verbindung unterbrochen. Bitte erneut versuchen.",
+                                    "Not saved: the connection broke off. Please try again.") };
+            });
   }
 
   // --- drawing --------------------------------------------------------------------------------------------------
@@ -264,7 +271,11 @@
     var m = selection;
     closePop();
     post(root.getAttribute("data-add-url"), { start: m.start, end: m.end, cat: catId }).then(function (d) {
-      if (!d.ok) { say(d.error || de_en("Nicht gespeichert.", "Not saved.")); return; }
+      if (!d.ok) {
+        if (d.network) selection = m;  // the passage stays marked: choosing the category again tries once more
+        say(d.error || de_en("Nicht gespeichert.", "Not saved."));
+        return;
+      }
       remember(catId);
       codings.push(d.coding);
       codings.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
@@ -456,7 +467,7 @@
 
   function removeCoding(id) {
     post(base + "/" + id + "/delete").then(function (d) {
-      if (!d.ok) { say(de_en("Nicht entfernt.", "Not removed.")); return; }
+      if (!d.ok) { say(d.network ? d.error : de_en("Nicht entfernt.", "Not removed.")); return; }
       var gone = codings.filter(function (c) { return c.id === id; })[0];
       codings = codings.filter(function (c) { return c.id !== id; });
       if (gone) { var k = catOf(gone.cat); if (k) k.n = Math.max(0, k.n - 1); if (anchors[String(gone.cat)] === id) delete anchors[String(gone.cat)]; }
@@ -478,7 +489,7 @@
     undoBox.textContent = de_en("Rückgängig", "Undo");
     undoBox.addEventListener("click", function () {
       post(suggUrl.replace("ACTION", "undo"), { ids: ids }).then(function (d) {
-        if (d.ok) location.reload();
+        if (d.ok) location.reload(); else say(d.error || de_en("Nicht zurückgenommen.", "Not undone."));
       });
     });
     status.appendChild(document.createTextNode(" "));
@@ -487,7 +498,7 @@
   function suggestionAction(action, body) {
     var chosen = sugg.filter(function (c) { return body.ids ? body.ids.indexOf(c.id) >= 0 : c.cat === body.cat; });
     post(suggUrl.replace("ACTION", action), body).then(function (d) {
-      if (!d.ok) { say(de_en("Nicht gespeichert.", "Not saved.")); return; }
+      if (!d.ok) { say(d.network ? d.error : de_en("Nicht gespeichert.", "Not saved.")); return; }
       var ids = chosen.map(function (c) { return c.id; });
       sugg = sugg.filter(function (c) { return ids.indexOf(c.id) < 0; });
       if (action === "accept") {
