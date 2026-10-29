@@ -551,6 +551,16 @@ def similar(project, name, limit=5):
     return sorted(found, key=lambda f: -f[1])[:limit]
 
 
+def guarded(project):
+    """"Fremde Kategorien verschieben und zusammenführen nur Team und Autor" (a setting of the analysis, off by
+    default; Ralf 2026-10-29): then the others propose moving and merging, as they propose changes."""
+    return bool((project.settings or {}).get("guarded"))
+
+
+def own_or_team(cat, who):
+    return who.team or (bool(cat.author_key) and cat.author_key == who.key)
+
+
 def may_create_main(project, who):
     return who.team or not project.mains_fixed
 
@@ -730,8 +740,13 @@ def may_move(project, cat, who):
     level (making something a main category, putting a main category below another) is the team's while the main
     categories are fixed, else also the author's (Ralf 2026-10-28)."""
     if cat.kind == CodingCategory.SUB:
-        return True
+        return not guarded(project) or own_or_team(cat, who)
     return who.team or (not project.mains_fixed and may_edit(project, cat, who))
+
+
+def may_propose_move(project, cat, who):
+    """With the setting `guarded`: someone else's subcategory is moved by proposing it."""
+    return cat.kind == CodingCategory.SUB and guarded(project) and not own_or_team(cat, who)
 
 
 def drop_data(project, who, mains, candidates):
@@ -745,9 +760,10 @@ def drop_data(project, who, mains, candidates):
         cats[str(c.id)] = {"id": c.id, "name": c.name, "kind": c.kind, "level": c.level, "anc": c.anc, "parent": c.parent_id,
                            "definition": c.definition, "delimitation": c.delimitation,
                            "anchor": (c.anchor or {}).get("quote", ""), "n": st.get(c.id, {}).get("n", 0),
-                           "move": may_move(project, c, who), "author": bool(c.author_key) and c.author_key == who.key}
+                           "move": may_move(project, c, who) or may_propose_move(project, c, who),
+                           "propose": may_propose_move(project, c, who), "author": bool(c.author_key) and c.author_key == who.key}
     return {"cats": cats, "team": who.team, "fixed": bool(project.mains_fixed), "max": MAX_DEPTH,
-            "may_main": may_create_main(project, who)}
+            "may_main": may_create_main(project, who), "guarded": guarded(project)}
 
 
 def move_targets(project, cat, who, mains):
@@ -839,6 +855,37 @@ def propose(project, cat, who, values, reason=""):
     return None
 
 
+def propose_move(project, cat, who, parent_id, reason=""):
+    """A proposed move of someone else's subcategory (setting `guarded`); the checks of move() first, so that only
+    what could be done is proposed."""
+    if open_proposals(project, cat.id, who.key):
+        return de_en("Sie haben hier schon einen offenen Vorschlag.", "You already have an open proposal here.")
+    cats = {c.id: c for c in live(project)}
+    parent = cats.get(parent_id) if parent_id is not None else None
+    if parent is None or parent.kind == CodingCategory.CANDIDATE or parent.id == cat.parent_id:
+        return de_en("Bitte die Kategorie wählen, unter die sie kommt.", "Please choose the category to put it under.")
+    if parent.id in subtree(project, cat):
+        return de_en("Nicht unter sich selbst oder etwas, das darunter steht.", "Not under itself or something below it.")
+    if level_of(parent, cats) + height(project, cat) > MAX_DEPTH:
+        return de_en("Dann stünde etwas tiefer als {n} Ebenen.", "Something would then stand deeper than {n} levels.", n=MAX_DEPTH)
+    tree(project)
+    _event(project, who, "proposal", cat, {"move": {"parent": parent.id, "where": getattr(parent, "path", parent.name)}},
+           reason=reason, status="open")
+    return None
+
+
+def propose_merge(project, source, target, who, reason="", values=None):
+    """A proposed merge of someone else's subcategory into another one (setting `guarded`)."""
+    if open_proposals(project, source.id, who.key):
+        return de_en("Sie haben hier schon einen offenen Vorschlag.", "You already have an open proposal here.")
+    if not " ".join(str(reason or "").split()):
+        return de_en("Bitte eine Begründung angeben.", "Please give a reason.")
+    keep = {k: str(v)[:4000] for k, v in (values or {}).items() if k in ("name", "definition", "delimitation", "anchor") and v}
+    _event(project, who, "proposal", source, {"merge": {"target": target.id, "target_name": target.name, "values": keep}},
+           reason=" ".join(str(reason).split())[:1000], status="open")
+    return None
+
+
 def open_proposals(project, cat_id=None, actor_key=None):
     query = db.select(CodingEvent).filter_by(project_id=project.id, kind="proposal", status="open")
     if cat_id is not None:
@@ -856,7 +903,19 @@ def decide(project, event, who, accept):
     if not may_edit(project, cat, who):
         abort(403)
     if accept:
-        problem = change(project, cat, who, dict((event.data or {}).get("proposed") or {}))
+        data = event.data or {}
+        if data.get("move"):  # a proposed move (setting `guarded`)
+            problem = move(project, cat, who, data["move"].get("parent"))
+        elif data.get("merge"):  # a proposed merge
+            from app.transcript_coding_review import merge
+
+            target = db.session.get(CodingCategory, data["merge"].get("target") or 0)
+            if target is None or target.project_id != project.id or target.removed_at or target.merged_into:
+                return de_en("Die Zielkategorie gibt es nicht mehr.", "The target category no longer exists.")
+            problem = merge(project, cat, target, who, event.reason or data["merge"].get("target_name", ""),
+                            dict(data["merge"].get("values") or {}) or None)
+        else:
+            problem = change(project, cat, who, dict(data.get("proposed") or {}))
         if problem:
             return problem
     event.status = "accepted" if accept else "declined"
@@ -948,7 +1007,11 @@ def event_text(event, names):
             "removed": de_en("entfernt „{name}“", "removes “{name}”", name=name),
             "restored": de_en("holt „{name}“ zurück", "restores “{name}”", name=name),
             "promoted": de_en("übernimmt „{name}“ als Hauptkategorie", "takes “{name}” on as a main category", name=name),
-            "proposal": de_en("schlägt eine Änderung an „{name}“ vor", "proposes a change to “{name}”", name=name),
+            "proposal": (de_en("schlägt vor, „{name}“ unter „{where}“ zu hängen", "proposes to put “{name}” under “{where}”",
+                               name=name, where=(data.get("move") or {}).get("where", "")) if data.get("move") else
+                         de_en("schlägt vor, „{name}“ mit „{target}“ zusammenzuführen", "proposes to merge “{name}” with “{target}”",
+                               name=name, target=(data.get("merge") or {}).get("target_name", "")) if data.get("merge") else
+                         de_en("schlägt eine Änderung an „{name}“ vor", "proposes a change to “{name}”", name=name)),
             "accepted": de_en("übernimmt den Vorschlag zu „{name}“", "takes on the proposal for “{name}”", name=name),
             "declined": de_en("lehnt den Vorschlag zu „{name}“ ab", "declines the proposal for “{name}”", name=name),
             "undone": de_en("nimmt den letzten Schritt an „{name}“ zurück", "takes back the last step on “{name}”", name=name),
@@ -1118,6 +1181,7 @@ def project(code, pid):
                        c for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id])))
     from app import transcript_coding_memos
 
+    context.update(guarded=guarded(project), may_propose_move=lambda c: may_propose_move(project, c, who))
     cat_memos = transcript_coding_memos.visible(project, who, kind=CodingMemo.CATEGORY)
     context.update(memos=[transcript_coding_memos.as_json(m, who) for m in cat_memos],
                    memo_counts=transcript_coding_memos.counts(cat_memos))
@@ -1178,6 +1242,8 @@ def settings(code, pid):
     project.question = _text(request.form.get("question"), QUESTION_MAX)
     project.visibility = CodingProject.OWN if request.form.get("visibility") == CodingProject.OWN else CodingProject.ALL
     project.mains_fixed = bool(request.form.get("mains_fixed"))
+    if request.form.get("has_guarded"):  # a form of before without the field leaves the setting as it is
+        project.settings = {**(project.settings or {}), "guarded": bool(request.form.get("guarded"))}
     project.updated_at = utcnow()
     db.session.commit()
     flash(de_en("Gespeichert.", "Saved."), "success")
@@ -1263,15 +1329,21 @@ def move_category(code, pid, cid):
     survey, project, who = _in(code, pid)
     cat = _category(project, cid)
     raw = str(request.form.get("parent", ""))
-    problem = move(project, cat, who, int(raw) if raw.isdigit() else None)
+    proposed = may_propose_move(project, cat, who)
+    if proposed:  # setting "only team and author": a proposal instead (Ralf 2026-10-29)
+        problem = propose_move(project, cat, who, int(raw) if raw.isdigit() else None, request.form.get("reason", ""))
+    else:
+        problem = move(project, cat, who, int(raw) if raw.isdigit() else None)
     if problem:
         db.session.rollback()
         flash(problem, "error")
     else:
         db.session.commit()
-        flash(de_en("„{name}“ umgehängt.", "“{name}” moved.", name=cat.name), "success")
+        flash(de_en("Vorschlag gesendet: „{name}“ umhängen. Team und Autor entscheiden.",
+                    "Proposal sent: move “{name}”. The team and the author decide.", name=cat.name) if proposed else
+              de_en("„{name}“ umgehängt.", "“{name}” moved.", name=cat.name), "success")
     if request.form.get("json"):
-        return jsonify(ok=not problem, error=str(problem or ""))
+        return jsonify(ok=not problem, error=str(problem or ""), **({"proposed": True} if proposed and not problem else {}))
     return redirect(_project_url(survey, project, f"k{cat.id}", view="categories"))
 
 

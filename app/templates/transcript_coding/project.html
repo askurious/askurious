@@ -49,6 +49,8 @@
     </fieldset>
     <label class="check"><input type="checkbox" name="mains_fixed" value="1" {% if project.mains_fixed %}checked{% endif %}> {{ de_en("Hauptkategorien festgelegt", "Main categories fixed") }} <span class="hint">{{ de_en("dann ändern nur Sie die Hauptkategorien; die Mitglieder legen Kandidaten an und schlagen Umbenennen oder eine schärfere Definition vor", "then only you change the main categories; the members add candidates and propose renaming or a sharper definition") }}</span></label>
     {{ why("mains_fixed") }}
+    <input type="hidden" name="has_guarded" value="1">
+    <label class="check"><input type="checkbox" name="guarded" value="1" {% if guarded %}checked{% endif %}> {{ de_en("Fremde Kategorien verschieben und zusammenführen nur Team und Autor", "Only the team and the author move and merge others' categories") }} <span class="hint">{{ de_en("dann schlagen die anderen Mitglieder Verschieben und Zusammenführen vor, wie eine Änderung; Sie oder wer die Kategorie angelegt hat, entscheiden", "then the other members propose moving and merging, like a change; you or whoever created the category decide") }}</span></label>
     {{ autosave_bar(quiet=true) }}
   </form>
   {% if ai_switch %}

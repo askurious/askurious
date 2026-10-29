@@ -166,8 +166,19 @@ def may_merge(project, source, target, who):
     if target.id in subtree(project, source):  # not into something below itself
         return False
     if source.kind == CodingCategory.SUB and target.kind == CodingCategory.SUB:
-        return True
+        from app.transcript_coding import guarded, own_or_team
+
+        # setting "only team and author": both categories have to be one's own (else it is proposed)
+        return not guarded(project) or (own_or_team(source, who) and own_or_team(target, who))
     return who.team and target.kind == CodingCategory.MAIN and source.kind in (CodingCategory.MAIN, CodingCategory.CANDIDATE)
+
+
+def may_propose_merge(project, source, target, who):
+    """Setting `guarded`: two subcategories of which one is someone else's are merged by proposing it."""
+    from app.transcript_coding import guarded, subtree
+
+    return (guarded(project) and source.kind == CodingCategory.SUB and target.kind == CodingCategory.SUB
+            and source.id != target.id and target.id not in subtree(project, source) and not may_merge(project, source, target, who))
 
 
 def own_codings(project, key, cat_ids):
@@ -339,6 +350,51 @@ def split_off(project, event, who):
     return new
 
 
+def changed_since(project, event):
+    """Whether the category of `event` was changed, moved, merged or removed after it (proposals and answers aside)."""
+    if not event.category_id:
+        return False
+    later = db.session.scalar(db.select(CodingEvent.id).where(
+        CodingEvent.project_id == project.id, CodingEvent.category_id == event.category_id, CodingEvent.id > event.id,
+        CodingEvent.kind.in_(("changed", "moved", "merged", "removed", "ordered", "undone", "unmerged"))).limit(1))
+    return later is not None
+
+
+def may_take_back_move(project, event, who):
+    """"Zurücknehmen" of a move in the history: the team, the category's author and whoever moved it (Ralf
+    2026-10-29), while it is not taken back yet."""
+    if event.kind != "moved" or (event.data or {}).get("undone"):
+        return False
+    cat = db.session.get(CodingCategory, event.category_id) if event.category_id else None
+    if cat is None or cat.removed_at is not None or cat.merged_into is not None:
+        return False
+    from app.transcript_coding import own_or_team
+
+    return own_or_team(cat, who) or event.actor_key == who.key
+
+
+def undo_move(project, event, who, force=False):
+    """Put a moved category back where it stood; with `force` also when it was changed since (the page asks first)."""
+    if not may_take_back_move(project, event, who):
+        abort(403)
+    if changed_since(project, event) and not force:
+        return de_en("Die Kategorie wurde seither weiter geändert; bitte bestätigen.", "The category was changed since; please confirm.")
+    from app.transcript_coding import MAX_DEPTH, _event, height, level_of, live, subtree, utcnow
+
+    cat = db.session.get(CodingCategory, event.category_id)
+    before = (event.data or {}).get("before") or {}
+    back = before.get("parent")
+    cats = {c.id: c for c in live(project)}
+    if back is not None and (back not in cats or back in subtree(project, cat)
+                             or level_of(cats[back], cats) + height(project, cat) > MAX_DEPTH):
+        return de_en("Der alte Platz ist nicht mehr frei.", "The old place is no longer free.")
+    cat.parent_id, cat.kind = back, before.get("kind") or cat.kind
+    cat.updated_at = utcnow()
+    event.data = {**(event.data or {}), "undone": True}
+    _event(project, who, "undone", cat, {"after": {"parent": cat.parent_id, "kind": cat.kind, "name": cat.name}}, reply_to=event.id)
+    return None
+
+
 def undo_merge(project, event, who):
     data = event.data or {}
     if event.kind != "merged" or data.get("undone"):
@@ -457,13 +513,13 @@ def map_svg(project, who, survey, interactive=False):
 
     from flask import url_for
 
-    from app.transcript_coding import may_move
+    from app.transcript_coding import may_move, may_propose_move
 
     def node(cat):  # on the page: a node to drag where the person may move it (app/static/transcript_coding.js)
         if not interactive:
             return "<g>"
         grab = (f' data-tc-grab="{cat.id}" data-tc-move-url="{escape(url_for("transcript_coding.move_category", code=survey.code, pid=project.id, cid=cat.id))}"'
-                if may_move(project, cat, who) else "")
+                if may_move(project, cat, who) or may_propose_move(project, cat, who) else "")
         return (f'<g class="tc-map-node" data-tc-cat="{cat.id}" data-tc-anc-of="{" ".join(str(a) for a in cat.anc)}"{grab}>'
                 f'<title>{escape(cat.path)}</title>')
 
@@ -602,7 +658,8 @@ def _context(survey, project, who):
     names = {c.id: c.name for c in db.session.scalars(db.select(CodingCategory).filter_by(project_id=project.id))}
     from app.transcript_coding import event_text
 
-    return dict(survey=survey, project=project, who=who, event_text=lambda e: event_text(e, names))
+    return dict(survey=survey, project=project, who=who, event_text=lambda e: event_text(e, names),
+                move_back=lambda e: may_take_back_move(project, e, who), changed_since=lambda e: changed_since(project, e))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/overview")
@@ -696,6 +753,19 @@ def merge_categories(code, pid):
         abort(404)
     values = {k: request.form.get(k) for k in ("name", "definition", "delimitation", "anchor") if k in request.form}
     names = (source.name, target.name)  # as they were, for the message
+    if may_propose_merge(project, source, target, who):  # setting "only team and author" (Ralf 2026-10-29)
+        from app.transcript_coding import propose_merge
+
+        problem = propose_merge(project, source, target, who, request.form.get("reason"), values)
+        if problem:
+            db.session.rollback()
+            flash(problem, "error")
+        else:
+            db.session.commit()
+            flash(de_en("Vorschlag gesendet: „{a}“ mit „{b}“ zusammenführen. Team und Autor entscheiden.",
+                        "Proposal sent: merge “{a}” with “{b}”. The team and the author decide.", a=names[0], b=names[1]), "success")
+        return redirect(request.form.get("back") if (request.form.get("back") or "").startswith("/") and not (request.form.get("back") or "").startswith("//")
+                        else url_for("transcript_coding.overview", code=survey.code, pid=project.id))
     problem = merge(project, source, target, who, request.form.get("reason"), values)
     if problem:
         db.session.rollback()
@@ -725,12 +795,18 @@ def answer(code, pid, eid, answer):
             db.session.commit()
         return redirect(url_for("transcript_coding.overview", code=survey.code, pid=project.id) + "#verlauf")
     if answer == "undo":
-        problem = undo_merge(project, event, who)
+        if event.kind == "moved":  # a move, taken back from the history (Ralf 2026-10-29)
+            problem = undo_move(project, event, who, force=bool(request.form.get("force")))
+            done = de_en("Verschieben zurückgenommen.", "Move taken back.")
+        else:
+            problem = undo_merge(project, event, who)
+            done = de_en("Zusammenführen zurückgenommen.", "Merge taken back.")
         if problem:
+            db.session.rollback()
             flash(problem, "error")
         else:
             db.session.commit()
-            flash(de_en("Zusammenführen zurückgenommen.", "Merge taken back."), "success")
+            flash(done, "success")
         return redirect(url_for("transcript_coding.overview", code=survey.code, pid=project.id))
     if event.kind not in ("merged", "changed", "moved") or _answered(project, event.id, who.key):
         abort(404)

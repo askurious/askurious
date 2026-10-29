@@ -61,7 +61,7 @@
     var a = catOf(drag.id), b = catOf(target.getAttribute("data-tc-cat"));
     if (!a || !b) return null;
     var how = edgeOf(target, y);
-    if (how !== "on" && !window.tcDrop.siblings(a, b)) how = "on";
+    if (how !== "on" && (!window.tcDrop.siblings(a, b) || a.propose)) how = "on";  // reordering others': not as a proposal
     if (how === "on" && (b.anc || []).indexOf(a.id) >= 0) return null;  // not onto something below itself
     return { el: target, how: how };
   }
@@ -162,7 +162,8 @@
     var h = window.tcDrop.hang(data, a, b), m = window.tcDrop.merge(data, a, b);
     hangForm.action = moveUrl || "";
     hangForm.elements.parent.value = b.id;
-    hangForm.querySelector("button").textContent = de_en("Unter „{b}“ hängen", "Put under “{b}”").replace("{b}", b.name);
+    hangForm.querySelector("button").textContent = (h.propose ? de_en("Unter „{b}“ hängen vorschlagen", "Propose to put under “{b}”")
+                                                    : de_en("Unter „{b}“ hängen", "Put under “{b}”")).replace("{b}", b.name);
     hangForm.querySelector("button").disabled = !h.ok || !moveUrl;
     hangForm.querySelector("[data-why]").textContent = h.why;
     f.elements.source.value = a.id;
@@ -174,7 +175,10 @@
     f.querySelector("input[name=anchor][value=target]").checked = true;
     f.querySelector("input[name=anchor][value=source]").disabled = !a.anchor;
     f.querySelectorAll("[data-take]").forEach(function (btn) { btn.setAttribute("data-from", a.id); });
-    f.querySelector("[data-tc-drop-merge-title]").textContent = de_en("Mit „{b}“ zusammenführen und vereinheitlichen", "Merge with “{b}” and harmonise").replace("{b}", b.name);
+    f.querySelector("[data-tc-drop-merge-title]").textContent = (m.propose ? de_en("Vorschlag: mit „{b}“ zusammenführen und vereinheitlichen", "Proposal: merge with “{b}” and harmonise")
+                                                                  : de_en("Mit „{b}“ zusammenführen und vereinheitlichen", "Merge with “{b}” and harmonise")).replace("{b}", b.name);
+    var mergeButton = f.querySelector("button:not([type=button])");
+    if (mergeButton) mergeButton.textContent = m.propose ? de_en("Vorschlag senden", "Send proposal") : de_en("Zusammenführen", "Merge");
     f.querySelectorAll("input, textarea, button").forEach(function (el) { if (!el.hasAttribute("data-keep")) el.disabled = !m.ok; });
     f.querySelector("[data-why]").textContent = m.why;
     if (!a.anchor) f.querySelector("input[name=anchor][value=source]").disabled = true;
