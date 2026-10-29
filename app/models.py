@@ -314,7 +314,9 @@ class InterviewerAccess(db.Model):
     `may_transcribe`, `may_code`) change on the page "Interviews" without a new link: the server reads them with every
     request, and neither the revision nor a session changes with them. Without `may_interview` the link only codes:
     no interview to begin, record or transcribe (the server refuses them). `may_code` (experimental "transcript_coding"):
-    "none", "own" (its own interviews) or "all" (all interviews of an analysis it is assigned to; Ralf 2026-10-28)."""
+    "none", "own" (its own interviews) or "all" (all interviews of an analysis it is assigned to; Ralf 2026-10-28).
+    `show_learning` ("Lernhilfen zeigen", on by default, Ralf 2026-10-29): its sessions see the learning aids
+    (app/learning.py, on) as a researcher with the switch on."""
 
     __tablename__ = "interviewer_access"
     CODE_NONE, CODE_OWN, CODE_ALL = "none", "own", "all"
@@ -331,6 +333,7 @@ class InterviewerAccess(db.Model):
     may_record: Mapped[bool] = mapped_column(default=True)
     may_transcribe: Mapped[bool] = mapped_column(default=True)
     may_code: Mapped[str] = mapped_column(String(8), default="none", server_default="none")
+    show_learning: Mapped[bool] = mapped_column(default=True, server_default="1")  # "Lernhilfen zeigen" (0108)
     max_devices: Mapped[int] = mapped_column(default=3)
     devices: Mapped[list | None] = mapped_column(JSON)
     hints_version: Mapped[str | None] = mapped_column(String(20))

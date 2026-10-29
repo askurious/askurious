@@ -44,7 +44,7 @@
     </div>
   </div>
   {% endif %}
-  {% if current_user.is_authenticated %}{{ why("transcript_check") }}{% endif %}
+  {% if current_user.is_authenticated or learning.on() %}{{ why("transcript_check") }}{% endif %}
   <form method="post" class="stack" data-autosave-form>
     {{ csrf() }}
     <textarea name="text" rows="24" class="transcript-text" aria-label="{{ de_en('Transkript', 'Transcript') }}">{{ st.text or "" }}</textarea>

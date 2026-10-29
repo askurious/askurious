@@ -75,13 +75,14 @@ def accesses(survey):
 
 
 def create(survey, name, days=DEFAULT_DAYS, devices=DEFAULT_DEVICES, may_record=True, may_transcribe=True, by=None,
-           may_code=InterviewerAccess.CODE_NONE, may_interview=True):
+           may_code=InterviewerAccess.CODE_NONE, may_interview=True, show_learning=True):
     """A new access; returns (access, key). The caller commits; the key is shown once."""
     key = secrets.token_urlsafe(32)
     access = InterviewerAccess(survey_id=survey.id, name=" ".join(str(name).split())[:80], token_hash=_digest(key),
                                revision=_revision(), may_interview=bool(may_interview),
                                may_record=bool(may_interview and may_record), may_transcribe=bool(may_interview and may_transcribe),
                                may_code=may_code if may_code in CODE_RIGHTS else InterviewerAccess.CODE_NONE,
+                               show_learning=bool(show_learning),
                                max_devices=max(1, min(int(devices), MAX_DEVICES)), devices=[],
                                created_by_id=getattr(by, "id", None), created_by_name=(getattr(by, "name", "") or "")[:200],
                                expires_at=utcnow() + timedelta(days=int(days)))
@@ -100,6 +101,11 @@ def _code_right(survey):
     if value not in CODE_RIGHTS or not experimental.enabled("transcript_coding", survey=survey):
         return None
     return value
+
+
+def _learning_right():
+    """"Lernhilfen zeigen" of the form; a form of before without the field ("has_learning") keeps them on."""
+    return bool(request.form.get("show_learning")) if request.form.get("has_learning") else True
 
 
 def _interview_right():
@@ -176,6 +182,9 @@ def current(survey):
         _forget(survey)
         return None
     _touch(survey, entry, access, devices[entry["d"]], now)
+    from flask import g
+
+    g.interviewer_learning = bool(access.show_learning)  # the learning aids of this request (app/learning.py, on)
     return access
 
 
@@ -382,7 +391,8 @@ def add(code):
     devices = _number("devices", DEFAULT_DEVICES, 1, MAX_DEVICES)
     made = [create(survey, name, days, devices, bool(request.form.get("may_record")),
                    bool(request.form.get("may_transcribe")), current_user,
-                   _code_right(survey) or InterviewerAccess.CODE_NONE, _interview_right()) for name in names]
+                   _code_right(survey) or InterviewerAccess.CODE_NONE, _interview_right(), _learning_right())
+            for name in names]
     db.session.commit()
     for _ in made:
         security_log.event("interviewer_access_created", account=current_user.id, target=survey.code)
@@ -441,6 +451,8 @@ def rights(code, aid):
     access.may_interview = _interview_right()
     access.may_record = access.may_interview and bool(request.form.get("may_record"))
     access.may_transcribe = access.may_interview and bool(request.form.get("may_transcribe"))
+    if request.form.get("has_learning"):
+        access.show_learning = _learning_right()
     may_code = _code_right(survey)
     if may_code is not None:
         access.may_code = may_code
@@ -468,6 +480,7 @@ def rights_all(code, aid):
     for access in accesses(survey):
         access.may_interview, access.may_record = source.may_interview, source.may_record
         access.may_transcribe = source.may_transcribe
+        access.show_learning = source.show_learning
         if coding:
             access.may_code = source.may_code
     step.done(undo.both("Rechte von „{name}“ für alle", "Rights of “{name}” for everyone", name=source.name), page="interviewers")

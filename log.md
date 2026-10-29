@@ -7504,3 +7504,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - κ als Lesehilfe mit Glossareintrag (Cohen 1960, Landis & Koch 1977) in „Übereinstimmung“ und „Vergleich“.
 - Die neuen Klappen gehören zum experimentellen Feature (REASON_FEATURES) und stehen im Glossar unter „Analyse“.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-29: Interviewlink „Lernhilfen zeigen“
+
+- Ralf: Interviewende ohne Konto sahen die „?“ an Kennzahlen und die Anfänger-Klappen nie (learning.on verlangte ein Konto), „Nicht mehr zeigen“ ging bei ihnen ins Leere. Neu: Recht „Lernhilfen zeigen“ am Interviewlink im Dialog „Interviewende hinzufügen“ und „Rechte ändern“, auch bei „Für alle Personen übernehmen“ und „Rückgängig“.
+- Migration 0108: Spalte interviewer_access.show_learning, server_default an (Ralf: auch bestehende Links an), ROLLING = True. Link, Revision, Geräte und Sitzungen bleiben.
+- learning.on() gilt für Sitzungen eines Links mit dem Haken wie für Forschende mit eingeschaltetem Schalter; ohne den Haken zeigen sie keine Klappe. „Nicht mehr zeigen“ nur mit Konto (learning.may_hide). Die Klappen zu Aufnahme, Teilnehmerbildschirm und Transkriptprüfung, bisher nur für Angemeldete, sehen jetzt auch Links mit dem Haken.
+- Handbuch (de/en) beim Dialog „Rechte ändern“ ergänzt. Rechtstexte geprüft, keine Änderung nötig.
