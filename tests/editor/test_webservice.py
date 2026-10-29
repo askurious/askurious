@@ -183,3 +183,18 @@ def test_a_placeholder_outside_quotes_takes_only_a_json_scalar():
     assert json.loads(webservice.fill_body(body, {"a": "true", "b": "-3e2"})) == \
         {"n": True, "m": -300.0, "k": None, "s": "true"}
     assert json.loads(webservice.fill_body('{"q": "\\"{{a}}\\""}', {"a": "x"})) == {"q": '"x"'}  # escaped quotes
+
+
+def test_answers_with_odd_numbers_or_deep_nesting_are_a_failed_call(monkeypatch):
+    """NaN, Infinity, "1e400" and JSON nested deeper than the parser goes give no value and no error page, in the
+    participants' call and in the editor's test call (audit 2026-10-28, F01)."""
+    node = {"url": URL, "method": "GET", "values": [{"name": "temp", "path": "v", "kind": "number"}]}
+    answers = iter([b'{"v": NaN}', b'{"v": Infinity}', b'{"v": "1e400"}', b'{"v": "nan"}', b'{"v": 1e16}',
+                    b'[' * 100_000 + b']' * 100_000, b'{"v": 12.5}'])
+    monkeypatch.setattr(webservice, "fetch", lambda *a, **k: (200, next(answers)))
+    got = [webservice.call(node, {}) for _ in range(6)]
+    assert [g["ok"] for g in got] == [0] * 6 and all(g["v"].get("temp", "") == "" for g in got)
+    assert webservice.call(node, {})["v"] == {"temp": 12.5}
+    monkeypatch.setattr(webservice, "fetch", lambda *a, **k: (200, b'[' * 100_000 + b']' * 100_000))
+    out = webservice.test(node, {})
+    assert out["err"] and out["v"] == {}

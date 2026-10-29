@@ -411,18 +411,43 @@ def role(path, unit=None):
     return " · ".join(out) or path
 
 
-def diff_html(old, new):
-    """Word diff of the source then and now: removed words struck, new ones marked."""
+# Work of the word diff, counted as words before times words after (what SequenceMatcher compares at most): one
+# field at most DIFF_WORK (about 0.1 s of CPU), one page at most PAGE_DIFF_WORK; beyond that the changed middle is
+# shown as removed and new as a whole. Measured 2026-10-29: 1.4 million in 0.11 s, 64 million in 5 s.
+DIFF_WORK = 1_500_000
+PAGE_DIFF_WORK = 6_000_000
+
+
+def diff_html(old, new, budget=None):
+    """Word diff of the source then and now: removed words struck, new ones marked. The common start and end are
+    kept as they are; the middle is compared word by word within DIFF_WORK and what is left of `budget` (a list with
+    one number, shared by the fields of one page, lowered here), else shown as removed and new as a whole."""
     a, b = re.findall(r"\S+|\s+", old or ""), re.findall(r"\S+|\s+", new or "")
-    out = []
-    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+    start = 0
+    while start < len(a) and start < len(b) and a[start] == b[start]:
+        start += 1
+    end = 0
+    while end < len(a) - start and end < len(b) - start and a[-1 - end] == b[-1 - end]:
+        end += 1
+    mid_a, mid_b = a[start:len(a) - end], b[start:len(b) - end]
+    out = [str(escape("".join(a[:start])))]
+    work = len(mid_a) * len(mid_b)
+    left = DIFF_WORK if budget is None else min(DIFF_WORK, budget[0])
+    if work <= left:
+        if budget is not None:
+            budget[0] -= work
+        ops = difflib.SequenceMatcher(None, mid_a, mid_b, autojunk=False).get_opcodes()
+    else:
+        ops = [("replace", 0, len(mid_a), 0, len(mid_b))]
+    for op, i1, i2, j1, j2 in ops:
         if op == "equal":
-            out.append(str(escape("".join(a[i1:i2]))))
+            out.append(str(escape("".join(mid_a[i1:i2]))))
             continue
         if i2 > i1:
-            out.append(f"<del>{escape(''.join(a[i1:i2]))}</del>")
+            out.append(f"<del>{escape(''.join(mid_a[i1:i2]))}</del>")
         if j2 > j1:
-            out.append(f"<ins>{escape(''.join(b[j1:j2]))}</ins>")
+            out.append(f"<ins>{escape(''.join(mid_b[j1:j2]))}</ins>")
+    out.append(str(escape("".join(a[len(a) - end:]))))
     return Markup("".join(out))
 
 
@@ -482,6 +507,7 @@ def overview(survey, lang, write=True, fill=True):
     marks = _marks(survey, lang)
     out, counts = [], {k: 0 for k in STATUS_LABELS}
     stamped = False
+    work = [PAGE_DIFF_WORK]  # what the word diffs of this page may still compare
     for u in units(survey, lang, fill and write):
         stamped = stamped or u.filled
         source, target = u.get(default), u.get(lang)
@@ -514,7 +540,7 @@ def overview(survey, lang, write=True, fill=True):
             counts[status] += 1
             u.fields.append({"path": path, "role": role(path, u), "source": text, "target": mine, "status": status,
                              "rich": rich_mode(u, path), "ai": bool(m is not None and m.ai),
-                             "diff": diff_html(m.source, text) if status == "changed" else None})
+                             "diff": diff_html(m.source, text, work) if status == "changed" else None})
         if u.fields:
             out.append(u)
     if stamped:
@@ -711,6 +737,12 @@ def save_field(survey_id):
     if u.validated or source is None:
         abort(400)
     text = request.form.get("text", "").strip()
+    from app.items.base import TEXT_MAX
+
+    if len(text) > TEXT_MAX:  # the same limit as every text of an element in the editor
+        return jsonify(error=de_en("Der Text ist {n} Zeichen lang; erlaubt sind höchstens {max}. Bitte kürzen.",
+                                   "The text is {n} characters long; at most {max} are allowed. Please shorten it.",
+                                   n=len(text), max=TEXT_MAX)), 400
     from app import undo
     from app.surveys import LANGUAGE_NAMES
 

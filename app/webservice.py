@@ -27,6 +27,7 @@ at most MAX_PARALLEL calls at once per process. Who sets the address, the header
 as for completion links and external sections: the admins of the survey. Experimental (app/experimental.py)."""
 import ipaddress
 import json
+import math
 import re
 import socket
 import threading
@@ -56,6 +57,7 @@ NOT_PUBLIC = tuple(ipaddress.ip_network(n) for n in ("64:ff9b::/96", "64:ff9b:1:
 JSON_SCALAR = re.compile(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?\Z|true\Z|false\Z|null\Z")
 MAX_VALUES = 20
 MAX_TEXT = 500  # characters of a text value kept
+MAX_NUMBER = 1e15  # numbers beyond are no value (app/items/base.py MAX_NUMBER: what a number field takes)
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,30}\Z")
 PATH_RE = re.compile(r"^[A-Za-z0-9_\-]+(\.[A-Za-z0-9_\-]+)*\Z")
 HEADER_RE = re.compile(r"^[A-Za-z0-9-]{1,60}\Z")
@@ -525,6 +527,19 @@ def _talk(method, parts, address, body, headers, deadline):
         conn.close()
 
 
+def _constant(name):
+    raise ValueError(f"not a JSON number: {name}")  # NaN, Infinity and -Infinity, which json.loads takes by default
+
+
+def parse(data):
+    """The answer as JSON; ValueError for text that is not JSON, numbers that are not finite and nesting deeper than
+    Python's parser goes (RecursionError), so a call and the test call end as a failed call, never as an error page."""
+    try:
+        return json.loads(data.decode("utf-8"), parse_constant=_constant)
+    except RecursionError:
+        raise ValueError("JSON nested too deeply") from None
+
+
 def pick(data, path):
     """The value at "a.b.0.c" in parsed JSON, or None."""
     for part in path.split("."):
@@ -546,6 +561,8 @@ def _as(value, kind):
         try:
             number = float(str(value).strip().replace(",", "."))
         except ValueError:
+            return ""
+        if not math.isfinite(number) or abs(number) >= MAX_NUMBER:  # "1e400", "nan", "inf" as text: no value
             return ""
         return int(number) if number.is_integer() and abs(number) < 1e15 else round(number, 6)
     from app.request_values import clean_text
@@ -569,7 +586,7 @@ def call(node, variables):
         status, data = fetch(node.get("method") or "GET", url, body, headers)
         if status != 200:
             raise OSError(f"HTTP {status}")
-        parsed = json.loads(data.decode("utf-8"))
+        parsed = parse(data)
         got = {v["name"]: _as(pick(parsed, v["path"]), v["kind"]) for v in values(node)}
         missing = [n for n, v in got.items() if v == ""]
         result = {"ok": 0 if missing else 1, "v": got, "err": f"missing: {', '.join(missing)}"[:200] if missing else ""}
@@ -600,7 +617,7 @@ def test(node, variables):
         out["status"], out["size"] = status, len(data)
         if status == 200:
             try:
-                parsed = json.loads(data.decode("utf-8"))
+                parsed = parse(data)
                 out["snippet"] = json.dumps(parsed, ensure_ascii=False, indent=1)[:SNIPPET]
                 out["v"] = {v["name"]: _as(pick(parsed, v["path"]), v["kind"]) for v in values(node)}
             except ValueError:  # also UnicodeDecodeError
