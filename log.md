@@ -7472,3 +7472,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Jetzt `account_types.kept_create`: ein einzeln gegebenes „Anlegen“ bleibt, wo der neue Typ „Bearbeiten“ hat; „Ansehen“/„Aus“ des Typs senken weiter. Derselbe Typ noch einmal (das automatisch speichernde Feld ohne Änderung) ändert keine Stufe. Hinweis am Feld und Meldung sagen das.
 - Test `test_a_change_of_type_keeps_a_create_given_on_the_account_page` (vorher rot).
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-29: Betreuung auch auf der Personenkarte der Organisation
+
+- Ralf: Betreuende nachträglich festlegen ging nur unter Administration › Forschende, nicht in Verwaltung › Personen.
+- Die Karte einer Person (`org/account.html`) hat jetzt den Abschnitt „Betreuung“ wie die Admin-Seite: Liste mit ×, „Person hinzufügen“ aus den Personen dieser Organisation. Er erscheint bei Typen mit Betreuung oder solange noch jemand betreut. Hinzufügen nur bei Typ mit Betreuung.
+- Test `test_an_admin_of_the_organisation_sets_the_supervisors_later`.
+- Rechtstexte geprüft, keine Änderung nötig.

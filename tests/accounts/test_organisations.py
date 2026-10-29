@@ -307,6 +307,45 @@ def test_an_admin_takes_in_a_person_who_comes_with_home_and_type(app, client, su
     assert other.get(f"/org/{org_id}/people/{_uid(app, ME)}").status_code == 404        # never a site admin's account
 
 
+def test_an_admin_of_the_organisation_sets_the_supervisors_later(app, client, survey):
+    """Ralf 2026-10-29: Betreuung on the card in Verwaltung > Personen too, picked from the people of the organisation;
+    the × takes one out, a type without supervision shows no picker."""
+    from app import account_types
+
+    org_id, _ = _org_with_admin(app, client)
+    other = _as(app, OTHER, "Kollegin")
+    other.post(f"/org/{org_id}/types", data={"action": "template", "template": "master"})
+    with app.app_context():
+        tid = db.session.scalar(db.select(AccountType.id).filter_by(org_id=org_id, name_de="Masterarbeit"))
+    other.post(f"/org/{org_id}/people", data={"action": "add", "orcid": FOURTH, "name": "Vierte",
+                                              "account_type": tid, "valid_mode": "type"})
+    _as(app, FOURTH, "Vierte")
+    allow(app, THIRD, keep=True)
+    _as(app, THIRD, "Dritte")                                                           # at home in "main"
+    uid, oid, outside = _uid(app, FOURTH), _uid(app, OTHER), _uid(app, THIRD)
+    with app.app_context():
+        account_types.set_supervisors(db.session.get(User, uid), [])
+        db.session.commit()
+    page = other.get(f"/org/{org_id}/people/{uid}").data.decode()
+    assert 'id="betreuung"' in page and "noch niemand" in page
+    form = page[page.index('<select id="supervisor"'):]
+    form = form[:form.index("</select>")]
+    assert f'<option value="{oid}">Kollegin</option>' in form and f'value="{uid}"' not in form   # not oneself
+    r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(oid)},
+                   follow_redirects=True)
+    assert "Kollegin betreut jetzt Vierte" in r.data.decode()
+    with app.app_context():
+        assert [u.id for u in account_types.supervisors_of(db.session.get(User, uid))] == [oid]
+    r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(outside)},
+                   follow_redirects=True)
+    assert "kann das Konto nicht betreuen" in r.data.decode()                       # not a person of the organisation
+    other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor_remove", "supervisor": str(oid)})
+    with app.app_context():
+        assert account_types.supervisors_of(db.session.get(User, uid)) == []
+    other.post(f"/org/{org_id}/people/{uid}", data={"action": "account_type", "account_type": ""})
+    assert 'id="betreuung"' not in other.get(f"/org/{org_id}/people/{uid}").data.decode()
+
+
 def _uid(app, orcid):
     with app.app_context():
         return db.session.scalar(db.select(User.id).filter_by(orcid=orcid))
