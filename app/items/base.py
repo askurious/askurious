@@ -1221,8 +1221,11 @@ def shape_changes(before, after):
 
 def unseen_since(item, key, response):
     """The codes of the rows of config[key] that were added after this participation's questionnaire version
-    ("since", app/answer_lock.py stamp_added): it never saw them (audit 2026-10-12, N-5)."""
-    version = getattr(response, "qversion", None) or 1
+    ("since", app/answer_lock.py stamp_added): it never saw them (audit 2026-10-12, N-5). A question answered in a
+    later version (layout "item_qv", runtime.store_answers) counts from that version: it showed the new rows."""
+    layout = getattr(response, "layout", None)
+    later = (layout.get("item_qv") or {}).get(str(item.id)) if isinstance(layout, dict) else None
+    version = max(getattr(response, "qversion", None) or 1, later if isinstance(later, int) else 0)
     return {e.get("code") for e in (item.config or {}).get(key) or []
             if isinstance(e, dict) and isinstance(e.get("since"), int) and version < e["since"]}
 

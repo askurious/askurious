@@ -144,6 +144,24 @@ def store_answers(response, answers, row=None):
         old = merged.get(key)
         merged[key] = item.kind.merge_answer(old, v) if item is not None and old is not None else v
     response.answers = merged
+    _note_shown_version(response, answers)
+
+
+def _note_shown_version(response, answers):
+    """The questionnaire version in which the questions of `answers` were answered, when it is newer than the one
+    the participation began in (Response.qversion): kept per question in layout "item_qv". An option added in that
+    version was on the page, so its column says 0 or 1, not -77 (not shown; items.base.unseen_since)."""
+    version = getattr(response, "shown_qv", None) or getattr(getattr(response, "survey", None), "qversion", None)
+    if not hasattr(response, "pid") or not version or version <= (response.qversion or 1) \
+            or not isinstance(response.layout, dict):
+        return
+    seen = dict(response.layout.get("item_qv") or {})
+    changed = False
+    for k in answers:
+        if seen.get(str(k)) != version:
+            seen[str(k)], changed = version, True
+    if changed:
+        response.layout = {**response.layout, "item_qv": seen}
 
 
 def conditional(item):
@@ -1026,10 +1044,17 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
     # no page times for the separated section: nothing about it is kept but its answers (it has no paradata)
     timing = getattr(survey, "page_timing", False) and hasattr(response, "pid") and not paper
     from app import paradata
-    if method == "POST" and form.get("pos") not in (None, page_token(response, position)):
+    sent_qv = str(form.get("qv") or "") if method == "POST" else ""
+    shown_qv = int(sent_qv) if sent_qv.isdigit() else (survey.qversion or 1)  # a page without the field: as before
+    if method == "POST" and (form.get("pos") not in (None, page_token(response, position))
+                             or (not hold and str(shown_qv) != str(survey.qversion or 1))):
         # a page sent twice (double click, a pending automatic continue) or an older page from the browser
-        # history or another tab: its answers belong to another page, so show the current one instead
+        # history or another tab, or a page of an earlier version of the questionnaire (field "qv"): its answers
+        # belong to another page, so show the current one instead. While the survey waits (hold) its version is
+        # already the next one, and the page of the version before keeps its answers (participate._keep_halted)
         return Step(redirect=True, stale=True)
+    if method == "POST":
+        response.shown_qv = shown_qv  # the version the answers of this page were given in (_note_shown_version)
     if method == "POST" and on_post is not None:
         on_post()
     if method == "POST":
