@@ -7539,3 +7539,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - placed() einmal je Anfrage zwischengespeichert (g.tc_placed, beim Speichern von Kodierungen verworfen); Übersicht und Exporte platzieren jede Stelle nur noch einmal.
 - „Stellen je Kategorie“ zeigt die Fundstelle und springt zur Stelle. Fundstellen im Transkript-Editor folgen mit dem Player-PR (Absatznummern dort).
 - Handbuch (de/en) und Datenschutzkonzept (weitere Beispiele bei Daten und Löschung) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Kategoriensystem gegen versehentliches Verändern schützen
+
+- Ralf: „Zurücknehmen“ im Verlauf auch für Verschieben (Team, Autor der Kategorie, wer verschoben hat); wurde die Kategorie seither geändert, fragt ein Dialog nach (force), spätere Änderungen an Name und Definition bleiben (transcript_coding_review.undo_move, changed_since).
+- Einstellung je Auswertung „Fremde Kategorien verschieben und zusammenführen nur Team und Autor“ (CodingProject.settings["guarded"], Standard aus, keine Migration): andere Mitglieder schlagen Verschieben und Zusammenführen fremder Unterkategorien vor (Vorschlag mit data.move bzw. data.merge, entschieden über decide wie Änderungen), auch per Ziehen in Liste und Diagramm (Drop-Dialog „… vorschlagen“); Umsortieren fremder Kategorien ist dann nicht möglich.
+- Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (Vorschläge und Verlauf wie bisher mit Namen und Zeit).
