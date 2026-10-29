@@ -231,14 +231,49 @@ def draw_strokes(c, strokes, page_w, page_h):
             c.line(x1, y1, x2, y2)
 
 
+def slide_picture(survey, item):
+    """The picture of a presentation slide as an RGB image of Pillow, or None when it is missing or unreadable."""
+    from PIL import Image
+
+    path = _image_path(survey, item)
+    if not path:
+        return None
+    try:
+        with Image.open(path) as im:
+            return im.convert("RGB")
+    except (OSError, ValueError):
+        return None
+
+
+def draw_slide(c, survey, item, picture, x, y, w, h, layers):
+    """A slide's picture in the box (x, y bottom left, w by h) with the strokes of each layer over it, in order; a
+    slide whose picture is missing gets its name instead."""
+    from reportlab.lib.utils import ImageReader
+
+    from app.items.base import plain
+
+    if picture:
+        c.drawImage(ImageReader(picture), x, y, w, h)
+    else:
+        c.setFont("Helvetica", 14)
+        c.drawCentredString(x + w / 2, y + h / 2, (plain(item.text("alt", survey.default_language)) or
+                                                   de_en("Das Bild dieser Folie fehlt.", "The picture of this slide is missing."))[:120])
+    c.saveState()
+    c.translate(x, y)
+    for strokes in layers:
+        draw_strokes(c, strokes, w, h)
+    c.restoreState()
+
+
+def slide_height(picture, width):
+    """The height of a slide drawn `width` wide: after its picture's shape, 16:9 without one."""
+    return width * picture.height / picture.width if picture else width * 9 / 16
+
+
 def notes_pdf(survey, run_id):
     """The presentation slides of a run with their notes, as PDF bytes; a slide whose picture is missing gets a page
     that says so."""
-    from PIL import Image
-    from reportlab.lib.utils import ImageReader
     from reportlab.pdfgen import canvas
-
-    from app.items.base import plain
 
     ink = ink_of(survey, run_id)
     out = io.BytesIO()
@@ -247,23 +282,10 @@ def notes_pdf(survey, run_id):
     c.setAuthor("Askurious")
     pages = 0
     for item in (i for i in questions(survey) if is_slide(i)):
-        path = _image_path(survey, item)
-        picture = None
-        if path:
-            try:
-                with Image.open(path) as im:
-                    picture = im.convert("RGB")
-            except (OSError, ValueError):
-                picture = None
-        page_h = PAGE_W * picture.height / picture.width if picture else PAGE_W * 9 / 16
+        picture = slide_picture(survey, item)
+        page_h = slide_height(picture, PAGE_W)
         c.setPageSize((PAGE_W, page_h))
-        if picture:
-            c.drawImage(ImageReader(picture), 0, 0, PAGE_W, page_h)
-        else:
-            c.setFont("Helvetica", 14)
-            c.drawCentredString(PAGE_W / 2, page_h / 2, (plain(item.text("alt", survey.default_language)) or
-                                                         de_en("Das Bild dieser Folie fehlt.", "The picture of this slide is missing."))[:120])
-        draw_strokes(c, ink.get(item.id, []), PAGE_W, page_h)
+        draw_slide(c, survey, item, picture, 0, 0, PAGE_W, page_h, [ink.get(item.id, [])])
         c.showPage()
         pages += 1
     if not pages:

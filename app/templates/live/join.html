@@ -2,6 +2,8 @@
 {% block title %}{{ survey.title }}{% endblock %}
 {% block participant_scripts %}{% if not talk %}{{ super() }}{% endif %}{% endblock %}
 {% block content %}
+{# "Folien mit Notizen herunterladen" under the closing text, while the audience's notes are on (app/live/notes.py, E8) #}
+{% macro notes_download() %}{% if notes %}<p class="live-mynotes-end"><button type="button" class="p-button" data-notes-download hidden>{{ ui("Folien mit Notizen herunterladen", "Download slides with notes") }}</button></p>{% endif %}{% endmacro %}
 {% set talk_wait = ui("Hier können Sie Fragen stellen und mit den Emojis unten zeigen, wenn etwas nicht klar ist.", "Here you can ask questions and use the emojis below to show when something is not clear.") %}
 <h1 class="live-title">{{ survey.title }}</h1>
 {% if quiz %}
@@ -34,7 +36,7 @@
      data-device="{{ device }}"
      data-fail="{{ ui('Nicht gesendet. Bitte die Seite neu laden und es erneut versuchen.', 'Not sent. Please reload the page and try again.') }}"
      data-done="{{ ui('Danke! Gleich geht es weiter.', 'Thank you! More is coming soon.') }}">
-  {% if form %}{{ form }}{% elif key == "ended" %}<div class="live-end">{{ end|rich }}</div>{% else %}<p class="live-wait">{{ talk_wait if talk else ui("Gleich geht es los …", "Starting soon …") }}</p>{% endif %}
+  {% if form %}{{ form }}{% elif key == "ended" %}<div class="live-end">{{ end|rich }}</div>{{ notes_download() }}{% else %}<p class="live-wait">{{ talk_wait if talk else ui("Gleich geht es los …", "Starting soon …") }}</p>{% endif %}
 </div>
 {% if emojis %}
 {# reactions (package G): an emoji floats over the screen #}
@@ -61,7 +63,39 @@
   </form>
   <ul class="live-qa-list" data-qa-list></ul>
 </section>
-<template data-live-end><div class="live-end">{{ end|rich }}</div></template>
+<template data-live-end><div class="live-end">{{ end|rich }}</div>{{ notes_download() }}</template>
+{% if notes %}
+{# the audience's notes on the slides (app/live/notes.py, live_notes.js): what the script needs, and the dialog of the
+   PDF, outside the stage so that it stays when the closing text replaces the slide #}
+<div class="live-mynotes-cfg" data-live-notes-cfg data-code="{{ survey.code }}" data-slides='{{ notes.slides|tojson }}' data-upto="{{ notes.upto }}"
+     data-img="{{ url_for('live_public.notes_slide', code=survey.code, item_id=0) }}"
+     data-ink="{{ url_for('live_public.notes_ink', code=survey.code, item_id=0) }}"
+     data-pdf="{{ url_for('live_public.notes_pdf', code=survey.code) }}" data-csrf="{{ csrf_token() }}"
+     data-slide-label="{{ ui('Folie {n}', 'Slide {n}') }}" data-locked="{{ ui('noch nicht gezeigt', 'not shown yet') }}"
+     data-no-store="{{ ui('Dieser Browser speichert keine Notizen; sie gehen beim Neuladen der Seite verloren.', 'This browser does not store notes; they are lost when the page is reloaded.') }}"
+     data-full="{{ ui('Auf dieser Folie ist kein Platz für weitere Striche.', 'There is no room for more strokes on this slide.') }}"
+     data-too-large="{{ ui('Die Notizen sind zu umfangreich für ein PDF. Bitte einige Striche radieren.', 'The notes are too large for a PDF. Please erase some strokes.') }}"
+     data-making="{{ ui('Das PDF wird erstellt …', 'Creating the PDF …') }}"
+     data-fail="{{ ui('Nicht heruntergeladen. Bitte erneut versuchen.', 'Not downloaded. Please try again.') }}">
+  <dialog class="live-mynotes-dialog" data-notes-dialog aria-labelledby="live-mynotes-dialog-title">
+    <form method="dialog">
+      <h2 id="live-mynotes-dialog-title">{{ ui("Folien mit Notizen herunterladen", "Download slides with notes") }}</h2>
+      <p class="live-mynotes-hint">{{ ui("Ein PDF mit allen bisher gezeigten Folien, eine Seite je Folie.", "A PDF with every slide shown so far, one page per slide.") }}</p>
+      <label class="live-mynotes-pick"><input type="checkbox" name="mine_ink" checked> {{ ui("Meine Stiftnotizen", "My pen notes") }}</label>
+      <label class="live-mynotes-pick"><input type="checkbox" name="mine_text" checked> {{ ui("Meine getippten Notizen", "My typed notes") }}</label>
+      <label class="live-mynotes-pick"><input type="checkbox" name="presenter" checked> {{ ui("Notizen der Vortragenden", "The presenter's notes") }}</label>
+      <p class="live-mynotes-hint">{{ ui("Ihre Notizen werden nur für das PDF übertragen und nicht gespeichert.", "Your notes are only sent for the PDF and are not stored.") }}</p>
+      <p class="live-mynotes-hint" data-notes-msg role="status" hidden></p>
+      <div class="live-mynotes-buttons">
+        <button type="submit" class="p-button" value="ok">{{ ui("Herunterladen", "Download") }}</button>
+        <button type="submit" class="p-button p-button-secondary" value="cancel" formnovalidate>{{ ui("Abbrechen", "Cancel") }}</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+{% endif %}
 <p class="muted small live-note">{{ ui("Ihre Antworten sind anonym und erscheinen nur zusammengefasst auf der Leinwand; kurze Texte (für eine Wortwolke oder als eigene Antwort eingetippt) dort so, wie sie eingegeben wurden.", "Your answers are anonymous and only appear summarised on the screen; short texts (for a word cloud or typed as your own answer) appear there as typed.") }}</p>
 <script src="{{ url_for('static', filename='live.js') }}"></script>
+{% if notes %}<script src="{{ url_for('static', filename='ink_core.js') }}"></script>
+<script src="{{ url_for('static', filename='live_notes.js') }}"></script>{% endif %}
 {% endblock %}

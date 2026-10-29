@@ -945,6 +945,7 @@ def privacy(uid):
         location_personal=bool(__import__("app.items.geolocation", fromlist=["personal_items"]).personal_items(survey)),
         pooled=bool(_construct_names(survey)), map_hosts=_map_hosts(), live_quiz=_live_quiz(survey),
         live_feedback=survey.live is not None and any((survey.live or {}).get(k, k == "reactions") for k in ("reactions", "qa")),
+        live_notes=survey.live is not None and __import__("app.live.base", fromlist=["notes_on"]).notes_on(survey),
         ai_coding=__import__("app.coding", fromlist=["ai_informed"]).ai_informed(survey),  # audit 2026-10-10, B-1
         ai_coding_text=__import__("app.items.consent", fromlist=["ai_coding_sentence"]).ai_coding_sentence(lang, survey),
         # Art. 13 GDPR (comparison with the RWTH template 2026-10-20): the controller and the data protection officer

@@ -541,6 +541,19 @@ def allow_live(kind):
     return _counted_sender_limit("live_" + kind, limit, window)
 
 
+NOTES_PDF_WINDOW = 60  # seconds: one PDF of the slides with notes per device and live vote (app/live/notes.py, E10)
+
+
+def allow_notes_pdf(survey, device):
+    """Count a PDF of the slides with the audience's notes: one per device (its hashed id) and live vote within
+    NOTES_PDF_WINDOW, in the database for all processes; and per sender at most LIVE_NOTES_PDF_SENDER within the same
+    time, so a script that makes up new devices cannot keep the server drawing PDFs. Behind one network a full hall
+    downloading at the end waits a minute at most."""
+    if not _take_shared("live_pdf", _shared_key("live_pdf", survey.id, device), 1, NOTES_PDF_WINDOW):
+        return False
+    return _counted_sender_limit("live_pdf", current_app.config.get("LIVE_NOTES_PDF_SENDER", 60), NOTES_PDF_WINDOW, survey.id)
+
+
 # --- wrong passwords per sender and account (app/passwords.py), in the database (audit 2026-10-13, AU-9) ----------
 
 

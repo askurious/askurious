@@ -519,3 +519,43 @@ body:not(:has(.live-qr-corner:not([hidden]))) .live-screen.is-slide:not(.is-pres
 .live-ink-pop { position: fixed; z-index: 30; margin: 0; width: max-content; max-width: min(340px, calc(100vw - 16px)); padding: 12px;
   background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); }
 .live-ink-wrap .live-ink-status { margin-top: 6px; }
+/* the audience's notes on the slides (live_notes.js, app/live/notes.py): the slide, the note field under it; from 900 px
+   on the note field beside the slide and the strip of the slides under both; locked slides greyed, a dot for a note */
+.live-mynotes { display: grid; gap: 12px; min-width: 0; }
+.live-mynotes-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.live-mynotes-slide, .live-mynotes-side { min-width: 0; }
+.live-mynotes-pic { position: relative; }
+.live-mynotes-img { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border); }
+.live-mynotes-layer.is-editable { touch-action: pan-x pan-y; cursor: crosshair; }
+.live-mynotes-behind { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; color: var(--muted); }
+.live-mynotes-behind[hidden] { display: none; }
+.live-mynotes-side { display: grid; gap: 8px; align-content: start; }
+.live-mynotes-tools { margin: 0; }
+.live-mynotes-label { font-weight: 600; }
+.live-mynotes-text { width: 100%; min-height: 8em; box-sizing: border-box; padding: 10px; border: 1px solid var(--border-strong);
+  border-radius: 8px; background: var(--surface); color: var(--fg); font: inherit; resize: vertical; }
+.live-mynotes-theirs, .live-mynotes-pick { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.live-mynotes-hint { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.live-mynotes-hint[hidden] { display: none; }
+.live-mynotes-strip { position: relative; display: flex; gap: 8px; min-width: 0; max-width: 100%; overflow-x: auto; padding: 4px 2px 8px; }
+.live-mynotes-thumb { position: relative; flex: 0 0 auto; width: 96px; aspect-ratio: 16 / 9; padding: 0; border: 1px solid var(--border-strong);
+  border-radius: 6px; background: var(--surface-2); color: var(--fg); cursor: pointer; overflow: hidden; }
+.live-mynotes-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.live-mynotes-thumb:disabled { opacity: 0.45; cursor: default; }
+.live-mynotes-thumb.is-shown { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.live-mynotes-thumb:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.live-mynotes-num { position: absolute; inset-inline-start: 4px; bottom: 2px; padding: 0 4px; border-radius: 4px; background: var(--surface);
+  font-size: 0.75rem; }
+.live-mynotes-thumb.has-note::after { content: ""; position: absolute; top: 4px; inset-inline-end: 4px; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--accent); border: 1px solid var(--surface); }
+.live-stage:has(.live-mynotes) { flex: none; min-width: 0; width: 100%; }  /* never squeezed by the page column (main: flex) */
+.live-mynotes-end { margin-top: 16px; }
+.live-mynotes-dialog { max-width: min(480px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+  color: var(--fg); padding: 20px; }
+.live-mynotes-dialog form { display: grid; gap: 10px; }
+.live-mynotes-dialog h2 { margin: 0; font-size: 1.15rem; }
+.live-mynotes-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+@media (min-width: 900px) {
+  .p-container:has(.live-mynotes) { max-width: 1400px; }
+  .live-mynotes.is-wide .live-mynotes-main { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); align-items: start; }
+}

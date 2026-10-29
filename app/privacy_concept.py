@@ -571,13 +571,21 @@ def _activities():
                        "Zähler je Folie (frühere „Unklar“-Klicks zählen als 😕); eigene Klicks und Stimmen in befragungsbezogenen serverseitigen Gerätemarken (höchstens sieben Tage). "
                        "Stiftnotizen der Vortragenden auf Präsentationsfolien (Striche mit Stiftdruck je Durchgang und Folie, "
                        "ohne Handschrifterkennung; der Laserpunkt nur für zwei Sekunden): Inhalt der Forschenden, keine Daten "
-                       "der Teilnehmenden.",
+                       "der Teilnehmenden. Notizen des Publikums zu Präsentationsfolien (nur mit „Notizen und Herunterladen "
+                       "erlauben“): getippter Text und Striche bleiben im Browser des Geräts (IndexedDB); für „Folien mit "
+                       "Notizen herunterladen“ einmal an den Server geschickt, dort nur im Arbeitsspeicher zum PDF verarbeitet "
+                       "und sofort verworfen (Verarbeitung im Speicher ohne Ablage: keine Tabelle, kein Protokoll); gezählt wird "
+                       "nur ein PDF je Gerät und Minute (rate_hit).",
                        "Votes, device cookie (a device identifier issued and signed by the server, also in the browser's local storage), a nickname if wished (stored with the participation, never in the export); "
                        "questions in the Q&A without reference to a person, with the slide at sending; emoji reactions "
                        "as counts per slide (former “Unclear” taps count as 😕); own taps and votes in server-side device receipts scoped to a survey (at most seven days). "
                        "The presenter's pen notes on presentation slides (strokes with pen pressure per run and slide, "
                        "no handwriting recognition; the laser dot for two seconds only): the researchers' content, no data "
-                       "of participants."),
+                       "of participants. The audience's notes on presentation slides (only with “Allow notes and "
+                       "downloading”): typed text and strokes stay in the device's browser (IndexedDB); for “Download slides "
+                       "with notes” sent to the server once, turned into the PDF there in memory only and discarded at once "
+                       "(processing in memory without storage: no table, no log); only one PDF per device and minute is "
+                       "counted (rate_hit)."),
          "recipients": de_en("Beteiligte nach Rolle; Ergebnisse auf dem Präsentationsbildschirm.",
                              "Members by role; results on the presentation screen."),
          "deletion": de_en("Wie Teilnahmen der Befragung, mit der Frist für die Antworten (gezählt ab der letzten Teilnahme, "
@@ -953,7 +961,7 @@ def _activities():
          "data": de_en("Sicherungen der Datenbank und der hochgeladenen Dateien (alle Daten); Webserver-Protokoll nur fehlgeschlagener Anfragen der "
                        "Forschendenseite ohne Adresse und ohne Parameter, bei Adressen mit Zugangsschlüssel (Passwort-, "
                        "Einladungs-, Beitritts-, Bestätigungs- und Löschlinks) ohne den Schlüssel, keines der Teilnahmeseite; Ratenbegrenzung mit "
-                       "gesalzenem Hash der IP-Adresse im Arbeitsspeicher, für Codes, Anmeldung, Tokens und Stimmen einer Live-Abstimmung je Netz und Frage sowie gestartete Schätzungen je Konto (Kurzwert der Kontonummer, eine Stunde) in der Datenbank "
+                       "gesalzenem Hash der IP-Adresse im Arbeitsspeicher, für Codes, Anmeldung, Tokens und Stimmen einer Live-Abstimmung je Netz und Frage, PDFs der Folien mit Notizen je Gerät (eine Minute) sowie gestartete Schätzungen je Konto (Kurzwert der Kontonummer, eine Stunde) in der Datenbank "
                        "(Tabelle rate_hit, Schlüssel wechselt täglich), für neue Teilnahmen, Live-Stimmen, Beschwerden, den Umfang von Sprachaufnahmen (IPv6 auch je /48) "
                        "und Eingangsbestätigungen je E-Mail-Adresse ebenso (Tabelle rate_count), in nginx je Adresse nur im Arbeitsspeicher; "
                        "Sicherheitsprotokoll in der Containerausgabe (Anmeldungen, Fehlversuche, Sperren, Passwort- und "
@@ -963,7 +971,7 @@ def _activities():
                        "Backups of the database and of the uploaded files (all data); web server log of failed requests of the researchers' side only, "
                        "without address and without parameters, for addresses with an access key (password, invitation, join, "
                        "confirmation and deletion links) without the key, none of the participants' side; rate limits with a salted "
-                       "hash of the IP address in memory, for codes, sign-in, tokens and votes of a live vote per network and question and estimations started per account (hash of the account number, one hour) in the database (table rate_hit, key "
+                       "hash of the IP address in memory, for codes, sign-in, tokens and votes of a live vote per network and question, PDFs of the slides with notes per device (one minute) and estimations started per account (hash of the account number, one hour) in the database (table rate_hit, key "
                        "changes daily), likewise for new participations, live votes, complaints, the size of voice recordings (IPv6 also per /48) and confirmations of "
                        "receipt per email address (table rate_count), in nginx per address in memory only; security log in the container output (sign-ins, "
                        "failed attempts, locks, changes of password and factor, one-time links, invitations, join links, "

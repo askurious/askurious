@@ -304,10 +304,11 @@ def _qr(survey):
 # texts with a swear word (BAD_WORDS) stay hidden until the presenter shows them
 OPTIONS = {"results_open": True, "multi": False, "premod": False, "filter": True, "qa": False, "reactions": True,
            "instant": False,  # "instant": a tap sends the answer (pages whose questions take one tap; Philipp, 2026-10-04)
-           "slide_phone": False}  # "slide_phone": a presentation slide shows on the phones too, not only on the screen
+           "slide_phone": False,  # "slide_phone": a presentation slide shows on the phones too, not only on the screen
+           "slide_notes": False}  # "slide_notes": the audience takes notes on the slides and downloads them (notes_on)
 # the options of the slides (formerly the experimental feature "slides"): saved when the form carries the marker
 # "slides_shown", which it always does since 2026-10-17; a form without it keeps them as they are
-SLIDES_OPTIONS = ("slide_phone",)
+SLIDES_OPTIONS = ("slide_phone", "slide_notes")
 # reactions (package G): the emojis a phone can send to the screen, how often, how long the screen shows them
 REACTIONS = ("👍", "❤️", "😂", "😮", "👏")  # offered unless the presenter chose others (Einstellungen -> Teilnahme)
 # what the presenter may choose from, also negative ones (state "emojis")
@@ -359,6 +360,25 @@ WALL_MAX = 80  # posts on the wall
 def options(survey):
     st = state(survey)
     return {k: bool(st.get(k, v)) for k, v in OPTIONS.items()}
+
+
+def notes_on(survey):
+    """The audience's notes on the presentation slides (app/live/notes.py): "Notizen und Herunterladen erlauben",
+    which counts only together with "Präsentationsfolien auch auf den Handys zeigen" (E2)."""
+    opts = options(survey)
+    return opts["slide_phone"] and opts["slide_notes"]
+
+
+def notes_slides(survey, st):
+    """The presentation slides the audience may page through and download (E3): those up to the presenter's
+    current place in the vote (the question on the screen, else the last one shown: "notes_at", kept by
+    control). Going back locks the later slides again; before the first is shown, none."""
+    items = questions(survey)
+    ids = [i.id for i in items]
+    ref = st.get("screen") if st.get("screen") in ids else st.get("notes_at")
+    if ref not in ids:
+        return []
+    return [i for i in items[:ids.index(ref) + 1] if is_slide(i)]
 
 
 def standard_thanks(survey):

@@ -8,8 +8,8 @@ from flask import abort, jsonify, redirect, render_template, request, session, u
 from app.extensions import db
 from app.live import devices
 from app.live.base import (CONTENT, LEAVE_GRACE, POLL_SECONDS, QA_PER_DEVICE, REACTION_BURST, REACTION_GAP,
-                           _forget_responses, _in_run, answered_blocks, blocks, by_blocks, is_slide,
-                           options, pages, public_bp, questions, reaction_set, state)
+                           _forget_responses, _in_run, answered_blocks, blocks, by_blocks, is_slide, notes_on,
+                           notes_slides, options, pages, public_bp, questions, reaction_set, state)
 from app.live.scores import (_bad, _current, _key, _slide_image, deadline, leaderboard, points, qa_rows,
                              quiz_of, shared_places)
 from app.models import Response, Survey, new_pid, utcnow
@@ -549,6 +549,10 @@ def join(code):
                                       answers={k: v for k, v in given.items() if v not in (None, "", [])},
                                       errors={}, variables={}, multi=False, instant=_instant(survey, page_items),
                                       page=_page_ids(page_items)))
+    elif key.startswith("slide-") and item is not None and notes_on(survey):  # with the audience's notes (app/live/notes.py)
+        from markupsafe import Markup
+
+        form = Markup(render_template("live/_notes.html", survey=survey, lang=lang, current=item.id))
     elif key.startswith("slide-") and item is not None:  # the presentation slide, drawn on the phone (slide_phone)
         from markupsafe import Markup, escape
 
@@ -571,7 +575,17 @@ def join(code):
                            key=key, form=form, device=device_token(), run=st["run"]["id"], quiz=any(quiz_of(st, i) for i in questions(survey)),
                            emojis=reaction_set(survey) if options(survey)["reactions"] and key != "ended" else (),
                            talk=options(survey)["qa"] and not questions(survey),
-                           nick=_nick(survey, st, response)[0], teams=st.get("teams") or [], team=_nick(survey, st, response)[1])
+                           nick=_nick(survey, st, response)[0], teams=st.get("teams") or [], team=_nick(survey, st, response)[1],
+                           notes=_notes_view(survey, st))
+
+
+def _notes_view(survey, st):
+    """What the phone needs for the audience's notes (app/live/notes.py, live_notes.js), or None when they are off:
+    every presentation slide in order as (id, number), and how many of them the audience has reached (E3)."""
+    if not notes_on(survey):
+        return None
+    slides = [i for i in questions(survey) if is_slide(i)]
+    return {"slides": [[i.id, n] for n, i in enumerate(slides, start=1)], "upto": len(notes_slides(survey, st))}
 
 
 @public_bp.route("/<code>/state")
@@ -582,6 +596,13 @@ def where(code):
     response = _response(survey, st)
     key, item = _phone(survey, st, response)
     out = {"key": key, "at": st.get("at", 0)}
+    if notes_on(survey):  # the slides reached so far, for the strip of the audience's notes (E3)
+        out["upto"] = len(notes_slides(survey, st))
+        if key.startswith("slide-") and not st.get("ink_off"):  # the presenter's strokes on it changed (E6)
+            from app.live.ink import _row
+
+            row = _row(survey, st["run"]["id"], item.id)
+            out["ink"] = row.rev if row is not None else 0
     end = deadline(st, item) if item is not None else None
     if key.startswith("p-"):  # in blocks: the countdown of a quiz question on the page, from when it was shown (T-22)
         end = _page_deadline(survey, st, st.get("block"), _block_phone(survey, st, response)[2])

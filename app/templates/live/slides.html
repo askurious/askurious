@@ -42,7 +42,8 @@
   "median": ui("Median", "Median"), "ended": ui("Abstimmung beendet", "Voting closed"), "hidden": ui("VERBORGEN", "HIDDEN"),
   "noquestions": ui("Noch keine Fragen.", "No questions yet."), "nopoints": ui("Noch keine Punkte.", "No points yet."), "rank1": ui("Platz 1 = oben", "Place 1 = top"), "rankk": ui("Platz", "Place"),
   "noimage": ui("Kein Bild.", "No image."), "right": ui("richtig", "right"), "left": ui("noch {s} s", "{s} s left")}|tojson|forceescape }}">{{ pages|tojson|forceescape }}</div>
-{% if has_slides %}<script src="{{ url_for('static', filename='live_ink.js') }}"></script>{% endif %}
+{% if has_slides %}<script src="{{ url_for('static', filename='ink_core.js') }}"></script>
+<script src="{{ url_for('static', filename='live_ink.js') }}"></script>{% endif %}
 <script src="{{ url_for('static', filename='live.js') }}"></script>
 {% endblock %}
 {% block footer_links %}{% endblock %}
