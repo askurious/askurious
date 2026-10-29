@@ -8,6 +8,11 @@ kodieren", all as recommended, Ralf 2026-10-27), for MAXQDA, ATLAS.ti, NVivo and
   (app/interview_qdpx.py), and each coder as a user, so that a QDA program shows who coded what. Passages that can no
   longer be placed (app/transcript_coding_view.py) are left out; merged categories count for the one they went into.
 - The category system (.qdc): the same tree, nothing about interviews or people.
+- The category system as an Excel table (.xlsx, app/xlsx.py), the codebook after Mayring: sheet "Kategoriensystem"
+  with number (1, 1.2, 1.2.3 as in the coding guide), level, category, definition, anchor example with where it
+  stands, coding rule/delimitation, passages and former names, the candidates below without a number; sheet "Stellen"
+  with each coded passage that can be placed (as in the .qdpx): number and name of its category, interview, where it
+  stands ("B03, Pos. 12, 00:14:32", app/transcript_coding_view.py, spot), quote and coder.
 
 The GUIDs of categories are their own (CodingCategory.guid: from the guide as in app/qdc.py, else new), so a category
 system read in again matches; the others are derived from the guide, the analysis and the coding, so the same export
@@ -25,8 +30,8 @@ from flask import send_file
 
 from app import brand
 from app.lang import de_en
-from app.transcript_coding import _in, bp, signed_in_or_coder, tree
-from app.transcript_coding_view import has_transcript, placed, transcript
+from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
+from app.transcript_coding_view import anchor_spots, has_transcript, paragraphs, placed, spot, transcript
 
 PROJECT_NS = "urn:QDA-XML:project:1.0"
 CODEBOOK_NS = "urn:QDA-XML:codebook:1.0"
@@ -44,14 +49,15 @@ def _el(parent, ns, tag, attrs=None, text=None):
     return e
 
 
-def description(cat):
+def description(cat, where=""):
+    """The text of a category for a QDA program; `where`: the place of its anchor example (anchor_spots)."""
     lines = []
     if cat.definition:
         lines.append(cat.definition)
     if cat.delimitation:
         lines.append(de_en("Abgrenzung: ", "Delimitation: ") + cat.delimitation)
     if (cat.anchor or {}).get("quote"):
-        lines.append(de_en("Ankerbeispiel: ", "Anchor example: ") + f"„{cat.anchor['quote']}“ ({cat.anchor.get('label', '')})")
+        lines.append(de_en("Ankerbeispiel: ", "Anchor example: ") + f"„{cat.anchor['quote']}“ ({where or cat.anchor.get('label', '')})")
     if cat.former_names:
         lines.append(de_en("Früher auch: ", "Formerly also: ") + ", ".join(cat.former_names))
     return "\n\n".join(lines)
@@ -61,12 +67,13 @@ def codes(project, parent, ns):
     """The tree of categories under `parent` (a CodeBook): {category id: guid}."""
     holder = _el(parent, ns, "Codes")
     mains, candidates = tree(project)
+    spots = anchor_spots(project)
     guids = {}
 
     def code(where, cat, colour):
         attrs = {"guid": cat.guid.upper(), "name": cat.name, "isCodable": "true", "color": cat.colour or colour}
         e = _el(where, ns, "Code", attrs)
-        text = description(cat)
+        text = description(cat, spots.get(cat.id, ""))
         if text:
             _el(e, ns, "Description", text=text)
         guids[cat.id] = attrs["guid"]
@@ -90,13 +97,13 @@ def build_qdc(project):
 
 
 def build_qdpx(project, survey):
-    from app import interview_data, interview_qdpx
+    from app import interview_qdpx
     from app.models import utcnow
 
     ET.register_namespace("", PROJECT_NS)
     ns = PROJECT_NS
     now = utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    rows = [r for r in interview_data.interviews(survey, source="real") if has_transcript(r)]
+    rows = _rows(survey)
     coded = {r.id: placed(r, project)[0] for r in rows}
     owner = _guid(survey, project, "user", "askurious")
     root = ET.Element(f"{{{ns}}}Project", {"name": f"{survey.title} – {project.name}"[:200], "origin": brand.name(),
@@ -162,6 +169,71 @@ def build_qdpx(project, survey):
         for name, data in files.items():
             z.writestr(name, data)
     return buf.getvalue()
+
+
+def _rows(survey):
+    from app import interview_data
+
+    return [r for r in interview_data.interviews(survey, source="real") if has_transcript(r)]
+
+
+def build_xlsx(project, survey):
+    """The category system and its coded passages as an Excel file (see the top of this module)."""
+    from app import xlsx
+
+    mains, candidates = tree(project)
+    number = numbers(mains)
+    spots = anchor_spots(project)
+    passages = []  # (category id, interview label, where, quote, coder)
+    for r in _rows(survey):
+        text, label = transcript(r), (r.interview or {}).get("label", str(r.id))
+        paras = paragraphs(text)
+        for c in placed(r, project)[0]:
+            who = c.get("by_name") or ""
+            if c.get("origin") == "ai":
+                who = de_en("{who} (KI-Vorschlag übernommen)", "{who} (AI suggestion accepted)", who=c.get("accepted_by") or who)
+            passages.append((c["cat"], label, spot(label, text, c["start"], paras), " ".join(c.get("quote", "").split()), who))
+    by_id = {c.id: c for c in live(project)}
+    own, total = {}, {}
+    for cid, *_rest in passages:
+        own[cid] = own.get(cid, 0) + 1
+        cat = by_id.get(cid)
+        for k in ([cat] + chain(cat, by_id)) if cat is not None else []:
+            total[k.id] = total.get(k.id, 0) + 1
+
+    def line(cat, num, level):
+        anchor = (cat.anchor or {}).get("quote") or ""
+        return [num, level, cat.name, cat.definition or "", " ".join(anchor.split()), spots.get(cat.id, "") if anchor else "",
+                cat.delimitation or "", own.get(cat.id, 0), total.get(cat.id, 0), ", ".join(cat.former_names or [])]
+
+    system = []
+    for main, subs in mains:
+        system.append(line(main, number[main.id], 1))
+        system.extend(line(s, number[s.id], s.level) for s in subs)
+    system.extend(line(c, "", de_en("Kandidat", "candidate")) for c in candidates)  # no number: not in the system yet
+    head = [de_en("Nummer", "Number"), de_en("Ebene", "Level"), de_en("Kategorie", "Category"), de_en("Definition", "Definition"),
+            de_en("Ankerbeispiel", "Anchor example"), de_en("Fundstelle des Ankers", "Location of the anchor"),
+            de_en("Kodierregel / Abgrenzung", "Coding rule / delimitation"), de_en("Stellen", "Passages"),
+            de_en("Stellen mit Unterkategorien", "Passages with subcategories"), de_en("Früher auch", "Formerly also")]
+    ids = [c.id for main, subs in mains for c in [main] + subs] + [c.id for c in candidates]
+    order = {cid: n for n, cid in enumerate(ids)}
+    passages.sort(key=lambda p: (order.get(p[0], len(order)),))  # by category, within it in the order of the interviews
+    names = {c.id: c.name for c in by_id.values()}
+    rows = [[number.get(cid, ""), names.get(cid, ""), label, where, quote, who]
+            for cid, label, where, quote, who in passages]
+    head2 = [de_en("Nummer", "Number"), de_en("Kategorie", "Category"), de_en("Interview", "Interview"),
+             de_en("Fundstelle", "Location"), de_en("Zitat", "Quote"), de_en("Kodiert von", "Coded by")]
+    return xlsx.workbook([(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 40, 9, 12, 20]),
+                          (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])])
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories.xlsx")
+@signed_in_or_coder
+def categories_xlsx(code, pid):
+    survey, project, who = _in(code, pid, team_only=True)
+    return send_file(io.BytesIO(build_xlsx(project, survey)), as_attachment=True,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     download_name=f"kategoriensystem-{survey.code}-{project.id}.xlsx")
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/analysis.qdpx")

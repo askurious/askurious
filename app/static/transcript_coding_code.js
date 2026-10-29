@@ -60,8 +60,11 @@
     var points = Object.keys(cuts).map(Number).sort(function (a, b) { return a - b; });
     box.textContent = "";
     var start = 0;
-    text.split("\n").forEach(function (line) {
+    text.split("\n").forEach(function (line, i) {
       var p = document.createElement("p"), end = start + line.length;
+      // the paragraph number ("Pos." as in MAXQDA and the Excel export) in the margin: drawn by CSS from data-pos,
+      // so it is no text of the transcript and cannot be marked
+      if ((data.pos || [])[i]) p.setAttribute("data-pos", data.pos[i]);
       if (!line.length) p.appendChild(document.createElement("br"));
       var bounds = points.filter(function (x) { return x > start && x < end; });
       var edges = [start].concat(bounds, [end]);

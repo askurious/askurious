@@ -74,7 +74,7 @@ def _site():
 # downloads whose rule has no file name: they keep the main name like the others (is_download)
 DOWNLOAD_ENDPOINTS = {"dashboard.export", "surveys.prereg_file", "surveys.prereg_stamp", "surveys.snapshot_file",
                       "interview.version_file"}
-_DOWNLOAD_FILE = re.compile(r"\.(<[^>]*>|csv|zip|docx|sav|omv|rds|R|md|py|qdc|qdpx|txt|bib|ris|sps)$|"
+_DOWNLOAD_FILE = re.compile(r"\.(<[^>]*>|csv|zip|docx|sav|omv|rds|R|md|py|qdc|qdpx|xlsx|txt|bib|ris|sps)$|"
                             r"^(survey|seal)\.json$")
 _KEY = "askurious.brand"  # the brand of a request, found once (P8); in its WSGI environ, which lives as long as it
 
