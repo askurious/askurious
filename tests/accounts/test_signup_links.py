@@ -147,3 +147,27 @@ def test_the_dialog_offers_only_the_chosen_organisations_types(app, client):
     assert _make(client, own, account_type=str(mine))
     with app.app_context():
         assert db.session.scalar(db.select(SignUpLink.account_type_id)) == mine
+
+
+def test_a_link_can_be_without_a_limit_and_without_an_end(app, client):
+    """Ralf 2026-10-29: open sign-up into a particular organisation is a registration link without a limit and an end;
+    revoking still ends it."""
+    allow(app)
+    org_id = _org(app)
+    page = client.get("/admin/people").data.decode()
+    assert '<option value="0">ohne Grenze</option>' in page and '<option value="0">ohne Ablauf</option>' in page
+    token = _make(client, org_id, max_uses="0", days="0")
+    assert token
+    page = client.get("/admin/people").data.decode()
+    assert "0, ohne Grenze" in page and "ohne Ablauf" in page
+    with app.app_context():
+        link = db.session.scalar(db.select(SignUpLink))
+        assert link.max_uses == signup_links.NO_LIMIT and link.expires_at == signup_links.NO_END
+        assert signup_links.is_open(link)
+    assert _register(app, token, NEW, "Neu") and _register(app, token, SECOND, "Zweite")
+    with app.app_context():
+        assert db.session.scalar(db.select(SignUpLink)).uses == 2
+        assert orgs.home_id(db.session.scalar(db.select(User).filter_by(orcid=SECOND))) == org_id
+        signup_links.revoke(db.session.scalar(db.select(SignUpLink)).id)
+        db.session.commit()
+        assert not signup_links.is_open(db.session.scalar(db.select(SignUpLink)))

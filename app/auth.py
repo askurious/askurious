@@ -70,14 +70,13 @@ def _redirect_uri():
 
 
 def on_whitelist(orcid):
-    """This iD is let in by itself, not by an invitation: ADMIN_ORCIDS of the configuration, or the list and the
-    switch "every ORCID holder" of the administration (app/signin.py; ALLOWED_ORCIDS until 2026-10-06)."""
+    """This iD is let in by itself, not by an invitation: ADMIN_ORCIDS of the configuration, the sign-in list or the
+    switch "every person" of the administration (app/signin.py; ALLOWED_ORCIDS until 2026-10-06)."""
     from app import signin
 
     if not is_orcid(orcid):
         return False
-    # "every ORCID holder" with or without a limit (gruppen-freischaltung-konzept.md, Stufe 3)
-    return orcid in current_app.config["ADMIN_ORCIDS"] or signin.listed(orcid) or signin.open_lets_in(orcid)
+    return orcid in current_app.config["ADMIN_ORCIDS"] or signin.listed(orcid) or signin.everyone()
 
 
 def _may_sign_in(orcid):
@@ -128,7 +127,7 @@ def forget_sign_in_yes():
 
 
 def _takes_rights_away(session):
-    """Whether this flush deletes what lets a person sign in, or changes the switch "every ORCID holder"."""
+    """Whether this flush deletes what lets a person sign in, or changes the switch "every person"."""
     from app.models import SignInOrcid, SiteSetting
 
     if any(isinstance(obj, (SurveyMember, WorkGroupMember, SignInGrant, SignInOrcid)) for obj in session.deleted):
@@ -263,16 +262,16 @@ def _sign_in(orcid, name, fresh=True):
             if attempt:
                 raise
     # a new account may create surveys of its own from the start; a site admin can take that back on its
-    # page (Ralf, 2026-10-05). Only for iDs let in by themselves (list and switch of the administration,
+    # page (Ralf, 2026-10-05). Only for iDs let in by themselves (the sign-in list, the switch "every person",
     # ADMIN_ORCIDS):
     # someone who is only here because they were invited to a survey or added to a group works on what is
     # shared until a site admin raises them, or every invitation would hand out the right to invite further
     # people (security audit 2026-10-06, S11). Accounts from before keep what they had.
     may_create = created and current_app.config["NEW_ACCOUNTS_MAY_CREATE"] and on_whitelist(orcid)
-    if created:
-        from app import signin
+    from app import signin
 
-        signin.came_in(user)  # counts for the limit of "every ORCID holder" if it came by that alone
+    signin.came_in(user)  # in by "every person" alone: an admin's yes, so switching off locks nobody out
+    if created:
         from app import account_types
 
         # its user type and period (the list's choice, its course or the type for new accounts), then its survey
@@ -706,13 +705,6 @@ def orcid_callback():
 
     signup_links.accept_after_orcid(orcid, data.get("name", ""))  # a registration link opened before: on the list now
     if not _may_sign_in(orcid):
-        from app import signin
-
-        if signin.mode() == signin.MODE_CAP:  # up to the limit, and the limit is reached: the waiting list (E12)
-            signin.wait(orcid, data.get("name", ""))
-            # the iD ORCID just confirmed: only it may be on the list, or anyone could take places for others' iDs
-            session[WAIT_KEY] = {"orcid": orcid, "at": time.time()}
-            return redirect(url_for("auth.waiting_list"))
         flash(de_en("Ihr ORCID-Konto ist (noch) nicht freigeschaltet.", "Your ORCID account is not (yet) allowed to sign in."),
               "error")
         return redirect(url_for("public.index"))
@@ -724,61 +716,6 @@ def orcid_callback():
         notify.new_user(user)
     nxt = session.pop("next", "")
     return redirect(local_path(nxt) or url_for("dashboard.index"))
-
-
-WAIT_KEY = "waiting_list"   # in the session: the iD ORCID confirmed when it went on the waiting list
-WAIT_SECONDS = 24 * 3600    # that long the page of the waiting list knows the person without a new ORCID sign-in
-
-
-def _waiting_row():
-    from app.models import SignInWait
-
-    held = session.get(WAIT_KEY)
-    if not isinstance(held, dict) or time.time() - float(held.get("at") or 0) > WAIT_SECONDS:
-        session.pop(WAIT_KEY, None)
-        return None
-    orcid = held.get("orcid")
-    return db.session.get(SignInWait, orcid) if ORCID_RE.match(str(orcid or "")) else None
-
-
-@bp.route("/waiting-list", methods=["GET", "POST"])
-def waiting_list():
-    """The page after an ORCID sign-in that found no free place (signin.wait): the place in the queue and, with
-    e-mail on, an address for one mail when a place is free (Philipp, 2026-10-13). The iD is the one ORCID confirmed
-    in this browser; the page takes no typed iD, so nobody puts others on the list. Without it (opened directly,
-    or more than a day later) the page asks for a sign-in with ORCID, which finds the entry again."""
-    from app import mail, passwords, signin
-
-    row = _waiting_row()
-    email = ""
-    if request.method == "POST" and row is not None:
-        action = request.form.get("action")
-        if action == "leave":
-            signin.unwait(row.orcid)
-            session.pop(WAIT_KEY, None)
-            flash(de_en("Sie stehen nicht mehr auf der Warteliste; Ihre Angaben sind gelöscht.",
-                        "You are no longer on the waiting list; your details are deleted."), "success")
-            return redirect(url_for("public.index"))
-        if action == "email" and mail.enabled():
-            raw = request.form.get("email", "")
-            address = passwords.normal_email(raw) if raw.strip() else None
-            if raw.strip() and address is None:
-                flash(de_en("Bitte eine gültige E-Mail-Adresse angeben.", "Please enter a valid email address."), "error")
-                email = raw[:254]
-            else:
-                signin.leave_email(row, address, lang.current())
-                flash(de_en("Gespeichert. Ist ein Platz frei, bekommen Sie eine E-Mail an {a}.",
-                            "Saved. When a place is free, you get an email at {a}.", a=address) if address else
-                      de_en("Die E-Mail-Adresse ist gelöscht.", "The email address is deleted."), "success")
-                return redirect(url_for("auth.waiting_list"))
-    if row is not None and row.admitted_at is None and signin.mode() == signin.MODE_CAP:
-        signin.admit_waiting()  # a place became free since: it belongs to the first of the list
-    response = current_app.make_response((render_template(
-        "auth/waiting_list.html", row=row, place=signin.place(row) if row is not None else None,
-        email=email or (row.email if row is not None else "") or "", days=signin.WAIT_DAYS),
-        422 if email else 200))
-    response.headers["Cache-Control"] = "no-store"
-    return response
 
 
 FRESH_SLACK = 120  # seconds the clocks of ORCID and of this server may differ

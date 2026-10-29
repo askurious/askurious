@@ -34,8 +34,9 @@ DIRECTORY = os.path.join(HERE, "migrations")
 # kept out of the comparison: not in the models (see the module text)
 OUTSIDE = ("construct_fts", "alembic_version")
 # tables the models no longer map and a later migration drops (DROPS_UNUSED_SINCE): kept out of the comparison until
-# then; the drop migration takes its name out again (coding_link: 0105 stopped mapping it, 0106 dropped it)
-DROPPED_SOON = ()
+# then; the drop migration takes its name out again (coding_link: 0105 stopped mapping it, 0106 dropped it;
+# sign_in_wait: 0107 stopped mapping it)
+DROPPED_SOON = ("sign_in_wait",)
 LOCK_KEY = 4713  # pg_advisory_lock of the migrations (START_UP_LOCK + 1)
 
 _head = []

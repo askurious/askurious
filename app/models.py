@@ -564,8 +564,8 @@ class UserLogin(db.Model):
     failed_streak: Mapped[int] = mapped_column(default=0, server_default="0")
     hard_locked_at: Mapped[datetime | None]
     session_version: Mapped[int] = mapped_column(default=0)
-    # "open": the account came in by "every ORCID holder" alone and counts for its limit (app/signin.py); None for
-    # everything else and for accounts from before 2026-10-10
+    # "open": the account came in by the former limit of open sign-up alone (2026-10-10 to 2026-10-29); no longer
+    # written or read (app/signin.py). Mapped until a later migration drops it with the table sign_in_wait.
     came_via: Mapped[str | None] = mapped_column(String(10))
     # the survey types this account may see or edit (app/kind_access.py, konzept-rechte-befragungstypen-2026-10-15.md):
     # only what differs from "edit", e.g. {"live": "view", "diary": "off"}; None = all four types (migration 0067)
@@ -646,24 +646,6 @@ class SignInGrant(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
     granted_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"), index=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
-
-
-class SignInWait(db.Model):
-    """An ORCID iD that wanted to sign in while "every ORCID holder" was up to its limit and the limit was reached
-    (app/signin.py, gruppen-freischaltung-konzept.md E12): first come, first in when the limit is raised or a place
-    becomes free (admitted_at). Goes at the first sign-in, when the person or a site admin removes it, or after
-    signin.WAIT_DAYS."""
-
-    __tablename__ = "sign_in_wait"
-
-    orcid: Mapped[str] = mapped_column(String(19), primary_key=True)
-    name: Mapped[str] = mapped_column(String(200), default="")
-    asked_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
-    admitted_at: Mapped[datetime | None]
-    # an address the person left on the page of the waiting list (auth.waiting_list), for the one mail when a place
-    # is free; it goes once that mail is sent, and with the entry (Philipp, 2026-10-13)
-    email: Mapped[str | None] = mapped_column(String(254))
-    lang: Mapped[str | None] = mapped_column(String(5))  # the language of that mail: the page's when it was left
 
 
 class SignInOrcid(db.Model):
@@ -842,7 +824,7 @@ class OrganisationMember(PersonRow, db.Model):
 
 class SiteSetting(db.Model):
     """A setting of the platform that a site admin changes in the administration, not in the server's
-    configuration: "every ORCID holder may sign in" (app/signin.py), and markers of data taken over once."""
+    configuration: "every person may sign in with ORCID" (app/signin.py), and markers of data taken over once."""
 
     __tablename__ = "site_setting"
 

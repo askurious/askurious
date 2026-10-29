@@ -54,6 +54,6 @@ def make_app(work_dir):
         from app import signin
         from app.extensions import db
 
-        signin.set_mode(signin.MODE_ALL, None)
+        signin.set_everyone(True, None)
         db.session.commit()
     return app

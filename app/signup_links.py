@@ -8,14 +8,15 @@ at home in that organisation, with that type and period from this first sign-in 
 
 It works by the sign-in list: at the moment of use the iD is put on it (SignInOrcid with the link's choices and
 link_id), and the sign-in that follows takes over organisation, type and period as for "Person hinzufügen". So the link
-lets in past the list, the limit and the waiting list of "every ORCID holder" (E6), but not past the number of
-accounts the organisation may have. An account that exists already is not changed (E5). Only ORCID (E7). Only the hash
+lets in while "only with an invitation" is set (E6), but not past the number of accounts the organisation may have.
+Since 2026-10-29 a link can be without a limit and without an end (Ralf: the way for open sign-up into a particular
+organisation); revoking ends it at any time. An account that exists already is not changed (E5). Only ORCID (E7). Only the hash
 of a token is stored; the link is shown once (E8).
 """
 import hashlib
 import secrets
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from flask import (Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user
@@ -27,8 +28,11 @@ from app.models import SignInOrcid, SignUpLink, User, utcnow
 
 bp = Blueprint("signup_links", __name__, url_prefix="/signup")
 
-USES = (1, 5, 10, 20, 30, 50, 100, 250)
-DAYS = (1, 7, 14, 30, 90)
+UNLIMITED = 0  # in the dialog: "ohne Grenze" for the number, "ohne Ablauf" for the time
+USES = (1, 5, 10, 20, 30, 50, 100, 250, UNLIMITED)
+DAYS = (1, 7, 14, 30, 90, UNLIMITED)
+NO_LIMIT = 2_000_000_000  # max_uses of a link without a limit (the column is a plain integer)
+NO_END = datetime(9999, 12, 31)  # expires_at of a link without an end
 DEFAULT_USES, DEFAULT_DAYS = 20, 14
 # the period of the accounts: "type" as the user type says, a spec of app/account_types.py, "date" a chosen end date
 PERIODS = ("type", "t:30", "t:60", "t:90", "t:180", "m:12", "date", "")
@@ -95,9 +99,9 @@ def create(by, org, account_type, period, max_uses, days, note=""):
     token = secrets.token_urlsafe(32)
     db.session.add(SignUpLink(token_hash=_hash(token), org_id=org.id if org is not None else None,
                               account_type_id=account_type.id if account_type is not None else None,
-                              valid_spec=None if period == "type" else period, max_uses=max_uses, uses=0,
-                              note=(note or "").strip()[:200], created_by_id=by.id,
-                              expires_at=utcnow() + timedelta(days=days)))
+                              valid_spec=None if period == "type" else period,
+                              max_uses=max_uses or NO_LIMIT, uses=0, note=(note or "").strip()[:200], created_by_id=by.id,
+                              expires_at=utcnow() + timedelta(days=days) if days else NO_END))
     db.session.commit()
     from app import security_log
 

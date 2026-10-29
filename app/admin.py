@@ -508,6 +508,8 @@ def researchers():
     the rows of the page only."""
     from flask import current_app
 
+    from app import signin
+
     from app.extensions import db
     from app.models import Response, Survey, SurveyMember, User, UserLogin, WorkGroup, WorkGroupMember
     from app.tables import Listing, by_text
@@ -607,7 +609,7 @@ def researchers():
         .where(UserLogin.reset_requested_at.is_not(None)).order_by(UserLogin.reset_requested_at)).all()
     # the groups are a tab of their own again, "Gruppen" (Ralf 2026-10-10)
     return render_template("admin/researchers.html", rows=rows, totals=totals, people=people,
-                           sign_in=_sign_in_list(), requests=requests, kinds_only=kinds_only,
+                           everyone=signin.everyone(), requests=requests, kinds_only=kinds_only,
                            kinds_default=kind_access.full(kind_access.default()), kind_keys=kind_access.KINDS,
                            period=period, type_filter=type_filter, types=account_types.all_types(),
                            type_counts={t.id: account_types.count_of(t) for t in account_types.all_types()},
@@ -628,6 +630,7 @@ def _signup_links():
                        signup_links.came_by(link), signup_links.is_open(link)) for link in links],
             "new": signup_links.take_shown(), "orgs": choices, "uses": signup_links.USES, "days": signup_links.DAYS,
             "default_uses": signup_links.DEFAULT_USES, "default_days": signup_links.DEFAULT_DAYS,
+            "no_limit": signup_links.NO_LIMIT, "no_end": signup_links.NO_END,
             "periods": [(p, signup_links.period_label(p)) for p in signup_links.PERIODS]}
 
 
@@ -835,29 +838,6 @@ def _told_flash(told, not_told):
         flash(de_en("Ohne E-Mail informiert (keine Adresse am Konto oder E-Mail-Versand aus): {names}. Bitte auf "
                     "anderem Weg informieren.", "Not told by email (no address on the account, or mail is off): "
                     "{names}. Please tell them another way.", names=", ".join(not_told)), "warning")
-
-
-def _sign_in_list():
-    """The section "Anmeldung freischalten": the list, the switch, and what still stands in the configuration."""
-    from app import signin
-    from app.extensions import db
-    from app.models import SignInGrant, SurveyMember, User, WorkGroupMember
-
-    if signin.mode() == signin.MODE_CAP:
-        signin.admit_waiting()  # a place that became free goes to the first of the waiting list
-    rows = signin.entries()
-    # the accounts of the iDs, pending ones too (added to a survey or group before their first sign-in)
-    ids = dict(db.session.execute(db.select(User.orcid, User.id).where(User.orcid.in_([row.orcid for row, _u in rows]))).all())
-    # who stays in when taken off the list: invited to a survey, in a group, or an admin's yes on the account
-    other = set(db.session.scalars(db.select(SurveyMember.user_id).where(SurveyMember.user_id.in_(ids.values()))))
-    other |= set(db.session.scalars(db.select(WorkGroupMember.user_id).where(WorkGroupMember.user_id.in_(ids.values()))))
-    granted = set(db.session.scalars(db.select(SignInGrant.user_id)))
-    return {"rows": [{"entry": row, "user": user, "stays": ids.get(row.orcid) in other or (user is not None and user.id in granted)}
-                     for row, user in rows],
-            "everyone": signin.everyone(),
-            # "every ORCID holder" up to a limit (gruppen-freischaltung-konzept.md, Stufe 3)
-            "mode": signin.mode(), "limit": signin.limit(), "steps": signin.STEPS, "used": signin.open_count(),
-            "level": signin.level(), "waiting": signin.waiting()}
 
 
 def _account_page(user, link=None):
@@ -1321,17 +1301,16 @@ def block_account(user_id):
 
 @bp.route("/admit", methods=["POST"])
 def sign_in_orcids():
-    """Who may sign in with ORCID by themselves (app/signin.py): add an iD to the list or take it off, and the
-    switch "every ORCID holder". Until 2026-10-06 this was ALLOWED_ORCIDS in the server's configuration."""
+    """"Person hinzufügen" with an ORCID iD (app/signin.py: the sign-in list), the switch "only with an invitation /
+    every person" and the survey types for new accounts. Until 2026-10-06 the list was ALLOWED_ORCIDS in the server's
+    configuration; the limit and waiting list of open sign-up went on 2026-10-29."""
     from app import accounts, signin
 
     action = request.form.get("action")
-    back = url_for("admin.researchers") + "#freischalten"
-    opening = (action == "everyone" and request.form.get("value") == "1") or (
-        action == "mode" and request.form.get("mode") in (signin.MODE_CAP, signin.MODE_ALL))
+    opening = action == "everyone" and request.form.get("value") == "1"
     if action == "add" or opening:
         # as making an account: a computer left signed in must not be enough; back at the form the person came from
-        again = accounts.need_fresh(url_for("admin.researchers") + "#person-hinzufuegen" if action == "add" else back)
+        again = accounts.need_fresh(url_for("admin.researchers") + ("#person-hinzufuegen" if action == "add" else "#anmeldung"))
         if again:
             return again
     if action == "add":
@@ -1366,51 +1345,21 @@ def sign_in_orcids():
         db.session.commit()
         flash(de_en("Befragungstypen für neue Konten übernommen.", "Survey types for new accounts applied."), "success")
         return redirect(url_for("admin.researchers", _anchor="neue-konten-typen"))
-    elif action == "remove":
-        signin.remove(request.form.get("orcid", ""))
-        flash(de_en("Von der Liste entfernt. Wer nicht zu einer Befragung eingeladen oder in einer Gruppe ist, ist mit dem "
-                    "nächsten Klick abgemeldet.", "Removed from the list. Anyone not invited to a survey or in a group is "
-                    "signed out with their next click."), "success")
-    elif action == "mode":
-        # three states of "every ORCID holder" (E9); the limit in steps (E11); lowering it locks nobody out
-        state = request.form.get("mode")
-        top = request.form.get("limit", type=int)
-        if state not in (signin.MODE_OFF, signin.MODE_CAP, signin.MODE_ALL) or (
-                state == signin.MODE_CAP and top not in signin.STEPS):
-            abort(400)
-        signin.set_mode(state, current_user, top if state == signin.MODE_CAP else None)
+    elif action == "everyone":
         from app.extensions import db
 
-        db.session.commit()
-        moved = signin.admit_waiting() if state == signin.MODE_CAP else 0
-        if state == signin.MODE_CAP:
-            flash(de_en("Jede Person mit ORCID iD kann sich anmelden, bis {n} Konten so dazugekommen sind; danach kommen "
-                        "Neue auf die Warteliste.", "Anyone with an ORCID iD can sign in until {n} accounts have come in "
-                        "this way; after that new people go on the waiting list.", n=top)
-                  + (" " + de_en("{m} Personen von der Warteliste sind jetzt freigeschaltet.",
-                                 "{m} people from the waiting list are now allowed in.", m=moved) if moved else ""),
-                  "success")
-        elif state == signin.MODE_ALL:
-            flash(de_en("Jede Person mit ORCID iD kann sich jetzt anmelden.", "Anyone with an ORCID iD can now sign in."),
-                  "success")
-        else:
-            flash(de_en("Anmelden kann sich wieder nur, wer auf der Liste steht, eingeladen oder in einer Gruppe ist. "
-                        "Wer schon ein Konto hat, verliert es nicht, kommt aber nur noch mit einem dieser Gründe hinein.",
-                        "Only people on the list, invited or in a group can sign in again. Anyone who has an account already "
-                        "keeps it, but only gets in with one of these reasons."), "success")
-    elif action == "unwait":
-        signin.unwait(request.form.get("orcid", ""))
-        flash(de_en("Von der Warteliste genommen.", "Taken off the waiting list."), "success")
-    elif action == "everyone":
         on = request.form.get("value") == "1"
         signin.set_everyone(on, current_user)
-        from app.extensions import db
-
         db.session.commit()
         flash(de_en("Jede Person mit ORCID iD kann sich jetzt anmelden.", "Anyone with an ORCID iD can now sign in.") if on else
-              de_en("Anmelden kann sich wieder nur, wer auf der Liste steht, eingeladen oder in einer Gruppe ist.",
-                    "Only people on the list, invited or in a group can sign in again."), "success")
-    return redirect(back)
+              de_en("Neue Konten gibt es jetzt nur noch mit Einladung (Registrierungslink, „Person hinzufügen“, Befragung "
+                    "oder Gruppe). Wer sich angemeldet hat, solange jede Person durfte, kommt weiter herein.", "New accounts now "
+                    "only come with an invitation (registration link, “Add person”, survey or group). Anyone who signed in "
+                    "while everyone could still gets in."), "success")
+        return redirect(url_for("admin.researchers", _anchor="anmeldung"))
+    else:
+        abort(400)
+    return redirect(url_for("admin.researchers") + "#forschende")
 
 
 @bp.route("/accounts/<int:user_id>/delete", methods=["GET", "POST"])

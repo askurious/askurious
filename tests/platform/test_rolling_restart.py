@@ -187,6 +187,8 @@ ROLLING_ALLOWED = {
     "0090": {"data": "fills the new design columns and empties grants that decide nothing since 2026-10-16; the "
                      "participants' side reads neither (docstring)"},
     "0092": {"trigger": TRIGGERS},
+    "0107": {"data": "turns 'up to a limit' of the open sign-up off and drops the settings of the limit; only the "
+                     "researchers' sign-in reads them, the participants' side does not (docstring)"},
 }
 
 
