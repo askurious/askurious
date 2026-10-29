@@ -47,11 +47,14 @@ def _num(v):
     return number if math.isfinite(number) and abs(number) <= MAX_NUMBER else None  # prices stored before the limit
 
 
-def cases(table, item, passes=()):
+def cases(table, item, passes=(), persons=None):
     """[{tc, c, e, te, nms_c, nms_e, person}] from export rows (loop passes are separate cases; person: the number of
-    the row, for the bootstrap over persons)."""
+    the row, for the bootstrap over persons). persons: the owner of each row where several rows belong to one person
+    (the entries of a diary study, results.compute person_ids): their rows are drawn together (audit storage and
+    calculations 2026-10-28, M1)."""
     out = []
-    for person, r in enumerate(table):
+    for n, r in enumerate(table):
+        person = persons[n] if persons is not None else n
         for suffix in ([f"_{n}" for n in passes] or [""]):
             case = {k: _num(r.get(f"{item.code}_{k}{suffix}")) for k in KEYS}
             case.update({f"nms_{k}": _num(r.get(f"{item.code}_nms_{k}{suffix}")) for k in ("c", "e")})
@@ -153,7 +156,7 @@ def point_intervals(good, draws=None, seed=None):
     from app import intervals
 
     draws = draws or intervals.PSM_DRAWS
-    persons = sorted({c.get("person", i) for i, c in enumerate(good)})
+    persons = list(dict.fromkeys(c.get("person", i) for i, c in enumerate(good)))  # ids of rows or of persons
     if len(persons) < intervals.MIN_BOOT:
         return None
     index = {p: i for i, p in enumerate(persons)}

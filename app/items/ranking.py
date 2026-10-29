@@ -182,9 +182,12 @@ class Ranking(_Choice):
                         "mean": statistics.fmean(values) if values else None, "top": top / len(values) if values else None})
         return sorted(out, key=lambda r: (r["mean"] is None, -(r["mean"] or 0)))
 
-    def summary(self, item, table, lang, passes=()):
+    def summary(self, item, table, lang, passes=(), persons=None):
         """Results page, rankings everyone saw in full (UI/UX audit 2026-10-05, V56): per option the mean rank with
-        its 95 % t-interval and the share put first; best (lowest mean rank) first. In a loop every pass counts."""
+        its 95 % t-interval and the share put first; best (lowest mean rank) first. In a loop every pass counts, but
+        the interval is over persons (cluster-robust, intervals.cluster_mean_ci): passes and the entries of one
+        person in a diary study (persons: owner per row) are no independent cases (audit storage and calculations
+        2026-10-28, M2). With one value per person it is the plain t interval."""
         import statistics
 
         from app import intervals
@@ -193,18 +196,22 @@ class Ranking(_Choice):
         out = []
         for o in self.options(item, lang):
             cols = [f"{item.code}_{o['code']}_{n}" for n in passes] or [f"{item.code}_{o['code']}"]
-            values = []
-            for r in table:
+            values, groups = [], {}
+            for n, r in enumerate(table):
                 for c in cols:
                     v = r.get(c)
                     if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
-                        values.append(float(v))
+                        v = float(v)
                     elif isinstance(v, str) and v.isdigit() and int(v) > 0:
-                        values.append(float(v))
+                        v = float(v)
+                    else:
+                        continue
+                    values.append(v)
+                    groups.setdefault(persons[n] if persons is not None else n, []).append(v)
             mean = statistics.fmean(values) if values else None
-            sd = statistics.stdev(values) if len(values) > 1 else None
             out.append({"label": plain(o["label"]) or o["code"], "code": o["code"], "n": len(values), "mean": mean,
-                        "ci": intervals.mean_ci(mean, sd, len(values)) if mean is not None else None,
+                        "persons": len(groups),
+                        "ci": intervals.cluster_mean_ci(list(groups.values())) if mean is not None else None,
                         "top": sum(1 for v in values if v == 1) / len(values) if values else None})
         return sorted(out, key=lambda r: (r["mean"] is None, r["mean"] or 0))
 
