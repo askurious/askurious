@@ -1,5 +1,5 @@
 """UI/UX audit of 2026-10-07, proposal S10 (first part): the administration's tab "Personen". Researchers, the
-allowed ORCID iDs, the groups and the institution design are panels of one page; "Anmeldung freischalten" and "Konto
+sign-in switch (since 2026-10-29 instead of the list of allowed ORCID iDs), the groups and the institution design are panels of one page; "Anmeldung freischalten" and "Konto
 anlegen" are one button "Person hinzufügen …" with a dialog of two ways."""
 import re
 from pathlib import Path
@@ -31,12 +31,12 @@ def test_one_tab_people_gathers_the_panels_in_order(client):
         assert f">{other}" in tabs  # the other tabs stay as they are
     assert "<title>Personen · Administration" in page
     order = [page.index(f'id="{anchor}"') for anchor in
-             ("forschende", "freischalten", "person-hinzufuegen")]
+             ("forschende", "anmeldung", "person-hinzufuegen")]
     assert order == sorted(order) and 'id="gruppen"' not in page   # the groups have their own tab (2026-10-10)
     groups = client.get("/admin/groups").data.decode()
     assert re.search(r'aria-current="page"[^>]*>Gruppen</a>', groups) and 'id="gruppen"' in groups
     assert "<title>Gruppen · Administration" in groups and 'id="forschende"' not in groups
-    assert ">Freigeschaltete ORCID iDs <" in page and 'id="zugang"' not in page
+    assert ">Anmeldung mit ORCID <" in page and 'id="zugang"' not in page and 'id="freischalten"' not in page
     # the former institution design: since 2026-10-19 the template of an organisation's design on its page
     assert client.get("/admin/designs").headers["Location"].endswith("/admin/orgs")
     design = client.get("/admin/orgs").data.decode()
@@ -57,9 +57,9 @@ def test_the_button_opens_the_dialog_and_leads_to_the_panel_without_scripts(clie
     assert ">Mit ORCID iD<" in panel and ">Ohne ORCID iD<" in panel
     assert panel.index('action="/admin/admit"') < panel.index('action="/admin/accounts/new"')
     assert "Anmeldung freischalten</button>" in panel and "Konto anlegen</button>" in panel
-    # the list of allowed iDs has no form of its own any more, only the switch "every ORCID holder"
-    allowed = page[page.index('id="freischalten"'):].split("</section>", 1)[0]
-    assert 'name="orcid" maxlength' not in allowed and 'name="mode" value="all"' in allowed
+    # the sign-in block has no form for iDs, only the switch "only with an invitation / every person" (2026-10-29)
+    allowed = page[page.index('id="anmeldung"'):].split("</section>", 1)[0]
+    assert 'name="orcid" maxlength' not in allowed and 'name="value" value="1"' in allowed
     # the dialog: Esc and the focus are the browser's and app.js's (S10)
     block = JS[JS.index("[data-person-add-panel]") - 200:]
     block = block[:block.index("})();")]
@@ -108,7 +108,7 @@ def test_old_addresses_and_actions_land_on_the_panels_of_people(app, client):
 def test_people_tab_in_english(client):
     client.post("/account/language", data={"lang": "en"})
     page = client.get("/admin/people").data.decode()
-    assert "<title>People · Administration" in page and ">Allowed ORCID iDs <" in page
+    assert "<title>People · Administration" in page and ">Sign-in with ORCID <" in page
     assert ">With an ORCID iD<" in page and ">Without an ORCID iD<" in page
     assert "Institution design" in client.get("/admin/orgs/1").data.decode()
     groups = client.get("/admin/groups").data.decode()

@@ -7479,3 +7479,12 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Die Karte einer Person (`org/account.html`) hat jetzt den Abschnitt „Betreuung“ wie die Admin-Seite: Liste mit ×, „Person hinzufügen“ aus den Personen dieser Organisation. Er erscheint bei Typen mit Betreuung oder solange noch jemand betreut. Hinzufügen nur bei Typ mit Betreuung.
 - Test `test_an_admin_of_the_organisation_sets_the_supervisors_later`.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-10-29: Anmeldung mit ORCID nur noch „nur mit Einladung / jede Person“
+
+- Ralf: Die Liste „Freigeschaltete ORCID iDs“ und die Obergrenze der freien Anmeldung braucht es nicht mehr; ein Registrierungslink führt direkt in eine Organisation. Für die Plattform bleibt einstellbar, ob Einladungen nötig sind oder sich jede Person mit ORCID anmelden kann.
+- Administration › Personen: Block „Anmeldung mit ORCID“ mit zwei Stufen statt drei; Obergrenze, Warteliste (Seite, Mail, Aufräumlauf) und Slack-Hinweis „Anmeldung voll“ entfernt. Die Liste der einzelnen iDs ist nicht mehr zu sehen; sie trägt intern weiter „Person hinzufügen“ und die Registrierungslinks.
+- Wer sich anmeldet, solange jede Person darf, und keinen anderen Grund hat, bekommt eine Freigabe am Konto (`signin.came_in`): Umschalten auf „nur mit Einladung“ sperrt niemanden aus. Migration 0107 gibt sie den Konten, die heute am Schalter hängen, stellt „bis zur Obergrenze“ auf „nur mit Einladung“ und löscht die Einstellungen der Obergrenze. Tabelle `sign_in_wait` ist nicht mehr abgebildet, Spalte `user_login.came_via` wird nicht mehr gelesen; ein späterer Deploy löscht beide.
+- Registrierungslinks auch „ohne Grenze“ und „ohne Ablauf“; Widerrufen beendet sie weiterhin.
+- Verwaltung › Personen, „Offene Einladungen“ der Hauptorganisation zeigt jetzt auch iDs aus „Person hinzufügen“ der Administration und zieht sie zurück.
+- Rechtstexte: Datenschutzerklärung (de/en) und Datenschutzkonzept ohne Warteliste; Handbuch (de/en) angepasst; README, Lizenz und Nutzungsbedingungen geprüft, keine Änderung nötig.

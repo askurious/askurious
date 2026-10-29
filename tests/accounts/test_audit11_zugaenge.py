@@ -101,22 +101,6 @@ def test_use_counter_is_taken_in_the_database(app, client):
         assert db.session.scalar(db.select(GroupJoinLink)).uses == 1
 
 
-def test_sign_in_limit_counts_under_a_lock(app, client, monkeypatch):
-    from app import signin
-
-    with app.test_request_context():
-        signin.lock_places()  # the real lock works on SQLite (PostgreSQL: an advisory lock)
-        db.session.rollback()
-    taken = []
-    monkeypatch.setattr(signin, "lock_places", lambda: taken.append(1))
-    with app.test_request_context():
-        signin.set_mode(signin.MODE_CAP, _user(ME), new_limit=50)
-        db.session.commit()
-        assert signin.open_lets_in(THIRD) and taken                      # a new iD: counted under the lock
-        taken.clear()
-        assert signin.open_lets_in(ME) and not taken                     # an account that is there: no lock
-
-
 # --- A5: lead links can be revoked ---------------------------------------------------------------------------------
 
 def test_admin_revokes_lead_links(app, client):

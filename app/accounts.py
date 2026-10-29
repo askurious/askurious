@@ -595,10 +595,8 @@ def delete(user, by, choices=None, admin=None, heirs=None):
     from app.models import GroupJoinLink
 
     db.session.execute(db.delete(GroupJoinLink).where(GroupJoinLink.created_by_id == uid))  # join links it made
-    from app.models import SignInWait
     from app.models import PaperPage, PaperRun, PaperSheet
 
-    db.session.execute(db.delete(SignInWait).where(SignInWait.orcid == key))  # the waiting list (app/signin.py)
     if login is not None and login.email:
         db.session.execute(db.delete(MemberInvite).where(MemberInvite.email == login.email))
     for model in (ZenodoConnection, CoscineConnection, AiAccess, AiUsage, SurveyPin, SurveyHide, EditMark, EditStep, UserLogin, AuthToken, SignInGrant, LoginSession,

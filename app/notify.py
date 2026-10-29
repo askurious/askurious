@@ -200,18 +200,6 @@ def new_user(user):
                                                           "text": {"type": "plain_text", "text": "Konto ansehen"}}]}])
 
 
-def signup_limit(used, top, level):
-    """"Every ORCID holder" up to a limit (app/signin.py): 80 % of it used, or full; with a link to the panel."""
-    from flask import url_for
-
-    link = brand.public_base() + url_for("admin.researchers", _anchor="freischalten")
-    head = (f":no_entry: *Anmeldung voll:* {used} von {top} Plätzen der freien Anmeldung belegt; Neue kommen auf die Warteliste"
-            if level == "full" else f":warning: *Anmeldung fast voll:* {used} von {top} Plätzen der freien Anmeldung belegt")
-    return slack(head, [{"type": "section", "text": {"type": "mrkdwn", "text": head}},
-                        {"type": "actions", "elements": [{"type": "button", "action_id": "open", "url": link,
-                                                          "text": {"type": "plain_text", "text": "Obergrenze ansehen"}}]}])
-
-
 def reset_request(user):
     """Announce a request "Passwort vergessen?" (auth.forgot_password): the number of the account and a link to its
     page in the administration, where a site admin creates the one-time link; not the address."""

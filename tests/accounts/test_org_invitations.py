@@ -64,3 +64,21 @@ def test_only_the_organisations_admins_withdraw(app, client):
     assert stranger.post(f"/org/{org_id}/people/invitations", data={"key": CARL}).status_code == 404
     with app.app_context():
         assert db.session.get(SignInOrcid, CARL) is not None
+
+
+def test_ids_added_in_the_administration_are_open_invitations_of_the_main_organisation(app, client):
+    """Since the sign-in list is no longer shown on its own (Ralf 2026-10-29), an iD added with "Person hinzufügen" of
+    the administration (no organisation of its own: the main one) is listed and withdrawn here."""
+    from app import orgs
+
+    allow(app)
+    client.post("/admin/admit", data={"action": "add", "orcid": CARL, "note": "Martina"})
+    with app.app_context():
+        assert db.session.get(SignInOrcid, CARL).org_id is None
+        main = orgs.default_id()
+    block = _block(client.get(f"/org/{main}/people").data.decode())
+    assert "Martina" in block and "Anmeldung mit ORCID iD" in block
+    r = client.post(f"/org/{main}/people/invitations", data={"key": CARL})
+    assert r.status_code == 302
+    with app.app_context():
+        assert db.session.get(SignInOrcid, CARL) is None

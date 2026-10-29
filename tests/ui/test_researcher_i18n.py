@@ -819,7 +819,7 @@ def test_admin_system_pages_in_english(app, client):
         page = client.post("/admin/database", data={"action": "check", "host": "", "name": "x", "user": "u"}).data.decode()
         assert "Please enter server, database and user." in page
     page = client.post("/admin/admit", data={"action": "everyone", "value": "0"}, follow_redirects=True).data.decode()
-    assert "Only people on the list, invited or in a group can sign in again." in page
+    assert "New accounts now only come with an invitation" in page
 
 
 def test_admin_people_and_construct_pages_in_english(app, client):

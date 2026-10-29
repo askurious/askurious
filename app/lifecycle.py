@@ -808,9 +808,6 @@ def _rare_sweeps(now):
     from app import audit
 
     _step("audit.sweep", audit.sweep, now)  # entries of the access log older than a year
-    from app import signin
-
-    _step("signin.sweep_waiting", signin.sweep_waiting, now)  # the waiting list of the sign-in after 90 days (audit 2026-10-10, L-10)
     from app import signup_links
 
     _step("signup_links.sweep", signup_links.sweep)  # registration links 30 days after they expired (privacy page)

@@ -447,8 +447,8 @@ def _activities():
         {"name": de_en("Konten und Anmeldung", "Accounts and sign-in"),
          "purpose": de_en("Zugang zur Plattform, Zuordnung von Befragungen, Schutz vor Missbrauch.",
                           "Access to the platform, assigning surveys, protection against misuse."),
-         "subjects": de_en("Forschende, Admins, eingeladene Personen, Personen auf der Warteliste",
-                             "Researchers, admins, invited people, people on the waiting list"),
+         "subjects": de_en("Forschende, Admins, eingeladene Personen",
+                             "Researchers, admins, invited people"),
          "data": de_en("ORCID iD, Name, E-Mail-Adresse, Passwort als scrypt-Hash, Geheimnis der "
                        "Zwei-Faktor-Anmeldung (verschlüsselt), Anmeldezeiten, grobe Browserbezeichnung der Sitzungen, "
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
@@ -456,15 +456,13 @@ def _activities():
                        "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung, "
                        "Nummer des Kürzels in Organisationen mit verborgenen Namen, "
                        "angeheftete und ausgeblendete Befragungen, "
-                       "Bearbeitungsspuren; auf der Warteliste der Anmeldung ORCID iD, Name und freiwillig eine "
-                       "E-Mail-Adresse für die Nachricht, dass ein Platz frei ist.",
+                       "Bearbeitungsspuren.",
                        "ORCID iD, name, email address, password as a scrypt hash, secret of the two-factor "
                        "sign-in (encrypted), sign-in times, coarse browser label of the sessions, acceptance of the terms "
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "
                        "and course, invitation link of the registration, number of the label in organisations with hidden "
-                       "names, pinned and hidden surveys, editing traces; on the waiting list of the "
-                       "sign-up ORCID iD, name and, optionally, an email address for the notice that a place is free."),
+                       "names, pinned and hidden surveys, editing traces."),
          "recipients": de_en("Admins; ORCID (Anmeldung); Mail-Relay und Slack, wenn eingeschaltet.",
                              "Admins; ORCID (sign-in); mail relay and Slack when switched on."),
          "deletion": de_en("Bis das Konto gelöscht wird (selbst oder durch Admins); danach bleiben nur Nummer, interne "
@@ -480,8 +478,7 @@ def _activities():
                            "Vormerkung, vormerkende Person und Auswahl gespeichert, Übergaben ohne mögliche Person halten "
                            "die Löschung als „Löschung fällig“ an. Einladungsadressen einer Liste: bis zur "
                            "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Einladungslinks der Plattform (nur Prüfwert, "
-                           "Notiz, Zähler): bis 30 Tage nach ihrem Ablauf. Warteliste: bis zur ersten "
-                           "Anmeldung, höchstens 90 Tage; die E-Mail-Adresse, sobald die Nachricht verschickt ist.",
+                           "Notiz, Zähler): bis 30 Tage nach ihrem Ablauf.",
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
                            "date remain; memberships, home and admin role in organisations go with the account. Email "
                            "address and password hash also when the person removes this sign-in on the page “Account › Profile and sign-in” "
@@ -495,8 +492,7 @@ def _activities():
                            "are stored, and a handover without a person able to receive it holds the deletion as "
                            "“deletion due”. Invitation addresses of a list: until accepted, withdrawn or "
                            "expired, at most 30 days. Invitation links of the platform (hash, note, counter only): until 30 days after "
-                           "they expire. Waiting list: until the first sign-in, at most 90 days; the email "
-                           "address as soon as the notice is sent."),
+                           "they expire."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b DSGVO (Nutzungsbedingungen); bei öffentlichen Stellen ggf. lit. e",
                         "Art. 6 (1) (b) GDPR (terms of use); for public bodies possibly (e)")},

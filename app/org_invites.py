@@ -21,13 +21,21 @@ from app.tables import ROW_SIZES, Listing, text_key
 SORTS = {"name": "asc", "kind": "asc", "since": "desc", "by": "asc", "until": "asc"}
 
 
+def _listed_in(org):
+    """Entries of the sign-in list that come into `org`: those of the organisation everything started in carry no
+    organisation (SignInOrcid.org_id None, "Person hinzufügen" of the administration), and since the list is no
+    longer shown on its own (2026-10-29) they are open invitations of that organisation."""
+    if org.key == orgs.MAIN:
+        return db.or_(SignInOrcid.org_id == org.id, SignInOrcid.org_id.is_(None))
+    return SignInOrcid.org_id == org.id
+
+
 def open_of(org):
     """The open invitations of `org`, one per person: dicts with key, name, orcid, kinds (labels), since, by (a User or
     None), until (None: no end) and may (may the signed-in admin withdraw it)."""
     items = {}
     known = db.select(User.orcid).where(User.pending.is_(False), User.orcid.is_not(None))
-    for s in db.session.scalars(db.select(SignInOrcid).where(SignInOrcid.org_id == org.id,
-                                                             SignInOrcid.orcid.not_in(known))):
+    for s in db.session.scalars(db.select(SignInOrcid).where(_listed_in(org), SignInOrcid.orcid.not_in(known))):
         items[s.orcid] = _item(s.orcid, s.note, s.orcid, de_en("Anmeldung mit ORCID iD", "Sign-in with ORCID iD"),
                                s.created_at, s.added_by_id)
     here = orgs.column(WorkGroup.org_id) == org.id
@@ -112,8 +120,7 @@ def withdraw(org, key):
         db.session.execute(db.delete(AuthToken).where(AuthToken.user_id == user.id, AuthToken.purpose == "setup"))
     else:
         if item["orcid"]:
-            db.session.execute(db.delete(SignInOrcid).where(SignInOrcid.orcid == item["orcid"],
-                                                            SignInOrcid.org_id == org.id))
+            db.session.execute(db.delete(SignInOrcid).where(SignInOrcid.orcid == item["orcid"], _listed_in(org)))
         if user is not None:
             from app import org_delete
 

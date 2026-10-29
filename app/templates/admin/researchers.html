@@ -123,82 +123,28 @@
   <p class="muted small">{{ de_en("Teilnahmen zählen je Befragung, in der die Person Mitglied ist (auch geteilte); Testdurchläufe, Dummy-Daten und Vorschau zählen nicht.",
     "Participations count per survey the person is a member of (shared ones included); test runs, dummy data and preview do not count.") }}</p>
 </section>
-<section class="panel" id="freischalten">
-  <h2>{{ de_en("Freigeschaltete ORCID iDs", "Allowed ORCID iDs") }} <span class="hint">{{ de_en("wer sich mit ORCID anmelden darf, ohne eingeladen oder in einer Gruppe zu sein; neue über „Person hinzufügen …“", "who may sign in with ORCID without being invited or in a group; new ones through “Add person …”") }}</span></h2>
-  {# "every ORCID holder": off, up to a limit, without a limit (gruppen-freischaltung-konzept.md, Stufe 3, E9-E13) #}
+{# One switch of the platform (Ralf, 2026-10-29): new accounts with ORCID only with an invitation, or every person.
+   An account that came in by "every person" keeps its way in when switched off (signin.came_in). #}
+<section class="panel" id="anmeldung">
+  <h2>{{ de_en("Anmeldung mit ORCID", "Sign-in with ORCID") }} <span class="hint">{{ de_en("wer ein neues Konto bekommt", "who gets a new account") }}</span></h2>
   <form method="post" action="{{ url_for('admin.sign_in_orcids') }}" class="signin-mode">
-    {{ csrf() }}<input type="hidden" name="action" value="mode">
+    {{ csrf() }}<input type="hidden" name="action" value="everyone">
     <fieldset>
-      <legend>{{ de_en("Freie Anmeldung mit ORCID", "Open sign-up with ORCID") }}</legend>
-      <label class="check"><input type="radio" name="mode" value="off"{{ " checked" if sign_in.mode == "off" }}> {{ de_en("aus: nur die Liste unten, Einladungen und Gruppen", "off: only the list below, invitations and groups") }}</label>
-      <label class="check"><input type="radio" name="mode" value="cap"{{ " checked" if sign_in.mode == "cap" }}> {{ de_en("jede Person mit ORCID iD, bis zur Obergrenze von", "anyone with an ORCID iD, up to a limit of") }}
-        <select name="limit" aria-label="{{ de_en('Obergrenze', 'Limit') }}">{% for n in sign_in.steps %}<option value="{{ n }}"{{ " selected" if n == sign_in.limit }}>{{ n }}</option>{% endfor %}</select>
-        {{ de_en("neuen Konten", "new accounts") }}</label>
-      <label class="check"><input type="radio" name="mode" value="all"{{ " checked" if sign_in.mode == "all" }}> {{ de_en("jede Person mit ORCID iD, ohne Grenze", "anyone with an ORCID iD, without a limit") }}</label>
+      <legend class="visually-hidden">{{ de_en("Anmeldung mit ORCID", "Sign-in with ORCID") }}</legend>
+      <label class="check"><input type="radio" name="value" value="0"{{ " checked" if not everyone }}> {{ de_en("nur mit Einladung: Registrierungslink, „Person hinzufügen“, Befragung oder Gruppe", "only with an invitation: registration link, “Add person”, survey or group") }}</label>
+      <label class="check"><input type="radio" name="value" value="1"{{ " checked" if everyone }}> {{ de_en("jede Person mit ORCID iD (neue Konten kommen in die Hauptorganisation)", "anyone with an ORCID iD (new accounts go into the main organisation)") }}</label>
     </fieldset>
     {# a deliberate exception from saving at once: it decides who may create an account, so a stray click on a radio
        must not open the platform; the button says when it takes effect (UI audit 2026-10-12, U16) #}
     <div class="button-row"><button class="button button-secondary">{{ de_en("Übernehmen (gilt sofort für neue Anmeldungen)", "Apply (takes effect at once for new sign-ups)") }}</button></div>
   </form>
-  {% if sign_in.mode == "cap" %}
-  <p class="{{ 'flash flash-warning' if sign_in.level else 'muted' }}"><span><strong>{{ de_en("{u} von {n} Plätzen belegt.", "{u} of {n} places taken.", u=sign_in.used, n=sign_in.limit) }}</strong>
-    {% if sign_in.level == "full" %}{{ de_en("Die Obergrenze ist erreicht: Neue kommen auf die Warteliste. Heben Sie sie an, rücken die Ersten der Liste nach.", "The limit is reached: new people go on the waiting list. If you raise it, the first of the list move up.") }}
-    {% elif sign_in.level == "80" %}{{ de_en("Bald ist die Obergrenze erreicht.", "The limit will soon be reached.") }}{% endif %}
-    {{ de_en("Es zählen nur Konten, die allein über die freie Anmeldung kamen; gelöschte geben ihren Platz frei. Absenken sperrt niemanden aus.", "Only accounts that came by open sign-up alone count; deleted ones give their place back. Lowering it locks nobody out.") }}</span></p>
-  {% elif sign_in.mode == "all" %}
-  <p class="muted"><strong>{{ de_en("Jede Person mit ORCID iD kann sich anmelden.", "Everyone with an ORCID iD can sign in.") }}</strong> {{ de_en("Die Liste unten gilt erst wieder, wenn das ausgeschaltet ist.", "The list below only counts again once this is switched off.") }}</p>
-  {% endif %}
-  {% if sign_in.waiting %}
-  <h3>{{ de_en("Warteliste", "Waiting list") }} <span class="hint">{{ de_en("wer zuerst kam, kommt zuerst hinein; Einträge gehen nach 90 Tagen", "first come, first in; entries go after 90 days") }}</span></h3>
-  <div class="res-scroll">
-  {% call list_table("is-num admin-people") %}
-    <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("seit", "since") }}</th><th>{{ de_en("Stand", "State") }}</th><th></th></tr></thead>
-    <tbody>
-    {% for w in sign_in.waiting %}
-      <tr><td class="admin-name">{{ w.name or "–" }} {{ orcid_link(w.orcid, unauth=true) }}</td>
-        <td>{{ w.asked_at|localdt }}</td>
-        <td>{% if w.admitted_at %}{{ de_en("nachgerückt am {d}, noch nicht angemeldet", "moved up on {d}, not signed in yet", d=w.admitted_at|localdt(false)) }}{% else %}{{ de_en("wartet", "waiting") }}{% if w.email %} · {{ de_en("wird per E-Mail benachrichtigt", "is told by email") }}{% endif %}{% endif %}</td>
-        <td><form class="inline" method="post" action="{{ url_for('admin.sign_in_orcids') }}">
-          {{ csrf() }}<input type="hidden" name="action" value="unwait"><input type="hidden" name="orcid" value="{{ w.orcid }}">
-          <button class="button button-secondary button-small">{{ de_en("Entfernen", "Remove") }}</button></form></td></tr>
-    {% endfor %}
-    </tbody>
-  {% endcall %}
-  </div>
-  {% endif %}
-  {% if sign_in.rows %}
-  <div class="res-scroll">
-  {% call list_table("is-num admin-people") %}
-    <thead><tr><th>{{ de_en("Person", "Person") }}</th><th>{{ de_en("Notiz", "Note") }}</th><th>{{ de_en("freigeschaltet", "allowed") }}</th><th></th></tr></thead>
-    <tbody>
-    {% for r in sign_in.rows %}{% set e = r.entry %}
-      <tr><td class="admin-name">{% if r.user %}{{ r.user.display_name }}{% else %}<span class="muted">{{ de_en("noch nicht angemeldet", "not signed in yet") }}</span>{% endif %} {{ orcid_link(e.orcid, unauth=not r.user) }}</td>
-        <td>{{ e.note or "–" }}</td>
-        <td>{{ e.created_at|localdt(false) }}</td>
-        <td><form class="inline" method="post" action="{{ url_for('admin.sign_in_orcids') }}"
-              data-confirm="{{ de_en('Freischaltung entfernen?', 'Remove the permission?') }}" data-confirm-note="{{ de_en('Die Person kommt auch ohne Liste herein, weil sie zu einer Befragung eingeladen, in einer Gruppe ist oder ein Admin ihr Konto freigegeben hat. Fällt das weg, kann sie sich nicht mehr anmelden.', 'The person still gets in without the list because they are invited to a survey, in a group or an admin approved their account. Once that ends, they can no longer sign in.') if r.stays else de_en('Die Person ist mit dem nächsten Klick abgemeldet und kann sich nicht mehr anmelden. Ihr Konto bleibt, wie es ist.', 'The person is signed out at their next click and can no longer sign in. Their account stays as it is.') }}"
-              data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}">
-          {{ csrf() }}<input type="hidden" name="action" value="remove"><input type="hidden" name="orcid" value="{{ e.orcid }}">
-          <button class="link small">{{ de_en("entfernen", "remove") }}</button></form>
-          {% if r.stays %}<span class="hint" title="{{ de_en('Nur solange die Person an einer Befragung oder Gruppe beteiligt ist oder die Freigabe am Konto besteht; danach kann sie sich ohne Eintrag hier nicht mehr anmelden.', 'Only as long as the person takes part in a survey or group or the approval on the account stands; after that they cannot sign in without an entry here.') }}">{{ de_en("kommt auch ohne Liste rein (Befragung, Gruppe oder Freigabe am Konto)", "gets in without the list too (survey, group or approval on the account)") }}</span>{% endif %}</td></tr>
-    {% endfor %}
-    </tbody>
-  {% endcall %}
-  </div>
-  {% else %}<p class="muted">{{ de_en("Noch niemand auf der Liste.", "Nobody on the list yet.") }}</p>{% endif %}
-  <p class="muted small">{{ de_en("Freischalten erlaubt die Anmeldung. Ein neues Konto darf eigene Befragungen anlegen, solange neue Konten das dürfen;
-    hat die Person schon ein Konto, bekommt sie das Recht beim Freischalten. Zurücknehmen lässt es sich unter „verwalten“.
-    Wer von der Liste entfernt wird, ist beim nächsten Klick abgemeldet, außer er ist zu einer Befragung eingeladen oder in einer Gruppe.
-    Admins der Plattform stehen weiter in der Konfiguration des Servers (<code>ADMIN_ORCIDS</code>) und kommen immer herein.",
-    "Allowing permits sign-in. A new account may create own surveys as long as new accounts may;
-    if the person already has an account, they get the right when allowed. It can be taken back under “manage”.
-    Anyone removed from the list is signed out at their next click unless they are invited to a survey or in a group.
-    Platform admins remain set in the server configuration (<code>ADMIN_ORCIDS</code>) and always get in.")|safe }}</p>
+  <p class="muted small">{{ de_en("Umschalten sperrt niemanden aus: Wer sich angemeldet hat, solange jede Person durfte, kommt weiter herein. Zugang nehmen geht mit „Sperren“ am Konto. Admins der Plattform stehen in der Konfiguration des Servers (<code>ADMIN_ORCIDS</code>) und kommen immer herein.",
+    "Switching locks nobody out: anyone who signed in while everyone could still gets in. To take access away, block the account. Platform admins are set in the server configuration (<code>ADMIN_ORCIDS</code>) and always get in.")|safe }}</p>
 </section>
 {# Registration links of the platform (app/signup_links.py): a list and "Einladungslink anlegen …", a dialog like
    "Person hinzufügen". The new link is shown once. #}
 <section class="panel" id="einladungslinks">
-  <h2>{{ de_en("Einladungslinks", "Invitation links") }} <span class="hint">{{ de_en("je Link eine festgelegte Zahl neuer Konten mit ORCID, auch wenn die freie Anmeldung aus ist", "each link a set number of new accounts with ORCID, also while open sign-up is off") }}</span></h2>
+  <h2>{{ de_en("Einladungslinks", "Invitation links") }} <span class="hint">{{ de_en("neue Konten mit ORCID in eine Organisation, auch wenn die Anmeldung nur mit Einladung geht; auf Wunsch ohne Grenze und ohne Ablauf", "new accounts with ORCID into an organisation, also while sign-in needs an invitation; if wanted without a limit and without an end") }}</span></h2>
   {% if signup.new %}
   <div class="join-link-new">
     <p><strong>{{ de_en("Der neue Link wird nur jetzt angezeigt.", "The new link is shown only now.") }}</strong></p>
@@ -219,8 +165,8 @@
           {% if people %}<details class="hint-more"><summary>{{ de_en("{n} Konten", "{n} accounts", n=people|length) }}</summary><ul class="plain small">{% for u in people %}<li><a href="{{ url_for('admin.account', user_id=u.id) }}">{{ u.display_name }}</a></li>{% endfor %}</ul></details>{% endif %}</td>
         <td>{{ org.name if org else "–" }}</td>
         <td>{{ account_type_name(t) if t else "–" }} · {{ period_describe(link.valid_spec) if link.valid_spec is not none else period_describe(t.duration if t else "") }}</td>
-        <td>{{ de_en("{u} von {n}", "{u} of {n}", u=link.uses, n=link.max_uses) }}</td>
-        <td>{% if open %}{{ link.expires_at|localdt }}{% else %}<span class="muted">{{ de_en("beendet", "ended") }}</span>{% endif %}</td>
+        <td>{% if link.max_uses >= signup.no_limit %}{{ de_en("{u}, ohne Grenze", "{u}, without a limit", u=link.uses) }}{% else %}{{ de_en("{u} von {n}", "{u} of {n}", u=link.uses, n=link.max_uses) }}{% endif %}</td>
+        <td>{% if open %}{% if link.expires_at >= signup.no_end %}{{ de_en("ohne Ablauf", "without an end") }}{% else %}{{ link.expires_at|localdt }}{% endif %}{% else %}<span class="muted">{{ de_en("beendet", "ended") }}</span>{% endif %}</td>
         <td>{% if open %}<form class="inline" method="post" action="{{ url_for('admin.signup_links_action') }}"
               data-confirm="{{ de_en('Diesen Einladungslink widerrufen?', 'Revoke this invitation link?') }}" data-confirm-note="{{ de_en('Wer ihn danach öffnet, kann sich damit nicht mehr registrieren. Konten, die schon über ihn kamen, bleiben.', 'Anyone who opens it afterwards can no longer register with it. Accounts that came by it already stay.') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}">
           {{ csrf() }}<input type="hidden" name="action" value="revoke"><input type="hidden" name="link_id" value="{{ link.id }}">
@@ -249,13 +195,13 @@
     <label>{{ de_en("Enddatum", "End date") }} <span class="hint">{{ de_en("nur bei „bis zu einem Datum“", "only with “until a date”") }}</span>
       <input type="date" name="period_date"></label>
     <label>{{ de_en("Anzahl Registrierungen", "Number of registrations") }}
-      <select name="max_uses">{% for n in signup.uses %}<option value="{{ n }}"{{ " selected" if n == signup.default_uses }}>{{ n }}</option>{% endfor %}</select></label>
+      <select name="max_uses">{% for n in signup.uses %}<option value="{{ n }}"{{ " selected" if n == signup.default_uses }}>{{ de_en("ohne Grenze", "without a limit") if n == 0 else n }}</option>{% endfor %}</select></label>
     <label>{{ de_en("Link gültig", "Link valid for") }}
-      <select name="days">{% for d in signup.days %}<option value="{{ d }}"{{ " selected" if d == signup.default_days }}>{{ de_en("1 Tag", "1 day") if d == 1 else de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+      <select name="days">{% for d in signup.days %}<option value="{{ d }}"{{ " selected" if d == signup.default_days }}>{{ de_en("ohne Ablauf", "without an end") if d == 0 else de_en("1 Tag", "1 day") if d == 1 else de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
     <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, nur für Admins; z. B. wofür der Link ist", "optional, for admins only; e.g. what the link is for") }}</span>
       <input name="note" maxlength="200"></label>
-    <p class="muted small">{{ de_en("Wer den Link öffnet und sich zum ersten Mal mit ORCID anmeldet, bekommt ein Konto mit Heimat in der Organisation, diesem Nutzertyp und dieser Laufzeit. Der Link kommt an der Liste, der Obergrenze und der Warteliste vorbei, nicht aber an der Höchstzahl Konten der Organisation. Bestehende Konten ändert er nicht.",
-      "Whoever opens the link and signs in with ORCID for the first time gets an account at home in the organisation, with this user type and period. The link gets past the list, the limit and the waiting list, but not past the organisation's maximum number of accounts. It does not change existing accounts.") }}</p>
+    <p class="muted small">{{ de_en("Wer den Link öffnet und sich zum ersten Mal mit ORCID anmeldet, bekommt ein Konto mit Heimat in der Organisation, diesem Nutzertyp und dieser Laufzeit. Der Link gilt auch, wenn die Anmeldung nur mit Einladung geht, nicht aber über die Höchstzahl Konten der Organisation hinaus. Bestehende Konten ändert er nicht. Ein Link ohne Grenze und ohne Ablauf wirkt wie eine offene Anmeldung in diese Organisation: Geben Sie ihn nur dorthin, wo er hingehört; Widerrufen beendet ihn jederzeit.",
+      "Whoever opens the link and signs in with ORCID for the first time gets an account at home in the organisation, with this user type and period. The link works also while sign-in needs an invitation, but not beyond the organisation's maximum number of accounts. It does not change existing accounts. A link without a limit and without an end works like open sign-up into this organisation: only give it where it belongs; revoking ends it at any time.") }}</p>
     <div class="button-row"><button class="button">{{ de_en("Link anlegen", "Create link") }}</button></div>
   </form>
 </section>

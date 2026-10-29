@@ -1183,7 +1183,6 @@ body.dragging-var [data-var-target] {
 .wizard-spacer { flex: 1; }
 .summary { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; }
 .summary dt { font-weight: 650; color: var(--muted); font-size: 0.85rem; }
-.waiting-place { font-size: 1.55rem; margin: 0.25em 0; }  /* the place in the queue, auth/waiting_list.html */
 .summary dd { margin: 0; }
 /* on the phone all steps fit as numbers, and "Schritt 2 von 8 · Studienplan" names the current one (X12) */
 .wizard-count { display: none; }

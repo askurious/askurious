@@ -1,6 +1,7 @@
-"""Who may sign in with ORCID by themselves, kept in Administration > Forschende (app/signin.py; Ralf, 2026-10-06):
-the list of iDs and the switch "every ORCID holder" (formerly ALLOWED_ORCIDS of the configuration).
-Being on the list is about signing in; creating surveys is the tick on the account."""
+"""Who may sign in with ORCID by themselves (app/signin.py; Ralf, 2026-10-06): the sign-in list, filled by "Person
+hinzufügen" and registration links (formerly ALLOWED_ORCIDS of the configuration), and the switch "only with an
+invitation / every person" of Administration > Personen (Ralf, 2026-10-29: no limit, no waiting list, the list is
+no longer shown on its own). Being on the list is about signing in; creating surveys is the tick on the account."""
 from app import signin
 from app.extensions import db
 from app.models import SignInOrcid, User, UserLogin
@@ -38,26 +39,39 @@ def test_the_list_lets_in_and_taking_off_signs_out(app, client):
     assert other.get("/dashboard/").status_code == 200
     app.config["DEV_LOGIN"] = True
     page = client.get("/admin/people").data.decode()
-    assert "Anmeldung freischalten" in page and "Kollegin, RWTH" in page
+    assert 'id="freischalten"' not in page and "Kollegin, RWTH" not in page  # the list is not shown on its own
     assert f">{OTHER}<" not in page                                           # iDs as the ORCID symbol, never as text
-    assert "Von der Liste entfernt" in _post(client, action="remove", orcid=OTHER)
+    assert client.post("/admin/admit", data={"action": "remove", "orcid": OTHER}).status_code == 400
+    with app.app_context():
+        db.session.delete(db.session.get(SignInOrcid, OTHER))
+        db.session.commit()
     app.config["DEV_LOGIN"] = False
     assert other.get("/dashboard/").status_code == 302                        # with the next click
     app.config["DEV_LOGIN"] = True
 
 
-def test_the_switch_lets_every_orcid_holder_in(app, client):
-    other = app.test_client()
-    _as(other, OTHER, "Kollegin")
+def test_the_switch_lets_every_orcid_holder_in_and_switching_off_locks_nobody_out(app, client):
+    from app.models import SignInGrant
+
+    other, third = app.test_client(), app.test_client()
+    _as(third, THIRD, "Dritte")                                               # signed in before, not while open
     _post(client, action="everyone", value="1")
+    _as(other, OTHER, "Kollegin")                                             # a new account while open
     app.config["DEV_LOGIN"] = False
-    assert other.get("/dashboard/").status_code == 200
+    assert other.get("/dashboard/").status_code == 200 and third.get("/dashboard/").status_code == 200
     app.config["DEV_LOGIN"] = True
-    assert 'name="mode" value="all" checked' in client.get("/admin/people").data.decode()
-    _post(client, action="everyone", value="0")
+    page = client.get("/admin/people").data.decode()
+    assert 'name="value" value="1" checked' in page and ">Anmeldung mit ORCID <" in page
+    assert 'name="mode"' not in page and "Warteliste" not in page and "Obergrenze von" not in page
+    assert "Neue Konten gibt es jetzt nur noch mit Einladung" in _post(client, action="everyone", value="0")
     app.config["DEV_LOGIN"] = False
-    assert other.get("/dashboard/").status_code == 302
+    assert other.get("/dashboard/").status_code == 200                        # came in while open: an admin's yes
+    assert third.get("/dashboard/").status_code == 302                        # never came in by the switch
     app.config["DEV_LOGIN"] = True
+    with app.app_context():
+        ids = dict(db.session.execute(db.select(User.orcid, User.id)).all())
+        assert db.session.get(SignInGrant, ids[OTHER]) is not None and db.session.get(SignInGrant, ids[THIRD]) is None
+        assert db.session.get(SignInGrant, ids[ME]) is None                   # ADMIN_ORCIDS need none
 
 
 def test_listing_an_account_lets_it_create_and_an_admin_takes_that_back(app, client):
@@ -125,20 +139,6 @@ def test_a_yes_to_signing_in_is_kept_a_few_seconds_a_no_never(app, monkeypatch):
         assert not auth._may_sign_in_kept(OTHER)                             # 0: always asked
 
 
-def test_the_hint_says_who_gets_in_without_the_list_and_until_when(app, client, survey):
-    from app.models import SurveyMember
-
-    _post(client, action="add", orcid=THIRD)
-    page = client.get("/admin/people").data.decode()
-    assert "kommt auch ohne Liste rein" not in page
-    with app.app_context():
-        db.session.add(SurveyMember(survey_id=1, orcid=THIRD, name="Dritte", role="editor", position=2))
-        db.session.commit()
-    page = client.get("/admin/people").data.decode()
-    assert "kommt auch ohne Liste rein (Befragung, Gruppe oder Freigabe am Konto)" in page
-    assert "Fällt das weg, kann sie sich nicht mehr anmelden." in page and "Gruppe oder Admin" not in page
-
-
 def test_taking_the_last_right_away_ends_the_kept_yes_at_once(app, client, survey):
     """Audit 2026-10-18, AUTH-3: the kept yes held up to SIGN_IN_SECONDS after the person was taken out of the last
     survey or group. Deleting the entry (one by one or in bulk) or the line of the sign-in list forgets it in this
@@ -166,7 +166,8 @@ def test_taking_the_last_right_away_ends_the_kept_yes_at_once(app, client, surve
         assert not auth._may_sign_in_kept(OTHER)                              # in bulk as well
         signin.add(OTHER, "", admin)
         assert auth._may_sign_in_kept(OTHER)
-        signin.remove(OTHER)
+        db.session.delete(db.session.get(SignInOrcid, OTHER))
+        db.session.commit()
         assert not auth._may_sign_in_kept(OTHER)                              # off the sign-in list
 
 

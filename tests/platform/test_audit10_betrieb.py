@@ -8,7 +8,7 @@ import pytest
 import sqlalchemy as sa
 
 from app.extensions import db
-from app.models import Erasure, Response, SealEntry, SignInWait, Survey, utcnow
+from app.models import Erasure, Response, SealEntry, Survey, utcnow
 from tests.platform.test_audit8_b_deploy import _read, _write, needs_bash, server  # noqa: F401 (fixture)
 from tests.privacy.test_erasure import take
 from tests.exports.test_seal import sealed_survey
@@ -100,34 +100,6 @@ def test_l8_betrieb_md_names_the_step_before_the_release():
     part = text[text.index("### Rückweg nach einer Migration"):]
     assert part.index("python - save") < part.index("pg_restore -U") < part.index("python - apply --do")
     assert "nicht wieder freigeben" in part
-
-
-# --- L-10: the waiting list of the sign-in has a period -------------------------------------------------------------
-
-def test_l10_waiting_list_entries_go_after_90_days(app):
-    from app import signin
-
-    with app.app_context():
-        now = utcnow()
-        db.session.add_all([
-            SignInWait(orcid="0000-0001-0000-0001", name="Alt", asked_at=now - timedelta(days=91)),
-            SignInWait(orcid="0000-0001-0000-0002", name="Neu", asked_at=now - timedelta(days=10)),
-            SignInWait(orcid="0000-0001-0000-0003", name="Eingelassen", asked_at=now - timedelta(days=120),
-                       admitted_at=now - timedelta(days=5)),
-            SignInWait(orcid="0000-0001-0000-0004", name="Nie gekommen", asked_at=now - timedelta(days=200),
-                       admitted_at=now - timedelta(days=95))])
-        db.session.commit()
-        assert signin.sweep_waiting(now) == 2
-        assert sorted(w.name for w in db.session.scalars(db.select(SignInWait))) == ["Eingelassen", "Neu"]
-
-
-def test_l10_housekeeping_runs_it_and_the_privacy_page_names_it(app, client):
-    import inspect
-
-    from app import lifecycle
-
-    assert "signin.sweep_waiting" in inspect.getsource(lifecycle._rare_sweeps)
-    assert "Warteliste" in client.get("/imprint").data.decode() and "90 Tagen" in client.get("/imprint").data.decode()
 
 
 # --- L-12: the privacy page names the backups; dumps before deploys go by age too -----------------------------------

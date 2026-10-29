@@ -158,7 +158,7 @@ NOT_GRANTED = {
     "seal_status": "the last check of a seal chain, by the housekeeping",
     "sign_in_grant": "accounts allowed to sign in",
     "sign_in_orcid": "ORCID iDs allowed to sign in",
-    "sign_in_wait": "waiting list of sign-ups",
+    "sign_in_wait": "former waiting list of sign-ups, no longer read (dropped after 0107)",
     "sign_up_link": "registration links of the platform, made by site admins",
     "site_setting": "settings of the platform from the administration",
     "survey_hide": "surveys hidden from a researcher's list",
