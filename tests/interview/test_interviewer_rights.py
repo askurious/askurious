@@ -222,3 +222,24 @@ def test_feature_off_for_whoever_made_the_link(app, client):
     experiments_on_again = __import__("tests.conftest", fromlist=["experiments_on"]).experiments_on
     experiments_on_again(client, "transcript_coding")
     assert coder.get(base).status_code == 200 and only.get(base).status_code == 200  # (4) as before
+
+
+def test_undo_gives_back_the_right_to_conduct_interviews(app, client):
+    """Taking "darf Interviews führen" away and undoing it brings the right back together with the others (audit
+    2026-10-28, F06)."""
+    code, sid = _guide(app, client)
+    add(client, code, "Anna")
+    anna = _access(app, "Anna")
+    assert anna.may_interview and anna.may_record
+    client.post(f"/guide/{code}/interviewers/{anna.id}/rights", data={"has_interview": "1", "may_code": "all"})
+    anna = _access(app, "Anna")
+    assert (anna.may_interview, anna.may_record, anna.may_code) == (False, False, "all")
+    with app.test_request_context():
+        undo_url = url_for("editor.undo", survey_id=sid)
+        redo_url = url_for("editor.redo", survey_id=sid)
+    client.post(undo_url)
+    anna = _access(app, "Anna")
+    assert (anna.may_interview, anna.may_record, anna.may_transcribe, anna.may_code) == (True, True, True, "none")
+    client.post(redo_url)
+    anna = _access(app, "Anna")
+    assert (anna.may_interview, anna.may_record, anna.may_code) == (False, False, "all")

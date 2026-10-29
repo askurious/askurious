@@ -1086,7 +1086,8 @@ def project(code, pid):
                    double_of=lambda rid: transcript_coding_double.assignment(project, rid),
                    double_finished=transcript_coding_double.finished,
                    double_people=transcript_coding_double.assignable(project, survey) if who.team else [],
-                   coded=lambda r: sum(1 for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id))
+                   coded=lambda r: len(transcript_coding_double.visible(project, who, r, [
+                       c for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id])))
     if who.team:
         accesses = interviewer.accesses(survey)
         context.update(members=members(project), member_name=member_name, accesses=accesses,

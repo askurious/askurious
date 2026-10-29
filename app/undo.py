@@ -57,7 +57,8 @@ from app.timeutil import fmt, to_local
 KEEP = 20
 # what a running or closed survey may still change, and so take back: the structure is fixed from the start on
 FIELD_PARTS = ("settings:", "board:", "quota:", "item:", "plan:layout", "access:", "tcassign:")
-ACCESS_FIELDS = ("may_record", "may_transcribe", "may_code")  # the rights of an interviewer link (app/interviewer.py)
+# the rights of an interviewer link (app/interviewer.py); a step from before may_interview was kept leaves it as it is
+ACCESS_FIELDS = ("may_interview", "may_record", "may_transcribe", "may_code")
 DAYS = 7
 MERGE_MINUTES = 10  # a change that continues the step before it (done(merge=...)) joins it for this long
 SHOWN = 5  # the list shows this many at first, the rest unfolds
@@ -199,7 +200,8 @@ def _apply_interviewers(survey, target):
             access = db.session.get(InterviewerAccess, int(key.partition(":")[2]))
             if access is not None and access.survey_id == survey.id:
                 for f in ACCESS_FIELDS:
-                    setattr(access, f, state[f])
+                    if f in state:
+                        setattr(access, f, state[f])
         if key.startswith("tcassign:") and state is not None:
             pid = int(key.partition(":")[2])
             project = db.session.get(CodingProject, pid)
