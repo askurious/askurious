@@ -244,3 +244,39 @@ def test_licensed_wording_never_goes_to_the_ai(app, client, survey, monkeypatch)
     assert seen and all(wording not in p for p in seen)  # the title went, the wording did not
     html = client.get(f"/surveys/{sid}/translation/?lang=de").data.decode()
     assert "Die KI übersetzt ihn nicht" in html
+
+
+def test_a_translation_keeps_the_editors_text_limit(app, client, survey):
+    """A translation typed on the page is refused above the limit of every element text (audit 2026-10-28, F03)."""
+    from app.items.base import TEXT_MAX
+
+    choice(client)
+    r = client.post("/surveys/1/translation/fieldwork?lang=en", data={"unit": "item:2", "path": "question",
+                                                                       "text": "x" * (TEXT_MAX + 1)})
+    assert r.status_code == 400 and "höchstens" in r.json["error"]
+    assert fields(app)[0][("item:2", "question")]["status"] == "missing"
+    r = client.post("/surveys/1/translation/fieldwork?lang=en", data={"unit": "item:2", "path": "question",
+                                                                       "text": "x" * TEXT_MAX})
+    assert r.json["status"] == "ok"
+
+
+def test_the_word_diff_keeps_within_its_budget():
+    """The diff of a changed source: the same marks as before for small changes, and for long repetitive texts a
+    whole replacement within a fixed CPU budget instead of seconds per field (audit 2026-10-28, P01)."""
+    import time
+
+    from app.translations import diff_html
+
+    assert str(diff_html("Wie oft nutzen Sie KI?", "Wie häufig nutzen Sie KI?")) == \
+        "Wie <del>oft</del><ins>häufig</ins> nutzen Sie KI?"
+    assert str(diff_html("a <b>", "a <i>")) == "a <del>&lt;b&gt;</del><ins>&lt;i&gt;</ins>"
+    assert str(diff_html("", "neu")) == "<ins>neu</ins>"
+    old, new = " ".join(["ab cd"] * 2000), " ".join(["cd ab"] * 2000)
+    start = time.process_time()
+    out = str(diff_html(old, new))
+    assert time.process_time() - start < 1.0
+    assert out.count("<del>") == 1 and out.count("<ins>") == 1
+    budget = [0]                                     # a page that used its budget: no word comparison any more
+    assert str(diff_html("eins zwei drei", "eins vier drei", budget)) == "eins <del>zwei</del><ins>vier</ins> drei"
+    assert str(diff_html("eins zwei drei", "eins vier fünf drei", budget)) == \
+        "eins <del>zwei</del><ins>vier fünf</ins> drei"
