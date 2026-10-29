@@ -107,3 +107,30 @@ def test_parallel_self_entries_share_the_daily_cap_and_uuid(app, client, monkeyp
     assert replay.status_code == 200  # each retry issues a fresh one-time token for the same row
     with app.app_context():
         assert db.session.scalar(db.select(db.func.count(Response.id)).where(Response.part == "m1")) == 1
+
+
+def test_study_says_how_many_self_reports_today(app, client):
+    """The app learns how many self-started reports of today count against the daily maximum, so it shows what is
+    left and offers no start the server would refuse (UI/UX audit 2026-10-29, AND-05)."""
+    from app.models import utcnow
+    from tests.diary.test_diary_integrity import _kept_page, _rating_field
+
+    code = _new(app, client)
+    phone, secret = _enrol(app, code)
+    _active_from_today(app)
+    with app.app_context():
+        survey = db.session.get(Survey, 1)
+        survey.sampling = {**survey.sampling, "modules": [
+            {**m, "trigger": {"t": "self", "max_per_day": 2}} for m in survey.sampling["modules"]]}
+        db.session.commit()
+    study = phone.post(f"{API}/study", json={}, headers=_bearer(secret)).json
+    m1 = next(m for m in study["modules"] if m["key"] == "m1")
+    assert m1["self_today"] == 0 and m1["trigger"]["max_per_day"] == 2 and study["self_date"]
+    version, field = _kept_page(app, phone, secret), _rating_field(app)
+    started = int(utcnow().replace(tzinfo=UTC).timestamp() * 1000) - 60000
+    sent = phone.post(f"{API}/offline", json={"module": "m1", "uuid": "00000000-0000-4000-8000-000000000001",
+                                               "version": version, "started": started, "completed": started + 30000,
+                                               "form": {field: ["4"]}}, headers=_bearer(secret))
+    assert sent.status_code == 200
+    study = phone.post(f"{API}/study", json={}, headers=_bearer(secret)).json
+    assert next(m for m in study["modules"] if m["key"] == "m1")["self_today"] == 1
