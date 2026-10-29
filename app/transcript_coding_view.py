@@ -27,7 +27,7 @@ import bisect
 import re
 import secrets
 
-from flask import abort, jsonify, render_template, request, url_for
+from flask import abort, g, has_request_context, jsonify, render_template, request, url_for
 
 from app.extensions import db
 from app.lang import de_en
@@ -169,6 +169,15 @@ def transcript(row):
     return ((row.interview or {}).get("transcript") or {}).get("text") or ""
 
 
+_MARKS = re.compile(r"\s*#\d{1,2}:\d{2}:\d{2}(?:-\d+)?#\s*")
+
+
+def clean_quote(quote):
+    """A quote for an export: without the Dresing & Pehl time marks (the location names the time) and with single
+    spaces."""
+    return " ".join(_MARKS.sub(" ", str(quote or "")).split())
+
+
 def codings(row, project_id=None):
     out = [c for c in ((row.interview or {}).get("codings") or []) if isinstance(c, dict)]
     return [c for c in out if project_id is None or c.get("project") == project_id]
@@ -176,13 +185,21 @@ def codings(row, project_id=None):
 
 def placed(row, project, who=None):
     """The codings of `project` in this interview as the page shows them: ({...coding, "start", "end"} placed,
-    [codings no longer to be placed])."""
+    [codings no longer to be placed]). Worked out once per request for the same interview, analysis, actor, text and
+    codings (overview, exports and statistics ask several times); storing codings (_store) forgets it."""
     from app.transcript_coding import resolver
 
     text = transcript(row)
+    items = codings(row, project.id)
+    key = None
+    if has_request_context():
+        key = (row.id, project.id, getattr(who, "key", None), hash(text),
+               tuple((c.get("id"), c.get("cat"), c.get("start"), c.get("end")) for c in items))
+        hit = g.setdefault("tc_placed", {}).get(key)
+        if hit is not None:
+            return list(hit[0]), list(hit[1])
     ok, lost = [], []
     resolve = resolver(project)
-    items = codings(row, project.id)
     if who is not None:  # double coding: blind until everyone is done (app/transcript_coding_double.py)
         from app.transcript_coding_double import visible
 
@@ -197,7 +214,10 @@ def placed(row, project, who=None):
             lost.append(c)
         else:
             ok.append({**c, "start": where[0], "end": where[1]})
-    return sorted(ok, key=lambda c: (c["start"], c["end"])), lost
+    ok = sorted(ok, key=lambda c: (c["start"], c["end"]))
+    if key is not None:
+        g.tc_placed[key] = (ok, lost)
+    return list(ok), list(lost)
 
 
 def may_change(project, who, coding):
@@ -216,6 +236,9 @@ def _row(project, who, rid):
 def _store(row, change):
     """change(list of codings) -> new list, stored with a retry when the interview was saved meanwhile."""
     from app import interview_audio
+
+    if has_request_context():
+        g.pop("tc_placed", None)  # what placed() kept for this request is outdated now
 
     def work():
         db.session.refresh(row)
@@ -275,6 +298,8 @@ def remove(project, who, row, coding_id):
     for cat in live(project):
         if (cat.anchor or {}).get("coding") == coding_id:
             cat.anchor = None
+        if any(isinstance(e, dict) and e.get("coding") == coding_id for e in cat.examples or []):
+            cat.examples = [e for e in cat.examples if e.get("coding") != coding_id] or None
     db.session.commit()
 
 
@@ -295,6 +320,57 @@ def set_anchor(project, who, row, coding_id):
     cat.updated_at = utcnow()
     db.session.commit()
     return None
+
+
+EXAMPLES = 2  # further examples of a category besides its anchor example
+
+
+def toggle_example(project, who, row, coding_id):
+    """Make a coded passage a further example of its category, or no longer one (whoever may change the category);
+    at most EXAMPLES. Returns (chosen now, problem)."""
+    found = next((c for c in codings(row, project.id) if c.get("id") == coding_id), None)
+    if found is None:
+        abort(404)
+    from app.transcript_coding import resolver
+
+    cat = db.session.get(CodingCategory, resolver(project)(found.get("cat")) or 0)
+    if cat is None or cat.project_id != project.id:
+        abort(404)
+    if not may_edit(project, cat, who):
+        return False, de_en("Die Beispiele wählt, wer die Kategorie ändern darf.", "The examples are chosen by whoever may change the category.")
+    chosen = [e for e in (cat.examples or []) if isinstance(e, dict)]
+    if any(e.get("coding") == coding_id for e in chosen):
+        cat.examples = [e for e in chosen if e.get("coding") != coding_id] or None
+        now = False
+    else:
+        if len(chosen) >= EXAMPLES:
+            return False, de_en("Höchstens {n} weitere Beispiele; bitte erst eines entfernen.",
+                                "At most {n} further examples; please remove one first.", n=EXAMPLES)
+        cat.examples = chosen + [{"interview": row.id, "coding": coding_id, "quote": found.get("quote", "")[:QUOTE_MAX],
+                                  "label": (row.interview or {}).get("label", "")}]
+        now = True
+    cat.updated_at = utcnow()
+    db.session.commit()
+    return now, None
+
+
+def example_spots(project, pairs):
+    """{category id: [(quote, location)]}: the further examples of each category for the coding guide and the Excel
+    export. The chosen ones first (while they can be placed), then the first coded passages of the category itself in
+    the order of the interviews, without its anchor example, up to EXAMPLES. `pairs`: [(interview, placed coding)]."""
+    where = {}
+    for row, c in pairs:
+        text = transcript(row)
+        where[c["id"]] = (c["cat"], clean_quote(c.get("quote")), spot((row.interview or {}).get("label", str(row.id)), text, c["start"]))
+    out = {}
+    for cat in live(project):
+        anchor = (cat.anchor or {}).get("coding")
+        chosen = [e.get("coding") for e in (cat.examples or []) if isinstance(e, dict)]
+        rest = [cid for cid, (k, _q, _w) in where.items() if k == cat.id and cid not in chosen]
+        picked = [cid for cid in chosen + rest if cid in where and cid != anchor][:EXAMPLES]
+        if picked:
+            out[cat.id] = [(where[cid][1], where[cid][2]) for cid in picked]
+    return out
 
 
 def counts(project, who):
@@ -329,6 +405,10 @@ def forget(responses):
                                                                    CodingCategory.anchor.is_not(None))):
         if (cat.anchor or {}).get("interview") in ids:
             cat.anchor = None
+    for cat in db.session.scalars(db.select(CodingCategory).where(CodingCategory.project_id.in_(projects),
+                                                                   CodingCategory.examples.is_not(None))):
+        if any(isinstance(e, dict) and e.get("interview") in ids for e in cat.examples or []):
+            cat.examples = [e for e in cat.examples if e.get("interview") not in ids] or None
 
 
 def forget_survey_anchors(survey_id):
@@ -342,7 +422,7 @@ def forget_survey_anchors(survey_id):
         db.session.execute(db.delete(CodingMemo).where(CodingMemo.project_id.in_(projects),
                                                        CodingMemo.response_id.is_not(None)))  # memos at interviews
         db.session.execute(db.update(CodingCategory).where(CodingCategory.project_id.in_(projects))
-                           .values(anchor=None).execution_options(synchronize_session=False))
+                           .values(anchor=None, examples=None).execution_options(synchronize_session=False))
 
 
 # --- the pages -----------------------------------------------------------------------------------------------------
@@ -395,6 +475,7 @@ def page(code, pid, rid):
                            lost=[{**_json_coding(c, project, who), "name": names.get(c.get("cat"), "")} for c in lost],
                            categories=cats, nxt=nxt, prev=prev, anchors={c.id: (c.anchor or {}).get("coding") for c in live(project)},
                            editable={c.id: may_edit(project, c, who) for c in live(project)},
+                           examples={c.id: [e.get("coding") for e in (c.examples or []) if isinstance(e, dict)] for c in live(project)},
                            may_main=who.team or not project.mains_fixed,
                            notices=transcript_coding_review.notices(project, who),
                            ai_on_state=transcript_coding_ai.state(project, who),  # includes ai_on() (app/ai_access.py)
@@ -446,6 +527,18 @@ def anchor(code, pid, rid, cid):
     if problem:
         return jsonify(ok=False, error=problem), 403
     return jsonify(ok=True)
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/codings/<cid>/example", methods=["POST"])
+@signed_in_or_coder
+def example(code, pid, rid, cid):
+    """"Als weiteres Beispiel" / "Kein Beispiel mehr" in the coding view."""
+    survey, project, who = _in(code, pid)
+    row = _row(project, who, rid)
+    now, problem = toggle_example(project, who, row, cid)
+    if problem:
+        return jsonify(ok=False, error=problem), 403
+    return jsonify(ok=True, chosen=now)
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories/quick", methods=["POST"])

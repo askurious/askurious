@@ -396,6 +396,7 @@ class CodingCategory(db.Model):
     definition: Mapped[str] = mapped_column(Text, default="")
     delimitation: Mapped[str] = mapped_column(Text, default="")
     anchor: Mapped[dict | None] = mapped_column(JSON)  # a coded passage (stage 2): {"interview", "coding"}
+    examples: Mapped[list | None] = mapped_column(JSON)  # up to two further ones, like the anchor (0110)
     colour: Mapped[str] = mapped_column(String(7), default="")
     position: Mapped[int] = mapped_column(default=0)
     author_key: Mapped[str] = mapped_column(String(40), default="")

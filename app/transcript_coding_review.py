@@ -37,7 +37,8 @@ from app.lang import de_en
 from app.models import CodingCategory, CodingEvent, Response, utcnow
 from app.transcript_coding import (_add, _event, _in, _key, bp, interviews, live, numbers, resolver, signed_in_or_coder,
                                    tree)
-from app.transcript_coding_view import anchor_spots, codings, has_transcript, placed, transcript
+from app.transcript_coding_view import (anchor_spots, clean_quote, codings, example_spots, has_transcript, paragraphs,
+                                        placed, spot, transcript)
 
 KUCKARTZ = ("Kuckartz, U., & Rädiker, S. (2022). Qualitative Inhaltsanalyse: Methoden, Praxis, Computerunterstützung "
             "(5. Aufl.). Beltz Juventa.")
@@ -529,12 +530,14 @@ def guide_docx(project, survey, who):
 
     from_ai = taken_from_ai(project, interviews(project, who))
     spots = anchor_spots(project)  # "(B03, Pos. 12, 00:14:32)": where the anchor stands
+    more = example_spots(project, all_codings(project, who))  # up to two further examples
 
     def entry(cat, level, number=""):
         doc.add_heading(f"{number} {cat.name}".strip(), level=min(level, 9))
         lines = [(de_en("Definition", "Definition"), cat.definition), (de_en("Abgrenzung", "Delimitation"), cat.delimitation),
-                 (de_en("Ankerbeispiel", "Anchor example"), (f"„{(cat.anchor or {}).get('quote')}“ ({spots.get(cat.id) or (cat.anchor or {}).get('label', '')})"
+                 (de_en("Ankerbeispiel", "Anchor example"), (f"„{clean_quote((cat.anchor or {}).get('quote'))}“ ({spots.get(cat.id) or (cat.anchor or {}).get('label', '')})"
                                                              if (cat.anchor or {}).get("quote") else "")),
+                 (de_en("Weitere Beispiele", "Further examples"), "; ".join(f"„{q}“ ({w})" for q, w in more.get(cat.id, []))),
                  (de_en("Früher auch", "Formerly also"), ", ".join(cat.former_names or [])),
                  (de_en("Stellen", "Passages"), str(st.get(cat.id, {}).get("n", 0))
                   + (de_en(", davon {n} aus KI-Vorschlägen übernommen", ", of them {n} accepted from AI suggestions", n=from_ai[cat.id])
@@ -641,7 +644,8 @@ def passages(code, pid):
     cats = live(project)
     wanted = request.args.getlist("cat", type=int) or ([cats[0].id] if cats else [])
     rows = [(r, c) for r, c in all_codings(project, who) if c["cat"] in wanted]
-    return render_template("transcript_coding/passages.html", cats=cats, wanted=wanted, rows=rows,
+    where = {c["id"]: spot((r.interview or {}).get("label", str(r.id)), transcript(r), c["start"]) for r, c in rows}
+    return render_template("transcript_coding/passages.html", cats=cats, wanted=wanted, rows=rows, where=where,
                            names={c.id: c.name for c in cats}, **_context(survey, project, who))
 
 

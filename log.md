@@ -7519,3 +7519,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Oberfläche: Sprechblasen-Symbol mit Zahl an Kategorie und Interview, „Memo“ im Popover einer kodierten Stelle; ein Dialog je Seite; Liste „Memos“ in der Übersicht (Art, Kategorie, Interview, sortiert, 10/20/50 je Seite).
 - Export: .qdpx mit REFI-QDA Notes und NoteRef an Code, TextSource und PlainTextSelection; Excel-Blatt „Memos“. Der Word-Kodierleitfaden bleibt ohne Memos.
 - Löschen mit der Stelle, dem Interview (Löschantrag, Frist), der Auswertung, dem Leitfaden und dem Konto der Person. table_notes, participant_grants (nicht freigegeben), Datenschutzkonzept, Datenschutzerklärung (Abschnitt Kodierende, de/en), Handbuch (de/en) und Glossar ergänzt. README, Lizenz und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Kodieren – weitere Beispiele, Zitate ohne Zeitmarken, Zwischenspeicher, Fundstellen
+
+- Ralf: bis zu zwei weitere Beispiele je Kategorie (Spalte coding_category.examples, Migration 0110, ROLLING = True), in der Kodieransicht „Als weiteres Beispiel“ wählbar wie das Ankerbeispiel, sonst die ersten Stellen; im Word-Kodierleitfaden und als Spalte „Weitere Beispiele“ im Excel, mit Fundstelle. Sie gehen mit der Stelle und dem Interview.
+- Zitate in den Exporten (Excel, Kodierleitfaden, .qdpx-Namen, Memo-Liste) ohne Dresing-&-Pehl-Zeitmarken (transcript_coding_view.clean_quote).
+- placed() einmal je Anfrage zwischengespeichert (g.tc_placed, beim Speichern von Kodierungen verworfen); Übersicht und Exporte platzieren jede Stelle nur noch einmal.
+- „Stellen je Kategorie“ zeigt die Fundstelle und springt zur Stelle. Fundstellen im Transkript-Editor folgen mit dem Player-PR (Absatznummern dort).
+- Handbuch (de/en) und Datenschutzkonzept (weitere Beispiele bei Daten und Löschung) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.

@@ -8,7 +8,7 @@
   if (!root || !dataEl) return;
   var data = JSON.parse(dataEl.textContent);
   var text = data.text, codings = data.codings, cats = data.categories, sugg = data.suggestions || [];
-  var anchors = data.anchors || {}, editable = data.editable || {};
+  var anchors = data.anchors || {}, editable = data.editable || {}, examples = data.examples || {};
   var box = root.querySelector("[data-tc-text]"), side = root.querySelector("[data-tc-side]");
   var pop = document.querySelector("[data-tc-pop]"), info = document.querySelector("[data-tc-info]");
   var filter = pop.querySelector("[data-tc-filter]"), list = pop.querySelector("[data-tc-list]");
@@ -468,6 +468,25 @@
       mb.setAttribute("data-title", "„" + (c.quote.length > 60 ? c.quote.slice(0, 60) + "…" : c.quote) + "“");
       mb.addEventListener("click", function () { info.hidden = true; });
       actions.appendChild(mb);
+      // up to two further examples of the category (app/transcript_coding_view.py, toggle_example)
+      if (editable[String(c.cat)] && anchors[String(c.cat)] !== c.id) {
+        var isEx = (examples[String(c.cat)] || []).indexOf(c.id) >= 0;
+        var ex = document.createElement("button");
+        ex.type = "button";
+        ex.className = "button button-small button-secondary";
+        ex.textContent = isEx ? de_en("Kein Beispiel mehr", "No longer an example") : de_en("Als weiteres Beispiel", "As further example");
+        ex.addEventListener("click", function () {
+          post(base + "/" + c.id + "/example").then(function (d) {
+            if (!d.ok) { say(d.error || ""); return; }
+            var list = (examples[String(c.cat)] || []).filter(function (x) { return x !== c.id; });
+            if (d.chosen) list.push(c.id);
+            examples[String(c.cat)] = list;
+            info.hidden = true;
+            say(d.chosen ? de_en("Als weiteres Beispiel gewählt.", "Chosen as further example.") : de_en("Kein weiteres Beispiel mehr.", "No longer a further example."));
+          });
+        });
+        actions.appendChild(ex);
+      }
       if (c.mine) {
         var r = document.createElement("button");
         r.type = "button";

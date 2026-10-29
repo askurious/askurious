@@ -32,7 +32,8 @@ from app import brand
 from app.extensions import db
 from app.lang import de_en
 from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
-from app.transcript_coding_view import anchor_spots, has_transcript, paragraphs, placed, spot, transcript
+from app.transcript_coding_view import (anchor_spots, clean_quote, example_spots, has_transcript, paragraphs, placed,
+                                        spot, transcript)
 
 PROJECT_NS = "urn:QDA-XML:project:1.0"
 CODEBOOK_NS = "urn:QDA-XML:codebook:1.0"
@@ -58,7 +59,7 @@ def description(cat, where=""):
     if cat.delimitation:
         lines.append(de_en("Abgrenzung: ", "Delimitation: ") + cat.delimitation)
     if (cat.anchor or {}).get("quote"):
-        lines.append(de_en("Ankerbeispiel: ", "Anchor example: ") + f"„{cat.anchor['quote']}“ ({where or cat.anchor.get('label', '')})")
+        lines.append(de_en("Ankerbeispiel: ", "Anchor example: ") + f"„{clean_quote(cat.anchor['quote'])}“ ({where or cat.anchor.get('label', '')})")
     if cat.former_names:
         lines.append(de_en("Früher auch: ", "Formerly also: ") + ", ".join(cat.former_names))
     return "\n\n".join(lines)
@@ -177,7 +178,7 @@ def build_qdpx(project, survey):
                 user = user_of.get(c.get("by") or "", owner)
                 at = (c.get("at") or now[:19]).replace("Z", "")[:19] + "Z"
                 sel = _el(src, ns, "PlainTextSelection", {"guid": _guid(survey, project, "sel", c["id"]),
-                                                          "name": " ".join(c.get("quote", "").split())[:60],
+                                                          "name": clean_quote(c.get("quote"))[:60],
                                                           "startPosition": str(c["start"]), "endPosition": str(c["end"]),
                                                           "creatingUser": user, "creationDateTime": at})
                 if c.get("origin") == "ai":  # an accepted AI suggestion stays recognisable
@@ -225,14 +226,16 @@ def build_xlsx(project, survey):
     number = numbers(mains)
     spots = anchor_spots(project)
     passages = []  # (category id, interview label, where, quote, coder)
+    pairs = []  # (interview, placed coding) for the further examples
     for r in _rows(survey):
         text, label = transcript(r), (r.interview or {}).get("label", str(r.id))
         paras = paragraphs(text)
         for c in placed(r, project)[0]:
+            pairs.append((r, c))
             who = c.get("by_name") or ""
             if c.get("origin") == "ai":
                 who = de_en("{who} (KI-Vorschlag übernommen)", "{who} (AI suggestion accepted)", who=c.get("accepted_by") or who)
-            passages.append((c["cat"], label, spot(label, text, c["start"], paras), " ".join(c.get("quote", "").split()), who))
+            passages.append((c["cat"], label, spot(label, text, c["start"], paras), clean_quote(c.get("quote")), who))
     by_id = {c.id: c for c in live(project)}
     own, total = {}, {}
     for cid, *_rest in passages:
@@ -241,10 +244,13 @@ def build_xlsx(project, survey):
         for k in ([cat] + chain(cat, by_id)) if cat is not None else []:
             total[k.id] = total.get(k.id, 0) + 1
 
+    more = example_spots(project, pairs)
+
     def line(cat, num, level):
         anchor = (cat.anchor or {}).get("quote") or ""
-        return [num, level, cat.name, cat.definition or "", " ".join(anchor.split()), spots.get(cat.id, "") if anchor else "",
-                cat.delimitation or "", own.get(cat.id, 0), total.get(cat.id, 0), ", ".join(cat.former_names or [])]
+        examples = "\n".join(f"„{q}“ ({w})" for q, w in more.get(cat.id, []))
+        return [num, level, cat.name, cat.definition or "", clean_quote(anchor), spots.get(cat.id, "") if anchor else "",
+                examples, cat.delimitation or "", own.get(cat.id, 0), total.get(cat.id, 0), ", ".join(cat.former_names or [])]
 
     system = []
     for main, subs in mains:
@@ -253,6 +259,7 @@ def build_xlsx(project, survey):
     system.extend(line(c, "", de_en("Kandidat", "candidate")) for c in candidates)  # no number: not in the system yet
     head = [de_en("Nummer", "Number"), de_en("Ebene", "Level"), de_en("Kategorie", "Category"), de_en("Definition", "Definition"),
             de_en("Ankerbeispiel", "Anchor example"), de_en("Fundstelle des Ankers", "Location of the anchor"),
+            de_en("Weitere Beispiele", "Further examples"),
             de_en("Kodierregel / Abgrenzung", "Coding rule / delimitation"), de_en("Stellen", "Passages"),
             de_en("Stellen mit Unterkategorien", "Passages with subcategories"), de_en("Früher auch", "Formerly also")]
     ids = [c.id for main, subs in mains for c in [main] + subs] + [c.id for c in candidates]
@@ -263,7 +270,7 @@ def build_xlsx(project, survey):
             for cid, label, where, quote, who in passages]
     head2 = [de_en("Nummer", "Number"), de_en("Kategorie", "Category"), de_en("Interview", "Interview"),
              de_en("Fundstelle", "Location"), de_en("Zitat", "Quote"), de_en("Kodiert von", "Coded by")]
-    sheets = [(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 40, 9, 12, 20]),
+    sheets = [(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 60, 40, 9, 12, 20]),
               (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])]
     memos = _memos(project)
     if memos:  # memos at passages, categories and interviews (app/transcript_coding_memos.py)
