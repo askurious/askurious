@@ -75,6 +75,10 @@ def test_blind_until_done_then_compare_and_agreement(app, client):
         page = who.get(f"{base}/i/{rid}").data.decode()
         return json.loads(re.search(r'id="tc-data">(.*?)</script>', page, re.S).group(1))["codings"]
     assert len(shown(bea)) == 1 and len(shown(carl)) == 2 and len(shown(client)) == 3
+    # the list of interviews counts the same way: no number of the other coder's passages (audit 2026-10-28, F05)
+    def counted(who):
+        return re.findall(r'<td class="num">(\d+)</td>', who.get(base).data.decode())
+    assert counted(bea) == ["1"] and counted(carl) == ["2"] and counted(client) == ["3"]
     assert bea.get(f"{base}/i/{rid}/compare").status_code == 404                    # not before everyone is done
     assert "Keine Stellen mehr zum Prüfen" in bea.get(f"{base}/check").data.decode()  # no check of a blind interview
     bea.post(f"{base}/i/{rid}/done")

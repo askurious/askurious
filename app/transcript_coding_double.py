@@ -104,6 +104,7 @@ def assignable(project, survey):
 
 def assign(project, survey, rid, keys):
     """Assign the interview to these coders (two or more), or take the assignment away (fewer)."""
+    db.session.refresh(project, with_for_update=True)  # one writer of the assignments at a time
     known = dict(assignable(project, survey))
     keys = [k for k in dict.fromkeys(keys) if k in known]
     double = _double(project)
@@ -118,6 +119,8 @@ def assign(project, survey, rid, keys):
 
 
 def report_done(project, who, rid, done=True):
+    # two coders who report at the same moment: the second reads the marks of the first (row lock until commit)
+    db.session.refresh(project, with_for_update=True)
     entry = assignment(project, rid)
     if entry is None or who.key not in entry["coders"]:
         abort(404)
