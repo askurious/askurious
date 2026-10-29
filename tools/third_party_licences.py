@@ -46,6 +46,8 @@ OpenBLAS in NumPy, libjpeg/libpng/FreeType in Pillow, OpenSSL in cryptography, l
 lxml, RE2/Abseil in google-re2), each under its own licence.
 FreeType, inside the wheels of Pillow and matplotlib: Portions of this software are copyright © The FreeType
 Project (www.freetype.org). All rights reserved.
+The font Bitstream Vera inside the reportlab wheel (Copyright (c) 2003 by Bitstream, Inc.; Bitstream Vera Fonts
+Copyright licence) draws the text of PNG figures on the server (app/svg_png.py); it is not passed on as a font.
 In the browser: Leaflet, Leaflet.heat with simpleheat, PDF.js with OpenJPEG and core-js, the font Atkinson
 Hyperlegible Next and the icons, see /sources. The PDF.js bundles include core-js 3.39.0 (MIT, Copyright (c) 2014-2024 Denis Pushkarev).
 Its unchanged licence is app/static/vendor/pdfjs/LICENSE_CORE_JS, from

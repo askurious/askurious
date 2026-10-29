@@ -7539,3 +7539,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - placed() einmal je Anfrage zwischengespeichert (g.tc_placed, beim Speichern von Kodierungen verworfen); Übersicht und Exporte platzieren jede Stelle nur noch einmal.
 - „Stellen je Kategorie“ zeigt die Fundstelle und springt zur Stelle. Fundstellen im Transkript-Editor folgen mit dem Player-PR (Absatznummern dort).
 - Handbuch (de/en) und Datenschutzkonzept (weitere Beispiele bei Daten und Löschung) ergänzt; README, Lizenz, Datenschutzerklärung und Nutzungsbedingungen geprüft, keine Änderung nötig.
+
+## 2026-10-29: Diagramm des Kategoriensystems als PNG, PDF und im Kodierleitfaden
+
+- Ralf: neben „Diagramm als SVG“ auch PNG und PDF (map.png, map.pdf), und das Diagramm im Word-Kodierleitfaden nach der Forschungsfrage (seitenbreit, nie höher als die Seite; mehr als 2,2-mal so breit wie hoch: eigene Seite quer).
+- Ohne neue Abhängigkeit: app/svg_png.py zeichnet das SVG mit Pillow (rect, circle, line, path mit M/L/C, text, Strichelung), Schrift Bitstream Vera aus reportlab (Pillows eigene Schrift hat keine Umlaute); reportlabs renderPM fehlt hier die Zusatzbibliothek. Das PDF (reportlab, A4, bei breiten Diagrammen quer) nimmt das PNG in Druckauflösung, weil results_pdf.svg_drawing Grafiken in grauem APA-Stil neu zeichnet und die Farben der Kategorien verlöre.
+- Handbuch (de/en) ergänzt. Rechtstexte geprüft, keine Änderung nötig (dieselben Angaben wie das SVG).
