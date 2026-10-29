@@ -26,6 +26,19 @@ def _key(app, survey_id=1):
         return external.sign_key(_node(app, survey_id))
 
 
+def _drawn_before(app, survey_id=1):
+    """The key of the external section as one drawn before 2026-10-29, which still takes version 1."""
+    import copy
+
+    with app.app_context():
+        s = db.session.get(Survey, survey_id)
+        root = copy.deepcopy(s.flow)
+        s.flow = root
+        for node in flow.walk_nodes(s, "ext"):
+            node["sign"].pop(external.V2_ONLY, None)
+        db.session.commit()
+
+
 def _sign_on(client, nid, **more):
     return client.post(f"{E}/flow/{nid}/update", data=node_form(sign_part="1", sign_values="1", **more),
                        follow_redirects=True)
@@ -185,6 +198,7 @@ def test_signed_values_are_kept_only_with_a_valid_signature(app, client, survey,
     monkeypatch.setattr(external, "V1_UNTIL", datetime(9999, 1, 1).date())
     nid = build(app, client)
     _sign_on(client, nid)
+    _drawn_before(app)
     key = _key(app)
     uid = start(app, client)
 
@@ -229,3 +243,27 @@ def test_the_signed_text(app):
     assert external.signed_text(node, "TOK", {"label": ""}, 1) == "t=TOK&label="
     with app.app_context():
         assert not external.signature_ok({**node, "sign": {"on": True, "key": "unreadable"}}, {"t": "TOK", "sig": "00"})
+
+
+def test_version_1_only_for_keys_drawn_before(app, client, survey):
+    """A key drawn now takes signatures of version 2 only; a key of before still takes version 1 until V1_UNTIL
+    (audit 2026-10-28, S03)."""
+    from datetime import datetime
+
+    from app import secrets_box
+
+    nid = build(app, client)
+    _sign_on(client, nid)
+    with app.app_context():
+        node = flow.walk_nodes(db.session.get(Survey, 1), "ext")[0]
+        assert external.v2_only(node)
+        key = external.sign_key(node)
+        old = {**node, "sign": {"on": True, "key": secrets_box.encrypt(key, secrets_box.PARTICIPANT)}}
+    args = {"t": "TOK", "score": "5"}
+    before = datetime(2027, 1, 1)
+    with app.app_context():
+        v1 = {**args, "sig": _sig(key, external.signed_text(node, "TOK", args, 1))}
+        v2 = {**args, "sig_v": "2", "sig": _sig(key, external.signed_text(node, "TOK", {**args, "sig_v": "2"}))}
+        assert not external.signature_ok(node, v1, before) and external.signature_ok(node, v2, before)
+        assert external.signature_ok(old, v1, before) and external.signature_ok(old, v2, before)
+        assert not external.signature_ok(old, v1, datetime(2027, 4, 1))

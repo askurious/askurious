@@ -76,7 +76,8 @@ function signed_return($return_link, $key, $values) { // $values: [[name, value]
 Bis zum 2026-10-07 lautete der signierte Text `t=<Token>&name1=wert1&name2=wert2` mit den Werten unkodiert, und
 `sig_v` fehlte. Diese Form war mehrdeutig: `a="x&b=5", b="3"` und `a="x", b="5&b=3"` ergaben denselben Text. Askurious
 nimmt sie noch bis einschließlich 31.03.2027 an (`V1_UNTIL` in `app/external.py`), damit bestehende Web-Apps
-umstellen können. Danach gelten Rückgaben ohne `sig_v=2` als nicht signiert: Die Werte werden verworfen, die Rückkehr
+umstellen können, und nur für Schlüssel, die vor dem 29.10.2026 erzeugt wurden. Ein Schlüssel, der seitdem erzeugt
+wurde (neuer Abschnitt, „Neuen Schlüssel erzeugen“, Kopie einer Befragung), nimmt nur Version 2 an. Danach gelten Rückgaben ohne `sig_v=2` als nicht signiert: Die Werte werden verworfen, die Rückkehr
 zählt, und der Export zeigt `<code>_sig` = 0.
 
 ## Beispiel: Wetter-Demo

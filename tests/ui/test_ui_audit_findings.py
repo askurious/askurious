@@ -105,7 +105,13 @@ def test_i8_return_link_with_version_2_and_the_transition(app, client, survey, m
     # a value that carried "&score=" in version 2 cannot move into another value
     moved = go(lambda t: f"&label=x&score=5&sig_v=2&sig={v2(t, '&score=3&label=x%26score%3D5')}")
     assert moved["v"] == {} and moved["sig"] == 0
-    # version 1 is taken until V1_UNTIL, afterwards not
+    # version 1: never for a key drawn since 2026-10-29 (audit 2026-10-28, S03) ...
+    fresh = go(lambda t: f"&score=5&sig={sig(key, f't={t}&score=5')}")
+    assert fresh["v"] == {} and fresh["sig"] == 0
+    # ... for a key of before until V1_UNTIL, afterwards not
+    from tests.platform.test_security_keys import _drawn_before
+
+    _drawn_before(app)
     old = go(lambda t: f"&score=5&sig={sig(key, f't={t}&score=5')}")
     assert old["v"] == {"score": 5} and old["sig"] == 1
     monkeypatch.setattr(external, "V1_UNTIL", date(2020, 1, 1))
