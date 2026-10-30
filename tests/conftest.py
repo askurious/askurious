@@ -122,6 +122,7 @@ if _compile_builder is not None:  # a Werkzeug internal; without it the tests ru
 def _config(folder, url=None):
     class TestConfig(Config):
         TESTING = True
+        WHISPER_RETRY_WAITS = ()  # a failure of Whisper shows at once; tests/interview/test_transcription_retry.py covers the retry
         SQLALCHEMY_DATABASE_URI = url or f"sqlite:///{folder / 'test.db'}"
         SQLALCHEMY_ENGINE_OPTIONS = engine_options(url or "sqlite")
         AI_PRICES_FILE = str(folder / "ai_prices.json")  # never the real instance folder
