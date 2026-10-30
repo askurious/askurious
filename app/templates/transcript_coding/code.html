@@ -56,7 +56,7 @@
      data-add-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-base-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-quick-url="{{ url_for('transcript_coding.quick_category', code=survey.code, pid=project.id) }}"
-     data-project="{{ project.id }}" data-may-main="{{ '1' if may_main else '' }}"
+     data-project="{{ project.id }}" data-icon-info="{{ icon_sprite() }}#info" data-may-main="{{ '1' if may_main else '' }}"
      data-sugg-url="{{ url_for('transcript_coding.suggestion_action', code=survey.code, pid=project.id, rid=row.id, action='ACTION') }}">
   <section class="panel tc-transcript" aria-label="{{ de_en('Transkript', 'Transcript') }}">
     <div class="tc-text-body" data-tc-text>{% for line in text.split("\n") %}<p{% if line_pos[loop.index0] %} data-pos="{{ line_pos[loop.index0] }}"{% endif %}>{{ line }}</p>{% endfor %}</div>
@@ -81,7 +81,9 @@
 <div class="tc-pop" data-tc-pop hidden role="dialog" aria-label="{{ de_en('Kategorie zuordnen', 'Assign category') }}">
   <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off"></label>
   <ul class="tc-pop-list" data-tc-list></ul>
-  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 für zuletzt benutzte, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, Enter takes it, Esc closes") }}</p>
+  {# what the active category says: definition, delimitation, anchor example (Ralf 2026-10-30) #}
+  <div class="tc-about tc-pop-preview small" data-tc-preview aria-live="polite" hidden></div>
+  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 für zuletzt benutzte, ↑ ↓ wählen, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, ↑ ↓ choose, Enter takes it, Esc closes") }}</p>
 </div>
 {# a new category from the coding view: a dialog of its own in the middle of the window, moved by its title bar; Esc
    and "Abbrechen" go back to the list of the marked passage (Ralf 2026-10-28) #}

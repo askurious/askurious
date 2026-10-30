@@ -12,6 +12,7 @@
   var box = root.querySelector("[data-tc-text]"), side = root.querySelector("[data-tc-side]");
   var pop = document.querySelector("[data-tc-pop]"), info = document.querySelector("[data-tc-info]");
   var filter = pop.querySelector("[data-tc-filter]"), list = pop.querySelector("[data-tc-list]");
+  var preview = pop.querySelector("[data-tc-preview]");
   var quickDialog = document.querySelector("[data-tc-quick-dialog]"), quick = quickDialog.querySelector("[data-tc-quick]");
   var status = document.querySelector("[data-tc-status]");
   var pending = null, created = false;  // the marked passage while the dialog "Neue Kategorie" is open
@@ -103,25 +104,68 @@
     drawSide();
   }
 
+  // what a category says (definition, delimitation, anchor example with its place): in the preview of the list and
+  // below a category of the side (Ralf 2026-10-30, "beides")
+  function about(c, el) {
+    el.textContent = "";
+    function part(title, text, extra) {
+      var p = document.createElement("p");
+      var b = document.createElement("strong");
+      b.textContent = title + " ";
+      p.appendChild(b);
+      p.appendChild(document.createTextNode(text));
+      if (extra) { var m = document.createElement("span"); m.className = "muted"; m.textContent = " (" + extra + ")"; p.appendChild(m); }
+      el.appendChild(p);
+    }
+    if (c.definition) part(de_en("Definition:", "Definition:"), c.definition);
+    if (c.delimitation) part(de_en("Abgrenzung:", "Delimitation:"), c.delimitation);
+    if (c.anchor && c.anchor.quote) part(de_en("Ankerbeispiel:", "Anchor example:"), de_en("„", "“") + c.anchor.quote + de_en("“", "”"), c.anchor.where);
+    if (!el.childNodes.length) {
+      var none = document.createElement("p");
+      none.className = "muted";
+      none.textContent = de_en("Noch ohne Definition.", "No definition yet.");
+      el.appendChild(none);
+    }
+  }
+
+  var sideOpen = null;  // the category of the side whose text is open (one at a time; stays open when drawn anew)
   function drawSide() {
     side.textContent = "";
+    if (sideOpen !== null && !catOf(sideOpen)) sideOpen = null;
     cats.forEach(function (c) {
       var li = document.createElement("li");
       li.className = "tc-side-" + c.kind;
       if (c.level > 2) li.style.paddingLeft = (18 * (c.level - 1)) + "px";  // deeper levels further in
+      var row = document.createElement("button");
+      row.type = "button";
+      row.className = "tc-side-row";
+      row.setAttribute("aria-expanded", sideOpen === c.id ? "true" : "false");
+      row.setAttribute("data-tc-side-cat", c.id);
       var dot = document.createElement("span");
       dot.className = "tc-dot";
       dot.style.background = colour(c);
-      li.appendChild(dot);
+      row.appendChild(dot);
       var name = document.createElement("span");
       name.className = "tc-side-name";
       name.textContent = c.name + (c.kind === "candidate" ? " (" + de_en("Kandidat", "candidate") + ")" : "");
-      if (c.definition) name.title = c.definition;
-      li.appendChild(name);
+      row.appendChild(name);
       var n = document.createElement("span");
       n.className = "muted small";
       n.textContent = c.n;
-      li.appendChild(n);
+      row.appendChild(n);
+      li.appendChild(row);
+      if (sideOpen === c.id) {
+        var text = document.createElement("div");
+        text.className = "tc-about tc-side-about small";
+        about(c, text);
+        li.appendChild(text);
+      }
+      row.addEventListener("click", function () {
+        sideOpen = sideOpen === c.id ? null : c.id;
+        drawSide();
+        var again = side.querySelector('[data-tc-side-cat="' + c.id + '"]');
+        if (again) again.focus();
+      });
       side.appendChild(li);
     });
   }
@@ -233,14 +277,33 @@
     return cats.filter(function (c) { return (c.name + " " + (c.parent || "")).toLowerCase().indexOf(q) >= 0; });
   }
 
+  // the list: one entry is the active one (the first, or chosen by hovering, the arrow keys or the info button on a
+  // touch screen); the preview below it shows what that category says. Enter takes the active one.
+  var active = 0, shownCats = [];
+  function setActive(i, scroll) {
+    if (!shownCats.length) { preview.hidden = true; return; }
+    active = Math.max(0, Math.min(i, shownCats.length - 1));
+    list.querySelectorAll(".tc-pop-item[data-i]").forEach(function (b) {
+      var on = Number(b.getAttribute("data-i")) === active;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-current", on ? "true" : "false");
+      if (on && scroll && b.scrollIntoView) b.scrollIntoView({ block: "nearest" });
+    });
+    about(shownCats[active], preview);
+    preview.hidden = false;
+  }
+
   function fill() {
     list.textContent = "";
     var rec = recent();
-    matches().slice(0, 12).forEach(function (c, i) {
+    var infoIcon = root.getAttribute("data-icon-info");
+    shownCats = matches().slice(0, 12);
+    shownCats.forEach(function (c, i) {
       var li = document.createElement("li");
       var b = document.createElement("button");
       b.type = "button";
       b.className = "tc-pop-item";
+      b.setAttribute("data-i", i);
       var dot = document.createElement("span");
       dot.className = "tc-dot";
       dot.style.background = colour(c);
@@ -255,7 +318,28 @@
         b.appendChild(k);
       }
       b.addEventListener("click", function () { assign(c.id); });
+      b.addEventListener("mouseenter", function () { if (!touching()) setActive(i); });
       li.appendChild(b);
+      // on a touch screen a tap assigns; this button only shows what the category says
+      var more = document.createElement("button");
+      more.type = "button";
+      more.className = "icon-btn tc-pop-info";
+      more.setAttribute("aria-label", de_en("Definition zeigen: ", "Show the definition: ") + c.name);
+      if (infoIcon) {
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "icon");
+        svg.setAttribute("width", "18");
+        svg.setAttribute("height", "18");
+        svg.setAttribute("aria-hidden", "true");
+        var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+        use.setAttribute("href", infoIcon);
+        svg.appendChild(use);
+        more.appendChild(svg);
+      } else {
+        more.textContent = "i";
+      }
+      more.addEventListener("click", function () { setActive(i); if (preview.scrollIntoView) preview.scrollIntoView({ block: "nearest" }); });
+      li.appendChild(more);
       list.appendChild(li);
     });
     var q = filter.value.trim();
@@ -267,6 +351,7 @@
     nb.addEventListener("click", function () { openQuick(q); });
     li.appendChild(nb);
     list.appendChild(li);
+    setActive(0);
   }
 
   function assign(catId) {
@@ -371,8 +456,13 @@
     if (e.key === "Escape") { closePop(); return; }
     if (e.key === "Enter") {
       e.preventDefault();
-      var first = matches()[0];
-      if (first) assign(first.id);
+      var chosen = shownCats[active] || matches()[0];
+      if (chosen) assign(chosen.id);
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive(active + (e.key === "ArrowDown" ? 1 : -1), true);
       return;
     }
     if (/^[1-9]$/.test(e.key) && !filter.value) {
