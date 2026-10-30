@@ -3770,6 +3770,7 @@ document.addEventListener("change", function (e) {
 // condition in words) is drawn anew from the page. In the element editor the variable name is only saved when its
 // field is left: other texts follow a new name (app/piping.py).
 (function () {
+  var FORMS = "form[data-autosave-form], form[data-autosave]";  // also for parts drawn anew (autosaveAdopt)
   var forms = Array.prototype.slice.call(document.querySelectorAll("form[data-autosave-form], form[data-autosave]"));
   // a page whose parts are drawn anew in place (Interviews kodieren, transcript_coding_live.js) may get forms later
   if (!forms.length && !document.querySelector("[data-tc-live]")) return;
@@ -4101,7 +4102,7 @@ document.addEventListener("change", function (e) {
   // the forms of a part drawn anew in place save by themselves again; those of the old part are forgotten
   window.autosaveAdopt = function (root) {
     all = all.filter(function (f) { return document.contains(f.form); });
-    root.querySelectorAll("form[data-autosave-form], form[data-autosave]").forEach(function (form) {
+    root.querySelectorAll(FORMS).forEach(function (form) {
       var one = setup(form);
       if (one) { one.form = form; all.push(one); }
     });
