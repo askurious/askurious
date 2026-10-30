@@ -2244,8 +2244,19 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-undo { margin-left: 6px; }
 .tc-side { position: sticky; top: 12px; }
 .tc-side-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
-.tc-side-list li { display: flex; align-items: center; gap: 8px; }
+.tc-side-list li { display: grid; gap: 4px; }
+.tc-side-row { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; border-radius: var(--radius); background: transparent;
+  color: inherit; font: inherit; text-align: left; padding: 2px 4px; cursor: pointer; }
+.tc-side-row:hover, .tc-side-row:focus-visible, .tc-side-row[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tc-side-list li .tc-side-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* what a category says, below it in the side and under the list of the marked passage (Ralf 2026-10-30) */
+.tc-about { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.tc-about p { margin: 0; }
+.tc-side-about { padding: 0 4px 6px 22px; }
+.tc-pop-preview { border-top: 1px solid var(--border); padding-top: 8px; max-height: 9.5em; overflow: auto; }
+.tc-pop-info { display: none; flex: none; }
+.tc-pop.is-sheet .tc-pop-list { max-height: 22vh; max-height: 22dvh; }  /* the preview stays in sight on a phone */
+.tc-pop.is-sheet .tc-pop-preview { max-height: 7.5em; }
 .tc-side-main { font-weight: 600; margin-top: 6px; }
 .tc-side-sub { padding-left: 18px; }
 .tc-side-candidate { font-style: italic; }
@@ -2255,7 +2266,9 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .iv-right-sub { padding-left: 24px; }  /* rights that need "darf Interviews führen" */
 #interviewende .link-button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; text-align: left; }
 .tc-drag { cursor: grab; touch-action: none; user-select: none; }  /* the title bar moves the dialog "Neue Kategorie" */
-.tc-pop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.tc-pop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: min(40vh, 320px); overflow: auto; }
+.tc-pop-list li { display: flex; align-items: center; gap: 2px; }
+.tc-pop-item.is-active { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tc-pop-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; border: 0; border-radius: var(--radius);
   background: transparent; color: inherit; font: inherit; text-align: left; padding: 4px 8px; cursor: pointer; }
 .tc-pop-item:hover, .tc-pop-item:focus-visible { background: color-mix(in srgb, var(--accent) 10%, transparent); }
@@ -2267,6 +2280,8 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-hint-touch { display: none; }
 @media (pointer: coarse) {
   .tc-pop-item { min-height: 44px; }
+  .tc-pop-info { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+  .tc-side-row { min-height: 44px; }
   .tc-pop .button-small, .tc-info-actions .button-small, .tc-cat .button-small, .tc-quick .button-small { min-height: 44px; }
   .tc-propose > summary { min-height: 44px; display: flex; align-items: center; }
   .tc-pop-item kbd, .tc-hint-keys { display: none; }

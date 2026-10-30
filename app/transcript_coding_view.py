@@ -438,17 +438,24 @@ def _categories(project, who):
 
     mains, candidates = tree(project)
     n = counts(project, who)
+    spots = anchor_spots(project)
+
+    def about(c):  # what the list and the side show of a category: definition, delimitation, anchor example
+        quote = (c.anchor or {}).get("quote") or ""
+        return {"definition": c.definition[:600], "delimitation": c.delimitation[:600],
+                "anchor": {"quote": quote[:240] + ("…" if len(quote) > 240 else ""), "where": spots.get(c.id, "")} if quote else None}
+
     out = []
     for main, subs in mains:
         out.append({"id": main.id, "name": main.name, "kind": "main", "parent": "", "colour": main.colour or "",
-                    "n": n.get(main.id, 0), "definition": main.definition[:300], "level": 1, "deeper": MAX_DEPTH > 1})
+                    "n": n.get(main.id, 0), "level": 1, "deeper": MAX_DEPTH > 1, **about(main)})
         for s in subs:
             out.append({"id": s.id, "name": s.name, "kind": "sub", "parent": s.path.rsplit(" › ", 1)[0], "parent_id": s.parent_id,
-                        "colour": s.colour or main.colour or "", "n": n.get(s.id, 0), "definition": s.definition[:300],
-                        "level": s.level, "deeper": s.level < MAX_DEPTH})
+                        "colour": s.colour or main.colour or "", "n": n.get(s.id, 0),
+                        "level": s.level, "deeper": s.level < MAX_DEPTH, **about(s)})
     for c in candidates:
         out.append({"id": c.id, "name": c.name, "kind": "candidate", "parent": "", "colour": c.colour or "",
-                    "n": n.get(c.id, 0), "definition": c.definition[:300]})
+                    "n": n.get(c.id, 0), **about(c)})
     return out
 
 
