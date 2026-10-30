@@ -91,6 +91,7 @@
   <form class="stack tc-quick" data-tc-quick>
     <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="120" required></label>
     <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-parents></select></label>
+    <label>{{ de_en("Einordnen", "Position") }} <select name="after" data-tc-after></select></label>
     <label>{{ de_en("Definition", "Definition") }} <span class="hint">{{ de_en("Pflicht", "required") }}</span> <textarea name="definition" rows="2" maxlength="4000" required></textarea></label>
     <p class="small danger-text" data-tc-quick-error hidden></p>
     <div class="form-actions"><button type="button" class="button button-small button-secondary" data-tc-quick-cancel>{{ de_en("Abbrechen", "Cancel") }}</button>
@@ -100,7 +101,10 @@
 {# what a click on a coded passage shows #}
 <div class="tc-pop" data-tc-info hidden role="dialog" aria-label="{{ de_en('Kodierte Stelle', 'Coded passage') }}"></div>
 
-<script type="application/json" id="tc-data">{{ {"text": text, "pos": line_pos, "codings": placed, "categories": categories, "anchors": anchors, "editable": editable, "examples": examples, "suggestions": suggestions}|tojson }}</script>
+<script type="application/json" id="tc-data">{{ tc_data|tojson }}</script>
+{{ tc_live_marker(survey, project, who, row) }}
+<script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
 <script src="{{ url_for('static', filename='transcript_coding_code.js') }}" defer></script>
+<script src="{{ url_for('static', filename='transcript_coding_live.js') }}" defer></script>
 {{ memo_dialog(survey, project, who, memos) }}
 {% endblock %}

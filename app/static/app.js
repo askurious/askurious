@@ -3771,7 +3771,8 @@ document.addEventListener("change", function (e) {
 // field is left: other texts follow a new name (app/piping.py).
 (function () {
   var forms = Array.prototype.slice.call(document.querySelectorAll("form[data-autosave-form], form[data-autosave]"));
-  if (!forms.length) return;
+  // a page whose parts are drawn anew in place (Interviews kodieren, transcript_coding_live.js) may get forms later
+  if (!forms.length && !document.querySelector("[data-tc-live]")) return;
   var TEXT = "textarea, input:not([type]), input[type=text], input[type=number], input[type=url], input[type=email], " +
              "input[type=search], input[type=date], input[type=time], input[type=datetime-local]";
   var META = { base: 1, csrf_token: 1, autosave: 1, merge: 1, what: 1, what_done: 1 };
@@ -4096,7 +4097,15 @@ document.addEventListener("change", function (e) {
   }
 
   document.addEventListener("focusin", function (e) { if (e.target !== field) { field = e.target; visit += 1; } });
-  forms.forEach(function (form) { var one = setup(form); if (one) all.push(one); });
+  forms.forEach(function (form) { var one = setup(form); if (one) { one.form = form; all.push(one); } });
+  // the forms of a part drawn anew in place save by themselves again; those of the old part are forgotten
+  window.autosaveAdopt = function (root) {
+    all = all.filter(function (f) { return document.contains(f.form); });
+    root.querySelectorAll("form[data-autosave-form], form[data-autosave]").forEach(function (form) {
+      var one = setup(form);
+      if (one) { one.form = form; all.push(one); }
+    });
+  };
   // leaving the page: what is not sent yet goes along; only what could not be saved asks
   window.addEventListener("pagehide", function () { all.forEach(function (f) { f.last(); }); });
   window.addEventListener("beforeunload", function (e) {

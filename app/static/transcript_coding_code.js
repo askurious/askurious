@@ -312,15 +312,29 @@
     top.textContent = root.getAttribute("data-may-main") ? de_en("— als Hauptkategorie —", "— as a main category —")
       : de_en("— als Kandidat für eine Hauptkategorie —", "— as a candidate for a main category —");
     sel.appendChild(top);
+    fillAfter();
     quick.querySelector("[data-tc-quick-error]").hidden = true;
     quick.elements.definition.focus();
   }
+
+  // "Einordnen nach …": the categories directly under the chosen one (or the main categories), drawn anew when
+  // "Unter" changes; at the end unless chosen otherwise
+  function fillAfter() {
+    var parent = quick.elements.parent.value;
+    var rows = cats.filter(function (c) {
+      if (parent) return c.kind === "sub" && String(c.parent_id) === parent;
+      return c.kind === (root.getAttribute("data-may-main") ? "main" : "candidate");
+    }).map(function (c) { return [c.id, c.name]; });
+    if (window.tcAfterOptions) window.tcAfterOptions(quick.elements.after, rows, null);
+  }
+  quick.elements.parent.addEventListener("change", fillAfter);
 
   quick.addEventListener("submit", function (e) {
     e.preventDefault();
     var parent = quick.elements.parent.value;
     var body = { name: quick.elements.name.value, definition: quick.elements.definition.value,
-                 kind: parent ? "sub" : "main", parent: parent, anyway: quick.getAttribute("data-anyway") || "" };
+                 kind: parent ? "sub" : "main", parent: parent, anyway: quick.getAttribute("data-anyway") || "",
+                 after: quick.elements.after.value };
     post(root.getAttribute("data-quick-url"), body).then(function (d) {
       var err = quick.querySelector("[data-tc-quick-error]");
       if (!d.ok) {
@@ -335,7 +349,7 @@
         return;
       }
       quick.removeAttribute("data-anyway");
-      cats.push(d.category);
+      if (d.categories) cats = d.categories; else cats.push(d.category);  // in their order, the new one where it was put
       editable[String(d.category.id)] = true;
       created = true;
       selection = pending;
@@ -589,6 +603,22 @@
   });
 
   draw();
+
+  // the page brings itself up to date (transcript_coding_live.js): the new state of the interview and the categories,
+  // drawn in place; not while a list, a dialog or the box of a passage is open (then false: asked again later)
+  window.tcCodeRefresh = function (fresh) {
+    if (!pop.hidden || !info.hidden || quickDialog.open || selection || pending) return false;
+    data = fresh;
+    text = fresh.text;
+    codings = fresh.codings || [];
+    cats = fresh.categories || [];
+    sugg = fresh.suggestions || [];
+    anchors = fresh.anchors || {};
+    editable = fresh.editable || {};
+    examples = fresh.examples || {};
+    draw();
+    return true;
+  };
 
   // a hit of the search (app/transcript_coding_search.py) opened with ?at=start-end: marked, in view, categories open
   (function () {

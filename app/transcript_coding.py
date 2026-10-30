@@ -619,7 +619,46 @@ def _event(project, who, kind, cat=None, data=None, reason="", status="", reply_
     return event
 
 
-def _add(project, who, kind, name, definition, delimitation, parent=None, guid=None, source=None, colour="", event=True):
+def siblings_of(project, parent_id, sub):
+    """The categories directly under `parent_id` (None: the main categories and candidates), in their order; `sub`
+    says whether subcategories are meant (the same sibling groups as reorder)."""
+    return [c for c in live(project) if c.parent_id == parent_id and (c.kind == CodingCategory.SUB) == sub]
+
+
+def sibling_lists(project):
+    """For "Einordnen nach …" in the dialog "Neue Kategorie": {"main": [[id, name]], "candidate": [...], "<id>": [...]
+    the subcategories directly under that category}, each in its order."""
+    out = {"main": [], "candidate": []}
+    for c in live(project):
+        out.setdefault(str(c.parent_id) if c.kind == CodingCategory.SUB else c.kind, []).append([c.id, c.name])
+    return out
+
+
+def after_value(raw):
+    """"Einordnen nach …" as the dialogs send it: "start", the id of a sibling, or None for the end."""
+    raw = str(raw if raw is not None else "").strip()
+    return "start" if raw == "start" else int(raw) if raw.isdigit() else None
+
+
+def _place(project, cat, after):
+    """Put a new `cat` among its siblings: directly after the sibling `after` (an id), at the start ("start") or at the
+    end (None; also for an id that is no sibling, e.g. from a list that changed meanwhile). The siblings keep their
+    positions in the new order, as reorder does (Ralf 2026-10-30)."""
+    if after is None:
+        return
+    group = siblings_of(project, cat.parent_id, cat.kind == CodingCategory.SUB)
+    rest = [c for c in group if c.id != cat.id]
+    if after == "start":
+        at = 0
+    else:
+        at = next((n + 1 for n, c in enumerate(rest) if c.id == after), len(rest))
+    slots = sorted(c.position for c in group)
+    for c, p in zip(rest[:at] + [cat] + rest[at:], slots):
+        c.position = p
+
+
+def _add(project, who, kind, name, definition, delimitation, parent=None, guid=None, source=None, colour="", event=True,
+         after=None):
     position = (db.session.scalar(db.select(db.func.max(CodingCategory.position)).filter_by(project_id=project.id)) or 0) + 1
     cat = CodingCategory(project_id=project.id, parent_id=getattr(parent, "id", None), kind=kind, guid=guid or new_guid(),
                          source=source, name=name, definition=definition, delimitation=delimitation,
@@ -627,13 +666,16 @@ def _add(project, who, kind, name, definition, delimitation, parent=None, guid=N
                          author_id=who.user_id, author_name=who.name[:200])
     db.session.add(cat)
     db.session.flush()
+    _place(project, cat, after)
     if event:
         _event(project, who, "created", cat, {"after": _state(cat)})
     return cat
 
 
-def create(project, who, kind, name, definition="", delimitation="", parent_id=None):
-    """A new category; returns (category, problem). Whoever may not add a main category adds a candidate instead."""
+def create(project, who, kind, name, definition="", delimitation="", parent_id=None, after=None):
+    """A new category; returns (category, problem). Whoever may not add a main category adds a candidate instead.
+    `after` places it among its siblings ("Einordnen nach …", _place); "Rückgängig" takes it out again, and the others
+    keep their order."""
     name, definition, delimitation = _clean(name, NAME_MAX), _text(definition), _text(delimitation)
     if kind not in (CodingCategory.MAIN, CodingCategory.SUB, CodingCategory.CANDIDATE):
         abort(400)
@@ -658,7 +700,7 @@ def create(project, who, kind, name, definition="", delimitation="", parent_id=N
         return None, de_en("„{name}“ gibt es hier schon.", "“{name}” already exists here.", name=name)
     if len(live(project)) >= MAX_CATEGORIES:
         return None, de_en("Höchstens {n} Kategorien je Auswertung.", "At most {n} categories per analysis.", n=MAX_CATEGORIES)
-    return _add(project, who, kind, name, definition, delimitation, parent=parent), None
+    return _add(project, who, kind, name, definition, delimitation, parent=parent, after=after), None
 
 
 FIELDS = ("name", "definition", "delimitation")
@@ -1181,7 +1223,8 @@ def project(code, pid):
                        c for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id])))
     from app import transcript_coding_memos
 
-    context.update(guarded=guarded(project), may_propose_move=lambda c: may_propose_move(project, c, who))
+    context.update(guarded=guarded(project), may_propose_move=lambda c: may_propose_move(project, c, who),
+                   siblings=sibling_lists(project))
     cat_memos = transcript_coding_memos.visible(project, who, kind=CodingMemo.CATEGORY)
     context.update(memos=[transcript_coding_memos.as_json(m, who) for m in cat_memos],
                    memo_counts=transcript_coding_memos.counts(cat_memos))
@@ -1285,7 +1328,8 @@ def add(code, pid):
                     names=", ".join(f"„{c.name}“" for c, _s in similar(project, name))), "error")
         return redirect(_project_url(survey, project, "kategorien"))
     cat, problem = create(project, who, request.form.get("kind", CodingCategory.SUB), name, request.form.get("definition"),
-                          request.form.get("delimitation"), request.form.get("parent", type=int))
+                          request.form.get("delimitation"), request.form.get("parent", type=int),
+                          after=after_value(request.form.get("after")))
     if problem:
         db.session.rollback()
         flash(problem, "error")
