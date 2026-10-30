@@ -697,7 +697,9 @@ def _activities():
                        "Zusammenführen, Umbenennen, Antworten und Kommentare im Verlauf mit Namen. Memos (freier Text "
                        "an einer kodierten Stelle, einer Kategorie oder einem Interview, mit Name, Konto- oder Linknummer "
                        "und Zeit; sehen alle, die die Stelle oder das Interview sehen, bei Doppelkodierung erst nach dem "
-                       "Abschluss aller). Die Transkripte selbst gehören zu „Interviews“.",
+                       "Abschluss aller). Thematische Fallzusammenfassungen je Interview und Hauptkategorie (freier Text "
+                       "mit Name, Konto- oder Linknummer und Zeit, die letzten Schritte zum Zurücknehmen; im Interview, "
+                       "bei Doppelkodierung erst nach dem Abschluss aller). Die Transkripte selbst gehören zu „Interviews“.",
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
                        "(name, account or link number) and time; history of every change and proposal with names and time; "
                        "members (account, group or interviewer link), per interviewer link its right to code. In the interview the coded passages (analysis, category, position "
@@ -709,8 +711,10 @@ def _activities():
                        "person, and per category an anchor example and up to two further examples (wording of passages); merging, renaming, "
                        "answers and comments in the history with names. Memos (free text at a coded passage, a category or "
                        "an interview, with name, account or link number and time; seen by everyone who sees the passage or "
-                       "the interview, with double coding only once everyone has finished). The transcripts themselves "
-                       "belong to “Interviews”."),
+                       "the interview, with double coding only once everyone has finished). Thematic case summaries per "
+                       "interview and main category (free text with name, account or link number and time, the last steps "
+                       "for undoing; in the interview, with double coding only once everyone has finished). The transcripts "
+                       "themselves belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
                              "(.qdpx mit Transkripten, kodierten Stellen, Memos und den Namen der Kodierenden) und als Excel-Tabelle des "
                              "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle, Memos und den Namen der Kodierenden); "

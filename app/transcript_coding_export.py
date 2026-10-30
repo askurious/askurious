@@ -145,6 +145,21 @@ def build_qdpx(project, survey):
         memo_at[m.kind].setdefault(key, []).append(note)
         memos.append((note, m))
         people.setdefault(m.author_key or "", m.author_name or de_en("unbekannt", "unknown"))
+    # the thematic case summaries of this analysis as notes at the transcript ("Fallzusammenfassung: <main category>")
+    from app.transcript_coding_cases import meta_of
+
+    summary_at, summaries = {}, []
+    for r in rows:
+        texts = (r.interview or {}).get("summaries") or {}
+        for main in [m for m, _subs in tree(project)[0]]:
+            key = f"c{project.id}:{main.id}"
+            if r.id in coded and texts.get(key):
+                meta = meta_of(r, key) or {}
+                note = _guid(survey, project, "summary", f"{r.id}:{main.id}")
+                summary_at.setdefault(r.id, []).append(note)
+                summaries.append((note, main.name, texts[key], meta.get("by") or "", meta.get("at") or ""))
+                if meta.get("by"):
+                    people.setdefault(meta["by"], meta.get("by_name") or de_en("unbekannt", "unknown"))
     user_of = {}
     for key, name in sorted(people.items(), key=lambda kv: kv[1].casefold()):
         user_of[key] = _guid(survey, project, "user", key or "none")
@@ -190,16 +205,21 @@ def build_qdpx(project, survey):
                 _el(coding, ns, "CodeRef", {"targetGUID": guids[c["cat"]]})
                 for note in memo_at["passage"].get(c["id"], []):
                     _el(sel, ns, "NoteRef", {"targetGUID": note})
-            for note in memo_at["interview"].get(r.id, []):  # after the selections, as the schema wants
+            for note in memo_at["interview"].get(r.id, []) + summary_at.get(r.id, []):  # after the selections
                 _el(src, ns, "NoteRef", {"targetGUID": note})
             files[f"Sources/{guid}.txt"] = text.encode("utf-8")
-    if memos:
+    if memos or summaries:
         holder = _el(root, ns, "Notes")
         for note, m in memos:
             n = _el(holder, ns, "Note", {"guid": note, "name": ("Memo: " + " ".join(m.text.split()))[:60],
                                          "creatingUser": user_of.get(m.author_key or "", owner),
                                          "creationDateTime": m.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")})
             _el(n, ns, "PlainTextContent", text=m.text)
+        for note, name, text, by, at in summaries:
+            n = _el(holder, ns, "Note", {"guid": note, "name": (de_en("Fallzusammenfassung: ", "Case summary: ") + name)[:60],
+                                         "creatingUser": user_of.get(by, owner),
+                                         "creationDateTime": (at[:19] + "Z") if at else now})
+            _el(n, ns, "PlainTextContent", text=text)
     _el(root, ns, "Description", text=de_en("Auswertung „{name}“ des Interviewleitfadens „{title}“, exportiert aus {brand} am {day}.",
                                             "Analysis “{name}” of the interview guide “{title}”, exported from {brand} on {day}.",
                                             name=project.name, title=survey.title, brand=brand.name(), day=now[:10])
@@ -273,6 +293,11 @@ def build_xlsx(project, survey):
              de_en("Fundstelle", "Location"), de_en("Zitat", "Quote"), de_en("Kodiert von", "Coded by")]
     sheets = [(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 60, 40, 9, 12, 20]),
               (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])]
+    cases = _case_rows(project, survey, mains, number)
+    if cases:  # the thematic case summaries of this analysis (app/transcript_coding_cases.py)
+        sheets.append((de_en("Fallzusammenfassungen", "Case summaries"),
+                       [de_en("Interview", "Interview"), de_en("Nummer", "Number"), de_en("Hauptkategorie", "Main category"),
+                        de_en("Zusammenfassung", "Summary"), de_en("von", "by"), de_en("am", "on")], cases, [14, 9, 28, 80, 20, 17]))
     memos = _memos(project)
     if memos:  # memos at passages, categories and interviews (app/transcript_coding_memos.py)
         from app import transcript_coding_memos
@@ -290,6 +315,23 @@ def build_xlsx(project, survey):
 
     sheets.append(transcript_coding_overlap.sheet(project, pairs))  # overlaps of categories, every interview; last
     return xlsx.workbook(sheets)
+
+
+def _case_rows(project, survey, mains, number):
+    """[[interview, number, main category, text, by, when]] of the case summaries of this analysis."""
+    from app.interview_summaries import _when
+    from app.transcript_coding_cases import meta_of
+
+    out = []
+    for r in _rows(survey):
+        texts = (r.interview or {}).get("summaries") or {}
+        for main, _subs in mains:
+            key = f"c{project.id}:{main.id}"
+            if texts.get(key):
+                meta = meta_of(r, key) or {}
+                out.append([(r.interview or {}).get("label", str(r.id)), number.get(main.id, ""), main.name, texts[key],
+                            meta.get("by_name") or de_en("Forschende", "researchers"), _when(meta.get("at"))])
+    return out
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.xlsx")

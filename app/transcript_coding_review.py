@@ -793,6 +793,24 @@ def map_file(code, pid):
                         headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.svg"'})
 
 
+@bp.route("/<code>/interviews/coding/<int:pid>/cases")
+@signed_in_or_coder
+def cases(code, pid):
+    """The thematic case summaries of this analysis for whoever works in it (app/transcript_coding_cases.py): the
+    interviews the reader sees with a transcript, the main categories as columns."""
+    from app import transcript_coding_cases as tcc
+    from app.interview_summaries import author_line, summaries
+
+    survey, project, who = _in(code, pid)
+    rows = [r for r in interviews(project, who) if has_transcript(r)]
+    mains = [m for m, _subs in tree(project)[0]]
+    key = lambda m: f"c{project.id}:{m.id}"  # noqa: E731
+    writable = {r.id: all(tcc.writer(survey, r, key(m)) is not None for m in mains[:1]) for r in rows}
+    return render_template("transcript_coding/cases.html", survey=survey, project=project, who=who, rows=rows, mains=mains,
+                           cells=tcc.cells(project, rows, who), draft=tcc.draft, summaries=summaries,
+                           author_line=author_line, writable=lambda r: writable.get(r.id, False))
+
+
 @bp.route("/<code>/interviews/coding/<int:pid>/passages")
 @signed_in_or_coder
 def passages(code, pid):

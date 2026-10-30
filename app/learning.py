@@ -590,6 +590,12 @@ REASONS = {
         "schreiben oder zusammenführen) oder einen Zusammenhang zwischen den Themen, der für die Auswertung zählt. Die "
         "Zahl allein entscheidet das nicht: Lesen Sie die Paare.",
         (("app.transcript_coding_review", "KUCKARTZ"),)),
+    "case_summaries": (
+        "Wozu Fallzusammenfassungen?",
+        "Eine thematische Fallzusammenfassung fasst je Interview in eigenen Worten zusammen, was es zu einer "
+        "Hauptkategorie sagt. Die Matrix Fälle × Themen macht Fälle vergleichbar: Zeile für Zeile ein Fall, Spalte für "
+        "Spalte ein Thema über alle Fälle. Schreiben Sie knapp und nah am Material, ohne schon zu deuten.",
+        (("app.transcript_coding_review", "KUCKARTZ"),)),
     "anchor_choice": (
         "Welche Stelle als Ankerbeispiel?",
         "Wählen Sie eine typische, eindeutige Stelle, die ohne weiteren Zusammenhang zeigt, was die Kategorie meint; "
@@ -1434,6 +1440,11 @@ REASONS_EN = {
         "Passages that carry two categories at once show either a blurred delimitation (then write a coding rule or "
         "merge) or a connection between the topics that matters for the analysis. The number alone does not decide "
         "it: read the pairs."),
+    "case_summaries": (
+        "Why case summaries?",
+        "A thematic case summary sums up in your own words what one interview says about a main category. The matrix "
+        "cases × topics makes cases comparable: row by row one case, column by column one topic across all cases. Write "
+        "briefly and close to the material, without interpreting yet."),
     "anchor_choice": (
         "Which passage as the anchor example?",
         "Choose a typical, clear passage that shows without further context what the category means; borderline "
@@ -1858,6 +1869,7 @@ REASON_PLACES = {
                       "categorising open answers, second coding; coding interviews, double coding"),
     "category_rules": ("Interviews kodieren, neue Kategorie", "coding interviews, new category"),
     "anchor_choice": ("Interviews kodieren, Kodieransicht und neue Kategorie", "coding interviews, coding view and new category"),
+    "case_summaries": ("Interviews kodieren, Fallzusammenfassungen einer Auswertung", "coding interviews, case summaries of an analysis"),
     "overlaps": ("Interviews kodieren, Übersicht: Überschneidungen", "coding interviews, overview: overlaps"),
     "mains_fixed": ("Interviews kodieren, Einstellungen, Hauptkategorien festgelegt",
                     "coding interviews, settings, main categories fixed"),

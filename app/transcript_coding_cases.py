@@ -60,8 +60,9 @@ def mark_after(text, end):
     return found.group(1) if found else ""
 
 
-def cells(project, rows):
-    """{(interview id, main category id): [{"sub", "quote", "mark", "rid", "cat"}]} of the codings of `rows`."""
+def cells(project, rows, who=None):
+    """{(interview id, main category id): [{"sub", "quote", "mark", "rid", "cat"}]} of the codings of `rows` (as `who`
+    sees them: blind double coding; None: all)."""
     from app.transcript_coding import live, top_of, tree
     from app.transcript_coding_view import placed, transcript
 
@@ -70,7 +71,7 @@ def cells(project, rows):
     out = {}
     for row in rows:
         text = transcript(row)
-        ok, _lost = placed(row, project)
+        ok, _lost = placed(row, project, who)
         for c in ok:
             cat = cats.get(c["cat"])
             if cat is None:
@@ -121,16 +122,147 @@ def grouped_by_sub(rows, counts, sub):
             (de_en("ohne „{name}“", "without “{name}”", name=sub.name), without)]
 
 
-def valid_key(survey, key):
-    """Whether `key` is a cell of an analysis of this guide: "c<analysis>:<main category>"."""
+def valid_key(survey, key, any_reader=False):
+    """Whether `key` is a cell of an analysis of this guide: "c<analysis>:<main category>". `any_reader`: also for a
+    request without an account (an interviewer link), whose access the analysis checks itself (transcript_coding.actor)."""
     from app.models import CodingCategory
 
     m = KEY.match(key or "")
     if not m:
         return False
-    project = chosen(survey, int(m.group(1)))
+    if any_reader:
+        project = db.session.get(CodingProject, int(m.group(1)))
+        project = project if project is not None and project.survey_id == survey.id else None
+    else:
+        project = chosen(survey, int(m.group(1)))
     cat = db.session.get(CodingCategory, int(m.group(2)))
     return project is not None and cat is not None and cat.project_id == project.id and cat.parent_id is None
+
+
+# --- who writes a cell, who wrote it, its history (Ralf 2026-10-30) --------------------------------------------------
+#
+# Response.interview["summary_meta"] = {key: {"by", "by_name", "at"}} the last writer of each cell; cells written
+# before 2026-10-30 have none and show "Forschende". Response.interview["summary_log"] = [{"key", "before", "after",
+# "by", "by_name", "at"}], the last LOG_MAX steps; the saves of one person in one cell within MERGE_MINUTES are one
+# step. Both stay in the interview, so they go with it (deletion request, period, guide). A cell of an analysis
+# ("c<analysis>:<main category>") also leaves one line without its text in the analysis's history ("summarised").
+
+LOG_MAX = 100
+MERGE_MINUTES = 15
+
+
+def project_of_key(survey, key):
+    m = KEY.match(key or "")
+    if not m or not valid_key(survey, key, any_reader=True):
+        return None, None
+    return db.session.get(CodingProject, int(m.group(1))), int(m.group(2))
+
+
+def writer(survey, row, key):
+    """The actor who may write the cell `key` of `row` in this request, or None. The team of the guide writes every
+    cell; a cell of an analysis also whoever works in it and sees the interview (members, interviewer links with the
+    right to code), in double coding only once everyone has finished (blind until then)."""
+    from app.transcript_coding import actor, has_transcript, interviews, team
+
+    project, _cid = project_of_key(survey, key)
+    if project is None:
+        return team_actor() if team(survey) else None
+    who = actor(survey, project)
+    if who is None:
+        return None
+    if not who.team:
+        from app import transcript_coding_double
+
+        if row.id not in {r.id for r in interviews(project, who)} or not has_transcript(row):
+            return None
+        entry = transcript_coding_double.assignment(project, row.id)
+        if entry is not None and not transcript_coding_double.finished(entry):
+            return None
+    return who
+
+
+def meta_of(row, key):
+    """{"by_name", "at"} of the last writer of a cell, or None (written before 2026-10-30: "Forschende")."""
+    found = ((row.interview or {}).get("summary_meta") or {}).get(key)
+    return found if isinstance(found, dict) else None
+
+
+def write(survey, row, key, text, who, now=None):
+    """Store a cell with who wrote it and a step of its history; the caller stores the interview (retried)."""
+    from datetime import datetime, timedelta
+
+    from app.models import utcnow
+
+    now = now or utcnow()
+    meta = dict(row.interview or {})
+    s = dict(meta.get("summaries") or {})
+    before = s.get(key, "")
+    if text == before:
+        return False
+    if text:
+        s[key] = text
+    else:
+        s.pop(key, None)
+    stamp = now.isoformat(timespec="seconds")
+    marks = dict(meta.get("summary_meta") or {})
+    marks[key] = {"by": who.key, "by_name": who.name[:200], "at": stamp}
+    log = [e for e in (meta.get("summary_log") or []) if isinstance(e, dict)]
+    last = next((e for e in reversed(log) if e.get("key") == key), None)
+    joined = False
+    if last is not None and last.get("by") == who.key and not last.get("undo"):
+        try:
+            joined = now - datetime.fromisoformat(last.get("at", "")) <= timedelta(minutes=MERGE_MINUTES)
+        except ValueError:
+            joined = False
+    if joined:  # the same person goes on typing in this cell: one step
+        last.update(after=text, at=stamp)
+    else:
+        log.append({"key": key, "before": before, "after": text, "by": who.key, "by_name": who.name[:200], "at": stamp})
+    meta.update(summaries=s, summary_meta=marks, summary_log=log[-LOG_MAX:])
+    row.interview = meta
+    return True
+
+
+def undoable(row, key, who):
+    """The own last step in this cell that can still be taken back: nobody wrote the cell since."""
+    meta = row.interview or {}
+    last = next((e for e in reversed(meta.get("summary_log") or []) if isinstance(e, dict) and e.get("key") == key), None)
+    if last is None or last.get("by") != who.key or last.get("undo"):
+        return None
+    return last if ((meta.get("summaries") or {}).get(key, "") == last.get("after", "")) else None
+
+
+def undo(survey, row, key, who):
+    """Take the own last step in a cell back; returns the text now, or None when there is nothing to take back."""
+    step = undoable(row, key, who)
+    if step is None:
+        return None
+    write(survey, row, key, step.get("before", ""), who)
+    log = (row.interview or {}).get("summary_log") or []
+    if log:
+        log[-1]["undo"] = True  # the step back is not taken back by the next "Rückgängig"
+    return step.get("before", "")
+
+
+def note_history(survey, row, key, who):
+    """One line in the history of the analysis, without the text: who summarised which interview for which category."""
+    from datetime import timedelta
+
+    from app.models import CodingEvent, utcnow
+
+    project, cid = project_of_key(survey, key)
+    if project is None:
+        return
+    merge = f"summary:{row.id}:{cid}"[:80]
+    last = db.session.scalar(db.select(CodingEvent).filter_by(project_id=project.id).order_by(CodingEvent.id.desc()).limit(1))
+    if (last is not None and last.kind == "summarised" and last.merge == merge and last.actor_key == who.key
+            and utcnow() - last.at <= timedelta(minutes=MERGE_MINUTES)):
+        last.at = utcnow()
+        return
+    db.session.add(CodingEvent(project_id=project.id, category_id=cid, kind="summarised", merge=merge,
+                               data={"interview": row.id, "label": (row.interview or {}).get("label", "")},
+                               actor_key=who.key, actor_id=who.user_id, actor_name=who.name[:200]))
+    project.updated_at = utcnow()
 
 
 # --- the routes (on the blueprint of the case summaries) -----------------------------------------------------------

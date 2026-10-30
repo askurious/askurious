@@ -2,6 +2,11 @@
 {% from "_macros.html" import list_table %}
 {% from "_icons.html" import icon %}
 {% from "_sources.html" import grouped %}
+{# who wrote a cell last ("von Forschenden" for cells from before 2026-10-30) and "Rückgängig" of one's own last step #}
+{% macro cell_meta(r, key) -%}
+<div class="summary-by muted small"><span data-summary-by>{{ author_line(r, key) }}</span>
+  <button type="button" class="button button-small button-secondary" data-summary-revert hidden>{{ de_en("Rückgängig", "Undo") }}</button></div>
+{%- endmacro %}
 {# Case summaries ("Interviews erheben", app/interview_summaries.py): interviews × Themenblöcke, each cell
    saves by itself (summaries.js). #}
 {% block title %}{{ de_en("Fallzusammenfassungen", "Case summaries") }} · {{ survey.title }}{% endblock %}
@@ -51,6 +56,7 @@
       {% for m in cols %}{% set key = "c" ~ coding.project.id ~ ":" ~ m.id %}{% set items = coding.cells.get((r.id, m.id)) or [] %}
       <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ m.name }}"
                     data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="{{ key }}">{{ s.get(key, "") }}</textarea>
+        {{ cell_meta(r, key) }}
         {% if items %}
         <div class="summary-tools">
           <button type="button" class="button button-small button-secondary" data-summary-prefill="{{ coding.draft(items) }}">{{ de_en("aus Stellen vorbefüllen", "Prefill from passages") }}</button>
@@ -63,7 +69,8 @@
         {% endif %}</td>
       {% endfor %}
       <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ de_en('Fall insgesamt', 'case as a whole') }}"
-                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="case">{{ s.get("case", "") }}</textarea></td>
+                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="case">{{ s.get("case", "") }}</textarea>
+        {{ cell_meta(r, 'case') }}</td>
     </tr>
     {% endfor %}
     {% endfor %}
@@ -104,10 +111,12 @@
       {% for b in blocks %}
       <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ b.title() }}"
                     data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="{{ b.id }}">{{ s.get(b.id|string, "") }}</textarea>
+        {{ cell_meta(r, b.id|string) }}
         {% for n_ in notes.get(b.id|string, []) %}<div class="summary-note">{{ n_ }}</div>{% endfor %}</td>
       {% endfor %}
       <td><textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ de_en('Fall insgesamt', 'case as a whole') }}"
-                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="case">{{ s.get("case", "") }}</textarea></td>
+                    data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="case">{{ s.get("case", "") }}</textarea>
+        {{ cell_meta(r, 'case') }}</td>
     </tr>
     {% endfor %}
     {% endfor %}

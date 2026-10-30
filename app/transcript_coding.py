@@ -1058,6 +1058,8 @@ def event_text(event, names):
             "declined": de_en("lehnt den Vorschlag zu „{name}“ ab", "declines the proposal for “{name}”", name=name),
             "undone": de_en("nimmt den letzten Schritt an „{name}“ zurück", "takes back the last step on “{name}”", name=name),
             "ordered": de_en("sortiert „{name}“ um", "reorders “{name}”", name=name),
+            "summarised": de_en("fasst {label} zu „{name}“ zusammen", "summarises {label} on “{name}”",
+                                label=data.get("label") or "", name=name),
             "moved": (de_en("hängt „{name}“ unter „{where}“", "puts “{name}” under “{where}”", name=name, where=(data.get("after") or {}).get("where"))
                       if (data.get("after") or {}).get("where") else
                       de_en("macht „{name}“ zur Hauptkategorie", "makes “{name}” a main category", name=name)),
