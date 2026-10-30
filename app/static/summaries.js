@@ -31,6 +31,7 @@
       fetch(area.getAttribute("data-summary-url"), { method: "POST", body: body(), credentials: "same-origin", headers: { "X-CSRFToken": csrf || "", "X-Requested-With": "fetch" } })
         .then(function (r) {
           saving = false;
+          if (r.ok && r.clone) r.clone().json().then(function (d) { shown(area, d); }).catch(function () {});
           // a refusal (400, 403, 404: the block deleted, the right taken away) stays one: not sent again; only the
           // network, 5xx, 408 and 429 are tried again (G6)
           if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) { refused = true; return say(de_en("nicht gespeichert: abgelehnt (" + r.status + "); bitte die Seite neu laden", "not saved: refused (" + r.status + "); please reload the page"), "error", area); }
@@ -47,6 +48,35 @@
     });
   });
   window.addEventListener("pagehide", function () { flushes.forEach(function (f) { f(); }); });
+
+  // who wrote a cell last, and "Rückgängig" of one's own last step in it (app/interview_summaries.py, undo_cell)
+  function shown(area, d) {
+    var cell = area.closest("td");
+    if (!cell || !d) return;
+    var by = cell.querySelector("[data-summary-by]");
+    if (by) by.textContent = area.value.trim() && d.by ? de_en("von ", "by ") + d.by + (d.at ? ", " + d.at : "") : "";
+    var back = cell.querySelector("[data-summary-revert]");
+    if (back) back.hidden = !d.undo;
+  }
+  if (box.addEventListener) box.addEventListener("click", function (e) {
+    var back = e.target.closest && e.target.closest("[data-summary-revert]");
+    if (!back) return;
+    var area = back.closest("td").querySelector("textarea");
+    var data = new FormData();
+    data.append("key", area.getAttribute("data-summary-key"));
+    back.disabled = true;
+    fetch(area.getAttribute("data-summary-url") + "/undo", { method: "POST", body: data, credentials: "same-origin",
+                                                             headers: { "X-CSRFToken": csrf || "", "X-Requested-With": "fetch" } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        back.disabled = false;
+        if (!d.ok) { say(d.error || de_en("Nicht zurückgenommen.", "Not taken back."), "error", area); return; }
+        area.value = d.text;
+        shown(area, d);
+        say(de_en("Zurückgenommen", "Taken back"), "ok", area);
+      })
+      .catch(function () { back.disabled = false; say(de_en("Nicht zurückgenommen: keine Verbindung.", "Not taken back: no connection."), "error", area); });
+  });
 
   // with an analysis of "Interviews kodieren" as the columns (app/transcript_coding_cases.py): a draft from the
   // passages of a cell, or from the AI, only into an empty field; "Rückgängig" empties it again

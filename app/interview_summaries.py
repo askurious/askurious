@@ -14,7 +14,9 @@ from flask import Blueprint, abort, jsonify, render_template, request, send_file
 from flask_login import login_required
 
 from app import interview, interview_data
+from app.extensions import db
 from app.items.base import in_lang, plain, reader
+from app.transcript_coding import signed_in_or_coder
 from app.lang import de_en
 
 bp = Blueprint("interview_summaries", __name__, url_prefix="/guide")
@@ -140,36 +142,99 @@ def page(code):
     return render_template("interview/summaries.html", survey=survey, blocks=interview.guide_blocks(survey),
                            groups=groups or grouped(survey, interviews, grouper), grouper=grouper, options=options,
                            summaries=summaries, reminders=reminders, n=len(interviews), analyses=analyses, coding=coding,
+                           author_line=author_line,
                            sources=[(de_en("Thematische Matrix und Fallzusammenfassungen", "Thematic matrix and case summaries"), [KUCKARTZ]),
                                     (de_en("Fallvergleich und Typenbildung", "Case comparison and typology"), [MEUSER_NAGEL, KELLE_KLUGE])])
 
 
-@bp.route("/<code>/interviews/<int:rid>/summary", methods=["POST"])
-@login_required
-def save(code, rid):
-    """One cell, as the page sends it while typing."""
-    survey = _survey(code)
-    row = interview_data._interview(survey, rid)
+def _cell(code, rid):
+    """(survey, interview, key, actor) of a request on one cell, else 400/404: the team of the guide on every cell,
+    whoever works in an analysis on its cells of the interviews they see (app/transcript_coding_cases.py, writer)."""
+    from app import transcript_coding_cases
+    from app.transcript_coding import guide
+
+    survey = guide(code)
     key = request.form.get("key", "")
     if key != "case" and key not in {str(b.id) for b in interview.guide_blocks(survey)}:
-        from app import transcript_coding_cases
-
-        if not transcript_coding_cases.valid_key(survey, key):  # a cell per main category of an analysis
+        if not transcript_coding_cases.valid_key(survey, key, any_reader=True):  # a cell per main category of an analysis
             abort(400)
+    row = interview_data._interview(survey, rid)
+    who = transcript_coding_cases.writer(survey, row, key)
+    if who is None:
+        abort(404)
+    return survey, row, key, who
+
+
+@bp.route("/<code>/interviews/<int:rid>/summary", methods=["POST"])
+@signed_in_or_coder
+def save(code, rid):
+    """One cell, as the page sends it while typing: with who wrote it and a step of its history."""
+    from app import interview_audio, transcript_coding_cases
+
+    survey, row, key, who = _cell(code, rid)
     text = request.form.get("text", "").replace("\r\n", "\n")[:MAX_TEXT].strip()
+    changed = []
 
     def store():
-        s = summaries(row)
-        if text:
-            s[key] = text
-        else:
-            s.pop(key, None)
-        row.interview = {**(row.interview or {}), "summaries": s}
-
-    from app import interview_audio
+        db.session.refresh(row)
+        changed[:] = [transcript_coding_cases.write(survey, row, key, text, who)]
 
     interview_audio.retried(store)  # a piece of the recording or the transcription stored the interview meanwhile
-    return jsonify(ok=True)
+    if changed and changed[0]:
+        transcript_coding_cases.note_history(survey, row, key, who)
+        db.session.commit()
+    meta = transcript_coding_cases.meta_of(row, key) or {}
+    return jsonify(ok=True, by=meta.get("by_name", ""), at=_when(meta.get("at")),
+                   undo=transcript_coding_cases.undoable(row, key, who) is not None)
+
+
+@bp.route("/<code>/interviews/<int:rid>/summary/undo", methods=["POST"])
+@signed_in_or_coder
+def undo_cell(code, rid):
+    """"Rückgängig" of a cell: the own last step in it, while nobody wrote it since."""
+    from app import interview_audio, transcript_coding_cases
+
+    survey, row, key, who = _cell(code, rid)
+    got = []
+
+    def work():
+        db.session.refresh(row)
+        got[:] = [transcript_coding_cases.undo(survey, row, key, who)]
+
+    interview_audio.retried(work)
+    if not got or got[0] is None:
+        return jsonify(ok=False, error=de_en("Nichts zum Zurücknehmen.", "Nothing to take back.")), 400
+    transcript_coding_cases.note_history(survey, row, key, who)
+    db.session.commit()
+    meta = transcript_coding_cases.meta_of(row, key) or {}
+    return jsonify(ok=True, text=got[0], by=meta.get("by_name", ""), at=_when(meta.get("at")),
+                   undo=transcript_coding_cases.undoable(row, key, who) is not None)
+
+
+def _when(iso):
+    """The time of a cell's last change as the pages show it."""
+    from datetime import datetime
+
+    from app.lang import english
+    from app.timeutil import fmt
+
+    try:
+        return fmt(datetime.fromisoformat(iso), lang="en" if english() else "de") if iso else ""
+    except ValueError:
+        return ""
+
+
+def author_line(row, key):
+    """"von Bea, 30.10.2026 18:40" under a cell; a cell from before 2026-10-30: "von Forschenden"."""
+    from app import transcript_coding_cases
+
+    if not summaries(row).get(key):
+        return ""
+    meta = transcript_coding_cases.meta_of(row, key)
+    if meta is None:
+        return de_en("von Forschenden", "by researchers")
+    return de_en("von {who}, {when}", "by {who}, {when}", who=meta.get("by_name") or de_en("Forschenden", "researchers"),
+                 when=_when(meta.get("at")))
 
 
 @bp.route("/<code>/interviews/summaries.csv")

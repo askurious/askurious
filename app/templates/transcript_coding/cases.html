@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import list_table %}
+{% from "transcript_coding/_parts.html" import head with context %}
+{% from "_learn.html" import why %}
+{# Thematic case summaries of an analysis (app/transcript_coding_review.py, cases; Kuckartz & Rädiker): per interview
+   the reader sees and main category a short text, the passages of that category beside it. The same texts as in the
+   guide's "Fallzusammenfassungen" (app/interview_summaries.py); members and interviewer links with the right to code
+   write here, in double coding only once everyone has finished. Every field saves by itself (summaries.js). #}
+{% block title %}{{ de_en("Fallzusammenfassungen", "Case summaries") }} · {{ project.name }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% call head(survey, project, who, de_en("Fallzusammenfassungen", "Case summaries"), de_en("{n} Interviews", "{n} interviews", n=rows|length) if rows|length != 1 else de_en("1 Interview", "1 interview")) %}
+  <p class="muted small">{{ de_en("Je Interview und Hauptkategorie eine kurze Zusammenfassung in eigenen Worten (thematische Matrix nach Kuckartz & Rädiker). Die kodierten Stellen der Kategorie in diesem Interview stehen darunter; „aus Stellen vorbefüllen“ schreibt einen Entwurf in ein leeres Feld. Jedes Feld speichert von selbst; „Rückgängig“ nimmt den eigenen letzten Schritt zurück.", "Per interview and main category a short summary in your own words (thematic matrix after Kuckartz & Rädiker). The coded passages of the category in this interview stand below it; “Prefill from passages” writes a draft into an empty field. Each field saves by itself; “Undo” takes back your own last step.") }}</p>
+  <p class="small" data-summary-status role="status"></p>
+{% endcall %}
+<section class="panel summary-panel" data-summaries data-csrf="{{ csrf_token() }}">
+  {% if rows and mains %}
+  {% call list_table("is-wide summary-table") %}
+    <thead><tr><th>{{ de_en("Interview", "Interview") }}</th>{% for m in mains %}<th>{{ m.name }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r in rows %}{% set s = summaries(r) %}
+    <tr>
+      <th scope="row"><a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ r.interview.label }}</a></th>
+      {% for m in mains %}{% set key = "c" ~ project.id ~ ":" ~ m.id %}{% set items = cells.get((r.id, m.id)) or [] %}
+      <td>{% if writable(r) %}
+        <textarea rows="4" maxlength="4000" aria-label="{{ r.interview.label }}, {{ m.name }}"
+                  data-summary-url="{{ url_for('interview_summaries.save', code=survey.code, rid=r.id) }}" data-summary-key="{{ key }}">{{ s.get(key, "") }}</textarea>
+        <div class="summary-by muted small"><span data-summary-by>{{ author_line(r, key) }}</span>
+          <button type="button" class="button button-small button-secondary" data-summary-revert hidden>{{ de_en("Rückgängig", "Undo") }}</button></div>
+        {% if items %}<div class="summary-tools">
+          <button type="button" class="button button-small button-secondary" data-summary-prefill="{{ draft(items) }}">{{ de_en("aus Stellen vorbefüllen", "Prefill from passages") }}</button>
+          <button type="button" class="button button-small button-secondary" data-summary-undo hidden>{{ de_en("Entwurf leeren", "Clear the draft") }}</button>
+        </div>{% endif %}
+        {% else %}
+        <p class="muted small">{{ de_en("Doppelkodierung: Zusammenfassen erst, wenn alle „Kodierung abgeschlossen“ gemeldet haben.", "Double coding: summarising only once everyone has reported “Coding finished”.") }}</p>
+        {% endif %}
+        {% if items %}<details class="summary-note"><summary>{{ de_en("{n} Stellen", "{n} passages", n=items|length) }}</summary>
+          <ul class="tc-passages">{% for it in items %}<li><p class="small">{% if it.sub %}<strong>{{ it.sub }}</strong>: {% endif %}„{{ it.quote|truncate(240, true, "…") }}“{% if it.mark %} <span class="muted">#{{ it.mark }}#</span>{% endif %}</p></li>{% endfor %}</ul></details>{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% else %}<p class="muted">{{ de_en("Noch keine Interviews mit Transkript oder keine Hauptkategorien.", "No interviews with a transcript or no main categories yet.") }}</p>{% endif %}
+  {{ why("case_summaries") }}
+</section>
+<script src="{{ url_for('static', filename='summaries.js') }}" defer></script>
+{% endblock %}
