@@ -64,9 +64,10 @@
 </section>
 {% endif %}
 
-{% if notices and view != "settings" %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
+{# the parts marked data-tc-live are drawn anew in place when something changed (transcript_coding_live.js) #}
+{% if view != "settings" %}<div data-tc-live="notices">{% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}</div>{% endif %}
 {% if view == "categories" %}
-<section class="panel" id="kategorien">
+<section class="panel" id="kategorien" data-tc-live="categories">
   <div class="row results-head tc-head">
     <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
     <span class="spacer"></span>
@@ -112,7 +113,7 @@
 
 {% if view == "interviews" %}
 {{ search_box(survey, project, search) }}
-<section class="panel" id="interviews">
+<section class="panel" id="interviews" data-tc-live="interviews">
   <h2>{{ de_en("Interviews dieser Auswertung", "Interviews of this analysis") }}</h2>
   {% if interviews %}
   {% call list_table() %}
@@ -224,6 +225,7 @@
   <input type="hidden" name="kind" value="sub" data-tc-kind><input type="hidden" name="parent" value="" data-tc-parent>
   <input type="hidden" name="anyway" value="" data-tc-anyway>
   <p class="muted small" data-tc-where></p>
+  <label>{{ de_en("Einordnen", "Position") }} <select name="after" data-tc-after></select></label>
   <label>{{ de_en("Name", "Name") }} <input name="name" maxlength="120" required autocomplete="off" data-tc-name></label>
   <div class="tc-similar" data-tc-similar hidden>
     <p class="small"><strong>{{ de_en("Gibt es schon ähnlich", "Already exists in a similar form") }}</strong></p>
@@ -239,6 +241,9 @@
     <button class="button" data-tc-submit>{{ de_en("Anlegen", "Create") }}</button></div>
 </form>
 {% endcall %}
+<script type="application/json" id="tc-siblings">{{ siblings|tojson }}</script>
+{% if view != "settings" %}{{ tc_live_marker(survey, project, who) }}
+<script src="{{ url_for('static', filename='transcript_coding_live.js') }}" defer></script>{% endif %}
 {% if drop_data %}
 <script type="application/json" id="tc-drop-data">{{ drop_data|tojson }}</script>
 {# after a drop of one category onto another (list and map): put it below, or merge and harmonise (Ralf 2026-10-28) #}

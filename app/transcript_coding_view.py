@@ -31,7 +31,7 @@ from flask import abort, g, has_request_context, jsonify, render_template, reque
 
 from app.extensions import db
 from app.lang import de_en
-from app.models import CodingCategory, Response, utcnow
+from app.models import CodingCategory, CodingProject, Response, utcnow
 from app.transcript_coding import (_in, bp, create, has_transcript, interviews, live, may_edit, signed_in_or_coder,
                                    similar, tree)
 
@@ -245,6 +245,9 @@ def _store(row, change):
         meta = dict(row.interview or {})
         meta["codings"] = change(list(meta.get("codings") or []))
         row.interview = meta
+        # the pages that bring themselves up to date (app/transcript_coding_live.py) look at the analyses' stamp
+        db.session.execute(db.update(CodingProject).where(CodingProject.survey_id == row.survey_id)
+                           .values(updated_at=utcnow()).execution_options(synchronize_session=False))
         return meta["codings"]
 
     return interview_audio.retried(work)
@@ -468,24 +471,33 @@ def page(code, pid, rid):
     at = ids.index(row.id) if row.id in ids else -1
     nxt = rows[at + 1] if 0 <= at < len(rows) - 1 else None
     prev = rows[at - 1] if at > 0 else None
-    cats = _categories(project, who)
-    names = {c["id"]: c["name"] for c in cats}
-    return render_template("transcript_coding/code.html", survey=survey, project=project, who=who, row=row,
-                           text=transcript(row), line_pos=line_numbers(transcript(row)), placed=[_json_coding(c, project, who) for c in ok],
+    data = page_data(project, who, row)
+    names = {c["id"]: c["name"] for c in data["categories"]}
+    return render_template("transcript_coding/code.html", survey=survey, project=project, who=who, row=row, tc_data=data,
+                           text=data["text"], line_pos=data["pos"], placed=data["codings"],
                            lost=[{**_json_coding(c, project, who), "name": names.get(c.get("cat"), "")} for c in lost],
-                           categories=cats, nxt=nxt, prev=prev, anchors={c.id: (c.anchor or {}).get("coding") for c in live(project)},
-                           editable={c.id: may_edit(project, c, who) for c in live(project)},
-                           examples={c.id: [e.get("coding") for e in (c.examples or []) if isinstance(e, dict)] for c in live(project)},
-                           may_main=who.team or not project.mains_fixed,
+                           nxt=nxt, prev=prev, may_main=who.team or not project.mains_fixed,
                            notices=transcript_coding_review.notices(project, who),
                            ai_on_state=transcript_coding_ai.state(project, who),  # includes ai_on() (app/ai_access.py)
-                           suggestions=transcript_coding_ai.open_suggestions(row, project),
                            sections=len(transcript_coding_ai.sections(transcript(row))),
                            double=transcript_coding_double.assignment(project, row.id),
                            blind=transcript_coding_double.blind_for(project, who, row.id),
                            double_done=transcript_coding_double.finished(transcript_coding_double.assignment(project, row.id)),
                            memos=[transcript_coding_memos.as_json(m, who) for m in memos],
                            memo_counts=transcript_coding_memos.counts(memos))
+
+
+def page_data(project, who, row):
+    """What the coding view draws (its script reads it from #tc-data; app/transcript_coding_live.py sends it anew)."""
+    from app import transcript_coding_ai
+
+    ok, _lost = placed(row, project, who)
+    cats = live(project)
+    return {"text": transcript(row), "pos": line_numbers(transcript(row)), "codings": [_json_coding(c, project, who) for c in ok],
+            "categories": _categories(project, who), "anchors": {c.id: (c.anchor or {}).get("coding") for c in cats},
+            "editable": {c.id: may_edit(project, c, who) for c in cats},
+            "examples": {c.id: [e.get("coding") for e in (c.examples or []) if isinstance(e, dict)] for c in cats},
+            "suggestions": transcript_coding_ai.open_suggestions(row, project)}
 
 
 def _payload():
@@ -556,8 +568,10 @@ def quick_category(code, pid):
         parent = int(data.get("parent")) if data.get("parent") not in (None, "") else None
     except (TypeError, ValueError):
         parent = None
+    from app.transcript_coding import after_value
+
     cat, problem = create(project, who, str(data.get("kind") or CodingCategory.SUB), name, str(data.get("definition") or ""),
-                          str(data.get("delimitation") or ""), parent)
+                          str(data.get("delimitation") or ""), parent, after=after_value(data.get("after")))
     if problem:
         db.session.rollback()
         return jsonify(ok=False, error=problem), 400
@@ -570,7 +584,8 @@ def quick_category(code, pid):
     return jsonify(ok=True, category={"id": cat.id, "name": cat.name, "kind": cat.kind,
                                       "parent": getattr(parent_cat, "path", "") if parent_cat else "", "parent_id": cat.parent_id,
                                       "colour": cat.colour or getattr(parent_cat, "colour", "") or "", "n": 0,
-                                      "definition": cat.definition[:300], "level": level, "deeper": level < MAX_DEPTH})
+                                      "definition": cat.definition[:300], "level": level, "deeper": level < MAX_DEPTH},
+                   categories=_categories(project, who))  # in their order: the new one where it was put
 
 
 def interview_url(survey, project, row):

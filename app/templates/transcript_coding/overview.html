@@ -22,6 +22,8 @@
   {% if who.team %}{{ why("position") }}{% endif %}
 {% endcall %}
 
+{# drawn anew in place when something changed (transcript_coding_live.js) #}
+<div data-tc-live="overview">
 {% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}
 
 <div class="tc-overview">
@@ -125,6 +127,9 @@
   <p class="muted small">{{ de_en("Noch keine Memos. Ein Memo schreiben Sie mit dem Sprechblasen-Symbol an einer Kategorie, an einem Interview oder an einer kodierten Stelle (Klick auf die Stelle, „Memo“).", "No memos yet. You write a memo with the speech bubble symbol at a category, at an interview or at a coded passage (click the passage, “Memo”).") }}</p>
   {% endif %}
 </section>
+</div>
 {{ memo_dialog(survey, project, who, memos) }}
+{{ tc_live_marker(survey, project, who) }}
 <script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
+<script src="{{ url_for('static', filename='transcript_coding_live.js') }}" defer></script>
 {% endblock %}

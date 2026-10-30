@@ -2,6 +2,28 @@
 // buttons "Hauptkategorie", "Kandidat vorschlagen" and "Unterkategorie" open one dialog; while the name is typed, the
 // categories with a similar name show first, and once they were shown the button says "Trotzdem neu anlegen".
 // The dialog of a new analysis (index.html): the Themenblöcke only for "dem Leitfaden".
+// "Einordnen nach …" of a new category (both dialogs, also transcript_coding_code.js): "am Anfang", after each of the
+// categories of the chosen level, "am Ende". `preset` (the id of the category the dialog was opened from) chooses
+// "directly after it"; otherwise the end.
+window.tcAfterOptions = function (select, rows, preset) {
+  if (!select) return;
+  select.textContent = "";
+  function add(value, text) {
+    var o = document.createElement("option");
+    o.value = value;
+    o.textContent = text;
+    select.appendChild(o);
+  }
+  if (rows.length) add("start", de_en("am Anfang", "at the start"));
+  rows.forEach(function (r, i) {
+    if (i < rows.length - 1) add(String(r[0]), de_en("nach „", "after “") + r[1] + de_en("“", "”"));
+  });
+  add("", de_en("am Ende", "at the end"));
+  var last = rows.length ? String(rows[rows.length - 1][0]) : "";
+  select.value = preset && String(preset) !== last && rows.some(function (r) { return String(r[0]) === String(preset); }) ? String(preset) : "";
+  select.closest("label").hidden = !rows.length;  // nothing there yet: it simply comes first
+};
+
 (function () {
   var projectForm = document.querySelector("[data-tc-new-project]");
   if (projectForm) {
@@ -31,6 +53,11 @@
   var anyway = form.querySelector("[data-tc-anyway]"), where = form.querySelector("[data-tc-where]");
   var definition = form.querySelector("[data-tc-definition]");
   var timer = null, asked = 0, shown = false;
+  // the categories of each level for "Einordnen nach …" (read anew: the page may have been redrawn meanwhile)
+  function siblings() {
+    var el = document.getElementById("tc-siblings");
+    try { return el ? JSON.parse(el.textContent) : {}; } catch (e) { return {}; }
+  }
 
   function reset() {
     shown = false;
@@ -46,6 +73,11 @@
   // onto "als Hauptkategorie" (the list's zone, the map's root): a main category. The server checks everything.
   var area = document.querySelector("[data-tc-csrf]"), dropMain = document.querySelector("[data-tc-drop-main]");
   var info = document.getElementById("tc-drop-data"), data = info ? JSON.parse(info.textContent) : null;
+  document.addEventListener("tc:redrawn", function () {  // the list was drawn anew in place (transcript_coding_live.js)
+    area = document.querySelector("[data-tc-csrf]");
+    dropMain = document.querySelector("[data-tc-drop-main]");
+    try { data = info ? JSON.parse(info.textContent) : null; } catch (e) { /* the old data stays */ }
+  });
   var dialogDrop = document.querySelector("[data-tc-drop-dialog]");
   var drag = null, hold = null;
   function catOf(id) { return data && data.cats[String(id)]; }
@@ -219,6 +251,9 @@
       : kind === "candidate" ? de_en("Kandidat für eine neue Hauptkategorie: Die Forschenden entscheiden, ob er eine wird.", "Candidate for a new main category: the researchers decide whether it becomes one.")
       : de_en("Neue Hauptkategorie", "New main category");
     definition.required = kind !== "main";
+    var parentId = opener.getAttribute("data-parent") || "";
+    window.tcAfterOptions(form.querySelector("[data-tc-after]"), siblings()[kind === "sub" ? parentId : kind] || [],
+                          opener.getAttribute("data-after"));
     form.querySelectorAll("input[name=name], textarea").forEach(function (el) { el.value = ""; });
     reset();
     if (dialog.showModal && !dialog.open) dialog.showModal();
