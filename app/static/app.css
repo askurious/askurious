@@ -2298,6 +2298,15 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-overview { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .tc-overview { grid-template-columns: minmax(0, 1fr); } }
 .tc-overview-side { display: grid; gap: 16px; min-width: 0; }
+/* overlaps of categories (Ralf 2026-10-30): the table scrolls inside its box, never the page */
+.tc-overlap-box { max-height: 70vh; overflow: auto; }
+.tc-overlap { border-collapse: collapse; font-size: 0.85rem; }
+.tc-overlap th, .tc-overlap td { border: 1px solid var(--border); padding: 4px 8px; white-space: nowrap; }
+.tc-overlap thead th { position: sticky; top: 0; background: var(--surface); }
+.tc-overlap tbody th { text-align: left; position: sticky; left: 0; background: var(--surface); font-weight: 600; }
+.tc-overlap-diag { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.tc-overlap a[aria-current] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tc-overlap-pairs { display: grid; gap: 8px; padding-left: 18px; }
 .tc-switch { display: flex; flex-wrap: wrap; gap: 6px; }
 .tc-flag { font-size: 0.75rem; color: var(--caution); border: 1px solid var(--caution); border-radius: var(--radius-tag); padding: 0 6px; }
 .tc-pair { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 6px; margin-bottom: 10px; }

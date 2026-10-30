@@ -707,12 +707,22 @@ def overview(code, pid):
     mains, candidates = tree(project)
     pairs = fuzzy(project, who)
     probes = probe(project, who)
+    from app import transcript_coding_overlap
+
+    # overlaps of categories (app/transcript_coding_overlap.py): level and "im selben Absatz" in the address, a cell too
+    ov = transcript_coding_overlap.table(project, all_codings(project, who), level=request.args.get("ov", "main"),
+                                         paragraph=request.args.get("ov_para") == "1")
+    cell = None
+    a, b = request.args.get("ov_a", type=int), request.args.get("ov_b", type=int)
+    names = {c.id: c for c in ov["cats"]}
+    if a in names and b in names and a != b:
+        cell = {"a": names[a], "b": names[b], "pairs": ov["pairs"].get((a, b), [])}
     memo_rows = transcript_coding_memos.memo_list(project, who, request.args)
     all_memos = transcript_coding_memos.visible(project, who)
     return render_template("transcript_coding/overview.html", mains=mains, candidates=candidates, stats=stats(project, who),
                            memo_rows=memo_rows, memos=[transcript_coding_memos.as_json(m, who) for m in all_memos],
                            memo_kind=transcript_coding_memos.kind_name,
-                           probes=probes, pairs=pairs[:12], blurred=blurred(project, who, pairs, probes),
+                           probes=probes, pairs=pairs[:12], blurred=blurred(project, who, pairs, probes), ov=ov, ov_cell=cell,
                            history=history(project, 8),
                            notices=notices(project, who), n_interviews=len(interviews(project, who)),
                            **_context(survey, project, who))

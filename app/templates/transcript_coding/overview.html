@@ -90,6 +90,52 @@
   </section>
 </aside>
 </div>
+
+{# overlaps of categories (app/transcript_coding_overlap.py): a table of its own that scrolls inside its box #}
+<section class="panel" id="ueberschneidungen">
+  <h2>{{ de_en("Überschneidungen", "Overlaps") }}</h2>
+  <form method="get" action="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}#ueberschneidungen" class="row-fields">
+    <label>{{ de_en("Ebene", "Level") }} <select name="ov" data-submit-on-change>
+      <option value="main" {% if ov.level == "main" %}selected{% endif %}>{{ de_en("Hauptkategorien", "Main categories") }}</option>
+      <option value="all" {% if ov.level == "all" %}selected{% endif %}>{{ de_en("alle Kategorien", "all categories") }}</option></select></label>
+    <label class="check"><input type="checkbox" name="ov_para" value="1" {% if ov.paragraph %}checked{% endif %} data-submit-on-change> {{ de_en("auch im selben Absatz", "also in the same paragraph") }}</label>
+    <noscript><div><button class="button button-small button-secondary">{{ de_en("Anzeigen", "Show") }}</button></div></noscript>
+  </form>
+  {% if ov.cats|length > 1 %}
+  <div class="res-scroll tc-overlap-box">
+  <table class="tc-overlap">
+    <thead><tr><th scope="col"><span class="visually-hidden">{{ de_en("Kategorie", "Category") }}</span></th>
+      {% for c in ov.cats %}<th scope="col" class="num" title="{{ c.name }}">{{ c.name|truncate(18, true, "…") }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for a in ov.cats %}
+    <tr><th scope="row">{{ a.name }}</th>
+      {% for b in ov.cats %}
+      {% if a.id == b.id %}<td class="num tc-overlap-diag" title="{{ de_en('Stellen von „{a}“', 'Passages of “{a}”', a=a.name) }}">{{ ov.diag.get(a.id, 0) }}</td>
+      {% else %}{% set n = ov.count.get((a.id, b.id), 0) %}<td class="num">{% if n %}<a href="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id, ov=ov.level, ov_para='1' if ov.paragraph else none, ov_a=a.id, ov_b=b.id) }}#ueberschneidungen" title="{{ de_en('Stellen von „{a}“ und „{b}“, die sich überschneiden', 'Passages of “{a}” and “{b}” that overlap', a=a.name, b=b.name) }}"{% if ov_cell and ov_cell.a.id == a.id and ov_cell.b.id == b.id %} aria-current="true"{% endif %}>{{ n }}</a>{% else %}<span class="muted">0</span>{% endif %}</td>{% endif %}
+      {% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small">{{ de_en("Wie oft sich eine Stelle der Zeile und eine der Spalte im selben Interview überschneiden (mindestens ein gemeinsames Zeichen{para}); auf der Diagonale die Stellen der Kategorie selbst. Bei „Hauptkategorien“ zählt jede Stelle für ihre Hauptkategorie. Ein Klick auf eine Zahl zeigt die Stellen.", "How often a passage of the row and one of the column overlap in the same interview (at least one shared character{para}); on the diagonal the passages of the category itself. With “main categories” every passage counts for its main category. A click on a number shows the passages.", para=de_en(" oder im selben Absatz", " or in the same paragraph") if ov.paragraph else "") }}</p>
+  {{ why("overlaps") }}
+  {% else %}<p class="muted small">{{ de_en("Für Überschneidungen braucht es mindestens zwei Kategorien auf dieser Ebene.", "Overlaps need at least two categories on this level.") }}</p>{% endif %}
+  {% if ov_cell %}
+  <h3>{{ de_en("„{a}“ und „{b}“", "“{a}” and “{b}”", a=ov_cell.a.name, b=ov_cell.b.name) }} <span class="hint">{{ de_en("{n} Paare", "{n} pairs", n=ov_cell.pairs|length) if ov_cell.pairs|length != 1 else de_en("1 Paar", "1 pair") }}</span></h3>
+  <ul class="tc-overlap-pairs">
+    {% for p in ov_cell.pairs %}
+    <li><div class="small"><strong>{{ ov_cell.a.name }}</strong> · <a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=p.rid) }}">{{ p.a.where }}</a>: „{{ p.a.quote|truncate(200, true, "…") }}“</div>
+      <div class="small"><strong>{{ ov_cell.b.name }}</strong> · <a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=p.rid) }}">{{ p.b.where }}</a>: „{{ p.b.quote|truncate(200, true, "…") }}“</div></li>
+    {% endfor %}
+  </ul>
+  <div class="tc-info-actions">
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[ov_cell.a.id, ov_cell.b.id]) }}">{{ de_en("Alle Stellen beider ansehen", "View all passages of both") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ ov_cell.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=ov_cell.a.id ~ ',' ~ ov_cell.b.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=ov_cell.a.name, b=ov_cell.b.name) }}</a>
+  </div>
+  {% endif %}
+</section>
+
 {# memos of the analysis (app/transcript_coding_memos.py, memo_list): filtered, sorted, paged; no row of its own #}
 {% set ml = memo_rows %}
 <section class="panel" id="memos">

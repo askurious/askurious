@@ -584,6 +584,12 @@ REASONS = {
         "dass andere sie gleich anwenden und Ihre Zuordnungen nachvollziehen. Fehlt eines davon, entscheidet beim "
         "Kodieren das Gefühl, und benachbarte Kategorien verschwimmen.",
         (("app.transcript_coding_review", "MAYRING"), ("app.transcript_coding_review", "KUCKARTZ"))),
+    "overlaps": (
+        "Was sagen Überschneidungen?",
+        "Stellen, die zugleich zwei Kategorien tragen, zeigen entweder eine unscharfe Abgrenzung (dann eine Kodierregel "
+        "schreiben oder zusammenführen) oder einen Zusammenhang zwischen den Themen, der für die Auswertung zählt. Die "
+        "Zahl allein entscheidet das nicht: Lesen Sie die Paare.",
+        (("app.transcript_coding_review", "KUCKARTZ"),)),
     "anchor_choice": (
         "Welche Stelle als Ankerbeispiel?",
         "Wählen Sie eine typische, eindeutige Stelle, die ohne weiteren Zusammenhang zeigt, was die Kategorie meint; "
@@ -1423,6 +1429,11 @@ REASONS_EN = {
         "Only a definition, a typical anchor example and a rule for borderline cases make a category clear enough for "
         "others to apply it the same way and follow your assignments. If one is missing, gut feeling decides while "
         "coding, and neighbouring categories blur."),
+    "overlaps": (
+        "What do overlaps say?",
+        "Passages that carry two categories at once show either a blurred delimitation (then write a coding rule or "
+        "merge) or a connection between the topics that matters for the analysis. The number alone does not decide "
+        "it: read the pairs."),
     "anchor_choice": (
         "Which passage as the anchor example?",
         "Choose a typical, clear passage that shows without further context what the category means; borderline "
@@ -1847,6 +1858,7 @@ REASON_PLACES = {
                       "categorising open answers, second coding; coding interviews, double coding"),
     "category_rules": ("Interviews kodieren, neue Kategorie", "coding interviews, new category"),
     "anchor_choice": ("Interviews kodieren, Kodieransicht und neue Kategorie", "coding interviews, coding view and new category"),
+    "overlaps": ("Interviews kodieren, Übersicht: Überschneidungen", "coding interviews, overview: overlaps"),
     "mains_fixed": ("Interviews kodieren, Einstellungen, Hauptkategorien festgelegt",
                     "coding interviews, settings, main categories fixed"),
     "position": ("Interviews kodieren, Übersicht, Kategoriensystem (Excel)", "coding interviews, overview, category system (Excel)"),
