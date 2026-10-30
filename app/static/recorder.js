@@ -45,7 +45,7 @@
     if (!stateEl) return;
     if (refused) { stateEl.textContent = refused + (Date.now() < savedUntil ? " · " + saved : ""); return; }
     if (Date.now() < savedUntil) { stateEl.textContent = saved; return; }
-    stateEl.textContent = (problem() ? "⚠ " + problem() + " · " : "")
+    stateEl.textContent = (problem() ? "⚠ " + problem() + " · " : reconnecting ? de_en("Mikrofon wird wieder verbunden … · ", "Reconnecting the microphone … · ") : "")
       + (stream ? (recSince ? de_en("nimmt auf", "recording") : de_en("pausiert", "paused")) : (ended ? de_en("beendet", "ended") : ""))
       + (queue.length ? " · " + (queue.length === 1 ? de_en(queue.length + " Stück noch nicht übertragen", queue.length + " piece not sent yet")
                                                     : de_en(queue.length + " Stücke noch nicht übertragen", queue.length + " pieces not sent yet"))
@@ -149,7 +149,29 @@
       t.onunmute = function () { trouble = ""; draw(); report(); };
     });
   }
-  function lost(reason) { if (stream) finish(); trouble = reason; draw(); report(); }  // what was recorded is kept and sent
+  // Ralf 2026-10-30: a recording that breaks off while it records (an error of the recorder, a microphone that goes
+  // away for a moment) starts again by itself as a new part; only the seconds of the gap are missing, nothing is
+  // recorded twice. Only after RESTART_MS tries in a row, or while paused, it ends as before with the reason shown.
+  // What was recorded is kept and sent in any case.
+  var RESTART_MS = [1000, 3000, 10000, 30000], restartTry = 0, restartTimer = null, reconnecting = false;
+  function lost(reason) {
+    if (!stream) { trouble = reason; draw(); report(); return; }
+    if (recorder) { var old = recorder; recorder = null; old.onerror = null; if (old.state !== "inactive") try { old.stop(); } catch (e) { /* gone already */ } }
+    if (!recSince || restartTry >= RESTART_MS.length) { finish(); trouble = reason; draw(); report(); return; }
+    reconnecting = true; draw();
+    if (!restartTimer) restartTimer = setTimeout(function () { restartTimer = null; reopen(reason); }, RESTART_MS[restartTry++]);
+  }
+  function reopen(reason) {  // the microphone anew (the permission holds, the browser does not ask again)
+    if (!stream) { reconnecting = false; return; }  // stopped meanwhile
+    mic.open().then(function (s) {
+      if (!stream) { s.getTracks().forEach(function (t) { t.stop(); }); reconnecting = false; return; }
+      stream.getTracks().forEach(function (t) { t.onended = null; t.stop(); });
+      stream = s;
+      watch(s); mic.show(s);
+      if (recSince) { record(); lastData = Date.now(); }  // paused meanwhile: "Fortsetzen" records on the new microphone
+      reconnecting = false; restartTry = 0; trouble = ""; draw(); report();
+    }).catch(function () { lost(reason); });
+  }
   function begin() {
     mic.open().then(function (s) {
       stream = s; trouble = ""; ended = false;
@@ -166,6 +188,8 @@
   }
   function finish() {
     if (!stream) return;
+    if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+    reconnecting = false; restartTry = 0;
     if (recSince) { recMs += Date.now() - recSince; recSince = null; }
     if (recorder && recorder.state !== "inactive") recorder.stop();
     stream.getTracks().forEach(function (t) { t.stop(); });
@@ -184,6 +208,7 @@
       recorder = null; recMs += Date.now() - recSince; recSince = null;
       bar.classList.remove("is-recording"); toggle.textContent = "● " + de_en("Fortsetzen", "Continue");
     } else {  // a new part
+      if (reconnecting) return;  // the microphone comes back first, then "Fortsetzen" works again
       record(); recSince = lastData = Date.now();
       bar.classList.add("is-recording"); toggle.textContent = "Ⅱ " + de_en("Pause", "Pause");
     }
