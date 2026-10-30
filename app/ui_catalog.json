@@ -18343,29 +18343,29 @@
   "pt": "Não foi descarregado. Tente novamente.",
   "ar": "لم يتم التنزيل. يُرجى المحاولة مرة أخرى."
  },
- "Show the presenter's notes": {
-  "es": "Mostrar las notas de quien presenta",
-  "fr": "Afficher les notes de la personne qui présente",
-  "it": "Mostra le note di chi presenta",
-  "pl": "Pokaż notatki prowadzącej osoby",
-  "ru": "Показывать заметки докладчика",
-  "tr": "Sunum yapanın notlarını göster",
-  "zh-Hans": "显示演讲者的笔记",
-  "nl": "Notities van de presentator tonen",
-  "pt": "Mostrar as notas de quem apresenta",
-  "ar": "عرض ملاحظات مقدّم العرض"
+ "Show the presenter's pen notes": {
+  "es": "Mostrar las notas a lápiz de quien presenta",
+  "fr": "Afficher les annotations au stylet de la personne qui présente",
+  "it": "Mostra le annotazioni a penna di chi presenta",
+  "pl": "Pokaż notatki pisakiem prowadzącej osoby",
+  "ru": "Показывать рукописные пометки докладчика",
+  "tr": "Sunum yapanın kalem notlarını göster",
+  "zh-Hans": "显示演讲者的笔迹批注",
+  "nl": "Pennotities van de presentator tonen",
+  "pt": "Mostrar as anotações à caneta de quem apresenta",
+  "ar": "عرض تعليقات القلم لمقدّم العرض"
  },
- "The presenter's notes": {
-  "es": "Notas de quien presenta",
-  "fr": "Notes de la personne qui présente",
-  "it": "Note di chi presenta",
-  "pl": "Notatki prowadzącej osoby",
-  "ru": "Заметки докладчика",
-  "tr": "Sunum yapanın notları",
-  "zh-Hans": "演讲者的笔记",
-  "nl": "Notities van de presentator",
-  "pt": "Notas de quem apresenta",
-  "ar": "ملاحظات مقدّم العرض"
+ "The presenter's pen notes": {
+  "es": "Notas a lápiz de quien presenta",
+  "fr": "Annotations au stylet de la personne qui présente",
+  "it": "Annotazioni a penna di chi presenta",
+  "pl": "Notatki pisakiem prowadzącej osoby",
+  "ru": "Рукописные пометки докладчика",
+  "tr": "Sunum yapanın kalem notları",
+  "zh-Hans": "演讲者的笔迹批注",
+  "nl": "Pennotities van de presentator",
+  "pt": "Anotações à caneta de quem apresenta",
+  "ar": "تعليقات القلم لمقدّم العرض"
  },
  "Slides": {
   "es": "Diapositivas",
