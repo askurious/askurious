@@ -334,6 +334,16 @@
         <span class="muted small" data-iv-pos></span>
         <button type="button" class="button" data-iv-next>{{ de_en("Weiter", "Next") }} ›</button>
       </div>
+      {# the note on the whole interview (Ralf 2026-10-30): stays at the foot of the view on every page, beside the notes
+         per Leitfrage; stored with the interview (interview_data.save, "note"), never on the participant screen #}
+      <div class="iv-general" data-iv-general>
+        <div class="iv-general-head">
+          <label class="iv-general-title" for="iv-general-note">{{ de_en("Notizen zum ganzen Interview", "Notes on the whole interview") }}</label>
+          <span class="hint">{{ de_en("bleibt auf jeder Seite stehen · keine Namen notieren, Pseudonyme verwenden", "stays on every page · do not note names, use pseudonyms") }}</span>
+          <button type="button" class="button button-small button-secondary" data-iv-general-fold aria-controls="iv-general-note" aria-expanded="true">{{ de_en("Einklappen", "Collapse") }}</button>
+        </div>
+        <textarea id="iv-general-note" rows="3" maxlength="5000" placeholder="{{ de_en('Keine Namen notieren, Pseudonyme verwenden', 'Do not note names, use pseudonyms') }}"></textarea>
+      </div>
     </main>
   </div>
 </div>

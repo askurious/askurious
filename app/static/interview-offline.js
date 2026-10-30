@@ -252,7 +252,7 @@
   function payload(st) {  // the state as interview.js sends it online (body())
     st = st || {};
     var elapsed = (st.elapsed || 0) + (st.since ? Date.now() - st.since : 0);
-    return { states: st.states || {}, ticks: Object.keys(st.ticks || {}), fits: st.fits || {}, notes: st.notes || {},
+    return { states: st.states || {}, ticks: Object.keys(st.ticks || {}), fits: st.fits || {}, notes: st.notes || {}, note: st.note || "",
              marks: st.marks || [], elapsed: elapsed, blocks: st.blocks || {}, running: false };
   }
   function sendAudio(slot, url) {
