@@ -780,6 +780,7 @@
         + (lowSpace ? " · " + de_en("Speicher auf diesem Gerät fast voll", "storage on this device almost full") : "");
       if (!stream && !queue.length && netNote) text = netNote;  // offline K: the check before the interview
       var warn = trouble || (quiet >= 15 ? de_en("seit " + quiet + " s kein Ton vom Mikrofon, Aufnahme prüfen", "no sound from the microphone for " + quiet + " s, check the recording") : "");
+      if (reconnecting && !warn) text += " · " + de_en("Mikrofon wird wieder verbunden …", "Reconnecting the microphone …");
       recState.textContent = warn ? "⚠ " + warn + (text ? " · " + text : "") : text;
       recBox.classList.toggle("is-trouble", !!warn);
     }
@@ -854,7 +855,33 @@
         t.onunmute = function () { trouble = ""; drawRec(); };
       });
     }
-    function lost(reason) { if (stream) end(); trouble = reason; drawRec(); }  // what was recorded is kept and sent
+    // Ralf 2026-10-30: a recording that breaks off while it records (an error of the recorder, a microphone that
+    // goes away for a moment) starts again by itself, as a new part on the interview clock; only the seconds of the
+    // gap are missing, nothing is recorded twice. Only after RESTART_MS tries in a row, or while paused, it ends as
+    // before with the reason shown. What was recorded is kept and sent in any case.
+    var RESTART_MS = [1000, 3000, 10000, 30000], restartTry = 0, restartTimer = null, reconnecting = false;
+    function lost(reason) {
+      if (!stream) { trouble = reason; drawRec(); return; }
+      if (recorder) { var old = recorder; recorder = null; old.onerror = null; if (old.state !== "inactive") try { old.stop(); } catch (e) { /* gone already */ } }
+      if (!recSince || restartTry >= RESTART_MS.length) { end(); trouble = reason; drawRec(); return; }
+      reconnecting = true; drawRec();
+      if (!restartTimer) restartTimer = setTimeout(function () { restartTimer = null; reopen(reason); }, RESTART_MS[restartTry++]);
+    }
+    function reopen(reason) {  // the microphone anew (the permission holds, the browser does not ask again)
+      if (!stream) { reconnecting = false; return; }  // stopped meanwhile
+      mic.open().then(function (s) {
+        if (!stream) { s.getTracks().forEach(function (t) { t.stop(); }); reconnecting = false; return; }
+        var oldMic = micStream, oldMixer = mixer;
+        micStream = s; mixer = null;
+        var sharing = shared && shared.getAudioTracks().some(function (t) { return t.readyState === "live"; });
+        stream = sharing ? mix(s, shared) : s;
+        if (oldMic && oldMic !== s) oldMic.getTracks().forEach(function (t) { t.onended = null; t.stop(); });
+        if (oldMixer) oldMixer.close();
+        watch(s); mic.show(s);
+        if (recSince) { record(); lastData = Date.now(); }  // paused meanwhile: "Fortsetzen" records on the new microphone
+        reconnecting = false; restartTry = 0; trouble = ""; drawRec();
+      }).catch(function () { lost(reason); });
+    }
     // The sound of the video conference (concept konzept-online-interviews-2026-10-15.md, B):
     // the browser shares a tab or the screen with its sound (getDisplayMedia, Chrome and Edge), and an AudioContext
     // mixes it with the microphone into the one stream the recorder takes. The picture is never recorded.
@@ -918,6 +945,8 @@
       });
     }
     function end() {
+      if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+      reconnecting = false; restartTry = 0;
       if (recorder && recorder.state !== "inactive") recorder.stop();
       stream.getTracks().forEach(function (t) { t.stop(); });
       unshare();
@@ -934,6 +963,7 @@
         recorder = null; recMs += Date.now() - recSince; recSince = null;
         recBox.classList.remove("is-recording"); recToggle.textContent = "● " + de_en("Fortsetzen", "Continue");
       } else {  // a new part with its own start
+        if (reconnecting) return;  // the microphone comes back first, then "Fortsetzen" works again
         record(); recSince = lastData = Date.now();
         recBox.classList.add("is-recording"); recToggle.textContent = "Ⅱ " + de_en("Pause", "Pause");
       }
