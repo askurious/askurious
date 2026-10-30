@@ -82,7 +82,8 @@ def test_excel_category_system_and_passages(app, client):
     r = client.get(f"{base}/categories.xlsx")
     assert r.status_code == 200 and r.mimetype.endswith("spreadsheetml.sheet")
     assert "kategoriensystem-" in r.headers["Content-Disposition"] and ".xlsx" in r.headers["Content-Disposition"]
-    (name1, system, root1), (name2, passages, _root2) = _sheets(r.data)
+    (name1, system, root1), (name2, passages, _root2), *rest = _sheets(r.data)
+    assert [name for name, _rows, _root in rest] == ["Überschneidungen"]  # overlaps of categories, last (2026-10-30)
     assert (name1, name2) == ("Kategoriensystem", "Stellen")
     assert system[0] == ["Nummer", "Ebene", "Kategorie", "Definition", "Ankerbeispiel", "Fundstelle des Ankers", "Weitere Beispiele",
                          "Kodierregel / Abgrenzung", "Stellen", "Stellen mit Unterkategorien", "Früher auch"]

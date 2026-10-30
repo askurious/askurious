@@ -12,7 +12,8 @@ kodieren", all as recommended, Ralf 2026-10-27), for MAXQDA, ATLAS.ti, NVivo and
   with number (1, 1.2, 1.2.3 as in the coding guide), level, category, definition, anchor example with where it
   stands, coding rule/delimitation, passages and former names, the candidates below without a number; sheet "Stellen"
   with each coded passage that can be placed (as in the .qdpx): number and name of its category, interview, where it
-  stands ("B03, Pos. 12, 00:14:32", app/transcript_coding_view.py, spot), quote and coder.
+  stands ("B03, Pos. 12, 00:14:32", app/transcript_coding_view.py, spot), quote and coder; last the sheet
+  "Überschneidungen", category × category over every interview (app/transcript_coding_overlap.py).
 
 The GUIDs of categories are their own (CodingCategory.guid: from the guide as in app/qdc.py, else new), so a category
 system read in again matches; the others are derived from the guide, the analysis and the coding, so the same export
@@ -285,6 +286,9 @@ def build_xlsx(project, survey):
                        [[transcript_coding_memos.kind_name(m.kind), about[m.id]["number"], about[m.id]["category"],
                          about[m.id]["interview"], about[m.id]["where"], m.text, m.author_name, fmt(m.updated_at, lang="en" if english() else "de")]
                         for m in memos], [11, 9, 28, 14, 24, 80, 20, 17]))
+    from app import transcript_coding_overlap
+
+    sheets.append(transcript_coding_overlap.sheet(project, pairs))  # overlaps of categories, every interview; last
     return xlsx.workbook(sheets)
 
 
