@@ -421,6 +421,11 @@ function csrfToken() { return (document.querySelector('meta[name="csrf-token"]')
 // Declined: nothing is sent, and a select with data-current in the form shows its saved value again.
 (function () {
   var dialog = null, answer = null, last = Promise.resolve();
+  function answerWith(yes) {  // once per question: whichever comes first, the click or the "close" event
+    var done = answer;
+    answer = null;
+    if (done) done(yes);
+  }
   function build() {
     dialog = document.createElement("dialog");
     dialog.className = "confirm-dialog";
@@ -430,18 +435,17 @@ function csrfToken() { return (document.querySelector('meta[name="csrf-token"]')
       '<label class="confirm-type" hidden><span data-type-text></span><input type="text" data-type-input autocomplete="off" spellcheck="false"></label>' +
       '<div class="confirm-actions"><button type="button" class="button button-secondary" data-no>' + de_en("Abbrechen", "Cancel") + '</button>' +
       '<button type="button" class="button" data-yes></button></div>';
-    dialog.querySelector("[data-yes]").addEventListener("click", function () { dialog.close("yes"); });
+    // The answer goes out with the click itself; the "close" event only as a fallback (a browser that does not send
+    // it, as the test browser of the desktop app, 2026-10-30, would otherwise leave the question waiting forever).
+    dialog.querySelector("[data-yes]").addEventListener("click", function () { answerWith(true); dialog.close("yes"); });
     dialog.querySelector("[data-type-input]").addEventListener("input", function (e) {
       dialog.querySelector("[data-yes]").disabled = e.target.value.trim().toLowerCase() !== (dialog.dataset.expect || "").toLowerCase();
     });
-    dialog.querySelector("[data-no]").addEventListener("click", function () { dialog.close("no"); });
-    dialog.addEventListener("click", function (e) { if (e.target === dialog) dialog.close("no"); });  // beside it
-    dialog.addEventListener("cancel", function () { dialog.returnValue = "no"; });                     // Escape
-    dialog.addEventListener("close", function () {
-      var done = answer;
-      answer = null;
-      if (done) done(dialog.returnValue === "yes");
-    });
+    dialog.querySelector("[data-no]").addEventListener("click", function () { answerWith(false); dialog.close("no"); });
+    dialog.addEventListener("click", function (e) { if (e.target === dialog) { answerWith(false); dialog.close("no"); } });  // beside it
+    dialog.addEventListener("cancel", function () { dialog.returnValue = "no"; answerWith(false); });                       // Escape
+    // the late "close" of a question already answered must not answer the next one, open by then
+    dialog.addEventListener("close", function () { if (!dialog.open) answerWith(dialog.returnValue === "yes"); });
     document.body.appendChild(dialog);
   }
   window.askConfirm = function (opts) {
