@@ -258,6 +258,7 @@
   });
 
   function openPop(m) {
+    if (placing) { placeAgain(m); return; }  // "Neu zuordnen": the passage just marked is the new place
     selection = m;
     info.hidden = true;
     filter.value = "";
@@ -538,6 +539,7 @@
       head.appendChild(strong);
       head.appendChild(document.createTextNode(" · " + (c.origin === "ai" ? de_en("KI-Vorschlag, übernommen von ", "AI suggestion, accepted by ") + (c.accepted_by || c.by_name || "") : (c.by_name || ""))));
       if (anchors[String(c.cat)] === c.id) head.appendChild(document.createTextNode(" · " + de_en("Ankerbeispiel", "anchor example")));
+      if (c.adjusted) head.appendChild(document.createTextNode(" · " + de_en("angepasst nach Korrektur", "adjusted after a correction")));
       row.appendChild(head);
       var q = document.createElement("p");
       q.className = "small muted";
@@ -686,6 +688,42 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") { if (!info.hidden) info.hidden = true; }
   });
+  // "Neu zuordnen" (list "Nicht mehr zuzuordnen"): mark the new place of the passage; its category, author, memos
+  // and anchor stay (app/transcript_coding_correction.py). Esc or the button again cancels.
+  var placing = null;
+  function stopPlacing() {
+    if (!placing) return;
+    placing.button.setAttribute("aria-pressed", "false");
+    placing = null;
+  }
+  function placeAgain(m) {
+    var p = placing;
+    stopPlacing();
+    post(base + "/" + p.id + "/place", { start: m.start, end: m.end }).then(function (d) {
+      if (!d.ok) { say(d.error || de_en("Nicht gespeichert.", "Not saved.")); return; }
+      window.getSelection().removeAllRanges();
+      codings = codings.filter(function (c) { return c.id !== d.coding.id; }).concat([d.coding]);
+      codings.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
+      var item = p.button.closest("li"), list = item && item.parentNode;
+      if (item) item.remove();
+      if (list && !list.children.length) { var lostBox = list.closest(".tc-lost"); if (lostBox) lostBox.remove(); }
+      var k = catOf(d.coding.cat);  // its count stays: it counted already while it could not be placed
+      draw();
+      say(de_en("Neu zugeordnet: ", "Placed anew: ") + (k ? k.name : ""));
+    });
+  }
+  document.querySelectorAll("[data-tc-reassign]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (placing && placing.button === b) { stopPlacing(); say(""); return; }
+      stopPlacing();
+      placing = { id: b.getAttribute("data-tc-reassign"), button: b };
+      b.setAttribute("aria-pressed", "true");
+      closePop();
+      say(de_en("Jetzt die neue Stelle im Transkript markieren (Esc bricht ab).", "Now mark the new place in the transcript (Esc cancels)."));
+      box.scrollIntoView({ block: "start" });
+    });
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && placing) { stopPlacing(); say(""); } });
   document.querySelectorAll("[data-tc-remove]").forEach(function (b) {
     b.addEventListener("click", function () {
       post(base + "/" + b.getAttribute("data-tc-remove") + "/delete").then(function (d) { if (d.ok) b.closest("li").remove(); });

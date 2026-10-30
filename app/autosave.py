@@ -8,6 +8,8 @@ comes back as JSON instead:
      "undo": ..., "redo": ...}
     {"status": "invalid", "message": ...}      the route refused the form (its error message); nothing was saved
     {"status": "conflict", "who": ..., "when": ..., "base": ...}    someone else saved in between (app/edit_guard.py)
+    {"status": "ask", "field": ..., "title": ..., "note": ..., "ok": ...}   nothing saved yet: the page asks, and on
+        "yes" sends the form again with asked=<field> (e.g. a corrected transcript that loses coded passages)
 
 The route itself needs no second way: its messages (flash) are collected here, its redirect is dropped. It only
 says what the page cannot know: `autosave.base(...)` gives the fingerprint the next save builds on, and
@@ -20,6 +22,16 @@ from flask_login import current_user
 from app.extensions import db
 from app.models import Survey, utcnow
 from app.timeutil import to_local
+
+
+def ask(field, title, note="", ok=""):
+    """Save nothing yet, but let the page ask first; its yes sends the form again with asked=`field` (`asked`)."""
+    g.autosave_ask = {"field": field, "title": str(title), "note": str(note), "ok": str(ok)}
+
+
+def asked(field):
+    """Whether the person said yes to the question `field` of ask() for this save."""
+    return request.form.get("asked") == field
 
 
 def wanted():
@@ -88,6 +100,8 @@ def aware(view):
             return view(*args, **kwargs)
         view(*args, **kwargs)
         messages = get_flashed_messages(with_categories=True)  # taken out: the page shows them now, not the next page
+        if g.get("autosave_ask"):
+            return jsonify(status="ask", **g.autosave_ask)
         conflict = g.get("edit_conflict")
         if conflict:
             return jsonify(status="conflict", who=conflict["who"], when=conflict["when"], base=conflict["base"])

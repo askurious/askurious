@@ -1020,8 +1020,17 @@ def edit(code, rid):
 
     survey, row = _row(code, rid)
     if request.method == "POST":
+        from app import transcript_coding_correction as correction
+
         text = request.form.get("text")
         text = None if text is None else text[:MAX_TEXT].replace("\r\n", "\n")  # None: "übergeben" keeps the text
+        changed = text is not None and text != (state(row).get("text") or "")
+        lost, shown = correction.lost_after(survey, row, text) if changed else (0, [])
+        if lost and autosave.wanted() and not autosave.asked("lost") and not request.form.get("leaving"):
+            # coded passages would be lost: the page asks first (Ralf 2026-10-30); nothing is saved yet
+            title, note = correction.ask_text(lost, shown)
+            autosave.ask("lost", title, note, de_en("Trotzdem speichern", "Save anyway"))
+            return redirect(url_for("interview_transcribe.edit", code=survey.code, rid=row.id))
 
         def work():
             tr = {**state(row), "edited": True, **({} if text is None else {"text": text})}
@@ -1039,9 +1048,13 @@ def edit(code, rid):
             if "head_shown" in request.form:  # the fields "Transkriptkopf": only the changed values are kept
                 head = transcript_export.kept_head(request.form)
             iv = {k: v for k, v in (row.interview or {}).items() if k != "transcript_head"}
+            if changed and iv.get("codings"):  # the coded passages move with the text (app/transcript_coding_correction.py)
+                iv["codings"] = correction.refit(survey, row, text)
             row.interview = {**iv, "transcript": tr, **({"transcript_head": head} if head else {})}
 
         interview_audio.retried(work)
+        if lost and not autosave.wanted():  # a form sent without script: saved as before, said afterwards (leaving: as before)
+            flash(correction.ask_text(lost, shown)[0] + ".", "warning")
         if interviewer.actor(survey) is not None and not interviewer.visible(row):
             # an interviewer's "geprüft" hands the interview over (decision E): it no longer opens for them
             flash(de_en("Transkript von {label} an die Forschenden übergeben.", "Transcript of {label} handed over to the researchers.",
@@ -1068,20 +1081,28 @@ def take_draft(code, rid):
 
     survey, row = _row(code, rid)
     take = request.form.get("action") == "take"
+    from app import transcript_coding_correction as correction
+
+    lost = correction.lost_after(survey, row, state(row)["draft"])[0] if take and state(row).get("draft") else 0
 
     def work():
         tr = dict(state(row))
         text, covers = tr.pop("draft", None), tr.pop("draft_covers", None)
+        iv = dict(row.interview or {})
         if take and text:
             tr.update(text=text, checked=None, edited=False)
             for key in ("checked_parts", "source", "filename"):
                 tr.pop(key, None)
             if isinstance(covers, dict):
                 tr["covers"] = covers
-        row.interview = {**(row.interview or {}), "transcript": tr}
+            if iv.get("codings"):  # the coded passages move with the text
+                iv["codings"] = correction.refit(survey, row, text)
+        row.interview = {**iv, "transcript": tr}
 
     if state(row).get("draft") is not None:
         interview_audio.retried(work)
+        if lost:
+            flash(correction.ask_text(lost, [])[0] + ".", "warning")
         flash(de_en("Entwurf übernommen. Bitte das Transkript erneut prüfen.", "Draft accepted. Please check the "
                     "transcript again.") if take else de_en("Entwurf verworfen.", "Draft discarded."), "success")
     return redirect(url_for("interview_transcribe.edit", code=survey.code, rid=row.id))
@@ -1106,14 +1127,23 @@ def upload(code, rid):
         flash(de_en("Die Datei enthält keinen Text.", "The file contains no text."), "error")
         return back
 
+    from app import transcript_coding_correction as correction
+
+    lost = correction.lost_after(survey, row, text[:MAX_TEXT])[0]
+
     def work():
         tr = {k: v for k, v in state(row).items() if k not in ("parts", "draft", "draft_covers", "checked_parts", "run")}
         tr.update(state="done", text=text[:MAX_TEXT], edited=True, checked=None, source="upload", error="",
                   filename=os.path.basename(f.filename)[:120], finished=_now(), model="",
                   covers={str(p.get("part")): p.get("bytes") for p in interview_audio.parts(row)})
-        row.interview = {**(row.interview or {}), "transcript": tr}
+        iv = dict(row.interview or {})
+        if iv.get("codings"):  # the coded passages move with the text
+            iv["codings"] = correction.refit(survey, row, text[:MAX_TEXT])
+        row.interview = {**iv, "transcript": tr}
 
     interview_audio.retried(work)
+    if lost:
+        flash(correction.ask_text(lost, [])[0] + ".", "warning")
     flash(de_en("Transkript übernommen. Bitte prüfen und dann „Transkript geprüft“ ankreuzen.",
                 "Transcript accepted. Please check it and then tick “Transcript checked”."), "success")
     return back

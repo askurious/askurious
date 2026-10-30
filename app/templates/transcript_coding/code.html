@@ -63,9 +63,10 @@
     {% if lost %}
     <div class="tc-lost">
       <h3>{{ de_en("Nicht mehr zuzuordnen", "Can no longer be placed") }}</h3>
-      <p class="muted small">{{ de_en("Der Wortlaut dieser Stellen steht nach einer Korrektur des Transkripts nicht mehr darin. Bitte die Stelle neu markieren und die alte entfernen.", "The wording of these passages is no longer in the transcript after a correction. Please mark the passage anew and remove the old one.") }}</p>
+      <p class="muted small">{{ de_en("Der Wortlaut dieser Stellen steht nach einer Korrektur des Transkripts nicht mehr darin. „Neu zuordnen“ und dann die Stelle im Transkript markieren: Kategorie, Memos und Ankerbeispiel bleiben.", "The wording of these passages is no longer in the transcript after a correction. “Place anew”, then mark the passage in the transcript: category, memos and anchor example stay.") }}</p>
       <ul>{% for c in lost %}<li><strong>{{ c.name }}</strong>: „{{ c.quote }}“ <span class="muted small">{{ c.by_name }}</span>
-        {% if c.mine %}<button type="button" class="button button-small button-secondary" data-tc-remove="{{ c.id }}">{{ de_en("Entfernen", "Remove") }}</button>{% endif %}</li>{% endfor %}</ul>
+        {% if c.mine %}<button type="button" class="button button-small" data-tc-reassign="{{ c.id }}" aria-pressed="false">{{ de_en("Neu zuordnen", "Place anew") }}</button>
+        <button type="button" class="button button-small button-secondary" data-tc-remove="{{ c.id }}">{{ de_en("Entfernen", "Remove") }}</button>{% endif %}</li>{% endfor %}</ul>
     </div>
     {% endif %}
   </section>

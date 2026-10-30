@@ -3776,7 +3776,7 @@ document.addEventListener("change", function (e) {
   if (!forms.length && !document.querySelector("[data-tc-live]")) return;
   var TEXT = "textarea, input:not([type]), input[type=text], input[type=number], input[type=url], input[type=email], " +
              "input[type=search], input[type=date], input[type=time], input[type=datetime-local]";
-  var META = { base: 1, csrf_token: 1, autosave: 1, merge: 1, what: 1, what_done: 1 };
+  var META = { base: 1, csrf_token: 1, autosave: 1, merge: 1, what: 1, what_done: 1, asked: 1 };
   var page = Date.now().toString(36), field = null, visit = 0, drawing = 0, all = [];
   var stale = false;  // the element editor's panels below the form were drawn from an older state
   var panelsAsked = 0;
@@ -3953,12 +3953,31 @@ document.addEventListener("change", function (e) {
                       "Not saved: " + d.who + (item ? " changed this element" : " changed this") + (d.when ? " at " + d.when : "") + "."), "conflict");
             return;
           }
+          if (d.status === "ask") {  // the server asks first (app/autosave.py ask): on yes the form goes again with asked=<field>
+            failed = true;
+            say(de_en("Nicht gespeichert: ", "Not saved: ") + d.title, "invalid");
+            window.askConfirm({ title: d.title, note: d.note, ok: d.ok || de_en("Trotzdem speichern", "Save anyway") }).then(function (yes) {
+              if (!yes) return;
+              var flag = form.querySelector('input[name="asked"]');  // this one save only: taken out once saved
+              if (!flag) {
+                flag = document.createElement("input");
+                flag.type = "hidden";
+                flag.name = "asked";
+                form.appendChild(flag);
+              }
+              flag.value = d.field;
+              save(null);
+            });
+            return;
+          }
           if (d.status === "invalid") {  // the form as a whole was refused: it is sent again with the next change
             failed = true;
             say(/^(Nicht gespeichert|Not saved)/.test(d.message) ? d.message : de_en("Nicht gespeichert: ", "Not saved: ") + d.message, "invalid");
             return;
           }
           failed = false; saved = sent;
+          var asked = form.querySelector('input[name="asked"]');
+          if (asked) asked.remove();  // the next change that loses something asks again
           if (form.elements.base && d.base) {
             form.elements.base.value = d.base;
             // other forms on the page over the same part (the settings page has three for "settings:meta"):
@@ -4087,6 +4106,7 @@ document.addEventListener("change", function (e) {
         var data = values(), sent = key(data);
         if (sent === saved) return;
         data.append("autosave", "1");
+        data.append("leaving", "1");  // the page is gone: nobody to ask (app/autosave.py ask), it is saved as it is
         // a save still under way carries the base this beacon has too: the server lets the beacon build on that
         // own save instead of counting it as someone else's change (code review 2026-10-15, I1)
         if (saving) data.append("after_own", "1");
