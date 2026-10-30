@@ -1663,6 +1663,7 @@ p.start-check { margin: 0 0 12px; }
   background: var(--surface); color: var(--fg); box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
 .confirm-dialog::backdrop { background: rgba(20, 20, 18, 0.35); }
 .confirm-dialog h2 { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+.confirm-dialog #confirm-note { white-space: pre-line; }  /* a note of several lines (e.g. the passages a transcript correction loses) */
 .confirm-dialog p { margin: 8px 0 0; color: var(--muted); overflow-wrap: anywhere; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
 .feedback-dialog-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }

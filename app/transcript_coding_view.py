@@ -12,8 +12,9 @@ the guide and the guide itself:
 
 Re-finding after a correction of the transcript (`place`): `start`/`end` hold while the text there is still `quote`;
 otherwise the same wording is looked for (the occurrence nearest the old place, then the same words with other spaces
-and line breaks between them). A passage whose wording is gone is "nicht mehr zuzuordnen": it shows in a list of its
-own, nothing is moved by guesswork, and the person who coded it (or the team) removes it or marks it anew.
+and line breaks between them, then nearly the same words close to the old place: app/transcript_coding_correction.py).
+A passage whose wording is gone is "nicht mehr zuzuordnen": it shows in a list of its own, and the person who coded
+it (or the team) removes it or places it anew ("Neu zuordnen", `reassign`).
 
 The anchor example of a category is one of its coded passages (CodingCategory.anchor = {"interview", "coding",
 "quote"}), chosen by whoever may change the category. It goes when its interview or its coding goes (`forget`).
@@ -31,7 +32,7 @@ from flask import abort, g, has_request_context, jsonify, render_template, reque
 
 from app.extensions import db
 from app.lang import de_en
-from app.models import CodingCategory, CodingProject, Response, utcnow
+from app.models import CodingCategory, CodingProject, Response, Survey, utcnow
 from app.transcript_coding import (_in, bp, create, has_transcript, interviews, live, may_edit, signed_in_or_coder,
                                    similar, tree)
 
@@ -91,7 +92,9 @@ def place(text, coding):
         if matches:
             best = min(matches, key=lambda m: abs(m.start() - old))
             return best.start(), best.end()
-    return None
+    from app.transcript_coding_correction import near
+
+    return near(text, quote, old)  # nearly the same words close to the old place (Ralf 2026-10-30)
 
 
 _EMPTY_LINE = re.compile(r"\n[ \t\r]*\n")
@@ -287,6 +290,43 @@ def add(project, who, row, start, end, cat_id):
     return (None, problem[0]) if problem else (coding, None)
 
 
+def reassign(project, who, row, coding_id, start, end):
+    """"Neu zuordnen": a new place for a coding (one that can no longer be placed), kept as it is otherwise: its id,
+    category, author, memos, anchor and further examples (their quote follows). Its author or the team, and only a
+    coding the actor sees (blind double coding). Returns (coding, problem)."""
+    from app import transcript_coding_double
+
+    found = next((c for c in transcript_coding_double.visible(project, who, row, codings(row, project.id))
+                  if c.get("id") == coding_id), None)
+    if found is None:
+        abort(404)
+    if not may_change(project, who, found):
+        abort(403)
+    text = transcript(row)
+    try:
+        span = snap(text, start, end)
+    except (TypeError, ValueError):
+        span = None
+    if span is None:
+        return None, de_en("Bitte eine Textstelle markieren.", "Please mark a passage.")
+    quote = text[span[0]:span[1]]
+    if len(quote) > QUOTE_MAX:
+        return None, de_en("Die Stelle ist zu lang (höchstens {n} Zeichen).", "The passage is too long (at most {n} characters).", n=QUOTE_MAX)
+    now = utcnow().isoformat(timespec="seconds")
+    moved = {**{k: v for k, v in found.items() if k != "adjusted"}, "start": span[0], "end": span[1], "quote": quote,
+             "reassigned": now}
+
+    def change(items):
+        return [moved if c.get("id") == coding_id and c.get("project") == project.id else c for c in items]
+
+    _store(row, change)
+    from app.transcript_coding_correction import _follow
+
+    _follow(db.session.get(Survey, project.survey_id), row, {coding_id: quote})
+    db.session.commit()
+    return moved, None
+
+
 def remove(project, who, row, coding_id):
     """Remove a coding: its author or the team. The category's anchor goes with it."""
     found = next((c for c in codings(row, project.id) if c.get("id") == coding_id), None)
@@ -460,7 +500,7 @@ def _categories(project, who):
 
 
 def _json_coding(c, project, who):
-    return {**{k: c.get(k) for k in ("id", "cat", "start", "end", "quote", "by_name", "at", "origin", "accepted_by")},
+    return {**{k: c.get(k) for k in ("id", "cat", "start", "end", "quote", "by_name", "at", "origin", "accepted_by", "adjusted")},
             "mine": may_change(project, who, c)}
 
 
@@ -535,6 +575,23 @@ def uncode(code, pid, rid, cid):
     row = _row(project, who, rid)
     remove(project, who, row, cid)
     return jsonify(ok=True)
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/codings/<cid>/place", methods=["POST"])
+@signed_in_or_coder
+def place_again(code, pid, rid, cid):
+    """"Neu zuordnen" in the list "Nicht mehr zuzuordnen": the passage marked now becomes the place of the coding."""
+    survey, project, who = _in(code, pid)
+    row = _row(project, who, rid)
+    data = _payload()
+    try:
+        start, end = int(data.get("start")), int(data.get("end"))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error=de_en("Bitte eine Textstelle markieren.", "Please mark a passage.")), 400
+    coding, problem = reassign(project, who, row, cid, start, end)
+    if problem:
+        return jsonify(ok=False, error=problem), 400
+    return jsonify(ok=True, coding=_json_coding(coding, project, who))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/codings/<cid>/anchor", methods=["POST"])
