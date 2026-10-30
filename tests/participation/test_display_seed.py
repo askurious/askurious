@@ -22,7 +22,11 @@ def test_the_first_page_and_the_export_draw_the_same_sides(app, client, survey):
         item = db.session.get(Item, 2)
         ids = [e["id"] for e in item.config["elements"]]
         sides = {}
-        for _ in range(12):                                   # twelve people: someone has the sides swapped
+        # at least twelve people, more until both sides were drawn: the pid is random, and twelve alike happened
+        # (about 1 in 2000 runs, full suite 2026-10-30); 200 alike would be about 1 in 10^60
+        for n in range(200):
+            if n >= 12 and set(sides.values()) == {False, True}:
+                break
             r = _new(s)
             runtime.ensure_layout(s, r, random.Random(1))
             assert r.id is None and r.layout["seed"] == "pid" and display_seed(r) == r.pid
