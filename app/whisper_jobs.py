@@ -29,6 +29,12 @@ class MemoryLimitError(RuntimeError):
     pass
 
 
+class TransientError(RuntimeError):
+    """A failure of the moment: the service unreachable or restarting, a 5xx or 429, a job lost with a restart or not
+    done in time. The run tries the part again by itself after a pause (interview_transcribe.RETRY_WAITS; Ralf
+    2026-10-30: a transcription broke off again and again and had to be started by hand)."""
+
+
 def memory_limit_message():
     return de_en("Der Transkriptionsauftrag hat sein Speicherlimit erreicht. Bitte bei large-v3-turbo das kleinere Modell small wählen oder die Aufnahme in kürzere Teile aufteilen. Bei einem erneuten Versuch mit demselben Modell bleiben fertige Teile erhalten.",
                  "The transcription job reached its memory limit. If using large-v3-turbo, please choose the smaller small model or split the recording into shorter parts. When retrying with the same model, completed parts are retained.")
@@ -308,7 +314,7 @@ def transcribe(path, language, prompt, previous=None, created=None, progress=Non
     if job_id is None:
         response = _submit(path, fields, progress)
         if response.status_code != 202:
-            raise RuntimeError(de_en("Der Transkriptionsdienst nimmt den Auftrag nicht an ({s}).",
+            raise (TransientError if response.status_code >= 500 or response.status_code == 429 else RuntimeError)(de_en("Der Transkriptionsdienst nimmt den Auftrag nicht an ({s}).",
                                      "The transcription service does not accept the job ({s}).", s=response.status_code))
         job_id = str(response.json().get("id", ""))
         if not JOB_ID.fullmatch(job_id):
@@ -326,8 +332,8 @@ def transcribe(path, language, prompt, previous=None, created=None, progress=Non
         code, data = _job(job_id)
         if code == 200 and data.get("state") == "queued":  # the limit counts from the start of computing, not the wait
             deadline = time.monotonic() + limit
-        if code != 200:
-            raise RuntimeError(de_en("Der Transkriptionsauftrag ist nicht mehr erreichbar ({s}).",
+        if code != 200:  # 404: the service lost it with a restart; a new try sends the part again
+            raise (TransientError if code == 404 or code >= 500 else RuntimeError)(de_en("Der Transkriptionsauftrag ist nicht mehr erreichbar ({s}).",
                                      "The transcription job can no longer be reached ({s}).", s=code))
         if progress is not None and data.get("state") in ("queued", "running"):
             stage = data.get("stage")
@@ -356,9 +362,11 @@ def transcribe(path, language, prompt, previous=None, created=None, progress=Non
             if data.get("error") == "duration_limit":
                 raise RuntimeError(de_en("Der Aufnahmeteil ist länger als 60 Minuten. Bitte vor der Transkription aufteilen.",
                                          "The recording part exceeds 60 minutes. Please split it before transcription."))
-            raise RuntimeError(de_en("Der Transkriptionsauftrag wurde abgebrochen oder konnte nicht verarbeitet werden.",
+            # cancelled or failed otherwise (a restart of the service ends its jobs): tried again; a cancel by
+            # "Abbrechen" ends the run before that, as it is no longer the interview's current one
+            raise TransientError(de_en("Der Transkriptionsauftrag wurde abgebrochen oder konnte nicht verarbeitet werden.",
                                      "The transcription job was cancelled or could not be processed."))
         time.sleep(5)
     # Timeout ends the app's wait, not a still-running durable job. Its retained id allows a later retry.
-    raise RuntimeError(de_en("Der Auftrag ist noch nicht fertig. Bitte später erneut starten; fertige Teile bleiben erhalten.",
+    raise TransientError(de_en("Der Auftrag ist noch nicht fertig. Bitte später erneut starten; fertige Teile bleiben erhalten.",
                              "The job is not finished yet. Please start again later; completed parts are retained."))

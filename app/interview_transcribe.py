@@ -16,7 +16,9 @@ after each part, each time on the interview loaded afresh and only under the key
 note or a piece of the recording stored meanwhile is kept, and a conflict is tried again. While it waits it leaves a
 sign of life ("beat") every BEAT seconds; a transcription without one for STALE_BEAT seconds counts as broken off (a
 restart or deploy ends the thread, I-7) and may be started again, as may one cancelled with "Abbrechen". The parts
-done so far stay ("parts"), and a new run sends only the parts still missing (I-21).
+done so far stay ("parts"), and a new run sends only the parts still missing (I-21). A failure of the moment
+(TransientError: the service unreachable, a 5xx, a job lost with a restart) is tried again by the run itself after the
+pauses of RETRY_WAITS, while the list shows "Transkription läuft" (Ralf 2026-10-30).
 
 The result is a draft after the rules of Dresing & Pehl (2018): paragraphs with a time mark #hh:mm:ss-0# at the end,
 in the time of the interview clock (the part's start plus the time within it); a part whose file is missing is
@@ -53,6 +55,7 @@ from app.extensions import db, csrf, json_given
 from app.interviewer import interviewer_or_signed_in
 from app.lang import de_en
 from app.models import Response, utcnow
+from app.whisper_jobs import TransientError
 
 bp = Blueprint("interview_transcribe", __name__, url_prefix="/guide")
 
@@ -102,6 +105,8 @@ MAX_TEXT = 400_000
 MAX_PROMPT = 600         # characters of the prompt (Whisper reads some 220 tokens of it)
 BEAT = 30                # seconds between two signs of life of a running transcription
 STALE_BEAT = 120         # a "running" without a sign of life for this long counts as broken off
+RETRY_WAITS = (60, 180, 600, 1200)  # seconds before a part is tried again after a failure of the moment (some 34
+                                    # minutes in all, enough for a restart of the service); then it fails as before
 VOICES = ("I", "B")      # the speaker of a part that holds one voice only (app/interview_audio.SPEAKERS)
 _IN_FLIGHT = {}          # interview id -> requests to Whisper under way in this process (see busy(), I11)
 _FLIGHT_LOCK = threading.Lock()
@@ -194,7 +199,7 @@ def transcribe_file(path, mime, language, prompt="", previous=None, created=None
         try:
             data = whisper_jobs.transcribe(path, language, prompt, previous, created, progress, model)
         except requests.RequestException as error:
-            raise RuntimeError(de_en("Der Transkriptionsdienst ist nicht erreichbar ({e}).",
+            raise TransientError(de_en("Der Transkriptionsdienst ist nicht erreichbar ({e}).",
                                      "The transcription service cannot be reached ({e}).", e=error.__class__.__name__)) from error
         return _segments(data)
     url = config["WHISPER_URL"].rstrip("/") + (config.get("WHISPER_PATH") or "/v1/audio/transcriptions")
@@ -211,10 +216,10 @@ def transcribe_file(path, mime, language, prompt="", previous=None, created=None
         if prompt and r.status_code in (400, 422):  # a server that does not take the prompt
             r = ask(fields)
     except requests.RequestException as e:
-        raise RuntimeError(de_en("Der Whisper-Server ist nicht erreichbar ({e}).", "The Whisper server cannot be reached ({e}).",
+        raise TransientError(de_en("Der Whisper-Server ist nicht erreichbar ({e}).", "The Whisper server cannot be reached ({e}).",
                                  e=e.__class__.__name__)) from e
     if r.status_code >= 400:
-        raise RuntimeError(de_en("Der Whisper-Server antwortet mit {s}.", "The Whisper server answers with {s}.",
+        raise (TransientError if r.status_code >= 500 or r.status_code == 429 else RuntimeError)(de_en("Der Whisper-Server antwortet mit {s}.", "The Whisper server answers with {s}.",
                                  s=r.status_code))
     try:
         data = r.json()
@@ -276,6 +281,29 @@ def _still_mine(rid, mine):
         return True
     finally:
         db.session.close()
+
+
+def _jobs(rid):
+    """The service's job records as stored now (a try that failed may have stored a new one meanwhile)."""
+    try:
+        row = db.session.get(Response, rid, populate_existing=True)
+        return dict(state(row).get("jobs") or {}) if row is not None else {}
+    finally:
+        db.session.close()
+
+
+def _pause(rid, mine, seconds, key):
+    """Wait before a part is tried again, with a sign of life every BEAT seconds; the list shows "Transkription läuft"
+    meanwhile, no error (Ralf 2026-10-30). A cancel or a new start ends the wait."""
+    end = time.monotonic() + seconds
+    while True:
+        if _store(rid, lambda tr: {**tr, "beat": _now(), "progress": {"stage": "retrying", "part": key}}
+                  if mine(tr) else None) is None:
+            raise _Cancelled()
+        left = end - time.monotonic()
+        if left <= 0:
+            return
+        time.sleep(min(BEAT, left))
 
 
 def _waiting(app, rid, mine, job):
@@ -402,7 +430,18 @@ def work(app, survey_id, rid, run=None):
                     return transcribe_file(full, found["mime"], language, prompt, previous=previous, created=created,
                                            progress=progressed, model=requested_model)
 
-                segments = _waiting(app, rid, mine, request_part)
+                waits = list(app.config.get("WHISPER_RETRY_WAITS", RETRY_WAITS) or ())
+                while True:  # a failure of the moment is tried again by itself (TransientError, Ralf 2026-10-30)
+                    try:
+                        segments = _waiting(app, rid, mine, request_part)
+                        break
+                    except TransientError as error:
+                        if not waits or not _still_mine(rid, mine):
+                            raise
+                        app.logger.warning("transcription of interview %s, part %s: %s; tried again in %s s",
+                                           rid, key, error, waits[0])
+                        _pause(rid, mine, waits.pop(0), key)
+                        remote = _jobs(rid)  # a job the service still holds is asked again, not sent anew
                 if found.get("speaker") in VOICES:  # one voice per file (Zoom's file per person): its label, kept by time
                     timed = [(offset + s, offset + e, f"{found['speaker']}: " + re.sub(r"^S\d+:\s*", "", t.strip()))
                              for s, e, t in segments if t and t.strip()]
