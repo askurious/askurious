@@ -3892,6 +3892,15 @@ label.check.iv-tick > input { margin-top: 0.15em; }
 .iv-content { background: var(--surface); border-radius: var(--radius); padding: 14px 18px; }
 .iv-steps-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
 .iv-sources { margin-top: 18px; }
+/* the note on the whole interview: held at the foot of the window while the page is longer than it (Ralf 2026-10-30) */
+.iv-general { position: sticky; bottom: 0; z-index: 3; margin: 24px -28px -22px; padding: 10px 28px 14px; background: var(--surface);
+  border-top: 1px solid var(--border-strong); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06); }
+.iv-general-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
+.iv-general-title { font-weight: 600; }
+.iv-general-head .button { margin-left: auto; }
+.iv-general textarea { width: 100%; resize: vertical; }
+.iv-general.is-folded { padding-bottom: 10px; }
+.iv-general.is-folded .iv-general-head { margin-bottom: 0; }
 /* the list of topic blocks moves above the guide when the page is narrow for the chosen text size: the container
    query counts em at the size of .iv, so A+ moves it earlier (Ralf 2026-10-22) */
 .iv { container: iv / inline-size; }
@@ -3903,10 +3912,13 @@ label.check.iv-tick > input { margin-top: 0.15em; }
   .iv-main { grid-template-columns: 1fr; }
   .iv-nav { border-right: 0; border-bottom: 1px solid var(--border); }
   .iv-stage { padding: 16px; }
+  .iv-general { margin: 20px -16px -16px; padding: 8px 16px 12px; }
+  .iv-general-head .hint { display: none; }  /* the hint stands in the field (placeholder) on a phone */
+  .iv-general textarea { height: 4.2em; }
   .iv-note { display: none; }
 }
 @media print {
-  .iv-bar, .iv-nav, .iv-steps-nav, .iv-state { display: none; }
+  .iv-bar, .iv-nav, .iv-steps-nav, .iv-state, .iv-general { display: none; }
   .iv-main { display: block; }
   .iv-step[hidden] { display: block !important; }
   .iv-step { break-after: page; }
@@ -4133,6 +4145,7 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 .notes-fold { border-top: 1px solid var(--border); padding: 8px 0; }
 .notes-fold summary { cursor: pointer; }
 .notes-entry { padding: 6px 0 6px 14px; }
+.notes-general-text { white-space: pre-line; overflow-wrap: anywhere; }
 
 /* the recording of an interview (app/interview_audio.py, interview.js) */
 .iv-rec { display: inline-flex; align-items: center; gap: 6px; }

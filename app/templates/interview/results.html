@@ -79,6 +79,14 @@
   {% endcall %}
 </section>
 
+{% if general_notes %}
+<section class="panel">
+  <h2>{{ de_en("Notizen zum ganzen Interview", "Notes on the whole interview") }}</h2>
+  {% for label, note in general_notes %}
+  <div class="notes-entry"><strong>{{ label }}</strong> <span class="notes-general-text">{{ note }}</span></div>
+  {% endfor %}
+</section>
+{% endif %}
 <section class="panel">
   <h2>{{ de_en("Notizen je Leitfrage", "Notes per guide question") }}</h2>
   {% for n in notes %}

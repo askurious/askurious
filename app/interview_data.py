@@ -56,6 +56,7 @@ def consent_of(form, audio):
 
 
 MAX_NOTE = 2000
+MAX_GENERAL_NOTE = 5000  # the note on the whole interview, beside the notes per Leitfrage (Ralf 2026-10-30)
 MAX_MARKS = 300
 STATES = ("asked", "spontaneous", "skipped")
 
@@ -124,7 +125,8 @@ def record(survey, row):
         if a.get("note"):
             notes[key] = a["note"]
     meta = row.interview or {}
-    return {"id": row.id, "states": states, "ticks": ticks, "fits": fits, "notes": notes, "marks": meta.get("marks") or [],
+    return {"id": row.id, "states": states, "ticks": ticks, "fits": fits, "notes": notes, "note": meta.get("note") or "",
+            "marks": meta.get("marks") or [],
             "elapsed": int(meta.get("elapsed") or 0) * 1000, "blocks": {k: int(v) * 1000 for k, v in (meta.get("blocks") or {}).items()},
             "done": row.status == Response.COMPLETED}
 
@@ -135,7 +137,8 @@ def _finite(value):
 
 
 def save(survey, row, payload):
-    """Store what the interview view sent: states, ticks, notes, time marks and the clock."""
+    """Store what the interview view sent: states, ticks, notes, the note on the whole interview, time marks and the
+    clock. Without "note" (a page or offline copy from before 2026-10-30) the stored note stays."""
     if not isinstance(payload, dict):
         abort(400)
     items = guide_items(survey)
@@ -169,6 +172,12 @@ def save(survey, row, payload):
                                 if str(k).isdigit() and _finite(v)},
                      # when the clock was sent and whether it ran: the recording device starts its part from it
                      "clock_at": utcnow().isoformat(timespec="seconds"), "running": bool(payload.get("running"))}
+    if "note" in payload:
+        note = str(payload.get("note") or "")[:MAX_GENERAL_NOTE].strip()
+        if note:
+            row.interview["note"] = note
+        else:
+            row.interview.pop("note", None)
     row.last_active_at = utcnow()
 
 

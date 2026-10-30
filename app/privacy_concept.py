@@ -604,7 +604,7 @@ def _activities():
         {"name": de_en("Interviews eines Interviewleitfadens", "Interviews of an interview guide"),
          "purpose": de_en("Qualitative Forschung der Forschenden.", "Qualitative research by the researchers."),
          "subjects": de_en("Interviewte Personen", "Interviewees"),
-         "data": de_en("Kennung, Datum und Form, Art der Einwilligung, Notizen und Zeitmarken, Häkchen je Leitfrage (Aspekte, "
+         "data": de_en("Kennung, Datum und Form, Art der Einwilligung, Notizen (je Leitfrage und zum ganzen Interview) und Zeitmarken, Häkchen je Leitfrage (Aspekte, "
                        "gestellte Fragen, ob eine konkrete Frage zutraf), Ergebnisse von Aufgaben im Gespräch (Rangfolge, "
                        "Kartensortierung, Bewertung, Bildauswahl; mit der Zeit der Interviewuhr, mit dem Teilnehmerbildschirm "
                        "auch, dass es dort gegeben und ob es von den Interviewenden geändert wurde, und die Zeit vom Zeigen bis "
@@ -613,7 +613,7 @@ def _activities():
                        "Sprecher je Datei), Transkript mit Name der Person, die es als geprüft markiert, und Transkriptkopf "
                        "(Ort der Aufnahme und Angaben zur interviewten Person aus dem Kurzfragebogen, für den Export als "
                        "Word und PDF; nur Forschende exportieren), Bestätigung, dass alle Sprechenden eingewilligt haben. Nicht anonym.",
-                       "Identifier, date and form, kind of consent, notes and time marks, ticks per guide question (aspects, "
+                       "Identifier, date and form, kind of consent, notes (per guide question and on the whole interview) and time marks, ticks per guide question (aspects, "
                        "questions asked, whether a specific question applied), results of tasks in the conversation (ranking, "
                        "card sorting, rating, image choice; with the time on the interview clock, with the participant screen "
                        "also that it was given there and whether the interviewers changed it, and the time from showing it to "

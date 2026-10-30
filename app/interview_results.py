@@ -113,6 +113,11 @@ def notes(survey, interviews):
     return out
 
 
+def general_notes(interviews):
+    """[(identifier, note)] of the notes on the whole interview (Ralf 2026-10-30)."""
+    return [((r.interview or {}).get("label"), (r.interview or {}).get("note")) for r in interviews if (r.interview or {}).get("note")]
+
+
 def _fitting(item):
     """[(n, concrete question)] of the concrete questions with the switch "trifft zu" (those with Nachfragen and those
     a condition names, concept bedingung-konkrete-frage E), n counting all concrete questions (without their
@@ -226,6 +231,8 @@ def notes_text(survey, r, ui=None):
     lines = [f"Interview {meta.get('label', '')} · {meta.get('date', '')} · {modes.get(meta.get('mode'), '')}"
              + in_lang(ui, " · Dauer ca. {n} Min. · ", " · duration approx. {n} min · ",
                        n=round_half_up((meta.get('elapsed') or 0) / 60)) + f"{meta.get('by_name', '')}", ""]
+    if meta.get("note"):  # the note on the whole interview (Ralf 2026-10-30)
+        lines += [in_lang(ui, "== Notizen zum ganzen Interview ==", "== Notes on the whole interview =="), meta["note"], ""]
     for block, items in questions(survey):
         lines.append(f"== {block.title()} ==")
         for item in items:
@@ -316,7 +323,7 @@ def page(code):
     form_items = answer_items(survey)  # the tasks, then the Kurzfragebogen and the Postskript (case overview)
     return render_template("interview/results.html", survey=survey, interviews=interviews, trials=trials,
                            coverage=coverage(survey, interviews), durations=durations(survey, interviews),
-                           notes=notes(survey, interviews), form_items=form_items, marks=STATE_MARK, words=state_words(),
+                           notes=notes(survey, interviews), general_notes=general_notes(interviews), form_items=form_items, marks=STATE_MARK, words=state_words(),
                            has_tasks=bool(interview_tasks.tasks(survey)),
                            answer_text=answer_text, source_mark=source_mark, stamp=stamp, modes=interview.modes(), day=interview.day_text,
                            sources=[(de_en("Abdeckung und Anpassen des Leitfadens", "Coverage and adapting the guide"), [HELFFERICH, KRUSE]),

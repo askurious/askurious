@@ -49,7 +49,7 @@
   // fits: "trifft zu" of a concrete question with Nachfragen ("<item>:<row>" -> "yes" | "no"); cases: the case features
   // of a trial interview (Kurzfragebogen question id -> [codes]); a stored interview keeps them in its Kurzfragebogen
   // forms: answers of the Kurzfragebogen and Postskript that did not reach the server yet (form action -> [[name, value]])
-  function fresh() { return { cur: 0, ticks: {}, states: {}, fits: {}, cases: {}, elapsed: 0, since: null, blocks: {}, notes: {}, marks: [], forms: {} }; }
+  function fresh() { return { cur: 0, ticks: {}, states: {}, fits: {}, cases: {}, elapsed: 0, since: null, blocks: {}, notes: {}, note: "", marks: [], forms: {} }; }
   var st = fresh();
   // A stored interview ("Interviews erheben", app/interview_data.py): the server's state is the start,
   // unless this tab still holds changes that did not reach it ("dirty"); every change is sent, a failed send again.
@@ -73,7 +73,7 @@
   if (recordEl && !st.dirty && !(offlineCopy && st.keptAt)) {
     try {
       var rec = JSON.parse(recordEl.textContent);
-      st.states = rec.states || {}; st.notes = rec.notes || {}; st.marks = rec.marks || []; st.fits = rec.fits || {};
+      st.states = rec.states || {}; st.notes = rec.notes || {}; st.note = rec.note || ""; st.marks = rec.marks || []; st.fits = rec.fits || {};
       st.ticks = {}; (rec.ticks || []).forEach(function (t) { st.ticks[t] = true; });
       st.elapsed = rec.elapsed || 0; st.blocks = rec.blocks || {}; st.since = null;
     } catch (e) { /* the page's own data: keep the tab's copy */ }
@@ -102,7 +102,7 @@
   }
   function body() {
     var now_ = current();
-    return JSON.stringify({ states: st.states, ticks: Object.keys(st.ticks), fits: st.fits, notes: st.notes, marks: st.marks,
+    return JSON.stringify({ states: st.states, ticks: Object.keys(st.ticks), fits: st.fits, notes: st.notes, note: st.note || "", marks: st.marks,
                             elapsed: now_.elapsed, blocks: now_.blocks, running: st.since !== null });
   }
   var jsonHeaders = { "Content-Type": "application/json", "X-CSRFToken": csrf || "", "X-Requested-With": "fetch" };
@@ -420,6 +420,26 @@
     area.value = (st.notes || {})[id] || "";
     area.addEventListener("input", function () { st.notes[id] = area.value; save(); });
   });
+  // the note on the whole interview (Ralf 2026-10-30): one field at the foot of the view, on every page the same;
+  // folded or open is kept on this device only
+  var general = root.querySelector("[data-iv-general]");
+  if (general) {
+    var generalArea = general.querySelector("textarea"), fold = general.querySelector("[data-iv-general-fold]");
+    generalArea.value = st.note || "";
+    generalArea.addEventListener("input", function () { st.note = generalArea.value; save(); });
+    var folded = false;
+    try { folded = localStorage.getItem("askurious-iv-general-folded") === "1"; } catch (e) { /* no storage */ }
+    var setFold = function (on) {
+      folded = on;
+      general.classList.toggle("is-folded", on);
+      generalArea.hidden = on;
+      fold.setAttribute("aria-expanded", on ? "false" : "true");
+      fold.textContent = on ? de_en("Aufklappen", "Expand") : de_en("Einklappen", "Collapse");
+      try { localStorage.setItem("askurious-iv-general-folded", on ? "1" : "0"); } catch (e) { /* no storage */ }
+    };
+    setFold(folded);
+    fold.addEventListener("click", function () { setFold(!folded); if (!folded) generalArea.focus(); });
+  }
   function two(x) { return (x < 10 ? "0" : "") + x; }
   function drawMarks() {
     root.querySelectorAll("[data-iv-marks]").forEach(function (list) {
@@ -1053,6 +1073,7 @@
     st = fresh();
     save();
     root.querySelectorAll("[data-iv-tick], [data-iv-state], [data-iv-fit]").forEach(function (box) { box.checked = false; });
+    root.querySelectorAll("[data-iv-general] textarea").forEach(function (area) { area.value = ""; });
     conditions();
     resetButton.classList.remove("is-armed");
     resetButton.lastChild.textContent = de_en(" Neues Interview", " New interview");
