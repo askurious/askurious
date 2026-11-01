@@ -7581,3 +7581,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Bricht die Aufnahme während des Aufnehmens ab (Fehler des Rekorders im Browser, Mikrofon kurz weg durch Headset, Bluetooth oder Anruf), öffnen Interview-Ansicht (interview.js) und Handy-Aufnahme (recorder.js) das Mikrofon nach 1, 3, 10 und 30 Sekunden selbst wieder und nehmen als neuen Teil weiter auf. Es fehlen nur die Sekunden der Lücke, nichts wird doppelt aufgenommen; der Ton der Videokonferenz bleibt im Mix. Die Zeile zeigt solange „Mikrofon wird wieder verbunden …“ ohne Warnung. Erst nach vier vergeblichen Versuchen oder in einer Pause endet die Aufnahme wie bisher mit dem Grund.
 - Rechtstexte geprüft, keine Änderung nötig (keine neuen Daten, dieselben Aufnahmeteile).
+
+## 2026-11-01: pypdf 6.21.4
+
+- Die nächtliche Prüfung (maintenance.sh) meldete pypdf 6.21.2 mit bekannten Schwachstellen (Hinweise vom 30.10.: lange Laufzeiten oder viel Speicher bei bestimmten PDF-Dateien). pypdf liest nur die hochgeladenen Scans von Papierfragebögen (app/paper_scan.py). Angehoben auf 6.21.4 in requirements.txt und requirements.lock (nur dieser Eintrag, die übrigen Pakete unverändert) und in THIRD_PARTY_LICENSES.txt; tools/check_vulnerabilities.py meldet danach 0 Funde.
+- Rechtstexte geprüft, keine Änderung nötig (gleiche Bibliothek und Lizenz, keine neuen Daten).
