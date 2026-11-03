@@ -86,7 +86,11 @@ def _context(survey):
 def _call(survey, instructions, prompt, purpose):
     language, address, facts = _context(survey)
     reasons = "English" if english() else "German"  # what only the researcher reads: in the language of the page
-    text = ai.generate_text(instructions.format(language=language, address=address, rules=RULES, reasons=reasons),
+    from app.items.guide_question import MINUTES
+
+    minutes = ", ".join(map(str, MINUTES))  # the allowed planned durations (SUBSUME)
+    text = ai.generate_text(instructions.format(language=language, address=address, rules=RULES, reasons=reasons,
+                                                minutes=minutes),
                             facts + "\n\n" + prompt, purpose=purpose, item_type="guide_question")
     return ai.json_answer(text)
 
@@ -162,6 +166,8 @@ SUBSUME = """You turn each Themenblock of a guide for qualitative interviews int
 SPSS principle, Helfferich 2011): one open, narrative prompt that invites the interviewee to tell about the whole
 topic; the block's questions become content aspects (short keywords, to tick when they come up by themselves) or
 concrete questions (for the end of the block, if an aspect did not come up); add two or three maintaining questions.
+"minutes" is the planned duration of the block and must be one of {minutes}: about 2 or 3 for a short question on an
+opinion, 5 or more for a question that invites a longer narrative.
 {rules}
 Write in {language} ({address}). Answer with ONE JSON object and nothing else:
 {{"blocks": [{{"n": 1, "prompt": "...", "aspects": ["..."], "keep": ["..."], "probe": ["..."], "minutes": 10}}, ...]}}"""
@@ -216,13 +222,13 @@ def subsume(survey, groups, questions):
     prompt = "\n\n".join(f"Block {n}: {g['title']}\n" + "\n".join(f"- {questions[q]}" for q in g["questions"])
                          for n, g in enumerate(groups, start=1))
     data = _call(survey, SUBSUME, prompt, "interview_subsume")
-    from app.items.guide_question import MINUTES
+    from app.items.guide_question import round_minutes
 
     out = [plain_block(g, questions) for g in groups]
     for raw in ai.as_list(data.get("blocks")):
         if not isinstance(raw, dict) or not isinstance(raw.get("n"), int) or not 1 <= raw["n"] <= len(groups):
             continue
-        minutes = raw.get("minutes") if raw.get("minutes") in MINUTES else 10
+        minutes = round_minutes(raw.get("minutes"))
         out[raw["n"] - 1].update(prompt=_t(raw.get("prompt"), 1000) or out[raw["n"] - 1]["prompt"],
                                  aspects=_lines(raw.get("aspects")), keep=_lines(raw.get("keep"), 4),
                                  probe=_lines(raw.get("probe")), minutes=minutes)
@@ -505,8 +511,10 @@ def develop(code):
     survey = _survey(code)
     steps = (("sammeln", de_en("Sammeln", "Collect")), ("pruefen", de_en("Prüfen", "Check")),
              ("sortieren", de_en("Sortieren", "Sort")), ("subsumieren", de_en("Subsumieren", "Subsume")))
+    from app.items.guide_question import MINUTES
+
     page = lambda step, **kw: render_template("interview/ai_develop.html", survey=survey, step=step, issues=issues(),
-                                              sources=_sources(), steps=steps, **kw)
+                                              sources=_sources(), steps=steps, minute_choices=MINUTES, **kw)
     if request.method == "GET":
         return page("sammeln", questions=[], own="")
     form, action = request.form, request.form.get("action", "")
@@ -560,19 +568,18 @@ def develop(code):
             blocks = subsume(survey, groups, texts) if action == "to_subsume" else [plain_block(g, texts) for g in groups]
             return page("subsumieren", blocks=blocks)
         if action == "apply":
-            from app.items.guide_question import MINUTES
+            from app.items.guide_question import round_minutes
 
             blocks = []
             for n in form.getlist("take"):
                 prompt = _t(form.get(f"b{n}_prompt"), 1000)
                 if not prompt:
                     continue
-                minutes = form.get(f"b{n}_minutes", type=int)
                 blocks.append({"title": _t(form.get(f"b{n}_title"), 200), "prompt": prompt,
                                "aspects": _lines(form.get(f"b{n}_aspects", "").splitlines()),
                                "keep": _lines(form.get(f"b{n}_keep", "").splitlines(), 6),
                                "probe": _lines(form.get(f"b{n}_probe", "").splitlines()),
-                               "minutes": minutes if minutes in MINUTES else 10})
+                               "minutes": round_minutes(form.get(f"b{n}_minutes"))})
             if not blocks:
                 flash(de_en("Kein Themenblock ausgewählt; nichts übernommen.", "No topic block selected; nothing accepted."), "warning")
                 return redirect(url_for("interview.guide", code=survey.code))

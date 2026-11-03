@@ -125,6 +125,6 @@
     {{ de_en("Kernfrage", "Core question") }} <span class="hint">{{ de_en("soll in jedem Interview vorkommen; die Interviewansicht erinnert am Ende daran", "should come up in every interview; the interview view reminds you at the end") }}</span></label>
   <label>{{ de_en("Geplante Dauer", "Planned duration") }}
     <select name="minutes" {% if not structural %}disabled{% endif %}>
-      {% for m in (5, 10, 15, 20, 30, 45) %}<option value="{{ m }}" {% if kind.minutes(item) == m %}selected{% endif %}>{{ de_en("ca. {m} Min.", "approx. {m} min", m=m) }}</option>{% endfor %}
+      {% for m in kind.minute_choices %}<option value="{{ m }}" {% if kind.minutes(item) == m %}selected{% endif %}>{{ de_en("ca. {m} Min.", "approx. {m} min", m=m) }}</option>{% endfor %}
     </select></label>
 </div>{% endif %}
