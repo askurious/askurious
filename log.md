@@ -7599,3 +7599,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Interviewleitfaden: Die geplante Dauer einer Leitfrage ist jetzt 1, 2, 3, 5, 10, 15, 20, 30 oder 45 Minuten (bisher ab 5). Die Liste steht einmal in app/items/guide_question.py (MINUTES); der Editor der Leitfrage und der KI-Assistent „Leitfaden entwickeln“ lesen sie von dort.
 - Ein anderer Zahlenwert (Umfragedatei, Formular, Antwort der KI) wird auf den nächsten erlaubten Wert gerundet, bei Gleichstand auf den größeren (4 → 5, 25 → 30, 60 → 45, 0 → 1); fehlt der Wert oder ist er keine Zahl, bleibt es bei 10 (round_minutes). Die Anweisung an die KI nennt die erlaubten Werte. Tests: tests/interview/test_guide_minutes.py.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-11-03: Zirkulärer Import interview_gate
+
+- Der Deploy-Lauf von a74b649f war rot: Wird app.interview_gate zuerst geladen (etwa über app.transfer), lädt es app.items und damit guide_question, dessen Importregel „gate“ interview_gate.clean las, bevor das Modul fertig war. Je nach Ladereihenfolge fielen ganze Testdateien aus. Die Regel schlägt jetzt erst beim Aufruf nach (guide_question._gate); Test test_interview_gate_imports_first in tests/interview/test_guide_filter.py.
+- CSS aus #178 an die Prüfungen in tests/ui/test_ui_tokens.py angepasst: .guide-gate-warn ohne festen Ersatzwert (var(--danger)), .iv-skipnote 0.95rem statt 0.92rem.
+- Rechtstexte geprüft, keine Änderung nötig.

@@ -4057,10 +4057,10 @@ label.check.iv-tick > input { margin-top: 0.15em; }
 .guide-block-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; }
 .guide-block-gate select { max-width: 100%; }
 .guide-gate-mark { color: var(--interview); white-space: nowrap; }
-.guide-gate-warn { color: var(--danger, #b00020); }
+.guide-gate-warn { color: var(--danger); }
 .iv-step.is-filtered > :not(.iv-where):not(.iv-gate-line) { opacity: 0.45; }
 .iv-gate-line.is-off .iv-cond-state { color: var(--fg); font-weight: 600; }
-.iv-skipnote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--interview); background: var(--surface-2, var(--bg)); font-size: 0.92rem; }
+.iv-skipnote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--interview); background: var(--surface-2, var(--bg)); font-size: 0.95rem; }
 .iv-nav .is-filtered { opacity: 0.5; }
 .iv-nav-steps [data-iv-filter-tag] { display: block; }
 .iv-gate-wait { margin: 8px 0; }
