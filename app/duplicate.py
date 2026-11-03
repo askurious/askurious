@@ -207,6 +207,13 @@ def _ids(source, new, pairs, notes=None):
             dropped.append(twin.code)
         if config != twin.config:
             twin.config = config
+    # the filter of a Themenblock of an interview guide names a Leitfrage or a Kurzfragebogen question by id
+    from app import interview_gate
+
+    for old, twin in zip(source.blocks, new.blocks):
+        settings = interview_gate.remap_block(twin.settings, items.get)
+        if settings != (twin.settings or {}):
+            twin.settings = settings
     if dropped and notes is not None:
         notes.append(de_en("Ohne „Nur zeigen, wenn …“, weil die Frage der Bedingung nicht übernommen wurde: {codes}.",
                            "Without “Show only if …”, as the question of the condition was not copied: {codes}.",

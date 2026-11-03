@@ -45,7 +45,7 @@
 </section>
 
 <section class="panel">
-  <h2>{{ de_en("Abdeckung", "Coverage") }} <span class="hint">{{ de_en("● gestellt · ◐ von selbst angesprochen · ○ nicht gestellt · K = Kernfrage", "● asked · ◐ raised spontaneously · ○ not asked · C = core question") }}</span></h2>
+  <h2>{{ de_en("Abdeckung", "Coverage") }} <span class="hint">{{ de_en("● gestellt · ◐ von selbst angesprochen · ○ nicht gestellt · – nicht gestellt (Filter) · K = Kernfrage", "● asked · ◐ raised spontaneously · ○ not asked · – not asked (filter) · C = core question") }}</span></h2>
   <div class="res-scroll">
   {% call list_table("is-wide coverage-table") %}
     <thead><tr><th>{{ de_en("Leitfrage", "Guide question") }}</th>{% for r in interviews %}<th class="center">{{ r.interview.label }}</th>{% endfor %}<th>{{ de_en("Aspekte, Anteil der Interviews", "Aspects, share of interviews") }}</th></tr></thead>
@@ -55,7 +55,7 @@
     {% for row in group.rows %}
     <tr{% if row.sub %} class="coverage-sub"{% endif %}>
       <td>{% if row.sub %}<span aria-hidden="true">↳ </span><span class="visually-hidden">{{ de_en("Unterfrage:", "Sub-question:") }} </span>{% endif %}{{ row.item.text("question")|striptags|truncate(70, true, "…") }}{% if row.item.config.core %} <strong class="iv-core-mark">{{ de_en("K", "C") }}</strong>{% endif %}</td>
-      {% for s in row.states %}<td class="center coverage-{{ s or 'none' }}{% if row.item.config.core and s not in ('asked', 'spontaneous') %} coverage-missing{% endif %}" title="{{ words.get(s, de_en('kein Stand', 'no status')) }}">{{ marks.get(s, "·") }}</td>{% endfor %}
+      {% for s in row.states %}<td class="center coverage-{{ s or 'none' }}{% if row.item.config.core and s not in ('asked', 'spontaneous', 'filtered') %} coverage-missing{% endif %}" title="{{ words.get(s, de_en('kein Stand', 'no status')) }}">{{ marks.get(s, "·") }}</td>{% endfor %}
       <td class="coverage-aspects">{% for a in row.aspects %}<span class="coverage-aspect"><span class="coverage-bar" style="width: {{ (a.share * 60)|round|int }}px"></span>{{ a.text }} {{ (a.share * 100)|dec(1)|pctsign }}</span>{% endfor %}</td>
     </tr>
     {% endfor %}

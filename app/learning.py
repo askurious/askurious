@@ -365,6 +365,14 @@ REASONS = {
         "direkt darüber steht, wählen Sie bei „nur wenn“ „K1 trifft zu“ oder „trifft nicht zu“. Die Interviewansicht "
         "macht das alles nur blass, entscheiden tun Sie im Gespräch.",
         (("app.items.guide_question", "HELFFERICH"),)),
+    "guide_gate": (
+        "Filter oder Bedingung?",
+        "Ein Filter „Nur stellen, wenn …“ an einer Leitfrage oder einem Themenblock lässt ganze Seiten weg: In der "
+        "Reihenfolge „Der Reihe nach“ springt „Weiter“ über sie hinweg und vermerkt sie als „nicht gestellt (Filter)“. "
+        "Nehmen Sie ihn nur für Fragen, die für manche Befragte gar nicht passen, etwa Fragen zur Pflege, wenn niemand "
+        "gepflegt wird. Was nur vielleicht passt, bleibt besser eine Bedingung, die blass macht, damit Sie im Gespräch "
+        "entscheiden.",
+        (("app.items.guide_question", "GLAESER_LAUDEL"),)),
     "conference": (
         "Warum alle fragen?",
         "Aufnehmen dürfen Sie nur, wenn alle, die im Gespräch sprechen, vorher eingewilligt haben; heimliches Aufnehmen "
@@ -1267,6 +1275,12 @@ REASONS_EN = {
         "fits only if the specific question applies. If a question depends on an earlier one that is not directly "
         "above it, choose “Q1 applies” or “does not apply” under “only if”. The interview view only pales all of "
         "this; you decide in the conversation."),
+    "guide_gate": (
+        "Filter or condition?",
+        "A filter “Ask only if …” on a guide question or a topic block leaves whole pages out: in the order “In order”, "
+        "“Next” skips them and notes them as “not asked (filter)”. Use it only for questions that do not fit some "
+        "interviewees at all, such as questions on care when nobody is cared for. What only might fit is better left a "
+        "condition that pales, so that you decide in the conversation."),
     "conference": (
         "Why ask everyone?",
         "You may record only if everyone who speaks in the conversation has consented beforehand; recording secretly "
@@ -1880,6 +1894,7 @@ REASON_PLACES = {
     "ai_chat": ("KI-Chat im Editor; KI-Chat: Modellzugang", "AI chat in the editor; AI chat: model access"),
     "guide_sub": ("Interviewleitfaden, Unterfrage", "interview guide, sub-question"),
     "guide_probe_if": ("Interviewleitfaden, konkrete Fragen und Nachfragen", "interview guide, specific questions and follow-ups"),
+    "guide_gate": ("Interviewleitfaden, Filter", "interview guide, filter"),
     "conference": ("Interview führen, Aufnahme", "conducting an interview, recording"),
     "interview_task": ("Interviewleitfaden, Aufgabe", "interview guide, task"),
     "interview_screen": ("Interview führen, Teilnehmerbildschirm", "conducting an interview, participant screen"),

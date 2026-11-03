@@ -56,6 +56,23 @@
             <button class="icon-btn guide-ai-icon" title="{{ de_en('{part}: Fragen mit KI vorschlagen (Witzel, 2000)', '{part}: suggest questions with AI (Witzel, 2000)', part=parts[which]) }}" aria-label="{{ de_en('{part} mit KI vorschlagen', 'Suggest {part} with AI', part=parts[which]) }}">{{ icon("sparkles", 14) }}</button></form>{% endif %}
         {% endif %}
       </div>
+      {% if which == "guide" %}
+      {# the filter of a Themenblock (app/interview_gate.py): "Der Reihe nach" leaves all its pages out when it does not hold #}
+      {% set gates = gate.choices(survey, block) %}{% set mine = gate.value_of((block.settings or {}).gate) %}
+      {% if gates or mine %}
+      <form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="guide-block-gate">{{ csrf() }}
+        <input type="hidden" name="block" value="{{ block.id }}"><input type="hidden" name="action" value="block_gate">
+        <label class="small"><span class="guide-gate-mark" aria-hidden="true">{{ icon("filter", 14) }}</span> {{ de_en("Themenblock nur, wenn …", "Topic block only if …") }}
+          <select name="gate" {% if not editable %}disabled{% endif %} data-submit-on-change aria-label="{{ de_en('Themenblock nur, wenn …', 'Topic block only if …') }}">
+            <option value="">{{ de_en("immer", "always") }}</option>
+            {% for group, options in gates %}<optgroup label="{{ group }}">{% for v, l in options %}<option value="{{ v }}" {% if v == mine %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>{% endfor %}
+            {% if mine and mine not in gate.values(survey, block) %}<option value="{{ mine }}" selected>{{ de_en("(Filter verweist auf nichts Früheres mehr)", "(filter no longer names anything earlier)") }}</option>{% endif %}
+          </select></label>
+        {% for w in gate.warnings(survey, block) %}<span class="small guide-gate-warn">{{ w }}</span>{% endfor %}
+        {{ why("guide_gate") }}
+      </form>
+      {% endif %}
+      {% endif %}
       <ul class="live-items">
         {# Unterfragen (app/interview.py, outline): indented under their Leitfrage; → indents, ← outdents, ↑ ↓ move a
            Leitfrage with its Unterfragen and an Unterfrage among its siblings #}
@@ -75,7 +92,7 @@
             <strong>{{ item.text("question")|striptags or de_en("(noch ohne Text)", "(no text yet)") }}</strong>
             {% if is_task(item) %}<span class="muted small"><span class="guide-task-tag">{{ de_en("Aufgabe", "Task") }}</span> · {{ task_kind(item) }}{% if owner %} · {{ de_en("zu „{q}“", "for “{q}”", q=owner.text("question")|striptags|truncate(40, true, "…") or owner.code) }}{% endif %}</span>
             {% elif main %}<span class="muted small">{% if item.text("when") %}<em class="guide-when">{{ item.text("when") }}</em> · {% endif %}{{ de_en("Unterfrage", "Sub-question") }}</span>
-            {% else %}<span class="muted small">{{ item.kind.label }}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% if subs.get(item.id) %} · {{ de_en("{n} Unterfragen", "{n} sub-questions", n=subs[item.id]|length) if subs[item.id]|length > 1 else de_en("1 Unterfrage", "1 sub-question") }}{% endif %}{% endif %}</span>{% endif %}</a>
+            {% else %}<span class="muted small">{{ item.kind.label }}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% if gate.of_item(item) %} · <span class="guide-gate-mark" title="{{ gate.line(survey, item) }}">{{ icon("filter", 12) }} {{ de_en("Filter", "Filter") }}</span>{% endif %}{% if subs.get(item.id) %} · {{ de_en("{n} Unterfragen", "{n} sub-questions", n=subs[item.id]|length) if subs[item.id]|length > 1 else de_en("1 Unterfrage", "1 sub-question") }}{% endif %}{% endif %}</span>{% endif %}</a>
           {% if editable %}
           {% if which == "guide" %}
           {% if main or owner %}

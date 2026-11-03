@@ -28,9 +28,20 @@ bp = Blueprint("interview_results", __name__, url_prefix="/guide")
 
 DRESING_PEHL = ("Dresing, T., & Pehl, T. (2018). Praxisbuch Interview, Transkription & Analyse: Anleitungen und "
                 "Regelsysteme für qualitativ Forschende (8. Aufl.). Eigenverlag. https://www.audiotranskription.de/praxisbuch")
-STATE_MARK = {"asked": "●", "spontaneous": "◐", "skipped": "○"}
-STATE_WORD = {"asked": "gestellt", "spontaneous": "von selbst angesprochen", "skipped": "nicht gestellt"}  # also the CSV's values
-STATE_WORD_EN = {"asked": "asked", "spontaneous": "raised spontaneously", "skipped": "not asked"}
+# "filtered": "skipped" set by a filter "Nur stellen, wenn …" (answers[id]["by"] == "filter", app/interview_gate.py)
+STATE_MARK = {"asked": "●", "spontaneous": "◐", "skipped": "○", "filtered": "–"}
+STATE_WORD = {"asked": "gestellt", "spontaneous": "von selbst angesprochen", "skipped": "nicht gestellt",
+              "filtered": "nicht gestellt (Filter)"}  # also the CSV's values
+STATE_WORD_EN = {"asked": "asked", "spontaneous": "raised spontaneously", "skipped": "not asked",
+                 "filtered": "not asked (filter)"}
+
+
+def state_of(answer):
+    """The state of a Leitfrage in an interview as the results show it: "filtered" for one a filter left out."""
+    answer = answer or {}
+    if answer.get("state") == "skipped" and answer.get("by") == "filter":
+        return "filtered"
+    return answer.get("state")
 
 
 def state_words(ui=None):
@@ -74,7 +85,7 @@ def coverage(survey, interviews):
         subs = {i.id for i, main in interview.outline(block) if main is not None}
         rows_ = []
         for item in items:
-            states = [((r.answers or {}).get(str(item.id)) or {}).get("state") for r in interviews]
+            states = [state_of((r.answers or {}).get(str(item.id))) for r in interviews]
             aspects = []
             for rid, text in item.kind.rows(item, "aspects"):
                 n = sum(1 for r in interviews if rid in (((r.answers or {}).get(str(item.id)) or {}).get("aspects") or []))
@@ -187,7 +198,7 @@ def overview_row(survey, r):
     for _, items in questions(survey):
         for item in items:
             a = (r.answers or {}).get(str(item.id)) or {}
-            row[f"{item.code}_stand"] = STATE_WORD.get(a.get("state"), "")
+            row[f"{item.code}_stand"] = STATE_WORD.get(state_of(a), "")
             for n, (rid, _) in enumerate(item.kind.rows(item, "aspects"), start=1):
                 row[f"{item.code}_a{n}"] = int(rid in (a.get("aspects") or []))
             fits = a.get("fits") or {}
@@ -239,7 +250,7 @@ def notes_text(survey, r, ui=None):
             a = (r.answers or {}).get(str(item.id)) or {}
             lines.append(f"[{item.code}] {plain(item.text('question'))}")
             if a.get("state"):
-                lines.append(in_lang(ui, "Stand: {s}", "Status: {s}", s=words[a["state"]]))
+                lines.append(in_lang(ui, "Stand: {s}", "Status: {s}", s=words.get(state_of(a), a["state"])))
             names = dict(item.kind.rows(item, "aspects"))
             if a.get("aspects"):
                 lines.append(in_lang(ui, "Aspekte: ", "Aspects: ") + "; ".join(names.get(x, x) for x in a["aspects"]))

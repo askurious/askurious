@@ -49,7 +49,8 @@
   // fits: "trifft zu" of a concrete question with Nachfragen ("<item>:<row>" -> "yes" | "no"); cases: the case features
   // of a trial interview (Kurzfragebogen question id -> [codes]); a stored interview keeps them in its Kurzfragebogen
   // forms: answers of the Kurzfragebogen and Postskript that did not reach the server yet (form action -> [[name, value]])
-  function fresh() { return { cur: 0, ticks: {}, states: {}, fits: {}, cases: {}, elapsed: 0, since: null, blocks: {}, notes: {}, note: "", marks: [], forms: {} }; }
+  // by: the states a filter set ("filter", app/interview_gate.py, E5), taken back when the filter holds again
+  function fresh() { return { cur: 0, ticks: {}, states: {}, by: {}, fits: {}, cases: {}, elapsed: 0, since: null, blocks: {}, notes: {}, note: "", marks: [], forms: {} }; }
   var st = fresh();
   // A stored interview ("Interviews erheben", app/interview_data.py): the server's state is the start,
   // unless this tab still holds changes that did not reach it ("dirty"); every change is sent, a failed send again.
@@ -73,7 +74,7 @@
   if (recordEl && !st.dirty && !(offlineCopy && st.keptAt)) {
     try {
       var rec = JSON.parse(recordEl.textContent);
-      st.states = rec.states || {}; st.notes = rec.notes || {}; st.note = rec.note || ""; st.marks = rec.marks || []; st.fits = rec.fits || {};
+      st.states = rec.states || {}; st.notes = rec.notes || {}; st.note = rec.note || ""; st.marks = rec.marks || []; st.fits = rec.fits || {}; st.by = rec.by || {};
       st.ticks = {}; (rec.ticks || []).forEach(function (t) { st.ticks[t] = true; });
       st.elapsed = rec.elapsed || 0; st.blocks = rec.blocks || {}; st.since = null;
     } catch (e) { /* the page's own data: keep the tab's copy */ }
@@ -102,7 +103,7 @@
   }
   function body() {
     var now_ = current();
-    return JSON.stringify({ states: st.states, ticks: Object.keys(st.ticks), fits: st.fits, notes: st.notes, note: st.note || "", marks: st.marks,
+    return JSON.stringify({ states: st.states, by: st.by || {}, ticks: Object.keys(st.ticks), fits: st.fits, notes: st.notes, note: st.note || "", marks: st.marks,
                             elapsed: now_.elapsed, blocks: now_.blocks, running: st.since !== null });
   }
   var jsonHeaders = { "Content-Type": "application/json", "X-CSRFToken": csrf || "", "X-Requested-With": "fetch" };
@@ -221,16 +222,17 @@
   function questionState(id) { return st.states[id] || ""; }
   function marks() {
     var core = 0, met = 0, missing = [];
-    steps.forEach(function (s) {
+    steps.forEach(function (s, n) {
       var id = s.getAttribute("data-iv-question");
       if (!id) return;
       var value = questionState(id);
+      var gone = filtered(n);  // a Kernfrage a filter leaves out is not missing
       var mark = root.querySelector('[data-iv-mark="' + s.getAttribute("data-iv-step") + '"]');
       if (mark) {
         mark.classList.toggle("is-done", value === "asked" || value === "spontaneous");
         mark.classList.toggle("is-skipped", value === "skipped");
       }
-      if (s.hasAttribute("data-iv-core")) {
+      if (s.hasAttribute("data-iv-core") && !gone) {
         core += 1;
         if (value === "asked" || value === "spontaneous") met += 1; else missing.push(s.getAttribute("data-iv-label"));
       }
@@ -254,6 +256,8 @@
   function show(n, focus) {
     n = Math.max(0, Math.min(steps.length - 1, n));
     if (n !== st.cur) { settle(); st.cur = n; }
+    if (skipNote) skipNote.hidden = true;
+    if (waitNote) waitNote.hidden = true;
     steps.forEach(function (s, i) { s.hidden = i !== n; });
     root.querySelectorAll("[data-iv-mark], [data-iv-go]").forEach(function (el) { el.removeAttribute("aria-current"); });
     var mark = root.querySelector('[data-iv-mark="' + n + '"]');
@@ -268,13 +272,25 @@
     save();
     tick();
   }
-  prev.addEventListener("click", function () { start(); show(st.cur - 1, true); });
-  // forward from a form only once its required questions are answered (a jump forward in the list too)
+  // "Zurück" in the order "Der Reihe nach" goes back over the pages a filter leaves out (no list of visited pages)
+  prev.addEventListener("click", function () {
+    start();
+    show(gate.back(st.cur), true);
+  });
+  // forward from a form only once its required questions are answered (a jump forward in the list too); in the order
+  // "Der Reihe nach" only once the switches a later filter names are set (E3), and over the pages a filter leaves out
   function forward(n) {
     var from = st.cur;
-    if (n <= from) { show(n, true); return; }
+    if (n <= from) { show(gate.jumpBack(n, from), true); return; }
+    var wait = switchOpen(from);
+    if (wait) { gateWait(wait); return; }
     next.disabled = true;
-    openOn(from).then(function (open) { next.disabled = false; if (!open.length && st.cur === from) show(n, true); });
+    openOn(from).then(function (open) { next.disabled = false; if (!open.length && st.cur === from) go(n); });
+  }
+  function go(n) {
+    var to = gate.forward(n);
+    show(to.to, true);
+    if (to.skipped.length) skipSay(to.skipped);
   }
   next.addEventListener("click", function () { start(); forward(st.cur + 1); });
   root.addEventListener("click", function (e) {
@@ -291,6 +307,74 @@
     if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); next.click(); }
     if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); prev.click(); }
   });
+
+  // --- filters "Nur stellen, wenn …" of a Leitfrage or a Themenblock (app/interview_gate.py, the rules in
+  // interview-gate.js): "Der Reihe nach" leaves out the pages whose filter does not hold, their Leitfragen and
+  // Unterfragen are "nicht gestellt" by the filter (E5) and come back when it holds again; freely they are only paled.
+  var linear = root.getAttribute("data-order") === "linear";
+  var skipNote = root.querySelector("[data-iv-skipnote]"), waitNote = root.querySelector("[data-iv-gate-wait]");
+  var gatesOf = steps.map(function (s) { try { return JSON.parse(s.getAttribute("data-iv-gates") || "[]"); } catch (e) { return []; } });
+  var gate = window.AskuriousGate.make(steps.map(function (s, n) {
+    return { gates: gatesOf[n], question: s.getAttribute("data-iv-question"),
+             subs: Array.prototype.map.call(s.querySelectorAll("[data-iv-sub]"), function (el) { return el.getAttribute("data-iv-sub"); }) };
+  }), linear, function () { return st.fits || {}; }, caseAnswer);
+  function filtered(n) { return gate.filtered(n); }
+  function switchOpen(from) {
+    var keys = steps[from] ? Array.prototype.map.call(steps[from].querySelectorAll("[data-iv-fit]"), function (r) { return r.getAttribute("data-iv-fit"); }) : [];
+    return gate.waiting(from, keys);
+  }
+  function gateWait(g) {  // the message stands right under the switch it waits for
+    var radio = steps[st.cur].querySelector('[data-iv-fit="' + g.of + ":" + g.probe + '"]');
+    var group = radio && radio.closest(".iv-fit");
+    if (waitNote) {
+      if (group) group.insertAdjacentElement("afterend", waitNote);
+      waitNote.textContent = g.wait; waitNote.hidden = false;
+    }
+    if (group) { group.scrollIntoView({ block: "center" }); radio.focus(); }
+  }
+  function skipSay(skipped) {
+    if (!skipNote) return;
+    var c = gate.count(skipped), g = gate.failing(skipped[0]), why = g ? gate.why(g) : "";
+    var text = c.questions === 1 ? de_en("1 Leitfrage entfällt", "1 guide question falls away")
+      : c.questions ? de_en("{n} Leitfragen entfallen", "{n} guide questions fall away").replace("{n}", c.questions)
+      : c.pages === 1 ? de_en("1 Seite entfällt", "1 page falls away")
+      : de_en("{n} Seiten entfallen", "{n} pages fall away").replace("{n}", c.pages);
+    skipNote.textContent = text + (why ? ", " + why : "") + ".";
+    skipNote.hidden = false;
+  }
+  function applyFilters() {
+    var changed = false;
+    steps.forEach(function (s, n) {
+      var off = filtered(n);
+      s.classList.toggle("is-filtered", off);
+      (gatesOf[n] || []).forEach(function (g, k) {
+        var line = s.querySelector('[data-iv-gate-line="' + k + '"]');
+        if (!line) return;
+        var holds = gate.holds(g, {});
+        line.classList.toggle("is-off", holds === false);
+        line.querySelector("[data-iv-gate-state]").textContent = "· " + (holds === false ? de_en("entfällt (Filter)", "falls away (filter)")
+          : holds ? de_en("erfüllt", "met") : de_en("noch offen", "still open"));
+      });
+      var mark = root.querySelector('[data-iv-mark="' + n + '"]');
+      if (mark) {
+        mark.classList.toggle("is-filtered", off);
+        var tag = mark.querySelector("[data-iv-filter-tag]");
+        if (off && !tag) {
+          tag = document.createElement("span");
+          tag.className = "muted small"; tag.setAttribute("data-iv-filter-tag", "");
+          tag.textContent = de_en("entfällt (Filter)", "falls away (filter)");
+          (mark.querySelector(".iv-nav-text") || mark).appendChild(tag);
+        } else if (!off && tag) tag.remove();
+      }
+    });
+    st.by = st.by || {};
+    changed = gate.settle(st.states, st.by);
+    if (changed) {
+      root.querySelectorAll("[data-iv-state]").forEach(function (radio) { radio.checked = questionState(radio.getAttribute("data-iv-state")) === radio.value; });
+      save();
+      marks();
+    }
+  }
 
   // --- ticks and states: kept in the tab only
   root.querySelectorAll("[data-iv-tick]").forEach(function (box) {
@@ -370,12 +454,14 @@
       chip.classList.toggle("on", on);
       chip.setAttribute("aria-pressed", on ? "true" : "false");
     });
+    applyFilters();
   }
   root.querySelectorAll("[data-iv-fit]").forEach(function (radio) {
     radio.addEventListener("change", function () {
       start();
       st.fits = st.fits || {};
       st.fits[radio.getAttribute("data-iv-fit")] = radio.value;
+      if (waitNote) waitNote.hidden = true;
       save();
       conditions();
     });
@@ -408,6 +494,7 @@
     radio.addEventListener("change", function () {
       start();
       st.states[radio.getAttribute("data-iv-state")] = radio.value;
+      if (st.by) delete st.by[radio.getAttribute("data-iv-state")];  // set by hand: a filter never takes it back (E5)
       save();
       marks();
     });

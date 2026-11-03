@@ -43,6 +43,22 @@
 {% endif %}
 </div>
 {% endif %}
+{% if not is_sub %}
+{# the filter of a Leitfrage (app/interview_gate.py): "Der Reihe nach" leaves its page out when it does not hold; only
+   concrete questions of earlier Leitfragen (and the Kurzfragebogen before the conversation) can be named #}
+{% set gates = kind.gate_choices(item, lang) %}{% set gate = kind.gate_value(item) %}
+{% if gates or gate %}
+<div class="row-fields guide-gate-fields">
+<label><span class="label-title">{{ de_en("Nur stellen, wenn …", "Ask only if …") }} <span class="hint">{{ de_en("Filter: In der Reihenfolge „Der Reihe nach“ überspringt „Weiter“ die Leitfrage samt Unterfragen, wenn das nicht zutrifft; frei springend wird sie nur blass", "Filter: in the order “In order”, “Next” skips the guide question with its sub-questions when this does not hold; when jumping freely it is only paled") }}</span></span>
+  <select name="gate" aria-label="{{ de_en('Nur stellen, wenn …', 'Ask only if …') }}" class="guide-cond" {% if not structural %}disabled{% endif %}>
+    <option value="">{{ de_en("immer", "always") }}</option>
+    {% for group, options in gates %}<optgroup label="{{ group }}">{% for v, l in options %}<option value="{{ v }}" {% if v == gate %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>{% endfor %}
+    {% if gate and gate not in kind.gate_values(item, lang) %}<option value="{{ gate }}" selected>{{ de_en("(Filter verweist auf nichts Früheres mehr)", "(filter no longer names anything earlier)") }}</option>{% endif %}
+  </select></label>
+{{ why("guide_gate") }}
+</div>
+{% endif %}
+{% endif %}
 {% include "items/_question_field.html" %}
 {% set probe_title = de_en("Konkrete Fragen", "Specific questions") %}
 {# a row of "Konkrete Fragen": the question, then → / ← (Nachfrage of the row above, concept bedingungen-leitfaden A),

@@ -87,6 +87,7 @@
   <script src="{{ url_for('static', filename='mic.js') }}" defer></script>
   <script src="{{ url_for('static', filename='audiostore.js') }}" defer></script>
   {% if offline %}<script src="{{ url_for('static', filename='interview-offline.js') }}" defer></script>{% endif %}
+  <script src="{{ url_for('static', filename='interview-gate.js') }}" defer></script>{# the rules of the filters (app/interview_gate.py) #}
   <script src="{{ url_for('static', filename='interview.js') }}" defer></script>
 </head>
 {% from "_icons.html" import icon %}
@@ -201,7 +202,7 @@
         <ul class="iv-nav-steps">
           {% for step in mine if step.item.type == "guide_question" %}
           <li>{% if free %}<button type="button" data-iv-go="{{ step.n }}" data-iv-mark="{{ step.n }}">{% else %}<span data-iv-mark="{{ step.n }}">{% endif %}
-            <span class="iv-dot" aria-hidden="true"></span>{{ step.item.text("question")|striptags|truncate(60, true, "…") or de_en("Leitfrage", "Guide question") }}{% if step.item.config.core %} <span class="iv-core-mark" title="{{ de_en('Kernfrage', 'Core question') }}">{{ de_en("Kern", "Core") }}</span>{% endif %}
+            <span class="iv-dot" aria-hidden="true"></span><span class="iv-nav-text">{{ step.item.text("question")|striptags|truncate(60, true, "…") or de_en("Leitfrage", "Guide question") }}</span>{% if step.item.config.core %} <span class="iv-core-mark" title="{{ de_en('Kernfrage', 'Core question') }}">{{ de_en("Kern", "Core") }}</span>{% endif %}
             {% if free %}</button>{% else %}</span>{% endif %}
             {% if step.subs %}<ul class="iv-nav-subs">{% for sub in step.subs %}<li data-iv-sub-mark="{{ sub.id }}"><span class="iv-dot" aria-hidden="true"></span>{{ sub.text("question")|striptags|truncate(50, true, "…") or de_en("Unterfrage", "Sub-question") }}</li>{% endfor %}</ul>{% endif %}</li>
           {% endfor %}
@@ -222,15 +223,23 @@
     </nav>
 
     <main class="iv-stage">
+      {# after "Weiter" left pages out (filter, app/interview_gate.py): how many and why, until the next page #}
+      <p class="iv-skipnote" data-iv-skipnote role="status" hidden></p>
       {# e.g. "Interview beenden" refused while a required question of the Kurzfragebogen is open (interview_data.finish) #}
       {% with messages = get_flashed_messages(category_filter=["error"]) %}{% for msg in messages %}<div class="flash flash-error" role="alert"><span class="flash-text">{{ msg }}</span></div>{% endfor %}{% endwith %}
       {% for step in steps %}
       {% set item = step.item %}
+      {# gates: the filters "Nur stellen, wenn …" of its Themenblock and its Leitfrage (app/interview_gate.py): in the
+         order "Der Reihe nach" Weiter and Zurück leave the page out while one does not hold; freely it is only paled #}
       <section class="iv-step" data-iv-step="{{ step.n }}" {% if step.block %}data-iv-block-of="{{ step.block.id }}"{% endif %}
+               {% if step.gates %}data-iv-gates="{{ step.gates|tojson|forceescape }}"{% endif %}
                {% if item and item.type == "guide_question" %}data-iv-question="{{ item.id }}" data-iv-label="{{ item.text('question')|striptags|truncate(80, true, '…') or de_en('Leitfrage', 'Guide question') }}"{% if item.config.core %} data-iv-core{% endif %}{% endif %}
                {% if not loop.first %}hidden{% endif %}>
         {% if step.part == "guide" %}
           <p class="muted small iv-where">{{ step.block.title() }}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% endif %}</p>
+          {% for gate in step.gates %}
+          <p class="iv-cond iv-gate-line" data-iv-gate-line="{{ loop.index0 }}">{{ de_en("Themenblock nur, wenn {c}", "Topic block only if {c}", c=gate.label) if gate.scope == "block" else de_en("Nur stellen, wenn {c}", "Ask only if {c}", c=gate.label) }} <span class="iv-cond-state" data-iv-gate-state></span></p>
+          {% endfor %}
           {% if item.type == "guide_question" %}
           {% set cases = item.kind.case_questions([item] + step.subs) %}
           {% if cases %}
@@ -329,6 +338,7 @@
         {% endif %}
       </section>
       {% endfor %}
+      <p class="flash flash-error iv-gate-wait" data-iv-gate-wait role="alert" hidden></p>
       <div class="iv-steps-nav">
         <button type="button" class="button button-secondary" data-iv-prev>‹ {{ de_en("Zurück", "Back") }}</button>
         <span class="muted small" data-iv-pos></span>

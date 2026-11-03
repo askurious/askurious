@@ -13,7 +13,9 @@ Blocks carry their part in `Block.settings["part"]`:
          recording tool
   post   the Postskript (Witzel 2000): the same, written by the interviewer after the interview
 Themenblöcke stand in the order of their positions; the Kurzfragebogen before or after them (state "short"), the
-Postskript at the end. There is no flow logic (randomizers, conditions, loops).
+Postskript at the end. There is no flow logic (randomizers, conditions, loops), with one exception: a Leitfrage or a
+Themenblock may carry a filter "Nur stellen, wenn …" (app/interview_gate.py), by which the interview view in the
+order "Der Reihe nach" leaves its pages out.
 
   guide       /guide/<code>                the guide: Themenblöcke on the left, the element editor beside them
   settings    /guide/<code>/settings  title, research question, target group, mode, order, parts, members
@@ -626,9 +628,9 @@ def guide(code):
     survey = _survey(code)
     chosen = request.args.get("item", type=int)
     items = {i.id: i for b in survey.blocks for i in b.items}
-    from app import interview_tasks
+    from app import interview_gate, interview_tasks
 
-    return render_template("interview/guide.html", survey=survey, st=state(survey), rows=ordered_blocks(survey),
+    return render_template("interview/guide.html", survey=survey, st=state(survey), rows=ordered_blocks(survey), gate=interview_gate,
                            outline=outline, subs_of=subs_of, task_owner=task_owner, members_of=members_of, is_task=is_task,
                            task_kind=interview_tasks.kind_name, task_at=task_at, task_types=task_types(),
                            parts=parts(), addable=addable, planned=planned_minutes, selected=items.get(chosen),
@@ -665,6 +667,19 @@ def control(code):
         if title:
             block.titles = {**(block.titles or {}), survey.default_language: title}
             step.done(undo.both("Block in „{title}“ umbenannt", "Block renamed to “{title}”", title=title), block=block.id)
+    elif action == "block_gate" and block is not None and part(block) == "guide":
+        # "Nur stellen, wenn …" of a Themenblock (app/interview_gate.py): a concrete question of a Leitfrage of an
+        # earlier block or the Kurzfragebogen before the conversation; anything else is refused
+        from app import interview_gate
+
+        gate, refused = interview_gate.read(survey, block, request.form.get("gate", ""))
+        if refused:
+            flash(interview_gate.refused_text(), "error")
+        else:
+            settings = {k: v for k, v in (block.settings or {}).items() if k != "gate"}
+            block.settings = {**settings, **({"gate": gate} if gate else {})}
+            step.done(undo.both("Filter von „{title}“ geändert", "Filter of “{title}” changed", title=block.title()), block=block.id)
+        back += f"#block-{block.id}"
     elif action in SUB_ACTIONS:
         item = next((i for b in survey.blocks for i in b.items if i.id == request.form.get("item", type=int)), None)
         if item is None or part(item.block) != "guide":
@@ -985,6 +1000,7 @@ def print_view(code):
     survey = _survey(code)
     st = state(survey)
     return render_template("interview/print.html", survey=survey, rows=ordered_blocks(survey), runs=guide_runs, parts=parts(),
+                           gate=__import__("app.interview_gate", fromlist=["line"]),
                            outline=outline, task_item_types=TASK_ITEM_TYPES,
                            task_kind=__import__("app.interview_tasks", fromlist=["kind_name"]).kind_name,
                            planned=planned_minutes, total=sum(planned_minutes(b) for b in guide_blocks(survey)),
@@ -1120,16 +1136,22 @@ def export_docx(code, kind):
 def steps(survey):
     """The pages of the interview view in their order: one per Leitfrage (with its Unterfragen), hint or stimulus of a
     Themenblock, one per Kurzfragebogen and Postskript, and a closing page. [{"part", "block", "item" or None, "n",
-    "subs" for a page of a Themenblock}]"""
+    "subs" and "gates" for a page of a Themenblock}]; "gates": the filters of its Themenblock and its Leitfrage as
+    the interview view reads them (app/interview_gate.py), both must hold."""
+    from app import interview_gate
+
     out = []
     for which, block in ordered_blocks(survey):
         if which == "guide":
             subs, tasks, owned = subs_of(block), tasks_of(block), task_owner(block)
+            block_gate = interview_gate.attr(survey, interview_gate.of_block(block))
             for item, main in outline(block):
                 # an Unterfrage is shown on its Leitfrage's page (E1), a task too (app/interview_tasks.py)
                 if (item.type in GUIDE_TYPES or item.type in TASK_ITEM_TYPES) and main is None and item.id not in owned:
+                    item_gate = interview_gate.attr(survey, interview_gate.of_item(item))
+                    gates = ([{**block_gate, "scope": "block"}] if block_gate else []) + ([{**item_gate, "scope": "item"}] if item_gate else [])
                     out.append({"part": which, "block": block, "item": item, "subs": subs.get(item.id, []),
-                                "tasks": tasks.get(item.id, [])})
+                                "tasks": tasks.get(item.id, []), "gates": gates})
         elif any(i.type != "page_break" for i in block.items):
             out.append({"part": which, "block": block, "item": None})
     out.append({"part": "end", "block": None, "item": None})
