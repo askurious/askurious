@@ -4051,6 +4051,19 @@ label.check.iv-tick > input { margin-top: 0.15em; }
 .iv-fit span { padding: 2px 10px; font-size: 0.85rem; }
 /* paled, never hidden: the row itself, not the line saying why */
 .iv-probe.is-off > :not(.iv-cond), .iv-sub.is-off > :not(.iv-cond) { opacity: 0.45; }
+/* filters "Nur stellen, wenn …" (app/interview_gate.py): the line over a filtered page, a page left out freely
+   (only paled), the note after "Weiter" left pages out, and the refusal while a switch a later filter names is open */
+.iv-gate-line { margin-top: 4px; }
+.guide-block-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; }
+.guide-block-gate select { max-width: 100%; }
+.guide-gate-mark { color: var(--interview); white-space: nowrap; }
+.guide-gate-warn { color: var(--danger, #b00020); }
+.iv-step.is-filtered > :not(.iv-where):not(.iv-gate-line) { opacity: 0.45; }
+.iv-gate-line.is-off .iv-cond-state { color: var(--fg); font-weight: 600; }
+.iv-skipnote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--interview); background: var(--surface-2, var(--bg)); font-size: 0.92rem; }
+.iv-nav .is-filtered { opacity: 0.5; }
+.iv-nav-steps [data-iv-filter-tag] { display: block; }
+.iv-gate-wait { margin: 8px 0; }
 .guide-print-probe-sub { padding-left: 14px; }
 .guide-print-table td > div + div { margin-top: 3px; }
 .iv-cases { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 12px; padding: 8px 12px;
@@ -4162,7 +4175,7 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 .coverage-block td { background: var(--surface-2); font-weight: 600; color: var(--muted); font-size: 0.85rem; }
 .coverage-asked { color: var(--ok); }
 .coverage-spontaneous { color: var(--warn); }
-.coverage-skipped, .coverage-none { color: var(--muted); }
+.coverage-skipped, .coverage-filtered, .coverage-none { color: var(--muted); }
 .coverage-missing { background: var(--warn-soft); }
 .coverage-aspects { font-size: 0.85rem; }
 .coverage-aspect { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; white-space: nowrap; }

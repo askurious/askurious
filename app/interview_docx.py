@@ -25,7 +25,7 @@ from docx.enum.text import WD_BREAK
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
-from app import interview
+from app import interview, interview_gate
 from app.items.base import plain
 from app.questionnaire_docx import Ctx, _grid, _item, _note, _paragraphs, _shade, _widths
 
@@ -134,6 +134,9 @@ def _guide_table(ctx, items, subs=frozenset()):
             text = " · ".join(x for x in parts if x)
         else:
             text = (f"{plain(hint)} · " if hint else "") + ctx.say("ca. {n} Min.", "approx. {n} min", n=kind.minutes(item))
+            gate_line = interview_gate.line(item.block.survey, item, ctx.lang, ctx.ui)  # "Nur wenn …, sonst weiter mit …"
+            if gate_line:
+                text = f"{gate_line} · {text}"
         if text:
             run = meta.add_run(text)
             run.italic, run.font.size = True, Pt(8.5)
@@ -189,6 +192,10 @@ def _leitfaden(survey, doc, ctx):
         if which == "guide":
             minutes = interview.planned_minutes(block)
             doc.add_heading(plain(block.title(ctx.lang)) + (ctx.say(" (ca. {n} Min.)", " (approx. {n} min)", n=minutes) if minutes else ""), level=1)
+            gate_line = interview_gate.line(survey, block, ctx.lang, ctx.ui)  # the filter of the Themenblock
+            if gate_line:
+                run = doc.add_paragraph().add_run(gate_line)
+                run.italic, run.font.size = True, Pt(9)
             _guide_block(ctx, block)
         else:
             _form(ctx, block, _part(ctx.ui, which) + (ctx.say(" (nach dem Gespräch)", " (after the conversation)") if which == "post" else ""))

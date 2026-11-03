@@ -35,7 +35,7 @@ import shutil
 
 from flask import current_app
 
-from app import item_condition, item_texts
+from app import interview_gate, item_condition, item_texts
 from app.extensions import db
 from app.items.base import TEXT_MAX, too_long_text
 from app.lang import de_en
@@ -795,7 +795,10 @@ def _questionnaire(data, new, files, notes, user):
                                 **pagetime.clean(settings),
                                 # the part of a block of an interview guide (app/interview.py) or a diary study (app/diary.py)
                                 **({"part": settings["part"]} if settings.get("part") in ("guide", "short", "post", "entry", "exit")
-                                   or re.fullmatch(r"m\d{1,3}", str(settings.get("part", ""))) else {})})
+                                   or re.fullmatch(r"m\d{1,3}", str(settings.get("part", ""))) else {}),
+                                # the filter of a Themenblock (app/interview_gate.py), ids of the file until remapped below
+                                **({"gate": gate} if settings.get("part") == "guide"
+                                   and (gate := interview_gate.valid(settings.get("gate"))) else {})})
         for row in _dicts(raw.get("items")):
             total += 1
             if total > MAX_ITEMS:
@@ -1730,6 +1733,10 @@ def create(data, user, title="", fetch=None, budget=None):
                                    code=item.code))
             if config != item.config:
                 item.config = config
+        for block in new.blocks:  # the filter of a Themenblock: on the Leitfrage of the new guide, else dropped
+            settings = interview_gate.remap_block(block.settings, lambda old: _twin(item_ids, old))
+            if settings != (block.settings or {}):
+                block.settings = settings
         quotas = _quotas(data, new, item_ids)
         db.session.flush()
         quota_ids = {old: q.id for old, q in quotas.items()}

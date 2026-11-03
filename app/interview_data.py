@@ -4,8 +4,10 @@ interviewleitfaden-konzept.md, version 2 sections 3.4 and 4.3, now built on vers
 An interview is a Response of the guide, with Response.interview (label, interviewer, date, mode, consent, times,
 time marks). Per Leitfrage the answer holds what the interview view shows:
   answers[item id] = {"state": "asked" | "spontaneous" | "skipped", "aspects": [row id], "probes": [row id], "note": text,
-                      "fits": {row id: bool}}
-("fits": "trifft zu" of a concrete question with Nachfragen, concept bedingungen-leitfaden B.)
+                      "fits": {row id: bool}, "by": "filter"}
+("fits": "trifft zu" of a concrete question with Nachfragen, concept bedingungen-leitfaden B. "by": "filter" marks a
+"skipped" the interview view set because a filter "Nur stellen, wenn …" did not hold, app/interview_gate.py, E5; a
+state set by hand has no "by".)
 The Kurzfragebogen and the Postskript are stored like the answers of a questionnaire (runtime.evaluate), the tasks
 of the Themenblöcke too, with the clock when each result was first given (app/interview_tasks.py).
 
@@ -113,20 +115,22 @@ def guide_items(survey):
 def record(survey, row):
     """What the interview view needs of a stored interview (and sends back in the same form, see save)."""
     items = guide_items(survey)
-    states, ticks, notes, fits = {}, [], {}, {}
+    states, ticks, notes, fits, by = {}, [], {}, {}, {}
     for key, item in items.items():
         a = (row.answers or {}).get(key) or {}
         for rid, fit in (a.get("fits") or {}).items():
             fits[f"{key}:{rid}"] = "yes" if fit else "no"
         if a.get("state") in STATES:
             states[key] = a["state"]
+            if a["state"] == "skipped" and a.get("by") == "filter":
+                by[key] = "filter"
         ticks += [f"{key}:aspects:{rid}" for rid in a.get("aspects") or []]
         ticks += [f"{key}:probe:{rid}" for rid in a.get("probes") or []]
         if a.get("note"):
             notes[key] = a["note"]
     meta = row.interview or {}
-    return {"id": row.id, "states": states, "ticks": ticks, "fits": fits, "notes": notes, "note": meta.get("note") or "",
-            "marks": meta.get("marks") or [],
+    return {"id": row.id, "states": states, "ticks": ticks, "fits": fits, "by": by, "notes": notes,
+            "note": meta.get("note") or "", "marks": meta.get("marks") or [],
             "elapsed": int(meta.get("elapsed") or 0) * 1000, "blocks": {k: int(v) * 1000 for k, v in (meta.get("blocks") or {}).items()},
             "done": row.status == Response.COMPLETED}
 
@@ -146,6 +150,7 @@ def save(survey, row, payload):
     states = payload.get("states") if isinstance(payload.get("states"), dict) else {}
     notes = payload.get("notes") if isinstance(payload.get("notes"), dict) else {}
     fits = payload.get("fits") if isinstance(payload.get("fits"), dict) else {}
+    by = payload.get("by") if isinstance(payload.get("by"), dict) else {}  # "skipped" by a filter (E5)
     answers = dict(row.answers or {})
     for key, item in items.items():
         aspects = [rid for rid in (item.config or {}).get("aspects", []) if f"{key}:aspects:{rid}" in ticks]
@@ -155,7 +160,8 @@ def save(survey, row, payload):
         fit = {rid: fits[f"{key}:{rid}"] == "yes" for rid in (item.config or {}).get("probe", [])
                if fits.get(f"{key}:{rid}") in ("yes", "no")}
         if state or aspects or probes or note or fit:
-            answers[key] = {"state": state, "aspects": aspects, "probes": probes, "note": note, **({"fits": fit} if fit else {})}
+            answers[key] = {"state": state, "aspects": aspects, "probes": probes, "note": note, **({"fits": fit} if fit else {}),
+                            **({"by": "filter"} if state == "skipped" and by.get(key) == "filter" else {})}
         else:
             answers.pop(key, None)
     marks = []

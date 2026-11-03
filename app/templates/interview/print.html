@@ -29,6 +29,7 @@
     {% for which, block in rows %}
     {% if which == "guide" %}
     <h2>{{ block.title() }}{% if planned(block) %} <span class="guide-print-min">({{ de_en("ca. {n} Min.", "approx. {n} min", n=planned(block)) }})</span>{% endif %}</h2>
+    {% if gate.line(survey, block) %}<p class="guide-print-when">{{ gate.line(survey, block) }}</p>{% endif %}
     {% set subs = outline(block)|rejectattr(1, "none")|map(attribute=0)|list %}
     {% for run in runs(block) %}
       {% if run.table %}
@@ -45,6 +46,7 @@
         {% else %}
         <tr>
           <td>{% if item.config.core %}<strong>{{ de_en("K", "C") }} </strong>{% endif %}{{ item.text("question")|striptags or de_en("(ohne Erzählaufforderung)", "(without narrative prompt)") }}
+            {% if gate.line(survey, item) %}<span class="guide-print-when">{{ gate.line(survey, item) }}</span>{% endif %}
             <div class="guide-print-hint">{% if item.text("hint") %}{{ item.text("hint") }} · {% endif %}{{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}</div></td>
         {% endif %}
           <td>{% for rid, text in item.kind.rows(item, "aspects") %}<div>☐ {{ text }}</div>{% endfor %}</td>

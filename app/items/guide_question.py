@@ -20,7 +20,10 @@ Nachfragen. A row may be tied to a condition (`probe_if`): to an aspect of the L
 bedingung-konkrete-frage, Ralf 2026-10-22: {"probe": its row id, "fits": true | false}: "nur, wenn K1 zutraf"). An
 Unterfrage may carry D or E (`case`), E naming a concrete question of its Leitfrage. A concrete question that a
 condition names gets the switch "trifft zu" too (`switched`); only concrete questions, not Nachfragen, can be named,
-counted K1, K2, … as in the export. Nothing is hidden: a row
+counted K1, K2, … as in the export. A Leitfrage (not an Unterfrage) may carry a filter "Nur stellen, wenn …"
+(`gate`, app/interview_gate.py, concept konzept-filter-leitfragen, Ralf 2026-11-03): in the order "Der Reihe nach" its
+page is left out when the filter does not hold; the concrete question a filter names gets the switch too. Within a
+page nothing is hidden: a row
 whose condition does not hold is only paled, the interviewer decides (E2). No answer of the interview decides
 anything on the server; the interview view reads the ticks, the switches and the Kurzfragebogen (interview.js).
 
@@ -28,13 +31,14 @@ No answer is collected: Askurious does not store anything from an interview (Ral
 only in interview guides; the editor offers it nowhere else.
 
   config  {"aspects": [id, ...], "keep": [id, ...], "probe": [id, ...], "core": bool, "minutes": int, "sub": bool,
-           "probe_sub": [id, ...], "probe_if": {id: condition}, "case": condition}
+           "probe_sub": [id, ...], "probe_if": {id: condition}, "case": condition, "gate": filter}
   texts   {lang: {"question": prompt, "aspects": {id: text}, "keep": {id: text}, "probe": {id: text}, "hint": text,
                   "when": text, "probe_when": {id: text}}}
 """
 from app.items import register
 from app.items.base import FactSheet  # what the type can do and is for (app/element_types.py)
 from app.items.base import ItemType, Unfit, form_ids, new_id, plain, r_dict, r_flag, r_id, r_list, r_maybe, r_one, r_text
+from app import interview_gate
 from app.lang import Both, de_en
 
 LISTS = (("aspects", "aspect", "Inhaltliche Aspekte (Check)"), ("keep", "keep", "Aufrechterhaltungsfragen"),
@@ -158,6 +162,7 @@ class GuideQuestion(ItemType):
     import_rules = {"aspects": r_list(MAX_ROWS, r_id), "keep": r_list(MAX_ROWS, r_id), "probe": r_list(MAX_ROWS, r_id),
                     "core": r_flag, "minutes": r_one(*MINUTES), "sub": r_flag,
                     "probe_sub": r_list(MAX_ROWS, r_id), "probe_if": _probe_conds, "case": _sub_case,
+                    "gate": interview_gate.clean,  # "Nur stellen, wenn …" of a Leitfrage (app/interview_gate.py)
                     # the definitions for the category system (.qdc) taken over from the AI assistant (interview_ai, A5)
                     "category": r_dict(definition=r_maybe(r_text(1000)), delimit=r_maybe(r_text(1000)),
                                        aspects=r_maybe(_aspect_texts))}
@@ -198,6 +203,18 @@ class GuideQuestion(ItemType):
                 config["case"] = case
             else:
                 config.pop("case", None)
+        if structural and not self.is_sub(item) and "gate" in form:  # the filter of a Leitfrage (interview_gate)
+            gate, refused = interview_gate.read(item.survey, item, form.get("gate", ""))
+            if refused and form.get("gate") != interview_gate.value_of(config.get("gate")):
+                from flask import flash
+
+                flash(interview_gate.refused_text(), "error")
+            elif refused:
+                pass  # a stored filter that names nothing earlier any more stays, with its warning (check_warnings)
+            elif gate:
+                config["gate"] = gate
+            else:
+                config.pop("gate", None)
         for part, field, _ in LISTS:
             ids = form_ids(form.getlist(f"{field}_id"))  # audit 2026-10-13, XS-2
             labels = form.getlist(f"{field}_label")
@@ -440,7 +457,10 @@ class GuideQuestion(ItemType):
         named = [c for c in ((item.config or {}).get("probe_if") or {}).values()]
         if not self.is_sub(item) and item.block is not None:
             named += [(sub.config or {}).get("case") for sub in interview.subs_of(item.block).get(item.id, [])]
-        return {c["probe"] for c in named if isinstance(c, dict) and "probe" in c}
+        out = {c["probe"] for c in named if isinstance(c, dict) and "probe" in c}
+        if not self.is_sub(item) and item.block is not None:  # a filter of a later Leitfrage or Themenblock names it
+            out |= interview_gate.named(item.block.survey).get(item.id, set())
+        return out
 
     def cond_attr(self, item, cond, owner=None):
         """A condition as the interview view reads it (data-iv-if): E with the element ("of") and the number ("n")
@@ -493,6 +513,20 @@ class GuideQuestion(ItemType):
             return self.cond_attr(item, case, lead) if lead is not None else None
         return case or None
 
+    def gate_choices(self, item, lang=None):
+        """What the choice "Nur stellen, wenn …" of a Leitfrage offers (app/interview_gate.py): the concrete questions of
+        the Leitfragen before it, the Kurzfragebogen when it comes before the conversation."""
+        if self.is_sub(item) or item.block is None:
+            return []
+        return interview_gate.choices(item.block.survey, item, lang)
+
+    def gate_values(self, item, lang=None):
+        return [value for _, options in self.gate_choices(item, lang) for value, _ in options]
+
+    @staticmethod
+    def gate_value(item):
+        return interview_gate.value_of((item.config or {}).get("gate"))
+
     def remap_config(self, config, twin):
         """A copy of the guide: conditions on the Kurzfragebogen name its copy; one whose question did not come
         along is dropped (the note "Wann stellen?" stays)."""
@@ -514,6 +548,12 @@ class GuideQuestion(ItemType):
                 config.pop("case")
             else:
                 config["case"] = {**case, "item": new}
+        if "gate" in config:  # the filter names an earlier Leitfrage or the Kurzfragebogen: its copy, else it falls away
+            gate = interview_gate.remap(config["gate"], twin)
+            if gate is None:
+                config.pop("gate")
+            else:
+                config["gate"] = gate
         return config
 
     def check_warnings(self, item):
@@ -531,6 +571,8 @@ class GuideQuestion(ItemType):
         if isinstance(case, dict) and "probe" in case and case["probe"] not in [r for r, _, _ in self.numbered(self.lead(item))]:
             out.append(de_en("Unterfrage: Die konkrete Frage ihrer Bedingung gibt es bei der Leitfrage nicht mehr",
                              "Sub-question: the specific question of its condition no longer exists in the guide question"))
+        if item.block is not None and not self.is_sub(item):
+            out += interview_gate.warnings(item.block.survey, item)
         return out
 
     def questionnaire_lines(self, item, lang):
@@ -538,6 +580,8 @@ class GuideQuestion(ItemType):
         if self.is_sub(item):
             when = item.text("when", lang)
             out.append("*Unterfrage* zur Leitfrage darüber" + (f" ({plain(when)})" if when else ""))
+        if item.block is not None and interview_gate.line(item.block.survey, item, lang, "de"):
+            out.append(f"*Filter:* {interview_gate.line(item.block.survey, item, lang, 'de')}")
         if self.case_text(item, lang, "de"):
             out.append(f"*Nur stellen,* {self.case_text(item, lang, 'de')}")
         for part, _, title in LISTS:
