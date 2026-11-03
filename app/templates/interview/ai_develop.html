@@ -104,7 +104,7 @@
         <label><span class="label-title">{{ de_en("Aufrechterhaltungsfragen", "Maintenance questions") }}</span><textarea name="b{{ n }}_keep" rows="4">{{ b.keep|join("\n") }}</textarea></label>
         <label><span class="label-title">{{ de_en("Konkrete Fragen", "Specific questions") }}</span><textarea name="b{{ n }}_probe" rows="4">{{ b.probe|join("\n") }}</textarea></label>
       </div>
-      <label>{{ de_en("Geplante Dauer", "Planned duration") }} <select name="b{{ n }}_minutes">{% for m in (5, 10, 15, 20, 30, 45) %}<option value="{{ m }}" {% if b.minutes == m %}selected{% endif %}>{{ de_en("ca. {n} Min.", "approx. {n} min", n=m) }}</option>{% endfor %}</select></label>
+      <label>{{ de_en("Geplante Dauer", "Planned duration") }} <select name="b{{ n }}_minutes">{% for m in minute_choices %}<option value="{{ m }}" {% if b.minutes == m %}selected{% endif %}>{{ de_en("ca. {n} Min.", "approx. {n} min", n=m) }}</option>{% endfor %}</select></label>
     </fieldset>
     {% endfor %}
     <div class="row"><span class="spacer"></span><button class="button">{{ de_en("Ausgewählte als Themenblöcke übernehmen", "Accept selected as topic blocks") }}</button></div>

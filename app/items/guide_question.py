@@ -37,7 +37,7 @@ only in interview guides; the editor offers it nowhere else.
 """
 from app.items import register
 from app.items.base import FactSheet  # what the type can do and is for (app/element_types.py)
-from app.items.base import ItemType, Unfit, form_ids, new_id, plain, r_dict, r_flag, r_id, r_list, r_maybe, r_one, r_text
+from app.items.base import ItemType, Unfit, form_ids, new_id, plain, r_dict, r_flag, r_id, r_list, r_maybe, r_text
 from app import interview_gate
 from app.lang import Both, de_en
 
@@ -45,7 +45,8 @@ LISTS = (("aspects", "aspect", "Inhaltliche Aspekte (Check)"), ("keep", "keep", 
          ("probe", "probe", "Konkrete Fragen"))
 MAX_ROWS = 30
 MAX_TEXT = 1000
-MINUTES = (5, 10, 15, 20, 30, 45)
+MINUTES = (1, 2, 3, 5, 10, 15, 20, 30, 45)  # the planned durations of a Leitfrage to pick from
+DEFAULT_MINUTES = 10
 MAX_WHEN = 200
 # what the field "Wann stellen?" of an Unterfrage suggests (a datalist: any other wording may be typed)
 WHEN_SUGGESTIONS = (("falls zutreffend", "if applicable"), ("bei Bedarf", "if needed"), ("nur wenn …", "only if …"))
@@ -54,6 +55,38 @@ HELFFERICH = ("Helfferich, C. (2011). Die Qualität qualitativer Daten: Manual f
 GLAESER_LAUDEL = ("Gläser, J., & Laudel, G. (2010). Experteninterviews und qualitative Inhaltsanalyse als Instrumente "
                   "rekonstruierender Untersuchungen (4. Aufl.). VS Verlag für Sozialwissenschaften. "
                   "https://doi.org/10.1007/978-3-531-91538-8")
+
+
+def _number(value):
+    """A number from a file, a form or the AI (int, float or a numeric string), else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        try:
+            value = float(value.strip().replace(",", "."))
+        except ValueError:
+            return None
+    if not isinstance(value, (int, float)) or value != value or value in (float("inf"), float("-inf")):
+        return None
+    return value
+
+
+def round_minutes(value):
+    """A planned duration as one of MINUTES: the nearest allowed value (the larger one on a tie: 4 -> 5, 25 -> 30;
+    0 or less -> 1, more than 45 -> 45); a missing or non-numeric value gives DEFAULT_MINUTES."""
+    number = _number(value)
+    if number is None:
+        return DEFAULT_MINUTES
+    return min(MINUTES, key=lambda m: (abs(m - number), -m))
+
+
+def _r_minutes(value):
+    """Import rule: a number is rounded to an allowed duration, anything else is not taken (minutes() gives 10)."""
+    if _number(value) is None:
+        raise Unfit
+    return round_minutes(value)
+
+
 HOPF = ("Hopf, C. (1978). Die Pseudo-Exploration: Überlegungen zur Technik qualitativer Interviews in der "
         "Sozialforschung. Zeitschrift für Soziologie, 7(2), 97–115. https://doi.org/10.1515/zfsoz-1978-0201")
 
@@ -156,11 +189,12 @@ class GuideQuestion(ItemType):
     collects_answer = False
     has_answer_mode = False
     interview_only = True  # offered in interview guides only (app/interview.py), see editor.add_item
+    minute_choices = MINUTES  # the select "Geplante Dauer" (editor.html, interview/ai_develop.html)
     when_suggestions = WHEN_SUGGESTIONS  # the field "Wann stellen?" of an Unterfrage (editor.html)
     panel_template = "items/guide_question/panel.html"  # "Leitfrage mit KI ergänzen" (app/interview_ai.py)
     result_kind = None
     import_rules = {"aspects": r_list(MAX_ROWS, r_id), "keep": r_list(MAX_ROWS, r_id), "probe": r_list(MAX_ROWS, r_id),
-                    "core": r_flag, "minutes": r_one(*MINUTES), "sub": r_flag,
+                    "core": r_flag, "minutes": _r_minutes, "sub": r_flag,
                     "probe_sub": r_list(MAX_ROWS, r_id), "probe_if": _probe_conds, "case": _sub_case,
                     "gate": interview_gate.clean,  # "Nur stellen, wenn …" of a Leitfrage (app/interview_gate.py)
                     # the definitions for the category system (.qdc) taken over from the AI assistant (interview_ai, A5)
@@ -168,7 +202,7 @@ class GuideQuestion(ItemType):
                                        aspects=r_maybe(_aspect_texts))}
 
     def default_config(self):
-        return {"aspects": [], "keep": [], "probe": [], "core": False, "minutes": 10}
+        return {"aspects": [], "keep": [], "probe": [], "core": False, "minutes": DEFAULT_MINUTES}
 
     def default_texts(self, lang):
         return {"question": "", "aspects": {}, "keep": {}, "probe": {}, "hint": "", "when": ""}
@@ -186,8 +220,7 @@ class GuideQuestion(ItemType):
         """The planned minutes; an Unterfrage has none of its own (they count towards its Leitfrage)."""
         if self.is_sub(item):
             return 0
-        value = (item.config or {}).get("minutes")
-        return value if value in MINUTES else 10
+        return round_minutes((item.config or {}).get("minutes"))
 
     def update_from_form(self, item, form, lang, structural):
         texts = dict(item.texts or {})
@@ -237,8 +270,7 @@ class GuideQuestion(ItemType):
                 self._probe_extras(item, form, ids, config, mine, structural)
         if structural and not self.is_sub(item):  # an Unterfrage keeps neither (indenting cleared core)
             config["core"] = bool(form.get("core"))
-            minutes = form.get("minutes", type=int)
-            config["minutes"] = minutes if minutes in MINUTES else 10
+            config["minutes"] = round_minutes(form.get("minutes"))
         if structural:
             item.config = config
         texts[lang] = mine
