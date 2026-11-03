@@ -227,3 +227,17 @@ def test_interview_view_uses_the_rules():
     assert "if (st.by) delete st.by[" in js                                       # a state by hand drops "by"
     off = (ROOT / "app" / "static" / "interview-offline.js").read_text(encoding="utf-8")
     assert "by: st.by || {}" in off                                               # the offline sync sends it too
+
+
+def test_interview_gate_imports_first():
+    """interview_gate imports app.items, which loads guide_question, which names interview_gate in its import rules:
+    importing interview_gate (or app.transfer) first in a fresh interpreter must work (deploy run 2026-11-03, whole
+    test files failed depending on the import order)."""
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    for module in ("app.interview_gate", "app.transfer"):
+        done = run([sys.executable, "-c", f"import {module}; from app.items import get; "
+                    "assert callable(get('guide_question').import_rules['gate'])"], timeout=120, cwd=root)
+        assert done.returncode == 0, done.stderr.decode(errors="replace")

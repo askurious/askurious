@@ -57,6 +57,12 @@ GLAESER_LAUDEL = ("Gläser, J., & Laudel, G. (2010). Experteninterviews und qual
                   "https://doi.org/10.1007/978-3-531-91538-8")
 
 
+def _gate(value):
+    """Import rule of "Nur stellen, wenn …" (interview_gate.clean). Looked up at call time: interview_gate imports
+    app.items, which loads this module, so interview_gate may not be finished when this class body runs."""
+    return interview_gate.clean(value)
+
+
 def _number(value):
     """A number from a file, a form or the AI (int, float or a numeric string), else None."""
     if isinstance(value, bool):
@@ -196,7 +202,7 @@ class GuideQuestion(ItemType):
     import_rules = {"aspects": r_list(MAX_ROWS, r_id), "keep": r_list(MAX_ROWS, r_id), "probe": r_list(MAX_ROWS, r_id),
                     "core": r_flag, "minutes": _r_minutes, "sub": r_flag,
                     "probe_sub": r_list(MAX_ROWS, r_id), "probe_if": _probe_conds, "case": _sub_case,
-                    "gate": interview_gate.clean,  # "Nur stellen, wenn …" of a Leitfrage (app/interview_gate.py)
+                    "gate": _gate,  # "Nur stellen, wenn …" of a Leitfrage (app/interview_gate.py)
                     # the definitions for the category system (.qdc) taken over from the AI assistant (interview_ai, A5)
                     "category": r_dict(definition=r_maybe(r_text(1000)), delimit=r_maybe(r_text(1000)),
                                        aspects=r_maybe(_aspect_texts))}
