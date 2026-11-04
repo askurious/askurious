@@ -25,9 +25,11 @@ for Latin, Greek and Cyrillic everywhere, Arabic (right to left) and Chinese whe
 import functools
 import hashlib
 import io
+import itertools
 import math
 import os
 import re
+import zipfile
 from app import pdf_fonts, variants
 from app.items.base import plain
 
@@ -56,6 +58,8 @@ FORMAT = 2  # of this PDF, in its footer: a new format gives other bytes for the
 # the letters' colours of a randomisation: Okabe & Ito's safe set, darkened to 4.5 : 1 on white. The letter stands in the
 # text as well, so the conditions stay apart in black and white and for those who cannot tell the colours apart.
 LEVEL_COLOURS = ("#0072b2", "#b84f00", "#00735c", "#a0447c", "#6f6200", "#5a4fa2", "#444444")
+VARIANTS_WARN = 50  # from here on the export page warns of the time and the size of the ZIP of all variants
+VARIANTS_MAX = 250  # more cannot be downloaded for now (Philipp 2026-11-04)
 ID_LENGTH = 8  # hex digits of the ID on every page: enough to tell the exports on a desk apart
 ROW_MM = 235  # a table row taller than this cannot stay whole on a page
 PICTURE_PX = 900  # longest side of an embedded image
@@ -579,9 +583,9 @@ def _ordered_blocks(survey):
     return out
 
 
-def _one_path(survey):
-    """[(node, depth)] of the flow with the first k levels of every randomisation: part 1, one path through the survey.
-    Blocks of the survey the flow does not name come last, as in _ordered_blocks."""
+def _one_path(survey, choice=None):
+    """[(node, depth)] of the flow with the first k levels of every randomisation, or those of `choice` ({randomisation id:
+    indices of its levels}): one path through the survey. Blocks the flow does not name come last, as in _ordered_blocks."""
     from app import flow
 
     out, seen = [], set()
@@ -589,7 +593,8 @@ def _one_path(survey):
     def rec(node, depth):
         children = node.get("children") or []
         if node.get("t") == "rand":
-            children = children[:max(node.get("k", 1), 1)]
+            picked = (choice or {}).get(node.get("id"), range(max(node.get("k", 1), 1)))
+            children = [children[i] for i in picked if i < len(children)]
         for child in children:
             out.append((child, depth))
             if child.get("t") == "block":
@@ -612,8 +617,8 @@ def randomisations(survey):
 def combinations(node):
     """How many assignments the randomisations under a node can give together: independent ones multiply, the levels of
     one are alternatives. Behind a condition a randomisation counts as if reached, so this is the number of
-    assignments, not of paths a person can take (concept 5.1, settled here). k of n: an upper bound when levels hold
-    randomisations of their own."""
+    assignments, not of paths a person can take (concept 5.1, settled here). It says as much as `assignments` yields,
+    without listing them. k of n with levels that hold randomisations and very many subsets: an upper bound."""
     children = node.get("children") or []
     if node.get("t") != "rand":
         return math.prod(combinations(child) for child in children)
@@ -621,7 +626,30 @@ def combinations(node):
         return 1
     inner = [combinations(child) for child in children]
     k = min(max(node.get("k", 1), 1), len(children))
-    return sum(inner) if k == 1 else math.comb(len(children), k) * max(inner) ** k
+    if k == 1:
+        return sum(inner)
+    subsets = math.comb(len(children), k)
+    if max(inner) == 1 or subsets > 10_000:
+        return subsets * max(inner) ** k
+    return sum(math.prod(subset) for subset in itertools.combinations(inner, k))
+
+
+def assignments(node):
+    """Every {randomisation id: indices of its drawn levels} under a node. Call it only for a survey `variants_of` has
+    found small enough. Order within a level set does not count: "shuffle" gives no new variant."""
+    children = node.get("children") or []
+
+    def together(nodes):
+        for parts in itertools.product(*[list(assignments(child)) for child in nodes]):
+            yield {key: value for part in parts for key, value in part.items()}
+
+    if node.get("t") != "rand":
+        yield from together(children)
+        return
+    k = min(max(node.get("k", 1), 1), len(children))
+    for picked in itertools.combinations(range(len(children)), k):
+        for rest in together([children[i] for i in picked]):
+            yield {node.get("id"): picked, **rest}
 
 
 def variants_of(survey):
@@ -747,22 +775,62 @@ def build(survey, ui=None, public=False, compare=None):
     The ID says which PDF lies on the table (Philipp 2026-11-04: exports of different sessions must not be mixed up). A
     date would give other bytes each time, and the pre-registration needs the same ones, so it is the start of the
     SHA-256 of the PDF without it: the same PDF has the same ID, any change of wording, layout or code another."""
+    return _stamped(survey, ui, public, compare)[0]
+
+
+def _stamped(survey, ui, public, compare):
+    """(PDF, its ID)."""
     bare = _render(survey, ui, public, compare, "")
-    return _render(survey, ui, public, compare, hashlib.sha256(bare).hexdigest()[:ID_LENGTH])
+    stamp = hashlib.sha256(bare).hexdigest()[:ID_LENGTH]
+    return _render(survey, ui, public, compare, stamp), stamp
 
 
-def _render(survey, ui, public, compare, stamp):
-    from reportlab.lib.pagesizes import A4
+def variant_name(survey, choice, number, total):
+    """variante-03-von-09_cond1-B_cond2-A.pdf: the file says which conditions it shows."""
+    width = len(str(total))
+    parts = [f"{node.get('code')}-" + "".join(level_letter(i) for i in choice[node["id"]])
+             for node in randomisations(survey) if node.get("id") in choice]
+    return f"variante-{number:0{width}d}-von-{total}_" + "_".join(parts) + ".pdf"
+
+
+def variants_zip(survey, ui=None, compare=None):
+    """The ZIP of the material: the PDF of `build` and one PDF per variant, which holds what a person in that variant
+    saw and nothing else. Their ID is that of the whole material with the variant's number, so a variant is set once;
+    an image is encoded once for all of them. The same questionnaire gives the same bytes (fixed dates in the ZIP)."""
+    from app import flow
+
+    main, stamp = _stamped(survey, ui, False, compare)
+    found = list(assignments(flow.tree(survey)))
+    pictures = {}
+    out = io.BytesIO()
+
+    def add(z, name, body):
+        info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        z.writestr(info, body)
+
+    with zipfile.ZipFile(out, "w") as z:
+        add(z, NAME, main)
+        for number, choice in enumerate(found, start=1):
+            one = _render(survey, ui, False, None, f"{stamp}-{number:0{len(str(len(found)))}d}", (choice, number, len(found)), pictures)
+            add(z, variant_name(survey, choice, number, len(found)), one)
+    return out.getvalue()
+
+
+def _render(survey, ui, public, compare, stamp, variant=None, pictures=None):
+    """variant: (choice, its number, how many), for a PDF of that one variant only; pictures: encoded images to share."""
     from reportlab.lib.units import mm
-    from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Image, Spacer
 
-    from app import brand, study_conditions
+    from app import brand
     from app.items.base import reader
 
     doc = _Doc(survey, reader(ui), public)
+    if pictures is not None:
+        doc.pictures = pictures
     styles = _styles(doc.accent)
     blocks = {b.id: b for b in survey.blocks}
-    order = _ordered_blocks(survey)
+    order = _one_path(survey, variant[0]) if variant else _ordered_blocks(survey)
     _number(doc, order, blocks)
     rands = randomisations(survey)
     plain_title = plain(survey.title_in(doc.lang) if hasattr(survey, "title_in") else survey.title)
@@ -777,8 +845,31 @@ def _render(survey, ui, public, compare, stamp):
               Paragraph(_safe(doc.say("Befragungsmaterial, Fragebogen-Fassung {v}; Sprache des Fragebogens: {lang}",
                                       "Survey material, questionnaire version {v}; language of the questionnaire: {lang}")
                               .format(v=version, lang=doc.lang)), styles["subtitle"]),
-              Spacer(1, 6),
-              Paragraph(_safe(doc.say("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen (Pflichtfragen mit *). "
+              Spacer(1, 6)]
+    if variant:
+        story += _variant_story(doc, styles, variant, rands, order, blocks)
+    else:
+        story += _full_story(doc, styles, survey, rands, order, blocks, compare)
+    return _finish(doc, survey, story, stamp, compare, plain_title, version, maker)
+
+
+def _variant_story(doc, styles, variant, rands, order, blocks):
+    """The flowables of a PDF of one variant: which it is, and the questionnaire as that person saw it."""
+    from app import study_conditions
+
+    choice, number, total = variant
+    heading = doc.say("Teil 1: Fragebogen ({i}. von {n} Varianten)", "Part 1: Questionnaire (variant {i} of {n})").format(i=number, n=total)
+    return ([Paragraph(_safe(heading), styles["h1"])] + study_conditions.variant_note(doc, styles, rands, choice)
+            + _part(doc, styles, order, blocks, annotated=False))
+
+
+def _full_story(doc, styles, survey, rands, order, blocks, compare):
+    """The flowables of the whole material: the three parts."""
+    from reportlab.platypus import PageBreak, Spacer
+
+    from app import study_conditions
+
+    story = [Paragraph(_safe(doc.say("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen (Pflichtfragen mit *). "
                                       + "Teil 2 zeigt ihn mit Anmerkungen neben jedem Element:",
                                       "Part 1 shows the questionnaire as participants see it (required questions with *). "
                                       + "Part 2 shows it with notes beside each element:")), styles["body"]),
@@ -800,6 +891,15 @@ def _render(survey, ui, public, compare, stamp):
     if rands:
         story += [PageBreak(), Paragraph(_safe(doc.say("Teil 3: Alle Bedingungen", "Part 3: All conditions")), styles["h1"])]
         story += study_conditions.part(doc, styles, rands, blocks, compare)
+    return story
+
+
+def _finish(doc, survey, story, stamp, compare, plain_title, version, maker):
+    """The PDF of a story, with the head and foot of every page."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate
+
     muted = tokens()["--muted"]
     width, height = A4
 

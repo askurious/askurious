@@ -300,11 +300,25 @@ def export_study_material(survey_id):
     logic, randomisation and checks; no answers in it, for every role, in the language of the person downloading."""
     from flask import Response as FlaskResponse
 
-    from app import export, study_conditions, study_material
+    from app import experimental, export, study_conditions, study_material
 
     survey = get_survey(survey_id)
     wanted = request.args.get("compare")  # how part 3 shows the conditions; only a known one counts
-    body = study_material.build(survey, compare=wanted if wanted in study_conditions.MODES else study_conditions.DOWNLOAD)
+    compare = wanted if wanted in study_conditions.MODES else study_conditions.DOWNLOAD
+    if request.args.get("variants") == "1":  # ticked on the export page: the ZIP with one PDF per variant
+        experimental.require("material_variants")
+        count = study_material.variants_of(survey)
+        if not 2 <= count <= study_material.VARIANTS_MAX:
+            flash(de_en("Diese Befragung hat {n} Varianten; der Download aller Varianten geht bis {m}.",
+                        "This survey has {n} variants; the download of all variants goes up to {m}.",
+                        n=count, m=study_material.VARIANTS_MAX), "error")
+            return redirect(url_for("surveys.data", survey_id=survey.id))
+        return FlaskResponse(study_material.variants_zip(survey, compare=compare), headers={
+            "Content-Type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{export.filename(survey, "befragungsmaterial-varianten")[:-4]}.zip"',
+            "Cache-Control": "no-store",
+        })
+    body = study_material.build(survey, compare=compare)
     return FlaskResponse(body, headers={
         "Content-Type": "application/pdf",
         "Content-Disposition": f'attachment; filename="{export.filename(survey, "befragungsmaterial")[:-4]}.pdf"',

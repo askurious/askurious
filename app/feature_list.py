@@ -247,6 +247,8 @@ def groups():
             (de_en("Lese-Tokens für R und Python", "Read tokens for R and Python"), None),
             (de_en("Datenpaket zu Zenodo (als Entwurf, Veröffentlichen ist ein eigener Schritt)",
                    "Data package to Zenodo (as a draft, publishing is a step of its own)"), None),
+            (de_en("Befragungsmaterial je Variante: ein ZIP mit einem PDF für jede Kombination der Bedingungen",
+                   "Survey material per variant: a ZIP with one PDF for each combination of conditions"), "material_variants"),
             (de_en("Coscine (Forschungsdatenarchiv der RWTH Aachen): Datenpaket, Präregistrierung und Fassungen eines "
                    "Interviewleitfadens ablegen, auf Wunsch automatisch",
                    "Coscine (research data archive of RWTH Aachen University): store the data package, "
