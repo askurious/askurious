@@ -8,7 +8,7 @@ from pypdf import PdfReader
 from app import packages, study_material, zenodo
 from app.extensions import db
 from app.models import Item, Survey
-from tests.conftest import add, fill_consent
+from tests.conftest import add, experiments_on, fill_consent
 from tests.instrument_permissions import grant_instrument
 
 
@@ -459,3 +459,83 @@ def test_the_footer_names_the_survey_by_its_code(app, client, survey):
         text = _text(study_material.build(s, "de"))
         assert f"{s.title} ({s.code}) | Fassung" in text
 
+
+
+# --- one PDF per variant (concept 5.1, package G) -------------------------------------------------------------------
+
+
+def _zip(body):
+    import zipfile
+
+    return zipfile.ZipFile(io.BytesIO(body))
+
+
+def test_as_many_variants_as_are_counted():
+    block = {"t": "block", "block": 1}
+    three = {"t": "rand", "id": "a", "k": 1, "children": [block, block, block]}
+    two_of_four = {"t": "rand", "id": "b", "k": 2, "children": [block] * 4}
+    nested = {"t": "rand", "id": "c", "k": 1, "children": [{**three, "id": "d"}, block]}
+    deep = {"t": "rand", "id": "e", "k": 2, "children": [{**three, "id": "f"}, block, block]}
+    for tree in ([three], [three, two_of_four], [nested], [deep], [{"t": "branch", "children": [three]}, nested], [block]):
+        root = {"t": "root", "children": tree}
+        found = list(study_material.assignments(root))
+        assert len(found) == study_material.combinations(root) and len({str(f) for f in found}) == len(found), tree
+
+
+def test_the_zip_holds_the_material_and_one_pdf_per_variant(app, client, survey):
+    import re
+
+    _randomised(app, client)
+    with app.test_request_context():
+        s = db.session.get(Survey, 1)
+        one, again = study_material.variants_zip(s, "de"), study_material.variants_zip(s, "de")
+    assert one == again  # the same questionnaire gives the same bytes
+    z = _zip(one)
+    assert z.namelist() == ["survey-material.pdf", "variante-1-von-3_cond1-A.pdf", "variante-2-von-3_cond1-B.pdf",
+                            "variante-3-von-3_cond1-C.pdf"]
+    whole = " ".join(_pages(z.read("survey-material.pdf")))
+    assert "Teil 2: Fragebogen mit Anmerkungen" in whole
+    main_id = re.search(r"ID ([0-9a-f]{8})", whole).group(1)
+    wanted = {"A": ("90 von 100", "10 von 100"), "B": ("10 von 100", "90 von 100"), "C": ("mehreren Kliniken", "90 von 100")}
+    for number, (letter, (shown, hidden)) in enumerate(wanted.items(), start=1):
+        text = " ".join(_pages(z.read(f"variante-{number}-von-3_cond1-{letter}.pdf")))
+        assert shown in text and hidden not in text and f"ID {main_id}-{number}" in text
+        assert f"Teil 1: Fragebogen ({number}. von 3 Varianten)" in text and f"cond1 = {letter}: Fassung {number}" in text
+        assert "Teil 2:" not in text and "Teil 3:" not in text
+
+
+def test_the_zip_of_all_variants_is_experimental(app, client, survey):
+    """Whoever does not have the feature sees nothing of it, and its address answers 404 (app/experimental.py)."""
+    _randomised(app, client)
+    assert 'name="variants"' not in client.get("/surveys/1/data").data.decode()
+    assert client.get("/surveys/1/export/survey-material.pdf?variants=1").status_code == 404
+    assert client.get("/surveys/1/export/survey-material.pdf").data[:5] == b"%PDF-"
+
+
+def test_the_export_page_offers_the_zip_only_when_ticked(app, client, survey):
+    fill_consent(client)
+    experiments_on(client, "material_variants")
+    assert 'name="variants"' not in client.get("/surveys/1/data").data.decode()  # nothing randomised
+    _randomised(app, client)
+    page = client.get("/surveys/1/data").data.decode()
+    assert 'name="variants"' in page and "3 Varianten" in page
+    assert 'name="variants" value="1" checked' not in page  # off by default
+    assert client.get("/surveys/1/export/survey-material.pdf").data[:5] == b"%PDF-"
+    answer = client.get("/surveys/1/export/survey-material.pdf?variants=1&compare=columns")
+    assert answer.mimetype == "application/zip" and "varianten" in answer.headers["Content-Disposition"]
+    assert len(_zip(answer.data).namelist()) == 4
+
+
+def test_a_warning_from_50_and_no_download_above_250(app, client, survey, monkeypatch):
+    _randomised(app, client)
+    experiments_on(client, "material_variants")
+    monkeypatch.setattr(study_material, "variants_of", lambda _s: 50)
+    assert "große Datei" not in client.get("/surveys/1/data").data.decode()
+    monkeypatch.setattr(study_material, "variants_of", lambda _s: 51)
+    assert "große Datei" in client.get("/surveys/1/data").data.decode()
+    monkeypatch.setattr(study_material, "variants_of", lambda _s: 250)
+    assert 'name="variants" value="1" disabled' not in client.get("/surveys/1/data").data.decode()
+    monkeypatch.setattr(study_material, "variants_of", lambda _s: 251)
+    page = client.get("/surveys/1/data").data.decode()
+    assert 'name="variants" value="1" disabled' in page and "251 Varianten" in page and "bis 250" in page
+    assert client.get("/surveys/1/export/survey-material.pdf?variants=1").status_code == 302  # also typed by hand

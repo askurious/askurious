@@ -47,6 +47,12 @@ def path_note(doc, styles, rands):
             n=total, levels=levels)), styles["box"]))]
 
 
+def variant_note(doc, styles, rands, choice):
+    """The box at the head of a PDF of one variant: its conditions, in words."""
+    lines = [level_tag(doc, node, i) for node in rands if node.get("id") in choice for i in choice[node["id"]]]
+    return [_box(doc, Paragraph("<br/>".join(_safe(line) for line in lines), styles["box"]))]
+
+
 def _box(doc, flowable):
     from reportlab.platypus import TableStyle
 

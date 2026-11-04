@@ -219,7 +219,12 @@
           <label class="check"><input type="radio" name="compare" value="{{ key }}" {% if key == "marked" %}checked{% endif %}> {{ label }} <span class="hint">{{ hint }}</span></label>
           {% endfor %}
         </fieldset>
-        <button class="button button-secondary" aria-label="{{ de_en('Befragungsmaterial (PDF) herunterladen', 'Download survey material (PDF)') }}">{{ icon("download", 16) }} PDF</button>
+        {# one PDF per variant, only when ticked (study_material.variants_zip) #}
+        {% if variant_count > 1 and experimental("material_variants") %}
+        <label class="check"><input type="checkbox" name="variants" value="1" {% if variant_count > variants_max %}disabled{% endif %}> {{ de_en("Zusätzlich je ein PDF pro Variante (ZIP)", "Also one PDF per variant (ZIP)") }}
+          <span class="hint">{% if variant_count > variants_max %}{{ de_en("Diese Befragung hat {n} Varianten; das geht vorerst nur bis {m}.", "This survey has {n} variants; for now this works up to {m}.", n=variant_count, m=variants_max) }}{% elif variant_count > variants_warn %}{{ de_en("{n} Varianten: Das kann einige Zeit dauern und eine große Datei ergeben.", "{n} variants: this may take a while and make a large file.", n=variant_count) }}{% else %}{{ de_en("{n} Varianten", "{n} variants", n=variant_count) }}{% endif %}</span></label>
+        {% endif %}
+        <button class="button button-secondary" aria-label="{{ de_en('Befragungsmaterial herunterladen', 'Download survey material') }}">{{ icon("download", 16) }} {{ de_en("Herunterladen", "Download") }}</button>
       </form>
       {% else %}
       {{ xp.fmt("PDF", url_for('surveys.export_study_material', survey_id=survey.id), de_en("Befragungsmaterial (PDF) herunterladen", "Download survey material (PDF)"), pooled=false) }}

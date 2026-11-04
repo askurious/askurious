@@ -103,6 +103,9 @@ def _data_page(survey, erase_found=None, new_token=None):
     live_slides = survey.live is not None and any(is_slide(i) for b in survey.blocks for i in b.items)
     return render_template("surveys/data.html", survey=survey, live_slides=live_slides,
                            randomised=bool(__import__("app.study_material", fromlist=["randomisations"]).randomisations(survey)),
+                           variant_count=__import__("app.study_material", fromlist=["variants_of"]).variants_of(survey),
+                           variants_warn=__import__("app.study_material", fromlist=["VARIANTS_WARN"]).VARIANTS_WARN,
+                           variants_max=__import__("app.study_material", fromlist=["VARIANTS_MAX"]).VARIANTS_MAX,
                            waves_view=waves.view(current_user, survey) if waves.of(survey) else None,
                            waves_report=waves.page_report(current_user, survey), waves_sources=waves.SOURCES, citations=__import__("app.citations", fromlist=["listing"]), counts=counts, by_source=by_source, contact=contact_mod,
                            erased=erasure.summary(survey), erase_found=erase_found, erase_ways=erasure.ways(),

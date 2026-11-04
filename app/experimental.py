@@ -82,9 +82,18 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
      "Namen erscheinen zuerst. Mitkodieren können Personen, Askurious-Gruppen, Interviewende mit ihrem Interviewlink "
      "mit dem Recht „darf kodieren“ (eigene oder alle Interviews), auch ohne Interviews zu führen."),
+    ("material_variants", "Befragungsmaterial je Variante als ZIP",
+     "Unter „Export“ am Befragungsmaterial einer randomisierten Befragung die Wahl „Zusätzlich je ein PDF pro Variante“: "
+     "ein ZIP mit dem Material und für jede Kombination der Bedingungen einem PDF mit dem, was eine Person in dieser "
+     "Variante gesehen hat. Ab 51 Varianten warnt die Seite vor Dauer und Größe, bis 250 Varianten geht der Download."),
 ]
 KEYS = [key for key, _label, _text in FEATURES]
 FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks them when the page is English
+    "material_variants": ("Survey material per variant as a ZIP",
+                          "Under “Export”, at the survey material of a randomised survey, the choice “Also one PDF per "
+                          "variant”: a ZIP with the material and, for each combination of conditions, a PDF of what a "
+                          "person in that variant saw. From 51 variants on the page warns of the time and size; the "
+                          "download works up to 250 variants."),
     "ainstein": ("AInstein: develop a research question, sharpen it, operationalise it and turn it into the questionnaire",
                  "A brain button on the left of the header opens AInstein: from a project name and a rough idea, fill in a "
                  "research canvas in conversation with the AI (research question, design, sample, hypotheses, constructs, "
