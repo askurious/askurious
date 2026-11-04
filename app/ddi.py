@@ -650,7 +650,10 @@ def build(survey, lang=None, public=False, open_answers=False, material=()):
                 _lang(split, "Description", {"en": f"Random assignment: each participant gets {k} of the {len(kids)} "
                                                     f"parts below" + (", balanced" if node.get("balanced") else "")
                                                     + (", in random order" if node.get("shuffle") else "")
-                                                    + f"; the part shown is in the column {node.get('code') or ''}."})
+                                                    + f"; the part shown is in the column {node.get('code') or ''}"
+                                                    + (f", its code in {node.get('code')}_level" if k == 1 and k < len(kids) else "")
+                                                    + (f", one 0/1 column per part as {node.get('code')}_<code>" if 1 < k < len(kids) else "")
+                                                    + "."})
                 _sub(_sub(split, "TypeOfSequence"), "StringValue", "RandomSubset")
                 for n, child in enumerate(kids):
                     inner = walk([child])

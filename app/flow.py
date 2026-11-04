@@ -322,6 +322,10 @@ def normalize(survey):
                 if child["t"] in GROUPS:
                     clean(child)
                 kept.append(child)
+        if node["t"] != "rand":  # taken out of a randomizer: it is no condition any more
+            for child in kept:
+                child.pop("level", None)
+                child.pop("label", None)
         node["children"] = kept
 
     clean(root)
@@ -582,6 +586,15 @@ def update(survey, nid, form, languages, links=True):
         if not CODE_RE.match(code):
             return de_en("Variablenname: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _.",
                          "Variable name: a letter first, then letters, digits or _.")
+        chosen, problem = _read_levels(survey, node, form)
+        if problem:
+            return problem
+        for child, number, label in chosen or []:
+            child["level"] = number
+            if label:
+                child["label"] = label
+            else:
+                child.pop("label", None)  # empty: it follows the title of the block again
         k = form.get("k", "1")
         node.update(code=code, name=form.get("name", "").strip()[:100] or code,
                     k=max(1, int(k)) if k.isascii() and k.isdigit() and len(k) < 12 else 1,  # "²".isdigit() is true
@@ -728,6 +741,77 @@ def move_block_among_siblings(survey, block_id, direction):
 # --- labels and badges -------------------------------------------------------------------
 
 
+def levels(survey, node):
+    """[(child, number, label)] of a randomizer's conditions. Number and label stand on the child ("level", "label");
+    what has none takes the next free number and the title of its block. `fix_levels` writes them down at the start."""
+    children = node.get("children") or []
+    taken = {c["level"] for c in children if isinstance(c.get("level"), int)}
+    out, free = [], 1
+    for child in children:
+        number = child.get("level")
+        if not isinstance(number, int):
+            while free in taken:
+                free += 1
+            number = free
+            taken.add(number)
+        out.append((child, number, child_label(survey, child)))
+    return out
+
+
+def fix_levels(survey):
+    """At the start of the fieldwork: the numbers and labels of all conditions are stored and stay. What the data say
+    must not change with a corrected block title, and blocks can be corrected in the field (Philipp 2026-11-04)."""
+    import copy
+
+    root = copy.deepcopy(tree(survey))
+    for node, _, _ in walk(root):
+        if node["t"] == "rand":
+            for child, number, label in levels(survey, node):
+                child["level"], child["label"] = number, label
+            node["fixed"] = True
+    survey.flow = root
+
+
+def level_columns(survey, node):
+    """[(column, number, label)] next to the randomizer's own column, for analysis: one number per person where one
+    condition is drawn (number None: the column holds it), one 0/1 column per condition where several are. A randomizer
+    that shows all of them assigns nothing, so it has none."""
+    found = levels(survey, node)
+    k = min(max(node.get("k", 1), 1), len(found)) if found else 0
+    if len(found) < 2 or k >= len(found):
+        return []
+    if k == 1:
+        return [(f"{node['code']}_level", None, "")]
+    return [(f"{node['code']}_{number}", number, label) for _, number, label in found]
+
+
+def level_values(survey, node, picked):
+    """{column of `level_columns`: its value} for the drawn child ids; empty values where the randomizer was not reached."""
+    numbers = {node_id(child): number for child, number, _ in levels(survey, node)}
+    drawn = [numbers[c] for c in picked if c in numbers]
+    return {column: (("" if not drawn else drawn[0]) if number is None else ("" if not picked else int(number in drawn)))
+            for column, number, _ in level_columns(survey, node)}
+
+
+def _read_levels(survey, node, form):
+    """([(child, number, label)] from the dialog, error text). None when nothing is to change: a form without the fields,
+    or a randomizer fixed by the start."""
+    if node.get("fixed") or "level_0" not in form:
+        return None, None
+    out = []
+    for i, child in enumerate(node.get("children") or []):
+        text = form.get(f"level_{i}", "").strip()
+        if not (text.isascii() and text.isdigit() and len(text) < 5):
+            return None, de_en("Code einer Bedingung: eine ganze Zahl von 0 bis 9999.",
+                               "Code of a condition: a whole number from 0 to 9999.")
+        # no ";": the codebook lists its values with it
+        out.append((child, int(text), form.get(f"label_{i}", "").strip().replace(";", ",")[:100]))
+    numbers = [number for _, number, _ in out]
+    if len(set(numbers)) < len(numbers):
+        return None, de_en("Jede Bedingung braucht einen eigenen Code.", "Every condition needs a code of its own.")
+    return out, None
+
+
 def branch_names(survey):
     """{variable name of a randomizer: its name}: what texts can show of the flow as {{cond1}}."""
     return {n["code"]: n.get("name") or n["code"] for n, _, _ in walk(tree(survey)) if n["t"] == "rand" and n.get("code")}
@@ -747,6 +831,8 @@ def branch_values(survey, response):
 
 
 def child_label(survey, node):
+    if node.get("label"):  # the condition's own label (`levels`), fixed at the start: the data keep it when a title changes
+        return node["label"]
     if node["t"] == "block":
         block = next((b for b in survey.blocks if b.id == node["block"]), None)
         return (block.title() if block else "") or f"Block {node['block']}"

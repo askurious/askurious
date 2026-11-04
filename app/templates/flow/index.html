@@ -143,6 +143,17 @@
       </div>
       <label class="check"><input type="checkbox" name="balanced" value="1" {% if node.balanced %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("balanciert", "balanced") }} <span class="hint">{{ de_en("seltenste Versuchsbedingung zuerst", "rarest experimental condition first") }}</span></label>
       <label class="check"><input type="checkbox" name="shuffle" value="1" {% if node.shuffle %}checked{% endif %} {% if not editable %}disabled{% endif %}> {{ de_en("gezeigte Blöcke in zufälliger Reihenfolge", "shown blocks in random order") }}</label>
+      {# the conditions as the data name them (flow.levels); from the start of the fieldwork they stay as they are #}
+      {% set locked = not editable or node.fixed %}
+      <fieldset class="rand-levels"><legend>{{ de_en("Bedingungen in den Daten", "Conditions in the data") }}
+        <span class="hint">{% if node.fixed %}{{ de_en("seit dem Start festgelegt", "fixed since the start") }}{% else %}{{ de_en("Code für die Auswertung und Beschriftung; leer: der Titel des Blocks. Beim Start werden sie festgelegt.", "code for the analysis and label; empty: the title of the block. They are fixed at the start.") }}{% endif %}</span></legend>
+        {% for child, number, label in rand_levels.get(node.id, []) %}
+        <div class="row-fields">
+          <label>{{ de_en("Code", "Code") }} <input type="number" name="level_{{ loop.index0 }}" min="0" max="9999" value="{{ number }}" class="narrow" {% if locked %}disabled{% endif %}></label>
+          <label class="wide-field">{{ de_en("Beschriftung", "Label") }} <input name="label_{{ loop.index0 }}" value="{{ child.label or '' }}" placeholder="{{ label }}" maxlength="100" {% if locked %}disabled{% endif %}></label>
+        </div>
+        {% endfor %}
+      </fieldset>
       {% elif node.t == "branch" %}
       <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("optional, z. B. „Altersfilter“ oder „Aufmerksamkeitscheck“", "optional, e.g. “Age filter” or “Attention check”") }}</span>
         <input name="name" value="{{ node.name or '' }}" maxlength="100" placeholder="{{ de_en('Bedingung', 'Condition') }}" {% if not editable %}disabled{% endif %}></label>

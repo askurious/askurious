@@ -442,7 +442,8 @@ def flow_index(survey_id):
         diary=diary, diary_part_label=lambda b: diary.part_label(diary.part_of(b), survey),  # a diary study: its parts
         else_nodes={n.get("of"): n for n, _, _ in flow.walk(flow.tree(survey)) if n["t"] == "else"},
         root_branches={n["id"]: n for n, _, _ in flow.walk(flow.tree(survey)) if n["t"] == "branch"},
-        blocks=blocks, editable=survey.is_editable and survey.can(current_user, "editor"), findings=findings,
+        blocks=blocks, rand_levels={n["id"]: flow.levels(survey, n) for n in flow.walk_nodes(survey, "rand")},
+        editable=survey.is_editable and survey.can(current_user, "editor"), findings=findings,
         all_findings=len(every), all_blockers=len([f for f in every if f.severity == "error" or f.blocks_start]),
         may_link=survey.can(current_user, "admin"),  # completion links of ends: as the links in the settings
         described=described, cond_data=conditions.page_data(described), cond_modes=conditions.MODES, conditions=conditions,

@@ -79,6 +79,9 @@ def start(survey, field_end, max_responses):
         # taken by the first statement that writes, and every other writer waited while freeze encoded the images,
         # built the Word file and packed the ZIP (code review 2026-10-07, E4)
         with db.session.no_autoflush:
+            from app import flow
+
+            flow.fix_levels(survey)  # the numbers and labels of the conditions stay from here on, and are in the freeze
             prereg.freeze(survey, pending=True)  # published once the start is committed (code review 2026-10-15, D6)
     from app import undo
 
