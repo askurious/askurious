@@ -5688,3 +5688,7 @@ details.plan-more > summary { cursor: pointer; font-weight: 600; margin: 8px 0; 
 .archive-count.is-auto { background: var(--muted); }
 .archive-count.is-ok::before { content: none; }
 .archive-box .is-missing::before { content: "○ "; color: var(--warn); font-weight: 700; }
+/* blog editor: the label "Text" and the AI button "Aus Stichworten ausformulieren" on one line (blog_edit.html) */
+.blog-text-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 4px; }
+.blog-text-head .label-title { margin: 0; }
+.blog-text-head .button { width: auto; }

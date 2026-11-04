@@ -359,10 +359,13 @@ def test_draft_from_what_is_new_and_english_by_ai(app, client, monkeypatch):
     r = client.post("/admin/blog/draft", data={"source": "## 2026-10-03\n- Quoten-Assistent"})
     assert r.status_code == 302 and calls[0] == ("blog_draft", "## 2026-10-03\n- Quoten-Assistent")
     with app.app_context():
-        post = db.session.scalars(db.select(BlogPost)).one()
+        post = db.session.scalars(db.select(BlogPost).order_by(BlogPost.id)).first()
         assert (post.status, post.category, post.slug, post.title_en) == ("draft", "improvement", "neu-quoten-assistent",
                                                                           "New: quota assistant")
     assert client.post("/admin/blog/draft", data={"source": " "}).status_code == 302   # nothing to write from
+    assert 'name="focus"' in page
+    client.post("/admin/blog/draft", data={"source": "- Karte", "focus": "Nur Karten"})
+    assert calls[-1][1] == "WISH OF THE EDITORS:\nNur Karten\n\nDEVELOPMENT LOG:\n- Karte"
     pid = _new(client, title_de="Karte mit Markern", body_de="**Neu**\n\n{{bild1}}")
     page = client.get(f"/admin/blog/{pid}").data.decode()
     assert "Ins Englische übersetzen" in page and "data-confirm=" not in page.split("Ins Englische übersetzen")[0][-900:]
@@ -419,3 +422,50 @@ def test_text_corrections_keep_the_style_and_name_each_change(app, client, monke
     assert client.post(f"/admin/blog/{pid}/proofread/fr").status_code == 404
     assert _researcher(app).post(f"/admin/blog/{pid}/proofread/de").status_code == 403
 
+
+
+def test_article_from_keywords_for_social_scientists(app, client, monkeypatch):
+    """"Aus Stichworten ausformulieren": keywords in the text field become a full article for scientists (mostly
+    social scientists); the text is replaced, title and teaser only when empty, a long text is left alone."""
+    import json
+
+    from app import ai
+
+    app.config["OPENAI_API_KEY"] = "test"
+    calls, answer = [], {}
+
+    def fake(instructions, prompt, purpose="text", item_type=None, schema=None):
+        calls.append((purpose, instructions, prompt))
+        return json.dumps(answer)
+
+    monkeypatch.setattr(ai, "generate_text", fake)
+    pid = _new(client, title_de="", body_de="Stichworte")
+    page = client.get(f"/admin/blog/{pid}").data.decode()
+    assert f"/admin/blog/{pid}/article/de" in page and f"/admin/blog/{pid}/article/en" in page
+    form = {"title_de": "", "summary_de": "", "body_de": "- Quoten\n- Zufallszuweisung", "title_en": "", "summary_en": "",
+            "body_en": "", "category": "feature"}
+    answer.update(title="Quoten und Zufall", summary="Neu bei Quoten.", body="Mit {marke} legen Sie **Quoten** fest.")
+    client.post(f"/admin/blog/{pid}/article/de", data=form)
+    purpose, instructions, prompt = calls[-1]
+    assert purpose == "blog_article" and "social scientists" in instructions and "development and the features" in instructions
+    assert "{marke}" in instructions and "NOTES:\n- Quoten\n- Zufallszuweisung" in prompt
+    with app.app_context():
+        post = db.session.get(BlogPost, pid)
+        assert (post.title_de, post.summary_de, post.body_de) == ("Quoten und Zufall", "Neu bei Quoten.",
+                                                                 "Mit {marke} legen Sie **Quoten** fest.")
+    # an existing title stays; a text that is long already is not replaced, and no call is made
+    n = len(calls)
+    client.post(f"/admin/blog/{pid}/article/de", data=dict(form, title_de="Mein Titel", body_de="x" * 2500))
+    assert len(calls) == n
+    with app.app_context():
+        assert db.session.get(BlogPost, pid).body_de == "x" * 2500
+    # an answer without a text replaces nothing; no notes, no call
+    answer.update(body="")
+    client.post(f"/admin/blog/{pid}/article/de", data=dict(form, body_de="Stichwort"))
+    with app.app_context():
+        assert db.session.get(BlogPost, pid).body_de == "Stichwort"
+    n = len(calls)
+    client.post(f"/admin/blog/{pid}/article/en", data=dict(form, body_de="Stichwort", body_en=""))
+    assert len(calls) == n
+    assert client.post(f"/admin/blog/{pid}/article/fr").status_code == 404
+    assert _researcher(app).post(f"/admin/blog/{pid}/article/de").status_code == 403

@@ -49,6 +49,7 @@ PURPOSES = {
     "blog_draft": "Blog: Entwurf aus den Neuerungen",
     "blog_translation": "Blog: englische Fassung",
     "blog_proofreading": "Blog: Textkorrekturen",
+    "blog_article": "Blog: Text aus Stichworten",
     "text": "Text (sonstiges)",
     "other": "Sonstiges",
 }
@@ -90,6 +91,7 @@ PURPOSES_EN = {
     "blog_draft": "Blog: draft from what is new",
     "blog_translation": "Blog: English version",
     "blog_proofreading": "Blog: text corrections",
+    "blog_article": "Blog: text from keywords",
     "text": "Text (other)",
     "other": "Other",
 }
