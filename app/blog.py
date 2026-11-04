@@ -669,7 +669,9 @@ LOG_LIMIT = 40_000  # characters of log.md the draft is written from; the newest
 CATEGORY_KEYS = list(CATEGORIES)
 
 DRAFT_INSTRUCTIONS = """You write one entry for the public news page of a web platform for scientific surveys (online
-questionnaires, live polls, interview guides). Readers are researchers, teachers and students, not developers.
+questionnaires, live polls, interview guides). Readers are researchers, mostly from the social sciences, who are
+interested in the platform or already use it for their studies; they are not developers. Write for their work: what
+they can now do, what gets easier, what they should know for their data and participants.
 
 You get excerpts of the developers' log. Choose only what readers notice: new features, visible improvements, changes to
 methods and results, and what matters about privacy and operation. Leave out tests, refactoring, internal names of files,
@@ -699,6 +701,20 @@ def draft_instructions():
     return DRAFT_INSTRUCTIONS + "\n\n" + EXPERIMENTAL_INSTRUCTIONS + "\n".join(f"- {label}" for _k, label, _t in FEATURES)
 
 
+FOCUS_LIMIT = 2_000  # characters of the admins' wish for the draft
+FOCUS_INSTRUCTIONS = """The editors added a wish for this entry, marked "WISH OF THE EDITORS" before the log. Let it steer
+what the entry is about and how it sounds (topic, emphasis, tone, angle). Take the facts only from the log; if the log
+does not support the wish, leave that part out. The wish does not lift the rules above (no experimental features, no
+internal details)."""
+
+
+def draft_prompt(source, focus):
+    """What the AI gets: the log, with the editors' wish in front of it when there is one."""
+    if not focus:
+        return source
+    return f"WISH OF THE EDITORS:\n{focus}\n\nDEVELOPMENT LOG:\n{source}"
+
+
 TRANSLATE_INSTRUCTIONS = """Translate a news entry of a web platform for scientific surveys from German into British
 English. Keep every mark exactly as it is and where it is: **bold**, *italic*, `code`, H~2~O, x^2^, line breaks, blank
 lines between paragraphs, lines starting with "- ", placeholders like {{bild12}}, {{bild12|links}} and {marke}
@@ -718,6 +734,25 @@ it, in the order of the text; an empty list when nothing was corrected."""
 PROOFREAD_SPELLING = {"de": "German as the current rules of spelling (Duden) have it, with German quotation marks „…“.",
                       "en": "British English spelling."}
 
+ARTICLE_INSTRUCTIONS = """You turn the notes of an author, often only a list of keywords, into a full news entry of a web platform
+for scientific surveys (online questionnaires, live polls, interview guides). The entry is written in {language}.
+Readers are scientists, mostly social scientists, who are interested in the development and the features of the platform
+and in surveys as a method. They are not developers. Write for their work: what they can now do, what gets easier, what
+they should know for their data, their participants and the quality of their studies. Tell it factually and in a
+friendly way, from the point of view of research practice, with a concrete example from a survey where it fits.
+
+Take the facts only from the notes. Do not invent features, numbers, dates, names or quotations; if the notes are thin,
+write a short entry rather than padding it. Do not promise anything the notes do not say. Leave out internal names of
+files, functions, columns and settings. Refer to the platform as {{marke}} (write exactly these seven characters, they
+are replaced by the name); never write "Askurious", "Queryous" or another name of it. German with "Sie", English in
+British English.
+
+Format of title and summary: plain text, the title at most 80 characters, the summary one or two sentences. Format of
+the text: paragraphs separated by a blank line; a list as lines that start with "- "; a subheading as a line that is bold
+as a whole (**Subheading**); **bold** and *italic* inside a line. Nothing else: no "#" headings, no tables, no images.
+Keep every placeholder like {{{{bild12}}}} and every link like [text](address) of the notes exactly where it is. The text has
+150 to 450 words, fewer when the notes are short. {spelling}"""
+
 _TEXTS = {"type": "string"}
 DRAFT_SCHEMA = {"type": "object", "additionalProperties": False,
                 "required": ["title_de", "summary_de", "body_de", "title_en", "summary_en", "body_en", "category"],
@@ -729,6 +764,8 @@ PROOFREAD_SCHEMA = {"type": "object", "additionalProperties": False, "required":
                                    "changes": {"type": "array", "items": {
                                        "type": "object", "additionalProperties": False, "required": ["before", "after"],
                                        "properties": {"before": _TEXTS, "after": _TEXTS}}}}}
+ARTICLE_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["title", "summary", "body"],
+                  "properties": {"title": _TEXTS, "summary": _TEXTS, "body": _TEXTS}}
 TRANSLATE_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["title", "summary", "body"],
                     "properties": {"title": _TEXTS, "summary": _TEXTS, "body": _TEXTS}}
 
@@ -802,14 +839,17 @@ def admin_draft():
         except ValueError:
             since = draft_start()
         return render_template("admin/blog_draft.html", since=since.isoformat(), source=log_since(since),
-                               has_log=os.path.exists(log_path()), ai_ready=ai_ready())
-    source = _clean(request.form.get("source"), LOG_LIMIT).strip()
+                               has_log=os.path.exists(log_path()), ai_ready=ai_ready(), focus="")
+    source =_clean(request.form.get("source"), LOG_LIMIT).strip()
+    focus = _clean(request.form.get("focus"), FOCUS_LIMIT).strip()
     if not source:
         flash(de_en("Bitte die Grundlage angeben: die Einträge des Entwicklungsprotokolls oder eigene Stichpunkte.",
                     "Please give the basis: the entries of the development log or notes of your own."), "error")
         return redirect(url_for("blog.admin_draft"))
     try:
-        data = ai.json_answer(ai.generate_text(draft_instructions(), source, purpose="blog_draft", schema=DRAFT_SCHEMA))
+        instructions = draft_instructions() + ("\n\n" + FOCUS_INSTRUCTIONS if focus else "")
+        data = ai.json_answer(ai.generate_text(instructions, draft_prompt(source, focus), purpose="blog_draft",
+                                               schema=DRAFT_SCHEMA))
     except ai.AIError as e:
         flash(str(e), "error")
         return redirect(url_for("blog.admin_draft"))
@@ -914,6 +954,63 @@ def admin_translate(post_id):
 def _blog_globals():
     return {"blog_any_public": any_public, "blog_latest": latest, "blog_view": view,
             "blog_category": category_label, "blog_base": brand.public_base}
+
+
+ARTICLE_LIMIT = 2_000  # characters: a text longer than this is no list of keywords any more, the button leaves it alone
+
+
+@bp.route("/admin/blog/<int:post_id>/article/<lang>", methods=["POST"])
+@_admin
+def admin_article(post_id, lang):
+    """"Aus Stichworten ausformulieren": the notes in the text field (often a list of keywords) become a full article
+    for scientists, mostly social scientists, who follow the development and features of the platform
+    (ARTICLE_INSTRUCTIONS). Works on the fields as they are now. The text is replaced; title and teaser are only
+    filled when empty. A text that is long already is left alone (ARTICLE_LIMIT), so no finished article is lost."""
+    from app import ai
+
+    if lang not in PROOFREAD_SPELLING:
+        abort(404)
+    entry = _post_or_404(post_id)
+    if "title_de" in request.form:
+        _save_form(entry, request.form)
+        db.session.commit()
+    title, summary, body = (getattr(entry, f"{field}_{lang}") for field in ("title", "summary", "body"))
+    if not body.strip():
+        flash(de_en("Erst Stichworte oder Notizen in das Textfeld schreiben.", "First write keywords or notes into the text field."),
+              "error")
+        return redirect(url_for("blog.admin_edit", post_id=entry.id))
+    if len(body) > ARTICLE_LIMIT:
+        flash(de_en("Der Text ist schon ausführlich. Dieser Knopf macht aus Stichworten einen Artikel und ersetzt den Text; für einen fertigen Text nehmen Sie „Textkorrekturen“.",
+                    "The text is long already. This button turns keywords into an article and replaces the text; for a finished text use “Text corrections”."),
+              "error")
+        return redirect(url_for("blog.admin_edit", post_id=entry.id))
+    from app.experimental import FEATURES
+
+    instructions = ARTICLE_INSTRUCTIONS.format(language="German" if lang == "de" else "English", spelling=PROOFREAD_SPELLING[lang])
+    instructions += "\n\n" + EXPERIMENTAL_INSTRUCTIONS + "\n".join(f"- {label}" for _k, label, _t in FEATURES)
+    prompt = "\n\n".join((f"TITLE (may be empty):\n{title}", f"SUMMARY (may be empty):\n{summary}", f"NOTES:\n{body}"))
+    try:
+        data = ai.json_answer(ai.generate_text(instructions, prompt, purpose="blog_article", schema=ARTICLE_SCHEMA))
+    except ai.AIError as e:
+        flash(str(e), "error")
+        return redirect(url_for("blog.admin_edit", post_id=entry.id))
+    article = _clean(data.get("body"), 100_000).strip()
+    if not article:
+        flash(de_en("Die KI hat keinen Text zurückgegeben; nichts wurde geändert.",
+                    "The AI did not return a text; nothing was changed."), "error")
+        return redirect(url_for("blog.admin_edit", post_id=entry.id))
+    setattr(entry, f"body_{lang}", article)
+    if not title.strip():
+        setattr(entry, f"title_{lang}", _one_line(data.get("title"), 200))
+    if not summary.strip():
+        setattr(entry, f"summary_{lang}", _clean(data.get("summary"), 1000).strip())
+    if entry.status == BlogPost.PUBLISHED:
+        entry.content_changed_at = utcnow()
+    entry.updated_at, entry.updated_by_id = utcnow(), current_user.id
+    db.session.commit()
+    flash(de_en("Text aus Ihren Stichworten ausformuliert. Bitte lesen, prüfen und anpassen: die Stichworte sind ersetzt.",
+                "Text written from your keywords. Please read, check and adjust it: the keywords are replaced."), "success")
+    return redirect(url_for("blog.admin_edit", post_id=entry.id))
 
 
 MAX_CHANGES_SHOWN = 12  # corrections named in the message after "Textkorrekturen"

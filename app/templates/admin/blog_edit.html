@@ -52,7 +52,9 @@
           <input name="title_{{ code }}" value="{{ p['title_' ~ code] }}" maxlength="200"></label>
         <label><span class="label-title">{{ de_en("Anriss", "Teaser") }}</span> <span class="hint">{{ de_en("ein, zwei Sätze für die Übersicht; leer: der Anfang des Textes", "one or two sentences for the overview; empty: the start of the text") }}</span>
           <textarea name="summary_{{ code }}" rows="2" maxlength="1000">{{ p['summary_' ~ code] }}</textarea></label>
-        <label><span class="label-title">{{ de_en("Text", "Text") }}</span>
+        <label><span class="blog-text-head"><span class="label-title">{{ de_en("Text", "Text") }}</span>
+          {% if ai_ready %}<button class="button button-small button-ai" type="submit" data-ai-call name="article" value="1" formaction="{{ url_for('blog.admin_article', post_id=p.id, lang=code) }}"
+            title="{{ de_en('Aus Stichworten oder Notizen im Textfeld einen ganzen Artikel für Forschende, vor allem Sozialwissenschaften, schreiben lassen. Der Text im Feld wird ersetzt; Titel und Anriss nur, wenn sie leer sind.', 'Have a full article for researchers, mostly social scientists, written from keywords or notes in the text field. The text in the field is replaced; title and teaser only if they are empty.') }}">{{ icon("sparkles", 16) }} {{ de_en("Aus Stichworten ausformulieren", "Write out from keywords") }}</button>{% endif %}</span>
           <textarea name="body_{{ code }}" rows="16" data-rich="block">{{ p['body_' ~ code] }}</textarea></label>
       </fieldset>
       {% endfor %}

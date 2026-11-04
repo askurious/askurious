@@ -6998,3 +6998,8 @@ document.addEventListener("click", function (e) {
   area.dispatchEvent(new Event("change", { bubbles: true }));
   take.hidden = true;
 });
+
+// A field with data-clear-placeholder shows its example only until someone clicks into it (blog draft, app/blog.py).
+document.addEventListener("focusin", function (e) {
+  if (e.target.matches && e.target.matches("[data-clear-placeholder]")) e.target.placeholder = "";
+});
