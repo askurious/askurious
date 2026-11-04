@@ -8,10 +8,10 @@ import secrets
 from markupsafe import Markup, escape
 
 from app.lang import Both, de_en, english
+from app.variable_names import CODE_RE  # noqa: F401 - the elements take the rule from here
 
 # {{name}}, or {{name|text}} with a text for an empty value (piping: an earlier question left unanswered)
 PLACEHOLDER = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:\|([^{}|]*))?\}\}")
-CODE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}\Z")  # \Z, not $: "$" also lets a newline at the end pass
 # "Weiß nicht" of a Likert matrix, a rating or a date (config "dont_know", off by default; UI/UX audit 2026-10-05,
 # V41): stored as DONT_KNOW, exported as DONT_KNOW_CODE (a date: 1 in its column <code>_dk), declared missing and
 # left out of every statistic like -77 (rows.NOT_SHOWN)

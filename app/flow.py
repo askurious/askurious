@@ -45,6 +45,7 @@ from math import comb, factorial
 
 from app.items.base import new_id as _nid
 from app.lang import de_en
+from app.variable_names import CODE_RE
 
 GROUPS = ("rand", "branch", "loop", "else")
 MAX_CONDS = 8  # conditions of one element "Bedingung" (parts)
@@ -75,7 +76,6 @@ def bounds(value):
 def code_list(value):
     """The codes of an "einer von" condition, written "1, 2, 3"."""
     return [v.strip() for v in re.split(r"[,;]", str(value or "")) if v.strip()]
-CODE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}\Z")
 # kinds of ends: the status a participation gets there (models.Response) and what the end is called
 END_KINDS = {"screenout": "Screen-out", "quotafull": "Quote voll", "excluded": "Ausschluss"}
 

@@ -19,9 +19,11 @@ from datetime import datetime, timedelta
 
 from flask import current_app
 
+from app.variable_names import VARIABLE_PATTERN
+
 FILES = ("data.csv", "codebook.csv", "questionnaire.md", "survey.json")
 EXTRA_RE = re.compile(r"([A-Za-z][A-Za-z0-9_]{0,80}_long\.csv"                                          # long formats
-                      r"|long_[A-Za-z][A-Za-z0-9_]{0,63}\.csv|design_[A-Za-z][A-Za-z0-9_]{0,63}\.json"   # per choice item
+                      rf"|long_{VARIABLE_PATTERN}\.csv|design_{VARIABLE_PATTERN}\.json"                  # per choice item
                       r"|theme\.json|(logo(_dark)?|partner_[1-3])\.(png|jpg|webp|svg))")  # the look, in snapshots before E4
 
 
