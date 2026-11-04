@@ -4429,6 +4429,15 @@ main:focus { outline: none; }  /* the target of the skip link, not a control */
 .shot-view-close { position: fixed; top: 14px; right: 18px; width: 40px; height: 40px; border: 0; border-radius: 50%; cursor: pointer;
   background: rgba(255, 255, 255, 0.14); color: #fff; font-size: 26px; line-height: 1; }
 .shot-view-close:hover, .shot-view-close:focus-visible { background: rgba(255, 255, 255, 0.28); }
+/* the outer fifths of the screen page back and forth (app.js, carousel); the middle three fifths close the view */
+.shot-view-nav { position: fixed; top: 0; bottom: 0; width: 20vw; margin: 0; padding: 0 2vw; border: 0; background: transparent; cursor: pointer;
+  display: flex; align-items: center; color: #fff; }
+.shot-view-prev { left: 0; justify-content: flex-start; }
+.shot-view-next { right: 0; justify-content: flex-end; }
+.shot-view-nav span { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18); font-size: 34px; line-height: 1; padding-bottom: 4px; box-sizing: border-box; }
+.shot-view-nav:hover span, .shot-view-nav:focus-visible span { background: rgba(255, 255, 255, 0.34); }
+.shot-view-nav:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
 
 /* Lernhilfen (app/learning.py, templates/_learn.html): a quiet fold at a decision, a small ? at a statistic */
 .learn-why { margin: 4px 0 8px; font-size: 0.85rem; color: var(--muted); }

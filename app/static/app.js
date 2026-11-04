@@ -3524,7 +3524,9 @@ document.querySelectorAll("[data-cj-reverse]").forEach(function (box) {
     var view = document.createElement("dialog");
     view.className = "shot-view";
     view.setAttribute("aria-label", de_en("Screenshot groß", "Large screenshot"));
-    view.innerHTML = '<button type="button" class="shot-view-close" aria-label="' + de_en("Schließen", "Close") + '">×</button><img alt=""><p></p>';
+    view.innerHTML = '<button type="button" class="shot-view-close" aria-label="' + de_en("Schließen", "Close") + '">×</button><img alt=""><p></p>' +
+      '<button type="button" class="shot-view-nav shot-view-prev" data-view-prev aria-label="' + de_en("Vorheriger Screenshot", "Previous screenshot") + '"><span aria-hidden="true">‹</span></button>' +
+      '<button type="button" class="shot-view-nav shot-view-next" data-view-next aria-label="' + de_en("Nächster Screenshot", "Next screenshot") + '"><span aria-hidden="true">›</span></button>';
     document.body.appendChild(view);
     var big = view.querySelector("img"), caption = view.querySelector("p"), at = 0;
     function show(i) {
@@ -3532,7 +3534,9 @@ document.querySelectorAll("[data-cj-reverse]").forEach(function (box) {
       var small = links[at].querySelector("img"), fig = links[at].closest("figure").querySelector("figcaption");
       big.src = links[at].href;
       big.alt = small ? small.alt : "";
-      caption.textContent = fig ? fig.textContent : "";
+      // the caption and the credit line (a span) are separate parts: a space between them, not "markierenKarte:"
+      caption.textContent = fig ? Array.prototype.map.call(fig.childNodes, function (n) { return n.textContent.trim(); })
+        .filter(Boolean).join(" ") : "";
     }
     links.forEach(function (a, i) {
       a.addEventListener("click", function (e) {
@@ -3542,6 +3546,10 @@ document.querySelectorAll("[data-cj-reverse]").forEach(function (box) {
         box.dispatchEvent(new Event("mouseenter"));  // the carousel rests meanwhile
       });
     });
+    // the outer fifths of the screen page through the screenshots (the arrows); a click on the middle three fifths,
+    // like a click anywhere else, closes the view
+    view.querySelector("[data-view-prev]").addEventListener("click", function (e) { e.stopPropagation(); show(at - 1); });
+    view.querySelector("[data-view-next]").addEventListener("click", function (e) { e.stopPropagation(); show(at + 1); });
     view.addEventListener("click", function () { view.close(); });
     view.addEventListener("close", function () { box.dispatchEvent(new Event("mouseleave")); links[at].focus(); go(at); });
     view.addEventListener("keydown", function (e) {
