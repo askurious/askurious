@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ ui_language() }}" data-brand="Askurious"{% if site() %} data-site="{{ site() }}"{% endif %}{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>{# the language of these pages for this person (app/lang.py); `lang` is the language of the survey being edited, not of this page #}
+<html lang="{{ ui_language() }}" data-brand="Askurious" data-variable-name="{{ variable_name_pattern }}"{% if site() %} data-site="{{ site() }}"{% endif %}{% for k, v in display_attributes(current_user).items() %} {{ k }}="{{ v }}"{% endfor %}>{# the language of these pages for this person (app/lang.py); `lang` is the language of the survey being edited, not of this page #}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

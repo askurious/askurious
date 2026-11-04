@@ -89,18 +89,14 @@ def test_spss_names_for_reserved_words_and_long_names_agree_with_the_codebook(ap
         assert not [f for f in design.check(s) if f.severity == design.ERROR and "SPSS" in f.message]
 
 
-def test_editor_refuses_a_new_spss_keyword_but_keeps_an_old_one(app, client, survey):
-    """E-3: a new variable name BY is refused; a question that is already called TO keeps its name when saved."""
+def test_an_spss_keyword_is_an_allowed_name_and_spss_renames_it(app, client, survey):
+    """No list of forbidden words (app/variable_names.py, Philipp 2026-11-04; before: E-3 refused a new BY): the name stays
+    in the survey, the SPSS files call it v_BY and the pre-launch check and the codebook say so."""
     add(client, "text_input")                                                   # 2
     client.post(E + "/items/2", data={"code": "BY", "question": "Frage"})
     with app.app_context():
-        assert db.session.get(Item, 2).code != "BY"
-        db.session.get(Item, 2).code = "TO"
-        db.session.commit()
-    client.post(E + "/items/2", data={"code": "TO", "question": "Frage neu"})
-    with app.app_context():
-        item = db.session.get(Item, 2)
-        assert item.code == "TO" and item.text("question") == "Frage neu"
+        assert db.session.get(Item, 2).code == "BY"
+    assert sav.spss_names(["BY"]) == {"BY": "v_BY"}
 
 
 def test_spss_csv_has_one_line_per_case(app, client, survey):

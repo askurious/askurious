@@ -216,6 +216,15 @@ Eine Befragung verwendet eine eingefrorene Kopie eines Konstrukts, sodass späte
 
 ---
 
+### Variablennamen
+
+Jede Frage, Randomisierung und Schleife hat einen Variablennamen; so heißt die Spalte in den Daten.
+Es gilt überall dieselbe Regel: zuerst ein Buchstabe, dann Buchstaben, Ziffern und `_`, höchstens 64 Zeichen.
+Umlaute, Leerzeichen und Bindestriche sind nicht erlaubt.
+Groß- und Kleinschreibung bleibt erhalten, aber zwei Namen dürfen sich nicht nur darin unterscheiden, weil SPSS sie für denselben Namen hält.
+Manche Elemente und Schleifen hängen Teile an den Namen an, etwa `_1` oder `_order`.
+Wird ein Name dadurch länger als 64 Zeichen oder ist er ein Schlüsselwort von SPSS wie `BY`, heißt die Variable nur in den SPSS-Dateien anders; das Codebuch nennt den neuen Namen.
+
 ## 7. Ablauf
 
 ![Der Ablauf eines Online-Experiments: Einwilligung, eine Randomisierung zwischen zwei Texten, danach dieselbe Skala](img/flow-experiment.jpg)

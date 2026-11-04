@@ -216,6 +216,15 @@ A survey uses a frozen copy of a construct, so later changes to the pool never c
 
 ---
 
+### Variable names
+
+Every question, randomisation and loop has a variable name; that is the name of its column in the data.
+The same rule applies everywhere: a letter first, then letters, digits and `_`, at most 64 characters.
+Umlauts, spaces and hyphens are not allowed.
+Upper and lower case are kept, but two names must not differ only in that, because SPSS takes them for the same name.
+Some elements and loops add parts to the name, such as `_1` or `_order`.
+If a name then gets longer than 64 characters, or if it is an SPSS keyword such as `BY`, the variable has another name in the SPSS files only; the codebook gives the new name.
+
 ## 7. Flow
 
 ![The flow of an online experiment: consent, a randomisation between two texts, then the same scale](img/flow-experiment.jpg)

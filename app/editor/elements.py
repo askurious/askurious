@@ -13,7 +13,6 @@ from app.extensions import db
 from app.items.base import CODE_RE, LEVEL_LABELS, TEXT_MAX, new_id, too_long_text
 from app.lang import de_en
 from app.models import Item, utcnow
-from app.sav import RESERVED as SPSS_RESERVED
 from app.surveys import LANGUAGE_NAMES, get_survey
 from app.timeutil import to_local
 
@@ -244,11 +243,6 @@ def edit_item(survey_id, item_id):
             if not CODE_RE.match(code):
                 code_problem = de_en("Variablenname: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _.",
                                      "Variable name: a letter first, then letters, digits or _.")
-            elif code != item.code and code.upper() in SPSS_RESERVED:  # a name kept from before stays (sav.spss_names)
-                code_problem = de_en("„{code}“ ist in SPSS ein Schlüsselwort (wie TO, BY, AND, NOT) und kein gültiger "
-                                     "Variablenname. Bitte einen anderen Namen wählen.",
-                                     "“{code}” is a keyword in SPSS (like TO, BY, AND, NOT) and no valid variable name. "
-                                     "Please choose another name.", code=code)
             elif code in taken:
                 code_problem = de_en("Der Variablenname „{code}“ ist schon vergeben.",
                                      "The variable name “{code}” is already taken.", code=code)
@@ -566,7 +560,7 @@ def item_frame(survey_id, item_id):
                       and not item.kind.design_locked(item))
         try:
             code = request.form.get("code", "").strip()
-            if structural and CODE_RE.match(code) and (code == item.code or code.upper() not in SPSS_RESERVED):
+            if structural and CODE_RE.match(code):
                 item.code = code
             mode = request.form.get("answer_mode")
             if structural and mode in Item.ANSWER_MODES and item.type != "consent":

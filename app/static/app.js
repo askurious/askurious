@@ -3613,8 +3613,9 @@ document.addEventListener("dragenter", function (e) {
 // Variable names: check the scheme while typing (letter first, then letters, digits and _; parts appended to a
 // variable name may also start with a digit); the item's variable name must also not be taken yet
 (function () {
+  var pattern = document.documentElement.dataset.variableName;  // the rule of app/variable_names.py, handed over by base.html
   var RULES = {
-    full: { re: /^[A-Za-z][A-Za-z0-9_]{0,63}$/, msg: de_en("Buchstabe am Anfang, dann nur Buchstaben, Ziffern und _ (keine Umlaute, Leerzeichen oder Bindestriche)",
+    full: { re: pattern ? new RegExp("^" + pattern + "$") : null, msg: de_en("Buchstabe am Anfang, dann nur Buchstaben, Ziffern und _ (keine Umlaute, Leerzeichen oder Bindestriche)",
                                                            "A letter first, then only letters, digits and _ (no umlauts, spaces or hyphens)") },
     column: { re: /^[A-Za-z_][A-Za-z0-9_]{0,40}$/, msg: de_en("Buchstabe oder _ am Anfang, dann nur Buchstaben, Ziffern und _",
                                                               "A letter or _ first, then only letters, digits and _") },
@@ -3623,7 +3624,7 @@ document.addEventListener("dragenter", function (e) {
   };
   function check(input) {
     var rule = RULES[input.dataset.varname] || RULES.full, value = input.value.trim(), problem = "";
-    if (value && !rule.re.test(value)) problem = rule.msg;
+    if (value && rule.re && !rule.re.test(value)) problem = rule.msg;
     else if (value && input.dataset.taken) {
       try { if (JSON.parse(input.dataset.taken).indexOf(value) >= 0) problem = de_en("„" + value + "“ ist schon vergeben", "“" + value + "” is already taken"); } catch (e) {}
     }

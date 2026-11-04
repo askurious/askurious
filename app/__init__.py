@@ -444,6 +444,9 @@ def create_app(config_class=Config, server=False):
 
     app.register_blueprint(compute.bp)  # Rechenknecht reports (off without COMPUTE_URL and COMPUTE_SECRET)
     app.jinja_env.globals.update(designs_for=designs.available, design_may_edit=designs.may_edit)
+    from app.variable_names import VARIABLE_PATTERN
+
+    app.jinja_env.globals.update(variable_name_pattern=VARIABLE_PATTERN)
     from app import org_designs
 
     app.jinja_env.globals.update(org_designs_for=org_designs.for_user)
