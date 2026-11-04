@@ -13,14 +13,22 @@ The PDF is made without AI, from the survey alone, and it is deterministic: the 
 (app/prereg.py), so its SHA-256 there says which material belonged to the start of the fieldwork, and the Zenodo and
 Coscine package carry it (public: without the wording of instruments that may not be passed on).
 
+A randomised survey gets more (concept "Befragungsmaterial mit sichtbarer Randomisierung", Data Colada 140): part 1 is
+one path through it, the first level of every randomisation, and says so; part 2 marks each condition's blocks with
+its letter and colour; part 3 shows all conditions, how they were assigned and how they differ (app/study_conditions.py,
+the differences worked out by app/variants.py). It comes last so that part 2 is part 2 in every survey, with a
+randomisation or without one. Images stand in the PDF, with their prompt and model.
+
 The texts of the questionnaire are in the survey's default language; the frame (headings, notes) in the language of the
 person who downloads or freezes it. The fonts are those of app/pdf_fonts.py, as on the paper questionnaire: Noto Sans
 for Latin, Greek and Cyrillic everywhere, Arabic (right to left) and Chinese where the image has their fonts."""
 import functools
+import hashlib
 import io
+import math
 import os
 import re
-from app import pdf_fonts
+from app import pdf_fonts, variants
 from app.items.base import plain
 
 # The notes of part 2 take the colours of the researcher pages (app/static/app.css, read below, so the two never drift
@@ -44,6 +52,18 @@ INDENT = 6  # mm per level of the flow in part 2 (inside a condition, a randomis
 PAD = 6  # pt: reportlab's frame keeps this padding inside the margins
 LOGO_MM = {"s": 9, "m": 12, "l": 16}  # height of the survey's logo on the first page, by its size
 NAME = "survey-material.pdf"
+FORMAT = 2  # of this PDF, in its footer: a new format gives other bytes for the same questionnaire (app/prereg.py)
+# the letters' colours of a randomisation: Okabe & Ito's safe set, darkened to 4.5 : 1 on white. The letter stands in the
+# text as well, so the conditions stay apart in black and white and for those who cannot tell the colours apart.
+LEVEL_COLOURS = ("#0072b2", "#b84f00", "#00735c", "#a0447c", "#6f6200", "#5a4fa2", "#444444")
+ID_LENGTH = 8  # hex digits of the ID on every page: enough to tell the exports on a desk apart
+ROW_MM = 235  # a table row taller than this cannot stay whole on a page
+PICTURE_PX = 900  # longest side of an embedded image
+PICTURE_MM = 110  # its width in parts 1 and 2
+ROUND_ORDER = {"likert": ("Aussagen in zufälliger Reihenfolge", "Statements in random order"),
+               "semantic": ("Begriffspaare in zufälliger Reihenfolge", "Word pairs in random order"),
+               "single_choice": ("Antworten in zufälliger Reihenfolge", "Answer options in random order"),
+               "multiple_choice": ("Antworten in zufälliger Reihenfolge", "Answer options in random order")}
 
 
 @functools.lru_cache(maxsize=1)
@@ -87,6 +107,43 @@ def _words(text):
     return _safe(plain(text or "")).replace("\n", "<br/>")
 
 
+TAGS = {"b": ("<b>", "</b>"), "i": ("<i>", "</i>"), "u": ("<u>", "</u>"), "sub": ("<sub>", "</sub>"),
+        "sup": ("<super>", "</super>"), "small": ('<font size="8">', "</font>")}
+
+
+def tokens_markup(tokens, open_tag="", close_tag=""):
+    """Words of app/variants.py as markup, each stretch of one style in its tags, between open_tag and close_tag (a
+    mark around them; line breaks stay outside it, so a mark never runs over an empty line)."""
+    out, run, style = [], [], None
+
+    def flush():
+        if run:
+            text = _safe("".join(run))
+            for name in style or ():
+                text = TAGS[name][0] + text + TAGS[name][1] if name in TAGS else text
+            out.append(open_tag + text + close_tag)
+            run.clear()
+
+    for word, kind in tokens:
+        if word.startswith("\n"):
+            flush()
+            out.append("<br/>" * min(2, len(word)))
+        else:
+            if kind != style:
+                flush()
+                style = kind
+            run.append(word)
+    flush()
+    return "".join(out)
+
+
+def _rich(text):
+    """A text of the questionnaire as participants read it: paragraphs, bold, italic, high and low. Right-to-left text
+    stays plain: it is ordered as a whole, not word by word (app/pdf_fonts.py)."""
+    text = text or ""
+    return _words(text) if pdf_fonts.has_rtl(plain(text)) else tokens_markup(variants.parse(text))
+
+
 class _Doc:
     def __init__(self, survey, ui, public):
         from app import export
@@ -96,9 +153,58 @@ class _Doc:
         self.withheld = export.withheld(survey) if public else set()
         self.numbers = {}
         self.accent, self.logo = _look(survey)
+        self.levels = _levels(survey)  # {block id: (randomisation, index of the level)}
+        self.pictures = {}
 
     def say(self, de, en):
         return en if self.ui == "en" else de
+
+
+def _levels(survey):
+    """{block id: (randomisation, index of its level)}: the innermost randomisation a block lies in."""
+    from app import flow
+
+    out = {}
+
+    def rec(node, here):
+        for i, child in enumerate(node.get("children") or []):
+            mine = (node, i) if node.get("t") == "rand" else here
+            if child.get("t") == "block":
+                if mine:
+                    out[child.get("block")] = mine
+            else:
+                rec(child, mine)
+
+    rec(flow.tree(survey), None)
+    return out
+
+
+def level_letter(i):
+    return "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i] if i < 26 else str(i + 1)
+
+
+def level_colour(i):
+    return LEVEL_COLOURS[i % len(LEVEL_COLOURS)]
+
+
+def level_tint(i):
+    """The level's colour, very light: behind words, with dark text on it."""
+    red, green, blue = (int(level_colour(i)[k:k + 2], 16) for k in (1, 3, 5))
+    return "#{:02x}{:02x}{:02x}".format(*(round(255 - (255 - c) * 0.2) for c in (red, green, blue)))
+
+
+def level_name(survey, node, i):
+    """What the data hold for this level (app/export.py, the column of the randomisation)."""
+    from app import flow
+
+    return plain(flow.child_label(survey, node["children"][i]))
+
+
+def level_tag(doc, node, i):
+    """cond1 = A: Gewinn-Framing (Stufe 1 von 3), with the letter in the text: never in colour alone."""
+    return doc.say("{code} = {letter}: {name} (Stufe {i} von {n})", "{code} = {letter}: {name} (level {i} of {n})").format(
+        code=node.get("code"), letter=level_letter(i), name=level_name(doc.survey, node, i), i=i + 1,
+        n=len(node.get("children") or []))
 
 
 def _look(survey):
@@ -144,7 +250,20 @@ def _styles(accent):
     }
     for key, colour in colours().items():
         out[key] = ParagraphStyle(key, parent=out["small"], textColor=colour)
+    out["box"] = ParagraphStyle("box", parent=out["body"], spaceBefore=0, spaceAfter=0)
+    out["cell"] = ParagraphStyle("cell", parent=out["small"], fontSize=8.5, leading=11)
     return out
+
+
+def page_table(rows, **options):
+    """reportlab's Table whose rows stay whole, unless one is taller than a page (a long prompt or consent text): only
+    that may split, since a row split over a page loses its place on the line and leaves half a question behind."""
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Table
+
+    whole = Table(rows, **options)
+    whole.wrap(sum(options["colWidths"]), 100_000)
+    return Table(rows, splitInRow=1, **options) if max(whole._rowHeights) > ROW_MM * mm else whole
 
 
 def _swatch(colour):
@@ -195,7 +314,7 @@ def _answers(doc, item, annotated=False):
             return ["<i>" + _safe(doc.say("Standardtext der Einwilligung von Askurious, mit den Angaben der "
                                           "Verantwortlichen", "Standard consent text of Askurious, with the details "
                                           "of the people responsible")) + "</i>"]
-        return [_words(own or kind.template_body(item, lang))]
+        return [_rich(own or kind.template_body(item, lang))]
     lines = kind.questionnaire_lines(item, lang)
     if lines:
         return [_line(re.sub(r"^\s*-\s*", "", line), annotated) for line in lines if line.strip()]
@@ -225,8 +344,9 @@ def _label(doc, item):
     return str(label)
 
 
-def _element(doc, styles, item, annotated=False):
-    """[Paragraph] of one element as participants see it (annotated: with the codes of the answers)."""
+def _element(doc, styles, item, annotated=False, picture_mm=PICTURE_MM):
+    """[Paragraph] of one element as participants see it (annotated: with the codes of the answers); an image at most
+    picture_mm wide."""
 
     t = item.t(doc.lang)
     number = doc.numbers.get(item.id)
@@ -236,10 +356,13 @@ def _element(doc, styles, item, annotated=False):
                                                         "Veröffentlichung (siehe Quelle).",
                                                         "Wording not included: no general permission to publish (see "
                                                         "the source).")) + "</i>", styles["body"])]
-    question = _words(t.get("question") or t.get("body") if item.type != "consent" else t.get("question"))
+    source = t.get("question") or t.get("body") if item.type != "consent" else t.get("question")
+    question, wording = _words(source), _rich(source)
     if item.answer_mode == "required" and item.kind.collects_answer:
-        question += " *"
-    out = [Paragraph(head + question, styles["body"])] if (head or question) else []
+        question, wording = question + " *", wording + " *"
+    out = [Paragraph(head + wording, styles["body"])] if (head or question) else []
+    if item.type == "image":
+        out += picture_flowables(doc, styles, item, picture_mm)
     out += [Paragraph(line, styles["answer"]) for line in _answers(doc, item, annotated)
             if not (item.type not in ("single_choice", "multiple_choice", "likert", "semantic", "rating", "text_input",
                                       "consent") and line == question)]
@@ -274,7 +397,9 @@ def _notes(doc, item):
         if reverse:
             out.append(("variable", doc.say("Umgepolt: ", "Reverse coded: ") + ", ".join(reverse)))
     if (item.config or {}).get("randomize"):
-        out.append(("random", doc.say("Reihenfolge zufällig", "Random order")))
+        out.append(("random", doc.say(*ROUND_ORDER.get(item.type, ("Reihenfolge zufällig", "Random order")))))
+    if item.type == "image":
+        out += _picture_notes(doc, item)
     validation = (item.config or {}).get("validation")
     if validation and validation != "none":
         name = CHECKS.get(validation)
@@ -290,6 +415,104 @@ def _notes(doc, item):
     return out
 
 
+# --- images ----------------------------------------------------------------------------------------------------
+
+
+def picture_asset(item):
+    """The approved image of an image element; of a loop, the first: the prompt says what differs per row."""
+    approved = [a for a in item.assets if a.status == "approved"]
+    return item.kind.asset_for(item) or (approved[0] if approved else None)
+
+
+def _picture(doc, item):
+    """(JPEG bytes, width, height) of an image element, or (None, why it is not shown). Participants see approved images
+    only, so nothing else stands here either; the public version shows an image only with the declared rights of the
+    public archive (app/asset_rights.py). The same image gives the same bytes: no date or metadata in it."""
+    from app import asset_rights, media
+
+    asset = picture_asset(item)
+    if asset is None:
+        return None, doc.say("Bild noch nicht freigegeben", "Image not approved yet")
+    if doc.public and not asset_rights.declared(doc.survey, asset):
+        return None, doc.say("Bild nicht enthalten: keine Rechte für die öffentliche Archivierung erklärt.",
+                             "Image not included: no rights declared for the public archive.")
+    path = asset_rights.path(doc.survey, asset)
+    if path in doc.pictures:
+        return doc.pictures[path]
+    found = None, doc.say("Bilddatei fehlt", "Image file missing")
+    try:
+        with open(path, "rb") as source:
+            raw = source.read()
+        with media.decoding(), media.open_image(raw, ["PNG", "JPEG", "GIF", "WEBP"]) as img:
+            img.thumbnail((PICTURE_PX, PICTURE_PX))
+            flat = img.convert("RGBA")
+            sheet = media_sheet(flat)
+            out = io.BytesIO()
+            sheet.save(out, "JPEG", quality=82, optimize=True)
+            found = out.getvalue(), sheet.width, sheet.height
+    except Exception:  # noqa: BLE001 - a broken file leaves a note, not a failed export
+        pass
+    doc.pictures[path] = found
+    return found
+
+
+def media_sheet(rgba):
+    """The image on white paper, without what the file carried besides its pixels."""
+    from PIL import Image as PILImage
+
+    sheet = PILImage.new("RGB", rgba.size, "#ffffff")
+    sheet.paste(rgba, mask=rgba.getchannel("A"))
+    return sheet
+
+
+def picture_flowables(doc, styles, item, width_mm):
+    """[flowable] of an image element: the picture, or a grey field that says why it is missing."""
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Image, Spacer, Table, TableStyle
+
+    found = _picture(doc, item)
+    if found[0] is None:
+        table = Table([[Paragraph(_safe(found[1]), styles["variable"])]], colWidths=[width_mm * mm], rowHeights=[22 * mm], hAlign="LEFT")
+        table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), "#eeeeea"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        return [Spacer(1, 3), table]
+    data, width, height = found
+    return [Spacer(1, 3), Image(io.BytesIO(data), width=width_mm * mm, height=width_mm * mm * height / max(1, width), hAlign="LEFT")]
+
+
+def picture_prompt(item):
+    """The prompt that made an AI image (the asset's: what went to the model, style included), or "" for an upload."""
+    asset = picture_asset(item)
+    if asset is not None and asset.source != "ai":
+        return ""
+    return (asset.prompt if asset is not None else "") or (item.config or {}).get("prompt", "")
+
+
+def _picture_origin(doc, item):
+    """One line on where an image comes from."""
+    asset = picture_asset(item)
+    if asset is None:
+        return doc.say("Bild noch nicht erzeugt oder nicht freigegeben", "Image not generated or not approved yet")
+    if asset.source != "ai":
+        return doc.say("Hochgeladenes Bild", "Uploaded image")
+    size = (item.config or {}).get("size")
+    return doc.say("KI-erzeugtes Bild; Modell: {model}", "AI-generated image; model: {model}").format(
+        model=asset.model or "-") + (doc.say("; Größe: {s}", "; size: {s}").format(s=size) if size else "") + (
+        doc.say("; Stil: {s}", "; style: {s}").format(s=asset.style) if asset.style else "") + (
+        doc.say("; erzeugt am {d}", "; generated on {d}").format(d=asset.created_at.date().isoformat()) if asset.created_at else "")
+
+
+def _picture_notes(doc, item):
+    """The notes beside an image: what it is, how it was made (in the public version too, Philipp 2026-11-04)."""
+    out = [("variable", doc.say("Bild: ", "Image: ") + item.code), ("source", _picture_origin(doc, item))]
+    prompt = picture_prompt(item)
+    if prompt:
+        out.append(("source", doc.say("Prompt: ", "Prompt: ") + prompt))
+    alt = plain(item.t(doc.lang).get("alt") or "")
+    if alt:
+        out.append(("variable", doc.say("Alternativtext: ", "Alternative text: ") + alt))
+    return out
+
+
 def _flow_note(doc, node):
     """(colour key, text) for a node of the flow that is no block, or None."""
     from app import flow
@@ -301,9 +524,9 @@ def _flow_note(doc, node):
         return "logic", doc.say("Sonst:", "Otherwise:")
     if kind == "rand":
         n = len(node.get("children") or [])
-        return "random", doc.say("Randomisierung „{name}“: {k} von {n} zufällig, je Person",
-                                 "Randomisation “{name}”: {k} of {n} at random, per person").format(
-            name=node.get("name") or node.get("code"), k=node.get("k", 1), n=n)
+        return "random", doc.say("Randomisierung „{name}“ ({code}): {k} von {n} zufällig, je Person",
+                                 "Randomisation “{name}” ({code}): {k} of {n} at random, per person").format(
+            name=node.get("name") or node.get("code"), code=node.get("code"), k=node.get("k", 1), n=n)
     if kind == "loop":
         return "random", doc.say("Schleife „{name}“ über {n} Zeilen", "Loop “{name}” over {n} rows").format(
             name=node.get("name") or node.get("code"), n=len(node.get("rows") or [])) + (
@@ -356,6 +579,58 @@ def _ordered_blocks(survey):
     return out
 
 
+def _one_path(survey):
+    """[(node, depth)] of the flow with the first k levels of every randomisation: part 1, one path through the survey.
+    Blocks of the survey the flow does not name come last, as in _ordered_blocks."""
+    from app import flow
+
+    out, seen = [], set()
+
+    def rec(node, depth):
+        children = node.get("children") or []
+        if node.get("t") == "rand":
+            children = children[:max(node.get("k", 1), 1)]
+        for child in children:
+            out.append((child, depth))
+            if child.get("t") == "block":
+                seen.add(child.get("block"))
+            elif child.get("t") in flow.GROUPS:
+                rec(child, depth + 1)
+
+    rec(flow.tree(survey), 0)
+    named = {n.get("block") for n, _, _ in flow.walk(flow.tree(survey)) if n.get("t") == "block"}
+    return out + [({"t": "block", "block": b.id}, 0) for b in survey.blocks if b.id not in seen and b.id not in named]
+
+
+def randomisations(survey):
+    """The randomisations of the flow in its order, each with at least two levels."""
+    from app import flow
+
+    return [n for n in flow.walk_nodes(survey, "rand") if len(n.get("children") or []) > 1]
+
+
+def combinations(node):
+    """How many assignments the randomisations under a node can give together: independent ones multiply, the levels of
+    one are alternatives. Behind a condition a randomisation counts as if reached, so this is the number of
+    assignments, not of paths a person can take (concept 5.1, settled here). k of n: an upper bound when levels hold
+    randomisations of their own."""
+    children = node.get("children") or []
+    if node.get("t") != "rand":
+        return math.prod(combinations(child) for child in children)
+    if not children:
+        return 1
+    inner = [combinations(child) for child in children]
+    k = min(max(node.get("k", 1), 1), len(children))
+    return sum(inner) if k == 1 else math.comb(len(children), k) * max(inner) ** k
+
+
+def variants_of(survey):
+    """How many variants of the questionnaire its randomisations give."""
+    from app import flow
+
+    return combinations(flow.tree(survey))
+
+
 def _number(doc, order, blocks):
     n = 0
     for node, _ in order:
@@ -369,6 +644,7 @@ def _number(doc, order, blocks):
 def _part(doc, styles, order, blocks, annotated):
     """The flowables of part 1 or part 2. In part 2 what a condition, a randomisation or a loop holds is indented
     under its note (INDENT per level), so a reader sees which blocks it rules."""
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import Indenter
 
@@ -377,6 +653,12 @@ def _part(doc, styles, order, blocks, annotated):
     for n, (node, depth) in enumerate(order):
         indent = INDENT * depth * mm if annotated else 0
         shown = _node(doc, styles, node, n > last_block, blocks, annotated, width - indent)
+        level = doc.levels.get(node.get("block")) if node.get("t") == "block" else None
+        if shown and level:  # the condition in words above the block, in part 1 too: it is not what everyone saw
+            tag = Paragraph(f"<b>{_safe(doc.say('Bedingung ', 'Condition ') + level_tag(doc, *level))}</b>",
+                            ParagraphStyle("tag", parent=styles["small"], textColor=level_colour(level[1]), spaceBefore=6))
+            tag.keepWithNext = True
+            shown = [tag] + shown
         if shown and indent:
             shown = [Indenter(left=indent)] + shown + [Indenter(left=-indent)]
         out += shown
@@ -386,7 +668,7 @@ def _part(doc, styles, order, blocks, annotated):
 def _node(doc, styles, node, after_last_block, blocks, annotated, width):
     """[flowable] of one node of the flow: a block with its elements, or (part 2) the note of any other node."""
     from reportlab.lib.units import mm
-    from reportlab.platypus import KeepTogether, Spacer, Table, TableStyle
+    from reportlab.platypus import CondPageBreak, KeepTogether, Spacer, Table, TableStyle
 
     out = []
     if node.get("t") != "block":
@@ -394,6 +676,8 @@ def _node(doc, styles, node, after_last_block, blocks, annotated, width):
             return out  # a separated section with no block behind it shows nothing
         note = _flow_note(doc, node) if annotated else None
         if note:
+            if node.get("t") == "rand":  # what follows is indented, which keepWithNext does not reach
+                out.append(CondPageBreak(80 * mm))
             out.append(Paragraph(f"<b>{_safe(note[1])}</b>", styles[note[0]]))
             out[-1].keepWithNext = True  # a note never stands alone at the foot of a page
         return out
@@ -413,15 +697,19 @@ def _node(doc, styles, node, after_last_block, blocks, annotated, width):
         for item in page:
             if item.type == "page_break" or (not annotated and item.type == "calc"):  # computed, never shown
                 continue
-            shown = _element(doc, styles, item, annotated)
+            # in part 2 an image shares the line with its notes (the bar and the padding of the column take the rest)
+            picture_mm = min(PICTURE_MM, (width - 64 * mm) / mm - 6) if annotated else PICTURE_MM
+            shown = _element(doc, styles, item, annotated, picture_mm)
             if not shown:
                 continue
             if annotated:
                 notes = [Paragraph(_safe(text), styles[key]) for key, text in _notes(doc, item)]
-                table = Table([[shown, notes or ""]], colWidths=[width - 64 * mm, 64 * mm], hAlign="LEFT")
+                level = doc.levels.get(block.id)
+                bar = [("LINEBEFORE", (0, 0), (0, 0), 2.5, level_colour(level[1]))] if level else []
+                table = page_table([[shown, notes or ""]], colWidths=[width - 64 * mm, 64 * mm], hAlign="LEFT")
                 table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
                                            *([("LINEBEFORE", (1, 0), (1, 0), 0.5, tokens()["--border-strong"])] if notes else []),
-                                           ("LEFTPADDING", (0, 0), (0, 0), 0), ("LEFTPADDING", (1, 0), (1, 0), 6),
+                                           *bar, ("LEFTPADDING", (0, 0), (0, 0), 7 if level else 0), ("LEFTPADDING", (1, 0), (1, 0), 6),
                                            ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
                 out.append(table)
             else:
@@ -439,21 +727,36 @@ def _legend(doc, styles):
             ("check", doc.say("Pflichtangaben, Prüfungen, Enden", "Required answers, checks, ends")),
             ("variable", doc.say("Variablennamen und Seiten", "Variable names and pages")),
             ("source", doc.say("Instrumente und Quellen", "Instruments and sources")))
-    table = Table([[_swatch(colours()[key]), Paragraph(_safe(text), styles[key])] for key, text in rows],
+    if doc.levels:
+        rows += (("level", doc.say("Bedingungen: Buchstabe und Farbe je Stufe einer Randomisierung (A, B, C ...)",
+                                   "Conditions: a letter and a colour per level of a randomisation (A, B, C ...)")),)
+    table = Table([[_swatch(colours().get(key, level_colour(0))), Paragraph(_safe(text), styles.get(key, styles["small"]))]
+                   for key, text in rows],
                   colWidths=[5 * mm, 120 * mm], hAlign="LEFT")
     table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                                ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]))
     return table
 
 
-def build(survey, ui=None, public=False):
-    """The PDF as bytes. ui: the language of the frame ("de"/"en"; None: the page's, German outside a request);
-    public: for a deposit, without the wording of instruments that may not be passed on (export.withheld)."""
+def build(survey, ui=None, public=False, compare=None):
+    """The PDF as bytes, with its ID on every page. ui: the language of the frame ("de"/"en"; None: the page's, German
+    outside a request); public: for a deposit, without the wording of instruments that may not be passed on
+    (export.withheld); compare: how part 3 shows the differences between conditions (study_conditions.MODES; None: study_conditions.DEFAULT, for
+    what nobody chooses a view for).
+
+    The ID says which PDF lies on the table (Philipp 2026-11-04: exports of different sessions must not be mixed up). A
+    date would give other bytes each time, and the pre-registration needs the same ones, so it is the start of the
+    SHA-256 of the PDF without it: the same PDF has the same ID, any change of wording, layout or code another."""
+    bare = _render(survey, ui, public, compare, "")
+    return _render(survey, ui, public, compare, hashlib.sha256(bare).hexdigest()[:ID_LENGTH])
+
+
+def _render(survey, ui, public, compare, stamp):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Spacer
 
-    from app import brand
+    from app import brand, study_conditions
     from app.items.base import reader
 
     doc = _Doc(survey, reader(ui), public)
@@ -461,6 +764,7 @@ def build(survey, ui=None, public=False):
     blocks = {b.id: b for b in survey.blocks}
     order = _ordered_blocks(survey)
     _number(doc, order, blocks)
+    rands = randomisations(survey)
     plain_title = plain(survey.title_in(doc.lang) if hasattr(survey, "title_in") else survey.title)
     title = _safe(plain_title)
     version, maker = survey.qversion or 1, brand.name()
@@ -475,18 +779,27 @@ def build(survey, ui=None, public=False):
                               .format(v=version, lang=doc.lang)), styles["subtitle"]),
               Spacer(1, 6),
               Paragraph(_safe(doc.say("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen (Pflichtfragen mit *). "
-                                      "Teil 2 zeigt ihn mit Anmerkungen neben jedem Element:",
+                                      + "Teil 2 zeigt ihn mit Anmerkungen neben jedem Element:",
                                       "Part 1 shows the questionnaire as participants see it (required questions with *). "
-                                      "Part 2 shows it with notes beside each element:")), styles["body"]),
+                                      + "Part 2 shows it with notes beside each element:")), styles["body"]),
               Spacer(1, 3), _legend(doc, styles)]
+    if rands:
+        story += [Paragraph(_safe(doc.say("Teil 3 zeigt alle Bedingungen und wie sie sich unterscheiden.",
+                                          "Part 3 shows all conditions and how they differ.")), styles["body"])]
     rules = _quality(doc)
     if rules:
         story += [Spacer(1, 4), Paragraph(_safe(rules), styles["check"])]
-    story += [Spacer(1, 8), Paragraph(_safe(doc.say("Teil 1: Fragebogen", "Part 1: Questionnaire")), styles["h1"])]
-    story += _part(doc, styles, order, blocks, annotated=False)
+    variant = doc.say(" (1. von {n} Varianten)", " (1st of {n} variants)").format(n=variants_of(survey)) if rands else ""
+    story += [Spacer(1, 8), Paragraph(_safe(doc.say("Teil 1: Fragebogen", "Part 1: Questionnaire") + variant), styles["h1"])]
+    if rands:
+        story += study_conditions.path_note(doc, styles, rands)
+    story += _part(doc, styles, _one_path(survey) if rands else order, blocks, annotated=False)
     story += [PageBreak(), Paragraph(_safe(doc.say("Teil 2: Fragebogen mit Anmerkungen",
                                                    "Part 2: Questionnaire with notes")), styles["h1"])]
     story += _part(doc, styles, order, blocks, annotated=True)
+    if rands:
+        story += [PageBreak(), Paragraph(_safe(doc.say("Teil 3: Alle Bedingungen", "Part 3: All conditions")), styles["h1"])]
+        story += study_conditions.part(doc, styles, rands, blocks, compare)
     muted = tokens()["--muted"]
     width, height = A4
 
@@ -505,6 +818,11 @@ def build(survey, ui=None, public=False):
         canvas.drawRightString(right, 10 * mm, number)
         pdf_fonts.draw(canvas, right - canvas.stringWidth(number, pdf_fonts.REGULAR, 7.5) - 4 * mm, 10 * mm, str(maker),
                        8, "Times-Bold", anchor="end")
+        if stamp:  # upright along the outer margin, outside the text, on every page: it stays on a page printed alone
+            canvas.setFont(pdf_fonts.REGULAR, 7.5)
+            canvas.translate(width - 9 * mm, height / 2)
+            canvas.rotate(90)
+            canvas.drawCentredString(0, 0, f"ID {stamp}" + (f" · {compare}" if compare else ""))
         canvas.restoreState()
 
     out = io.BytesIO()
@@ -515,7 +833,9 @@ def build(survey, ui=None, public=False):
 
 
 def _plain_footer(title, version, doc):
-    return str(title or "")[:90] + " | " + doc.say("Fassung {v}", "version {v}").format(v=version)
+    code = doc.survey.code or doc.survey.id  # the survey's code, as in its address
+    return (f"{str(title or '')[:90]} ({code}) | " + doc.say("Fassung {v}", "version {v}").format(v=version)
+            + f" | Format {FORMAT}")
 
 
 def _quality(doc):

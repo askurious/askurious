@@ -102,6 +102,7 @@ def _data_page(survey, erase_found=None, new_token=None):
     # a live vote with presentation slides offers them with the presenter's pen notes as PDF (app/live/ink.py)
     live_slides = survey.live is not None and any(is_slide(i) for b in survey.blocks for i in b.items)
     return render_template("surveys/data.html", survey=survey, live_slides=live_slides,
+                           randomised=bool(__import__("app.study_material", fromlist=["randomisations"]).randomisations(survey)),
                            waves_view=waves.view(current_user, survey) if waves.of(survey) else None,
                            waves_report=waves.page_report(current_user, survey), waves_sources=waves.SOURCES, citations=__import__("app.citations", fromlist=["listing"]), counts=counts, by_source=by_source, contact=contact_mod,
                            erased=erasure.summary(survey), erase_found=erase_found, erase_ways=erasure.ways(),

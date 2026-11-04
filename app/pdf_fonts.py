@@ -139,6 +139,11 @@ def shape(text):
     return arabic_reshaper.reshape(text)
 
 
+def has_rtl(text):
+    """Whether any character of the text reads right to left."""
+    return bool(_RTL.search(str(text or "")))
+
+
 def rtl(text):
     """Whether a text reads from right to left: its first letter is Arabic or Hebrew (Unicode bidi rule P2)."""
     first = _STRONG.search(str(text or ""))
@@ -167,7 +172,9 @@ def runs(text, base=REGULAR):
     out = []
     for ch in str(text or ""):
         current = out[-1][0] if out else None
-        if current and not ch.isalpha() and _covers(current, ch):
+        if ch in "\n\t":  # no font has them, and they are no missing letters: the caller's to handle
+            name = current or base
+        elif current and not ch.isalpha() and _covers(current, ch):
             name = current
         else:
             name = next((n for n in chain if _covers(n, ch)), None)
