@@ -300,10 +300,11 @@ def export_study_material(survey_id):
     logic, randomisation and checks; no answers in it, for every role, in the language of the person downloading."""
     from flask import Response as FlaskResponse
 
-    from app import export, study_material
+    from app import export, study_conditions, study_material
 
     survey = get_survey(survey_id)
-    body = study_material.build(survey)
+    wanted = request.args.get("compare")  # how part 3 shows the conditions; only a known one counts
+    body = study_material.build(survey, compare=wanted if wanted in study_conditions.MODES else study_conditions.DOWNLOAD)
     return FlaskResponse(body, headers={
         "Content-Type": "application/pdf",
         "Content-Disposition": f'attachment; filename="{export.filename(survey, "befragungsmaterial")[:-4]}.pdf"',

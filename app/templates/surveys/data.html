@@ -208,7 +208,22 @@
       {{ xp.fmt(de_en("Word für Papier", "Word for paper"), url_for('surveys.export_docx', survey_id=survey.id, version='print'), de_en("Fragebogen für Papier (Word) herunterladen", "Download questionnaire for paper (Word)"), pooled=false) }}
     {% endcall %}
     {% call xp.row(de_en("Befragungsmaterial", "Survey material"), de_en("Fragebogen mit Anmerkungen", "Questionnaire with notes"), de_en("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen, nummeriert; Teil 2 denselben mit farbigen Anmerkungen neben jedem Element: Anzeigelogik und Bedingungen, Randomisierung, Pflicht- und Qualitätsprüfungen, Variablennamen und Quellen. Ohne KI erstellt; wird bei der Präregistrierung eingefroren und bei Zenodo und Coscine beigelegt", "Part 1 shows the questionnaire as participants see it, numbered; part 2 the same with coloured notes beside each element: display logic and conditions, randomisation, required answers and quality checks, variable names and sources. Made without AI; frozen with the pre-registration and added to Zenodo and Coscine")) %}
+      {% if randomised %}
+      {# how part 3 shows the conditions (app/study_conditions.py); the packages and the pre-registration take "full" #}
+      <form method="get" action="{{ url_for('surveys.export_study_material', survey_id=survey.id) }}" class="xp-material">
+        <fieldset><legend>{{ de_en("Bedingungen darstellen", "Show the conditions") }}</legend>
+          {% for key, label, hint in [("marked", de_en("Vollständig mit Hervorhebung", "Full with highlights"), de_en("alle Bedingungen nacheinander, die Unterschiede hervorgehoben", "all conditions one after the other, with the differences highlighted")),
+                                      ("full", de_en("Vollständig", "Full"), de_en("alle Bedingungen nacheinander, ohne Hervorhebung der Unterschiede", "all conditions one after the other, without highlighting differences")),
+                                      ("columns", de_en("Spalten", "Columns"), de_en("kann bei drei Bedingungen gut passen, ab fünf nicht mehr möglich; zeigt sie nebeneinander", "may work well for three conditions, not possible from five on; presents them side by side")),
+                                      ("inline", de_en("Im Textfluss", "Inline"), de_en("kann bei zwei Bedingungen mit kleinen Unterschieden gut passen; zeigt den Text in einem Fluss", "may work well for two conditions with small differences; shows the text in one flow"))] %}
+          <label class="check"><input type="radio" name="compare" value="{{ key }}" {% if key == "marked" %}checked{% endif %}> {{ label }} <span class="hint">{{ hint }}</span></label>
+          {% endfor %}
+        </fieldset>
+        <button class="button button-secondary" aria-label="{{ de_en('Befragungsmaterial (PDF) herunterladen', 'Download survey material (PDF)') }}">{{ icon("download", 16) }} PDF</button>
+      </form>
+      {% else %}
       {{ xp.fmt("PDF", url_for('surveys.export_study_material', survey_id=survey.id), de_en("Befragungsmaterial (PDF) herunterladen", "Download survey material (PDF)"), pooled=false) }}
+      {% endif %}
     {% endcall %}
     {# the survey for archives and catalogues as DDI Lifecycle 4.0 (app/ddi.py, Ralf 2026-10-27: for everyone) #}
     {% call xp.row("DDI Lifecycle 4.0", de_en("Fragebogen und Codebuch für Datenarchive", "Questionnaire and codebook for data archives"), de_en("maschinenlesbar nach dem Standard der Data Documentation Initiative (DDI Lifecycle 4.0, Entwurf zur öffentlichen Prüfung): Befragung mit Team und Beschreibung, Erhebungszeitraum und -art, Fragebogen mit Blöcken, Bedingungen und Randomisierung, Fragen in allen Sprachen, Antwortcodes, alle Variablen des Datensatzes; Erhebungsart, Zeitbezug und Auswahlverfahren nach den kontrollierten Vokabularen der DDI Alliance, Grundgesamtheit, Land und Stichprobe aus dem Studienplan, soweit er sie nennt. Ohne Antworten.", "machine-readable after the standard of the Data Documentation Initiative (DDI Lifecycle 4.0, public review draft): survey with team and description, field period and mode, questionnaire with blocks, conditions and randomisation, questions in all languages, answer codes, every variable of the data set; mode, time method and sampling procedure after the controlled vocabularies of the DDI Alliance, population, country and sample from the research plan, as far as it names them. Without answers.")) %}
