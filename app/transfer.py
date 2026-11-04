@@ -1181,6 +1181,10 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
 
     def build(node, depth):
         out = make(node, depth)
+        if len(out) == 1 and isinstance(node.get("level"), int) and not isinstance(node.get("level"), bool):
+            out[0]["level"] = _int(node.get("level"), 1, 0, 9999)  # a condition of a randomizer (flow.levels)
+        if len(out) == 1 and _str(node.get("label"), 100, line=True):
+            out[0]["label"] = _str(node.get("label"), 100, line=True).replace(";", ",")
         if node.get("by") == census.MARK and len(out) == 1 and out[0]["t"] == node.get("t") in ("branch", "end", "quota"):
             out[0]["by"] = census.MARK  # made by the quota assistant: a second run replaces it (app/census.py)
             facts = census.clean_facts(node.get("census"), items) if out[0]["t"] == "quota" else None

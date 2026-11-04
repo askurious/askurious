@@ -290,6 +290,8 @@ def _flow(tree, blocks, items, quotas=None, web_service=True):
                 case["quotas"] = [quotas[q] for q in case["quotas"] if q in (quotas or {})]
             if case.get("when") == "cellfull":
                 case["quota"] = (quotas or {}).get(case.get("quota"))
+        if node.get("t") == "rand":
+            node.pop("fixed", None)  # the copy is a new draft: its conditions can be changed again
         if node.get("t") == "ext":
             node.pop("sign", None)  # the key that checks the returned values stays with the original (_unsigned)
         if node.get("t") == "ws":

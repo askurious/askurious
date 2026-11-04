@@ -226,7 +226,7 @@ Bausteine links:
 
 | Baustein | Was er tut |
 |---|---|
-| Randomisierung | zeigt einen (oder mehrere) von mehreren Blöcken, ausgeglichen oder zufällig; die Zuteilung wird gespeichert und exportiert |
+| Randomisierung | zeigt einen (oder mehrere) von mehreren Blöcken, ausgeglichen oder zufällig; die Zuteilung wird gespeichert und exportiert. Jede Bedingung hat einen Code und eine Beschriftung für die Daten; beim Start werden sie festgelegt |
 | Bedingung | zeigt Blöcke nur bei bestimmten Antworten oder URL-Parametern („dann“ / „sonst“) |
 | Schleife | wiederholt Blöcke je Tabellenzeile oder je Vignette; Platzhalter `{{variable}}` füllen Texte und Bilder |
 | Ende | ein Screen-out oder „Quote voll“, meist innerhalb einer Bedingung |

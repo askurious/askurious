@@ -810,9 +810,14 @@ def columns(survey, with_hb=True, scales=False, sources=None, standard=False):
     cols += webservice.columns(survey)  # web services of the flow: whether the call worked, the values taken
     for loop in _loops(survey):
         cols.append((f"{loop['code']}_order", "Loop: gezeigte Tabellenzeilen in Reihenfolge (? = Zeile inzwischen gelöscht)"))
+    from app import flow
+
     for node in _randomizers(survey):
         cols.append((node["code"], f"Bedingung „{node.get('name')}“: gezeigte Elemente in Reihenfolge"
                                    + ("; leer, wo die Person den Zweig nicht erreichte" if _behind_branch(survey, node) else "")))
+        for column, number, label in flow.level_columns(survey, node):
+            cols.append((column, f"Bedingung „{node.get('name')}“: " + (f"„{label}“ gezeigt (1) oder nicht (0)" if number is not None
+                                                                         else "Code der gezeigten Bedingung")))
     for item in _items(survey):
         rows = _loop_rows(item)
         if rows:
@@ -1101,6 +1106,7 @@ def _rows(survey, include_incomplete=False, sources=("real",), speeder=None, spe
         for node, children in randomizers:
             picked = drawn.get(node["id"], [])
             row[node["code"]] = "|".join(flow.child_label(survey, children[c]) for c in picked if c in children)
+            row.update(flow.level_values(survey, node, picked))
         for loop in loop_nodes:
             shown = (layout.get("loops") or {}).get(loop["id"], [])
             # "?": a row taken out of the table since (before rows with real answers stayed, loops.update_from_form)
@@ -1633,6 +1639,15 @@ def codebook(survey, speeder=None, speed_real=True, speed_sources=None, drop_spe
                          "ihn erreichten",
                          "; behind a branch: empty where the branch was not reached, balanced among those who reached it")
                        if _behind_branch(survey, node) else "")))
+        found = flow.levels(survey, node)
+        for column, number, label in flow.level_columns(survey, node):  # the value labels of SPSS, jamovi and R come from here
+            if number is None:
+                out.append((column, t("Code der Bedingung „{name}“", "Code of the condition “{name}”", name=node.get("name")), "Bedingung",
+                            "; ".join(f"{code} = {name.replace(';', ',')}" for _, code, name in found), ""))  # ";" parts the list
+            else:
+                out.append((column, t("Bedingung „{name}“: {label} gezeigt", "Condition “{name}”: {label} shown", name=node.get("name"),
+                                      label=label), "Bedingung",
+                            t("0 = nicht gezeigt; 1 = gezeigt", "0 = not shown; 1 = shown"), ""))
     not_shown = t("{n} = nicht gezeigt", "{n} = not shown", n=row_logic.NOT_SHOWN)
     shown_only = t("nur gezeigt, wenn {cond}; {n} zählt als fehlend, leer = gezeigt und nicht beantwortet",
                    "shown only if {cond}; {n} counts as missing, empty = shown and not answered", cond="{cond}", n=row_logic.NOT_SHOWN)

@@ -90,6 +90,8 @@ def assignment(doc, styles, node, rands):
     from reportlab.lib.units import mm
     from reportlab.platypus import Spacer, Table, TableStyle
 
+    from app import flow
+
     children = node.get("children") or []
     n, k = len(children), min(max(node.get("k", 1), 1), max(len(children), 1))
     code = node.get("code")
@@ -106,13 +108,23 @@ def assignment(doc, styles, node, rands):
     reached = _reached(doc, node)
     lines.append(doc.say("Erreicht nur, wer diese Bedingung erfüllt: ", "Reached only by those who meet: ") + reached if reached
                  else doc.say("Erreicht: alle", "Reached by: everyone"))
+    columns = flow.level_columns(doc.survey, node)
+    found = flow.levels(doc.survey, node)
+    if k == 1 and columns:  # the code of a condition in the data; several drawn: its own 0/1 column
+        third = doc.say("Code in {c}", "Code in {c}").format(c=columns[0][0])
+        codes = [str(number) for _, number, _ in found]
+    elif columns:
+        third = doc.say("Spalte 0/1", "Column 0/1")
+        codes = [column for column, _, _ in columns]
+    else:
+        third, codes = "", [""] * n
     head = [Paragraph(f"<b>{_safe(t)}</b>", styles["cell"]) for t in (
-        doc.say("Stufe", "Level"), doc.say("Wert in Spalte {c}", "Value in column {c}").format(c=code),
+        doc.say("Stufe", "Level"), doc.say("Wert in Spalte {c}", "Value in column {c}").format(c=code), third,
         doc.say("Anteil erwartet", "Expected share"))]
     rows = [head] + [[Paragraph(f'<font color="{level_colour(i)}"><b>{level_letter(i)}</b></font>', styles["cell"]),
-                      Paragraph(_safe(level_name(doc.survey, node, i)), styles["cell"]),
+                      Paragraph(_safe(level_name(doc.survey, node, i)), styles["cell"]), Paragraph(_safe(codes[i]), styles["cell"]),
                       Paragraph(f"{k}/{n}", styles["cell"])] for i in range(n)]
-    table = Table(rows, colWidths=[16 * mm, _width() - 46 * mm, 30 * mm], hAlign="LEFT", repeatRows=1)
+    table = Table(rows, colWidths=[16 * mm, _width() - 86 * mm, 40 * mm, 30 * mm], hAlign="LEFT", repeatRows=1)
     table.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, 0), 0.6, tokens()["--border-strong"]), ("VALIGN", (0, 0), (-1, -1), "TOP"),
                                ("LEFTPADDING", (0, 0), (0, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 2),
                                ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))

@@ -226,7 +226,7 @@ Building blocks on the left:
 
 | Building block | What it does |
 |---|---|
-| Randomisation | shows one (or more) of several blocks, balanced or at random; the assignment is stored and exported |
+| Randomisation | shows one (or more) of several blocks, balanced or at random; the assignment is stored and exported. Each condition has a code and a label for the data; they are fixed at the start |
 | Condition | shows blocks only for certain answers or URL parameters ("then" / "else") |
 | Loop | repeats blocks per row of a table or per vignette; placeholders `{{variable}}` fill texts and images |
 | End | a screen-out or "quota full", mostly inside a condition |
