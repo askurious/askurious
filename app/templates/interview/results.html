@@ -2,6 +2,8 @@
 {% from "_macros.html" import list_table %}
 {% from "_icons.html" import icon %}
 {% from "_sources.html" import grouped %}
+{# the Kurzfragebogen as on the results page of a questionnaire (surveys/_result_item.html) #}
+{% from "surveys/_results_macros.html" import fn, cat, modes, apart, partial_note, sb, negative, pooled, omega, ci_note, item_table, efa_part, hist, stacks, rank_chart, typed with context %}
 {# Evaluation of the stored interviews ("Interviews erheben", app/interview_results.py): case overview,
    coverage, duration, notes per Leitfrage, exports. #}
 {% block title %}{{ de_en("Ergebnisse", "Results") }} · {{ survey.title }}{% endblock %}
@@ -36,7 +38,7 @@
     <tbody>
     {% for r in interviews %}{% set m = r.interview %}
     <tr><td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
-      <td>{{ day(m.date) }}</td><td>{{ modes.get(m.mode, "") }}</td><td>{{ de_en("{n} Min.", "{n} min", n=((m.elapsed or 0) / 60)|round|int) }}</td>
+      <td>{{ day(m.date) }}</td><td>{{ iv_modes.get(m.mode, "") }}</td><td>{{ de_en("{n} Min.", "{n} min", n=((m.elapsed or 0) / 60)|round|int) }}</td>
       {% for item in form_items %}<td>{{ answer_text(item, (r.answers or {}).get(item.id|string), lang) }}{% set mark = source_mark(r, item) %}{% if mark %} <span class="muted small">{{ mark }}</span>{% endif %}</td>{% endfor %}</tr>
     {% endfor %}
     </tbody>
@@ -44,6 +46,18 @@
   </div>
 </section>
 
+{% if short %}
+{# the answers of the Kurzfragebogen over all interviews, drawn as the results of a questionnaire: the same lists,
+   tables and figures (interview_results.short_results) #}
+<div class="results-page">{# the layout of the results page: bars, tables and figures as there #}
+<section class="panel" id="short-form">
+  <h2>{{ de_en("Kurzfragebogen", "Short questionnaire") }} <span class="hint">{{ de_en("Auswertung über alle Interviews", "evaluated over all interviews") }}</span></h2>
+  <p class="muted small">{{ de_en("Ausgezählt wie die Ergebnisse eines Fragebogens: {n} Interviews{trial}, auch noch nicht beendete. Bei wenigen Interviews beschreiben die Zahlen nur die interviewten Personen und lassen sich nicht verallgemeinern.", "Counted as the results of a questionnaire: {n} interviews{trial}, also ones not yet ended. With few interviews the numbers only describe the people interviewed and cannot be generalised.", n=short.n_rows, trial=de_en(" mit Probeinterviews", " with trial interviews") if trials else "") }}</p>
+</section>
+{% set r, no_coding = short, true %}
+{% for e in short["items"] %}{% include "surveys/_result_item.html" %}{% endfor %}
+</div>
+{% endif %}
 <section class="panel">
   <h2>{{ de_en("Abdeckung", "Coverage") }} <span class="hint">{{ de_en("● gestellt · ◐ von selbst angesprochen · ○ nicht gestellt · – nicht gestellt (Filter) · K = Kernfrage", "● asked · ◐ raised spontaneously · ○ not asked · – not asked (filter) · C = core question") }}</span></h2>
   <div class="res-scroll">
@@ -89,7 +103,7 @@
 {% endif %}
 <section class="panel">
   <h2>{{ de_en("Notizen je Leitfrage", "Notes per guide question") }}</h2>
-  {% for n in notes %}
+  {% for n in item_notes %}
   <details class="notes-fold" {% if n.entries %}open{% endif %}>
     <summary><strong>{% if n.sub %}↳ {% endif %}{{ n.item.text("question")|striptags|truncate(90, true, "…") }}</strong> <span class="muted small">{{ n.block.title() }} · {{ n.entries|length }} {{ "Interview" if n.entries|length == 1 else de_en("Interviews", "interviews") }}</span></summary>
     {% for e in n.entries %}

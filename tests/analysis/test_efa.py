@@ -76,7 +76,7 @@ def test_heywood_case_and_no_factor_are_said(app):
         from flask import render_template_string
 
         # the macro alone: the page around it needs a whole survey
-        source = open(app.root_path + "/templates/surveys/results.html", encoding="utf-8").read()
+        source = open(app.root_path + "/templates/surveys/_results_macros.html", encoding="utf-8").read()
         start = source.index("{% macro efa_part(x) %}")
         macro = ('{% from "_macros.html" import num %}{% from "_learn.html" import term %}'
                  + source[start:source.index("{% endmacro %}", start) + 14] + "{{ efa_part(x) }}")
