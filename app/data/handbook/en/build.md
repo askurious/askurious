@@ -241,7 +241,7 @@ Building blocks on the left:
 | End | a screen-out or "quota full", mostly inside a condition |
 | External section | sends participants to a web app (e.g. a reaction-time task) and back, with signed return values |
 | Quota calculation | places the person in a quota |
-| Web service | the server calls an interface and stores fields of the answer (experimental); [try the demo](https://ask.askurious.de/s/demo-webservices) |
+| Web service | the server calls an interface and stores fields of the answer (experimental); the time limit can be set (1 to 45 seconds, 5 by default), the participant's page waits that long; [try the demo](https://ask.askurious.de/s/demo-webservices) |
 
 The right column shows key figures (estimated duration, number of blocks, experimental conditions, branches, paths through the flow) and a pre-launch check of the flow.
 

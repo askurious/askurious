@@ -6,7 +6,8 @@ answers as values. The person does not leave the page and sees nothing of it; th
 The flow node (flow.py):
   {"t": "ws", "id": "w..", "code": "ws1", "name": "...", "method": "GET" | "POST",
    "url": "https://api.example/x?q={{city}}", "body": "{\"q\": \"{{city}}\"}" (POST), "header": "X-Api-Key",
-   "secret": "<encrypted>" (the header's value, never in a survey file or a copy),
+   "secret": "<encrypted>" (the header's value, never in a survey file or a copy), "timeout": 5 (seconds, optional),
+   "secret_visible": True (optional: a header that is no secret, shown to the admins in the form; see readable_value),
    "values": [{"name": "temp", "path": "current.temperature_2m", "kind": "number" | "text"}]}
 
 Placeholders in the address are percent-encoded, in the body JSON-escaped. The call happens once per
@@ -22,7 +23,8 @@ Protection, because researchers type the address and this server calls it: https
 public addresses only (no localhost, private networks, the Docker network, link-local metadata services, NAT64 and
 6to4 forms of those, this server's own addresses, the networks in WEBSERVICE_BLOCKED_NETS), checked on every call,
 and the connection goes to the address that was checked (no second lookup in between); port 443 only; no
-redirects; at most MAX_BYTES of answer; TIMEOUT seconds for the whole call, name lookup and reading included (W1);
+redirects; at most MAX_BYTES of answer; the node's time limit (TIMEOUT unless set, at most MAX_TIMEOUT) for the whole
+call, name lookup and reading included (W1);
 at most MAX_PARALLEL calls at once per process. Who sets the address, the header and its secret is decided
 as for completion links and external sections: the admins of the survey. Experimental (app/experimental.py)."""
 import ipaddress
@@ -43,7 +45,10 @@ NODE = "ws"
 KEY = "_ws"  # in Response.external: the results of the web services of this participation
 METHODS = ("GET", "POST")
 KINDS = ByLanguage({"number": "Zahl", "text": "Text"}, {"number": "number", "text": "text"})
-TIMEOUT = 5  # seconds for the whole call: name lookup, connection, answer
+TIMEOUT = 5  # seconds for the whole call by default: name lookup, connection, answer
+# The most a node may set. The person's page waits for the call in the request, and nginx gives up on a participant's
+# request after 60 s (deploy/docker/nginx/locations/participant.conf). Several web services in one step add up.
+MAX_TIMEOUT = 45
 MAX_BYTES = 1_000_000
 MAX_PARALLEL = 8  # calls at once per process; one more gets ok=0 at once instead of waiting for a thread
 HTTPS_PORT = 443  # the only port called (W4)
@@ -234,12 +239,19 @@ def update(survey, node, form, links=True):
                          "Value of the header: visible ASCII characters and spaces only (no umlauts, no €, no line break), "
                          "at most 500.")
         moved = bool(node.get("secret")) and not secret and host(node) and (urlsplit(url).hostname or "") != host(node)
-        changes.update(url=url, method=method, body=body, header=header)
+        seconds = read_time_limit(form.get("timeout")) if "timeout" in form else time_limit(node)
+        if seconds is None:
+            return de_en("Zeitlimit: eine ganze Zahl von 1 bis {n} Sekunden.", "Time limit: a whole number from 1 to {n} seconds.",
+                         n=MAX_TIMEOUT)
+        changes.update(url=url, method=method, body=body, header=header, timeout=seconds)
         if secret:
             changes["secret"] = secrets_box.encrypt(secret, secrets_box.PARTICIPANT)
-        if not header or form.get("secret_remove") or moved:
+            changes["secret_visible"] = form.get("secret_visible") == "1"
+        emptied = bool(node.get("secret_visible")) and "secret" in form and not secret  # a readable value taken out
+        if not header or form.get("secret_remove") or moved or emptied:
             # another server: the stored key was entered for the old one and is not sent to the new one (W9)
             node.pop("secret", None)
+            node.pop("secret_visible", None)
         if moved and header:
             _note(de_en("Die Adresse führt jetzt zu einem anderen Server; der gespeicherte Wert der Kopfzeile wurde deshalb "
                         "gelöscht. Bitte für den neuen Server neu eintragen.",
@@ -436,8 +448,40 @@ def _public_address(hostname, port, timeout=TIMEOUT):
     return addresses[0]
 
 
-def fetch(method, url, body=None, headers=None):
-    """(status, bytes) of one call to `url`, to the address checked for it, all within TIMEOUT seconds; raises
+def time_limit(node):
+    """Seconds a call of this node may take: its own limit, else TIMEOUT."""
+    seconds = (node or {}).get("timeout")
+    if isinstance(seconds, int) and not isinstance(seconds, bool) and 1 <= seconds <= MAX_TIMEOUT:
+        return seconds
+    return TIMEOUT
+
+
+def readable_value(node):
+    """The value of the header for the form: only of a header saved as readable. One saved covered is never shown
+    again, also not by the eye beside the field, which shows what is being typed: otherwise every co-admin could read
+    the key someone else entered. To make it readable it has to be typed anew."""
+    from app import secrets_box
+
+    return secrets_box.decrypt(node.get("secret"), secrets_box.PARTICIPANT) if (node or {}).get("secret_visible") else ""
+
+
+def wait_seconds(survey):
+    """The longest a page of this survey can wait for its web services (they are called one after the other); 0
+    without any. participant.js says "one moment" during it, and does not call the page lost before it is over."""
+    return sum(time_limit(node) for node in nodes(survey))
+
+
+def read_time_limit(raw):
+    """The seconds typed into the form, or None if they are no whole number from 1 to MAX_TIMEOUT."""
+    raw = (raw or "").strip()
+    if not (raw.isascii() and raw.isdigit() and len(raw) < 4) or not 1 <= int(raw) <= MAX_TIMEOUT:
+        return None
+    return int(raw)
+
+
+def fetch(method, url, body=None, headers=None, timeout=None):
+    """(status, bytes) of one call to `url`, to the address checked for it, all within `timeout` seconds (TIMEOUT
+    unless given; the name lookup never longer than TIMEOUT); raises
     Blocked, Unreachable (no answer began), OSError (the answer broke off, was too large or too slow, too many calls
     at once) or ValueError (a header value http.client refuses)."""
     parts = urlsplit(url)
@@ -454,8 +498,8 @@ def fetch(method, url, body=None, headers=None):
     if not _slots.acquire(blocking=False):
         raise OSError("busy: too many calls at once")
     try:
-        deadline = time.monotonic() + TIMEOUT
-        address = _public_address(parts.hostname, port, TIMEOUT)
+        deadline = time.monotonic() + (timeout or TIMEOUT)
+        address = _public_address(parts.hostname, port, min(timeout or TIMEOUT, TIMEOUT))
         return _talk(method, parts, address, body, headers, deadline)
     finally:
         _slots.release()
@@ -583,7 +627,7 @@ def call(node, variables):
     try:
         url = fill_url(node.get("url"), variables)
         body = fill_body(node["body"], variables) if node.get("method") == "POST" and node.get("body") else None
-        status, data = fetch(node.get("method") or "GET", url, body, headers)
+        status, data = fetch(node.get("method") or "GET", url, body, headers, time_limit(node))
         if status != 200:
             raise OSError(f"HTTP {status}")
         parsed = parse(data)
@@ -598,13 +642,27 @@ def call(node, variables):
     return result
 
 
+def _without(text, headers):
+    """The text of an answer without the value of the header, in case the server repeats it: alone, and after the word
+    in front of it ("Bearer …")."""
+    for value in (headers or {}).values():
+        for part in {value, value.split(" ", 1)[-1]}:
+            if len(part) >= 4:
+                text = text.replace(part, "…")
+    return text
+
+
 def test(node, variables):
     """One call from the editor ("Testaufruf") with example values: what was called, the status and size of the
     answer, the values taken and the start of the answer, to find the paths of its fields.
 
-    Only what a JSON answer with status 200 says is shown. Every call that brought no answer is "not reachable",
-    whatever the reason: so the test call shows no error page of someone's server and does not tell open from closed
-    ports or servers that are there from those that are not (code audit 2026-10-08, W4)."""
+    Only what a JSON answer says is shown, also with another status than 200 (an API says there why it refused, and
+    the person setting it up needs that; Philipp 2026-11-05), with the value of the header taken out. Every call that
+    brought no answer is "not reachable", whatever the reason: so the test call shows no error page of someone's server
+    and does not tell open from closed ports or servers that are there from those that are not (code audit 2026-10-08,
+    W4)."""
+    from http.client import responses
+
     from app import secrets_box
 
     headers = {node["header"]: secrets_box.decrypt(node["secret"], secrets_box.PARTICIPANT) or ""} if node.get("header") and node.get("secret") else {}
@@ -613,15 +671,15 @@ def test(node, variables):
     start = time.monotonic()
     try:
         body = fill_body(node["body"], variables) if node.get("method") == "POST" and node.get("body") else None
-        status, data = fetch(node.get("method") or "GET", url, body, headers)
-        out["status"], out["size"] = status, len(data)
-        if status == 200:
-            try:
-                parsed = parse(data)
-                out["snippet"] = json.dumps(parsed, ensure_ascii=False, indent=1)[:SNIPPET]
+        status, data = fetch(node.get("method") or "GET", url, body, headers, time_limit(node))
+        out["status"], out["size"], out["reason"] = status, len(data), responses.get(status, "")
+        try:
+            parsed = parse(data)
+            out["snippet"] = _without(json.dumps(parsed, ensure_ascii=False, indent=1), headers)[:SNIPPET]
+            if status == 200:
                 out["v"] = {v["name"]: _as(pick(parsed, v["path"]), v["kind"]) for v in values(node)}
-            except ValueError:  # also UnicodeDecodeError
-                out["err"] = de_en("keine JSON-Antwort", "not a JSON answer")
+        except ValueError:  # also UnicodeDecodeError
+            out["err"] = de_en("keine JSON-Antwort", "not a JSON answer")
     except Blocked:
         out["err"] = de_en("nicht erlaubt: Dieser Server liegt in einem gesperrten Netz oder ist Askurious selbst.",
                            "not allowed: this server is in a blocked network or is Askurious itself.")

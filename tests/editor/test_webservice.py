@@ -33,7 +33,7 @@ def answers(monkeypatch):
     """The API: records what was called, answers with JSON."""
     calls = []
 
-    def fetch(method, url, body=None, headers=None):
+    def fetch(method, url, body=None, headers=None, timeout=None):
         calls.append((method, url, body, headers))
         return 200, json.dumps({"current": {"temperature_2m": 13.8}, "current_units": {"temperature_2m": "°C"}}).encode()
 
@@ -198,3 +198,69 @@ def test_answers_with_odd_numbers_or_deep_nesting_are_a_failed_call(monkeypatch)
     monkeypatch.setattr(webservice, "fetch", lambda *a, **k: (200, b'[' * 100_000 + b']' * 100_000))
     out = webservice.test(node, {})
     assert out["err"] and out["v"] == {}
+
+
+def test_the_time_limit_of_a_call():
+    """Default 5 seconds; a node sets its own up to MAX_TIMEOUT (below nginx's 60 s for a participant's request)."""
+    assert webservice.time_limit({}) == webservice.TIMEOUT == 5
+    assert (webservice.time_limit({"timeout": 30}), webservice.time_limit({"timeout": 46}),
+            webservice.time_limit({"timeout": 0}), webservice.time_limit({"timeout": True})) == (30, 5, 5, 5)
+    assert webservice.MAX_TIMEOUT < 60
+
+
+@pytest.mark.parametrize("raw, expected", [("1", 1), (" 30 ", 30), ("45", 45), ("46", None), ("0", None), ("", None),
+                                           ("1.5", None), ("²", None)])
+def test_the_time_limit_of_the_form(raw, expected):
+    assert webservice.read_time_limit(raw) == expected
+
+
+def test_the_call_gets_the_limit_of_its_node(monkeypatch):
+    seen = []
+
+    def fetch(method, url, body, headers, timeout):
+        seen.append(timeout)
+        return 200, b"{}"
+
+    monkeypatch.setattr(webservice, "fetch", fetch)
+    webservice.call({"url": "https://api.example/x", "timeout": 30, "values": []}, {})
+    webservice.call({"url": "https://api.example/x", "values": []}, {})
+    assert seen == [30, 5]
+
+
+def test_the_limit_is_saved_and_a_wrong_one_refused(app, client, survey):
+    nid = build(app, client)
+    form = node_form()
+    form["timeout"] = "30"
+    client.post(f"{E}/flow/{nid}/update", data=form, follow_redirects=True)
+    with app.app_context():
+        assert flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]["timeout"] == 30
+    form["timeout"] = "99"
+    page = client.post(f"{E}/flow/{nid}/update", data=form, follow_redirects=True).data.decode()
+    assert "Zeitlimit" in page
+    with app.app_context():
+        assert flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]["timeout"] == 30
+    assert 'name="timeout"' in client.get("/surveys/1/flow/").data.decode()
+
+
+def test_a_page_waits_as_long_as_the_web_services_may_take(app, client, survey):
+    """"One moment" only where a web service can make the page wait, and no "send again" before its time limit is over."""
+    nid = build(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert webservice.wait_seconds(s) == 5
+    form = node_form()
+    form["timeout"] = "30"
+    client.post(f"{E}/flow/{nid}/update", data=form, follow_redirects=True)
+    uid = start(app, client)
+    p = app.test_client()
+    page = p.get(f"/s/{uid}").data.decode()
+    assert 'data-wait-seconds="30"' in page and "Einen Moment bitte" in page
+
+
+def test_no_wait_note_without_a_web_service(app, client, survey):
+    fill_consent(client)
+    add(client, "text_input")
+    client.post(E + "/items/2", data={"code": "a", "question": "Frage"})
+    uid = start(app, client)
+    assert "data-wait-seconds" not in app.test_client().get(f"/s/{uid}").data.decode()
+
