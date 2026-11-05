@@ -455,9 +455,11 @@ def work(app, survey_id, rid, run=None):
                     if not isinstance(previous, dict) or previous.get("bytes") != found.get("bytes"):
                         previous = None
                     last_progress = None
+                    since = int(time.time())  # when this part was asked for: the bar runs from here to the estimate
+
                     def progressed(value):
                         nonlocal last_progress
-                        value = {**value, "part": key}
+                        value = {**value, "part": key, "since": since}
                         if value != last_progress:
                             if _store(rid, lambda tr: {**tr, "progress": value} if mine(tr) else None) is None:
                                 raise _Cancelled()
@@ -996,6 +998,7 @@ def estimate_info(value, active):
 # the share of a part's work done when the job service reports a stage (rough: transcribing takes the most time)
 STAGE_SHARE = {"waiting": 0.0, "queued": 0.0, "loading": 0.03, "decoding": 0.05, "transcribing": 0.1,
                "aligning": 0.6, "diarizing": 0.75}
+BAR_CAP = 0.95  # a part is shown full only when it is done
 
 
 def progress_info(row):
@@ -1034,7 +1037,12 @@ def progress_info(row):
         text = de_en("Transkription abgeschlossen", "Transcription complete") if tr.get("state") == "done" else de_en("Transkription beendet oder unterbrochen", "Transcription ended or interrupted")
     bar = done
     if active and done < len(parts) and stage in STAGE_SHARE:  # the bar moves within a long part too (Ralf 2026-11-05)
-        bar = done + STAGE_SHARE[stage]
+        share = STAGE_SHARE[stage]
+        since, until = value.get("since"), value.get("eta_until")
+        if not resuming and type(since) is int and type(until) in (int, float) and until > since:
+            # evenly by the estimate between the steps (Ralf 2026-11-05), never past nearly full nor behind the step
+            share = max(share, min(BAR_CAP, (time.time() - since) / (until - since)))
+        bar = done + share
     return {"active": active, "text": text, "eta_text": estimate_info(value, active and not resuming), "done": done,
             "bar": round(bar, 2), "total": len(parts),
             "parts_text": de_en("{d} von 1 Teil fertig", "{d} of 1 part done", d=done) if len(parts) == 1 else
