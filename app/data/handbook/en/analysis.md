@@ -58,7 +58,7 @@ The trade-off is less detail for the reader in exchange for protecting the parti
 Everything that leaves the platform. How metadata, archiving and publication fit together is described in the chapter [Metadata, archiving and publication](metadata.md).
 
 - **Answers** as CSV (comma or semicolon), SPSS/JASP (.sav), jamovi (.omv), R (.rds), with a **codebook**; optionally with scale scores.
-- **Questionnaire for paper**: a link to Data collection › Paper questionnaire, where it is as Word; constructs and **references** (.bib, .ris).
+- A sentence at the top of the card links to the **paper questionnaires for printing** under Data collection › Paper questionnaire, where the questionnaire for paper is also available as Word; constructs and **references** (.bib, .ris).
 - **Data flow** as Word: from consent to deletion, per step the data, measures and people responsible, filled from the settings of the survey (identifiers, separate details, paradata, AI coding, outside services, periods, open data); for the record of processing activities or the data protection officer.
 - **Survey file** (.json/.zip) to move or share the whole survey; from the role “Edit” on, as duplicating.
 - **Results report** as PDF, made without AI, after APA 7: all computed results of the saved data pool with the data basis, contents, sample, numbered figures and tables per question (number and title above, note below), quotas, hypotheses of the research plan, scales, choice experiments with segments and market simulator, structural equation and panel models and the cited references; free texts are not in it.
