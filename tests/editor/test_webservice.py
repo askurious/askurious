@@ -241,3 +241,26 @@ def test_the_limit_is_saved_and_a_wrong_one_refused(app, client, survey):
         assert flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]["timeout"] == 30
     assert 'name="timeout"' in client.get("/surveys/1/flow/").data.decode()
 
+
+def test_a_page_waits_as_long_as_the_web_services_may_take(app, client, survey):
+    """"One moment" only where a web service can make the page wait, and no "send again" before its time limit is over."""
+    nid = build(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert webservice.wait_seconds(s) == 5
+    form = node_form()
+    form["timeout"] = "30"
+    client.post(f"{E}/flow/{nid}/update", data=form, follow_redirects=True)
+    uid = start(app, client)
+    p = app.test_client()
+    page = p.get(f"/s/{uid}").data.decode()
+    assert 'data-wait-seconds="30"' in page and "Einen Moment bitte" in page
+
+
+def test_no_wait_note_without_a_web_service(app, client, survey):
+    fill_consent(client)
+    add(client, "text_input")
+    client.post(E + "/items/2", data={"code": "a", "question": "Frage"})
+    uid = start(app, client)
+    assert "data-wait-seconds" not in app.test_client().get(f"/s/{uid}").data.decode()
+

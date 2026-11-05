@@ -18515,5 +18515,17 @@
   "nl": "Notities die je bij de dia’s schrijft, blijven alleen in de opslag van je browser op dit apparaat. Als je de dia’s met notities downloadt, worden de notities één keer naar de server gestuurd, daar alleen in het werkgeheugen tot de pdf verwerkt en meteen weggegooid; ze worden niet opgeslagen en niet gelogd. Je verwijdert ze door de sitegegevens van deze pagina in je browser te wissen.",
   "pt": "As notas que escreve nos diapositivos ficam apenas no armazenamento do seu navegador neste dispositivo. Se descarregar os diapositivos com notas, as notas são enviadas uma vez para o servidor, convertidas no PDF apenas em memória e descartadas de imediato; não são guardadas nem registadas. Apaga-as eliminando os dados deste site no seu navegador.",
   "ar": "تبقى الملاحظات التي تكتبها على الشرائح في ذاكرة متصفحك على هذا الجهاز فقط. إذا نزّلت الشرائح مع الملاحظات، تُرسل الملاحظات مرة واحدة إلى الخادم، حيث تُحوَّل إلى ملف PDF في الذاكرة فقط ثم تُحذف فورًا؛ لا تُحفظ ولا تُسجَّل. يمكنك حذفها بحذف بيانات هذا الموقع في متصفحك."
+ },
+ "One moment, please …": {
+  "es": "Un momento, por favor …",
+  "fr": "Un instant, s’il vous plaît …",
+  "it": "Un momento, per favore …",
+  "pl": "Chwileczkę …",
+  "ru": "Минуточку …",
+  "tr": "Bir dakika lütfen …",
+  "zh-Hans": "请稍候 …",
+  "nl": "Een ogenblik geduld …",
+  "pt": "Um momento, por favor …",
+  "ar": "لحظة من فضلك …"
  }
 }

@@ -452,6 +452,12 @@ def time_limit(node):
     return TIMEOUT
 
 
+def wait_seconds(survey):
+    """The longest a page of this survey can wait for its web services (they are called one after the other); 0
+    without any. participant.js says "one moment" during it, and does not call the page lost before it is over."""
+    return sum(time_limit(node) for node in nodes(survey))
+
+
 def read_time_limit(raw):
     """The seconds typed into the form, or None if they are no whole number from 1 to MAX_TIMEOUT."""
     raw = (raw or "").strip()
