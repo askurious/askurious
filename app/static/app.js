@@ -7044,3 +7044,22 @@ document.addEventListener("click", function (e) {
 document.addEventListener("focusin", function (e) {
   if (e.target.matches && e.target.matches("[data-clear-placeholder]")) e.target.placeholder = "";
 });
+
+// The eye beside the value of a web service's header (flow/_webservice.html): covered or readable, and how it is saved.
+// It shows only what stands in the field; a value saved covered does not come to the page at all.
+document.addEventListener("click", function (e) {
+  var toggle = e.target.closest && e.target.closest("[data-secret-toggle]");
+  if (!toggle) return;
+  e.preventDefault();
+  var box = toggle.closest(".secret-field"), input = box.querySelector("input[name=secret]");
+  var readable = input.type === "password";
+  input.type = readable ? "text" : "password";
+  box.querySelector("input[name=secret_visible]").value = readable ? "1" : "";
+  toggle.setAttribute("aria-pressed", readable ? "true" : "false");
+  var says = readable ? toggle.dataset.hide : toggle.dataset.show;
+  toggle.setAttribute("aria-label", says);
+  toggle.title = says;
+  box.querySelector("[data-eye=on]").hidden = !readable;
+  box.querySelector("[data-eye=off]").hidden = readable;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+});

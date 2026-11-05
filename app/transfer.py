@@ -255,6 +255,7 @@ def dump(survey, with_files=True, raw=None, public=False, media=False):
 
     for node in webservice.nodes_in(tree):
         # the value of a web service's header (an API key) stays on this server: the file says there was one
+        node.pop("secret_visible", None)
         if node.pop("secret", None):
             node["secret_set"] = True
     quotas = [{"id": q.id, "code": q.code, "name": q.name, "mode": q.mode, "tolerance": q.tolerance,

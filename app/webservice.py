@@ -7,6 +7,7 @@ The flow node (flow.py):
   {"t": "ws", "id": "w..", "code": "ws1", "name": "...", "method": "GET" | "POST",
    "url": "https://api.example/x?q={{city}}", "body": "{\"q\": \"{{city}}\"}" (POST), "header": "X-Api-Key",
    "secret": "<encrypted>" (the header's value, never in a survey file or a copy), "timeout": 5 (seconds, optional),
+   "secret_visible": True (optional: a header that is no secret, shown to the admins in the form; see readable_value),
    "values": [{"name": "temp", "path": "current.temperature_2m", "kind": "number" | "text"}]}
 
 Placeholders in the address are percent-encoded, in the body JSON-escaped. The call happens once per
@@ -245,9 +246,12 @@ def update(survey, node, form, links=True):
         changes.update(url=url, method=method, body=body, header=header, timeout=seconds)
         if secret:
             changes["secret"] = secrets_box.encrypt(secret, secrets_box.PARTICIPANT)
-        if not header or form.get("secret_remove") or moved:
+            changes["secret_visible"] = form.get("secret_visible") == "1"
+        emptied = bool(node.get("secret_visible")) and "secret" in form and not secret  # a readable value taken out
+        if not header or form.get("secret_remove") or moved or emptied:
             # another server: the stored key was entered for the old one and is not sent to the new one (W9)
             node.pop("secret", None)
+            node.pop("secret_visible", None)
         if moved and header:
             _note(de_en("Die Adresse führt jetzt zu einem anderen Server; der gespeicherte Wert der Kopfzeile wurde deshalb "
                         "gelöscht. Bitte für den neuen Server neu eintragen.",
@@ -450,6 +454,15 @@ def time_limit(node):
     if isinstance(seconds, int) and not isinstance(seconds, bool) and 1 <= seconds <= MAX_TIMEOUT:
         return seconds
     return TIMEOUT
+
+
+def readable_value(node):
+    """The value of the header for the form: only of a header saved as readable. One saved covered is never shown
+    again, also not by the eye beside the field, which shows what is being typed: otherwise every co-admin could read
+    the key someone else entered. To make it readable it has to be typed anew."""
+    from app import secrets_box
+
+    return secrets_box.decrypt(node.get("secret"), secrets_box.PARTICIPANT) if (node or {}).get("secret_visible") else ""
 
 
 def wait_seconds(survey):

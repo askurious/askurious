@@ -480,3 +480,39 @@ def test_nat64_and_site_local_are_not_public(monkeypatch, address):
 def test_public_addresses_stay_public():
     assert webservice.public(ipaddress.ip_address("93.184.216.34"))
     assert webservice.public(ipaddress.ip_address("2a00:1450:4001:80b::200e"))
+
+
+def _saved(app, nid):
+    with app.app_context():
+        return flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]
+
+
+def test_a_header_saved_as_readable_is_shown_and_one_saved_covered_never(app, client, survey):
+    """The eye beside the field: a header that is no secret stays readable for the admins. A value saved covered does
+    not come to the page, so that no co-admin can uncover the key someone else entered."""
+    nid = build(app, client)
+    update = f"{E}/flow/{nid}/update"
+    client.post(update, data=node_form(header="Accept-Version", secret="v2-oeffentlich", secret_visible="1"), follow_redirects=True)
+    assert _saved(app, nid)["secret_visible"] is True
+    page = client.get("/surveys/1/flow/").data.decode()
+    assert 'value="v2-oeffentlich"' in page and 'aria-pressed="true"' in page
+    client.post(update, data=node_form(header="Authorization", secret="Bearer geheim123", secret_visible=""), follow_redirects=True)
+    assert _saved(app, nid)["secret_visible"] is False
+    page = client.get("/surveys/1/flow/").data.decode()
+    assert "geheim123" not in page and 'aria-pressed="false"' in page
+    # the eye switched on with an empty field: the stored value stays covered
+    client.post(update, data=node_form(header="Authorization", secret="", secret_visible="1"), follow_redirects=True)
+    saved = _saved(app, nid)
+    assert saved["secret"] and saved["secret_visible"] is False and "geheim123" not in client.get("/surveys/1/flow/").data.decode()
+
+
+def test_a_readable_header_can_be_emptied_and_leaves_no_trace_in_a_file(app, client, survey):
+    nid = build(app, client)
+    update = f"{E}/flow/{nid}/update"
+    client.post(update, data=node_form(header="Accept-Version", secret="v2-oeffentlich", secret_visible="1"), follow_redirects=True)
+    dumped = client.get("/surveys/1/export/survey.json").data.decode()
+    assert "v2-oeffentlich" not in dumped and "secret_visible" not in dumped
+    client.post(update, data=node_form(header="Accept-Version", secret="", secret_visible="1"), follow_redirects=True)
+    saved = _saved(app, nid)
+    assert not saved.get("secret") and not saved.get("secret_visible")
+

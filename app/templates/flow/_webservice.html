@@ -21,8 +21,13 @@
 <div class="row-fields">
   <label>{{ de_en("Kopfzeile (optional)", "Header (optional)") }} <span class="hint">{{ de_en("z. B. für einen API-Schlüssel", "e.g. for an API key") }}</span>
     <input name="header" value="{{ node.header or '' }}" placeholder="X-Api-Key" maxlength="60" {{ fixed }}></label>
-  <label class="wide-field">{{ de_en("Wert der Kopfzeile", "Value of the header") }} <span class="hint">{{ de_en("verschlüsselt gespeichert, nie in einer Kopie oder Befragungsdatei", "stored encrypted, never in a copy or survey file") }}</span>
-    <input name="secret" type="password" autocomplete="off" value="" placeholder="{{ de_en('gespeichert – leer lassen, um ihn zu behalten', 'stored – leave empty to keep it') if node.secret else '' }}" maxlength="500" {{ fixed }}></label>
+  {% set readable = webservice.readable_value(node) if may_link else "" %}
+  <label class="wide-field">{{ de_en("Wert der Kopfzeile", "Value of the header") }} <span class="hint">{{ de_en("verschlüsselt gespeichert, nie in einer Kopie oder Befragungsdatei. Verdeckt gespeichert zeigt ihn niemand mehr an; das Auge schaltet auf lesbar für Kopfzeilen, die nicht geheim sind", "stored encrypted, never in a copy or survey file. Saved covered, nobody can show it again; the eye switches to readable for headers that are not secret") }}</span>
+    <span class="secret-field">
+      <input name="secret" type="{{ 'text' if readable else 'password' }}" autocomplete="off" value="{{ readable }}" placeholder="{{ de_en('gespeichert – leer lassen, um ihn zu behalten', 'stored – leave empty to keep it') if node.secret and not readable else '' }}" maxlength="500" {{ fixed }}>
+      <input type="hidden" name="secret_visible" value="{{ '1' if readable else '' }}">
+      <button type="button" class="icon-btn" data-secret-toggle aria-pressed="{{ 'true' if readable else 'false' }}" data-show="{{ de_en('Eingabe lesbar machen', 'Make the entry readable') }}" data-hide="{{ de_en('Eingabe verdecken', 'Cover the entry') }}" title="{{ de_en('Eingabe verdecken', 'Cover the entry') if readable else de_en('Eingabe lesbar machen', 'Make the entry readable') }}" aria-label="{{ de_en('Eingabe verdecken', 'Cover the entry') if readable else de_en('Eingabe lesbar machen', 'Make the entry readable') }}" {{ fixed }}><span data-eye="on" {% if not readable %}hidden{% endif %}>{{ icon("eye", 16) }}</span><span data-eye="off" {% if readable %}hidden{% endif %}>{{ icon("eye-off", 16) }}</span></button>
+    </span></label>
 </div>
 {% if may_link and not ws_allowed %}<p class="muted small">{{ de_en("Adresse, Inhalt und Kopfzeile ändern und den Testaufruf machen kann nur, wer das experimentelle Merkmal „Web Service im Ablauf“ freigeschaltet hat (Konto).", "Only people who have the experimental feature “Web Service in the flow” switched on (Account) can change address, body and header and make the test call.") }}</p>
 {% elif editable and not may_link %}<p class="muted small">{{ de_en("Adresse, Inhalt und Kopfzeile legt fest, wer in dieser Befragung die Rolle „Admin“ hat.", "Address, body and header are set by whoever has the role “Admin” in this survey.") }}</p>{% endif %}

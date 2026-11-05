@@ -427,6 +427,10 @@ form.person-line-add { display: flex; gap: 6px; align-items: center; margin-inli
 input.name-field { max-width: 40ch; }
 input.description-field { max-width: 60ch; }  /* a line of description, not the whole page (X80) */
 .group-offer > label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 0.95rem; }  /* Vorschau and Kommentare side by side, on a phone one under the other (W79) */
+.secret-field { display: flex; align-items: center; gap: 4px; }
+.secret-field input[name=secret] { flex: 1 1 auto; min-width: 0; }
+.secret-field [data-eye] { display: inline-flex; }
+.secret-field [data-eye][hidden] { display: none; }
 .row-fields { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
 /* a long option ("Gelegenheitsstichprobe (Bekanntenkreis, Verteiler)") stays inside a narrow screen (UI/UX audit
    2026-10-07, W6) */
