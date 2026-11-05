@@ -6894,13 +6894,11 @@ document.addEventListener("toggle", function (e) {
 })();
 
 // Statements of a Likert matrix pasted as a list (user test 2026-10-27, point 7): the same rules as
-// app/item_paste.py, here only for the preview "n Aussagen erkannt"; "Übernehmen" sends the box once and the page
-// loads with the new rows. Several lines pasted into the field of one statement go the same way.
+// app/item_paste.py, here for the preview "n Aussagen erkannt"; "Übernehmen" sends the box once and the page
+// loads with the new rows. Pasted into the field of one statement, the text stays in the list itself (below).
 (function () {
   var box = document.querySelector("[data-stmt-paste]");
-  if (!box) return;
-  var area = box.querySelector("[data-stmt-paste-box]"), value = box.querySelector("[data-stmt-paste-value]");
-  var preview = box.querySelector("[data-stmt-paste-preview]"), list = box.querySelector("[data-stmt-paste-list]");
+  if (!box && !document.querySelector('input[name="stmt_text"]')) return;
   var NUMBER = /^\(?(\d{1,3}|[a-zA-Z])[.):]\s+|^(\d{1,3})\s+(?=\S)/, REVERSED = /\s*\((?:R|r|-|−|umgepolt|reversed|rev\.?)\)\s*$/;
   var CODE = /^[A-Za-z][A-Za-z0-9_]{0,31}$/, END = /[.!?…:"“”»«)]$/;
   function numbered(line) {
@@ -6940,6 +6938,10 @@ document.addEventListener("toggle", function (e) {
       return { code: s[0], text: s[1].replace(REVERSED, "").trim(), reverse: REVERSED.test(s[1]) };
     }).filter(function (s) { return s.text; });
   }
+  // the box of the Likert editor (the slider has none, only the fields)
+  if (box) (function () {
+  var area = box.querySelector("[data-stmt-paste-box]"), value = box.querySelector("[data-stmt-paste-value]");
+  var preview = box.querySelector("[data-stmt-paste-preview]"), list = box.querySelector("[data-stmt-paste-list]");
   function show() {
     var found = parse(area.value);
     preview.hidden = !found.length;
@@ -6961,18 +6963,48 @@ document.addEventListener("toggle", function (e) {
     value.value = area.value;
     value.dispatchEvent(new Event("change", { bubbles: true }));
   });
-  // several lines pasted into the field of one statement: into the box, with the preview
+  })();
+  // Pasted into the field of one statement, the text stays where it was pasted (user feedback 2026-11-05: before,
+  // several lines went into the box above, and the field stayed empty). One statement, also one broken over lines
+  // in a PDF, goes into the field as one line; several fill this row and the next empty rows of the list, with new
+  // rows from "+" where needed. A number at the start is dropped, "(R)" ticks "umgepolt", a variable name before
+  // a tab or ";" goes into the column Variable while that one is empty.
+  function fill(tr, s, field, whole) {
+    if (whole) field.value = s.text;
+    else field.setRangeText(s.text, field.selectionStart, field.selectionEnd, "end");
+    var code = tr.querySelector('input[name="stmt_code"]'), rev = tr.querySelector('input[name="stmt_reverse"]');
+    if (s.code && code && !code.readOnly && !code.value.trim()) code.value = s.code;
+    if (s.reverse && rev && !rev.disabled) rev.checked = true;
+    [field, code, rev].forEach(function (el) {
+      if (!el) return;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
   document.addEventListener("paste", function (e) {
     var field = e.target.closest && e.target.closest('input[name="stmt_text"]');
     if (!field || !e.clipboardData) return;
     var text = e.clipboardData.getData("text");
-    if (text.replace(/\r/g, "").trim().indexOf("\n") < 0) return;
+    if (text.replace(/\r/g, "").trim().indexOf("\n") < 0 && text.indexOf("\t") < 0) return;  // the browser pastes it
+    var found = parse(text);
+    if (!found.length) return;
     e.preventDefault();
-    box.open = true;
-    area.value = (area.value ? area.value + "\n" : "") + text;
-    show();
-    area.focus();
-    box.scrollIntoView({ block: "nearest" });
+    var tr = field.closest("tr"), rows = tr && tr.parentNode;
+    fill(tr, found[0], field, false);
+    var table = rows && rows.closest("table"), add = null;  // "+" right after the table or after its scroll box
+    [table, table && table.closest(".table-scroll")].forEach(function (el) {
+      var b = el && el.nextElementSibling;
+      if (!add && b && b.matches(".row-add")) add = b;
+    });
+    var next = tr;
+    found.slice(1).forEach(function (s) {
+      do { next = next && next.nextElementSibling; }
+      while (next && (!next.querySelector('input[name="stmt_text"]') || next.querySelector('input[name="stmt_text"]').value.trim()));
+      if (!next && add && !add.disabled) { add.click(); next = rows.lastElementChild; }
+      var f = next && next.querySelector('input[name="stmt_text"]');
+      if (f && !f.value.trim()) fill(next, s, f, true);
+    });
+    field.focus();
   });
 })();
 
