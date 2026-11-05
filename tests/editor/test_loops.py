@@ -189,7 +189,7 @@ def test_loop_constraints(app, client, survey):
         rand = flow.add_node(s, "rand")
         flow.place(s, rand["id"], lid, "into")           # a randomizer inside a loop is not allowed
         db.session.commit()
-        assert any("Darf nur Blöcke enthalten" in f.message for f in design.check(s))
+        assert any("Darf nur Blöcke und externe Abschnitte enthalten" in f.message for f in design.check(s))
         flow.remove(s, rand["id"])
         flow.place(s, "k1", lid, "into")                 # the consent inside a loop ...
         db.session.commit()

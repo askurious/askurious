@@ -211,7 +211,7 @@
           <input type="number" name="delay" min="0" max="{{ external.MAX_DELAY }}" step="1" value="{{ external.delay(node) }}" {{ off }}></label>
         <label class="ext-wide">{{ de_en("Adresse der Web-App", "Address of the web app") }} <span class="hint">{{ de_en("mit", "with") }} <code>{{ "{{pid}}" }}</code> {{ de_en("und", "and") }} <code>{{ "{{return}}" }}</code></span>
           <input name="url" value="{{ node.url }}" placeholder="https://webapp.example/task?pid={{ '{{pid}}' }}&amp;return={{ '{{return}}' }}" maxlength="1000" {{ off if may_link else "disabled" }} data-link-field></label>
-      {% if editable and may_link %}{{ link_chips(ext_chips) }}{% endif %}
+      {% if editable and may_link %}{{ link_chips(ext_chips + external.column_chips(survey, node)) }}{% endif %}
       </div>
       {% if editable and not may_link %}<p class="muted small">{{ de_en("Die Adresse legt fest, wer in dieser Befragung die Rolle „Admin“ hat, wie bei den Abschlusslinks.", "The address is set by whoever has the role “Admin” in this survey, as with the completion links.") }}</p>{% endif %}
       {% for code in survey.languages %}

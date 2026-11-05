@@ -374,7 +374,7 @@ def _run_preview(survey, lang, url, on_phone, comment_url=None):
         forward = external.target(
             survey, response, node,
             {**session.get(pv_key, {}), **runtime.builtin_variables(response, survey), **panel_mod.extra_values(survey, response)},
-            return_link="(Rückkehrlink-nur-im-Feld)")
+            return_link="(Rückkehrlink-nur-im-Feld)", row=result.external.get("row"))
         return render_template("participant/external.html", response=response, page_count=count, framed=framed,
                                node=node, forward=forward, text=(node.get("text") or {}).get(lang) or "",
                                values=external.values(node), kinds=external.KINDS, auto_seconds=external.delay(node),

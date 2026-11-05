@@ -341,7 +341,8 @@ def build_layout(survey, rng, separate=True, keep=None, only=None):
         if kind in ("end", "quota", "ext", "ws"):  # markers: an end, a quota calculation (app/quotas.py), a web
             # service called by the server (app/webservice.py), or an
             # external section (app/external.py), where the person leaves and comes back
-            pages.append({kind: ref, "cond": conds})
+            pages.append({kind: ref, "cond": conds, **({"row": ctx["row"], "iter": ctx["iter"], "iters": ctx["iters"],
+                                                        "loop": ctx["loop"]} if ctx and kind == "ext" else {})})
             continue
         block = blocks[ref]
         if ctx:
@@ -617,13 +618,14 @@ def previous_index(survey, layout, index, answers, barrier=(), ext_barrier=()):
     """The page "Back" leads to, or None. `barrier`: quota calculations this participation has passed; the answers
     before them are fixed (a way back would let someone change the answer that decided their cell). `ext_barrier`:
     external sections this browser came back from without having left from them (the return link opened in another
-    browser, participate.come_back): the pages before them are not this browser's to see."""
+    browser, participate.come_back): the pages before them are not this browser's to see. A section in a loop stops
+    "Back" for everyone: nobody goes back through a pass (Philipp, 2026-11-05)."""
     conds = page_conditions(survey, layout)
     for n in range(index - 1, -1, -1):
         spec = layout["pages"][n]
         if spec.get("quota") in barrier and "quota" in spec and applicable(survey, layout, n, answers, conds=conds):
             return None
-        if "ext" in spec and spec["ext"] in ext_barrier:
+        if "ext" in spec and (spec["ext"] in ext_barrier or spec.get("row")):
             return None
         if not is_marker(spec) and applicable(survey, layout, n, answers, conds=conds):
             return n
@@ -696,6 +698,10 @@ def builtin_variables(response, survey=None, lang=None):
 
         # what the web services of the flow gave this participation ({{ws1_temp}}, app/webservice.py)
         out.update({k: v for k, v in webservice.variables_of(survey, response).items() if k not in out})
+        from app import external
+
+        # what the external sections handed back, the last return each ({{ext1_score}}, app/external.py)
+        out.update({k: v for k, v in external.variables_of(survey, response).items() if k not in out})
     return out
 
 
@@ -928,7 +934,7 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
             if "ext" in spec:
                 # an external section: the person stops here until the return link brings them back
                 node, _ = flow.find(flow.tree(survey), spec["ext"])
-                if node is not None and external.usable(node) and not external.passed(response, node["id"]):
+                if node is not None and external.usable(node) and not external.passed(response, node["id"], spec.get("row")):
                     response.position = n
                     return Step(redirect=True)
                 n = next_index(survey, layout, n, answers)
@@ -972,19 +978,20 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
         return go_forward(position)  # a web app cannot be visited from paper
     if "ext" in layout["pages"][position] and applicable(survey, layout, position, answers):
         node, _ = flow.find(flow.tree(survey), layout["pages"][position]["ext"])
-        if node is not None and external.usable(node) and not external.passed(response, node["id"]):
+        row = layout["pages"][position].get("row")
+        if node is not None and external.usable(node) and not external.passed(response, node["id"], row):
             sent = method == "POST" and form.get("pos") in (None, page_token(response, position))
             if sent and on_post is not None:
                 on_post()
             if sent and getattr(response, "is_preview", False) and form.get("ext_back"):
                 # a test run or a simulated person: back at once, with the values given on the page
-                external.simulate(response, node, external.form_values(form), form.get("ext_seconds") or 0, utcnow())
+                external.simulate(response, node, external.form_values(form), form.get("ext_seconds") or 0, utcnow(), row)
                 return go_forward(position)
             if sent and not getattr(response, "is_preview", False):
                 response.last_active_at = utcnow()
-                external.leave(response, node, response.last_active_at, params)  # holds the URL parameters
+                external.leave(response, node, response.last_active_at, params, row)  # holds the URL parameters
             return Step(external={"node": node, "go": sent and not getattr(response, "is_preview", False),
-                                  "token": page_token(response, position)})
+                                  "token": page_token(response, position), "row": row})
     # the current entry may not apply (e.g. the start, or answers changed after going back)
     if is_marker(layout["pages"][position]) or not applicable(survey, layout, position, answers):
         result = go_forward(position - 1 if position == 0 else position)

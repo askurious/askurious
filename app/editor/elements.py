@@ -467,7 +467,9 @@ def _rich_vars(survey, loop_vars, pipe_sources):
          + [{"name": code, "text": de_en("Randomisierung: {name} (gezogener Zweig)", "Randomisation: {name} (branch drawn)",
                                          name=name)} for code, name in flow.branch_names(survey).items()]
          + [{"name": code, "text": de_en("Web Service: {name}", "Web Service: {name}", name=name)}
-            for code, name in __import__("app.webservice", fromlist=["names"]).names(survey).items()]},
+            for code, name in __import__("app.webservice", fromlist=["names"]).names(survey).items()]
+         + [{"name": code, "text": de_en("Externer Abschnitt: {name}", "External section: {name}", name=name)}
+            for code, name in __import__("app.external", fromlist=["names"]).names(survey).items()]},
     ]
     return [g for g in groups if g["items"]]
 

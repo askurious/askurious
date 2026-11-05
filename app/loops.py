@@ -450,7 +450,8 @@ def check(survey):
     from app import piping
 
     everywhere = (BUILTIN_VARIABLES | {p["name"] for p in panel.config(survey)["params"]} | piping.names(survey)
-                  | set(flow.branch_names(survey)) | set(__import__("app.webservice", fromlist=["names"]).names(survey)))
+                  | set(flow.branch_names(survey)) | set(__import__("app.webservice", fromlist=["names"]).names(survey))
+                  | set(__import__("app.external", fromlist=["names"]).names(survey)))
     problems = []
     loop_blocks = set()
     for node, _, _ in flow.walk(flow.tree(survey)):
@@ -460,12 +461,13 @@ def check(survey):
         label = de_en("Schleife „{name}“", "Loop “{name}”", name=loop["name"] or loop["code"])
         blocks = blocks_in(survey, node)
         first = blocks[0].id if blocks else None
-        if any(ch["t"] != "block" for ch in node.get("children", [])):
-            problems.append(("error", de_en("{label}: Darf nur Blöcke enthalten (keine Randomisierung, Bedingung oder "
-                                            "Schleife darin).",
-                                            "{label}: may contain blocks only (no randomisation, condition or loop in it).",
+        if any(ch["t"] not in ("block", "ext") for ch in node.get("children", [])):
+            problems.append(("error", de_en("{label}: Darf nur Blöcke und externe Abschnitte enthalten (keine Randomisierung, "
+                                            "Bedingung oder Schleife darin).",
+                                            "{label}: may contain blocks and external sections only (no randomisation, "
+                                            "condition or loop in it).",
                                             label=label), None, first))
-        if not blocks:
+        if not node.get("children"):
             problems.append(("warning", de_en("{label} ist leer: Blöcke hineinziehen.", "{label} is empty: drag blocks into it.",
                                               label=label), None, None))
         names = [c["name"] for c in loop["columns"]]

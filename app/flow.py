@@ -34,7 +34,7 @@ Stored as JSON on Survey.flow:
   ext:        {"t": "ext", "id": "o..", "code": "ext1", "name": "...", "url": "https://…?pid={{pid}}&return={{return}}",
                "delay": 0, "text": {lang: "..."}, "values": [{"name": "score", "kind": "number"}]}
               (an external section, see external.py: the person leaves for a web app and comes back through a
-              signed return link, with the declared values)
+              signed return link, with the declared values; in a table loop once per pass)
 
 Every block appears exactly once. Block.position always follows the depth-first order of the
 tree, so the editor shows blocks in flow order. Randomizer choices are made once per response
@@ -999,8 +999,8 @@ def plan(survey, rng, within=None, keep=None):
         elif child["t"] == "quota":
             out.append(("quota", child["id"], conds, None))
         elif child["t"] == "ext":
-            if ctx is None:  # not once per pass of a loop (the pre-launch check says so)
-                out.append(("ext", child["id"], conds, None))
+            if ctx is None or ctx.get("sections", True):  # not in vignette loops yet (the pre-launch check says so)
+                out.append(("ext", child["id"], conds, ctx))
         elif child["t"] == "ws":
             if ctx is None:  # called once per participation, not per pass of a loop (the pre-launch check says so)
                 out.append(("ws", child["id"], conds, None))
@@ -1031,7 +1031,8 @@ def plan(survey, rng, within=None, keep=None):
                 rows = loops.choose_rows(survey, child, rng)
             chosen_rows[child["id"]] = rows
             for n, row in enumerate(rows, start=1):
-                rec(child, conds, {"loop": child["id"], "row": row, "iter": n, "iters": len(rows)})
+                rec(child, conds, {"loop": child["id"], "row": row, "iter": n, "iters": len(rows),
+                                   "sections": child.get("source") != "factors"})
 
     rec(root, [])
     return out, decisions, chosen_rows

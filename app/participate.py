@@ -1234,10 +1234,10 @@ def _external_page(survey, response, lang, step):
 
     node = step["node"]
     if step["go"]:
-        url = external.target(survey, response, node, _external_values(survey, response))
+        url = external.target(survey, response, node, _external_values(survey, response), row=step.get("row"))
         if url:
             return redirect(url, code=303)
-    entry = external.entry(response, node["id"])
+    entry = external.entry(response, node["id"], step.get("row"))
     return render_template("participant/external.html", survey=survey, lang=lang, page_token=step["token"],
                            text=(node.get("text") or {}).get(lang) or "", been_out=bool(entry.get("n")),
                            auto_after=external.delay(node) if not entry.get("n") else None)
@@ -1267,7 +1267,7 @@ def come_back(uid):
         return _too_late_page(survey, _pick_language(survey, response))
     now = utcnow()
     held = external.held_params(response)  # the URL parameters of the start, held while the person was outside
-    if response.status == Response.ACTIVE and external.come_back(response, node, data[2], request.args, now):
+    if response.status == Response.ACTIVE and external.come_back(response, node, data[2], request.args, now, data[3]):
         response.last_active_at = now
         db.session.commit()
         # this browser continues the participation: the one that left, or another one (the web app opened elsewhere)
