@@ -64,7 +64,7 @@
         {% set mb = ((audio|sum(attribute="bytes")) / 1048576)|round(1) %}
         <details class="iv-audio"><summary class="small">🎙 {% if audio|length == 1 %}{{ de_en("Aufnahme ({n} Teil, {mb} MB)", "Recording ({n} part, {mb} MB)", n=audio|length, mb=mb) }}{% else %}{{ de_en("Aufnahme ({n} Teile, {mb} MB)", "Recording ({n} parts, {mb} MB)", n=audio|length, mb=mb) }}{% endif %}</summary>
           {% for p in audio %}<div class="iv-audio-part"><audio controls preload="none" data-preload-open src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>
-            <a class="small" href="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part, download=1) }}">{{ de_en("herunterladen", "download") }}</a>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}</div>{% endfor %}
+            <a class="small" href="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part, download=1) }}">{{ de_en("herunterladen", "download") }}</a>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}{% set note = skip_note(p) %}{% if note %}<div class="muted small">{{ note }}</div>{% endif %}</div>{% endfor %}
           {% if may_delete %}<form method="post" action="{{ url_for('interview_audio.delete', code=survey.code, rid=r.id) }}" data-confirm="{{ de_en('Aufnahme von {label} löschen?', 'Delete the recording of {label}?', label=m.label) }}" data-confirm-note="{{ de_en('Die Tonaufnahme wird endgültig gelöscht; Notizen und Haken bleiben.', 'The audio recording is deleted permanently; notes and ticks remain.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
             {{ csrf() }}<button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Aufnahme löschen", "Delete recording") }}</button></form>{% endif %}
         </details>
@@ -75,7 +75,7 @@
             <div class="iv-progress" data-transcription-progress="{{ url_for('interview_transcribe.progress_status', code=survey.code, rid=r.id) }}"
                  data-error="{{ de_en('Status momentan nicht erreichbar. Bitte später erneut prüfen.', 'Status temporarily unavailable. Please check again later.') }}">
               <span data-progress-text role="status" aria-live="polite">{{ progress.text }}</span>
-              <div class="iv-progress-row"><progress data-progress-bar value="{{ progress.done }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
+              <div class="iv-progress-row"><progress data-progress-bar value="{{ progress.bar }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
                 <span data-progress-parts>{{ progress.parts_text }}</span>
                 <form method="post" action="{{ url_for('interview_transcribe.cancel', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}
                   <button class="button button-small button-secondary">{{ de_en("Abbrechen", "Cancel") }}</button></form></div>

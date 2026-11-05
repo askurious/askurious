@@ -317,7 +317,7 @@ def index(code):
                            whisper_models=whisper_jobs.MODELS, whisper_default=whisper_jobs.default_model(current_app.config),
                            today=f"{utcnow():%Y-%m-%d}", may_edit=survey.can(current_user, "editor"),
                            may_delete=survey.can(current_user, "admin"), erasures=erasure.summary(survey),
-                           whisper=interview_transcribe.configured() and ai_access.ai_on(), transcribing=interview_transcribe.running,
+                           whisper=interview_transcribe.configured() and ai_access.ai_on(), transcribing=interview_transcribe.shown_running,
                            transcription_progress=interview_transcribe.progress_info,
                            transcription_error=interview_transcribe.error_info, offline=interview_offline.panel(survey))
 

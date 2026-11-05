@@ -137,6 +137,24 @@ def _now():
     return utcnow().isoformat(timespec="seconds")
 
 
+RESUME_SHOWN = 600       # a "running" without a sign of life is shown as being taken up again for this long: the
+                         # researchers' container renews its workers (--max-requests) and the thread ends with its
+                         # worker, while Whisper computes on; housekeeping takes it up within a minute or two
+                         # (tester 2026-11-05: the list said "beendet oder unterbrochen" and stopped asking)
+
+
+def shown_running(row):
+    """Whether the list shows a transcription as running: a fresh sign of life, or one broken off a short while ago
+    that housekeeping takes up again (resume_stale)."""
+    st = state(row)
+    if st.get("state") != "running":
+        return False
+    try:
+        return utcnow() - datetime.fromisoformat(st.get("beat") or st.get("started")) < timedelta(seconds=STALE_BEAT + RESUME_SHOWN)
+    except (TypeError, ValueError):
+        return False
+
+
 def running(row):
     """Whether a transcription runs: "running" with a fresh sign of life."""
     st = state(row)
@@ -241,6 +259,16 @@ def _segments(data):
     return segments or [(0.0, float(data.get("duration") or 0), data.get("text") or "")]
 
 
+class _PartsFailed(RuntimeError):
+    """Some parts of the recording could not be transcribed; the message names them and why."""
+
+    def __init__(self, failed):
+        reasons = "; ".join(de_en("Teil {n}: {r}", "Part {n}: {r}", n=key, r=reason.rstrip(".")) if reason else
+                            de_en("Teil {n}", "Part {n}", n=key) for key, reason in failed)
+        super().__init__(de_en("Nicht transkribiert: {parts}. Die übrigen Teile sind fertig.",
+                               "Not transcribed: {parts}. The other parts are done.", parts=reasons))
+
+
 class _Cancelled(Exception):
     """The transcription was cancelled or started anew meanwhile: its result is dropped."""
 
@@ -341,7 +369,11 @@ def _assemble(tr, plan):
     (text, covers). A part not done (yet) is noted as "[Teil n fehlt]"."""
     got, pieces, covers = tr.get("parts") or {}, [], {}
     voices, at = [], None  # the parts of one voice each, interleaved by time where the first of them stood
+    from app import interview_audio
+
     for key, full, found in plan:
+        if interview_audio.skipped(found):
+            continue  # a broken-off or repeated upload: named in the list, not in the transcript
         entry = got.get(key) or {}
         if "text" not in entry or (full is not None and entry.get("bytes") != found.get("bytes")):
             pieces.append(f"[Teil {key} fehlt]")
@@ -403,9 +435,12 @@ def work(app, survey_id, rid, run=None):
             done = dict(state(row).get("parts") or {})
             remote = dict(state(row).get("jobs") or {})
             db.session.close()
+            from app import interview_audio
+            from app.whisper_jobs import MemoryLimitError
+            failed = []  # (part, reason) of the parts that failed; the others are still transcribed (tester 2026-11-05)
             for key, full, found in plan:
-                if full is None or (done.get(key) or {}).get("bytes") == found.get("bytes"):
-                    continue  # missing (noted in the draft) or done in an earlier run
+                if full is None or interview_audio.skipped(found) or (done.get(key) or {}).get("bytes") == found.get("bytes"):
+                    continue  # missing (noted in the draft), a broken-off copy, or done in an earlier run
                 offset = float(found.get("start") or 0)
                 def request_part(full=full, found=found, key=key):
                     if not app.config.get("WHISPER_JOBS"):
@@ -431,17 +466,26 @@ def work(app, survey_id, rid, run=None):
                                            progress=progressed, model=requested_model)
 
                 waits = list(app.config.get("WHISPER_RETRY_WAITS", RETRY_WAITS) or ())
-                while True:  # a failure of the moment is tried again by itself (TransientError, Ralf 2026-10-30)
-                    try:
-                        segments = _waiting(app, rid, mine, request_part)
-                        break
-                    except TransientError as error:
-                        if not waits or not _still_mine(rid, mine):
-                            raise
-                        app.logger.warning("transcription of interview %s, part %s: %s; tried again in %s s",
-                                           rid, key, error, waits[0])
-                        _pause(rid, mine, waits.pop(0), key)
-                        remote = _jobs(rid)  # a job the service still holds is asked again, not sent anew
+                try:
+                    while True:  # a failure of the moment is tried again by itself (TransientError, Ralf 2026-10-30)
+                        try:
+                            segments = _waiting(app, rid, mine, request_part)
+                            break
+                        except TransientError as error:
+                            if not waits or not _still_mine(rid, mine):
+                                raise
+                            app.logger.warning("transcription of interview %s, part %s: %s; tried again in %s s",
+                                               rid, key, error, waits[0])
+                            _pause(rid, mine, waits.pop(0), key)
+                            remote = _jobs(rid)  # a job the service still holds is asked again, not sent anew
+                except (_Cancelled, MemoryLimitError):
+                    raise  # a cancel ends the run; the memory limit would hit the next part of the same model too
+                except Exception as error:  # noqa: BLE001 - this part failed; the next ones are still sent
+                    if not _still_mine(rid, mine):
+                        raise
+                    app.logger.warning("transcription of interview %s, part %s failed: %s", rid, key, error)
+                    failed.append((key, str(error) if isinstance(error, RuntimeError) else ""))
+                    continue
                 if found.get("speaker") in VOICES:  # one voice per file (Zoom's file per person): its label, kept by time
                     timed = [(offset + s, offset + e, f"{found['speaker']}: " + re.sub(r"^S\d+:\s*", "", t.strip()))
                              for s, e, t in segments if t and t.strip()]
@@ -454,6 +498,9 @@ def work(app, survey_id, rid, run=None):
                                                                        "beat": _now()} if mine(tr) else None)
                 if stored is None:
                     return  # cancelled or started anew
+
+            if failed:  # the parts done are kept and readable (_partial); the error names the parts that failed
+                raise _PartsFailed(failed)
 
             def finish(tr):
                 if not mine(tr):
@@ -515,7 +562,10 @@ def start(survey, row, background=True, model=None, resumed=0):
         if changed:
             values.update(parts={}, jobs={})
         _set(row, **values)
-    interview_audio.retried(reset)
+    def reset_and_mark():
+        interview_audio.mark_copies(survey, row)  # broken-off or repeated uploads are left out (tester 2026-11-05)
+        reset()
+    interview_audio.retried(reset_and_mark)
     if changed:
         from app.whisper_jobs import cancel_records
         cancel_records(previous.get("jobs"))
@@ -527,6 +577,29 @@ def start(survey, row, background=True, model=None, resumed=0):
 
 
 RESUME_TRIES = 3  # a transcription broken off this often is not taken up again by itself
+
+
+def _service_computes(st):
+    """Whether the job service still holds a job of this transcription that is queued, computing or done: then the
+    break was only the app's thread (a worker renewed, a restart) and is not counted against RESUME_TRIES."""
+    if not current_app.config.get("WHISPER_JOBS"):
+        return False
+    from app import whisper_jobs
+
+    for record in (st.get("jobs") or {}).values():
+        if not isinstance(record, dict) or record.get("service") != whisper_jobs.namespace():
+            continue
+        job_id = str(record.get("id", ""))
+        if not whisper_jobs.JOB_ID.fullmatch(job_id):
+            continue
+        try:  # asked once and briefly (whisper_jobs._job would wait up to POLL_GRACE)
+            response = requests.get(whisper_jobs._url(job_id), headers=whisper_jobs._headers(), timeout=(2, 5))
+            data = response.json() if response.status_code == 200 else {}
+        except (requests.RequestException, ValueError):
+            return False  # the service cannot be asked: counted as before
+        if isinstance(data, dict) and data.get("state") in ("queued", "running", "done"):
+            return True
+    return False
 
 
 def resume_stale():
@@ -553,6 +626,8 @@ def resume_stale():
             continue
         survey = db.session.get(Survey, row.survey_id)
         tries = int(st.get("resumed") or 0)
+        if _service_computes(st):  # the work is not lost: the worker ended, not the job (tester 2026-11-05)
+            tries = max(0, tries - 1)
         if tries >= RESUME_TRIES:
             plan = _plan(survey, row)
             _set(row, **_partial(st, plan), state="error", run="", progress={}, error_code="interrupted",
@@ -908,15 +983,21 @@ def estimate_info(value, active):
                  'Rough time estimate for this recording part including the queue: about {lo}–{hi} minutes. Few comparable runs yet.', lo=low, hi=high)
 
 
+# the share of a part's work done when the job service reports a stage (rough: transcribing takes the most time)
+STAGE_SHARE = {"waiting": 0.0, "queued": 0.0, "loading": 0.03, "decoding": 0.05, "transcribing": 0.1,
+               "aligning": 0.6, "diarizing": 0.75}
+
+
 def progress_info(row):
     """Only editor-visible operational progress of this interview; no remote identifiers."""
     from app import interview_audio
     tr = state(row)
-    parts = interview_audio.parts(row)
+    parts = [p for p in interview_audio.parts(row) if not interview_audio.skipped(p)]
     covers = (tr.get("draft_covers") if tr.get("draft") else tr.get("covers")) if tr.get("state") == "done" else None
     done = sum(((tr.get("parts", {}).get(str(part["part"])) or {}).get("bytes") == part.get("bytes")) or
                ((covers or {}).get(str(part["part"])) == part.get("bytes")) for part in parts)
-    active = running(row)
+    active = shown_running(row)
+    resuming = active and not running(row)
     value = tr.get("progress") or {}
     if not isinstance(value, dict):
         value = {}
@@ -929,15 +1010,23 @@ def progress_info(row):
     if not isinstance(stage, str):
         stage = None
     position = value.get("position", 0)
-    if active and stage == "queued" and type(position) is int and 1 <= position <= 8:
+    if resuming:
+        text = de_en("Transkription wird fortgesetzt …", "Transcription is being resumed …")
+    elif active and stage == "queued" and type(position) is int and 1 <= position <= 8:
         text = de_en("Warteschlange: Platz {n}", "Queue: position {n}", n=position)
     elif active:
         text = de_en(*labels.get(stage, ("Transkription läuft", "Transcription running")))
-    elif tr.get('state') == 'error' and tr.get('error_code') == 'memory_limit':
+    elif tr.get('state') == 'error' and tr.get('error') == "Abgebrochen.":
+        text = de_en("Transkription abgebrochen", "Transcription cancelled")
+    elif tr.get('state') == 'error':  # the reason at once, not only after "Anzeige aktualisieren" (tester 2026-11-05)
         text = de_en('Transkription fehlgeschlagen: {error}', 'Transcription failed: {error}', error=error_info(tr))
     else:
         text = de_en("Transkription abgeschlossen", "Transcription complete") if tr.get("state") == "done" else de_en("Transkription beendet oder unterbrochen", "Transcription ended or interrupted")
-    return {"active": active, "text": text, "eta_text": estimate_info(value, active), "done": done, "total": len(parts),
+    bar = done
+    if active and done < len(parts) and stage in STAGE_SHARE:  # the bar moves within a long part too (Ralf 2026-11-05)
+        bar = done + STAGE_SHARE[stage]
+    return {"active": active, "text": text, "eta_text": estimate_info(value, active and not resuming), "done": done,
+            "bar": round(bar, 2), "total": len(parts),
             "parts_text": de_en("{d} von 1 Teil fertig", "{d} of 1 part done", d=done) if len(parts) == 1 else
                           de_en("{d} von {n} Teilen fertig", "{d} of {n} parts done", d=done, n=len(parts))}
 

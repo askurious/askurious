@@ -402,7 +402,7 @@ def test_broken_off_transcription_may_start_again_and_be_cancelled(app, client, 
     code, sid, rid, calls = _whisper(app, client, monkeypatch)
     with app.app_context():
         row = db.session.get(Response, rid)
-        old = (utcnow() - timedelta(minutes=10)).isoformat(timespec="seconds")
+        old = (utcnow() - timedelta(minutes=20)).isoformat(timespec="seconds")  # past RESUME_SHOWN too
         interview_transcribe._set(row, state="running", started=old, beat=old, run="weg")
         db.session.commit()
         assert not interview_transcribe.running(row)
@@ -484,7 +484,7 @@ def test_job_cancelled_by_abbrechen_is_no_failure_in_the_log(app, client, monkey
     caplog.clear()
     client.post(f"/guide/{code}/interviews/{rid}/transcribe")
     tr = _tr(app, rid)
-    assert tr["state"] == "error" and tr["error"] == "Whisper kaputt."
+    assert tr["state"] == "error" and "Teil 1: Whisper kaputt" in tr["error"]  # names the part (tester 2026-11-05)
     assert [r for r in caplog.records if r.levelname == "ERROR" and "failed" in r.getMessage()]
 
 
@@ -503,8 +503,9 @@ def test_parts_are_kept_one_by_one_and_only_missing_ones_sent_again(app, client,
     code, sid, rid, calls = _whisper(app, client, monkeypatch, answer, parts=3)
     client.post(f"/guide/{code}/interviews/{rid}/transcribe")
     tr = _tr(app, rid)
-    assert tr["state"] == "error" and "500" in tr["error"] and sorted(tr["parts"]) == ["1"]
-    assert "1 Teil ist schon fertig" in client.get(f"/guide/{code}/interviews").data.decode()
+    # part 3 is still sent after part 2 failed (tester 2026-11-05); the error names part 2
+    assert tr["state"] == "error" and "Teil 2" in tr["error"] and "500" in tr["error"] and sorted(tr["parts"]) == ["1", "3"]
+    assert "2 Teile sind schon fertig" in client.get(f"/guide/{code}/interviews").data.decode()
     fail["on"] = False
     with app.app_context():
         survey, row = _rows(sid, rid)
@@ -514,7 +515,8 @@ def test_parts_are_kept_one_by_one_and_only_missing_ones_sent_again(app, client,
     assert [c[0] for c in calls] == ["teil-2-r2.webm"]
     tr = _tr(app, rid)
     assert tr["state"] == "done" and "parts" not in tr
-    assert tr["text"] == "Aus 1. #00:00:03-0#\n\nAus 2. #00:10:03-0#\n\n[Teil 3 fehlt]" and tr["covers"] == {"1": 9, "2": 9}
+    # part 3 was transcribed in the first run already, so its text stays though its file is gone
+    assert tr["text"] == "Aus 1. #00:00:03-0#\n\nAus 2. #00:10:03-0#\n\nAus 3. #00:20:03-0#" and tr["covers"] == {"1": 9, "2": 9}
 
 
 def test_prompt_model_and_duration(app, client, monkeypatch):
