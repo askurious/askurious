@@ -200,6 +200,11 @@ class Config:
     # The oldest version of the app (its versionCode) that diary studies still accept: sent as "min_app_version" with
     # the study (diary.study_json), and an older app asks the person to update it. 0 = every version.
     DIARY_MIN_APP_VERSION = int(os.environ.get("DIARY_MIN_APP_VERSION", "0") or 0)
+    # the iOS app (askurious-diary-ios): DIARY_IOS_APP_URL is its App Store entry; empty while it has none, and then
+    # the join page, the privacy page and the privacy concept name only the Android app. DIARY_MIN_IOS_APP_VERSION:
+    # the oldest build of the iOS app still accepted ("min_app_version_ios" with the study), 0 = every build
+    DIARY_IOS_APP_URL = os.environ.get("DIARY_IOS_APP_URL", "").strip()
+    DIARY_MIN_IOS_APP_VERSION = int(os.environ.get("DIARY_MIN_IOS_APP_VERSION", "0") or 0)
     # Further domains with a name of their own (app/brand.py), e.g. "polltergeist.de=Polltergeist": a request to the domain
     # or one of its sub-domains shows that name instead of "Askurious", and the links stay on that domain. Empty: one name.
     BRANDS = os.environ.get("BRANDS", "").strip()

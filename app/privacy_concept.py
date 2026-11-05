@@ -383,7 +383,7 @@ THIRD = {
     "accounts": (("ORCID", "ORCID_CLIENT_ID"), ("Slack", "SLACK_WEBHOOK_URL")),
     "participation": (("OpenAI", "OPENAI_API_KEY"),),
     "interviews": (("OpenAI", "OPENAI_API_KEY"),),
-    "diary": (("Google Play", None),),
+    "diary": (("Google Play", None), ("App Store", "DIARY_IOS_APP_URL")),
     "feedback": (("Slack", "SLACK_WEBHOOK_URL"),),
     "ai": (("OpenAI", "OPENAI_API_KEY"),),
 }
@@ -1192,6 +1192,19 @@ def _services():
                        "from autofill; the WebView offers no way to switch the prediction requests off."),
          "who": de_en("Teilnehmende", "Participants"), "switch": de_en("für alle", "for everyone"),
          "state": _on(True), "where": usa},
+        # the iOS app (askurious-diary-ios README): only once it has an App Store entry
+        {"name": de_en("App Store und Webansicht von iOS (App)", "App Store and the web view of iOS (app)"),
+         "words": ("App Store",),
+         "data": de_en("Keine Daten der Plattform: Teilnehmende laden die App für Tagebuchstudien dort selbst; die App "
+                       "sendet nur an die Teilnahmeadresse und nutzt keinen Push-Dienst. Die Fragebögen laufen in der "
+                       "Webansicht von iOS; die Warnung vor betrügerischen Seiten ist abgeschaltet, sodass keine "
+                       "Adresse an einen Prüfdienst geht.",
+                       "No data of the platform: participants download the app for diary surveys there themselves; the "
+                       "app only sends to the participants' address and uses no push service. The questionnaires run in "
+                       "the web view of iOS; the warning about fraudulent websites is switched off, so that no address "
+                       "goes to a checking service."),
+         "who": de_en("Teilnehmende", "Participants"), "switch": "DIARY_IOS_APP_URL",
+         "state": _on(bool(c.get("DIARY_IOS_APP_URL"))), "where": usa},
         {"name": de_en("E-Mail (SMTP-Relay)", "Email (SMTP relay)"), "words": ("E-Mail", "Mail"),
          "data": de_en("Empfängeradressen und Inhalt von Einladungen und Kontonachrichten.",
                        "Recipient addresses and content of invitations and account messages."),

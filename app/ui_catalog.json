@@ -18528,5 +18528,44 @@
   "nl": "Technisch probleem",
   "pt": "Problema técnico",
   "ar": "مشكلة تقنية"
+ },
+ "This diary study runs in the app “Askurious” for Android and iPhone. This is how you join:": {
+  "es": "Este estudio de diario se realiza en la aplicación «Askurious» para Android y iPhone. Así puede participar:",
+  "fr": "Cette étude par journal se déroule dans l’application « Askurious » pour Android et iPhone. Voici comment participer :",
+  "it": "Questo studio a diario si svolge nell’app «Askurious» per Android e iPhone. Ecco come partecipare:",
+  "pl": "To badanie dzienniczkowe odbywa się w aplikacji „Askurious” na Androida i iPhone’a. Jak dołączyć:",
+  "ru": "Это дневниковое исследование проходит в приложении «Askurious» для Android и iPhone. Как присоединиться:",
+  "tr": "Bu günlük çalışması Android ve iPhone için “Askurious” uygulamasında yürütülür. Katılmak için:",
+  "zh-Hans": "本日记研究在安卓和 iPhone 应用“Askurious”中进行。加入方法如下：",
+  "nl": "Dit dagboekonderzoek loopt in de app ‘Askurious’ voor Android en iPhone. Zo doet u mee:",
+  "pt": "Este estudo de diário decorre na aplicação «Askurious» para Android e iPhone. Para participar:",
+  "ar": "تُجرى هذه الدراسة اليومية في تطبيق «Askurious» لنظامي أندرويد وآيفون. للانضمام:",
+  "de-du": "Diese Tagebuchstudie läuft in der App „Askurious“ für Android und iPhone. So trittst du bei:"
+ },
+ "for Android": {
+  "es": "para Android",
+  "fr": "pour Android",
+  "it": "per Android",
+  "pl": "na Androida",
+  "ru": "для Android",
+  "tr": "Android için",
+  "zh-Hans": "安卓版",
+  "nl": "voor Android",
+  "pt": "para Android",
+  "ar": "لأندرويد",
+  "de-du": "für Android"
+ },
+ "for iPhone": {
+  "es": "para iPhone",
+  "fr": "pour iPhone",
+  "it": "per iPhone",
+  "pl": "na iPhone’a",
+  "ru": "для iPhone",
+  "tr": "iPhone için",
+  "zh-Hans": "iPhone 版",
+  "nl": "voor iPhone",
+  "pt": "para iPhone",
+  "ar": "لآيفون",
+  "de-du": "für iPhone"
  }
 }

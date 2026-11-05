@@ -833,7 +833,8 @@ def join_page(code):
     lang = participate_lang(survey)
     return render_template("diary/join.html", survey=survey, lang=lang, code=code.strip().lower() if test else survey.code,
                            accepting=diary.accepting(survey, test),
-                           store_url=current_app.config["DIARY_APP_URL"])
+                           store_url=current_app.config["DIARY_APP_URL"],
+                           ios_url=current_app.config.get("DIARY_IOS_APP_URL") or "")
 
 
 def participate_lang(survey):
