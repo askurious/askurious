@@ -42,12 +42,12 @@
   {% if editable %}
   {% set nid = "k" ~ node.block if node.t == "block" else node.id %}
   <span class="fl-tools">
-    {# up and down always; into a group and out of it only while the row is pointed at or focused, "out" with its
+    {# up and down always; into a group and out of it only while the row is pointed at or focused, both with their
        word (UI audit 2026-10-04, R92) #}
     {% for action, ic, title in [("up", "up", de_en("nach oben", "move up")), ("down", "down", de_en("nach unten", "move down")),
-                                 ("in", "block-down", de_en("in die Randomisierung, Bedingung oder Schleife darüber hinein (an ihr Ende)", "into the randomisation, condition or loop above (at its end)")), ("out", "back", de_en("herausnehmen (dahinter)", "take out (after it)"))] %}
+                                 ("in", "into-group", de_en("in die Randomisierung, Bedingung oder Schleife darüber hinein (an ihr Ende)", "into the randomisation, condition or loop above (at its end)")), ("out", "out-of-group", de_en("herausnehmen (dahinter)", "take out (after it)"))] %}
     {% if action in ("up", "down") or can[action] %}
-    <form class="inline{% if action in ('in', 'out') %} row-tool-more{% endif %}" method="post" action="{{ url_for('editor.flow_node', survey_id=survey.id, nid=nid, action=action, lang=lang) }}">{{ csrf() }}<button class="icon-btn{% if action == 'out' %} icon-btn-word{% endif %}" title="{{ title }}" aria-label="{{ title }}" {% if not can[action] %}disabled{% endif %}>{{ icon(ic, 16) }}{% if action == "out" %} {{ de_en("herausnehmen", "take out") }}{% endif %}</button></form>
+    <form class="inline{% if action in ('in', 'out') %} row-tool-more{% endif %}" method="post" action="{{ url_for('editor.flow_node', survey_id=survey.id, nid=nid, action=action, lang=lang) }}">{{ csrf() }}<button class="icon-btn{% if action in ('in', 'out') %} icon-btn-word{% endif %}" title="{{ title }}" aria-label="{{ title }}" data-move="{{ action }}" {% if not can[action] %}disabled{% endif %}>{{ icon(ic, 16) }}{% if action == "in" %} {{ de_en("hereinnehmen", "take in") }}{% elif action == "out" %} {{ de_en("herausnehmen", "take out") }}{% endif %}</button></form>
     {% endif %}
     {% endfor %}
     {% if node.t not in ("block", "split") %}
@@ -375,7 +375,7 @@
 <script type="application/json" data-cond-items>{{ cond_data|tojson }}</script>
 {# the Teilquoten of every quota ([code, name]): a trigger "Teilquote voll" lists those of the quota chosen #}
 <script type="application/json" data-quota-cells>{{ quota_cells|tojson }}</script>
-<div class="flow-page" data-flow-page data-cond-page data-at="{{ request.args.get('at', '') }}"
+<div class="flow-page" data-flow-page data-cond-page data-at="{{ request.args.get('at', '') }}" data-did="{{ request.args.get('did', '') }}"
      data-place-url="{{ url_for('editor.flow_node', survey_id=survey.id, nid='__NID__', action='place', lang=lang) }}">
   {# the palette on the left, the figures and the check on the right: as on the page "Fragebogen" #}
   <aside class="flow-palette">

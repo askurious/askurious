@@ -388,7 +388,7 @@ def test_flow_page_keeps_its_place_and_offers_every_move_as_a_button(app, client
     assert buttons("k3") == {"up": True, "down": True, "in": True, "out": False}
     assert buttons("k1") == {"up": False, "down": True, "in": False, "out": False}
     r = client.post("/surveys/1/editor/flow/k3/in")
-    assert r.headers["Location"].endswith("at=k3")                                     # back at the moved element
+    assert r.headers["Location"].endswith("at=k3&did=in")                                     # back at the moved element
     html = client.get("/surveys/1/flow/?at=k3").data.decode()
     assert 'data-at="k3"' in html and buttons("k3")["out"] and not buttons("k3")["in"]
     # the condition: the answers of the chosen question on offer, a wrong value reported
@@ -467,3 +467,23 @@ def test_ends_and_completion_links_explain_the_statuses(client, survey):
     assert len(panel.outcome_help()) == len(panel.OUTCOMES)
     field = client.get("/surveys/1/field").data.decode()
     assert "Was bedeuten die Status?" in field
+
+
+def test_keyboard_keeps_its_place_after_a_move(app, client, survey):
+    """UI test of the flow tab 2026-11-05: every move reloads the page, and the focus went back to its top."""
+    fill_consent(client)
+    client.post(E + "/blocks")                                                        # block 3
+    moved = client.post(f"{E}/flow/k3/up")
+    assert "at=k3" in moved.location and "did=up" in moved.location
+    html = client.get(moved.location).data.decode()
+    assert 'data-at="k3" data-did="up"' in html and 'data-move="up"' in html
+
+
+def test_undo_of_a_block_move_returns_to_its_row(app, client, survey):
+    """A block has no "id" of its own in the flow: undoing its move ended in a KeyError after the undo was stored."""
+    fill_consent(client)
+    client.post(E + "/blocks")                                                        # block 3
+    client.post(f"{E}/flow/k3/up")
+    for action in ("undo", "redo"):
+        back = client.post(f"{E}/{action}")
+        assert back.status_code == 302 and "at=k3" in back.location

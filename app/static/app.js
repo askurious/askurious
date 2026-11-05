@@ -2503,6 +2503,16 @@ document.querySelectorAll("[data-display-form]").forEach(function (form) {
     at.scrollIntoView({ block: "center" });
     at.classList.add("is-here");
     setTimeout(function () { at.classList.remove("is-here"); }, 2500);
+    // the keyboard stays where the action was: on the same move if it is still possible, else on the row. A hidden
+    // button takes no focus, so the next one is tried.
+    if (document.activeElement !== document.body) return;
+    var own = Array.prototype.filter.call(at.querySelectorAll("[data-move], .fl-title, summary"), function (el) {
+      return el.closest(".fl-node") === at && !el.disabled;
+    });
+    own.filter(function (el) { return el.dataset.move === page.dataset.did; }).concat(own).some(function (el) {
+      el.focus({ preventScroll: true });
+      return document.activeElement === el;
+    });
   }
 })();
 
