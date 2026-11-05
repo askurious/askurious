@@ -1,6 +1,7 @@
 """Web service in the flow (app/webservice.py, Philipp 2026-10-08): the server calls an API where a participant
 passes the node and keeps fields of its JSON answer as values for later texts and the export; https and public
 servers only."""
+import copy
 import csv
 import io
 import json
@@ -9,7 +10,7 @@ import socket
 import pytest
 from werkzeug.datastructures import MultiDict
 
-from app import flow, webservice
+from app import flow, vignettes, webservice
 from app.extensions import db
 from app.models import Response, Survey
 from tests.conftest import CONSENT_OK, add, experiments_on, fill_consent
@@ -129,6 +130,123 @@ def test_the_call_gets_what_was_typed_whole_and_a_text_of_a_page_the_short_form(
 def test_a_long_text_of_the_answer_stays():
     assert len(webservice._as("x" * 1500, "text")) == 1500
     assert len(webservice._as("x" * 3000, "text")) == webservice.MAX_TEXT
+
+
+def build_loop(app, client, **loop):
+    """consent | loop over two rows: the question city, the web service, a page with its value and the column"""
+    nid = build(app, client)
+    client.post(E + "/items/3", data={"code": "outro", "question": "{{city}} {{distance}}: {{ws1_temp}} {{ws1_unit}}."})
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        node = {**copy.deepcopy(flow.find(flow.tree(s), nid)[0]), "url": "https://api.open-meteo.com/v1/forecast?city={{city}}&d={{distance}}"}
+        s.flow = {"t": "root", "children": [
+            {"t": "block", "block": 1},
+            {"t": "loop", "id": "l1", "name": "Durchgänge", "code": "loop1", "mode": "all", "k": 1, "order": "fixed", "balanced": True,
+             "columns": [{"id": "c1", "name": "distance", "hidden": False}],
+             "rows": [{"id": "r1", "values": {"c1": {"de": "nah", "en": "near"}}}, {"id": "r2", "values": {"c1": {"de": "fern", "en": "far"}}}],
+             "children": [{"t": "block", "block": 2}, node, {"t": "block", "block": 3}], **loop}]}
+        flow.normalize(s)
+        db.session.commit()
+    return nid
+
+
+def test_a_web_service_runs_every_pass_of_a_loop(app, client, survey, monkeypatch):
+    """One node for all passes, with the column and the answer of the pass; each pass keeps its values, the text shows
+    the last call, also when that one failed, and the export has every pass (Philipp, 2026-11-05)."""
+    nid = build_loop(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert not [m for level, m, _ in flow.check(s) if level == "error"]
+    assert "Spalte distance" in client.get("/surveys/1/flow/").data.decode()
+    calls = []
+    answers = iter([b'{"current": {"temperature_2m": 11}, "current_units": {"temperature_2m": "C"}}', b"no json"])
+
+    def fetch(method, url, body=None, headers=None, timeout=None):
+        calls.append(url)
+        return 200, next(answers)
+
+    monkeypatch.setattr(webservice, "fetch", fetch)
+    uid = start(app, client)
+    p = app.test_client()
+    p.get(f"/s/{uid}")
+    p.post(f"/s/{uid}", data=CONSENT_OK)
+    page = p.post(f"/s/{uid}", data={"nav": "next", "i2": "Aachen"}, follow_redirects=True).data.decode()
+    assert "Aachen nah: 11 C." in page
+    p.post(f"/s/{uid}", data={"nav": "next"}, follow_redirects=True)
+    page = p.post(f"/s/{uid}", data={"nav": "next", "i2": "Bonn"}, follow_redirects=True).data.decode()
+    assert "Bonn fern:" in page and "11" not in page.split("Bonn fern:")[1][:20]
+    assert [c.split("?")[1] for c in calls] == ["city=Aachen&d=nah", "city=Bonn&d=fern"]
+    p.post(f"/s/{uid}", data={"nav": "next"})
+    assert len(calls) == 2
+    with app.app_context():
+        r = db.session.scalar(db.select(Response).filter_by(source="real"))
+        kept = r.external[webservice.KEY]
+        assert r.status == Response.COMPLETED and kept[f"{nid}#r1"]["ok"] == 1 and kept[f"{nid}#r2"]["ok"] == 0
+    rows = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv?all=1").data.decode("utf-8-sig"))))
+    assert (rows[-1]["ws1_ok_1"], rows[-1]["ws1_temp_1"], rows[-1]["ws1_ok_2"], rows[-1]["ws1_temp_2"]) == ("1", "11", "0", "")
+    book = {r[0] for r in csv.reader(io.StringIO(client.get("/surveys/1/export/codebook.csv").data.decode("utf-8-sig")))}
+    assert {"ws1_ok_2", "ws1_temp_1"} <= book and "ws1_ok" not in book
+    with app.app_context():
+        from app import export
+
+        s = db.session.get(Survey, 1)
+        long = list(csv.DictReader(io.StringIO(export.loop_long_csv(s, flow.find(flow.tree(s), "l1")[0]).lstrip("\ufeff"))))
+    assert [(r["distance"], r["ws1_ok"], r["ws1_temp"]) for r in long] == [("nah", "1", "11"), ("fern", "0", "")]
+
+
+def test_a_web_service_runs_every_vignette_of_a_deck(app, client, survey, answers):
+    nid = build_loop(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        tree = copy.deepcopy(flow.tree(s))
+        loop = flow.find(tree, "l1")[0]
+        loop.update(source="factors", order="plan", plan={"method": "full", "per_person": 2, "decks": 1}, prohibitions=[],
+                    attributes=[{"id": "a1", "code": "distance", "levels": [{"id": "d0", "hint": ""}, {"id": "d1", "hint": ""}]}],
+                    texts={"de": {"attributes": {"a1": "Abstand"}, "levels": {"d0": "nah", "d1": "fern"}}})
+        loop["children"][1]["url"] = "https://api.open-meteo.com/v1/forecast?city={{city}}&d={{distance}}&n={{distance_code}}"
+        vignettes.generate(s, loop, seed=1)
+        vignettes.materialize(s, loop)
+        s.flow = tree
+        flow.normalize(s)
+        db.session.commit()
+        s = db.session.get(Survey, 1)
+        assert not [m for level, m, _ in flow.check(s) if level == "error"]
+        rows = [r["id"] for r in flow.find(flow.tree(s), "l1")[0]["rows"]]
+    uid = start(app, client)
+    p = app.test_client()
+    p.get(f"/s/{uid}")
+    p.post(f"/s/{uid}", data=CONSENT_OK)
+    for town in ("Aachen", "Bonn"):
+        page = p.post(f"/s/{uid}", data={"nav": "next", "i2": town}, follow_redirects=True).data.decode()
+        assert f"{town} " in page and "13" in page
+        p.post(f"/s/{uid}", data={"nav": "next"}, follow_redirects=True)
+    assert sorted(a[1].split("&", 1)[1].split("&current")[0] for a in answers) == ["d=fern&n=2", "d=nah&n=1"]
+    with app.app_context():
+        from app import export
+
+        r = db.session.scalar(db.select(Response).filter_by(source="real"))
+        assert sorted(k.split("#")[1] for k in r.external[webservice.KEY]) == sorted(rows)
+        assert nid in next(iter(r.external[webservice.KEY]))
+        s = db.session.get(Survey, 1)
+        long = list(csv.DictReader(io.StringIO(export.vignettes_long_csv(s, flow.find(flow.tree(s), "l1")[0]).lstrip("\ufeff"))))
+    assert [row["ws1_ok"] for row in long] == ["1", "1"]
+
+
+def test_a_web_service_alone_in_a_loop_or_in_loops_inside_each_other_is_refused(app, client, survey, answers):
+    build_loop(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        tree = copy.deepcopy(flow.tree(s))
+        loop = flow.find(tree, "l1")[0]
+        service = loop["children"][1]
+        s.flow = {"t": "root", "children": [{"t": "block", "block": 1}, {"t": "block", "block": 2}, {"t": "block", "block": 3},
+                                            {**loop, "children": [service]}]}
+        flow.normalize(s)
+        assert any("fehlt ein Block" in m for level, m, _ in flow.check(s) if level == "error")
+        inner = {**loop, "id": "l2", "code": "loop2", "children": [{"t": "block", "block": 3}, service]}
+        s.flow = {"t": "root", "children": [{"t": "block", "block": 1}, {"t": "block", "block": 2}, {**loop, "children": [inner]}]}
+        flow.normalize(s)
+        assert any("Schleifen ineinander" in m for level, m, _ in flow.check(s) if level == "error")
 
 
 def test_a_failed_call_lets_the_person_go_on(app, client, survey, monkeypatch):

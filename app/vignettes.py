@@ -716,23 +716,24 @@ def _answer_items(survey, node):
 
 
 def long_columns(survey, node):
-    from app import external
+    from app import external, webservice
 
     cols = ["deck", "position", "vignette"]
     for a in node.get("attributes") or []:
         cols += [a["code"], f"{a['code']}_label"]
     for it in _answer_items(survey, node):
         cols += [c for c, _ in it.kind.export_columns(it)]
-    return cols + external.long_columns(node)
+    return cols + external.long_columns(node) + webservice.long_columns(node)
 
 
 def long_rows(survey, node, response):
     """One row per vignette the person was shown: deck, position, vignette number, the level (number from 1 and
     label in the default language) of every factor, then the answers to the questions of the loop and what its
-    external sections handed back."""
-    from app import external
+    external sections handed back and its web services gave."""
+    from app import external, webservice
 
     sections = external.long_columns(node)
+    services = webservice.long_columns(node)
     plan = node.get("plan") or {}
     shown = ((response.layout or {}).get("loops") or {}).get(node["id"]) or []
     by_id = dict(zip(plan.get("ids") or [], plan.get("profiles") or []))
@@ -755,7 +756,8 @@ def long_rows(survey, node, response):
             values = {**it.kind.export_values(it, answer), **it.kind.export_response_values(it, answer, response)}
             row += [values.get(c) for c, _ in it.kind.export_columns(it)]
         returned = external.long_values(node, response, rid)
-        yield row + [returned.get(c) for c in sections]
+        called = webservice.long_values(node, response, rid)
+        yield row + [returned.get(c) for c in sections] + [called.get(c) for c in services]
 
 
 def _number(v):

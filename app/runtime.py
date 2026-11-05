@@ -342,7 +342,7 @@ def build_layout(survey, rng, separate=True, keep=None, only=None):
             # service called by the server (app/webservice.py), or an
             # external section (app/external.py), where the person leaves and comes back
             pages.append({kind: ref, "cond": conds, **({"row": ctx["row"], "iter": ctx["iter"], "iters": ctx["iters"],
-                                                        "loop": ctx["loop"]} if ctx and kind == "ext" else {})})
+                                                        "loop": ctx["loop"]} if ctx and kind in ("ext", "ws") else {})})
             continue
         block = blocks[ref]
         if ctx:
@@ -899,8 +899,10 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
         # page (code audit 2026-10-08, W5)
         from app import webservice
 
-        node, _ = flow.find(flow.tree(survey), layout["pages"][index]["ws"])
-        if node is None or webservice.done(response, node["id"]):
+        spec = layout["pages"][index]
+        row = spec.get("row")
+        node, _ = flow.find(flow.tree(survey), spec["ws"])
+        if node is None or webservice.done(response, node["id"], row):
             return
         if getattr(response, "id", None) is None and getattr(response, "source", "") != "dummy":
             return
@@ -913,7 +915,9 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
         lang = getattr(response, "language", None) or survey.default_language
         known = {**{k: Typed(v) for k, v in builtin_variables(response, survey, lang).items()},
                  **{k: Typed(v) for k, v in params.items()}, "pid": builtin_variables(response)["pid"]}
-        webservice.run(survey, response, node, ChainMap(known, piping.values(survey, answers, lang, whole=True)))
+        pass_values = {k: Typed(v) for k, v in external.row_values(survey, node, row).items()}
+        webservice.run(survey, response, node, ChainMap(pass_values, known, piping.values(survey, answers, lang, row=row, whole=True)),
+                       row)
 
     def go_forward(from_index):
         from app.items import voice

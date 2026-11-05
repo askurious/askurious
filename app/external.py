@@ -179,11 +179,12 @@ def row_values(survey, node, row):
             **{c["name"]: loops.value(table, found, c, default, default) for c in table["columns"]}}
 
 
-def slots(survey):
+def slots(survey, found=None):
     """[(node, row id or None, suffix of its export columns)]: one per pass of a loop's table, as the columns of
-    questions in a loop are numbered (_1, _2 …, in the order of the table), else one per section."""
+    questions in a loop are numbered (_1, _2 …, in the order of the table), else one per section. `found`: other
+    nodes of the flow than the sections (the web services)."""
     out = []
-    for node in nodes(survey):
+    for node in nodes(survey) if found is None else found:
         around = loop_of(survey, node)
         rows = (around.get("rows") or []) if around else []
         out += [(node, r["id"], f"_{n}") for n, r in enumerate(rows, start=1)] or [(node, None, "")]

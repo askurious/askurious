@@ -977,7 +977,7 @@ def _rows(survey, include_incomplete=False, sources=("real",), speeder=None, spe
     ext_nodes = external.slots(survey)
     from app import webservice
 
-    ws_nodes = webservice.nodes(survey)
+    ws_nodes = webservice.slots(survey)
     per_item = [(item, item.kind, str(item.id), _loop_rows(item), item.kind.order_codes(item), item.code) for item in items]
     from app import coding
 
@@ -1262,8 +1262,8 @@ def open_columns(survey):
         out.update(f"{node['code']}_{spec['name']}{n}" for spec in external.values(node) if spec.get("kind") == "text")
     from app import webservice
 
-    for node in webservice.nodes(survey):  # text a web service answered (it may repeat what was sent)
-        out.update(f"{node['code']}_{spec['name']}" for spec in webservice.values(node) if spec.get("kind") == "text")
+    for node, _, n in webservice.slots(survey):  # text a web service answered (it may repeat what was sent)
+        out.update(f"{node['code']}_{spec['name']}{n}" for spec in webservice.values(node) if spec.get("kind") == "text")
     return out
 
 
@@ -2271,6 +2271,10 @@ def vignettes_long_csv(survey, node, include_incomplete=False, separator="comma"
 
         hidden.update(f"{n['code']}_{v['name']}" for n in external.in_loop(node) for v in external.values(n)
                       if v.get("kind") == "text")
+        from app import webservice
+
+        hidden.update(f"{n['code']}_{v['name']}" for n in webservice.in_loop(node) for v in webservice.values(n)
+                      if v.get("kind") == "text")
     return _long(survey, vignettes.long_columns(survey, node), lambda r: vignettes.long_rows(survey, node, r),
                  include_incomplete, separator, sources, drop_speeders, hidden)
 
@@ -2296,8 +2300,10 @@ def loop_long_columns(survey, node):
     from app import external
 
     cols = ["position", "zeile"]
+    from app import webservice
+
     answers = ([c for it in _loop_answer_items(survey, node) for c, _ in it.kind.export_columns(it)]
-               + external.long_columns(node))
+               + external.long_columns(node) + webservice.long_columns(node))
     taken = {"resp_id", "source", *cols, *answers}
     for c in node.get("columns") or []:
         name, k = c["name"], 2
@@ -2324,7 +2330,10 @@ def loop_long_rows(survey, node, response):
     answers = response.answers or {}
     from app import external
 
+    from app import webservice
+
     sections = external.long_columns(node)
+    services = webservice.long_columns(node)
     for pos, rid in enumerate(shown, start=1):
         row = by_id.get(rid)
         line = [pos, loops.row_number(loop, rid) or "?"]
@@ -2335,6 +2344,8 @@ def loop_long_rows(survey, node, response):
             line += [values.get(c) for c, _ in it.kind.export_columns(it)]
         returned = external.long_values(node, response, rid)
         line += [returned.get(c) for c in sections]
+        called = webservice.long_values(node, response, rid)
+        line += [called.get(c) for c in services]
         yield line
 
 
@@ -2349,6 +2360,10 @@ def loop_long_csv(survey, node, include_incomplete=False, separator="comma", sou
         from app import external
 
         hidden.update(f"{n['code']}_{v['name']}" for n in external.in_loop(node) for v in external.values(n)
+                      if v.get("kind") == "text")
+        from app import webservice
+
+        hidden.update(f"{n['code']}_{v['name']}" for n in webservice.in_loop(node) for v in webservice.values(n)
                       if v.get("kind") == "text")
     return _long(survey, loop_long_columns(survey, node), lambda r: loop_long_rows(survey, node, r),
                  include_incomplete, separator, sources, drop_speeders, hidden)
@@ -2639,8 +2654,8 @@ def readme_md(survey, open_answers=False, include_incomplete=False):
                      "translations as `<column>_<language>`; with a design also `deck`.")
     if vignettes.nodes(survey):
         lines.append("- `vignettes_*_long.csv`: long format of a vignette loop (participant × vignette shown): deck, "
-                     "position, the level of every factor, then the answers to the questions of the loop and what its "
-                     "external sections handed back.")
+                     "position, the level of every factor, then the answers to the questions of the loop, what its "
+                     "external sections handed back and what its web services gave.")
     if loop_long_nodes(survey):
         lines.append("- `loop_*_long.csv`: long format of a loop (participant × pass): `position` (order of the "
                      "pass), `zeile` (the table row, as in the suffix `_n` of `data.csv`), the values of that row, then "

@@ -1001,8 +1001,7 @@ def plan(survey, rng, within=None, keep=None):
         elif child["t"] == "ext":
             out.append(("ext", child["id"], conds, ctx))
         elif child["t"] == "ws":
-            if ctx is None:  # called once per participation, not per pass of a loop (the pre-launch check says so)
-                out.append(("ws", child["id"], conds, None))
+            out.append(("ws", child["id"], conds, ctx))
         elif child["t"] == "split":
             if separated:  # an empty separated section changes nothing for participants
                 out.append(("split", child["id"], conds, None))
