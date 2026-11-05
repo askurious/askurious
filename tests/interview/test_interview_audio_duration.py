@@ -52,8 +52,6 @@ def test_length_from_the_last_block(tmp_path):
 def test_files_that_name_their_length_or_are_no_recorder_webm_stay(tmp_path):
     named, _, _ = recorder_webm([(0, [0, 500])], info_extra=el(b"\x44\x89", struct.pack(">d", 500.0)))
     assert webm_duration.head_plan(write(tmp_path, named, "a.webm")) is None
-    with_cues = recorder_webm([(0, [0, 500])])[0] + el(b"\x1c\x53\xbb\x6b", b"")
-    assert webm_duration.head_plan(write(tmp_path, with_cues, "b.webm")) is None  # positions would shift
     assert webm_duration.head_plan(write(tmp_path, b"\x1a\x45\xdf\xa3AAAA", "c.webm")) is None
     assert webm_duration.head_plan(write(tmp_path, b"", "d.webm")) is None
     assert webm_duration.head_plan(str(tmp_path / "missing.webm")) is None
@@ -99,3 +97,33 @@ def test_players_load_the_length(app, client):
     client.post(f"/guide/{code}/interviews/{rid}/audio?part=1&seq=0", data=data, content_type="audio/webm")
     page = client.get(f"/guide/{code}/interviews").data.decode()
     assert 'preload="none" data-preload-open' in page
+
+
+def _cues():
+    return el(b"\x1c\x53\xbb\x6b", el(b"\xbb", b"\xb3\x81\x00"))
+
+
+def test_a_file_with_cues_gets_a_head_of_the_same_length(tmp_path):
+    """L-02 (tester 2026-11-05): recordings with Cues at their end showed 0:00; Duration takes the room of the
+    program names in Info, so Info keeps its length and the positions in the Cues stay right."""
+    data, info_start, info_end = recorder_webm([(0, [0, 20]), (4000, [0, 1500])], info_extra=el(b"\x57\x41", b"Chrome"))
+    full = write(tmp_path, data + _cues())
+    head, offset, seconds = webm_duration.head_plan(full)
+    assert seconds == 5.5 and offset == info_end and len(head) == info_end
+    assert head[:info_start] == data[:info_start] and b"\x44\x89\x88" + struct.pack(">d", 5500.0) in head
+    assert b"Chrome" not in head
+    joined = webm_duration.Joined(head, full, offset)
+    try:
+        served = joined.read()
+    finally:
+        joined.close()
+    assert len(served) == len(data + _cues()) and served[info_end:] == (data + _cues())[info_end:]
+    assert webm_duration.head_plan(write(tmp_path, served, "served.webm")) is None  # now names its length
+
+
+def test_a_file_with_cues_and_no_room_stays(tmp_path):
+    head = el(b"\x1a\x45\xdf\xa3", el(b"\x42\x82", b"webm"))
+    info = el(b"\x15\x49\xa9\x66", el(b"\x2a\xd7\xb1", (1000000).to_bytes(3, "big")))
+    body = el(b"\x1f\x43\xb6\x75", el(b"\xe7", (0).to_bytes(4, "big")) + block(0) + block(500), unknown=True)
+    data = head + b"\x18\x53\x80\x67" + UNKNOWN + info + body + _cues()
+    assert webm_duration.head_plan(write(tmp_path, data)) is None  # a longer head would shift the Cues
