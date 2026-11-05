@@ -69,10 +69,10 @@ def groups():
             (de_en("Papierkorb für gelöschte Fragen", "Trash for deleted questions"), None),
             (de_en("Befragung duplizieren; Befragungsdatei (.json/.zip) zum Umziehen und Teilen",
                    "Duplicate a survey; survey file (.json/.zip) to move and share it"), None),
-            (de_en("KI-Agenten-Schnittstelle (MCP): Ein eigener KI-Agent liest Fragebögen und bearbeitet Entwürfe, mit "
-                   "persönlichem Token",
-                   "AI agent interface (MCP): your own AI agent reads questionnaires and edits drafts, with a personal "
-                   "token"), "agent"),
+            (de_en("KI-Agenten-Schnittstelle (MCP): Ein eigener KI-Agent liest Fragebögen, legt Entwürfe an und "
+                   "bearbeitet sie samt Ablauf und KI-Bildern, mit persönlichem Token",
+                   "AI agent interface (MCP): your own AI agent reads questionnaires, creates drafts and edits them "
+                   "with their flow and AI images, with a personal token"), "agent"),
             (de_en("Fassungen: eine laufende Befragung zur Bearbeitung öffnen, die Daten jeder Fassung bleiben",
                    "Versions: open a running survey for editing, the data of every version stay"), None),
             (de_en("Antwortoptionen übernehmen: Eine spätere Frage zeigt nur die früher gewählten Optionen",

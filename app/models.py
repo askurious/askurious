@@ -284,13 +284,13 @@ class DataToken(db.Model):
 
 class AgentToken(db.Model):
     """A personal token of the AI agent interface (app/agent_access.py, app/mcp.py; experimental "agent"): an agent
-    such as Claude Code reads the questionnaires of its person and, with the scope "edit", changes drafts. Only the
-    hash is stored; the token is shown once. It works while it has not expired, the feature is on for its person and
+    such as Claude Code reads the questionnaires of its person, with the scope "edit" changes drafts and with "create"
+    also makes new ones. Only the hash is stored; the token is shown once. It works while it has not expired, the feature is on for its person and
     their account may sign in; the role in each survey is checked at every call. `surveys`: the survey ids it is
     limited to, or None for all of the person's surveys. Revoking removes the row."""
 
     __tablename__ = "agent_token"
-    READ, EDIT = "read", "edit"
+    READ, EDIT, CREATE = "read", "edit", "create"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # no foreign key, like data_token: the rows go in code with the account (accounts.delete, account_access.revoke)

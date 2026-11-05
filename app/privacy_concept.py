@@ -930,17 +930,19 @@ def _activities():
                           "Researchers let an AI agent of their choice (such as Claude Code) read their questionnaires "
                           "and edit drafts (MCP, app/mcp.py)."),
          "subjects": de_en("Forschende", "Researchers"),
-         "data": de_en("Token je Person nur als Hash, Name, Umfang (lesen oder Entwürfe bearbeiten), gewählte "
+         "data": de_en("Token je Person nur als Hash, Name, Umfang (lesen, Entwürfe bearbeiten oder anlegen), gewählte "
                        "Befragungen, Ablauf, letzte Nutzung; Konto-ID; Fragebogentexte, die der Agent abruft oder "
                        "ändert; Bearbeitungsspuren (Verlauf, Anwesenheit im Editor); Protokolleintrag je Aufruf. Keine "
                        "Daten von Teilnehmenden.",
-                       "Token per person as a hash only, name, scope (read or edit drafts), chosen surveys, expiry, last "
+                       "Token per person as a hash only, name, scope (read, edit or create drafts), chosen surveys, expiry, last "
                        "use; account id; questionnaire texts the agent fetches or changes; editing traces (history, "
                        "presence in the editor); a log entry per call. No participants' data."),
          "recipients": de_en("Der Agent der Person und der KI-Anbieter, den sie für ihn wählt, auf ihre Veranlassung; "
-                             "auf Seiten der Plattform kein Auftragsverarbeiter, die Plattform schickt nichts an ein "
-                             "Modell.", "The person's agent and the AI provider they choose for it, at their request; no "
-                             "processor on the platform's side, the platform sends nothing to a model."),
+                             "auf Seiten der Plattform nur beim Erzeugen eines Bildes der Bilddienst, wie beim Knopf im "
+                             "Editor; sonst schickt die Plattform nichts an ein Modell.",
+                             "The person's agent and the AI provider they choose for it, at their request; on the "
+                             "platform's side only the image service when an image is generated, as with the button "
+                             "in the editor; otherwise the platform sends nothing to a model."),
          "deletion": de_en("Token mit Widerruf, 30 Tage nach Ablauf (90 Tage), bei Passwortwechsel oder mit dem Konto; "
                            "Protokoll nach 365 Tagen; Verlauf nach 7 Tagen.", "Token when revoked, 30 days after expiry "
                            "(90 days), on a password change or with the account; log after 365 days; history after 7 "
@@ -1103,11 +1105,13 @@ def _services():
     rows.append({"name": de_en("KI-Agent der Forschenden (MCP)", "Researchers' AI agent (MCP)"),
                  "words": ("KI-Agenten-Schnittstelle",),
                  "data": de_en("Aufbau und Texte der Fragebögen, die das Token erreicht (ohne Antworten und ohne "
-                               "lizenzpflichtige Wortlaute); in Entwürfen Änderungen des Agenten. Die Plattform schickt "
-                               "nichts an ein Modell, der Agent der Person ruft ab.",
+                               "lizenzpflichtige Wortlaute); in Entwürfen Änderungen des Agenten. Der Agent der Person ruft "
+                               "ab; die Plattform schickt von sich aus nichts an ein Modell, nur beim Erzeugen eines Bildes "
+                               "den Bild-Prompt an den Bilddienst der Plattform, wie der Knopf im Editor.",
                                "Structure and texts of the questionnaires the token reaches (without answers and without "
-                               "licensed wordings); in drafts the agent's changes. The platform sends nothing to a "
-                               "model; the person's agent fetches."),
+                               "licensed wordings); in drafts the agent's changes. The person's agent fetches; the "
+                               "platform sends nothing to a model on its own, only the image prompt to the platform's "
+                               "image service when an image is generated, as the button in the editor does."),
                  "who": de_en("Forschende (ihr Agent)", "Researchers (their agent)"),
                  "switch": de_en("experimentell „agent“, Token auf „Konto › Verbindungen“", "experimental “agent”, token on “Account › Connections”"),
                  "state": (agent_on, agent_text),

@@ -76,6 +76,26 @@ def upload(survey_id, item_id):
     return _item_page(survey, item, lang)
 
 
+@bp.route("/items/<int:item_id>/image-settings", methods=["POST"])
+@login_required
+def image_settings(survey_id, item_id):
+    """Prompt, size and source of an image without generating anything: one undo step (the tool update_item of
+    app/agent_tools.py; a person saves them with the button that generates)."""
+    survey = get_survey(survey_id)
+    item = _get_item(survey, item_id)
+    if not _require_draft(survey) or item.type != "image":
+        return _item_page(survey, item, _lang(survey))
+    step = undo.begin(survey)
+    if request.form.get("source") == "upload":
+        item.config = {**item.config, "source": "upload"}
+    else:
+        item.kind.update_ai_settings(item, request.form)
+    step.done(undo.both("Bild-Prompt von „{code}“ geändert", "Image prompt of “{code}” changed", code=item.code), page="item",
+              item=item.id)
+    _commit_assets()
+    return _item_page(survey, item, _lang(survey))
+
+
 @bp.route("/items/<int:item_id>/generate", methods=["POST"])
 @login_required
 def generate(survey_id, item_id):

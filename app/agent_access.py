@@ -6,12 +6,14 @@ in the address (a request that carries one there is refused); only its hash is s
 shown once, right after it was made. It works for DAYS days, while the feature is on for its person, their account is
 not blocked and may sign in, and they accepted the current terms of use; the role in each survey is checked at every
 call (agent_tools._survey), so losing a role stops the token there at once. Its scope is "read" (reading the
-questionnaires) or "edit" (reading, and changing drafts); it may be limited to a list of surveys. A token can be
+questionnaires), "edit" (reading, and changing drafts) or "create" (also making new drafts, which needs the right to
+create surveys and a token not limited to a list); it may be limited to a list of surveys. A token can be
 revoked at any time; changing the password or "Überall abmelden" revokes all of them (app/account_access.py), and the
 rows go with the account.
 
 Making a token needs a recent sign-in (accounts.need_fresh) and the tick on the hint that the questionnaires' contents
-go to the AI service the agent uses: Askurious sends nothing to a model itself, the agent of the person does. Making,
+go to the AI service the agent uses. Askurious sends nothing to a model on its own; the one exception is the tool
+generate_image, which sends an image prompt to the platform's image model as the button in the editor does. Making,
 revoking and every call are in the access log ("Agenten-Zugriff"). Calls per token are limited (limits.allow_agent),
 wrong tokens per sender like the read tokens (limits.allow_token_try)."""
 import secrets
@@ -118,7 +120,8 @@ def create():
                     "nutzt.", "Please confirm the note: the contents of your questionnaires go to the AI service your "
                     "agent uses."), "error")
         return _back()
-    scope = AgentToken.EDIT if request.form.get("scope") == AgentToken.EDIT else AgentToken.READ
+    wanted = request.form.get("scope")
+    scope = wanted if wanted in (AgentToken.EDIT, AgentToken.CREATE) else AgentToken.READ
     surveys = None
     if request.form.get("limit") == "1":
         allowed = {s.id for s in choosable(current_user)}
