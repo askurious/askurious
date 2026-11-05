@@ -23,7 +23,6 @@ The texts of the questionnaire are in the survey's default language; the frame (
 person who downloads or freezes it. The fonts are those of app/pdf_fonts.py, as on the paper questionnaire: Noto Sans
 for Latin, Greek and Cyrillic everywhere, Arabic (right to left) and Chinese where the image has their fonts."""
 import functools
-import hashlib
 import io
 import itertools
 import math
@@ -60,7 +59,6 @@ FORMAT = 2  # of this PDF, in its footer: a new format gives other bytes for the
 LEVEL_COLOURS = ("#0072b2", "#b84f00", "#00735c", "#a0447c", "#6f6200", "#5a4fa2", "#444444")
 VARIANTS_WARN = 50  # from here on the export page warns of the time and the size of the ZIP of all variants
 VARIANTS_MAX = 250  # more cannot be downloaded for now (Philipp 2026-11-04)
-ID_LENGTH = 8  # hex digits of the ID on every page: enough to tell the exports on a desk apart
 ROW_MM = 235  # a table row taller than this cannot stay whole on a page
 PICTURE_PX = 900  # longest side of an embedded image
 PICTURE_MM = 110  # its width in parts 1 and 2
@@ -767,22 +765,11 @@ def _legend(doc, styles):
 
 
 def build(survey, ui=None, public=False, compare=None):
-    """The PDF as bytes, with its ID on every page. ui: the language of the frame ("de"/"en"; None: the page's, German
+    """The PDF as bytes. ui: the language of the frame ("de"/"en"; None: the page's, German
     outside a request); public: for a deposit, without the wording of instruments that may not be passed on
     (export.withheld); compare: how part 3 shows the differences between conditions (study_conditions.MODES; None: study_conditions.DEFAULT, for
-    what nobody chooses a view for).
-
-    The ID says which PDF lies on the table (Philipp 2026-11-04: exports of different sessions must not be mixed up). A
-    date would give other bytes each time, and the pre-registration needs the same ones, so it is the start of the
-    SHA-256 of the PDF without it: the same PDF has the same ID, any change of wording, layout or code another."""
-    return _stamped(survey, ui, public, compare)[0]
-
-
-def _stamped(survey, ui, public, compare):
-    """(PDF, its ID)."""
-    bare = _render(survey, ui, public, compare, "")
-    stamp = hashlib.sha256(bare).hexdigest()[:ID_LENGTH]
-    return _render(survey, ui, public, compare, stamp), stamp
+    what nobody chooses a view for)."""
+    return _render(survey, ui, public, compare)
 
 
 def variant_name(survey, choice, number, total):
@@ -795,11 +782,10 @@ def variant_name(survey, choice, number, total):
 
 def variants_zip(survey, ui=None, compare=None):
     """The ZIP of the material: the PDF of `build` and one PDF per variant, which holds what a person in that variant
-    saw and nothing else. Their ID is that of the whole material with the variant's number, so a variant is set once;
-    an image is encoded once for all of them. The same questionnaire gives the same bytes (fixed dates in the ZIP)."""
+    saw and nothing else. An image is encoded once for all of them. The same questionnaire gives the same bytes (fixed dates in the ZIP)."""
     from app import flow
 
-    main, stamp = _stamped(survey, ui, False, compare)
+    main = _render(survey, ui, False, compare)
     found = list(assignments(flow.tree(survey)))
     pictures = {}
     out = io.BytesIO()
@@ -812,12 +798,12 @@ def variants_zip(survey, ui=None, compare=None):
     with zipfile.ZipFile(out, "w") as z:
         add(z, NAME, main)
         for number, choice in enumerate(found, start=1):
-            one = _render(survey, ui, False, None, f"{stamp}-{number:0{len(str(len(found)))}d}", (choice, number, len(found)), pictures)
+            one = _render(survey, ui, False, None, (choice, number, len(found)), pictures)
             add(z, variant_name(survey, choice, number, len(found)), one)
     return out.getvalue()
 
 
-def _render(survey, ui, public, compare, stamp, variant=None, pictures=None):
+def _render(survey, ui, public, compare, variant=None, pictures=None):
     """variant: (choice, its number, how many), for a PDF of that one variant only; pictures: encoded images to share."""
     from reportlab.lib.units import mm
     from reportlab.platypus import Image, Spacer
@@ -850,7 +836,7 @@ def _render(survey, ui, public, compare, stamp, variant=None, pictures=None):
         story += _variant_story(doc, styles, variant, rands, order, blocks)
     else:
         story += _full_story(doc, styles, survey, rands, order, blocks, compare)
-    return _finish(doc, survey, story, stamp, compare, plain_title, version, maker)
+    return _finish(doc, story, plain_title, version, maker)
 
 
 def _variant_story(doc, styles, variant, rands, order, blocks):
@@ -894,7 +880,7 @@ def _full_story(doc, styles, survey, rands, order, blocks, compare):
     return story
 
 
-def _finish(doc, survey, story, stamp, compare, plain_title, version, maker):
+def _finish(doc, story, plain_title, version, maker):
     """The PDF of a story, with the head and foot of every page."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
@@ -918,11 +904,6 @@ def _finish(doc, survey, story, stamp, compare, plain_title, version, maker):
         canvas.drawRightString(right, 10 * mm, number)
         pdf_fonts.draw(canvas, right - canvas.stringWidth(number, pdf_fonts.REGULAR, 7.5) - 4 * mm, 10 * mm, str(maker),
                        8, "Times-Bold", anchor="end")
-        if stamp:  # upright along the outer margin, outside the text, on every page: it stays on a page printed alone
-            canvas.setFont(pdf_fonts.REGULAR, 7.5)
-            canvas.translate(width - 9 * mm, height / 2)
-            canvas.rotate(90)
-            canvas.drawCentredString(0, 0, f"ID {stamp}" + (f" · {compare}" if compare else ""))
         canvas.restoreState()
 
     out = io.BytesIO()
