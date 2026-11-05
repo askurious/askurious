@@ -11,6 +11,7 @@
 <symbol id="outdent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M11 12h9M11 18h9M7 10l-3 2 3 2"/></symbol>
 <symbol id="block-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 11l-5-5-5 5M17 18l-5-5-5 5"/></symbol>
 <symbol id="block-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6l5 5 5-5M7 13l5 5 5-5"/></symbol>
+<symbol id="into-group" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8"/><path d="M12 21V9M8 13l4-4 4 4"/></symbol>
 <symbol id="undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L4 9l6 5"/><path d="M4 9h9.5a6.5 6.5 0 0 1 6.5 6.5V19"/></symbol>
 <symbol id="redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 5-6 5"/><path d="M20 9h-9.5A6.5 6.5 0 0 0 4 15.5V19"/></symbol>
 <symbol id="trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M9.5 6.5l1-3h3l1 3"/><path d="M6.5 6.5l1 13a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5l1-13"/><path d="M9.8 10.5l.4 7M14.2 10.5l-.4 7"/></symbol>
