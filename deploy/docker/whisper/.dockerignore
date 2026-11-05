@@ -4,3 +4,5 @@
 !requirements-cpu.txt
 !whisper_service/
 !whisper_service/*.py
+!licenses/
+!licenses/*.txt
