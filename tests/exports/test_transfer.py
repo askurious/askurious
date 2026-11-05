@@ -912,7 +912,7 @@ def test_questionnaire_as_word_document(app, client, survey):
                                                     "stmt_text": "Ich mag Technik."})
     page = client.get("/surveys/1/data").data.decode()
     # the Word with codebook is gone (2026-11-05); "Word für Papier" is on Datenerhebung, the export page links there
-    assert "Fragebogen mit Codebuch (Word)" not in page and "Zum Papierfragebogen" in page and "Als Datei exportieren" in page
+    assert "Fragebogen mit Codebuch (Word)" not in page and "Papierfragebögen zum Ausdrucken" in page and "/surveys/1/field#paper" in page and "Als Datei exportieren" in page
     field = client.get("/surveys/1/field").data.decode()
     assert "Fragebogen für Papier (Word)" in field and "/surveys/1/export/questionnaire-print.docx" in field
 
