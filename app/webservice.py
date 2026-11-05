@@ -10,8 +10,11 @@ The flow node (flow.py):
    "secret_visible": True (optional: a header that is no secret, shown to the admins in the form; see readable_value),
    "values": [{"name": "temp", "path": "current.temperature_2m", "kind": "number" | "text"}]}
 
-Placeholders in the address are percent-encoded, in the body JSON-escaped. The call happens once per
-participation, when the person first passes the node (runtime.go_forward); test runs and previews call too, dummy
+Placeholders in the address are percent-encoded, in the body JSON-escaped. In a loop, with a table or with factors,
+one node stands for every pass, as an external section does: it takes the columns of the loop (the value in the default
+language; vignettes also {{<factor>_code}}, external.row_values) and the answers of the pass, each pass is kept under
+"<node id>#<row id>", {{ws1_text}} is the value of the last call, and the export has every pass. The call happens once
+per participation or pass, when the person first passes the node (runtime.go_forward); test runs and previews call too, dummy
 participations do not. Not before the participation is stored (the first "Next"), and a node that passes answers or
 URL parameters on (`private`) not before the consent (code audit 2026-10-08, W5). The call itself waits until the
 request has stored its step (`flush`, after the commit): no transaction, no locked quota cell and no SQLite write
@@ -466,8 +469,8 @@ def readable_value(node):
 
 
 def wait_seconds(survey):
-    """The longest a page of this survey can wait for its web services (they are called one after the other); 0
-    without any. participant.js says "one moment" during it, and does not call the page lost before it is over."""
+    """The longest a page of this survey can wait for its web services (they are called one after the other, in a
+    loop those of one pass); 0 without any. participant.js does not call the page lost before it is over."""
     return sum(time_limit(node) for node in nodes(survey))
 
 
@@ -742,6 +745,9 @@ def chips(survey, node=None):
     out = [("{{pid}}", de_en("Teilnahme-ID", "Participation ID")), ("{{lang}}", de_en("Sprache", "Language"))]
     out += [(f"{{{{{p['name']}}}}}", de_en("URL-Parameter {name}", "URL parameter {name}", name=p["name"]))
             for p in panel.config(survey)["params"]]
+    from app import external
+
+    out += external.column_chips(survey, node)
     out += [(f"{{{{{code}}}}}", de_en("Antwort {code}", "Answer {code}", code=code)) for code in sorted(piping.names(survey))]
     for other in nodes(survey):
         if node is not None and other["id"] == node["id"]:
@@ -759,8 +765,15 @@ def results(response):
     return ((getattr(response, "external", None) or {}).get(KEY)) or {}
 
 
-def done(response, nid):
-    return str(nid) in results(response)
+def key(nid, row=None):
+    """Where a call is kept: the node id, in a loop "<node id>#<row id>", as a pass of an external section."""
+    from app import external
+
+    return external.key(str(nid), row)
+
+
+def done(response, nid, row=None):
+    return key(nid, row) in results(response)
 
 
 def private(node):
@@ -774,8 +787,8 @@ def private(node):
 QUEUE = "_ws_queue"  # on the Response object, in memory only: the calls this request makes after its commit
 
 
-def run(survey, response, node, variables):
-    """Call the node for this participation, once; dummy participations keep empty values.
+def run(survey, response, node, variables, row=None):
+    """Call the node for this participation, once, in a loop once per pass; dummy participations keep empty values.
 
     In a request the call waits until the request has stored its step: `flush` makes it after the commit, so that no
     transaction (a quota cell taken, SQLite's write lock) stays open while this server waits for someone else's
@@ -783,11 +796,12 @@ def run(survey, response, node, variables):
     redirect, also when participant.js sent the page (`queued`)."""
     from flask import after_this_request, has_request_context
 
-    if done(response, node["id"]) or not usable(node):
+    entry = key(node["id"], row)
+    if done(response, node["id"], row) or not usable(node):
         return
     if getattr(response, "source", "") == "dummy" or not has_request_context():
         result = {"ok": 0, "v": {}, "err": "dummy", "ms": 0} if getattr(response, "source", "") == "dummy"             else call(node, variables)
-        _keep(response, {str(node["id"]): result})
+        _keep(response, {entry: {**result, "at": _now()}})
         return
     queue = response.__dict__.get(QUEUE)
     if queue is None:
@@ -806,17 +820,22 @@ def run(survey, response, node, variables):
                 db.session.rollback()
             return answer
 
-    if any(entry["id"] == str(node["id"]) for entry in queue):
+    if any(waiting["id"] == entry for waiting in queue):
         return
     # what goes in, read now: after the commit the participation is not read again before the call
     wanted = {name: (None if variables.get(name) is None else str(variables.get(name))) for name in used(node)}
-    queue.append({"id": str(node["id"]), "node": json.loads(json.dumps(node)), "vars": wanted})
+    queue.append({"id": entry, "node": json.loads(json.dumps(node)), "vars": wanted})
 
 
 def queued(response):
     """Does this request still owe a call? Then its page must come by a redirect: the call runs after the response is
     built, so a page rendered in this request (participate._direct) would not have the values yet."""
     return bool(response.__dict__.get(QUEUE))
+
+
+def _now():
+    """When a call was made: which pass was last (variables_of); the keys of the stored JSON have no order."""
+    return round(time.time(), 3)
 
 
 def _keep(response, found):
@@ -842,7 +861,7 @@ def flush(response):
     found, given = {}, {}
     for entry in queue:
         result = call(entry["node"], {**entry["vars"], **given})
-        found[entry["id"]] = result
+        found[entry["id"]] = {**result, "at": _now()}
         given.update({f"{entry['node'].get('code')}_{v['name']}": (result.get("v") or {}).get(v["name"], "")
                       for v in values(entry["node"])})
     for _ in range(3):
@@ -869,11 +888,15 @@ def flush(response):
 
 
 def variables_of(survey, response):
-    """{placeholder: value} of what the web services gave this participation: {"ws1_temp": 13.8}."""
+    """{placeholder: value} of what the web services gave this participation: {"ws1_temp": 13.8}. In a loop the value
+    of the last call, as an external section gives its last return: a call that failed leaves it empty, not the value
+    of the pass before; the export keeps every pass."""
     got = results(response)
     out = {}
     for node in nodes(survey):
-        entry = got.get(str(node["id"])) or {}
+        nid = str(node["id"])
+        calls = [e for k, e in got.items() if isinstance(e, dict) and (k == nid or k.startswith(nid + "#"))]
+        entry = max(calls, key=lambda e: e.get("at") or 0, default={})
         for v in values(node):
             value = (entry.get("v") or {}).get(v["name"], "")
             out[f"{node['code']}_{v['name']}"] = value
@@ -883,23 +906,55 @@ def variables_of(survey, response):
 # --- export --------------------------------------------------------------------------------------
 
 
+def slots(survey):
+    """external.slots for the web services: one per pass of a loop, numbered as the columns of its questions."""
+    from app import external
+
+    return external.slots(survey, nodes(survey))
+
+
 def columns(survey):
     out = []
-    for node in nodes(survey):
-        name = node.get("name") or node["code"]
-        out.append((f"{node['code']}_ok", f"Web Service „{name}“: Aufruf gelungen (1/0)"))
-        out += [(f"{node['code']}_{v['name']}", f"Web Service „{name}“: {v['name']} ({v['path']})") for v in values(node)]
+    for node, _, n in slots(survey):
+        name = (node.get("name") or node["code"]) + (f" [Zeile {n[1:]}]" if n else "")
+        out.append((f"{node['code']}_ok{n}", f"Web Service „{name}“: Aufruf gelungen (1/0)"))
+        out += [(f"{node['code']}_{v['name']}{n}", f"Web Service „{name}“: {v['name']} ({v['path']})") for v in values(node)]
+    return out
+
+
+def _pass_values(node, entry, n=""):
+    """{column: value} of one call from its entry; empty where the person did not get there."""
+    out = {f"{node['code']}_ok{n}": "" if entry is None else entry.get("ok", 0)}
+    for v in values(node):
+        out[f"{node['code']}_{v['name']}{n}"] = "" if entry is None else (entry.get("v") or {}).get(v["name"], "")
     return out
 
 
 def export_values(found, response):
+    """{column: value} for one participation; found: slots(survey)."""
     got = results(response)
     out = {}
-    for node in found:
-        entry = got.get(str(node["id"]))
-        out[f"{node['code']}_ok"] = "" if entry is None else entry.get("ok", 0)
-        for v in values(node):
-            out[f"{node['code']}_{v['name']}"] = "" if entry is None else (entry.get("v") or {}).get(v["name"], "")
+    for node, row, n in found:
+        out.update(_pass_values(node, got.get(key(node["id"], row)), n))
+    return out
+
+
+def in_loop(loop_node):
+    """The web services of a loop node, for its long format."""
+    return [c for c in loop_node.get("children") or [] if c.get("t") == NODE]
+
+
+def long_columns(loop_node):
+    """The columns of the web services in the long format of a loop: one set per row, without the suffix _n."""
+    return [c for node in in_loop(loop_node) for c in _pass_values(node, None)]
+
+
+def long_values(loop_node, response, row):
+    """{column: value} of one pass, for the long format of a loop."""
+    got = results(response)
+    out = {}
+    for node in in_loop(loop_node):
+        out.update(_pass_values(node, got.get(key(node["id"], row))))
     return out
 
 
@@ -908,21 +963,21 @@ def codebook(survey, lang=None):
 
     english = reader(lang) == "en"
     out = []
-    for node in nodes(survey):
-        name = node.get("name") or node["code"]
+    for node, _, n in slots(survey):
+        name = (node.get("name") or node["code"]) + ((f" [row {n[1:]}]" if english else f" [Zeile {n[1:]}]") if n else "")
         where = host(node) or ("no address" if english else "ohne Adresse")
         if english:
-            out.append((f"{node['code']}_ok", f"Web Service “{name}”: call worked (1/0)", "Nominal", "1 = yes, 0 = no",
+            out.append((f"{node['code']}_ok{n}", f"Web Service “{name}”: call worked (1/0)", "Nominal", "1 = yes, 0 = no",
                         f"called by the server ({where}) when the participant passed it; empty = not reached"))
         else:
-            out.append((f"{node['code']}_ok", f"Web Service „{name}“: Aufruf gelungen (1/0)", "Nominal", "1 = ja, 0 = nein",
+            out.append((f"{node['code']}_ok{n}", f"Web Service „{name}“: Aufruf gelungen (1/0)", "Nominal", "1 = ja, 0 = nein",
                         f"vom Server aufgerufen ({where}), als die Person die Stelle passierte; leer = nicht erreicht"))
         for v in values(node):
             kind = "Metrisch" if v["kind"] == "number" else "Text"
             note = (f"field {v['path']} of the answer; empty = call failed or field missing" if english
                     else f"Feld {v['path']} der Antwort; leer = Aufruf misslungen oder Feld fehlte")
             label = f"Web Service “{name}”: {v['name']}" if english else f"Web Service „{name}“: {v['name']}"
-            out.append((f"{node['code']}_{v['name']}", label, kind, "", note))
+            out.append((f"{node['code']}_{v['name']}{n}", label, kind, "", note))
     return out
 
 
@@ -939,6 +994,8 @@ def check(survey):
     from app import panel
 
     known |= {p["name"] for p in panel.config(survey)["params"]}
+    from app import external
+
     for node in nodes(survey):
         name = node.get("name") or node["code"]
         if not node.get("url"):
@@ -949,7 +1006,7 @@ def check(survey):
             out.append(("warning", de_en("Web Service „{name}“ übernimmt keinen Wert aus der Antwort.",
                                          "Web Service “{name}” takes no value from the answer.", name=name)))
         placed = {m.group(1) for m in PLACEHOLDER.finditer((node.get("url") or "") + (node.get("body") or ""))}
-        unknown = sorted(placed - known)
+        unknown = sorted(placed - known - set(external.column_names(survey, node)))
         if unknown:
             out.append(("error", de_en("Web Service „{name}“: unbekannte Platzhalter {names}.",
                                        "Web Service “{name}”: unknown placeholders {names}.", name=name,
@@ -966,10 +1023,16 @@ def check(survey):
                                          names=", ".join("{{" + u + "}}" for u in used(node) if u not in BUILTIN_VARIABLES))))
     for node, where in _places(survey):
         name = node.get("name") or node["code"]
-        if where == "loop":
-            out.append(("warning", de_en("Web Service „{name}“ steht in einer Schleife; dort wird er nicht aufgerufen: bitte "
-                                         "vor die Schleife stellen.", "Web Service “{name}” is inside a loop; it is not called there: please "
-                                         "put it before the loop.", name=name)))
+        if where == "nested":
+            out.append(("error", de_en("Web Service „{name}“ steht in Schleifen ineinander; das ist noch nicht möglich.",
+                                       "Web Service “{name}” is in loops inside each other; that is not possible yet.",
+                                       name=name)))
+        elif where == "alone":
+            # every pass would be called in the one request that reaches the loop, past what the server waits for
+            out.append(("error", de_en("Web Service „{name}“: In seiner Schleife fehlt ein Block oder externer Abschnitt. "
+                                       "Ohne eine Seite je Durchgang liefen alle Aufrufe auf einmal.",
+                                       "Web Service “{name}”: its loop has no block or external section. Without a page "
+                                       "per pass all the calls would run at once.", name=name)))
         elif where == "separated":
             out.append(("error", de_en("Nach dem getrennten Abschnitt ist kein Web Service möglich: Seine Werte gehörten sonst "
                                        "zu keiner Teilnahme.", "No web service is possible after the separated section: its "
@@ -994,22 +1057,24 @@ def before_consent(survey):
 
 
 def _places(survey):
-    """(node, "loop" | "separated" | "") for each web service."""
+    """(node, "nested" | "alone" | "separated" | "") for each web service: in loops inside each other, in a loop
+    without a page of its own, behind the separated section, or none of these."""
     from app import flow
 
     out = []
 
-    def rec(node, loop, separated):
+    def rec(node, loops, separated):
         for child in node.get("children", []):
             if child["t"] == "split":
                 separated = True
             if child["t"] == NODE:
-                out.append((child, "separated" if separated else "loop" if loop else ""))
+                alone = loops and not any(c["t"] in ("block", "ext") for c in node.get("children", []))
+                out.append((child, "separated" if separated else "nested" if loops > 1 else "alone" if alone else ""))
             if child.get("children"):
-                rec(child, loop or child["t"] == "loop", separated)
+                rec(child, loops + (child["t"] == "loop"), separated)
         return separated
 
-    rec(flow.tree(survey), False, False)
+    rec(flow.tree(survey), 0, False)
     return out
 
 
