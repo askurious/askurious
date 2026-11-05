@@ -545,3 +545,11 @@ def test_the_export_tab_points_a_printed_survey_to_the_paper_questionnaire(app, 
         db.session.get(Survey, 1).sampling = {"days": 7}
         db.session.commit()
     assert "scanbare Papierfragebögen erstellen" not in client.get("/surveys/1/data").data.decode()
+
+
+def test_the_export_tab_warns_that_word_for_paper_holds_all_conditions(app, client, survey):
+    """The Word file prints every block in stored order: one person would get all conditions."""
+    warning = "enthält alle Bedingungen nacheinander, ohne Zuweisung"
+    assert warning not in client.get("/surveys/1/data").data.decode()
+    _randomised(app, client)
+    assert warning in client.get("/surveys/1/data").data.decode()
