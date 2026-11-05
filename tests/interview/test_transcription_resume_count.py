@@ -71,3 +71,26 @@ def test_the_bar_moves_within_a_part(app, client, monkeypatch):
         db.session.commit()
         info = interview_transcribe.progress_info(row)
     assert (info["done"], info["total"]) == (0, 2) and info["bar"] == interview_transcribe.STAGE_SHARE["diarizing"]
+
+
+def test_the_bar_moves_evenly_by_the_estimate(app, client, monkeypatch):
+    """Ralf 2026-11-05: not only in the steps; from the part's start to the estimated end, never full before done."""
+    import time
+
+    from tests.interview.test_interview_robust import _whisper
+
+    code, sid, rid, calls = _whisper(app, client, monkeypatch, parts=2)
+    now = int(time.time())
+
+    def info(since, until, stage="transcribing"):
+        beat = utcnow().isoformat(timespec="seconds")
+        with app.app_context():
+            row = db.session.get(Response, rid)
+            interview_transcribe._set(row, state="running", started=beat, beat=beat, run="r",
+                                      progress={"stage": stage, "part": "1", "since": since, "eta_until": until})
+            db.session.commit()
+            return interview_transcribe.progress_info(row)
+
+    assert abs(info(now - 600, now + 600)["bar"] - 0.5) < 0.02          # half the estimated time
+    assert info(now - 6000, now - 10)["bar"] == interview_transcribe.BAR_CAP  # overdue: nearly full, not full
+    assert info(now - 10, now + 6000, "diarizing")["bar"] == interview_transcribe.STAGE_SHARE["diarizing"]
