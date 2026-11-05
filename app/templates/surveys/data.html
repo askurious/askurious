@@ -203,7 +203,10 @@
   {{ why("study_material") }}
   {{ why("ddi_export") }}
   <ul class="xp-rows">
-    {% call xp.row(de_en("Fragebogen", "Questionnaire"), de_en("Mit Codebuch oder für Papier", "With codebook or for paper"), de_en("Mit Codebuch: zur Dokumentation, z. B. für eine Ethikkommission: Blöcke und Seiten, Fragen mit Variablennamen, Konstrukte mit Quellen, Randomisierung und Ablauf. Für Papier: druckfertig, wie Teilnehmende ihn sehen: nur Fragen und Antworten, Pflichtangaben mit *, Schleifen ausgeschrieben.", "With codebook: for documentation, e.g. for an ethics committee: blocks and pages, questions with variable names, constructs with sources, randomisation and flow. For paper: ready to print, as participants see it: only questions and answers, required questions with *, loops written out.")) %}
+    {# a form of Word cannot be read back; the printed sheets of the Papierfragebogen can (not for a live vote, an
+       interview guide or a diary study, as surveys/field.py) #}
+    {% set paper_hint %}{% if survey.live is none and survey.interview is none and survey.sampling is none %}{{ de_en("Für eine gedruckte Befragung:", "For a printed survey:") }} <a href="{{ url_for('surveys.field', survey_id=survey.id) }}#paper">{{ de_en("scanbare Papierfragebögen erstellen", "create scannable paper questionnaires") }}</a>{% endif %}{% endset %}
+    {% call xp.row(de_en("Fragebogen", "Questionnaire"), de_en("Mit Codebuch oder für Papier", "With codebook or for paper"), de_en("Mit Codebuch: zur Dokumentation, z. B. für eine Ethikkommission: Blöcke und Seiten, Fragen mit Variablennamen, Konstrukte mit Quellen, Randomisierung und Ablauf. Für Papier: druckfertig, wie Teilnehmende ihn sehen: nur Fragen und Antworten, Pflichtangaben mit *, Schleifen ausgeschrieben.", "With codebook: for documentation, e.g. for an ethics committee: blocks and pages, questions with variable names, constructs with sources, randomisation and flow. For paper: ready to print, as participants see it: only questions and answers, required questions with *, loops written out."), hint=paper_hint) %}
       {{ xp.fmt(de_en("Word mit Codebuch", "Word with codebook"), url_for('surveys.export_docx', survey_id=survey.id, version='codebook'), de_en("Fragebogen mit Codebuch (Word) herunterladen", "Download questionnaire with codebook (Word)"), pooled=false) }}
       {{ xp.fmt(de_en("Word für Papier", "Word for paper"), url_for('surveys.export_docx', survey_id=survey.id, version='print'), de_en("Fragebogen für Papier (Word) herunterladen", "Download questionnaire for paper (Word)"), pooled=false) }}
     {% endcall %}
@@ -214,8 +217,8 @@
         <fieldset><legend>{{ de_en("Bedingungen darstellen", "Show the conditions") }}</legend>
           {% for key, label, hint in [("marked", de_en("Vollständig mit Hervorhebung", "Full with highlights"), de_en("alle Bedingungen nacheinander, die Unterschiede hervorgehoben", "all conditions one after the other, with the differences highlighted")),
                                       ("full", de_en("Vollständig", "Full"), de_en("alle Bedingungen nacheinander, ohne Hervorhebung der Unterschiede", "all conditions one after the other, without highlighting differences")),
-                                      ("columns", de_en("Spalten", "Columns"), de_en("kann bei drei Bedingungen gut passen, ab fünf nicht mehr möglich; zeigt sie nebeneinander", "may work well for three conditions, not possible from five on; presents them side by side")),
-                                      ("inline", de_en("Im Textfluss", "Inline"), de_en("kann bei zwei Bedingungen mit kleinen Unterschieden gut passen; zeigt den Text in einem Fluss", "may work well for two conditions with small differences; shows the text in one flow"))] %}
+                                      ("columns", de_en("Spalten", "Columns"), de_en("Gut geeignet, um zwei oder drei Bedingungen nebeneinander zu zeigen.", "Well suited to showing two or three conditions side by side.")),
+                                      ("inline", de_en("Im Textfluss", "Inline"), de_en("Integriert Unterschiede direkt im Textfluss, wird bei vielen Bedingungen unübersichtlich.", "Integrates the differences directly into the running text; becomes hard to read with many conditions."))] %}
           <label class="check"><input type="radio" name="compare" value="{{ key }}" {% if key == "marked" %}checked{% endif %}> {{ label }} <span class="hint">{{ hint }}</span></label>
           {% endfor %}
         </fieldset>

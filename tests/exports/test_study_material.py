@@ -411,20 +411,17 @@ def test_a_prompt_longer_than_a_page_does_not_stop_the_export(app, client, surve
         assert study_material.build(db.session.get(Survey, 1), "de")[:5] == b"%PDF-"
 
 
-def test_every_page_shows_an_id_that_follows_the_content(app, client, survey):
-    """Exports of different sessions must not be mixed up (Philipp 2026-11-04), and the same questionnaire still gives
-    the same bytes: the ID is a fingerprint of the PDF, no date."""
+def test_the_same_questionnaire_gives_the_same_bytes_and_no_margin_id(app, client, survey):
+    """The pre-registration needs the same bytes; the ID along the margin was a help for debugging and is gone again
+    (Philipp 2026-11-05), with the view's name beside it."""
     import re
 
     _randomised(app, client)
     with app.test_request_context():
         s = db.session.get(Survey, 1)
         one, again = study_material.build(s, "de", compare="inline"), study_material.build(s, "de", compare="inline")
-        other = study_material.build(s, "de", compare="columns")
     assert one == again
-    ids = [re.findall(r"ID ([0-9a-f]{8})", page) for page in _pages(one)]
-    assert all(found for found in ids) and len({found[0] for found in ids}) == 1
-    assert re.search(r"ID ([0-9a-f]{8})", " ".join(_pages(other))).group(1) != ids[0][0]
+    assert not any(re.search(r"ID [0-9a-f]{8}|· inline", page) for page in _pages(one))
 
 
 def test_exports_nobody_chooses_for_are_full_and_a_download_is_highlighted(app, client, survey):
@@ -439,7 +436,7 @@ def test_exports_nobody_chooses_for_are_full_and_a_download_is_highlighted(app, 
     assert "The versions stand unchanged" in " ".join(_pages(package))
     assert 'value="marked" checked' in client.get("/surveys/1/data").data.decode()
     download = " ".join(_pages(client.get("/surveys/1/export/survey-material.pdf").data))
-    assert "nur in dieser Bedingung" in download and "marked" in download
+    assert "nur in dieser Bedingung" in download
 
 
 def test_the_parts_keep_their_numbers_with_a_randomisation(app, client, survey):
@@ -495,11 +492,10 @@ def test_the_zip_holds_the_material_and_one_pdf_per_variant(app, client, survey)
                             "variante-3-von-3_cond1-C.pdf"]
     whole = " ".join(_pages(z.read("survey-material.pdf")))
     assert "Teil 2: Fragebogen mit Anmerkungen" in whole
-    main_id = re.search(r"ID ([0-9a-f]{8})", whole).group(1)
     wanted = {"A": ("90 von 100", "10 von 100"), "B": ("10 von 100", "90 von 100"), "C": ("mehreren Kliniken", "90 von 100")}
     for number, (letter, (shown, hidden)) in enumerate(wanted.items(), start=1):
         text = " ".join(_pages(z.read(f"variante-{number}-von-3_cond1-{letter}.pdf")))
-        assert shown in text and hidden not in text and f"ID {main_id}-{number}" in text
+        assert shown in text and hidden not in text and not re.search(r"ID [0-9a-f]{8}", text)
         assert f"Teil 1: Fragebogen ({number}. von 3 Varianten)" in text and f"cond1 = {letter}: Fassung {number}" in text
         assert "Teil 2:" not in text and "Teil 3:" not in text
 
@@ -539,3 +535,13 @@ def test_a_warning_from_50_and_no_download_above_250(app, client, survey, monkey
     page = client.get("/surveys/1/data").data.decode()
     assert 'name="variants" value="1" disabled' in page and "251 Varianten" in page and "bis 250" in page
     assert client.get("/surveys/1/export/survey-material.pdf?variants=1").status_code == 302  # also typed by hand
+
+
+def test_the_export_tab_points_a_printed_survey_to_the_paper_questionnaire(app, client, survey):
+    """Word cannot be read back; the sheets of the Papierfragebogen can. No hint where that block does not exist."""
+    page = client.get("/surveys/1/data").data.decode()
+    assert '/field#paper"' in page and "scanbare Papierfragebögen erstellen" in page
+    with app.app_context():
+        db.session.get(Survey, 1).sampling = {"days": 7}
+        db.session.commit()
+    assert "scanbare Papierfragebögen erstellen" not in client.get("/surveys/1/data").data.decode()

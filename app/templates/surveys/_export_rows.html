@@ -9,9 +9,9 @@
 {%- endmacro %}
 
 {# one row: name, a short note (text or status), the "i" and, from the caller, the buttons #}
-{% macro row(name, note="", more="", id="") -%}
+{% macro row(name, note="", more="", id="", hint="") -%}
 <li class="xp-row"{% if id %} id="{{ id }}"{% endif %}><div class="xp-name"><strong>{{ name }}</strong>{% if note %} <span class="xp-note">{{ note }}</span>{% endif %}{% if more %} {{ info(more, name) }}{% endif %}</div>
-  <div class="xp-btns">{% if caller %}{{ caller() }}{% endif %}</div></li>
+  <div class="xp-btns">{% if caller %}{{ caller() }}{% endif %}</div>{% if hint %}<p class="xp-hint">{{ hint }}</p>{% endif %}</li>
 {%- endmacro %}
 
 {# a format button with the download symbol: sent with the export form (pooled) or a plain link #}

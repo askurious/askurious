@@ -5632,6 +5632,7 @@ fieldset.ai-fieldset > legend { color: var(--ai); }
 .xp-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; flex: 1 1 220px; }
 .xp-name strong { font-weight: 600; font-size: 0.95rem; }
 .xp-note { color: var(--muted); font-size: 0.85rem; }
+.xp-hint { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: 0.85rem; }
 .xp-btns { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; flex: 0 1 auto; }
 .xp-btns > .button, .xp-inline .button { min-height: 32px; padding: 4px 10px; font-size: 0.85rem; gap: 5px; }
 .xp-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
