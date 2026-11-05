@@ -2282,6 +2282,9 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
    targets of 44 px only for a finger, the desktop keeps its look; hints for keys or for touch */
 .tc-pop.is-sheet { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 50vh; max-height: 50dvh;
   border-radius: var(--radius) var(--radius) 0 0; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+/* blurring pairs (transcript_coding/overview.html): long category names and the merge buttons wrap inside the card,
+   never past it (Ralf 2026-11-05); before the touch rules, so their 44 px still win there */
+.tc-pair .button { max-width: 100%; white-space: normal; height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; text-align: left; }
 .tc-hint-touch { display: none; }
 @media (pointer: coarse) {
   .tc-pop-item { min-height: 44px; }
@@ -2313,7 +2316,7 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-overlap-pairs { display: grid; gap: 8px; padding-left: 18px; }
 .tc-switch { display: flex; flex-wrap: wrap; gap: 6px; }
 .tc-flag { font-size: 0.75rem; color: var(--caution); border: 1px solid var(--caution); border-radius: var(--radius-tag); padding: 0 6px; }
-.tc-pair { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 6px; margin-bottom: 10px; }
+.tc-pair { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 10px; overflow-wrap: break-word; }
 .tc-pair p { margin: 0; }
 .tc-map svg { display: block; max-width: none; }
 .tc-notices summary { cursor: pointer; }
