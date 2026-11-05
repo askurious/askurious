@@ -404,35 +404,18 @@ def _docx_text(body):
 
 
 def test_questionnaire_word_frame_follows_the_downloader(app, client, survey):
-    """The codebook's frame (notes, answer modes, element types) in the downloader's language (E8); questions,
-    answers and variable names as written, in the survey's default language."""
-    from werkzeug.datastructures import MultiDict
-
+    """The red box of an element not on paper in the downloader's language (E8); questions and answers as written,
+    in the survey's default language. (The version with codebook was dropped on 2026-11-05.)"""
     from tests.conftest import add
 
-    add(client, "likert")                                                       # 2
-    client.post("/surveys/1/editor/items/2", data=MultiDict([
-        ("code", "TA"), ("question", "Wie sehen Sie das?"), ("points", "5"), ("labeling", "full"),
-        ("answer_mode", "required"), ("dont_know", "1"), ("stmt_id", "s1"), ("stmt_code", ""),
-        ("stmt_text", "Bus und Bahn sind gut ausgebaut")]))
-    from app import questionnaire_docx
-    from app.extensions import db
-    from app.models import Survey
-
-    def codebook(ui):  # no longer offered as a download (2026-11-05); the builder still has the version
-        with app.app_context():
-            return _docx_text(questionnaire_docx.build(db.session.get(Survey, 1), "codebook", ui=ui))
-
-    german = codebook("de")
-    assert "Fragebogen mit Codebuch" in german and "Likert-Skala / Matrix · Pflicht" in german
-    assert "„weiß nicht“ = -98, zählt als fehlend." in german
+    add(client, "maxdiff")                                                      # 2: not on paper
+    german = _docx_text(client.get("/surveys/1/export/questionnaire-print.docx").data)
+    assert "lässt sich auf Papier nicht sinnvoll darstellen" in german
+    assert "Fragen mit * sind Pflichtangaben." in german                       # what participants read: the survey's
     client.post("/account/language", data={"lang": "en"})
-    english = codebook("en")
-    assert "Questionnaire with codebook" in english and "Likert scale / matrix · required" in english
-    assert "“don't know” = -98, counts as missing." in english and "Fragebogen mit Codebuch" not in english
-    assert "Wie sehen Sie das?" in english and "TA_1" in english and "Bus und Bahn sind gut ausgebaut" in english
-    paper = _docx_text(client.get("/surveys/1/export/questionnaire-print.docx").data)
-    assert "Fragen mit * sind Pflichtangaben." in paper                        # what participants read: the survey's
+    english = _docx_text(client.get("/surveys/1/export/questionnaire-print.docx").data)
+    assert "cannot be shown sensibly on paper" in english and "nicht sinnvoll darstellen" not in english
+    assert "Fragen mit * sind Pflichtangaben." in english
 
 
 def test_scale_table_default_language_is_the_downloaders(app, client, survey):

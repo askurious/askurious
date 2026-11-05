@@ -48,7 +48,7 @@ def test_p3_word_questionnaire_is_the_same_as_with_table_cell(app, client, surve
 
     def body():
         with app.test_request_context():
-            data = questionnaire_docx.build(db.session.get(Survey, 1), "codebook", ui="de")
+            data = questionnaire_docx.build(db.session.get(Survey, 1), "print", ui="de")
         raw = data.getvalue() if hasattr(data, "getvalue") else data
         z = zipfile.ZipFile(io.BytesIO(raw))
         return z.read("word/document.xml")
@@ -64,7 +64,7 @@ def test_p3_word_questionnaire_is_the_same_as_with_table_cell(app, client, surve
 
     monkeypatch.setattr(questionnaire_docx, "_matrix", ByCell)
     assert body() == new
-    assert b"BFI" in new
+    assert new.count(b"<w:tbl>") >= 4
 
 
 # --- P4 / V3 ----------------------------------------------------------------------------------------------------

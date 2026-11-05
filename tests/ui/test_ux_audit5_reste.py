@@ -36,11 +36,8 @@ def test_dont_know_in_word_and_markdown_questionnaire(app, client, survey):
                                                    "parts": "year", "span": "past", "minute_step": "5", "dont_know": "1"})
     with app.app_context():
         s = db.session.get(Survey, 1)
-        book = _text(Document(io.BytesIO(questionnaire_docx.build(s, "codebook"))))
         paper = _text(Document(io.BytesIO(questionnaire_docx.build(s, "print"))))
         md = export.questionnaire_md(s)
-    assert book.count("„weiß nicht“ = -98, zählt als fehlend.") == 2           # matrix and rating
-    assert "D_dk = 1" in book                                                   # the date's own column
     assert paper.count("weiß nicht") == 3 and "-98" not in paper                # a column, two ticks; no codes
     assert md.count('Plus "don\'t know" (exported as -98, counts as missing)') == 2 and "`D_dk` = 1" in md
 
