@@ -54,7 +54,7 @@
       <td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
       <td>{{ day(m.date) }}</td>
       <td>{{ modes.get(m.mode, "") }}</td>
-      <td>{{ de_en("{n} Min.", "{n} min", n=(m.elapsed // 60) if m.elapsed else 0) }}</td>
+      <td>{% set from_audio = audio_minutes(r) if (m.elapsed or 0) < 60 and (m.audio or []) else None %}{% if from_audio is not none %}{{ de_en("{n} Min.", "{n} min", n=from_audio) }} <span class="muted small" title="{{ de_en('Länge der Aufnahme; die Interview-Uhr lief kürzer als eine Minute', 'length of the recording; the interview clock ran for less than a minute') }}">{{ de_en("(Aufnahme)", "(recording)") }}</span>{% else %}{{ de_en("{n} Min.", "{n} min", n=(m.elapsed // 60) if m.elapsed else 0) }}{% endif %}</td>
       <td>{{ m.by_name or "–" }}{% if m.access %} <span class="badge" title="{{ de_en('mit einem Interviewlink geführt', 'conducted with an interviewer link') }}">{{ de_en("Link", "Link") }}</span>{% endif %}</td>
       <td>{% if r.status == "completed" %}{{ de_en("beendet", "ended") }}{% elif left_open(r) %}<span class="danger-text" title="{{ de_en('Seit Tagen unverändert und nicht beendet: bitte fortsetzen und beenden oder löschen. Die Frist zählt ab der letzten Bearbeitung.', 'Unchanged for days and not ended: please continue and end it or delete it. The period counts from the last edit.') }}">{{ de_en("nicht beendet", "not ended") }}</span>{% else %}{{ de_en("läuft", "running") }}{% endif %}
         {% if may_edit and (m.consent or {}).audio %}<div class="small"><a href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id) }}">{{ de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
