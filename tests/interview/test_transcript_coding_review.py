@@ -149,3 +149,51 @@ def test_mutual_check(app, client):
         assert checks[0]["coding"] == coding and checks[0]["cat"] == b
     page = client.get(f"{base}/overview").data.decode()
     assert "0 %" in page and "unscharf" in page                                     # disagreeing check
+
+
+def test_mutual_check_by_plan(app, client):
+    """The team assigns who checks which interviews and category blocks (Ralf 2026-11-05); "zufällig" stays the
+    default."""
+    from app.models import CodingProject, User
+    from tests.interview.test_transcript_coding import BEA
+
+    code, pid, rid, base, main, bea = _setup(app, client)
+    client.post(f"{base}/categories/new", data={"kind": "main", "name": "Zukunft"})
+    with app.app_context():
+        other = db.session.scalar(db.select(CodingCategory.id).filter_by(project_id=pid, name="Zukunft"))
+        bea_key = f"u:{db.session.scalar(db.select(User.id).filter_by(orcid=BEA))}"
+    tired = _sub(client, base, main, "Erschöpfung")
+    first = _code(client, base, rid, "Abends", tired, 29)
+    second = _code(client, base, rid, "Manchmal", other)
+    assert 'id="probe"' in client.get(f"{base}?view=settings").data.decode()
+    # by the plan, without a row nobody checks
+    client.post(f"{base}/check/mode", data={"mode": "plan"})
+    assert "keine Probe zugeteilt" in bea.get(f"{base}/check").data.decode()
+    assert bea.post(f"{base}/check", data={"rid": rid, "coding": first, "cat": tired}).status_code == 404
+    # nothing ticked is refused; an unknown person too
+    client.post(f"{base}/check/plan", data={"who": bea_key, "rid": [rid]})
+    with app.app_context():
+        assert "check_plan" not in (db.session.get(CodingProject, pid).settings or {})
+    assert client.post(f"{base}/check/plan", data={"who": "u:999999", "rid": [rid], "block": [main]}).status_code == 400
+    # only the block "Zukunft": only that passage, then done
+    client.post(f"{base}/check/plan", data={"who": bea_key, "rid": [rid], "block": [other]})
+    page = bea.get(f"{base}/check").data.decode()
+    assert f'value="{second}"' in page and f'value="{first}"' not in page and "0 von 1 geprüft" in page
+    bea.post(f"{base}/check", data={"rid": rid, "coding": second, "cat": other})
+    assert "Alles, was Ihnen zugeteilt ist" in bea.get(f"{base}/check").data.decode()
+    settings = client.get(f"{base}?view=settings").data.decode()
+    assert "1 von 1" in settings and "Zukunft" in settings
+    # every block ticked: all of them, in the order of the text
+    with app.app_context():
+        blocks = [main, other]
+    client.post(f"{base}/check/plan", data={"who": bea_key, "rid": [rid], "block": blocks})
+    with app.app_context():
+        assert db.session.get(CodingProject, pid).settings["check_plan"][bea_key]["blocks"] is None
+    page = bea.get(f"{base}/check").data.decode()
+    assert f'value="{first}"' in page and "1 von 2 geprüft" in page
+    # no interview of the row: nothing to check; taking the row away: no check again
+    client.post(f"{base}/check/plan/remove", data={"who": bea_key})
+    assert "keine Probe zugeteilt" in bea.get(f"{base}/check").data.decode()
+    # back to "zufällig": as before
+    client.post(f"{base}/check/mode", data={"mode": "random"})
+    assert f'value="{first}"' in bea.get(f"{base}/check").data.decode()

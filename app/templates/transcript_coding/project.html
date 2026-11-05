@@ -208,6 +208,88 @@
 
 {% endif %}
 
+{% if who.team and view == "settings" %}
+{# the mutual check by the plan (app/transcript_coding_review.py, Ralf 2026-11-05): who checks which interviews and
+   which category blocks; "zufällig" is the way of before #}
+{% macro probe_fields(row) %}
+  <div class="tc-probe-grid">
+    <fieldset class="stack"><legend>{{ de_en("Interviews", "Interviews") }}</legend>
+      {% if all_interviews|length > 1 %}<label class="check"><input type="checkbox" data-check-all-box="rid" {% if row is none or row.interviews is none %}checked{% endif %}> <strong>{{ de_en("Alle", "All") }}</strong></label>{% endif %}
+      {% for r in all_interviews %}{% set dbl = double_of(r.id) %}
+      <label class="check"><input type="checkbox" name="rid" value="{{ r.id }}" {% if row is none or row.interviews is none or r.id in row.interviews %}checked{% endif %}> {{ r.interview.label }}{% if r.interview.by_name %} · {{ r.interview.by_name }}{% endif %}
+        {% if not has_transcript(r) %}<span class="hint">{{ de_en("noch ohne Transkript", "no transcript yet") }}</span>{% elif dbl and not double_finished(dbl) %}<span class="hint">{{ de_en("Doppelkodierung läuft", "double coding running") }}</span>{% endif %}</label>
+      {% endfor %}
+    </fieldset>
+    <fieldset class="stack"><legend>{{ de_en("Kategorieblöcke", "Category blocks") }}</legend>
+      {% if check_blocks|length > 1 %}<label class="check"><input type="checkbox" data-check-all-box="block" {% if row is none or row.blocks is none %}checked{% endif %}> <strong>{{ de_en("Alle", "All") }}</strong></label>{% endif %}
+      {% for bid, bname in check_blocks %}
+      <label class="check"><input type="checkbox" name="block" value="{{ bid }}" {% if row is none or row.blocks is none or bid in row.blocks %}checked{% endif %}> {{ bname }}</label>
+      {% endfor %}
+      <p class="hint">{{ de_en("Eine Hauptkategorie mit allem, was darunter steht.", "A main category with everything below it.") }}</p>
+    </fieldset>
+  </div>
+  <p class="muted small">{{ de_en("Alle angehakt heißt: auch Interviews und Blöcke, die später dazukommen. Eigene Stellen prüft niemand; Interviews einer laufenden Doppelkodierung kommen erst nach deren Abschluss dazu. Beim Prüfen stehen weiter alle Kategorien zur Wahl, damit der Block die Antwort nicht verrät.", "All ticked means: also interviews and blocks added later. Nobody checks their own passages; interviews of a running double coding come in only once it is finished. When checking, all categories stay to choose from, so that the block does not give the answer away.") }}</p>
+{% endmacro %}
+<section class="panel" id="probe">
+  <h2>{{ de_en("Gegenseitige Probe", "Mutual check") }}</h2>
+  <form method="post" action="{{ url_for('transcript_coding.check_mode_save', code=survey.code, pid=project.id) }}" class="stack" data-autosave-form>
+    {{ csrf() }}
+    <fieldset class="stack"><legend>{{ de_en("Stellen zum Prüfen", "Passages to check") }}</legend>
+      <label class="check"><input type="radio" name="mode" value="random" data-reload-saved {% if check_mode != "plan" %}checked{% endif %}> {{ de_en("zufällig", "at random") }} <span class="hint">{{ de_en("jede Person bekommt Stellen der anderen aus allen Interviews, die sie sieht", "everyone gets passages of the others from all interviews they see") }}</span></label>
+      <label class="check"><input type="radio" name="mode" value="plan" data-reload-saved {% if check_mode == "plan" %}checked{% endif %}> {{ de_en("nach Zuteilung", "as assigned") }} <span class="hint">{{ de_en("nur Personen mit einer Zeile unten prüfen, und nur ihre Interviews und Kategorieblöcke, Interview für Interview im Text von oben nach unten", "only people with a row below check, and only their interviews and category blocks, interview by interview from the top of the text down") }}</span></label>
+    </fieldset>
+    {{ autosave_bar(quiet=true) }}
+  </form>
+  {% if plan_rows %}
+  {% call list_table() %}
+    <thead><tr><th>{{ de_en("Prüft", "Checks") }}</th><th>{{ de_en("Interviews", "Interviews") }}</th><th>{{ de_en("Kategorieblöcke", "Category blocks") }}</th><th class="num">{{ de_en("Stand", "Progress") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for p in plan_rows %}
+    <tr><td>{{ p.name }}</td>
+      <td>{% if p.labels is none %}{{ de_en("alle", "all") }}{% else %}{{ p.labels|join(", ") }}{% endif %}</td>
+      <td>{% if p.block_names is none %}{{ de_en("alle", "all") }}{% else %}{{ p.block_names|join(", ") }}{% endif %}</td>
+      <td class="num">{{ de_en("{done} von {total}", "{done} of {total}", done=p.done, total=p.total) }}{% if p.total %} <progress class="tc-probe-bar" max="{{ p.total }}" value="{{ p.done }}" aria-hidden="true"></progress>{% endif %}</td>
+      <td class="row-actions"><button type="button" class="button button-small button-secondary" data-dialog-open="tc-probe-{{ loop.index }}" aria-haspopup="dialog">{{ de_en("Ändern", "Change") }}</button>
+        <form method="post" action="{{ url_for('transcript_coding.check_plan_remove', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="who" value="{{ p.key }}">
+          <button class="icon-btn danger" title="{{ de_en('Entfernen', 'Remove') }}" aria-label="{{ de_en('Zuteilung von {name} entfernen', 'Remove the assignment of {name}', name=p.name) }}">{{ icon("trash", 14) }}</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% elif check_mode == "plan" %}
+  <p class="muted small">{{ de_en("Noch niemandem ist etwas zugeteilt: So prüft gerade niemand.", "Nothing is assigned to anyone yet: so nobody checks right now.") }}</p>
+  {% endif %}
+  {% if double_people %}
+  <div><button type="button" class="button button-small" data-dialog-open="tc-probe-new" aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Probe zuteilen", "Assign check") }}</button></div>
+  {% else %}
+  <p class="muted small">{{ de_en("Zuteilen können Sie, sobald die Auswertung Mitglieder hat.", "You can assign once the analysis has members.") }}</p>
+  {% endif %}
+</section>
+
+{% call dialog("tc-probe-new", de_en("Probe zuteilen", "Assign check"), wide=true) %}
+<form method="post" action="{{ url_for('transcript_coding.check_plan_save', code=survey.code, pid=project.id) }}" class="stack">
+  {{ csrf() }}
+  <label>{{ de_en("Wer prüft?", "Who checks?") }} <select name="who" required>{% for key, name in double_people %}<option value="{{ key }}">{{ name }}{% if plan_rows|selectattr("key", "equalto", key)|list %} ({{ de_en("ersetzt die Zeile", "replaces the row") }}){% endif %}</option>{% endfor %}</select></label>
+  {{ probe_fields(none) }}
+  {% if plan_rows %}
+  <label>{{ de_en("Oder wie die Zeile von", "Or like the row of") }} <select name="copy"><option value="">–</option>{% for p in plan_rows %}<option value="{{ p.key }}">{{ p.name }}</option>{% endfor %}</select>
+    <span class="hint">{{ de_en("dann zählen deren Interviews und Blöcke statt der Häkchen", "then their interviews and blocks count instead of the ticks") }}</span></label>
+  {% endif %}
+  <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button>
+    <button class="button">{{ de_en("Zuteilen", "Assign") }}</button></div>
+</form>
+{% endcall %}
+{% for p in plan_rows %}
+{% call dialog("tc-probe-" ~ loop.index, de_en("Probe von {name}", "Check of {name}", name=p.name), wide=true) %}
+<form method="post" action="{{ url_for('transcript_coding.check_plan_save', code=survey.code, pid=project.id) }}" class="stack">
+  {{ csrf() }}<input type="hidden" name="who" value="{{ p.key }}">
+  {{ probe_fields(p) }}
+  <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button>
+    <button class="button">{{ de_en("Speichern", "Save") }}</button></div>
+</form>
+{% endcall %}
+{% endfor %}
+{% endif %}
+
 {# the history: under „Übersicht“ (transcript_coding/overview.html) #}
 
 {% if who.team and view == "settings" %}

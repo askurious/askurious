@@ -19,7 +19,10 @@ back. Every change has a name, a time and a reason and can be commented.
 
 The mutual check ("gegenseitige Probe"): a coder gets passages others coded, without their category, and chooses one;
 per category the share of the same choice is shown ("Probe"). The checks belong to the interview
-(Response.interview["checks"]), like the codings.
+(Response.interview["checks"]), like the codings. Which passages: "zufällig" (the default) from all interviews the
+actor sees, or "nach Zuteilung" (Ralf 2026-11-05): the team gives a person interviews and category blocks (a main
+category with everything below it), CodingProject.settings["check_plan"]; then only who has a row checks, only there,
+interview by interview from the top of the text down, still choosing from all categories.
 
 The coding guide (Kodierleitfaden, Word): research question, per category definition, delimitation, anchor example,
 former names and number of passages (Kuckartz & Rädiker, 2022; Mayring, 2022)."""
@@ -32,6 +35,7 @@ from xml.sax.saxutils import escape
 from flask import Response as HttpResponse
 from flask import abort, flash, redirect, render_template, request, send_file, url_for
 
+from app import autosave
 from app.extensions import db
 from app.lang import de_en
 from app.models import CodingCategory, CodingEvent, Response, utcnow
@@ -423,19 +427,188 @@ def undo_merge(project, event, who):
 # --- the mutual check --------------------------------------------------------------------------------------------------
 
 
-def next_check(project, who):
-    """A passage someone else coded and the actor has not checked yet: (interview, coding) or None."""
+CHECK_RANDOM, CHECK_PLAN = "random", "plan"
+CANDIDATES = "cand"  # the block of the candidates for new main categories
+
+
+def check_mode(project):
+    """"random" (the default, as before 2026-11-05) or "plan": only who has a row of the plan checks, and only there."""
+    return CHECK_PLAN if (project.settings or {}).get("check_mode") == CHECK_PLAN else CHECK_RANDOM
+
+
+def check_plan(project):
+    """{actor key: {"name", "interviews": [interview ids] or None (all), "blocks": [main category ids, "cand"] or
+    None (all)}}: who checks which interviews and which category blocks (the team, Ralf 2026-11-05)."""
+    plan = (project.settings or {}).get("check_plan") or {}
+    return {k: v for k, v in plan.items() if isinstance(v, dict)}
+
+
+def blocks(project):
+    """[(block id, name)] in the order of the category system: the main categories, then the candidates."""
+    mains, candidates = tree(project)
+    out = [(m.id, m.name) for m, _subs in mains]
+    if candidates:
+        out.append((CANDIDATES, de_en("Kandidaten", "Candidates")))
+    return out
+
+
+def block_of(project):
+    """category id -> its block: the main category it stands under (or itself), CANDIDATES for a candidate."""
+    mains, candidates = tree(project)
+    out = {}
+    for main, subs in mains:
+        out[main.id] = main.id
+        out.update({s.id: main.id for s in subs})
+    out.update({c.id: CANDIDATES for c in candidates})
+    return out
+
+
+def _scope(project, entry):
+    """(interview ids or None, a test of a coding for the blocks or None) of a row of the plan."""
+    if entry is None:
+        return None, None
+    wanted = None if entry.get("interviews") is None else set(entry["interviews"])
+    if entry.get("blocks") is None:
+        return wanted, None
+    kinds, resolve, block = set(entry["blocks"]), resolver(project), block_of(project)
+    return wanted, lambda c: block.get(resolve(c.get("cat"))) in kinds
+
+
+def _check_pool(project, key, rows, entry=None):
+    """[(interview, coding)] of passages others coded that `key` has not checked yet, in the interviews `rows` (and,
+    with a row of the plan, only its interviews and blocks), in the order of the interviews and the text."""
     from app.transcript_coding_double import assignment, finished
 
+    wanted, in_blocks = _scope(project, entry)
     pool = []
-    for row in interviews(project, who):
-        entry = assignment(project, row.id)
-        if not has_transcript(row) or (entry is not None and not finished(entry)):
+    for row in rows:
+        if wanted is not None and row.id not in wanted:
+            continue
+        dbl = assignment(project, row.id)
+        if not has_transcript(row) or (dbl is not None and not finished(dbl)):
             continue  # nobody checks passages of a double coding before it is finished
         done = {c.get("coding") for c in (row.interview or {}).get("checks") or []
-                if isinstance(c, dict) and c.get("by") == who.key and c.get("project") == project.id}
+                if isinstance(c, dict) and c.get("by") == key and c.get("project") == project.id}
         ok, _lost = placed(row, project)
-        pool.extend((row, c) for c in ok if c.get("by") != who.key and c.get("id") not in done)
+        for c in sorted(ok, key=lambda c: (c.get("start") or 0, c.get("end") or 0)):
+            if c.get("by") == key or c.get("id") in done or (in_blocks is not None and not in_blocks(c)):
+                continue
+            pool.append((row, c))
+    return pool
+
+
+def _done_in(project, key, rows, entry):
+    """How many checks `key` made in the interviews and blocks of its row of the plan."""
+    wanted, in_blocks = _scope(project, entry)
+    n = 0
+    for row in rows:
+        if wanted is not None and row.id not in wanted:
+            continue
+        by_id = {c.get("id"): c for c in codings(row, project.id)}
+        for chk in (row.interview or {}).get("checks") or []:
+            if not isinstance(chk, dict) or chk.get("by") != key or chk.get("project") != project.id:
+                continue
+            coding = by_id.get(chk.get("coding"))
+            if coding is not None and (in_blocks is None or in_blocks(coding)):
+                n += 1
+    return n
+
+
+def my_plan(project, who):
+    """The row of the plan of `who` while the check goes by the plan, else None."""
+    return check_plan(project).get(who.key) if check_mode(project) == CHECK_PLAN else None
+
+
+def check_progress(project, who):
+    """(checked, all) of the actor's row of the plan, or None."""
+    entry = my_plan(project, who)
+    if entry is None:
+        return None
+    rows = interviews(project, who)
+    done = _done_in(project, who.key, rows, entry)
+    return done, done + len(_check_pool(project, who.key, rows, entry))
+
+
+def plan_labels(project, survey, entry):
+    """(interview labels or None for all, block names or None for all) of a row of the plan."""
+    from app import interview_data
+
+    labels = None
+    if entry.get("interviews") is not None:
+        names = {r.id: (r.interview or {}).get("label") or f"#{r.id}" for r in interview_data.interviews(survey, source="real")}
+        labels = [names[i] for i in entry["interviews"] if i in names]
+    found = None
+    if entry.get("blocks") is not None:
+        names = dict(blocks(project))
+        found = [names[b] for b in entry["blocks"] if b in names]
+    return labels, found
+
+
+def plan_rows(project, survey):
+    """The plan as the team sees it: [{"key", "name", "interviews", "blocks", "labels", "block_names", "done",
+    "total"}], by name. The state counts over all interviews of the row (the team sees all)."""
+    from app import interview_data
+
+    rows = list(interview_data.interviews(survey, source="real"))
+    out = []
+    for key, entry in check_plan(project).items():
+        labels, block_names = plan_labels(project, survey, entry)
+        done = _done_in(project, key, rows, entry)
+        out.append({"key": key, "name": entry.get("name") or key, "interviews": entry.get("interviews"),
+                    "blocks": entry.get("blocks"), "labels": labels, "block_names": block_names,
+                    "done": done, "total": done + len(_check_pool(project, key, rows, entry))})
+    return sorted(out, key=lambda r: r["name"].casefold())
+
+
+def set_check_mode(project, mode):
+    project.settings = {**(project.settings or {}), "check_mode": CHECK_PLAN if mode == CHECK_PLAN else CHECK_RANDOM}
+    project.updated_at = utcnow()
+
+
+def set_plan_row(project, survey, key, rids, block_ids):
+    """Put the row of `key` into the plan: `rids` and `block_ids` the ticked ones, None for all (also those added
+    later). Unknown interviews and blocks are left out. Returns False if nothing is left to check."""
+    from app import interview_data
+    from app.transcript_coding_double import assignable
+
+    db.session.refresh(project, with_for_update=True)  # one writer of the plan at a time
+    known = dict(assignable(project, survey))
+    if key not in known:
+        abort(400)
+    if rids is not None:
+        real = {r.id for r in interview_data.interviews(survey, source="real")}
+        rids = [r for r in dict.fromkeys(rids) if r in real]
+    if block_ids is not None:
+        ids = {b for b, _n in blocks(project)}
+        block_ids = [b for b in dict.fromkeys(block_ids) if b in ids]
+    if rids == [] or block_ids == []:
+        return False
+    plan = check_plan(project)
+    plan[key] = {"name": known[key][:200], "interviews": rids, "blocks": block_ids}
+    project.settings = {**(project.settings or {}), "check_plan": plan}
+    project.updated_at = utcnow()
+    return True
+
+
+def remove_plan_row(project, key):
+    db.session.refresh(project, with_for_update=True)
+    plan = check_plan(project)
+    plan.pop(key, None)
+    project.settings = {**(project.settings or {}), "check_plan": plan}
+    project.updated_at = utcnow()
+
+
+def next_check(project, who):
+    """A passage someone else coded and the actor has not checked yet: (interview, coding) or None. By the plan only
+    from the actor's interviews and blocks, in the order of the interviews and the text, and nothing without a row;
+    else at random from all interviews the actor sees."""
+    if check_mode(project) == CHECK_PLAN:
+        entry = check_plan(project).get(who.key)
+        if entry is None:
+            return None
+        pool = _check_pool(project, who.key, interviews(project, who), entry)
+        return pool[0] if pool else None
+    pool = _check_pool(project, who.key, interviews(project, who))
     if not pool:
         return None
     return random.Random(f"{who.key}:{len(pool)}").choice(pool)
@@ -952,6 +1125,8 @@ def check(code, pid):
         row = db.session.get(Response, request.form.get("rid", type=int) or 0)
         if row is None or row.id not in {r.id for r in interviews(project, who)}:
             abort(404)
+        if check_mode(project) == CHECK_PLAN and check_plan(project).get(who.key) is None:
+            abort(404)  # by the plan only who has a row checks
         record_check(project, who, row, request.form.get("coding", ""), request.form.get("cat", type=int))
         return redirect(url_for("transcript_coding.check", code=survey.code, pid=project.id))
     found = next_check(project, who)
@@ -963,8 +1138,80 @@ def check(code, pid):
                    "after": text[coding["end"]:coding["end"] + CONTEXT], "row": row, "coding": coding}
     done = sum(1 for _c, chk in checks(project, who) if chk.get("by") == who.key)
     mains, candidates = tree(project)
+    entry = my_plan(project, who)
+    mine = None
+    if entry is not None:
+        labels, block_names = plan_labels(project, survey, entry)
+        checked, total = check_progress(project, who)
+        mine = {"labels": labels, "blocks": block_names, "done": checked, "total": total}
     return render_template("transcript_coding/check.html", item=context, mains=mains, candidates=candidates, done=done,
-                           **_context(survey, project, who))
+                           by_plan=check_mode(project) == CHECK_PLAN, mine=mine, **_context(survey, project, who))
+
+
+def _back_to_plan(survey, project):
+    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="settings") + "#probe")
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/check/mode", methods=["POST"])
+@signed_in_or_coder
+@autosave.aware
+def check_mode_save(code, pid):
+    """Zufällig or nach Zuteilung (the team)."""
+    survey, project, _who = _in(code, pid, team_only=True)
+    set_check_mode(project, request.form.get("mode"))
+    db.session.commit()
+    flash(de_en("Gespeichert.", "Saved."), "success")
+    return _back_to_plan(survey, project)
+
+
+def _ticked(name, every, convert):
+    """The ticked values of a list of boxes, None when every one is ticked ("alle", also those added later)."""
+    values = []
+    for raw in request.form.getlist(name):
+        try:
+            values.append(convert(raw))
+        except ValueError:
+            continue
+    return None if every and set(every) <= set(values) else values
+
+
+def _block_id(raw):
+    return CANDIDATES if raw == CANDIDATES else int(raw)
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/check/plan", methods=["POST"])
+@signed_in_or_coder
+def check_plan_save(code, pid):
+    """A row of the plan: who checks which interviews and blocks; "copy" takes over those of another row."""
+    from app import interview_data
+
+    survey, project, _who = _in(code, pid, team_only=True)
+    key = request.form.get("who", "")
+    other = check_plan(project).get(request.form.get("copy", ""))
+    if other is not None:
+        rids, block_ids = other.get("interviews"), other.get("blocks")
+    else:
+        every = [r.id for r in interview_data.interviews(survey, source="real")]
+        rids = _ticked("rid", every, int)
+        block_ids = _ticked("block", [b for b, _n in blocks(project)], _block_id)
+    if not set_plan_row(project, survey, key, rids, block_ids):
+        db.session.rollback()
+        flash(de_en("Bitte mindestens ein Interview und einen Kategorieblock wählen.",
+                    "Please choose at least one interview and one category block."), "error")
+        return _back_to_plan(survey, project)
+    db.session.commit()
+    flash(de_en("Probe zugeteilt.", "Check assigned."), "success")
+    return _back_to_plan(survey, project)
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/check/plan/remove", methods=["POST"])
+@signed_in_or_coder
+def check_plan_remove(code, pid):
+    survey, project, _who = _in(code, pid, team_only=True)
+    remove_plan_row(project, request.form.get("who", ""))
+    db.session.commit()
+    flash(de_en("Zuteilung entfernt.", "Assignment removed."), "success")
+    return _back_to_plan(survey, project)
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/kodierleitfaden.docx")
