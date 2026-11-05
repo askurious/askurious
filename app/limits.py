@@ -446,20 +446,22 @@ def allow_token(token_id):
 _agent_calls = {}  # agent token id -> times of its recent calls
 
 
-def allow_agent_cost(what, token_id):
+def allow_agent_cost(what, user_id, count=True):
     """Count what costs more than a call and adds up: a generated image ("image") or a new survey ("survey"), False
-    once the token made AGENT_IMAGE_LIMIT or AGENT_SURVEY_LIMIT of them within a day. For all server processes."""
+    once the person's agents made AGENT_IMAGE_LIMIT or AGENT_SURVEY_LIMIT of them within a day. Per person, not per
+    token: more tokens give no more. For all server processes. count=False only asks (before the work; the tools count
+    once something was made, so a failure costs nothing)."""
     limit = current_app.config.get(f"AGENT_{what.upper()}_LIMIT", 30)
-    return _take_counted(f"agent_{what}", str(token_id), limit, DAY)
+    return _take_counted(f"agent_{what}", str(user_id), limit, DAY, count)
 
 
-def agent_cost_left(what, token_id):
-    """How many of them the token may still make today."""
+def agent_cost_left(what, user_id):
+    """How many of them the person's agents may still make today."""
     from app.models import RateCount
 
     t = RateCount.__table__
     used = db.session.scalar(db.select(db.func.coalesce(db.func.sum(t.c.n), 0)).where(
-        t.c.kind == f"agent_{what}", t.c.key == str(token_id), t.c.slot > int(time.time()) - DAY))
+        t.c.kind == f"agent_{what}", t.c.key == str(user_id), t.c.slot > int(time.time()) - DAY))
     return max(0, current_app.config.get(f"AGENT_{what.upper()}_LIMIT", 30) - used)
 
 
