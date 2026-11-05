@@ -16,13 +16,13 @@ import io
 import statistics
 import zipfile
 
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, abort, current_app, render_template, request, send_file
 
 from app import interview, interview_data
 from app.items.base import in_lang, plain, reader
 from app.lang import de_en
 from app.units import round_half_up
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 bp = Blueprint("interview_results", __name__, url_prefix="/guide")
 
@@ -335,16 +335,37 @@ def _survey(code):
     return interview_data._survey(code, need="editor")  # notes and data: not for "Ansehen" (concept 5)
 
 
+def _results_survey(code):
+    """(survey, interviewer access or None) for the results page: a researcher with "Bearbeiten", or an interviewer
+    link with the Sichtrecht "alle Interviews und Ergebnisse" (Ralf 2026-11-05); the export, the settings and the
+    guide stay closed to such a link."""
+    from app import interviewer
+
+    if current_user.is_authenticated:
+        survey = interviewer.guide(code)
+        if interviewer.actor(survey) is None or survey.can(current_user, "editor"):
+            return _survey(code), None
+    else:
+        survey = interviewer.guide(code)
+    access = interviewer.current(survey)
+    if not interviewer.sees_results(access):
+        if current_user.is_authenticated:
+            return _survey(code), None  # the refusal a researcher got before
+        abort(404)
+    return survey, access
+
+
 @bp.route("/<code>/interviews/analysis")
-@login_required
 def page(code):
     from app.items.guide_question import HELFFERICH
     from app.interview_ai import KRUSE
 
-    from app import interview_tasks
+    from app import interviewer, interview_tasks
     from app import results as res
 
-    survey = _survey(code)
+    if not (current_user.is_authenticated or interviewer.any_session()):
+        return current_app.login_manager.unauthorized()
+    survey, access = _results_survey(code)
     trials = request.args.get("probe") == "1"
     interviews = rows(survey, trials)
     form_items = answer_items(survey)  # the tasks, then the Kurzfragebogen and the Postskript (case overview)
@@ -352,7 +373,7 @@ def page(code):
     short_cited = res.page_sources(short) if short else []  # Wilson, mode etc. of the Kurzfragebogen
     return render_template("interview/results.html", survey=survey, interviews=interviews, trials=trials,
                            coverage=coverage(survey, interviews), durations=durations(survey, interviews),
-                           general_notes=general_notes(interviews), form_items=form_items, short=short, f={"weighted": False}, marks=STATE_MARK, words=state_words(),
+                           general_notes=general_notes(interviews), form_items=form_items, short=short, f={"weighted": False}, as_interviewer=access is not None, marks=STATE_MARK, words=state_words(),
                            has_tasks=bool(interview_tasks.tasks(survey)),
                            answer_text=answer_text, source_mark=source_mark, stamp=stamp, iv_modes=interview.modes(), day=interview.day_text,
                            notes=res.footnotes(short_cited), item_notes=notes(survey, interviews),
