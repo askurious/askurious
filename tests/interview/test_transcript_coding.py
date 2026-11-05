@@ -210,12 +210,12 @@ def test_box_all_over_the_interviewer_ticks(app, client):
     add_interviewer(client, code, "Anna Becker", may_code="own")
     pid = _new(client, code)
     base = f"/guide/{code}/interviews/coding/{pid}"
-    assert "data-check-all-box" not in client.get(f"{base}?view=settings").data.decode()     # one person: no box
+    assert 'data-check-all-box="access"' not in client.get(f"{base}?view=settings").data.decode()     # one person: no box
     add_interviewer(client, code, "Bert", may_code="all")
     with app.app_context():
         ids = db.session.scalars(db.select(InterviewerAccess.id).order_by(InterviewerAccess.id)).all()
     page = client.get(f"{base}?view=settings").data.decode()
-    assert "data-check-all-box" not in page and "alle mit Kodierrecht" in page                # "alle": no ticks
+    assert 'data-check-all-box="access"' not in page and "alle mit Kodierrecht" in page                # "alle": no ticks
     client.post(f"{base}/interviewers", data={"who": "selected"})                             # switching over keeps all
     with app.app_context():
         assert len(db.session.scalars(db.select(CodingMember).filter_by(project_id=pid, kind=CodingMember.INTERVIEWER)).all()) == 2

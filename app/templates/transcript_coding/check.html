@@ -8,6 +8,10 @@
 {% block content %}
 {% call head(survey, project, who, de_en("Gegenseitige Probe", "Mutual check"), de_en("{n} von Ihnen geprüft", "{n} checked by you", n=done)) %}
   <p class="muted small">{{ de_en("Eine Stelle, die jemand anderes kodiert hat, ohne ihre Kategorie. Wählen Sie die Kategorie, die Sie vergeben würden; die Übereinstimmung erscheint je Kategorie in der Übersicht.", "A passage someone else coded, without its category. Choose the category you would give; the agreement shows per category in the overview.") }}</p>
+  {% if mine %}<p class="small"><strong>{{ de_en("Ihnen zugeteilt:", "Assigned to you:") }}</strong>
+    {{ de_en("Interviews", "interviews") }} {% if mine.labels is none %}{{ de_en("alle", "all") }}{% else %}{{ mine.labels|join(", ") }}{% endif %} ·
+    {{ de_en("Blöcke", "blocks") }} {% if mine.blocks is none %}{{ de_en("alle", "all") }}{% else %}{{ mine.blocks|join(", ") }}{% endif %} ·
+    <strong>{{ de_en("{done} von {total} geprüft", "{done} of {total} checked", done=mine.done, total=mine.total) }}</strong></p>{% endif %}
 {% endcall %}
 <section class="panel">
   {% if item %}
@@ -23,6 +27,10 @@
     {% endfor %}
     {% for c in candidates %}<button class="button button-small button-secondary" name="cat" value="{{ c.id }}">{{ c.name }}</button>{% endfor %}
   </form>
+  {% elif by_plan and not mine %}
+  <p class="muted">{{ de_en("Ihnen ist keine Probe zugeteilt. Das Team legt fest, wer welche Interviews und Kategorieblöcke prüft.", "No check is assigned to you. The team decides who checks which interviews and category blocks.") }}</p>
+  {% elif mine %}
+  <p class="muted">{{ de_en("Keine Stellen mehr zum Prüfen: Alles, was Ihnen zugeteilt ist, haben Sie geprüft.", "No passages left to check: you have checked everything assigned to you.") }}</p>
   {% else %}
   <p class="muted">{{ de_en("Keine Stellen mehr zum Prüfen: Alle Stellen der anderen in Ihren Interviews sind von Ihnen geprüft.", "No passages left to check: you have checked all passages of the others in your interviews.") }}</p>
   {% endif %}

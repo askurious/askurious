@@ -1238,6 +1238,11 @@ def project(code, pid):
                        groups=groups_of(current_user, within=survey), people=_people(survey, project),
                        access_names={a.id: a.name for a in accesses},
                        others=[p for p in projects(survey) if p.id != project.id])
+        if view == "settings":  # the mutual check by the plan (app/transcript_coding_review.py, Ralf 2026-11-05)
+            context.update(check_mode=transcript_coding_review.check_mode(project),
+                           plan_rows=transcript_coding_review.plan_rows(project, survey),
+                           check_blocks=transcript_coding_review.blocks(project),
+                           all_interviews=interviews_all(survey))
     if view == "interviews":  # the search of the material (app/transcript_coding_search.py)
         from app import transcript_coding_search
 

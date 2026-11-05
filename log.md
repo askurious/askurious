@@ -7611,3 +7611,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Interviews kodieren, Übersicht: Lange Kategorienamen und die Buttons „… zusammenführen …“ ragten im Kasten „Unscharf“ aus der Karte. Die Karte hat jetzt eine Spalte minmax(0, 1fr), ihre Buttons brechen um (min. 30 px, auf Touch weiter 44 px).
 - Plural: „1 Stelle in beiden“ / „1 passage in both“ und „check differed once“ über de_en_n.
 - Rechtstexte geprüft, keine Änderung nötig.
+
+## 2026-11-05: Gegenseitige Probe nach Zuteilung
+
+- Interviews kodieren, Wunsch aus dem Test: Das Team legt fest, wer welche Interviews und Kategorieblöcke prüft (Variante A, E1-E11 wie empfohlen, Ralf 2026-11-05).
+- Einstellungen der Auswertung, neuer Abschnitt „Gegenseitige Probe“: Schalter „zufällig“ (Vorgabe, wie bisher) / „nach Zuteilung“; Tabelle je prüfender Person mit Interviews, Blöcken und Stand („x von y“); „Probe zuteilen“ und „Ändern“ öffnen einen Dialog, „Oder wie die Zeile von“ übernimmt eine andere Zeile.
+- Ein Block ist eine Hauptkategorie mit allem darunter, dazu „Kandidaten“. Alle angehakt heißt auch später hinzukommende. Nach Zuteilung prüft nur, wer eine Zeile hat, Interview für Interview im Text von oben nach unten; beim Prüfen stehen weiter alle Kategorien zur Wahl. Eigene Stellen und laufende Doppelkodierungen bleiben ausgeschlossen.
+- Gespeichert in CodingProject.settings (check_mode, check_plan), keine Migration; Interviewlinks unverändert.
+- Datenschutzkonzept (Interviews kodieren) nennt die Zuteilung. Datenschutzerklärung, Nutzungsbedingungen, README und Lizenz geprüft, keine Änderung nötig.
