@@ -44,7 +44,8 @@ def test_all_reads_but_never_changes(app, client):
     home = ben.get(f"/i/{code}/interviews").data.decode()
     assert "Weitere Interviews dieses Leitfadens" in home and f"/i/{code}/interviews/{rid}/read" in home
     page = ben.get(f"/i/{code}/interviews/{rid}/read").data.decode()
-    assert "Sturz im Treppenhaus" in page and "nur lesen" in page and "<form" not in page.split("<!--flashes-->")[1].split("</main>")[0]
+    body = page[page.index('class="panel iv-read"'):page.index("Zurück zu „Meine Interviews“")]
+    assert "Sturz im Treppenhaus" in body and "nur lesen" in page and "<form" not in body
     # the routes that change or open an interview stay closed to an interview of someone else
     assert ben.get(f"/guide/{code}/conversation?interview={rid}").status_code == 404
     r = ben.post(f"/guide/{code}/interviews/{rid}/save", content_type="application/json", data=json.dumps(
