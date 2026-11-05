@@ -415,11 +415,19 @@ def test_questionnaire_word_frame_follows_the_downloader(app, client, survey):
         ("code", "TA"), ("question", "Wie sehen Sie das?"), ("points", "5"), ("labeling", "full"),
         ("answer_mode", "required"), ("dont_know", "1"), ("stmt_id", "s1"), ("stmt_code", ""),
         ("stmt_text", "Bus und Bahn sind gut ausgebaut")]))
-    german = _docx_text(client.get("/surveys/1/export/questionnaire.docx").data)
+    from app import questionnaire_docx
+    from app.extensions import db
+    from app.models import Survey
+
+    def codebook(ui):  # no longer offered as a download (2026-11-05); the builder still has the version
+        with app.app_context():
+            return _docx_text(questionnaire_docx.build(db.session.get(Survey, 1), "codebook", ui=ui))
+
+    german = codebook("de")
     assert "Fragebogen mit Codebuch" in german and "Likert-Skala / Matrix · Pflicht" in german
     assert "„weiß nicht“ = -98, zählt als fehlend." in german
     client.post("/account/language", data={"lang": "en"})
-    english = _docx_text(client.get("/surveys/1/export/questionnaire.docx").data)
+    english = codebook("en")
     assert "Questionnaire with codebook" in english and "Likert scale / matrix · required" in english
     assert "“don't know” = -98, counts as missing." in english and "Fragebogen mit Codebuch" not in english
     assert "Wie sehen Sie das?" in english and "TA_1" in english and "Bus und Bahn sind gut ausgebaut" in english

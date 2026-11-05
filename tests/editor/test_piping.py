@@ -319,8 +319,15 @@ def test_word_export_keeps_the_placeholder_in_the_codebook_and_prints_the_fallba
 
     build(app, client)
 
-    def text(version):
-        doc = Document(io.BytesIO(client.get(f"/surveys/1/export/questionnaire-{version}.docx").data))
+    from app import questionnaire_docx
+
+    def text(version):  # the codebook version is no longer a download (2026-11-05), so it is built directly
+        if version == "codebook":
+            with app.app_context():
+                body = questionnaire_docx.build(db.session.get(Survey, 1), "codebook")
+        else:
+            body = client.get(f"/surveys/1/export/questionnaire-{version}.docx").data
+        doc = Document(io.BytesIO(body))
         return "\n".join([p.text for p in doc.paragraphs] +
                          [c.text for t in doc.tables for r in t.rows for c in r.cells])
 

@@ -15,6 +15,7 @@ Alles rund um die Feldphase:
 - **Teilnahmelink**: ein Link für alle, ein Kurzname (`/s/mensa-studie`), ein QR-Code, eigene Links je Person oder Gruppe (z. B. je Kurs, um zu sehen, wie viele über welchen Link teilnehmen) und die **Panel-Anbindung** (Kennungen aus dem Link, Abschlusslinks für abgeschlossen, Screen-out und Quote voll).
 - **Einladungen per E-Mail** (wenn die Plattform E-Mails verschickt): eine Adressliste, je Person ein persönlicher Link, Erinnerungen. Die Liste begrenzt die Teilnahme nicht, solange „Nur mit persönlichem Link teilnehmen“ aus ist: Der allgemeine Link funktioniert weiter, und ein weitergegebener persönlicher Link setzt den Stand der eingeladenen Person. Mit dem Häkchen nimmt die Befragung nur Personen mit persönlichem Link an, jeden Link für eine Teilnahme.
 - **Quoten** in Kurzform.
+- **Papierfragebogen**: nummerierte Bögen mit QR-Code drucken, die Scans hochladen, prüfen und übernehmen; daneben der **Fragebogen für Papier als Word**, ohne Nummer und Scannen, zum Anpassen (bis November 2026 unter Export › Dokumentation, dort steht jetzt ein Verweis).
 
 Wer vor dem Ende der Feldphase (Feldende, Schließen, Pause) begonnen hat, kann noch 24 Stunden lang abschließen; danach zeigt die Befragung „beendet“, und die Teilnahme bleibt „begonnen“. Eine archivierte Befragung nimmt nichts mehr an.
 

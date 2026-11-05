@@ -30,6 +30,10 @@
   {% else %}
   <p class="muted small">{{ de_en("Die Sprachen dieser Befragung lassen sich noch nicht drucken (auf Papier Sprachen in lateinischer und kyrillischer Schrift, Chinesisch nur, wo der Server die Schrift hat; Arabisch noch nicht).", "The languages of this survey cannot be printed yet (on paper: languages in Latin and Cyrillic script, Chinese only where the server has its font; Arabic not yet).") }}</p>
   {% endif %}
+  {# the questionnaire for paper as Word, to adapt or to print without scanning (was under Export > Dokumentation until
+     2026-11-05) #}
+  <p class="row small">{{ de_en("Ohne Nummer und Scannen, zum Anpassen:", "Without number and scanning, to adapt:") }}
+    <a class="button button-secondary button-small" href="{{ url_for('surveys.export_docx', survey_id=survey.id, version='print') }}" aria-label="{{ de_en('Fragebogen für Papier (Word) herunterladen', 'Download questionnaire for paper (Word)') }}">{{ icon("download", 16) }} {{ de_en("Word für Papier", "Word for paper") }}</a></p>
   {% if paper.runs %}
   <ul class="plain small">{% for run in paper.runs %}
     <li id="paper-run-{{ run.id }}">{% if run.id in paper.pdfs %}<a href="{{ url_for('paper.run_pdf', survey_id=survey.id, run_id=run.id) }}">{{ icon("download", 14) }} {{ de_en("Druckauftrag {n}", "Print run {n}", n=run.id) }}</a>{% else %}{{ de_en("Druckauftrag {n}", "Print run {n}", n=run.id) }} <span class="muted">({{ de_en("PDF gelöscht: alle Bögen erledigt und die Aufbewahrungszeit der Scans vorbei", "PDF deleted: all sheets done and the time scans are kept is over") }})</span>{% endif %} · {{ de_en("{n} Bögen", "{n} sheets", n=run.count) }} · {{ run.language }} · {{ run.created_at|localdt }}{% if run.qversion != (survey.qversion or 1) %} · <span class="muted">{{ de_en("ältere Fassung des Fragebogens", "older revision of the questionnaire") }}</span>{% endif %}</li>
