@@ -312,26 +312,18 @@ def test_editor_offers_earlier_answers(app, client, survey):
     assert offered(first)[0]["items"] == [{"name": "name", "text": "Ihr Name? (gleiche Seite)"}]
 
 
-def test_word_export_keeps_the_placeholder_in_the_codebook_and_prints_the_fallback(app, client, survey):
+def test_word_export_prints_the_fallback_of_a_placeholder(app, client, survey):
     import io
 
     from docx import Document
 
     build(app, client)
 
-    from app import questionnaire_docx
-
-    def text(version):  # the codebook version is no longer a download (2026-11-05), so it is built directly
-        if version == "codebook":
-            with app.app_context():
-                body = questionnaire_docx.build(db.session.get(Survey, 1), "codebook")
-        else:
-            body = client.get(f"/surveys/1/export/questionnaire-{version}.docx").data
-        doc = Document(io.BytesIO(body))
+    def text(version):
+        doc = Document(io.BytesIO(client.get(f"/surveys/1/export/questionnaire-{version}.docx").data))
         return "\n".join([p.text for p in doc.paragraphs] +
                          [c.text for t in doc.tables for r in t.rows for c in r.cells])
 
-    assert "{{marke|Das Produkt}} ist teuer" in text("codebook")
     paper = text("print")
     assert "Das Produkt ist teuer" in paper and "________ ist zuverlässig." in paper and "{{" not in paper
 

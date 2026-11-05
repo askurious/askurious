@@ -191,19 +191,6 @@ def test_dummies_duplicate_copy_and_survey_file(app, client, survey):
         assert "when" not in twin["wieoft"].config and any("Nur zeigen, wenn" in n for n in notes)
 
 
-def test_word_codebook_names_the_condition(app, client, survey):
-    build(app, client)
-    with app.app_context():
-        import io
-
-        from docx import Document
-
-        from app import questionnaire_docx
-
-        doc = Document(io.BytesIO(questionnaire_docx.build(db.session.get(Survey, 1), "codebook", ui="de")))
-        assert any("Nur gezeigt, wenn raucher: Ja" in p.text for p in doc.paragraphs)
-
-
 def test_preview_marks_the_conditioned_question(app, client, survey):
     build(app, client)
     client.get(f"{E}/preview?restart=1")

@@ -1,19 +1,15 @@
-"""The questionnaire as a Word document (.docx), in the survey's default language, in two versions:
-
-- "codebook": for the research documentation or an ethics board. Blocks and pages as headings, each question with
-  its variable name, type and answer mode, validated constructs with their source, random orders, flow conditions
-  and loop tables.
-- "print": a paper questionnaire as participants see it. Only what is on the pages: block titles where they are
-  shown, questions, answers to tick, required questions marked with *; no variable names, sources or notes. A block
-  in a loop is printed once per table row, with the row's values filled in.
+"""The questionnaire for paper as a Word document (.docx), in the survey's default language, as participants see
+it. Only what is on the pages: block titles where they are shown, questions, answers to tick, required questions
+marked with *; no variable names, sources or notes. A block in a loop is printed once per table row, with the row's
+values filled in. The version with codebook was dropped on 2026-11-05: the survey material (app/study_material.py)
+documents the questionnaire with variable names, conditions and sources.
 
 Answers to tick: ○ one, ☐ several; Likert statements and semantic differentials as tables. Item types without a
 layout of their own list what questionnaire_md would list for them. Built with python-docx; nothing of the
 participants' answers is in it.
 
-The questions, answers and what participants read on paper stay in the survey's default language; the frame of the
-codebook (headings, notes, answer modes, the red box of elements not on paper) is in the language of the person who
-downloads (`ui`, app.lang.current(); German outside a request; concept "Mehrsprachige Oberfläche", E8)."""
+The questions, answers and what participants read on paper stay in the survey's default language; the red box of
+elements not on paper is in the language of the person who downloads (`ui`, app.lang.current(); German outside a request; concept "Mehrsprachige Oberfläche", E8)."""
 import io
 import re
 
@@ -24,7 +20,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
-from app.items.base import DONT_KNOW_CODE, PLACEHOLDER, dont_know, plain
+from app.items.base import PLACEHOLDER, dont_know, plain
 
 # Characters XML cannot hold. A manual line break pasted from Word arrives as \x0b, a text from a PDF may bring
 # \x0c or others; they are kept in the questionnaire, and python-docx refuses a whole document over one of them
@@ -50,10 +46,8 @@ def _only_xml():
 _only_xml()
 
 GREY = RGBColor(0x66, 0x66, 0x5F)
-MODES = {"required": "Pflicht", "nudge": "Hinweis, wenn leer", "optional": "freiwillig"}
-MODES_EN = {"required": "required", "nudge": "prompt if empty", "optional": "optional"}
-VERSIONS = ("codebook", "print")
-# live feedback on earlier answers of all participants: nothing to print, left out of both versions
+VERSIONS = ("print",)
+# live feedback on earlier answers of all participants: nothing to print, left out
 LIVE = ("sample_compare", "sample_map", "sample_crowd", "score_band", "topic_map", "topic_profile", "scale_profile")
 # answered by interaction (choice tasks, sorting, placing, maps): a red note instead of a paper version
 NOT_ON_PAPER = ("conjoint", "acbc", "maxdiff", "paired", "cva", "aca", "assign", "position2d", "card_sort", "q_sort", "association", "map_marker", "geolocation")
@@ -84,16 +78,10 @@ class Ctx:
                 return str(found)
         return str(kind.label)
 
-    @property
-    def codebook(self):
-        return self.version == "codebook"
-
     def fill(self, value):
-        """The text with the loop row's values put in for {{name}} (print; placeholders stay in the codebook); an
-        answer to an earlier question (piping) is its text for an empty answer ({{code|text}}), or a gap."""
+        """The text with the loop row's values put in for {{name}}; an answer to an earlier question (piping) is its
+        text for an empty answer ({{code|text}}), or a gap."""
         value = str(value or "")
-        if self.codebook:
-            return value
 
         def sub(m):
             if m.group(1) in self.variables:
@@ -189,44 +177,13 @@ def _paragraphs(ctx, text):
 
 
 def _question(ctx, item):
-    from app import constructs
-
-    kind, t = item.kind, item.t(ctx.lang)
+    t = item.t(ctx.lang)
     p = ctx.doc.add_paragraph()
     p.paragraph_format.space_before, p.paragraph_format.keep_with_next = Pt(10), True
     text = ctx.text((t.get("question") or "").strip())
     if text:
         p.add_run(text).bold = True
-    if ctx.codebook:
-        p.add_run("  ")
-        _small(p, item.code, mono=True)
-        modes = MODES_EN if ctx.ui == "en" else MODES
-        _small(p, f" · {ctx.kind_label(kind)} · {modes.get(item.answer_mode, item.answer_mode)}")
-        construct = constructs.info(item)
-        if construct and ctx.ui == "en":  # the changes in English (constructs.modifications; info() has them in German)
-            found = constructs.find(construct["key"])
-            construct["modifications"] = constructs.modifications(item, found) if found else construct["modifications"]
-        if construct and construct["linked"]:
-            _note(ctx.doc, ctx.say("Verknüpftes Element „{label}“, Fassung {version}", "Linked element “{label}”, revision {version}",
-                                   label=construct["label"], version=construct["version"] or 1)
-                  + (ctx.say(" (in dieser Befragung angepasst)", " (adapted in this survey)")
-                     if construct["unlocked"] or construct["modifications"] else "") + ".")
-        elif construct:
-            _note(ctx.doc, (ctx.say("Verändertes Konstrukt ", "Modified construct ") if construct["modifications"]
-                            else ctx.say("Konstrukt ", "Construct "))
-                  + ctx.say("„{label}“: {citation}", "“{label}”: {citation}", label=construct["label"],
-                            citation=construct["citation"])
-                  + (ctx.say(" Änderungen: {mods}.", " Changes: {mods}.", mods="; ".join(construct["modifications"]))
-                     if construct["modifications"] else ""))
-        from app import item_condition
-
-        if item_condition.of(item):  # "Nur zeigen, wenn …", said like the conditions of the flow at the block
-            _note(ctx.doc, ctx.say("Nur gezeigt, wenn {cond}.", "Shown only if {cond}.",
-                                   cond=item_condition.text(item, ctx.lang, ctx.ui)))
-        if kind.order_codes(item):
-            _note(ctx.doc, ctx.say("Reihenfolge der Antworten bzw. Aussagen zufällig je Person.",
-                                   "Order of the answers or statements random per person."))
-    elif item.answer_mode == "required":
+    if item.answer_mode == "required":
         p.add_run(" *").bold = True
     return t
 
@@ -236,29 +193,15 @@ def _dk_label(lang):
     return "weiß nicht" if lang in ("de", "de-du") else "don't know"
 
 
-def _dk_note(ctx, item):
-    """Codebook: how "weiß nicht" of a matrix or a rating is stored (V41); a date names its column <code>_dk in
-    questionnaire_lines."""
-    if ctx.codebook and dont_know(item):
-        _note(ctx.doc, ctx.say("„weiß nicht“ = {code}, zählt als fehlend.", "“don't know” = {code}, counts as missing.",
-                               code=DONT_KNOW_CODE))
-
-
 def _choice(ctx, item):
     kind = item.kind
     mark = "☐" if item.type == "multiple_choice" else "○"
-    if kind.dropdown(item) and ctx.codebook:
-        _note(ctx.doc, ctx.say("als Auswahlliste", "as a dropdown list"))
-    elif kind.search(item) and ctx.codebook:
-        _note(ctx.doc, ctx.say("als Suchfeld mit Vorschlägen", "as a search field with suggestions"))
     for o in kind.options(item, ctx.lang):
         p = ctx.doc.add_paragraph()
         p.paragraph_format.left_indent, p.paragraph_format.space_after = Cm(0.6), Pt(0)
         p.add_run(f"{mark}  {ctx.text(o['label'])}")
         if o.get("text"):
             p.add_run("  ____________________")
-        if ctx.codebook:
-            _small(p, f"   {o['code']}", mono=True)
 
 
 def _likert(ctx, item):
@@ -285,18 +228,12 @@ def _likert(ctx, item):
             from app import rows
 
             _small(cell.paragraphs[0], ("  nur wenn " if ctx.lang in ("de", "de-du") else "  only if ") + rows.text(item, s, ctx.lang, "de" if ctx.lang in ("de", "de-du") else "en"))
-        if ctx.codebook:
-            _small(cell.paragraphs[0], f"  {s['export_code']}"
-                   + (ctx.say(" (umgepolt)", " (reverse-scored)") if s.get("reverse") else ""), mono=True)
         for n in range(1, len(labels) + 1 + dk):
             _center(tc[r][n], "○")
-    _dk_note(ctx, item)
 
 
 def _side_by_side(ctx, item):
     """A table: the rows down the side, one column per question; its answers named in the head (concept side-by-side)."""
-    from app.items.side_by_side import column_code
-
     kind = item.kind
     cols, statements = kind.columns(item), kind.statements(item, ctx.lang)
     table = ctx.doc.add_table(rows=1 + len(statements), cols=1 + len(cols))
@@ -315,15 +252,11 @@ def _side_by_side(ctx, item):
                 labels.append(_dk_label(ctx.lang))
             head.add_paragraph()
             _small(head.paragraphs[-1], " / ".join(labels))
-        if ctx.codebook:
-            _small(head.paragraphs[0], f"  {column_code(n - 1, col)}", mono=True)
         _shade(head)
     for r, s in enumerate(statements, start=1):
         cell = tc[r][0]
         cell.text = ""
         cell.paragraphs[0].add_run(ctx.text(s["text"]))
-        if ctx.codebook:
-            _small(cell.paragraphs[0], f"  {s['export_code']}", mono=True)
         for n, col in enumerate(cols, start=1):
             points = (col.get("points") or 2) + (1 if col.get("dont_know") else 0)
             mark = {"single": "○ " * points, "multi": "☐ " * points, "dropdown": "▾ ________",
@@ -352,9 +285,6 @@ def _semantic(ctx, item):
             from app import rows
 
             _small(right.paragraphs[0], ("  nur wenn " if ctx.lang in ("de", "de-du") else "  only if ") + rows.text(item, pair, ctx.lang, "de" if ctx.lang in ("de", "de-du") else "en"))
-        if ctx.codebook:
-            _small(right.paragraphs[0], f"  {pair['export_code']}"
-                   + (ctx.say(" (umgepolt)", " (reverse-scored)") if pair.get("reverse") else ""), mono=True)
 
 
 def _picture(ctx, item, variables=None):
@@ -411,8 +341,8 @@ def _picture(ctx, item, variables=None):
 
 
 def _image(ctx, item):
-    """Image and image-to-mark items: the picture; in the codebook for a loop with one image per row only the
-    first, with a note."""
+    """Image and image-to-mark items: the picture; outside a loop row, for a loop with one image per row, the
+    first."""
     from app import loops
 
     dynamic = item.kind.is_dynamic(item)
@@ -420,12 +350,7 @@ def _image(ctx, item):
     if dynamic and not variables and loops.active(item.block):
         rows = loops.all_variables(item.block, ctx.lang)
         variables = rows[0] if rows else {}
-        if ctx.codebook:
-            _note(ctx.doc, ctx.say("Ein Bild je Loop-Zeile ({n} Bilder); hier das der ersten Zeile.",
-                                   "One image per loop row ({n} images); here the one of the first row.",
-                                   n=len(item.kind.required_keys(item))))
-    if not _picture(ctx, item, variables) and ctx.codebook:
-        _note(ctx.doc, ctx.say("Bild fehlt oder ist noch nicht freigegeben.", "Image missing or not approved yet."))
+    _picture(ctx, item, variables)
 
 
 def _warning(ctx, item):
@@ -457,8 +382,6 @@ def _slider(ctx, item):
         cell = tc[r][0]
         cell.text = ""
         cell.paragraphs[0].add_run(ctx.text(row["text"]))
-        if ctx.codebook:
-            _small(cell.paragraphs[0], f"  {row['export_code']}", mono=True)
         line = tc[r][1]
         line.text = ""
         p = line.paragraphs[0]
@@ -476,8 +399,6 @@ def _write_in(ctx, item, total=None):
         p = ctx.doc.add_paragraph()
         p.paragraph_format.left_indent, p.paragraph_format.space_after = Cm(0.6), Pt(2)
         p.add_run("______  " + ctx.text(o["label"]))
-        if ctx.codebook:
-            _small(p, f"   {o['code']}", mono=True)
     if total is not None:
         p = ctx.doc.add_paragraph()
         p.paragraph_format.left_indent = Cm(0.6)
@@ -487,8 +408,7 @@ def _write_in(ctx, item, total=None):
 def _lines(ctx, lines):
     for line in lines:
         text = ctx.text(line).strip().lstrip("-").strip()
-        if not ctx.codebook:
-            text = re.sub(r"`[^`]*`\s*", "", text).strip()  # variable names
+        text = re.sub(r"`[^`]*`\s*", "", text).strip()  # variable names
         if text:
             p = ctx.doc.add_paragraph(text)
             p.paragraph_format.left_indent, p.paragraph_format.space_after = Cm(0.6), Pt(0)
@@ -505,8 +425,6 @@ def _item(ctx, item):
     t = _question(ctx, item)
     if item.type in NOT_ON_PAPER:
         _warning(ctx, item)
-        if ctx.codebook and kind.questionnaire_lines(item, ctx.lang):
-            _lines(ctx, kind.questionnaire_lines(item, ctx.lang))
         return
     if item.type in ("image", "image_mark"):
         _image(ctx, item)
@@ -536,8 +454,6 @@ def _item(ctx, item):
     elif item.type == "date_time":
         ctx.doc.add_paragraph(DATE_FORMS.get(kind.asked(item), "__________")
                               + (f"     ○  {_dk_label(ctx.lang)}" if dont_know(item) else ""))
-        if ctx.codebook:
-            _lines(ctx, kind.questionnaire_lines(item, ctx.lang))
     elif item.type == "psm":
         if t.get("product"):
             _paragraphs(ctx, t["product"])
@@ -546,8 +462,6 @@ def _item(ctx, item):
             p = ctx.doc.add_paragraph()
             p.paragraph_format.left_indent = Cm(0.6)
             p.add_run(ctx.text(t.get("q_" + k, "")) + f"   ________ {unit}")
-            if ctx.codebook:
-                _small(p, f"   {item.code}_{k}", mono=True)
     elif item.type == "likert":
         _likert(ctx, item)
     elif item.type == "semantic":
@@ -562,18 +476,11 @@ def _item(ctx, item):
         ctx.doc.add_paragraph("     ".join(f"○  {c}" for c in choices if c))
     elif item.type == "text_input":
         ctx.doc.add_paragraph("_" * 60)
-        if ctx.codebook and item.config.get("validation", "none") != "none":
-            _note(ctx.doc, ctx.say("Eingabeprüfung: {v}", "Input check: {v}", v=item.config["validation"]))
     elif item.type == "rating":
         lo, hi = kind.bounds(item)
-        if ctx.codebook:
-            _note(ctx.doc, ctx.say("Bewertung ({style}) von {lo:g} bis {hi:g}", "Rating ({style}) from {lo:g} to {hi:g}",
-                                   style=item.config["style"], lo=lo, hi=hi))
-        else:
-            ctx.doc.add_paragraph(("   ".join(f"○ {v:g}" for v in range(int(lo), int(hi) + 1)) if hi - lo <= 10
-                                   else f"{lo:g} ______________________________ {hi:g}")
-                                  + (f"      ○ {_dk_label(ctx.lang)}" if dont_know(item) else ""))
-        _dk_note(ctx, item)
+        ctx.doc.add_paragraph(("   ".join(f"○ {v:g}" for v in range(int(lo), int(hi) + 1)) if hi - lo <= 10
+                               else f"{lo:g} ______________________________ {hi:g}")
+                              + (f"      ○ {_dk_label(ctx.lang)}" if dont_know(item) else ""))
     elif kind.questionnaire_lines(item, ctx.lang):
         _lines(ctx, kind.questionnaire_lines(item, ctx.lang))
 
@@ -584,43 +491,10 @@ def _item(ctx, item):
 def _pages(ctx, block):
     pages = block.pages()
     for p_no, page in enumerate(pages, start=1):
-        if len(pages) > 1 and ctx.codebook:
-            ctx.doc.add_heading(ctx.say("Seite {n}", "Page {n}", n=p_no), level=2)
-        elif p_no > 1:
+        if p_no > 1:
             ctx.doc.add_paragraph().paragraph_format.space_after = Pt(6)
         for item in page:
             _item(ctx, item)
-
-
-def _codebook_block(ctx, survey, block, n, badges):
-    from app import loops
-
-    title = block.title(ctx.lang)
-    ctx.doc.add_heading(f"Block {n}: {plain(title) if title else ctx.say('ohne Titel', 'untitled')}", level=1)
-    for badge in badges.get(block.id, []):
-        _note(ctx.doc, ctx.say("Ablauf: {badge}", "Flow: {badge}", badge=plain(str(badge))))
-    if block.randomize_items:
-        _note(ctx.doc, ctx.say("Elemente innerhalb jeder Seite in zufälliger Reihenfolge.",
-                               "Elements within each page in random order."))
-    loop = loops.config(block)
-    if loops.active(block) and loops.blocks_in(survey, loops.node_of(block))[0].id == block.id:
-        _note(ctx.doc, ctx.say("Schleife {code}: ", "Loop {code}: ", code=loop['code'])
-              + loops.selection_text(survey, loop, en=ctx.ui == "en")
-              + (ctx.say(", zufällige Reihenfolge", ", random order") if loop["order"] == "random" else "")
-              + ctx.say("; Antworten je Zeile in Spalten mit Suffix _<Zeile>",
-                        "; answers per row in columns with the suffix _<row>"))
-        table = ctx.doc.add_table(rows=1 + len(loop["rows"]), cols=1 + len(loop["columns"]))
-        _grid(table)
-        tc = _matrix(table)
-        tc[0][0].text = "#"
-        for c_no, column in enumerate(loop["columns"], start=1):
-            tc[0][c_no].text = column["name"]
-            _shade(tc[0][c_no])
-        for r_no, row in enumerate(loop["rows"], start=1):
-            tc[r_no][0].text = str(r_no)
-            for c_no, column in enumerate(loop["columns"], start=1):
-                tc[r_no][c_no].text = loops.value(loop, row, column, ctx.lang, ctx.lang)
-    _pages(ctx, block)
 
 
 def _print_block(ctx, block):
@@ -637,13 +511,11 @@ def _print_block(ctx, block):
     ctx.variables = {}
 
 
-def build(survey, version="codebook", ui=None):
-    """The questionnaire as .docx bytes; `version` "codebook" or "print"; `ui` the language of the codebook's frame
-    texts ("de" or "en"; None: the downloader's, app.lang.current())."""
-    from app import flow
+def build(survey, version="print", ui=None):
+    """The questionnaire for paper as .docx bytes; `version` only "print" (kept for the callers); `ui` the language of
+    the frame texts ("de" or "en"; None: the downloader's, app.lang.current())."""
     from app import lang as ui_lang
-    from app.models import utcnow
-    from app.timeutil import to_local
+    from app.ui_i18n import tr
 
     ui = ui if ui in ui_lang.LANGUAGES else ui_lang.current()
     lang = survey.default_language
@@ -654,30 +526,13 @@ def build(survey, version="codebook", ui=None):
     normal = doc.styles["Normal"]
     normal.font.name, normal.font.size = "Arial", Pt(10)
     normal.element.rPr.rFonts.set(qn("w:eastAsia"), "Arial")
-    ctx = Ctx(doc, lang, version if version in VERSIONS else "codebook", ui=ui)
-    from app import constructs
-
-    constructs.prefetch(survey)  # the construct of every element without a query each (P12)
+    ctx = Ctx(doc, lang, "print", ui=ui)
 
     doc.add_heading(plain(survey.title_in(lang)), level=0)
-    if ctx.codebook:
-        now = to_local(utcnow())
-        _note(doc, ctx.say("Fragebogen mit Codebuch, Fassung {version}, Stand {date} · Befragung {code} · "
-                           "Variablennamen in Schreibmaschinenschrift; ○ eine Antwort, ☐ mehrere möglich",
-                           "Questionnaire with codebook, revision {version}, as of {date} · survey {code} · "
-                           "variable names in typewriter font; ○ one answer, ☐ several possible",
-                           version=survey.qversion or 1, code=survey.code,
-                           date=f"{now:%d.%m.%Y}" if ui == "de" else f"{now:%Y-%m-%d}"))
-        badges = flow.badges(survey, ui)
-        for n, block in enumerate(survey.blocks, start=survey.block_start):
-            _codebook_block(ctx, survey, block, n, badges)
-    else:
-        from app.ui_i18n import tr
-
-        _note(doc, tr(lang, "Fragen mit * sind Pflichtangaben. ○ eine Antwort, ☐ mehrere Antworten möglich.",
-                      "Questions marked * are required. ○ one answer, ☐ several answers possible."))
-        for block in survey.blocks:
-            _print_block(ctx, block)
+    _note(doc, tr(lang, "Fragen mit * sind Pflichtangaben. ○ eine Antwort, ☐ mehrere Antworten möglich.",
+                  "Questions marked * are required. ○ one answer, ☐ several answers possible."))
+    for block in survey.blocks:
+        _print_block(ctx, block)
     out = io.BytesIO()
     doc.save(out)
     return out.getvalue()
