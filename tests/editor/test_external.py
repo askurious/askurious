@@ -1,5 +1,6 @@
 """External sections of the flow (app/external.py): people leave for a web app and come back through a signed
 return link, with the declared values; the rest of the survey goes on behind the section."""
+import copy
 import csv
 import io
 import json
@@ -123,12 +124,12 @@ def test_the_design_check_names_what_is_missing(app, client, survey):
         s.flow = {"t": "root", "children": [node, {"t": "block", "block": 1},
                                             {"t": "loop", "id": "l1", "name": "L", "code": "loop1", "columns": [{"id": "c1", "name": "x"}],
                                              "rows": [{"id": "r1", "values": {"c1": {"de": "a"}}}], "mode": "all", "k": 1,
-                                             "order": "fixed", "balanced": True,
+                                             "order": "fixed", "balanced": True, "source": "factors",
                                              "children": [{"t": "block", "block": 2}, {**node, "id": "o2", "code": "ext2"}]},
                                             {"t": "block", "block": 3}]}
         flow.normalize(s)
         found = [m for _, m, _ in flow.check(s)]
-        assert any("vor der Einwilligung" in m for m in found) and any("in einer Schleife" in m for m in found)
+        assert any("vor der Einwilligung" in m for m in found) and any("Vignetten-Schleife" in m for m in found)
 
 
 def test_leaving_and_coming_back_with_values(app, client, survey):
@@ -373,3 +374,199 @@ def test_a_survey_without_a_section_shows_nothing_of_it(app, client, survey):
     assert "Gerade außerhalb" not in client.get("/surveys/1/field").data.decode()
     with app.app_context():
         assert external.outside(db.session.get(Survey, 1)) is None and external.columns(db.session.get(Survey, 1)) == []
+
+
+LOOP_URL = "https://webapp.example/task?distance={{distance}}&size={{size}}&return={{return}}"
+
+
+def build_loop(app, client, url=LOOP_URL, en=False, **loop):
+    """consent | intro (age) | loop over two rows: external section, then a question | outro"""
+    nid = build(app, client, url=None)
+    add(client, "single_choice", block=3)                            # 4
+    client.post(E + "/items/4", data={"code": "rating", "question": "{{distance}}: {{ext1_time_ms}} ms",
+                                      "option_id": ["a", "b"], "option_code": ["1", "2"], "option_label": ["gut", "schlecht"]})
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        section = flow.find(flow.tree(s), nid)[0]
+        rows = [{"id": "r1", "values": {"c1": {"de": "0", "en": "short"}, "c2": {"de": "1"}}},
+                {"id": "r2", "values": {"c1": {"de": "1", "en": "long"}, "c2": {"de": "0"}}}]
+        s.flow = {"t": "root", "children": [
+            {"t": "block", "block": 1}, {"t": "block", "block": 2},
+            {"t": "loop", "id": "l1", "name": "Durchgänge", "code": "loop1", "mode": "all", "k": 1, "order": "fixed",
+             "balanced": True, "rows": rows,
+             "columns": [{"id": "c1", "name": "distance", "hidden": False}, {"id": "c2", "name": "size", "hidden": False}],
+             "children": [{**section, "url": url, "delay": 0, "values": [{"name": "time_ms", "kind": "number"}]},
+                          {"t": "block", "block": 3}], **loop}]}
+        flow.normalize(s)
+        db.session.commit()
+    return nid
+
+
+def test_one_section_runs_every_pass_of_a_loop(app, client, survey):
+    """One address for all passes, then a question in the same pass; the values of each pass stay apart, the text
+    shows the last return, and "Back" does not lead into the web app again."""
+    nid = build_loop(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert not [m for level, m, _ in flow.check(s) if level == "error" and "Abschnitt" in m]
+    uid = start(app, client)
+    p = to_the_section(app, uid)
+    first, back = leave(p, uid)
+    assert "distance=0&size=1&return=" in first
+    assert the_response(app)[1][f"{nid}#r1"]["n"] == 1
+    assert p.get(back + "&time_ms=501").status_code == 302
+    page = p.get(f"/s/{uid}", follow_redirects=True).data.decode()
+    assert "0: 501 ms" in page and 'name="nav" value="back"' not in page
+    p.post(f"/s/{uid}", data={"nav": "back"})                        # sent by hand, it leads nowhere either
+    assert "0: 501 ms" in p.get(f"/s/{uid}", follow_redirects=True).data.decode()
+    assert p.get(back + "&time_ms=9").status_code == 302             # the link of a pass counts once
+    p.post(f"/s/{uid}", data={"nav": "next", "i4": "1"})
+    p.get(f"/s/{uid}", follow_redirects=True)
+    second, back = leave(p, uid)
+    assert "distance=1&size=0&return=" in second
+    p.get(back + "&time_ms=702")
+    page = p.get(f"/s/{uid}", follow_redirects=True).data.decode()
+    assert "1: 702 ms" in page and 'name="nav" value="back"' not in page  # the next return overwrites the text
+    p.post(f"/s/{uid}", data={"nav": "next", "i4": "2"})
+    assert the_response(app)[0] == "completed"
+    kept = the_response(app)[1]
+    assert (kept[f"{nid}#r1"]["v"], kept[f"{nid}#r2"]["v"]) == ({"time_ms": 501}, {"time_ms": 702})
+    rows = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv?all=1").data.decode("utf-8-sig"))))
+    assert (rows[0]["ext1_time_ms_1"], rows[0]["ext1_time_ms_2"]) == ("501", "702") and "ext1_time_ms" not in rows[0]
+    assert float(rows[0]["ext1_seconds_2"].replace(",", ".")) >= 0
+    assert "ext1_time_ms_2" in {r[0] for r in csv.reader(io.StringIO(client.get("/surveys/1/export/codebook.csv").data.decode("utf-8-sig")))}
+    with app.app_context():
+        from app import export
+
+        s = db.session.get(Survey, 1)
+        long = list(csv.DictReader(io.StringIO(export.loop_long_csv(s, flow.find(flow.tree(s), "l1")[0]).lstrip("\ufeff"))))
+    assert [(r["distance"], r["rating"], r["ext1_time_ms"]) for r in long] == [("0", "1", "501"), ("1", "2", "702")]
+
+
+def test_the_address_takes_the_default_language_of_a_column(app, client, survey):
+    build_loop(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        node = external.nodes(s)[0]
+        assert external.row_values(s, node, "r1") == {"distance": "0", "size": "1"}
+        assert external.row_values(s, node, "nope") == {} and external.row_values(s, node, None) == {}
+
+
+def test_a_return_link_of_one_pass_does_not_end_another(app, client, survey):
+    build_loop(app, client)
+    uid = start(app, client)
+    p = to_the_section(app, uid)
+    _, back = leave(p, uid)
+    token = back.split("t=")[1]
+    with app.app_context():
+        pid, nid, key, row = external.read_token(token)
+        assert row == "r1"
+        s = db.session.get(Survey, 1)
+        r = db.session.scalar(db.select(Response).filter_by(source="real"))
+        now = r.started_at
+        assert not external.come_back(r, external.nodes(s)[0], key, {}, now, "r2")
+
+
+def test_a_return_link_of_a_section_without_a_loop_still_has_four_parts(app, client, survey):
+    build(app, client)
+    uid = start(app, client)
+    p = to_the_section(app, uid)
+    _, back = leave(p, uid)
+    with app.app_context():
+        assert external.read_token(back.split("t=")[1])[3] is None
+
+
+def test_columns_count_only_in_their_own_loop(app, client, survey):
+    nid = build(app, client, url=None)
+    r = client.post(f"{E}/flow/{nid}/update", data=node_form(LOOP_URL), follow_redirects=True).data.decode()
+    assert "distance" in r
+    with app.app_context():
+        assert flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]["url"] == ""
+
+
+def test_a_column_named_like_a_placeholder_is_refused(app, client, survey):
+    build_loop(app, client, url="https://webapp.example/?pid={{pid}}&return={{return}}",
+               columns=[{"id": "c1", "name": "pid", "hidden": False}, {"id": "c2", "name": "size", "hidden": False}])
+    with app.app_context():
+        assert any("heißt wie ein Platzhalter" in m for _, m, _ in flow.check(db.session.get(Survey, 1)))
+
+
+def test_a_loop_of_sections_alone_runs_and_is_not_empty(app, client, survey):
+    nid = build_loop(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        tree = copy.deepcopy(flow.tree(s))
+        loop = flow.find(tree, "l1")[0]
+        loop["children"] = [c for c in loop["children"] if c["t"] == "ext"]
+        tree["children"].insert(tree["children"].index(loop) + 1, {"t": "block", "block": 3})
+        s.flow = tree
+        flow.normalize(s)
+        db.session.commit()
+        assert not any("ist leer" in m for _, m, _ in flow.check(s))
+    uid = start(app, client)
+    p = to_the_section(app, uid)
+    for value in ("10", "20"):
+        p.get(f"/s/{uid}", follow_redirects=True)
+        _, back = leave(p, uid)
+        p.get(back + f"&time_ms={value}")
+    assert "20 ms" in p.get(f"/s/{uid}", follow_redirects=True).data.decode()
+    kept = the_response(app)[1]
+    assert sorted(k for k in kept if k.startswith(nid)) == [f"{nid}#r1", f"{nid}#r2"]
+
+
+def test_a_section_in_a_loop_leaves_a_survey_file_with_its_address(app, client, survey):
+    build_loop(app, client)
+    data = json.loads(client.get("/surveys/1/export/survey.json").data)
+    _read_in(client, data, title="Kopie")
+    with app.app_context():
+        twin = db.session.scalar(db.select(Survey).filter_by(title="Kopie"))
+        assert external.nodes(twin)[0]["url"] == LOOP_URL
+
+
+def test_dummy_data_go_through_every_pass(app, client, survey):
+    nid = build_loop(app, client)
+    client.post("/surveys/1/dummy", data={"n": "3"})
+    with app.app_context():
+        dummies = db.session.scalars(db.select(Response).filter_by(source="dummy")).all()
+        assert len(dummies) == 3 and all(d.status == "completed" for d in dummies)
+        assert all({f"{nid}#r1", f"{nid}#r2"} <= set(d.external) for d in dummies)
+
+
+def test_the_flow_page_puts_a_section_into_a_loop(app, client, survey):
+    """Through the page, as a researcher does it: the section goes into the loop, and its address offers the columns."""
+    nid = build(app, client, url=None)
+    client.post(E + "/flow/add", data={"kind": "loop", "target": "k3", "mode": "wrap"})
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        lid = flow.walk_nodes(s, "loop")[0]["id"]
+        tree = copy.deepcopy(flow.tree(s))
+        loop = flow.find(tree, lid)[0]
+        loop.update(columns=[{"id": "c1", "name": "distance", "hidden": False}],
+                    rows=[{"id": "r1", "values": {"c1": {"de": "0"}}}])
+        s.flow = tree
+        db.session.commit()
+    client.post(f"{E}/flow/{nid}/place", data={"target": lid, "mode": "into"})
+    r = client.post(f"{E}/flow/{nid}/update", data=node_form("https://webapp.example/?d={{distance}}&return={{return}}"),
+                    follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        node, parent = flow.find(flow.tree(s), nid)
+        assert parent["t"] == "loop" and node["url"].startswith("https://webapp.example/?d={{distance}}")
+    assert "{{distance}}" in client.get("/surveys/1/flow/").data.decode()
+
+
+def test_the_preview_goes_through_the_passes(app, client, survey):
+    nid = build_loop(app, client)
+    P = E + "/preview"
+    client.get(P + "?restart=1")
+    client.post(P, data=CONSENT_OK)
+    client.post(P, data={"nav": "next", "i2": "33"})
+    page = client.get(P).data.decode()
+    assert "distance=0&amp;size=1" in page
+    client.post(P, data={"ext_back": "1", "xv_time_ms": "12"})
+    assert "0: 12 ms" in client.get(P, follow_redirects=True).data.decode()
+    with app.app_context():
+        r = db.session.scalar(db.select(Response).filter_by(source="test"))
+        assert r.external[f"{nid}#r1"]["v"] == {"time_ms": 12}
+

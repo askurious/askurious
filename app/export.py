@@ -974,7 +974,7 @@ def _rows(survey, include_incomplete=False, sources=("real",), speeder=None, spe
     loop_nodes = _loops(survey)
     from app import external
 
-    ext_nodes = external.nodes(survey)
+    ext_nodes = external.slots(survey)
     from app import webservice
 
     ws_nodes = webservice.nodes(survey)
@@ -1258,8 +1258,8 @@ def open_columns(survey):
         out.update(f"{c}_{n}" for n, _ in rows for c in picked) if rows else out.update(picked)
     from app import external
 
-    for node in external.nodes(survey):  # free text a web app handed back from an external section
-        out.update(f"{node['code']}_{spec['name']}" for spec in external.values(node) if spec.get("kind") == "text")
+    for node, _, n in external.slots(survey):  # free text a web app handed back from an external section
+        out.update(f"{node['code']}_{spec['name']}{n}" for spec in external.values(node) if spec.get("kind") == "text")
     from app import webservice
 
     for node in webservice.nodes(survey):  # text a web service answered (it may repeat what was sent)
@@ -2287,10 +2287,13 @@ def _loop_answer_items(survey, node):
 
 def loop_long_columns(survey, node):
     """position (of the pass for this person), zeile (number of the table row, as the suffix _n of the data file),
-    every column of the table in the default language, then the answer columns of the loop's questions without the
-    suffix. A table column named like another column gets _2, _3 …"""
+    every column of the table in the default language, then the answer columns of the loop's questions and what its
+    external sections handed back, without the suffix. A table column named like another column gets _2, _3 …"""
+    from app import external
+
     cols = ["position", "zeile"]
-    answers = [c for it in _loop_answer_items(survey, node) for c, _ in it.kind.export_columns(it)]
+    answers = ([c for it in _loop_answer_items(survey, node) for c, _ in it.kind.export_columns(it)]
+               + external.long_columns(node))
     taken = {"resp_id", "source", *cols, *answers}
     for c in node.get("columns") or []:
         name, k = c["name"], 2
@@ -2315,6 +2318,9 @@ def loop_long_rows(survey, node, response):
     shown = ((response.layout or {}).get("loops") or {}).get(node["id"]) or []
     items = _loop_answer_items(survey, node)
     answers = response.answers or {}
+    from app import external
+
+    sections = external.long_columns(node)
     for pos, rid in enumerate(shown, start=1):
         row = by_id.get(rid)
         line = [pos, loops.row_number(loop, rid) or "?"]
@@ -2323,6 +2329,8 @@ def loop_long_rows(survey, node, response):
             answer = answers.get(f"{it.id}#{rid}")
             values = {**it.kind.export_values(it, answer), **it.kind.export_response_values(it, answer, response)}
             line += [values.get(c) for c, _ in it.kind.export_columns(it)]
+        returned = external.long_values(node, response, rid)
+        line += [returned.get(c) for c in sections]
         yield line
 
 
@@ -2334,6 +2342,10 @@ def loop_long_csv(survey, node, include_incomplete=False, separator="comma", sou
     if not open_answers:
         for it in _loop_answer_items(survey, node):
             hidden.update(open_item_columns(it))
+        from app import external
+
+        hidden.update(f"{n['code']}_{v['name']}" for n in external.in_loop(node) for v in external.values(n)
+                      if v.get("kind") == "text")
     return _long(survey, loop_long_columns(survey, node), lambda r: loop_long_rows(survey, node, r),
                  include_incomplete, separator, sources, drop_speeders, hidden)
 

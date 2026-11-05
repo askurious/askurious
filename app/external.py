@@ -28,6 +28,14 @@ for a key drawn before 2026-10-29: a key drawn since (a new node, "Neuen Schlüs
 missing or wrong signature are not kept; the return itself counts (the person is not stuck), and the export says so
 (<code>_sig). docs/externer-abschnitt-signatur.md is the guide for the developers of a web app.
 
+In a table loop (app/loops.py) one section stands for every pass: its address may use the columns of the loop
+({{distance}}, the value in the default language, so that the language of a person changes nothing), and each pass
+has an entry of its own under key(), "<node id>#<row id>" as an answer has (decided 2026-11-05, concept
+"Externer Abschnitt in Schleifen"). Its return link names the row. "Back" stops at a section in a loop
+(runtime.previous_index), so nobody goes through a pass again. In vignette loops sections do not run yet.
+
+The values handed back can be used in texts: {{<code>_<name>}} is the value of the last return (variables_of).
+
 Per participation (Response.external):
   {node id: {"k": key of the return link, "out": first left, "n": times left, "back": came back,
              "s": seconds outside (first leaving to return), "v": {name: value},
@@ -125,22 +133,90 @@ def values(node):
     return [v for v in (node or {}).get("values") or [] if isinstance(v, dict) and v.get("name")]
 
 
-def link_names(survey):
+def key(nid, row=None):
+    """Where a pass is kept in Response.external: the node id, in a loop "<node id>#<row id>" (runtime.answer_key)."""
+    return f"{nid}#{row}" if row else nid
+
+
+def loop_of(survey, node):
+    """The table loop this section runs in, or None. Not a vignette loop, and not loops inside each other: check()
+    says so, and the section is passed there (flow.plan)."""
+    from app import flow
+
+    around = [a for a in flow.ancestors(flow.tree(survey), node["id"]) if a["t"] == "loop"]
+    return around[0] if len(around) == 1 and around[0].get("source") != "factors" else None
+
+
+def column_names(survey, node):
+    """The columns of the loop around the section, which its address may use."""
+    around = loop_of(survey, node) if node else None
+    return [c["name"] for c in (around or {}).get("columns") or []]
+
+
+def column_chips(survey, node):
+    """[(placeholder, label)] of those columns, for the address field (panel.link_chips)."""
+    return [(f"{{{{{name}}}}}", de_en("Spalte {name}", "Column {name}", name=name)) for name in column_names(survey, node)]
+
+
+def row_values(survey, node, row):
+    """{column: value} of one pass. Always the default language: an address must not change with the person's."""
+    from app import loops
+
+    around = loop_of(survey, node) if row else None
+    if around is None:
+        return {}
+    table = loops.config_node(around)
+    found = next((r for r in table["rows"] if r["id"] == row), None)
+    default = survey.default_language
+    return {c["name"]: loops.value(table, found, c, default, default) for c in table["columns"]} if found else {}
+
+
+def slots(survey):
+    """[(node, row id or None, suffix of its export columns)]: one per pass of a loop's table, as the columns of
+    questions in a loop are numbered (_1, _2 …, in the order of the table), else one per section."""
+    out = []
+    for node in nodes(survey):
+        around = loop_of(survey, node)
+        rows = (around.get("rows") or []) if around else []
+        out += [(node, r["id"], f"_{n}") for n, r in enumerate(rows, start=1)] or [(node, None, "")]
+    return out
+
+
+def names(survey):
+    """{placeholder: label} of what the sections hand back: {{ext1_score}}."""
+    return {f"{n['code']}_{v['name']}": f"{n.get('name') or n['code']}: {v['name']}" for n in nodes(survey) for v in values(n)}
+
+
+def variables_of(survey, response):
+    """{placeholder: value} of the last return from each section. In a loop that is the pass just finished, and the
+    next return overwrites it (Philipp, 2026-11-05); the export keeps every pass."""
+    kept = state(response)
+    out = {}
+    for node in nodes(survey):
+        own = node["id"], node["id"] + "#"
+        passes = [e for k, e in kept.items() if isinstance(e, dict) and e.get("back") and (k == own[0] or k.startswith(own[1]))]
+        latest = max(passes, key=lambda e: str(e["back"]), default={})
+        out.update({f"{node['code']}_{v['name']}": (latest.get("v") or {}).get(v["name"], "") for v in values(node)})
+    return out
+
+
+def link_names(survey, node=None):
     """The placeholders the address of an external section may use: those of a completion link (declared URL
-    parameters, {{pid}}, {{lang}}, {{quota}} where allowed) and {{return}}; not the signature of completion links."""
+    parameters, {{pid}}, {{lang}}, {{quota}} where allowed), {{return}} and the columns of the loop around `node`; not
+    the signature of completion links."""
     from app import panel
 
-    return (set(panel.link_names(survey)) - {panel.SIG}) | {RETURN}
+    return (set(panel.link_names(survey)) - {panel.SIG}) | {RETURN} | set(column_names(survey, node))
 
 
-def url_error(survey, url):
+def url_error(survey, url, node=None):
     """Why this address cannot be stored, or None (the rules of completion links, panel.link_error)."""
     from app import panel
 
     if panel.SIG in panel.PLACEHOLDER.findall(url or ""):
         return de_en("{{sig}} gibt es nur in Abschlusslinks; der Rückkehrlink {{return}} ist selbst signiert.",
                      "{{sig}} exists only in completion links; the return link {{return}} is signed itself.")
-    return panel.link_error(url, link_names(survey))
+    return panel.link_error(url, link_names(survey, node))
 
 
 def usable(node):
@@ -183,7 +259,7 @@ def update(survey, node, form, languages, links=True):
                      "The address of an external section is set by whoever has the role “Admin” in this survey. "
                      "Nothing was saved.")
     url = form.get("url", "").strip()[:1000] if links else node.get("url") or ""
-    error = url_error(survey, url) if links else None
+    error = url_error(survey, url, node) if links else None
     if error:
         return de_en("Adresse: {error}", "Address: {error}", error=error)
     found, names = [], set()
@@ -332,27 +408,28 @@ def state(response):
     return dict(getattr(response, "external", None) or {})
 
 
-def entry(response, nid):
-    return dict(state(response).get(nid) or {})
+def entry(response, nid, row=None):
+    return dict(state(response).get(key(nid, row)) or {})
 
 
-def passed(response, nid):
-    """This participation is back from the node (or cannot leave at all: the separated section)."""
-    return not hasattr(response, "external") or bool(entry(response, nid).get("back"))
+def passed(response, nid, row=None):
+    """This participation is back from the node, in a loop from this pass (or cannot leave at all: the separated
+    section)."""
+    return not hasattr(response, "external") or bool(entry(response, nid, row).get("back"))
 
 
-def leave(response, node, now, params=None):
+def leave(response, node, now, params=None, row=None):
     """The person leaves through the page of the node. The key of the return link is drawn once: leaving a second
     time (the page opened again) gives the same link, and the time outside counts from the first leaving.
     params: the URL parameters of this browser; those not stored with the participation anyway are held with it
     until the person is back (PARAMS, see the head of this module)."""
-    kept = entry(response, node["id"])
+    kept = entry(response, node["id"], row)
     kept.setdefault("k", secrets.token_urlsafe(9))
     kept.setdefault("out", now.isoformat())
     kept["n"] = int(kept.get("n") or 0) + 1
     stored = getattr(response, "params", None) or {}
     held = {k: v for k, v in (params or {}).items() if stored.get(k) != v}
-    new = {**state(response), node["id"]: kept}
+    new = {**state(response), key(node["id"], row): kept}
     new.pop(PARAMS, None)
     response.external = {**new, PARAMS: held} if held else new
     response.outside_since = now
@@ -417,20 +494,20 @@ def _out_seconds(kept):
         return None
 
 
-def token(response, node):
+def token(response, node, row=None):
     """What the return link carries: the participation (its pid, never the number of its row), the node, the key
     drawn for it and the time of the first leaving, sealed by the server (secrets_box.seal): the web app cannot read
     any of it, and the pid reaches it only where the address asks for {{pid}}. The same leaving gives the same link
     (the page of the node opened again)."""
     from app import secrets_box
 
-    kept = entry(response, node["id"])
-    data = [response.pid, node["id"], kept.get("k", ""), _out_seconds(kept) or 0]
+    kept = entry(response, node["id"], row)
+    data = [response.pid, node["id"], kept.get("k", ""), _out_seconds(kept) or 0] + ([row] if row else [])
     return secrets_box.seal(PURPOSE, json.dumps(data, separators=(",", ":")).encode(), secrets_box.PARTICIPANT)
 
 
 def read_token(value, now=None):
-    """(pid, node id, key) of a return link, or None for anything this server did not seal, and for a link whose
+    """(pid, node id, key, row id or None) of a return link, or None for anything this server did not seal, and for a link whose
     first leaving is longer ago than MAX_SECONDS (a link that leaked through the log of the web app, a referrer or
     the history of a shared computer does not take the participation over for good). Links of the form before
     (signed, but readable) are not read any more."""
@@ -444,31 +521,34 @@ def read_token(value, now=None):
         data = json.loads(raw) if raw is not None else None
     except ValueError:
         return None
-    if not (isinstance(data, list) and len(data) == 4 and all(isinstance(part, str) and part for part in data[:3])
+    if not (isinstance(data, list) and len(data) in (4, 5) and all(isinstance(part, str) and part for part in data[:3])
             and isinstance(data[3], int) and not isinstance(data[3], bool)):
+        return None
+    row = data[4] if len(data) == 5 else None  # only a pass of a loop names its row
+    if len(data) == 5 and not (isinstance(row, str) and row):
         return None
     age = ((now or utcnow()) - _EPOCH).total_seconds() - data[3]
     if not data[3] or not -300 <= age <= MAX_SECONDS:
         return None
-    return tuple(data[:3])
+    return (*data[:3], row)
 
 
-def return_url(survey, response, node):
+def return_url(survey, response, node, row=None):
     from app.hosts import participant_base
 
     # it ends in a query, so the web app appends its values with "&" (…&score=17)
-    return f"{participant_base()}/s/{survey.public_key}/back?t={token(response, node)}"
+    return f"{participant_base()}/s/{survey.public_key}/back?t={token(response, node, row)}"
 
 
-def target(survey, response, node, all_values, return_link=None):
+def target(survey, response, node, all_values, return_link=None, row=None):
     """The address the person is sent to, with its placeholders filled (URL-encoded), or None. return_link (the
     preview): what stands in place of the return link."""
     from app import panel
 
     if not usable(node):
         return None
-    link = return_link if return_link is not None else return_url(survey, response, node)
-    return panel._filled(node["url"], {**all_values, RETURN: link})
+    link = return_link if return_link is not None else return_url(survey, response, node, row)
+    return panel._filled(node["url"], {**row_values(survey, node, row), **all_values, RETURN: link})
 
 
 def read_number(raw):
@@ -508,12 +588,12 @@ def read_values(node, args, lang=None):
     return out
 
 
-def come_back(response, node, key, args, now):
+def come_back(response, node, drawn, args, now, row=None):
     """The return link was opened: once, the participation is back, with the time outside and the declared
     values. False for a link that was used before or whose key is not the one drawn for this node. Where the node
     signs its values, they are kept only with a valid signature; the return counts either way."""
-    kept = entry(response, node["id"])
-    if not kept.get("k") or kept.get("back") or not hmac.compare_digest(str(kept["k"]), str(key)):
+    kept = entry(response, node["id"], row)
+    if not kept.get("k") or kept.get("back") or not hmac.compare_digest(str(kept["k"]), str(drawn)):
         return False
     seconds = (now - datetime.fromisoformat(kept["out"])).total_seconds() if kept.get("out") else 0
     got = read_values(node, args)
@@ -522,15 +602,15 @@ def come_back(response, node, key, args, now):
         if not kept["sig"]:
             got = {}
     kept.update(back=now.isoformat(), s=round(min(max(seconds, 0.0), MAX_SECONDS), 1), v=got)
-    response.external = {**state(response), node["id"]: kept}
+    response.external = {**state(response), key(node["id"], row): kept}
     response.outside_since = None
     forget_params(response)  # handed to the browser that came back (participate.come_back reads them first)
     return True
 
 
-def simulate(response, node, given, seconds, now):
+def simulate(response, node, given, seconds, now, row=None):
     """A return without a web app: the test run (the values typed on its page) and the dummy data."""
-    kept = entry(response, node["id"])
+    kept = entry(response, node["id"], row)
     kept.setdefault("out", now.isoformat())
     try:
         seconds = min(max(float(seconds), 0.0), MAX_SECONDS)
@@ -538,7 +618,7 @@ def simulate(response, node, given, seconds, now):
         seconds = 0.0
     kept.update(n=int(kept.get("n") or 0) or 1, back=now.isoformat(), s=round(seconds, 1),
                 v=read_values(node, given))
-    response.external = {**state(response), node["id"]: kept}
+    response.external = {**state(response), key(node["id"], row): kept}
     response.outside_since = None
 
 
@@ -572,7 +652,7 @@ def check(survey):
             out.append(("error", de_en("{name} hat noch keine Adresse; so läuft die Befragung an ihm vorbei.",
                                        "{name} has no address yet; so the survey runs past it.", name=name), None))
         else:
-            error = url_error(survey, url)
+            error = url_error(survey, url, node)
             if error:
                 out.append(("error", de_en("{name}, Adresse: {error}", "{name}, address: {error}", name=name, error=error), None))
             elif RETURN not in panel.PLACEHOLDER.findall(url):
@@ -598,11 +678,18 @@ def check(survey):
                                          "(a performance, a payment), switch on “Sign return values” in the settings of "
                                          "the section.", name=name), None))
         around = flow.ancestors(root, node["id"])
-        if any(a["t"] == "loop" for a in around):
-            out.append(("error", de_en("{name} steht in einer Schleife; das ist nicht möglich (je Durchgang bräuchte es "
-                                       "einen eigenen Abschnitt). So läuft die Befragung an ihm vorbei.",
-                                       "{name} is in a loop; that is not possible (each pass would need a section of its "
-                                       "own). So the survey runs past it.", name=name), None))
+        loops_around = [a for a in around if a["t"] == "loop"]
+        if loops_around and loop_of(survey, node) is None:
+            out.append(("error", de_en("{name} steht in einer Vignetten-Schleife oder in Schleifen ineinander; das ist noch "
+                                       "nicht möglich. So läuft die Befragung an ihm vorbei.",
+                                       "{name} is in a vignette loop or in loops inside each other; that is not possible "
+                                       "yet. So the survey runs past it.", name=name), None))
+        clashes = set(column_names(survey, node)) & (set(link_names(survey)))
+        if clashes:
+            out.append(("error", de_en("{name}: Die Spalte „{column}“ der Schleife heißt wie ein Platzhalter der Adresse. "
+                                       "Bitte die Spalte umbenennen.",
+                                       "{name}: the column “{column}” of the loop has the name of a placeholder of the "
+                                       "address. Please rename the column.", name=name, column=sorted(clashes)[0]), None))
         if consent is not None:
             at = next(n for n, other in enumerate(walked) if other is node)
             if consent.block_id not in [n["block"] for n in walked[:at] if n["t"] == "block"]:
@@ -626,30 +713,54 @@ def columns(survey):
     """[(column, label)] of the export: per section the seconds outside, then its declared values, then (where the
     section signs its values) whether the signature was right."""
     out = []
-    for node in nodes(survey):
-        name = node.get("name") or node["code"]
-        out.append((f"{node['code']}_seconds", f"Externer Abschnitt „{name}“: Zeit außerhalb in Sekunden"))
-        out += [(f"{node['code']}_{spec['name']}", f"Externer Abschnitt „{name}“: Rückgabewert {spec['name']}")
+    for node, _, n in slots(survey):
+        name = (node.get("name") or node["code"]) + (f" [Zeile {n[1:]}]" if n else "")
+        out.append((f"{node['code']}_seconds{n}", f"Externer Abschnitt „{name}“: Zeit außerhalb in Sekunden"))
+        out += [(f"{node['code']}_{spec['name']}{n}", f"Externer Abschnitt „{name}“: Rückgabewert {spec['name']}")
                 for spec in values(node)]
         if signs(node):
-            out.append((f"{node['code']}_{SIG}", f"Externer Abschnitt „{name}“: Signatur der Rückgabewerte gültig (1/0)"))
+            out.append((f"{node['code']}_{SIG}{n}", f"Externer Abschnitt „{name}“: Signatur der Rückgabewerte gültig (1/0)"))
+    return out
+
+
+def _pass_values(node, kept, n=""):
+    """{column: value} of one pass from its entry; empty where the person did not come back."""
+    back = bool(kept.get("back"))
+    out = {f"{node['code']}_seconds{n}": kept.get("s", "") if back else ""}
+    for spec in values(node):
+        out[f"{node['code']}_{spec['name']}{n}"] = (kept.get("v") or {}).get(spec["name"], "") if back else ""
+    if signs(node):
+        # 1 right, 0 missing or wrong (the values were dropped); empty: not back, or a test run or dummy
+        out[f"{node['code']}_{SIG}{n}"] = kept["sig"] if back and kept.get("sig") in (0, 1) else ""
     return out
 
 
 def export_values(found, response):
-    """{column: value} for one participation; found: nodes(survey). Empty where the person did not come back
+    """{column: value} for one participation; found: slots(survey). Empty where the person did not come back
     from the section (or never got to it), and where the web app did not hand a value back."""
     kept = getattr(response, "external", None) or {}
     out = {}
-    for node in found:
-        entry = kept.get(node["id"]) or {}
-        back = bool(entry.get("back"))
-        out[f"{node['code']}_seconds"] = entry.get("s", "") if back else ""
-        for spec in values(node):
-            out[f"{node['code']}_{spec['name']}"] = (entry.get("v") or {}).get(spec["name"], "") if back else ""
-        if signs(node):
-            # 1 right, 0 missing or wrong (the values were dropped); empty: not back, or a test run or dummy
-            out[f"{node['code']}_{SIG}"] = entry["sig"] if back and entry.get("sig") in (0, 1) else ""
+    for node, row, n in found:
+        out.update(_pass_values(node, kept.get(key(node["id"], row)) or {}, n))
+    return out
+
+
+def in_loop(loop_node):
+    """The sections of a loop node, for its long format."""
+    return [c for c in loop_node.get("children") or [] if c.get("t") == NODE]
+
+
+def long_columns(loop_node):
+    """The columns of the sections in the long format of a loop: one set per row, without the suffix _n."""
+    return [c for node in in_loop(loop_node) for c in _pass_values(node, {})]
+
+
+def long_values(loop_node, response, row):
+    """{column: value} of one pass, for the long format of a loop."""
+    kept = getattr(response, "external", None) or {}
+    out = {}
+    for node in in_loop(loop_node):
+        out.update(_pass_values(node, kept.get(key(node["id"], row)) or {}))
     return out
 
 
@@ -661,26 +772,26 @@ def codebook(survey, lang=None):
     if reader(lang) == "en":
         return _codebook_en(survey)
     out = []
-    for node in nodes(survey):
+    for node, _, n in slots(survey):
         name = node.get("name") or node["code"]
         where = host(node) or "ohne Adresse"
-        out.append((f"{node['code']}_seconds", f"Externer Abschnitt „{name}“: Zeit außerhalb in Sekunden", "Paradaten",
+        out.append((f"{node['code']}_seconds{n}", f"Externer Abschnitt „{name}“: Zeit außerhalb in Sekunden", "Paradaten",
                     "Sekunden", f"auf dem Server gemessen: vom ersten Verlassen der Befragung bis zur Rückkehr über den "
                     f"Rückkehrlink ({where}); leer = nicht dort gewesen oder nicht zurückgekehrt"))
         signed = signs(node)
         trust = (f"signiert: nur mit gültiger Signatur der Web-App gespeichert, sonst verworfen (Spalte "
-                 f"{node['code']}_{SIG})" if signed else
+                 f"{node['code']}_{SIG}{n})" if signed else
                  "nicht signiert: Der Wert kommt aus dem Browser der Teilnehmenden und kann dort verändert werden, "
                  "auch ohne die Web-App")
         for spec in values(node):
-            out.append((f"{node['code']}_{spec['name']}", f"Externer Abschnitt „{name}“: Rückgabewert {spec['name']}",
+            out.append((f"{node['code']}_{spec['name']}{n}", f"Externer Abschnitt „{name}“: Rückgabewert {spec['name']}",
                         "Text" if spec.get("kind") == "text" else "Externer Abschnitt",
                         "Text, höchstens 100 Zeichen" if spec.get("kind") == "text" else "Zahl",
                         f"von der Web-App ({where}) an den Rückkehrlink angehängt; {trust}; leer = nicht zurückgekehrt "
                         "oder kein Wert übergeben" + ("" if spec.get("kind") == "text" else " oder keine Zahl")
                         + (" oder Signatur ungültig" if signed else "")))
         if signed:
-            out.append((f"{node['code']}_{SIG}", f"Externer Abschnitt „{name}“: Signatur der Rückgabewerte gültig",
+            out.append((f"{node['code']}_{SIG}{n}", f"Externer Abschnitt „{name}“: Signatur der Rückgabewerte gültig",
                         "Externer Abschnitt", "1 = gültig, Rückgabewerte gespeichert; 0 = fehlt oder falsch, "
                         "Rückgabewerte verworfen",
                         "HMAC-SHA256 der Web-App über Rückkehrlink und Rückgabewerte, auf dem Server geprüft; leer = "
@@ -691,26 +802,26 @@ def codebook(survey, lang=None):
 def _codebook_en(survey):
     """codebook() in English; the value labels of the signature column stay as they are."""
     out = []
-    for node in nodes(survey):
+    for node, _, n in slots(survey):
         name = node.get("name") or node["code"]
         where = host(node) or "no address"
-        out.append((f"{node['code']}_seconds", f"External section “{name}”: time outside in seconds", "Paradaten",
+        out.append((f"{node['code']}_seconds{n}", f"External section “{name}”: time outside in seconds", "Paradaten",
                     "seconds", f"measured on the server: from first leaving the survey to the return over the return "
                     f"link ({where}); empty = not there or not returned"))
         signed = signs(node)
         trust = (f"signed: stored only with a valid signature of the web app, otherwise discarded (column "
-                 f"{node['code']}_{SIG})" if signed else
+                 f"{node['code']}_{SIG}{n})" if signed else
                  "not signed: the value comes from the participant's browser and can be changed there, even without "
                  "the web app")
         for spec in values(node):
-            out.append((f"{node['code']}_{spec['name']}", f"External section “{name}”: return value {spec['name']}",
+            out.append((f"{node['code']}_{spec['name']}{n}", f"External section “{name}”: return value {spec['name']}",
                         "Text" if spec.get("kind") == "text" else "Externer Abschnitt",
                         "text, at most 100 characters" if spec.get("kind") == "text" else "number",
                         f"appended to the return link by the web app ({where}); {trust}; empty = not returned or no "
                         "value passed" + ("" if spec.get("kind") == "text" else " or not a number")
                         + (" or signature invalid" if signed else "")))
         if signed:
-            out.append((f"{node['code']}_{SIG}", f"External section “{name}”: signature of the return values valid",
+            out.append((f"{node['code']}_{SIG}{n}", f"External section “{name}”: signature of the return values valid",
                         "Externer Abschnitt", "1 = gültig, Rückgabewerte gespeichert; 0 = fehlt oder falsch, "
                         "Rückgabewerte verworfen",
                         "HMAC-SHA256 of the web app over the return link and the return values, checked on the server; "

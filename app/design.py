@@ -544,7 +544,8 @@ def check(survey, start=False):
 
     # {{pid}}, URL parameters, answers to other questions (piping.check looks at those)
     everywhere = (BUILTIN_VARIABLES | {p["name"] for p in panel.config(survey)["params"]} | piping.names(survey)
-                  | set(flow.branch_names(survey)) | set(__import__("app.webservice", fromlist=["names"]).names(survey)))
+                  | set(flow.branch_names(survey)) | set(__import__("app.webservice", fromlist=["names"]).names(survey))
+                  | set(__import__("app.external", fromlist=["names"]).names(survey)))
     from app.items.base import placeholders
 
     for block in survey.blocks:

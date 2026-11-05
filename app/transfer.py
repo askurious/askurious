@@ -1127,6 +1127,7 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
     from app.items.base import CODE_RE
 
     ids, renamed, count, numbers = set(), {}, [0], {"rand": 0, "loop": 0, "ext": 0, "ws": 0}
+    around = []  # the column names of the loops the node at hand lies in
     left_out = [0]
 
     def nid(node, prefix):
@@ -1270,12 +1271,15 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
         if kind == "loop":
             lcode = code(node, "loop", "loop")
             columns, rows, cids = loop_table(node)
+            around.append({c["name"] for c in columns})  # what an external section in this loop may use in its address
+            inside = children(node, depth)
+            around.pop()
             levels = [cids[c] for c in node.get("level_cols") or [] if isinstance(c, str) and c in cids]
             mode = node.get("mode") if node.get("mode") in ("k", "level", "plan") else "all"
             out = {"t": "loop", "id": nid(node, "l"), "name": _str(node.get("name"), 100, line=True) or lcode, "code": lcode,
                    "columns": columns, "rows": rows, "mode": mode, **({"level_cols": levels} if mode == "level" else {}),
                    "k": _int(node.get("k"), 1, 1, MAX_LOOP_ROWS), "order": "fixed" if node.get("order") == "fixed" else "random",
-                   "balanced": node.get("balanced") is not False, "children": children(node, depth)}
+                   "balanced": node.get("balanced") is not False, "children": inside}
             factors = _vignette_fields(node, notes) if node.get("source") == "factors" else None
             if factors:  # a vignette loop: its rows follow from the plan again (_loop_plans)
                 out.update(factors, mode="all")
@@ -1290,7 +1294,7 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
             ecode = code(node, "ext", "ext")
             url = _str(node.get("url"), 1000).strip()
             if url and (panel.SIG in panel.PLACEHOLDER.findall(url)
-                        or panel.link_error(url, (set(names) - {panel.SIG}) | {external.RETURN})):
+                        or panel.link_error(url, (set(names) - {panel.SIG}) | {external.RETURN} | set().union(*around))):
                 notes.append(de_en("Die Adresse eines externen Abschnitts wurde nicht übernommen: Sie ist hier nicht zulässig.",
                                    "The address of an external section was not imported: it is not allowed here."))
                 url = ""
