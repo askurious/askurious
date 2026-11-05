@@ -32,7 +32,9 @@ In a table loop (app/loops.py) one section stands for every pass: its address ma
 ({{distance}}, the value in the default language, so that the language of a person changes nothing), and each pass
 has an entry of its own under key(), "<node id>#<row id>" as an answer has (decided 2026-11-05, concept
 "Externer Abschnitt in Schleifen"). Its return link names the row. "Back" stops at a section in a loop
-(runtime.previous_index), so nobody goes through a pass again. In vignette loops sections do not run yet.
+(runtime.previous_index), so nobody goes through a pass again. In a vignette loop the same holds for the rows of the
+plan, of which a person gets one deck: {{distance}} is the label of the level in the default language, and
+{{distance_code}} its number from 1, as in the long format (vignettes.level_numbers).
 
 The values handed back can be used in texts: {{<code>_<name>}} is the value of the last return (variables_of).
 
@@ -139,18 +141,21 @@ def key(nid, row=None):
 
 
 def loop_of(survey, node):
-    """The table loop this section runs in, or None. Not a vignette loop, and not loops inside each other: check()
-    says so, and the section is passed there (flow.plan)."""
+    """The loop this section runs in, with a table or with factors, or None. Not loops inside each other: check() says
+    so, and the section is passed there (flow.plan)."""
     from app import flow
 
     around = [a for a in flow.ancestors(flow.tree(survey), node["id"]) if a["t"] == "loop"]
-    return around[0] if len(around) == 1 and around[0].get("source") != "factors" else None
+    return around[0] if len(around) == 1 else None
 
 
 def column_names(survey, node):
-    """The columns of the loop around the section, which its address may use."""
+    """The columns of the loop around the section, which its address may use; in a vignette loop also the numbers of
+    the levels."""
+    from app import vignettes
+
     around = loop_of(survey, node) if node else None
-    return [c["name"] for c in (around or {}).get("columns") or []]
+    return [c["name"] for c in (around or {}).get("columns") or []] + vignettes.level_number_names(around)
 
 
 def column_chips(survey, node):
@@ -160,15 +165,18 @@ def column_chips(survey, node):
 
 def row_values(survey, node, row):
     """{column: value} of one pass. Always the default language: an address must not change with the person's."""
-    from app import loops
+    from app import loops, vignettes
 
     around = loop_of(survey, node) if row else None
     if around is None:
         return {}
     table = loops.config_node(around)
     found = next((r for r in table["rows"] if r["id"] == row), None)
+    if found is None:
+        return {}
     default = survey.default_language
-    return {c["name"]: loops.value(table, found, c, default, default) for c in table["columns"]} if found else {}
+    return {**vignettes.level_numbers(around, row),
+            **{c["name"]: loops.value(table, found, c, default, default) for c in table["columns"]}}
 
 
 def slots(survey):
@@ -680,10 +688,10 @@ def check(survey):
         around = flow.ancestors(root, node["id"])
         loops_around = [a for a in around if a["t"] == "loop"]
         if loops_around and loop_of(survey, node) is None:
-            out.append(("error", de_en("{name} steht in einer Vignetten-Schleife oder in Schleifen ineinander; das ist noch "
-                                       "nicht möglich. So läuft die Befragung an ihm vorbei.",
-                                       "{name} is in a vignette loop or in loops inside each other; that is not possible "
-                                       "yet. So the survey runs past it.", name=name), None))
+            out.append(("error", de_en("{name} steht in Schleifen ineinander; das ist noch nicht möglich. So läuft die "
+                                       "Befragung an ihm vorbei.",
+                                       "{name} is in loops inside each other; that is not possible yet. So the survey "
+                                       "runs past it.", name=name), None))
         clashes = set(column_names(survey, node)) & (set(link_names(survey)))
         if clashes:
             out.append(("error", de_en("{name}: Die Spalte „{column}“ der Schleife heißt wie ein Platzhalter der Adresse. "

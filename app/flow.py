@@ -999,8 +999,7 @@ def plan(survey, rng, within=None, keep=None):
         elif child["t"] == "quota":
             out.append(("quota", child["id"], conds, None))
         elif child["t"] == "ext":
-            if ctx is None or ctx.get("sections", True):  # not in vignette loops yet (the pre-launch check says so)
-                out.append(("ext", child["id"], conds, ctx))
+            out.append(("ext", child["id"], conds, ctx))
         elif child["t"] == "ws":
             if ctx is None:  # called once per participation, not per pass of a loop (the pre-launch check says so)
                 out.append(("ws", child["id"], conds, None))
@@ -1031,8 +1030,7 @@ def plan(survey, rng, within=None, keep=None):
                 rows = loops.choose_rows(survey, child, rng)
             chosen_rows[child["id"]] = rows
             for n, row in enumerate(rows, start=1):
-                rec(child, conds, {"loop": child["id"], "row": row, "iter": n, "iters": len(rows),
-                                   "sections": child.get("source") != "factors"})
+                rec(child, conds, {"loop": child["id"], "row": row, "iter": n, "iters": len(rows)})
 
     rec(root, [])
     return out, decisions, chosen_rows
