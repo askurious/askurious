@@ -130,7 +130,7 @@ def test_module_view_without_fieldwork_has_a_short_export_page(app, client, surv
     monkeypatch.setattr(plugins, "VIEWS", [])
     plugins.add_view(lambda s: s.title == "Analyse", ("results", "data"), "dashboard.index", "Zur Liste", "To the list")
     app.jinja_env.globals["plugin_view"] = plugins.view
-    gone = ("Fragebogen für Papier (Word)", "Befragungsmaterial (PDF)", 'id="evidence"', 'id="zenodo"', 'id="archive"',
+    gone = ("Fragebogen für Papier", "Befragungsmaterial (PDF)", 'id="evidence"', 'id="zenodo"', 'id="archive"',
             'id="documentation"', "Testdurchläufe (", "Bildrechte für öffentliche Archivierung", "Markierte Teilnahmen",
             "Befragungsdatei")
     page = client.get(f"/surveys/{survey}/data").data.decode()
