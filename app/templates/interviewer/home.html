@@ -40,7 +40,7 @@
       <td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
       <td>{{ day(m.date) }}</td>
       <td>{% if not open_ %}{{ de_en("übergeben", "handed over") }}{% elif r.status == "completed" %}{{ de_en("beendet", "ended") }}{% else %}{{ de_en("läuft", "running") }}{% endif %}</td>
-      <td>{% if not open_ %}<span class="muted small">{{ de_en("Transkript geprüft; nur die Forschenden öffnen dieses Interview", "transcript checked; only the researchers open this interview") }}</span>
+      <td>{% if not open_ %}<span class="muted small">{{ de_en("Transkript geprüft; nur die Forschenden öffnen dieses Interview", "transcript checked; only the researchers open this interview") }}</span>{% if others is defined and access.may_see in ("all", "results") %} <a class="small" href="{{ url_for('interviewer.read', code=survey.code, rid=r.id) }}">{{ de_en("Lesen", "Read") }}</a>{% endif %}
         {% else %}
         {% set audio = parts(r) %}
         {% if audio %}{% for p in audio %}<div class="iv-audio-part"><audio controls preload="metadata" src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}</div>{% endfor %}{% endif %}
@@ -85,6 +85,28 @@
   {% endcall %}
   {% else %}<p class="muted">{{ de_en("Noch kein Interview. Oben unter „Interview beginnen“ das erste anlegen.", "No interview yet. Create the first one above under “Start interview”.") }}</p>{% endif %}
   <p class="muted small">{{ de_en("Möchte eine interviewte Person ihre Daten löschen lassen, wendet sie sich mit ihrem Löschcode an die Forschenden.", "If an interviewed person wants their data deleted, they contact the researchers with their deletion code.") }}</p>
+</section>
+{% endif %}
+{# the Sichtrecht of the link (Ralf 2026-11-05): the other interviews of the guide to read, and its results #}
+{% if access.may_see in ("all", "results") %}
+<section class="panel" id="andere">
+  <h2>{{ de_en("Weitere Interviews dieses Leitfadens", "Other interviews of this guide") }} <span class="hint">{{ de_en("nur lesen", "read only") }}</span></h2>
+  {% if sees_results %}<p><a class="button button-small button-secondary" href="{{ url_for('interview_results.page', code=survey.code) }}">{{ de_en("Ergebnisse ansehen", "View results") }}</a>
+    <span class="muted small">{{ de_en("Fallübersicht, Kurzfragebogen, Abdeckung und Notizen über alle Interviews", "case overview, short questionnaire, coverage and notes over all interviews") }}</span></p>{% endif %}
+  {% if others %}
+  {% call list_table("is-wide") %}
+    <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Datum", "Date") }}</th><th>{{ de_en("interviewt von", "interviewed by") }}</th><th>{{ de_en("Stand", "Status") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in others %}{% set m = r.interview %}
+    <tr><td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
+      <td>{{ day(m.date) }}</td><td>{{ m.by_name or "–" }}</td>
+      <td>{% if not visible(r) %}{{ de_en("übergeben", "handed over") }}{% elif r.status == "completed" %}{{ de_en("beendet", "ended") }}{% else %}{{ de_en("läuft", "running") }}{% endif %}</td>
+      <td class="row-actions"><a class="button button-small button-secondary" href="{{ url_for('interviewer.read', code=survey.code, rid=r.id) }}">{{ de_en("Lesen", "Read") }}</a></td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% else %}<p class="muted">{{ de_en("Noch keine weiteren Interviews.", "No other interviews yet.") }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Diese Interviews können Sie lesen, aber nicht ändern, aufnehmen oder transkribieren.", "You can read these interviews but not change, record or transcribe them.") }}</p>
 </section>
 {% endif %}
 {# only with the right "darf kodieren" at the link and assigned to an analysis (app/transcript_coding.py) #}

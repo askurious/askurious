@@ -316,10 +316,13 @@ class InterviewerAccess(db.Model):
     no interview to begin, record or transcribe (the server refuses them). `may_code` (experimental "transcript_coding"):
     "none", "own" (its own interviews) or "all" (all interviews of an analysis it is assigned to; Ralf 2026-10-28).
     `show_learning` ("Lernhilfen zeigen", on by default, Ralf 2026-10-29): its sessions see the learning aids
-    (app/learning.py, on) as a researcher with the switch on."""
+    (app/learning.py, on) as a researcher with the switch on. `may_see` (Ralf 2026-11-05): "own" (its own interviews
+    only), "all" (also every other interview of the guide, only to read: app/interviewer.py, read) or "results" (also
+    the guide's results page, app/interview_results.py; never the export, the settings or the guide)."""
 
     __tablename__ = "interviewer_access"
     CODE_NONE, CODE_OWN, CODE_ALL = "none", "own", "all"
+    SEE_OWN, SEE_ALL, SEE_RESULTS = "own", "all", "results"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # no foreign keys, like data_token: the rows go in code with the guide (lifecycle.delete); the account that made
@@ -334,6 +337,7 @@ class InterviewerAccess(db.Model):
     may_transcribe: Mapped[bool] = mapped_column(default=True)
     may_code: Mapped[str] = mapped_column(String(8), default="none", server_default="none")
     show_learning: Mapped[bool] = mapped_column(default=True, server_default="1")  # "Lernhilfen zeigen" (0108)
+    may_see: Mapped[str] = mapped_column(String(8), default="own", server_default="own")  # Sichtrecht (0111)
     max_devices: Mapped[int] = mapped_column(default=3)
     devices: Mapped[list | None] = mapped_column(JSON)
     hints_version: Mapped[str | None] = mapped_column(String(20))

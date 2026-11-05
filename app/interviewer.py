@@ -75,7 +75,7 @@ def accesses(survey):
 
 
 def create(survey, name, days=DEFAULT_DAYS, devices=DEFAULT_DEVICES, may_record=True, may_transcribe=True, by=None,
-           may_code=InterviewerAccess.CODE_NONE, may_interview=True, show_learning=True):
+           may_code=InterviewerAccess.CODE_NONE, may_interview=True, show_learning=True, may_see=InterviewerAccess.SEE_OWN):
     """A new access; returns (access, key). The caller commits; the key is shown once."""
     key = secrets.token_urlsafe(32)
     access = InterviewerAccess(survey_id=survey.id, name=" ".join(str(name).split())[:80], token_hash=_digest(key),
@@ -83,6 +83,7 @@ def create(survey, name, days=DEFAULT_DAYS, devices=DEFAULT_DEVICES, may_record=
                                may_record=bool(may_interview and may_record), may_transcribe=bool(may_interview and may_transcribe),
                                may_code=may_code if may_code in CODE_RIGHTS else InterviewerAccess.CODE_NONE,
                                show_learning=bool(show_learning),
+                               may_see=may_see if may_see in SEE_RIGHTS else InterviewerAccess.SEE_OWN,
                                max_devices=max(1, min(int(devices), MAX_DEVICES)), devices=[],
                                created_by_id=getattr(by, "id", None), created_by_name=(getattr(by, "name", "") or "")[:200],
                                expires_at=utcnow() + timedelta(days=int(days)))
@@ -91,6 +92,7 @@ def create(survey, name, days=DEFAULT_DAYS, devices=DEFAULT_DEVICES, may_record=
 
 
 CODE_RIGHTS = (InterviewerAccess.CODE_NONE, InterviewerAccess.CODE_OWN, InterviewerAccess.CODE_ALL)
+SEE_RIGHTS = (InterviewerAccess.SEE_OWN, InterviewerAccess.SEE_ALL, InterviewerAccess.SEE_RESULTS)
 
 
 def _code_right(survey):
@@ -101,6 +103,29 @@ def _code_right(survey):
     if value not in CODE_RIGHTS or not experimental.enabled("transcript_coding", survey=survey):
         return None
     return value
+
+
+def _see_right():
+    """"sieht" of the form (Ralf 2026-11-05): own interviews, all to read, or also the results; a form of before
+    without the field keeps "own"."""
+    value = request.form.get("may_see")
+    return value if value in SEE_RIGHTS else InterviewerAccess.SEE_OWN
+
+
+def see_choices():
+    """The choices of "sieht" in the forms, in the order of what they open."""
+    return [(InterviewerAccess.SEE_OWN, de_en("nur eigene Interviews", "only own interviews")),
+            (InterviewerAccess.SEE_ALL, de_en("alle Interviews (fremde nur lesen)", "all interviews (others' read only)")),
+            (InterviewerAccess.SEE_RESULTS, de_en("alle Interviews und Ergebnisse", "all interviews and results"))]
+
+
+def sees_all(access):
+    """Whether the link reads the other interviews of the guide too."""
+    return access is not None and access.may_see in (InterviewerAccess.SEE_ALL, InterviewerAccess.SEE_RESULTS)
+
+
+def sees_results(access):
+    return access is not None and access.may_see == InterviewerAccess.SEE_RESULTS
 
 
 def _learning_right():
@@ -391,7 +416,7 @@ def add(code):
     devices = _number("devices", DEFAULT_DEVICES, 1, MAX_DEVICES)
     made = [create(survey, name, days, devices, bool(request.form.get("may_record")),
                    bool(request.form.get("may_transcribe")), current_user,
-                   _code_right(survey) or InterviewerAccess.CODE_NONE, _interview_right(), _learning_right())
+                   _code_right(survey) or InterviewerAccess.CODE_NONE, _interview_right(), _learning_right(), _see_right())
             for name in names]
     db.session.commit()
     for _ in made:
@@ -453,6 +478,8 @@ def rights(code, aid):
     access.may_transcribe = access.may_interview and bool(request.form.get("may_transcribe"))
     if request.form.get("has_learning"):
         access.show_learning = _learning_right()
+    if request.form.get("has_see"):
+        access.may_see = _see_right()
     may_code = _code_right(survey)
     if may_code is not None:
         access.may_code = may_code
@@ -481,6 +508,7 @@ def rights_all(code, aid):
         access.may_interview, access.may_record = source.may_interview, source.may_record
         access.may_transcribe = source.may_transcribe
         access.show_learning = source.show_learning
+        access.may_see = source.may_see
         if coding:
             access.may_code = source.may_code
     step.done(undo.both("Rechte von „{name}“ für alle", "Rights of “{name}” for everyone", name=source.name), page="interviewers")
@@ -616,6 +644,24 @@ def own_interviews(survey, access):
     return [r for r in interview_data.interviews(survey) if (r.interview or {}).get("access") == access.id]
 
 
+def other_interviews(survey, access):
+    """The interviews a link with "alle Interviews" reads but does not open: those of other people and of the
+    researchers, and its own ones handed over (transcript checked); none for "eigene Interviews"."""
+    from app import interview_data
+
+    if not sees_all(access):
+        return []
+    return [r for r in interview_data.interviews(survey) if (r.interview or {}).get("access") != access.id]
+
+
+def readable(survey, access, rid):
+    """An interview of the guide a link may read (sees_all), else 404: numbers tell nothing."""
+    row = db.session.get(Response, rid)
+    if not sees_all(access) or row is None or row.survey_id != survey.id or row.interview is None:
+        abort(404)
+    return row
+
+
 def next_label(survey, access):
     from app import interview_data
 
@@ -645,6 +691,7 @@ def home(code):
     from app import transcript_coding
 
     return render_template("interviewer/home.html", coding_closed=not transcript_coding.open_for_link(survey, access), survey=survey, access=access, rows=own_interviews(survey, access),
+                           others=other_interviews(survey, access), sees_results=sees_results(access),
                            visible=visible, label=next_label(survey, access), st=interview.state(survey),
                            modes=interview.modes(), forms=interview_data.consent_forms(), day=interview.day_text,
                            today=f"{utcnow():%Y-%m-%d}", parts=interview_audio.parts,
@@ -713,6 +760,25 @@ def delete(code, rid):
     erasure.erase(survey, [row], "request")
     flash(de_en("Probeinterview {label} gelöscht.", "Trial interview {label} deleted.", label=label), "success")
     return redirect(url_for("interviewer.home", code=survey.code))
+
+
+@bp.route("/i/<code>/interviews/<int:rid>/read")
+def read(code, rid):
+    """One interview to read only (Sichtrecht "alle Interviews", Ralf 2026-11-05): meta data, per Leitfrage stand,
+    aspects, notes and time marks, the forms, the transcript. A page of text without a form: nothing of it is saved,
+    and the routes that change an interview stay closed (row_for gives only the own ones)."""
+    from app import interview_results
+
+    survey, access = _mine(code)
+    if access is None:
+        return _again(survey)
+    row = readable(survey, access, rid)
+    lines = interview_results.notes_text(survey, row).splitlines()
+    transcript = ((row.interview or {}).get("transcript") or {}).get("text") or ""
+    response = current_app.make_response(render_template("interviewer/read.html", survey=survey, access=access, row=row,
+                                                         lines=lines, transcript=transcript))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @bp.route("/i/<code>/logout", methods=["POST"])

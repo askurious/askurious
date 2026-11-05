@@ -307,6 +307,7 @@ def index(code):
         rows = [r for r in rows if (r.interview or {}).get("access") == int(held_by)]
     return render_template("interview/interviews.html", survey=survey, rows=rows, st=interview.state(survey),
                            accesses=interviewer.accesses(survey), held_by=held_by,
+                           see_choices=interviewer.see_choices(),
                            new_link=interviewer.show_once(survey), access_state=interviewer.state,
                            access_counts=interviewer.interview_count(survey), link_days=interviewer.DAYS,
                            default_days=interviewer.DEFAULT_DAYS, default_devices=interviewer.DEFAULT_DEVICES,

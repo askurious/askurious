@@ -151,7 +151,7 @@ def test_the_call_waits_until_the_step_is_stored_and_no_cell_is_locked(app, clie
 
     seen = {}
 
-    def fetch(method, url, body=None, headers=None):
+    def fetch(method, url, body=None, headers=None, timeout=None):
         seen["in_transaction"] = db.session().in_transaction()
         if db.engine.dialect.name == "postgresql":
             with db.engine.connect() as other:
@@ -381,7 +381,7 @@ def test_a_large_test_answer_fits_the_session_cookie(app, client, survey, monkey
     cookies = [h for h in r.headers.getlist("Set-Cookie") if h.startswith("session=")]
     assert cookies and max(len(c) for c in cookies) < 4093
     page = client.get(r.headers["Location"]).data.decode()
-    assert "Testaufruf:" in page and "HTTP 200" in page and "Gekürzt" in page
+    assert "data-ws-result" in page and "HTTP 200" in page and "Gekürzt" in page
 
 
 # --- W9, W10: the key, and what a header can carry ----------------------------------------------------------------
@@ -480,3 +480,50 @@ def test_nat64_and_site_local_are_not_public(monkeypatch, address):
 def test_public_addresses_stay_public():
     assert webservice.public(ipaddress.ip_address("93.184.216.34"))
     assert webservice.public(ipaddress.ip_address("2a00:1450:4001:80b::200e"))
+
+
+def _saved(app, nid):
+    with app.app_context():
+        return flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]
+
+
+def test_a_header_saved_as_readable_is_shown_and_one_saved_covered_never(app, client, survey):
+    """The eye beside the field: a header that is no secret stays readable for the admins. A value saved covered does
+    not come to the page, so that no co-admin can uncover the key someone else entered."""
+    nid = build(app, client)
+    update = f"{E}/flow/{nid}/update"
+    client.post(update, data=node_form(header="Accept-Version", secret="v2-oeffentlich", secret_visible="1"), follow_redirects=True)
+    assert _saved(app, nid)["secret_visible"] is True
+    page = client.get("/surveys/1/flow/").data.decode()
+    assert 'value="v2-oeffentlich"' in page and 'aria-pressed="true"' in page
+    client.post(update, data=node_form(header="Authorization", secret="Bearer geheim123", secret_visible=""), follow_redirects=True)
+    assert _saved(app, nid)["secret_visible"] is False
+    page = client.get("/surveys/1/flow/").data.decode()
+    assert "geheim123" not in page and 'aria-pressed="false"' in page
+    # the eye switched on with an empty field: the stored value stays covered
+    client.post(update, data=node_form(header="Authorization", secret="", secret_visible="1"), follow_redirects=True)
+    saved = _saved(app, nid)
+    assert saved["secret"] and saved["secret_visible"] is False and "geheim123" not in client.get("/surveys/1/flow/").data.decode()
+
+
+def test_a_readable_header_can_be_emptied_and_leaves_no_trace_in_a_file(app, client, survey):
+    nid = build(app, client)
+    update = f"{E}/flow/{nid}/update"
+    client.post(update, data=node_form(header="Accept-Version", secret="v2-oeffentlich", secret_visible="1"), follow_redirects=True)
+    dumped = client.get("/surveys/1/export/survey.json").data.decode()
+    assert "v2-oeffentlich" not in dumped and "secret_visible" not in dumped
+    client.post(update, data=node_form(header="Accept-Version", secret="", secret_visible="1"), follow_redirects=True)
+    saved = _saved(app, nid)
+    assert not saved.get("secret") and not saved.get("secret_visible")
+
+
+def test_an_api_says_why_it_refused_without_the_key(monkeypatch):
+    """The test call shows what a JSON answer says at any status, so that a 401 explains itself, never the value."""
+    answer = json.dumps({"error": {"message": "Bad key sk-geheim123, see Bearer sk-geheim123"}}).encode()
+    monkeypatch.setattr(webservice, "fetch", lambda *a, **k: (401, answer))
+    with_key = {"url": "https://api.example/", "values": [], "header": "Authorization", "secret": "x"}
+    monkeypatch.setattr("app.secrets_box.decrypt", lambda *a, **k: "Bearer sk-geheim123")
+    out = webservice.test(with_key, {})
+    assert out["status"] == 401 and out["reason"] == "Unauthorized" and "Bad key" in out["snippet"]
+    assert "geheim" not in json.dumps(out) and out["v"] == {}
+
