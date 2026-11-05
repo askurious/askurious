@@ -911,15 +911,18 @@ def test_questionnaire_as_word_document(app, client, survey):
                                                     "points": "5", "labeling": "full", "stmt_id": "s1", "stmt_code": "",
                                                     "stmt_text": "Ich mag Technik."})
     page = client.get("/surveys/1/data").data.decode()
-    assert "Fragebogen mit Codebuch (Word)" in page and "Fragebogen für Papier (Word)" in page and "Als Datei exportieren" in page
+    # the Word with codebook is gone (2026-11-05); "Word für Papier" is on Datenerhebung, the export page links there
+    assert "Fragebogen mit Codebuch (Word)" not in page and "Zum Papierfragebogen" in page and "Als Datei exportieren" in page
+    field = client.get("/surveys/1/field").data.decode()
+    assert "Fragebogen für Papier (Word)" in field and "/surveys/1/export/questionnaire-print.docx" in field
 
     def doc(url):
         r = client.get(url)
         assert r.status_code == 200 and r.headers["Content-Type"].startswith("application/vnd.openxmlformats")
         return zipfile.ZipFile(io.BytesIO(r.data)).read("word/document.xml").decode()
 
-    book = doc("/surveys/1/export/questionnaire-codebook.docx")
-    assert "Wie sehr?" in book and "Ich mag Technik." in book and "TA_1" in book and "Likert" in book
+    assert client.get("/surveys/1/export/questionnaire-codebook.docx").status_code == 404
+    assert "Wie sehr?" in doc("/surveys/1/export/questionnaire.docx")  # the old address gives the paper version
     paper = doc("/surveys/1/export/questionnaire-print.docx")
     assert "Wie sehr?" in paper and "Ich mag Technik." in paper and "TA_1" not in paper and "Likert" not in paper
     assert "Pflichtangaben" in paper
@@ -935,7 +938,7 @@ def test_word_export_without_python_docx_says_so_instead_of_failing(app, client,
 
     monkeypatch.delattr(app_package, "questionnaire_docx", raising=False)
     monkeypatch.setitem(sys.modules, "app.questionnaire_docx", None)  # import fails as without the package
-    for version in ("print", "codebook"):
+    for version in ("print",):
         r = client.get(f"/surveys/1/export/questionnaire-{version}.docx")
         assert r.status_code == 302 and r.headers["Location"].endswith("/surveys/1/data")
     assert "Das Paket python-docx fehlt" in client.get("/surveys/1/data").data.decode()
@@ -962,9 +965,8 @@ def test_word_questionnaire_holds_the_images(app, client, survey):
         item = db.session.get(Item, 2)
         item.assets.append(Asset(key="", filename="pic.webp", source="upload", status="approved"))
         db.session.commit()
-    for version in ("codebook", "print"):
-        z = zipfile.ZipFile(io.BytesIO(client.get(f"/surveys/1/export/questionnaire-{version}.docx").data))
-        assert any(n.startswith("word/media/") for n in z.namelist()), version
+    z = zipfile.ZipFile(io.BytesIO(client.get("/surveys/1/export/questionnaire-print.docx").data))
+    assert any(n.startswith("word/media/") for n in z.namelist())
 
 
 def test_word_questionnaire_types(app, client, survey):

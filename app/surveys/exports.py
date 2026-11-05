@@ -177,9 +177,10 @@ def _english():
 @bp.route("/<sid:survey_id>/export/questionnaire-<version>.docx")
 @login_required
 @heavy.limited
-def export_docx(survey_id, version="codebook"):
-    """The questionnaire as a Word document (app/questionnaire_docx.py), with codebook or for printing; no answers
-    in it, for every role."""
+def export_docx(survey_id, version="print"):
+    """The questionnaire for paper as a Word document (app/questionnaire_docx.py); no answers in it, for every role.
+    The version with codebook is no longer offered (2026-11-05): the survey material (PDF) documents the
+    questionnaire."""
     from flask import Response as FlaskResponse
 
     from app import export
@@ -195,9 +196,9 @@ def export_docx(survey_id, version="codebook"):
                     "The Python packages (vendor/) must be rebuilt and uploaded; /healthz shows which packages are "
                     "missing."), "error")
         return redirect(url_for("surveys.data", survey_id=survey.id))
-    if version not in questionnaire_docx.VERSIONS:
+    if version != "print":
         abort(404)
-    name = "fragebogen-codebuch" if version == "codebook" else "fragebogen-papier"
+    name = "fragebogen-papier"
     from app import transfer
 
     try:

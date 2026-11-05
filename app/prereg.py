@@ -42,8 +42,8 @@ def folder(survey):
 
 def _files(survey, lang="de"):
     """[(name in the ZIP, bytes or Path)] of the survey as it is now; lang: the language of the readable texts. The
-    parts and their names are those of every package (app/packages.py): survey file, questionnaire as Markdown and
-    Word, codebook, loop tables, study plan."""
+    parts and their names are those of every package (app/packages.py): survey file, questionnaire as Markdown,
+    codebook, loop tables, study plan, survey material."""
     from app import packages
 
     return packages.survey_file(survey) + packages.documentation(survey, lang)

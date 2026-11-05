@@ -1,5 +1,5 @@
 """The parts every package of a whole survey is built from (concept "Vereinheitlichung der Befragungsexporte", Ralf
-2026-10-23, E5 to E7): the survey file, the questionnaire as Markdown and as Word, the codebook, the tables of the
+2026-10-23, E5 to E7): the survey file, the questionnaire as Markdown, the codebook, the tables of the
 loops, the study plan and the checksums.
 
 The survey file as ZIP (app/survey_files.py), the pre-registration (app/prereg.py), the versions of an interview guide
@@ -15,7 +15,6 @@ SURVEY = "survey.json"
 FILES = "files"                       # the images of the survey file, beside it in a ZIP
 QUESTIONNAIRE = "questionnaire.md"
 CODEBOOK = "codebook.csv"
-WORD = "questionnaire-codebook.docx"
 PLAN = "study-plan.md"
 STUDY_MATERIAL = "survey-material.pdf"  # app/study_material.py (E10)
 README = "README.md"
@@ -75,19 +74,6 @@ def study_plan(survey, lang):
     return [(PLAN, plan.markdown(survey, lang).encode("utf-8"))]
 
 
-def word(survey):
-    """The questionnaire as Word with codebook; nothing if python-docx is missing on the server or refuses a text."""
-    from flask import current_app
-
-    try:
-        from app import questionnaire_docx
-
-        return [(WORD, questionnaire_docx.build(survey, "codebook"))]
-    except Exception:
-        current_app.logger.exception("package of survey %s without the Word document", survey.id)
-        return []
-
-
 def study_material(survey, lang=None, public=False):
     """The survey material as PDF (app/study_material.py): the questionnaire as participants see it and with the notes
     on logic, randomisation and checks; nothing if it cannot be made (the error is logged)."""
@@ -103,10 +89,11 @@ def study_material(survey, lang=None, public=False):
 
 
 def documentation(survey, lang, public=False):
-    """What documents the questionnaire for a reader: Markdown, codebook, loop tables, study plan, Word, the study
-    material as PDF."""
+    """What documents the questionnaire for a reader: Markdown, codebook, loop tables, study plan, the study material
+    as PDF. The Word questionnaire with codebook left the packages on 2026-11-05 (the study material documents the
+    questionnaire); pre-registrations frozen before keep their questionnaire-codebook.docx."""
     return (questionnaire(survey, public) + codebook(survey, public) + loop_tables(survey) + study_plan(survey, lang)
-            + word(survey) + study_material(survey, lang, public) + ai_chat_model(survey))
+            + study_material(survey, lang, public) + ai_chat_model(survey))
 
 
 def ai_chat_model(survey):

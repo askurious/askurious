@@ -15,6 +15,7 @@ Everything about being in the field:
 - **Participation link**: one link for everyone, a short name (`/s/mensa-studie`), a QR code, own links per person or group (e.g. per course, to see how many take part through each), and the **panel connection** (identifiers from the link, completion links for complete, screen-out and quota full).
 - **Invitations by email** (when the platform sends email): an address list, a personal link for each person, reminders. The list does not limit who takes part while “Take part only with a personal link” is off: the general link keeps working, and a personal link passed on sets the state of the invited person. With the tick the survey takes only people with a personal link, each link for one participation.
 - **Quotas** in short.
+- **Paper questionnaire**: print numbered sheets with QR code, upload the scans, check and accept them; beside it the **questionnaire for paper as Word**, without number and scanning, to adapt (under Export › Documentation until November 2026, which now links here).
 
 Whoever started before fieldwork ended (end of fieldwork, closing, a pause) can still finish for 24 hours; after that the survey shows “ended”, and the participation stays “started”. An archived survey takes nothing any more.
 
