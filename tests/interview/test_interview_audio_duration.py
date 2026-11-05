@@ -127,3 +127,17 @@ def test_a_file_with_cues_and_no_room_stays(tmp_path):
     body = el(b"\x1f\x43\xb6\x75", el(b"\xe7", (0).to_bytes(4, "big")) + block(0) + block(500), unknown=True)
     data = head + b"\x18\x53\x80\x67" + UNKNOWN + info + body + _cues()
     assert webm_duration.head_plan(write(tmp_path, data)) is None  # a longer head would shift the Cues
+
+
+def test_a_long_recording_is_read_from_its_end(tmp_path, monkeypatch):
+    """D-01 (98 minutes, 37 MB, Ralf 2026-11-05): reading every block took 8.5 s and the player showed 0:00 so long.
+    The length now comes from the last Cluster; the blocks before it are not read."""
+    clusters = [(i * 5000, list(range(0, 5000, 20))) for i in range(400)]
+    data, _, info_end = recorder_webm(clusters)
+    read = []
+    real = webm_duration._block_time
+    monkeypatch.setattr(webm_duration, "_block_time", lambda *a: read.append(1) or real(*a))
+    head, offset, seconds = webm_duration.head_plan(write(tmp_path, data))
+    assert seconds == 399 * 5 + 4.98 and offset == info_end and len(read) <= 250
+    # the last piece still arriving: the cluster before it counts
+    assert webm_duration.seconds(write(tmp_path, data + b"\x1f\x43\xb6\x75" + UNKNOWN + b"\xe7\x84", "b.webm")) == 1999.98
