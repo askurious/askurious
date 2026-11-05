@@ -562,13 +562,23 @@ def start(survey, row, background=True, model=None, resumed=0):
         if changed:
             values.update(parts={}, jobs={})
         _set(row, **values)
+    dropped = {}
+
     def reset_and_mark():
         interview_audio.mark_copies(survey, row)  # broken-off or repeated uploads are left out (tester 2026-11-05)
         reset()
+        # a job already sent for a part now left out is cancelled, else it waits in the queue for nothing and holds
+        # up the others (S-04, deploy 2026-11-05: part 2 had been sent just before it was found to be a copy)
+        left_out = {str(p.get("part")) for p in interview_audio.parts(row) if interview_audio.skipped(p)}
+        jobs = dict(state(row).get("jobs") or {})
+        dropped.clear()
+        dropped.update({k: v for k, v in jobs.items() if k in left_out and isinstance(v, dict)})
+        if dropped:
+            _set(row, jobs={k: v for k, v in jobs.items() if k not in dropped})
     interview_audio.retried(reset_and_mark)
-    if changed:
+    if changed or dropped:
         from app.whisper_jobs import cancel_records
-        cancel_records(previous.get("jobs"))
+        cancel_records(previous.get("jobs") if changed else dropped)
     app = current_app._get_current_object()
     if background:
         threading.Thread(target=work, args=(app, survey.id, row.id, run), daemon=True, name=f"whisper-{row.id}").start()
