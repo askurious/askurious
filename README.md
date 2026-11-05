@@ -121,12 +121,15 @@ Accounts and AI processing: a newly chosen sign-in address needs a confirmation 
 
 Experimental (feature `agent`, switched on per person by a site admin). An AI agent of the researcher's choice reads
 questionnaires (structure and texts, never answers or data) and, with an edit token, changes drafts: blocks, elements,
-constructs of the toolbox, undo of its own last step. Starting fieldwork, deleting surveys, data, participation links,
-members and the consent are not offered. Askurious sends nothing to a model itself: the agent fetches the contents and
-passes them to the AI service the researcher chose (terms of use, section 6).
+constructs of the toolbox, the flow with randomisers and conditions, image prompts, undo of its own last step. With the
+scope "create" it also makes new drafts. It can generate images and look at them; a person approves them in the editor.
+Starting fieldwork, deleting surveys, data, participation links, members and the consent are not offered. Askurious sends
+nothing to a model on its own: the agent fetches the contents and passes them to the AI service the researcher chose
+(terms of use, section 6). The one exception is `generate_image`, which sends the image prompt to the platform's image
+service, as the button in the editor does, and counts against the person's AI allowance.
 
-Set-up in Claude Code: create a token on the page “Account” › “Connections” › “AI agent interface” (scope “read” or “read and edit
-drafts”, optionally limited to some surveys; valid 90 days, shown once) and add the server:
+Set-up in Claude Code: create a token on the page “Account” › “Connections” › “AI agent interface” (scope “read”, “read and edit
+drafts” or also “create new drafts”, optionally limited to some surveys, which rules out creating; valid 90 days, shown once) and add the server:
 
 ```
 claude mcp add --transport http askurious https://<your-askurious-address>/mcp --header "Authorization: Bearer askat_…"
@@ -135,7 +138,8 @@ claude mcp add --transport http askurious https://<your-askurious-address>/mcp -
 The endpoint `/mcp` speaks Streamable HTTP (MCP 2026-07-28 with per-request metadata, and the earlier revisions with
 `initialize` back to 2025-03-26), plain JSON answers, no sessions. The token goes only in the `Authorization` header;
 one in the address is refused. Every tool call is in the access log (“Agenten-Zugriff”), calls per token are limited
-(`AGENT_LIMIT` per `AGENT_WINDOW` seconds, default 600 per hour), and each change is an undo step named after the token.
+(`AGENT_LIMIT` per `AGENT_WINDOW` seconds, default 600 per hour; `AGENT_IMAGE_LIMIT` images and `AGENT_SURVEY_LIMIT` new
+surveys per day, default 30 and 20), and each change is an undo step named after the token.
 The tools live in one registry (`app/agent_tools.py`) so that a WebMCP wrapper in the editor can follow later.
 
 ## Development

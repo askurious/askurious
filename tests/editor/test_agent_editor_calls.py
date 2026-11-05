@@ -71,7 +71,7 @@ def test_every_before_request_hook_was_checked_for_editor_call(app):
 def test_the_hooks_that_depend_on_the_endpoint_let_every_listed_view_through(app, client, survey):
     hooks = [f for f in app.before_request_funcs[None] if _name(f) in ENDPOINT_HOOKS]
     assert len(hooks) == len(ENDPOINT_HOOKS)
-    args = {"block_id": 2, "item_id": 1, "direction": "up"}
+    args = {"block_id": 2, "item_id": 1, "direction": "up", "nid": "r1", "action": "update"}
     with app.app_context():
         user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
         for endpoint in sorted(EDITOR_CALL_ENDPOINTS):

@@ -446,6 +446,23 @@ def allow_token(token_id):
 _agent_calls = {}  # agent token id -> times of its recent calls
 
 
+def allow_agent_cost(what, token_id):
+    """Count what costs more than a call and adds up: a generated image ("image") or a new survey ("survey"), False
+    once the token made AGENT_IMAGE_LIMIT or AGENT_SURVEY_LIMIT of them within a day. For all server processes."""
+    limit = current_app.config.get(f"AGENT_{what.upper()}_LIMIT", 30)
+    return _take_counted(f"agent_{what}", str(token_id), limit, DAY)
+
+
+def agent_cost_left(what, token_id):
+    """How many of them the token may still make today."""
+    from app.models import RateCount
+
+    t = RateCount.__table__
+    used = db.session.scalar(db.select(db.func.coalesce(db.func.sum(t.c.n), 0)).where(
+        t.c.kind == f"agent_{what}", t.c.key == str(token_id), t.c.slot > int(time.time()) - DAY))
+    return max(0, current_app.config.get(f"AGENT_{what.upper()}_LIMIT", 30) - used)
+
+
 def allow_agent(token_id):
     """Count a call with a token of the AI agent interface (app/mcp.py); False once the token made AGENT_LIMIT calls
     within AGENT_WINDOW. Per token, wherever the agent runs. In memory only, like the read tokens (against load)."""

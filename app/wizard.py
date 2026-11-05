@@ -249,6 +249,56 @@ def _mark_made(block, kind):
     block.settings = {**(block.settings or {}), "made": {"kind": kind, "codes": [i.code for i in block.items]}}
 
 
+def make_survey(form):
+    """A new questionnaire for the current user from the form of step 1 (also the tool create_survey of app/agent_tools.py,
+    the same survey as the button makes): (survey, None), stored, or (None, what is wrong)."""
+    from app import links, surveys
+
+    # the language of the new survey: English for a person whose pages are in English, else German (decision E7)
+    first = "en" if current() == "en" else "de"
+    survey = Survey(title="", created_by_id=current_user.id, languages=[first], default_language=first)
+    error = surveys.apply_project(survey, form)
+    from app import study_plan
+
+    plan = dict(survey.study_plan or {})  # the country starts from the language (DDI; Ralf 2026-10-27)
+    plan["sample"] = {**(plan.get("sample") or {}), "country": study_plan.default_country(language=first)}
+    survey.study_plan = plan
+    study_plan.apply_aims(survey, form)  # research question and aims of the first step
+    label = links.normalize(form.get("label"))
+    if not error and label:
+        error = links.label_error(label, current_user) or (
+            None if form.get("confirm") == "1" else de_en("Das Label wurde nicht bestätigt.", "The label was not confirmed."))
+    if error:
+        return None, error
+    db.session.add(survey)
+    surveys._add_member(survey, current_user, current_user.name)
+    from app.items.consent import ensure_consent_block
+
+    if form.getlist("languages"):
+        surveys.apply_languages(survey, form)
+    ensure_consent_block(survey, current_user)
+    # the ethics vote stays unticked: ticked, the consent would tell participants the study was reviewed by
+    # an ethics committee, also without one (UI/UX audit X1, Ralf 2026-10-09; was ticked by Philipp 2026-10-04)
+    # right after the consent "Demographische Angaben" with the standard questions age and gender from the
+    # construct toolbox (the same items as inserted in the editor), or the bundle "Demografie kurz (RatSWD)"
+    # as chosen on the page, then an empty "Block 1" for the questions
+    if current_app.config.get("NEW_SURVEY_DEMOGRAPHICS", True):
+        chosen = form.get("demografie")
+        add_demographics(survey, chosen if chosen in DEMOGRAPHIC_CHOICES else "basis")
+    # tests without demographics: an empty content block, as before
+    survey.blocks.append(Block(position=len(survey.blocks), titles={l: survey.next_block_title() for l in survey.languages}))
+    db.session.flush()
+    from app import flow
+
+    flow.normalize(survey)
+    if label:
+        links.set_label(survey, label, current_user)
+    # on to the research plan (optional, "Überspringen"), not past it (UI/UX audit 2026-10-05, V22)
+    survey.setup_step = "studienplan"
+    db.session.commit()
+    return survey, None
+
+
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new():
@@ -260,56 +310,10 @@ def new():
         return refused
 
     if request.method == "POST":
-        from app import links
-
-        # the language of the new survey: English for a person whose pages are in English, else German (decision E7)
-        first = "en" if current() == "en" else "de"
-        survey = Survey(title="", created_by_id=current_user.id, languages=[first], default_language=first)
-        error = surveys.apply_project(survey, request.form)
-        from app import study_plan
-
-        plan = dict(survey.study_plan or {})  # the country starts from the language (DDI; Ralf 2026-10-27)
-        plan["sample"] = {**(plan.get("sample") or {}), "country": study_plan.default_country(language=first)}
-        survey.study_plan = plan
-        study_plan.apply_aims(survey, request.form)  # research question and aims of the first step
-        label = links.normalize(request.form.get("label"))
-        if not error and label:
-            error = links.label_error(label, current_user) or (
-                None if request.form.get("confirm") == "1" else de_en("Das Label wurde nicht bestätigt.", "The label was not confirmed."))
+        survey, error = make_survey(request.form)
         if error:
             flash(error, "error")
         else:
-            db.session.add(survey)
-            surveys._add_member(survey, current_user, current_user.name)
-            from app.items.consent import ensure_consent_block
-
-            if request.form.getlist("languages"):
-                surveys.apply_languages(survey, request.form)
-            ensure_consent_block(survey, current_user)
-            # the ethics vote stays unticked: ticked, the consent would tell participants the study was reviewed by
-            # an ethics committee, also without one (UI/UX audit X1, Ralf 2026-10-09; was ticked by Philipp 2026-10-04)
-            # right after the consent "Demographische Angaben" with the standard questions age and gender from the
-            # construct toolbox (the same items as inserted in the editor), or the bundle "Demografie kurz (RatSWD)"
-            # as chosen on the page, then an empty "Block 1" for the questions
-            from flask import current_app
-
-            if current_app.config.get("NEW_SURVEY_DEMOGRAPHICS", True):
-                chosen = request.form.get("demografie")
-                add_demographics(survey, chosen if chosen in DEMOGRAPHIC_CHOICES else "basis")
-                survey.blocks.append(Block(position=len(survey.blocks),
-                                           titles={l: survey.next_block_title() for l in survey.languages}))
-            else:  # tests: an empty content block, as before
-                survey.blocks.append(Block(position=len(survey.blocks),
-                                           titles={l: survey.next_block_title() for l in survey.languages}))
-            db.session.flush()
-            from app import flow
-
-            flow.normalize(survey)
-            if label:
-                links.set_label(survey, label, current_user)
-            # on to the research plan (optional, "Überspringen"), not past it (UI/UX audit 2026-10-05, V22)
-            survey.setup_step = "studienplan"
-            db.session.commit()
             return redirect(_step_url(survey, "studienplan"))
     # three ways to begin, as cards at the top of the page (UI/UX audit 2026-10-05, V25): empty, from a template, from a file
     start = request.args.get("start") if request.args.get("start") in STARTS else "leer"

@@ -491,6 +491,8 @@ class Config:
     # a questionnaire built by an agent takes a few hundred, a loop gone wrong is slowed down
     AGENT_LIMIT = int(os.environ.get("AGENT_LIMIT", "600"))
     AGENT_WINDOW = int(os.environ.get("AGENT_WINDOW", "3600"))
+    AGENT_IMAGE_LIMIT = int(os.environ.get("AGENT_IMAGE_LIMIT", "30"))  # generated images per token and day
+    AGENT_SURVEY_LIMIT = int(os.environ.get("AGENT_SURVEY_LIMIT", "20"))  # new surveys per token and day
     # diary studies (app/diary_api.py): entries a person may begin or send later within this many seconds; far above
     # what a schedule asks for (at most 12 modules, self-started ones up to 50 a day), against a phone or script in a
     # loop (audit 2026-10-11, H2)
