@@ -1105,6 +1105,7 @@ COMPLAINT_KINDS = {  # key: (German, English); the German name is kept as the ta
     "copyright": ("Urheberrecht", "Copyright"),
     "privacy": ("Datenschutz", "Data protection"),
     "content": ("Rechtswidrige oder verletzende Inhalte", "Unlawful or offensive content"),
+    "technical": ("Technisches Problem", "Technical problem"),
     "other": ("Sonstiges", "Other"),
 }
 
@@ -1123,7 +1124,8 @@ def complaint(uid):
     lang = request.args.get("lang") if request.args.get("lang") in survey.languages else _pick_language(survey)
     back = local_path(request.args.get("back")) or url_for("participate.page", uid=survey.public_key)
     privacy_url = url_for("participate.privacy", uid=survey.public_key, lang=lang, back=back)
-    form, error = request.form if request.method == "POST" else {}, None
+    # the link of a failed redirect (participant/external.html) names the kind, so nobody has to find it
+    form, error = request.form if request.method == "POST" else {"kind": request.args.get("kind", "")}, None
     if request.method == "POST":
         kind, message = form.get("kind", ""), form.get("message", "").strip()
         if form.get("website"):  # the field people do not see: filled in by scripts only
@@ -1246,7 +1248,7 @@ def _external_page(survey, response, lang, step):
     entry = external.entry(response, node["id"])
     return render_template("participant/external.html", survey=survey, lang=lang, page_token=step["token"],
                            text=(node.get("text") or {}).get(lang) or "", been_out=bool(entry.get("n")),
-                           auto_after=external.AUTO_SECONDS if node.get("mode") == "auto" and not entry.get("n") else None)
+                           auto_after=external.delay(node) if not entry.get("n") else None)
 
 
 @bp.route("/<uid>/back")

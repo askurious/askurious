@@ -32,7 +32,7 @@ Stored as JSON on Survey.flow:
               (a loop over a table, see loops.py: the blocks inside run once per selected table row)
   ws:         {"t": "ws", "id": "w..", "code": "ws1", ...}   a web service called by the server (app/webservice.py)
   ext:        {"t": "ext", "id": "o..", "code": "ext1", "name": "...", "url": "https://…?pid={{pid}}&return={{return}}",
-               "mode": "button" | "auto", "text": {lang: "..."}, "values": [{"name": "score", "kind": "number"}]}
+               "delay": 0, "text": {lang: "..."}, "values": [{"name": "score", "kind": "number"}]}
               (an external section, see external.py: the person leaves for a web app and comes back through a
               signed return link, with the declared values)
 

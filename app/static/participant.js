@@ -2266,9 +2266,14 @@ var blockPages = null;
 (function () {
   var form = document.querySelector("form[data-auto-leave]");
   if (!form) return;
-  var sent = false;
-  form.addEventListener("submit", function () { sent = true; });
-  setTimeout(function () { if (!sent) form.submit(); }, 1000 * (parseInt(form.getAttribute("data-auto-leave"), 10) || 2));
+  var HELP_AFTER = 8000;  // the web app does not answer: the page stays, and says what can be done
+  var seconds = parseInt(form.getAttribute("data-auto-leave"), 10) || 0;
+  var help = form.querySelector("[data-leave-help]");
+  setTimeout(function () { form.submit(); }, 1000 * seconds);
+  if (help) setTimeout(function () { help.hidden = false; }, 1000 * seconds + HELP_AFTER);
+  // back from a web app that could not be reached, out of the browser's memory of this page: ask the server, which
+  // knows the person has left and answers with the page that does not send them away again
+  window.addEventListener("pageshow", function (event) { if (event.persisted) location.reload(); });
 })();
 
 // Answers of the same page in a text ({{code}} of a question on this page, app/piping.py): the server leaves a

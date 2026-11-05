@@ -1308,7 +1308,7 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
                                    "please switch on “Sign return values” in the flow and copy the new key into the web app.",
                                    code=ecode))
             return [{"t": "ext", "id": nid(node, "o"), "code": ecode, "name": _str(node.get("name"), 100, line=True) or ecode,
-                     "url": url, "mode": "auto" if node.get("mode") == "auto" else "button",
+                     "url": url, "delay": external.delay(node),
                      "text": _by_language(node.get("text"), 3000), "values": found}]
         if kind == "ws":  # a web service (webservice.py); the value of its header is never in a file
             from app import webservice

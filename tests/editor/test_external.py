@@ -5,6 +5,7 @@ import io
 import json
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
 from werkzeug.datastructures import MultiDict
 
 from app import external, flow
@@ -18,7 +19,7 @@ URL = "https://webapp.example/task?pid={{pid}}&return={{return}}"
 
 
 def node_form(url=URL, values=(("score", "number"), ("label", "text")), **more):
-    data = MultiDict({"name": "Experiment", "code": "ext1", "url": url, "mode": "button", "text_de": "", "text_en": "", **more})
+    data = MultiDict({"name": "Experiment", "code": "ext1", "url": url, "text_de": "", "text_en": "", **more})
     for name, kind in values:
         data.add("value_name", name)
         data.add("value_kind", kind)
@@ -79,7 +80,7 @@ def test_the_flow_page_adds_and_saves_the_section(app, client, survey):
         s = db.session.get(Survey, 1)
         node = flow.find(flow.tree(s), nid)[0]
         assert [n["t"] for n in flow.tree(s)["children"]][:4] == ["block", "block", "ext", "block"]
-        assert (node["code"], node["name"], node["url"], node["mode"]) == ("ext1", "Experiment", URL, "button")
+        assert (node["code"], node["name"], node["url"], node["delay"]) == ("ext1", "Experiment", URL, 0)
         assert node["values"] == [{"name": "score", "kind": "number"}, {"name": "label", "kind": "text"}]
         assert not [m for sev, m, _ in flow.check(s) if "Externer Abschnitt" in m and sev == "error"]
         # values without a signature: a hint, no error (tests/platform/test_security_keys.py)
@@ -135,7 +136,8 @@ def test_leaving_and_coming_back_with_values(app, client, survey):
     uid = start(app, client)
     p = to_the_section(app, uid)
     page = p.get(f"/s/{uid}").data.decode()
-    assert "Sie werden weitergeleitet" in page and "data-auto-leave" not in page and "Letzte Seite" not in page
+    assert "Sie werden weitergeleitet" in page and "Teilmodul" in page and 'data-auto-leave="0"' in page
+    assert "Letzte Seite" not in page and "webapp.example" not in page and page.count("<noscript><button") == 1
     assert the_response(app)[2] is None                               # the page alone is not leaving
     target, back = leave(p, uid)
     status, state, outside, pid = the_response(app)
@@ -143,7 +145,8 @@ def test_leaving_and_coming_back_with_values(app, client, survey):
     assert status == "active" and outside is not None and len(state) == 1
     # the survey link opened again without the return link: the page of the section once more, the same return link
     again = p.get(f"/s/{uid}").data.decode()
-    assert "Sie waren schon dort?" in again
+    assert "Sie waren schon dort?" in again and "data-auto-leave" not in again and "<noscript>" not in again
+    assert "kind=technical" in again and "data-leave-help" not in again      # the way out when the web app is down
     assert leave(p, uid)[1] == back
     # the web app sends the person back, with declared values and others
     r = p.get(back + "&score=17&label=gut%20gemacht&secret=x")
@@ -194,11 +197,39 @@ def test_values_that_are_no_numbers_and_long_texts(app):
 
 
 def test_automatic_redirect_and_own_text(app, client, survey):
-    build(app, client, mode="auto", text_de="**Gleich geht es zur Aufgabe.**", text_en="**On to the task.**")
+    build(app, client, delay="5", text_de="**Gleich geht es zur Aufgabe.**", text_en="**On to the task.**")
     uid = start(app, client)
     p = to_the_section(app, uid)
     page = p.get(f"/s/{uid}").data.decode()
-    assert 'data-auto-leave="2"' in page and "Gleich geht es zur Aufgabe." in page and "in 2 Sekunden" in page
+    assert 'data-auto-leave="5"' in page and "Gleich geht es zur Aufgabe." in page and "in 5 Sekunden" in page
+    assert "Teilmodul" not in page and "data-leave-help hidden" in page
+
+
+def test_a_stored_mode_becomes_a_delay():
+    """Sections saved before the delay could be set: "auto" keeps its 2 seconds, "button" no longer waits for a click."""
+    assert (external.delay({"mode": "auto"}), external.delay({"mode": "button"}), external.delay({})) == (2, 0, 0)
+    assert (external.delay({"delay": 7, "mode": "auto"}), external.delay({"delay": 61}), external.delay({"delay": True})) == (7, 0, 0)
+
+
+@pytest.mark.parametrize("raw, expected", [("", 0), ("0", 0), (" 12 ", 12), ("60", 60), ("61", None), ("-1", None), ("1.5", None), ("²", None)])
+def test_the_delay_of_the_form(raw, expected):
+    assert external.read_delay(raw) == expected
+
+
+def test_a_delay_out_of_range_is_refused(app, client, survey):
+    nid = build(app, client)
+    client.post(f"{E}/flow/{nid}/update", data=MultiDict({"name": "Experiment", "code": "ext1", "url": URL, "delay": "90"}))
+    with app.app_context():
+        assert flow.find(flow.tree(db.session.get(Survey, 1)), nid)[0]["delay"] == 0
+
+
+def test_a_failed_redirect_can_be_reported_as_a_technical_problem(app, client, survey):
+    build(app, client)
+    uid = start(app, client)
+    p = to_the_section(app, uid)
+    leave(p, uid)
+    form = p.get(f"/s/{uid}/complaint?kind=technical").data.decode()
+    assert 'value="technical" checked' in form
 
 
 def test_a_section_in_a_condition_is_passed_by_the_others(app, client, survey):
@@ -264,7 +295,7 @@ def test_the_survey_file_and_a_copy_keep_the_section(app, client, survey):
     with app.app_context():
         new = db.session.get(Survey, 2)
         node = flow.walk_nodes(new, "ext")[0]
-        assert (node["code"], node["url"], node["mode"]) == ("ext1", URL, "button")
+        assert (node["code"], node["url"], node["delay"]) == ("ext1", URL, 0)
         assert node["values"] == [{"name": "score", "kind": "number"}, {"name": "label", "kind": "text"}]
 
 

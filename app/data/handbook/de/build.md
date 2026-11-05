@@ -239,7 +239,7 @@ Bausteine links:
 | Bedingung | zeigt Blöcke nur bei bestimmten Antworten oder URL-Parametern („dann“ / „sonst“) |
 | Schleife | wiederholt Blöcke je Tabellenzeile oder je Vignette; Platzhalter `{{variable}}` füllen Texte und Bilder |
 | Ende | ein Screen-out oder „Quote voll“, meist innerhalb einer Bedingung |
-| Externer Abschnitt | schickt Teilnehmende zu einer Web-App (z. B. einer Reaktionszeitaufgabe) und zurück, mit signierten Rückgabewerten |
+| Externer Abschnitt | schickt Teilnehmende zu einer Web-App (z. B. einer Reaktionszeitaufgabe) und zurück, mit signierten Rückgabewerten; die Weiterleitung läuft von selbst, Wartezeit (0 bis 60 Sekunden, Standard 0) und Text sind einstellbar, und klappt sie nicht, können Teilnehmende das Problem melden |
 | Quotenberechnung | ordnet die Person einer Quote zu |
 | Web Service | der Server ruft eine Schnittstelle auf und speichert Felder der Antwort (experimentell); das Zeitlimit ist einstellbar (1 bis 45 Sekunden, Standard 5), so lange wartet die Seite der Teilnehmenden; [Demo ausprobieren](https://ask.askurious.de/s/demo-webservices) |
 

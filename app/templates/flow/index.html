@@ -207,15 +207,15 @@
       <div class="ext-grid">
         <label>{{ de_en("Name", "Name") }} <input name="name" value="{{ node.name }}" maxlength="100" {{ off }}></label>
         <label>{{ de_en("Variablenname", "Variable name") }} <input name="code" data-varname="full" value="{{ node.code }}" {{ off }}></label>
-        <label>{{ de_en("Weiterleitung", "Redirect") }}
-          <select name="mode" {{ off }}>{% for key, label in external.MODES.items() %}<option value="{{ key }}" {% if (node.mode or "button") == key %}selected{% endif %}>{{ de_en(label, {"button": "page with a button", "auto": "page, continue after 2 s"}.get(key, label)) }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Wartezeit vor der Weiterleitung", "Delay before the redirect") }} <span class="hint">{{ de_en("Sekunden, 0 bis {n}; bei 0 geht es sofort weiter", "seconds, 0 to {n}; with 0 it goes on at once", n=external.MAX_DELAY) }}</span>
+          <input type="number" name="delay" min="0" max="{{ external.MAX_DELAY }}" step="1" value="{{ external.delay(node) }}" {{ off }}></label>
         <label class="ext-wide">{{ de_en("Adresse der Web-App", "Address of the web app") }} <span class="hint">{{ de_en("mit", "with") }} <code>{{ "{{pid}}" }}</code> {{ de_en("und", "and") }} <code>{{ "{{return}}" }}</code></span>
           <input name="url" value="{{ node.url }}" placeholder="https://webapp.example/task?pid={{ '{{pid}}' }}&amp;return={{ '{{return}}' }}" maxlength="1000" {{ off if may_link else "disabled" }} data-link-field></label>
       {% if editable and may_link %}{{ link_chips(ext_chips) }}{% endif %}
       </div>
       {% if editable and not may_link %}<p class="muted small">{{ de_en("Die Adresse legt fest, wer in dieser Befragung die Rolle „Admin“ hat, wie bei den Abschlusslinks.", "The address is set by whoever has the role “Admin” in this survey, as with the completion links.") }}</p>{% endif %}
       {% for code in survey.languages %}
-      <label>{{ de_en("Text der Seite vor der Weiterleitung ({name})", "Text of the page before the redirect ({name})", name=languages[code]) }} <textarea name="text_{{ code }}" rows="2" data-rich="block" placeholder="{{ de_en('leer = „Sie werden weitergeleitet …“ mit einem kurzen Hinweis', 'empty = “You are being redirected …” with a short note') }}" {{ off }}>{{ (node.text or {}).get(code, '') }}</textarea></label>
+      <label>{{ de_en("Text bei der Weiterleitung ({name})", "Text during the redirect ({name})", name=languages[code]) }} <textarea name="text_{{ code }}" rows="2" data-rich="block" placeholder="{{ de_en('leer = „Sie werden weitergeleitet …“ mit dem Hinweis auf ein Teilmodul', 'empty = “You are being redirected …” with a note about a submodule') }}" {{ off }}>{{ (node.text or {}).get(code, '') }}</textarea></label>
       {% endfor %}
       <fieldset>
         <legend>{{ de_en("Rückgabewerte", "Return values") }} <span class="hint">{{ de_en("was die Web-App an den Rückkehrlink anhängen darf; nur diese Werte werden gespeichert und exportiert. Zahlen im Maschinenformat: Punkt als Dezimaltrenner", "what the web app may append to the return link; only these values are stored and exported. Numbers in machine format: point as decimal separator") }} (<code>2.5</code>), {{ de_en("ohne Tausendertrennzeichen; sonst wird der Wert nicht übernommen", "without thousands separators; otherwise the value is not taken") }}</span></legend>
