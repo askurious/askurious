@@ -81,6 +81,79 @@ def _block_time(buf, pos, end):
     return struct.unpack(">h", buf[pos:pos + 2])[0]
 
 
+def _cluster_last(buf, pos, size):
+    """(latest block time, end) of the Cluster whose data begins at pos; None when it holds no whole block."""
+    end = len(buf) if size is None else min(len(buf), pos + size)
+    base, last = 0, None
+    try:
+        while pos < end:
+            cstart = pos
+            cid, csize, pos = _element(buf, pos)
+            if size is None and cid in LEVEL1:
+                pos = cstart
+                break
+            if csize is None:
+                raise ValueError("unknown size in a cluster")
+            if pos + csize > len(buf):
+                raise _Short
+            if cid == TIMECODE:
+                base = _uint(buf[pos:pos + csize])
+            elif cid == SIMPLEBLOCK:
+                t = base + _block_time(buf, pos, pos + csize)
+                last = t if last is None else max(last, t)
+            elif cid == BLOCKGROUP:
+                inner, gend = pos, pos + csize
+                while inner < gend:
+                    gid, gsize, inner = _element(buf, inner)
+                    if gid == BLOCK and gsize is not None:
+                        t = base + _block_time(buf, inner, inner + gsize)
+                        last = t if last is None else max(last, t)
+                    inner += gsize or 0
+            pos += csize
+    except _Short:
+        pos = len(buf)
+    return last, pos
+
+
+TAIL = 4 * 1024 * 1024  # bytes before the end searched for the last Cluster
+CLUSTER_ID = CLUSTER.to_bytes(4, "big")
+
+
+def _tail(buf, first):
+    """(latest block time, Cues or SeekHead after it) from the last Clusters only, or None to read them all.
+    Reading every block of a long recording took 8.5 s on the server (D-01, 98 minutes, 37 MB; Ralf 2026-11-05),
+    and the player showed 0:00 until then. A candidate counts only when its Timecode comes first and every element
+    after it parses up to the end of the file."""
+    low = max(first, len(buf) - TAIL)
+    at = len(buf)
+    while True:
+        at = buf.rfind(CLUSTER_ID, low, at)
+        if at < 0:
+            return None
+        try:
+            eid, size, pos = _element(buf, at)
+            cid, _csize, _ = _element(buf, pos)
+            if eid != CLUSTER or cid != TIMECODE:
+                raise ValueError("no cluster")
+            last, pos = _cluster_last(buf, pos, size)
+            indexed = False
+            while pos < len(buf):  # what follows: Cues, Tags, or the next Cluster still arriving
+                try:
+                    eid, esize, pos = _element(buf, pos)
+                except _Short:
+                    break
+                if eid == CLUSTER and esize is None:
+                    break  # a Cluster without a whole block yet (its piece is still arriving)
+                if eid not in LEVEL1 or esize is None:
+                    raise ValueError("not a level-1 element")
+                indexed = indexed or eid in (SEEKHEAD, CUES)
+                pos += esize
+            if last is not None and last > 0:
+                return last, indexed
+        except (ValueError, _Short):
+            pass
+
+
 def _scan(buf):
     """(end of the Segment head before Info, start and end of Info, its payload, TimecodeScale, last timecode) or None."""
     eid, size, pos = _element(buf, 0)
@@ -122,6 +195,11 @@ def _scan(buf):
             info = (start, end)
             pos = end
             continue
+        if eid == CLUSTER and info is not None and last is None:
+            found = _tail(buf, start)
+            if found is not None:
+                last, indexed = found[0], indexed or found[1] or buf.find(CUES.to_bytes(4, "big"), start) >= 0
+                break
         if eid == CLUSTER:
             end = len(buf) if size is None else min(len(buf), pos + size)
             base = 0
