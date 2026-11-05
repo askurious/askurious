@@ -16,6 +16,8 @@
 <label>{{ de_en("Inhalt (JSON, nur bei POST)", "Body (JSON, POST only)") }} <span class="hint">{{ de_en("Platzhalter in Anführungszeichen, z. B.", "placeholders in quotes, e.g.") }} <code>{"q": "{{ '{{city}}' }}"}</code></span>
   <textarea name="body" rows="3" maxlength="5000" {{ fixed }}>{{ node.body }}</textarea></label>
 {% else %}<input type="hidden" name="body" value="">{% endif %}
+<label>{{ de_en("Zeitlimit", "Time limit") }} <span class="hint">{{ de_en("Sekunden, 1 bis {n}. So lange wartet die Seite der Teilnehmenden auf die Antwort; ist die Zeit um, geht es ohne Wert weiter", "seconds, 1 to {n}. The participant's page waits this long for the answer; when the time is up it goes on without a value", n=webservice.MAX_TIMEOUT) }}</span>
+  <input type="number" name="timeout" min="1" max="{{ webservice.MAX_TIMEOUT }}" step="1" value="{{ webservice.time_limit(node) }}" {{ fixed }}></label>
 <div class="row-fields">
   <label>{{ de_en("Kopfzeile (optional)", "Header (optional)") }} <span class="hint">{{ de_en("z. B. für einen API-Schlüssel", "e.g. for an API key") }}</span>
     <input name="header" value="{{ node.header or '' }}" placeholder="X-Api-Key" maxlength="60" {{ fixed }}></label>

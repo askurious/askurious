@@ -151,7 +151,7 @@ def test_the_call_waits_until_the_step_is_stored_and_no_cell_is_locked(app, clie
 
     seen = {}
 
-    def fetch(method, url, body=None, headers=None):
+    def fetch(method, url, body=None, headers=None, timeout=None):
         seen["in_transaction"] = db.session().in_transaction()
         if db.engine.dialect.name == "postgresql":
             with db.engine.connect() as other:

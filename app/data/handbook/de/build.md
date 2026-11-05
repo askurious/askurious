@@ -241,7 +241,7 @@ Bausteine links:
 | Ende | ein Screen-out oder „Quote voll“, meist innerhalb einer Bedingung |
 | Externer Abschnitt | schickt Teilnehmende zu einer Web-App (z. B. einer Reaktionszeitaufgabe) und zurück, mit signierten Rückgabewerten |
 | Quotenberechnung | ordnet die Person einer Quote zu |
-| Web Service | der Server ruft eine Schnittstelle auf und speichert Felder der Antwort (experimentell); [Demo ausprobieren](https://ask.askurious.de/s/demo-webservices) |
+| Web Service | der Server ruft eine Schnittstelle auf und speichert Felder der Antwort (experimentell); das Zeitlimit ist einstellbar (1 bis 45 Sekunden, Standard 5), so lange wartet die Seite der Teilnehmenden; [Demo ausprobieren](https://ask.askurious.de/s/demo-webservices) |
 
 Die rechte Spalte zeigt Kennzahlen (geschätzte Dauer, Zahl der Blöcke, Versuchsbedingungen, Verzweigungen, Pfade durch den Ablauf) und eine Startprüfung des Ablaufs.
 

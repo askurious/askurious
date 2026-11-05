@@ -6,7 +6,7 @@ answers as values. The person does not leave the page and sees nothing of it; th
 The flow node (flow.py):
   {"t": "ws", "id": "w..", "code": "ws1", "name": "...", "method": "GET" | "POST",
    "url": "https://api.example/x?q={{city}}", "body": "{\"q\": \"{{city}}\"}" (POST), "header": "X-Api-Key",
-   "secret": "<encrypted>" (the header's value, never in a survey file or a copy),
+   "secret": "<encrypted>" (the header's value, never in a survey file or a copy), "timeout": 5 (seconds, optional),
    "values": [{"name": "temp", "path": "current.temperature_2m", "kind": "number" | "text"}]}
 
 Placeholders in the address are percent-encoded, in the body JSON-escaped. The call happens once per
@@ -22,7 +22,8 @@ Protection, because researchers type the address and this server calls it: https
 public addresses only (no localhost, private networks, the Docker network, link-local metadata services, NAT64 and
 6to4 forms of those, this server's own addresses, the networks in WEBSERVICE_BLOCKED_NETS), checked on every call,
 and the connection goes to the address that was checked (no second lookup in between); port 443 only; no
-redirects; at most MAX_BYTES of answer; TIMEOUT seconds for the whole call, name lookup and reading included (W1);
+redirects; at most MAX_BYTES of answer; the node's time limit (TIMEOUT unless set, at most MAX_TIMEOUT) for the whole
+call, name lookup and reading included (W1);
 at most MAX_PARALLEL calls at once per process. Who sets the address, the header and its secret is decided
 as for completion links and external sections: the admins of the survey. Experimental (app/experimental.py)."""
 import ipaddress
@@ -43,7 +44,10 @@ NODE = "ws"
 KEY = "_ws"  # in Response.external: the results of the web services of this participation
 METHODS = ("GET", "POST")
 KINDS = ByLanguage({"number": "Zahl", "text": "Text"}, {"number": "number", "text": "text"})
-TIMEOUT = 5  # seconds for the whole call: name lookup, connection, answer
+TIMEOUT = 5  # seconds for the whole call by default: name lookup, connection, answer
+# The most a node may set. The person's page waits for the call in the request, and nginx gives up on a participant's
+# request after 60 s (deploy/docker/nginx/locations/participant.conf). Several web services in one step add up.
+MAX_TIMEOUT = 45
 MAX_BYTES = 1_000_000
 MAX_PARALLEL = 8  # calls at once per process; one more gets ok=0 at once instead of waiting for a thread
 HTTPS_PORT = 443  # the only port called (W4)
@@ -234,7 +238,11 @@ def update(survey, node, form, links=True):
                          "Value of the header: visible ASCII characters and spaces only (no umlauts, no €, no line break), "
                          "at most 500.")
         moved = bool(node.get("secret")) and not secret and host(node) and (urlsplit(url).hostname or "") != host(node)
-        changes.update(url=url, method=method, body=body, header=header)
+        seconds = read_time_limit(form.get("timeout")) if "timeout" in form else time_limit(node)
+        if seconds is None:
+            return de_en("Zeitlimit: eine ganze Zahl von 1 bis {n} Sekunden.", "Time limit: a whole number from 1 to {n} seconds.",
+                         n=MAX_TIMEOUT)
+        changes.update(url=url, method=method, body=body, header=header, timeout=seconds)
         if secret:
             changes["secret"] = secrets_box.encrypt(secret, secrets_box.PARTICIPANT)
         if not header or form.get("secret_remove") or moved:
@@ -436,8 +444,25 @@ def _public_address(hostname, port, timeout=TIMEOUT):
     return addresses[0]
 
 
-def fetch(method, url, body=None, headers=None):
-    """(status, bytes) of one call to `url`, to the address checked for it, all within TIMEOUT seconds; raises
+def time_limit(node):
+    """Seconds a call of this node may take: its own limit, else TIMEOUT."""
+    seconds = (node or {}).get("timeout")
+    if isinstance(seconds, int) and not isinstance(seconds, bool) and 1 <= seconds <= MAX_TIMEOUT:
+        return seconds
+    return TIMEOUT
+
+
+def read_time_limit(raw):
+    """The seconds typed into the form, or None if they are no whole number from 1 to MAX_TIMEOUT."""
+    raw = (raw or "").strip()
+    if not (raw.isascii() and raw.isdigit() and len(raw) < 4) or not 1 <= int(raw) <= MAX_TIMEOUT:
+        return None
+    return int(raw)
+
+
+def fetch(method, url, body=None, headers=None, timeout=None):
+    """(status, bytes) of one call to `url`, to the address checked for it, all within `timeout` seconds (TIMEOUT
+    unless given; the name lookup never longer than TIMEOUT); raises
     Blocked, Unreachable (no answer began), OSError (the answer broke off, was too large or too slow, too many calls
     at once) or ValueError (a header value http.client refuses)."""
     parts = urlsplit(url)
@@ -454,8 +479,8 @@ def fetch(method, url, body=None, headers=None):
     if not _slots.acquire(blocking=False):
         raise OSError("busy: too many calls at once")
     try:
-        deadline = time.monotonic() + TIMEOUT
-        address = _public_address(parts.hostname, port, TIMEOUT)
+        deadline = time.monotonic() + (timeout or TIMEOUT)
+        address = _public_address(parts.hostname, port, min(timeout or TIMEOUT, TIMEOUT))
         return _talk(method, parts, address, body, headers, deadline)
     finally:
         _slots.release()
@@ -583,7 +608,7 @@ def call(node, variables):
     try:
         url = fill_url(node.get("url"), variables)
         body = fill_body(node["body"], variables) if node.get("method") == "POST" and node.get("body") else None
-        status, data = fetch(node.get("method") or "GET", url, body, headers)
+        status, data = fetch(node.get("method") or "GET", url, body, headers, time_limit(node))
         if status != 200:
             raise OSError(f"HTTP {status}")
         parsed = parse(data)
@@ -613,7 +638,7 @@ def test(node, variables):
     start = time.monotonic()
     try:
         body = fill_body(node["body"], variables) if node.get("method") == "POST" and node.get("body") else None
-        status, data = fetch(node.get("method") or "GET", url, body, headers)
+        status, data = fetch(node.get("method") or "GET", url, body, headers, time_limit(node))
         out["status"], out["size"] = status, len(data)
         if status == 200:
             try:
