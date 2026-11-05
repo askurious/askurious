@@ -381,7 +381,7 @@ def test_a_large_test_answer_fits_the_session_cookie(app, client, survey, monkey
     cookies = [h for h in r.headers.getlist("Set-Cookie") if h.startswith("session=")]
     assert cookies and max(len(c) for c in cookies) < 4093
     page = client.get(r.headers["Location"]).data.decode()
-    assert "Testaufruf:" in page and "HTTP 200" in page and "Gekürzt" in page
+    assert "data-ws-result" in page and "HTTP 200" in page and "Gekürzt" in page
 
 
 # --- W9, W10: the key, and what a header can carry ----------------------------------------------------------------
@@ -515,4 +515,15 @@ def test_a_readable_header_can_be_emptied_and_leaves_no_trace_in_a_file(app, cli
     client.post(update, data=node_form(header="Accept-Version", secret="", secret_visible="1"), follow_redirects=True)
     saved = _saved(app, nid)
     assert not saved.get("secret") and not saved.get("secret_visible")
+
+
+def test_an_api_says_why_it_refused_without_the_key(monkeypatch):
+    """The test call shows what a JSON answer says at any status, so that a 401 explains itself, never the value."""
+    answer = json.dumps({"error": {"message": "Bad key sk-geheim123, see Bearer sk-geheim123"}}).encode()
+    monkeypatch.setattr(webservice, "fetch", lambda *a, **k: (401, answer))
+    with_key = {"url": "https://api.example/", "values": [], "header": "Authorization", "secret": "x"}
+    monkeypatch.setattr("app.secrets_box.decrypt", lambda *a, **k: "Bearer sk-geheim123")
+    out = webservice.test(with_key, {})
+    assert out["status"] == 401 and out["reason"] == "Unauthorized" and "Bad key" in out["snippet"]
+    assert "geheim" not in json.dumps(out) and out["v"] == {}
 

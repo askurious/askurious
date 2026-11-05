@@ -5126,6 +5126,15 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 .use-elsewhere-name[hidden] { display: none; }
 /* the test call of a web service in the flow (flow/_webservice.html) */
 .ws-test { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: var(--surface-2); }
+.ws-test.is-ok { border-color: var(--ok); }
+.ws-test.is-bad { border-color: var(--danger); }
+.ws-status { margin: 0 0 4px; font-size: 1.05rem; }
+.ws-test.is-bad .ws-status strong { color: var(--danger); }
+.ws-running { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: 8px; }
+.ws-running[hidden] { display: none; }
+.ws-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--fg); border-radius: 50%; animation: ws-spin .8s linear infinite; }
+@keyframes ws-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ws-spinner { animation: none; } }
 .ws-snippet { max-height: 260px; overflow: auto; font-size: 0.75rem; margin: 6px 0 0; white-space: pre; }
 /* the result of "Jetzt prüfen" of the seal chain (surveys/_seal_result.html) */
 .seal-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }

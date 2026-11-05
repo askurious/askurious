@@ -55,17 +55,19 @@
   <p class="muted small">{{ de_en("Dazu kommt die Spalte", "In addition there is the column") }} <code>{{ node.code }}_ok</code> {{ de_en("(1 = Aufruf gelungen, 0 = nicht; dann bleiben die Werte leer und die Befragung läuft weiter). Aufgerufen wird einmal je Teilnahme, wenn die Person die Stelle passiert, höchstens 5 Sekunden lang; gibt er Angaben aus der Befragung weiter, erst nach der Einwilligung.", "(1 = call worked, 0 = not; then the values stay empty and the survey goes on). It is called once per participation, when the person passes the point, for at most 5 seconds; if it passes on data from the survey, only after the consent.") }}</p>
 </fieldset>
 {% if node.url and may_link and ws_allowed %}
-<p><button class="button button-small button-secondary" formaction="{{ url_for('editor.flow_ws_test', survey_id=survey.id, nid=node.id, lang=lang) }}" formnovalidate>{{ de_en("Testaufruf", "Test call") }}</button>
-  <span class="hint">{{ de_en("ruft die Adresse einmal mit Beispielwerten auf und zeigt die Antwort", "calls the address once with example values and shows the answer") }}</span></p>
+<p><button class="button button-small button-secondary" data-ws-test formaction="{{ url_for('editor.flow_ws_test', survey_id=survey.id, nid=node.id, lang=lang) }}" formnovalidate>{{ de_en("Testaufruf", "Test call") }}</button>
+  <span class="hint">{{ de_en("ruft die Adresse einmal mit Beispielwerten auf und zeigt die Antwort", "calls the address once with example values and shows the answer") }}</span>
+  <span class="ws-running" data-ws-running role="status" hidden><span class="ws-spinner" aria-hidden="true"></span> {{ de_en("Testaufruf läuft, höchstens {n} Sekunden …", "Test call running, at most {n} seconds …", n=webservice.time_limit(node)) }}</span></p>
 {% for name in webservice.used(node) if name not in ("pid", "lang", "survey") %}{% if loop.first %}<div class="row-fields">{% endif %}
   <label>{{ de_en("Beispielwert für", "Example value for") }} <code>{{ "{{" ~ name ~ "}}" }}</code> <input name="test_{{ name }}" value="{{ (ws_test.given or {}).get(name, '') if ws_test and ws_test.nid == node.id else '' }}" maxlength="200"></label>
 {% if loop.last %}</div>{% endif %}{% endfor %}
 {% endif %}
 {% if ws_test and ws_test.nid == node.id %}
-<div class="ws-test" role="status">
-  <p class="small"><strong>{{ de_en("Testaufruf:", "Test call:") }}</strong> <code>{{ ws_test.url }}</code> · {% if ws_test.status %}HTTP {{ ws_test.status }}{% if ws_test.size is not none %}, {{ de_en("{n} Bytes", "{n} bytes", n=ws_test.size) }}{% endif %}{% endif %}{% if ws_test.err %} · {{ ws_test.err }}{% endif %} · {{ ws_test.ms }} ms</p>
-  {% if ws_test.v %}<p class="small">{{ de_en("Übernommen:", "Taken:") }} {% for k, val in ws_test.v.items() %}<code>{{ node.code }}_{{ k }}</code> = {{ val if val != "" else de_en("(fehlt)", "(missing)") }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
-  {% if ws_test.snippet %}<pre class="ws-snippet">{{ ws_test.snippet }}{% if ws_test.cut %} …{% endif %}</pre>{% endif %}
+<div class="ws-test {{ 'is-ok' if ws_test.status == 200 and not ws_test.err else 'is-bad' }}" role="status" data-ws-result>
+  <p class="ws-status"><strong>{% if ws_test.status %}HTTP {{ ws_test.status }}{% if ws_test.reason %} {{ ws_test.reason }}{% endif %}{% else %}{{ de_en("Keine Antwort", "No answer") }}{% endif %}</strong>{% if ws_test.err %} · {{ ws_test.err }}{% endif %}</p>
+  <p class="small muted"><code>{{ ws_test.url }}</code>{% if ws_test.size is not none %} · {{ de_en("{n} Bytes", "{n} bytes", n=ws_test.size) }}{% endif %}{% if ws_test.ms is defined and ws_test.ms is not none %} · {{ ws_test.ms }} ms{% endif %}</p>
+  {% if ws_test.v %}<p class="small">{{ de_en("Übernommen:", "Taken:") }} {% for k, val in ws_test.v.items() %}<code>{{ node.code }}_{{ k }}</code> = {{ val if val != "" else de_en("(fehlt)", "(missing)") }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% if ws_test.snippet %}<p class="small"><strong>{{ de_en("Antwort", "Answer") }}</strong></p><pre class="ws-snippet">{{ ws_test.snippet }}{% if ws_test.cut %} …{% endif %}</pre>{% endif %}
   {% if ws_test.cut %}<p class="muted small">{{ de_en("Gekürzt; die Werte oben sind aus der ganzen Antwort.", "Cut short; the values above come from the whole answer.") }}</p>{% endif %}
 </div>
 {% endif %}

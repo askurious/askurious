@@ -4097,6 +4097,29 @@ document.addEventListener("change", function (e) {
     // Enter in a field: save, do not load the page anew; buttons with a name are actions of their own (e.g. a draft text)
     form.addEventListener("submit", function (e) {
       if (e.submitter && e.submitter.name) return;
+      // a button with its own address (the test call of a web service) acts on what is saved: first the save, then it
+      // (a form of its own: Chrome drops requestSubmit after a save that followed a real click, without any event)
+      if (e.submitter && e.submitter.hasAttribute("formaction")) {
+        e.preventDefault();
+        var address = e.submitter.getAttribute("formaction");
+        save(null).then(function () {
+          var out = document.createElement("form");
+          out.method = "post";
+          out.action = address;
+          out.hidden = true;
+          new FormData(form).forEach(function (value, name) {
+            if (typeof value !== "string" || name === "secret") return;
+            var field = document.createElement("input");
+            field.type = "hidden";
+            field.name = name;
+            field.value = value;
+            out.appendChild(field);
+          });
+          document.body.appendChild(out);
+          out.submit();
+        });
+        return;
+      }
       e.preventDefault();
       typingCode = false;
       save(null);
@@ -7063,3 +7086,23 @@ document.addEventListener("click", function (e) {
   box.querySelector("[data-eye=off]").hidden = readable;
   input.dispatchEvent(new Event("change", { bubbles: true }));
 });
+
+// The test call of a web service (flow/_webservice.html): the page is sent and comes back with the result, which can
+// take as long as the time limit. Until then it says so, and a second click sends nothing.
+(function () {
+  var running = false;
+  document.addEventListener("click", function (e) {
+    var button = e.target.closest && e.target.closest("[data-ws-test]");
+    if (!button) return;
+    if (running) { e.preventDefault(); return; }
+    running = true;
+    button.setAttribute("aria-disabled", "true");
+    var note = button.parentNode.querySelector("[data-ws-running]");
+    if (note) note.hidden = false;
+  });
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted) location.reload();  // back from the browser's memory: not with a call that seems to run
+  });
+  var result = document.querySelector("[data-ws-result]");
+  if (result) setTimeout(function () { result.scrollIntoView({ block: "center" }); }, 150);  // after the jump to the element
+})();

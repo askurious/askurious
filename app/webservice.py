@@ -642,13 +642,27 @@ def call(node, variables):
     return result
 
 
+def _without(text, headers):
+    """The text of an answer without the value of the header, in case the server repeats it: alone, and after the word
+    in front of it ("Bearer …")."""
+    for value in (headers or {}).values():
+        for part in {value, value.split(" ", 1)[-1]}:
+            if len(part) >= 4:
+                text = text.replace(part, "…")
+    return text
+
+
 def test(node, variables):
     """One call from the editor ("Testaufruf") with example values: what was called, the status and size of the
     answer, the values taken and the start of the answer, to find the paths of its fields.
 
-    Only what a JSON answer with status 200 says is shown. Every call that brought no answer is "not reachable",
-    whatever the reason: so the test call shows no error page of someone's server and does not tell open from closed
-    ports or servers that are there from those that are not (code audit 2026-10-08, W4)."""
+    Only what a JSON answer says is shown, also with another status than 200 (an API says there why it refused, and
+    the person setting it up needs that; Philipp 2026-11-05), with the value of the header taken out. Every call that
+    brought no answer is "not reachable", whatever the reason: so the test call shows no error page of someone's server
+    and does not tell open from closed ports or servers that are there from those that are not (code audit 2026-10-08,
+    W4)."""
+    from http.client import responses
+
     from app import secrets_box
 
     headers = {node["header"]: secrets_box.decrypt(node["secret"], secrets_box.PARTICIPANT) or ""} if node.get("header") and node.get("secret") else {}
@@ -658,14 +672,14 @@ def test(node, variables):
     try:
         body = fill_body(node["body"], variables) if node.get("method") == "POST" and node.get("body") else None
         status, data = fetch(node.get("method") or "GET", url, body, headers, time_limit(node))
-        out["status"], out["size"] = status, len(data)
-        if status == 200:
-            try:
-                parsed = parse(data)
-                out["snippet"] = json.dumps(parsed, ensure_ascii=False, indent=1)[:SNIPPET]
+        out["status"], out["size"], out["reason"] = status, len(data), responses.get(status, "")
+        try:
+            parsed = parse(data)
+            out["snippet"] = _without(json.dumps(parsed, ensure_ascii=False, indent=1), headers)[:SNIPPET]
+            if status == 200:
                 out["v"] = {v["name"]: _as(pick(parsed, v["path"]), v["kind"]) for v in values(node)}
-            except ValueError:  # also UnicodeDecodeError
-                out["err"] = de_en("keine JSON-Antwort", "not a JSON answer")
+        except ValueError:  # also UnicodeDecodeError
+            out["err"] = de_en("keine JSON-Antwort", "not a JSON answer")
     except Blocked:
         out["err"] = de_en("nicht erlaubt: Dieser Server liegt in einem gesperrten Netz oder ist Askurious selbst.",
                            "not allowed: this server is in a blocked network or is Askurious itself.")
