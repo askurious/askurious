@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{# One interview to read only, for a link with the Sichtrecht "alle Interviews" (app/interviewer.py, read): the text of
+   the notes file (interview_results.notes_text) and the transcript; no form, nothing to save. #}
+{% block title %}{{ de_en("Interview {label} lesen", "Read interview {label}", label=(row.interview or {}).label) }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<div class="tabpage-head"><p class="muted small"><a href="{{ url_for('interviewer.home', code=survey.code) }}">{{ de_en("Meine Interviews", "My interviews") }}</a> · {{ survey.title }}</p>
+  <h1>{{ de_en("Interview {label}", "Interview {label}", label=(row.interview or {}).label) }} <span class="badge">{{ de_en("nur lesen", "read only") }}</span></h1></div><!--flashes-->
+<section class="panel iv-read">
+  {% for line in lines %}
+  {% if line.startswith("== ") %}<h2>{{ line.strip("= ") }}</h2>
+  {% elif loop.first %}<p class="muted">{{ line }}</p>
+  {% elif line %}<p class="small">{{ line }}</p>{% endif %}
+  {% endfor %}
+</section>
+{% if transcript %}
+<section class="panel">
+  <details class="res-fold"><summary><h2>{{ de_en("Transkript", "Transcript") }}</h2></summary>
+    <div class="iv-read-transcript">{% for para in transcript.split("\n") if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
+  </details>
+</section>
+{% endif %}
+<p><a href="{{ url_for('interviewer.home', code=survey.code) }}">{{ de_en("Zurück zu „Meine Interviews“", "Back to “My interviews”") }}</a></p>
+{% endblock %}

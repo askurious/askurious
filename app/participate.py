@@ -1093,6 +1093,14 @@ def _ltr(text):
 
 
 EMAIL_LIKE = re.compile(r"^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$")
+@bp.app_template_global("web_service_wait")
+def web_service_wait(survey):
+    """See webservice.wait_seconds: for the send note of participant/page.html."""
+    from app import webservice
+
+    return webservice.wait_seconds(survey)
+
+
 COMPLAINT_KINDS = {  # key: (German, English); the German name is kept as the tag of the complaint
     "copyright": ("Urheberrecht", "Copyright"),
     "privacy": ("Datenschutz", "Data protection"),

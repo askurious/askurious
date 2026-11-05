@@ -286,10 +286,16 @@ def roles():
                       "gespeichert; befristet (Voreinstellung 90 Tage), höchstens drei Geräte, sperrbar",
                       "personal link for one guide from members with Edit or Manage; stored as a hash only; limited in "
                       "time (default 90 days), at most three devices, can be blocked"),
-         "sees": de_en("Nur die eigenen Interviews: führen, aufnehmen, transkribieren, bis das Transkript als geprüft "
-                       "übergeben ist; nicht den Leitfaden bearbeiten, keine Auswertung, keine Exporte, keine Interviews "
-                       "anderer.", "Only their own interviews: conduct, record, transcribe, until the transcript is handed "
-                       "over as checked; no editing of the guide, no analysis, no exports, no interviews of others.")},
+         "sees": de_en("Die eigenen Interviews: führen, aufnehmen, transkribieren, bis das Transkript als geprüft "
+                       "übergeben ist. Nur mit dem Recht „sieht: alle Interviews“, das Beteiligte mit Bearbeiten oder "
+                       "Verwalten je Link setzen (Voreinstellung: nur eigene), auch die Interviews anderer zum Lesen "
+                       "(Notizen, Antworten, Transkript; keine Tonaufnahmen, nichts ändern), mit „und Ergebnisse“ "
+                       "außerdem die Ergebnisseite des Leitfadens. Nie den Leitfaden bearbeiten, keine Exporte.",
+                       "Their own interviews: conduct, record, transcribe, until the transcript is handed over as "
+                       "checked. Only with the right “sees: all interviews”, set per link by members with Edit or Manage "
+                       "(default: own only), also the interviews of others to read (notes, answers, transcript; no audio "
+                       "recordings, no changes), with “and results” also the guide's results page. Never editing the "
+                       "guide, no exports.")},
         {"who": de_en("Kodierende (Rolle „Kodieren“, experimentell)", "Coders (role “Code”, experimental)"),
          "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet: als Person "
                       "oder Gruppe mit Konto, als Interviewende mit Interviewlink, dessen Recht „darf kodieren“ (eigene "
@@ -328,7 +334,7 @@ def roles():
 ACTIVITY_META = (
     ("accounts", "2026-09-26", "2026-10-20"), ("participation", "2026-09-26", "2026-10-20"),
     ("pool", "2026-10-04", "2026-10-15"), ("live", "2026-10-03", "2026-10-19"),
-    ("interviews", "2026-10-04", "2026-10-27"), ("interviewer_links", "2026-10-15", "2026-10-15"),
+    ("interviews", "2026-10-04", "2026-11-05"), ("interviewer_links", "2026-10-15", "2026-11-05"),
     ("transcript_coding", "2026-10-27", "2026-10-27"),
     ("participant_screen", "2026-10-20", "2026-10-20"), ("diary", "2026-10-11", "2026-10-27"),
     ("invitations", "2026-09-26", "2026-10-20"), ("paper", "2026-10-10", "2026-10-17"),
@@ -351,8 +357,10 @@ INTERNAL = {
     "pool": ("Admins der Plattform (Reiter Konstrukte)", "Platform admins (tab Constructs)"),
     "live": ("Forschende der Abstimmung nach Rolle; Publikum sieht nur zusammengefasste Ergebnisse",
              "Researchers of the poll by role; the audience sees aggregated results only"),
-    "interviews": ("Forschende des Leitfadens nach Rolle; Interviewende über ihren Link nur ihre Interviews",
-                   "Researchers of the guide by role; interviewers through their link only their interviews"),
+    "interviews": ("Forschende des Leitfadens nach Rolle; Interviewende über ihren Link ihre Interviews, mit dem Recht "
+                   "„sieht: alle Interviews“ auch die anderer zum Lesen",
+                   "Researchers of the guide by role; interviewers through their link their interviews, with the right "
+                   "“sees: all interviews” also those of others to read"),
     "interviewer_links": ("Forschende des Leitfadens; die Interviewenden selbst", "Researchers of the guide; the "
                           "interviewers themselves"),
     "transcript_coding": ("Forschende des Leitfadens mit Bearbeiten oder Verwalten; die Mitglieder der jeweiligen Auswertung",
@@ -623,10 +631,12 @@ def _activities():
                        "(place of recording and details of the interviewee from the short questionnaire, for the export "
                        "as Word and PDF; only researchers export), confirmation that everyone who speaks consented. Not anonymous."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten; die Interviewenden des jeweiligen Interviews "
-                             "(Interviewlink) bis zur Übergabe; die Mitglieder einer Auswertung („Interviews kodieren“) "
+                             "(Interviewlink) bis zur Übergabe; Interviewlinks mit dem Recht „sieht: alle Interviews“ "
+                             "zum Lesen (ohne Tonaufnahmen); die Mitglieder einer Auswertung („Interviews kodieren“) "
                              "die Transkripte, die sie dort sehen; Transkriptionsserver (Whisper), wenn eingeschaltet.",
                              "Members with Edit or Manage; the interviewers of the respective interview (interviewer link) "
-                             "until it is handed over; the members of an analysis (“Coding interviews”) the transcripts "
+                             "until it is handed over; interviewer links with the right “sees: all interviews” "
+                             "to read (without audio recordings); the members of an analysis (“Coding interviews”) the transcripts "
                              "they see there; transcription server (Whisper) when switched on."),
          "deletion": de_en("Ab Ende des Interviews: Tonaufnahme nach eigener Frist (Voreinstellung: bis das Transkript "
                            "geprüft ist), übrige Angaben nach der Frist des Leitfadens (Voreinstellung 10 Jahre). Auf dem "

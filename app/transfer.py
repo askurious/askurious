@@ -255,6 +255,7 @@ def dump(survey, with_files=True, raw=None, public=False, media=False):
 
     for node in webservice.nodes_in(tree):
         # the value of a web service's header (an API key) stays on this server: the file says there was one
+        node.pop("secret_visible", None)
         if node.pop("secret", None):
             node["secret_set"] = True
     quotas = [{"id": q.id, "code": q.code, "name": q.name, "mode": q.mode, "tolerance": q.tolerance,
@@ -1344,7 +1345,7 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
             method = "POST" if node.get("method") == "POST" else "GET"
             return [{"t": "ws", "id": nid(node, "w"), "code": wcode, "name": _str(node.get("name"), 100, line=True) or wcode,
                      "method": method, "url": url, "body": _str(node.get("body"), 5000) if method == "POST" else "",
-                     "header": header, "values": found}]
+                     "header": header, "timeout": webservice.time_limit(node), "values": found}]
         return children(node, depth)
 
     root = {"t": "root", "children": children(_dict(raw), 0)}

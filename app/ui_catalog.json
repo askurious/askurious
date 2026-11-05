@@ -18528,5 +18528,17 @@
   "nl": "Technisch probleem",
   "pt": "Problema técnico",
   "ar": "مشكلة تقنية"
+ },
+ "One moment, please …": {
+  "es": "Un momento, por favor …",
+  "fr": "Un instant, s’il vous plaît …",
+  "it": "Un momento, per favore …",
+  "pl": "Chwileczkę …",
+  "ru": "Минуточку …",
+  "tr": "Bir dakika lütfen …",
+  "zh-Hans": "请稍候 …",
+  "nl": "Een ogenblik geduld …",
+  "pt": "Um momento, por favor …",
+  "ar": "لحظة من فضلك …"
  }
 }

@@ -202,15 +202,17 @@
   <h2>{{ de_en("Dokumentation", "Documentation") }}</h2>
   {{ why("study_material") }}
   {{ why("ddi_export") }}
+  {# the questionnaire for paper is with the paper questionnaires on "Datenerhebung" (Ralf 2026-11-05), a block there for
+     editors of a questionnaire (surveys/field.py, _paper_overview); the codebook of the questionnaire is the survey
+     material (PDF) below #}
+  {% set paper_on = survey.live is none and survey.interview is none and survey.sampling is none and survey.can(current_user, "editor") %}
+  <p class="muted">{{ de_en("Hier können Sie sich das Befragungsmaterial einschließlich Variablennamen, Logiken und Randomisierungen für die Dokumentation herunterladen.", "Here you can download the survey material including variable names, logic and randomisation for your documentation.") }} {# what prereg.freeze, the seal and the packages take: study_conditions.DEFAULT #}{% if randomised %}{{ de_en("Beim Einfrieren für die Präregistrierung wird es als PDF gespeichert, die Bedingungen in der Darstellung „Vollständig“.", "When frozen for the pre-registration it is saved as a PDF, with the conditions in the “Full” view.") }}{% else %}{{ de_en("Beim Einfrieren für die Präregistrierung wird es als PDF gespeichert.", "When frozen for the pre-registration it is saved as a PDF.") }}{% endif %}{% if paper_on %} {{ de_en("Hier finden Sie", "Here you will find") }} <a href="{{ url_for('surveys.field', survey_id=survey.id) }}#paper">{{ de_en("Papierfragebögen zum Ausdrucken", "paper questionnaires for printing") }}</a>.{% endif %}</p>
   <ul class="xp-rows">
-    {# the questionnaire for paper is with the paper questionnaires on "Datenerhebung" (Ralf 2026-11-05); the codebook
-       of the questionnaire is the survey material (PDF) below #}
+    {% if not paper_on %}
     {% call xp.row(de_en("Fragebogen für Papier", "Questionnaire for paper"), de_en("Unter Datenerhebung", "Under data collection"), de_en("Der Fragebogen für Papier als Word (druckfertig, wie Teilnehmende ihn sehen) und die Papierfragebögen mit QR-Code zum Scannen stehen unter Datenerhebung › Papierfragebogen. Die Dokumentation mit Variablennamen, Bedingungen und Quellen ist das Befragungsmaterial.", "The questionnaire for paper as Word (ready to print, as participants see it) and the paper questionnaires with QR code for scanning are under Data collection › Paper questionnaire. The documentation with variable names, conditions and sources is the survey material.")) %}
-      {# the block "Papierfragebogen" is there for editors of a questionnaire (surveys/field.py, _paper_overview) #}
-      {% set paper_on = survey.live is none and survey.interview is none and survey.sampling is none and survey.can(current_user, "editor") %}
-      {% if paper_on %}<a class="button button-secondary" href="{{ url_for('surveys.field', survey_id=survey.id) }}#paper">{{ de_en("Zum Papierfragebogen", "To the paper questionnaire") }}</a>
-      {% else %}{{ xp.fmt(de_en("Word für Papier", "Word for paper"), url_for('surveys.export_docx', survey_id=survey.id, version='print'), de_en("Fragebogen für Papier (Word) herunterladen", "Download questionnaire for paper (Word)"), pooled=false) }}{% endif %}
+      {{ xp.fmt(de_en("Word für Papier", "Word for paper"), url_for('surveys.export_docx', survey_id=survey.id, version='print'), de_en("Fragebogen für Papier (Word) herunterladen", "Download questionnaire for paper (Word)"), pooled=false) }}
     {% endcall %}
+    {% endif %}
     {% call xp.row(de_en("Befragungsmaterial", "Survey material"), de_en("Fragebogen mit Anmerkungen", "Questionnaire with notes"), de_en("Teil 1 zeigt den Fragebogen, wie Teilnehmende ihn sehen, nummeriert; Teil 2 denselben mit farbigen Anmerkungen neben jedem Element: Anzeigelogik und Bedingungen, Randomisierung, Pflicht- und Qualitätsprüfungen, Variablennamen und Quellen. Ohne KI erstellt; wird bei der Präregistrierung eingefroren und bei Zenodo und Coscine beigelegt", "Part 1 shows the questionnaire as participants see it, numbered; part 2 the same with coloured notes beside each element: display logic and conditions, randomisation, required answers and quality checks, variable names and sources. Made without AI; frozen with the pre-registration and added to Zenodo and Coscine")) %}
       {% if randomised %}
       {# how part 3 shows the conditions (app/study_conditions.py); the packages and the pre-registration take "full" #}
