@@ -53,7 +53,7 @@
      buttons; the texts wait here in the language of the page #}
   {% set web_wait = web_service_wait(survey) %}
   <div class="p-send-note" data-send-note aria-live="polite"
-       {% if web_wait %}data-wait="{{ ui('Einen Moment bitte …', 'One moment, please …') }}" data-wait-seconds="{{ web_wait }}"{% endif %}
+       {% if web_wait %}data-wait-seconds="{{ web_wait }}"{% endif %}
        data-sending="{{ ui('Wird gesendet …', 'Sending …') }}"
        data-offline="{{ ui('Keine Verbindung zum Internet. Ihre Antworten sind noch da. Bitte senden Sie die Seite erneut, sobald Sie wieder online sind.', 'No internet connection. Your answers are still here. Please send the page again once you are back online.') }}"
        data-slow="{{ ui('Das Senden dauert ungewöhnlich lange. Ihre Antworten sind noch da. Wenn sich nichts tut, senden Sie die Seite bitte erneut.', 'Sending is taking unusually long. Your answers are still here. If nothing happens, please send the page again.') }}"

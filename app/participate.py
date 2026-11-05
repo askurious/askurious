@@ -1354,12 +1354,14 @@ def _needs_split(survey, response):
 def _walk_to_page(survey, response, lang):
     """What the GET after the redirect would do, in this request: the steps up to the page to show, an end or an
     external section. None if it does not settle (then the redirect after all)."""
-    from app import panel
+    from app import panel, webservice
 
     pages = (response.layout or {}).get("pages") or []
     for _ in range(len(pages) + 1):
         result = runtime.step(survey, response, {}, lang, "GET", params=panel.values(survey),
                               ext_barrier=_returned(survey, response))
+        if webservice.queued(response):
+            return None  # its values come after this request: the page after the redirect shows them
         if not result.redirect:
             return result
         _commit_keeping_loaded()  # as the request of each redirect would
@@ -1849,7 +1851,9 @@ def page(uid):
         db.session.commit()
         return _declined_page(survey, lang)
     relaid = getattr(response, "relaid", False) and response.id is not None
-    if result.redirect and _direct(response):
+    from app import webservice
+
+    if result.redirect and _direct(response) and not webservice.queued(response):
         # the page sent by participant.js (field "_direct"): the page the participation is on now comes in the answer
         # to this POST, without the redirect and the second request (block-load concept 2026-10-15, stage c). The
         # page itself turns its history entry into a GET (participant.js), so reloading never sends the form again.

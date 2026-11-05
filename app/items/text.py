@@ -541,6 +541,9 @@ class TextInput(ItemType):
 
         return number_text(answer, lang) if isinstance(answer, (int, float)) else typed_text(answer)
 
+    def whole_text(self, item, answer, lang):
+        return answer if isinstance(answer, str) else self.pipe_text(item, answer, lang)
+
     def pipe_live(self, item, lang):
         return {"kind": "text", "item": item.id}
 

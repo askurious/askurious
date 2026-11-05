@@ -13,6 +13,7 @@ from app import flow, webservice
 from app.extensions import db
 from app.models import Response, Survey
 from tests.conftest import CONSENT_OK, add, experiments_on, fill_consent
+from tests.helpers.page_pos import page_pos
 
 E = "/surveys/1/editor"
 URL = "https://api.open-meteo.com/v1/forecast?city={{city}}&current=temperature_2m"
@@ -93,6 +94,41 @@ def test_participant_passes_the_web_service_and_sees_its_value(app, client, surv
     assert "ws1_temp" in book and "current.temperature_2m" in " ".join(book["ws1_temp"])
     privacy = app.test_client().get(f"/s/{uid}/privacy").data.decode()
     assert "Web Service auf (api.open-meteo.com)" in privacy
+
+
+def test_a_page_sent_by_the_script_shows_the_value_of_the_call(app, client, survey, answers):
+    """participant.js sends the field "_direct" and gets the next page in the answer to the POST, but the call runs after
+    that answer: the page held the text for an empty value, on the live survey only, the preview redirects (2026-11-05)."""
+    build(app, client)
+    uid = start(app, client)
+    p = app.test_client()
+    p.get(f"/s/{uid}")
+    p.post(f"/s/{uid}", data={**CONSENT_OK, "_direct": "1"})
+    sent = p.post(f"/s/{uid}", data={"nav": "next", "i2": "Aachen", "pos": page_pos(p, 1), "_direct": "1"})
+    assert sent.status_code in (302, 303)
+    page = p.get(sent.headers["Location"]).data.decode()
+    assert "In Aachen sind es 13,8 °C." in page or "In Aachen sind es 13.8 °C." in page
+    assert len(answers) == 1
+
+
+def test_the_call_gets_what_was_typed_whole_and_a_text_of_a_page_the_short_form(app, client, survey, answers):
+    """A text of a page takes one line of at most 200 characters (items.base.typed_text), the web service all of it,
+    line breaks too: a field of 300 characters reached OpenAI cut at 200 (Philipp 2026-11-05)."""
+    build(app, client)
+    client.post(E + "/items/2", data={"code": "city", "question": "Ihre Stadt?", "multiline": "1"})
+    uid = start(app, client)
+    typed = "Aachen " * 60 + "\nEnde"
+    p = app.test_client()
+    p.get(f"/s/{uid}")
+    p.post(f"/s/{uid}", data=CONSENT_OK)
+    page = p.post(f"/s/{uid}", data={"nav": "next", "i2": typed}, follow_redirects=True).data.decode()
+    assert webservice.fill_url("{{city}}", {"city": typed}) in answers[0][1]
+    assert "Ende" not in page and "…" in page
+
+
+def test_a_long_text_of_the_answer_stays():
+    assert len(webservice._as("x" * 1500, "text")) == 1500
+    assert len(webservice._as("x" * 3000, "text")) == webservice.MAX_TEXT
 
 
 def test_a_failed_call_lets_the_person_go_on(app, client, survey, monkeypatch):
@@ -243,7 +279,7 @@ def test_the_limit_is_saved_and_a_wrong_one_refused(app, client, survey):
 
 
 def test_a_page_waits_as_long_as_the_web_services_may_take(app, client, survey):
-    """"One moment" only where a web service can make the page wait, and no "send again" before its time limit is over."""
+    """No "send again" before the time limit of a web service is over; the button shows the wait, no note beside it."""
     nid = build(app, client)
     with app.app_context():
         s = db.session.get(Survey, 1)
@@ -254,7 +290,7 @@ def test_a_page_waits_as_long_as_the_web_services_may_take(app, client, survey):
     uid = start(app, client)
     p = app.test_client()
     page = p.get(f"/s/{uid}").data.decode()
-    assert 'data-wait-seconds="30"' in page and "Einen Moment bitte" in page
+    assert 'data-wait-seconds="30"' in page and "Einen Moment bitte" not in page
 
 
 def test_no_wait_note_without_a_web_service(app, client, survey):
