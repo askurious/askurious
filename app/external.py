@@ -3,11 +3,13 @@ experiment in an interactive web app, in the middle of one survey.
 
 The flow node (flow.py):
   {"t": "ext", "id": "o..", "code": "ext1", "name": "...", "url": "https://webapp.example/task?pid={{pid}}&return={{return}}",
-   "mode": "button" | "auto", "text": {lang: "..."}, "values": [{"name": "score", "kind": "number" | "text"}],
+   "delay": 0, "text": {lang: "..."}, "values": [{"name": "score", "kind": "number" | "text"}],
    "sign": {"on": True, "key": "<encrypted>"}}   (optional: the returned values are signed by the web app)
 
-Who gets to the node sees a short page ("Sie werden weitergeleitet …") and leaves through it: by its button,
-or by itself after AUTO_SECONDS. {{return}} in the address is the return link of this participation for this
+Who gets to the node sees a short page ("Sie werden weitergeleitet …") and leaves through it by itself after "delay"
+seconds (0 to MAX_DELAY, by default 0; a section stored before "delay" existed has "mode": see delay()). Its button
+is there for browsers without scripts only, and for who comes back to the page without the return link, as nothing
+may send them away again by itself. {{return}} in the address is the return link of this participation for this
 node: sealed (encrypted and authenticated, so the web app reads nothing of it, not even the pid), good for one return
 within MAX_SECONDS of the first leaving, and ending in a query (…/back?t=…). The web app sends the person back to
 it at the end, and may append the declared values (…&score=17); nothing else of what it appends is kept. The return resumes the participation
@@ -53,10 +55,9 @@ from app.conditions import ByLanguage
 from app.lang import de_en
 
 NODE = "ext"
-# read in the language of the page wherever they are shown (modes(), kinds() for a plain dict); the keys are the same
-MODES = ByLanguage({"button": "Seite mit Knopf", "auto": "Seite, weiter nach 2 s"},
-                   {"button": "page with a button", "auto": "page, continue after 2 s"})
-AUTO_SECONDS = 2
+MAX_DELAY = 60  # seconds a researcher may hold people on the page before the redirect
+OLD_AUTO_DELAY = 2  # what the mode "auto" waited, before the delay could be set
+# read in the language of the page wherever they are shown (kinds() for a plain dict); the keys are the same
 KINDS = ByLanguage({"number": "Zahl", "text": "Text"}, {"number": "number", "text": "text"})
 RETURN = "return"
 MAX_VALUES = 20
@@ -71,11 +72,6 @@ V2_ONLY = "v2"  # in node["sign"]: the key was drawn after version 1 was given u
 PARAMS = "_params"  # in Response.external: the URL parameters held while the person is outside (leave)
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{20,400}\Z")
 _EPOCH = datetime(1970, 1, 1)
-
-
-def modes():
-    """MODES in the language of the page."""
-    return {key: MODES[key] for key in MODES}
 
 
 def kinds():
@@ -103,7 +99,25 @@ def new(survey, root):
     codes = {n.get("code") for n, _, _ in flow.walk(root) if n["t"] == NODE}
     k = next(k for k in range(1, len(codes) + 2) if f"ext{k}" not in codes)
     return {"t": NODE, "id": flow._nid("o"), "code": f"ext{k}", "name": de_en("Externer Abschnitt {k}", "External section {k}", k=k), "url": "",
-            "mode": "button", "text": {}, "values": []}
+            "delay": 0, "text": {}, "values": []}
+
+
+def delay(node):
+    """Seconds on the page before the redirect. A section stored before there was a delay has "mode": "auto" waited
+    OLD_AUTO_DELAY, "button" had no wait; a button is no longer offered, so that one now goes on at once."""
+    node = node or {}
+    seconds = node.get("delay")
+    if isinstance(seconds, int) and not isinstance(seconds, bool) and 0 <= seconds <= MAX_DELAY:
+        return seconds
+    return OLD_AUTO_DELAY if node.get("mode") == "auto" else 0
+
+
+def read_delay(raw):
+    """The seconds typed into the form, or None if they are no whole number from 0 to MAX_DELAY."""
+    raw = (raw or "").strip() or "0"
+    if not (raw.isascii() and raw.isdigit() and len(raw) < 4) or int(raw) > MAX_DELAY:
+        return None
+    return int(raw)
 
 
 def values(node):
@@ -201,9 +215,13 @@ def update(survey, node, form, languages, links=True):
         found.append({"name": name, "kind": kind if kind in KINDS else "number"})
     if len(found) > MAX_VALUES:
         return de_en("Höchstens {n} Rückgabewerte je Abschnitt.", "At most {n} return values per section.", n=MAX_VALUES)
+    seconds = read_delay(form.get("delay")) if "delay" in form else delay(node)
+    if seconds is None:
+        return de_en("Wartezeit: eine ganze Zahl von 0 bis {n} Sekunden.", "Delay: a whole number from 0 to {n} seconds.", n=MAX_DELAY)
     sign = sign_from_form(node, form) if links else node.get("sign")
+    node.pop("mode", None)
     node.update(code=code, name=form.get("name", "").strip()[:100] or code, url=url,
-                mode=form.get("mode") if form.get("mode") in MODES else "button",
+                delay=seconds,
                 text={l: form.get(f"text_{l}", "").strip()[:3000] for l in languages}, values=found)
     if sign:
         node["sign"] = sign

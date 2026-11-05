@@ -377,7 +377,7 @@ def _run_preview(survey, lang, url, on_phone, comment_url=None):
             return_link="(Rückkehrlink-nur-im-Feld)")
         return render_template("participant/external.html", response=response, page_count=count, framed=framed,
                                node=node, forward=forward, text=(node.get("text") or {}).get(lang) or "",
-                               values=external.values(node), kinds=external.KINDS, auto_seconds=external.AUTO_SECONDS,
+                               values=external.values(node), kinds=external.KINDS, auto_seconds=external.delay(node),
                                page_token=result.external["token"], **common)
     if result.redirect:
         return redirect(here())

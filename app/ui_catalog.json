@@ -5396,18 +5396,18 @@
   "pt": "Para o mapa é necessário JavaScript.",
   "ar": "تتطلب الخريطة تفعيل JavaScript."
  },
- "The next part of this survey takes place on another website. Afterwards you will be brought back here automatically.": {
-  "es": "La siguiente parte de esta encuesta tiene lugar en otro sitio web. Después volverá aquí automáticamente.",
-  "fr": "La partie suivante de cette enquête se déroule sur un autre site web. Vous serez ensuite ramené(e) ici automatiquement.",
-  "it": "La parte successiva di questo sondaggio si svolge su un altro sito web. Al termine tornerà qui automaticamente.",
-  "pl": "Następna część tej ankiety odbywa się na innej stronie internetowej. Potem nastąpi automatyczny powrót tutaj.",
-  "ru": "Следующая часть этого опроса проходит на другом сайте. После этого вы автоматически вернётесь сюда.",
-  "tr": "Bu anketin sonraki bölümü başka bir web sitesinde yer alıyor. Ardından otomatik olarak buraya geri getirileceksiniz.",
-  "zh-Hans": "本调查的下一部分在另一个网站上进行。完成后您将自动返回此处。",
-  "nl": "Het volgende deel van deze vragenlijst vindt plaats op een andere website. Daarna wordt u automatisch hierheen teruggebracht.",
-  "pt": "A próxima parte deste questionário decorre noutro sítio web. Depois, será reconduzido/a automaticamente a esta página.",
-  "ar": "يجري الجزء التالي من هذا الاستبيان على موقع إلكتروني آخر. بعد ذلك ستُعاد إلى هنا تلقائيًا.",
-  "de-du": "Der nächste Teil dieser Befragung findet auf einer anderen Website statt. Danach kommst du von dort automatisch hierher zurück."
+ "The next part of this survey runs in a submodule on another website. Afterwards you will be brought back here automatically.": {
+  "es": "La siguiente parte de esta encuesta se realiza en un submódulo de otro sitio web. Después volverá aquí automáticamente.",
+  "fr": "La partie suivante de cette enquête se déroule dans un sous-module sur un autre site web. Vous serez ensuite ramené(e) ici automatiquement.",
+  "it": "La parte successiva di questo sondaggio si svolge in un sottomodulo su un altro sito web. Al termine tornerà qui automaticamente.",
+  "pl": "Następna część tej ankiety odbywa się w podmodule na innej stronie internetowej. Potem nastąpi automatyczny powrót tutaj.",
+  "ru": "Следующая часть этого опроса проходит в подмодуле на другом сайте. После этого вы автоматически вернётесь сюда.",
+  "tr": "Bu anketin sonraki bölümü başka bir web sitesindeki bir alt modülde yer alıyor. Ardından otomatik olarak buraya geri getirileceksiniz.",
+  "zh-Hans": "本调查的下一部分在另一个网站的子模块中进行。完成后您将自动返回此处。",
+  "nl": "Het volgende deel van deze vragenlijst vindt plaats in een submodule op een andere website. Daarna wordt u automatisch hierheen teruggebracht.",
+  "pt": "A próxima parte deste questionário decorre num submódulo noutro sítio web. Depois, será reconduzido/a automaticamente a esta página.",
+  "ar": "يجري الجزء التالي من هذا الاستبيان في وحدة فرعية على موقع إلكتروني آخر. بعد ذلك ستُعاد إلى هنا تلقائيًا.",
+  "de-du": "Der nächste Teil dieser Befragung läuft in einem Teilmodul auf einer anderen Website. Danach kommst du von dort automatisch hierher zurück."
  },
  "The platform was deliberately designed to collect as little data as possible; technical tracking is kept to a minimum.": {
   "es": "La plataforma se diseñó deliberadamente para recopilar el menor número posible de datos; el seguimiento técnico se reduce al mínimo.",
@@ -11647,18 +11647,6 @@
   "nl": "verder na {n} s",
   "pt": "avança após {n} s",
   "ar": "المتابعة بعد {n} ث"
- },
- "on with a button": {
-  "es": "sigue con un botón",
-  "fr": "suite avec un bouton",
-  "it": "avanti con un pulsante",
-  "pl": "dalej przyciskiem",
-  "ru": "дальше по кнопке",
-  "tr": "düğmeyle devam",
-  "zh-Hans": "点击按钮继续",
-  "nl": "verder met een knop",
-  "pt": "avança com um botão",
-  "ar": "المتابعة بزر"
  },
  "Address": {
   "es": "Dirección",
@@ -18515,5 +18503,30 @@
   "nl": "Notities die je bij de dia’s schrijft, blijven alleen in de opslag van je browser op dit apparaat. Als je de dia’s met notities downloadt, worden de notities één keer naar de server gestuurd, daar alleen in het werkgeheugen tot de pdf verwerkt en meteen weggegooid; ze worden niet opgeslagen en niet gelogd. Je verwijdert ze door de sitegegevens van deze pagina in je browser te wissen.",
   "pt": "As notas que escreve nos diapositivos ficam apenas no armazenamento do seu navegador neste dispositivo. Se descarregar os diapositivos com notas, as notas são enviadas uma vez para o servidor, convertidas no PDF apenas em memória e descartadas de imediato; não são guardadas nem registadas. Apaga-as eliminando os dados deste site no seu navegador.",
   "ar": "تبقى الملاحظات التي تكتبها على الشرائح في ذاكرة متصفحك على هذا الجهاز فقط. إذا نزّلت الشرائح مع الملاحظات، تُرسل الملاحظات مرة واحدة إلى الخادم، حيث تُحوَّل إلى ملف PDF في الذاكرة فقط ثم تُحذف فورًا؛ لا تُحفظ ولا تُسجَّل. يمكنك حذفها بحذف بيانات هذا الموقع في متصفحك."
+ },
+ "Is the redirect not working? Report the problem": {
+  "es": "¿No funciona la redirección? Informe del problema",
+  "fr": "La redirection ne fonctionne pas ? Signalez le problème",
+  "it": "Il reindirizzamento non funziona? Segnali il problema",
+  "pl": "Przekierowanie nie działa? Zgłoś problem",
+  "ru": "Перенаправление не работает? Сообщите о проблеме",
+  "tr": "Yönlendirme çalışmıyor mu? Sorunu bildirin",
+  "zh-Hans": "跳转失败？报告问题",
+  "nl": "Werkt de doorverwijzing niet? Meld het probleem",
+  "pt": "O reencaminhamento não funciona? Comunique o problema",
+  "ar": "ألا يعمل التحويل؟ أبلغ عن المشكلة",
+  "de-du": "Die Weiterleitung funktioniert nicht? Problem melden"
+ },
+ "Technical problem": {
+  "es": "Problema técnico",
+  "fr": "Problème technique",
+  "it": "Problema tecnico",
+  "pl": "Problem techniczny",
+  "ru": "Техническая проблема",
+  "tr": "Teknik sorun",
+  "zh-Hans": "技术问题",
+  "nl": "Technisch probleem",
+  "pt": "Problema técnico",
+  "ar": "مشكلة تقنية"
  }
 }
