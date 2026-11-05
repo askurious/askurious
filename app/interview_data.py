@@ -305,7 +305,17 @@ def index(code):
         rows = [r for r in rows if not (r.interview or {}).get("access")]
     elif held_by.isdigit():
         rows = [r for r in rows if (r.interview or {}).get("access") == int(held_by)]
+    def audio_minutes(r):
+        """Minutes of the stored recording, for an interview whose clock never ran (a file uploaded afterwards)."""
+        from app import audio_length, interview_audio
+
+        found = [audio_length.seconds(full, p["mime"]) for p in interview_audio.parts(r)
+                 for full, p in [interview_audio.path(survey, r, p.get("part"))] if full]
+        found = [s for s in found if s]
+        return round(sum(found) / 60) if found else None
+
     return render_template("interview/interviews.html", survey=survey, rows=rows, st=interview.state(survey),
+                           audio_minutes=audio_minutes,
                            accesses=interviewer.accesses(survey), held_by=held_by,
                            see_choices=interviewer.see_choices(),
                            new_link=interviewer.show_once(survey), access_state=interviewer.state,
