@@ -498,3 +498,16 @@ def test_longest_part_comes_from_the_environment_and_passes_the_start_check(monk
     # the probe for the estimate follows the limit: 102 minutes are known, beyond the limit not
     monkeypatch.setattr(estimates.subprocess, 'run', lambda *a, **k: SimpleNamespace(stdout=b'{"format":{"duration":"6120"}}'))
     assert estimates.duration(tmp_path / 'audio', 10800) == 6120 and estimates.duration(tmp_path / 'audio', 3600) is None
+
+
+def test_every_copy_of_the_image_passes_its_dockerignore():
+    """2026-11-05: the rebuild for 3-hour parts stopped at "COPY licenses" because .dockerignore (everything out
+    but a list) did not let the licence folder of 186f60a in; the image had not been built since."""
+    import re
+    whisper = Path(__file__).resolve().parents[2] / "deploy/docker/whisper"
+    allowed = {line[1:].rstrip("/") for line in (whisper / ".dockerignore").read_text(encoding="utf-8").splitlines()
+               if line.startswith("!")}
+    for sources in re.findall(r"^COPY\s+(.+?)\s+\S+$", (whisper / "Dockerfile").read_text(encoding="utf-8"), re.M):
+        for source in sources.split():
+            assert source.rstrip("/") in allowed, source
+            assert (whisper / source).exists(), source
