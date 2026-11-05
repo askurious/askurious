@@ -235,7 +235,7 @@ def test_two_items_report_spearman_brown_and_a_negative_alpha_is_named(app, clie
         "word/document.xml").decode()
     assert "Spearman-Brown-Koeffizient: Vertrauen: Kern" in xml and "Negatives α (Technik)" in xml
     # the note under alpha and omega of a partial scale names both
-    source = open(app.root_path + "/templates/surveys/results.html", encoding="utf-8").read()
+    source = open(app.root_path + "/templates/surveys/_results_macros.html", encoding="utf-8").read()
     assert '; Cronbachs α", "' in source and '{% if s.k > 2 %}{{ de_en(" und McDonalds ω"' in source
 
 

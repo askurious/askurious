@@ -1,0 +1,143 @@
+{# The results of one question (one entry e of results.compute): the section with its lists, tables and figures.
+   Included per question by surveys/results.html and by the Kurzfragebogen of interviews (interview/results.html);
+   needs the macros of surveys/_results_macros.html, survey and r (r.n_rows); no_coding leaves out the categories. #}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num, share_bar, share_n, content_lang %}
+{% from "_learn.html" import why, term %}
+{% from "surveys/_omega_macros.html" import ci, omega_ci, omega_open, overview_open %}
+<section class="panel res-item" id="res-{{ e.item.code }}"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2><span{{ content_lang(survey.default_language) }}>{{ (e.question|striptags|readable_placeholders|truncate(110)) or e.item.code }}</span> <span class="hint">{{ e.item.code }} · {{ e.item.kind.label }}{% if e.level_label %} · {{ de_en(e.level_label, e.level) }}{% endif %}</span>{{ only_badge }}</h2></summary>
+  <p class="muted small">{{ de_en("Beantwortet von {n} der {all} Teilnahmen", "Answered by {n} of the {all} participations", n=e.answered, all=r.n_rows) }}{% if e.passes %} · {{ de_en("Schleife: eine Spalte je Durchgang (…_1 bis …_{k}), n je Durchgang", "loop: one column per pass (…_1 to …_{k}), n per pass", k=e.passes) }}{% endif %}{% if e.checks %} · {{ de_en("die Aufmerksamkeitsprüfung steht in der", "the attention check is in") if e.checks == 1 else de_en("die Aufmerksamkeitsprüfungen stehen in der", "the attention checks are in") }} <a href="{{ url_for('surveys.quality', survey_id=survey.id) }}">{{ de_en("Qualitätssicherung", "quality assurance") }}</a>{% endif %}.</p>
+  {% if e.pass_names %}<p class="muted small res-passes">{% for n, caption in e.pass_names %}<code>_{{ n }}</code> {{ caption.split(": ", 1)[1] if ": " in caption else de_en("(leere Zeile)", "(empty row)") }}{{ " · " if not loop.last }}{% endfor %}</p>{% endif %}
+  {% if e.scale %}
+  <p class="res-scale">{{ de_en("Skala aus {k} Aussagen", "Scale of {k} statements", k=e.scale.k) }}: <strong>{{ de_en("Cronbachs α", "Cronbach's α") }} = {{ num(e.scale.alpha) }}</strong>{% if e.scale.alpha is not none %} {{ ci(e.scale.alpha_ci) }}{% endif %}{{ fn("rel") }}{{ negative(e.scale) }}{{ omega(e.scale, e.item.id ~ ":") }}{{ sb(e.scale) }}
+    {% if e.scale.mean is defined %} · {{ de_en("Skalenmittelwert", "Scale mean") }} M = {{ num(e.scale.mean) }} {{ ci(e.scale.mean_ci) }}, SD = {{ num(e.scale.sd) }}{% endif %} · n = {{ e.scale.n }} {{ de_en("vollständige Durchgänge (Personen × Durchgang)", "complete passes (people × pass)") if e.passes else de_en("vollständige", "complete") }}
+    <span class="hint">{{ de_en("in Klammern: 95-%-Konfidenzintervalle, α nach Feldt", "in brackets: 95% confidence intervals, α by Feldt") }}{{ fn("feldt") }}{% if e.scale.k > 2 %}{{ de_en(", ω per Bootstrap ab n = 30", ", ω by bootstrap from n = 30") }}{{ fn("omega_ci") }}{% endif %}{% if e.scale.k == 2 %}{{ de_en(", Spearman-Brown über Fishers z", ", Spearman-Brown via Fisher's z") }}{% endif %}{{ de_en(", M über t", ", M via t") }}{{ fn("mean_ci") }}{{ de_en("; „[–]“ unter n = 10; sie setzen eine Zufallsstichprobe voraus", "; “[–]” under n = 10; they assume a random sample") }}{{ fn("random") }}</span>
+    {{ partial_note(e.scale) }}{{ pooled(e.scale) }}
+    {% if e.recoded %}<span class="hint">{{ de_en("umgepolte Aussagen sind rekodiert", "reversed statements are recoded") }}</span>{% endif %}</p>
+  {{ item_table(e.scale) }}
+  {% endif %}
+  {% for s in e.subscales or [] %}
+  <p class="res-scale">{{ de_en("Subskala „{name}“", "Subscale “{name}”", name=s.name) }} ({% if s.k == 1 %}{{ de_en("1 Aussage", "1 statement") }}{% else %}{{ de_en("{k} Aussagen", "{k} statements", k=s.k) }}{% endif %}): {% if s.k > 1 %}<strong>{{ de_en("Cronbachs α", "Cronbach's α") }} = {{ num(s.alpha) }}</strong>{% if s.alpha is not none %} {{ ci(s.alpha_ci) }}{% endif %}{{ negative(s) }}{{ omega(s, e.item.id ~ ":" ~ s.name) }}{{ sb(s) }} · {% endif %}{% if s.mean is defined %}{{ de_en("Mittelwert", "Mean") }} M = {{ num(s.mean) }} {{ ci(s.mean_ci) }}, SD = {{ num(s.sd) }} · {% endif %}n = {{ s.n }} {{ de_en("vollständige Durchgänge (Personen × Durchgang)", "complete passes (people × pass)") if e.passes else de_en("vollständige", "complete") }}
+    {{ partial_note(s) }}{{ pooled(s) }}
+    {% if loop.last %}<span class="hint">{{ de_en("umgepolte Aussagen sind rekodiert; ", "reversed statements are recoded; ") if e.recoded }}{{ de_en("kein Wert über alle Aussagen, weil die Subskalen Verschiedenes messen; in Klammern: 95-%-Konfidenzintervalle (α nach Feldt, ω per Bootstrap ab n = 30, M über t); „[–]“ unter n = 10", "no score over all statements, because the subscales measure different things; in brackets: 95% confidence intervals (α by Feldt, ω by bootstrap from n = 30, M via t); “[–]” under n = 10") }}</span>{% endif %}</p>
+  {{ item_table(s) }}
+  {% endfor %}
+  {% if e.efa %}{{ efa_part(e.efa) }}{% endif %}
+  {% if e.scale_hidden %}
+  <p class="muted small">{{ de_en("Ordinal ausgewertet: Median, Quartile und Verteilung je Aussage. Cronbachs α und Skalenmittelwert setzen metrische Antworten voraus; dafür im Editor das Messniveau auf „metrisch“ stellen.", "Analysed as ordinal: median, quartiles and distribution per statement. Cronbach's α and the scale mean need metric answers; for them set the level of measurement to “metric” in the editor.") }}</p>
+  {% endif %}
+  {% if e.psm %}{% include "surveys/_psm_results.html" %}{% endif %}
+  {% if e.map %}{% include "surveys/_map_results.html" %}{% endif %}
+  {% if e.pos2d %}{% include "surveys/_pos2d_results.html" %}{% endif %}
+  {% if e.terms %}{% include "surveys/_terms_results.html" %}{% endif %}
+  {% if e.ranks_norm %}{% include "surveys/_ranking_results.html" %}{% endif %}
+  {% if e.cardsort %}{% include "surveys/_cardsort_results.html" %}{% endif %}
+  {% if e.hotspot %}{% include "surveys/_hotspot_results.html" %}{% endif %}
+  {% if e.media %}{% include "surveys/_media_results.html" %}{% endif %}
+  {% if e.qsort %}{% include "surveys/_qsort_results.html" %}{% endif %}
+  {% if e.highlight %}{% include "surveys/_highlight_results.html" %}{% endif %}
+  {% if e.cloze %}{% include "surveys/_cloze_results.html" %}{% endif %}
+  {% if e.postal %}{% include "surveys/_postal_results.html" %}{% endif %}
+  {% if e.states %}{% include "surveys/_state_results.html" %}{% endif %}
+  {% if e.dates %}{% include "surveys/_date_results.html" %}{% endif %}
+  {% if e.iat %}<p class="muted small">{{ term("iat_d", de_en("D-Wert nach dem verbesserten Algorithmus", "D score by the improved algorithm")) }}{{ fn("iat") }} · {{ de_en("einen D-Wert haben {n} von {all} Personen (keinen, wer mehr als 10 % der Antworten unter 300 ms gab)", "{n} of {all} people have a D score (none for those who gave more than 10% of their answers under 300 ms)", n=e.iat.valid, all=e.iat.n) }}{% if e.iat.cannot %} · {{ de_en("{k} weitere konnten die Aufgabe nach eigener Angabe nicht bearbeiten und sind nicht mitgezählt", "{k} more said they could not do the task and are not counted", k=e.iat.cannot) }}{% endif %}</p>{% endif %}
+  {% if e.discounting %}{% set dd = e.discounting %}<p class="muted small">{% if dd.mode == "quick" %}{{ de_en("Kurzform mit fünf Fragen", "Short form with five questions") }}{{ fn("dd_quick") }}: {{ de_en("ED50 aus der fünften Wahl", "ED50 from the fifth choice") }}, {{ term("k_discount", "k") }} = 1 / ED50{% else %}{{ de_en("Anpassungsverfahren, k der Hyperbel und Fläche unter der Kurve", "Adjusting procedure, k of the hyperbola and area under the curve") }}{{ fn("dd") }}{% if dd.n %} · {{ de_en("nicht systematisch", "not systematic") }}{{ fn("jb") }}: <strong>{{ de_en("{n} von {all}", "{n} of {all}", n=dd.any, all=dd.n) }}</strong> {{ de_en("Personen (Kriterium 1, ein Indifferenzpunkt mehr als 20 % des Betrags über dem vorherigen: {a}; Kriterium 2, der letzte nicht mindestens 10 % unter dem ersten: {b}); ihre k und Flächen sind mit Vorsicht zu lesen, im Export markiert (Spalten _jb1, _jb2)", "people (criterion 1, an indifference point more than 20% of the amount above the one before: {a}; criterion 2, the last not at least 10% below the first: {b}); read their k and areas with care, marked in the export (columns _jb1, _jb2)", a=dd.jb1, b=dd.jb2) }}{% endif %}{% endif %}</p>{% endif %}
+  {% if e.maxdiff %}{% include "surveys/_maxdiff_results.html" %}{% endif %}
+  {% if e.paired %}{% include "surveys/_paired_results.html" %}{% endif %}
+  {% if e.cva %}{% include "surveys/_cva_results.html" %}{% endif %}
+  {% if e.aca %}{% include "surveys/_aca_results.html" %}{% endif %}
+  {% if e.acbc %}{% include "surveys/_acbc_results.html" %}{% endif %}
+  {% if e.cbc %}{% include "surveys/_cbc_results.html" %}{% endif %}
+  {% for m in e.multi or [] %}
+  {# multiple choice: one list, per option the share of the people who saw it and answered the question #}
+  <div class="res-freq">
+    {% if m.pass %}<p class="res-freq-head"><code>_{{ m.pass }}</code></p>{% endif %}
+    {% if m.n %}
+    {% set with_ci = m.rows|selectattr("ci")|list %}
+    <ul class="plain res-bars{{ ' res-bars-ci' if with_ci }}">
+      {% set top = bar_top(m.rows) %}
+      {% for row in m.rows %}
+      <li><span class="res-bar-label">{{ row.label or row.value }}</span>
+        {{ share_bar(row, top) }}
+        <span class="res-bar-n">{{ share_n(row) }}{% if m.partial %} <span class="hint">{{ de_en("von {n}", "of {n}", n=row.n) }}</span>{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="muted small">n = {{ de_en("{n} Personen, die die Frage beantwortet haben · mehrere Antworten möglich, die Anteile ergeben zusammen nicht 100 %", "{n} people who answered the question · several answers possible, the shares do not add up to 100%", n=m.n) }}{% if m.partial %} · {{ de_en("Basis je Option: wer sie gesehen hat", "basis per option: those who saw it") }}{% endif %}{{ ci_note(10 if with_ci else 0) }}{% if with_ci and m.partial %} {{ de_en("je Option auf ihrer Basis", "per option on its basis") }}{% if with_ci|length < m.rows|length %}{{ de_en(", erst ab 10", ", from 10") }}{% endif %}{% endif %}</p>
+    {% else %}<p class="muted small">{{ de_en("keine Antworten", "no answers") }}</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% if e.profile %}{% include "surveys/_profile_results.html" %}
+  {# the frequencies of every pair, closed: the profile above is the answer to the question #}
+  <details class="res-dist"><summary>{{ de_en("Verteilung je Begriffspaar", "Distribution per pair of terms") }}</summary>{% endif %}
+  {% for c in e.columns if c.type == "freq" %}
+  <div class="res-freq">
+    {% if e.columns|length > 1 %}<p class="res-freq-head"><code>{{ c.code }}</code> <span class="hint">{{ c.label|column_head(e.passes if e is defined else 0)|truncate(80) }}</span></p>{% endif %}
+    <ul class="plain res-bars{{ ' res-bars-ci' if c.n >= 10 }}">
+      {# answers without an order: the most frequent first (equal counts keep the order of the questionnaire) #}
+      {% set top = bar_top(c.rows) %}
+      {% for row in c.rows|by_count %}
+      <li><span class="res-bar-label">{{ row.label or row.value }}</span>
+        {{ share_bar(row, top) }}
+        <span class="res-bar-n">{{ share_n(row) }}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="muted small">n = {{ c.n }}{{ apart(c) }}{{ ci_note(c.n) }}{% set m = modes(c, true) %}{% if m|trim and c.rows|length > 2 %} · {{ m }}{% endif %}{% if c.gini_simpson is not none %} · Gini-Simpson{{ fn("simpson") }} {{ num(c.gini_simpson) }} <span class="hint">{{ de_en("(Wahrscheinlichkeit, dass zwei zufällige Antworten verschieden sind)", "(probability that two random answers differ)") }}</span>{% endif %}</p>
+    {# answers with an order, measured as nominal (W66): sorted by frequency all the same, but said so, with the way to change it #}
+    {% if loop.last and looks_ordered(e.item) %}<p class="muted small">{{ icon("info", 16) }} {{ de_en("Die Antworten haben eine Reihenfolge; als „ordinal“ ausgewertet stünden sie in der Reihenfolge der Skala, mit Median.", "The answers have an order; analysed as “ordinal” they would appear in the order of the scale, with the median.") }}{% if survey.can(current_user, "editor") %} <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=e.item.id) }}">{{ de_en("Messniveau im Element ändern", "Change the level of measurement in the element") }}</a>{% endif %}</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% set ords = e.columns|selectattr("type", "equalto", "ord")|list %}
+  {% set overview = not e.profile and (e.ranks_mean or (ords|length > 1 and ords|map(attribute="rows")|map("length")|unique|list|length == 1)) %}
+  {% if overview %}
+  {% if e.ranks_mean %}{{ rank_chart(e.ranks_mean) }}{% else %}{{ stacks(ords, e.passes) }}{% endif %}
+  <details class="res-dist"><summary>{{ de_en("Verteilung je Option", "Distribution per option") if e.ranks_mean else (de_en("Verteilung je Durchgang", "Distribution per pass") if e.passes and ords|length == e.passes else de_en("Verteilung je Aussage", "Distribution per statement")) }}</summary>
+  {% endif %}
+  {% for c in ords %}
+  <div class="res-freq">
+    {% if e.columns|length > 1 or c.reversed %}<p class="res-freq-head"><code>{{ c.code }}</code> <span class="hint">{{ c.label|replace(" (rekodiert)", "")|column_head(e.passes if e is defined else 0)|truncate(80) }}</span>{% if c.reversed %} <span class="badge" title="{{ de_en('Die Aussage ist umgepolt: Die Zahlen sind rekodiert (1 = letzte Stufe), die Stufen stehen in derselben Reihenfolge wie bei den anderen Aussagen.', 'The statement is reversed: the numbers are recoded (1 = last level), the levels are in the same order as for the other statements.') }}">{{ de_en("umgepolt", "reversed") }}</span>{% endif %}</p>{% endif %}
+    <ul class="plain res-bars res-bars-cum{{ ' res-bars-ci' if c.n >= 10 }}">
+      {% set top = bar_top(c.rows) %}
+      {% for row in (c.rows|reverse if c.reversed else c.rows) %}
+      {% set cum = row.cum_shown if c.reversed else row.cum %}
+      <li><span class="res-bar-label">{{ row.value }}{% if row.label %} · {{ row.label }}{% endif %}</span>
+        {{ share_bar(row, top) }}
+        <span class="res-bar-n" title="{{ de_en('kumuliert', 'cumulative') }} {{ cum|percent }}">{{ share_n(row) }} <span class="hint">Σ {{ cum|percent }}</span></span></li>
+      {% endfor %}
+    </ul>
+    <p class="muted small">n = {{ c.n }}{{ apart(c) }}{{ ci_note(c.n) }} · <strong title="{{ de_en('Median als Kategorie: die erste Stufe, bis zu der mindestens die Hälfte der Antworten liegt; liegt genau die Hälfte bis zu einer Stufe, fällt er zwischen zwei Stufen und beide werden genannt', 'Median as a category: the first level up to which at least half of the answers lie; if exactly half lie up to a level, it falls between two levels and both are named') }}">Md = {% if c.median_hi %}{{ c.median.value }}–{{ c.median_hi.value }}{% else %}{{ cat(c.median) }}{% endif %}</strong> · Q1–Q3: {{ cat(c.q1, false) }}–{{ cat(c.q3, false) }}{% set m = modes(c) %}{% if m|trim %} · {{ m }}{% endif %} · {{ de_en("Spannweite", "Range") }} {{ cat(c.min, false) }}–{{ cat(c.max, false) }}{{ fn("ord") }}</p>
+  </div>
+  {% endfor %}
+  {% if overview %}</details>{% endif %}
+  {% set nums = e.columns|selectattr("type", "equalto", "num")|list %}
+  {% for unit, group in nums|groupby("unit") %}
+  {% set d = 0 if unit in ("ms", "m") else 2 %}
+  {% set with_gini = group|selectattr("ratio")|list %}
+  {% if unit == "ms" %}<p class="res-group-head">{{ de_en("Reaktionszeiten (ms)", "Reaction times (ms)") }}</p>{% endif %}
+  <div class="res-scroll"><table class="res-table">
+    <thead><tr><th>Variable</th><th>{{ term("n") }}</th><th>{{ term("m") }}</th><th title="{{ de_en('95-%-Konfidenzintervall des Mittelwerts (t-Verteilung), erst ab n = 10', '95% confidence interval of the mean (t distribution), from n = 10') }}">{{ term("ci", de_en("95-%-KI für M", "95% CI for M")) }}</th><th>{{ term("md") }}</th><th title="{{ de_en('Standardabweichung der Stichprobe (n − 1)', 'Sample standard deviation (n − 1)') }}">{{ term("sd") }}</th><th>Min–Max</th>{% if with_gini %}<th title="{{ de_en('Gini-Koeffizient: 0 = alle gleich, gegen 1 = sehr ungleich verteilt; nur für Werte mit echtem Nullpunkt', 'Gini coefficient: 0 = all equal, towards 1 = very unequally spread; only for values with a true zero') }}">{{ term("gini") }}{{ fn("gini") }}</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for c in group %}
+      <tr><td><code>{{ c.code }}</code>{% if c.label %} <span class="hint">{{ c.label|column_head(e.passes if e is defined else 0)|truncate(60) }}</span>{% endif %}{% if c.not_shown %} <span class="hint">· {{ de_en("nicht gezeigt", "not shown") }}: {{ c.not_shown }}</span>{% endif %}{% if c.dont_know %} <span class="hint">· {{ de_en("weiß nicht (als fehlend gewertet)", "don't know (counted as missing)") }}: {{ c.dont_know }}</span>{% endif %}{% if c.invalid %} <span class="hint">· {{ de_en("ungültige Werte (nicht mitgezählt)", "invalid values (not counted)") }}: {{ c.invalid }}</span>{% endif %}</td>
+        {% set dd = 0 if c.mean is not none and (c.mean|abs) >= 1000 else d %}{# 93.367 km, not 93.367,06 km: decimals say nothing there (R52) #}
+        {# per measure (V71): M, SD and CI with two decimals; median and range of whole answers without (46 Jahre, not
+           46,00), a median between two whole answers with one (46,5) #}
+        {% set dmd = (0 if c.median is not none and c.median == c.median|round else [dd, 1]|min) if c.whole else dd %}
+        <td>{{ c.n }}</td><td>{{ num(c.mean, dd) }}{% if unit %} {{ unit }}{% endif %}</td><td>{{ ci(c.ci, dd) }}</td><td>{{ num(c.median, dmd) }}{% if unit %} {{ unit }}{% endif %}</td><td>{{ num(c.sd, dd) }}</td>
+        {% set dm = 0 if c.n and c.min == c.min|round and c.max == c.max|round else dd %}{# both ends alike: whole, or both with decimals #}
+        <td>{% if c.n %}{{ num(c.min, dm) }}–{{ num(c.max, dm) }}{% if unit %} {{ unit }}{% endif %}{% else %}–{% endif %}</td>{% if with_gini %}<td>{{ num(c.gini) }}</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% set drawn = group|selectattr("hist")|list %}
+  {% if drawn %}<div class="res-hists">{% for c in drawn %}{{ hist(c, unit, drawn|length > 1) }}{% endfor %}</div>
+  <p class="muted small res-hist-note">{{ de_en("Verteilung auf einer gemeinsamen Achse", "Distribution on a common axis") if drawn|length > 1 else de_en("Verteilung", "Distribution") }}: {{ de_en("Anzahl der Antworten je Wert", "number of answers per value") if drawn[0].hist.single else de_en("Anzahl der Antworten je Klasse (von … bis unter …)", "number of answers per class (from … to under …)") }}{% if f.weighted %}{{ de_en(", ungewichtet", ", unweighted") }}{% endif %}</p>{% endif %}
+  {% endfor %}
+  {% if e.profile %}</details>{% endif %}
+  {% for c in e.columns if c.type == "empty" %}
+  <p class="muted small"><code>{{ c.code }}</code>: {{ de_en("keine Antworten", "no answers") }}</p>
+  {% endfor %}
+  {% for c in e.columns if c.type == "text" %}{{ typed(c) }}{% endfor %}
+  {% if not no_coding %}{% include "surveys/_coding_results.html" %}{% endif %}
+  {% set blocks = cmp["items"].get(e.item.id) if cmp and not cmp.too_few else none %}{% if blocks %}{% set cmp_item_id = e.item.id %}{% include "surveys/_compare_item.html" %}{% endif %}
+</details></section>

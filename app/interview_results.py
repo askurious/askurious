@@ -140,6 +140,7 @@ def answer_items(survey):
     """The elements whose answers the case overview shows as the type's export columns: the tasks of the
     Themenblöcke (app/interview_tasks.py), then the Kurzfragebogen and the Postskript."""
     from app import interview_tasks
+    from app import results as res
 
     return [i for i in interview_tasks.tasks(survey) + interview_data.form_items(survey) if i.kind.collects_answer]
 
@@ -313,6 +314,20 @@ def notes_docx(survey, trials=False, ui=None):
     return out.getvalue()
 
 
+def short_results(survey, trials=False):
+    """The Kurzfragebogen over all interviews, counted as the results of a questionnaire (results.compute, shown with
+    surveys/_result_item.html): frequencies of the answers, the most frequent first and "keine Angabe" last, numbers
+    with M, median and range. Every interview of the case overview counts, also one not yet ended; None without a
+    Kurzfragebogen or without an interview."""
+    from app import results as res
+
+    ids = {i.id for i in interview_data.form_items(survey, "short") if i.kind.collects_answer}
+    if not ids or not rows(survey, trials):
+        return None
+    data = res.compute(survey, sources=("real", "test") if trials else ("real",), include_incomplete=True, only=ids)
+    return data if data.get("items") else None
+
+
 # --- the pages ---------------------------------------------------------------------------------------------------
 
 
@@ -327,18 +342,22 @@ def page(code):
     from app.interview_ai import KRUSE
 
     from app import interview_tasks
+    from app import results as res
 
     survey = _survey(code)
     trials = request.args.get("probe") == "1"
     interviews = rows(survey, trials)
     form_items = answer_items(survey)  # the tasks, then the Kurzfragebogen and the Postskript (case overview)
+    short = short_results(survey, trials)
+    short_cited = res.page_sources(short) if short else []  # Wilson, mode etc. of the Kurzfragebogen
     return render_template("interview/results.html", survey=survey, interviews=interviews, trials=trials,
                            coverage=coverage(survey, interviews), durations=durations(survey, interviews),
-                           notes=notes(survey, interviews), general_notes=general_notes(interviews), form_items=form_items, marks=STATE_MARK, words=state_words(),
+                           general_notes=general_notes(interviews), form_items=form_items, short=short, f={"weighted": False}, marks=STATE_MARK, words=state_words(),
                            has_tasks=bool(interview_tasks.tasks(survey)),
-                           answer_text=answer_text, source_mark=source_mark, stamp=stamp, modes=interview.modes(), day=interview.day_text,
+                           answer_text=answer_text, source_mark=source_mark, stamp=stamp, iv_modes=interview.modes(), day=interview.day_text,
+                           notes=res.footnotes(short_cited), item_notes=notes(survey, interviews),
                            sources=[(de_en("Abdeckung und Anpassen des Leitfadens", "Coverage and adapting the guide"), [HELFFERICH, KRUSE]),
-                                    (de_en("Zeitmarken", "Time marks"), [DRESING_PEHL])])
+                                    (de_en("Zeitmarken", "Time marks"), [DRESING_PEHL])] + short_cited)
 
 
 @bp.route("/<code>/interviews/cases.csv")
