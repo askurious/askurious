@@ -14,8 +14,9 @@ from .worker import run
 def main():
     os.umask(0o077)
     settings = Settings.environment()
-    if len(settings.token) < 32 or not 1 <= settings.threads <= 8:
-        raise SystemExit("WHISPER_TOKEN must have at least 32 characters; WHISPER_THREADS must be 1..8.")
+    if len(settings.token) < 32 or not 1 <= settings.threads <= 8 or not 60 <= settings.max_seconds <= 21600:
+        raise SystemExit("WHISPER_TOKEN must have at least 32 characters; WHISPER_THREADS must be 1..8; "
+                         "WHISPER_MAX_SECONDS must be 60..21600.")
     manifest = settings.models / "manifest.json"
     if not manifest.is_file():
         raise SystemExit("Prepare the local model volume before starting the service.")

@@ -48,7 +48,7 @@ neu beurteilt ist. Referenzen:
 | Prozesse | höchstens 256 einschließlich Threads |
 | Parallelität | ein Rechenauftrag; höchstens 8 offene Aufträge im Dienst, weitere Anfragen warten in der App auf einen freien Platz (`/v1/status` meldet `free`) |
 | Modell-Cache | ein Whisper-Modell mit VAD; höchstens 5 Minuten Leerlauf / 8 Aufträge; Freigabe bei Hostdruck, Fehler, Abbruch oder mehr als 3 GiB RSS |
-| Dateien | höchstens 400 MiB und 60 Minuten pro Aufnahmeteil |
+| Dateien | höchstens 400 MiB und 3 Stunden pro Aufnahmeteil (`WHISPER_MAX_SECONDS`, Standard 10800; bis 05.11.2026 60 Minuten) |
 | Modelle | `large-v3-turbo` als Standard (seit 18.10.2026); optional `small`, jeweils CPU `int8` |
 | Pipeline | Transkription, Wort-Zeitmarken, Sprecherzuordnung; Deutsch/Englisch |
 | Hostschutz | kein neuer Auftrag bei weniger als 4 GiB verfügbarem Host-RAM, weniger als 2 GiB plus 400 MiB freiem Plattenplatz, Load über `WHISPER_MAX_LOAD` (Standard 12, compose.yaml 20 für 24 vCPU) oder erfolglosem App-Healthcheck |

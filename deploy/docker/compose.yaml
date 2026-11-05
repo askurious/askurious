@@ -436,6 +436,7 @@ services:
       MKL_NUM_THREADS: "8"
       OPENBLAS_NUM_THREADS: "8"
       NUMEXPR_NUM_THREADS: "8"
+      WHISPER_MAX_SECONDS: "10800"  # longest recording part: 3 hours (60 minutes until 2026-11-05)
       WHISPER_MAX_LOAD: "20"        # no new job above this load; 12 was meant for 4 threads on fewer cores
       WHISPER_APP_HEALTH: http://researcher:8000/healthz
     volumes:
