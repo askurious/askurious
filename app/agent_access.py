@@ -13,7 +13,8 @@ rows go with the account.
 
 Making a token needs a recent sign-in (accounts.need_fresh) and the tick on the hint that the questionnaires' contents
 go to the AI service the agent uses. Askurious sends nothing to a model on its own; the one exception is the tool
-generate_image, which sends an image prompt to the platform's image model as the button in the editor does. Making,
+generate_image, which sends an image prompt to the platform's image model as the button in the editor does, and only
+with a token whose tick "Bilder erzeugen" (images) was set when it was made. Making,
 revoking and every call are in the access log ("Agenten-Zugriff"). Calls per token are limited (limits.allow_agent),
 wrong tokens per sender like the read tokens (limits.allow_token_try)."""
 import secrets
@@ -139,11 +140,12 @@ def create():
               "error")
         return _back()
     token = PREFIX + secrets.token_urlsafe(32)
+    images = scope != AgentToken.READ and request.form.get("images") == "1"  # generating needs an edit scope
     row = AgentToken(user_id=current_user.id, name=name, token_hash=hashed(token), scope=scope, surveys=surveys,
-                     created_at=now, expires_at=now + timedelta(days=DAYS))
+                     images=images, created_at=now, expires_at=now + timedelta(days=DAYS))
     db.session.add(row)
     db.session.commit()
-    audit.done(detail=f"Token „{name}“, {scope}")
+    audit.done(detail=f"Token „{name}“, {scope}" + (", Bilder" if images else ""))
     from app.accounts import connections_page
 
     return connections_page(new_agent_token={"value": token, "name": name, "expires_at": row.expires_at,

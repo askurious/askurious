@@ -17,10 +17,10 @@ from tests.conftest import experiments_on
 ORCID = "0000-0000-0000-001X"
 
 
-def _call(app, tool, /, scope="edit", token_id=7, **args):  # `name` is an argument of some tools
+def _call(app, tool, /, scope="edit", token_id=7, images=True, **args):  # `name` is an argument of some tools
     with app.test_request_context():
         user = db.session.scalar(db.select(User).filter_by(orcid=ORCID))
-        return agent_tools.call(agent_tools.Agent(user, token_id, "Laptop", scope), tool, args)
+        return agent_tools.call(agent_tools.Agent(user, token_id, "Laptop", scope, images=images), tool, args)
 
 
 def _refused(app, tool, /, **args):
@@ -93,7 +93,29 @@ def test_create_is_limited_per_day(app, client, on):
         before = db.session.scalar(db.select(db.func.count(Survey.id)))
         with pytest.raises(agent_tools.ToolError):
             _call(app, "create_survey", scope="create", title="Drei")
+        with pytest.raises(agent_tools.ToolError):  # per person: another token of the same person gets no more
+            _call(app, "create_survey", scope="create", title="Vier", token_id=8)
         assert db.session.scalar(db.select(db.func.count(Survey.id))) == before
+
+
+def test_a_refused_survey_is_not_counted(app, client, on, monkeypatch):
+    from app import wizard
+
+    app.config["AGENT_SURVEY_LIMIT"] = 1
+    real = wizard.make_survey
+    monkeypatch.setattr(wizard, "make_survey", lambda form: (None, "Das Label ist vergeben."))
+    with app.app_context():
+        assert "vergeben" in _refused(app, "create_survey", scope="create", title="Falsch")
+        monkeypatch.setattr(wizard, "make_survey", real)
+        _call(app, "create_survey", scope="create", title="Eins")
+
+
+def test_a_read_token_gets_no_images_tick(app, client, on):
+    from tests.privacy.test_agent_access import _create
+
+    _create(client, scope="read", images="1")
+    with app.app_context():
+        assert db.session.scalar(db.select(AgentToken.images)) is False
 
 
 def test_update_survey_changes_only_what_is_given(app, client, on):
@@ -238,7 +260,7 @@ def test_generate_read_back_and_a_person_approves(app, client, on, images):
         assert not any("freigegeben" in f["message"] or "approved" in f["message"] for f in listed["design_check"])
 
 
-def test_a_failed_generation_says_why(app, client, on, monkeypatch):
+def test_a_failed_generation_says_why_and_costs_nothing(app, client, on, monkeypatch):
     def broken(*_, **__):
         raise ai.AIError("Der Dienst ist nicht erreichbar.")
 
@@ -247,9 +269,25 @@ def test_a_failed_generation_says_why(app, client, on, monkeypatch):
         item = _image(app)
         _call(app, "update_item", survey_id=1, item_id=item, fields={"prompt": "x y z"})
         assert "nicht erreichbar" in _refused(app, "generate_image", survey_id=1, item_id=item)
+        from app import limits
+
+        user = db.session.scalar(db.select(User).filter_by(orcid=ORCID))
+        assert limits.agent_cost_left("image", user.id) == app.config["AGENT_IMAGE_LIMIT"]
 
 
-def test_images_per_token_are_limited(app, client, on, images):
+def test_images_need_the_tokens_own_tick(app, client, on, images):
+    with app.app_context():
+        user = db.session.scalar(db.select(User).filter_by(orcid=ORCID))
+        names = {t.name for t in agent_tools.available(agent_tools.Agent(user, 1, "x", "create"))}
+        assert "generate_image" not in names and "get_image" in names
+        item = _image(app)
+        _call(app, "update_item", survey_id=1, item_id=item, fields={"prompt": "x y z"}, images=False)
+        with pytest.raises(KeyError):
+            _call(app, "generate_image", survey_id=1, item_id=item, images=False)
+        assert images == []
+
+
+def test_images_per_person_are_limited(app, client, on, images):
     app.config["AGENT_IMAGE_LIMIT"] = 1
     with app.app_context():
         item = _image(app)
@@ -257,7 +295,8 @@ def test_images_per_token_are_limited(app, client, on, images):
         _call(app, "generate_image", survey_id=1, item_id=item)
         assert _refused(app, "generate_image", survey_id=1, item_id=item)
         assert len(images) == 1
-        _call(app, "generate_image", survey_id=1, item_id=item, token_id=8)  # another token has its own day
+        assert _refused(app, "generate_image", survey_id=1, item_id=item, token_id=8)  # more tokens give no more
+        assert len(images) == 1
 
 
 def test_an_uploaded_picture_stays_out_of_get_image(app, client, on):
@@ -289,10 +328,10 @@ def test_construct_access_says_it_beforehand(app, client, on):
 def test_the_endpoint_hands_a_picture_on_and_logs_the_image(app, client, on, images):
     from tests.privacy.test_agent_access import _create, _tool
 
-    r, token = _create(client, scope="create")
+    r, token = _create(client, scope="create", images="1")
     assert token
     with app.app_context():
-        assert db.session.scalar(db.select(AgentToken.scope)) == "create"
+        assert db.session.execute(db.select(AgentToken.scope, AgentToken.images)).one() == ("create", True)
     api = app.test_client()
     made = _tool(api, token, "add_block", survey_id=1).get_json()["result"]["structuredContent"]
     item = _tool(api, token, "add_item", survey_id=1, block_id=made["block_id"], type="image").get_json()["result"]

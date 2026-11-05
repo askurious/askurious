@@ -940,18 +940,18 @@ def _activities():
                           "Researchers let an AI agent of their choice (such as Claude Code) read their questionnaires "
                           "and edit drafts (MCP, app/mcp.py)."),
          "subjects": de_en("Forschende", "Researchers"),
-         "data": de_en("Token je Person nur als Hash, Name, Umfang (lesen, Entwürfe bearbeiten oder anlegen), gewählte "
+         "data": de_en("Token je Person nur als Hash, Name, Umfang (lesen, Entwürfe bearbeiten oder anlegen), ob Bilder erzeugt werden dürfen, gewählte "
                        "Befragungen, Ablauf, letzte Nutzung; Konto-ID; Fragebogentexte, die der Agent abruft oder "
                        "ändert; Bearbeitungsspuren (Verlauf, Anwesenheit im Editor); Protokolleintrag je Aufruf. Keine "
                        "Daten von Teilnehmenden.",
-                       "Token per person as a hash only, name, scope (read, edit or create drafts), chosen surveys, expiry, last "
+                       "Token per person as a hash only, name, scope (read, edit or create drafts), whether images may be generated, chosen surveys, expiry, last "
                        "use; account id; questionnaire texts the agent fetches or changes; editing traces (history, "
                        "presence in the editor); a log entry per call. No participants' data."),
          "recipients": de_en("Der Agent der Person und der KI-Anbieter, den sie für ihn wählt, auf ihre Veranlassung; "
-                             "auf Seiten der Plattform nur beim Erzeugen eines Bildes der Bilddienst, wie beim Knopf im "
+                             "auf Seiten der Plattform nur beim Erzeugen eines Bildes, wenn das Token es erlaubt, der Bilddienst, wie beim Knopf im "
                              "Editor; sonst schickt die Plattform nichts an ein Modell.",
                              "The person's agent and the AI provider they choose for it, at their request; on the "
-                             "platform's side only the image service when an image is generated, as with the button "
+                             "platform's side only the image service when an image is generated with a token that allows it, as with the button "
                              "in the editor; otherwise the platform sends nothing to a model."),
          "deletion": de_en("Token mit Widerruf, 30 Tage nach Ablauf (90 Tage), bei Passwortwechsel oder mit dem Konto; "
                            "Protokoll nach 365 Tagen; Verlauf nach 7 Tagen.", "Token when revoked, 30 days after expiry "

@@ -199,7 +199,7 @@ def endpoint():
                 return _rpc_error(INVALID_PARAMS, f"Missing {META_VERSION} in _meta", msg_id, 400)
             return _rpc_error(UNSUPPORTED_VERSION, "Unsupported protocol version", msg_id, 400,
                               data={"supported": list(SUPPORTED), "requested": header})
-    agent = agent_tools.Agent(owner, row.id, row.name, row.scope, row.surveys)
+    agent = agent_tools.Agent(owner, row.id, row.name, row.scope, row.surveys, bool(row.images))
     capabilities = {"tools": {"listChanged": False}}
     if method == "server/discover":
         return _result(msg_id, {"supportedVersions": list(SUPPORTED), "capabilities": capabilities,

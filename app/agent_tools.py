@@ -59,6 +59,7 @@ class Agent:
     name: str
     scope: str = READ
     surveys: list | None = None
+    images: bool = False  # the token's tick "generate images" (generate_image)
 
 
 @dataclass
@@ -73,6 +74,7 @@ class Tool:
     untrusted: bool = False  # the result holds text people wrote (survey content): data, never instructions
     title: tuple = ()  # (German, English) for people, e.g. on the page "Konto"
     scope: str = READ  # the least a token must have to be offered this tool
+    images: bool = False  # offered only to a token with the tick "generate images"
 
     def describe(self):
         """The tool as MCP's tools/list gives it (and a WebMCP wrapper would register it)."""
@@ -95,13 +97,13 @@ class ToolError(Exception):
 
 
 def tool(name, description, properties=None, required=(), role="viewer", read_only=True, consequential=False,
-         untrusted=False, title=(), scope=None):
+         untrusted=False, title=(), scope=None, images=False):
     def register(run):
         schema = {"type": "object", "properties": properties or {}, "additionalProperties": False}
         if required:
             schema["required"] = list(required)
         TOOLS[name] = Tool(name, description, schema, role, read_only, run, consequential, untrusted, title,
-                           scope or (READ if read_only else EDIT))
+                           scope or (READ if read_only else EDIT), images)
         return run
 
     return register
@@ -109,9 +111,10 @@ def tool(name, description, properties=None, required=(), role="viewer", read_on
 
 def available(agent):
     """The tools this token offers: those of its scope and below. A token limited to a list of surveys cannot make a
-    new one: it could not reach it."""
+    new one: it could not reach it. Generating images needs the token's own tick."""
     rank = RANK.get(agent.scope, 0)
-    return [t for t in TOOLS.values() if RANK[t.scope] <= rank and (t.scope != CREATE or agent.surveys is None)]
+    return [t for t in TOOLS.values() if RANK[t.scope] <= rank and (t.scope != CREATE or agent.surveys is None)
+            and (not t.images or agent.images)]
 
 
 @contextmanager
@@ -949,9 +952,9 @@ def create_survey(agent, args):
     lang = args.get("language")
     if lang is not None and lang not in LANGUAGE_NAMES:
         raise ToolError(de_en("Die Sprache „{lang}“ gibt es nicht.", "There is no language “{lang}”.", lang=lang))
-    if not limits.allow_agent_cost("survey", agent.token_id):
-        raise ToolError(de_en("Mit diesem Token sind heute keine weiteren Befragungen möglich.",
-                              "No more surveys can be created with this token today."))
+    if not limits.allow_agent_cost("survey", agent.user.id, count=False):
+        raise ToolError(de_en("Über die Agenten-Schnittstelle sind heute keine weiteren Befragungen möglich.",
+                              "No more surveys can be created through the agent interface today."))
     form = MultiDict({k: args[k] for k in ("title", "description", "research_question") if args.get(k)})
     if lang is not None:
         form.setlist("languages", [lang])
@@ -959,6 +962,8 @@ def create_survey(agent, args):
     survey, error = wizard.make_survey(form)
     if error:
         raise ToolError(_plain(error))
+    limits.allow_agent_cost("survey", agent.user.id)  # counted once it exists
+    db.session.commit()
     g.audit_survey = survey
     return {"survey_id": survey.id, "title": survey.title, "languages": list(survey.languages),
             "blocks": [{"block_id": b.id, "titles": b.titles} for b in survey.blocks]}
@@ -1106,7 +1111,8 @@ def update_flow_node(agent, args):
     nid = args["node_id"]
     node = _flow_node(survey, nid)
     if node["t"] == "rand" and args.get("condition") is None:
-        form = [(k, str(args[k] if args.get(k) is not None else node.get(k, ""))) for k in ("code", "name", "k")]
+        form = [(k, str(args[k] if args.get(k) is not None else node.get(k) if node.get(k) is not None else ""))
+                for k in ("code", "name", "k")]
         form += [(k, "1") for k in ("balanced", "shuffle") if (args[k] if args.get(k) is not None else node.get(k))]
         if args.get("levels") is not None:
             form += _level_fields(node, args["levels"])
@@ -1196,12 +1202,12 @@ def _update_image(survey, item, fields, query):
 
 @tool("generate_image", "Generate a picture for an AI image element of a draft from its prompt, with the survey's image "
       "style. A new picture is a candidate next to earlier ones. It counts against the AI allowance of your account and "
-      "the limit of this token per day, and the prompt goes to the platform's image model. Check the result with "
+      "the daily limit of the agent interface, and the prompt goes to the platform's image model. Check the result with "
       "get_image: models garble text and numbers in pictures. Approving is for a person, in the editor; until then the "
       "pre-launch check says \"no approved image\". There is no seed: the same prompt gives a different picture. If the "
       "prompt has loop placeholders, give `key` (from `needed` in get_item) for the picture of that combination.",
       {"survey_id": SURVEY_ID, "item_id": {"type": "integer"}, "key": {"type": "string"}},
-      ["survey_id", "item_id"], role="editor", read_only=False, consequential=True,
+      ["survey_id", "item_id"], role="editor", read_only=False, consequential=True, images=True,
       title=("Bild erzeugen", "Generate image"))
 def generate_image(agent, args):
     from app import limits
@@ -1216,9 +1222,9 @@ def generate_image(agent, args):
     if dynamic and args.get("key") is None:
         raise ToolError(de_en("Der Prompt hat Platzhalter: Bitte key aus `needed` von get_item angeben.",
                               "The prompt has placeholders: please give key from `needed` of get_item."))
-    if not limits.allow_agent_cost("image", agent.token_id):
-        raise ToolError(de_en("Mit diesem Token sind heute keine weiteren Bilder möglich.",
-                              "No more images can be generated with this token today."))
+    if not limits.allow_agent_cost("image", agent.user.id, count=False):
+        raise ToolError(de_en("Über die Agenten-Schnittstelle sind heute keine weiteren Bilder möglich.",
+                              "No more images can be generated through the agent interface today."))
     before = {a.id for a in item.assets}
     if dynamic:
         editor_call("editor.item_images_generate", survey, form={"key": args["key"], "force": "1"}, item_id=item.id)
@@ -1231,10 +1237,12 @@ def generate_image(agent, args):
     made = [a for a in _item(survey, item.id).assets if a.id not in before]
     if not made:
         raise ToolError(de_en("Es wurde kein Bild erzeugt.", "No image was generated."))
+    limits.allow_agent_cost("image", agent.user.id)  # counted only once a picture exists
+    db.session.commit()
     g.agent_note = f"Bild {made[0].id}"  # its row holds prompt, model and time for the methods section
     return {"survey_id": survey.id, "item_id": item.id, "asset_id": made[0].id, "status": made[0].status,
             "model": made[0].model, "prompt": made[0].prompt, "style": made[0].style,
-            "images_left_today": limits.agent_cost_left("image", agent.token_id)}
+            "images_left_today": limits.agent_cost_left("image", agent.user.id)}
 
 
 @tool("get_image", "Look at a generated picture (asset_id from get_item): it comes back as an image, so that headlines "

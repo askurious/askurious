@@ -298,6 +298,9 @@ class AgentToken(db.Model):
     name: Mapped[str] = mapped_column(String(80))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     scope: Mapped[str] = mapped_column(String(10), default="read")
+    # whether its agent may generate images (generate_image): the only tool that sends something to a model of the
+    # platform, so its own tick, off unless chosen
+    images: Mapped[bool] = mapped_column(default=False, server_default="0")
     surveys: Mapped[list | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     expires_at: Mapped[datetime]
