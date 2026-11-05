@@ -8,8 +8,9 @@ so their parts were shown with 0:00 although they hold sound (Ralf, 2026-10-23).
 head_plan() reads the file once (the timestamps of its blocks, not their sound) and returns a new head with a Duration
 element; Joined serves that head and then the rest of the file unchanged, so the stored file stays as it was (pieces
 are appended to it by byte offset). Only a stream with an unknown Segment size and without SeekHead or Cues is
-changed: there the bytes after Info have no recorded positions that the longer head would shift. Anything else, or a
-file that cannot be read as WebM, is served as it is.
+changed by a longer head: there the bytes after Info have no recorded positions that it would shift. A file with
+SeekHead or Cues gets a head of the same length instead (Duration in the room of the program names). Anything else,
+or a file that cannot be read as WebM, is served as it is.
 """
 import io
 import mmap
@@ -92,14 +93,19 @@ def _scan(buf):
     info = None
     scale = 1000000
     last = None
+    indexed = False
     while pos < len(buf):
         try:
             start = pos
             eid, size, pos = _element(buf, pos)
         except _Short:
             break
-        if eid in (SEEKHEAD, CUES):
-            return None
+        if eid in (SEEKHEAD, CUES):  # positions recorded: only a head of the same length may be set (head_plan)
+            if size is None:
+                return None
+            indexed = True
+            pos += size
+            continue
         if eid == INFO:
             if size is None or pos + size > len(buf) or info is not None:
                 return None
@@ -152,7 +158,40 @@ def _scan(buf):
         pos += size
     if info is None or last is None or last <= 0:
         return None
-    return info[0], info[1], scale, last
+    return info[0], info[1], scale, last, indexed
+
+
+MUXING_APP, WRITING_APP, VOID = 0x4D80, 0x5741, 0xEC
+SPARE = {MUXING_APP, WRITING_APP, VOID}  # children of Info that only name programs (or fill room)
+
+
+def _same_length_head(buf, info_start, info_end, duration):
+    """The head up to the end of Info with Duration in place of MuxingApp, WritingApp and Void, the rest of the room
+    filled with a Void, so Info keeps its length and no recorded position (SeekHead, Cues) moves; None without room.
+    Recordings with Cues at their end (L-02, tester 2026-11-05) showed 0:00 because no head was set for them."""
+    eid, size, payload = _element(buf, info_start)
+    kept, room, inner = [], 0, payload
+    while inner < info_end:
+        start = inner
+        cid, csize, inner = _element(buf, inner)
+        if csize is None:
+            return None
+        inner += csize
+        if cid in SPARE:
+            room += inner - start
+        else:
+            kept.append(bytes(buf[start:inner]))
+    left = room - len(duration)
+    if left < 0 or left == 1:
+        return None
+    void = b""
+    if left:
+        if left - 2 < 127:
+            void = bytes([VOID, 0x80 | (left - 2)]) + bytes(left - 2)
+        else:
+            void = bytes([VOID, 0x40 | ((left - 3) >> 8), (left - 3) & 0xFF]) + bytes(left - 3)
+    head = bytes(buf[:payload]) + b"".join(kept) + duration + void
+    return head if len(head) == info_end else None
 
 
 def _encode_size(n):
@@ -176,13 +215,17 @@ def head_plan(full):
             with open(full, "rb") as f, mmap.mmap(f.fileno(), stat.st_size, access=mmap.ACCESS_READ) as buf:
                 found = _scan(buf)
                 if found:
-                    info_start, info_end, scale, last = found
+                    info_start, info_end, scale, last, indexed = found
                     eid, size, payload = _element(buf, info_start)
                     seconds_units = float(last)  # in TimecodeScale units, as Duration counts
                     duration = bytes([0x44, 0x89, 0x88]) + struct.pack(">d", seconds_units)
-                    body = bytes(buf[payload:info_end]) + duration
-                    plan = (bytes(buf[:info_start]) + bytes([0x15, 0x49, 0xA9, 0x66]) + _encode_size(len(body)) + body, info_end,
-                            last * scale / 1e9)
+                    if indexed:
+                        head = _same_length_head(buf, info_start, info_end, duration)
+                        plan = (head, info_end, last * scale / 1e9) if head else None
+                    else:
+                        body = bytes(buf[payload:info_end]) + duration
+                        plan = (bytes(buf[:info_start]) + bytes([0x15, 0x49, 0xA9, 0x66]) + _encode_size(len(body)) + body, info_end,
+                                last * scale / 1e9)
         except (OSError, ValueError, _Short):
             plan = None
     with _lock:
