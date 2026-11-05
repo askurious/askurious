@@ -115,3 +115,29 @@ def test_a_downloaded_part_uploaded_again_is_a_copy(app, client, monkeypatch):
     r = client.post(f"/guide/{code}/interviews/{rid}/audio?source=upload&part=3&seq=0&rec=u3&start=0&origin=other"
                     f"&speaker=&all=1&size={len(other)}", data=other, content_type="audio/webm")
     assert r.status_code == 200 and "copy_of" not in _audio(app, rid)["audio"][2]
+
+
+def test_a_job_sent_for_a_copy_is_cancelled(app, client, monkeypatch):
+    """Deploy 2026-11-05 (S-04): part 2 had been sent to the job service just before the new code found it to be a
+    copy; the run then skipped it, but its job waited in the queue and held up R-07."""
+    monkeypatch.setattr(interview_audio, "MAX_PIECE", PIECE)
+    code, sid = make(app, client)
+    rid = start(app, client, code)
+    for seq in (0, 1):
+        assert _send(client, code, rid, 1, seq, "a", size=None).status_code == 200
+    for seq in (0, 1, 2):
+        assert _send(client, code, rid, 2, seq, "b", size=None).status_code == 200
+    calls, cancelled = [], []
+    _fake_whisper(app, monkeypatch, calls)
+    from app import whisper_jobs
+    monkeypatch.setattr(whisper_jobs, "cancel_records", lambda records, *a, **k: cancelled.append(dict(records)) or True)
+    record = {"id": "b" * 32, "service": "x", "bytes": 32}
+    with app.app_context():
+        from app.extensions import db
+        from app.models import Response
+        row = db.session.get(Response, rid)
+        interview_transcribe._set(row, jobs={"1": record, "2": {**record, "id": "c" * 32}})
+        db.session.commit()
+    client.post(f"/guide/{code}/interviews/{rid}/transcribe")
+    assert cancelled == [{"1": record}]                          # part 1 is the copy of the longer part 2
+    assert "1" not in _tr(app, rid).get("jobs", {})
