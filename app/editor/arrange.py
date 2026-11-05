@@ -251,7 +251,7 @@ def _to_step(survey, step, lang):
         node, _ = flow.find(flow.tree(survey), data.get("node") or "")
         if node is not None and data["page"] == "loop" and node["t"] == "loop":
             return redirect(url_for("flow_page.loop_node", survey_id=survey.id, nid=node["id"], lang=lang))
-        return redirect(url_for("flow_page.index", survey_id=survey.id, lang=lang, **({"at": node["id"]} if node else {})))
+        return redirect(url_for("flow_page.index", survey_id=survey.id, lang=lang, **({"at": flow.node_id(node)} if node else {})))
     if data.get("page") == "settings":
         if data.get("node") == "theme":
             return redirect(url_for("surveys.design", survey_id=survey.id))

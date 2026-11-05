@@ -464,12 +464,13 @@ def flow_index(survey_id):
     return page
 
 
-def _flow_back(survey, lang, at=None, opened=False):
+def _flow_back(survey, lang, at=None, opened=False, did=None):
     """Back to the flow page: at the element that was moved or saved (`at`, scrolled to and marked by app.js;
-    a query value, since a dropped element comes back through fetch, which drops #anchors), its settings open."""
+    a query value, since a dropped element comes back through fetch, which drops #anchors), its settings open.
+    `did` is the move just made: app.js puts the keyboard focus back on that button, so ↑ can be pressed again."""
     if request.values.get("back") == "editor":  # actions started in the questionnaire editor return there
         return _back(survey, lang, "#split")
-    where = {"at": at, **({"open": at} if opened else {})} if at else {}
+    where = {"at": at, **({"open": at} if opened else {}), **({"did": did} if did else {})} if at else {}
     return redirect(url_for("flow_page.index", survey_id=survey.id, lang=lang, **where))
 
 
@@ -636,4 +637,5 @@ def flow_node(survey_id, nid, action):
             # the key drawn when signing was turned on goes into its (still empty) field on the page
             if external.sign_key(after):
                 autosave.fill({"sign_key_shown": external.sign_key(after)})
-    return _flow_back(survey, lang, None if action == "delete" else nid, opened=action == "update")
+    return _flow_back(survey, lang, None if action == "delete" else nid, opened=action == "update",
+                      did=action if action in ("up", "down", "in", "out") else None)
