@@ -360,8 +360,8 @@ def transcribe(path, language, prompt, previous=None, created=None, progress=Non
             if data.get('error') == 'memory_limit':
                 raise MemoryLimitError(memory_limit_message())
             if data.get("error") == "duration_limit":
-                raise RuntimeError(de_en("Der Aufnahmeteil ist länger als 60 Minuten. Bitte vor der Transkription aufteilen.",
-                                         "The recording part exceeds 60 minutes. Please split it before transcription."))
+                raise RuntimeError(de_en("Der Aufnahmeteil ist länger, als der Transkriptionsdienst je Teil annimmt (in der Regel 3 Stunden). Bitte vor der Transkription aufteilen.",
+                                         "The recording part is longer than the transcription service takes per part (usually 3 hours). Please split it before transcription."))
             # cancelled or failed otherwise (a restart of the service ends its jobs): tried again; a cancel by
             # "Abbrechen" ends the run before that, as it is no longer the interview's current one
             raise TransientError(de_en("Der Transkriptionsauftrag wurde abgebrochen oder konnte nicht verarbeitet werden.",

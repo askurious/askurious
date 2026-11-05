@@ -20,7 +20,7 @@ def metadata(data):
     return {'stage': data['stage'], 'stage_started': started, 'completed': completed}
 
 
-def duration(path):
+def duration(path, limit=10800):
     try:
         reply = subprocess.run(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_entries', 'format=duration:stream=duration',
                                 '-of', 'json', str(path)], capture_output=True, timeout=3, check=True)
@@ -31,7 +31,7 @@ def duration(path):
                 value = float(item)
             except (TypeError, ValueError):
                 continue
-            if math.isfinite(value) and 0 < value <= 3600:
+            if math.isfinite(value) and 0 < value <= limit:
                 return value
         return None
     except (OSError, ValueError, StopIteration, subprocess.SubprocessError):

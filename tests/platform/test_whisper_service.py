@@ -20,7 +20,7 @@ from whisper_service.pipeline import ModelCache, with_prompt
 
 @pytest.fixture
 def queue(tmp_path, monkeypatch):
-    monkeypatch.setattr(estimates, 'duration', lambda path: None)
+    monkeypatch.setattr(estimates, 'duration', lambda path, limit: None)
     return Queue(Settings(tmp_path / "state", tmp_path / "models", "x" * 48, min_free_mb=0, max_bytes=100))
 
 
@@ -480,3 +480,21 @@ def test_the_library_thread_pools_follow_whisper_threads():
     for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         assert f'{name}: "{threads}"' in compose, name
         assert f"{name}={threads}" in dockerfile, name
+
+
+def test_longest_part_comes_from_the_environment_and_passes_the_start_check(monkeypatch, tmp_path):
+    """2026-11-05: interview D-01 had one part of 102 minutes; the service took only 60, fixed in its code."""
+    import re
+    from types import SimpleNamespace
+    monkeypatch.delenv("WHISPER_MAX_SECONDS", raising=False)
+    assert Settings.environment().max_seconds == 10800
+    monkeypatch.setenv("WHISPER_MAX_SECONDS", "7200")
+    assert Settings.environment().max_seconds == 7200
+    root = Path(__file__).resolve().parents[2]
+    compose = (root / "deploy/docker/compose.yaml").read_text(encoding="utf-8")
+    main = (root / "deploy/docker/whisper/whisper_service/__main__.py").read_text(encoding="utf-8")
+    low, high = map(int, re.search(r"not (\d+) <= settings.max_seconds <= (\d+)", main).groups())
+    assert low <= int(re.search(r'WHISPER_MAX_SECONDS: "(\d+)"', compose).group(1)) <= high
+    # the probe for the estimate follows the limit: 102 minutes are known, beyond the limit not
+    monkeypatch.setattr(estimates.subprocess, 'run', lambda *a, **k: SimpleNamespace(stdout=b'{"format":{"duration":"6120"}}'))
+    assert estimates.duration(tmp_path / 'audio', 10800) == 6120 and estimates.duration(tmp_path / 'audio', 3600) is None

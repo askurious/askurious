@@ -10,7 +10,7 @@ class Settings:
     token: str
     threads: int = 4
     max_bytes: int = 400 * 1024 * 1024
-    max_seconds: int = 3600
+    max_seconds: int = 10800  # per recording part; 60 minutes until 2026-11-05 (interview D-01 ran 102 minutes)
     max_pending: int = 8
     job_seconds: int = 21600
     queue_seconds: int = 86400
@@ -30,6 +30,7 @@ class Settings:
             Path(os.environ.get("WHISPER_MODELS_DIR", "/models")),
             os.environ.get("WHISPER_TOKEN", ""),
             threads=int(os.environ.get("WHISPER_THREADS", "4")),
+            max_seconds=int(os.environ.get("WHISPER_MAX_SECONDS", "10800")),
             max_host_load=float(os.environ.get("WHISPER_MAX_LOAD", "12")),
             app_health=os.environ.get("WHISPER_APP_HEALTH", ""),
         )

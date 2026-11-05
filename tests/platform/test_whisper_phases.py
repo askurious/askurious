@@ -17,7 +17,7 @@ from whisper_service.settings import Settings, options
 
 @pytest.fixture
 def queue(tmp_path, monkeypatch):
-    monkeypatch.setattr(estimates, 'duration', lambda path: 60)
+    monkeypatch.setattr(estimates, 'duration', lambda path, limit: 60)
     return Queue(Settings(tmp_path / 'state', tmp_path / 'models', 'x' * 48, min_free_mb=0))
 
 

@@ -95,7 +95,7 @@ class Queue:
             if not size:
                 raise ValueError("empty_audio")
             now = time.time()
-            duration = estimates.duration(destination)
+            duration = estimates.duration(destination, self.settings.max_seconds)
             with self.connect() as db:
                 db.execute("BEGIN IMMEDIATE")
                 pending = db.execute("SELECT COUNT(*) FROM jobs WHERE state IN ('queued','running')").fetchone()[0]
