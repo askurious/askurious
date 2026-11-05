@@ -74,7 +74,7 @@ def test_merge_answers_and_taking_back(app, client):
     # overlapping passages in two categories make them a blurring pair
     _code(client, base, rid, "Abends", exhausted, 29)
     page = client.get(f"{base}/overview").data.decode()
-    assert "Müdigkeit" in page and "1 Stellen in beiden" in page
+    assert "Müdigkeit" in page and "1 Stelle in beiden" in page
     # a merge needs a reason and takes effect at once
     client.post(f"{base}/merge", data={"source": tired, "target": exhausted, "reason": ""})
     with app.app_context():

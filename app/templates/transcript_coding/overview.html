@@ -59,7 +59,7 @@
     {% for p in pairs %}
     <div class="tc-pair">
       <p class="small"><strong>{{ p.a.name }}</strong> {{ de_en("und", "and") }} <strong>{{ p.b.name }}</strong></p>
-      <p class="muted small">{% set bits = [] %}{% if p.overlap %}{% set _ = bits.append(de_en("{n} Stellen in beiden", "{n} passages in both", n=p.overlap)) %}{% endif %}{% if p.checks %}{% set _ = bits.append(de_en("Probe {n}-mal abweichend", "check differed {n} times", n=p.checks)) %}{% endif %}{% if p.names %}{% set _ = bits.append(de_en("ähnliche Namen", "similar names")) %}{% endif %}{{ bits|join(" · ") }}</p>
+      <p class="muted small">{% set bits = [] %}{% if p.overlap %}{% set _ = bits.append(de_en_n(p.overlap, ("{n} Stelle in beiden", "{n} Stellen in beiden"), ("{n} passage in both", "{n} passages in both"))) %}{% endif %}{% if p.checks %}{% set _ = bits.append(de_en_n(p.checks, ("Probe {n}-mal abweichend", "Probe {n}-mal abweichend"), ("check differed once", "check differed {n} times"))) %}{% endif %}{% if p.names %}{% set _ = bits.append(de_en("ähnliche Namen", "similar names")) %}{% endif %}{{ bits|join(" · ") }}</p>
       <div class="tc-info-actions">
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[p.a.id, p.b.id]) }}">{{ de_en("Stellen ansehen", "View passages") }}</a>
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
