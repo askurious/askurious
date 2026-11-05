@@ -226,7 +226,7 @@ def _slug(text):
 
 
 def _codes(attributes, labels):
-    """Placeholder names: the typed one if valid, else one made from the label; unique, never "_def"/"_hint"
+    """Placeholder names: the typed one if valid, else one made from the label; unique, never "_def"/"_hint"/"_code"
     endings of another factor and never a built-in placeholder."""
     taken = set()
     for n, a in enumerate(attributes, start=1):
@@ -234,7 +234,7 @@ def _codes(attributes, labels):
         if not NAME_RE.match(code) or re.fullmatch(r"A\d+", code):
             code = _slug(labels.get(a["id"]) or f"faktor{n}")
         base, k = code, 2
-        while code.lower() in taken or code.lower() in RESERVED or code.endswith(("_def", "_hint")):
+        while code.lower() in taken or code.lower() in RESERVED or code.endswith(("_def", "_hint", "_code")):
             code = f"{base}{k}"
             k += 1
         taken.add(code.lower())
@@ -551,6 +551,21 @@ def materialize(survey, node):
     node["mode"] = "all"
 
 
+def level_number_names(node):
+    """The placeholders of level_numbers ([] for anything but a vignette loop)."""
+    return [f"{a['code']}_code" for a in node.get("attributes") or []] if is_vignettes(node) else []
+
+
+def level_numbers(node, row_id):
+    """{"<factor>_code": number of the level from 1} of a row, as in the long format: what the address of an external
+    section takes when a label is no value for the web app. {} for anything but a row of a vignette loop."""
+    if not is_vignettes(node):
+        return {}
+    plan = node.get("plan") or {}
+    profile = dict(zip(plan.get("ids") or [], plan.get("profiles") or [])).get(row_id)
+    return {} if profile is None else {f"{a['code']}_code": level + 1 for a, level in zip(node.get("attributes") or [], profile)}
+
+
 def deck_of(node, row_id):
     for n, deck in enumerate((node.get("plan") or {}).get("decks_rows") or [], start=1):
         if row_id in deck:
@@ -701,17 +716,23 @@ def _answer_items(survey, node):
 
 
 def long_columns(survey, node):
+    from app import external
+
     cols = ["deck", "position", "vignette"]
     for a in node.get("attributes") or []:
         cols += [a["code"], f"{a['code']}_label"]
     for it in _answer_items(survey, node):
         cols += [c for c, _ in it.kind.export_columns(it)]
-    return cols
+    return cols + external.long_columns(node)
 
 
 def long_rows(survey, node, response):
     """One row per vignette the person was shown: deck, position, vignette number, the level (number from 1 and
-    label in the default language) of every factor, then the answers to the questions of the loop."""
+    label in the default language) of every factor, then the answers to the questions of the loop and what its
+    external sections handed back."""
+    from app import external
+
+    sections = external.long_columns(node)
     plan = node.get("plan") or {}
     shown = ((response.layout or {}).get("loops") or {}).get(node["id"]) or []
     by_id = dict(zip(plan.get("ids") or [], plan.get("profiles") or []))
@@ -733,7 +754,8 @@ def long_rows(survey, node, response):
             # wide export (export.rows)
             values = {**it.kind.export_values(it, answer), **it.kind.export_response_values(it, answer, response)}
             row += [values.get(c) for c, _ in it.kind.export_columns(it)]
-        yield row
+        returned = external.long_values(node, response, rid)
+        yield row + [returned.get(c) for c in sections]
 
 
 def _number(v):

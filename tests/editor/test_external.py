@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from werkzeug.datastructures import MultiDict
 
-from app import external, flow
+from app import external, flow, vignettes
 from app.extensions import db
 from app.models import Response, Survey
 from tests.conftest import CONSENT_OK, add, fill_consent
@@ -118,18 +118,21 @@ def test_the_design_check_names_what_is_missing(app, client, survey):
     with app.app_context():
         s = db.session.get(Survey, 1)
         assert any("{{return}} nicht" in m for _, m, _ in flow.check(s))
-        # before the consent, and in a loop
+        # before the consent, and in loops inside each other
         tree = flow.tree(s)
         node = flow.find(tree, nid)[0]
         s.flow = {"t": "root", "children": [node, {"t": "block", "block": 1},
-                                            {"t": "loop", "id": "l1", "name": "L", "code": "loop1", "columns": [{"id": "c1", "name": "x"}],
-                                             "rows": [{"id": "r1", "values": {"c1": {"de": "a"}}}], "mode": "all", "k": 1,
-                                             "order": "fixed", "balanced": True, "source": "factors",
-                                             "children": [{"t": "block", "block": 2}, {**node, "id": "o2", "code": "ext2"}]},
+                                            {"t": "loop", "id": "l0", "name": "A", "code": "loop0", "columns": [{"id": "c0", "name": "y"}],
+                                             "rows": [{"id": "r0", "values": {"c0": {"de": "b"}}}], "mode": "all", "k": 1,
+                                             "order": "fixed", "balanced": True, "children": [
+                                                 {"t": "loop", "id": "l1", "name": "L", "code": "loop1", "columns": [{"id": "c1", "name": "x"}],
+                                                  "rows": [{"id": "r1", "values": {"c1": {"de": "a"}}}], "mode": "all", "k": 1,
+                                                  "order": "fixed", "balanced": True,
+                                                  "children": [{"t": "block", "block": 2}, {**node, "id": "o2", "code": "ext2"}]}]},
                                             {"t": "block", "block": 3}]}
         flow.normalize(s)
         found = [m for _, m, _ in flow.check(s)]
-        assert any("vor der Einwilligung" in m for m in found) and any("Vignetten-Schleife" in m for m in found)
+        assert any("vor der Einwilligung" in m for m in found) and any("Schleifen ineinander" in m for m in found)
 
 
 def test_leaving_and_coming_back_with_values(app, client, survey):
@@ -441,6 +444,61 @@ def test_one_section_runs_every_pass_of_a_loop(app, client, survey):
         s = db.session.get(Survey, 1)
         long = list(csv.DictReader(io.StringIO(export.loop_long_csv(s, flow.find(flow.tree(s), "l1")[0]).lstrip("\ufeff"))))
     assert [(r["distance"], r["rating"], r["ext1_time_ms"]) for r in long] == [("0", "1", "501"), ("1", "2", "702")]
+
+
+def build_vignettes(app, client):
+    """build_loop with factors as the source of its rows: 2 x 2, one deck of all four, in plan order"""
+    nid = build_loop(app, client, url="https://webapp.example/task?distance={{distance}}&size={{size_code}}&return={{return}}")
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        tree = copy.deepcopy(flow.tree(s))
+        loop = flow.find(tree, "l1")[0]
+        loop.update(source="factors", order="plan", plan={"method": "full", "per_person": 4, "decks": 1},
+                    attributes=[{"id": "a1", "code": "distance", "levels": [{"id": "d0", "hint": ""}, {"id": "d1", "hint": ""}]},
+                                {"id": "a2", "code": "size", "levels": [{"id": "s0", "hint": ""}, {"id": "s1", "hint": ""}]}],
+                    texts={"de": {"attributes": {"a1": "Abstand", "a2": "Größe"},
+                                  "levels": {"d0": "kurz", "d1": "lang", "s0": "klein", "s1": "groß"}}}, prohibitions=[])
+        vignettes.generate(s, loop, seed=1)
+        vignettes.materialize(s, loop)
+        s.flow = tree
+        flow.normalize(s)
+        db.session.commit()
+    return nid
+
+
+def test_one_section_runs_every_vignette_of_a_deck(app, client, survey):
+    """As in a table loop: one address for all vignettes, with the label of a level or its number, and the values of
+    each vignette in the data file and in the long format of the vignette loop (Philipp, 2026-11-05)."""
+    nid = build_vignettes(app, client)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert not [m for level, m, _ in flow.check(s) if level == "error"]
+        rows = [r["id"] for r in flow.find(flow.tree(s), "l1")[0]["rows"]]
+        assert len(rows) == 4
+    uid = start(app, client)
+    p = to_the_section(app, uid)
+    seen = []
+    for n in range(4):
+        address, back = leave(p, uid)
+        seen.append(address.split("?")[1].split("&return=")[0])
+        assert p.get(f"{back}&time_ms={n + 100}").status_code == 302
+        page = p.get(f"/s/{uid}", follow_redirects=True).data.decode()
+        assert f"{n + 100} ms" in page and 'name="nav" value="back"' not in page
+        p.post(f"/s/{uid}", data={"nav": "next", "i4": "1"})
+        p.get(f"/s/{uid}", follow_redirects=True)
+    assert sorted(seen) == ["distance=kurz&size=1", "distance=kurz&size=2", "distance=lang&size=1", "distance=lang&size=2"]
+    assert the_response(app)[0] == "completed"
+    assert sorted(the_response(app)[1][f"{nid}#{r}"]["v"]["time_ms"] for r in rows) == [100, 101, 102, 103]
+    wide = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv?all=1").data.decode("utf-8-sig"))))
+    assert sorted(wide[0][f"ext1_time_ms_{n}"] for n in range(1, 5)) == ["100", "101", "102", "103"]
+    with app.app_context():
+        from app import export
+
+        s = db.session.get(Survey, 1)
+        long = list(csv.DictReader(io.StringIO(export.vignettes_long_csv(s, flow.find(flow.tree(s), "l1")[0]).lstrip("\ufeff"))))
+    assert [r["ext1_time_ms"] for r in long] == ["100", "101", "102", "103"]
+    assert [(r["distance_label"], r["size"]) for r in long] == [tuple(x.split("&size=")) for x in
+                                                                (t.replace("distance=", "") for t in seen)]
 
 
 def test_the_address_takes_the_default_language_of_a_column(app, client, survey):

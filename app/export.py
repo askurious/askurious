@@ -2267,6 +2267,10 @@ def vignettes_long_csv(survey, node, include_incomplete=False, separator="comma"
     if not open_answers:
         for it in vignettes._answer_items(survey, node):
             hidden.update(open_item_columns(it))
+        from app import external
+
+        hidden.update(f"{n['code']}_{v['name']}" for n in external.in_loop(node) for v in external.values(n)
+                      if v.get("kind") == "text")
     return _long(survey, vignettes.long_columns(survey, node), lambda r: vignettes.long_rows(survey, node, r),
                  include_incomplete, separator, sources, drop_speeders, hidden)
 
@@ -2635,7 +2639,8 @@ def readme_md(survey, open_answers=False, include_incomplete=False):
                      "translations as `<column>_<language>`; with a design also `deck`.")
     if vignettes.nodes(survey):
         lines.append("- `vignettes_*_long.csv`: long format of a vignette loop (participant × vignette shown): deck, "
-                     "position, the level of every factor, then the answers to the questions of the loop.")
+                     "position, the level of every factor, then the answers to the questions of the loop and what its "
+                     "external sections handed back.")
     if loop_long_nodes(survey):
         lines.append("- `loop_*_long.csv`: long format of a loop (participant × pass): `position` (order of the "
                      "pass), `zeile` (the table row, as in the suffix `_n` of `data.csv`), the values of that row, then "
