@@ -6,9 +6,18 @@
 {% block content %}
 {% if accepting %}
 <h1>{{ survey.title_in(lang) }}</h1>
+{# the iOS app only once it has an App Store entry (config DIARY_IOS_APP_URL) #}
+{% if ios_url %}
+<p>{{ ui("Diese Tagebuchstudie läuft in der App „Askurious“ für Android und iPhone. So treten Sie bei:", "This diary study runs in the app “Askurious” for Android and iPhone. This is how you join:") }}</p>
+{% else %}
 <p>{{ ui("Diese Tagebuchstudie läuft in der App „Askurious“ für Android. So treten Sie bei:", "This diary study runs in the app “Askurious” for Android. This is how you join:") }}</p>
+{% endif %}
 <ol>
+  {% if ios_url %}
+  <li>{{ ui("Installieren Sie die App.", "Install the app.") }} <a href="{{ store_url }}">{{ ui("für Android", "for Android") }}</a> · <a href="{{ ios_url }}">{{ ui("für iPhone", "for iPhone") }}</a></li>
+  {% else %}
   <li><a href="{{ store_url }}">{{ ui("Installieren Sie die App.", "Install the app.") }}</a></li>
+  {% endif %}
   <li>{{ ui("Scannen Sie den QR-Code noch einmal, oder öffnen Sie die App und geben Sie diesen Beitrittscode ein:", "Scan the QR code again, or open the app and type this join code:") }} <strong class="p-code">{{ code }}</strong></li>
 </ol>
 <p class="p-muted">{{ ui("Die App speichert keinen Namen, keine E-Mail-Adresse und keine Telefonnummer.", "The app stores no name, email address or phone number.") }}</p>

@@ -1668,8 +1668,10 @@ def study_json(survey, enrolment, lang, entries=None):
             "seed": seed_of(enrolment), "quiet": quiet_history(enrolment), "pauses": pauses(enrolment),
             "tz": enrolment.tz, "tz_history": tz_history(enrolment),
             "exit": exit_info(survey, enrolment, status, lang, entries=entries), "clock": clock_json(enrolment),
-            # an app older than this asks the person to update it (config DIARY_MIN_APP_VERSION, 0 = every version)
+            # an app older than this asks the person to update it (config DIARY_MIN_APP_VERSION, 0 = every version);
+            # the iOS app counts its builds on its own and reads its own key (DIARY_MIN_IOS_APP_VERSION)
             "min_app_version": int(current_app.config.get("DIARY_MIN_APP_VERSION") or 0),
+            "min_app_version_ios": int(current_app.config.get("DIARY_MIN_IOS_APP_VERSION") or 0),
             "look": look_json(survey)}
 
 
