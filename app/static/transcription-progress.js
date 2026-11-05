@@ -12,7 +12,7 @@ document.querySelectorAll('[data-transcription-progress]').forEach(node => {
       const data = await response.json();
       if (text.textContent !== data.text) text.textContent = data.text;
       bar.max = Math.max(1, data.total);
-      bar.value = data.done;
+      bar.value = data.bar ?? data.done;
       if (parts.textContent !== data.parts_text) parts.textContent = data.parts_text;
       if (estimate.textContent !== data.eta_text) estimate.textContent = data.eta_text;
       if (!data.active) {

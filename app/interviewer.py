@@ -696,7 +696,7 @@ def home(code):
                            modes=interview.modes(), forms=interview_data.consent_forms(), day=interview.day_text,
                            today=f"{utcnow():%Y-%m-%d}", parts=interview_audio.parts,
                            whisper=interview_transcribe.configured() and whisper_on(access),
-                           transcribing=interview_transcribe.running, transcription_progress=interview_transcribe.progress_info,
+                           transcribing=interview_transcribe.shown_running, transcription_progress=interview_transcribe.progress_info,
                            transcription_error=interview_transcribe.error_info, offline=interview_offline.panel(survey, access))
 
 

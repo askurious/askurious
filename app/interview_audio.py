@@ -29,7 +29,11 @@ minimisation), and an upload needs the tick of its page that everybody who speak
   Response.interview["audio"] = [{"part": 1, "file": "teil-1-<rec>.webm", "mime": "audio/webm", "bytes": int,
                                    "pieces": int, "start": seconds of the interview clock when it began, "rec": str,
                                    "at": ISO time the last piece arrived,
-                                   uploaded only: "source": "upload", "origin": key of ORIGINS, "speaker": "" | "I" | "B"}]"""
+                                   uploaded only: "source": "upload", "origin": key of ORIGINS, "speaker": "" | "I" | "B",
+                                   "size": bytes of the whole file (since 2026-11-05),
+                                   "copy_of": part number, when the part is a broken-off or repeated upload of it}]
+An upload of a file that is there already goes on where it broke off, or is refused as a duplicate (Tester
+2026-11-05: the same recording uploaded twice made every transcription fail on the broken first copy)."""
 import os
 import re
 import shutil
@@ -128,6 +132,129 @@ def parts(row):
     return [p for p in (row.interview or {}).get("audio") or [] if isinstance(p, dict) and p.get("file")]
 
 
+def skipped(p):
+    """Why the transcription leaves a part out, or "": "copy" for a broken-off or repeated upload of the same file as
+    another part (copy_of, noted by mark_copies), "incomplete" for an upload that has not arrived in full (its
+    "size" is larger than its bytes). Tester 2026-11-05: an upload broke off, the file was uploaded again, and the
+    broken first part made every transcription fail."""
+    if p.get("copy_of"):
+        return "copy"
+    if p.get("source") == "upload" and type(p.get("size")) is int and (p.get("bytes") or 0) < p["size"]:
+        return "incomplete"
+    return ""
+
+
+@bp.app_template_global()
+def skip_note(p):
+    """The note in the draft and in the list for a part the transcription leaves out."""
+    why = skipped(p)
+    if why == "copy":
+        return de_en("Teil {n} ist eine abgebrochene oder doppelte Kopie von Teil {m} und wird nicht transkribiert.",
+                     "Part {n} is a broken-off or repeated copy of part {m} and is not transcribed.",
+                     n=p.get("part"), m=p.get("copy_of"))
+    if why == "incomplete":
+        return de_en("Teil {n} ist nicht vollständig hochgeladen und wird nicht transkribiert. Dieselbe Datei noch einmal hochladen: Das Hochladen geht dann dort weiter, wo es abgebrochen ist.",
+                     "Part {n} has not been uploaded in full and is not transcribed. Upload the same file again: the upload then continues where it broke off.",
+                     n=p.get("part"))
+    return ""
+
+
+def _same_start(a, b, size):
+    """Whether file a holds the same first `size` bytes as file b."""
+    try:
+        with open(a, "rb") as fa, open(b, "rb") as fb:
+            left = size
+            while left > 0:
+                chunk = fa.read(min(left, 1024 * 1024))
+                if not chunk or chunk != fb.read(len(chunk)):
+                    return False
+                left -= len(chunk)
+            return True
+    except OSError:
+        return False
+
+
+TAIL = 1024 * 1024   # bytes at the end of two parts compared to find a downloaded and uploaded again copy
+HEAD_SLACK = 4096    # bytes a download may differ in length: the head that names the length (app/webm_duration.py)
+
+
+def _same_end(a, b, size):
+    """Whether files a and b end in the same `size` bytes."""
+    try:
+        with open(a, "rb") as fa, open(b, "rb") as fb:
+            fa.seek(-size, os.SEEK_END)
+            fb.seek(-size, os.SEEK_END)
+            return fa.read(size) == fb.read(size)
+    except OSError:
+        return False
+
+
+def copies(survey, row):
+    """{part: the part it copies}: an uploaded part whose bytes all stand at the start of a longer upload (the same
+    file uploaded again after the first upload broke off; such a part ends at a whole piece), the later of two
+    identical uploads, or an upload of a part downloaded before (the download sets a head that names the length,
+    so the two differ only there: same type, nearly the same length, the same last megabyte; tester 2026-11-05)."""
+    every = [p for p in parts(row) if p.get("bytes") and FILE_RE.fullmatch(p["file"])]
+    where, found = folder(survey, row), {}
+    for a in (p for p in every if p.get("source") == "upload"):
+        for b in every:
+            if b is a or b.get("mime") != a.get("mime") or b["part"] in found:
+                continue
+            fa, fb = os.path.join(where, a["file"]), os.path.join(where, b["file"])
+            if b.get("source") == "upload":
+                longer = b["bytes"] > a["bytes"] and a["bytes"] % MAX_PIECE == 0
+                same = b["bytes"] == a["bytes"] and b["part"] < a["part"]
+                if (longer or same) and _same_start(fa, fb, a["bytes"]):
+                    found[a["part"]] = b["part"]
+                    break
+            tail = min(TAIL, a["bytes"], b["bytes"])
+            if (b["part"] < a["part"] and abs(a["bytes"] - b["bytes"]) <= HEAD_SLACK and tail > HEAD_SLACK
+                    and _same_end(fa, fb, tail - HEAD_SLACK)):
+                found[a["part"]] = b["part"]
+                break
+    return found
+
+
+def mark_copies(survey, row):
+    """Notes copy_of on the parts copies() finds (and takes it off the others); the caller commits."""
+    found = copies(survey, row)
+    audio = [dict(p) for p in (row.interview or {}).get("audio") or [] if isinstance(p, dict)]
+    changed = False
+    for p in audio:
+        want = found.get(p.get("part"))
+        if p.get("copy_of") != want:
+            changed = True
+            if want:
+                p["copy_of"] = want
+            else:
+                p.pop("copy_of", None)
+    if changed:
+        row.interview = {**(row.interview or {}), "audio": audio}
+    return found
+
+
+def _upload_twin(survey, row, audio, data, size):
+    """An uploaded part of the same file as the one whose first piece `data` is (same start, same total size where
+    both are known): the part, or None."""
+    where = folder(survey, row)
+    for p in audio:
+        if p.get("source") != "upload" or not p.get("bytes") or not FILE_RE.fullmatch(p.get("file") or ""):
+            continue
+        if size and type(p.get("size")) is int and p["size"] != size:
+            continue
+        if size and p["bytes"] > size:
+            continue
+        n = min(len(data), p["bytes"])
+        try:
+            with open(os.path.join(where, p["file"]), "rb") as f:
+                head = f.read(n)
+        except OSError:
+            continue
+        if n and head == data[:n]:
+            return p
+    return None
+
+
 def next_part(row):
     """The part number a new recording asks for (the server moves it on if another recording took it)."""
     return max((p.get("part") or 0 for p in parts(row)), default=0) + 1
@@ -173,6 +300,14 @@ def append(survey, row, part, seq, mime, data, start, rec="", meta=None):
     if current is None:
         if seq != 0 or len(audio) >= MAX_PARTS:  # the reason goes along: the page stops sending and names it (F15)
             abort(make_response(jsonify(ok=False, error="gap" if seq != 0 else "parts"), 409))
+        size = (meta or {}).get("size")
+        twin = _upload_twin(survey, row, audio, data, size) if meta else None
+        if twin is not None:  # the same file again: go on where its upload broke off, or say it is there already
+            if size and twin["bytes"] < size and twin["bytes"] == twin["pieces"] * len(data):
+                abort(make_response(jsonify(ok=False, error="resume", resume_part=twin["part"], seq=twin["pieces"],
+                                            rec=twin.get("rec") or ""), 409))
+            if size and twin["bytes"] == size:
+                abort(make_response(jsonify(ok=False, error="duplicate", same_part=twin["part"]), 409))
         if part != max((p.get("part") or 0 for p in audio), default=0) + 1:
             _taken(audio)
         if sniff(data[:12]) != mime:  # the first piece starts the container the browser named (audit 2026-10-13, DA-6)
@@ -184,6 +319,8 @@ def append(survey, row, part, seq, mime, data, start, rec="", meta=None):
         audio.append(current)
     elif rec and current.get("rec") and current["rec"] != rec:
         _taken(audio)
+    elif meta and meta.get("size") and "size" not in current:  # an upload from before 2026-11-05 that goes on
+        current["size"] = meta["size"]
     if seq < current["pieces"]:
         return current["pieces"]  # sent twice (an answer that got lost): already there
     if seq > current["pieces"]:
@@ -209,6 +346,8 @@ def append(survey, row, part, seq, mime, data, start, rec="", meta=None):
     current["pieces"] += 1
     current["at"] = utcnow().isoformat(timespec="seconds")
     row.interview = {**(row.interview or {}), "audio": [dict(p) for p in audio]}
+    if current.get("source") == "upload" and current.get("size") == current["bytes"]:
+        mark_copies(survey, row)  # the list names a copy at once, not only when the transcription starts
     row.last_active_at = utcnow()
     return current["pieces"]
 
@@ -489,6 +628,9 @@ def upload(code, rid):
     if request.args.get("source") == "upload":  # a file recorded elsewhere (upload_page)
         meta = {"source": "upload", "origin": request.args.get("origin") if request.args.get("origin") in ORIGINS else "other",
                 "speaker": request.args.get("speaker") if request.args.get("speaker") in SPEAKERS else ""}
+        size = request.args.get("size", type=int)
+        if size and 0 < size <= MAX_TOTAL:  # the whole file: an upload that broke off is known as such
+            meta["size"] = size
 
     def work():
         # the tick of the upload page: everybody who speaks consented before the recording and to its transfer

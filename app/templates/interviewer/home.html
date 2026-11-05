@@ -43,7 +43,7 @@
       <td>{% if not open_ %}<span class="muted small">{{ de_en("Transkript geprüft; nur die Forschenden öffnen dieses Interview", "transcript checked; only the researchers open this interview") }}</span>{% if others is defined and access.may_see in ("all", "results") %} <a class="small" href="{{ url_for('interviewer.read', code=survey.code, rid=r.id) }}">{{ de_en("Lesen", "Read") }}</a>{% endif %}
         {% else %}
         {% set audio = parts(r) %}
-        {% if audio %}{% for p in audio %}<div class="iv-audio-part"><audio controls preload="metadata" src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}</div>{% endfor %}{% endif %}
+        {% if audio %}{% for p in audio %}<div class="iv-audio-part"><audio controls preload="metadata" src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}{% set note = skip_note(p) %}{% if note %}<div class="muted small">{{ note }}</div>{% endif %}</div>{% endfor %}{% endif %}
         {% if access.may_record and (m.consent or {}).audio %}<div class="small"><a href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id) }}">{{ de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
         {% if access.may_transcribe %}{% set tr = m.transcript or {} %}
         <div class="iv-transcript small">
@@ -53,7 +53,7 @@
                  data-error="{{ de_en('Status momentan nicht erreichbar. Bitte später erneut prüfen.', 'Status temporarily unavailable. Please check again later.') }}">
               <span data-progress-text role="status" aria-live="polite">{{ progress.text }}</span>
               <p class="muted" data-progress-estimate>{{ progress.eta_text }}</p>
-              <div><progress data-progress-bar value="{{ progress.done }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
+              <div><progress data-progress-bar value="{{ progress.bar }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
                 <span data-progress-parts>{{ progress.parts_text }}</span></div>
               <a data-progress-finished hidden href="{{ url_for('interviewer.home', code=survey.code) }}">{{ de_en("Anzeige aktualisieren", "Refresh view") }}</a>
               <form method="post" action="{{ url_for('interview_transcribe.cancel', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}

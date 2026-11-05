@@ -59,19 +59,49 @@
     return de_en("Das Hochladen ist fehlgeschlagen ({s}).", "The upload failed ({s}).").replace("{s}", answer.status);
   }
 
-  // One file as one part: pieces in order; a part another recording took meanwhile moves to the next free one.
-  function upload(file, speaker, part, sent, total) {
+  // A piece that does not get through for a moment (no network, a server restart) is sent again after a pause,
+  // instead of ending the upload half way (tester 2026-11-05).
+  var PAUSES = [2000, 5000, 15000, 30000, 60000];
+  function sendTried(url, body, type, tries) {
+    tries = tries || 0;
+    function again(answer) {
+      if (tries >= PAUSES.length) return answer;
+      say(de_en("Verbindung unterbrochen, neuer Versuch …", "Connection interrupted, trying again …"));
+      return new Promise(function (resolve) { setTimeout(resolve, PAUSES[tries]); })
+        .then(function () { return sendTried(url, body, type, tries + 1); });
+    }
+    return send(url, body, type).then(function (answer) {
+      return answer.status >= 500 && answer.status !== 507 || answer.status === 0 ? again(answer) : answer;
+    }, function () { return again({ status: 0 }); });
+  }
+
+  // One file as one part: pieces in order; a part another recording took meanwhile moves to the next free one. The
+  // same file once more goes on where its upload broke off, or is skipped when it is there in full ("same").
+  function upload(file, speaker, part, sent, total, skipped) {
     var rec = Math.random().toString(36).slice(2, 12), type = TYPES[ext(file)] || file.type;
-    var base = form.dataset.url + "?source=upload&rec=" + rec + "&start=0&origin=" + encodeURIComponent(form.origin.value)
+    function base() {
+      return form.dataset.url + "?source=upload&rec=" + rec + "&start=0&size=" + file.size + "&origin=" + encodeURIComponent(form.origin.value)
              + "&speaker=" + encodeURIComponent(speaker) + (form.all && form.all.checked ? "&all=1" : "");
+    }
     function next(seq) {
       var from = seq * piece;
       if (from >= file.size) return Promise.resolve(part);
-      return send(base + "&part=" + part + "&seq=" + seq, file.slice(from, from + piece), type).then(function (answer) {
+      return sendTried(base() + "&part=" + part + "&seq=" + seq, file.slice(from, from + piece), type).then(function (answer) {
+        if (answer.status === 409 && seq === 0 && answer.error === "resume") {
+          part = answer.resume_part; rec = answer.rec || rec;
+          sent.bytes += Math.min(answer.seq * piece, file.size);
+          return next(answer.seq);
+        }
+        if (answer.status === 409 && seq === 0 && answer.error === "duplicate") {
+          skipped.push(file.name + " (" + de_en("schon Teil {n}", "already part {n}").replace("{n}", answer.same_part) + ")");
+          sent.bytes += file.size; bar.value = sent.bytes / total;
+          return Promise.resolve(part - 1);
+        }
         if (answer.status === 409 && seq === 0 && answer.part) { part = answer.part; return next(0); }
         if (!answer.ok) throw new Error(reason(answer));
         sent.bytes += Math.min(piece, file.size - from);
         bar.value = sent.bytes / total;
+        if (seq === 0) say(de_en("Wird hochgeladen …", "Uploading …"));
         return next(seq + 1);
       });
     }
@@ -93,15 +123,20 @@
     Promise.all(files.map(picture)).then(function (pictures) {
       var shown = files.filter(function (f, i) { return pictures[i]; })[0];
       if (shown) throw new Error(shown.name + ": " + VIDEO_TEXT());
-      var sent = { bytes: 0 }, part = +form.dataset.part;
+      var sent = { bytes: 0 }, part = +form.dataset.part, skipped = [];
       bar.hidden = false; bar.value = 0;
       say(de_en("Wird hochgeladen …", "Uploading …"));
       return files.reduce(function (chain, file, i) {
         return chain.then(function () {
-          return upload(file, speakers[i] ? speakers[i].value : "", part, sent, total).then(function (used) { part = used + 1; });
+          return upload(file, speakers[i] ? speakers[i].value : "", part, sent, total, skipped).then(function (used) { part = Math.max(part, used + 1); });
         });
-      }, Promise.resolve());
-    }).then(function () {
+      }, Promise.resolve()).then(function () { return skipped; });
+    }).then(function (skipped) {
+      if (skipped.length) {  // stays on the page, so the note can be read
+        busy = false; button.disabled = false;
+        return say(de_en("Schon vorhanden und nicht noch einmal hochgeladen: {files}", "Already there and not uploaded again: {files}")
+                   .replace("{files}", skipped.join(", ")));
+      }
       say(files.length === 1 ? de_en("Die Datei ist hochgeladen.", "The file has been uploaded.")
                              : de_en("{n} Dateien sind hochgeladen.", "{n} files have been uploaded.").replace("{n}", files.length));
       window.location.href = form.dataset.back;
