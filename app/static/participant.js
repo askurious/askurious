@@ -2140,8 +2140,7 @@ var blockPages = null;
   var form = document.querySelector(".p-container form[method=post]");
   if (!form) return;
   var note = form.querySelector("[data-send-note]");
-  var sent = false, slow = null, waiting = null, button = null, label = null;
-  var WAIT_NOTE_AFTER = 1500;  // a survey with web services: the page may wait for one, so it says so, quietly
+  var sent = false, slow = null, button = null, label = null;
   function say(text, urgent) {
     if (!note) return;
     note.textContent = "";
@@ -2170,7 +2169,6 @@ var blockPages = null;
   function release(text) {
     sent = false;
     clearTimeout(slow);
-    clearTimeout(waiting);
     form.removeAttribute("aria-busy");
     if (button && label !== null) { button.innerHTML = label; button.removeAttribute("aria-disabled"); button.classList.remove("is-sending"); }
     button = label = null;
@@ -2209,7 +2207,6 @@ var blockPages = null;
     var files = Array.prototype.some.call(form.querySelectorAll("input[type=file]"), function (f) { return f.files && f.files.length; });
     // a web service may take its time limit: no "send again" before that is over
     var wait = parseInt(note.getAttribute("data-wait-seconds"), 10) || 0;
-    if (wait) waiting = setTimeout(function () { say(note.getAttribute("data-wait")); }, WAIT_NOTE_AFTER);
     slow = setTimeout(function () { release(note.getAttribute("data-slow")); }, (files ? 90000 : 25000) + wait * 1000);
   });
   // back from the browser history: the page may be sent again (the server checks which page it was)

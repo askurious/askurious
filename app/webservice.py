@@ -61,7 +61,7 @@ NOT_PUBLIC = tuple(ipaddress.ip_network(n) for n in ("64:ff9b::/96", "64:ff9b:1:
                                                      "::/96", "3fff::/20", "5f00::/16"))
 JSON_SCALAR = re.compile(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?\Z|true\Z|false\Z|null\Z")
 MAX_VALUES = 20
-MAX_TEXT = 500  # characters of a text value kept
+MAX_TEXT = 2000  # characters of a text value kept
 MAX_NUMBER = 1e15  # numbers beyond are no value (app/items/base.py MAX_NUMBER: what a number field takes)
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,30}\Z")
 PATH_RE = re.compile(r"^[A-Za-z0-9_\-]+(\.[A-Za-z0-9_\-]+)*\Z")
@@ -779,7 +779,8 @@ def run(survey, response, node, variables):
 
     In a request the call waits until the request has stored its step: `flush` makes it after the commit, so that no
     transaction (a quota cell taken, SQLite's write lock) stays open while this server waits for someone else's
-    (code audit 2026-10-08, W2). The values it gives appear on the next page (every step forward ends in a redirect)."""
+    (code audit 2026-10-08, W2). The values it gives appear on the next page: a step that queued a call ends in a
+    redirect, also when participant.js sent the page (`queued`)."""
     from flask import after_this_request, has_request_context
 
     if done(response, node["id"]) or not usable(node):
@@ -810,6 +811,12 @@ def run(survey, response, node, variables):
     # what goes in, read now: after the commit the participation is not read again before the call
     wanted = {name: (None if variables.get(name) is None else str(variables.get(name))) for name in used(node)}
     queue.append({"id": str(node["id"]), "node": json.loads(json.dumps(node)), "vars": wanted})
+
+
+def queued(response):
+    """Does this request still owe a call? Then its page must come by a redirect: the call runs after the response is
+    built, so a page rendered in this request (participate._direct) would not have the values yet."""
+    return bool(response.__dict__.get(QUEUE))
 
 
 def _keep(response, found):

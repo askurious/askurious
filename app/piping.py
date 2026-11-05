@@ -56,20 +56,22 @@ def _whole(item, name):
     return name == item.code and item.kind.pipeable(item)
 
 
-def values(survey, answers, lang, row=None, skip=()):
+def values(survey, answers, lang, row=None, skip=(), whole=False):
     """{name: Typed text} of everything in sources() ("" without an answer), as load_answers() gives the
     answers; `row`: the current pass of a loop; `skip`: ids of the items on the current page (their answers
-    are not final yet). A mapping that works a value out when a text asks for it (Values): a step rendered every
+    are not final yet); `whole`: for a web service, what was typed stays as it is, not one line of at most 200
+    characters as in a text of a page (ItemType.whole_text). A mapping that works a value out when a text asks for it (Values): a step rendered every
     value of the survey, Rechenwerte included, for the few placeholders of one page (audit 2026-10-06, P4)."""
-    return Values(survey, answers, lang, row, skip)
+    return Values(survey, answers, lang, row, skip, whole)
 
 
 class Values(Mapping):
     """The values of values(), each worked out on first use and then kept; sources() too is read only once a
     name is asked for that nothing above it in the step's variables has (runtime.step)."""
 
-    def __init__(self, survey, answers, lang, row=None, skip=()):
+    def __init__(self, survey, answers, lang, row=None, skip=(), whole=False):
         self._survey, self._answers, self._lang, self._row, self._skip = survey, answers, lang, row, skip
+        self._whole = whole
         self._found, self._done = None, {}
 
     @property
@@ -102,7 +104,10 @@ class Values(Mapping):
             answer = answers.get(key) if row and key in answers else answers.get(item.id)
         text = ""
         if answer not in (None, "", [], {}):
-            text = item.kind.pipe_text(item, answer, lang) if _whole(item, name) else item.kind.pipe_part_text(item, answer, name, lang)
+            if not _whole(item, name):
+                text = item.kind.pipe_part_text(item, answer, name, lang)
+            else:
+                text = (item.kind.whole_text if self._whole else item.kind.pipe_text)(item, answer, lang)
         return Typed(text or "")
 
 

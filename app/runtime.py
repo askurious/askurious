@@ -913,7 +913,7 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
         lang = getattr(response, "language", None) or survey.default_language
         known = {**{k: Typed(v) for k, v in builtin_variables(response, survey, lang).items()},
                  **{k: Typed(v) for k, v in params.items()}, "pid": builtin_variables(response)["pid"]}
-        webservice.run(survey, response, node, ChainMap(known, piping.values(survey, answers, lang)))
+        webservice.run(survey, response, node, ChainMap(known, piping.values(survey, answers, lang, whole=True)))
 
     def go_forward(from_index):
         from app.items import voice

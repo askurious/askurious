@@ -1012,6 +1012,10 @@ class ItemType:
         """The stored answer as plain text in the participant's language ("" for none)."""
         return ""
 
+    def whole_text(self, item, answer, lang):
+        """The stored answer for a web service: as pipe_text, but what was typed stays whole (app/webservice.py)."""
+        return self.pipe_text(item, answer, lang)
+
     def pipe_live(self, item, lang):
         """None, or what the page's script needs to show the answer in a text of the same page while it is given
         (participant.js, [data-pipe]): {"kind": "choice" | "multi" | "text" | "value", ...}. Only where the
