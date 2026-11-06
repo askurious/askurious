@@ -72,17 +72,27 @@
     </div>
     {% endfor %}
     {% else %}<p class="muted small">{{ de_en("Keine unscharfen Paare: keine Stellen in zwei Kategorien, keine abweichende Probe, keine ähnlichen Namen.", "No blurring pairs: no passages in two categories, no differing check, no similar names.") }}</p>{% endif %}
-    <details class="tc-propose"><summary>{{ de_en("Zwei andere Kategorien zusammenführen", "Merge two other categories") }}</summary>
-      <form method="post" action="{{ url_for('transcript_coding.merge_categories', code=survey.code, pid=project.id) }}" class="stack">
-        {{ csrf() }}
+    {# two categories picked from the tree with search and numbers, then merged and harmonised in the dialog of the
+       category system (feedback 2026-11-06: the flat lists were hard to read) #}
+    <div><button type="button" class="button button-small button-secondary" data-tc-merge-open>{{ de_en("Zwei andere Kategorien zusammenführen …", "Merge two other categories …") }}</button></div>
+    <dialog class="person-dialog xp-dialog tc-merge-dialog" data-tc-merge-dialog aria-labelledby="tc-merge-title">
+      <div class="xp-dialog-head"><h2 id="tc-merge-title">{{ de_en("Zwei Kategorien zusammenführen", "Merge two categories") }}</h2>
+        <button type="button" class="xp-close" data-tc-merge-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+      <form method="get" action="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}" class="stack" data-tc-merge-pick>
+        <input type="hidden" name="view" value="categories"><input type="hidden" name="merge" value="" data-tc-merge-value>
         {% set flat = [] %}{% for main, subs in mains %}{% set _ = flat.append(main) %}{% for s in subs %}{% set _ = flat.append(s) %}{% endfor %}{% endfor %}{% for c in candidates %}{% set _ = flat.append(c) %}{% endfor %}
-        <label>{{ de_en("Diese Kategorie …", "This category …") }} <select name="source">{% for c in flat %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
-        <label>{{ de_en("… geht auf in", "… goes into") }} <select name="target">{% for c in flat %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
-        <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000" required></label>
-        <p class="muted small">{{ de_en("Unterkategorien führen alle zusammen, Hauptkategorien nur die Forschenden. Es gilt sofort; wer eigene Stellen darin hat, sieht das und kann sie herauslösen.", "Anyone merges subcategories, only the researchers main categories. It takes effect at once; whoever has passages in it sees this and can take them out.") }}</p>
-        <div><button class="button button-small">{{ de_en("Zusammenführen", "Merge") }}</button></div>
+        <div class="tc-merge-cols">
+          {% for field, title in (("source", de_en("Diese Kategorie …", "This category …")), ("target", de_en("… geht auf in", "… goes into"))) %}
+          <label class="tc-merge-col">{{ title }}
+            <select name="{{ field }}" data-tc-pick>{% for c in flat %}<option value="{{ c.id }}" data-num="{{ nums.get(c.id, '') }}" data-level="{{ c.level or 1 }}"{% if c.kind != 'sub' %} data-main="1"{% endif %} data-path="{{ c.path }}" data-n="{{ (stats.get(c.id) or {}).get('n', 0) }}"{% if field == 'target' and loop.index == 2 %} selected{% endif %}>{{ c.name }}{% if c.kind == 'candidate' %} ({{ de_en("Kandidat", "candidate") }}){% endif %}</option>{% endfor %}</select></label>
+          {% endfor %}
+        </div>
+        <p class="small" data-tc-merge-what aria-live="polite"></p>
+        <p class="muted small">{{ de_en("Unterkategorien führen alle zusammen, Hauptkategorien nur die Forschenden. Im nächsten Schritt vereinheitlichen Sie Name, Definition, Abgrenzung und Ankerbeispiel und nennen die Begründung; wer eigene Stellen darin hat, sieht es danach und kann sie herauslösen.", "Anyone merges subcategories, only the researchers main categories. In the next step you harmonise name, definition, delimitation and anchor example and give the reason; whoever has passages in it sees it afterwards and can take them out.") }}</p>
+        <div class="form-actions"><button type="button" class="button button-small button-secondary" data-tc-merge-close>{{ de_en("Abbrechen", "Cancel") }}</button>
+          <button class="button button-small">{{ de_en("Weiter: vereinheitlichen", "Next: harmonise") }}</button></div>
       </form>
-    </details>
+    </dialog>
   </section>
   <section class="panel" id="verlauf">
     <h2>{{ de_en("Verlauf", "History") }}</h2>
@@ -177,6 +187,7 @@
 </div>
 {{ memo_dialog(survey, project, who, memos) }}
 {{ tc_live_marker(survey, project, who) }}
+<script src="{{ url_for('static', filename='tc_picker.js') }}" defer></script>
 <script src="{{ url_for('static', filename='transcript_coding.js') }}" defer></script>
 <script src="{{ url_for('static', filename='transcript_coding_live.js') }}" defer></script>
 {% endblock %}

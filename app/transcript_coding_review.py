@@ -892,7 +892,10 @@ def overview(code, pid):
         cell = {"a": names[a], "b": names[b], "pairs": ov["pairs"].get((a, b), [])}
     memo_rows = transcript_coding_memos.memo_list(project, who, request.args)
     all_memos = transcript_coding_memos.visible(project, who)
+    from app.transcript_coding import numbers
+
     return render_template("transcript_coding/overview.html", mains=mains, candidates=candidates, stats=stats(project, who),
+                           nums=numbers(mains),
                            memo_rows=memo_rows, memos=[transcript_coding_memos.as_json(m, who) for m in all_memos],
                            memo_kind=transcript_coding_memos.kind_name,
                            probes=probes, pairs=pairs[:12], blurred=blurred(project, who, pairs, probes), ov=ov, ov_cell=cell,

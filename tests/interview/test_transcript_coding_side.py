@@ -49,3 +49,21 @@ def test_numbers_mine_and_the_passages_of_a_category(app, client):
     assert not cats[sub]["mine"]
     assert g.get(f"{base}/categories/{sub}/spots").json["total"] == 2
     assert app.test_client().get(f"{base}/categories/{sub}/spots").status_code in (302, 401, 404)
+
+
+def test_pickers_carry_the_tree(app, client):
+    """Merging and moving choose from the tree (tc_picker.js): each option with number, level, path and passages."""
+    code, sid = _guide(app, client)
+    pid = _new(client, code, start="empty")
+    base = f"/guide/{code}/interviews/coding/{pid}"
+    for name in ("Belastung", "Wünsche"):
+        client.post(f"{base}/categories/new", data={"kind": "main", "name": name})
+    with app.app_context():
+        main = db.session.scalar(db.select(CodingCategory.id).filter_by(project_id=pid, name="Belastung"))
+    client.post(f"{base}/categories/new", data={"kind": "sub", "parent": main, "name": "Erschöpfung", "definition": "Müde"})
+    overview = client.get(f"{base}/overview").data.decode()
+    assert "data-tc-merge-dialog" in overview and "tc_picker.js" in overview
+    assert re.search(r'<option value="\d+" data-num="1.1" data-level="2" data-path="Belastung › Erschöpfung" data-n="0"', overview)
+    page = client.get(f"{base}?view=categories").data.decode()
+    assert '<select name="parent" data-tc-pick>' in page and "tc_picker.js" in page
+    assert re.search(r'<option value="\d+" data-num="2" data-level="1" data-main="1" data-path="Wünsche">Wünsche</option>', page)

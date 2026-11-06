@@ -3,6 +3,10 @@
 {% from "_macros.html" import csrf, autosave_bar %}
 {% from "_icons.html" import icon %}
 {% from "transcript_coding/_memos.html" import memo_button %}
+{% macro pick_option(tid, tpath, allow_none=true) -%}
+{%- if tid is none -%}{% if allow_none %}<option value="" data-main="1">{{ tpath }}</option>{% endif %}
+{%- else -%}<option value="{{ tid }}" data-num="{{ nums.get(tid, '') if nums else '' }}" data-level="{{ levels.get(tid, 1) if levels else 1 }}"{% if levels and levels.get(tid, 1) == 1 %} data-main="1"{% endif %} data-path="{{ tpath }}">{{ tpath.rsplit(' › ', 1)[-1] }}</option>{%- endif -%}
+{%- endmacro %}
 {% macro category(cat, kind_class) -%}
 {% set editable = may_edit(cat) %}
 <div class="tc-cat {{ kind_class }}" id="k{{ cat.id }}" data-tc-cat="{{ cat.id }}" data-tc-anc-of="{{ (cat.anc or [])|join(' ') }}"
@@ -36,7 +40,7 @@
   <details class="tc-propose"><summary>{{ de_en("Verschieben nach …", "Move to …") }}</summary>
   <form method="post" action="{{ url_for('transcript_coding.move_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="row-fields">
     {{ csrf() }}
-    <label>{{ de_en("Unter", "Under") }} <select name="parent">{% for tid, tpath in targets %}<option value="{{ tid if tid is not none else '' }}">{{ tpath }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-pick>{% for tid, tpath in targets %}{{ pick_option(tid, tpath) }}{% endfor %}</select></label>
     <div><button class="button button-small">{{ de_en("Verschieben", "Move") }}</button></div>
   </form>
   <p class="muted small">{{ de_en("Alles darunter geht mit; wer Stellen darin hat, wird gefragt. Rückgängig oben im Kategoriensystem.", "Everything below goes along; whoever has passages in it is asked. Undo at the top of the category system.") }}</p>
@@ -60,7 +64,7 @@
   <details class="tc-propose"><summary>{{ de_en("Verschieben vorschlagen …", "Propose a move …") }}</summary>
   <form method="post" action="{{ url_for('transcript_coding.move_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="row-fields">
     {{ csrf() }}
-    <label>{{ de_en("Unter", "Under") }} <select name="parent">{% for tid, tpath in targets %}{% if tid is not none %}<option value="{{ tid }}">{{ tpath }}</option>{% endif %}{% endfor %}</select></label>
+    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-pick>{% for tid, tpath in targets %}{{ pick_option(tid, tpath, false) }}{% endfor %}</select></label>
     <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000"></label>
     <div><button class="button button-small">{{ de_en("Vorschlag senden", "Send proposal") }}</button></div>
   </form>
