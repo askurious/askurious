@@ -1,6 +1,6 @@
 // The coding view of one interview (app/transcript_coding_view.py, templates/transcript_coding/code.html): draws the
 // transcript with its coded passages, turns a marked passage into offsets in the transcript, offers the categories to
-// assign (filter, keys 1-9 for the ones used last, Enter, a new category on the spot) and shows what a coded passage
+// assign (filter, the person's keys 1-9, Enter, a new category on the spot) and shows what a coded passage
 // carries. The server widens a passage to whole words and stores it; the page draws it anew from the answer.
 (function () {
   var root = document.querySelector("[data-tc-code]");
@@ -18,7 +18,7 @@
   var pending = null, created = false;  // the marked passage while the dialog "Neue Kategorie" is open
   var csrf = root.getAttribute("data-csrf"), base = root.getAttribute("data-base-url");
   var PALETTE = ["#8A4B14", "#2957A4", "#1F6B2A", "#7A3FD1", "#B3261E", "#0B6E86", "#7A5B00"];
-  var RECENT_KEY = "tc-recent-" + root.getAttribute("data-project");
+  var keyMap = data.keys || {};  // the person's keys 1 to 9: {"1": category id}, kept on the server (feedback 2026-11-06)
   var selection = null;  // {start, end} of the marked passage
   var recoding = null;  // the coded passage that "Andere Kategorie …" moves (the list then chooses its new category)
   var dragging = null;  // what is dragged onto a category of the side: {kind: "mark", m} or {kind: "coding", coding}
@@ -33,13 +33,9 @@
   }
   function label(cat) { return cat.parent ? cat.parent + " › " + cat.name : cat.name; }
   function say(msg) { if (status) status.textContent = msg; }
-  function recent() {
-    try { var r = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); return Array.isArray(r) ? r : []; } catch (e) { return []; }
-  }
-  function remember(id) {
-    var r = recent().filter(function (x) { return x !== id; });
-    r.unshift(id);
-    try { localStorage.setItem(RECENT_KEY, JSON.stringify(r.slice(0, 9))); } catch (e) { /* only a convenience */ }
+  function keyOf(c) {
+    for (var k in keyMap) if (Object.prototype.hasOwnProperty.call(keyMap, k) && keyMap[k] === c.id) return k;
+    return "";
   }
   function post(url, body) {
     return fetch(url, { method: "POST", credentials: "same-origin",
@@ -258,6 +254,40 @@
     host.appendChild(listEl);
   }
 
+  // "Taste": which key 1 to 9 assigns the category (one key per category; a key taken moves here)
+  function keyChoice(c, host) {
+    var url = root.getAttribute("data-keys-url");
+    if (!url) return;
+    var label = document.createElement("label");
+    label.className = "tc-side-key small";
+    label.appendChild(document.createTextNode(de_en("Taste", "Key") + " "));
+    var sel = document.createElement("select");
+    var none = document.createElement("option");
+    none.value = "";
+    none.textContent = de_en("keine", "none");
+    sel.appendChild(none);
+    for (var k = 1; k <= 9; k++) {
+      var o = document.createElement("option");
+      var other = catOf(keyMap[String(k)]);
+      o.value = String(k);
+      o.textContent = String(k) + (other && other.id !== c.id ? " (" + other.name + ")" : "");
+      sel.appendChild(o);
+    }
+    sel.value = keyOf(c);
+    sel.addEventListener("change", function () {
+      var slot = sel.value || keyOf(c);
+      if (!slot) return;
+      post(url, { slot: slot, cat: sel.value ? c.id : "" }).then(function (d) {
+        if (!d.ok) { say(d.error || de_en("Nicht gespeichert.", "Not saved.")); sel.value = keyOf(c); return; }
+        keyMap = d.keys || {};
+        drawSide();
+        say(sel.value ? de_en("Taste {k}: ", "Key {k}: ").replace("{k}", sel.value) + c.name : de_en("Taste frei.", "Key free."));
+      });
+    });
+    label.appendChild(sel);
+    host.appendChild(label);
+  }
+
   function drawSide() {
     side.textContent = "";
     if (sideOpen !== null && !catOf(sideOpen)) sideOpen = null;
@@ -318,6 +348,12 @@
       name.className = "tc-side-name";
       name.textContent = c.name + (c.kind === "candidate" ? " (" + de_en("Kandidat", "candidate") + ")" : "");
       row.appendChild(name);
+      if (keyOf(c)) {
+        var kk = document.createElement("kbd");
+        kk.textContent = keyOf(c);
+        kk.title = de_en("Taste {k}", "Key {k}").replace("{k}", keyOf(c));
+        row.appendChild(kk);
+      }
       var n = document.createElement("span");
       var sum = total(c);
       n.className = "tc-side-n" + (sum ? "" : " is-zero");
@@ -330,6 +366,7 @@
         text.className = "tc-about tc-side-about small";
         about(c, text);
         li.appendChild(text);
+        keyChoice(c, li);
         spotsOf(c, li);
       }
       row.addEventListener("click", function () {
@@ -504,10 +541,25 @@
 
   function fill() {
     list.textContent = "";
-    var rec = recent();
     var infoIcon = root.getAttribute("data-icon-info");
     var q = filter.value.trim();
     shownCats = matches();
+    var keyed = Object.keys(keyMap).sort().map(function (k) { return catOf(keyMap[k]); })
+      .filter(function (c) { return c && (!recoding || c.id !== recoding.cat); });
+    if (!q && touching() && keyed.length) {  // no keys on a finger: the categories with one come first
+      var row = document.createElement("li");
+      row.className = "tc-pop-keys";
+      keyed.forEach(function (c) {
+        var kb = document.createElement("button");
+        kb.type = "button";
+        kb.className = "button button-small button-secondary";
+        kb.style.setProperty("--tc", tint(c));
+        kb.textContent = keyOf(c) + " " + c.name;
+        kb.addEventListener("click", function () { assign(c.id); });
+        row.appendChild(kb);
+      });
+      list.appendChild(row);
+    }
     shownCats.forEach(function (c, i) {
       var li = document.createElement("li");
       li.className = c.kind === "main" ? "is-main" : "";
@@ -531,10 +583,10 @@
       t.className = "tc-pop-name";
       t.textContent = q && c.kind === "sub" ? label(c) : c.name;  // a hit of the filter shows where it hangs
       b.appendChild(t);
-      var key = rec.indexOf(c.id);
-      if (!q && key >= 0 && key < 9) {
+      var key = keyOf(c);
+      if (!q && key) {
         var k = document.createElement("kbd");
-        k.textContent = String(key + 1);
+        k.textContent = key;
         b.appendChild(k);
       }
       var sum = total(c);
@@ -592,7 +644,6 @@
         say(d.error || de_en("Nicht gespeichert.", "Not saved."));
         return;
       }
-      remember(catId);
       codings.push(d.coding);
       codings.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
       var c = catOf(catId);
@@ -809,7 +860,7 @@
       setActive(active + (e.key === "ArrowDown" ? 1 : -1), true);
       return;
     }
-    // a digit in the empty field: the key of a category used last, unless a "." or another digit follows at once,
+    // a digit in the empty field: the person's key for a category, unless a "." or another digit follows at once,
     // which searches the number ("3.1"; feedback 2026-11-06)
     if (keyWait && e.key !== "." && !/^[0-9]$/.test(e.key)) { clearTimeout(keyWait.timer); keyWait = null; }
     if (keyWait && (e.key === "." || /^[0-9]$/.test(e.key))) {
@@ -821,7 +872,7 @@
       return;
     }
     if (/^[1-9]$/.test(e.key) && !filter.value) {
-      var id = recent()[Number(e.key) - 1];
+      var id = keyMap[e.key];
       if (id && catOf(id)) {
         e.preventDefault();
         var digit = e.key;
@@ -1108,6 +1159,7 @@
     anchors = fresh.anchors || {};
     editable = fresh.editable || {};
     examples = fresh.examples || {};
+    keyMap = fresh.keys || {};
     spotCache = {};
     draw();
     return true;

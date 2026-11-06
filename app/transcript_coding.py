@@ -354,20 +354,20 @@ def _copy(cat, project, parent_id):
 
 def delete_project(project):
     """An analysis with its categories, history, members and memos (its codings in the interviews: stage 2)."""
-    from app.models import CodingMemo
+    from app.models import CodingKey, CodingMemo
 
-    for model in (CodingCategory, CodingEvent, CodingMember, CodingMemo):
+    for model in (CodingCategory, CodingEvent, CodingMember, CodingMemo, CodingKey):
         db.session.execute(db.delete(model).where(model.project_id == project.id))
     db.session.delete(project)
 
 
 def forget_survey(survey_id):
     """Everything of the analyses of a guide that goes (lifecycle.delete)."""
-    from app.models import CodingMemo
+    from app.models import CodingKey, CodingMemo
 
     ids = list(db.session.scalars(db.select(CodingProject.id).filter_by(survey_id=survey_id)))
     if ids:
-        for model in (CodingCategory, CodingEvent, CodingMember, CodingMemo):
+        for model in (CodingCategory, CodingEvent, CodingMember, CodingMemo, CodingKey):
             db.session.execute(db.delete(model).where(model.project_id.in_(ids)))
         db.session.execute(db.delete(CodingProject).where(CodingProject.id.in_(ids)))
 

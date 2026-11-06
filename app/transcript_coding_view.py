@@ -668,6 +668,45 @@ def page(code, pid, rid):
                            memo_counts=transcript_coding_memos.counts(memos))
 
 
+SLOTS = tuple(str(n) for n in range(1, 10))
+
+
+def keys(project, who):
+    """{"1": category id, ...}: the actor's keys 1 to 9 in this analysis (feedback 2026-11-06, P10), only categories
+    still in use (a merged one: the one it went into)."""
+    from app.models import CodingKey
+    from app.transcript_coding import resolver
+
+    row = db.session.scalar(db.select(CodingKey).filter_by(project_id=project.id, actor_key=who.key)) if who.key else None
+    resolve, ids = resolver(project), {c.id for c in live(project)}
+    out = {}
+    for slot, cid in ((row.keys or {}) if row is not None else {}).items():
+        cid = resolve(cid)
+        if slot in SLOTS and cid in ids and cid not in out.values():
+            out[slot] = cid
+    return out
+
+
+def set_key(project, who, slot, cat_id):
+    """Key `slot` assigns `cat_id` (None: free); a category has one key at most. Returns the keys or a problem."""
+    from app.models import CodingKey
+
+    if not who.key or slot not in SLOTS:
+        return de_en("Bitte eine Taste von 1 bis 9 wählen.", "Please choose a key from 1 to 9.")
+    if cat_id is not None and _target(project, cat_id) is None:
+        return de_en("Bitte eine Kategorie wählen.", "Please choose a category.")
+    now = {k: v for k, v in keys(project, who).items() if k != slot and v != cat_id}
+    if cat_id is not None:
+        now[slot] = cat_id
+    row = db.session.scalar(db.select(CodingKey).filter_by(project_id=project.id, actor_key=who.key))
+    if row is None:
+        row = CodingKey(project_id=project.id, actor_key=who.key)
+        db.session.add(row)
+    row.keys, row.updated_at = now, utcnow()
+    db.session.commit()
+    return now
+
+
 def page_data(project, who, row):
     """What the coding view draws (its script reads it from #tc-data; app/transcript_coding_live.py sends it anew)."""
     from app import transcript_coding_ai
@@ -678,7 +717,7 @@ def page_data(project, who, row):
             "categories": _categories(project, who), "anchors": {c.id: (c.anchor or {}).get("coding") for c in cats},
             "editable": {c.id: may_edit(project, c, who) for c in cats},
             "examples": {c.id: [e.get("coding") for e in (c.examples or []) if isinstance(e, dict)] for c in cats},
-            "suggestions": transcript_coding_ai.open_suggestions(row, project)}
+            "suggestions": transcript_coding_ai.open_suggestions(row, project), "keys": keys(project, who)}
 
 
 def _payload():
@@ -746,6 +785,22 @@ def recode_passage(code, pid, rid, cid):
         return jsonify(ok=False, error=problem), 400
     return jsonify(ok=True, coding=_json_coding(moved, project, who), event=event.id,
                    undo_url=url_for("transcript_coding.recode_undo", code=survey.code, pid=project.id, eid=event.id))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/keys", methods=["POST"])
+@signed_in_or_coder
+def set_keys(code, pid):
+    """"Taste" at a category of the side (JSON): {slot: "1".."9", cat: id or ""}."""
+    survey, project, who = _in(code, pid)
+    data = _payload()
+    try:
+        cat = int(data.get("cat")) if data.get("cat") not in (None, "") else None
+    except (TypeError, ValueError):
+        cat = None
+    result = set_key(project, who, str(data.get("slot") or ""), cat)
+    if isinstance(result, str):
+        return jsonify(ok=False, error=result), 400
+    return jsonify(ok=True, keys=result)
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/recoded/<int:eid>/undo", methods=["POST"])

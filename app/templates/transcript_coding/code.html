@@ -6,7 +6,7 @@
 {% from "transcript_coding/_memos.html" import memo_button, memo_dialog with context %}
 {# The coding view of one interview in one analysis (app/transcript_coding_view.py, page): the transcript on the left,
    the category system on the right. Marking a passage opens a small list to assign a category (typing filters it,
-   1-9 take the categories used last, Enter takes the first); a click on a coded passage shows its categories with
+   1-9 take the person's keys, set at a category of the side; Enter takes the first); a click on a coded passage shows its categories with
    "Entfernen" and "Als Ankerbeispiel". Everything is drawn by transcript_coding_code.js from the data below; without
    script the transcript stands as plain text. #}
 {% block title %}{{ row.interview.label }} · {{ project.name }} · {{ survey.title }}{% endblock %}
@@ -26,7 +26,7 @@
     {% if nxt %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=nxt.id) }}">{{ de_en("Nächstes Interview", "Next interview") }}</a>{% endif %}
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
   </div>
-  <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien. Markiertes lässt sich auch auf eine Kategorie rechts ziehen.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories. Marked text can also be dragged onto a category on the right.") }}</p>
+  <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, Enter nimmt die erste, die Tasten 1 bis 9 die Kategorien, denen Sie rechts eine Taste geben. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien. Markiertes lässt sich auch auf eine Kategorie rechts ziehen.", "Mark a passage, then choose the category: typing filters, Enter takes the first, the keys 1 to 9 the categories you give a key on the right. Whole words are always marked. A click on a coded passage shows its categories. Marked text can also be dragged onto a category on the right.") }}</p>
   <p class="muted small tc-hint-touch">{{ de_en("Auf eine Textstelle lange drücken und die Griffe ziehen; kurz danach öffnet sich die Liste der Kategorien. Markiert wird immer ganze Wörter. Antippen einer kodierten Stelle zeigt ihre Kategorien.", "Press and hold a passage and drag the handles; a moment later the list of categories opens. Whole words are always marked. Tapping a coded passage shows its categories.") }}</p>
   {{ why("anchor_choice") }}
   {% if ai_on_state == "on" %}
@@ -56,6 +56,7 @@
      data-add-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-base-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-quick-url="{{ url_for('transcript_coding.quick_category', code=survey.code, pid=project.id) }}"
+     data-keys-url="{{ url_for('transcript_coding.set_keys', code=survey.code, pid=project.id) }}"
      data-project="{{ project.id }}" data-icon-info="{{ icon_sprite() }}#info" data-may-main="{{ '1' if may_main else '' }}"
      data-sugg-url="{{ url_for('transcript_coding.suggestion_action', code=survey.code, pid=project.id, rid=row.id, action='ACTION') }}">
   <section class="panel tc-transcript" aria-label="{{ de_en('Transkript', 'Transcript') }}">
@@ -95,7 +96,7 @@
   <ul class="tc-pop-list" data-tc-list></ul>
   {# what the active category says: definition, delimitation, anchor example (Ralf 2026-10-30) #}
   <div class="tc-about tc-pop-preview small" data-tc-preview aria-live="polite" hidden></div>
-  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 für zuletzt benutzte, „3.1“ sucht die Nummer, ↑ ↓ wählen, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, “3.1” searches the number, ↑ ↓ choose, Enter takes it, Esc closes") }}</p>
+  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 wie rechts festgelegt, „3.1“ sucht die Nummer, ↑ ↓ wählen, Enter übernimmt, Esc schließt", "Keys 1–9 as set on the right, “3.1” searches the number, ↑ ↓ choose, Enter takes it, Esc closes") }}</p>
 </div>
 {# a new category from the coding view: a dialog of its own in the middle of the window, moved by its title bar; Esc
    and "Abbrechen" go back to the list of the marked passage (Ralf 2026-10-28) #}

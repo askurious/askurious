@@ -465,6 +465,20 @@ class CodingMemo(db.Model):
     deleted_at: Mapped[datetime | None]
 
 
+class CodingKey(db.Model):
+    """The keys 1 to 9 of one person in one analysis (feedback 2026-11-06, P10): {"1": category id, ...}; mark a
+    passage, press the key, it is assigned. Per actor (`actor_key` as in CodingCategory), so the same on every device;
+    it goes with the analysis and the account."""
+
+    __tablename__ = "coding_key"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(index=True)
+    actor_key: Mapped[str] = mapped_column(String(40), default="")
+    keys: Mapped[dict | None] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class CodingMember(db.Model):
     """Who codes in an analysis besides the team of the guide, with the role "Kodieren" (codes, never changes the
     guide): a person ("person", `user_id`), an Askurious group ("group", `group_id`, live for its members) or an

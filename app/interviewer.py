@@ -585,6 +585,9 @@ def change(code, aid, action):
         access.expires_at = max(access.expires_at, utcnow()) + timedelta(days=days)
         message = de_en("Zugang von {name} verlängert.", "Access of {name} extended.", name=name)
     else:  # the interviews stay, with the name (decision C)
+        from app.models import CodingKey
+
+        db.session.execute(db.delete(CodingKey).where(CodingKey.actor_key == f"i:{access.id}"))  # its keys 1 to 9
         db.session.delete(access)
         message = de_en("Zugang von {name} gelöscht. Die Interviews bleiben beim Leitfaden.", "Access of {name} deleted. The interviews stay with the guide.", name=name)
     db.session.commit()
