@@ -75,15 +75,25 @@
       .then(function (done) { drawing = false; return done; });
   }
 
+  // a page left open in the background still asks every few minutes, so that an interviewer link stays signed in
+  // while its coding page is open (feedback 2026-11-06: an hour in another window, then reloading, signed it out)
+  var HIDDEN_EVERY = 4 * 60 * 1000, lastAsked = Date.now();
   function ask() {
-    if (document.hidden || asking || drawing) return;
-    if (busy()) return;  // the next round catches up
+    if (asking || drawing) return;
+    if (document.hidden) {
+      if (Date.now() - lastAsked < HIDDEN_EVERY) return;
+    } else if (busy()) return;  // the next round catches up
     asking = true;
+    lastAsked = Date.now();
     fetch(url + (url.indexOf("?") < 0 ? "?" : "&") + "v=" + encodeURIComponent(version),
           { credentials: "same-origin", headers: { "X-Requested-With": "fetch" }, cache: "no-store" })
-      .then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (r) {
+        if (r.status === 401 && !document.hidden) { location.reload(); return null; }  // the link ended: its page says so
+        return r.status === 200 ? r.json() : null;
+      })
       .then(function (d) {
         if (!d || !d.v || d.v === version) return;
+        if (document.hidden) return;  // drawn once the page is in view again (the next round)
         if (d.data && window.tcCodeRefresh) {  // the coding view: its data at once
           if (window.tcCodeRefresh(d.data)) version = d.v;
           return;

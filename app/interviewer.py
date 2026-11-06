@@ -247,6 +247,42 @@ def _forget(survey):
     entries = dict(_entries())
     if entries.pop(str(survey.id), None) is not None:
         session[SESSION_KEY] = entries
+        # remembered, so that the next page of this guide says "open the link again" instead of 404 or the sign-in of
+        # the researchers (feedback 2026-11-06: reloading looked like being signed out of something unknown)
+        session[ENDED_KEY] = ([s for s in session.get(ENDED_KEY, []) if s != survey.id] + [survey.id])[-5:]
+
+
+ENDED_KEY = "iv_end"
+
+
+def ended(survey):
+    """Whether this browser held a link of this guide whose session has ended since."""
+    return survey is not None and survey.id in (session.get(ENDED_KEY) or [])
+
+
+def open_again(survey):
+    """The answer for a page of a guide whose link session has ended: for a script 401 with "link", else the page of
+    the link with "Bitte den Link erneut öffnen"."""
+    if request.headers.get("X-Requested-With") == "fetch":
+        from flask import jsonify, make_response
+
+        return make_response(jsonify(ok=False, error="link"), 401)
+    flash(de_en("Ihre Sitzung ist beendet. Bitte den Link erneut öffnen, den Sie von den Forschenden bekommen haben.",
+                "Your session has ended. Please open the link you got from the researchers again."), "warning")
+    return redirect(url_for("interviewer.start", code=survey.code))
+
+
+def link_ended(code):
+    """For the routes that let a link in (interviewer_or_signed_in, transcript_coding.signed_in_or_coder): the answer
+    when nobody is signed in and the link of this guide has ended in this browser, else None."""
+    if current_user.is_authenticated or not code:
+        return None
+    survey = db.session.scalar(db.select(Survey).filter_by(code=code))
+    if survey is None or survey.interview is None:
+        return None
+    if any_session() and current(survey) is not None:
+        return None
+    return open_again(survey) if ended(survey) else None
 
 
 def any_session():
@@ -259,6 +295,9 @@ def interviewer_or_signed_in(view):
 
     @wraps(view)
     def wrapper(*args, **kwargs):
+        gone = link_ended(kwargs.get("code"))
+        if gone is not None:
+            return gone
         if current_user.is_authenticated or any_session():
             return view(*args, **kwargs)
         # a request of a script (the interview view saving, a piece of the recording): 401 instead of the sign-in
@@ -623,6 +662,8 @@ def open_link(survey, access):
     db.session.commit()
     session.permanent = True
     session[SESSION_KEY] = {**_entries(), str(survey.id): {"a": access.id, "r": access.revision, "d": device["id"], "t": now}}
+    if ended(survey):
+        session[ENDED_KEY] = [s for s in session.get(ENDED_KEY) or [] if s != survey.id]
     security_log.event("interviewer_link_opened", target=survey.code, kind=device["kind"])
     return redirect(url_for("interviewer.home", code=survey.code))
 

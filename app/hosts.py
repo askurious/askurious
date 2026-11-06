@@ -379,8 +379,13 @@ def guard():
 
         abort(404)
     # the main address
-    if session.permanent:  # E7: the researchers' session ends with the browser ("Angemeldet bleiben": 30 days)
-        session.permanent = False
+    # E7: the researchers' session ends with the browser ("Angemeldet bleiben": 30 days). A browser that holds only an
+    # interviewer link keeps its cookie for the week it was given when the link was opened: on a tablet or phone the
+    # browser drops a cookie without a date when it is put away, and reloading then signed the coders out (feedback
+    # 2026-11-06)
+    link_only = bool(session.get("iv")) and "_user_id" not in session
+    if session.permanent != link_only:
+        session.permanent = link_only
     if target == PARTICIPANT and current_app.config.get("PARTICIPANT_BASE_URL") and not (diary_on_main() and _diary_request()):
         url = participant_base() + request.full_path.rstrip("?")
         hid = _handover_id() if request.blueprint == "participate" else None
