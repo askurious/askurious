@@ -244,8 +244,8 @@
     </section>
     <section class="person-way" aria-labelledby="person-way-link" data-way="link">
       <h3 id="person-way-link">{{ de_en("Link schicken, die Person wählt selbst", "Send a link, the person chooses") }}</h3>
-      <p class="muted small">{{ de_en("Sie sehen einmalig einen Link und geben ihn der Person. Sie meldet sich damit bevorzugt mit ORCID an oder legt ein Konto mit E-Mail-Adresse und neuem Passwort an. Der Link gilt einmal und nur für ein neues Konto.",
-        "You see a link once and give it to the person. With it they preferably sign in with ORCID or create an account with an email address and a new password. The link works once and only for a new account.") }}</p>
+      <p class="muted small">{{ de_en("Sie sehen einmalig einen Link und geben ihn der Person. Sie meldet sich damit mit ORCID an oder legt ein Konto mit E-Mail-Adresse und neuem Passwort an. Der Link gilt einmal und nur für ein neues Konto.",
+        "You see a link once and give it to the person. With it they sign in with ORCID or create an account with an email address and a new password. The link works once and only for a new account.") }}</p>
       {% set again = request.form if problem and problem.key == "new-link" else {} %}
       <form method="post" action="{{ url_for('admin.new_link') }}" class="stack">
         {{ csrf() }}<div id="new-link-error">{{ form_error("new-link") }}</div>

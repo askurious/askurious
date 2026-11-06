@@ -776,9 +776,6 @@ class Organisation(db.Model):
     max_accounts: Mapped[int | None]
     invite_out: Mapped[bool] = mapped_column(default=True)  # members may bring people from outside into surveys
     invite_in: Mapped[bool] = mapped_column(default=True)  # members may be brought into surveys of others
-    # whether a link for one person made by its admins ("Person hinzufügen", app/signup_links.py) also lets the person
-    # create an account with an email address and a password instead of ORCID (migration 0116); site admins' links may
-    link_password: Mapped[bool] = mapped_column(default=False, server_default="0")
     # who brings in people from outside (app/orgs.py SCOPES; migration 0097): "create" | "admins" | "platform";
     # None = "create". invite_scope by site admins, invite_scope_own by the organisation's admins, only stricter
     invite_scope: Mapped[str | None] = mapped_column(String(10))
