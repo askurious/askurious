@@ -2345,6 +2345,14 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
   background: transparent; color: inherit; font: inherit; text-align: left; padding: 4px 8px; cursor: pointer; }
 .tc-pop-item:hover, .tc-pop-item:focus-visible { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tc-pop-item kbd { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+/* the person's keys 1 to 9 (feedback 2026-11-06): a box at the category, chosen below an open one */
+.tc-side-row kbd { margin-left: auto; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border-strong);
+  border-radius: 4px; padding: 0 4px; line-height: 1.4; }
+.tc-side-row kbd + .tc-side-n { margin-left: 4px; }
+.tc-side-key { display: flex; align-items: center; gap: 6px; margin: 4px 0 4px 28px; }
+.tc-side-key select { min-height: 30px; padding: 2px 6px; width: auto; }
+.tc-pop-keys { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 8px; }
+.tc-pop-keys .button { border-left: 3px solid var(--tc, var(--accent)); }
 /* touch (Ralf 2026-10-28): a phone shows the list and the info box as a sheet from below, at most half the window;
    targets of 44 px only for a finger, the desktop keeps its look; hints for keys or for touch */
 .tc-pop.is-sheet { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 50vh; max-height: 50dvh;
