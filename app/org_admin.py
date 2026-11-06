@@ -178,6 +178,7 @@ def people(org_id):
     return render_template("org/people.html", org=org, rows=rows, invites=invites, invite_rows=invite_rows,
                            types=orgs.allowed_types(org),
                            invitation=invitation, new_link=signup_links.take_shown(),
+                           link_password=bool(org.link_password or orgs._site_admin(current_user)),
                            link_days=signup_links.ONE_PERSON_DAYS, default_days=signup_links.DEFAULT_DAYS,
                            default_type=account_types.default_type(org.id), left=orgs.accounts_left(org),
                            active="people", page=listing, chosen=chosen, kinds_only=kinds_only, period=period,

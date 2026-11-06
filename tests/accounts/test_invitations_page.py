@@ -209,3 +209,52 @@ def test_only_site_admins_see_the_page(app, client):
 
 def test_a_registration_token_is_masked_in_the_log():
     assert "abcdefghijklmnopqrstuvwxyz" not in log_mask.mask("GET /signup/abcdefghijklmnopqrstuvwxyz012345")
+
+
+def test_an_org_admins_link_takes_a_password_only_when_the_organisation_allows_it(app, client):
+    """E2 (Ralf 2026-11-06): ORCID stays the preferred way; a link of an organisation's admin offers the password only
+    with the switch "Link für eine Person erlaubt Konto mit Passwort" (Organisation.link_password, default off)."""
+    org_id = _org(app)
+    token = _make(client, org_id)
+    with app.app_context():
+        admin = User(orcid="0000-0002-1694-233X", name="Org Admin")
+        db.session.add(admin)
+        db.session.flush()
+        db.session.add(OrganisationMember(org_id=org_id, user_id=admin.id, role="admin"))
+        db.session.scalar(db.select(SignUpLink)).created_by_id = admin.id
+        db.session.commit()
+        assert signup_links.valid(token) is not None  # the link still works, with ORCID
+    assert 'value="password"' not in app.test_client().get(f"/signup/{token}").data.decode()
+    _register(app, token)
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="kim@example.org")) is None
+        assert db.session.scalar(db.select(SignUpLink)).uses == 0
+        db.session.get(Organisation, org_id).link_password = True
+        db.session.commit()
+    assert 'value="password"' in app.test_client().get(f"/signup/{token}").data.decode()
+    assert _register(app, token).status_code == 302
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="kim@example.org")) is not None
+
+
+def test_the_switch_is_on_the_organisations_page(app, client):
+    org_id = _org(app)
+    page = client.get(f"/admin/orgs/{org_id}").data.decode()
+    assert 'name="link_password"' in page and 'name="link_password" value="1" checked' not in page
+
+
+def test_each_part_pages_by_10_20_50(app, client):
+    """E3 (Ralf 2026-11-06): lists paginate 10/20/50 rows, here each of the three parts on its own."""
+    with app.app_context():
+        group = WorkGroup(name="AG Viele")
+        db.session.add(group)
+        db.session.flush()
+        later = utcnow() + timedelta(days=3)
+        db.session.add_all([MemberInvite(group_id=group.id, role="member", email=f"p{i:02d}@example.org",
+                                         token_hash=f"{i:064d}", expires_at=later) for i in range(12)])
+        db.session.commit()
+    page = client.get("/admin/invitations").data.decode()
+    groups = page[page.index('id="gruppen"'):page.index('id="personen"')]
+    assert groups.count("@example.org</td>") == 10 and ">12</span>" in groups and "ig_page=2" in groups
+    groups = client.get("/admin/invitations?ig_n=20").data.decode()
+    assert groups.count("@example.org</td>") == 12

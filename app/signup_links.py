@@ -16,7 +16,9 @@ of a token is stored; the link is shown once (E8).
 "Nur Link" in the dialog "Person hinzufügen" (2026-11-06) makes a link for one person whose way of signing in nobody
 knows yet: SignUpLink.password_ok, used once, made by a site admin or an admin of the organisation. The person chooses
 ORCID (preferred, as above) or an email address with a new password (_create_with_password, the same outcome for the
-account). Such a link rests once its maker may no longer make it (AU-3).
+account). Such a link rests once its maker may no longer make it (AU-3). The way with a password is open only when a site
+admin made the link or the organisation allows it (Organisation.link_password, default off; Ralf 2026-11-06: ORCID
+stays the preferred way), checked when the link is used (password_allowed).
 """
 import hashlib
 import secrets
@@ -92,6 +94,20 @@ def _rests(link):
     maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
     return (maker is None or accounts.is_blocked(maker)
             or not (orgs._site_admin(maker) or orgs.is_admin_of(maker, link.org_id)))
+
+
+def password_allowed(link, org=None):
+    """Whether the person may create an account with an email address and a password instead of ORCID: a link for one
+    person made by a site admin, or by an organisation's admin while the organisation allows it."""
+    if not link.password_ok:
+        return False
+    from app import orgs
+
+    maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
+    if maker is not None and orgs._site_admin(maker):
+        return True
+    org = org or orgs.get(link.org_id)
+    return bool(org is not None and org.link_password)
 
 
 def came_by(link):
@@ -219,7 +235,7 @@ def page(token):
     if current_user.is_authenticated:
         flash(_have_account(), "info")
         return redirect(url_for("dashboard.index"))
-    if request.method == "POST" and request.form.get("way") == "password" and link.password_ok:
+    if request.method == "POST" and request.form.get("way") == "password" and password_allowed(link):
         done, said = _create_with_password(link)
         if done is not None:
             return done
@@ -235,7 +251,7 @@ def page(token):
     response = current_app.make_response(render_template(
         "signup/link.html", link=link, org=org, full=orgs.accounts_left(org) == 0, platform_name=brand.name(),
         orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID")), min_length=passwords.MIN_LENGTH,
-        form=request.form if request.method == "POST" else {}))
+        form=request.form if request.method == "POST" else {}, password_way=password_allowed(link, org)))
     response.headers["Cache-Control"] = "no-store"  # the address of the page is the token
     return response
 

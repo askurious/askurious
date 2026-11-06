@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, orcid_icon %}
-{# The page of a registration link of the platform (app/signup_links.py). Needs: link, org, full, orcid_on, min_length, form. #}
+{# The page of a registration link of the platform (app/signup_links.py). Needs: link, org, full, orcid_on, min_length, form, password_way. #}
 {% block title %}{{ de_en("Einladung", "Invitation") }}{% endblock %}
 {% block content %}
 <div class="sign-in">
@@ -21,7 +21,7 @@
     <p class="muted">{{ de_en("Die Anmeldung mit ORCID ist auf diesem Server nicht eingerichtet.", "Sign-in with ORCID is not set up on this server.") }}</p>
     {% endif %}
   </section>
-  {% if link.password_ok and not full %}
+  {% if password_way and not full %}
   {# "Nur Link" (app/signup_links.py): ORCID above is the preferred way, this one is for people without an iD #}
   <section class="panel">
     <h2>{{ de_en("Ohne ORCID: mit E-Mail-Adresse und Passwort", "Without ORCID: with email address and password") }}</h2>

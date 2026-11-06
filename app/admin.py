@@ -2075,6 +2075,7 @@ def organisation_action(org_id):
             org.invite_scope = scope
             org.invite_out = scope == "create"  # the former switch, kept in step for code that still reads it
         org.invite_in = request.form.get("invite_in") == "1"
+        org.link_password = request.form.get("link_password") == "1"  # a link for one person also with a password
         from app import names
 
         if request.form.get("names_mode") in names.MODES:  # names of members among each other (app/names.py)

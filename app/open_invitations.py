@@ -13,6 +13,9 @@ from app import org_invites, org_links, orgs, signup_links
 from app.extensions import db
 from app.lang import de_en
 from app.models import GroupJoinLink, MemberInvite, SignUpLink, Survey, User, WorkGroup, utcnow
+from app.tables import ROW_SIZES, Listing
+
+PREFIXES = {"organisationen": "io", "gruppen": "ig", "personen": "ip"}  # one pager per part (10/20/50 rows)
 
 
 def _row(kind, who, target, since, by_id, until, href=None):
@@ -69,7 +72,7 @@ def _of_links_and_surveys():
     for link in db.session.scalars(db.select(SignUpLink).where(SignUpLink.expires_at >= now,
                                                                SignUpLink.uses < SignUpLink.max_uses)):
         org = orgs.get(link.org_id)
-        kind = de_en("Einmal-Link", "One-time link") if link.password_ok else de_en("Einladungslink", "Invitation link")
+        kind = de_en("Link für eine Person", "Link for one person") if link.password_ok else de_en("Einladungslink", "Invitation link")
         rows.append(_row(kind, link.note or "–", org.name if org is not None else "–", link.created_at,
                          link.created_by_id, None if link.expires_at >= signup_links.NO_END else link.expires_at, href))
     for invite in db.session.scalars(db.select(MemberInvite).where(MemberInvite.survey_id.is_not(None),
@@ -87,8 +90,18 @@ def _of_founding_links():
                  link.created_at, link.created_by_id, link.expires_at, href) for link in org_links.open_links()]
 
 
+def _paged(key, rows):
+    """The page of `rows` (sorted newest first) the address asks for: (Listing, rows of the page)."""
+    page = Listing(PREFIXES[key], {"since": ([db.literal(0)], "desc")}, default="since", anchor=key, sizes=ROW_SIZES)
+    page.total = len(rows)
+    page.pages = max(-(-page.total // page.per_page), 1)
+    page.page = min(page.page, page.pages)
+    return page, rows[(page.page - 1) * page.per_page:page.page * page.per_page]
+
+
 def overview():
-    """[(key, heading, hint, rows)], newest first, each row with `by` (a User or None)."""
+    """[(key, heading, hint, rows, listing)], newest first, 10/20/50 rows per part, each row with `by` (a User or
+    None)."""
     admins, people = _of_organisations()
     parts = [("organisationen", de_en("Organisationen", "Organisations"),
               de_en("Gründungslinks und als Admin Genannte, die sich noch nicht angemeldet haben",
@@ -100,11 +113,15 @@ def overview():
              ("personen", de_en("Personen", "People"),
               de_en("Einladungslinks, Anmeldungen und Einladungen in Befragungen", "invitation links, sign-ins and invitations to surveys"),
               people + _of_links_and_surveys())]
-    ids = {r["by_id"] for _, _, _, rows in parts for r in rows} - {None}
-    by = {u.id: u for u in db.session.scalars(db.select(User).where(User.id.in_(ids)))} if ids else {}
     far = utcnow().replace(year=1970)
-    for _, _, _, rows in parts:
+    paged = []
+    for key, heading, hint, rows in parts:
+        rows.sort(key=lambda r: r["since"] or far, reverse=True)
+        listing, shown = _paged(key, rows)
+        paged.append((key, heading, hint, shown, listing))
+    ids = {r["by_id"] for *_, rows, _ in paged for r in rows} - {None}
+    by = {u.id: u for u in db.session.scalars(db.select(User).where(User.id.in_(ids)))} if ids else {}
+    for *_, rows, _ in paged:
         for row in rows:
             row["by"] = by.get(row["by_id"])
-        rows.sort(key=lambda r: r["since"] or far, reverse=True)
-    return parts
+    return paged

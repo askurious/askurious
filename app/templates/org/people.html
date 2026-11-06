@@ -168,12 +168,12 @@
   {# first the way, then only its form (Ralf 2026-10-18: not two columns with the same fields); app.js shows the choice
      and hides the other way, without scripts both stay #}
   <fieldset class="person-way-choice" data-person-way-choice hidden><legend>{{ de_en("Wie möchten Sie die Person hinzufügen?", "How would you like to add the person?") }}</legend>
-    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("Hinzufügen über eine ORCID iD", "Add by an ORCID iD") }}</label>
-    <label class="check"><input type="radio" name="person_way" value="link"> {{ de_en("Hinzufügen über einen Einmal-Link", "Add by a one-time link") }}</label>
-    <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Hinzufügen über einen Einmal-Link mit vorgegebener E-Mail-Adresse", "Add by a one-time link with a given email address") }}</label></fieldset>
+    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("ORCID iD freischalten", "Allow an ORCID iD") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="link"> {{ de_en("Link schicken, die Person wählt selbst", "Send a link, the person chooses") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Konto mit E-Mail-Adresse anlegen", "Create an account with an email address") }}</label></fieldset>
   <div class="person-ways">
     <section class="person-way" aria-labelledby="person-way-orcid" data-way="orcid">
-      <h3 id="person-way-orcid">{{ de_en("Über eine ORCID iD", "By an ORCID iD") }}</h3>
+      <h3 id="person-way-orcid">{{ de_en("ORCID iD freischalten", "Allow an ORCID iD") }}</h3>
       <p class="muted small">{{ de_en("Wer schon ein Konto hat, bekommt eine Einladung: Sie sehen einmalig einen Link, den Sie der Person schicken; mit ihm tritt sie selbst bei (ein Gast bekommt die Organisation dann als Heimat). Wer noch keines hat, meldet sich selbst mit ORCID an; Nutzertyp, Laufzeit und Befragungstypen gelten ab der ersten Anmeldung.",
         "Anyone who has an account already gets an invitation: you see a link once, which you send to the person; with it they join themselves (a guest then gets the organisation as home). Anyone without one signs in with ORCID themselves; user type, period and survey types apply from the first sign-in.") }}</p>
       {% set again = request.form if problem and problem.key == "allow-orcid" else {} %}
@@ -191,9 +191,10 @@
       </form>
     </section>
     <section class="person-way" aria-labelledby="person-way-link" data-way="link">
-      <h3 id="person-way-link">{{ de_en("Über einen Einmal-Link", "By a one-time link") }}</h3>
-      <p class="muted small">{{ de_en("Sie sehen einmalig einen Link und geben ihn der Person. Sie meldet sich damit bevorzugt mit ORCID an oder legt ein Konto mit E-Mail-Adresse und neuem Passwort an. Der Link gilt einmal und nur für ein neues Konto.",
-        "You see a link once and give it to the person. With it they preferably sign in with ORCID or create an account with an email address and a new password. The link works once and only for a new account.") }}</p>
+      <h3 id="person-way-link">{{ de_en("Link schicken, die Person wählt selbst", "Send a link, the person chooses") }}</h3>
+      <p class="muted small">{% if link_password %}{{ de_en("Sie sehen einmalig einen Link und geben ihn der Person. Sie meldet sich damit bevorzugt mit ORCID an oder legt ein Konto mit E-Mail-Adresse und neuem Passwort an. Der Link gilt einmal und nur für ein neues Konto.",
+        "You see a link once and give it to the person. With it they preferably sign in with ORCID or create an account with an email address and a new password. The link works once and only for a new account.") }}{% else %}{{ de_en("Sie sehen einmalig einen Link und geben ihn der Person. Sie meldet sich damit mit ORCID an. Der Link gilt einmal und nur für ein neues Konto.",
+        "You see a link once and give it to the person. With it they sign in with ORCID. The link works once and only for a new account.") }}{% endif %}</p>
       {% set again = request.form if problem and problem.key == "new-link" else {} %}
       <form method="post" action="{{ url_for('org.new_link', org_id=org.id) }}" class="stack">
         {{ csrf() }}<div id="new-link-error">{{ form_error("new-link") }}</div>
@@ -208,7 +209,7 @@
       </form>
     </section>
     <section class="person-way" aria-labelledby="person-way-local" data-way="local">
-      <h3 id="person-way-local">{{ de_en("Über einen Einmal-Link mit vorgegebener E-Mail-Adresse", "By a one-time link with a given email address") }}</h3>
+      <h3 id="person-way-local">{{ de_en("Konto mit E-Mail-Adresse anlegen", "Create an account with an email address") }}</h3>
       <p class="muted small">{{ de_en("Konto mit E-Mail-Adresse und Passwort. Nach dem Anlegen sehen Sie einmalig einen Link, den Sie der Person selbst schicken; mit ihm setzt sie ihr Passwort.",
         "Account with email address and password. After creating it you see a link once, which you send to the person yourself; with it they set their password.") if not mail_enabled() else de_en("Konto mit E-Mail-Adresse und Passwort. Die Person bekommt einen Einmal-Link per E-Mail, mit dem sie ihr Passwort setzt; ohne Häkchen sehen Sie den Link einmalig selbst.",
         "Account with email address and password. The person gets a one-time link by email to set their password; without the tick you see the link once yourself.") }}</p>

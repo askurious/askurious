@@ -67,7 +67,7 @@ def open_of(org):
             SignUpLink.org_id == org.id, SignUpLink.password_ok.is_(True), SignUpLink.uses < SignUpLink.max_uses,
             SignUpLink.expires_at >= utcnow())):  # "Nur Link" of "Person hinzufügen" (app/signup_links.py)
         item = _item(f"s{link.id}", link.note or de_en("ohne Notiz", "no note"), None,
-                     de_en("Einmal-Link (ORCID oder E-Mail-Adresse)", "One-time link (ORCID or email address)"),
+                     de_en("Link für eine Person", "Link for one person"),
                      link.created_at, link.created_by_id)
         item["until"] = link.expires_at
         items[item["key"]] = item

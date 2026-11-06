@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {# Administration > Einladungen (app/open_invitations.py): what is still open, by organisations, groups and people. Only
-   a list; "Verwalten" leads to the page where an invitation is withdrawn. Context: parts [(key, heading, hint, rows)]. #}
+   a list; "Verwalten" leads to the page where an invitation is withdrawn. Context: parts [(key, heading, hint, rows of the page, Listing)]. #}
 {% from "_macros.html" import list_table %}
+{% from "_listing.html" import pager %}
 {% block title %}{{ de_en("Einladungen", "Invitations") }} · Administration{% endblock %}
 {% block container_class %}container admin-page{% endblock %}
 {% block content %}
 {% set active = "invitations" %}{% include "admin/_tabs.html" %}
-{% for key, heading, hint, rows in parts %}
+{% for key, heading, hint, rows, listing in parts %}
 <section class="panel" id="{{ key }}">
-  <h2>{{ heading }} <span class="hint">{{ rows|length }}</span></h2>
+  <h2>{{ heading }} <span class="hint">{{ listing.total }}</span></h2>
   <p class="muted small">{{ hint }}</p>
   {% if rows %}
   <div class="res-scroll">
@@ -27,6 +28,7 @@
     </tbody>
   {% endcall %}
   </div>
+  {{ pager(listing) }}
   {% else %}<p class="muted">{{ de_en("Nichts offen.", "Nothing open.") }}</p>{% endif %}
 </section>
 {% endfor %}
