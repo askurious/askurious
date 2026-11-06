@@ -9,7 +9,7 @@ monitoring feed (/api/monitoring/<token>) and the status of a brand (/status/<to
 import logging
 import re
 
-TOKEN_PATH = re.compile(r"(/(?:auth/password|account/confirm-email|invite|join|d|p|q|api/monitoring|status)/|/s/[^/\s]+/(?:e|no-mail)/)([A-Za-z0-9_.~%-]{16,})")
+TOKEN_PATH = re.compile(r"(/(?:auth/password|account/confirm-email|invite|join|signup|joinorg|d|p|q|api/monitoring|status)/|/s/[^/\s]+/(?:e|no-mail)/)([A-Za-z0-9_.~%-]{16,})")
 # the key of the cron route, still accepted in the address for scheduled tasks set up before the header X-Cron-Key
 # (surveys/cron.py; code review 2026-10-15, H9)
 CRON_KEY = re.compile(r"(/cron/[^\s?]*\?(?:[^\s#]*?&)?key=)([^&\s#\"']+)")

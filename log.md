@@ -7619,3 +7619,15 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Ein Block ist eine Hauptkategorie mit allem darunter, dazu „Kandidaten“. Alle angehakt heißt auch später hinzukommende. Nach Zuteilung prüft nur, wer eine Zeile hat, Interview für Interview im Text von oben nach unten; beim Prüfen stehen weiter alle Kategorien zur Wahl. Eigene Stellen und laufende Doppelkodierungen bleiben ausgeschlossen.
 - Gespeichert in CodingProject.settings (check_mode, check_plan), keine Migration; Interviewlinks unverändert.
 - Datenschutzkonzept (Interviews kodieren) nennt die Zuteilung. Datenschutzerklärung, Nutzungsbedingungen, README und Lizenz geprüft, keine Änderung nötig.
+
+## 2026-11-06
+
+- Administration > Einladungen: alle offenen Einladungen nach Organisationen, Gruppen und Personen (app/open_invitations.py), nur als Liste mit Weg zur verwaltenden Seite.
+- „Person hinzufügen“: neuer Weg „Einmal-Link“: ein Link für eine Person, die ORCID oder E-Mail-Adresse und neues Passwort selbst wählt (SignUpLink.password_ok, Migration 0113), für Site-Admins und Org-Admins.
+- Registrierungslinks im Log maskiert (log_mask).
+- Gründungslink (app/org_links.py, Tabelle org_found_link, Migration 0114): Eine neue Person legt unter /joinorg/<token> ihre Organisation an und wird Admin; Knopf und Liste unter Administration > Organisationen, 28 Tage, höchstens 100 Konten, nur Admins holen Externe herein.
+- Slack meldet jede neue Organisation mit Nummer und Weg (Gründungslink, Administration, aus Gruppe), ohne Namen und iD.
+- Kontogrenze der Organisation gilt jetzt auch für Beitrittslink mit ORCID, Mail-Einladung in Gruppen und die erste Anmeldung.
+- Datenschutzerklärung nennt neue Organisationen in Slack, die Registrierung per Einmal-Link mit E-Mail-Adresse und Passwort und den Gründungslink mit Aufbewahrung; Datenschutzkonzept nennt den Gründungslink bei Konten und als Weg zur Admin-Rolle einer Organisation. Nutzungsbedingungen, README und Lizenz geprüft, keine Änderung nötig.
+- „Person hinzufügen“: Frage „Wie möchten Sie die Person hinzufügen?“ mit drei Wegen in neuer Reihenfolge; „darf eigene Befragungen anlegen“, Nutzertyp, Laufzeit und Befragungstypen bei allen drei gleich (Migration 0115).
+- Durchsicht (Ralf E1–E4): Wege heißen „ORCID iD freischalten“, „Link schicken, die Person wählt selbst“, „Konto mit E-Mail-Adresse anlegen“; „Einmal-Link“ bleibt dem Passwort-Setzen. Kein Schalter je Organisation für den Passwort-Weg: Wer den Link für eine Person macht, entscheidet; E-Mail-Adresse mit Passwort ist ORCID gleichwertig, keine Bevorzugung (Ralf). Seite „Einladungen“ blättert je Teil 10/20/50 Zeilen.

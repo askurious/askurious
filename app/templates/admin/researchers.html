@@ -210,20 +210,21 @@
    taken, an iD that is none) the page comes back with what was entered, the reason in the form and the field marked,
    and the dialog opens by itself (W84). The one-time link after creating an account is shown on the account's page. #}
 {% set problem = g.get("form_error") %}
+{% macro may_create_tick(again) %}<label class="check"><input type="checkbox" name="may_create" value="1"{{ " checked" if (again.get("may_create") == "1" if again else config.NEW_ACCOUNTS_MAY_CREATE) }}> {{ de_en("darf eigene Befragungen anlegen", "may create own surveys") }} <span class="hint">{{ de_en("setzt jede Art auf „Bearbeiten“ auf „Anlegen“", "sets every type at “Edit” to “Create”") }}</span></label>{% endmacro %}
 {% macro bad(key, field) %}{% set problem = g.get("form_error") %}{% if problem and problem.key == key and problem.field == field %} aria-invalid="true" aria-describedby="{{ key }}-error"{% endif %}{% endmacro %}
 <section class="panel person-add" id="person-hinzufuegen" aria-labelledby="person-add-title" data-person-add-panel>
   <div class="feedback-dialog-head"><h2 id="person-add-title">{{ de_en("Person hinzufügen", "Add person") }}</h2>
     <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
-  <p class="muted small">{{ de_en("Zwei Wege, je nachdem, ob die Person eine ORCID iD hat. Askurious verschickt in beiden Fällen keine E-Mail.",
-    "Two ways, depending on whether the person has an ORCID iD. In neither case does Askurious send an email.") }}</p>
+  <p class="muted small">{{ de_en("Drei Wege in eine Organisation.", "Three ways into an organisation.") }}{% if not mail_enabled() %} {{ de_en("Die Plattform verschickt dabei keine E-Mail.", "The platform sends no email for any of them.") }}{% endif %}</p>
   {# first the way, then only its form (Ralf 2026-10-18: not two columns with the same fields); app.js shows the choice
      and hides the other way, without scripts both stay #}
-  <fieldset class="person-way-choice" data-person-way-choice hidden><legend>{{ de_en("Hat die Person eine ORCID iD?", "Does the person have an ORCID iD?") }}</legend>
-    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("Ja, Anmeldung mit ORCID", "Yes, sign-in with ORCID") }}</label>
-    <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Nein, Konto mit E-Mail-Adresse und Passwort", "No, account with email address and password") }}</label></fieldset>
+  <fieldset class="person-way-choice" data-person-way-choice hidden><legend>{{ de_en("Wie möchten Sie die Person hinzufügen?", "How would you like to add the person?") }}</legend>
+    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("ORCID iD freischalten", "Allow an ORCID iD") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="link"> {{ de_en("Link schicken, die Person wählt selbst", "Send a link, the person chooses") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Konto mit E-Mail-Adresse anlegen", "Create an account with an email address") }}</label></fieldset>
   <div class="person-ways">
     <section class="person-way" aria-labelledby="person-way-orcid" data-way="orcid">
-      <h3 id="person-way-orcid">{{ de_en("Mit ORCID iD", "With an ORCID iD") }}</h3>
+      <h3 id="person-way-orcid">{{ de_en("ORCID iD freischalten", "Allow an ORCID iD") }}</h3>
       <p class="muted small">{{ de_en("Die Person meldet sich selbst mit ORCID an; hier wird nur ihre Anmeldung freigeschaltet.",
         "The person signs in with ORCID themselves; here only their sign-in is allowed.") }}</p>
       {% set again = request.form if problem and problem.key == "allow-orcid" else {} %}
@@ -234,14 +235,32 @@
           <input name="orcid" maxlength="60" required autocomplete="off" value="{{ again.get('orcid', '') }}"{{ bad("allow-orcid", "orcid") }}></label>
         <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, z.&nbsp;B. Name und Einrichtung, solange die Person noch kein Konto hat", "optional, e.g. name and institution while the person has no account yet")|safe }}</span>
           <input name="note" maxlength="200" value="{{ again.get('note', '') }}"></label>
+        {{ may_create_tick(again) }}
         {{ period_fields(again) }}
         {{ kind_selects(kinds_default, again) }}
         <p class="hint">{{ de_en("gilt ab der ersten Anmeldung; hat die Person schon ein Konto, ändern Sie es auf dessen Seite", "applies from the first sign-in; if the person already has an account, change it on its page") }}</p>
         <div class="button-row"><button class="button">{{ de_en("Anmeldung freischalten", "Allow sign-in") }}</button></div>
       </form>
     </section>
+    <section class="person-way" aria-labelledby="person-way-link" data-way="link">
+      <h3 id="person-way-link">{{ de_en("Link schicken, die Person wählt selbst", "Send a link, the person chooses") }}</h3>
+      <p class="muted small">{{ de_en("Sie sehen einmalig einen Link und geben ihn der Person. Sie meldet sich damit mit ORCID an oder legt ein Konto mit E-Mail-Adresse und neuem Passwort an. Der Link gilt einmal und nur für ein neues Konto.",
+        "You see a link once and give it to the person. With it they sign in with ORCID or create an account with an email address and a new password. The link works once and only for a new account.") }}</p>
+      {% set again = request.form if problem and problem.key == "new-link" else {} %}
+      <form method="post" action="{{ url_for('admin.new_link') }}" class="stack">
+        {{ csrf() }}<div id="new-link-error">{{ form_error("new-link") }}</div>
+        <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, z.&nbsp;B. für wen der Link ist", "optional, e.g. who the link is for")|safe }}</span>
+          <input name="note" maxlength="200" value="{{ again.get('note', '') }}"{{ bad("new-link", "note") }}></label>
+        {{ may_create_tick(again) }}
+        {{ period_fields(again) }}
+        {{ kind_selects(kinds_default, again) }}
+        <label>{{ de_en("Link gültig", "Link valid for") }}
+          <select name="days">{% for d in signup.one_person_days %}<option value="{{ d }}"{{ " selected" if d == signup.default_days }}>{{ de_en("1 Tag", "1 day") if d == 1 else de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+        <div class="button-row"><button class="button">{{ de_en("Link anlegen", "Create link") }}</button></div>
+      </form>
+    </section>
     <section class="person-way" aria-labelledby="person-way-local" data-way="local">
-      <h3 id="person-way-local">{{ de_en("Ohne ORCID iD", "Without an ORCID iD") }}</h3>
+      <h3 id="person-way-local">{{ de_en("Konto mit E-Mail-Adresse anlegen", "Create an account with an email address") }}</h3>
       <p class="muted small">{{ de_en("Konto mit E-Mail-Adresse und Passwort. Nach dem Anlegen sehen Sie einmalig einen Link, den Sie der Person selbst schicken; mit ihm setzt sie ihr Passwort.",
         "Account with email address and password. After creating it you see a link once, which you send to the person yourself; with it they set their password.") if not mail_enabled() else de_en("Konto mit E-Mail-Adresse und Passwort. Die Person bekommt einen Einmal-Link per E-Mail, mit dem sie ihr Passwort setzt; ohne Häkchen sehen Sie den Link einmalig selbst.",
         "Account with email address and password. The person gets a one-time link by email to set their password; without the tick you see the link once yourself.") }}</p>
@@ -252,7 +271,7 @@
           <input name="name" maxlength="200" required value="{{ again.get('name', '') }}"{{ bad("new-account", "name") }}></label>
         <label>{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{{ de_en("der Anmeldename; sie wird niemandem außer Admins gezeigt", "the sign-in name; it is shown to nobody but admins") }}</span>
           <input type="email" name="email" maxlength="254" required value="{{ again.get('email', '') }}"{{ bad("new-account", "email") }}></label>
-        <label class="check"><input type="checkbox" name="may_create" value="1"{{ " checked" if (again.get("may_create") == "1" if again else config.NEW_ACCOUNTS_MAY_CREATE) }}> {{ de_en("darf eigene Befragungen anlegen", "may create own surveys") }} <span class="hint">{{ de_en("setzt jede Art auf „Bearbeiten“ auf „Anlegen“", "sets every type at “Edit” to “Create”") }}</span></label>
+        {{ may_create_tick(again) }}
         {{ period_fields(again) }}
         {{ kind_selects(kinds_default, again) }}
         {% if mail_enabled() %}<label class="check"><input type="checkbox" name="send_mail" value="1"{{ " checked" if (again.get("send_mail") == "1" if again else true) }}> {{ de_en("Einmal-Link per E-Mail an die Person schicken", "Send the one-time link to the person by email") }}</label>{% endif %}

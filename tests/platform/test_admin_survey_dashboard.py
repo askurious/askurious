@@ -48,7 +48,7 @@ def test_administration_opens_with_surveys_first(client):
     tabs = re.findall(r'<a class="[^"]*"[^>]*href="(/admin/[^"#?]*|/feedback/[^"#?]*|/blog/[^"#?]*)"',
                       page.split('class="admin-tabs"', 1)[1].split("</nav>", 1)[0])
     assert tabs[0] == "/admin/surveys" and tabs.index("/admin/people") == 4    # Inhalte first, then Personen
-    assert len(tabs) == 12                                                      # the menu did not grow
+    assert len(tabs) == 13                                                      # "Einladungen" came in 2026-11-06
     assert 'href="/admin/surveys"' in page.split('class="admin-tabs"', 1)[0]   # the header leads here too
 
 

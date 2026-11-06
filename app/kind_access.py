@@ -411,7 +411,8 @@ def start_new(user, base=_DEFAULT):
             levels_ = higher(levels_, preset)
     else:
         levels_ = base
-    if levels_ is not base:
+    no_tick = listed is not None and listed.may_create is False  # the dialog's "darf anlegen" left out
+    if levels_ is not base and not no_tick:
         # the list's choice or a group's preset says how far each type goes; "create" still comes from the user type
         # where the choice leaves "edit" (as the type's right to create did before 2026-10-18)
         chosen, typed = full(levels_), full(base)

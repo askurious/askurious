@@ -529,6 +529,9 @@ def create_app(config_class=Config, server=False):
     from app import signup_links
 
     app.register_blueprint(signup_links.bp)  # registration links of the platform (app/signup_links.py)
+    from app import org_links
+
+    app.register_blueprint(org_links.bp)  # founding links of new organisations (app/org_links.py)
     from app import bulk_invites
 
     app.register_blueprint(bulk_invites.bp)  # lists of addresses for a course (konzept-nutzertypen-2026-10-15.md)

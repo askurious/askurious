@@ -25,6 +25,7 @@
   <div class="admin-listhead">
     {{ search(t, de_en("Organisationen durchsuchen", "Search organisations"), de_en("Suchen: Name, ausführlicher Name, Admin …", "Search: name, full name, admin …")) }}
     <a class="button" href="#organisation-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Neue Organisation …", "New organisation …") }}</a>
+    <a class="button button-secondary" href="#gruendungslink-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Gründungslink anlegen …", "Create founding link …") }}</a>
   </div>
   {% if not rows %}<p class="muted">{{ de_en("Keine Organisation zu dieser Suche.", "No organisation matches this search.") }}</p>{% else %}
   {% call list_table("is-num admin-orgs") %}
@@ -54,6 +55,53 @@
     · <a href="{{ url_for('admin.researchers', f_org=guest.id) }}#forschende">{{ de_en("Personen ansehen", "View people") }}</a>.
     {{ de_en("Wer nur über eine persönliche Einladung in eine Befragung dazukam: Sieht nur diese Befragungen, legt nichts an, findet niemanden. Ein Admin einer Organisation nimmt einen Gast auf, dann ist sie seine Heimat.", "Anyone who came in only by a personal invitation to a survey: sees only those surveys, creates nothing, finds nobody. An organisation's admin takes a guest in; it is then their home.") }}</p>
   {% endif %}
+</section>
+{# Founding links (app/org_links.py): a new person creates an organisation and becomes its admin. The new link is shown
+   once; used and ended links stay listed for 30 days. #}
+<section class="panel" id="gruendungslinks">
+  <h2>{{ de_en("Gründungslinks", "Founding links") }} <span class="hint">{{ de_en("eine neue Person legt ihre eigene Organisation an und wird ihr Admin", "a new person creates their own organisation and becomes its admin") }}</span></h2>
+  {% if found_new %}
+  <div class="join-link-new">
+    <p><strong>{{ de_en("Der neue Link wird nur jetzt angezeigt.", "The new link is shown only now.") }}</strong></p>
+    <div class="copy-row"><input class="one-time-link" id="found-link-new" value="{{ found_new }}" readonly aria-label="{{ de_en('Gründungslink', 'Founding link') }}" data-select-all>
+      <button type="button" class="button button-secondary" data-copy="#found-link-new">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
+  </div>
+  {% endif %}
+  {% if found_links %}
+  <div class="res-scroll">
+  {% call list_table("is-num admin-people") %}
+    <thead><tr><th>{{ de_en("Link", "Link") }}</th><th>{{ de_en("Konten höchstens", "Accounts at most") }}</th><th>{{ de_en("gilt bis", "valid until") }}</th><th>{{ de_en("Zustand", "State") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for link, open, org in found_links %}
+      <tr><td class="admin-name">{{ de_en("vom {d}", "of {d}", d=link.created_at|localdt(false)) }}{% if link.note %} · {{ link.note }}{% endif %}</td>
+        <td>{{ link.max_accounts }}</td>
+        <td>{{ link.expires_at|localdt }}</td>
+        <td>{% if link.used_at and org %}<a href="{{ url_for('admin.organisation_page', org_id=org.id) }}">{{ org.name }}</a>{% elif link.used_at %}{{ de_en("benutzt", "used") }}{% elif open %}{{ de_en("offen", "open") }}{% else %}<span class="muted">{{ de_en("beendet", "ended") }}</span>{% endif %}</td>
+        <td>{% if open %}<form class="inline" method="post" action="{{ url_for('admin.organisation_links') }}"
+              data-confirm="{{ de_en('Diesen Gründungslink widerrufen?', 'Revoke this founding link?') }}" data-confirm-ok="{{ de_en('Widerrufen', 'Revoke') }}">
+          {{ csrf() }}<input type="hidden" name="action" value="revoke"><input type="hidden" name="link_id" value="{{ link.id }}">
+          <button class="button button-secondary button-small">{{ de_en("Widerrufen", "Revoke") }}</button></form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {% else %}<p class="muted">{{ de_en("Noch kein Gründungslink.", "No founding link yet.") }}</p>{% endif %}
+</section>
+<section class="panel person-add add-dialog-narrow" id="gruendungslink-anlegen" aria-labelledby="found-add-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="found-add-title">{{ de_en("Gründungslink anlegen", "Create founding link") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form method="post" action="{{ url_for('admin.organisation_links') }}" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="create">
+    <label>{{ de_en("Link gültig", "Link valid for") }}
+      <select name="days">{% for d in found_days %}<option value="{{ d }}"{{ " selected" if d == found_default_days }}>{{ de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Höchstzahl Konten", "Maximum number of accounts") }} <span class="hint">{{ de_en("der neuen Organisation; später auf ihrer Seite änderbar", "of the new organisation; can be changed on its page later") }}</span>
+      <input type="number" name="max_accounts" min="1" max="{{ found_max_accounts }}" value="{{ found_default_accounts }}" required></label>
+    <label>{{ de_en("Notiz", "Note") }} <span class="hint">{{ de_en("optional, z.&nbsp;B. für wen der Link ist", "optional, e.g. who the link is for")|safe }}</span>
+      <input name="note" maxlength="200"></label>
+    <p class="muted small">{{ de_en("Wer den Link öffnet, nennt die Organisation, meldet sich mit ORCID an und ist dann ihr Admin. Der Link ist nur für Personen ohne Konto und gilt, bis die Organisation angelegt ist. Personen von außen holen zunächst nur ihre Admins herein.",
+      "Whoever opens the link names the organisation, signs in with ORCID and is then its admin. The link is only for people without an account and works until the organisation is created. At first only its admins bring in people from outside.") }}</p>
+    <div class="button-row"><button class="button">{{ de_en("Link anlegen", "Create link") }}</button></div>
+  </form>
 </section>
 {# "Neue Organisation" (Ralf 2026-10-18), since 2026-10-20 a dialog like "Person hinzufügen" (app.js): without scripts a
    panel the button leads to. From a group it still goes through "Zur Organisation machen" in the tab "Gruppen". #}

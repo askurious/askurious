@@ -1655,7 +1655,7 @@ p.start-check { margin: 0 0 12px; }
 .person-ways.is-one .person-way form.stack > :is(.button-row, [id$="-error"]) { grid-column: 1 / -1; }
 @media (max-width: 720px) { .person-ways.is-one .person-way form.stack { grid-template-columns: 1fr; } .person-ways.is-one .person-way form.stack > .kind-selects { grid-column: 1; grid-row: auto; } }
 .person-ways.is-one .person-way h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }  /* the choice says it */
-.person-way-choice { border: 0; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.person-way-choice { border: 0; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .person-way-choice legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
 .person-way { border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px 16px; min-width: 0; }
 .person-way h3 { margin: 0 0 4px; font-size: 1.05rem; }
