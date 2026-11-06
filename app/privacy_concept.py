@@ -680,9 +680,11 @@ def _activities():
                        "failed attempts like other failed attempts only as a hash of the address."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens.", "Members with Edit or Manage on the guide."),
          "deletion": de_en("Mit dem Löschen des Zugangs oder des Leitfadens; der Name bleibt in den Interviews als Angabe, "
-                           "wer sie geführt hat. Sitzungen enden nach 60 Minuten ohne Aktivität.",
+                           "wer sie geführt hat. Sitzungen enden nach 60 Minuten ohne Aktivität (eine geöffnete "
+                           "Seite zum Kodieren zählt als Aktivität), spätestens nach sieben Tagen.",
                            "With the deletion of the access or the guide; the name stays in the interviews as who conducted "
-                           "them. Sessions end after 60 minutes without activity."),
+                           "them. Sessions end after 60 minutes without activity (an open coding page counts as activity), "
+                           "after seven days at the latest."),
          "controller": researchers,
          "basis": de_en("Durchführung des Forschungsvorhabens im Auftrag der Forschenden (Art. 6 Abs. 1 lit. b oder e DSGVO, "
                         "je nach Verhältnis zur Einrichtung)", "Carrying out the research project on behalf of the researchers "

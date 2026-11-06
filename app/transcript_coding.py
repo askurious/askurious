@@ -148,6 +148,9 @@ def signed_in_or_coder(view):
     def wrapper(*args, **kwargs):
         from app import interviewer
 
+        gone = interviewer.link_ended(kwargs.get("code"))
+        if gone is not None:  # the link's session ended: "open the link again", not 404 or the sign-in
+            return gone
         if current_user.is_authenticated or interviewer.any_session():
             return view(*args, **kwargs)
         return current_app.login_manager.unauthorized()
