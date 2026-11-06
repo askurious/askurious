@@ -214,9 +214,11 @@ def roles():
                        "As the group's role; Edit includes raw data.")},
         {"who": de_en("Admin einer Organisation", "Organisation admin"),
          "how": de_en("von Plattform-Admins ernannt (Administration > Organisationen) oder bei „Gruppe zur Organisation "
-                      "machen“ aus der Leitung der Gruppe; im Sicherheitsprotokoll",
+                      "machen“ aus der Leitung der Gruppe oder als neue Person, die über einen Gründungslink eines Plattform-Admins "
+                      "ihre eigene Organisation anlegt; im Sicherheitsprotokoll",
                       "appointed by site admins (Administration > Organisations) or from the group's lead when a group "
-                      "is made an organisation; in the security log"),
+                      "is made an organisation, or as a new person who creates their own organisation through a site admin's "
+                      "founding link; in the security log"),
          "sees": de_en("Unter „Verwaltung“ mit zweitem Faktor nach Passwort-Anmeldung: Personen der Organisation (Name, "
                        "ORCID iD, Heimat, Gruppen der Organisation, angelegt und zuletzt angemeldet, Zahl ihrer "
                        "Befragungen, laufenden und selbst angelegten Befragungen und echten Teilnahmen, nur in "
@@ -461,7 +463,7 @@ def _activities():
                        "Zwei-Faktor-Anmeldung (verschlüsselt), Anmeldezeiten, grobe Browserbezeichnung der Sitzungen, "
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
                        "freigegebene Befragungstypen, Nutzertyp mit Beginn und "
-                       "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung, "
+                       "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung oder Gründungslink, "
                        "Nummer des Kürzels in Organisationen mit verborgenen Namen, "
                        "angeheftete und ausgeblendete Befragungen, "
                        "Bearbeitungsspuren.",
@@ -469,7 +471,7 @@ def _activities():
                        "sign-in (encrypted), sign-in times, coarse browser label of the sessions, acceptance of the terms "
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "
-                       "and course, invitation link of the registration, number of the label in organisations with hidden "
+                       "and course, invitation link of the registration or founding link, number of the label in organisations with hidden "
                        "names, pinned and hidden surveys, editing traces."),
          "recipients": de_en("Admins; ORCID (Anmeldung); Mail-Relay und Slack, wenn eingeschaltet.",
                              "Admins; ORCID (sign-in); mail relay and Slack when switched on."),

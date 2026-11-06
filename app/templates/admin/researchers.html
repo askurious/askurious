@@ -215,17 +215,16 @@
 <section class="panel person-add" id="person-hinzufuegen" aria-labelledby="person-add-title" data-person-add-panel>
   <div class="feedback-dialog-head"><h2 id="person-add-title">{{ de_en("Person hinzufügen", "Add person") }}</h2>
     <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
-  <p class="muted small">{{ de_en("Drei Wege in eine Organisation. Askurious verschickt in beiden Fällen keine E-Mail.",
-    "Three ways into an organisation. In neither case does Askurious send an email.") }}</p>
+  <p class="muted small">{{ de_en("Drei Wege in eine Organisation.", "Three ways into an organisation.") }}{% if not mail_enabled() %} {{ de_en("Die Plattform verschickt dabei keine E-Mail.", "The platform sends no email for any of them.") }}{% endif %}</p>
   {# first the way, then only its form (Ralf 2026-10-18: not two columns with the same fields); app.js shows the choice
      and hides the other way, without scripts both stay #}
   <fieldset class="person-way-choice" data-person-way-choice hidden><legend>{{ de_en("Wie möchten Sie die Person hinzufügen?", "How would you like to add the person?") }}</legend>
-    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("Hinzufügen über eine ORCID", "Add by an ORCID iD") }}</label>
+    <label class="check"><input type="radio" name="person_way" value="orcid" checked> {{ de_en("Hinzufügen über eine ORCID iD", "Add by an ORCID iD") }}</label>
     <label class="check"><input type="radio" name="person_way" value="link"> {{ de_en("Hinzufügen über einen Einmal-Link", "Add by a one-time link") }}</label>
     <label class="check"><input type="radio" name="person_way" value="local"> {{ de_en("Hinzufügen über einen Einmal-Link mit vorgegebener E-Mail-Adresse", "Add by a one-time link with a given email address") }}</label></fieldset>
   <div class="person-ways">
     <section class="person-way" aria-labelledby="person-way-orcid" data-way="orcid">
-      <h3 id="person-way-orcid">{{ de_en("Über eine ORCID", "By an ORCID iD") }}</h3>
+      <h3 id="person-way-orcid">{{ de_en("Über eine ORCID iD", "By an ORCID iD") }}</h3>
       <p class="muted small">{{ de_en("Die Person meldet sich selbst mit ORCID an; hier wird nur ihre Anmeldung freigeschaltet.",
         "The person signs in with ORCID themselves; here only their sign-in is allowed.") }}</p>
       {% set again = request.form if problem and problem.key == "allow-orcid" else {} %}
