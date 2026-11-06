@@ -286,13 +286,17 @@ def _answered(project, event_id, key):
 
 
 def notices(project, who):
-    """The merges and renames by others that carry own passages of the actor and that the actor has not answered:
-    [(event, own passages)]."""
+    """The merges, renames and moves by others that carry own passages of the actor, and own passages others moved to
+    another category, that the actor has not answered: [(event, own passages)]."""
     out = []
     for e in db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id)
-                                .where(CodingEvent.kind.in_(("merged", "changed", "moved"))).order_by(CodingEvent.id.desc()).limit(200)):
+                                .where(CodingEvent.kind.in_(("merged", "changed", "moved", "recoded"))).order_by(CodingEvent.id.desc()).limit(200)):
         data = e.data or {}
         if e.actor_key == who.key or data.get("undone") or _answered(project, e.id, who.key):
+            continue
+        if e.kind == "recoded":  # a passage of the actor moved to another category by someone of the team
+            if data.get("author") == who.key:
+                out.append((e, 1))
             continue
         if e.kind == "merged":
             ids = _merged_ids(project, data.get("source"))
@@ -1101,8 +1105,21 @@ def answer(code, pid, eid, answer):
             db.session.commit()
             flash(done, "success")
         return redirect(url_for("transcript_coding.overview", code=survey.code, pid=project.id))
-    if event.kind not in ("merged", "changed", "moved") or _answered(project, event.id, who.key):
+    if event.kind not in ("merged", "changed", "moved", "recoded") or _answered(project, event.id, who.key):
         abort(404)
+    if event.kind == "recoded" and answer == "split_off":  # "Zurück nach …": the own passage back where it was
+        from app.transcript_coding_view import recode_back
+
+        _moved, problem = recode_back(project, who, event)
+        if problem:
+            flash(problem, "error")
+        else:
+            _event(project, who, "split_off", db.session.get(CodingCategory, event.category_id), {"moved": 1}, reply_to=event.id)
+            db.session.commit()
+            flash(de_en("Die Stelle steht wieder in „{name}“.", "The passage is back in “{name}”.",
+                        name=(event.data or {}).get("from_name", "")), "success")
+        return redirect(request.referrer if request.referrer and request.referrer.startswith(request.host_url)
+                        else url_for("transcript_coding.overview", code=survey.code, pid=project.id))
     if answer == "fits":
         _event(project, who, "fits", db.session.get(CodingCategory, event.category_id), reply_to=event.id)
         db.session.commit()
