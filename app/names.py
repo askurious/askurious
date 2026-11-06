@@ -25,7 +25,7 @@ from app.lang import de_en
 MODES = ("shown", "hidden", "admins")  # names_mode of an organisation; None = "shown"
 # blueprints of participants and public pages: the names of those responsible stay (E21)
 REAL_BLUEPRINTS = {"participate", "public", "diary_api", "interview_remote", "interview_screen_public", "live_public",
-                   "board_share", "preview_share", "quota_share", "signup_links", "joinlinks", "invites"}
+                   "board_share", "preview_share", "quota_share", "signup_links", "org_links", "joinlinks", "invites"}
 
 
 def mode_label(mode):

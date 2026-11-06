@@ -319,6 +319,32 @@ def accounts_left(org):
     return max(org.max_accounts - counts(org)["homes"], 0)
 
 
+def new_account_refused(person, org):
+    """Whether a new account would go beyond the limit of `org`: `person` is the account or None for one that does not
+    exist yet; an account past its first sign-in does not come as a new home."""
+    return (person is None or person.pending) and accounts_left(org) == 0
+
+
+def home_is_full(orcid):
+    """Whether the home a first sign-in of this iD would get (start_new) has no place left. Pending accounts and the
+    sign-in list do not count against the limit until then, so this is where it holds."""
+    from app.models import SignInOrcid, WorkGroupMember
+
+    listed = db.session.get(SignInOrcid, orcid)
+    target = get(listed.org_id) if listed is not None and listed.org_id is not None else None
+    if target is None:
+        user = account_of(orcid)
+        group = None if user is None else db.session.scalar(db.select(WorkGroup).join(WorkGroupMember).where(
+            WorkGroupMember.user_id == user.id, WorkGroup.org_id.is_not(None)).order_by(WorkGroupMember.id))
+        target = get(group.org_id) if group is not None else None
+    return target is not None and accounts_left(target) == 0
+
+
+def home_full_said():
+    return de_en("Für diese Organisation sind keine Plätze mehr frei. Bitte wenden Sie sich an ihre Admins.",
+                 "This organisation has no places left. Please contact its admins.")
+
+
 # --- admins of an organisation (stage 3) -----------------------------------------------------------------------------
 
 def administered(user):

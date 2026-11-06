@@ -222,7 +222,7 @@ def roles():
                        "Befragungen, laufenden und selbst angelegten Befragungen und echten Teilnahmen, nur in "
                        "Befragungen dieser Organisation); offene Einladungen (Name oder ORCID iD, Art, Datum, wer "
                        "eingeladen hat, Ende) und sie zurückziehen; Konten mit Heimat hier anlegen (ORCID iD oder Name und "
-                       "E-Mail-Adresse mit Einmal-Link); für Konten mit Heimat hier (außer denen anderer Admins der "
+                       "E-Mail-Adresse mit Einmal-Link) oder Einmal-Link, mit dem sich die Person mit ORCID oder E-Mail-Adresse und Passwort registriert; für Konten mit Heimat hier (außer denen anderer Admins der "
                        "Organisation und Konten mit Rollen außerhalb der Organisation, die ein Plattform-Admin verwaltet) "
                        "Nutzertyp, Laufzeit, "
                        "Befragungstypen (bis „Anlegen“), Sperre und Einmal-Link, höchstens im Rahmen der Organisation; "
@@ -239,7 +239,7 @@ def roles():
                        "surveys, running and self-created surveys and real participations, only in surveys of this "
                        "organisation); open invitations (name or ORCID iD, kind, date, who "
                        "invited, end) and withdrawing them; create accounts at home here (ORCID iD, or name and email address with a "
-                       "one-time link); for accounts at home here (except those of other admins of the organisation and "
+                       "one-time link) or a one-time link with which the person registers with ORCID or an email address and a password; for accounts at home here (except those of other admins of the organisation and "
                        "accounts with roles beyond the organisation, which a site admin manages) "
                        "user type, period, survey "
                        "types (up to “Create”), block and one-time link, at most within the organisation's limits; its "
@@ -486,7 +486,7 @@ def _activities():
                            "Vormerkung, vormerkende Person und Auswahl gespeichert, Übergaben ohne mögliche Person halten "
                            "die Löschung als „Löschung fällig“ an. Einladungsadressen einer Liste: bis zur "
                            "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Einladungslinks der Plattform (nur Prüfwert, "
-                           "Notiz, Zähler): bis 30 Tage nach ihrem Ablauf.",
+                           "Notiz, Zähler) und Gründungslinks: bis 30 Tage nach Ablauf oder Nutzung.",
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
                            "date remain; memberships, home and admin role in organisations go with the account. Email "
                            "address and password hash also when the person removes this sign-in on the page “Account › Profile and sign-in” "
@@ -499,8 +499,8 @@ def _activities():
                            "30 days by the hourly sweep; until then the mark, the person who marked it and the choices "
                            "are stored, and a handover without a person able to receive it holds the deletion as "
                            "“deletion due”. Invitation addresses of a list: until accepted, withdrawn or "
-                           "expired, at most 30 days. Invitation links of the platform (hash, note, counter only): until 30 days after "
-                           "they expire."),
+                           "expired, at most 30 days. Invitation links of the platform (hash, note, counter only) and founding links: until 30 days after "
+                           "they expire or are used."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b DSGVO (Nutzungsbedingungen); bei öffentlichen Stellen ggf. lit. e",
                         "Art. 6 (1) (b) GDPR (terms of use); for public bodies possibly (e)")},
@@ -1212,11 +1212,11 @@ def _services():
          "state": _on(mail_on, _host("smtp://" + (c.get("MAIL_HOST") or ""))),
          "where": de_en("Je nach Relay", "Depends on the relay")},
         {"name": "Slack", "words": ("Slack",),
-         "data": de_en("Hinweise auf Beschwerden und Fehlermeldungen, Neuanmeldungen, Bitten um neues Passwort, "
+         "data": de_en("Hinweise auf Beschwerden und Fehlermeldungen, Neuanmeldungen, neue Organisationen, Bitten um neues Passwort, "
                        "Warnungen zu Admin-Konten und Befragungen. Knapp (Voreinstellung, Administration › Server): "
                        "nur Kontonummer, Befragungscode und Link. Ausführlich: dazu Name, Organisation, Befragungstitel "
                        "und ein Auszug von Fehlermeldungen; Beschwerden von Teilnehmenden bleiben knapp." + (" Gewählt: ausführlich." if slack_full else " Gewählt: knapp."),
-                       "Notices of complaints and error reports, new registrations, requests for a new password, "
+                       "Notices of complaints and error reports, new registrations, new organisations, requests for a new password, "
                        "warnings about admin accounts and surveys. Short (default, Administration › Server): "
                        "only account number, survey code and link. Detailed: also name, organisation, survey title and "
                        "an excerpt of error reports; complaints of participants stay short." + (" Chosen: detailed." if slack_full else " Chosen: short.")),

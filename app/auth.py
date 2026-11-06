@@ -267,7 +267,12 @@ def _sign_in(orcid, name, fresh=True):
     # someone who is only here because they were invited to a survey or added to a group works on what is
     # shared until a site admin raises them, or every invitation would hand out the right to invite further
     # people (security audit 2026-10-06, S11). Accounts from before keep what they had.
-    may_create = created and current_app.config["NEW_ACCOUNTS_MAY_CREATE"] and on_whitelist(orcid)
+    # The tick of "Person hinzufügen" decides where the dialog set one (SignInOrcid.may_create).
+    from app.models import SignInOrcid
+
+    wish = getattr(db.session.get(SignInOrcid, orcid), "may_create", None)
+    may_create = created and on_whitelist(orcid) and (
+        wish if wish is not None else current_app.config["NEW_ACCOUNTS_MAY_CREATE"])
     from app import signin
 
     signin.came_in(user)  # in by "every person" alone: an admin's yes, so switching off locks nobody out
@@ -704,6 +709,16 @@ def orcid_callback():
     from app import signup_links
 
     signup_links.accept_after_orcid(orcid, data.get("name", ""))  # a registration link opened before: on the list now
+    from app import org_links, orgs
+
+    founded, back = org_links.accept_after_orcid(orcid)  # a founding link: organisation made, the iD on the list now
+    if back:
+        return redirect(back)
+    if founded is not None:
+        session["next"] = url_for("org.index", org_id=founded.id)
+    if new and orcid not in cfg["ADMIN_ORCIDS"] and orgs.home_is_full(orcid):
+        flash(orgs.home_full_said(), "error")  # the sign-in would make an account beyond the organisation's limit
+        return redirect(url_for("public.index"))
     if not _may_sign_in(orcid):
         flash(de_en("Ihr ORCID-Konto ist (noch) nicht freigeschaltet.", "Your ORCID account is not (yet) allowed to sign in."),
               "error")
@@ -714,6 +729,10 @@ def orcid_callback():
         from app import notify
 
         notify.new_user(user)
+    if founded is not None:
+        from app import notify
+
+        notify.report_new_org(founded, "link", user)
     nxt = session.pop("next", "")
     return redirect(local_path(nxt) or url_for("dashboard.index"))
 

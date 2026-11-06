@@ -91,7 +91,7 @@ def test_listing_an_account_lets_it_create_and_an_admin_takes_that_back(app, cli
 
 def test_a_new_account_from_the_list_gets_the_tick(app, client):
     app.config["NEW_ACCOUNTS_MAY_CREATE"] = True
-    _post(client, action="add", orcid=THIRD)
+    _post(client, action="add", orcid=THIRD, may_create="1")  # ticked by default in the dialog (2026-11-06)
     _as(app.test_client(), THIRD, "Dritte")
     assert _may_create(app, THIRD)
 

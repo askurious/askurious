@@ -697,6 +697,8 @@ class SignInOrcid(db.Model):
     # the survey types chosen for this iD in "Person hinzufügen" (app/kind_access.py): taken over at its first
     # sign-in; None = the default for new accounts
     kinds: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+    # the tick "darf eigene Befragungen anlegen" of that dialog (migration 0115); None = NEW_ACCOUNTS_MAY_CREATE
+    may_create: Mapped[bool | None]
     # the user type and period chosen for this iD in "Person hinzufügen" (app/account_types.py): taken over at its
     # first sign-in, the period starting then; None = the type for new accounts
     account_type_id: Mapped[int | None] = mapped_column(ForeignKey("account_type.id", ondelete="SET NULL"), index=True)
@@ -724,9 +726,33 @@ class SignUpLink(db.Model):
     max_uses: Mapped[int] = mapped_column(default=1)
     uses: Mapped[int] = mapped_column(default=0)
     note: Mapped[str] = mapped_column(String(200), default="")
+    # "Nur Link" (migration 0113): one person, who chooses ORCID or an email address with a new password
+    password_ok: Mapped[bool] = mapped_column(default=False, server_default="0")
+    # what "Person hinzufügen" chose for that person (migration 0115); None: as for any link
+    kinds: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+    may_create: Mapped[bool | None]
     created_by_id: Mapped[int | None] = mapped_column(index=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     expires_at: Mapped[datetime]
+
+
+class OrgFoundLink(db.Model):
+    """A founding link (app/org_links.py): one new person creates an organisation and becomes its admin. used_at is set
+    when the organisation is created. Only the hash of the token is stored. No foreign keys, like sign_up_link: the rows
+    go in code (the sweep)."""
+
+    __tablename__ = "org_found_link"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    note: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    max_accounts: Mapped[int]  # of the new organisation
+    created_by_id: Mapped[int | None] = mapped_column(index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    expires_at: Mapped[datetime]
+    used_at: Mapped[datetime | None]
+    org_id: Mapped[int | None]  # what came of it
+    used_by_id: Mapped[int | None]
 
 
 class Organisation(db.Model):

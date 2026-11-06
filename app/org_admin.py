@@ -173,9 +173,12 @@ def people(org_id):
                       "days": JOIN_DAYS}
     else:
         invitation = None
+    from app import signup_links
+
     return render_template("org/people.html", org=org, rows=rows, invites=invites, invite_rows=invite_rows,
                            types=orgs.allowed_types(org),
-                           invitation=invitation,
+                           invitation=invitation, new_link=signup_links.take_shown(),
+                           link_days=signup_links.ONE_PERSON_DAYS, default_days=signup_links.DEFAULT_DAYS,
                            default_type=account_types.default_type(org.id), left=orgs.accounts_left(org),
                            active="people", page=listing, chosen=chosen, kinds_only=kinds_only, period=period,
                            cap=kind_access.org_cap(org), group_options=[(x.id, x.name) for x in groups_here])
@@ -280,6 +283,7 @@ def people_action(org_id):
     if t is not None:
         listed.account_type_id, listed.valid_spec = t.id, spec
     listed.kinds = kind_access.clean(_kinds_of_form(org, t))
+    listed.may_create = request.form.get("may_create") == "1"
     db.session.commit()
     _log("organisation_member_added", target=f"org {org.id}", kind=(t.key or str(t.id)) if t is not None else "default")
     flash(de_en("Die iD kann sich jetzt anmelden; ihre Heimat ist dann diese Organisation.",
@@ -448,6 +452,34 @@ def _target(org, user_id):
     if user is None or not orgs.manages(current_user, user, org):
         abort(404)
     return user
+
+
+@bp.route("/<int:org_id>/people/link", methods=["POST"])
+def new_link(org_id):
+    """"Nur Link": a link for one person who chooses ORCID or an email address with a new password
+    (app/signup_links.py). It brings in someone nobody named, so the scope of the organisation decides."""
+    from app import security_log, signup_links
+
+    org = g.org
+    again = _fresh_add(org)
+    if again:
+        return again
+    if not orgs.may_bring_in(current_user, org.id):
+        return _refused("new-link", orgs.not_brought_in(org.id), "note")
+    t, spec, problem = _new_type(org)
+    if problem:
+        return _refused("new-link", problem, "valid_n")
+    days = request.form.get("days", type=int)
+    if days not in signup_links.ONE_PERSON_DAYS:
+        abort(400)
+    link, problem = signup_links.create_for_one(current_user, org, t, spec if t is not None else "type", days,
+                                                request.form.get("note", ""), kinds=kind_access.clean(_kinds_of_form(org, t)),
+                                                may_create=request.form.get("may_create") == "1", org_admin=True)
+    if problem:
+        return _refused("new-link", problem, "note")
+    signup_links.show_once(link)
+    security_log.event("sign_up_link_created", by=current_user.id, target=f"org {org.id}", kind="one_person")
+    return redirect(url_for("org.people", org_id=org.id, _anchor="neuer-link"))
 
 
 @bp.route("/<int:org_id>/people/<int:user_id>", methods=["GET", "POST"])

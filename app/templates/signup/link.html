@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, orcid_icon %}
-{# The page of a registration link of the platform (app/signup_links.py). Needs: link, org, full, orcid_on. #}
+{# The page of a registration link of the platform (app/signup_links.py). Needs: link, org, full, orcid_on, min_length, form. #}
 {% block title %}{{ de_en("Einladung", "Invitation") }}{% endblock %}
 {% block content %}
 <div class="sign-in">
@@ -14,12 +14,31 @@
     {% elif orcid_on %}
     <form method="post" class="button-row">
       {{ csrf() }}
-      <button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden und Konto anlegen", "Sign in with ORCID and create account") }}</button>
+      <input type="hidden" name="way" value="orcid"><button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden und Konto anlegen", "Sign in with ORCID and create account") }}</button>
     </form>
     <p class="muted small">{{ de_en("Haben Sie schon ein Konto, melden Sie sich wie gewohnt an; der Link ändert daran nichts.", "If you already have an account, sign in as usual; the link changes nothing about it.") }}</p>
     {% else %}
     <p class="muted">{{ de_en("Die Anmeldung mit ORCID ist auf diesem Server nicht eingerichtet.", "Sign-in with ORCID is not set up on this server.") }}</p>
     {% endif %}
   </section>
+  {% if link.password_ok and not full %}
+  {# "Nur Link" (app/signup_links.py): ORCID above is the preferred way, this one is for people without an iD #}
+  <section class="panel">
+    <h2>{{ de_en("Ohne ORCID: mit E-Mail-Adresse und Passwort", "Without ORCID: with email address and password") }}</h2>
+    <p class="muted small">{{ de_en("Wir empfehlen die Anmeldung mit ORCID. Ohne ORCID melden Sie sich künftig mit Ihrer E-Mail-Adresse und diesem Passwort an.", "We recommend signing in with ORCID. Without ORCID you sign in from now on with your email address and this password.") }}</p>
+    <form method="post" class="stack">
+      {{ csrf() }}<input type="hidden" name="way" value="password">
+      <label>{{ de_en("Name", "Name") }}
+        <input name="name" maxlength="200" required autocomplete="name" value="{{ form.get('name', '') }}"></label>
+      <label>{{ de_en("E-Mail-Adresse", "Email address") }}
+        <input type="email" name="email" maxlength="254" required autocomplete="email" value="{{ form.get('email', '') }}"></label>
+      <label>{{ de_en("Neues Passwort", "New password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen", "at least {n} characters", n=min_length) }}</span>
+        <input type="password" name="password" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <label>{{ de_en("Passwort wiederholen", "Repeat password") }}
+        <input type="password" name="repeat" autocomplete="new-password" minlength="{{ min_length }}" required></label>
+      <div class="button-row"><button class="button button-secondary">{{ de_en("Konto anlegen", "Create account") }}</button></div>
+    </form>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

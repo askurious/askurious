@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon %}
+{# The page of a founding link (app/org_links.py): the name of the organisation, then ORCID. Needs: link, form, orcid_on,
+   platform_name, max_name. #}
+{% block title %}{{ de_en("Neue Organisation", "New organisation") }}{% endblock %}
+{% block content %}
+<div class="sign-in">
+  <h1>{{ de_en("Ihre Organisation bei {b}", "Your organisation at {b}", b=platform_name) }}</h1>
+  <section class="panel">
+    <p>{{ de_en("Mit diesem Link legen Sie eine eigene Organisation an und werden ihr Admin. Ihr Konto entsteht dabei mit Ihrer ORCID iD.", "With this link you create an organisation of your own and become its admin. Your account is created with your ORCID iD at the same time.") }}</p>
+    {% if orcid_on %}
+    <form method="post" class="stack">
+      {{ csrf() }}
+      <label>{{ de_en("Kurzname", "Short name") }} <span class="hint">{{ de_en("für die Seiten der Plattform", "for the platform's pages") }}</span>
+        <input name="name" maxlength="{{ max_name }}" required value="{{ form.get('name', '') }}"></label>
+      <label>{{ de_en("Ausführlicher Name", "Full name") }} <span class="hint">{{ de_en("optional; für Befragungstexte", "optional; for survey texts") }}</span>
+        <input name="long_name" maxlength="200" value="{{ form.get('long_name', '') }}"></label>
+      <div class="button-row"><button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden und Organisation anlegen", "Sign in with ORCID and create organisation") }}</button></div>
+    </form>
+    <p class="muted small">{{ de_en("Der Link ist für neue Konten. Bleibt die Anmeldung unvollständig, gilt er weiter. Beide Namen können Sie später unter Verwaltung ändern.", "The link is for new accounts. If you do not finish signing in, it stays valid. You can change both names under Management later.") }}</p>
+    {% else %}
+    <p class="muted">{{ de_en("Die Anmeldung mit ORCID ist auf diesem Server nicht eingerichtet.", "Sign-in with ORCID is not set up on this server.") }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

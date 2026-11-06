@@ -4,7 +4,8 @@ Open is what lets someone in who has not come in yet:
 - an ORCID iD taken in with "Person hinzufügen" (SignInOrcid of the organisation) without an account yet,
 - an iD named before its first sign-in in the organisation or one of its groups (a pending account, the "invited" of
   orgs.counts on Administration > Organisationen),
-- the one-time link of an account without ORCID at home here that has never signed in, while it is valid.
+- the one-time link of an account without ORCID at home here that has never signed in, while it is valid,
+- a link for one person whose way of signing in is left open ("Nur Link", app/signup_links.py).
 An invitation to join for an existing account (org_admin.people_action) is signed and not stored, so it is not listed.
 
 Withdrawing takes back only what is listed: the iD can no longer sign in into the organisation, the pending account
@@ -15,7 +16,7 @@ from flask_login import current_user
 from app import orgs
 from app.extensions import db
 from app.lang import de_en
-from app.models import AuthToken, OrganisationMember, SignInOrcid, User, WorkGroup, WorkGroupMember, utcnow
+from app.models import AuthToken, OrganisationMember, SignInOrcid, SignUpLink, User, WorkGroup, WorkGroupMember, utcnow
 from app.tables import ROW_SIZES, Listing, text_key
 
 SORTS = {"name": "asc", "kind": "asc", "since": "desc", "by": "asc", "until": "asc"}
@@ -61,6 +62,14 @@ def open_of(org):
         item = _item(f"l{user.id}", user.name, None, de_en("Einmal-Link ohne ORCID", "One-time link without ORCID"),
                      token.created_at, token.created_by_id)
         item["until"], item["user"] = token.expires_at, user
+        items[item["key"]] = item
+    for link in db.session.scalars(db.select(SignUpLink).where(
+            SignUpLink.org_id == org.id, SignUpLink.password_ok.is_(True), SignUpLink.uses < SignUpLink.max_uses,
+            SignUpLink.expires_at >= utcnow())):  # "Nur Link" of "Person hinzufügen" (app/signup_links.py)
+        item = _item(f"s{link.id}", link.note or de_en("ohne Notiz", "no note"), None,
+                     de_en("Einmal-Link (ORCID oder E-Mail-Adresse)", "One-time link (ORCID or email address)"),
+                     link.created_at, link.created_by_id)
+        item["until"] = link.expires_at
         items[item["key"]] = item
     out = list(items.values())
     by = {u.id: u for u in db.session.scalars(db.select(User).where(User.id.in_({i["by_id"] for i in out} - {None})))}
@@ -116,7 +125,11 @@ def withdraw(org, key):
     if item is None or not item["may"]:
         return None
     user = item["user"]
-    if key.startswith("l"):
+    if key.startswith("s"):
+        from app import signup_links
+
+        signup_links.revoke(int(key[1:]))
+    elif key.startswith("l"):
         db.session.execute(db.delete(AuthToken).where(AuthToken.user_id == user.id, AuthToken.purpose == "setup"))
     else:
         if item["orcid"]:

@@ -54,7 +54,7 @@ def test_the_button_opens_the_dialog_and_leads_to_the_panel_without_scripts(clie
     panel = page[page.index('id="person-hinzufuegen"'):]
     assert panel.startswith('id="person-hinzufuegen" aria-labelledby="person-add-title" data-person-add-panel>')
     assert 'data-person-add-close hidden aria-label="Schließen"' in panel
-    assert ">Mit ORCID iD<" in panel and ">Ohne ORCID iD<" in panel
+    assert ">Über eine ORCID<" in panel and ">Über einen Einmal-Link<" in panel
     assert panel.index('action="/admin/admit"') < panel.index('action="/admin/accounts/new"')
     assert "Anmeldung freischalten</button>" in panel and "Konto anlegen</button>" in panel
     # the sign-in block has no form for iDs, only the switch "only with an invitation / every person" (2026-10-29)
@@ -109,7 +109,7 @@ def test_people_tab_in_english(client):
     client.post("/account/language", data={"lang": "en"})
     page = client.get("/admin/people").data.decode()
     assert "<title>People · Administration" in page and ">Sign-in with ORCID <" in page
-    assert ">With an ORCID iD<" in page and ">Without an ORCID iD<" in page
+    assert ">By an ORCID iD<" in page and ">By a one-time link<" in page
     assert "Institution design" in client.get("/admin/orgs/1").data.decode()
     groups = client.get("/admin/groups").data.decode()
     assert "<title>Groups · Administration" in groups and ">Groups</a>" in groups
