@@ -67,7 +67,8 @@
 {# the parts marked data-tc-live are drawn anew in place when something changed (transcript_coding_live.js) #}
 {% if view != "settings" %}<div data-tc-live="notices">{% if notices %}<section class="panel">{{ notices_fold(survey, project, notices) }}</section>{% endif %}</div>{% endif %}
 {% if view == "categories" %}
-<section class="panel" id="kategorien" data-tc-live="categories">
+<section class="panel" id="kategorien">
+  <div data-tc-live="categories-head">
   <div class="row results-head tc-head">
     <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
     <span class="spacer"></span>
@@ -84,6 +85,22 @@
     <button type="button" class="button button-small" data-tc-new data-kind="{{ 'main' if may_main else 'candidate' }}">{{ icon("plus", 16) }} {{ de_en("Hauptkategorie", "Main category") if may_main else de_en("Kandidat vorschlagen", "Propose a candidate") }}</button>
     {% endif %}
   </div>
+  </div>
+  {% if show == "list" and (mains or candidates) %}
+  {# search by name or number, "Alle / Meine", fold everything (feedback 2026-11-06); outside the parts drawn anew, so
+     that what is typed stays #}
+  <div class="row-fields tc-list-tools" data-tc-list-tools>
+    <input type="search" class="tc-side-search" data-tc-list-search autocomplete="off" aria-label="{{ de_en('Kategorien suchen', 'Search categories') }}" placeholder="{{ de_en('Suchen: Name oder Nummer', 'Search: name or number') }}">
+    <div role="group" class="tc-seg" aria-label="{{ de_en('Welche Kategorien', 'Which categories') }}">
+      <button type="button" class="tc-seg-btn" data-tc-list-mine="" aria-pressed="true">{{ de_en("Alle", "All") }}</button>
+      <button type="button" class="tc-seg-btn" data-tc-list-mine="1" aria-pressed="false">{{ de_en("Meine", "Mine") }}</button>
+    </div>
+    <button type="button" class="button button-small button-secondary" data-tc-fold-all="1">{{ de_en("Alle zuklappen", "Fold all") }}</button>
+    <button type="button" class="button button-small button-secondary" data-tc-fold-all="">{{ de_en("Alle aufklappen", "Unfold all") }}</button>
+    <span class="muted small" data-tc-list-none hidden>{{ de_en("Keine Kategorie gefunden.", "No category found.") }}</span>
+  </div>
+  {% endif %}
+  <div data-tc-live="categories">
   {% if show == "map" %}
   <div class="res-scroll tc-map" data-tc-csrf="{{ csrf_token() }}">{{ map_svg|safe }}</div>
   <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}
@@ -107,6 +124,7 @@
   {% endif %}
   </div>
   {% endif %}
+  </div>
 </section>
 
 {% endif %}

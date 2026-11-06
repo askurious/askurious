@@ -70,21 +70,32 @@
     </div>
     {% endif %}
   </section>
-  <aside class="panel tc-side" aria-label="{{ de_en('Kategoriensystem', 'Category system') }}">
-    <h2>{{ de_en("Kategoriensystem", "Category system") }} <a class="small" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='diagram') }}">{{ de_en("Diagramm", "Diagram") }}</a></h2>
+  {# the category system as a tree of its own height, scrolling by itself (feedback 2026-11-06): folds, search by name or
+     number, "Alle / Meine"; a click on a category shows what it says and its passages #}
+  <aside class="panel tc-side" aria-label="{{ de_en('Kategoriensystem', 'Category system') }}"
+         data-spots-url="{{ url_for('transcript_coding.category_spots', code=survey.code, pid=project.id, cid=0) }}">
+    <div class="tc-side-head">
+      <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
+      <div role="group" class="tc-seg" aria-label="{{ de_en('Welche Kategorien', 'Which categories') }}">
+        <button type="button" class="tc-seg-btn" data-tc-mine="" aria-pressed="true">{{ de_en("Alle", "All") }}</button>
+        <button type="button" class="tc-seg-btn" data-tc-mine="1" aria-pressed="false">{{ de_en("Meine", "Mine") }}</button>
+      </div>
+    </div>
+    <input type="search" class="tc-side-search" data-tc-search autocomplete="off" aria-label="{{ de_en('Kategorien suchen', 'Search categories') }}" placeholder="{{ de_en('Suchen: Name oder Nummer', 'Search: name or number') }}">
     {{ notices_fold(survey, project, notices) }}
     <ul class="tc-side-list" data-tc-side></ul>
-    <p class="muted small">{{ de_en("Die Zahlen zählen Stellen in allen Interviews, die Sie in dieser Auswertung sehen.", "The numbers count passages in all interviews you see in this analysis.") }}</p>
+    <p class="muted small tc-side-foot">{{ de_en("Zahl rechts: Stellen in allen Interviews, die Sie in dieser Auswertung sehen; rot: noch keine.", "Number on the right: passages in all interviews you see in this analysis; red: none yet.") }}
+      <a href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='diagram') }}">{{ de_en("Diagramm", "Diagram") }}</a></p>
   </aside>
 </div>
 
 {# the list to assign a category to the marked passage #}
 <div class="tc-pop" data-tc-pop hidden role="dialog" aria-label="{{ de_en('Kategorie zuordnen', 'Assign category') }}">
-  <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off"></label>
+  <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off" placeholder="{{ de_en('Name oder Nummer, z. B. 3.1', 'Name or number, e.g. 3.1') }}"></label>
   <ul class="tc-pop-list" data-tc-list></ul>
   {# what the active category says: definition, delimitation, anchor example (Ralf 2026-10-30) #}
   <div class="tc-about tc-pop-preview small" data-tc-preview aria-live="polite" hidden></div>
-  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 für zuletzt benutzte, ↑ ↓ wählen, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, ↑ ↓ choose, Enter takes it, Esc closes") }}</p>
+  <p class="muted small tc-hint-keys">{{ de_en("Tasten 1–9 für zuletzt benutzte, „3.1“ sucht die Nummer, ↑ ↓ wählen, Enter übernimmt, Esc schließt", "Keys 1–9 for the ones used last, “3.1” searches the number, ↑ ↓ choose, Enter takes it, Esc closes") }}</p>
 </div>
 {# a new category from the coding view: a dialog of its own in the middle of the window, moved by its title bar; Esc
    and "Abbrechen" go back to the list of the marked passage (Ralf 2026-10-28) #}
