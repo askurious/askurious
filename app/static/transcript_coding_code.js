@@ -595,14 +595,21 @@
     cats.filter(function (c) { return c.kind !== "candidate" && c.deeper !== false; }).forEach(function (c) {
       var o = document.createElement("option");
       o.value = c.id;
-      o.textContent = label(c);  // the whole path: a subcategory may stand under any level
+      o.textContent = c.name;
+      o.setAttribute("data-path", label(c));  // the whole path: a subcategory may stand under any level
+      o.setAttribute("data-num", c.num || "");
+      o.setAttribute("data-level", c.level || 1);
+      o.setAttribute("data-n", total(c));
+      if (c.kind === "main") o.setAttribute("data-main", "1");
       sel.appendChild(o);
     });
     var top = document.createElement("option");
+    top.setAttribute("data-main", "1");
     top.value = "";
     top.textContent = root.getAttribute("data-may-main") ? de_en("— als Hauptkategorie —", "— as a main category —")
       : de_en("— als Kandidat für eine Hauptkategorie —", "— as a candidate for a main category —");
     sel.appendChild(top);
+    if (window.tcPicker) window.tcPicker(sel);  // the tree with search and numbers (tc_picker.js)
     fillAfter();
     quick.querySelector("[data-tc-quick-error]").hidden = true;
     quick.elements.definition.focus();

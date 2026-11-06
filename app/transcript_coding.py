@@ -1209,7 +1209,7 @@ def project(code, pid):
                                 **({"merge": request.args["merge"]} if request.args.get("merge") else {})))
     show = "map" if view == "categories" and request.args.get("show") == "diagram" else "list"
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
-                   nums=numbers(mains),
+                   nums=numbers(mains), levels={c.id: c.level for m, subs in mains for c in [m] + subs},
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
                    drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
                    move_targets=lambda c: move_targets(project, c, who, mains),

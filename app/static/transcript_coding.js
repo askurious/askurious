@@ -376,3 +376,44 @@ window.tcAfterOptions = function (select, rows, preset) {
     if (shown) anyway.value = "1";  // the similar ones were shown: the person chose to create a new one
   });
 })();
+
+// "Zwei andere Kategorien zusammenführen …" on the overview: a dialog with two category pickers (tc_picker.js); "Weiter"
+// opens the dialog of the category system that merges and harmonises (?merge=a,b), as for a blurring pair
+(function () {
+  var dialog = document.querySelector("[data-tc-merge-dialog]");
+  var opener = document.querySelector("[data-tc-merge-open]");
+  if (!dialog || !opener) return;
+  var form = dialog.querySelector("[data-tc-merge-pick]"), what = dialog.querySelector("[data-tc-merge-what]");
+  var source = form.elements.source, target = form.elements.target;
+  function label(sel) {
+    var o = sel.options[sel.selectedIndex];
+    if (!o) return "";
+    var num = o.getAttribute("data-num"), n = o.getAttribute("data-n");
+    return (num ? num + " " : "") + o.textContent.trim() + (n !== null ? " (" + de_en("{n} Stellen", "{n} passages").replace("{n}", n) + ")" : "");
+  }
+  function say() {
+    if (source.value === target.value) {
+      what.textContent = de_en("Bitte zwei verschiedene Kategorien wählen.", "Please choose two different categories.");
+      what.classList.add("danger-text");
+      return false;
+    }
+    what.classList.remove("danger-text");
+    what.textContent = de_en("„{a}“ geht auf in „{b}“.", "“{a}” goes into “{b}”.").replace("{a}", label(source)).replace("{b}", label(target));
+    return true;
+  }
+  source.addEventListener("change", say);
+  target.addEventListener("change", say);
+  opener.addEventListener("click", function () {
+    if (dialog.showModal && !dialog.open) dialog.showModal();
+    [source, target].forEach(function (s) { if (window.tcPicker) window.tcPicker(s); });
+    say();
+    var first = dialog.querySelector(".tc-pick-search");
+    if (first) first.focus();
+  });
+  dialog.querySelectorAll("[data-tc-merge-close]").forEach(function (b) { b.addEventListener("click", function () { dialog.close(); }); });
+  form.addEventListener("submit", function (e) {
+    if (!say()) { e.preventDefault(); return; }
+    form.querySelector("[data-tc-merge-value]").value = source.value + "," + target.value;
+    source.disabled = target.disabled = true;  // only view and merge go into the address
+  });
+})();
