@@ -128,14 +128,174 @@
     }
   }
 
-  var sideOpen = null;  // the category of the side whose text is open (one at a time; stays open when drawn anew)
+  // --- the side: the category system as a tree (feedback 2026-11-06) ---------------------------------------------
+  // folds (kept in this browser per analysis), search by name or number, "Alle / Meine"; a click on a category shows
+  // what it says and its passages, this interview first, each opening its interview at the passage
+  var aside = root.querySelector(".tc-side");
+  var search = aside ? aside.querySelector("[data-tc-search]") : null;
+  var FOLD_KEY = "tc-fold-" + root.getAttribute("data-project"), MINE_KEY = "tc-mine-" + root.getAttribute("data-project");
+  var sprite = (root.getAttribute("data-icon-info") || "").replace(/#info$/, "");
+  function stored(key, fallback) {
+    try { var v = JSON.parse(localStorage.getItem(key) || "null"); return v === null ? fallback : v; } catch (e) { return fallback; }
+  }
+  function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* only a convenience */ } }
+  var folded = stored(FOLD_KEY, null);  // ids folded; on the first visit every main category is folded
+  var onlyMine = !!stored(MINE_KEY, false);
+  var sideOpen = null;  // the category whose text and passages are open (one at a time; stays open when drawn anew)
+  var spotCache = {};
+
+  function icon(name, size) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "icon");
+    svg.setAttribute("width", size || 14);
+    svg.setAttribute("height", size || 14);
+    svg.setAttribute("aria-hidden", "true");
+    var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", sprite + "#" + name);
+    svg.appendChild(use);
+    return svg;
+  }
+  function parentOf(c) { return c.kind === "sub" ? catOf(c.parent_id) : null; }
+  function kidsOf(c) { return cats.filter(function (k) { return k.kind === "sub" && k.parent_id === c.id; }); }
+  // the passages of a category and everything below it (a main category shows the sum)
+  function total(c) { return kidsOf(c).reduce(function (sum, k) { return sum + total(k); }, c.n || 0); }
+  function mainOf(c) { var p = c; while (p && p.kind === "sub") p = parentOf(p) || null; return p || c; }
+  // the colour of a category's tint: its own, else the one of its main category
+  function tint(c) { return colour(c.colour ? c : mainOf(c)); }
+  // what a query finds: a name containing it, or a number ("3.1" finds 3.1 and everything below it)
+  function hit(c, q) {
+    if (!q) return true;
+    if (/^\d+(\.\d*)*$/.test(q)) { var n = c.num || ""; var bare = q.replace(/\.$/, ""); return n === bare || n.indexOf(bare + ".") === 0; }
+    return c.name.toLowerCase().indexOf(q) >= 0;
+  }
+  // the categories to show and those only shown as the place a shown one hangs (greyed)
+  function sideView(q, mineOnly) {
+    var wanted = {}, context = {};
+    cats.forEach(function (c) {
+      if (!hit(c, q) || (mineOnly && !c.mine)) return;
+      wanted[c.id] = true;
+      for (var p = parentOf(c); p; p = parentOf(p)) if (!wanted[p.id]) context[p.id] = true;
+    });
+    Object.keys(wanted).forEach(function (id) { delete context[id]; });
+    return { wanted: wanted, context: context, filtered: !!q || mineOnly };
+  }
+  function isFolded(c) { return folded ? folded.indexOf(c.id) >= 0 : c.kind === "main"; }
+  function setFolded(c, on) {
+    if (!folded) folded = cats.filter(function (k) { return k.kind === "main"; }).map(function (k) { return k.id; });
+    folded = folded.filter(function (x) { return x !== c.id; });
+    if (on) folded.push(c.id);
+    store(FOLD_KEY, folded);
+  }
+
+  function jumpTo(start) {  // the passage in this transcript: in view and lit up a moment
+    var span = box.querySelector('[data-s="' + start + '"]');
+    if (!span) {
+      var all = box.querySelectorAll("[data-s]");
+      for (var i = 0; i < all.length; i++) if (Number(all[i].getAttribute("data-s")) > start) break;
+      span = all[Math.max(0, i - 1)];
+    }
+    if (!span) return;
+    span.scrollIntoView({ block: "center", behavior: "smooth" });
+    span.classList.remove("tc-flash");
+    void span.offsetWidth;
+    span.classList.add("tc-flash");
+  }
+
+  function spotsOf(c, host) {
+    var here = codings.filter(function (k) { return k.cat === c.id; });
+    var listEl = document.createElement("div");
+    listEl.className = "tc-side-spots small";
+    listEl.style.setProperty("--tc", tint(c));
+    here.forEach(function (k) {
+      var a = document.createElement("a");
+      a.href = "#";
+      var w = document.createElement("span");
+      w.className = "tc-side-where";
+      w.textContent = de_en("dieses Interview: ", "this interview: ");
+      a.appendChild(w);
+      a.appendChild(document.createTextNode(de_en("„", "“") + (k.quote || "").slice(0, 120) + de_en("“", "”")));
+      a.addEventListener("click", function (e) { e.preventDefault(); jumpTo(k.start); });
+      listEl.appendChild(a);
+    });
+    var url = (aside && aside.getAttribute("data-spots-url") || "").replace(/\/0\/spots$/, "/" + c.id + "/spots");
+    function others(d) {
+      var rid = Number(root.getAttribute("data-rid"));
+      var rest = (d.spots || []).filter(function (x) { return x.rid !== rid; });
+      rest.forEach(function (x) {
+        var a = document.createElement("a");
+        a.href = x.url;
+        var w = document.createElement("span");
+        w.className = "tc-side-where";
+        w.textContent = x.where + " ";
+        a.appendChild(w);
+        a.appendChild(document.createTextNode(de_en("„", "“") + x.quote.slice(0, 120) + de_en("“", "”")));
+        listEl.appendChild(a);
+      });
+      if (!here.length && !rest.length) {
+        var none = document.createElement("p");
+        none.className = "muted";
+        none.textContent = de_en("Noch keine Stellen.", "No passages yet.");
+        listEl.appendChild(none);
+      }
+      if (d.total) {
+        var all = document.createElement("a");
+        all.href = d.all_url;
+        all.className = "tc-side-where";
+        all.textContent = de_en("Alle {n} Stellen ansehen", "View all {n} passages").replace("{n}", d.total);
+        listEl.appendChild(all);
+      }
+    }
+    if (url && spotCache[c.id]) others(spotCache[c.id]);
+    else if (url) {
+      fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.ok) { spotCache[c.id] = d; others(d); } })
+        .catch(function () { /* the passages of this interview stand already */ });
+    }
+    host.appendChild(listEl);
+  }
+
   function drawSide() {
     side.textContent = "";
     if (sideOpen !== null && !catOf(sideOpen)) sideOpen = null;
+    var q = search ? search.value.trim().toLowerCase() : "";
+    var view = sideView(q, onlyMine);
+    var hidden = {};  // below a folded category (a filter unfolds everything that holds a hit)
+    var drawn = 0;
     cats.forEach(function (c) {
+      var p = parentOf(c);
+      if (p && (hidden[p.id] || (!view.filtered && isFolded(p)))) { hidden[c.id] = true; return; }
+      if (view.filtered && !view.wanted[c.id] && !view.context[c.id]) return;
+      drawn++;
       var li = document.createElement("li");
-      li.className = "tc-side-" + c.kind;
-      if (c.level > 2) li.style.paddingLeft = (18 * (c.level - 1)) + "px";  // deeper levels further in
+      li.className = "tc-side-" + c.kind + (view.context[c.id] ? " is-context" : "");
+      li.style.setProperty("--tc", tint(c));
+      if (c.level > 1) li.style.paddingLeft = (14 * (c.level - 1)) + "px";  // deeper levels further in
+      var line = document.createElement("div");
+      line.className = "tc-side-line";
+      var kids = kidsOf(c);
+      if (kids.length) {
+        var fold = document.createElement("button");
+        fold.type = "button";
+        fold.className = "tc-side-fold";
+        var open = view.filtered || !isFolded(c);
+        fold.setAttribute("aria-expanded", open ? "true" : "false");
+        fold.setAttribute("aria-label", (open ? de_en("Zuklappen: ", "Fold: ") : de_en("Aufklappen: ", "Unfold: ")) + c.name);
+        fold.appendChild(icon("chevron-down", 14));
+        fold.disabled = view.filtered;
+        fold.addEventListener("click", function () {
+          setFolded(c, !isFolded(c));
+          drawSide();
+          var again = side.querySelector('[data-tc-fold-cat="' + c.id + '"]');
+          if (again) again.focus();
+        });
+        fold.setAttribute("data-tc-fold-cat", c.id);
+        line.appendChild(fold);
+      } else {
+        var gap = document.createElement("span");
+        gap.className = "tc-side-fold-none";
+        line.appendChild(gap);
+      }
       var row = document.createElement("button");
       row.type = "button";
       row.className = "tc-side-row";
@@ -145,28 +305,57 @@
       dot.className = "tc-dot";
       dot.style.background = colour(c);
       row.appendChild(dot);
+      if (c.num) {
+        var num = document.createElement("span");
+        num.className = "tc-side-num";
+        num.textContent = c.num;
+        row.appendChild(num);
+      }
       var name = document.createElement("span");
       name.className = "tc-side-name";
       name.textContent = c.name + (c.kind === "candidate" ? " (" + de_en("Kandidat", "candidate") + ")" : "");
       row.appendChild(name);
       var n = document.createElement("span");
-      n.className = "muted small";
-      n.textContent = c.n;
+      var sum = total(c);
+      n.className = "tc-side-n" + (sum ? "" : " is-zero");
+      n.textContent = sum;
       row.appendChild(n);
-      li.appendChild(row);
+      line.appendChild(row);
+      li.appendChild(line);
       if (sideOpen === c.id) {
         var text = document.createElement("div");
         text.className = "tc-about tc-side-about small";
         about(c, text);
         li.appendChild(text);
+        spotsOf(c, li);
       }
       row.addEventListener("click", function () {
         sideOpen = sideOpen === c.id ? null : c.id;
+        if (sideOpen !== null && kids.length && isFolded(c)) setFolded(c, false);  // its subcategories in view as well
         drawSide();
         var again = side.querySelector('[data-tc-side-cat="' + c.id + '"]');
         if (again) again.focus();
       });
       side.appendChild(li);
+    });
+    if (!drawn) {
+      var none = document.createElement("li");
+      none.className = "muted small";
+      none.textContent = onlyMine && !q ? de_en("Sie haben noch keine Kategorie angelegt.", "You have not created a category yet.")
+        : de_en("Keine Kategorie gefunden.", "No category found.");
+      side.appendChild(none);
+    }
+  }
+  if (search) search.addEventListener("input", drawSide);
+  if (aside) {
+    aside.querySelectorAll("[data-tc-mine]").forEach(function (b) {
+      b.setAttribute("aria-pressed", (b.getAttribute("data-tc-mine") === "1") === onlyMine ? "true" : "false");
+      b.addEventListener("click", function () {
+        onlyMine = b.getAttribute("data-tc-mine") === "1";
+        store(MINE_KEY, onlyMine);
+        aside.querySelectorAll("[data-tc-mine]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        drawSide();
+      });
     });
   }
 
@@ -268,13 +457,11 @@
   }
   function closePop() { pop.hidden = true; selection = null; }
 
+  // the categories of the list: the whole tree in its order, or what the filter finds by name, path or number
   function matches() {
     var q = filter.value.trim().toLowerCase();
-    if (!q) {
-      var r = recent().map(catOf).filter(Boolean);
-      var rest = cats.filter(function (c) { return r.indexOf(c) < 0; });
-      return r.concat(rest);
-    }
+    if (!q) return cats.slice();
+    if (/^\d+(\.\d*)*$/.test(q)) return cats.filter(function (c) { return hit(c, q); });
     return cats.filter(function (c) { return (c.name + " " + (c.parent || "")).toLowerCase().indexOf(q) >= 0; });
   }
 
@@ -298,9 +485,13 @@
     list.textContent = "";
     var rec = recent();
     var infoIcon = root.getAttribute("data-icon-info");
-    shownCats = matches().slice(0, 12);
+    var q = filter.value.trim();
+    shownCats = matches();
     shownCats.forEach(function (c, i) {
       var li = document.createElement("li");
+      li.className = c.kind === "main" ? "is-main" : "";
+      li.style.setProperty("--tc", tint(c));
+      if (!q && c.level > 1) li.style.paddingLeft = (14 * (c.level - 1)) + "px";
       var b = document.createElement("button");
       b.type = "button";
       b.className = "tc-pop-item";
@@ -309,15 +500,27 @@
       dot.className = "tc-dot";
       dot.style.background = colour(c);
       b.appendChild(dot);
+      if (c.num) {
+        var num = document.createElement("span");
+        num.className = "tc-side-num";
+        num.textContent = c.num;
+        b.appendChild(num);
+      }
       var t = document.createElement("span");
-      t.textContent = label(c);
+      t.className = "tc-pop-name";
+      t.textContent = q && c.kind === "sub" ? label(c) : c.name;  // a hit of the filter shows where it hangs
       b.appendChild(t);
       var key = rec.indexOf(c.id);
-      if (!filter.value.trim() && key >= 0 && key < 9) {
+      if (!q && key >= 0 && key < 9) {
         var k = document.createElement("kbd");
         k.textContent = String(key + 1);
         b.appendChild(k);
       }
+      var sum = total(c);
+      var cnt = document.createElement("span");
+      cnt.className = "tc-side-n" + (sum ? "" : " is-zero");
+      cnt.textContent = sum;
+      b.appendChild(cnt);
       b.addEventListener("click", function () { assign(c.id); });
       b.addEventListener("mouseenter", function () { if (!touching()) setActive(i); });
       li.appendChild(b);
@@ -343,8 +546,10 @@
       li.appendChild(more);
       list.appendChild(li);
     });
-    var q = filter.value.trim();
+    setActive(0);
+    if (/^\d+(\.\d*)*$/.test(q)) return;  // a number names no new category
     var li = document.createElement("li");
+    li.className = "is-new";
     var nb = document.createElement("button");
     nb.type = "button";
     nb.className = "tc-pop-item tc-pop-new";
@@ -466,11 +671,27 @@
       setActive(active + (e.key === "ArrowDown" ? 1 : -1), true);
       return;
     }
+    // a digit in the empty field: the key of a category used last, unless a "." or another digit follows at once,
+    // which searches the number ("3.1"; feedback 2026-11-06)
+    if (keyWait && e.key !== "." && !/^[0-9]$/.test(e.key)) { clearTimeout(keyWait.timer); keyWait = null; }
+    if (keyWait && (e.key === "." || /^[0-9]$/.test(e.key))) {
+      clearTimeout(keyWait.timer);
+      e.preventDefault();
+      filter.value = keyWait.digit + e.key;
+      keyWait = null;
+      fill();
+      return;
+    }
     if (/^[1-9]$/.test(e.key) && !filter.value) {
       var id = recent()[Number(e.key) - 1];
-      if (id && catOf(id)) { e.preventDefault(); assign(id); }
+      if (id && catOf(id)) {
+        e.preventDefault();
+        var digit = e.key;
+        keyWait = { digit: digit, timer: setTimeout(function () { keyWait = null; assign(id); }, 450) };
+      }
     }
   });
+  var keyWait = null;
 
   box.addEventListener("mouseup", function () {
     if (touching()) return;  // a tap's mouseup: the selection below decides
@@ -744,6 +965,7 @@
     anchors = fresh.anchors || {};
     editable = fresh.editable || {};
     examples = fresh.examples || {};
+    spotCache = {};
     draw();
     return true;
   };

@@ -241,6 +241,79 @@ window.tcAfterOptions = function (select, rows, preset) {
     document.querySelectorAll('[data-tc-anc~="' + fold.getAttribute("data-tc-fold") + '"]').forEach(function (el) { el.hidden = open; });
   });
 
+  // search by name or number, "Alle / Meine" and folding all (feedback 2026-11-06): a hit shows with the categories it
+  // hangs under; the choice of "Meine" stays in this browser; drawn again after the part was swapped in place
+  var tools = document.querySelector("[data-tc-list-tools]");
+  if (tools) {
+    var listSearch = tools.querySelector("[data-tc-list-search]"), none = tools.querySelector("[data-tc-list-none]");
+    var pidMatch = /coding\/(\d+)/.exec(location.pathname), MINE = "tc-mine-" + (pidMatch ? pidMatch[1] : "");
+    var mineOnly = false;
+    try { mineOnly = JSON.parse(localStorage.getItem(MINE) || "false") === true; } catch (err) { mineOnly = false; }
+    var hitOf = function (el, q) {
+      if (!q) return true;
+      if (/^\d+(\.\d*)*$/.test(q)) {
+        var n = el.getAttribute("data-tc-num") || "", bare = q.replace(/\.$/, "");
+        return n === bare || n.indexOf(bare + ".") === 0;
+      }
+      return (el.getAttribute("data-tc-name") || "").indexOf(q) >= 0;
+    };
+    var holder = function (el) { return el.closest(".tc-level") || el; };
+    var filterList = function () {
+      var q = listSearch.value.trim().toLowerCase(), filtered = !!q || mineOnly;
+      var catsEls = Array.prototype.slice.call(document.querySelectorAll("#kategorien [data-tc-cat]"));
+      var keep = {};
+      catsEls.forEach(function (el) {
+        if (!hitOf(el, q) || (mineOnly && !el.hasAttribute("data-tc-mine"))) return;
+        keep[el.getAttribute("data-tc-cat")] = "hit";
+        (el.getAttribute("data-tc-anc-of") || "").split(" ").forEach(function (a) { if (a && !keep[a]) keep[a] = "context"; });
+      });
+      var any = false;
+      catsEls.forEach(function (el) {
+        var k = keep[el.getAttribute("data-tc-cat")];
+        el.classList.toggle("is-context", filtered && k === "context");
+        if (!filtered) return;
+        holder(el).hidden = !k;
+        if (k) any = true;
+      });
+      document.querySelectorAll("#kategorien .tc-branch").forEach(function (b) {
+        var main = b.querySelector(".tc-main");
+        if (filtered) b.hidden = !keep[main.getAttribute("data-tc-cat")];
+        else b.hidden = false;
+      });
+      if (!filtered) {  // back to the folds as they were
+        catsEls.forEach(function (el) { holder(el).hidden = false; });
+        document.querySelectorAll('#kategorien [data-tc-fold][aria-expanded="false"]').forEach(function (f) {
+          document.querySelectorAll('[data-tc-anc~="' + f.getAttribute("data-tc-fold") + '"]').forEach(function (el) { el.hidden = true; });
+        });
+      }
+      document.querySelectorAll("#kategorien [data-tc-new]").forEach(function (b) { if (b.closest(".tc-subs") && b.parentNode.classList.contains("tc-subs")) b.hidden = filtered; });
+      none.hidden = !filtered || any;
+    };
+    listSearch.addEventListener("input", filterList);
+    tools.querySelectorAll("[data-tc-list-mine]").forEach(function (b) {
+      b.setAttribute("aria-pressed", (b.getAttribute("data-tc-list-mine") === "1") === mineOnly ? "true" : "false");
+      b.addEventListener("click", function () {
+        mineOnly = b.getAttribute("data-tc-list-mine") === "1";
+        try { localStorage.setItem(MINE, JSON.stringify(mineOnly)); } catch (err) { /* only a convenience */ }
+        tools.querySelectorAll("[data-tc-list-mine]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        filterList();
+      });
+    });
+    tools.querySelectorAll("[data-tc-fold-all]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var fold = b.getAttribute("data-tc-fold-all") === "1";
+        document.querySelectorAll("#kategorien [data-tc-fold]").forEach(function (f) {
+          f.setAttribute("aria-expanded", fold ? "false" : "true");
+          f.classList.toggle("is-folded", fold);
+          document.querySelectorAll('[data-tc-anc~="' + f.getAttribute("data-tc-fold") + '"]').forEach(function (el) { el.hidden = fold; });
+        });
+        if (listSearch.value || mineOnly) filterList();
+      });
+    });
+    document.addEventListener("tc:redrawn", filterList);
+    filterList();
+  }
+
   document.addEventListener("click", function (e) {
     var opener = e.target.closest("[data-tc-new]");
     if (!opener || !dialog) return;

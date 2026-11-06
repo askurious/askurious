@@ -474,10 +474,12 @@ def forget_survey_anchors(survey_id):
 def _categories(project, who):
     """The categories for the page's list: main categories with everything below them (depth first, with the path
     of the one above as "parent" and the `level`), then candidates."""
-    from app.transcript_coding import MAX_DEPTH
+    from app.transcript_coding import MAX_DEPTH, numbers
 
     mains, candidates = tree(project)
     n = counts(project, who)
+    nums = numbers(mains)  # 1, 1.2, 1.2.1 as in the coding guide and the Excel export (search by number)
+    mine = lambda c: bool(who.key) and c.author_key == who.key  # noqa: E731  "Meine" (feedback 2026-11-06)
     spots = anchor_spots(project)
 
     def about(c):  # what the list and the side show of a category: definition, delimitation, anchor example
@@ -488,15 +490,39 @@ def _categories(project, who):
     out = []
     for main, subs in mains:
         out.append({"id": main.id, "name": main.name, "kind": "main", "parent": "", "colour": main.colour or "",
-                    "n": n.get(main.id, 0), "level": 1, "deeper": MAX_DEPTH > 1, **about(main)})
+                    "n": n.get(main.id, 0), "level": 1, "deeper": MAX_DEPTH > 1, "num": nums.get(main.id, ""),
+                    "mine": mine(main), **about(main)})
         for s in subs:
             out.append({"id": s.id, "name": s.name, "kind": "sub", "parent": s.path.rsplit(" › ", 1)[0], "parent_id": s.parent_id,
                         "colour": s.colour or main.colour or "", "n": n.get(s.id, 0),
-                        "level": s.level, "deeper": s.level < MAX_DEPTH, **about(s)})
+                        "level": s.level, "deeper": s.level < MAX_DEPTH, "num": nums.get(s.id, ""), "mine": mine(s), **about(s)})
     for c in candidates:
         out.append({"id": c.id, "name": c.name, "kind": "candidate", "parent": "", "colour": c.colour or "",
-                    "n": n.get(c.id, 0), **about(c)})
+                    "n": n.get(c.id, 0), "level": 1, "num": "", "mine": mine(c), **about(c)})
     return out
+
+
+SPOTS = 30  # passages a category shows in the side of the coding view; the rest on the page "Stellen je Kategorie"
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/spots")
+@signed_in_or_coder
+def category_spots(code, pid, cid):
+    """The passages of one category over the interviews the actor sees, for the side of the coding view: a click on a
+    category shows them below it (feedback 2026-11-06, "darin arbeiten"); each opens its interview at the passage."""
+    from app.transcript_coding_review import all_codings
+
+    survey, project, who = _in(code, pid)
+    rows = [(r, c) for r, c in all_codings(project, who) if c.get("cat") == cid]
+    out = []
+    for r, c in rows[:SPOTS]:
+        label = (r.interview or {}).get("label", str(r.id))
+        out.append({"rid": r.id, "id": c.get("id"), "start": c.get("start"), "end": c.get("end"),
+                    "where": spot(label, transcript(r), c["start"]), "quote": clean_quote(c.get("quote"))[:200],
+                    "url": url_for("transcript_coding.page", code=survey.code, pid=project.id, rid=r.id,
+                                   at=f"{c['start']}-{c['end']}")})
+    return jsonify(ok=True, spots=out, total=len(rows),
+                   all_url=url_for("transcript_coding.passages", code=survey.code, pid=project.id, cat=cid))
 
 
 def _json_coding(c, project, who):
