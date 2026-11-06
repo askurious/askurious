@@ -71,6 +71,7 @@ BLUEPRINT_SIDES = {
     # registration links of the platform (app/signup_links.py): whoever opens one signs in with ORCID as a new
     # researcher, so it lives on the researchers' address like the sign-in itself
     "signup_links": RESEARCHER,
+    "org_links": RESEARCHER,  # founding links (app/org_links.py), the same reason
     # the rest needs a sign-in, is for machines (cron, Slack, Rechenknecht, ORCID and Zenodo callbacks) or is the
     # landing page and the legal pages of the platform
     **{name: RESEARCHER for name in (

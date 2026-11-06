@@ -814,6 +814,9 @@ def _rare_sweeps(now):
     from app import signup_links
 
     _step("signup_links.sweep", signup_links.sweep)  # registration links 30 days after they expired (privacy page)
+    from app import org_links
+
+    _step("org_links.sweep", org_links.sweep)  # founding links 30 days after they expired or were used (privacy page)
     from app import data_access, invites, joinlinks
 
     # expired invitations of researchers (an e-mail address) and join links of groups, also when nobody opens the

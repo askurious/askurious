@@ -165,6 +165,8 @@ def join(link, user=None, orcid=None, name=""):
     if user is not None:
         orcid, name = user.orcid, user.name
     person = user or people_keys.account(orcid, create=False)  # an iD added before has a pending account
+    from app import orgs
+
     group = db.session.get(WorkGroup, link.group_id)
     if group is None:
         db.session.delete(link)
@@ -185,6 +187,8 @@ def join(link, user=None, orcid=None, name=""):
             return url_for("groups.detail", group_id=group.id), None
         return url_for("groups.detail", group_id=group.id), de_en("Sie sind schon in dieser Gruppe.",
                                                                   "You are already in this group.")
+    if orgs.new_account_refused(person, orgs.get(orgs.of(group))):
+        return url_for("public.index"), orgs.home_full_said()
     if len(group.members) >= groups_mod.MAX_MEMBERS or groups_mod.count_for(person and person.id) >= groups_mod.MAX_GROUPS:
         return url_for("dashboard.index"), de_en("Die Gruppe ist voll, oder Sie sind schon in zu vielen Gruppen.",
                                                  "The group is full, or you are already in too many groups.")

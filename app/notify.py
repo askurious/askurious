@@ -200,6 +200,33 @@ def new_user(user):
                                                           "text": {"type": "plain_text", "text": "Konto ansehen"}}]}])
 
 
+NEW_ORG_WAYS = {"link": "über einen Gründungslink, Admin: Konto Nr. {n}",
+                "admin": "in der Administration angelegt von Konto Nr. {n}",
+                "group": "aus einer Gruppe, angelegt von Konto Nr. {n}"}
+
+
+def new_org(org, how, by):
+    """Announce a new organisation and how it came: numbers and a link, no name and no ORCID iD, in both forms of the
+    messages (a founding link's name comes from outside, and the iD goes to no provider without an agreement)."""
+    from flask import url_for
+
+    link = brand.public_base() + url_for("admin.organisation_page", org_id=org.id)
+    way = NEW_ORG_WAYS[how].format(n=by.number or by.id)
+    head = f":office: *Neue Organisation* Nr. {org.id}, {way}"
+    return slack(head, [{"type": "section", "text": {"type": "mrkdwn", "text": head}},
+                        {"type": "actions", "elements": [{"type": "button", "action_id": "open", "url": link,
+                                                          "text": {"type": "plain_text", "text": "Organisation ansehen"}}]}])
+
+
+def report_new_org(org, how, by):
+    """new_org after the commit: the note to the operators must not break the page."""
+    try:
+        return new_org(org, how, by)
+    except Exception as e:  # noqa: BLE001
+        current_app.logger.warning("New organisation not reported in Slack: %s", type(e).__name__)
+        return None
+
+
 def reset_request(user):
     """Announce a request "Passwort vergessen?" (auth.forgot_password): the number of the account and a link to its
     page in the administration, where a site admin creates the one-time link; not the address."""

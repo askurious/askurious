@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{# Administration > Einladungen (app/open_invitations.py): what is still open, by organisations, groups and people. Only
+   a list; "Verwalten" leads to the page where an invitation is withdrawn. Context: parts [(key, heading, hint, rows of the page, Listing)]. #}
+{% from "_macros.html" import list_table %}
+{% from "_listing.html" import pager %}
+{% block title %}{{ de_en("Einladungen", "Invitations") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "invitations" %}{% include "admin/_tabs.html" %}
+{% for key, heading, hint, rows, listing in parts %}
+<section class="panel" id="{{ key }}">
+  <h2>{{ heading }} <span class="hint">{{ listing.total }}</span></h2>
+  <p class="muted small">{{ hint }}</p>
+  {% if rows %}
+  <div class="res-scroll">
+  {% call list_table("admin-people") %}
+    <thead><tr><th>{{ de_en("Art", "Kind") }}</th><th>{{ de_en("Person oder Notiz", "Person or note") }}</th><th>{{ de_en("Ziel", "Target") }}</th><th>{{ de_en("eingeladen", "invited") }}</th><th>{{ de_en("von", "by") }}</th><th>{{ de_en("gilt bis", "valid until") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr><td>{{ r.kind }}</td>
+        <td class="admin-name">{{ r.who }}</td>
+        <td>{{ r.target }}</td>
+        <td>{{ r.since|localdt(false) if r.since else "–" }}</td>
+        <td>{{ r.by.display_name if r.by else "–" }}</td>
+        <td>{{ r.until|localdt(false) if r.until else "–" }}</td>
+        <td>{% if r.href %}<a href="{{ r.href }}">{{ de_en("Verwalten", "Manage") }}</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  </div>
+  {{ pager(listing) }}
+  {% else %}<p class="muted">{{ de_en("Nichts offen.", "Nothing open.") }}</p>{% endif %}
+</section>
+{% endfor %}
+{% endblock %}

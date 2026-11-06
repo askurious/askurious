@@ -630,6 +630,7 @@ def _signup_links():
                        signup_links.came_by(link), signup_links.is_open(link)) for link in links],
             "new": signup_links.take_shown(), "orgs": choices, "uses": signup_links.USES, "days": signup_links.DAYS,
             "default_uses": signup_links.DEFAULT_USES, "default_days": signup_links.DEFAULT_DAYS,
+            "one_person_days": signup_links.ONE_PERSON_DAYS,
             "no_limit": signup_links.NO_LIMIT, "no_end": signup_links.NO_END,
             "periods": [(p, signup_links.period_label(p)) for p in signup_links.PERIODS]}
 
@@ -950,6 +951,7 @@ def _listed_kinds(orcid):
 
     t = account_types.get(request.form.get("account_type"))
     row.kinds = _kinds_of_form(t)  # explicit, also when all four are "edit"
+    row.may_create = request.form.get("may_create") == "1"
     row.account_type_id = t.id if t is not None else None
     spec, _error = account_types.spec_from_form(request.form, t)  # checked before (sign_in_orcids)
     row.valid_spec = spec if t is not None else None
@@ -968,6 +970,43 @@ def _kinds_of_form(t):
         if request.form.get("kind_" + k) in kind_access.LEVELS:
             levels[k] = request.form.get("kind_" + k)
     return levels
+
+
+@bp.route("/accounts/new-link", methods=["POST"])
+def new_link():
+    """The one-time link of "Person hinzufügen": the same choices as the two other ways; the person picks ORCID or an
+    email address with a new password (app/signup_links.py)."""
+    from app import account_types, accounts, orgs, signup_links
+
+    again = accounts.need_fresh(url_for("admin.researchers") + "#person-hinzufuegen")
+    if again:
+        return again
+    if _period_problem():
+        return _refused("new-link", _period_problem(), "valid_n")
+    days = request.form.get("days", type=int)
+    if days not in signup_links.ONE_PERSON_DAYS:
+        abort(400)
+    t = account_types.get(request.form.get("account_type"))
+    org = orgs.get(request.form.get("org"))
+    if t is not None and (org is None or account_types.org_of(t) != org.id):
+        org = orgs.get(account_types.org_of(t))  # a type belongs to one organisation (2026-10-16)
+    org = org or orgs.get(orgs.default_id())
+    if org is None or org.key == orgs.GUEST:
+        abort(400)
+    if orgs.accounts_left(org) == 0:
+        return _refused("new-link", _full_org(org), "note")
+    spec, _ = account_types.spec_from_form(request.form, t)
+    link, problem = signup_links.create_for_one(
+        current_user, org, t, spec if t is not None else "type", days, request.form.get("note", ""),
+        kinds=_kinds_of_form(t), may_create=request.form.get("may_create") == "1")
+    if problem:
+        return _refused("new-link", problem, "note")
+    signup_links.show_once(link)
+    return redirect(url_for("admin.researchers") + "#einladungslinks")
+
+
+def _full_org(org):
+    return de_en("{o} hat ihre Höchstzahl an Konten erreicht.", "{o} has reached its maximum number of accounts.", o=org.name)
 
 
 @bp.route("/accounts/new", methods=["POST"])
@@ -1868,8 +1907,53 @@ def organisations():
     known = {o.id: o for o in db.session.scalars(db.select(Organisation).where(Organisation.id.in_(ids)))}
     rows = [{"org": o, "counts": orgs.counts(o), "admins": [m for m in o.members if m.role == "admin" and orgs.valid(m)]}
             for o in (known[i] for i in ids)]
+    from app import org_links
+
+    found_links = [(link, org_links.is_open(link), orgs.get(link.org_id) if link.org_id else None)
+                   for link in org_links.listed()]
+    db.session.commit()  # the sweep of listed()
     return render_template("admin/orgs.html", rows=rows, t=listing, main_key=orgs.MAIN, guest=guest,
-                           guest_counts=orgs.counts(guest) if guest is not None else None)
+                           guest_counts=orgs.counts(guest) if guest is not None else None, found_links=found_links,
+                           found_new=org_links.take_shown(), found_days=org_links.DAYS,
+                           found_default_days=org_links.DEFAULT_DAYS, found_default_accounts=org_links.DEFAULT_ACCOUNTS,
+                           found_max_accounts=org_links.MAX_ACCOUNTS)
+
+
+@bp.route("/orgs/links", methods=["POST"])
+def organisation_links():
+    """Make or revoke a founding link (app/org_links.py), with a fresh sign-in as the other rights actions."""
+    from app import org_links, security_log
+    from app.extensions import db
+
+    back = url_for("admin.organisations", _anchor="gruendungslinks")
+    again = accounts_need_fresh(back)
+    if again:
+        return again
+    if request.form.get("action") == "revoke":
+        link = org_links.revoke(request.form.get("link_id", type=int) or 0)
+        db.session.commit()
+        if link is not None:
+            security_log.event("org_found_link_revoked", by=current_user.id, target=f"link {link.id}")
+            flash(de_en("Gründungslink widerrufen.", "Founding link revoked."), "success")
+        return redirect(back)
+    days, limit = request.form.get("days", type=int), request.form.get("max_accounts", type=int)
+    if days not in org_links.DAYS or limit is None or not 1 <= limit <= org_links.MAX_ACCOUNTS:
+        abort(400)
+    address, problem = org_links.create(current_user, days, limit, request.form.get("note", ""))
+    if problem:
+        flash(problem, "error")
+    else:
+        org_links.show_once(address)
+    return redirect(back)
+
+
+@bp.route("/invitations")
+def invitations():
+    """The tab "Einladungen": everything still open on the platform, by what it leads to (app/open_invitations.py).
+    It only lists; each row leads to the page where the invitation is withdrawn."""
+    from app import open_invitations
+
+    return render_template("admin/invitations.html", parts=open_invitations.overview())
 
 
 @bp.route("/orgs/<int:org_id>", methods=["GET"])
@@ -2050,6 +2134,9 @@ def organisation_new():
     db.session.commit()
     security_log.event("organisation_created", by=current_user.id, target=f"org {org.id}",
                        account=found[1].id if found and found[1] is not None else None)
+    from app import notify
+
+    notify.report_new_org(org, "admin", current_user)
     if found is not None:
         flash(de_en("Organisation „{o}“ angelegt; {n} ist ihr Admin.", "Organisation “{o}” created; {n} is its admin.",
                     o=org.name, n=found[2] or found[0]), "success")
@@ -2087,6 +2174,9 @@ def group_to_org(group_id):
         from app import audit
 
         audit.done(detail=org.name[:40])
+        from app import notify
+
+        notify.report_new_org(org, "group", current_user)
         flash(de_en("Organisation „{o}“ angelegt.", "Organisation “{o}” created.", o=org.name), "success")
         return redirect(url_for("admin.organisation_page", org_id=org.id))
     p = orgs.plan(group)

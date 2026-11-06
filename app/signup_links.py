@@ -12,6 +12,13 @@ lets in while "only with an invitation" is set (E6), but not past the number of 
 Since 2026-10-29 a link can be without a limit and without an end (Ralf: the way for open sign-up into a particular
 organisation); revoking ends it at any time. An account that exists already is not changed (E5). Only ORCID (E7). Only the hash
 of a token is stored; the link is shown once (E8).
+
+"Nur Link" in the dialog "Person hinzufügen" (2026-11-06) makes a link for one person whose way of signing in nobody
+knows yet: SignUpLink.password_ok, used once, made by a site admin or an admin of the organisation. The person chooses
+ORCID (as above) or an email address with a new password (_create_with_password, the same outcome for the
+account). Such a link rests once its maker may no longer make it (AU-3). Whoever makes it, a site admin or an admin of
+the organisation, decides by choosing this way (Ralf 2026-11-06: no switch of the organisation; an
+email address with a password is equal to ORCID, neither is preferred).
 """
 import hashlib
 import secrets
@@ -37,6 +44,8 @@ DEFAULT_USES, DEFAULT_DAYS = 20, 14
 # the period of the accounts: "type" as the user type says, a spec of app/account_types.py, "date" a chosen end date
 PERIODS = ("type", "t:30", "t:60", "t:90", "t:180", "m:12", "date", "")
 MAX_OPEN = 50
+MAX_OPEN_ORG = 20           # open "Nur Link" links an organisation's admins may hold
+ONE_PERSON_DAYS = tuple(d for d in DAYS if d != UNLIMITED)  # "Nur Link" always ends
 SESSION_KEY = "signup"      # the token while the person signs in at ORCID
 SESSION_SECONDS = 30 * 60
 SHOW_KEY = "signup_new"     # a new link, shown once on the next page
@@ -73,7 +82,18 @@ def is_open(link):
 
 def valid(token):
     row = db.session.scalar(db.select(SignUpLink).filter_by(token_hash=_hash(token))) if token else None
-    return row if row is not None and is_open(row) else None
+    return row if row is not None and is_open(row) and not _rests(row) else None
+
+
+def _rests(link):
+    """A link for one person rests once its maker is blocked or no longer an admin of the platform or the organisation."""
+    if not link.password_ok:
+        return False
+    from app import accounts, orgs
+
+    maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
+    return (maker is None or accounts.is_blocked(maker)
+            or not (orgs._site_admin(maker) or orgs.is_admin_of(maker, link.org_id)))
 
 
 def came_by(link):
@@ -83,7 +103,7 @@ def came_by(link):
                                    .order_by(User.created_at)))
 
 
-def create(by, org, account_type, period, max_uses, days, note=""):
+def create(by, org, account_type, period, max_uses, days, note="", password_ok=False, kinds=None, may_create=None):
     """A new link; returns (address, None) or (None, message). The token is not kept."""
     from app import account_types
 
@@ -101,12 +121,25 @@ def create(by, org, account_type, period, max_uses, days, note=""):
                               account_type_id=account_type.id if account_type is not None else None,
                               valid_spec=None if period == "type" else period,
                               max_uses=max_uses or NO_LIMIT, uses=0, note=(note or "").strip()[:200], created_by_id=by.id,
+                              password_ok=password_ok, kinds=kinds, may_create=may_create,
                               expires_at=utcnow() + timedelta(days=days) if days else NO_END))
     db.session.commit()
     from app import security_log
 
     security_log.event("sign_up_link_created", by=by.id, target=f"org {org.id}" if org is not None else None)
     return brand.public_base() + url_for("signup_links.page", token=token), None
+
+
+def create_for_one(by, org, account_type, period, days, note="", kinds=None, may_create=None, org_admin=False):
+    """A link for one person (the one-time link of "Person hinzufügen"): as create, used once, with the survey types and
+    the tick of the dialog; an organisation's admins hold at most MAX_OPEN_ORG."""
+    if org_admin and db.session.scalar(db.select(db.func.count(SignUpLink.id)).where(
+            SignUpLink.org_id == org.id, SignUpLink.password_ok.is_(True), SignUpLink.uses < SignUpLink.max_uses,
+            SignUpLink.expires_at >= utcnow())) >= MAX_OPEN_ORG:
+        return None, de_en("Mehr als {n} offene Einladungslinks sind nicht möglich; bitte zuerst einen zurückziehen.",
+                           "More than {n} open invitation links are not possible; please withdraw one first.",
+                           n=MAX_OPEN_ORG)
+    return create(by, org, account_type, period, 1, days, note, password_ok=True, kinds=kinds, may_create=may_create)
 
 
 def period_from_form(form):
@@ -188,17 +221,81 @@ def page(token):
     if current_user.is_authenticated:
         flash(_have_account(), "info")
         return redirect(url_for("dashboard.index"))
-    if request.method == "POST":
+    if request.method == "POST" and request.form.get("way") == "password" and link.password_ok:
+        done, said = _create_with_password(link)
+        if done is not None:
+            return done
+        flash(said, "error")
+    elif request.method == "POST":
         from app import secrets_box
 
         session[SESSION_KEY] = {"box": secrets_box.encrypt(token), "at": time.time()}
         return redirect(url_for("auth.login"))
+    from app import passwords
+
     org = orgs.get(link.org_id)
     response = current_app.make_response(render_template(
         "signup/link.html", link=link, org=org, full=orgs.accounts_left(org) == 0, platform_name=brand.name(),
-        orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID"))))
+        orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID")), min_length=passwords.MIN_LENGTH,
+        form=request.form if request.method == "POST" else {}))
     response.headers["Cache-Control"] = "no-store"  # the address of the page is the token
     return response
+
+
+def _create_with_password(link):
+    """The account made on the page of a link for one person: (response, None) or (None, message). Home, type, period
+    and "create" as the same link gives with ORCID (the sign-in list does that there, an account without ORCID is on no
+    list)."""
+    from app import account_types, accounts, auth, kind_access, limits, notify, orgs, passwords, security_log
+
+    name = " ".join(request.form.get("name", "").split())[:200]
+    email = passwords.normal_email(request.form.get("email"))
+    password = request.form.get("password", "")
+    if not name or email is None:
+        return None, de_en("Bitte Namen und eine gültige E-Mail-Adresse angeben.",
+                           "Please enter your name and a valid email address.")
+    error = passwords.problem(password, name, email)
+    if not error and password != request.form.get("repeat", ""):
+        error = de_en("Die beiden Eingaben stimmen nicht überein.", "The two entries do not match.")
+    if error:
+        return None, error
+    org = orgs.get(link.org_id)
+    if orgs.accounts_left(org) == 0:
+        return None, _full()
+    if not accounts.email_free(email):
+        limits.allow_invite_try()  # says no more than needed: whoever holds the link cannot ask address after address
+        return None, de_en("Mit diesen Angaben lässt sich hier kein neues Konto anlegen. Haben Sie schon ein Konto, "
+                           "melden Sie sich bitte wie gewohnt an.", "No new account can be created here with these "
+                           "details. If you already have an account, please sign in as usual.")
+    if not _take_use(link):
+        db.session.rollback()
+        return _invalid(), None
+    maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
+    user = accounts.create_local(name, email, "", False, maker)
+    db.session.flush()
+    passwords.set_password(user, password)
+    user.last_login_at = utcnow()
+    if org is not None and org.key != orgs.MAIN:
+        orgs.add(org, user, by=maker, home=True)
+    t = account_types.get(link.account_type_id) or account_types.default_type(org.id if org is not None else None)
+    if t is not None:
+        account_types.assign(user, t, link.valid_spec if link.valid_spec is not None else t.duration, supervisor=maker,
+                             log=False)
+    if link.kinds is not None:
+        kind_access.store(user, link.kinds, maker, log=False)
+    else:
+        account_types.new_account_levels(user, t)
+    if link.may_create if link.may_create is not None else current_app.config["NEW_ACCOUNTS_MAY_CREATE"]:
+        kind_access.give_create(user, log=False)
+    db.session.commit()
+    security_log.event("sign_up_link_used", by=link.created_by_id, target=f"link {link.id}", account=user.id)
+    auth.remember(user, via="password")
+    try:
+        notify.new_user(user)
+    except Exception as e:  # noqa: BLE001 - the note to the operators must not break the page
+        current_app.logger.warning("New account not reported in Slack: %s", type(e).__name__)
+    flash(de_en("Konto angelegt.", "Account created."), "success")
+    return redirect(url_for("dashboard.index")), None
 
 
 def accept_after_orcid(orcid, name):
@@ -227,7 +324,8 @@ def accept_after_orcid(orcid, name):
         return False
     note = de_en("Einladungslink", "Invitation link") + (f": {link.note}" if link.note else "")
     db.session.add(SignInOrcid(orcid=orcid, note=note[:200], added_by_id=link.created_by_id, org_id=link.org_id,
-                               account_type_id=link.account_type_id, valid_spec=link.valid_spec, link_id=link.id))
+                               account_type_id=link.account_type_id, valid_spec=link.valid_spec, link_id=link.id,
+                               kinds=link.kinds, may_create=link.may_create))
     db.session.commit()
     auth.forget_sign_in_yes()
     from app import security_log
