@@ -26,7 +26,7 @@
     {% if nxt %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=nxt.id) }}">{{ de_en("Nächstes Interview", "Next interview") }}</a>{% endif %}
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
   </div>
-  <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories.") }}</p>
+  <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, die Tasten 1 bis 9 nehmen die zuletzt benutzten, Enter die erste. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien. Markiertes lässt sich auch auf eine Kategorie rechts ziehen.", "Mark a passage, then choose the category: typing filters, the keys 1 to 9 take the ones used last, Enter the first. Whole words are always marked. A click on a coded passage shows its categories. Marked text can also be dragged onto a category on the right.") }}</p>
   <p class="muted small tc-hint-touch">{{ de_en("Auf eine Textstelle lange drücken und die Griffe ziehen; kurz danach öffnet sich die Liste der Kategorien. Markiert wird immer ganze Wörter. Antippen einer kodierten Stelle zeigt ihre Kategorien.", "Press and hold a passage and drag the handles; a moment later the list of categories opens. Whole words are always marked. Tapping a coded passage shows its categories.") }}</p>
   {{ why("anchor_choice") }}
   {% if ai_on_state == "on" %}
@@ -91,7 +91,7 @@
 
 {# the list to assign a category to the marked passage #}
 <div class="tc-pop" data-tc-pop hidden role="dialog" aria-label="{{ de_en('Kategorie zuordnen', 'Assign category') }}">
-  <label>{{ de_en("Kategorie zuordnen", "Assign category") }} <input data-tc-filter autocomplete="off" placeholder="{{ de_en('Name oder Nummer, z. B. 3.1', 'Name or number, e.g. 3.1') }}"></label>
+  <label><span data-tc-pop-title>{{ de_en("Kategorie zuordnen", "Assign category") }}</span> <input data-tc-filter autocomplete="off" placeholder="{{ de_en('Name oder Nummer, z. B. 3.1', 'Name or number, e.g. 3.1') }}"></label>
   <ul class="tc-pop-list" data-tc-list></ul>
   {# what the active category says: definition, delimitation, anchor example (Ralf 2026-10-30) #}
   <div class="tc-about tc-pop-preview small" data-tc-preview aria-live="polite" hidden></div>

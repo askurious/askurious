@@ -750,9 +750,10 @@ def change(project, cat, who, values, merge=None):
 
 
 def _last(project, cat_id):
+    # the answers to a proposal change nothing themselves, nor does a passage moved to the category ("recoded")
     return db.session.scalar(db.select(CodingEvent).filter_by(project_id=project.id, category_id=cat_id)
-                             .where(CodingEvent.kind.not_in(("proposal", "accepted", "declined")))
-                             .order_by(CodingEvent.id.desc()).limit(1))  # the answers to a proposal change nothing themselves
+                             .where(CodingEvent.kind.not_in(("proposal", "accepted", "declined", "recoded")))
+                             .order_by(CodingEvent.id.desc()).limit(1))
 
 
 def remove(project, cat, who):
@@ -1061,6 +1062,9 @@ def event_text(event, names):
             "declined": de_en("lehnt den Vorschlag zu „{name}“ ab", "declines the proposal for “{name}”", name=name),
             "undone": de_en("nimmt den letzten Schritt an „{name}“ zurück", "takes back the last step on “{name}”", name=name),
             "ordered": de_en("sortiert „{name}“ um", "reorders “{name}”", name=name),
+            "recoded": de_en("verschiebt eine Stelle ({where}) von „{a}“ nach „{b}“", "moves a passage ({where}) from “{a}” to “{b}”",
+                             where=data.get("where") or "", a=data.get("from_name") or "", b=data.get("to_name") or "")
+            + (" (" + de_en("zurückgenommen", "taken back") + ")" if data.get("undone") else ""),
             "summarised": de_en("fasst {label} zu „{name}“ zusammen", "summarises {label} on “{name}”",
                                 label=data.get("label") or "", name=name),
             "moved": (de_en("hängt „{name}“ unter „{where}“", "puts “{name}” under “{where}”", name=name, where=(data.get("after") or {}).get("where"))

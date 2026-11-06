@@ -338,12 +338,107 @@ def remove(project, who, row, coding_id):
     from app import transcript_coding_memos
 
     transcript_coding_memos.forget_coding(project, row, coding_id)  # its memos go with it
+    forget_moves([project.id], coding=coding_id)
     for cat in live(project):
         if (cat.anchor or {}).get("coding") == coding_id:
             cat.anchor = None
         if any(isinstance(e, dict) and e.get("coding") == coding_id for e in cat.examples or []):
             cat.examples = [e for e in cat.examples if e.get("coding") != coding_id] or None
     db.session.commit()
+
+
+def _target(project, cat_id):
+    cat = db.session.get(CodingCategory, cat_id) if isinstance(cat_id, int) else None
+    if cat is None or cat.project_id != project.id or cat.removed_at is not None or cat.merged_into is not None:
+        return None
+    return cat
+
+
+def _examples_of(project, coding_id):
+    """([categories whose anchor example the coding is], [categories with it as a further example])."""
+    cats = live(project)
+    return ([c for c in cats if (c.anchor or {}).get("coding") == coding_id],
+            [c for c in cats if any(isinstance(e, dict) and e.get("coding") == coding_id for e in c.examples or [])])
+
+
+def recode(project, who, row, coding_id, cat_id, sure=False):
+    """"Andere Kategorie …" and dragging a coded passage onto a category (feedback 2026-11-06, P8): the passage goes
+    to another category and keeps its place, author, memos and id. Its author or the team, as "Entfernen"; a passage
+    of someone else shows in their notices. Was it the anchor or a further example of its category, that goes, so it
+    asks first (`sure`). One entry in the history, to be taken back (`recode_back`).
+    Returns (coding, event, problem, question)."""
+    from app import transcript_coding_double
+    from app.transcript_coding import _event, resolver
+
+    found = next((c for c in transcript_coding_double.visible(project, who, row, codings(row, project.id))
+                  if c.get("id") == coding_id), None)
+    if found is None:
+        abort(404)
+    if not may_change(project, who, found):
+        abort(403)
+    target = _target(project, cat_id)
+    if target is None:
+        return None, None, de_en("Bitte eine Kategorie wählen.", "Please choose a category."), None
+    old = db.session.get(CodingCategory, resolver(project)(found.get("cat")) or 0)
+    if old is not None and old.id == target.id:
+        return None, None, de_en("Die Stelle hat diese Kategorie schon.", "The passage already has this category."), None
+    if any(c.get("cat") == target.id and c.get("start") == found.get("start") and c.get("end") == found.get("end")
+           and c.get("by") == found.get("by") for c in codings(row, project.id)):
+        return None, None, de_en("Diese Stelle hat diese Kategorie schon.", "This passage already has this category."), None
+    anchor_of, example_of = _examples_of(project, coding_id)
+    if (anchor_of or example_of) and not sure:
+        what = (de_en("Ankerbeispiel", "anchor example") if anchor_of else de_en("weiteres Beispiel", "further example"))
+        return None, None, None, de_en("Die Stelle ist {what} von „{name}“; das entfällt dort. Trotzdem verschieben?",
+                                       "The passage is the {what} of “{name}”; it will no longer be. Move it anyway?",
+                                       what=what, name=(anchor_of or example_of)[0].name)
+    moved = {**found, "cat": target.id, "recoded": utcnow().isoformat(timespec="seconds")}
+    _store(row, lambda items: [moved if c.get("id") == coding_id and c.get("project") == project.id else c for c in items])
+    for cat in anchor_of:
+        cat.anchor = None
+    for cat in example_of:
+        cat.examples = [e for e in cat.examples if not (isinstance(e, dict) and e.get("coding") == coding_id)] or None
+    label = (row.interview or {}).get("label") or str(row.id)
+    where = place(transcript(row), found)
+    event = _event(project, who, "recoded", target, {
+        "interview": row.id, "coding": coding_id, "from": found.get("cat"), "from_name": old.name if old else "",
+        "to": target.id, "to_name": target.name, "author": found.get("by"), "author_name": found.get("by_name", ""),
+        "quote": (found.get("quote") or "")[:200], "where": spot(label, transcript(row), where[0]) if where else label,
+        "anchor": [c.id for c in anchor_of], "examples": [c.id for c in example_of]})
+    db.session.commit()
+    return moved, event, None, None
+
+
+def recode_back(project, who, event):
+    """Take back a passage moved (`recode`): it goes back to its old category while that still stands and the passage
+    is still where it was moved to; an anchor or example slot it had comes back when it is still free. Its mover (from
+    the status line), the author of the passage (from the notices) or the team. Returns (coding, problem)."""
+    from app.transcript_coding import resolver
+
+    data = event.data or {}
+    if event.kind != "recoded" or event.project_id != project.id:
+        abort(404)
+    if data.get("undone"):
+        return None, de_en("Schon zurückgenommen.", "Already taken back.")
+    if not (who.team or who.key in (event.actor_key, data.get("author"))):
+        abort(403)
+    row = db.session.get(Response, data.get("interview") or 0)
+    found = next((c for c in codings(row, project.id) if c.get("id") == data.get("coding")), None) if row is not None else None
+    if found is None or found.get("cat") != data.get("to"):
+        return None, de_en("Die Stelle wurde seither geändert.", "The passage was changed since.")
+    back = _target(project, resolver(project)(data.get("from")))
+    if back is None:
+        return None, de_en("Die alte Kategorie gibt es nicht mehr.", "The old category no longer exists.")
+    moved = {**{k: v for k, v in found.items() if k != "recoded"}, "cat": back.id}
+    _store(row, lambda items: [moved if c.get("id") == found["id"] and c.get("project") == project.id else c for c in items])
+    quote = {"interview": row.id, "coding": found["id"], "quote": (found.get("quote") or "")[:QUOTE_MAX],
+             "label": (row.interview or {}).get("label", "")}
+    if back.id in (data.get("anchor") or []) and not back.anchor:
+        back.anchor = quote
+    if back.id in (data.get("examples") or []) and len(back.examples or []) < EXAMPLES:
+        back.examples = list(back.examples or []) + [quote]
+    event.data = {**data, "undone": True}
+    db.session.commit()
+    return moved, None
 
 
 def set_anchor(project, who, row, coding_id):
@@ -430,6 +525,17 @@ def counts(project, who):
     return out
 
 
+def forget_moves(projects, interviews=None, coding=None):
+    """A passage moved (`recode`) keeps its quote and place in the history; they go with the interview (erasure,
+    retention; all of them when `interviews` is None) or with the coding removed."""
+    from app.models import CodingEvent
+
+    for e in db.session.scalars(db.select(CodingEvent).where(CodingEvent.project_id.in_(projects), CodingEvent.kind == "recoded")):
+        data = e.data or {}
+        if (coding is not None and data.get("coding") == coding) or (coding is None and (interviews is None or data.get("interview") in interviews)):
+            e.data = {**data, "quote": "", "where": ""}
+
+
 def forget(responses):
     """Before interviews are deleted (erasure, retention): anchor examples quoting them go."""
     ids = {r.id for r in responses}
@@ -444,6 +550,7 @@ def forget(responses):
     projects = list(db.session.scalars(db.select(CodingProject.id).where(CodingProject.survey_id.in_(survey_ids))))
     if not projects:
         return
+    forget_moves(projects, interviews=ids)
     for cat in db.session.scalars(db.select(CodingCategory).where(CodingCategory.project_id.in_(projects),
                                                                    CodingCategory.anchor.is_not(None))):
         if (cat.anchor or {}).get("interview") in ids:
@@ -466,6 +573,7 @@ def forget_survey_anchors(survey_id):
                                                        CodingMemo.response_id.is_not(None)))  # memos at interviews
         db.session.execute(db.update(CodingCategory).where(CodingCategory.project_id.in_(projects))
                            .values(anchor=None, examples=None).execution_options(synchronize_session=False))
+        forget_moves(projects)
 
 
 # --- the pages -----------------------------------------------------------------------------------------------------
@@ -618,6 +726,42 @@ def place_again(code, pid, rid, cid):
     if problem:
         return jsonify(ok=False, error=problem), 400
     return jsonify(ok=True, coding=_json_coding(coding, project, who))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/codings/<cid>/recode", methods=["POST"])
+@signed_in_or_coder
+def recode_passage(code, pid, rid, cid):
+    """"Andere Kategorie …" and dropping a coded passage on a category of the side (JSON)."""
+    survey, project, who = _in(code, pid)
+    row = _row(project, who, rid)
+    data = _payload()
+    try:
+        cat = int(data.get("cat"))
+    except (TypeError, ValueError):
+        cat = None
+    moved, event, problem, question = recode(project, who, row, cid, cat, sure=bool(data.get("sure")))
+    if question:
+        return jsonify(ok=False, ask=question)
+    if problem:
+        return jsonify(ok=False, error=problem), 400
+    return jsonify(ok=True, coding=_json_coding(moved, project, who), event=event.id,
+                   undo_url=url_for("transcript_coding.recode_undo", code=survey.code, pid=project.id, eid=event.id))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/recoded/<int:eid>/undo", methods=["POST"])
+@signed_in_or_coder
+def recode_undo(code, pid, eid):
+    """"Rückgängig" in the status line after a passage was moved (JSON)."""
+    from app.models import CodingEvent
+
+    survey, project, who = _in(code, pid)
+    event = db.session.get(CodingEvent, eid)
+    if event is None:
+        abort(404)
+    moved, problem = recode_back(project, who, event)
+    if problem:
+        return jsonify(ok=False, error=problem), 400
+    return jsonify(ok=True, coding=_json_coding(moved, project, who))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/codings/<cid>/anchor", methods=["POST"])

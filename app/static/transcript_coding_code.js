@@ -20,6 +20,9 @@
   var PALETTE = ["#8A4B14", "#2957A4", "#1F6B2A", "#7A3FD1", "#B3261E", "#0B6E86", "#7A5B00"];
   var RECENT_KEY = "tc-recent-" + root.getAttribute("data-project");
   var selection = null;  // {start, end} of the marked passage
+  var recoding = null;  // the coded passage that "Andere Kategorie …" moves (the list then chooses its new category)
+  var dragging = null;  // what is dragged onto a category of the side: {kind: "mark", m} or {kind: "coding", coding}
+  var popTitle = pop.querySelector("[data-tc-pop-title]");
 
   function catOf(id) { return cats.filter(function (c) { return c.id === id; })[0]; }
   function colour(cat) {
@@ -449,20 +452,38 @@
   function openPop(m) {
     if (placing) { placeAgain(m); return; }  // "Neu zuordnen": the passage just marked is the new place
     selection = m;
+    recoding = null;
+    if (popTitle) popTitle.textContent = de_en("Kategorie zuordnen", "Assign category");
     info.hidden = true;
     filter.value = "";
     fill();
     placeBox(pop, m.rect);
     if (!touching()) filter.focus();  // on a phone or tablet the keyboard would cover the list
   }
-  function closePop() { pop.hidden = true; selection = null; }
+  function closePop() { pop.hidden = true; selection = null; recoding = null; }
+
+  // "Andere Kategorie …" in the box of a coded passage: the same list, a choice moves the passage (feedback 2026-11-06)
+  function openRecode(c, rect) {
+    selection = null;
+    recoding = c;
+    if (popTitle) popTitle.textContent = de_en("Andere Kategorie", "Other category");
+    info.hidden = true;
+    filter.value = "";
+    fill();
+    placeBox(pop, rect);
+    if (!touching()) filter.focus();
+  }
 
   // the categories of the list: the whole tree in its order, or what the filter finds by name, path or number
   function matches() {
     var q = filter.value.trim().toLowerCase();
-    if (!q) return cats.slice();
-    if (/^\d+(\.\d*)*$/.test(q)) return cats.filter(function (c) { return hit(c, q); });
-    return cats.filter(function (c) { return (c.name + " " + (c.parent || "")).toLowerCase().indexOf(q) >= 0; });
+    var from = recoding ? recoding.cat : null;  // moving a passage: not to the category it has
+    return cats.filter(function (c) {
+      if (c.id === from) return false;
+      if (!q) return true;
+      if (/^\d+(\.\d*)*$/.test(q)) return hit(c, q);
+      return (c.name + " " + (c.parent || "")).toLowerCase().indexOf(q) >= 0;
+    });
   }
 
   // the list: one entry is the active one (the first, or chosen by hovering, the arrow keys or the info button on a
@@ -547,7 +568,7 @@
       list.appendChild(li);
     });
     setActive(0);
-    if (/^\d+(\.\d*)*$/.test(q)) return;  // a number names no new category
+    if (recoding || /^\d+(\.\d*)*$/.test(q)) return;  // a number names no new category
     var li = document.createElement("li");
     li.className = "is-new";
     var nb = document.createElement("button");
@@ -561,6 +582,7 @@
   }
 
   function assign(catId) {
+    if (recoding) { var c = recoding; closePop(); recodeTo(c, catId); return; }
     if (!selection) return;
     var m = selection;
     closePop();
@@ -580,6 +602,115 @@
       say(de_en("Zugeordnet: ", "Assigned: ") + (c ? c.name : ""));
     });
   }
+
+  // a coded passage to another category: place, author, memos stay; an anchor or example slot of the old one goes, so
+  // the server asks first. "Rückgängig" in the status line takes it back.
+  function moved(coding, from) {
+    codings = codings.map(function (k) { return k.id === coding.id ? coding : k; });
+    var a = catOf(from), b = catOf(coding.cat);
+    if (a) a.n = Math.max(0, a.n - 1);
+    if (b) b.n += 1;
+    if (anchors[String(from)] === coding.id) delete anchors[String(from)];
+    if (examples[String(from)]) examples[String(from)] = examples[String(from)].filter(function (x) { return x !== coding.id; });
+    spotCache = {};
+    draw();
+  }
+  function recodeTo(c, catId, sure) {
+    post(base + "/" + c.id + "/recode", { cat: catId, sure: sure ? 1 : "" }).then(function (d) {
+      if (d.ask) {
+        window.askConfirm({ title: de_en("Stelle verschieben?", "Move the passage?"), note: d.ask, ok: de_en("Verschieben", "Move") })
+          .then(function (yes) { if (yes) recodeTo(c, catId, true); });
+        return;
+      }
+      if (!d.ok) { say(d.error || de_en("Nicht verschoben.", "Not moved.")); return; }
+      var from = c.cat, to = catOf(d.coding.cat);
+      moved(d.coding, from);
+      undoOffer(de_en("Verschoben nach: ", "Moved to: ") + (to ? to.name : ""), function () {
+        post(d.undo_url).then(function (u) {
+          if (!u.ok) { say(u.error || de_en("Nicht zurückgenommen.", "Not undone.")); return; }
+          moved(u.coding, d.coding.cat);
+          say(de_en("Zurückgenommen.", "Taken back."));
+        });
+      });
+    });
+  }
+  function undoOffer(message, run) {
+    say(message);
+    if (!status) return;
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "button button-small button-secondary tc-undo";
+    b.textContent = de_en("Rückgängig", "Undo");
+    b.addEventListener("click", function () { b.disabled = true; run(); });
+    status.appendChild(document.createTextNode(" "));
+    status.appendChild(b);
+  }
+
+  // dragging onto a category of the side (feedback 2026-11-06, P8/P9): a marked passage (mouse; the browser's own
+  // dragging of a selection) is assigned, a coded passage (from its box) is moved. The category under the pointer is
+  // outlined dashed; a folded one unfolds after a moment; Esc cancels (the browser ends the dragging).
+  var dropOn = null, unfoldTimer = null;
+  function dropTarget(el) {
+    if (dropOn === el) return;
+    if (dropOn) dropOn.classList.remove("is-drop");
+    clearTimeout(unfoldTimer);
+    dropOn = el;
+    if (!el) return;
+    el.classList.add("is-drop");
+    var c = catOf(Number(el.getAttribute("data-tc-side-cat")));
+    if (c && kidsOf(c).length && isFolded(c)) {
+      unfoldTimer = setTimeout(function () {
+        setFolded(c, false);
+        drawSide();
+        dropOn = null;
+        dropTarget(side.querySelector('[data-tc-side-cat="' + c.id + '"]'));
+      }, 700);
+    }
+  }
+  function endDrag() {
+    if (dragging && dragging.kind === "coding") info.hidden = true;
+    dropTarget(null);
+    dragging = null;
+    if (aside) aside.classList.remove("is-dragging");
+  }
+  function startDrag(what, e) {
+    dragging = what;
+    if (aside) aside.classList.add("is-dragging");
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "copyMove";
+      try { e.dataTransfer.setData("text/plain", what.kind === "mark" ? text.slice(what.m.start, what.m.end) : what.coding.quote || ""); } catch (x) { /* some browsers refuse */ }
+    }
+    say(de_en("Auf eine Kategorie im Kategoriensystem ziehen; Esc bricht ab.", "Drag onto a category of the category system; Esc cancels."));
+  }
+  box.addEventListener("dragstart", function (e) {
+    if (touching()) return;
+    var m = marked();
+    if (!m) return;
+    closePop();
+    startDrag({ kind: "mark", m: m }, e);
+  });
+  side.addEventListener("dragover", function (e) {
+    if (!dragging) return;
+    var row = e.target.closest ? e.target.closest("[data-tc-side-cat]") : null;
+    if (row && dragging.kind === "coding" && Number(row.getAttribute("data-tc-side-cat")) === dragging.coding.cat) row = null;
+    dropTarget(row);
+    if (!row) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = dragging.kind === "mark" ? "copy" : "move";
+  });
+  side.addEventListener("dragleave", function (e) {
+    if (dropOn && !dropOn.contains(e.relatedTarget)) dropTarget(null);
+  });
+  side.addEventListener("drop", function (e) {
+    var row = dropOn, what = dragging;
+    endDrag();
+    if (!row || !what) return;
+    e.preventDefault();
+    var id = Number(row.getAttribute("data-tc-side-cat"));
+    if (what.kind === "mark") { selection = what.m; recoding = null; assign(id); }
+    else recodeTo(what.coding, id);
+  });
+  document.addEventListener("dragend", function () { if (dragging) { endDrag(); say(""); } });
 
   // a new category on the spot: under a main category (a subcategory), or a main category / candidate
   function openQuick(name) {
@@ -772,6 +903,14 @@
       var q = document.createElement("p");
       q.className = "small muted";
       q.textContent = "„" + c.quote + "“";
+      if (c.mine && !touching()) {  // to be dragged onto a category of the side, as "Andere Kategorie …"
+        q.className += " tc-drag-quote";
+        q.draggable = true;
+        q.title = de_en("Auf eine Kategorie rechts ziehen, um die Stelle zu verschieben", "Drag onto a category on the right to move the passage");
+        q.addEventListener("dragstart", function (e) {
+          startDrag({ kind: "coding", coding: c }, e);  // the box closes when the dragging ends (endDrag)
+        });
+      }
       row.appendChild(q);
       var actions = document.createElement("div");
       actions.className = "tc-info-actions";
@@ -822,6 +961,12 @@
         actions.appendChild(ex);
       }
       if (c.mine) {
+        var mv = document.createElement("button");
+        mv.type = "button";
+        mv.className = "button button-small button-secondary";
+        mv.textContent = de_en("Andere Kategorie …", "Other category …");
+        mv.addEventListener("click", function () { openRecode(c, span.getBoundingClientRect()); });
+        actions.appendChild(mv);
         var r = document.createElement("button");
         r.type = "button";
         r.className = "button button-small button-secondary";
@@ -849,21 +994,12 @@
 
   // --- AI suggestions: ask section by section, accept, discard, take back -----------------------------------------
   var suggUrl = root.getAttribute("data-sugg-url") || "";
-  var undoBox = null;
   function offerUndo(ids, message) {
-    say(message);
-    if (!status) return;
-    undoBox = document.createElement("button");
-    undoBox.type = "button";
-    undoBox.className = "button button-small button-secondary tc-undo";
-    undoBox.textContent = de_en("Rückgängig", "Undo");
-    undoBox.addEventListener("click", function () {
+    undoOffer(message, function () {
       post(suggUrl.replace("ACTION", "undo"), { ids: ids }).then(function (d) {
         if (d.ok) location.reload(); else say(d.error || de_en("Nicht zurückgenommen.", "Not undone."));
       });
     });
-    status.appendChild(document.createTextNode(" "));
-    status.appendChild(undoBox);
   }
   function suggestionAction(action, body) {
     var chosen = sugg.filter(function (c) { return body.ids ? body.ids.indexOf(c.id) >= 0 : c.cat === body.cat; });
@@ -963,7 +1099,7 @@
   // the page brings itself up to date (transcript_coding_live.js): the new state of the interview and the categories,
   // drawn in place; not while a list, a dialog or the box of a passage is open (then false: asked again later)
   window.tcCodeRefresh = function (fresh) {
-    if (!pop.hidden || !info.hidden || quickDialog.open || selection || pending) return false;
+    if (!pop.hidden || !info.hidden || quickDialog.open || selection || pending || dragging) return false;
     data = fresh;
     text = fresh.text;
     codings = fresh.codings || [];

@@ -2297,6 +2297,11 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
   color: inherit; font: inherit; text-align: left; padding: 3px 6px 3px 2px; cursor: pointer; }
 .tc-side-row:hover, .tc-side-row:focus-visible, .tc-side-row[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tc-side-row[aria-expanded="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* dragging a marked or coded passage onto a category (feedback 2026-11-06): the target dashed */
+.tc-side.is-dragging .tc-side-row { outline: 1px dashed var(--border); outline-offset: -1px; }
+.tc-side.is-dragging .tc-side-row.is-drop { outline: 2px dashed var(--tc, var(--accent)); outline-offset: -2px;
+  background: color-mix(in srgb, var(--tc, var(--accent)) 14%, transparent); }
+.tc-drag-quote { cursor: grab; }
 .tc-side-num { flex: none; color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; min-width: 2.2em; }
 .tc-side-list li .tc-side-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .tc-side-n { flex: none; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
