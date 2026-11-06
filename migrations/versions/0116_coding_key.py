@@ -1,7 +1,7 @@
 """Interviews kodieren: Tabelle coding_key (feste Tasten 1 bis 9)
 
-Revision ID: 0117
-Revises: 0116
+Revision ID: 0116
+Revises: 0115
 Create Date: 2026-11-06 20:00:00
 
 The keys 1 to 9 of each person in an analysis (app/transcript_coding_view.py, keys; feedback 2026-11-06, P10). A new
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '0117'
-down_revision = '0116'
+revision = '0116'
+down_revision = '0115'
 branch_labels = None
 depends_on = None
 # True only when the migration just adds (a table, a column that may stay empty or has a server_default, an index):
