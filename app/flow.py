@@ -621,9 +621,9 @@ def update(survey, nid, form, languages, links=True):
         item = form.get("item", "")
         op = form.get("op", "eq")
         # a question (its id), a URL parameter ("p:name"), what a quota calculation decided ("q:<id>", "qc:<id>"), or
-        # the attention checks failed so far ("att", app/quality.py)
+        # the attention checks failed so far ("att", app/quality.py), or a return value ("x:<section>:<name>", external.py)
         own = {i.id for b in survey.blocks for i in b.items}
-        ref = (int(item) if int(item) in own else None) if item.isdigit() and item.isascii()             else (item if item.startswith(("p:", "q:", "qc:", STATE_REF)) or item in ("att", "tempo", "geo:country", "geo:state") else None)
+        ref = (int(item) if int(item) in own else None) if item.isdigit() and item.isascii()             else (item if item.startswith(("p:", "q:", "qc:", "x:", STATE_REF)) or item in ("att", "tempo", "geo:country", "geo:state") else None)
         node["cond"] = {"item": ref, "op": op if op in OPS else "eq", "value": form.get("value", "").strip()[:200]}
         if "name" in form:
             node["name"] = form.get("name", "").strip()[:100]
@@ -1284,6 +1284,11 @@ def check(survey):
                                                         "“Estimate country and federal state from the IP address” is off (settings, "
                                                         "consent and data protection)."),
                                          first_inside))
+                    continue
+                if isinstance(ref, str) and ref.startswith("x:"):
+                    from app import external
+
+                    problems += external.condition_problems(survey, root, node, cond, first_inside)
                     continue
                 if isinstance(ref, str) and ref.startswith("p:"):
                     from app import panel

@@ -1131,6 +1131,10 @@ def condition_expression(survey, cond):
         var = f"state({source.code})" if source is not None else ""
     elif isinstance(ref, str) and ref.startswith("p:"):
         var = f"param({_literal(ref[2:])})"
+    elif isinstance(ref, str) and ref.startswith("x:"):
+        from app import external
+
+        var = external.ref_name(survey, ref) or ""  # the column of the export
     elif isinstance(ref, str) and ref.startswith(("q:", "qc:")):
         kind, _, qid = ref.partition(":")
         quota = next((q for q in (getattr(survey, "quotas", None) or []) if str(q.id) == qid), None)

@@ -878,6 +878,12 @@ def _cond(raw, items, quotas):
     ref, item = raw.get("item"), None
     if ref in ("att", "tempo", "geo:country", "geo:state") or (isinstance(ref, str) and ref.startswith("p:") and panel.NAME_RE.match(ref[2:])):
         item = ref  # a URL parameter, or the attention checks failed so far (app/quality.py)
+    elif isinstance(ref, str) and ref.startswith("x:"):
+        from app import external
+
+        # a return value: the name of its section may still change (_tree, renamed); the pre-launch check names the rest
+        found = external.read_ref(ref)
+        item = ref if found and len(ref) < 100 and NODE_ID.match(found[0]) and external.NAME_RE.match(found[1]) else None
     elif isinstance(ref, str) and ref.startswith(("q:", "qc:")):
         kind, _, qid = ref.partition(":")
         twin = _twin(quotas, int(qid)) if qid.isdigit() and len(qid) < 12 else None
@@ -1354,10 +1360,17 @@ def _flow(raw, blocks, items, quotas, names, notes, web_service=True):
                            "Ablauf“ ist für Sie nicht freigeschaltet.",
                            "{n} web service(s) in the flow were left out: the experimental feature “Web Service in the "
                            "flow” is not switched on for you.", n=left_out[0]))
+    from app import external
+
     seen = set()
     for node, _, _ in flow.walk(root):
         if node["t"] == "else":  # its branch may have got another id
             node["of"] = renamed.get(node["of"], "")
+        if node["t"] == "branch":  # a return value tested here: its section may have got another id
+            for cond in flow.parts(node.get("cond")):
+                found = external.read_ref(cond.get("item"))
+                if found and found[0] in renamed:
+                    cond["item"] = f"{external.REF}{renamed[found[0]]}:{found[1]}"
         if node["t"] == "quota":  # every quota is calculated at one place only (flow.update)
             node["quotas"] = [q for q in node["quotas"] if q not in seen]
             seen.update(node["quotas"])
