@@ -1157,6 +1157,8 @@ def edit(code, rid):
             iv = {k: v for k, v in (row.interview or {}).items() if k != "transcript_head"}
             if changed and iv.get("codings"):  # the coded passages move with the text (app/transcript_coding_correction.py)
                 iv["codings"] = correction.refit(survey, row, text)
+            if changed and iv.get("highlights"):  # so does what is printed bold in the coding view
+                iv["highlights"] = correction.refit_marks(row, text)
             row.interview = {**iv, "transcript": tr, **({"transcript_head": head} if head else {})}
 
         interview_audio.retried(work)
@@ -1204,6 +1206,8 @@ def take_draft(code, rid):
                 tr["covers"] = covers
             if iv.get("codings"):  # the coded passages move with the text
                 iv["codings"] = correction.refit(survey, row, text)
+            if iv.get("highlights"):
+                iv["highlights"] = correction.refit_marks(row, text)
         row.interview = {**iv, "transcript": tr}
 
     if state(row).get("draft") is not None:
@@ -1246,6 +1250,8 @@ def upload(code, rid):
         iv = dict(row.interview or {})
         if iv.get("codings"):  # the coded passages move with the text
             iv["codings"] = correction.refit(survey, row, text[:MAX_TEXT])
+        if iv.get("highlights"):
+            iv["highlights"] = correction.refit_marks(row, text[:MAX_TEXT])
         row.interview = {**iv, "transcript": tr}
 
     interview_audio.retried(work)
