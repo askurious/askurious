@@ -441,6 +441,75 @@ def recode_back(project, who, event):
     return moved, None
 
 
+# --- passages printed bold (Ralf 2026-11-07, "A + B") --------------------------------------------------------------
+# Speaker marks at the start of a line ("I:", "B2:") are bold by the page itself. A passage made bold by hand is
+# stored like a coding, by place and wording, beside the codings (Response.interview["highlights"]):
+#     {"id", "project", "start", "end", "quote", "by", "by_name", "at"}
+# so the text itself never changes and coded passages keep their places; it follows a correction of the transcript
+# (transcript_coding_correction.refit_marks) and goes with the interview. Everyone in the analysis sees it; its
+# author or the team takes it back.
+MAX_MARKS = 1000  # per interview and analysis
+
+
+def marks(row, project_id):
+    return [h for h in ((row.interview or {}).get("highlights") or []) if isinstance(h, dict) and h.get("project") == project_id]
+
+
+def placed_marks(row, project, who):
+    text = transcript(row)
+    out = []
+    for h in marks(row, project.id):
+        where = place(text, h)
+        if where:
+            out.append({"id": h.get("id"), "start": where[0], "end": where[1], "by_name": h.get("by_name", ""),
+                        "mine": bool(who.team or h.get("by") == who.key)})
+    return sorted(out, key=lambda h: (h["start"], h["end"]))
+
+
+def _store_marks(row, change):
+    from app import interview_audio
+
+    def work():
+        db.session.refresh(row)
+        meta = dict(row.interview or {})
+        meta["highlights"] = change(list(meta.get("highlights") or []))
+        row.interview = meta
+        db.session.execute(db.update(CodingProject).where(CodingProject.survey_id == row.survey_id)
+                           .values(updated_at=utcnow()).execution_options(synchronize_session=False))
+
+    interview_audio.retried(work)
+
+
+def add_mark(project, who, row, start, end):
+    """Print a passage bold; returns (mark for the page, problem)."""
+    text = transcript(row)
+    try:
+        span = snap(text, start, end)
+    except (TypeError, ValueError):
+        span = None
+    if span is None:
+        return None, de_en("Bitte eine Textstelle markieren.", "Please mark a passage.")
+    if span[1] - span[0] > QUOTE_MAX:
+        return None, de_en("Die Stelle ist zu lang (höchstens {n} Zeichen).", "The passage is too long (at most {n} characters).", n=QUOTE_MAX)
+    if len(marks(row, project.id)) >= MAX_MARKS:
+        return None, de_en("Höchstens {n} fette Stellen je Interview.", "At most {n} bold passages per interview.", n=MAX_MARKS)
+    mark = {"id": secrets.token_urlsafe(8), "project": project.id, "start": span[0], "end": span[1],
+            "quote": text[span[0]:span[1]], "by": who.key, "by_name": who.name[:200], "at": utcnow().isoformat(timespec="seconds")}
+    _store_marks(row, lambda items: items + [mark])
+    db.session.commit()
+    return {"id": mark["id"], "start": span[0], "end": span[1], "by_name": mark["by_name"], "mine": True}, None
+
+
+def remove_mark(project, who, row, mark_id):
+    found = next((h for h in marks(row, project.id) if h.get("id") == mark_id), None)
+    if found is None:
+        abort(404)
+    if not (who.team or found.get("by") == who.key):
+        abort(403)
+    _store_marks(row, lambda items: [h for h in items if not (isinstance(h, dict) and h.get("id") == mark_id)])
+    db.session.commit()
+
+
 def set_anchor(project, who, row, coding_id):
     """Make a coded passage the anchor example of its category (whoever may change the category)."""
     found = next((c for c in codings(row, project.id) if c.get("id") == coding_id), None)
@@ -717,7 +786,8 @@ def page_data(project, who, row):
             "categories": _categories(project, who), "anchors": {c.id: (c.anchor or {}).get("coding") for c in cats},
             "editable": {c.id: may_edit(project, c, who) for c in cats},
             "examples": {c.id: [e.get("coding") for e in (c.examples or []) if isinstance(e, dict)] for c in cats},
-            "suggestions": transcript_coding_ai.open_suggestions(row, project), "keys": keys(project, who)}
+            "suggestions": transcript_coding_ai.open_suggestions(row, project), "keys": keys(project, who),
+            "marks": placed_marks(row, project, who)}
 
 
 def _payload():
@@ -785,6 +855,32 @@ def recode_passage(code, pid, rid, cid):
         return jsonify(ok=False, error=problem), 400
     return jsonify(ok=True, coding=_json_coding(moved, project, who), event=event.id,
                    undo_url=url_for("transcript_coding.recode_undo", code=survey.code, pid=project.id, eid=event.id))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/highlights", methods=["POST"])
+@signed_in_or_coder
+def bold_passage(code, pid, rid):
+    """"Fett" in the list of a marked passage (JSON)."""
+    survey, project, who = _in(code, pid)
+    row = _row(project, who, rid)
+    data = _payload()
+    try:
+        start, end = int(data.get("start")), int(data.get("end"))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error=de_en("Bitte eine Textstelle markieren.", "Please mark a passage.")), 400
+    mark, problem = add_mark(project, who, row, start, end)
+    if problem:
+        return jsonify(ok=False, error=problem), 400
+    return jsonify(ok=True, mark=mark)
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/i/<int:rid>/highlights/<hid>/delete", methods=["POST"])
+@signed_in_or_coder
+def unbold_passage(code, pid, rid, hid):
+    survey, project, who = _in(code, pid)
+    row = _row(project, who, rid)
+    remove_mark(project, who, row, hid)
+    return jsonify(ok=True)
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/keys", methods=["POST"])

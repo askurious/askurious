@@ -2302,6 +2302,10 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-side.is-dragging .tc-side-row.is-drop { outline: 2px dashed var(--tc, var(--accent)); outline-offset: -2px;
   background: color-mix(in srgb, var(--tc, var(--accent)) 14%, transparent); }
 .tc-drag-quote { cursor: grab; }
+/* bold in the transcript (Ralf 2026-11-07): speaker marks at the start of a line, passages made bold by hand */
+.tc-text-body .tc-speaker, .tc-text-body .tc-bold { font-weight: 700; }
+.tc-text-body .tc-bold:not(.tc-hl) { cursor: pointer; }
+.tc-pop-tools { display: flex; gap: 6px; margin: 6px 0; }
 .tc-side-num { flex: none; color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; min-width: 2.2em; }
 .tc-side-list li .tc-side-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .tc-side-n { flex: none; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
