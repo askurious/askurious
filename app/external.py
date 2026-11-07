@@ -36,7 +36,11 @@ has an entry of its own under key(), "<node id>#<row id>" as an answer has (deci
 plan, of which a person gets one deck: {{distance}} is the label of the level in the default language, and
 {{distance_code}} its number from 1, as in the long format (vignettes.level_numbers).
 
-The values handed back can be used in texts: {{<code>_<name>}} is the value of the last return (variables_of).
+The values handed back can be used in texts: {{<code>_<name>}} is the value of the last return (variables_of). The
+element "Bedingung" of the flow can test them, from a section outside a loop (concept "Bedingungen auf
+Rückgabewerte"): the condition names the section by its id, "x:<node id>:<name>" (REF), which stays when its variable
+name changes, in a copy and in a survey file. flow_view gives runtime the values; a value that is not there (no return,
+a number that was none, a wrong signature) is empty, as an unanswered question is: only "not present" holds for it.
 
 Per participation (Response.external):
   {node id: {"k": key of the return link, "out": first left, "n": times left, "back": came back,
@@ -79,6 +83,7 @@ SIG_VERSION = "sig_v"  # the parameter that names the version of the signed text
 # half a year for the web apps that sign already (signing exists since 2026-10-03) to send version 2
 V1_UNTIL = date(2027, 4, 1)
 V2_ONLY = "v2"  # in node["sign"]: the key was drawn after version 1 was given up; returns signed in version 1 do not count
+REF = "x:"  # what a condition of the flow tests: "x:<node id>:<name>", see the head of this module
 PARAMS = "_params"  # in Response.external: the URL parameters held while the person is outside (leave)
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{20,400}\Z")
 _EPOCH = datetime(1970, 1, 1)
@@ -408,6 +413,100 @@ def signature_ok(node, args, now=None):
         return False
     expected = signature(key, signed_text(node, args.get("t") or "", args, version))
     return hmac.compare_digest(expected.encode(), given.encode("utf-8", "replace"))
+
+
+# --- conditions of the flow -----------------------------------------------------------------------
+
+
+def ref(node, name):
+    """What a condition stores for this return value."""
+    return f"{REF}{node['id']}:{name}"
+
+
+def read_ref(value):
+    """(node id, name of the value) of a condition's reference, or None if it is not one of ours."""
+    if not (isinstance(value, str) and value.startswith(REF)):
+        return None
+    nid, sep, name = value[len(REF):].partition(":")
+    return (nid, name) if nid and sep and name else None
+
+
+def _spec(survey, value):
+    """(node, its declared value) of a reference, each None if this survey does not have it."""
+    from app import flow
+
+    found = read_ref(value)
+    node = next((n for n in nodes(survey) if n["id"] == found[0]), None) if found and survey is not None else None
+    return node, next((v for v in values(node) if v["name"] == found[1]), None) if node else None
+
+
+def in_a_loop(survey, node):
+    """Its values exist per pass, so no condition can test them (as for a question in a loop, flow.loop_blocks)."""
+    from app import flow
+
+    return any(a["t"] == "loop" for a in flow.ancestors(flow.tree(survey), node["id"]))
+
+
+def ref_name(survey, value):
+    """A reference as researchers read it, the column of the export ("ext1_score"); None if there is no such value."""
+    node, spec = _spec(survey, value)
+    return f"{node['code']}_{spec['name']}" if spec else None
+
+
+def described(survey):
+    """{reference: entry of conditions.describe} of the values a condition of the flow can test."""
+    out = {}
+    for node in nodes(survey):
+        if in_a_loop(survey, node):
+            continue
+        for spec in values(node):
+            text = spec.get("kind") == "text"
+            name = f"{node['code']}_{spec['name']}"
+            out[ref(node, spec["name"])] = {"label": de_en("Rückgabewert · {name}", "Return value · {name}", name=name),
+                                            "name": name, "kind": "text" if text else "number",
+                                            "modes": "paramtext" if text else "paramnumber", "options": [], "multi": False}
+    return out
+
+
+def flow_view(response):
+    """What conditions of the flow may test: {"x:<node id>:<name>": value} of the sections this participation came back
+    from, outside a loop (a pass has "#" in its key). Reads no flow: it runs with every step of every participation."""
+    out = {}
+    for nid, kept in state(response).items():
+        if nid != PARAMS and "#" not in nid and isinstance(kept, dict) and kept.get("back"):
+            out.update({f"{REF}{nid}:{name}": value for name, value in (kept.get("v") or {}).items()})
+    return out
+
+
+def condition_problems(survey, root, node, cond, first_inside):
+    """[(severity, message, block id)] of a condition of the flow on a return value (flow.check)."""
+    from app import flow
+
+    said = flow.condition_text(survey, cond)
+    section, spec = _spec(survey, cond.get("item"))
+    if spec is None:
+        return [("error", de_en("Bedingung auf einen Rückgabewert, den es nicht gibt: bitte im Abschnitt prüfen oder die "
+                                "Bedingung neu wählen.",
+                                "Condition on a return value that does not exist: please check the section or choose the "
+                                "condition again."), first_inside)]
+    if in_a_loop(survey, section):
+        return [("error", de_en("Bedingung „{c}“ bezieht sich auf einen Abschnitt in einer Schleife: Seine Werte gibt es je "
+                                "Durchgang, die Bedingung träfe nie zu.",
+                                "Condition “{c}” refers to a section in a loop: its values exist per pass, so the condition "
+                                "would never hold.", c=said), first_inside)]
+    walked = [n for n, _, _ in flow.walk(root)]
+    at = next(n for n, other in enumerate(walked) if other is node)
+    if not any(other is section for other in walked[:at]):
+        return [("error", de_en("Bedingung „{c}“ bezieht sich auf einen Abschnitt, der erst danach kommt.",
+                                "Condition “{c}” refers to a section that only comes later.", c=said), first_inside)]
+    if not signs(section):
+        return [("warning", de_en("Bedingung „{c}“ entscheidet nach einem nicht signierten Rückgabewert: Teilnehmende können "
+                                  "ihn in der Adresse ändern und so den Weg durch die Befragung wählen. Wo das zählt, in den "
+                                  "Einstellungen des Abschnitts „Rückgabewerte signieren“ einschalten.",
+                                  "Condition “{c}” decides on a return value that is not signed: participants can change it "
+                                  "in the address and so choose their way through the survey. Where that matters, switch on "
+                                  "“Sign return values” in the settings of the section.", c=said), first_inside)]
+    return []
 
 
 # --- one participation ------------------------------------------------------------------------

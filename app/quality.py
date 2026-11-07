@@ -788,7 +788,7 @@ def context(survey, items, responses=None):
 
 def shown(survey, response, ctx):
     """[(item, answer key)] of the questions on the person's path, each once, in the order of the pages."""
-    from app import flow, quotas, runtime, tempo
+    from app import external, flow, quotas, runtime, tempo
 
     pages = (response.layout or {}).get("pages") or []
     stored = response.answers or {}
@@ -798,7 +798,8 @@ def shown(survey, response, ctx):
         nonlocal view
         if view is None:
             view = {**runtime.load_answers(response), **{f"p:{k}": v for k, v in (response.params or {}).items()},
-                    **quotas.view(survey, response), **attention_view(ctx["checks"], stored, pages)}
+                    **quotas.view(survey, response), **external.flow_view(response),
+                    **attention_view(ctx["checks"], stored, pages)}
             if ctx.get("tempo_cond"):
                 view[tempo.FAST_KEY] = list(((response.paradata or {}).get("_tempo") or {}).get("pos") or [])
         return view
