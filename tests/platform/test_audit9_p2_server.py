@@ -35,7 +35,7 @@ def test_bt1_nginx_on_a_fixed_release_of_the_stable_branch():
     assert not re.findall(r"^\s*image: (nginx:\S+)", compose, re.M) and "dockerfile: deploy/docker/nginx-image/Dockerfile" in compose
     images = re.findall(r"^FROM (nginx:\S+)$", _read("deploy", "docker", "nginx-image", "Dockerfile"), re.M)
     assert len(images) == 1
-    # an exact release (1.30.5-alpine), even minor = stable branch; never the expired 1.29 or a moving tag
+    # an exact release (1.30.6-alpine), even minor = stable branch; never the expired 1.29 or a moving tag
     m = re.fullmatch(r"nginx:1\.(\d+)\.\d+-alpine@sha256:[0-9a-f]{64}", images[0])  # and its digest (CFG-05)
     assert m and int(m.group(1)) >= 30 and int(m.group(1)) % 2 == 0, images[0]
     assert "1.29" not in _read("deploy", "docker", "maintenance.sh")

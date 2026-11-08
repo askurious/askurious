@@ -366,7 +366,7 @@ def test_every_base_image_is_pinned_by_digest():
 
     assert image_digests.unpinned() == []
     names = {(name, tag) for _f, name, tag, _d in image_digests.pinned()}
-    assert {("python", "3.12-slim"), ("nginx", "1.30.5-alpine"), ("certbot/certbot", "v5.8.0")} <= names
+    assert {("python", "3.12-slim"), ("nginx", "1.30.6-alpine"), ("certbot/certbot", "v5.8.0")} <= names
     # the database keeps its tag until a maintenance window sets DB_IMAGE by digest: a changed db line stops the
     # rolling deploy in the isolation check (deploy of 2026-10-19)
     assert "image: ${DB_IMAGE:-postgres:17}" in _read("deploy", "docker", "compose.yaml")
@@ -392,7 +392,7 @@ def test_image_digests_update_writes_the_new_digest(tmp_path, monkeypatch):
                         next(d for _f, n, t, d in image_digests.pinned() if (n, t) == (name, tag)))
     assert image_digests.main([]) == 1                                         # a moved tag: exit 1, nothing written
     assert image_digests.main(["--update"]) == 0
-    assert f"nginx:1.30.5-alpine@{new}" in (tmp_path / "deploy/docker/nginx-image/Dockerfile").read_text()
+    assert f"nginx:1.30.6-alpine@{new}" in (tmp_path / "deploy/docker/nginx-image/Dockerfile").read_text()
     assert image_digests.main([]) == 0
 
 
