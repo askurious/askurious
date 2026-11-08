@@ -11,7 +11,7 @@ COPY app/static /srv/static
 COPY deploy/docker/nginx-image/previous-static /srv/previous/static
 RUN python build_static.py /srv/static --previous /srv/previous/static
 
-FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+FROM nginx:1.30.6-alpine@sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311
 RUN apk add --no-cache openssl
 
 COPY --from=assets /srv /srv
