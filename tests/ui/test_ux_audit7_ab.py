@@ -24,7 +24,7 @@ def _gender_and_minutes(client):
 
 def test_w1_new_gender_question_marks_no_answer_as_missing(app, client, survey):
     with app.app_context():
-        spec = constructs._gender_spec()
+        spec = constructs.catalog.spec("gender")
     options = {o["id"]: o for o in spec["config"]["options"]}
     assert options["o4"].get("missing") is True and not options["o5"].get("missing")   # self-description stays a group
     _gender_and_minutes(client)

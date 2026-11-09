@@ -1,0 +1,4017 @@
+{
+ "commit": "12002c46c3b9609fbee982d91965f05354a4cd77",
+ "note": "Seeds of app/constructs.py and app/ratswd.py at this commit; specs of licensed scales with the stand-in wording of tests/data/instruments.json",
+ "seeds": [
+  {
+   "key": "gender",
+   "seed_version": 6,
+   "name": "Geschlecht",
+   "status": "review",
+   "short": "Weiblich, männlich, divers, Selbstbeschreibung, keine Angabe",
+   "description": "Geschlechtsidentität nach den Empfehlungen von Spiel et al. für inklusivere Geschlechtsabfragen: weiblich, männlich, divers, „Ich beschreibe mich selbst:“ mit Textfeld und „keine Angabe“. Die Selbstbeschreibung lässt sich je Element abwählen; das gilt nicht als Abweichung.",
+   "authors": "Spiel, Haimson & Lottridge",
+   "year": 2019,
+   "citation": "Spiel, K., Haimson, O. L., & Lottridge, D. (2019). How to do better with gender on surveys: A guide for HCI researchers. Interactions, 26(4), 62–65.",
+   "doi": "10.1145/3338283",
+   "scoring": "",
+   "notes": "Eigene Formulierung von Askurious nach den Empfehlungen von Spiel, Haimson & Lottridge (2019).",
+   "tags": [
+    "status:Standardfrage",
+    "art:Demografie",
+    "thema:Gender",
+    "fach:HCI",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "gender",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o5",
+       "code": "4",
+       "text": true,
+       "optional": true
+      },
+      {
+       "id": "o4",
+       "code": "99",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Welchem Geschlecht fühlen Sie sich zugehörig?",
+      "options": {
+       "o1": "weiblich",
+       "o2": "männlich",
+       "o3": "divers",
+       "o5": "Ich beschreibe mich selbst:",
+       "o4": "keine Angabe"
+      }
+     },
+     "en": {
+      "question": "What is your gender?",
+      "options": {
+       "o1": "female",
+       "o2": "male",
+       "o3": "diverse",
+       "o5": "Prefer to self-describe:",
+       "o4": "prefer not to disclose"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "age",
+   "seed_version": 1,
+   "name": "Alter",
+   "status": "review",
+   "short": "Alter in Jahren (ganze Zahl, 10–120)",
+   "description": "Alter in ganzen Jahren als Freitext mit Zahlenprüfung (10 bis 120), „Jahre“ hinter dem Feld. Einheitlich erhoben, damit Studien in der Metaanalyse zusammengeführt werden können.",
+   "authors": "",
+   "year": null,
+   "citation": "",
+   "doi": "",
+   "scoring": "Ganze Jahre; keine Rekodierung.",
+   "notes": "Eigene Formulierung von Askurious.",
+   "tags": [
+    "status:Standardfrage",
+    "art:Demografie",
+    "thema:Alter",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "text_input",
+    "code": "age",
+    "texts": {
+     "de": {
+      "question": "Wie alt sind Sie?",
+      "prefix": "",
+      "suffix": "Jahre",
+      "validation_message": ""
+     },
+     "en": {
+      "question": "How old are you?",
+      "prefix": "",
+      "suffix": "years",
+      "validation_message": ""
+     }
+    },
+    "config": {
+     "multiline": false,
+     "max_length": 3,
+     "validation": "integer",
+     "min": 10,
+     "max": 120,
+     "pattern": ""
+    }
+   }
+  },
+  {
+   "key": "sorgfalt",
+   "seed_version": 1,
+   "name": "Sorgfalt der Teilnahme (Selbstauskunft)",
+   "status": "review",
+   "short": "Eine Frage am Ende: Sollen wir Ihre Antworten auswerten? Ja oder nein",
+   "description": "Selbstauskunft zur eigenen Teilnahme, gestellt am Ende der Befragung. Wer „nein“ antwortet, hat nach eigener Angabe nicht aufmerksam geantwortet. Personen, die sich als ernsthaft Teilnehmende bezeichnen, antworten konsistenter und vorhersagegültiger (Aust et al., 2013). Die Seite „Qualitätssicherung“ zählt die Antworten „nein“.",
+   "authors": "Meade & Craig; Aust, Diedenhofen, Ullrich & Musch",
+   "year": 2012,
+   "citation": "Meade, A. W., & Craig, S. B. (2012). Identifying careless responses in survey data. Psychological Methods, 17(3), 437–455. Aust, F., Diedenhofen, B., Ullrich, S., & Musch, J. (2013). Seriousness checks are useful to improve data validity in online research. Behavior Research Methods, 45(2), 527–535. https://doi.org/10.3758/s13428-012-0265-2",
+   "doi": "10.1037/a0028085",
+   "scoring": "1 = Antworten auswerten, 0 = nicht auswerten; keine Rekodierung.",
+   "notes": "Eigene Formulierung in Anlehnung an die Selbstauskunft bei Meade & Craig (2012) und den Seriousness Check bei Aust et al. (2013), kein wörtlich übernommenes Item. Wichtig ist der Zusatz, dass die Antwort keine Folgen hat (Vergütung, Verlosung), sonst antwortet niemand mit „nein“.",
+   "tags": [
+    "status:Standardfrage",
+    "art:Datenqualität",
+    "thema:Sorgfalt",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "sorgfalt",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "0"
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Zum Schluss eine ehrliche Frage: Haben Sie die Fragen so aufmerksam beantwortet, dass wir Ihre Antworten auswerten sollten? Ihre Antwort hat keinerlei Folgen für Sie.",
+      "options": {
+       "o1": "Ja, meine Antworten können ausgewertet werden.",
+       "o2": "Nein, meine Antworten sollten nicht ausgewertet werden."
+      }
+     },
+     "de-du": {
+      "question": "Zum Schluss eine ehrliche Frage: Hast du die Fragen so aufmerksam beantwortet, dass wir deine Antworten auswerten sollten? Deine Antwort hat keinerlei Folgen für dich.",
+      "options": {
+       "o1": "Ja, meine Antworten können ausgewertet werden.",
+       "o2": "Nein, meine Antworten sollten nicht ausgewertet werden."
+      }
+     },
+     "en": {
+      "question": "One last honest question: Did you answer the questions attentively enough for us to use your answers? Your answer has no consequences for you whatsoever.",
+      "options": {
+       "o1": "Yes, my answers can be used.",
+       "o2": "No, my answers should not be used."
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "bfi10",
+   "seed_version": 4,
+   "name": "Big Five Inventory (BFI-10)",
+   "status": "verified",
+   "short": "10 Aussagen, 5 Stufen; je 2 Items für Extraversion, Verträglichkeit, Gewissenhaftigkeit, Neurotizismus, Offenheit",
+   "description": "Ultrakurzform des Big Five Inventory für Befragungen mit wenig Zeit. Erfasst die fünf Persönlichkeitsdimensionen mit je einem positiv und einem negativ gepolten Item.",
+   "authors": "Rammstedt & John",
+   "year": 2007,
+   "citation": "Rammstedt, B., & John, O. P. (2007). Measuring personality in one minute or less: A 10-item short version of the Big Five Inventory in English and German. Journal of Research in Personality, 41(1), 203–212. Dokumentation: Rammstedt, B., Kemper, C. J., Klein, M. C., Beierlein, C., & Kovaleva, A. (2014). Big Five Inventory (BFI-10). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS). https://doi.org/10.6102/zis76",
+   "doi": "10.1016/j.jrp.2006.02.001",
+   "scoring": "Skalenwerte = Mittelwert je Subskala (E: 1, 6; A: 2, 7; C: 3, 8; N: 4, 9; O: 5, 10); die negativ gepolten Items 1, 3, 4, 5 und 7 sind im Export bereits rekodiert.",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Deutscher Wortlaut geprüft gegen ZIS; englische Instruktion und Endpunkte nach Rammstedt & John (2007). Die englischen Items stammen aus dem Big Five Inventory (John, Donahue & Kentle, 1991; © Oliver P. John), das für nichtkommerzielle Forschung frei genutzt werden darf.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Persönlichkeit",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "BFI",
+    "config": {
+     "points": 5,
+     "labeling": "endpoints",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "BFI_1",
+       "reverse": true,
+       "subscale": "E"
+      },
+      {
+       "id": "s2",
+       "code": "BFI_2",
+       "reverse": false,
+       "subscale": "A"
+      },
+      {
+       "id": "s3",
+       "code": "BFI_3",
+       "reverse": true,
+       "subscale": "C"
+      },
+      {
+       "id": "s4",
+       "code": "BFI_4",
+       "reverse": true,
+       "subscale": "N"
+      },
+      {
+       "id": "s5",
+       "code": "BFI_5",
+       "reverse": true,
+       "subscale": "O"
+      },
+      {
+       "id": "s6",
+       "code": "BFI_6",
+       "reverse": false,
+       "subscale": "E"
+      },
+      {
+       "id": "s7",
+       "code": "BFI_7",
+       "reverse": true,
+       "subscale": "A"
+      },
+      {
+       "id": "s8",
+       "code": "BFI_8",
+       "reverse": false,
+       "subscale": "C"
+      },
+      {
+       "id": "s9",
+       "code": "BFI_9",
+       "reverse": false,
+       "subscale": "N"
+      },
+      {
+       "id": "s10",
+       "code": "BFI_10",
+       "reverse": false,
+       "subscale": "O"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu BFI10",
+      "labels": [
+       "trifft überhaupt nicht zu",
+       "2",
+       "3",
+       "4",
+       "trifft voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von BFI10",
+       "s2": "Testaussage 2 von BFI10",
+       "s3": "Testaussage 3 von BFI10",
+       "s4": "Testaussage 4 von BFI10",
+       "s5": "Testaussage 5 von BFI10",
+       "s6": "Testaussage 6 von BFI10",
+       "s7": "Testaussage 7 von BFI10",
+       "s8": "Testaussage 8 von BFI10",
+       "s9": "Testaussage 9 von BFI10",
+       "s10": "Testaussage 10 von BFI10"
+      }
+     },
+     "en": {
+      "question": "Test instruction for BFI10",
+      "labels": [
+       "disagree strongly",
+       "2",
+       "3",
+       "4",
+       "agree strongly"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of BFI10",
+       "s2": "Test statement 2 of BFI10",
+       "s3": "Test statement 3 of BFI10",
+       "s4": "Test statement 4 of BFI10",
+       "s5": "Test statement 5 of BFI10",
+       "s6": "Test statement 6 of BFI10",
+       "s7": "Test statement 7 of BFI10",
+       "s8": "Test statement 8 of BFI10",
+       "s9": "Test statement 9 of BFI10",
+       "s10": "Test statement 10 of BFI10"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "kut",
+   "seed_version": 4,
+   "name": "Kontrollüberzeugung im Umgang mit Technik (KUT)",
+   "status": "review",
+   "short": "8 Aussagen, 5 Stufen; subjektive Kontrolle über technische Geräte",
+   "description": "Erfasst, inwieweit Personen glauben, technische Probleme durch eigenes Handeln lösen zu können (internal) oder sich Technik ausgeliefert fühlen.",
+   "authors": "Beier",
+   "year": 1999,
+   "citation": "Beier, G. (1999). Kontrollüberzeugungen im Umgang mit Technik. Report Psychologie, 24(9), 684–693.",
+   "doi": "",
+   "scoring": "Skalenwert = Mittelwert der 8 Items; umgepolte Items (2, 3, 5, 6) sind im Export bereits rekodiert.",
+   "notes": "Für den Wortlaut und seine Übersetzungen ist keine allgemeine Nutzungs- oder Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ allein ersetzt keinen Rechtebeleg. Neue Nutzung setzt einen vom Betreiber geprüften Nachweis für die konkrete Studie, Person und Sprachfassung voraus. Die Quelle ist immer anzugeben. Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:validiert",
+    "art:Einstellung",
+    "thema:Technik",
+    "thema:Kontrollüberzeugung",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "KUT",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "KUT_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "KUT_2",
+       "reverse": true
+      },
+      {
+       "id": "s3",
+       "code": "KUT_3",
+       "reverse": true
+      },
+      {
+       "id": "s4",
+       "code": "KUT_4",
+       "reverse": false
+      },
+      {
+       "id": "s5",
+       "code": "KUT_5",
+       "reverse": true
+      },
+      {
+       "id": "s6",
+       "code": "KUT_6",
+       "reverse": true
+      },
+      {
+       "id": "s7",
+       "code": "KUT_7",
+       "reverse": false
+      },
+      {
+       "id": "s8",
+       "code": "KUT_8",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu KUT",
+      "labels": [
+       "stimmt gar nicht",
+       "stimmt wenig",
+       "stimmt mittelmäßig",
+       "stimmt ziemlich",
+       "stimmt sehr"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von KUT",
+       "s2": "Testaussage 2 von KUT",
+       "s3": "Testaussage 3 von KUT",
+       "s4": "Testaussage 4 von KUT",
+       "s5": "Testaussage 5 von KUT",
+       "s6": "Testaussage 6 von KUT",
+       "s7": "Testaussage 7 von KUT",
+       "s8": "Testaussage 8 von KUT"
+      }
+     },
+     "en": {
+      "question": "Test instruction for KUT",
+      "labels": [
+       "not at all true",
+       "slightly true",
+       "moderately true",
+       "quite true",
+       "very true"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of KUT",
+       "s2": "Test statement 2 of KUT",
+       "s3": "Test statement 3 of KUT",
+       "s4": "Test statement 4 of KUT",
+       "s5": "Test statement 5 of KUT",
+       "s6": "Test statement 6 of KUT",
+       "s7": "Test statement 7 of KUT",
+       "s8": "Test statement 8 of KUT"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "asku",
+   "seed_version": 1,
+   "name": "Allgemeine Selbstwirksamkeit Kurzskala (ASKU)",
+   "status": "verified",
+   "short": "3 Aussagen, 5 Stufen; Erwartung, Schwierigkeiten aus eigener Kraft zu bewältigen",
+   "description": "Ökonomisches Instrument zur Erfassung individueller Kompetenzerwartungen, mit Schwierigkeiten und Hindernissen im täglichen Leben umgehen zu können. McDonalds Omega .81 bis .87.",
+   "authors": "Beierlein, Kovaleva, Kemper & Rammstedt",
+   "year": 2014,
+   "citation": "Beierlein, C., Kovaleva, A., Kemper, C. J., & Rammstedt, B. (2014). Allgemeine Selbstwirksamkeit Kurzskala (ASKU). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis35",
+   "scoring": "Skalenwert = Mittelwert der 3 Items (1 bis 5).",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Englische Fassung (eigene Quelle, Bedingungen: CC BY-NC-SA 4.0): GSE-3: Doll, E. S., Nießen, D., Schmidt, I., Rammstedt, B., & Lechner, C. M. (2021). The General Self-Efficacy Short Scale-3 (GSE-3). ZIS. https://doi.org/10.6102/zis294",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Persönlichkeit",
+    "thema:Selbstwirksamkeit",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "ASKU",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "ASKU_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "ASKU_2",
+       "reverse": false
+      },
+      {
+       "id": "s3",
+       "code": "ASKU_3",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu ASKU",
+      "labels": [
+       "trifft gar nicht zu",
+       "trifft wenig zu",
+       "trifft etwas zu",
+       "trifft ziemlich zu",
+       "trifft voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von ASKU",
+       "s2": "Testaussage 2 von ASKU",
+       "s3": "Testaussage 3 von ASKU"
+      }
+     },
+     "en": {
+      "question": "Test instruction for ASKU",
+      "labels": [
+       "doesn't apply at all",
+       "applies a bit",
+       "applies somewhat",
+       "applies mostly",
+       "applies completely"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of ASKU",
+       "s2": "Test statement 2 of ASKU",
+       "s3": "Test statement 3 of ASKU"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ie4",
+   "seed_version": 1,
+   "name": "Internale-Externale-Kontrollüberzeugung-4 (IE-4)",
+   "status": "verified",
+   "short": "4 Aussagen, 5 Stufen; je 2 Items für internale und externale Kontrollüberzeugung",
+   "description": "Kurzskala zur Kontrollüberzeugung: Wie sehr erleben Personen Ereignisse als Folge des eigenen Handelns (internal) oder als Schicksal, Zufall oder von anderen bestimmt (external)?",
+   "authors": "Kovaleva, Beierlein, Kemper & Rammstedt",
+   "year": 2014,
+   "citation": "Kovaleva, A., Beierlein, C., Kemper, C. J., & Rammstedt, B. (2014). Internale-Externale-Kontrollüberzeugung-4 (IE-4). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis184",
+   "scoring": "Zwei Skalenwerte: Mittelwert der Items 1 und 2 (internal, IKÜ) und der Items 3 und 4 (external, EKÜ); keine Umpolung.",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Englische Fassung: Nießen, D., Schmidt, I., Groskurth, K., Rammstedt, B., & Lechner, C. M. (2022). The Internal–External Locus of Control Short Scale–4 (IE-4): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(7), e0271289. https://doi.org/10.1371/journal.pone.0271289; der Artikel steht unter CC BY 4.0, für die Nutzung der Items gelten die ZIS-Bedingungen.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Persönlichkeit",
+    "thema:Kontrollüberzeugung",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "IE4",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "IE4_1",
+       "reverse": false,
+       "subscale": "IKÜ"
+      },
+      {
+       "id": "s2",
+       "code": "IE4_2",
+       "reverse": false,
+       "subscale": "IKÜ"
+      },
+      {
+       "id": "s3",
+       "code": "IE4_3",
+       "reverse": false,
+       "subscale": "EKÜ"
+      },
+      {
+       "id": "s4",
+       "code": "IE4_4",
+       "reverse": false,
+       "subscale": "EKÜ"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu IE4",
+      "labels": [
+       "trifft gar nicht zu",
+       "trifft wenig zu",
+       "trifft etwas zu",
+       "trifft ziemlich zu",
+       "trifft voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von IE4",
+       "s2": "Testaussage 2 von IE4",
+       "s3": "Testaussage 3 von IE4",
+       "s4": "Testaussage 4 von IE4"
+      }
+     },
+     "en": {
+      "question": "Test instruction for IE4",
+      "labels": [
+       "doesn't apply at all",
+       "applies a bit",
+       "applies somewhat",
+       "applies mostly",
+       "applies completely"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of IE4",
+       "s2": "Test statement 2 of IE4",
+       "s3": "Test statement 3 of IE4",
+       "s4": "Test statement 4 of IE4"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "kusiv3",
+   "seed_version": 1,
+   "name": "Interpersonales Vertrauen (KUSIV3)",
+   "status": "verified",
+   "short": "3 Aussagen, 5 Stufen; Vertrauen in andere Menschen als Persönlichkeitsmerkmal",
+   "description": "Kurzskala zur Messung des zwischenmenschlichen Vertrauens mit drei Items (Bearbeitung etwa 30 Sekunden).",
+   "authors": "Beierlein, Kemper, Kovaleva & Rammstedt",
+   "year": 2014,
+   "citation": "Beierlein, C., Kemper, C. J., Kovaleva, A., & Rammstedt, B. (2014). Interpersonales Vertrauen (KUSIV3). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis37",
+   "scoring": "Skalenwert = Mittelwert der 3 Items; Item 2 ist negativ formuliert und im Export bereits rekodiert (Nießen et al., 2020).",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Englische Fassung: Nießen, D., Beierlein, C., Rammstedt, B., & Lechner, C. M. (2020). An English-language adaptation of the Interpersonal Trust Short Scale (KUSIV3). Measurement Instruments for the Social Sciences, 2, 10. https://doi.org/10.1186/s42409-020-00016-1; der Artikel steht unter CC BY 4.0, für die Nutzung der Items gelten die ZIS-Bedingungen.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Einstellung",
+    "thema:Vertrauen",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "KUSIV",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "KUSIV_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "KUSIV_2",
+       "reverse": true
+      },
+      {
+       "id": "s3",
+       "code": "KUSIV_3",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu KUSIV3",
+      "labels": [
+       "trifft gar nicht zu",
+       "trifft wenig zu",
+       "trifft etwas zu",
+       "trifft ziemlich zu",
+       "trifft voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von KUSIV3",
+       "s2": "Testaussage 2 von KUSIV3",
+       "s3": "Testaussage 3 von KUSIV3"
+      }
+     },
+     "en": {
+      "question": "Test instruction for KUSIV3",
+      "labels": [
+       "doesn't apply at all",
+       "applies a bit",
+       "applies somewhat",
+       "applies mostly",
+       "applies completely"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of KUSIV3",
+       "s2": "Test statement 2 of KUSIV3",
+       "s3": "Test statement 3 of KUSIV3"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "i8",
+   "seed_version": 1,
+   "name": "Impulsives-Verhalten-8 (I-8)",
+   "status": "verified",
+   "short": "8 Aussagen, 5 Stufen; Dringlichkeit, Absicht, Ausdauer, Risikobereitschaft",
+   "description": "Kurzskala zu vier Facetten impulsiven Verhaltens mit je zwei Items. Hohe Werte bei Dringlichkeit und Risikobereitschaft stehen für hohe, bei Absicht und Ausdauer für niedrige Impulsivität.",
+   "authors": "Kovaleva, Beierlein, Kemper & Rammstedt",
+   "year": 2014,
+   "citation": "Kovaleva, A., Beierlein, C., Kemper, C. J., & Rammstedt, B. (2014). Die Skala Impulsives-Verhalten-8 (I-8). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis183",
+   "scoring": "Vier Skalenwerte als Mittelwert je zwei Items: Dringlichkeit (1, 2), Absicht (3, 4), Ausdauer (5, 6), Risikobereitschaft (7, 8); keine Umpolung.",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Englische Fassung: Groskurth, K., Nießen, D., Rammstedt, B., & Lechner, C. M. (2022). The Impulsive Behavior Short Scale–8 (I-8): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(9), e0273801. https://doi.org/10.1371/journal.pone.0273801; der Artikel steht unter CC BY 4.0, für die Nutzung der Items gelten die ZIS-Bedingungen.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Persönlichkeit",
+    "thema:Impulsivität",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "I8",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "I8_1",
+       "reverse": false,
+       "subscale": "Dringlichkeit"
+      },
+      {
+       "id": "s2",
+       "code": "I8_2",
+       "reverse": false,
+       "subscale": "Dringlichkeit"
+      },
+      {
+       "id": "s3",
+       "code": "I8_3",
+       "reverse": false,
+       "subscale": "Absicht"
+      },
+      {
+       "id": "s4",
+       "code": "I8_4",
+       "reverse": false,
+       "subscale": "Absicht"
+      },
+      {
+       "id": "s5",
+       "code": "I8_5",
+       "reverse": false,
+       "subscale": "Ausdauer"
+      },
+      {
+       "id": "s6",
+       "code": "I8_6",
+       "reverse": false,
+       "subscale": "Ausdauer"
+      },
+      {
+       "id": "s7",
+       "code": "I8_7",
+       "reverse": false,
+       "subscale": "Risikobereitschaft"
+      },
+      {
+       "id": "s8",
+       "code": "I8_8",
+       "reverse": false,
+       "subscale": "Risikobereitschaft"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu I8",
+      "labels": [
+       "trifft gar nicht zu",
+       "trifft wenig zu",
+       "trifft etwas zu",
+       "trifft ziemlich zu",
+       "trifft voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von I8",
+       "s2": "Testaussage 2 von I8",
+       "s3": "Testaussage 3 von I8",
+       "s4": "Testaussage 4 von I8",
+       "s5": "Testaussage 5 von I8",
+       "s6": "Testaussage 6 von I8",
+       "s7": "Testaussage 7 von I8",
+       "s8": "Testaussage 8 von I8"
+      }
+     },
+     "en": {
+      "question": "Test instruction for I8",
+      "labels": [
+       "doesn't apply at all",
+       "applies a bit",
+       "applies somewhat",
+       "applies mostly",
+       "applies completely"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of I8",
+       "s2": "Test statement 2 of I8",
+       "s3": "Test statement 3 of I8",
+       "s4": "Test statement 4 of I8",
+       "s5": "Test statement 5 of I8",
+       "s6": "Test statement 6 of I8",
+       "s7": "Test statement 7 of I8",
+       "s8": "Test statement 8 of I8"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "nfck",
+   "seed_version": 1,
+   "name": "Need for Cognition Kurzskala (NFC-K)",
+   "status": "verified",
+   "short": "4 Aussagen, 7 Stufen; Freude am und Engagement beim Nachdenken",
+   "description": "Misst Need for Cognition mit vier Items zu den Facetten Engagement und Freude. Geeignet ab dem Jugendalter; Cronbachs Alpha .51 bis .54 (bei vier Items niedrig).",
+   "authors": "Beißert, Köhler, Rempel & Beierlein",
+   "year": 2015,
+   "citation": "Beißert, H., Köhler, M., Rempel, M., & Beierlein, C. (2015). Kurzskala Need for Cognition NFC-K. Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis230",
+   "scoring": "Skalenwert = Mittelwert der 4 Items (1 bis 7); Items 1 und 4 sind im Export bereits rekodiert.",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Nur deutsche Fassung: Für die englischen Items dokumentiert ZIS keine Antwortskala.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Persönlichkeit",
+    "thema:Kognition",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "NFC",
+    "config": {
+     "points": 7,
+     "labeling": "endpoints",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "NFC_1",
+       "reverse": true
+      },
+      {
+       "id": "s2",
+       "code": "NFC_2",
+       "reverse": false
+      },
+      {
+       "id": "s3",
+       "code": "NFC_3",
+       "reverse": false
+      },
+      {
+       "id": "s4",
+       "code": "NFC_4",
+       "reverse": true
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu NFCK",
+      "labels": [
+       "trifft überhaupt nicht zu",
+       "2",
+       "3",
+       "weder noch",
+       "5",
+       "6",
+       "trifft ganz genau zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von NFCK",
+       "s2": "Testaussage 2 von NFCK",
+       "s3": "Testaussage 3 von NFCK",
+       "s4": "Testaussage 4 von NFCK"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "tb",
+   "seed_version": 1,
+   "name": "Kurzskala Technikbereitschaft (TB)",
+   "status": "verified",
+   "short": "12 Aussagen, 5 Stufen; je 4 Items für Technikakzeptanz, Technikkompetenz- und Technikkontrollüberzeugungen",
+   "description": "Erfasst die Bereitschaft zum Umgang mit moderner Technik (technology commitment) über drei Facetten. In allen Altersgruppen einsetzbar, entwickelt besonders für das höhere Lebensalter. Cronbachs Alpha .84 (Technikakzeptanz), .84 (Technikkompetenz), .74 (Technikkontrolle), Gesamtskala .84.",
+   "authors": "Neyer, Felber & Gebhardt",
+   "year": 2012,
+   "citation": "Neyer, F. J., Felber, J., & Gebhardt, C. (2012). Entwicklung und Validierung einer Kurzskala zur Erfassung von Technikbereitschaft (technology commitment). Diagnostica, 58, 87–99. Dokumentation: Neyer, F. J., Felber, J., & Gebhardt, C. (2016). Kurzskala Technikbereitschaft (TB, technology commitment). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis244",
+   "scoring": "Drei Skalenwerte als Mittelwert je vier Items: Technikakzeptanz (1 bis 4), Technikkompetenzüberzeugungen (5 bis 8), Technikkontrollüberzeugungen (9 bis 12); die negativ gepolten Items 5 bis 8 sind im Export bereits rekodiert, hohe Werte stehen also überall für hohe Technikbereitschaft. Ein Gesamtwert über alle 12 Items ist laut ZIS ebenfalls zulässig (dort als Summenwert beschrieben, Kennwerte im Bereich 1 bis 5).",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Nur deutsche Fassung: ZIS dokumentiert keine englischen Items.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Einstellung",
+    "thema:Technik",
+    "thema:Technikbereitschaft",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "TB",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "TB_1",
+       "reverse": false,
+       "subscale": "Technikakzeptanz"
+      },
+      {
+       "id": "s2",
+       "code": "TB_2",
+       "reverse": false,
+       "subscale": "Technikakzeptanz"
+      },
+      {
+       "id": "s3",
+       "code": "TB_3",
+       "reverse": false,
+       "subscale": "Technikakzeptanz"
+      },
+      {
+       "id": "s4",
+       "code": "TB_4",
+       "reverse": false,
+       "subscale": "Technikakzeptanz"
+      },
+      {
+       "id": "s5",
+       "code": "TB_5",
+       "reverse": true,
+       "subscale": "Technikkompetenzüberzeugungen"
+      },
+      {
+       "id": "s6",
+       "code": "TB_6",
+       "reverse": true,
+       "subscale": "Technikkompetenzüberzeugungen"
+      },
+      {
+       "id": "s7",
+       "code": "TB_7",
+       "reverse": true,
+       "subscale": "Technikkompetenzüberzeugungen"
+      },
+      {
+       "id": "s8",
+       "code": "TB_8",
+       "reverse": true,
+       "subscale": "Technikkompetenzüberzeugungen"
+      },
+      {
+       "id": "s9",
+       "code": "TB_9",
+       "reverse": false,
+       "subscale": "Technikkontrollüberzeugungen"
+      },
+      {
+       "id": "s10",
+       "code": "TB_10",
+       "reverse": false,
+       "subscale": "Technikkontrollüberzeugungen"
+      },
+      {
+       "id": "s11",
+       "code": "TB_11",
+       "reverse": false,
+       "subscale": "Technikkontrollüberzeugungen"
+      },
+      {
+       "id": "s12",
+       "code": "TB_12",
+       "reverse": false,
+       "subscale": "Technikkontrollüberzeugungen"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu TB",
+      "labels": [
+       "stimmt gar nicht",
+       "stimmt wenig",
+       "stimmt teilweise",
+       "stimmt ziemlich",
+       "stimmt völlig"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von TB",
+       "s2": "Testaussage 2 von TB",
+       "s3": "Testaussage 3 von TB",
+       "s4": "Testaussage 4 von TB",
+       "s5": "Testaussage 5 von TB",
+       "s6": "Testaussage 6 von TB",
+       "s7": "Testaussage 7 von TB",
+       "s8": "Testaussage 8 von TB",
+       "s9": "Testaussage 9 von TB",
+       "s10": "Testaussage 10 von TB",
+       "s11": "Testaussage 11 von TB",
+       "s12": "Testaussage 12 von TB"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "r1",
+   "seed_version": 1,
+   "name": "Kurzskala Risikobereitschaft (R-1)",
+   "status": "verified",
+   "short": "1 Frage, 7 Stufen; allgemeine Neigung, Risiken einzugehen",
+   "description": "Erfasst die Risikobereitschaft, also die Neigung, Risiken einzugehen oder zu vermeiden, mit einer einzigen Frage (unter 20 Sekunden). Für die deutschsprachige Allgemeinbevölkerung ab 18 Jahren entwickelt; Retest-Reliabilität .74 (englische Fassung .76).",
+   "authors": "Beierlein, Kovaleva, Kemper & Rammstedt",
+   "year": 2015,
+   "citation": "Beierlein, C., Kovaleva, A., Kemper, C. J., & Rammstedt, B. (2015). Kurzskala zur Erfassung der Risikobereitschaft (R-1). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS). https://doi.org/10.6102/zis236. Englische Fassung: Nießen, D., Groskurth, K., Rammstedt, B., & Lechner, C. M. (2020). Risk Proneness Short Scale (R-1). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS). https://doi.org/10.6102/zis286",
+   "doi": "10.6102/zis236",
+   "scoring": "Skalenwert = Antwort auf die eine Frage (1 = gar nicht risikobereit bis 7 = sehr risikobereit); keine Umpolung. Bei einem einzelnen Item gibt es keine interne Konsistenz (kein Cronbachs Alpha).",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Die englische Fassung (zis286) steht unter CC BY-NC-SA 4.0; veränderte Fassungen davon dürfen nur unter derselben Lizenz weitergegeben werden. Nur die Endpunkte der Skala sind beschriftet.",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Persönlichkeit",
+    "thema:Risiko",
+    "thema:Risikobereitschaft",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "R1",
+    "config": {
+     "points": 7,
+     "labeling": "endpoints",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "R1_1",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu R1",
+      "labels": [
+       "gar nicht risikobereit",
+       "2",
+       "3",
+       "4",
+       "5",
+       "6",
+       "sehr risikobereit"
+      ],
+      "statements": {
+       "s1": ""
+      }
+     },
+     "en": {
+      "question": "Test instruction for R1",
+      "labels": [
+       "not at all willing to take risks",
+       "2",
+       "3",
+       "4",
+       "5",
+       "6",
+       "very willing to take risks"
+      ],
+      "statements": {
+       "s1": ""
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "aub",
+   "seed_version": 1,
+   "name": "Allgemeines Umweltbewusstsein",
+   "status": "verified",
+   "short": "11 Aussagen, 5 Stufen; intrinsisches und instrumentelles Naturverständnis, Natur als Existenzgrundlage",
+   "description": "Erfasst Umweltbewusstsein als allgemeine Überzeugung oder Weltbild in drei Dimensionen. Entwickelt an der Umfrage „Umweltbewusstsein in Deutschland 1996“. Cronbachs Alpha .46 (intrinsisches Naturverständnis), .61 (instrumentelles Naturverständnis), .68 (Natur als Existenzgrundlage), also teils niedrig.",
+   "authors": "Wingerter",
+   "year": 2001,
+   "citation": "Wingerter, C. (2001). Allgemeines Umweltbewusstsein. Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
+   "doi": "10.6102/zis208",
+   "scoring": "ZIS macht keine Auswertungsangaben. Die Reliabilitäten dort beziehen sich auf drei Dimensionen: instrumentelles Naturverständnis (Items 1, 2, 4, 6), intrinsisches Naturverständnis (7, 8), Natur als Existenzgrundlage (9, 10, 11); hier je als Mittelwert. Die Items 3 und 5 laden auf zwei Faktoren (intrinsisch und Existenzgrundlage) und sind keiner Subskala zugeordnet. Keine Umpolung; ein Gesamtwert ist nicht dokumentiert.",
+   "notes": "GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation ist in allen resultierenden Arbeiten als Quelle anzugeben. Nur deutsche Fassung. Im Original ein mündliches Interview mit Antwortkarten (daher „sagen Sie mir“) in zwei Blöcken: Vor den Items 9 bis 11 stand „Jetzt noch ein paar weitere Aussagen. Bitte sagen Sie mir auch diesmal zu jeder Aussage, in welchem Maße Sie zustimmen.“",
+   "tags": [
+    "status:validiert",
+    "quelle:GESIS ZIS",
+    "art:Einstellung",
+    "thema:Umwelt",
+    "thema:Umweltbewusstsein",
+    "fach:Soziologie",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "AUB",
+    "config": {
+     "points": 5,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "AUB_1",
+       "reverse": false,
+       "subscale": "Instrumentelles Naturverständnis"
+      },
+      {
+       "id": "s2",
+       "code": "AUB_2",
+       "reverse": false,
+       "subscale": "Instrumentelles Naturverständnis"
+      },
+      {
+       "id": "s3",
+       "code": "AUB_3",
+       "reverse": false
+      },
+      {
+       "id": "s4",
+       "code": "AUB_4",
+       "reverse": false,
+       "subscale": "Instrumentelles Naturverständnis"
+      },
+      {
+       "id": "s5",
+       "code": "AUB_5",
+       "reverse": false
+      },
+      {
+       "id": "s6",
+       "code": "AUB_6",
+       "reverse": false,
+       "subscale": "Instrumentelles Naturverständnis"
+      },
+      {
+       "id": "s7",
+       "code": "AUB_7",
+       "reverse": false,
+       "subscale": "Intrinsisches Naturverständnis"
+      },
+      {
+       "id": "s8",
+       "code": "AUB_8",
+       "reverse": false,
+       "subscale": "Intrinsisches Naturverständnis"
+      },
+      {
+       "id": "s9",
+       "code": "AUB_9",
+       "reverse": false,
+       "subscale": "Natur als Existenzgrundlage"
+      },
+      {
+       "id": "s10",
+       "code": "AUB_10",
+       "reverse": false,
+       "subscale": "Natur als Existenzgrundlage"
+      },
+      {
+       "id": "s11",
+       "code": "AUB_11",
+       "reverse": false,
+       "subscale": "Natur als Existenzgrundlage"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu AUB",
+      "labels": [
+       "stimme überhaupt nicht zu",
+       "stimme eher nicht zu",
+       "teils/teils",
+       "stimme weitgehend zu",
+       "stimme voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von AUB",
+       "s2": "Testaussage 2 von AUB",
+       "s3": "Testaussage 3 von AUB",
+       "s4": "Testaussage 4 von AUB",
+       "s5": "Testaussage 5 von AUB",
+       "s6": "Testaussage 6 von AUB",
+       "s7": "Testaussage 7 von AUB",
+       "s8": "Testaussage 8 von AUB",
+       "s9": "Testaussage 9 von AUB",
+       "s10": "Testaussage 10 von AUB",
+       "s11": "Testaussage 11 von AUB"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "tam_pu",
+   "seed_version": 1,
+   "name": "TAM: Wahrgenommene Nützlichkeit (Perceived Usefulness)",
+   "status": "review",
+   "short": "6 Aussagen, 7 Stufen; Technology Acceptance Model (Davis, 1989)",
+   "description": "Grad, in dem eine Person glaubt, dass die Nutzung eines Systems ihre Arbeitsleistung verbessert. Kernkonstrukt des Technology Acceptance Model (TAM); Reliabilität im Original .98.",
+   "authors": "Davis",
+   "year": 1989,
+   "citation": "Davis, F. D. (1989). Perceived usefulness, perceived ease of use, and user acceptance of information technology. MIS Quarterly, 13(3), 319–340.",
+   "doi": "10.2307/249008",
+   "scoring": "Skalenwert = Mittelwert der 6 Items (1 bis 7); keine Umpolung.",
+   "notes": "Für den Wortlaut und seine Übersetzungen ist keine allgemeine Nutzungs- oder Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ allein ersetzt keinen Rechtebeleg. Neue Nutzung setzt einen vom Betreiber geprüften Nachweis für die konkrete Studie, Person und Sprachfassung voraus. Die Quelle ist immer anzugeben. „[System]“ durch den Namen der Technik ersetzen (zählt nicht als Veränderung). Englischer Wortlaut wie veröffentlicht; deutsche Fassung ist eine inoffizielle Arbeitsübersetzung. Davis (1989) nutzte 7-stufige Skalen (likely/unlikely; in Studie 1 agree/disagree), im Original steht „likely“ links; hier 1 = äußerst unwahrscheinlich, 7 = äußerst wahrscheinlich.",
+   "tags": [
+    "status:validiert",
+    "art:Wahrnehmung",
+    "thema:Technik",
+    "thema:Technikakzeptanz",
+    "fach:Wirtschaftsinformatik",
+    "bezug:Gegenstand"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "PU",
+    "config": {
+     "points": 7,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "PU_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "PU_2",
+       "reverse": false
+      },
+      {
+       "id": "s3",
+       "code": "PU_3",
+       "reverse": false
+      },
+      {
+       "id": "s4",
+       "code": "PU_4",
+       "reverse": false
+      },
+      {
+       "id": "s5",
+       "code": "PU_5",
+       "reverse": false
+      },
+      {
+       "id": "s6",
+       "code": "PU_6",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu TAM_PU [System]",
+      "labels": [
+       "äußerst unwahrscheinlich",
+       "ziemlich unwahrscheinlich",
+       "eher unwahrscheinlich",
+       "weder noch",
+       "eher wahrscheinlich",
+       "ziemlich wahrscheinlich",
+       "äußerst wahrscheinlich"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 zu [System]",
+       "s2": "Testaussage 2 zu [System]",
+       "s3": "Testaussage 3 zu [System]",
+       "s4": "Testaussage 4 zu [System]",
+       "s5": "Testaussage 5 zu [System]",
+       "s6": "Testaussage 6 zu [System]"
+      }
+     },
+     "en": {
+      "question": "Test instruction for TAM_PU [System]",
+      "labels": [
+       "extremely unlikely",
+       "quite unlikely",
+       "slightly unlikely",
+       "neither",
+       "slightly likely",
+       "quite likely",
+       "extremely likely"
+      ],
+      "statements": {
+       "s1": "Test statement 1 about [System]",
+       "s2": "Test statement 2 about [System]",
+       "s3": "Test statement 3 about [System]",
+       "s4": "Test statement 4 about [System]",
+       "s5": "Test statement 5 about [System]",
+       "s6": "Test statement 6 about [System]"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "tam_peou",
+   "seed_version": 1,
+   "name": "TAM: Wahrgenommene Benutzerfreundlichkeit (Perceived Ease of Use)",
+   "status": "review",
+   "short": "6 Aussagen, 7 Stufen; Technology Acceptance Model (Davis, 1989)",
+   "description": "Grad, in dem eine Person glaubt, dass die Nutzung eines Systems mühelos ist. Kernkonstrukt des Technology Acceptance Model (TAM); Reliabilität im Original .94.",
+   "authors": "Davis",
+   "year": 1989,
+   "citation": "Davis, F. D. (1989). Perceived usefulness, perceived ease of use, and user acceptance of information technology. MIS Quarterly, 13(3), 319–340.",
+   "doi": "10.2307/249008",
+   "scoring": "Skalenwert = Mittelwert der 6 Items (1 bis 7); keine Umpolung.",
+   "notes": "Für den Wortlaut und seine Übersetzungen ist keine allgemeine Nutzungs- oder Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ allein ersetzt keinen Rechtebeleg. Neue Nutzung setzt einen vom Betreiber geprüften Nachweis für die konkrete Studie, Person und Sprachfassung voraus. Die Quelle ist immer anzugeben. „[System]“ durch den Namen der Technik ersetzen (zählt nicht als Veränderung). Englischer Wortlaut wie veröffentlicht; deutsche Fassung ist eine inoffizielle Arbeitsübersetzung. Davis (1989) nutzte 7-stufige Skalen (likely/unlikely; in Studie 1 agree/disagree), im Original steht „likely“ links; hier 1 = äußerst unwahrscheinlich, 7 = äußerst wahrscheinlich.",
+   "tags": [
+    "status:validiert",
+    "art:Wahrnehmung",
+    "thema:Technik",
+    "thema:Technikakzeptanz",
+    "fach:Wirtschaftsinformatik",
+    "bezug:Gegenstand"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "PEOU",
+    "config": {
+     "points": 7,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "PEOU_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "PEOU_2",
+       "reverse": false
+      },
+      {
+       "id": "s3",
+       "code": "PEOU_3",
+       "reverse": false
+      },
+      {
+       "id": "s4",
+       "code": "PEOU_4",
+       "reverse": false
+      },
+      {
+       "id": "s5",
+       "code": "PEOU_5",
+       "reverse": false
+      },
+      {
+       "id": "s6",
+       "code": "PEOU_6",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu TAM_PEOU [System]",
+      "labels": [
+       "äußerst unwahrscheinlich",
+       "ziemlich unwahrscheinlich",
+       "eher unwahrscheinlich",
+       "weder noch",
+       "eher wahrscheinlich",
+       "ziemlich wahrscheinlich",
+       "äußerst wahrscheinlich"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 zu [System]",
+       "s2": "Testaussage 2 zu [System]",
+       "s3": "Testaussage 3 zu [System]",
+       "s4": "Testaussage 4 zu [System]",
+       "s5": "Testaussage 5 zu [System]",
+       "s6": "Testaussage 6 zu [System]"
+      }
+     },
+     "en": {
+      "question": "Test instruction for TAM_PEOU [System]",
+      "labels": [
+       "extremely unlikely",
+       "quite unlikely",
+       "slightly unlikely",
+       "neither",
+       "slightly likely",
+       "quite likely",
+       "extremely likely"
+      ],
+      "statements": {
+       "s1": "Test statement 1 about [System]",
+       "s2": "Test statement 2 about [System]",
+       "s3": "Test statement 3 about [System]",
+       "s4": "Test statement 4 about [System]",
+       "s5": "Test statement 5 about [System]",
+       "s6": "Test statement 6 about [System]"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "tam_bi",
+   "seed_version": 2,
+   "name": "TAM: Nutzungsabsicht (Behavioral Intention)",
+   "status": "review",
+   "short": "2 Aussagen, 7 Stufen; Nutzungsabsicht nach TAM2 (Venkatesh & Davis, 2000)",
+   "description": "Absicht, ein System zu nutzen; abhängige Variable im erweiterten Technology Acceptance Model (TAM2).",
+   "authors": "Venkatesh & Davis",
+   "year": 2000,
+   "citation": "Venkatesh, V., & Davis, F. D. (2000). A theoretical extension of the technology acceptance model: Four longitudinal field studies. Management Science, 46(2), 186–204.",
+   "doi": "10.1287/mnsc.46.2.186.11926",
+   "scoring": "Skalenwert = Mittelwert der 2 Items (1 bis 7).",
+   "notes": "Für den Wortlaut und seine Übersetzungen ist keine allgemeine Nutzungs- oder Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ allein ersetzt keinen Rechtebeleg. Neue Nutzung setzt einen vom Betreiber geprüften Nachweis für die konkrete Studie, Person und Sprachfassung voraus. Die Quelle ist immer anzugeben. „[System]“ durch den Namen der Technik ersetzen (zählt nicht als Veränderung). Englischer Wortlaut wie veröffentlicht; deutsche Fassung ist eine inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:validiert",
+    "art:Verhaltensabsicht",
+    "thema:Technik",
+    "thema:Technikakzeptanz",
+    "fach:Wirtschaftsinformatik",
+    "bezug:Gegenstand"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "BI",
+    "config": {
+     "points": 7,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "BI_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "BI_2",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu TAM_BI [System]",
+      "labels": [
+       "stimme überhaupt nicht zu",
+       "stimme nicht zu",
+       "stimme eher nicht zu",
+       "weder noch",
+       "stimme eher zu",
+       "stimme zu",
+       "stimme voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 zu [System]",
+       "s2": "Testaussage 2 zu [System]"
+      }
+     },
+     "en": {
+      "question": "Test instruction for TAM_BI [System]",
+      "labels": [
+       "strongly disagree",
+       "disagree",
+       "somewhat disagree",
+       "neither agree nor disagree",
+       "somewhat agree",
+       "agree",
+       "strongly agree"
+      ],
+      "statements": {
+       "s1": "Test statement 1 about [System]",
+       "s2": "Test statement 2 about [System]"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "kuk",
+   "seed_version": 2,
+   "name": "Kontrollüberzeugung beim Kochen",
+   "status": "verified",
+   "short": "10 Aussagen, 6 Stufen; Selbsteinschätzung als Koch",
+   "description": "Erfasst, wie sicher und kompetent sich eine Person beim Kochen erlebt: Überforderung oder Souveränität, Freude am Ausprobieren, Anerkennung durch andere. Eingesetzt in einer Studie zur Akzeptanz von Serious Games zum kognitiven Training im Umfeld von Ambient Assisted Living.",
+   "authors": "Wittland, Brauner & Ziefle",
+   "year": 2015,
+   "citation": "Wittland, J., Brauner, P., & Ziefle, M. (2015). Serious Games for Cognitive Training in Ambient Assisted Living Environments – A Technology Acceptance Perspective. In Human-Computer Interaction – INTERACT 2015 (Lecture Notes in Computer Science, S. 453–471). Springer.",
+   "doi": "10.1007/978-3-319-22701-6_34",
+   "scoring": "Skalenwert = Mittelwert der 10 Items (1 bis 6); die negativ formulierten Items 1, 5 und 9 sind im Export bereits rekodiert, hohe Werte stehen also für hohe Kontrollüberzeugung beim Kochen.",
+   "notes": "Der Wortlaut steht im Kapitel der Quelle (© 2015 IFIP) und ist nicht frei lizenziert; er ist nur in Installationen hinterlegt, die dazu berechtigt sind. Die Quelle ist immer anzugeben. Englische Fassung: Übersetzung für Askurious, von den Autoren als Fassung der Skala freigegeben.",
+   "tags": [
+    "status:validiert",
+    "art:Selbstwirksamkeit",
+    "thema:Kochen",
+    "thema:Kontrollüberzeugung",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "KUK",
+    "config": {
+     "points": 6,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "KUK_1",
+       "reverse": true
+      },
+      {
+       "id": "s2",
+       "code": "KUK_2",
+       "reverse": false
+      },
+      {
+       "id": "s3",
+       "code": "KUK_3",
+       "reverse": false
+      },
+      {
+       "id": "s4",
+       "code": "KUK_4",
+       "reverse": false
+      },
+      {
+       "id": "s5",
+       "code": "KUK_5",
+       "reverse": true
+      },
+      {
+       "id": "s6",
+       "code": "KUK_6",
+       "reverse": false
+      },
+      {
+       "id": "s7",
+       "code": "KUK_7",
+       "reverse": false
+      },
+      {
+       "id": "s8",
+       "code": "KUK_8",
+       "reverse": false
+      },
+      {
+       "id": "s9",
+       "code": "KUK_9",
+       "reverse": true
+      },
+      {
+       "id": "s10",
+       "code": "KUK_10",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu KUK",
+      "labels": [
+       "stimme überhaupt nicht zu",
+       "stimme nicht zu",
+       "stimme eher nicht zu",
+       "stimme eher zu",
+       "stimme zu",
+       "stimme voll und ganz zu"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von KUK",
+       "s2": "Testaussage 2 von KUK",
+       "s3": "Testaussage 3 von KUK",
+       "s4": "Testaussage 4 von KUK",
+       "s5": "Testaussage 5 von KUK",
+       "s6": "Testaussage 6 von KUK",
+       "s7": "Testaussage 7 von KUK",
+       "s8": "Testaussage 8 von KUK",
+       "s9": "Testaussage 9 von KUK",
+       "s10": "Testaussage 10 von KUK"
+      }
+     },
+     "en": {
+      "question": "Test instruction for KUK",
+      "labels": [
+       "strongly disagree",
+       "disagree",
+       "somewhat disagree",
+       "somewhat agree",
+       "agree",
+       "strongly agree"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of KUK",
+       "s2": "Test statement 2 of KUK",
+       "s3": "Test statement 3 of KUK",
+       "s4": "Test statement 4 of KUK",
+       "s5": "Test statement 5 of KUK",
+       "s6": "Test statement 6 of KUK",
+       "s7": "Test statement 7 of KUK",
+       "s8": "Test statement 8 of KUK",
+       "s9": "Test statement 9 of KUK",
+       "s10": "Test statement 10 of KUK"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "kamb",
+   "seed_version": 2,
+   "name": "Kognitive und Affektive Medienbewertungsskala",
+   "status": "verified",
+   "short": "8 Begriffspaare, 6 Stufen; affektive und kognitive Bewertung eines Medienbeitrags",
+   "description": "Erfasst, wie ein Medienbeitrag (z. B. ein Zeitungsartikel) wahrgenommen wird, in zwei Dimensionen: affektiv (negativ – positiv, langweilig – interessant, kaltherzig – warmherzig, beruhigend – beängstigend) und kognitiv (professionell – amateurhaft, verwirrend – verständlich, überzeugend – zweifelhaft, neutral – parteiisch). Entwickelt als Manipulationscheck für Framing-Experimente; positiv und negativ geframte Artikel unterschieden sich deutlich, am stärksten affektiv.",
+   "authors": "Brauner, Glawe, Vervier & Ziefle",
+   "year": 2026,
+   "citation": "Brauner, P., Glawe, F., Vervier, L., & Ziefle, M. (2026). Media Framing Moderates Risk-Benefit Perceptions and Value Tradeoffs in Human-Robot Collaboration. arXiv:2602.12785. https://arxiv.org/abs/2602.12785",
+   "doi": "10.48550/arXiv.2602.12785",
+   "scoring": "Zwei Skalenwerte als Mittelwert je vier Paare (1 bis 6): affektiv (Paare 2, 5, 6, 8) und kognitiv (1, 3, 4, 7). Die Paare mit dem positiven Pol links (1, 4, 5, 7) sind im Export bereits rekodiert; hohe Werte stehen überall für eine positive Bewertung. Cronbachs Alpha in den öffentlichen, ungefilterten Daten der Studie (n = 1512, eigene Berechnung): affektiv .71, kognitiv .68, alle acht Paare .78.",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar und anpassbar mit Quellenangabe und Hinweis auf Änderungen. Deutscher Wortlaut und Polung wie erhoben (Variablenlabels der veröffentlichten Daten auf OSF). Englische Paare aus der Publikation, englische Instruktion übersetzt. „den Artikel“ in der Instruktion an das Medium anpassen (z. B. „das Video“). Paare in zufälliger Reihenfolge wie im Original.",
+   "tags": [
+    "status:validiert",
+    "art:Bewertung",
+    "thema:Medien",
+    "thema:Framing",
+    "thema:Medienbewertung",
+    "fach:Kommunikationswissenschaft",
+    "bezug:Gegenstand"
+   ],
+   "spec": {
+    "type": "semantic",
+    "code": "KAMB",
+    "config": {
+     "points": 6,
+     "numbers": false,
+     "randomize": true,
+     "pairs": [
+      {
+       "id": "p1",
+       "code": "KAMB_1",
+       "reverse": true,
+       "subscale": "kognitiv"
+      },
+      {
+       "id": "p2",
+       "code": "KAMB_2",
+       "reverse": false,
+       "subscale": "affektiv"
+      },
+      {
+       "id": "p3",
+       "code": "KAMB_3",
+       "reverse": false,
+       "subscale": "kognitiv"
+      },
+      {
+       "id": "p4",
+       "code": "KAMB_4",
+       "reverse": true,
+       "subscale": "kognitiv"
+      },
+      {
+       "id": "p5",
+       "code": "KAMB_5",
+       "reverse": true,
+       "subscale": "affektiv"
+      },
+      {
+       "id": "p6",
+       "code": "KAMB_6",
+       "reverse": false,
+       "subscale": "affektiv"
+      },
+      {
+       "id": "p7",
+       "code": "KAMB_7",
+       "reverse": true,
+       "subscale": "kognitiv"
+      },
+      {
+       "id": "p8",
+       "code": "KAMB_8",
+       "reverse": false,
+       "subscale": "affektiv"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Bewerten Sie den Artikel mithilfe der folgenden Begriffspaare.",
+      "pairs": {
+       "p1": {
+        "left": "professionell",
+        "right": "amateurhaft"
+       },
+       "p2": {
+        "left": "kaltherzig",
+        "right": "warmherzig"
+       },
+       "p3": {
+        "left": "verwirrend",
+        "right": "verständlich"
+       },
+       "p4": {
+        "left": "überzeugend",
+        "right": "zweifelhaft"
+       },
+       "p5": {
+        "left": "beruhigend",
+        "right": "beängstigend"
+       },
+       "p6": {
+        "left": "negativ",
+        "right": "positiv"
+       },
+       "p7": {
+        "left": "neutral",
+        "right": "parteiisch"
+       },
+       "p8": {
+        "left": "langweilig",
+        "right": "interessant"
+       }
+      }
+     },
+     "en": {
+      "question": "Please rate the article using the following pairs of terms.",
+      "pairs": {
+       "p1": {
+        "left": "professional",
+        "right": "amateur"
+       },
+       "p2": {
+        "left": "cold-hearted",
+        "right": "warm-hearted"
+       },
+       "p3": {
+        "left": "confusing",
+        "right": "understandable"
+       },
+       "p4": {
+        "left": "convincing",
+        "right": "doubtful"
+       },
+       "p5": {
+        "left": "reassuring",
+        "right": "frightening"
+       },
+       "p6": {
+        "left": "negative",
+        "right": "positive"
+       },
+       "p7": {
+        "left": "neutral",
+        "right": "biased"
+       },
+       "p8": {
+        "left": "boring",
+        "right": "interesting"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "fitai",
+   "seed_version": 1,
+   "name": "Foil & Target Instrument for AI Literacy (FITAI)",
+   "status": "verified",
+   "short": "12 Aussagen, 5 Stufen; KI-Wissen: 6 zutreffende Aussagen (Targets), 6 erfundene (Foils)",
+   "description": "Erfasst KI-Wissen (AI Literacy) mit Aussagen über Künstliche Intelligenz, die als zutreffend beurteilt werden sollen: sechs sachlich korrekte (Targets, z. B. Halluzinationen, Kontextfenster, RLHF) und sechs plausibel klingende, aber erfundene (Foils, z. B. „Digitale Osmose“, „Rekursive Hardware-Heilung“). Die Foils trennen echtes Wissen von bloßer Zustimmungstendenz und Selbstüberschätzung.",
+   "authors": "Brauner & Glawe",
+   "year": 2026,
+   "citation": "Brauner, P., & Glawe, F. (2026). Foil & Target Instrument for AI Literacy (FITAI).",
+   "doi": "",
+   "scoring": "Skalenwert = Mittelwert der 12 Items (1 bis 5); die Foils (Items 7 bis 12) sind im Export bereits rekodiert, hohe Werte stehen also überall für zutreffendes Wissen. Teilskalen: Target (Items 1 bis 6, Zustimmung zu Korrektem) und Foil (Items 7 bis 12, Ablehnung von Erfundenem); ihr Unterschied zeigt eine Zustimmungstendenz.",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar und anpassbar mit Quellenangabe und Hinweis auf Änderungen. Aussagen im Wortlaut des Originals; die Instruktion ist ohne Anrede umformuliert (Original: „Im Folgenden findest du … Bitte beurteile, inwieweit die Aussagen deiner Einschätzung nach zutreffen.“), damit sie für „Sie“ und „du“ passt. Englische Fassung: Übersetzung für Askurious, von den Autoren freigegeben. Nur die Endpunkte sind beschriftet. Aussagen in zufälliger Reihenfolge.",
+   "tags": [
+    "status:validiert",
+    "art:Wissen",
+    "thema:Künstliche Intelligenz",
+    "thema:AI Literacy",
+    "fach:HCI",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "FI",
+    "config": {
+     "points": 5,
+     "labeling": "endpoints",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "FI_1",
+       "reverse": false,
+       "subscale": "Target"
+      },
+      {
+       "id": "s2",
+       "code": "FI_2",
+       "reverse": false,
+       "subscale": "Target"
+      },
+      {
+       "id": "s3",
+       "code": "FI_3",
+       "reverse": false,
+       "subscale": "Target"
+      },
+      {
+       "id": "s4",
+       "code": "FI_4",
+       "reverse": false,
+       "subscale": "Target"
+      },
+      {
+       "id": "s5",
+       "code": "FI_5",
+       "reverse": false,
+       "subscale": "Target"
+      },
+      {
+       "id": "s6",
+       "code": "FI_6",
+       "reverse": false,
+       "subscale": "Target"
+      },
+      {
+       "id": "s7",
+       "code": "FI_7",
+       "reverse": true,
+       "subscale": "Foil"
+      },
+      {
+       "id": "s8",
+       "code": "FI_8",
+       "reverse": true,
+       "subscale": "Foil"
+      },
+      {
+       "id": "s9",
+       "code": "FI_9",
+       "reverse": true,
+       "subscale": "Foil"
+      },
+      {
+       "id": "s10",
+       "code": "FI_10",
+       "reverse": true,
+       "subscale": "Foil"
+      },
+      {
+       "id": "s11",
+       "code": "FI_11",
+       "reverse": true,
+       "subscale": "Foil"
+      },
+      {
+       "id": "s12",
+       "code": "FI_12",
+       "reverse": true,
+       "subscale": "Foil"
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Im Folgenden stehen verschiedene Aussagen über Künstliche Intelligenz. Inwieweit treffen diese Aussagen zu?",
+      "labels": [
+       "stimme gar nicht zu",
+       "",
+       "",
+       "",
+       "stimme voll zu"
+      ],
+      "statements": {
+       "s1": "Große Sprachmodelle (LLMs) funktionieren in erster Linie, indem sie das statistisch wahrscheinlichste nächste Wort in einer Sequenz vorhersagen.",
+       "s2": "KI-Modelle werden auf umfangreichen Datensätzen trainiert, die häufig urheberrechtlich geschützte Bücher, Artikel und Websites enthalten.",
+       "s3": "Generative KI kann „halluzinieren“, d. h. sie liefert mit Überzeugung Antworten, die sachlich falsch sind.",
+       "s4": "Das „Kontextfenster“ eines Modells legt die maximale Textmenge fest, die es in einem einzelnen Gespräch verarbeiten oder „erinnern“ kann.",
+       "s5": "„Reinforcement Learning from Human Feedback (RLHF)“ ist eine Methode, um das Verhalten von KI an menschlichen Werten und Sicherheitsrichtlinien auszurichten.",
+       "s6": "Neuronale Netze bestehen aus „Gewichten“ und „Biaswerten“, die während des Trainingsprozesses angepasst werden, um Fehler zu minimieren.",
+       "s7": "Um Überhitzung zu verhindern, müssen moderne KI-Systeme die Erinnerungen inaktiver Nutzerinnen und Nutzer löschen, um physischen Speicherplatz freizugeben.",
+       "s8": "KI-Modelle besitzen ein digitales „Unterbewusstsein“, das Informationen verarbeitet, auch wenn sie nicht aktiv genutzt werden.",
+       "s9": "KI-Modelle lernen neue Sprache durch „Digitale Osmose“, indem sie neben Dateien gespeichert werden, die in dieser Sprache verfasst sind.",
+       "s10": "Durch „Semantische Synchronizität“ können KI-Modelle grundlegende menschliche Emotionen wie Frustration ausdrücken, wenn eine Eingabe unklar ist.",
+       "s11": "Fortgeschrittene LLMs nutzen „Quantenverschränkung“, um ihre Antworten gleichzeitig auf verschiedenen Nutzergeräten zu synchronisieren, ohne das Internet zu verwenden.",
+       "s12": "„Rekursive Hardware-Heilung“ ist ein Prozess, bei dem KI beschädigte GPU-Schaltkreise physisch reparieren kann, indem sie elektrische Ströme umleitet."
+      }
+     },
+     "en": {
+      "question": "Below are various statements about artificial intelligence. To what extent are these statements true?",
+      "labels": [
+       "strongly disagree",
+       "",
+       "",
+       "",
+       "strongly agree"
+      ],
+      "statements": {
+       "s1": "Large language models (LLMs) primarily work by predicting the statistically most likely next word in a sequence.",
+       "s2": "AI models are trained on extensive datasets that often contain copyrighted books, articles, and websites.",
+       "s3": "Generative AI can “hallucinate”, i.e., it confidently gives answers that are factually wrong.",
+       "s4": "A model's “context window” sets the maximum amount of text it can process or “remember” in a single conversation.",
+       "s5": "“Reinforcement Learning from Human Feedback (RLHF)” is a method for aligning AI behavior with human values and safety guidelines.",
+       "s6": "Neural networks consist of “weights” and “biases” that are adjusted during training to minimize errors.",
+       "s7": "To prevent overheating, modern AI systems must delete the memories of inactive users to free up physical storage.",
+       "s8": "AI models have a digital “subconscious” that processes information even when they are not actively used.",
+       "s9": "AI models learn a new language through “digital osmosis” by being stored next to files written in that language.",
+       "s10": "Through “semantic synchronicity”, AI models can express basic human emotions such as frustration when a prompt is unclear.",
+       "s11": "Advanced LLMs use “quantum entanglement” to synchronize their answers across different user devices at the same time without using the internet.",
+       "s12": "“Recursive hardware healing” is a process by which AI can physically repair damaged GPU circuits by rerouting electrical currents."
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "gdms",
+   "seed_version": 1,
+   "name": "General Decision-Making Style (GDMS)",
+   "status": "review",
+   "short": "25 Aussagen, 5 Stufen; fünf Entscheidungsstile: rational, intuitiv, abhängig, vermeidend, spontan",
+   "description": "Erfasst, wie eine Person gewöhnlich wichtige Entscheidungen trifft, in fünf Stilen mit je fünf Items: rational (Informationen suchen, Optionen logisch abwägen), intuitiv (Gefühl und Ahnung), abhängig (Rat und Unterstützung anderer), vermeidend (Aufschieben) und spontan (schnell, aus dem Moment). Die Stile schließen sich nicht aus; Personen nutzen meist mehrere. Interne Konsistenz im Original .68 bis .94.",
+   "authors": "Scott & Bruce",
+   "year": 1995,
+   "citation": "Scott, S. G., & Bruce, R. A. (1995). Decision-making style: The development and assessment of a new measure. Educational and Psychological Measurement, 55(5), 818–831.",
+   "doi": "10.1177/0013164495055005017",
+   "scoring": "Fünf Skalenwerte als Mittelwert je fünf Items (1 bis 5): rational (Items 1, 6, 11, 16, 21), intuitiv (2, 7, 12, 17, 22), abhängig (3, 8, 13, 18, 23), vermeidend (4, 9, 14, 19, 24), spontan (5, 10, 15, 20, 25). Keine Umpolung; kein Gesamtwert, die Stile werden getrennt ausgewertet.",
+   "notes": "© 1995 SAGE Publications. Eintrag in APA PsycTests: https://doi.org/10.1037/t08399-000. Neue Nutzung und Katalogzugriff nur mit dokumentierter, vom Betreiber geprüfter Berechtigung für Person, Studie und Sprachfassung. Anmeldung allein genügt nicht; keine allgemeine Weitergabe. Quelle immer angeben. Nur Englisch: Eine validierte deutsche Fassung der vollständigen Skala gibt es nicht (Fischer, Soyez & Gurtner, 2015, haben eine 13-Item-Fassung für Patientenentscheidungen validiert, die nicht dieselbe Skala ist); eine eigene Übersetzung ist nicht validiert. Nur die Endpunkte sind beschriftet (Original: 5 Stufen von „strongly disagree“ bis „strongly agree“). Aussagen in zufälliger Reihenfolge; im Original wechseln sich die Stile der Reihe nach ab.",
+   "tags": [
+    "status:validiert",
+    "quelle:APA PsycTests",
+    "art:Persönlichkeit",
+    "thema:Entscheidungsstil",
+    "fach:Psychologie",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "GDMS",
+    "config": {
+     "points": 5,
+     "labeling": "endpoints",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "GDMS_1",
+       "reverse": false,
+       "subscale": "Rational"
+      },
+      {
+       "id": "s2",
+       "code": "GDMS_2",
+       "reverse": false,
+       "subscale": "Intuitive"
+      },
+      {
+       "id": "s3",
+       "code": "GDMS_3",
+       "reverse": false,
+       "subscale": "Dependent"
+      },
+      {
+       "id": "s4",
+       "code": "GDMS_4",
+       "reverse": false,
+       "subscale": "Avoidant"
+      },
+      {
+       "id": "s5",
+       "code": "GDMS_5",
+       "reverse": false,
+       "subscale": "Spontaneous"
+      },
+      {
+       "id": "s6",
+       "code": "GDMS_6",
+       "reverse": false,
+       "subscale": "Rational"
+      },
+      {
+       "id": "s7",
+       "code": "GDMS_7",
+       "reverse": false,
+       "subscale": "Intuitive"
+      },
+      {
+       "id": "s8",
+       "code": "GDMS_8",
+       "reverse": false,
+       "subscale": "Dependent"
+      },
+      {
+       "id": "s9",
+       "code": "GDMS_9",
+       "reverse": false,
+       "subscale": "Avoidant"
+      },
+      {
+       "id": "s10",
+       "code": "GDMS_10",
+       "reverse": false,
+       "subscale": "Spontaneous"
+      },
+      {
+       "id": "s11",
+       "code": "GDMS_11",
+       "reverse": false,
+       "subscale": "Rational"
+      },
+      {
+       "id": "s12",
+       "code": "GDMS_12",
+       "reverse": false,
+       "subscale": "Intuitive"
+      },
+      {
+       "id": "s13",
+       "code": "GDMS_13",
+       "reverse": false,
+       "subscale": "Dependent"
+      },
+      {
+       "id": "s14",
+       "code": "GDMS_14",
+       "reverse": false,
+       "subscale": "Avoidant"
+      },
+      {
+       "id": "s15",
+       "code": "GDMS_15",
+       "reverse": false,
+       "subscale": "Spontaneous"
+      },
+      {
+       "id": "s16",
+       "code": "GDMS_16",
+       "reverse": false,
+       "subscale": "Rational"
+      },
+      {
+       "id": "s17",
+       "code": "GDMS_17",
+       "reverse": false,
+       "subscale": "Intuitive"
+      },
+      {
+       "id": "s18",
+       "code": "GDMS_18",
+       "reverse": false,
+       "subscale": "Dependent"
+      },
+      {
+       "id": "s19",
+       "code": "GDMS_19",
+       "reverse": false,
+       "subscale": "Avoidant"
+      },
+      {
+       "id": "s20",
+       "code": "GDMS_20",
+       "reverse": false,
+       "subscale": "Spontaneous"
+      },
+      {
+       "id": "s21",
+       "code": "GDMS_21",
+       "reverse": false,
+       "subscale": "Rational"
+      },
+      {
+       "id": "s22",
+       "code": "GDMS_22",
+       "reverse": false,
+       "subscale": "Intuitive"
+      },
+      {
+       "id": "s23",
+       "code": "GDMS_23",
+       "reverse": false,
+       "subscale": "Dependent"
+      },
+      {
+       "id": "s24",
+       "code": "GDMS_24",
+       "reverse": false,
+       "subscale": "Avoidant"
+      },
+      {
+       "id": "s25",
+       "code": "GDMS_25",
+       "reverse": false,
+       "subscale": "Spontaneous"
+      }
+     ]
+    },
+    "texts": {
+     "en": {
+      "question": "Test instruction for GDMS",
+      "labels": [
+       "strongly disagree",
+       "2",
+       "3",
+       "4",
+       "strongly agree"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of GDMS",
+       "s2": "Test statement 2 of GDMS",
+       "s3": "Test statement 3 of GDMS",
+       "s4": "Test statement 4 of GDMS",
+       "s5": "Test statement 5 of GDMS",
+       "s6": "Test statement 6 of GDMS",
+       "s7": "Test statement 7 of GDMS",
+       "s8": "Test statement 8 of GDMS",
+       "s9": "Test statement 9 of GDMS",
+       "s10": "Test statement 10 of GDMS",
+       "s11": "Test statement 11 of GDMS",
+       "s12": "Test statement 12 of GDMS",
+       "s13": "Test statement 13 of GDMS",
+       "s14": "Test statement 14 of GDMS",
+       "s15": "Test statement 15 of GDMS",
+       "s16": "Test statement 16 of GDMS",
+       "s17": "Test statement 17 of GDMS",
+       "s18": "Test statement 18 of GDMS",
+       "s19": "Test statement 19 of GDMS",
+       "s20": "Test statement 20 of GDMS",
+       "s21": "Test statement 21 of GDMS",
+       "s22": "Test statement 22 of GDMS",
+       "s23": "Test statement 23 of GDMS",
+       "s24": "Test statement 24 of GDMS",
+       "s25": "Test statement 25 of GDMS"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ati",
+   "seed_version": 1,
+   "name": "Interaktionsbezogene Technikaffinität (ATI)",
+   "status": "verified",
+   "short": "9 Aussagen, 6 Stufen; Neigung, sich aktiv und intensiv mit technischen Systemen zu beschäftigen",
+   "description": "Erfasst die interaktionsbezogene Technikaffinität (Affinity for Technology Interaction): ob eine Person sich gern und eingehend mit technischen Systemen (Apps, Software, digitale Geräte) beschäftigt oder Technik eher meidet. Als persönliche Ressource im Umgang mit Technik gedacht, theoretisch an Need for Cognition angelehnt. Eindimensional; in mehreren Studien mit zusammen über 1500 Personen gute bis sehr gute Reliabilität. Häufig zur Beschreibung von Stichproben in Nutzerstudien eingesetzt. Validiert auf Deutsch und Englisch.",
+   "authors": "Franke, Attig & Wessel",
+   "year": 2019,
+   "citation": "Franke, T., Attig, C., & Wessel, D. (2019). A personal resource for technology interaction: Development and validation of the Affinity for Technology Interaction (ATI) scale. International Journal of Human–Computer Interaction, 35(6), 456–467.",
+   "doi": "10.1080/10447318.2018.1456150",
+   "scoring": "Skalenwert = Mittelwert der 9 Items (1 bis 6); die negativ formulierten Items 3, 6 und 8 sind im Export bereits rekodiert, hohe Werte stehen also für hohe Technikaffinität. Die Autoren empfehlen, Mittelwert, Standardabweichung und Cronbachs Alpha mit zwei Nachkommastellen zu berichten.",
+   "notes": "Laut den Autoren frei nutzbar (ati-scale.org, „Conditions of Use“: „The scale is free to use“); sie bitten um Zitation und freuen sich über eine kurze Nachricht zum Einsatz (ati@imis.uni-luebeck.de). Eine offene Lizenz zur Weitergabe des Wortlauts ist nicht angegeben, deshalb steht er nicht im öffentlichen Code. Deutsche und englische Fassung im Wortlaut der Skalenblätter auf ati-scale.org (Stand 2022-02-25), alle sechs Stufen beschriftet. Im Original ist die Reihenfolge der Aussagen fest; hier zufällig, im Editor abschaltbar. Eine Kurzfassung mit 4 Items (ATI-S) gibt es ebenfalls.",
+   "tags": [
+    "status:validiert",
+    "art:Persönlichkeit",
+    "thema:Technik",
+    "thema:Technikaffinität",
+    "fach:Psychologie",
+    "fach:HCI",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "likert",
+    "code": "ATI",
+    "config": {
+     "points": 6,
+     "labeling": "full",
+     "label_display": "once",
+     "randomize": true,
+     "statements": [
+      {
+       "id": "s1",
+       "code": "ATI_1",
+       "reverse": false
+      },
+      {
+       "id": "s2",
+       "code": "ATI_2",
+       "reverse": false
+      },
+      {
+       "id": "s3",
+       "code": "ATI_3",
+       "reverse": true
+      },
+      {
+       "id": "s4",
+       "code": "ATI_4",
+       "reverse": false
+      },
+      {
+       "id": "s5",
+       "code": "ATI_5",
+       "reverse": false
+      },
+      {
+       "id": "s6",
+       "code": "ATI_6",
+       "reverse": true
+      },
+      {
+       "id": "s7",
+       "code": "ATI_7",
+       "reverse": false
+      },
+      {
+       "id": "s8",
+       "code": "ATI_8",
+       "reverse": true
+      },
+      {
+       "id": "s9",
+       "code": "ATI_9",
+       "reverse": false
+      }
+     ]
+    },
+    "texts": {
+     "de": {
+      "question": "Teststandardfrage zu ATI",
+      "labels": [
+       "stimmt gar nicht",
+       "stimmt weitgehend nicht",
+       "stimmt eher nicht",
+       "stimmt eher",
+       "stimmt weitgehend",
+       "stimmt völlig"
+      ],
+      "statements": {
+       "s1": "Testaussage 1 von ATI",
+       "s2": "Testaussage 2 von ATI",
+       "s3": "Testaussage 3 von ATI",
+       "s4": "Testaussage 4 von ATI",
+       "s5": "Testaussage 5 von ATI",
+       "s6": "Testaussage 6 von ATI",
+       "s7": "Testaussage 7 von ATI",
+       "s8": "Testaussage 8 von ATI",
+       "s9": "Testaussage 9 von ATI"
+      }
+     },
+     "en": {
+      "question": "Test instruction for ATI",
+      "labels": [
+       "completely disagree",
+       "largely disagree",
+       "slightly disagree",
+       "slightly agree",
+       "largely agree",
+       "completely agree"
+      ],
+      "statements": {
+       "s1": "Test statement 1 of ATI",
+       "s2": "Test statement 2 of ATI",
+       "s3": "Test statement 3 of ATI",
+       "s4": "Test statement 4 of ATI",
+       "s5": "Test statement 5 of ATI",
+       "s6": "Test statement 6 of ATI",
+       "s7": "Test statement 7 of ATI",
+       "s8": "Test statement 8 of ATI",
+       "s9": "Test statement 9 of ATI"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_alt1",
+   "seed_version": 1,
+   "name": "Geburtsmonat und -jahr (RatSWD ALT_1)",
+   "status": "review",
+   "short": "Monat und Jahr der Geburt, aus Listen gewählt",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016) mit leicht geändertem Fragetext; als Element „Datum / Uhrzeit“ im Modus „Monat und Jahr“ (Listen statt Tippen, wie der Katalog für computergestützte Befragungen empfiehlt).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "JJJJ-MM (ISO 8601). Daraus KonsortSWD x_doby (Jahr) und x_age (Alter in abgeschlossenen Jahren).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung. Geburtsmonat und -jahr machen Personen zusammen mit Bundesland, Haushaltsgröße oder Beruf in kleinen Stichproben erkennbar; veröffentlichen Sie dann nur das Geburtsjahr oder Altersgruppen.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Alter",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "date_time",
+    "code": "ALT_1",
+    "texts": {
+     "de": {
+      "question": "Die Ergebnisse dieser Befragung werden auch für unterschiedliche Altersgruppen ausgewertet. Bitte nennen Sie dazu den Monat und das Jahr, in dem Sie geboren wurden."
+     },
+     "en": {
+      "question": "The results of this survey will also be analysed for different age groups. For this, please state the month and the year in which you were born."
+     }
+    },
+    "config": {
+     "parts": "month",
+     "span": "past",
+     "year_min": null,
+     "year_max": null,
+     "minute_step": 5,
+     "dont_know": false
+    }
+   }
+  },
+  {
+   "key": "ratswd_ges1",
+   "seed_version": 1,
+   "name": "Geschlecht (RatSWD GES_1)",
+   "status": "review",
+   "short": "Männlich, weiblich, divers",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016), mit „divers“ als dritter Antwort wie im Personenstandsgesetz. Für Geschlechtsidentität mit Selbstbeschreibung gibt es das Konstrukt „Geschlecht“ nach Spiel et al. (2019).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = männlich, 2 = weiblich, 3 = divers; gleiche Codes wie KonsortSWD x_sex.",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Gender",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "GES_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Welches Geschlecht haben Sie?",
+      "options": {
+       "o1": "männlich",
+       "o2": "weiblich",
+       "o3": "divers"
+      }
+     },
+     "en": {
+      "question": "What is your sex?",
+      "options": {
+       "o1": "male",
+       "o2": "female",
+       "o3": "diverse"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_bil1",
+   "seed_version": 1,
+   "name": "Höchster Schulabschluss (RatSWD BIL_1)",
+   "status": "review",
+   "short": "Vier Stufen von „kein Abschluss“ bis Abitur",
+   "description": "Minimalversion des RatSWD-Standardfragenkatalogs (2023), mit KonsortSWD entwickelt und vorgetestet. Höchster allgemeinbildender Schulabschluss in vier Stufen.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 bis 4 aufsteigend. −1 = weiß nicht (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Bildung",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "BIL_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "4"
+      },
+      {
+       "id": "o5",
+       "code": "-1",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Welchen höchsten allgemeinbildenden Schulabschluss haben Sie?\n<small>Hinweis: Personen mit ausländischen Bildungsabschlüssen sollen sich den Kategorien 2, 3 oder 4 zuordnen.</small>",
+      "options": {
+       "o1": "(Noch) kein Schulabschluss",
+       "o2": "Hauptschulabschluss (Volksschulabschluss) oder gleichwertiger Abschluss, Polytechnische Oberschule der DDR mit Abschluss der 8. oder 9. Klasse",
+       "o3": "Realschulabschluss (Mittlere Reife) oder gleichwertiger Abschluss, Polytechnische Oberschule der DDR mit Abschluss der 10. Klasse",
+       "o4": "(Fach-)Hochschulreife/Abitur (auch EOS oder EOS mit Lehre)",
+       "o5": "Weiß nicht"
+      }
+     },
+     "en": {
+      "question": "What is your highest general school-leaving qualification?\n<small>Note: people with qualifications from abroad should choose category 2, 3 or 4.</small>",
+      "options": {
+       "o1": "No school-leaving qualification (yet)",
+       "o2": "Lower secondary school certificate (Hauptschulabschluss, Volksschulabschluss) or equivalent, GDR polytechnic secondary school completed after grade 8 or 9",
+       "o3": "Intermediate school certificate (Realschulabschluss, Mittlere Reife) or equivalent, GDR polytechnic secondary school completed after grade 10",
+       "o4": "Entrance qualification for universities of applied sciences or universities (Fachhochschulreife, Abitur; also EOS or EOS with apprenticeship)",
+       "o5": "Don't know"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_bil4",
+   "seed_version": 1,
+   "name": "Höchster Ausbildungsabschluss (RatSWD BIL_4)",
+   "status": "review",
+   "short": "Acht Stufen von „kein Abschluss“ bis Promotion",
+   "description": "Minimalversion des RatSWD-Standardfragenkatalogs (2023), mit KonsortSWD entwickelt und vorgetestet. Höchster beruflicher oder Hochschulabschluss in acht Stufen. Im Katalog gefiltert: nur wer nicht mehr zur Schule geht.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 bis 8 aufsteigend. −1 = weiß nicht (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Bildung",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "BIL_4",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "4"
+      },
+      {
+       "id": "o5",
+       "code": "5"
+      },
+      {
+       "id": "o6",
+       "code": "6"
+      },
+      {
+       "id": "o7",
+       "code": "7"
+      },
+      {
+       "id": "o8",
+       "code": "8"
+      },
+      {
+       "id": "o9",
+       "code": "-1",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Welchen höchsten Ausbildungsabschluss bzw. Hochschulabschluss haben Sie?\n<small>Hinweis: Personen mit ausländischen Bildungsabschlüssen sollen sich den Kategorien 2 bis 8 zuordnen.</small>",
+      "options": {
+       "o1": "(Noch) kein beruflicher Abschluss",
+       "o2": "Abschluss einer einjährigen Ausbildung an einer Schule des Gesundheitswesens, Vorbereitungsdienst für den mittleren Dienst in der öffentlichen Verwaltung",
+       "o3": "Abschluss einer zwei- bis dreijährigen Ausbildung an einer Schule des Gesundheitswesens",
+       "o4": "Abgeschlossene Berufsausbildung (Lehre) oder berufsqualifizierender Abschluss einer Berufsfachschule oder Kollegschule",
+       "o5": "Abschluss einer Ausbildung zum Erzieher/zur Erzieherin, einer Fach-, Meister- oder Technikerschule, Verwaltungs- und Wirtschaftsakademie oder Fachakademie, auch Fachschule der DDR",
+       "o6": "Diplom einer Berufsakademie oder FH, Bachelor",
+       "o7": "Diplom einer Universität, Master, Magister, Staatsexamen",
+       "o8": "Promotion",
+       "o9": "Weiß nicht"
+      }
+     },
+     "en": {
+      "question": "What is your highest vocational or university qualification?\n<small>Note: people with qualifications from abroad should choose one of the categories 2 to 8.</small>",
+      "options": {
+       "o1": "No vocational qualification (yet)",
+       "o2": "One-year training at a school for health care professions, preparatory service for the intermediate civil service",
+       "o3": "Two- to three-year training at a school for health care professions",
+       "o4": "Completed vocational training (apprenticeship) or vocational qualification from a full-time vocational school (Berufsfachschule, Kollegschule)",
+       "o5": "Qualification as a nursery teacher, from a technical college, master craftsman or technician school, academy of administration and economics or Fachakademie, also a GDR Fachschule",
+       "o6": "Diploma from a university of cooperative education or university of applied sciences, bachelor's degree",
+       "o7": "University diploma, master's degree, Magister, state examination",
+       "o8": "Doctorate",
+       "o9": "Don't know"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_erw1",
+   "seed_version": 1,
+   "name": "Erwerbssituation (RatSWD ERW_1)",
+   "status": "review",
+   "short": "Hauptstatus in neun Kategorien",
+   "description": "Minimalversion des RatSWD-Standardfragenkatalogs (2023), mit KonsortSWD entwickelt und vorgetestet. Derzeitige Situation (Hauptstatus): erwerbstätig in Vollzeit oder Teilzeit oder sieben Gründe, hauptberuflich nicht erwerbstätig zu sein, mit Textfeld für „aus anderen Gründen“.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 bis 9 wie im Katalog; Text zu 9 in einer eigenen Spalte. Daraus KonsortSWD x_mainstatus. −1 = weiß nicht (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Erwerbstätigkeit",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "ERW_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "4"
+      },
+      {
+       "id": "o5",
+       "code": "5"
+      },
+      {
+       "id": "o6",
+       "code": "6"
+      },
+      {
+       "id": "o7",
+       "code": "7"
+      },
+      {
+       "id": "o8",
+       "code": "8"
+      },
+      {
+       "id": "o9",
+       "code": "9",
+       "text": true
+      },
+      {
+       "id": "o10",
+       "code": "-1",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Bitte geben Sie an, was am ehesten auf Ihre jetzige Situation zutrifft.\n<small>Hinweis: Nur eine Nennung möglich.</small>",
+      "options": {
+       "o1": "Hauptberuflich erwerbstätig, Vollzeit",
+       "o2": "Hauptberuflich erwerbstätig, Teilzeit",
+       "o3": "Schüler/-in, Student/-in",
+       "o4": "Altersrente, Pensionär/-in",
+       "o5": "Dauerhaft erwerbsunfähig",
+       "o6": "Hausarbeit, Betreuung von Kindern oder anderen Personen (Hausfrau / Hausmann)",
+       "o7": "Zurzeit arbeitslos / auf Arbeitssuche",
+       "o8": "Freiwilliger Wehrdienst, Bundesfreiwilligendienst, FSJ, FÖJ",
+       "o9": "Aus anderen Gründen aktuell nicht (hauptberuflich) erwerbstätig, und zwar:",
+       "o10": "Weiß nicht"
+      }
+     },
+     "en": {
+      "question": "Please state what best describes your current situation.\n<small>Note: only one answer possible.</small>",
+      "options": {
+       "o1": "Employed in main job, full time",
+       "o2": "Employed in main job, part time",
+       "o3": "Pupil, student",
+       "o4": "Old-age pension, retired civil servant",
+       "o5": "Permanently unable to work",
+       "o6": "Housework, caring for children or other people (housewife / househusband)",
+       "o7": "Currently unemployed / looking for work",
+       "o8": "Voluntary military service, Federal Volunteer Service, voluntary social or ecological year (FSJ, FÖJ)",
+       "o9": "Currently not employed (in a main job) for other reasons, namely:",
+       "o10": "Don't know"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_erw2",
+   "seed_version": 1,
+   "name": "Nebenerwerbstätigkeit (RatSWD ERW_2)",
+   "status": "review",
+   "short": "Bezahlter Nebenjob: ja oder nein",
+   "description": "Minimalversion des RatSWD-Standardfragenkatalogs (2023), mit KonsortSWD entwickelt und vorgetestet. Folgefrage zu ERW_1: im Katalog nur für alle, die hauptberuflich nicht erwerbstätig sind (ERW_1 = 3 bis 9).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = ja, 2 = nein. −1 = weiß nicht (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Erwerbstätigkeit",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "ERW_2",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "-1",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Gehen Sie nebenher einer bezahlten Erwerbstätigkeit (Minijob, Aushilfstätigkeit) nach?",
+      "options": {
+       "o1": "Ja",
+       "o2": "Nein",
+       "o3": "Weiß nicht"
+      }
+     },
+     "en": {
+      "question": "Do you have a paid side job (mini-job, casual work)?",
+      "options": {
+       "o1": "Yes",
+       "o2": "No",
+       "o3": "Don't know"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_ber1",
+   "seed_version": 1,
+   "name": "Berufliche Tätigkeit (RatSWD BER_1)",
+   "status": "review",
+   "short": "Offene Angabe der Tätigkeit",
+   "description": "Minimalversion des RatSWD-Standardfragenkatalogs (2023), mit KonsortSWD entwickelt und vorgetestet. Aus den Demographischen Standards (2016) mit dem Hinweis zur genauen Tätigkeitsbezeichnung aus dem SOEP. Im Katalog gefiltert: nur wer heute oder früher erwerbstätig ist oder in Ausbildung.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "Freitext; für ISCO-08 oder KldB 2010 nachträglich zu codieren. Die Codes −1 (weiß nicht) und −3 (trifft nicht zu) des Katalogs entfallen: Ein leeres Feld zählt als fehlend.",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Beruf",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "text_input",
+    "code": "BER_1",
+    "texts": {
+     "de": {
+      "question": "Welche berufliche Tätigkeit üben Sie derzeit hauptsächlich aus? Wenn Sie nicht mehr erwerbstätig sind, welche Tätigkeit haben Sie bei Ihrer früheren hauptsächlichen Erwerbstätigkeit zuletzt ausgeübt?\n<small>Hinweis: Bitte geben Sie die genaue Tätigkeitsbezeichnung an, also z. B. nicht „kaufmännische Angestellte“, sondern: „Speditionskauffrau“, nicht „Arbeiter“, sondern: „Maschinenschlosser“. Wenn Sie Beamter sind, geben Sie bitte Ihre Amtsbezeichnung an, z. B. „Polizeimeister“, oder „Studienrat“. Wenn Sie Auszubildender sind, geben Sie bitte Ihren Ausbildungsberuf an.</small>",
+      "prefix": "",
+      "suffix": "",
+      "validation_message": ""
+     },
+     "en": {
+      "question": "What is your main occupation at present? If you are no longer employed, what occupation did you last have in your former main employment?\n<small>Note: please give the exact job title, e.g. not “clerk” but “freight forwarding clerk”, not “worker” but “machine fitter”. If you are a civil servant, please give your official title, e.g. “police sergeant” or “secondary school teacher”. If you are an apprentice, please give the occupation you are training for.</small>",
+      "prefix": "",
+      "suffix": "",
+      "validation_message": ""
+     }
+    },
+    "config": {
+     "multiline": false,
+     "max_length": 300,
+     "validation": "none",
+     "min": null,
+     "max": null,
+     "pattern": ""
+    }
+   }
+  },
+  {
+   "key": "ratswd_ste1",
+   "seed_version": 1,
+   "name": "Stellung im Beruf (RatSWD STE_1)",
+   "status": "review",
+   "short": "Zehn Oberkategorien der beruflichen Stellung",
+   "description": "Minimalversion des RatSWD-Standardfragenkatalogs (2023), mit KonsortSWD entwickelt und vorgetestet. Nur die Oberkategorien der Demographischen Standards (2016). Im Katalog gefiltert wie BER_1.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 bis 10 wie im Katalog. −1 = weiß nicht (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Beruf",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "STE_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "4"
+      },
+      {
+       "id": "o5",
+       "code": "5"
+      },
+      {
+       "id": "o6",
+       "code": "6"
+      },
+      {
+       "id": "o7",
+       "code": "7"
+      },
+      {
+       "id": "o8",
+       "code": "8"
+      },
+      {
+       "id": "o9",
+       "code": "9"
+      },
+      {
+       "id": "o10",
+       "code": "10"
+      },
+      {
+       "id": "o11",
+       "code": "-1",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Welche berufliche Stellung haben oder hatten Sie in ihrer hauptsächlich ausgeübten Erwerbstätigkeit?",
+      "options": {
+       "o1": "Selbstständige/-r Landwirt/-in",
+       "o2": "Genossenschaftsbauer/-bäuerin (ehemals LPG) in der ehem. DDR",
+       "o3": "Akademiker/-in in freiem Beruf (Arzt/Ärztin, Rechtsanwalt/ -anwältin, Steuerberater/-in u. Ä.)",
+       "o4": "Selbstständige/-r im Handel, im Gastgewerbe, in der Industrie, in der Dienstleistung, auch in einer Ich-AG",
+       "o5": "Mitglied einer PGH in der ehem. DDR",
+       "o6": "Beamter/Beamtin, Richter/-in, Berufssoldat/-in",
+       "o7": "Angestellte/-r",
+       "o8": "Arbeiter/-in",
+       "o9": "In einer beruflichen Ausbildung/Lehre",
+       "o10": "Mithelfende/-r Familienangehörige/-r",
+       "o11": "Weiß nicht"
+      }
+     },
+     "en": {
+      "question": "What is or was your occupational status in your main employment?",
+      "options": {
+       "o1": "Self-employed farmer",
+       "o2": "Member of an agricultural cooperative (formerly LPG) in the former GDR",
+       "o3": "Self-employed professional (doctor, lawyer, tax adviser and the like)",
+       "o4": "Self-employed in trade, hospitality, industry or services, also as a sole trader (Ich-AG)",
+       "o5": "Member of a craftsmen's cooperative (PGH) in the former GDR",
+       "o6": "Civil servant, judge, professional soldier",
+       "o7": "Salaried employee",
+       "o8": "Manual worker",
+       "o9": "In vocational training/apprenticeship",
+       "o10": "Family member helping in the family business",
+       "o11": "Don't know"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_hne3",
+   "seed_version": 1,
+   "name": "Haushaltsnettoeinkommen grob (RatSWD HNE_3)",
+   "status": "review",
+   "short": "Drei Klassen: unter 1.500, bis 3.000, ab 3.000 Euro",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Geschlossene Frage mit „unfolding brackets“ nach NEPS (erste Frage); die Folgefragen HNE_4 bis HNE_6 teilen jede Klasse in drei. Der Katalog stellt sie nach der offenen Frage HNE_1; der Fragetext beginnt deshalb mit „Es würde uns schon helfen …“.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = unter 1.500 Euro, 2 = 1.500 bis unter 3.000 Euro, 3 = 3.000 Euro und mehr. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Einkommen",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "HNE_3",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o5",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Es würde uns schon helfen, wenn Sie sich zumindest grob einer der folgenden Kategorien zuordnen könnten. Beträgt Ihr monatliches Haushaltsnettoeinkommen weniger als 1.500 Euro, 1.500 bis unter 3.000 Euro oder 3.000 Euro und mehr im Monat?",
+      "options": {
+       "o1": "weniger als 1.500 Euro",
+       "o2": "1.500 bis unter 3.000 Euro",
+       "o3": "3.000 Euro und mehr",
+       "o4": "Weiß nicht",
+       "o5": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "It would already help us if you could place yourself at least roughly in one of the following categories. Is your monthly net household income less than 1,500 euros, 1,500 to under 3,000 euros or 3,000 euros or more per month?",
+      "options": {
+       "o1": "less than 1,500 euros",
+       "o2": "1,500 to under 3,000 euros",
+       "o3": "3,000 euros or more",
+       "o4": "Don't know",
+       "o5": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_hne4",
+   "seed_version": 1,
+   "name": "Haushaltsnettoeinkommen unter 1.500 Euro (RatSWD HNE_4)",
+   "status": "review",
+   "short": "Folgefrage: unter 500, bis 1.000, bis 1.500 Euro",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Folgefrage zu HNE_3 = 1.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = unter 500 Euro, 2 = 500 bis unter 1.000 Euro, 3 = 1.000 bis unter 1.500 Euro. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Einkommen",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "HNE_4",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o5",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Können Sie mir jetzt noch sagen, ob es weniger als 500 Euro, 500 bis unter 1.000 Euro oder 1.000 Euro und mehr im Monat beträgt?",
+      "options": {
+       "o1": "weniger als 500 Euro",
+       "o2": "500 bis unter 1.000 Euro",
+       "o3": "1.000 Euro bis unter 1.500 Euro",
+       "o4": "Weiß nicht",
+       "o5": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Can you now also tell me whether it is less than 500 euros, 500 to under 1,000 euros or 1,000 euros or more per month?",
+      "options": {
+       "o1": "less than 500 euros",
+       "o2": "500 to under 1,000 euros",
+       "o3": "1,000 euros to under 1,500 euros",
+       "o4": "Don't know",
+       "o5": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_hne5",
+   "seed_version": 1,
+   "name": "Haushaltsnettoeinkommen 1.500 bis 3.000 Euro (RatSWD HNE_5)",
+   "status": "review",
+   "short": "Folgefrage: bis 2.000, bis 2.500, bis 3.000 Euro",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Folgefrage zu HNE_3 = 2.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = 1.500 bis unter 2.000 Euro, 2 = 2.000 bis unter 2.500 Euro, 3 = 2.500 bis unter 3.000 Euro. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Einkommen",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "HNE_5",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o5",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Können Sie mir jetzt noch sagen, ob es weniger als 2.000 Euro, 2.000 bis unter 2.500 Euro oder 2.500 Euro und mehr im Monat beträgt?",
+      "options": {
+       "o1": "1.500 bis unter 2.000 Euro",
+       "o2": "2.000 bis unter 2.500 Euro",
+       "o3": "2.500 Euro bis unter 3.000 Euro",
+       "o4": "Weiß nicht",
+       "o5": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Can you now also tell me whether it is less than 2,000 euros, 2,000 to under 2,500 euros or 2,500 euros or more per month?",
+      "options": {
+       "o1": "1,500 to under 2,000 euros",
+       "o2": "2,000 to under 2,500 euros",
+       "o3": "2,500 euros to under 3,000 euros",
+       "o4": "Don't know",
+       "o5": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_hne6",
+   "seed_version": 1,
+   "name": "Haushaltsnettoeinkommen ab 3.000 Euro (RatSWD HNE_6)",
+   "status": "review",
+   "short": "Folgefrage: bis 4.000, bis 5.000, ab 5.000 Euro",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Folgefrage zu HNE_3 = 3.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = 3.000 bis unter 4.000 Euro, 2 = 4.000 bis unter 5.000 Euro, 3 = 5.000 Euro und mehr. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Einkommen",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "HNE_6",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o5",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Können Sie mir jetzt noch sagen, ob es weniger als 4.000 Euro, 4.000 bis unter 5.000 Euro oder 5.000 Euro und mehr im Monat beträgt?",
+      "options": {
+       "o1": "3.000 bis unter 4.000 Euro",
+       "o2": "4.000 bis unter 5.000 Euro",
+       "o3": "5.000 Euro und mehr",
+       "o4": "Weiß nicht",
+       "o5": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Can you now also tell me whether it is less than 4,000 euros, 4,000 to under 5,000 euros or 5,000 euros or more per month?",
+      "options": {
+       "o1": "3,000 to under 4,000 euros",
+       "o2": "4,000 to under 5,000 euros",
+       "o3": "5,000 euros or more",
+       "o4": "Don't know",
+       "o5": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_sta1",
+   "seed_version": 1,
+   "name": "Deutsche Staatsangehörigkeit (RatSWD STA_1)",
+   "status": "review",
+   "short": "Ja oder nein",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = ja, 2 = nein. Daraus KonsortSWD x_citsc. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Staatsangehörigkeit",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "STA_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o4",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Haben Sie die deutsche Staatsangehörigkeit?",
+      "options": {
+       "o1": "Ja",
+       "o2": "Nein",
+       "o3": "Weiß nicht",
+       "o4": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Do you have German citizenship?",
+      "options": {
+       "o1": "Yes",
+       "o2": "No",
+       "o3": "Don't know",
+       "o4": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_geb1",
+   "seed_version": 1,
+   "name": "In Deutschland geboren (RatSWD GEB_1)",
+   "status": "review",
+   "short": "Ja oder nein",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = ja, 2 = nein. Daraus KonsortSWD x_bornsc. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Migration",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "GEB_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o4",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Sind Sie in Deutschland geboren?",
+      "options": {
+       "o1": "Ja",
+       "o2": "Nein",
+       "o3": "Weiß nicht",
+       "o4": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Were you born in Germany?",
+      "options": {
+       "o1": "Yes",
+       "o2": "No",
+       "o3": "Don't know",
+       "o4": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_geb3",
+   "seed_version": 1,
+   "name": "Mutter in Deutschland geboren (RatSWD GEB_3)",
+   "status": "review",
+   "short": "Ja oder nein",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = ja, 2 = nein. Daraus KonsortSWD x_mbornsc. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung. Das Geburtsland der Eltern kann auf die ethnische Herkunft hindeuten (besondere Kategorie nach Art. 9 DSGVO): Ihre Einwilligungserklärung muss das abdecken.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Migration",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "GEB_3",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o4",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Ist Ihre Mutter in Deutschland geboren?",
+      "options": {
+       "o1": "Ja",
+       "o2": "Nein",
+       "o3": "Weiß nicht",
+       "o4": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Was your mother born in Germany?",
+      "options": {
+       "o1": "Yes",
+       "o2": "No",
+       "o3": "Don't know",
+       "o4": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_geb5",
+   "seed_version": 1,
+   "name": "Vater in Deutschland geboren (RatSWD GEB_5)",
+   "status": "review",
+   "short": "Ja oder nein",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016).",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = ja, 2 = nein. Daraus KonsortSWD x_fbornsc. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung. Das Geburtsland der Eltern kann auf die ethnische Herkunft hindeuten (besondere Kategorie nach Art. 9 DSGVO): Ihre Einwilligungserklärung muss das abdecken.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Migration",
+    "bezug:Person: stabil"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "GEB_5",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o4",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Ist Ihr Vater in Deutschland geboren?",
+      "options": {
+       "o1": "Ja",
+       "o2": "Nein",
+       "o3": "Weiß nicht",
+       "o4": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "Was your father born in Germany?",
+      "options": {
+       "o1": "Yes",
+       "o2": "No",
+       "o3": "Don't know",
+       "o4": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_hhg1",
+   "seed_version": 1,
+   "name": "Haushaltsgröße (RatSWD HHG_1)",
+   "status": "review",
+   "short": "Eine Person oder mehrere, mit Anzahl",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards (2016); die Anzahl bei „mehrere Personen“ steht im Textfeld.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = eine Person, 2 = mehrere Personen (Anzahl in der Textspalte). Daraus KonsortSWD x_hhsize. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Haushalt",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "HHG_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2",
+       "text": true
+      },
+      {
+       "id": "o3",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o4",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Wie viele Personen leben ständig in Ihrem Haushalt, Sie selbst eingeschlossen? Zu diesem Haushalt zählen alle Personen, die hier gemeinsam wohnen und wirtschaften.\n<small>Hinweis: Denken Sie dabei bitte auch an alle im Haushalt lebenden Kinder.</small>",
+      "options": {
+       "o1": "Eine Person",
+       "o2": "Mehrere Personen, und zwar:",
+       "o3": "Weiß nicht",
+       "o4": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "How many people live permanently in your household, including yourself? The household includes everyone who lives and keeps house together here.\n<small>Note: please also think of all children living in the household.</small>",
+      "options": {
+       "o1": "One person",
+       "o2": "Several people, namely:",
+       "o3": "Don't know",
+       "o4": "No answer"
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "ratswd_fam1",
+   "seed_version": 1,
+   "name": "Familienstand (RatSWD FAM_1)",
+   "status": "review",
+   "short": "Ledig, verheiratet, geschieden, verwitwet",
+   "description": "Basis-Merkmal des RatSWD-Standardfragenkatalogs (2023). Aus den Demographischen Standards nach zwei Pretests gekürzt; eine eingetragene Lebenspartnerschaft zählt wie eine Ehe.",
+   "authors": "RatSWD",
+   "year": 2023,
+   "citation": "Rat für Sozial- und Wirtschaftsdaten. (2023). Standardfragenkatalog zur Erhebung soziodemographischer und krisenbezogener Variablen (2. Aufl.; RatSWD Output Series, 7. Berufungsperiode Nr. 4b). RatSWD.",
+   "doi": "10.17620/02671.76",
+   "scoring": "1 = ledig, 2 = verheiratet, 3 = geschieden, 4 = verwitwet. Daraus KonsortSWD x_marital. −1 = weiß nicht, −2 = keine Angabe (fehlend).",
+   "notes": "Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar mit Quellenangabe; Änderungen kennzeichnen (das Codebuch nennt Abweichungen vom Wortlaut). „Weiß nicht“ (−1) und „Keine Angabe“ (−2) zählen als fehlend. Standardfrage: nicht Teil der gemeinsamen Auswertung der Konstrukte (Pool). Englische Fassung: inoffizielle Arbeitsübersetzung.",
+   "tags": [
+    "status:Standardfrage",
+    "quelle:RatSWD/KonsortSWD",
+    "art:Demografie",
+    "thema:Familienstand",
+    "bezug:Person: veränderlich"
+   ],
+   "spec": {
+    "type": "single_choice",
+    "code": "FAM_1",
+    "config": {
+     "options": [
+      {
+       "id": "o1",
+       "code": "1"
+      },
+      {
+       "id": "o2",
+       "code": "2"
+      },
+      {
+       "id": "o3",
+       "code": "3"
+      },
+      {
+       "id": "o4",
+       "code": "4"
+      },
+      {
+       "id": "o5",
+       "code": "-1",
+       "missing": true
+      },
+      {
+       "id": "o6",
+       "code": "-2",
+       "missing": true
+      }
+     ],
+     "layout": "vertical"
+    },
+    "texts": {
+     "de": {
+      "question": "Welchen Familienstand haben Sie?\n<small>Hinweis: Bitte behandeln Sie eine eingetragene Lebenspartnerschaft in dieser Frage wie eine Ehe.</small>",
+      "options": {
+       "o1": "Ledig, noch nie verheiratet gewesen",
+       "o2": "Verheiratet",
+       "o3": "Geschieden",
+       "o4": "Verwitwet",
+       "o5": "Weiß nicht",
+       "o6": "Keine Angabe"
+      }
+     },
+     "en": {
+      "question": "What is your marital status?\n<small>Note: please treat a registered civil partnership like a marriage in this question.</small>",
+      "options": {
+       "o1": "Single, never married",
+       "o2": "Married",
+       "o3": "Divorced",
+       "o4": "Widowed",
+       "o5": "Don't know",
+       "o6": "No answer"
+      }
+     }
+    }
+   }
+  }
+ ],
+ "seeds_en": {
+  "gender": {
+   "name": "Gender",
+   "short": "Female, male, diverse, self-description, prefer not to disclose",
+   "description": "Gender identity following the recommendations of Spiel et al. for more inclusive gender questions: female, male, diverse, “Prefer to self-describe:” with a text field, and “prefer not to disclose”. The self-description can be left out per element; that does not count as a deviation.",
+   "notes": "Own wording of Askurious following the recommendations of Spiel, Haimson & Lottridge (2019)."
+  },
+  "age": {
+   "name": "Age",
+   "short": "Age in years (whole number, 10–120)",
+   "description": "Age in whole years as free text with a number check (10 to 120), “years” after the field. Asked the same way everywhere so that surveys can be combined in a meta-analysis.",
+   "scoring": "Whole years; no recoding.",
+   "notes": "Own wording of Askurious."
+  },
+  "sorgfalt": {
+   "name": "Care taken in participating (self-report)",
+   "short": "One question at the end: should we use your answers? Yes or no",
+   "description": "Self-report on the participant's own participation, asked at the end of the survey. Anyone who answers “no” says they did not answer attentively. People who describe themselves as serious participants answer more consistently and with higher predictive validity (Aust et al., 2013). The page “Quality assurance” counts the “no” answers.",
+   "scoring": "1 = use the answers, 0 = do not use them; no recoding.",
+   "notes": "Own wording based on the self-report in Meade & Craig (2012) and the seriousness check in Aust et al. (2013), not an item taken word for word. The addition that the answer has no consequences (payment, prize draw) matters; otherwise nobody answers “no”."
+  },
+  "bfi10": {
+   "name": "Big Five Inventory (BFI-10)",
+   "short": "10 statements, 5 points; 2 items each for extraversion, agreeableness, conscientiousness, neuroticism, openness",
+   "description": "Ultra-short form of the Big Five Inventory for surveys with little time. Measures the five personality dimensions with one positively and one negatively keyed item each.",
+   "scoring": "Scale scores = mean per subscale (E: 1, 6; A: 2, 7; C: 3, 8; N: 4, 9; O: 5, 10); the negatively keyed items 1, 3, 4, 5 and 7 are already recoded in the export.",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. German wording checked against ZIS; English instruction and endpoints after Rammstedt & John (2007). The English items come from the Big Five Inventory (John, Donahue & Kentle, 1991; © Oliver P. John), free to use for non-commercial research."
+  },
+  "kut": {
+   "name": "Locus of control in dealing with technology (KUT)",
+   "short": "8 statements, 5 points; subjective control over technical devices",
+   "description": "Measures to what extent people believe they can solve technical problems through their own actions (internal) or feel at the mercy of technology.",
+   "scoring": "Scale score = mean of the 8 items; the reverse-coded items (2, 3, 5, 6) are already recoded in the export.",
+   "notes": "No general use or publication permission is documented for the wording or its translations. Stating “non-commercial research and teaching” alone does not replace rights evidence. New use requires operator-checked evidence covering the specific study, account and language version. Always cite the source. English version: unofficial working translation."
+  },
+  "asku": {
+   "name": "General Self-Efficacy Short Scale (ASKU)",
+   "short": "3 statements, 5 points; expectation of coping with difficulties on one's own",
+   "description": "Economical instrument measuring the individual expectation of being able to deal with difficulties and obstacles in daily life. McDonald's omega .81 to .87.",
+   "scoring": "Scale score = mean of the 3 items (1 to 5).",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. English version (a source of its own, terms: CC BY-NC-SA 4.0, adaptations only under the same licence): GSE-3: Doll, E. S., Nießen, D., Schmidt, I., Rammstedt, B., & Lechner, C. M. (2021). The General Self-Efficacy Short Scale-3 (GSE-3). ZIS. https://doi.org/10.6102/zis294"
+  },
+  "ie4": {
+   "name": "Internal-External Locus of Control 4 (IE-4)",
+   "short": "4 statements, 5 points; 2 items each for internal and external locus of control",
+   "description": "Short scale on locus of control: how much do people experience events as a result of their own actions (internal) or as fate, chance or determined by others (external)?",
+   "scoring": "Two scale scores: mean of items 1 and 2 (internal, IKÜ) and of items 3 and 4 (external, EKÜ); no reverse coding.",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. English version: Nießen, D., Schmidt, I., Groskurth, K., Rammstedt, B., & Lechner, C. M. (2022). The Internal–External Locus of Control Short Scale–4 (IE-4): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(7), e0271289. https://doi.org/10.1371/journal.pone.0271289; the article is licensed under CC BY 4.0, the ZIS terms apply to using the items."
+  },
+  "kusiv3": {
+   "name": "Interpersonal Trust Short Scale (KUSIV3)",
+   "short": "3 statements, 5 points; trust in other people as a personality trait",
+   "description": "Short scale measuring interpersonal trust with three items (about 30 seconds to answer).",
+   "scoring": "Scale score = mean of the 3 items; item 2 is worded negatively and already recoded in the export (Nießen et al., 2020).",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. English version: Nießen, D., Beierlein, C., Rammstedt, B., & Lechner, C. M. (2020). An English-language adaptation of the Interpersonal Trust Short Scale (KUSIV3). Measurement Instruments for the Social Sciences, 2, 10. https://doi.org/10.1186/s42409-020-00016-1; the article is licensed under CC BY 4.0, the ZIS terms apply to using the items."
+  },
+  "i8": {
+   "name": "Impulsive Behavior Short Scale–8 (I-8)",
+   "short": "8 statements, 5 points; urgency, premeditation, perseverance, sensation seeking",
+   "description": "Short scale on four facets of impulsive behaviour with two items each. High values on urgency and sensation seeking stand for high impulsivity, on premeditation and perseverance for low impulsivity.",
+   "scoring": "Four scale scores as the mean of two items each: urgency (Dringlichkeit; 1, 2), premeditation (Absicht; 3, 4), perseverance (Ausdauer; 5, 6), sensation seeking (Risikobereitschaft; 7, 8); no reverse coding.",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. English version: Groskurth, K., Nießen, D., Rammstedt, B., & Lechner, C. M. (2022). The Impulsive Behavior Short Scale–8 (I-8): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(9), e0273801. https://doi.org/10.1371/journal.pone.0273801; the article is licensed under CC BY 4.0, the ZIS terms apply to using the items."
+  },
+  "nfck": {
+   "name": "Need for Cognition Short Scale (NFC-K)",
+   "short": "4 statements, 7 points; enjoyment of and engagement in thinking",
+   "description": "Measures need for cognition with four items on the facets engagement and enjoyment. Suitable from adolescence on; Cronbach's alpha .51 to .54 (low with four items).",
+   "scoring": "Scale score = mean of the 4 items (1 to 7); items 1 and 4 are already recoded in the export.",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. German version only: ZIS documents no answer scale for the English items."
+  },
+  "tb": {
+   "name": "Technology Commitment Short Scale (TB)",
+   "short": "12 statements, 5 points; 4 items each for technology acceptance, technology competence beliefs and technology control beliefs",
+   "description": "Measures the readiness to deal with modern technology (technology commitment) through three facets. Usable in all age groups, developed especially for older adults. Cronbach's alpha .84 (technology acceptance), .84 (technology competence), .74 (technology control), whole scale .84.",
+   "scoring": "Three scale scores as the mean of four items each: technology acceptance (Technikakzeptanz, 1 to 4), technology competence beliefs (Technikkompetenzüberzeugungen, 5 to 8), technology control beliefs (Technikkontrollüberzeugungen, 9 to 12); the negatively keyed items 5 to 8 are already recoded in the export, so high values stand for high technology commitment throughout. According to ZIS, a total score over all 12 items is also permitted (described there as a sum score, values in the range 1 to 5).",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. German version only: ZIS documents no English items."
+  },
+  "r1": {
+   "name": "Risk Proneness Short Scale (R-1)",
+   "short": "1 question, 7 points; general tendency to take risks",
+   "description": "Measures risk proneness, the tendency to take or avoid risks, with a single question (under 20 seconds). Developed for the German-speaking general population aged 18 and over; retest reliability .74 (English version .76).",
+   "scoring": "Scale score = the answer to the one question (1 = not at all willing to take risks to 7 = very willing to take risks); no reverse coding. A single item has no internal consistency (no Cronbach's alpha).",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. The English version (zis286) is licensed under CC BY-NC-SA 4.0; adapted versions may be passed on only under the same licence. Only the endpoints of the scale are labelled."
+  },
+  "aub": {
+   "name": "General Environmental Awareness",
+   "short": "11 statements, 5 points; intrinsic and instrumental understanding of nature, nature as the basis of existence",
+   "description": "Measures environmental awareness as a general belief or world view in three dimensions. Developed with the survey “Umweltbewusstsein in Deutschland 1996” (environmental awareness in Germany 1996). Cronbach's alpha .46 (intrinsic understanding of nature), .61 (instrumental understanding of nature), .68 (nature as the basis of existence), so partly low.",
+   "scoring": "ZIS gives no scoring instructions. The reliabilities there refer to three dimensions: instrumental understanding of nature (items 1, 2, 4, 6), intrinsic understanding of nature (7, 8), nature as the basis of existence (9, 10, 11); here each as a mean. Items 3 and 5 load on two factors (intrinsic and basis of existence) and belong to no subscale. No reverse coding; a total score is not documented.",
+   "notes": "GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the documented one, ask the authors for permission. Cite the ZIS documentation as the source in all resulting work. German version only. Originally an oral interview with answer cards (hence “sagen Sie mir”, “tell me”) in two blocks: before items 9 to 11 the interviewer said “Jetzt noch ein paar weitere Aussagen. Bitte sagen Sie mir auch diesmal zu jeder Aussage, in welchem Maße Sie zustimmen.” (now a few more statements; again, please tell me for each statement how far you agree)."
+  },
+  "tam_pu": {
+   "name": "TAM: Perceived Usefulness",
+   "short": "6 statements, 7 points; Technology Acceptance Model (Davis, 1989)",
+   "description": "Degree to which a person believes that using a system improves their job performance. Core construct of the Technology Acceptance Model (TAM); reliability in the original .98.",
+   "scoring": "Scale score = mean of the 6 items (1 to 7); no reverse coding.",
+   "notes": "No general use or publication permission is documented for the wording or its translations. Stating “non-commercial research and teaching” alone does not replace rights evidence. New use requires operator-checked evidence covering the specific study, account and language version. Always cite the source. Replace “[System]” with the name of the technology (does not count as a change). English wording as published; the German version is an unofficial working translation. Davis (1989) used 7-point scales (likely/unlikely; in study 1 agree/disagree), with “likely” on the left in the original; here 1 = extremely unlikely, 7 = extremely likely."
+  },
+  "tam_peou": {
+   "name": "TAM: Perceived Ease of Use",
+   "short": "6 statements, 7 points; Technology Acceptance Model (Davis, 1989)",
+   "description": "Degree to which a person believes that using a system is free of effort. Core construct of the Technology Acceptance Model (TAM); reliability in the original .94.",
+   "scoring": "Scale score = mean of the 6 items (1 to 7); no reverse coding.",
+   "notes": "No general use or publication permission is documented for the wording or its translations. Stating “non-commercial research and teaching” alone does not replace rights evidence. New use requires operator-checked evidence covering the specific study, account and language version. Always cite the source. Replace “[System]” with the name of the technology (does not count as a change). English wording as published; the German version is an unofficial working translation. Davis (1989) used 7-point scales (likely/unlikely; in study 1 agree/disagree), with “likely” on the left in the original; here 1 = extremely unlikely, 7 = extremely likely."
+  },
+  "tam_bi": {
+   "name": "TAM: Behavioral Intention",
+   "short": "2 statements, 7 points; intention to use following TAM2 (Venkatesh & Davis, 2000)",
+   "description": "Intention to use a system; dependent variable in the extended Technology Acceptance Model (TAM2).",
+   "scoring": "Scale score = mean of the 2 items (1 to 7).",
+   "notes": "No general use or publication permission is documented for the wording or its translations. Stating “non-commercial research and teaching” alone does not replace rights evidence. New use requires operator-checked evidence covering the specific study, account and language version. Always cite the source. Replace “[System]” with the name of the technology (does not count as a change). English wording as published; the German version is an unofficial working translation."
+  },
+  "kuk": {
+   "name": "Locus of control in cooking",
+   "short": "10 statements, 6 points; self-assessment as a cook",
+   "description": "Measures how confident and competent a person feels when cooking: overwhelmed or in command, enjoying trying things out, recognition from others. Used in a study on the acceptance of serious games for cognitive training in ambient assisted living.",
+   "scoring": "Scale score = mean of the 10 items (1 to 6); the negatively worded items 1, 5 and 9 are already recoded in the export, so high values stand for a strong sense of control in cooking.",
+   "notes": "The wording is printed in the chapter of the source (© 2015 IFIP) and is not openly licensed; only installations entitled to it hold it. Always cite the source. English version: translation for Askurious, approved by the authors as a version of the scale."
+  },
+  "kamb": {
+   "name": "Cognitive and Affective Media Evaluation Scale",
+   "short": "8 word pairs, 6 points; affective and cognitive evaluation of a media item",
+   "description": "Measures how a media item (e.g. a newspaper article) is perceived, in two dimensions: affective (negative – positive, boring – interesting, cold-hearted – warm-hearted, reassuring – frightening) and cognitive (professional – amateurish, confusing – understandable, convincing – doubtful, neutral – biased). Developed as a manipulation check for framing experiments; positively and negatively framed articles differed clearly, most strongly on the affective dimension.",
+   "scoring": "Two scale scores as the mean of four pairs each (1 to 6): affective (pairs 2, 5, 6, 8) and cognitive (1, 3, 4, 7). The pairs with the positive pole on the left (1, 4, 5, 7) are already recoded in the export; high values stand for a positive evaluation throughout. Cronbach's alpha in the study's public, unfiltered data (n = 1512, own calculation): affective .71, cognitive .68, all eight pairs .78.",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use and adapt with attribution and a note of changes. German wording and polarity as collected (variable labels of the published data on OSF). English pairs from the publication, English instruction translated. Adapt “the article” in the instruction to the medium (e.g. “the video”). Pairs in random order as in the original."
+  },
+  "fitai": {
+   "name": "Foil & Target Instrument for AI Literacy (FITAI)",
+   "short": "12 statements, 5 points; AI knowledge: 6 true statements (targets), 6 invented ones (foils)",
+   "description": "Measures AI knowledge (AI literacy) with statements about artificial intelligence to be judged as true or not: six factually correct ones (targets, e.g. hallucinations, context window, RLHF) and six plausible-sounding but invented ones (foils, e.g. “digital osmosis”, “recursive hardware healing”). The foils separate real knowledge from mere acquiescence and overconfidence.",
+   "scoring": "Scale score = mean of the 12 items (1 to 5); the foils (items 7 to 12) are already recoded in the export, so high values stand for correct knowledge throughout. Subscales: target (items 1 to 6, agreeing with what is correct) and foil (items 7 to 12, rejecting what is invented); their difference shows acquiescence.",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use and adapt with attribution and a note of changes. Statements in the original wording; the instruction is rephrased without a form of address (original: “Im Folgenden findest du … Bitte beurteile, inwieweit die Aussagen deiner Einschätzung nach zutreffen.”) so that it fits both “Sie” and “du”. English version: translation for Askurious, approved by the authors. Only the endpoints are labelled. Statements in random order."
+  },
+  "gdms": {
+   "name": "General Decision-Making Style (GDMS)",
+   "short": "25 statements, 5 points; five decision-making styles: rational, intuitive, dependent, avoidant, spontaneous",
+   "description": "Measures how a person usually makes important decisions, in five styles with five items each: rational (searching for information, weighing options logically), intuitive (feelings and hunches), dependent (advice and support of others), avoidant (putting decisions off) and spontaneous (quick, on the spur of the moment). The styles do not exclude each other; most people use several. Internal consistency in the original .68 to .94.",
+   "scoring": "Five scale scores as the mean of five items each (1 to 5): rational (items 1, 6, 11, 16, 21), intuitive (2, 7, 12, 17, 22), dependent (3, 8, 13, 18, 23), avoidant (4, 9, 14, 19, 24), spontaneous (5, 10, 15, 20, 25). No reversed items; no total score, the styles are analysed separately.",
+   "notes": "© 1995 SAGE Publications. Record in APA PsycTests: https://doi.org/10.1037/t08399-000. New use and catalogue access require documented, operator-checked permission covering the account, study and language version. Signing in alone is insufficient; no general distribution. Always cite the source. English only: there is no validated German version of the full scale (Fischer, Soyez & Gurtner, 2015, validated a 13-item version for patient decisions, which is not the same scale); a translation of your own is not validated. Only the endpoints are labelled (original: 5 points from “strongly disagree” to “strongly agree”). Statements in random order; in the original the styles take turns."
+  },
+  "ati": {
+   "name": "Affinity for Technology Interaction (ATI)",
+   "short": "9 statements, 6 points; tendency to engage actively and intensively with technical systems",
+   "description": "Measures affinity for technology interaction: whether a person likes to engage with technical systems (apps, software, digital devices) in depth or rather avoids it. Meant as a personal resource for coping with technology, rooted in need for cognition. One dimension; good to excellent reliability in several studies with more than 1500 people in total. Often used to describe samples in user studies. Validated in German and English.",
+   "scoring": "Scale score = mean of the 9 items (1 to 6); the negatively worded items 3, 6 and 8 are already recoded in the export, so high values stand for high affinity. The authors recommend reporting mean, standard deviation and Cronbach's alpha with two decimals.",
+   "notes": "Free to use according to the authors (ati-scale.org, “Conditions of Use”: “The scale is free to use”); they ask to cite the scale and welcome a short message on its use (ati@imis.uni-luebeck.de). No open licence to pass the wording on is stated, so it is not in the public code. German and English version worded as in the scale sheets on ati-scale.org (2022-02-25), all six points labelled. The original keeps the statements in a fixed order; here random, can be switched off in the editor. A 4-item short version (ATI-S) also exists."
+  },
+  "ratswd_alt1": {
+   "name": "Month and year of birth (RatSWD ALT_1)",
+   "short": "Month and year of birth, chosen from lists",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016) with a slightly changed question; as the element “Date / time” in the mode “Month and year” (lists instead of typing, as the catalogue recommends for computer-assisted surveys).",
+   "scoring": "YYYY-MM (ISO 8601). Gives KonsortSWD x_doby (year) and x_age (age in completed years).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation. Month and year of birth, together with federal state, household size or occupation, can make people recognisable in small samples; then publish only the year of birth or age groups."
+  },
+  "ratswd_ges1": {
+   "name": "Sex (RatSWD GES_1)",
+   "short": "Male, female, diverse",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016), with “divers” as a third answer as in the German civil status law. For gender identity with self-description there is the construct “Gender” after Spiel et al. (2019).",
+   "scoring": "1 = male, 2 = female, 3 = diverse; the same codes as KonsortSWD x_sex.",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_bil1": {
+   "name": "Highest school-leaving qualification (RatSWD BIL_1)",
+   "short": "Four levels from “none” to Abitur",
+   "description": "Minimal version of the RatSWD catalogue of standard questions (2023), developed with KonsortSWD and pretested. Highest general school-leaving qualification in four levels.",
+   "scoring": "1 to 4 ascending. −1 = don't know (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_bil4": {
+   "name": "Highest vocational qualification (RatSWD BIL_4)",
+   "short": "Eight levels from “none” to doctorate",
+   "description": "Minimal version of the RatSWD catalogue of standard questions (2023), developed with KonsortSWD and pretested. Highest vocational or university qualification in eight levels. Filtered in the catalogue: only for people no longer at school.",
+   "scoring": "1 to 8 ascending. −1 = don't know (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_erw1": {
+   "name": "Employment situation (RatSWD ERW_1)",
+   "short": "Main status in nine categories",
+   "description": "Minimal version of the RatSWD catalogue of standard questions (2023), developed with KonsortSWD and pretested. Current situation (main status): employed full or part time, or seven reasons for not being employed in a main job, with a text field for “other reasons”.",
+   "scoring": "1 to 9 as in the catalogue; the text for 9 in a column of its own. Gives KonsortSWD x_mainstatus. −1 = don't know (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_erw2": {
+   "name": "Side job (RatSWD ERW_2)",
+   "short": "Paid side job: yes or no",
+   "description": "Minimal version of the RatSWD catalogue of standard questions (2023), developed with KonsortSWD and pretested. Follow-up to ERW_1: in the catalogue only for those not employed in a main job (ERW_1 = 3 to 9).",
+   "scoring": "1 = yes, 2 = no. −1 = don't know (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_ber1": {
+   "name": "Occupation (RatSWD BER_1)",
+   "short": "Occupation as free text",
+   "description": "Minimal version of the RatSWD catalogue of standard questions (2023), developed with KonsortSWD and pretested. From the Demographische Standards (2016) with the SOEP note on the exact job title. Filtered in the catalogue: only people employed now or before, or in training.",
+   "scoring": "Free text; to be coded into ISCO-08 or KldB 2010 afterwards. The catalogue's codes −1 (don't know) and −3 (not applicable) are left out: an empty field counts as missing.",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_ste1": {
+   "name": "Occupational status (RatSWD STE_1)",
+   "short": "Ten main categories of occupational status",
+   "description": "Minimal version of the RatSWD catalogue of standard questions (2023), developed with KonsortSWD and pretested. Only the main categories of the Demographische Standards (2016). Filtered in the catalogue as BER_1.",
+   "scoring": "1 to 10 as in the catalogue. −1 = don't know (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_hne3": {
+   "name": "Household net income, rough (RatSWD HNE_3)",
+   "short": "Three classes: under 1,500, to 3,000, from 3,000 euros",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). Closed question with unfolding brackets after NEPS (first question); the follow-ups HNE_4 to HNE_6 split each class into three. The catalogue asks it after the open question HNE_1, so the question starts with “It would already help us …”.",
+   "scoring": "1 = under 1,500 euros, 2 = 1,500 to under 3,000 euros, 3 = 3,000 euros or more. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_hne4": {
+   "name": "Household net income under 1,500 euros (RatSWD HNE_4)",
+   "short": "Follow-up: under 500, to 1,000, to 1,500 euros",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). Follow-up to HNE_3 = 1.",
+   "scoring": "1 = under 500 euros, 2 = 500 to under 1,000 euros, 3 = 1,000 to under 1,500 euros. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_hne5": {
+   "name": "Household net income 1,500 to 3,000 euros (RatSWD HNE_5)",
+   "short": "Follow-up: to 2,000, to 2,500, to 3,000 euros",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). Follow-up to HNE_3 = 2.",
+   "scoring": "1 = 1,500 to under 2,000 euros, 2 = 2,000 to under 2,500 euros, 3 = 2,500 to under 3,000 euros. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_hne6": {
+   "name": "Household net income from 3,000 euros (RatSWD HNE_6)",
+   "short": "Follow-up: to 4,000, to 5,000, from 5,000 euros",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). Follow-up to HNE_3 = 3.",
+   "scoring": "1 = 3,000 to under 4,000 euros, 2 = 4,000 to under 5,000 euros, 3 = 5,000 euros or more. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_sta1": {
+   "name": "German citizenship (RatSWD STA_1)",
+   "short": "Yes or no",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016).",
+   "scoring": "1 = yes, 2 = no. Gives KonsortSWD x_citsc. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_geb1": {
+   "name": "Born in Germany (RatSWD GEB_1)",
+   "short": "Yes or no",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016).",
+   "scoring": "1 = yes, 2 = no. Gives KonsortSWD x_bornsc. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_geb3": {
+   "name": "Mother born in Germany (RatSWD GEB_3)",
+   "short": "Yes or no",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016).",
+   "scoring": "1 = yes, 2 = no. Gives KonsortSWD x_mbornsc. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation. The parents' country of birth can point to ethnic origin (special category under Art. 9 GDPR): your consent must cover it."
+  },
+  "ratswd_geb5": {
+   "name": "Father born in Germany (RatSWD GEB_5)",
+   "short": "Yes or no",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016).",
+   "scoring": "1 = yes, 2 = no. Gives KonsortSWD x_fbornsc. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation. The parents' country of birth can point to ethnic origin (special category under Art. 9 GDPR): your consent must cover it."
+  },
+  "ratswd_hhg1": {
+   "name": "Household size (RatSWD HHG_1)",
+   "short": "One person or several, with the number",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards (2016); the number for “several people” is typed into the text field.",
+   "scoring": "1 = one person, 2 = several people (number in the text column). Gives KonsortSWD x_hhsize. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  },
+  "ratswd_fam1": {
+   "name": "Marital status (RatSWD FAM_1)",
+   "short": "Single, married, divorced, widowed",
+   "description": "Basic characteristic of the RatSWD catalogue of standard questions (2023). From the Demographische Standards, shortened after two pretests; a registered civil partnership counts as a marriage.",
+   "scoring": "1 = single, 2 = married, 3 = divorced, 4 = widowed. Gives KonsortSWD x_marital. −1 = don't know, −2 = no answer (missing).",
+   "notes": "Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use with attribution; mark changes (the codebook lists deviations from the wording). “Don't know” (−1) and “No answer” (−2) count as missing. Standard question: not part of the pooled analysis of the constructs (pool). English version: unofficial working translation."
+  }
+ },
+ "ratswd_keys": [
+  "ratswd_alt1",
+  "ratswd_ges1",
+  "ratswd_bil1",
+  "ratswd_bil4",
+  "ratswd_erw1",
+  "ratswd_erw2",
+  "ratswd_ber1",
+  "ratswd_ste1",
+  "ratswd_hne3",
+  "ratswd_hne4",
+  "ratswd_hne5",
+  "ratswd_hne6",
+  "ratswd_sta1",
+  "ratswd_geb1",
+  "ratswd_geb3",
+  "ratswd_geb5",
+  "ratswd_hhg1",
+  "ratswd_fam1"
+ ],
+ "reference": {
+  "gender": "Person: stabil",
+  "age": "Person: stabil",
+  "bfi10": "Person: stabil",
+  "kut": "Person: stabil",
+  "asku": "Person: stabil",
+  "ie4": "Person: stabil",
+  "kusiv3": "Person: stabil",
+  "i8": "Person: stabil",
+  "nfck": "Person: stabil",
+  "tb": "Person: stabil",
+  "r1": "Person: stabil",
+  "kuk": "Person: stabil",
+  "aub": "Person: veränderlich",
+  "sorgfalt": "Person: veränderlich",
+  "fitai": "Person: veränderlich",
+  "tam_pu": "Gegenstand",
+  "tam_peou": "Gegenstand",
+  "tam_bi": "Gegenstand",
+  "kamb": "Gegenstand",
+  "gdms": "Person: stabil",
+  "ati": "Person: stabil",
+  "ratswd_alt1": "Person: stabil",
+  "ratswd_ges1": "Person: stabil",
+  "ratswd_bil1": "Person: veränderlich",
+  "ratswd_bil4": "Person: veränderlich",
+  "ratswd_erw1": "Person: veränderlich",
+  "ratswd_erw2": "Person: veränderlich",
+  "ratswd_ber1": "Person: veränderlich",
+  "ratswd_ste1": "Person: veränderlich",
+  "ratswd_hne3": "Person: veränderlich",
+  "ratswd_hne4": "Person: veränderlich",
+  "ratswd_hne5": "Person: veränderlich",
+  "ratswd_hne6": "Person: veränderlich",
+  "ratswd_sta1": "Person: veränderlich",
+  "ratswd_geb1": "Person: stabil",
+  "ratswd_geb3": "Person: stabil",
+  "ratswd_geb5": "Person: stabil",
+  "ratswd_hhg1": "Person: veränderlich",
+  "ratswd_fam1": "Person: veränderlich"
+ },
+ "own_wording": [
+  "age",
+  "fitai",
+  "kamb",
+  "sorgfalt"
+ ],
+ "zis": [
+  "asku",
+  "aub",
+  "bfi10",
+  "i8",
+  "ie4",
+  "kusiv3",
+  "nfck",
+  "r1",
+  "tb"
+ ],
+ "permission_required": [
+  "gdms",
+  "kuk",
+  "kut",
+  "tam_bi",
+  "tam_peou",
+  "tam_pu"
+ ],
+ "not_shared": [
+  "gdms",
+  "kuk",
+  "kut",
+  "tam_bi",
+  "tam_peou",
+  "tam_pu"
+ ],
+ "working_langs": {
+  "kut": [
+   "en"
+  ],
+  "tam_pu": [
+   "de"
+  ],
+  "tam_peou": [
+   "de"
+  ],
+  "tam_bi": [
+   "de"
+  ]
+ },
+ "instruments": [
+  "asku",
+  "ati",
+  "aub",
+  "bfi10",
+  "gdms",
+  "i8",
+  "ie4",
+  "kuk",
+  "kusiv3",
+  "kut",
+  "nfck",
+  "r1",
+  "tam_bi",
+  "tam_peou",
+  "tam_pu",
+  "tb"
+ ]
+}

@@ -2631,8 +2631,9 @@ class Construct(db.Model):
     """A validated instrument from the construct toolbox.
 
     `spec` holds the item template ({"type", "code", "config", "texts": {lang: …}}); inserting a
-    construct copies it into an ordinary item. Seed constructs are maintained in app/constructs.py
-    and updated when their seed_version increases; surveys keep the copy they were built from."""
+    construct copies it into an ordinary item. Seed constructs come from the construct catalogue
+    (app/construct_catalog.py) and are updated when their seed_version increases; surveys keep the copy they were
+    built from."""
 
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(String(60), unique=True, index=True)
@@ -2655,6 +2656,12 @@ class Construct(db.Model):
     visibility: Mapped[str] = mapped_column(String(20), default="public")  # public | private (own constructs, later)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"), index=True)
     seed_version: Mapped[int] = mapped_column(default=0)
+    # where it comes from: "catalog" (the construct catalogue, app/construct_catalog.py) or "instance" (made on this
+    # installation: linked elements, accepted submissions); with "catalog" the catalogue's version ("4.0", major =
+    # seed_version) and the release of the snapshot it was last taken from (migration 0117)
+    source: Mapped[str] = mapped_column(String(20), default="instance", server_default="instance")
+    version: Mapped[str | None] = mapped_column(String(20))
+    catalog_release: Mapped[str | None] = mapped_column(String(40))
     search_text: Mapped[str] = mapped_column(Text, default="")  # flattened text for the LIKE fallback
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 

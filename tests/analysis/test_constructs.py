@@ -452,7 +452,7 @@ def test_favourites_decide_the_list_in_the_editor(app, client, survey):
 def test_media_evaluation_scale_is_a_six_point_differential_with_two_subscales(app, client, survey):
     from app import constructs
 
-    spec = constructs._kamb_spec()
+    spec = constructs.catalog.spec("kamb")
     assert spec["type"] == "semantic" and spec["config"]["points"] == 6 and spec["config"]["randomize"]
     pairs = spec["config"]["pairs"]
     assert [p["reverse"] for p in pairs] == [True, False, False, True, True, False, True, False]
