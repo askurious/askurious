@@ -544,6 +544,42 @@ def _provenance(c, seed):
     return True
 
 
+# What the catalogue writes into a construct, for telling a construct changed on this installation (in the database)
+# from the catalogue's version: Construct.catalog_hash is the fingerprint of what the catalogue wrote last (migration
+# 0120). The notes (terms of use) are the catalogue's alone and stay out: they follow it even at the same version.
+FINGERPRINT_FIELDS = ("name", "short", "description", "authors", "year", "citation", "doi", "scoring", "status")
+
+
+def fingerprint(fields, spec):
+    import hashlib
+
+    data = json.dumps({**{f: fields.get(f) for f in FINGERPRINT_FIELDS}, "spec": spec}, sort_keys=True,
+                      ensure_ascii=False, separators=(",", ":"), default=str)
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def row_fingerprint(c):
+    return fingerprint({f: getattr(c, f) for f in FINGERPRINT_FIELDS}, c.spec)
+
+
+def locally_changed(c):
+    """True for a construct of the catalogue changed on this installation since the catalogue wrote it: it keeps its
+    content, a newer version of the catalogue does not overwrite it (Administration > Konstrukte > Katalog)."""
+    return bool(c is not None and c.source == "catalog" and c.catalog_hash and row_fingerprint(c) != c.catalog_hash)
+
+
+def _write_seed(c, seed, spec):
+    for field in ("name", "short", "description", "authors", "year", "citation", "doi", "scoring", "notes", "status",
+                  "seed_version"):
+        setattr(c, field, seed[field])
+    c.spec = spec
+    c.tags = [_tag(t) for t in seed["tags"]]
+    _provenance(c, seed)
+    if c.visibility == "retired":
+        c.visibility = "public"  # back in the catalogue (going back to an earlier release)
+    c.catalog_hash = row_fingerprint(c)
+
+
 def _seed():
     changed = _retire()
     for seed in SEEDS:
@@ -551,6 +587,13 @@ def _seed():
         # a construct of the catalogue takes every new version of it (a corrected wording too, a minor number) and an
         # earlier one when the installation goes back (construct_sync.undo); others only a higher seed_version
         newer = c is not None and c.source == "catalog" and c.version not in (None, seed["version"])
+        if c is not None and c.catalog_hash is None and c.version in (None, seed["version"]):
+            spec = seed["spec"]()  # the first start with fingerprints: what the catalogue says now is the baseline
+            if spec is not None:
+                c.catalog_hash = fingerprint(seed, spec)
+                changed = True
+        if newer and locally_changed(c):
+            continue  # changed here: kept as it is until an admin decides (keep_local or reset_to_catalogue)
         if c and c.seed_version >= seed["seed_version"] and not newer:
             changed = _provenance(c, seed) or changed
             if c.source == "catalog" and c.visibility == "retired":
@@ -569,14 +612,7 @@ def _seed():
         if not c:
             c = Construct(key=seed["key"])
             db.session.add(c)
-        for field in ("name", "short", "description", "authors", "year", "citation", "doi", "scoring", "notes", "status",
-                      "seed_version"):
-            setattr(c, field, seed[field])
-        c.spec = spec
-        c.tags = [_tag(t) for t in seed["tags"]]
-        _provenance(c, seed)
-        if c.visibility == "retired":
-            c.visibility = "public"  # back in the catalogue (going back to an earlier release)
+        _write_seed(c, seed, spec)
         changed = True
     for gone in catalog.retired():
         # withdrawn from the catalogue: existing items keep it (find() still finds it), the toolbox no longer offers it
@@ -1232,3 +1268,46 @@ def usage_stats(key, uses=None):
     uses = usage(key) if uses is None else uses
     surveys = {s.id: s for _, s in uses}
     return {"surveys": len(surveys), "closed": sum(1 for s in surveys.values() if s.status == Survey.CLOSED)}
+
+
+# ---- constructs of the catalogue changed on this installation (Administration > Konstrukte > Katalog) ----
+
+def locally_changed_rows():
+    """The constructs of the catalogue changed on this installation, with the catalogue's version for each."""
+    rows = db.session.scalars(db.select(Construct).filter(Construct.source == "catalog",
+                                                          Construct.catalog_hash.is_not(None))).all()
+    by_key = {c["key"]: c for c in catalog.active()["constructs"]}
+    return [(c, (by_key.get(c.key) or {}).get("version")) for c in rows if locally_changed(c)]
+
+
+def keep_local(c, user=None):
+    """Keep a changed construct of the catalogue as a construct of this installation (a copy under a key of its own,
+    the uses keep the old key) and give the catalogue's key the catalogue's version again. Returns the copy; the
+    caller commits."""
+    key, n = f"{c.key}_lokal", 1
+    while db.session.scalar(db.select(Construct.id).filter_by(key=key)):
+        n += 1
+        key = f"{c.key}_lokal{n}"
+    copy_ = Construct(key=key[:60], name=c.name, short=c.short, description=c.description, authors=c.authors,
+                      year=c.year, citation=c.citation, doi=c.doi, scoring=c.scoring, notes=c.notes,
+                      spec=copy.deepcopy(c.spec), status=c.status, visibility="public", source="instance",
+                      created_by_id=getattr(user, "id", None), seed_version=c.seed_version)
+    copy_.tags = list(c.tags)
+    db.session.add(copy_)
+    reset_to_catalogue(c)
+    db.session.flush()
+    copy_.search_text = _search_text(copy_)
+    return copy_
+
+
+def reset_to_catalogue(c):
+    """The catalogue's version again for a changed construct of the catalogue (what was changed here goes)."""
+    seed = _SEED_BY_KEY.get(c.key)
+    if seed is None:
+        raise ValueError(de_en("Dieses Konstrukt ist nicht mehr im Katalog.", "This construct is no longer in the catalogue."))
+    spec = seed["spec"]()
+    if spec is None:
+        raise ValueError(de_en("Für dieses Konstrukt fehlt der Wortlaut der Installation.",
+                               "The installation's wording is missing for this construct."))
+    _write_seed(c, seed, spec)
+    c.search_text = _search_text(c)
