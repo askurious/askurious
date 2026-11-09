@@ -748,12 +748,12 @@ def listen(code, rid, part):
     # A recorder's WebM names no length (the player showed 0:00): served with a head that names it (app/webm_duration.py)
     from werkzeug.wsgi import wrap_file
 
-    joined = webm_duration.Joined(plan[0], full, plan[1])
+    joined = webm_duration.Joined(plan[0], full, plan[1], plan[3])  # jumps in the timestamps closed (M-04)
     response = current_app.response_class(wrap_file(request.environ, joined), mimetype=found["mime"], direct_passthrough=True)
     response.headers.set("Content-Disposition", "attachment" if download else "inline", filename=name)
     stat = os.stat(full)
     response.last_modified = int(stat.st_mtime)
-    response.set_etag(f"wd-{stat.st_size}-{stat.st_mtime_ns}")
+    response.set_etag(f"wd2-{stat.st_size}-{stat.st_mtime_ns}")  # wd2: jumps closed since 2026-11-09
     response.content_length = joined.length
     return response.make_conditional(request, accept_ranges=True, complete_length=joined.length)
 
