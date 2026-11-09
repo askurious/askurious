@@ -427,20 +427,17 @@ class Consent(ItemType):
         # survey settings and the setup wizard (apply_facts); the element itself only has the duration.
         if lang == item.survey.default_language:
             duration = form.get("duration", "").strip()
-            locked = self.confirmations_fixed(item, structural)
+            # outside the editable draft the confirmations stay; in a draft (also one reopened for editing) they
+            # can change: each start records those of its questionnaire version, and the export reports a column
+            # empty for participations of a version that did not ask it (export_response_values)
+            if structural:
+                self.keep_earlier_versions(item)
             item.config = {
                 **item.config,
                 "duration": whole(duration),
-                "confirm": item.config.get("confirm", {}) if locked
-                else {k: bool(form.get(f"confirm_{k}")) for k in CONFIRMATIONS},
+                "confirm": {k: bool(form.get(f"confirm_{k}")) for k in CONFIRMATIONS} if structural
+                else item.config.get("confirm", {}),
             }
-
-    def confirmations_fixed(self, item, structural):
-        """Which confirmations are asked stays fixed outside the editable default view and once a real participant
-        has agreed, also after "Zur Bearbeitung öffnen": the export reports them as ticked for everyone who agreed
-        (export_values), so a later change would rewrite their answers. The editor shows the switches locked then,
-        instead of offering them and dropping the change on saving (Philipp, 2026-11-09)."""
-        return not structural or self.has_real_answers(item)
 
     def apply_facts(self, item, form, lang):
         """Facts from the wizard or the settings; a missing or still untouched standard text follows them (an
@@ -548,19 +545,47 @@ class Consent(ItemType):
                 and (k != "ai_chat" or _has_ai_chat(item.survey))]
 
     def freeze_confirmations(self, item):
-        """At the start of a draft (lifecycle.start): the confirmations of this version stay as they are."""
-        item.config = {**item.config, "confirm_keys": self.confirmation_keys(item)}
+        """At the start of a draft (lifecycle.start): the confirmations of this version stay as they are, and the
+        record of the versions (shown_by_version) gets those its participants tick."""
+        self.keep_earlier_versions(item)  # with the keys of the last start, before they are replaced
+        keys = self.confirmation_keys(item)
+        record = self.shown_by_version(item)
+        record[str(item.survey.qversion or 1)] = self._asked(item, keys)
+        item.config = {**item.config, "confirm_keys": keys, "confirm_versions": record}
+
+    def shown_by_version(self, item):
+        """{questionnaire version (str): [the confirmation keys its participants ticked to agree]}, written at each
+        start; the confirmations can change in a draft reopened for editing (Philipp, 2026-11-09)."""
+        return {v: list(keys) for v, keys in (item.config.get("confirm_versions") or {}).items()}
+
+    def keep_earlier_versions(self, item):
+        """Before the confirmations can change: versions that ran before the record began (started before
+        2026-11-09) get those of the last start. They held for them, since until then nothing could change them
+        once someone had agreed."""
+        record = self.shown_by_version(item)
+        missing = [v for v in range(1, item.survey.qversion or 1) if str(v) not in record]
+        if missing:
+            asked = self._asked(item, item.config.get("confirm_keys") or FORMER_CONFIRMATIONS)
+            record.update({str(v): asked for v in missing})
+            item.config = {**item.config, "confirm_versions": record}
+
+    def asked_in(self, item, qversion):
+        """The confirmation keys a participation of this questionnaire version ticked; the current ones for a
+        version without a record (the one being edited, or one started before the record began)."""
+        found = (item.config.get("confirm_versions") or {}).get(str(qversion or 1))
+        return list(found) if found is not None else self._asked(item, self.confirmation_keys(item))
+
+    def _asked(self, item, keys):
+        """Of `keys` those asked: switched on (or required) and age only with a minimum age."""
+        enabled = item.config.get("confirm", {k: True for k in CONFIRMATIONS})
+        return [key for key in CONFIRMATIONS if key in keys
+                and (key in REQUIRED or enabled.get(key, True)) and (key != "age" or item.config.get("min_age"))]
 
     def confirmations(self, item, lang):
         """Enabled confirmations as [{key, text}] (age only if a minimum age is set; "special" and "audio" always
         where the survey asks them)."""
-        enabled = item.config.get("confirm", {k: True for k in CONFIRMATIONS})
-        keys = self.confirmation_keys(item)
         out = []
-        for key in CONFIRMATIONS:
-            if key not in keys or (key not in REQUIRED and not enabled.get(key, True)) or (
-                    key == "age" and not item.config.get("min_age")):
-                continue
+        for key in self._asked(item, self.confirmation_keys(item)):
             text = item.t(lang).get(f"confirm_{key}") or default_confirmation(key, lang, item.config)
             out.append({"key": key, "text": text, "default": default_confirmation(key, lang, item.config)})
         return out
@@ -1094,20 +1119,37 @@ class Consent(ItemType):
     def display_value(self, item, form, meta=None):
         return {"ticked": [c for c in CONFIRMATIONS if form.get(f"i{item.id}_c_{c}")]}
 
+    def export_keys(self, item):
+        """The confirmations of every questionnaire version: the current ones and those of earlier versions."""
+        asked = set(self._asked(item, self.confirmation_keys(item)))
+        for keys in (item.config.get("confirm_versions") or {}).values():
+            asked.update(keys)
+        return [k for k in CONFIRMATIONS if k in asked]
+
     def export_columns(self, item):
+        lang = item.survey.default_language
         cols = [(item.code, item.text("question"))]
-        cols += [(f"{item.code}_{c['key']}", c["text"]) for c in self.confirmations(item, item.survey.default_language)]
+        cols += [(f"{item.code}_{key}", item.t(lang).get(f"confirm_{key}") or default_confirmation(key, lang, item.config))
+                 for key in self.export_keys(item)]
         return cols
 
     def export_values(self, item, answer):
         agreed = None if answer is None else int(answer)
         out = {item.code: agreed}
         # the columns once per export, not per participation (code review 2026-10-07, R4)
-        for column in prepared(item, "consent_columns", lambda: [
-                f"{item.code}_{c['key']}" for c in self.confirmations(item, item.survey.default_language)]):
-            # agreeing requires every confirmation, so they are 1 exactly for those who agreed
-            out[column] = None if agreed is None else agreed
+        for key in prepared(item, "consent_keys", lambda: self.export_keys(item)):
+            # agreeing requires every confirmation of the version, so they are 1 exactly for those who agreed
+            out[f"{item.code}_{key}"] = None if agreed is None else agreed
         return out
+
+    def export_response_values(self, item, answer, response):
+        """Empty for a confirmation the participation's questionnaire version did not ask (shown_by_version)."""
+        qversion = getattr(response, "qversion", None)
+        if answer is None or qversion is None:
+            return {}
+        keys = prepared(item, "consent_keys", lambda: self.export_keys(item))
+        asked = prepared(item, f"consent_asked_{qversion}", lambda: set(self.asked_in(item, qversion)))
+        return {f"{item.code}_{key}": None for key in keys if key not in asked}
 
     ends_page = True  # the consent buttons replace the page's "Next" button
     has_answer_mode = False  # always required (app/editor/): the switch Freiwillig/Hinweis/Pflicht would change nothing

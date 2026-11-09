@@ -200,21 +200,35 @@ def _keys(refs):
     return out
 
 
-def test_confirmations_locked_in_the_editor_once_someone_agreed(app, client, survey):
-    """A draft whose consent a real participant already agreed to (reopened for editing) keeps its confirmations:
-    the editor shows the switches locked and says why, instead of offering them and dropping the change on saving
-    (Philipp, 2026-11-09)."""
-    from app.models import Response
+
+def test_confirmations_change_after_reopening_and_the_export_follows_the_version(app, client, survey):
+    """A survey reopened for editing can change its confirmations (Philipp, 2026-11-09): the earlier version keeps
+    the ones its participants ticked, and the export leaves a column empty for a version that did not ask it."""
+    from app.models import Response, Survey
 
     E = "/surveys/1/editor/items/1"
-    page = client.get(E).data.decode()
-    assert 'name="confirm_commitment" value="1" checked >' in page and "seit Teilnehmende zugestimmt" not in page
     with app.app_context():
-        db.session.add(Response(survey_id=1, source="real", is_preview=False, answers={"1": "1"}))
+        s = db.session.get(Survey, 1)
+        s.qversion = 2  # as after "Zur Bearbeitung öffnen" of a version started before the record began
+        old = Response(survey_id=1, source="real", is_preview=False, answers={"1": "1"}, qversion=1)
+        db.session.add(old)
         db.session.commit()
+        old_id = old.id
     page = client.get(E).data.decode()
-    assert 'name="confirm_commitment" value="1" checked disabled>' in page and "seit Teilnehmende zugestimmt" in page
+    assert 'name="confirm_commitment" value="1" checked >' in page and "ab dem nächsten Start" in page
     client.post(E, data=MultiDict([("code", "consent"), ("confirm_voluntary", "1"), ("body", "x")]))
     with app.app_context():
         item = db.session.get(Item, 1)
-        assert [c["key"] for c in item.kind.confirmations(item, "de")] == ["age", "voluntary", "data", "commitment"]
+        assert [c["key"] for c in item.kind.confirmations(item, "de")] == ["voluntary"]
+        assert item.kind.shown_by_version(item) == {"1": ["age", "voluntary", "data", "commitment"]}
+        assert [c for c, _ in item.kind.export_columns(item)] == [
+            "consent", "consent_age", "consent_voluntary", "consent_data", "consent_commitment"]
+        row = {**item.kind.export_values(item, "1"),
+               **item.kind.export_response_values(item, "1", db.session.get(Response, old_id))}
+        assert row == {"consent": 1, "consent_age": 1, "consent_voluntary": 1, "consent_data": 1, "consent_commitment": 1}
+        new = Response(survey_id=1, source="real", is_preview=False, answers={"1": "1"}, qversion=2)
+        row = {**item.kind.export_values(item, "1"), **item.kind.export_response_values(item, "1", new)}
+        assert row == {"consent": 1, "consent_age": None, "consent_voluntary": 1, "consent_data": None,
+                       "consent_commitment": None}
+        item.kind.freeze_confirmations(item)  # the next start records version 2
+        assert item.kind.shown_by_version(item)["2"] == ["voluntary"]

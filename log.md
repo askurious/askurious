@@ -7665,6 +7665,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Familien (Kurz- und Langfassungen) kommen aus dem Konstrukt-Katalog (families/ im Manifest); eine auf der Installation gesetzte Familie (fam:<key>) bleibt und geht vor. „Familien als Datei für den Katalog“ (Administration › Konstrukte › Katalog) liefert die hier gesetzten Familien von Katalog-Konstrukten als families/<id>.yaml für einen Pull Request.
 - `construct.catalog_hash` (Migration 0120): Fingerabdruck dessen, was der Katalog geschrieben hat, beim ersten Start aus dem heutigen Stand. Ein hier geändertes Katalog-Konstrukt überschreibt ein neuerer Katalog nicht; unter „Hier geändert“: „Als eigenes Konstrukt behalten“ (Kopie unter `<key>_lokal`) oder „Katalogfassung übernehmen“.
 
-## 2026-11-09: Einwilligung, Bestätigungen fest nach der ersten Zustimmung
+## 2026-11-09: Einwilligung, Bestätigungen nach dem Wiederöffnen änderbar
 
-- Eine wieder zur Bearbeitung geöffnete Befragung mit echten Zustimmungen behielt beim Speichern die Bestätigungen (der Export nennt sie für alle als angekreuzt), der Editor bot die Schalter aber an: Abwählen kam beim nächsten Laden zurück. Jetzt sind die Schalter dann gesperrt, mit Hinweis; der Wortlaut bleibt korrigierbar (`Consent.confirmations_fixed`).
+- Eine wieder zur Bearbeitung geöffnete Befragung mit echten Zustimmungen behielt beim Speichern still die Bestätigungen (Abwählen kam beim nächsten Laden zurück). Jetzt lassen sie sich in jedem bearbeitbaren Entwurf ändern.
+- Jeder Start hält die Bestätigungen seiner Fragebogen-Fassung fest (`confirm_versions` in der Konfiguration der Einwilligung); Fassungen von vor heute bekommen beim ersten Ändern die des letzten Starts, die bis dahin nicht änderbar waren.
+- Export: Spalten für die Bestätigungen aller Fassungen; leer bei Teilnahmen, deren Fassung (qversion) die Bestätigung nicht gefragt hat.
