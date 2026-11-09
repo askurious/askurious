@@ -62,7 +62,7 @@ def showcase_query(user=None):
 
     # Apply the same boundary to listings as to direct URLs, including legacy showcase flags.
     permitted = ~Survey.blocks.any(Block.items.any(
-        Item.config["construct"]["key"].as_string().in_(constructs.NOT_SHARED)))
+        Item.config["construct"]["key"].as_string().in_(sorted(constructs.NOT_SHARED))))
     if user is None:
         return db.select(Survey.id).filter(Survey.showcase.is_(True), Survey.archived.is_(False), permitted)
     from app import orgs

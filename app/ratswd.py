@@ -26,8 +26,9 @@ ERW_NOT_EMPLOYED = ("3", "4", "5", "6", "7", "8", "9")  # filter of ERW_2
 ERW_EVER_EMPLOYED = ("1", "2", "4", "5", "6", "7", "9")
 
 
-KEYS = [c["key"] for c in _catalog.entries() if "RatSWD/KonsortSWD" in (c.get("tags") or {}).get("quelle", [])]
-NOT_POOLED = set(KEYS)
+KEYS = _catalog.live_list(lambda m: [c["key"] for c in m["constructs"]
+                                     if "RatSWD/KonsortSWD" in (c.get("tags") or {}).get("quelle", [])])
+NOT_POOLED = _catalog.live_set(lambda m: KEYS)
 
 
 # ---- the bundle "Demografie kurz (RatSWD)" ----

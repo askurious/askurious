@@ -5,6 +5,7 @@
 {% block container_class %}container admin-page{% endblock %}
 {% block content %}
 {% set active = "constructs" %}{% include "admin/_tabs.html" %}
+{% include "admin/_construct_catalog.html" %}
 <section class="panel" id="schnellbox">
   <h2>{{ de_en("Schnellbox der Plattform", "Quick box of the platform") }}</h2>
   <p class="muted small">{{ de_en("Diese Konstrukte stehen im Fragebogen-Editor unter „Konstrukte“ für jede Organisation ohne eigene Liste, nach den eigenen Favoriten. Organisationen pflegen ihre Liste unter Verwaltung › Konstrukte.", "These constructs are listed in the questionnaire editor under “Constructs” for every organisation without a list of its own, after the person's own favourites. Organisations keep their list under Management › Constructs.") }}</p>

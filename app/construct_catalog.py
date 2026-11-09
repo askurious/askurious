@@ -10,14 +10,19 @@ one: a scale whose wording differs from the documented version is left out of th
 log). INSTRUMENT_WORDING_CHECK = False switches the check off (the tests' stand-in wordings).
 
 tools/update_constructs_snapshot.py renews the snapshot from a checkout or a release of the catalogue; the manifest
-names its release and commit. The hashes follow tools/hash.py of the catalogue: canonical JSON (keys sorted, no
+names its release and commit. An installation can take newer signed releases itself (app/construct_sync.py, nightly
+or under Administration > Konstrukte > Katalog): the manifest it took last is the active one (table construct_sync),
+else the snapshot. Everything here reads the active one (active()); the derived values of app/constructs.py follow it
+(live_set, live_map, live_list). The hashes follow tools/hash.py of the catalogue: canonical JSON (keys sorted, no
 spaces, UTF-8), the wording normalised first (NFC, plain quotation marks, white space as single spaces).
 """
+import collections.abc
 import copy
 import functools
 import hashlib
 import json
 import os
+import time
 import unicodedata
 
 PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "constructs", "manifest.json")
@@ -38,19 +43,129 @@ def manifest(path=PATH):
         return json.load(f)
 
 
-def release():
-    """(release, commit) of the snapshot, e.g. ("2026.11.0", "967e955…")."""
-    data = manifest()
+ACTIVE_SECONDS = 30  # how long a process keeps the active manifest before it looks for a newer one
+_active = {"checked": None, "id": None, "data": None}
+
+
+def active():
+    """The active manifest: the one taken last on this installation (construct_sync, status "applied"), else the
+    snapshot in the code. Outside an app context, or before the table exists, the snapshot."""
+    try:
+        from flask import has_app_context
+    except ImportError:
+        return manifest()
+    if not has_app_context():
+        return manifest()
+    now = time.monotonic()
+    if _active["checked"] is not None and now - _active["checked"] < ACTIVE_SECONDS:
+        return _active["data"]
+    data, row = manifest(), None
+    try:
+        from sqlalchemy import text
+
+        from app.extensions import db
+
+        with db.engine.connect() as con:  # a connection of its own: a failure never spoils the request's transaction
+            row = con.execute(text("SELECT id FROM construct_sync WHERE status = 'applied' ORDER BY id DESC LIMIT 1")
+                              ).scalar()
+            if row is not None and row != _active["id"]:
+                stored = con.execute(text("SELECT manifest FROM construct_sync WHERE id = :i"), {"i": row}).scalar()
+                stored = json.loads(stored) if isinstance(stored, str) else stored
+                if isinstance(stored, dict) and isinstance(stored.get("constructs"), list):
+                    data = stored
+                else:
+                    row = None
+            elif row is not None:
+                data = _active["data"]
+    except Exception:  # no table yet (before migration 0118) or no database: the snapshot
+        row = None
+    _active.update(checked=now, id=row, data=data)
+    return data
+
+
+def invalidate():
+    """Look for the active manifest anew on the next call (after a sync in this process)."""
+    _active.update(checked=None, id=None, data=None)
+
+
+def release(m=None):
+    """(release, commit) of the active manifest (or of `m`), e.g. ("2026.11.0", "6347d72…")."""
+    data = m if m is not None else active()
     return data.get("release"), data.get("commit")
 
 
-def entries():
-    """The constructs of the catalogue that may be inserted (not withdrawn), in the order of the manifest."""
-    return [c for c in manifest()["constructs"] if c.get("status") != "retired"]
+def entries(m=None):
+    """The constructs of the active catalogue (or of `m`) that may be inserted (not withdrawn), in its order."""
+    return [c for c in (m if m is not None else active())["constructs"] if c.get("status") != "retired"]
 
 
-def entry(key):
-    return next((c for c in manifest()["constructs"] if c["key"] == key), None)
+def retired(m=None):
+    return [c for c in (m if m is not None else active())["constructs"] if c.get("status") == "retired"]
+
+
+def entry(key, m=None):
+    return next((c for c in (m if m is not None else active())["constructs"] if c["key"] == key), None)
+
+
+# ---- values derived from the active manifest, recomputed when it changes ----
+
+class _Live:
+    def __init__(self, build):
+        self._build, self._for, self._value = build, None, None
+
+    def get(self):
+        m = active()
+        if m is not self._for:
+            self._value, self._for = self._build(m), m
+        return self._value
+
+
+class live_set(collections.abc.Set):
+    """A set built by `build(manifest)` from the active manifest; `in`, iteration and len as a frozenset."""
+
+    def __init__(self, build):
+        self._live = _Live(lambda m: frozenset(build(m)))
+
+    def __contains__(self, value):
+        return value in self._live.get()
+
+    def __iter__(self):
+        return iter(self._live.get())
+
+    def __len__(self):
+        return len(self._live.get())
+
+    def __repr__(self):
+        return f"live_set({sorted(self._live.get())!r})"
+
+
+class live_map(collections.abc.Mapping):
+    """A mapping built by `build(manifest)` from the active manifest."""
+
+    def __init__(self, build):
+        self._live = _Live(build)
+
+    def __getitem__(self, key):
+        return self._live.get()[key]
+
+    def __iter__(self):
+        return iter(self._live.get())
+
+    def __len__(self):
+        return len(self._live.get())
+
+
+class live_list(collections.abc.Sequence):
+    """A list built by `build(manifest)` from the active manifest."""
+
+    def __init__(self, build):
+        self._live = _Live(build)
+
+    def __getitem__(self, index):
+        return self._live.get()[index]
+
+    def __len__(self):
+        return len(self._live.get())
 
 
 def major(c):
@@ -215,7 +330,7 @@ def spec(key, instruments=None, check=True, log=None):
 
 # ---- signature of a release (minisign, Ed25519) ----
 
-def verify_signature(data, signature, public_key=PUBLIC_KEY):
+def verify_signature(data, signature, public_key=None):
     """Check a minisign signature (the text of manifest.json.sig) of `data` (bytes) against `public_key` (the base64
     line of minisign.pub). Returns the trusted comment; raises ValueError if the signature does not hold."""
     import base64
@@ -224,7 +339,7 @@ def verify_signature(data, signature, public_key=PUBLIC_KEY):
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
     try:
-        key = base64.b64decode(public_key.strip())
+        key = base64.b64decode((public_key or PUBLIC_KEY).strip())
         lines = [line for line in signature.splitlines() if line.strip()]
         sig = base64.b64decode(lines[1].strip())
         trusted = lines[2].strip()

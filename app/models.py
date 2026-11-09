@@ -2731,6 +2731,27 @@ class ConstructCitation(db.Model):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
+class ConstructSync(db.Model):
+    """One look at the construct catalogue (app/construct_sync.py): a nightly or manual sync, an uploaded manifest, or
+    going back to an earlier one. status "applied" carries the manifest the installation took (the last of them is the
+    active catalogue, construct_catalog.active()); "preview" one fetched and shown before taking it; "unchanged" and
+    "failed" only that and when. No personal data: who clicked is not kept (the audit log has the admin's action)."""
+
+    APPLIED, PREVIEW, UNCHANGED, FAILED = "applied", "preview", "unchanged", "failed"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
+    trigger: Mapped[str] = mapped_column(String(20))  # auto | manual | upload | undo
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    release: Mapped[str | None] = mapped_column(String(40))
+    commit: Mapped[str | None] = mapped_column(String(40))
+    source: Mapped[str] = mapped_column(String(500), default="")
+    signature: Mapped[str] = mapped_column(String(300), default="")  # the trusted comment of a verified signature
+    changes: Mapped[list | None] = mapped_column(JSON)  # [{key, kind, name, before, after}] against the active one then
+    manifest: Mapped[dict | None] = mapped_column(JSON)
+    error: Mapped[str] = mapped_column(Text, default="")
+
+
 class ConstructPick(db.Model):
     """A construct starred by a researcher as a favourite: favourites are the constructs the questionnaire
     editor lists without a search (constructs.sidebar). `used_at` (last inserted) is no longer written or read:
