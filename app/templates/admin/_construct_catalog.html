@@ -38,6 +38,16 @@
         <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
     </form>
   </dialog>
+  {% if s.local %}
+  <h3>{{ de_en("Hier geändert", "Changed here") }}</h3>
+  <p class="muted small">{{ de_en("Diese Konstrukte des Katalogs wurden auf dieser Installation geändert. Ein Abgleich überschreibt sie nicht. Behalten Sie die Änderung als eigenes Konstrukt (der Katalog-Key bekommt wieder die Katalogfassung) oder übernehmen Sie die Katalogfassung.", "These constructs of the catalogue were changed on this installation. A sync does not overwrite them. Keep the change as a construct of its own (the catalogue's key gets the catalogue's version again) or take the catalogue's version.") }}</p>
+  <ul class="plain small">
+    {% for c, version in s.local %}<li>{{ c.name }} <span class="hint">{{ c.key }}, {{ de_en("hier {a}, im Katalog {b}", "here {a}, in the catalogue {b}", a=c.version or "–", b=version or "–") }}</span>
+      <form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="keep_local"><input type="hidden" name="key" value="{{ c.key }}"><button class="button button-secondary button-small">{{ de_en("Als eigenes Konstrukt behalten", "Keep as a construct of its own") }}</button></form>
+      <form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline" data-confirm="{{ de_en('Die Änderung an {k} verwerfen und die Katalogfassung übernehmen?', 'Discard the change to {k} and take the version of the catalogue?', k=c.key) }}" data-confirm-ok="{{ de_en('Übernehmen', 'Apply') }}">{{ csrf() }}<input type="hidden" name="action" value="reset"><input type="hidden" name="key" value="{{ c.key }}"><button class="button button-secondary button-small">{{ de_en("Katalogfassung übernehmen", "Take the catalogue's version") }}</button></form></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if s.families_file %}<p class="muted small">{{ de_en("Familien, die hier für Konstrukte des Katalogs gesetzt sind, gehören in den Katalog:", "Families set here for constructs of the catalogue belong in the catalogue:") }} <a class="button button-secondary button-small" href="{{ url_for('admin.construct_families_file') }}" download>{{ de_en("Familien als Datei für den Katalog", "Families as a file for the catalogue") }}</a></p>{% endif %}
   {% if s.row and s.row.changes %}
   <h3>{{ de_en("Geändert mit {r}", "Changed with {r}", r=s.row.release) }}</h3>
   <ul class="plain small catalog-changes">

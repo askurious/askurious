@@ -386,4 +386,17 @@ def status():
     return {"release": rel, "commit": commit, "row": row, "snapshot": row is None, "source": source(),
             "off": is_off(), "pin": pin(), "pinned_here": pinned_by_setting(), "last": last_attempt(),
             "previous": previous(), "counts": counts(), "licensed": licensed_state(), "history": history(),
-            "check": current_app.config.get("INSTRUMENT_WORDING_CHECK", True)}
+            "check": current_app.config.get("INSTRUMENT_WORDING_CHECK", True),
+            "local": _local_rows(), "families_file": _families_file()}
+
+
+def _local_rows():
+    from app import constructs
+
+    return constructs.locally_changed_rows()
+
+
+def _families_file():
+    from app import construct_families
+
+    return construct_families.catalogue_file() is not None
