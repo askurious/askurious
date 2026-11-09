@@ -2706,6 +2706,9 @@ class ConstructSubmission(db.Model):
     fields: Mapped[dict] = mapped_column(JSON, default=dict)
     note: Mapped[str] = mapped_column(Text, default="")  # the operator's question or reason
     toolbox_key: Mapped[str] = mapped_column(String(60), default="")
+    # None: submitted to the operator for the toolbox; else proposed to this organisation for a construct of its own
+    # (app/org_constructs.py, migration 0119)
+    org_id: Mapped[int | None] = mapped_column(index=True)
     seen: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     decided_at: Mapped[datetime | None]

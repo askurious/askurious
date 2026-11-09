@@ -57,6 +57,8 @@
     <span class="small">{{ de_en("Wortlaut:", "Wording:") }} {{ de_en("gegen die Quelle geprüft", "checked against the source") if toolbox.status == "verified" else de_en("noch nicht gegen die Quelle geprüft", "not yet checked against the source") }}</span>
     <button class="button button-secondary button-small">{{ de_en("Wieder als ungeprüft markieren", "Mark as unchecked again") if toolbox.status == "verified" else de_en("Als geprüft markieren", "Mark as checked") }}</button>
   </form>
+  <p class="muted small">{{ de_en("Für alle Askurious-Installationen: als Pull Request im Konstrukt-Repository askurious-constructs. Die Datei enthält construct.yaml; den Lizenzschlüssel und die englischen Felder dort ergänzen.", "For every Askurious installation: as a pull request in the construct repository askurious-constructs. The file holds construct.yaml; add the licence key and the English fields there.") }}
+    <a class="button button-secondary button-small" href="{{ url_for('admin.construct_pr_file', key=toolbox.key) }}" download>{{ de_en("Als Datei für Pull Request", "As a file for a pull request") }}</a></p>
 </section>
 {% else %}
 <section class="panel"><p class="muted">{{ de_en("Abgelehnt am {date}.", "Rejected on {date}.", date=s.decided_at|localdate) }}</p></section>

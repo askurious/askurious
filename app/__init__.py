@@ -753,6 +753,9 @@ def create_app(config_class=Config, server=False):
 
     # names Askurious gives in both languages, for texts that name them (UI/UX audit 2026-10-07, W115)
     app.jinja_env.globals["seed_name"] = constructs_mod.seed_name
+    from app import orgs as orgs_mod
+
+    app.jinja_env.globals["org_name"] = orgs_mod.name  # the organisation of a construct of its own (app/org_constructs.py)
     app.jinja_env.globals["demographics_block"] = lambda: lang.pick(DEMOGRAPHICS)
     from app import sem_model
 

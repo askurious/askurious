@@ -911,12 +911,85 @@ def constructs(org_id):
     from app import shortlist
     from app import constructs as toolbox
 
+    from app import linked, org_constructs
+
     org = g.org
     own = shortlist.keys(org.id)
     platform = shortlist.keys(None)
     return render_template("org/constructs.html", org=org, active="constructs", keep=str(org.id),
                            rows=[toolbox.shown(toolbox.get(k)) for k in own],
-                           platform=[toolbox.shown(toolbox.get(k)) for k in platform], max=shortlist.MAX)
+                           platform=[toolbox.shown(toolbox.get(k)) for k in platform], max=shortlist.MAX,
+                           own_constructs=org_constructs.of_org(org.id), proposals=org_constructs.proposals(org.id),
+                           elements=linked.palette(current_user), licences=org_constructs.licences(),
+                           licence_label=org_constructs.licence_label, contact=org_constructs.contact(),
+                           repository=org_constructs.REPOSITORY)
+
+
+@bp.route("/<int:org_id>/constructs/own", methods=["POST"])
+def constructs_own(org_id):
+    """Constructs of the organisation (app/org_constructs.py): make one from a linked element (the dialog "Konstrukt
+    anlegen"), take over or reject a member's proposal."""
+    from app import constructs as toolbox
+    from app import linked, org_constructs, security_log
+    from app.models import ConstructSubmission
+
+    org = g.org
+    action = request.form.get("action")
+    back = redirect(url_for("org.constructs", org_id=org.id) + "#eigene")
+    try:
+        if action == "create":
+            fields, errors = org_constructs.read(request.form)
+            if errors:
+                flash(de_en("Bitte ausfüllen: {fields}.", "Please fill in: {fields}.", fields=", ".join(errors)), "error")
+                return back
+            element = linked.get(request.form.get("element", ""))
+            if element is None or not linked.usable(current_user, element):
+                raise ValueError(de_en("Bitte ein verknüpftes Element als Grundlage wählen.",
+                                       "Please choose a linked element as the basis."))
+            c = org_constructs.create(org, current_user, element, fields)
+            security_log.event("org_construct", by=current_user.id, target=f"org {org.id}: {c.key}")
+            db.session.commit()
+            toolbox.rebuild_index(force=True)
+            flash(de_en("Angelegt: „{n}“ ({k}), für die Mitglieder der Organisation in „Konstrukte“.",
+                        "Created: “{n}” ({k}), in “Constructs” for the members of the organisation.", n=c.name, k=c.key),
+                  "success")
+        elif action in ("take", "reject"):
+            s = db.session.get(ConstructSubmission, request.form.get("sid", type=int) or 0)
+            if s is None or s.org_id != org.id:
+                abort(404)
+            if action == "take":  # the member confirmed the rights of use with the proposal
+                c = org_constructs.take_over(s, org, current_user, request.form)
+                security_log.event("org_construct", by=current_user.id, target=f"org {org.id}: {c.key}")
+                flash(de_en("Übernommen: „{n}“ ({k}).", "Accepted: “{n}” ({k}).", n=c.name, k=c.key), "success")
+            else:
+                org_constructs.reject(s, org, request.form.get("note"))
+                flash(de_en("Abgelehnt.", "Rejected."), "success")
+            db.session.commit()
+            toolbox.rebuild_index(force=True)
+        else:
+            abort(400)
+    except ValueError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    return back
+
+
+@bp.route("/<int:org_id>/constructs/own/<key>.zip")
+def construct_file(org_id, key):
+    """A construct of the organisation as a file for a pull request to askurious-constructs (app/org_constructs.py)."""
+    from flask import Response as FlaskResponse
+
+    from app import brand, org_constructs
+    from app.models import Construct
+
+    c = db.session.scalar(db.select(Construct).filter_by(key=key, visibility=org_constructs.VISIBILITY, org_id=g.org.id))
+    if c is None:
+        abort(404)
+    from urllib.parse import urlsplit
+
+    name, data = org_constructs.pr_zip(c, urlsplit(brand.public_base()).hostname or "")
+    return FlaskResponse(data, mimetype="application/zip",
+                         headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 # --- Design (Ralf 2026-10-16) ----------------------------------------------------------------------------------------

@@ -387,3 +387,26 @@ def check_manifest(data):
         elif licensed(c) and c.get("wording"):
             problems.append(f"{key}: licensed construct with wording")
     return problems
+
+
+def wording_from_texts(spec, lang):
+    """The wording of an item template (spec) in language `lang` in the catalogue's format: question, labels, items
+    and options by their codes, prefix/suffix/validation_message (the reverse of to_spec)."""
+    t = (spec.get("texts") or {}).get(lang) or {}
+    config = spec.get("config") or {}
+    w = {}
+    if "question" in t:
+        w["question"] = t["question"]
+    if "labels" in t:
+        w["labels"] = list(t["labels"])
+    if config.get("statements"):
+        w["items"] = {st["code"]: (t.get("statements") or {}).get(st["id"], "") for st in config["statements"]}
+    if config.get("pairs"):
+        w["items"] = {p["code"]: dict((t.get("pairs") or {}).get(p["id"]) or {"left": "", "right": ""})
+                      for p in config["pairs"]}
+    if config.get("options"):
+        w["options"] = {o["code"]: (t.get("options") or {}).get(o["id"], "") for o in config["options"]}
+    for field in _ITEM_TEXT_FIELDS:
+        if field in t:
+            w[field] = t[field]
+    return w

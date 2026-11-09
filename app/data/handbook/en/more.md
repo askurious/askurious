@@ -18,6 +18,10 @@ The constructs come from the open catalogue [askurious-constructs](https://githu
 The section “Catalogue” shows the version, source, last sync and the list of changes. “Sync now” fetches the newest release and first shows what changes; “Upload manifest file” takes the manifest and signature of a release for installations without network. “Back to …” restores the version before and pins it until “Release pin” lets the sync go on.
 Licensed scales (e.g. GESIS/ZIS) have only their structure and a hash of their wording in the catalogue; the installation uses its own wording only where it matches that hash.
 
+**Constructs of your organisation (Management › Constructs).**
+Admins of an organisation create constructs with “Create construct” that only the organisation's members find in “Constructs” and in the questionnaire editor, with the organisation's name at the entry. The basis is a linked element; the dialog asks for a description, the source, the scoring, the licence of the wording and the confirmation of the rights of use. Members propose one of their own linked elements on its page with “Propose to the organisation”; the admins accept or reject it. Such constructs do not go into the platform's pooled analysis.
+“As a file for a pull request” gives a ZIP with the construct.yaml for the construct repository askurious-constructs (with the wording where the licence is open), so that every installation can get it; accepted submissions under Administration › Constructs have the same.
+
 **Why.**
 Reusing validated instruments is better science than writing new questions, and every survey that uses a construct adds to its pooled reliability across studies.
 The pooled data are pseudonymous per study and person, and the terms of use name this use.

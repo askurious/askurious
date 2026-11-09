@@ -18,6 +18,10 @@ Die Konstrukte kommen aus dem offenen Katalog [askurious-constructs](https://git
 Der Abschnitt „Katalog“ zeigt Stand, Quelle, letzten Abgleich und die Änderungsliste. „Jetzt abgleichen“ holt das neueste Release und zeigt zuerst, was sich ändert; „Manifest-Datei hochladen“ nimmt für Installationen ohne Netz Manifest und Signatur eines Releases. „Rückgängig auf …“ stellt den Stand davor wieder her und legt ihn fest, bis „Pin lösen“ den Abgleich wieder freigibt.
 Lizenzierte Skalen (z. B. GESIS/ZIS) haben im Katalog nur Struktur und einen Hash ihres Wortlauts; die Installation nutzt ihren eigenen Wortlaut nur, wenn er zu diesem Hash passt.
 
+**Eigene Konstrukte der Organisation (Verwaltung › Konstrukte).**
+Admins einer Organisation legen über „Konstrukt anlegen“ Konstrukte an, die nur die Mitglieder der Organisation in „Konstrukte“ und im Fragebogen-Editor finden, mit dem Namen der Organisation am Eintrag. Grundlage ist ein verknüpftes Element; der Dialog fragt Beschreibung, Quelle, Auswertung, Lizenz des Wortlauts und die Bestätigung der Nutzungsrechte ab. Mitglieder schlagen auf der Seite eines eigenen verknüpften Elements „Der Organisation vorschlagen“ vor; die Admins übernehmen oder lehnen ab. Solche Konstrukte gehen nicht in die gemeinsame Auswertung der Plattform.
+„Als Datei für Pull Request“ liefert ein ZIP mit der construct.yaml für das Konstrukt-Repository askurious-constructs (bei offener Lizenz mit dem Wortlaut), damit alle Installationen es bekommen können; dasselbe gibt es bei angenommenen Einreichungen unter Administration › Konstrukte.
+
 **Warum.**
 Validierte Instrumente wiederzuverwenden ist bessere Wissenschaft, als neue Fragen zu schreiben, und jede Befragung, die ein Konstrukt nutzt, trägt zu seiner gemeinsamen Reliabilität über Studien hinweg bei.
 Die gemeinsamen Daten sind je Studie und Person pseudonym, und die Nutzungsbedingungen nennen diese Verwendung.
