@@ -632,7 +632,29 @@ def _fts_keys(q):
 
 
 def visible(user=None):
-    return db.select(Construct).filter(Construct.visibility == "public")
+    """The constructs of the toolbox `user` (default: the person signed in) may find: those of the platform, and
+    those of their organisations (app/org_constructs.py)."""
+    stmt = db.select(Construct)
+    orgs_seen = _org_ids(user)
+    if orgs_seen:
+        return stmt.filter(db.or_(Construct.visibility == "public",
+                                  db.and_(Construct.visibility == "org", Construct.org_id.in_(orgs_seen))))
+    return stmt.filter(Construct.visibility == "public")
+
+
+def _org_ids(user=None):
+    """The organisations whose constructs `user` sees (none for a guest or outside a request)."""
+    from flask import has_request_context
+
+    if user is None:
+        if not has_request_context():
+            return []
+        user = current_user
+    if not getattr(user, "is_authenticated", False):
+        return []
+    from app import orgs
+
+    return sorted(orgs.ids_of(user))
 
 
 # The toolbox is open to visitors (constructs_page.index): every chosen facet costs one more search with every other
@@ -982,7 +1004,10 @@ def pooled(key):
     """Do the answers to construct `key` go into the pooled analysis? Not those of the RatSWD standard questions
     (app/ratswd.py): the pool is meant for scales, and demographics would make the consent's paragraph needlessly
     delicate (concept Demografie-Standards 2026-10-15, decision 7a). Age and gender stay in it as before."""
-    return key not in ratswd.NOT_POOLED
+    from app import org_constructs
+
+    # constructs of an organisation stay out like linked elements (terms of use section 4 names the toolbox only)
+    return key not in ratswd.NOT_POOLED and not org_constructs.is_org_key(key)
 
 
 def _pseudonym(prefix, value, length):

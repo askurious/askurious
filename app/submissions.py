@@ -37,19 +37,22 @@ def labels():
 
 
 def latest(c):
-    """The newest submission of element `c`, or None."""
-    return db.session.scalar(db.select(ConstructSubmission).filter_by(construct_id=c.id)
+    """The newest submission of element `c` to the operator, or None."""
+    return db.session.scalar(db.select(ConstructSubmission).filter_by(construct_id=c.id, org_id=None)
                              .order_by(ConstructSubmission.id.desc()).limit(1))
 
 
 def open_ones():
-    return list(db.session.scalars(db.select(ConstructSubmission).filter(ConstructSubmission.state.in_(ConstructSubmission.OPEN))
-                                   .order_by(ConstructSubmission.created_at)))
+    """Open submissions to the operator (proposals to an organisation are its own, app/org_constructs.py)."""
+    return list(db.session.scalars(db.select(ConstructSubmission).filter(
+        ConstructSubmission.state.in_(ConstructSubmission.OPEN), ConstructSubmission.org_id.is_(None))
+        .order_by(ConstructSubmission.created_at)))
 
 
 def decided_ones(limit=20):
-    return list(db.session.scalars(db.select(ConstructSubmission).filter(~ConstructSubmission.state.in_(ConstructSubmission.OPEN))
-                                   .order_by(ConstructSubmission.decided_at.desc()).limit(limit)))
+    return list(db.session.scalars(db.select(ConstructSubmission).filter(
+        ~ConstructSubmission.state.in_(ConstructSubmission.OPEN), ConstructSubmission.org_id.is_(None))
+        .order_by(ConstructSubmission.decided_at.desc()).limit(limit)))
 
 
 def unseen(user):

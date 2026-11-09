@@ -284,6 +284,9 @@ class Config:
     # manifest.json.sig). CONSTRUCTS_PIN: stay on this release (e.g. 2026.11.0).
     CONSTRUCTS_SOURCE = os.environ.get("CONSTRUCTS_SOURCE", "")
     CONSTRUCTS_PIN = os.environ.get("CONSTRUCTS_PIN", "")
+    # Whom the dialogs for constructs of an organisation name for contributing one to every installation
+    # (app/org_constructs.py); empty: the contacts of the construct catalogue. Another installation sets its own.
+    CONSTRUCTS_CONTACT = os.environ.get("CONSTRUCTS_CONTACT", "")
     SESSION_COOKIE_SECURE = PUBLIC_BASE_URL.startswith("https://")
     SESSION_COOKIE_SAMESITE = "Lax"
     # Behind https the cookies carry the prefix "__Host-": the browser then takes them only from this very host

@@ -202,6 +202,30 @@
   <p class="muted small">{{ de_en("Eine Skala aus der Literatur, die niemand in Askurious angelegt hat?", "A scale from the literature that nobody has created in Askurious?") }} <a href="{{ url_for('feedback.scale') }}">{{ de_en("Skala vorschlagen", "Suggest a scale") }}</a></p>
   {% endif %}
 </section>
+{% if info.owner %}
+<section class="panel" id="organisation">
+  <h2>{{ de_en("Der Organisation vorschlagen", "Propose to the organisation") }} <span class="hint">{{ home_org }}</span></h2>
+  {% set ost = org_proposal.state if org_proposal else "" %}
+  {% if ost == "accepted" %}<p class="small">{{ de_en("Übernommen als", "Accepted as") }} <a href="{{ url_for('constructs.detail', key=org_proposal.toolbox_key) }}">{{ de_en("Konstrukt der Organisation", "construct of the organisation") }}</a>.</p>
+  {% elif ost in ("submitted", "question") %}<p class="small">{{ de_en("Vorgeschlagen am {date}. Die Admins der Organisation übernehmen es unter Verwaltung › Konstrukte.", "Proposed on {date}. The organisation's admins accept it under Management › Constructs.", date=org_proposal.created_at|localdate) }}</p>
+  {% else %}
+  {% if ost == "rejected" %}<p class="small">{{ de_en("Nicht übernommen", "Not accepted") }}{% if org_proposal.note %}: {{ org_proposal.note }}{% endif %}.</p>{% endif %}
+  <p class="small">{{ de_en("Ein Konstrukt nur für Ihre Organisation: Ihre Mitglieder finden es in „Konstrukte“ und im Fragebogen-Editor; es geht nicht in die gemeinsame Auswertung der Plattform.", "A construct for your organisation only: its members find it in “Constructs” and in the questionnaire editor; it does not go into the platform's pooled analysis.") }}</p>
+  <details><summary>{{ de_en("Vorschlagen", "Propose") }}</summary>
+  <form method="post" class="stack">
+    {{ csrf() }}<input type="hidden" name="action" value="propose_org">
+    <label><span class="label-title">{{ de_en("Beschreibung", "Description") }}</span><textarea name="description" rows="3" maxlength="3000" required></textarea></label>
+    <label><span class="label-title">{{ de_en("Quelle", "Source") }}</span><textarea name="citation" rows="2" maxlength="2000" required></textarea></label>
+    <label><span class="label-title">DOI <span class="hint">optional</span></span><input name="doi" placeholder="10.1037/…"></label>
+    <label><span class="label-title">{{ de_en("Auswertung", "Scoring") }}</span><textarea name="scoring" rows="2" maxlength="1000" required></textarea></label>
+    <label><span class="label-title">{{ de_en("Lizenz des Wortlauts", "Licence of the wording") }}</span><select name="licence" required>{% for key, label in oc_licences %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+    <label class="check"><input type="checkbox" name="rights" value="1" required> {{ de_en("Ich darf diesen Wortlaut nutzen und in der Organisation teilen.", "I may use this wording and share it in the organisation.") }}</label>
+    <div class="form-actions"><button class="button">{{ de_en("Der Organisation vorschlagen", "Propose to the organisation") }}</button></div>
+  </form>
+  </details>
+  {% endif %}
+</section>
+{% endif %}
 <div class="settings-pair">
 <section class="panel">
   <h2>Name</h2>

@@ -371,12 +371,12 @@ def counts():
     from app import linked
     from app.models import Construct
 
-    rows = db.session.execute(db.select(Construct.source, Construct.org_id, Construct.key)
-                              .filter(Construct.visibility == "public")).all()
+    rows = db.session.execute(db.select(Construct.source, Construct.visibility, Construct.key)
+                              .filter(Construct.visibility.in_(("public", "org")))).all()
     own = [r for r in rows if not r.key.startswith(linked.PREFIX)]
-    return {"catalog": sum(1 for r in own if r.source == "catalog"),
-            "instance": sum(1 for r in own if r.source != "catalog" and r.org_id is None),
-            "orgs": sum(1 for r in own if r.source != "catalog" and r.org_id is not None)}
+    return {"catalog": sum(1 for r in own if r.source == "catalog" and r.visibility == "public"),
+            "instance": sum(1 for r in own if r.source != "catalog" and r.visibility == "public"),
+            "orgs": sum(1 for r in own if r.visibility == "org")}
 
 
 def status():

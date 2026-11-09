@@ -222,6 +222,25 @@ def submission(sid):
                            proposal=submissions.proposal(s) if s.state in ConstructSubmission.OPEN else None, toolbox=toolbox)
 
 
+@bp.route("/constructs/<key>/pull-request.zip")
+def construct_pr_file(key):
+    """A construct of this installation (an accepted submission) as a file for a pull request to askurious-constructs
+    (app/org_constructs.py pr_zip)."""
+    from urllib.parse import urlsplit
+
+    from flask import Response
+
+    from app import brand, org_constructs
+    from app.extensions import db
+    from app.models import Construct
+
+    c = db.session.scalar(db.select(Construct).filter_by(key=key)) or abort(404)
+    if c.source == "catalog" or c.key.startswith("v-"):
+        abort(404)  # the catalogue's own constructs and linked elements are no contribution
+    name, data = org_constructs.pr_zip(c, urlsplit(brand.public_base()).hostname or "")
+    return Response(data, mimetype="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 @bp.route("/constructs/compilation")
 def construct_compose():
     """Several toolbox constructs as one data set for a meta-analysis (app/construct_compose.py): pick, filter, see

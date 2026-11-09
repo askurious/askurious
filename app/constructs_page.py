@@ -195,6 +195,22 @@ def linked_element(key):
                         "Submitted. A platform admin checks the element; the answer appears here and on your start page."),
                   "success")
             return redirect(url_for("constructs.linked", key=c.key) + "#toolbox")
+        if request.form.get("action") == "propose_org":  # for the organisation's constructs (app/org_constructs.py)
+            from app import org_constructs
+
+            fields, errors = org_constructs.read(request.form, need_name=False)
+            if errors:
+                flash(de_en("Bitte ausfüllen: {fields}.", "Please fill in: {fields}.", fields=", ".join(errors)), "error")
+                return redirect(url_for("constructs.linked", key=c.key) + "#organisation")
+            try:
+                org_constructs.propose(c, current_user, org_constructs.home_org_id(current_user), fields)
+            except ValueError as e:
+                flash(str(e), "error")
+                return redirect(url_for("constructs.linked", key=c.key) + "#organisation")
+            db.session.commit()
+            flash(de_en("Der Organisation vorgeschlagen. Ihre Admins übernehmen es unter Verwaltung › Konstrukte.",
+                        "Proposed to the organisation. Its admins accept it under Management › Constructs."), "success")
+            return redirect(url_for("constructs.linked", key=c.key) + "#organisation")
         if request.form.get("action") == "answer":
             s = submissions.latest(c)
             if s is None or s.user_id != current_user.id or not (request.form.get("answer") or "").strip():
@@ -331,8 +347,17 @@ def linked_element(key):
     if submission is not None and not submission.seen and submission.user_id == current_user.id:
         submission.seen = True  # the start page no longer points to it
         db.session.commit()
+    from app import org_constructs, orgs
+
+    from app.models import ConstructSubmission
+
+    home = org_constructs.home_org_id(current_user)
+    org_proposal = db.session.scalar(db.select(ConstructSubmission).filter_by(
+        construct_id=c.id, org_id=home).order_by(ConstructSubmission.id.desc()).limit(1))
     return render_template("constructs/linked.html", c=c, info=info, lang=lang, texts=(spec.get("texts") or {}).get(lang, {}),
                            submission=submission, submit_fields=submissions.FIELDS, prefill=request.args,
+                           org_proposal=org_proposal, home_org=orgs.name(home),
+                           oc_licences=org_constructs.licences(),
                            status_names=_status_names(),
                            my_groups=[g for g in mine if not any(s.group_id == g.id for s in c.group_shares)],
                            shared_groups=[s.group for s in c.group_shares], contacts=contacts, names=names, q=q, people=people,
