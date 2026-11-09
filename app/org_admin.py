@@ -920,6 +920,8 @@ def constructs(org_id):
                            rows=[toolbox.shown(toolbox.get(k)) for k in own],
                            platform=[toolbox.shown(toolbox.get(k)) for k in platform], max=shortlist.MAX,
                            own_constructs=org_constructs.of_org(org.id), proposals=org_constructs.proposals(org.id),
+                           hidden_constructs=org_constructs.of_org(org.id, hidden=True), uses=org_constructs.uses,
+                           english=org_constructs.english_of,
                            elements=linked.palette(current_user), licences=org_constructs.licences(),
                            licence_label=org_constructs.licence_label, contact=org_constructs.contact(),
                            repository=org_constructs.REPOSITORY)
@@ -953,6 +955,29 @@ def constructs_own(org_id):
             flash(de_en("Angelegt: „{n}“ ({k}), für die Mitglieder der Organisation in „Konstrukte“.",
                         "Created: “{n}” ({k}), in “Constructs” for the members of the organisation.", n=c.name, k=c.key),
                   "success")
+        elif action in ("update", "hide", "show"):
+            c = org_constructs.get(org.id, request.form.get("key", ""))
+            if c is None:
+                abort(404)
+            if action == "update":
+                fields, errors = org_constructs.read(request.form)
+                if errors:
+                    flash(de_en("Bitte ausfüllen: {fields}.", "Please fill in: {fields}.", fields=", ".join(errors)), "error")
+                    return back
+                org_constructs.update(c, org, fields)
+                flash(de_en("Gespeichert: „{n}“.", "Saved: “{n}”.", n=c.name), "success")
+            elif action == "hide":
+                org_constructs.hide(c)
+                flash(de_en("„{n}“ steht nicht mehr in „Konstrukte“; Befragungen, die es nutzen, behalten es. Rückgängig: "
+                            "unter „Ausgeblendet“ „Wieder zeigen“.", "“{n}” is no longer listed in “Constructs”; surveys that "
+                            "use it keep it. To undo: “Show again” under “Hidden”.", n=c.name), "success")
+            else:
+                org_constructs.show(c)
+                flash(de_en("„{n}“ steht wieder in „Konstrukte“.", "“{n}” is listed in “Constructs” again.", n=c.name),
+                      "success")
+            security_log.event("org_construct", by=current_user.id, target=f"org {org.id}: {action} {c.key}")
+            db.session.commit()
+            toolbox.rebuild_index(force=True)
         elif action in ("take", "reject"):
             s = db.session.get(ConstructSubmission, request.form.get("sid", type=int) or 0)
             if s is None or s.org_id != org.id:
@@ -982,7 +1007,7 @@ def construct_file(org_id, key):
     from app import brand, org_constructs
     from app.models import Construct
 
-    c = db.session.scalar(db.select(Construct).filter_by(key=key, visibility=org_constructs.VISIBILITY, org_id=g.org.id))
+    c = org_constructs.get(g.org.id, key)
     if c is None:
         abort(404)
     from urllib.parse import urlsplit

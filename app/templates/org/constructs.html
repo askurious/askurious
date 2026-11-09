@@ -15,16 +15,69 @@
     {% for c in platform %}{{ c.name }}{{ ", " if not loop.last }}{% else %}{{ de_en("keine", "none") }}{% endfor %}.</p>
   {% endif %}
 </section>
+{% macro construct_dialog(id, title, button, action, c=none, en={}) -%}
+  <dialog class="person-dialog xp-dialog" id="{{ id }}" aria-labelledby="{{ id }}-title">
+    <div class="xp-dialog-head"><h2 id="{{ id }}-title">{{ title }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    <form method="post" action="{{ url_for('org.constructs_own', org_id=org.id) }}">
+      {{ csrf() }}<input type="hidden" name="action" value="{{ action }}">{% if c %}<input type="hidden" name="key" value="{{ c.key }}">{% endif %}
+      <label for="{{ id }}-name">{{ de_en("Name", "Name") }}</label>
+      <input id="{{ id }}-name" name="name" maxlength="200" required value="{{ c.name if c else '' }}" placeholder="{{ de_en('z. B. Vertrauen in Assistenzroboter', 'e.g. Trust in assistive robots') }}">
+      {% if not c %}
+      <label for="{{ id }}-element">{{ de_en("Grundlage", "Basis") }} <span class="hint">{{ de_en("verknüpftes Element", "linked element") }}</span></label>
+      <select id="{{ id }}-element" name="element" required>
+        <option value="">{{ de_en("Verknüpftes Element wählen …", "Choose a linked element …") }}</option>
+        {% for e in elements %}<option value="{{ e.key }}">{{ e.name }}</option>{% endfor %}
+      </select>
+      {% if not elements %}<p class="muted small">{{ de_en("Sie haben noch kein verknüpftes Element. Im Fragebogen-Editor macht „Verknüpfen“ eine Frage zu einem.", "You have no linked element yet. In the questionnaire editor, “Link” makes a question one.") }}</p>{% endif %}
+      {% endif %}
+      <label for="{{ id }}-description">{{ de_en("Beschreibung", "Description") }}</label>
+      <textarea id="{{ id }}-description" name="description" rows="3" maxlength="3000" required>{{ c.description if c else '' }}</textarea>
+      <label for="{{ id }}-citation">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("Autorinnen und Autoren, Jahr, Titel", "authors, year, title") }}</span></label>
+      <textarea id="{{ id }}-citation" name="citation" rows="2" maxlength="2000" required>{{ c.citation if c else '' }}</textarea>
+      <label for="{{ id }}-doi">DOI <span class="hint">{{ de_en("optional", "optional") }}</span></label>
+      <input id="{{ id }}-doi" name="doi" maxlength="200" placeholder="10.1037/…" value="{{ c.doi if c else '' }}">
+      <label for="{{ id }}-scoring">{{ de_en("Auswertung", "Scoring") }}</label>
+      <textarea id="{{ id }}-scoring" name="scoring" rows="2" maxlength="1000" required>{{ c.scoring if c else '' }}</textarea>
+      <label for="{{ id }}-licence">{{ de_en("Lizenz des Wortlauts", "Licence of the wording") }}</label>
+      <select id="{{ id }}-licence" name="licence" required>
+        {% for key, label in licences %}<option value="{{ key }}"{% if c and (c.spec or {}).get("licence") == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <details{% if en %} open{% endif %}><summary class="small">{{ de_en("Englisch (für alle Installationen, optional)", "English (for every installation, optional)") }}</summary>
+        <label for="{{ id }}-name-en">{{ de_en("Name auf Englisch", "Name in English") }}</label>
+        <input id="{{ id }}-name-en" name="name_en" maxlength="200" value="{{ en.get('name', '') }}">
+        <label for="{{ id }}-description-en">{{ de_en("Beschreibung auf Englisch", "Description in English") }}</label>
+        <textarea id="{{ id }}-description-en" name="description_en" rows="2" maxlength="3000">{{ en.get('description', '') }}</textarea>
+        <label for="{{ id }}-scoring-en">{{ de_en("Auswertung auf Englisch", "Scoring in English") }}</label>
+        <textarea id="{{ id }}-scoring-en" name="scoring_en" rows="2" maxlength="1000">{{ en.get('scoring', '') }}</textarea>
+      </details>
+      <label class="check"><input type="checkbox" name="rights" value="1" required{% if c %} checked{% endif %}> {{ de_en("Ich darf diesen Wortlaut nutzen und in der Organisation teilen.", "I may use this wording and share it in the organisation.") }}</label>
+      <p class="muted small">{{ de_en("Sollen alle Askurious-Installationen das Konstrukt bekommen? Schreiben Sie {contact} an oder stellen Sie einen Pull Request im Konstrukt-Repository.", "Should every Askurious installation get the construct? Write to {contact} or open a pull request in the construct repository.", contact=contact) }}</p>
+      <div class="form-actions"><button class="button">{{ button }}</button>
+        <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+    </form>
+  </dialog>
+{%- endmacro %}
 <section class="panel" id="eigene">
   <h2>{{ de_en("Eigene Konstrukte", "Constructs of your own") }}</h2>
   <p class="muted small">{{ de_en("Skalen und Fragen, die nur die Mitglieder der Organisation in „Konstrukte“ und im Fragebogen-Editor finden, mit dem Namen der Organisation am Eintrag. Grundlage ist ein verknüpftes Element; Mitglieder können eigene Elemente vorschlagen. Diese Konstrukte gehen nicht in die gemeinsame Auswertung der Plattform.", "Scales and questions only the members of the organisation find in “Constructs” and in the questionnaire editor, with the organisation's name at the entry. The basis is a linked element; members can propose elements of their own. These constructs do not go into the platform's pooled analysis.") }}</p>
   {% if own_constructs %}
   <ul class="plain">
-    {% for c in own_constructs %}<li><a href="{{ url_for('constructs.detail', key=c.key) }}">{{ c.name }}</a> <span class="hint">{{ c.key }} · {{ licence_label((c.spec or {}).get("licence")) }} · {{ c.created_at|localdate }}</span>
-      <a class="button button-secondary button-small" href="{{ url_for('org.construct_file', org_id=org.id, key=c.key) }}" download>{{ de_en("Als Datei für Pull Request", "As a file for a pull request") }}</a></li>{% endfor %}
+    {% for c in own_constructs %}{% set n = uses(c.key) %}<li><a href="{{ url_for('constructs.detail', key=c.key) }}">{{ c.name }}</a> <span class="hint">{{ c.key }} · {{ licence_label((c.spec or {}).get("licence")) }} · {{ de_en("in {n} Befragungen", "in {n} surveys", n=n) }}</span>
+      <button type="button" class="button button-secondary button-small" data-dialog-open="org-construct-edit-{{ c.id }}">{{ de_en("Bearbeiten", "Edit") }}</button>
+      <a class="button button-secondary button-small" href="{{ url_for('org.construct_file', org_id=org.id, key=c.key) }}" download>{{ de_en("Als Datei für Pull Request", "As a file for a pull request") }}</a>
+      <form method="post" action="{{ url_for('org.constructs_own', org_id=org.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="hide"><input type="hidden" name="key" value="{{ c.key }}"><button class="button button-secondary button-small">{{ de_en("Ausblenden", "Hide") if n else de_en("Entfernen", "Remove") }}</button></form>
+      {{ construct_dialog("org-construct-edit-" ~ c.id, de_en("Konstrukt bearbeiten", "Edit construct"), de_en("Speichern", "Save"), "update", c, english(c)) }}</li>{% endfor %}
   </ul>
   {% else %}<p class="muted small">{{ de_en("Noch keine eigenen Konstrukte.", "No constructs of your own yet.") }}</p>{% endif %}
   <div class="form-actions"><button type="button" class="button button-small" data-dialog-open="org-construct-new">{{ de_en("Konstrukt anlegen", "Create construct") }}</button></div>
+  {% if hidden_constructs %}
+  <details class="space-above"><summary class="small">{{ de_en("Ausgeblendet ({n})", "Hidden ({n})", n=hidden_constructs|length) }}</summary>
+    <p class="muted small">{{ de_en("Nicht mehr in „Konstrukte“; Befragungen, die sie nutzen, behalten sie.", "No longer listed in “Constructs”; surveys that use them keep them.") }}</p>
+    <ul class="plain small">{% for c in hidden_constructs %}<li>{{ c.name }} <span class="hint">{{ c.key }}</span>
+      <form method="post" action="{{ url_for('org.constructs_own', org_id=org.id) }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="show"><input type="hidden" name="key" value="{{ c.key }}"><button class="button button-secondary button-small">{{ de_en("Wieder zeigen", "Show again") }}</button></form></li>{% endfor %}</ul>
+  </details>
+  {% endif %}
   {% if proposals %}
   <h3>{{ de_en("Vorschläge der Mitglieder", "Proposals of members") }}</h3>
   <ul class="plain">
@@ -34,36 +87,6 @@
   </ul>
   {% endif %}
   <p class="muted small">{{ de_en("Sollen alle Askurious-Installationen ein Konstrukt bekommen? Schreiben Sie {contact} an oder stellen Sie einen Pull Request im Konstrukt-Repository ({repo}); „Als Datei für Pull Request“ liefert die fertigen Dateien.", "Should every Askurious installation get a construct? Write to {contact} or open a pull request in the construct repository ({repo}); “As a file for a pull request” gives the files ready to use.", contact=contact, repo=repository) }}</p>
-  <dialog class="person-dialog xp-dialog" id="org-construct-new" aria-labelledby="org-construct-new-title">
-    <div class="xp-dialog-head"><h2 id="org-construct-new-title">{{ de_en("Konstrukt anlegen", "Create construct") }}</h2>
-      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
-    <form method="post" action="{{ url_for('org.constructs_own', org_id=org.id) }}">
-      {{ csrf() }}<input type="hidden" name="action" value="create">
-      <label for="oc-name">{{ de_en("Name", "Name") }}</label>
-      <input id="oc-name" name="name" maxlength="200" required placeholder="{{ de_en('z. B. Vertrauen in Assistenzroboter', 'e.g. Trust in assistive robots') }}">
-      <label for="oc-element">{{ de_en("Grundlage", "Basis") }} <span class="hint">{{ de_en("verknüpftes Element", "linked element") }}</span></label>
-      <select id="oc-element" name="element" required>
-        <option value="">{{ de_en("Verknüpftes Element wählen …", "Choose a linked element …") }}</option>
-        {% for e in elements %}<option value="{{ e.key }}">{{ e.name }}</option>{% endfor %}
-      </select>
-      {% if not elements %}<p class="muted small">{{ de_en("Sie haben noch kein verknüpftes Element. Im Fragebogen-Editor macht „Verknüpfen“ eine Frage zu einem.", "You have no linked element yet. In the questionnaire editor, “Link” makes a question one.") }}</p>{% endif %}
-      <label for="oc-description">{{ de_en("Beschreibung", "Description") }}</label>
-      <textarea id="oc-description" name="description" rows="3" maxlength="3000" required></textarea>
-      <label for="oc-citation">{{ de_en("Quelle", "Source") }} <span class="hint">{{ de_en("Autorinnen und Autoren, Jahr, Titel", "authors, year, title") }}</span></label>
-      <textarea id="oc-citation" name="citation" rows="2" maxlength="2000" required></textarea>
-      <label for="oc-doi">DOI <span class="hint">{{ de_en("optional", "optional") }}</span></label>
-      <input id="oc-doi" name="doi" maxlength="200" placeholder="10.1037/…">
-      <label for="oc-scoring">{{ de_en("Auswertung", "Scoring") }}</label>
-      <textarea id="oc-scoring" name="scoring" rows="2" maxlength="1000" required></textarea>
-      <label for="oc-licence">{{ de_en("Lizenz des Wortlauts", "Licence of the wording") }}</label>
-      <select id="oc-licence" name="licence" required>
-        {% for key, label in licences %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
-      </select>
-      <label class="check"><input type="checkbox" name="rights" value="1" required> {{ de_en("Ich darf diesen Wortlaut nutzen und in der Organisation teilen.", "I may use this wording and share it in the organisation.") }}</label>
-      <p class="muted small">{{ de_en("Sollen alle Askurious-Installationen das Konstrukt bekommen? Schreiben Sie {contact} an oder stellen Sie einen Pull Request im Konstrukt-Repository.", "Should every Askurious installation get the construct? Write to {contact} or open a pull request in the construct repository.", contact=contact) }}</p>
-      <div class="form-actions"><button class="button">{{ de_en("Anlegen", "Create") }}</button>
-        <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
-    </form>
-  </dialog>
+  {{ construct_dialog("org-construct-new", de_en("Konstrukt anlegen", "Create construct"), de_en("Anlegen", "Create"), "create") }}
 </section>
 {% endblock %}

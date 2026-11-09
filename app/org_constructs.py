@@ -32,6 +32,7 @@ from app.lang import de_en, english
 from app.models import Construct, ConstructSubmission, utcnow
 
 VISIBILITY = "org"
+HIDDEN = "org_hidden"  # taken out of the toolbox by an admin of the organisation; surveys that use it keep it
 SOURCE = "org"
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,29}\Z")
 PREFIX_RE = re.compile(r"^o\d+-")
@@ -48,7 +49,9 @@ LICENCES = (
     ("publisher-copyright", "Urheberrecht des Verlags", "Publisher's copyright", False),
     ("authors-free-use", "Von den Autoren frei nutzbar, keine Weitergabelizenz", "Free to use per the authors, no licence to pass on", False),
 )
-FIELDS = (("description", 3000), ("citation", 2000), ("doi", 200), ("scoring", 1000), ("licence", 40), ("name", 200))
+FIELDS = (("description", 3000), ("citation", 2000), ("doi", 200), ("scoring", 1000), ("licence", 40), ("name", 200),
+          ("name_en", 200), ("description_en", 3000), ("scoring_en", 1000))
+ENGLISH = ("name", "description", "scoring")  # optional English of these, for the file for a pull request
 
 
 def is_org_key(key):
@@ -79,9 +82,56 @@ def home_org_id(user):
     return orgs.home_id(user) or orgs.default_id()
 
 
-def of_org(org_id):
-    return list(db.session.scalars(db.select(Construct).filter_by(visibility=VISIBILITY, org_id=org_id)
-                                   .order_by(Construct.name)))
+def of_org(org_id, hidden=False):
+    return list(db.session.scalars(db.select(Construct).filter_by(visibility=HIDDEN if hidden else VISIBILITY,
+                                                                  org_id=org_id).order_by(Construct.name)))
+
+
+def get(org_id, key):
+    """A construct of organisation `org_id` (shown or hidden), or None."""
+    return db.session.scalar(db.select(Construct).filter(Construct.key == key, Construct.org_id == org_id,
+                                                         Construct.visibility.in_((VISIBILITY, HIDDEN))))
+
+
+def uses(key):
+    """How many surveys have an element of construct `key`."""
+    from app import construct_sync
+
+    return construct_sync.uses(key)
+
+
+def english_of(c):
+    """{field: English text} given for construct `c` (name, description, scoring)."""
+    return dict((c.spec or {}).get("en") or {})
+
+
+def _terms(org, element_key, licence):
+    return de_en("Lizenz des Wortlauts: {l}.", "Licence of the wording: {l}.", l=licence_label(licence)) + " " + de_en(
+        "Konstrukt der Organisation {o}, aus dem verknüpften Element {k}.",
+        "Construct of the organisation {o}, from the linked element {k}.", o=org.name, k=element_key)
+
+
+def update(c, org, f):
+    """Change name, description, source, scoring, licence and the English of a construct of the organisation (its
+    structure and wording stay those of the element it was made from). The caller commits."""
+    from app import constructs
+
+    c.name = (f.get("name") or c.name)[:200]
+    c.description, c.citation, c.doi, c.scoring = f["description"], f["citation"], f.get("doi", ""), f["scoring"]
+    element = ((c.notes or "").rsplit(" ", 1)[-1] or "").rstrip(".")
+    c.notes = _terms(org, element, f["licence"])
+    c.spec = {**(c.spec or {}), "licence": f["licence"],
+              "en": {k: f.get(f"{k}_en", "") for k in ENGLISH if f.get(f"{k}_en")}}
+    c.search_text = constructs._search_text(c)
+
+
+def hide(c):
+    """Out of the toolbox: the organisation's members no longer find it; surveys that use it keep their copy."""
+    c.visibility = HIDDEN
+
+
+def show(c):
+    c.visibility = VISIBILITY
 
 
 def proposals(org_id):
@@ -143,14 +193,11 @@ def create(org, user, element, f):
     if element is None or not (element.spec or {}).get("config"):
         raise ValueError(de_en("Bitte ein verknüpftes Element als Grundlage wählen.",
                                "Please choose a linked element as the basis."))
-    terms = de_en("Lizenz des Wortlauts: {l}.", "Licence of the wording: {l}.", l=licence_label(f["licence"]))
     c = Construct(key=_free_key(org.id, f.get("name") or element.name), name=(f.get("name") or element.name)[:200],
                   short="", description=f["description"], authors="", year=None, citation=f["citation"],
-                  doi=f.get("doi", ""), scoring=f["scoring"], notes=terms + " " + de_en(
-                      "Konstrukt der Organisation {o}, aus dem verknüpften Element {k}.",
-                      "Construct of the organisation {o}, from the linked element {k}.", o=org.name, k=element.key),
+                  doi=f.get("doi", ""), scoring=f["scoring"], notes=_terms(org, element.key, f["licence"]),
                   spec={**copy.deepcopy({k: v for k, v in (element.spec or {}).items() if k != "origin_survey_id"}),
-                        "licence": f["licence"]},
+                        "licence": f["licence"], "en": {k: f.get(f"{k}_en", "") for k in ENGLISH if f.get(f"{k}_en")}},
                   status="review", visibility=VISIBILITY, org_id=org.id, source=SOURCE, version="1.0",
                   created_by_id=user.id, seed_version=1)
     db.session.add(c)
@@ -205,6 +252,7 @@ def construct_yaml(c, host=""):
     spec = c.spec or {}
     key = _name(c)
     lic = spec.get("licence") or ""
+    en = english_of(c)
     open_ = distributable(lic)
     wordings = {lang: catalog.wording_from_texts(spec, lang) for lang in (spec.get("texts") or {})}
     languages = {}
@@ -223,8 +271,10 @@ def construct_yaml(c, host=""):
         "format": 1, "id": f"ask:{key}", "key": key,
         "aliases": [f"local:{host or 'askurious'}/o{c.org_id}/{key}"] if c.org_id else [],
         "version": "1.0", "status": "review", "kind": "scale", "requires": "2026.11",
-        "name": {"de": c.name, "en": ""}, "short": {"de": c.short or "", "en": ""},
-        "description": {"de": c.description or "", "en": ""}, "scoring": {"de": c.scoring or "", "en": ""},
+        # English: as given, else the German to translate (the catalogue asks for both; its check names them)
+        "name": {"de": c.name, "en": en.get("name") or c.name}, "short": {"de": c.short or "", "en": ""},
+        "description": {"de": c.description or "", "en": en.get("description") or c.description or ""},
+        "scoring": {"de": c.scoring or "", "en": en.get("scoring") or c.scoring or ""},
         "notes": {"de": c.notes or "", "en": ""}, "authors": [], "year": c.year,
         "sources": [{"role": "original", "citation": c.citation, **({"doi": c.doi} if c.doi else {})}] if c.citation else [],
         "licence": {"wording": lic, "distributable": open_, "permission_required": False, "commercial": None},
