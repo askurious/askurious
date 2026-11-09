@@ -6,8 +6,9 @@ folder and says which lines there still name the operator's server or private ac
     python tools/public_export.py --check           only check what an export would carry (nothing written)
     ... --forbidden <file>                          further patterns, one "name: regular expression" per line: the
                                                     operator's server names, kept in its private repository
-    ... --instruments <file>                        the installation's wordings of scales of others (instruments.json,
-                                                    app/constructs.py INSTRUMENTS): none of them may go public
+    ... --instruments <file or folder>              the installation's wordings of scales of others (instruments.json, or
+                                                    the folder wordings/<key>/<lang>.json, app/constructs.py
+                                                    instrument_wordings): none of them may go public
 
 Exit code 1 while a check finds something: then fix it here in the code (or add the file to INTERNAL) and export
 again. The operator's own files (imprint and privacy texts, .env, server notes) belong in its private repository
@@ -55,17 +56,42 @@ def read_forbidden(path):
     return out
 
 
-def read_instruments(path):
-    """{name: pattern} for every question and statement of an instruments.json of at least 20 characters: the wording
-    of scales of others stays with the installation (rights review 2026-10-21)."""
+def _folder_texts(path):
+    """{key: [texts]} of a folder wordings/<key>/<lang>.json (question and items, left and right of pairs)."""
     import json
 
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
     out = {}
-    for key, wording in (data.get("instruments") or {}).items():
-        texts = list((wording.get("question") or {}).values())
-        texts += [t for statement in wording.get("statements") or [] for t in statement.values()]
+    for key in sorted(os.listdir(path)):
+        sub = os.path.join(path, key)
+        if not os.path.isdir(sub):
+            continue
+        for name in sorted(n for n in os.listdir(sub) if n.endswith(".json")):
+            with open(os.path.join(sub, name), encoding="utf-8") as f:
+                wording = json.load(f)
+            texts = out.setdefault(key, [])
+            texts.append(wording.get("question"))
+            for item in (wording.get("items") or {}).values():
+                texts += list(item.values()) if isinstance(item, dict) else [item]
+    return out
+
+
+def read_instruments(path):
+    """{name: pattern} for every question and statement of at least 20 characters of an instruments.json or of a
+    folder wordings/<key>/<lang>.json: the wording of scales of others stays with the installation (rights review
+    2026-10-21)."""
+    import json
+
+    if os.path.isdir(path):
+        found = _folder_texts(path)
+    else:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        found = {}
+        for key, wording in (data.get("instruments") or {}).items():
+            texts = list((wording.get("question") or {}).values())
+            found[key] = texts + [t for statement in wording.get("statements") or [] for t in statement.values()]
+    out = {}
+    for key, texts in found.items():
         for n, text in enumerate(t for t in texts if isinstance(t, str) and len(t.strip()) >= 20):
             out[f"wording of {key} ({n + 1})"] = re.escape(text.strip())
     return out

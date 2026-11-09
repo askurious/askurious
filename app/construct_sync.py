@@ -362,19 +362,8 @@ def licensed_state():
     installation's wordings."""
     from app import constructs
 
-    wordings = constructs.instrument_wordings()
-    matching = differing = missing = 0
-    for c in catalog.entries():
-        if not catalog.licensed(c):
-            continue
-        found = catalog.overlay_wordings(c, wordings)
-        if not found:
-            missing += 1
-        elif catalog.differing_languages(c, found):
-            differing += 1
-        else:
-            matching += 1
-    return matching, differing, missing
+    state = constructs.wording_state()
+    return len(state["ok"]), len(state["differing"]), len(state["missing"])
 
 
 def counts():

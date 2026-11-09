@@ -282,6 +282,9 @@ def overlay_wordings(c, instruments):
     found = instruments.get(c["key"]) if isinstance(instruments, dict) else None
     if not isinstance(found, dict):
         return {}
+    if isinstance(found.get("_wordings"), dict):  # wordings/<key>/<lang>.json: items already by their codes
+        return {lang: {k: v for k, v in w.items() if k != "for"} for lang, w in found["_wordings"].items()
+                if _codes_match(c, w)}
     question, statements = found.get("question"), found.get("statements")
     rows = (c["structure"].get("config") or {}).get("statements") or []
     if not isinstance(question, dict) or not isinstance(statements, list) or len(statements) != len(rows):
@@ -291,6 +294,14 @@ def overlay_wordings(c, instruments):
         if isinstance(text, str) and all(isinstance(s, dict) and isinstance(s.get(lang), str) for s in statements):
             out[lang] = {"question": text, "items": {r["code"]: s[lang] for r, s in zip(rows, statements)}}
     return out
+
+
+def _codes_match(c, wording):
+    """A wording of the folder format names exactly the item codes of the construct's structure."""
+    rows = (c["structure"].get("config") or {}).get("statements") or (c["structure"].get("config") or {}).get("pairs") or []
+    items = wording.get("items")
+    return isinstance(items, dict) and set(items) == {r["code"] for r in rows} and all(
+        isinstance(v, (str, dict)) for v in items.values())
 
 
 def differing_languages(c, wordings):

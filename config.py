@@ -270,6 +270,10 @@ class Config:
     # The wording of scales of others (GESIS/ZIS, journal articles), which the public code does not carry
     # (app/constructs.py, INSTRUMENTS; instance_overlay/README.md). Without the file those constructs are left out.
     INSTRUMENT_WORDINGS = os.environ.get("INSTRUMENT_WORDINGS") or os.path.join(INSTANCE_OVERLAY, "instruments.json")
+    # The same wordings one file per construct and language, items by their codes, in the format of the construct
+    # catalogue's wording files (as JSON): wordings/<key>/<lang>.json. Where a construct has such files they count, else
+    # its entry in instruments.json (read as before, until every installation has the folder).
+    INSTRUMENT_WORDINGS_DIR = os.environ.get("INSTRUMENT_WORDINGS_DIR") or os.path.join(INSTANCE_OVERLAY, "wordings")
     # Use such a wording only where its SHA-256 matches the hash the construct catalogue documents
     # (app/construct_catalog.py): a differing wording leaves its construct out of the toolbox, with a warning in the
     # log. Off only for the tests' stand-in wordings.

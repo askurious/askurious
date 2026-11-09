@@ -294,6 +294,7 @@ if [[ -n "${INSTANCE_OVERLAY_SRC:-}" ]]; then
   parts=(templates); [ ! -f "$INSTANCE_OVERLAY_SRC/protected_nets.txt" ] || parts+=(protected_nets.txt)
   [ ! -f "$INSTANCE_OVERLAY_SRC/privacy_concept.json" ] || parts+=(privacy_concept.json)  # app/privacy_concept.py overlay()
   [ ! -f "$INSTANCE_OVERLAY_SRC/instruments.json" ] || parts+=(instruments.json)  # app/constructs.py INSTRUMENTS
+  [ ! -d "$INSTANCE_OVERLAY_SRC/wordings" ] || parts+=(wordings)  # the same per construct and language (INSTRUMENT_WORDINGS_DIR)
   (cd "$INSTANCE_OVERLAY_SRC" && tar rf "$ARCHIVE" --transform 's,^,instance_overlay/,' "${parts[@]}")
   echo "    with the installation's files from $INSTANCE_OVERLAY_SRC: ${parts[*]}"
 fi

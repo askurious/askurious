@@ -38,3 +38,19 @@ def test_the_wording_of_scales_of_others_never_goes_public(tmp_path):
     assert list(patterns) == ["wording of xy (1)"]  # "kurz" is too short to count
     files = [("app/x.py", f'TEXT = "{wording}"\n'.encode(), 0o644), ("app/y.py", b"nothing\n", 0o644)]
     assert [(p, n) for p, n, _ in public_export.findings(files, patterns)] == [("app/x.py", 1)]
+
+
+def test_the_wordings_folder_is_checked_too(tmp_path):
+    """--instruments also takes the folder wordings/<key>/<lang>.json (app/constructs.py instrument_wordings): its
+    questions, statements and the poles of pairs count, short texts do not."""
+    import json
+
+    statement, pole = "Eine Aussage aus einer fremden Skala, lang genug", "ein ziemlich langer linker Pol"
+    (tmp_path / "xy").mkdir()
+    (tmp_path / "xy" / "de.json").write_text(json.dumps({"question": "kurz", "items": {"XY_1": statement,
+                                                                                         "XY_2": {"left": pole, "right": "r"}}}),
+                                             encoding="utf-8")
+    patterns = public_export.read_instruments(str(tmp_path))
+    assert len(patterns) == 2
+    files = [("app/x.py", f'TEXT = "{pole}"\n'.encode(), 0o644)]
+    assert [(p, n) for p, n, _ in public_export.findings(files, patterns)] == [("app/x.py", 1)]
