@@ -129,15 +129,22 @@ def _euros(label):
     return numbers[0], (numbers[1] if "bis unter" in label else None)
 
 
+def _spec(key):
+    """The item template of a RatSWD question from the construct catalogue, as a function (like a seed's spec)."""
+    from app import construct_catalog
+
+    return lambda: construct_catalog.spec(key)
+
+
 def test_preset_conditions_match_the_wording():
     """Pre-test 2026-10-20 (7 and 8): the condition the bundle presets must let in everyone the question addresses.
     BER_1 and STE_1 also ask about the former job ("Wenn Sie nicht mehr erwerbstätig sind", "haben oder hatten"), so
     retirees and the others no longer employed get them; ERW_2 asks those without a main job about a side job; each
     income bracket HNE_4 to HNE_6 splits exactly the HNE_3 class its condition names."""
-    erw = _labels(ratswd._erw1)
+    erw = _labels(_spec("ratswd_erw1"))
     assert "Altersrente" in erw["4"]
-    assert "nicht mehr erwerbstätig" in ratswd._ber1()["texts"]["de"]["question"]
-    assert "haben oder hatten" in ratswd._ste1()["texts"]["de"]["question"]
+    assert "nicht mehr erwerbstätig" in _spec("ratswd_ber1")()["texts"]["de"]["question"]
+    assert "haben oder hatten" in _spec("ratswd_ste1")()["texts"]["de"]["question"]
     for key in ("ratswd_ber1", "ratswd_ste1"):
         source, codes = ratswd.FILTERS[key]
         assert source == "ratswd_erw1"
@@ -145,8 +152,8 @@ def test_preset_conditions_match_the_wording():
         assert set(codes) == set(erw) - {"3", "8", "-1"}, key
     source, codes = ratswd.FILTERS["ratswd_erw2"]
     assert source == "ratswd_erw1" and set(codes) == set(erw) - {"1", "2", "-1"}  # all without a main job
-    hne3 = {c: _euros(label) for c, label in _labels(ratswd._hne3).items() if not c.startswith("-")}
-    for key, build in (("ratswd_hne4", ratswd._hne4), ("ratswd_hne5", ratswd._hne5), ("ratswd_hne6", ratswd._hne6)):
+    hne3 = {c: _euros(label) for c, label in _labels(_spec("ratswd_hne3")).items() if not c.startswith("-")}
+    for key, build in (("ratswd_hne4", _spec("ratswd_hne4")), ("ratswd_hne5", _spec("ratswd_hne5")), ("ratswd_hne6", _spec("ratswd_hne6"))):
         source, codes = ratswd.FILTERS[key]
         assert source == "ratswd_hne3" and len(codes) == 1, key
         low, high = hne3[codes[0]]

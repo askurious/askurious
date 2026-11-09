@@ -270,6 +270,10 @@ class Config:
     # The wording of scales of others (GESIS/ZIS, journal articles), which the public code does not carry
     # (app/constructs.py, INSTRUMENTS; instance_overlay/README.md). Without the file those constructs are left out.
     INSTRUMENT_WORDINGS = os.environ.get("INSTRUMENT_WORDINGS") or os.path.join(INSTANCE_OVERLAY, "instruments.json")
+    # Use such a wording only where its SHA-256 matches the hash the construct catalogue documents
+    # (app/construct_catalog.py): a differing wording leaves its construct out of the toolbox, with a warning in the
+    # log. Off only for the tests' stand-in wordings.
+    INSTRUMENT_WORDING_CHECK = _bool("INSTRUMENT_WORDING_CHECK", True)
     SESSION_COOKIE_SECURE = PUBLIC_BASE_URL.startswith("https://")
     SESSION_COOKIE_SAMESITE = "Lax"
     # Behind https the cookies carry the prefix "__Host-": the browser then takes them only from this very host

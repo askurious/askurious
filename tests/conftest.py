@@ -144,6 +144,7 @@ def _config(folder, url=None):
         # stand-in wordings with the structure of the scales of others (never the real ones, which only the
         # installation has: app/constructs.py, INSTRUMENTS)
         INSTRUMENT_WORDINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "instruments.json")
+        INSTRUMENT_WORDING_CHECK = False  # stand-ins never match the documented hashes; tests/items/test_construct_catalog.py checks it
         # a key of its own, not the development key: with that the app answers only requests from this computer
         # (app.is_local_request, audit 2026-10-18, CFG-01), and the tests send from made-up addresses (REMOTE_ADDR)
         SECRET_KEY = "test-Q7wRt5zK9pL2mN8bV4cX6jH3gF1dS0aYx8Lp2Mn4Bv6Cx"

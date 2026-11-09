@@ -2,8 +2,9 @@
 
 Constructs live in the database (model `Construct`, classified by `Tag`s in facets) and are
 found through a full-text index (SQLite FTS5; LIKE fallback on other databases). The seed
-constructs below are written to the database at start-up and updated when their
-`seed_version` increases.
+constructs come from the construct catalogue (app/construct_catalog.py, a snapshot of askurious-constructs in
+app/data/constructs/manifest.json); they are written to the database at start-up and updated when their
+`seed_version` (the major number of their catalogue version) increases.
 
 Inserting a construct copies its item template into a regular Likert or single-choice item
 whose config carries {"construct": {"key", "unlocked"}}. While locked, the structure (points,
@@ -23,6 +24,7 @@ from flask import current_app
 from flask_login import current_user
 from sqlalchemy import text
 
+from app import construct_catalog as catalog
 from app import ratswd
 from app.extensions import db, get_or_create
 from app.lang import de_en, english
@@ -39,28 +41,24 @@ def facets():
     return FACETS_EN if english() else FACETS
 
 
-# Response labels of the GESIS short scales (ZIS questionnaire sheets, German and English version)
-GESIS5 = {
-    "de": ["trifft gar nicht zu", "trifft wenig zu", "trifft etwas zu", "trifft ziemlich zu", "trifft voll und ganz zu"],
-    "en": ["doesn't apply at all", "applies a bit", "applies somewhat", "applies mostly", "applies completely"],
-}
-GESIS_TERMS = ("GESIS/ZIS: kostenfrei für nichtkommerzielle Forschungszwecke. Für andere Zwecke oder eine andere als die "
-               "dokumentierte Form ist das Einverständnis der Autorinnen und Autoren einzuholen. Die ZIS-Dokumentation "
-               "ist in allen resultierenden Arbeiten als Quelle anzugeben.")
-# No general distribution permission is documented; public outputs use neutral IDs and sources instead.
-# kuk: printed in a chapter © 2015 IFIP; the authors released the English version, the publisher's rights are not
-# documented, so it is gated like the others (Ralf, 2026-10-29)
-PERMISSION_REQUIRED = frozenset({"gdms", "kut", "tam_pu", "tam_peou", "tam_bi", "kuk"})
+# What the licence of each construct allows, from its "licence" in the catalogue (askurious-constructs,
+# schema/vocab/licences.yaml); the names stay as before for all callers.
+_LICENCE = {c["key"]: c["licence"] for c in catalog.entries()}
+# No general distribution permission is documented (journal articles, publishers' copyright: gdms, kut, tam_*, kuk):
+# public outputs use neutral IDs and sources instead, and each study needs a documented permission (permitted()).
+PERMISSION_REQUIRED = frozenset(k for k, lic in _LICENCE.items() if lic.get("permission_required"))
 NOT_SHARED = PERMISSION_REQUIRED
 # Scales of the GESIS/ZIS collection: another form than the documented one (a translation) needs the consent of the
-# authors (GESIS_TERMS); the translation page says so (rights review 2026-10-21)
-ZIS = frozenset({"bfi10", "asku", "ie4", "kusiv3", "i8", "nfck", "tb", "r1", "aub"})
+# authors; the translation page says so (rights review 2026-10-21)
+ZIS = frozenset(k for k, lic in _LICENCE.items() if lic.get("wording") == "ZIS-noncommercial")
 # Wording the public Konstrukte page shows to visitors who are not signed in (Ralf 2026-10-16, option 1): only where
-# the licence lets anyone pass it on (the RatSWD standard questions, CC BY 4.0, ratswd.KEYS) and Askurious' own
-# wordings. Everything else (GESIS/ZIS, journal articles, APA PsycTests, constructs submitted by researchers) shows
-# its source instead. PERMISSION_REQUIRED also applies to signed-in researchers.
-OWN_WORDING = {"age", "sorgfalt", "kamb", "fitai"}  # kamb, fitai: CC BY 4.0 (Ralf, 2026-10-16); kuk: see INSTRUMENTS
-
+# the licence lets anyone pass it on (the RatSWD standard questions, ratswd.KEYS, and Askurious' own wordings, all CC
+# BY 4.0 in the catalogue). Everything else (GESIS/ZIS, journal articles, APA PsycTests, constructs submitted by
+# researchers) shows its source instead. PERMISSION_REQUIRED also applies to signed-in researchers.
+# The gender question kept its wording for signed-in researchers so far; it stays so (WORDING_NOT_PUBLIC).
+WORDING_NOT_PUBLIC = frozenset({"gender"})
+OWN_WORDING = {k for k, lic in _LICENCE.items()
+               if lic.get("distributable") and k not in ratswd.KEYS and k not in WORDING_NOT_PUBLIC}
 
 def permission_notice():
     return de_en(
@@ -211,159 +209,15 @@ def non_commercial(c):
     return "nichtkommerziell" in notes or "non-commercial" in notes or "by-nc" in notes
 
 
-def _scale(code, points, labels, question, items, labeling="full"):
-    """Likert template. items: [{"de": …, "en": …, "reverse": bool, "subscale": …}]; languages as in `question`."""
-    stmts = []
-    for n, it in enumerate(items):
-        st = {"id": f"s{n + 1}", "code": f"{code}_{n + 1}", "reverse": bool(it.get("reverse"))}
-        if it.get("subscale"):
-            st["subscale"] = it["subscale"]
-        stmts.append(st)
-    config = {"points": points, "labeling": labeling, "label_display": "once", "randomize": True, "statements": stmts}
-    texts = {lang: {"question": question[lang], "labels": list(labels[lang]),
-                    "statements": {st["id"]: it[lang] for st, it in zip(stmts, items)}}
-             for lang in question}
-    return {"type": "likert", "code": code, "config": config, "texts": texts}
-
-
-KUT_LABELS = {
-    "de": ["stimmt gar nicht", "stimmt wenig", "stimmt mittelmäßig", "stimmt ziemlich", "stimmt sehr"],
-    "en": ["not at all true", "slightly true", "moderately true", "quite true", "very true"],
-}
-
-# (option id, code, German, English); the self-description has a text field (column gender_4_text) and may be
-# left out per element (`optional`, the editor's tick; Spiel et al., 2019: "prefer to self-describe"). "keine
-# Angabe" counts as missing from the start (UI/UX audit 2026-10-07, W1): a group comparison by gender then takes the
-# genders, not the refusal; only newly inserted questions get it, existing surveys stay as they are
-GENDER_OPTIONS = [("o1", "1", "weiblich", "female"), ("o2", "2", "männlich", "male"), ("o3", "3", "divers", "diverse"),
-                  ("o5", "4", "Ich beschreibe mich selbst:", "Prefer to self-describe:"),
-                  ("o4", "99", "keine Angabe", "prefer not to disclose")]
-GENDER_SELF = "o5"
-GENDER_MISSING = "o4"
-
-
-def _gender_spec():
-    opts = [{"id": oid, "code": code, **({"text": True, "optional": True} if oid == GENDER_SELF else {}),
-             **({"missing": True} if oid == GENDER_MISSING else {})}
-            for oid, code, _, _ in GENDER_OPTIONS]
-    texts = {lang: {"question": "Welchem Geschlecht fühlen Sie sich zugehörig?" if lang in ("de", "de-du") else "What is your gender?",
-                    "options": {oid: de if lang in ("de", "de-du") else en for oid, _, de, en in GENDER_OPTIONS}}
-             for lang in ("de", "en")}
-    return {"type": "single_choice", "code": "gender", "config": {"options": opts, "layout": "vertical"}, "texts": texts}
-
-
-SELF_REPORT_TEXTS = {
-    "de": ("Zum Schluss eine ehrliche Frage: Haben Sie die Fragen so aufmerksam beantwortet, dass wir Ihre Antworten "
-           "auswerten sollten? Ihre Antwort hat keinerlei Folgen für Sie.",
-           "Ja, meine Antworten können ausgewertet werden.", "Nein, meine Antworten sollten nicht ausgewertet werden."),
-    "de-du": ("Zum Schluss eine ehrliche Frage: Hast du die Fragen so aufmerksam beantwortet, dass wir deine Antworten "
-              "auswerten sollten? Deine Antwort hat keinerlei Folgen für dich.",
-              "Ja, meine Antworten können ausgewertet werden.", "Nein, meine Antworten sollten nicht ausgewertet werden."),
-    "en": ("One last honest question: Did you answer the questions attentively enough for us to use your answers? "
-           "Your answer has no consequences for you whatsoever.",
-           "Yes, my answers can be used.", "No, my answers should not be used."),
-}
-
-
-def _self_report_spec():
-    """Self-report on the own participation at the end: 1 = use my answers, 0 = do not (app/quality.py reads it)."""
-    opts = [{"id": "o1", "code": "1"}, {"id": "o2", "code": "0"}]
-    texts = {lang: {"question": t[0], "options": {"o1": t[1], "o2": t[2]}} for lang, t in SELF_REPORT_TEXTS.items()}
-    return {"type": "single_choice", "code": "sorgfalt", "config": {"options": opts, "layout": "vertical"}, "texts": texts}
-
-
-def _age_spec():
-    """Age in whole years (10 to 120), a free text field with number validation and "years" after the box."""
-    texts = {"de": {"question": "Wie alt sind Sie?", "prefix": "", "suffix": "Jahre", "validation_message": ""},
-             "en": {"question": "How old are you?", "prefix": "", "suffix": "years", "validation_message": ""}}
-    return {"type": "text_input", "code": "age", "texts": texts,
-            "config": {"multiline": False, "max_length": 3, "validation": "integer", "min": 10, "max": 120, "pattern": ""}}
-
-
-
-# Scales of others (GESIS/ZIS, journal articles, APA PsycTests): the code holds their structure (codes, points,
-# response labels, subscales, reversed items); the wording comes from the installation, never from the public code
-# (rights review 2026-10-21): INSTRUMENT_WORDINGS, by default instance_overlay/instruments.json (instance_overlay/
-# README.md). Without it these constructs are not seeded; constructs already in the database stay as they are.
+# Scales of others (GESIS/ZIS, journal articles, APA PsycTests): the catalogue holds their structure (codes, points,
+# response labels, subscales, reversed items) and a hash of their wording; the wording comes from the installation,
+# never from the public code (rights review 2026-10-21): INSTRUMENT_WORDINGS, by default
+# instance_overlay/instruments.json (instance_overlay/README.md). Without it, or with a wording whose hash differs
+# from the documented one, these constructs are not seeded; constructs already in the database stay as they are.
 PLACEHOLDER = "[System]"  # TAM: stands for the technology
-LIKELY7 = {
-    "de": ["äußerst unwahrscheinlich", "ziemlich unwahrscheinlich", "eher unwahrscheinlich", "weder noch",
-           "eher wahrscheinlich", "ziemlich wahrscheinlich", "äußerst wahrscheinlich"],
-    "en": ["extremely unlikely", "quite unlikely", "slightly unlikely", "neither", "slightly likely", "quite likely",
-           "extremely likely"],
-}
-GDMS_STYLES = ["Rational", "Intuitive", "Dependent", "Avoidant", "Spontaneous"]
-
-
-def _agreement6():
-    from app.items.likert import AGREEMENT
-
-    return {"de": AGREEMENT["de"][6], "en": AGREEMENT["en"][6]}
-
-
-def _agreement7():
-    from app.items.likert import AGREEMENT
-
-    return {"de": AGREEMENT["de"][7], "en": AGREEMENT["en"][7]}
-
-
-def _items(*pairs):
-    """(subscale or None, reversed) per item, in the order of the source."""
-    return [{"subscale": s, "reverse": r} for s, r in pairs]
-
-
-_TB = "Technikakzeptanz", "Technikkompetenzüberzeugungen", "Technikkontrollüberzeugungen"
-_AUB = "Instrumentelles Naturverständnis", "Intrinsisches Naturverständnis", "Natur als Existenzgrundlage"
-# key: code, points, response labels (or a function that gives them), labeling, items
-INSTRUMENTS = {
-    # BFI-10: polarity and subscales as in the ZIS documentation (zis76); only the endpoints are labelled there
-    "bfi10": ("BFI", 5, {"de": ["trifft überhaupt nicht zu", "2", "3", "4", "trifft voll und ganz zu"],
-                         "en": ["disagree strongly", "2", "3", "4", "agree strongly"]}, "endpoints",
-              _items(("E", True), ("A", False), ("C", True), ("N", True), ("O", True),
-                     ("E", False), ("A", True), ("C", False), ("N", False), ("O", False))),
-    # English: an unofficial working translation
-    "kut": ("KUT", 5, KUT_LABELS, "full", _items(*((None, r) for r in (False, True, True, False, True, True, False, False)))),
-    "asku": ("ASKU", 5, GESIS5, "full", _items((None, False), (None, False), (None, False))),
-    "ie4": ("IE4", 5, GESIS5, "full", _items(("IKÜ", False), ("IKÜ", False), ("EKÜ", False), ("EKÜ", False))),
-    "kusiv3": ("KUSIV", 5, GESIS5, "full", _items((None, False), (None, True), (None, False))),
-    "i8": ("I8", 5, GESIS5, "full", _items(*((s, False) for s in ("Dringlichkeit", "Dringlichkeit", "Absicht", "Absicht",
-                                                                  "Ausdauer", "Ausdauer", "Risikobereitschaft",
-                                                                  "Risikobereitschaft")))),
-    # German only: the ZIS documentation labels the German scale (1, middle "weder noch", 7)
-    "nfck": ("NFC", 7, {"de": ["trifft überhaupt nicht zu", "2", "3", "weder noch", "5", "6", "trifft ganz genau zu"]},
-             "endpoints", _items((None, True), (None, False), (None, False), (None, True))),
-    # Technikbereitschaft: polarity, subscales and response labels as in the ZIS documentation (zis244, table 1)
-    "tb": ("TB", 5, {"de": ["stimmt gar nicht", "stimmt wenig", "stimmt teilweise", "stimmt ziemlich", "stimmt völlig"]},
-           "full", _items(*([(_TB[0], False)] * 4 + [(_TB[1], True)] * 4 + [(_TB[2], False)] * 4))),
-    # One item: the question is the item, the single row has no text of its own (zis236; English zis286)
-    "r1": ("R1", 7, {"de": ["gar nicht risikobereit", "2", "3", "4", "5", "6", "sehr risikobereit"],
-                     "en": ["not at all willing to take risks", "2", "3", "4", "5", "6", "very willing to take risks"]},
-           "endpoints", _items((None, False))),
-    # Allgemeines Umweltbewusstsein (zis208): subscales as in table 3 there; items 3 and 5 load on two factors
-    "aub": ("AUB", 5, {"de": ["stimme überhaupt nicht zu", "stimme eher nicht zu", "teils/teils", "stimme weitgehend zu",
-                              "stimme voll und ganz zu"]}, "full",
-            _items(*((s, False) for s in (_AUB[0], _AUB[0], None, _AUB[0], None, _AUB[0], _AUB[1], _AUB[1], _AUB[2],
-                                          _AUB[2], _AUB[2])))),
-    # TAM (Davis, 1989; Venkatesh & Davis, 2000): "[System]" stands for the technology; German a working translation
-    "tam_pu": ("PU", 7, LIKELY7, "full", _items(*[(None, False)] * 6)),
-    "tam_peou": ("PEOU", 7, LIKELY7, "full", _items(*[(None, False)] * 6)),
-    "tam_bi": ("BI", 7, _agreement7, "full", _items((None, False), (None, False))),
-    # KUK (Wittland, Brauner & Ziefle, 2015): the wording is printed in a chapter © 2015 IFIP without an open licence,
-    # so it is no longer in the public code but in the installation's wordings (Ralf, 2026-10-24, licence audit O2)
-    "kuk": ("KUK", 6, _agreement6, "full", _items(*((None, r) for r in (True, False, False, False, True, False, False,
-                                                                        False, True, False)))),
-    # GDMS (Scott & Bruce, 1995): 25 items, styles in turn; English only
-    "gdms": ("GDMS", 5, {"en": ["strongly disagree", "2", "3", "4", "strongly agree"]}, "endpoints",
-             _items(*((GDMS_STYLES[n % 5], False) for n in range(25)))),
-    # ATI (Franke, Attig & Wessel, 2019): 9 items, one dimension; items 3, 6 and 8 reversed; all six points labelled as
-    # in the German and English scale sheets of ati-scale.org (2022-02-25)
-    "ati": ("ATI", 6, {"de": ["stimmt gar nicht", "stimmt weitgehend nicht", "stimmt eher nicht", "stimmt eher",
-                              "stimmt weitgehend", "stimmt völlig"],
-                       "en": ["completely disagree", "largely disagree", "slightly disagree", "slightly agree",
-                              "largely agree", "completely agree"]}, "full",
-            _items(*((None, n in (3, 6, 8)) for n in range(1, 10)))),
-}
+INSTRUMENTS = {c["key"]: c["structure"] for c in catalog.entries() if catalog.licensed(c)}
 _WORDINGS = {}  # path: (modification time, wordings)
+_WARNED = set()  # (path, modification time, key) of a differing wording already in the log
 
 
 def instrument_wordings():
@@ -392,725 +246,53 @@ def instrument_available(key):
     return key not in INSTRUMENTS or _instrument_spec(key) is not None
 
 
+class _OnceLog:
+    """The app's log, warning about one differing wording once per version of the installation's file."""
+
+    def __init__(self, key):
+        path = current_app.config.get("INSTRUMENT_WORDINGS") or ""
+        self.mark = (path, _WORDINGS.get(path, (None,))[0], key)
+
+    def warning(self, *args):
+        if self.mark not in _WARNED:
+            _WARNED.add(self.mark)
+            current_app.logger.warning(*args)
+
+
 def _instrument_spec(key):
-    """The item template of a scale of others with the installation's wording; None without a fitting wording."""
-    code, points, labels, labeling, items = INSTRUMENTS[key]
-    labels = labels() if callable(labels) else labels
-    wording = instrument_wordings().get(key)
-    question = wording.get("question") if isinstance(wording, dict) else None
-    statements = wording.get("statements") if isinstance(wording, dict) else None
-    if not isinstance(question, dict) or not isinstance(statements, list) or len(statements) != len(items):
-        return None
-    langs = [lang for lang in question if lang in labels and isinstance(question[lang], str)]
-    if not langs or not all(isinstance(s, dict) and all(isinstance(s.get(lang), str) for lang in langs)
-                            for s in statements):
-        return None
-    return _scale(code, points, {lang: labels[lang] for lang in langs}, {lang: question[lang] for lang in langs},
-                  [{**item, **{lang: s[lang] for lang in langs}} for item, s in zip(items, statements)], labeling)
+    """The item template of a scale of others with the installation's wording; None without a fitting wording, or
+    when its hash differs from the documented one (INSTRUMENT_WORDING_CHECK, on unless switched off)."""
+    wordings = instrument_wordings()
+    return catalog.spec(key, wordings, check=current_app.config.get("INSTRUMENT_WORDING_CHECK", True),
+                        log=_OnceLog(key))
 
 
 def _instrument(key):
     return functools.partial(_instrument_spec, key)
 
 
-TAM_CITATION = ("Davis, F. D. (1989). Perceived usefulness, perceived ease of use, and user acceptance of information "
-                "technology. MIS Quarterly, 13(3), 319–340.")
-# own instruments the authors released under CC BY 4.0 (Ralf, 2026-10-16: KAMB, FITAI)
-CC_BY_TERMS = ("Lizenz: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), frei nutzbar und anpassbar mit "
-               "Quellenangabe und Hinweis auf Änderungen. ")
-CC_BY_TERMS_EN = ("Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), free to use and adapt with "
-                  "attribution and a note of changes. ")
-# Scales from journal articles without terms of their own (rights review 2026-10-08): no publisher has released the wording.
-ARTICLE_TERMS = ("Für den Wortlaut und seine Übersetzungen ist keine allgemeine Nutzungs- oder "
-                 "Veröffentlichungsfreigabe dokumentiert. Die Angabe „nichtkommerzielle Forschung und Lehre“ "
-                 "allein ersetzt keinen Rechtebeleg. Neue Nutzung setzt einen vom Betreiber geprüften Nachweis für die konkrete "
-                 "Studie, Person und Sprachfassung voraus. Die Quelle ist immer anzugeben.")
-TAM_NOTES = (ARTICLE_TERMS + " „[System]“ durch den Namen der Technik ersetzen (zählt nicht als Veränderung). Englischer Wortlaut wie "
-             "veröffentlicht; deutsche Fassung ist eine inoffizielle Arbeitsübersetzung. Davis (1989) nutzte 7-stufige "
-             "Skalen (likely/unlikely; in Studie 1 agree/disagree), im Original steht „likely“ links; hier 1 = "
-             "äußerst unwahrscheinlich, 7 = äußerst wahrscheinlich.")
+# Language versions that are only working translations of a scale of others (kut English, tam_* German; status
+# "working" in the catalogue): the translation page (app/translations.py) treats them as translatable, not as
+# validated versions.
+WORKING_LANGS = {c["key"]: {lang for lang, info in c["languages"].items() if info.get("status") == "working"}
+                 for c in catalog.entries() if catalog.licensed(c)}
+WORKING_LANGS = {k: v for k, v in WORKING_LANGS.items() if v}
 
-# Language versions in the toolbox that are only working translations (see the notes of each construct): the
-# translation page (app/translations.py) treats them as translatable, not as validated versions.
-def _semantic(code, points, question, pairs):
-    """Semantic differential template. pairs: [{"de": (left, right), "en": (left, right), "reverse": bool,
-    "subscale": …}] in the order and orientation of the source; languages as in `question`."""
-    config_pairs, texts = [], {lang: {"question": question[lang], "pairs": {}} for lang in question}
-    for n, p in enumerate(pairs):
-        pair = {"id": f"p{n + 1}", "code": f"{code}_{n + 1}", "reverse": bool(p.get("reverse"))}
-        if p.get("subscale"):
-            pair["subscale"] = p["subscale"]
-        config_pairs.append(pair)
-        for lang in question:
-            texts[lang]["pairs"][pair["id"]] = {"left": p[lang][0], "right": p[lang][1]}
-    config = {"points": points, "numbers": False, "randomize": True, "pairs": config_pairs}
-    return {"type": "semantic", "code": code, "config": config, "texts": texts}
-
-
-def _kamb_spec():
-    # Brauner, Glawe, Vervier & Ziefle (2026): wording, order, and poles as administered (German labels of the
-    # published data on OSF); the pairs with the positive pole on the left are reversed, as in their analysis
-    A, K = "affektiv", "kognitiv"
-    return _semantic("KAMB", 6, {"de": "Bewerten Sie den Artikel mithilfe der folgenden Begriffspaare.",
-                                 "en": "Please rate the article using the following pairs of terms."}, [
-        {"subscale": K, "reverse": True, "de": ("professionell", "amateurhaft"), "en": ("professional", "amateur")},
-        {"subscale": A, "de": ("kaltherzig", "warmherzig"), "en": ("cold-hearted", "warm-hearted")},
-        {"subscale": K, "de": ("verwirrend", "verständlich"), "en": ("confusing", "understandable")},
-        {"subscale": K, "reverse": True, "de": ("überzeugend", "zweifelhaft"), "en": ("convincing", "doubtful")},
-        {"subscale": A, "reverse": True, "de": ("beruhigend", "beängstigend"), "en": ("reassuring", "frightening")},
-        {"subscale": A, "de": ("negativ", "positiv"), "en": ("negative", "positive")},
-        {"subscale": K, "reverse": True, "de": ("neutral", "parteiisch"), "en": ("neutral", "biased")},
-        {"subscale": A, "de": ("langweilig", "interessant"), "en": ("boring", "interesting")},
-    ])
-
-
-FITAI_ITEMS = [  # (target: the statement is true, German, English)
-    (True, "Große Sprachmodelle (LLMs) funktionieren in erster Linie, indem sie das statistisch wahrscheinlichste nächste "
-           "Wort in einer Sequenz vorhersagen.",
-     "Large language models (LLMs) primarily work by predicting the statistically most likely next word in a sequence."),
-    (True, "KI-Modelle werden auf umfangreichen Datensätzen trainiert, die häufig urheberrechtlich geschützte Bücher, "
-           "Artikel und Websites enthalten.",
-     "AI models are trained on extensive datasets that often contain copyrighted books, articles, and websites."),
-    (True, "Generative KI kann „halluzinieren“, d. h. sie liefert mit Überzeugung Antworten, die sachlich falsch sind.",
-     "Generative AI can “hallucinate”, i.e., it confidently gives answers that are factually wrong."),
-    (True, "Das „Kontextfenster“ eines Modells legt die maximale Textmenge fest, die es in einem einzelnen Gespräch "
-           "verarbeiten oder „erinnern“ kann.",
-     "A model's “context window” sets the maximum amount of text it can process or “remember” in a single conversation."),
-    (True, "„Reinforcement Learning from Human Feedback (RLHF)“ ist eine Methode, um das Verhalten von KI an menschlichen "
-           "Werten und Sicherheitsrichtlinien auszurichten.",
-     "“Reinforcement Learning from Human Feedback (RLHF)” is a method for aligning AI behavior with human values and "
-     "safety guidelines."),
-    (True, "Neuronale Netze bestehen aus „Gewichten“ und „Biaswerten“, die während des Trainingsprozesses angepasst werden, "
-           "um Fehler zu minimieren.",
-     "Neural networks consist of “weights” and “biases” that are adjusted during training to minimize errors."),
-    (False, "Um Überhitzung zu verhindern, müssen moderne KI-Systeme die Erinnerungen inaktiver Nutzerinnen und Nutzer "
-            "löschen, um physischen Speicherplatz freizugeben.",
-     "To prevent overheating, modern AI systems must delete the memories of inactive users to free up physical storage."),
-    (False, "KI-Modelle besitzen ein digitales „Unterbewusstsein“, das Informationen verarbeitet, auch wenn sie nicht aktiv "
-            "genutzt werden.",
-     "AI models have a digital “subconscious” that processes information even when they are not actively used."),
-    (False, "KI-Modelle lernen neue Sprache durch „Digitale Osmose“, indem sie neben Dateien gespeichert werden, die in "
-            "dieser Sprache verfasst sind.",
-     "AI models learn a new language through “digital osmosis” by being stored next to files written in that language."),
-    (False, "Durch „Semantische Synchronizität“ können KI-Modelle grundlegende menschliche Emotionen wie Frustration "
-            "ausdrücken, wenn eine Eingabe unklar ist.",
-     "Through “semantic synchronicity”, AI models can express basic human emotions such as frustration when a prompt "
-     "is unclear."),
-    (False, "Fortgeschrittene LLMs nutzen „Quantenverschränkung“, um ihre Antworten gleichzeitig auf verschiedenen "
-            "Nutzergeräten zu synchronisieren, ohne das Internet zu verwenden.",
-     "Advanced LLMs use “quantum entanglement” to synchronize their answers across different user devices at the same "
-     "time without using the internet."),
-    (False, "„Rekursive Hardware-Heilung“ ist ein Prozess, bei dem KI beschädigte GPU-Schaltkreise physisch reparieren kann, "
-            "indem sie elektrische Ströme umleitet.",
-     "“Recursive hardware healing” is a process by which AI can physically repair damaged GPU circuits by rerouting "
-     "electrical currents."),
-]
-
-
-def _fitai_spec():
-    # Brauner & Glawe (2026); the instruction without "Sie" or "du", so one German version serves both
-    items = [{"de": de, "en": en, "reverse": not target, "subscale": "Target" if target else "Foil"}
-             for target, de, en in FITAI_ITEMS]
-    return _scale("FI", 5, {"de": ["stimme gar nicht zu", "", "", "", "stimme voll zu"],
-                            "en": ["strongly disagree", "", "", "", "strongly agree"]}, {
-        "de": "Im Folgenden stehen verschiedene Aussagen über Künstliche Intelligenz. Inwieweit treffen diese Aussagen zu?",
-        "en": "Below are various statements about artificial intelligence. To what extent are these statements true?"},
-        items, labeling="endpoints")
-
-
-
-
-WORKING_LANGS = {"kut": {"en"}, "tam_pu": {"de"}, "tam_peou": {"de"}, "tam_bi": {"de"}}
-
-SEEDS = [
-    {"key": "gender", "seed_version": 6, "name": "Geschlecht", "status": "review",
-     "short": "Weiblich, männlich, divers, Selbstbeschreibung, keine Angabe",
-     "description": "Geschlechtsidentität nach den Empfehlungen von Spiel et al. für inklusivere Geschlechtsabfragen: "
-                    "weiblich, männlich, divers, „Ich beschreibe mich selbst:“ mit Textfeld und „keine Angabe“. Die "
-                    "Selbstbeschreibung lässt sich je Element abwählen; das gilt nicht als Abweichung.",
-     "authors": "Spiel, Haimson & Lottridge", "year": 2019,
-     "citation": "Spiel, K., Haimson, O. L., & Lottridge, D. (2019). How to do better with gender on surveys: "
-                 "A guide for HCI researchers. Interactions, 26(4), 62–65.",
-     "doi": "10.1145/3338283", "scoring": "",
-     "notes": "Eigene Formulierung von Askurious nach den Empfehlungen von Spiel, Haimson & Lottridge (2019).",
-     "spec": _gender_spec,
-     "tags": ["status:Standardfrage", "art:Demografie", "thema:Gender", "fach:HCI"]},
-    {"key": "age", "seed_version": 1, "name": "Alter", "status": "review",
-     "short": "Alter in Jahren (ganze Zahl, 10–120)",
-     "description": "Alter in ganzen Jahren als Freitext mit Zahlenprüfung (10 bis 120), „Jahre“ hinter dem Feld. "
-                    "Einheitlich erhoben, damit Studien in der Metaanalyse zusammengeführt werden können.",
-     "authors": "", "year": None, "citation": "", "doi": "", "scoring": "Ganze Jahre; keine Rekodierung.",
-     "notes": "Eigene Formulierung von Askurious.", "spec": _age_spec, "tags": ["status:Standardfrage", "art:Demografie", "thema:Alter"]},
-    {"key": "sorgfalt", "seed_version": 1, "name": "Sorgfalt der Teilnahme (Selbstauskunft)", "status": "review",
-     "short": "Eine Frage am Ende: Sollen wir Ihre Antworten auswerten? Ja oder nein",
-     "description": "Selbstauskunft zur eigenen Teilnahme, gestellt am Ende der Befragung. Wer „nein“ antwortet, hat "
-                    "nach eigener Angabe nicht aufmerksam geantwortet. Personen, die sich als ernsthaft Teilnehmende "
-                    "bezeichnen, antworten konsistenter und vorhersagegültiger (Aust et al., 2013). Die Seite "
-                    "„Qualitätssicherung“ zählt die Antworten „nein“.",
-     "authors": "Meade & Craig; Aust, Diedenhofen, Ullrich & Musch", "year": 2012,
-     "citation": "Meade, A. W., & Craig, S. B. (2012). Identifying careless responses in survey data. Psychological "
-                 "Methods, 17(3), 437–455. Aust, F., Diedenhofen, B., Ullrich, S., & Musch, J. (2013). Seriousness "
-                 "checks are useful to improve data validity in online research. Behavior Research Methods, 45(2), "
-                 "527–535. https://doi.org/10.3758/s13428-012-0265-2",
-     "doi": "10.1037/a0028085", "scoring": "1 = Antworten auswerten, 0 = nicht auswerten; keine Rekodierung.",
-     "notes": "Eigene Formulierung in Anlehnung an die Selbstauskunft bei Meade & Craig (2012) und den Seriousness "
-              "Check bei Aust et al. (2013), kein wörtlich übernommenes Item. Wichtig ist der Zusatz, dass die Antwort "
-              "keine Folgen hat (Vergütung, Verlosung), sonst antwortet niemand mit „nein“.",
-     "spec": _self_report_spec, "tags": ["status:Standardfrage", "art:Datenqualität", "thema:Sorgfalt"]},
-    {"key": "bfi10", "seed_version": 4, "name": "Big Five Inventory (BFI-10)", "status": "verified",
-     "short": "10 Aussagen, 5 Stufen; je 2 Items für Extraversion, Verträglichkeit, Gewissenhaftigkeit, Neurotizismus, Offenheit",
-     "description": "Ultrakurzform des Big Five Inventory für Befragungen mit wenig Zeit. Erfasst die fünf "
-                    "Persönlichkeitsdimensionen mit je einem positiv und einem negativ gepolten Item.",
-     "authors": "Rammstedt & John", "year": 2007,
-     "citation": "Rammstedt, B., & John, O. P. (2007). Measuring personality in one minute or less: A 10-item short "
-                 "version of the Big Five Inventory in English and German. Journal of Research in Personality, 41(1), 203–212. "
-                 "Dokumentation: Rammstedt, B., Kemper, C. J., Klein, M. C., Beierlein, C., & Kovaleva, A. (2014). "
-                 "Big Five Inventory (BFI-10). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS). "
-                 "https://doi.org/10.6102/zis76",
-     "doi": "10.1016/j.jrp.2006.02.001",
-     "scoring": "Skalenwerte = Mittelwert je Subskala (E: 1, 6; A: 2, 7; C: 3, 8; N: 4, 9; O: 5, 10); "
-                "die negativ gepolten Items 1, 3, 4, 5 und 7 sind im Export bereits rekodiert.",
-     "notes": GESIS_TERMS + " Deutscher Wortlaut geprüft gegen ZIS; englische Instruktion und Endpunkte nach Rammstedt & John (2007). "
-              "Die englischen Items stammen aus dem Big Five Inventory (John, Donahue & Kentle, 1991; © Oliver P. John), "
-              "das für nichtkommerzielle Forschung frei genutzt werden darf.",
-     "spec": _instrument("bfi10"), "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Persönlichkeit", "fach:Psychologie"]},
-    {"key": "kut", "seed_version": 4, "name": "Kontrollüberzeugung im Umgang mit Technik (KUT)", "status": "review",
-     "short": "8 Aussagen, 5 Stufen; subjektive Kontrolle über technische Geräte",
-     "description": "Erfasst, inwieweit Personen glauben, technische Probleme durch eigenes Handeln lösen zu können "
-                    "(internal) oder sich Technik ausgeliefert fühlen.",
-     "authors": "Beier", "year": 1999,
-     "citation": "Beier, G. (1999). Kontrollüberzeugungen im Umgang mit Technik. Report Psychologie, 24(9), 684–693.",
-     "doi": "",
-     "scoring": "Skalenwert = Mittelwert der 8 Items; umgepolte Items (2, 3, 5, 6) sind im Export bereits rekodiert.",
-     "notes": ARTICLE_TERMS + " Englische Fassung: inoffizielle Arbeitsübersetzung.", "spec": _instrument("kut"),
-     "tags": ["status:validiert", "art:Einstellung", "thema:Technik", "thema:Kontrollüberzeugung", "fach:Psychologie"]},
-    {"key": "asku", "seed_version": 1, "name": "Allgemeine Selbstwirksamkeit Kurzskala (ASKU)", "status": "verified",
-     "short": "3 Aussagen, 5 Stufen; Erwartung, Schwierigkeiten aus eigener Kraft zu bewältigen",
-     "description": "Ökonomisches Instrument zur Erfassung individueller Kompetenzerwartungen, mit Schwierigkeiten und "
-                    "Hindernissen im täglichen Leben umgehen zu können. McDonalds Omega .81 bis .87.",
-     "authors": "Beierlein, Kovaleva, Kemper & Rammstedt", "year": 2014,
-     "citation": "Beierlein, C., Kovaleva, A., Kemper, C. J., & Rammstedt, B. (2014). Allgemeine Selbstwirksamkeit "
-                 "Kurzskala (ASKU). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
-     "doi": "10.6102/zis35",
-     "scoring": "Skalenwert = Mittelwert der 3 Items (1 bis 5).",
-     "notes": GESIS_TERMS + " Englische Fassung (eigene Quelle, Bedingungen: CC BY-NC-SA 4.0): GSE-3: Doll, E. S., Nießen, D., Schmidt, I., Rammstedt, B., & Lechner, C. M. (2021). The General Self-Efficacy Short Scale-3 (GSE-3). ZIS. https://doi.org/10.6102/zis294", "spec": _instrument("asku"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Persönlichkeit", "thema:Selbstwirksamkeit", "fach:Psychologie"]},
-    {"key": "ie4", "seed_version": 1, "name": "Internale-Externale-Kontrollüberzeugung-4 (IE-4)", "status": "verified",
-     "short": "4 Aussagen, 5 Stufen; je 2 Items für internale und externale Kontrollüberzeugung",
-     "description": "Kurzskala zur Kontrollüberzeugung: Wie sehr erleben Personen Ereignisse als Folge des eigenen Handelns "
-                    "(internal) oder als Schicksal, Zufall oder von anderen bestimmt (external)?",
-     "authors": "Kovaleva, Beierlein, Kemper & Rammstedt", "year": 2014,
-     "citation": "Kovaleva, A., Beierlein, C., Kemper, C. J., & Rammstedt, B. (2014). Internale-Externale-"
-                 "Kontrollüberzeugung-4 (IE-4). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
-     "doi": "10.6102/zis184",
-     "scoring": "Zwei Skalenwerte: Mittelwert der Items 1 und 2 (internal, IKÜ) und der Items 3 und 4 (external, EKÜ); "
-                "keine Umpolung.",
-     "notes": GESIS_TERMS + " Englische Fassung: Nießen, D., Schmidt, I., Groskurth, K., Rammstedt, B., & Lechner, C. M. (2022). The Internal–External Locus of Control Short Scale–4 (IE-4): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(7), e0271289. https://doi.org/10.1371/journal.pone.0271289; der Artikel steht unter CC BY 4.0, für die Nutzung der Items gelten die ZIS-Bedingungen.", "spec": _instrument("ie4"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Persönlichkeit", "thema:Kontrollüberzeugung", "fach:Psychologie"]},
-    {"key": "kusiv3", "seed_version": 1, "name": "Interpersonales Vertrauen (KUSIV3)", "status": "verified",
-     "short": "3 Aussagen, 5 Stufen; Vertrauen in andere Menschen als Persönlichkeitsmerkmal",
-     "description": "Kurzskala zur Messung des zwischenmenschlichen Vertrauens mit drei Items (Bearbeitung etwa 30 Sekunden).",
-     "authors": "Beierlein, Kemper, Kovaleva & Rammstedt", "year": 2014,
-     "citation": "Beierlein, C., Kemper, C. J., Kovaleva, A., & Rammstedt, B. (2014). Interpersonales Vertrauen (KUSIV3). "
-                 "Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
-     "doi": "10.6102/zis37",
-     "scoring": "Skalenwert = Mittelwert der 3 Items; Item 2 ist negativ formuliert und im Export bereits rekodiert "
-                "(Nießen et al., 2020).",
-     "notes": GESIS_TERMS + " Englische Fassung: Nießen, D., Beierlein, C., Rammstedt, B., & Lechner, C. M. (2020). An English-language adaptation of the Interpersonal Trust Short Scale (KUSIV3). Measurement Instruments for the Social Sciences, 2, 10. https://doi.org/10.1186/s42409-020-00016-1; der Artikel steht unter CC BY 4.0, für die Nutzung der Items gelten die ZIS-Bedingungen.", "spec": _instrument("kusiv3"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Einstellung", "thema:Vertrauen", "fach:Psychologie"]},
-    {"key": "i8", "seed_version": 1, "name": "Impulsives-Verhalten-8 (I-8)", "status": "verified",
-     "short": "8 Aussagen, 5 Stufen; Dringlichkeit, Absicht, Ausdauer, Risikobereitschaft",
-     "description": "Kurzskala zu vier Facetten impulsiven Verhaltens mit je zwei Items. Hohe Werte bei Dringlichkeit und "
-                    "Risikobereitschaft stehen für hohe, bei Absicht und Ausdauer für niedrige Impulsivität.",
-     "authors": "Kovaleva, Beierlein, Kemper & Rammstedt", "year": 2014,
-     "citation": "Kovaleva, A., Beierlein, C., Kemper, C. J., & Rammstedt, B. (2014). Die Skala Impulsives-Verhalten-8 "
-                 "(I-8). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
-     "doi": "10.6102/zis183",
-     "scoring": "Vier Skalenwerte als Mittelwert je zwei Items: Dringlichkeit (1, 2), Absicht (3, 4), Ausdauer (5, 6), "
-                "Risikobereitschaft (7, 8); keine Umpolung.",
-     "notes": GESIS_TERMS + " Englische Fassung: Groskurth, K., Nießen, D., Rammstedt, B., & Lechner, C. M. (2022). The Impulsive Behavior Short Scale–8 (I-8): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(9), e0273801. https://doi.org/10.1371/journal.pone.0273801; der Artikel steht unter CC BY 4.0, für die Nutzung der Items gelten die ZIS-Bedingungen.", "spec": _instrument("i8"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Persönlichkeit", "thema:Impulsivität", "fach:Psychologie"]},
-    {"key": "nfck", "seed_version": 1, "name": "Need for Cognition Kurzskala (NFC-K)", "status": "verified",
-     "short": "4 Aussagen, 7 Stufen; Freude am und Engagement beim Nachdenken",
-     "description": "Misst Need for Cognition mit vier Items zu den Facetten Engagement und Freude. Geeignet ab dem "
-                    "Jugendalter; Cronbachs Alpha .51 bis .54 (bei vier Items niedrig).",
-     "authors": "Beißert, Köhler, Rempel & Beierlein", "year": 2015,
-     "citation": "Beißert, H., Köhler, M., Rempel, M., & Beierlein, C. (2015). Kurzskala Need for Cognition NFC-K. "
-                 "Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
-     "doi": "10.6102/zis230",
-     "scoring": "Skalenwert = Mittelwert der 4 Items (1 bis 7); Items 1 und 4 sind im Export bereits rekodiert.",
-     "notes": GESIS_TERMS + " Nur deutsche Fassung: Für die englischen Items dokumentiert ZIS keine Antwortskala.",
-     "spec": _instrument("nfck"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Persönlichkeit", "thema:Kognition", "fach:Psychologie"]},
-    {"key": "tb", "seed_version": 1, "name": "Kurzskala Technikbereitschaft (TB)", "status": "verified",
-     "short": "12 Aussagen, 5 Stufen; je 4 Items für Technikakzeptanz, Technikkompetenz- und Technikkontrollüberzeugungen",
-     "description": "Erfasst die Bereitschaft zum Umgang mit moderner Technik (technology commitment) über drei Facetten. "
-                    "In allen Altersgruppen einsetzbar, entwickelt besonders für das höhere Lebensalter. Cronbachs Alpha "
-                    ".84 (Technikakzeptanz), .84 (Technikkompetenz), .74 (Technikkontrolle), Gesamtskala .84.",
-     "authors": "Neyer, Felber & Gebhardt", "year": 2012,
-     "citation": "Neyer, F. J., Felber, J., & Gebhardt, C. (2012). Entwicklung und Validierung einer Kurzskala zur Erfassung "
-                 "von Technikbereitschaft (technology commitment). Diagnostica, 58, 87–99. "
-                 "Dokumentation: Neyer, F. J., Felber, J., & Gebhardt, C. (2016). Kurzskala Technikbereitschaft (TB, "
-                 "technology commitment). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS).",
-     "doi": "10.6102/zis244",
-     "scoring": "Drei Skalenwerte als Mittelwert je vier Items: Technikakzeptanz (1 bis 4), Technikkompetenzüberzeugungen "
-                "(5 bis 8), Technikkontrollüberzeugungen (9 bis 12); die negativ gepolten Items 5 bis 8 sind im Export "
-                "bereits rekodiert, hohe Werte stehen also überall für hohe Technikbereitschaft. Ein Gesamtwert über alle "
-                "12 Items ist laut ZIS ebenfalls zulässig (dort als Summenwert beschrieben, Kennwerte im Bereich 1 bis 5).",
-     "notes": GESIS_TERMS + " Nur deutsche Fassung: ZIS dokumentiert keine englischen Items.",
-     "spec": _instrument("tb"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Einstellung", "thema:Technik", "thema:Technikbereitschaft",
-              "fach:Psychologie"]},
-    {"key": "r1", "seed_version": 1, "name": "Kurzskala Risikobereitschaft (R-1)", "status": "verified",
-     "short": "1 Frage, 7 Stufen; allgemeine Neigung, Risiken einzugehen",
-     "description": "Erfasst die Risikobereitschaft, also die Neigung, Risiken einzugehen oder zu vermeiden, mit einer "
-                    "einzigen Frage (unter 20 Sekunden). Für die deutschsprachige Allgemeinbevölkerung ab 18 Jahren "
-                    "entwickelt; Retest-Reliabilität .74 (englische Fassung .76).",
-     "authors": "Beierlein, Kovaleva, Kemper & Rammstedt", "year": 2015,
-     "citation": "Beierlein, C., Kovaleva, A., Kemper, C. J., & Rammstedt, B. (2015). Kurzskala zur Erfassung der "
-                 "Risikobereitschaft (R-1). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS). "
-                 "https://doi.org/10.6102/zis236. Englische Fassung: Nießen, D., Groskurth, K., Rammstedt, B., & Lechner, C. M. (2020). Risk Proneness "
-                 "Short Scale (R-1). Zusammenstellung sozialwissenschaftlicher Items und Skalen (ZIS). "
-                 "https://doi.org/10.6102/zis286",
-     "doi": "10.6102/zis236",
-     "scoring": "Skalenwert = Antwort auf die eine Frage (1 = gar nicht risikobereit bis 7 = sehr risikobereit); keine "
-                "Umpolung. Bei einem einzelnen Item gibt es keine interne Konsistenz (kein Cronbachs Alpha).",
-     "notes": GESIS_TERMS + " Die englische Fassung (zis286) steht unter CC BY-NC-SA 4.0; veränderte Fassungen davon dürfen nur unter derselben Lizenz weitergegeben werden. Nur die Endpunkte der Skala "
-              "sind beschriftet.",
-     "spec": _instrument("r1"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Persönlichkeit", "thema:Risiko", "thema:Risikobereitschaft",
-              "fach:Psychologie"]},
-    {"key": "aub", "seed_version": 1, "name": "Allgemeines Umweltbewusstsein", "status": "verified",
-     "short": "11 Aussagen, 5 Stufen; intrinsisches und instrumentelles Naturverständnis, Natur als Existenzgrundlage",
-     "description": "Erfasst Umweltbewusstsein als allgemeine Überzeugung oder Weltbild in drei Dimensionen. Entwickelt "
-                    "an der Umfrage „Umweltbewusstsein in Deutschland 1996“. Cronbachs Alpha .46 (intrinsisches "
-                    "Naturverständnis), .61 (instrumentelles Naturverständnis), .68 (Natur als Existenzgrundlage), also "
-                    "teils niedrig.",
-     "authors": "Wingerter", "year": 2001,
-     "citation": "Wingerter, C. (2001). Allgemeines Umweltbewusstsein. Zusammenstellung sozialwissenschaftlicher Items "
-                 "und Skalen (ZIS).",
-     "doi": "10.6102/zis208",
-     "scoring": "ZIS macht keine Auswertungsangaben. Die Reliabilitäten dort beziehen sich auf drei Dimensionen: "
-                "instrumentelles Naturverständnis (Items 1, 2, 4, 6), intrinsisches Naturverständnis (7, 8), Natur als "
-                "Existenzgrundlage (9, 10, 11); hier je als Mittelwert. Die Items 3 und 5 laden auf zwei Faktoren "
-                "(intrinsisch und Existenzgrundlage) und sind keiner Subskala zugeordnet. Keine Umpolung; ein Gesamtwert "
-                "ist nicht dokumentiert.",
-     "notes": GESIS_TERMS + " Nur deutsche Fassung. Im Original ein mündliches Interview mit Antwortkarten (daher „sagen "
-              "Sie mir“) in zwei Blöcken: Vor den Items 9 bis 11 stand „Jetzt noch ein paar weitere Aussagen. Bitte sagen "
-              "Sie mir auch diesmal zu jeder Aussage, in welchem Maße Sie zustimmen.“",
-     "spec": _instrument("aub"),
-     "tags": ["status:validiert", "quelle:GESIS ZIS", "art:Einstellung", "thema:Umwelt", "thema:Umweltbewusstsein",
-              "fach:Soziologie"]},
-    {"key": "tam_pu", "seed_version": 1, "name": "TAM: Wahrgenommene Nützlichkeit (Perceived Usefulness)", "status": "review",
-     "short": "6 Aussagen, 7 Stufen; Technology Acceptance Model (Davis, 1989)",
-     "description": "Grad, in dem eine Person glaubt, dass die Nutzung eines Systems ihre Arbeitsleistung verbessert. "
-                    "Kernkonstrukt des Technology Acceptance Model (TAM); Reliabilität im Original .98.",
-     "authors": "Davis", "year": 1989, "citation": TAM_CITATION, "doi": "10.2307/249008",
-     "scoring": "Skalenwert = Mittelwert der 6 Items (1 bis 7); keine Umpolung.", "notes": TAM_NOTES,
-     "spec": _instrument("tam_pu"),
-     "tags": ["status:validiert", "art:Wahrnehmung", "thema:Technik", "thema:Technikakzeptanz", "fach:Wirtschaftsinformatik"]},
-    {"key": "tam_peou", "seed_version": 1, "name": "TAM: Wahrgenommene Benutzerfreundlichkeit (Perceived Ease of Use)",
-     "status": "review",
-     "short": "6 Aussagen, 7 Stufen; Technology Acceptance Model (Davis, 1989)",
-     "description": "Grad, in dem eine Person glaubt, dass die Nutzung eines Systems mühelos ist. Kernkonstrukt des "
-                    "Technology Acceptance Model (TAM); Reliabilität im Original .94.",
-     "authors": "Davis", "year": 1989, "citation": TAM_CITATION, "doi": "10.2307/249008",
-     "scoring": "Skalenwert = Mittelwert der 6 Items (1 bis 7); keine Umpolung.", "notes": TAM_NOTES,
-     "spec": _instrument("tam_peou"),
-     "tags": ["status:validiert", "art:Wahrnehmung", "thema:Technik", "thema:Technikakzeptanz", "fach:Wirtschaftsinformatik"]},
-    {"key": "tam_bi", "seed_version": 2, "name": "TAM: Nutzungsabsicht (Behavioral Intention)", "status": "review",
-     "short": "2 Aussagen, 7 Stufen; Nutzungsabsicht nach TAM2 (Venkatesh & Davis, 2000)",
-     "description": "Absicht, ein System zu nutzen; abhängige Variable im erweiterten Technology Acceptance Model (TAM2).",
-     "authors": "Venkatesh & Davis", "year": 2000,
-     "citation": "Venkatesh, V., & Davis, F. D. (2000). A theoretical extension of the technology acceptance model: "
-                 "Four longitudinal field studies. Management Science, 46(2), 186–204.",
-     "doi": "10.1287/mnsc.46.2.186.11926",
-     "scoring": "Skalenwert = Mittelwert der 2 Items (1 bis 7).",
-     "notes": ARTICLE_TERMS + " „[System]“ durch den Namen der Technik ersetzen (zählt nicht als Veränderung). "
-              "Englischer Wortlaut wie veröffentlicht; deutsche Fassung ist eine inoffizielle Arbeitsübersetzung.",
-     "spec": _instrument("tam_bi"),
-     "tags": ["status:validiert", "art:Verhaltensabsicht", "thema:Technik", "thema:Technikakzeptanz", "fach:Wirtschaftsinformatik"]},
-    {"key": "kuk", "seed_version": 2, "name": "Kontrollüberzeugung beim Kochen", "status": "verified",
-     "short": "10 Aussagen, 6 Stufen; Selbsteinschätzung als Koch",
-     "description": "Erfasst, wie sicher und kompetent sich eine Person beim Kochen erlebt: Überforderung oder Souveränität, "
-                    "Freude am Ausprobieren, Anerkennung durch andere. Eingesetzt in einer Studie zur Akzeptanz von "
-                    "Serious Games zum kognitiven Training im Umfeld von Ambient Assisted Living.",
-     "authors": "Wittland, Brauner & Ziefle", "year": 2015,
-     "citation": "Wittland, J., Brauner, P., & Ziefle, M. (2015). Serious Games for Cognitive Training in Ambient Assisted "
-                 "Living Environments – A Technology Acceptance Perspective. In Human-Computer Interaction – INTERACT 2015 "
-                 "(Lecture Notes in Computer Science, S. 453–471). Springer.",
-     "doi": "10.1007/978-3-319-22701-6_34",
-     "scoring": "Skalenwert = Mittelwert der 10 Items (1 bis 6); die negativ formulierten Items 1, 5 und 9 sind im Export "
-                "bereits rekodiert, hohe Werte stehen also für hohe Kontrollüberzeugung beim Kochen.",
-     "notes": "Der Wortlaut steht im Kapitel der Quelle (© 2015 IFIP) und ist nicht frei lizenziert; er ist nur in "
-              "Installationen hinterlegt, die dazu berechtigt sind. Die Quelle ist immer anzugeben. Englische Fassung: "
-              "Übersetzung für Askurious, von den Autoren als Fassung der Skala freigegeben.",
-     "spec": _instrument("kuk"),
-     "tags": ["status:validiert", "art:Selbstwirksamkeit", "thema:Kochen", "thema:Kontrollüberzeugung", "fach:Psychologie"]},
-    {"key": "kamb", "seed_version": 2, "name": "Kognitive und Affektive Medienbewertungsskala", "status": "verified",
-     "short": "8 Begriffspaare, 6 Stufen; affektive und kognitive Bewertung eines Medienbeitrags",
-     "description": "Erfasst, wie ein Medienbeitrag (z. B. ein Zeitungsartikel) wahrgenommen wird, in zwei Dimensionen: "
-                    "affektiv (negativ – positiv, langweilig – interessant, kaltherzig – warmherzig, beruhigend – "
-                    "beängstigend) und kognitiv (professionell – amateurhaft, verwirrend – verständlich, überzeugend – "
-                    "zweifelhaft, neutral – parteiisch). Entwickelt als Manipulationscheck für Framing-Experimente; "
-                    "positiv und negativ geframte Artikel unterschieden sich deutlich, am stärksten affektiv.",
-     "authors": "Brauner, Glawe, Vervier & Ziefle", "year": 2026,
-     "citation": "Brauner, P., Glawe, F., Vervier, L., & Ziefle, M. (2026). Media Framing Moderates Risk-Benefit "
-                 "Perceptions and Value Tradeoffs in Human-Robot Collaboration. arXiv:2602.12785. "
-                 "https://arxiv.org/abs/2602.12785",
-     "doi": "10.48550/arXiv.2602.12785",
-     "scoring": "Zwei Skalenwerte als Mittelwert je vier Paare (1 bis 6): affektiv (Paare 2, 5, 6, 8) und kognitiv "
-                "(1, 3, 4, 7). Die Paare mit dem positiven Pol links (1, 4, 5, 7) sind im Export bereits rekodiert; hohe "
-                "Werte stehen überall für eine positive Bewertung. Cronbachs Alpha in den öffentlichen, ungefilterten "
-                "Daten der Studie (n = 1512, eigene Berechnung): affektiv .71, kognitiv .68, alle acht Paare .78.",
-     "notes": CC_BY_TERMS + "Deutscher Wortlaut und Polung wie erhoben (Variablenlabels der veröffentlichten Daten auf OSF). "
-              "Englische Paare aus der Publikation, "
-              "englische Instruktion übersetzt. „den Artikel“ in der Instruktion an das Medium anpassen (z. B. „das "
-              "Video“). Paare in zufälliger Reihenfolge wie im Original.",
-     "spec": _kamb_spec,
-     "tags": ["status:validiert", "art:Bewertung", "thema:Medien", "thema:Framing", "thema:Medienbewertung",
-              "fach:Kommunikationswissenschaft"]},
-    {"key": "fitai", "seed_version": 1, "name": "Foil & Target Instrument for AI Literacy (FITAI)", "status": "verified",
-     "short": "12 Aussagen, 5 Stufen; KI-Wissen: 6 zutreffende Aussagen (Targets), 6 erfundene (Foils)",
-     "description": "Erfasst KI-Wissen (AI Literacy) mit Aussagen über Künstliche Intelligenz, die als zutreffend "
-                    "beurteilt werden sollen: sechs sachlich korrekte (Targets, z. B. Halluzinationen, Kontextfenster, "
-                    "RLHF) und sechs plausibel klingende, aber erfundene (Foils, z. B. „Digitale Osmose“, „Rekursive "
-                    "Hardware-Heilung“). Die Foils trennen echtes Wissen von bloßer Zustimmungstendenz und "
-                    "Selbstüberschätzung.",
-     "authors": "Brauner & Glawe", "year": 2026,
-     "citation": "Brauner, P., & Glawe, F. (2026). Foil & Target Instrument for AI Literacy (FITAI).",
-     "doi": "",
-     "scoring": "Skalenwert = Mittelwert der 12 Items (1 bis 5); die Foils (Items 7 bis 12) sind im Export bereits "
-                "rekodiert, hohe Werte stehen also überall für zutreffendes Wissen. Teilskalen: Target (Items 1 bis 6, "
-                "Zustimmung zu Korrektem) und Foil (Items 7 bis 12, Ablehnung von Erfundenem); ihr Unterschied zeigt eine "
-                "Zustimmungstendenz.",
-     "notes": CC_BY_TERMS + "Aussagen im Wortlaut des Originals; die Instruktion ist ohne Anrede umformuliert (Original: „Im Folgenden "
-              "findest du … Bitte beurteile, inwieweit die Aussagen deiner Einschätzung nach zutreffen.“), damit sie für "
-              "„Sie“ und „du“ passt. Englische Fassung: "
-              "Übersetzung für Askurious, von den Autoren freigegeben. Nur die Endpunkte sind beschriftet. Aussagen in "
-              "zufälliger Reihenfolge.",
-     "spec": _fitai_spec,
-     "tags": ["status:validiert", "art:Wissen", "thema:Künstliche Intelligenz", "thema:AI Literacy", "fach:HCI"]},
-    {"key": "gdms", "seed_version": 1, "name": "General Decision-Making Style (GDMS)", "status": "review",
-     "short": "25 Aussagen, 5 Stufen; fünf Entscheidungsstile: rational, intuitiv, abhängig, vermeidend, spontan",
-     "description": "Erfasst, wie eine Person gewöhnlich wichtige Entscheidungen trifft, in fünf Stilen mit je fünf "
-                    "Items: rational (Informationen suchen, Optionen logisch abwägen), intuitiv (Gefühl und Ahnung), "
-                    "abhängig (Rat und Unterstützung anderer), vermeidend (Aufschieben) und spontan (schnell, aus dem "
-                    "Moment). Die Stile schließen sich nicht aus; Personen nutzen meist mehrere. Interne Konsistenz im "
-                    "Original .68 bis .94.",
-     "authors": "Scott & Bruce", "year": 1995,
-     "citation": "Scott, S. G., & Bruce, R. A. (1995). Decision-making style: The development and assessment of a new "
-                 "measure. Educational and Psychological Measurement, 55(5), 818–831.",
-     "doi": "10.1177/0013164495055005017",
-     "scoring": "Fünf Skalenwerte als Mittelwert je fünf Items (1 bis 5): rational (Items 1, 6, 11, 16, 21), intuitiv "
-                "(2, 7, 12, 17, 22), abhängig (3, 8, 13, 18, 23), vermeidend (4, 9, 14, 19, 24), spontan (5, 10, 15, 20, "
-                "25). Keine Umpolung; kein Gesamtwert, die Stile werden getrennt ausgewertet.",
-     "notes": "© 1995 SAGE Publications. Eintrag in APA PsycTests: https://doi.org/10.1037/t08399-000. Neue Nutzung und Katalogzugriff nur mit dokumentierter, vom Betreiber geprüfter Berechtigung für "
-              "Person, Studie und Sprachfassung. Anmeldung allein genügt nicht; keine allgemeine Weitergabe. "
-              "Quelle immer angeben. Nur Englisch: Eine validierte deutsche Fassung der vollständigen Skala gibt es nicht (Fischer, "
-              "Soyez & Gurtner, 2015, haben eine 13-Item-Fassung für Patientenentscheidungen validiert, die nicht "
-              "dieselbe Skala ist); eine eigene Übersetzung ist nicht validiert. Nur die Endpunkte sind beschriftet "
-              "(Original: 5 Stufen von „strongly disagree“ bis „strongly agree“). Aussagen in zufälliger Reihenfolge; "
-              "im Original wechseln sich die Stile der Reihe nach ab.",
-     "spec": _instrument("gdms"),
-     "tags": ["status:validiert", "quelle:APA PsycTests", "art:Persönlichkeit", "thema:Entscheidungsstil",
-              "fach:Psychologie"]},
-    {"key": "ati", "seed_version": 1, "name": "Interaktionsbezogene Technikaffinität (ATI)", "status": "verified",
-     "short": "9 Aussagen, 6 Stufen; Neigung, sich aktiv und intensiv mit technischen Systemen zu beschäftigen",
-     "description": "Erfasst die interaktionsbezogene Technikaffinität (Affinity for Technology Interaction): ob eine "
-                    "Person sich gern und eingehend mit technischen Systemen (Apps, Software, digitale Geräte) "
-                    "beschäftigt oder Technik eher meidet. Als persönliche Ressource im Umgang mit Technik gedacht, "
-                    "theoretisch an Need for Cognition angelehnt. Eindimensional; in mehreren Studien mit zusammen "
-                    "über 1500 Personen gute bis sehr gute Reliabilität. Häufig zur Beschreibung von Stichproben in "
-                    "Nutzerstudien eingesetzt. Validiert auf Deutsch und Englisch.",
-     "authors": "Franke, Attig & Wessel", "year": 2019,
-     "citation": "Franke, T., Attig, C., & Wessel, D. (2019). A personal resource for technology interaction: "
-                 "Development and validation of the Affinity for Technology Interaction (ATI) scale. International "
-                 "Journal of Human–Computer Interaction, 35(6), 456–467.",
-     "doi": "10.1080/10447318.2018.1456150",
-     "scoring": "Skalenwert = Mittelwert der 9 Items (1 bis 6); die negativ formulierten Items 3, 6 und 8 sind im "
-                "Export bereits rekodiert, hohe Werte stehen also für hohe Technikaffinität. Die Autoren empfehlen, "
-                "Mittelwert, Standardabweichung und Cronbachs Alpha mit zwei Nachkommastellen zu berichten.",
-     "notes": "Laut den Autoren frei nutzbar (ati-scale.org, „Conditions of Use“: „The scale is free to use“); sie "
-              "bitten um Zitation und freuen sich über eine kurze Nachricht zum Einsatz (ati@imis.uni-luebeck.de). "
-              "Eine offene Lizenz zur Weitergabe des Wortlauts ist nicht angegeben, deshalb steht er nicht im "
-              "öffentlichen Code. Deutsche und englische Fassung im Wortlaut der Skalenblätter auf ati-scale.org "
-              "(Stand 2022-02-25), alle sechs Stufen beschriftet. Im Original ist die Reihenfolge der Aussagen fest; "
-              "hier zufällig, im Editor abschaltbar. Eine Kurzfassung mit 4 Items (ATI-S) gibt es ebenfalls.",
-     "spec": _instrument("ati"),
-     "tags": ["status:validiert", "art:Persönlichkeit", "thema:Technik", "thema:Technikaffinität", "fach:Psychologie",
-              "fach:HCI"]},
-]
-
-# the demographic standard questions of the RatSWD (2023), one construct per item (app/ratswd.py)
-SEEDS += [{k: v for k, v in seed.items() if k != "reference"} for seed in ratswd.SEEDS]
-
-# What a construct measures, for meta-analyses (facet "Bezug"): a lasting trait of the person (age, personality,
-# technology readiness), something about the person that can change (knowledge, mood, the care taken in this
-# survey), or the rating of the object shown (a technology, a media item), which differs with every object.
-REFERENCE = {
-    "gender": "Person: stabil", "age": "Person: stabil", "bfi10": "Person: stabil",
-    "kut": "Person: stabil", "asku": "Person: stabil", "ie4": "Person: stabil",
-    "kusiv3": "Person: stabil", "i8": "Person: stabil", "nfck": "Person: stabil",
-    "tb": "Person: stabil", "r1": "Person: stabil", "kuk": "Person: stabil",
-    "aub": "Person: veränderlich", "sorgfalt": "Person: veränderlich", "fitai": "Person: veränderlich",
-    "tam_pu": "Gegenstand", "tam_peou": "Gegenstand", "tam_bi": "Gegenstand", "kamb": "Gegenstand",
-    "gdms": "Person: stabil", "ati": "Person: stabil",
-    **{seed["key"]: seed["reference"] for seed in ratswd.SEEDS},
-}
+# The seed constructs (the RatSWD standard questions among them, app/ratswd.py), from the catalogue
+SEEDS = [catalog.seed(c) for c in catalog.entries()]
 for _seed in SEEDS:
-    _seed["tags"] = _seed["tags"] + ["bezug:" + REFERENCE[_seed["key"]]]
+    if _seed["key"] in INSTRUMENTS:
+        _seed["spec"] = _instrument(_seed["key"])
 
+# What a construct measures, for meta-analyses (facet "Bezug"): a lasting trait of the person, something about the
+# person that can change, or the rating of the object shown. In the catalogue as the tag "bezug:…".
+REFERENCE = {s["key"]: t.split(":", 1)[1] for s in SEEDS for t in s["tags"] if t.startswith("bezug:")}
 
-# ---- the seed constructs in English (researchers' pages in English, app/lang.py) ----
 # Name, short line, description, scoring and notes of each seed construct for researchers who read the pages in
 # English. The item texts and answer scales stay as published (they are survey content, in spec["texts"]); the
-# German fields above stay the stored ones. A field shows in English only while the stored text is still the
-# seed's German one (an operator who changed it in the database has written something of their own).
-
-GESIS_TERMS_EN = ("GESIS/ZIS: free of charge for non-commercial research. For other purposes or a form other than the "
-                  "documented one, ask the authors for permission. Cite the ZIS documentation as the source in all "
-                  "resulting work.")
-ARTICLE_TERMS_EN = ("No general use or publication permission is documented for the wording or its translations. "
-                    "Stating “non-commercial research and teaching” alone does not replace rights evidence. New use requires "
-                    "operator-checked evidence covering the specific study, account and language version. "
-                    "Always cite the source.")
-TAM_NOTES_EN = (ARTICLE_TERMS_EN + " Replace “[System]” with the name of the technology (does not count as a change). English wording as "
-                "published; the German version is an unofficial working translation. Davis (1989) used 7-point scales "
-                "(likely/unlikely; in study 1 agree/disagree), with “likely” on the left in the original; here 1 = "
-                "extremely unlikely, 7 = extremely likely.")
-
-SEEDS_EN = {
-    "gender": {
-        "name": "Gender",
-        "short": "Female, male, diverse, self-description, prefer not to disclose",
-        "description": "Gender identity following the recommendations of Spiel et al. for more inclusive gender "
-                       "questions: female, male, diverse, “Prefer to self-describe:” with a text field, and “prefer not "
-                       "to disclose”. The self-description can be left out per element; that does not count as a "
-                       "deviation.",
-        "notes": "Own wording of Askurious following the recommendations of Spiel, Haimson & Lottridge (2019)."},
-    "age": {
-        "name": "Age",
-        "short": "Age in years (whole number, 10–120)",
-        "description": "Age in whole years as free text with a number check (10 to 120), “years” after the field. Asked "
-                       "the same way everywhere so that surveys can be combined in a meta-analysis.",
-        "scoring": "Whole years; no recoding.",
-        "notes": "Own wording of Askurious."},
-    "sorgfalt": {
-        "name": "Care taken in participating (self-report)",
-        "short": "One question at the end: should we use your answers? Yes or no",
-        "description": "Self-report on the participant's own participation, asked at the end of the survey. Anyone who "
-                       "answers “no” says they did not answer attentively. People who describe themselves as serious "
-                       "participants answer more consistently and with higher predictive validity (Aust et al., 2013). "
-                       "The page “Quality assurance” counts the “no” answers.",
-        "scoring": "1 = use the answers, 0 = do not use them; no recoding.",
-        "notes": "Own wording based on the self-report in Meade & Craig (2012) and the seriousness check in Aust et al. "
-                 "(2013), not an item taken word for word. The addition that the answer has no consequences (payment, "
-                 "prize draw) matters; otherwise nobody answers “no”."},
-    "bfi10": {
-        "name": "Big Five Inventory (BFI-10)",
-        "short": "10 statements, 5 points; 2 items each for extraversion, agreeableness, conscientiousness, neuroticism, "
-                 "openness",
-        "description": "Ultra-short form of the Big Five Inventory for surveys with little time. Measures the five "
-                       "personality dimensions with one positively and one negatively keyed item each.",
-        "scoring": "Scale scores = mean per subscale (E: 1, 6; A: 2, 7; C: 3, 8; N: 4, 9; O: 5, 10); the negatively "
-                   "keyed items 1, 3, 4, 5 and 7 are already recoded in the export.",
-        "notes": GESIS_TERMS_EN + " German wording checked against ZIS; English instruction and endpoints after "
-                                  "Rammstedt & John (2007). The English items come from the Big Five Inventory (John, "
-                                  "Donahue & Kentle, 1991; © Oliver P. John), free to use for non-commercial research."},
-    "kut": {
-        "name": "Locus of control in dealing with technology (KUT)",
-        "short": "8 statements, 5 points; subjective control over technical devices",
-        "description": "Measures to what extent people believe they can solve technical problems through their own "
-                       "actions (internal) or feel at the mercy of technology.",
-        "scoring": "Scale score = mean of the 8 items; the reverse-coded items (2, 3, 5, 6) are already recoded in the "
-                   "export.",
-        "notes": ARTICLE_TERMS_EN + " English version: unofficial working translation."},
-    "asku": {
-        "name": "General Self-Efficacy Short Scale (ASKU)",
-        "short": "3 statements, 5 points; expectation of coping with difficulties on one's own",
-        "description": "Economical instrument measuring the individual expectation of being able to deal with "
-                       "difficulties and obstacles in daily life. McDonald's omega .81 to .87.",
-        "scoring": "Scale score = mean of the 3 items (1 to 5).",
-        "notes": GESIS_TERMS_EN + " English version (a source of its own, terms: CC BY-NC-SA 4.0, adaptations only under the same licence): GSE-3: Doll, E. S., Nießen, D., Schmidt, I., Rammstedt, B., & Lechner, C. M. (2021). The General Self-Efficacy Short Scale-3 (GSE-3). ZIS. https://doi.org/10.6102/zis294"},
-    "ie4": {
-        "name": "Internal-External Locus of Control 4 (IE-4)",
-        "short": "4 statements, 5 points; 2 items each for internal and external locus of control",
-        "description": "Short scale on locus of control: how much do people experience events as a result of their own "
-                       "actions (internal) or as fate, chance or determined by others (external)?",
-        "scoring": "Two scale scores: mean of items 1 and 2 (internal, IKÜ) and of items 3 and 4 (external, EKÜ); no "
-                   "reverse coding.",
-        "notes": GESIS_TERMS_EN + " English version: Nießen, D., Schmidt, I., Groskurth, K., Rammstedt, B., & Lechner, C. M. (2022). The Internal–External Locus of Control Short Scale–4 (IE-4): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(7), e0271289. https://doi.org/10.1371/journal.pone.0271289; the article is licensed under CC BY 4.0, the ZIS terms apply to using the items."},
-    "kusiv3": {
-        "name": "Interpersonal Trust Short Scale (KUSIV3)",
-        "short": "3 statements, 5 points; trust in other people as a personality trait",
-        "description": "Short scale measuring interpersonal trust with three items (about 30 seconds to answer).",
-        "scoring": "Scale score = mean of the 3 items; item 2 is worded negatively and already recoded in the export "
-                   "(Nießen et al., 2020).",
-        "notes": GESIS_TERMS_EN + " English version: Nießen, D., Beierlein, C., Rammstedt, B., & Lechner, C. M. (2020). An English-language adaptation of the Interpersonal Trust Short Scale (KUSIV3). Measurement Instruments for the Social Sciences, 2, 10. https://doi.org/10.1186/s42409-020-00016-1; the article is licensed under CC BY 4.0, the ZIS terms apply to using the items."},
-    "i8": {
-        "name": "Impulsive Behavior Short Scale–8 (I-8)",
-        "short": "8 statements, 5 points; urgency, premeditation, perseverance, sensation seeking",
-        "description": "Short scale on four facets of impulsive behaviour with two items each. High values on urgency "
-                       "and sensation seeking stand for high impulsivity, on premeditation and perseverance for low "
-                       "impulsivity.",
-        "scoring": "Four scale scores as the mean of two items each: urgency (Dringlichkeit; 1, 2), premeditation "
-                   "(Absicht; 3, 4), perseverance (Ausdauer; 5, 6), sensation seeking (Risikobereitschaft; 7, 8); no "
-                   "reverse coding.",
-        "notes": GESIS_TERMS_EN + " English version: Groskurth, K., Nießen, D., Rammstedt, B., & Lechner, C. M. (2022). The Impulsive Behavior Short Scale–8 (I-8): A comprehensive validation of the English-language adaptation. PLOS ONE, 17(9), e0273801. https://doi.org/10.1371/journal.pone.0273801; the article is licensed under CC BY 4.0, the ZIS terms apply to using the items."},
-    "nfck": {
-        "name": "Need for Cognition Short Scale (NFC-K)",
-        "short": "4 statements, 7 points; enjoyment of and engagement in thinking",
-        "description": "Measures need for cognition with four items on the facets engagement and enjoyment. Suitable "
-                       "from adolescence on; Cronbach's alpha .51 to .54 (low with four items).",
-        "scoring": "Scale score = mean of the 4 items (1 to 7); items 1 and 4 are already recoded in the export.",
-        "notes": GESIS_TERMS_EN + " German version only: ZIS documents no answer scale for the English items."},
-    "tb": {
-        "name": "Technology Commitment Short Scale (TB)",
-        "short": "12 statements, 5 points; 4 items each for technology acceptance, technology competence beliefs and "
-                 "technology control beliefs",
-        "description": "Measures the readiness to deal with modern technology (technology commitment) through three "
-                       "facets. Usable in all age groups, developed especially for older adults. Cronbach's alpha .84 "
-                       "(technology acceptance), .84 (technology competence), .74 (technology control), whole scale .84.",
-        "scoring": "Three scale scores as the mean of four items each: technology acceptance (Technikakzeptanz, 1 to 4), "
-                   "technology competence beliefs (Technikkompetenzüberzeugungen, 5 to 8), technology control beliefs "
-                   "(Technikkontrollüberzeugungen, 9 to 12); the negatively keyed items 5 to 8 are already recoded in "
-                   "the export, so high values stand for high technology commitment throughout. According to ZIS, a "
-                   "total score over all 12 items is also permitted (described there as a sum score, values in the "
-                   "range 1 to 5).",
-        "notes": GESIS_TERMS_EN + " German version only: ZIS documents no English items."},
-    "r1": {
-        "name": "Risk Proneness Short Scale (R-1)",
-        "short": "1 question, 7 points; general tendency to take risks",
-        "description": "Measures risk proneness, the tendency to take or avoid risks, with a single question (under 20 "
-                       "seconds). Developed for the German-speaking general population aged 18 and over; retest "
-                       "reliability .74 (English version .76).",
-        "scoring": "Scale score = the answer to the one question (1 = not at all willing to take risks to 7 = very "
-                   "willing to take risks); no reverse coding. A single item has no internal consistency (no "
-                   "Cronbach's alpha).",
-        "notes": GESIS_TERMS_EN + " The English version (zis286) is licensed under CC BY-NC-SA 4.0; adapted versions may be passed on only under the same licence. Only the endpoints "
-                                  "of the scale are labelled."},
-    "aub": {
-        "name": "General Environmental Awareness",
-        "short": "11 statements, 5 points; intrinsic and instrumental understanding of nature, nature as the basis of "
-                 "existence",
-        "description": "Measures environmental awareness as a general belief or world view in three dimensions. "
-                       "Developed with the survey “Umweltbewusstsein in Deutschland 1996” (environmental awareness in "
-                       "Germany 1996). Cronbach's alpha .46 (intrinsic understanding of nature), .61 (instrumental "
-                       "understanding of nature), .68 (nature as the basis of existence), so partly low.",
-        "scoring": "ZIS gives no scoring instructions. The reliabilities there refer to three dimensions: instrumental "
-                   "understanding of nature (items 1, 2, 4, 6), intrinsic understanding of nature (7, 8), nature as the "
-                   "basis of existence (9, 10, 11); here each as a mean. Items 3 and 5 load on two factors (intrinsic "
-                   "and basis of existence) and belong to no subscale. No reverse coding; a total score is not "
-                   "documented.",
-        "notes": GESIS_TERMS_EN + " German version only. Originally an oral interview with answer cards (hence “sagen "
-                                  "Sie mir”, “tell me”) in two blocks: before items 9 to 11 the interviewer said “Jetzt "
-                                  "noch ein paar weitere Aussagen. Bitte sagen Sie mir auch diesmal zu jeder Aussage, in "
-                                  "welchem Maße Sie zustimmen.” (now a few more statements; again, please tell me for "
-                                  "each statement how far you agree)."},
-    "tam_pu": {
-        "name": "TAM: Perceived Usefulness",
-        "short": "6 statements, 7 points; Technology Acceptance Model (Davis, 1989)",
-        "description": "Degree to which a person believes that using a system improves their job performance. Core "
-                       "construct of the Technology Acceptance Model (TAM); reliability in the original .98.",
-        "scoring": "Scale score = mean of the 6 items (1 to 7); no reverse coding.",
-        "notes": TAM_NOTES_EN},
-    "tam_peou": {
-        "name": "TAM: Perceived Ease of Use",
-        "short": "6 statements, 7 points; Technology Acceptance Model (Davis, 1989)",
-        "description": "Degree to which a person believes that using a system is free of effort. Core construct of the "
-                       "Technology Acceptance Model (TAM); reliability in the original .94.",
-        "scoring": "Scale score = mean of the 6 items (1 to 7); no reverse coding.",
-        "notes": TAM_NOTES_EN},
-    "tam_bi": {
-        "name": "TAM: Behavioral Intention",
-        "short": "2 statements, 7 points; intention to use following TAM2 (Venkatesh & Davis, 2000)",
-        "description": "Intention to use a system; dependent variable in the extended Technology Acceptance Model (TAM2).",
-        "scoring": "Scale score = mean of the 2 items (1 to 7).",
-        "notes": ARTICLE_TERMS_EN + " Replace “[System]” with the name of the technology (does not count as a change). "
-                 "English wording as published; the German version is an unofficial working translation."},
-    "kuk": {
-        "name": "Locus of control in cooking",
-        "short": "10 statements, 6 points; self-assessment as a cook",
-        "description": "Measures how confident and competent a person feels when cooking: overwhelmed or in command, "
-                       "enjoying trying things out, recognition from others. Used in a study on the acceptance of "
-                       "serious games for cognitive training in ambient assisted living.",
-        "scoring": "Scale score = mean of the 10 items (1 to 6); the negatively worded items 1, 5 and 9 are already "
-                   "recoded in the export, so high values stand for a strong sense of control in cooking.",
-        "notes": "The wording is printed in the chapter of the source (© 2015 IFIP) and is not openly licensed; only "
-                 "installations entitled to it hold it. Always cite the source. English version: translation for "
-                 "Askurious, approved by the authors as a version of the scale."},
-    "kamb": {
-        "name": "Cognitive and Affective Media Evaluation Scale",
-        "short": "8 word pairs, 6 points; affective and cognitive evaluation of a media item",
-        "description": "Measures how a media item (e.g. a newspaper article) is perceived, in two dimensions: affective "
-                       "(negative – positive, boring – interesting, cold-hearted – warm-hearted, reassuring – "
-                       "frightening) and cognitive (professional – amateurish, confusing – understandable, convincing – "
-                       "doubtful, neutral – biased). Developed as a manipulation check for framing experiments; "
-                       "positively and negatively framed articles differed clearly, most strongly on the affective "
-                       "dimension.",
-        "scoring": "Two scale scores as the mean of four pairs each (1 to 6): affective (pairs 2, 5, 6, 8) and cognitive "
-                   "(1, 3, 4, 7). The pairs with the positive pole on the left (1, 4, 5, 7) are already recoded in the "
-                   "export; high values stand for a positive evaluation throughout. Cronbach's alpha in the study's "
-                   "public, unfiltered data (n = 1512, own calculation): affective .71, cognitive .68, all eight pairs "
-                   ".78.",
-        "notes": CC_BY_TERMS_EN + "German wording and polarity as collected (variable labels of the published data on OSF). English pairs "
-                 "from the publication, English instruction translated. Adapt “the article” in the instruction to the "
-                 "medium (e.g. “the video”). Pairs in random order as in the original."},
-    "fitai": {
-        "name": "Foil & Target Instrument for AI Literacy (FITAI)",
-        "short": "12 statements, 5 points; AI knowledge: 6 true statements (targets), 6 invented ones (foils)",
-        "description": "Measures AI knowledge (AI literacy) with statements about artificial intelligence to be judged as "
-                       "true or not: six factually correct ones (targets, e.g. hallucinations, context window, RLHF) and "
-                       "six plausible-sounding but invented ones (foils, e.g. “digital osmosis”, “recursive hardware "
-                       "healing”). The foils separate real knowledge from mere acquiescence and overconfidence.",
-        "scoring": "Scale score = mean of the 12 items (1 to 5); the foils (items 7 to 12) are already recoded in the "
-                   "export, so high values stand for correct knowledge throughout. Subscales: target (items 1 to 6, "
-                   "agreeing with what is correct) and foil (items 7 to 12, rejecting what is invented); their "
-                   "difference shows acquiescence.",
-        "notes": CC_BY_TERMS_EN + "Statements in the original wording; the instruction is rephrased without a form of address (original: "
-                 "“Im Folgenden findest du … Bitte beurteile, inwieweit die Aussagen deiner Einschätzung nach "
-                 "zutreffen.”) so that it fits both “Sie” and “du”. English version: translation for Askurious, approved "
-                 "by the authors. Only the endpoints are labelled. Statements in random order."},
-    "gdms": {
-        "name": "General Decision-Making Style (GDMS)",
-        "short": "25 statements, 5 points; five decision-making styles: rational, intuitive, dependent, avoidant, "
-                 "spontaneous",
-        "description": "Measures how a person usually makes important decisions, in five styles with five items each: "
-                       "rational (searching for information, weighing options logically), intuitive (feelings and "
-                       "hunches), dependent (advice and support of others), avoidant (putting decisions off) and "
-                       "spontaneous (quick, on the spur of the moment). The styles do not exclude each other; most "
-                       "people use several. Internal consistency in the original .68 to .94.",
-        "scoring": "Five scale scores as the mean of five items each (1 to 5): rational (items 1, 6, 11, 16, 21), "
-                   "intuitive (2, 7, 12, 17, 22), dependent (3, 8, 13, 18, 23), avoidant (4, 9, 14, 19, 24), spontaneous "
-                   "(5, 10, 15, 20, 25). No reversed items; no total score, the styles are analysed separately.",
-        "notes": "© 1995 SAGE Publications. Record in APA PsycTests: https://doi.org/10.1037/t08399-000. New use and catalogue access require documented, operator-checked permission covering the "
-                 "account, study and language version. Signing in alone is insufficient; no general distribution. "
-                 "Always cite the source. English only: there is no validated German version of the full scale (Fischer, Soyez & "
-                 "Gurtner, 2015, validated a 13-item version for patient decisions, which is not the same scale); a "
-                 "translation of your own is not validated. Only the endpoints are labelled (original: 5 points from "
-                 "“strongly disagree” to “strongly agree”). Statements in random order; in the original the styles "
-                 "take turns."},
-    "ati": {
-        "name": "Affinity for Technology Interaction (ATI)",
-        "short": "9 statements, 6 points; tendency to engage actively and intensively with technical systems",
-        "description": "Measures affinity for technology interaction: whether a person likes to engage with technical "
-                       "systems (apps, software, digital devices) in depth or rather avoids it. Meant as a personal "
-                       "resource for coping with technology, rooted in need for cognition. One dimension; good to "
-                       "excellent reliability in several studies with more than 1500 people in total. Often used to "
-                       "describe samples in user studies. Validated in German and English.",
-        "scoring": "Scale score = mean of the 9 items (1 to 6); the negatively worded items 3, 6 and 8 are already "
-                   "recoded in the export, so high values stand for high affinity. The authors recommend reporting "
-                   "mean, standard deviation and Cronbach's alpha with two decimals.",
-        "notes": "Free to use according to the authors (ati-scale.org, “Conditions of Use”: “The scale is free to "
-                 "use”); they ask to cite the scale and welcome a short message on its use (ati@imis.uni-luebeck.de). "
-                 "No open licence to pass the wording on is stated, so it is not in the public code. German and "
-                 "English version worded as in the scale sheets on ati-scale.org (2022-02-25), all six points "
-                 "labelled. The original keeps the statements in a fixed order; here random, can be switched off in "
-                 "the editor. A 4-item short version (ATI-S) also exists."},
-}
-
-SEEDS_EN.update(ratswd.EN)
+# German fields stay the stored ones. A field shows in English only while the stored text is still the seed's German
+# one (an operator who changed it in the database has written something of their own).
+SEEDS_EN = {c["key"]: catalog.seed_en(c) for c in catalog.entries()}
 
 # Tag names in English, by the stored (German) name; a tag not listed here (one an operator made) keeps its name
 TAGS_EN = {
@@ -1249,11 +431,22 @@ def seed_name(key):
     return (SEEDS_EN.get(key) or {}).get("name", seed["name"]) if english() else seed["name"]
 
 
+def _provenance(c, seed):
+    """Mark a seed construct as one of the catalogue, with its version and the release of the snapshot (migration
+    0117). True if something changed."""
+    want = ("catalog", seed["version"], catalog.release()[0])
+    if (c.source, c.version, c.catalog_release) == want:
+        return False
+    c.source, c.version, c.catalog_release = want
+    return True
+
+
 def _seed():
     changed = _retire()
     for seed in SEEDS:
         c = db.session.scalar(db.select(Construct).filter_by(key=seed["key"]))
         if c and c.seed_version >= seed["seed_version"]:
+            changed = _provenance(c, seed) or changed
             if {t.slug for t in c.tags} != {_slug(t)[0] for t in seed["tags"]}:
                 c.tags = [_tag(t) for t in seed["tags"]]  # new tags in the code (e.g. the facet "Bezug")
                 changed = True
@@ -1272,6 +465,7 @@ def _seed():
             setattr(c, field, seed[field])
         c.spec = spec
         c.tags = [_tag(t) for t in seed["tags"]]
+        _provenance(c, seed)
         changed = True
     if changed:
         db.session.flush()

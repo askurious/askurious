@@ -59,7 +59,7 @@ SCHEMES = {
 }
 SEXES = (("m", "männlich"), ("f", "weiblich"))
 SEX_CODES = {"m": "m", "f": "w"}       # in the codes of the cells
-GENDER_ANSWERS = {"m": "2", "f": "1"}  # answer codes of the construct gender (constructs.GENDER_OPTIONS)
+GENDER_ANSWERS = {"m": "2", "f": "1"}  # answer codes of the construct gender (construct catalogue, app/construct_catalog.py)
 # the constructs that ask the gender, with their codes of male and female: Spiel et al. and GES_1 of the RatSWD, the
 # gender question of new surveys (app/ratswd.py, wizard.DEFAULT_GENDER)
 GENDER_CONSTRUCTS = {"gender": GENDER_ANSWERS, "ratswd_ges1": {"m": "1", "f": "2"}}
