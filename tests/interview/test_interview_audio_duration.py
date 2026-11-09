@@ -37,7 +37,7 @@ def write(tmp_path, data, name="teil-1.webm"):
 def test_length_from_the_last_block(tmp_path):
     data, info_start, info_end = recorder_webm([(0, [0, 20, 40]), (5000, [0, 980]), (12000, [0, 400, 3020])])
     full = write(tmp_path, data)
-    head, offset, seconds = webm_duration.head_plan(full)
+    head, offset, seconds, _patches = webm_duration.head_plan(full)
     assert seconds == 15.02 and offset == info_end
     assert head[:info_start] == data[:info_start] and b"\x44\x89\x88" + struct.pack(">d", 15020.0) in head
     joined = webm_duration.Joined(head, full, offset)
@@ -108,7 +108,7 @@ def test_a_file_with_cues_gets_a_head_of_the_same_length(tmp_path):
     program names in Info, so Info keeps its length and the positions in the Cues stay right."""
     data, info_start, info_end = recorder_webm([(0, [0, 20]), (4000, [0, 1500])], info_extra=el(b"\x57\x41", b"Chrome"))
     full = write(tmp_path, data + _cues())
-    head, offset, seconds = webm_duration.head_plan(full)
+    head, offset, seconds, _patches = webm_duration.head_plan(full)
     assert seconds == 5.5 and offset == info_end and len(head) == info_end
     assert head[:info_start] == data[:info_start] and b"\x44\x89\x88" + struct.pack(">d", 5500.0) in head
     assert b"Chrome" not in head
@@ -137,7 +137,7 @@ def test_a_long_recording_is_read_from_its_end(tmp_path, monkeypatch):
     read = []
     real = webm_duration._block_time
     monkeypatch.setattr(webm_duration, "_block_time", lambda *a: read.append(1) or real(*a))
-    head, offset, seconds = webm_duration.head_plan(write(tmp_path, data))
+    head, offset, seconds, _patches = webm_duration.head_plan(write(tmp_path, data))
     assert seconds == 399 * 5 + 4.98 and offset == info_end and len(read) <= 250
     # the last piece still arriving: the cluster before it counts
     assert webm_duration.seconds(write(tmp_path, data + b"\x1f\x43\xb6\x75" + UNKNOWN + b"\xe7\x84", "b.webm")) == 1999.98

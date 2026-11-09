@@ -37,10 +37,12 @@ the parts of the recording it holds go a week later (app/interview_audio.py).
                                                 it, and it goes with the period of the recording),
                                        "draft_covers": the "covers" of the draft,
                                        "checked": ISO or None, "checked_parts": {part: bytes}, "edited": bool}"""
+import contextlib
 import os
 import hmac
 import re
 import secrets
+import tempfile
 import threading
 import time
 from datetime import datetime, timedelta
@@ -208,8 +210,53 @@ def _prompt(survey):
     return ". ".join(" ".join(w.split()) for w in words if w and w.strip())[:MAX_PROMPT]
 
 
+@contextlib.contextmanager
+def _sendable(path, mime):
+    """The file to send: a recorder WebM whose timestamps jump goes as it is served, with the jumps closed
+    (app/webm_duration.py). M-04 (tester 2026-11-09): 60 minutes of sound behind a jump to 10:43 h; the service cuts
+    after 3 hours by the timestamps, transcribed only the first block and reported "done" without any text."""
+    from app import webm_duration
+
+    if mime != "audio/webm" or not webm_duration.has_jumps(path):
+        yield path
+        return
+    fd, closed = tempfile.mkstemp(prefix="askurious-send-", suffix=".webm")
+    os.close(fd)
+    try:
+        if not webm_duration.write_served(path, closed):
+            os.unlink(closed)
+            yield path
+            return
+        yield closed
+    finally:
+        if os.path.exists(closed):
+            os.unlink(closed)
+
+
 def transcribe_file(path, mime, language, prompt="", previous=None, created=None, progress=None, model=None):
     """Whisper's segments [(start, end, text)] of one file (raises RuntimeError with a readable reason)."""
+    with _sendable(path, mime) as sent:
+        return _transcribe_file(sent, mime, language, prompt, previous, created, progress, model)
+
+
+SILENT_SECONDS = 60  # a part this long that gives no text at all is reported, not counted as done (M-04)
+
+
+def _no_text(segments, full, mime):
+    """The reason when Whisper found no text in a part of at least SILENT_SECONDS, else ""."""
+    if any((t or "").strip() for _s, _e, t in segments):
+        return ""
+    from app import audio_length
+
+    length = audio_length.seconds(full, mime)
+    if length is None or length < SILENT_SECONDS:
+        return ""
+    return de_en("In {m} Min. Aufnahme wurde kein Text erkannt. Bitte die Aufnahme anhören; enthält sie Sprache, die Transkription noch einmal starten.",
+                 "No text was found in {m} min of recording. Please listen to it; if it holds speech, start the transcription again.",
+                 m=round(length / 60))
+
+
+def _transcribe_file(path, mime, language, prompt="", previous=None, created=None, progress=None, model=None):
     config = current_app.config
     if config.get("WHISPER_JOBS"):
         from app import whisper_jobs
@@ -487,6 +534,11 @@ def work(app, survey_id, rid, run=None):
                         raise
                     app.logger.warning("transcription of interview %s, part %s failed: %s", rid, key, error)
                     failed.append((key, str(error) if isinstance(error, RuntimeError) else ""))
+                    continue
+                silent = _no_text(segments, full, found["mime"])
+                if silent:  # no text from a long part: an error to look at, not "done" with an empty transcript
+                    app.logger.warning("transcription of interview %s, part %s: no text", rid, key)
+                    failed.append((key, silent))
                     continue
                 if found.get("speaker") in VOICES:  # one voice per file (Zoom's file per person): its label, kept by time
                     timed = [(offset + s, offset + e, f"{found['speaker']}: " + re.sub(r"^S\d+:\s*", "", t.strip()))
