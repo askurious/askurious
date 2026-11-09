@@ -1,9 +1,9 @@
 {
  "format": 1,
  "release": "2026.11.0-dev",
- "generated": "2026-11-09T11:10:11Z",
+ "generated": "2026-11-09T12:09:37Z",
  "source": "https://github.com/askurious/askurious-constructs",
- "commit": "967e95523f81bd918fd3c2006290ba12553772ea",
+ "commit": "6347d72ac8e158fce66bc980c618c1df6b90f90b",
  "constructs": [
   {
    "format": 1,
@@ -1301,8 +1301,8 @@
     "en": ""
    },
    "notes": {
-    "de": "Eigene Formulierung von Askurious nach den Empfehlungen von Spiel, Haimson & Lottridge (2019).",
-    "en": "Own wording of Askurious following the recommendations of Spiel, Haimson & Lottridge (2019)."
+    "de": "Antwortkategorien nach Spiel, Haimson & Lottridge (2019), Interactions, 26(4), 62–65, https://doi.org/10.1145/3338283; deutsche Fassung von Askurious. Für den Wortlaut ist keine offene Lizenz dokumentiert; die Quelle ist immer anzugeben.",
+    "en": "Answer categories after Spiel, Haimson & Lottridge (2019), Interactions, 26(4), 62–65, https://doi.org/10.1145/3338283; German version by Askurious. No open licence is documented for the wording; always cite the source."
    },
    "authors": [
     {
@@ -1324,10 +1324,10 @@
     }
    ],
    "licence": {
-    "wording": "CC-BY-4.0",
+    "wording": "source-attributed",
     "distributable": true,
     "permission_required": false,
-    "commercial": true
+    "commercial": null
    },
    "tags": {
     "status": [

@@ -52,13 +52,11 @@ NOT_SHARED = PERMISSION_REQUIRED
 # authors; the translation page says so (rights review 2026-10-21)
 ZIS = frozenset(k for k, lic in _LICENCE.items() if lic.get("wording") == "ZIS-noncommercial")
 # Wording the public Konstrukte page shows to visitors who are not signed in (Ralf 2026-10-16, option 1): only where
-# the licence lets anyone pass it on (the RatSWD standard questions, ratswd.KEYS, and Askurious' own wordings, all CC
-# BY 4.0 in the catalogue). Everything else (GESIS/ZIS, journal articles, APA PsycTests, constructs submitted by
-# researchers) shows its source instead. PERMISSION_REQUIRED also applies to signed-in researchers.
-# The gender question kept its wording for signed-in researchers so far; it stays so (WORDING_NOT_PUBLIC).
-WORDING_NOT_PUBLIC = frozenset({"gender"})
-OWN_WORDING = {k for k, lic in _LICENCE.items()
-               if lic.get("distributable") and k not in ratswd.KEYS and k not in WORDING_NOT_PUBLIC}
+# the licence lets anyone pass it on (the RatSWD standard questions, ratswd.KEYS, and Askurious' own wordings, both
+# CC BY 4.0 in the catalogue). Everything else (GESIS/ZIS, journal articles, APA PsycTests, the answer categories of
+# the gender question after Spiel et al., 2019, licence "source-attributed"; constructs submitted by researchers) shows
+# its source instead. PERMISSION_REQUIRED also applies to signed-in researchers.
+OWN_WORDING = {k for k, lic in _LICENCE.items() if lic.get("wording") == "CC-BY-4.0" and k not in ratswd.KEYS}
 
 def permission_notice():
     return de_en(

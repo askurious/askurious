@@ -7639,3 +7639,7 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Rundlauftest `tests/analysis/test_construct_catalog.py`: alle 39 Konstrukte ergeben genau die Vorlagen und Metadaten DE/EN von 12002c4.
 - `tools/update_constructs_snapshot.py` erneuert den Snapshot aus einem Release (Signatur mit minisign-Schlüssel geprüft), einer Datei oder einem Checkout.
 - Migration 0117: Spalten `source`, `version`, `catalog_release` an `construct` (ROLLING = True).
+
+## 2026-11-09: Herkunft der Geschlechtsfrage
+
+- `gender`: Die Antwortkategorien stammen aus Spiel, Haimson & Lottridge (2019); der Hinweis sagt das jetzt statt „Eigene Formulierung von Askurious“. Im Katalog Lizenzschlüssel `source-attributed` statt CC BY 4.0 (askurious-constructs #4). Für Gäste bleibt der Wortlaut verborgen; OWN_WORDING folgt jetzt dem Lizenzschlüssel CC-BY-4.0. Snapshot aus askurious-constructs 6347d72.
