@@ -41,22 +41,29 @@ def facets():
     return FACETS_EN if english() else FACETS
 
 
-# What the licence of each construct allows, from its "licence" in the catalogue (askurious-constructs,
-# schema/vocab/licences.yaml); the names stay as before for all callers.
-_LICENCE = {c["key"]: c["licence"] for c in catalog.entries()}
+# What the licence of each construct allows, from its "licence" in the active catalogue (askurious-constructs,
+# schema/vocab/licences.yaml; withdrawn constructs included, old surveys still carry them). The names stay as before
+# for all callers; the values follow a newer catalogue release as soon as the installation takes it (construct_sync).
+
+
+def _licences(m):
+    return {c["key"]: c["licence"] for c in m["constructs"]}
+
+
 # No general distribution permission is documented (journal articles, publishers' copyright: gdms, kut, tam_*, kuk):
 # public outputs use neutral IDs and sources instead, and each study needs a documented permission (permitted()).
-PERMISSION_REQUIRED = frozenset(k for k, lic in _LICENCE.items() if lic.get("permission_required"))
+PERMISSION_REQUIRED = catalog.live_set(lambda m: (k for k, lic in _licences(m).items() if lic.get("permission_required")))
 NOT_SHARED = PERMISSION_REQUIRED
 # Scales of the GESIS/ZIS collection: another form than the documented one (a translation) needs the consent of the
 # authors; the translation page says so (rights review 2026-10-21)
-ZIS = frozenset(k for k, lic in _LICENCE.items() if lic.get("wording") == "ZIS-noncommercial")
+ZIS = catalog.live_set(lambda m: (k for k, lic in _licences(m).items() if lic.get("wording") == "ZIS-noncommercial"))
 # Wording the public Konstrukte page shows to visitors who are not signed in (Ralf 2026-10-16, option 1): only where
 # the licence lets anyone pass it on (the RatSWD standard questions, ratswd.KEYS, and Askurious' own wordings, both
 # CC BY 4.0 in the catalogue). Everything else (GESIS/ZIS, journal articles, APA PsycTests, the answer categories of
 # the gender question after Spiel et al., 2019, licence "source-attributed"; constructs submitted by researchers) shows
 # its source instead. PERMISSION_REQUIRED also applies to signed-in researchers.
-OWN_WORDING = {k for k, lic in _LICENCE.items() if lic.get("wording") == "CC-BY-4.0" and k not in ratswd.KEYS}
+OWN_WORDING = catalog.live_set(lambda m: (k for k, lic in _licences(m).items()
+                                          if lic.get("wording") == "CC-BY-4.0" and k not in ratswd.KEYS))
 
 def permission_notice():
     return de_en(
@@ -213,7 +220,7 @@ def non_commercial(c):
 # instance_overlay/instruments.json (instance_overlay/README.md). Without it, or with a wording whose hash differs
 # from the documented one, these constructs are not seeded; constructs already in the database stay as they are.
 PLACEHOLDER = "[System]"  # TAM: stands for the technology
-INSTRUMENTS = {c["key"]: c["structure"] for c in catalog.entries() if catalog.licensed(c)}
+INSTRUMENTS = catalog.live_map(lambda m: {c["key"]: c["structure"] for c in m["constructs"] if catalog.licensed(c)})
 _WORDINGS = {}  # path: (modification time, wordings)
 _WARNED = set()  # (path, modification time, key) of a differing wording already in the log
 
@@ -272,25 +279,35 @@ def _instrument(key):
 # Language versions that are only working translations of a scale of others (kut English, tam_* German; status
 # "working" in the catalogue): the translation page (app/translations.py) treats them as translatable, not as
 # validated versions.
-WORKING_LANGS = {c["key"]: {lang for lang, info in c["languages"].items() if info.get("status") == "working"}
-                 for c in catalog.entries() if catalog.licensed(c)}
-WORKING_LANGS = {k: v for k, v in WORKING_LANGS.items() if v}
+def _working(m):
+    out = {c["key"]: {lang for lang, info in c["languages"].items() if info.get("status") == "working"}
+           for c in m["constructs"] if catalog.licensed(c)}
+    return {k: v for k, v in out.items() if v}
+
+
+WORKING_LANGS = catalog.live_map(_working)
 
 # The seed constructs (the RatSWD standard questions among them, app/ratswd.py), from the catalogue
-SEEDS = [catalog.seed(c) for c in catalog.entries()]
-for _seed in SEEDS:
-    if _seed["key"] in INSTRUMENTS:
-        _seed["spec"] = _instrument(_seed["key"])
+def _seeds(m):
+    out = [catalog.seed(c) for c in catalog.entries(m)]
+    for seed in out:
+        if catalog.licensed(catalog.entry(seed["key"], m)):
+            seed["spec"] = _instrument(seed["key"])
+    return out
+
+
+SEEDS = catalog.live_list(_seeds)
 
 # What a construct measures, for meta-analyses (facet "Bezug"): a lasting trait of the person, something about the
 # person that can change, or the rating of the object shown. In the catalogue as the tag "bezug:…".
-REFERENCE = {s["key"]: t.split(":", 1)[1] for s in SEEDS for t in s["tags"] if t.startswith("bezug:")}
+REFERENCE = catalog.live_map(lambda m: {s["key"]: t.split(":", 1)[1] for s in SEEDS for t in s["tags"]
+                                         if t.startswith("bezug:")})
 
 # Name, short line, description, scoring and notes of each seed construct for researchers who read the pages in
 # English. The item texts and answer scales stay as published (they are survey content, in spec["texts"]); the
 # German fields stay the stored ones. A field shows in English only while the stored text is still the seed's German
 # one (an operator who changed it in the database has written something of their own).
-SEEDS_EN = {c["key"]: catalog.seed_en(c) for c in catalog.entries()}
+SEEDS_EN = catalog.live_map(lambda m: {c["key"]: catalog.seed_en(c) for c in catalog.entries(m)})
 
 # Tag names in English, by the stored (German) name; a tag not listed here (one an operator made) keeps its name
 TAGS_EN = {
@@ -312,7 +329,7 @@ TAGS_EN = {
     "Person: stabil": "Person: stable", "Person: veränderlich": "Person: changeable", "Gegenstand": "Object rated",
 }
 SHOWN_FIELDS = ("name", "short", "description", "scoring", "notes")
-_SEED_BY_KEY = {seed["key"]: seed for seed in SEEDS}
+_SEED_BY_KEY = catalog.live_map(lambda m: {seed["key"]: seed for seed in SEEDS})
 
 
 def shown_text(c, field):
@@ -443,8 +460,14 @@ def _seed():
     changed = _retire()
     for seed in SEEDS:
         c = db.session.scalar(db.select(Construct).filter_by(key=seed["key"]))
-        if c and c.seed_version >= seed["seed_version"]:
+        # a construct of the catalogue takes every new version of it (a corrected wording too, a minor number) and an
+        # earlier one when the installation goes back (construct_sync.undo); others only a higher seed_version
+        newer = c is not None and c.source == "catalog" and c.version not in (None, seed["version"])
+        if c and c.seed_version >= seed["seed_version"] and not newer:
             changed = _provenance(c, seed) or changed
+            if c.source == "catalog" and c.visibility == "retired":
+                c.visibility = "public"  # back in the catalogue (going back to an earlier release)
+                changed = True
             if {t.slug for t in c.tags} != {_slug(t)[0] for t in seed["tags"]}:
                 c.tags = [_tag(t) for t in seed["tags"]]  # new tags in the code (e.g. the facet "Bezug")
                 changed = True
@@ -464,7 +487,15 @@ def _seed():
         c.spec = spec
         c.tags = [_tag(t) for t in seed["tags"]]
         _provenance(c, seed)
+        if c.visibility == "retired":
+            c.visibility = "public"  # back in the catalogue (going back to an earlier release)
         changed = True
+    for gone in catalog.retired():
+        # withdrawn from the catalogue: existing items keep it (find() still finds it), the toolbox no longer offers it
+        c = db.session.scalar(db.select(Construct).filter_by(key=gone["key"]))
+        if c is not None and c.source == "catalog" and c.visibility != "retired":
+            c.visibility = "retired"
+            changed = True
     if changed:
         db.session.flush()
         for c in db.session.scalars(db.select(Construct)):

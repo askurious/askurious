@@ -13,6 +13,11 @@ Mit Stern markierte Konstrukte erscheinen in der Seitenleiste des Editors.
 „In Befragung einfügen“ an jeder Karte führt zur Wahl des Entwurfs und des Blocks. Kurz- und Langfassungen desselben Instruments sind verknüpft: Die Karte nennt die weiteren Fassungen, die Seite des Konstrukts vergleicht sie unter „Fassungen“ (Admins legen die Familie unter Administration › Konstrukte fest).
 Forschende können neue Konstrukte vorschlagen.
 
+**Katalog (Administration › Konstrukte).**
+Die Konstrukte kommen aus dem offenen Katalog [askurious-constructs](https://github.com/askurious/askurious-constructs). Jede Nacht holt die Installation das neueste signierte Release und übernimmt es: neue Konstrukte kommen hinzu, korrigierte bekommen ihre neue Fassung, zurückgezogene lassen sich nicht mehr einfügen, bleiben aber in den Befragungen, die sie nutzen. Befragungen behalten immer die Fassung, die sie haben.
+Der Abschnitt „Katalog“ zeigt Stand, Quelle, letzten Abgleich und die Änderungsliste. „Jetzt abgleichen“ holt das neueste Release und zeigt zuerst, was sich ändert; „Manifest-Datei hochladen“ nimmt für Installationen ohne Netz Manifest und Signatur eines Releases. „Rückgängig auf …“ stellt den Stand davor wieder her und legt ihn fest, bis „Pin lösen“ den Abgleich wieder freigibt.
+Lizenzierte Skalen (z. B. GESIS/ZIS) haben im Katalog nur Struktur und einen Hash ihres Wortlauts; die Installation nutzt ihren eigenen Wortlaut nur, wenn er zu diesem Hash passt.
+
 **Warum.**
 Validierte Instrumente wiederzuverwenden ist bessere Wissenschaft, als neue Fragen zu schreiben, und jede Befragung, die ein Konstrukt nutzt, trägt zu seiner gemeinsamen Reliabilität über Studien hinweg bei.
 Die gemeinsamen Daten sind je Studie und Person pseudonym, und die Nutzungsbedingungen nennen diese Verwendung.

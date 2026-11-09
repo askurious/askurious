@@ -13,6 +13,11 @@ Starred constructs appear in the editor's sidebar.
 “Insert into a survey” on each card leads to the choice of draft and block. Short and long versions of one instrument are linked: the card names the other versions, the construct's page compares them under “Versions” (admins set the family under Administration › Constructs).
 Researchers can suggest new constructs.
 
+**Catalogue (Administration › Constructs).**
+The constructs come from the open catalogue [askurious-constructs](https://github.com/askurious/askurious-constructs). Every night the installation fetches the newest signed release and takes it: new constructs are added, corrected ones get their new version, withdrawn ones can no longer be inserted but stay in the surveys that use them. Surveys always keep the version they have.
+The section “Catalogue” shows the version, source, last sync and the list of changes. “Sync now” fetches the newest release and first shows what changes; “Upload manifest file” takes the manifest and signature of a release for installations without network. “Back to …” restores the version before and pins it until “Release pin” lets the sync go on.
+Licensed scales (e.g. GESIS/ZIS) have only their structure and a hash of their wording in the catalogue; the installation uses its own wording only where it matches that hash.
+
 **Why.**
 Reusing validated instruments is better science than writing new questions, and every survey that uses a construct adds to its pooled reliability across studies.
 The pooled data are pseudonymous per study and person, and the terms of use name this use.

@@ -1504,6 +1504,11 @@ ol.plain.tl-events li { border: 0; padding: 0; }  /* plain dates and actions, no
 .figures .fig-wide { grid-column: 1 / -1; }
 .badge-construct { background: var(--ok-soft); color: var(--ok); text-decoration: none; }
 .badge-construct.is-modified { background: var(--warn-soft); color: var(--warn); }
+/* changes of a construct catalogue release (Administration > Konstrukte > Katalog, app/construct_sync.py) */
+.catalog-kind-new { background: var(--ok-soft); color: var(--ok); }
+.catalog-kind-wording, .catalog-kind-structure { background: var(--warn-soft); color: var(--warn); }
+.catalog-kind-retired { background: rgba(138, 75, 18, 0.13); color: #8a4b12; }
+.catalog-changes li { margin: 4px 0; }
 .badge-linked { background: var(--linked-soft); color: var(--linked); text-decoration: none; }
 .badge-linked.is-modified { background: var(--warn-soft); color: var(--warn); }
 .badge .icon { vertical-align: -1px; }

@@ -1,7 +1,7 @@
 {
  "format": 1,
- "release": "2026.11.0-dev",
- "generated": "2026-11-09T12:09:37Z",
+ "release": "2026.11.0",
+ "generated": "2026-11-09T12:18:24Z",
  "source": "https://github.com/askurious/askurious-constructs",
  "commit": "6347d72ac8e158fce66bc980c618c1df6b90f90b",
  "constructs": [

@@ -49,6 +49,8 @@ GRANTS = {
     "organisation_member": (R, "a pretest link: its maker's home organisation"),
     "asset": (R, "images of elements shown on the page"),
     "construct": (R, "the scales of linked construct elements shown on a page"),
+    "construct_sync": (R, "the active construct catalogue (construct_catalog.active()): which wordings stay with the "
+                       "participants of a study"),
     "construct_tag": (R, "with the construct: its keywords, loaded with it"),
     "tag": (R, "with the construct: the keywords themselves"),
     "response": (RW, "the participation itself: started, answered page by page, ended, deleted with its deletion "

@@ -752,6 +752,10 @@ def _rare_sweeps(now):
     from app import browser_receipts, interview_data
 
     _step("browser_receipts.sweep", browser_receipts.sweep, now)
+    from app import construct_sync
+
+    # the construct catalogue's newest signed release, once a night, not in a participant's request (it fetches)
+    _step("construct_sync.nightly", construct_sync.nightly, now)
     from app import data_revision
 
     _step("data_revision.sweep", data_revision.sweep)  # the revision rows of deleted surveys (audit 2026-10-15, T05-N-1)

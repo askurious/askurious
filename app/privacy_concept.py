@@ -1272,6 +1272,18 @@ def _services():
          "data": de_en("Nur DOIs von Quellen, keine personenbezogenen Daten.", "Only DOIs of sources, no personal data."),
          "who": de_en("Forschende, Admins", "Researchers, admins"), "switch": "—",
          "state": (True, de_en("an", "on")), "where": de_en("Entfällt", "Not applicable")},
+        # the server downloads the construct catalogue (app/construct_sync.py): two files, nothing about people
+        {"name": de_en("Konstrukt-Katalog (GitHub)", "Construct catalogue (GitHub)"), "words": ("GitHub",),
+         "data": de_en("Der Server lädt nachts und auf „Jetzt abgleichen“ zwei Dateien (Manifest und Signatur des "
+                       "Katalogs askurious-constructs); dabei sieht GitHub nur die IP-Adresse des Servers. Es werden keine "
+                       "personenbezogenen Daten gesendet. Wer abgleicht, wird nicht gespeichert.",
+                       "At night and on “Sync now” the server downloads two files (manifest and signature of the "
+                       "catalogue askurious-constructs); GitHub sees only the server's IP address. No personal data is "
+                       "sent. Who syncs is not stored."),
+         "who": de_en("Server (Admins)", "Server (admins)"), "switch": "CONSTRUCTS_SOURCE",
+         "state": _on((c.get("CONSTRUCTS_SOURCE") or "").strip().lower() != "off",
+                      (c.get("CONSTRUCTS_SOURCE") or "").strip() or "GitHub"),
+         "where": usa},
     ]
     # recordings stay on this server; named so nobody looks for a service (for everyone since 2026-10-16)
     rows.append({"name": de_en("Sprachnachrichten", "Voice messages"), "words": (),

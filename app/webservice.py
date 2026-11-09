@@ -487,6 +487,17 @@ def fetch(method, url, body=None, headers=None, timeout=None):
     unless given; the name lookup never longer than TIMEOUT); raises
     Blocked, Unreachable (no answer began), OSError (the answer broke off, was too large or too slow, too many calls
     at once) or ValueError (a header value http.client refuses)."""
+    return _fetch(method, url, body, headers, timeout)
+
+
+def fetch_full(method, url, body=None, headers=None, timeout=None, max_bytes=MAX_BYTES):
+    """(status, {header name in lower case: value}, bytes) of one call, checked and limited as fetch(); `max_bytes`
+    of answer at most (MAX_BYTES unless given, e.g. for the construct catalogue's manifest, app/construct_sync.py).
+    No redirect is followed: a caller that follows one calls again, so each address is checked."""
+    return _fetch(method, url, body, headers, timeout, max_bytes, True)
+
+
+def _fetch(method, url, body, headers, timeout, *more):
     parts = urlsplit(url)
     if parts.scheme != "https" or not parts.hostname:
         raise Blocked("https only")
@@ -503,12 +514,12 @@ def fetch(method, url, body=None, headers=None, timeout=None):
     try:
         deadline = time.monotonic() + (timeout or TIMEOUT)
         address = _public_address(parts.hostname, port, min(timeout or TIMEOUT, TIMEOUT))
-        return _talk(method, parts, address, body, headers, deadline)
+        return _talk(method, parts, address, body, headers, deadline, *more)
     finally:
         _slots.release()
 
 
-def _talk(method, parts, address, body, headers, deadline):
+def _talk(method, parts, address, body, headers, deadline, max_bytes=MAX_BYTES, with_headers=False):
     """The call itself, to `address`. A watchdog closes the connection at `deadline`: urllib3's timeouts hold for
     each single read only, and a server that sends a byte every few seconds kept the call open for hours (W1)."""
     import http.client
@@ -556,7 +567,7 @@ def _talk(method, parts, address, body, headers, deadline):
                 if not chunk:
                     break
                 data += chunk
-                if len(data) > MAX_BYTES:
+                if len(data) > max_bytes:
                     raise OSError("answer too large")
                 if over.is_set() or time.monotonic() > deadline:
                     raise OSError("timed out")
@@ -568,6 +579,8 @@ def _talk(method, parts, address, body, headers, deadline):
             raise OSError("timed out" if over.is_set() else "answer broken off") from e
         if over.is_set():
             raise OSError("timed out")  # closed by the watchdog: what came is not the whole answer
+        if with_headers:
+            return answer.status, {k.lower(): v for k, v in answer.headers.items()}, bytes(data)
         return answer.status, bytes(data)
     finally:
         watchdog.cancel()

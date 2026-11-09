@@ -274,6 +274,12 @@ class Config:
     # (app/construct_catalog.py): a differing wording leaves its construct out of the toolbox, with a warning in the
     # log. Off only for the tests' stand-in wordings.
     INSTRUMENT_WORDING_CHECK = _bool("INSTRUMENT_WORDING_CHECK", True)
+    # Where the construct catalogue comes from (app/construct_sync.py): empty = the latest signed release of
+    # askurious-constructs on GitHub, fetched once a night by the housekeeping and on "Jetzt abgleichen"; "off" fetches
+    # nothing (the snapshot in the code and uploaded manifests only); a folder or manifest.json on the server (with
+    # manifest.json.sig). CONSTRUCTS_PIN: stay on this release (e.g. 2026.11.0).
+    CONSTRUCTS_SOURCE = os.environ.get("CONSTRUCTS_SOURCE", "")
+    CONSTRUCTS_PIN = os.environ.get("CONSTRUCTS_PIN", "")
     SESSION_COOKIE_SECURE = PUBLIC_BASE_URL.startswith("https://")
     SESSION_COOKIE_SAMESITE = "Lax"
     # Behind https the cookies carry the prefix "__Host-": the browser then takes them only from this very host

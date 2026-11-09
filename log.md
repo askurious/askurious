@@ -7643,3 +7643,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 ## 2026-11-09: Herkunft der Geschlechtsfrage
 
 - `gender`: Die Antwortkategorien stammen aus Spiel, Haimson & Lottridge (2019); der Hinweis sagt das jetzt statt „Eigene Formulierung von Askurious“. Im Katalog Lizenzschlüssel `source-attributed` statt CC BY 4.0 (askurious-constructs #4). Für Gäste bleibt der Wortlaut verborgen; OWN_WORDING folgt jetzt dem Lizenzschlüssel CC-BY-4.0. Snapshot aus askurious-constructs 6347d72.
+
+## 2026-11-09: Abgleich mit dem Konstrukt-Katalog
+
+- `app/construct_sync.py`: Die Installation holt das neueste signierte Release von askurious-constructs (`CONSTRUCTS_SOURCE`, Standard GitHub „latest“; `off`; Ordner oder Datei; `CONSTRUCTS_PIN`), nachts als Schritt der stündlichen Housekeeping-Runde (zwischen 2 und 5 Uhr) und unter Administration › Konstrukte › Katalog von Hand (erst Vorschau, dann Übernehmen), auch als hochgeladene Datei. Signatur immer geprüft (minisign-Schlüssel im Code), Abruf über `webservice.fetch_full` (Weiterleitungen einzeln geprüft, Größenlimit).
+- Tabelle `construct_sync` (Migration 0118): übernommene Stände, Vorschauen, Fehler; der letzte übernommene ist der aktive Katalog. Lizenzmengen, Seeds und englische Texte folgen ihm (`construct_catalog.active()`, `live_set`/`live_map`/`live_list`). Neue Fassungen (auch Wortlaut-Korrekturen) kommen in die Toolbox, zurückgezogene bleiben in Befragungen, sind aber nicht mehr einfügbar; ein fehlender Key gilt als zurückgezogen. „Rückgängig“ stellt den Stand davor her und pinnt ihn.
+- Snapshot jetzt aus dem signierten Release 2026.11.0. Datenschutzkonzept: Dienst „Konstrukt-Katalog (GitHub)“. Handbuch: Abschnitt „Katalog“.
