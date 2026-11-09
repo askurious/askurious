@@ -7664,3 +7664,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Familien (Kurz- und Langfassungen) kommen aus dem Konstrukt-Katalog (families/ im Manifest); eine auf der Installation gesetzte Familie (fam:<key>) bleibt und geht vor. „Familien als Datei für den Katalog“ (Administration › Konstrukte › Katalog) liefert die hier gesetzten Familien von Katalog-Konstrukten als families/<id>.yaml für einen Pull Request.
 - `construct.catalog_hash` (Migration 0120): Fingerabdruck dessen, was der Katalog geschrieben hat, beim ersten Start aus dem heutigen Stand. Ein hier geändertes Katalog-Konstrukt überschreibt ein neuerer Katalog nicht; unter „Hier geändert“: „Als eigenes Konstrukt behalten“ (Kopie unter `<key>_lokal`) oder „Katalogfassung übernehmen“.
+
+## 2026-11-09: Startseite, weitere Beispiel-Links
+
+- „Live-Rückmeldung an Teilnehmende“ führt zur Beispielbefragung (statt nur „Menschenmenge“).
+- „Siegelkette“ führt zur Beispielbefragung mit Siegelkette (/s/zfgknw), „Herkunft und Vollständigkeit der Fälle prüfbar“ zur Prüfseite eines echten Falls.
+- „Web-Apps“ führt zur Beispielbefragung zum Gesetz von Fitts (/s/5katj4).
+- „Viele Elementtypen und erweiterbare validierte Skalen aus „Konstrukte““, der zweite Teil verlinkt die Konstrukte (nicht unter POLLtergeist).
