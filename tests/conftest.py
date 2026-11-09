@@ -147,6 +147,9 @@ def _config(folder, url=None):
         INSTRUMENT_WORDINGS_DIR = ""  # the stand-ins of instruments.json only; tests/analysis/test_construct_catalog.py reads a folder
         INSTRUMENT_WORDING_CHECK = False  # stand-ins never match the documented hashes; tests/analysis/test_construct_catalog.py checks it
         CONSTRUCTS_SOURCE = "off"  # never GitHub from a test; tests/analysis/test_construct_sync.py stands in for it
+        # the active catalogue looked up once per app, not every 30 s: a lookup in the middle of a test that counts the
+        # queries of a page made it one more (tests/editor/test_item_page_queries.py); a sync invalidates it at once
+        CONSTRUCT_CATALOG_SECONDS = 3600
         # a key of its own, not the development key: with that the app answers only requests from this computer
         # (app.is_local_request, audit 2026-10-18, CFG-01), and the tests send from made-up addresses (REMOTE_ADDR)
         SECRET_KEY = "test-Q7wRt5zK9pL2mN8bV4cX6jH3gF1dS0aYx8Lp2Mn4Bv6Cx"

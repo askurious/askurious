@@ -1221,8 +1221,10 @@ def create_app(config_class=Config, server=False):
             app.logger.warning("ALLOWED_ORCIDS is set but no longer read; who may sign in is kept in "
                                "Administration > Personen")
         with start_up_lock():  # PostgreSQL: one server process at a time (several start together after a deploy)
-            from app import constructs
+            from app import construct_catalog, constructs
 
+            construct_catalog.invalidate()  # a new app looks the active catalogue up in its own database, now
+            construct_catalog.active()      # (not in the middle of the first request that counts its queries)
             constructs.ensure_seed()  # seed constructs and full-text index (data, not schema)
             from app import linked
 
