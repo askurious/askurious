@@ -15,7 +15,7 @@ PER_PAGE = 25
 ROW_SIZES = (10, 20, 50)  # lists of people and groups: 10 rows, switchable to 20 or 50 (Ralf 2026-10-16)
 MAX_WORDS = 6
 # kinds: Personen, app/kind_access.py; period and since: the period of the dashboard on "Befragungen" (app/admin_stats.py)
-_STATE_KEY = re.compile(r"^(?:[a-z]{1,3}_(sort|dir|q|page|kinds|n|org|group|type|end)|period|since)\Z")
+_STATE_KEY = re.compile(r"^(?:[a-z]{1,3}_(sort|dir|q|page|kinds|n|org|group|type|end|by|kind|mode|done|tr)|period|since)\Z")
 
 
 def text_key(value):
