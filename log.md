@@ -7659,3 +7659,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Verwaltung › Konstrukte: Bereich „Eigene Konstrukte“ mit Dialog „Konstrukt anlegen“ (Org-Admins; Grundlage ein verknüpftes Element; Beschreibung, Quelle, Auswertung, Lizenz des Wortlauts aus der Liste des Katalogs, Bestätigung der Nutzungsrechte). Key `o<id>-…`, Sichtbarkeit „org“: nur Mitglieder finden es in „Konstrukte“ und im Editor, mit dem Namen der Organisation; nicht im Pool (`app/org_constructs.py`).
 - Mitglieder schlagen ein eigenes verknüpftes Element „Der Organisation vorschlagen“ vor (Einreichung mit `org_id`, Migration 0119); die Admins übernehmen oder lehnen ab.
 - „Als Datei für Pull Request“: ZIP mit construct.yaml (als JSON, gültiges YAML) und bei offener Lizenz den Wortlautdateien für askurious-constructs; auch bei angenommenen Einreichungen unter Administration › Konstrukte. Kontakt über `CONSTRUCTS_CONTACT`.
+
+## 2026-11-09: Konstrukte der Organisation bearbeiten und ausblenden
+
+- Verwaltung › Konstrukte: „Bearbeiten“ (derselbe Dialog wie „Konstrukt anlegen“, vorbelegt; Name, Texte, Quelle, Lizenz, optional Englisch), „Entfernen“ bzw. „Ausblenden“, wenn Befragungen es nutzen (nur aus der Toolbox, Befragungen behalten es), „Wieder zeigen“ unter „Ausgeblendet“. Nichts wird gelöscht.
+- Die Datei für einen Pull Request belegt die englischen Felder vor (wie angegeben, sonst der deutsche Text zum Übersetzen). Einreichungen beim Betreiber fragen optional den Lizenzschlüssel des Katalogs ab; ein angenommenes Konstrukt trägt ihn in die Datei.
