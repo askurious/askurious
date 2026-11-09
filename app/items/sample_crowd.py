@@ -41,7 +41,7 @@ class SampleCrowd(SampleCompare):
     key = "sample_crowd"
     import_rules = {"sources": SampleCompare.import_rules["sources"], "subscales": SampleCompare.import_rules["subscales"],
                     "show_own": r_flag, "keep_previous": r_flag,
-                    "avatars": r_int(MIN_N, MAX_AVATARS), "lock_answers": r_flag}
+                    "avatars": r_int(MIN_N, MAX_AVATARS), "lock_answers": r_flag, "count_running": r_flag}
     label = Both("Rückmeldung als Menschenmenge", "Crowd feedback")
     short = Both("Die anderen als Figuren", "The others as figures")
     description = Both(f"Experimentell: bisherige Teilnehmende als Figuren, die zu ihrer Antwort laufen; "
@@ -202,7 +202,9 @@ class SampleCrowd(SampleCompare):
         survey, uid, want = item.survey, item.survey.uid, item.config.get("avatars", 40)
         key = self.pool_key(item, src, row)  # inside a loop: the answers of the same pass
         # ids and this one answer of the completed participations, kept for a few seconds (app/balance.py)
-        pool = sorted(balance.answers(survey, key, preview), key=lambda p: _hash01(uid, seed, item.id, p[0]))
+        running = bool((item.config or {}).get("count_running", True))  # on unless switched off
+        given = balance.answers(survey, key, preview, running)
+        pool = sorted(balance.others(given) if running else given, key=lambda p: _hash01(uid, seed, item.id, p[0]))
         real = []
         for rid, answer in pool:
             b = self.base(src, scale, answer)
