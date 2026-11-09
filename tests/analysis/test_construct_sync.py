@@ -219,3 +219,25 @@ def test_admin_page_and_preview(app, client, signer):
                                                           "signature": (BytesIO(sig.encode()), "m.json.sig")},
                       content_type="multipart/form-data", follow_redirects=True).data.decode()
     assert "Signatur ungültig" in bad
+
+
+def test_the_active_catalogue_is_looked_up_once_per_window(app, signer):
+    """CONSTRUCT_CATALOG_SECONDS: within the window a process asks the database no second time (a page that counts
+    its queries, tests/editor/test_item_page_queries.py, saw one more when the 30 s ran out between two calls); a sync
+    in this process looks anew at once."""
+    from sqlalchemy import event
+
+    with app.app_context():
+        catalog.invalidate()
+        catalog.active()
+        seen = []
+        listener = lambda *args: seen.append(args[2])  # noqa: E731
+        event.listen(db.engine, "before_cursor_execute", listener)
+        try:
+            catalog.active()
+            catalog.active()
+        finally:
+            event.remove(db.engine, "before_cursor_execute", listener)
+        assert not [s for s in seen if "construct_sync" in s]
+        construct_sync.apply(construct_sync.prepare(*signer(_next_release()), "upload"))
+        assert catalog.release()[0] == "2026.12.0"
