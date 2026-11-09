@@ -115,3 +115,64 @@ def test_an_entry_with_the_wrong_number_of_items_is_ignored():
     assert catalog.overlay_wordings(c, {"asku": {"question": {"de": "Q"}, "statements": [{"de": "a"}]}}) == {}
     assert catalog.spec("asku", {}, check=False) is None
     assert catalog.spec("gibtsnicht") is None
+
+
+def _minisign(data, comment="timestamp:1 file:manifest.json", prehash=True):
+    """A minisign key pair of its own (never the catalogue's) and the signature of `data` in minisign's format."""
+    import base64
+    import hashlib
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    secret = Ed25519PrivateKey.generate()
+    key_id = b"\x01\x02\x03\x04\x05\x06\x07\x08"
+    raw = secret.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    public = base64.b64encode(b"Ed" + key_id + raw).decode()
+    message = hashlib.blake2b(data, digest_size=64).digest() if prehash else data
+    sig = secret.sign(message)
+    glob = secret.sign(sig + comment.encode())
+    text = (f"untrusted comment: test\n{base64.b64encode((b'ED' if prehash else b'Ed') + key_id + sig).decode()}\n"
+            f"trusted comment: {comment}\n{base64.b64encode(glob).decode()}\n")
+    return public, text
+
+
+def _refused(call):
+    try:
+        call()
+    except ValueError as exc:
+        return str(exc)
+    raise AssertionError("accepted")
+
+
+def test_signature_of_a_release():
+    data = b'{"format": 1}'
+    for prehash in (True, False):
+        public, sig = _minisign(data, prehash=prehash)
+        assert catalog.verify_signature(data, sig, public) == "timestamp:1 file:manifest.json"
+        assert "does not match" in _refused(lambda: catalog.verify_signature(data + b" ", sig, public))
+        changed = sig.replace("timestamp:1", "timestamp:2")
+        assert "does not match" in _refused(lambda: catalog.verify_signature(data, changed, public))
+    assert "another key" in _refused(lambda: catalog.verify_signature(data, sig, catalog.PUBLIC_KEY))
+    assert "unreadable" in _refused(lambda: catalog.verify_signature(data, "nonsense", public))
+
+
+def test_update_tool_refuses_licensed_wording(tmp_path):
+    from tools import update_constructs_snapshot as tool
+
+    manifest = json.loads(json.dumps(catalog.manifest()))
+    entry = next(c for c in manifest["constructs"] if c["key"] == "asku")
+    entry["wording"] = {"de": {"question": "x"}}
+    source, out = tmp_path / "m.json", tmp_path / "out.json"
+    source.write_text(json.dumps(manifest), encoding="utf-8")
+    try:
+        tool.main(["--manifest", str(source), "--out", str(out)])
+    except SystemExit as exc:
+        assert "asku: licensed construct with wording" in str(exc)
+    else:
+        raise AssertionError("taken")
+    assert not out.exists()
+    entry["wording"] = {}
+    source.write_text(json.dumps(manifest), encoding="utf-8")
+    assert tool.main(["--manifest", str(source), "--out", str(out)]) == 0
+    assert json.loads(out.read_text(encoding="utf-8")) == catalog.manifest()
