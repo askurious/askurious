@@ -46,8 +46,9 @@
   </div>
 </fieldset>
 
+{% set confirm_fixed = item.kind.confirmations_fixed(item, structural) %}
 <fieldset>
-  <legend>{{ de_en("Bestätigungen", "Confirmations") }} <span class="hint">{{ de_en("Teilnehmende müssen jede aktive Aussage ankreuzen, bevor sie zustimmen können", "participants must tick every active statement before they can agree") }}{% if not structural %}{{ de_en("; nach dem Start fest, nur der Wortlaut lässt sich korrigieren", "; fixed after the start, only the wording can be corrected") }}{% endif %}</span></legend>
+  <legend>{{ de_en("Bestätigungen", "Confirmations") }} <span class="hint">{{ de_en("Teilnehmende müssen jede aktive Aussage ankreuzen, bevor sie zustimmen können", "participants must tick every active statement before they can agree") }}{% if not structural %}{{ de_en("; nach dem Start fest, nur der Wortlaut lässt sich korrigieren", "; fixed after the start, only the wording can be corrected") }}{% elif confirm_fixed %}{{ de_en("; fest, seit Teilnehmende zugestimmt haben (der Export nennt sie für alle als angekreuzt), nur der Wortlaut lässt sich korrigieren. Für andere Bestätigungen die Befragung duplizieren.", "; fixed since participants have agreed (the export reports them as ticked for everyone), only the wording can be corrected. For other confirmations, duplicate the survey.") }}{% endif %}</span></legend>
   <ul class="plain confirm-list">
     {% set enabled = item.config.get("confirm", {}) %}
     {# "special" and "audio" only where the survey asks them, and always on (items/consent.py, REQUIRED) #}
@@ -56,7 +57,7 @@
     {% set default_text = consent_default(key, lang, item.config) %}
     {% set required = key in ("special", "audio") %}
     <li>
-      <label class="check confirm-toggle"><input type="checkbox" name="confirm_{{ key }}" value="1" {% if required or enabled.get(key, true) %}checked{% endif %} {% if required or not default_view or not structural %}disabled{% endif %}>
+      <label class="check confirm-toggle"><input type="checkbox" name="confirm_{{ key }}" value="1" {% if required or enabled.get(key, true) %}checked{% endif %} {% if required or not default_view or confirm_fixed %}disabled{% endif %}>
         <strong>{{ consent_labels()[key] }}</strong>
         {% if key == "age" and not item.config.min_age %}<span class="hint">{{ de_en("nur mit Mindestalter", "only with a minimum age") }}</span>{% endif %}
         {% if key == "special" %}<span class="hint">{{ de_en("Pflicht, solange die Befragung besondere Kategorien erhebt (Einstellungen)", "required while the survey collects special categories (Settings)") }}</span>{% endif %}

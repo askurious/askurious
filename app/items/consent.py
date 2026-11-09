@@ -427,15 +427,20 @@ class Consent(ItemType):
         # survey settings and the setup wizard (apply_facts); the element itself only has the duration.
         if lang == item.survey.default_language:
             duration = form.get("duration", "").strip()
-            # what participants confirm stays fixed once the survey has started: the export reports it as
-            # ticked for everyone who agreed (export_values), so a later change would rewrite their answers
-            locked = not structural or self.has_real_answers(item)  # also after "Zur Bearbeitung öffnen"
+            locked = self.confirmations_fixed(item, structural)
             item.config = {
                 **item.config,
                 "duration": whole(duration),
                 "confirm": item.config.get("confirm", {}) if locked
                 else {k: bool(form.get(f"confirm_{k}")) for k in CONFIRMATIONS},
             }
+
+    def confirmations_fixed(self, item, structural):
+        """Which confirmations are asked stays fixed outside the editable default view and once a real participant
+        has agreed, also after "Zur Bearbeitung öffnen": the export reports them as ticked for everyone who agreed
+        (export_values), so a later change would rewrite their answers. The editor shows the switches locked then,
+        instead of offering them and dropping the change on saving (Philipp, 2026-11-09)."""
+        return not structural or self.has_real_answers(item)
 
     def apply_facts(self, item, form, lang):
         """Facts from the wizard or the settings; a missing or still untouched standard text follows them (an

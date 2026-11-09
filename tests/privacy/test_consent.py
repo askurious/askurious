@@ -198,3 +198,23 @@ def _keys(refs):
         else:
             out.append("former" if r[:1] == "m" and r[1:].isdigit() else r)
     return out
+
+
+def test_confirmations_locked_in_the_editor_once_someone_agreed(app, client, survey):
+    """A draft whose consent a real participant already agreed to (reopened for editing) keeps its confirmations:
+    the editor shows the switches locked and says why, instead of offering them and dropping the change on saving
+    (Philipp, 2026-11-09)."""
+    from app.models import Response
+
+    E = "/surveys/1/editor/items/1"
+    page = client.get(E).data.decode()
+    assert 'name="confirm_commitment" value="1" checked >' in page and "seit Teilnehmende zugestimmt" not in page
+    with app.app_context():
+        db.session.add(Response(survey_id=1, source="real", is_preview=False, answers={"1": "1"}))
+        db.session.commit()
+    page = client.get(E).data.decode()
+    assert 'name="confirm_commitment" value="1" checked disabled>' in page and "seit Teilnehmende zugestimmt" in page
+    client.post(E, data=MultiDict([("code", "consent"), ("confirm_voluntary", "1"), ("body", "x")]))
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        assert [c["key"] for c in item.kind.confirmations(item, "de")] == ["age", "voluntary", "data", "commitment"]
