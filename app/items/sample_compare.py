@@ -70,7 +70,7 @@ class SampleCompare(ItemType):
     rank_sources = (CROCKER_ALGINA,)  # percentile rank and normal curve (items/_live_source.html)
     # "sources" names questions of the file; transfer.create puts those of the new survey in their place
     import_rules = {"sources": r_list(2, r_int(1, 10 ** 12)), "subscales": r_list(2, _subscale_rule), "show_own": r_flag,
-                    "display": r_one(*DISPLAYS), "lock_answers": r_flag}
+                    "display": r_one(*DISPLAYS), "lock_answers": r_flag, "count_running": r_flag}
     result_kind = None
     label = Both("Stichprobenvergleich", "Sample comparison")
     short = Both("Antworten der anderen zeigen", "Shows the others' answers")
@@ -235,7 +235,9 @@ class SampleCompare(ItemType):
         with all their answers."""
         from app import balance
 
-        return [balance.answers(item.survey, self.pool_key(item, src, row), preview) for src in self.sources(item)]
+        running = bool((item.config or {}).get("count_running", True))  # on unless switched off
+        lists = [balance.answers(item.survey, self.pool_key(item, src, row), preview, running) for src in self.sources(item)]
+        return [balance.others(given) for given in lists] if running else lists
 
     def pool_of(self, item, lists):
         """pool() from the lists of answer_lists, joined by participation id: each list is read and kept on its own,

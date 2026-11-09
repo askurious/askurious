@@ -26,7 +26,7 @@ class ScaleProfile(SampleCompare):
     key = "scale_profile"
     import_rules = {"sources": r_list(MAX_VARIABLES, r_int(1, 10 ** 12)),
                     "subscales": r_list(MAX_VARIABLES, _subscale_rule), "show_sample": r_flag,
-                    "lock_answers": r_flag}
+                    "lock_answers": r_flag, "count_running": r_flag}
     label = Both("Skalenprofil", "Scale profile")
     short = Both("Eigene Werte auf mehreren Skalen", "Own values on several scales")
     description = Both("Die eigenen Werte auf mehreren Skalen oder Subskalen untereinander (z. B. die "

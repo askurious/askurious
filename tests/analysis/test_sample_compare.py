@@ -23,7 +23,8 @@ def test_sample_compare_threshold_own_answer_and_export(app, client, survey):
     with app.app_context():
         item = db.session.get(Item, 5)
         assert item.config["sources"] == [2] and item.kind.validate(item) == []
-        item.config = {**item.config, "sources": [2, 3]}  # (older elements may list two; rows handle both)
+        item.config = {**item.config, "sources": [2, 3],  # (older elements may list two; rows handle both)
+                       "count_running": False}  # only completed ones (running ones: tests/analysis/test_live_running.py)
         db.session.commit()
         kusiv = db.session.get(Item, 2)
         s1, s2 = [s["id"] for s in kusiv.config["statements"][:2]]

@@ -13,7 +13,7 @@ from app.ui_i18n import tr
 class SampleMap(SampleCompare):
     key = "sample_map"
     import_rules = {"sources": SampleCompare.import_rules["sources"], "subscales": SampleCompare.import_rules["subscales"],
-                    "show_own": r_flag, "lock_answers": r_flag}
+                    "show_own": r_flag, "lock_answers": r_flag, "count_running": r_flag}
     label = Both("2D-Streubild", "2D scatter")
     short = Both("Eigene Position unter allen", "Own position among all")
     description = Both(f"Zwei Variablen gegeneinander: bisherige Teilnehmende als Punkte, eigene Position hervorgehoben (ab {MIN_N})",

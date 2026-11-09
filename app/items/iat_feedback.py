@@ -70,7 +70,7 @@ class IatFeedback(SampleCompare):
     )
     displays = {}
     import_rules = {"sources": SampleCompare.import_rules["sources"], "subscales": SampleCompare.import_rules["subscales"],
-                    "compare": r_flag, "lock_answers": r_flag}
+                    "compare": r_flag, "lock_answers": r_flag, "count_running": r_flag}
 
     TEXT_KEYS = ("result_pos", "result_neg", "result_none", "s_none", "s_slight", "s_moderate", "s_strong",
                  "explanation", "invalid", "others")

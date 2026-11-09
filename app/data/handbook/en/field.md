@@ -69,6 +69,7 @@ Some checks only report from a minimum number of cases, so that one odd person d
 2. **Pages**: the order is fixed on the server once per person; "Next" checks required answers (red) and reminders (amber), always with a text, never colour alone.
    A session lasts seven days, so people can pause and come back.
 3. **Live feedback** (optional): participants can see where they stand compared with everyone so far, e.g. as a figure in a crowd or on a bell curve; this raises satisfaction with the survey (Kühne & Kroh, 2018).
+   Every participation that has already answered the question counts, also those still under way (for instance when a group waits together before a code word), without one's own; shown only from 5 answers. Without the tick “also count participations still under way” on the feedback element only completed ones count; it can be changed during data collection, too.
    If the feedback fixes the answers, they stay visible on going back but can no longer be changed; an answer that cannot be piped as text (map, image marking, Q-sort) is also given in words below it.
    A started timed task (IAT, assignment, discounting) stops when the tab is hidden or someone chooses “Stop task”, not merely because a system notification briefly takes the focus.
    Even on a screen 320 px wide with double text size, left to right or right to left, everything stays on the page: long words wrap, and 2-D positioning then puts the name of the vertical axis above the field.

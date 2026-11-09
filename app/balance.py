@@ -285,31 +285,59 @@ def _marked_basis(survey, sources):
     return hashlib.sha256(json.dumps(basis, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def answers(survey, key, preview=False):
+def answers(survey, key, preview=False, running=False):
     """[(participation id, its answer stored under `key`)] of completed participations (real; in the preview
     also test and dummy), for the live comparison. Only the one answer is kept, not the whole participation.
     What quality assurance marks is left out, as on the results page. After "Neuer Durchgang" only the participations
-    begun in the current run count (lifecycle.run_since); the others stay in the data."""
+    begun in the current run count (lifecycle.run_since); the others stay in the data.
+    running: also the participations still under way that have given this answer (the tick "auch laufende
+    Teilnahmen zählen" of a feedback element, on unless switched off): a class stopped behind a code word completes nobody, and the
+    feedback stayed empty (u7pauw, 2026-11-09). Quality marks rest on completed ones only; others() leaves out
+    the person's own."""
     from app import lifecycle
     from app.models import Response
 
     sources = ("real", "test", "dummy") if preview else ("real",)
     since = lifecycle.run_since(survey)
+    statuses = (Response.COMPLETED, Response.ACTIVE) if running else (Response.COMPLETED,)
 
     def load():
         query = db.select(Response.id, Response.answers).filter(
-            Response.survey_id == survey.id, Response.status == Response.COMPLETED, Response.source.in_(sources))
+            Response.survey_id == survey.id, Response.status.in_(statuses), Response.source.in_(sources))
         if since is not None:
             query = query.filter(Response.started_at >= since)
         if not preview:
             query = query.filter(Response.is_preview.is_(False))
         drop = marked(survey, sources, fresh=preview)
-        return [(rid, (given or {}).get(key)) for rid, given in db.session.execute(query.order_by(Response.id))
-                if rid not in drop]
+        found = [(rid, (given or {}).get(key)) for rid, given in db.session.execute(query.order_by(Response.id))
+                 if rid not in drop]
+        if running:  # a running participation counts only once it has this answer
+            found = [(rid, a) for rid, a in found if a not in (None, "", {}, [])]
+        return found
 
     if preview:  # researchers trying things out: always what is there now
         return load()
-    return cached(("answers", survey.id, key, since), load)
+    return cached(("answers", survey.id, key, since, bool(running)), load)
+
+
+def others(given):
+    """`given` (a list of answers()) without the participation of this request (g.participation): with running
+    participations counted, the person would otherwise meet their own answer among "the others". The same list
+    object as long as nothing is left out, and per list and person the same filtered one, so derived() keeps its
+    results."""
+    own = getattr(getattr(g, "participation", None), "id", None)
+    if own is None or all(rid != own for rid, _ in given):
+        return given
+    if not _ttl():  # BALANCE_SECONDS 0: nothing is kept
+        return [(rid, a) for rid, a in given if rid != own]
+    store = _store()
+    key = ("others", id(given), own)
+    entry = store.get(key)
+    if entry is not None and entry[1][0] is given:
+        return entry[1][1]
+    kept = [(rid, a) for rid, a in given if rid != own]
+    store[key] = (time.monotonic(), (given, kept))
+    return kept
 
 
 def derived(key, lists, build):

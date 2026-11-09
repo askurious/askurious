@@ -182,7 +182,7 @@ class _TopicFeedback(SampleCompare):
 class TopicMap(_TopicFeedback):
     key = "topic_map"
     import_rules = {"sources": r_list(2, r_int(1, 10 ** 12)), "subscales": r_list(2, _subscale_rule), "show_sample": r_flag,
-                    "lock_answers": r_flag}
+                    "lock_answers": r_flag, "count_running": r_flag}
     label = Both("Themenkarte", "Topic map")
     short = Both("Themen auf zwei Bewertungen", "Topics on two evaluations")
     description = Both("Die Themen einer Schleife auf zwei Bewertungen (z. B. Risiko und Nutzen), "
@@ -265,7 +265,7 @@ class TopicMap(_TopicFeedback):
 class TopicProfile(_TopicFeedback):
     key = "topic_profile"
     import_rules = {"sources": r_list(MAX_VARIABLES, r_int(1, 10 ** 12)), "subscales": r_list(MAX_VARIABLES, _subscale_rule),
-                    "show_sample": r_flag, "lock_answers": r_flag}
+                    "show_sample": r_flag, "lock_answers": r_flag, "count_running": r_flag}
     label = Both("Themenprofil", "Topic profile")
     short = Both("Eigene Bewertung aller Themen", "Own rating of all topics")
     description = Both("Die eigene Bewertung über alle Themen einer Schleife gemittelt (z. B. Risiko, "
