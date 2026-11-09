@@ -12,6 +12,9 @@ from app import constructs, ratswd
 
 FROZEN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "constructs_12002c4.json")
 STANDIN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "instruments.json")
+# what changed on purpose since 12002c4: (key, field) -> the new German text's start
+CHANGED = {("gender", "notes"): "Antwortkategorien nach Spiel, Haimson & Lottridge (2019)"}
+CHANGED_EN = {("gender", "notes"): "Answer categories after Spiel, Haimson & Lottridge (2019)"}
 SEED_FIELDS = ("seed_version", "status", "name", "short", "description", "authors", "year", "citation", "doi",
                "scoring", "notes", "tags")
 
@@ -43,15 +46,29 @@ def test_every_construct_gives_todays_metadata():
     frozen = _frozen()
     for seed in frozen["seeds"]:
         got = catalog.seed(catalog.entry(seed["key"]))
-        assert {f: got[f] for f in SEED_FIELDS} == {f: seed[f] for f in SEED_FIELDS}, seed["key"]
-    assert {c["key"]: catalog.seed_en(c) for c in catalog.entries()} == frozen["seeds_en"]
-    assert constructs.SEEDS_EN == frozen["seeds_en"]
-    assert {s["key"]: {f: s[f] for f in SEED_FIELDS} for s in constructs.SEEDS} == {
-        s["key"]: {f: s[f] for f in SEED_FIELDS} for s in frozen["seeds"]}
+        for f in SEED_FIELDS:
+            if (seed["key"], f) in CHANGED:
+                assert got[f].startswith(CHANGED[(seed["key"], f)]), (seed["key"], f)
+            else:
+                assert got[f] == seed[f], (seed["key"], f)
+    en = {c["key"]: catalog.seed_en(c) for c in catalog.entries()}
+    assert en == constructs.SEEDS_EN and set(en) == set(frozen["seeds_en"])
+    for key, fields in frozen["seeds_en"].items():
+        assert set(en[key]) == set(fields), key
+        for f, value in fields.items():
+            if (key, f) in CHANGED_EN:
+                assert en[key][f].startswith(CHANGED_EN[(key, f)]), (key, f)
+            else:
+                assert en[key][f] == value, (key, f)
+    assert {s["key"] for s in constructs.SEEDS} == {s["key"] for s in frozen["seeds"]}
 
 
 def test_licence_sets_are_as_before():
+    """The gender question stays hidden from guests: its answer categories follow Spiel, Haimson & Lottridge (2019),
+    licence "source-attributed" in the catalogue, not Askurious' own wording (Ralf, 2026-11-09)."""
     frozen = _frozen()
+    assert catalog.entry("gender")["licence"]["wording"] == "source-attributed"
+    assert "gender" not in constructs.OWN_WORDING and not constructs.wording_public("gender")
     assert sorted(constructs.OWN_WORDING) == frozen["own_wording"]
     assert sorted(constructs.ZIS) == frozen["zis"]
     assert sorted(constructs.PERMISSION_REQUIRED) == frozen["permission_required"]
