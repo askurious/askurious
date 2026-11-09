@@ -2662,6 +2662,9 @@ class Construct(db.Model):
     source: Mapped[str] = mapped_column(String(20), default="instance", server_default="instance")
     version: Mapped[str | None] = mapped_column(String(20))
     catalog_release: Mapped[str | None] = mapped_column(String(40))
+    # the fingerprint of what the catalogue wrote last (constructs.row_fingerprint): differs once the construct was
+    # changed on this installation, which a newer version of the catalogue then does not overwrite (migration 0120)
+    catalog_hash: Mapped[str | None] = mapped_column(String(64))
     search_text: Mapped[str] = mapped_column(Text, default="")  # flattened text for the LIKE fallback
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 

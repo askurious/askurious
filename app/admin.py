@@ -142,6 +142,28 @@ def construct_catalog_action():
             flash(de_en("Zurück auf Release {r}; festgelegt, bis Sie den Pin lösen.",
                         "Back to release {r}; pinned until you release the pin.", r=row.release), "success")
             return back
+        elif action in ("keep_local", "reset"):
+            from app import constructs
+            from app.extensions import db
+            from app.models import Construct
+
+            c = db.session.scalar(db.select(Construct).filter_by(key=request.form.get("key", ""), source="catalog"))
+            if c is None or not constructs.locally_changed(c):
+                abort(404)
+            if action == "keep_local":
+                kept = constructs.keep_local(c, current_user)
+                db.session.commit()
+                constructs.rebuild_index(force=True)
+                flash(de_en("Als eigenes Konstrukt behalten: {k}; {c} hat wieder die Katalogfassung.",
+                            "Kept as a construct of its own: {k}; {c} has the catalogue's version again.",
+                            k=kept.key, c=c.key), "success")
+            else:
+                constructs.reset_to_catalogue(c)
+                db.session.commit()
+                constructs.rebuild_index(force=True)
+                flash(de_en("{c} hat wieder die Katalogfassung.", "{c} has the catalogue's version again.", c=c.key),
+                      "success")
+            return back
         elif action == "unpin":
             construct_sync.unpin()
             flash(de_en("Pin gelöst: Der nächste Abgleich nimmt wieder das neueste Release.",
@@ -222,6 +244,18 @@ def submission(sid):
                            proposal=submissions.proposal(s) if s.state in ConstructSubmission.OPEN else None, toolbox=toolbox)
 
 
+@bp.route("/constructs/families.zip")
+def construct_families_file():
+    """The families set here for constructs of the catalogue as files for families/ of askurious-constructs."""
+    from flask import Response
+
+    from app import construct_families
+
+    found = construct_families.catalogue_file() or abort(404)
+    name, data = found
+    return Response(data, mimetype="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 @bp.route("/constructs/<key>/pull-request.zip")
 def construct_pr_file(key):
     """A construct of this installation (an accepted submission) as a file for a pull request to askurious-constructs
@@ -290,7 +324,9 @@ def construct_pool_detail(key):
     from app import construct_families
 
     return render_template("admin/construct_pool.html", c=constructs.shown(c), r=construct_pool.report(c), sources=construct_pool.sources(),
-                           cited=citations.listing(c), family=construct_families.of(c.key))
+                           cited=citations.listing(c), family=construct_families.of(c.key),
+                           catalogue_family=construct_families.catalogue().get(c.key),
+                           local_family=construct_families.local().get(c.key))
 
 
 @bp.route("/constructs/<key>/family", methods=["POST"])

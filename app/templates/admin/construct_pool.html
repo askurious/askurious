@@ -96,5 +96,7 @@
     <div><button class="button button-secondary">{{ de_en("Speichern", "Save") }}</button></div>
   </form>
   <p class="muted small">{{ de_en("Konstrukte mit derselben Familie zeigen einander in der Liste und auf ihrer Seite als Fassungen; ein leeres Feld „Familie“ löst die Verknüpfung.", "Constructs with the same family show each other as versions in the list and on their page; an empty field “Family” removes the link.") }}</p>
+  {% if catalogue_family %}<p class="muted small">{{ de_en("Im Katalog: {f} · {v}.", "In the catalogue: {f} · {v}.", f=catalogue_family[0], v=catalogue_family[1]) }}{% if local_family %} {{ de_en("Die Angabe hier geht vor; ein leeres Feld „Familie“ gibt der Katalogangabe wieder Vorrang.", "The entry here comes first; an empty field “Family” gives the catalogue's entry precedence again.") }}{% endif %}</p>
+  {% elif c.source == "catalog" %}<p class="muted small">{{ de_en("Familien von Konstrukten des Katalogs gehören in den Katalog: unter Administration › Konstrukte › Katalog „Familien als Datei für den Katalog“, dann als Pull Request.", "Families of constructs of the catalogue belong in the catalogue: under Administration › Constructs › Catalogue “Families as a file for the catalogue”, then as a pull request.") }}</p>{% endif %}
 </section>
 {% endblock %}
