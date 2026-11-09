@@ -193,3 +193,35 @@ def test_update_tool_refuses_licensed_wording(tmp_path):
     source.write_text(json.dumps(manifest), encoding="utf-8")
     assert tool.main(["--manifest", str(source), "--out", str(out)]) == 0
     assert json.loads(out.read_text(encoding="utf-8")) == catalog.manifest()
+
+
+def test_wordings_folder_counts_before_instruments_json(app, tmp_path, caplog):
+    """instance_overlay/wordings/<key>/<lang>.json (items by their codes) wins over instruments.json for its
+    constructs; a file that names other codes is left out; the start reports what is missing or differs. Stand-in
+    texts only."""
+    standin = _standin()["asku"]
+    folder = tmp_path / "wordings" / "asku"
+    folder.mkdir(parents=True)
+    codes = [st["code"] for st in catalog.entry("asku")["structure"]["config"]["statements"]]
+    de = {"for": "ask:asku@1.0", "question": "Ordnerfrage", "items": {c: f"Ordneraussage {n}" for n, c in enumerate(codes, 1)}}
+    (folder / "de.json").write_text(json.dumps(de), encoding="utf-8")
+    (folder / "en.json").write_text(json.dumps({"question": "Q", "items": {"ASKU_9": "x"}}), encoding="utf-8")
+    with app.app_context():
+        app.config["INSTRUMENT_WORDINGS_DIR"] = str(tmp_path / "wordings")
+        constructs._FOLDER.clear()
+        try:
+            found = constructs.instrument_wordings()
+            assert "_wordings" in found["asku"] and "statements" in found["bfi10"]  # folder for asku, the file for the rest
+            spec = constructs._instrument_spec("asku")
+            assert spec["texts"]["de"]["question"] == "Ordnerfrage" and set(spec["texts"]) == {"de"}  # en: wrong codes
+            assert spec["texts"]["de"]["statements"]["s1"] == "Ordneraussage 1"
+            assert spec["texts"]["de"]["labels"] == catalog.entry("asku")["structure"]["labels"]["de"]
+            constructs._REPORTED.clear()
+            with caplog.at_level(logging.INFO):
+                state = constructs.report_wordings()
+            assert ("asku", ["de"]) in state["differing"]  # the stand-in is not the documented wording
+            assert any("differs" in r.getMessage() and "asku (de)" in r.getMessage() for r in caplog.records)
+        finally:
+            app.config["INSTRUMENT_WORDINGS_DIR"] = ""
+            constructs._FOLDER.clear()
+    assert standin["question"]["de"] != "Ordnerfrage"

@@ -226,7 +226,51 @@ _WARNED = set()  # (path, modification time, key) of a differing wording already
 
 
 def instrument_wordings():
-    """{key: {"question": {lang: text}, "statements": [{lang: text}, …]}} of the installation, {} without the file."""
+    """The installation's wordings of the scales of others: {key: {"question": {lang: text}, "statements": [{lang:
+    text}, …]}} from instruments.json, and {key: {"_wordings": {lang: wording}}} from the folder
+    INSTRUMENT_WORDINGS_DIR (wordings/<key>/<lang>.json, items by their codes), which wins for its constructs. {}
+    without either."""
+    return {**_file_wordings(), **_folder_wordings()}
+
+
+_FOLDER = {}  # folder: (read at, wordings)
+FOLDER_SECONDS = 30  # how long a process keeps the folder before it reads it again
+
+
+def _folder_wordings():
+    import time
+
+    folder = current_app.config.get("INSTRUMENT_WORDINGS_DIR") or ""
+    if not folder or not os.path.isdir(folder):
+        return {}
+    cached = _FOLDER.get(folder)
+    if cached is not None and time.monotonic() - cached[0] < FOLDER_SECONDS:
+        return cached[1]
+    out = {}
+    for key in sorted(os.listdir(folder)):
+        sub = os.path.join(folder, key)
+        if not os.path.isdir(sub) or not re.fullmatch(r"[a-z][a-z0-9_]*", key):
+            continue
+        found = {}
+        for name in sorted(os.listdir(sub)):
+            lang, ext = os.path.splitext(name)
+            if ext != ".json":
+                continue
+            try:
+                with open(os.path.join(sub, name), encoding="utf-8") as f:
+                    wording = json.load(f)
+            except (OSError, ValueError):
+                current_app.logger.warning("instrument wording %s/%s unreadable; left out", key, name)
+                continue
+            if isinstance(wording, dict):
+                found[lang] = wording
+        if found:
+            out[key] = {"_wordings": found}
+    _FOLDER[folder] = (time.monotonic(), out)
+    return out
+
+
+def _file_wordings():
     path = current_app.config.get("INSTRUMENT_WORDINGS") or ""
     try:
         mtime = os.path.getmtime(path)
@@ -435,6 +479,50 @@ def ensure_seed():
         db.session.rollback()
         changed = _seed()
     rebuild_index(force=changed)
+    report_wordings()
+
+
+def wording_state():
+    """{"missing": [keys], "differing": [(key, [langs])], "ok": [keys]} of the licensed constructs of the active
+    catalogue against the installation's wordings (their SHA-256 against the documented hash, construct_catalog)."""
+    wordings = instrument_wordings()
+    out = {"missing": [], "differing": [], "ok": []}
+    for c in catalog.entries():
+        if not catalog.licensed(c):
+            continue
+        found = catalog.overlay_wordings(c, wordings)
+        if not found:
+            out["missing"].append(c["key"])
+            continue
+        langs = catalog.differing_languages(c, found)
+        if langs:
+            out["differing"].append((c["key"], langs))
+        else:
+            out["ok"].append(c["key"])
+    return out
+
+
+_REPORTED = set()
+
+
+def report_wordings():
+    """At the start: one line in the log about the installation's wordings of the scales of others (which are
+    missing, which differ from the documented version and so stay out while INSTRUMENT_WORDING_CHECK is on)."""
+    state = wording_state()
+    mark = (catalog.release()[0], tuple(state["missing"]), tuple(k for k, _ in state["differing"]))
+    if mark in _REPORTED:
+        return state
+    _REPORTED.add(mark)
+    if state["differing"]:
+        current_app.logger.warning(
+            "construct catalogue %s: wording of the installation differs from the documented one for %s%s",
+            mark[0], ", ".join(f"{k} ({'/'.join(langs)})" for k, langs in state["differing"]),
+            "; left out of the toolbox" if current_app.config.get("INSTRUMENT_WORDING_CHECK", True) else
+            " (INSTRUMENT_WORDING_CHECK off)")
+    if state["missing"]:
+        current_app.logger.info("construct catalogue %s: no wording in the installation for %s", mark[0],
+                                ", ".join(state["missing"]))
+    return state
 
 
 def seed_name(key):

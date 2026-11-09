@@ -144,6 +144,7 @@ def _config(folder, url=None):
         # stand-in wordings with the structure of the scales of others (never the real ones, which only the
         # installation has: app/constructs.py, INSTRUMENTS)
         INSTRUMENT_WORDINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "instruments.json")
+        INSTRUMENT_WORDINGS_DIR = ""  # the stand-ins of instruments.json only; tests/analysis/test_construct_catalog.py reads a folder
         INSTRUMENT_WORDING_CHECK = False  # stand-ins never match the documented hashes; tests/analysis/test_construct_catalog.py checks it
         CONSTRUCTS_SOURCE = "off"  # never GitHub from a test; tests/analysis/test_construct_sync.py stands in for it
         # a key of its own, not the development key: with that the app answers only requests from this computer
