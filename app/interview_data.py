@@ -292,6 +292,50 @@ def run(now=None):
 
 # --- the pages ---------------------------------------------------------------------------------------------------
 
+# The filters of the list "Geführte Interviews", each a select with the address parameter iv_<name> (Ralf 2026-11-09):
+# by: "team" or an interviewer link's id; kind: real/test; mode: an interview mode; done: yes/no; tr: transcript stage
+FILTERS = ("by", "kind", "mode", "done", "tr")
+
+
+def transcript_stages():
+    return {"none": de_en("keine Aufnahme", "no recording"),
+            "audio": de_en("Aufnahme ohne Transkript", "recording without transcript"),
+            "running": de_en("Transkription läuft", "transcription running"),
+            "done": de_en("Transkript fertig, nicht geprüft", "transcript done, not checked"),
+            "checked": de_en("Transkript geprüft", "transcript checked")}
+
+
+def transcript_stage(row):
+    """Where the transcript of an interview stands, a key of transcript_stages: a running transcription first,
+    then a transcript (typed, uploaded or transcribed; checked or not), then a recording without one."""
+    from app import interview_transcribe
+
+    m = row.interview or {}
+    tr = m.get("transcript") or {}
+    if interview_transcribe.shown_running(row):
+        return "running"
+    if tr.get("text"):
+        return "checked" if tr.get("checked") else "done"
+    return "audio" if m.get("audio") else "none"
+
+
+def filtered(rows, chosen):
+    """The interviews that pass the chosen filters ({name: value}, "" for all); unknown values filter nothing."""
+    by, kind, mode, done, stage = (chosen.get(n, "") for n in FILTERS)
+    if by == "team":
+        rows = [r for r in rows if not (r.interview or {}).get("access")]
+    elif by.isdigit():
+        rows = [r for r in rows if (r.interview or {}).get("access") == int(by)]
+    if kind in ("real", "test"):
+        rows = [r for r in rows if r.source == kind]
+    if mode:
+        rows = [r for r in rows if (r.interview or {}).get("mode") == mode]
+    if done in ("yes", "no"):
+        rows = [r for r in rows if (r.status == "completed") == (done == "yes")]
+    if stage in transcript_stages():
+        rows = [r for r in rows if transcript_stage(r) == stage]
+    return rows
+
 
 @bp.route("/<code>/interviews")
 @login_required
@@ -299,12 +343,12 @@ def index(code):
     from app import ai_access, erasure, interview, interview_offline, interview_transcribe, interviewer
 
     survey = _survey(code, need="editor")
-    rows = interviews(survey)
-    held_by = request.args.get("by", "")  # the filter "geführt von": "" all, "team", or an access's id
-    if held_by == "team":
-        rows = [r for r in rows if not (r.interview or {}).get("access")]
-    elif held_by.isdigit():
-        rows = [r for r in rows if (r.interview or {}).get("access") == int(held_by)]
+    from app.tables import ListPage
+
+    every = interviews(survey)
+    chosen = {name: request.args.get(f"iv_{name}", "") for name in FILTERS}
+    rows = filtered(every, chosen)
+    listing = ListPage("iv", rows, anchor="gefuehrt")
     def audio_minutes(r):
         """Minutes of the stored recording, for an interview whose clock never ran (a file uploaded afterwards)."""
         from app import audio_length, interview_audio
@@ -314,9 +358,11 @@ def index(code):
         found = [s for s in found if s]
         return round(sum(found) / 60) if found else None
 
-    return render_template("interview/interviews.html", survey=survey, rows=rows, st=interview.state(survey),
+    return render_template("interview/interviews.html", survey=survey, rows=listing.items, every=every, listing=listing,
+                           chosen=chosen, used_modes=sorted({(r.interview or {}).get("mode") or "" for r in every} - {""}),
+                           stages=transcript_stages(), st=interview.state(survey),
                            audio_minutes=audio_minutes,
-                           accesses=interviewer.accesses(survey), held_by=held_by,
+                           accesses=interviewer.accesses(survey),
                            see_choices=interviewer.see_choices(),
                            new_link=interviewer.show_once(survey), access_state=interviewer.state,
                            access_counts=interviewer.interview_count(survey), link_days=interviewer.DAYS,

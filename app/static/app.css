@@ -442,6 +442,8 @@ input.description-field { max-width: 60ch; }  /* a line of description, not the 
 .plan-hyp-fields > .field-with-term { flex: 1 1 250px; min-width: 0; }
 .row-fields select { max-width: 100%; }
 .row-fields .link-mode { flex: 0 0 210px; min-width: 0; }
+.iv-filters { margin-bottom: 12px; }  /* filters of "Geführte Interviews"; the count stands on the fields' line */
+.iv-filters .iv-filter-count { line-height: var(--field-h); }
 /* a hint between a label and its field pushed the fields of the row to different heights: in a row of fields the hint
    stands under its field, and the row aligns at the top, so labels and fields each share one line (V84) */
 .row-fields > label:not(.check):has(> .hint) { display: flex; flex-direction: column; gap: 6px; }

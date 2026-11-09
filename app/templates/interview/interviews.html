@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, list_table, autosave_bar %}
 {% from "_icons.html" import icon %}
+{% from "_listing.html" import pager %}
 {% from "surveys/_export_rows.html" import dialog %}
 {# The interviews of an interview guide ("Interviews erheben", app/interview_data.py): starting one after
    the consent step, the list with continuing, deleting on request. #}
@@ -31,18 +32,45 @@
 {% endif %}
 
 {% include "interview/_offline_panel.html" %}
-<section class="panel">
-  {% set n_real = rows|selectattr("source", "equalto", "real")|list|length %}{% set n_test = rows|selectattr("source", "equalto", "test")|list|length %}
+<section class="panel" id="gefuehrt">
+  {% set n_real = every|selectattr("source", "equalto", "real")|list|length %}{% set n_test = every|selectattr("source", "equalto", "test")|list|length %}
   <h2>{{ de_en("Geführte Interviews", "Interviews conducted") }} <span class="hint">{{ de_en("{n} Interviews, {t} Probeinterviews", "{n} interviews, {t} trial interviews", n=n_real, t=n_test) }}</span></h2>
-  {% if accesses %}
-  {# the filter "geführt von" (app/interviewer.py): the team's own interviews or those of one interviewer link #}
-  <form method="get" class="row-fields">
-    <label>{{ de_en("Geführt von", "Conducted by") }}
-      <select name="by" data-submit-on-change>
+  {% if every %}
+  {# the filters in one row (app/interview_data.py, FILTERS): "geführt von" only with interviewer links (app/interviewer.py),
+     "Art" only with trial interviews, "Form" only with more than one mode in use #}
+  {% set filtering = chosen.values()|select|list %}
+  <form method="get" action="{{ request.path }}#gefuehrt" class="row-fields iv-filters">
+    {% if listing.per_page != listing.sizes[0] %}<input type="hidden" name="iv_n" value="{{ listing.per_page }}">{% endif %}
+    {% if accesses %}<label>{{ de_en("Geführt von", "Conducted by") }}
+      <select name="iv_by" data-submit-on-change>
         <option value="">{{ de_en("alle", "all") }}</option>
-        <option value="team" {% if held_by == "team" %}selected{% endif %}>{{ de_en("den Beteiligten (Konten)", "the people involved (accounts)") }}</option>
-        {% for a in accesses %}<option value="{{ a.id }}" {% if held_by == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+        <option value="team" {% if chosen.by == "team" %}selected{% endif %}>{{ de_en("den Beteiligten (Konten)", "the people involved (accounts)") }}</option>
+        {% for a in accesses %}<option value="{{ a.id }}" {% if chosen.by == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+      </select></label>{% endif %}
+    {% if n_test or chosen.kind %}<label>{{ de_en("Art", "Kind") }}
+      <select name="iv_kind" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        <option value="real" {% if chosen.kind == "real" %}selected{% endif %}>{{ de_en("Interviews", "Interviews") }}</option>
+        <option value="test" {% if chosen.kind == "test" %}selected{% endif %}>{{ de_en("Probeinterviews", "Trial interviews") }}</option>
+      </select></label>{% endif %}
+    {% if used_modes|length > 1 or chosen.mode %}<label>{{ de_en("Form", "Mode") }}
+      <select name="iv_mode" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        {% for key in used_modes %}<option value="{{ key }}" {% if chosen.mode == key %}selected{% endif %}>{{ modes.get(key, key) }}</option>{% endfor %}
+      </select></label>{% endif %}
+    <label>{{ de_en("Stand", "Status") }}
+      <select name="iv_done" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        <option value="yes" {% if chosen.done == "yes" %}selected{% endif %}>{{ de_en("beendet", "ended") }}</option>
+        <option value="no" {% if chosen.done == "no" %}selected{% endif %}>{{ de_en("nicht beendet", "not ended") }}</option>
       </select></label>
+    <label>{{ de_en("Transkript", "Transcript") }}
+      <select name="iv_tr" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        {% for key, name in stages.items() %}<option value="{{ key }}" {% if chosen.tr == key %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <noscript><button class="button button-secondary">{{ de_en("Filtern", "Filter") }}</button></noscript>
+    {% if filtering %}<span class="muted small iv-filter-count">{{ de_en("{n} Treffer", "{n} matches", n=listing.total) }} · <a href="{{ request.path }}{% if listing.per_page != listing.sizes[0] %}?iv_n={{ listing.per_page }}{% endif %}#gefuehrt">{{ de_en("Filter zurücksetzen", "Reset filters") }}</a></span>{% endif %}
   </form>
   {% endif %}
   {% if rows %}
@@ -109,6 +137,8 @@
     {% endfor %}
     </tbody>
   {% endcall %}
+  {{ pager(listing) }}
+  {% elif every %}<p class="muted">{{ de_en("Kein Interview passt zu diesen Filtern.", "No interview matches these filters.") }}</p>
   {% else %}<p class="muted">{{ de_en("Noch kein Interview. Oben unter „Interview beginnen“ das erste anlegen.", "No interview yet. Create the first one above under “Start interview”.") }}</p>{% endif %}
 </section>
 

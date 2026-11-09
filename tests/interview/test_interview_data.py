@@ -458,3 +458,40 @@ def test_recording_pages_may_use_the_microphone(app, client):
     assert "microphone=(self)" in client.get(f"/guide/{code}/conversation?interview={rid}").headers["Permissions-Policy"]
     assert "microphone=(self)" in client.get(f"/guide/{code}/interviews/{rid}/recorder").headers["Permissions-Policy"]
     assert "microphone=()" in client.get(f"/guide/{code}/conversation").headers["Permissions-Policy"]   # stores nothing, records nothing
+
+
+def test_list_filters_and_pages(app, client):
+    """The list "Geführte Interviews" filters by kind, mode, status and transcript stage, in one row of selects,
+    and comes in pages of 10/20/50 (Ralf 2026-11-09)."""
+    code, sid = make(app, client)
+    a = start(app, client, code)                                   # I01: real, in person, checked transcript
+    b = start(app, client, code, mode="telefon", trial="1")        # I02: trial, by phone, recording only
+    c = start(app, client, code)                                   # I03: real, ended, nothing recorded
+    with app.app_context():
+        for rid, change in ((a, {"transcript": {"text": "I: Hallo.", "checked": "2026-11-09"}}),
+                            (b, {"audio": [{"part": 1, "bytes": 10, "mime": "audio/webm"}]})):
+            row = db.session.get(Response, rid)
+            row.interview = {**row.interview, **change}
+        db.session.get(Response, c).status = "completed"
+        db.session.commit()
+
+    def shown(query=""):
+        page = client.get(f"/guide/{code}/interviews{query}").data.decode()
+        return {label for label in ("I01", "I02", "I03") if f"<strong>{label}</strong>" in page}
+
+    page = client.get(f"/guide/{code}/interviews").data.decode()
+    assert 'name="iv_kind"' in page and 'name="iv_mode"' in page and 'name="iv_tr"' in page and 'name="iv_done"' in page
+    assert shown() == {"I01", "I02", "I03"}
+    assert shown("?iv_kind=test") == {"I02"} and shown("?iv_kind=real") == {"I01", "I03"}
+    assert shown("?iv_mode=telefon") == {"I02"}
+    assert shown("?iv_done=yes") == {"I03"} and shown("?iv_done=no") == {"I01", "I02"}
+    assert shown("?iv_tr=checked") == {"I01"} and shown("?iv_tr=audio") == {"I02"} and shown("?iv_tr=none") == {"I03"}
+    assert shown("?iv_tr=done") == set() and shown("?iv_kind=real&iv_tr=none") == {"I03"}
+    filtered = client.get(f"/guide/{code}/interviews?iv_tr=done").data.decode()
+    assert "Kein Interview passt zu diesen Filtern." in filtered and "Filter zurücksetzen" in filtered
+    assert "3 Interviews" not in filtered and "2 Interviews, 1 Probeinterviews" in filtered   # counts of all
+    for _ in range(9):
+        start(app, client, code)
+    assert "Zeilen je Seite:" in client.get(f"/guide/{code}/interviews").data.decode()       # 12 > 10 rows
+    second = client.get(f"/guide/{code}/interviews?iv_page=2&iv_kind=real").data.decode()
+    assert "iv_kind=real" in second and 'rel="prev"' in second                             # the pager keeps the filter
