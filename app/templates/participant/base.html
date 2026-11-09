@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
+  {# light only: the browser must not darken the page itself (Samsung Internet, Chrome auto dark): it darkened the
+     background and our greys only half, and the profile and crowd comparison became unreadable (student, u7pauw) #}
+  <meta name="color-scheme" content="only light">
   <title>{% block title %}{{ survey.title_in(lang) }}{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
   {% if request.blueprint in ('live', 'live_public', 'live_code') %}<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">{% endif %}
