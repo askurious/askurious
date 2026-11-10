@@ -101,8 +101,9 @@
         </details>
         {% elif audio %}{{ de_en("vorhanden", "present") }}
         {% elif m.audio_removed %}<span class="muted">{{ de_en("gelöscht", "deleted") }}</span>
-        {% elif not (may_edit and (m.consent or {}).audio) %}<span class="muted">–</span>{% endif %}
-        {% if may_edit and (m.consent or {}).audio %}<div><a class="nowrap" href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id, back=here) }}">{{ de_en("Teil hochladen", "Upload a part") if audio else de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
+        {% elif not may_edit %}<span class="muted">–</span>{% endif %}
+        {# also without "Tonaufnahme erlaubt": the upload page asks for the consent of everybody who speaks (Ralf 2026-11-10) #}
+        {% if may_edit %}<div><a class="nowrap" href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id, back=here) }}">{{ de_en("Teil hochladen", "Upload a part") if audio else de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
       </td>
       <td class="small iv-transcript-cell">
         {% set busy = transcribing(r) if audio else false %}{% set done_parts = (tr.parts or {})|length %}

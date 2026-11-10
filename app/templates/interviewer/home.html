@@ -44,7 +44,7 @@
         {% else %}
         {% set audio = parts(r) %}
         {% if audio %}{% for p in audio %}<div class="iv-audio-part"><audio controls preload="metadata" src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}{% set note = skip_note(p) %}{% if note %}<div class="muted small">{{ note }}</div>{% endif %}</div>{% endfor %}{% endif %}
-        {% if access.may_record and (m.consent or {}).audio %}<div class="small"><a href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id) }}">{{ de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
+        {% if access.may_record %}<div class="small"><a href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id) }}">{{ de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
         {% if access.may_transcribe %}{% set tr = m.transcript or {} %}
         <div class="iv-transcript small">
           {% set busy = transcribing(r) %}
