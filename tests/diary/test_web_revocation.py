@@ -22,6 +22,12 @@ from tests.diary.test_diary import (
 )
 from tests.diary.test_diary_rejoin import _codes, _personal
 
+# How long a test waits for the other thread: only a guard against a hang, not a speed limit. 10 s was too short for an
+# erasure under the full suite on a loaded machine (TimeoutError in [pause], 2026-11-10). Longer than the tests'
+# SQLite busy timeout (60 s, tests/conftest.py), so a lock that is never released shows as "database is locked"
+# from the request instead of a bare TimeoutError.
+WAIT = 90
+
 
 def pending(app, client, personal=False):
     code = _new(app, client)
@@ -172,7 +178,7 @@ def test_inflight_answer_commits_before_leave_and_cannot_write_afterwards(app, c
     def hold_answer(survey, response, fields, lang, method, **kwargs):
         if method == "POST":
             entered.set()
-            assert release.wait(10)
+            assert release.wait(WAIT)
         return original_step(survey, response, fields, lang, method, **kwargs)
 
     def started_leave():
@@ -183,15 +189,15 @@ def test_inflight_answer_commits_before_leave_and_cannot_write_afterwards(app, c
     monkeypatch.setattr(diary_api, "_person", started_leave)
     with ThreadPoolExecutor(max_workers=2) as pool:
         answer = pool.submit(phone.post, f"/s/{code}", data=form)
-        assert entered.wait(10)
+        assert entered.wait(WAIT)
         leave = pool.submit(app.test_client().post, API + "/leave", json={}, headers=_bearer(joined["secret"]))
         try:
-            assert leaving.wait(10)
+            assert leaving.wait(WAIT)
             assert not leave.done()  # withdrawal waits on the answer transaction's participation lock
         finally:
             release.set()
-        assert answer.result(timeout=10).status_code in (200, 302)
-        assert leave.result(timeout=10).status_code == 200
+        assert answer.result(timeout=WAIT).status_code in (200, 302)
+        assert leave.result(timeout=WAIT).status_code == 200
     before = snapshot(app)
     assert phone.post(f"/s/{code}", data=form).status_code == 302
     assert snapshot(app) == before
@@ -206,7 +212,7 @@ def test_state_changes_of_an_erased_person_do_not_restore_them(app, client, acti
         stale = db.session.scalar(db.select(Enrolment))
         with ThreadPoolExecutor(max_workers=1) as pool:
             erased = pool.submit(app.test_client().post, API + "/erase", json={}, headers=_bearer(joined["secret"]))
-            assert erased.result(timeout=10).status_code == 200
+            assert erased.result(timeout=WAIT).status_code == 200
         assert not getattr(diary, action)(stale)
         db.session.commit()
         assert not db.session.scalar(db.select(Enrolment))
@@ -225,18 +231,18 @@ def test_leave_after_concurrent_erasure_returns_unauthorised_not_a_server_error(
     def hold_lookup(person):
         if request.path.endswith("/leave"):
             located.set()
-            assert release.wait(10)
+            assert release.wait(WAIT)
         return original_lock(person)
 
     monkeypatch.setattr(diary_access, "lock_person", hold_lookup)
     with ThreadPoolExecutor(max_workers=1) as pool:
         leave = pool.submit(app.test_client().post, API + "/leave", json={}, headers=_bearer(joined["secret"]))
         try:
-            assert located.wait(10)
+            assert located.wait(WAIT)
             assert app.test_client().post(API + "/erase", json={}, headers=_bearer(joined["secret"])).status_code == 200
         finally:
             release.set()
-        assert leave.result(timeout=10).status_code == 401
+        assert leave.result(timeout=WAIT).status_code == 401
 
 
 def test_sync_cannot_overwrite_withdrawal_revision(app, client, monkeypatch):
@@ -255,21 +261,21 @@ def test_sync_cannot_overwrite_withdrawal_revision(app, client, monkeypatch):
         result = original()
         if request.path.endswith("/study"):
             synced.set()
-            assert release.wait(10)
+            assert release.wait(WAIT)
         return result
 
     monkeypatch.setattr(diary_api, "_person", hold_sync)
     with ThreadPoolExecutor(max_workers=2) as pool:
         sync = pool.submit(app.test_client().post, API + "/study", json={"tz": "UTC"}, headers=_bearer(joined["secret"]))
-        assert synced.wait(10)
+        assert synced.wait(WAIT)
         leave = pool.submit(app.test_client().post, API + "/leave", json={}, headers=_bearer(joined["secret"]))
         try:
-            assert leaving.wait(10)
+            assert leaving.wait(WAIT)
             assert not leave.done()
         finally:
             release.set()
-        assert sync.result(timeout=10).status_code == 200
-        assert leave.result(timeout=10).status_code == 200
+        assert sync.result(timeout=WAIT).status_code == 200
+        assert leave.result(timeout=WAIT).status_code == 200
     with app.app_context():
         person = db.session.scalar(db.select(Enrolment))
         assert person.status == Enrolment.LEFT
@@ -290,19 +296,19 @@ def test_waiting_old_secret_cannot_sync_after_reconnect(app, client, monkeypatch
     def hold_authentication(person):
         if request.path.endswith("/study"):
             located.set()
-            assert release.wait(10)
+            assert release.wait(WAIT)
         return original(person)
 
     monkeypatch.setattr(diary_access, "lock_person", hold_authentication)
     with ThreadPoolExecutor(max_workers=1) as pool:
         sync = pool.submit(app.test_client().post, API + "/study", json={"tz": "UTC"}, headers=_bearer(joined["secret"]))
         try:
-            assert located.wait(10)
+            assert located.wait(WAIT)
             replacement = app.test_client().post(API + "/enrol", json={"code": card})
             assert replacement.status_code == 200
         finally:
             release.set()
-        assert sync.result(timeout=10).status_code == 401
+        assert sync.result(timeout=WAIT).status_code == 401
 
 
 def test_known_uuid_cannot_issue_a_questionnaire_link_while_paused(app, client):
