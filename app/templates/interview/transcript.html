@@ -15,7 +15,7 @@
     <h2>{{ de_en("Transkript {label}", "Transcript {label}", label=row.interview.label) }} <span class="hint">{% if st.source == "upload" %}{{ de_en("hochgeladen", "uploaded") }}{% if st.filename %}: {{ st.filename }}{% endif %}{% elif st.model %}{{ de_en("Entwurf von Whisper ({model})", "draft by Whisper ({model})", model=st.model) }}{% endif %}{% if st.checked %} · {{ de_en("geprüft am {d}", "checked on {d}", d=day(st.checked)) }}{% endif %}</span></h2>
     <span class="spacer"></span>
     {% if st.text %}<a class="button button-small button-secondary" href="{{ url_for('interview_transcribe.download', code=survey.code, rid=row.id) }}">{{ icon("download", 16) }} Text</a>{% endif %}
-    <a class="button button-small button-secondary" href="{{ interviews_url(survey) }}">{{ icon("back", 16) }} Interviews</a>
+    <a class="button button-small button-secondary" href="{{ interviews_url(survey, row.id) }}">{{ icon("back", 16) }} Interviews</a>
   </div>
   {% if (row.interview.audio or []) %}
   <div class="iv-audio-part">{% for p in row.interview.audio %}<audio controls preload="metadata" data-tp-part data-start="{{ p.start or 0 }}" src="{{ url_for('interview_audio.listen', code=survey.code, rid=row.id, part=p.part) }}"></audio>{% endfor %}</div>

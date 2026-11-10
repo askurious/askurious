@@ -728,7 +728,7 @@ def upload_page(code, rid):
     used = sum(p.get("bytes") or 0 for p in parts(row))
     return render_template("interview/audio_upload.html", survey=survey, row=row, origins=ORIGINS, speakers=SPEAKERS,
                            label=label, piece=MAX_PIECE, left=max(0, MAX_TOTAL - used), parts_left=MAX_PARTS - len(parts(row)),
-                           next_part=next_part(row), back=interviewer.list_url(survey),
+                           next_part=next_part(row), back=interviewer.list_url(survey, row.id),
                            whisper_jobs=bool(current_app.config.get("WHISPER_JOBS")))
 
 
@@ -767,4 +767,6 @@ def delete(code, rid):
     remove(survey, row)
     db.session.commit()
     flash(de_en("Aufnahme von {label} gelöscht.", "Recording of {label} deleted.", label=(row.interview or {}).get("label", "")), "success")
-    return redirect(url_for("interview_data.index", code=survey.code))
+    from app.interview_data import back_url
+
+    return redirect(back_url(survey, row.id))

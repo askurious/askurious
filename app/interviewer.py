@@ -359,10 +359,15 @@ def row_for(code, rid, need="editor", right=None):
     return survey, row
 
 
-def list_url(survey):
-    """Where the pages of one interview lead back to: the interviewer's list, or the researchers' page "Interviews"."""
+def list_url(survey, rid=None):
+    """Where the pages of one interview lead back to: the interviewer's list, or the researchers' page "Interviews";
+    with `rid` (an action on a row) at that row, with the filters and order the form sent along (back_url)."""
     if actor(survey) is not None:
         return url_for("interviewer.home", code=survey.code)
+    if rid:
+        from app.interview_data import back_url
+
+        return back_url(survey, rid)
     return url_for("interview_data.index", code=survey.code)
 
 

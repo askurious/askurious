@@ -4317,6 +4317,10 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 .iv-audio summary { cursor: pointer; }
 .iv-audio-part { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .iv-audio-part audio { height: 32px; max-width: 280px; }
+/* "Geführte Interviews": recording and transcript in columns of their own (Ralf 2026-11-10) */
+.iv-list td { vertical-align: top; }
+.iv-list .nowrap { white-space: nowrap; }
+.iv-transcript-cell > form.inline { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
 /* listening while correcting (transcript_player.js): the paragraph at the cursor, play from there, tempo */
 .tp-bar { align-items: center; gap: 8px; margin: 4px 0 8px; }
 .tp-rates { display: inline-flex; gap: 4px; }
