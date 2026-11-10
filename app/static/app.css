@@ -3741,10 +3741,11 @@ label.consent-aff > input { flex: 1 1 auto; min-width: 0; }
 .live-block-name { min-width: 0; }
 .live-block-name input { text-overflow: ellipsis; }  /* a long name ends in "…" and stands whole in the tooltip */
 .live-block-head > .muted { white-space: nowrap; }
-.guide-form-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.guide-form-head .live-block-name { grid-column: 1; overflow-wrap: anywhere; }
+.guide-form-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }  /* the AI and the bin side by side */
+.guide-form-head .live-block-name { grid-column: 1; grid-row: 1; overflow-wrap: anywhere; }
 .guide-form-head .guide-form-note { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
 .guide-form-head > form { grid-column: 2; grid-row: 1; }
+.guide-form-head > form + form { grid-column: 3; }
 .guide-block .live-block-head, .guide-block .live-item { flex-wrap: wrap; }
 .guide-block .live-item-text { flex-basis: 120px; }
 .diary-time-editor { min-width: 0; }

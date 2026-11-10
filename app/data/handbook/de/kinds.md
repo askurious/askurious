@@ -57,7 +57,7 @@ Titel und Forschungsfrage, die beteiligten Forschenden und das Interview selbst:
 
 ### Leitfaden {kind:interview}
 
-Die Themenblöcke mit ihren Leitfragen, Notizen und Stimuli, dazu Kurzfragebogen und Postskript; „Mit KI entwickeln“ führt durch die Schritte nach Helfferich (2011).
+Die Themenblöcke mit ihren Leitfragen, Notizen und Stimuli, dazu Kurzfragebogen und Postskript; „Mit KI entwickeln“ führt durch die Schritte nach Helfferich (2011). Jede Vorlage legt Kurzfragebogen und Postskript mit einigen Fragen an. Der Papierkorb im Kopf eines Themenblocks löscht ihn mit allen Leitfragen, der im Kopf von Kurzfragebogen oder Postskript nimmt ihn aus dem Leitfaden; „Rückgängig“ bringt beides zurück, Kurzfragebogen und Postskript lassen sich außerdem unter „Einstellungen“ mit ihren Fragen wieder einschalten. Der Stern daneben schlägt nur Fragen vor, er bedeutet nicht, dass der Teil von der KI stammt.
 
 Nachfragen, die nur manchmal passen, werden **Unterfragen**: „+ Unterfrage“ hängt eine an die ausgewählte Leitfrage, der Knopf → rückt eine Leitfrage unter die darüber ein, ← holt sie zurück. Eine Unterfrage steht eingerückt mit ↳ unter ihrer Leitfrage, im Leitfaden, in der Interviewansicht (auf derselben Seite), im Druck, in Word und im Kategoriensystem; „Wann stellen?“ sagt, wann sie passt, etwa „falls zutreffend“. Beim Ziehen wird eine Leitfrage zur Unterfrage, wenn sie zwischen einer Leitfrage und ihren Unterfragen oder zwischen zwei Unterfragen landet, oder wenn Sie sie auf die Mitte einer anderen Leitfrage fallen lassen (die Zeile wird umrahmt, „als Unterfrage einfügen“); ihre eigenen Unterfragen kommen dabei mit. Am oberen oder unteren Rand einer Zeile wird nur umsortiert.
 
