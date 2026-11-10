@@ -57,7 +57,7 @@ Title and research question, the researchers involved and the interview itself: 
 
 ### Guide {kind:interview}
 
-The topic blocks with their guiding questions, notes and stimuli, plus the short questionnaire and the postscript; "Develop with AI" leads through the steps after Helfferich (2011).
+The topic blocks with their guiding questions, notes and stimuli, plus the short questionnaire and the postscript; "Develop with AI" leads through the steps after Helfferich (2011). Every template adds the short questionnaire and the postscript with a few questions. The bin in the head of a topic block deletes it with all its guide questions, the one in the head of the short questionnaire or the postscript takes it out of the guide; “Undo” brings either back, and the short questionnaire and the postscript can also be switched on again under “Settings”, with their questions. The star beside it only suggests questions; it does not mean that the part comes from the AI.
 
 Follow-ups that fit only sometimes become **sub-questions**: "+ Sub-question" adds one to the selected guide question, the button → indents a guide question under the one above, ← brings it back. A sub-question stands indented with ↳ under its guide question in the guide, in the interview view (on the same page), in print, in Word and in the category system; "When to ask?" says when it fits, for example "if applicable". When dragging, a guide question becomes a sub-question if it lands between a guide question and its sub-questions or between two sub-questions, or if you drop it onto the middle of another guide question (the row is framed, "insert as a sub-question"); its own sub-questions come along. At the top or bottom edge of a row it is only reordered.
 
