@@ -34,6 +34,9 @@
     e.preventDefault();
     var file = input.files && input.files[0];
     if (!file) return;
+    if (/\.(m4a|mp3|wav|webm|ogg|oga|opus|aac|mp4)$/i.test(file.name)) {  // a recording: it belongs in the upload above
+      return say(de_en("Das ist eine Tondatei. Bitte oben unter „Tondateien“ hochladen; hier nur Dateien .askurious-audio.json.", "This is an audio file. Please upload it above under “Audio files”; here only .askurious-audio.json files."), true);
+    }
     button.disabled = true;
     file.text().then(function (text) {
       var data = JSON.parse(text);
