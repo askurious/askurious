@@ -104,7 +104,7 @@
   <div data-tc-live="categories">
   {% if show == "map" %}
   <div class="res-scroll tc-map" data-tc-csrf="{{ csrf_token() }}">{{ map_svg|safe }}</div>
-  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs.") }}
+  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare, also zwei Unterkategorien mit denselben Stellen oder mit einer Probe, die die eine statt der anderen wählt.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs, two subcategories with the same passages or with a check that chose one instead of the other.") }}
     {{ de_en("Ziehen (am Finger kurz halten): auf eine Kategorie fragt nach „darunter hängen“ oder „zusammenführen“; an ihren oberen oder unteren Rand zwischen Kategorien derselben Ebene ändert die Reihenfolge; auf den Kasten links macht zur Hauptkategorie. Esc bricht ab; ohne Maus „Verschieben nach …“ in der Liste.", "Drag (with a finger, hold a moment): onto a category asks “put below” or “merge”; onto its upper or lower edge between categories of the same level changes the order; onto the box on the left makes a main category. Esc cancels; without a mouse “Move to …” in the list.") }}</p>
   {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}

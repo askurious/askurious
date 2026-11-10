@@ -646,14 +646,17 @@ def record_check(project, who, row, coding_id, cat_id):
 def map_svg(project, who, survey, interactive=False):
     """The category system as a tree: the research question, then one column per level; every subcategory with a
     bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
-    colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box."""
+    colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box.
+    All lines go under the rows, every row on a white ground of its own, and they leave a row to the right of its
+    number, so no line covers a name, a bar or a number (Ralf 2026-11-10)."""
     mains, candidates = tree(project)
     st = stats(project, who)
     pairs = [p for p in fuzzy(project, who) if p["overlap"] or p["checks"]]
     subs = [s for _m, ss in mains for s in ss]
     biggest = max([st[s.id]["n"] for s in subs] + [1])
     depth = max([s.level for s in subs] + [1])
-    row_h, x0, col, box = 34, 20, 290, 250
+    row_h, x0, col, box = 34, 20, 310, 250
+    end = 268  # a subcategory's row: dot, name, bar and number end here; its lines start right of it
     below = {}
     for s in subs:
         below.setdefault(s.parent_id, []).append(s)
@@ -700,42 +703,47 @@ def map_svg(project, who, survey, interactive=False):
         return (f'<g class="tc-map-node" data-tc-cat="{cat.id}" data-tc-anc-of="{" ".join(str(a) for a in cat.anc)}"{grab}>'
                 f'<title>{escape(cat.path)}</title>')
 
+    lines, nodes = [], []  # lines first, the rows on top of them
+
     def link(xa, ya, xb, yb):
-        parts.append(f'<path d="M{xa} {ya} C {xb - 25} {ya}, {xb - 25} {yb}, {xb} {yb}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
+        lines.append(f'<path d="M{xa} {ya} C {xb - 25} {ya}, {xb - 25} {yb}, {xb} {yb}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
 
     for main, ss in mains:
         my, x1 = pos[main.id], x_of(1)
         link(x0 + 250, mid, x1, my)
-        parts.append(node(main))
-        parts.append(f'<rect x="{x1}" y="{my - 15}" width="{box}" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
-        parts.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name)[:30]}</text>')
-        parts.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
-        parts.append("</g>")
+        nodes.append(node(main))
+        nodes.append(f'<rect x="{x1}" y="{my - 15}" width="{box}" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
+        nodes.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name)[:30]}</text>')
+        nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
+        nodes.append("</g>")
         for s in ss:
             sy, xs = pos[s.id], x_of(s.level)
             above = pos.get(s.parent_id, my)
-            link(x_of(s.level - 1) + box, above, xs, sy)
+            link(x_of(s.level - 1) + (box if s.parent_id == main.id else end), above, xs - 4, sy)
             colour = s.colour or main.colour or "#2957A4"
-            parts.append(node(s))
-            if interactive:  # a whole row to grab and to drop onto, not only the small dot
-                parts.append(f'<rect class="tc-hit" x="{xs - 4}" y="{sy - 14}" width="{box + 20}" height="28" rx="6" fill="#ffffff" fill-opacity="0.01" stroke="none"/>')
-            parts.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
-            parts.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name)[:22]}</text>')
+            nodes.append(node(s))
+            # the row's white ground, so that lines passing behind it never cover it; on the page also the whole row
+            # to grab and to drop onto, not only the small dot
+            hit = ' class="tc-hit"' if interactive else ""
+            nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14}" width="{end + 2}" height="28" rx="6" fill="#ffffff" stroke="none"/>')
+            nodes.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
+            nodes.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name)[:22]}</text>')
             bar = int(60 * st[s.id]["n"] / biggest)
-            parts.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
+            nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
             if bar:
-                parts.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
-            parts.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
-            parts.append("</g>")
+                nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
+            nodes.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
+            nodes.append("</g>")
     levels = {s.id: s.level for s in subs}
     for p in pairs:
         a, b = pos.get(p["a"].id), pos.get(p["b"].id)
         if a is None or b is None or p["a"].id not in levels or p["b"].id not in levels:
             continue
-        xa, xb = x_of(levels[p["a"].id]) + 150, x_of(levels[p["b"].id]) + 150
-        bend = max(xa, xb) + min(120, abs(a - b) / 3)
-        parts.append(f'<path d="M{xa} {a} C {bend} {a}, {bend} {b}, {xb} {b}" fill="none" stroke="#b35c00" '
+        xa, xb = x_of(levels[p["a"].id]) + end + 4, x_of(levels[p["b"].id]) + end + 4
+        bend = max(xa, xb) + min(col - end - 10, 8 + abs(a - b) / 4)
+        lines.append(f'<path d="M{xa} {a} C {bend} {a}, {bend} {b}, {xb} {b}" fill="none" stroke="#b35c00" '
                      f'stroke-width="1.5" stroke-dasharray="6 5"/>')
+    parts.extend(lines + nodes)
     if candidates:
         parts.append(f'<text x="{x0}" y="{height - 12}" fill="#5f5e59" font-size="11">'
                      f'{escape(de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates))[:140]}</text>')
