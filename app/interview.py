@@ -1004,7 +1004,18 @@ def export(code):
                            material_licenses=interview_versions.MATERIAL_LICENSES,
                            editable=survey.can(current_user, "editor"), zenodo_targets=_zenodo_targets(survey),
                            may_delete=survey.can(current_user, "admin"),
-                           sources=[(de_en("Kategoriensystem", "Category system"), [qdc.KUCKARTZ, qdc.REFI])])
+                           sources=[(de_en("Kategoriensystem", "Category system"), [qdc.KUCKARTZ, qdc.REFI])],
+                           coding_projects=_coding_projects(survey))
+
+
+def _coding_projects(survey):
+    """The analyses of "Interviews kodieren" whose category systems the export lists (only for their team, who alone
+    may download them, app/transcript_coding_export.py); none while the feature is off."""
+    from app import experimental, transcript_coding
+
+    if not experimental.enabled(transcript_coding.FEATURE, survey=survey) or not transcript_coding.team(survey):
+        return []
+    return transcript_coding.projects(survey)
 
 
 @bp.route("/<code>/print")

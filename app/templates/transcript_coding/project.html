@@ -3,7 +3,7 @@
 {% from "_icons.html" import icon %}
 {% from "surveys/_export_rows.html" import dialog %}
 {% from "transcript_coding/_category.html" import category with context %}
-{% from "transcript_coding/_parts.html" import notices_fold, views with context %}
+{% from "transcript_coding/_parts.html" import notices_fold, views, downloads with context %}
 {% from "_learn.html" import why %}
 {% from "transcript_coding/_memos.html" import memo_dialog with context %}
 {% from "transcript_coding/_search.html" import search_box with context %}
@@ -79,6 +79,7 @@
     {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_png_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PNG</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_pdf_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PDF</a>{% endif %}
+    {{ downloads(survey, project, who) }}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
     {% if show == "list" %}

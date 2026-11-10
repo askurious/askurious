@@ -732,12 +732,14 @@ def _activities():
                        "themselves belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
                              "(.qdpx mit Transkripten, kodierten Stellen, Memos und den Namen der Kodierenden) und als Excel-Tabelle des "
-                             "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle, Memos und den Namen der Kodierenden); "
+                             "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle, Memos und den Namen der Kodierenden), "
+                             "dazu das Kategoriensystem allein als CSV (Definitionen, Ankerbeispiele mit Fundstelle); "
                              "nur sie exportieren; "
                              "die Mitglieder der Auswertung.",
                              "Members with Edit or Manage on the guide, also as an export for QDA software (.qdpx with "
                              "transcripts, coded passages, memos and the names of the coders) and as an Excel table of the category "
-                             "system (quotes of the coded passages with their location, memos and the names of the coders); only "
+                             "system (quotes of the coded passages with their location, memos and the names of the coders), and the "
+                             "category system alone as CSV (definitions, anchor examples with their location); only "
                              "they export; the members of the "
                              "analysis."),
          "deletion": de_en("Kodierte Stellen, Proben, Anker- und weitere Beispiele und Memos an Interview und Stellen mit dem Interview "
