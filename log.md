@@ -7669,3 +7669,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Verwaltung › Konstrukte: „Bearbeiten“ (derselbe Dialog wie „Konstrukt anlegen“, vorbelegt; Name, Texte, Quelle, Lizenz, optional Englisch), „Entfernen“ bzw. „Ausblenden“, wenn Befragungen es nutzen (nur aus der Toolbox, Befragungen behalten es), „Wieder zeigen“ unter „Ausgeblendet“. Nichts wird gelöscht.
 - Die Datei für einen Pull Request belegt die englischen Felder vor (wie angegeben, sonst der deutsche Text zum Übersetzen). Einreichungen beim Betreiber fragen optional den Lizenzschlüssel des Katalogs ab; ein angenommenes Konstrukt trägt ihn in die Datei.
+
+## 2026-11-10: Tabelle „Geführte Interviews“ aufgeteilt und sortierbar
+
+- Die Spalte „Stand“ ist aufgeteilt: Stand, Aufnahme (anhören, herunterladen, hochladen, löschen), Transkript (prüfen, transkribieren, Fortschritt) und Aktionen; „Löschen nach Frist“ heißt „Löschen am“. Der Hinweis zum Modellwechsel steht im Tooltip der Modellauswahl, die Zeilen bleiben niedrig.
+- Alle Spalten außer Aktionen sortieren per Klick auf den Kopf (`iv_sort`/`iv_dir`, `ListPage` sortiert jetzt Listen im Speicher, leere Werte zuletzt); ein Filterwechsel behält die Sortierung.
+- Aktionen (Transkribieren, Abbrechen, Aufnahme löschen, Interview löschen) schicken Filter, Sortierung und Seite mit (`back`) und kehren zur Zeile zurück (`#iv-<id>`, nach dem Löschen `#gefuehrt`), statt oben ohne Filter zu landen; ebenso „Zurück“ von Upload- und Transkriptseite (`interview_data.back_url`).

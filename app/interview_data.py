@@ -337,6 +337,37 @@ def filtered(rows, chosen):
     return rows
 
 
+def back_url(survey, rid=None):
+    """Where an action on a row of "Geführte Interviews" leads back to: the same filters, order and page (the form's
+    `back`, _listing.keep, or ?back= on the pages of one row) and the row itself, or the list when the row is gone, so the page does not jump to its top
+    (Ralf 2026-11-10)."""
+    from app.tables import back_args
+
+    anchor = f"iv-{rid}" if rid else "gefuehrt"
+    return url_for("interview_data.index", code=survey.code, **back_args(request.values.get("back")), _anchor=anchor)
+
+
+STAGE_ORDER = ("none", "audio", "running", "done", "checked")
+
+
+def sorts(survey, modes):
+    """The sortable columns of "Geführte Interviews" (ListPage): {key: function of a row}."""
+    from app.tables import text_key
+
+    def status(r):
+        return 2 if r.status == Response.COMPLETED else (1 if left_open(r) else 0)
+
+    return {"label": lambda r: text_key((r.interview or {}).get("label") or ""),
+            "date": (lambda r: ((r.interview or {}).get("date") or "", r.id), "desc"),
+            "mode": lambda r: text_key(modes.get((r.interview or {}).get("mode"), "")),
+            "duration": (lambda r: int((r.interview or {}).get("elapsed") or 0), "desc"),
+            "by": lambda r: text_key((r.interview or {}).get("by_name") or ""),
+            "status": status,
+            "audio": (lambda r: sum(int(p.get("bytes") or 0) for p in (r.interview or {}).get("audio") or []) or None, "desc"),
+            "transcript": lambda r: STAGE_ORDER.index(transcript_stage(r)),
+            "due": lambda r: due(survey, r)}
+
+
 @bp.route("/<code>/interviews")
 @login_required
 def index(code):
@@ -348,7 +379,7 @@ def index(code):
     every = interviews(survey)
     chosen = {name: request.args.get(f"iv_{name}", "") for name in FILTERS}
     rows = filtered(every, chosen)
-    listing = ListPage("iv", rows, anchor="gefuehrt")
+    listing = ListPage("iv", rows, anchor="gefuehrt", sorts=sorts(survey, interview.modes()))
     def audio_minutes(r):
         """Minutes of the stored recording, for an interview whose clock never ran (a file uploaded afterwards)."""
         from app import audio_length, interview_audio
@@ -489,7 +520,7 @@ def delete(code, rid):
     erasure.erase(survey, [row], "request")
     flash(de_en("Interview {label} gelöscht. Eine Tonaufnahme außerhalb von Askurious bitte ebenfalls löschen.",
                 "Interview {label} deleted. Please also delete any audio recording outside Askurious.", label=label), "success")
-    return redirect(url_for("interview_data.index", code=survey.code))
+    return redirect(back_url(survey))
 
 
 @bp.route("/<code>/interviews/deletion-code", methods=["POST"])

@@ -1114,7 +1114,7 @@ def begin(code, rid):
     from app import ai_access, interview_audio
 
     survey, row = _row(code, rid)
-    back = redirect(interviewer.list_url(survey))
+    back = redirect(interviewer.list_url(survey, row.id))
     if not configured():
         abort(404)
     who = interviewer.actor(survey)  # an interviewer: the switch of the researcher who made the access
@@ -1165,7 +1165,7 @@ def cancel(code, rid):
         cancel_records(state(row).get("jobs"))
         flash(de_en("Transkription abgebrochen. Schon fertige Teile bleiben für den nächsten Versuch.",
                     "Transcription cancelled. Parts already done are kept for the next attempt."), "success")
-    return redirect(interviewer.list_url(survey))
+    return redirect(interviewer.list_url(survey, row.id))
 
 
 @bp.route("/<code>/interviews/<int:rid>/transcript", methods=["GET", "POST"])
