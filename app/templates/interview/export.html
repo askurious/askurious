@@ -55,11 +55,21 @@
          title="{{ de_en('Druckansicht; im Druckdialog des Browsers „Als PDF speichern“ wählen', 'Print view; choose “Save as PDF” in the browser’s print dialogue') }}">{{ icon("download", 16) }} PDF ↗</a>{% endif %}
     {% endcall %}
     {% endfor %}
-    {% call xp.row(de_en("Kategoriensystem", "Category system"), de_en("Für MAXQDA, ATLAS.ti, NVivo und QDA Miner", "For MAXQDA, ATLAS.ti, NVivo and QDA Miner"), de_en("Themenblöcke als Hauptkategorien, Leitfragen und Aspekte darunter (REFI-QDA), für MAXQDA, ATLAS.ti, NVivo und QDA Miner", "topic blocks as main categories, guide questions and aspects below them (REFI-QDA), for MAXQDA, ATLAS.ti, NVivo and QDA Miner")) %}
+    {% call xp.row(de_en("Kategoriensystem aus dem Leitfaden", "Category system from the guide") if coding_projects else de_en("Kategoriensystem", "Category system"), de_en("Für MAXQDA, ATLAS.ti, NVivo und QDA Miner", "For MAXQDA, ATLAS.ti, NVivo and QDA Miner"), de_en("Themenblöcke als Hauptkategorien, Leitfragen und Aspekte darunter (REFI-QDA), für MAXQDA, ATLAS.ti, NVivo und QDA Miner", "topic blocks as main categories, guide questions and aspects below them (REFI-QDA), for MAXQDA, ATLAS.ti, NVivo and QDA Miner")) %}
       {% if editable and survey.is_editable and ai_on() %}<form method="post" action="{{ url_for('interview_ai.categories_page', code=survey.code) }}" class="inline" data-busy-form>{{ csrf() }}
         <button class="button button-ai button-secondary" title="{{ de_en('Je Leitfrage und Aspekt eine Definition und eine Abgrenzung vorschlagen (Kuckartz & Rädiker, 2022); ohne Ankerbeispiele', 'Suggest a definition and a delimitation per guide question and aspect (Kuckartz & Rädiker, 2022); without anchor examples') }}">{{ icon("sparkles", 16) }} {{ de_en("Definitionen mit KI", "Definitions with AI") }}</button></form>{{ ai_access_line() }}{% endif %}
       {{ xp.fmt(".qdc", url_for('interview.export_qdc', code=survey.code), de_en("Kategoriensystem (.qdc) herunterladen", "Download category system (.qdc)"), pooled=false) }}
     {% endcall %}
+    {# the category systems grown while coding (feedback 2026-11-10: not to be found here), one row per analysis #}
+    {% for p in coding_projects %}
+    {% call xp.row(de_en("Kategoriensystem „{name}“", "Category system “{name}”", name=p.name), de_en("Aus „Interviews kodieren“", "From “Code interviews”"), de_en("das beim Kodieren entstandene Kategoriensystem dieser Auswertung: Kodierleitfaden mit Definitionen, Abgrenzungen und Ankerbeispielen (Word), mit allen kodierten Stellen (Excel), als Tabelle (CSV), für QDA-Programme (.qdc) und die ganze Auswertung mit Transkripten (.qdpx)", "the category system of this analysis that grew while coding: coding guide with definitions, delimitations and anchor examples (Word), with every coded passage (Excel), as a table (CSV), for QDA software (.qdc) and the whole analysis with transcripts (.qdpx)")) %}
+      {{ xp.fmt("Word", url_for('transcript_coding.coding_guide', code=survey.code, pid=p.id), de_en("Kodierleitfaden von „{name}“ (Word) herunterladen", "Download coding guide of “{name}” (Word)", name=p.name), pooled=false) }}
+      {{ xp.fmt("Excel", url_for('transcript_coding.categories_xlsx', code=survey.code, pid=p.id), de_en("Kategoriensystem von „{name}“ (Excel) herunterladen", "Download category system of “{name}” (Excel)", name=p.name), pooled=false) }}
+      {{ xp.fmt("CSV", url_for('transcript_coding.categories_csv', code=survey.code, pid=p.id), de_en("Kategoriensystem von „{name}“ (CSV) herunterladen", "Download category system of “{name}” (CSV)", name=p.name), pooled=false) }}
+      {{ xp.fmt(".qdc", url_for('transcript_coding.codebook_file', code=survey.code, pid=p.id), de_en("Kategoriensystem von „{name}“ (.qdc) herunterladen", "Download category system of “{name}” (.qdc)", name=p.name), pooled=false) }}
+      {{ xp.fmt(".qdpx", url_for('transcript_coding.project_file', code=survey.code, pid=p.id), de_en("Auswertung „{name}“ (.qdpx) herunterladen", "Download analysis “{name}” (.qdpx)", name=p.name), pooled=false) }}
+    {% endcall %}
+    {% endfor %}
   </ul>
 </section>
 

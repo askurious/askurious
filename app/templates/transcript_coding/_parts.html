@@ -38,6 +38,27 @@
 {% elif who.kind == "interviewer" %}<a class="button button-small button-secondary" href="{{ url_for('interviewer.home', code=survey.code) }}">{{ icon("back", 16) }} {{ de_en("Meine Interviews", "My interviews") }}</a>{% endif %}
 {%- endmacro %}
 
+{# the downloads of an analysis in one menu, the same in the views Kategoriensystem and Übersicht (feedback
+   2026-11-10: the category system could not be found to download); coders get the coding guide only, the other files
+   carry every passage and the names of the coders (privacy concept) #}
+{% macro downloads(survey, project, who) -%}
+<details class="menu tc-dl-menu" data-nav-menu>
+  <summary class="button button-small button-secondary">{{ icon("download", 16) }} {{ de_en("Herunterladen", "Download") }} {{ icon("chevron-down", 14) }}</summary>
+  <div class="nav-menu-panel tc-dl-panel">
+    <p class="nav-menu-head">{{ de_en("Kategoriensystem", "Category system") }}</p>
+    <a href="{{ url_for('transcript_coding.coding_guide', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} <span>{{ de_en("Kodierleitfaden (Word)", "Coding guide (Word)") }}<span class="hint">{{ de_en("das Codebuch: Definitionen, Abgrenzungen und Ankerbeispiele, mit Diagramm", "the codebook: definitions, delimitations and anchor examples, with the diagram") }}</span></span></a>
+    {% if who.team %}
+    <a href="{{ url_for('transcript_coding.categories_xlsx', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} <span>Excel<span class="hint">{{ de_en("Kategoriensystem nach Mayring, alle kodierten Stellen mit Fundstelle", "Category system after Mayring, every coded passage with its location") }}</span></span></a>
+    <a href="{{ url_for('transcript_coding.categories_csv', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} <span>CSV<span class="hint">{{ de_en("nur das Kategoriensystem, eine Zeile je Kategorie", "only the category system, one row per category") }}</span></span></a>
+    <a href="{{ url_for('transcript_coding.codebook_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} <span>.qdc<span class="hint">{{ de_en("nur das Kategoriensystem, für MAXQDA, ATLAS.ti, NVivo und QDA Miner (REFI-QDA)", "only the category system, for MAXQDA, ATLAS.ti, NVivo and QDA Miner (REFI-QDA)") }}</span></span></a>
+    <hr>
+    <p class="nav-menu-head">{{ de_en("Ganze Auswertung", "Whole analysis") }}</p>
+    <a href="{{ url_for('transcript_coding.project_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} <span>.qdpx<span class="hint">{{ de_en("Kategoriensystem, Transkripte und kodierte Stellen (REFI-QDA)", "Category system, transcripts and coded passages (REFI-QDA)") }}</span></span></a>
+    {% endif %}
+  </div>
+</details>
+{%- endmacro %}
+
 {# the changes by others that carry the reader's own passages: a fold, open while there are any; gone once answered #}
 {% macro notices_fold(survey, project, notices) -%}
 {% if notices %}
