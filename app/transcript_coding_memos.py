@@ -25,7 +25,7 @@ from app.lang import de_en, english
 from app.models import CodingCategory, CodingMemo, Response, utcnow
 from app.timeutil import fmt
 from app.transcript_coding import _in, bp, interviews, signed_in_or_coder, tree
-from app.transcript_coding_view import clean_quote, codings, paragraphs, placed, spot, transcript
+from app.transcript_coding_view import clean_quote, codings, placed, spotter
 
 TEXT_MAX = 4000
 KEEP_DELETED = timedelta(days=1)
@@ -172,7 +172,7 @@ def targets(project, memos):
     names = {c.id: getattr(c, "path", c.name) for m, subs in mains for c in [m] + subs}
     names.update({c.id: c.name for c in candidates})
     resolve = resolver(project)
-    rows = {}
+    rows, at = {}, spotter()
     out = {}
     for memo in memos:
         entry = {"category": "", "number": "", "interview": "", "where": "", "quote": "", "rid": memo.response_id}
@@ -188,8 +188,7 @@ def targets(project, memos):
             if memo.kind == CodingMemo.PASSAGE and row is not None:
                 c = next((c for c in placed(row, project)[0] if c.get("id") == memo.coding_id), None)
                 if c is not None:
-                    text = transcript(row)
-                    entry.update(where=spot(label, text, c["start"], paragraphs(text)), quote=clean_quote(c.get("quote")),
+                    entry.update(where=at(row, c["start"], label), quote=clean_quote(c.get("quote")),
                                  category=names.get(c["cat"], ""), number=number.get(c["cat"], ""), cat=c["cat"])
             elif row is not None:
                 entry["where"] = label

@@ -42,7 +42,7 @@ from app.models import CodingCategory, CodingEvent, Response, utcnow
 from app.transcript_coding import (_add, _event, _in, _key, bp, interviews, live, numbers, resolver, signed_in_or_coder,
                                    tree)
 from app.transcript_coding_view import (anchor_spots, clean_quote, codings, example_spots, has_transcript, paragraphs,
-                                        placed, spot, transcript)
+                                        placed, spotter, transcript)
 
 KUCKARTZ = ("Kuckartz, U., & Rädiker, S. (2022). Qualitative Inhaltsanalyse: Methoden, Praxis, Computerunterstützung "
             "(5. Aufl.). Beltz Juventa.")
@@ -1006,7 +1006,8 @@ def passages(code, pid):
     cats = live(project)
     wanted = request.args.getlist("cat", type=int) or ([cats[0].id] if cats else [])
     rows = [(r, c) for r, c in all_codings(project, who) if c["cat"] in wanted]
-    where = {c["id"]: spot((r.interview or {}).get("label", str(r.id)), transcript(r), c["start"]) for r, c in rows}
+    at = spotter()
+    where = {c["id"]: at(r, c["start"]) for r, c in rows}
     return render_template("transcript_coding/passages.html", cats=cats, wanted=wanted, rows=rows, where=where,
                            names={c.id: c.name for c in cats}, **_context(survey, project, who))
 
