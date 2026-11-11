@@ -131,13 +131,23 @@ def line_numbers(text):
     return out
 
 
+class Paragraphs(list):
+    """paragraphs(text) with the list of their starts, found once for all the passages of one transcript that
+    `position` places (an evaluation over many codings computed them per coding, minutes for a large project)."""
+
+    def __init__(self, text):
+        super().__init__(paragraphs(text))
+        self.starts = [p[0] for p in self]
+
+
 def position(text, start, paras=None):
     """(paragraph number, "hh:mm:ss" or "") of the place `start` in the transcript: the paragraph the passage begins
-    in, and the time mark of that paragraph."""
+    in, and the time mark of that paragraph. `paras`: paragraphs(text) or, for many places, Paragraphs(text)."""
     paras = paragraphs(text) if paras is None else paras
     if not paras:
         return 1, ""
-    n = max(1, bisect.bisect_right([p[0] for p in paras], start))
+    starts = paras.starts if isinstance(paras, Paragraphs) else [p[0] for p in paras]
+    n = max(1, bisect.bisect_right(starts, start))
     begin, end = paras[n - 1]
     m = _TIME.search(text, begin, end)
     return n, (f"{int(m.group(1)):02d}:{m.group(2)}:{m.group(3)}" if m else "")
@@ -147,6 +157,19 @@ def spot(label, text, start, paras=None):
     """"B03, Pos. 12, 00:14:32": the interview, the paragraph and, when the paragraph has one, its time mark."""
     n, time = position(text, start, paras)
     return f"{label}, Pos. {n}" + (f", {time}" if time else "")
+
+
+def spotter():
+    """spot(row, start) for the passages of many interviews: each transcript is split into paragraphs once."""
+    seen = {}
+
+    def at(row, start, label=None):
+        if row.id not in seen:
+            text = transcript(row)
+            seen[row.id] = (text, Paragraphs(text))
+        text, paras = seen[row.id]
+        return spot((row.interview or {}).get("label", str(row.id)) if label is None else label, text, start, paras)
+    return at
 
 
 def anchor_spots(project):
@@ -565,10 +588,9 @@ def example_spots(project, pairs):
     """{category id: [(quote, location)]}: the further examples of each category for the coding guide and the Excel
     export. The chosen ones first (while they can be placed), then the first coded passages of the category itself in
     the order of the interviews, without its anchor example, up to EXAMPLES. `pairs`: [(interview, placed coding)]."""
-    where = {}
+    where, at = {}, spotter()
     for row, c in pairs:
-        text = transcript(row)
-        where[c["id"]] = (c["cat"], clean_quote(c.get("quote")), spot((row.interview or {}).get("label", str(row.id)), text, c["start"]))
+        where[c["id"]] = (c["cat"], clean_quote(c.get("quote")), at(row, c["start"]))
     out = {}
     for cat in live(project):
         anchor = (cat.anchor or {}).get("coding")

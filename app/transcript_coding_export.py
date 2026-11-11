@@ -34,7 +34,7 @@ from app import brand
 from app.extensions import db
 from app.lang import de_en
 from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
-from app.transcript_coding_view import (anchor_spots, clean_quote, example_spots, has_transcript, paragraphs, placed,
+from app.transcript_coding_view import (anchor_spots, clean_quote, example_spots, has_transcript, Paragraphs, placed,
                                         spot, transcript)
 
 PROJECT_NS = "urn:QDA-XML:project:1.0"
@@ -250,7 +250,7 @@ def _codebook(project, survey):
     pairs = []  # (interview, placed coding) for the further examples
     for r in _rows(survey):
         text, label = transcript(r), (r.interview or {}).get("label", str(r.id))
-        paras = paragraphs(text)
+        paras = Paragraphs(text)
         for c in placed(r, project)[0]:
             pairs.append((r, c))
             who = c.get("by_name") or ""
