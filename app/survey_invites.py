@@ -401,6 +401,9 @@ def due(now):
             for invite in list(db.session.scalars(db.select(SurveyInvite).filter(
                     SurveyInvite.survey_id == survey.id, SurveyInvite.sends == step,
                     SurveyInvite.status.in_((SurveyInvite.OPEN, SurveyInvite.STARTED)),
+                    # refused by the mail server MAX_ATTEMPTS times (mailqueue._failed): no further reminder, else it was
+                    # queued anew after each round of attempts as long as the survey ran (audit 2026-11-11, FUN-02)
+                    SurveyInvite.failed.is_(False),
                     SurveyInvite.last_sent_at <= now - timedelta(days=gap)).order_by(SurveyInvite.id))):
                 if invite.id in queued_already or not invite.email:
                     continue
