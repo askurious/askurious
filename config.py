@@ -218,6 +218,9 @@ class Config:
     LIFECYCLE_IN_REQUEST = os.environ.get("LIFECYCLE_IN_REQUEST", "1") == "1"
     MEDIA_X_ACCEL = os.environ.get("MEDIA_X_ACCEL", "0") == "1"
     SIDE = os.environ.get("SIDE", "").strip().lower()
+    # SIDE=participant on PostgreSQL: refuse to start unless the database role is the participants' restricted one
+    # (app/participant_grants.py, role_problem); deploy/docker sets it once PARTICIPANT_DB_USER is in the .env
+    PARTICIPANT_ROLE_CHECK = os.environ.get("PARTICIPANT_ROLE_CHECK", "").strip().lower() in ("1", "true", "yes")
     # Until this day (YYYY-MM-DD) a participation under way on the old address goes along to the new one; empty: disabled
     PARTICIPANT_HANDOVER_UNTIL = os.environ.get("PARTICIPANT_HANDOVER_UNTIL", "").strip()
     # the status page of this installation (deploy/docker: https://status.askurious.de), linked in the footer; empty: no link

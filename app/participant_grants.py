@@ -26,8 +26,14 @@ RW = ("SELECT", "INSERT", "UPDATE", "DELETE")
 # table: (privileges, why the participants' side needs them)
 GRANTS = {
     "alembic_version": (R, "the start compares the schema's version with the code (DATABASE_SCHEMA_MODE=check)"),
-    "survey": (("SELECT", "UPDATE"), "every participant page reads its survey; live votes and diary entries move "
-               "its counters and state (live slide, revision counters); a planned start from a link starts it"),
+    # column rights (measured 2026-11-12 with PARTICIPANT_SQL_RECORD): closing when the sample is full (status,
+    # closed_at, close_reason, status_log), the count of declines, the k-anonymity count after deletions with a code
+    # (data_pool), the counters of balanced random assignment (flow, runtime.ensure_layout) and updated_at, which
+    # also takes the row's lock (SELECT ... FOR UPDATE needs UPDATE on one column). Never the owner, organisation,
+    # texts, seal, periods or publishing settings; flow and data_pool stay until their counters move out
+    "survey": (("SELECT", "UPDATE (status, closed_at, close_reason, status_log, declined_count, data_pool, flow, "
+                "updated_at)"), "every participant page reads its survey; a full sample closes it, declines and "
+               "deletions move its counters, random assignment its counters in the flow"),
     "block": (R, "the questionnaire's blocks for the flow, pages and dashboards"),
     "item": (R, "the questions and elements shown and checked"),
     "survey_label": (R, "own link names (/s/name) resolve to their survey"),
@@ -188,3 +194,36 @@ def columns(table, verb="SELECT"):
 def allowed(table):
     """The privileges the participants' role has on `table` (an empty tuple when it is closed)."""
     return tuple(p.split(" ")[0] for p in GRANTS.get(table, ((), ""))[0])
+
+
+# What the participants' role must never have: checked when a participants' container starts with
+# PARTICIPANT_ROLE_CHECK (deploy/docker sets it once PARTICIPANT_DB_USER is in the .env). A container that came up
+# with the researchers' role by mistake (a wrong .env, a URL left over) then stops instead of answering.
+FORBIDDEN = (
+    ("column", "user_login", "password_hash", "SELECT"),
+    ("table", "user_login", None, "UPDATE"),
+    ("table", "survey_member", None, "INSERT"),
+    ("table", "survey", None, "UPDATE"),   # only the columns of GRANTS["survey"], never the whole row
+    ("table", "access_log", None, "SELECT"),
+)
+
+
+def role_problem(connection):
+    """None when the database role of `connection` (PostgreSQL) is the participants' restricted one, else what it may
+    that it must not."""
+    from sqlalchemy import text
+
+    found = []
+    for kind, table, column, privilege in FORBIDDEN:
+        if kind == "column":
+            ok = connection.execute(text("SELECT has_column_privilege(current_user, :t, :c, :p)"),
+                                    {"t": f"public.{table}", "c": column, "p": privilege}).scalar()
+        else:
+            ok = connection.execute(text("SELECT has_table_privilege(current_user, :t, :p)"),
+                                    {"t": f"public.{table}", "p": privilege}).scalar()
+        if ok:
+            found.append(f"{privilege} on {table}" + (f".{column}" if column else ""))
+    if not found:
+        return None
+    user = connection.execute(text("SELECT current_user")).scalar()
+    return f"the database role {user!r} has {', '.join(found)}: not the participants' restricted role"
