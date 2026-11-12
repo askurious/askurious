@@ -305,9 +305,9 @@ def floor(survey):
 
 def _raise_floor(survey, count):
     """Raise the mark to `count` (never lower it), in the same transaction as the deletion. Two deletions at the same
-    moment both raise it in one statement each (INSERT ... ON CONFLICT DO UPDATE with the larger value). While the
-    role may still write survey.data_pool (before stage 2b of the access audit 2026-11-11), the mark goes there too:
-    code from before this table reads it there during a rolling restart."""
+    moment both raise it in one statement each (INSERT ... ON CONFLICT DO UPDATE with the larger value). Not into
+    survey.data_pool any more: the participants' role may not write it (access audit 2026-11-11, B2 stage 2b), and
+    the code since stage 2a reads the table."""
     from app.models import BoardEraseFloor
 
     table = BoardEraseFloor.__table__
@@ -325,16 +325,6 @@ def _raise_floor(survey, count):
     kept = db.session.identity_map.get(db.session.identity_key(BoardEraseFloor, (survey.id,)))
     if kept is not None:
         db.session.expire(kept)
-    if _may_write_data_pool():
-        survey.data_pool = {**(survey.data_pool or {}), "_public_after_erase": count}
-
-
-def _may_write_data_pool():
-    """Whether this database role may change survey.data_pool: the researchers' always, the participants' own role
-    only until stage 2b of the access audit 2026-11-11 takes the right away (app/participant_grants.py)."""
-    if db.engine.dialect.name != "postgresql":
-        return True
-    return bool(db.session.scalar(db.text("SELECT has_column_privilege('public.survey', 'data_pool', 'UPDATE')")))
 
 
 def _after_commit(survey, pids, in_results):
