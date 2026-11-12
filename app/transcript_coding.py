@@ -395,14 +395,50 @@ def scope(who):
     return users, accesses
 
 
+def sees(project, who, row):
+    """Whether the actor sees the real interview `row` of the guide in `project`: the rule of interviews() for one
+    row, without loading all of them (a coding, a removed coding, a suggestion: each checked its one interview against
+    the list of all, the whole project out of the database per click; performance audit 2026-11-11)."""
+    if row is None or row.survey_id != project.survey_id or row.interview is None or row.is_preview             or row.source != "real":
+        return False
+    meta = row.interview or {}
+    if who.kind == "interviewer":
+        member = who.members[0] if who.members else None
+        if who.access.may_code == InterviewerAccess.CODE_ALL:
+            if project.visibility == CodingProject.ALL:
+                return True
+            mine = {who.access.id} | {int(a) for a in ((member.access_ids if member is not None else None) or [])
+                                       if str(a).isdigit()}
+            return meta.get("access") in mine
+        return meta.get("access") == who.access.id
+    if who.team or project.visibility == CodingProject.ALL:
+        return True
+    users, accesses = scope(who)
+    return meta.get("by") in users or meta.get("access") in accesses
+
+
+def _real_interviews(survey):
+    """interview_data.interviews(survey, "real"), once per GET request: the coding pages asked for it up to nine
+    times per page (performance audit 2026-11-11). Not kept for a POST, which may add or change interviews."""
+    from flask import g, has_request_context, request
+
+    from app import interview_data
+
+    if not has_request_context() or request.method != "GET":
+        return list(interview_data.interviews(survey, source="real"))
+    kept = g.setdefault("_tc_interviews", {})
+    if survey.id not in kept:
+        kept[survey.id] = list(interview_data.interviews(survey, source="real"))
+    return list(kept[survey.id])
+
+
 def interviews(project, who):
     """The real interviews of the guide the actor sees in `project` (E3). An interviewer link with the right "eigene"
     sees its own ones, also after "Transkript geprüft"; with "alle" what a coding link sees: all of them, with "jede
-    Gruppe ihre eigenen" its own ones (and those its row names). Read only, for coding. The team sees all."""
-    from app import interview_data
-
+    Gruppe ihre eigenen" its own ones (and those its row names). Read only, for coding. The team sees all
+    (the rule for one row: sees)."""
     survey = db.session.get(Survey, project.survey_id)
-    rows = [r for r in interview_data.interviews(survey, source="real")]
+    rows = _real_interviews(survey)
     if who.kind == "interviewer":
         row = who.members[0] if who.members else None
         if who.access.may_code == InterviewerAccess.CODE_ALL:

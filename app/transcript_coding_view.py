@@ -254,7 +254,9 @@ def _row(project, who, rid):
     row = db.session.get(Response, rid)
     if row is None or row.survey_id != project.survey_id or row.interview is None:
         abort(404)
-    if row.id not in {r.id for r in interviews(project, who)} or not has_transcript(row):
+    from app.transcript_coding import sees
+
+    if not sees(project, who, row) or not has_transcript(row):  # this row only, not the list of all (sees)
         abort(404)
     return row
 
