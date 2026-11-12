@@ -1212,6 +1212,12 @@ def create_app(config_class=Config, server=False):
         with db.engine.connect() as connection:
             validate(connection)
         if app.config["SIDE"] == hosts.PARTICIPANT:
+            # participations are deleted through the function that checks the proof (app/participant_erase.py)
+            from app import participant_erase
+
+            with db.engine.connect() as connection:
+                if participant_erase.exists(connection):
+                    participant_erase.attach(app, db.engine)
             # the data steps below are the researchers' container's (restart.sh starts it first): the participants'
             # side may run under a role that reads and writes only its own tables (app/participant_grants.py,
             # audit 2026-10-18, CFG-04), and accounts, organisations or the sign-in list are none of them

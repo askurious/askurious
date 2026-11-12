@@ -510,7 +510,7 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
     belong to nobody else (app/accounts.py) and for the platform taking a survey down (app/platform_erase.py, whose
     reason goes into the last record of a seal chain as `seal_reason`). hide_title: the title no longer shows with a
     seal chain that stays (/verify/, seal.json; the platform's take-down and an account deleted, S7)."""
-    from app.models import (BrowserReceipt, ConstructCitation, ContactEntry, DataToken, EditMark, EditStep, Feedback,
+    from app.models import (BoardEraseFloor, BrowserReceipt, ConstructCitation, ContactEntry, DataToken, EditMark, EditStep, Feedback,
                             InterviewerAccess,
                             LiveFeedback, LiveInk,
                             LiveQuestion, LiveReaction, MemberInvite, OnceValue, PreviewComment, ResearchProject,
@@ -534,7 +534,7 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
 
     for model in (ResponsePoolRevision, ResponseRevision, BrowserReceipt, ContactEntry, SplitSession, PreviewComment, EditMark, EditStep, LiveFeedback, LiveInk,
                   LiveQuestion, LiveReaction,
-                  OnceValue, MemberInvite, DataToken, SurveyHide, InterviewerAccess, SemVersion):  # not everywhere removed by the database itself
+                  OnceValue, MemberInvite, DataToken, SurveyHide, InterviewerAccess, SemVersion, BoardEraseFloor):  # not everywhere removed by the database itself
         db.session.execute(db.delete(model).where(model.survey_id == survey.id))
     from app import paper
 

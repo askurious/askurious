@@ -299,6 +299,29 @@ def loop_blocks(survey):
     return {c["block"] for n, _, _ in walk(tree(survey)) if n["t"] == "loop" for c in n.get("children", []) if c["t"] == "block"}
 
 
+def normalize_for_reading(survey):
+    """normalize() for drawing a layout (runtime.build_layout): the tree and the order of the blocks are made
+    consistent for this request, without writing them when nothing of them was changed before. The participants'
+    side reads the flow and writes neither survey.flow nor block.position (app/participant_grants.py; access audit
+    2026-11-11, B2 stage 2); the researchers' side writes them where it changes the flow (normalize)."""
+    from sqlalchemy import inspect
+    from sqlalchemy.orm.attributes import set_committed_value
+
+    from app.extensions import db
+
+    state = inspect(survey)
+    with db.session.no_autoflush:  # loading the blocks must not write a change of this request before it is seen
+        changed = not state.persistent or state.attrs.flow.history.has_changes()
+        blocks = list(survey.blocks)
+    if changed or any(not inspect(b).persistent or inspect(b).attrs.position.history.has_changes() for b in blocks):
+        return normalize(survey)  # a change of this request, made consistent and written with it
+    root = normalize(survey)
+    set_committed_value(survey, "flow", survey.flow)
+    for b in blocks:
+        set_committed_value(b, "position", b.position)
+    return root
+
+
 def normalize(survey):
     """Make the tree consistent with the blocks and sync Block.position to flow order.
     Returns the (possibly new) tree; call after any change to blocks or flow."""

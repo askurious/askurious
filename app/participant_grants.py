@@ -91,6 +91,9 @@ GRANTS = {
     "seal_chain": (("SELECT", "INSERT"), "the first ended case of a survey with the seal chain on records the survey "
                    "of the chain (its number, uid, title)"),
     "erasure": (("SELECT", "INSERT"), "the count of participations deleted with their code (no content)"),
+    "board_erase_floor": (("SELECT", "INSERT", "UPDATE"), "a deletion with the code or from the diary app raises the "
+                          "count the dashboard links wait for (app/erasure.py, _raise_floor; INSERT ... ON CONFLICT "
+                          "DO UPDATE)"),
     "preview_comment": (("SELECT", "INSERT", "DELETE"), "comments of testers on the pretest link (/p/...): written, "
                         "shown with their screenshot, taken back by their writer"),
     "feedback": (("SELECT", "INSERT"), "complaints of participants about a survey: kept, counted per day, the case "
@@ -114,6 +117,13 @@ GRANTS = {
     "ai_chat_turn": (RW, "the messages of the KI-Chat: written while the person chats, marked when the model did not "
                      "answer, counted for the limits, deleted with the participation"),
     "paper_page": (("SELECT", "DELETE"), "with it, the scans of that sheet go (paper.drop_scans, _drop_doubles)"),
+}
+
+# functions the participants' role may call (EXECUTE), with why; schema_migrate.grant_participant grants them
+FUNCTIONS = {
+    "participant_erase_response(bigint[], bigint[], text, text)": "deletes participations when the proof of the "
+    "transaction fits them: deletion code, the browser's participation, the diary app's secret, a declined "
+    "participation, a further live word (app/participant_erase.py)",
 }
 
 # table: why the participants' side never needs it

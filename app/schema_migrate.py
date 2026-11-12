@@ -76,6 +76,13 @@ def grant_participant(role, runtime_role=None):
             if "INSERT" in privileges:
                 inserting.append(table)
         # the sequences that number new rows of the tables it may insert into (serial and identity columns)
+        from app.participant_grants import FUNCTIONS
+
+        # the functions it may call; every other function stays as PostgreSQL made it (built-ins for PUBLIC, ours
+        # closed by app/participant_erase.install)
+        for function in sorted(FUNCTIONS):
+            if conn.execute(text("SELECT to_regprocedure(:f) IS NOT NULL"), {"f": f"public.{function}"}).scalar():
+                conn.execute(text(f'GRANT EXECUTE ON FUNCTION public.{function} TO "{role}"'))
         for sequence in conn.execute(text("""SELECT s.relname FROM pg_class s
                 JOIN pg_namespace n ON n.oid = s.relnamespace
                 JOIN pg_depend d ON d.objid = s.oid AND d.classid = 'pg_class'::regclass

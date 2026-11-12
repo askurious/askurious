@@ -315,7 +315,7 @@ def build_layout(survey, rng, separate=True, keep=None, only=None):
     """
     from app import flow
 
-    flow.normalize(survey)
+    flow.normalize_for_reading(survey)
     blocks = {b.id: b for b in survey.blocks}
     within = {}
     entries, decisions, chosen_rows = flow.plan(survey, rng, within, keep=keep)

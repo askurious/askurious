@@ -868,6 +868,9 @@ def withdraw(code):
         from app.live.base import _flush_deleted
 
         pid = row.pid
+        from app import participant_erase
+
+        participant_erase.prove("live_word")  # the function deletes further words only (app/participant_erase.py)
         db.session.delete(row)
         _flush_deleted("live_word")
     else:
