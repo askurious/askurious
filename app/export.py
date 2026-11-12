@@ -167,7 +167,11 @@ DIARY_COLUMNS = [("person", "Personen-ID der Tagebuchstudie: Alle Einträge eine
                  ("abfrage", "Stand: beantwortet, zur_pruefung, abgebrochen oder verpasst (Abfrage ohne Eintrag; nur in der CSV-Datei)"),
                  ("erinnert", "1 = nach der Erinnerung geöffnet"),
                  ("nachgereicht", "1 = ohne Verbindung beantwortet und später gesendet: Beginn und Ende sind Angaben des Telefons"),
-                 ("eingang", "Zeitpunkt, zu dem der Server den Eintrag erhielt (UTC)")]
+                 ("eingang", "Zeitpunkt, zu dem der Server den Eintrag erhielt (UTC)"),
+                 # an offline answer that waited as a review case (diary.offline_review): whether the researchers took
+                 # the original or set other values (business logic audit 2026-11-11; GWP: changed data marked)
+                 ("geprueft", "Offline-Prüffall: bestaetigt (Original übernommen), geaendert (Forschende haben andere "
+                              "Werte eingesetzt) oder leer (kein Prüffall)")]
 DIARY_NOTES = {"person": "für Mehrebenenmodelle: Einträge (Ebene 1) in Personen (Ebene 2)",
                "verzoegerung_s": "nur bei Abfragen zu fester oder zufälliger Zeit",
                "abfrage": "verpasst: fällige Abfrage einer echten Person, abgelaufen ohne Eintrag; ohne Antworten. "
@@ -176,7 +180,9 @@ DIARY_NOTES = {"person": "für Mehrebenenmodelle: Einträge (Ebene 1) in Persone
                           "abgebrochen: ein begonnener, nicht beendeter Eintrag; enthält der Export nur beendete, steht er "
                           "als Zeile ohne Antworten da. Ein ausgelassener markierter Eintrag (qc_marked) erscheint nicht",
                "nachgereicht": "angenommen nur, wenn der angegebene Beginn vor dem Ablauf der Abfrage lag, nicht vor dem "
-                               "letzten Abruf der Offline-Seite und nicht nach dem Eingang"}
+                               "letzten Abruf der Offline-Seite und nicht nach dem Eingang",
+               "geprueft": "die Klärung und die ursprünglich gesendeten Werte stehen auf „Offline-Antworten prüfen“; für "
+                           "Sensitivitätsanalysen lassen sich geänderte Einträge hiermit ausschließen"}
 DIARY_NOTES_EN = {"person": "for multilevel models: entries (level 1) within people (level 2)",
                   "verzoegerung_s": "only for prompts at fixed or random times",
                   "abfrage": "verpasst (missed): a due prompt of a real person that expired without an entry; no answers. "
@@ -185,7 +191,10 @@ DIARY_NOTES_EN = {"person": "for multilevel models: entries (level 1) within peo
                              "abgebrochen (broken off): an entry begun and not finished; in an export of finished entries "
                              "only, a row without answers. A marked entry left out (qc_marked) does not appear",
                   "nachgereicht": "taken only if the stated start lay before the prompt expired, not before the offline page "
-                                  "was last fetched and not after the arrival"}
+                                  "was last fetched and not after the arrival",
+                  "geprueft": "bestaetigt (confirmed): the original was taken; geaendert (changed): the researchers set other "
+                              "values; empty: no review case. The clarification and the values first sent are on “Review "
+                              "offline answers”; changed entries can be left out for sensitivity analyses"}
 
 
 def _diary_values(r, persons, triggers=None):
@@ -208,7 +217,24 @@ def _diary_values(r, persons, triggers=None):
             "abfrage": "beantwortet" if r.status == Response.COMPLETED else
                        "zur_pruefung" if r.status == "review" else "abgebrochen",
             "erinnert": int(bool(occ.get("reminded"))), "nachgereicht": int(bool(occ.get("offline"))),
-            "eingang": r.received_at.isoformat(timespec="minutes") if getattr(r, "received_at", None) else ""}
+            "eingang": r.received_at.isoformat(timespec="minutes") if getattr(r, "received_at", None) else "",
+            "geprueft": _reviewed(occ)}
+
+
+def _reviewed(occ):
+    """"bestaetigt", "geaendert" or "" for the column geprueft: compares the form the researchers accepted with the
+    one the phone sent (Response.occasion["review"], diary.offline_review), field by field."""
+    review = occ.get("review") or {}
+    if not review.get("resolved_at"):
+        return ""
+    accepted, sent = review.get("accepted_form") or {}, review.get("form") or {}
+
+    def values(form, key):
+        v = form.get(key)
+        return [str(x) for x in (v if isinstance(v, list) else [] if v is None else [v])]
+
+    same = all(values(accepted, k) == values(sent, k) for k in set(accepted) | set(sent) if k.startswith("i"))
+    return "bestaetigt" if same else "geaendert"
 
 
 def threshold(survey, speeder=None):
