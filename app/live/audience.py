@@ -131,7 +131,8 @@ def _lock_device(survey, st, device):
                                "big", signed=True)
         db.session.execute(db.text("SELECT pg_advisory_xact_lock(:key, :ident)"), {"key": DEVICE_LOCK, "ident": ident})
     else:
-        db.session.execute(db.delete(Response).where(db.false()))
+        # SQLite only: never sent under the participants' role, which may not delete participations
+        db.session.execute(db.delete(Response).where(db.false()).execution_options(sqlite_only=True))
 
 
 def _stale_run(st):

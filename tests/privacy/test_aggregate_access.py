@@ -155,12 +155,12 @@ def test_erasure_pauses_every_public_dashboard_until_a_new_batch(app, client, su
         victim = db.session.scalar(db.select(Response).filter_by(survey_id=1))
         erasure.erase(s, [victim], "request")
         db.session.commit()
-        # the mark is in a table of its own (B2 stage 2 of the access audit 2026-11-11) and, while the role may
-        # still write it, in data_pool too for code from before during a rolling restart
+        # the mark is in a table of its own, not in data_pool (B2 stage 2 of the access audit 2026-11-11)
         from app.models import BoardEraseFloor
 
         mark = db.session.get(BoardEraseFloor, 1).public_after
-        assert mark == 20 + 5 and s.data_pool["_public_after_erase"] == mark and erasure.floor(s) == mark
+        assert mark == 20 + 5 and erasure.floor(s) == mark
+        assert "_public_after_erase" not in (s.data_pool or {})
         assert state(board, steps=True)["pending"]
         assert state(board, steps=True, lang="en")["tiles"] == []
         assert not state(board, live=True).get("pending")

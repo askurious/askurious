@@ -1543,15 +1543,21 @@ def measures():
                    "Live-Abstimmung, Tagebuch, Löschcodes, Beschwerden, öffentliche Dashboards; von den Konten die Kontozeile "
                    "(Name, Zugehörigkeit, ORCID iD) für die Einwilligung); Anmeldedaten (Passwort, zweiter Faktor), Sitzungen, "
                    "Zugangsschlüssel, Protokolle und die Arbeit im Editor bleiben ihr verschlossen. Ein Einbruch auf der "
-                   "Teilnahmeseite erreicht sie so nicht über die Datenbank. Neue "
+                   "Teilnahmeseite erreicht sie so nicht über die Datenbank. Von einer Befragung ändert sie nur den "
+                   "Status und die Zahl der Ablehnungen, nicht Ablauf, Datenpool oder Einstellungen; Teilnahmen löscht "
+                   "sie nur über eine Datenbankfunktion, die den Nachweis prüft (Löschcode, Teilnahme im Browser, "
+                   "Schlüssel der Tagebuch-App, Ablehnung, Testdaten). Neue "
                    "Tabellen bleiben zu, bis sie ausdrücklich eingeordnet sind",
                    "Prepared but off: a database role of its own for the participation containers, which may read and "
                    "write only the tables participation needs (survey, answers, quotas, live voting, diary, deletion "
                    "codes, complaints, public dashboards; of the accounts the account row (name, affiliation, ORCID iD) for the consent); "
                    "sign-in data (password, second factor), sessions, access keys, logs and the work in the editor stay closed "
-                   "to it. A break-in on the participants' side thus does not reach them through the database. New "
+                   "to it. A break-in on the participants' side thus does not reach them through the database. Of a "
+                   "survey it changes only the status and the number of declines, not the flow, the data pool or the "
+                   "settings; it deletes participations only through a database function that checks the proof "
+                   "(deletion code, the participation in the browser, the diary app's key, a decline, test data). New "
                    "tables stay closed until they are classified explicitly"),
-             "app/participant_grants.py, deploy/docker/participant-db-role.sh"),
+             "app/participant_grants.py, app/participant_erase.py, deploy/docker/participant-db-role.sh"),
             (de_en("Jeder Container erhält nur die Geheimnisse, die er braucht (die Teilnahme-Container keine Zugänge zu "
                    "ORCID, Zenodo, KI-Diensten, kein Passwort des Mailservers und kein Datenbank-Superuser; ihre E-Mails, "
                    "etwa die Eingangsbestätigung einer Beschwerde, warten in der Mail-Warteschlange, bis die Wartung sie "
