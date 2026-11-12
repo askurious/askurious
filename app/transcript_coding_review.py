@@ -35,7 +35,7 @@ from xml.sax.saxutils import escape
 from flask import Response as HttpResponse
 from flask import abort, flash, redirect, render_template, request, send_file, url_for
 
-from app import autosave
+from app import autosave, heavy
 from app.extensions import db
 from app.lang import de_en
 from app.models import CodingCategory, CodingEvent, Response, utcnow
@@ -899,6 +899,7 @@ def _context(survey, project, who):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/overview")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def overview(code, pid):
     from app.transcript_coding import history
 
@@ -977,6 +978,7 @@ def map_png(project, who, survey, scale=2.0):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/map.png")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_png_file(code, pid):
     survey, project, who = _in(code, pid)
     return HttpResponse(map_png(project, who, survey), mimetype="image/png",
@@ -985,6 +987,7 @@ def map_png_file(code, pid):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/map.pdf")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_pdf_file(code, pid):
     survey, project, who = _in(code, pid)
     return HttpResponse(map_pdf(project, who, survey), mimetype="application/pdf",
@@ -993,6 +996,7 @@ def map_pdf_file(code, pid):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/map.svg")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_file(code, pid):
     survey, project, who = _in(code, pid)
     return HttpResponse(map_svg(project, who, survey), mimetype="image/svg+xml",
@@ -1263,6 +1267,7 @@ def check_plan_remove(code, pid):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/kodierleitfaden.docx")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def coding_guide(code, pid):
     survey, project, who = _in(code, pid)
     return send_file(io.BytesIO(guide_docx(project, survey, who)), as_attachment=True,

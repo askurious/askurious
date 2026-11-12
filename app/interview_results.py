@@ -18,7 +18,7 @@ import zipfile
 
 from flask import Blueprint, abort, current_app, render_template, request, send_file
 
-from app import interview, interview_data
+from app import heavy, interview, interview_data
 from app.items.base import in_lang, plain, reader
 from app.lang import de_en
 from app.units import round_half_up
@@ -386,6 +386,7 @@ def page(code):
 
 @bp.route("/<code>/interviews/cases.csv")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def overview_file(code):
     survey = _survey(code)
     return send_file(io.BytesIO(overview_csv(survey, request.args.get("probe") == "1").encode("utf-8")), as_attachment=True,
@@ -394,6 +395,7 @@ def overview_file(code):
 
 @bp.route("/<code>/interviews/project.qdpx")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def project_file(code):
     """Transcripts, category system, case variables and notes as one REFI-QDA project (app/interview_qdpx.py)."""
     from app import interview_qdpx
@@ -405,6 +407,7 @@ def project_file(code):
 
 @bp.route("/<code>/interviews/notes.docx")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def notes_word(code):
     survey = _survey(code)
     return send_file(io.BytesIO(notes_docx(survey, request.args.get("probe") == "1")), as_attachment=True,
@@ -414,6 +417,7 @@ def notes_word(code):
 
 @bp.route("/<code>/interviews/notes.zip")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def notes_files(code):
     survey = _survey(code)
     return send_file(io.BytesIO(notes_zip(survey, request.args.get("probe") == "1")), as_attachment=True,
@@ -422,6 +426,7 @@ def notes_files(code):
 
 @bp.route("/<code>/interviews/transcripts.zip")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def transcripts_file(code):
     """Every transcript as Word, PDF or both, one file each, in a ZIP (app/transcript_export.py)."""
     from app import transcript_export

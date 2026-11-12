@@ -30,7 +30,7 @@ from xml.etree import ElementTree as ET
 
 from flask import send_file
 
-from app import brand
+from app import brand, heavy
 from app.extensions import db
 from app.lang import de_en
 from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
@@ -357,6 +357,7 @@ def _case_rows(project, survey, mains, number):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.xlsx")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def categories_xlsx(code, pid):
     survey, project, who = _in(code, pid, team_only=True)
     return send_file(io.BytesIO(build_xlsx(project, survey)), as_attachment=True,
@@ -366,6 +367,7 @@ def categories_xlsx(code, pid):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.csv")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def categories_csv(code, pid):
     survey, project, who = _in(code, pid, team_only=True)
     return send_file(io.BytesIO(build_csv(project, survey)), as_attachment=True, mimetype="text/csv",
@@ -374,6 +376,7 @@ def categories_csv(code, pid):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/analysis.qdpx")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def project_file(code, pid):
     survey, project, who = _in(code, pid, team_only=True)
     return send_file(io.BytesIO(build_qdpx(project, survey)), as_attachment=True, mimetype="application/zip",
