@@ -207,10 +207,20 @@ VOICE_NOT_PUBLISHED = ("Tonaufnahmen werden nicht veröffentlicht, nur anonyme D
                        "Voice recordings are not published, only anonymous data.")
 LEGAL_BASIS = ("Grundlage ist Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO).",
                "The legal basis is your consent (Art. 6(1)(a) GDPR).")
-WITHDRAWAL = ("Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, indem Sie die Befragung "
-              "abbrechen oder Ihre Antworten löschen. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt davon "
-              "unberührt.", "You can withdraw your consent at any time with effect for the future by stopping the survey "
-              "or deleting your answers. This does not affect the lawfulness of the processing up to the withdrawal.")
+# up to 2026-11-12 "by stopping the survey": stopping keeps what was sent; FORMER_WITHDRAWAL upgrades drafts
+FORMER_WITHDRAWAL = ("Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, indem Sie die Befragung "
+                     "abbrechen oder Ihre Antworten löschen. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt davon "
+                     "unberührt.",
+                     "You can withdraw your consent at any time with effect for the future by stopping the survey or deleting your "
+                     "answers. This does not affect the lawfulness of the processing up to the withdrawal.")
+WITHDRAWAL = ("Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen. Brechen Sie die Befragung ab, "
+              "werden keine weiteren Antworten erhoben; was Sie bis dahin gesendet haben, bleibt gespeichert und kann "
+              "ausgewertet werden. Löschen Sie Ihre Antworten, solange die Befragung bei Ihnen geöffnet ist, werden auch sie "
+              "gelöscht. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt davon unberührt.",
+              "You can withdraw your consent at any time with effect for the future. If you stop the survey, no further "
+              "answers are collected; what you have sent until then stays stored and may be analysed. If you delete your "
+              "answers while the survey is open on your device, they are deleted too. This does not affect the lawfulness of "
+              "the processing up to the withdrawal.")
 RIGHTS = ("Wer im Sinne der DSGVO verantwortlich ist, wie Sie die Datenschutzbeauftragte erreichen und welche Rechte Sie "
           "haben, etwa auf Auskunft, Löschung oder Beschwerde bei einer Aufsichtsbehörde, steht auf der Datenschutzseite "
           "dieser Befragung.", "Who is the controller under the GDPR, how to reach the data protection officer and which "
@@ -228,6 +238,11 @@ AI_CODING = ("Antworten auf offene Fragen (Freitexte) können für die Auswertun
              "OpenAI does not store them for later retrieval and does not use them for training. To monitor abuse, OpenAI "
              "keeps them for up to 30 days. If the researchers have entered their own AI access (e.g. KI:connect.nrw), "
              "the texts go to that provider instead, under its terms.")
+
+
+# after the sentence that names an own AI access: the provider is the researchers' choice and may sit outside the EU
+THIRD_COUNTRY = ("Sitzt dieser Anbieter außerhalb der EU, etwa in den USA, werden die Texte dorthin übermittelt.",
+                 "If this provider is based outside the EU, for instance in the USA, the texts are transferred there.")
 
 
 # researchers of several institutions (Art. 26 (2) GDPR): all institutions and one point of contact
@@ -266,7 +281,7 @@ def ai_coding_sentence(lang, survey):
     names, platform = coding.ai_recipients(survey)
     if platform or not names:
         return tr(lang, *AI_CODING)
-    return tr(lang, *AI_CODING_OWN, to=", ".join(names))
+    return tr(lang, *AI_CODING_OWN, to=", ".join(names)) + " " + tr(lang, *THIRD_COUNTRY)
 
 
 def anonymous_sentence(lang):
@@ -280,7 +295,18 @@ def use_sentence(lang, passed_on):
 
 
 def _passed_on(f):
-    return bool(f.get("web_service") or f.get("external_website") or f.get("ai_coding"))
+    """Whether something goes to a recipient outside the platform: a web service, another website, the AI help for
+    coding, the KI-Chat's model or the AI that reads the handwriting of paper questionnaires."""
+    return bool(f.get("web_service") or f.get("external_website") or f.get("ai_coding") or f.get("ai_chat")
+                or f.get("ai_handwriting"))
+
+
+def _ai_handwriting(survey):
+    """True once the researchers confirmed for any recipient that participants are told their handwriting may go to
+    an AI service (app/paper.py, the paper setting "ai_ok")."""
+    from app import paper
+
+    return bool(paper.settings(survey)["ai_ok"])
 
 
 def _ai_coding(survey):
@@ -622,6 +648,9 @@ class Consent(ItemType):
             if __import__("app.items.voice", fromlist=["used"]).used(item.survey) else None,
             # the element "KI-Chat" (app/ai_chat.py): every message goes to the model of the study's own access
             "ai_chat": _ai_chat_fact(item.survey),
+            "ai_handwriting": ("handwritten answers on paper questionnaires may be sent as image sections to the AI "
+                               "service the researchers entered as their own access, which transcribes them")
+            if _ai_handwriting(item.survey) else None,
             "media_playback": ("for the video or audio shown: how it was played (start, pause, jumps, which parts "
                                "played, whether the sound was off, whether the window was in the background); no "
                                "camera, no microphone") if _has_media(item.survey) else None,
@@ -981,6 +1010,7 @@ class Consent(ItemType):
         "Datenverarbeitung und Ihre Rechte" before "Kontakt" (or at the end) unless the text already names a legal
         basis. An untouched standard text so becomes the new standard text and keeps following the facts."""
         body = body.replace(tr(lang, *FORMER_ANONYMOUS), anonymous_sentence(lang))
+        body = body.replace(tr(lang, *FORMER_WITHDRAWAL), tr(lang, *WITHDRAWAL))
         f = self.facts(item, lang)
         if f["pooled_constructs"] or _passed_on(f):
             body = body.replace(tr(lang, *FORMER_USE), tr(lang, *USE))
@@ -1168,7 +1198,7 @@ def _ai_chat_sentence(survey, lang):
               "kann sich irren und ist keine Beratung.", "In this survey you can write with an AI assistant. Your "
               "messages and its answers are stored in full and analysed. To answer, your messages are sent to "
               "{service}; e-mail addresses, web addresses and phone numbers are made unrecognisable first. The AI can "
-              "be wrong and is no advice.", service=service)
+              "be wrong and is no advice.", service=service) + (" " + tr(lang, *THIRD_COUNTRY) if row else "")
 
 
 def privacy_info_text(lang, names, only_standard=False):

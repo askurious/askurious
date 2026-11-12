@@ -751,6 +751,7 @@ def page(code, pid, rid):
                            nxt=nxt, prev=prev, may_main=who.team or not project.mains_fixed,
                            notices=transcript_coding_review.notices(project, who),
                            ai_on_state=transcript_coding_ai.state(project, who),  # includes ai_on() (app/ai_access.py)
+                           ai_checked=transcript_coding_ai.checked(row),
                            sections=len(transcript_coding_ai.sections(transcript(row))),
                            double=transcript_coding_double.assignment(project, row.id),
                            blind=transcript_coding_double.blind_for(project, who, row.id),

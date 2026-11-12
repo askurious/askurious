@@ -18567,5 +18567,31 @@
   "pt": "para iPhone",
   "ar": "لآيفون",
   "de-du": "für iPhone"
+ },
+ "If this provider is based outside the EU, for instance in the USA, the texts are transferred there.": {
+  "de-du": "Sitzt dieser Anbieter außerhalb der EU, etwa in den USA, werden die Texte dorthin übermittelt.",
+  "ar": "إذا كان مقر هذا المزوّد خارج الاتحاد الأوروبي، مثلًا في الولايات المتحدة، تُنقل النصوص إلى هناك.",
+  "es": "Si este proveedor tiene su sede fuera de la UE, por ejemplo en EE. UU., los textos se transfieren allí.",
+  "fr": "Si ce fournisseur est établi hors de l’UE, par exemple aux États-Unis, les textes y sont transférés.",
+  "it": "Se questo fornitore ha sede al di fuori dell’UE, ad esempio negli Stati Uniti, i testi vengono trasferiti lì.",
+  "nl": "Is deze aanbieder gevestigd buiten de EU, bijvoorbeeld in de VS, dan worden de teksten daarheen doorgegeven.",
+  "pl": "Jeśli ten dostawca ma siedzibę poza UE, na przykład w USA, teksty są tam przekazywane.",
+  "pt": "Se este fornecedor tiver sede fora da UE, por exemplo nos EUA, os textos são transferidos para lá.",
+  "ru": "Если этот поставщик находится за пределами ЕС, например в США, тексты передаются туда.",
+  "tr": "Bu sağlayıcı AB dışında, örneğin ABD’de bulunuyorsa, metinler oraya aktarılır.",
+  "zh-Hans": "如果该服务商位于欧盟以外（例如美国），这些文本将被传输到那里。"
+ },
+ "You can withdraw your consent at any time with effect for the future. If you stop the survey, no further answers are collected; what you have sent until then stays stored and may be analysed. If you delete your answers while the survey is open on your device, they are deleted too. This does not affect the lawfulness of the processing up to the withdrawal.": {
+  "de-du": "Du kannst deine Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen. Brichst du die Befragung ab, werden keine weiteren Antworten erhoben; was du bis dahin gesendet hast, bleibt gespeichert und kann ausgewertet werden. Löschst du deine Antworten, solange die Befragung bei dir geöffnet ist, werden auch sie gelöscht. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt davon unberührt.",
+  "ar": "يمكنك سحب موافقتك في أي وقت بأثر مستقبلي. إذا أوقفت الاستطلاع، فلن تُجمع إجابات أخرى؛ أما ما أرسلته حتى ذلك الحين فيبقى محفوظًا ويمكن تحليله. وإذا حذفت إجاباتك ما دام الاستطلاع مفتوحًا على جهازك، فإنها تُحذف أيضًا. ولا يؤثر ذلك على مشروعية المعالجة التي تمت قبل السحب.",
+  "es": "Puede retirar su consentimiento en cualquier momento con efecto para el futuro. Si interrumpe la encuesta, no se recogen más respuestas; lo que haya enviado hasta entonces se conserva y puede analizarse. Si elimina sus respuestas mientras la encuesta esté abierta en su dispositivo, también se eliminan. Ello no afecta a la licitud del tratamiento realizado hasta la retirada.",
+  "fr": "Vous pouvez retirer votre consentement à tout moment pour l’avenir. Si vous interrompez l’enquête, aucune autre réponse n’est recueillie ; ce que vous avez envoyé jusque-là reste enregistré et peut être analysé. Si vous supprimez vos réponses tant que l’enquête est ouverte sur votre appareil, elles sont également supprimées. Cela n’affecte pas la licéité du traitement effectué jusqu’au retrait.",
+  "it": "Può revocare il Suo consenso in qualsiasi momento con effetto per il futuro. Se interrompe il sondaggio, non vengono raccolte altre risposte; quanto inviato fino a quel momento resta memorizzato e può essere analizzato. Se cancella le Sue risposte finché il sondaggio è aperto sul Suo dispositivo, vengono cancellate anch’esse. Ciò non pregiudica la liceità del trattamento effettuato fino alla revoca.",
+  "nl": "U kunt uw toestemming op elk moment met ingang van dat moment intrekken. Breekt u de vragenlijst af, dan worden er geen verdere antwoorden verzameld; wat u tot dan toe hebt verzonden, blijft opgeslagen en kan worden geanalyseerd. Verwijdert u uw antwoorden zolang de vragenlijst op uw apparaat geopend is, dan worden ook die verwijderd. Dit doet geen afbreuk aan de rechtmatigheid van de verwerking tot de intrekking.",
+  "pl": "Mogą Państwo w każdej chwili wycofać zgodę ze skutkiem na przyszłość. Jeśli przerwą Państwo badanie, nie będą zbierane dalsze odpowiedzi; to, co Państwo do tej pory wysłali, pozostaje zapisane i może zostać przeanalizowane. Jeśli usuną Państwo swoje odpowiedzi, dopóki badanie jest otwarte na Państwa urządzeniu, zostaną one również usunięte. Nie wpływa to na zgodność z prawem przetwarzania dokonanego przed wycofaniem zgody.",
+  "pt": "Pode retirar o seu consentimento a qualquer momento, com efeitos para o futuro. Se interromper o inquérito, não são recolhidas mais respostas; o que enviou até então fica guardado e pode ser analisado. Se eliminar as suas respostas enquanto o inquérito estiver aberto no seu dispositivo, também são eliminadas. Isso não afeta a licitude do tratamento efetuado até à retirada.",
+  "ru": "Вы можете в любой момент отозвать своё согласие на будущее. Если вы прервёте опрос, дальнейшие ответы не собираются; то, что вы уже отправили, сохраняется и может анализироваться. Если вы удалите свои ответы, пока опрос открыт на вашем устройстве, они также удаляются. Это не влияет на законность обработки, осуществлённой до отзыва.",
+  "tr": "Onayınızı istediğiniz zaman ileriye dönük olarak geri alabilirsiniz. Anketi yarıda bırakırsanız başka yanıt toplanmaz; o ana kadar gönderdikleriniz kayıtlı kalır ve değerlendirilebilir. Anket cihazınızda açıkken yanıtlarınızı silerseniz, bunlar da silinir. Bu, geri almaya kadar yapılan işlemenin hukuka uygunluğunu etkilemez.",
+  "zh-Hans": "您可以随时撤回同意，撤回对将来生效。如果您中止调查，将不再收集新的回答；您此前已发送的内容会继续保存并可能被分析。如果您在本设备上的调查仍处于打开状态时删除回答，这些回答也会被删除。撤回不影响撤回前处理的合法性。"
  }
 }

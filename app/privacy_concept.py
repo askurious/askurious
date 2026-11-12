@@ -1003,11 +1003,14 @@ def _activities():
                        "90 days."),
          "recipients": de_en("Betreibende des Servers.", "The people who run the server."),
          "deletion": de_en("Docker-Betrieb: Sicherungen alle vier Stunden, 14 Tage lang; 5 vor Aktualisierungen (höchstens 30 Tage); "
-                           "Containerausgabe (auch das Sicherheitsprotokoll) höchstens 3 × 20 MB; Hash-Salz bei jedem "
+                           "Containerausgabe (auch das Sicherheitsprotokoll) höchstens 3 × 20 MB; Tagesdateien des "
+                           "Sicherheitsprotokolls 90 Tage (SECURITY_LOG_DAYS), bis zu 14 Tage länger in den Sicherungen der "
+                           "hochgeladenen Dateien; Hash-Salz bei jedem "
                            "Neustart neu; Zählerzeilen der Ratenbegrenzung nach etwa einer Stunde (rate_hit) bzw. einem Tag "
                            "(rate_count).",
                            "Docker operation: backups every four hours, kept 14 days; 5 before updates (at most 30 days); container output at "
-                           "most 3 × 20 MB (the security log too); hash salt new at every restart; counter rows of the rate "
+                           "most 3 × 20 MB (the security log too); daily files of the security log 90 days (SECURITY_LOG_DAYS), up to "
+                           "14 days longer in the backups of the uploaded files; hash salt new at every restart; counter rows of the rate "
                            "limits after about an hour (rate_hit) or a day (rate_count)."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. c oder e i. V. m. Art. 32 DSGVO", "Art. 6 (1) (c) or (e) with Art. 32 GDPR")},
@@ -1077,14 +1080,14 @@ def _services():
     rows.append({"name": de_en("Eigener KI-Zugang (z. B. KI:connect.nrw)", "Own AI access (e.g. KI:connect.nrw)"),
                  "words": ("KI:connect", "KI-Zugang", "eigenen KI-Schlüssel", "eigener KI-Schlüssel"),
                  "data": de_en("Alle Textaufrufe der Person mit eigenem Zugang (auch Antworttexte der KI-Kodierhilfe und, "
-                               "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte pseudonymisierter Interviewtranskripte "
-                               "mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
+                               "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte geprüfter Interviewtranskripte, "
+                               "E-Mail-Adressen, Webadressen und Telefonnummern maskiert, mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
                                "gehen über deren Schlüssel, Kontingent und Bedingungen an KI:connect.nrw, OpenAI oder "
                                "eine selbst eingetragene Adresse; Bilder weiter über den Schlüssel der Installation. "
                                "Der Schlüssel ist verschlüsselt gespeichert und wird nie wieder angezeigt.",
                                "All text calls of a person with their own access (also answer texts of the AI coding "
-                               "help and, where an analysis allows AI suggestions, sections of pseudonymised interview "
-                               "transcripts with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
+                               "help and, where an analysis allows AI suggestions, sections of checked interview "
+                               "transcripts, email addresses, web addresses and phone numbers masked, with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
                                "typed; images keep using the installation's key. The key is stored encrypted and "
                                "never shown again."),
                  "who": de_en("Forschende", "Researchers"), "switch": de_en("Konto › KI-Nutzung, für alle",

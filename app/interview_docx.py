@@ -325,10 +325,12 @@ def _consent(survey, doc, ctx):
              "der Übertragung gelöscht. Ihr Löschcode gilt schon in dieser Zeit.")
     if _ai_coding(survey):  # AI suggestions while coding the transcripts (app/transcript_coding_ai.py)
         part("Auswertung mit KI-Unterstützung",
-             "Ausschnitte des pseudonymisierten Transkripts können mit Unterstützung eines KI-Dienstes ausgewertet "
-             "werden: Der Dienst schlägt vor, welche Stellen zu welchen Kategorien passen; die Forschenden prüfen jeden "
-             "Vorschlag selbst. Der Dienst erhält keine Tonaufnahme und keine Angaben zu Ihrer Person außer dem, was im "
-             "pseudonymisierten Transkript steht.")
+             "Ausschnitte des geprüften Transkripts können mit Unterstützung eines KI-Dienstes ausgewertet werden: Der "
+             "Dienst schlägt vor, welche Stellen zu welchen Kategorien passen; die Forschenden prüfen jeden Vorschlag "
+             "selbst. Der Dienst erhält keine Tonaufnahme und keine Angaben zu Ihrer Person außer dem, was im "
+             "Transkript steht; E-Mail-Adressen, Webadressen und Telefonnummern werden vorher durch Platzhalter "
+             "ersetzt. Sitzt der Anbieter des Dienstes außerhalb der EU, etwa in den USA, werden die Ausschnitte "
+             "dorthin übermittelt.")
     part("Pseudonymisierung und Aufbewahrung",
          "Im Transkript werden Ihr Name und alle Angaben, die auf Sie schließen lassen (Orte, Namen anderer Personen, "
          "Einrichtungen), durch Platzhalter ersetzt. Die Liste, die Ihren Namen mit Ihrer Interviewkennung verbindet, "
@@ -409,9 +411,11 @@ def _consent_en(survey, doc, ctx):
              "after the transfer. Your deletion code already works during this time.")
     if _ai_coding(survey):
         part("Analysis with AI support",
-             "Excerpts of the pseudonymised transcript may be analysed with the support of an AI service: the service "
+             "Excerpts of the checked transcript may be analysed with the support of an AI service: the service "
              "suggests which passages fit which categories; the researchers check every suggestion themselves. The "
-             "service receives no audio recording and no details about you beyond what is in the pseudonymised transcript.")
+             "service receives no audio recording and no details about you beyond what is in the transcript; email "
+             "addresses, web addresses and phone numbers are replaced with placeholders first. If the provider of the "
+             "service is based outside the EU, for instance in the USA, the excerpts are transferred there.")
     data_keep = (f"for {DATA_KEEP_EN[st['data_keep']]}" if st["data_keep"] != "end" else DATA_KEEP_EN["end"])
     part("Pseudonymisation and retention",
          "In the transcript, your name and all details that could identify you (places, names of other people, "
