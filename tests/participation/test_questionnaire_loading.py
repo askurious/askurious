@@ -49,7 +49,7 @@ def test_signature_is_reused_then_invalidated_by_bulk_structure_changes(app, cli
         db.session.commit()
         db.session.expire_all()
         assert runtime._signature(study) != first and len(calls) == 2
-        study.flow = {"type": "sequence", "children": []}
+        study.flow = {"t": "root", "children": []}  # a valid tree: the signature draws from it normalized
         db.session.commit()
         runtime._signature(study)
         assert len(calls) == 3

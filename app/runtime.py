@@ -264,8 +264,8 @@ def _signature(survey):
         _signature.kept = {}
     from app.models import Survey, Block, Item
 
-    changing_structure = any(isinstance(o, (Survey, Block, Item))
-                             for o in (*db.session.dirty, *db.session.new, *db.session.deleted))
+    # dirty with a net change only: flow.normalize_for_reading sets values it then marks as loaded
+    changing_structure = any(isinstance(o, (Survey, Block, Item)) for o in (*db.session.new, *db.session.deleted))         or any(isinstance(o, (Survey, Block, Item)) and db.session.is_modified(o) for o in db.session.dirty)
     if survey.status == survey.DRAFT or survey.id is None or changing_structure:
         flow.normalize_for_reading(survey)  # the tree build_layout draws from (its layout's "sig")
         return _digest([_structure(flow.tree(survey))] + _pages_shape(survey))

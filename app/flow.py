@@ -319,11 +319,13 @@ def normalize_for_reading(survey):
     # and every layout would be drawn anew (layout_matches compares the signature of the tree). So the id of a
     # missing separated section is the same in every request until the researchers' side writes the tree ("x":
     # never one of new_id's hex digits)
-    root = normalize(survey, split_id=f"s{survey.id}x")
-    set_committed_value(survey, "flow", survey.flow)
+    stored = survey.flow
+    normalize(survey, split_id=f"s{survey.id}x")
+    # an already consistent tree stays the very object the caller holds (a caller may change it in place)
+    set_committed_value(survey, "flow", stored if survey.flow == stored else survey.flow)
     for b in blocks:
         set_committed_value(b, "position", b.position)
-    return root
+    return survey.flow
 
 
 def normalize(survey, split_id=None):
