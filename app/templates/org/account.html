@@ -26,7 +26,7 @@
 
   {# Betreuung: set or changed later (Ralf 2026-10-29), as on the admin's account page; shown for a type with
      supervision, or while someone still supervises (so they can be taken out) #}
-  {% if (current_type and current_type.supervised) or supervisors %}
+  {% if (current_type and current_type.supervised) or supervisors or supervisor_requests %}
   <div class="supervisor-pick" id="betreuung">
     <h3>{{ de_en("Betreuung", "Supervisors") }} <span class="hint">{{ de_en("Personen dieser Organisation; jede wird Admin in jeder Befragung, die die Person neu anlegt, und bekommt die Nachricht vor dem Ende", "people of this organisation; each becomes admin of every survey the person newly creates and gets the notice before the end") }}</span></h3>
     <ul class="supervisor-list">
@@ -34,7 +34,13 @@
       <li>{{ s.display_name }}
         <form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="supervisor_remove"><input type="hidden" name="supervisor" value="{{ s.id }}">
           <button class="icon-btn" title="{{ de_en('Aus der Betreuung nehmen', 'Remove from the supervisors') }}" aria-label="{{ de_en('{n} aus der Betreuung nehmen', 'Remove {n} from the supervisors', n=s.display_name) }}">{{ icon("x", 14) }}</button></form></li>
-    {% else %}<li class="muted">{{ de_en("noch niemand", "nobody yet") }}</li>{% endfor %}
+    {% else %}{% if not supervisor_requests %}<li class="muted">{{ de_en("noch niemand", "nobody yet") }}</li>{% endif %}{% endfor %}
+    {# asked, not yet confirmed by the person (an admin of the organisation for themself) #}
+    {% for s in supervisor_requests %}
+      <li>{{ s.display_name }} <span class="badge">{{ de_en("angefragt", "asked") }}</span>
+        <form method="post" class="inline">{{ csrf() }}<input type="hidden" name="action" value="supervisor_remove"><input type="hidden" name="supervisor" value="{{ s.id }}">
+          <button class="icon-btn" title="{{ de_en('Anfrage zurücknehmen', 'Take the request back') }}" aria-label="{{ de_en('Anfrage von {n} zurücknehmen', 'Take back the request of {n}', n=s.display_name) }}">{{ icon("x", 14) }}</button></form></li>
+    {% endfor %}
     </ul>
     {% if supervisor_choices and current_type and current_type.supervised %}
     {% set many = supervisor_choices|length > 10 %}

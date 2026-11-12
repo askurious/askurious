@@ -333,7 +333,7 @@ def test_an_admin_of_the_organisation_sets_the_supervisors_later(app, client, su
     form = page[page.index('<select id="supervisor"'):]
     form = form[:form.index("</select>")]
     assert f'<option value="{fifth}">Fünfte</option>' in form and f'value="{uid}"' not in form   # not the account
-    assert f'value="{oid}"' not in form                                    # nor the admin acting (tests/accounts/test_org_supervisor_not_self.py)
+    assert f'value="{oid}"' in form                         # the admin acting only asks (test_org_supervisor_request.py)
     r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(fifth)},
                    follow_redirects=True)
     assert "Fünfte betreut jetzt Vierte" in r.data.decode()
