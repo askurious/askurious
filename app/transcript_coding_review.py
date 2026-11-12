@@ -115,6 +115,24 @@ def probe(project, who):
     return out
 
 
+def _overlapping(items):
+    """The pairs (i, j), i < j, of passages in `items` that share at least one character, in the order the nested loop
+    over all pairs would meet them (the order the pairs of fuzzy() are first counted in, which breaks ties of its
+    sorting). Sorted by start and swept: only passages still open are compared, O(n log n + overlaps) instead of every
+    pair (1 500 codings of an interview were 9 s per call; performance audit 2026-11-11)."""
+    order = sorted(range(len(items)), key=lambda k: items[k]["start"])
+    found, open_ = [], []
+    for k in order:
+        start = items[k]["start"]
+        if items[k]["end"] <= start:
+            continue  # an empty passage shares no character with any
+        open_ = [o for o in open_ if items[o]["end"] > start]
+        found.extend((min(o, k), max(o, k)) for o in open_)
+        open_.append(k)
+    found.sort()
+    return found
+
+
 def fuzzy(project, who):
     """The pairs of categories whose borders blur: [{"a", "b", "overlap", "checks", "names"}], strongest first."""
     cats = {c.id: c for c in live(project)}
@@ -128,14 +146,14 @@ def fuzzy(project, who):
     for row, c in all_codings(project, who):
         per_row.setdefault(row.id, []).append(c)
     for items in per_row.values():
-        for i, x in enumerate(items):
-            for y in items[i + 1:]:
-                if x["cat"] == y["cat"] or x["cat"] not in cats or y["cat"] not in cats:
-                    continue
-                shared = min(x["end"], y["end"]) - max(x["start"], y["start"])
-                shorter = min(x["end"] - x["start"], y["end"] - y["start"])
-                if shorter > 0 and shared >= OVERLAP * shorter:
-                    pair(x["cat"], y["cat"])["overlap"] += 1
+        for i, j in _overlapping(items):
+            x, y = items[i], items[j]
+            if x["cat"] == y["cat"] or x["cat"] not in cats or y["cat"] not in cats:
+                continue
+            shared = min(x["end"], y["end"]) - max(x["start"], y["start"])
+            shorter = min(x["end"] - x["start"], y["end"] - y["start"])
+            if shorter > 0 and shared >= OVERLAP * shorter:
+                pair(x["cat"], y["cat"])["overlap"] += 1
     for coding, chk in checks(project, who):
         if coding.get("cat") in cats and chk.get("cat") in cats and coding["cat"] != chk["cat"]:
             pair(coding["cat"], chk["cat"])["checks"] += 1
