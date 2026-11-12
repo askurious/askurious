@@ -46,7 +46,12 @@ from app.lang import de_en
 bp = Blueprint("ai_chat", __name__, url_prefix="/surveys")
 
 FEATURE = "ai_chat"
-CALL_TIMEOUT = 60          # seconds for one answer of the model
+# seconds for one answer of the model, the whole call (the transport's watchdog too): a participant's page thread waits
+# that long at most; was 60 under a 90 s watchdog (audit 2026-11-11, BIZ-01)
+CALL_TIMEOUT = 30
+# calls of the KI-Chat at once in one participants' process (AI_CHAT_PARALLEL): well below its 4 threads (gunicorn
+# --threads 4, deploy/docker/compose.yaml), so a slow model never holds all of them; the others get "busy" at once
+PARALLEL_DEFAULT = 1
 MAX_TOKENS = 800           # of one answer
 PER_PERSON_DAY = 100       # messages of one participation in 24 hours, over all chats
 DEFAULT_PER_DAY = 500      # messages of all participants of a survey in 24 hours (AiChatAccess.per_day)
@@ -97,7 +102,7 @@ def _client(row):
     key = secrets_box.decrypt(row.key_enc, secrets_box.PARTICIPANT)
     if not key:
         raise ai_access.AccessError("key")
-    return ai_access.client(None, base_url=base, key=key)
+    return ai_access.client(None, base_url=base, key=key, seconds=CALL_TIMEOUT)
 
 
 # --- the page of the access (researchers) ----------------------------------------------------------------------
@@ -269,7 +274,7 @@ class _Slot:
         self.response_id = response_id
 
     def __enter__(self):
-        most = int(current_app.config.get("AI_CHAT_PARALLEL", 4) or 0)
+        most = int(current_app.config.get("AI_CHAT_PARALLEL", PARALLEL_DEFAULT) or 0)
         with _lock:
             if (most and _running["all"] >= most) or self.response_id in _running["responses"]:
                 raise Busy()
