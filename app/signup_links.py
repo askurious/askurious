@@ -222,7 +222,7 @@ def page(token):
         flash(_have_account(), "info")
         return redirect(url_for("dashboard.index"))
     if request.method == "POST" and request.form.get("way") == "password" and link.password_ok:
-        done, said = _create_with_password(link)
+        done, said = _create_with_password(link, token)
         if done is not None:
             return done
         flash(said, "error")
@@ -242,11 +242,17 @@ def page(token):
     return response
 
 
-def _create_with_password(link):
-    """The account made on the page of a link for one person: (response, None) or (None, message). Home, type, period
-    and "create" as the same link gives with ORCID (the sign-in list does that there, an account without ORCID is on no
-    list)."""
-    from app import account_types, accounts, auth, kind_access, limits, notify, orgs, passwords, security_log
+CONFIRM_HOURS = 24  # how long the link of the mail holds
+
+
+def _create_with_password(link, token):
+    """The form of a link for one person with a password: (response, None) or (None, message). With mail on, nothing
+    is made yet: the details go in an encrypted confirmation link to the address, and only its click makes the
+    account (confirm), so an address becomes a sign-in name only after mailbox proof and the page says the same
+    whether the address has an account or not (access audit 2026-11-11). With mail off, the account is made at once,
+    its address unconfirmed (the privacy policy says so). Home, type, period and "create" as the same link gives with
+    ORCID."""
+    from app import accounts, limits, mail, orgs, passwords
 
     name = " ".join(request.form.get("name", "").split())[:200]
     email = passwords.normal_email(request.form.get("email"))
@@ -262,18 +268,112 @@ def _create_with_password(link):
     org = orgs.get(link.org_id)
     if orgs.accounts_left(org) == 0:
         return None, _full()
+    if mail.enabled():
+        limits.allow_invite_try()  # each try counts: whoever holds the link cannot ask address after address
+        if limits._take_shared("signup_confirm", email, 3, 3600):
+            _mail_confirmation(token, name, email, password) if accounts.email_free(email) else _mail_taken(email)
+        flash(_check_mail(email), "info")
+        return redirect(url_for("public.index")), None
     if not accounts.email_free(email):
-        limits.allow_invite_try()  # says no more than needed: whoever holds the link cannot ask address after address
+        limits.allow_invite_try()
         return None, de_en("Mit diesen Angaben lässt sich hier kein neues Konto anlegen. Haben Sie schon ein Konto, "
                            "melden Sie sich bitte wie gewohnt an.", "No new account can be created here with these "
                            "details. If you already have an account, please sign in as usual.")
+    from werkzeug.security import generate_password_hash
+
+    return _make_account(link, name, email, generate_password_hash(password), confirmed=False)
+
+
+def _check_mail(email):
+    return de_en("Wir haben eine E-Mail an {email} geschickt. Bitte öffnen Sie den Link darin innerhalb von {h} Stunden; "
+                 "erst dann ist das Konto angelegt.", "We have sent an email to {email}. Please open the link in it "
+                 "within {h} hours; only then is the account created.", email=email, h=CONFIRM_HOURS)
+
+
+def _mail_confirmation(token, name, email, password):
+    import json
+
+    from werkzeug.security import generate_password_hash
+
+    from app import mail, mailqueue, secrets_box
+
+    held = secrets_box.encrypt(json.dumps({"t": token, "name": name, "email": email,
+                                           "hash": generate_password_hash(password),
+                                           "until": time.time() + CONFIRM_HOURS * 3600}))
+    link = brand.public_base() + url_for("signup_links.confirm", held=held)
+    mailqueue.enqueue(email, de_en("Askurious: Registrierung bestätigen", "Askurious: confirm your registration"),
+                      de_en("Guten Tag {name},\n\nmit diesem Link legen Sie Ihr Konto an (gültig {h} Stunden):\n\n"
+                            "{link}\n\nHaben Sie sich nicht registriert, ignorieren Sie diese E-Mail; es wird kein "
+                            "Konto angelegt.", "Hello {name},\n\nthis link creates your account (valid for {h} hours):"
+                            "\n\n{link}\n\nIf you did not register, ignore this email; no account is created.",
+                            name=name, h=CONFIRM_HOURS, link=link) + mail.signature(), kind="emailcheck")
+    db.session.commit()
+    mailqueue.kick()
+
+
+def _mail_taken(email):
+    """The answer to an address that has an account already: the page says the same as for a free one, the owner of
+    the address hears of it by mail, without a link (as email_confirmation.taken)."""
+    from werkzeug.security import generate_password_hash
+
+    from app import mail, mailqueue
+
+    generate_password_hash(request.form.get("password", "") or "x")  # as long as a free address takes
+    mailqueue.enqueue(email, de_en("Askurious: Adresse schon registriert", "Askurious: address already registered"),
+                      de_en("Jemand hat mit dieser Adresse ein neues Konto angefragt. Mit ihr meldet sich aber schon ein "
+                            "Konto an, deshalb ändert sich nichts.\n\nWaren Sie das, melden Sie sich mit dem "
+                            "vorhandenen Konto an. Sonst ignorieren Sie diese E-Mail.",
+                            "Someone requested a new account with this address. An account already signs in with it, "
+                            "so nothing changes.\n\nIf that was you, sign in with the existing account. Otherwise "
+                            "ignore this email.") + mail.signature(), kind="emailcheck")
+    db.session.commit()
+    mailqueue.kick()
+
+
+@bp.route("/confirm/<path:held>")
+def confirm(held):
+    """The link of the confirmation mail: the account is made now, with the details of the form, and signed in. A
+    link that ran out, was used already or whose invitation no longer holds makes nothing."""
+    import json
+
+    from app import accounts, limits, secrets_box
+
+    if not limits.allow_invite_try(count=False):
+        abort(429)
+    try:
+        data = json.loads(secrets_box.decrypt(held) or "{}")
+    except ValueError:
+        data = {}
+    link = valid(data.get("t", "")) if data.get("t") and float(data.get("until") or 0) > time.time() else None
+    if link is None or current_user.is_authenticated or not accounts.email_free(data.get("email", "")):
+        limits.allow_invite_try()
+        flash(de_en("Dieser Bestätigungslink gilt nicht mehr. Ist das Konto schon angelegt, melden Sie sich bitte an.",
+                    "This confirmation link is no longer valid. If the account was created already, please sign in."),
+              "error")
+        return redirect(url_for("auth.sign_in"))
+    done, said = _make_account(link, data["name"], data["email"], data["hash"], confirmed=True)
+    if done is None:
+        flash(said, "error")
+        return redirect(url_for("auth.sign_in"))
+    return done
+
+
+def _make_account(link, name, email, password_hash, confirmed):
+    """The account of the link: (response, None) or (None, message)."""
+    from app import account_types, accounts, auth, kind_access, notify, orgs, passwords, security_log
+
+    org = orgs.get(link.org_id)
+    if orgs.accounts_left(org) == 0:
+        return None, _full()
     if not _take_use(link):
         db.session.rollback()
         return _invalid(), None
     maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
     user = accounts.create_local(name, email, "", False, maker)
     db.session.flush()
-    passwords.set_password(user, password)
+    passwords.set_password_hash(user, password_hash)
+    if confirmed:
+        passwords.login_row(user).email_verified_at = utcnow()
     user.last_login_at = utcnow()
     if org is not None and org.key != orgs.MAIN:
         orgs.add(org, user, by=maker, home=True)
@@ -296,6 +396,7 @@ def _create_with_password(link):
         current_app.logger.warning("New account not reported in Slack: %s", type(e).__name__)
     flash(de_en("Konto angelegt.", "Account created."), "success")
     return redirect(url_for("dashboard.index")), None
+
 
 
 def accept_after_orcid(orcid, name):
