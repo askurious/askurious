@@ -1,7 +1,9 @@
-"""An admin of an organisation cannot make themself the supervisor of an account (app/org_admin.py,
-account_types.bringing_in): a supervisor becomes admin of every survey the person creates, and an admin of an
-organisation sees no survey's content or answers. Neither on the account's card, nor by adding the iD or making the
-account; a site admin still does, and supervisors set before stay (access audit 2026-11-11)."""
+"""An admin of an organisation does not make themself the supervisor of an account by their own hand
+(app/org_admin.py, account_types.bringing_in and request_supervision): a supervisor becomes admin of every survey the
+person creates, and an admin of an organisation sees no survey's content or answers unless the person agrees. On the
+account's card it is a request the person confirms or declines on "Konto" (Ralf 2026-11-12, "Person bestätigt");
+adding the iD or making the account gives no supervisor; another admin or a site admin enters one at once, and
+supervisors set before stay (access audit 2026-11-11)."""
 from app import account_types
 from app.extensions import db
 from app.models import AccountType, Survey, User
@@ -32,22 +34,59 @@ def test_adding_the_id_does_not_make_the_admin_supervisor(app, client):
     assert _supervisors(app, _uid(app, FOURTH)) == []
 
 
-def test_the_card_offers_and_takes_not_the_admin_acting(app, client):
+def _new_survey(app, student, title):
+    student.post("/surveys/new", data={"title": title, "languages": ["de"], "default_language": "de"})
+    with app.app_context():
+        s = db.session.scalar(db.select(Survey).filter_by(title=title))
+        return {m.user_id for m in s.members}
+
+
+def test_the_admin_choosing_themself_only_asks_until_the_person_confirms(app, client):
     org_id, tid, admin, student = _world(app, client)
     uid, me, fifth = _uid(app, FOURTH), _uid(app, OTHER), _uid(app, FIFTH)
     page = admin.get(f"/org/{org_id}/people/{uid}").data.decode()
     form = page[page.index('<select id="supervisor"'):]
     form = form[:form.index("</select>")]
-    assert f'value="{fifth}"' in form and f'value="{me}"' not in form
+    assert f'value="{fifth}"' in form and f'value="{me}"' in form
     r = admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(me)},
                    follow_redirects=True)
-    assert "kann das Konto nicht betreuen" in r.data.decode()
+    assert "wurde gefragt" in r.data.decode() and "angefragt" in r.data.decode()
     assert _supervisors(app, uid) == []
-    # the person's next survey has no admin of the organisation in it
-    student.post("/surveys/new", data={"title": "Abschlussarbeit", "languages": ["de"], "default_language": "de"})
+    assert _new_survey(app, student, "Vor der Antwort") == {uid}        # asked only: not in the person's survey
+    page = student.get("/account/").data.decode()
+    assert "Kollegin möchte Sie betreuen." in page and "Bestätigen …" in page and "Annehmen" in page
     with app.app_context():
-        s = db.session.scalar(db.select(Survey).filter_by(title="Abschlussarbeit"))
-        assert s is not None and {m.user_id for m in s.members} == {uid}
+        row_id = account_types.requests_of(db.session.get(User, uid))[0][0].id
+    r = student.post(f"/account/supervision/{row_id}", data={"answer": "accept"}, follow_redirects=True)
+    assert "Kollegin betreut Sie jetzt" in r.data.decode()
+    assert _supervisors(app, uid) == [me]
+    assert _new_survey(app, student, "Nach der Zusage") == {uid, me}
+
+
+def test_the_person_declines_and_the_admin_can_take_it_back(app, client):
+    org_id, tid, admin, student = _world(app, client)
+    uid, me = _uid(app, FOURTH), _uid(app, OTHER)
+    admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(me)})
+    with app.app_context():
+        row_id = account_types.requests_of(db.session.get(User, uid))[0][0].id
+    assert client.post(f"/account/supervision/{row_id}", data={"answer": "accept"}).status_code == 404  # not hers
+    student.post(f"/account/supervision/{row_id}", data={"answer": "decline"})
+    assert _supervisors(app, uid) == []
+    with app.app_context():
+        assert account_types.requests_of(db.session.get(User, uid)) == []
+    admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(me)})
+    admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor_remove", "supervisor": str(me)})
+    with app.app_context():
+        assert account_types.requests_of(db.session.get(User, uid)) == []
+
+
+def test_another_admin_enters_a_person_at_once(app, client):
+    org_id, tid, admin, student = _world(app, client)
+    uid, fifth = _uid(app, FOURTH), _uid(app, FIFTH)
+    r = admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(fifth)},
+                   follow_redirects=True)
+    assert "Fünfte betreut jetzt Vierte" in r.data.decode()
+    assert _supervisors(app, uid) == [fifth]
 
 
 def test_making_the_account_does_not_make_the_admin_supervisor(app, client):

@@ -922,6 +922,9 @@ class AccountSupervisor(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), index=True)
     supervisor_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # an admin of an organisation who made themself the supervisor only asked: no admin of new surveys until the
+    # person confirms on "Konto" (account_types.request_supervision, migration 0121)
+    pending: Mapped[bool] = mapped_column(default=False, server_default="0")
 
 
 class DeletedAccount(db.Model):
