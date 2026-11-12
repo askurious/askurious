@@ -390,7 +390,8 @@ def new_account(org_id):
     kind_access.store(user, _kinds_of_form(org, t), current_user)
     if request.form.get("may_create") == "1":
         kind_access.give_create(user, current_user)  # within the organisation's cap, which home_cap applies
-    account_types.assign(user, t, spec, by=current_user, supervisor=current_user, start=False)  # starts with the password (N4)
+    account_types.assign(user, t, spec, by=current_user, supervisor=account_types.bringing_in(current_user),
+                         start=False)  # starts with the password (N4)
     orgs.add(org, user, by=current_user, home=True)
     db.session.commit()
     orgs.forget()
@@ -570,12 +571,14 @@ def account(org_id, user_id):
 
 def _supervisor_choices(org, user):
     """Who can supervise the account from here: the people of this organisation with an account, without the account
-    itself; the current supervisors stay in the list (as admin._supervisor_choices for the home organisation)."""
+    itself and without the admin acting: a supervisor becomes admin of every survey the person creates, and an admin of
+    the organisation sees no survey's content or answers (A15), so cannot give that to themself here. The current
+    supervisors stay in the list (as admin._supervisor_choices for the home organisation)."""
     people = [u for u, _row in orgs.members_of(org)]
     for current in account_types.supervisors_of(user):
         if current not in people:
             people.append(current)
-    return [u for u in people if u.id != user.id]
+    return [u for u in people if u.id not in (user.id, current_user.id)]
 
 
 def _supervisor_action(org, user, action):

@@ -1370,7 +1370,9 @@ def measures():
                    "Löschung stehen im Sicherheitsprotokoll, die automatische Löschung im Protokoll. Jede betreuende Person "
                    "(Rolle „Betreuung“, auch mehrere) wird Admin jeder neuen Befragung der Person und bekommt die "
                    "Nachricht vor dem Ende; die Person sieht das auf „Konto“. Ein Nutzertyp ohne Betreuung nimmt alle "
-                   "Betreuenden heraus, ihre Admin-Rollen in bestehenden Befragungen bleiben. Die "
+                   "Betreuenden heraus, ihre Admin-Rollen in bestehenden Befragungen bleiben. Admins einer Organisation "
+                   "können sich nicht selbst als Betreuung eintragen, auch nicht beim Hinzufügen, Anlegen oder über einen "
+                   "Einladungslink, da sie keine Antworten der Befragungen sehen. Die "
                    "Leitung einer Lehrveranstaltung lädt Adresslisten ein und erzeugt Einmal-Links nur für Konten ihrer "
                    "Lehrveranstaltung ohne ORCID iD. Nutzertypen mit Laufzeit und Löschfrist legt jede Organisation "
                    "selbst fest (Verwaltung > Nutzertypen); jede beginnt mit „Mitarbeitende“ ohne Laufzeit.",
@@ -1379,7 +1381,9 @@ def measures():
                    "extension, end and deletion are in the security log, the automatic deletion in the access log. Every "
                    "supervising person (role “supervisor”, also several) becomes admin of every new survey of the person "
                    "and gets the notice before the end; the person sees this on “Account”. A user type without "
-                   "supervision takes all supervisors out; their admin roles in existing surveys stay. The lead of a course invites address lists and creates one-time links only "
+                   "supervision takes all supervisors out; their admin roles in existing surveys stay. Admins of an "
+                   "organisation cannot make themselves supervisors, neither when adding or creating an account nor "
+                   "through an invitation link, as they see no answers of the surveys. The lead of a course invites address lists and creates one-time links only "
                    "for accounts of the course without an ORCID iD. Each organisation sets its own user types with "
                    "period and deletion period (Management > User types); each starts with “Staff” without a period."),
              "app/account_types.py, app/bulk_invites.py, app/joinlinks.py"),

@@ -319,10 +319,12 @@ def test_an_admin_of_the_organisation_sets_the_supervisors_later(app, client, su
         tid = db.session.scalar(db.select(AccountType.id).filter_by(org_id=org_id, name_de="Masterarbeit"))
     other.post(f"/org/{org_id}/people", data={"action": "add", "orcid": FOURTH, "name": "Vierte",
                                               "account_type": tid, "valid_mode": "type"})
+    other.post(f"/org/{org_id}/people", data={"action": "add", "orcid": FIFTH, "name": "Fünfte"})
     _as(app, FOURTH, "Vierte")
+    _as(app, FIFTH, "Fünfte")
     allow(app, THIRD, keep=True)
     _as(app, THIRD, "Dritte")                                                           # at home in "main"
-    uid, oid, outside = _uid(app, FOURTH), _uid(app, OTHER), _uid(app, THIRD)
+    uid, oid, outside, fifth = _uid(app, FOURTH), _uid(app, OTHER), _uid(app, THIRD), _uid(app, FIFTH)
     with app.app_context():
         account_types.set_supervisors(db.session.get(User, uid), [])
         db.session.commit()
@@ -330,16 +332,17 @@ def test_an_admin_of_the_organisation_sets_the_supervisors_later(app, client, su
     assert 'id="betreuung"' in page and "noch niemand" in page
     form = page[page.index('<select id="supervisor"'):]
     form = form[:form.index("</select>")]
-    assert f'<option value="{oid}">Kollegin</option>' in form and f'value="{uid}"' not in form   # not oneself
-    r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(oid)},
+    assert f'<option value="{fifth}">Fünfte</option>' in form and f'value="{uid}"' not in form   # not the account
+    assert f'value="{oid}"' not in form                                    # nor the admin acting (tests/accounts/test_org_supervisor_not_self.py)
+    r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(fifth)},
                    follow_redirects=True)
-    assert "Kollegin betreut jetzt Vierte" in r.data.decode()
+    assert "Fünfte betreut jetzt Vierte" in r.data.decode()
     with app.app_context():
-        assert [u.id for u in account_types.supervisors_of(db.session.get(User, uid))] == [oid]
+        assert [u.id for u in account_types.supervisors_of(db.session.get(User, uid))] == [fifth]
     r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(outside)},
                    follow_redirects=True)
     assert "kann das Konto nicht betreuen" in r.data.decode()                       # not a person of the organisation
-    other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor_remove", "supervisor": str(oid)})
+    other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor_remove", "supervisor": str(fifth)})
     with app.app_context():
         assert account_types.supervisors_of(db.session.get(User, uid)) == []
     other.post(f"/org/{org_id}/people/{uid}", data={"action": "account_type", "account_type": ""})
