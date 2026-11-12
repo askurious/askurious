@@ -387,8 +387,6 @@ def _group_users(group_ids):
 def scope(who):
     """(user ids, interviewer link ids) whose interviews count as the actor's own."""
     users, accesses = set(), set()
-    if who.link is not None:
-        accesses |= {int(a) for a in (who.link.access_ids or []) if str(a).isdigit()}
     for row in who.members:
         if row.kind == CodingMember.PERSON and row.user_id:
             users.add(row.user_id)
