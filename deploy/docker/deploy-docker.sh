@@ -407,11 +407,13 @@ fi
 
 echo "==> Crontab: database dump and uploads every four hours from 02:30 (backup.sh), maintenance window Sunday 04:30 (maintenance.sh),"
 echo "    the containers' load every minute (container-stats.sh; when it stops, Administration > Server says so),"
+echo "    free disk space every ten minutes, Slack when below DISK_MIN_FREE_PERCENT (disk-check.sh, only reports),"
 echo "    after each boot a message to Slack on which containers came back (after-boot.sh),"
 echo "    the maintenance page off once its end time has passed, every minute (wartung.sh pruefen)"
 "${SSH[@]}" "(crontab -l 2>/dev/null | grep -v -e 'askurious/deploy/docker/' -e '$OLD/deploy/docker/'; \
   echo '30 2-22/4 * * * \$HOME/askurious/deploy/docker/backup.sh >> \$HOME/askurious-backup.log 2>&1'; \
   echo '* * * * * \$HOME/askurious/deploy/docker/container-stats.sh > /dev/null 2>&1'; \
+  echo '*/10 * * * * \$HOME/askurious/deploy/docker/disk-check.sh >> \$HOME/askurious-maintenance.log 2>&1'; \
   echo '* * * * * \$HOME/askurious/deploy/docker/wartung.sh pruefen >> \$HOME/askurious-maintenance.log 2>&1'; \
   echo '30 4 * * 0 \$HOME/askurious/deploy/docker/maintenance.sh >> \$HOME/askurious-maintenance.log 2>&1'; \
   echo '@reboot \$HOME/askurious/deploy/docker/after-boot.sh >> \$HOME/askurious-boot.log 2>&1') | crontab -"
