@@ -51,3 +51,23 @@ def test_a_change_of_the_same_request_is_still_written(app, client, survey):
         db.session.expire_all()
         assert db.session.get(Survey, 1).flow["children"], "normalized and written with the change"
 
+
+
+def test_a_tree_without_its_separated_section_reads_the_same_in_every_request(app, client, survey):
+    """normalize() adds a missing separated section; read only (not written), its id must not be drawn anew in
+    every request, or every layout would be drawn anew, a paper sheet's too (tests/exports/test_paper.py)."""
+    from app import flow, runtime
+
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        s.flow = {"t": "root", "children": [{"t": "block", "block": 1}, {"t": "block", "block": 2}]}
+        db.session.commit()
+        layouts = []
+        for _ in range(2):
+            db.session.expire_all()
+            s = db.session.get(Survey, 1)
+            layouts.append(runtime.build_layout(s, random.Random(1)))
+            assert flow.tree(s)["children"][-1]["t"] == "split"
+        db.session.expire_all()
+        s = db.session.get(Survey, 1)
+        assert runtime.layout_matches(s, layouts[0], runtime._signature(s)), "the layout of before still fits"

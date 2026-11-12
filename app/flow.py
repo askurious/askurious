@@ -315,14 +315,20 @@ def normalize_for_reading(survey):
         blocks = list(survey.blocks)
     if changed or any(not inspect(b).persistent or inspect(b).attrs.position.history.has_changes() for b in blocks):
         return normalize(survey)  # a change of this request, made consistent and written with it
-    root = normalize(survey)
-    set_committed_value(survey, "flow", survey.flow)
+    # a node normalize() adds gets an id of its own; drawn at random here, every request would see another tree,
+    # and every layout would be drawn anew (layout_matches compares the signature of the tree). So the id of a
+    # missing separated section is the same in every request until the researchers' side writes the tree ("x":
+    # never one of new_id's hex digits)
+    stored = survey.flow
+    normalize(survey, split_id=f"s{survey.id}x")
+    # an already consistent tree stays the very object the caller holds (a caller may change it in place)
+    set_committed_value(survey, "flow", stored if survey.flow == stored else survey.flow)
     for b in blocks:
         set_committed_value(b, "position", b.position)
-    return root
+    return survey.flow
 
 
-def normalize(survey):
+def normalize(survey, split_id=None):
     """Make the tree consistent with the blocks and sync Block.position to flow order.
     Returns the (possibly new) tree; call after any change to blocks or flow."""
     import copy
@@ -353,7 +359,7 @@ def normalize(survey):
 
     clean(root)
     _place_elses(root)
-    _one_split(root)
+    _one_split(root, split_id)
     # blocks not yet in the tree (e.g. just added) go to the end of the regular survey, i.e. before
     # the separated section, in their current order
     split_at = next((n for n, c in enumerate(root["children"]) if c["t"] == "split"), len(root["children"]))
@@ -399,7 +405,7 @@ def _place_elses(root):
             shift[id(parent)] = shift.get(id(parent), 0) + len(node.get("children", []))
 
 
-def _one_split(root):
+def _one_split(root, split_id=None):
     """The separated section always exists (possibly empty): exactly one split, at the top level;
     a missing one goes to the end, extra ones and nested ones dissolve into their place."""
     first = None
@@ -411,7 +417,7 @@ def _one_split(root):
         else:
             parent["children"].remove(node)
     if first is None:
-        root["children"].append({"t": "split", "id": _nid("s")})
+        root["children"].append({"t": "split", "id": split_id or _nid("s")})
 
 
 def has_separated(survey):

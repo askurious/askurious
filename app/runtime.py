@@ -264,9 +264,10 @@ def _signature(survey):
         _signature.kept = {}
     from app.models import Survey, Block, Item
 
-    changing_structure = any(isinstance(o, (Survey, Block, Item))
-                             for o in (*db.session.dirty, *db.session.new, *db.session.deleted))
+    # dirty with a net change only: flow.normalize_for_reading sets values it then marks as loaded
+    changing_structure = any(isinstance(o, (Survey, Block, Item)) for o in (*db.session.new, *db.session.deleted))         or any(isinstance(o, (Survey, Block, Item)) and db.session.is_modified(o) for o in db.session.dirty)
     if survey.status == survey.DRAFT or survey.id is None or changing_structure:
+        flow.normalize_for_reading(survey)  # the tree build_layout draws from (its layout's "sig")
         return _digest([_structure(flow.tree(survey))] + _pages_shape(survey))
     key = (survey.id, survey.uid, survey.qversion, revision(survey, structure=True))
     if key not in _signature.kept:
@@ -279,6 +280,9 @@ def _signature(survey):
         blocks = db.session.scalars(db.select(Block).where(Block.survey_id == survey.id).order_by(Block.position)
                                     .options(selectinload(Block.items)).execution_options(populate_existing=True)).all()
         set_committed_value(survey, "blocks", blocks)
+        # the tree as build_layout draws from it: normalized in memory, as the participants' side no longer writes it
+        # back (flow.normalize_for_reading); a stored tree not normalized would otherwise never match its layouts
+        flow.normalize_for_reading(survey)
         if len(_signature.kept) >= 256:
             _signature.kept.clear()
         _signature.kept[key] = _digest([_structure(flow.tree(survey))] + _pages_shape(survey))
