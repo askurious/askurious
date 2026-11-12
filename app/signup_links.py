@@ -279,8 +279,8 @@ def _create_with_password(link):
         orgs.add(org, user, by=maker, home=True)
     t = account_types.get(link.account_type_id) or account_types.default_type(org.id if org is not None else None)
     if t is not None:
-        account_types.assign(user, t, link.valid_spec if link.valid_spec is not None else t.duration, supervisor=maker,
-                             log=False)
+        account_types.assign(user, t, link.valid_spec if link.valid_spec is not None else t.duration,
+                             supervisor=account_types.bringing_in(maker), log=False)
     if link.kinds is not None:
         kind_access.store(user, link.kinds, maker, log=False)
     else:

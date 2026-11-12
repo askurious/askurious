@@ -354,6 +354,15 @@ def course_spec(group):
     return t.duration if t is not None and not needs_input(t.duration) else ""
 
 
+def bringing_in(admin):
+    """The supervisor an account gets from the admin who brings it in (adds its iD, makes it, makes its link): the
+    admin only as a site admin. A supervisor becomes admin of every survey the person creates, and an admin of an
+    organisation sees no survey's content or answers (konzept-abteilungen A15), so cannot give that to themself."""
+    from app import orgs
+
+    return admin if admin is not None and orgs._site_admin(admin) else None
+
+
 def start_new(user, now=None):
     """Type and period of a new account (auth._sign_in, invites.accept, joinlinks): what "Person hinzufügen" chose for
     its iD; else the course it came in through; else the type for new accounts of its home organisation, else of the
@@ -366,7 +375,7 @@ def start_new(user, now=None):
     if listed is not None and listed.account_type_id is not None:
         t = db.session.get(AccountType, listed.account_type_id)
         if t is not None:
-            supervisor = db.session.get(User, listed.added_by_id) if listed.added_by_id else None
+            supervisor = bringing_in(db.session.get(User, listed.added_by_id) if listed.added_by_id else None)
             assign(user, t, listed.valid_spec if listed.valid_spec is not None else t.duration, supervisor=supervisor,
                    now=now, log=False)
             return t
