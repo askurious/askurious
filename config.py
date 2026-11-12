@@ -449,6 +449,9 @@ class Config:
     # network in a run, counted by the database for all processes (app/live/devices.py, audit 2026-10-18, BIZ-02);
     # as wide as a lecture hall behind one address. Device ids are issued and signed by the server. 0 = no limit.
     LIVE_SENDER_QUESTION_VOTES = int(os.environ.get("LIVE_SENDER_QUESTION_VOTES", "300"))
+    # ... and from one IPv6 /48 this many times as many (a /48 holds 65 536 networks /64 of their own; business logic
+    # audit 2026-11-11, BIZ-02). Small on purpose, unlike SENDER_WIDE_FACTOR for joins; 0 = no limit per /48
+    LIVE_SENDER_WIDE_FACTOR = int(os.environ.get("LIVE_SENDER_WIDE_FACTOR", "4"))
     # hierarchical Bayes and latent class estimations computing at the same time on the whole server (all its
     # processes, file locks in uploads/hb/_slots; audit 2026-10-06, P7); more wait
     HB_PARALLEL = int(os.environ.get("HB_PARALLEL", "2"))
