@@ -1,8 +1,8 @@
 """The privacy texts say what the platform does (data protection audit 2026-11-11): "not passed on to third parties"
 only where nothing goes to an AI either (KI-Chat, handwriting), stopping a survey keeps what was sent, transcripts go
 to an AI only for coding suggestions, the security log's daily files and their period, ORCID and the app store among
-the services outside the EU, a provider of an own AI access possibly outside the EU, and complaints without a set
-period."""
+the services outside the EU, a provider of an own AI access possibly outside the EU, and the name and address of
+complaints for three years after they were settled."""
 from app.items import consent
 
 
@@ -37,7 +37,7 @@ def test_the_public_privacy_page_says_what_happens(app, client):
     assert f"die nach {app.config['SECURITY_LOG_DAYS']} Tagen gelöscht werden" in page
     assert "ORCID für die Anmeldung" in page and "Google Play für die Tagebuch-App (USA)" in page
     assert "Nutzen Forschende einen eigenen KI-Zugang" in page
-    assert "eine feste Frist, nach der sie von selbst gelöscht werden, gibt es bisher nicht" in page
+    assert "Name und E-Mail-Adresse löscht die Plattform drei Jahre, nachdem die Beschwerde erledigt ist" in page
     assert "Muss nach einem Ausfall eine Sicherung zurückgespielt werden" in page
     assert "steht in der Kette außerdem je gelöschter Teilnahme ein Vermerk" in page
     assert "Dasselbe Zugriffsprotokoll hält auch fest" in page
@@ -50,4 +50,4 @@ def test_the_english_privacy_page_says_the_same(app, client):
     assert "recordings and notes go to no AI provider" in page
     assert "once it has been handed over as checked" in page
     assert f"deleted after {app.config['SECURITY_LOG_DAYS']} days" in page
-    assert "so far there is no set period after which they are deleted by themselves" in page
+    assert "deletes name and email address by itself three years after the complaint was settled" in page

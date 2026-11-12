@@ -9,7 +9,7 @@ from flask_login import current_user, login_required
 from app import notify, twofactor
 from app.extensions import db
 from app.lang import de_en
-from app.models import Feedback
+from app.models import Feedback, utcnow
 
 bp = Blueprint("feedback", __name__, url_prefix="/feedback")
 
@@ -117,6 +117,7 @@ def set_status(fid):
         return again
     item = db.session.get(Feedback, fid) or abort(404)
     item.status = "done" if request.form.get("status") == "done" else "new"
+    item.done_at = utcnow() if item.status == "done" else None
     db.session.commit()
     return redirect(url_for("feedback.index", show=request.args.get("show", "new")))
 
@@ -155,6 +156,7 @@ def decide(fid):
     when = fmt(utcnow(), lang="de")
     item.message = f"{item.message}\n\n--- Entscheidung {when} ({current_user.display_name}): {de}\n{reason}"[:20000]
     item.status = "done"
+    item.done_at = utcnow()
     db.session.commit()
     what = item.survey and f"„{item.survey.title}“ ({item.survey.code})" or "–"
     text = (f"Entscheidung über die Beschwerde zur Befragung {what}: {de}.\nBegründung: {reason}\n\n"
@@ -180,3 +182,26 @@ def decide(fid):
 
 def open_count():
     return db.session.scalar(db.select(db.func.count(Feedback.id)).filter(Feedback.status == "new")) or 0
+
+
+CONTACT_YEARS = 3  # name and address of a settled complaint go after this many years (Ralf 2026-11-12)
+
+
+def forget_contacts(now=None):
+    """Hourly (lifecycle._rare_sweeps): the name and address of complaints settled CONTACT_YEARS ago are emptied; the
+    complaint itself, its decision and case number stay as the record. A complaint settled before 0122 gets its
+    settling time now, so its three years start at the first look. Returns how many were emptied."""
+    from datetime import timedelta
+
+    now = now or utcnow()
+    rows = db.session.scalars(db.select(Feedback).where(Feedback.severity == Feedback.COMPLAINT,
+                                                        Feedback.status == "done")).all()
+    emptied = 0
+    for item in rows:
+        if item.done_at is None:
+            item.done_at = now
+        elif item.contact and item.done_at <= now - timedelta(days=365 * CONTACT_YEARS + 1):
+            item.contact = ""
+            emptied += 1
+    db.session.commit()
+    return emptied

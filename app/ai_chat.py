@@ -115,7 +115,7 @@ def access_info(survey):
         return None
     from app import ai_access
 
-    return {"provider_label": ai_access.provider_label(row.provider), "model": row.model, "version": row.version}
+    return {"provider_label": ai_access.recipient_name(row.provider, row.base_url), "model": row.model, "version": row.version}
 
 
 def _survey(survey_id, need):

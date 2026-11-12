@@ -18593,5 +18593,44 @@
   "ru": "Вы можете в любой момент отозвать своё согласие на будущее. Если вы прервёте опрос, дальнейшие ответы не собираются; то, что вы уже отправили, сохраняется и может анализироваться. Если вы удалите свои ответы, пока опрос открыт на вашем устройстве, они также удаляются. Это не влияет на законность обработки, осуществлённой до отзыва.",
   "tr": "Onayınızı istediğiniz zaman ileriye dönük olarak geri alabilirsiniz. Anketi yarıda bırakırsanız başka yanıt toplanmaz; o ana kadar gönderdikleriniz kayıtlı kalır ve değerlendirilebilir. Anket cihazınızda açıkken yanıtlarınızı silerseniz, bunlar da silinir. Bu, geri almaya kadar yapılan işlemenin hukuka uygunluğunu etkilemez.",
   "zh-Hans": "您可以随时撤回同意，撤回对将来生效。如果您中止调查，将不再收集新的回答；您此前已发送的内容会继续保存并可能被分析。如果您在本设备上的调查仍处于打开状态时删除回答，这些回答也会被删除。撤回不影响撤回前处理的合法性。"
+ },
+ "Delete my answers": {
+  "de-du": "Meine Angaben löschen",
+  "ar": "حذف بياناتي",
+  "es": "Eliminar mis datos",
+  "fr": "Supprimer mes réponses",
+  "it": "Cancella i miei dati",
+  "nl": "Mijn gegevens verwijderen",
+  "pl": "Usuń moje dane",
+  "pt": "Eliminar os meus dados",
+  "ru": "Удалить мои данные",
+  "tr": "Verilerimi sil",
+  "zh-Hans": "删除我的数据"
+ },
+ "Your deletion code: {code}. Write it down: with it you delete your answers later too, for instance after closing this window.": {
+  "de-du": "Dein Löschcode: {code}. Notiere ihn: Damit löschst du deine Antworten auch später, etwa nachdem du dieses Fenster geschlossen hast.",
+  "ar": "رمز الحذف الخاص بك: {code}. دوّنه: به تحذف إجاباتك لاحقًا أيضًا، مثلًا بعد إغلاق هذه النافذة.",
+  "es": "Su código de eliminación: {code}. Anótelo: con él podrá eliminar sus respuestas también más tarde, por ejemplo después de cerrar esta ventana.",
+  "fr": "Votre code de suppression : {code}. Notez-le : il vous permet de supprimer vos réponses plus tard aussi, par exemple après avoir fermé cette fenêtre.",
+  "it": "Il Suo codice di cancellazione: {code}. Lo annoti: con esso potrà cancellare le Sue risposte anche più tardi, ad esempio dopo aver chiuso questa finestra.",
+  "nl": "Uw verwijdercode: {code}. Noteer deze: daarmee verwijdert u uw antwoorden ook later, bijvoorbeeld nadat u dit venster hebt gesloten.",
+  "pl": "Państwa kod usunięcia: {code}. Proszę go zanotować: dzięki niemu mogą Państwo usunąć swoje odpowiedzi także później, na przykład po zamknięciu tego okna.",
+  "pt": "O seu código de eliminação: {code}. Anote-o: com ele elimina as suas respostas também mais tarde, por exemplo depois de fechar esta janela.",
+  "ru": "Ваш код удаления: {code}. Запишите его: с его помощью вы сможете удалить свои ответы и позже, например после закрытия этого окна.",
+  "tr": "Silme kodunuz: {code}. Not edin: Bununla yanıtlarınızı daha sonra da, örneğin bu pencereyi kapattıktan sonra silebilirsiniz.",
+  "zh-Hans": "您的删除码：{code}。请记下它：凭此删除码，您以后也可以删除您的回答，例如在关闭此窗口之后。"
+ },
+ "During the survey, the link “Delete my answers” at the bottom of every page already shows your deletion code.": {
+  "de-du": "Schon während der Befragung zeigt der Link „Meine Angaben löschen“ unten auf jeder Seite deinen Löschcode.",
+  "ar": "أثناء الاستطلاع، يعرض الرابط «حذف بياناتي» أسفل كل صفحة رمز الحذف الخاص بك.",
+  "es": "Ya durante la encuesta, el enlace «Eliminar mis datos» al pie de cada página muestra su código de eliminación.",
+  "fr": "Pendant l’enquête déjà, le lien « Supprimer mes réponses » en bas de chaque page affiche votre code de suppression.",
+  "it": "Già durante il sondaggio, il link «Cancella i miei dati» in fondo a ogni pagina mostra il Suo codice di cancellazione.",
+  "nl": "Al tijdens de vragenlijst toont de link ‘Mijn gegevens verwijderen’ onderaan elke pagina uw verwijdercode.",
+  "pl": "Już w trakcie badania link „Usuń moje dane” na dole każdej strony pokazuje Państwa kod usunięcia.",
+  "pt": "Já durante o inquérito, a ligação «Eliminar os meus dados» no fundo de cada página mostra o seu código de eliminação.",
+  "ru": "Уже во время опроса ссылка «Удалить мои данные» внизу каждой страницы показывает ваш код удаления.",
+  "tr": "Anket sırasında da her sayfanın altındaki “Verilerimi sil” bağlantısı silme kodunuzu gösterir.",
+  "zh-Hans": "在调查过程中，每页底部的“删除我的数据”链接即可显示您的删除码。"
  }
 }

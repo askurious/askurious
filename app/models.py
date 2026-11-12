@@ -2830,6 +2830,8 @@ class Feedback(db.Model):
     survey_id: Mapped[int | None] = mapped_column(ForeignKey("survey.id", ondelete="SET NULL"), index=True)
     contact: Mapped[str] = mapped_column(String(200), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # when it was set to "done": three years later a complaint's name and address go (feedback.forget_contacts, 0122)
+    done_at: Mapped[datetime | None]
 
     user: Mapped[User | None] = relationship()
     survey: Mapped[Survey | None] = relationship()

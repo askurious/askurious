@@ -240,6 +240,10 @@ AI_CODING = ("Antworten auf offene Fragen (Freitexte) können für die Auswertun
              "the texts go to that provider instead, under its terms.")
 
 
+# the deletion code before the end: the link at the foot of the participant pages (participate.page, erase_link)
+EARLY_CODE = ("Schon während der Befragung zeigt der Link „Meine Angaben löschen“ unten auf jeder Seite Ihren Löschcode.",
+              "During the survey, the link “Delete my answers” at the bottom of every page already shows your deletion "
+              "code.")
 # after the sentence that names an own AI access: the provider is the researchers' choice and may sit outside the EU
 THIRD_COUNTRY = ("Sitzt dieser Anbieter außerhalb der EU, etwa in den USA, werden die Texte dorthin übermittelt.",
                  "If this provider is based outside the EU, for instance in the USA, the texts are transferred there.")
@@ -869,6 +873,8 @@ class Consent(ItemType):
                "yourself later: at the end of the survey you are given a deletion code for this, shown to you only; you "
                "use it on the privacy page of this survey. Without this code your answers can no longer be linked to "
                "you. What has been analysed or published by then cannot be taken back.") if f.get("deletion_code") else "",
+            # the link at the foot of every page from the first stored page on (Ralf 2026-11-12)
+            tr(lang, *EARLY_CODE) if f.get("deletion_code") else "",
             _retention(survey, lang, f["stored_panel_ids"]) if f.get("retention") else "",
             # the code links the waves, so it stays until the answers go (audit 2026-10-10, L-14)
             tr(lang, "Ihr persönlicher Code verbindet Ihre Antworten aus mehreren Befragungen und wird zusammen mit Ihren "
@@ -1180,7 +1186,7 @@ def _ai_chat_fact(survey):
     from app import ai_access, ai_chat
 
     row = ai_chat.access(survey)
-    where = f"{ai_access.provider_label(row.provider)}, model {row.model}" if row else "the study's own model access"
+    where = f"{ai_access.recipient_name(row.provider, row.base_url)}, model {row.model}" if row else "the study's own model access"
     return ("participants chat with an AI assistant; every message and every answer is stored in full as study data; "
             f"the messages, with e-mail addresses, web addresses and phone numbers masked, are sent to {where}")
 
@@ -1190,7 +1196,7 @@ def _ai_chat_sentence(survey, lang):
     from app import ai_access, ai_chat
 
     row = ai_chat.access(survey)
-    service = (f"{ai_access.provider_label(row.provider)} ({row.model})" if row else
+    service = (f"{ai_access.recipient_name(row.provider, row.base_url)} ({row.model})" if row else
                tr(lang, "den KI-Dienst der Studie", "the AI service of the study"))
     return tr(lang, "In dieser Befragung können Sie mit einem KI-Assistenten schreiben. Ihre Nachrichten und seine "
               "Antworten werden vollständig gespeichert und ausgewertet. Zum Antworten gehen Ihre Nachrichten an "
