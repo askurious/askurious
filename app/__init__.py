@@ -1215,6 +1215,13 @@ def create_app(config_class=Config, server=False):
             # the data steps below are the researchers' container's (restart.sh starts it first): the participants'
             # side may run under a role that reads and writes only its own tables (app/participant_grants.py,
             # audit 2026-10-18, CFG-04), and accounts, organisations or the sign-in list are none of them
+            if app.config.get("PARTICIPANT_ROLE_CHECK") and db.engine.dialect.name == "postgresql":
+                from app.participant_grants import role_problem
+
+                with db.engine.connect() as connection:
+                    problem = role_problem(connection)
+                if problem:
+                    raise RuntimeError(f"SIDE=participant with PARTICIPANT_ROLE_CHECK: {problem}")
             return app
         if os.environ.get("ALLOWED_ORCIDS", "").strip():
             # a line left in the .env from before 2026-10-06: nothing reads it any more (app/signin.py)
