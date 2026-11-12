@@ -1967,6 +1967,18 @@ class Erasure(db.Model):
     contacts: Mapped[int] = mapped_column(default=0)
 
 
+class BoardEraseFloor(db.Model):
+    """After a participation was deleted, the dashboard links (/d/...) show a new state only once the data pool holds
+    this many participations (erasure._remove: the count then plus MIN_CELL), so the before and after of the
+    deleted person's answers is never published (TN-30). A table of its own, not survey.data_pool: the participants'
+    side deletes too (deletion code, diary app) and may not write the survey's settings (access audit 2026-11-11,
+    B2 stage 2). Only ever raised; a number, nothing of whom it was. No foreign key, like sem_version: the row goes in
+    code with the survey (lifecycle.delete)."""
+
+    survey_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    public_after: Mapped[int] = mapped_column(default=0, server_default="0")
+
+
 class SealEntry(db.Model):
     """One entry of a survey's seal chain (app/seal.py): a case sealed when it ended, amended, deleted, or all cases
     deleted at once. Rows are only ever added; none is changed except that the salt and the participation's id go
@@ -3477,6 +3489,10 @@ def _revision_triggers(metadata, connection, **kwargs):
     created = {table.name for table in kwargs.get("tables", ())}
     if {"survey", "response", "response_revision"} <= created:
         install(connection)
+    if "response" in created:
+        from app import participant_erase
+
+        participant_erase.install(connection)  # the deletion with a proof (migration 0123)
 
 
 class WhisperCancel(db.Model):

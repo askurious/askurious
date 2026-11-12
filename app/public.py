@@ -223,6 +223,9 @@ def erase():
                 error = tr(lang, "Zu diesem Code gibt es keine Teilnahme. Bitte prüfen Sie die Eingabe.",
                            "There is no participation for this code. Please check what you entered.")
             else:
+                from app import participant_erase
+
+                participant_erase.prove("code", erasure.normalise(request.form.get("code")))  # checked by the database
                 erasure.erase(survey, [target], "self")
                 done = True
     choices = [(code, "Deutsch" if code == "de" else LANGUAGE_NAMES.get(code, code)) for code in codes]
