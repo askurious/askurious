@@ -106,15 +106,25 @@ def allow_sender(survey, st, what):
     network = limits._network()
     if not limit or network is None:
         return True
-    key = limits._shared_key("live_sender", survey.id, st["run"]["id"], what, network)
-    if db.session.get_bind().dialect.name == "postgresql":  # one count at a time per key, until the vote is stored
-        lock = int.from_bytes(hashlib.sha256(f"rate_hit:live_sender:{key}".encode()).digest()[:8], "big", signed=True)
-        db.session.execute(db.text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock})
+    # the network, and for IPv6 its /48 as well with LIVE_SENDER_WIDE_FACTOR times the limit: one /48 is 65 536
+    # networks /64, and each had the whole limit (business logic audit 2026-11-11, BIZ-02)
+    counts = [("live_sender", network, limit)]
+    wide, factor = limits._network_wide(), int(current_app.config.get("LIVE_SENDER_WIDE_FACTOR", 4) or 0)
+    if wide is not None and factor > 0:
+        counts.append(("live_sender48", wide, limit * factor))
     now = time.time()
-    hits = db.session.scalar(db.select(db.func.count(RateHit.id)).where(
-        RateHit.kind == "live_sender", RateHit.key == key, RateHit.at > now - SENDER_WINDOW))
-    if hits >= limit:
-        limits._note_refused("live_sender")
-        return False
-    db.session.add(RateHit(kind="live_sender", key=key, at=now))
+    keys = []
+    for kind, net, most in counts:
+        key = limits._shared_key(kind, survey.id, st["run"]["id"], what, net)
+        if db.session.get_bind().dialect.name == "postgresql":  # one count at a time per key, until the vote is stored
+            lock = int.from_bytes(hashlib.sha256(f"rate_hit:{kind}:{key}".encode()).digest()[:8], "big", signed=True)
+            db.session.execute(db.text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock})
+        hits = db.session.scalar(db.select(db.func.count(RateHit.id)).where(
+            RateHit.kind == kind, RateHit.key == key, RateHit.at > now - SENDER_WINDOW))
+        if hits >= most:
+            limits._note_refused(kind)
+            return False
+        keys.append((kind, key))
+    for kind, key in keys:
+        db.session.add(RateHit(kind=kind, key=key, at=now))
     return True
