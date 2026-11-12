@@ -69,6 +69,12 @@ def version():
 # entries since then above the text, each with links to its sections (#abschnitt-N, the headings of licence.md and
 # terms_en.html). A new "Version:" line in licence.md needs its entry here (tests/ui/test_ux_audit9_e.py).
 CHANGES = (
+    ("2026-11-12", "Dienste Dritter (Abschnitt 6): Die KI-Hilfe beim Kategorisieren, das KI-Lesen der Handschrift und "
+                   "KI-Vorschläge beim Kodieren laufen nur über Ihren eigenen KI-Zugang, nicht über OpenAI als "
+                   "Auftragsverarbeiter der Plattform; das galt schon seit dem 21.10.2026, der Text sagt es jetzt.",
+     "Third-party services (section 6): the AI help for categorising, the AI reading of handwriting and AI "
+     "suggestions while coding run only over your own AI access, not over OpenAI as the platform's processor; this "
+     "has applied since 21 October 2026, the text now says so.", (6,)),
     ("2026-10-29", "Konstrukte (Abschnitt 7): auch für KUK ist keine allgemeine Freigabe dokumentiert; Katalogwortlaut "
                    "und neues Einfügen brauchen wie bei TAM und KUT eine hinterlegte Berechtigung.",
      "Constructs (section 7): no general permission is documented for KUK either; like TAM and KUT, catalogue wording "
