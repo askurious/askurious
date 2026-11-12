@@ -27,13 +27,13 @@ RW = ("SELECT", "INSERT", "UPDATE", "DELETE")
 GRANTS = {
     "alembic_version": (R, "the start compares the schema's version with the code (DATABASE_SCHEMA_MODE=check)"),
     # column rights (measured 2026-11-12 with PARTICIPANT_SQL_RECORD): closing when the sample is full (status,
-    # closed_at, close_reason, status_log), the count of declines, the k-anonymity count after deletions with a code
-    # (data_pool), the counters of balanced random assignment (flow, runtime.ensure_layout) and updated_at, which
-    # also takes the row's lock (SELECT ... FOR UPDATE needs UPDATE on one column). Never the owner, organisation,
-    # texts, seal, periods or publishing settings; flow and data_pool stay until their counters move out
-    "survey": (("SELECT", "UPDATE (status, closed_at, close_reason, status_log, declined_count, data_pool, flow, "
-                "updated_at)"), "every participant page reads its survey; a full sample closes it, declines and "
-               "deletions move its counters, random assignment its counters in the flow"),
+    # closed_at, close_reason, status_log), the count of declines and updated_at, which also takes the row's lock
+    # (SELECT ... FOR UPDATE needs UPDATE on one column). Never the owner, organisation, texts, seal, periods or
+    # publishing settings, nor the flow or the data pool: the mark after deletions lies in board_erase_floor, and
+    # a layout no longer writes the normalized flow back (flow.normalize_for_reading; access audit 2026-11-11, B2
+    # stage 2)
+    "survey": (("SELECT", "UPDATE (status, closed_at, close_reason, status_log, declined_count, updated_at)"),
+               "every participant page reads its survey; a full sample closes it, declines move their count"),
     "block": (R, "the questionnaire's blocks for the flow, pages and dashboards"),
     "item": (R, "the questions and elements shown and checked"),
     "survey_label": (R, "own link names (/s/name) resolve to their survey"),
@@ -59,8 +59,9 @@ GRANTS = {
                        "participants of a study"),
     "construct_tag": (R, "with the construct: its keywords, loaded with it"),
     "tag": (R, "with the construct: the keywords themselves"),
-    "response": (RW, "the participation itself: started, answered page by page, ended, deleted with its deletion "
-                 "code or by the diary app"),
+    # no DELETE: a participation goes only through participant_erase_response, which checks the proof (FUNCTIONS,
+    # app/participant_erase.py)
+    "response": (("SELECT", "INSERT", "UPDATE"), "the participation itself: started, answered page by page, ended"),
     "response_revision": (("SELECT", "INSERT", "UPDATE"), "the cache trigger on response counts every change here "
                           "(app/data_revision.py, runs with the caller's rights)"),
     "split_session": (RW, "the separated part of a participation (contact details apart from the answers)"),
@@ -214,6 +215,9 @@ FORBIDDEN = (
     ("table", "user_login", None, "UPDATE"),
     ("table", "survey_member", None, "INSERT"),
     ("table", "survey", None, "UPDATE"),   # only the columns of GRANTS["survey"], never the whole row
+    ("column", "survey", "flow", "UPDATE"),
+    ("column", "survey", "data_pool", "UPDATE"),
+    ("table", "response", None, "DELETE"),  # participations go through participant_erase_response only
     ("table", "access_log", None, "SELECT"),
 )
 
@@ -224,6 +228,12 @@ def role_problem(connection):
     from sqlalchemy import text
 
     found = []
+    for function in sorted(FUNCTIONS):  # what it must be able to do: without it no participation could be deleted
+        ok = connection.execute(text("SELECT to_regprocedure(:f) IS NOT NULL AND "
+                                     "has_function_privilege(current_user, to_regprocedure(:f), 'EXECUTE')"),
+                                {"f": f"public.{function}"}).scalar()
+        if not ok:
+            found.append(f"has no EXECUTE on {function.split('(')[0]}")
     for kind, table, column, privilege in FORBIDDEN:
         if kind == "column":
             ok = connection.execute(text("SELECT has_column_privilege(current_user, :t, :c, :p)"),
@@ -232,8 +242,8 @@ def role_problem(connection):
             ok = connection.execute(text("SELECT has_table_privilege(current_user, :t, :p)"),
                                     {"t": f"public.{table}", "p": privilege}).scalar()
         if ok:
-            found.append(f"{privilege} on {table}" + (f".{column}" if column else ""))
+            found.append(f"has {privilege} on {table}" + (f".{column}" if column else ""))
     if not found:
         return None
     user = connection.execute(text("SELECT current_user")).scalar()
-    return f"the database role {user!r} has {', '.join(found)}: not the participants' restricted role"
+    return f"the database role {user!r} {', '.join(found)}: not the participants' restricted role"

@@ -184,4 +184,8 @@ def test_the_role_may_neither_delete_itself_nor_hand_the_function_on(two_sides):
         public = db.session.scalar(text("SELECT has_function_privilege('public', :f, 'EXECUTE')"),
                                    {"f": f"public.{participant_erase.SIGNATURE}"})
         assert public is False
+        from app.participant_grants import role_problem
+
+        with db.engine.connect() as connection:
+            assert role_problem(connection) is None, "the start check passes the restricted role"
     assert _left(owner, [rows["other"]]) == {rows["other"]}
