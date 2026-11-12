@@ -281,11 +281,12 @@ bash "$HERE/deploy/docker/restart.sh" --check-migrations "$current"
 ARCHIVE="$(mktemp)"
 trap 'rm -f "$ARCHIVE"' EXIT
 # tools/check_vulnerabilities.py with its list of JavaScript libraries: the weekly check of maintenance.sh (DP-10);
+# tools/image_digests.py: maintenance.sh asks the registry whether a pinned base image moved (CFG-05; it never went up);
 # tests/privacy/storage_guard_probe.py: restart.sh runs it in the new image (the real flock, code review 2026-10-15, L4)
 # modules/ (its README; the wheels of MODULES_SRC come below) where the checkout has it
 MODULES_DIR=(); ! git -C "$HERE" ls-files --error-unmatch modules/README.md >/dev/null 2>&1 || MODULES_DIR=(modules)
 git -C "$HERE" archive --format=tar HEAD .dockerignore config.py passenger_wsgi.py licence.md log.md LICENSE LICENSE.de.txt NOTICE \
-    requirements.lock requirements-postgres.txt app migrations deploy/docker tools/check_vulnerabilities.py tools/vendor_versions.txt tools/build_static.py tools/fetch_pdf_fonts.py tools/storage_backup_lock.py \
+    requirements.lock requirements-postgres.txt app migrations deploy/docker tools/check_vulnerabilities.py tools/vendor_versions.txt tools/build_static.py tools/fetch_pdf_fonts.py tools/storage_backup_lock.py tools/image_digests.py \
     tests/privacy/storage_guard_probe.py instance_overlay "${MODULES_DIR[@]}" > "$ARCHIVE"
 if [[ -n "${INSTANCE_OVERLAY_SRC:-}" ]]; then
   [ -d "$INSTANCE_OVERLAY_SRC/templates" ] || { echo "INSTANCE_OVERLAY_SRC ($INSTANCE_OVERLAY_SRC) has no folder templates/." >&2; exit 1; }

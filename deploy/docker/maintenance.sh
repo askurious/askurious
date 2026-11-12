@@ -54,6 +54,8 @@ if [ -f ../../tools/image_digests.py ]; then
   else
     echo "$out" | tail -n 1
   fi
+else  # the check of the base images cannot run: say so instead of skipping it without a word (audit 2026-11-11)
+  ./alarm.sh "Maintenance: tools/image_digests.py is missing in the code folder, the pinned base images were not checked" || true
 fi
 # known vulnerabilities in the locked Python packages and the shipped JavaScript libraries, also between deploys
 # (DP-10): the check of deploy-docker.sh, in the app's image (it has Python), the code folder read-only. A finding

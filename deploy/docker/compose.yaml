@@ -287,6 +287,9 @@ x-app: &app
   build:
     context: ../..
     dockerfile: deploy/docker/Dockerfile
+    # the commit of the code folder (compose-env.sh, from app/deployed_at.txt) as the image's revision label
+    args:
+      REVISION: ${ASKURIOUS_REVISION:-}
   image: askurious:latest
   restart: unless-stopped
   logging: *logging
