@@ -896,7 +896,7 @@ def _activities():
                              "Admins; Slack (no excerpt of complaints; of feedback only in the detailed form) when switched on; for complaints by email the confirmation of "
                              "receipt and the decision to the reporting person, a decision on a measure to the admins of "
                              "the survey (Art. 16, 17 DSA)."),
-         "deletion": de_en("Keine automatische Frist (siehe offene Punkte).", "No automatic period (see open points)."),
+         "deletion": de_en("Name und E-Mail-Adresse von Beschwerden drei Jahre nach der Erledigung (feedback.forget_contacts, stündlich); Beschwerde, Entscheidung und Fallnummer bleiben als Nachweis.", "Name and email address of complaints three years after they were settled (feedback.forget_contacts, hourly); complaint, decision and case number stay as the record."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b, c oder e DSGVO, vom Verantwortlichen festzulegen",
                         "Art. 6 (1) (b), (c) or (e) GDPR, to be set by the controller")},

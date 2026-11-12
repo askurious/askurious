@@ -77,6 +77,16 @@ def provider_label(key):
             "custom": de_en("Eigene Adresse", "Own address")}.get(key, key or "")
 
 
+def recipient_name(provider, base_url):
+    """Who receives what goes over an access, as participants are told: the provider's name, for an own address its
+    host name (a consent that says only "Eigene Adresse" names no recipient)."""
+    if provider == "custom":
+        from urllib.parse import urlparse
+
+        return urlparse(base_url or "").hostname or provider_label(provider)
+    return provider_label(provider)
+
+
 def providers():
     return [(key, provider_label(key)) for key in PROVIDERS]
 

@@ -775,6 +775,10 @@ def _rare_sweeps(now):
 
     # persons of diary studies who never finished the entry part, or have no entry left (commits)
     _step("diary.sweep", diary.sweep, now)
+    from app import feedback
+
+    # name and address of complaints settled three years ago (Ralf 2026-11-12; commits)
+    _step("feedback.forget_contacts", feedback.forget_contacts, now)
     from app import ai_chat
 
     # messages of the KI-Chat whose participation or survey is gone (deleted past the session events; commits)
