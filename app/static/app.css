@@ -5489,6 +5489,12 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 .handbook-toc { margin: 2px 0 8px 10px; border-left: 2px solid var(--border); font-size: 0.85rem; }
 .handbook-toc a { color: var(--muted); padding: 2px 8px; }
 .handbook-body { min-width: 0; line-height: 1.6; }
+.handbook-main { min-width: 0; }
+.handbook-search { margin: 0 0 12px; }
+.handbook-search input[type="search"] { flex: 1 1 auto; min-width: 0; }
+.handbook-results li { margin: 0 0 1rem; }
+.handbook-results p { margin: 0.2rem 0 0; color: var(--muted); }
+.handbook-results mark { background: var(--accent-soft); color: inherit; padding: 0 1px; border-radius: 2px; }
 .handbook-body h1 { margin-top: 0; }
 .handbook-body h2 { margin-top: 2.2rem; padding-top: 0.6rem; border-top: 1px solid var(--border); scroll-margin-top: 80px; }
 .handbook-body h3 { margin-top: 1.6rem; scroll-margin-top: 80px; }

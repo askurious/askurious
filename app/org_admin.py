@@ -175,7 +175,12 @@ def people(org_id):
         invitation = None
     from app import signup_links
 
+    from app import org_seats
+
+    seat_info = {"seats": org_seats.seats(org), "open": org_seats.open_request(org),
+                 "decided": org_seats.last_decided(org), "limit": org_seats.REASON_LIMIT}
     return render_template("org/people.html", org=org, rows=rows, invites=invites, invite_rows=invite_rows,
+                           seat_info=seat_info,
                            types=orgs.allowed_types(org),
                            invitation=invitation, new_link=signup_links.take_shown(),
                            link_days=signup_links.ONE_PERSON_DAYS, default_days=signup_links.DEFAULT_DAYS,
@@ -309,6 +314,25 @@ def withdraw_invitation(org_id):
     db.session.commit()
     _log("organisation_invitation_withdrawn", target=f"org {org.id}")
     flash(de_en("Einladung für {n} zurückgezogen.", "Invitation for {n} withdrawn.", n=name), "success")
+    return back
+
+
+@bp.route("/<int:org_id>/people/seats", methods=["POST"])
+def ask_seats(org_id):
+    """Ask the site admins for more places (app/org_seats.py): a short reason; they hear of it in Slack."""
+    from app import notify, org_seats
+
+    org = g.org
+    back = redirect(url_for("org.people", org_id=org.id, _anchor="plaetze"))
+    row, problem = org_seats.ask(org, current_user, request.form.get("reason"))
+    if problem:
+        flash(problem, "error")
+        return back
+    db.session.commit()
+    _log("organisation_seats_requested", target=f"org {org.id}")
+    notify.report_seat_request(org, row, current_user)
+    flash(de_en("Antrag auf mehr Plätze gesendet. Die Admins der Plattform entscheiden darüber.",
+                "Request for more places sent. The platform admins decide on it."), "success")
     return back
 
 

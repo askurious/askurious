@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{# Results of the handbook's full-text search (app/handbook.py, search_page): the sections that hold every word, with
+   a piece of their text. Needs: name, title, pages, query, results. #}
+{% block title %}{{ de_en("Suche", "Search") }} · {{ de_en("Handbuch", "Handbook") }}{% endblock %}
+{% block container_class %}container handbook-page{% endblock %}
+{% block content %}
+<div class="handbook">
+  <nav class="handbook-nav" aria-label="{{ de_en('Handbuch', 'Handbook') }}">
+    <p class="handbook-nav-title">{{ icon("book", 18) }} {{ de_en("Handbuch", "Handbook") }}</p>
+    <ul class="plain">
+      {% for key, label in pages %}
+      <li><a href="{{ url_for('handbook.index') if key == 'index' else url_for('handbook.page', name=key) }}">{{ label }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  <div class="handbook-main">
+    {% include "handbook/_search.html" %}
+    <article class="handbook-body panel">
+      <h1>{{ de_en("Suche im Handbuch", "Search in the handbook") }}</h1>
+      {% if not query %}<p class="muted">{{ de_en("Geben Sie oben ein oder mehrere Wörter ein.", "Enter one or more words above.") }}</p>
+      {% elif not results %}<p class="muted">{{ de_en("Keine Abschnitte mit „{q}“.", "No sections with “{q}”.", q=query) }}</p>
+      {% else %}<p class="muted small">{{ de_en("{n} Abschnitte mit allen Wörtern aus „{q}“.", "{n} sections with all words of “{q}”.", n=results|length, q=query) }}</p>
+      <ol class="plain handbook-results">
+        {% for r in results %}{% set href = url_for('handbook.index') if r.page == 'index' else url_for('handbook.page', name=r.page) %}
+        <li><a href="{{ href }}{% if r.anchor %}#{{ r.anchor }}{% endif %}">{{ r.heading or r.title }}</a>
+          <span class="hint">{{ r.title }}</span>
+          <p class="small">{{ r.snippet }}</p></li>
+        {% endfor %}
+      </ol>{% endif %}
+    </article>
+  </div>
+</div>
+{% endblock %}

@@ -464,7 +464,7 @@ def _activities():
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
                        "freigegebene Befragungstypen, Nutzertyp mit Beginn und "
                        "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung oder Gründungslink, "
-                       "Nummer des Kürzels in Organisationen mit verborgenen Namen, "
+                       "Nummer des Kürzels in Organisationen mit verborgenen Namen, Anträge von Admins einer Organisation auf mehr Plätze (Begründung, Entscheidung), "
                        "angeheftete und ausgeblendete Befragungen, "
                        "Bearbeitungsspuren.",
                        "ORCID iD, name, email address, password as a scrypt hash, secret of the two-factor "
@@ -472,7 +472,7 @@ def _activities():
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "
                        "and course, invitation link of the registration or founding link, number of the label in organisations with hidden "
-                       "names, pinned and hidden surveys, editing traces."),
+                       "names, requests of organisation admins for more places (reason, decision), pinned and hidden surveys, editing traces."),
          "recipients": de_en("Admins; ORCID (Anmeldung); Mail-Relay und Slack, wenn eingeschaltet.",
                              "Admins; ORCID (sign-in); mail relay and Slack when switched on."),
          "deletion": de_en("Bis das Konto gelöscht wird (selbst oder durch Admins); danach bleiben nur Nummer, interne "
@@ -488,7 +488,8 @@ def _activities():
                            "Vormerkung, vormerkende Person und Auswahl gespeichert, Übergaben ohne mögliche Person halten "
                            "die Löschung als „Löschung fällig“ an. Einladungsadressen einer Liste: bis zur "
                            "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Einladungslinks der Plattform (nur Prüfwert, "
-                           "Notiz, Zähler) und Gründungslinks: bis 30 Tage nach Ablauf oder Nutzung.",
+                           "Notiz, Zähler) und Gründungslinks: bis 30 Tage nach Ablauf oder Nutzung. Anträge auf mehr Plätze: bis die "
+                           "Organisation gelöscht wird.",
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
                            "date remain; memberships, home and admin role in organisations go with the account. Email "
                            "address and password hash also when the person removes this sign-in on the page “Account › Profile and sign-in” "
@@ -502,7 +503,7 @@ def _activities():
                            "are stored, and a handover without a person able to receive it holds the deletion as "
                            "“deletion due”. Invitation addresses of a list: until accepted, withdrawn or "
                            "expired, at most 30 days. Invitation links of the platform (hash, note, counter only) and founding links: until 30 days after "
-                           "they expire or are used."),
+                           "they expire or are used. Requests for more places: until the organisation is deleted."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b DSGVO (Nutzungsbedingungen); bei öffentlichen Stellen ggf. lit. e",
                         "Art. 6 (1) (b) GDPR (terms of use); for public bodies possibly (e)")},

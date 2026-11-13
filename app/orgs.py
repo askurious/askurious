@@ -1122,6 +1122,9 @@ def delete(org):
     from app.models import OrgAlias
 
     db.session.execute(db.delete(OrgAlias).where(OrgAlias.org_id == org.id))  # the numbers of hidden names
+    from app import org_seats
+
+    org_seats.delete_of(org)  # its requests for more places
     db.session.delete(org)
     forget()
     return None

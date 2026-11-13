@@ -16,6 +16,8 @@
       {% endfor %}
     </ul>
   </nav>
+  <div class="handbook-main">
+    {% include "handbook/_search.html" %}
   <article class="handbook-body panel">
     <h1>{{ title }}</h1>
     <p>{{ de_en("Die Beschreibung der Seiten und Dialoge steht jetzt auf mehreren Seiten:", "The description of the pages and dialogs is now on several pages:") }}</p>
@@ -26,5 +28,6 @@
     </ul>
     {% endfor %}
   </article>
+  </div>
 </div>
 {% endblock %}

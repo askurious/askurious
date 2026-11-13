@@ -4,7 +4,7 @@
    sort and 10/20/50 rows (app/tables.py). Names, admins, the template of the organisation design, limits and deleting
    are on the page of the organisation (admin/org.html). A new one comes from "Neue Organisation" (Ralf 2026-10-18) or
    from a group in the tab "Gruppen" (A23).
-   Context: rows [{org, counts, admins}], t (Listing), main_key, guest, guest_counts #}
+   Context: rows [{org, counts, admins}], t (Listing), main_key, guest, guest_counts, seat_requests [(request, org)] #}
 {% from "_macros.html" import autosave_bar, csrf, list_table %}
 {% from "_listing.html" import sort_th, search, pager, keep %}
 {% from "_icons.html" import icon %}
@@ -13,6 +13,13 @@
 {% block content %}
 {% set active = "orgs" %}{% include "admin/_tabs.html" %}
 <p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+{% if seat_requests %}{# open requests for more places (app/org_seats.py), decided on the organisation's page #}
+<section class="panel" id="plaetze-antraege">
+  <h2>{{ de_en("Anträge auf mehr Plätze", "Requests for more places") }} <span class="hint">{{ seat_requests|length }}</span></h2>
+  <ul>{% for r, org in seat_requests %}
+    <li><a href="{{ url_for('admin.organisation_page', org_id=org.id, _anchor='plaetze') }}">{{ org.name }}</a>: {{ de_en("{n} Plätze, Antrag vom {d}", "{n} places, request of {d}", n=r.seats_before, d=r.created_at|localdate) }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
 <section class="panel" id="organisationen">
   <h2>{{ de_en("Organisationen", "Organisations") }} <span class="hint">{{ de_en("Lehrstühle, Institute, Abteilungen, Firmen", "chairs, institutes, departments, companies") }}</span></h2>
   {# first sentence in view, the rest under "Mehr dazu" (UI/UX audit 2026-10-16, 56) #}
