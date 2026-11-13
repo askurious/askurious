@@ -1,7 +1,7 @@
 """Conditions as researchers set and read them: without answer codes.
 
-A condition is stored as {"item": question id | "p:<URL parameter>" | "q:<quota id>" | "qc:<quota id>", "op",
-"value"} and evaluated by flow.holds. This module is the other side: what a condition can be put on
+A condition is stored as {"item": question id | "p:<URL parameter>" | "q:<quota id>" | "qc:<quota id>" |
+"x:<external section>:<return value>", "op", "value"} and evaluated by flow.holds. This module is the other side: what a condition can be put on
 (`describe`), the fields of a form for it (`from_form`, `view`: answers to tick, numbers and dates as from … to,
 no code to type) and its wording (`text`: "gender: männlich", "age: 18 bis 29"). Used by the conditions of the
 flow (element "Bedingung") and by the Teilquoten of a quota.
@@ -46,6 +46,8 @@ MODES = {
     "param": [("is", "ist"), ("not", "ist nicht"), ("answered", "vorhanden"), ("empty", "nicht vorhanden")],
     "paramtext": [("eq", "ist gleich"), ("ne", "ist nicht gleich"), ("contains", "enthält"), ("answered", "vorhanden"),
                   ("empty", "nicht vorhanden")],
+    "paramnumber": [("range", "von … bis"), ("lt", "kleiner als"), ("gt", "größer als"), ("answered", "vorhanden"),
+                    ("empty", "nicht vorhanden")],
     "quota": [("is", "ist"), ("not", "ist nicht")],
     "geo": [("is", "ist"), ("not", "ist nicht"), ("answered", "ermittelt"), ("empty", "nicht ermittelt")],
     "other": [("answered", "beantwortet"), ("empty", "nicht beantwortet")],
@@ -60,6 +62,8 @@ MODES_EN = {
     "param": [("is", "is"), ("not", "is not"), ("answered", "present"), ("empty", "not present")],
     "paramtext": [("eq", "equals"), ("ne", "does not equal"), ("contains", "contains"), ("answered", "present"),
                   ("empty", "not present")],
+    "paramnumber": [("range", "from … to"), ("lt", "less than"), ("gt", "greater than"), ("answered", "present"),
+                    ("empty", "not present")],
     "quota": [("is", "is"), ("not", "is not")],
     "geo": [("is", "is"), ("not", "is not"), ("answered", "determined"), ("empty", "not determined")],
     "other": [("answered", "answered"), ("empty", "not answered")],
@@ -86,8 +90,8 @@ def describe(survey, lang=None, everything=False):
 
     Without `everything` only what gives something to tick or a range: choices, numbers, dates and the URL
     parameters (the conditions of a Teilquote). With it also questions with free answers, every other question
-    (answered or not), the Rechenwerte (numbers) and what the quota calculations decided (the conditions of the
-    flow and of statements)."""
+    (answered or not), the Rechenwerte (numbers), what the quota calculations decided and what external sections
+    handed back (the conditions of the flow; those of statements take a part of it, rows.offered)."""
     from app import flow, panel
     from app.items.base import plain
 
@@ -168,8 +172,9 @@ def describe(survey, lang=None, everything=False):
                                 "name": de_en("IP-Bundesland", "IP federal state"),
                                 "kind": "choice", "modes": "geo", "options": state_options(lang), "multi": False}
     if everything:
-        from app import quality
+        from app import external, quality
 
+        out.update(external.described(survey))  # what the external sections handed back
         if quality.survey_checks(survey):  # the attention checks failed up to this point of the flow
             out[quality.ATTENTION_REF] = {"label": de_en("Aufmerksamkeitsprüfungen · bis hierhin", "Attention checks · up to here"),
                                           "name": de_en("Aufmerksamkeitsprüfungen", "Attention checks"),
@@ -492,6 +497,13 @@ def text(survey, cond, lang=None, items=None, short=False, shown=False, ui=None)
     elif isinstance(ref, str) and ref.startswith("p:"):
         found = "vorhanden"
         name, labels = f"URL {ref[2:]}", {}
+    elif isinstance(ref, str) and ref.startswith("x:"):
+        from app import external
+
+        found = "vorhanden"
+        name, labels = external.ref_name(survey, ref), {}
+        if name is None:
+            return say("Bedingung auf einen Rückgabewert, den es nicht gibt", "Condition on a return value that does not exist")
     elif isinstance(ref, str) and ref.startswith(flow.STATE_REF):
         source = flow.source_id(ref)
         item = (items or {}).get(source) if items is not None else own_item(survey, source)

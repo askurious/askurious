@@ -7632,6 +7632,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - „Person hinzufügen“: Frage „Wie möchten Sie die Person hinzufügen?“ mit drei Wegen in neuer Reihenfolge; „darf eigene Befragungen anlegen“, Nutzertyp, Laufzeit und Befragungstypen bei allen drei gleich (Migration 0115).
 - Durchsicht (Ralf E1–E4): Wege heißen „ORCID iD freischalten“, „Link schicken, die Person wählt selbst“, „Konto mit E-Mail-Adresse anlegen“; „Einmal-Link“ bleibt dem Passwort-Setzen. Kein Schalter je Organisation für den Passwort-Weg: Wer den Link für eine Person macht, entscheidet; E-Mail-Adresse mit Passwort ist ORCID gleichwertig, keine Bevorzugung (Ralf). Seite „Einladungen“ blättert je Teil 10/20/50 Zeilen.
 
+## 2026-11-07
+
+- Bedingungen im Ablauf können Rückgabewerte externer Abschnitte prüfen (Bezug `x:<Abschnitt>:<Name>`, app/external.py): Zahlen und Texte, nur Abschnitte außerhalb einer Schleife; die Startprüfung meldet fehlende Werte, die falsche Reihenfolge und warnt bei nicht signierten Werten. Befragungsdatei, Kopie, Testlauf, Dummy-Daten und DDI-Export ziehen mit.
+
 ## 2026-11-09: Konstrukte aus dem Katalog askurious-constructs
 
 - Die Seed-Konstrukte der Toolbox kommen aus einem Snapshot des offenen Katalogs askurious-constructs (`app/data/constructs/manifest.json`, Release 2026.11.0-dev, Commit 967e955); `app/construct_catalog.py` baut daraus Seeds, Vorlagen und die englischen Texte. SEEDS, SEEDS_EN, INSTRUMENTS und die RatSWD-Daten sind aus `app/constructs.py` und `app/ratswd.py` entfernt; OWN_WORDING, ZIS, PERMISSION_REQUIRED, NOT_SHARED und WORKING_LANGS werden aus den Lizenzfeldern abgeleitet.

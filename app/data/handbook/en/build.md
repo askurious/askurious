@@ -236,7 +236,7 @@ Building blocks on the left:
 | Building block | What it does |
 |---|---|
 | Randomisation | shows one (or more) of several blocks, balanced or at random; the assignment is stored and exported. Each condition has a code and a label for the data; they are fixed at the start |
-| Condition | shows blocks only for certain answers or URL parameters ("then" / "else") |
+| Condition | shows blocks only for certain answers, URL parameters or return values of an external section ("then" / "else"). A return value can be tested behind its section, but not for a section in a loop. If the value is missing, only "not present" holds, so the person ends up in "else"; to screen people out reliably, test that too. Participants can change values that are not signed, and the pre-launch check warns about this |
 | Loop | repeats blocks per row of a table or per vignette; placeholders `{{variable}}` fill texts and images |
 | End | a screen-out or "quota full", mostly inside a condition |
 | External section | sends participants to a web app (e.g. a reaction-time task) and back, with signed return values; the redirect runs by itself, its delay (0 to 60 seconds, 0 by default) and text can be set, and if it fails participants can report the problem. In a loop a section runs once per pass, with a table as with vignettes: its address takes the columns (`{{distance}}`, always the value in the default language; with vignettes the label of the level, `{{distance_code}}` its number from 1), questions can follow in the same pass, and “Back” does not lead back across the section. In texts `{{code_value}}` stands for the value of the last return; the export keeps every pass |

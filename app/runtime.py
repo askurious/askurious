@@ -813,11 +813,12 @@ def render_page(survey, response, position, lang, params=None, ext_barrier=()):
     pages = layout.get("pages") or []
     if not 0 <= position < len(pages) or is_marker(pages[position]):
         return None
-    from app import geoip, quality, tempo
+    from app import external, geoip, quality, tempo
     from app import quotas as quota_mod
 
     view = {**{f"p:{k}": v for k, v in (params or {}).items()}, **quota_mod.view(survey, response),
-            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response)}
+            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response),
+            **external.flow_view(response)}
     if not applicable(survey, layout, position, {**load_answers(response), **view}):
         return None
     kept = response.position
@@ -869,7 +870,8 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
     # sent too fast (tempo.flow_view)
     param_view = {**{f"p:{k}": v for k, v in params.items()}, **quota_mod.view(survey, response),
                   **quality.flow_view(survey, response), **tempo.flow_view(survey, response),
-                  **geoip.flow_view(survey, response)}  # ... and country and state estimated from the IP address
+                  **geoip.flow_view(survey, response),  # ... and country and state estimated from the IP address
+                  **external.flow_view(response)}  # ... and what the external sections handed back
     answers = {**load_answers(response), **param_view}
 
     def finish(status):
@@ -994,6 +996,9 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
             if sent and getattr(response, "is_preview", False) and form.get("ext_back"):
                 # a test run or a simulated person: back at once, with the values given on the page
                 external.simulate(response, node, external.form_values(form), form.get("ext_seconds") or 0, utcnow(), row)
+                # a real return is a request of its own; here the condition right behind must see the values too
+                param_view.update(external.flow_view(response))
+                answers.update(external.flow_view(response))
                 return go_forward(position)
             if sent and not getattr(response, "is_preview", False):
                 response.last_active_at = utcnow()

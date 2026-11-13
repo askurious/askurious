@@ -282,7 +282,7 @@ def store(survey, response, positions, data, lang, params=None):
     keeps them; with "Next" its errors and notes come back, and the page counts as done when it has none. The same
     page with the same or an older counter again (sent twice, from the queue of the tab) changes nothing.
     Returns the answer for the browser, or None for a page that is not one of the block."""
-    from app import geoip, offline_answers, quality, tempo
+    from app import external, geoip, offline_answers, quality, tempo
     from app import quotas as quota_mod
     from app.models import utcnow
     from app.runtime import (_AsOptional, _answer_meta, answer_key, evaluate, load_answers, page_at, present,
@@ -303,7 +303,8 @@ def store(survey, response, positions, data, lang, params=None):
     spec = layout["pages"][page]
     row = spec.get("row")
     view = {**{f"p:{k}": v for k, v in (params or {}).items()}, **quota_mod.view(survey, response),
-            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response)}
+            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response),
+            **external.flow_view(response)}
     answers = {**load_answers(response), **view}
     _block, all_items = page_at(survey, response, page)
     page_items = present(all_items, answers, row)
@@ -341,7 +342,7 @@ def keep_for_language(survey, response, positions, form, lang, params=None):
     page by itself (runtime.step, `staying`): numbers read in `lang`, the language the page was shown in, incomplete
     multiple selections as drafts, answers fixed by feedback already seen left as they are (audit 2026-10-23, DS-04).
     Before, everything typed on a later page of the block was lost."""
-    from app import feedback_lock, geoip, quality, tempo
+    from app import external, feedback_lock, geoip, quality, tempo
     from app import quotas as quota_mod
     from app.items.base import AnswerError
     from app.runtime import (UNREADABLE, _AsOptional, _answer_meta, answer_key, evaluate, load_answers, page_at,
@@ -349,7 +350,8 @@ def keep_for_language(survey, response, positions, form, lang, params=None):
 
     layout = response.layout
     view = {**{f"p:{k}": v for k, v in (params or {}).items()}, **quota_mod.view(survey, response),
-            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response)}
+            **quality.flow_view(survey, response), **tempo.flow_view(survey, response), **geoip.flow_view(survey, response),
+            **external.flow_view(response)}
     for page in positions:
         answers = {**load_answers(response), **view}
         row = layout["pages"][page].get("row")
