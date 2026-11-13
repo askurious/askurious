@@ -37,6 +37,13 @@ Eine Gruppe besitzt nichts: Wer geht, verliert nur, was über die Gruppe geteilt
 
 „Neue Gruppe …“ öffnet überall denselben Dialog: unter Gruppen, unter Verwaltung > Gruppen und unter Administration > Gruppen. Name und Beschreibung trägt jede Person ein; wer die Gruppe anlegt, leitet sie. Admins der Organisation sehen im selben Dialog zusätzlich, wer die Gruppe leitet (dann werden sie selbst nicht Mitglied), ob alle, die dazukommen, „Anlegen“ bekommen, und ob die Gruppe eine Lehrveranstaltung ist (Nutzertyp und Ende für neue Konten). Die Gruppe gehört zur Organisation der Seite, unter Gruppen zur eigenen Stammorganisation.
 
+**Plätze der Organisation (Verwaltung › Personen).**
+Jedes Konto, dessen Heimat die Organisation ist, belegt einen Platz.
+Oben auf der Seite steht, wie viele Plätze die Organisation hat und wie viele frei sind; Einladungen per Link gehen nur, solange Plätze frei sind.
+„Mehr Plätze beantragen …“ fragt eine kurze Begründung ab und schickt den Antrag an die Admins der Plattform, auf Wunsch auch per Slack.
+Site-Admins sehen offene Anträge unter Administration › Organisationen und auf der Seite der Organisation unter „Plätze“; dort nehmen sie den Antrag mit einer neuen Zahl an (vorgeschlagen ist das Doppelte, -1 heißt unbegrenzt) oder lehnen ihn ab.
+Die Entscheidung steht danach 30 Tage lang bei den Plätzen.
+
 ### Designs
 
 ![Designs der Plattform, eigene Designs und geteilte Designs](img/designs.jpg)

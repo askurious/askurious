@@ -181,6 +181,7 @@ NOT_GRANTED = {
     "sign_in_orcid": "ORCID iDs allowed to sign in",
     "sign_in_wait": "former waiting list of sign-ups, no longer read (dropped after 0107)",
     "org_found_link": "founding links of new organisations, made by site admins",
+    "org_seat_request": "requests of organisation admins for more places, decided by site admins",
     "sign_up_link": "registration links of the platform, made by site admins",
     "site_setting": "settings of the platform from the administration",
     "survey_hide": "surveys hidden from a researcher's list",

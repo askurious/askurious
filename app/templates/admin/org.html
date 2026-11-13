@@ -2,7 +2,8 @@
 {# One organisation of Administration > Organisationen (variant A of the concept of 2026-10-18, Ralf): names, the
    template of the organisation design ("Design der Einrichtung", Ralf 2026-10-19), admins (also by ORCID iD or the
    address of an account, who needs no account yet), limits and switches, links, delete when empty. Everything saves
-   itself but the uploads. Context: o, counts, admins, members [(user, row)], main_key, template_sides. #}
+   itself but the uploads. Context: o, counts, admins, members [(user, row)], main_key, template_sides,
+   seat_requests (app/org_seats.py: open, decided, seats, suggested, by). #}
 {% from "_macros.html" import autosave_bar, csrf, orcid_link %}
 {% from "_icons.html" import icon %}
 {% block title %}{{ o.name }} · {{ de_en("Organisationen", "Organisations") }} · Administration{% endblock %}
@@ -66,6 +67,24 @@
     <button class="button button-secondary button-small">{{ de_en("Zum Admin machen", "Make admin") }}</button>
   </form>
 
+</section>
+{# requests of its admins for more places (app/org_seats.py, Philipp 2026-11-13): grant with a number, -1 for no limit #}
+{% set sr = seat_requests %}
+<section class="panel org-page-part" id="plaetze">
+  <h2>{{ de_en("Plätze", "Places") }} <span class="hint">{% if sr.seats.max %}{{ de_en("{t} von {m} belegt", "{t} of {m} taken", t=sr.seats.taken, m=sr.seats.max) }}{% else %}{{ de_en("unbegrenzt, {t} belegt", "no limit, {t} taken", t=sr.seats.taken) }}{% endif %}</span></h2>
+  {% if sr.open %}{% set r = sr.open %}{% set asker = sr.by %}
+  <p>{{ de_en("Antrag auf mehr Plätze vom {d}", "Request for more places of {d}", d=r.created_at|localdate) }}{% if asker %} {{ de_en("von", "by") }} {{ asker.display_name }}{% endif %}, {{ de_en("damals {n} Plätze", "then {n} places", n=r.seats_before) }}:</p>
+  <blockquote class="org-seat-reason">{{ r.reason }}</blockquote>
+  <form method="post" action="{{ url_for('admin.organisation_seats', org_id=o.id) }}" class="row">
+    {{ csrf() }}<input type="hidden" name="request_id" value="{{ r.id }}">
+    <label>{{ de_en("Neue Zahl der Plätze", "New number of places") }} <span class="hint">{{ de_en("-1 = unbegrenzt", "-1 = no limit") }}</span>
+      <input name="seats" type="number" min="-1" max="100000" value="{{ sr.suggested }}" required></label>
+    <div class="button-row">
+      <button class="button" name="action" value="grant">{{ de_en("Annehmen", "Grant") }}</button>
+      <button class="button button-secondary" name="action" value="refuse" formnovalidate>{{ de_en("Ablehnen", "Refuse") }}</button></div>
+  </form>
+  {% else %}<p class="muted small">{{ de_en("Kein offener Antrag auf mehr Plätze. Die Höchstzahl ändern Sie auch unter „Grenzen und Schalter“.", "No open request for more places. You can also change the maximum under “Limits and switches”.") }}</p>{% endif %}
+  {% if sr.decided and not sr.open %}{% set d = sr.decided %}<p class="muted small">{% if d.status == "granted" %}{{ de_en("Letzter Antrag ({d}) angenommen: {a} statt {b} Plätze.", "Last request ({d}) granted: {a} instead of {b} places.", d=d.created_at|localdate, a=d.seats_after if d.seats_after else de_en("unbegrenzt", "no limit"), b=d.seats_before) }}{% else %}{{ de_en("Letzter Antrag ({d}) abgelehnt.", "Last request ({d}) refused.", d=d.created_at|localdate) }}{% endif %}</p>{% endif %}
 </section>
 <section class="panel org-page-part" id="grenzen">
   <h2>{{ de_en("Grenzen und Schalter", "Limits and switches") }}</h2>

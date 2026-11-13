@@ -1,0 +1,6 @@
+{# The full-text search above every handbook page (app/handbook.py, search_page; Philipp 2026-11-13). Needs: query
+   (optional). #}
+<form method="get" action="{{ url_for('handbook.search_page') }}" class="list-search handbook-search" role="search">
+  <input type="search" name="q" value="{{ query or '' }}" maxlength="100" placeholder="{{ de_en('Handbuch durchsuchen …', 'Search the handbook …') }}" aria-label="{{ de_en('Handbuch durchsuchen', 'Search the handbook') }}">
+  <button class="button button-secondary">{{ de_en("Suchen", "Search") }}</button>
+</form>

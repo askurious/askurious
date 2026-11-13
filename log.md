@@ -7697,3 +7697,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Der Hinweis „auch mit KI-Bildern ↗ (Brauner, 2026)“ steht jetzt beim Punkt „Conjoint (CBC), adaptives Conjoint (ACBC) und MaxDiff“ statt bei den Vignetten.
 - „Vignetten und Mikroszenarien aus einer Tabelle oder mit Faktordesigns“ (EN: „… from a table or with factorial designs“).
+
+## 2026-11-13: Plätze der Organisation, Gruppen erklärt, Suche im Handbuch
+
+- Verwaltung › Personen zeigt die Plätze der Organisation (Konten mit Heimat hier, `max_accounts`: belegt, frei oder unbegrenzt). „Mehr Plätze beantragen …“ fragt eine kurze Begründung ab (`app/org_seats.py`, Tabelle `org_seat_request`, Migration 0124, ROLLING = True); Slack meldet den Antrag (`notify.seat_request`, Name und Begründung nur in der ausführlichen Form).
+- Site-Admins sehen offene Anträge unter Administration › Organisationen und entscheiden auf der Seite der Organisation unter „Plätze“: annehmen mit neuer Zahl (vorgeschlagen das Doppelte, -1 unbegrenzt) oder ablehnen; mit frischer Anmeldung, im Sicherheitslog. Die Entscheidung steht 30 Tage bei den Plätzen der Organisation.
+- Verwaltung › Gruppen erklärt unter der Überschrift, wofür Gruppen da sind, mit Link auf den Abschnitt „Gruppen“ im Handbuch.
+- Handbuch: Volltextsuche über allen Seiten (`/docs/search`, `handbook.search`): Abschnitte mit allen Wörtern, Treffer in Überschriften zuerst, mit Textausschnitt.
+- Datenschutzerklärung und Datenschutzkonzept nennen die Anträge auf mehr Plätze (Slack, Speicherdauer).

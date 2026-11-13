@@ -2,7 +2,7 @@
 {# Verwaltung > Personen (app/org_admin.py): everyone in the organisation, sorted, searched and in pages like the list of
    the platform (admin/researchers.html, Ralf 2026-10-18); accounts at home here are managed on their own page.
    Context: org, rows, page (the Listing), invites and invite_rows (open invitations, app/org_invites.py), types, default_type,
-   left, cap, chosen, group_options, kinds_only, period. #}
+   left, cap, chosen, group_options, kinds_only, period, seat_info (app/org_seats.py: seats, open, decided, limit). #}
 {% from "_macros.html" import autosave_bar, csrf, orcid_link, form_error, list_table %}
 {% from "_icons.html" import icon %}
 {% from "_listing.html" import sort_th, search, pager, keep, choose %}
@@ -42,6 +42,17 @@
     <div class="copy-row"><input class="one-time-link" id="org-join-link" value="{{ invitation.link }}" readonly aria-label="{{ de_en('Einladungslink', 'Invitation link') }}" data-select-all>
       <button type="button" class="button button-secondary" data-copy="#org-join-link">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div></div>{% endif %}
   <p class="muted small">{{ de_en("Zur Organisation gehört, wer hier aufgenommen ist oder in einer ihrer Gruppen ist. Konten, deren Heimat diese Organisation ist, verwalten Sie: Nutzertyp, Laufzeit, Befragungstypen, Anlegen von Befragungen, Sperren. Inhalte und Antworten von Befragungen sehen Sie hier nicht.", "Anyone who is added here or is in one of its groups belongs to the organisation. You manage the accounts whose home is this organisation: user type, period, survey types, creating surveys, blocking. You do not see the content or answers of surveys here.") }}</p>
+  {# the places of the organisation and a request for more (app/org_seats.py, Philipp 2026-11-13) #}
+  {% set seats = seat_info.seats %}
+  <div class="org-seats" id="plaetze">
+    <p><strong>{{ de_en("Plätze", "Places") }}:</strong>
+    {% if seats.max %}{{ de_en("{t} von {m} belegt, {l} frei", "{t} of {m} taken, {l} free", t=seats.taken, m=seats.max, l=seats.left) }}
+    {% else %}{{ de_en("unbegrenzt ({t} Konten mit Heimat hier)", "no limit ({t} accounts at home here)", t=seats.taken) }}{% endif %}
+    <span class="hint">{{ de_en("Jedes Konto mit Heimat in dieser Organisation belegt einen Platz; Einladungen per Link gehen nur, solange Plätze frei sind.", "Every account at home in this organisation takes a place; invitations by link only work while places are free.") }}</span></p>
+    {% if seat_info.open %}<p class="muted small">{{ de_en("Ihr Antrag auf mehr Plätze vom {d} liegt den Admins der Plattform vor.", "Your request for more places of {d} is with the platform admins.", d=seat_info.open.created_at|localdate) }}</p>
+    {% elif seats.max %}<p><a href="#plaetze-beantragen" data-person-add aria-haspopup="dialog">{{ de_en("Mehr Plätze beantragen …", "Request more places …") }}</a></p>{% endif %}
+    {% if seat_info.decided and not seat_info.open %}{% set d = seat_info.decided %}<p class="muted small">{% if d.status == "granted" %}{{ de_en("Antrag vom {d} angenommen: jetzt {n} Plätze.", "Request of {d} granted: now {n} places.", d=d.created_at|localdate, n=d.seats_after) if d.seats_after else de_en("Antrag vom {d} angenommen: jetzt unbegrenzt.", "Request of {d} granted: now no limit.", d=d.created_at|localdate) }}{% else %}{{ de_en("Antrag vom {d} abgelehnt.", "Request of {d} refused.", d=d.created_at|localdate) }}{% endif %}</p>{% endif %}
+  </div>
   <div class="admin-listhead">
     {{ search(page, de_en("Personen suchen", "Search people"), de_en("Suchen: Name, ORCID iD, Gruppe …", "Search: name, ORCID iD, group …")) }}
     <a class="button button-secondary button-small" href="{{ page.url(kinds=none if kinds_only else 1, page=none) }}"{% if kinds_only %} aria-current="page"{% endif %}>{{ de_en("Alle Konten", "All accounts") if kinds_only else de_en("Nur eingeschränkte Befragungstypen", "Only restricted survey types") }}</a>
@@ -228,4 +239,18 @@
     </section>
   </div>
 </section>
+{# "Mehr Plätze beantragen" (app/org_seats.py): app.js turns the panel into a dialog, like "Person hinzufügen" #}
+{% if seat_info.seats.max and not seat_info.open %}
+<section class="panel person-add" id="plaetze-beantragen" aria-labelledby="seats-title" data-person-add-panel>
+  <div class="feedback-dialog-head"><h2 id="seats-title">{{ de_en("Mehr Plätze beantragen", "Request more places") }}</h2>
+    <button type="button" class="icon-btn" data-person-add-close hidden aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <p class="muted small">{{ de_en("Die Organisation hat {m} Plätze, {t} sind belegt. Die Admins der Plattform entscheiden über den Antrag und legen die neue Zahl fest.", "The organisation has {m} places, {t} are taken. The platform admins decide on the request and set the new number.", m=seat_info.seats.max, t=seat_info.seats.taken) }}</p>
+  <form method="post" action="{{ url_for('org.ask_seats', org_id=org.id) }}" class="stack">
+    {{ csrf() }}
+    <label>{{ de_en("Begründung", "Reason") }} <span class="hint">{{ de_en("kurz: wofür und etwa wie viele Plätze", "briefly: what for and about how many places") }}</span>
+      <textarea name="reason" rows="4" maxlength="{{ seat_info.limit }}" required></textarea></label>
+    <div class="button-row"><button class="button">{{ de_en("Antrag senden", "Send request") }}</button></div>
+  </form>
+</section>
+{% endif %}
 {% endblock %}

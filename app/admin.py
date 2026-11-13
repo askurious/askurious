@@ -2035,7 +2035,10 @@ def organisations():
     found_links = [(link, org_links.is_open(link), orgs.get(link.org_id) if link.org_id else None)
                    for link in org_links.listed()]
     db.session.commit()  # the sweep of listed()
+    from app import org_seats
+
     return render_template("admin/orgs.html", rows=rows, t=listing, main_key=orgs.MAIN, guest=guest,
+                           seat_requests=org_seats.all_open(),
                            guest_counts=orgs.counts(guest) if guest is not None else None, found_links=found_links,
                            found_new=org_links.take_shown(), found_days=org_links.DAYS,
                            found_default_days=org_links.DEFAULT_DAYS, found_default_accounts=org_links.DEFAULT_ACCOUNTS,
@@ -2094,7 +2097,17 @@ def organisation_page(org_id):
 
     removed = session.pop("org_removed", None)  # an iD just taken out (organisation_action, "unadmin"), shown once
     removed = removed if isinstance(removed, dict) and removed.get("org") == org.id else None
+    from app import org_seats
+
+    from app.extensions import db
+    from app.models import User
+
+    open_one = org_seats.open_request(org)
+    seat_requests = {"open": open_one, "decided": org_seats.last_decided(org), "seats": org_seats.seats(org),
+                     "suggested": org_seats.suggested(org),
+                     "by": db.session.get(User, open_one.by_id) if open_one and open_one.by_id else None}
     return render_template("admin/org.html", o=org, counts=orgs.counts(org), admins=admins, removed=removed,
+                           seat_requests=seat_requests,
                            members=orgs.members_of(org), main_key=orgs.MAIN, template_sides=_template_sides(org))
 
 
@@ -2219,6 +2232,45 @@ def organisation_action(org_id):
         flash(de_en("Organisation gelöscht.", "Organisation deleted."), "success")
         return redirect(url_for("admin.organisations"))
     abort(400)
+
+
+@bp.route("/orgs/<int:org_id>/seats", methods=["POST"])
+def organisation_seats(org_id):
+    """Decide a request for more places (app/org_seats.py): grant with a number (-1: no limit) or refuse; with a
+    fresh sign-in, as the limits on the same page."""
+    from app import org_seats, orgs, security_log
+    from app.extensions import db
+    from app.models import OrgSeatRequest
+
+    org = orgs.get(org_id)
+    row = db.session.get(OrgSeatRequest, request.form.get("request_id", type=int) or 0)
+    if org is None or row is None or row.org_id != org.id:
+        abort(404)
+    back = url_for("admin.organisation_page", org_id=org.id, _anchor="plaetze")
+    again = accounts_need_fresh(back)
+    if again:
+        return again
+    if row.status != "open":
+        flash(de_en("Über diesen Antrag ist schon entschieden.", "This request has already been decided."), "error")
+        return redirect(back)
+    if request.form.get("action") == "refuse":
+        org_seats.refuse(row, current_user)
+        said = de_en("Antrag der Organisation „{o}“ abgelehnt.", "Request of the organisation “{o}” refused.", o=org.name)
+    else:
+        number = org_seats.parse_number(request.form.get("seats"))
+        if number is None:
+            flash(de_en("Bitte eine Zahl ab 1 eingeben, oder -1 für unbegrenzt.",
+                        "Please enter a number from 1, or -1 for no limit."), "error")
+            return redirect(back)
+        org_seats.grant(row, org, current_user, number)
+        said = (de_en("Organisation „{o}“ hat jetzt {n} Plätze.", "The organisation “{o}” now has {n} places.",
+                      o=org.name, n=org.max_accounts) if org.max_accounts else
+                de_en("Organisation „{o}“ hat jetzt unbegrenzt Plätze.", "The organisation “{o}” now has no limit on places.",
+                      o=org.name))
+    db.session.commit()
+    security_log.event("organisation_seats_decided", by=current_user.id, target=f"org {org.id}", role=row.status)
+    flash(said, "success")
+    return redirect(back)
 
 
 @bp.route("/orgs/new", methods=["POST"])

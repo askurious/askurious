@@ -21,8 +21,11 @@
       {% endfor %}
     </ul>
   </nav>
+  <div class="handbook-main">
+    {% include "handbook/_search.html" %}
   <article class="handbook-body panel">
     {{ body }}
   </article>
+  </div>
 </div>
 {% endblock %}

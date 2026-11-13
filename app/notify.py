@@ -227,6 +227,33 @@ def report_new_org(org, how, by):
         return None
 
 
+def seat_request(org, row, by):
+    """Announce a request for more places (app/org_seats.py): the number of the organisation and of the account, the
+    places now, a link to the organisation's page in the administration. Name and reason only in the detailed
+    messages."""
+    from flask import url_for
+
+    link = brand.public_base() + url_for("admin.organisation_page", org_id=org.id, _anchor="plaetze")
+    what = f"„{_plain(org.name)}“ (Nr. {org.id})" if full() else f"Nr. {org.id}"
+    head = (f":chair: *Mehr Plätze beantragt:* Organisation {what}, jetzt {row.seats_before} Plätze, "
+            f"von Konto Nr. {by.number or by.id}")
+    blocks_ = [{"type": "section", "text": {"type": "mrkdwn", "text": head}}]
+    if full():
+        blocks_.append({"type": "section", "text": {"type": "mrkdwn", "text": "> " + _plain(row.reason[:TEXT_LIMIT])}})
+    blocks_.append({"type": "actions", "elements": [{"type": "button", "action_id": "open", "url": link,
+                                                     "text": {"type": "plain_text", "text": "Antrag ansehen"}}]})
+    return slack(head, blocks_)
+
+
+def report_seat_request(org, row, by):
+    """seat_request after the commit: the note to the operators must not break the page."""
+    try:
+        return seat_request(org, row, by)
+    except Exception as e:  # noqa: BLE001
+        current_app.logger.warning("Seat request not reported in Slack: %s", type(e).__name__)
+        return None
+
+
 def reset_request(user):
     """Announce a request "Passwort vergessen?" (auth.forgot_password): the number of the account and a link to its
     page in the administration, where a site admin creates the one-time link; not the address."""

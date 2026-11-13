@@ -15,6 +15,10 @@
     <h2>{{ de_en("Gruppen der Organisation", "Groups of the organisation") }} <span class="hint">{{ groups|length }}</span></h2>
     <a class="button" href="#gruppe-anlegen" data-person-add aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Neue Gruppe …", "New group …") }}</a>
   </div>
+  {# what groups are for, with the handbook's section (Philipp 2026-11-13) #}
+  <p class="muted small">{{ de_en("Gruppen sind die Teams innerhalb der Organisation, etwa ein Projekt, eine Arbeitsgruppe oder eine Lehrveranstaltung. Mit einer Gruppe teilen ihre Mitglieder Befragungen und Designs auf einmal statt Person für Person. Die Gruppe selbst besitzt nichts: Wer sie verlässt, verliert nur, was über die Gruppe geteilt war. Wer Mitglied einer Gruppe ist, gehört auch zur Organisation.", "Groups are the teams within the organisation, such as a project, a working group or a course. With a group its members share surveys and designs at once instead of person by person. The group itself owns nothing: anyone who leaves only loses what was shared through the group. Members of a group belong to the organisation too.") }}
+    {{ de_en("Hier legen Sie Gruppen mit ihrer Leitung an und bestimmen, ob Mitglieder Befragungen anlegen dürfen, welche Befragungstypen neue Konten bekommen und ob die Gruppe eine Lehrveranstaltung ist; Mitglieder nimmt die Leitung der Gruppe auf.", "Here you create groups with their lead and decide whether members may create surveys, which survey types new accounts get and whether the group is a course; the group's lead adds the members.") }}
+    <a href="{{ url_for('handbook.page', name='more', _anchor=de_en('gruppen', 'groups')) }}">{{ de_en("Mehr dazu im Handbuch", "More in the handbook") }}</a></p>
   <ul class="admin-groups">
   {% for g in groups %}
     <li>

@@ -769,6 +769,26 @@ class OrgFoundLink(db.Model):
     used_by_id: Mapped[int | None]
 
 
+class OrgSeatRequest(db.Model):
+    """A request of an organisation's admin for more places (accounts at home there, Organisation.max_accounts;
+    app/org_seats.py, Philipp 2026-11-13): a short reason, the number of places at the time; a site admin grants it
+    with a number of their own (None: no limit) or refuses it. No foreign keys, like org_found_link: the rows go with
+    the organisation (orgs.delete), and the number of the person stays when the account goes."""
+
+    __tablename__ = "org_seat_request"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    org_id: Mapped[int] = mapped_column(index=True)
+    by_id: Mapped[int | None]
+    reason: Mapped[str] = mapped_column(Text, default="")
+    seats_before: Mapped[int | None]  # Organisation.max_accounts when asked
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    status: Mapped[str] = mapped_column(String(10), default="open")  # open | granted | refused
+    seats_after: Mapped[int | None]  # granted: the new max_accounts (None: no limit)
+    decided_by_id: Mapped[int | None]
+    decided_at: Mapped[datetime | None]
+
+
 class Organisation(db.Model):
     """An organisation (app/orgs.py, konzept-abteilungen-2026-10-15.md, Ralf 2026-10-15): a department, chair,
     institute or company above the groups. A fence, not an access: people, groups, surveys and designs belong to one,

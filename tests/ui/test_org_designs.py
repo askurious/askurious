@@ -284,8 +284,8 @@ def test_the_pages_of_an_organisation_and_of_the_experiments_come_in_blocks(clie
     feature; the buttons of the design next to their fields."""
     org_id = _main(client)
     page = client.get(f"/admin/orgs/{org_id}").data.decode()
-    order = [page.index(f'id="{key}"') for key in ("admins", "grenzen", "design")]
-    assert order == sorted(order) and page.count('class="panel org-page-part"') == 3
+    order = [page.index(f'id="{key}"') for key in ("admins", "plaetze", "grenzen", "design")]
+    assert order == sorted(order) and page.count('class="panel org-page-part"') == 4
     assert 'class="row field-with-button"><input type="file" id="template-file-light"' in page
     design = client.get(f"/org/{org_id}/design").data.decode()
     assert 'class="row field-with-button"><select id="org-design-source-light"' in design

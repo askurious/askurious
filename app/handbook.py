@@ -164,6 +164,81 @@ def _show(name):
                            title=brand.apply(de_en(*TITLES[name])))
 
 
+# --- full-text search (Philipp 2026-11-13) ------------------------------------------------------------------------------
+
+SEARCH_LIMIT = 50  # sections shown at most
+SNIPPET = 90  # characters around the first match on each side
+_MD_NOISE = (
+    (re.compile(r"!\[[^\]]*\]\([^)]*\)"), ""),  # pictures
+    (re.compile(r"\[([^\]]*)\]\([^)]*\)"), r"\1"),  # links keep their text
+    (re.compile(r"[*_`|>]+"), " "),  # emphasis, code, table bars, quotes
+    (re.compile(r"^\s*[-+]\s+", re.M), ""),  # list marks
+    (re.compile(r"\s+"), " "),
+)
+
+
+def _plain(md):
+    for pattern, repl in _MD_NOISE:
+        md = pattern.sub(repl, md)
+    return md.strip()
+
+
+def sections(lang):
+    """[(page, heading id or None for the page's top, heading, plain text)] of every page in `lang`, as the reader
+    sees it (the {kind:…} parts for their survey types only)."""
+    out = []
+    for name in PAGES:
+        heading, hid, lines = None, None, []
+
+        def close():
+            text = _plain("\n".join(lines))
+            if heading is not None or text:
+                out.append((name, hid, _plain(heading or ""), text))
+
+        for line in _for_kinds(_source(name, lang)).splitlines():
+            if re.match(r"^#{1,4}\s", line):
+                close()
+                level = len(line) - len(line.lstrip("#"))
+                heading = line.lstrip("#").strip()
+                hid, lines = (None if level == 1 else slug(heading)), []
+            else:
+                lines.append(line)
+        close()
+    return out
+
+
+def search(query, lang=None):
+    """The sections that hold every word of `query` (case ignored), those with the words in the heading first:
+    [{"page", "anchor", "heading", "title", "snippet" (HTML with <mark>)}]."""
+    from markupsafe import Markup, escape
+
+    words = [w for w in query.lower().split() if w][:10]
+    if not words:
+        return []
+    hits = []
+    for name, hid, heading, text in sections(lang or current()):
+        low_head, low_text = heading.lower(), text.lower()
+        if not all(w in low_head or w in low_text for w in words):
+            continue
+        score = sum(3 * low_head.count(w) + low_text.count(w) for w in words)
+        first = min((low_text.find(w) for w in words if w in low_text), default=0)
+        start, end = max(first - SNIPPET, 0), min(first + SNIPPET, len(text))
+        cut = ("… " if start else "") + text[start:end] + (" …" if end < len(text) else "")
+        marked = re.sub("(" + "|".join(re.escape(str(escape(w))) for w in words) + ")", r"<mark>\1</mark>",
+                        str(escape(cut)), flags=re.I)
+        hits.append((-score, len(hits), {"page": name, "anchor": hid, "heading": brand.apply(heading),
+                                        "title": brand.apply(de_en(*TITLES[name])), "snippet": Markup(marked)}))
+    return [h for _, _, h in sorted(hits, key=lambda x: x[:2])][:SEARCH_LIMIT]
+
+
+@bp.route("/search")
+def search_page():
+    query = (request.args.get("q") or "").strip()[:100]
+    pages = [(p, brand.apply(de_en(*TITLES[p]))) for p in PAGES]
+    return render_template("handbook/search.html", name="search", pages=pages, toc=[], query=query,
+                           results=search(query) if query else [], title=de_en("Suche", "Search"))
+
+
 @bp.route("/")
 def index():
     return _show("index")
