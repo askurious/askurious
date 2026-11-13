@@ -63,6 +63,9 @@
   <div class="p-image-missing">{{ ui("Bild fehlt", "Image missing") }}</div>
   {% endif %}
   <div class="p-mark-bar">
+    {# a way through without mouse or finger (WCAG 2.1.1, UI audit R54); in the bar's first place until something is
+       marked, then the count takes its place #}
+    <label class="p-mark-none"{% if ans %} hidden{% endif %}><input type="checkbox" name="i{{ item.id }}_none" value="1" data-mark-none{% if c.mode != "lines" %} data-not-first{% endif %} {% if ans == [] %}checked{% endif %}> {{ ui("Ich kann hier nichts markieren", "I cannot mark anything here") }}</label>
     <span class="p-mark-count" data-mark-count></span>
     {# what a tap, a key or "entfernen" did, in words: "Stelle 2 gesetzt, 40 % von links, 60 % von oben" (D2) #}
     <span class="p-sr-only" role="status" data-mark-status></span>
@@ -74,7 +77,5 @@
   {# the spots as a list, each with its own "entfernen" (D2); filled by the script #}
   {% if c.mode != "lines" %}<ol class="p-mark-list" data-mark-list hidden></ol>{% endif %}
   <input type="hidden" name="i{{ item.id }}" value='{{ ans|tojson if ans else "" }}' data-mark-input data-keep>
-  {# a way through without mouse or finger (WCAG 2.1.1, UI audit R54) #}
-  <label class="p-mark-none"><input type="checkbox" name="i{{ item.id }}_none" value="1" data-mark-none{% if c.mode != "lines" %} data-not-first{% endif %} {% if ans == [] %}checked{% endif %}> {{ ui("Ich kann hier nichts markieren", "I cannot mark anything here") }}</label>
 </div>
 {% endif %}

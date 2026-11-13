@@ -1130,12 +1130,12 @@ form.auto-advancing .p-next::after { content: ""; position: absolute; left: 0; b
 .p-mark-dot.is-picked { stroke: var(--fg); stroke-opacity: 1; fill-opacity: 1; }
 .p-mark-dot { fill: var(--mark); fill-opacity: 0.8; stroke: rgba(0, 0, 0, 0.55); }
 .p-mark-line { fill: none; stroke: var(--mark); stroke-opacity: 0.6; stroke-linecap: round; stroke-linejoin: round; }
-.p-mark-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; min-height: 36px; }
+.p-mark-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; min-height: 36px; }
 .p-mark-count { color: var(--muted); font-size: 0.9rem; }
 .p-mark-undo { color: var(--fg); border: 1px solid var(--border-strong); background: var(--surface); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 0.9rem; cursor: pointer; }
-.p-mark-btns { display: flex; gap: 8px; }
+.p-mark-btns { display: flex; gap: 8px; margin-inline-start: auto; }
 .p-mark-undo:disabled { opacity: 0.4; cursor: default; }
-.p-mark:not(.is-live) .p-mark-bar { display: none; }
+.p-mark:not(.is-live) .p-mark-count, .p-mark:not(.is-live) .p-mark-btns { display: none; }  /* the tick still works without the script */
 .p-mark-list { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 0.9rem; }
 .p-mark-list[hidden] { display: none; }
 .p-mark-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -1603,7 +1603,8 @@ body:has(.p-comments-toggle) main.p-container { padding-bottom: 72px; }
 }
 
 /* "Ich kann hier nichts markieren" under an image to mark (UI audit 2026-10-04, R54) */
-.p-mark-none { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.95rem; color: var(--muted); }
+.p-mark-none { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; color: var(--muted); }
+.p-mark-none[hidden], .p-mark-count:empty { display: none; }  /* one of the two in the bar's first place */
 .p-mark-none input { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* IAT (items/iat.py): category labels in the upper corners, the word in the middle, two tap fields below */
