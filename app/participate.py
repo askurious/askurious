@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, abort, current_app, g, make_response, redirect, render_template, request, session, url_for
 from flask_wtf.csrf import CSRFError
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from app import runtime
@@ -223,6 +223,13 @@ def _start_if_due(survey):
     except (OperationalError, StaleDataError) as e:
         db.session.rollback()
         current_app.logger.warning("Planned start put off: %s", str(e).splitlines()[0])
+    except ProgrammingError as e:
+        if getattr(getattr(e, "orig", None), "sqlstate", None) != "42501":
+            raise
+        # the participants' own database role may not start a survey (start_at, start_plan, data_pool, ...: app/
+        # participant_grants.py): the housekeeping starts it at its next round
+        db.session.rollback()
+        current_app.logger.info("Planned start of survey %s left to the housekeeping (participants' role)", survey_id)
     return db.session.get(Survey, survey_id) or survey
 
 
@@ -1073,6 +1080,14 @@ def erase(uid):
             # a separated section this browser is still in belongs to the same person; a finished one cannot be
             # told from the others any more (models.ContactEntry)
             split = db.session.get(SplitSession, session.get(_split_key(survey), "")) if in_browser else None
+            from app import participant_erase
+
+            # what the database checks before it deletes (app/participant_erase.py): the code typed, or the
+            # participation this browser holds
+            if here:
+                participant_erase.prove("browser", target.pid)
+            else:
+                participant_erase.prove("code", erasure.normalise(request.form.get("code")))
             erasure.erase(survey, [target], "self", [split] if split is not None and split.survey_id == survey.id else [])
             if in_browser:
                 for key in (_session_key(survey), _pid_key(survey), _pending_key(survey), _split_key(survey),
@@ -1081,7 +1096,10 @@ def erase(uid):
             own, done = None, True
     return render_template("participant/erase.html", survey=survey, lang=lang, back=back, privacy_url=privacy_url,
                            done=done, error=error, example=_ltr(erasure.example(survey)), codes=bool(getattr(survey, "erase_code", False)),
-                           own_since=fmt(own.started_at, with_time=False) if own is not None else None), status
+                           own_since=fmt(own.started_at, with_time=False) if own is not None else None,
+                           # the code of the participation in this browser, from its first stored page on: with it the
+                           # person deletes later too, after closing the browser (Ralf 2026-11-12)
+                           own_code=erasure.code_for(survey, own) if own is not None and not done else None), status
 
 
 
@@ -1832,6 +1850,10 @@ def page(uid):
         from app import quotas
 
         quotas.release(response)  # a place reserved at a quota calculation is free again
+        if response.id is not None:
+            from app import participant_erase
+
+            participant_erase.prove("declined")  # the function deletes declined participations only
         db.session.delete(response)
         from app import balance
 
@@ -1922,7 +1944,14 @@ def page(uid):
     # a crowd that fixes the answer to a question on the same page gets its figures only from crowd() below, once the
     # answer is fixed there (app/feedback_lock.py); a participation not stored yet (its first page) cannot fix one
     crowd_url = url_for("participate.crowd", uid=uid, item_id=0)[:-1] if response.id is not None else None
-    page = dict(stale_note=note, crowd_url=crowd_url, in_app=getattr(response, "enrolment_id", None) is not None,
+    in_app = getattr(response, "enrolment_id", None) is not None
+    # "Meine Angaben löschen" at the foot from the first stored page on (Ralf 2026-11-12): the deletion page shows the
+    # code then, so stopping and closing the browser still leaves a way to delete (not in the diary app: one code per
+    # person on the end of its entry part)
+    erase_link = (url_for("participate.erase", uid=uid, lang=lang, back=request.full_path)
+                  if getattr(survey, "erase_code", False) and response.id is not None and not response.is_preview
+                  and response.pid and not in_app else None)
+    page = dict(stale_note=note, crowd_url=crowd_url, in_app=in_app, erase_link=erase_link,
                 short_entry=diary.short_entry(response),
                 ai_bait=__import__("app.quality", fromlist=["bait"]).bait(survey) if getattr(survey, "ai_bait", False) else None)
     if block_show:

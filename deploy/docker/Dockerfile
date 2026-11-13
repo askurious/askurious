@@ -45,3 +45,6 @@ USER askurious
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "4", "--threads", "8", "--timeout", "120", "--graceful-timeout", "30", "passenger_wsgi:application"]
+# the commit the image was built from (compose.yaml build args, compose-env.sh): docker image inspect shows it
+ARG REVISION=""
+LABEL org.opencontainers.image.revision=$REVISION

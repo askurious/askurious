@@ -52,7 +52,8 @@ APP = _block(COMPOSE, "x-app: &app")
 APP_ENV = _block(APP, "  environment: &app-env")
 APP_FIXED = _block(COMPOSE, "x-app-fixed: &app-fixed")
 # what compose.yaml sets itself in the app containers (x-app and the services), and what never goes to a server
-EXPLICIT = {"DATABASE_URL", "PROXY_COUNT", "COMPUTE_URL", "STATUS_URL", "PARTICIPANT_BASE_URL", "SIDE", "CONTAINER_STATS", "LIFECYCLE_IN_REQUEST", "MEDIA_X_ACCEL"}
+EXPLICIT = {"DATABASE_URL", "PROXY_COUNT", "COMPUTE_URL", "STATUS_URL", "PARTICIPANT_BASE_URL", "SIDE", "CONTAINER_STATS", "LIFECYCLE_IN_REQUEST", "MEDIA_X_ACCEL",
+            "PARTICIPANT_ROLE_CHECK"}  # PARTICIPANT_ROLE_CHECK: the participants' containers only (role_problem)
 NOT_PASSED = {"DEV_LOGIN", "DEV_TRUST_BRIDGE", "BACKUP_DAYS"}  # local development only; BACKUP_DAYS: the Dockerfile
 
 
@@ -77,7 +78,7 @@ def test_every_setting_of_config_reaches_the_app_containers():
     every = SETTINGS + SECRETS + MAIL_SECRETS + RESEARCHER_SECRETS
     assert len(every) == len(set(every))
     assert "<<: [*app-settings, *app-secrets, *mail-secrets, *app-fixed]" in APP_ENV
-    for name in EXPLICIT - {"SIDE", "CONTAINER_STATS"}:
+    for name in EXPLICIT - {"SIDE", "CONTAINER_STATS", "PARTICIPANT_ROLE_CHECK"}:
         assert re.search(rf"^\s+{name}: \S", APP_FIXED, re.M), name
 
 

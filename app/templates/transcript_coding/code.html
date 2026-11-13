@@ -29,7 +29,9 @@
   <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, Enter nimmt die erste, die Tasten 1 bis 9 die Kategorien, denen Sie rechts eine Taste geben. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien. Markiertes lässt sich auch auf eine Kategorie rechts ziehen oder mit „Fett“ hervorheben.", "Mark a passage, then choose the category: typing filters, Enter takes the first, the keys 1 to 9 the categories you give a key on the right. Whole words are always marked. A click on a coded passage shows its categories. Marked text can also be dragged onto a category on the right or highlighted with “Bold”.") }}</p>
   <p class="muted small tc-hint-touch">{{ de_en("Auf eine Textstelle lange drücken und die Griffe ziehen; kurz danach öffnet sich die Liste der Kategorien. Markiert wird immer ganze Wörter. Antippen einer kodierten Stelle zeigt ihre Kategorien.", "Press and hold a passage and drag the handles; a moment later the list of categories opens. Whole words are always marked. Tapping a coded passage shows its categories.") }}</p>
   {{ why("anchor_choice") }}
-  {% if ai_on_state == "on" %}
+  {% if ai_on_state == "on" and not ai_checked %}
+  <p class="muted small">{{ de_en("KI-Vorschläge gibt es erst, wenn das Transkript geprüft ist.", "AI suggestions come only once the transcript is checked.") }}</p>
+  {% elif ai_on_state == "on" %}
   <div class="row-fields">
     <button type="button" class="button button-small button-ai" data-tc-suggest
             data-url="{{ url_for('transcript_coding.suggest_passages', code=survey.code, pid=project.id, rid=row.id) }}" data-sections="{{ sections }}">{{ icon("sparkles", 16) }} {{ de_en("Stellen vorschlagen", "Suggest passages") }}</button>

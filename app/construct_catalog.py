@@ -43,7 +43,7 @@ def manifest(path=PATH):
         return json.load(f)
 
 
-ACTIVE_SECONDS = 30  # how long a process keeps the active manifest before it looks for a newer one
+ACTIVE_SECONDS = 30  # how long a process keeps the active manifest before it looks for a newer one (CONSTRUCT_CATALOG_SECONDS)
 _active = {"checked": None, "id": None, "data": None}
 
 
@@ -56,8 +56,11 @@ def active():
         return manifest()
     if not has_app_context():
         return manifest()
+    from flask import current_app
+
     now = time.monotonic()
-    if _active["checked"] is not None and now - _active["checked"] < ACTIVE_SECONDS:
+    seconds = current_app.config.get("CONSTRUCT_CATALOG_SECONDS", ACTIVE_SECONDS)
+    if _active["checked"] is not None and now - _active["checked"] < seconds:
         return _active["data"]
     data, row = manifest(), None
     try:

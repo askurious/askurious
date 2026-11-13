@@ -120,6 +120,7 @@ x-app-settings: &app-settings
   LIVE_RUN_SENDER_JOINS:
   LIVE_RUN_SENDER_QUESTIONS:
   LIVE_SENDER_QUESTION_VOTES:
+  LIVE_SENDER_WIDE_FACTOR:
   LIVE_VOTE_LIMIT:
   LIVE_WINDOW:
   LOGIN_LIMIT:
@@ -287,6 +288,9 @@ x-app: &app
   build:
     context: ../..
     dockerfile: deploy/docker/Dockerfile
+    # the commit of the code folder (compose-env.sh, from app/deployed_at.txt) as the image's revision label
+    args:
+      REVISION: ${ASKURIOUS_REVISION:-}
   image: askurious:latest
   restart: unless-stopped
   logging: *logging
@@ -391,6 +395,8 @@ services:
       # DB_ISOLATION=1, compose-env.sh; isolation/roles.yaml takes the same pair); until then the app's role as above
       DATABASE_URL: postgresql://${PARTICIPANT_DB_USER:-${DB_APP_USER:?DB_APP_USER missing in the .env (db-app-role.sh)}}:${PARTICIPANT_DB_PASSWORD:-${DB_APP_PASSWORD:?DB_APP_PASSWORD missing in the .env (db-app-role.sh)}}@db/askurious
       SIDE: participant                      # answers only the participants' paths (app/hosts.py)
+      # with the participants' own role: the start refuses any other (app/participant_grants.py, role_problem)
+      PARTICIPANT_ROLE_CHECK: ${PARTICIPANT_DB_USER:+1}
     command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "12", "--threads", "4",
               "--timeout", "60", "--graceful-timeout", "60", "--keep-alive", "75", "passenger_wsgi:application"]
 

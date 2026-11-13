@@ -7671,3 +7671,20 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - „Siegelkette“ führt zur Beispielbefragung mit Siegelkette (/s/zfgknw), „Herkunft und Vollständigkeit der Fälle prüfbar“ zur Prüfseite eines echten Falls.
 - „Web-Apps“ führt zur Beispielbefragung zum Gesetz von Fitts (/s/5katj4).
 - „Viele Elementtypen und erweiterbare validierte Skalen aus „Konstrukte““, der zweite Teil verlinkt die Konstrukte (nicht unter POLLtergeist).
+
+## 2026-11-09: Konstrukte der Organisation bearbeiten und ausblenden
+
+- Verwaltung › Konstrukte: „Bearbeiten“ (derselbe Dialog wie „Konstrukt anlegen“, vorbelegt; Name, Texte, Quelle, Lizenz, optional Englisch), „Entfernen“ bzw. „Ausblenden“, wenn Befragungen es nutzen (nur aus der Toolbox, Befragungen behalten es), „Wieder zeigen“ unter „Ausgeblendet“. Nichts wird gelöscht.
+- Die Datei für einen Pull Request belegt die englischen Felder vor (wie angegeben, sonst der deutsche Text zum Übersetzen). Einreichungen beim Betreiber fragen optional den Lizenzschlüssel des Katalogs ab; ein angenommenes Konstrukt trägt ihn in die Datei.
+
+## 2026-11-10: Tabelle „Geführte Interviews“ aufgeteilt und sortierbar
+
+- Die Spalte „Stand“ ist aufgeteilt: Stand, Aufnahme (anhören, herunterladen, hochladen, löschen), Transkript (prüfen, transkribieren, Fortschritt) und Aktionen; „Löschen nach Frist“ heißt „Löschen am“. Der Hinweis zum Modellwechsel steht im Tooltip der Modellauswahl, die Zeilen bleiben niedrig.
+- Alle Spalten außer Aktionen sortieren per Klick auf den Kopf (`iv_sort`/`iv_dir`, `ListPage` sortiert jetzt Listen im Speicher, leere Werte zuletzt); ein Filterwechsel behält die Sortierung.
+- Aktionen (Transkribieren, Abbrechen, Aufnahme löschen, Interview löschen) schicken Filter, Sortierung und Seite mit (`back`) und kehren zur Zeile zurück (`#iv-<id>`, nach dem Löschen `#gefuehrt`), statt oben ohne Filter zu landen; ebenso „Zurück“ von Upload- und Transkriptseite (`interview_data.back_url`).
+
+## 2026-11-12: Rechte der Teilnahme-Rolle, Stufe 2 (Löschen mit Nachweis, flow und data_pool zu)
+
+- Teilnahmen löscht die Teilnahmeseite nur noch über die Datenbankfunktion `participant_erase_response` (SECURITY DEFINER, Migration 0123), die den Nachweis der Transaktion prüft: Löschcode, Teilnahme im Browser, Secret der Tagebuch-App, Ablehnung, weiteres Live-Wort, Testdaten des Pretest-Links. Der ORM löscht wie bisher; auf der Teilnahmeseite wird sein DELETE zum Aufruf der Funktion (`app/participant_erase.py`), Siegelkette und alle anderen Hooks bleiben.
+- Die Marke, auf die Dashboard-Links nach einer Löschung warten, liegt in `board_erase_floor` statt in `survey.data_pool`; ein Layout schreibt den normalisierten Ablauf nicht mehr zurück (`flow.normalize_for_reading`).
+- Die Teilnahme-Rolle hat damit kein UPDATE mehr auf `survey.flow` und `survey.data_pool` und kein DELETE auf `response`; die Startprüfung (`PARTICIPANT_ROLE_CHECK`) verlangt das und EXECUTE auf die Funktion. Ein geplanter Start, den die Rolle nicht schreiben darf, bleibt der Haushaltung.

@@ -66,7 +66,10 @@ def test_recorder_turns_statements_into_rights():
     assert pairs('INSERT INTO response (survey_id) VALUES (?) RETURNING id') == {
         ("response", "INSERT"), ("response", "SELECT"), ("response_revision", "SELECT"),
         ("response_revision", "INSERT"), ("response_revision", "UPDATE")}
-    assert pairs('UPDATE survey SET x=? WHERE survey.id = ?') == {("survey", "UPDATE"), ("survey", "SELECT")}
+    assert pairs('UPDATE quota_cell SET x=? WHERE quota_cell.id = ?') == {("quota_cell", "UPDATE"), ("quota_cell", "SELECT")}
+    # survey has column rights (2026-11-12): the columns an UPDATE sets are recorded with it
+    assert pairs('UPDATE survey SET status=? WHERE survey.id = ?') == {("survey", "UPDATE"), ("survey", "SELECT"),
+                                                                       ("survey", "UPDATE:status")}
     assert pairs('SELECT "user".id FROM "user" JOIN survey_member ON 1') == {("user", "SELECT"), ("survey_member", "SELECT")}
     assert ("rate_count", "UPDATE") in pairs("INSERT INTO rate_count (k) VALUES (?) ON CONFLICT (k) DO UPDATE SET n=n+1")
     assert pairs("SELECT 1") == set() and pairs("PRAGMA foreign_keys") == set()

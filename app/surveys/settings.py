@@ -127,6 +127,8 @@ def update_meta(survey_id):
         privacy_error = retention.order_error(survey, request.form)  # audit 2026-10-10, L-4
         if privacy_error:
             return _refused(survey, "settings:privacy", privacy_error)
+        if retention.ask_shortening(survey, request.form):  # deletes within 30 days: asked first (audit 2026-11-11)
+            return redirect(url_for("surveys.detail", survey_id=survey.id) + "#datenschutz")
     if part in ("", "befragung"):
         error = apply_project(survey, request.form)
         apply_languages(survey, request.form)

@@ -390,7 +390,8 @@ def new_account(org_id):
     kind_access.store(user, _kinds_of_form(org, t), current_user)
     if request.form.get("may_create") == "1":
         kind_access.give_create(user, current_user)  # within the organisation's cap, which home_cap applies
-    account_types.assign(user, t, spec, by=current_user, supervisor=current_user, start=False)  # starts with the password (N4)
+    account_types.assign(user, t, spec, by=current_user, supervisor=account_types.bringing_in(current_user),
+                         start=False)  # starts with the password (N4)
     orgs.add(org, user, by=current_user, home=True)
     db.session.commit()
     orgs.forget()
@@ -570,7 +571,8 @@ def account(org_id, user_id):
 
 def _supervisor_choices(org, user):
     """Who can supervise the account from here: the people of this organisation with an account, without the account
-    itself; the current supervisors stay in the list (as admin._supervisor_choices for the home organisation)."""
+    itself; the current supervisors stay in the list (as admin._supervisor_choices for the home organisation). The
+    admin acting may choose themself, but that only asks the person (_supervisor_action)."""
     people = [u for u, _row in orgs.members_of(org)]
     for current in account_types.supervisors_of(user):
         if current not in people:
@@ -578,15 +580,29 @@ def _supervisor_choices(org, user):
     return [u for u in people if u.id != user.id]
 
 
+def _asks_only(sup):
+    """An admin of the organisation choosing themself: a supervisor becomes admin of every survey the person creates,
+    and an admin of the organisation sees no survey's content or answers (A15) unless the person agrees; so it is a
+    request the person confirms on "Konto" (account_types.request_supervision). A site admin enters it at once."""
+    return sup.id == current_user.id and not orgs._site_admin(current_user)
+
+
 def _supervisor_action(org, user, action):
     """Betreuung on the card (Ralf 2026-10-29: set later, not only through the invitation): a choice in the list adds
-    one, the × removes one; the same rules as on the admin's account page (admin._period_action)."""
+    one, the × removes one or takes a request back; the same rules as on the admin's account page
+    (admin._period_action). Another admin or a site admin enters a person at once; an admin choosing themself asks."""
     back = redirect(url_for("org.account", org_id=org.id, user_id=user.id, _anchor="betreuung"))
     chosen = request.form.get("supervisor", type=int)
     current = account_types.supervisors_of(user)
     if action == "supervisor_remove":
         gone = next((u for u in current if u.id == chosen), None)
         if gone is None:
+            asked = next(((row, sup) for row, sup in account_types.requests_of(user) if sup.id == chosen), None)
+            if asked is not None:
+                db.session.delete(asked[0])
+                db.session.commit()
+                flash(de_en("Anfrage an {who} zurückgenommen.", "Request to {who} taken back.", who=user.display_name),
+                      "success")
             return back
         account_types.set_supervisors(user, [u for u in current if u.id != gone.id])
         db.session.commit()
@@ -599,6 +615,13 @@ def _supervisor_action(org, user, action):
     sup = next((u for u in _supervisor_choices(org, user) if u.id == chosen), None)
     if sup is None or t is None or not t.supervised:
         flash(de_en("Diese Person kann das Konto nicht betreuen.", "This person cannot supervise the account."), "error")
+        return back
+    if _asks_only(sup):
+        account_types.request_supervision(user, sup)
+        db.session.commit()
+        flash(de_en("{who} wurde gefragt. Sie betreuen das Konto, sobald {who} auf „Konto“ bestätigt.",
+                    "{who} has been asked. You supervise the account once {who} confirms on “Account”.",
+                    who=user.display_name), "success")
         return back
     account_types.set_supervisors(user, [*current, sup])
     db.session.commit()
@@ -618,8 +641,10 @@ def _account_context(org, user):
             "period": account_types.summary(db.session.get(UserLogin, user.id)), "types": orgs.allowed_types(org),
             "current_type": account_types.of(user), "active": "people",
             "supervisors": account_types.supervisors_of(user),
+            "supervisor_requests": [sup for _row, sup in account_types.requests_of(user)],
             "supervisor_choices": [u for u in _supervisor_choices(org, user)
-                                   if u not in account_types.supervisors_of(user)],
+                                   if u not in account_types.supervisors_of(user)
+                                   and u not in [sup for _row, sup in account_types.requests_of(user)]],
             "blocked": (db.session.get(UserLogin, user.id) or UserLogin()).status == UserLogin.BLOCKED}
 
 
@@ -920,6 +945,8 @@ def constructs(org_id):
                            rows=[toolbox.shown(toolbox.get(k)) for k in own],
                            platform=[toolbox.shown(toolbox.get(k)) for k in platform], max=shortlist.MAX,
                            own_constructs=org_constructs.of_org(org.id), proposals=org_constructs.proposals(org.id),
+                           hidden_constructs=org_constructs.of_org(org.id, hidden=True), uses=org_constructs.uses,
+                           english=org_constructs.english_of,
                            elements=linked.palette(current_user), licences=org_constructs.licences(),
                            licence_label=org_constructs.licence_label, contact=org_constructs.contact(),
                            repository=org_constructs.REPOSITORY)
@@ -953,6 +980,29 @@ def constructs_own(org_id):
             flash(de_en("Angelegt: „{n}“ ({k}), für die Mitglieder der Organisation in „Konstrukte“.",
                         "Created: “{n}” ({k}), in “Constructs” for the members of the organisation.", n=c.name, k=c.key),
                   "success")
+        elif action in ("update", "hide", "show"):
+            c = org_constructs.get(org.id, request.form.get("key", ""))
+            if c is None:
+                abort(404)
+            if action == "update":
+                fields, errors = org_constructs.read(request.form)
+                if errors:
+                    flash(de_en("Bitte ausfüllen: {fields}.", "Please fill in: {fields}.", fields=", ".join(errors)), "error")
+                    return back
+                org_constructs.update(c, org, fields)
+                flash(de_en("Gespeichert: „{n}“.", "Saved: “{n}”.", n=c.name), "success")
+            elif action == "hide":
+                org_constructs.hide(c)
+                flash(de_en("„{n}“ steht nicht mehr in „Konstrukte“; Befragungen, die es nutzen, behalten es. Rückgängig: "
+                            "unter „Ausgeblendet“ „Wieder zeigen“.", "“{n}” is no longer listed in “Constructs”; surveys that "
+                            "use it keep it. To undo: “Show again” under “Hidden”.", n=c.name), "success")
+            else:
+                org_constructs.show(c)
+                flash(de_en("„{n}“ steht wieder in „Konstrukte“.", "“{n}” is listed in “Constructs” again.", n=c.name),
+                      "success")
+            security_log.event("org_construct", by=current_user.id, target=f"org {org.id}: {action} {c.key}")
+            db.session.commit()
+            toolbox.rebuild_index(force=True)
         elif action in ("take", "reject"):
             s = db.session.get(ConstructSubmission, request.form.get("sid", type=int) or 0)
             if s is None or s.org_id != org.id:
@@ -982,7 +1032,7 @@ def construct_file(org_id, key):
     from app import brand, org_constructs
     from app.models import Construct
 
-    c = db.session.scalar(db.select(Construct).filter_by(key=key, visibility=org_constructs.VISIBILITY, org_id=g.org.id))
+    c = org_constructs.get(g.org.id, key)
     if c is None:
         abort(404)
     from urllib.parse import urlsplit

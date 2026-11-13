@@ -619,7 +619,11 @@ def _private(response):
 def upload(code, rid):
     survey, row = _row(code, rid, right="record")
     if not ((row.interview or {}).get("consent") or {}).get("audio"):
-        abort(403)  # no consent to the recording: nothing is taken
+        # no consent to the recording: nothing is taken, except a file recorded elsewhere whose upload confirms the
+        # consent of everybody who speaks (the tick of upload_page; Ralf 2026-11-10: an interview begun without
+        # "Tonaufnahme erlaubt" had no way to a recording at all)
+        if request.args.get("source") != "upload" or request.args.get("all") != "1":
+            abort(403)
     mime = (request.content_type or "").split(";")[0].strip().lower()
     data = request.get_data(cache=False)
     rec = re.sub(r"[^a-z0-9]", "", request.args.get("rec", "").lower())[:16]
@@ -640,7 +644,7 @@ def upload(code, rid):
                 abort(make_response(jsonify(ok=False, error="consent"), 403))  # everybody who speaks (§ 201 StGB)
             now = utcnow().isoformat(timespec="seconds")
             old = (row.interview or {}).get("consent") or {}
-            consent = {**old, "all": old.get("all") or now, "upload": now}
+            consent = {**old, "all": old.get("all") or now, "upload": now, "audio": True}
             row.interview = {**(row.interview or {}), "consent": consent}
         if meta is not None:
             return append(survey, row, part, seq, mime, data, request.args.get("start", type=int) or 0, rec, meta)
@@ -717,18 +721,17 @@ def netcheck(code, rid):
 @interviewer_or_signed_in
 def upload_page(code, rid):
     """A recording made elsewhere (Zoom, Teams, Webex, BBB, a voice recorder) added to the interview: the page cuts
-    each file into pieces and sends them like a recording of the interview view (upload())."""
+    each file into pieces and sends them like a recording of the interview view (upload()). Open also for an interview
+    begun without "Tonaufnahme erlaubt": the tick of everybody who speaks then gives the consent (Ralf 2026-11-10)."""
     from flask import render_template
 
     from app import interviewer
 
     survey, row = _row(code, rid, right="record")
-    if not ((row.interview or {}).get("consent") or {}).get("audio"):
-        abort(403)
     used = sum(p.get("bytes") or 0 for p in parts(row))
     return render_template("interview/audio_upload.html", survey=survey, row=row, origins=ORIGINS, speakers=SPEAKERS,
                            label=label, piece=MAX_PIECE, left=max(0, MAX_TOTAL - used), parts_left=MAX_PARTS - len(parts(row)),
-                           next_part=next_part(row), back=interviewer.list_url(survey),
+                           next_part=next_part(row), back=interviewer.list_url(survey, row.id),
                            whisper_jobs=bool(current_app.config.get("WHISPER_JOBS")))
 
 
@@ -767,4 +770,6 @@ def delete(code, rid):
     remove(survey, row)
     db.session.commit()
     flash(de_en("Aufnahme von {label} gelöscht.", "Recording of {label} deleted.", label=(row.interview or {}).get("label", "")), "success")
-    return redirect(url_for("interview_data.index", code=survey.code))
+    from app.interview_data import back_url
+
+    return redirect(back_url(survey, row.id))

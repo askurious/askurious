@@ -22,7 +22,7 @@ def _audio(app, rid):
         return db.session.get(Response, rid).interview
 
 
-def test_upload_page_and_link_need_the_recording_consent(app, client):
+def test_upload_page_and_link_need_the_record_right(app, client):
     code, sid = make(app, client)
     rid = start(app, client, code)
     page = client.get(f"/guide/{code}/interviews/{rid}/audio/upload")
@@ -31,8 +31,27 @@ def test_upload_page_and_link_need_the_recording_consent(app, client):
     assert "audio-upload.js" in text and 'name="all"' in text and "Zoom, lokale Aufzeichnung" in text
     assert "nur befragte Person (B)" in text
     assert "Aufnahme hochladen" in client.get(f"/guide/{code}/interviews").get_data(as_text=True)
+
+
+def test_a_recording_made_elsewhere_also_without_the_recording_tick(app, client):
+    """Ralf 2026-11-10: an interview begun without "Tonaufnahme erlaubt" (e.g. held over Zoom) had no way to its M4A or
+    MP3 file; the upload page only showed the JSON field for saved pieces. Now the link and page are there, the tick of
+    everybody who speaks gives the consent, and recording in the interview view stays closed until then."""
+    code, sid = make(app, client)
     no = start(app, client, code, audio="")
-    assert client.get(f"/guide/{code}/interviews/{no}/audio/upload").status_code == 403
+    page = client.get(f"/guide/{code}/interviews/{no}/audio/upload")
+    assert page.status_code == 200
+    text = page.get_data(as_text=True)
+    assert "„Tonaufnahme erlaubt“ nicht angekreuzt" in text and 'name="all"' in text and ".m4a,.mp3" in text
+    assert f"/interviews/{no}/audio/upload" in client.get(f"/guide/{code}/interviews").get_data(as_text=True)
+    piece = f"/guide/{code}/interviews/{no}/audio?part=1&seq=0&rec=r1&start=0"
+    assert client.post(piece, data=WEBM, content_type="audio/webm").status_code == 403     # the interview view: no
+    assert _up(client, code, no, MP3, "audio/mpeg", all_="").status_code == 403           # without the tick: no
+    assert _up(client, code, no, MP3, "audio/mpeg").status_code == 200
+    assert _up(client, code, no, M4A, "audio/mp4", part=2).status_code == 200
+    m = _audio(app, no)
+    assert m["consent"]["audio"] and m["consent"]["upload"] and m["consent"]["all"]
+    assert [p["file"].rsplit(".", 1)[1] for p in m["audio"]] == ["mp3", "m4a"]
 
 
 def test_uploaded_parts_keep_origin_speaker_and_consent_of_all(app, client):

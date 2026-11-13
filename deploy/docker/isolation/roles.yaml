@@ -10,6 +10,7 @@ x-runtime: &runtime
 x-participant-runtime: &participant-runtime
   DATABASE_URL: postgresql://${PARTICIPANT_DB_USER:-${DB_RUN_USER:?runtime role missing}}:${PARTICIPANT_DB_PASSWORD:-${DB_RUN_PASSWORD:?runtime password missing}}@db/askurious
   DATABASE_SCHEMA_MODE: check
+  PARTICIPANT_ROLE_CHECK: ${PARTICIPANT_DB_USER:+1}
 
 x-migration: &migration
   image: askurious:latest

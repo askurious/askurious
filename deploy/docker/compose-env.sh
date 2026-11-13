@@ -28,3 +28,7 @@ case "$(isolation_value DB_ISOLATION)" in
   *) echo 'DB_ISOLATION must be 0 or 1.' >&2; return 1 ;;
 esac
 export ISOLATION_ACTIVE
+# the commit of this code folder (deploy-docker.sh writes it to app/deployed_at.txt): compose.yaml passes it to the
+# build as the image's label org.opencontainers.image.revision, so the running image names its commit
+ASKURIOUS_REVISION=$(sed -n 2p ../../app/deployed_at.txt 2>/dev/null || true)
+export ASKURIOUS_REVISION

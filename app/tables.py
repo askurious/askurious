@@ -155,10 +155,24 @@ def back_args(value):
 
 
 class ListPage(Listing):
-    """A list already in memory, cut into pages like a Listing (sizes, pager, url), without sorting or search."""
+    """A list already in memory, cut into pages like a Listing (sizes, pager, url), without search. `sorts`:
+    {key: function of an item, or (function, "desc")}; the column heads sort as in a Listing (sort_th), the
+    default keeps the order given. Empty values (None, "") stay last in both directions."""
 
-    def __init__(self, prefix, items, anchor="", sizes=ROW_SIZES):
-        super().__init__(prefix, {"none": [db.literal(0)]}, "none", anchor=anchor, sizes=sizes)
+    def __init__(self, prefix, items, anchor="", sizes=ROW_SIZES, sorts=None, default=None):
+        sorts = sorts or {}
+        columns = {"none": [db.literal(0)]}
+        for name, spec in sorts.items():
+            columns[name] = ([db.literal(0)], spec[1]) if isinstance(spec, tuple) else [db.literal(0)]
+        super().__init__(prefix, columns, default or "none", anchor=anchor, sizes=sizes)
+        if self.sort in sorts:
+            spec = sorts[self.sort]
+            func = spec[0] if isinstance(spec, tuple) else spec
+            keyed = [(func(item), item) for item in items]
+            given = [pair for pair in keyed if pair[0] not in (None, "")]
+            empty = [item for value, item in keyed if value in (None, "")]
+            given.sort(key=lambda pair: pair[0], reverse=self.dir == "desc")  # stable: equal values keep their order
+            items = [item for _, item in given] + empty
         self.total = len(items)
         self.pages = max(-(-self.total // self.per_page), 1)
         self.page = min(self.page, self.pages)

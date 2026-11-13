@@ -11,7 +11,7 @@ overview (view the passages, merge).
 The overview counts what the actor sees (transcript_coding_review.all_codings: blind double coding, own interviews);
 the Excel file of the category system (team only) counts every interview, on the level of all categories."""
 from app.transcript_coding import live, top_of, tree
-from app.transcript_coding_view import paragraphs, spot, transcript
+from app.transcript_coding_view import Paragraphs, spot, transcript
 
 LEVELS = ("main", "all")
 
@@ -61,7 +61,8 @@ def table(project, items, level="main", paragraph=False):
     for row, found in per_row.values():
         text = transcript(row)
         label = (row.interview or {}).get("label", str(row.id))
-        paras = paragraphs(text) if paragraph else None
+        paras = Paragraphs(text)  # once per interview, and each passage placed once, not per pair
+        where = [spot(label, text, c["start"], paras) for _k, c in found]
         spans = [_para_span(paras, c["start"], c["end"]) for _k, c in found] if paragraph else None
         for k, _c in found:
             diag[k] = diag.get(k, 0) + 1
@@ -76,12 +77,12 @@ def table(project, items, level="main", paragraph=False):
                     hit = fa >= 0 and fb >= 0 and fa <= lb and fb <= la
                 if not hit:
                     continue
-                for x, y, cx, cy in ((ka, kb, a, b), (kb, ka, b, a)):
+                for x, y, cx, cy, wx, wy in ((ka, kb, a, b, where[i], where[j]), (kb, ka, b, a, where[j], where[i])):
                     count[(x, y)] = count.get((x, y), 0) + 1
                     pairs.setdefault((x, y), []).append({
                         "label": label, "rid": row.id,
-                        "a": {"id": cx.get("id"), "quote": cx.get("quote") or "", "where": spot(label, text, cx["start"], paras)},
-                        "b": {"id": cy.get("id"), "quote": cy.get("quote") or "", "where": spot(label, text, cy["start"], paras)}})
+                        "a": {"id": cx.get("id"), "quote": cx.get("quote") or "", "where": wx},
+                        "b": {"id": cy.get("id"), "quote": cy.get("quote") or "", "where": wy}})
     return {"cats": cats, "count": count, "diag": diag, "pairs": pairs, "level": level, "paragraph": paragraph}
 
 

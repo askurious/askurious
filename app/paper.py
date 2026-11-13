@@ -188,6 +188,10 @@ def read_with_ai(survey, sheet):
                                "The AI reads handwriting only over an own AI access (Account › Connections), not over "
                                "the platform's access."))
     found = evaluate(survey, sheet)
+    if _consent_state(survey, found) != "yes":  # an unclear or missing tick: nothing goes to the AI (Ralf 2026-11-12)
+        raise ai.AIError(de_en("Die KI liest die Handschrift nur, wenn die Einwilligung auf dem Bogen eindeutig "
+                               "angekreuzt ist.", "The AI reads the handwriting only when the consent on the sheet is "
+                               "clearly ticked."))
     wanted = [e for e in found["fields"] if e["k"] == "write" and e["state"] == "ink" and not e.get("value")][:AI_MAX]
     if not wanted:
         return 0

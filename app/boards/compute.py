@@ -498,7 +498,9 @@ def state(board, fresh=False, lang=None, only=None, steps=False, live=False):
     steps never reads it."""
     lang = lang if lang in (board.survey.languages or []) else board.survey.default_language
     only = tuple(only) if only else None
-    if steps and (board.survey.data_pool or {}).get("_public_after_erase", 0) > _pool_count(board.survey):
+    from app import erasure
+
+    if steps and erasure.floor(board.survey) > _pool_count(board.survey):
         # Even cached public states cannot be shown after a deletion: hold all languages/links
         # until a new sufficiently large batch exists. Staff can still see their live view.
         return pending(lang, only)

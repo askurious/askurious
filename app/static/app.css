@@ -2401,6 +2401,14 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-overlap a[aria-current] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tc-overlap-pairs { display: grid; gap: 8px; padding-left: 18px; }
 .tc-switch { display: flex; flex-wrap: wrap; gap: 6px; }
+/* the menu "Herunterladen" of an analysis (transcript_coding/_parts.html, downloads): one line per file with its note */
+.tc-dl-menu > summary { cursor: pointer; }
+.tc-dl-panel { width: min(400px, calc(100vw - 40px)); }
+.tc-dl-panel a { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--fg); font-weight: 600; }
+.tc-dl-panel a:hover, .tc-dl-panel a:focus-visible { background: var(--surface-3); }
+.tc-dl-panel a .icon { margin-top: 3px; flex: none; }
+.tc-dl-panel .hint { display: block; margin: 1px 0 0; font-weight: 400; }
+.tc-dl-panel hr { margin: 4px 0; }
 .tc-flag { font-size: 0.75rem; color: var(--caution); border: 1px solid var(--caution); border-radius: var(--radius-tag); padding: 0 6px; }
 .tc-pair { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 10px; overflow-wrap: break-word; }
 .tc-pair p { margin: 0; }
@@ -3741,10 +3749,11 @@ label.consent-aff > input { flex: 1 1 auto; min-width: 0; }
 .live-block-name { min-width: 0; }
 .live-block-name input { text-overflow: ellipsis; }  /* a long name ends in "…" and stands whole in the tooltip */
 .live-block-head > .muted { white-space: nowrap; }
-.guide-form-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.guide-form-head .live-block-name { grid-column: 1; overflow-wrap: anywhere; }
+.guide-form-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }  /* the AI and the bin side by side */
+.guide-form-head .live-block-name { grid-column: 1; grid-row: 1; overflow-wrap: anywhere; }
 .guide-form-head .guide-form-note { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
 .guide-form-head > form { grid-column: 2; grid-row: 1; }
+.guide-form-head > form + form { grid-column: 3; }
 .guide-block .live-block-head, .guide-block .live-item { flex-wrap: wrap; }
 .guide-block .live-item-text { flex-basis: 120px; }
 .diary-time-editor { min-width: 0; }
@@ -4317,6 +4326,10 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 .iv-audio summary { cursor: pointer; }
 .iv-audio-part { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .iv-audio-part audio { height: 32px; max-width: 280px; }
+/* "Geführte Interviews": recording and transcript in columns of their own (Ralf 2026-11-10) */
+.iv-list td { vertical-align: top; }
+.iv-list .nowrap { white-space: nowrap; }
+.iv-transcript-cell > form.inline { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
 /* listening while correcting (transcript_player.js): the paragraph at the cursor, play from there, tempo */
 .tp-bar { align-items: center; gap: 8px; margin: 4px 0 8px; }
 .tp-rates { display: inline-flex; gap: 4px; }

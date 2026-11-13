@@ -922,6 +922,9 @@ class AccountSupervisor(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), index=True)
     supervisor_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # an admin of an organisation who made themself the supervisor only asked: no admin of new surveys until the
+    # person confirms on "Konto" (account_types.request_supervision, migration 0121)
+    pending: Mapped[bool] = mapped_column(default=False, server_default="0")
 
 
 class DeletedAccount(db.Model):
@@ -1964,6 +1967,18 @@ class Erasure(db.Model):
     contacts: Mapped[int] = mapped_column(default=0)
 
 
+class BoardEraseFloor(db.Model):
+    """After a participation was deleted, the dashboard links (/d/...) show a new state only once the data pool holds
+    this many participations (erasure._remove: the count then plus MIN_CELL), so the before and after of the
+    deleted person's answers is never published (TN-30). A table of its own, not survey.data_pool: the participants'
+    side deletes too (deletion code, diary app) and may not write the survey's settings (access audit 2026-11-11,
+    B2 stage 2). Only ever raised; a number, nothing of whom it was. No foreign key, like sem_version: the row goes in
+    code with the survey (lifecycle.delete)."""
+
+    survey_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    public_after: Mapped[int] = mapped_column(default=0, server_default="0")
+
+
 class SealEntry(db.Model):
     """One entry of a survey's seal chain (app/seal.py): a case sealed when it ended, amended, deleted, or all cases
     deleted at once. Rows are only ever added; none is changed except that the salt and the participation's id go
@@ -2827,6 +2842,8 @@ class Feedback(db.Model):
     survey_id: Mapped[int | None] = mapped_column(ForeignKey("survey.id", ondelete="SET NULL"), index=True)
     contact: Mapped[str] = mapped_column(String(200), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # when it was set to "done": three years later a complaint's name and address go (feedback.forget_contacts, 0122)
+    done_at: Mapped[datetime | None]
 
     user: Mapped[User | None] = relationship()
     survey: Mapped[Survey | None] = relationship()
@@ -3472,6 +3489,10 @@ def _revision_triggers(metadata, connection, **kwargs):
     created = {table.name for table in kwargs.get("tables", ())}
     if {"survey", "response", "response_revision"} <= created:
         install(connection)
+    if "response" in created:
+        from app import participant_erase
+
+        participant_erase.install(connection)  # the deletion with a proof (migration 0123)
 
 
 class WhisperCancel(db.Model):

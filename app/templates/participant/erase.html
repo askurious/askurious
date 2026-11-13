@@ -24,6 +24,7 @@
     {{ confirm_box() }}
     <p class="p-complaint-actions"><button class="p-button p-button-danger">{{ ui("Meine Antworten endgültig löschen", "Delete my answers for good") }}</button></p>
   </form>
+  {% if own_code %}<p class="p-erase-own-code">{{ ui("Ihr Löschcode: {code}. Notieren Sie ihn: Damit löschen Sie Ihre Antworten auch später, etwa nachdem Sie dieses Fenster geschlossen haben.", "Your deletion code: {code}. Write it down: with it you delete your answers later too, for instance after closing this window.", code=own_code) }}</p>{% endif %}
   {% endif %}
   {% if codes %}
   {# with a participation in this browser its own form comes first; the one for a code is folded below (W52) #}

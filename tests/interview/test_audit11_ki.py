@@ -24,9 +24,16 @@ WEBM = b"\x1a\x45\xdf\xa3"  # the first bytes of a WebM recording (app/items/voi
 # --- K1, K5: the guarded transport of the own access --------------------------------------------------------------
 
 
+# The drip lasts far longer than the 2 s deadline, so "ended at the deadline" and "waited for the drip" stay apart even
+# on a machine under full load (twice 15-19 s under the full suite, 2026-11-10, against a 6 s limit and an 8 s drip).
+DRIP_BYTES = 120
+DRIP_SECONDS = DRIP_BYTES / 2
+
+
 class _Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     seen = []
+    dripped_out = False
 
     def log_message(self, *a):
         pass
@@ -43,17 +50,18 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         _Handler.seen.append((self.path, self.headers.get("Host")))
         try:
-            if self.path.startswith("/drip/"):  # one byte every 0.5 s, 8 s long
+            if self.path.startswith("/drip/"):  # one byte every 0.5 s, DRIP_SECONDS long; stops once the client hangs up
                 body = b'{"object":"list","data":[]}'
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body) + 16))
+                self.send_header("Content-Length", str(len(body) + DRIP_BYTES))
                 self.end_headers()
-                for _ in range(16):
+                for _ in range(DRIP_BYTES):
                     self.wfile.write(b" ")
                     self.wfile.flush()
                     time.sleep(0.5)
                 self.wfile.write(body)
+                _Handler.dripped_out = True
             elif self.path.startswith("/big/"):  # 5 MB with one model id
                 self._send(b'{"object":"list","data":[{"id":"' + b"a" * 5_000_000 + b'","object":"model"}]}')
             elif self.path.startswith("/bomb/"):  # 30 MB unpacked, a few KB packed
@@ -79,7 +87,7 @@ def server(monkeypatch):
 
     monkeypatch.setattr(webservice, "_public_address", checked)
     monkeypatch.setattr(ai, "TEXT_TIMEOUT", 2)
-    _Handler.seen = []
+    _Handler.seen, _Handler.dripped_out = [], False
     yield srv.server_address[1], asked
     srv.shutdown()
 
@@ -92,9 +100,13 @@ def _client(port, path):
 def test_k1_drip_ends_at_the_deadline(app, server):
     port, _ = server
     with app.app_context():
+        client = _client(port, "drip")  # built before the clock: only the call itself counts
         started = time.monotonic()
-        assert ai_access.model_ids(_client(port, "drip")) == []
-        assert time.monotonic() - started < 6  # 2 s deadline, well before the 8 s of dripping (room for a busy machine, audit 2026-10-13, CF-5)
+        assert ai_access.model_ids(client) == []
+        took = time.monotonic() - started
+        # 2 s deadline; the limit only has to tell it from the whole drip, a loaded machine may take many times
+        # longer (audit 2026-10-13, CF-5; 2026-11-10)
+        assert took < DRIP_SECONDS / 2 and not _Handler.dripped_out, took
         with pytest.raises(openai.APITimeoutError) as e:
             _client(port, "drip").models.list()
         assert ai.sent(e.value)  # it reached the provider: it counts (K2)

@@ -641,7 +641,8 @@ def guide(code):
 @bp.route("/<code>/control", methods=["POST"])
 @login_required
 def control(code):
-    """Themenblöcke: add, rename, move up or down or by dragging (place). Elements are added, moved and deleted by the element editor's
+    """Themenblöcke: add, rename, move up or down or by dragging (place); Kurzfragebogen and Postskript removed
+    (remove_part). Elements are added, moved and deleted by the element editor's
     routes (editor.add_item, place_item, delete_item), blocks deleted by editor.delete_block."""
     from app import undo
 
@@ -680,6 +681,22 @@ def control(code):
             block.settings = {**settings, **({"gate": gate} if gate else {})}
             step.done(undo.both("Filter von „{title}“ geändert", "Filter of “{title}” changed", title=block.title()), block=block.id)
         back += f"#block-{block.id}"
+    elif action == "remove_part" and request.form.get("part") in ("short", "post"):
+        # the Kurzfragebogen or the Postskript removed from the guide as a whole (user feedback 2026-11-10: every
+        # template brings both, and only their questions could be deleted). The same as switching it off under
+        # "Einstellungen": its block stays hidden with its questions, switching it on again shows them again;
+        # "Rückgängig" takes it back at once
+        which = request.form["part"]
+        if shown_form(survey, which) is not None:
+            st = state(survey)
+            st.update(short="off") if which == "short" else st.update(post=False)
+            survey.interview = st
+            name = parts()[which]
+            step.done(undo.both("{part} entfernt", "{part} removed", part=undo.Label(PARTS[which], PARTS_EN[which])))
+            db.session.commit()
+            flash(de_en("„{part}“ entfernt. Unter „Einstellungen“ lässt er sich wieder einschalten, mit seinen Fragen.",
+                        "“{part}” removed. It can be switched on again under “Settings”, with its questions.", part=name), "undo")
+            return redirect(back)
     elif action in SUB_ACTIONS:
         item = next((i for b in survey.blocks for i in b.items if i.id == request.form.get("item", type=int)), None)
         if item is None or part(item.block) != "guide":
@@ -987,7 +1004,18 @@ def export(code):
                            material_licenses=interview_versions.MATERIAL_LICENSES,
                            editable=survey.can(current_user, "editor"), zenodo_targets=_zenodo_targets(survey),
                            may_delete=survey.can(current_user, "admin"),
-                           sources=[(de_en("Kategoriensystem", "Category system"), [qdc.KUCKARTZ, qdc.REFI])])
+                           sources=[(de_en("Kategoriensystem", "Category system"), [qdc.KUCKARTZ, qdc.REFI])],
+                           coding_projects=_coding_projects(survey))
+
+
+def _coding_projects(survey):
+    """The analyses of "Interviews kodieren" whose category systems the export lists (only for their team, who alone
+    may download them, app/transcript_coding_export.py); none while the feature is off."""
+    from app import experimental, transcript_coding
+
+    if not experimental.enabled(transcript_coding.FEATURE, survey=survey) or not transcript_coding.team(survey):
+        return []
+    return transcript_coding.projects(survey)
 
 
 @bp.route("/<code>/print")

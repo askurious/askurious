@@ -572,6 +572,10 @@ def erase():
         return _refuse("limit", 429)
     entries = diary._entries(person)
     if entries:
+        from app import participant_erase
+
+        # the database deletes the entries only for the person whose secret this is (app/participant_erase.py)
+        participant_erase.prove("diary", request.headers.get("Authorization", "")[7:].strip())
         erasure.erase(survey, entries, "self")  # takes the person's row along (diary.whole_persons) and commits
     else:
         from app import diary_access

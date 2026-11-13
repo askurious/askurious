@@ -233,6 +233,32 @@ def test_field_has_test_data(client, survey):
     assert "/surveys/1/field#testing" in r.headers["Location"]
 
 
+def test_live_strip_shows_a_fixed_selection_beyond_its_cap(app, client, survey, monkeypatch):
+    """More active participations than LIVE_SHOWN: a fixed selection of that many dots, the same on every call,
+    and "n" counts everyone (field_live)."""
+    from datetime import timedelta
+
+    from app import runtime
+    from app.models import Response, Survey, utcnow
+    from app.surveys import field
+    from tests.participation.test_participate import build
+
+    build(client)
+    client.post("/surveys/1/start", data={"use_end": "1", "field_end": "2031-01-01"})
+    monkeypatch.setattr(field, "LIVE_SHOWN", 3)
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        for minutes in range(1, 6):
+            r = Response(survey_id=1, status="active", source="real", answers={},
+                         last_active_at=utcnow() - timedelta(minutes=minutes))
+            runtime.ensure_layout(s, r)
+            db.session.add(r)
+        db.session.commit()
+    first, second = (client.get("/surveys/1/field/live").json for _ in range(2))
+    assert first["n"] == 5 and len(first["people"]) == 3
+    assert sorted((p["p"], p["j"]) for p in first["people"]) == sorted((p["p"], p["j"]) for p in second["people"])
+
+
 def test_confetti_once_after_start(client, survey):
     from tests.participation.test_participate import build
 
@@ -264,7 +290,7 @@ def test_live_strip_shows_active_participants_without_ids(app, client, survey):
     data = client.get("/surveys/1/field/live").json
     assert len(data["people"]) == 2 and data["window"] == 600 and data["estimate"] > 0     # 20 min, done, test: out
     assert all(set(p) == {"p", "a", "j"} and 0 < p["p"] < 1 and 0 <= p["j"] <= 1 for p in data["people"])
-    assert sorted(p["a"] // 60 for p in data["people"]) == [1, 8]
+    assert sorted(p["a"] // 60 for p in data["people"]) == [1, 8] and data["n"] == 2
     html = client.get("/surveys/1/field").data.decode()
     assert "data-live-strip" in html and "latch" not in html and 'data-confirm="„Test“ schließen?"' in html   # pausing asks nothing
     # the legend's dots have their own class: participant.css places .live-dot (live vote) absolutely on a track

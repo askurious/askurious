@@ -472,6 +472,25 @@ def _qr(text):
     return Markup(segno.make(text, error="m").svg_inline(scale=5, border=2, dark="#1c1c1a", omitsize=True))
 
 
+def _mail_factor_on(user):
+    """With mail on, a mail to the account's sign-in address that a second factor was switched on: whoever did not do
+    it learns at once (access audit 2026-11-11)."""
+    from app import brand, lang, mail, passwords
+
+    row = passwords.login_row(user)
+    if not mail.enabled() or row is None or not row.email:
+        return
+    with mail.in_language(lang.of(user)):
+        mail.send(row.email, de_en("Askurious: zweiter Faktor eingeschaltet", "Askurious: second factor switched on"),
+                  de_en("Guten Tag {name},\n\nfür Ihr Konto in Askurious wurde soeben ein zweiter Faktor eingeschaltet: "
+                        "Künftig fragt die Anmeldung mit Passwort nach einem Code aus einer Authenticator-App. Waren Sie "
+                        "das nicht, melden Sie sich bitte sofort bei den Admins der Plattform.\n\n{link}",
+                        "Hello {name},\n\na second factor has just been switched on for your account in Askurious: from "
+                        "now on signing in with a password asks for a code from an authenticator app. If this was not "
+                        "you, please tell the platform admins at once.\n\n{link}",
+                        name=user.name, link=brand.public_base() + "/account/") + mail.signature())
+
+
 @bp.route("/set-up", methods=["GET", "POST"])
 @login_required
 def setup():
@@ -487,8 +506,13 @@ def setup():
                     "Platform admins set up the second factor after signing in with ORCID. Please sign out and sign "
                     "in with ORCID."), "error")
         return redirect(url_for("accounts.index"))
-    from app import secrets_box
+    from app import accounts, secrets_box
 
+    # a changed factor of sign-in only after a fresh sign-in: a session left open or taken over must not lock the
+    # owner out with a factor of its own (ASVS V7.5.1; access audit 2026-11-11)
+    again = accounts.need_fresh(url_for("twofactor.setup", next=nxt))
+    if again is not None:
+        return again
     # in the session cookie only encrypted: it is signed, not encrypted (audit 2026-10-09, A6)
     secret = secrets_box.decrypt(session.get("totp_setup"))
     if not secret or request.method == "GET":
@@ -500,6 +524,7 @@ def setup():
             codes = new_backup_codes(current_user)
             db.session.commit()
             _event("second_factor_on")
+            _mail_factor_on(current_user)
             session.pop("totp_setup", None)
             if via() != VIA_ORCID:
                 from app import auth

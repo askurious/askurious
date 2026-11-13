@@ -116,6 +116,16 @@ def _categories(project):
     return out
 
 
+class NotChecked(ai.AIError):
+    """The transcript is not checked yet: a draft (Whisper's above all) may still carry names and places."""
+
+
+def checked(row):
+    """True once the transcript was handed over as checked (Interviews › Transkript): only then do sections of it go
+    to an AI, masked like every other participants' text (ai_privacy.redact)."""
+    return bool(((row.interview or {}).get("transcript") or {}).get("checked"))
+
+
 def suggest(project, who, row, index):
     """Ask the AI for the section `index` of the transcript; store what could be anchored. Returns (new suggestions,
     number of sections). Raises ai.AIError."""
@@ -125,6 +135,9 @@ def suggest(project, who, row, index):
                                "wenn die Auswertung sie erlaubt.",
                                "AI suggestions run only over an own AI access (Account › Connections) and only when the "
                                "analysis allows them."))
+    if not checked(row):
+        raise NotChecked(de_en("KI-Vorschläge gibt es erst, wenn das Transkript geprüft ist.",
+                               "AI suggestions come only once the transcript is checked."))
     text = transcript(row)
     parts = sections(text)
     if not 0 <= index < len(parts):
@@ -137,7 +150,8 @@ def suggest(project, who, row, index):
     language = "German" if (row.language or "de").startswith("de") else "English"
     data = ai.json_answer(ai.generate_text(
         INSTRUCTIONS.format(most=MAX_PER_SECTION, language=language),
-        json.dumps({"categories": cats, "transcript_section": piece}, ensure_ascii=False),
+        # masked: an address or number in it goes as a placeholder ([EMAIL]); a passage quoted with one is not placed
+        json.dumps({"categories": cats, "transcript_section": ai_privacy.redact(piece)}, ensure_ascii=False),
         purpose=PURPOSE, item_type="transcript", schema=SCHEMA))
     known = {c["id"] for c in cats}
     taken = {(c.get("cat"), c.get("start"), c.get("end")) for c in codings(row, project.id)}
@@ -279,7 +293,7 @@ def suggest_passages(code, pid, rid):
         fresh, total = suggest(project, who, row, index)
     except ai.AIError as e:
         db.session.rollback()
-        return jsonify(ok=False, error=str(e)), 400
+        return jsonify(ok=False, error=str(e)), 409 if isinstance(e, NotChecked) else 400
     return jsonify(ok=True, total=total, suggestions=[{k: s[k] for k in ("id", "cat", "start", "end", "quote", "reason", "by_name")}
                                                       for s in fresh])
 

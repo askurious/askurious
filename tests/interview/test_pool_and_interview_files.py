@@ -23,8 +23,8 @@ def test_interview_csvs_have_the_formula_protection(app, client, monkeypatch):
     matrix = client.get(f"/guide/{code}/interviews/summaries.csv").data.decode("utf-8-sig")
     assert "I01;'- pflegt seit 2023;" in matrix and matrix.rstrip().endswith(";'=Typ")
     real = interview_results.overview_row
-    monkeypatch.setattr(interview_results, "overview_row", lambda survey, r: {
-        **real(survey, r), interview_results.overview_columns(survey)[-1][0]: "=HYPERLINK(\"x\")"})
+    monkeypatch.setattr(interview_results, "overview_row", lambda survey, r, used=None: {
+        **real(survey, r, used), interview_results.overview_columns(survey)[-1][0]: "=HYPERLINK(\"x\")"})
     overview = client.get(f"/guide/{code}/interviews/cases.csv").data.decode("utf-8-sig")
     assert "'=HYPERLINK" in overview and ";=HYPERLINK" not in overview
 

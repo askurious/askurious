@@ -32,6 +32,11 @@ _UPDATE = re.compile(r"^\s*(?:WITH\b.*?\)\s*)?UPDATE\s+(?:OR\s+\w+\s+)?" + _NAME
 _DELETE = re.compile(r"^\s*(?:WITH\b.*?\)\s*)?DELETE\s+FROM\s+" + _NAME, re.I | re.S)
 _READ = re.compile(r"\b(?:FROM|JOIN)\s+" + _NAME, re.I)
 _CONFLICT_UPDATE = re.compile(r"\bON\s+CONFLICT\b.*?\bDO\s+UPDATE\b", re.I | re.S)
+# the unit of work's DELETE of participations: on the participants' side a call of participant_erase_response
+# (app/participant_erase.py), so it needs EXECUTE on the function, not DELETE on response
+_ORM_ERASE = re.compile(r'^\s*DELETE\s+FROM\s+"?response"?\s+WHERE\s+"?response"?\."?id"?\s*=\s*\S+\s+AND\s+'
+                        r'"?response"?\."?version"?\s*=\s*\S+\s*$', re.I | re.S)
+ERASE = "DELETE:through participant_erase_response"
 # what the cache triggers of app/data_revision.py write with the rights of whoever wrote the row
 TRIGGERS = {
     "response": {("response_revision", "SELECT"), ("response_revision", "INSERT"), ("response_revision", "UPDATE")},
@@ -62,6 +67,9 @@ def pairs(statement, compiled=None):
         m = pattern.match(text)
         if m and m.group(1) in known:
             target = m.group(1)
+            if verb == "DELETE" and target == "response" and _ORM_ERASE.match(text):
+                found |= {(target, ERASE), (target, "SELECT")}  # the function's owner writes the cache triggers
+                break
             found |= {(target, verb), (target, "SELECT")}
             if verb == "INSERT" and _CONFLICT_UPDATE.search(text):
                 found.add((target, "UPDATE"))
@@ -157,6 +165,11 @@ def violations(seen):
     from app.participant_grants import allowed, columns
 
     def ok(table, privilege):
+        if privilege == ERASE:
+            from app.participant_erase import SIGNATURE
+            from app.participant_grants import FUNCTIONS
+
+            return SIGNATURE in FUNCTIONS
         if privilege.startswith("SELECT:"):
             return privilege[len("SELECT:"):] in (columns(table) or ())
         if privilege.startswith("UPDATE:"):

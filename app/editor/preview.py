@@ -29,6 +29,9 @@ def _preview_response(survey, restart=False, on_phone=False):
     if response is None or response.survey_id != survey.id or not response.is_preview:
         if previous is not None and previous.survey_id == survey.id and previous.source == "test" \
                 and not survey.keep_test_runs:
+            from app import participant_erase
+
+            participant_erase.prove("test_run")  # the pretest link (/p/...): the function deletes test data only
             db.session.delete(previous)  # test runs are only kept if the survey says so
         if on_phone:
             from app import limits
