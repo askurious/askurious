@@ -16,7 +16,7 @@ A place without an interview takes no row: nothing counts in lists, results or e
 lasts DAYS days (E5 b); `run` (housekeeping) drops it with every place never synced. A slot is found again by its
 pid when a sync is repeated, so a lost answer never makes a second interview."""
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, abort, flash, jsonify, make_response, redirect, render_template, request, url_for
 from flask_login import current_user
@@ -85,10 +85,15 @@ def _iso(t):
 
 
 def _time(text):
+    """An ISO time as UTC without a zone, like utcnow() and every stored time: the browser sends Date.toISOString()
+    ("...Z"), and a time with a zone cannot be compared with one without."""
     try:
-        return datetime.fromisoformat(text)
+        t = datetime.fromisoformat(text)
     except (TypeError, ValueError):
         return None
+    if t.tzinfo is not None:
+        t = t.astimezone(timezone.utc).replace(tzinfo=None)
+    return t
 
 
 def packs(survey):

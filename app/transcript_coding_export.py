@@ -14,6 +14,7 @@ kodieren", all as recommended, Ralf 2026-10-27), for MAXQDA, ATLAS.ti, NVivo and
   with each coded passage that can be placed (as in the .qdpx): number and name of its category, interview, where it
   stands ("B03, Pos. 12, 00:14:32", app/transcript_coding_view.py, spot), quote and coder; last the sheet
   "Überschneidungen", category × category over every interview (app/transcript_coding_overlap.py).
+- The sheet "Kategoriensystem" alone as CSV, for scripts and programs without Excel.
 
 The GUIDs of categories are their own (CodingCategory.guid: from the guide as in app/qdc.py, else new), so a category
 system read in again matches; the others are derived from the guide, the analysis and the coding, so the same export
@@ -29,11 +30,11 @@ from xml.etree import ElementTree as ET
 
 from flask import send_file
 
-from app import brand
+from app import brand, heavy
 from app.extensions import db
 from app.lang import de_en
 from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
-from app.transcript_coding_view import (anchor_spots, clean_quote, example_spots, has_transcript, paragraphs, placed,
+from app.transcript_coding_view import (anchor_spots, clean_quote, example_spots, has_transcript, Paragraphs, placed,
                                         spot, transcript)
 
 PROJECT_NS = "urn:QDA-XML:project:1.0"
@@ -239,10 +240,9 @@ def _rows(survey):
     return [r for r in interview_data.interviews(survey, source="real") if has_transcript(r)]
 
 
-def build_xlsx(project, survey):
-    """The category system and its coded passages as an Excel file (see the top of this module)."""
-    from app import xlsx
-
+def _codebook(project, survey):
+    """The sheets "Kategoriensystem" and "Stellen" as (head, rows, head of passages, passages, pairs, mains, number);
+    `pairs`: (interview, placed coding) for the overlaps."""
     mains, candidates = tree(project)
     number = numbers(mains)
     spots = anchor_spots(project)
@@ -250,7 +250,7 @@ def build_xlsx(project, survey):
     pairs = []  # (interview, placed coding) for the further examples
     for r in _rows(survey):
         text, label = transcript(r), (r.interview or {}).get("label", str(r.id))
-        paras = paragraphs(text)
+        paras = Paragraphs(text)
         for c in placed(r, project)[0]:
             pairs.append((r, c))
             who = c.get("by_name") or ""
@@ -291,6 +291,27 @@ def build_xlsx(project, survey):
             for cid, label, where, quote, who in passages]
     head2 = [de_en("Nummer", "Number"), de_en("Kategorie", "Category"), de_en("Interview", "Interview"),
              de_en("Fundstelle", "Location"), de_en("Zitat", "Quote"), de_en("Kodiert von", "Coded by")]
+    return head, system, head2, rows, pairs, mains, number
+
+
+def build_csv(project, survey):
+    """The sheet "Kategoriensystem" of the Excel file as CSV (UTF-8 with BOM, semicolons as Excel in German reads
+    them), for scripts and for programs without Excel."""
+    import csv
+
+    head, system, *_rest = _codebook(project, survey)
+    buf = io.StringIO()
+    out = csv.writer(buf, delimiter=";")
+    out.writerow(head)
+    out.writerows(system)
+    return ("﻿" + buf.getvalue()).encode("utf-8")
+
+
+def build_xlsx(project, survey):
+    """The category system and its coded passages as an Excel file (see the top of this module)."""
+    from app import xlsx
+
+    head, system, head2, rows, pairs, mains, number = _codebook(project, survey)
     sheets = [(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 60, 40, 9, 12, 20]),
               (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])]
     cases = _case_rows(project, survey, mains, number)
@@ -336,6 +357,7 @@ def _case_rows(project, survey, mains, number):
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.xlsx")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def categories_xlsx(code, pid):
     survey, project, who = _in(code, pid, team_only=True)
     return send_file(io.BytesIO(build_xlsx(project, survey)), as_attachment=True,
@@ -343,8 +365,18 @@ def categories_xlsx(code, pid):
                      download_name=f"kategoriensystem-{survey.code}-{project.id}.xlsx")
 
 
+@bp.route("/<code>/interviews/coding/<int:pid>/categories.csv")
+@signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
+def categories_csv(code, pid):
+    survey, project, who = _in(code, pid, team_only=True)
+    return send_file(io.BytesIO(build_csv(project, survey)), as_attachment=True, mimetype="text/csv",
+                     download_name=f"kategoriensystem-{survey.code}-{project.id}.csv")
+
+
 @bp.route("/<code>/interviews/coding/<int:pid>/analysis.qdpx")
 @signed_in_or_coder
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def project_file(code, pid):
     survey, project, who = _in(code, pid, team_only=True)
     return send_file(io.BytesIO(build_qdpx(project, survey)), as_attachment=True, mimetype="application/zip",

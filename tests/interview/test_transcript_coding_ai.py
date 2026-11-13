@@ -8,7 +8,16 @@ import pytest
 from app import ai, transcript_coding_ai
 from app.extensions import db
 from app.models import CodingProject, Response
-from tests.interview.test_transcript_coding_review import TEXT, _setup, _sub
+from tests.interview.test_transcript_coding import _transcript
+from tests.interview.test_transcript_coding_review import TEXT, _sub
+from tests.interview.test_transcript_coding_review import _setup as _unchecked_setup
+
+
+def _setup(app, client):
+    """As _unchecked_setup, with the transcript checked: suggestions only come for checked transcripts."""
+    out = _unchecked_setup(app, client)
+    _transcript(app, out[2], TEXT, checked="2026-11-01T10:00:00")
+    return out
 
 
 @pytest.fixture
@@ -102,3 +111,21 @@ def test_consent_template_names_it(app, client):
     client.post(f"{base}/ai", data={"ai_allowed": "1"})
     with app.app_context():
         assert interview_docx._ai_coding(db.session.scalar(db.select(Survey).filter_by(code=code)))
+
+
+def test_only_a_checked_transcript_goes_to_the_ai_and_masked(app, client, own):
+    """A draft may still carry names and places: no suggestions before it is checked (409, no call to the AI); a
+    checked one goes with contact details masked, as every other participants' text."""
+    answer, calls = own
+    code, pid, rid, base, main, bea = _unchecked_setup(app, client)
+    _sub(client, base, main, "Erschöpfung", "müde")
+    client.post(f"{base}/ai", data={"ai_allowed": "1"})
+    page = client.get(f"{base}/i/{rid}").data.decode()
+    assert "erst, wenn das Transkript geprüft ist" in page and "Stellen vorschlagen" not in page
+    r = client.post(f"{base}/i/{rid}/suggest", json={"section": 0})
+    assert r.status_code == 409 and not r.json["ok"] and calls == []
+    text = TEXT + " Schreiben Sie mir an anna.neu@example.org."
+    _transcript(app, rid, text, checked="2026-11-01T10:00:00")
+    assert client.post(f"{base}/i/{rid}/suggest", json={"section": 0}).json["ok"]
+    sent = calls[-1][1]["transcript_section"]
+    assert "anna.neu@example.org" not in sent and "[EMAIL]" in sent and "Abends bin ich einfach fertig" in sent

@@ -37,10 +37,12 @@ the parts of the recording it holds go a week later (app/interview_audio.py).
                                                 it, and it goes with the period of the recording),
                                        "draft_covers": the "covers" of the draft,
                                        "checked": ISO or None, "checked_parts": {part: bytes}, "edited": bool}"""
+import contextlib
 import os
 import hmac
 import re
 import secrets
+import tempfile
 import threading
 import time
 from datetime import datetime, timedelta
@@ -208,8 +210,53 @@ def _prompt(survey):
     return ". ".join(" ".join(w.split()) for w in words if w and w.strip())[:MAX_PROMPT]
 
 
+@contextlib.contextmanager
+def _sendable(path, mime):
+    """The file to send: a recorder WebM whose timestamps jump goes as it is served, with the jumps closed
+    (app/webm_duration.py). M-04 (tester 2026-11-09): 60 minutes of sound behind a jump to 10:43 h; the service cuts
+    after 3 hours by the timestamps, transcribed only the first block and reported "done" without any text."""
+    from app import webm_duration
+
+    if mime != "audio/webm" or not webm_duration.has_jumps(path):
+        yield path
+        return
+    fd, closed = tempfile.mkstemp(prefix="askurious-send-", suffix=".webm")
+    os.close(fd)
+    try:
+        if not webm_duration.write_served(path, closed):
+            os.unlink(closed)
+            yield path
+            return
+        yield closed
+    finally:
+        if os.path.exists(closed):
+            os.unlink(closed)
+
+
 def transcribe_file(path, mime, language, prompt="", previous=None, created=None, progress=None, model=None):
     """Whisper's segments [(start, end, text)] of one file (raises RuntimeError with a readable reason)."""
+    with _sendable(path, mime) as sent:
+        return _transcribe_file(sent, mime, language, prompt, previous, created, progress, model)
+
+
+SILENT_SECONDS = 60  # a part this long that gives no text at all is reported, not counted as done (M-04)
+
+
+def _no_text(segments, full, mime):
+    """The reason when Whisper found no text in a part of at least SILENT_SECONDS, else ""."""
+    if any((t or "").strip() for _s, _e, t in segments):
+        return ""
+    from app import audio_length
+
+    length = audio_length.seconds(full, mime)
+    if length is None or length < SILENT_SECONDS:
+        return ""
+    return de_en("In {m} Min. Aufnahme wurde kein Text erkannt. Bitte die Aufnahme anhören; enthält sie Sprache, die Transkription noch einmal starten.",
+                 "No text was found in {m} min of recording. Please listen to it; if it holds speech, start the transcription again.",
+                 m=round(length / 60))
+
+
+def _transcribe_file(path, mime, language, prompt="", previous=None, created=None, progress=None, model=None):
     config = current_app.config
     if config.get("WHISPER_JOBS"):
         from app import whisper_jobs
@@ -263,10 +310,33 @@ class _PartsFailed(RuntimeError):
     """Some parts of the recording could not be transcribed; the message names them and why."""
 
     def __init__(self, failed):
-        reasons = "; ".join(de_en("Teil {n}: {r}", "Part {n}: {r}", n=key, r=reason.rstrip(".")) if reason else
-                            de_en("Teil {n}", "Part {n}", n=key) for key, reason in failed)
+        # parts with the same reason are named together, so the message stays short (A-04: 30 parts, one reason)
+        by_reason = {}
+        for key, reason in failed:
+            by_reason.setdefault((reason or "").strip().rstrip("."), []).append(key)
+        reasons = []
+        for reason, keys in by_reason.items():
+            parts = (de_en("Teil {n}", "Part {n}", n=keys[0]) if len(keys) == 1 else
+                     de_en("Teile {n}", "Parts {n}", n=_ranges(keys)))
+            reasons.append(f"{parts}: {reason[:300]}" if reason else parts)
         super().__init__(de_en("Nicht transkribiert: {parts}. Die übrigen Teile sind fertig.",
-                               "Not transcribed: {parts}. The other parts are done.", parts=reasons))
+                               "Not transcribed: {parts}. The other parts are done.", parts="; ".join(reasons)))
+
+
+def _ranges(keys):
+    """Part keys as a short list: "3–7, 9" for numbers in a row, else as they are."""
+    if not all(str(k).isdigit() for k in keys):
+        return ", ".join(str(k) for k in keys)
+    numbers, out = sorted({int(k) for k in keys}), []
+    first = last = numbers[0]
+    for n in numbers[1:] + [None]:
+        if n is not None and n == last + 1:
+            last = n
+            continue
+        out.append(str(first) if first == last else f"{first}, {last}" if last == first + 1 else f"{first}–{last}")
+        if n is not None:
+            first = last = n
+    return ", ".join(out)
 
 
 class _Cancelled(Exception):
@@ -334,34 +404,62 @@ def _pause(rid, mine, seconds, key):
         time.sleep(min(BEAT, left))
 
 
+class _ShuttingDown(Exception):
+    """The process ends (a restart, a deploy, a worker renewed): the run stops without storing an error, so the
+    interview stays "running" without new signs of life and housekeeping takes it up again (resume_stale).
+    A-04 and K-12 (tester 2026-11-09): the run went on while the process shut down, every further part failed with
+    "cannot schedule new futures after interpreter shutdown", and the interview ended as an error nobody resumed."""
+
+
+SHUTDOWN_ERROR = "after interpreter shutdown"  # in the error stored by the runs broken off that way before the fix
+
+
+def _shutting_down():
+    """Whether this process is shutting down: the main thread has ended or the interpreter runs its exit hooks."""
+    import sys
+    from concurrent.futures import thread as pool_threads
+
+    return (sys.is_finalizing() or bool(getattr(threading, "_SHUTTING_DOWN", False))
+            or bool(getattr(pool_threads, "_shutdown", False)) or not threading.main_thread().is_alive())
+
+
 def _waiting(app, rid, mine, job):
-    """job() (the request to Whisper) in a thread of its own, meanwhile a sign of life every BEAT seconds."""
-    from concurrent.futures import ThreadPoolExecutor
-    from concurrent.futures import TimeoutError as StillWaiting
+    """job() (the request to Whisper) in a thread of its own, meanwhile a sign of life every BEAT seconds. The thread
+    is a daemon, so a process that ends does not wait for the request (with the job queue the job is picked up again
+    by its ID); _ShuttingDown when the process ends."""
+    box, finished = {}, threading.Event()
 
     def inner():
         with _FLIGHT_LOCK:
             _IN_FLIGHT[rid] = _IN_FLIGHT.get(rid, 0) + 1
         try:
             with app.app_context():
-                return job()
+                box["value"] = job()
+        except BaseException as error:  # noqa: BLE001 - handed to the waiting thread
+            box["error"] = error
         finally:
             with _FLIGHT_LOCK:
                 _IN_FLIGHT[rid] -= 1
                 if not _IN_FLIGHT[rid]:
                     del _IN_FLIGHT[rid]
+            finished.set()
 
-    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"whisper-{rid}-request")
+    if _shutting_down():
+        raise _ShuttingDown()
     try:
-        future = pool.submit(inner)
-        while True:
-            try:
-                return future.result(timeout=BEAT)
-            except StillWaiting:
-                if _store(rid, lambda tr: {**tr, "beat": _now()} if mine(tr) else None) is None:
-                    raise _Cancelled() from None
-    finally:
-        pool.shutdown(wait=False)  # a cancelled request runs out by itself; its result is not used
+        threading.Thread(target=inner, daemon=True, name=f"whisper-{rid}-request").start()
+    except RuntimeError as error:  # "can't create new thread at interpreter shutdown"
+        raise _ShuttingDown() from error
+    while not finished.wait(BEAT):
+        if _shutting_down():
+            raise _ShuttingDown()
+        if _store(rid, lambda tr: {**tr, "beat": _now()} if mine(tr) else None) is None:
+            raise _Cancelled()  # a cancelled request runs out by itself; its result is not used
+    if "error" in box:
+        if _shutting_down():
+            raise _ShuttingDown() from box["error"]
+        raise box["error"]
+    return box["value"]
 
 
 def _assemble(tr, plan):
@@ -480,13 +578,20 @@ def work(app, survey_id, rid, run=None):
                                                rid, key, error, waits[0])
                             _pause(rid, mine, waits.pop(0), key)
                             remote = _jobs(rid)  # a job the service still holds is asked again, not sent anew
-                except (_Cancelled, MemoryLimitError):
+                except (_Cancelled, _ShuttingDown, MemoryLimitError):
                     raise  # a cancel ends the run; the memory limit would hit the next part of the same model too
                 except Exception as error:  # noqa: BLE001 - this part failed; the next ones are still sent
+                    if _shutting_down():
+                        raise _ShuttingDown() from error  # not the part's fault: taken up again after the restart
                     if not _still_mine(rid, mine):
                         raise
                     app.logger.warning("transcription of interview %s, part %s failed: %s", rid, key, error)
                     failed.append((key, str(error) if isinstance(error, RuntimeError) else ""))
+                    continue
+                silent = _no_text(segments, full, found["mime"])
+                if silent:  # no text from a long part: an error to look at, not "done" with an empty transcript
+                    app.logger.warning("transcription of interview %s, part %s: no text", rid, key)
+                    failed.append((key, silent))
                     continue
                 if found.get("speaker") in VOICES:  # one voice per file (Zoom's file per person): its label, kept by time
                     timed = [(offset + s, offset + e, f"{found['speaker']}: " + re.sub(r"^S\d+:\s*", "", t.strip()))
@@ -522,8 +627,17 @@ def work(app, survey_id, rid, run=None):
             _store(rid, finish)
         except _Cancelled:
             return
+        except _ShuttingDown:
+            # no error stored: the interview stays "running", its sign of life ages, and housekeeping takes it up
+            # again from the parts done (resume_stale); the parts stored so far stay
+            with contextlib.suppress(Exception):
+                app.logger.info("transcription of interview %s stopped: the process ends; resumed after the restart", rid)
+            return
         except Exception as e:  # noqa: BLE001 - the list shows the reason, the log the details
-            db.session.rollback()
+            with contextlib.suppress(Exception):
+                db.session.rollback()
+            if _shutting_down():
+                return  # as _ShuttingDown above
             if not _still_mine(rid, mine):
                 # cancelled ("Abbrechen") or started anew meanwhile: Whisper then reports the job as cancelled, which is
                 # no failure; the interview already shows its state (log check after the deploy 2026-10-29)
@@ -634,12 +748,17 @@ def resume_stale():
     taken = 0
     for row in rows:
         st = state(row)
-        if st.get("state") != "running" or running(row) or busy(row.id):
+        # a run that a shutdown broke off before the fix stored an error instead of staying "running" (A-04, K-12):
+        # taken up once like a broken-off one, from the parts done
+        shut = st.get("state") == "error" and SHUTDOWN_ERROR in str(st.get("error") or "")
+        if not shut and (st.get("state") != "running" or running(row)) or busy(row.id):
             continue
         survey = db.session.get(Survey, row.survey_id)
         tries = int(st.get("resumed") or 0)
         if _service_computes(st):  # the work is not lost: the worker ended, not the job (tester 2026-11-05)
             tries = max(0, tries - 1)
+        if shut:
+            tries = min(tries, RESUME_TRIES - 1)
         if tries >= RESUME_TRIES:
             plan = _plan(survey, row)
             _set(row, **_partial(st, plan), state="error", run="", progress={}, error_code="interrupted",
@@ -1062,7 +1181,7 @@ def begin(code, rid):
     from app import ai_access, interview_audio
 
     survey, row = _row(code, rid)
-    back = redirect(interviewer.list_url(survey))
+    back = redirect(interviewer.list_url(survey, row.id))
     if not configured():
         abort(404)
     who = interviewer.actor(survey)  # an interviewer: the switch of the researcher who made the access
@@ -1113,7 +1232,7 @@ def cancel(code, rid):
         cancel_records(state(row).get("jobs"))
         flash(de_en("Transkription abgebrochen. Schon fertige Teile bleiben für den nächsten Versuch.",
                     "Transcription cancelled. Parts already done are kept for the next attempt."), "success")
-    return redirect(interviewer.list_url(survey))
+    return redirect(interviewer.list_url(survey, row.id))
 
 
 @bp.route("/<code>/interviews/<int:rid>/transcript", methods=["GET", "POST"])
@@ -1157,6 +1276,8 @@ def edit(code, rid):
             iv = {k: v for k, v in (row.interview or {}).items() if k != "transcript_head"}
             if changed and iv.get("codings"):  # the coded passages move with the text (app/transcript_coding_correction.py)
                 iv["codings"] = correction.refit(survey, row, text)
+            if changed and iv.get("highlights"):  # so does what is printed bold in the coding view
+                iv["highlights"] = correction.refit_marks(row, text)
             row.interview = {**iv, "transcript": tr, **({"transcript_head": head} if head else {})}
 
         interview_audio.retried(work)
@@ -1204,6 +1325,8 @@ def take_draft(code, rid):
                 tr["covers"] = covers
             if iv.get("codings"):  # the coded passages move with the text
                 iv["codings"] = correction.refit(survey, row, text)
+            if iv.get("highlights"):
+                iv["highlights"] = correction.refit_marks(row, text)
         row.interview = {**iv, "transcript": tr}
 
     if state(row).get("draft") is not None:
@@ -1246,6 +1369,8 @@ def upload(code, rid):
         iv = dict(row.interview or {})
         if iv.get("codings"):  # the coded passages move with the text
             iv["codings"] = correction.refit(survey, row, text[:MAX_TEXT])
+        if iv.get("highlights"):
+            iv["highlights"] = correction.refit_marks(row, text[:MAX_TEXT])
         row.interview = {**iv, "transcript": tr}
 
     interview_audio.retried(work)

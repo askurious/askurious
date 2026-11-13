@@ -4,13 +4,15 @@ plain; reordering among siblings; merging that harmonises name, definition, deli
 exactly; the dialog's data; the link "Diagramm" in the coding view; the rules of a drop (app/static/transcript_coding_drop.js)
 run with Node."""
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace as N
 
 import pytest
 
-from app import transcript_coding as tc
+from app import transcript_coding as tc, transcript_coding_review as review
 from app.extensions import db
 from app.models import CodingCategory, CodingEvent, CodingProject
 from tests.interview.test_transcript_coding_review import _code, _setup, _sub
@@ -115,3 +117,31 @@ def test_rules_of_a_drop_with_node():
     assert not hang[("5", "6")]["ok"]                                                # nothing under a candidate
     assert merge[("2", "5")]["ok"] and not merge[("1", "4")]["ok"] and not merge[("2", "3")]["ok"] and not merge[("2", "4")]["ok"]
     assert r[-2] is False and r[-1] is True                                          # 2 and 5 under different ones
+
+# --- no line over a number (Ralf 2026-11-10: the dashed lines of blurring pairs lay over the numbers): every line is
+# drawn before the rows, every subcategory row has a white ground, and lines leave a row to the right of its number
+
+def _cat(i, name, level, parent):
+    return N(id=i, name=name, level=level, parent_id=parent, colour=None, anc=[], path=name)
+
+
+def test_lines_under_the_rows_and_right_of_the_numbers(app, monkeypatch):
+    main = _cat(1, "Belastung", 1, None)
+    subs = [_cat(10, "Erschöpfung", 2, 1), _cat(11, "Zeitdruck", 2, 1), _cat(12, "Abends", 3, 10)]
+    cats = {c.id: c for c in [main] + subs}
+    monkeypatch.setattr(review, "tree", lambda p: ([(main, subs)], []))
+    monkeypatch.setattr(review, "stats", lambda p, w: {1: {"n": 25}, 10: {"n": 16}, 11: {"n": 5}, 12: {"n": 4}})
+    monkeypatch.setattr(review, "fuzzy", lambda p, w: [{"a": cats[10], "b": cats[11], "overlap": 1, "checks": 0},
+                                                       {"a": cats[11], "b": cats[12], "overlap": 0, "checks": 1}])
+    with app.test_request_context():
+        svg = review.map_svg(N(name="P", question="F?"), None, None)
+    first_row = svg.index('<circle')
+    assert svg.rfind("<path") < first_row                                           # all lines under the rows
+    counts = {int(m.group(2)): float(m.group(1)) for m in
+              re.finditer(r'<text x="([\d.]+)" y="[\d.-]+" text-anchor="end" fill="#5f5e59">(\d+)</text>', svg)}
+    dashed = re.findall(r'<path d="M([\d.]+) [\d.-]+ C [^"]*, ([\d.]+) [\d.-]+" fill="none" stroke="#b35c00"', svg)
+    assert len(dashed) == 2
+    for xa, xb in dashed:
+        for x in (float(xa), float(xb)):
+            assert any(0 < x - cx <= 20 for n, cx in counts.items() if n != 25), x    # starts right of a number
+    assert svg.count('fill="#ffffff" stroke="none"') == 3                            # a white ground per row

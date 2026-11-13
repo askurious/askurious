@@ -18,7 +18,10 @@
   var pending = null, created = false;  // the marked passage while the dialog "Neue Kategorie" is open
   var csrf = root.getAttribute("data-csrf"), base = root.getAttribute("data-base-url");
   var PALETTE = ["#8A4B14", "#2957A4", "#1F6B2A", "#7A3FD1", "#B3261E", "#0B6E86", "#7A5B00"];
-  var keyMap = data.keys || {};  // the person's keys 1 to 9: {"1": category id}, kept on the server (feedback 2026-11-06)
+  var keyMap = data.keys || {};
+  var marks = data.marks || [];  // passages printed bold by hand (Ralf 2026-11-07)
+  // a speaker mark at the start of a line, as the transcription writes it ("I:", "B:", "B2:", "Interviewer:"): bold
+  var SPEAKER = /^(\s*)([A-ZÄÖÜ][A-Za-zÄÖÜäöüß]{0,15}\d{0,2}:)/;  // the person's keys 1 to 9: {"1": category id}, kept on the server (feedback 2026-11-06)
   var selection = null;  // {start, end} of the marked passage
   var recoding = null;  // the coded passage that "Andere Kategorie …" moves (the list then chooses its new category)
   var dragging = null;  // what is dragged onto a category of the side: {kind: "mark", m} or {kind: "coding", coding}
@@ -55,8 +58,18 @@
   function draw() {
     var cuts = {};
     var pos = 0;
-    text.split("\n").forEach(function (line) { cuts[pos] = 1; cuts[pos + line.length] = 1; pos += line.length + 1; });
-    codings.concat(sugg).forEach(function (c) { cuts[c.start] = 1; cuts[c.end] = 1; });
+    var speakers = [];
+    text.split("\n").forEach(function (line) {
+      cuts[pos] = 1; cuts[pos + line.length] = 1;
+      var m = SPEAKER.exec(line);
+      if (m) {
+        var a = pos + m[1].length, b = a + m[2].length;
+        cuts[a] = 1; cuts[b] = 1;
+        speakers.push([a, b]);
+      }
+      pos += line.length + 1;
+    });
+    codings.concat(sugg, marks).forEach(function (c) { cuts[c.start] = 1; cuts[c.end] = 1; });
     var points = Object.keys(cuts).map(Number).sort(function (a, b) { return a - b; });
     box.textContent = "";
     var start = 0;
@@ -83,6 +96,13 @@
           span.setAttribute("data-codings", here.map(function (c) { return c.id; }).join(" "));
           span.title = here.map(function (c) { var k = catOf(c.cat); return k ? k.name : ""; }).join(", ");
           span.tabIndex = 0;
+        }
+        if (speakers.some(function (r) { return r[0] <= s && r[1] >= e; })) span.classList.add("tc-speaker");
+        var hereM = marks.filter(function (k) { return k.start <= s && k.end >= e; });
+        if (hereM.length) {
+          span.classList.add("tc-bold");
+          span.setAttribute("data-marks", hereM.map(function (k) { return k.id; }).join(" "));
+          if (!here.length) span.tabIndex = 0;
         }
         // AI suggestions not taken yet: dashed, in the colour of their category (app/transcript_coding_ai.py)
         var hereS = sugg.filter(function (c) { return c.start <= s && c.end >= e; });
@@ -486,10 +506,12 @@
     });
   });
 
+  var boldButton = pop.querySelector("[data-tc-bold]");
   function openPop(m) {
     if (placing) { placeAgain(m); return; }  // "Neu zuordnen": the passage just marked is the new place
     selection = m;
     recoding = null;
+    if (boldButton) boldButton.hidden = false;
     if (popTitle) popTitle.textContent = de_en("Kategorie zuordnen", "Assign category");
     info.hidden = true;
     filter.value = "";
@@ -504,6 +526,7 @@
     selection = null;
     recoding = c;
     if (popTitle) popTitle.textContent = de_en("Andere Kategorie", "Other category");
+    if (boldButton) boldButton.hidden = true;
     info.hidden = true;
     filter.value = "";
     fill();
@@ -653,6 +676,30 @@
       say(de_en("Zugeordnet: ", "Assigned: ") + (c ? c.name : ""));
     });
   }
+
+  // "Fett" (or Ctrl+B) for the marked passage: stored by place and wording, the text itself stays as it is
+  function bold() {
+    if (!selection) return;
+    var m = selection;
+    closePop();
+    post(base.replace(/\/codings$/, "/highlights"), { start: m.start, end: m.end }).then(function (d) {
+      if (!d.ok) { say(d.error || de_en("Nicht gespeichert.", "Not saved.")); return; }
+      marks.push(d.mark);
+      window.getSelection().removeAllRanges();
+      draw();
+      say(de_en("Fett.", "Bold."));
+    });
+  }
+  function unbold(id) {
+    post(base.replace(/\/codings$/, "/highlights") + "/" + id + "/delete").then(function (d) {
+      if (!d.ok) { say(d.error || de_en("Nicht gespeichert.", "Not saved.")); return; }
+      marks = marks.filter(function (k) { return k.id !== id; });
+      info.hidden = true;
+      draw();
+      say(de_en("Nicht mehr fett.", "No longer bold."));
+    });
+  }
+  if (boldButton) boldButton.addEventListener("click", bold);
 
   // a coded passage to another category: place, author, memos stay; an anchor or example slot of the old one goes, so
   // the server asks first. "Rückgängig" in the status line takes it back.
@@ -849,6 +896,7 @@
   filter.addEventListener("input", fill);
   filter.addEventListener("keydown", function (e) {
     if (e.key === "Escape") { closePop(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B") && selection && !recoding) { e.preventDefault(); bold(); return; }
     if (e.key === "Enter") {
       e.preventDefault();
       var chosen = shownCats[active] || matches()[0];
@@ -906,12 +954,13 @@
   });
   document.addEventListener("mousedown", function (e) {
     if (!pop.hidden && !pop.contains(e.target)) closePop();
-    if (!info.hidden && !info.contains(e.target) && !e.target.closest(".tc-hl")) info.hidden = true;
+    if (!info.hidden && !info.contains(e.target) && !e.target.closest(".tc-hl, .tc-bold")) info.hidden = true;
   });
 
   // --- a coded passage: its categories, removing, the anchor example ----------------------------------------------
   function showInfo(span) {
     var ids = (span.getAttribute("data-codings") || "").split(" ");
+    var mids = (span.getAttribute("data-marks") || "").split(" ");
     var sids = (span.getAttribute("data-sugg") || "").split(" ");
     info.textContent = "";
     sugg.filter(function (c) { return sids.indexOf(c.id) >= 0; }).forEach(function (c) {
@@ -1028,6 +1077,29 @@
       row.appendChild(actions);
       info.appendChild(row);
     });
+    marks.filter(function (k) { return mids.indexOf(k.id) >= 0; }).forEach(function (k) {
+      var row = document.createElement("div");
+      row.className = "tc-info-row";
+      var head = document.createElement("p");
+      head.className = "small";
+      var strong = document.createElement("strong");
+      strong.textContent = de_en("Fett", "Bold");
+      head.appendChild(strong);
+      if (k.by_name) head.appendChild(document.createTextNode(" · " + k.by_name));
+      row.appendChild(head);
+      if (k.mine) {
+        var actions = document.createElement("div");
+        actions.className = "tc-info-actions";
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "button button-small button-secondary";
+        b.textContent = de_en("Nicht mehr fett", "No longer bold");
+        b.addEventListener("click", function () { unbold(k.id); });
+        actions.appendChild(b);
+        row.appendChild(actions);
+      }
+      info.appendChild(row);
+    });
     placeBox(info, span.getBoundingClientRect());
   }
 
@@ -1092,12 +1164,12 @@
   }
 
   box.addEventListener("click", function (e) {
-    var span = e.target.closest(".tc-hl");
+    var span = e.target.closest(".tc-hl, .tc-bold");
     if (!span || !window.getSelection().isCollapsed) return;
     showInfo(span);
   });
   box.addEventListener("keydown", function (e) {
-    var span = e.target.closest && e.target.closest(".tc-hl");
+    var span = e.target.closest && e.target.closest(".tc-hl, .tc-bold");
     if (span && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showInfo(span); }
   });
   document.addEventListener("keydown", function (e) {
@@ -1160,6 +1232,7 @@
     editable = fresh.editable || {};
     examples = fresh.examples || {};
     keyMap = fresh.keys || {};
+    marks = fresh.marks || [];
     spotCache = {};
     draw();
     return true;

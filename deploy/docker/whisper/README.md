@@ -8,7 +8,7 @@ keine Datenbankzugänge oder sonstigen App-Schlüssel im Transkriptionscontainer
 
 ## Grenzen und Verhalten
 
-### Sicherheitsprüfung der festgelegten Laufzeit (14.10.2026, erneuert 24.10.2026)
+### Sicherheitsprüfung der festgelegten Laufzeit (14.10.2026, erneuert 24.10.2026, ergänzt 08.11.2026)
 
 Seit 24.10.2026 sind NLTK 3.10.4 (statt 3.10.3, GHSA-8mgp-746c-j5xp behoben) und
 setuptools 84.1.0 (statt 78.1.0, alle gemeldeten Befunde behoben) sowie filelock
@@ -37,7 +37,8 @@ oder eine Erweiterung der API erfordern eine erneute Prüfung. Die OSV-Prüfung
 der App-Abhängigkeiten meldete keine bekannten Befunde. Läuft ein Datum in
 `osv-accepted.txt` ab, meldet die wöchentliche Prüfung die Kennung wieder, bis sie
 neu beurteilt ist. Referenzen:
-[PyTorch-Checkpoints](https://osv.dev/vulnerability/PYSEC-2026-2286),
+[PyTorch-Checkpoints](https://osv.dev/vulnerability/PYSEC-2026-2286) (seit November 2026 bei OSV
+zusätzlich als GHSA-63cw-57p8-fm3p geführt, derselbe Befund; behoben erst in PyTorch 2.10),
 [Transformers-Modellkonfiguration](https://osv.dev/vulnerability/GHSA-29pf-2h5f-8g72).
 
 | Einstellung | Vorbereitung |

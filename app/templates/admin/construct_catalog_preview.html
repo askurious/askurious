@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{# Needs: row (ConstructSync, status preview), used ({key: surveys}), kind_label. #}
+{% block title %}{{ de_en("Katalog", "Catalogue") }} {{ row.release }} · {{ de_en("Konstrukte", "Constructs") }} · Administration{% endblock %}
+{% block container_class %}container admin-page{% endblock %}
+{% block content %}
+{% set active = "constructs" %}{% include "admin/_tabs.html" %}
+<section class="panel">
+  <h2>{{ de_en("Release {r} übernehmen?", "Take release {r}?", r=row.release) }}</h2>
+  <p class="muted small">{{ de_en("Signatur geprüft", "Signature verified") }}: {{ row.signature }} · {{ row.source }}{% if row.commit %} · <code>{{ row.commit[:7] }}</code>{% endif %}</p>
+  {% if row.status != "preview" %}<p>{{ de_en("Diese Vorschau ist erledigt.", "This preview is done.") }}</p>{% else %}
+  {% if row.changes %}
+  <ul class="plain catalog-changes">
+    {% for c in row.changes %}<li><span class="badge catalog-kind-{{ c.kind }}">{{ kind_label(c.kind) }}</span> {{ c.name }} <span class="hint">{{ c.key }}{% if c.before and c.after and c.before != c.after %}, {{ c.before }} → {{ c.after }}{% elif c.after %}, {{ c.after }}{% endif %}{% if used.get(c.key) %}, {{ de_en("{n} Befragungen nutzen die bisherige Fassung", "{n} surveys use the current version", n=used[c.key]) }}{% endif %}</span></li>{% endfor %}
+  </ul>
+  {% else %}<p class="muted">{{ de_en("Keine Änderungen an Konstrukten, nur ein neuer Stand.", "No changes to constructs, only a new version.") }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Befragungen behalten die Fassung, die sie haben. Neue Fassungen erscheinen im Editor als „neuere Fassung verfügbar“; zurückgezogene Konstrukte lassen sich nicht mehr neu einfügen.", "Surveys keep the version they have. New versions show in the editor as “newer version available”; withdrawn constructs can no longer be inserted.") }}</p>
+  <div class="form-actions">
+    <form method="post" class="inline">{{ csrf() }}<button class="button">{{ de_en("Übernehmen", "Take it") }}</button></form>
+    <a class="button button-secondary" href="{{ url_for('admin.construct_pool') }}#katalog">{{ de_en("Abbrechen", "Cancel") }}</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

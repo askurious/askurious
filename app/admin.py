@@ -106,11 +106,101 @@ def construct_pool():
     closed studies and their participations; one page per construct has the reliabilities."""
     from app import construct_pool, submissions
 
-    from app import constructs, shortlist
+    from app import construct_sync, constructs, shortlist
 
     return render_template("admin/constructs.html", rows=construct_pool.overview(), submitted=submissions.open_ones(),
                            decided=submissions.decided_ones(), keep="platform", max=shortlist.MAX,
-                           shortlist_rows=[constructs.shown(constructs.get(k)) for k in shortlist.keys(None)])
+                           shortlist_rows=[constructs.shown(constructs.get(k)) for k in shortlist.keys(None)],
+                           catalog=construct_sync.status(), kind_label=construct_sync.kind_label)
+
+
+CATALOG_UPLOAD_MAX = 5_000_000
+
+
+@bp.route("/constructs/catalog", methods=["POST"])
+def construct_catalog_action():
+    """The section "Katalog" of Administration > Konstrukte (app/construct_sync.py): look for a newer release (shows
+    a preview first), read an uploaded manifest with its signature (also a preview), go back to the release before
+    (pins it), or release the pin."""
+    from app import construct_sync
+
+    action = request.form.get("action")
+    back = redirect(url_for("admin.construct_pool") + "#katalog")
+    try:
+        if action == "check":
+            row = construct_sync.check("manual")
+        elif action == "upload":
+            manifest, sig = request.files.get("manifest"), request.files.get("signature")
+            if not manifest or not sig:
+                raise construct_sync.SyncError(de_en("Bitte manifest.json und manifest.json.sig wählen.",
+                                                     "Please choose manifest.json and manifest.json.sig."))
+            data = manifest.read(CATALOG_UPLOAD_MAX + 1)
+            row = construct_sync.prepare(data, sig.read(construct_sync.MAX_SIGNATURE).decode("utf-8", "replace"),
+                                         "upload", de_en("hochgeladen: {n}", "uploaded: {n}", n=manifest.filename or ""))
+        elif action == "undo":
+            row = construct_sync.undo()
+            flash(de_en("Zurück auf Release {r}; festgelegt, bis Sie den Pin lösen.",
+                        "Back to release {r}; pinned until you release the pin.", r=row.release), "success")
+            return back
+        elif action in ("keep_local", "reset"):
+            from app import constructs
+            from app.extensions import db
+            from app.models import Construct
+
+            c = db.session.scalar(db.select(Construct).filter_by(key=request.form.get("key", ""), source="catalog"))
+            if c is None or not constructs.locally_changed(c):
+                abort(404)
+            if action == "keep_local":
+                kept = constructs.keep_local(c, current_user)
+                db.session.commit()
+                constructs.rebuild_index(force=True)
+                flash(de_en("Als eigenes Konstrukt behalten: {k}; {c} hat wieder die Katalogfassung.",
+                            "Kept as a construct of its own: {k}; {c} has the catalogue's version again.",
+                            k=kept.key, c=c.key), "success")
+            else:
+                constructs.reset_to_catalogue(c)
+                db.session.commit()
+                constructs.rebuild_index(force=True)
+                flash(de_en("{c} hat wieder die Katalogfassung.", "{c} has the catalogue's version again.", c=c.key),
+                      "success")
+            return back
+        elif action == "unpin":
+            construct_sync.unpin()
+            flash(de_en("Pin gelöst: Der nächste Abgleich nimmt wieder das neueste Release.",
+                        "Pin released: the next sync takes the newest release again."), "success")
+            return back
+        else:
+            abort(400)
+    except construct_sync.SyncError as e:
+        flash(str(e), "error")
+        return back
+    if row.status == row.UNCHANGED:
+        flash(de_en("Keine Änderungen: Release {r} ist schon aktiv.", "No changes: release {r} is active already.",
+                    r=row.release), "success")
+        return back
+    return redirect(url_for("admin.construct_catalog_preview", sid=row.id))
+
+
+@bp.route("/constructs/catalog/<int:sid>", methods=["GET", "POST"])
+def construct_catalog_preview(sid):
+    """What a fetched or uploaded manifest would change, before it is taken."""
+    from app import construct_sync
+    from app.extensions import db
+    from app.models import ConstructSync
+
+    row = db.session.get(ConstructSync, sid) or abort(404)
+    if request.method == "POST":
+        try:
+            construct_sync.apply(row)
+            construct_sync.drop_old_previews()
+            db.session.commit()
+            flash(de_en("Release {r} übernommen.", "Release {r} taken.", r=row.release), "success")
+        except construct_sync.SyncError as e:
+            flash(str(e), "error")
+        return redirect(url_for("admin.construct_pool") + "#katalog")
+    used = {c["key"]: construct_sync.uses(c["key"]) for c in row.changes or [] if c["kind"] in ("structure", "retired")}
+    return render_template("admin/construct_catalog_preview.html", row=row, used=used,
+                           kind_label=construct_sync.kind_label)
 
 
 @bp.route("/constructs/submitted/<int:sid>", methods=["GET", "POST"])
@@ -152,6 +242,37 @@ def submission(sid):
     toolbox = db.session.scalar(db.select(Construct).filter_by(key=s.toolbox_key)) if s.toolbox_key else None
     return render_template("admin/submission.html", s=s, f=s.fields or {}, labels=submissions.labels(),
                            proposal=submissions.proposal(s) if s.state in ConstructSubmission.OPEN else None, toolbox=toolbox)
+
+
+@bp.route("/constructs/families.zip")
+def construct_families_file():
+    """The families set here for constructs of the catalogue as files for families/ of askurious-constructs."""
+    from flask import Response
+
+    from app import construct_families
+
+    found = construct_families.catalogue_file() or abort(404)
+    name, data = found
+    return Response(data, mimetype="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@bp.route("/constructs/<key>/pull-request.zip")
+def construct_pr_file(key):
+    """A construct of this installation (an accepted submission) as a file for a pull request to askurious-constructs
+    (app/org_constructs.py pr_zip)."""
+    from urllib.parse import urlsplit
+
+    from flask import Response
+
+    from app import brand, org_constructs
+    from app.extensions import db
+    from app.models import Construct
+
+    c = db.session.scalar(db.select(Construct).filter_by(key=key)) or abort(404)
+    if c.source == "catalog" or c.key.startswith("v-"):
+        abort(404)  # the catalogue's own constructs and linked elements are no contribution
+    name, data = org_constructs.pr_zip(c, urlsplit(brand.public_base()).hostname or "")
+    return Response(data, mimetype="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @bp.route("/constructs/compilation")
@@ -203,7 +324,9 @@ def construct_pool_detail(key):
     from app import construct_families
 
     return render_template("admin/construct_pool.html", c=constructs.shown(c), r=construct_pool.report(c), sources=construct_pool.sources(),
-                           cited=citations.listing(c), family=construct_families.of(c.key))
+                           cited=citations.listing(c), family=construct_families.of(c.key),
+                           catalogue_family=construct_families.catalogue().get(c.key),
+                           local_family=construct_families.local().get(c.key))
 
 
 @bp.route("/constructs/<key>/family", methods=["POST"])

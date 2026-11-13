@@ -18,7 +18,7 @@ import zipfile
 
 from flask import Blueprint, abort, current_app, render_template, request, send_file
 
-from app import interview, interview_data
+from app import heavy, interview, interview_data
 from app.items.base import in_lang, plain, reader
 from app.lang import de_en
 from app.units import round_half_up
@@ -145,7 +145,7 @@ def answer_items(survey):
     return [i for i in interview_tasks.tasks(survey) + interview_data.form_items(survey) if i.kind.collects_answer]
 
 
-def overview_columns(survey):
+def overview_columns(survey, used=None):
     """The columns of the case overview: meta data, per Leitfrage its state and its aspects (0/1), the tasks and the
     forms with the export columns of their types (a ranking: <code>_<option> = rank)."""
     cols = [("kennung", "Kennung"), ("probe", "Probeinterview (1 = ja)"), ("datum", "Datum"), ("form", "Interviewform"),
@@ -161,7 +161,7 @@ def overview_columns(survey):
                 cols.append((f"{item.code}_k{n}_zu", f"Konkrete Frage „{plain(p['text'])[:60]}“ trifft zu (1 = ja, 0 = nein)"))
     for item in answer_items(survey):
         cols += item.kind.export_columns(item)
-    if _screen_used(survey):  # the interviewee's own screen (app/interview_screen.py): who gave each task's result (E8)
+    if _screen_used(survey) if used is None else used:  # the interviewee's own screen (app/interview_screen.py): who gave each task's result (E8)
         from app import interview_tasks
 
         for item in interview_tasks.tasks(survey):
@@ -188,7 +188,7 @@ def source_mark(row, item, ui=None):
     return "(" + in_lang(reader(ui), *interview_screen.SOURCE_WORDS[which]) + ")"
 
 
-def overview_row(survey, r):
+def overview_row(survey, r, used=None):
     from app.interview import MODES
 
     meta = r.interview or {}
@@ -209,7 +209,7 @@ def overview_row(survey, r):
         answer = (r.answers or {}).get(str(item.id))
         if answer is not None:
             row.update(item.kind.export_values(item, answer))
-    if _screen_used(survey):
+    if _screen_used(survey) if used is None else used:
         from app import interview_screen, interview_tasks
 
         for item in interview_tasks.tasks(survey):
@@ -223,12 +223,15 @@ def overview_row(survey, r):
 def overview_csv(survey, trials=False):
     from app.export import safe_text
 
-    cols = overview_columns(survey)
+    # whether the interviewee's screen was used, once for the file: it loads every interview, and per row that was
+    # K + 1 loads of all K interviews with their transcripts (performance audit 2026-11-11)
+    used = _screen_used(survey)
+    cols = overview_columns(survey, used)
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter=";")
     writer.writerow([c for c, _ in cols])
     for r in rows(survey, trials):
-        values = overview_row(survey, r)
+        values = overview_row(survey, r, used)
         # formula protection like the other exports: a typed answer starting with "=" is no formula in Excel
         writer.writerow(["" if values.get(c) is None else safe_text(values.get(c)) for c, _ in cols])
     return "﻿" + buf.getvalue()
@@ -383,6 +386,7 @@ def page(code):
 
 @bp.route("/<code>/interviews/cases.csv")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def overview_file(code):
     survey = _survey(code)
     return send_file(io.BytesIO(overview_csv(survey, request.args.get("probe") == "1").encode("utf-8")), as_attachment=True,
@@ -391,6 +395,7 @@ def overview_file(code):
 
 @bp.route("/<code>/interviews/project.qdpx")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def project_file(code):
     """Transcripts, category system, case variables and notes as one REFI-QDA project (app/interview_qdpx.py)."""
     from app import interview_qdpx
@@ -402,6 +407,7 @@ def project_file(code):
 
 @bp.route("/<code>/interviews/notes.docx")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def notes_word(code):
     survey = _survey(code)
     return send_file(io.BytesIO(notes_docx(survey, request.args.get("probe") == "1")), as_attachment=True,
@@ -411,6 +417,7 @@ def notes_word(code):
 
 @bp.route("/<code>/interviews/notes.zip")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def notes_files(code):
     survey = _survey(code)
     return send_file(io.BytesIO(notes_zip(survey, request.args.get("probe") == "1")), as_attachment=True,
@@ -419,6 +426,7 @@ def notes_files(code):
 
 @bp.route("/<code>/interviews/transcripts.zip")
 @login_required
+@heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def transcripts_file(code):
     """Every transcript as Word, PDF or both, one file each, in a ZIP (app/transcript_export.py)."""
     from app import transcript_export

@@ -91,8 +91,8 @@ def test_interviewer_conducts_own_interview(links, client):
     # the researchers see it, marked as conducted with a link
     page = client.get(f"/guide/{code}/interviews").data.decode()
     assert "AB-01" in page and "Anna Becker" in page
-    assert "AB-01" in client.get(f"/guide/{code}/interviews?by={aid}").data.decode()
-    assert "AB-01" not in client.get(f"/guide/{code}/interviews?by=team").data.decode()
+    assert "AB-01" in client.get(f"/guide/{code}/interviews?iv_by={aid}").data.decode()
+    assert "AB-01" not in client.get(f"/guide/{code}/interviews?iv_by=team").data.decode()
 
 
 def test_no_way_into_the_researchers_pages(links, client):

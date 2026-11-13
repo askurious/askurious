@@ -702,7 +702,7 @@ def _activities():
          "data": de_en("Je Auswertung Name und Forschungsfrage; Kategorien mit Name, Definition, Abgrenzung, Autor (Name, "
                        "Konto- oder Linknummer) und Zeit; Verlauf jeder Änderung und jedes Vorschlags mit Namen und Zeit; "
                        "Mitglieder (Konto, Gruppe oder Interviewlink), je Interviewlink sein Recht zu kodieren. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
-                       "Position und Wortlaut der Stelle, Name, Zeit), die Antworten der gegenseitigen Probe (geprüfte "
+                       "Position und Wortlaut der Stelle, Name, Zeit), fett hervorgehobene Stellen (Position, Wortlaut, Name, Zeit), die Antworten der gegenseitigen Probe (geprüfte "
                        "Stelle, gewählte Kategorie, Name, Zeit) und, wenn das Team sie zuteilt, wer welche Interviews und Kategorieblöcke prüft (Name), KI-Vorschläge (Stelle, Kategorie, kurze Begründung, wer "
                        "gefragt und wer übernommen oder verworfen hat; nur wo die Auswertung sie erlaubt, nur über den "
                        "eigenen KI-Zugang der fragenden Person), bei Doppelkodierung die Zuweisung (welche Kodierenden), wer "
@@ -718,7 +718,7 @@ def _activities():
                        "Per analysis name and research question; categories with name, definition, delimitation, author "
                        "(name, account or link number) and time; history of every change and proposal with names and time; "
                        "members (account, group or interviewer link), per interviewer link its right to code. In the interview the coded passages (analysis, category, position "
-                       "and wording of the passage, name, time), the answers of the mutual check (passage checked, category "
+                       "and wording of the passage, name, time), passages printed bold (position, wording, name, time), the answers of the mutual check (passage checked, category "
                        "chosen, name, time) and, where the team assigns it, who checks which interviews and category blocks (name), AI suggestions (passage, category, short reason, who asked and who "
                        "accepted or discarded; only where the analysis allows them, only over the own AI access of the "
                        "person asking), with double coding the assignment (which coders), who has finished, and the "
@@ -732,12 +732,14 @@ def _activities():
                        "themselves belong to “Interviews”."),
          "recipients": de_en("Beteiligte mit Bearbeiten oder Verwalten des Leitfadens, auch als Export für QDA-Programme "
                              "(.qdpx mit Transkripten, kodierten Stellen, Memos und den Namen der Kodierenden) und als Excel-Tabelle des "
-                             "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle, Memos und den Namen der Kodierenden); "
+                             "Kategoriensystems (Zitate der kodierten Stellen mit Fundstelle, Memos und den Namen der Kodierenden), "
+                             "dazu das Kategoriensystem allein als CSV (Definitionen, Ankerbeispiele mit Fundstelle); "
                              "nur sie exportieren; "
                              "die Mitglieder der Auswertung.",
                              "Members with Edit or Manage on the guide, also as an export for QDA software (.qdpx with "
                              "transcripts, coded passages, memos and the names of the coders) and as an Excel table of the category "
-                             "system (quotes of the coded passages with their location, memos and the names of the coders); only "
+                             "system (quotes of the coded passages with their location, memos and the names of the coders), and the "
+                             "category system alone as CSV (definitions, anchor examples with their location); only "
                              "they export; the members of the "
                              "analysis."),
          "deletion": de_en("Kodierte Stellen, Proben, Anker- und weitere Beispiele und Memos an Interview und Stellen mit dem Interview "
@@ -894,7 +896,7 @@ def _activities():
                              "Admins; Slack (no excerpt of complaints; of feedback only in the detailed form) when switched on; for complaints by email the confirmation of "
                              "receipt and the decision to the reporting person, a decision on a measure to the admins of "
                              "the survey (Art. 16, 17 DSA)."),
-         "deletion": de_en("Keine automatische Frist (siehe offene Punkte).", "No automatic period (see open points)."),
+         "deletion": de_en("Name und E-Mail-Adresse von Beschwerden drei Jahre nach der Erledigung (feedback.forget_contacts, stündlich); Beschwerde, Entscheidung und Fallnummer bleiben als Nachweis.", "Name and email address of complaints three years after they were settled (feedback.forget_contacts, hourly); complaint, decision and case number stay as the record."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b, c oder e DSGVO, vom Verantwortlichen festzulegen",
                         "Art. 6 (1) (b), (c) or (e) GDPR, to be set by the controller")},
@@ -1001,11 +1003,14 @@ def _activities():
                        "90 days."),
          "recipients": de_en("Betreibende des Servers.", "The people who run the server."),
          "deletion": de_en("Docker-Betrieb: Sicherungen alle vier Stunden, 14 Tage lang; 5 vor Aktualisierungen (höchstens 30 Tage); "
-                           "Containerausgabe (auch das Sicherheitsprotokoll) höchstens 3 × 20 MB; Hash-Salz bei jedem "
+                           "Containerausgabe (auch das Sicherheitsprotokoll) höchstens 3 × 20 MB; Tagesdateien des "
+                           "Sicherheitsprotokolls 90 Tage (SECURITY_LOG_DAYS), bis zu 14 Tage länger in den Sicherungen der "
+                           "hochgeladenen Dateien; Hash-Salz bei jedem "
                            "Neustart neu; Zählerzeilen der Ratenbegrenzung nach etwa einer Stunde (rate_hit) bzw. einem Tag "
                            "(rate_count).",
                            "Docker operation: backups every four hours, kept 14 days; 5 before updates (at most 30 days); container output at "
-                           "most 3 × 20 MB (the security log too); hash salt new at every restart; counter rows of the rate "
+                           "most 3 × 20 MB (the security log too); daily files of the security log 90 days (SECURITY_LOG_DAYS), up to "
+                           "14 days longer in the backups of the uploaded files; hash salt new at every restart; counter rows of the rate "
                            "limits after about an hour (rate_hit) or a day (rate_count)."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. c oder e i. V. m. Art. 32 DSGVO", "Art. 6 (1) (c) or (e) with Art. 32 GDPR")},
@@ -1075,14 +1080,14 @@ def _services():
     rows.append({"name": de_en("Eigener KI-Zugang (z. B. KI:connect.nrw)", "Own AI access (e.g. KI:connect.nrw)"),
                  "words": ("KI:connect", "KI-Zugang", "eigenen KI-Schlüssel", "eigener KI-Schlüssel"),
                  "data": de_en("Alle Textaufrufe der Person mit eigenem Zugang (auch Antworttexte der KI-Kodierhilfe und, "
-                               "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte pseudonymisierter Interviewtranskripte "
-                               "mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
+                               "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte geprüfter Interviewtranskripte, "
+                               "E-Mail-Adressen, Webadressen und Telefonnummern maskiert, mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
                                "gehen über deren Schlüssel, Kontingent und Bedingungen an KI:connect.nrw, OpenAI oder "
                                "eine selbst eingetragene Adresse; Bilder weiter über den Schlüssel der Installation. "
                                "Der Schlüssel ist verschlüsselt gespeichert und wird nie wieder angezeigt.",
                                "All text calls of a person with their own access (also answer texts of the AI coding "
-                               "help and, where an analysis allows AI suggestions, sections of pseudonymised interview "
-                               "transcripts with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
+                               "help and, where an analysis allows AI suggestions, sections of checked interview "
+                               "transcripts, email addresses, web addresses and phone numbers masked, with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
                                "typed; images keep using the installation's key. The key is stored encrypted and "
                                "never shown again."),
                  "who": de_en("Forschende", "Researchers"), "switch": de_en("Konto › KI-Nutzung, für alle",
@@ -1272,6 +1277,18 @@ def _services():
          "data": de_en("Nur DOIs von Quellen, keine personenbezogenen Daten.", "Only DOIs of sources, no personal data."),
          "who": de_en("Forschende, Admins", "Researchers, admins"), "switch": "—",
          "state": (True, de_en("an", "on")), "where": de_en("Entfällt", "Not applicable")},
+        # the server downloads the construct catalogue (app/construct_sync.py): two files, nothing about people
+        {"name": de_en("Konstrukt-Katalog (GitHub)", "Construct catalogue (GitHub)"), "words": ("GitHub",),
+         "data": de_en("Der Server lädt nachts und auf „Jetzt abgleichen“ zwei Dateien (Manifest und Signatur des "
+                       "Katalogs askurious-constructs); dabei sieht GitHub nur die IP-Adresse des Servers. Es werden keine "
+                       "personenbezogenen Daten gesendet. Wer abgleicht, wird nicht gespeichert.",
+                       "At night and on “Sync now” the server downloads two files (manifest and signature of the "
+                       "catalogue askurious-constructs); GitHub sees only the server's IP address. No personal data is "
+                       "sent. Who syncs is not stored."),
+         "who": de_en("Server (Admins)", "Server (admins)"), "switch": "CONSTRUCTS_SOURCE",
+         "state": _on((c.get("CONSTRUCTS_SOURCE") or "").strip().lower() != "off",
+                      (c.get("CONSTRUCTS_SOURCE") or "").strip() or "GitHub"),
+         "where": usa},
     ]
     # recordings stay on this server; named so nobody looks for a service (for everyone since 2026-10-16)
     rows.append({"name": de_en("Sprachnachrichten", "Voice messages"), "words": (),
@@ -1356,7 +1373,11 @@ def measures():
                    "Löschung stehen im Sicherheitsprotokoll, die automatische Löschung im Protokoll. Jede betreuende Person "
                    "(Rolle „Betreuung“, auch mehrere) wird Admin jeder neuen Befragung der Person und bekommt die "
                    "Nachricht vor dem Ende; die Person sieht das auf „Konto“. Ein Nutzertyp ohne Betreuung nimmt alle "
-                   "Betreuenden heraus, ihre Admin-Rollen in bestehenden Befragungen bleiben. Die "
+                   "Betreuenden heraus, ihre Admin-Rollen in bestehenden Befragungen bleiben. Trägt sich ein Admin einer "
+                   "Organisation selbst als Betreuung ein, ist das nur eine Anfrage: Admin der neuen Befragungen wird "
+                   "er erst, wenn die Person auf „Konto“ zustimmt (bei eingeschalteten E-Mails mit Nachricht; Anfrage, "
+                   "Zusage und Ablehnung im Sicherheitsprotokoll); beim Hinzufügen, Anlegen oder über einen "
+                   "Einladungslink wird er nicht Betreuung, da Admins einer Organisation keine Antworten sehen. Die "
                    "Leitung einer Lehrveranstaltung lädt Adresslisten ein und erzeugt Einmal-Links nur für Konten ihrer "
                    "Lehrveranstaltung ohne ORCID iD. Nutzertypen mit Laufzeit und Löschfrist legt jede Organisation "
                    "selbst fest (Verwaltung > Nutzertypen); jede beginnt mit „Mitarbeitende“ ohne Laufzeit.",
@@ -1365,7 +1386,11 @@ def measures():
                    "extension, end and deletion are in the security log, the automatic deletion in the access log. Every "
                    "supervising person (role “supervisor”, also several) becomes admin of every new survey of the person "
                    "and gets the notice before the end; the person sees this on “Account”. A user type without "
-                   "supervision takes all supervisors out; their admin roles in existing surveys stay. The lead of a course invites address lists and creates one-time links only "
+                   "supervision takes all supervisors out; their admin roles in existing surveys stay. If an admin of an "
+                   "organisation enters themself as supervisor, it is only a request: they become admin of new "
+                   "surveys only once the person agrees on “Account” (with a message when emails are on; request, "
+                   "acceptance and refusal in the security log); adding or creating an account or an invitation link "
+                   "makes them no supervisor, as admins of an organisation see no answers. The lead of a course invites address lists and creates one-time links only "
                    "for accounts of the course without an ORCID iD. Each organisation sets its own user types with "
                    "period and deletion period (Management > User types); each starts with “Staff” without a period."),
              "app/account_types.py, app/bulk_invites.py, app/joinlinks.py"),
@@ -1518,15 +1543,21 @@ def measures():
                    "Live-Abstimmung, Tagebuch, Löschcodes, Beschwerden, öffentliche Dashboards; von den Konten die Kontozeile "
                    "(Name, Zugehörigkeit, ORCID iD) für die Einwilligung); Anmeldedaten (Passwort, zweiter Faktor), Sitzungen, "
                    "Zugangsschlüssel, Protokolle und die Arbeit im Editor bleiben ihr verschlossen. Ein Einbruch auf der "
-                   "Teilnahmeseite erreicht sie so nicht über die Datenbank. Neue "
+                   "Teilnahmeseite erreicht sie so nicht über die Datenbank. Von einer Befragung ändert sie nur den "
+                   "Status und die Zahl der Ablehnungen, nicht Ablauf, Datenpool oder Einstellungen; Teilnahmen löscht "
+                   "sie nur über eine Datenbankfunktion, die den Nachweis prüft (Löschcode, Teilnahme im Browser, "
+                   "Schlüssel der Tagebuch-App, Ablehnung, Testdaten). Neue "
                    "Tabellen bleiben zu, bis sie ausdrücklich eingeordnet sind",
                    "Prepared but off: a database role of its own for the participation containers, which may read and "
                    "write only the tables participation needs (survey, answers, quotas, live voting, diary, deletion "
                    "codes, complaints, public dashboards; of the accounts the account row (name, affiliation, ORCID iD) for the consent); "
                    "sign-in data (password, second factor), sessions, access keys, logs and the work in the editor stay closed "
-                   "to it. A break-in on the participants' side thus does not reach them through the database. New "
+                   "to it. A break-in on the participants' side thus does not reach them through the database. Of a "
+                   "survey it changes only the status and the number of declines, not the flow, the data pool or the "
+                   "settings; it deletes participations only through a database function that checks the proof "
+                   "(deletion code, the participation in the browser, the diary app's key, a decline, test data). New "
                    "tables stay closed until they are classified explicitly"),
-             "app/participant_grants.py, deploy/docker/participant-db-role.sh"),
+             "app/participant_grants.py, app/participant_erase.py, deploy/docker/participant-db-role.sh"),
             (de_en("Jeder Container erhält nur die Geheimnisse, die er braucht (die Teilnahme-Container keine Zugänge zu "
                    "ORCID, Zenodo, KI-Diensten, kein Passwort des Mailservers und kein Datenbank-Superuser; ihre E-Mails, "
                    "etwa die Eingangsbestätigung einer Beschwerde, warten in der Mail-Warteschlange, bis die Wartung sie "

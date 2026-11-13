@@ -23,6 +23,7 @@ with requests, and by /cron/close). What went is counted like a deletion on requ
 "retention"), as bare numbers per day.
 """
 import os
+from datetime import datetime, timedelta
 
 from flask import current_app
 
@@ -135,12 +136,73 @@ def order_error(survey, form):
                  "participations”, nor “not automatically” while the second period is set.")
 
 
-def from_form(survey, form):
+def from_form(survey, form, now=None):
     """The periods a settings form asks for, as far as they may change. Returns the names of periods that were
-    left as they are because they would have become longer."""
+    left as they are because they would have become longer. A shorter period that would delete within NOTICE_DAYS
+    deletes NOTICE_DAYS from now at the earliest (not_before; audit 2026-11-11: chosen by mistake, it deleted all
+    participations at the next round, against the hint "warnt 30 Tage vorher")."""
     new, refused = _wanted(survey, form)
-    survey.retention = new if any(new.values()) else None
+    lead = _lead(survey, new, now)
+    kept = (getattr(survey, "retention", None) or {}).get("not_before")
+    stored = dict(new)
+    if lead is not None or kept:
+        stored["not_before"] = max(filter(None, (lead, kept)))
+    survey.retention = stored if any(stored.values()) else None
     return refused
+
+
+def _lead(survey, new, now=None):
+    """The ISO time NOTICE_DAYS from now when `new` periods would end sooner than that and sooner than before, else
+    None."""
+    now = now or utcnow()
+    start = ended(survey)
+    if start is None:
+        return None
+    before = due(survey)
+    for key, months in new.items():
+        if not months:
+            continue
+        when = _add_months(start, months)
+        if when < now + timedelta(days=NOTICE_DAYS) and (before[key] is None or when < before[key]):
+            return (now + timedelta(days=NOTICE_DAYS)).replace(microsecond=0).isoformat()
+    return None
+
+
+def ask_shortening(survey, form):
+    """Before a shorter period that deletes within NOTICE_DAYS is saved by autosave, the page asks (autosave.ask,
+    field "shorten"); True when it was asked, then nothing is saved yet."""
+    from app import autosave
+    from app.lang import english
+    from app.timeutil import fmt
+
+    if not autosave.wanted() or autosave.asked("shorten"):
+        return False
+    soon = shortening_soon(survey, form)
+    if soon is None:
+        return False
+    when, count = soon
+    autosave.ask("shorten", de_en("Frist verkürzen?", "Shorten the period?"),
+                 de_en("Mit der kürzeren Frist werden {n} Teilnahmen am {d} endgültig gelöscht (frühestens 30 Tage "
+                       "nach dieser Änderung). Bis dahin lässt sich die Frist nicht mehr verlängern.",
+                       "With the shorter period {n} participations are deleted for good on {d} (30 days after this "
+                       "change at the earliest). Until then the period cannot be extended again.",
+                       n=count, d=fmt(when, with_time=False, lang="en" if english() else "de")),
+                 de_en("Verkürzen", "Shorten"))
+    return True
+
+
+def shortening_soon(survey, form, now=None):
+    """(date, number of real participations) when the periods of `form` would delete within NOTICE_DAYS, for the
+    question the settings ask before they save it; else None."""
+    if "retention_shown" not in form:
+        return None
+    new, _ = _wanted(survey, form)
+    lead = _lead(survey, new, now)
+    if lead is None:
+        return None
+    count = db.session.scalar(db.select(db.func.count(Response.id)).where(
+        Response.survey_id == survey.id, Response.source == "real", Response.is_preview.is_(False))) or 0
+    return datetime.fromisoformat(lead), count
 
 
 def _add_months(start, months):
@@ -174,9 +236,16 @@ def ended(survey):
 
 
 def due(survey):
-    """{"personal": datetime or None, "answers": datetime or None}: when each period ends (UTC)."""
+    """{"personal": datetime or None, "answers": datetime or None}: when each period ends (UTC); not before the lead
+    a shortened period got (from_form, not_before)."""
     start, periods = ended(survey), of(survey)
-    return {key: _add_months(start, months) if start is not None and months else None for key, months in periods.items()}
+    out = {key: _add_months(start, months) if start is not None and months else None for key, months in periods.items()}
+    raw = (getattr(survey, "retention", None) or {}).get("not_before")
+    try:
+        floor = datetime.fromisoformat(raw) if raw else None
+    except (TypeError, ValueError):
+        floor = None
+    return {key: max(when, floor) if when is not None and floor is not None else when for key, when in out.items()}
 
 
 def _with_identifiers(survey):

@@ -36,6 +36,20 @@ class LifecycleError(ValueError):
 MAX_RESPONSES = 10_000_000
 
 
+def _hold_row(survey):
+    """The survey's row held until commit and read anew before a change of its state (start, close, pause, opening
+    for editing): two overlapping requests (a double click, two members) then run one after the other, and the second
+    sees what the first did. Before, both passed the check on what they had loaded, the questionnaire was frozen as a
+    pre-registration twice and the status log lost an entry (function audit 2026-11-11). PostgreSQL only: on SQLite
+    the write lock of the database would be held while the start freezes the questionnaire (code review 2026-10-07,
+    E4); SQLite has one writer anyway."""
+    if survey.id is None or db.engine.dialect.name != "postgresql":
+        return
+    from app import edit_guard
+
+    edit_guard.lock(survey)
+
+
 def check_start(survey, field_end, max_responses, at=None):
     """What has to hold for a start, now or at the planned moment `at` ("Start planen"): raises LifecycleError with
     the reason. The same checks for both, so a planned start is refused for what would stop the button."""
@@ -67,6 +81,7 @@ def check_start(survey, field_end, max_responses, at=None):
 
 
 def start(survey, field_end, max_responses):
+    _hold_row(survey)
     check_start(survey, field_end, max_responses)
     survey.start_at = None  # a planned start is done with, as is the note of one that did not go through
     survey.start_plan = None
@@ -306,6 +321,7 @@ def close(survey, reason="manual", at=None):
     """End (or pause, reason "paused") the fieldwork. A paused survey can be closed too (audit 2026-10-05, L-10):
     from the pause by hand, or by the housekeeping once its field end is over (close_due_surveys); `at` is then the
     field end, from which the retention periods count."""
+    _hold_row(survey)
     paused = survey.status == Survey.CLOSED and survey.close_reason == "paused"
     if survey.status != Survey.RUNNING and not (paused and reason != "paused"):
         raise LifecycleError(de_en("Nur laufende oder pausierte Befragungen können geschlossen werden.", "Only running or paused surveys can be closed."))
@@ -464,6 +480,7 @@ def _note_text_corrections(session, flush_context, instances):
 def reopen_for_editing(survey):
     """Paused/closed -> draft with a new questionnaire version. Existing responses stay (with
     their version); a snapshot of data and codebook is saved first."""
+    _hold_row(survey)
     if survey.status != Survey.CLOSED:
         raise LifecycleError(de_en("Nur pausierte oder geschlossene Befragungen können zur Bearbeitung geöffnet werden.", "Only paused or closed surveys can be opened for editing."))
     _not_archived(survey)  # a draft in the archive, with a backup and a new version (audit 2026-10-18, FUNC-07)
@@ -493,7 +510,7 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
     belong to nobody else (app/accounts.py) and for the platform taking a survey down (app/platform_erase.py, whose
     reason goes into the last record of a seal chain as `seal_reason`). hide_title: the title no longer shows with a
     seal chain that stays (/verify/, seal.json; the platform's take-down and an account deleted, S7)."""
-    from app.models import (BrowserReceipt, ConstructCitation, ContactEntry, DataToken, EditMark, EditStep, Feedback,
+    from app.models import (BoardEraseFloor, BrowserReceipt, ConstructCitation, ContactEntry, DataToken, EditMark, EditStep, Feedback,
                             InterviewerAccess,
                             LiveFeedback, LiveInk,
                             LiveQuestion, LiveReaction, MemberInvite, OnceValue, PreviewComment, ResearchProject,
@@ -517,7 +534,7 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
 
     for model in (ResponsePoolRevision, ResponseRevision, BrowserReceipt, ContactEntry, SplitSession, PreviewComment, EditMark, EditStep, LiveFeedback, LiveInk,
                   LiveQuestion, LiveReaction,
-                  OnceValue, MemberInvite, DataToken, SurveyHide, InterviewerAccess, SemVersion):  # not everywhere removed by the database itself
+                  OnceValue, MemberInvite, DataToken, SurveyHide, InterviewerAccess, SemVersion, BoardEraseFloor):  # not everywhere removed by the database itself
         db.session.execute(db.delete(model).where(model.survey_id == survey.id))
     from app import paper
 
@@ -752,6 +769,10 @@ def _rare_sweeps(now):
     from app import browser_receipts, interview_data
 
     _step("browser_receipts.sweep", browser_receipts.sweep, now)
+    from app import construct_sync
+
+    # the construct catalogue's newest signed release, once a night, not in a participant's request (it fetches)
+    _step("construct_sync.nightly", construct_sync.nightly, now)
     from app import data_revision
 
     _step("data_revision.sweep", data_revision.sweep)  # the revision rows of deleted surveys (audit 2026-10-15, T05-N-1)
@@ -771,6 +792,10 @@ def _rare_sweeps(now):
 
     # persons of diary studies who never finished the entry part, or have no entry left (commits)
     _step("diary.sweep", diary.sweep, now)
+    from app import feedback
+
+    # name and address of complaints settled three years ago (Ralf 2026-11-12; commits)
+    _step("feedback.forget_contacts", feedback.forget_contacts, now)
     from app import ai_chat
 
     # messages of the KI-Chat whose participation or survey is gone (deleted past the session events; commits)

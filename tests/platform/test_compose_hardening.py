@@ -52,7 +52,8 @@ APP = _block(COMPOSE, "x-app: &app")
 APP_ENV = _block(APP, "  environment: &app-env")
 APP_FIXED = _block(COMPOSE, "x-app-fixed: &app-fixed")
 # what compose.yaml sets itself in the app containers (x-app and the services), and what never goes to a server
-EXPLICIT = {"DATABASE_URL", "PROXY_COUNT", "COMPUTE_URL", "STATUS_URL", "PARTICIPANT_BASE_URL", "SIDE", "CONTAINER_STATS", "LIFECYCLE_IN_REQUEST", "MEDIA_X_ACCEL"}
+EXPLICIT = {"DATABASE_URL", "PROXY_COUNT", "COMPUTE_URL", "STATUS_URL", "PARTICIPANT_BASE_URL", "SIDE", "CONTAINER_STATS", "LIFECYCLE_IN_REQUEST", "MEDIA_X_ACCEL",
+            "PARTICIPANT_ROLE_CHECK"}  # PARTICIPANT_ROLE_CHECK: the participants' containers only (role_problem)
 NOT_PASSED = {"DEV_LOGIN", "DEV_TRUST_BRIDGE", "BACKUP_DAYS"}  # local development only; BACKUP_DAYS: the Dockerfile
 
 
@@ -77,7 +78,7 @@ def test_every_setting_of_config_reaches_the_app_containers():
     every = SETTINGS + SECRETS + MAIL_SECRETS + RESEARCHER_SECRETS
     assert len(every) == len(set(every))
     assert "<<: [*app-settings, *app-secrets, *mail-secrets, *app-fixed]" in APP_ENV
-    for name in EXPLICIT - {"SIDE", "CONTAINER_STATS"}:
+    for name in EXPLICIT - {"SIDE", "CONTAINER_STATS", "PARTICIPANT_ROLE_CHECK"}:
         assert re.search(rf"^\s+{name}: \S", APP_FIXED, re.M), name
 
 
@@ -366,7 +367,7 @@ def test_every_base_image_is_pinned_by_digest():
 
     assert image_digests.unpinned() == []
     names = {(name, tag) for _f, name, tag, _d in image_digests.pinned()}
-    assert {("python", "3.12-slim"), ("nginx", "1.30.5-alpine"), ("certbot/certbot", "v5.8.0")} <= names
+    assert {("python", "3.12-slim"), ("nginx", "1.30.6-alpine"), ("certbot/certbot", "v5.8.0")} <= names
     # the database keeps its tag until a maintenance window sets DB_IMAGE by digest: a changed db line stops the
     # rolling deploy in the isolation check (deploy of 2026-10-19)
     assert "image: ${DB_IMAGE:-postgres:17}" in _read("deploy", "docker", "compose.yaml")
@@ -392,7 +393,7 @@ def test_image_digests_update_writes_the_new_digest(tmp_path, monkeypatch):
                         next(d for _f, n, t, d in image_digests.pinned() if (n, t) == (name, tag)))
     assert image_digests.main([]) == 1                                         # a moved tag: exit 1, nothing written
     assert image_digests.main(["--update"]) == 0
-    assert f"nginx:1.30.5-alpine@{new}" in (tmp_path / "deploy/docker/nginx-image/Dockerfile").read_text()
+    assert f"nginx:1.30.6-alpine@{new}" in (tmp_path / "deploy/docker/nginx-image/Dockerfile").read_text()
     assert image_digests.main([]) == 0
 
 

@@ -2,6 +2,8 @@
    All colours of the survey pages are tokens; the values below are the standard look. The tools of the
    preview (preview bar, device frame, comments) are no part of the survey and keep their fixed colours. */
 body.participant, .participant-frame {
+  /* light only, also inside a dark researcher page: no forced dark mode of the browser (see participant/base.html) */
+  color-scheme: only light;
   /* page, surfaces, text */
   --bg: #ffffff; --surface: #ffffff; --surface-2: #f7f7f4; --surface-3: #faf9f6; --hover: #f4f3ef;
   --fg: #1d1d1b; --muted: #66665f;

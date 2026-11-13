@@ -738,6 +738,25 @@ def _name_matches(user, typed):
     return " ".join((typed or "").split()).casefold() == " ".join(user.display_name.split()).casefold()
 
 
+@bp.route("/supervision/<int:row_id>", methods=["POST"])
+@login_required
+def supervision(row_id):
+    """The answer to a request to supervise this account (an admin of its organisation asked for themself,
+    account_types.request_supervision): "accept" makes the person a supervisor, anything else declines."""
+    from app import account_types
+
+    accept = request.form.get("answer") == "accept"
+    sup = account_types.answer_request(current_user, row_id, accept)
+    if sup is None:
+        abort(404)
+    db.session.commit()
+    if accept:
+        flash(de_en("{s} betreut Sie jetzt.", "{s} now supervises you.", s=sup.display_name), "success")
+    else:
+        flash(de_en("Anfrage von {s} abgelehnt.", "Request from {s} declined.", s=sup.display_name), "success")
+    return redirect(url_for("accounts.index", _anchor="nutzertyp"))
+
+
 @bp.route("/")
 @login_required
 def index():
@@ -750,6 +769,7 @@ def index():
     my_period = account_types.summary(passwords.login_row(current_user))
     return render_template("accounts/index.html",
                            my_period=my_period, my_supervisors=account_types.supervisors_of(current_user),
+                           my_requests=account_types.requests_of(current_user),
                            my_contact=account_types.contact_of(current_user) if my_period["until"] else "",
                            supervised=account_types.supervised_by(current_user), login=passwords.login_row(current_user),
                            has_password=passwords.has_password(current_user), fresh=_fresh(),

@@ -20,10 +20,28 @@ without changing it:
   The public code protects none of its own.
 
 - `instruments.json`: the wording of the scales of others in the construct toolbox (GESIS/ZIS short scales, TAM,
-  KUT, GDMS, ATI; `INSTRUMENTS` in app/constructs.py), which the public code does not carry because their licences do not
-  allow passing them on: `{"instruments": {"<key>": {"question": {"<lang>": "..."}, "statements": [{"<lang>": "..."},
-  ...]}}}`, one statement per item of the code's structure, in its order. Without it these constructs are left out of
-  the toolbox; the study template "Technikakzeptanz" then goes without them. The installation checks before an export
+  KUT, GDMS, ATI; the licensed constructs of the construct catalogue, app/construct_catalog.py), which the public code
+  does not carry because their licences do not allow passing them on: `{"instruments": {"<key>": {"question":
+  {"<lang>": "..."}, "statements": [{"<lang>": "..."}, ...]}}}`, one statement per item of the catalogue's structure, in
+  its order. Without it these constructs are left out of the toolbox; the study template "Technikakzeptanz" then goes
+  without them.
+
+- `wordings/<key>/<lang>.json`: the same wordings one file per construct and language, items named by their codes,
+  in the format of the wording files of the construct catalogue (askurious-constructs, `schema/wording.schema.json`):
+  `{"for": "ask:bfi10@4.0", "question": "...", "items": {"BFI_1": "...", ...}}`. Where a construct has such files they
+  count, else its entry in `instruments.json`, which stays readable until every installation has the folder. JSON
+  instead of the catalogue's YAML: the code reads no YAML (no further library); the fields are the same, and
+  `python tools/hash.py --wording <file>.json` of the catalogue gives the hash. `INSTRUMENT_WORDINGS_DIR` in the
+  `.env` can name another folder. At the start the log names the constructs without a wording and those whose
+  wording differs from the documented hash. A wording is used only where its SHA-256 matches the hash the catalogue documents for that language
+  (askurious-constructs, `python tools/hash.py --wording`); a differing one leaves its construct out, with a warning in
+  the log. `INSTRUMENT_WORDING_CHECK=0` in the `.env` switches that check off (default on).
+
+The construct catalogue itself comes from the signed releases of askurious-constructs (app/construct_sync.py): the
+installation takes the newest one every night and on "Jetzt abgleichen" under Administration › Konstrukte. In the
+`.env`: `CONSTRUCTS_SOURCE=off` fetches nothing (the snapshot in the code and uploaded manifests only), a folder or a
+`manifest.json` on the server (with `manifest.json.sig` next to it) instead of GitHub; `CONSTRUCTS_PIN=2026.11.0`
+stays on that release. The installation checks before an export
   that none of these texts went into the code: `python tools/public_export.py --check --instruments instruments.json`.
   `INSTRUMENT_WORDINGS` in the `.env` can name another file.
 

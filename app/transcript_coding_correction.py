@@ -142,6 +142,18 @@ def refit(survey, row, new_text):
     return out
 
 
+def refit_marks(row, new_text):
+    """As `refit` for the passages printed bold in the coding view (Response.interview["highlights"]): each found moves
+    to its place in `new_text`; one no longer found stays and is not shown."""
+    from app.transcript_coding_view import place
+
+    out = []
+    for h in (row.interview or {}).get("highlights") or []:
+        where = place(new_text, h) if isinstance(h, dict) else None
+        out.append({**h, "start": where[0], "end": where[1], "quote": new_text[where[0]:where[1]]} if where else h)
+    return out
+
+
 def _follow(survey, row, changed):
     """The anchor examples and further examples that quote a coding whose wording changed."""
     from app.transcript_coding_view import QUOTE_MAX

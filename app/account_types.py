@@ -354,6 +354,15 @@ def course_spec(group):
     return t.duration if t is not None and not needs_input(t.duration) else ""
 
 
+def bringing_in(admin):
+    """The supervisor an account gets from the admin who brings it in (adds its iD, makes it, makes its link): the
+    admin only as a site admin. A supervisor becomes admin of every survey the person creates, and an admin of an
+    organisation sees no survey's content or answers (konzept-abteilungen A15), so cannot give that to themself."""
+    from app import orgs
+
+    return admin if admin is not None and orgs._site_admin(admin) else None
+
+
 def start_new(user, now=None):
     """Type and period of a new account (auth._sign_in, invites.accept, joinlinks): what "Person hinzufügen" chose for
     its iD; else the course it came in through; else the type for new accounts of its home organisation, else of the
@@ -366,7 +375,7 @@ def start_new(user, now=None):
     if listed is not None and listed.account_type_id is not None:
         t = db.session.get(AccountType, listed.account_type_id)
         if t is not None:
-            supervisor = db.session.get(User, listed.added_by_id) if listed.added_by_id else None
+            supervisor = bringing_in(db.session.get(User, listed.added_by_id) if listed.added_by_id else None)
             assign(user, t, listed.valid_spec if listed.valid_spec is not None else t.duration, supervisor=supervisor,
                    now=now, log=False)
             return t
@@ -557,7 +566,7 @@ def supervisors_of(user):
     if user is None or user.id is None:
         return []
     out = list(db.session.scalars(db.select(User).join(AccountSupervisor, AccountSupervisor.supervisor_id == User.id)
-                                  .where(AccountSupervisor.user_id == user.id)
+                                  .where(AccountSupervisor.user_id == user.id, AccountSupervisor.pending.is_(False))
                                   .order_by(AccountSupervisor.created_at, AccountSupervisor.id)))
     row = db.session.get(UserLogin, user.id)
     if row is not None and row.supervisor_id and all(u.id != row.supervisor_id for u in out):
@@ -565,6 +574,71 @@ def supervisors_of(user):
         if first is not None:
             out.insert(0, first)
     return out
+
+
+def requests_of(user):
+    """The supervisions waiting for the person's answer: [(row, supervisor)], oldest first."""
+    if user is None or user.id is None:
+        return []
+    return list(db.session.execute(db.select(AccountSupervisor, User)
+                                   .join(User, AccountSupervisor.supervisor_id == User.id)
+                                   .where(AccountSupervisor.user_id == user.id, AccountSupervisor.pending.is_(True))
+                                   .order_by(AccountSupervisor.created_at, AccountSupervisor.id)).tuples())
+
+
+def request_supervision(user, sup):
+    """`sup` (an admin of the person's organisation, for themself) asks to supervise `user`: a pending row, no rights
+    yet; the person confirms or declines on "Konto" (answer_request). With mail switched on the person is told.
+    False when `sup` already supervises or asks."""
+    if sup is None or sup.id == user.id:
+        return False
+    if db.session.scalar(db.select(AccountSupervisor.id).filter_by(user_id=user.id, supervisor_id=sup.id)):
+        return False
+    db.session.add(AccountSupervisor(user_id=user.id, supervisor_id=sup.id, pending=True))
+    from app import security_log
+
+    security_log.event("supervision_requested", account=user.id, by=sup.id)
+    _mail_request(user, sup)
+    return True
+
+
+def answer_request(user, row_id, accept):
+    """The person's answer to a request (its row id): accepted, the supervisor becomes one (admin of the person's
+    new surveys from now on); declined, the request goes. Returns the supervisor, or None if there is no such request."""
+    row = db.session.get(AccountSupervisor, row_id)
+    if row is None or row.user_id != user.id or not row.pending:
+        return None
+    sup = db.session.get(User, row.supervisor_id)
+    from app import security_log
+
+    if accept:
+        row.pending = False
+        login = _row(user)
+        if not login.supervisor_id:
+            login.supervisor_id = sup.id  # the first supervisor, for the code before (migration 0081)
+        security_log.event("supervision_accepted", account=user.id, by=user.id, target=f"user {row.supervisor_id}")
+    else:
+        db.session.delete(row)
+        security_log.event("supervision_declined", account=user.id, by=user.id, target=f"user {row.supervisor_id}")
+    return sup
+
+
+def _mail_request(user, sup):
+    from app import brand, lang, mail
+
+    row = db.session.get(UserLogin, user.id)
+    if row is None or not row.email:
+        return
+    with mail.in_language(lang.of(user)):
+        mail.send(row.email, de_en("Askurious: {s} möchte Sie betreuen", "Askurious: {s} would like to supervise you",
+                                   s=sup.name),
+                  de_en("Guten Tag {name},\n\n{s} möchte Ihr Konto in Askurious betreuen. Als Betreuung wird {s} Admin "
+                        "jeder Befragung, die Sie neu anlegen, und sieht Fragebogen und Antworten. Bestätigen oder "
+                        "ablehnen können Sie das auf der Seite „Konto“.\n\n{link}",
+                        "Hello {name},\n\n{s} would like to supervise your account in Askurious. As supervisor, {s} "
+                        "becomes admin of every survey you newly create and sees the questionnaire and the answers. You "
+                        "can confirm or decline this on the page “Account”.\n\n{link}",
+                        name=user.name, s=sup.name, link=brand.public_base() + "/account/#nutzertyp") + mail.signature())
 
 
 def supervisor_of(user):
@@ -582,11 +656,14 @@ def set_supervisors(user, people):
             wanted.append(p)
     rows = {r.supervisor_id: r for r in db.session.scalars(db.select(AccountSupervisor).filter_by(user_id=user.id))}
     for sid, r in rows.items():
-        if all(p.id != sid for p in wanted):
+        # a request waiting for the person stays, unless nobody supervises any more (a type without supervision)
+        if all(p.id != sid for p in wanted) and (not r.pending or not wanted):
             db.session.delete(r)
     for p in wanted:
         if p.id not in rows:
             db.session.add(AccountSupervisor(user_id=user.id, supervisor_id=p.id))
+        elif rows[p.id].pending:  # entered by someone else (another admin, a site admin): no longer a request
+            rows[p.id].pending = False
     row = _row(user)
     row.supervisor_id = wanted[0].id if wanted else None
     db.session.flush()
@@ -613,7 +690,8 @@ def add_supervisor(survey, user):
 
 def supervised_by(user):
     """The accounts this person supervises, with their end (for the hint on the start page and "Konto")."""
-    mine = db.select(AccountSupervisor.user_id).where(AccountSupervisor.supervisor_id == user.id)
+    mine = db.select(AccountSupervisor.user_id).where(AccountSupervisor.supervisor_id == user.id,
+                                                      AccountSupervisor.pending.is_(False))
     rows = db.session.execute(db.select(User, UserLogin).join(UserLogin, UserLogin.user_id == User.id)
                               .filter(db.or_(UserLogin.supervisor_id == user.id, User.id.in_(mine)))
                               .order_by(UserLogin.valid_until, User.name)).all()

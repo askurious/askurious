@@ -1,0 +1,62 @@
+{% from "_macros.html" import csrf %}
+{# The section "Katalog" of Administration > Konstrukte (app/construct_sync.py). Needs: catalog (construct_sync.status()), kind_label. #}
+{% set s = catalog %}
+{% set triggers = {"auto": de_en("automatisch", "automatic"), "manual": de_en("von Hand", "by hand"), "upload": de_en("Datei", "file"), "undo": de_en("Rückgängig", "undo")} %}
+<section class="panel" id="katalog">
+  <h2>{{ de_en("Katalog", "Catalogue") }} <span class="hint">askurious-constructs</span></h2>
+  <p class="muted small">{{ de_en("Die Konstrukte kommen aus dem offenen Katalog askurious-constructs. Die Installation holt jede Nacht das neueste signierte Release und übernimmt es; laufende Befragungen behalten ihre Fassung. Lizenzierte Skalen erscheinen nur, wenn ihr Wortlaut in der Installation zum dokumentierten Hash passt.", "The constructs come from the open catalogue askurious-constructs. The installation fetches the newest signed release every night and takes it; running surveys keep their version. Licensed scales appear only where their wording in the installation matches the documented hash.") }}</p>
+  <dl class="account-facts">
+    <dt>{{ de_en("Stand", "Version") }}</dt>
+    <dd><strong>{{ s.release or "–" }}</strong>{% if s.row %} {{ de_en("vom", "of") }} {{ s.row.created_at|localdate }} · {{ de_en("Signatur geprüft", "signature verified") }}{% else %} · {{ de_en("im Programm enthalten", "included in the program") }}{% endif %}{% if s.commit %} · <code>{{ s.commit[:7] }}</code>{% endif %}</dd>
+    <dt>{{ de_en("Quelle", "Source") }}</dt>
+    <dd>{% if s.off %}{{ de_en("Abruf abgeschaltet (CONSTRUCTS_SOURCE=off)", "fetching switched off (CONSTRUCTS_SOURCE=off)") }}{% else %}<code>{{ s.source }}</code>{% endif %}{% if s.pin %} · {{ de_en("festgelegt auf {r}", "pinned to {r}", r=s.pin) }}{% endif %}</dd>
+    <dt>{{ de_en("Letzter Abgleich", "Last sync") }}</dt>
+    <dd>{% if s.last %}{{ s.last.created_at|localdt }}, {{ triggers.get(s.last.trigger, s.last.trigger) }}{% if s.last.status == "failed" %} · <strong>{{ de_en("fehlgeschlagen", "failed") }}</strong>: {{ s.last.error }}{% elif s.last.status == "unchanged" %} · {{ de_en("keine Änderungen", "no changes") }}{% endif %}{% else %}{{ de_en("noch keiner", "none yet") }}{% endif %}</dd>
+    <dt>{{ de_en("Konstrukte", "Constructs") }}</dt>
+    <dd>{{ de_en("{a} aus dem Katalog · {b} der Instanz · {c} in Organisationen", "{a} from the catalogue · {b} of the installation · {c} in organisations", a=s.counts.catalog, b=s.counts.instance, c=s.counts.orgs) }}</dd>
+    {% set good, bad, gone = s.licensed %}
+    <dt>{{ de_en("Lizenzierte", "Licensed") }}</dt>
+    <dd>{{ de_en("{a} mit passendem Wortlaut", "{a} with matching wording", a=good) }}{% if bad %} · <strong>{{ de_en("{n} weicht ab", "{n} differs", n=bad) }}</strong>{% endif %}{% if gone %} · {{ de_en("{n} ohne Wortlaut der Installation", "{n} without the installation's wording", n=gone) }}{% endif %}{% if not s.check %} · {{ de_en("Hash-Prüfung abgeschaltet (INSTRUMENT_WORDING_CHECK=0)", "hash check switched off (INSTRUMENT_WORDING_CHECK=0)") }}{% endif %}</dd>
+  </dl>
+  <div class="form-actions">
+    {% if not s.off %}<form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="check"><button class="button button-small">{{ de_en("Jetzt abgleichen", "Sync now") }}</button></form>{% endif %}
+    <button type="button" class="button button-secondary button-small" data-dialog-open="catalog-upload">{{ de_en("Manifest-Datei hochladen", "Upload manifest file") }}</button>
+    {% if s.previous %}<form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline" data-confirm="{{ de_en('Zurück auf Release {r}? Es bleibt festgelegt, bis Sie den Pin lösen.', 'Back to release {r}? It stays pinned until you release the pin.', r=s.previous.release) }}" data-confirm-ok="{{ de_en('Zurück', 'Back') }}">{{ csrf() }}<input type="hidden" name="action" value="undo"><button class="button button-secondary button-small">{{ de_en("Rückgängig auf {r}", "Back to {r}", r=s.previous.release) }}</button></form>{% endif %}
+    {% if s.pinned_here %}<form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="unpin"><button class="button button-secondary button-small">{{ de_en("Pin lösen", "Release pin") }}</button></form>{% endif %}
+  </div>
+  <dialog class="person-dialog xp-dialog is-narrow" id="catalog-upload" aria-labelledby="catalog-upload-title">
+    <div class="xp-dialog-head"><h2 id="catalog-upload-title">{{ de_en("Manifest-Datei hochladen", "Upload manifest file") }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('admin.construct_catalog_action') }}">
+      {{ csrf() }}<input type="hidden" name="action" value="upload">
+      <p class="muted small">{{ de_en("Für Installationen ohne Netz: manifest.json und manifest.json.sig eines Releases von askurious-constructs. Die Signatur wird geprüft; danach sehen Sie die Änderungen, bevor etwas übernommen wird.", "For installations without network: manifest.json and manifest.json.sig of a release of askurious-constructs. The signature is checked; then you see the changes before anything is taken.") }}</p>
+      <label for="catalog-manifest">manifest.json</label>
+      <input type="file" id="catalog-manifest" name="manifest" accept=".json,application/json" required>
+      <label for="catalog-signature">manifest.json.sig</label>
+      <input type="file" id="catalog-signature" name="signature" accept=".sig" required>
+      <div class="form-actions"><button class="button">{{ de_en("Prüfen", "Check") }}</button>
+        <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+    </form>
+  </dialog>
+  {% if s.local %}
+  <h3>{{ de_en("Hier geändert", "Changed here") }}</h3>
+  <p class="muted small">{{ de_en("Diese Konstrukte des Katalogs wurden auf dieser Installation geändert. Ein Abgleich überschreibt sie nicht. Behalten Sie die Änderung als eigenes Konstrukt (der Katalog-Key bekommt wieder die Katalogfassung) oder übernehmen Sie die Katalogfassung.", "These constructs of the catalogue were changed on this installation. A sync does not overwrite them. Keep the change as a construct of its own (the catalogue's key gets the catalogue's version again) or take the catalogue's version.") }}</p>
+  <ul class="plain small">
+    {% for c, version in s.local %}<li>{{ c.name }} <span class="hint">{{ c.key }}, {{ de_en("hier {a}, im Katalog {b}", "here {a}, in the catalogue {b}", a=c.version or "–", b=version or "–") }}</span>
+      <form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline">{{ csrf() }}<input type="hidden" name="action" value="keep_local"><input type="hidden" name="key" value="{{ c.key }}"><button class="button button-secondary button-small">{{ de_en("Als eigenes Konstrukt behalten", "Keep as a construct of its own") }}</button></form>
+      <form method="post" action="{{ url_for('admin.construct_catalog_action') }}" class="inline" data-confirm="{{ de_en('Die Änderung an {k} verwerfen und die Katalogfassung übernehmen?', 'Discard the change to {k} and take the version of the catalogue?', k=c.key) }}" data-confirm-ok="{{ de_en('Übernehmen', 'Apply') }}">{{ csrf() }}<input type="hidden" name="action" value="reset"><input type="hidden" name="key" value="{{ c.key }}"><button class="button button-secondary button-small">{{ de_en("Katalogfassung übernehmen", "Take the catalogue's version") }}</button></form></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if s.families_file %}<p class="muted small">{{ de_en("Familien, die hier für Konstrukte des Katalogs gesetzt sind, gehören in den Katalog:", "Families set here for constructs of the catalogue belong in the catalogue:") }} <a class="button button-secondary button-small" href="{{ url_for('admin.construct_families_file') }}" download>{{ de_en("Familien als Datei für den Katalog", "Families as a file for the catalogue") }}</a></p>{% endif %}
+  {% if s.row and s.row.changes %}
+  <h3>{{ de_en("Geändert mit {r}", "Changed with {r}", r=s.row.release) }}</h3>
+  <ul class="plain small catalog-changes">
+    {% for c in s.row.changes %}<li><span class="badge catalog-kind-{{ c.kind }}">{{ kind_label(c.kind) }}</span> {{ c.name }} <span class="hint">{{ c.key }}{% if c.before and c.after and c.before != c.after %}, {{ c.before }} → {{ c.after }}{% elif c.after %}, {{ c.after }}{% endif %}</span></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if s.history|length > 1 %}
+  <details class="space-above"><summary class="small">{{ de_en("Verlauf ({n})", "History ({n})", n=s.history|length) }}</summary>
+    <ul class="plain small">{% for h in s.history %}<li>{{ h.created_at|localdt }} · {{ h.release or "–" }} · {{ triggers.get(h.trigger, h.trigger) }} · {{ {"applied": de_en("übernommen", "taken"), "unchanged": de_en("keine Änderungen", "no changes"), "failed": de_en("fehlgeschlagen", "failed")}.get(h.status, h.status) }}{% if h.error %}: {{ h.error }}{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</section>

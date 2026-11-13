@@ -16,6 +16,7 @@ torch PYSEC-2025-204 Ralf 2027-01-31  # torch.rot90 with randn_like gives odd re
 torch PYSEC-2025-206 Ralf 2027-01-31  # integer overflow in nan_to_num().long(): no outside tensors reach it
 torch PYSEC-2026-139 Ralf 2027-01-31  # pt2 archive loading (local attacker): no PT2 archives are loaded
 torch PYSEC-2026-2286 Ralf 2027-01-31  # malicious checkpoint for torch.load(weights_only): only the hashed read-only models load
+torch GHSA-63cw-57p8-fm3p Ralf 2027-01-31  # same as PYSEC-2026-2286 (CVE-2026-24747, listed by OSV under its own id since 2026-11)
 transformers GHSA-29pf-2h5f-8g72 Ralf 2027-01-31  # crafted config.json of a Hub model: offline, only the prepared alignment models
 transformers GHSA-69w3-r845-3855 Ralf 2027-01-31  # Trainer._load_rng_state: no training, no Trainer checkpoints
 transformers GHSA-fgcw-684q-jj6r Ralf 2027-01-31  # LightGlue model loading: no LightGlue model, no repository chosen by others

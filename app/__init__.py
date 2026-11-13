@@ -753,6 +753,9 @@ def create_app(config_class=Config, server=False):
 
     # names Askurious gives in both languages, for texts that name them (UI/UX audit 2026-10-07, W115)
     app.jinja_env.globals["seed_name"] = constructs_mod.seed_name
+    from app import orgs as orgs_mod
+
+    app.jinja_env.globals["org_name"] = orgs_mod.name  # the organisation of a construct of its own (app/org_constructs.py)
     app.jinja_env.globals["demographics_block"] = lambda: lang.pick(DEMOGRAPHICS)
     from app import sem_model
 
@@ -1209,17 +1212,32 @@ def create_app(config_class=Config, server=False):
         with db.engine.connect() as connection:
             validate(connection)
         if app.config["SIDE"] == hosts.PARTICIPANT:
+            # participations are deleted through the function that checks the proof (app/participant_erase.py)
+            from app import participant_erase
+
+            with db.engine.connect() as connection:
+                if participant_erase.exists(connection):
+                    participant_erase.attach(app, db.engine)
             # the data steps below are the researchers' container's (restart.sh starts it first): the participants'
             # side may run under a role that reads and writes only its own tables (app/participant_grants.py,
             # audit 2026-10-18, CFG-04), and accounts, organisations or the sign-in list are none of them
+            if app.config.get("PARTICIPANT_ROLE_CHECK") and db.engine.dialect.name == "postgresql":
+                from app.participant_grants import role_problem
+
+                with db.engine.connect() as connection:
+                    problem = role_problem(connection)
+                if problem:
+                    raise RuntimeError(f"SIDE=participant with PARTICIPANT_ROLE_CHECK: {problem}")
             return app
         if os.environ.get("ALLOWED_ORCIDS", "").strip():
             # a line left in the .env from before 2026-10-06: nothing reads it any more (app/signin.py)
             app.logger.warning("ALLOWED_ORCIDS is set but no longer read; who may sign in is kept in "
                                "Administration > Personen")
         with start_up_lock():  # PostgreSQL: one server process at a time (several start together after a deploy)
-            from app import constructs
+            from app import construct_catalog, constructs
 
+            construct_catalog.invalidate()  # a new app looks the active catalogue up in its own database, now
+            construct_catalog.active()      # (not in the middle of the first request that counts its queries)
             constructs.ensure_seed()  # seed constructs and full-text index (data, not schema)
             from app import linked
 

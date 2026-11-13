@@ -198,7 +198,7 @@ def test_recording(app, client):
         where = interview_audio.folder(survey, row)
         assert os.path.isfile(os.path.join(where, "teil-1.webm"))
         assert not where.startswith(app.config["UPLOAD_FOLDER"])                  # never among the served uploads
-    assert "Aufnahme (2 Teile" in client.get(f"/guide/{code}/interviews").data.decode()
+    assert "<summary>2 Teile, " in client.get(f"/guide/{code}/interviews").data.decode()
     # the period: with "transcript" only once the transcript is checked; with months after the end
     with app.app_context():
         row = db.session.get(Response, rid)
@@ -458,3 +458,74 @@ def test_recording_pages_may_use_the_microphone(app, client):
     assert "microphone=(self)" in client.get(f"/guide/{code}/conversation?interview={rid}").headers["Permissions-Policy"]
     assert "microphone=(self)" in client.get(f"/guide/{code}/interviews/{rid}/recorder").headers["Permissions-Policy"]
     assert "microphone=()" in client.get(f"/guide/{code}/conversation").headers["Permissions-Policy"]   # stores nothing, records nothing
+
+
+def test_list_filters_and_pages(app, client):
+    """The list "Geführte Interviews" filters by kind, mode, status and transcript stage, in one row of selects,
+    and comes in pages of 10/20/50 (Ralf 2026-11-09)."""
+    code, sid = make(app, client)
+    a = start(app, client, code)                                   # I01: real, in person, checked transcript
+    b = start(app, client, code, mode="telefon", trial="1")        # I02: trial, by phone, recording only
+    c = start(app, client, code)                                   # I03: real, ended, nothing recorded
+    with app.app_context():
+        for rid, change in ((a, {"transcript": {"text": "I: Hallo.", "checked": "2026-11-09"}}),
+                            (b, {"audio": [{"part": 1, "bytes": 10, "mime": "audio/webm"}]})):
+            row = db.session.get(Response, rid)
+            row.interview = {**row.interview, **change}
+        db.session.get(Response, c).status = "completed"
+        db.session.commit()
+
+    def shown(query=""):
+        page = client.get(f"/guide/{code}/interviews{query}").data.decode()
+        return {label for label in ("I01", "I02", "I03") if f"<strong>{label}</strong>" in page}
+
+    page = client.get(f"/guide/{code}/interviews").data.decode()
+    assert 'name="iv_kind"' in page and 'name="iv_mode"' in page and 'name="iv_tr"' in page and 'name="iv_done"' in page
+    assert shown() == {"I01", "I02", "I03"}
+    assert shown("?iv_kind=test") == {"I02"} and shown("?iv_kind=real") == {"I01", "I03"}
+    assert shown("?iv_mode=telefon") == {"I02"}
+    assert shown("?iv_done=yes") == {"I03"} and shown("?iv_done=no") == {"I01", "I02"}
+    assert shown("?iv_tr=checked") == {"I01"} and shown("?iv_tr=audio") == {"I02"} and shown("?iv_tr=none") == {"I03"}
+    assert shown("?iv_tr=done") == set() and shown("?iv_kind=real&iv_tr=none") == {"I03"}
+    filtered = client.get(f"/guide/{code}/interviews?iv_tr=done").data.decode()
+    assert "Kein Interview passt zu diesen Filtern." in filtered and "Filter zurücksetzen" in filtered
+    assert "3 Interviews" not in filtered and "2 Interviews, 1 Probeinterviews" in filtered   # counts of all
+    for _ in range(9):
+        start(app, client, code)
+    assert "Zeilen je Seite:" in client.get(f"/guide/{code}/interviews").data.decode()       # 12 > 10 rows
+    second = client.get(f"/guide/{code}/interviews?iv_page=2&iv_kind=real").data.decode()
+    assert "iv_kind=real" in second and 'rel="prev"' in second                             # the pager keeps the filter
+
+
+def test_list_columns_sort_and_actions_keep_the_place(app, client):
+    """"Geführte Interviews" (Ralf 2026-11-10): Stand, Aufnahme, Transkript and Aktionen in columns of their own, the
+    column heads sort, and an action comes back to its row with filters, order and page instead of the top."""
+    code, sid = make(app, client)
+    a = start(app, client, code, label="B1")
+    b = start(app, client, code, label="A1")
+    c = start(app, client, code, label="C1")
+    with app.app_context():
+        row = db.session.get(Response, b)
+        row.interview = {**row.interview, "audio": [{"part": 1, "bytes": 2048, "mime": "audio/webm"}]}
+        db.session.commit()
+    page = client.get(f"/guide/{code}/interviews").data.decode()
+    heads = re.search(r"<thead>(.*?)</thead>", page, re.S).group(1)
+    for name in ("Stand", "Aufnahme", "Transkript", "Aktionen"):
+        assert f">{name}<" in heads
+    assert "iv_sort=label" in heads and f'id="iv-{a}"' in page
+
+    def order(query):
+        text = client.get(f"/guide/{code}/interviews{query}").data.decode()
+        return [m for m in re.findall(r"<strong>(\w\d)</strong>", text)]
+
+    assert order("?iv_sort=label&iv_dir=asc") == ["A1", "B1", "C1"]
+    assert order("?iv_sort=label&iv_dir=desc") == ["C1", "B1", "A1"]
+    assert order("?iv_sort=audio&iv_dir=desc")[0] == "A1"                       # the one with a recording first
+    filtered = client.get(f"/guide/{code}/interviews?iv_sort=label&iv_dir=desc&iv_done=no").data.decode()
+    assert 'name="iv_sort" value="label"' in filtered                           # a filter change keeps the order
+    assert 'name="back" value="iv_sort=label&amp;iv_dir=desc&amp;iv_done=no"' in filtered
+    r = client.post(f"/guide/{code}/interviews/{c}/delete", data={"back": "iv_sort=label&iv_dir=desc&iv_done=no&x=1"})
+    where = r.headers["Location"]
+    assert "iv_sort=label" in where and "iv_done=no" in where and "x=1" not in where and where.endswith("#gefuehrt")
+    r = client.post(f"/guide/{code}/interviews/{b}/audio/delete", data={"back": "iv_page=1&iv_kind=real"})
+    assert "iv_kind=real" in r.headers["Location"] and r.headers["Location"].endswith(f"#iv-{b}")

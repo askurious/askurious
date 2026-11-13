@@ -37,19 +37,22 @@ def labels():
 
 
 def latest(c):
-    """The newest submission of element `c`, or None."""
-    return db.session.scalar(db.select(ConstructSubmission).filter_by(construct_id=c.id)
+    """The newest submission of element `c` to the operator, or None."""
+    return db.session.scalar(db.select(ConstructSubmission).filter_by(construct_id=c.id, org_id=None)
                              .order_by(ConstructSubmission.id.desc()).limit(1))
 
 
 def open_ones():
-    return list(db.session.scalars(db.select(ConstructSubmission).filter(ConstructSubmission.state.in_(ConstructSubmission.OPEN))
-                                   .order_by(ConstructSubmission.created_at)))
+    """Open submissions to the operator (proposals to an organisation are its own, app/org_constructs.py)."""
+    return list(db.session.scalars(db.select(ConstructSubmission).filter(
+        ConstructSubmission.state.in_(ConstructSubmission.OPEN), ConstructSubmission.org_id.is_(None))
+        .order_by(ConstructSubmission.created_at)))
 
 
 def decided_ones(limit=20):
-    return list(db.session.scalars(db.select(ConstructSubmission).filter(~ConstructSubmission.state.in_(ConstructSubmission.OPEN))
-                                   .order_by(ConstructSubmission.decided_at.desc()).limit(limit)))
+    return list(db.session.scalars(db.select(ConstructSubmission).filter(
+        ~ConstructSubmission.state.in_(ConstructSubmission.OPEN), ConstructSubmission.org_id.is_(None))
+        .order_by(ConstructSubmission.decided_at.desc()).limit(limit)))
 
 
 def unseen(user):
@@ -70,6 +73,11 @@ def read_form(form):
         fields["doi"] = match.group(1)
     if form.get("rights") != "1":
         errors.append(de_en("Bestätigung der Nutzungsrechte", "confirmation of the rights of use"))
+    from app import org_constructs
+
+    key = (form.get("licence_key") or "").strip()
+    if key in {k for k, *_ in org_constructs.LICENCES}:
+        fields["licence_key"] = key  # the licence key of the construct catalogue, for the file for a pull request
     return fields, errors
 
 
@@ -148,7 +156,8 @@ def accept(s, form):
     c = Construct(key=key, name=name, short=(form.get("short") or "").strip()[:300], description=f.get("description", ""),
                   authors=(form.get("authors") or "").strip()[:300], year=int(year) if year.isdigit() and len(year) == 4 else None,
                   citation=f.get("citation", ""), doi=f.get("doi", ""), scoring=f.get("scoring", ""), notes=notes,
-                  spec=copy.deepcopy(element.spec or {}), status="review", visibility="public",
+                  spec={**copy.deepcopy(element.spec or {}), **({"licence": f["licence_key"]} if f.get("licence_key") else {})},
+                  status="review", visibility="public",
                   created_by_id=s.user_id, seed_version=1)
     db.session.add(c)
     db.session.flush()

@@ -287,6 +287,7 @@ def edit_item(survey_id, item_id):
         all_texts_before = copy.deepcopy(item.texts)
         item.kind.update_from_form(item, request.form, lang, structural)
         _read_lock(item, request.form, structural)
+        _read_running(item, request.form, can_edit and lang == survey.default_language)
         item_source.from_form(item, request.form)  # where the items of a scale come from (user test 2026-10-27)
         if kept_texts is not None:
             item.texts = kept_texts
@@ -799,6 +800,14 @@ def _read_lock(item, form, structural):
     settings: only while the structure may change."""
     if structural and getattr(item.kind, "category", None) == "feedback":
         item.config = {**item.config, "lock_answers": bool(form.get("lock_answers"))}
+
+
+def _read_running(item, form, allowed):
+    """The tick "auch laufende Teilnahmen zählen" of a feedback element (balance.answers): it changes only who is
+    counted for the display, not what is stored, so it may also change in a running survey (u7pauw, 2026-11-09).
+    Read only from the editor form that shows it (the field count_running_shown)."""
+    if allowed and getattr(item.kind, "category", None) == "feedback" and form.get("count_running_shown"):
+        item.config = {**item.config, "count_running": bool(form.get("count_running"))}
 
 
 def _recomputed(survey, item, config_before):

@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
+  {# light only: the browser must not darken the page itself (Samsung Internet, Chrome auto dark): it darkened the
+     background and our greys only half, and the profile and crowd comparison became unreadable (student, u7pauw) #}
+  <meta name="color-scheme" content="only light">
   <title>{% block title %}{{ survey.title_in(lang) }}{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">
   {% if request.blueprint in ('live', 'live_public', 'live_code') %}<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">{% endif %}
@@ -31,6 +34,7 @@
   <footer class="p-footer">
     {% from "_wordmark.html" import wordmark %}<span class="p-brand">{{ wordmark(True) }}</span>
     {% block footer_links %}<a href="{{ url_for('participate.privacy', uid=survey.public_key, lang=lang, back=request.full_path) }}" {% if framed is defined and framed %}target="_top"{% endif %} class="p-footer-legal">{{ ui("Datenschutz & Impressum", "Privacy & legal notice") }}</a>{% endblock %}
+    {% if erase_link is defined and erase_link %}<a href="{{ erase_link }}" {% if framed is defined and framed %}target="_top"{% endif %} class="p-footer-legal">{{ ui("Meine Angaben löschen", "Delete my answers") }}</a>{% endif %}
   </footer>
   {% block participant_scripts %}<script src="{{ url_for('static', filename='participant.js') }}"></script>{% include 'participant/_scripts.html' %}{% endblock %}
   {% if comment_url is defined and comment_url %}<script src="{{ url_for('static', filename='comment_shot.js') }}"></script><script src="{{ url_for('static', filename='comments.js') }}"></script>{% endif %}

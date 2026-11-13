@@ -131,7 +131,8 @@ def _lock_device(survey, st, device):
                                "big", signed=True)
         db.session.execute(db.text("SELECT pg_advisory_xact_lock(:key, :ident)"), {"key": DEVICE_LOCK, "ident": ident})
     else:
-        db.session.execute(db.delete(Response).where(db.false()))
+        # SQLite only: never sent under the participants' role, which may not delete participations
+        db.session.execute(db.delete(Response).where(db.false()).execution_options(sqlite_only=True))
 
 
 def _stale_run(st):
@@ -868,6 +869,9 @@ def withdraw(code):
         from app.live.base import _flush_deleted
 
         pid = row.pid
+        from app import participant_erase
+
+        participant_erase.prove("live_word")  # the function deletes further words only (app/participant_erase.py)
         db.session.delete(row)
         _flush_deleted("live_word")
     else:

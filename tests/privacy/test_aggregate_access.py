@@ -155,6 +155,12 @@ def test_erasure_pauses_every_public_dashboard_until_a_new_batch(app, client, su
         victim = db.session.scalar(db.select(Response).filter_by(survey_id=1))
         erasure.erase(s, [victim], "request")
         db.session.commit()
+        # the mark is in a table of its own, not in data_pool (B2 stage 2 of the access audit 2026-11-11)
+        from app.models import BoardEraseFloor
+
+        mark = db.session.get(BoardEraseFloor, 1).public_after
+        assert mark == 20 + 5 and erasure.floor(s) == mark
+        assert "_public_after_erase" not in (s.data_pool or {})
         assert state(board, steps=True)["pending"]
         assert state(board, steps=True, lang="en")["tiles"] == []
         assert not state(board, live=True).get("pending")
@@ -164,3 +170,24 @@ def test_erasure_pauses_every_public_dashboard_until_a_new_batch(app, client, su
                                     completed_at=utcnow() - timedelta(minutes=1)))
         db.session.commit()
         assert not state(board, steps=True).get("pending")
+
+
+def test_the_erase_mark_only_rises_and_reads_the_older_one_too(app, client, survey):
+    """erasure.floor takes the larger of the table and the mark older code left in survey.data_pool; a lower count
+    never lowers it (two deletions at once, INSERT ... ON CONFLICT DO UPDATE)."""
+    from app import erasure
+    from app.models import BoardEraseFloor
+
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        assert erasure.floor(s) == 0
+        s.data_pool = {"_public_after_erase": 40}
+        db.session.commit()
+        assert erasure.floor(s) == 40
+        erasure._raise_floor(s, 30)
+        db.session.commit()
+        assert db.session.get(BoardEraseFloor, 1).public_after == 40
+        erasure._raise_floor(s, 50)
+        erasure._raise_floor(s, 45)
+        db.session.commit()
+        assert db.session.get(BoardEraseFloor, 1).public_after == 50 and erasure.floor(s) == 50

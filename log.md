@@ -7635,3 +7635,53 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 ## 2026-11-07
 
 - Bedingungen im Ablauf können Rückgabewerte externer Abschnitte prüfen (Bezug `x:<Abschnitt>:<Name>`, app/external.py): Zahlen und Texte, nur Abschnitte außerhalb einer Schleife; die Startprüfung meldet fehlende Werte, die falsche Reihenfolge und warnt bei nicht signierten Werten. Befragungsdatei, Kopie, Testlauf, Dummy-Daten und DDI-Export ziehen mit.
+
+## 2026-11-09: Konstrukte aus dem Katalog askurious-constructs
+
+- Die Seed-Konstrukte der Toolbox kommen aus einem Snapshot des offenen Katalogs askurious-constructs (`app/data/constructs/manifest.json`, Release 2026.11.0-dev, Commit 967e955); `app/construct_catalog.py` baut daraus Seeds, Vorlagen und die englischen Texte. SEEDS, SEEDS_EN, INSTRUMENTS und die RatSWD-Daten sind aus `app/constructs.py` und `app/ratswd.py` entfernt; OWN_WORDING, ZIS, PERMISSION_REQUIRED, NOT_SHARED und WORKING_LANGS werden aus den Lizenzfeldern abgeleitet.
+- Lizenzierte Skalen nehmen den Wortlaut weiter aus `instruments.json` der Installation, aber nur, wenn sein SHA-256 zum Hash im Katalog passt (`INSTRUMENT_WORDING_CHECK`, Standard an); sonst bleibt das Konstrukt draußen, mit einer Warnung im Log.
+- Rundlauftest `tests/analysis/test_construct_catalog.py`: alle 39 Konstrukte ergeben genau die Vorlagen und Metadaten DE/EN von 12002c4.
+- `tools/update_constructs_snapshot.py` erneuert den Snapshot aus einem Release (Signatur mit minisign-Schlüssel geprüft), einer Datei oder einem Checkout.
+- Migration 0117: Spalten `source`, `version`, `catalog_release` an `construct` (ROLLING = True).
+
+## 2026-11-09: Herkunft der Geschlechtsfrage
+
+- `gender`: Die Antwortkategorien stammen aus Spiel, Haimson & Lottridge (2019); der Hinweis sagt das jetzt statt „Eigene Formulierung von Askurious“. Im Katalog Lizenzschlüssel `source-attributed` statt CC BY 4.0 (askurious-constructs #4). Für Gäste bleibt der Wortlaut verborgen; OWN_WORDING folgt jetzt dem Lizenzschlüssel CC-BY-4.0. Snapshot aus askurious-constructs 6347d72.
+
+## 2026-11-09: Abgleich mit dem Konstrukt-Katalog
+
+- `app/construct_sync.py`: Die Installation holt das neueste signierte Release von askurious-constructs (`CONSTRUCTS_SOURCE`, Standard GitHub „latest“; `off`; Ordner oder Datei; `CONSTRUCTS_PIN`), nachts als Schritt der stündlichen Housekeeping-Runde (zwischen 2 und 5 Uhr) und unter Administration › Konstrukte › Katalog von Hand (erst Vorschau, dann Übernehmen), auch als hochgeladene Datei. Signatur immer geprüft (minisign-Schlüssel im Code), Abruf über `webservice.fetch_full` (Weiterleitungen einzeln geprüft, Größenlimit).
+- Tabelle `construct_sync` (Migration 0118): übernommene Stände, Vorschauen, Fehler; der letzte übernommene ist der aktive Katalog. Lizenzmengen, Seeds und englische Texte folgen ihm (`construct_catalog.active()`, `live_set`/`live_map`/`live_list`). Neue Fassungen (auch Wortlaut-Korrekturen) kommen in die Toolbox, zurückgezogene bleiben in Befragungen, sind aber nicht mehr einfügbar; ein fehlender Key gilt als zurückgezogen. „Rückgängig“ stellt den Stand davor her und pinnt ihn.
+- Snapshot jetzt aus dem signierten Release 2026.11.0. Datenschutzkonzept: Dienst „Konstrukt-Katalog (GitHub)“. Handbuch: Abschnitt „Katalog“.
+
+## 2026-11-09: Wortlaute der Installation je Konstrukt und Sprache
+
+- `instance_overlay/wordings/<key>/<lang>.json` (`INSTRUMENT_WORDINGS_DIR`): die Wortlaute fremder Skalen je Datei, Items über ihre Codes, im Format der Wortlautdateien des Konstrukt-Katalogs (als JSON statt YAML, keine weitere Bibliothek). Wo ein Konstrukt solche Dateien hat, gelten sie, sonst wie bisher `instruments.json`. Beim Start nennt das Log fehlende und vom Hash abweichende Wortlaute. `deploy-docker.sh` nimmt den Ordner mit, `tools/public_export.py --instruments` prüft auch ihn.
+
+## 2026-11-09: Konstrukte der Organisation
+
+- Verwaltung › Konstrukte: Bereich „Eigene Konstrukte“ mit Dialog „Konstrukt anlegen“ (Org-Admins; Grundlage ein verknüpftes Element; Beschreibung, Quelle, Auswertung, Lizenz des Wortlauts aus der Liste des Katalogs, Bestätigung der Nutzungsrechte). Key `o<id>-…`, Sichtbarkeit „org“: nur Mitglieder finden es in „Konstrukte“ und im Editor, mit dem Namen der Organisation; nicht im Pool (`app/org_constructs.py`).
+- Mitglieder schlagen ein eigenes verknüpftes Element „Der Organisation vorschlagen“ vor (Einreichung mit `org_id`, Migration 0119); die Admins übernehmen oder lehnen ab.
+- „Als Datei für Pull Request“: ZIP mit construct.yaml (als JSON, gültiges YAML) und bei offener Lizenz den Wortlautdateien für askurious-constructs; auch bei angenommenen Einreichungen unter Administration › Konstrukte. Kontakt über `CONSTRUCTS_CONTACT`.
+
+## 2026-11-09: Familien aus dem Katalog, hier geänderte Katalog-Konstrukte
+
+- Familien (Kurz- und Langfassungen) kommen aus dem Konstrukt-Katalog (families/ im Manifest); eine auf der Installation gesetzte Familie (fam:<key>) bleibt und geht vor. „Familien als Datei für den Katalog“ (Administration › Konstrukte › Katalog) liefert die hier gesetzten Familien von Katalog-Konstrukten als families/<id>.yaml für einen Pull Request.
+- `construct.catalog_hash` (Migration 0120): Fingerabdruck dessen, was der Katalog geschrieben hat, beim ersten Start aus dem heutigen Stand. Ein hier geändertes Katalog-Konstrukt überschreibt ein neuerer Katalog nicht; unter „Hier geändert“: „Als eigenes Konstrukt behalten“ (Kopie unter `<key>_lokal`) oder „Katalogfassung übernehmen“.
+
+## 2026-11-09: Konstrukte der Organisation bearbeiten und ausblenden
+
+- Verwaltung › Konstrukte: „Bearbeiten“ (derselbe Dialog wie „Konstrukt anlegen“, vorbelegt; Name, Texte, Quelle, Lizenz, optional Englisch), „Entfernen“ bzw. „Ausblenden“, wenn Befragungen es nutzen (nur aus der Toolbox, Befragungen behalten es), „Wieder zeigen“ unter „Ausgeblendet“. Nichts wird gelöscht.
+- Die Datei für einen Pull Request belegt die englischen Felder vor (wie angegeben, sonst der deutsche Text zum Übersetzen). Einreichungen beim Betreiber fragen optional den Lizenzschlüssel des Katalogs ab; ein angenommenes Konstrukt trägt ihn in die Datei.
+
+## 2026-11-10: Tabelle „Geführte Interviews“ aufgeteilt und sortierbar
+
+- Die Spalte „Stand“ ist aufgeteilt: Stand, Aufnahme (anhören, herunterladen, hochladen, löschen), Transkript (prüfen, transkribieren, Fortschritt) und Aktionen; „Löschen nach Frist“ heißt „Löschen am“. Der Hinweis zum Modellwechsel steht im Tooltip der Modellauswahl, die Zeilen bleiben niedrig.
+- Alle Spalten außer Aktionen sortieren per Klick auf den Kopf (`iv_sort`/`iv_dir`, `ListPage` sortiert jetzt Listen im Speicher, leere Werte zuletzt); ein Filterwechsel behält die Sortierung.
+- Aktionen (Transkribieren, Abbrechen, Aufnahme löschen, Interview löschen) schicken Filter, Sortierung und Seite mit (`back`) und kehren zur Zeile zurück (`#iv-<id>`, nach dem Löschen `#gefuehrt`), statt oben ohne Filter zu landen; ebenso „Zurück“ von Upload- und Transkriptseite (`interview_data.back_url`).
+
+## 2026-11-12: Rechte der Teilnahme-Rolle, Stufe 2 (Löschen mit Nachweis, flow und data_pool zu)
+
+- Teilnahmen löscht die Teilnahmeseite nur noch über die Datenbankfunktion `participant_erase_response` (SECURITY DEFINER, Migration 0123), die den Nachweis der Transaktion prüft: Löschcode, Teilnahme im Browser, Secret der Tagebuch-App, Ablehnung, weiteres Live-Wort, Testdaten des Pretest-Links. Der ORM löscht wie bisher; auf der Teilnahmeseite wird sein DELETE zum Aufruf der Funktion (`app/participant_erase.py`), Siegelkette und alle anderen Hooks bleiben.
+- Die Marke, auf die Dashboard-Links nach einer Löschung warten, liegt in `board_erase_floor` statt in `survey.data_pool`; ein Layout schreibt den normalisierten Ablauf nicht mehr zurück (`flow.normalize_for_reading`).
+- Die Teilnahme-Rolle hat damit kein UPDATE mehr auf `survey.flow` und `survey.data_pool` und kein DELETE auf `response`; die Startprüfung (`PARTICIPANT_ROLE_CHECK`) verlangt das und EXECUTE auf die Funktion. Ein geplanter Start, den die Rolle nicht schreiben darf, bleibt der Haushaltung.

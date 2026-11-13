@@ -53,7 +53,11 @@
           <strong class="live-block-name">{{ parts[which] }}</strong>
           <span class="muted small guide-form-note">{{ de_en("nach dem Gespräch", "after the conversation") if which == "post" else (de_en("vor dem Gespräch", "before the conversation") if st.short == "before" else de_en("nach dem Gespräch", "after the conversation")) }} · {{ de_en("auf Papier oder im Aufzeichnungswerkzeug", "on paper or in the recording tool") }}</span>
           {% if editable %}<form method="post" action="{{ url_for('interview_ai.form_page', code=survey.code, which=which) }}" class="inline" data-busy-form>{{ csrf() }}
-            <button class="icon-btn guide-ai-icon" title="{{ de_en('{part}: Fragen mit KI vorschlagen (Witzel, 2000)', '{part}: suggest questions with AI (Witzel, 2000)', part=parts[which]) }}" aria-label="{{ de_en('{part} mit KI vorschlagen', 'Suggest {part} with AI', part=parts[which]) }}">{{ icon("sparkles", 14) }}</button></form>{% endif %}
+            <button class="icon-btn guide-ai-icon" title="{{ de_en('{part}: Fragen mit KI vorschlagen (Witzel, 2000)', '{part}: suggest questions with AI (Witzel, 2000)', part=parts[which]) }}" aria-label="{{ de_en('{part} mit KI vorschlagen', 'Suggest {part} with AI', part=parts[which]) }}">{{ icon("sparkles", 14) }}</button></form>
+          {# removed as a whole, as switching it off under "Einstellungen"; "Rückgängig" brings it back (user feedback 2026-11-10) #}
+          <form method="post" action="{{ url_for('interview.control', code=survey.code) }}" class="inline">{{ csrf() }}
+            <input type="hidden" name="action" value="remove_part"><input type="hidden" name="part" value="{{ which }}">
+            <button class="icon-btn" title="{{ de_en('{part} entfernen (Rückgängig bringt ihn zurück, unter „Einstellungen“ lässt er sich wieder einschalten)', 'Remove {part} (Undo brings it back; it can be switched on again under “Settings”)', part=parts[which]) }}" aria-label="{{ de_en('{part} entfernen', 'Remove {part}', part=parts[which]) }}">{{ icon("trash", 14) }}</button></form>{% endif %}
         {% endif %}
       </div>
       {% if which == "guide" %}

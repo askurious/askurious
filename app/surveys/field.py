@@ -104,6 +104,14 @@ def _plan_context(survey, plan_end):
 
 
 LIVE_WINDOW = 600  # seconds: who was active within the last 10 minutes counts as "in the survey"
+LIVE_SHOWN = 250  # at most this many dots: beyond it a fixed selection by hash, so the picture stays readable
+
+
+def _live_digest(survey, rid):
+    """The fixed hash of a participation for the live strip: jitter, place within the page and the selection."""
+    import hashlib
+
+    return hashlib.sha1(f"{survey.uid}:{rid}".encode()).hexdigest()
 
 
 @bp.route("/<sid:survey_id>/pretest/revoke", methods=["POST"])
@@ -123,8 +131,10 @@ def revoke_pretest(survey_id):
 def field_live(survey_id):
     """Who is in the survey right now, as a feeling rather than a count: per active participation only the
     progress (0..1 of its own pages), the seconds since its last page and a stable vertical jitter.
-    No ids, no answers. Real participations only (no preview, test or dummy)."""
-    import hashlib
+    No ids, no answers. Real participations only (no preview, test or dummy).
+    More than LIVE_SHOWN active: "people" holds a fixed selection of LIVE_SHOWN, those with the smallest hash, so
+    the same persons stay in the picture from one call to the next instead of dots jumping; "n" is everyone."""
+    import heapq
     from datetime import timedelta
 
     from app import duration, runtime
@@ -133,22 +143,29 @@ def field_live(survey_id):
     survey = get_survey(survey_id)
     now = utcnow()
     since = now - timedelta(seconds=LIVE_WINDOW)
-    rows = db.session.scalars(db.select(R).filter(R.survey_id == survey.id, R.status == R.ACTIVE, R.is_preview.is_(False),
-                                                  R.source == "real", db.func.coalesce(R.last_active_at, R.started_at) >= since))
+    seen_at = db.func.coalesce(R.last_active_at, R.started_at)
+    # first only ids and times; the layouts (the large part) only for those shown
+    active = db.session.execute(db.select(R.id, seen_at).filter(
+        R.survey_id == survey.id, R.status == R.ACTIVE, R.is_preview.is_(False), R.source == "real",
+        seen_at >= since)).all()
+    digests = {rid: _live_digest(survey, rid) for rid, _ in active}
+    shown = heapq.nsmallest(LIVE_SHOWN, active, key=lambda row: digests[row[0]][12:20])
+    where = {rid: (layout, position) for rid, layout, position in db.session.execute(
+        db.select(R.id, R.layout, R.position).filter(R.id.in_([rid for rid, _ in shown])))} if shown else {}
     people = []
-    for r in rows:
-        pages = runtime.page_entries(r.layout) if r.layout else []
-        done = pages.index(r.position) if r.position in pages else 0
-        seen = r.last_active_at or r.started_at
-        digest = hashlib.sha1(f"{survey.uid}:{r.id}".encode()).hexdigest()
+    for rid, seen in shown:
+        layout, position = where.get(rid, (None, 0))
+        pages = runtime.page_entries(layout) if layout else []
+        done = pages.index(position) if position in pages else 0
+        digest = digests[rid]
         jitter, spread = int(digest[:6], 16) / 0xFFFFFF, int(digest[6:12], 16) / 0xFFFFFF
-        # somewhere within the current page (not exactly on it), so a few pages do not become columns
-        progress = (done + 0.15 + 0.7 * spread) / max(len(pages), 1)
+        # anywhere across the width of the current page (a little margin to the next), so pages do not become columns
+        progress = (done + 0.05 + 0.9 * spread) / max(len(pages), 1)
         people.append({"p": round(progress, 3), "a": max(0, int((now - seen).total_seconds())), "j": round(jitter, 3)})
     from app import external
 
-    return {"people": people, "estimate": round(duration.estimate(survey)["typical"]), "window": LIVE_WINDOW,
-            "outside": external.outside(survey, now)}
+    return {"people": people, "n": len(active), "estimate": round(duration.estimate(survey)["typical"]),
+            "window": LIVE_WINDOW, "outside": external.outside(survey, now)}
 
 
 def _copy_links(survey):

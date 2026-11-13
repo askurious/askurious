@@ -9,6 +9,7 @@
       <button class="pin-btn" title="{{ de_en('Favorit: Steht im Fragebogen-Editor in der Liste. Klicken entfernt den Stern.', 'Favourite: listed in the questionnaire editor. Click to remove the star.') if on else de_en('Als Favorit merken: Steht dann im Fragebogen-Editor in der Liste', 'Mark as favourite: it is then listed in the questionnaire editor') }}"
               aria-label="{{ c.name }}: {{ de_en('Favorit entfernen', 'remove favourite') if on else de_en('als Favorit merken', 'mark as favourite') }}" aria-pressed="{{ 'true' if on else 'false' }}">{{ "★" if on else "☆" }}</button></form>{% endif %}
     <a class="card-title" href="{{ url_for('constructs.detail', key=c.key, survey=survey.id if survey else none) }}">{{ c.name }}</a>
+    {% if c.visibility == "org" %}<span class="hint">{{ de_en("Organisation {o}", "Organisation {o}", o=org_name(c.org_id)) }}</span>{% endif %}
     {% if current_user.is_authenticated and not survey %}<a class="card-insert small" href="{{ url_for('constructs.detail', key=c.key) }}#einfuegen">{{ de_en("In Befragung einfügen", "Insert into a survey") }}</a>{% endif %}
     {# the wording's own state in words, not in the yellow of "Pausiert" and not as a second status beside
        "validierte Skala" (UI audit 2026-10-07, W88) #}

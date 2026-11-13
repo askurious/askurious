@@ -4255,7 +4255,7 @@ document.addEventListener("change", function (e) {
   });
 })();
 
-// Feld page: who is in the survey right now. One dot per participant on a horizontal line (position in the questionnaire,
+// Feld page: who is in the survey right now. One dot per participant (at most 250, a fixed selection: field_live) on a horizontal line (position in the questionnaire,
 // 0 % to 100 %), jittered vertically; deep blue right after a page, fading out after 10 minutes. Drawn at the real
 // width (no stretching), again when the window is resized.
 (function () {
@@ -4273,11 +4273,14 @@ document.addEventListener("change", function (e) {
       thirds[Math.min(2, Math.floor(Math.max(0, p.p) * 3))] += 1;
       if (p.a < 180) recent += 1; else older += 1;
     });
-    var n = recent + older, text;
+    var n = recent + older, all = Math.max(n, data.n || 0), text;
     if (!n) text = de_en("Gerade ist niemand in der Befragung.", "Nobody is in the survey right now.");
     else {
-      text = (n === 1 ? de_en("1 Person ist gerade in der Befragung.", "1 person is in the survey right now.")
-        : de_en("{n} Personen sind gerade in der Befragung.", "{n} people are in the survey right now.").replace("{n}", n))
+      text = (all === 1 ? de_en("1 Person ist gerade in der Befragung.", "1 person is in the survey right now.")
+        : de_en("{n} Personen sind gerade in der Befragung.", "{n} people are in the survey right now.").replace("{n}", all))
+        // more than the server shows (field_live, LIVE_SHOWN): the counts below are of the fixed selection drawn
+        + (all > data.people.length ? " " + de_en("Gezeigt ist eine feste Auswahl von {k}; die folgenden Zahlen gelten für sie.",
+                                                  "Shown is a fixed selection of {k}; the following numbers refer to it.").replace("{k}", data.people.length) : "")
         + " " + de_en("Im ersten Drittel des Fragebogens: {a}, im zweiten: {b}, im letzten: {c}.",
                       "In the first third of the questionnaire: {a}, in the second: {b}, in the last: {c}.")
           .replace("{a}", thirds[0]).replace("{b}", thirds[1]).replace("{c}", thirds[2])
@@ -4306,10 +4309,13 @@ document.addEventListener("change", function (e) {
       el("text", { x: x, y: BOT + 26, class: "live-label" + (pct === 0 ? " live-label-start" : pct === 100 ? " live-label-end" : "") }).textContent = pct + de_en(" %", "%");
     }
     el("text", { x: (L + R) / 2, y: BOT + 44, class: "live-label live-axis-title" }).textContent = de_en("Position im Fragebogen", "Position in the questionnaire");
+    // smaller dots from 100 on, so the up to 250 the server sends (field_live) do not merge into one patch: 5 px at
+    // 100, 3.5 px at 250
+    var shown = data.people.length, radius = shown <= 100 ? 5 : Math.max(3.5, 5 - 1.5 * (shown - 100) / 150);
     data.people.forEach(function (p) {
       var fresh = Math.max(0, 1 - p.a / data.window);  // 1 = just now, 0 = ten minutes without a new page
       if (fresh <= 0) return;
-      el("circle", { cx: L + (R - L) * p.p, cy: TOP + (BOT - TOP) * p.j, r: 5, class: "live-person",
+      el("circle", { cx: L + (R - L) * p.p, cy: TOP + (BOT - TOP) * p.j, r: radius, class: "live-person",
                      style: "fill-opacity:" + (0.08 + 0.92 * fresh).toFixed(2) });
     });
   }

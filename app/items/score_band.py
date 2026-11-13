@@ -27,7 +27,7 @@ class ScoreBand(SampleCompare):
     key = "score_band"
     import_rules = {"sources": SampleCompare.import_rules["sources"], "subscales": SampleCompare.import_rules["subscales"],
                     "basis": r_one(*BASES),
-                    "bands": r_rows(7, id=r_id, upper=r_num(-1e9, 1e9, none=True)), "lock_answers": r_flag}
+                    "bands": r_rows(7, id=r_id, upper=r_num(-1e9, 1e9, none=True)), "lock_answers": r_flag, "count_running": r_flag}
 
     def import_problems(self, item):
         bands = item.config["bands"]

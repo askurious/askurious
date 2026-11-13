@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, list_table, autosave_bar %}
 {% from "_icons.html" import icon %}
+{% from "_listing.html" import pager, sort_th, keep %}
 {% from "surveys/_export_rows.html" import dialog %}
 {# The interviews of an interview guide ("Interviews erheben", app/interview_data.py): starting one after
    the consent step, the list with continuing, deleting on request. #}
@@ -31,67 +32,103 @@
 {% endif %}
 
 {% include "interview/_offline_panel.html" %}
-<section class="panel">
-  {% set n_real = rows|selectattr("source", "equalto", "real")|list|length %}{% set n_test = rows|selectattr("source", "equalto", "test")|list|length %}
+<section class="panel" id="gefuehrt">
+  {% set n_real = every|selectattr("source", "equalto", "real")|list|length %}{% set n_test = every|selectattr("source", "equalto", "test")|list|length %}
   <h2>{{ de_en("Geführte Interviews", "Interviews conducted") }} <span class="hint">{{ de_en("{n} Interviews, {t} Probeinterviews", "{n} interviews, {t} trial interviews", n=n_real, t=n_test) }}</span></h2>
-  {% if accesses %}
-  {# the filter "geführt von" (app/interviewer.py): the team's own interviews or those of one interviewer link #}
-  <form method="get" class="row-fields">
-    <label>{{ de_en("Geführt von", "Conducted by") }}
-      <select name="by" data-submit-on-change>
+  {% if every %}
+  {# the filters in one row (app/interview_data.py, FILTERS): "geführt von" only with interviewer links (app/interviewer.py),
+     "Art" only with trial interviews, "Form" only with more than one mode in use #}
+  {% set filtering = chosen.values()|select|list %}
+  <form method="get" action="{{ request.path }}#gefuehrt" class="row-fields iv-filters">
+    {% if listing.per_page != listing.sizes[0] %}<input type="hidden" name="iv_n" value="{{ listing.per_page }}">{% endif %}
+    {% for name in ("iv_sort", "iv_dir") if request.args.get(name) %}<input type="hidden" name="{{ name }}" value="{{ request.args.get(name) }}">{% endfor %}
+    {% if accesses %}<label>{{ de_en("Geführt von", "Conducted by") }}
+      <select name="iv_by" data-submit-on-change>
         <option value="">{{ de_en("alle", "all") }}</option>
-        <option value="team" {% if held_by == "team" %}selected{% endif %}>{{ de_en("den Beteiligten (Konten)", "the people involved (accounts)") }}</option>
-        {% for a in accesses %}<option value="{{ a.id }}" {% if held_by == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+        <option value="team" {% if chosen.by == "team" %}selected{% endif %}>{{ de_en("den Beteiligten (Konten)", "the people involved (accounts)") }}</option>
+        {% for a in accesses %}<option value="{{ a.id }}" {% if chosen.by == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+      </select></label>{% endif %}
+    {% if n_test or chosen.kind %}<label>{{ de_en("Art", "Kind") }}
+      <select name="iv_kind" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        <option value="real" {% if chosen.kind == "real" %}selected{% endif %}>{{ de_en("Interviews", "Interviews") }}</option>
+        <option value="test" {% if chosen.kind == "test" %}selected{% endif %}>{{ de_en("Probeinterviews", "Trial interviews") }}</option>
+      </select></label>{% endif %}
+    {% if used_modes|length > 1 or chosen.mode %}<label>{{ de_en("Form", "Mode") }}
+      <select name="iv_mode" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        {% for key in used_modes %}<option value="{{ key }}" {% if chosen.mode == key %}selected{% endif %}>{{ modes.get(key, key) }}</option>{% endfor %}
+      </select></label>{% endif %}
+    <label>{{ de_en("Stand", "Status") }}
+      <select name="iv_done" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        <option value="yes" {% if chosen.done == "yes" %}selected{% endif %}>{{ de_en("beendet", "ended") }}</option>
+        <option value="no" {% if chosen.done == "no" %}selected{% endif %}>{{ de_en("nicht beendet", "not ended") }}</option>
       </select></label>
+    <label>{{ de_en("Transkript", "Transcript") }}
+      <select name="iv_tr" data-submit-on-change>
+        <option value="">{{ de_en("alle", "all") }}</option>
+        {% for key, name in stages.items() %}<option value="{{ key }}" {% if chosen.tr == key %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select></label>
+    <noscript><button class="button button-secondary">{{ de_en("Filtern", "Filter") }}</button></noscript>
+    {% if filtering %}<span class="muted small iv-filter-count">{{ de_en("{n} Treffer", "{n} matches", n=listing.total) }} · <a href="{{ request.path }}{% if listing.per_page != listing.sizes[0] %}?iv_n={{ listing.per_page }}{% endif %}#gefuehrt">{{ de_en("Filter zurücksetzen", "Reset filters") }}</a></span>{% endif %}
   </form>
   {% endif %}
   {% if rows %}
-  {% call list_table("is-wide") %}
-    <thead><tr><th>{{ de_en("Kennung", "Identifier") }}</th><th>{{ de_en("Datum", "Date") }}</th><th>{{ de_en("Form", "Mode") }}</th><th>{{ de_en("Dauer", "Duration") }}</th><th>{{ de_en("interviewt von", "interviewed by") }}</th><th>{{ de_en("Stand", "Status") }}</th><th>{{ de_en("Löschen nach Frist", "Deletion after period") }}</th><th></th></tr></thead>
+  {# one column per subject (Ralf 2026-11-10): Stand, Aufnahme, Transkript and the actions apart; every column but the
+     actions sorts (ListPage sorts, interview_data.sorts); each form sends the address along (keep) and comes back to
+     its row (interview_data.back_url), so an action neither jumps to the top nor drops filters and order #}
+  {% set here = request.query_string.decode() or none %}
+  {% call list_table("is-wide iv-list") %}
+    <thead><tr>{{ sort_th(listing, "label", de_en("Kennung", "Identifier")) }}{{ sort_th(listing, "date", de_en("Datum", "Date")) }}{{ sort_th(listing, "mode", de_en("Form", "Mode")) }}{{ sort_th(listing, "duration", de_en("Dauer", "Duration")) }}{{ sort_th(listing, "by", de_en("interviewt von", "interviewed by")) }}{{ sort_th(listing, "status", de_en("Stand", "Status")) }}{{ sort_th(listing, "audio", de_en("Aufnahme", "Recording")) }}{{ sort_th(listing, "transcript", de_en("Transkript", "Transcript")) }}{{ sort_th(listing, "due", de_en("Löschen am", "Deleted on"), de_en("Löschen nach der Frist aus den Einstellungen", "Deletion after the period set in the settings")) }}<th>{{ de_en("Aktionen", "Actions") }}</th></tr></thead>
     <tbody>
-    {% for r in rows %}{% set m = r.interview %}
-    <tr>
+    {% for r in rows %}{% set m = r.interview %}{% set audio = (m.audio or []) %}{% set tr = m.transcript or {} %}
+    <tr id="iv-{{ r.id }}">
       <td><strong>{{ m.label }}</strong>{% if r.source == "test" %} <span class="badge">{{ de_en("Probe", "Trial") }}</span>{% endif %}</td>
       <td>{{ day(m.date) }}</td>
       <td>{{ modes.get(m.mode, "") }}</td>
-      <td>{% set from_audio = audio_minutes(r) if (m.elapsed or 0) < 60 and (m.audio or []) else None %}{% if from_audio is not none %}{{ de_en("{n} Min.", "{n} min", n=from_audio) }} <span class="muted small" title="{{ de_en('Länge der Aufnahme; die Interview-Uhr lief kürzer als eine Minute', 'length of the recording; the interview clock ran for less than a minute') }}">{{ de_en("(Aufnahme)", "(recording)") }}</span>{% else %}{{ de_en("{n} Min.", "{n} min", n=(m.elapsed // 60) if m.elapsed else 0) }}{% endif %}</td>
+      <td>{% set from_audio = audio_minutes(r) if (m.elapsed or 0) < 60 and audio else None %}{% if from_audio is not none %}{{ de_en("{n} Min.", "{n} min", n=from_audio) }} <span class="muted small" title="{{ de_en('Länge der Aufnahme; die Interview-Uhr lief kürzer als eine Minute', 'length of the recording; the interview clock ran for less than a minute') }}">{{ de_en("(Aufnahme)", "(recording)") }}</span>{% else %}{{ de_en("{n} Min.", "{n} min", n=(m.elapsed // 60) if m.elapsed else 0) }}{% endif %}</td>
       <td>{{ m.by_name or "–" }}{% if m.access %} <span class="badge" title="{{ de_en('mit einem Interviewlink geführt', 'conducted with an interviewer link') }}">{{ de_en("Link", "Link") }}</span>{% endif %}</td>
-      <td>{% if r.status == "completed" %}{{ de_en("beendet", "ended") }}{% elif left_open(r) %}<span class="danger-text" title="{{ de_en('Seit Tagen unverändert und nicht beendet: bitte fortsetzen und beenden oder löschen. Die Frist zählt ab der letzten Bearbeitung.', 'Unchanged for days and not ended: please continue and end it or delete it. The period counts from the last edit.') }}">{{ de_en("nicht beendet", "not ended") }}</span>{% else %}{{ de_en("läuft", "running") }}{% endif %}
-        {% if may_edit and (m.consent or {}).audio %}<div class="small"><a href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id) }}">{{ de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
-        {% if may_edit and not (m.audio or []) %}<div class="small"><a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id) }}">{{ de_en("Transkript", "Transcript") if (m.transcript or {}).text else de_en("Transkript hochladen", "Upload transcript") }}</a></div>{% endif %}
-        {% set audio = (m.audio or []) %}
+      <td>{% if r.status == "completed" %}{{ de_en("beendet", "ended") }}{% elif left_open(r) %}<span class="danger-text" title="{{ de_en('Seit Tagen unverändert und nicht beendet: bitte fortsetzen und beenden oder löschen. Die Frist zählt ab der letzten Bearbeitung.', 'Unchanged for days and not ended: please continue and end it or delete it. The period counts from the last edit.') }}">{{ de_en("nicht beendet", "not ended") }}</span>{% else %}{{ de_en("läuft", "running") }}{% endif %}</td>
+      <td class="small">
         {% if audio and may_edit %}
         {% set mb = ((audio|sum(attribute="bytes")) / 1048576)|round(1) %}
-        <details class="iv-audio"><summary class="small">🎙 {% if audio|length == 1 %}{{ de_en("Aufnahme ({n} Teil, {mb} MB)", "Recording ({n} part, {mb} MB)", n=audio|length, mb=mb) }}{% else %}{{ de_en("Aufnahme ({n} Teile, {mb} MB)", "Recording ({n} parts, {mb} MB)", n=audio|length, mb=mb) }}{% endif %}</summary>
+        <details class="iv-audio"><summary>{% if audio|length == 1 %}{{ de_en("{n} Teil, {mb} MB", "{n} part, {mb} MB", n=audio|length, mb=mb) }}{% else %}{{ de_en("{n} Teile, {mb} MB", "{n} parts, {mb} MB", n=audio|length, mb=mb) }}{% endif %}</summary>
           {% for p in audio %}<div class="iv-audio-part"><audio controls preload="none" data-preload-open src="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part) }}"></audio>
-            <a class="small" href="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part, download=1) }}">{{ de_en("herunterladen", "download") }}</a>{% if p.source == "upload" %} <span class="muted small">{{ part_label(p) }}</span>{% endif %}{% set note = skip_note(p) %}{% if note %}<div class="muted small">{{ note }}</div>{% endif %}</div>{% endfor %}
+            <a href="{{ url_for('interview_audio.listen', code=survey.code, rid=r.id, part=p.part, download=1) }}">{{ de_en("herunterladen", "download") }}</a>{% if p.source == "upload" %} <span class="muted">{{ part_label(p) }}</span>{% endif %}{% set note = skip_note(p) %}{% if note %}<div class="muted">{{ note }}</div>{% endif %}</div>{% endfor %}
           {% if may_delete %}<form method="post" action="{{ url_for('interview_audio.delete', code=survey.code, rid=r.id) }}" data-confirm="{{ de_en('Aufnahme von {label} löschen?', 'Delete the recording of {label}?', label=m.label) }}" data-confirm-note="{{ de_en('Die Tonaufnahme wird endgültig gelöscht; Notizen und Haken bleiben.', 'The audio recording is deleted permanently; notes and ticks remain.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
-            {{ csrf() }}<button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Aufnahme löschen", "Delete recording") }}</button></form>{% endif %}
+            {{ csrf() }}{{ keep() }}<button class="button button-small button-danger">{{ icon("trash", 16) }} {{ de_en("Aufnahme löschen", "Delete recording") }}</button></form>{% endif %}
         </details>
-        {% set tr = m.transcript or {} %}
-        <div class="iv-transcript small">
-          {% set busy = transcribing(r) %}{% set done_parts = (tr.parts or {})|length %}
-          {% if busy %}{% set progress = transcription_progress(r) %}
-            <div class="iv-progress" data-transcription-progress="{{ url_for('interview_transcribe.progress_status', code=survey.code, rid=r.id) }}"
-                 data-error="{{ de_en('Status momentan nicht erreichbar. Bitte später erneut prüfen.', 'Status temporarily unavailable. Please check again later.') }}">
-              <span data-progress-text role="status" aria-live="polite">{{ progress.text }}</span>
-              <div class="iv-progress-row"><progress data-progress-bar value="{{ progress.bar }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
-                <span data-progress-parts>{{ progress.parts_text }}</span>
-                <form method="post" action="{{ url_for('interview_transcribe.cancel', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}
-                  <button class="button button-small button-secondary">{{ de_en("Abbrechen", "Cancel") }}</button></form></div>
-              <span class="muted" data-progress-estimate>{{ progress.eta_text }}</span>
-              <a data-progress-finished hidden href="{{ url_for('interview_data.index', code=survey.code) }}">{{ de_en("Anzeige aktualisieren", "Refresh view") }}</a>
-            </div>
-          {% elif tr.state == "running" %}<span class="danger-text">{{ de_en("Transkription unterbrochen (z. B. durch einen Neustart des Servers)", "Transcription interrupted (e.g. by a restart of the server)") }}{% if done_parts %}; {% if done_parts == 1 %}{{ de_en("{n} Teil ist schon fertig", "{n} part is already done", n=done_parts) }}{% else %}{{ de_en("{n} Teile sind schon fertig", "{n} parts are already done", n=done_parts) }}{% endif %}{% endif %}</span>
-          {% elif tr.state == "error" %}<span class="danger-text">{{ de_en("Transkription fehlgeschlagen:", "Transcription failed:") }} {{ transcription_error(tr) }}{% if done_parts %} {% if done_parts == 1 %}{{ de_en("({n} Teil ist schon fertig und wird nicht noch einmal gesendet)", "({n} part is already done and is not sent again)", n=done_parts) }}{% else %}{{ de_en("({n} Teile sind schon fertig und werden nicht noch einmal gesendet)", "({n} parts are already done and are not sent again)", n=done_parts) }}{% endif %}{% endif %}</span>{% endif %}
-          {% if tr.text %}<a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id) }}">{{ de_en("Transkript (geprüft)", "Transcript (checked)") if tr.checked else de_en("Transkript prüfen", "Check transcript") }}</a>{% if tr.partial %} <span class="muted">{{ de_en("(unvollständig: Fehlende Teile sind markiert)", "(incomplete: missing parts are marked)") }}</span>{% endif %}{% if tr.draft %} · <a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id) }}#draft">{{ de_en("neuer Entwurf", "new draft") }}</a>{% endif %}{% endif %}
-          {% if whisper and not busy %}<form method="post" action="{{ url_for('interview_transcribe.begin', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}
-            {% if config.WHISPER_JOBS %}<label>{{ de_en("Modell", "Model") }} <select name="model">
-              {% for model in whisper_models %}<option value="{{ model }}"{% if model == (tr.requested_model or whisper_default) %} selected{% endif %}>{{ model }}</option>{% endfor %}
-            </select></label><span class="hint">{{ de_en("Bei einem Modellwechsel werden die Aufnahmeteile neu transkribiert; korrigierter Text bleibt erhalten.", "Changing the model transcribes the recording parts again; corrected text is kept.") }}</span>{% endif %}
-            <button class="button button-small button-secondary" title="{{ de_en('Die Aufnahme geht an den Whisper-Server Ihrer Einrichtung, nicht an Dritte', 'The recording goes to the Whisper server of your institution, not to third parties') }}">{{ de_en("Weiter transkribieren", "Continue transcribing") if done_parts else (de_en("Neu transkribieren", "Transcribe again") if tr.text else de_en("Transkribieren", "Transcribe")) }}</button></form>{% endif %}
-        </div>
-        {% elif m.audio_removed %}<div class="muted small">{{ de_en("Aufnahme gelöscht", "Recording deleted") }}</div>{% endif %}</td>
+        {% elif audio %}{{ de_en("vorhanden", "present") }}
+        {% elif m.audio_removed %}<span class="muted">{{ de_en("gelöscht", "deleted") }}</span>
+        {% elif not may_edit %}<span class="muted">–</span>{% endif %}
+        {# also without "Tonaufnahme erlaubt": the upload page asks for the consent of everybody who speaks (Ralf 2026-11-10) #}
+        {% if may_edit %}<div><a class="nowrap" href="{{ url_for('interview_audio.upload_page', code=survey.code, rid=r.id, back=here) }}">{{ de_en("Teil hochladen", "Upload a part") if audio else de_en("Aufnahme hochladen", "Upload recording") }}</a></div>{% endif %}
+      </td>
+      <td class="small iv-transcript-cell">
+        {% set busy = transcribing(r) if audio else false %}{% set done_parts = (tr.parts or {})|length %}
+        {% if busy %}{% set progress = transcription_progress(r) %}
+          <div class="iv-progress" data-transcription-progress="{{ url_for('interview_transcribe.progress_status', code=survey.code, rid=r.id) }}"
+               data-error="{{ de_en('Status momentan nicht erreichbar. Bitte später erneut prüfen.', 'Status temporarily unavailable. Please check again later.') }}">
+            <span data-progress-text role="status" aria-live="polite">{{ progress.text }}</span>
+            <div class="iv-progress-row"><progress data-progress-bar value="{{ progress.bar }}" max="{{ progress.total }}" aria-label="{{ de_en('Fertige Aufnahmeteile', 'Completed recording parts') }}"></progress>
+              <span data-progress-parts>{{ progress.parts_text }}</span>
+              <form method="post" action="{{ url_for('interview_transcribe.cancel', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}{{ keep() }}
+                <button class="button button-small button-secondary">{{ de_en("Abbrechen", "Cancel") }}</button></form></div>
+            <span class="muted" data-progress-estimate>{{ progress.eta_text }}</span>
+            <a data-progress-finished hidden href="{{ request.full_path.rstrip('?') }}#iv-{{ r.id }}">{{ de_en("Anzeige aktualisieren", "Refresh view") }}</a>
+          </div>
+        {% elif audio and tr.state == "running" %}<div class="danger-text">{{ de_en("Transkription unterbrochen (z. B. durch einen Neustart des Servers)", "Transcription interrupted (e.g. by a restart of the server)") }}{% if done_parts %}; {% if done_parts == 1 %}{{ de_en("{n} Teil ist schon fertig", "{n} part is already done", n=done_parts) }}{% else %}{{ de_en("{n} Teile sind schon fertig", "{n} parts are already done", n=done_parts) }}{% endif %}{% endif %}</div>
+        {% elif audio and tr.state == "error" %}<div class="danger-text">{{ de_en("Transkription fehlgeschlagen:", "Transcription failed:") }} {{ transcription_error(tr) }}{% if done_parts %} {% if done_parts == 1 %}{{ de_en("({n} Teil ist schon fertig und wird nicht noch einmal gesendet)", "({n} part is already done and is not sent again)", n=done_parts) }}{% else %}{{ de_en("({n} Teile sind schon fertig und werden nicht noch einmal gesendet)", "({n} parts are already done and are not sent again)", n=done_parts) }}{% endif %}{% endif %}</div>{% endif %}
+        {% if tr.text %}<div><a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id, back=here) }}">{{ de_en("Transkript (geprüft)", "Transcript (checked)") if tr.checked else de_en("Transkript prüfen", "Check transcript") }}</a>{% if tr.partial %} <span class="muted">{{ de_en("(unvollständig: Fehlende Teile sind markiert)", "(incomplete: missing parts are marked)") }}</span>{% endif %}{% if tr.draft %} · <a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id, back=here) }}#draft">{{ de_en("neuer Entwurf", "new draft") }}</a>{% endif %}</div>
+        {% elif not audio and may_edit %}<div><a href="{{ url_for('interview_transcribe.edit', code=survey.code, rid=r.id, back=here) }}">{{ de_en("Transkript hochladen", "Upload transcript") }}</a></div>
+        {% elif not busy and not (audio and may_edit and whisper) %}<span class="muted">–</span>{% endif %}
+        {% if audio and may_edit and whisper and not busy %}<form method="post" action="{{ url_for('interview_transcribe.begin', code=survey.code, rid=r.id) }}" class="inline">{{ csrf() }}{{ keep() }}
+          {% if config.WHISPER_JOBS %}<select name="model" aria-label="{{ de_en('Modell', 'Model') }}" title="{{ de_en('Bei einem Modellwechsel werden die Aufnahmeteile neu transkribiert; korrigierter Text bleibt erhalten.', 'Changing the model transcribes the recording parts again; corrected text is kept.') }}">
+            {% for model in whisper_models %}<option value="{{ model }}"{% if model == (tr.requested_model or whisper_default) %} selected{% endif %}>{{ model }}</option>{% endfor %}
+          </select>{% endif %}
+          <button class="button button-small button-secondary" title="{{ de_en('Die Aufnahme geht an den Whisper-Server Ihrer Einrichtung, nicht an Dritte', 'The recording goes to the Whisper server of your institution, not to third parties') }}">{{ de_en("Weiter transkribieren", "Continue transcribing") if done_parts else (de_en("Neu transkribieren", "Transcribe again") if tr.text else de_en("Transkribieren", "Transcribe")) }}</button></form>{% endif %}
+      </td>
       <td>{% set d = due(survey, r) %}{{ d|localdt(false) if d else ("–" if r.status != "completed" else de_en("keine Frist", "no period")) }}</td>
       <td class="row-actions">
         {% if may_edit %}
@@ -102,13 +139,15 @@
         {% if may_delete %}
         <form method="post" action="{{ url_for('interview_data.delete', code=survey.code, rid=r.id) }}" class="inline"
               data-confirm="{{ de_en('Interview {label} löschen?', 'Delete interview {label}?', label=m.label) }}" data-confirm-note="{{ de_en('Haken, Notizen, Kurzfragebogen und Postskript werden endgültig gelöscht.', 'Ticks, notes, short questionnaire and postscript are deleted permanently.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>
-          {{ csrf() }}<button class="icon-btn danger" title="{{ de_en('Interview löschen', 'Delete interview') }}" aria-label="{{ de_en('Interview {label} löschen', 'Delete interview {label}', label=m.label) }}">{{ icon("trash", 14) }}</button></form>
+          {{ csrf() }}{{ keep() }}<button class="icon-btn danger" title="{{ de_en('Interview löschen', 'Delete interview') }}" aria-label="{{ de_en('Interview {label} löschen', 'Delete interview {label}', label=m.label) }}">{{ icon("trash", 14) }}</button></form>
         {% endif %}
       </td>
     </tr>
     {% endfor %}
     </tbody>
   {% endcall %}
+  {{ pager(listing) }}
+  {% elif every %}<p class="muted">{{ de_en("Kein Interview passt zu diesen Filtern.", "No interview matches these filters.") }}</p>
   {% else %}<p class="muted">{{ de_en("Noch kein Interview. Oben unter „Interview beginnen“ das erste anlegen.", "No interview yet. Create the first one above under “Start interview”.") }}</p>{% endif %}
 </section>
 

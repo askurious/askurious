@@ -281,11 +281,12 @@ bash "$HERE/deploy/docker/restart.sh" --check-migrations "$current"
 ARCHIVE="$(mktemp)"
 trap 'rm -f "$ARCHIVE"' EXIT
 # tools/check_vulnerabilities.py with its list of JavaScript libraries: the weekly check of maintenance.sh (DP-10);
+# tools/image_digests.py: maintenance.sh asks the registry whether a pinned base image moved (CFG-05; it never went up);
 # tests/privacy/storage_guard_probe.py: restart.sh runs it in the new image (the real flock, code review 2026-10-15, L4)
 # modules/ (its README; the wheels of MODULES_SRC come below) where the checkout has it
 MODULES_DIR=(); ! git -C "$HERE" ls-files --error-unmatch modules/README.md >/dev/null 2>&1 || MODULES_DIR=(modules)
 git -C "$HERE" archive --format=tar HEAD .dockerignore config.py passenger_wsgi.py licence.md log.md LICENSE LICENSE.de.txt NOTICE \
-    requirements.lock requirements-postgres.txt app migrations deploy/docker tools/check_vulnerabilities.py tools/vendor_versions.txt tools/build_static.py tools/fetch_pdf_fonts.py tools/storage_backup_lock.py \
+    requirements.lock requirements-postgres.txt app migrations deploy/docker tools/check_vulnerabilities.py tools/vendor_versions.txt tools/build_static.py tools/fetch_pdf_fonts.py tools/storage_backup_lock.py tools/image_digests.py \
     tests/privacy/storage_guard_probe.py instance_overlay "${MODULES_DIR[@]}" > "$ARCHIVE"
 if [[ -n "${INSTANCE_OVERLAY_SRC:-}" ]]; then
   [ -d "$INSTANCE_OVERLAY_SRC/templates" ] || { echo "INSTANCE_OVERLAY_SRC ($INSTANCE_OVERLAY_SRC) has no folder templates/." >&2; exit 1; }
@@ -294,6 +295,7 @@ if [[ -n "${INSTANCE_OVERLAY_SRC:-}" ]]; then
   parts=(templates); [ ! -f "$INSTANCE_OVERLAY_SRC/protected_nets.txt" ] || parts+=(protected_nets.txt)
   [ ! -f "$INSTANCE_OVERLAY_SRC/privacy_concept.json" ] || parts+=(privacy_concept.json)  # app/privacy_concept.py overlay()
   [ ! -f "$INSTANCE_OVERLAY_SRC/instruments.json" ] || parts+=(instruments.json)  # app/constructs.py INSTRUMENTS
+  [ ! -d "$INSTANCE_OVERLAY_SRC/wordings" ] || parts+=(wordings)  # the same per construct and language (INSTRUMENT_WORDINGS_DIR)
   (cd "$INSTANCE_OVERLAY_SRC" && tar rf "$ARCHIVE" --transform 's,^,instance_overlay/,' "${parts[@]}")
   echo "    with the installation's files from $INSTANCE_OVERLAY_SRC: ${parts[*]}"
 fi
@@ -406,11 +408,13 @@ fi
 
 echo "==> Crontab: database dump and uploads every four hours from 02:30 (backup.sh), maintenance window Sunday 04:30 (maintenance.sh),"
 echo "    the containers' load every minute (container-stats.sh; when it stops, Administration > Server says so),"
+echo "    free disk space every ten minutes, Slack when below DISK_MIN_FREE_PERCENT (disk-check.sh, only reports),"
 echo "    after each boot a message to Slack on which containers came back (after-boot.sh),"
 echo "    the maintenance page off once its end time has passed, every minute (wartung.sh pruefen)"
 "${SSH[@]}" "(crontab -l 2>/dev/null | grep -v -e 'askurious/deploy/docker/' -e '$OLD/deploy/docker/'; \
   echo '30 2-22/4 * * * \$HOME/askurious/deploy/docker/backup.sh >> \$HOME/askurious-backup.log 2>&1'; \
   echo '* * * * * \$HOME/askurious/deploy/docker/container-stats.sh > /dev/null 2>&1'; \
+  echo '*/10 * * * * \$HOME/askurious/deploy/docker/disk-check.sh >> \$HOME/askurious-maintenance.log 2>&1'; \
   echo '* * * * * \$HOME/askurious/deploy/docker/wartung.sh pruefen >> \$HOME/askurious-maintenance.log 2>&1'; \
   echo '30 4 * * 0 \$HOME/askurious/deploy/docker/maintenance.sh >> \$HOME/askurious-maintenance.log 2>&1'; \
   echo '@reboot \$HOME/askurious/deploy/docker/after-boot.sh >> \$HOME/askurious-boot.log 2>&1') | crontab -"

@@ -198,7 +198,7 @@ def _seal(conn, uid, response, latest=None, reason=None):
     rec, salt = record(response, RECORD), secrets.token_hex(16)
     if latest is None:
         return _append(conn, uid, "sealed", status=response.status, digest_of=content(rec, salt), salt=salt,
-                       response_id=response.id, rec=RECORD)
+                       response_id=response.id, rec=RECORD, **({"reason": reason} if reason else {}))
     return _append(conn, uid, "amended", ref=_case(latest), status=response.status, digest_of=content(rec, salt),
                    salt=salt, response_id=response.id, reason=reason or "changed", rec=RECORD)
 
@@ -213,9 +213,25 @@ def _sealed(r):
     return r.source == "real" and not r.is_preview and r.id is not None
 
 
+TRIAL = "live: Probe"   # a run of a live vote marked as a trial afterwards: its cases leave the real data
+REAL = "live: echt"     # a trial run marked as real afterwards: its cases come into the real data
+
+
+def _source_moved(o):
+    """A participation that changed between real and test in this flush (live vote, "Probe" of a run)."""
+    return (isinstance(o, Response) and o.id is not None and not o.is_preview
+            and inspect(o).attrs.source.history.has_changes())
+
+
 @event.listens_for(Session, "after_flush")
 def _after_flush(session, _context):
+    # a run switched between real and trial (live/control.py, run_test) is noted in the chain: the cases that leave
+    # the real data as deleted with the reason TRIAL, those that come in as sealed with REAL (business logic audit
+    # 2026-11-11: before, the check reported cases missing without a note, or real cases never sealed)
+    moved = {o for o in session.dirty if _source_moved(o)}
+    to_trial = [o for o in moved if o.source != "real"]
     responses = [o for o in (*session.new, *session.dirty, *session.deleted) if isinstance(o, Response) and _sealed(o)]
+    responses += to_trial
     if not responses:
         return
     conn = session.connection()
@@ -234,17 +250,18 @@ def _after_flush(session, _context):
         uid = uids.get(r.survey_id)
         if uid is None:
             continue
-        if r in session.deleted:
+        if r in session.deleted or r in to_trial:
             latest = _latest(conn, r.id)
             if latest is not None:
-                _append(conn, uid, "deleted", ref=_case(latest), status=latest.status, reason=reason or "deleted")
+                _append(conn, uid, "deleted", ref=_case(latest), status=latest.status,
+                        reason=TRIAL if r in to_trial else reason or "deleted")
                 _forget(conn, r.id)
             continue
-        if r not in session.new:
+        if r not in session.new and r not in moved:
             state = inspect(r)
             if not any(state.attrs[name].history.has_changes() for name in WATCHED):
                 continue
-        _seal(conn, uid, r, _latest(conn, r.id), reason)
+        _seal(conn, uid, r, _latest(conn, r.id), REAL if r in moved else reason)
 
 
 def has_chain(survey):

@@ -218,6 +218,9 @@ class Config:
     LIFECYCLE_IN_REQUEST = os.environ.get("LIFECYCLE_IN_REQUEST", "1") == "1"
     MEDIA_X_ACCEL = os.environ.get("MEDIA_X_ACCEL", "0") == "1"
     SIDE = os.environ.get("SIDE", "").strip().lower()
+    # SIDE=participant on PostgreSQL: refuse to start unless the database role is the participants' restricted one
+    # (app/participant_grants.py, role_problem); deploy/docker sets it once PARTICIPANT_DB_USER is in the .env
+    PARTICIPANT_ROLE_CHECK = os.environ.get("PARTICIPANT_ROLE_CHECK", "").strip().lower() in ("1", "true", "yes")
     # Until this day (YYYY-MM-DD) a participation under way on the old address goes along to the new one; empty: disabled
     PARTICIPANT_HANDOVER_UNTIL = os.environ.get("PARTICIPANT_HANDOVER_UNTIL", "").strip()
     # the status page of this installation (deploy/docker: https://status.askurious.de), linked in the footer; empty: no link
@@ -270,6 +273,23 @@ class Config:
     # The wording of scales of others (GESIS/ZIS, journal articles), which the public code does not carry
     # (app/constructs.py, INSTRUMENTS; instance_overlay/README.md). Without the file those constructs are left out.
     INSTRUMENT_WORDINGS = os.environ.get("INSTRUMENT_WORDINGS") or os.path.join(INSTANCE_OVERLAY, "instruments.json")
+    # The same wordings one file per construct and language, items by their codes, in the format of the construct
+    # catalogue's wording files (as JSON): wordings/<key>/<lang>.json. Where a construct has such files they count, else
+    # its entry in instruments.json (read as before, until every installation has the folder).
+    INSTRUMENT_WORDINGS_DIR = os.environ.get("INSTRUMENT_WORDINGS_DIR") or os.path.join(INSTANCE_OVERLAY, "wordings")
+    # Use such a wording only where its SHA-256 matches the hash the construct catalogue documents
+    # (app/construct_catalog.py): a differing wording leaves its construct out of the toolbox, with a warning in the
+    # log. Off only for the tests' stand-in wordings.
+    INSTRUMENT_WORDING_CHECK = _bool("INSTRUMENT_WORDING_CHECK", True)
+    # Where the construct catalogue comes from (app/construct_sync.py): empty = the latest signed release of
+    # askurious-constructs on GitHub, fetched once a night by the housekeeping and on "Jetzt abgleichen"; "off" fetches
+    # nothing (the snapshot in the code and uploaded manifests only); a folder or manifest.json on the server (with
+    # manifest.json.sig). CONSTRUCTS_PIN: stay on this release (e.g. 2026.11.0).
+    CONSTRUCTS_SOURCE = os.environ.get("CONSTRUCTS_SOURCE", "")
+    CONSTRUCTS_PIN = os.environ.get("CONSTRUCTS_PIN", "")
+    # Whom the dialogs for constructs of an organisation name for contributing one to every installation
+    # (app/org_constructs.py); empty: the contacts of the construct catalogue. Another installation sets its own.
+    CONSTRUCTS_CONTACT = os.environ.get("CONSTRUCTS_CONTACT", "")
     SESSION_COOKIE_SECURE = PUBLIC_BASE_URL.startswith("https://")
     SESSION_COOKIE_SAMESITE = "Lax"
     # Behind https the cookies carry the prefix "__Host-": the browser then takes them only from this very host
@@ -429,6 +449,9 @@ class Config:
     # network in a run, counted by the database for all processes (app/live/devices.py, audit 2026-10-18, BIZ-02);
     # as wide as a lecture hall behind one address. Device ids are issued and signed by the server. 0 = no limit.
     LIVE_SENDER_QUESTION_VOTES = int(os.environ.get("LIVE_SENDER_QUESTION_VOTES", "300"))
+    # ... and from one IPv6 /48 this many times as many (a /48 holds 65 536 networks /64 of their own; business logic
+    # audit 2026-11-11, BIZ-02). Small on purpose, unlike SENDER_WIDE_FACTOR for joins; 0 = no limit per /48
+    LIVE_SENDER_WIDE_FACTOR = int(os.environ.get("LIVE_SENDER_WIDE_FACTOR", "4"))
     # hierarchical Bayes and latent class estimations computing at the same time on the whole server (all its
     # processes, file locks in uploads/hb/_slots; audit 2026-10-06, P7); more wait
     HB_PARALLEL = int(os.environ.get("HB_PARALLEL", "2"))

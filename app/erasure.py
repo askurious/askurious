@@ -263,8 +263,7 @@ def _remove(survey, responses, entries, reason):
 
         # Record this in the same transaction as the deletion, before caches are removed.
         # Never publish the before/after difference of an erased person's answers (TN-30).
-        survey.data_pool = {**(survey.data_pool or {}), "_public_after_erase":
-                            max((survey.data_pool or {}).get("_public_after_erase", 0), _pool_count(survey) + MIN_CELL)}
+        _raise_floor(survey, _pool_count(survey) + MIN_CELL)
     if responses and survey.codings:  # anchor examples quoting them and the AI's proposals go (audit 2026-10-10, L-2)
         from app import coding
 
@@ -292,6 +291,40 @@ def _remove(survey, responses, entries, reason):
 
         cleanup.note(survey.uid, pids=pids)  # before the commit: the files follow even after a failure (L-8)
     return pids, in_results
+
+
+def floor(survey):
+    """The count of the data pool the dashboard links wait for after a deletion (models.BoardEraseFloor); 0 when
+    nothing was deleted. Also the mark of before, in survey.data_pool, which older code wrote and read."""
+    from app.models import BoardEraseFloor
+
+    row = db.session.get(BoardEraseFloor, survey.id)
+    return max(row.public_after if row is not None else 0,
+               int((survey.data_pool or {}).get("_public_after_erase") or 0))
+
+
+def _raise_floor(survey, count):
+    """Raise the mark to `count` (never lower it), in the same transaction as the deletion. Two deletions at the same
+    moment both raise it in one statement each (INSERT ... ON CONFLICT DO UPDATE with the larger value). Not into
+    survey.data_pool any more: the participants' role may not write it (access audit 2026-11-11, B2 stage 2b), and
+    the code since stage 2a reads the table."""
+    from app.models import BoardEraseFloor
+
+    table = BoardEraseFloor.__table__
+    count = max(floor(survey), count)
+    if db.engine.dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+        larger = db.func.greatest
+    else:
+        from sqlalchemy.dialects.sqlite import insert
+        larger = db.func.max  # with two arguments SQLite's max is the larger of them
+    statement = insert(table).values(survey_id=survey.id, public_after=count)
+    db.session.execute(statement.on_conflict_do_update(
+        index_elements=[table.c.survey_id],
+        set_={"public_after": larger(table.c.public_after, statement.excluded.public_after)}))
+    kept = db.session.identity_map.get(db.session.identity_key(BoardEraseFloor, (survey.id,)))
+    if kept is not None:
+        db.session.expire(kept)
 
 
 def _after_commit(survey, pids, in_results):

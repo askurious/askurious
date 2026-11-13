@@ -239,6 +239,66 @@ def _scan(buf):
     return info[0], info[1], scale, last, indexed
 
 
+JUMP_SECONDS = 30  # a Cluster that begins this much later than the one before: a jump in the timestamps, no sound
+FRAME_SECONDS = 0.02  # where the Cluster after a jump is put: one Opus frame after the last block before it
+
+
+def _ends_well(buf, end):
+    """Whether a Cluster of known size ends at the end of the file (or beyond: still arriving) or at a level-1 element."""
+    if end >= len(buf):
+        return True
+    try:
+        eid, _size, _pos = _element(buf, end)
+    except (ValueError, _Short):
+        return False
+    return eid in LEVEL1
+
+
+def _clusters(buf, start):
+    """[(start of the data, size or None, position and width of its Timecode, Timecode)] of every Cluster after
+    `start`, found by their ID without reading the blocks (C speed). A candidate counts only with a Timecode right
+    after its head and an unknown size (MediaRecorder) or a size that ends where the next level-1 element begins."""
+    found, at = [], start
+    while True:
+        at = buf.find(CLUSTER_ID, at)
+        if at < 0:
+            return found
+        try:
+            eid, size, pos = _element(buf, at)
+            cid, csize, tpos = _element(buf, pos)
+            if (cid == TIMECODE and csize is not None and 1 <= csize <= 8 and tpos + csize <= len(buf)
+                    and (size is None or _ends_well(buf, pos + size))):
+                found.append((pos, size, tpos, csize, _uint(buf[tpos:tpos + csize])))
+                at = tpos + csize
+                continue
+        except (ValueError, _Short):
+            pass
+        at += 4
+
+
+def _jump_patches(buf, start, scale):
+    """([(byte offset, new Timecode bytes)], units taken out) that close the jumps in the Cluster timestamps.
+
+    Chrome's MediaRecorder sometimes writes the first Cluster at 0 and the next ones at the clock of the audio
+    source, hours later (M-04, tester 2026-11-09: 60 minutes of sound, the second Cluster at 10:43 h, shown as
+    11:43:21). A player then shows the wrong length, and the transcription service, which cuts a recording after
+    3 hours by its timestamps, got only the first block of it and found no speech. A jump forward by more than
+    JUMP_SECONDS is closed: the Cluster after it and all later ones move back so that it follows the last block
+    before it. A smaller Timecode always fits in the bytes of the old one, so no position in the file moves."""
+    clusters = _clusters(buf, start)
+    jump, frame = JUMP_SECONDS * 1e9 / scale, max(1, round(FRAME_SECONDS * 1e9 / scale))
+    patches, shift = [], 0
+    for i, (_pos, _size, tpos, width, value) in enumerate(clusters):
+        if i and value - clusters[i - 1][4] > jump:
+            before = clusters[i - 1]
+            last, _end = _cluster_last(buf, before[0], before[1])
+            last = before[4] if last is None else last
+            shift = max(shift, value - (last - shift + frame))
+        if shift:
+            patches.append((tpos, max(0, value - shift).to_bytes(width, "big")))
+    return patches, shift
+
+
 MUXING_APP, WRITING_APP, VOID = 0x4D80, 0x5741, 0xEC
 SPARE = {MUXING_APP, WRITING_APP, VOID}  # children of Info that only name programs (or fill room)
 
@@ -277,7 +337,8 @@ def _encode_size(n):
 
 
 def head_plan(full):
-    """(new head, byte offset in the file where the unchanged rest begins) for a recorder WebM, or None."""
+    """(new head, byte offset in the file where the rest begins, seconds, patches of that rest) for a recorder WebM,
+    or None. The patches [(byte offset in the file, bytes)] close jumps in the timestamps (_jump_patches)."""
     try:
         stat = os.stat(full)
     except OSError:
@@ -295,15 +356,18 @@ def head_plan(full):
                 if found:
                     info_start, info_end, scale, last, indexed = found
                     eid, size, payload = _element(buf, info_start)
+                    # Cues name the times of Clusters: a file with them keeps its timestamps
+                    patches, shift = ([], 0) if indexed else _jump_patches(buf, info_end, scale)
+                    last -= shift
                     seconds_units = float(last)  # in TimecodeScale units, as Duration counts
                     duration = bytes([0x44, 0x89, 0x88]) + struct.pack(">d", seconds_units)
                     if indexed:
                         head = _same_length_head(buf, info_start, info_end, duration)
-                        plan = (head, info_end, last * scale / 1e9) if head else None
-                    else:
+                        plan = (head, info_end, last * scale / 1e9, ()) if head else None
+                    elif last > 0:
                         body = bytes(buf[payload:info_end]) + duration
                         plan = (bytes(buf[:info_start]) + bytes([0x15, 0x49, 0xA9, 0x66]) + _encode_size(len(body)) + body, info_end,
-                                last * scale / 1e9)
+                                last * scale / 1e9, tuple(patches))
         except (OSError, ValueError, _Short):
             plan = None
     with _lock:
@@ -319,12 +383,37 @@ def seconds(full):
     return plan[2] if plan else None
 
 
-class Joined(io.RawIOBase):
-    """A read-only file: `head`, then the file at `full` from byte `offset` on (for Range requests too)."""
+def has_jumps(full):
+    """Whether the timestamps of a recorder WebM jump (head_plan closes them when the file is served)."""
+    plan = head_plan(full)
+    return bool(plan and plan[3])
 
-    def __init__(self, head, full, offset):
+
+def write_served(full, target):
+    """Write the file as it is served (head with its length, jumps closed) to `target`; False when served as is."""
+    plan = head_plan(full)
+    if plan is None:
+        return False
+    joined = Joined(plan[0], full, plan[1], plan[3])
+    try:
+        with open(target, "wb") as out:
+            while True:
+                chunk = joined.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+    finally:
+        joined.close()
+    return True
+
+
+class Joined(io.RawIOBase):
+    """A read-only file: `head`, then the file at `full` from byte `offset` on (for Range requests too), with
+    `patches` [(byte offset in the file, bytes)] put over the bytes they name."""
+
+    def __init__(self, head, full, offset, patches=()):
         super().__init__()
-        self.head, self.offset = head, offset
+        self.head, self.offset, self.patches = head, offset, tuple(patches)
         self.file = open(full, "rb")
         self.rest = os.fstat(self.file.fileno()).st_size - offset
         self.length = len(head) + self.rest
@@ -351,8 +440,14 @@ class Joined(io.RawIOBase):
         if self.pos < len(self.head):
             got = self.head[self.pos:self.pos + n]
         else:
-            self.file.seek(self.offset + self.pos - len(self.head))
-            got = self.file.read(min(n, self.offset + self.rest - self.file.tell()))
+            at = self.offset + self.pos - len(self.head)
+            self.file.seek(at)
+            got = self.file.read(min(n, self.offset + self.rest - at))
+            for where, value in self.patches:
+                if where + len(value) > at and where < at + len(got):
+                    got = got if isinstance(got, bytearray) else bytearray(got)
+                    lo, hi = max(where, at), min(where + len(value), at + len(got))
+                    got[lo - at:hi - at] = value[lo - where:hi - where]
         out[:len(got)] = got
         self.pos += len(got)
         return len(got)

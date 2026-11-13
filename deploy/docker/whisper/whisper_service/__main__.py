@@ -27,6 +27,11 @@ def main():
                 "pyannote/embedding/pytorch_model.bin", "pyannote/plda/plda.npz", "pyannote/plda/xvec_transform.npz")
     if not all((settings.models / name).is_file() for name in required) or not (settings.models / data["vad"]).is_dir():
         raise SystemExit("The local diarization or VAD assets are incomplete.")
+    from .integrity import problems
+
+    wrong = problems(settings.models, data)  # only the hashed models may load (osv-accepted.txt)
+    if wrong:
+        raise SystemExit("The model volume does not match manifest.json: " + "; ".join(wrong[:5]))
     queue = Queue(settings)
     lock = (settings.state / "worker.lock").open("a")
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

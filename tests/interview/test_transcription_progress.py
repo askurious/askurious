@@ -79,7 +79,7 @@ def test_start_form_accepts_only_available_models(app, client, monkeypatch):
     assert client.post(url, data={"model": "large-v3-turbo"}).status_code == 302
     assert calls[0]["model"] == "large-v3-turbo"
     page = client.get(f"/guide/{code}/interviews").get_data(as_text=True)
-    assert '<select name="model">' in page and 'value="large-v3-turbo"' in page
+    assert '<select name="model"' in page and 'value="large-v3-turbo"' in page
 
 
 def test_estimate_is_a_range_unknown_and_overdue_are_explicit(app, monkeypatch):

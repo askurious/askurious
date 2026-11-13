@@ -62,6 +62,9 @@ def settings(code):
             db.session.rollback()
             flash(error, "error")
             return back
+        if retention.ask_shortening(survey, request.form):  # deletes within 30 days: asked first (audit 2026-11-11)
+            db.session.rollback()
+            return back
         if retention.from_form(survey, request.form):
             flash(de_en("Die Frist lässt sich nicht mehr verlängern, weil es schon echte Teilnahmen gibt. Kürzer geht jederzeit.",
                         "The period can no longer be extended because there are real participations already. Shorter is always possible."), "warning")

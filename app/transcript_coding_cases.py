@@ -322,7 +322,7 @@ def register(bp, survey_of):
             return jsonify(ok=False, error=de_en("In dieser Zelle gibt es noch keine Stellen.", "There are no passages in this cell yet.")), 400
         cat = db.session.get(CodingCategory, cid)
         prompt = {"category": cat.name, "definition": cat.definition,
-                  "quotes": [{"subcategory": it["sub"], "quote": it["quote"][:600]} for it in items[:40]]}
+                  "quotes": [{"subcategory": it["sub"], "quote": ai_privacy.redact(it["quote"][:600])} for it in items[:40]]}
         schema = {"type": "object", "additionalProperties": False, "required": ["summary"],
                   "properties": {"summary": {"type": "string"}}}
         try:

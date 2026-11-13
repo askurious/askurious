@@ -77,6 +77,16 @@ def provider_label(key):
             "custom": de_en("Eigene Adresse", "Own address")}.get(key, key or "")
 
 
+def recipient_name(provider, base_url):
+    """Who receives what goes over an access, as participants are told: the provider's name, for an own address its
+    host name (a consent that says only "Eigene Adresse" names no recipient)."""
+    if provider == "custom":
+        from urllib.parse import urlparse
+
+        return urlparse(base_url or "").hostname or provider_label(provider)
+    return provider_label(provider)
+
+
 def providers():
     return [(key, provider_label(key)) for key in PROVIDERS]
 
@@ -458,10 +468,11 @@ class GuardedTransport(httpx.BaseTransport):
             raise
 
 
-def client(r, base_url=None, key=None):
+def client(r, base_url=None, key=None, seconds=None):
     """An OpenAI client for the access `r` (or for a key not stored yet): no retries, no redirects, no proxy from the
     environment (trust_env=False: a proxy would bypass the address check), and the guarded transport: the checked
-    address, the whole call within TEXT_TIMEOUT, at most MAX_BYTES of answer (audit 2026-10-10, K1, K5)."""
+    address, the whole call within `seconds` (default TEXT_TIMEOUT), at most MAX_BYTES of answer (audit 2026-10-10,
+    K1, K5)."""
     from openai import OpenAI
 
     from app.ai import TEXT_TIMEOUT
@@ -472,10 +483,11 @@ def client(r, base_url=None, key=None):
         user_id = r.user_id
     else:
         user_id = current_user.id if has_request_context() and getattr(current_user, "is_authenticated", False) else None
-    transport = GuardedTransport(TEXT_TIMEOUT, user_id=user_id, allowed=frozenset(allowed_hosts() | preset_hosts()))
+    seconds = seconds or TEXT_TIMEOUT
+    transport = GuardedTransport(seconds, user_id=user_id, allowed=frozenset(allowed_hosts() | preset_hosts()))
     return OpenAI(api_key=key or secrets_box.decrypt(r.key_enc), base_url=base_url or base_url_of(r),
-                  timeout=TEXT_TIMEOUT, max_retries=0,
-                  http_client=httpx.Client(follow_redirects=False, timeout=TEXT_TIMEOUT, trust_env=False,
+                  timeout=seconds, max_retries=0,
+                  http_client=httpx.Client(follow_redirects=False, timeout=seconds, trust_env=False,
                                            transport=transport))
 
 

@@ -630,3 +630,14 @@ def test_touch_targets_and_notes_without_javascript(app, client, survey):
     assert "@media (hover: none) { .p-if-mouse { display: none; } .p-if-touch { display: inline; } }" in css
     marker = open("app/static/map_marker.js", encoding="utf-8").read()
     assert '"aria-labelledby": name + "_q"' in marker and '" (Pflichtfrage)"' in marker
+
+
+def test_participant_pages_are_light_only(app, client, survey):
+    """A browser's own dark mode (Samsung Internet, Chrome auto dark) must not darken the survey pages: it made the
+    profile and the crowd comparison unreadable (report of a student, survey u7pauw, 2026-11-09)."""
+    build(client)
+    client.post("/surveys/1/start", data={"use_end": "1", "field_end": "2031-01-01"})
+    html = app.test_client().get(f"/s/{uid(app)}").data.decode()
+    assert '<meta name="color-scheme" content="only light">' in html
+    with open("app/static/participant.css", encoding="utf-8") as f:
+        assert "color-scheme: only light;" in f.read().split("}", 1)[0]
