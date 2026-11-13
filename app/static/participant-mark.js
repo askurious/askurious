@@ -160,6 +160,7 @@ document.querySelectorAll("[data-hot]").forEach(function (box) {
         + (n >= max ? " · " + uiT("Maximum erreicht", "maximum reached") : "");
       box.classList.toggle("is-full", n >= max);
       if (n && none) none.checked = false;
+      if (none) none.closest("label").hidden = n > 0;  // the count takes the place of "nichts markieren"
       if (n) { var item = box.closest(".p-item"); if (item) item.classList.remove("has-error", "has-nudge"); }
       if (inside && (!had.isConnected || had.disabled)) refocus(spot);
     }
