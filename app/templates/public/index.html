@@ -52,19 +52,19 @@
   <div class="landing-feature-grid">
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("edit", 18) }}</span>{% endif %}{{ de_en("Gestalten", "Design") }}</h3><ul>
       <li>{{ de_en("Editor mit Ziehen und Ablegen, Startprüfung und geschätzter Dauer", "Editor with drag and drop, pre-launch check and estimated duration") }}</li>
-      <li><a href="{{ url_for('element_types.index') }}">{{ de_en("Viele Elementtypen", "Many element types") }}</a>{{ de_en(", validierte Skalen aus „Konstrukte“", ", validated scales from “Constructs”") }}</li>
+      <li><a href="{{ url_for('element_types.index') }}">{{ de_en("Viele Elementtypen", "Many element types") }}</a>{{ de_en(" und erweiterbare ", " and extensible ") }}{% if pg %}{{ de_en("validierte Skalen aus „Konstrukte“", "validated scales from “Constructs”") }}{% else %}<a href="{{ url_for('constructs.index') }}">{{ de_en("validierte Skalen aus „Konstrukte“", "validated scales from “Constructs”") }}</a>{% endif %}</li>
       <li>{{ de_en("Bedingungen, Schleifen, Randomisierung und Piping", "Conditions, loops, randomisation and piping") }}</li>
-      <li><a href="{{ demo_base }}/s/demo-webservices" target="_blank" rel="noopener">{{ de_en("Web Services", "Web services") }} ↗</a>{{ de_en(" und Web-Apps einbinden: Schnittstellen im Ablauf aufrufen, Antworten weiterverwenden", " and web apps in the flow: calling APIs, reusing their answers") }}</li>
+      <li><a href="{{ demo_base }}/s/demo-webservices" target="_blank" rel="noopener">{{ de_en("Web Services", "Web services") }} ↗</a>{{ de_en(" und ", " and ") }}<a href="{{ demo_base }}/s/5katj4" target="_blank" rel="noopener">{{ de_en("Web-Apps", "web apps") }} ↗</a>{{ de_en(" einbinden: Schnittstellen im Ablauf aufrufen, Antworten weiterverwenden", " in the flow: calling APIs, reusing their answers") }}</li>
       <li>{{ de_en("Eigenes Erscheinungsbild, mehrsprachig mit KI-Übersetzung", "Your own look, multilingual with AI translation") }}</li></ul></div>
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("conjoint", 18) }}</span>{% endif %}{{ de_en("Wahlexperimente", "Choice experiments") }}</h3><ul>
-      <li>{{ de_en("Conjoint (CBC), adaptives Conjoint (ACBC) und MaxDiff", "Conjoint (CBC), adaptive conjoint (ACBC) and MaxDiff") }}</li>
+      <li>{{ de_en("Conjoint (CBC), adaptives Conjoint (ACBC) und MaxDiff", "Conjoint (CBC), adaptive conjoint (ACBC) and MaxDiff") }}, {{ de_en("auch mit", "also with") }} <a href="{{ demo_base }}/s/nubv72" target="_blank" rel="noopener">{{ de_en("KI-Bildern", "AI images") }} ↗</a> ({{ cite("brauner2026", "Brauner, 2026") }})</li>
       <li>{{ de_en("Individuelle Nutzen per Hierarchical Bayes, Marktsimulator", "Individual utilities with hierarchical Bayes, market simulator") }}</li>
-      <li>{{ de_en("Vignetten und Mikroszenarien aus einer Tabelle", "Vignettes and micro scenarios from a table") }} ({{ cite("brauner2024", "Brauner, 2024") }}), {{ de_en("auch mit", "also with") }} <a href="{{ demo_base }}/s/nubv72" target="_blank" rel="noopener">{{ de_en("KI-Bildern", "AI images") }} ↗</a> ({{ cite("brauner2026", "Brauner, 2026") }})</li></ul></div>
+      <li>{{ de_en("Vignetten und Mikroszenarien aus einer Tabelle oder mit Faktordesigns", "Vignettes and micro scenarios from a table or with factorial designs") }} ({{ cite("brauner2024", "Brauner, 2024") }})</li></ul></div>
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("link", 18) }}</span>{% endif %}{{ de_en("Erheben", "Collect") }}</h3><ul>
       <li>{{ de_en("Kurze Links, QR-Codes, Links je Gruppe und Quoten", "Short links, QR codes, links per group and quotas") }}</li>
       <li>{{ de_en("Pretest mit Kommentaren zu Seiten und Fragen", "Pretest with comments on pages and questions") }}</li>
       <li>{{ de_en("Speeder-Ermahnung", "Speeder prompt") }} ({{ cite("conrad2017", "Conrad et al., 2017") }})</li>
-      <li>{{ de_en("Live-Rückmeldung an Teilnehmende", "Live feedback to participants") }} ({{ cite("kuehne2018", "Kühne & Kroh, 2018") }}){{ de_en(": Einordnung auf Skalen und ", ": placing on scales and ") }}<a href="{{ demo_base }}/s/demo-rueckmeldung" target="_blank" rel="noopener">{{ de_en("Menschenmenge", "crowd") }} ↗</a></li>
+      <li><a href="{{ demo_base }}/s/demo-rueckmeldung" target="_blank" rel="noopener">{{ de_en("Live-Rückmeldung an Teilnehmende", "Live feedback to participants") }} ↗</a> ({{ cite("kuehne2018", "Kühne & Kroh, 2018") }}){{ de_en(": Einordnung auf Skalen und in der Menschenmenge", ": placing on scales and in the crowd") }}</li>
       <li>{{ de_en("Eigene Dashboards mit öffentlichem Link", "Your own dashboards with a public link") }}</li>
       <li><a href="{{ url_for('public.accessibility') }}">{{ de_en("Barrierefrei, wo möglich", "Accessible where possible") }}</a> {{ de_en("(WCAG 2.1 AA für Teilnehmende)", "(WCAG 2.1 AA for participants)") }}</li></ul></div>
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("chart", 18) }}</span>{% endif %}{{ de_en("Auswerten", "Analyse") }}</h3><ul>
@@ -74,8 +74,8 @@
       <li>{{ de_en("Export für SPSS, JASP, jamovi, R und als CSV mit Codebuch", "Export for SPSS, JASP, jamovi, R and as CSV with a codebook") }}</li></ul></div>
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("lock", 18) }}</span>{% endif %}{{ de_en("Offene Wissenschaft", "Open science") }}</h3><ul>
       <li>{{ de_en("Präregistrierung: eingefrorener Stand mit Prüfsumme", "Pre-registration: a frozen state with a checksum") }}</li>
-      {# the words of the seal chain lead to a real example to check (Philipp, 2026-10-12) #}
-      <li>{{ de_en("Änderungen an den Daten nachweisbar:", "Tamper-evident data:") }} <a href="{{ url_for('public.verify', code='42-7-3b8797c9b05d110e') }}">{{ de_en("Siegelkette mit Zeitstempeln des DFN", "a seal chain with timestamps of the DFN") }}</a>{{ de_en(": Herkunft und Vollständigkeit der Fälle prüfbar", ": origin and completeness of the cases can be checked") }}</li>
+      {# "Siegelkette" leads to a demo survey with the seal chain, the check to a real example to verify (Philipp, 2026-11-09) #}
+      <li>{{ de_en("Änderungen an den Daten nachweisbar:", "Tamper-evident data:") }} <a href="{{ demo_base }}/s/zfgknw" target="_blank" rel="noopener">{{ de_en("Siegelkette", "a seal chain") }} ↗</a>{{ de_en(" mit Zeitstempeln des DFN. ", " with timestamps of the DFN. ") }}<a href="{{ url_for('public.verify', code='42-7-3b8797c9b05d110e') }}">{{ de_en("Herkunft und Vollständigkeit der Fälle prüfbar.", "Origin and completeness of the cases can be checked.") }}</a></li>
       <li>{{ de_en("Open-Data-Paket, optional mit automatischem Upload zu Zenodo", "Open data package, optional automatic upload to Zenodo") }}</li>
       <li>{{ de_en("Löschfristen und Löschcode für Teilnehmende", "Retention periods and a deletion code for participants") }}</li></ul></div>
     <div><h3>{% if pg %}<span class="pg-feature-icon">{{ icon("user", 18) }}</span>{% endif %}{{ de_en("Im Team", "In a team") }}</h3><ul>

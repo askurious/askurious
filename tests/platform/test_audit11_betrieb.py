@@ -376,8 +376,10 @@ def test_b8_demo_links_stay_with_the_brand(app):
     c = app.test_client()
     page = c.get("/").data.decode()
     assert "https://ask.askurious.de/s/demo-webservices" in page and "https://ask.askurious.de/s/nubv72" in page and "https://ask.askurious.de/s/demo-rueckmeldung" in page
+    assert "https://ask.askurious.de/s/zfgknw" in page and "https://ask.askurious.de/s/5katj4" in page
     app.config.update(PUBLIC_BASE_URL="https://polltergeist.de", PARTICIPANT_BASE_URL="https://ask.polltergeist.de",
                       BRANDS="", SITE_BRAND="polltergeist.de=POLLtergeist", SECRET_KEY="y" * 32)
     page = c.get("/", headers={"Host": "polltergeist.de"}).data.decode()
     assert "https://ask.polltergeist.de/s/demo-webservices" in page and "https://ask.polltergeist.de/s/nubv72" in page and "https://ask.polltergeist.de/s/demo-rueckmeldung" in page
+    assert "https://ask.polltergeist.de/s/zfgknw" in page and "https://ask.polltergeist.de/s/5katj4" in page
     assert "ask.askurious.de" not in page
