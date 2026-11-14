@@ -10,7 +10,7 @@
 <p align="center"><a href="https://doi.org/10.5281/zenodo.23612928"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.23612928.svg" alt="DOI 10.5281/zenodo.23612928"></a></p>
 
 Askurious is a web platform for social science research: plan a study, build the questionnaire, take it to the field, check the data quality and analyse the results, all in one place.
-It is developed and run by the [Chair of Communication Science of RWTH Aachen University](https://www.comm.rwth-aachen.de) for research and teaching. Authors: Philipp Brauner and Ralf Philipsen; contact: Dr. Philipp Brauner ([brauner@comm.rwth-aachen.de](mailto:brauner@comm.rwth-aachen.de)).
+It is developed and run by the [Chair of Communication Science of RWTH Aachen University](https://www.comm.rwth-aachen.de) for research and teaching. Authors: Philipp Brauner and Ralf Philipsen; contact: Dr. Philipp Brauner ([brauner@comm.rwth-aachen.de](mailto:brauner@comm.rwth-aachen.de)) and Ralf Philipsen ([philipsen@comm.rwth-aachen.de](mailto:philipsen@comm.rwth-aachen.de)).
 
 - Live at [askurious.de](https://askurious.de); participants answer at ask.askurious.de.
 - The same platform answers at [polltergeist.de](https://polltergeist.de) as POLLtergeist, with a look of its own for live votes.
@@ -173,7 +173,9 @@ The app applies missing migrations by itself when it starts (one server process 
 
 **Add-on modules** are separate Python packages that extend Askurious when they are installed in the same environment: they name a module with `init_app(app)` under the entry point group `askurious.plugins`, register their own pages and may add an experimental feature, a button on "My surveys" and keep surveys they made for themselves out of the lists ([app/plugins.py](app/plugins.py)). Without one installed nothing changes; a module that fails to load is left out and logged.
 
-**Records:** what was built is in [log.md](log.md), why in [decisions.md](decisions.md), what is still open in [bucketlist.md](bucketlist.md).
+**Records:** what was built is in [log.md](log.md); the releases are described in [docs/releases.md](docs/releases.md). The record of decisions and the list of open ideas are kept outside this repository.
+
+**Related repositories:** [askurious-constructs](https://github.com/askurious/askurious-constructs) (the open catalogue of scales and standard questions, signed releases) and [askurious-diary-android](https://github.com/askurious/askurious-diary-android) (the Android app for diary studies); an overview is on the [organisation page](https://github.com/askurious).
 
 ## Running a server
 
@@ -224,7 +226,7 @@ Releases are named by year and month (`2026.10.0`, see [docs/releases.md](docs/r
 ## Licence
 
 Copyright (c) 2026 RWTH Aachen University. Authors: Philipp Brauner, Ralf Philipsen.
-RWTH Aachen University holds the rights in the code of Askurious (§ 69b UrhG) and licenses it under the European Union Public Licence 1.2 ([LICENSE](LICENSE), SPDX `EUPL-1.2`; the official German text in [LICENSE.de.txt](LICENSE.de.txt); copyright and the parts under other licences in [NOTICE](NOTICE)). The standalone checker `app/seal_verify.py` stays under the MIT License. Libraries, fonts, map outlines, ORCID icons and data files of others keep their own licences, and the names and logos of Askurious and POLLtergeist are not licensed under the EUPL; [NOTICE](NOTICE) lists these paths exactly. The running service links the licence texts, NOTICE and the source code on its page `/sources`. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md); security issues: [SECURITY.md](SECURITY.md).
+RWTH Aachen University holds the rights in the code of Askurious (§ 69b UrhG) and licenses it under the European Union Public Licence 1.2 ([LICENSE](LICENSE), SPDX `EUPL-1.2`; the official German text in [LICENSE.de.txt](LICENSE.de.txt); copyright and the parts under other licences in [NOTICE](NOTICE)). The standalone checker `app/seal_verify.py` stays under the MIT License. Libraries, fonts, map outlines, ORCID icons and data files of others keep their own licences, and the names and logos of Askurious and POLLtergeist are not licensed under the EUPL; [NOTICE](NOTICE) lists these paths exactly. The running service links the licence texts, NOTICE and the source code on its page `/sources`. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md); code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); security issues: [SECURITY.md](SECURITY.md).
 
 Researchers accept the terms of use in [licence.md](licence.md) when they first sign in and after every new version; the app shows them under "Nutzungsbedingungen". They are the terms of the platform, not a licence for this code.
 Section 7 there names what binds researchers when they use contents of others (constructs, standard questions, maps and other data). Among them are the demographic standard questions of the Rat für Sozial- und Wirtschaftsdaten (RatSWD, 2023) and the sociodemographic standard variables of KonsortSWD (Schneider et al., 2026) that the export can append as `x_…` columns, both under CC BY 4.0.
