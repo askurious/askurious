@@ -31,6 +31,17 @@ including under a later version of the EUPL or a licence compatible with it. The
 - Run the tests of the parts you touched (`python -m pytest tests/<area>`); the whole suite runs before a release.
 - No concepts, audit reports or other planning documents in the repository.
 
+## Conduct
+
+Everyone who writes in issues, pull requests and reviews follows the [code of conduct](CODE_OF_CONDUCT.md).
+
+## Other repositories
+
+New scales, translations and corrections of constructs go to the catalogue
+[askurious-constructs](https://github.com/askurious/askurious-constructs), the Android app for diary studies to
+[askurious-diary-android](https://github.com/askurious/askurious-diary-android); each has its own notes for
+contributors.
+
 ## Security issues
 
 Please do not report security issues in public issues; see [SECURITY.md](SECURITY.md).

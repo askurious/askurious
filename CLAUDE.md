@@ -19,7 +19,9 @@ Askurious speaks to two kinds of readers, and every new or changed text has to r
   shrinks: after translating, `python tests/ui/test_researcher_i18n.py --update`; never raise a count by hand),
   `tests/ui/test_ui_i18n.py` (participants' catalog) and `tests/ui/test_glossary.py`.
 
-Decisions behind this: decisions.md, "Sprache der Oberfläche für Forschende und Admins (2026-10-06)".
+Decisions behind this: decisions.md, "Sprache der Oberfläche für Forschende und Admins (2026-10-06)". decisions.md and
+the operations manual BETRIEB.md are kept outside this repository since the public release (2026-10-23,
+tests/helpers/internal_docs.py); code comments may still name them.
 
 ## No concepts or audit reports in the repository
 

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability / Sicherheitslücke melden
+    url: https://github.com/askurious/askurious/blob/main/SECURITY.md
+    about: Privately please, not as an issue. / Bitte vertraulich, nicht als Issue.
+  - name: Suggest a construct or a translation / Konstrukt oder Übersetzung vorschlagen
+    url: https://github.com/askurious/askurious-constructs/issues
+    about: Scales and standard questions belong in the catalogue. / Skalen und Standardfragen gehören in den Katalog.
+  - name: Problem with an installation / Problem mit einer Installation
+    url: https://askurious.de/imprint
+    about: Each installation names its contact in its legal notice. / Jede Installation nennt ihren Kontakt im Impressum.

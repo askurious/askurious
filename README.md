@@ -10,7 +10,7 @@
 <p align="center"><a href="https://doi.org/10.5281/zenodo.23612928"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.23612928.svg" alt="DOI 10.5281/zenodo.23612928"></a></p>
 
 Askurious is a web platform for social science research: plan a study, build the questionnaire, take it to the field, check the data quality and analyse the results, all in one place.
-It is developed and run by the [Chair of Communication Science of RWTH Aachen University](https://www.comm.rwth-aachen.de) for research and teaching. Authors: Philipp Brauner and Ralf Philipsen; contact: Dr. Philipp Brauner ([brauner@comm.rwth-aachen.de](mailto:brauner@comm.rwth-aachen.de)).
+It is developed and run by the [Chair of Communication Science of RWTH Aachen University](https://www.comm.rwth-aachen.de) for research and teaching. Authors: Philipp Brauner and Ralf Philipsen; contact: Dr. Philipp Brauner ([brauner@comm.rwth-aachen.de](mailto:brauner@comm.rwth-aachen.de)) and Ralf Philipsen ([philipsen@comm.rwth-aachen.de](mailto:philipsen@comm.rwth-aachen.de)).
 
 - Live at [askurious.de](https://askurious.de); participants answer at ask.askurious.de.
 - The same platform answers at [polltergeist.de](https://polltergeist.de) as POLLtergeist, with a look of its own for live votes.
@@ -173,13 +173,15 @@ The app applies missing migrations by itself when it starts (one server process 
 
 **Add-on modules** are separate Python packages that extend Askurious when they are installed in the same environment: they name a module with `init_app(app)` under the entry point group `askurious.plugins`, register their own pages and may add an experimental feature, a button on "My surveys" and keep surveys they made for themselves out of the lists ([app/plugins.py](app/plugins.py)). Without one installed nothing changes; a module that fails to load is left out and logged.
 
-**Records:** what was built is in [log.md](log.md), why in [decisions.md](decisions.md), what is still open in [bucketlist.md](bucketlist.md).
+**Records:** what was built is in [log.md](log.md); the releases are described in [docs/releases.md](docs/releases.md). The record of decisions and the list of open ideas are kept outside this repository.
+
+**Related repositories:** [askurious-constructs](https://github.com/askurious/askurious-constructs) (the open catalogue of scales and standard questions, signed releases) and [askurious-diary-android](https://github.com/askurious/askurious-diary-android) (the Android app for diary studies); an overview is on the [organisation page](https://github.com/askurious).
 
 ## Running a server
 
 Two ways are maintained:
 
-- **Docker** (askurious.de): nginx, two containers for participants that restart one after the other, one for researchers, PostgreSQL, backups and a status page; `deploy/docker/deploy-docker.sh`, operation in [deploy/docker/BETRIEB.md](deploy/docker/BETRIEB.md).
+- **Docker** (askurious.de): nginx, two containers for participants that restart one after the other, one for researchers, PostgreSQL, backups and a status page; `deploy/docker/deploy-docker.sh`, the operations manual of an installation (BETRIEB.md) is kept by its operator, not in this repository.
   Separate runtime/migration roles and network segmentation are enabled and verified on askurious.de (2026-10-14).
   The staged deployment flow and provisioning for further servers are documented in
   [deploy/docker/isolation/README.md](deploy/docker/isolation/README.md).
@@ -188,7 +190,7 @@ Two ways are maintained:
 The server reads its settings from `.env`; every setting is explained in [config.py](config.py). These need care:
 
 - `SECRET_KEY`: a long random value, set once and kept. Changing it signs everyone out, makes the deletion codes participants noted down worthless without notice, and breaks the return links of an external section that participants have not used yet.
-- `TOKEN_KEY` (optional): the key of tokens and keys stored in the database; without it they depend on `SECRET_KEY` too. Steps in BETRIEB.md, section "Eigener Schlüssel für gespeicherte Geheimnisse".
+- `TOKEN_KEY` (optional): the key of tokens and keys stored in the database; without it they depend on `SECRET_KEY` too. The steps are in the operator's manual (BETRIEB.md, section "Eigener Schlüssel für gespeicherte Geheimnisse").
 - `POOL_KEY` (optional): the key of the pseudonyms (`study_id`, `participant_id`) in the pooled construct data. Without it they come from `SECRET_KEY`; set once, it keeps them when `SECRET_KEY` changes. Setting it later changes every pseudonym once (earlier `pool_*.csv` files no longer join with new ones), so best before the first download.
 - `DIARY_KEY` (optional): the key of the random prompt times of diary studies. Without it they come from `SECRET_KEY`; set once, it keeps them when `SECRET_KEY` changes (otherwise every answered random prompt would count as missed). Setting it later moves the random times of studies under way, so best before the first diary study runs.
 - `PROXY_COUNT`: the number of proxies in front of the app (nginx in front: 1; without a proxy leave the line out). Verify it on Administration › IP-Region: the address shown there must stay the same when the page is requested with a made-up `X-Forwarded-For` header.
@@ -209,7 +211,7 @@ Freely chosen web-service and AI endpoints cannot access the operator's own netw
 
 Optional local interview transcription with speaker labels: [WhisperX container](deploy/docker/whisper/README.md). Disabled by default; prepare models and validate the isolated service before enabling it.
 
-Storage accounting: `STORAGE_USAGE_ENABLED=1` uses a shared durable file inventory to avoid repeated quota tree walks. It defaults to off for a safe rolling introduction: deploy the accounting code to every writer first, then enable it and recreate the services sequentially. Existing file paths/sizes and transient reservations are kept in `instance/.storage-usage`; no answers or file contents are copied. Crashes rebuild from disk, unknown writers retain physical counting, and housekeeping periodically reconciles the inventory. See [operation instructions](deploy/docker/BETRIEB.md).
+Storage accounting: `STORAGE_USAGE_ENABLED=1` uses a shared durable file inventory to avoid repeated quota tree walks. It defaults to off for a safe rolling introduction: deploy the accounting code to every writer first, then enable it and recreate the services sequentially. Existing file paths/sizes and transient reservations are kept in `instance/.storage-usage`; no answers or file contents are copied. Crashes rebuild from disk, unknown writers retain physical counting, and housekeeping periodically reconciles the inventory.
 
 ## How to cite
 
@@ -224,7 +226,7 @@ Releases are named by year and month (`2026.10.0`, see [docs/releases.md](docs/r
 ## Licence
 
 Copyright (c) 2026 RWTH Aachen University. Authors: Philipp Brauner, Ralf Philipsen.
-RWTH Aachen University holds the rights in the code of Askurious (§ 69b UrhG) and licenses it under the European Union Public Licence 1.2 ([LICENSE](LICENSE), SPDX `EUPL-1.2`; the official German text in [LICENSE.de.txt](LICENSE.de.txt); copyright and the parts under other licences in [NOTICE](NOTICE)). The standalone checker `app/seal_verify.py` stays under the MIT License. Libraries, fonts, map outlines, ORCID icons and data files of others keep their own licences, and the names and logos of Askurious and POLLtergeist are not licensed under the EUPL; [NOTICE](NOTICE) lists these paths exactly. The running service links the licence texts, NOTICE and the source code on its page `/sources`. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md); security issues: [SECURITY.md](SECURITY.md).
+RWTH Aachen University holds the rights in the code of Askurious (§ 69b UrhG) and licenses it under the European Union Public Licence 1.2 ([LICENSE](LICENSE), SPDX `EUPL-1.2`; the official German text in [LICENSE.de.txt](LICENSE.de.txt); copyright and the parts under other licences in [NOTICE](NOTICE)). The standalone checker `app/seal_verify.py` stays under the MIT License. Libraries, fonts, map outlines, ORCID icons and data files of others keep their own licences, and the names and logos of Askurious and POLLtergeist are not licensed under the EUPL; [NOTICE](NOTICE) lists these paths exactly. The running service links the licence texts, NOTICE and the source code on its page `/sources`. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md); code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); security issues: [SECURITY.md](SECURITY.md).
 
 Researchers accept the terms of use in [licence.md](licence.md) when they first sign in and after every new version; the app shows them under "Nutzungsbedingungen". They are the terms of the platform, not a licence for this code.
 Section 7 there names what binds researchers when they use contents of others (constructs, standard questions, maps and other data). Among them are the demographic standard questions of the Rat für Sozial- und Wirtschaftsdaten (RatSWD, 2023) and the sociodemographic standard variables of KonsortSWD (Schneider et al., 2026) that the export can append as `x_…` columns, both under CC BY 4.0.
