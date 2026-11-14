@@ -1,6 +1,7 @@
-# For now only by hand (Ralf, 2026-10-19): for the cost of private Actions no CI runs on GitHub, no push, no
-# pull_request, no schedule, and nobody starts this workflow. The check before a deploy is the local --full run.
-# Kept for later (the repository may move or become public); switching it back on: BETRIEB.md, "CI auf GitHub".
+# For now only by hand (Ralf, 2026-10-19): no CI runs on GitHub, no push, no pull_request, no schedule; the check
+# before a deploy is the local --full run. The reason then was the cost of Actions in a private repository; the
+# repository is public since 2026-10-23, so that cost no longer applies and the triggers can come back when wanted
+# (add push/pull_request under "on:" and adjust tests/platform/test_compose_hardening.py, which asserts by-hand only).
 # What it runs (audit 2026-10-18, CFG-06): the tests in four parts and the check for known vulnerabilities, on
 # GitHub's machines. The everyday run without --full: the slow tests (tests/slow_tests.txt) and the deploy tests
 # (bash) stay for the --full run before a deploy. Actions pinned by commit, as the images by digest (CFG-05).

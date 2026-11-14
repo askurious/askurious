@@ -181,7 +181,7 @@ The app applies missing migrations by itself when it starts (one server process 
 
 Two ways are maintained:
 
-- **Docker** (askurious.de): nginx, two containers for participants that restart one after the other, one for researchers, PostgreSQL, backups and a status page; `deploy/docker/deploy-docker.sh`, operation in [deploy/docker/BETRIEB.md](deploy/docker/BETRIEB.md).
+- **Docker** (askurious.de): nginx, two containers for participants that restart one after the other, one for researchers, PostgreSQL, backups and a status page; `deploy/docker/deploy-docker.sh`, the operations manual of an installation (BETRIEB.md) is kept by its operator, not in this repository.
   Separate runtime/migration roles and network segmentation are enabled and verified on askurious.de (2026-10-14).
   The staged deployment flow and provisioning for further servers are documented in
   [deploy/docker/isolation/README.md](deploy/docker/isolation/README.md).
@@ -190,7 +190,7 @@ Two ways are maintained:
 The server reads its settings from `.env`; every setting is explained in [config.py](config.py). These need care:
 
 - `SECRET_KEY`: a long random value, set once and kept. Changing it signs everyone out, makes the deletion codes participants noted down worthless without notice, and breaks the return links of an external section that participants have not used yet.
-- `TOKEN_KEY` (optional): the key of tokens and keys stored in the database; without it they depend on `SECRET_KEY` too. Steps in BETRIEB.md, section "Eigener Schlüssel für gespeicherte Geheimnisse".
+- `TOKEN_KEY` (optional): the key of tokens and keys stored in the database; without it they depend on `SECRET_KEY` too. The steps are in the operator's manual (BETRIEB.md, section "Eigener Schlüssel für gespeicherte Geheimnisse").
 - `POOL_KEY` (optional): the key of the pseudonyms (`study_id`, `participant_id`) in the pooled construct data. Without it they come from `SECRET_KEY`; set once, it keeps them when `SECRET_KEY` changes. Setting it later changes every pseudonym once (earlier `pool_*.csv` files no longer join with new ones), so best before the first download.
 - `DIARY_KEY` (optional): the key of the random prompt times of diary studies. Without it they come from `SECRET_KEY`; set once, it keeps them when `SECRET_KEY` changes (otherwise every answered random prompt would count as missed). Setting it later moves the random times of studies under way, so best before the first diary study runs.
 - `PROXY_COUNT`: the number of proxies in front of the app (nginx in front: 1; without a proxy leave the line out). Verify it on Administration › IP-Region: the address shown there must stay the same when the page is requested with a made-up `X-Forwarded-For` header.
@@ -211,7 +211,7 @@ Freely chosen web-service and AI endpoints cannot access the operator's own netw
 
 Optional local interview transcription with speaker labels: [WhisperX container](deploy/docker/whisper/README.md). Disabled by default; prepare models and validate the isolated service before enabling it.
 
-Storage accounting: `STORAGE_USAGE_ENABLED=1` uses a shared durable file inventory to avoid repeated quota tree walks. It defaults to off for a safe rolling introduction: deploy the accounting code to every writer first, then enable it and recreate the services sequentially. Existing file paths/sizes and transient reservations are kept in `instance/.storage-usage`; no answers or file contents are copied. Crashes rebuild from disk, unknown writers retain physical counting, and housekeeping periodically reconciles the inventory. See [operation instructions](deploy/docker/BETRIEB.md).
+Storage accounting: `STORAGE_USAGE_ENABLED=1` uses a shared durable file inventory to avoid repeated quota tree walks. It defaults to off for a safe rolling introduction: deploy the accounting code to every writer first, then enable it and recreate the services sequentially. Existing file paths/sizes and transient reservations are kept in `instance/.storage-usage`; no answers or file contents are copied. Crashes rebuild from disk, unknown writers retain physical counting, and housekeeping periodically reconciles the inventory.
 
 ## How to cite
 
