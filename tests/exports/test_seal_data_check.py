@@ -153,4 +153,5 @@ def test_the_entries_are_cases_and_events():
              {"seq": 7, "kind": "fieldclosed", "reason": "manual", "at": "2026-10-12T08:47:26Z"}]
     c = seal.counts(rows)
     assert c["cases"] == 5 and c["deleted"] == 1 and c["remaining"] == 4
-    assert c["entries"] == {"total": 7, "cases": 5, "amended": 0, "deleted": 1, "events": 1}
+    assert c["entries"] == {"total": 7, "cases": 5, "amended": 0, "deleted": 1, "events": 1,
+                            "by_event": {"field": 1}}

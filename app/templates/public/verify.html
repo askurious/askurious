@@ -48,13 +48,9 @@
   </ul>
   <h2 class="seal-numbers-head">{{ de_en("Fälle in Zahlen", "Cases in numbers") }}</h2>
   <p class="small muted">{{ de_en("So steht es in der Kette: jeder beendete Fall mit seinem Status und jede Löschung mit ihrem Weg. Diese Zahlen kann niemand nachträglich ändern, ohne dass der Code oben nicht mehr passt.", "This is what the chain records: every case that ended with its status and every deletion with its way. Nobody can change these numbers afterwards without the code above no longer matching.") }}</p>
-  {# a chain holds cases and events: why 5 cases with 1 deletion make 7 entries (Philipp, 2026-10-12) #}
-  {% set e = result.counts.entries %}
-  <p class="small muted">{{ de_en("Die Kette enthält zwei Arten von Einträgen: Fälle (je beendete Teilnahme ein Eintrag, dazu ein Änderungseintrag, wenn sich ein Fall danach ändert) und Ereignisse: Start und Ende der Feldphase, Löschvermerke, das Einschalten der Siegelkette, eine abgelaufene Aufbewahrungsfrist und das Löschen der Befragung. Deshalb hat eine Kette mehr Einträge als Fälle.",
-    "The chain holds two kinds of entries: cases (one entry per ended participation, plus an amendment when a case changes afterwards) and events: start and end of the fieldwork, deletion records, switching the seal chain on, an expired retention period and the deletion of the survey. That is why a chain has more entries than cases.") }}
-    {{ de_en("Die {n} Einträge bis hierhin: Fälle {c} · Änderungen {a} · Löschvermerke {d} · weitere Ereignisse {v}.", "The {n} entries up to here: cases {c} · amendments {a} · deletion records {d} · further events {v}.",
-             n=e.total, c=e.cases, a=e.amended, d=e.deleted, v=e.events) }}</p>
-  {{ sp.numbers([(de_en("bis Eintrag {n}", "up to entry {n}", n=result.seq), result.counts)] + ([(de_en("heute", "today"), result.counts_now)] if result.newer else [])) }}
+  {% set cols = [(de_en("Stand des Prüfcodes", "state of the check code"), result.counts)] + ([(de_en("aktueller Stand", "current state"), result.counts_now)] if result.newer else []) %}
+  {{ sp.numbers(cols) }}
+  {{ sp.entries(cols) }}
   <p class="small seal-head">{{ de_en("Vollständiger Hashwert:", "Full hash value:") }} <code>{{ result.digest }}</code></p>
   {# a data file against the chain, in the browser: the file is never uploaded (siegelkette-konzept.md E9,
      app/static/seal_check.js) #}
