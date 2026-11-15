@@ -1,6 +1,6 @@
-# The base by digest (Abgleich 2026-10-15, T08-N-3), pinned 2026-10-15: the same base in every build of this image.
+# The base by digest (Abgleich 2026-10-15, T08-N-3), pinned 2026-10-15, raised 2026-11-15: the same base in every build of this image.
 # maintenance.sh says in Slack when it is older than 60 days; then raise it (whisper/README.md, "Basis anheben").
-FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 \
     OPENBLAS_NUM_THREADS=8 NUMEXPR_NUM_THREADS=8 TOKENIZERS_PARALLELISM=false \
