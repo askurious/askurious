@@ -152,16 +152,16 @@ nltk==3.10.4  Apache License, Version 2.0
 numpy==2.5.2  BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
 omegaconf==2.4.0  BSD License
 onnxruntime==1.31.0  MIT License
-opentelemetry-api==1.45.1  Apache-2.0
-opentelemetry-exporter-http-transport==0.66b1  Apache-2.0
-opentelemetry-exporter-otlp==1.45.1  Apache-2.0
-opentelemetry-exporter-otlp-common==0.66b1  Apache-2.0
-opentelemetry-exporter-otlp-proto-common==1.45.1  Apache-2.0
-opentelemetry-exporter-otlp-proto-grpc==1.45.1  Apache-2.0
-opentelemetry-exporter-otlp-proto-http==1.45.1  Apache-2.0
-opentelemetry-proto==1.45.1  Apache-2.0
-opentelemetry-sdk==1.45.1  Apache-2.0
-opentelemetry-semantic-conventions==0.66b1  Apache-2.0
+opentelemetry-api==1.45.2  Apache-2.0
+opentelemetry-exporter-http-transport==0.66b2  Apache-2.0
+opentelemetry-exporter-otlp==1.45.2  Apache-2.0
+opentelemetry-exporter-otlp-common==0.66b2  Apache-2.0
+opentelemetry-exporter-otlp-proto-common==1.45.2  Apache-2.0
+opentelemetry-exporter-otlp-proto-grpc==1.45.2  Apache-2.0
+opentelemetry-exporter-otlp-proto-http==1.45.2  Apache-2.0
+opentelemetry-proto==1.45.2  Apache-2.0
+opentelemetry-sdk==1.45.2  Apache-2.0
+opentelemetry-semantic-conventions==0.66b2  Apache-2.0
 optuna==5.0.0  MIT License
 packaging==26.3  Apache-2.0 OR BSD-2-Clause
 pandas==3.0.6  BSD License

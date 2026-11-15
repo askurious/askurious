@@ -8,7 +8,19 @@ keine Datenbankzugänge oder sonstigen App-Schlüssel im Transkriptionscontainer
 
 ## Grenzen und Verhalten
 
-### Sicherheitsprüfung der festgelegten Laufzeit (14.10.2026, erneuert 24.10.2026, ergänzt 08.11.2026)
+### Sicherheitsprüfung der festgelegten Laufzeit (14.10.2026, erneuert 24.10.2026, ergänzt 08.11.2026 und 15.11.2026)
+
+Seit 15.11.2026 sind die OpenTelemetry-Pakete 1.45.2 bzw. 0.66b2 (statt 1.45.1 bzw.
+0.66b1) festgelegt: `opentelemetry-api` 1.45.1 hatte GHSA-mf5v-w3w3-f6cg
+(CVE-2026-126360, ReDoS beim Auslesen eines `traceparent` in
+`TraceContextTextMapPropagator.extract()`). Die Pakete kommen nur über pyannote.audio
+(Telemetrie) ins Image; der Dienst liest keinen Trace-Kontext aus Anfragen, und
+`PYANNOTE_METRICS_ENABLED=0` schaltet diese Telemetrie ab. Der Befund war also nicht
+erreichbar, wird aber trotzdem mit der Korrekturversion behoben. Alle zehn Pakete
+werden gemeinsam angehoben, weil sie sich gegenseitig exakt festlegen. Zugleich ist
+die Basis auf den aktuellen Digest von `python:3.12-slim` angehoben. Das Image muss
+dafür neu gebaut werden (Abschnitt „Vor einer Aktivierung“); vorher die Modell-Hashes
+in `manifest.json` prüfen, Modelle und Modellvorbereitung ändern sich nicht.
 
 Seit 24.10.2026 sind NLTK 3.10.4 (statt 3.10.3, GHSA-8mgp-746c-j5xp behoben) und
 setuptools 84.1.0 (statt 78.1.0, alle gemeldeten Befunde behoben) sowie filelock
