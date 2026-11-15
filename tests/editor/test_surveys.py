@@ -344,8 +344,9 @@ def test_no_pricing_page_and_no_donation_settings(app, client):
 def test_landing_links_the_introduction_survey(client):
     html = client.get("/").data.decode()
     assert "Beispielbefragung ausprobieren" in html and 'href="https://ask.askurious.de/s/introduction"' in html
-    # live feedback with a link to its demo survey (Philipp, 2026-10-11)
-    assert 'Einordnung auf Skalen und <a href="https://ask.askurious.de/s/demo-rueckmeldung"' in html
+    # live feedback with a link to its demo survey (Philipp, 2026-10-11); since #236 the link sits on the feature itself
+    assert ('<a href="https://ask.askurious.de/s/demo-rueckmeldung" target="_blank" rel="noopener">'
+            'Live-Rückmeldung an Teilnehmende') in html
     # the head and the three kinds (Ralf, 2026-10-04); the references in one closed fold (Ralf, 2026-10-07, W104)
     assert "Drei Arten zu fragen" in html and "card-kind card-live" in html and "card-kind card-interview" in html
     assert '<details class="sources">' not in html and 'class="landing-references"' in html and "data-autoplay" in html and "Zu meinen Befragungen" in html  # signed in
