@@ -19,7 +19,7 @@
       {% else %}<a class="button" href="{{ url_for('auth.login') }}">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</a>{% endif %}
       <a class="button button-secondary" href="{{ demo_base }}/s/introduction" target="_blank" rel="noopener nofollow">{{ de_en("Beispielbefragung ausprobieren", "Try an example survey") }} ↗</a>
     </div>
-    <p class="landing-dev"><span class="dev-mark">{{ de_en("In Entwicklung", "In development") }}</span> {{ de_en("Fehler sind möglich, Rückmeldungen und Vorschläge sehr willkommen. Registrierungen sind vorerst nur auf Einladung möglich.", "Errors are possible; feedback and suggestions are very welcome. Registration is currently by invitation only.") }}</p>
+    <p class="landing-dev"><span class="dev-mark">{{ de_en("In Entwicklung", "In development") }}</span> {{ de_en("Fehler sind möglich, Rückmeldungen und Vorschläge sehr willkommen. Registrierungen sind auf Anfrage möglich.", "Errors are possible; feedback and suggestions are very welcome. Registration is available on request.") }}</p>
   </div>
 
   {% include "public/_shots.html" %}
@@ -82,7 +82,7 @@
       <li>{{ de_en("Anmeldung mit ORCID oder E-Mail-Adresse", "Sign-in with ORCID or email address") }}</li>
       <li>{{ de_en("Arbeitsgruppen mit Leitung und Mitgliedern; Befragungen teilen mit den Rechten Ansehen, Bearbeiten oder Admin", "Work groups with a lead and members; sharing surveys with the rights View, Edit or Admin") }}</li>
       <li>{{ de_en("Designs und verknüpfte Elemente teilen", "Sharing designs and linked elements") }}</li>
-      <li>{{ de_en("Bald als Open Source:", "Soon open source:") }} <a href="https://github.com/askurious" target="_blank" rel="noopener">github.com/askurious</a> ({{ de_en("sehr bald", "very soon") }})</li></ul></div>
+      <li>{{ de_en("Alles Open Source:", "Fully open source:") }} <a href="https://github.com/askurious" target="_blank" rel="noopener">github.com/askurious</a></li></ul></div>
   </div>
 <p class="landing-all-features"><a href="{{ url_for('public.features') }}">{{ de_en("Alle Funktionen im Überblick", "All features at a glance") }} →</a>
   {% if not pg %}· <a href="{{ url_for('constructs.index') }}">{{ de_en("Validierte Konstrukte durchsuchen", "Browse validated constructs") }} →</a>{% endif %}</p>
