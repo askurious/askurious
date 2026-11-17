@@ -7122,3 +7122,17 @@ document.addEventListener("click", function (e) {
   var result = document.querySelector("[data-ws-result]");
   if (result) setTimeout(function () { result.scrollIntoView({ block: "center" }); }, 150);  // after the jump to the element
 })();
+
+// A file chosen in an upload form but not sent yet: the form says so ([data-upload-pending]) and its button becomes
+// the page's main one, because choosing a file alone uploads nothing (user report 2026-11-17: a corrected transcript
+// was chosen and never arrived).
+document.addEventListener("change", function (e) {
+  var input = e.target;
+  if (!input.matches || !input.matches('input[type="file"]') || !input.form) return;
+  var note = input.form.querySelector("[data-upload-pending]");
+  if (!note) return;
+  var chosen = !!(input.files && input.files.length);
+  note.hidden = !chosen;
+  var button = input.form.querySelector("button:not([type=button])");
+  if (button) button.classList.toggle("button-secondary", !chosen);
+});
