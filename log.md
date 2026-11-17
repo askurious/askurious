@@ -7705,3 +7705,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Verwaltung › Gruppen erklärt unter der Überschrift, wofür Gruppen da sind, mit Link auf den Abschnitt „Gruppen“ im Handbuch.
 - Handbuch: Volltextsuche über allen Seiten (`/docs/search`, `handbook.search`): Abschnitte mit allen Wörtern, Treffer in Überschriften zuerst, mit Textausschnitt.
 - Datenschutzerklärung und Datenschutzkonzept nennen die Anträge auf mehr Plätze (Slack, Speicherdauer).
+
+## 2026-11-17: Transkript: eine veraltete Seite überschreibt den Upload nicht mehr
+
+- Meldung einer Nutzerin: Das korrigierte Transkript war als Word-Datei hochgeladen, zu sehen war wieder der Entwurf von Whisper. Die Transkriptseite speichert bei jeder Änderung den ganzen Text mit; eine Seite, die noch den alten Text zeigte (zweites Fenster, „Zurück“ nach dem Upload), schrieb ihn so über die hochgeladene Fassung, schon mit dem Haken „Transkript geprüft“.
+- Die Seite trägt jetzt den Fingerabdruck des Textes, für den sie gezeichnet wurde (`interview_transcribe.text_base`, Feld `base`). Passt er nicht mehr zum gespeicherten Text, wird nichts gespeichert; die Speicherzeile bietet an, die gespeicherte Fassung zu laden oder die eigene zu behalten, ein Formular ohne Skript bekommt eine Meldung. Das gilt auch für das letzte Speichern beim Verlassen der Seite und nach einem Konflikt zweier gleichzeitiger Speicherungen.
+- Test: `tests/interview/test_transcript_stale_page.py`.

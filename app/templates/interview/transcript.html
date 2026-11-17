@@ -55,6 +55,8 @@
   {% if current_user.is_authenticated or learning.on() %}{{ why("transcript_check") }}{% endif %}
   <form method="post" class="stack" data-autosave-form>
     {{ csrf() }}
+    {# the text this page was drawn for: a save from a page that shows an older one is refused (text_base) #}
+    <input type="hidden" name="base" value="{{ base }}">
     <textarea name="text" rows="24" class="transcript-text" aria-label="{{ de_en('Transkript', 'Transcript') }}">{{ st.text or "" }}</textarea>
     {% if not iv_access %}
     <input type="hidden" name="checked_shown" value="1">

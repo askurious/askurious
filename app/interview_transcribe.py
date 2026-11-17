@@ -48,7 +48,7 @@ import time
 from datetime import datetime, timedelta
 
 import requests
-from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -1071,6 +1071,39 @@ def read_upload(name, data):
 # --- the routes ----------------------------------------------------------------------------------------------------
 
 
+OWN_SECONDS = 30  # how long a beacon sent while the page's own save was under way may build on that save
+
+
+class _Outdated(Exception):
+    """The transcript page that saves shows an older text than the stored one (_outdated)."""
+
+
+def text_base(row):
+    """The fingerprint of the transcript's text as it is stored: the transcript page carries it (`base`), and a save
+    from a page that still shows an older text (a second tab, "back" after an upload) is refused instead of writing
+    that older text over the new one (user report 2026-11-17: a corrected transcript uploaded as a Word file was
+    replaced by Whisper's draft again)."""
+    from app import edit_guard
+
+    return edit_guard.fingerprint(state(row).get("text") or "")
+
+
+def _outdated(row, form):
+    """Whether the page that sends `form` was drawn for another text than the stored one. A form without `base`
+    (a script, "übergeben") is saved as before; so is the beacon of a page left while its own save was under way
+    (`after_own`, app.js), which still carries the fingerprint from before that save."""
+    sent = form.get("base")
+    if not sent or sent == text_base(row):
+        return False
+    own = state(row).get("own")
+    if form.get("after_own") == "1" and isinstance(own, list) and len(own) == 2 and own[0] == sent:
+        try:
+            return (utcnow() - datetime.fromisoformat(own[1])).total_seconds() > OWN_SECONDS
+        except (TypeError, ValueError):
+            return True
+    return True
+
+
 def _row(code, rid):
     """(survey, interview) for a researcher with "Bearbeiten", or an interviewer's own interview whose access may
     transcribe (app/interviewer.py)."""
@@ -1250,6 +1283,21 @@ def edit(code, rid):
 
         text = request.form.get("text")
         text = None if text is None else text[:MAX_TEXT].replace("\r\n", "\n")  # None: "übergeben" keeps the text
+        def refused():
+            # the page shows an older text (an upload, an accepted draft or another window changed it since): nothing
+            # is saved; the page offers to load the stored text or to keep its own (app.js, "conflict")
+            who = de_en("Ein Upload oder ein anderes Fenster", "An upload or another window")
+            g.edit_conflict = {"key": f"transcript:{row.id}", "base": text_base(row), "who": who, "when": None}
+            if not autosave.wanted():
+                flash(de_en("Nicht gespeichert: Das Transkript wurde inzwischen an anderer Stelle geändert, zum Beispiel "
+                            "durch einen Upload. Diese Seite zeigt jetzt den gespeicherten Text.",
+                            "Not saved: the transcript has been changed elsewhere in the meantime, for example by an "
+                            "upload. This page now shows the stored text."), "error")
+            return redirect(url_for("interview_transcribe.edit", code=survey.code, rid=row.id))
+
+        if _outdated(row, request.form):
+            return refused()
+        before = text_base(row)
         changed = text is not None and text != (state(row).get("text") or "")
         lost, shown = correction.lost_after(survey, row, text) if changed else (0, [])
         if lost and autosave.wanted() and not autosave.asked("lost") and not request.form.get("leaving"):
@@ -1259,7 +1307,11 @@ def edit(code, rid):
             return redirect(url_for("interview_transcribe.edit", code=survey.code, rid=row.id))
 
         def work():
+            if _outdated(row, request.form):  # read again after a conflict of two saves (retried): an upload that
+                raise _Outdated()             # came in at the same moment as this page's last save stays
             tr = {**state(row), "edited": True, **({} if text is None else {"text": text})}
+            if changed:  # a beacon sent while this save was under way builds on it (_outdated)
+                tr["own"] = [before, _now()]
             if "checked_shown" in request.form:
                 if not request.form.get("checked"):
                     tr["checked"] = None
@@ -1280,7 +1332,12 @@ def edit(code, rid):
                 iv["highlights"] = correction.refit_marks(row, text)
             row.interview = {**iv, "transcript": tr, **({"transcript_head": head} if head else {})}
 
-        interview_audio.retried(work)
+        try:
+            interview_audio.retried(work)
+        except _Outdated:
+            db.session.rollback()
+            return refused()
+        autosave.base(text_base(row))
         if lost and not autosave.wanted():  # a form sent without script: saved as before, said afterwards (leaving: as before)
             flash(correction.ask_text(lost, shown)[0] + ".", "warning")
         if interviewer.actor(survey) is not None and not interviewer.visible(row):
@@ -1293,7 +1350,7 @@ def edit(code, rid):
     from app import interview_tasks
 
     return render_template("interview/transcript.html", survey=survey, row=row, st=state(row),
-                           has_tasks=bool(interview_tasks.tasks(survey)),
+                           has_tasks=bool(interview_tasks.tasks(survey)), base=text_base(row),
                            head=transcript_export.head(survey, row, transcript_export.lang_of(survey)),
                            keep=interview.state(survey)["audio_keep"], grace=interview_audio.GRACE_DAYS, day=interview.day_text,
                            sources=[(de_en("Transkriptionsregeln", "Transcription rules"), [DRESING_PEHL])])
@@ -1319,7 +1376,7 @@ def take_draft(code, rid):
         iv = dict(row.interview or {})
         if take and text:
             tr.update(text=text, checked=None, edited=False)
-            for key in ("checked_parts", "source", "filename"):
+            for key in ("checked_parts", "source", "filename", "own"):
                 tr.pop(key, None)
             if isinstance(covers, dict):
                 tr["covers"] = covers
@@ -1362,7 +1419,7 @@ def upload(code, rid):
     lost = correction.lost_after(survey, row, text[:MAX_TEXT])[0]
 
     def work():
-        tr = {k: v for k, v in state(row).items() if k not in ("parts", "draft", "draft_covers", "checked_parts", "run")}
+        tr = {k: v for k, v in state(row).items() if k not in ("parts", "draft", "draft_covers", "checked_parts", "run", "own")}
         tr.update(state="done", text=text[:MAX_TEXT], edited=True, checked=None, source="upload", error="",
                   filename=os.path.basename(f.filename)[:120], finished=_now(), model="",
                   covers={str(p.get("part")): p.get("bytes") for p in interview_audio.parts(row)})
