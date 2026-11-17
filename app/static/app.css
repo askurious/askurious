@@ -4345,6 +4345,8 @@ body.guide-print { background: #fff; color: #1c1c1a; margin: 0; }
 .iv-progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .iv-progress [data-progress-estimate]:empty { display: none; }
 .danger-text { color: var(--danger); }
+.upload-pending { flex-basis: 100%; margin: 0; font-weight: 600; }  /* a file chosen but not sent yet (app.js) */
+.upload-pending::before { content: "⚠ "; color: var(--danger); }
 .transcript-upload { margin-bottom: 20px; }  /* the upload row keeps its distance from the transcript below it */
 .transcript-text { width: 100%; font-family: var(--font-serif); font-size: 1.05rem; line-height: 1.6; }
 /* the head of the Word/PDF export (app/transcript_export.py): its fields two by two, the export row under the form */

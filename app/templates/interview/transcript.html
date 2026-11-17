@@ -35,6 +35,8 @@
     <label><span class="label-title">{{ de_en("Transkript hochladen", "Upload transcript") }} <span class="hint">{{ de_en(".txt, .docx oder Untertitel .srt/.vtt (f4, MAXQDA, Whisper); Untertitel bekommen Zeitmarken #hh:mm:ss-0#", ".txt, .docx or subtitles .srt/.vtt (f4, MAXQDA, Whisper); subtitles get time marks #hh:mm:ss-0#") }}</span></span>
       <input type="file" name="file" accept=".txt,.docx,.srt,.vtt" required></label>
     <div><button class="button button-secondary">{{ icon("upload", 16) }} {{ de_en("Hochladen", "Upload") }}</button></div>
+    {# a file chosen but not sent yet (app.js, data-upload-pending): choosing alone uploads nothing (user report 2026-11-17) #}
+    <p class="upload-pending" data-upload-pending role="status" hidden>{{ de_en("Die Datei ist gewählt, aber noch nicht hochgeladen. Bitte auf „Hochladen“ klicken.", "The file is chosen but not uploaded yet. Please click “Upload”.") }}</p>
   </form>
   {% if st.draft %}
   {# Whisper ran again after a correction: its text waits beside the transcript (audit 2026-10-10, E-1) #}
