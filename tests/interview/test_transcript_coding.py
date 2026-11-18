@@ -59,14 +59,13 @@ def _transcript(app, rid, text="I: Wie war das?\nB: Anstrengend.", checked=False
         db.session.commit()
 
 
-def test_off_without_the_feature(app, client):
+def test_open_without_the_former_switch(app, client):
+    """Interviews kodieren is a regular feature since 2026-11-18: no switch needed, the button is there for everyone."""
     code, sid = _guide(app, client, on=False)
-    assert client.get(f"/guide/{code}/interviews/coding").status_code == 404
-    assert client.post(f"/guide/{code}/interviews/coding/new", data={"name": "x", "start": "empty"}).status_code == 404
-    assert "/interviews/coding" not in client.get(f"/guide/{code}/interviews/analysis").data.decode()
-    experiments_on(client, FEATURE)
+    experiments_on(client)  # nothing switched on
     assert "/interviews/coding" in client.get(f"/guide/{code}/interviews/analysis").data.decode()
     assert client.get(f"/guide/{code}/interviews/coding").status_code == 200
+    assert client.post(f"/guide/{code}/interviews/coding/new", data={"name": "x", "start": "empty"}).status_code in (200, 302)
 
 
 def test_analysis_from_the_guide_with_the_keys_of_the_codebook(app, client):

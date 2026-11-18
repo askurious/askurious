@@ -298,7 +298,7 @@ def roles():
                        "(default: own only), also the interviews of others to read (notes, answers, transcript; no audio "
                        "recordings, no changes), with “and results” also the guide's results page. Never editing the "
                        "guide, no exports.")},
-        {"who": de_en("Kodierende (Rolle „Kodieren“, experimentell)", "Coders (role “Code”, experimental)"),
+        {"who": de_en("Kodierende (Rolle „Kodieren“)", "Coders (role “Code”)"),
          "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet: als Person "
                       "oder Gruppe mit Konto, als Interviewende mit Interviewlink, dessen Recht „darf kodieren“ (eigene "
                       "oder alle Interviews; aus, bis es gesetzt wird) und Zuweisung zur Auswertung (ohne Konto: ein solcher Interviewlink ohne „darf Interviews führen“)",
@@ -337,7 +337,7 @@ ACTIVITY_META = (
     ("accounts", "2026-09-26", "2026-10-20"), ("participation", "2026-09-26", "2026-10-20"),
     ("pool", "2026-10-04", "2026-10-15"), ("live", "2026-10-03", "2026-10-19"),
     ("interviews", "2026-10-04", "2026-11-05"), ("interviewer_links", "2026-10-15", "2026-11-05"),
-    ("transcript_coding", "2026-10-27", "2026-10-27"),
+    ("transcript_coding", "2026-10-27", "2026-11-18"),
     ("participant_screen", "2026-10-20", "2026-10-20"), ("diary", "2026-10-11", "2026-10-27"),
     ("invitations", "2026-09-26", "2026-10-20"), ("paper", "2026-10-10", "2026-10-17"),
     ("comments", "2026-09-30", "2026-10-17"), ("feedback", "2026-09-27", "2026-10-16"),
@@ -692,7 +692,7 @@ def _activities():
          "basis": de_en("Durchführung des Forschungsvorhabens im Auftrag der Forschenden (Art. 6 Abs. 1 lit. b oder e DSGVO, "
                         "je nach Verhältnis zur Einrichtung)", "Carrying out the research project on behalf of the researchers "
                         "(Art. 6(1)(b) or (e) GDPR, depending on the relation to the institution)")},
-        {"name": de_en("Interviews kodieren (experimentell)", "Coding interviews (experimental)"),
+        {"name": de_en("Interviews kodieren", "Coding interviews"),
          "purpose": de_en("Textstellen der Transkripte gemeinsam Kategorien zuordnen, etwa in einer Lehrveranstaltung: "
                           "Lehrende geben Hauptkategorien vor, Studierende ergänzen Unterkategorien.",
                           "Assigning passages of the transcripts to categories together, e.g. in a course: teachers set "

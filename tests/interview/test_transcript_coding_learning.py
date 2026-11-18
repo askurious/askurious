@@ -19,7 +19,7 @@ def test_the_coding_pages_explain_their_decisions(app, client):
     assert "Welche Stelle als Ankerbeispiel?" in client.get(f"{base}/i/{rid}").data.decode()
     assert "Warum Fundstellen mit „Pos.“?" in client.get(f"{base}/overview").data.decode()
     assert "Warum Fundstellen mit „Pos.“?" not in bea.get(f"{base}/overview").data.decode()  # no export, no fold
-    assert learning.REASON_PHASES["anchor_choice"] == 2 and learning.REASON_FEATURES["position"] == "transcript_coding"
+    assert learning.REASON_PHASES["anchor_choice"] == 2 and "position" not in learning.REASON_FEATURES  # for everyone since 2026-11-18
 
 
 def test_kappa_has_its_glossary_entry():

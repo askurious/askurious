@@ -30,11 +30,9 @@ KEY = re.compile(r"^c(\d+):(\d+)$")
 
 
 def projects_for(survey):
-    """The analyses of the guide the case summaries can take as columns (only with the feature)."""
-    from app import experimental, transcript_coding
+    """The analyses of the guide the case summaries can take as columns."""
+    from app import transcript_coding
 
-    if not experimental.enabled(transcript_coding.FEATURE, survey=survey):
-        return []
     return transcript_coding.projects(survey)
 
 

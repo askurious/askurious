@@ -1,6 +1,6 @@
 # Nutzungsbedingungen für Forschende
 
-Version: 2026-11-12
+Version: 2026-11-18
 
 Diese Bedingungen gelten für alle Forschenden, die mit einem Konto (Anmeldung mit ORCID iD oder mit E-Mail-Adresse und Passwort) Befragungen auf dieser Plattform anlegen oder bearbeiten.
 Wie die Plattform die Daten Ihres Kontos verarbeitet, steht in der [Datenschutzerklärung](/imprint).
@@ -71,6 +71,7 @@ Die Einwilligung in das Interview und in die Tonaufnahme holen Sie selbst ein, s
 Eine Tonaufnahme machen Sie nur, wenn alle eingewilligt haben, die im Gespräch sprechen: die interviewte Person, Sie oder die Interviewenden und weitere Personen im Raum (§ 201 StGB); Sie bestätigen das zu Beginn jedes Interviews mit dem Haken „Einwilligung aller Sprechenden liegt vor“. Laden Sie eine Aufnahme aus einer Videokonferenz (z. B. Zoom, Microsoft Teams, Webex, BigBlueButton) hoch, halten Sie die Regeln Ihrer Einrichtung für diese Dienste ein, laden nur den Ton hoch und löschen die Kopie beim Anbieter und auf Ihrem Rechner, sobald sie auf der Plattform liegt.
 Sie schreiben keine Namen in Notizen und pseudonymisieren Transkripte, bevor Sie sie weitergeben oder veröffentlichen.
 Mit einem Interviewlink (Seite „Interviews“ des Leitfadens) führen Personen ohne Konto Interviews in Ihrem Auftrag: Sie wählen diese Personen aus, verpflichten sie auf Vertraulichkeit und weisen sie an (Art. 29 und Art. 32 Abs. 4 DSGVO). Der Link allein gibt Zugang zu den Interviews dieser Person samt Tonaufnahmen und Transkripten, bis sie das Transkript als geprüft übergibt: Sie geben ihn nur der Person selbst, nicht in Gruppen-Chats oder an mehrere, und sperren oder löschen den Zugang, wenn die Arbeit endet oder ein Gerät verloren geht.
+Dasselbe gilt für Personen, die Sie Transkripte kodieren lassen (Mitglieder einer Auswertung unter „Kodieren“, auch über einen Interviewlink mit dem Recht „darf kodieren“, etwa Studierende einer Lehrveranstaltung): Sie wählen sie aus, verpflichten sie auf Vertraulichkeit und weisen sie an; sie sehen die Transkripte der Interviews, die Sie für die Auswertung freigeben.
 
 Tagebuchstudien sind pseudonym: Die Einträge einer Person sind über eine zufällige Personenkennung verbunden, zusammen mit den Zeiten der Abfragen und der Zeitzone ihres Telefons.
 Die Texte der Benachrichtigungen schreiben Sie so, dass sie das Thema nicht verraten; der Sperrbildschirm zeigt sie nicht, entsperrt liest sie aber jede Person, die das Telefon in der Hand hat.
