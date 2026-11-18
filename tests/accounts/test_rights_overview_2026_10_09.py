@@ -66,7 +66,8 @@ def test_mail_invitation_needs_the_right_to_create(client, survey):
     _as(client, OTHER, "Kollegin")
     with client.application.test_request_context():
         other = db.session.scalar(db.select(User).filter_by(orcid=OTHER))
-        assert invites.create("neu@example.org", "editor", other, survey=db.session.get(Survey, survey)) == auth.not_admitted()
+        said = invites.create("neu@example.org", "editor", other, survey=db.session.get(Survey, survey))
+        assert said == invites.invite_refusal(other, survey=db.session.get(Survey, survey)) and "Befragungen anlegen" in said
         me = db.session.scalar(db.select(User).filter_by(orcid=ME))
         assert auth.may_admit(me) and not auth.may_admit(other) and auth.may_admit(other, ME)
 

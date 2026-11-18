@@ -7721,3 +7721,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Löschen: stündlich 30 Tage nach „erledigt“ („wieder öffnen“ hält die Frist an), sofort mit dem Konto, Dateien ohne Rückmeldung nach einer Stunde. Ordnergrenze `FEEDBACK_SHOTS_MAX_MB` (500); darüber und bei einem ungültigen Bild wird nur der Text gespeichert, mit Hinweis.
 - Slack bekommt nie das Bild, nur „mit Bild“ in der Kopfzeile. Datenschutzkonzept und Datenschutzerklärung (de/en) nennen Bild, Empfänger und Löschfrist.
 - Test: `tests/platform/test_feedback_shots.py`.
+
+## 2026-11-18: Per E-Mail einladen sichtbar in „Person hinzufügen“
+
+- Unter dem Suchfeld von „Person hinzufügen“ (Beteiligte Forschende einer Befragung, Mitglieder einer Gruppe) steht bei eingeschalteten E-Mails der Knopf „Per E-Mail einladen …“; er öffnet ein Fenster mit Adresse, Rolle und kurzem Text (Link 14 Tage und einmal gültig, Passwort oder ORCID gleichwertig). Die Einladung nach einer Adresssuche ohne Treffer bleibt (auch ohne Skript).
+- Wer dort nicht einladen darf (kein Recht, Befragungen anzulegen; Konto mit Zeitraum; Organisation lässt nur ihre Admins oder die der Plattform Personen von außen holen), sieht statt des Knopfs eine Zeile mit dem Grund und wen er fragen kann. Seite und Server nutzen dieselbe Prüfung, `invites.invite_refusal`, die `invites.create` aufruft.
+- Handbuch (build.md Beteiligte, more.md Gruppen, de/en); Test: `tests/accounts/test_invite_button.py`.

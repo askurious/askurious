@@ -102,18 +102,42 @@ def _account_of(email):
     return db.session.scalar(db.select(User).join(UserLogin, UserLogin.user_id == User.id).filter(UserLogin.email == email))
 
 
+def invite_refusal(user, survey=None, group=None):
+    """Why `user` may not invite an address to this survey or group, or None. One rule for the button "Per E-Mail
+    einladen" in "Person hinzufügen" (_people.html: without it a muted line with this reason) and for create(), so
+    that what the page says and what the server does cannot drift apart. Whether the person leads the group or is
+    admin of the survey the routes check (get_survey(need="admin"), groups._group(lead=True))."""
+    from app import auth, orgs
+
+    # an invitation by mail brings in a new account (rechte-uebersicht-konzept.md H3)
+    if not auth.may_create_surveys(user):
+        return de_en("Per E-Mail einladen darf nur, wer eigene Befragungen anlegen darf. Bitte eine Person mit diesem "
+                     "Recht oder einen Admin der Plattform fragen.",
+                     "Only someone who may create their own surveys can invite by email. Please ask a person with "
+                     "this right or a platform admin.")
+    if not auth.may_admit(user):  # an account with a period (auth._limited) brings in nobody new
+        return de_en("Ihr Konto gilt nur für einen Zeitraum; damit laden Sie niemanden neu per E-Mail ein. Bitte Ihre "
+                     "Betreuung oder einen Admin der Plattform fragen.",
+                     "Your account holds only for a period, so it cannot invite anyone new by email. Please ask your "
+                     "supervisor or a platform admin.")
+    org_id = orgs.of(survey if survey is not None else group)
+    if not orgs.may_bring_in(user, org_id):  # an address is someone from outside (orgs.SCOPES)
+        if orgs.scope_of(orgs.get(org_id)) == "platform":
+            return orgs.not_brought_in(org_id) + " " + de_en("Bitte einen Admin der Plattform fragen.",
+                                                             "Please ask a platform admin.")
+        return orgs.not_brought_in(org_id) + " " + de_en("Bitte einen Admin der Organisation fragen.",
+                                                         "Please ask an admin of the organisation.")
+    return None
+
+
 def create(email, role, by, survey=None, group=None):
     """A new invitation, mailed at once; one open per address and survey or group (a new one replaces it).
     Returns None, or why not (a message)."""
-    from app import auth, mail, mailqueue
+    from app import mailqueue
 
-    if not auth.may_admit(by):  # an invitation by mail brings in a new account (rechte-uebersicht-konzept.md H3)
-        return auth.not_admitted()
-    from app import orgs
-
-    org_id = orgs.of(survey if survey is not None else group)
-    if not orgs.may_bring_in(by, org_id):  # an address is someone from outside (orgs.SCOPES)
-        return orgs.not_brought_in(org_id)
+    refused = invite_refusal(by, survey=survey, group=group)
+    if refused:
+        return refused
     sweep()
     # counted by the mails sent, not by the invitations still there: inviting the same address again or withdrawing
     # gives no room back; and every invitation counts for the account's limit (audit 2026-10-09b, E2)

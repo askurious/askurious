@@ -524,6 +524,8 @@ def create_app(config_class=Config, server=False):
 
     app.register_blueprint(invites.bp)  # invitations by e-mail address (mail on only)
     app.jinja_env.globals["open_invites"] = invites.open_for
+    app.jinja_env.globals["invite_refusal"] = invites.invite_refusal  # "Per E-Mail einladen" or why not (_people.html)
+    app.jinja_env.globals["invite_days"] = invites.INVITE_DAYS
     from app import joinlinks
 
     app.register_blueprint(joinlinks.bp)  # links to join a group (gruppen-freischaltung-konzept.md)
