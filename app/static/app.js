@@ -2792,7 +2792,10 @@ document.querySelectorAll("[data-display-form]").forEach(function (form) {
       busy = true;
       var body = new FormData();
       body.append("code", value); body.append("csrf_token", csrfToken());
-      fetch(btn.dataset.codeEdit, { method: "POST", body: body, credentials: "same-origin" })
+      // editor.rename_item: the address of the element (the link of the name) + "/code", with its ?lang=
+      var url = new URL(link.href, location.href);
+      url.pathname = url.pathname.replace(/\/$/, "") + "/code";
+      fetch(url.href, { method: "POST", body: body, credentials: "same-origin" })
         .then(function (r) { if (!r.ok) throw r.status; return r.json(); })
         .then(function (d) {
           busy = false;

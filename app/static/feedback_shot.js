@@ -13,6 +13,11 @@
   function icon(sprite, name) {
     return '<svg class="icon" width="16" height="16" aria-hidden="true"><use href="' + sprite + "#" + name + '"/></svg> ';
   }
+  // the page may take a picture of itself (Permissions-Policy, app/__init__.py: not on interview pages)
+  function allowed() {
+    var policy = document.permissionsPolicy || document.featurePolicy;
+    try { return !policy || policy.allowsFeature("display-capture"); } catch (e) { return true; }
+  }
   function buildEditor(sprite) {
     if (editor) return editor;
     editor = document.createElement("dialog");
@@ -58,16 +63,57 @@
     if (!box || !CS || !window.DataTransfer || !window.HTMLDialogElement) return;  // the plain file field stays
     var sprite = box.dataset.icons || "";
     var field = box.querySelector("[data-fb-shot-file]"), plain = box.querySelector("[data-fb-shot-plain]");
-    var buttons = box.querySelector("[data-fb-shot-buttons]"), picker = box.querySelector("[data-fb-shot-picker]");
-    var capture = box.querySelector("[data-fb-shot-capture]"), thumb = box.querySelector("[data-fb-shot-thumb]");
-    var img = box.querySelector("[data-fb-shot-img]"), info = box.querySelector("[data-fb-shot-info]");
-    var error = box.querySelector("[data-fb-shot-error]");
-    var note = form.querySelector("[data-fb-note]"), noteShot = form.querySelector("[data-fb-note-shot]");
+    var note = form.querySelector("[data-fb-note]");
+    // the buttons, the thumbnail and the note for an image, built here (the page carries only the plain field)
+    function button(cls, name, text, label) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = cls;
+      b.innerHTML = icon(sprite, name);
+      if (text) b.appendChild(document.createTextNode(text));
+      if (label) { b.setAttribute("aria-label", label); b.title = label; }
+      return b;
+    }
+    var buttons = document.createElement("div");
+    buttons.className = "feedback-shot-buttons";
+    var capture = button("button button-small button-secondary", "camera", de_en("Seite aufnehmen", "Capture page"));
+    capture.hidden = true;
+    capture.setAttribute("data-fb-shot-capture", "");
+    var pick = button("button button-small button-secondary", "image", de_en("Bild wählen", "Choose image"));
+    pick.setAttribute("data-fb-shot-pick", "");
+    var picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "image/*";
+    picker.hidden = true;
+    buttons.append(capture, pick, picker);
+    var thumb = document.createElement("div");
+    thumb.className = "feedback-shot-thumb";
+    thumb.hidden = true;
+    thumb.setAttribute("data-fb-shot-thumb", "");
+    var img = document.createElement("img"), info = document.createElement("span");
+    img.alt = de_en("Angehängtes Bild", "Attached image");
+    img.title = de_en("Markieren", "Mark");
+    info.className = "muted small";
+    img.setAttribute("data-fb-shot-img", "");
+    var remove = button("icon-btn feedback-shot-remove", "x", "", de_en("Bild entfernen", "Remove image"));
+    remove.setAttribute("data-fb-shot-remove", "");
+    thumb.append(img, info, remove);
+    var error = document.createElement("p");
+    error.className = "feedback-shot-error";
+    error.hidden = true;
+    box.append(buttons, thumb, error);
+    var noteShot = note.cloneNode(true);
+    noteShot.hidden = true;
+    noteShot.removeAttribute("data-fb-note");
+    var code = noteShot.querySelector("code");
+    noteShot.textContent = de_en("Die Seite, auf der Sie gerade sind, und das Bild werden mitgeschickt", "The page you are on and the image are sent along");
+    if (code) noteShot.append(" (", code, ")");
+    noteShot.append(". " + de_en("Bitte Angaben von Teilnehmenden abdecken.", "Please cover any participant data."));
+    note.after(noteShot);
     // the dialog around the form (header), or none (the page /feedback/new): what is hidden for the picture
     var dialog = form.closest("dialog");
     var shot = null, url = null;
     plain.hidden = true;  // the field inside stays in the form: it carries the finished file
-    buttons.hidden = false;
 
     function fail(text) { error.textContent = text; error.hidden = false; }
     function size(bytes) {
@@ -105,7 +151,7 @@
       CS.load(f).then(function (base) { return mark(base, []); })
         .catch(function () { fail(de_en("Das ist kein Bild, das sich anhängen lässt.", "That is not an image that can be attached.")); });
     }
-    if (capture && CS.supported()) {
+    if (CS.supported() && allowed()) {
       capture.hidden = false;
       capture.addEventListener("click", function () {
         error.hidden = true;
@@ -117,12 +163,12 @@
           });
       });
     }
-    box.querySelector("[data-fb-shot-pick]").addEventListener("click", function () { picker.click(); });
+    pick.addEventListener("click", function () { picker.click(); });
     picker.addEventListener("change", function () { take(picker.files[0]); picker.value = ""; });
     img.addEventListener("click", function () { if (shot) mark(shot.base, shot.marks); });
-    box.querySelector("[data-fb-shot-remove]").addEventListener("click", function () {
+    remove.addEventListener("click", function () {
       set(null);
-      box.querySelector("[data-fb-shot-pick]").focus();
+      pick.focus();
     });
     // pasted: only while this form can be seen (the dialog open, or the page of its own), and only images
     document.addEventListener("paste", function (e) {

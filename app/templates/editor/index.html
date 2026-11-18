@@ -347,8 +347,9 @@
             <a class="item-icon" href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" {% set preset = item_preset(item) %}title="{{ (preset or item.kind).label }}" draggable="false">{{ icon(preset.key if preset else item.type) }}</a>
             <div class="item-body">
               <a href="{{ url_for('editor.edit_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" class="item-code" draggable="false">{{ item.code }}</a>
-              {# the name changed in place (app.js data-code-edit; editor.rename_item): in a draft, for who may edit #}
-              {% if editable %}<button type="button" class="icon-btn code-edit" data-code-edit="{{ url_for('editor.rename_item', survey_id=survey.id, item_id=item.id, lang=lang) }}" title="{{ de_en('Variablennamen ändern', 'Change the variable name') }}" aria-label="{{ de_en('Variablennamen „{code}“ ändern', 'Change the variable name “{code}”', code=item.code) }}">{{ icon("edit", 14) }}</button>{% endif %}
+              {# the name changed in place (app.js data-code-edit; editor.rename_item): in a draft, for who may edit. Its
+                 address is the name's link + "/code" (app.js), not one more address in every row (test_icon_sprite) #}
+              {% if editable %}<button type="button" class="icon-btn code-edit" data-code-edit title="{{ de_en('Variablennamen ändern', 'Change the variable name') }}" aria-label="{{ de_en('Variablennamen „{code}“ ändern', 'Change the variable name “{code}”', code=item.code) }}">{{ icon("edit", 14) }}</button>{% endif %}
               {% if item.kind.collects_answer and item.kind.has_answer_mode %}
               {% set mode = item.answer_mode_labels()[item.answer_mode] %}
               <span class="badge mode-badge mode-{{ item.answer_mode }}" title="{{ mode[1] }}">{{ mode[0] }}</span>
