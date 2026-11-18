@@ -57,3 +57,13 @@ def test_pages_of_passages(app, client):
     d = client.get(f"{base}/categories/{sub}/passages.json?per=20&page=9").json        # beyond the end: the last
     assert d["per"] == 20 and d["page"] == 1 and len(d["rows"]) == 12
     assert client.get(f"{base}/categories/{sub}/passages.json?per=7").json["per"] == 10  # only 10, 20, 50
+
+
+def test_the_dialog_names_the_definition_of_the_category(app, client):
+    """The definition of the clicked category stands fixed above the list (Ralf 2026-11-18); none: empty, no text."""
+    code, pid, rid, base, main, bea = _setup(app, client)
+    sub = _sub(client, base, main, "Erschöpfung", definition="Müdigkeit nach der Arbeit.\nAuch am Wochenende.")
+    assert client.get(f"{base}/categories/{sub}/passages.json").json["definition"] == "Müdigkeit nach der Arbeit.\nAuch am Wochenende."
+    assert client.get(f"{base}/categories/{main}/passages.json").json["definition"] == ""
+    page = client.get(f"{base}?view=categories&show=diagram").data.decode()
+    assert re.search(r'<p class="[^"]*tc-passages-def[^"]*" data-tc-passages-def hidden></p>', page)

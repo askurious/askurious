@@ -1059,7 +1059,7 @@ def category_passages(project, who, cat_id):
 @signed_in_or_coder
 def category_passages_json(code, pid, cid):
     """The passages of one category for its dialog in the diagram (Ralf 2026-11-18), loaded only on a click and a page
-    at a time: quote, interview and place, the subcategory below the clicked one it was coded with, who coded and a
+    at a time: the definition of the clicked category (shown fixed above the list), quote, interview and place, the subcategory below the clicked one it was coded with, who coded and a
     link to the place in the transcript."""
     from flask import jsonify
 
@@ -1082,7 +1082,7 @@ def category_passages_json(code, pid, cid):
         path = getattr(cats.get(c["cat"]), "path", "")
         return path[len(top) + 3:] if c["cat"] != cid and path.startswith(top + " › ") else ""
 
-    return jsonify(name=top, total=len(rows), page=page, pages=pages, per=per, sizes=list(PASSAGE_SIZES),
+    return jsonify(name=top, definition=cat.definition or "", total=len(rows), page=page, pages=pages, per=per, sizes=list(PASSAGE_SIZES),
                    rows=[{"quote": clean_quote(c.get("quote")), "where": at(r, c["start"]), "by": c.get("by_name") or "",
                           "sub": below(c),
                           "url": url_for("transcript_coding.page", code=survey.code, pid=project.id, rid=r.id,
