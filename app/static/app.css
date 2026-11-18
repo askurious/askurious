@@ -2453,6 +2453,9 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-passages-dialog [data-tc-passages-list] { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   overscroll-behavior: contain; padding-right: 4px; }
 .tc-passages-dialog .tc-passages p { overflow-wrap: anywhere; }
+/* the definition of the category stays above the list, at most about four lines with its own scroll (Ralf 2026-11-18) */
+.tc-passages-def { margin: 0 0 12px; white-space: pre-line; overflow-wrap: anywhere; max-height: 6em; overflow-y: auto;
+  overscroll-behavior: contain; }
 .tc-passages-pager { margin-top: 0; padding-top: 12px; border-top: 1px solid var(--border); align-items: center; }
 .tc-notices summary { cursor: pointer; }
 .tc-notice { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-top: 8px; display: grid; gap: 4px; }

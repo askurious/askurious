@@ -436,6 +436,10 @@ window.tcAfterOptions = function (select, rows, preset) {
     dialog.querySelector("[data-tc-passages-name]").textContent = d.name;
     dialog.querySelector("[data-tc-passages-count]").textContent = de_en("{n} Stellen", "{n} passages").replace("{n}", d.total);
     dialog.querySelector("[data-tc-passages-empty]").hidden = d.total > 0;
+    var def = dialog.querySelector("[data-tc-passages-def]");
+    def.textContent = d.definition || "";
+    def.hidden = !d.definition;
+    def.scrollTop = 0;
     list.textContent = "";
     d.rows.forEach(function (r) {
       var li = el("li"), meta = el("p", "muted small");
@@ -473,6 +477,8 @@ window.tcAfterOptions = function (select, rows, preset) {
     dialog.querySelector("[data-tc-passages-name]").textContent = "";
     dialog.querySelector("[data-tc-passages-count]").textContent = "";
     dialog.querySelector("[data-tc-passages-empty]").hidden = true;
+    dialog.querySelector("[data-tc-passages-def]").textContent = "";
+    dialog.querySelector("[data-tc-passages-def]").hidden = true;
     pager.hidden = true;
     if (dialog.showModal && !dialog.open) dialog.showModal();
     load(1);
