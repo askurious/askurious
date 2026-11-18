@@ -448,6 +448,7 @@ window.tcAfterOptions = function (select, rows, preset) {
       li.appendChild(meta);
       list.appendChild(li);
     });
+    list.scrollTop = 0;
     state.page = d.page;
     per.value = String(d.per);
     pager.hidden = d.total <= d.sizes[0];
