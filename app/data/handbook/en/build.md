@@ -93,6 +93,9 @@ Undo works across pages and checks the role when it is carried out.
 
 **What it is.**
 Everything about the survey that is not a question, in foldable groups: **Survey** (title, project, description, languages), **Researchers involved**, **Participation**, **Consent and data protection**, **End pages**, **Appearance** (with the **standard of the scales**: points, answer scale, labels and numbers that every new Likert scale takes; “apply to all scales” aligns the existing ones, the pre-launch check reports deviations, deviations on purpose are ticked in the element).
+
+Under **Researchers involved**, “Add a person” finds accounts by name, ORCID iD or email address. For people without an account, “Invite by email …” (only when the platform sends emails) opens a window with address and role: the person gets a link that holds for 14 days and once only, chooses a password with it or signs in with ORCID (both ways are equal) and is then involved with the role chosen; open invitations are listed below and can be withdrawn. Whoever is admin of the survey and may create surveys themselves can invite; an account with a period invites nobody new, and an organisation can limit it to its admins or the platform admins. Whoever may not invite sees a line with the reason and whom to ask instead of the button.
+
 The wizard and this page use the same fields, so a setting means the same in both places.
 Once real participations exist, the settings that the consent names are locked (shown with a padlock).
 

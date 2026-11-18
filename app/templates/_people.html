@@ -8,10 +8,13 @@
    and its matches (None: no search yet); add_url: POST target per match (gets orcid, name, affiliation);
    roles: {key: (label, what)} to choose from, role_name: its field, role_default: the key chosen first (none: no
    choice); hidden: further fields of the add form; search_hidden: further fields of the search (a GET form drops
-   the query of its action); add_word: the word of the button. #}
+   the query of its action); add_word: the word of the button.
+   invite_url: POST target of an invitation by e-mail (app/invites.py, mail on only): a button "Per E-Mail einladen"
+   under the search opens a dialog with address and role; invite_refused: why the person may not invite here
+   (invites.invite_refusal, the same rule the server applies), shown as a muted line instead of the button. #}
 {% from "_macros.html" import csrf, orcid_link %}
 {% from "_icons.html" import icon %}
-{% macro person_add(search_url, field_id, q, results, add_url, roles=none, role_name="role", role_default=none, hidden={}, search_hidden={}, add_word=none, invite_url=none) -%}
+{% macro person_add(search_url, field_id, q, results, add_url, roles=none, role_name="role", role_default=none, hidden={}, search_hidden={}, add_word=none, invite_url=none, invite_refused=none) -%}
 {%- set add_word = add_word or de_en("Hinzufügen", "Add") %}
 <form method="get" action="{{ search_url }}" class="person-add">
   {% for name, value in search_hidden.items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
@@ -19,6 +22,30 @@
   <div class="row"><input id="{{ field_id }}" name="q" value="{{ q or '' }}" placeholder="{{ de_en('Name, ORCID iD oder E-Mail-Adresse', 'Name, ORCID iD or email address') }}" autocomplete="off">
   <button class="button button-secondary">{{ de_en("Suchen", "Search") }}</button></div>
 </form>
+{% set invite_on = invite_url and mail_enabled() %}
+{% if invite_on and invite_refused %}
+<p class="muted small person-invite-refused">{{ icon("mail", 16) }} {{ invite_refused }}</p>
+{% elif invite_on %}
+{# a person without an account: invited by e-mail in a dialog (button → dialog, as the other create forms); without
+   script the search for an address below still offers the invitation #}
+{% set dialog_id = "invite-mail-" ~ field_id %}
+<p class="person-invite-open"><button type="button" class="button button-small button-secondary" data-dialog-open="{{ dialog_id }}" aria-haspopup="dialog">{{ icon("mail", 16) }} {{ de_en("Per E-Mail einladen …", "Invite by email …") }}</button>
+  <span class="muted small">{{ de_en("für Personen ohne Konto", "for people without an account") }}</span></p>
+<dialog class="person-dialog xp-dialog is-narrow" id="{{ dialog_id }}" aria-labelledby="{{ dialog_id }}-title">
+  <div class="xp-dialog-head"><h2 id="{{ dialog_id }}-title">{{ de_en("Per E-Mail einladen", "Invite by email") }}</h2>
+    <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <form method="post" action="{{ invite_url }}" class="stack">
+    {{ csrf() }}{% for name, value in hidden.items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <label for="{{ dialog_id }}-email">{{ de_en("E-Mail-Adresse", "Email address") }}</label>
+    <input id="{{ dialog_id }}-email" type="email" name="email" required maxlength="254" autocomplete="off" value="{{ q if q and '@' in q else '' }}">
+    {% if roles %}<label for="{{ dialog_id }}-role">{{ de_en("Rolle", "Role") }}</label>
+    <select id="{{ dialog_id }}-role" name="{{ role_name }}">{% for key, (label, what) in roles.items() %}<option value="{{ key }}" title="{{ what }}" {% if key == role_default %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% endif %}
+    <p class="muted small">{{ de_en("Die Person bekommt eine E-Mail mit einem Link, der {d} Tage und nur einmal gilt. Damit legt sie ein Passwort fest oder meldet sich mit ORCID an; beide Wege sind gleichwertig. Danach ist sie mit der gewählten Rolle dabei. Hat die Adresse schon ein Konto, finden Sie die Person über die Suche und fügen sie direkt hinzu.", "The person gets an email with a link that holds for {d} days and once only. With it they choose a password or sign in with ORCID; both ways are equal. After that they take part with the role chosen. If the address already has an account, find the person with the search and add them directly.", d=invite_days) }}</p>
+    <div class="form-actions"><button class="button">{{ icon("mail", 16) }} {{ de_en("Einladung senden", "Send invitation") }}</button>
+      <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+  </form>
+</dialog>
+{% endif %}
 {% if results is not none %}
   {% if results %}
   <ul class="plain results person-results">
@@ -38,12 +65,14 @@
     </li>
     {% endfor %}
   </ul>
-  {% elif invite_url and mail_enabled() and q and "@" in q %}
+  {% elif invite_on and q and "@" in q and invite_refused %}
+  <p class="muted">{{ de_en("Zu {e} gibt es kein Konto.", "There is no account for {e}.", e=q) }}</p>
+  {% elif invite_on and q and "@" in q %}
   {# no account with this address: invite by e-mail (app/invites.py; only with mail switched on) #}
   <form class="person-invite" method="post" action="{{ invite_url }}">
     {{ csrf() }}{% for name, value in hidden.items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
     <input type="hidden" name="email" value="{{ q }}">
-    <p class="muted">{{ de_en("Zu {e} gibt es kein Konto. Per E-Mail einladen: Die Person bekommt einen Link, meldet sich mit ORCID an oder legt ein Passwort fest und ist dann beteiligt.", "There is no account for {e}. Invite by email: the person gets a link, signs in with ORCID or chooses a password and is then involved.", e=q) }}</p>
+    <p class="muted">{{ de_en("Zu {e} gibt es kein Konto. Per E-Mail einladen: Die Person bekommt einen Link, legt ein Passwort fest oder meldet sich mit ORCID an und ist dann dabei.", "There is no account for {e}. Invite by email: the person gets a link, chooses a password or signs in with ORCID and then takes part.", e=q) }}</p>
     <div class="row">{% if roles %}<select name="{{ role_name }}" aria-label="{{ de_en('Rolle', 'Role') }}">{% for key, (label, what) in roles.items() %}<option value="{{ key }}" title="{{ what }}" {% if key == role_default %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% endif %}
     <button class="button button-small">{{ icon("mail", 16) }} {{ de_en("Per E-Mail einladen", "Invite by email") }}</button></div>
   </form>

@@ -67,7 +67,7 @@
   <p class="muted small">{{ de_en("Rollen:", "Roles:") }} {% for key, (label, what) in roles.items() %}<strong>{{ label }}</strong>: {{ what }}{% if not loop.last %} · {% endif %}{% endfor %}.
     {{ de_en("Wer hinzugefügt wird, ist sofort Mitglied, kann sich bei Askurious anmelden und hat Zugriff auf alles, was mit der Gruppe geteilt ist.", "Anyone who is added is a member at once, can sign in to Askurious and has access to everything shared with the group.") }}</p>
   {# one component for adding a person (_people.html, W96, S8) #}
-  {{ person_add(url_for('groups.detail', group_id=group.id) ~ "#members", "group-member-q", q, results, url_for('groups.add_member', group_id=group.id), roles=roles, role_default="member", invite_url=url_for('invites.to_group', group_id=group.id)) }}
+  {{ person_add(url_for('groups.detail', group_id=group.id) ~ "#members", "group-member-q", q, results, url_for('groups.add_member', group_id=group.id), roles=roles, role_default="member", invite_url=url_for('invites.to_group', group_id=group.id), invite_refused=invite_refusal(current_user, group=group)) }}
   {% if mail_enabled() or course %}{% with invites=open_invites(group=group) %}{% include "invites/_open.html" %}{% endwith %}{% endif %}
   {% include "groups/_join_links.html" %}
   {% endif %}

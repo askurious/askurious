@@ -146,6 +146,6 @@
   {% if manage %}
   <p class="muted small">{{ de_en("Rollen:", "Roles:") }} {% for key, (label, what) in role_names.items() %}<strong>{{ label }}</strong>: {{ what }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
   {# one component for adding a person (_people.html, W96, S8) #}
-  {{ person_add(search_url ~ "#members", "member-q", q, results, url_for('surveys.add_member', survey_id=survey.id), roles=role_names, role_default="editor", hidden={"next": back}, invite_url=url_for('invites.to_survey', survey_id=survey.id)) }}
+  {{ person_add(search_url ~ "#members", "member-q", q, results, url_for('surveys.add_member', survey_id=survey.id), roles=role_names, role_default="editor", hidden={"next": back}, invite_url=url_for('invites.to_survey', survey_id=survey.id), invite_refused=invite_refusal(current_user, survey=survey)) }}
   {% if mail_enabled() %}{% with invites=open_invites(survey=survey), roles=role_names %}{% include "invites/_open.html" %}{% endwith %}{% endif %}
   {% endif %}

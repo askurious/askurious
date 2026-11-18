@@ -93,6 +93,9 @@ Rückgängig wirkt über Seiten hinweg und prüft beim Ausführen die Rolle.
 
 **Was es ist.**
 Alles an der Befragung, was keine Frage ist, in aufklappbaren Gruppen: **Befragung** (Titel, Projekt, Beschreibung, Sprachen), **Beteiligte Forschende**, **Teilnahme**, **Einwilligung und Datenschutz**, **Endseiten**, **Erscheinungsbild** (mit dem **Standard der Skalen**: Stufen, Antwortskala, Beschriftung und Zahlen, die jede neue Likert-Skala übernimmt; „auf alle Skalen anwenden“ gleicht die bestehenden an, die Startprüfung meldet Abweichungen, gewollte Abweichungen kreuzt man im Element an).
+
+Unter **Beteiligte Forschende** findet „Person hinzufügen“ Konten über Name, ORCID iD oder E-Mail-Adresse. Für Personen ohne Konto öffnet „Per E-Mail einladen …“ (nur wenn die Plattform E-Mails verschickt) ein Fenster mit Adresse und Rolle: Die Person bekommt einen Link, der 14 Tage und nur einmal gilt, legt damit ein Passwort fest oder meldet sich mit ORCID an (beide Wege gleichwertig) und ist dann mit der gewählten Rolle beteiligt; offene Einladungen stehen darunter und lassen sich zurückziehen. Einladen darf, wer Admin der Befragung ist und selbst Befragungen anlegen darf; ein befristetes Konto lädt niemanden neu ein, und eine Organisation kann es auf ihre Admins oder die Admins der Plattform beschränken. Wer nicht einladen darf, sieht statt des Knopfs eine Zeile mit dem Grund und wen er fragen kann.
+
 Der Assistent und diese Seite verwenden dieselben Felder, sodass eine Einstellung an beiden Stellen dasselbe bedeutet.
 Sobald es echte Teilnahmen gibt, sind die Einstellungen gesperrt, die die Einwilligung nennt (zu erkennen am Schloss).
 

@@ -37,6 +37,8 @@ A group owns nothing: anyone who leaves loses only what was shared through the g
 
 “New group …” opens the same dialog everywhere: under Groups, under Management > Groups and under Administration > Groups. Everyone enters a name and a description; whoever creates the group leads it. Admins of the organisation also see in the same dialog who leads the group (they then do not become a member themselves), whether everyone who joins gets “Create”, and whether the group is a course (user type and end for new accounts). The group belongs to the organisation of the page, under Groups to one’s own home organisation.
 
+The lead adds members under “Add a person”: existing accounts with the search, people without an account with “Invite by email …” (when the platform sends emails), with the same rules as for the people involved in a survey: link valid for 14 days and once, password or ORCID equal, and whoever may not invite sees the reason.
+
 **Places of the organisation (Management › People).**
 Every account whose home is the organisation takes a place.
 The top of the page shows how many places the organisation has and how many are free; invitations by link only work while places are free.

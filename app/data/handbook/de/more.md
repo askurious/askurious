@@ -37,6 +37,8 @@ Eine Gruppe besitzt nichts: Wer geht, verliert nur, was über die Gruppe geteilt
 
 „Neue Gruppe …“ öffnet überall denselben Dialog: unter Gruppen, unter Verwaltung > Gruppen und unter Administration > Gruppen. Name und Beschreibung trägt jede Person ein; wer die Gruppe anlegt, leitet sie. Admins der Organisation sehen im selben Dialog zusätzlich, wer die Gruppe leitet (dann werden sie selbst nicht Mitglied), ob alle, die dazukommen, „Anlegen“ bekommen, und ob die Gruppe eine Lehrveranstaltung ist (Nutzertyp und Ende für neue Konten). Die Gruppe gehört zur Organisation der Seite, unter Gruppen zur eigenen Stammorganisation.
 
+Die Leitung nimmt unter „Person hinzufügen“ Mitglieder auf: vorhandene Konten über die Suche, Personen ohne Konto mit „Per E-Mail einladen …“ (wenn die Plattform E-Mails verschickt), mit denselben Regeln wie bei den Beteiligten einer Befragung: Link 14 Tage und einmal gültig, Passwort oder ORCID gleichwertig, und wer nicht einladen darf, sieht den Grund.
+
 **Plätze der Organisation (Verwaltung › Personen).**
 Jedes Konto, dessen Heimat die Organisation ist, belegt einen Platz.
 Oben auf der Seite steht, wie viele Plätze die Organisation hat und wie viele frei sind; Einladungen per Link gehen nur, solange Plätze frei sind.
