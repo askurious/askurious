@@ -14,6 +14,7 @@
   {% if request.blueprint in ('editor', 'live', 'surveys', 'interview') %}<link rel="stylesheet" href="{{ url_for('static', filename='participant.css') }}">{% endif %}
   {% if request.blueprint == 'live' %}<link rel="stylesheet" href="{{ url_for('static', filename='live.css') }}">{% endif %}
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {% if current_user.is_authenticated %}<script src="{{ url_for('static', filename='comment_shot.js') }}" defer></script><script src="{{ url_for('static', filename='feedback_shot.js') }}" defer></script>{% endif %}
   {# participant.js only on the participants' pages (participant/base.html, the element's preview, the interview): the
      few helpers these pages need are in app.js. The formatting field only on the pages with formatted texts, which
      say so with {% set rich_text = true %} (code review 2026-10-07, F9) #}
@@ -193,7 +194,7 @@
   {% endif %}
 {# after the page, not before its h1: its heading would come first in the list of headings (UI audit 2026-10-12, U55) #}
   {% if current_user.is_authenticated %}
-  <dialog class="feedback-dialog" data-feedback-dialog aria-labelledby="feedback-title">
+  {{ feedback_capture() }}<dialog class="feedback-dialog" data-feedback-dialog aria-labelledby="feedback-title">
     <div class="feedback-dialog-head"><h2 id="feedback-title">{{ icon("bug", 20) }} {{ de_en("Rückmeldung", "Feedback") }}</h2>
       <button type="button" class="icon-btn" data-feedback-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
     {% with page="", form={}, severities=feedback_severities %}{% include "feedback/_form.html" %}{% endwith %}

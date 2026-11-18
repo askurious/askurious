@@ -192,4 +192,8 @@ def test_preview_pages_may_take_a_picture_of_themselves(app, client, survey):
     assert "display-capture=(self)" in mobile.headers["Permissions-Policy"] and "comment_shot.js" in mobile.data.decode()
     phone = app.test_client().get(_phone_path(client) + "?page=2", follow_redirects=True)
     assert "display-capture=(self)" in phone.headers["Permissions-Policy"]
-    assert "display-capture=()" in client.get("/surveys/1/editor/").headers["Permissions-Policy"]   # nowhere else
+    # researchers' pages allow it for the image of a feedback (feedback_shot.js); a participant's page never
+    assert "display-capture=(self)" in client.get("/surveys/1/editor/").headers["Permissions-Policy"]
+    client.post("/surveys/1/start", data={"use_end": "1", "field_end": "2031-01-01"})
+    real = app.test_client().get(f"/s/{_uid(app)}", follow_redirects=True)
+    assert "display-capture=()" in real.headers["Permissions-Policy"]

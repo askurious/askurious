@@ -84,27 +84,45 @@ def store(survey, upload, attribution=None):
     """Read an uploaded image, write it anew; returns (file name, width, height). ValueError with a message for the
     person testing if it is no image, too large or the survey has no room left; Refused (a ValueError too) when the
     sender sent too many images or the process is decoding DECODES_AT_ONCE already."""
-    from app import image_rights
-    from app.media import open_image
-
     check_sender()
+    data = read_upload(upload)
+    if used_bytes(survey) >= current_app.config["COMMENT_SHOTS_MAX_MB"] * 1024 * 1024:
+        raise ValueError(de_en("Für diese Befragung sind schon sehr viele Bilder gespeichert. Bitte ohne Bild senden.",
+                               "Very many images are already stored for this survey. Please send without an image."))
+    payload, ext, width, height = redraw(data, attribution)
+    return write_file(os.path.join(root(), survey.uid), payload, ext), width, height
+
+
+def read_upload(upload):
+    """The bytes of an uploaded image; ValueError when it is empty or larger than MAX_BYTES. Also for the images of
+    feedback (app/feedback_shots.py)."""
     data = upload.read(MAX_BYTES + 1)
     if not data:
         raise ValueError(de_en("Das Bild ist leer.", "The image is empty."))
     if len(data) > MAX_BYTES:
         raise ValueError(de_en("Das Bild ist zu groß (höchstens 8 MB).", "The image is too large (at most 8 MB)."))
-    if used_bytes(survey) >= current_app.config["COMMENT_SHOTS_MAX_MB"] * 1024 * 1024:
-        raise ValueError(de_en("Für diese Befragung sind schon sehr viele Bilder gespeichert. Bitte ohne Bild senden.",
-                               "Very many images are already stored for this survey. Please send without an image."))
+    return data
+
+
+def redraw(data, attribution=None, keep_rights=True):
+    """The image read with Pillow and written anew: (bytes, "png" or "jpg", width, height), at most MAX_SIDE a side,
+    a PNG or, above PNG_LIMIT, a JPEG. Only bounded rights metadata goes along (the image's own and `attribution`),
+    none at all with keep_rights=False (feedback). ValueError if it is no image; Busy while DECODES_AT_ONCE images are
+    decoded in this process."""
+    from app import image_rights
+    from app.media import open_image
+
     img = open_image(data, ["PNG", "JPEG", "WEBP", "GIF"], max_pixels=MAX_PIXELS)  # header only, nothing decoded yet
     if not _decoding.acquire(timeout=DECODE_WAIT):
-        raise Busy(de_en("Gerade werden viele Bilder verarbeitet. Bitte den Kommentar in einem Moment erneut senden.",
-                         "Many images are being processed right now. Please send the comment again in a moment."))
+        raise Busy(de_en("Gerade werden viele Bilder verarbeitet. Bitte in einem Moment erneut senden.",
+                         "Many images are being processed right now. Please send again in a moment."))
     try:
-        embedded = image_rights.read(img)
-        supplied = image_rights.normalize(attribution)
-        rights = image_rights.normalize({field: embedded.get(field, []) + supplied.get(field, [])
-                                        for field in image_rights.FIELDS})
+        rights = {}
+        if keep_rights:
+            embedded = image_rights.read(img)
+            supplied = image_rights.normalize(attribution)
+            rights = image_rights.normalize({field: embedded.get(field, []) + supplied.get(field, [])
+                                            for field in image_rights.FIELDS})
         img = _decoded(img)
     finally:
         _decoding.release()
@@ -116,14 +134,18 @@ def store(survey, upload, attribution=None):
         out = io.BytesIO()
         img.save(out, "JPEG", quality=88, optimize=True, **image_rights.save_options(rights, "JPEG"))
         ext = "jpg"
-    folder = os.path.join(root(), survey.uid)
+    return out.getvalue(), ext, img.width, img.height
+
+
+def write_file(folder, payload, ext):
+    """Write the image under a new random name (NAME_RE) into `folder`, whole or not at all; returns the name."""
     os.makedirs(folder, exist_ok=True)
     name = f"{secrets.token_urlsafe(12)}.{ext}"
     tmp = os.path.join(folder, f".{name}.{os.getpid()}.tmp")
     with open(tmp, "wb") as f:
-        f.write(out.getvalue())
+        f.write(payload)
     os.replace(tmp, os.path.join(folder, name))
-    return name, img.width, img.height
+    return name
 
 
 def _decoded(img):

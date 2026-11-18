@@ -286,6 +286,7 @@ def create_app(config_class=Config, server=False):
     app.jinja_env.globals["participant_base"] = hosts.participant_base
     from app import notify
 
+    app.jinja_env.globals["feedback_capture"] = _feedback_capture
     app.jinja_env.globals["slack_full"] = notify.full  # what goes to Slack, for the privacy texts (app/notify.py)
 
     # PROXY_COUNT is the number of proxies in front of the app (Plesk with nginx in front: 1; no proxy: no line),
@@ -1134,7 +1135,8 @@ def create_app(config_class=Config, server=False):
         # site that keeps a handle on this one (security audit 2026-10-04, H2)
         # except the microphone for a page that records and says so (g.microphone: interviews, items/voice.py) and the
         # position for a page with the location element (g.geolocation: items/geolocation.py), and a picture of the
-        # page for a comment from a test run (g.display_capture: the preview with its comment box, comment_shot.js)
+        # page for a comment from a test run (g.display_capture: the preview with its comment box, comment_shot.js) or
+        # for the image of a feedback (researchers' pages with the feedback dialog, base.html, feedback_shot.js)
         allowed = PERMISSIONS
         if g.get("microphone"):
             allowed = allowed.replace("microphone=()", "microphone=(self)")
@@ -1268,6 +1270,15 @@ def create_app(config_class=Config, server=False):
 # the participants' side of a StaleDataError (participate._sent_twice: the page sent twice is dropped without a word):
 # the participant pages, the live phones, the device of an interview, the diary app, shared previews, the preview
 PARTICIPANT_BLUEPRINTS = ("participate", "live_public", "interview_screen_public", "diary_api", "preview_share")
+
+
+def _feedback_capture():
+    """Called where base.html puts the feedback dialog (for signed-in researchers): "Seite aufnehmen" may take a
+    picture of this tab (Permissions-Policy display-capture=(self), app/feedback_shots.py, E1); never on a page of
+    participants."""
+    if request.blueprint not in PARTICIPANT_BLUEPRINTS:
+        g.display_capture = True
+    return ""
 
 
 def _participant_side():

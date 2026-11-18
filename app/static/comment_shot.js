@@ -8,9 +8,14 @@
 //
 // edit(dialog, base, marks): the dialog to mark the image: frame, arrow, cover (black, for what nobody should see),
 // undo. Marks are kept in the pixels of the image, so the image can be marked again later. Resolves with the marks
-// or null (cancelled). render(base, marks) draws both into a new canvas.
+// or null (cancelled). render(base, marks) draws both into a new canvas. edit(dialog, base, marks, "cover") starts with
+// that tool (the image of a feedback, feedback_shot.js; else the frame).
+//
+// load(file) reads a chosen, pasted or dropped image into a canvas of at most MAX_SIDE pixels a side, on white;
+// encode(canvas) makes the file that is sent: PNG, or JPEG 0.88 when the PNG is larger than PNG_LIMIT. The server reads
+// it again in any case (app/comment_shots.py, also for feedback: app/feedback_shots.py).
 (function () {
-  var RED = "#e0442b";
+  var RED = "#e0442b", MAX_SIDE = 2400, PNG_LIMIT = 1500000;
 
   function supported() {
     var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
@@ -86,7 +91,12 @@
       video.playsInline = true;
       video.srcObject = stream;
       box.style.visibility = "hidden";
-      function stop() { stream.getTracks().forEach(function (t) { t.stop(); }); box.style.visibility = ""; }
+      box.classList.add("is-capturing");  // a modal dialog takes its backdrop away too (feedback dialog, app.css)
+      function stop() {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        box.style.visibility = "";
+        box.classList.remove("is-capturing");
+      }
       return video.play()
         .then(function () { return frames(3); })
         .then(function () { return new Promise(function (r) { setTimeout(r, 350); }); })  // the box is gone from the picture
@@ -129,9 +139,10 @@
   }
 
   // --- the dialog to mark ----------------------------------------------------------------------------------------
-  function edit(dialog, base, marks) {
+  function edit(dialog, base, marks, first) {
     marks = (marks || []).slice();
-    var canvas = dialog.querySelector("[data-shot-canvas]"), tool = "rect", drag = null;
+    first = first || "rect";
+    var canvas = dialog.querySelector("[data-shot-canvas]"), tool = first, drag = null;
     canvas.width = base.width;
     canvas.height = base.height;
     var tools = dialog.querySelectorAll("[data-tool]");
@@ -140,7 +151,7 @@
       tool = name;
       tools.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.tool === name ? "true" : "false"); });
     }
-    pick("rect");
+    pick(first);
     redraw();
     function pos(e) {
       var r = canvas.getBoundingClientRect();
@@ -202,5 +213,35 @@
     });
   }
 
-  window.CommentShot = { supported: supported, capture: capture, edit: edit, render: render };
+  // --- a chosen image, and the file that is sent ------------------------------------------------------------------
+  function load(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("decode")); };
+      img.src = url;
+    });
+  }
+  function encode(canvas) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (png) {
+        if (png && png.size <= PNG_LIMIT) { resolve(png); return; }
+        canvas.toBlob(function (jpg) { if (jpg) resolve(jpg); else reject(new Error("encode")); }, "image/jpeg", 0.88);
+      }, "image/png");
+    });
+  }
+
+  window.CommentShot = { supported: supported, capture: capture, edit: edit, render: render, load: load, encode: encode,
+                         MAX_SIDE: MAX_SIDE };
 })();

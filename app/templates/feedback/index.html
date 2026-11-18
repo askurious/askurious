@@ -22,6 +22,16 @@
         <button class="button button-small button-secondary">{{ de_en("wieder öffnen", "reopen") if f.status == "done" else de_en("erledigt", "done") }}</button></form>
     </div>
     <p class="feedback-text">{{ f.message }}</p>
+    {% if f.shot %}
+    {# the image sent along, only here (app/feedback_shots.py): small, a click opens it large; it goes 30 days after
+       "erledigt" by itself #}
+    <div class="feedback-shot-row">
+      <a class="feedback-shot-link" href="{{ url_for('feedback.shot', fid=f.id) }}" target="_blank" rel="noopener"><img src="{{ url_for('feedback.shot', fid=f.id) }}" alt="{{ de_en('Bild zu dieser Rückmeldung', 'Image of this feedback') }}" loading="lazy"{% if f.shot_w and f.shot_h %} width="{{ f.shot_w }}" height="{{ f.shot_h }}"{% endif %}></a>
+      <span class="muted small">{% if f.shot_w %}{{ f.shot_w }} × {{ f.shot_h }} · {% endif %}{{ de_en("wird 30 Tage nach „erledigt“ gelöscht", "deleted 30 days after “done”") }}</span>
+      <form class="inline" method="post" action="{{ url_for('feedback.shot_delete', fid=f.id, show=show) }}" data-confirm="{{ de_en('Bild dieser Rückmeldung löschen?', 'Delete the image of this feedback?') }}" data-confirm-note="{{ de_en('Das Bild lässt sich nicht wiederherstellen. Der Text der Rückmeldung bleibt.', 'The image cannot be restored. The text of the feedback stays.') }}" data-confirm-ok="{{ de_en('Löschen', 'Delete') }}" data-confirm-danger>{{ csrf() }}
+        <button class="button button-small button-secondary">{{ icon("trash", 16) }} {{ de_en("Bild entfernen", "Remove image") }}</button></form>
+    </div>
+    {% endif %}
     {% if f.severity == 4 and f.status != "done" %}
     {# the decision with its reasons, to the person who complained and to the survey's admins (Art. 16(5), 17 DSA;
        copyright audit 2026-10-16, U11) #}

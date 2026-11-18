@@ -796,6 +796,10 @@ def _rare_sweeps(now):
 
     # name and address of complaints settled three years ago (Ralf 2026-11-12; commits)
     _step("feedback.forget_contacts", feedback.forget_contacts, now)
+    from app import feedback_shots
+
+    # images on feedback 30 days after it was settled, and files no feedback names (commits)
+    _step("feedback_shots.run", feedback_shots.run, now)
     from app import ai_chat
 
     # messages of the KI-Chat whose participation or survey is gone (deleted past the session events; commits)

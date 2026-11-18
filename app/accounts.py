@@ -611,6 +611,11 @@ def delete(user, by, choices=None, admin=None, heirs=None):
                   AgentToken,  # tokens of the AI agent interface (app/agent_access.py)
                   OrgDeletion):  # a mark of an organisation admin (app/org_delete.py)
         db.session.execute(db.delete(model).where(model.user_id == uid))
+    # the images on its feedback go at once, the texts stay without the account (app/feedback_shots.py, E5)
+    feedback_shots_gone = [shot for shot in db.session.scalars(db.select(Feedback.shot).where(
+        Feedback.user_id == uid, Feedback.shot.is_not(None)))]
+    db.session.execute(db.update(Feedback).where(Feedback.user_id == uid, Feedback.shot.is_not(None)).values(
+        shot=None, shot_w=None, shot_h=None))
     for column in (Feedback.user_id, Survey.created_by_id, SurveyMember.invited_by_id, SurveyMember.user_id,
                    WorkGroup.created_by_id, WorkGroupMember.invited_by_id, WorkGroupMember.user_id,
                    SurveyGroup.added_by_id, SurveyLabel.created_by_id,
@@ -629,6 +634,10 @@ def delete(user, by, choices=None, admin=None, heirs=None):
 
     for folder in folders:
         shutil.rmtree(folder, ignore_errors=True)
+    from app import feedback_shots
+
+    for shot in feedback_shots_gone:
+        feedback_shots.remove(shot)
     for path in glob.glob(os.path.join(current_app.config["UPLOAD_FOLDER"], "progress", f"{uid}_*.json")):
         try:
             os.remove(path)

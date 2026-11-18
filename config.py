@@ -552,6 +552,8 @@ class Config:
     # images on comments (app/comment_shots.py): over the phone link per survey and 24 hours, and all of a survey
     COMMENT_SHOTS_PER_DAY = int(os.environ.get("COMMENT_SHOTS_PER_DAY", "30"))
     COMMENT_SHOTS_MAX_MB = int(os.environ.get("COMMENT_SHOTS_MAX_MB", "200"))
+    # images on feedback (app/feedback_shots.py): all of them together; above it new feedback is saved without image
+    FEEDBACK_SHOTS_MAX_MB = int(os.environ.get("FEEDBACK_SHOTS_MAX_MB", "500"))
     # images on comments one sender may send within COMMENT_SHOT_SENDER_WINDOW seconds, counted before the image is read
     # (also in the editor preview; audit 2026-10-09b, O1)
     COMMENT_SHOT_SENDER_LIMIT = int(os.environ.get("COMMENT_SHOT_SENDER_LIMIT", "20"))

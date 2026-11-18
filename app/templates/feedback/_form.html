@@ -1,5 +1,5 @@
 {# The feedback form (used in the header dialog and on /feedback/neu). Needs: severities, page, form #}
-<form method="post" action="{{ url_for('feedback.new') }}" class="stack feedback-form">
+<form method="post" action="{{ url_for('feedback.new') }}" class="stack feedback-form" enctype="multipart/form-data" data-feedback-form>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="page" value="{{ page }}" data-feedback-page>
   <fieldset class="severity-scale">
@@ -16,6 +16,24 @@
   <label>{{ de_en("Was ist Ihnen aufgefallen?", "What did you notice?") }}
     <textarea name="message" rows="5" required maxlength="5000" placeholder="{{ de_en('z. B. „Beim Speichern eines Blocks springt die Seite nach oben.“ oder „Es wäre schön, wenn …“', 'e.g. “When I save a block, the page jumps to the top.” or “It would be nice if …”') }}">{{ form.get("message", "") }}</textarea>
   </label>
-  <p class="muted small">{{ de_en("Die Seite, auf der Sie gerade sind, wird mitgeschickt", "The page you are on is sent along") }}{% if page %} (<code>{{ page|truncate(60) }}</code>){% endif %}. {{ de_en("Keine Teilnehmendendaten.", "No participant data.") }}</p>
+  {# one image, voluntary (app/feedback_shots.py, E1-E4): without JavaScript a plain file field; feedback_shot.js puts
+     the two buttons in its place, takes pasted and dropped images too, and opens the dialog to mark them #}
+  <div class="feedback-shot" data-fb-shot data-icons="{{ icon_sprite() }}">
+    <label class="feedback-shot-plain" data-fb-shot-plain><span class="label-title">{{ de_en("Bild", "Image") }} <span class="hint">{{ de_en("optional", "optional") }}</span></span>
+      <input type="file" name="shot" accept="image/*" data-fb-shot-file></label>
+    <div class="feedback-shot-buttons" data-fb-shot-buttons hidden>
+      <button type="button" class="button button-small button-secondary" data-fb-shot-capture hidden>{{ icon("camera", 16) }} {{ de_en("Seite aufnehmen", "Capture page") }}</button>
+      <button type="button" class="button button-small button-secondary" data-fb-shot-pick>{{ icon("image", 16) }} {{ de_en("Bild wählen", "Choose image") }}</button>
+      <input type="file" accept="image/*" data-fb-shot-picker hidden>
+    </div>
+    <div class="feedback-shot-thumb" data-fb-shot-thumb hidden>
+      <img alt="{{ de_en('Angehängtes Bild', 'Attached image') }}" title="{{ de_en('Markieren', 'Mark') }}" data-fb-shot-img>
+      <span class="muted small" data-fb-shot-info></span>
+      <button type="button" class="icon-btn feedback-shot-remove" data-fb-shot-remove aria-label="{{ de_en('Bild entfernen', 'Remove image') }}" title="{{ de_en('Bild entfernen', 'Remove image') }}">{{ icon("x", 16) }}</button>
+    </div>
+    <p class="field-error" data-fb-shot-error hidden></p>
+  </div>
+  <p class="muted small" data-fb-note>{{ de_en("Die Seite, auf der Sie gerade sind, wird mitgeschickt", "The page you are on is sent along") }}{% if page %} (<code>{{ page|truncate(60) }}</code>){% endif %}. {{ de_en("Keine Teilnehmendendaten.", "No participant data.") }}</p>
+  <p class="muted small" data-fb-note-shot hidden>{{ de_en("Die Seite, auf der Sie gerade sind, und das Bild werden mitgeschickt", "The page you are on and the image are sent along") }}{% if page %} (<code>{{ page|truncate(60) }}</code>){% endif %}. {{ de_en("Bitte Angaben von Teilnehmenden abdecken.", "Please cover any participant data.") }}</p>
   <div class="form-actions"><button class="button">{{ icon("check", 16) }} {{ de_en("Absenden", "Send") }}</button></div>
 </form>

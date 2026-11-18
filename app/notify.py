@@ -119,7 +119,8 @@ def headline(item):
     else:
         head = {3: ":beetle: *Fehler gemeldet*", 2: ":warning: *Störung gemeldet*"}.get(item.severity, ":bulb: *Anregung*")
         where = f" auf {_plain(item.page)}" if item.page else ""
-    return head + where
+    # an image sent along stays in Askurious, only admins see it there (app/feedback_shots.py, E7)
+    return head + where + (" · mit Bild" if getattr(item, "shot", None) else "")
 
 
 def excerpt(item):

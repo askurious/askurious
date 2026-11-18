@@ -67,4 +67,4 @@ def test_attribution_without_image_does_not_attach_to_comment(app, client, surve
 def test_browser_keeps_rights_when_marking_and_resets_them_for_another_image():
     root = Path(__file__).resolve().parents[2]
     subprocess.run([shutil.which("node"), str(root / "tests/editor/comment_rights_cases.js"),
-                    str(root / "app/static/comments.js")], check=True, capture_output=True, timeout=30)
+                    str(root / "app/static/comments.js"), str(root / "app/static/comment_shot.js")], check=True, capture_output=True, timeout=30)
