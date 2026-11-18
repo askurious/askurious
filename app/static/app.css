@@ -1645,6 +1645,28 @@ p.start-check { margin: 0 0 12px; }
 .feedback-dialog { width: min(560px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 18px 20px;
   background: var(--surface); color: var(--fg); box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
 .feedback-dialog::backdrop { background: rgba(20, 20, 18, 0.35); }
+/* the image of a feedback (feedback_shot.js): while the page is captured the dialog and its shade are out of the
+   picture; a file dragged over it gets a frame */
+.feedback-dialog.is-capturing::backdrop { background: transparent; }
+.feedback-dialog.is-drop, .feedback-form.is-drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
+.feedback-shot-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.feedback-shot-thumb { display: flex; gap: 10px; align-items: center; border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 6px; }
+.feedback-shot-thumb img { width: 96px; height: 60px; object-fit: cover; object-position: top; border-radius: var(--radius-tag);
+  border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; }
+.feedback-shot-remove { margin-inline-start: auto; }
+.feedback-shot [data-fb-shot-error] { margin: 4px 0 0; color: var(--danger); font-size: 0.85rem; font-weight: 600; }
+/* the dialog to mark it: as large as the window allows, the image scaled to fit */
+.shot-editor { box-sizing: border-box; width: min(1100px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border: 1px solid var(--border);
+  border-radius: var(--radius-panel); padding: 18px 20px; background: var(--surface); color: var(--fg); box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+.shot-editor[open] { display: flex; flex-direction: column; gap: 10px; }
+.shot-editor::backdrop { background: rgba(20, 20, 18, 0.35); }
+.shot-editor h2 { margin: 0; font-size: 1.05rem; }
+.shot-editor p { margin: 0; }
+.shot-editor .confirm-actions { margin-top: 0; }
+.shot-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shot-tools .button-secondary[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent) !important; }
+.shot-stage { min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); text-align: center; }
+.shot-stage canvas { display: inline-block; max-width: 100%; max-height: calc(100dvh - 290px); height: auto; cursor: crosshair; touch-action: none; vertical-align: top; }
 /* "Person hinzufügen …" on Administration › Personen (UI/UX audit 2026-10-07, S10): the panel with the two ways, which
    app.js turns into this dialog; side by side, on a phone one below the other */
 .person-dialog { box-sizing: border-box; width: min(860px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border: 1px solid var(--border);
@@ -1698,6 +1720,8 @@ p.start-check { margin: 0 0 12px; }
 .feedback-panel .page-head h2 { margin: 0; }
 .feedback-item { margin: 0; padding: 16px 20px; }
 .feedback-item.is-done { background: var(--surface-2); }
+.feedback-shot-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; }
+.feedback-shot-link img { display: block; width: 160px; height: 100px; object-fit: cover; object-position: top; border-radius: var(--radius-tag); border: 1px solid var(--border); background: var(--surface-2); }
 .feedback-empty { padding: 8px 0; }
 .feedback-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .feedback-source { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }

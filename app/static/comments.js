@@ -7,7 +7,7 @@
 // the original file is never uploaded alongside a redacted image. Every comment also carries short labels of where
 // it was written: device, system, browser, window size, language, light or dark (env_* fields).
 (function () {
-  var MAX_SIDE = 2400, PNG_LIMIT = 1500000;
+  var MAX_SIDE = window.CommentShot ? window.CommentShot.MAX_SIDE : 2400;
 
   // --- where the comment is written ------------------------------------------------------------------------------
   function environment(box) {
@@ -46,34 +46,10 @@
     return out;
   }
 
-  // --- the image: made smaller in the browser before it is sent ---------------------------------------------------
-  function load(file) {
-    return new Promise(function (resolve, reject) {
-      var url = URL.createObjectURL(file), img = new Image();
-      img.onload = function () {
-        var scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
-        var canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-        var ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        resolve(canvas);
-      };
-      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("decode")); };
-      img.src = url;
-    });
-  }
-  function encode(canvas) {
-    return new Promise(function (resolve, reject) {
-      canvas.toBlob(function (png) {
-        if (png && png.size <= PNG_LIMIT) { resolve(png); return; }
-        canvas.toBlob(function (jpg) { if (jpg) resolve(jpg); else reject(new Error("encode")); }, "image/jpeg", 0.88);
-      }, "image/png");
-    });
-  }
+  // --- the image: made smaller in the browser before it is sent (comment_shot.js, shared with the feedback image) --
+  var CS0 = window.CommentShot;
+  function load(file) { return CS0.load(file); }
+  function encode(canvas) { return CS0.encode(canvas); }
 
   document.querySelectorAll("[data-comments]").forEach(function (box) {
     var T = {};

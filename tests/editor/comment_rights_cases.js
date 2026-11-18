@@ -38,17 +38,20 @@ class FormDataStub {
   constructor(form) {this.values = new Map(); if (form && !fields.disabled) this.values.set(creator.name, creator.value);}
   append(k, v) {this.values.set(k, v);}
 }
-vm.runInNewContext(fs.readFileSync(process.argv[2], 'utf8'), {
+// comment_shot.js as it is (load and encode, shared with the feedback image), its dialog and capture replaced
+const context = vm.createContext({
   document: {querySelectorAll: s => s === '[data-comments]' ? [box] : [], querySelector: element,
     addEventListener() {}, createElement: kind => kind === 'canvas' ? canvas() : element('new-' + kind),
     documentElement: {lang: 'de'}, body: null},
   navigator: {userAgent: '', platform: ''},
-  window: {innerWidth: 800, innerHeight: 600, matchMedia: () => ({matches: false}),
-    CommentShot: {supported: () => false, edit: () => Promise.resolve(nextMarks), render: base => base}},
+  window: {innerWidth: 800, innerHeight: 600, matchMedia: () => ({matches: false})},
   URL: {createObjectURL: () => 'blob:preview', revokeObjectURL() {}},
   Image: ImageStub, FormData: FormDataStub,
   fetch: (url, options) => {requests.push(options.body.values); return Promise.resolve({ok: false, json: () => Promise.resolve({})});}
 });
+vm.runInContext(fs.readFileSync(process.argv[3], 'utf8'), context);
+Object.assign(context.window.CommentShot, {supported: () => false, edit: () => Promise.resolve(nextMarks), render: base => base});
+vm.runInContext(fs.readFileSync(process.argv[2], 'utf8'), context);
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const event = {preventDefault() {}};
 async function pick() {file.files = [{type: 'image/png', pixels: 'UNREDACTED'}]; file.handlers.change(); await tick();}

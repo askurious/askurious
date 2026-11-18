@@ -2864,6 +2864,10 @@ class Feedback(db.Model):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     # when it was set to "done": three years later a complaint's name and address go (feedback.forget_contacts, 0122)
     done_at: Mapped[datetime | None]
+    # the image sent along (app/feedback_shots.py, 0125): file name in instance/feedback-shots/ and its size
+    shot: Mapped[str | None] = mapped_column(String(40))
+    shot_w: Mapped[int | None]
+    shot_h: Mapped[int | None]
 
     user: Mapped[User | None] = relationship()
     survey: Mapped[Survey | None] = relationship()

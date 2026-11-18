@@ -887,17 +887,19 @@ def _activities():
          "purpose": de_en("Fehler beheben, Beschwerden von Teilnehmenden bearbeiten.",
                           "Fixing errors, handling complaints of participants."),
          "subjects": de_en("Forschende, Teilnehmende", "Researchers, participants"),
-         "data": de_en("Text, Seite, Konto der meldenden Person; bei Beschwerden Befragung, freiwillig Name und E-Mail-"
-                       "Adresse, die Entscheidung der Admins mit Begründung.",
-                       "Text, page, account of the reporting person; for complaints the survey, voluntarily name and "
-                       "email address, the admins' decision with its reasons."),
-         "recipients": de_en("Admins; Slack (ohne Auszug aus Beschwerden; aus Rückmeldungen nur in der ausführlichen Form), wenn eingeschaltet; bei Beschwerden per E-Mail Eingangsbestätigung "
+         "data": de_en("Text, Seite, Konto der meldenden Person; bei Rückmeldungen freiwillig ein Bildschirmfoto "
+                       "(Metadaten entfernt, app/feedback_shots.py); bei Beschwerden Befragung, freiwillig Name und "
+                       "E-Mail-Adresse, die Entscheidung der Admins mit Begründung.",
+                       "Text, page, account of the reporting person; for feedback voluntarily a screenshot (metadata "
+                       "removed, app/feedback_shots.py); for complaints the survey, voluntarily name and email address, "
+                       "the admins' decision with its reasons."),
+         "recipients": de_en("Admins; das Bild nur Admins der Plattform, nicht an Slack; Slack (ohne Auszug aus Beschwerden; aus Rückmeldungen nur in der ausführlichen Form), wenn eingeschaltet; bei Beschwerden per E-Mail Eingangsbestätigung "
                              "und Entscheidung an die meldende Person, die Entscheidung über eine Maßnahme an die Admins "
                              "der Befragung (Art. 16, 17 DSA).",
-                             "Admins; Slack (no excerpt of complaints; of feedback only in the detailed form) when switched on; for complaints by email the confirmation of "
+                             "Admins; the image only to admins of the platform, not to Slack; Slack (no excerpt of complaints; of feedback only in the detailed form) when switched on; for complaints by email the confirmation of "
                              "receipt and the decision to the reporting person, a decision on a measure to the admins of "
                              "the survey (Art. 16, 17 DSA)."),
-         "deletion": de_en("Name und E-Mail-Adresse von Beschwerden drei Jahre nach der Erledigung (feedback.forget_contacts, stündlich); Beschwerde, Entscheidung und Fallnummer bleiben als Nachweis.", "Name and email address of complaints three years after they were settled (feedback.forget_contacts, hourly); complaint, decision and case number stay as the record."),
+         "deletion": de_en("Bild 30 Tage nach der Erledigung (feedback_shots.run, stündlich), sofort mit dem Löschen des Kontos oder durch Admins („Bild entfernen“). Name und E-Mail-Adresse von Beschwerden drei Jahre nach der Erledigung (feedback.forget_contacts, stündlich); Beschwerde, Entscheidung und Fallnummer bleiben als Nachweis.", "Image 30 days after it was settled (feedback_shots.run, hourly), at once when the account is deleted or by admins (“Remove image”). Name and email address of complaints three years after they were settled (feedback.forget_contacts, hourly); complaint, decision and case number stay as the record."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b, c oder e DSGVO, vom Verantwortlichen festzulegen",
                         "Art. 6 (1) (b), (c) or (e) GDPR, to be set by the controller")},
@@ -1903,8 +1905,9 @@ def open_points(org_values, service_rows):
         out.append(de_en("Die Nutzungsbedingungen nennen nur die Sicherung vor Aktualisierungen, nicht die laufenden "
                          "Sicherungen alle vier Stunden (Docker-Betrieb).", "The terms of use name only the backup before "
                          "updates, not the regular backups every four hours (Docker operation)."))
-    out.append(de_en("Rückmeldungen und Beschwerden haben keine Löschfrist.", "Feedback and complaints have no deletion "
-                     "period."))
+    out.append(de_en("Der Text von Rückmeldungen und Beschwerden hat keine Löschfrist (ein Bild zu einer Rückmeldung "
+                     "geht 30 Tage nach der Erledigung).", "The text of feedback and complaints has no deletion period "
+                     "(an image on a piece of feedback goes 30 days after it was settled)."))
     out.append(de_en("Alle Sicherungen liegen auf demselben Server; eine Kopie außerhalb ist vorbereitet, aber aus "
                      "(OFFSITE_TARGET, BETRIEB.md).", "All backups are on the same server; a copy off the server is "
                      "prepared but off (OFFSITE_TARGET, BETRIEB.md)."))

@@ -32,6 +32,20 @@ def _safe_page(value):
     return local_path((value or "").strip()[:500])
 
 
+def _attach(item, upload):
+    """The image sent along (one per feedback, E2) onto `item`; the message why not, else None. A refused image never
+    stops the text (E5): it is saved without."""
+    from app import feedback_shots
+
+    if upload is None or not upload.filename:
+        return None
+    try:
+        item.shot, item.shot_w, item.shot_h = feedback_shots.store(upload)
+    except ValueError as e:
+        return str(e)
+    return None
+
+
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new():
@@ -50,10 +64,14 @@ def new():
                                    form=request.form)
         item = Feedback(user_id=current_user.id, message=message[:5000], page=page,
                         severity=int(severity) if severity in ("1", "2", "3") else 1)
+        refused = _attach(item, request.files.get("shot"))
         db.session.add(item)
         db.session.commit()
         notify.feedback(item)
         flash(de_en("Danke! Ihre Rückmeldung ist angekommen.", "Thank you! Your feedback has arrived."), "success")
+        if refused:
+            flash(de_en("Das Bild wurde nicht gespeichert: {reason}", "The image was not saved: {reason}",
+                        reason=refused), "info")
         return redirect(page or url_for("dashboard.index"))
     return render_template("feedback/new.html", page=page, severities=Feedback.SEVERITIES, form={})
 
@@ -119,6 +137,42 @@ def set_status(fid):
     item.status = "done" if request.form.get("status") == "done" else "new"
     item.done_at = utcnow() if item.status == "done" else None
     db.session.commit()
+    return redirect(url_for("feedback.index", show=request.args.get("show", "new")))
+
+
+@bp.route("/<int:fid>/shot")
+@login_required
+def shot(fid):
+    """The image of a feedback, only for admins of the platform (E5)."""
+    again = twofactor.admin_page()
+    if again:
+        return again
+    from flask import send_file
+
+    from app import feedback_shots
+
+    item = db.session.get(Feedback, fid) or abort(404)
+    where = feedback_shots.path(item.shot)
+    if not where:
+        abort(404)
+    response = send_file(where, mimetype="image/png" if where.endswith(".png") else "image/jpeg", max_age=0)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@bp.route("/<int:fid>/shot/delete", methods=["POST"])
+@login_required
+def shot_delete(fid):
+    """"Bild entfernen" on the list: the file goes at once, the feedback stays."""
+    again = twofactor.admin_page()
+    if again:
+        return again
+    from app import feedback_shots
+
+    item = db.session.get(Feedback, fid) or abort(404)
+    feedback_shots.drop(item)
+    db.session.commit()
+    flash(de_en("Bild entfernt.", "Image removed."), "success")
     return redirect(url_for("feedback.index", show=request.args.get("show", "new")))
 
 
