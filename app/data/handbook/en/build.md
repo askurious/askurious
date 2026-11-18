@@ -219,6 +219,7 @@ A survey uses a frozen copy of a construct, so later changes to the pool never c
 ### Variable names
 
 Every question, randomisation and loop has a variable name; that is the name of its column in the data.
+You change the name of a question on its page or right in the questionnaire: the pencil beside the name turns it into a field, Enter saves, Esc cancels.
 The same rule applies everywhere: a letter first, then letters, digits and `_`, at most 64 characters.
 Umlauts, spaces and hyphens are not allowed.
 Upper and lower case are kept, but two names must not differ only in that, because SPSS takes them for the same name.

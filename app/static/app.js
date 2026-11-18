@@ -2754,6 +2754,73 @@ document.querySelectorAll("[data-display-form]").forEach(function (form) {
   }
 })();
 
+// Questionnaire page: the pencil beside a variable name turns the name into a field, in place (editor.rename_item).
+// Enter saves, Esc takes the old name back; what speaks against a name stands under the field, typed (the rule and
+// the names taken, as on the element's page: data-varname above) or from the server. A new name loads the page anew:
+// the labels of the row and the conditions of other rows name it too.
+(function () {
+  var grid = document.querySelector("[data-editor]");
+  if (!grid) return;
+  var KEY = "code-renamed";
+  function names(but) {
+    return Array.prototype.filter.call(grid.querySelectorAll(".block .item-code"), function (a) { return a !== but; })
+      .map(function (a) { return a.textContent.trim(); });
+  }
+  function open(btn) {
+    var link = btn.previousElementSibling, old = link.textContent.trim(), busy = false;
+    var input = document.createElement("input");
+    input.className = "code-field"; input.value = old; input.maxLength = 64; input.spellcheck = false;
+    input.setAttribute("aria-label", de_en("Variablenname", "Variable name"));
+    input.dataset.varname = "full"; input.dataset.taken = JSON.stringify(names(link));
+    function close() {
+      if (!input.isConnected) return;  // taking the field out blurs it: once is enough
+      var msg = input.parentNode.querySelector(":scope > .varname-msg");
+      if (msg) msg.remove();
+      link.hidden = false; btn.hidden = false; btn.focus(); input.remove();
+    }
+    function problem(text) {
+      var msg = input.parentNode.querySelector(":scope > .varname-msg");
+      if (!msg) { msg = document.createElement("span"); msg.className = "varname-msg"; input.insertAdjacentElement("afterend", msg); }
+      msg.setAttribute("role", "alert"); msg.textContent = text; msg.hidden = false;
+      input.classList.add("is-invalid"); input.focus();
+    }
+    function save() {
+      var value = input.value.trim();
+      if (busy) return;
+      if (value === old) return close();
+      if (!value || input.classList.contains("is-invalid")) return input.focus();
+      busy = true;
+      var body = new FormData();
+      body.append("code", value); body.append("csrf_token", csrfToken());
+      fetch(btn.dataset.codeEdit, { method: "POST", body: body, credentials: "same-origin" })
+        .then(function (r) { if (!r.ok) throw r.status; return r.json(); })
+        .then(function (d) {
+          busy = false;
+          if (d.problem) return problem(d.problem);
+          try { sessionStorage.setItem(KEY, btn.closest(".item-row").id); } catch (e) {}
+          location.reload();
+        }).catch(function (status) { busy = false; actionFailed(typeof status === "number" ? status : 0, de_en("Der Variablenname wurde nicht geändert", "The variable name was not changed")); });
+    }
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); save(); }
+      if (e.key === "Escape") { e.preventDefault(); close(); }
+    });
+    input.addEventListener("blur", function () { if (!busy && input.value.trim() === old) close(); });
+    link.hidden = true; btn.hidden = true;
+    link.insertAdjacentElement("afterend", input);
+    input.focus(); input.select();
+  }
+  grid.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-code-edit]");
+    if (btn) open(btn);
+  });
+  try {  // after the page loaded anew: the focus back on the pencil of the row renamed
+    var row = document.getElementById(sessionStorage.getItem(KEY) || "");
+    sessionStorage.removeItem(KEY);
+    if (row && row.querySelector("[data-code-edit]")) row.querySelector("[data-code-edit]").focus({ preventScroll: true });
+  } catch (e) {}
+})();
+
 // Feedback: the bug icon opens a dialog; the current page is sent along. Other buttons with data-feedback-open do the
 // same (an error page, "an die Admins der Plattform schreiben"; UI/UX audit 2026-10-09, X68 and X72)
 (function () {
