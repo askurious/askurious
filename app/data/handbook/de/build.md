@@ -219,6 +219,7 @@ Eine Befragung verwendet eine eingefrorene Kopie eines Konstrukts, sodass späte
 ### Variablennamen
 
 Jede Frage, Randomisierung und Schleife hat einen Variablennamen; so heißt die Spalte in den Daten.
+Den Namen einer Frage ändern Sie auf ihrer Seite oder direkt im Fragebogen: Der Stift neben dem Namen macht ihn zum Feld, Enter speichert, Esc bricht ab.
 Es gilt überall dieselbe Regel: zuerst ein Buchstabe, dann Buchstaben, Ziffern und `_`, höchstens 64 Zeichen.
 Umlaute, Leerzeichen und Bindestriche sind nicht erlaubt.
 Groß- und Kleinschreibung bleibt erhalten, aber zwei Namen dürfen sich nicht nur darin unterscheiden, weil SPSS sie für denselben Namen hält.

@@ -585,6 +585,13 @@ fieldset.sbs-when-src > legend { padding: 0; margin-bottom: 4px; font-size: 0.85
 .item-body { min-width: 0; }
 .item-code { font-weight: 650; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; margin-right: 6px; color: var(--fg); text-decoration: none; }
 .item-code:hover { color: var(--accent); }
+/* the pencil beside the name and the field it opens (app.js data-code-edit): the row keeps its height */
+.icon-btn.code-edit { width: 30px; height: 30px; margin: -6px 4px -6px -2px; vertical-align: middle; }
+input.code-field { width: 12em; min-height: 30px; height: 30px; margin: -4px 6px -4px 0; padding: 2px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; font-weight: 650; }
+/* what speaks against the name on a line of its own under the field; the badges stay beside the field */
+.item-body:has(> .code-field) { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; }
+.item-body:has(> .code-field) > :is(.varname-msg, .item-text) { order: 1; flex-basis: 100%; }
+.item-body > .code-field ~ .badge { margin-right: 4px; }
 .item-text { color: var(--muted); font-size: 0.95rem; margin-top: 1px; overflow-wrap: anywhere; }
 .page-break-row { padding: 4px 8px; }
 .page-break-line { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.75rem; font-weight: 650;

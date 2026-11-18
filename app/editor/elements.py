@@ -8,7 +8,7 @@ from app import answer_lock, constructs, edit_guard, experimental, heavy, item_c
 from app.editor.arrange import _draft_consent
 from app.editor.base import (PRESETS, _CONSENT_BLOCK_ONLY, _admin_step, _back, _block_beside, _consent_admin,
                              _consent_to_flow_start, _embed, _get_block, _get_item, _hold, _is_consent_block, _lang,
-                             _renumber, _require_draft, _unique_code, bp)
+                             _renumber, _require_draft, _unique_code, bp, not_draft_message)
 from app.extensions import db
 from app.items.base import CODE_RE, LEVEL_LABELS, TEXT_MAX, new_id, too_long_text
 from app.lang import de_en
@@ -184,6 +184,81 @@ def add_demographics(survey_id):
     return _back(survey, lang, f"#block-{block.id}")
 
 
+def _rename(survey, item, code, lang, say, held):
+    """The variable name of `item` becomes `code`: the one check and the one renaming, for the element's page
+    (edit_item) and for the pencil beside the name on the questionnaire page (rename_item). Returns what speaks
+    against the name, or None; the same name again changes nothing. The study plan and the texts that show this
+    answer follow, and `say` gets a line that names those texts. `held`: the caller holds the survey's row
+    (edit_guard.lock) and has read the questionnaire anew."""
+    # read from the database under the survey's row: a name another member gave a question a moment ago is
+    # taken, though this request loaded the questionnaire before
+    taken = (edit_guard.taken_codes(survey, but={item.id}) if code != item.code
+             else {i.code for b in survey.blocks for i in b.items if i.id != item.id})
+    if not CODE_RE.match(code):
+        return de_en("Variablenname: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _.",
+                     "Variable name: a letter first, then letters, digits or _.")
+    if code in taken:
+        return de_en("Der Variablenname „{code}“ ist schon vergeben.",
+                     "The variable name “{code}” is already taken.", code=code)
+    if code == item.code:
+        return None
+    if answer_lock.fixed(survey, item):
+        return de_en("Diese Frage hat schon echte Antworten; ihr Variablenname bleibt, damit sie im Datensatz "
+                     "zusammenpassen. Zum Umbauen die Befragung duplizieren.",
+                     "This question already has real answers; its variable name stays so that they match "
+                     "in the data set. To rebuild it, duplicate the survey.")
+    from app import piping, study_plan
+
+    if not held:  # the name changed under the lock to something else than the form sends
+        edit_guard.lock(survey)
+    parts = [n for n, _ in item.kind.pipe_parts(item, lang)]
+    old, item.code = item.code, code
+    if study_plan.rename_code(survey, old, code):  # a hypothesis keeps its element
+        edit_guard.saved(survey, "settings:plan")  # a plan page opened before gets a conflict naming this
+    # texts that show this answer (or one of its values) keep showing it; their rows are held and read
+    # anew first (piping.renamed), and an editor of them opened before gets a conflict
+    touched = []
+    followed = sorted(set(piping.renamed(survey, old, code, touched))
+                      | set(piping.renamed(survey, parts, [n for n, _ in item.kind.pipe_parts(item, lang)], touched)))
+    for other_id in sorted(set(touched) - {item.id}):
+        edit_guard.saved(survey, f"item:{other_id}")
+    if followed:
+        say(de_en("Die Texte von {codes} zeigen die Antwort weiter: Der Baustein folgt dem neuen "
+                  "Variablennamen „{code}“.",
+                  "The texts of {codes} still show the answer: the piece follows the new variable name “{code}”.",
+                  codes=", ".join(followed), code=code), "success")
+    return None
+
+
+@bp.route("/items/<int:item_id>/code", methods=["POST"])
+@login_required
+def rename_item(survey_id, item_id):
+    """The pencil beside a variable name on the questionnaire page: the name changed in place, with the check and
+    the followers of the element's page (_rename) and under its conditions (a draft, its source language, the right
+    to edit). Answers with JSON: `problem` beside the field, or `done` and the page loads anew."""
+    survey = get_survey(survey_id)
+    item = _get_item(survey, item_id)
+    lang = _lang(survey)
+    if not survey.can(current_user, "editor"):
+        abort(403)
+    if not (survey.is_editable and lang == survey.default_language):
+        return jsonify(problem=not_draft_message())
+    edit_guard.lock(survey)  # survey first, then questions, as edit_item
+    db.session.expire_all()
+    item = edit_guard.lock(item) or abort(404)  # deleted meanwhile
+    old = item.code
+    step = undo.begin(survey)
+    problem = _rename(survey, item, request.form.get("code", "").strip(), lang, flash, held=True)
+    if problem:
+        db.session.rollback()
+        return jsonify(problem=problem)
+    if item.code != old:
+        edit_guard.saved(survey, f"item:{item.id}")  # an editor of it opened before gets a conflict
+        step.done(undo.both("„{old}“ in „{code}“ umbenannt", "“{old}” renamed “{code}”", old=old, code=item.code), item=item.id)
+        db.session.commit()
+    return jsonify(done=True, code=item.code)
+
+
 @bp.route("/items/<int:item_id>", methods=["GET", "POST"])
 @login_required
 def edit_item(survey_id, item_id):
@@ -234,47 +309,7 @@ def edit_item(survey_id, item_id):
                 "warning")
         step = undo.begin(survey)
         if meta_editable:
-            code = request.form.get("code", "").strip()
-            # read from the database under the survey's row: a name another member gave a question a moment ago is
-            # taken, though this request loaded the questionnaire before
-            taken = (edit_guard.taken_codes(survey, but={item.id}) if code != item.code
-                     else {i.code for b in survey.blocks for i in b.items if i.id != item.id})
-            code_problem = None
-            if not CODE_RE.match(code):
-                code_problem = de_en("Variablenname: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _.",
-                                     "Variable name: a letter first, then letters, digits or _.")
-            elif code in taken:
-                code_problem = de_en("Der Variablenname „{code}“ ist schon vergeben.",
-                                     "The variable name “{code}” is already taken.", code=code)
-            elif code != item.code and answer_lock.fixed(survey, item):
-                code_problem = de_en("Diese Frage hat schon echte Antworten; ihr Variablenname bleibt, damit sie im Datensatz "
-                                     "zusammenpassen. Zum Umbauen die Befragung duplizieren.",
-                                     "This question already has real answers; its variable name stays so that they match "
-                                     "in the data set. To rebuild it, duplicate the survey.")
-            elif code != item.code:
-                from app import piping
-
-                if not renaming:  # the name changed under the lock to something else than the form sends
-                    edit_guard.lock(survey)
-                parts = [n for n, _ in item.kind.pipe_parts(item, lang)]
-                old, item.code = item.code, code
-                from app import study_plan
-
-                if study_plan.rename_code(survey, old, code):  # a hypothesis keeps its element
-                    edit_guard.saved(survey, "settings:plan")  # a plan page opened before gets a conflict naming this
-                # texts that show this answer (or one of its values) keep showing it; their rows are held and read
-                # anew first (piping.renamed), and an editor of them opened before gets a conflict
-                touched = []
-                followed = sorted(set(piping.renamed(survey, old, code, touched))
-                                  | set(piping.renamed(survey, parts, [n for n, _ in item.kind.pipe_parts(item, lang)],
-                                                       touched)))
-                for other_id in sorted(set(touched) - {item.id}):
-                    edit_guard.saved(survey, f"item:{other_id}")
-                if followed:
-                    say(de_en("Die Texte von {codes} zeigen die Antwort weiter: Der Baustein folgt dem neuen "
-                              "Variablennamen „{code}“.",
-                              "The texts of {codes} still show the answer: the piece follows the new variable name “{code}”.",
-                              codes=", ".join(followed), code=code), "success")
+            code_problem = _rename(survey, item, request.form.get("code", "").strip(), lang, say, held=renaming)
             mode = request.form.get("answer_mode", "optional")
             item.answer_mode = mode if mode in Item.ANSWER_MODES else "optional"
             if item.type == "consent":
