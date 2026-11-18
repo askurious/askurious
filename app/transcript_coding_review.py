@@ -718,7 +718,10 @@ def map_svg(project, who, survey, interactive=False):
             return "<g>"
         grab = (f' data-tc-grab="{cat.id}" data-tc-move-url="{escape(url_for("transcript_coding.move_category", code=survey.code, pid=project.id, cid=cat.id))}"'
                 if may_move(project, cat, who) or may_propose_move(project, cat, who) else "")
-        return (f'<g class="tc-map-node" data-tc-cat="{cat.id}" data-tc-anc-of="{" ".join(str(a) for a in cat.anc)}"{grab}>'
+        # a click (without dragging) opens the dialog with its passages (Ralf 2026-11-18), also with Enter
+        show = escape(url_for("transcript_coding.category_passages_json", code=survey.code, pid=project.id, cid=cat.id))
+        return (f'<g class="tc-map-node" data-tc-cat="{cat.id}" data-tc-anc-of="{" ".join(str(a) for a in cat.anc)}"{grab} '
+                f'data-tc-passages="{show}" tabindex="0" role="button">'
                 f'<title>{escape(cat.path)}</title>')
 
     lines, nodes = [], []  # lines first, the rows on top of them
@@ -1032,6 +1035,58 @@ def passages(code, pid):
     where = {c["id"]: at(r, c["start"]) for r, c in rows}
     return render_template("transcript_coding/passages.html", cats=cats, wanted=wanted, rows=rows, where=where,
                            names={c.id: c.name for c in cats}, **_context(survey, project, who))
+
+
+PASSAGE_SIZES = (10, 20, 50)  # rows per page of the dialog of a category in the diagram
+
+
+def category_passages(project, who, cat_id):
+    """[(interview, coding)] of the category and of everything below it, on every level (as the diagram counts it,
+    `stats`), over the interviews the actor sees; in the order of the category system, then interview and place."""
+    from app.transcript_coding import chain
+
+    mains, _candidates = tree(project)
+    order = {c.id: i for i, c in enumerate(c for m, ss in mains for c in [m] + ss)}
+    cats = {c.id: c for c in live(project)}
+    wanted = {cid for cid, c in cats.items() if cid == cat_id or cat_id in {a.id for a in chain(c, cats)}}
+    rows = [(r, c) for r, c in all_codings(project, who) if c["cat"] in wanted]
+    rows.sort(key=lambda rc: (order.get(rc[1]["cat"], len(order)), (rc[0].interview or {}).get("label", ""), rc[0].id,
+                              rc[1].get("start") or 0))
+    return rows
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/categories/<int:cid>/passages.json")
+@signed_in_or_coder
+def category_passages_json(code, pid, cid):
+    """The passages of one category for its dialog in the diagram (Ralf 2026-11-18), loaded only on a click and a page
+    at a time: quote, interview and place, the subcategory below the clicked one it was coded with, who coded and a
+    link to the place in the transcript."""
+    from flask import jsonify
+
+    survey, project, who = _in(code, pid)
+    cats = {c.id: c for c in live(project)}
+    if cid not in cats:
+        abort(404)
+    tree(project)  # gives each category its path
+    per = request.args.get("per", type=int)
+    per = per if per in PASSAGE_SIZES else PASSAGE_SIZES[0]
+    rows = category_passages(project, who, cid)
+    pages = max(1, -(-len(rows) // per))
+    page = min(max(request.args.get("page", 1, type=int) or 1, 1), pages)
+    shown = rows[(page - 1) * per:page * per]
+    at = spotter()
+    cat = cats[cid]
+    top = getattr(cat, "path", cat.name)
+
+    def below(c):  # the path below the clicked category, empty for itself
+        path = getattr(cats.get(c["cat"]), "path", "")
+        return path[len(top) + 3:] if c["cat"] != cid and path.startswith(top + " › ") else ""
+
+    return jsonify(name=top, total=len(rows), page=page, pages=pages, per=per, sizes=list(PASSAGE_SIZES),
+                   rows=[{"quote": clean_quote(c.get("quote")), "where": at(r, c["start"]), "by": c.get("by_name") or "",
+                          "sub": below(c),
+                          "url": url_for("transcript_coding.page", code=survey.code, pid=project.id, rid=r.id,
+                                         at=f"{c['start']}-{c['end']}")} for r, c in shown])
 
 
 def _matrix(project, who):

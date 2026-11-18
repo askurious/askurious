@@ -127,6 +127,23 @@
   {% endif %}
   </div>
 </section>
+{% if show == "map" %}
+{# a click on a category of the diagram: its passages and those of everything below it, loaded on demand a page at a
+   time (transcript_coding_review.category_passages_json, Ralf 2026-11-18) #}
+<dialog class="person-dialog xp-dialog tc-passages-dialog" data-tc-passages-dialog aria-labelledby="tc-passages-title">
+  <div class="xp-dialog-head"><h2 id="tc-passages-title"><span data-tc-passages-name></span> <span class="muted small" data-tc-passages-count></span></h2>
+    <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+  <p class="muted small" data-tc-passages-empty hidden>{{ de_en("Noch keine Stellen in dieser Kategorie.", "No passages in this category yet.") }}</p>
+  <ul class="tc-passages" data-tc-passages-list></ul>
+  <div class="row-fields tc-passages-pager" data-tc-passages-pager hidden>
+    <label class="muted small">{{ de_en("Zeilen je Seite:", "Rows per page:") }} <select data-tc-passages-per>{% for n in (10, 20, 50) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></label>
+    <span class="spacer"></span>
+    <button type="button" class="button button-small button-secondary" data-tc-passages-go="-1">{{ de_en("Zurück", "Previous") }}</button>
+    <span class="muted small" data-tc-passages-page></span>
+    <button type="button" class="button button-small button-secondary" data-tc-passages-go="1">{{ de_en("Weiter", "Next") }}</button>
+  </div>
+</dialog>
+{% endif %}
 
 {% endif %}
 

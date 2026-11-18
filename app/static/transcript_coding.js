@@ -148,6 +148,7 @@ window.tcAfterOptions = function (select, rows, preset) {
     if (!drag) return;
     var d = drag;
     drag = null;
+    if (d.moved) window.tcDraggedAt = Date.now();  // the click that follows a drag opens no dialog
     d.card.classList.remove("is-dragged");
     document.body.classList.remove("tc-dragging");
     document.querySelectorAll(".is-off").forEach(function (el) { el.classList.remove("is-off"); });
@@ -415,5 +416,80 @@ window.tcAfterOptions = function (select, rows, preset) {
     if (!say()) { e.preventDefault(); return; }
     form.querySelector("[data-tc-merge-value]").value = source.value + "," + target.value;
     source.disabled = target.disabled = true;  // only view and merge go into the address
+  });
+})();
+
+// the diagram of the category system: a click on a category (without dragging it), or Enter, opens a dialog with its
+// passages and those of everything below it, loaded a page at a time (Ralf 2026-11-18)
+(function () {
+  var dialog = document.querySelector("[data-tc-passages-dialog]");
+  if (!dialog) return;
+  var list = dialog.querySelector("[data-tc-passages-list]"), pager = dialog.querySelector("[data-tc-passages-pager]");
+  var per = dialog.querySelector("[data-tc-passages-per]"), state = { url: "", page: 1 }, asked = 0;
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function draw(d) {
+    dialog.querySelector("[data-tc-passages-name]").textContent = d.name;
+    dialog.querySelector("[data-tc-passages-count]").textContent = de_en("{n} Stellen", "{n} passages").replace("{n}", d.total);
+    dialog.querySelector("[data-tc-passages-empty]").hidden = d.total > 0;
+    list.textContent = "";
+    d.rows.forEach(function (r) {
+      var li = el("li"), meta = el("p", "muted small");
+      li.appendChild(el("p", "", de_en("„", "“") + r.quote + de_en("“", "”")));
+      if (r.sub) { meta.appendChild(el("strong", "", r.sub)); meta.appendChild(document.createTextNode(" · ")); }
+      meta.appendChild(document.createTextNode(r.where + (r.by ? " · " + r.by : "") + " · "));
+      var a = el("a", "", de_en("im Transkript", "in the transcript"));
+      a.href = r.url;
+      meta.appendChild(a);
+      li.appendChild(meta);
+      list.appendChild(li);
+    });
+    state.page = d.page;
+    per.value = String(d.per);
+    pager.hidden = d.total <= d.sizes[0];
+    dialog.querySelector("[data-tc-passages-page]").textContent = de_en("Seite {p} von {n}", "Page {p} of {n}").replace("{p}", d.page).replace("{n}", d.pages);
+    pager.querySelector('[data-tc-passages-go="-1"]').disabled = d.page <= 1;
+    pager.querySelector('[data-tc-passages-go="1"]').disabled = d.page >= d.pages;
+  }
+  function load(page) {
+    var mine = ++asked;
+    fetch(state.url + "?page=" + page + "&per=" + per.value, { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) { if (mine === asked) draw(d); })
+      .catch(function () {
+        if (mine !== asked) return;
+        list.textContent = "";
+        list.appendChild(el("li", "danger-text", de_en("Die Stellen ließen sich nicht laden.", "The passages could not be loaded.")));
+      });
+  }
+  function open(node) {
+    state.url = node.getAttribute("data-tc-passages");
+    list.textContent = "";
+    dialog.querySelector("[data-tc-passages-name]").textContent = "";
+    dialog.querySelector("[data-tc-passages-count]").textContent = "";
+    dialog.querySelector("[data-tc-passages-empty]").hidden = true;
+    pager.hidden = true;
+    if (dialog.showModal && !dialog.open) dialog.showModal();
+    load(1);
+  }
+  document.addEventListener("click", function (e) {
+    var node = e.target.closest && e.target.closest(".tc-map [data-tc-passages]");
+    if (!node || Date.now() - (window.tcDraggedAt || 0) < 500) return;
+    open(node);
+  });
+  document.addEventListener("keydown", function (e) {
+    var node = e.target.closest && e.target.closest(".tc-map [data-tc-passages]");
+    if (!node || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    open(node);
+  });
+  per.addEventListener("change", function () { load(1); });
+  pager.addEventListener("click", function (e) {
+    var go = e.target.closest("[data-tc-passages-go]");
+    if (go) load(state.page + Number(go.getAttribute("data-tc-passages-go")));
   });
 })();
