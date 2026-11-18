@@ -2444,6 +2444,11 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-pair { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 10px; overflow-wrap: break-word; }
 .tc-pair p { margin: 0; }
 .tc-map svg { display: block; max-width: none; }
+.tc-map .tc-map-node[data-tc-passages]:not([data-tc-grab]) { cursor: pointer; }
+.tc-map .tc-map-node[data-tc-passages]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tc-passages-dialog { width: min(760px, calc(100vw - 32px)); overflow-x: hidden; }
+.tc-passages-dialog .tc-passages p { overflow-wrap: anywhere; }
+.tc-passages-pager { margin-top: 12px; align-items: center; }
 .tc-notices summary { cursor: pointer; }
 .tc-notice { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-top: 8px; display: grid; gap: 4px; }
 .tc-notice p { margin: 0; }
