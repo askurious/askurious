@@ -186,7 +186,11 @@ def test_dialog_has_the_buttons_and_capture_is_allowed_only_for_researchers(app,
     assert "display-capture=(self)" in page.headers["Permissions-Policy"]
     assert 'enctype="multipart/form-data"' in html and 'name="shot"' in html
     assert "Rückgängig" not in html and "Bild markieren" not in html    # the marking dialog is built on first use
-    assert "Seite aufnehmen" in html and "Bild wählen" in html and "Bitte Angaben von Teilnehmenden abdecken." in html
+    # buttons, thumbnail and the note for an image come from feedback_shot.js, not in every page (test_icon_sprite)
+    assert "Seite aufnehmen" not in html and "Bitte Angaben von Teilnehmenden abdecken." not in html
+    shot = (ROOT / "app/static/feedback_shot.js").read_text(encoding="utf-8")
+    assert 'de_en("Seite aufnehmen", "Capture page")' in shot and 'de_en("Bild wählen", "Choose image")' in shot
+    assert 'de_en("Bitte Angaben von Teilnehmenden abdecken.", "Please cover any participant data.")' in shot
     assert html.index("comment_shot.js") < html.index("feedback_shot.js")
     # the page of its own works without JavaScript: the plain file field is in the form
     own = client.get("/feedback/new").data.decode()

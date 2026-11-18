@@ -1,6 +1,7 @@
 """The pencil beside a variable name on the questionnaire page (editor.rename_item, app.js data-code-edit): the name
 changes in place, with the check and the followers of the element's page (elements._rename is the one code for both),
 under the same conditions (a draft, its source language, the right to edit), as one step that undo takes back."""
+from pathlib import Path
 import inspect
 
 from app.editor import elements
@@ -32,8 +33,11 @@ def test_the_questionnaire_page_offers_the_pencil_per_question(app, client, surv
     add(client, "text_input")
     add(client, "page_break")
     page = client.get(f"{E}/").data.decode()
-    assert page.count("data-code-edit=") == 1  # the question; not the consent in its pinned block, not the page break
-    assert f'data-code-edit="{E}/items/2/code?lang=de"' in page
+    assert page.count("data-code-edit ") == 1  # the question; not the consent in its pinned block, not the page break
+    # its address is the name's link + "/code" (app.js), the link of the name right before the pencil
+    assert f'href="{E}/items/2?lang=de" class="item-code" draggable="false">' in page
+    js = (Path(__file__).resolve().parents[2] / "app/static/app.js").read_text(encoding="utf-8")
+    assert r'url.pathname.replace(/\/$/, "") + "/code"' in js
     assert "Variablennamen „Q1“ ändern" in page
 
 
@@ -98,12 +102,12 @@ def test_only_a_draft_in_its_source_language_and_only_who_may_edit(app, client, 
     viewer = app.test_client()
     viewer.get(f"/auth/dev-login?orcid={OTHER}&name=Kollegin")
     viewer.post("/terms/", data={"accept": "1"})
-    assert "data-code-edit=" not in viewer.get(f"{E}/").data.decode()
+    assert "data-code-edit " not in viewer.get(f"{E}/").data.decode()
     assert _rename(viewer, 2, "alter").status_code in (302, 403) and _code(app, 2) == "Q1"
     with app.app_context():
         db.session.get(Survey, 1).status = Survey.RUNNING
         db.session.commit()
-    assert "data-code-edit=" not in client.get(f"{E}/").data.decode()
+    assert "data-code-edit " not in client.get(f"{E}/").data.decode()
     assert "Nur Textkorrekturen" in _rename(client, 2, "alter").get_json()["problem"]
     assert _code(app, 2) == "Q1"
     assert _rename(client, 99, "alter").status_code == 404

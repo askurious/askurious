@@ -1661,7 +1661,7 @@ p.start-check { margin: 0 0 12px; }
 .feedback-shot-thumb img { width: 96px; height: 60px; object-fit: cover; object-position: top; border-radius: var(--radius-tag);
   border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; }
 .feedback-shot-remove { margin-inline-start: auto; }
-.feedback-shot [data-fb-shot-error] { margin: 4px 0 0; color: var(--danger); font-size: 0.85rem; font-weight: 600; }
+.feedback-shot-error { margin: 4px 0 0; color: var(--danger); font-size: 0.85rem; font-weight: 600; }
 /* the dialog to mark it: as large as the window allows, the image scaled to fit */
 .shot-editor { box-sizing: border-box; width: min(1100px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border: 1px solid var(--border);
   border-radius: var(--radius-panel); padding: 18px 20px; background: var(--surface); color: var(--fg); box-shadow: 0 20px 60px rgba(0,0,0,0.25); }

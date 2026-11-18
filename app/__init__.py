@@ -1275,8 +1275,11 @@ PARTICIPANT_BLUEPRINTS = ("participate", "live_public", "interview_screen_public
 def _feedback_capture():
     """Called where base.html puts the feedback dialog (for signed-in researchers): "Seite aufnehmen" may take a
     picture of this tab (Permissions-Policy display-capture=(self), app/feedback_shots.py, E1); never on a page of
-    participants."""
-    if request.blueprint not in PARTICIPANT_BLUEPRINTS:
+    participants. Not on the pages of interviews either: there the page may share a screen only for the sound of a
+    video conference with consent to the recording (interview.conduct_page, tests/interview/test_interview_conference_audio.py);
+    feedback_shot.js then offers "Bild wählen" only."""
+    blueprint = request.blueprint or ""
+    if blueprint not in PARTICIPANT_BLUEPRINTS and not blueprint.startswith("interview"):
         g.display_capture = True
     return ""
 
