@@ -1,6 +1,6 @@
 """Interviews kodieren: passages of interview transcripts assigned to categories, together and without overwriting each
-other (experimental "transcript_coding", app/experimental.py; concept "Interviews kodieren", all as recommended, Ralf
-2026-10-27). Stage 1: the analyses, their category systems, members, coding links and history; the coding view
+other (concept "Interviews kodieren", all as recommended, Ralf 2026-10-27; experimental until 2026-11-18, now open to
+every researcher). Stage 1: the analyses, their category systems, members, coding links and history; the coding view
 (stage 2), the overviews and merging (stage 3) and the REFI-QDA exchange (stage 4) build on it.
 
 Analyses (E12, CodingProject): several per guide, each with a name, a research question, a category system of its own
@@ -47,7 +47,6 @@ from app.models import CodingCategory, CodingEvent, CodingMember, CodingMemo, Co
 
 bp = Blueprint("transcript_coding", __name__, url_prefix="/guide")
 
-FEATURE = "transcript_coding"
 NAME_MAX = 120
 TEXT_MAX = 4000
 QUESTION_MAX = 2000
@@ -124,13 +123,13 @@ def actor(survey, project):
     else a member if a row lets them in; then an interviewer link with the
     right "darf kodieren" the team assigned to this analysis. Nobody but the team works in an analysis of an
     archived guide."""
-    from app import experimental, interviewer
+    from app import interviewer
 
     if current_user.is_authenticated:
         if team(survey):
-            return _user_actor("team", current_user) if experimental.enabled(FEATURE, survey=survey) else None
+            return _user_actor("team", current_user)
         rows = memberships(project, current_user)
-        if rows and not survey.archived and experimental.enabled(FEATURE, survey=survey):
+        if rows and not survey.archived:
             return _user_actor("member", current_user, rows)
     if interviewer.any_session() and not survey.archived:
         access = interviewer.current(survey)
@@ -173,12 +172,10 @@ def project_of(survey, pid):
 
 
 def _team_survey(code):
-    """The guide for a page only the team opens: "Bearbeiten" and the feature (or a guide that uses it)."""
-    from app import experimental, interview_data
+    """The guide for a page only the team opens: "Bearbeiten"."""
+    from app import interview_data
 
-    survey = interview_data._survey(code, need="editor")
-    experimental.require(FEATURE, survey)
-    return survey
+    return interview_data._survey(code, need="editor")
 
 
 def _in(code, pid, team_only=False):
@@ -213,19 +210,6 @@ def may_code(access):
     return access is not None and access.may_code in (InterviewerAccess.CODE_OWN, InterviewerAccess.CODE_ALL)
 
 
-def open_for_link(survey, access):
-    """Whether "Interviews kodieren" is open for an interviewer link without an account: through the guide, as soon as
-    the researcher who made the link or anyone of its team ("Bearbeiten", "Admin") has the feature; the link itself
-    has no account to switch it on for, and an anonymous session is never asked (Ralf 2026-10-28). Off: the link
-    codes nowhere (its stored right stays as it is) and works as an interviewer link as before."""
-    from app import experimental
-    from app.models import User
-
-    people = [db.session.get(User, access.created_by_id)] if access is not None and access.created_by_id else []
-    people += [m.user for m in survey.members if m.role in ("editor", "admin")]
-    return any(experimental.enabled(FEATURE, user=person, survey=survey) for person in people if person is not None)
-
-
 CODERS_ALL, CODERS_SELECTED = "all", "selected"
 
 
@@ -244,14 +228,12 @@ def interviewer_codes_in(project, access):
     ticked."""
     if not may_code(access) or access.survey_id != project.survey_id:
         return False
-    if not open_for_link(db.session.get(Survey, project.survey_id), access):
-        return False
     return coder_mode(project) == CODERS_ALL or interviewer_member(project, access) is not None
 
 
 def interviewer_projects(survey, access):
     """The analyses this interviewer link codes in: it has the right and is assigned to them (or all with it are)."""
-    if not may_code(access) or not open_for_link(survey, access):
+    if not may_code(access):
         return []
     ids = set(db.session.scalars(db.select(CodingMember.project_id).filter_by(kind=CodingMember.INTERVIEWER, access_id=access.id)))
     return [p for p in projects(survey) if p.id in ids or coder_mode(p) == CODERS_ALL]
@@ -1182,9 +1164,7 @@ def index(code):
     """The analyses of a guide: the team sees all and makes new ones; a member is led to their analysis."""
     survey = guide(code)
     if not team(survey):
-        from app import experimental
-
-        mine = projects_for(survey, current_user) if current_user.is_authenticated and experimental.enabled(FEATURE, survey=survey) else []
+        mine = projects_for(survey, current_user) if current_user.is_authenticated else []
         if len(mine) == 1:
             return redirect(_project_url(survey, mine[0]))
         if not mine:

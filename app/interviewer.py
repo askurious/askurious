@@ -96,11 +96,9 @@ SEE_RIGHTS = (InterviewerAccess.SEE_OWN, InterviewerAccess.SEE_ALL, InterviewerA
 
 
 def _code_right(survey):
-    """The right "darf kodieren" sent with the form, only where the person sees "Interviews kodieren"."""
-    from app import experimental
-
+    """The right "darf kodieren" sent with the form."""
     value = request.form.get("may_code")
-    if value not in CODE_RIGHTS or not experimental.enabled("transcript_coding", survey=survey):
+    if value not in CODE_RIGHTS:
         return None
     return value
 
@@ -544,17 +542,13 @@ def rights_all(code, aid):
     source = db.session.get(InterviewerAccess, aid)
     if source is None or source.survey_id != survey.id:
         abort(404)
-    from app import experimental
-
     step = undo.begin(survey)
-    coding = experimental.enabled("transcript_coding", survey=survey)  # without it the coding right stays as it is
     for access in accesses(survey):
         access.may_interview, access.may_record = source.may_interview, source.may_record
         access.may_transcribe = source.may_transcribe
         access.show_learning = source.show_learning
         access.may_see = source.may_see
-        if coding:
-            access.may_code = source.may_code
+        access.may_code = source.may_code
     step.done(undo.both("Rechte von „{name}“ für alle", "Rights of “{name}” for everyone", name=source.name), page="interviewers")
     db.session.commit()
     flash(de_en("Die Rechte von {name} gelten jetzt für alle Personen dieses Leitfadens.",
@@ -737,9 +731,7 @@ def home(code):
         coding = transcript_coding.interviewer_projects(survey, access)
         if len(coding) == 1:
             return redirect(url_for("transcript_coding.project", code=survey.code, pid=coding[0].id))
-    from app import transcript_coding
-
-    return render_template("interviewer/home.html", coding_closed=not transcript_coding.open_for_link(survey, access), survey=survey, access=access, rows=own_interviews(survey, access),
+    return render_template("interviewer/home.html", survey=survey, access=access, rows=own_interviews(survey, access),
                            others=other_interviews(survey, access), sees_results=sees_results(access),
                            visible=visible, label=next_label(survey, access), st=interview.state(survey),
                            modes=interview.modes(), forms=interview_data.consent_forms(), day=interview.day_text,

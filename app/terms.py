@@ -69,6 +69,12 @@ def version():
 # entries since then above the text, each with links to its sections (#abschnitt-N, the headings of licence.md and
 # terms_en.html). A new "Version:" line in licence.md needs its entry here (tests/ui/test_ux_audit9_e.py).
 CHANGES = (
+    ("2026-11-18", "Anonymität (Abschnitt 3): „Interviews kodieren“ ist jetzt für alle Forschenden da; wer Transkripte "
+                   "kodieren lässt (Mitglieder einer Auswertung, auch über einen Interviewlink mit „darf kodieren“), wählt "
+                   "diese Personen aus, verpflichtet sie auf Vertraulichkeit und weist sie an.",
+     "Anonymity (section 3): “Coding interviews” is now open to all researchers; whoever lets people code transcripts "
+     "(members of an analysis, also through an interviewer link with “may code”) chooses them, obliges them to "
+     "confidentiality and instructs them.", (3,)),
     ("2026-11-12", "Dienste Dritter (Abschnitt 6): Die KI-Hilfe beim Kategorisieren, das KI-Lesen der Handschrift und "
                    "KI-Vorschläge beim Kodieren laufen nur über Ihren eigenen KI-Zugang, nicht über OpenAI als "
                    "Auftragsverarbeiter der Plattform; das galt schon seit dem 21.10.2026, der Text sagt es jetzt.",

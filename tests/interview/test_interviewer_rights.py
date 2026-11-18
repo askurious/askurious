@@ -170,58 +170,35 @@ def test_migration_0104_keeps_links_and_their_sessions(app, client):
     assert c.get(f"/guide/{code}/interviews/coding/{pid}").status_code == 200
 
 
-def test_feature_off_for_whoever_made_the_link(app, client):
-    """Ralf 2026-10-28: with "Interviews kodieren" off (here: kept out by an admin) a link without the right looks
-    exactly as before, a link with it keeps its interview functions but codes nowhere, a link that only codes says
-    so kindly; the rights stay stored, and with the feature on again all is as before. Saving the dialog without the
-    feature does not touch the coding right."""
-    from app import experimental
-    from app.models import User
+def test_coding_no_longer_depends_on_a_switch(app, client):
+    """Interviews kodieren is regular since 2026-11-18: a link with the right "darf kodieren" codes whatever switch its
+    maker had (before: off for whoever made the link, Ralf 2026-10-28); a stored "kept out" of the former
+    experimental feature is ignored, and saving the dialog sets the coding right like any other."""
+    from app.models import ExperimentGrant, User
 
     code, sid = _guide(app, client)
-    plain, _ = open_link(app, code, add(client, code, "Anna"))
     coder, _ = open_link(app, code, add(client, code, "Bert", may_code="own"))
     only, _ = open_link(app, code, add(client, code, "Cora", has_interview="1", may_interview="", may_code="all"))
     rid = begin(coder, code)
     _transcript(app, rid)
     pid = _new(client, code)
     base = f"/guide/{code}/interviews/coding/{pid}"
-    import re
-
-    def page_of(c):  # without the CSRF token, which carries the second it was made
-        return re.sub(r'name="csrf_token" value="[^"]*"', "", c.get(f"/i/{code}/interviews").data.decode())
-
-    before = page_of(plain)
-    # the feature only for the owner of the guide (tests.conftest switches it on for that one account, nobody else)
-    assert coder.get(base).status_code == 200 and only.get(base).status_code == 200
-    assert "/interviews/coding/" in coder.get(f"/i/{code}/interviews").data.decode()     # the list of analyses
+    with app.app_context():
+        user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+        db.session.add(ExperimentGrant(feature="transcript_coding", user_id=user.id, allowed=False, created_by_id=user.id))
+        user.experiments = ["transcript_coding"]  # a switch of before: ignored
+        db.session.commit()
+    assert client.get(base).status_code == 200                                       # the team
+    assert coder.get(base).status_code == 200 and only.get(base).status_code == 200  # both links
+    assert "/interviews/coding/" in coder.get(f"/i/{code}/interviews").data.decode()
+    assert "Kodieren ist derzeit nicht verfügbar" not in only.get(f"/i/{code}/interviews").data.decode()
     with app.app_context():
         sub = db.session.scalar(db.select(CodingCategory.id).filter_by(project_id=pid, kind=CodingCategory.SUB))
-    assert coder.get(f"{base}/i/{rid}").status_code == 200                          # the coding view
     saved = coder.post(f"{base}/i/{rid}/codings", json={"start": 0, "end": 5, "cat": sub})
     assert saved.status_code == 200 and saved.json["ok"]
-
-    def switch(state):
-        with app.app_context():
-            user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
-            experimental.set_person(user, "transcript_coding", state, user)
-            db.session.commit()
-
-    switch("blocked")
-    assert page_of(plain) == before                                                 # (1) exactly as before
-    assert coder.get(f"/i/{code}/interviews").status_code == 200                     # (2) interviews as before
-    assert coder.get(_urls(app, code, rid)["record"]).status_code == 200
-    assert coder.get(base).status_code == 404 and "/interviews/coding/" not in coder.get(f"/i/{code}/interviews").data.decode()
-    page = only.get(f"/i/{code}/interviews")                                        # (3) kindly, no error
-    assert page.status_code == 200 and "Kodieren ist derzeit nicht verfügbar" in page.data.decode()
-    assert only.get(base).status_code == 404
     bert = _access(app, "Bert")
     client.post(f"/guide/{code}/interviewers/{bert.id}/rights", data={**RIGHTS, "may_code": "none"})
-    assert _access(app, "Bert").may_code == "own"                                    # no feature: right untouched
-    switch("off")
-    experiments_on_again = __import__("tests.conftest", fromlist=["experiments_on"]).experiments_on
-    experiments_on_again(client, "transcript_coding")
-    assert coder.get(base).status_code == 200 and only.get(base).status_code == 200  # (4) as before
+    assert _access(app, "Bert").may_code == "none"
 
 
 def test_undo_gives_back_the_right_to_conduct_interviews(app, client):

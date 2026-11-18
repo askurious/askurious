@@ -1010,10 +1010,10 @@ def export(code):
 
 def _coding_projects(survey):
     """The analyses of "Interviews kodieren" whose category systems the export lists (only for their team, who alone
-    may download them, app/transcript_coding_export.py); none while the feature is off."""
-    from app import experimental, transcript_coding
+    may download them, app/transcript_coding_export.py)."""
+    from app import transcript_coding
 
-    if not experimental.enabled(transcript_coding.FEATURE, survey=survey) or not transcript_coding.team(survey):
+    if not transcript_coding.team(survey):
         return []
     return transcript_coding.projects(survey)
 

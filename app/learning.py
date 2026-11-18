@@ -2029,8 +2029,7 @@ def glossary():
 
 
 # folds of an experimental feature (app/experimental.py): on the glossary page only for whom it is on
-REASON_FEATURES = {"ai_chat": "ai_chat", "category_rules": "transcript_coding", "anchor_choice": "transcript_coding",
-                   "mains_fixed": "transcript_coding", "position": "transcript_coding", "search_hits": "transcript_coding"}  # the participant screen is regular since 2026-10-22
+REASON_FEATURES = {"ai_chat": "ai_chat"}  # the participant screen is regular since 2026-10-22, Interviews kodieren since 2026-11-18
 
 # the groups of the section "Entscheidungen" of the glossary page, named like the groups of the tabs (_tabs.html;
 # concept "Lernhilfen: fünfte Runde", H3); a fold belongs where its decision is taken. Not listed: "Planen".

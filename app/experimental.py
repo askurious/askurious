@@ -24,7 +24,8 @@ blättern, auch bei schwachem Netz" since 2026-10-16: app/items/voice.py, app/it
 app/blockload.py; live feedback on a talk (the template "Fragen & Feedback zum Vortrag", slides from a PDF, the
 slides on the phones) since 2026-10-17: app/live/; Coscine since 2026-10-20: app/coscine.py; the participant screen
 in the interview since 2026-10-22: app/interview_screen.py; the diary study with its AI assistant and interviews without a
-network since 2026-10-27: app/diary.py, app/diary_ai.py, app/interview_offline.py.)
+network since 2026-10-27: app/diary.py, app/diary_ai.py, app/interview_offline.py; Interviews kodieren since
+2026-11-18: app/transcript_coding.py.)
 
 A new experimental feature: one entry in FEATURES, then gate its parts with its key; it is on for nobody until an
 admin switches it on. A feature that leaves the experimental group: remove its entry and its checks; switches and
@@ -73,15 +74,6 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Schlüssel, Modell), nie aus dem persönlichen KI-Zugang oder dem der Plattform; seine Herkunft steht in der "
      "Dokumentation der Befragung. Anweisungen an das Modell je Sprache, Grenzen je Gespräch und Tag, ein Hinweis auf "
      "Hilfe bei Krisenwörtern, ein eigenes Häkchen in der Einwilligung."),
-    ("transcript_coding", "Interviews kodieren: Textstellen in Transkripten gemeinsam Kategorien zuordnen",
-     "Unter „Ergebnisse“ eines Interviewleitfadens der Knopf „Kodieren“: Textstellen markieren und Kategorien zuordnen "
-     "(Tasten 1 bis 9, Ankerbeispiele, KI-Vorschläge über den eigenen KI-Zugang, wenn erlaubt), Übersicht als Tabelle oder Karte, unscharfe Kategorien zusammenführen, "
-     "gegenseitige Probe, Fallvergleich nach Hauptkategorien mit Fälle × Unterkategorien, Doppelkodierung mit Übereinstimmung (Cohens κ), Kodierleitfaden und Export für QDA-Programme (.qdpx, .qdc), Auswertungen mit eigener "
-     "Forschungsfrage und "
-     "eigenem Kategoriensystem anlegen, aus dem Leitfaden, leer oder als Kopie. Hauptkategorien geben Sie vor, "
-     "Mitglieder ergänzen Unterkategorien mit Definition, Abgrenzung und Autor, ohne sich zu überschreiben; ähnliche "
-     "Namen erscheinen zuerst. Mitkodieren können Personen, Askurious-Gruppen, Interviewende mit ihrem Interviewlink "
-     "mit dem Recht „darf kodieren“ (eigene oder alle Interviews), auch ohne Interviews zu führen."),
     ("material_variants", "Befragungsmaterial je Variante als ZIP",
      "Unter „Export“ am Befragungsmaterial einer randomisierten Befragung die Wahl „Zusätzlich je ein PDF pro Variante“: "
      "ein ZIP mit dem Material und für jede Kombination der Bedingungen einem PDF mit dem, was eine Person in dieser "
@@ -131,15 +123,6 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                 "address, key, model), never from the personal AI access or the platform's; its origin is part of the "
                 "survey's documentation. Instructions for the model per language, limits per conversation and day, a "
                 "hint to help on crisis words, a tick of its own in the consent."),
-    "transcript_coding": ("Code interviews: assign passages of transcripts to categories together",
-                          "Under “Results” of an interview guide the button “Code”: mark passages and assign categories "
-                          "(keys 1 to 9, anchor examples, AI suggestions over the own AI access where allowed), an overview as a table or map, merging blurred categories, a "
-                          "mutual check, comparing cases by main category with cases × subcategories, double coding with agreement (Cohen's κ), a coding guide and an export for QDA software (.qdpx, .qdc), create analyses with their own "
-                          "research question and category system, from the guide, empty or as a copy. You set the main "
-                          "categories, members add subcategories with a definition, delimitation and author without "
-                          "overwriting each other; similar names show first. People, Askurious groups, interviewers with "
-                          "their interviewer link with the right “may code” (own or all interviews), also without conducting "
-                          "interviews, can code along."),
 }
 
 
@@ -256,12 +239,6 @@ def in_use(feature, survey):
         from app import webservice
 
         return bool(webservice.nodes(survey))
-    if feature == "transcript_coding":  # an analysis of the guide's transcripts (app/transcript_coding.py)
-        from app.extensions import db
-        from app.models import CodingProject
-
-        return getattr(survey, "id", None) is not None and db.session.scalar(
-            db.select(CodingProject.id).filter_by(survey_id=survey.id).limit(1)) is not None
     if feature == "agent":  # an AI agent changed the survey (app/agent_tools.py): its team sees the banner and marks
         from app.edit_guard import AGENT_KEY
         from app.extensions import db
@@ -295,11 +272,6 @@ def uses(feature):
                 if isinstance(flow, dict) and '"t": "ws"' in __import__("json").dumps(flow))
     elif feature == "coding":
         n = sum(1 for value in db.session.scalars(db.select(Survey.codings).where(Survey.codings.is_not(None))) if value)
-    elif feature == "transcript_coding":
-        from app.models import CodingProject
-
-        n = db.session.scalar(db.select(db.func.count(db.distinct(CodingProject.survey_id)))) or 0
-        return n, de_en("Interviewleitfaden", "interview guide") if n == 1 else de_en("Interviewleitfäden", "interview guides")
     elif feature == "ainstein":
         n = db.session.scalar(db.select(db.func.count(ResearchProject.id))) or 0
         # "genutzt in 0 Projekten": the dative after "in" (UI/UX audit 2026-10-09, X77)

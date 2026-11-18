@@ -316,7 +316,7 @@ class InterviewerAccess(db.Model):
     opened it, [{"id", "kind", "first", "last"}], at most `max_devices`. The rights (`may_record`,
     `may_transcribe`, `may_code`) change on the page "Interviews" without a new link: the server reads them with every
     request, and neither the revision nor a session changes with them. Without `may_interview` the link only codes:
-    no interview to begin, record or transcribe (the server refuses them). `may_code` (experimental "transcript_coding"):
+    no interview to begin, record or transcribe (the server refuses them). `may_code` ("Interviews kodieren"):
     "none", "own" (its own interviews) or "all" (all interviews of an analysis it is assigned to; Ralf 2026-10-28).
     `show_learning` ("Lernhilfen zeigen", on by default, Ralf 2026-10-29): its sessions see the learning aids
     (app/learning.py, on) as a researcher with the switch on. `may_see` (Ralf 2026-11-05): "own" (its own interviews
@@ -351,7 +351,7 @@ class InterviewerAccess(db.Model):
     last_used_at: Mapped[datetime | None]
 
 
-# --- coding interview transcripts (app/transcript_coding.py, experimental "transcript_coding") ---------------------
+# --- coding interview transcripts (app/transcript_coding.py) -------------------------------------------------
 # No foreign keys, like interviewer_access: the rows go in code with the guide (lifecycle.delete) and lose only names
 # and ids of a deleted account (accounts.delete). The interviewer links themselves are never changed by them.
 
