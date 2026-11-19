@@ -51,6 +51,9 @@
     {{ why("mains_fixed") }}
     <input type="hidden" name="has_guarded" value="1">
     <label class="check"><input type="checkbox" name="guarded" value="1" {% if guarded %}checked{% endif %}> {{ de_en("Fremde Kategorien verschieben und zusammenführen nur Team und Autor", "Only the team and the author move and merge others' categories") }} <span class="hint">{{ de_en("dann schlagen die anderen Mitglieder Verschieben und Zusammenführen vor, wie eine Änderung; Sie oder wer die Kategorie angelegt hat, entscheiden", "then the other members propose moving and merging, like a change; you or whoever created the category decide") }}</span></label>
+    <input type="hidden" name="has_coder_exports" value="1">
+    <label class="check"><input type="checkbox" name="coder_exports" value="1" {% if coder_exports %}checked{% endif %}> {{ de_en("Interviewende dürfen auch Excel, CSV, .qdc und .qdpx herunterladen", "Interviewers may also download Excel, CSV, .qdc and .qdpx") }} <span class="hint">{{ de_en("sonst nur den Kodierleitfaden; die Dateien enthalten nur die Interviews und Stellen, die die Person auch sieht", "otherwise only the coding guide; the files hold only the interviews and passages the person sees") }}</span></label>
+    <label class="check tc-sub-check"><input type="checkbox" name="coder_names_hidden" value="1" {% if coder_names_hidden %}checked{% endif %}> {{ de_en("Namen der Kodierenden in diesen Downloads ausblenden", "Hide the coders' names in these downloads") }} <span class="hint">{{ de_en("dann steht dort „Kodierende 1“, „Kodierende 2“ …; Ihre eigenen Downloads nennen die Namen weiter", "then they read “Coder 1”, “Coder 2” …; your own downloads still name them") }}</span></label>
     {{ autosave_bar(quiet=true) }}
   </form>
   {% if ai_switch %}
@@ -79,7 +82,7 @@
     {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_png_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PNG</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_pdf_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PDF</a>{% endif %}
-    {{ downloads(survey, project, who) }}
+    {{ downloads(survey, project, who, full=may_export) }}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
     {% if show == "list" %}

@@ -15,7 +15,7 @@
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id) }}">{{ de_en("Kategorie × Interview", "Category × interview") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.agreement_page', code=survey.code, pid=project.id) }}">{{ de_en("Übereinstimmung", "Agreement") }}</a>
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.cases', code=survey.code, pid=project.id) }}">{{ de_en("Fallzusammenfassungen", "Case summaries") }}</a>
-    {{ downloads(survey, project, who) }}
+    {{ downloads(survey, project, who, full=may_export) }}
   </div>
   {% if who.team %}{{ why("position") }}{% endif %}
 {% endcall %}
