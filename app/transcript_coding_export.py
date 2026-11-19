@@ -18,7 +18,10 @@ kodieren", all as recommended, Ralf 2026-10-27), for MAXQDA, ATLAS.ti, NVivo and
 
 The GUIDs of categories are their own (CodingCategory.guid: from the guide as in app/qdc.py, else new), so a category
 system read in again matches; the others are derived from the guide, the analysis and the coding, so the same export
-gives the same GUIDs. Only the team of the guide exports (coders see no exports, privacy concept). Unlike the guide's
+gives the same GUIDs. The team of the guide exports; interviewer links with the right to code only where the analysis
+allows it ("Interviewende dürfen auch Excel, CSV, .qdc und .qdpx herunterladen", Ralf 2026-11-19), and then the files
+hold only the interviews and passages they see on the page (blind double coding stays blind), with "Kodierende 1, 2, …"
+instead of names unless the team switched that off (privacy concept). Unlike the guide's
 own project, the transcript is the one coded, without the lines of the tasks, so that the positions fit.
 
 Format: REFI-QDA Project Exchange (urn:QDA-XML:project:1.0) and Codebook Exchange (urn:QDA-XML:codebook:1.0),
@@ -28,12 +31,13 @@ import uuid
 import zipfile
 from xml.etree import ElementTree as ET
 
-from flask import send_file
+from flask import abort, send_file
 
 from app import brand, heavy
 from app.extensions import db
 from app.lang import de_en
-from app.transcript_coding import _in, bp, chain, live, numbers, signed_in_or_coder, tree
+from app.transcript_coding import (_in, bp, chain, coder_names_hidden, live, may_export, numbers, signed_in_or_coder,
+                                   tree)
 from app.transcript_coding_view import (anchor_spots, clean_quote, example_spots, has_transcript, Paragraphs, placed,
                                         spot, transcript)
 
@@ -44,6 +48,44 @@ COLOURS = ("#8A4B14", "#2957A4", "#1F6B2A", "#7A3FD1", "#B3261E", "#0B6E86", "#7
 
 def _guid(survey, project, *parts):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"askurious-coding:{survey.uid}:{project.id}:" + ":".join(str(p) for p in parts))).upper()
+
+
+def _limited(who):
+    """Whether an export for `who` holds only what they see (not the team: everything, as always)."""
+    return who is not None and not who.team
+
+
+class _Names:
+    """The coders' names as an export shows them: as they are, or for an interviewer's download with
+    "Namen der Kodierenden ausblenden" "Kodierende 1, 2, …" in the order they first appear, the same person always
+    the same number (by the key of their entries, else their name)."""
+
+    def __init__(self, project, who):
+        self.hide = _limited(who) and coder_names_hidden(project)
+        self.seen = {}
+
+    def __call__(self, key, name):
+        if not self.hide:
+            return name
+        if not (key or name):
+            return de_en("unbekannt", "unknown")
+        mark = key or f"name:{name}"
+        if mark not in self.seen:
+            self.seen[mark] = de_en("Kodierende {n}", "Coder {n}", n=len(self.seen) + 1)
+        return self.seen[mark]
+
+
+def _conductor(row):
+    """The key of whoever conducted the interview, as their entries are marked ("i:<link id>", "u:<user id>")."""
+    meta = row.interview or {}
+    if meta.get("access"):
+        return f"i:{meta['access']}"
+    return f"u:{meta['by']}" if meta.get("by") else None
+
+
+def _placed(row, project, who):
+    """The placed codings of an interview in an export: all for the team, what `who` sees for an interviewer."""
+    return placed(row, project, who if _limited(who) else None)[0]
 
 
 def _el(parent, ns, tag, attrs=None, text=None):
@@ -103,16 +145,22 @@ def build_qdc(project):
     return ('<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode")).encode("utf-8")
 
 
-def _memos(project):
-    """The memos of the analysis that go into an export (the team's: all that are not deleted), oldest first."""
+def _memos(project, who=None):
+    """The memos of the analysis that go into an export (the team's: all that are not deleted; an interviewer's: those
+    they see), oldest first."""
     from app.models import CodingMemo
+
+    if _limited(who):
+        from app import transcript_coding_memos
+
+        return transcript_coding_memos.visible(project, who)
 
     return list(db.session.scalars(db.select(CodingMemo).where(CodingMemo.project_id == project.id,
                                                                CodingMemo.deleted_at.is_(None))
                                    .order_by(CodingMemo.created_at, CodingMemo.id)))
 
 
-def build_qdpx(project, survey):
+def build_qdpx(project, survey, who=None):
     from app import interview_qdpx
     from app.models import CodingMemo, utcnow
     from app.transcript_coding import resolver
@@ -120,8 +168,9 @@ def build_qdpx(project, survey):
     ET.register_namespace("", PROJECT_NS)
     ns = PROJECT_NS
     now = utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    rows = _rows(survey)
-    coded = {r.id: placed(r, project)[0] for r in rows}
+    rows = _rows(survey, project, who)
+    coded = {r.id: _placed(r, project, who) for r in rows}
+    shown = _Names(project, who)
     owner = _guid(survey, project, "user", "askurious")
     root = ET.Element(f"{{{ns}}}Project", {"name": f"{survey.title} – {project.name}"[:200], "origin": brand.name(),
                                            "creatingUserGUID": owner, "creationDateTime": now})
@@ -130,13 +179,13 @@ def build_qdpx(project, survey):
     people = {}
     for items in coded.values():
         for c in items:
-            people.setdefault(c.get("by") or "", c.get("by_name") or de_en("unbekannt", "unknown"))
+            people.setdefault(c.get("by") or "", shown(c.get("by"), c.get("by_name")) or de_en("unbekannt", "unknown"))
     # memos as REFI-QDA notes: at a code, a text source or a selection (NoteRef); only those whose place is exported
     placed_ids = {c["id"] for items in coded.values() for c in items}
     resolve = resolver(project)
     memo_at = {"category": {}, "interview": {}, "passage": {}}
     memos = []
-    for m in _memos(project):
+    for m in _memos(project, who):
         key = (resolve(m.category_id) if m.kind == CodingMemo.CATEGORY else m.response_id if m.kind == CodingMemo.INTERVIEW
                else m.coding_id)
         if key is None or (m.kind == CodingMemo.INTERVIEW and m.response_id not in coded) or (
@@ -145,7 +194,7 @@ def build_qdpx(project, survey):
         note = _guid(survey, project, "memo", m.id)
         memo_at[m.kind].setdefault(key, []).append(note)
         memos.append((note, m))
-        people.setdefault(m.author_key or "", m.author_name or de_en("unbekannt", "unknown"))
+        people.setdefault(m.author_key or "", shown(m.author_key, m.author_name) or de_en("unbekannt", "unknown"))
     # the thematic case summaries of this analysis as notes at the transcript ("Fallzusammenfassung: <main category>")
     from app.transcript_coding_cases import meta_of
 
@@ -160,7 +209,7 @@ def build_qdpx(project, survey):
                 summary_at.setdefault(r.id, []).append(note)
                 summaries.append((note, main.name, texts[key], meta.get("by") or "", meta.get("at") or ""))
                 if meta.get("by"):
-                    people.setdefault(meta["by"], meta.get("by_name") or de_en("unbekannt", "unknown"))
+                    people.setdefault(meta["by"], shown(meta["by"], meta.get("by_name")) or de_en("unbekannt", "unknown"))
     user_of = {}
     for key, name in sorted(people.items(), key=lambda kv: kv[1].casefold()):
         user_of[key] = _guid(survey, project, "user", key or "none")
@@ -168,6 +217,11 @@ def build_qdpx(project, survey):
     codebook = _el(root, ns, "CodeBook")
     guids = codes(project, codebook, ns, memo_at["category"])
     variables = interview_qdpx.variables(survey)
+    if shown.hide:  # "interviewt von" names a person too: the same "Kodierende n" as their entries
+        def conductor(r):
+            return shown(_conductor(r), (r.interview or {}).get("by_name", ""))
+
+        variables = [(key, label, conductor if key == "von" else value) for key, label, value in variables]
     if variables:
         holder = _el(root, ns, "Variables")
         for key, name, _value in variables:
@@ -200,7 +254,8 @@ def build_qdpx(project, survey):
                                                           "creatingUser": user, "creationDateTime": at})
                 if c.get("origin") == "ai":  # an accepted AI suggestion stays recognisable
                     _el(sel, ns, "Description", text=de_en("KI-Vorschlag, übernommen von {who}", "AI suggestion, accepted by {who}",
-                                                           who=c.get("accepted_by") or c.get("by_name") or ""))
+                                                           who=(shown(c.get("by"), c.get("by_name")) if shown.hide else
+                                                                c.get("accepted_by") or c.get("by_name") or "")))
                 coding = _el(sel, ns, "Coding", {"guid": _guid(survey, project, "coding", c["id"]), "creatingUser": user,
                                                  "creationDateTime": at})
                 _el(coding, ns, "CodeRef", {"targetGUID": guids[c["cat"]]})
@@ -234,13 +289,18 @@ def build_qdpx(project, survey):
     return buf.getvalue()
 
 
-def _rows(survey):
+def _rows(survey, project=None, who=None):
+    """The interviews with a transcript an export holds: all real ones, for an interviewer those they see."""
+    if _limited(who):
+        from app.transcript_coding import interviews
+
+        return [r for r in interviews(project, who) if has_transcript(r)]
     from app import interview_data
 
     return [r for r in interview_data.interviews(survey, source="real") if has_transcript(r)]
 
 
-def _codebook(project, survey):
+def _codebook(project, survey, who=None, name=None):
     """The sheets "Kategoriensystem" and "Stellen" as (head, rows, head of passages, passages, pairs, mains, number);
     `pairs`: (interview, placed coding) for the overlaps."""
     mains, candidates = tree(project)
@@ -248,15 +308,17 @@ def _codebook(project, survey):
     spots = anchor_spots(project)
     passages = []  # (category id, interview label, where, quote, coder)
     pairs = []  # (interview, placed coding) for the further examples
-    for r in _rows(survey):
+    name = name or _Names(project, who)
+    for r in _rows(survey, project, who):
         text, label = transcript(r), (r.interview or {}).get("label", str(r.id))
         paras = Paragraphs(text)
-        for c in placed(r, project)[0]:
+        for c in _placed(r, project, who):
             pairs.append((r, c))
-            who = c.get("by_name") or ""
+            by = name(c.get("by"), c.get("by_name") or "") or ""
             if c.get("origin") == "ai":
-                who = de_en("{who} (KI-Vorschlag übernommen)", "{who} (AI suggestion accepted)", who=c.get("accepted_by") or who)
-            passages.append((c["cat"], label, spot(label, text, c["start"], paras), clean_quote(c.get("quote")), who))
+                by = de_en("{who} (KI-Vorschlag übernommen)", "{who} (AI suggestion accepted)",
+                           who=by if name.hide else c.get("accepted_by") or by)
+            passages.append((c["cat"], label, spot(label, text, c["start"], paras), clean_quote(c.get("quote")), by))
     by_id = {c.id: c for c in live(project)}
     own, total = {}, {}
     for cid, *_rest in passages:
@@ -287,19 +349,19 @@ def _codebook(project, survey):
     order = {cid: n for n, cid in enumerate(ids)}
     passages.sort(key=lambda p: (order.get(p[0], len(order)),))  # by category, within it in the order of the interviews
     names = {c.id: c.name for c in by_id.values()}
-    rows = [[number.get(cid, ""), names.get(cid, ""), label, where, quote, who]
-            for cid, label, where, quote, who in passages]
+    rows = [[number.get(cid, ""), names.get(cid, ""), label, where, quote, by]
+            for cid, label, where, quote, by in passages]
     head2 = [de_en("Nummer", "Number"), de_en("Kategorie", "Category"), de_en("Interview", "Interview"),
              de_en("Fundstelle", "Location"), de_en("Zitat", "Quote"), de_en("Kodiert von", "Coded by")]
     return head, system, head2, rows, pairs, mains, number
 
 
-def build_csv(project, survey):
+def build_csv(project, survey, who=None):
     """The sheet "Kategoriensystem" of the Excel file as CSV (UTF-8 with BOM, semicolons as Excel in German reads
     them), for scripts and for programs without Excel."""
     import csv
 
-    head, system, *_rest = _codebook(project, survey)
+    head, system, *_rest = _codebook(project, survey, who)
     buf = io.StringIO()
     out = csv.writer(buf, delimiter=";")
     out.writerow(head)
@@ -307,19 +369,20 @@ def build_csv(project, survey):
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-def build_xlsx(project, survey):
+def build_xlsx(project, survey, who=None):
     """The category system and its coded passages as an Excel file (see the top of this module)."""
     from app import xlsx
 
-    head, system, head2, rows, pairs, mains, number = _codebook(project, survey)
+    name = _Names(project, who)
+    head, system, head2, rows, pairs, mains, number = _codebook(project, survey, who, name)
     sheets = [(de_en("Kategoriensystem", "Category system"), head, system, [9, 7, 28, 50, 50, 24, 60, 40, 9, 12, 20]),
               (de_en("Stellen", "Passages"), head2, rows, [9, 28, 14, 24, 80, 20])]
-    cases = _case_rows(project, survey, mains, number)
+    cases = _case_rows(project, survey, mains, number, who, name)
     if cases:  # the thematic case summaries of this analysis (app/transcript_coding_cases.py)
         sheets.append((de_en("Fallzusammenfassungen", "Case summaries"),
                        [de_en("Interview", "Interview"), de_en("Nummer", "Number"), de_en("Hauptkategorie", "Main category"),
                         de_en("Zusammenfassung", "Summary"), de_en("von", "by"), de_en("am", "on")], cases, [14, 9, 28, 80, 20, 17]))
-    memos = _memos(project)
+    memos = _memos(project, who)
     if memos:  # memos at passages, categories and interviews (app/transcript_coding_memos.py)
         from app import transcript_coding_memos
         from app.lang import english
@@ -330,7 +393,7 @@ def build_xlsx(project, survey):
                  de_en("Fundstelle", "Location"), de_en("Memo", "Memo"), de_en("von", "by"), de_en("am", "on")]
         sheets.append((de_en("Memos", "Memos"), head3,
                        [[transcript_coding_memos.kind_name(m.kind), about[m.id]["number"], about[m.id]["category"],
-                         about[m.id]["interview"], about[m.id]["where"], m.text, m.author_name, fmt(m.updated_at, lang="en" if english() else "de")]
+                         about[m.id]["interview"], about[m.id]["where"], m.text, name(m.author_key, m.author_name), fmt(m.updated_at, lang="en" if english() else "de")]
                         for m in memos], [11, 9, 28, 14, 24, 80, 20, 17]))
     from app import transcript_coding_overlap
 
@@ -338,29 +401,39 @@ def build_xlsx(project, survey):
     return xlsx.workbook(sheets)
 
 
-def _case_rows(project, survey, mains, number):
+def _case_rows(project, survey, mains, number, who=None, name=None):
     """[[interview, number, main category, text, by, when]] of the case summaries of this analysis."""
     from app.interview_summaries import _when
     from app.transcript_coding_cases import meta_of
 
+    name = name or _Names(project, who)
     out = []
-    for r in _rows(survey):
+    for r in _rows(survey, project, who):
         texts = (r.interview or {}).get("summaries") or {}
         for main, _subs in mains:
             key = f"c{project.id}:{main.id}"
             if texts.get(key):
                 meta = meta_of(r, key) or {}
                 out.append([(r.interview or {}).get("label", str(r.id)), number.get(main.id, ""), main.name, texts[key],
-                            meta.get("by_name") or de_en("Forschende", "researchers"), _when(meta.get("at"))])
+                            name(meta.get("by"), meta.get("by_name")) or de_en("Forschende", "researchers"),
+                            _when(meta.get("at"))])
     return out
+
+
+def _exporting(code, pid):
+    """(survey, project, actor) of an export: the team, an interviewer link where the analysis allows it; else 404."""
+    survey, project, who = _in(code, pid)
+    if not may_export(project, who):
+        abort(404)
+    return survey, project, who
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.xlsx")
 @signed_in_or_coder
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def categories_xlsx(code, pid):
-    survey, project, who = _in(code, pid, team_only=True)
-    return send_file(io.BytesIO(build_xlsx(project, survey)), as_attachment=True,
+    survey, project, who = _exporting(code, pid)
+    return send_file(io.BytesIO(build_xlsx(project, survey, who)), as_attachment=True,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                      download_name=f"kategoriensystem-{survey.code}-{project.id}.xlsx")
 
@@ -369,8 +442,8 @@ def categories_xlsx(code, pid):
 @signed_in_or_coder
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def categories_csv(code, pid):
-    survey, project, who = _in(code, pid, team_only=True)
-    return send_file(io.BytesIO(build_csv(project, survey)), as_attachment=True, mimetype="text/csv",
+    survey, project, who = _exporting(code, pid)
+    return send_file(io.BytesIO(build_csv(project, survey, who)), as_attachment=True, mimetype="text/csv",
                      download_name=f"kategoriensystem-{survey.code}-{project.id}.csv")
 
 
@@ -378,15 +451,15 @@ def categories_csv(code, pid):
 @signed_in_or_coder
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def project_file(code, pid):
-    survey, project, who = _in(code, pid, team_only=True)
-    return send_file(io.BytesIO(build_qdpx(project, survey)), as_attachment=True, mimetype="application/zip",
+    survey, project, who = _exporting(code, pid)
+    return send_file(io.BytesIO(build_qdpx(project, survey, who)), as_attachment=True, mimetype="application/zip",
                      download_name=f"kodieren-{survey.code}-{project.id}.qdpx")
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/categories.qdc")
 @signed_in_or_coder
 def codebook_file(code, pid):
-    survey, project, who = _in(code, pid, team_only=True)
+    survey, project, who = _exporting(code, pid)
     return send_file(io.BytesIO(build_qdc(project)), as_attachment=True, mimetype="application/xml",
                      download_name=f"kategoriensystem-{survey.code}-{project.id}.qdc")
 

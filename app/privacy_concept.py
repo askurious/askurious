@@ -309,11 +309,18 @@ def roles():
          "sees": de_en("Die Transkripte der Interviews dieser einen Auswertung (je nach Einstellung alle oder nur die eigenen; "
                        "Interviewende ihre eigenen oder, mit dem Recht „alle“, alle der Auswertung, fremde nur zum Kodieren) und ihr "
                        "Kategoriensystem; ergänzen Kategorien und schlagen Änderungen "
-                       "vor; nicht den Leitfaden, keine Aufnahmen, keine Exporte, keine anderen Auswertungen.",
+                       "vor; nicht den Leitfaden, keine Aufnahmen, keine anderen Auswertungen; als Export nur den "
+                       "Kodierleitfaden, Interviewende mit der Einstellung der Auswertung „dürfen auch Excel, CSV, .qdc "
+                       "und .qdpx herunterladen“ (aus, bis das Team sie setzt) auch diese Dateien, beschränkt auf die "
+                       "Interviews und Stellen, die sie sehen, mit „Kodierende 1, 2 …“ statt der Namen anderer, solange "
+                       "„Namen ausblenden“ an ist (Voreinstellung).",
                        "The transcripts of the interviews of that one analysis (depending on the setting all or only their "
                        "own; interviewers their own or, with the right “all”, all of the analysis, those of others only for "
                        "coding) and its category system; add categories and propose changes; not "
-                       "the guide, no recordings, no exports, no other analyses.")},
+                       "the guide, no recordings, no other analyses; as an export only the coding guide, interviewers with "
+                       "the analysis's setting “may also download Excel, CSV, .qdc and .qdpx” (off until the team sets it) "
+                       "these files too, limited to the interviews and passages they see, with “Coder 1, 2 …” instead of "
+                       "the names of others while “hide names” is on (default).")},
         {"who": de_en("Interviewte Personen", "Interviewees"),
          "how": de_en("Eingetragen von Forschenden; mit dem Teilnehmerbildschirm ein Link je Interview "
                       "für ein einziges eigenes Gerät, ohne Konto",
@@ -1423,13 +1430,16 @@ def measures():
                    "oben); Interviewende kodieren nur mit dem Recht am Link (aus, bis es gesetzt wird) und Zuweisung je Auswertung, "
                    "eigene oder alle Interviews (fremde nur lesend zum Kodieren); der Server prüft Rechte bei jedem "
                    "Aufruf, ihr Interviewlink selbst bleibt unverändert; Kodierende ändern den Leitfaden nicht und "
-                   "sehen keine Aufnahmen und Exporte; jede Änderung im Verlauf mit Namen",
+                   "sehen keine Aufnahmen; Exporte außer dem Kodierleitfaden nur mit eigener Einstellung der Auswertung, "
+                   "auf das Sichtbare beschränkt und mit ausgeblendeten Namen als Voreinstellung; jede Änderung im "
+                   "Verlauf mit Namen",
                    "Coding interviews: people without an account code only through an interviewer link (protected as "
                    "above); interviewers code only after "
                    "the right at the link (off until set) and an assignment per analysis, own or all interviews (those of "
                    "others read only, for coding); the server checks rights with every request, their interviewer link "
-                   "itself stays unchanged; coders do not change the guide and see no recordings or exports; every change "
-                   "in the history with a name"), "app/transcript_coding.py"),
+                   "itself stays unchanged; coders do not change the guide and see no recordings; exports other than the "
+                   "coding guide only with a setting of the analysis, limited to what they see and with names hidden by "
+                   "default; every change in the history with a name"), "app/transcript_coding.py"),
             (de_en("Teilnehmerbildschirm im Interview: Link je Interview mit 256 zufälligen Bits, nur als Hash gespeichert, "
                    "Schlüssel nach „#“ (nicht in Protokollen); ein einziges Gerät, an Sitzung und zufällige Gerätekennung "
                    "gebunden; ungeöffnet 30 Minuten, verbunden höchstens 6 Stunden, endet mit dem Interview, beim Trennen "

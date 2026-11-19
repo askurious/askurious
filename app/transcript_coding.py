@@ -576,6 +576,25 @@ def guarded(project):
     return bool((project.settings or {}).get("guarded"))
 
 
+def coder_exports(project):
+    """"Interviewende dürfen auch Excel, CSV, .qdc und .qdpx herunterladen" (a setting of the analysis, off by default;
+    Ralf 2026-11-19): then interviewer links with the right to code get the downloads the team has, holding only the
+    interviews and passages they see on the page."""
+    return bool((project.settings or {}).get("coder_exports"))
+
+
+def coder_names_hidden(project):
+    """"Namen der Kodierenden in diesen Downloads ausblenden" (on by default): the interviewers' downloads then name
+    "Kodierende 1, 2, …" instead of the people who coded."""
+    return (project.settings or {}).get("coder_names_hidden", True) is not False
+
+
+def may_export(project, who):
+    """Whether `who` downloads Excel, CSV, .qdc and .qdpx of the analysis: the team, an interviewer link with the
+    setting coder_exports."""
+    return who.team or (who.kind == "interviewer" and coder_exports(project))
+
+
 def own_or_team(cat, who):
     return who.team or (bool(cat.author_key) and cat.author_key == who.key)
 
@@ -1247,7 +1266,9 @@ def project(code, pid):
                        c for c in ((r.interview or {}).get("codings") or []) if c.get("project") == project.id])))
     from app import transcript_coding_memos
 
-    context.update(guarded=guarded(project), may_propose_move=lambda c: may_propose_move(project, c, who),
+    context.update(guarded=guarded(project), coder_exports=coder_exports(project),
+                   coder_names_hidden=coder_names_hidden(project), may_export=may_export(project, who),
+                   may_propose_move=lambda c: may_propose_move(project, c, who),
                    siblings=sibling_lists(project))
     cat_memos = transcript_coding_memos.visible(project, who, kind=CodingMemo.CATEGORY)
     context.update(memos=[transcript_coding_memos.as_json(m, who) for m in cat_memos],
@@ -1316,6 +1337,9 @@ def settings(code, pid):
     project.mains_fixed = bool(request.form.get("mains_fixed"))
     if request.form.get("has_guarded"):  # a form of before without the field leaves the setting as it is
         project.settings = {**(project.settings or {}), "guarded": bool(request.form.get("guarded"))}
+    if request.form.get("has_coder_exports"):  # likewise for the interviewers' downloads
+        project.settings = {**(project.settings or {}), "coder_exports": bool(request.form.get("coder_exports")),
+                            "coder_names_hidden": bool(request.form.get("coder_names_hidden"))}
     project.updated_at = utcnow()
     db.session.commit()
     flash(de_en("Gespeichert.", "Saved."), "success")

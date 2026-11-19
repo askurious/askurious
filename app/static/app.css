@@ -2434,6 +2434,7 @@ body.tc-dragging { cursor: grabbing; user-select: none; }
 .tc-switch { display: flex; flex-wrap: wrap; gap: 6px; }
 /* the menu "Herunterladen" of an analysis (transcript_coding/_parts.html, downloads): one line per file with its note */
 .tc-dl-menu > summary { cursor: pointer; }
+.tc-sub-check { margin-left: 26px; }  /* a tick that belongs to the one above it (settings of an analysis) */
 .tc-dl-panel { width: min(400px, calc(100vw - 40px)); }
 .tc-dl-panel a { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--fg); font-weight: 600; }
 .tc-dl-panel a:hover, .tc-dl-panel a:focus-visible { background: var(--surface-3); }
