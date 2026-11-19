@@ -697,14 +697,14 @@ def map_svg(project, who, survey, interactive=False):
     width = x0 + 250 + 50 + depth * col + 140
     height = max(y + 30, 120)
     mid = height / 2
-    title = escape(project.question or project.name)[:90]
+    title = (project.question or project.name)[:42]
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
              f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Diagramm", "Category system as a diagram"))}">',
              '<rect width="100%" height="100%" fill="#ffffff"/>',
              ('<g class="tc-map-root" data-tc-drop-main>' if interactive else "<g>"),
              f'<rect x="{x0}" y="{mid - 26}" width="250" height="52" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
-             f'<text x="{x0 + 12}" y="{mid - 4}" font-weight="bold" fill="#1c1c1a">{escape(project.name)[:34]}</text>',
-             f'<text x="{x0 + 12}" y="{mid + 14}" fill="#5f5e59" font-size="11">{title[:42]}</text>', "</g>"]
+             f'<text x="{x0 + 12}" y="{mid - 4}" font-weight="bold" fill="#1c1c1a">{escape(project.name[:34])}</text>',
+             f'<text x="{x0 + 12}" y="{mid + 14}" fill="#5f5e59" font-size="11">{escape(title)}</text>', "</g>"]
 
     def x_of(level):
         return x0 + 250 + 50 + (level - 1) * col
@@ -734,7 +734,7 @@ def map_svg(project, who, survey, interactive=False):
         link(x0 + 250, mid, x1, my)
         nodes.append(node(main))
         nodes.append(f'<rect x="{x1}" y="{my - 15}" width="{box}" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
-        nodes.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name)[:30]}</text>')
+        nodes.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name[:30])}</text>')
         nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
         nodes.append("</g>")
         for s in ss:
@@ -748,7 +748,7 @@ def map_svg(project, who, survey, interactive=False):
             hit = ' class="tc-hit"' if interactive else ""
             nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14}" width="{end + 2}" height="28" rx="6" fill="#ffffff" stroke="none"/>')
             nodes.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
-            nodes.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name)[:22]}</text>')
+            nodes.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name[:22])}</text>')
             bar = int(60 * st[s.id]["n"] / biggest)
             nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
             if bar:
@@ -767,7 +767,7 @@ def map_svg(project, who, survey, interactive=False):
     parts.extend(lines + nodes)
     if candidates:
         parts.append(f'<text x="{x0}" y="{height - 12}" fill="#5f5e59" font-size="11">'
-                     f'{escape(de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates))[:140]}</text>')
+                     f'{escape((de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates))[:140])}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
