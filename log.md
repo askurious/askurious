@@ -7738,6 +7738,10 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Betrieb (#302, #296): `restart.sh` verlangt auf einem isolierten Server die eigene Datenbankrolle der Teilnahmeseite (`PARTICIPANT_ROLE_OPTIONAL=1` hält einen ohne); das Protokoll fehlgeschlagener Aufrufe in nginx maskiert auch `/signup`, `/joinorg`, `/org/join`, `/api/monitoring` und `/status`; die Rollenabfrage gibt ohne angemeldete Person „keine Rolle“ (ein Interviewer-Link auf „neue Auswertung“ bekam einen Serverfehler statt 404).
 
 
+## 2026-11-20: Kategoriensystem-Diagramm: Balken und Linien schaltbar, Legende
+
+- Über dem Diagramm des Kategoriensystems zwei Häkchen (Ralf): **Balken und Anzahl der Stellen** und **Linien zwischen unscharfen Paaren**, beide an als Vorgabe, sofort wirksam (data-submit-on-change, Wahl in der Adresse `o=1&counts=1&pairs=1`). SVG, PNG und PDF übernehmen dieselbe Wahl (`transcript_coding_review.map_options`); ohne Balken und Zahlen bekommen die Namen deren Platz. Neu ist eine Legende unten im Diagramm für Balken und gestrichelte Linien, nur für das Gezeigte, damit auch der Export sich selbst erklärt; der Erklärtext unter dem Diagramm entfällt dafür. Test: `tests/interview/test_transcript_coding_map.py`.
+
 ## 2026-11-20: Kategoriensystem-Diagramm bricht lange Namen um
 
 - Das Diagramm des Kategoriensystems (Seite, SVG, PNG, PDF, Kodierleitfaden) schnitt Namen nach einer festen Zeichenzahl ab (Unterkategorie 22, Hauptkategorie 30, Auswertung 34, Forschungsfrage 42, Kandidaten 140). Jetzt brechen sie im Platz ihrer Zeile um (`transcript_coding_review._wrap`, Breite gemessen mit Noto Sans, die etwas breiter läuft als das Arial der Zeichnung; ein zu langes Wort wird mit Bindestrich getrennt). Nur eine Zeile mit langem Namen wird höher, um eine Textzeile je weitere Zeile; hat eine Kategorie mit langem Namen wenige Unterkategorien, rücken diese auseinander, damit nichts überlappt. Test: `tests/interview/test_transcript_coding_map.py`.

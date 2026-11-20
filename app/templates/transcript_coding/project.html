@@ -88,9 +88,9 @@
       <a class="button button-small {{ '' if show == 'list' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}" {% if show == 'list' %}aria-current="page"{% endif %}>{{ de_en("Liste", "List") }}</a>
       <a class="button button-small {{ '' if show == 'map' else 'button-secondary' }}" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', show='diagram') }}" {% if show == 'map' %}aria-current="page"{% endif %}>{{ de_en("Diagramm", "Diagram") }}</a>
     </div>
-    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_png_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PNG</a>
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_pdf_file', code=survey.code, pid=project.id) }}">{{ icon("download", 16) }} PDF</a>{% endif %}
+    {% if show == "map" %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_file', code=survey.code, pid=project.id, **map_query) }}">{{ icon("download", 16) }} {{ de_en("Diagramm als SVG", "Diagram as SVG") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_png_file', code=survey.code, pid=project.id, **map_query) }}">{{ icon("download", 16) }} PNG</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.map_pdf_file', code=survey.code, pid=project.id, **map_query) }}">{{ icon("download", 16) }} PDF</a>{% endif %}
     {{ downloads(survey, project, who, full=may_export) }}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
@@ -113,10 +113,20 @@
     <span class="muted small" data-tc-list-none hidden>{{ de_en("Keine Kategorie gefunden.", "No category found.") }}</span>
   </div>
   {% endif %}
+  {% if show == "map" and (mains or candidates) %}
+  {# what the diagram shows, on the page and in its downloads (Ralf 2026-11-20); saved at once, no button #}
+  <form method="get" class="row-fields tc-list-tools tc-map-tools" id="tc-map-tools" action="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}">
+    <input type="hidden" name="view" value="categories"><input type="hidden" name="show" value="diagram"><input type="hidden" name="o" value="1">
+    <span class="muted small">{{ de_en("Zeigen:", "Show:") }}</span>
+    <label class="check"><input type="checkbox" name="counts" value="1" data-submit-on-change {% if map_opts.counts %}checked{% endif %}> {{ de_en("Balken und Anzahl der Stellen", "Bars and number of passages") }}</label>
+    <label class="check"><input type="checkbox" name="pairs" value="1" data-submit-on-change {% if map_opts.pairs %}checked{% endif %}> {{ de_en("Linien zwischen unscharfen Paaren", "Lines between blurring pairs") }}</label>
+  </form>
+  {% endif %}
   <div data-tc-live="categories">
   {% if show == "map" %}
   <div class="res-scroll tc-map" data-tc-csrf="{{ csrf_token() }}">{{ map_svg|safe }}</div>
-  <p class="muted small">{{ de_en("Balken: Stellen je Unterkategorie (längster Balken = meiste Stellen). Gestrichelt: unscharfe Paare, also zwei Unterkategorien mit denselben Stellen oder mit einer Probe, die die eine statt der anderen wählt.", "Bars: passages per subcategory (longest bar = most passages). Dashed: blurring pairs, two subcategories with the same passages or with a check that chose one instead of the other.") }}
+  {# bars and dashed lines are explained by the legend inside the drawing, which the downloads keep (Ralf 2026-11-20) #}
+  <p class="muted small">
     {{ de_en("Ziehen (am Finger kurz halten): auf eine Kategorie fragt nach „darunter hängen“ oder „zusammenführen“; an ihren oberen oder unteren Rand zwischen Kategorien derselben Ebene ändert die Reihenfolge; auf den Kasten links macht zur Hauptkategorie. Esc bricht ab; ohne Maus „Verschieben nach …“ in der Liste.", "Drag (with a finger, hold a moment): onto a category asks “put below” or “merge”; onto its upper or lower edge between categories of the same level changes the order; onto the box on the left makes a main category. Esc cancels; without a mouse “Move to …” in the list.") }}</p>
   {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
