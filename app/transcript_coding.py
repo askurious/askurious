@@ -1299,12 +1299,15 @@ def project(code, pid):
         return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="diagram",
                                 **({"merge": request.args["merge"]} if request.args.get("merge") else {})))
     show = "map" if view == "categories" and request.args.get("show") == "diagram" else "list"
+    map_opts = transcript_coding_review.map_options(request.args)  # "Balken und Zahlen", "Linien unscharfer Paare"
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
                    nums=numbers(mains), levels={c.id: c.level for m, subs in mains for c in [m] + subs},
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
                    drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
                    move_targets=lambda c: move_targets(project, c, who, mains),
-                   map_svg=transcript_coding_review.map_svg(project, who, survey, interactive=True) if show == "map" else "",
+                   map_opts=map_opts,  # the downloads take the same choice; nothing in the address while all is shown
+                   map_query={} if all(map_opts.values()) else {"o": "1", **{k: "1" for k, on in map_opts.items() if on}},
+                   map_svg=transcript_coding_review.map_svg(project, who, survey, interactive=True, **map_opts) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
                    history=history(project), event_text=lambda e: event_text(e, names),

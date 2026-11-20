@@ -700,16 +700,28 @@ def _lines(x, y, lines, step, attrs):
     return "".join(f'<text x="{x}" y="{y + i * step:g}"{attrs}>{escape(t)}</text>' for i, t in enumerate(lines))
 
 
-def map_svg(project, who, survey, interactive=False):
+MAP_SWITCHES = ("counts", "pairs")  # what the diagram may leave out, each on unless switched off (Ralf 2026-11-20)
+
+
+def map_options(args):
+    """{"counts": bool, "pairs": bool} from the address of the page or of a download. The page's form sends "o=1" and
+    a ticked box as "1"; without "o" (an old link, the Word guide) everything is shown."""
+    if not args.get("o"):
+        return {k: True for k in MAP_SWITCHES}
+    return {k: args.get(k) == "1" for k in MAP_SWITCHES}
+
+
+def map_svg(project, who, survey, interactive=False, counts=True, pairs=True):
     """The category system as a tree: the research question, then one column per level; every subcategory with a
     bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
     colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box.
     All lines go under the rows, every row on a white ground of its own, and they leave a row to the right of its
     number, so no line covers a name, a bar or a number (Ralf 2026-11-10). Long names wrap within their row instead
-    of being cut off; only such a row grows, by one text line per further line (Ralf 2026-11-20)."""
+    of being cut off; only such a row grows, by one text line per further line (Ralf 2026-11-20). `counts` False leaves
+    out bars and numbers (the names then take their room), `pairs` False the dashed lines (Ralf 2026-11-20)."""
     mains, candidates = tree(project)
     st = stats(project, who)
-    pairs = [p for p in fuzzy(project, who) if p["overlap"] or p["checks"]]
+    pairs = [p for p in fuzzy(project, who) if p["overlap"] or p["checks"]] if pairs else []
     subs = [s for _m, ss in mains for s in ss]
     biggest = max([st[s.id]["n"] for s in subs] + [1])
     depth = max([s.level for s in subs] + [1])
@@ -717,7 +729,8 @@ def map_svg(project, who, survey, interactive=False):
     end = 268  # a subcategory's row: dot, name, bar and number end here; its lines start right of it
     main_ids = {m.id for m, _ss in mains}
     # a main category's name runs from its left edge to its number, a subcategory's from its dot to its bar
-    names = {c.id: _wrap(c.name, 196 if c.id in main_ids else 146, bold=c.id in main_ids)
+    names = {c.id: _wrap(c.name, (196 if c.id in main_ids else 146) + (0 if counts else 30 if c.id in main_ids else 96),
+                         bold=c.id in main_ids)
              for c in [m for m, _ss in mains] + subs}
     below = {}
     for s in subs:
@@ -759,7 +772,19 @@ def map_svg(project, who, survey, interactive=False):
     width = x0 + 250 + 50 + depth * col + 140
     rest = (_wrap(de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates), width - 2 * x0, size=11)
             if candidates else [])
-    height = max(y + 30 + max(len(rest) - 1, 0) * 13, root_h + 40, 120)
+    levels = {s.id: s.level for s in subs}
+    pairs = [p for p in pairs if p["a"].id in levels and p["b"].id in levels]  # only these get a line
+    # a legend under the drawing for what is shown of bars and lines, so a download explains itself (Ralf 2026-11-20)
+    room = width - 2 * x0 - 34
+    legend = ([("bar", _wrap(de_en("Balken und Zahl: Stellen der Kategorie mit allem darunter; der längste Balken hat die "
+                                   "meisten Stellen.", "Bar and number: passages of the category with everything below it; "
+                                   "the longest bar has the most passages."), room, size=11))] if counts and subs else []) + (
+        [("pair", _wrap(de_en("Gestrichelt: unscharfes Paar, also zwei Unterkategorien, mit denen dieselben Stellen kodiert "
+                              "sind, oder mit einer Probe, die die eine statt der anderen wählt.", "Dashed: blurring pair, two "
+                              "subcategories that code the same passages, or with a check that chose one instead of the "
+                              "other."), room, size=11))] if pairs else [])
+    legend_h = sum(6 + 13 * len(t) for _k, t in legend) + (10 if legend else 0)
+    height = max(y + 30 + max(len(rest) - 1, 0) * 13 + legend_h, root_h + 40, 120)
     mid = height / 2
     top = mid - root_h / 2
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
@@ -800,7 +825,8 @@ def map_svg(project, who, survey, interactive=False):
         nodes.append(node(main))
         nodes.append(f'<rect x="{x1}" y="{my - 15 - extra / 2:g}" width="{box}" height="{30 + extra}" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
         nodes.append(_lines(x1 + 10, my + 5 - extra / 2, names[main.id], step, ' font-weight="bold" fill="#1c1c1a"'))
-        nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
+        if counts:
+            nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
         nodes.append("</g>")
         for s in ss:
             sy, xs = pos[s.id], x_of(s.level)
@@ -816,12 +842,12 @@ def map_svg(project, who, survey, interactive=False):
             nodes.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
             nodes.append(_lines(xs + 18, sy + 4 - extra / 2, names[s.id], step, ' fill="#1c1c1a"'))
             bar = int(60 * st[s.id]["n"] / biggest)
-            nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
-            if bar:
-                nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
-            nodes.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
+            if counts:
+                nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
+                if bar:
+                    nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
+                nodes.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
             nodes.append("</g>")
-    levels = {s.id: s.level for s in subs}
     for p in pairs:
         a, b = pos.get(p["a"].id), pos.get(p["b"].id)
         if a is None or b is None or p["a"].id not in levels or p["b"].id not in levels:
@@ -832,7 +858,16 @@ def map_svg(project, who, survey, interactive=False):
                      f'stroke-width="1.5" stroke-dasharray="6 5"/>')
     parts.extend(lines + nodes)
     if rest:
-        parts.append(_lines(x0, height - 12 - (len(rest) - 1) * 13, rest, 13, ' fill="#5f5e59" font-size="11"'))
+        parts.append(_lines(x0, height - 12 - legend_h - (len(rest) - 1) * 13, rest, 13, ' fill="#5f5e59" font-size="11"'))
+    ly = height - legend_h + 10
+    for kind, text in legend:
+        if kind == "bar":
+            parts.append(f'<rect x="{x0}" y="{ly - 9:g}" width="24" height="10" rx="2" fill="#efeee9"/>'
+                         f'<rect x="{x0}" y="{ly - 9:g}" width="16" height="10" rx="2" fill="#378ccf"/>')
+        else:
+            parts.append(f'<line x1="{x0}" y1="{ly - 4:g}" x2="{x0 + 24}" y2="{ly - 4:g}" stroke="#b35c00" stroke-width="1.5" stroke-dasharray="6 5"/>')
+        parts.append(_lines(x0 + 34, ly, text, 13, ' fill="#5f5e59" font-size="11"'))
+        ly += 6 + 13 * len(text)
     parts.append("</svg>")
     return "".join(parts)
 
@@ -998,7 +1033,7 @@ def overview(code, pid):
                            **_context(survey, project, who))
 
 
-def map_pdf(project, who, survey):
+def map_pdf(project, who, survey, **opts):
     """The diagram as a PDF page with reportlab, A4 across when the diagram is wide, scaled to fit. The picture is the
     PNG of app/svg_png.py at print resolution: the vector way of the results report (results_pdf.svg_drawing) redraws
     figures in its own grey APA style and would lose the colours of the categories and the boxes."""
@@ -1011,7 +1046,7 @@ def map_pdf(project, who, survey):
 
     from app import pdf_fonts
 
-    png = map_png(project, who, survey, scale=3.0)
+    png = map_png(project, who, survey, scale=3.0, **opts)
     w, h = PILImage.open(io.BytesIO(png)).size
     size = landscape(A4) if w > h else A4
     margin = 15 * mm
@@ -1032,11 +1067,11 @@ def map_pdf(project, who, survey):
     return buf.getvalue()
 
 
-def map_png(project, who, survey, scale=2.0):
+def map_png(project, who, survey, scale=2.0, **opts):
     """The diagram as PNG (app/svg_png.py, Pillow; no outside renderer)."""
     from app import svg_png
 
-    return svg_png.render(map_svg(project, who, survey), scale=scale)
+    return svg_png.render(map_svg(project, who, survey, **opts), scale=scale)
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/map.png")
@@ -1044,7 +1079,7 @@ def map_png(project, who, survey, scale=2.0):
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_png_file(code, pid):
     survey, project, who = _in(code, pid)
-    return HttpResponse(map_png(project, who, survey), mimetype="image/png",
+    return HttpResponse(map_png(project, who, survey, **map_options(request.args)), mimetype="image/png",
                         headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.png"'})
 
 
@@ -1053,7 +1088,7 @@ def map_png_file(code, pid):
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_pdf_file(code, pid):
     survey, project, who = _in(code, pid)
-    return HttpResponse(map_pdf(project, who, survey), mimetype="application/pdf",
+    return HttpResponse(map_pdf(project, who, survey, **map_options(request.args)), mimetype="application/pdf",
                         headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.pdf"'})
 
 
@@ -1062,7 +1097,7 @@ def map_pdf_file(code, pid):
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_file(code, pid):
     survey, project, who = _in(code, pid)
-    return HttpResponse(map_svg(project, who, survey), mimetype="image/svg+xml",
+    return HttpResponse(map_svg(project, who, survey, **map_options(request.args)), mimetype="image/svg+xml",
                         headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.svg"'})
 
 

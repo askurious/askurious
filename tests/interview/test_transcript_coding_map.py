@@ -185,3 +185,29 @@ def test_wrap_measures_and_splits_words():
     lines = review._wrap("x" * 80, 146)
     assert len(lines) > 1 and all(line.endswith("-") for line in lines[:-1]) and "".join(lines).replace("-", "") == "x" * 80
     assert review._wrap("", 146) == [""]
+
+
+def test_switches_for_counts_and_pair_lines(app, client):
+    """Ralf 2026-11-20: two ticks over the diagram leave out bars and numbers and the dashed lines of blurring pairs,
+    on the page and in the SVG, PNG and PDF; without a choice in the address everything is shown as before."""
+    code, pid, rid, base, main, bea = _setup(app, client)
+    a, b = _sub(client, base, main, "Müdigkeit"), _sub(client, base, main, "Erschöpfung")
+    _code(client, base, rid, "Abends", a, 29)
+    _code(client, base, rid, "Abends", b, 29)                                     # the same passage: a blurring pair
+    dashed, bar = 'stroke-dasharray="6 5"', 'fill="#378ccf"'
+    full = client.get(f"{base}/map.svg").data.decode()
+    assert dashed in full and bar in full and "Gestrichelt: unscharfes Paar" in full and "Balken und Zahl:" in full  # legend
+    page = client.get(f"{base}?view=categories&show=diagram").data.decode()
+    assert 'name="counts" value="1" data-submit-on-change checked' in page and 'name="pairs" value="1" data-submit-on-change checked' in page
+    assert f"{base}/map.svg\"" in page                                             # all shown: plain download links
+    page = client.get(f"{base}?view=categories&show=diagram&o=1&counts=1").data.decode()  # lines off
+    assert dashed not in page and bar in page and "Gestrichelt:" not in page and "Balken und Zahl:" in page
+    assert f"{base}/map.svg?o=1&amp;counts=1" in page and f"{base}/map.pdf?o=1&amp;counts=1" in page
+    page = client.get(f"{base}?view=categories&show=diagram&o=1&pairs=1").data.decode()  # bars and numbers off
+    assert dashed in page and bar not in page and 'fill="#efeee9"' not in page and "Balken und Zahl:" not in page
+    assert "Gestrichelt: unscharfes Paar" in page
+    bare = client.get(f"{base}/map.svg?o=1").data.decode()
+    assert dashed not in bare and bar not in bare and "Gestrichelt" not in bare and "Balken und" not in bare
+    assert client.get(f"{base}/map.png?o=1").data[:4] == b"\x89PNG"
+    assert client.get(f"{base}/map.pdf?o=1&counts=1").data[:4] == b"%PDF"
+    assert review.map_options({}) == {"counts": True, "pairs": True}
