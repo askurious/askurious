@@ -778,7 +778,8 @@ def counts(rows):
     """What a chain (entries as dicts, in order) holds in numbers: {"cases", "by_status": {status: n} of every case
     that ended (deleted ones too), "deleted", "by_way": {way: n}, "remaining", "amended" (cases still there that
     changed after their end), "field": [(kind, time)], "reasons": [(case or None, way, words)] of the deletions that
-    give their reason in words, "entries": {"total", "cases", "amended", "deleted", "events"} what the entries are: a
+    give their reason in words, "entries": {"total", "cases", "amended", "deleted", "events", "by_event": {"field" (start and end of the
+    fieldwork), "prereg", "enabled", "purged", "closed": n}} what the entries are: a
     chain holds more entries than cases, since deletion records and events (start and end of the fieldwork, switching
     the chain on, a retention period, the deletion of the survey) are entries too (Philipp, 2026-10-12)}."""
     status, gone, amended, field, reasons = {}, {}, set(), [], []
@@ -801,10 +802,15 @@ def counts(rows):
                 reasons.append((None, w, reason_text(why)))
         elif kind in ("fieldstarted", "fieldclosed", "prereg"):
             field.append((kind, e.get("at")))
-    entries = {"total": len(rows), "cases": 0, "amended": 0, "deleted": 0, "events": 0}
+    entries = {"total": len(rows), "cases": 0, "amended": 0, "deleted": 0, "events": 0, "by_event": {}}
     for e in rows:
         kind = e.get("kind")
-        entries["cases" if kind == "sealed" else kind if kind in ("amended", "deleted") else "events"] += 1
+        if kind in ("sealed", "amended", "deleted"):
+            entries["cases" if kind == "sealed" else kind] += 1
+        else:  # start and end of the fieldwork count as one row of the table "Einträge der Kette" (Philipp, 2026-11-15)
+            entries["events"] += 1
+            group = "field" if kind in ("fieldstarted", "fieldclosed") else kind
+            entries["by_event"][group] = entries["by_event"].get(group, 0) + 1
     by_status, by_way = {}, {}
     for s in status.values():
         by_status[s] = by_status.get(s, 0) + 1
