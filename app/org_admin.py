@@ -595,8 +595,8 @@ def account(org_id, user_id):
 
 def _supervisor_choices(org, user):
     """Who can supervise the account from here: the people of this organisation with an account, without the account
-    itself; the current supervisors stay in the list (as admin._supervisor_choices for the home organisation). The
-    admin acting may choose themself, but that only asks the person (_supervisor_action)."""
+    itself; the current supervisors stay in the list (as admin._supervisor_choices for the home organisation). Whoever
+    an admin of the organisation chooses, themself or someone else, the person is only asked (_supervisor_action)."""
     people = [u for u, _row in orgs.members_of(org)]
     for current in account_types.supervisors_of(user):
         if current not in people:
@@ -605,16 +605,19 @@ def _supervisor_choices(org, user):
 
 
 def _asks_only(sup):
-    """An admin of the organisation choosing themself: a supervisor becomes admin of every survey the person creates,
-    and an admin of the organisation sees no survey's content or answers (A15) unless the person agrees; so it is a
-    request the person confirms on "Konto" (account_types.request_supervision). A site admin enters it at once."""
-    return sup.id == current_user.id and not orgs._site_admin(current_user)
+    """A supervisor an admin of the organisation enters: a supervisor becomes admin of every survey the person
+    creates, and an admin of the organisation sees no survey's content or answers (A15) unless the person agrees; so
+    it is a request the person confirms on "Konto" (account_types.request_supervision). That holds for the admin
+    themself (Ralf 2026-11-12) and for anyone else they choose (Ralf 2026-11-20: an admin makes accounts, so a second
+    account of their own entered at once took the person's consent away). A site admin enters it at once."""
+    return not orgs._site_admin(current_user)
 
 
 def _supervisor_action(org, user, action):
     """Betreuung on the card (Ralf 2026-10-29: set later, not only through the invitation): a choice in the list adds
     one, the × removes one or takes a request back; the same rules as on the admin's account page
-    (admin._period_action). Another admin or a site admin enters a person at once; an admin choosing themself asks."""
+    (admin._period_action). A site admin enters a person at once; an admin of the organisation only asks the person,
+    whoever they choose."""
     back = redirect(url_for("org.account", org_id=org.id, user_id=user.id, _anchor="betreuung"))
     chosen = request.form.get("supervisor", type=int)
     current = account_types.supervisors_of(user)
@@ -641,11 +644,16 @@ def _supervisor_action(org, user, action):
         flash(de_en("Diese Person kann das Konto nicht betreuen.", "This person cannot supervise the account."), "error")
         return back
     if _asks_only(sup):
-        account_types.request_supervision(user, sup)
+        account_types.request_supervision(user, sup, by=current_user)
         db.session.commit()
-        flash(de_en("{who} wurde gefragt. Sie betreuen das Konto, sobald {who} auf „Konto“ bestätigt.",
-                    "{who} has been asked. You supervise the account once {who} confirms on “Account”.",
-                    who=user.display_name), "success")
+        if sup.id == current_user.id:
+            flash(de_en("{who} wurde gefragt. Sie betreuen das Konto, sobald {who} auf „Konto“ bestätigt.",
+                        "{who} has been asked. You supervise the account once {who} confirms on “Account”.",
+                        who=user.display_name), "success")
+        else:
+            flash(de_en("{who} wurde gefragt. {s} betreut das Konto, sobald {who} auf „Konto“ bestätigt.",
+                        "{who} has been asked. {s} supervises the account once {who} confirms on “Account”.",
+                        who=user.display_name, s=sup.display_name), "success")
         return back
     account_types.set_supervisors(user, [*current, sup])
     db.session.commit()

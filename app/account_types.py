@@ -586,10 +586,10 @@ def requests_of(user):
                                    .order_by(AccountSupervisor.created_at, AccountSupervisor.id)).tuples())
 
 
-def request_supervision(user, sup):
-    """`sup` (an admin of the person's organisation, for themself) asks to supervise `user`: a pending row, no rights
-    yet; the person confirms or declines on "Konto" (answer_request). With mail switched on the person is told.
-    False when `sup` already supervises or asks."""
+def request_supervision(user, sup, by=None):
+    """`sup` is to supervise `user`, entered by an admin of the person's organisation (`by`; themself or someone
+    else): a pending row, no rights yet; the person confirms or declines on "Konto" (answer_request). With mail
+    switched on the person is told. False when `sup` already supervises or asks."""
     if sup is None or sup.id == user.id:
         return False
     if db.session.scalar(db.select(AccountSupervisor.id).filter_by(user_id=user.id, supervisor_id=sup.id)):
@@ -597,7 +597,8 @@ def request_supervision(user, sup):
     db.session.add(AccountSupervisor(user_id=user.id, supervisor_id=sup.id, pending=True))
     from app import security_log
 
-    security_log.event("supervision_requested", account=user.id, by=sup.id)
+    security_log.event("supervision_requested", account=user.id, by=by.id if by is not None else sup.id,
+                       target=f"user {sup.id}")
     _mail_request(user, sup)
     return True
 

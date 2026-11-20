@@ -336,7 +336,13 @@ def test_an_admin_of_the_organisation_sets_the_supervisors_later(app, client, su
     assert f'value="{oid}"' in form                         # the admin acting only asks (test_org_supervisor_request.py)
     r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(fifth)},
                    follow_redirects=True)
-    assert "Fünfte betreut jetzt Vierte" in r.data.decode()
+    # an admin of the organisation only asks, whoever they choose (2026-11-20, test_org_supervisor_request.py); the
+    # person confirms on "Konto"
+    assert "Vierte wurde gefragt. Fünfte betreut das Konto" in r.data.decode()
+    with app.app_context():
+        assert account_types.supervisors_of(db.session.get(User, uid)) == []
+        row_id = account_types.requests_of(db.session.get(User, uid))[0][0].id
+    _as(app, FOURTH, "Vierte").post(f"/account/supervision/{row_id}", data={"answer": "accept"})
     with app.app_context():
         assert [u.id for u in account_types.supervisors_of(db.session.get(User, uid))] == [fifth]
     r = other.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(outside)},

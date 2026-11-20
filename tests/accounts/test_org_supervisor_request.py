@@ -2,8 +2,8 @@
 (app/org_admin.py, account_types.bringing_in and request_supervision): a supervisor becomes admin of every survey the
 person creates, and an admin of an organisation sees no survey's content or answers unless the person agrees. On the
 account's card it is a request the person confirms or declines on "Konto" (Ralf 2026-11-12, "Person bestätigt");
-adding the iD or making the account gives no supervisor; another admin or a site admin enters one at once, and
-supervisors set before stay (access audit 2026-11-11)."""
+adding the iD or making the account gives no supervisor; the same holds when the admin chooses someone else (audit
+2026-11-20); a site admin enters one at once, and supervisors set before stay (access audit 2026-11-11)."""
 from app import account_types
 from app.extensions import db
 from app.models import AccountType, Survey, User
@@ -80,13 +80,36 @@ def test_the_person_declines_and_the_admin_can_take_it_back(app, client):
         assert account_types.requests_of(db.session.get(User, uid)) == []
 
 
-def test_another_admin_enters_a_person_at_once(app, client):
+def test_an_admin_choosing_someone_else_only_asks_too(app, client):
+    """Audit 2026-11-20 (Ralf: "wie empfohlen"): an admin of the organisation entered another person at once, and
+    since admins make accounts, a second account of their own took the person's consent away. Now the person is
+    asked whoever the admin chooses."""
     org_id, tid, admin, student = _world(app, client)
     uid, fifth = _uid(app, FOURTH), _uid(app, FIFTH)
     r = admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(fifth)},
                    follow_redirects=True)
-    assert "Fünfte betreut jetzt Vierte" in r.data.decode()
+    page = r.data.decode()
+    assert "Vierte wurde gefragt. Fünfte betreut das Konto, sobald Vierte" in page and "betreut jetzt" not in page
+    assert _supervisors(app, uid) == []
+    assert _new_survey(app, student, "Vor der Antwort") == {uid}
+    assert "Fünfte möchte Sie betreuen." in student.get("/account/").data.decode()
+    with app.app_context():
+        row_id = account_types.requests_of(db.session.get(User, uid))[0][0].id
+    student.post(f"/account/supervision/{row_id}", data={"answer": "accept"})
     assert _supervisors(app, uid) == [fifth]
+    assert _new_survey(app, student, "Nach der Zusage") == {uid, fifth}
+
+
+def test_a_second_account_the_admin_made_needs_the_persons_consent(app, client):
+    org_id, tid, admin, student = _world(app, client)
+    uid = _uid(app, FOURTH)
+    admin.post(f"/org/{org_id}/people/new", data={"name": "Zweit Konto", "email": "zweit@example.org"})
+    with app.app_context():
+        second = db.session.scalar(db.select(User.id).filter_by(name="Zweit Konto"))
+    assert second is not None
+    admin.post(f"/org/{org_id}/people/{uid}", data={"action": "supervisor", "supervisor": str(second)})
+    assert _supervisors(app, uid) == []
+    assert _new_survey(app, student, "Ohne Zusage") == {uid}
 
 
 def test_making_the_account_does_not_make_the_admin_supervisor(app, client):
