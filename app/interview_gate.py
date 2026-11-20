@@ -98,6 +98,13 @@ def leitfragen(survey):
             for item, main in interview.outline(block) if item.type == "guide_question" and main is None]
 
 
+def numbers(survey):
+    """{Leitfrage id: 1, 2, …}: the Leitfragen (not Unterfragen) counted through the guide in the order of an interview,
+    the number they carry in the interview view, print and Word, so a hint can point to "Leitfrage 4" and the reader
+    finds it on paper (feedback 2026-11-20). Filters still name a Leitfrage by the start of its prompt (E6)."""
+    return {item.id: n for n, (_, item) in enumerate(leitfragen(survey), start=1)}
+
+
 def lead_name(item, lang=None):
     """A Leitfrage as a filter names it: the start of its prompt (E6)."""
     text = plain(item.text("question", lang) or "") or item.code

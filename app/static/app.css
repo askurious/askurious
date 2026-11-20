@@ -5880,3 +5880,7 @@ details.plan-more > summary { cursor: pointer; font-weight: 600; margin: 8px 0; 
 .xp-material label.check { display: block; font-size: 0.85rem; }
 .xp-material > label.check { align-self: flex-start; }
 .xp-material .button { min-height: 32px; padding: 4px 10px; font-size: 0.85rem; gap: 5px; }
+/* the number of a Leitfrage (1, 2, …) and of a concrete question (K1, K2) in the interview view and the print, so a
+   hint or filter that names one can be followed on screen and on paper (feedback 2026-11-20) */
+.iv-lead-n { font-variant-numeric: tabular-nums; font-weight: 600; }
+.guide-print-lead, .guide-print-k { font-variant-numeric: tabular-nums; }

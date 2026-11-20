@@ -7741,3 +7741,7 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 ## 2026-11-20: Kategoriensystem-Diagramm bricht lange Namen um
 
 - Das Diagramm des Kategoriensystems (Seite, SVG, PNG, PDF, Kodierleitfaden) schnitt Namen nach einer festen Zeichenzahl ab (Unterkategorie 22, Hauptkategorie 30, Auswertung 34, Forschungsfrage 42, Kandidaten 140). Jetzt brechen sie im Platz ihrer Zeile um (`transcript_coding_review._wrap`, Breite gemessen mit Noto Sans, die etwas breiter läuft als das Arial der Zeichnung; ein zu langes Wort wird mit Bindestrich getrennt). Nur eine Zeile mit langem Namen wird höher, um eine Textzeile je weitere Zeile; hat eine Kategorie mit langem Namen wenige Unterkategorien, rücken diese auseinander, damit nichts überlappt. Test: `tests/interview/test_transcript_coding_map.py`.
+
+## 2026-11-20: Leitfaden nummeriert Leitfragen und konkrete Fragen in Druck und Word
+
+- Rückmeldung: Filterzeile und Bedingungen nennen „K1“, eigene Hinweise verweisen auf Fragen per Nummer, aber Druck und Word zeigten keine Nummern. Jetzt tragen die Leitfragen (ohne Unterfragen) fortlaufend 1, 2, … in der Reihenfolge des Interviews (`interview_gate.numbers`) in Interviewansicht (Liste links, Zeile über der Leitfrage), Druck, Word und Interviewkarte; die konkreten Fragen tragen K1, K2, … wie in der Interviewansicht nun auch in Druck und Word. Legende und Handbuch nennen beide Nummern. Filter nennen eine Leitfrage weiter über den Anfang ihres Textes (E6). Test: `tests/interview/test_guide_filter.py`.

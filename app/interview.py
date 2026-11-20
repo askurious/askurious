@@ -1029,6 +1029,7 @@ def print_view(code):
     st = state(survey)
     return render_template("interview/print.html", survey=survey, rows=ordered_blocks(survey), runs=guide_runs, parts=parts(),
                            gate=__import__("app.interview_gate", fromlist=["line"]),
+                           leads=__import__("app.interview_gate", fromlist=["numbers"]).numbers(survey),
                            outline=outline, task_item_types=TASK_ITEM_TYPES,
                            task_kind=__import__("app.interview_tasks", fromlist=["kind_name"]).kind_name,
                            planned=planned_minutes, total=sum(planned_minutes(b) for b in guide_blocks(survey)),
@@ -1183,8 +1184,10 @@ def steps(survey):
         elif any(i.type != "page_break" for i in block.items):
             out.append({"part": which, "block": block, "item": None})
     out.append({"part": "end", "block": None, "item": None})
+    leads = interview_gate.numbers(survey)
     for n, step in enumerate(out):
         step["n"] = n
+        step["lead"] = leads.get(step["item"].id) if step["item"] is not None else None  # "Leitfrage 4"
     return out
 
 

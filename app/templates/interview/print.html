@@ -23,8 +23,8 @@
   <main class="guide-print-page">
     <h1>{{ survey.title }}</h1>
     <p class="guide-print-note">{{ de_en("Interviewleitfaden · Stand {today} · geplante Dauer ca. {total} Min. · Reihenfolge: {order} ·
-      K = Kernfrage, soll in jedem Interview vorkommen · ☐ inhaltliche Aspekte nur abhaken, wenn sie von selbst zur Sprache kommen", "Interview guide · as of {today} · planned duration approx. {total} min · order: {order} ·
-      C = core question, should come up in every interview · ☐ tick content aspects only when they come up unprompted", today=today, total=total, order=order) }}</p>
+      1, 2 … = Leitfragen in der Reihenfolge des Interviews · K = Kernfrage, soll in jedem Interview vorkommen · K1, K2 … = konkrete Fragen, auf die sich Bedingungen und Filter beziehen · ☐ inhaltliche Aspekte nur abhaken, wenn sie von selbst zur Sprache kommen", "Interview guide · as of {today} · planned duration approx. {total} min · order: {order} ·
+      1, 2 … = guide questions in the order of the interview · C = core question, should come up in every interview · Q1, Q2 … = specific questions that conditions and filters refer to · ☐ tick content aspects only when they come up unprompted", today=today, total=total, order=order) }}</p>
     {% if survey.research_question %}<p><strong>{{ de_en("Forschungsfrage:", "Research question:") }}</strong> {{ survey.research_question }}</p>{% endif %}
     {% for which, block in rows %}
     {% if which == "guide" %}
@@ -45,14 +45,14 @@
             {% if item.text("hint") %}<div class="guide-print-hint">{{ item.text("hint") }}</div>{% endif %}</td>
         {% else %}
         <tr>
-          <td>{% if item.config.core %}<strong>{{ de_en("K", "C") }} </strong>{% endif %}{{ item.text("question")|striptags or de_en("(ohne Erzählaufforderung)", "(without narrative prompt)") }}
+          <td>{% if leads[item.id] %}<strong class="guide-print-lead">{{ leads[item.id] }}.</strong> {% endif %}{% if item.config.core %}<strong>{{ de_en("K", "C") }} </strong>{% endif %}{{ item.text("question")|striptags or de_en("(ohne Erzählaufforderung)", "(without narrative prompt)") }}
             {% if gate.line(survey, item) %}<span class="guide-print-when">{{ gate.line(survey, item) }}</span>{% endif %}
             <div class="guide-print-hint">{% if item.text("hint") %}{{ item.text("hint") }} · {% endif %}{{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}</div></td>
         {% endif %}
           <td>{% for rid, text in item.kind.rows(item, "aspects") %}<div>☐ {{ text }}</div>{% endfor %}</td>
           <td>{% for rid, text in item.kind.rows(item, "keep") %}<div>{{ text }}</div>{% endfor %}</td>
           {# concrete questions: a condition above its question, Nachfragen indented (concept bedingungen-leitfaden) #}
-          <td>{% for p in item.kind.probe_tree(item) %}<div>{% if p.cond_text %}<span class="guide-print-when">{{ p.cond_text }}</span>{% endif %}{{ p.text }}</div>
+          <td>{% for p in item.kind.probe_tree(item) %}<div>{% if p.cond_text %}<span class="guide-print-when">{{ p.cond_text }}</span>{% endif %}<strong class="guide-print-k">{{ de_en("K{n}", "Q{n}", n=p.n) }}</strong> {{ p.text }}</div>
             {% for s in p.subs %}<div class="guide-print-probe-sub">{% set note = [s.when, s.cond_text]|select|join(" · ") %}{% if note %}<span class="guide-print-when">{{ note }}</span>{% endif %}↳ {{ s.text }}</div>{% endfor %}{% endfor %}</td>
         </tr>
         {% endfor %}
