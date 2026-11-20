@@ -145,3 +145,43 @@ def test_lines_under_the_rows_and_right_of_the_numbers(app, monkeypatch):
         for x in (float(xa), float(xb)):
             assert any(0 < x - cx <= 20 for n, cx in counts.items() if n != 25), x    # starts right of a number
     assert svg.count('fill="#ffffff" stroke="none"') == 3                            # a white ground per row
+
+
+# --- long names wrap instead of being cut off (Ralf 2026-11-20): names stopped after 22 (subcategories), 30 (main
+# categories), 34 (project) and 42 characters (question)
+
+def test_long_names_wrap_in_full_and_rows_do_not_overlap(app, monkeypatch):
+    long_main = "Belastungen im Alltag zwischen Beruf und Familie"
+    long_sub = "Erschöpfung am Abend nach langen Schichten im Krankenhaus"
+    main = _cat(1, long_main, 1, None)
+    subs = [_cat(10, long_sub, 2, 1), _cat(11, "Zeitdruck", 2, 1), _cat(12, "Donaudampfschifffahrtsgesellschaft", 3, 11)]
+    monkeypatch.setattr(review, "tree", lambda p: ([(main, subs)], []))
+    monkeypatch.setattr(review, "stats", lambda p, w: {1: {"n": 9}, 10: {"n": 4}, 11: {"n": 5}, 12: {"n": 5}})
+    monkeypatch.setattr(review, "fuzzy", lambda p, w: [])
+    with app.test_request_context():
+        svg = review.map_svg(N(name="Kodierung der Interviews mit Pflegekräften",
+                               question="Wie erleben Pflegekräfte die Vereinbarkeit von Schichtdienst und Familie?"), None, None)
+    texts = re.findall(r'<text x="([\d.]+)" y="([\d.-]+)"[^>]*>([^<]*)</text>', svg)
+    words = " ".join(t for _x, _y, t in texts).replace("- ", "")
+    for name in (long_main, long_sub, "Donaudampfschifffahrtsgesellschaft", "Kodierung der Interviews mit Pflegekräften",
+                 "Wie erleben Pflegekräfte die Vereinbarkeit von Schichtdienst und Familie?"):
+        assert name in words, name                                                      # every word is there
+    assert len([t for _x, _y, t in texts if t in long_sub]) >= 2                        # wrapped over lines
+    # no two text lines of one column on the same height or closer than a line
+    by_x = {}
+    for x, y, t in texts:
+        by_x.setdefault(x, []).append(float(y))
+    for ys in by_x.values():
+        ys.sort()
+        assert all(b - a >= 13 for a, b in zip(ys, ys[1:])), ys
+    # the white grounds of the rows do not overlap
+    grounds = sorted((x, float(y), float(y) + float(h)) for x, y, h in
+                     re.findall(r'<rect x="([\d.]+)" y="([\d.-]+)" width="270" height="([\d.]+)" rx="6" fill="#ffffff"', svg))
+    assert len(grounds) == 3 and all(a[2] <= b[1] for a, b in zip(grounds, grounds[1:]) if a[0] == b[0]), grounds
+
+
+def test_wrap_measures_and_splits_words():
+    assert review._wrap("Kurz", 146) == ["Kurz"]
+    lines = review._wrap("x" * 80, 146)
+    assert len(lines) > 1 and all(line.endswith("-") for line in lines[:-1]) and "".join(lines).replace("-", "") == "x" * 80
+    assert review._wrap("", 146) == [""]
