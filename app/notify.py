@@ -255,6 +255,28 @@ def report_seat_request(org, row, by):
         return None
 
 
+def catalogue_waiting(row):
+    """A release of the construct catalogue the nightly run fetched waits for a site admin (app/construct_sync.py):
+    its name, the number of changes, a link to the preview. Nothing personal."""
+    # the path itself: the housekeeping process has no request to build an address from (url_for)
+    link = f"{brand.public_base()}/admin/constructs/catalog/{row.id}"
+    head = (f":books: *Konstrukt-Katalog:* Release {_plain(row.release or '?')} wartet auf Freigabe "
+            f"({len(row.changes or [])} Änderungen)")
+    blocks_ = [{"type": "section", "text": {"type": "mrkdwn", "text": head}},
+               {"type": "actions", "elements": [{"type": "button", "action_id": "open", "url": link,
+                                                 "text": {"type": "plain_text", "text": "Änderungen ansehen"}}]}]
+    return slack(head, blocks_)
+
+
+def report_catalogue_waiting(row):
+    """catalogue_waiting from the housekeeping: the note to the operators must not break the nightly run."""
+    try:
+        return catalogue_waiting(row)
+    except Exception as e:  # noqa: BLE001
+        current_app.logger.warning("Waiting catalogue release not reported in Slack: %s", type(e).__name__)
+        return None
+
+
 def reset_request(user):
     """Announce a request "Passwort vergessen?" (auth.forgot_password): the number of the account and a link to its
     page in the administration, where a site admin creates the one-time link; not the address."""

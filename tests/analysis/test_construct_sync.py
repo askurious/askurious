@@ -188,9 +188,20 @@ def test_nightly_once_a_night_and_only_outside_requests(app, signer, tmp_path):
             noon = datetime(2026, 11, 10, 11, 0)   # 12:00 in Berlin
             night = datetime(2026, 11, 10, 2, 0)   # 03:00 in Berlin
             assert construct_sync.nightly(noon) is None
+            before = catalog.release()
             row = construct_sync.nightly(night)
-            assert row.status == ConstructSync.APPLIED and row.trigger == "auto"
+            # fetched and laid out for a site admin, never taken by the night itself (audit 2026-11-20)
+            assert row.status == ConstructSync.PREVIEW and row.trigger == "auto"
+            assert catalog.release() == before and construct_sync.waiting().id == row.id
             assert construct_sync.nightly(night) is None  # once a night
+            row.created_at = night  # as if fetched that night (the row carries the real time)
+            db.session.commit()
+            # the next night finds the same release: still one preview waiting, the one of the night before goes
+            again = construct_sync.nightly(datetime(2026, 11, 11, 2, 0))
+            assert again.status == ConstructSync.PREVIEW and again.id != row.id
+            assert [r.id for r in db.session.scalars(db.select(ConstructSync).filter_by(status=ConstructSync.PREVIEW))] == [again.id]
+            construct_sync.apply(again)  # the site admin takes it
+            assert catalog.release() != before and construct_sync.waiting() is None
         finally:
             app.config["CONSTRUCTS_SOURCE"] = "off"
     with app.test_request_context("/surveys/1"):
@@ -241,3 +252,25 @@ def test_the_active_catalogue_is_looked_up_once_per_window(app, signer):
         assert not [s for s in seen if "construct_sync" in s]
         construct_sync.apply(construct_sync.prepare(*signer(_next_release()), "upload"))
         assert catalog.release()[0] == "2026.12.0"
+
+
+def test_the_operators_are_told_once_per_waiting_release(app, signer, tmp_path, monkeypatch):
+    """The note about a release that waits for a site admin goes out once per release, from the housekeeping process
+    (no request), with the address of its preview."""
+    from app import notify
+
+    told = []
+    monkeypatch.setattr(notify, "slack", lambda text, blocks=None: told.append((text, blocks)))
+    with app.app_context():
+        data, sig = signer(_next_release())
+        (tmp_path / "manifest.json").write_bytes(data)
+        (tmp_path / "manifest.json.sig").write_text(sig, encoding="utf-8")
+        app.config["CONSTRUCTS_SOURCE"] = str(tmp_path)
+        try:
+            first = construct_sync.sync("auto")
+            second = construct_sync.sync("auto")
+        finally:
+            app.config["CONSTRUCTS_SOURCE"] = "off"
+        assert first.status == second.status == ConstructSync.PREVIEW
+        assert len(told) == 1 and "wartet auf Freigabe" in told[0][0]
+        assert f"/admin/constructs/catalog/{first.id}" in json.dumps(told[0][1])
