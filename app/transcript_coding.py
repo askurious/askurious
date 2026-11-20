@@ -40,7 +40,7 @@ from functools import wraps
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 
-from app import autosave
+from app import autosave, qdc
 from app.extensions import db
 from app.lang import de_en
 from app.models import CodingCategory, CodingEvent, CodingMember, CodingMemo, CodingProject, InterviewerAccess, Survey, utcnow
@@ -699,7 +699,7 @@ def uses(project, cat_id):
 
 def _state(cat):
     return {"name": cat.name, "definition": cat.definition, "delimitation": cat.delimitation, "kind": cat.kind,
-            "removed": cat.removed_at is not None}
+            "colour": cat.colour or "", "removed": cat.removed_at is not None}
 
 
 def _event(project, who, kind, cat=None, data=None, reason="", status="", reply_to=None, merge=None):
@@ -796,11 +796,26 @@ def create(project, who, kind, name, definition="", delimitation="", parent_id=N
 
 
 FIELDS = ("name", "definition", "delimitation")
+# the colours to pick for a category in "Bearbeiten" (Ralf 2026-11-20): those of the Themenblöcke (app/qdc.py) and
+# three more; "" for a subcategory means "wie darüber" (it takes the colour of what stands above it)
+CAT_COLOURS = qdc.COLOURS + ("#E69F00", "#CC79A7", "#5F5E59")
+CAT_COLOUR_NAMES = {"#8A4B14": ("Braun", "Brown"), "#2957A4": ("Blau", "Blue"), "#1F6B2A": ("Grün", "Green"),
+                    "#7A3FD1": ("Violett", "Violet"), "#B3261E": ("Rot", "Red"), "#0B6E86": ("Petrol", "Teal"),
+                    "#7A5B00": ("Ocker", "Ochre"), "#E69F00": ("Orange", "Orange"), "#CC79A7": ("Rosa", "Pink"),
+                    "#5F5E59": ("Grau", "Grey")}
+
+
+def colour_name(colour):
+    pair = CAT_COLOUR_NAMES.get((colour or "").upper())
+    return de_en(*pair) if pair else colour
 
 
 def _values(form):
-    return {"name": _clean(form.get("name"), NAME_MAX), "definition": _text(form.get("definition")),
-            "delimitation": _text(form.get("delimitation"))}
+    out = {"name": _clean(form.get("name"), NAME_MAX), "definition": _text(form.get("definition")),
+           "delimitation": _text(form.get("delimitation"))}
+    if "colour" in form:  # only the form of "Bearbeiten" has it; a proposal does not
+        out["colour"] = (form.get("colour") or "").upper()
+    return out
 
 
 def change(project, cat, who, values, merge=None):
@@ -811,7 +826,10 @@ def change(project, cat, who, values, merge=None):
                      "Only {who} change this category; you can propose a change.",
                      who=de_en("die Forschenden des Leitfadens", "the researchers of the guide") if cat.kind == CodingCategory.MAIN and project.mains_fixed
                      else de_en("die Person, die sie angelegt hat, und die Forschenden", "the person who created it and the researchers"))
-    values = {k: v for k, v in values.items() if k in FIELDS}
+    values = {k: v for k, v in values.items() if k in FIELDS + ("colour",)}
+    if "colour" in values and values["colour"] not in CAT_COLOURS + (cat.colour.upper() if cat.colour else "",) + (
+            ("",) if cat.kind == CodingCategory.SUB else ()):
+        return de_en("Diese Farbe gibt es nicht.", "There is no such colour.")
     if "name" in values and not values["name"]:
         return de_en("Bitte einen Namen angeben.", "Please enter a name.")
     if "definition" in values and not values["definition"] and (cat.kind != CodingCategory.MAIN or not who.team):
@@ -822,20 +840,41 @@ def change(project, cat, who, values, merge=None):
         if any(_key(c.name) == _key(values["name"]) for c in siblings):
             return de_en("„{name}“ gibt es hier schon.", "“{name}” already exists here.", name=values["name"])
     before = _state(cat)
+    old = colour_of(project, cat)
     for k, v in values.items():
         setattr(cat, k, v)
     if _state(cat) == before:
         return None
+    # what stands below and had the old colour (taken over when it was made) follows the new one; "Rückgängig" gives
+    # them their old colour back with this category's (Ralf 2026-11-20)
+    below = subtree(project, cat) - {cat.id} if before["colour"] != (cat.colour or "") and old else set()
+    kids = [c for c in live(project) if c.id in below and (c.colour or "").upper() == old.upper()]
+    for c in kids:
+        c.colour = ""
     if _key(before["name"]) != _key(cat.name) and before["name"] not in (cat.former_names or []):
         cat.former_names = (cat.former_names or []) + [before["name"]]  # found again under its old name (similar)
     cat.updated_at = utcnow()
     last = _last(project, cat.id)
     if merge and last is not None and last.kind == "changed" and last.merge == merge and last.actor_key == who.key:
-        last.data = {**(last.data or {}), "after": _state(cat)}
+        last.data = {**(last.data or {}), "after": _state(cat),
+                     "kids": {**((last.data or {}).get("kids") or {}), **{str(c.id): old for c in kids}}}
         last.at = utcnow()
     else:
-        _event(project, who, "changed", cat, {"before": before, "after": _state(cat)}, merge=merge)
+        _event(project, who, "changed", cat, {"before": before, "after": _state(cat), "kids": {str(c.id): old for c in kids}},
+               merge=merge)
     return None
+
+
+def colour_of(project, cat, cats=None):
+    """The colour a category is drawn in: its own, else that of the nearest category above it with one."""
+    cats = cats if cats is not None else {c.id: c for c in live(project)}
+    seen = set()
+    while cat is not None and cat.id not in seen:
+        if cat.colour:
+            return cat.colour
+        seen.add(cat.id)
+        cat = cats.get(cat.parent_id)
+    return ""
 
 
 def _last(project, cat_id):
@@ -1107,8 +1146,13 @@ def undo(project, who):
             return de_en("Die Kategorie wird schon genutzt.", "The category is already in use.")
         cat.removed_at = utcnow()
     else:
-        for k in FIELDS + ("kind",):
-            setattr(cat, k, before[k])
+        for k in FIELDS + ("kind", "colour"):
+            if k in before:  # entries from before 2026-11-20 have no colour
+                setattr(cat, k, before[k])
+        for cid, colour in ((event.data or {}).get("kids") or {}).items():
+            kid = db.session.get(CodingCategory, int(cid))
+            if kid is not None and kid.project_id == project.id and not kid.colour:
+                kid.colour = colour
         cat.removed_at = utcnow() if before.get("removed") else None
     cat.updated_at = utcnow()
     event.data = {**(event.data or {}), "undone": True}
@@ -1306,7 +1350,10 @@ def project(code, pid):
                    drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
                    move_targets=lambda c: move_targets(project, c, who, mains),
                    map_opts=map_opts,  # the downloads take the same choice; nothing in the address while all is shown
-                   map_query={} if all(map_opts.values()) else {"o": "1", **{k: "1" for k, on in map_opts.items() if on}},
+                   map_query=transcript_coding_review.map_query(map_opts),
+                   # what the diagram can be coloured by (Ralf 2026-11-20): characteristics of the interviews
+                   map_groupers=transcript_coding_review.map_groupers(survey) if show == "map" else [],
+                   cat_colours=CAT_COLOURS, colour_name=colour_name,
                    map_svg=transcript_coding_review.map_svg(project, who, survey, interactive=True, **map_opts) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
