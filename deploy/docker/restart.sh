@@ -208,10 +208,19 @@ db_recreated() {
 # The participants' own database role (participant-db-role.sh, audit 2026-10-18, CFG-04) half switched on stops here
 # as well: both lines or neither (a user without its password would sign in with the runtime's and fail), and only
 # with DB_ISOLATION=1, whose migration job gives the role its rights after every migration.
+# An isolated server runs the participants' containers under that role (Ralf 2026-11-20, audit): without it they sign
+# in with the runtime role, which reads and writes every table, and the one side anyone reaches without signing in
+# would hold the whole database. PARTICIPANT_ROLE_OPTIONAL=1 in the .env keeps a server without the role (one that
+# is not switched over yet); a server without DB_ISOLATION is not asked.
 check_participant_role() {
   local user pass
   user=$(env_value PARTICIPANT_DB_USER); pass=$(env_value PARTICIPANT_DB_PASSWORD)
-  [ -n "$user$pass" ] || return 0
+  if [ -z "$user$pass" ]; then
+    if [ "$ISOLATION_ACTIVE" = 1 ] && [ "$(env_value PARTICIPANT_ROLE_OPTIONAL)" != 1 ]; then
+      echo "DB_ISOLATION=1 without the participants' own database role: set it up with ./participant-db-role.sh (BETRIEB.md, \"Eigene Datenbankrolle der Teilnahmeseite\"), or keep the server without it with PARTICIPANT_ROLE_OPTIONAL=1 in the .env. Nothing started." >&2; exit 1
+    fi
+    return 0
+  fi
   if [ -z "$user" ] || [ -z "$pass" ]; then
     echo "PARTICIPANT_DB_USER and PARTICIPANT_DB_PASSWORD: both or neither in .env. Nothing started (BETRIEB.md, \"Eigene Datenbankrolle der Teilnahmeseite\")." >&2; exit 1
   fi

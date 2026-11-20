@@ -20,7 +20,11 @@ mit `compose.yaml` allein wie einen Server von vor der Isolation und richtet auf
 verlieren `postgres` und `template1` CONNECT/TEMP für PUBLIC, und der Superuser `askurious` verliert sein
 Netzwerkpasswort (wie `db-app-role.sh --lock`). Danach läuft der Deploy wie jeder isolierte: Netze, Migrationsjob,
 Rechteprüfung, Forschende-App, Teilnahme-Container nacheinander, `finalize`. Voraussetzungen wie unten: Host-Python 3 und
-Docker Compose >= 2.24.4. Ohne eigene Teilnahmerolle: die beiden `PARTICIPANT_DB_*`-Zeilen vor dem ersten Start löschen.
+Docker Compose >= 2.24.4. Ohne eigene Teilnahmerolle: die beiden `PARTICIPANT_DB_*`-Zeilen vor dem ersten Start löschen
+und `PARTICIPANT_ROLE_OPTIONAL=1` eintragen. Ohne diese Zeile verweigert `restart.sh` auf einem isolierten Server den
+Start, solange die Teilnahme-Rolle fehlt (seit 2026-11-20): Die Teilnahme-Container meldeten sich sonst mit der
+Laufzeitrolle an, die jede Tabelle liest und schreibt. Ein bestehender isolierter Server ohne die Rolle richtet sie mit
+`participant-db-role.sh` ein oder trägt die Zeile ein.
 
 ## Rollen
 
@@ -29,7 +33,7 @@ Docker Compose >= 2.24.4. Ohne eigene Teilnahmerolle: die beiden `PARTICIPANT_DB
 | `askurious` | lokale Administration im DB-Container, Sicherung und Wiederherstellung | bestehender Superuser; Netzwerkpasswort bleibt gesperrt |
 | `askurious_app` | kurzlebiger Migrationscontainer | bestehende Eigentümerin von Datenbank, Schema und Objekten |
 | `askurious_run` | Forschende, Teilnehmende, Haushaltung und deren Unterprozesse | CONNECT, Schema-USAGE, SELECT/INSERT/UPDATE/DELETE, Sequenz-USAGE/SELECT; kein CREATE, TRUNCATE, Rollenrecht oder Eigentum |
-| `askurious_participant` | vorbereitet, aus (CFG-04): nur die Teilnahme-Container, sobald `PARTICIPANT_DB_USER`/`PARTICIPANT_DB_PASSWORD` in der `.env` stehen | CONNECT, Schema-USAGE, je Tabelle nur die Rechte aus `app/participant_grants.py`, Sequenz-USAGE/SELECT nur für deren Einfügetabellen; keine Default Privileges; der Migrationsjob gibt sie über `PARTICIPANT_ROLE` nach jeder Migration neu (BETRIEB.md, „Eigene Datenbankrolle der Teilnahmeseite“) |
+| `askurious_participant` | nur die Teilnahme-Container (CFG-04); auf einem isolierten Server verlangt, außer mit `PARTICIPANT_ROLE_OPTIONAL=1`; aktiv, sobald `PARTICIPANT_DB_USER`/`PARTICIPANT_DB_PASSWORD` in der `.env` stehen | CONNECT, Schema-USAGE, je Tabelle nur die Rechte aus `app/participant_grants.py`, Sequenz-USAGE/SELECT nur für deren Einfügetabellen; keine Default Privileges; der Migrationsjob gibt sie über `PARTICIPANT_ROLE` nach jeder Migration neu (BETRIEB.md, „Eigene Datenbankrolle der Teilnahmeseite“) |
 
 `runtime-role.sql` legt die Laufzeitrolle zunächst **ohne Anmeldung** an. Sie verweigert die Ausführung bei
 unerwarteter Datenbank/Eigentümerschaft oder schon vorhandener Laufzeitrolle, statt fremde Rechte zu überschreiben.
