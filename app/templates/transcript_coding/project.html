@@ -118,6 +118,15 @@
   <form method="get" class="row-fields tc-list-tools tc-map-tools" id="tc-map-tools" action="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}">
     <input type="hidden" name="view" value="categories"><input type="hidden" name="show" value="diagram"><input type="hidden" name="o" value="1">
     <span class="muted small">{{ de_en("Zeigen:", "Show:") }}</span>
+    {# the direction of the drawing, also for the downloads (Ralf 2026-11-20); kept for the next visit #}
+    <fieldset class="tc-seg tc-map-dir">
+      <legend class="visually-hidden">{{ de_en("Richtung", "Direction") }}</legend>
+      {% for key, label, hint in [("h", de_en("Waagrecht", "Across"), de_en("Frage links, Ebenen nach rechts", "Question on the left, levels to the right")),
+                                  ("v", de_en("Senkrecht", "Top down"), de_en("Frage oben, je Hauptkategorie eine Spalte", "Question on top, one column per main category")),
+                                  ("t", de_en("Baum", "Tree"), de_en("Frage oben, jede Ebene eine Reihe", "Question on top, every level a row"))] %}
+      <label class="tc-seg-btn" title="{{ hint }}"><input type="radio" name="dir" value="{{ key }}" data-submit-on-change {% if map_opts.direction == key %}checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </fieldset>
     <label class="check"><input type="checkbox" name="counts" value="1" data-submit-on-change {% if map_opts.counts %}checked{% endif %}> {{ de_en("Balken und Anzahl der Stellen", "Bars and number of passages") }}</label>
     <label class="check"><input type="checkbox" name="pairs" value="1" data-submit-on-change {% if map_opts.pairs %}checked{% endif %}> {{ de_en("Linien zwischen unscharfen Paaren", "Lines between blurring pairs") }}</label>
     {# colours by a characteristic of the interviews, e.g. to see which categories only one group of interviewees has

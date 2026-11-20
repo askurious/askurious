@@ -34,7 +34,7 @@ def test_the_coding_guide_holds_the_diagram(app, client):
         body = z.read("word/document.xml").decode()
     assert media and media[0].endswith(".png")
     assert body.index("Forschungsfrage") < body.index("<w:drawing")                 # after the research question
-    assert 'w:orient="landscape"' in body                                            # a wide diagram: a page across
+    # a small system comes out larger from the top in columns, upright (Ralf 2026-11-20, E7); a wide one turns the page\n    assert 'w:orient="landscape"' not in body
 
 
 def test_the_renderer_draws_text_shapes_and_paths():

@@ -721,23 +721,63 @@ def _lines(x, y, lines, step, attrs):
     return "".join(f'<text x="{x}" y="{y + i * step:g}"{attrs}>{escape(t)}</text>' for i, t in enumerate(lines))
 
 
+MAP_DIRS = ("h", "v", "t")  # across (the default), in columns from the top, as a tree from the top (Ralf 2026-11-20)
+MAP_COLUMNS = 5  # main categories side by side in columns from the top; more begin a new row (E4: fits A4 across)
 MAP_SWITCHES = ("counts", "pairs")  # what the diagram may leave out, each on unless switched off (Ralf 2026-11-20)
 
 
-def map_options(args):
-    """{"counts": bool, "pairs": bool, "by": key} from the address of the page or of a download. The page's form sends
-    "o=1" and a ticked box as "1"; without "o" (an old link, the Word guide) everything is shown. "by": the
-    characteristic of the interviews the diagram is coloured by (map_groupers), "" for the colours of the categories."""
+def map_options(args, saved=None):
+    """{"counts": bool, "pairs": bool, "by": key, "direction": one of MAP_DIRS} from the address of the page or of a
+    download. The page's form sends "o=1" and a ticked box as "1"; without "o" the person's last choice in this
+    analysis (`saved`, map_view; only the page passes it), else everything shown across (an old link, the Word guide).
+    "by": the characteristic of the interviews the diagram is coloured by (map_groupers), "" for the colours of the
+    categories; "dir": the direction (map_svg)."""
+    if not args.get("o") and saved:
+        return _clean_view(saved)
     by = str(args.get("by") or "")[:20]
     if not args.get("o"):
-        return {**{k: True for k in MAP_SWITCHES}, "by": by}
-    return {**{k: args.get(k) == "1" for k in MAP_SWITCHES}, "by": by}
+        return {**{k: True for k in MAP_SWITCHES}, "by": by, "direction": "h"}
+    return _clean_view({**{k: args.get(k) == "1" for k in MAP_SWITCHES}, "by": by, "direction": args.get("dir")})
+
+
+def _clean_view(view):
+    d = view.get("direction")
+    return {**{k: bool(view.get(k)) for k in MAP_SWITCHES}, "by": str(view.get("by") or "")[:20],
+            "direction": d if d in MAP_DIRS else "h"}
 
 
 def map_query(opts):
-    """The address part of map_options for the downloads: nothing while all is shown in the colours of the categories."""
-    out = {} if all(opts[k] for k in MAP_SWITCHES) else {"o": "1", **{k: "1" for k in MAP_SWITCHES if opts[k]}}
+    """The address part of map_options for the downloads: nothing while all is shown across in the colours of the
+    categories."""
+    plain = all(opts[k] for k in MAP_SWITCHES) and opts.get("direction", "h") == "h"
+    out = {} if plain else {"o": "1", **{k: "1" for k in MAP_SWITCHES if opts[k]}}
+    if opts.get("direction", "h") != "h":
+        out["dir"] = opts["direction"]
     return {**out, "by": opts["by"]} if opts.get("by") else out
+
+
+def map_view(project, who):
+    """The person's last choice for the diagram in this analysis (CodingKey.view, Ralf 2026-11-20: E3), or None."""
+    from app.models import CodingKey
+
+    if not who.key:
+        return None
+    row = db.session.scalar(db.select(CodingKey).filter_by(project_id=project.id, actor_key=who.key))
+    return row.view if row is not None and isinstance(row.view, dict) else None
+
+
+def save_map_view(project, who, opts):
+    """Keeps `opts` (map_options) as the person's choice in this analysis; nothing when it is already kept."""
+    from app.models import CodingKey
+
+    if not who.key or map_view(project, who) == opts:
+        return
+    row = db.session.scalar(db.select(CodingKey).filter_by(project_id=project.id, actor_key=who.key))
+    if row is None:
+        row = CodingKey(project_id=project.id, actor_key=who.key)
+        db.session.add(row)
+    row.view, row.updated_at = dict(opts), utcnow()
+    db.session.commit()
 
 
 # the colours of the groups when the diagram is coloured by a characteristic (Ralf 2026-11-20, E8): Okabe & Ito (2008),
@@ -848,10 +888,15 @@ def _dot(cx, cy, colours, r=6):
     return "".join(out)
 
 
-def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by=""):
-    """The category system as a tree: the research question, then one column per level; every subcategory with a
-    bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
-    colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box.
+def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by="", direction="h"):
+    """The category system as a tree: the research question, then the main categories and what stands below them;
+    every subcategory with a bar of its passages (with what stands below it); blurring pairs joined by a dashed line.
+    Plain SVG with its own colours, to download as it is; it scrolls in its own box on the page.
+    `direction` (Ralf 2026-11-20): "h" across, one column per level, the drawing grows to the right with the levels;
+    "v" from the top, the question above, the main categories side by side below it (at most MAP_COLUMNS, then a new
+    row reached by a rail on the left), each with its subcategories indented below it, so the drawing grows to the
+    right only with the main categories; "t" a tree from the top, every level a row and every category above what
+    stands below it, as wide as the categories without subcategories.
     All lines go under the rows, every row on a white ground of its own, and they leave a row to the right of its
     number, so no line covers a name, a bar or a number (Ralf 2026-11-10). Long names wrap within their row instead
     of being cut off; only such a row grows, by one text line per further line (Ralf 2026-11-20). `counts` False leaves
@@ -860,9 +905,11 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
     nearest category above with one), a main category's frame in its colour. `by` colours by a characteristic of the
     interviews instead (map_groupers): a row only one group has passages in is tinted in that group's colour, a row
     of several groups stays white with its dot split into their colours, the bar is split by the passages of each
-    group, a main category whose passages all come from one group is framed in its colour; a legend names the groups."""
+    group, a main category whose passages all come from one group is framed in its colour; a legend names the groups.
+    Lines are only straight segments and cubic curves (M, L, C), which app/svg_png.py draws for PNG, PDF and Word."""
     from app.transcript_coding import colour_of
 
+    direction = direction if direction in MAP_DIRS else "h"
     mains, candidates = tree(project)
     grouping = map_grouping(project, who, survey, by) if by else None
     every = {c.id: c for m, ss in mains for c in [m] + ss}  # for the colour of what stands above
@@ -873,10 +920,13 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
     depth = max([s.level for s in subs] + [1])
     row_h, x0, col, box, step = 34, 20, 310, 250, 15
     end = 268  # a subcategory's row: dot, name, bar and number end here; its lines start right of it
+    indent = 20  # from the top in columns: each level below the first subcategories one step further in
+    colw = 14 + indent * max(depth - 2, 0) + 270  # a column there: as wide as its deepest row
     main_ids = {m.id for m, _ss in mains}
-    # a main category's name runs from its left edge to its number, a subcategory's from its dot to its bar
-    names = {c.id: _wrap(c.name, (196 if c.id in main_ids else 146) + (0 if counts else 30 if c.id in main_ids else 96),
-                         bold=c.id in main_ids)
+    # a main category's name runs from its left edge to its number, a subcategory's from its dot to its bar; in
+    # columns the main category takes the width of its column
+    main_room = (colw - 20 - (40 if counts else 0)) if direction == "v" else (196 + (0 if counts else 30))
+    names = {c.id: _wrap(c.name, main_room if c.id in main_ids else 146 + (0 if counts else 96), bold=c.id in main_ids)
              for c in [m for m, _ss in mains] + subs}
     below = {}
     for s in subs:
@@ -886,42 +936,147 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
     def tall(cat):
         return row_h + (len(names[cat.id]) - 1) * step
 
-    def shift(cat, by):
-        pos[cat.id] += by
-        for k in below.get(cat.id, []):
-            shift(k, by)
-
-    def place(cat):  # leaves one row each, a category in the middle of what stands below it
-        nonlocal y
-        kids = below.get(cat.id, [])
-        if not kids:
-            pos[cat.id] = y + tall(cat) / 2 - 3
-            y += tall(cat)
-            return pos[cat.id]
-        start = y
-        ys = [place(k) for k in kids]
-        pos[cat.id] = (ys[0] + ys[-1]) / 2
-        gap = tall(cat) - (y - start)
-        if gap > 0:  # a long name over few rows: they move down, so that it does not reach into its neighbours
-            for k in kids:
-                shift(k, gap / 2)
-            pos[cat.id] += gap / 2
-            y = start + tall(cat)
-        return pos[cat.id]
-
-    for main, _ss in mains:
-        place(main)
-        y += 14
-    head = _wrap(project.name, 226, bold=True)
-    question = _wrap(project.question or project.name, 226, size=11)
-    root_h = 24 + len(head) * step + len(question) * 13
-    width = x0 + 250 + 50 + depth * col + 140
-    rest = (_wrap(de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates), width - 2 * x0, size=11)
-            if candidates else [])
     levels = {s.id: s.level for s in subs}
     pairs = [p for p in pairs if p["a"].id in levels and p["b"].id in levels]  # only these get a line
-    # a legend under the drawing for what is shown of bars and lines, so a download explains itself (Ralf 2026-11-20)
-    room = width - 2 * x0 - 34
+    lines, nodes = [], []  # lines first, the rows on top of them
+    drawn, edges = [], []  # ("main", main, x, top, w, h, number y) and ("sub", sub, x, y) in the order of the tree; connectors as point lists
+    root_w = 250
+
+    if direction == "h":
+        def shift(cat, by):
+            pos[cat.id] += by
+            for k in below.get(cat.id, []):
+                shift(k, by)
+
+        def place(cat):  # leaves one row each, a category in the middle of what stands below it
+            nonlocal y
+            kids = below.get(cat.id, [])
+            if not kids:
+                pos[cat.id] = y + tall(cat) / 2 - 3
+                y += tall(cat)
+                return pos[cat.id]
+            start = y
+            ys = [place(k) for k in kids]
+            pos[cat.id] = (ys[0] + ys[-1]) / 2
+            gap = tall(cat) - (y - start)
+            if gap > 0:  # a long name over few rows: they move down, so that it does not reach into its neighbours
+                for k in kids:
+                    shift(k, gap / 2)
+                pos[cat.id] += gap / 2
+                y = start + tall(cat)
+            return pos[cat.id]
+
+        for main, _ss in mains:
+            place(main)
+            y += 14
+        width = x0 + 250 + 50 + depth * col + 140
+
+        def x_of(level):
+            return x0 + 250 + 50 + (level - 1) * col
+
+        for main, ss in mains:
+            my, extra = pos[main.id], (len(names[main.id]) - 1) * step
+            drawn.append(("main", main, x_of(1), my - 15 - extra / 2, box, 30 + extra, my + 5))
+            for s in ss:
+                drawn.append(("sub", s, x_of(s.level), pos[s.id]))
+        anchors = {s.id: (x_of(levels[s.id]) + end + 4, pos[s.id]) for s in subs}
+    elif direction == "v":
+        gap_x = 40
+        chunks = [mains[i:i + MAP_COLUMNS] for i in range(0, len(mains), MAP_COLUMNS)] or [[]]
+        n_cols = max(len(c) for c in chunks)
+        width = max(2 * x0 + n_cols * colw + max(n_cols - 1, 0) * gap_x, 2 * x0 + 270)
+        root_w = min(420, width - 2 * x0)
+        head, question = _wrap(project.name, root_w - 24, bold=True), _wrap(project.question or project.name, root_w - 24, size=11)
+        root_h = 24 + len(head) * step + len(question) * 13
+        root_x = (width - root_w) / 2
+        y = 20 + root_h + 40
+        col_of = {}  # a subcategory's column: (left, right)
+        for r, chunk in enumerate(chunks):
+            if not chunk:
+                continue
+            head_h = 30 + (max(len(names[m.id]) for m, _ss in chunk) - 1) * step  # one height in a row (E5)
+            bus = y - 20
+            xs = [x0 + i * (colw + gap_x) for i in range(len(chunk))]
+            if r == 0:
+                edges.append([(root_x + root_w / 2, 20 + root_h), (root_x + root_w / 2, bus)])
+            else:  # a rail on the left from the question down to every further row
+                edges.append([(root_x + root_w / 2, 20 + root_h), (root_x + root_w / 2, 20 + root_h + 20),
+                              (x0 - 10, 20 + root_h + 20), (x0 - 10, bus), (xs[0] + colw / 2, bus)])
+            edges.append([(xs[0] + colw / 2, bus), (xs[-1] + colw / 2, bus)])
+            bottom = y
+            for (main, _ss), x in zip(chunk, xs):
+                edges.append([(x + colw / 2, bus), (x + colw / 2, y)])
+                drawn.append(("main", main, x, y, colw, head_h, y + 20))
+                cy = y + head_h + 12
+
+                def stack(cat, px, py, x=x):
+                    nonlocal cy
+                    for k in below.get(cat.id, []):
+                        kx, sy = x + 14 + indent * (k.level - 2), cy + tall(k) / 2
+                        edges.append([(px, py), (px, sy), (kx - 4, sy)])
+                        drawn.append(("sub", k, kx, sy))
+                        col_of[k.id] = (x, x + colw)
+                        pos[k.id] = sy
+                        cy += tall(k)
+                        stack(k, kx + 6, sy + 5)
+                stack(main, x + 8, y + head_h)
+                bottom = max(bottom, cy)
+            y = bottom + 46
+        y -= 32
+    else:  # "t"
+        slot = 290
+        leaves, left = [], {}
+
+        def lay(cat):  # the left edge of a category's place, in the middle of what stands below it
+            kids = below.get(cat.id, [])
+            if not kids:
+                left[cat.id] = x0 + len(leaves) * slot
+                leaves.append(cat.id)
+            else:
+                xs = [lay(k) for k in kids]
+                left[cat.id] = (xs[0] + xs[-1]) / 2
+            return left[cat.id]
+
+        for main, _ss in mains:
+            lay(main)
+        width = max(2 * x0 + len(leaves) * slot - 20, 2 * x0 + 270)
+        centre = {c: left[c] + 135 for c in left}
+        mid = (centre[mains[0][0].id] + centre[mains[-1][0].id]) / 2 if mains else width / 2
+        root_w = min(420, width - 2 * x0)
+        head, question = _wrap(project.name, root_w - 24, bold=True), _wrap(project.question or project.name, root_w - 24, size=11)
+        root_h = 24 + len(head) * step + len(question) * 13
+        root_x = min(max(mid - root_w / 2, x0), width - x0 - root_w)
+        band = {1: 30 + (max([len(names[m.id]) for m, _ss in mains] + [1]) - 1) * step}
+        for s in subs:
+            band[s.level] = max(band.get(s.level, 0), tall(s))
+        top = {1: 20 + root_h + 40}
+        for lv in range(2, depth + 1):
+            top[lv] = top[lv - 1] + band.get(lv - 1, row_h) + 46
+        bottom_of = {}
+        for main, ss in mains:
+            x = left[main.id] + 10
+            drawn.append(("main", main, x, top[1], box, band[1], top[1] + 20))
+            bottom_of[main.id] = top[1] + band[1]
+            edges.append([(root_x + root_w / 2, 20 + root_h), (root_x + root_w / 2, top[1] - 20),
+                          (centre[main.id], top[1] - 20), (centre[main.id], top[1])])
+            for s in ss:
+                sy = top[s.level] + 3 + tall(s) / 2
+                drawn.append(("sub", s, left[s.id] + 4, sy))
+                pos[s.id] = sy
+                bottom_of[s.id] = sy + tall(s) / 2 - 3
+                mid_y = top[s.level] - 23
+                edges.append([(centre[s.parent_id], bottom_of[s.parent_id]), (centre[s.parent_id], mid_y),
+                              (centre[s.id], mid_y), (centre[s.id], sy - tall(s) / 2 + 3)])
+        y = top[depth] + band.get(depth, row_h) + 14
+    if direction == "h":
+        head = _wrap(project.name, 226, bold=True)
+        question = _wrap(project.question or project.name, 226, size=11)
+        root_h = 24 + len(head) * step + len(question) * 13
+    # a legend under the drawing for what is shown of bars and lines, so a download explains itself (Ralf 2026-11-20);
+    # from the top no wider than a page, also under a wide tree
+    room = (width - 2 * x0 - 34) if direction == "h" else min(width - 2 * x0 - 34, 1060)
+    rest = (_wrap(de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates), room + 34, size=11)
+            if candidates else [])
     bar_text = de_en("Balken und Zahl: Stellen der Kategorie mit allem darunter; der längste Balken hat die meisten "
                      "Stellen.", "Bar and number: passages of the category with everything below it; the longest bar has "
                      "the most passages.")
@@ -952,22 +1107,24 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
                                           room + 34, size=11), None))
         legend = entries + legend
     legend_h = sum(6 + 13 * len(t) + (2 if k == "group" else 0) for k, t, _x in legend) + (10 if legend else 0)
-    # the box of the research question in the middle of the tree, not of tree and legend, so that a long legend never
-    # runs into it (Ralf 2026-11-20)
-    tree_h = max(y, root_h + 40)
-    height = max(tree_h + 30 + max(len(rest) - 1, 0) * 13 + legend_h, 120)
-    mid = (tree_h + 6) / 2 if legend else height / 2
-    top = mid - root_h / 2
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
+    if direction == "h":
+        # the box of the research question in the middle of the tree, not of tree and legend, so that a long legend
+        # never runs into it (Ralf 2026-11-20)
+        tree_h = max(y, root_h + 40)
+        height = max(tree_h + 30 + max(len(rest) - 1, 0) * 13 + legend_h, 120)
+        mid = (tree_h + 6) / 2 if legend else height / 2
+        root_x, root_top = x0, mid - root_h / 2
+    else:
+        tree_h = y
+        height = max(tree_h + 30 + max(len(rest) - 1, 0) * 13 + legend_h, 120)
+        root_top = 20
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:g}" height="{int(height)}" viewBox="0 0 {width:g} {int(height)}" '
              f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Diagramm", "Category system as a diagram"))}">',
              '<rect width="100%" height="100%" fill="#ffffff"/>',
              ('<g class="tc-map-root" data-tc-drop-main>' if interactive else "<g>"),
-             f'<rect x="{x0}" y="{top:g}" width="250" height="{root_h}" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
-             _lines(x0 + 12, top + 22, head, step, ' font-weight="bold" fill="#1c1c1a"'),
-             _lines(x0 + 12, top + 22 + len(head) * step + 2, question, 13, ' fill="#5f5e59" font-size="11"'), "</g>"]
-
-    def x_of(level):
-        return x0 + 250 + 50 + (level - 1) * col
+             f'<rect x="{root_x:g}" y="{root_top:g}" width="{root_w:g}" height="{root_h}" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
+             _lines(root_x + 12, root_top + 22, head, step, ' font-weight="bold" fill="#1c1c1a"'),
+             _lines(root_x + 12, root_top + 22 + len(head) * step + 2, question, 13, ' fill="#5f5e59" font-size="11"'), "</g>"]
 
     from flask import url_for
 
@@ -984,8 +1141,6 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
                 f'data-tc-passages="{show}" tabindex="0" role="button">'
                 f'<title>{escape(cat.path + (": " + note if note else ""))}</title>')
 
-    lines, nodes = [], []  # lines first, the rows on top of them
-
     def link(xa, ya, xb, yb):
         lines.append(f'<path d="M{xa} {ya} C {xb - 25} {ya}, {xb - 25} {yb}, {xb} {yb}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
 
@@ -995,10 +1150,7 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
         here = grouping["of"].get(cat.id, {})
         return [g for g, _c in grouping["groups"] if here.get(g)]
 
-    for main, ss in mains:
-        my, x1 = pos[main.id], x_of(1)
-        extra = (len(names[main.id]) - 1) * step
-        link(x0 + 250, mid, x1, my)
+    def main_node(main, x1, top, w, h, number_y):
         if grouping is not None:
             gs = groups_of(main)
             frame = (group_colour[gs[0]], 2) if len(gs) == 1 and n_groups > 1 else ("#706e68", 1)
@@ -1006,58 +1158,86 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
         else:
             frame = (main.colour, 2) if main.colour else ("#706e68", 1)
             nodes.append(node(main))
-        nodes.append(f'<rect x="{x1}" y="{my - 15 - extra / 2:g}" width="{box}" height="{30 + extra}" rx="8" fill="#f8f8f5" '
+        nodes.append(f'<rect x="{x1:g}" y="{top:g}" width="{w:g}" height="{h:g}" rx="8" fill="#f8f8f5" '
                      f'stroke="{escape(frame[0])}" stroke-width="{frame[1]}"/>')
-        nodes.append(_lines(x1 + 10, my + 5 - extra / 2, names[main.id], step, ' font-weight="bold" fill="#1c1c1a"'))
+        nodes.append(_lines(x1 + 10, top + 20, names[main.id], step, ' font-weight="bold" fill="#1c1c1a"'))
         if counts:
-            nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
+            nodes.append(f'<text x="{x1 + w - 10:g}" y="{number_y:g}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
         nodes.append("</g>")
-        for s in ss:
-            sy, xs = pos[s.id], x_of(s.level)
-            extra = (len(names[s.id]) - 1) * step
-            above = pos.get(s.parent_id, my)
-            link(x_of(s.level - 1) + (box if s.parent_id == main.id else end), above, xs - 4, sy)
-            gs = []
-            if grouping is not None:
-                gs = groups_of(s)
-                ground = _tint(group_colour[gs[0]], 0.18) if len(gs) == 1 and n_groups > 1 else "#ffffff"
-                dot = (_dot(xs + 6, sy, [group_colour[g] for g in gs]) if gs else
-                       f'<circle cx="{xs + 6}" cy="{sy:g}" r="5" fill="#ffffff" stroke="{NO_ANSWER_COLOUR}"/>')
-                nodes.append(node(s, _groups_text(gs, n_groups)))
-            else:
-                colour = colour_of(project, s, every) or "#2957A4"
-                ground, dot = _tint(colour, 0.12), f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>'
-                nodes.append(node(s))
-            # the row's ground, so that lines passing behind it never cover it; on the page also the whole row to grab
-            # and to drop onto, not only the small dot
-            hit = ' class="tc-hit"' if interactive else ""
-            nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14 - extra / 2:g}" width="{end + 2}" height="{28 + extra}" rx="6" fill="{ground}" stroke="none"/>')
-            nodes.append(dot)
-            nodes.append(_lines(xs + 18, sy + 4 - extra / 2, names[s.id], step, ' fill="#1c1c1a"'))
-            bar = int(60 * st[s.id]["n"] / biggest)
-            if counts:
-                nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
-                if bar and grouping is not None:  # split by the passages of each group, the widths summed up
-                    here, done, left = grouping["of"].get(s.id, {}), 0, 0
-                    total = sum(here.get(g, 0) for g in gs) or 1
-                    for g in gs:
-                        done += here[g]
-                        right = round(bar * done / total)
-                        if right > left:
-                            nodes.append(f'<rect x="{xs + 170 + left}" y="{sy - 5}" width="{right - left}" height="10" fill="{escape(group_colour[g])}"/>')
-                        left = right
-                elif bar:
-                    nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
-                nodes.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
-            nodes.append("</g>")
+
+    def sub_node(s, xs, sy):
+        extra = (len(names[s.id]) - 1) * step
+        gs = []
+        if grouping is not None:
+            gs = groups_of(s)
+            ground = _tint(group_colour[gs[0]], 0.18) if len(gs) == 1 and n_groups > 1 else "#ffffff"
+            dot = (_dot(xs + 6, sy, [group_colour[g] for g in gs]) if gs else
+                   f'<circle cx="{xs + 6}" cy="{sy:g}" r="5" fill="#ffffff" stroke="{NO_ANSWER_COLOUR}"/>')
+            nodes.append(node(s, _groups_text(gs, n_groups)))
+        else:
+            colour = colour_of(project, s, every) or "#2957A4"
+            ground, dot = _tint(colour, 0.12), f'<circle cx="{xs + 6}" cy="{sy:g}" r="5" fill="{escape(colour)}"/>'
+            nodes.append(node(s))
+        # the row's ground, so that lines passing behind it never cover it; on the page also the whole row to grab
+        # and to drop onto, not only the small dot
+        hit = ' class="tc-hit"' if interactive else ""
+        nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14 - extra / 2:g}" width="{end + 2}" height="{28 + extra}" rx="6" fill="{ground}" stroke="none"/>')
+        nodes.append(dot)
+        nodes.append(_lines(xs + 18, sy + 4 - extra / 2, names[s.id], step, ' fill="#1c1c1a"'))
+        bar = int(60 * st[s.id]["n"] / biggest)
+        if counts:
+            nodes.append(f'<rect x="{xs + 170}" y="{sy - 5:g}" width="60" height="10" rx="2" fill="#efeee9"/>')
+            if bar and grouping is not None:  # split by the passages of each group, the widths summed up
+                here, done, left = grouping["of"].get(s.id, {}), 0, 0
+                total = sum(here.get(g, 0) for g in gs) or 1
+                for g in gs:
+                    done += here[g]
+                    right = round(bar * done / total)
+                    if right > left:
+                        nodes.append(f'<rect x="{xs + 170 + left}" y="{sy - 5:g}" width="{right - left}" height="10" fill="{escape(group_colour[g])}"/>')
+                    left = right
+            elif bar:
+                nodes.append(f'<rect x="{xs + 170}" y="{sy - 5:g}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
+            nodes.append(f'<text x="{xs + 262}" y="{sy + 4:g}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
+        nodes.append("</g>")
+
+    if direction == "h":
+        def x_of(level):
+            return x0 + 250 + 50 + (level - 1) * col
+
+        for main, ss in mains:
+            my = pos[main.id]
+            link(x0 + 250, mid, x_of(1), my)
+            for s in ss:
+                link(x_of(s.level - 1) + (box if s.parent_id == main.id else end), pos.get(s.parent_id, my), x_of(s.level) - 4, pos[s.id])
+    for points in edges:  # from the top: straight segments with right angles
+        lines.append(f'<path d="M{points[0][0]:g} {points[0][1]:g} ' + " ".join(f"L{px:g} {py:g}" for px, py in points[1:])
+                     + '" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
+    by_id = {d[1].id: (d[2], d[3]) for d in drawn if d[0] == "sub"}
+    for d in drawn:
+        (main_node if d[0] == "main" else sub_node)(*d[1:])
     for p in pairs:
-        a, b = pos.get(p["a"].id), pos.get(p["b"].id)
-        if a is None or b is None or p["a"].id not in levels or p["b"].id not in levels:
+        a, b = p["a"].id, p["b"].id
+        if a not in by_id or b not in by_id:
             continue
-        xa, xb = x_of(levels[p["a"].id]) + end + 4, x_of(levels[p["b"].id]) + end + 4
-        bend = max(xa, xb) + min(col - end - 10, 8 + abs(a - b) / 4)
-        lines.append(f'<path d="M{xa} {a} C {bend} {a}, {bend} {b}, {xb} {b}" fill="none" stroke="#b35c00" '
-                     f'stroke-width="1.5" stroke-dasharray="6 5"/>')
+        if direction == "h":
+            (xa, ya), (xb, yb) = anchors[a], anchors[b]
+            bend = max(xa, xb) + min(col - end - 10, 8 + abs(ya - yb) / 4)
+            lines.append(_pair_path(xa, ya, bend, ya, bend, yb, xb, yb))
+            continue
+        (xa, ya), (xb, yb) = by_id[a], by_id[b]
+        if direction == "v" and col_of[a] == col_of[b]:  # in one column: a bow to the right, into the gap
+            bend = col_of[a][1] + min(32, 8 + abs(ya - yb) / 4)
+            lines.append(_pair_path(xa + end - 2, ya, bend, ya, bend, yb, xb + end - 2, yb))
+        elif direction == "t" and ya == yb:  # side by side in a tree: a bow below them
+            low = ya + max(tall(p["a"]), tall(p["b"])) / 2 + 8 + min(abs(xa - xb) / 12, 20)
+            lines.append(_pair_path(xa + 131, ya, xa + 131, low, xb + 131, low, xb + 131, yb))
+        else:  # from the right end of the one on the left to the left end of the other
+            if xb < xa:
+                (xa, ya), (xb, yb) = (xb, yb), (xa, ya)
+            xa, xb = xa + end - 2, xb - 4
+            reach = max(40, (xb - xa) / 2)
+            lines.append(_pair_path(xa, ya, xa + reach, ya, xb - reach, yb, xb, yb))
     parts.extend(lines + nodes)
     if rest:
         parts.append(_lines(x0, height - 12 - legend_h - (len(rest) - 1) * 13, rest, 13, ' fill="#5f5e59" font-size="11"'))
@@ -1088,6 +1268,12 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by
     return "".join(parts)
 
 
+def _pair_path(xa, ya, c1x, c1y, c2x, c2y, xb, yb):
+    """The dashed line of a blurring pair, one cubic curve."""
+    return (f'<path d="M{xa:g} {ya:g} C {c1x:g} {c1y:g}, {c2x:g} {c2y:g}, {xb:g} {yb:g}" fill="none" stroke="#b35c00" '
+            f'stroke-width="1.5" stroke-dasharray="6 5"/>')
+
+
 # --- the coding guide ------------------------------------------------------------------------------------------------
 
 
@@ -1101,9 +1287,21 @@ def _guide_diagram(doc, project, who, survey):
     mains, candidates = tree(project)
     if not mains and not candidates:
         return
-    png = map_png(project, who, survey, scale=2.5)
-    w, h = Image.open(io.BytesIO(png)).size
-    across = w / max(h, 1) > 2.2
+    page = doc.sections[-1]
+    upright = (page.page_width - page.left_margin - page.right_margin,
+               page.page_height - page.top_margin - page.bottom_margin - Cm(3))
+    sideways = (page.page_height - page.top_margin - page.bottom_margin,
+                page.page_width - page.left_margin - page.right_margin - Cm(3))
+
+    def fit(direction):  # (shown width, png, across): the drawing as large as the page allows
+        png = map_png(project, who, survey, scale=2.5, direction=direction)
+        w, h = Image.open(io.BytesIO(png)).size
+        across = w / max(h, 1) > 2.2
+        room_w, room_h = sideways if across else upright
+        return min(room_w, int(room_h * w / max(h, 1))), w, png, across
+
+    # across or from the top in columns, whichever comes out larger on the page (Ralf 2026-11-20, E7)
+    width, _w, png, across = max((fit(d) for d in ("h", "v")), key=lambda f: f[0] / max(f[1], 1))
 
     def turn(section):
         section.orientation = WD_ORIENT.LANDSCAPE if section.orientation == WD_ORIENT.PORTRAIT else WD_ORIENT.PORTRAIT
@@ -1111,10 +1309,6 @@ def _guide_diagram(doc, project, who, survey):
 
     if across:
         turn(doc.add_section(WD_SECTION.NEW_PAGE))
-    section = doc.sections[-1]
-    room_w = section.page_width - section.left_margin - section.right_margin
-    room_h = section.page_height - section.top_margin - section.bottom_margin - Cm(3)
-    width = min(room_w, int(room_h * w / max(h, 1)))
     p = doc.add_paragraph()
     p.add_run(de_en("Kategoriensystem", "Category system")).bold = True
     doc.add_picture(io.BytesIO(png), width=width)
@@ -1262,12 +1456,19 @@ def map_pdf(project, who, survey, **opts):
 
     from app import pdf_fonts
 
+    from reportlab.lib.pagesizes import A0, A1, A2, A3
+
     png = map_png(project, who, survey, scale=3.0, **opts)
     w, h = PILImage.open(io.BytesIO(png)).size
-    size = landscape(A4) if w > h else A4
     margin = 15 * mm
-    room_w, room_h = size[0] - 2 * margin, size[1] - 2 * margin - 22 * mm
-    factor = min(room_w / w, room_h / h)
+    # a tree from the top grows wide with every category: the page then grows too (up to A0), until its names come out
+    # at 60 % of their size on screen or more (Ralf 2026-11-20: the tree mainly for the export)
+    for paper in ((A4, A3, A2, A1, A0) if opts.get("direction") == "t" else (A4,)):
+        size = landscape(paper) if w > h else paper
+        room_w, room_h = size[0] - 2 * margin, size[1] - 2 * margin - 22 * mm
+        factor = min(room_w / w, room_h / h)
+        if factor >= 0.6 * 0.75 / 3.0:  # 0.75 pt per pixel of the drawing, which the PNG draws three times as large
+            break
     pdf_fonts.register()
     sample = getSampleStyleSheet()
     styles = {"Heading2": ParagraphStyle("h2", parent=sample["Heading2"], fontName=pdf_fonts.BOLD),

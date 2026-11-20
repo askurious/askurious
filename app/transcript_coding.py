@@ -1350,7 +1350,12 @@ def project(code, pid):
         return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="categories", show="diagram",
                                 **({"merge": request.args["merge"]} if request.args.get("merge") else {})))
     show = "map" if view == "categories" and request.args.get("show") == "diagram" else "list"
-    map_opts = transcript_coding_review.map_options(request.args)  # "Balken und Zahlen", "Linien unscharfer Paare"
+    # "Richtung", "Balken und Zahlen", "Linien unscharfer Paare", "Färben nach": as last chosen in this analysis
+    # unless the address says otherwise; a choice made here is kept for the next visit (Ralf 2026-11-20)
+    map_opts = transcript_coding_review.map_options(
+        request.args, transcript_coding_review.map_view(project, who) if show == "map" else None)
+    if show == "map" and request.args.get("o"):
+        transcript_coding_review.save_map_view(project, who, map_opts)
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
                    nums=numbers(mains), levels={c.id: c.level for m, subs in mains for c in [m] + subs},
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),

@@ -214,7 +214,7 @@ def test_switches_for_counts_and_pair_lines(app, client):
     assert dashed not in bare and bar not in bare and "Gestrichelt" not in bare and "Balken und" not in bare
     assert client.get(f"{base}/map.png?o=1").data[:4] == b"\x89PNG"
     assert client.get(f"{base}/map.pdf?o=1&counts=1").data[:4] == b"%PDF"
-    assert review.map_options({}) == {"counts": True, "pairs": True, "by": ""}
+    assert review.map_options({}) == {"counts": True, "pairs": True, "by": "", "direction": "h"}
 
 
 def test_colour_by_a_characteristic_of_the_interviews(app, client):
@@ -251,7 +251,7 @@ def test_colour_by_a_characteristic_of_the_interviews(app, client):
     assert "nur Ben Zwei" in client.get(f"{base}/map.svg?by=von").data.decode()
     assert "Farben nach" not in client.get(f"{base}/map.svg?by=x99").data.decode()
     # a person who sees only their own interviews sees the colours of those only (here: none of theirs)
-    assert review.map_options({"by": "form"}) == {"counts": True, "pairs": True, "by": "form"}
+    assert review.map_options({"by": "form"}) == {"counts": True, "pairs": True, "by": "form", "direction": "h"}
     assert review.map_query({"counts": True, "pairs": False, "by": "form"}) == {"o": "1", "counts": "1", "by": "form"}
 
 
