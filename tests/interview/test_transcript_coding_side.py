@@ -65,5 +65,6 @@ def test_pickers_carry_the_tree(app, client):
     assert "data-tc-merge-dialog" in overview and "tc_picker.js" in overview
     assert re.search(r'<option value="\d+" data-num="1.1" data-level="2" data-path="Belastung › Erschöpfung" data-n="0"', overview)
     page = client.get(f"{base}?view=categories").data.decode()
-    assert '<select name="parent" data-tc-pick>' in page and "tc_picker.js" in page
+    assert '<select name="parent" data-tc-pick data-tc-targets="' in page and "tc_picker.js" in page
+    assert "<template data-tc-move-options>" in page  # the options once for the page (Ralf 2026-11-20)
     assert re.search(r'<option value="\d+" data-num="2" data-level="1" data-main="1" data-path="Wünsche">Wünsche</option>', page)

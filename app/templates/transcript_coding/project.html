@@ -2,7 +2,7 @@
 {% from "_macros.html" import csrf, list_table, autosave_bar %}
 {% from "_icons.html" import icon %}
 {% from "surveys/_export_rows.html" import dialog %}
-{% from "transcript_coding/_category.html" import category with context %}
+{% from "transcript_coding/_category.html" import category, pick_option with context %}
 {% from "transcript_coding/_parts.html" import notices_fold, views, downloads with context %}
 {% from "_learn.html" import why %}
 {% from "transcript_coding/_memos.html" import memo_dialog with context %}
@@ -138,6 +138,10 @@
   {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
   <div class="tc-tree" data-tc-csrf="{{ csrf_token() }}">
+  {# the categories "Verschieben nach …" can offer, once for the page; each category names its own by id in
+     data-tc-targets and tc_picker.js fills its list when the fold opens. A full list in every category made the page
+     grow with the square of the categories (2 MB at 100; Ralf 2026-11-20, pages opened slowly) #}
+  <template data-tc-move-options>{{ pick_option(None, de_en("— als Hauptkategorie —", "— as a main category —")) }}{% for main, subs in mains %}{% for c in [main] + subs %}{{ pick_option(c.id, c.path) }}{% endfor %}{% endfor %}</template>
   <div class="tc-drop-main" data-tc-drop-main hidden>{{ de_en("Hierher ziehen: als Hauptkategorie", "Drop here: as a main category") }}</div>
   {% for main, subs in mains %}
     <div class="tc-branch">

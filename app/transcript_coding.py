@@ -1060,6 +1060,13 @@ def propose_merge(project, source, target, who, reason="", values=None):
     return None
 
 
+def move_ids(project, cat, who, mains, main=True):
+    """move_targets() as the ids for data-tc-targets ("main": as a main category, left out without `main`); the page
+    lists the categories once (template data-tc-move-options) and tc_picker.js fills each list from it."""
+    return " ".join("main" if t is None else str(t) for t, _path in move_targets(project, cat, who, mains)
+                    if t is not None or main)
+
+
 def open_proposals(project, cat_id=None, actor_key=None):
     query = db.select(CodingEvent).filter_by(project_id=project.id, kind="proposal", status="open")
     if cat_id is not None:
@@ -1348,7 +1355,7 @@ def project(code, pid):
                    nums=numbers(mains), levels={c.id: c.level for m, subs in mains for c in [m] + subs},
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
                    drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
-                   move_targets=lambda c: move_targets(project, c, who, mains),
+                   move_ids=lambda c, main=True: move_ids(project, c, who, mains, main),
                    map_opts=map_opts,  # the downloads take the same choice; nothing in the address while all is shown
                    map_query=transcript_coding_review.map_query(map_opts),
                    # what the diagram can be coloured by (Ralf 2026-11-20): characteristics of the interviews

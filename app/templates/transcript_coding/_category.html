@@ -36,11 +36,11 @@
   {% if cat.delimitation %}<p class="tc-text muted small">{{ de_en("Abgrenzung:", "Delimitation:") }} {{ cat.delimitation }}</p>{% endif %}
   {% if cat.anchor and cat.anchor.quote %}<p class="tc-text small">{{ de_en("Ankerbeispiel:", "Anchor example:") }} <em>„{{ cat.anchor.quote|truncate(300, true, "…") }}“</em>{% if cat.anchor.label and cat.id not in (anchor_hidden or []) %} <span class="muted">({{ cat.anchor.label }})</span>{% endif %}</p>{% endif %}</div>
   {% if editable %}
-  {% if may_move(cat) %}{% set targets = move_targets(cat) %}{% if targets %}
+  {% if may_move(cat) %}{% set targets = move_ids(cat) %}{% if targets %}
   <details class="tc-propose"><summary>{{ de_en("Verschieben nach …", "Move to …") }}</summary>
   <form method="post" action="{{ url_for('transcript_coding.move_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="row-fields">
     {{ csrf() }}
-    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-pick>{% for tid, tpath in targets %}{{ pick_option(tid, tpath) }}{% endfor %}</select></label>
+    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-pick data-tc-targets="{{ targets }}"></select></label>
     <div><button class="button button-small">{{ de_en("Verschieben", "Move") }}</button></div>
   </form>
   <p class="muted small">{{ de_en("Alles darunter geht mit; wer Stellen darin hat, wird gefragt. Rückgängig oben im Kategoriensystem.", "Everything below goes along; whoever has passages in it is asked. Undo at the top of the category system.") }}</p>
@@ -68,11 +68,11 @@
   {% else %}
   {% if own_proposal(cat) %}<p class="muted small">{{ de_en("Ihr Vorschlag wartet auf eine Entscheidung.", "Your proposal is waiting for a decision.") }}</p>
   {% else %}
-  {% if may_propose_move(cat) %}{% set targets = move_targets(cat) %}{% if targets %}
+  {% if may_propose_move(cat) %}{% set targets = move_ids(cat, false) %}{% if targets %}
   <details class="tc-propose"><summary>{{ de_en("Verschieben vorschlagen …", "Propose a move …") }}</summary>
   <form method="post" action="{{ url_for('transcript_coding.move_category', code=survey.code, pid=project.id, cid=cat.id) }}" class="row-fields">
     {{ csrf() }}
-    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-pick>{% for tid, tpath in targets %}{{ pick_option(tid, tpath, false) }}{% endfor %}</select></label>
+    <label>{{ de_en("Unter", "Under") }} <select name="parent" data-tc-pick data-tc-targets="{{ targets }}"></select></label>
     <label>{{ de_en("Begründung", "Reason") }} <input name="reason" maxlength="1000"></label>
     <div><button class="button button-small">{{ de_en("Vorschlag senden", "Send proposal") }}</button></div>
   </form>
