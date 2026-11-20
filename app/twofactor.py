@@ -1,10 +1,12 @@
 """Second factor for the site admins: a six-digit code from an authenticator app (TOTP, RFC 6238), asked before the
 pages of the administration (security audit 2026-10-04, H5).
 
-Ralf, 2026-10-13: site admins sign in with ORCID without mandatory app TOTP, or with password plus code.
-Only a session explicitly marked as an ORCID sign-in gets the exemption, regardless of ADMIN_TOTP. Unknown/link
-sessions still need a code for admin pages and rights. ADMIN_TOTP offers the factor to other accounts; admins can
-always set it up for their password sign-in. Re-authenticate with ORCID after losing the phone.
+Site admins give the code whichever way they signed in: with a password at the sign-in, after an ORCID sign-in
+before the administration (Ralf 2026-11-20, config ADMIN_CODE_AFTER_ORCID, on by default; from 2026-10-13 until then
+an ORCID sign-in was enough). ORCID does not tell whether a second factor was used there, so a taken-over ORCID
+account would otherwise be the whole platform. Admins of an organisation still pass with an ORCID sign-in
+(org_gate). Unknown/link sessions need a code for admin pages and rights. ADMIN_TOTP offers the factor to other
+accounts; everyone can set it up for their password sign-in.
 
 The secret (160 bits, base32) is kept encrypted with the app's key box (secrets_box) in UserLogin.totp_box; a code
 counts once (UserLogin.totp_step), and the time step before and after the current one is accepted (30 seconds, the
@@ -18,8 +20,9 @@ not reset that counter, only a right code does (audit 2026-10-09b, T2). A code a
 conditional UPDATE, so two requests with the same code at the same moment do not both get in (T4); backup codes are
 kept as salted scrypt hashes like passwords (T5).
 
-Lost phone: sign in with ORCID; renew the factor with a backup code or have the operator reset it. ADMIN_TOTP off does not
-bypass mandatory password TOTP. An unreadable secret stays enabled; only a verified ORCID session is exempt.
+Lost phone: a backup code opens the administration, where the factor is switched off and set up anew; without
+backup codes the operator resets the factor on the server (python -m app.factor_reset <ORCID iD>), and the next ORCID
+sign-in sets up a new one. ADMIN_TOTP off does not bypass mandatory password TOTP. An unreadable secret stays enabled.
 """
 import base64
 import hashlib
@@ -399,12 +402,22 @@ def verified():
             and time.time() - float(entry.get("at") or 0) <= hours * 3600)
 
 
+def orcid_exempt(user=None):
+    """Whether this browser's ORCID sign-in spares the account the code: never a site admin while
+    ADMIN_CODE_AFTER_ORCID is on (Ralf 2026-11-20), everyone else as before (Ralf 2026-10-13)."""
+    if via() != VIA_ORCID:
+        return False
+    user = current_user if user is None else user
+    return not (current_app.config.get("ADMIN_CODE_AFTER_ORCID", True)
+                and (_site_admin(user) or getattr(user, "is_admin", False)))
+
+
 def gate():
     """For pages of the administration: None if the admin may go on; else the way to the setup or to the code,
     back to this page afterwards."""
-    if not current_user.is_authenticated or via() == VIA_ORCID:
-        return None  # Ralf, 2026-10-13: an ORCID sign-in exempts admins from mandatory app TOTP
-    if not active() and not required_at_signin(current_user):
+    if not current_user.is_authenticated or orcid_exempt():
+        return None
+    if not active() and not required_at_signin(current_user) and not getattr(current_user, "is_admin", False):
         return None
     back = local_path(request.full_path.rstrip("?")) if request.method == "GET" else None
     if not enabled(current_user):
@@ -447,8 +460,9 @@ def admin_page():
 
 
 def admin_rights(user):
-    """Whether `user` acts with the rights of a site admin on an ordinary page (linked elements, short labels): after
-    an ORCID sign-in, else only with a code given in this browser, like the administration (H2 of the audit
+    """Whether `user` acts with the rights of a site admin on an ordinary page (linked elements, short labels): only
+    with a code given in this browser, like the administration (after an ORCID sign-in without one only while
+    ADMIN_CODE_AFTER_ORCID is off) (H2 of the audit
     2026-10-06; ADMIN_TOTP plays no part since #984, Abgleich 2026-10-15 T01-N4). Without the code the account acts
     like any other; nothing is asked on the way."""
     if not getattr(user, "is_admin", False):
@@ -458,7 +472,7 @@ def admin_rights(user):
     own = has_request_context() and current_user.is_authenticated and current_user.id == user.id
     if own and via() == VIA_PASSWORD:
         return False  # a password without a code is never enough for a site admin (T3; auth.load_user ends it too)
-    if own and via() == VIA_ORCID:
+    if own and orcid_exempt(user):
         return True
     return own and enabled(user) and verified()
 

@@ -1311,9 +1311,17 @@ def _services():
 
 def measures():
     """Technical and organisational measures (Art. 32), grouped by the seven protection goals of the SDM 3.1."""
-    totp = de_en("Admins: ORCID-Anmeldung oder Passwort mit Authenticator-Code; nach ORCID ist kein zusätzlicher "
-                 "App-Code verpflichtend.", "Admins: ORCID sign-in or a password with an authenticator code; an ORCID "
-                 "sign-in does not require an additional app code.")
+    if current_app.config.get("ADMIN_CODE_AFTER_ORCID", True):
+        totp = de_en("Admins der Plattform: Code aus einer Authenticator-App vor der Administration, nach einer "
+                     "Anmeldung mit ORCID ebenso wie mit Passwort; Admins einer Organisation: ORCID-Anmeldung oder "
+                     "Passwort mit Code.",
+                     "Platform admins: a code from an authenticator app before the administration, after an ORCID "
+                     "sign-in as well as with a password; admins of an organisation: ORCID sign-in or a password "
+                     "with a code.")
+    else:
+        totp = de_en("Admins: ORCID-Anmeldung oder Passwort mit Authenticator-Code; nach ORCID ist kein zusätzlicher "
+                     "App-Code verpflichtend.", "Admins: ORCID sign-in or a password with an authenticator code; an "
+                     "ORCID sign-in does not require an additional app code.")
     totp += " " + de_en("Für andere Konten ist 2FA freiwillig; ein eingerichteter Faktor wird bei Passwortanmeldung und Passwort-Reset abgefragt. Passwortwechsel, Kontosperre und Überall abmelden widerrufen Datenzugänge und offene Einladungs-/Beitrittslinks und trennen Zenodo, Coscine und den eigenen KI-Zugang; ein erstes Passwort widerruft nichts. Die Sperre nach 100 Fehlversuchen in Folge hält einen Browser nicht auf, in dem sich das Konto mit seinem aktuellen Passwort schon angemeldet hat (signiertes Cookie, 90 Tage).",
                          "For other accounts, 2FA is optional; an enabled factor is required at password sign-in and password reset. Password changes, account blocks and signing out everywhere revoke data access tokens and pending invitations/join links and disconnect Zenodo, Coscine and the own AI access; a first password revokes nothing. The lock after 100 wrong attempts in a row does not hold a browser in which the account signed in with its current password before (signed cookie, 90 days).")
     return [

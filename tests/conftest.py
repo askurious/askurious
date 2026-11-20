@@ -154,6 +154,9 @@ def _config(folder, url=None):
         # (app.is_local_request, audit 2026-10-18, CFG-01), and the tests send from made-up addresses (REMOTE_ADDR)
         SECRET_KEY = "test-Q7wRt5zK9pL2mN8bV4cX6jH3gF1dS0aYx8Lp2Mn4Bv6Cx"
         ADMIN_TOTP = False  # the administration without a code from an app; tests/accounts/test_twofactor.py covers it
+        # the tests' site admin signs in like an ORCID sign-in (auth.dev_login) and opens the administration without
+        # a code; tests/accounts/test_admin_code_after_orcid.py covers the rule itself
+        ADMIN_CODE_AFTER_ORCID = False
         CRON_KEY = "k"
         TSA_URL = ""  # never the DFN from a test; tests/exports/test_seal.py stands in for the service
         SEAL_DEFAULT = False  # the tests switch the seal chain on where they need it (tests/exports/test_seal.py)

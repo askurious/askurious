@@ -19,8 +19,6 @@
     <label>{{ de_en("Code aus der App", "Code from the app") }} <input type="text" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" autocomplete="one-time-code" required autofocus class="narrow"></label>
     <button class="button">{{ de_en("Einrichten", "Set up") }}</button>
   </form>
-  <p class="muted small">{{ de_en("Der Schlüssel erscheint nur hier. Wer das Telefon verliert, schaltet den Faktor mit einem Code aus und richtet ihn neu ein;
-    ohne Telefon hilft ein Admin der Plattform (Einstellung", "The key appears only here. If you lose your phone, switch the factor off with a code and set it up again;
-    without the phone, a platform admin helps (setting") }} <code>ADMIN_TOTP</code> {{ de_en("auf dem Server).", "on the server).") }}</p>
+  <p class="muted small">{{ de_en("Der Schlüssel erscheint nur hier. Wer das Telefon verliert, schaltet den Faktor mit einem Ersatzcode aus und richtet ihn neu ein; ohne Telefon und ohne Ersatzcodes setzen die Admins der Plattform den Faktor auf dem Server zurück.", "The key appears only here. If you lose your phone, switch the factor off with a backup code and set it up again; without the phone and without backup codes a platform admin resets the factor on the server.") }}</p>
 </section>
 {% endblock %}
