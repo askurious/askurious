@@ -75,7 +75,7 @@ BLUEPRINT_SIDES = {
     # the rest needs a sign-in, is for machines (cron, Slack, Rechenknecht, ORCID and Zenodo callbacks) or is the
     # landing page and the legal pages of the platform
     **{name: RESEARCHER for name in (
-        "public", "auth", "accounts", "account_setup", "twofactor", "invites", "joinlinks", "bulk_invites", "survey_invites", "dashboard", "constructs", "element_types", "terms", "feedback",
+        "public", "auth", "accounts", "account_setup", "twofactor", "invites", "invite_links", "joinlinks", "bulk_invites", "survey_invites", "dashboard", "constructs", "element_types", "terms", "feedback",
         "admin", "designs", "compute", "groups", "org", "samplesize", "wizard", "surveys", "cron", "editor", "flow_page",
         "boards", "translations", "zenodo_auth", "coscine", "ai_access", "slack", "live", "interview", "interview_ai", "diary_ai",
         "interview_data", "interview_results", "interview_audio", "interview_transcribe", "interview_search",
