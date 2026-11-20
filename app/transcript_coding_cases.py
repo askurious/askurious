@@ -315,6 +315,11 @@ def register(bp, survey_of):
             return jsonify(ok=False, error=de_en("KI-Vorschläge laufen nur über einen eigenen KI-Zugang und nur, wenn die "
                                                  "Auswertung sie erlaubt.", "AI suggestions run only over an own AI access and "
                                                  "only when the analysis allows them.")), 400
+        if not transcript_coding_ai.checked(row):
+            # as "Stellen vorschlagen": nothing of a transcript goes to an AI before it is checked (audit 2026-11-20:
+            # the quotes of a draft went with this button)
+            return jsonify(ok=False, error=de_en("KI-Vorschläge gibt es erst, wenn das Transkript geprüft ist.",
+                                                 "AI suggestions come only once the transcript is checked.")), 409
         items = cells(project, [row]).get((row.id, cid)) or []
         if not items:
             return jsonify(ok=False, error=de_en("In dieser Zelle gibt es noch keine Stellen.", "There are no passages in this cell yet.")), 400

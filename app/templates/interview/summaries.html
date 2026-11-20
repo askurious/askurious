@@ -60,7 +60,7 @@
         {% if items %}
         <div class="summary-tools">
           <button type="button" class="button button-small button-secondary" data-summary-prefill="{{ coding.draft(items) }}">{{ de_en("aus Stellen vorbefüllen", "Prefill from passages") }}</button>
-          {% if coding.ai and ai_on() %}<button type="button" class="button button-small button-ai" data-summary-ai="{{ url_for('interview_summaries.suggest_summary', code=survey.code, rid=r.id) }}">{{ de_en("Zusammenfassung vorschlagen", "Suggest a summary") }}</button>{% endif %}
+          {% if coding.ai and ai_on() %}{% if (r.interview.get("transcript") or {}).get("checked") %}<button type="button" class="button button-small button-ai" data-summary-ai="{{ url_for('interview_summaries.suggest_summary', code=survey.code, rid=r.id) }}">{{ de_en("Zusammenfassung vorschlagen", "Suggest a summary") }}</button>{% else %}<span class="muted small">{{ de_en("KI-Vorschlag erst nach „Transkript geprüft“", "AI suggestion only after “Transcript checked”") }}</span>{% endif %}{% endif %}
           <button type="button" class="button button-small button-secondary" data-summary-undo hidden>{{ de_en("Rückgängig", "Undo") }}</button>
         </div>
         <details class="summary-note"><summary>{{ de_en("{n} Stellen", "{n} passages", n=items|length) }}</summary>

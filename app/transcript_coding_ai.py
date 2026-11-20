@@ -110,10 +110,26 @@ def _categories(project):
             entry["definition"] = c.definition[:1000]
         if c.delimitation:
             entry["delimitation"] = c.delimitation[:600]
-        if (c.anchor or {}).get("quote"):
-            entry["anchor_example"] = c.anchor["quote"][:400]
+        anchor = anchor_for_ai(project, c)
+        if anchor:
+            entry["anchor_example"] = anchor
         out.append(entry)
     return out
+
+
+def anchor_for_ai(project, cat):
+    """The anchor example of a category as it goes to an AI: only from an interview of this guide whose transcript is
+    checked (a passage of a draft may still carry names and places, like the draft itself), and masked like the
+    section (ai_privacy.redact); "" otherwise. Audit 2026-11-20: it went unmasked, from any interview."""
+    from app.models import Response
+
+    anchor = cat.anchor or {}
+    if not anchor.get("quote"):
+        return ""
+    row = db.session.get(Response, anchor.get("interview") or 0)
+    if row is None or row.survey_id != project.survey_id or not checked(row):
+        return ""
+    return ai_privacy.redact(str(anchor["quote"]))[:400]
 
 
 class NotChecked(ai.AIError):
@@ -121,8 +137,10 @@ class NotChecked(ai.AIError):
 
 
 def checked(row):
-    """True once the transcript was handed over as checked (Interviews › Transkript): only then do sections of it go
-    to an AI, masked like every other participants' text (ai_privacy.redact)."""
+    """True once the transcript was handed over as checked (Interviews › Transkript): only then do sections of it,
+    passages coded in it (anchor examples, the quotes of a case summary) go to an AI, their e-mail addresses, web
+    addresses and phone numbers masked like every other participants' text (ai_privacy.redact; names and places are
+    not: whoever checks the transcript replaces them)."""
     return bool(((row.interview or {}).get("transcript") or {}).get("checked"))
 
 
