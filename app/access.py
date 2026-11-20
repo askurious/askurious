@@ -78,7 +78,7 @@ def role_of_user(user, survey, groups=None):
     person's work groups when the caller has them (roles_of_user), else read here."""
     from app import kind_access
 
-    if user is None:
+    if user is None or getattr(user, "id", None) is None:  # nobody signed in (an interviewer link's browser): no role
         return None
     best = own_role_of_user(user, survey, groups)
     if best is None and showcased(survey, user):
@@ -88,7 +88,7 @@ def role_of_user(user, survey, groups=None):
 
 def own_role_of_user(user, survey, groups=None):
     """The role from the person's own entry and their groups, without what an example survey gives everyone."""
-    if user is None:
+    if user is None or getattr(user, "id", None) is None:
         return None
     member = next((m for m in survey.members if m.user_id == user.id), None)
     best = member.role if member else None

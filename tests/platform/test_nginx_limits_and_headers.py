@@ -104,7 +104,30 @@ def test_internal_callbacks_closed_from_outside_and_tokens_kept_out_of_the_log()
     block = re.search(r"map \$uri \$logged_uri \{(.*?)\}", template, re.S).group(1)
     pattern, value = re.search(r'"~(.+?)" "(.+?)";', block).groups()
     pattern = pattern.replace("(?<", "(?P<")
-    for path in ("/auth/password/abc", "/invite/abc", "/join/abc", "/account/confirm-email/abc", "/privacy/delete/12-x"):
+    for path in ("/auth/password/abc", "/invite/abc", "/join/abc", "/account/confirm-email/abc", "/privacy/delete/12-x",
+                 # audit 2026-11-20: registration, founding and organisation links, the monitoring feed, the status JSON
+                 "/signup/abc", "/joinorg/abc", "/org/join/abc", "/api/monitoring/abc", "/status/abc.json"):
         m = re.search(pattern, path)
         assert m and "abc" not in value.replace("$fixed", m.group("fixed")) and "12-x" not in value
-    assert not re.search(pattern, "/surveys/1/editor")
+    for path in ("/surveys/1/editor", "/org/3/people", "/joinery", "/statusseite"):
+        assert not re.search(pattern, path), path
+
+
+def test_every_token_in_a_path_is_kept_out_of_the_log(app):
+    """Audit 2026-11-20: every route of the researchers' and the status side with <token> in its path is covered by
+    the mask of nginx's log of failed requests (the participants' side keeps no access log at all)."""
+    import os
+
+    from app import hosts
+    from tests.nginx_conf import NGINX, _read
+
+    template = _active(_read(os.path.join(NGINX, "askurious.conf.template")))
+    block = re.search(r"map \$uri \$logged_uri \{(.*?)\}", template, re.S).group(1)
+    pattern = re.search(r'"~(.+?)" "(.+?)";', block).group(1).replace("(?<", "(?P<")
+    missing = []
+    for rule in app.url_map.iter_rules():
+        if "<token>" not in rule.rule or hosts.side_of(rule.endpoint) == hosts.PARTICIPANT:
+            continue
+        if not re.search(pattern, rule.rule.replace("<token>", "abc")):
+            missing.append(rule.rule)
+    assert not missing, missing
