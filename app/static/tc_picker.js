@@ -1,6 +1,7 @@
 // A category picker for the analyses of "Interviews kodieren" (feedback 2026-11-06): a <select data-tc-pick> becomes a
 // search field over the category tree, each category with its number, its level indented and its passages; the select
-// stays in the form (hidden) and keeps the value, so the forms post as before and work without script. Options carry
+// stays in the form (hidden) and keeps the value, so the forms post as before (the lists of "Verschieben nach …" are
+// filled by this script, see fill()). Options carry
 // data-num, data-level, data-main ("1": a main category), data-path (searched as well) and data-n (passages).
 // Used by "Verschieben nach …" (transcript_coding/_category.html), "Zwei Kategorien zusammenführen"
 // (transcript_coding/overview.html) and "Unter" in "Neue Kategorie" (transcript_coding/code.html).
@@ -16,7 +17,22 @@
     return ((o.getAttribute("data-path") || "") + " " + o.textContent).toLowerCase().indexOf(q) >= 0;
   }
 
+  // "Verschieben nach …": the select names its targets by id (data-tc-targets, "main": as a main category) and takes
+  // the options from the page's one list (template data-tc-move-options) instead of carrying them all itself
+  function fill(sel) {
+    var ids = sel.getAttribute("data-tc-targets");
+    if (ids === null || sel.options.length) return;
+    var tpl = document.querySelector("template[data-tc-move-options]");
+    if (!tpl) return;
+    ids.split(" ").forEach(function (id) {
+      if (!id) return;
+      var o = tpl.content.querySelector('option[value="' + (id === "main" ? "" : id) + '"]');
+      if (o) sel.appendChild(o.cloneNode(true));
+    });
+  }
+
   function build(sel) {
+    fill(sel);
     if (sel.tcPicker) { sel.tcPicker.draw(); return sel.tcPicker; }
     var wrap = document.createElement("div");
     wrap.className = "tc-pick";

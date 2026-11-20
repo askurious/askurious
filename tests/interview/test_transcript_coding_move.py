@@ -84,3 +84,30 @@ def test_the_list_offers_dragging_and_move_to(app, client):
     page = client.get(f"{base}?view=categories").data.decode()
     assert f'data-tc-grab="{sub}"' in page and "data-tc-drop-main" in page and "Verschieben nach …" in page
     assert "— als Hauptkategorie —" in page
+
+
+def test_move_lists_are_listed_once_for_the_page(app, client):
+    """"Verschieben nach …" names its targets by id; the page lists the categories once (template data-tc-move-options),
+    tc_picker.js fills each list. A full list in every category made the page grow with the square of the categories
+    (2 MB at 100; Ralf 2026-11-20, pages opened slowly)."""
+    import re
+
+    code, pid, rid, base, main, bea = _setup(app, client)
+    subs = [_sub(client, base, main, f"Kategorie {k}") for k in range(30)]
+    page = client.get(f"{base}?view=categories").data.decode()
+    assert page.count("<template data-tc-move-options>") == 1
+    template = page.split("<template data-tc-move-options>", 1)[1].split("</template>", 1)[0]
+    assert all(f'value="{s}"' in template for s in subs + [main]) and "— als Hauptkategorie —" in template
+    targets = {}
+    for part in page.split(' id="k')[1:]:  # each category up to the next one
+        found = re.search(r'data-tc-targets="([^"]*)"', part)
+        if found:
+            targets[part.split('"', 1)[0]] = found.group(1)
+    first = targets[str(subs[0])].split()
+    assert first[0] == "main" and str(subs[0]) not in first and str(main) not in first   # not itself, not where it is
+    assert str(subs[1]) in first
+    assert page.count('value="' + str(subs[5]) + '"') == 1                                # no copy per category
+    small = len(page)
+    subs += [_sub(client, base, main, f"Weitere {k}") for k in range(30)]
+    grown = len(client.get(f"{base}?view=categories").data) - small
+    assert grown < 30 * 12000  # linear: a category's own markup plus its ids, not a list of all others
