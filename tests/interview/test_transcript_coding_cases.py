@@ -61,6 +61,14 @@ def test_ai_draft_only_with_an_own_access(app, client, monkeypatch):
     monkeypatch.setattr(transcript_coding_ai, "own_access", lambda who: object())
     calls = []
     monkeypatch.setattr(ai, "generate_text", lambda instructions, prompt, **kw: calls.append((kw.get("purpose"), json.loads(prompt))) or json.dumps({"summary": "Abends erschöpft."}))
+    # a transcript nobody checked yet: no button and no call, as for "Stellen vorschlagen" (audit 2026-11-20)
+    page = client.get(f"/guide/{code}/interviews/summaries?auswertung={pid}").data.decode()
+    assert "Zusammenfassung vorschlagen" not in page and "erst nach „Transkript geprüft“" in page
+    r = client.post(url, data={"key": key})
+    assert r.status_code == 409 and not r.json["ok"] and calls == []
+    from tests.interview.test_transcript_coding import _transcript
+
+    _transcript(app, rid, TEXT, checked="2026-11-01T10:00:00")
     assert "Zusammenfassung vorschlagen" in client.get(f"/guide/{code}/interviews/summaries?auswertung={pid}").data.decode()
     r = client.post(url, data={"key": key})
     assert r.json == {"ok": True, "text": "Abends erschöpft."}

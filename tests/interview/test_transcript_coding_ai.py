@@ -129,3 +129,30 @@ def test_only_a_checked_transcript_goes_to_the_ai_and_masked(app, client, own):
     assert client.post(f"{base}/i/{rid}/suggest", json={"section": 0}).json["ok"]
     sent = calls[-1][1]["transcript_section"]
     assert "anna.neu@example.org" not in sent and "[EMAIL]" in sent and "Abends bin ich einfach fertig" in sent
+
+
+def test_anchor_examples_go_only_from_checked_transcripts_and_masked(app, client, own):
+    """Audit 2026-11-20: the anchor example of a category went to the AI as it stood, also when it was coded in a
+    transcript nobody had checked yet. Now only the anchor of a checked interview goes, its contact details masked."""
+    from tests.interview.test_interviewer import add as add_interviewer
+    from tests.interview.test_interviewer import begin, open_link
+    from tests.interview.test_transcript_coding_review import _code
+
+    answer, calls = own
+    code, pid, rid, base, main, bea = _unchecked_setup(app, client)
+    draft = TEXT + " Mein Chef Herr Maier, maier@example.org, sagt das auch."
+    _transcript(app, rid, draft)                                              # Anna's interview: a draft, not checked
+    sub = _sub(client, base, main, "Erschöpfung", "müde")
+    start = draft.index("Mein Chef")
+    r = client.post(f"{base}/i/{rid}/codings", json={"start": start, "end": len(draft), "cat": sub})
+    assert client.post(f"{base}/i/{rid}/codings/{r.json['coding']['id']}/anchor").status_code == 200
+    other = begin(open_link(app, code, add_interviewer(client, code, "Bert Zwei"))[0], code)
+    _transcript(app, other, TEXT, checked="2026-11-01T10:00:00")              # a second interview, checked
+    client.post(f"{base}/ai", data={"ai_allowed": "1"})
+    assert client.post(f"{base}/i/{other}/suggest", json={"section": 0}).json["ok"]
+    cats = {c["id"]: c for c in calls[-1][1]["categories"]}
+    assert "anchor_example" not in cats[sub] and "Maier" not in json.dumps(calls[-1][1], ensure_ascii=False)
+    _transcript(app, rid, draft, checked="2026-11-02T10:00:00")               # now checked: the anchor goes, masked
+    assert client.post(f"{base}/i/{other}/suggest", json={"section": 0}).json["ok"]
+    anchor = {c["id"]: c for c in calls[-1][1]["categories"]}[sub]["anchor_example"]
+    assert "Mein Chef" in anchor and "maier@example.org" not in anchor and "[EMAIL]" in anchor
