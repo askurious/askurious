@@ -823,13 +823,14 @@ def guide_docx(project, survey, who):
     from app.transcript_coding_ai import taken_from_ai
 
     from_ai = taken_from_ai(project, interviews(project, who))
-    spots = anchor_spots(project)  # "(B03, Pos. 12, 00:14:32)": where the anchor stands
+    spots = anchor_spots(project, who)  # "(B03, Pos. 12, 00:14:32)": where the anchor stands; "" where `who` does not see it
     more = example_spots(project, all_codings(project, who))  # up to two further examples
 
     def entry(cat, level, number=""):
         doc.add_heading(f"{number} {cat.name}".strip(), level=min(level, 9))
         lines = [(de_en("Definition", "Definition"), cat.definition), (de_en("Abgrenzung", "Delimitation"), cat.delimitation),
-                 (de_en("Ankerbeispiel", "Anchor example"), (f"„{clean_quote((cat.anchor or {}).get('quote'))}“ ({spots.get(cat.id) or (cat.anchor or {}).get('label', '')})"
+                 (de_en("Ankerbeispiel", "Anchor example"), (f"„{clean_quote((cat.anchor or {}).get('quote'))}“"
+                                                             + (f" ({spots[cat.id]})" if spots.get(cat.id) else "")
                                                              if (cat.anchor or {}).get("quote") else "")),
                  (de_en("Weitere Beispiele", "Further examples"), "; ".join(f"„{q}“ ({w})" for q, w in more.get(cat.id, []))),
                  (de_en("Früher auch", "Formerly also"), ", ".join(cat.former_names or [])),

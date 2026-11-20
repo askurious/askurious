@@ -172,13 +172,20 @@ def spotter():
     return at
 
 
-def anchor_spots(project):
+def anchor_spots(project, who=None):
     """{category id: place of its anchor example} for the categories in use; the interview's label alone when the
-    anchor can no longer be placed in its transcript."""
+    anchor can no longer be placed in its transcript; "" for `who` when it stands in an interview they do not see
+    (transcript_coding.anchors_hidden): the quote stays, its place does not."""
+    from app.transcript_coding import anchors_hidden
+
+    hidden = anchors_hidden(project, who)
     out = {}
     for cat in live(project):
         anchor = cat.anchor or {}
         if not anchor.get("quote"):
+            continue
+        if cat.id in hidden:
+            out[cat.id] = ""
             continue
         row = db.session.get(Response, anchor.get("interview") or 0)
         found = None
@@ -681,7 +688,7 @@ def _categories(project, who):
     n = counts(project, who)
     nums = numbers(mains)  # 1, 1.2, 1.2.1 as in the coding guide and the Excel export (search by number)
     mine = lambda c: bool(who.key) and c.author_key == who.key  # noqa: E731  "Meine" (feedback 2026-11-06)
-    spots = anchor_spots(project)
+    spots = anchor_spots(project, who)
 
     def about(c):  # what the list and the side show of a category: definition, delimitation, anchor example
         quote = (c.anchor or {}).get("quote") or ""

@@ -20,7 +20,8 @@ The GUIDs of categories are their own (CodingCategory.guid: from the guide as in
 system read in again matches; the others are derived from the guide, the analysis and the coding, so the same export
 gives the same GUIDs. The team of the guide exports; interviewer links with the right to code only where the analysis
 allows it ("Interviewende dürfen auch Excel, CSV, .qdc und .qdpx herunterladen", Ralf 2026-11-19), and then the files
-hold only the interviews and passages they see on the page (blind double coding stays blind), with "Kodierende 1, 2, …"
+hold only the interviews and passages they see on the page (blind double coding stays blind; an anchor example from
+an interview they do not see keeps its quote, not its place), with "Kodierende 1, 2, …"
 instead of names unless the team switched that off (privacy concept). Unlike the guide's
 own project, the transcript is the one coded, without the lines of the tasks, so that the positions fit.
 
@@ -96,25 +97,27 @@ def _el(parent, ns, tag, attrs=None, text=None):
 
 
 def description(cat, where=""):
-    """The text of a category for a QDA program; `where`: the place of its anchor example (anchor_spots)."""
+    """The text of a category for a QDA program; `where`: the place of its anchor example (anchor_spots), "" when the
+    reader of the file does not see its interview: then the quote alone."""
     lines = []
     if cat.definition:
         lines.append(cat.definition)
     if cat.delimitation:
         lines.append(de_en("Abgrenzung: ", "Delimitation: ") + cat.delimitation)
     if (cat.anchor or {}).get("quote"):
-        lines.append(de_en("Ankerbeispiel: ", "Anchor example: ") + f"„{clean_quote(cat.anchor['quote'])}“ ({where or cat.anchor.get('label', '')})")
+        lines.append(de_en("Ankerbeispiel: ", "Anchor example: ") + f"„{clean_quote(cat.anchor['quote'])}“" + (f" ({where})" if where else ""))
     if cat.former_names:
         lines.append(de_en("Früher auch: ", "Formerly also: ") + ", ".join(cat.former_names))
     return "\n\n".join(lines)
 
 
-def codes(project, parent, ns, notes=None):
+def codes(project, parent, ns, notes=None, who=None):
     """The tree of categories under `parent` (a CodeBook): {category id: guid}. `notes`: {category id: [guid of a
-    Note]} for the memos at a category (NoteRef)."""
+    Note]} for the memos at a category (NoteRef). `who`: the reader of the file, for the places of the anchor
+    examples (anchor_spots)."""
     holder = _el(parent, ns, "Codes")
     mains, candidates = tree(project)
-    spots = anchor_spots(project)
+    spots = anchor_spots(project, who)
     guids = {}
 
     def code(where, cat, colour):
@@ -138,10 +141,10 @@ def codes(project, parent, ns, notes=None):
     return guids
 
 
-def build_qdc(project):
+def build_qdc(project, who=None):
     ET.register_namespace("", CODEBOOK_NS)
     root = ET.Element(f"{{{CODEBOOK_NS}}}CodeBook", {"origin": brand.name()})
-    codes(project, root, CODEBOOK_NS)
+    codes(project, root, CODEBOOK_NS, who=who)
     return ('<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode")).encode("utf-8")
 
 
@@ -215,7 +218,7 @@ def build_qdpx(project, survey, who=None):
         user_of[key] = _guid(survey, project, "user", key or "none")
         _el(users, ns, "User", {"guid": user_of[key], "name": name[:200]})
     codebook = _el(root, ns, "CodeBook")
-    guids = codes(project, codebook, ns, memo_at["category"])
+    guids = codes(project, codebook, ns, memo_at["category"], who=who)
     variables = interview_qdpx.variables(survey)
     if shown.hide:  # "interviewt von" names a person too: the same "Kodierende n" as their entries
         def conductor(r):
@@ -305,7 +308,7 @@ def _codebook(project, survey, who=None, name=None):
     `pairs`: (interview, placed coding) for the overlaps."""
     mains, candidates = tree(project)
     number = numbers(mains)
-    spots = anchor_spots(project)
+    spots = anchor_spots(project, who)
     passages = []  # (category id, interview label, where, quote, coder)
     pairs = []  # (interview, placed coding) for the further examples
     name = name or _Names(project, who)
@@ -460,6 +463,6 @@ def project_file(code, pid):
 @signed_in_or_coder
 def codebook_file(code, pid):
     survey, project, who = _exporting(code, pid)
-    return send_file(io.BytesIO(build_qdc(project)), as_attachment=True, mimetype="application/xml",
+    return send_file(io.BytesIO(build_qdc(project, who)), as_attachment=True, mimetype="application/xml",
                      download_name=f"kategoriensystem-{survey.code}-{project.id}.qdc")
 
