@@ -318,11 +318,15 @@ class Config:
     CSRF_HOURS = float(os.environ.get("CSRF_HOURS", "12") or 12)
 
     # Second factor (code from an authenticator app, app/twofactor.py): every account may set it up, and once set up
-    # a password sign-in asks for it; site admins signing in with a password always give a code, with ORCID none
-    # (Ralf, 2026-10-13). A code given counts for ADMIN_TOTP_HOURS in this browser. ADMIN_TOTP no longer changes any
+    # a password sign-in asks for it; site admins signing in with a password always give a code, with ORCID too since
+    # 2026-11-20 (ADMIN_CODE_AFTER_ORCID below; none from 2026-10-13 until then). A code given counts for ADMIN_TOTP_HOURS in this browser. ADMIN_TOTP no longer changes any
     # of that (#984); it is kept so an existing .env stays valid (Abgleich 2026-10-15, T01-N4).
     ADMIN_TOTP = _bool("ADMIN_TOTP", False)
     ADMIN_TOTP_HOURS = int(os.environ.get("ADMIN_TOTP_HOURS", "12"))
+    # Site admins give the code from the authenticator app also after an ORCID sign-in (Ralf 2026-11-20, audit: ORCID
+    # does not say whether a second factor was used there, and a taken-over ORCID account was the whole platform).
+    # Admins of an organisation and everyone else as before. "0" brings back "ORCID is enough" (Ralf 2026-10-13).
+    ADMIN_CODE_AFTER_ORCID = _bool("ADMIN_CODE_AFTER_ORCID", True)
 
     # DEV_LOGIN=1 allows password-less login (local development only!)
     DEV_LOGIN = _bool("DEV_LOGIN", False)
