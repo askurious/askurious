@@ -15,7 +15,10 @@ import pytest
 from app import transcript_coding as tc, transcript_coding_review as review
 from app.extensions import db
 from app.models import CodingCategory, CodingEvent, CodingProject
-from tests.interview.test_transcript_coding_review import _code, _setup, _sub
+from tests.interview.test_interviewer import add as add_interviewer
+from tests.interview.test_interviewer import begin, open_link
+from tests.interview.test_transcript_coding import _transcript
+from tests.interview.test_transcript_coding_review import TEXT, _code, _setup, _sub, _sub_under
 
 NODE = shutil.which("node")
 
@@ -144,7 +147,8 @@ def test_lines_under_the_rows_and_right_of_the_numbers(app, monkeypatch):
     for xa, xb in dashed:
         for x in (float(xa), float(xb)):
             assert any(0 < x - cx <= 20 for n, cx in counts.items() if n != 25), x    # starts right of a number
-    assert svg.count('fill="#ffffff" stroke="none"') == 3                            # a white ground per row
+    # a ground per row, tinted in the colour of the category (Ralf 2026-11-20), so no line shows through
+    assert len(re.findall(r'rx="6" fill="#[0-9a-f]{6}" stroke="none"', svg)) == 3
 
 
 # --- long names wrap instead of being cut off (Ralf 2026-11-20): names stopped after 22 (subcategories), 30 (main
@@ -176,7 +180,7 @@ def test_long_names_wrap_in_full_and_rows_do_not_overlap(app, monkeypatch):
         assert all(b - a >= 13 for a, b in zip(ys, ys[1:])), ys
     # the white grounds of the rows do not overlap
     grounds = sorted((x, float(y), float(y) + float(h)) for x, y, h in
-                     re.findall(r'<rect x="([\d.]+)" y="([\d.-]+)" width="270" height="([\d.]+)" rx="6" fill="#ffffff"', svg))
+                     re.findall(r'<rect x="([\d.]+)" y="([\d.-]+)" width="270" height="([\d.]+)" rx="6" fill="#[0-9a-f]{6}"', svg))
     assert len(grounds) == 3 and all(a[2] <= b[1] for a, b in zip(grounds, grounds[1:]) if a[0] == b[0]), grounds
 
 
@@ -210,4 +214,75 @@ def test_switches_for_counts_and_pair_lines(app, client):
     assert dashed not in bare and bar not in bare and "Gestrichelt" not in bare and "Balken und" not in bare
     assert client.get(f"{base}/map.png?o=1").data[:4] == b"\x89PNG"
     assert client.get(f"{base}/map.pdf?o=1&counts=1").data[:4] == b"%PDF"
-    assert review.map_options({}) == {"counts": True, "pairs": True}
+    assert review.map_options({}) == {"counts": True, "pairs": True, "by": ""}
+
+
+def test_colour_by_a_characteristic_of_the_interviews(app, client):
+    """Ralf 2026-11-20: "Färben nach" colours the diagram by a characteristic of the interviews, to see which
+    categories only one group of interviewees has: a row of one group tinted in its colour, a row of several white with
+    its dot split, the bar split by group, a main category of one group framed; a legend names the groups; the
+    downloads follow the choice."""
+    code, pid, rid, base, main, bea = _setup(app, client)
+    rid2 = begin(open_link(app, code, add_interviewer(client, code, "Ben Zwei"))[0], code, mode="telefon")
+    _transcript(app, rid2, TEXT)
+    a, b, c = (_sub(client, base, main, n) for n in ("Nur vor Ort", "Nur am Telefon", "Beides"))
+    _code(client, base, rid, "Abends", a, 29)
+    _code(client, base, rid2, "Abends", b, 29)
+    _code(client, base, rid, "Manchmal", c)
+    _code(client, base, rid2, "Manchmal", c)
+    svg = client.get(f"{base}/map.svg?by=form").data.decode()
+    face, phone = review.GROUP_COLOURS[0], review.GROUP_COLOURS[1]           # in the order of the interview forms
+    assert "Farben nach „Interviewform“ (Interview)" in svg and "nur Persönliches Interview" in svg
+    assert "nur Telefonisches Interview" in svg and "Stellen aus beiden Gruppen" in svg
+    assert f'fill="{review._tint(face, 0.18)}"' in svg and f'fill="{review._tint(phone, 0.18)}"' in svg
+    assert " Z\" fill=\"" in svg                                                 # the split dot of "Beides"
+    assert "Beides: Persönliches Interview und Telefonisches Interview" in svg   # said in words too, not only in colour
+    assert f'fill="{face}"/>' in svg and f'fill="{phone}"/>' in svg              # the bar split by group
+    assert "<title>Belastung: Persönliches Interview und Telefonisches Interview</title>" in svg  # main: both, no frame
+    assert client.get(f"{base}/map.png?by=form").data[:4] == b"\x89PNG"
+    assert client.get(f"{base}/map.pdf?o=1&by=form").data[:4] == b"%PDF"
+    page = client.get(f"{base}?view=categories&show=diagram&o=1&counts=1&pairs=1&by=form").data.decode()
+    assert '<option value="form" selected>' in page and '<option value="von" >' in page
+    assert f"{base}/map.svg?by=form" in page                                       # the download takes the choice
+    # without a choice: the colours of the categories, no groups
+    plain = client.get(f"{base}/map.svg").data.decode()
+    assert "Farben nach" not in plain and " Z\"" not in plain
+    # who interviewed, as a second characteristic; an unknown key draws as without a choice
+    assert "nur Ben Zwei" in client.get(f"{base}/map.svg?by=von").data.decode()
+    assert "Farben nach" not in client.get(f"{base}/map.svg?by=x99").data.decode()
+    # a person who sees only their own interviews sees the colours of those only (here: none of theirs)
+    assert review.map_options({"by": "form"}) == {"counts": True, "pairs": True, "by": "form"}
+    assert review.map_query({"counts": True, "pairs": False, "by": "form"}) == {"o": "1", "counts": "1", "by": "form"}
+
+
+def test_colour_of_a_category_by_hand_and_take_it_back(app, client):
+    """Ralf 2026-11-20: a colour per category in "Bearbeiten"; what stands below with the old colour follows, an
+    unknown colour is refused, "Rückgängig" gives both their colour back; the diagram tints the row."""
+    code, pid, rid, base, main, bea = _setup(app, client)
+    a = _sub(client, base, main, "Müdigkeit")
+    red, green = "#B3261E", "#1F6B2A"
+
+    def edit(cid, colour, name):
+        return client.post(f"{base}/categories/{cid}", data={"name": name, "definition": "d", "delimitation": "", "colour": colour})
+
+    edit(a, red, "Müdigkeit")
+    a1 = _sub_under(client, base, a, "Abends müde")                              # takes the red over when made
+    with app.app_context():
+        assert db.session.get(CodingCategory, a1).colour == red
+    page = client.get(f"{base}?view=categories").data.decode()
+    assert f'name="colour" value="{red}" data-reload-saved checked' in page and "wie darüber" in page
+    edit(a, green, "Müdigkeit")
+    with app.app_context():
+        assert db.session.get(CodingCategory, a).colour == green
+        assert db.session.get(CodingCategory, a1).colour == ""                    # follows: as above
+        assert tc.colour_of(db.session.get(CodingProject, pid), db.session.get(CodingCategory, a1)) == green
+    assert f'fill="{review._tint(green, 0.12)}"' in client.get(f"{base}/map.svg").data.decode()
+    client.post(f"{base}/undo")
+    with app.app_context():
+        assert db.session.get(CodingCategory, a).colour == red and db.session.get(CodingCategory, a1).colour == red
+    edit(a, "#123456", "Müdigkeit")                                                # not one of the colours
+    with app.app_context():
+        assert db.session.get(CodingCategory, a).colour == red
+    # a main category has no "wie darüber"; its frame takes its colour
+    edit(main, green, "Belastung")
+    assert f'stroke="{green}" stroke-width="2"' in client.get(f"{base}/map.svg").data.decode()

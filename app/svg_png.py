@@ -1,6 +1,6 @@
 """A plain SVG drawn as PNG with Pillow, without an outside renderer (reportlab's renderPM needs an extension that is not
 installed; Ralf 2026-10-29: no new dependency). It knows what Askurious's own drawings use: rect (with rx), circle,
-line, path with M, L and C (cubic Bézier), text (x, y, text-anchor, font-size, font-weight bold, fill), fill, stroke,
+line, path with M, L and C (cubic Bézier; one ending in Z is filled), text (x, y, text-anchor, font-size, font-weight bold, fill), fill, stroke,
 stroke-width, stroke-dasharray, fill-opacity and groups. Anything else is left out. The fonts are those of the PDFs
 (app/pdf_fonts.py): Noto Sans for Latin, Greek and Cyrillic, Arabic and Chinese where the image has their fonts, a text
 drawn font run by font run; Pillow's own font lacks even the umlauts.
@@ -138,6 +138,10 @@ def render(svg, scale=2.0):
                 lines = [[(_f(el.get("x1")), _f(el.get("y1"))), (_f(el.get("x2")), _f(el.get("y2")))]]
             else:
                 lines = _path_points(el.get("d"))
+            if tag == "path" and fill and "Z" in (el.get("d") or "").upper():  # a closed path of straight lines: filled
+                for pts in lines:
+                    if len(pts) >= 3:
+                        draw.polygon([(x * s, y * s) for x, y in pts], fill=fill)
             colour = stroke or (fill if tag == "line" else None)
             if colour:
                 dash = [_f(v) * s for v in _NUM.findall(style.get("stroke-dasharray") or "")]

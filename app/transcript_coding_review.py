@@ -29,6 +29,7 @@ former names and number of passages (Kuckartz & Rädiker, 2022; Mayring, 2022)."
 import csv
 import difflib
 import io
+import math
 import random
 from xml.sax.saxutils import escape
 
@@ -704,22 +705,147 @@ MAP_SWITCHES = ("counts", "pairs")  # what the diagram may leave out, each on un
 
 
 def map_options(args):
-    """{"counts": bool, "pairs": bool} from the address of the page or of a download. The page's form sends "o=1" and
-    a ticked box as "1"; without "o" (an old link, the Word guide) everything is shown."""
+    """{"counts": bool, "pairs": bool, "by": key} from the address of the page or of a download. The page's form sends
+    "o=1" and a ticked box as "1"; without "o" (an old link, the Word guide) everything is shown. "by": the
+    characteristic of the interviews the diagram is coloured by (map_groupers), "" for the colours of the categories."""
+    by = str(args.get("by") or "")[:20]
     if not args.get("o"):
-        return {k: True for k in MAP_SWITCHES}
-    return {k: args.get(k) == "1" for k in MAP_SWITCHES}
+        return {**{k: True for k in MAP_SWITCHES}, "by": by}
+    return {**{k: args.get(k) == "1" for k in MAP_SWITCHES}, "by": by}
 
 
-def map_svg(project, who, survey, interactive=False, counts=True, pairs=True):
+def map_query(opts):
+    """The address part of map_options for the downloads: nothing while all is shown in the colours of the categories."""
+    out = {} if all(opts[k] for k in MAP_SWITCHES) else {"o": "1", **{k: "1" for k in MAP_SWITCHES if opts[k]}}
+    return {**out, "by": opts["by"]} if opts.get("by") else out
+
+
+# the colours of the groups when the diagram is coloured by a characteristic (Ralf 2026-11-20, E8): Okabe & Ito (2008),
+# told apart also with red-green colour blindness, in the order of the answers; "keine Angabe" grey
+GROUP_COLOURS = ("#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#8A4B14", "#1F6B2A")
+NO_ANSWER_COLOUR = "#9A978F"
+
+
+def _tint(colour, share):
+    """`colour` mixed with white, as a solid colour (app/svg_png.py draws no transparency)."""
+    c = (colour or "").lstrip("#")
+    if len(c) != 6:
+        return "#ffffff"
+    try:
+        rgb = [int(c[i:i + 2], 16) for i in (0, 2, 4)]
+    except ValueError:
+        return "#ffffff"
+    return "#" + "".join(f"{round(255 - (255 - v) * share):02x}" for v in rgb)
+
+
+def map_groupers(survey):
+    """What the diagram can be coloured by (Ralf 2026-11-20, E2): the single choice questions and the federal state of
+    the Kurzfragebogen and the Postskript, the interview form and who interviewed. [{"key", "label", "part",
+    "order": answers in their order, "of": function interview -> answer text}]."""
+    from app import interview
+    from app.interview_results import answer_text
+    from app.items.base import plain
+    from app.lang import english
+
+    lang = survey.default_language
+    out = []
+    for part, part_name in (("short", de_en("Kurzfragebogen", "Short questionnaire")), ("post", de_en("Postskript", "Postscript"))):
+        form = interview.shown_form(survey, part)
+        for item in (form.items if form is not None else []):
+            if item.type not in ("single_choice", "federal_state"):
+                continue
+            text = " ".join(plain(item.text("question", lang)).split())
+            label = (text[:60].rstrip() + "…" if len(text) > 61 else text) or item.code
+            try:
+                order = [o["label"] for o in item.kind.options(item, lang)] if item.type == "single_choice" else []
+            except Exception:  # an option list it cannot read: the answers then stand in the order of the alphabet
+                order = []
+            out.append({"key": f"i{item.id}", "label": label, "part": part_name, "order": order,
+                        "of": lambda r, item=item: answer_text(item, (r.answers or {}).get(str(item.id)), lang)})
+    modes = interview.MODES_EN if english() else interview.MODES
+    meta = de_en("Interview", "Interview")
+    out.append({"key": "form", "label": de_en("Interviewform", "Interview mode"), "part": meta, "order": list(modes.values()),
+                "of": lambda r: modes.get((r.interview or {}).get("mode"), "")})
+    out.append({"key": "von", "label": de_en("interviewt von", "interviewed by"), "part": meta, "order": [],
+                "of": lambda r: (r.interview or {}).get("by_name", "")})
+    return out
+
+
+def map_grouping(project, who, survey, key):
+    """The groups of the interviews by the characteristic `key` and, per category, the passages from each group (with
+    what stands below it, as stats() counts): {"label", "part", "groups": [(answer, colour)], "of": {category id:
+    {answer: passages}}}, or None for an unknown key. Only the interviews the actor sees count (Ralf 2026-11-20)."""
+    from app.transcript_coding import chain
+
+    grouper = next((g for g in map_groupers(survey) if g["key"] == key), None)
+    if grouper is None:
+        return None
+    missing = de_en("keine Angabe", "no answer")
+    label = {r.id: (grouper["of"](r) or missing) for r in interviews(project, who) if has_transcript(r)}
+    order = grouper["order"]
+    names = sorted(set(label.values()), key=lambda n: (n == missing, order.index(n) if n in order else len(order), n.lower()))
+    colours, i = {}, 0
+    for n in names:
+        if n == missing:
+            colours[n] = NO_ANSWER_COLOUR
+        else:
+            colours[n] = GROUP_COLOURS[i % len(GROUP_COLOURS)]
+            i += 1
+    cats = {c.id: c for c in live(project)}
+    of = {}
+    for row, c in all_codings(project, who):
+        cat = cats.get(c["cat"])
+        if cat is None:
+            continue
+        g = label.get(row.id, missing)
+        for cid in {cat.id} | {a.id for a in chain(cat, cats)}:
+            here = of.setdefault(cid, {})
+            here[g] = here.get(g, 0) + 1
+    return {"label": grouper["label"], "part": grouper["part"], "groups": [(n, colours[n]) for n in names], "of": of}
+
+
+def _groups_text(groups, n_groups):
+    """"nur Klinik", "Klinik und Altenheim", "keine Stelle": what a row's colour says, for the tooltip and screen readers."""
+    if not groups:
+        return de_en("keine Stelle", "no passage")
+    if len(groups) == 1:
+        return de_en("nur {g}", "only {g}", g=groups[0]) if n_groups > 1 else groups[0]
+    return de_en("{a} und {b}", "{a} and {b}", a=", ".join(groups[:-1]), b=groups[-1])
+
+
+def _dot(cx, cy, colours, r=6):
+    """The dot of a row: one colour, or split into equal wedges, one per group (closed paths of straight lines, which
+    app/svg_png.py fills too)."""
+    if len(colours) == 1:
+        return f'<circle cx="{cx}" cy="{cy:g}" r="{r}" fill="{escape(colours[0])}"/>'
+    out, n, steps = [], len(colours), 24
+    for i, colour in enumerate(colours):
+        a0, a1 = -math.pi / 2 + 2 * math.pi * i / n, -math.pi / 2 + 2 * math.pi * (i + 1) / n
+        k = max(2, steps // n)
+        pts = " ".join(f"L{cx + r * math.cos(a0 + (a1 - a0) * j / k):.2f} {cy + r * math.sin(a0 + (a1 - a0) * j / k):.2f}"
+                       for j in range(k + 1))
+        out.append(f'<path d="M{cx} {cy:g} {pts} Z" fill="{escape(colour)}"/>')
+    return "".join(out)
+
+
+def map_svg(project, who, survey, interactive=False, counts=True, pairs=True, by=""):
     """The category system as a tree: the research question, then one column per level; every subcategory with a
     bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
     colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box.
     All lines go under the rows, every row on a white ground of its own, and they leave a row to the right of its
     number, so no line covers a name, a bar or a number (Ralf 2026-11-10). Long names wrap within their row instead
     of being cut off; only such a row grows, by one text line per further line (Ralf 2026-11-20). `counts` False leaves
-    out bars and numbers (the names then take their room), `pairs` False the dashed lines (Ralf 2026-11-20)."""
+    out bars and numbers (the names then take their room), `pairs` False the dashed lines (Ralf 2026-11-20).
+    Colours (Ralf 2026-11-20): each subcategory's dot and a tint of its row in its colour (its own or that of the
+    nearest category above with one), a main category's frame in its colour. `by` colours by a characteristic of the
+    interviews instead (map_groupers): a row only one group has passages in is tinted in that group's colour, a row
+    of several groups stays white with its dot split into their colours, the bar is split by the passages of each
+    group, a main category whose passages all come from one group is framed in its colour; a legend names the groups."""
+    from app.transcript_coding import colour_of
+
     mains, candidates = tree(project)
+    grouping = map_grouping(project, who, survey, by) if by else None
+    every = {c.id: c for m, ss in mains for c in [m] + ss}  # for the colour of what stands above
     st = stats(project, who)
     pairs = [p for p in fuzzy(project, who) if p["overlap"] or p["checks"]] if pairs else []
     subs = [s for _m, ss in mains for s in ss]
@@ -776,16 +902,41 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True):
     pairs = [p for p in pairs if p["a"].id in levels and p["b"].id in levels]  # only these get a line
     # a legend under the drawing for what is shown of bars and lines, so a download explains itself (Ralf 2026-11-20)
     room = width - 2 * x0 - 34
-    legend = ([("bar", _wrap(de_en("Balken und Zahl: Stellen der Kategorie mit allem darunter; der längste Balken hat die "
-                                   "meisten Stellen.", "Bar and number: passages of the category with everything below it; "
-                                   "the longest bar has the most passages."), room, size=11))] if counts and subs else []) + (
+    bar_text = de_en("Balken und Zahl: Stellen der Kategorie mit allem darunter; der längste Balken hat die meisten "
+                     "Stellen.", "Bar and number: passages of the category with everything below it; the longest bar has "
+                     "the most passages.")
+    if grouping is not None:
+        bar_text += de_en(" Die Farben teilen den Balken nach den Gruppen.", " The colours split the bar by the groups.")
+    legend = ([("bar", _wrap(bar_text, room, size=11), None)] if counts and subs else []) + (
         [("pair", _wrap(de_en("Gestrichelt: unscharfes Paar, also zwei Unterkategorien, mit denen dieselben Stellen kodiert "
                               "sind, oder mit einer Probe, die die eine statt der anderen wählt.", "Dashed: blurring pair, two "
                               "subcategories that code the same passages, or with a check that chose one instead of the "
-                              "other."), room, size=11))] if pairs else [])
-    legend_h = sum(6 + 13 * len(t) for _k, t in legend) + (10 if legend else 0)
-    height = max(y + 30 + max(len(rest) - 1, 0) * 13 + legend_h, root_h + 40, 120)
-    mid = height / 2
+                              "other."), room, size=11), None)] if pairs else [])
+    n_groups = len(grouping["groups"]) if grouping else 0
+    if grouping is not None:  # the groups first, so that the colours are explained at once (E9)
+        groups = grouping["groups"]
+        entries = [("head", _wrap(de_en("Farben nach „{label}“ ({part}); getönte Zeile: Stellen nur aus dieser Gruppe.",
+                                        "Colours by “{label}” ({part}); tinted row: passages only from this group.",
+                                        label=grouping["label"], part=grouping["part"]), room + 34, size=11, bold=True), None)]
+        entries += [("group", _wrap(_groups_text([g], n_groups), room, size=11), [colour]) for g, colour in groups]
+        if n_groups > 1:
+            several = (de_en("Stellen aus beiden Gruppen: Zeile weiß, Punkt geteilt", "passages from both groups: row white, "
+                             "dot split") if n_groups == 2 else
+                       de_en("Stellen aus mehreren Gruppen: Zeile weiß, Punkt geteilt in deren Farben", "passages from "
+                             "several groups: row white, dot split into their colours"))
+            entries.append(("group", _wrap(several, room, size=11), [c for _g, c in groups[:3]]))
+        if any(s.id not in grouping["of"] for s in subs):
+            entries.append(("group", _wrap(de_en("keine Stelle", "no passage"), room, size=11), []))
+        if not groups:
+            entries.append(("note", _wrap(de_en("Noch keine Interviews mit Transkript.", "No interviews with a transcript yet."),
+                                          room + 34, size=11), None))
+        legend = entries + legend
+    legend_h = sum(6 + 13 * len(t) + (2 if k == "group" else 0) for k, t, _x in legend) + (10 if legend else 0)
+    # the box of the research question in the middle of the tree, not of tree and legend, so that a long legend never
+    # runs into it (Ralf 2026-11-20)
+    tree_h = max(y, root_h + 40)
+    height = max(tree_h + 30 + max(len(rest) - 1, 0) * 13 + legend_h, 120)
+    mid = (tree_h + 6) / 2 if legend else height / 2
     top = mid - root_h / 2
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
              f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Diagramm", "Category system as a diagram"))}">',
@@ -802,28 +953,41 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True):
 
     from app.transcript_coding import may_move, may_propose_move
 
-    def node(cat):  # on the page: a node to drag where the person may move it (app/static/transcript_coding.js)
-        if not interactive:
-            return "<g>"
+    def node(cat, note=""):  # on the page: a node to drag where the person may move it (app/static/transcript_coding.js)
+        if not interactive:  # `note`: what its colour says by groups, also in a download
+            return f"<g><title>{escape(cat.path + ': ' + note)}</title>" if note else "<g>"
         grab = (f' data-tc-grab="{cat.id}" data-tc-move-url="{escape(url_for("transcript_coding.move_category", code=survey.code, pid=project.id, cid=cat.id))}"'
                 if may_move(project, cat, who) or may_propose_move(project, cat, who) else "")
         # a click (without dragging) opens the dialog with its passages (Ralf 2026-11-18), also with Enter
         show = escape(url_for("transcript_coding.category_passages_json", code=survey.code, pid=project.id, cid=cat.id))
         return (f'<g class="tc-map-node" data-tc-cat="{cat.id}" data-tc-anc-of="{" ".join(str(a) for a in cat.anc)}"{grab} '
                 f'data-tc-passages="{show}" tabindex="0" role="button">'
-                f'<title>{escape(cat.path)}</title>')
+                f'<title>{escape(cat.path + (": " + note if note else ""))}</title>')
 
     lines, nodes = [], []  # lines first, the rows on top of them
 
     def link(xa, ya, xb, yb):
         lines.append(f'<path d="M{xa} {ya} C {xb - 25} {ya}, {xb - 25} {yb}, {xb} {yb}" fill="none" stroke="#cfcdc5" stroke-width="1.5"/>')
 
+    group_colour = dict(grouping["groups"]) if grouping else {}
+
+    def groups_of(cat):  # the groups with passages in it, in the order of the legend
+        here = grouping["of"].get(cat.id, {})
+        return [g for g, _c in grouping["groups"] if here.get(g)]
+
     for main, ss in mains:
         my, x1 = pos[main.id], x_of(1)
         extra = (len(names[main.id]) - 1) * step
         link(x0 + 250, mid, x1, my)
-        nodes.append(node(main))
-        nodes.append(f'<rect x="{x1}" y="{my - 15 - extra / 2:g}" width="{box}" height="{30 + extra}" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
+        if grouping is not None:
+            gs = groups_of(main)
+            frame = (group_colour[gs[0]], 2) if len(gs) == 1 and n_groups > 1 else ("#706e68", 1)
+            nodes.append(node(main, _groups_text(gs, n_groups)))
+        else:
+            frame = (main.colour, 2) if main.colour else ("#706e68", 1)
+            nodes.append(node(main))
+        nodes.append(f'<rect x="{x1}" y="{my - 15 - extra / 2:g}" width="{box}" height="{30 + extra}" rx="8" fill="#f8f8f5" '
+                     f'stroke="{escape(frame[0])}" stroke-width="{frame[1]}"/>')
         nodes.append(_lines(x1 + 10, my + 5 - extra / 2, names[main.id], step, ' font-weight="bold" fill="#1c1c1a"'))
         if counts:
             nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
@@ -833,18 +997,36 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True):
             extra = (len(names[s.id]) - 1) * step
             above = pos.get(s.parent_id, my)
             link(x_of(s.level - 1) + (box if s.parent_id == main.id else end), above, xs - 4, sy)
-            colour = s.colour or main.colour or "#2957A4"
-            nodes.append(node(s))
-            # the row's white ground, so that lines passing behind it never cover it; on the page also the whole row
-            # to grab and to drop onto, not only the small dot
+            gs = []
+            if grouping is not None:
+                gs = groups_of(s)
+                ground = _tint(group_colour[gs[0]], 0.18) if len(gs) == 1 and n_groups > 1 else "#ffffff"
+                dot = (_dot(xs + 6, sy, [group_colour[g] for g in gs]) if gs else
+                       f'<circle cx="{xs + 6}" cy="{sy:g}" r="5" fill="#ffffff" stroke="{NO_ANSWER_COLOUR}"/>')
+                nodes.append(node(s, _groups_text(gs, n_groups)))
+            else:
+                colour = colour_of(project, s, every) or "#2957A4"
+                ground, dot = _tint(colour, 0.12), f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>'
+                nodes.append(node(s))
+            # the row's ground, so that lines passing behind it never cover it; on the page also the whole row to grab
+            # and to drop onto, not only the small dot
             hit = ' class="tc-hit"' if interactive else ""
-            nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14 - extra / 2:g}" width="{end + 2}" height="{28 + extra}" rx="6" fill="#ffffff" stroke="none"/>')
-            nodes.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
+            nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14 - extra / 2:g}" width="{end + 2}" height="{28 + extra}" rx="6" fill="{ground}" stroke="none"/>')
+            nodes.append(dot)
             nodes.append(_lines(xs + 18, sy + 4 - extra / 2, names[s.id], step, ' fill="#1c1c1a"'))
             bar = int(60 * st[s.id]["n"] / biggest)
             if counts:
                 nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
-                if bar:
+                if bar and grouping is not None:  # split by the passages of each group, the widths summed up
+                    here, done, left = grouping["of"].get(s.id, {}), 0, 0
+                    total = sum(here.get(g, 0) for g in gs) or 1
+                    for g in gs:
+                        done += here[g]
+                        right = round(bar * done / total)
+                        if right > left:
+                            nodes.append(f'<rect x="{xs + 170 + left}" y="{sy - 5}" width="{right - left}" height="10" fill="{escape(group_colour[g])}"/>')
+                        left = right
+                elif bar:
                     nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="{bar}" height="10" rx="2" fill="#378ccf"/>')
                 nodes.append(f'<text x="{xs + 262}" y="{sy + 4}" text-anchor="end" fill="#5f5e59">{st[s.id]["n"]}</text>')
             nodes.append("</g>")
@@ -860,14 +1042,28 @@ def map_svg(project, who, survey, interactive=False, counts=True, pairs=True):
     if rest:
         parts.append(_lines(x0, height - 12 - legend_h - (len(rest) - 1) * 13, rest, 13, ' fill="#5f5e59" font-size="11"'))
     ly = height - legend_h + 10
-    for kind, text in legend:
-        if kind == "bar":
+    for kind, text, colours in legend:
+        if kind in ("head", "note"):
+            parts.append(_lines(x0, ly, text, 13, ' fill="#1c1c1a" font-size="11"' + (' font-weight="bold"' if kind == "head" else "")))
+            ly += 6 + 13 * len(text)
+            continue
+        if kind == "bar" and grouping is not None and grouping["groups"]:
+            first, second = (grouping["groups"] * 2)[:2]
+            parts.append(f'<rect x="{x0}" y="{ly - 9:g}" width="24" height="10" rx="2" fill="#efeee9"/>'
+                         f'<rect x="{x0}" y="{ly - 9:g}" width="10" height="10" fill="{escape(first[1])}"/>'
+                         f'<rect x="{x0 + 10}" y="{ly - 9:g}" width="7" height="10" fill="{escape(second[1])}"/>')
+        elif kind == "bar":
             parts.append(f'<rect x="{x0}" y="{ly - 9:g}" width="24" height="10" rx="2" fill="#efeee9"/>'
                          f'<rect x="{x0}" y="{ly - 9:g}" width="16" height="10" rx="2" fill="#378ccf"/>')
+        elif kind == "group":
+            ground = _tint(colours[0], 0.18) if len(colours) == 1 and n_groups > 1 else "#ffffff"
+            parts.append(f'<rect x="{x0}" y="{ly - 12:g}" width="24" height="16" rx="4" fill="{ground}" stroke="#cfcdc5"/>')
+            parts.append(_dot(x0 + 12, ly - 4, colours) if colours else
+                         f'<circle cx="{x0 + 12}" cy="{ly - 4:g}" r="5" fill="#ffffff" stroke="{NO_ANSWER_COLOUR}"/>')
         else:
             parts.append(f'<line x1="{x0}" y1="{ly - 4:g}" x2="{x0 + 24}" y2="{ly - 4:g}" stroke="#b35c00" stroke-width="1.5" stroke-dasharray="6 5"/>')
         parts.append(_lines(x0 + 34, ly, text, 13, ' fill="#5f5e59" font-size="11"'))
-        ly += 6 + 13 * len(text)
+        ly += 6 + 13 * len(text) + (2 if kind == "group" else 0)
     parts.append("</svg>")
     return "".join(parts)
 

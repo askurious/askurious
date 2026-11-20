@@ -120,6 +120,13 @@
     <span class="muted small">{{ de_en("Zeigen:", "Show:") }}</span>
     <label class="check"><input type="checkbox" name="counts" value="1" data-submit-on-change {% if map_opts.counts %}checked{% endif %}> {{ de_en("Balken und Anzahl der Stellen", "Bars and number of passages") }}</label>
     <label class="check"><input type="checkbox" name="pairs" value="1" data-submit-on-change {% if map_opts.pairs %}checked{% endif %}> {{ de_en("Linien zwischen unscharfen Paaren", "Lines between blurring pairs") }}</label>
+    {# colours by a characteristic of the interviews, e.g. to see which categories only one group of interviewees has
+       (Ralf 2026-11-20); the legend in the drawing names the groups #}
+    <label>{{ de_en("Färben nach", "Colour by") }}
+      <select name="by" data-submit-on-change>
+        <option value="">{{ de_en("Farbe der Kategorie", "Colour of the category") }}</option>
+        {% for g in map_groupers %}{% if loop.changed(g.part) %}{% if not loop.first %}</optgroup>{% endif %}<optgroup label="{{ g.part }}">{% endif %}<option value="{{ g.key }}" {% if map_opts.by == g.key %}selected{% endif %}>{{ g.label }}</option>{% if loop.last %}</optgroup>{% endif %}{% endfor %}
+      </select></label>
   </form>
   {% endif %}
   <div data-tc-live="categories">

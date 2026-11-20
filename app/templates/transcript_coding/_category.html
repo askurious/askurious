@@ -54,6 +54,14 @@
       <textarea name="definition" rows="2" maxlength="4000">{{ cat.definition }}</textarea></label>
     <label>{{ de_en("Abgrenzung", "Delimitation") }} <span class="hint">{{ de_en("Wann gehört eine Stelle nicht hierher, sondern woanders hin?", "When does a passage not belong here but elsewhere?") }}</span>
       <textarea name="delimitation" rows="2" maxlength="4000">{{ cat.delimitation }}</textarea></label>
+    {# the colour of the category in the diagram, dot and tinted row (Ralf 2026-11-20); the page loads anew, so that
+       the dots show it #}
+    {% set own = (cat.colour or "")|upper %}
+    {% set palette = cat_colours if not own or own in cat_colours else [own] + cat_colours|list %}
+    <fieldset class="tc-colours"><legend>{{ de_en("Farbe", "Colour") }} <span class="hint">{{ de_en("im Diagramm: Punkt und getönte Zeile; was darunter dieselbe Farbe hat, wechselt mit", "in the diagram: dot and tinted row; what is below with the same colour changes along") }}</span></legend>
+      {% if cat.kind == "sub" %}<label class="tc-swatch" title="{{ de_en('wie darüber', 'as above') }}"><input type="radio" name="colour" value="" data-reload-saved {% if not own %}checked{% endif %}><span class="tc-swatch-box tc-swatch-inherit" aria-hidden="true"></span><span class="visually-hidden">{{ de_en("wie darüber", "as above") }}</span></label>{% endif %}
+      {% for c in palette %}<label class="tc-swatch" title="{{ colour_name(c) }}"><input type="radio" name="colour" value="{{ c }}" data-reload-saved {% if own == c %}checked{% endif %}><span class="tc-swatch-box" style="background: {{ c }}" aria-hidden="true"></span><span class="visually-hidden">{{ colour_name(c) }}</span></label>{% endfor %}
+    </fieldset>
     {{ autosave_bar(small=true, quiet=true) }}
   </form>
   </details>
