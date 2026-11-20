@@ -19,13 +19,19 @@
   <p class="tc-check-text">…{{ item.before }}<mark>{{ item.quote }}</mark>{{ item.after }}…</p>
   <form method="post" class="stack">
     {{ csrf() }}<input type="hidden" name="rid" value="{{ item.row.id }}"><input type="hidden" name="coding" value="{{ item.coding.id }}">
+    {# one block per main category, inside one row per category of the second level with everything below it, each with
+       its number as in the category system (Ralf 2026-11-20: a flat cloud of buttons hid where an equal name belongs) #}
+    {% macro pick(c) %}<button class="button button-small button-secondary" name="cat" value="{{ c.id }}"><span class="tc-num">{{ nums.get(c.id, "") }}</span>{{ c.name }}</button>{% endmacro %}
     {% for main, subs in mains %}
-    <fieldset class="tc-check-group"><legend>{{ main.name }}</legend>
-      <button class="button button-small button-secondary" name="cat" value="{{ main.id }}">{{ main.name }}</button>
-      {% for s in subs %}<button class="button button-small button-secondary" name="cat" value="{{ s.id }}">{{ s.name }}</button>{% endfor %}
-    </fieldset>
+    <div class="tc-check-group">
+      <div class="tc-check-row tc-check-main">{{ pick(main) }}</div>
+      {% for head, below in rows[main.id] %}
+      <div class="tc-check-row tc-check-sub">{% if head %}{{ pick(head) }}<span class="tc-check-arrow" aria-hidden="true">›</span>{% endif %}{% for s in below %}{{ pick(s) }}{% endfor %}</div>
+      {% endfor %}
+    </div>
     {% endfor %}
-    {% for c in candidates %}<button class="button button-small button-secondary" name="cat" value="{{ c.id }}">{{ c.name }}</button>{% endfor %}
+    {% if candidates %}<div class="tc-check-group"><div class="tc-check-row">
+    <span class="muted small">{{ de_en("Kandidaten:", "Candidates:") }}</span>{% for c in candidates %}{{ pick(c) }}{% endfor %}</div></div>{% endif %}
   </form>
   {% elif by_plan and not mine %}
   <p class="muted">{{ de_en("Ihnen ist keine Probe zugeteilt. Das Team legt fest, wer welche Interviews und Kategorieblöcke prüft.", "No check is assigned to you. The team decides who checks which interviews and category blocks.") }}</p>

@@ -946,12 +946,6 @@ def guide_docx(project, survey, who):
 # --- the pages -------------------------------------------------------------------------------------------------------
 
 
-def _paths(project):
-    """{category id: its path "A › B › C"} for naming the category above one."""
-    tree(project)
-    return {c.id: getattr(c, "path", c.name) for c in live(project)}
-
-
 def _back(survey, project, anchor=""):
     from app.transcript_coding import _project_url
 
@@ -1093,13 +1087,16 @@ def cases(code, pid):
 @bp.route("/<code>/interviews/coding/<int:pid>/passages")
 @signed_in_or_coder
 def passages(code, pid):
+    from app.transcript_coding import in_order, menu_groups
+
     survey, project, who = _in(code, pid)
-    cats = live(project)
+    mains, candidates = tree(project)
+    cats = in_order(mains, candidates)  # the first category of the system is the one shown first
     wanted = request.args.getlist("cat", type=int) or ([cats[0].id] if cats else [])
     rows = [(r, c) for r, c in all_codings(project, who) if c["cat"] in wanted]
     at = spotter()
     where = {c["id"]: at(r, c["start"]) for r, c in rows}
-    return render_template("transcript_coding/passages.html", cats=cats, wanted=wanted, rows=rows, where=where,
+    return render_template("transcript_coding/passages.html", groups=menu_groups(mains, candidates), wanted=wanted, rows=rows, where=where,
                            names={c.id: c.name for c in cats}, **_context(survey, project, who))
 
 
@@ -1156,7 +1153,8 @@ def category_passages_json(code, pid, cid):
 
 
 def _matrix(project, who):
-    cats = [c for c in live(project) if c.kind != CodingCategory.MAIN]
+    mains, candidates = tree(project)
+    cats = [s for _m, subs in mains for s in subs] + list(candidates)  # in the order of the category system
     rows = [r for r in interviews(project, who) if has_transcript(r)]
     cells = {}
     for r, c in all_codings(project, who):
@@ -1179,8 +1177,9 @@ def matrix(code, pid):
             w.writerow([safe_text(cat.name)] + [cells.get((cat.id, r.id), 0) for r in rows])
         return send_file(io.BytesIO(("﻿" + buf.getvalue()).encode("utf-8")), as_attachment=True, mimetype="text/csv",
                          download_name=f"kategorien-interviews-{survey.code}-{project.id}.csv")
-    return render_template("transcript_coding/matrix.html", cats=cats, rows=rows, cells=cells,
-                           parents=_paths(project), **_context(survey, project, who))
+    mains, candidates = tree(project)
+    return render_template("transcript_coding/matrix.html", cats=cats, rows=rows, cells=cells, mains=mains,
+                           candidates=candidates, nums=numbers(mains), **_context(survey, project, who))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/history")
@@ -1316,7 +1315,10 @@ def check(code, pid):
         labels, block_names = plan_labels(project, survey, entry)
         checked, total = check_progress(project, who)
         mine = {"labels": labels, "blocks": block_names, "done": checked, "total": total}
+    from app.transcript_coding import branches
+
     return render_template("transcript_coding/check.html", item=context, mains=mains, candidates=candidates, done=done,
+                           nums=numbers(mains), rows={m.id: branches(subs) for m, subs in mains},
                            by_plan=check_mode(project) == CHECK_PLAN, mine=mine, **_context(survey, project, who))
 
 

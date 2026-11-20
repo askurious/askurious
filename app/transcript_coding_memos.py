@@ -24,7 +24,7 @@ from app.extensions import db
 from app.lang import de_en, english
 from app.models import CodingCategory, CodingMemo, Response, utcnow
 from app.timeutil import fmt
-from app.transcript_coding import _in, bp, interviews, signed_in_or_coder, tree
+from app.transcript_coding import _in, bp, interviews, menu_groups, signed_in_or_coder, tree
 from app.transcript_coding_view import clean_quote, codings, placed, spotter
 
 TEXT_MAX = 4000
@@ -228,7 +228,7 @@ def memo_list(project, who, args):
             "page": page, "pages": pages, "per": per, "sort": sort, "kind": kind, "cat": cat, "rid": rid,
             "interviews": sorted({(m.response_id, about[m.id]["interview"]) for m in memos if m.response_id},
                                  key=lambda r: r[1].casefold()),
-            "categories": [(c.id, getattr(c, "path", c.name)) for m, subs in tree(project)[0] for c in [m] + subs]}
+            "categories": menu_groups(tree(project)[0], [])}  # numbered and grouped per main category
 
 
 # --- routes --------------------------------------------------------------------------------------------------------

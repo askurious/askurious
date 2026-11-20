@@ -197,3 +197,46 @@ def test_mutual_check_by_plan(app, client):
     # back to "zufällig": as before
     client.post(f"{base}/check/mode", data={"mode": "random"})
     assert f'value="{first}"' in bea.get(f"{base}/check").data.decode()
+
+
+def _sub_under(who, base, parent, name):
+    """A subcategory under `parent`; the newest of that name (names may repeat under other parents)."""
+    r = who.post(f"{base}/categories/new", data={"kind": "sub", "parent": parent, "name": name, "definition": "d", "anyway": "1"})
+    assert r.status_code == 302
+    with who.application.app_context():
+        return db.session.scalar(db.select(CodingCategory.id).filter_by(name=name).order_by(CodingCategory.id.desc()))
+
+
+def test_category_lists_show_the_hierarchy(app, client):
+    """Ralf 2026-11-20: the mutual check and the menus showed every level as one flat list, so two equal names under
+    different categories could not be told apart. Now numbers as in the category system, one row per second-level
+    category in the check, one menu group per main category, and everything in the order of the system."""
+    import re
+
+    code, pid, rid, base, main, bea = _setup(app, client)
+    client.post(f"{base}/categories/new", data={"kind": "main", "name": "Studium"})
+    with app.app_context():
+        study = db.session.scalar(db.select(CodingCategory.id).filter_by(project_id=pid, name="Studium"))
+    tools_a = _sub_under(client, base, main, "Werkzeuge")
+    search_a = _sub_under(client, base, tools_a, "KI-Suche")
+    single = _sub_under(client, base, main, "Allein")
+    tools_b = _sub_under(client, base, study, "Werkzeuge")
+    search_b = _sub_under(client, base, tools_b, "KI-Suche")
+    _code(client, base, rid, "Abends", search_b, 29)
+
+    page = bea.get(f"{base}/check").data.decode()
+    rows = re.findall(r'<div class="tc-check-row tc-check-sub">(.*?)</div>', page, re.S)
+    assert len(rows) == 3                                       # Werkzeuge with KI-Suche, Allein, Werkzeuge with KI-Suche
+    assert f'value="{tools_a}"' in rows[0] and f'value="{search_a}"' in rows[0] and "1.1.1" in rows[0]
+    assert f'value="{single}"' in rows[1] and f'value="{search_b}"' in rows[2] and "2.1.1" in rows[2]
+
+    menu = re.search(r'<select name="cat".*?</select>', client.get(f"{base}/passages").data.decode(), re.S).group(0)
+    options = re.findall(r'<option value="(\d+)"[^>]*>((?:&nbsp;)*)([^<]+)</option>', menu)
+    assert [(int(v), len(pad) // 18, text) for v, pad, text in options] == [
+        (main, 0, "1 Belastung"), (tools_a, 1, "1.1 Werkzeuge"), (search_a, 2, "1.1.1 KI-Suche"), (single, 1, "1.2 Allein"),
+        (study, 0, "2 Studium"), (tools_b, 1, "2.1 Werkzeuge"), (search_b, 2, "2.1.1 KI-Suche")]
+    first = re.search(r'<option value="(\d+)" selected', menu)
+    assert int(first.group(1)) == main                          # the first category of the system, not the first made
+
+    matrix = client.get(f"{base}/matrix").data.decode()
+    assert matrix.index('"tc-num">1</span>Belastung') < matrix.index("1.1.1") < matrix.index('"tc-num">2</span>Studium') < matrix.index("2.1.1")

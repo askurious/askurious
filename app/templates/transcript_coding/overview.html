@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, list_table %}
 {% from "_icons.html" import icon %}
-{% from "transcript_coding/_parts.html" import head, notices_fold, downloads with context %}
+{% from "transcript_coding/_parts.html" import head, notices_fold, downloads, category_options with context %}
 {% from "_learn.html" import why %}
 {% from "transcript_coding/_memos.html" import memo_button, memo_dialog with context %}
 {# The category system of an analysis in numbers (app/transcript_coding_review.py, overview): the table; the
@@ -151,7 +151,7 @@
   {% if ml.all %}
   <form method="get" action="{{ url_for('transcript_coding.overview', code=survey.code, pid=project.id) }}#memos" class="row-fields tc-memo-filter">
     <label>{{ de_en("Art", "Kind") }} <select name="mk"><option value="">{{ de_en("alle", "all") }}</option>{% for k in ("passage", "category", "interview") %}<option value="{{ k }}" {% if ml.kind == k %}selected{% endif %}>{{ memo_kind(k) }}</option>{% endfor %}</select></label>
-    <label>{{ de_en("Kategorie", "Category") }} <select name="mc"><option value="">{{ de_en("alle", "all") }}</option>{% for cid, name in ml.categories %}<option value="{{ cid }}" {% if ml.cat == cid %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Kategorie", "Category") }} <select name="mc"><option value="">{{ de_en("alle", "all") }}</option>{{ category_options(ml.categories, [ml.cat]) }}</select></label>
     <label>{{ de_en("Interview", "Interview") }} <select name="mi"><option value="">{{ de_en("alle", "all") }}</option>{% for rid, label in ml.interviews %}<option value="{{ rid }}" {% if ml.rid == rid %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
     <label>{{ de_en("Sortieren", "Sort") }} <select name="ms">{% for k, t in [("new", de_en("neueste zuerst", "newest first")), ("old", de_en("älteste zuerst", "oldest first")), ("kind", de_en("nach Art und Kategorie", "by kind and category")), ("author", de_en("nach Person", "by person"))] %}<option value="{{ k }}" {% if ml.sort == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
     <label>{{ de_en("je Seite", "per page") }} <select name="mn">{% for n in (10, 20, 50) %}<option value="{{ n }}" {% if ml.per == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>

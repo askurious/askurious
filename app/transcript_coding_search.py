@@ -21,7 +21,7 @@ from flask import abort, flash, redirect, render_template, request, url_for
 from app.extensions import db
 from app.lang import de_en
 from app.models import CodingCategory, Response
-from app.transcript_coding import _in, bp, has_transcript, interviews, live, signed_in_or_coder, tree
+from app.transcript_coding import _in, bp, has_transcript, interviews, live, menu_groups, signed_in_or_coder, tree
 from app.transcript_coding_view import add, codings, paragraphs, remove, snap, spot, transcript
 
 PER_PAGE = 20
@@ -137,7 +137,7 @@ def results(project, who, args):
     pages = max(1, -(-len(found) // PER_PAGE))
     page = min(page, pages)
     mains, candidates = tree(project)
-    cats = [(c.id, getattr(c, "path", c.name)) for m, subs in mains for c in [m] + subs] + [(c.id, c.name) for c in candidates]
+    cats = menu_groups(mains, candidates)  # numbered and grouped per main category
     return {"q": q, "words": words, "terms": terms(q), "total": len(found), "capped": len(found) >= MAX_HITS,
             "hits": found[(page - 1) * PER_PAGE:page * PER_PAGE], "page": page, "pages": pages,
             "interviews": len({h["rid"] for h in found}), "categories": cats}

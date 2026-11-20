@@ -81,3 +81,13 @@
 </details>
 {% endif %}
 {%- endmacro %}
+
+{# The <option>s of a drop-down of categories (Ralf 2026-11-20: a flat menu mixed up the levels and the same name under
+   two main categories): the system in its order from transcript_coding.menu_groups, every category with its number
+   and indented by its level, so that the closed menu, too, says which of two equal names is chosen; the candidates
+   as a group. `selected`: the ids chosen. #}
+{% macro category_options(groups, selected=()) -%}
+{%- for label, items in groups %}{% if label %}<optgroup label="{{ label }}">{% endif %}
+  {%- for cid, name, level in items %}<option value="{{ cid }}"{% if cid in selected %} selected{% endif %}>{% for _ in range(level - 1) %}&nbsp;&nbsp;&nbsp;{% endfor %}{{ name }}</option>{% endfor -%}
+{% if label %}</optgroup>{% endif %}{% endfor -%}
+{%- endmacro %}
