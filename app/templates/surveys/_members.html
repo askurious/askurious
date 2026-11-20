@@ -147,5 +147,42 @@
   <p class="muted small">{{ de_en("Rollen:", "Roles:") }} {% for key, (label, what) in role_names.items() %}<strong>{{ label }}</strong>: {{ what }}{% if not loop.last %} · {% endif %}{% endfor %}.</p>
   {# one component for adding a person (_people.html, W96, S8) #}
   {{ person_add(search_url ~ "#members", "member-q", q, results, url_for('surveys.add_member', survey_id=survey.id), roles=role_names, role_default="editor", hidden={"next": back}, invite_url=url_for('invites.to_survey', survey_id=survey.id), invite_refused=invite_refusal(current_user, survey=survey)) }}
-  {% if mail_enabled() %}{% with invites=open_invites(survey=survey), roles=role_names %}{% include "invites/_open.html" %}{% endwith %}{% endif %}
+  {# several people at once, each with a personal one-time link (app/invite_links.py, Ralf 2026-11-20) #}
+  {% set links_refused = invite_refusal(current_user, survey=survey) %}
+  {% if links_refused %}
+  {% if not mail_enabled() %}<p class="muted small person-invite-refused">{{ icon("link", 16) }} {{ links_refused }}</p>{% endif %}
+  {% else %}
+  <p class="person-invite-open"><button type="button" class="button button-small button-secondary" data-dialog-open="invite-links" aria-haspopup="dialog">{{ icon("link", 16) }} {{ de_en("Mehrere Personen per Link einladen …", "Invite several people by link …") }}</button>
+    <span class="muted small">{{ de_en("jede Person mit eigenem Einmal-Link", "each person with a one-time link of their own") }}</span></p>
+  <dialog class="person-dialog xp-dialog" id="invite-links" aria-labelledby="invite-links-title">
+    <div class="xp-dialog-head"><h2 id="invite-links-title">{{ de_en("Mehrere Personen per Link einladen", "Invite several people by link") }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    <form method="post" action="{{ url_for('invite_links.create', survey_id=survey.id) }}" class="stack" data-invite-links data-max="{{ invite_links.MAX_PEOPLE }}">
+      {{ csrf() }}
+      <div class="invite-links-rows" data-invite-rows>
+        <div class="invite-links-head" aria-hidden="true"><span>{{ de_en("Name", "Name") }}</span><span>{{ de_en("E-Mail (optional, nur für „Per Mail senden“)", "Email (optional, only for “Send by email”)") }}</span></div>
+        {% for n in range(invite_links.FIELD_ROWS) %}
+        <div class="invite-links-row" data-invite-row>
+          <input name="person_name" maxlength="200" autocomplete="off" aria-label="{{ de_en('Name', 'Name') }}">
+          <input name="person_email" type="email" maxlength="254" autocomplete="off" aria-label="{{ de_en('E-Mail-Adresse (optional)', 'Email address (optional)') }}">
+        </div>
+        {% endfor %}
+      </div>
+      <p><button type="button" class="button button-small button-secondary" data-invite-add>{{ icon("plus", 16) }} {{ de_en("Person", "Person") }}</button>
+        <span class="muted small">{{ de_en("höchstens {n} auf einmal", "at most {n} at once", n=invite_links.MAX_PEOPLE) }}</span></p>
+      <div class="invite-links-choices">
+        <label>{{ de_en("Rolle", "Role") }}
+          <select name="role">{% for key in invite_links.ROLES %}<option value="{{ key }}" title="{{ role_names[key][1] }}" {% if key == "editor" %}selected{% endif %}>{{ role_names[key][0] }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Links gelten", "Links hold for") }}
+          <select name="days">{% for d in invite_links.DAYS %}<option value="{{ d }}" {% if d == invite_links.DEFAULT_DAYS %}selected{% endif %}>{{ de_en("{n} Tage", "{n} days", n=d) }}</option>{% endfor %}</select></label>
+        <label>{{ de_en("Zugang endet am", "Access ends on") }}
+          <input type="date" name="access_until" required value="{{ invite_links.default_end().isoformat() }}" max="{{ invite_links.latest_end().isoformat() }}"></label>
+      </div>
+      <p class="muted small">{{ de_en("Jede Person bekommt einen eigenen Link, der nur einmal gilt. Damit meldet sie sich mit ORCID an oder legt ein Konto mit E-Mail-Adresse und Passwort an und ist danach mit der gewählten Rolle an dieser Befragung beteiligt, an keiner anderen. Am Tag „Zugang endet am“ endet die Beteiligung; ein Konto, das erst über diese Links entstanden ist, endet am selben Tag. Die Links sehen Sie nur einmal auf der nächsten Seite.", "Each person gets a link of their own that holds once. With it they sign in with ORCID or create an account with email address and password and then take part in this survey with the role chosen, in no other. On the day “Access ends on” the membership ends; an account that only came about through these links ends the same day. You see the links only once, on the next page.") }}</p>
+      <div class="form-actions"><button class="button">{{ icon("link", 16) }} {{ de_en("Links anlegen", "Create links") }}</button>
+        <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+    </form>
+  </dialog>
+  {% endif %}
+  {% with invites=open_invites(survey=survey), roles=role_names %}{% include "invites/_open.html" %}{% endwith %}
   {% endif %}

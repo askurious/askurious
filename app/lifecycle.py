@@ -792,6 +792,10 @@ def _rare_sweeps(now):
 
     # persons of diary studies who never finished the entry part, or have no entry left (commits)
     _step("diary.sweep", diary.sweep, now)
+    from app import invite_links
+
+    # memberships of a survey that came by a personal link whose access ended (Ralf 2026-11-20, E9; commits)
+    _step("invite_links.end_due", invite_links.end_due, now)
     from app import feedback
 
     # name and address of complaints settled three years ago (Ralf 2026-11-12; commits)

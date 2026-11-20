@@ -237,6 +237,10 @@ class MemberInvite(db.Model):
     # an invitation of a list whose links the inviter passed on himself (Sammeleinladung without mail,
     # app/bulk_invites.py): it can be accepted also while mail is off
     handed_out: Mapped[bool | None]
+    # a personal link of "Mehrere Personen per Link einladen" (app/invite_links.py, Ralf 2026-11-20): the name it is
+    # meant for (email may then be ""), and the day the access ends (end of that day, naive UTC); None for the others
+    name: Mapped[str | None] = mapped_column(String(200))
+    access_until: Mapped[datetime | None]
 
 
 class GroupJoinLink(db.Model):
@@ -1622,6 +1626,9 @@ class SurveyMember(PersonRow, db.Model):
     # admin (everything) | editor (questionnaire, blocks, flow) | viewer (read only), see ROLES
     role: Mapped[str] = mapped_column(String(10), default="admin", server_default="admin")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # the end of a membership that came by a personal link with "Zugang endet am" (app/invite_links.py): the hourly
+    # sweep ends it then (invite_links.end_due); None without end
+    access_until: Mapped[datetime | None] = mapped_column(index=True)
 
     survey: Mapped[Survey] = relationship(back_populates="members")
     user: Mapped[User | None] = relationship(foreign_keys=[user_id])

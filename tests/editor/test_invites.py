@@ -26,7 +26,7 @@ def test_invite_to_a_survey_and_accept_with_a_password(app, client, survey):
     page = client.get(f"/surveys/{survey}?q={NEW}").data.decode()
     assert "Per E-Mail einladen" in page
     page = client.post(f"/invite/survey/{survey}", data={"email": NEW, "role": "viewer"}, follow_redirects=True).data.decode()
-    assert f"Einladung an {NEW} verschickt" in page and "Offene Einladungen per E-Mail" in page
+    assert f"Einladung an {NEW} verschickt" in page and "Offene Einladungen" in page
     msg = sent[-1]
     assert msg["To"] == NEW and "Test" in msg["Subject"] and "14 Tage" in msg.get_content()
     token = _token(msg)

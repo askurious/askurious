@@ -78,7 +78,10 @@ def _of_links_and_surveys():
     for invite in db.session.scalars(db.select(MemberInvite).where(MemberInvite.survey_id.is_not(None),
                                                                    MemberInvite.expires_at >= now)):
         survey = db.session.get(Survey, invite.survey_id)
-        rows.append(_row(de_en("Einladung per E-Mail", "Invitation by email"), invite.email,
+        personal = invite.name is not None  # a personal link (app/invite_links.py): its name, the address if given
+        rows.append(_row(de_en("Persönlicher Einladungslink", "Personal invitation link") if personal
+                         else de_en("Einladung per E-Mail", "Invitation by email"),
+                         (invite.name + (f" ({invite.email})" if invite.email else "")) if personal else invite.email,
                          survey.code if survey is not None else "–", invite.created_at, invite.created_by_id,
                          invite.expires_at))
     return rows

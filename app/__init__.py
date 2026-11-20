@@ -526,6 +526,10 @@ def create_app(config_class=Config, server=False):
     app.jinja_env.globals["open_invites"] = invites.open_for
     app.jinja_env.globals["invite_refusal"] = invites.invite_refusal  # "Per E-Mail einladen" or why not (_people.html)
     app.jinja_env.globals["invite_days"] = invites.INVITE_DAYS
+    from app import invite_links
+
+    app.register_blueprint(invite_links.bp)  # personal links for several people at once (Ralf 2026-11-20)
+    app.jinja_env.globals["invite_links"] = invite_links
     from app import joinlinks
 
     app.register_blueprint(joinlinks.bp)  # links to join a group (gruppen-freischaltung-konzept.md)

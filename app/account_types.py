@@ -364,6 +364,16 @@ def bringing_in(admin):
 
 
 def start_new(user, now=None):
+    """_start_new, then the end of personal invitation links (app/invite_links.py, E9): an account that came in by
+    such links alone ends with the access they gave."""
+    t = _start_new(user, now)
+    from app import invite_links
+
+    invite_links.period_from_links(user, _row, now)
+    return t
+
+
+def _start_new(user, now=None):
     """Type and period of a new account (auth._sign_in, invites.accept, joinlinks): what "Person hinzufügen" chose for
     its iD; else the course it came in through; else the type for new accounts of its home organisation, else of the
     platform. Returns the type (its survey types are the base of kind_access.start_new). Its home organisation first
