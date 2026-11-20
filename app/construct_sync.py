@@ -1,5 +1,10 @@
 """Sync with the construct catalogue (askurious-constructs): fetch a signed release, show what changes, take it.
 
+Nobody but a site admin takes a release (Ralf 2026-11-20, audit): the nightly run only fetches it and lays it out as a
+preview under Administration > Konstrukte > Katalog ("wartet auf Freigabe"), with a note to the operators; until then
+the catalogue stays as it is. A signature says that the release comes from the catalogue's key, not that someone of
+this installation looked at what it changes.
+
 Where from: CONSTRUCTS_SOURCE, by default the latest release on GitHub (construct_catalog.RELEASES + "/latest/download",
 the files manifest.json and manifest.json.sig); "off" switches fetching off; a folder or a manifest.json on the server
 works too (with manifest.json.sig next to it). CONSTRUCTS_PIN names a release to stay on; going back under
@@ -15,9 +20,9 @@ matches the documented hash), withdrawn ones leave the toolbox but stay in the s
 copy of an element they have; nothing in them changes. A construct that is missing from a newer manifest is kept as
 withdrawn. Every row keeps what changed; "Rückgängig" takes the manifest before again and pins its release.
 
-Nightly: housekeeping (lifecycle._rare_sweeps) calls nightly() every hour; it syncs once a night between NIGHT_FROM
+Nightly: housekeeping (lifecycle._rare_sweeps) calls nightly() every hour; it fetches once a night between NIGHT_FROM
 and NIGHT_TO o'clock (Europe/Berlin), only in the housekeeping process or the cron route, never in a participant's or
-researcher's request. No personal data is sent or kept: the server only downloads two files.
+researcher's request; a release with changes waits as a preview for a site admin (sync, waiting). No personal data is sent or kept: the server only downloads two files.
 """
 import json
 import os
@@ -314,11 +319,29 @@ def unpin():
 
 
 def sync(trigger="auto"):
-    """Fetch and take at once (the nightly run): a preview with changes is applied. Returns the row."""
+    """Fetch (the nightly run): a release with changes is kept as the one preview that waits for a site admin
+    (waiting; Administration > Konstrukte > Katalog), never taken here. The previews of the nights before go; the
+    operators are told once per release. Returns the row."""
     row = check(trigger)
-    if row.status == ConstructSync.PREVIEW:
-        return apply(row)
+    if row.status != ConstructSync.PREVIEW:
+        return row
+    older = db.session.scalars(db.select(ConstructSync).filter(
+        ConstructSync.status == ConstructSync.PREVIEW, ConstructSync.trigger == trigger, ConstructSync.id != row.id)).all()
+    known = any((o.release, o.commit) == (row.release, row.commit) for o in older)
+    for o in older:
+        db.session.delete(o)
+    db.session.commit()
+    if not known:
+        from app import notify
+
+        notify.report_catalogue_waiting(row)
     return row
+
+
+def waiting():
+    """The release the nightly run fetched and nobody took yet: its preview row, or None."""
+    return db.session.scalar(db.select(ConstructSync).filter_by(status=ConstructSync.PREVIEW, trigger="auto")
+                             .order_by(ConstructSync.id.desc()).limit(1))
 
 
 def nightly(now=None):
@@ -385,6 +408,7 @@ def status():
     rel, commit = catalog.release()
     return {"release": rel, "commit": commit, "row": row, "snapshot": row is None, "source": source(),
             "off": is_off(), "pin": pin(), "pinned_here": pinned_by_setting(), "last": last_attempt(),
+            "waiting": waiting(),
             "previous": previous(), "counts": counts(), "licensed": licensed_state(), "history": history(),
             "check": current_app.config.get("INSTRUMENT_WORDING_CHECK", True),
             "local": _local_rows(), "families_file": _families_file()}
