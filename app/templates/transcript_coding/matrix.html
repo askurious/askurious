@@ -16,11 +16,17 @@
   {% call list_table("is-wide") %}
     <thead><tr><th>{{ de_en("Kategorie", "Category") }}</th>{% for r in rows %}<th class="num"><a href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ r.interview.label }}</a></th>{% endfor %}<th class="num">{{ de_en("Summe", "Total") }}</th></tr></thead>
     <tbody>
-    {% for c in cats %}{% set total = namespace(n=0) %}
-    <tr><td>{{ c.name }}{% if c.parent_id %} <span class="muted small">{{ parents.get(c.parent_id, "") }}</span>{% endif %}</td>
+    {# one heading row per main category, its subcategories below it numbered and indented by level (Ralf 2026-11-20) #}
+    {% macro line(c, level) %}{% set total = namespace(n=0) %}
+    <tr><td class="tc-lvl-{{ level }}">{% if nums.get(c.id) %}<span class="tc-num">{{ nums[c.id] }}</span>{% endif %}{{ c.name }}</td>
       {% for r in rows %}{% set n = cells.get((c.id, r.id), 0) %}{% set total.n = total.n + n %}<td class="num{% if not n %} muted{% endif %}">{{ n if n else "·" }}</td>{% endfor %}
-      <td class="num"><strong>{{ total.n }}</strong></td></tr>
-    {% endfor %}
+      <td class="num"><strong>{{ total.n }}</strong></td></tr>{% endmacro %}
+    {% for main, subs in mains %}{% if subs %}
+    <tr class="tc-group-row"><th colspan="{{ rows|length + 2 }}"><span class="tc-num">{{ nums[main.id] }}</span>{{ main.name }}</th></tr>
+    {% for s in subs %}{{ line(s, s.level) }}{% endfor %}
+    {% endif %}{% endfor %}
+    {% if candidates %}<tr class="tc-group-row"><th colspan="{{ rows|length + 2 }}">{{ de_en("Kandidaten", "Candidates") }}</th></tr>
+    {% for c in candidates %}{{ line(c, 2) }}{% endfor %}{% endif %}
     </tbody>
   {% endcall %}
   </div>

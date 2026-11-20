@@ -511,6 +511,44 @@ def numbers(mains):
     return out
 
 
+def in_order(mains, candidates):
+    """Every category of tree() in the order of the category system (each main category followed by everything below
+    it, depth first), then the candidates: for lists that show the whole system with numbers and indentation."""
+    return [c for m, subs in mains for c in [m] + subs] + list(candidates)
+
+
+def menu_groups(mains, candidates):
+    """[(group label or None, [(id, label, level)])] for a drop-down of categories (Ralf 2026-11-20: flat menus mixed
+    up the levels and the same name under two main categories): the whole system in its order, every category with
+    its number (1, 1.2, 1.2.3) and its level for the indentation, the main categories unindented (no group heading
+    of their own, which would repeat the main category's name); the candidates as a group of their own."""
+    nums = numbers(mains)
+    items = [(c.id, f"{nums.get(c.id, '')} {c.name}".strip(), getattr(c, "level", 1) or 1) for c in in_order(mains, [])]
+    out = [(None, items)] if items else []
+    if candidates:
+        out.append((de_en("Kandidaten", "Candidates"), [(c.id, c.name, 1) for c in candidates]))
+    return out
+
+
+def branches(subs):
+    """The categories below one main category as rows for the mutual check (Ralf 2026-11-20): [(head, below)], one
+    row per category of the second level that has categories below it (head) with all of them (below, depth first);
+    second-level categories without any below them that stand next to each other share one row (head None), so the
+    page does not grow a row per single button."""
+    out = []
+    for s in subs:
+        if s.level == 2:
+            if s.kids:
+                out.append((s, []))
+            elif out and out[-1][0] is None:
+                out[-1][1].append(s)
+            else:
+                out.append((None, [s]))
+        elif out:
+            out[-1][1].append(s)
+    return out
+
+
 def chain(cat, by_id):
     """The categories above `cat`, its main category last (empty for a main category or a candidate)."""
     out, seen = [], {cat.id}

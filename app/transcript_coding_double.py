@@ -402,7 +402,10 @@ def agreement_page(code, pid):
     rows = [r for r in interviews(project, who)]
     threshold = _threshold()
     figures = agreement(project, rows, threshold)
-    cats = live(project)
+    from app.transcript_coding import in_order, numbers, tree
+
+    mains, candidates = tree(project)
+    cats = in_order(mains, candidates)  # in the order of the category system, numbered and indented on the page
     if request.args.get("format") == "csv":
         from app.export import safe_text
 
@@ -420,6 +423,7 @@ def agreement_page(code, pid):
                          download_name=f"uebereinstimmung-{survey.code}-{project.id}.csv")
     double = [(r, assignment(project, r.id)) for r in rows if assignment(project, r.id)]
     return render_template("transcript_coding/agreement.html", survey=survey, project=project, who=who, cats=cats,
+                           nums=numbers(mains),
                            figures=figures, double=double, finished=finished, threshold=round(threshold * 100),
                            reading=reading, min_passages=MIN_PASSAGES,
                            sources=[(de_en("Übereinstimmung", "Agreement"), [COHEN, LANDIS_KOCH, KUCKARTZ])])
