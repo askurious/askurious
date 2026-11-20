@@ -156,3 +156,46 @@ def test_anchor_examples_go_only_from_checked_transcripts_and_masked(app, client
     assert client.post(f"{base}/i/{other}/suggest", json={"section": 0}).json["ok"]
     anchor = {c["id"]: c for c in calls[-1][1]["categories"]}[sub]["anchor_example"]
     assert "Mein Chef" in anchor and "maier@example.org" not in anchor and "[EMAIL]" in anchor
+
+
+def test_listed_names_and_the_interviewers_name_are_replaced_before_sending(app, client, own):
+    """Ralf 2026-11-20 (audit, "b as the next step"): the team lists names of people, places and employers in the
+    settings of the analysis; they, and the name of whoever conducted the interview, go to the AI as [NAME], in the
+    section, in an anchor example and in the reason that comes back. What is not listed stays."""
+    from tests.interview.test_transcript_coding_review import _code
+
+    answer, calls = own
+    code, pid, rid, base, main, bea = _unchecked_setup(app, client)
+    text = TEXT + " Mein Chef Herr Maier in Würselen sagt das auch, und Anna Neu hat genickt. Frau Schmitz nicht."
+    _transcript(app, rid, text, checked="2026-11-01T10:00:00")
+    sub = _sub(client, base, main, "Erschöpfung", "müde")
+    client.post(f"{base}/ai", data={"ai_allowed": "1"})
+    page = client.get(f"{base}?view=settings").data.decode()
+    assert "Vor dem Senden ersetzen" in page
+    r = client.post(f"{base}/ai/mask", data={"ai_mask": "Maier\n  Würselen \nmaier\nx\n"}, follow_redirects=True)
+    assert "2 Namen werden vor dem Senden ersetzt" in r.data.decode()
+    with app.app_context():
+        assert transcript_coding_ai.mask_terms(db.session.get(CodingProject, pid)) == ["Maier", "Würselen"]
+    start = text.index("Mein Chef")
+    cid = client.post(f"{base}/i/{rid}/codings", json={"start": start, "end": start + 40, "cat": sub}).json["coding"]["id"]
+    assert client.post(f"{base}/i/{rid}/codings/{cid}/anchor").status_code == 200
+    answer["passages"] = [{"quote": "Abends bin ich einfach fertig", "category": sub, "reason": "Herr Maier ist müde"}]
+    out = client.post(f"{base}/i/{rid}/suggest", json={"section": 0}).json
+    sent = calls[-1][1]
+    section = sent["transcript_section"]
+    assert "Maier" not in section and "Würselen" not in section and "[NAME]" in section
+    assert "Anna Neu" not in section and "Anna" not in section          # who conducted it (the interviewer link's name)
+    assert "Schmitz" in section                                           # not listed: stays
+    anchor = {c["id"]: c for c in sent["categories"]}[sub]["anchor_example"]
+    assert "Maier" not in anchor and "[NAME]" in anchor
+    assert out["suggestions"][0]["reason"] == "Herr [NAME] ist müde"
+
+
+def test_only_the_team_changes_the_list_and_it_shows_only_with_ai_allowed(app, client, own):
+    code, pid, rid, base, main, bea = _setup(app, client)
+    assert 'id="ai-mask"' not in client.get(f"{base}?view=settings").data.decode()          # AI not allowed yet
+    assert bea.post(f"{base}/ai/mask", data={"ai_mask": "Maier"}).status_code == 404            # a member, not the team
+    with app.app_context():
+        assert transcript_coding_ai.mask_terms(db.session.get(CodingProject, pid)) == []
+        assert transcript_coding_ai.read_mask_terms("a\nMaier\nmaier\n" + "\n".join(f"Name{i}" for i in range(400)))[:1] == ["Maier"]
+        assert len(transcript_coding_ai.read_mask_terms("\n".join(f"Name{i}" for i in range(400)))) == transcript_coding_ai.MASK_TERMS

@@ -1091,13 +1091,17 @@ def _services():
                  "words": ("KI:connect", "KI-Zugang", "eigenen KI-Schlüssel", "eigener KI-Schlüssel"),
                  "data": de_en("Alle Textaufrufe der Person mit eigenem Zugang (auch Antworttexte der KI-Kodierhilfe und, "
                                "wo eine Auswertung KI-Vorschläge erlaubt, Abschnitte geprüfter Interviewtranskripte, "
-                               "E-Mail-Adressen, Webadressen und Telefonnummern maskiert, mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
+                               "E-Mail-Adressen, Webadressen und Telefonnummern maskiert, ebenso der Name der interviewenden Person und die Namen, "
+                               "die das Team dafür in der Auswertung einträgt (diese Liste liegt bei der Auswertung und geht mit ihr), "
+                               "mit dem Kategoriensystem sowie kodierte Stellen für Vorschläge zu Fallzusammenfassungen) "
                                "gehen über deren Schlüssel, Kontingent und Bedingungen an KI:connect.nrw, OpenAI oder "
                                "eine selbst eingetragene Adresse; Bilder weiter über den Schlüssel der Installation. "
                                "Der Schlüssel ist verschlüsselt gespeichert und wird nie wieder angezeigt.",
                                "All text calls of a person with their own access (also answer texts of the AI coding "
                                "help and, where an analysis allows AI suggestions, sections of checked interview "
-                               "transcripts, email addresses, web addresses and phone numbers masked, with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
+                               "transcripts, email addresses, web addresses and phone numbers masked, as are the interviewer's name and the "
+                               "names the team lists for this in the analysis (the list is kept with the analysis and goes with it), "
+                               "with the category system and coded passages for suggested case summaries) go over their key, quota and terms to KI:connect.nrw, OpenAI or an address they "
                                "typed; images keep using the installation's key. The key is stored encrypted and "
                                "never shown again."),
                  "who": de_en("Forschende", "Researchers"), "switch": de_en("Konto › KI-Nutzung, für alle",
