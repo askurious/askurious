@@ -750,8 +750,8 @@ def _name_matches(user, typed):
 @bp.route("/supervision/<int:row_id>", methods=["POST"])
 @login_required
 def supervision(row_id):
-    """The answer to a request to supervise this account (an admin of its organisation asked for themself,
-    account_types.request_supervision): "accept" makes the person a supervisor, anything else declines."""
+    """The answer to a request to supervise this account (an admin of its organisation asked, for themself or for
+    someone else, account_types.request_supervision): "accept" makes the person a supervisor, anything else declines."""
     from app import account_types
 
     accept = request.form.get("answer") == "accept"
