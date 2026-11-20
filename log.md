@@ -7737,3 +7737,7 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Zweiter Faktor (#301): Admins der Plattform geben den Code auch nach einer ORCID-Anmeldung (`twofactor.orcid_exempt`, Schalter `ADMIN_CODE_AFTER_ORCID`); `python -m app.factor_reset <ORCID iD>` setzt einen verlorenen Faktor auf dem Server zurück.
 - Betrieb (#302, #296): `restart.sh` verlangt auf einem isolierten Server die eigene Datenbankrolle der Teilnahmeseite (`PARTICIPANT_ROLE_OPTIONAL=1` hält einen ohne); das Protokoll fehlgeschlagener Aufrufe in nginx maskiert auch `/signup`, `/joinorg`, `/org/join`, `/api/monitoring` und `/status`; die Rollenabfrage gibt ohne angemeldete Person „keine Rolle“ (ein Interviewer-Link auf „neue Auswertung“ bekam einen Serverfehler statt 404).
 
+
+## 2026-11-20: Kategoriensystem-Diagramm bricht lange Namen um
+
+- Das Diagramm des Kategoriensystems (Seite, SVG, PNG, PDF, Kodierleitfaden) schnitt Namen nach einer festen Zeichenzahl ab (Unterkategorie 22, Hauptkategorie 30, Auswertung 34, Forschungsfrage 42, Kandidaten 140). Jetzt brechen sie im Platz ihrer Zeile um (`transcript_coding_review._wrap`, Breite gemessen mit Noto Sans, die etwas breiter läuft als das Arial der Zeichnung; ein zu langes Wort wird mit Bindestrich getrennt). Nur eine Zeile mit langem Namen wird höher, um eine Textzeile je weitere Zeile; hat eine Kategorie mit langem Namen wenige Unterkategorien, rücken diese auseinander, damit nichts überlappt. Test: `tests/interview/test_transcript_coding_map.py`.

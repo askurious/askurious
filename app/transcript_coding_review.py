@@ -661,50 +661,114 @@ def record_check(project, who, row, coding_id, cat_id):
 # --- the map --------------------------------------------------------------------------------------------------------
 
 
+def _wrap(text, room, size=13, bold=False):
+    """The lines of a name in the diagram, at most `room` pixels each (Ralf 2026-11-20: names were cut off after a
+    fixed number of characters). Measured with Noto Sans, which runs a little wider than the Arial of the drawing, so
+    a line never runs out of its room; a word longer than a line is split with a hyphen."""
+    from reportlab.pdfbase import pdfmetrics
+
+    from app import pdf_fonts
+
+    face = pdf_fonts.font(bold=bold)
+
+    def fits(s):
+        return pdfmetrics.stringWidth(s, face, size) <= room
+
+    lines, line = [], ""
+    for word in " ".join(str(text or "").split()).split(" "):
+        while word and not fits(word):  # wider than a line: as much as fits, the rest on the next line
+            if line:
+                lines.append(line)
+                line = ""
+            cut = max([i for i in range(1, len(word)) if fits(word[:i] + "-")] or [1])
+            lines.append(word[:cut] + "-")
+            word = word[cut:]
+        if not word:
+            continue
+        if fits(f"{line} {word}" if line else word):
+            line = f"{line} {word}" if line else word
+        else:
+            lines.append(line)
+            line = word
+    if line or not lines:
+        lines.append(line)
+    return lines
+
+
+def _lines(x, y, lines, step, attrs):
+    """One <text> per line, the first on y (app/svg_png.py and the Word guide draw a <text> as one line)."""
+    return "".join(f'<text x="{x}" y="{y + i * step:g}"{attrs}>{escape(t)}</text>' for i, t in enumerate(lines))
+
+
 def map_svg(project, who, survey, interactive=False):
     """The category system as a tree: the research question, then one column per level; every subcategory with a
     bar of its passages (with what stands below it); blurring pairs joined by a dashed line. Plain SVG with its own
     colours, to download as it is. The drawing grows to the right with the levels and scrolls in its own box.
     All lines go under the rows, every row on a white ground of its own, and they leave a row to the right of its
-    number, so no line covers a name, a bar or a number (Ralf 2026-11-10)."""
+    number, so no line covers a name, a bar or a number (Ralf 2026-11-10). Long names wrap within their row instead
+    of being cut off; only such a row grows, by one text line per further line (Ralf 2026-11-20)."""
     mains, candidates = tree(project)
     st = stats(project, who)
     pairs = [p for p in fuzzy(project, who) if p["overlap"] or p["checks"]]
     subs = [s for _m, ss in mains for s in ss]
     biggest = max([st[s.id]["n"] for s in subs] + [1])
     depth = max([s.level for s in subs] + [1])
-    row_h, x0, col, box = 34, 20, 310, 250
+    row_h, x0, col, box, step = 34, 20, 310, 250, 15
     end = 268  # a subcategory's row: dot, name, bar and number end here; its lines start right of it
+    main_ids = {m.id for m, _ss in mains}
+    # a main category's name runs from its left edge to its number, a subcategory's from its dot to its bar
+    names = {c.id: _wrap(c.name, 196 if c.id in main_ids else 146, bold=c.id in main_ids)
+             for c in [m for m, _ss in mains] + subs}
     below = {}
     for s in subs:
         below.setdefault(s.parent_id, []).append(s)
     pos, y = {}, 20
 
+    def tall(cat):
+        return row_h + (len(names[cat.id]) - 1) * step
+
+    def shift(cat, by):
+        pos[cat.id] += by
+        for k in below.get(cat.id, []):
+            shift(k, by)
+
     def place(cat):  # leaves one row each, a category in the middle of what stands below it
         nonlocal y
         kids = below.get(cat.id, [])
         if not kids:
-            pos[cat.id] = y + 14
-            y += row_h
+            pos[cat.id] = y + tall(cat) / 2 - 3
+            y += tall(cat)
             return pos[cat.id]
+        start = y
         ys = [place(k) for k in kids]
         pos[cat.id] = (ys[0] + ys[-1]) / 2
+        gap = tall(cat) - (y - start)
+        if gap > 0:  # a long name over few rows: they move down, so that it does not reach into its neighbours
+            for k in kids:
+                shift(k, gap / 2)
+            pos[cat.id] += gap / 2
+            y = start + tall(cat)
         return pos[cat.id]
 
     for main, _ss in mains:
         place(main)
         y += 14
+    head = _wrap(project.name, 226, bold=True)
+    question = _wrap(project.question or project.name, 226, size=11)
+    root_h = 24 + len(head) * step + len(question) * 13
     width = x0 + 250 + 50 + depth * col + 140
-    height = max(y + 30, 120)
+    rest = (_wrap(de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates), width - 2 * x0, size=11)
+            if candidates else [])
+    height = max(y + 30 + max(len(rest) - 1, 0) * 13, root_h + 40, 120)
     mid = height / 2
-    title = (project.question or project.name)[:42]
+    top = mid - root_h / 2
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{int(height)}" viewBox="0 0 {width} {int(height)}" '
              f'font-family="Arial, sans-serif" font-size="13" role="img" aria-label="{escape(de_en("Kategoriensystem als Diagramm", "Category system as a diagram"))}">',
              '<rect width="100%" height="100%" fill="#ffffff"/>',
              ('<g class="tc-map-root" data-tc-drop-main>' if interactive else "<g>"),
-             f'<rect x="{x0}" y="{mid - 26}" width="250" height="52" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
-             f'<text x="{x0 + 12}" y="{mid - 4}" font-weight="bold" fill="#1c1c1a">{escape(project.name[:34])}</text>',
-             f'<text x="{x0 + 12}" y="{mid + 14}" fill="#5f5e59" font-size="11">{escape(title)}</text>', "</g>"]
+             f'<rect x="{x0}" y="{top:g}" width="250" height="{root_h}" rx="10" fill="#fbf3ef" stroke="#a8401c" stroke-width="2"/>',
+             _lines(x0 + 12, top + 22, head, step, ' font-weight="bold" fill="#1c1c1a"'),
+             _lines(x0 + 12, top + 22 + len(head) * step + 2, question, 13, ' fill="#5f5e59" font-size="11"'), "</g>"]
 
     def x_of(level):
         return x0 + 250 + 50 + (level - 1) * col
@@ -731,14 +795,16 @@ def map_svg(project, who, survey, interactive=False):
 
     for main, ss in mains:
         my, x1 = pos[main.id], x_of(1)
+        extra = (len(names[main.id]) - 1) * step
         link(x0 + 250, mid, x1, my)
         nodes.append(node(main))
-        nodes.append(f'<rect x="{x1}" y="{my - 15}" width="{box}" height="30" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
-        nodes.append(f'<text x="{x1 + 10}" y="{my + 5}" font-weight="bold" fill="#1c1c1a">{escape(main.name[:30])}</text>')
+        nodes.append(f'<rect x="{x1}" y="{my - 15 - extra / 2:g}" width="{box}" height="{30 + extra}" rx="8" fill="#f8f8f5" stroke="#706e68"/>')
+        nodes.append(_lines(x1 + 10, my + 5 - extra / 2, names[main.id], step, ' font-weight="bold" fill="#1c1c1a"'))
         nodes.append(f'<text x="{x1 + 240}" y="{my + 5}" text-anchor="end" fill="#5f5e59">{st[main.id]["n"]}</text>')
         nodes.append("</g>")
         for s in ss:
             sy, xs = pos[s.id], x_of(s.level)
+            extra = (len(names[s.id]) - 1) * step
             above = pos.get(s.parent_id, my)
             link(x_of(s.level - 1) + (box if s.parent_id == main.id else end), above, xs - 4, sy)
             colour = s.colour or main.colour or "#2957A4"
@@ -746,9 +812,9 @@ def map_svg(project, who, survey, interactive=False):
             # the row's white ground, so that lines passing behind it never cover it; on the page also the whole row
             # to grab and to drop onto, not only the small dot
             hit = ' class="tc-hit"' if interactive else ""
-            nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14}" width="{end + 2}" height="28" rx="6" fill="#ffffff" stroke="none"/>')
+            nodes.append(f'<rect{hit} x="{xs - 4}" y="{sy - 14 - extra / 2:g}" width="{end + 2}" height="{28 + extra}" rx="6" fill="#ffffff" stroke="none"/>')
             nodes.append(f'<circle cx="{xs + 6}" cy="{sy}" r="5" fill="{escape(colour)}"/>')
-            nodes.append(f'<text x="{xs + 18}" y="{sy + 4}" fill="#1c1c1a">{escape(s.name[:22])}</text>')
+            nodes.append(_lines(xs + 18, sy + 4 - extra / 2, names[s.id], step, ' fill="#1c1c1a"'))
             bar = int(60 * st[s.id]["n"] / biggest)
             nodes.append(f'<rect x="{xs + 170}" y="{sy - 5}" width="60" height="10" rx="2" fill="#efeee9"/>')
             if bar:
@@ -765,9 +831,8 @@ def map_svg(project, who, survey, interactive=False):
         lines.append(f'<path d="M{xa} {a} C {bend} {a}, {bend} {b}, {xb} {b}" fill="none" stroke="#b35c00" '
                      f'stroke-width="1.5" stroke-dasharray="6 5"/>')
     parts.extend(lines + nodes)
-    if candidates:
-        parts.append(f'<text x="{x0}" y="{height - 12}" fill="#5f5e59" font-size="11">'
-                     f'{escape((de_en("Kandidaten: ", "Candidates: ") + ", ".join(c.name for c in candidates))[:140])}</text>')
+    if rest:
+        parts.append(_lines(x0, height - 12 - (len(rest) - 1) * 13, rest, 13, ' fill="#5f5e59" font-size="11"'))
     parts.append("</svg>")
     return "".join(parts)
 
