@@ -480,6 +480,9 @@ class CodingKey(db.Model):
     project_id: Mapped[int] = mapped_column(index=True)
     actor_key: Mapped[str] = mapped_column(String(40), default="")
     keys: Mapped[dict | None] = mapped_column(JSON)
+    # how the person last had the diagram of the category system drawn (app/transcript_coding_review.py, map_options;
+    # Ralf 2026-11-20): {"dir", "counts", "pairs", "by"}
+    view: Mapped[dict | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
