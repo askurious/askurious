@@ -325,7 +325,8 @@ def register(bp, survey_of):
             return jsonify(ok=False, error=de_en("In dieser Zelle gibt es noch keine Stellen.", "There are no passages in this cell yet.")), 400
         cat = db.session.get(CodingCategory, cid)
         prompt = {"category": cat.name, "definition": cat.definition,
-                  "quotes": [{"subcategory": it["sub"], "quote": ai_privacy.redact(it["quote"][:600])} for it in items[:40]]}
+                  "quotes": [{"subcategory": it["sub"], "quote": transcript_coding_ai.mask(project, row, it["quote"][:600])}
+                             for it in items[:40]]}
         schema = {"type": "object", "additionalProperties": False, "required": ["summary"],
                   "properties": {"summary": {"type": "string"}}}
         try:
@@ -334,6 +335,6 @@ def register(bp, survey_of):
                 json.dumps(prompt, ensure_ascii=False), purpose="transcript_coding_summary", item_type="transcript", schema=schema))
         except ai.AIError as e:
             return jsonify(ok=False, error=str(e)), 400
-        return jsonify(ok=True, text=ai_privacy.redact(str(data.get("summary") or ""))[:4000])
+        return jsonify(ok=True, text=transcript_coding_ai.mask(project, row, str(data.get("summary") or ""))[:4000])
 
     return types_csv, suggest_summary

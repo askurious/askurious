@@ -1274,7 +1274,7 @@ def project(code, pid):
                    own_proposal=lambda c: bool(open_proposals(project, c.id, who.key)),
                    proposals_of=lambda c: [e for e in proposals if e.category_id == c.id],
                    notices=transcript_coding_review.notices(project, who),
-                   ai_switch=who.team and _ai_on(),
+                   ai_switch=who.team and _ai_on(), ai_mask=_ai_mask(project) if who.team else [],
                    double_of=lambda rid: transcript_coding_double.assignment(project, rid),
                    double_finished=transcript_coding_double.finished,
                    double_people=transcript_coding_double.assignable(project, survey) if who.team else [],
@@ -1308,6 +1308,12 @@ def project(code, pid):
         context["search"] = transcript_coding_search.results(project, who, request.args) if request.args.get("q") else None
     context["anchor_hidden"] = anchors_hidden(project, who)
     return render_template("transcript_coding/project.html", **context)
+
+
+def _ai_mask(project):
+    from app import transcript_coding_ai
+
+    return transcript_coding_ai.mask_terms(project)
 
 
 def _ai_on():

@@ -60,9 +60,18 @@
   <form method="post" action="{{ url_for('transcript_coding.allow_ai', code=survey.code, pid=project.id) }}" class="stack tc-ai-switch">
     {{ csrf() }}
     <label class="check"><input type="checkbox" name="ai_allowed" value="1" {% if project.ai_allowed %}checked{% endif %} data-submit-on-change> {{ de_en("KI-Vorschläge erlauben", "Allow AI suggestions") }}
-      <span class="hint">{{ de_en("Dann schlägt die KI in der Kodieransicht Stellen zu den Kategorien vor. Der Transkripttext geht dafür abschnittsweise an den eigenen KI-Zugang der Person, die fragt (nie an den Zugang der Plattform); ohne eigenen Zugang gibt es keine Vorschläge. Nur geprüfte Transkripte gehen hinaus, und E-Mail-Adressen, Webadressen und Telefonnummern werden vorher ersetzt; Namen, Orte und Arbeitgeber nicht: Bitte ersetzen Sie sie selbst, bevor Sie „Transkript geprüft“ ankreuzen. Die Vorlage „Information und Einwilligung“ nennt das, sobald es erlaubt ist.", "Then the AI suggests passages for the categories in the coding view. For this the transcript text goes section by section to the own AI access of the person who asks (never to the platform's access); without an own access there are no suggestions. Only checked transcripts go out, and email addresses, web addresses and phone numbers are replaced first; names, places and employers are not: please replace them yourself before you tick “Transcript checked”. The template “Information and consent” names this once it is allowed.") }}</span></label>
+      <span class="hint">{{ de_en("Dann schlägt die KI in der Kodieransicht Stellen zu den Kategorien vor. Der Transkripttext geht dafür abschnittsweise an den eigenen KI-Zugang der Person, die fragt (nie an den Zugang der Plattform); ohne eigenen Zugang gibt es keine Vorschläge. Nur geprüfte Transkripte gehen hinaus, und E-Mail-Adressen, Webadressen und Telefonnummern werden vorher ersetzt; Namen, Orte und Arbeitgeber nur, wenn sie unten unter „Vor dem Senden ersetzen“ stehen. Die Vorlage „Information und Einwilligung“ nennt das, sobald es erlaubt ist.", "Then the AI suggests passages for the categories in the coding view. For this the transcript text goes section by section to the own AI access of the person who asks (never to the platform's access); without an own access there are no suggestions. Only checked transcripts go out, and email addresses, web addresses and phone numbers are replaced first; names, places and employers only if they are listed below under “Replace before sending”. The template “Information and consent” names this once it is allowed.") }}</span></label>
     <noscript><div><button class="button button-small">{{ de_en("Speichern", "Save") }}</button></div></noscript>
   </form>
+  {% if project.ai_allowed %}
+  <form method="post" action="{{ url_for('transcript_coding.save_mask', code=survey.code, pid=project.id) }}" class="stack tc-ai-mask">
+    {{ csrf() }}
+    <label for="ai-mask">{{ de_en("Vor dem Senden ersetzen", "Replace before sending") }}
+      <span class="hint">{{ de_en("Namen von Personen, Orten, Arbeitgebern, je Zeile einer. Sie werden in allem, was aus dieser Auswertung an die KI geht, durch [NAME] ersetzt, ebenso der Name, wer das Interview geführt hat. Das ist keine Anonymisierung: Was hier nicht steht, geht unverändert hinaus.", "Names of people, places, employers, one per line. They are replaced with [NAME] in everything of this analysis that goes to the AI, as is the name of whoever conducted the interview. This is no anonymisation: what is not listed here goes out as it is.") }}</span></label>
+    <textarea id="ai-mask" name="ai_mask" rows="5" maxlength="20000">{{ ai_mask|join("\n") }}</textarea>
+    <div><button class="button button-small">{{ de_en("Speichern", "Save") }}</button></div>
+  </form>
+  {% endif %}
   {% endif %}
 </section>
 {% endif %}

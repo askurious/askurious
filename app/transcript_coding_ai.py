@@ -18,6 +18,7 @@ The suggestions belong to the interview (Response.interview["suggestions"], like
 discarded; both also for all suggestions of one category, and both can be taken back. A taken suggestion stays
 recognisable as such in the coding view, the coding guide and the export (.qdpx)."""
 import json
+import re
 import secrets
 
 from flask import jsonify, request
@@ -30,6 +31,9 @@ from app.transcript_coding import _in, bp, live, signed_in_or_coder
 from app.transcript_coding_view import _row, _store, codings, place, snap, transcript
 
 SECTION = 12000  # characters of the transcript per call
+MASK_TERMS = 300  # names and other words the team lists to be replaced before a text goes to an AI
+MASK_LENGTH = 80  # characters of one of them
+NAME = "[NAME]"
 MAX_PER_SECTION = 30
 REASON_MAX = 300
 PURPOSE = "transcript_coding_suggest"
@@ -78,6 +82,57 @@ def state(project, who):
     if user is None or not ai_access.ai_on(user):
         return "off"
     return "on" if own_access(who) is not None else "needs_own"
+
+
+# --- names replaced before a text goes out -------------------------------------------------------------------------
+
+
+def mask_terms(project):
+    """The team's list "Vor dem Senden ersetzen" of the analysis (CodingProject.settings["ai_mask"]): names of people,
+    places, employers, one per line; replaced with [NAME] in everything that goes to an AI from this analysis."""
+    raw = (project.settings or {}).get("ai_mask")
+    return [t for t in raw if isinstance(t, str) and t.strip()] if isinstance(raw, list) else []
+
+
+def read_mask_terms(text):
+    """The list as typed (one per line): trimmed, none twice, at most MASK_TERMS of at most MASK_LENGTH characters and
+    at least two (a single letter would tear every word apart)."""
+    out, seen = [], set()
+    for line in str(text or "").replace("\r\n", "\n").split("\n"):
+        term = " ".join(line.split())[:MASK_LENGTH]
+        if len(term) < 2 or term.casefold() in seen:
+            continue
+        seen.add(term.casefold())
+        out.append(term)
+        if len(out) >= MASK_TERMS:
+            break
+    return out
+
+
+def head_names(row):
+    """The names the interview itself knows: who conducted it (Response.interview["by_name"] and what the transcript's
+    head says under "Interviewer(in)"), whole and by its parts of three letters and more."""
+    meta = row.interview or {}
+    kept = meta.get("transcript_head") or {}
+    out = set()
+    for value in (meta.get("by_name"), kept.get("interviewer") if isinstance(kept, dict) else None):
+        value = " ".join(str(value or "").split())
+        if len(value) < 2:
+            continue
+        out.add(value)
+        out.update(part for part in re.split(r"[\s,;]+", value) if len(part) >= 3 and part[:1].isupper())
+    return out
+
+
+def mask(project, row, text):
+    """`text` of the interview `row` as it goes to an AI: e-mail addresses, web addresses and phone numbers replaced
+    (ai_privacy.redact), and the names the team listed and those of the interview's head replaced with [NAME], whole
+    words only, whatever their case. Not anonymisation: a name nobody listed stays (Ralf 2026-11-20, audit)."""
+    text = ai_privacy.redact(text if isinstance(text, str) else "")
+    terms = set(mask_terms(project)) | (head_names(row) if row is not None else set())
+    for term in sorted(terms, key=len, reverse=True):  # the longest first: "Anna Maier" before "Maier"
+        text = re.sub(r"(?<!\w)" + re.escape(term) + r"(?!\w)", NAME, text, flags=re.IGNORECASE)
+    return text
 
 
 def sections(text):
@@ -129,7 +184,7 @@ def anchor_for_ai(project, cat):
     row = db.session.get(Response, anchor.get("interview") or 0)
     if row is None or row.survey_id != project.survey_id or not checked(row):
         return ""
-    return ai_privacy.redact(str(anchor["quote"]))[:400]
+    return mask(project, row, str(anchor["quote"]))[:400]
 
 
 class NotChecked(ai.AIError):
@@ -168,8 +223,9 @@ def suggest(project, who, row, index):
     language = "German" if (row.language or "de").startswith("de") else "English"
     data = ai.json_answer(ai.generate_text(
         INSTRUCTIONS.format(most=MAX_PER_SECTION, language=language),
-        # masked: an address or number in it goes as a placeholder ([EMAIL]); a passage quoted with one is not placed
-        json.dumps({"categories": cats, "transcript_section": ai_privacy.redact(piece)}, ensure_ascii=False),
+        # masked: an address, a number or a listed name in it goes as a placeholder ([EMAIL], [NAME]); a passage quoted
+        # with one is not placed
+        json.dumps({"categories": cats, "transcript_section": mask(project, row, piece)}, ensure_ascii=False),
         purpose=PURPOSE, item_type="transcript", schema=SCHEMA))
     known = {c["id"] for c in cats}
     taken = {(c.get("cat"), c.get("start"), c.get("end")) for c in codings(row, project.id)}
@@ -188,7 +244,7 @@ def suggest(project, who, row, index):
         taken.add((p["category"], span[0], span[1]))
         fresh.append({"id": secrets.token_urlsafe(8), "project": project.id, "cat": p["category"], "start": span[0],
                       "end": span[1], "quote": text[span[0]:span[1]],
-                      "reason": ai_privacy.redact(str(p.get("reason") or ""))[:REASON_MAX], "by": who.key,
+                      "reason": mask(project, row, str(p.get("reason") or ""))[:REASON_MAX], "by": who.key,
                       "by_name": who.name[:200], "at": utcnow().isoformat(timespec="seconds")})
     if fresh:
         _store_suggestions(row, lambda items: items + fresh)
@@ -350,5 +406,20 @@ def allow_ai(code, pid):
     db.session.commit()
     flash(de_en("KI-Vorschläge erlaubt.", "AI suggestions allowed.") if project.ai_allowed
           else de_en("KI-Vorschläge ausgeschaltet.", "AI suggestions switched off."), "success")
+    return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="settings") + "#einstellungen")
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/ai/mask", methods=["POST"])
+@signed_in_or_coder
+def save_mask(code, pid):
+    """The team's list of names to replace before anything of this analysis goes to an AI (mask_terms)."""
+    from flask import flash, redirect, url_for
+
+    survey, project, who = _in(code, pid, team_only=True)
+    terms = read_mask_terms(request.form.get("ai_mask"))
+    project.settings = {**(project.settings or {}), "ai_mask": terms}
+    db.session.commit()
+    flash(de_en("Gespeichert: {n} Namen werden vor dem Senden ersetzt.", "Saved: {n} names are replaced before sending.",
+                n=len(terms)), "success")
     return redirect(url_for("transcript_coding.project", code=survey.code, pid=project.id, view="settings") + "#einstellungen")
 
