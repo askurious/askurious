@@ -94,3 +94,21 @@ def test_an_old_settings_form_leaves_the_setting_alone(app, client):
     client.post(f"{base}/settings", data={"name": "Belastung im Alltag"})            # without the hidden field
     assert coder.get(f"{base}/categories.csv").status_code == 200
     assert bea.get(f"{base}/categories.csv").status_code == 404                     # members (accounts) as before
+
+
+def test_an_interviewer_link_gets_404_for_the_teams_routes(app, client):
+    """Audit 2026-11-20: "neue Auswertung" asked for the role of a signed-in person a browser with an interviewer link
+    does not have, and ended in a server error instead of 404 (access.role_of_user with nobody signed in)."""
+    code, pid, rid, base, main, bea = _setup(app, client)
+    coder, _mine = _coder(app, client, code, base)
+    assert coder.post(f"/guide/{code}/interviews/coding/new", data={"name": "x", "start": "empty"}).status_code == 404
+    assert coder.get(f"/guide/{code}/interviews/coding").status_code == 404
+    with app.app_context():
+        from flask_login import AnonymousUserMixin
+
+        from app import access
+        from app.models import Survey
+
+        survey = db.session.scalar(db.select(Survey).filter_by(code=code))
+        assert access.role_of_user(AnonymousUserMixin(), survey) is None
+        assert access.own_role_of_user(AnonymousUserMixin(), survey) is None

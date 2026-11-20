@@ -32,10 +32,12 @@ map $host $participant_pool { default participant; include /etc/nginx/brand/part
 # app's errors. Docker keeps at most 3 x 20 MB of each container's output (compose.yaml).
 access_log off;
 error_log /var/log/nginx/error.log crit;      # the image links both files to the container's output
-# a failed request to an address with a bearer token in its path (a password, invitation or join link, a mailbox
-# proof, a deletion code) is logged without the token: only the path's fixed part (Abgleich 2026-10-15, KR-9)
+# a failed request to an address with a bearer token in its path (a password, invitation, join, registration or
+# founding link, a mailbox proof, a deletion code, the monitoring feed, the status as JSON) is logged without the
+# token: only the path's fixed part (Abgleich 2026-10-15, KR-9; audit 2026-11-20: signup, joinorg, org/join,
+# api/monitoring and status were missing)
 map $uri $logged_uri {
-    "~^(?<fixed>/(auth/password|invite|join|verify|privacy/delete|account/confirm-email))/" "$fixed/-";
+    "~^(?<fixed>/(auth/password|invite|join|joinorg|org/join|signup|verify|privacy/delete|account/confirm-email|api/monitoring|status))/" "$fixed/-";
     default $uri;
 }
 log_format noaddress '$time_iso8601 $host "$request_method $logged_uri $server_protocol" $status $body_bytes_sent $request_time';
