@@ -34,7 +34,7 @@
   {# data-live: drawn anew after a save of the fields below (app.js) #}
   <div data-live="tc-text-{{ cat.id }}">{% if cat.definition %}<p class="tc-text">{{ cat.definition }}</p>{% elif cat.kind != "main" %}<p class="tc-text muted small">{{ de_en("noch ohne Definition", "no definition yet") }}</p>{% endif %}
   {% if cat.delimitation %}<p class="tc-text muted small">{{ de_en("Abgrenzung:", "Delimitation:") }} {{ cat.delimitation }}</p>{% endif %}
-  {% if cat.anchor and cat.anchor.quote %}<p class="tc-text small">{{ de_en("Ankerbeispiel:", "Anchor example:") }} <em>„{{ cat.anchor.quote|truncate(300, true, "…") }}“</em>{% if cat.anchor.label %} <span class="muted">({{ cat.anchor.label }})</span>{% endif %}</p>{% endif %}</div>
+  {% if cat.anchor and cat.anchor.quote %}<p class="tc-text small">{{ de_en("Ankerbeispiel:", "Anchor example:") }} <em>„{{ cat.anchor.quote|truncate(300, true, "…") }}“</em>{% if cat.anchor.label and cat.id not in (anchor_hidden or []) %} <span class="muted">({{ cat.anchor.label }})</span>{% endif %}</p>{% endif %}</div>
   {% if editable %}
   {% if may_move(cat) %}{% set targets = move_targets(cat) %}{% if targets %}
   <details class="tc-propose"><summary>{{ de_en("Verschieben nach …", "Move to …") }}</summary>

@@ -399,6 +399,22 @@ def sees(project, who, row):
     return meta.get("by") in users or meta.get("access") in accesses
 
 
+def anchors_hidden(project, who):
+    """The ids of the categories whose anchor example stands in an interview `who` does not see (an interviewer link
+    with "eigene Interviews", a member with "jede Gruppe ihre eigenen"): they read the quote, it belongs to the
+    category system, but not where it stands (interview and position; Ralf 2026-11-20, audit). Nobody for the team."""
+    from app.models import Response
+
+    if who is None or who.team:
+        return set()
+    out = set()
+    for cat in live(project):
+        anchor = cat.anchor or {}
+        if anchor.get("quote") and not sees(project, who, db.session.get(Response, anchor.get("interview") or 0)):
+            out.add(cat.id)
+    return out
+
+
 def _real_interviews(survey):
     """interview_data.interviews(survey, "real"), once per GET request: the coding pages asked for it up to nine
     times per page (performance audit 2026-11-11). Not kept for a POST, which may add or change interviews."""
@@ -1290,6 +1306,7 @@ def project(code, pid):
         from app import transcript_coding_search
 
         context["search"] = transcript_coding_search.results(project, who, request.args) if request.args.get("q") else None
+    context["anchor_hidden"] = anchors_hidden(project, who)
     return render_template("transcript_coding/project.html", **context)
 
 
