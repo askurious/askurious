@@ -1,11 +1,17 @@
-{# Open invitations by e-mail of a survey or a group (app/invites.py), with "zurückziehen". Needs: invites, roles. #}
+{# Open invitations of a survey or a group (app/invites.py; personal links of app/invite_links.py with a name), with
+   "Zurückziehen" and, for a personal link, "Neuer Link". Needs: invites, roles. #}
 {% from "_macros.html" import csrf %}
 {% if invites %}
-<h3>{{ de_en("Offene Einladungen per E-Mail", "Open invitations by email") }}</h3>
+<h3>{{ de_en("Offene Einladungen", "Open invitations") }}</h3>
 <ul class="plain member-list">
   {% for i in invites %}
-  <li>{{ i.email }} <span class="badge role-badge">{{ roles[i.role][0] if i.role in roles else i.role }}</span>
-    <span class="muted small">{{ de_en("gilt bis {d}", "valid until {d}", d=i.expires_at|localdt) }}</span>
+  <li>{% if i.name %}{{ i.name }}{% if i.email %} <span class="muted small">{{ i.email }}</span>{% endif %}{% else %}{{ i.email }}{% endif %}
+    <span class="badge role-badge">{{ roles[i.role][0] if i.role in roles else i.role }}</span>
+    <span class="muted small">{{ de_en("Link gilt bis {d}", "link valid until {d}", d=i.expires_at|localdt) }}{% if i.access_until %} · {{ de_en("Zugang bis {d}", "access until {d}", d=i.access_until|localdate) }}{% endif %}</span>
+    {% if i.name is not none and i.survey_id %}
+    <form class="inline" method="post" action="{{ url_for('invite_links.renew', invite_id=i.id) }}">{{ csrf() }}
+      <button class="button button-small button-secondary">{{ de_en("Neuer Link", "New link") }}</button></form>
+    {% endif %}
     <form class="inline" method="post" action="{{ url_for('invites.withdraw', invite_id=i.id) }}">{{ csrf() }}
       <button class="button button-small button-secondary">{{ de_en("Zurückziehen", "Withdraw") }}</button></form></li>
   {% endfor %}

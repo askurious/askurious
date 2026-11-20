@@ -494,7 +494,10 @@ def _activities():
                            "Konto sofort gesperrt, Löschung nach 30 Tagen durch den stündlichen Lauf; bis dahin bleiben "
                            "Vormerkung, vormerkende Person und Auswahl gespeichert, Übergaben ohne mögliche Person halten "
                            "die Löschung als „Löschung fällig“ an. Einladungsadressen einer Liste: bis zur "
-                           "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Einladungslinks der Plattform (nur Prüfwert, "
+                           "Annahme, zum Zurückziehen oder Ablauf, höchstens 30 Tage. Persönliche Einladungslinks zu einer Befragung (Name, "
+                           "gegebenenfalls Adresse, Rolle, Ende des Zugangs; Link nur als Prüfwert): ebenso höchstens 30 Tage; "
+                           "am Ende des Zugangs endet die Beteiligung, ein nur so entstandenes Konto wird gesperrt wie ein "
+                           "befristetes. Einladungslinks der Plattform (nur Prüfwert, "
                            "Notiz, Zähler) und Gründungslinks: bis 30 Tage nach Ablauf oder Nutzung. Anträge auf mehr Plätze: bis die "
                            "Organisation gelöscht wird.",
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
@@ -509,7 +512,10 @@ def _activities():
                            "30 days by the hourly sweep; until then the mark, the person who marked it and the choices "
                            "are stored, and a handover without a person able to receive it holds the deletion as "
                            "“deletion due”. Invitation addresses of a list: until accepted, withdrawn or "
-                           "expired, at most 30 days. Invitation links of the platform (hash, note, counter only) and founding links: until 30 days after "
+                           "expired, at most 30 days. Personal invitation links to a survey (name, address if given, role, end of the "
+                           "access; the link as a hash only): likewise at most 30 days; at the end of the access the membership "
+                           "ends, and an account that came about only this way is blocked as one with a period is. "
+                           "Invitation links of the platform (hash, note, counter only) and founding links: until 30 days after "
                            "they expire or are used. Requests for more places: until the organisation is deleted."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b DSGVO (Nutzungsbedingungen); bei öffentlichen Stellen ggf. lit. e",

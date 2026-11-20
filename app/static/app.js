@@ -7002,6 +7002,36 @@ document.addEventListener("toggle", function (e) {
   document.querySelectorAll("dialog[data-open-now]").forEach(function (d) { if (d.showModal && !d.open) d.showModal(); });
 })();
 
+// "Mehrere Personen per Link einladen" (surveys/_members.html, app/invite_links.py): "+ Person" adds an empty row
+// up to data-max; on the page of the links "Per Mail senden" sends without leaving it (the links are shown once).
+(function () {
+  document.querySelectorAll("form[data-invite-links]").forEach(function (form) {
+    var add = form.querySelector("[data-invite-add]"), rows = form.querySelector("[data-invite-rows]");
+    var max = parseInt(form.dataset.max, 10) || 20;
+    if (!add || !rows) return;
+    function count() { return rows.querySelectorAll("[data-invite-row]").length; }
+    add.addEventListener("click", function () {
+      if (count() >= max) return;
+      var row = rows.querySelector("[data-invite-row]").cloneNode(true);
+      row.querySelectorAll("input").forEach(function (i) { i.value = ""; });
+      rows.appendChild(row);
+      row.querySelector("input").focus();
+      add.disabled = count() >= max;
+    });
+  });
+  document.querySelectorAll("form[data-invite-mail]").forEach(function (form) {
+    var said = form.querySelector("[data-invite-mail-said]"), button = form.querySelector("button");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      button.disabled = true;
+      fetch(form.action, {method: "POST", body: new FormData(form), credentials: "same-origin"})
+        .then(function (r) { return r.json(); })
+        .then(function (data) { said.textContent = data.said || ""; button.disabled = !!data.ok; })
+        .catch(function () { said.textContent = de_en("Nicht gesendet.", "Not sent."); button.disabled = false; });
+    });
+  });
+})();
+
 // Statements of a Likert matrix pasted as a list (user test 2026-10-27, point 7): the same rules as
 // app/item_paste.py, here for the preview "n Aussagen erkannt"; "Übernehmen" sends the box once and the page
 // loads with the new rows. Pasted into the field of one statement, the text stays in the list itself (below).

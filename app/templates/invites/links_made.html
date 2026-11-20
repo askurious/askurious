@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% from "_icons.html" import icon %}
+{# The personal links of "Mehrere Personen per Link einladen", shown once (app/invite_links.py). Needs: survey, links
+   ([{invite, token, link}]), mail_on, role. #}
+{% block title %}{{ de_en("Einladungslinks", "Invitation links") }} · {{ survey.title }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('surveys.detail', survey_id=survey.id) }}#members">{{ icon("back", 16) }} {{ survey.title }}</a>
+<h1>{{ de_en("Einladungslinks", "Invitation links") }}</h1>
+<section class="panel">
+  <p><strong>{{ de_en("Die Links werden nur jetzt angezeigt.", "The links are shown only now.") }}</strong>
+    {{ de_en("Jeder gilt einmal und nur für die genannte Person. Geben Sie ihn nur dieser Person, auf einem Weg, dem Sie vertrauen. Später können Sie unter „Offene Einladungen“ einen neuen Link anlegen oder die Einladung zurückziehen.", "Each holds once and only for the person named. Give it only to that person, by a channel you trust. Later you can create a new link or withdraw the invitation under “Open invitations”.") }}</p>
+  <table class="invite-links-made">
+    <thead><tr><th scope="col">{{ de_en("Person", "Person") }}</th><th scope="col">{{ de_en("Link", "Link") }}</th><th scope="col"><span class="visually-hidden">{{ de_en("Aktionen", "Actions") }}</span></th></tr></thead>
+    <tbody>
+    {% for row in links %}
+    <tr>
+      <td>{{ row.invite.name }}{% if row.invite.email %}<br><span class="muted small">{{ row.invite.email }}</span>{% endif %}</td>
+      <td><input class="one-time-link" id="invite-link-{{ loop.index }}" value="{{ row.link }}" readonly aria-label="{{ de_en('Link für {n}', 'Link for {n}', n=row.invite.name) }}" data-select-all></td>
+      <td class="invite-links-actions">
+        <button type="button" class="button button-small button-secondary" data-copy="#invite-link-{{ loop.index }}">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button>
+        {% if mail_on and row.invite.email %}
+        <form class="inline" method="post" action="{{ url_for('invite_links.send', survey_id=survey.id) }}" data-invite-mail>
+          {{ csrf() }}<input type="hidden" name="token" value="{{ row.token }}">
+          <button class="button button-small button-secondary">{{ icon("mail", 16) }} {{ de_en("Per Mail senden", "Send by email") }}</button>
+          <span class="muted small" role="status" data-invite-mail-said></span></form>
+        {% elif mail_on %}<span class="muted small">{{ de_en("keine Adresse", "no address") }}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('invite_links.as_csv', survey_id=survey.id) }}" class="button-row">
+    {{ csrf() }}{% for row in links %}<input type="hidden" name="token" value="{{ row.token }}">{% endfor %}
+    <button class="button button-secondary">{{ icon("download", 16) }} {{ de_en("Alle als CSV", "All as CSV") }}</button>
+    {% if links %}<span class="muted small">{{ de_en("Rolle „{r}“ · Links gültig bis {d}", "Role “{r}” · links valid until {d}", r=role, d=links[0].invite.expires_at|localdt) }}{% if links[0].invite.access_until %} · {{ de_en("Zugang endet am {d}", "access ends on {d}", d=links[0].invite.access_until|localdate) }}{% endif %}</span>{% endif %}
+  </form>
+  <p><a class="button" href="{{ url_for('surveys.detail', survey_id=survey.id) }}#members">{{ de_en("Fertig", "Done") }}</a></p>
+</section>
+{% endblock %}

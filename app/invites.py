@@ -291,9 +291,11 @@ def join(invite, user=None, orcid=None, name=""):
         role = invite.role if invite.role in SurveyMember.ROLES else "editor"
         member = next((m for m in target.members if m.user_id == person.id), None)
         if member is None:
+            # a personal link with "Zugang endet am" (app/invite_links.py, E9): the membership ends that day
             target.members.append(SurveyMember(
                 user=person, position=len(target.members), name=name or "",
-                affiliation=__import__("app.orgs", fromlist=["x"]).affiliation_of(user), invited_by_id=inviter, role=role))
+                affiliation=__import__("app.orgs", fromlist=["x"]).affiliation_of(user), invited_by_id=inviter, role=role,
+                access_until=invite.access_until))
         elif SurveyMember.LEVEL.get(role, 0) > SurveyMember.LEVEL.get(member.role, 0):
             member.role = role  # already involved: the higher of both roles, as joinlinks.join (code review 2026-10-15, H7)
         db.session.commit()
@@ -387,15 +389,26 @@ def accept(token):
 
         session[SESSION_KEY] = {"box": secrets_box.encrypt(token), "at": time.time()}
         return redirect(url_for("auth.login"))
-    taken = _account_of(invite.email) is not None
+    # a personal link without an address (app/invite_links.py): the person gives one for the new account (E5)
+    ask_email = not invite.email
+    taken = not ask_email and _account_of(invite.email) is not None
     if request.method == "POST" and request.form.get("way") == "password" and not taken:
         name = " ".join(request.form.get("name", "").split())[:200]
         password = request.form.get("password", "")
+        email = invite.email
         error = None
-        if not name:
+        if ask_email:
+            email = passwords.normal_email(request.form.get("email"))
+            if email is None:
+                error = de_en("Bitte eine gültige E-Mail-Adresse angeben.", "Please enter a valid email address.")
+            elif _account_of(email) is not None:
+                error = de_en("Für diese Adresse gibt es schon ein Konto. Bitte melden Sie sich an und öffnen Sie den "
+                              "Link danach noch einmal.", "There is already an account for this address. Please sign in "
+                              "and open the link again afterwards.")
+        if not error and not name:
             error = de_en("Bitte Ihren Namen angeben.", "Please enter your name.")
         if not error:
-            error = passwords.problem(password, name, invite.email)
+            error = passwords.problem(password, name, email)
         if not error and invite.group_id:
             from app import orgs
 
@@ -407,7 +420,7 @@ def accept(token):
             flash(error, "error")
         else:
             inviter = db.session.get(User, invite.created_by_id) if invite.created_by_id else None
-            user = accounts.create_local(name, invite.email, "",
+            user = accounts.create_local(name, email, "",
                                          False, inviter)
             db.session.flush()
             passwords.set_password(user, password)
@@ -431,7 +444,7 @@ def accept(token):
             return redirect(goal)
     return _no_store(render_template(
         "invites/accept.html", invite=invite, title=title, role=_role_label(invite), token=token, signed_in=False,
-        taken=taken, orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID")), min_length=passwords.MIN_LENGTH,
+        taken=taken, ask_email=ask_email, orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID")), min_length=passwords.MIN_LENGTH,
         form=request.form if request.method == "POST" else {}))
 
 

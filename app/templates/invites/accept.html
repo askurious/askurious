@@ -8,6 +8,7 @@
   <h1>{{ de_en("Einladung", "Invitation") }}</h1>
   <section class="panel">
     <p>{% if invite.survey_id %}{{ de_en("Sie sind eingeladen, an der Befragung „{t}“ mitzuarbeiten, Rolle „{r}“.", "You are invited to work on the survey “{t}”, role “{r}”.", t=title, r=role) }}{% else %}{{ de_en("Sie sind in die Gruppe „{t}“ eingeladen, Rolle „{r}“.", "You are invited to the group “{t}”, role “{r}”.", t=title, r=role) }}{% endif %}</p>
+    {% if invite.name %}<p class="muted">{{ de_en("Dieser persönliche Link ist für {n} bestimmt.", "This personal link is meant for {n}.", n=invite.name) }}{% if invite.access_until %} {{ de_en("Der Zugang zur Befragung endet am {d}; ein Konto, das Sie jetzt neu anlegen, endet am selben Tag.", "Access to the survey ends on {d}; an account you create now ends the same day.", d=invite.access_until|localdate) }}{% endif %}</p>{% endif %}
     {% if signed_in %}
     <form method="post" class="button-row">
       {{ csrf() }}
@@ -29,8 +30,13 @@
     <h2>{{ de_en("Mit E-Mail-Adresse und Passwort", "With email address and password") }}</h2>
     <form method="post" class="stack">
       {{ csrf() }}<input type="hidden" name="way" value="password">
+      {% if ask_email %}
+      <label>{{ de_en("E-Mail-Adresse", "Email address") }} <span class="hint">{{ de_en("damit melden Sie sich künftig an", "you sign in with it from now on") }}</span>
+        <input type="email" name="email" maxlength="254" required value="{{ form.get('email', '') }}" autocomplete="username"></label>
+      {% else %}
       <input type="email" name="username" value="{{ invite.email }}" autocomplete="username" readonly hidden>
       <p class="muted small">{{ de_en("Sie melden sich künftig mit {e} und diesem Passwort an.", "From now on you sign in with {e} and this password.", e=invite.email) }}</p>
+      {% endif %}
       <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("so stehen Sie in den Listen der Beteiligten", "how you appear in the lists of people involved") }}</span>
         <input name="name" maxlength="200" required value="{{ form.get('name', '') }}" autocomplete="name"></label>
       <label>{{ de_en("Passwort", "Password") }} <span class="hint">{{ de_en("mindestens {n} Zeichen; ein Satz aus mehreren Wörtern ist gut", "at least {n} characters; a sentence of several words is good", n=min_length) }}</span>

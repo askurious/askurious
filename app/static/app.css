@@ -1681,6 +1681,15 @@ p.start-check { margin: 0 0 12px; }
 .person-dialog::backdrop { background: rgba(20, 20, 18, 0.35); }
 /* "Neue Organisation …" and "Neue Gruppe …" (Ralf 2026-10-20): the same dialog with one form, narrower */
 .person-dialog.is-narrow { width: min(560px, calc(100vw - 32px)); }
+.invite-links-head, .invite-links-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px; }
+.invite-links-head { font-size: 0.85rem; color: var(--muted); }
+.invite-links-rows { display: grid; gap: 8px; }
+.invite-links-choices { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; }
+.invite-links-choices label { display: grid; gap: 4px; }
+.invite-links-made { width: 100%; }
+.invite-links-made td { vertical-align: middle; }
+.invite-links-actions { white-space: nowrap; }
+@media (max-width: 640px) { .invite-links-head { display: none; } .invite-links-row { grid-template-columns: 1fr; } }
 .person-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 12px; }
 .person-ways.is-one { grid-template-columns: 1fr; }  /* one way at a time, chosen above (Ralf 2026-10-18) */
 /* the chosen way in two columns, so the dialog needs no scrolling on a desktop (Ralf 2026-10-18): name, address, type
