@@ -241,3 +241,29 @@ def test_interview_gate_imports_first():
         done = run([sys.executable, "-c", f"import {module}; from app.items import get; "
                     "assert callable(get('guide_question').import_rules['gate'])"], timeout=120, cwd=root)
         assert done.returncode == 0, done.stderr.decode(errors="replace")
+
+
+def test_print_and_word_carry_the_numbers_hints_name(app, client):
+    """Feedback 2026-11-20: the filter line and the conditions name "K1" and hints point to Leitfragen by number, but
+    print and Word showed neither: the Leitfragen are counted 1, 2, … and the concrete questions carry K1, K2, … as in
+    the interview view."""
+    code, sid, bid, (a, b, c) = guide_with_questions(app, client)
+    fill(client, sid, a)
+    edit(client, sid, c, gate=f"g:{a}:k1:no")
+    with app.app_context():
+        from app import interview_gate
+
+        leads = interview_gate.numbers(db.session.get(Survey, sid))
+    n, last = leads[a], max(leads.values())
+    assert sorted(leads.values()) == list(range(1, last + 1)) and leads[c] == n + 2
+    printed = client.get(f"/guide/{code}/print").data.decode()
+    assert '<strong class="guide-print-k">K1</strong> Arbeitest du gerade' in printed
+    assert '<strong class="guide-print-k">K2</strong> Wie viele Stunden' in printed     # a Nachfrage is not counted
+    assert f'<strong class="guide-print-lead">{n}.</strong>' in printed and f'<strong class="guide-print-lead">{last}.</strong>' in printed
+    word = docx_text(client.get(f"/guide/{code}/export/leitfaden.docx").data)
+    assert "K1  Arbeitest du gerade" in word and "K2  Wie viele Stunden" in word
+    assert f"{n}.  In welchem Studiengang" in word and "1, 2 … = Leitfragen" in word
+    card = docx_text(client.get(f"/guide/{code}/export/interviewkarte.docx").data)
+    assert f"{n}.  In welchem Studiengang" in card
+    conduct = client.get(f"/guide/{code}/conversation").data.decode()
+    assert f"Leitfrage {n} ·" in conduct and f'<span class="iv-lead-n">{last}</span>' in conduct

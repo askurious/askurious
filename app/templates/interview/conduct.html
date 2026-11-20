@@ -202,7 +202,7 @@
         <ul class="iv-nav-steps">
           {% for step in mine if step.item.type == "guide_question" %}
           <li>{% if free %}<button type="button" data-iv-go="{{ step.n }}" data-iv-mark="{{ step.n }}">{% else %}<span data-iv-mark="{{ step.n }}">{% endif %}
-            <span class="iv-dot" aria-hidden="true"></span><span class="iv-nav-text">{{ step.item.text("question")|striptags|truncate(60, true, "…") or de_en("Leitfrage", "Guide question") }}</span>{% if step.item.config.core %} <span class="iv-core-mark" title="{{ de_en('Kernfrage', 'Core question') }}">{{ de_en("Kern", "Core") }}</span>{% endif %}
+            <span class="iv-dot" aria-hidden="true"></span><span class="iv-nav-text">{% if step.lead %}<span class="iv-lead-n">{{ step.lead }}</span> {% endif %}{{ step.item.text("question")|striptags|truncate(60, true, "…") or de_en("Leitfrage", "Guide question") }}</span>{% if step.item.config.core %} <span class="iv-core-mark" title="{{ de_en('Kernfrage', 'Core question') }}">{{ de_en("Kern", "Core") }}</span>{% endif %}
             {% if free %}</button>{% else %}</span>{% endif %}
             {% if step.subs %}<ul class="iv-nav-subs">{% for sub in step.subs %}<li data-iv-sub-mark="{{ sub.id }}"><span class="iv-dot" aria-hidden="true"></span>{{ sub.text("question")|striptags|truncate(50, true, "…") or de_en("Unterfrage", "Sub-question") }}</li>{% endfor %}</ul>{% endif %}</li>
           {% endfor %}
@@ -236,7 +236,7 @@
                {% if item and item.type == "guide_question" %}data-iv-question="{{ item.id }}" data-iv-label="{{ item.text('question')|striptags|truncate(80, true, '…') or de_en('Leitfrage', 'Guide question') }}"{% if item.config.core %} data-iv-core{% endif %}{% endif %}
                {% if not loop.first %}hidden{% endif %}>
         {% if step.part == "guide" %}
-          <p class="muted small iv-where">{{ step.block.title() }}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% endif %}</p>
+          <p class="muted small iv-where">{{ step.block.title() }}{% if step.lead %} · {{ de_en("Leitfrage {n}", "Guide question {n}", n=step.lead) }}{% endif %}{% if item.type == "guide_question" %} · {{ de_en("ca. {n} Min.", "approx. {n} min", n=item.kind.minutes(item)) }}{% if item.config.core %} · {{ de_en("Kernfrage", "Core question") }}{% endif %}{% endif %}</p>
           {% for gate in step.gates %}
           <p class="iv-cond iv-gate-line" data-iv-gate-line="{{ loop.index0 }}">{{ de_en("Themenblock nur, wenn {c}", "Topic block only if {c}", c=gate.label) if gate.scope == "block" else de_en("Nur stellen, wenn {c}", "Ask only if {c}", c=gate.label) }} <span class="iv-cond-state" data-iv-gate-state></span></p>
           {% endfor %}

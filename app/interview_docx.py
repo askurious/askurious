@@ -76,11 +76,12 @@ def _cell_lines(cell, lines, box=False):
 
 def _probe_cell(ctx, cell, item):
     """The concrete questions: a condition in small italics above its question, a Nachfrage indented with ↳ and its
-    "Wann stellen?" (concept bedingungen-leitfaden, Ralf 2026-10-19)."""
+    "Wann stellen?" (concept bedingungen-leitfaden, Ralf 2026-10-19); each concrete question with its number K1, K2,
+    because conditions and filters ("falls K1 …", "Nur wenn K1 bei …") name it so (feedback 2026-11-20)."""
     cell.text = ""
     first = True
 
-    def line(text, note, sub):
+    def line(text, note, sub, n=None):
         nonlocal first
         if note:
             p = cell.paragraphs[0] if first else cell.add_paragraph()
@@ -95,15 +96,18 @@ def _probe_cell(ctx, cell, item):
         p.paragraph_format.space_after = Pt(2)
         if sub:
             p.paragraph_format.left_indent = Cm(0.4)
+        if n:  # K1, K2 as the conditions and filters name them, as on the interview screen
+            number = p.add_run(ctx.say("K{n}  ", "Q{n}  ", n=n))
+            number.bold, number.font.size = True, Pt(9.5)
         p.add_run(("↳ " if sub else "") + plain(text)).font.size = Pt(9.5)
 
     for row in item.kind.probe_tree(item, ctx.lang, ctx.ui):
-        line(row["text"], row["cond_text"], False)
+        line(row["text"], row["cond_text"], False, row["n"])
         for sub in row["subs"]:
             line(sub["text"], " · ".join(n for n in (sub["when"], sub["cond_text"]) if n), True)
 
 
-def _guide_table(ctx, items, subs=frozenset()):
+def _guide_table(ctx, items, subs=frozenset(), leads=None):
     """The Leitfragen of a run as the four columns of Helfferich; an Unterfrage (ids `subs`) indented with ↳ and its
     "Wann stellen?" under it, without a duration (concept unterfragen, Ralf 2026-10-18)."""
     rows = [i for i in items if i.type == "guide_question"]
@@ -123,6 +127,8 @@ def _guide_table(ctx, items, subs=frozenset()):
         if sub:
             p.paragraph_format.left_indent = Cm(0.5)
             p.add_run("↳ ")
+        if (leads or {}).get(item.id):  # the number of the Leitfrage, as in the interview view
+            p.add_run(f"{leads[item.id]}.  ").bold = True
         if (item.config or {}).get("core") and not sub:
             p.add_run(ctx.say("K  ", "C  ")).bold = True
         p.add_run(plain(item.text("question", ctx.lang)) or ctx.say("(ohne Erzählaufforderung)", "(without narrative prompt)"))
@@ -146,7 +152,7 @@ def _guide_table(ctx, items, subs=frozenset()):
     _widths(table, WIDTHS)
 
 
-def _guide_block(ctx, block):
+def _guide_block(ctx, block, leads=None):
     """A Themenblock: the hints and stimuli where they stand, the Leitfragen together in tables between them."""
     subs = {i.id for i, main in interview.outline(block) if main is not None}
     run = []
@@ -155,7 +161,7 @@ def _guide_block(ctx, block):
             run.append(item)
             continue
         if run:
-            _guide_table(ctx, run, subs)
+            _guide_table(ctx, run, subs, leads)
             run = []
         if item.type in interview.TASK_ITEM_TYPES:  # a task (app/interview_tasks.py): named as one
             from app.interview_tasks import kind_name
@@ -165,7 +171,7 @@ def _guide_block(ctx, block):
         if item.type != "page_break":
             _item(ctx, item)
     if run:
-        _guide_table(ctx, run, subs)
+        _guide_table(ctx, run, subs, leads)
 
 
 def _form(ctx, block, title, ui=None):
@@ -183,10 +189,13 @@ def _leitfaden(survey, doc, ctx):
     _head(doc, survey, ctx.say("Interviewleitfaden", "Interview guide"), ctx.ui, guide=True)
     st = state(survey)
     total = sum(interview.planned_minutes(b) for b in interview.guide_blocks(survey))
-    _note(doc, ctx.say("Geplante Dauer ca. {total} Min. · Reihenfolge: {order} · K = Kernfrage, soll in jedem "
-                       "Interview vorkommen · ☐ inhaltliche Aspekte nur abhaken, wenn sie von selbst zur Sprache kommen",
-                       "Planned duration approx. {total} min · order: {order} · C = core question, should come up in every "
-                       "interview · ☐ tick content aspects only when they come up unprompted",
+    leads = interview_gate.numbers(survey)
+    _note(doc, ctx.say("Geplante Dauer ca. {total} Min. · Reihenfolge: {order} · 1, 2 … = Leitfragen in der Reihenfolge "
+                       "des Interviews · K = Kernfrage, soll in jedem "
+                       "Interview vorkommen · K1, K2 … = konkrete Fragen, auf die sich Bedingungen und Filter beziehen · ☐ inhaltliche Aspekte nur abhaken, wenn sie von selbst zur Sprache kommen",
+                       "Planned duration approx. {total} min · order: {order} · 1, 2 … = guide questions in the order of "
+                       "the interview · C = core question, should come up in every "
+                       "interview · Q1, Q2 … = specific questions that conditions and filters refer to · ☐ tick content aspects only when they come up unprompted",
                        total=total, order=(ORDERS_EN if ctx.ui == "en" else ORDERS)[st["order"]][0]))
     for which, block in interview.ordered_blocks(survey):
         if which == "guide":
@@ -196,7 +205,7 @@ def _leitfaden(survey, doc, ctx):
             if gate_line:
                 run = doc.add_paragraph().add_run(gate_line)
                 run.italic, run.font.size = True, Pt(9)
-            _guide_block(ctx, block)
+            _guide_block(ctx, block, leads)
         else:
             _form(ctx, block, _part(ctx.ui, which) + (ctx.say(" (nach dem Gespräch)", " (after the conversation)") if which == "post" else ""))
     doc.add_heading(ctx.say("Quellen", "Sources"), level=2)
@@ -211,6 +220,7 @@ def _part(ui, which):
 
 def _karte(survey, doc, ctx):
     _head(doc, survey, ctx.say("Interviewkarte", "Interview card"), ctx.ui)
+    leads = interview_gate.numbers(survey)
     first = True
     for which, block in interview.ordered_blocks(survey):
         if which != "guide":
@@ -234,7 +244,8 @@ def _karte(survey, doc, ctx):
                     w = p.add_run(when + ": ")
                     w.italic, w.font.size = True, Pt(12)
                 core = ctx.say("K  ", "C  ") if (item.config or {}).get("core") and not sub else ""
-                run = p.add_run(core + plain(item.text("question", ctx.lang)))
+                lead = f"{leads[item.id]}.  " if item.id in leads and not sub else ""
+                run = p.add_run(lead + core + plain(item.text("question", ctx.lang)))
                 run.font.size = Pt(13 if sub else 15)
                 for _, text in item.kind.rows(item, "aspects", ctx.lang):
                     line = doc.add_paragraph()
