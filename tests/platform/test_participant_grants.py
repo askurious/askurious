@@ -331,6 +331,27 @@ def test_restart_refuses_a_half_switched_participant_role(tmp_path, env, message
     assert "up -d" not in (w.text("docker.log") or "")
 
 
+@needs_bash
+@pytest.mark.parametrize("env, refused", [
+    ("DB_ISOLATION=1\n", True),
+    ("DB_ISOLATION=1\nPARTICIPANT_ROLE_OPTIONAL=1\n", False),
+    ("", False),
+])
+def test_an_isolated_server_wants_the_participants_role(tmp_path, env, refused):
+    """Audit 2026-11-20 (Ralf: with a switch): an isolated server does not start the participants' containers under
+    the runtime role, which reads and writes every table; PARTICIPANT_ROLE_OPTIONAL=1 keeps a server without the
+    role, and a server without DB_ISOLATION is not asked."""
+    w = World(tmp_path)
+    folder = w.repo / "deploy/docker"
+    _write(str(folder / ".env"), env)
+    out = w.run("--no-build", script=str(folder / "restart.sh"), AS_SERVER="1", FAKE_PARTICIPANTS="1",
+                FAKE_DB_VERSION="0059")
+    said = "without the participants' own database role" in out.stderr
+    assert said == refused, out.stdout + out.stderr
+    if refused:
+        assert out.returncode != 0 and "up -d" not in (w.text("docker.log") or "")
+
+
 def test_role_script_prints_no_secret_and_needs_isolation():
     text = Path(DOCKER, "participant-db-role.sh").read_text("utf-8")
     assert "Needs DB_ISOLATION=1" in text and "ISOLATION_ACTIVE" in text

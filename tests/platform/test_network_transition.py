@@ -107,7 +107,8 @@ def test_isolated_restart_orders_backup_job_and_sequential_routing(tmp_path, fai
     w = World(tmp_path)
     folder = w.repo / "deploy/docker"
     _write(str(w.repo / "migrations/versions/0059.py"), "revision = '0059'\ndown_revision = None\nROLLING = True\n")
-    _write(str(folder / ".env"), "DB_ISOLATION=1\n")
+    # without the participants' own role, which an isolated server otherwise wants (tests/platform/test_participant_grants.py)
+    _write(str(folder / ".env"), "DB_ISOLATION=1\nPARTICIPANT_ROLE_OPTIONAL=1\n")
     fake_python = '''#!/usr/bin/env bash
 echo "isolation $2" >> "$SERVER/docker.log"
 [ "$2" != "${FAKE_ISOLATION_FAIL:-}" ]
