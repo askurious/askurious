@@ -205,13 +205,13 @@ def may_propose_merge(project, source, target, who):
 
 
 def own_codings(project, key, cat_ids):
-    """[(interview, coding)] of the actor `key` whose category as made is one of `cat_ids` (all interviews)."""
+    """[(interview, coding)] of the actor `key` whose category as made is one of `cat_ids` (all interviews; None: any)."""
     from app import interview_data
     from app.models import Survey
 
     survey = db.session.get(Survey, project.survey_id)
     return [(r, c) for r in interview_data.interviews(survey) for c in codings(r, project.id)
-            if c.get("by") == key and c.get("cat") in cat_ids]
+            if c.get("by") == key and (cat_ids is None or c.get("cat") in cat_ids)]
 
 
 def affected(project, cat_ids, but=None):
@@ -228,9 +228,10 @@ def affected(project, cat_ids, but=None):
     return out
 
 
-def _merged_ids(project, cat_id):
-    """The category and all merged into it, as made."""
-    rows = list(db.session.scalars(db.select(CodingCategory).filter_by(project_id=project.id)))
+def _merged_ids(project, cat_id, rows=None):
+    """The category and all merged into it, as made. `rows`: the categories of the analysis, when already read."""
+    if rows is None:
+        rows = list(db.session.scalars(db.select(CodingCategory).filter_by(project_id=project.id)))
     ids, grew = {cat_id}, True
     while grew:
         grew = False
@@ -306,19 +307,34 @@ def _answered(project, event_id, key):
 
 def notices(project, who):
     """The merges, renames and moves by others that carry own passages of the actor, and own passages others moved to
-    another category, that the actor has not answered: [(event, own passages)]."""
+    another category, that the actor has not answered: [(event, own passages)].
+    The interviews are read once and the answers in one query, not once per event: on every opening of the page of an
+    analysis this ran up to 200 times over all interviews with all their passages (Ralf 2026-11-20, "Seiten öffnen
+    langsam")."""
     out = []
-    for e in db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id)
-                                .where(CodingEvent.kind.in_(("merged", "changed", "moved", "recoded"))).order_by(CodingEvent.id.desc()).limit(200)):
+    events = list(db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id)
+                                     .where(CodingEvent.kind.in_(("merged", "changed", "moved", "recoded")))
+                                     .order_by(CodingEvent.id.desc()).limit(200)))
+    events = [e for e in events if e.actor_key != who.key]
+    if not events:
+        return out
+    answered = set(db.session.scalars(db.select(CodingEvent.reply_to).filter_by(project_id=project.id, actor_key=who.key)
+                                      .where(CodingEvent.kind.in_(("fits", "split_off")),
+                                             CodingEvent.reply_to.in_([e.id for e in events]))))
+    own = None  # {category id as made: own passages}, read at the first event that needs it
+    rows = None  # all categories of the analysis, for what was merged into what
+    for e in events:
         data = e.data or {}
-        if e.actor_key == who.key or data.get("undone") or _answered(project, e.id, who.key):
+        if data.get("undone") or e.id in answered:
             continue
         if e.kind == "recoded":  # a passage of the actor moved to another category by someone of the team
             if data.get("author") == who.key:
                 out.append((e, 1))
             continue
         if e.kind == "merged":
-            ids = _merged_ids(project, data.get("source"))
+            if rows is None:
+                rows = list(db.session.scalars(db.select(CodingCategory).filter_by(project_id=project.id)))
+            ids = _merged_ids(project, data.get("source"), rows)
             if db.session.get(CodingCategory, data.get("source")).merged_into != data.get("target"):
                 continue  # taken back meanwhile
         elif e.kind == "moved":
@@ -328,7 +344,11 @@ def notices(project, who):
             if not before or before == after:
                 continue
             ids = {e.category_id}
-        n = len(own_codings(project, who.key, ids))
+        if own is None:
+            own = {}
+            for _r, c in own_codings(project, who.key, None):
+                own[c.get("cat")] = own.get(c.get("cat"), 0) + 1
+        n = sum(own.get(i, 0) for i in ids)
         if n:
             out.append((e, n))
     return out

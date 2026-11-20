@@ -120,6 +120,29 @@ def test_fits_and_rename(app, client):
     assert bea.post(f"{base}/events/{event.id}/fits").status_code == 404           # once
 
 
+def test_notices_read_the_interviews_once(app, client, monkeypatch):
+    """Many renames by others: the notices read the interviews once, not once per change (Ralf 2026-11-20, the page of
+    an analysis opened slowly), and still count the own passages of each renamed category."""
+    from app import interview_data
+
+    code, pid, rid, base, main, bea = _setup(app, client)
+    cats = [_sub(client, base, main, f"Kategorie {k}") for k in range(3)]
+    _code(bea, base, rid, "Manchmal", cats[0])
+    _code(bea, base, rid, "Abends", cats[1])
+    for k in range(40):  # the team renames back and forth
+        client.post(f"{base}/categories/{cats[k % 3]}", data={"name": f"Name {k}", "definition": "d", "delimitation": ""})
+    reads = []
+    real = interview_data.interviews
+    monkeypatch.setattr(interview_data, "interviews", lambda *a, **k: reads.append(1) or real(*a, **k))
+    page = bea.get(base).data.decode()
+    assert "umbenannt" in page and "Alten Namen behalten" in page
+    assert len(reads) <= 3  # before: once more for each of the 40 renames
+    with app.app_context():
+        events = db.session.scalars(db.select(CodingEvent).filter_by(project_id=pid, kind="changed")).all()
+        shown = [e for e in events if f"/events/{e.id}/" in page]
+        assert shown and {e.category_id for e in shown} <= set(cats[:2])  # the third has none of Bea's passages
+
+
 def test_main_categories_are_merged_by_the_team_only(app, client):
     code, pid, rid, base, main, bea = _setup(app, client)
     client.post(f"{base}/categories/new", data={"kind": "main", "name": "Last", "anyway": "1"})
