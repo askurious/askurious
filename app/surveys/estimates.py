@@ -70,6 +70,30 @@ def results_hb(survey_id, item_id):
     return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#hb-{item.id}")
 
 
+@bp.route("/<sid:survey_id>/results/hb/<int:item_id>/scale", methods=["POST"])
+@login_required
+def results_hb_scale(survey_id, item_id):
+    """How the results page shows the HB part-worths of a CBC or ACBC question: raw (logit scale) or rescaled per
+    person (conjoint_hb.SCALE_KEY). Only a display: the stored estimate and its key stay as they are. Like the shown
+    segments no change of the questionnaire (results_lc_choose); static/hb.js fetches the HB block anew."""
+    from flask import jsonify
+
+    from app import conjoint_hb
+    from app.models import Item
+
+    survey = get_survey(survey_id, need="editor")
+    item = db.session.get(Item, item_id)
+    if item is None or item.block.survey_id != survey.id or item.type not in ("conjoint", "acbc"):
+        abort(404)
+    if conjoint_hb.choose_scale(item, request.form.get("scale")):
+        db.session.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify(state="shown", message="", ok=True)
+    args = {"source": request.form.getlist("source") or ["real"], **({"all": "1"} if request.form.get("all") else {}),
+            **({"drop": "1"} if request.form.get("drop") else {})}
+    return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#hb-{item.id}")
+
+
 @bp.route("/<sid:survey_id>/results/hb/<int:item_id>/status")
 @login_required
 def results_hb_status(survey_id, item_id):

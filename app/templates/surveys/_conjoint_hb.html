@@ -65,9 +65,23 @@
   <p class="muted small">{{ de_en("Wichtigkeit in Prozent je Person, über {n} Personen; SD, Median und Quartile beschreiben die Unterschiede zwischen den Personen, nicht die Unsicherheit des Mittels.", "Importance in per cent per person, over {n} people; SD, median and quartiles describe the differences between the people, not the uncertainty of the mean.", n=res.persons|thousands) }}</p>
 </details>
 <p class="muted small">{{ de_en("Bei schwachen oder zufälligen Vorlieben steigt die individuelle Wichtigkeit mit der Zahl der Stufen eines Merkmals: Unter mehr Stufen liegt die Spannweite schon durch Zufall höher. Eine hohe Wichtigkeit bei Teilnutzen nahe 0 und kleiner Streuung (SD) ist deshalb kein Befund.", "With weak or random preferences the individual importance rises with the number of levels of an attribute: with more levels the range is higher by chance alone. A high importance with part-worths near 0 and a small spread (SD) is therefore no finding.") }}</p>
-<p class="res-group-head">{{ de_en("Mittlere", "Mean") }} {{ term("partworth", de_en("Teilnutzen", "part-worths")) }} <span class="hint">{{ de_en("Mittel der individuellen, je Merkmal nullzentrierten Teilnutzen; Linie: 95-%-Posterior-Intervall des Mittelwerts; gleiche Skala für alle Merkmale", "mean of the individual part-worths, zero-centred per attribute; line: 95% posterior interval of the mean; same scale for all attributes") }}</span></p>
-{% for attr in res.attributes %}
-{% set ch = res.charts[loop.index0] %}
+{% set diffs_on = (e.item.config or {}).get("hb_scale") == "diffs" and res.diffs %}
+{% set pw = res.diffs if diffs_on else res %}
+{% set show_iv = not diffs_on or res.diffs.intervals %}
+<p class="res-group-head">{{ de_en("Mittlere", "Mean") }} {{ term("partworth", de_en("Teilnutzen", "part-worths")) }} <span class="hint">{% if diffs_on %}{{ de_en("Mittel der je Person normierten, je Merkmal nullzentrierten Teilnutzen (Spannweiten je Person zusammen 100 × Zahl der Merkmale)", "mean of the part-worths rescaled per person, zero-centred per attribute (ranges per person together 100 × number of attributes)") }}{% if show_iv %}{{ de_en("; Linie: 95-%-Posterior-Intervall des Mittelwerts", "; line: 95% posterior interval of the mean") }}{% endif %}{% else %}{{ de_en("Mittel der individuellen, je Merkmal nullzentrierten Teilnutzen; Linie: 95-%-Posterior-Intervall des Mittelwerts; gleiche Skala für alle Merkmale", "mean of the individual part-worths, zero-centred per attribute; line: 95% posterior interval of the mean; same scale for all attributes") }}{% endif %}</span></p>
+{% if res.diffs %}<form class="res-run-hb hb-scale" method="post" action="{{ url_for('surveys.results_hb_scale', survey_id=survey.id, item_id=e.item.id) }}" data-hb-form>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+  {% if f.all %}<input type="hidden" name="all" value="1">{% endif %}
+  {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
+  <label for="hb-scale-{{ e.item.id }}">{{ de_en("Teilnutzen zeigen als", "Show part-worths as") }}</label>
+  <select id="hb-scale-{{ e.item.id }}" name="scale" data-submit-on-change>
+    <option value="raw"{% if not diffs_on %} selected{% endif %}>{{ de_en("Rohwerte (Logit-Skala)", "raw values (logit scale)") }}</option>
+    <option value="diffs"{% if diffs_on %} selected{% endif %}>{{ de_en("normiert (Spannweiten je Person)", "rescaled (ranges per person)") }}</option>
+  </select>
+</form>{% endif %}
+{% for attr in pw.attributes %}
+{% set ch = pw.charts[loop.index0] %}
 <p class="pw-head">{{ attr.label }}</p>
 {{ pw_chart(ch) }}
 {# the same means as the chart plus spread: folded (UI audit 2026-10-12, U24) #}
@@ -75,7 +89,7 @@
 <div class="res-scroll"><table class="res-table cm-utilities hb-utilities">
   <colgroup><col class="hb-c-label"><col class="hb-c-num"><col class="hb-c-range"><col class="hb-c-num"><col class="hb-c-range"><col class="hb-c-share"></colgroup>
   <thead><tr><th>{{ attr.label }}</th><th title="{{ de_en('Mittelwert der individuellen Teilnutzen', 'Mean of the individual part-worths') }}">{{ de_en("Mittel", "Mean") }}</th>
-    <th title="{{ de_en('95-%-Posterior-Intervall des Mittelwerts über die Personen', '95% posterior interval of the mean over the people') }}">{{ de_en("95-%-Intervall", "95% interval") }}</th>
+    {% if show_iv %}<th title="{{ de_en('95-%-Posterior-Intervall des Mittelwerts über die Personen', '95% posterior interval of the mean over the people') }}">{{ de_en("95-%-Intervall", "95% interval") }}</th>{% endif %}
     <th title="{{ de_en('Standardabweichung der individuellen Teilnutzen (Punktschätzer, zum Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind größer)', 'Standard deviation of the individual part-worths (point estimates, shrunk towards the mean: the real differences between people are larger)') }}">SD</th>
     <th title="{{ de_en('Mittlere 50 % der Personen (1. bis 3. Quartil)', 'Middle 50% of the people (1st to 3rd quartile)') }}">{{ de_en("Quartile", "Quartiles") }}</th>
     <th title="{{ de_en('Anteil der Personen, für die diese Stufe nach ihrem Punktschätzer die beste des Merkmals ist; neigt zur Stufe der Mehrheit', 'Share of people for whom this level is the best of the attribute by their point estimate; tends towards the level of the majority') }}">{{ de_en("bevorzugt", "preferred") }}</th></tr></thead>
@@ -83,24 +97,25 @@
   {# in the order of the bars above (W58) #}
   {% for k in (ch.order if ch.order is defined else range(attr.levels|length)) %}{% set lv = attr.levels[k] %}
     <tr><td>{{ lv.label }}{% if lv.separated %} <span class="hint" title="{{ de_en('von allen nie oder immer gewählt; nur die Priori begrenzt den Wert', 'never or always chosen by everyone; only the prior bounds the value') }}">{{ de_en("begrenzt", "bounded") }}</span>{% endif %}</td><td>{{ signed(lv.mean) }}</td>
-      <td>{% if lv.lo is not none %}[{{ signed(lv.lo) }}; {{ signed(lv.hi) }}]{% else %}–{% endif %}</td>
+      {% if show_iv %}<td>{% if lv.lo is not none %}[{{ signed(lv.lo) }}; {{ signed(lv.hi) }}]{% else %}–{% endif %}</td>{% endif %}
       <td>{{ num(lv.sd) }}</td><td>{{ de_en("{a} bis {b}", "{a} to {b}", a=signed(lv.q1), b=signed(lv.q3)) }}</td><td>{{ pct(lv.best) }}</td></tr>
   {% endfor %}
   </tbody>
 </table></div>
 </details>
 {% endfor %}
-{% if res.price_levels %}
-<p class="pw-head">{{ res.price_levels.label }} <span class="hint">linear</span></p>
-{{ pw_chart(res.charts[res.attributes|length]) }}
-<p class="muted small">{{ res.price_levels.label }}: {{ de_en("linear geschätzt; die Balken zeigen den mittleren Koeffizienten × (Preis − mittlerer Preis der Stufen), also nullzentriert wie die übrigen Merkmale.", "estimated linearly; the bars show the mean coefficient × (price − mean price of the levels), so zero-centred like the other attributes.") }}</p>
+{% if pw.price_levels %}
+<p class="pw-head">{{ pw.price_levels.label }} <span class="hint">linear</span></p>
+{{ pw_chart(pw.charts[pw.attributes|length]) }}
+<p class="muted small">{{ pw.price_levels.label }}: {{ de_en("linear geschätzt; die Balken zeigen den mittleren Koeffizienten × (Preis − mittlerer Preis der Stufen), also nullzentriert wie die übrigen Merkmale.", "estimated linearly; the bars show the mean coefficient × (price − mean price of the levels), so zero-centred like the other attributes.") }}</p>
 {% endif %}
-{% if res.price or res.asc %}
+{% if pw.price or pw.asc %}
 <p class="muted small">
-  {% if res.price %}{% set u = res.price.unit or 1 %}{{ de_en("Preiskoeffizient", "Price coefficient") }} {{ per_unit(u) }}: {{ de_en("Mittel", "mean") }} {{ signed(res.price.mean * u, 4) }}{% if res.price.lo is not none %} [{{ signed(res.price.lo * u, 4) }}; {{ signed(res.price.hi * u, 4) }}]{% endif %}, {{ de_en("SD über die Personen", "SD over the people") }} {{ num(res.price.sd * u, 4) }}; {{ de_en("negativ bei {p} der Personen.", "negative for {p} of the people.", p=pct(res.price.negative)) }} {% endif %}
-  {% if res.asc %}{{ de_en("Schwelle „kommt nicht infrage“", "Threshold “out of the question”") if res.type == "acbc" else de_en("Konstante „Keine davon“", "Constant “None of these”") }}: {{ de_en("Mittel", "mean") }} {{ signed(res.asc.mean) }}{% if res.asc.lo is not none %} [{{ signed(res.asc.lo) }}; {{ signed(res.asc.hi) }}]{% endif %}, SD {{ num(res.asc.sd) }}{% if res.price %} <span class="hint">{% if res.type != "acbc" %}{{ de_en("bezogen auf ein Angebot zum mittleren Preis der Preisstufen", "relative to an offer at the mean price of the price levels") }}{% else %}{{ de_en("bezogen auf ein Angebot zum mittleren gezeigten Preis", "relative to an offer at the mean price shown") }}{% endif %}</span>{% endif %}.{% endif %}</p>
+  {% if pw.price %}{% set u = pw.price.unit or 1 %}{{ de_en("Preiskoeffizient", "Price coefficient") }} {{ per_unit(u) }}: {{ de_en("Mittel", "mean") }} {{ signed(pw.price.mean * u, 4) }}{% if pw.price.lo is not none %} [{{ signed(pw.price.lo * u, 4) }}; {{ signed(pw.price.hi * u, 4) }}]{% endif %}, {{ de_en("SD über die Personen", "SD over the people") }} {{ num(pw.price.sd * u, 4) }}; {{ de_en("negativ bei {p} der Personen.", "negative for {p} of the people.", p=pct(pw.price.negative)) }} {% endif %}
+  {% if pw.asc %}{{ de_en("Schwelle „kommt nicht infrage“", "Threshold “out of the question”") if res.type == "acbc" else de_en("Konstante „Keine davon“", "Constant “None of these”") }}: {{ de_en("Mittel", "mean") }} {{ signed(pw.asc.mean) }}{% if pw.asc.lo is not none %} [{{ signed(pw.asc.lo) }}; {{ signed(pw.asc.hi) }}]{% endif %}, SD {{ num(pw.asc.sd) }}{% if pw.price %} <span class="hint">{% if res.type != "acbc" %}{{ de_en("bezogen auf ein Angebot zum mittleren Preis der Preisstufen", "relative to an offer at the mean price of the price levels") }}{% else %}{{ de_en("bezogen auf ein Angebot zum mittleren gezeigten Preis", "relative to an offer at the mean price shown") }}{% endif %}</span>{% endif %}.{% endif %}</p>
 {% endif %}
 {# the one reading sentence; fit, convergence and the method in "Modellgüte" (S7) #}
+{% if diffs_on %}<p class="muted small">{{ de_en("Normiert: Alle Nutzen einer Person (auch Konstante und Preiskoeffizient) sind mit einem Faktor multipliziert, sodass die Spannweiten ihrer Merkmale zusammen 100 × Zahl der Merkmale ergeben (Preis: |Koeffizient| × Preisspanne); die Mittel gewichten so jede Person gleich. Wichtigkeit, Simulator und die Rohwerte im Export bleiben unverändert.", "Rescaled: all utilities of a person (the constant and the price coefficient too) are multiplied by one factor so that the ranges of their attributes add up to 100 × number of attributes (price: |coefficient| × price range); the means thus weight every person equally. Importance, simulator and the raw values in the export stay unchanged.") }}{% if res.diffs.left_out %} {{ de_en("Ohne {k} Personen, deren Spannweiten zusammen 0 sind.", "Without {k} people whose ranges add up to 0.", k=res.diffs.left_out) }}{% endif %}{% if not show_iv %} {{ de_en("Ohne Intervall: Für dieses Ergebnis sind keine Ziehungen gespeichert.", "Without an interval: no draws are stored for this result.") }}{% endif %}</p>{% endif %}
 <p class="muted small">{{ de_en("Mittel der je Person geschätzten Teilnutzen. Sie sind zum gemeinsamen Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind größer, als SD und Quartile zeigen", "Mean of the part-worths estimated per person. They are shrunk towards the common mean: the real differences between people are larger than SD and quartiles show") }}{{ fn("hb") }}. {{ de_en("Anpassung je Person, Konvergenz und Methode stehen unter „Modellgüte“.", "Fit per person, convergence and method are under “Model quality”.") }}</p>
 {% endif %}
 </section>

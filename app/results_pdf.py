@@ -990,7 +990,8 @@ def _cbc(rep, e, title):
                          [rep.say("Merkmal", "Attribute"), "M", "SD", "Mdn", "Q1", "Q3"], body,
                          rep.say("Werte in Prozent; SD in Prozentpunkten.", "Values in per cent; SD in percentage points."),
                          widths=[0.40, 0.12, 0.12, 0.12, 0.12, 0.12])
-        out += _hb_partworths(rep, hb, title)
+        out += _hb_partworths(rep, hb, title, diffs=e.get("item") is not None
+                              and conjoint_hb.scale_of(e["item"]) == "diffs" and bool(hb.get("diffs")))
     elif (cbc.get("hb") or {}).get("available"):
         out.append(_para(rep, rep.say("Für dieses Experiment liegt keine aktuelle Hierarchical-Bayes-Schätzung vor; sie "
                                       "lässt sich auf der Ergebnisseite starten.", "There is no current hierarchical Bayes "
@@ -1015,16 +1016,21 @@ def _hb_geweke_note(rep, hb):
                          c=rep.cite(*hb_mod.GEWEKE_SOURCES[:2]))
 
 
-def _hb_partworths(rep, hb, title):
+def _hb_partworths(rep, hb, title, diffs=False):
     """The mean part-worths of an HB estimate as on the results page (surveys/_conjoint_hb.html): per level the mean,
     the 95% posterior interval of the mean, SD and quartiles over the people and the share preferring it; the linear
-    price and the constant in the note (Ralf, 2026-11-23: the report had the HB importances only)."""
+    price and the constant in the note (Ralf, 2026-11-23: the report had the HB importances only). diffs: rescaled per
+    person as the page shows them (conjoint_hb.SCALE_KEY), the interval column only where draws gave one."""
+    raw = hb
+    if diffs:
+        hb = {**hb["diffs"], "type": raw.get("type")}
+    show_iv = not diffs or hb.get("intervals")
     body = []
     for a in hb.get("attributes") or []:
         for lv in a.get("levels") or []:
             label = f"{a['label']}: {lv.get('label')}" + (rep.say(" (begrenzt)", " (bounded)") if lv.get("separated") else "")
-            body.append([label, rep.num(lv.get("mean")), rep.ci((lv.get("lo"), lv.get("hi"))) or "–",
-                         rep.num(lv.get("sd")), rep.num(lv.get("q1")), rep.num(lv.get("q3")), rep.pct(lv.get("best"))])
+            body.append([label, rep.num(lv.get("mean"))] + ([rep.ci((lv.get("lo"), lv.get("hi"))) or "–"] if show_iv else [])
+                        + [rep.num(lv.get("sd")), rep.num(lv.get("q1")), rep.num(lv.get("q3")), rep.pct(lv.get("best"))])
     if not body:
         return []
     note = rep.say("Mittel der je Person geschätzten, je Merkmal nullzentrierten Teilnutzen mit dem 95-%-Posterior-Intervall "
@@ -1035,6 +1041,19 @@ def _hb_partworths(rep, hb, title):
                    "interval of the mean; SD, Q1 and Q3 over the people. The individual part-worths are shrunk towards "
                    "the common mean: the real differences between people are larger than SD and quartiles show. "
                    "Preferred: share of people for whom the level is the best of the attribute.")
+    if diffs:
+        note += " " + rep.say("Normiert: Alle Nutzen einer Person (auch Konstante und Preiskoeffizient) sind mit einem "
+                              "Faktor multipliziert, sodass die Spannweiten ihrer Merkmale zusammen 100 × Zahl der Merkmale "
+                              "ergeben (Preis: |Koeffizient| × Preisspanne); die Mittel gewichten so jede Person gleich.",
+                              "Rescaled: all utilities of a person (the constant and the price coefficient too) are "
+                              "multiplied by one factor so that the ranges of their attributes add up to 100 × number of "
+                              "attributes (price: |coefficient| × price range); the means thus weight every person equally.")
+        if hb.get("left_out"):
+            note += " " + rep.say("Ohne {k} Personen, deren Spannweiten zusammen 0 sind.",
+                                  "Without {k} people whose ranges add up to 0.", k=hb["left_out"])
+        if not show_iv:
+            note += " " + rep.say("Ohne Intervall: Für dieses Ergebnis sind keine Ziehungen gespeichert.",
+                                  "Without an interval: no draws are stored for this result.")
     if any(lv.get("separated") for a in hb.get("attributes") or [] for lv in a.get("levels") or []):
         note += " " + rep.say("Begrenzt: von allen nie oder immer gewählt; nur die Priori begrenzt den Wert.",
                               "Bounded: never or always chosen by everyone; only the prior bounds the value.")
@@ -1055,11 +1074,13 @@ def _hb_partworths(rep, hb, title):
         ci = rep.ci((asc.get("lo"), asc.get("hi")))
         note += " " + rep.say("{name}: M = {m}{ci}, SD = {sd}.", "{name}: M = {m}{ci}, SD = {sd}.", name=name,
                               m=rep.num(asc["mean"]), ci=f" {ci}" if ci else "", sd=rep.num(asc.get("sd")))
-    return rep.table(rep.say("{t}: Teilnutzen (Hierarchical Bayes)", "{t}: part-worths (hierarchical Bayes)",
-                             t=title),
-                     [rep.say("Merkmal: Stufe", "Attribute: level"), "M", rep.say("95-%-Intervall", "95% interval"), "SD",
-                      "Q1", "Q3", rep.say("bevorzugt", "preferred")], body, note,
-                     widths=[0.34, 0.09, 0.19, 0.09, 0.09, 0.09, 0.11])
+    title_text = (rep.say("{t}: Teilnutzen normiert (Hierarchical Bayes)", "{t}: part-worths rescaled (hierarchical Bayes)",
+                          t=title) if diffs else
+                  rep.say("{t}: Teilnutzen (Hierarchical Bayes)", "{t}: part-worths (hierarchical Bayes)", t=title))
+    head = [rep.say("Merkmal: Stufe", "Attribute: level"), "M"] + ([rep.say("95-%-Intervall", "95% interval")] if show_iv
+                                                                    else []) + ["SD", "Q1", "Q3", rep.say("bevorzugt", "preferred")]
+    widths = [0.34, 0.09, 0.19, 0.09, 0.09, 0.09, 0.11] if show_iv else [0.43, 0.11, 0.11, 0.11, 0.11, 0.13]
+    return rep.table(title_text, head, body, note, widths=widths)
 
 
 def _para(rep, text, style="body"):
