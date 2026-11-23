@@ -156,7 +156,8 @@ def run(inp, progress=None):
     beta = r["beta"]
     util = beta @ M.T
     # convergence judged on the zero-centred statement means (not on the differences to the reference)
-    diag = hb_convergence.diagnose(r["mu_trace"] @ M.T, r["ll_trace"], geweke_ok=r["converged"], shown=r["summaries"])
+    diag = hb_convergence.diagnose(r["mu_trace"] @ M.T, r["ll_trace"], geweke_ok=r["converged"], shown=r["summaries"],
+                                   sigma=r["sigma_trace"], person=r["person_rhat"])
     thr_util = None if t_vec is None else beta @ t_vec
     # scores per person: posterior means (so the mean over persons lies inside its posterior interval)
     prob = r["person_stat"][:, :m]

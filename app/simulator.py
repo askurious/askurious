@@ -496,7 +496,12 @@ def _notes(entry, basis):
     price coefficient is positive; with the pooled logit a price coefficient that is not clearly negative and the
     attributes whose part-worths only the prior (ridge) bounds."""
     notes = []
+    hb_entry = (entry or {}).get("hb") or {}
+    # the hint on the individual utilities of the HB estimation the shares rest on (app/hb_convergence.person_note)
+    person = ((hb_entry.get("result") or {}).get("convergence") or {}).get("person_note")
     if basis == "persons":
+        if person and hb_entry.get("state") == "current":  # CVA: the draws of the HB regression
+            notes.append(person)
         low = (entry or {}).get("low")
         if low:
             notes.append(de_en("{n} Personen haben ein R² unter {lim}: Ihre Teilnutzen folgen den Bewertungen nur lose, so "
@@ -508,6 +513,8 @@ def _notes(entry, basis):
     if basis == "hb":
         res = (((entry or {}).get("hb") or {}).get("result")) or {}
         notes += list(res.get("warnings") or [])
+        if person:
+            notes.append(person)
         price = res.get("price")
         if price and price.get("negative") is not None and price["negative"] < 1:
             notes.append(de_en("Bei {p} % der Personen ist der Preiskoeffizient positiv: Für sie macht ein höherer "
@@ -855,7 +862,10 @@ def maxdiff_compute(item, entry, state, lang, weighting=None):
     rows = _rows(labels, P, weights, F if basis == "hb" else None)
     extra = {"_P": P, "_pids": pids, "_labels": labels, "_chosen": chosen}
     if basis == "hb":
-        notes = list(((((entry or {}).get("hb") or {}).get("result")) or {}).get("warnings") or [])
+        res = (((entry or {}).get("hb") or {}).get("result")) or {}
+        notes = list(res.get("warnings") or [])
+        if (res.get("convergence") or {}).get("person_note"):
+            notes.append(res["convergence"]["person_note"])
     else:
         notes = list(((entry or {}).get("mnl") or {}).get("warnings") or [])
     return {"rows": rows, "basis": basis, "error": None, "notes": notes,

@@ -87,7 +87,8 @@ def run(inp, progress=None):
                     spread=lambda S: [np.mean(np.diag(M @ S @ M.T))])
     beta = r["beta"]
     util = beta @ M.T
-    diag = hb_convergence.diagnose(r["mu_trace"] @ M.T, r["ll_trace"], geweke_ok=r["converged"], shown=r["summaries"])
+    diag = hb_convergence.diagnose(r["mu_trace"] @ M.T, r["ll_trace"], geweke_ok=r["converged"], shown=r["summaries"],
+                                   sigma=r["sigma_trace"], person=r["person_rhat"])
     data = hb.Data(person_sets, k)
     rlh = hb.rlh(data, beta)
     chance = np.exp(data.chance_loglik() / data.sets_per_person)

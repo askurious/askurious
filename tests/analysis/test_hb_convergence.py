@@ -230,7 +230,9 @@ def test_cbc_stores_trace_shows_line_and_runs_longer(app, client, survey, monkey
         assert len(res["rhat"]) == len(res["ess"]) == k
         # W-2: the means the page shows (part-worths, constant, price per draw) count as well
         assert res["ess_shown"] is not None
-        assert res["ess_min"] == pytest.approx(min(res["ess"] + [res["ess_ll"], res["ess_shown"]]), abs=0.11)
+        # since 2026-11-23 also the diagonal of Sigma
+        assert res["ess_min"] == pytest.approx(min(res["ess"] + [res["ess_ll"], res["ess_shown"], res["ess_sigma_min"]]),
+                                               abs=0.11)
         assert res["ess_min"] < 400 and not res["diag_ok"] and res["converged"] is False   # 200 draws never do
     html = client.get("/surveys/1/results").data.decode()
     assert "Konvergenz der Kette" in html and 'class="hb-trace-line"' in html and "<polyline" in html
@@ -302,7 +304,9 @@ def test_button_for_a_passing_result_only_with_the_hint(app, client, survey, hin
         item = db.session.get(Item, 2)
         res = conjoint_hb.load(item)
         res.update({"diag_ok": True, "diag_complete": True, "converged": True, "geweke_ok": True, "rhat_max": 1.0,
-                    "ess_min": 900, "geweke_ll_hint": hint, "geweke_ll": -2.5 if hint else -0.5})
+                    "ess_min": 900, "geweke_ll_hint": hint, "geweke_ll": -2.5 if hint else -0.5,
+                    # no hint on the individual utilities (the short test chain may give one)
+                    "person_rhat_flagged": 0, "person_rhat_share": 0.0})
         maxdiff_hb._write(maxdiff_hb._paths(item)[0], res)
     html = client.get("/surveys/1/results").data.decode()
     assert "Konvergenz der Kette" in html and "hb-conv-note" not in html and "hb-conv-ok" in html
