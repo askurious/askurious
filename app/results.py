@@ -1598,6 +1598,10 @@ def page_sources(data):
                              "Individual utilities: hierarchical Bayes (multinomial logit); root likelihood (RLH) per person, "
                              "the bound {factor} × chance for possible random clickers is set by Askurious",
                              factor=units.number(maxdiff_hb.RLH_FACTOR, 1, units.page_lang())), list(hb.SOURCES)))
+        if any(((((e.get(k) or {}).get("hb") or {}).get("result") or {}).get("settings") or {}).get("prior") == "hw"
+               for e in entries for k in ("maxdiff", "cbc", "acbc", "paired")):
+            groups.append((de_en("Hierarchische Priori der Streuung zwischen Personen (Auswahl je Frage)",
+                                 "Hierarchical prior of the spread between people (chosen per question)"), [hb.HUANG_WAND]))
         groups.append((de_en("HB-Sampler: Langevin-Schritt je Person mit eigener, im Burn-in auf eine Ziel-Akzeptanz "
                              "geregelter Schrittweite (Random-Walk-Schritte: Ziel 0,3), im letzten Viertel des Burn-ins mit "
                              "abnehmendem Gewinn nachgeregelt und gemittelt (Robbins-Monro), gemeinsame Verschiebung und "

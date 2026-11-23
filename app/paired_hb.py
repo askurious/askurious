@@ -44,7 +44,7 @@ def _prepare(item, table, config=None):
     est = blocks[0] if blocks else []
     if len(est) < 2 or len(rows) < hb.MIN_PERSONS:
         return None, None
-    cfg = config or settings()
+    cfg = maxdiff_hb.with_prior(config or settings(), item)
     data = {"format": FORMAT, "type": "paired", "design": (item.config.get("design") or {}).get("sig"), "n": n,
             "cats": cats, "persons": [{"pid": pid, "a": [list(x) for x in answered]} for pid, _, answered in rows]}
     digest = hashlib.sha1(json.dumps({**data, "settings": cfg}, sort_keys=True).encode()).hexdigest()
@@ -82,8 +82,11 @@ def run(inp, progress=None):
     prior = np.eye(k)
     prior[:m - 1, :m - 1] += 1.0  # differences to the reference of iid options with variance 1
     cfg = inp["settings"]
+    # hierarchical prior: one group for the differences of the options (block I + 11'), the others alone
+    groups = [np.arange(m - 1)] + [np.array([j]) for j in range(m - 1, k)]
     r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
                     prior_cov=prior, summary=lambda B: values(B).mean(axis=0), person_stat=values, progress=progress,
+                    **maxdiff_hb.prior_args(cfg, groups),
                     spread=lambda S: [np.mean(np.diag(M @ S @ M.T))])
     beta = r["beta"]
     util = beta @ M.T
@@ -236,11 +239,11 @@ def describe(result, survey=None, lang=None):
     if reader(lang) == "en":
         return (f"Hierarchical Bayes (Bradley-Terry, adjacent categories, with position effect), estimated on "
                 f"{when:%Y-%m-%d %H:%M}; {len(result['pids'])} people ({basis}); {s['burn']} burn-in, {s['draws']} "
-                f"iterations, thinning {s['thin']}, seed {s['seed']}; posterior mean per person"
+                f"iterations, thinning {s['thin']}, seed {s['seed']}{maxdiff_hb.prior_text(s, 'en')}; posterior mean per person"
                 f"{hb_convergence.describe(result, 'en')}")
     return (f"Hierarchical Bayes (Bradley-Terry, benachbarte Kategorien, mit Positionseffekt), geschätzt am "
             f"{when:%d.%m.%Y %H:%M}; {len(result['pids'])} Personen ({basis}); {s['burn']} Burn-in, {s['draws']} "
-            f"Iterationen, Thinning {s['thin']}, Seed {s['seed']}; Posterior-Mittel je Person"
+            f"Iterationen, Thinning {s['thin']}, Seed {s['seed']}{maxdiff_hb.prior_text(s, 'de')}; Posterior-Mittel je Person"
             f"{hb_convergence.describe(result, 'de')}")
 
 

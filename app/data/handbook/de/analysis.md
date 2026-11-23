@@ -26,6 +26,7 @@ Die Ergebnisse auf der oben gewählten Grundlage, laufend aktuell, während Date
 |---|---|
 | Welcher Test | Folgt aus dem Messniveau: Pearson für zwei metrische Variablen, Spearman, wenn eine nur geordnet ist; Welchs t-Test oder Welchs Varianzanalyse für Gruppen, die keine gleichen Streuungen annehmen (Delacre et al., 2017); Rangtests für ordinale Punkte; χ² für zwei nominale Variablen. |
 | Aggregiertes Logit oder HB | Das Logit beschreibt die Stichprobe als Ganzes in Sekunden; HB schätzt Werte je Person, zeigt so, wie verschieden die Vorlieben sind, und speist den Simulator, braucht aber Tausende Ziehungen. Wichtigkeiten können deutlich abweichen, wenn Menschen ein Merkmal gegensätzlich bewerten. |
+| Priori der Streuung bei HB | Je Frage im HB-Block wählbar. Die feste Priori (Standard) zieht die Streuung zwischen Personen bei kleinen Stichproben zu einem festen Wert; die hierarchische Priori (Huang & Wand, 2013) lernt sie aus den Daten, beim Conjoint je Merkmal. Ein Wechsel schätzt neu; die Ergebnisse weichen meist nur wenig ab. |
 | Zahl der Segmente | Das BIC schlägt eine Zahl vor; wählen Sie auch nach Inhalt: Segmente, die sich deutlich unterscheiden, sich benennen lassen und Holdout-Aufgaben besser vorhersagen. |
 | Was gewichtet wird | Anteile, Mittelwerte und ihre Intervalle werden gewichtet; Fallzahlen, Reliabilität, Skalenwerte und Wahlmodelle bleiben ungewichtet. |
 

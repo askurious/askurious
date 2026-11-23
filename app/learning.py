@@ -221,6 +221,13 @@ REASONS = {
         "kleine und instabile Lösungen. Wählen Sie auch nach Inhalt: Segmente, die sich deutlich unterscheiden, "
         "benennen lassen und Holdouts besser vorhersagen.",
         (("app.latent_class", "NYLUND"), ("app.latent_class", "ANDREWS_CURRIM"))),
+    "hb_prior": (
+        "Feste oder hierarchische Priori?",
+        "Die feste Priori zieht die Streuung zwischen Personen bei wenigen Personen oder schwach bestimmten Werten zu "
+        "einem festen Wert hin. Die hierarchische Priori lernt die Streuung aus den Daten, beim Conjoint je Merkmal: Kleine "
+        "Unterschiede zwischen Personen werden nicht angehoben, große nicht gedrückt. Die Ergebnisse weichen meist nur wenig "
+        "voneinander ab.",
+        (("app.hb", "HUANG_WAND"),)),
     "segments_covariates": (
         "Kovariaten ins Modell?",
         "Kovariaten lassen die Segmentanteile je Person von Fragen wie dem Alter abhängen; das schätzt diese "
@@ -1175,6 +1182,11 @@ REASONS_EN = {
         "How many segments?",
         "The BIC suggests the number that best balances fit and parsimony; Askurious skips very small and unstable "
         "solutions. Also choose by content: segments that differ clearly, can be named and predict holdouts better."),
+    "hb_prior": (
+        "Fixed or hierarchical prior?",
+        "With few people or weakly determined values, the fixed prior pulls the spread between people towards a fixed "
+        "value. The hierarchical prior learns the spread from the data, for a conjoint per attribute: small differences "
+        "between people are not raised and large ones are not pressed down. The results usually differ only slightly."),
     "segments_covariates": (
         "Covariates in the model?",
         "Covariates let each person’s segment shares depend on questions such as age; this estimates these "
@@ -1884,6 +1896,7 @@ REASON_PLACES = {
     "holdout": ("Holdout-Aufgaben im Editor; Startliste", "holdout tasks in the editor; start list"),
     "warmup": ("Aufwärmaufgaben im Editor", "warm-up tasks in the editor"),
     "segments_k": ("Ergebnisse, Segmente", "results, segments"),
+    "hb_prior": ("Ergebnisse, HB-Schätzung, Priori der Streuung", "results, HB estimation, prior of the spread"),
     "segments_covariates": ("Ergebnisse, Segmente, Kovariaten", "results, segments, covariates"),
     "segments_describe": ("Ergebnisse, Segmente beschreiben", "results, describing segments"),
     "geo_level": ("Standort im Editor", "location in the editor"),
@@ -2060,7 +2073,7 @@ REASON_FEATURES = {"ai_chat": "ai_chat"}  # the participant screen is regular si
 PHASES = (("Planen", "Plan"), ("Erheben", "Collect"), ("Analyse", "Analysis"))
 REASON_PHASES = {key: 1 for key in ("attention_check", "speeder", "reminders", "conference", "interview_screen",
                                     "paper_check", "ink_slides")}
-REASON_PHASES.update({key: 2 for key in ("data_pool", "hb_or_logit", "segments_k", "segments_covariates",
+REASON_PHASES.update({key: 2 for key in ("data_pool", "hb_or_logit", "hb_prior", "segments_k", "segments_covariates",
                                          "segments_describe", "which_test", "weighting_scope", "preregistration",
                                          "second_coding", "transcript_export", "transcript_check", "archive_where",
                                          "sem_two_steps", "sem_drop", "sem_versions", "category_rules", "anchor_choice",

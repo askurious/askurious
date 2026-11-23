@@ -1,0 +1,214 @@
+"""The prior on the spread between persons of the HB estimation (app/hb.py): the fixed inverse Wishart (default,
+unchanged) and the hierarchical prior of Huang & Wand (2013), generalised to blocks; its choice per question on the
+results page (maxdiff_hb.PRIOR_KEY) and what it does to the key of a stored result."""
+import numpy as np
+import pytest
+
+from app.extensions import db
+from app.models import Item
+from tests.analysis.test_maxdiff_hb import person_sets, simulate, with_dummies
+
+
+def _effects(level, L=3):
+    v = np.zeros(L - 1)
+    if level < L - 1:
+        v[level] = 1
+    else:
+        v[:] = -1
+    return v
+
+
+def _cbc(n=200, tasks=10, seed=3):
+    """Simulated CBC: 3 attributes x 3 levels (effects-coded) + "none" constant, 3 alternatives + none per task. The first
+    attribute hardly varies between persons (variance 0.01 per level), the constant a lot (4). Returns the person sets,
+    k, the prior covariance (as conjoint_hb._prior), the groups (as conjoint_hb._prior_groups) and the true diagonal."""
+    from app.choice_model import ChoiceSet
+
+    rng = np.random.default_rng(seed)
+    k = 7
+    P = np.eye(2) - 1 / 3
+    Sigma = np.zeros((k, k))
+    Sigma[0:2, 0:2] = 0.01 * P
+    Sigma[2:4, 2:4] = P
+    Sigma[4:6, 4:6] = P
+    Sigma[6, 6] = 4.0
+    mu = np.array([1.0, -0.5, 0.8, 0.0, -0.6, 0.3, 0.0])
+    persons = []
+    for b in rng.multivariate_normal(mu, Sigma, size=n):
+        sets = []
+        for _ in range(tasks):
+            rows = [np.concatenate([_effects(rng.integers(3)) for _ in range(3)] + [[0.0]]) for _ in range(3)]
+            X = np.array(rows + [np.r_[np.zeros(6), 1.0]])
+            sets.append(ChoiceSet(X, int(np.argmax(X @ b + rng.gumbel(size=4)))))
+        persons.append(sets)
+    groups = [np.array([0, 1]), np.array([2, 3]), np.array([4, 5]), np.array([6])]
+    prior = np.eye(k)
+    for g in groups[:3]:
+        prior[np.ix_(g, g)] = P
+    return persons, k, prior, groups, np.diag(Sigma)
+
+
+def test_default_prior_is_the_fixed_one_and_unchanged():
+    from app import hb
+
+    versions, answers, _, _ = simulate(30, seed=2)
+    sets, k, _ = person_sets(versions, answers)
+    kw = dict(burn=200, draws=200, thin=2, seed=5, prior_cov=np.eye(k) + 1, keep=0)
+    default, iw = hb.estimate(sets, k, **kw), hb.estimate(sets, k, prior="iw", **kw)
+    assert np.array_equal(default["beta"], iw["beta"]) and np.array_equal(default["mu"], iw["mu"])
+    assert np.array_equal(default["sigma_diag"], iw["sigma_diag"])
+    # the settings of a result with the default: the same keys as before the option, no "prior", no "prior_a"
+    assert default["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 5, "prior_df": k + 5, "target": hb.TARGET}
+    assert "prior_a" not in default
+    with pytest.raises(ValueError):
+        hb.estimate(sets, k, prior="other", **kw)
+
+
+def test_hierarchical_prior_reproducible_and_sigma_positive_definite(monkeypatch):
+    from app import hb
+
+    versions, answers, _, _ = simulate(30, seed=2)
+    sets, k, _ = person_sets(versions, answers)
+    kw = dict(burn=200, draws=200, thin=2, seed=5, prior_cov=np.eye(k) + 1, keep=0, prior="hw",
+              prior_groups=[np.arange(k)])
+    smallest = []
+    draw = hb._inv_wishart
+
+    def watched(rng, df, scale):
+        Sigma = draw(rng, df, scale)
+        smallest.append(np.linalg.eigvalsh((Sigma + Sigma.T) / 2).min())
+        return Sigma
+
+    monkeypatch.setattr(hb, "_inv_wishart", watched)
+    a, b = hb.estimate(sets, k, **kw), hb.estimate(sets, k, **kw)
+    assert np.array_equal(a["beta"], b["beta"]) and np.array_equal(a["prior_a"], b["prior_a"])
+    assert len(smallest) == 2 * 400 and min(smallest) > 0
+    assert a["settings"]["prior"] == "hw" and a["settings"]["prior_scale"] == hb.HW_SCALE
+    assert a["settings"]["prior_df"] == hb.HW_NU + k - 1 and a["prior_a"].shape == (1,) and a["prior_a"][0] > 0
+    other = hb.estimate(sets, k, **{**kw, "seed": 6})
+    assert not np.array_equal(a["beta"], other["beta"])
+
+
+def test_conditional_of_a_is_the_step_of_huang_wand():
+    """For groups of one parameter with P_g = 1: a_j | Sigma ~ IG((nu + k) / 2, nu (Sigma^-1)_jj + 1 / A^2)."""
+    from app import hb
+
+    k = 4
+    rng = np.random.default_rng(1)
+    L = rng.normal(size=(k, k))
+    Si = L @ L.T + np.eye(k)
+    blocks = hb.hw_blocks(np.eye(k))
+    shapes, rates = hb.hw_conditional(Si, blocks, hb.hw_df(k))
+    assert np.allclose(shapes, (hb.HW_NU + k) / 2)
+    assert np.allclose(rates, hb.HW_NU * np.diag(Si) + 1 / hb.HW_SCALE ** 2)
+    # a block: m_g df / 2 + 1/2 and nu trace(P_g Si_gg) + 1/A^2
+    P = np.eye(2) - 1 / 3
+    cov = np.eye(k)
+    cov[:2, :2] = P
+    shapes, rates = hb.hw_conditional(Si, hb.hw_blocks(cov, [[0, 1], [2], [3]]), hb.hw_df(k), scale=2.0)
+    assert shapes[0] == pytest.approx(0.5 + 2 * hb.hw_df(k) / 2)
+    assert rates[0] == pytest.approx(hb.HW_NU * np.trace(P @ Si[:2, :2]) + 1 / 4)
+    # the scale of Sigma | a: 2 nu blockdiag(P_g / a_g)
+    S = hb.hw_scale(hb.hw_blocks(cov, [[0, 1], [2], [3]]), [2.0, 4.0, 1.0], k)
+    assert np.allclose(S[:2, :2], 2 * hb.HW_NU * P / 2) and S[2, 2] == pytest.approx(1.0) and S[0, 2] == 0
+
+
+def test_groups_must_cover_a_block_diagonal_prior():
+    from app import hb
+
+    with pytest.raises(ValueError):
+        hb.hw_blocks(np.eye(3), [[0, 1]])                       # parameter 2 in no group
+    with pytest.raises(ValueError):
+        hb.hw_blocks(np.eye(3) + 1, [[0, 1], [2]])              # I + 11' couples 2 with the others
+    assert len(hb.hw_blocks(np.eye(3) + 1, [[0, 1, 2]])) == 1
+
+
+def test_conjoint_groups_follow_the_prior_blocks():
+    from app import hb
+    from app.choice_model import Coding
+    from app.conjoint_hb import _prior, _prior_groups
+
+    coding = Coding([3, 4, 2, 5], price_scale=10.0, asc=True, linear=(3,))
+    groups = _prior_groups(coding)
+    blocks = hb.hw_blocks(_prior(coding), groups)                # block diagonal along the groups, every parameter once
+    assert [len(g) for g, _ in blocks] == [2, 3, 1, 1, 1]        # three attributes, the constant, the price
+    assert np.allclose(blocks[1][1], np.eye(3) - 1 / 4)
+
+
+def test_hierarchical_prior_recovers_a_small_and_a_large_spread():
+    """Recovery on simulated CBC data (200 persons, 10 tasks): the fixed prior pulls the tiny spread of the first
+    attribute (true variance 0.0067 per parameter) far up towards its prior mean; the hierarchical prior keeps it small,
+    and for the large spread of the constant (4) it is not worse."""
+    from app import hb
+
+    persons, k, prior, groups, truth = _cbc()
+    kw = dict(burn=1000, draws=2000, thin=10, seed=1, prior_cov=prior, keep=0)
+    iw = hb.estimate(persons, k, **kw)["sigma_diag"]
+    hw = hb.estimate(persons, k, prior="hw", prior_groups=groups, **kw)["sigma_diag"]
+    tiny_iw, tiny_hw = iw[:2].mean(), hw[:2].mean()
+    assert tiny_hw < 0.08 and tiny_hw < tiny_iw / 3
+    assert abs(hw[6] - truth[6]) <= abs(iw[6] - truth[6]) + 0.5
+
+
+# --- the choice on the results page --------------------------------------------------------------------------------
+
+def test_choice_on_the_results_page_and_the_key(app, client, survey):
+    with_dummies(app, client, n=20)
+    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    assert 'name="prior"' in html and "Priori der Streuung zwischen Personen" in html and "fest (Standard)" in html
+    assert "Warum? Feste oder hierarchische Priori?" in html
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
+    with app.app_context():
+        from app import maxdiff_hb, segments, simulator
+
+        item = db.session.get(Item, 2)
+        first = maxdiff_hb.load(item)
+        # the default: the settings dict and so the key of the result exactly as before the option
+        assert first["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1}
+        assert "hb_prior" not in item.config
+        table = maxdiff_hb.pool_table(item.survey, first["pool"])
+        lc_key = segments.model_input(item, table)["key"] if segments.model_input(item, table) else None
+        config_before = simulator.without_sim(item.config)
+    # switching the field: saved and estimated anew, the result says which prior
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50", "prior": "hw"})
+    with app.app_context():
+        item = db.session.get(Item, 2)
+        second = maxdiff_hb.load(item)
+        assert item.config["hb_prior"] == "hw" and maxdiff_hb.prior_of(item) == "hw"
+        assert second["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "prior": "hw"}
+        assert second["key"] != first["key"] and second["data_key"] == first["data_key"]
+        assert maxdiff_hb.current(item) is not None
+        # a setting of the results page: neither the questionnaire nor the latent classes see it
+        assert simulator.without_sim(item.config) == config_before
+        table = maxdiff_hb.pool_table(item.survey, second["pool"])
+        assert (segments.model_input(item, table)["key"] if segments.model_input(item, table) else None) == lc_key
+    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    assert '<option value="hw" selected>' in html and "Priori der Streuung hierarchisch (Huang &amp; Wand, 2013)" in html
+    assert "Huang, A., &amp; Wand, M. P. (2013)" in html                    # in the sources of the page
+    book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
+    assert "hierarchische Priori der Streuung (Huang & Wand, 2013)" in next(
+        line for line in book.splitlines() if line.startswith("md_hb_prob1"))
+    # back to the default: the key of the first result again, nothing stored in the question
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50", "prior": "iw"})
+    with app.app_context():
+        item = db.session.get(Item, 2)
+        assert "hb_prior" not in item.config and maxdiff_hb.load(item)["key"] == first["key"]
+    book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
+    assert "Priori" not in next(line for line in book.splitlines() if line.startswith("md_hb_prob1"))
+    # an unknown value changes nothing
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50", "prior": "xyz"})
+    with app.app_context():
+        assert "hb_prior" not in db.session.get(Item, 2).config
+
+
+def test_stored_default_result_goes_stale_when_the_prior_changes(app, client, survey):
+    with_dummies(app, client, n=20)
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
+    with app.app_context():
+        from app import maxdiff_hb
+
+        item = db.session.get(Item, 2)
+        assert maxdiff_hb.current(item) is not None
+        maxdiff_hb.choose_prior(item, "hw")                      # chosen, not estimated yet
+        db.session.commit()
+        assert maxdiff_hb.current(db.session.get(Item, 2)) is None

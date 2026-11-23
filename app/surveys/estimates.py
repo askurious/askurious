@@ -7,6 +7,9 @@ from app.lang import de_en
 from app.surveys.base import bp, data_pool, get_survey
 
 
+PRIOR_TYPES = ("maxdiff", "conjoint", "acbc", "paired")  # HB by app/hb.py, with the choice of the prior
+
+
 @bp.route("/<sid:survey_id>/results/hb/<int:item_id>", methods=["POST"])
 @login_required
 def results_hb(survey_id, item_id):
@@ -22,6 +25,10 @@ def results_hb(survey_id, item_id):
     hb_model = export.hb_module(item) if item is not None else None
     if hb_model is None or item.block.survey_id != survey.id:
         abort(404)
+    # the prior on the spread between people (maxdiff_hb.PRIOR_KEY): the choice of the field "Priori der Streuung",
+    # saved before the estimation that uses it; the ratings-based conjoint has its own sampler without it
+    if item.type in PRIOR_TYPES and maxdiff_hb.choose_prior(item, request.form.get("prior")):
+        db.session.commit()
     pool = {**data_pool(survey, request.form), "drop": True}  # as the results page: never with marked participations
     config = None
     if request.form.get("longer"):
