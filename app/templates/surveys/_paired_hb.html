@@ -21,6 +21,7 @@
 {% elif h.state == "stale" %}
 <p class="flash flash-warning">{{ de_en("Für die Daten dieser Seite gibt es keine aktuelle HB-Schätzung; die frühere gehört zu einem anderen Datenstand.", "There is no current HB estimation for the data on this page; the earlier one belongs to other data.") }}</p>
 {% endif %}
+{% if h.state != "running" and h.available and not h.disconnected %}{% include "surveys/_hb_prior.html" %}{% endif %}
 {% if h.state != "running" and h.state != "current" %}
   {% if h.disconnected %}
   <p class="flash flash-warning">{{ h.disconnected }} {{ de_en("Eine HB-Schätzung bekäme den Abstand zwischen den Gruppen nur aus der Priori, deshalb keine.", "An HB estimation would get the distance between the groups only from the prior, so none.") }}</p>
@@ -79,7 +80,7 @@
 {% set q = res.rlh %}
 <p class="muted small">{{ term("rlh") }} {{ de_en("im Mittel {m} (Median {md}); Zufall wäre {c}.", "on average {m} (median {md}); chance would be {c}.", m=num(q.mean), md=num(q.median), c=num(q.chance)) }} <strong>{{ de_en("{k} von {n} Personen", "{k} of {n} people", k=q.low, n=res.persons) }}</strong> ({{ pct(q.low_share) }}) {{ de_en("liegen unter {f} × Zufall: Hinweis auf zufällige Antworten.", "lie under {f} × chance: a hint at random answers.", f=(res.rlh_factor)|dec(1)) }}</p>
 {% include "surveys/_hb_convergence.html" %}
-<p class="muted small">{{ de_en("Modell: {p} Personen, {s} Urteile; {burn} Burn-in- und {draws} weitere Iterationen, jede {thin}. behalten ({kept} Ziehungen).", "Model: {p} people, {s} judgements; {burn} burn-in and {draws} further iterations, every {thin}th kept ({kept} draws).", p=res.persons, s=res.sets, burn=res.settings.burn, draws=res.settings.draws, thin=res.settings.thin, kept=res.kept) }}</p>
+<p class="muted small">{{ de_en("Modell: {p} Personen, {s} Urteile; {burn} Burn-in- und {draws} weitere Iterationen, jede {thin}. behalten ({kept} Ziehungen).", "Model: {p} people, {s} judgements; {burn} burn-in and {draws} further iterations, every {thin}th kept ({kept} draws).", p=res.persons, s=res.sets, burn=res.settings.burn, draws=res.settings.draws, thin=res.settings.thin, kept=res.kept) }}{% if res.settings.prior == "hw" %} {{ de_en("Priori der Streuung hierarchisch (Huang & Wand, 2013).", "Prior of the spread hierarchical (Huang & Wand, 2013).") }}{% endif %}</p>
 {% else %}
 <p class="muted small">{{ de_en("Anpassungsgüte je Person ({rlh}) und Konvergenz der HB-Schätzung erscheinen hier, sobald eine aktuelle Schätzung fertig ist.", "Fit per person ({rlh}) and convergence of the HB estimation appear here as soon as a current estimation is done.", html=True, rlh=abbr("rlh")) }}</p>
 {% endif %}

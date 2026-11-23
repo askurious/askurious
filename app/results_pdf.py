@@ -976,6 +976,9 @@ def _cbc(rep, e, title):
             note += " " + rep.say("Die Kette hat die Konvergenzprüfung nicht bestanden.", "The chain did not pass the "
                                   "convergence check.")
         note += _hb_geweke_note(rep, hb)
+        if (hb.get("settings") or {}).get("prior") == "hw":  # the default prior is not named, as before
+            note += " " + rep.say("Priori der Streuung zwischen Personen hierarchisch {c}.",
+                                  "Prior of the spread between people hierarchical {c}.", c=rep.cite(hb_mod.HUANG_WAND))
         out += rep.figure(rep.say("{t}: Wichtigkeit der Merkmale (Hierarchical Bayes)",
                                   "{t}: importance of the attributes (hierarchical Bayes)", t=title),
                           rep.bars([(a["label"], a["importance"]) for a in rows], lambda v, label: rep.pct(v), rep.pct(1), top=1), note)

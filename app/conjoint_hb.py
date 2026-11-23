@@ -93,7 +93,7 @@ def model_input(item, table, config=None):
     base = once(table, ("hb_input", item.id), lambda: _base_input(item, table))
     if base is None:
         return None
-    cfg = config or settings()
+    cfg = maxdiff_hb.with_prior(config or settings(), item)
     digest = hashlib.sha1(_dumped(base["dumped"], cfg).encode()).hexdigest()
     return {**base["inp"], "key": digest, "settings": cfg}
 
@@ -149,6 +149,17 @@ def _prior(coding):
     return P
 
 
+def _prior_groups(coding):
+    """The groups of the hierarchical prior along the blocks of _prior: one per effects-coded attribute (its levels
+    keep one common spread), every other parameter (constant, price, linear attributes) alone."""
+    groups, inside = [], set()
+    for a in coding.effects:
+        n, off = coding.levels[a], coding.offsets[a]
+        groups.append(np.arange(off, off + n - 1))
+        inside.update(range(off, off + n - 1))
+    return groups + [np.array([j]) for j in range(coding.k) if j not in inside]
+
+
 def run(inp, progress=None):
     """Estimate from model_input(); returns the JSON-ready result (without pool and item)."""
     coding = _coding(inp["coding"])
@@ -185,7 +196,8 @@ def run(inp, progress=None):
 
     cfg = inp["settings"]
     r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
-                    prior_cov=_prior(coding), summary=summary, progress=progress, spread=spread)
+                    prior_cov=_prior(coding), summary=summary, progress=progress, spread=spread,
+                    **maxdiff_hb.prior_args(cfg, _prior_groups(coding)))
     beta = r["beta"]
     S = r["summaries"]
     # all parameters of mu and the means the page shows (part-worths, constant, price)
@@ -377,11 +389,13 @@ def describe(result, survey=None, lang=None):
         coding = ("screening against the threshold, tournament tasks" if result["type"] == "acbc" else "choice tasks")
         return (f"Hierarchical Bayes (HB-MNL, {coding}, effects coding), estimated on {to_local(when):%Y-%m-%d %H:%M}; "
                 f"{len(result['pids'])} people ({basis}); {s['burn']} burn-in, {s['draws']} iterations, "
-                f"thinning {s['thin']}, seed {s['seed']}; posterior mean per person{hb_convergence.describe(result, 'en')}")
+                f"thinning {s['thin']}, seed {s['seed']}{maxdiff_hb.prior_text(s, 'en')}; posterior mean per person"
+                f"{hb_convergence.describe(result, 'en')}")
     coding = ("Screening gegen die Schwelle, Turnieraufgaben" if result["type"] == "acbc" else "Auswahlaufgaben")
     return (f"Hierarchical Bayes (HB-MNL, {coding}, Effektkodierung), geschätzt am {to_local(when):%d.%m.%Y %H:%M}; "
             f"{len(result['pids'])} Personen ({basis}); {s['burn']} Burn-in, {s['draws']} Iterationen, "
-            f"Thinning {s['thin']}, Seed {s['seed']}; Posterior-Mittel je Person{hb_convergence.describe(result, 'de')}")
+            f"Thinning {s['thin']}, Seed {s['seed']}{maxdiff_hb.prior_text(s, 'de')}; Posterior-Mittel je Person"
+            f"{hb_convergence.describe(result, 'de')}")
 
 
 def codebook_info(item, column, result, lang=None):

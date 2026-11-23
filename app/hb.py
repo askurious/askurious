@@ -12,6 +12,18 @@ moves the individual utilities, but for weakly identified parameters and small s
 reported spread between persons towards 1 (Festlegung von Askurious: a proper prior that keeps
 Sigma stable with few persons; not a weak prior in that respect).
 
+Optional hierarchical prior on Sigma (prior="hw"; Huang & Wand, 2013): instead of the fixed scale the scale has its own
+level, Sigma | a ~ IW(nu + k - 1, 2 nu blockdiag(P_g / a_g)) with a_g ~ IG(1/2, 1/A^2) (inverse gamma, shape and rate),
+nu = HW_NU = 2, A = HW_SCALE = 2.5. With every parameter its own group this is the prior of Huang & Wand: correlations
+uniform on (-1, 1), standard deviations half-t with nu degrees of freedom and scale A, each with its own a_j, so the data
+decide the spread per parameter and a small spread is not raised towards a fixed value. Generalised to blocks
+(Festlegung von Askurious): the k parameters fall into groups g (`prior_groups`), each with the block P_g of `prior_cov`
+and one a_g, so the levels of an effects-coded attribute keep one common spread and stay symmetric (P_g = I - 11'/L
+for L levels); for m_g = 1 and P_g = 1 the steps below are those of Huang & Wand. Gibbs steps:
+  a_g   | Sigma           ~ IG(1/2 + m_g (nu + k - 1) / 2, nu trace(P_g (Sigma^-1)_gg) + 1 / A^2)
+  Sigma | a, betas, mu    ~ IW(nu + k - 1 + N, 2 nu blockdiag(P_g / a_g) + sum (beta_n - mu)(beta_n - mu)')
+The default (prior="iw") is the fixed prior above, unchanged and with the same random numbers.
+
 Sampler (Allenby & Rossi; Train 2009, ch. 12), one iteration:
   mu    | betas, Sigma    ~ N(V N Sigma^-1 mean of the betas, V), V = (prior^-1 + N Sigma^-1)^-1   (Gibbs)
   Sigma | betas, mu       ~ IW(df + N, scale + sum (beta_n - mu)(beta_n - mu)')    (Gibbs)
@@ -76,6 +88,9 @@ ADAPT_EVERY = 50    # burn-in iterations per adaptation of the step sizes (until
 SETTLE = 0.25       # last share of the burn-in: step sizes settle with a decreasing gain and are averaged (H-5)
 SETTLE_OFFSET = 10  # gain 1 / sqrt(t + SETTLE_OFFSET) in the t-th iteration of the settling phase
 KEEP_DRAWS = 100    # kept draws of all betas returned for predictions over the posterior (W-1)
+PRIORS = ("iw", "hw")  # prior on Sigma: fixed inverse Wishart (default) or hierarchical (Huang & Wand, 2013)
+HW_NU = 2           # nu of Huang & Wand: correlations uniform on (-1, 1)
+HW_SCALE = 2.5      # A of Huang & Wand: scale of the half-t prior of the standard deviations (logit scale)
 GEWEKE = ("Geweke, J. (1992). Evaluating the accuracy of sampling-based approaches to the calculation of posterior "
           "moments. In J. M. Bernardo, J. O. Berger, A. P. Dawid, & A. F. M. Smith (Eds.), Bayesian statistics 4 "
           "(pp. 169–193). Oxford University Press.")
@@ -102,6 +117,8 @@ ROSSI = ("Rossi, P. E., Allenby, G. M., & McCulloch, R. (2005). Bayesian statist
 ALLENBY = ("Allenby, G. M., & Rossi, P. E. (1998). Marketing models of consumer heterogeneity. Journal of Econometrics, "
            "89(1–2), 57–78. https://doi.org/10.1016/S0304-4076(98)00055-4")
 SOURCES = (ROSSI, ALLENBY, TRAIN)
+HUANG_WAND = ("Huang, A., & Wand, M. P. (2013). Simple marginally noninformative prior distributions for covariance "
+              "matrices. Bayesian Analysis, 8(2), 439–452. https://doi.org/10.1214/13-BA815")
 
 
 class Data:
@@ -198,6 +215,47 @@ def _inv_wishart(rng, df, scale):
     A[np.tril_indices(k, -1)] = rng.standard_normal(k * (k - 1) // 2)
     LA = L @ A
     return np.linalg.inv(LA @ LA.T)
+
+
+def hw_blocks(prior_cov, groups=None):
+    """[(index array, block P_g of prior_cov)] of the hierarchical prior; groups None: every parameter its own group.
+    The groups must cover every parameter once and prior_cov must be zero between them (block diagonal)."""
+    prior_cov = np.asarray(prior_cov, dtype=float)
+    k = len(prior_cov)
+    groups = [np.array([j]) for j in range(k)] if groups is None else [np.asarray(g, dtype=int).ravel() for g in groups]
+    every = np.sort(np.concatenate(groups)) if groups else np.array([], dtype=int)
+    if len(every) != k or np.any(every != np.arange(k)):
+        raise ValueError("prior_groups must cover every parameter exactly once")
+    inside = np.zeros((k, k), dtype=bool)
+    for g in groups:
+        inside[np.ix_(g, g)] = True
+    if np.any(np.abs(prior_cov[~inside]) > 1e-12):
+        raise ValueError("prior_cov must be block diagonal along prior_groups")
+    return [(g, prior_cov[np.ix_(g, g)]) for g in groups]
+
+
+def hw_df(k, nu=HW_NU):
+    """Degrees of freedom of the inverse Wishart of Sigma | a (Huang & Wand, 2013): nu + k - 1."""
+    return nu + k - 1
+
+
+def hw_scale(blocks, a, k, nu=HW_NU):
+    """Scale of the inverse Wishart of Sigma | a: 2 nu blockdiag(P_g / a_g)."""
+    S = np.zeros((k, k))
+    for (g, P), a_g in zip(blocks, a):
+        S[np.ix_(g, g)] = 2 * nu * P / a_g
+    return S
+
+
+def hw_conditional(Si, blocks, df, nu=HW_NU, scale=HW_SCALE):
+    """(shapes, rates) of a_g | Sigma ~ IG(1/2 + m_g df / 2, nu trace(P_g (Sigma^-1)_gg) + 1 / scale^2), Si = Sigma^-1.
+    The density of Sigma | a carries |S0(a)|^(df/2), which is prod a_g^(-m_g df/2) times constants, and
+    exp(-tr(S0(a) Si) / 2) = exp(-sum_g nu trace(P_g Si_gg) / a_g); the prior IG(1/2, 1/scale^2) adds 1/2 and 1/scale^2.
+    For m_g = 1, P_g = 1 and df = nu + k - 1: IG((nu + k) / 2, nu (Sigma^-1)_jj + 1/A^2), the step of Huang & Wand
+    (2013)."""
+    shapes = np.array([0.5 + len(g) * df / 2 for g, _ in blocks])
+    rates = np.array([nu * float(np.sum(P * Si[np.ix_(g, g)])) + 1 / scale ** 2 for g, P in blocks])
+    return shapes, rates
 
 
 def _draw_mu(rng, mean, Sigma, n, prior_prec):
@@ -331,14 +389,18 @@ def _chance(log_ratio):
 
 
 def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov=None, prior_df=None,
-             init=None, target=TARGET, summary=None, person_stat=None, progress=None, keep=KEEP_DRAWS, spread=None):
+             init=None, target=TARGET, summary=None, person_stat=None, progress=None, keep=KEEP_DRAWS, spread=None,
+             prior="iw", prior_groups=None, prior_scale=HW_SCALE):
     """Run the sampler. person_sets: [[ChoiceSet]] per person (every person at least one set).
     summary(B) -> 1-d array: evaluated at every kept draw (e.g. the mean scores over persons), returned as
     an array (kept draws x length). person_stat(B) -> array (N x q): averaged over the kept draws (posterior
     mean of a non-linear function of each person's betas, e.g. probability scores). spread(Sigma) -> 1-d array:
     averaged over the kept draws (posterior mean of a measure of the spread between persons in the scale the page
     shows, e.g. the mean variance of the zero-centred utilities; H-3). progress(fraction) is called
-    about every 2 %. keep: how many kept draws of all betas to return ("draws", evenly spaced). Returns a dict."""
+    about every 2 %. keep: how many kept draws of all betas to return ("draws", evenly spaced).
+    prior: "iw" the fixed inverse Wishart prior on Sigma (default), "hw" the hierarchical one (Huang & Wand, 2013;
+    see the module text) with prior_groups (index arrays along which prior_cov is block diagonal, None: every
+    parameter alone) and prior_scale (A). Returns a dict."""
     from app.choice_model import fit
 
     started = time.monotonic()
@@ -346,8 +408,21 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     data = Data(person_sets, k)
     n = data.n
     prior_cov = np.eye(k) if prior_cov is None else np.asarray(prior_cov, dtype=float)
-    df0 = prior_df or k + 5
-    S0 = (df0 - k - 1) * prior_cov          # prior mean of Sigma = prior_cov
+    if prior not in PRIORS:
+        raise ValueError(f"unknown prior {prior!r}")
+    hw = prior == "hw"
+    if hw:
+        # Huang & Wand: Sigma | a ~ IW(nu + k - 1, 2 nu blockdiag(P_g / a_g)). A start of a with the prior mean of
+        # Sigma equal to prior_cov, S0(a) / (df - k - 1) = prior_cov, does not exist: df - k - 1 = nu - 2 = 0 at nu = 2,
+        # where the inverse Wishart has no mean. So every iteration draws a | Sigma first, the first one at the start
+        # Sigma = prior_cov (a valid Gibbs scan in the order a, mu, Sigma).
+        blocks = hw_blocks(prior_cov, prior_groups)
+        df0 = hw_df(k)
+        a = a_sum = np.zeros(len(blocks))
+        S0 = None
+    else:
+        df0 = prior_df or k + 5
+        S0 = (df0 - k - 1) * prior_cov          # prior mean of Sigma = prior_cov
     mu_prec = np.linalg.inv(MU_PRIOR_SD ** 2 * prior_cov)  # prior precision of mu (prior mean 0)
     if init is None:
         init = fit([s for sets in person_sets for s in sets], k, ridge=0.1)[0]
@@ -379,7 +454,11 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     accepted_kept = shifted_kept = 0
     report_every = max(1, total // 50)
     for it in range(total):
-        # upper level: mu, then Sigma
+        # upper level: (with the hierarchical prior first a | Sigma, then) mu, then Sigma
+        if hw:
+            shapes, rates = hw_conditional(np.linalg.inv(Sigma), blocks, df0, scale=prior_scale)
+            a = rates / rng.gamma(shapes)
+            S0 = hw_scale(blocks, a, k)         # held fixed in the joint scaling below, with df0
         mu = _draw_mu(rng, B.mean(axis=0), Sigma, n, mu_prec)
         D = B - mu
         Sigma = _inv_wishart(rng, df0 + n, S0 + D.T @ D)
@@ -462,6 +541,8 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
             if (it - burn + 1) % thin == 0:
                 sums += B
                 kept.append((mu.copy(), float(ll.sum()), np.diag(Sigma).copy()))
+                if hw:
+                    a_sum = a_sum + a
                 index = len(kept) - 1
                 part = 0 if index < half_kept else 1 if index >= n_keep_total - half_kept else None
                 if part is not None and half_kept:
@@ -503,6 +584,9 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         "person_stat": None if stat_sums is None else stat_sums / n_kept,
         "spread": None if spread_sum is None else spread_sum / n_kept,
         "draws": np.array(kept_draws) if kept_draws else None,
-        "settings": {"burn": burn, "draws": draws, "thin": thin, "seed": seed, "prior_df": df0, "target": target},
+        "settings": {"burn": burn, "draws": draws, "thin": thin, "seed": seed, "prior_df": df0, "target": target,
+                     **({"prior": "hw", "prior_scale": prior_scale} if hw else {})},
         "seconds": time.monotonic() - started,
+        # posterior mean of the scales a_g of the hierarchical prior, one per group
+        **({"prior_a": a_sum / n_kept if n_kept else a} if hw else {}),
     }

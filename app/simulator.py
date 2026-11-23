@@ -96,7 +96,8 @@ SMITH = ("Smith, J. E., & Winkler, R. L. (2006). The optimizer's curse: Skeptici
 
 # --- storage ----------------------------------------------------------------------------------------------------
 
-RESULT_KEYS = (KEY, "lc")  # saved scenarios and the shown segments (app/segments.py): settings of the results page
+RESULT_KEYS = (KEY, "lc", "hb_prior")  # saved scenarios, the shown segments (app/segments.py) and the prior of the HB
+#                                         estimation (maxdiff_hb.PRIOR_KEY): settings of the results page
 
 
 def without_sim(config):

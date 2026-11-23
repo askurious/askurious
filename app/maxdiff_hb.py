@@ -16,7 +16,10 @@ and the result is a JSON file in the instance folder (UPLOAD_FOLDER/hb/survey_<i
 database change). The key is a hash over the design, the included persons' answers and the settings: a
 result whose key differs from the current data is stale. A marker file shows a running estimation; it
 carries a heartbeat, so a run killed with its process (Passenger) is shown as aborted after a while.
-Settings from the app config: HB_BURN, HB_DRAWS, HB_THIN, HB_SEED; HB_SYNC runs in the request (tests).
+Settings from the app config: HB_BURN, HB_DRAWS, HB_THIN, HB_SEED; HB_SYNC runs in the request (tests). The prior on
+the spread between persons is chosen per question on the results page (item.config["hb_prior"], PRIOR_KEY): the fixed
+inverse Wishart (default, nothing stored) or the hierarchical prior of Huang & Wand (2013), "hw" (app/hb.py). Only then
+the settings carry "prior": "hw", so the key of a result with the default stays what it was.
 """
 import hashlib
 import json
@@ -42,6 +45,47 @@ LOCK_STALE = 60         # seconds: a start lock this old is left over from a kil
 RLH_FACTOR = 1.2        # RLH below this times the chance level: possibly random clicking (Festlegung von Askurious)
 TOP = 3                 # "in the personal top 3"
 MAX_DOTS = 400          # above this many persons the distribution chart shows boxes only
+
+
+PRIOR_KEY = "hb_prior"  # item.config: "hw" for the hierarchical prior; absent for the default (a setting of the results
+#                         page, simulator.RESULT_KEYS: no part of the questionnaire, its design or the other models)
+
+
+def prior_of(item):
+    """The prior on Sigma chosen for the question: "hw" or "iw" (the default)."""
+    return "hw" if (item.config or {}).get(PRIOR_KEY) == "hw" else "iw"
+
+
+def choose_prior(item, value):
+    """Store the prior chosen on the results page ("iw" or "hw"; anything else changes nothing): True if it changed."""
+    if value not in hb.PRIORS or value == prior_of(item):
+        return False
+    config = {k: v for k, v in (item.config or {}).items() if k != PRIOR_KEY}
+    item.config = {**config, PRIOR_KEY: "hw"} if value == "hw" else config
+    return True
+
+
+def with_prior(cfg, item):
+    """The HB settings cfg with the question's prior: "prior": "hw" only for the hierarchical one, so the settings and
+    the key of a result with the default stay exactly as before. Other settings (the latent classes, {"lc": True})
+    are left alone."""
+    if "burn" not in cfg:
+        return cfg
+    cfg = {k: v for k, v in cfg.items() if k != "prior"}
+    return {**cfg, "prior": "hw"} if prior_of(item) == "hw" else cfg
+
+
+def prior_args(cfg, groups):
+    """The keyword arguments of hb.estimate for the prior in the settings cfg: none for the default."""
+    return {"prior": "hw", "prior_groups": groups} if cfg.get("prior") == "hw" else {}
+
+
+def prior_text(cfg, lang):
+    """The part of the codebook line on the prior: "" for the default, so its line stays as it was."""
+    if (cfg or {}).get("prior") != "hw":
+        return ""
+    return (", hierarchical prior on the spread (Huang & Wand, 2013)" if lang == "en"
+            else ", hierarchische Priori der Streuung (Huang & Wand, 2013)")
 
 
 def settings(app=None):
@@ -89,7 +133,7 @@ def _prepare(item, table, config=None):
     if len(persons) < hb.MIN_PERSONS:
         return None, None
     set_size = len(versions[0][0]) if versions and versions[0] else c.get("set_size") or 4
-    cfg = config or settings()
+    cfg = with_prior(config or settings(), item)
     data = {"format": FORMAT, "design": (c.get("design") or {}).get("sig"), "versions": versions, "n": n_items,
             "persons": persons}
     digest = hashlib.sha1(json.dumps({**data, "settings": cfg}, sort_keys=True).encode()).hexdigest()
@@ -148,8 +192,10 @@ def run(inp, progress=None):
 
     prior = np.eye(k) + np.ones((k, k))  # differences to the reference of iid statements with variance 1
     cfg = inp["settings"]
+    # the prior covariance I + 11' couples all parameters: one group for the hierarchical prior
     r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
                     prior_cov=prior, summary=lambda B: scores(B).mean(axis=0), person_stat=scores, progress=progress,
+                    **prior_args(cfg, [np.arange(k)]),
                     # spread between persons in the scale the page shows: the variance of the zero-centred utilities,
                     # not of the differences to the reference (about twice as large; audit 2026-10-05, H-3)
                     spread=lambda S: [np.mean(np.diag(M @ S @ M.T))])
@@ -599,6 +645,9 @@ def fits(item, path, result, build):
     questionnaire) it is checked as above."""
     from app import export, lang, results_store
 
+    settings_now = result.get("settings") or {}
+    if "burn" in settings_now and settings_now.get("prior", "iw") != prior_of(item):
+        return False  # another prior chosen since (PRIOR_KEY): no part of the data fingerprint, so checked here
     pool = result.get("pool") or {}
     if pool.get("fingerprint") and pool.get("program") == results_store.program():
         # stored when it was estimated (stamp), by this version of the program: with the same setup, the same data
@@ -718,11 +767,11 @@ def describe(result, survey=None, lang=None):
     if reader(lang) == "en":
         return (f"Hierarchical Bayes (HB-MNL, sequential best-worst coding{', with anchor question' if result.get('anchored') else ''}), "
                 f"estimated on {to_local(when):%Y-%m-%d %H:%M}; {len(result['pids'])} people ({basis}); "
-                f"{s['burn']} burn-in, {s['draws']} iterations, thinning {s['thin']}, seed {s['seed']}; "
+                f"{s['burn']} burn-in, {s['draws']} iterations, thinning {s['thin']}, seed {s['seed']}{prior_text(s, 'en')}; "
                 f"posterior mean per person{hb_convergence.describe(result, 'en')}")
     return (f"Hierarchical Bayes (HB-MNL, sequenzielle Best-Worst-Kodierung{', mit Ankerfrage' if result.get('anchored') else ''}), "
             f"geschätzt am {to_local(when):%d.%m.%Y %H:%M}; {len(result['pids'])} Personen ({basis}); "
-            f"{s['burn']} Burn-in, {s['draws']} Iterationen, Thinning {s['thin']}, Seed {s['seed']}; "
+            f"{s['burn']} Burn-in, {s['draws']} Iterationen, Thinning {s['thin']}, Seed {s['seed']}{prior_text(s, 'de')}; "
             f"Posterior-Mittel je Person{hb_convergence.describe(result, 'de')}")
 
 

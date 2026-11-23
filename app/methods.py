@@ -142,7 +142,7 @@ def _choice(survey, table):
                         "date": f"{local(datetime.fromisoformat(hb['created'])):%d.%m.%Y}",
                         "rhat_max": hb.get("rhat_max"), "ess_min": hb.get("ess_min"), "kept": hb.get("kept"),
                         "converged": hb.get("diag_ok"), "sigma": hb.get("rhat_sigma_max") is not None,
-                        "person_share": hb.get("person_rhat_share")}
+                        "person_share": hb.get("person_rhat_share"), "prior": hb["settings"].get("prior")}
                        if hb and hb.get("pids") and hb.get("settings") and hb.get("created") else None)
         entry["holdouts"] = item.kind.holdout_count(item) if hasattr(item.kind, "holdout_count") else 0
         entry["warmups"] = item.kind.warmup_count(item) if hasattr(item.kind, "warmup_count") else 0
@@ -320,7 +320,8 @@ def choice_sources(choice):
             groups.append((de_en("Bewertungs-Conjoint: Hierarchical-Bayes-Regression", "Ratings-based conjoint: hierarchical "
                                  "Bayes regression"), [cva_hb.LENK, hb_convergence.VEHTARI]))
     if any(c["hb"] for c in choice):
-        groups.append(("Hierarchical Bayes", [hb.ALLENBY, hb.ROSSI]))
+        groups.append(("Hierarchical Bayes", [hb.ALLENBY, hb.ROSSI]
+                       + ([hb.HUANG_WAND] if any(c["hb"] and c["hb"].get("prior") == "hw" for c in choice) else [])))
     if any(c["hb"] and c["hb"].get("rhat_max") is not None for c in choice):
         groups.append((de_en("Konvergenz der HB-Kette: split-R̂ und effektive Stichprobengröße; Geweke-artiger Vergleich der "
                              "Hälften (Grenze nach Bonferroni)", "Convergence of the HB chain: split R̂ and effective sample "
@@ -436,10 +437,17 @@ def _choice_de(c):
         h = c["hb"]
         text += (f" Individuelle Nutzen wurden zusätzlich per Hierarchical Bayes geschätzt (Allenby & Rossi, 1998; "
                  f"n = {h['n']}, {h['burn']} Burn-in-Iterationen, {h['draws']} Iterationen, Stand {h['date']}).")
-        text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
-                 "Personen invers-Wishart mit k + 5 Freiheitsgraden bei k Parametern und der Priori-Kovarianz als "
-                 "Erwartungswert; bei kleinen Stichproben zieht sie die Streuung schwach bestimmter Parameter spürbar "
-                 "zu diesem Wert.")
+        if h.get("prior") == "hw":
+            text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
+                     "Personen hierarchisch (Huang & Wand, 2013): invers-Wishart mit ν + k − 1 Freiheitsgraden (ν = 2) bei "
+                     "k Parametern, deren Skala eigene Faktoren mit einer invers-Gamma-Priori hat (Skala 2,5 der "
+                     "halb-t-verteilten Standardabweichungen; beim Conjoint je Merkmal, für die Konstante und den Preis), "
+                     "sodass die Daten die Höhe der Streuung bestimmen.")
+        else:
+            text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
+                     "Personen invers-Wishart mit k + 5 Freiheitsgraden bei k Parametern und der Priori-Kovarianz als "
+                     "Erwartungswert; bei kleinen Stichproben zieht sie die Streuung schwach bestimmter Parameter spürbar "
+                     "zu diesem Wert.")
         if h.get("rhat_max") is not None and h.get("ess_min") is not None:
             text += (f" Die Konvergenz der Kette wurde mit dem rang-normalisierten split-R̂ und der effektiven "
                      f"Stichprobengröße (ESS) je Populationsmittel"
@@ -560,7 +568,12 @@ def _choice_en(c):
         h = c["hb"]
         line += (f"; also individual utilities by hierarchical Bayes (Allenby & Rossi, 1998), n = {h['n']}, "
                  f"{h['burn']} burn-in and {h['draws']} iterations; prior: population means normal with sd 5 (logit "
-                 "scale), covariance inverse Wishart with k + 5 degrees of freedom and the prior covariance as its mean")
+                 + ("scale), covariance hierarchical (Huang & Wand, 2013): inverse Wishart with nu + k - 1 degrees of "
+                    "freedom (nu = 2) whose scale has factors of their own with an inverse gamma prior (scale 2.5 of the "
+                    "half-t standard deviations; for a conjoint per attribute, the constant and the price), so the data "
+                    "set the level of the spread"
+                    if h.get("prior") == "hw" else
+                    "scale), covariance inverse Wishart with k + 5 degrees of freedom and the prior covariance as its mean"))
         if h.get("rhat_max") is not None and h.get("ess_min") is not None:
             line += (f"; convergence{' of the population means and variances' if h.get('sigma') else ''}: "
                      f"rank-normalised split R-hat max {h['rhat_max']:.3f}, bulk ESS min "
