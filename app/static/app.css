@@ -4575,8 +4575,10 @@ main:focus { outline: none; }  /* the target of the skip link, not a control */
 }
 .basis-zone .res-group-pick { margin-top: 10px; }
 .res-basis > .res-group-note { margin-top: 12px; }
-/* "Alle zuklappen" at the start of the sections, not a band of its own: one small row, on the right */
-.res-fold-row { display: flex; justify-content: flex-end; margin: 0; }
+/* "Alle zuklappen" at the start of the sections, not a band of its own: one small row, on the right. The panel
+   above leaves 16 px, the negative top margin brings that to 8 px, so the button has 8 px above and below (the next
+   panel has no top margin in .tabpage-grid; before, the button touched it) */
+.res-fold-row { display: flex; justify-content: flex-end; margin: -8px 0 8px; }
 .quota-summary { display: grid; gap: 6px; margin: 0 0 8px; }
 .quota-summary li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .quota-summary .quota-bar { width: 160px; }
