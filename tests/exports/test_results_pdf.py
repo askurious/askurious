@@ -140,3 +140,25 @@ def test_path_reader():
     ops = results_pdf._path_points("M10 10 l 5 0 H 30 v 10 C 1 1 2 2 3 3 s 1 1 2 2 Q 0 0 5 5 z")
     assert [o for o, _ in ops] == ["M", "L", "L", "L", "C", "C", "C", "Z"]
     assert ops[1][1] == [(15.0, 10.0)] and ops[2][1] == [(30.0, 10.0)] and ops[3][1] == [(30.0, 20.0)]
+
+
+def test_hb_partworths_table_in_the_report(app):
+    """A conjoint with a current HB estimate: the report shows the mean part-worths per level as on the results page,
+    not only the HB importances (Ralf, 2026-11-23); the linear price and the constant go into the note."""
+    level = {"mean": 0.6, "lo": 0.5, "hi": 0.7, "sd": 0.4, "q1": 0.3, "q3": 0.9, "best": 0.55}
+    hb = {"persons": 40, "type": "conjoint", "converged": True,
+          "attributes": [{"label": "Kommunikator", "importance": 0.6, "importance_sd": 0.1, "importance_q": [0.5, 0.6, 0.7],
+                          "levels": [{**level, "label": "Wissenschaftler"},
+                                     {**level, "label": "Politiker", "mean": -0.6, "lo": None, "hi": None,
+                                      "separated": True, "best": 0.45}]}],
+          "price": {"label": "Preis", "mean": -0.05, "lo": -0.06, "hi": -0.04, "sd": 0.02, "negative": 0.9, "unit": 1},
+          "asc": {"mean": -0.5, "lo": -0.7, "hi": -0.3, "sd": 0.8}}
+    with app.app_context():
+        rep = results_pdf.Report(None, "de")
+        text = _flow_text(results_pdf._cbc(rep, {"cbc": {"hb": {"result": hb}}}, "cbc"))
+    text = " ".join(text.split())  # the PDF breaks lines anywhere in cells and notes
+    assert "Tabelle 2" in text and "cbc: Teilnutzen (Hierarchical Bayes)" in text and "Kommunikator: Wissenschaftler" in text
+    assert "0,60" in text and "[0,50; 0,70]" in text and "55,0 %" in text
+    assert "Politiker (begrenzt)" in text and "nur die Priori begrenzt den Wert" in text
+    assert "Preiskoeffizient je Währungseinheit" in text and "90,0 % der Personen" in text
+    assert "Konstante „Keine davon“" in text
