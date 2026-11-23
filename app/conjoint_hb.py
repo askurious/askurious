@@ -347,11 +347,25 @@ def export_columns(item, result):
                      if result["type"] == "acbc" else "HB-Konstante „Keine davon“"))
     if result["price"] is not None:
         cols.append((f"{code}_hb_price", "HB-Preiskoeffizient je Währungseinheit"))
+    if scale_of(item) == "diffs":  # the part-worths rescaled per person as well, when the page shows them so
+        cols += [(_norm(item, col), f"HB-Teilnutzen normiert (Spannweiten je Person, Summe 100 je Merkmal): "
+                                    f"{attr['label']} = {attr['level_labels'][lv]}")
+                 for col, attr, lv, _ in _level_columns(item, result)]
+        if result["asc"] is not None:
+            cols.append((f"{code}_hb_norm_{_asc_name(result)}", "HB-Nutzen der Schwelle „kommt nicht infrage“, normiert"
+                         if result["type"] == "acbc" else "HB-Konstante „Keine davon“, normiert"))
+        if result["price"] is not None:
+            cols.append((f"{code}_hb_norm_price", "HB-Preiskoeffizient je Währungseinheit, normiert"))
     cols += [(f"{code}_hb_imp_{attrs[a]['code']}", f"HB-Wichtigkeit: {attrs[a]['label']}") for a, _, _ in result["spans"]]
     if result.get("has_price_importance"):
         cols.append((f"{code}_hb_imp_price", "HB-Wichtigkeit: Preis"))
     cols.append((f"{code}_hb_rlh", "HB: Root Likelihood (Anpassungsgüte der Person)"))
     return cols
+
+
+def _norm(item, column):
+    """The column of the rescaled values of a part-worth column (<code>_hb_<attribute>_<level>)."""
+    return f"{item.code}_hb_norm_" + column[len(f"{item.code}_hb_"):]
 
 
 def export_values(item, result):
@@ -360,9 +374,21 @@ def export_values(item, result):
     attrs = item.kind.attributes(item)
     levels = _level_columns(item, result)
     imp = importances(result)  # loose attributes without importance, as on the page (D4)
+    factors = diff_factors(result) if scale_of(item) == "diffs" else None
     out = {}
     for n, pid in enumerate(result["pids"]):
         row = {col: result["util"][n][pos] for col, _, _, pos in levels}
+        if factors is not None:
+            f = float(factors[n]) if np.isfinite(factors[n]) else None  # a plain float: the CSV writes its repr
+
+            def scaled(x, digits=2):
+                return None if f is None or x is None else round(float(x) * f, digits)
+
+            row.update({_norm(item, col): scaled(result["util"][n][pos]) for col, _, _, pos in levels})
+            if result["asc"] is not None:
+                row[f"{code}_hb_norm_{_asc_name(result)}"] = scaled(result["asc"][n])
+            if result["price"] is not None:
+                row[f"{code}_hb_norm_price"] = None if f is None else float(f"{result['price'][n] * f:.6g}")
         if result["asc"] is not None:
             row[f"{code}_hb_{_asc_name(result)}"] = result["asc"][n]
         if result["price"] is not None:
@@ -420,6 +446,13 @@ def codebook_info(item, column, result, lang=None):
                                    "Person oft nur einen Teil davon)",
                              "; the price range is that of all concepts shown to all people (with ACBC a person often "
                              "saw only part of it)") if result.get("has_price_importance") and result["type"] == "acbc" else "")]
+    if column.startswith(f"{code}_hb_norm_"):
+        return "Zahl", in_lang(lang, "normiert: Spannweiten je Person summieren sich zu 100 × Zahl der Merkmale",
+                               "rescaled: the ranges per person sum to 100 × number of attributes"), [
+            note, in_lang(lang, "Alle Nutzen einer Person mit demselben Faktor 100 × Zahl der Merkmale / Summe ihrer "
+                                "Spannweiten multipliziert (Preis: |Koeffizient| × Preisspanne); leer, wo die Summe 0 ist",
+                          "all utilities of a person multiplied by the same factor 100 × number of attributes / sum of "
+                          "their ranges (price: |coefficient| × price range); empty where the sum is 0")]
     if column == f"{code}_hb_price":
         return "Zahl", in_lang(lang, "Logit je Währungseinheit", "logit per currency unit"), [note]
     if column in (f"{code}_hb_none", f"{code}_hb_threshold"):
@@ -471,6 +504,103 @@ def _state(item, out, stored, lang):
     if marker and marker["state"] == "running":
         out["state"] = "running"
     return out
+
+
+SCALE_KEY = "hb_scale"  # item.config: "diffs" shows the part-worths rescaled per person; absent: raw logit values (a
+#                         display setting of the results page, simulator.RESULT_KEYS: the stored result stays as it is)
+SCALES = ("raw", "diffs")
+
+
+def scale_of(item):
+    """How the results page shows the HB part-worths of the question: "raw" (logit scale, default) or "diffs"."""
+    return "diffs" if (item.config or {}).get(SCALE_KEY) == "diffs" else "raw"
+
+
+def choose_scale(item, value):
+    """Store the display chosen on the results page; True if it changed (anything else than SCALES changes nothing)."""
+    if value not in SCALES or value == scale_of(item):
+        return False
+    config = {k: v for k, v in (item.config or {}).items() if k != SCALE_KEY}
+    item.config = {**config, SCALE_KEY: "diffs"} if value == "diffs" else config
+    return True
+
+
+def diff_factors(res):
+    """Per person the factor that rescales all their utilities (part-worths, constant, price coefficient) so that the
+    ranges of their A attributes sum to 100 A, the mean range 100: 100 A / sum of the ranges. The range of an
+    effects-coded attribute is max - min of its zero-centred part-worths, that of a linear price |coefficient| x price
+    range, as in the importances (so the importances stay the same). nan for a person whose ranges sum to 0. This is
+    the usual "zero-centred diffs" scaling of HB part-worths: every person then weighs the same in a mean, whatever the
+    scale (consistency) of their choices."""
+    util = np.array(res["util"], dtype=float)
+    n = len(res.get("pids") or util)
+    ranges = [util[:, s:s + count].max(axis=1) - util[:, s:s + count].min(axis=1) for _, s, count in res["spans"]]
+    if res.get("price") is not None and res.get("has_price_importance") and res.get("price_range"):
+        ranges.append(np.abs(np.array(res["price"], dtype=float)) * (res["price_range"][1] - res["price_range"][0]))
+    if not ranges:
+        return np.full(n, np.nan)
+    R = np.column_stack(ranges)
+    total = R.sum(axis=1)
+    return np.where(total > 0, 100 * R.shape[1] / np.where(total > 0, total, 1), np.nan)
+
+
+def _diffs(item, res, rows, price, asc, pa, attrs):
+    """The part-worths of the page rescaled per person (diff_factors), from the stored result: means, SD and quartiles
+    over the persons' rescaled values, the share preferring a level as before, the 95 % interval of the mean from the
+    kept draws with every person's fixed factor. Persons whose ranges sum to 0 are left out. None without anyone."""
+    f = diff_factors(res)
+    ok = np.isfinite(f)
+    if not ok.any():
+        return None
+    fk = f[ok]
+    util = np.array(res["util"], dtype=float)[ok] * fk[:, None]
+    draws = draw_parameters(res) if res.get("draws") else None
+
+    def interval(series, had):  # series: draws x persons kept, or None
+        if series is None or not had:
+            return None, None
+        means = (series * fk[None, :]).mean(axis=1)
+        lo, hi = np.percentile(means, [2.5, 97.5])
+        return float(lo), float(hi)
+
+    attributes = []
+    for row, (a, start, count) in zip(rows, res["spans"]):
+        levels = []
+        for lv, old in enumerate(row["levels"]):
+            column = util[:, start + lv]
+            lo, hi = interval(None if draws is None else draws["util"][:, ok, start + lv], old["lo"] is not None)
+            levels.append({**old, **_stats(column), "lo": lo, "hi": hi, "beta": float(column.mean()),
+                           "se": None if lo is None else (hi - lo) / 3.92})
+        attributes.append({**row, "levels": levels})
+    out_price = out_asc = None
+    if price is not None:
+        p = np.array(res["price"], dtype=float)[ok] * fk
+        lo, hi = interval(None if draws is None or draws["price"] is None else draws["price"][:, ok], price["lo"] is not None)
+        out_price = {**price, **_stats(p), "lo": lo, "hi": hi}
+    if asc is not None:
+        c = np.array(res["asc"], dtype=float)[ok] * fk
+        lo, hi = interval(None if draws is None or draws["asc"] is None else draws["asc"][:, ok], asc["lo"] is not None)
+        out_asc = {**asc, **_stats(c), "lo": lo, "hi": hi}
+    price_levels = _price_levels(item, attrs, out_price, pa)
+    return {"attributes": attributes, "price": out_price, "asc": out_asc, "price_levels": price_levels,
+            "charts": charts({"attributes": attributes, "price_levels": price_levels}),
+            "persons": int(ok.sum()), "left_out": int((~ok).sum()), "intervals": draws is not None}
+
+
+def _price_levels(item, attrs, price, pa):
+    """The linear price as bars like in the aggregate model (cbc_analysis.estimate): mean coefficient x (price - mean
+    price of the levels), whisker from the posterior interval of the mean (Ralf, 2026-10-22: HB showed one attribute
+    fewer than the logit)."""
+    if price is None or item.type != "conjoint" or pa is None:
+        return None
+    numbers = item.kind.level_numbers(item, pa)
+    if not numbers:
+        return None
+    centre = sum(numbers) / len(numbers)
+    se = None if price["lo"] is None else (price["hi"] - price["lo"]) / 3.92
+    return {"label": attrs[pa]["label"], "levels": [
+        {"label": label, "beta": price["mean"] * (p - centre), "se": None if se is None else abs(p - centre) * se}
+        for label, p in zip(attrs[pa]["level_labels"], numbers)]}
 
 
 def _stats(values):
@@ -609,20 +739,12 @@ def summary(item, res, lang):
             warnings.append(de_en("{name} wurde immer gewählt: Die Konstante begrenzt nur die Priori.",
                                   "{name} was always chosen: only the prior bounds the constant.", name=name))
         asc["lo"] = asc["hi"] = None
-    # the linear price as bars like in the aggregate model (cbc_analysis.estimate): mean coefficient x (price - mean
-    # price of the levels), whisker from the posterior interval of the mean (Ralf, 2026-10-22: HB showed one
-    # attribute fewer than the logit)
-    price_levels = None
-    if price is not None and item.type == "conjoint" and pa is not None:
-        numbers = item.kind.level_numbers(item, pa)
-        if numbers:
-            centre = sum(numbers) / len(numbers)
-            se = None if price["lo"] is None else (price["hi"] - price["lo"]) / 3.92
-            price_levels = {"label": attrs[pa]["label"], "levels": [
-                {"label": label, "beta": price["mean"] * (p - centre), "se": None if se is None else abs(p - centre) * se}
-                for label, p in zip(attrs[pa]["level_labels"], numbers)]}
+    price_levels = _price_levels(item, attrs, price, pa)
     return {"persons": n, "type": res["type"], "attributes": rows, "price": price, "asc": asc,
             "price_levels": price_levels,
+            # the same part-worths rescaled per person (SCALE_KEY), for the switch above the table; importances,
+            # simulator and holdouts keep the raw values
+            "diffs": _diffs(item, res, rows, price, asc, pa, attrs),
             "charts": charts({"attributes": rows, "price_levels": price_levels}),
             "rlh": {"mean": float(rlh.mean()), "median": float(np.median(rlh)), "chance": float(chance.mean()),
                     "low": int(low.sum()), "low_share": float(low.mean()),
