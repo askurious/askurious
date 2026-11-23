@@ -28,6 +28,7 @@
 </fieldset>
 {% set prohib_footnote = de_en("Danach den Versuchsplan neu erzeugen; die D-Effizienz sinkt dadurch etwas.", "Then generate the experimental design again; the D-efficiency drops a little as a result.") %}
 {% include "items/_attributes/prohibitions.html" %}
+{% include "items/conjoint/warmups.html" %}
 {% include "items/conjoint/holdouts.html" %}
 <fieldset data-cj-tab="display">
   <legend>{{ de_en("Darstellung", "Display") }}</legend>

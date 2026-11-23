@@ -397,7 +397,8 @@ def _keep_orders(layout, old):
             stmt[key] = list(order)
 
     def where(spec):
-        return (spec.get("block"), spec.get("row"), spec.get("task"), spec.get("holdout"), frozenset(spec.get("items") or ()))
+        return (spec.get("block"), spec.get("row"), spec.get("task"), spec.get("holdout"), spec.get("warmup"),
+                frozenset(spec.get("items") or ()))
 
     before = {where(p): p["items"] for p in (old.get("pages") or []) + (old.get("after_split") or [])
               if isinstance(p, dict) and p.get("items")}

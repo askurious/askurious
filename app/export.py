@@ -1971,7 +1971,8 @@ LABEL_PATTERNS_EN = [
 ]
 # the pages of a task named in the timing labels (paradata.timing_pages: ", <page>")
 TIMING_PAGES_EN = {"Erklärungsseite": "explanation page", "Aufgabe": "task", "Holdout-Aufgabe": "holdout task",
-                   "Holdout-Set": "holdout set", "Ankerfrage": "anchor question", "Wunschvariante": "build your own",
+                   "Holdout-Set": "holdout set", "Aufwärmaufgabe": "warm-up task", "Aufwärm-Set": "warm-up set",
+                   "Ankerfrage": "anchor question", "Wunschvariante": "build your own",
                    "Preisgrenze": "price limit", "Ausschlussgründe": "unacceptables", "Unverzichtbar": "must-haves",
                    "Rangfolge": "ranking"}
 
@@ -1992,7 +1993,7 @@ def label_en(column, label, typ=None):
     for pattern, replacement in LABEL_PATTERNS_EN:
         text = pattern.sub(replacement, text)
     if text.startswith("Time on the page from "):
-        text = re.sub(r", (Holdout-Aufgabe|Holdout-Set|Aufgabe|Erklärungsseite|Ankerfrage|Wunschvariante|Preisgrenze|"
+        text = re.sub(r", (Holdout-Aufgabe|Holdout-Set|Aufwärmaufgabe|Aufwärm-Set|Aufgabe|Erklärungsseite|Ankerfrage|Wunschvariante|Preisgrenze|"
                       r"Ausschlussgründe|Unverzichtbar|Rangfolge)\b", lambda m: ", " + TIMING_PAGES_EN[m.group(1)], text)
     return text
 

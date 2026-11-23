@@ -212,6 +212,7 @@ Deleted questions stay in the bin below the blocks for seven days. Once a survey
 | Slider or labelled points | Sliders take longer and lead to more missing answers (Funke et al., 2011); labelled points are the safer choice. Sliders have no starting position, so "not answered" stays distinguishable from "middle". |
 | Drop-down list or option buttons | Option buttons show all answers; in a drop-down people pick the first visible entries more often. A list suits long, familiar lists (federal states, years). |
 | Level of measurement (ordinal, metric) | Decides which statistics and tests the results use for this element. |
+| Warm-up tasks (conjoint, ratings-based conjoint, MaxDiff; the element's tab “Flow”, above the holdout tasks) | None, one or two fixed tasks before task 1, the same for everyone, filled in and changeable; they look like any task, count in “Task x of y” and are left out of counts, logit, HB, segments and the simulator (own columns `_wu1`, `_wu2` in the export). Whether they pay off is not answered consistently: the first answers are often a little less reliable, but the differences are small, and every warm-up task makes the survey longer. Most useful for unfamiliar or difficult tasks; otherwise a good explanation page is usually enough. Not for ACBC and not for the ranking of the ratings-based conjoint. |
 
 **Why the editor works this way.**
 Element types are plug-ins with one shared interface (decision of 2026-09-26), which is how 38 types fit one editor.

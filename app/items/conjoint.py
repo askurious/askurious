@@ -11,10 +11,11 @@ config: attributes [{id, code, visual, levels: [{id, hint}]}] (texts per languag
         none ("none of these" as an option), dual (dual response: after the choice "would you really choose it?",
         Ja/Nein; never together with none), display (table | image | both), attr_order (fixed | participant), shuffle_alts (display order of
         the options per participant and task; answers keep the option's number), scene,
-        design {sig, versions, d_eff}, holdouts [{id, alts: [[level id, ...], ...]}] (app/holdouts.py)
+        design {sig, versions, d_eff}, holdouts [{id, alts: [[level id, ...], ...]}] (app/holdouts.py),
+        warmups [{id, alts}] (warm-up tasks before task 1, the same shape as holdouts)
 texts:  question, attributes {id: label}, levels {id: label}, none_label, alt_label, dr_question, dr_yes, dr_no
-answer: {"t<task>": option 1..J (0 = none), "h<holdout>": the same for a holdout task, with dual response
-        "dt<task>" / "dh<holdout>": 1 = would choose it, 0 = would not}
+answer: {"t<task>": option 1..J (0 = none), "h<holdout>": the same for a holdout task, "w<warm-up>" for a warm-up
+        task, with dual response "dt<task>" / "dh<holdout>" / "dw<warm-up>": 1 = would choose it, 0 = would not}
 """
 import hashlib
 import json
@@ -103,7 +104,9 @@ class Conjoint(AttributeLevels, ItemType):
                     "none": r_flag, "dual": r_flag, "display": r_one(*DISPLAYS), "attr_order": r_one("fixed", "participant"),
                     "shuffle_alts": r_flag, "scene": r_text(2000), "show_visual_in_table": r_flag,
                     "stack_mobile": r_flag, "design": r_any,  # see import_config
-                    "holdouts": r_rows(holdouts.MAX, id=r_id, alts=r_list(6, r_list(MAX_ATTRIBUTES, r_id))), "sim": clean_scenarios,
+                    "holdouts": r_rows(holdouts.MAX, id=r_id, alts=r_list(6, r_list(MAX_ATTRIBUTES, r_id))),
+                    "warmups": r_rows(holdouts.WARMUP_MAX, id=r_id, alts=r_list(6, r_list(MAX_ATTRIBUTES, r_id))),
+                    "sim": clean_scenarios,
                     "lc": clean_segments}
 
     def import_config(self, config):
@@ -130,6 +133,9 @@ class Conjoint(AttributeLevels, ItemType):
         if not unfit and "holdouts" in config and holdouts.import_fit(config, "alts") is None:
             config["holdouts"] = []  # levels the file does not have
             unknown = unknown + ["holdouts"]
+        if not unfit and "warmups" in config and holdouts.import_fit(config, "alts", "warmups") is None:
+            config["warmups"] = []
+            unknown = unknown + ["warmups"]
         return config, unfit, unknown
     result_kind = "cbc"  # own summary: choice shares per level and an aggregate logit (app/cbc_analysis.py)
     levels = ("nominal",)  # design version and chosen option per task
@@ -188,7 +194,7 @@ class Conjoint(AttributeLevels, ItemType):
                 "stack_mobile": True,  # with images, on a phone held upright: the options one below the other
                 "design": None, "auto_next": True,  # no Back/Next by default: choosing an option moves on
                 "shuffle_alts": True,  # options in random order per participant and task (answers keep the option)
-                "holdouts": []}
+                "holdouts": [], "warmups": []}
 
     def default_texts(self, lang):
         return {**pick(DEFAULT_TEXTS, lang), "attributes": {}, "levels": {}}
@@ -224,6 +230,8 @@ class Conjoint(AttributeLevels, ItemType):
             )
             if "ho_count" in form:  # holdout tasks (app/holdouts.py), locked with the design
                 config["holdouts"] = holdouts.cbc_from_form(item, config, form)
+            if "wu_count" in form:  # warm-up tasks before task 1, locked with the design
+                config["warmups"] = holdouts.cbc_from_form(item, config, form, "warmups")
         texts[lang] = lt
         item.config, item.texts = config, texts
 
@@ -354,13 +362,30 @@ class Conjoint(AttributeLevels, ItemType):
             return None
         pages = [{"explain": True}] if item.config.get("explain") else []
         active = dict(holdouts.cbc_active(item))
-        if not active:
+        warm = dict(holdouts.cbc_active(item, "warmups"))
+        if not active and not warm:
             pages += [{"task": t} for t in range(item.config["tasks"])]
-        else:  # holdout tasks between and after the tasks; "n": the number the page shows ("Aufgabe n von ...")
-            order = [(k, x) for k, x in holdouts.page_order(item.config["tasks"], len(holdouts.stored(item)))
-                     if k == "t" or x in active]
-            pages += [{"task" if k == "t" else "holdout": x, "n": n} for n, (k, x) in enumerate(order, start=1)]
+        else:  # warm-ups first, holdout tasks between and after the tasks; "n": the number the page shows
+            pages += holdouts.pages(self._page_order(item), active, warm)
         return self.response_state(survey, item, rng), pages
+
+    def _page_order(self, item):
+        return holdouts.page_order(item.config.get("tasks", 0), len(holdouts.stored(item)),
+                                   len(holdouts.stored(item, "warmups")))
+
+    def warmup_profiles(self, item, w):
+        return holdouts.cbc_profiles(item, w, "warmups")
+
+    def warmup_count(self, item):
+        return len(holdouts.stored(item, "warmups"))
+
+    def warmup_level(self, item, w, j, attr_index):
+        return holdouts.cbc_level_choice(item, w, j, attr_index, "warmups")
+
+    def page_profiles_fixed(self, item, meta):
+        """The fixed options of a holdout or warm-up page, None for a task of the design."""
+        kind = holdouts.page_kind(meta)
+        return holdouts.cbc_profiles(item, meta[holdouts.KINDS[kind]["meta"]], kind) if kind else None
 
     def holdout_profiles(self, item, h):
         return holdouts.cbc_profiles(item, h)
@@ -372,8 +397,9 @@ class Conjoint(AttributeLevels, ItemType):
         return holdouts.cbc_level_choice(item, h, j, attr_index)
 
     def shown_tasks(self, item):
-        """Tasks a person sees, holdouts included (the "of" in "Aufgabe 3 von 10")."""
-        return item.config.get("tasks", 0) + len(holdouts.cbc_active(item))
+        """Tasks a person sees, holdouts and warm-ups included (the "of" in "Aufgabe 3 von 10")."""
+        return (item.config.get("tasks", 0) + len(holdouts.cbc_active(item))
+                + len(holdouts.cbc_active(item, "warmups")))
 
     def response_state(self, survey, item, rng):
         """Design version (balanced over real participants) and attribute order for one response."""
@@ -391,11 +417,8 @@ class Conjoint(AttributeLevels, ItemType):
 
     def timing_pages(self, item):
         pages = [("_x", "Erklärungsseite", ".x")] if item.config.get("explain") else []
-        active = {h for h, _ in holdouts.cbc_active(item)}
-        return pages + [(f"_t{x + 1}", f"Aufgabe {x + 1}", f".t{x}") if k == "t" else
-                        (f"_ho{x + 1}", f"Holdout-Aufgabe {x + 1}", f".h{x}")
-                        for k, x in holdouts.page_order(item.config.get("tasks", 0), len(holdouts.stored(item)))
-                        if k == "t" or x in active]
+        return pages + holdouts.timing(self._page_order(item), {h for h, _ in holdouts.cbc_active(item)},
+                                       {w for w, _ in holdouts.cbc_active(item, "warmups")})
 
     def seconds(self, item, read):
         from app.duration import ANSWER_SECONDS
@@ -403,7 +426,8 @@ class Conjoint(AttributeLevels, ItemType):
         c = item.config
         per_task = (ANSWER_SECONDS["conjoint_task"] + 0.5 * len(c.get("attributes", [])) * max(c.get("alternatives", 2), 1)
                     + (3 if self.dual(item) else 0))  # the follow-up question of dual response
-        return read + per_task * (c.get("tasks", 8) + len(holdouts.cbc_active(item)))
+        return read + per_task * (c.get("tasks", 8) + len(holdouts.cbc_active(item))
+                                  + len(holdouts.cbc_active(item, "warmups")))
 
     def dummy_fields(self, item, rng, meta, answers=None):
         """Random utility model, as for MaxDiff dummies (audit 2026-10-05, M-14): utilities per level the same for
@@ -412,9 +436,9 @@ class Conjoint(AttributeLevels, ItemType):
         c = item.config
         meta = meta or {}
         choices = list(range(1, c["alternatives"] + 1)) + ([0] if c.get("none") else [])
-        key = f"h{meta['holdout']}" if "holdout" in meta else f"t{meta.get('task', 0)}"
-        if "holdout" in meta:
-            profiles = holdouts.cbc_profiles(item, meta["holdout"])
+        key = holdouts.page_key(meta)
+        if holdouts.page_kind(meta):  # a holdout or warm-up task: from the same utilities as the tasks
+            profiles = self.page_profiles_fixed(item, meta)
         else:
             version = ((meta.get("cj_state") or {}).get(item.id) or {}).get("version")
             profiles = (item.config["design"]["versions"][version][meta.get("task", 0)]
@@ -454,7 +478,7 @@ class Conjoint(AttributeLevels, ItemType):
             for task in version:
                 for profile in task:
                     keys.add(self.image_key(item, profile))
-        for _, profiles in holdouts.cbc_active(item):
+        for _, profiles in holdouts.cbc_active(item) + holdouts.cbc_active(item, "warmups"):
             keys.update(self.image_key(item, profile) for profile in profiles)
         return sorted(keys)
 
@@ -466,12 +490,16 @@ class Conjoint(AttributeLevels, ItemType):
             problems.append(de_en("Versuchsplan fehlt oder ist veraltet: bitte „Versuchsplan erzeugen“",
                                   "Experimental design missing or out of date: please “Generate experimental design”"))
         return (problems + self.validate_price_attribute(item) + self.validate_images(item)
-                + holdouts.cbc_problems(item))
+                + holdouts.cbc_problems(item, "warmups") + holdouts.cbc_problems(item))
 
     def check_warnings(self, item):
-        """Hints that do not block the start: holdouts, a design whose part-worths cannot all be estimated
+        """Hints that do not block the start: warm-ups, holdouts, a design whose part-worths cannot all be estimated
         (D-efficiency 0, audit 2026-10-05 W-5) and few tasks per person (H-11)."""
-        return self.holdout_warnings(item) + self.design_warnings(item)
+        return self.warmup_warnings(item) + self.holdout_warnings(item) + self.design_warnings(item)
+
+    def warmup_warnings(self, item):
+        """Only the hints on the warm-up tasks: the editor shows them in the warm-up box."""
+        return list(holdouts.cbc_warnings(item, "warmups"))
 
     def holdout_warnings(self, item):
         """Only the hints on the holdout tasks: the editor shows them in the holdout box (audit 2026-10-07 W26)."""
@@ -513,7 +541,7 @@ class Conjoint(AttributeLevels, ItemType):
     def parse_answer(self, item, form, lang="de", meta=None):
         if (meta or {}).get("explain"):
             return {"explained": True}  # the explanation page has no answer
-        key = f"h{meta['holdout']}" if "holdout" in (meta or {}) else f"t{(meta or {}).get('task', 0)}"
+        key = holdouts.page_key(meta)
         raw = form.get(f"i{item.id}_{key}", "")
         allowed = {str(n) for n in range(1, item.config["alternatives"] + 1)} | ({"0"} if item.config.get("none") else set())
         dual = self.dual(item)
@@ -534,7 +562,7 @@ class Conjoint(AttributeLevels, ItemType):
         return {key: int(raw), f"d{key}": int(again)}
 
     def display_value(self, item, form, meta=None):
-        key = f"h{meta['holdout']}" if "holdout" in (meta or {}) else f"t{(meta or {}).get('task', 0)}"
+        key = holdouts.page_key(meta)
         raw = form.get(f"i{item.id}_{key}", "")
         if self.dual(item):
             return {key: whole(raw), f"d{key}": whole(form.get(f"i{item.id}_d{key}", ""))}
@@ -559,6 +587,11 @@ class Conjoint(AttributeLevels, ItemType):
         if self.random_attr_order(item):  # per-person order of the attributes (rows of the table)
             cols.append((f"{item.code}_attr_order", "Gezeigte Reihenfolge der Merkmale (Variablennamen)"))
         dual = self.dual(item)
+        for w in range(len(holdouts.stored(item, "warmups"))):
+            cols.append((f"{item.code}_wu{w + 1}", f"Aufwärmaufgabe {w + 1}: gewählte Option (0 = keine)"))
+            if dual:
+                cols.append((f"{item.code}_wu{w + 1}_dr",
+                             f"Aufwärmaufgabe {w + 1}: gewählte Option wirklich gewählt (Nachfrage)"))
         for t in range(item.config.get("tasks", 0)):
             cols.append((f"{item.code}_t{t + 1}", f"Aufgabe {t + 1}: gewählte Option (0 = keine)"))
             if dual:
@@ -576,6 +609,10 @@ class Conjoint(AttributeLevels, ItemType):
         if self.random_attr_order(item):
             out[f"{item.code}_attr_order"] = None
         dual = self.dual(item)
+        for w in range(len(holdouts.stored(item, "warmups"))):
+            out[f"{item.code}_wu{w + 1}"] = answer.get(f"w{w}")
+            if dual:
+                out[f"{item.code}_wu{w + 1}_dr"] = answer.get(f"dw{w}")
         for t in range(item.config.get("tasks", 0)):
             out[f"{item.code}_t{t + 1}"] = answer.get(f"t{t}")
             if dual:
@@ -614,13 +651,14 @@ class Conjoint(AttributeLevels, ItemType):
                                  "durch |; je Person zufällig, in allen Aufgaben gleich",
                              "attributes in the order the person saw them (top to bottom), separated by |; random per "
                              "person, the same in all tasks")])
-        if (column.startswith(f"{code}_t") or column.startswith(f"{code}_ho")) and column.endswith("_dr"):
+        fixed_task = column.startswith(f"{code}_ho") or column.startswith(f"{code}_wu")
+        if (column.startswith(f"{code}_t") or fixed_task) and column.endswith("_dr"):
             t, d = item.t(lang), pick(DEFAULT_TEXTS, lang)
             return "Conjoint", f"1 = {t.get('dr_yes') or d['dr_yes']}; 0 = {t.get('dr_no') or d['dr_no']}", [
                 in_lang(ui, "Nachfrage nach der Wahl (Dual Response): „{q}“; leer: Aufgabe oder Nachfrage nicht beantwortet",
                         "follow-up question after the choice (dual response): “{q}”; empty: task or follow-up question "
                         "not answered", q=t.get("dr_question") or d["dr_question"])]
-        if column.startswith(f"{code}_t") or column.startswith(f"{code}_ho"):
+        if column.startswith(f"{code}_t") or fixed_task:
             t, d = item.t(lang), pick(DEFAULT_TEXTS, lang)
             shuffled = bool(c.get("shuffle_alts"))
             # with shuffled options the number is the alternative of the design, not the label on the screen
@@ -631,6 +669,8 @@ class Conjoint(AttributeLevels, ItemType):
             notes = [in_lang(ui, "leer: Aufgabe nicht beantwortet", "empty: task not answered")]
             if column.startswith(f"{code}_ho"):
                 notes += self.holdout_notes(item, int(column[len(code) + 3:]) - 1, lang, ui)
+            elif column.startswith(f"{code}_wu"):
+                notes += self.holdout_notes(item, int(column[len(code) + 3:]) - 1, lang, ui, "warmups")
             if shuffled:
                 notes.append(in_lang(ui, "Nummer der Alternative im Versuchsplan; die Optionen standen je Person und Aufgabe in "
                                          "zufälliger Reihenfolge, die gezeigte Position steht im Langformat (Spalte position)",
@@ -639,13 +679,20 @@ class Conjoint(AttributeLevels, ItemType):
             return "Conjoint", "; ".join(f"{n} = {str(label).replace(';', ',')}" for n, label in labels), notes
         return None
 
-    def holdout_notes(self, item, h, lang, ui=None):
-        """Codebook notes of a holdout column: what it is and the options it showed (`ui`: the reader's language)."""
-        notes = [in_lang(ui, "Holdout-Aufgabe: für alle gleich, geht nicht in Zählwerte, Logit-Modell und HB ein (Prüfung "
-                             "der Vorhersage)",
-                         "holdout task: the same for everybody, not part of the counts, the logit model and HB (check "
-                         "of the prediction)")]
-        profiles = holdouts.cbc_profiles(item, h)
+    def holdout_notes(self, item, h, lang, ui=None, kind="holdouts"):
+        """Codebook notes of a holdout (or warm-up) column: what it is and the options it showed (`ui`: the reader's
+        language)."""
+        if kind == "warmups":
+            notes = [in_lang(ui, "Aufwärmaufgabe vor Aufgabe 1: für alle gleich, geht nicht in Zählwerte, Logit-Modell "
+                                 "und HB ein",
+                             "warm-up task before task 1: the same for everybody, not part of the counts, the logit "
+                             "model and HB")]
+        else:
+            notes = [in_lang(ui, "Holdout-Aufgabe: für alle gleich, geht nicht in Zählwerte, Logit-Modell und HB ein "
+                                 "(Prüfung der Vorhersage)",
+                             "holdout task: the same for everybody, not part of the counts, the logit model and HB "
+                             "(check of the prediction)")]
+        profiles = holdouts.cbc_profiles(item, h, kind)
         if profiles:
             attrs = self.attributes(item, lang)
             notes += [f"Option {j}: " + ", ".join(f"{a['code']} = {a['level_labels'][p[k]]}" for k, a in enumerate(attrs))
@@ -700,6 +747,9 @@ class Conjoint(AttributeLevels, ItemType):
                    + (", none option" if c.get("none") else "")
                    + (", dual response (follow-up question after every choice: would you really choose it?)"
                       if self.dual(item) else "") + f", display: {c['display']}")
+        if holdouts.stored(item, "warmups"):
+            out.append(f"  - {len(holdouts.stored(item, 'warmups'))} warm-up task(s) before task 1, the same for "
+                       "everyone, not used for estimation")
         if holdouts.stored(item):
             out.append(f"  - {len(holdouts.stored(item))} holdout task(s), the same for everyone, not used for estimation")
         return out

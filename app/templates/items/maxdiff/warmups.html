@@ -1,0 +1,31 @@
+{% from "_learn.html" import term, why %}
+{# MaxDiff: warm-up sets before set 1 (app/holdouts.py, "warmups"), part of the element form, above the holdout sets;
+   app.js shows as many as "Anzahl" says (data-ho). #}
+{% set labels = kind.labels(item) %}
+{% if labels|length >= 4 %}
+{% set n_wu = kind.warmup_count(item) %}
+<fieldset class="ho-editor" data-cj-tab="design" data-ho>
+  <legend>{{ term("warmup", de_en("Aufwärm-Sets", "Warm-up sets")) }} <span class="hint">{{ de_en("feste Sets vor Set 1, für alle gleich; sie gehen nicht in die Schätzung ein", "fixed sets before set 1, the same for everyone; they do not go into the estimation") }}</span></legend>
+  <label>{{ de_en("Anzahl", "Number") }}
+    <select name="wu_count" data-ho-count {% if not structural %}disabled{% endif %}>
+      {% for k in range(3) %}<option value="{{ k }}" {% if k == n_wu %}selected{% endif %}>{{ de_en("keine", "none") if k == 0 else k }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for w in range(2) %}
+  <div class="ho-task" data-ho-slot="{{ w + 1 }}" {% if w >= n_wu %}hidden{% endif %}>
+    <p class="pw-head">{{ de_en("Aufwärm-Set {n}", "Warm-up set {n}", n=w + 1) }} <span class="hint">{{ de_en("vor Set 1", "before set 1") if w == 0 else de_en("nach dem ersten Aufwärm-Set", "after the first warm-up set") }}</span></p>
+    <div class="row-fields">
+      {% for p in range(item.config.set_size) %}{% set pick = kind.warmup_statement(item, w, p) %}
+      <label>{{ de_en("Aussage {n}", "Statement {n}", n=p + 1) }}
+        <select name="wu{{ w }}_{{ p }}" {% if not structural %}disabled{% endif %}>
+          {% for s in item.config.statements %}<option value="{{ s.id }}" {% if loop.index0 == pick %}selected{% endif %}>{{ loop.index }}. {{ labels[loop.index0]|truncate(60) }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <p class="muted small">{{ de_en("Höchstens zwei, mit {n} verschiedenen Aussagen je Set. Sie kommen vor Set 1, sehen aus wie die übrigen Sets und zählen in „Set x von y“ mit; im Export stehen sie in eigenen Spalten. Vorbelegt mit anderen Aussagen als die Holdout-Sets, änderbar. Nach dem Start gesperrt wie der Versuchsplan.", "At most two, with {n} different statements per set. They come before set 1, look like the other sets and count in “Set x of y”; the export has them in columns of their own. Filled in with other statements than the holdout sets, and you can change them. Locked after the start like the experimental design.", n=item.config.set_size) }}</p>
+  {{ why("warmup") }}
+</fieldset>
+{% endif %}

@@ -18,7 +18,8 @@ config: attributes, prohibitions, explain, hide_attr_labels, level_images (attri
         points (single: 5, 7, 9, 11; pairs: 7, 9), slider (single: 0 to 100 instead of points), tasks (0 = suggestion),
         versions, display, scene, show_visual_in_table, stack_mobile, auto_next,
         design {sig, versions: [[profile, ...]] or [[[first, second], ...]], eff},
-        holdouts [{id, alts: [[level id per attribute]] or two of them in pairs}] (app/holdouts.py, stage 4)
+        holdouts [{id, alts: [[level id per attribute]] or two of them in pairs}] (app/holdouts.py, stage 4),
+        warmups [{id, alts}] (warm-up tasks before task 1, the same shape; not with the ranking)
 texts:  question, low, high (ends of the rating scale), much, same (pairs), alt_label, explain_intro, attributes, levels
 answer: {"v": version, "t0": value, ..., "h0": value, ...}: single the rating (0..10 with 11 points, else 1..points;
         0..100 with the slider), pairs the category from the point of view of the profile shown first (-m .. m,
@@ -96,7 +97,8 @@ class Cva(AttributeLevels, ItemType):
     import_rules = {**ATTRIBUTE_RULES, "form": r_one(*FORMS), "points": r_one(*SINGLE_POINTS), "slider": r_flag,
                     "tasks": r_int(0, 40), "versions": r_int(1, 4), "display": r_one(*DISPLAYS), "scene": r_text(2000),
                     "show_visual_in_table": r_flag, "stack_mobile": r_flag, "design": r_any,
-                    "holdouts": r_rows(holdouts.MAX, id=r_id, alts=r_list(2, r_list(MAX_ATTRIBUTES, r_id)))}
+                    "holdouts": r_rows(holdouts.MAX, id=r_id, alts=r_list(2, r_list(MAX_ATTRIBUTES, r_id))),
+                    "warmups": r_rows(holdouts.WARMUP_MAX, id=r_id, alts=r_list(2, r_list(MAX_ATTRIBUTES, r_id)))}
     result_kind = "cva"  # own summary (results())
     levels = ("metric",)
     alone_on_page = True  # one page per task
@@ -144,6 +146,9 @@ class Cva(AttributeLevels, ItemType):
         if not unfit and config.get("holdouts") and holdouts.import_fit(config, "alts") is None:
             config["holdouts"] = []  # levels the file does not have
             unknown = unknown + ["holdouts"]
+        if not unfit and config.get("warmups") and holdouts.import_fit(config, "alts", "warmups") is None:
+            config["warmups"] = []
+            unknown = unknown + ["warmups"]
         return config, unfit, unknown
 
     # --- defaults and editing ----------------------------------------------------------
@@ -152,7 +157,7 @@ class Cva(AttributeLevels, ItemType):
         return {"attributes": [], "form": "single", "points": 11, "slider": False, "tasks": 0, "versions": 1,
                 "display": "table", "scene": "", "show_visual_in_table": False, "stack_mobile": True,
                 "auto_next": False,  # a slip on a scale of eleven would move on at once (as for the paired comparison)
-                "design": None, "holdouts": []}
+                "design": None, "holdouts": [], "warmups": []}
 
     def default_texts(self, lang):
         d = pick(DEFAULT_TEXTS, lang)
@@ -189,6 +194,8 @@ class Cva(AttributeLevels, ItemType):
                 config["versions"] = 1 if v is None else max(1, min(4, v))
             if "ho_count" in form:  # holdout tasks (app/holdouts.py), locked with the design
                 config["holdouts"] = holdouts.cbc_from_form(item, config, form)
+            if "wu_count" in form:  # warm-up tasks before task 1, locked with the design
+                config["warmups"] = holdouts.cbc_from_form(item, config, form, "warmups")
             if "display" in form:
                 display, level_images = display_from_form(form, DISPLAYS)
                 config.update(display=display, level_images=level_images,
@@ -347,7 +354,7 @@ class Cva(AttributeLevels, ItemType):
         return out
 
     def check_warnings(self, item):
-        return self.holdout_warnings(item) + self.design_warnings(item)
+        return self.warmup_warnings(item) + self.holdout_warnings(item) + self.design_warnings(item)
 
     def source_groups(self, item):
         from app import cva_design
@@ -371,12 +378,11 @@ class Cva(AttributeLevels, ItemType):
         pages = [{"explain": True}] if item.config.get("explain") else []
         if self.form(item) == "ranking":  # all offers on one page
             return state, pages + [{"rank": True, "v": state["version"]}]
-        active = dict(holdouts.cbc_active(item))
-        order = [(k, x) for k, x in holdouts.page_order(len(self.version_tasks(item, state["version"])),
-                                                         len(holdouts.stored(item))) if k == "t" or x in active]
-        # holdouts after task 3 and at the end; "n": the number the page shows ("Aufgabe n von ...")
-        pages += [{"task": x, "v": state["version"], "n": n} if k == "t" else {"holdout": x, "n": n}
-                  for n, (k, x) in enumerate(order, start=1)]
+        order = holdouts.page_order(len(self.version_tasks(item, state["version"])), len(holdouts.stored(item)),
+                                    len(holdouts.stored(item, "warmups")))
+        # warm-ups first, holdouts after task 3 and at the end; "n": the number the page shows ("Aufgabe n von ...")
+        pages += holdouts.pages(order, dict(holdouts.cbc_active(item)), dict(holdouts.cbc_active(item, "warmups")),
+                                {"v": state["version"]})
         return state, pages
 
     def balanced_version(self, survey, item, rng):
@@ -400,9 +406,10 @@ class Cva(AttributeLevels, ItemType):
         return list(tasks[task]) if self.design_form(item) == "pairs" else [tasks[task]]
 
     def page_profiles(self, item, meta, version):
-        """(profiles, answer key) of a task or holdout page."""
-        if "holdout" in meta:
-            return holdouts.cbc_profiles(item, meta["holdout"]) or [], f"h{meta['holdout']}"
+        """(profiles, answer key) of a task, holdout or warm-up page."""
+        kind = holdouts.page_kind(meta)
+        if kind:
+            return holdouts.cbc_profiles(item, meta[holdouts.KINDS[kind]["meta"]], kind) or [], holdouts.page_key(meta)
         task = meta.get("task", 0)
         return self.task_profiles(item, version, task), f"t{task}"
 
@@ -421,9 +428,21 @@ class Cva(AttributeLevels, ItemType):
     def holdout_warnings(self, item):
         return list(holdouts.cbc_warnings(item))
 
+    def warmup_profiles(self, item, w):
+        return holdouts.cbc_profiles(item, w, "warmups")
+
+    def warmup_count(self, item):
+        return len(holdouts.stored(item, "warmups"))
+
+    def warmup_level(self, item, w, j, attr_index):
+        return holdouts.cbc_level_choice(item, w, j, attr_index, "warmups")
+
+    def warmup_warnings(self, item):
+        return list(holdouts.cbc_warnings(item, "warmups"))
+
     def shown_tasks(self, item):
-        """Tasks a person sees, holdouts included (the "of" in "Aufgabe 3 von 10")."""
-        return self.n_tasks(item) + len(holdouts.cbc_active(item))
+        """Tasks a person sees, holdouts and warm-ups included (the "of" in "Aufgabe 3 von 10")."""
+        return self.n_tasks(item) + len(holdouts.cbc_active(item)) + len(holdouts.cbc_active(item, "warmups"))
 
     def ranked_offers(self, item, version, answer=None):
         """[(task index, profile)] of the ranking page: in the order of the answer if it ranks them all, else in the order
@@ -439,11 +458,9 @@ class Cva(AttributeLevels, ItemType):
         pages = [("_x", "Erklärungsseite", ".x")] if item.config.get("explain") else []
         if self.form(item) == "ranking":
             return pages + [("_rk", "Rangfolge", "")]
-        active = {h for h, _ in holdouts.cbc_active(item)}
-        return pages + [(f"_t{x + 1}", f"Aufgabe {x + 1}", f".t{x}") if k == "t" else
-                        (f"_ho{x + 1}", f"Holdout-Aufgabe {x + 1}", f".h{x}")
-                        for k, x in holdouts.page_order(self.n_tasks(item), len(holdouts.stored(item)))
-                        if k == "t" or x in active]
+        order = holdouts.page_order(self.n_tasks(item), len(holdouts.stored(item)), len(holdouts.stored(item, "warmups")))
+        return pages + holdouts.timing(order, {h for h, _ in holdouts.cbc_active(item)},
+                                       {w for w, _ in holdouts.cbc_active(item, "warmups")})
 
     def seconds(self, item, read):
         from app.duration import ANSWER_SECONDS
@@ -464,7 +481,7 @@ class Cva(AttributeLevels, ItemType):
             for task in plan:
                 for profile in (task if pairs else [task]):
                     keys.add(self.image_key(item, profile))
-        for _, profiles in holdouts.cbc_active(item):
+        for _, profiles in holdouts.cbc_active(item) + holdouts.cbc_active(item, "warmups"):
             keys.update(self.image_key(item, profile) for profile in profiles)
         return sorted(keys)
 
@@ -476,7 +493,7 @@ class Cva(AttributeLevels, ItemType):
             problems.append(de_en("Versuchsplan fehlt oder ist veraltet: bitte „Versuchsplan erzeugen“",
                                   "Experimental design missing or out of date: please “Generate experimental design”"))
         return (problems + self.validate_price_attribute(item) + self.validate_images(item)
-                + holdouts.cbc_problems(item))
+                + holdouts.cbc_problems(item, "warmups") + holdouts.cbc_problems(item))
 
     # --- answers -----------------------------------------------------------------------
 
@@ -486,7 +503,7 @@ class Cva(AttributeLevels, ItemType):
             return {"explained": True}
         if meta.get("rank"):
             return self.parse_ranking(item, form, lang, meta)
-        key = f"h{meta['holdout']}" if "holdout" in meta else f"t{meta.get('task', 0)}"
+        key = holdouts.page_key(meta)
         extra = {"v": meta["v"]} if "v" in meta else {}
         raw = form.get(f"i{item.id}_{key}", "").strip()
         if raw == "":
@@ -522,7 +539,7 @@ class Cva(AttributeLevels, ItemType):
             codes = [c for c in form.getlist(f"i{item.id}") if c.isdigit()]
             return {f"t{int(c)}": rank for rank, c in enumerate(dict.fromkeys(codes), start=1)} \
                 if form.get(f"i{item.id}_touched") else {}
-        key = f"h{meta['holdout']}" if "holdout" in meta else f"t{meta.get('task', 0)}"
+        key = holdouts.page_key(meta)
         return {key: whole(form.get(f"i{item.id}_{key}", ""))}
 
     def merge_answer(self, old, new):
@@ -571,6 +588,9 @@ class Cva(AttributeLevels, ItemType):
         cols = [(f"{code}_version", "Version des Versuchsplans")]
         what = {"pairs": "Paarurteil (positiv = erstes Angebot lieber)", "ranking": "Rang (1 = am liebsten)"}.get(
             self.form(item), "Bewertung")
+        cols += [(f"{code}_wu{w + 1}", f"Aufwärmaufgabe {w + 1}: " + ("Paarurteil (positiv = erstes Angebot lieber)"
+                                                                      if pairs else "Bewertung"))
+                 for w in range(len(holdouts.stored(item, "warmups")))]
         cols += [(f"{code}_t{t + 1}", f"{'Angebot' if self.form(item) == 'ranking' else 'Aufgabe'} {t + 1}: {what}")
                  for t in range(self.n_tasks(item))]
         cols += [(f"{code}_ho{h + 1}", f"Holdout-Aufgabe {h + 1}: " + ("Paarurteil (positiv = erstes Angebot lieber)" if pairs
@@ -593,6 +613,8 @@ class Cva(AttributeLevels, ItemType):
         answer = answer if isinstance(answer, dict) else {}
         code = item.code
         out = {f"{code}_version": None}
+        for w in range(len(holdouts.stored(item, "warmups"))):
+            out[f"{code}_wu{w + 1}"] = answer.get(f"w{w}")
         for t in range(self.n_tasks(item)):
             out[f"{code}_t{t + 1}"] = answer.get(f"t{t}")
         for h in range(len(holdouts.stored(item))):
@@ -620,6 +642,18 @@ class Cva(AttributeLevels, ItemType):
             return "Version des Versuchsplans", in_lang(ui, "1 bis {n}", "1 to {n}", n=item.config.get("versions", 1)), [
                 in_lang(ui, "balanciert über echte Teilnahmen; welche Angebote: Versuchsplan bzw. Langformat",
                         "balanced over real participations; which offers: experimental design or long format")]
+        if column.startswith(f"{code}_wu"):
+            lo, hi = self.scale_range(item)
+            w = whole(column[len(code) + 3:])
+            profiles = holdouts.cbc_profiles(item, w - 1, "warmups") if w else None
+            attrs = self.attributes(item, lang)
+            shown = [", ".join(f"{plain(a['label'])}: {plain(a['level_labels'][p[k]])}" for k, a in enumerate(attrs))
+                     for p in profiles or []]
+            return "CVA", in_lang(ui, "{lo} bis {hi}", "{lo} to {hi}", lo=lo, hi=hi), [in_lang(
+                ui, "Aufwärmaufgabe vor Aufgabe 1: für alle gleich, geht nicht in die Regression ein; leer = nicht "
+                    "beantwortet", "warm-up task before task 1: the same for everybody, not part of the regression; "
+                    "empty = not answered")] + [
+                in_lang(ui, "Angebot {n}: {text}", "Offer {n}: {text}", n=n, text=text) for n, text in enumerate(shown, 1)]
         if column.startswith(f"{code}_ho"):
             lo, hi = self.scale_range(item)
             h = whole(column[len(code) + 3:])
@@ -708,6 +742,9 @@ class Cva(AttributeLevels, ItemType):
                                                                                        f"to {hi}")
         out.append(f"  - {self.n_tasks(item)} tasks ({form}), {c.get('versions', 1)} "
                    f"{'version' if c.get('versions', 1) == 1 else 'versions'}")
+        if holdouts.stored(item, "warmups"):
+            out.append(f"  - {len(holdouts.stored(item, 'warmups'))} warm-up task(s) before task 1, the same for "
+                       "everyone, not used for estimation")
         if holdouts.stored(item):
             out.append(f"  - {len(holdouts.stored(item))} holdout task(s), the same for everyone, not used for estimation")
         return out

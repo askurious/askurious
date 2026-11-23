@@ -4,7 +4,9 @@
 {% set task = meta.task if meta.task is defined else 0 %}
 {# a holdout set (app/holdouts.py): fixed statements, the same for everyone, stored under "h<n>" #}
 {% set holdout = meta.holdout if meta.holdout is defined else none %}
-{% set akey = ("h" ~ holdout) if holdout is not none else ("t" ~ task) %}
+{# a warm-up set before set 1: fixed statements as a holdout set, stored under "w<n>", not marked for participants #}
+{% set warmup = meta.warmup if meta.warmup is defined else none %}
+{% set akey = ("w" ~ warmup) if warmup is not none else (("h" ~ holdout) if holdout is not none else ("t" ~ task)) %}
 {% set state = (cj_state or {}).get(item.id, {}) if cj_state is defined else {} %}
 {% set version = meta.v if meta.v is defined else (state.version if state and state.version is defined else 0) %}
 {% set t = item.t(lang) %}
@@ -43,7 +45,7 @@
 <table class="md" data-md aria-labelledby="q{{ item.id }}">
   <thead><tr><th class="md-pick" scope="col">{{ best_label }}</th><th class="md-text" scope="col"><span class="p-sr-only">{{ ui("Aussage", "Statement") }}</span></th><th class="md-pick" scope="col">{{ worst_label }}</th></tr></thead>
   <tbody>
-    {% for i in (kind.holdout_set(item, holdout) if holdout is not none else kind.task_set(item, version, task)) %}
+    {% for i in (kind.warmup_set(item, warmup) if warmup is not none else (kind.holdout_set(item, holdout) if holdout is not none else kind.task_set(item, version, task))) %}
     <tr data-md-row="{{ i }}">
       <td class="md-pick md-best"><label><input type="radio" name="i{{ item.id }}_{{ akey }}_b" value="{{ i }}" {% if choice.b == i %}checked{% endif %} aria-label="{{ best_label }}: {{ labels[i] }}"></label></td>
       <td class="md-text"{{ text_attrs(item, "statements") }}>{{ labels[i]|fill(variables) }}</td>

@@ -5,8 +5,10 @@
 {% set explain_page = page_meta is defined and page_meta and page_meta.explain %}
 {# a holdout task (app/holdouts.py): fixed options, the same for everyone, stored under "h<n>" #}
 {% set holdout = page_meta.holdout if (page_meta is defined and page_meta and page_meta.holdout is defined) else none %}
-{% set akey = ("h" ~ holdout) if holdout is not none else ("t" ~ task) %}
-{% set hprofiles = kind.holdout_profiles(item, holdout) if holdout is not none else none %}
+{# a warm-up task before task 1: fixed options as a holdout, stored under "w<n>", not marked for participants #}
+{% set warmup = page_meta.warmup if (page_meta is defined and page_meta and page_meta.warmup is defined) else none %}
+{% set akey = ("w" ~ warmup) if warmup is not none else (("h" ~ holdout) if holdout is not none else ("t" ~ task)) %}
+{% set hprofiles = kind.warmup_profiles(item, warmup) if warmup is not none else (kind.holdout_profiles(item, holdout) if holdout is not none else none) %}
 {% set state = (cj_state or {}).get(item.id, {}) if cj_state is defined else {} %}
 {% set version = state.version if state and state.version is defined else 0 %}
 {% if not kind.design_current(item) %}
@@ -21,7 +23,7 @@
 {% set with_image = kind.uses_images(item) %}
 {% set labels = not c.hide_attr_labels %}
 {# display order of the options (optionally shuffled per participant and task); columns keep the option's own number #}
-{% set order = kind.alt_order(item, crowd_seed if crowd_seed is defined else none, "ho" if holdout is not none else version, holdout if holdout is not none else task) %}
+{% set order = kind.alt_order(item, crowd_seed if crowd_seed is defined else none, "wu" if warmup is not none else ("ho" if holdout is not none else version), warmup if warmup is not none else (holdout if holdout is not none else task)) %}
 {% set table_attrs = attrs if c.display == "table" else ([] if c.display == "image" else (attrs if c.show_visual_in_table else attrs|rejectattr("visual")|list)) %}
 <h2 class="p-question" id="q{{ item.id }}"{{ text_attrs(item, "question") }}>{{ t.get("question", "")|fill(variables) }}{% include "items/_required.html" %}</h2>{% include "items/_message.html" %}
 <p class="p-hint">{{ (ui("Aufgabe %d von %d", "Task %d of %d"))|format(page_meta.n, kind.shown_tasks(item)) if (page_meta is defined and page_meta and page_meta.n is defined) else (ui("Aufgabe %d von %d", "Task %d of %d"))|format(task + 1, c.tasks) }}</p>

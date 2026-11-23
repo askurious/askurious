@@ -1,0 +1,35 @@
+{% from "_learn.html" import term, why %}
+{# CBC and the ratings-based conjoint (cva: one offer, or two in pairs): warm-up tasks before task 1 (app/holdouts.py,
+   "warmups"), part of the element form, above the holdout tasks; app.js shows as many as "Anzahl" says (data-ho). #}
+{% set attrs = kind.attributes(item) %}
+{% if attrs %}
+{% set n_wu = kind.warmup_count(item) %}
+{% set cva = item.type == "cva" %}
+{% set n_alts = kind.holdout_alternatives(item) if cva else item.config.alternatives %}
+<fieldset class="ho-editor" data-cj-tab="design" data-ho>
+  <legend>{{ term("warmup", de_en("Aufwärmaufgaben", "Warm-up tasks")) }} <span class="hint">{% if cva %}{{ de_en("feste Angebote vor Aufgabe 1, für alle gleich; sie gehen nicht in die Schätzung ein", "fixed offers before task 1, the same for everyone; they do not go into the estimation") }}{% else %}{{ de_en("feste Aufgaben vor Aufgabe 1, für alle gleich; sie gehen nicht in die Schätzung ein", "fixed tasks before task 1, the same for everyone; they do not go into the estimation") }}{% endif %}</span></legend>
+  <label>{{ de_en("Anzahl", "Number") }}
+    <select name="wu_count" class="fit" data-ho-count {% if not structural %}disabled{% endif %}>
+      {% for k in range(3) %}<option value="{{ k }}" {% if k == n_wu %}selected{% endif %}>{{ de_en("keine", "none") if k == 0 else k }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for w in range(2) %}
+  <div class="ho-task" data-ho-slot="{{ w + 1 }}" {% if w >= n_wu %}hidden{% endif %}>
+    <p class="pw-head">{{ de_en("Aufwärmaufgabe {n}", "Warm-up task {n}", n=w + 1) }} <span class="hint">{{ de_en("vor Aufgabe 1", "before task 1") if w == 0 else de_en("nach der ersten Aufwärmaufgabe", "after the first warm-up task") }}</span></p>
+    <div class="res-scroll"><table class="list-table is-edit ho-table">
+      <thead><tr><th>{{ de_en("Merkmal", "attribute")|capitalize }}</th>{% for j in range(n_alts) %}<th>{% if cva %}{{ de_en("Angebot", "Offer") }}{% if n_alts > 1 %} {{ j + 1 }}{% endif %}{% else %}Option {{ j + 1 }}{% endif %}</th>{% endfor %}</tr></thead>
+      <tbody>{% for a in attrs %}{% set ai = loop.index0 %}
+        <tr><td>{{ a.label }}{% if a.price_attr %} <span class="hint">{{ de_en("Preis", "price") }}</span>{% endif %}</td>
+          {% for j in range(n_alts) %}{% set pick = kind.warmup_level(item, w, j, ai) %}
+          <td><select name="wu{{ w }}_{{ j }}_{{ a.id }}" aria-label="{{ de_en('Aufwärmaufgabe {n}, Option {j}: {label}', 'Warm-up task {n}, option {j}: {label}', n=w + 1, j=j + 1, label=a.label) }}" {% if not structural %}disabled{% endif %}>
+            {% for lv in a.levels %}<option value="{{ lv.id }}" {% if loop.index0 == pick %}selected{% endif %}>{{ a.level_labels[loop.index0] or de_en("Stufe {n}", "Level {n}", n=loop.index) }}</option>{% endfor %}
+          </select></td>{% endfor %}</tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endfor %}
+  {% for w in kind.warmup_warnings(item) %}<p class="flash flash-warning">{{ icon("alert", 16) }} <span>{{ w }}</span></p>{% endfor %}
+  <p class="muted small">{{ de_en("Höchstens zwei. Sie kommen vor Aufgabe 1, sehen aus wie die übrigen Aufgaben und zählen in „Aufgabe x von y“ mit; im Export stehen sie in eigenen Spalten. Vorbelegt mit anderen Stufen als die Holdout-Aufgaben, änderbar. Nach dem Start gesperrt wie der Versuchsplan.", "At most two. They come before task 1, look like the other tasks and count in “Task x of y”; the export has them in columns of their own. Filled in with other levels than the holdout tasks, and you can change them. Locked after the start like the experimental design.") }}</p>
+  {{ why("warmup") }}
+</fieldset>
+{% endif %}

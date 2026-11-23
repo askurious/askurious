@@ -56,6 +56,7 @@
   </div>
   <p class="muted small">{{ de_en("Sets leer = Vorschlag 3 · Aussagen / Set-Größe, also jede Aussage etwa dreimal je Person", "Sets empty = suggestion 3 · statements / set size, so every statement about three times per person") }}{% if n %} {{ de_en("(hier {n})", "(here {n})", n=kind.n_sets(item)) }}{% endif %}. {{ de_en("Aussagen je Set: 3 bis 6 und weniger als die Zahl der Aussagen. Mehrere Versionen verteilen Kombinations- und Reihenfolgeeffekte über die Teilnehmenden.", "Statements per set: 3 to 6 and fewer than the number of statements. Several versions spread combination and order effects across the participants.") }}</p>
 </fieldset>
+{% include "items/maxdiff/warmups.html" %}
 {% include "items/maxdiff/holdouts.html" %}
 <fieldset data-cj-tab="anchor">
   <legend>{{ de_en("Ankerfrage", "Anchor question") }} <span class="hint">{{ de_en("optional: eine Seite nach den Sets", "optional: one page after the sets") }}</span></legend>

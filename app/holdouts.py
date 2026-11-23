@@ -11,6 +11,12 @@ CBC functions with one offer per holdout (two in its pairs) and scores them in a
 config (CBC):     holdouts [{id, alts: [[level id per attribute], ...]}], one list per alternative of the study
 config (MaxDiff): holdouts [{id, statements: [statement id, ...]}], as many statements as a set has
 
+Warm-up tasks (concept aufwaermaufgaben, Ralf 2026-11-23, E1-E7 as recommended) are built the same way: fixed tasks
+the same for everyone, at most WARMUP_MAX of them, before the first task of the design ("warmups" in the config,
+answers "w0", "w1", export columns <code>_wu1 ..., MaxDiff _wu1_best/_wu1_worst, timing pages _wu1). They look like
+every other task and count in "task x of y", but they never enter counts, logit, HB, segments or the simulator.
+The functions below take `kind` = "holdouts" (default) or "warmups"; KINDS holds the names per kind.
+
 Results (only with a current HB result): per holdout the hit rate (share of persons whose highest predicted utility,
 from their posterior means, is the alternative they chose; ties count in equal parts) with its Wilson interval and
 the chance rate 1 / alternatives; the mean absolute error between the predicted shares of preference (logit rule
@@ -29,25 +35,80 @@ MAX = 3      # holdouts per study (W5)
 AFTER = 3    # the first holdout comes after this task, the others at the end (W6)
 ORME = ("Orme, B. K. (2009). Fine-tuning CBC and adaptive CBC questionnaires (Sawtooth Software Research Paper "
         "Series). Sawtooth Software. https://content.sawtoothsoftware.com/assets/cf6f1953-db50-4174-8672-06bc04a0d5ef")
+# warm-up tasks: the estimates from the first two tasks were the least like those of the whole interview, which "may
+# support" warm-up tasks, though all tasks agreed well (pp. 10-11)
+JOHNSON_ORME = ("Johnson, R. M., & Orme, B. K. (1996). How many questions should you ask in choice-based conjoint studies? "
+                "(Sawtooth Software Research Paper Series). Sawtooth Software. "
+                "https://content.sawtoothsoftware.com/assets/a24654f4-0553-4484-9c90-46a5899e8d57")
 TYPES = ("conjoint", "maxdiff")
+WARMUP_MAX = 2  # warm-up tasks per study (E3)
+# per kind: most, answer key prefix, page meta key, form field prefix
+KINDS = {"holdouts": {"max": MAX, "answer": "h", "meta": "holdout", "form": "ho"},
+         "warmups": {"max": WARMUP_MAX, "answer": "w", "meta": "warmup", "form": "wu"}}
 
 
-def page_order(n_tasks, n_holdouts):
-    """[("t", task) or ("h", holdout)] in the order of the pages: the first holdout after task AFTER (when there are
-    more tasks than that), the others after the last task."""
+def page_order(n_tasks, n_holdouts, n_warmups=0):
+    """[("w", warm-up), ("t", task) or ("h", holdout)] in the order of the pages: the warm-up tasks first, the first
+    holdout after task AFTER of the design (when there are more tasks than that), the others after the last task."""
     tasks = [("t", t) for t in range(n_tasks)]
     hold = [("h", h) for h in range(n_holdouts)]
+    warm = [("w", w) for w in range(n_warmups)]
     if not hold:
-        return tasks
+        return warm + tasks
     if n_tasks > AFTER:
-        return tasks[:AFTER] + hold[:1] + tasks[AFTER:] + hold[1:]
-    return tasks + hold
+        return warm + tasks[:AFTER] + hold[:1] + tasks[AFTER:] + hold[1:]
+    return warm + tasks + hold
 
 
-def stored(item):
+def stored(item, kind="holdouts"):
     if item.type == "cva" and (item.config or {}).get("form") == "ranking":
-        return []  # the ranking puts all offers on one page: no holdouts beside it
-    return [h for h in (item.config or {}).get("holdouts") or [] if isinstance(h, dict)][:MAX]
+        return []  # the ranking puts all offers on one page: no holdouts or warm-ups beside it
+    return [h for h in (item.config or {}).get(kind) or [] if isinstance(h, dict)][:KINDS[kind]["max"]]
+
+
+def page_key(meta):
+    """The answer key of a page: "w<n>" (warm-up), "h<n>" (holdout) or "t<task>"."""
+    meta = meta or {}
+    if "warmup" in meta:
+        return f"w{meta['warmup']}"
+    if "holdout" in meta:
+        return f"h{meta['holdout']}"
+    return f"t{meta.get('task', 0)}"
+
+
+def page_kind(meta):
+    """"warmups", "holdouts" or None (a task of the design) for a page."""
+    meta = meta or {}
+    return "warmups" if "warmup" in meta else ("holdouts" if "holdout" in meta else None)
+
+
+def pages(order, active_holdouts, active_warmups, extra=None):
+    """Page metas from page_order, leaving out incomplete holdouts and warm-ups; "n": the number the page shows
+    ("Aufgabe n von ..."). extra: keys every task page gets (e.g. {"v": version})."""
+    out = []
+    for k, x in order:
+        if (k == "h" and x not in active_holdouts) or (k == "w" and x not in active_warmups):
+            continue
+        n = len(out) + 1
+        if k == "t":
+            out.append({"task": x, **(extra or {}), "n": n})
+        else:
+            out.append({"holdout" if k == "h" else "warmup": x, "n": n})
+    return out
+
+
+def timing(order, active_holdouts, active_warmups, unit=("Aufgabe", "Holdout-Aufgabe", "Aufwärmaufgabe")):
+    """[(column suffix, label, paradata key)] of the pages in page_order, as timing_pages wants them. unit: the
+    German labels of a task, a holdout and a warm-up (MaxDiff: "Set", "Holdout-Set", "Aufwärm-Set")."""
+    out = []
+    for k, x in order:
+        if k == "t":
+            out.append((f"_t{x + 1}", f"{unit[0]} {x + 1}", f".t{x}"))
+        elif k == "h" and x in active_holdouts:
+            out.append((f"_ho{x + 1}", f"{unit[1]} {x + 1}", f".h{x}"))
+        elif k == "w" and x in active_warmups:
+            out.append((f"_wu{x + 1}", f"{unit[2]} {x + 1}", f".w{x}"))
+    return out
 
 
 def alternatives(item, config=None):
@@ -61,10 +122,10 @@ def alternatives(item, config=None):
 
 # --- CBC -------------------------------------------------------------------------------------------------
 
-def cbc_profiles(item, h):
-    """Level indices (per attribute, config order) of each alternative of holdout h; None if one is incomplete
-    (a level removed since, or an alternative added)."""
-    rows = stored(item)
+def cbc_profiles(item, h, kind="holdouts"):
+    """Level indices (per attribute, config order) of each alternative of holdout (or warm-up) h; None if one is
+    incomplete (a level removed since, or an alternative added)."""
+    rows = stored(item, kind)
     if h >= len(rows):
         return None
     attrs = item.config.get("attributes") or []
@@ -85,29 +146,31 @@ def cbc_profiles(item, h):
     return out
 
 
-def cbc_active(item):
-    """[(holdout index, profiles)] of the complete holdouts."""
+def cbc_active(item, kind="holdouts"):
+    """[(holdout index, profiles)] of the complete holdouts (or warm-ups)."""
     out = []
-    for h in range(len(stored(item))):
-        profiles = cbc_profiles(item, h)
+    for h in range(len(stored(item, kind))):
+        profiles = cbc_profiles(item, h, kind)
         if profiles is not None:
             out.append((h, profiles))
     return out
 
 
-def cbc_from_form(item, config, form):
+def cbc_from_form(item, config, form, kind="holdouts"):
     """The holdouts of the editor form: "ho_count" and per holdout, alternative and attribute a choice of level
-    ("ho<h>_<j>_<attribute id>" = level id). config: the item's settings as this form leaves them."""
-    count = max(0, min(MAX, _int(form.get("ho_count"))))
+    ("ho<h>_<j>_<attribute id>" = level id); warm-ups the same with "wu". config: the item's settings as this form
+    leaves them."""
+    f = KINDS[kind]["form"]
+    count = max(0, min(KINDS[kind]["max"], _int(form.get(f"{f}_count"))))
     attrs = config.get("attributes") or []
-    old = stored(item)
+    old = stored(item, kind)
     out = []
     for h in range(count):
         alts = []
         for j in range(alternatives(item, config)):
             alt = []
             for a in attrs:
-                lid = form.get(f"ho{h}_{j}_{a['id']}", "")
+                lid = form.get(f"{f}{h}_{j}_{a['id']}", "")
                 if lid in {lv["id"] for lv in a.get("levels") or []}:
                     alt.append(lid)
             alts.append(alt)
@@ -115,11 +178,12 @@ def cbc_from_form(item, config, form):
     return out
 
 
-def cbc_level_choice(item, h, j, attr_index):
+def cbc_level_choice(item, h, j, attr_index, kind="holdouts"):
     """The level index shown as chosen in the editor for holdout h, alternative j: the stored one, else a rotation
-    (alternative j gets level j of every attribute, holdout h shifts it by h) so new alternatives differ."""
+    (alternative j gets level j of every attribute, holdout h shifts it by h) so new alternatives differ. Warm-ups
+    rotate the other way round (from the last level), so they differ from the holdouts (E4)."""
     a = item.config["attributes"][attr_index]
-    rows = stored(item)
+    rows = stored(item, kind)
     if h < len(rows):
         alts = rows[h].get("alts") or []
         if j < len(alts):
@@ -127,32 +191,50 @@ def cbc_level_choice(item, h, j, attr_index):
                 if lv["id"] in (alts[j] or []):
                     return k
     n = len(a.get("levels") or []) or 1
+    if kind == "warmups":
+        return (n - 1 - (j + h)) % n
     return (j + h) % n
 
 
-def cbc_problems(item):
-    """Holdouts that cannot be shown (block the start)."""
+def cbc_problems(item, kind="holdouts"):
+    """Holdouts (or warm-ups) that cannot be shown (block the start)."""
+    if kind == "warmups":
+        return [de_en("Aufwärmaufgabe {n}: für jede Option je Merkmal eine Stufe wählen",
+                      "Warm-up task {n}: choose a level per attribute for every option", n=h + 1)
+                for h in range(len(stored(item, kind))) if cbc_profiles(item, h, kind) is None]
     return [de_en("Holdout-Aufgabe {n}: für jede Option je Merkmal eine Stufe wählen",
                   "Holdout task {n}: choose a level per attribute for every option", n=h + 1)
             for h in range(len(stored(item))) if cbc_profiles(item, h) is None]
 
 
-def cbc_warnings(item):
+def cbc_warnings(item, kind="holdouts"):
     """Identical alternatives and, where it is clear, dominated ones: the same levels except a higher price."""
+    warm = kind == "warmups"
+    rows = cbc_active(item, kind)
     kind = item.kind
     pa = kind.price_attribute(item)
     numbers = kind.level_numbers(item, pa) if pa is not None else None
     out = []
-    for h, profiles in cbc_active(item):
+    for h, profiles in rows:
         for i in range(len(profiles)):
             for j in range(i + 1, len(profiles)):
                 p, q = profiles[i], profiles[j]
-                if p == q:
+                if p == q and warm:
+                    out.append(de_en("Aufwärmaufgabe {n}: Option {i} und {j} sind gleich.",
+                                     "Warm-up task {n}: options {i} and {j} are the same.", n=h + 1, i=i + 1, j=j + 1))
+                elif p == q:
                     out.append(de_en("Holdout-Aufgabe {n}: Option {i} und {j} sind gleich.",
                                      "Holdout task {n}: options {i} and {j} are the same.", n=h + 1, i=i + 1, j=j + 1))
                 elif numbers and all(x == y for k, (x, y) in enumerate(zip(p, q)) if k != pa) \
                         and numbers[p[pa]] != numbers[q[pa]]:
                     worse, better = (i, j) if numbers[p[pa]] > numbers[q[pa]] else (j, i)
+                    if warm:
+                        out.append(de_en("Aufwärmaufgabe {n}: Option {w} ist gleich wie Option {b}, nur teurer; die "
+                                         "Wahl ist zu leicht, um das Abwägen zu üben.",
+                                         "Warm-up task {n}: option {w} is the same as option {b}, only more expensive; "
+                                         "the choice is too easy to practise weighing up.",
+                                         n=h + 1, w=worse + 1, b=better + 1))
+                        continue
                     out.append(de_en("Holdout-Aufgabe {n}: Option {w} ist gleich wie Option {b}, nur teurer; sie wird "
                                      "kaum gewählt und sagt wenig über die Vorhersage.",
                                      "Holdout task {n}: option {w} is the same as option {b}, only more expensive; it "
@@ -163,10 +245,10 @@ def cbc_warnings(item):
 
 # --- MaxDiff ---------------------------------------------------------------------------------------------
 
-def maxdiff_set(item, h):
-    """Statement indices of holdout set h; None if incomplete (a statement removed, a repeated one, a size that no
-    longer fits)."""
-    rows = stored(item)
+def maxdiff_set(item, h, kind="holdouts"):
+    """Statement indices of holdout (or warm-up) set h; None if incomplete (a statement removed, a repeated one, a
+    size that no longer fits)."""
+    rows = stored(item, kind)
     if h >= len(rows):
         return None
     index = {s["id"]: n for n, s in enumerate(item.config.get("statements") or [])}
@@ -178,31 +260,34 @@ def maxdiff_set(item, h):
     return found
 
 
-def maxdiff_active(item):
+def maxdiff_active(item, kind="holdouts"):
     out = []
-    for h in range(len(stored(item))):
-        s = maxdiff_set(item, h)
+    for h in range(len(stored(item, kind))):
+        s = maxdiff_set(item, h, kind)
         if s is not None:
             out.append((h, s))
     return out
 
 
-def maxdiff_from_form(item, config, form):
-    """The holdout sets of the editor form: "ho_count" and per set and place a statement ("ho<h>_<p>" = its id)."""
-    count = max(0, min(MAX, _int(form.get("ho_count"))))
+def maxdiff_from_form(item, config, form, kind="holdouts"):
+    """The holdout sets of the editor form: "ho_count" and per set and place a statement ("ho<h>_<p>" = its id);
+    warm-up sets the same with "wu"."""
+    f = KINDS[kind]["form"]
+    count = max(0, min(KINDS[kind]["max"], _int(form.get(f"{f}_count"))))
     known = {s["id"] for s in config.get("statements") or []}
-    old = stored(item)
+    old = stored(item, kind)
     out = []
     for h in range(count):
-        ids = [form.get(f"ho{h}_{p}", "") for p in range(int(config.get("set_size", 4)))]
+        ids = [form.get(f"{f}{h}_{p}", "") for p in range(int(config.get("set_size", 4)))]
         out.append({"id": old[h]["id"] if h < len(old) and old[h].get("id") else _new_id(),
                     "statements": [sid for sid in ids if sid in known]})
     return out
 
 
-def maxdiff_choice(item, h, p):
-    """Statement index shown as chosen at place p of holdout set h: the stored one, else a rotation."""
-    rows = stored(item)
+def maxdiff_choice(item, h, p, kind="holdouts"):
+    """Statement index shown as chosen at place p of holdout set h: the stored one, else a rotation (warm-ups from
+    the last statement backwards, so they differ from the holdouts)."""
+    rows = stored(item, kind)
     statements = item.config.get("statements") or []
     if h < len(rows):
         ids = rows[h].get("statements") or []
@@ -211,10 +296,17 @@ def maxdiff_choice(item, h, p):
                 if s["id"] == ids[p]:
                     return n
     k = int(item.config.get("set_size", 4))
-    return (h * k + p) % (len(statements) or 1)
+    n = len(statements) or 1
+    if kind == "warmups":
+        return (n - 1 - (h * k + p)) % n
+    return (h * k + p) % n
 
 
-def maxdiff_problems(item):
+def maxdiff_problems(item, kind="holdouts"):
+    if kind == "warmups":
+        return [de_en("Aufwärm-Set {n}: {k} verschiedene Aussagen wählen", "Warm-up set {n}: choose {k} different statements",
+                      n=h + 1, k=item.config.get('set_size', 4))
+                for h in range(len(stored(item, kind))) if maxdiff_set(item, h, kind) is None]
     return [de_en("Holdout-Set {n}: {k} verschiedene Aussagen wählen", "Holdout set {n}: choose {k} different statements",
                   n=h + 1, k=item.config.get('set_size', 4))
             for h in range(len(stored(item))) if maxdiff_set(item, h) is None]
@@ -222,10 +314,10 @@ def maxdiff_problems(item):
 
 # --- import of a survey file -----------------------------------------------------------------------------
 
-def import_fit(config, key):
-    """Holdouts of a file kept only if they name what exists (level ids of the attributes, statement ids); None
-    otherwise. key: "alts" (CBC) or "statements" (MaxDiff)."""
-    rows = config.get("holdouts")
+def import_fit(config, key, kind="holdouts"):
+    """Holdouts (or warm-ups) of a file kept only if they name what exists (level ids of the attributes, statement
+    ids); None otherwise. key: "alts" (CBC) or "statements" (MaxDiff)."""
+    rows = config.get(kind)
     if not rows:
         return []
     if key == "alts":

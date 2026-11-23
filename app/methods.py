@@ -107,7 +107,8 @@ def _choice(survey, table):
             hb_res = cva_hb.current(item)
             entry.update(levels=item.kind.level_counts(item), form=item.kind.form(item), points=c.get("points"),
                          slider=bool(c.get("slider")), tasks=item.kind.n_tasks(item), versions=c.get("versions") or 1,
-                         robust=False, holdouts=item.kind.holdout_count(item), segments=_segments(item),
+                         robust=False, holdouts=item.kind.holdout_count(item), warmups=item.kind.warmup_count(item),
+                         segments=_segments(item),
                          hb={"n": len(hb_res["pids"]), "burn": hb_res["settings"]["burn"],
                              "draws": hb_res["settings"]["draws"], "converged": hb_res.get("diag_ok"),
                              "rhat_max": hb_res.get("rhat_max"), "ess_min": hb_res.get("ess_min"),
@@ -143,6 +144,7 @@ def _choice(survey, table):
                         "converged": hb.get("diag_ok")}
                        if hb and hb.get("pids") and hb.get("settings") and hb.get("created") else None)
         entry["holdouts"] = item.kind.holdout_count(item) if hasattr(item.kind, "holdout_count") else 0
+        entry["warmups"] = item.kind.warmup_count(item) if hasattr(item.kind, "warmup_count") else 0
         entry["segments"] = _segments(item)
         entry["text_de"] = _choice_de(entry)
         out.append(entry)
@@ -367,6 +369,7 @@ def _choice_de(c):
                 + " auf die Stufen (kleinste Quadrate, Effektkodierung; Green & Srinivasan, 1990); "
                 f"berichtet sind die Mittel der Teilnutzen und Wichtigkeiten über n = {c['n']} Personen mit t-Intervallen "
                 "und das R² je Person."
+                + _warmups_de(c)
                 + (f" Dazu kamen {c['holdouts']} feste Holdout-{'Aufgabe' if c['holdouts'] == 1 else 'Aufgaben'}, die nicht "
                    "in die Regression eingingen und die Vorhersage prüfen." if c.get("holdouts") else "")
                 + _cva_segments_de(c.get("segments")) + (
@@ -442,6 +445,7 @@ def _choice_de(c):
                      f"Ziehungen" + (" (Regel R̂ < 1,01 und ESS ≥ 400 erfüllt)." if h.get("converged")
                                      else "; die Regel R̂ < 1,01 und ESS ≥ 400 war nicht erfüllt, die HB-Werte sind "
                                           "daher nur als Richtung zu lesen."))
+    text += _warmups_de(c)
     if c.get("holdouts"):
         unit = "Sets" if c["type"] == "maxdiff" else ("Aufgabe" if c["holdouts"] == 1 else "Aufgaben")
         text += f" Dazu kamen {c['holdouts']} Holdout-{unit}, die nicht in die Schätzung eingingen und die Vorhersage prüfen."
@@ -502,6 +506,7 @@ def _choice_en(c):
                 f"for the linear model, {c['versions']} {'version' if c['versions'] == 1 else 'versions'}; OLS regression per "
                 f"person (effects coding; Green & Srinivasan, 1990), means of part-worths and importances over n = {c['n']} "
                 "people with t intervals, R2 per person"
+                + _warmups_en(c)
                 + (f"; {c['holdouts']} holdout task(s), not used in the estimation" if c.get("holdouts") else "")
                 + (f"; segments by a latent class regression (DeSarbo & Cron, 1988), n = {c['segments']['n']}, 1 to "
                    f"{c['segments']['max']} segments, {c['segments']['K']} shown (BIC suggestion: "
@@ -552,6 +557,7 @@ def _choice_en(c):
             line += (f"; convergence: rank-normalised split R-hat max {h['rhat_max']:.3f}, bulk ESS min "
                      f"{h['ess_min']:.0f} of {h['kept']} draws (Vehtari et al., 2021; Geyer, 1992), rule R-hat < 1.01 and "
                      f"ESS >= 400 {'met' if h.get('converged') else 'not met'}")
+    line += _warmups_en(c)
     if c.get("holdouts"):
         line += f"; {c['holdouts']} holdout task(s), not used in the estimation"
     s = c.get("segments")
@@ -1151,3 +1157,23 @@ def reliability_sources(f):
 
     two = any(c["items"] == 2 and not c["subscales"] or any(s["k"] == 2 for s in c["subscales"]) for c in f["constructs"])
     return [*scales.SOURCES, *([scales.EISINGA] if two else [])]
+
+
+def _warmups_de(c):
+    """The sentence on the warm-up tasks (app/holdouts.py, E7), empty without them."""
+    n = c.get("warmups") or 0
+    if not n:
+        return ""
+    if c.get("type") == "maxdiff":
+        what = "ein festes Aufwärm-Set, das" if n == 1 else f"{n} feste Aufwärm-Sets, die"
+    else:
+        what = "eine feste Aufwärmaufgabe, die" if n == 1 else f"{n} feste Aufwärmaufgaben, die"
+    return f" Vorab sahen alle {what} nicht in die Schätzung {'einging' if n == 1 else 'eingingen'}."
+
+
+def _warmups_en(c):
+    n = c.get("warmups") or 0
+    if not n:
+        return ""
+    unit = "set" if c.get("type") == "maxdiff" else "task"
+    return f"; beforehand everyone saw {n} fixed warm-up {unit}{'' if n == 1 else 's'}, not used in the estimation"

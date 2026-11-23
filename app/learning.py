@@ -207,6 +207,14 @@ REASONS = {
         "ohne sie bleibt nur die Anpassung an die eigenen Daten. Eine oder zwei reichen und verlängern die Befragung "
         "kaum.",
         (("app.holdouts", "ORME"),)),
+    "warmup": (
+        "Aufwärmaufgaben einbauen?",
+        "Aufwärmaufgaben (auch Burn-in) sind die ersten ein oder zwei Aufgaben, die alle Personen beantworten, die aber "
+        "nicht in die Schätzung eingehen; so üben die Personen das Format, bevor es zählt. Die Befunde dazu sind "
+        "uneinheitlich: Die ersten Antworten sind oft etwas weniger verlässlich, doch die Unterschiede sind klein, und "
+        "jede Aufwärmaufgabe verlängert die Befragung. Sinnvoll sind sie vor allem bei ungewohnten oder schwierigen "
+        "Aufgaben; sonst reicht meist eine gute Erklärungsseite.",
+        (("app.holdouts", "JOHNSON_ORME"),)),
     "segments_k": (
         "Wie viele Segmente?",
         "Das BIC schlägt die Zahl vor, die Passung und Sparsamkeit am besten abwägt; Askurious überspringt dabei sehr "
@@ -749,6 +757,11 @@ TERMS = {
     "holdout": ("Holdout", "Holdout-Aufgabe", "Eine feste Wahl- oder Bewertungsaufgabe, die nicht in die Schätzung "
                 "eingeht. Das Modell sagt ihre Antworten vorher; Trefferquote und MAE zeigen, wie gut das gelingt.",
                 "Trefferquote 62 % bei drei Optionen (Zufall 33 %).", (("app.holdouts", "ORME"),)),
+    "warmup": ("Aufwärmaufgabe", "Aufwärmaufgabe (Burn-in)", "Eine feste Wahl- oder Bewertungsaufgabe vor Aufgabe 1, "
+               "die alle beantworten, die aber nicht in die Schätzung eingeht. Sie soll das Format einüben; ob sich das "
+               "lohnt, ist in der Literatur nicht einheitlich beantwortet.",
+               "Zwei Aufwärmaufgaben und acht Aufgaben: „Aufgabe 1 von 10“, geschätzt werden acht.",
+               (("app.holdouts", "JOHNSON_ORME"),)),
     "bic": ("BIC", "BIC, AIC3 und CAIC", "Passung gegen Zahl der Parameter, kleiner ist besser. AIC3 bestraft weniger "
             "und schlägt eher mehr Segmente vor, CAIC eher weniger.",
             "BIC 4 812 bei drei, 4 830 bei vier Segmenten: Drei passen besser.",
@@ -1055,7 +1068,7 @@ SECTIONS = (
                                               "calibration")),
     ("Wahlmodelle", "R̂ und ESS prüfen die Rechnung der HB-Schätzung, nicht ihr Ergebnis.",
      ("partworth", "importance", "wtp", "score", "rho2", "rlh", "sop", "first_choice", "hit_rate", "mae", "rhat", "ess",
-      "hb", "mnl", "holdout")),
+      "hb", "mnl", "holdout", "warmup")),
     ("Segmente", "", ("bic", "entropy", "membership", "odds_ratio")),
     ("Strukturgleichungsmodelle", "", ("beta", "indirect", "interaction", "jn", "control", "single_item",
                                        "second_order", "higher_order", "formative", "redundancy", "r2", "total_effect")),
@@ -1152,6 +1165,12 @@ REASONS_EN = {
         "Add a holdout task?",
         "A task or set that is left out of the estimation checks whether the model predicts real answers; without it "
         "only the fit to your own data remains. One or two are enough and hardly lengthen the survey."),
+    "warmup": (
+        "Add warm-up tasks?",
+        "Warm-up tasks (also burn-in) are the first one or two tasks that everyone answers but that are left out of the "
+        "estimation; people practise the format before it counts. The findings on this are mixed: the first answers are "
+        "often a little less reliable, but the differences are small, and every warm-up task makes the survey longer. "
+        "They are most useful for unfamiliar or difficult tasks; otherwise a good explanation page is usually enough."),
     "segments_k": (
         "How many segments?",
         "The BIC suggests the number that best balances fit and parsimony; Askurious skips very small and unstable "
@@ -1582,6 +1601,10 @@ TERMS_EN = {
     "holdout": ("Holdout", "Holdout task", "A fixed choice or rating task that is left out of the estimation. The "
                 "model predicts its answers; hit rate and MAE show how well that works.",
                 "Hit rate 62 % with three options (chance 33 %)."),
+    "warmup": ("Warm-up task", "Warm-up task (burn-in)", "A fixed choice or rating task before task 1 that everyone "
+               "answers but that is left out of the estimation. It is meant to practise the format; whether that pays "
+               "off is not answered consistently in the literature.",
+               "Two warm-up tasks and eight tasks: “Task 1 of 10”, eight are estimated."),
     "bic": ("BIC", "BIC, AIC3 and CAIC", "Fit against the number of parameters, smaller is better. AIC3 penalises "
             "less and tends to suggest more segments, CAIC fewer.",
             "BIC 4,812 with three, 4,830 with four segments: three fit better."),
@@ -1859,6 +1882,7 @@ REASON_PLACES = {
     "conjoint_kind": ("CBC, ACBC und Bewertungs-Conjoint im Editor", "CBC, ACBC and ratings-based conjoint in the editor"),
     "hb_or_logit": ("Ergebnisse, HB-Schätzung", "results, HB estimation"),
     "holdout": ("Holdout-Aufgaben im Editor; Startliste", "holdout tasks in the editor; start list"),
+    "warmup": ("Aufwärmaufgaben im Editor", "warm-up tasks in the editor"),
     "segments_k": ("Ergebnisse, Segmente", "results, segments"),
     "segments_covariates": ("Ergebnisse, Segmente, Kovariaten", "results, segments, covariates"),
     "segments_describe": ("Ergebnisse, Segmente beschreiben", "results, describing segments"),
