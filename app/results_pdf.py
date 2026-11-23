@@ -986,11 +986,59 @@ def _cbc(rep, e, title):
                          [rep.say("Merkmal", "Attribute"), "M", "SD", "Mdn", "Q1", "Q3"], body,
                          rep.say("Werte in Prozent; SD in Prozentpunkten.", "Values in per cent; SD in percentage points."),
                          widths=[0.40, 0.12, 0.12, 0.12, 0.12, 0.12])
+        out += _hb_partworths(rep, hb, title)
     elif (cbc.get("hb") or {}).get("available"):
         out.append(_para(rep, rep.say("Für dieses Experiment liegt keine aktuelle Hierarchical-Bayes-Schätzung vor; sie "
                                       "lässt sich auf der Ergebnisseite starten.", "There is no current hierarchical Bayes "
                                       "estimate for this experiment; it can be started on the results page.")))
     return out
+
+
+def _hb_partworths(rep, hb, title):
+    """The mean part-worths of an HB estimate as on the results page (surveys/_conjoint_hb.html): per level the mean,
+    the 95% posterior interval of the mean, SD and quartiles over the people and the share preferring it; the linear
+    price and the constant in the note (Ralf, 2026-11-23: the report had the HB importances only)."""
+    body = []
+    for a in hb.get("attributes") or []:
+        for lv in a.get("levels") or []:
+            label = f"{a['label']}: {lv.get('label')}" + (rep.say(" (begrenzt)", " (bounded)") if lv.get("separated") else "")
+            body.append([label, rep.num(lv.get("mean")), rep.ci((lv.get("lo"), lv.get("hi"))) or "–",
+                         rep.num(lv.get("sd")), rep.num(lv.get("q1")), rep.num(lv.get("q3")), rep.pct(lv.get("best"))])
+    if not body:
+        return []
+    note = rep.say("Mittel der je Person geschätzten, je Merkmal nullzentrierten Teilnutzen mit dem 95-%-Posterior-Intervall "
+                   "des Mittelwerts; SD, Q1 und Q3 über die Personen. Die individuellen Teilnutzen sind zum gemeinsamen "
+                   "Mittel hin geschrumpft: Die echten Unterschiede zwischen Personen sind größer, als SD und Quartile "
+                   "zeigen. Bevorzugt: Anteil der Personen, für die die Stufe die beste des Merkmals ist.",
+                   "Mean of the part-worths estimated per person, zero-centred per attribute, with the 95% posterior "
+                   "interval of the mean; SD, Q1 and Q3 over the people. The individual part-worths are shrunk towards "
+                   "the common mean: the real differences between people are larger than SD and quartiles show. "
+                   "Preferred: share of people for whom the level is the best of the attribute.")
+    if any(lv.get("separated") for a in hb.get("attributes") or [] for lv in a.get("levels") or []):
+        note += " " + rep.say("Begrenzt: von allen nie oder immer gewählt; nur die Priori begrenzt den Wert.",
+                              "Bounded: never or always chosen by everyone; only the prior bounds the value.")
+    price = hb.get("price")
+    if price and price.get("mean") is not None:
+        u = price.get("unit") or 1
+        unit = (rep.say("je Währungseinheit", "per currency unit") if u == 1 else
+                rep.say("je {u} Währungseinheiten", "per {u} currency units", u=f"{u:,}".replace(",", "." if rep.ui == "de" else ",")))
+        ci = rep.ci((None if price.get("lo") is None else price["lo"] * u, None if price.get("hi") is None else price["hi"] * u), 4)
+        note += " " + rep.say("Preiskoeffizient {unit}: M = {m}{ci}, SD = {sd}; negativ bei {neg} der Personen.",
+                              "Price coefficient {unit}: M = {m}{ci}, SD = {sd}; negative for {neg} of the people.",
+                              unit=unit, m=rep.num(price["mean"] * u, 4), ci=f" {ci}" if ci else "",
+                              sd=rep.num((price.get("sd") or 0) * u, 4), neg=rep.pct(price.get("negative")))
+    asc = hb.get("asc")
+    if asc and asc.get("mean") is not None:
+        name = (rep.say("Schwelle „kommt nicht infrage“", "Threshold “out of the question”") if hb.get("type") == "acbc"
+                else rep.say("Konstante „Keine davon“", "Constant “None of these”"))
+        ci = rep.ci((asc.get("lo"), asc.get("hi")))
+        note += " " + rep.say("{name}: M = {m}{ci}, SD = {sd}.", "{name}: M = {m}{ci}, SD = {sd}.", name=name,
+                              m=rep.num(asc["mean"]), ci=f" {ci}" if ci else "", sd=rep.num(asc.get("sd")))
+    return rep.table(rep.say("{t}: Teilnutzen (Hierarchical Bayes)", "{t}: part-worths (hierarchical Bayes)",
+                             t=title),
+                     [rep.say("Merkmal: Stufe", "Attribute: level"), "M", rep.say("95-%-Intervall", "95% interval"), "SD",
+                      "Q1", "Q3", rep.say("bevorzugt", "preferred")], body, note,
+                     widths=[0.34, 0.09, 0.19, 0.09, 0.09, 0.09, 0.11])
 
 
 def _para(rep, text, style="body"):
