@@ -51,9 +51,12 @@ second half of the kept draws, standard errors from batch means; Geweke, 1992, w
 spectral densities; limits in geweke_limits: t-corrected for the log-likelihood, which only gives a hint, Bonferroni
 for the means). The traces of mu and of the log-likelihood are returned for the split-R-hat and ESS of
 app/hb_convergence.py, and `keep` of the kept draws of all betas, evenly spaced, for predictions that average
-over the posterior (app/choice_predict.py). The seed makes a run reproducible.
+over the posterior (app/choice_predict.py). Since 2026-11-23 also the trace of the diagonal of Sigma (part of the
+convergence rule) and the classic split-R-hat of every person's betas from running sums over the two halves of the
+kept draws (person_rhat; only a hint, no draws of all persons stored). The seed makes a run reproducible.
 
-Used for MaxDiff (app/maxdiff_hb.py) and for CBC and ACBC (app/conjoint_hb.py).
+Used for MaxDiff (app/maxdiff_hb.py), CBC and ACBC (app/conjoint_hb.py) and the paired comparison
+(app/paired_hb.py); the ratings-based conjoint has its own Gibbs sampler (app/cva_hb.py) with the same checks.
 """
 import math
 import time
@@ -206,6 +209,22 @@ def _draw_mu(rng, mean, Sigma, n, prior_prec):
     return V @ (n * s_inv @ mean) + np.linalg.cholesky(V) @ rng.standard_normal(len(mean))
 
 
+def person_rhat(sums, squares, h):
+    """Classic split-R-hat (Gelman et al., 2013; Vehtari et al., 2021, eq. 1 to 4, without rank normalisation) of
+    every person's betas from the sums and sums of squares of the two halves of the kept draws (arrays 2 x n x k,
+    h draws per half): persons x parameters, nan where a half does not vary or fewer than 4 draws per half."""
+    n, k = sums.shape[1:]
+    if h < 4:
+        return np.full((n, k), np.nan)
+    means = sums / h
+    variances = np.maximum((squares - h * means ** 2) / (h - 1), 0.0)
+    W = variances.mean(axis=0)
+    between = h * (means[0] - means[1]) ** 2 / 2          # h times the variance (ddof 1) of the two half means
+    with np.errstate(divide="ignore", invalid="ignore"):
+        value = np.sqrt(((h - 1) / h * W + between / h) / W)
+    return np.where(W > 0, value, np.nan)
+
+
 def geweke(x, batches=BATCHES):
     """z for "the mean of the first half equals the mean of the second half" of a chain (1-d), with the
     variance of each half mean from batch means (robust to autocorrelation). None if too short."""
@@ -347,6 +366,12 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     log_sums = [np.zeros(n), 0.0, 0.0]       # sums of log eps, log shift, log scale over the settling phase
     keep_every = max(1, (draws // thin) // keep) if keep else 0
     kept, kept_draws = [], []                # (mu, loglik, Sigma diagonal) per kept draw; betas of every keep_every-th
+    # split-R-hat of every person's betas from running sums over the two halves of the kept draws (first and last
+    # `half_kept`, the middle draw dropped for an odd number), so no draws of all persons are stored
+    n_keep_total = draws // thin
+    half_kept = n_keep_total // 2
+    half_sums = np.zeros((2, n, k))
+    half_squares = np.zeros((2, n, k))
     sums = np.zeros((n, k))
     stat_sums = None
     summaries = []
@@ -437,6 +462,11 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
             if (it - burn + 1) % thin == 0:
                 sums += B
                 kept.append((mu.copy(), float(ll.sum()), np.diag(Sigma).copy()))
+                index = len(kept) - 1
+                part = 0 if index < half_kept else 1 if index >= n_keep_total - half_kept else None
+                if part is not None and half_kept:
+                    half_sums[part] += B
+                    half_squares[part] += B * B
                 if keep_every and (len(kept) - 1) % keep_every == 0 and len(kept_draws) < keep:
                     kept_draws.append(B.copy())
                 if summary is not None:
@@ -467,7 +497,9 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         "loglik": float(data.loglik(beta).sum()), "persons": n, "sets": int(data.sets_per_person.sum()),
         "kept": n_kept, **gw,
         "ll_halves": [float(lls[:half].mean()), float(lls[-half:].mean())] if half else None,
-        "ll_trace": lls, "mu_trace": mus, "summaries": np.array(summaries) if summaries else None,
+        "ll_trace": lls, "mu_trace": mus,
+        "sigma_trace": np.array([s for _, _, s in kept]) if n_kept else np.empty((0, k)),
+        "person_rhat": person_rhat(half_sums, half_squares, half_kept), "summaries": np.array(summaries) if summaries else None,
         "person_stat": None if stat_sums is None else stat_sums / n_kept,
         "spread": None if spread_sum is None else spread_sum / n_kept,
         "draws": np.array(kept_draws) if kept_draws else None,

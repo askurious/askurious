@@ -189,7 +189,8 @@ def run(inp, progress=None):
     beta = r["beta"]
     S = r["summaries"]
     # all parameters of mu and the means the page shows (part-worths, constant, price)
-    diag = hb_convergence.diagnose(r["mu_trace"], r["ll_trace"], geweke_ok=r["converged"], shown=S)
+    diag = hb_convergence.diagnose(r["mu_trace"], r["ll_trace"], geweke_ok=r["converged"], shown=S,
+                                   sigma=r["sigma_trace"], person=r["person_rhat"])
     lo, hi = np.percentile(S, [2.5, 97.5], axis=0) if S is not None and len(S) else (None, None)
     t = len(M)
     # what the data leave open (as in choice_model.summarise): there the prior sets the values

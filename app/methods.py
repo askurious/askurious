@@ -141,7 +141,8 @@ def _choice(survey, table):
         entry["hb"] = ({"n": len(hb.get("pids") or []), "burn": hb["settings"]["burn"], "draws": hb["settings"]["draws"],
                         "date": f"{local(datetime.fromisoformat(hb['created'])):%d.%m.%Y}",
                         "rhat_max": hb.get("rhat_max"), "ess_min": hb.get("ess_min"), "kept": hb.get("kept"),
-                        "converged": hb.get("diag_ok")}
+                        "converged": hb.get("diag_ok"), "sigma": hb.get("rhat_sigma_max") is not None,
+                        "person_share": hb.get("person_rhat_share")}
                        if hb and hb.get("pids") and hb.get("settings") and hb.get("created") else None)
         entry["holdouts"] = item.kind.holdout_count(item) if hasattr(item.kind, "holdout_count") else 0
         entry["warmups"] = item.kind.warmup_count(item) if hasattr(item.kind, "warmup_count") else 0
@@ -441,11 +442,17 @@ def _choice_de(c):
                  "zu diesem Wert.")
         if h.get("rhat_max") is not None and h.get("ess_min") is not None:
             text += (f" Die Konvergenz der Kette wurde mit dem rang-normalisierten split-R̂ und der effektiven "
-                     f"Stichprobengröße (ESS) je Populationsmittel geprüft (Vehtari et al., 2021; Geyer, 1992): "
+                     f"Stichprobengröße (ESS) je Populationsmittel"
+                     + (" und je Varianz zwischen den Personen (Diagonale der Kovarianzmatrix)" if h.get("sigma") else "")
+                     + f" geprüft (Vehtari et al., 2021; Geyer, 1992): "
                      f"R̂ max. {units.number(h['rhat_max'], 3)}, ESS min. {units.number(h['ess_min'])} von {h['kept']} "
                      f"Ziehungen" + (" (Regel R̂ < 1,01 und ESS ≥ 400 erfüllt)." if h.get("converged")
                                      else "; die Regel R̂ < 1,01 und ESS ≥ 400 war nicht erfüllt, die HB-Werte sind "
                                           "daher nur als Richtung zu lesen."))
+            if h.get("person_share") is not None:
+                text += (f" Für die individuellen Nutzen gab es keine Regel, nur einen Hinweis: Bei "
+                         f"{units.percent_text(h['person_share'], 'de')} der Personen lag das klassische split-R̂ "
+                         "mindestens eines Nutzens über 1,05.")
     text += _warmups_de(c)
     if c.get("holdouts"):
         unit = "Sets" if c["type"] == "maxdiff" else ("Aufgabe" if c["holdouts"] == 1 else "Aufgaben")
@@ -555,9 +562,13 @@ def _choice_en(c):
                  f"{h['burn']} burn-in and {h['draws']} iterations; prior: population means normal with sd 5 (logit "
                  "scale), covariance inverse Wishart with k + 5 degrees of freedom and the prior covariance as its mean")
         if h.get("rhat_max") is not None and h.get("ess_min") is not None:
-            line += (f"; convergence: rank-normalised split R-hat max {h['rhat_max']:.3f}, bulk ESS min "
+            line += (f"; convergence{' of the population means and variances' if h.get('sigma') else ''}: "
+                     f"rank-normalised split R-hat max {h['rhat_max']:.3f}, bulk ESS min "
                      f"{h['ess_min']:.0f} of {h['kept']} draws (Vehtari et al., 2021; Geyer, 1992), rule R-hat < 1.01 and "
                      f"ESS >= 400 {'met' if h.get('converged') else 'not met'}")
+            if h.get("person_share") is not None:
+                line += (f"; individual utilities (note only): {100 * h['person_share']:.1f}% of persons with a classic "
+                         "split R-hat above 1.05")
     line += _warmups_en(c)
     if c.get("holdouts"):
         line += f"; {c['holdouts']} holdout task(s), not used in the estimation"

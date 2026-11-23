@@ -3,7 +3,7 @@
 {% set cv = res.convergence %}
 {# also when the rule passes but the log-likelihood hint (cv.geweke_ll_hint) advises a longer run;
    not while an estimation runs: its result replaces this one when it ends #}
-{% if cv and (not cv.ok or cv.geweke_ll_hint) and cv.longer and not (h is defined and h and h.state == "running") %}
+{% if cv and cv.advise_longer and cv.longer and not (h is defined and h and h.state == "running") %}
 <div class="res-run-hb">
   <form method="post" action="{{ url_for('surveys.results_hb', survey_id=survey.id, item_id=e.item.id) }}" data-hb-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

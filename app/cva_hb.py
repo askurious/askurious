@@ -131,7 +131,10 @@ def run(inp, progress=None):
     report = max(1, total // 50)
     keep_every = max(1, (draws // thin) // hb.KEEP_DRAWS)
     sums, s2_sums = np.zeros((n, k)), np.zeros(n)
-    mus, lls, summaries, kept_draws = [], [], [], []
+    mus, lls, summaries, kept_draws, sigmas = [], [], [], [], []
+    n_keep_total = draws // thin                   # halves of the kept draws for the split-R-hat per person
+    half_kept = n_keep_total // 2
+    half_sums, half_squares = np.zeros((2, n, k)), np.zeros((2, n, k))
     for it in range(total):
         s_inv = np.linalg.inv(Sigma)
         prec = XtX / s2[:, None, None] + s_inv
@@ -152,7 +155,13 @@ def run(inp, progress=None):
             s2_sums += s2
             mus.append(mu.copy())
             lls.append(ll)
+            sigmas.append(np.diag(Sigma).copy())
             summaries.append((B[:, 1:] @ M.T).mean(axis=0))
+            index = len(mus) - 1
+            part = 0 if index < half_kept else 1 if index >= n_keep_total - half_kept else None
+            if part is not None and half_kept:
+                half_sums[part] += B
+                half_squares[part] += B * B
             if (len(mus) - 1) % keep_every == 0 and len(kept_draws) < hb.KEEP_DRAWS:
                 kept_draws.append(B.copy())
         if progress and (it + 1) % report == 0:
@@ -163,7 +172,10 @@ def run(inp, progress=None):
     S = np.array(summaries) if summaries else None
     gw = hb.geweke_check(lls, mus.reshape(len(mus), k) if n_kept else np.empty((0, k)))
     geweke_ok = gw["converged"]
-    diag = hb_convergence.diagnose(mus, lls, geweke_ok=geweke_ok, shown=S)
+    # the diagonal of Sigma joins the rule, the split-R-hat of the individual utilities gives the hint (as app/hb.py)
+    diag = hb_convergence.diagnose(mus, lls, geweke_ok=geweke_ok, shown=S,
+                                   sigma=np.array(sigmas) if sigmas else np.empty((0, k)),
+                                   person=hb.person_rhat(half_sums, half_squares, half_kept))
     util = beta[:, 1:] @ M.T
     ranges = np.column_stack([util[:, s:s + c].max(axis=1) - util[:, s:s + c].min(axis=1) for _, s, c in spans])
     total_range = ranges.sum(axis=1, keepdims=True)
