@@ -275,6 +275,47 @@ def test_cbc_stores_trace_shows_line_and_runs_longer(app, client, survey, monkey
     assert "1.600 Burn-in- und 1.600 weitere Iterationen statt 800 und 800" in html
 
 
+def test_view_offers_a_longer_run_for_the_log_likelihood_hint():
+    """The rule passes but the Geweke-type note on the log-likelihood advises "ggf. mit doppelter Länge neu
+    schätzen": the settings for that run are there; without the note a passing result offers none."""
+    base = {"settings": {"burn": 400, "draws": 400, "thin": 2, "seed": 1}, "diag_ok": True, "rhat_max": 1.0,
+            "ess_min": 900, "geweke_ok": True, "kept": 200}
+    assert hc.view({**base, "geweke_ll_hint": True, "geweke_ll": -2.5})["longer"]["burn"] == 800
+    assert hc.view(base)["longer"] is None
+    assert hc.view({**base, "diag_ok": False})["longer"]["burn"] == 800
+
+
+@pytest.mark.parametrize("hint", [True, False])
+def test_button_for_a_passing_result_only_with_the_hint(app, client, survey, hint):
+    """With the log-likelihood note and the rule passed, "Neu schätzen mit doppelter Länge" stands once, in
+    "Konvergenz der Kette" (there is no convergence note at the top); without the note there is no button."""
+    from tests.analysis.test_conjoint_hb import HB_FAST, simulate_segments
+    from tests.analysis.test_cbc_results import setup
+
+    setup(client, price_attr=True, none=True, tasks=12, versions=6)
+    app.config.update(HB_FAST)
+    simulate_segments(app, 20, none_asc=-0.5)
+    client.post("/surveys/1/results/hb/2", data={"source": "real"})
+    with app.app_context():
+        from app import conjoint_hb, maxdiff_hb
+
+        item = db.session.get(Item, 2)
+        res = conjoint_hb.load(item)
+        res.update({"diag_ok": True, "diag_complete": True, "converged": True, "geweke_ok": True, "rhat_max": 1.0,
+                    "ess_min": 900, "geweke_ll_hint": hint, "geweke_ll": -2.5 if hint else -0.5})
+        maxdiff_hb._write(maxdiff_hb._paths(item)[0], res)
+    html = client.get("/surveys/1/results").data.decode()
+    assert "Konvergenz der Kette" in html and "hb-conv-note" not in html and "hb-conv-ok" in html
+    section = html.split("Konvergenz der Kette")[1].split("Hierarchical Bayes (HB-MNL)")[0]
+    if hint:
+        assert "ggf. mit doppelter Länge neu schätzen" in section
+        assert "Neu schätzen mit doppelter Länge" in section and html.count('name="longer" value="1"') == 1
+        assert "800 Burn-in- und 800 weitere Iterationen statt 400 und 400" in section
+    else:
+        assert "Neu schätzen mit doppelter Länge" not in html and 'name="longer" value="1"' not in html
+    assert "Die längste Einstellung ist erreicht" not in html
+
+
 def test_old_format_counts_as_stale_once(app, client, survey):
     from tests.analysis.test_conjoint_hb import HB_FAST, simulate_segments
     from tests.analysis.test_cbc_results import setup

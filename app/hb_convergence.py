@@ -254,7 +254,9 @@ def view(res):
             "geweke_ll_hint": bool(res.get("geweke_ll_hint")), "geweke_mu_limit": res.get("geweke_mu_limit"),
             "geweke_mu_flagged": res.get("geweke_mu_flagged"),
             "rhat_limit": RHAT_LIMIT, "ess_limit": ESS_MIN, "chart": trace_chart(res.get("ll_trace")),
-            "longer": None if res.get("diag_ok") else longer_settings(settings, defaults)}
+            # the button also when the rule passes but the log-likelihood hint advises a longer run
+            "longer": (longer_settings(settings, defaults)
+                       if not res.get("diag_ok") or res.get("geweke_ll_hint") else None)}
 
 
 def describe(res, lang=None):
