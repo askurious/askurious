@@ -105,6 +105,8 @@ def groups():
             (de_en("Adaptive Conjoint (ACA): Selbstauskunft und adaptive Paare für sehr viele Merkmale",
                    "Adaptive conjoint (ACA): self-explication and adaptive pairs for very many attributes"), "aca"),
             (de_en("Holdout-Aufgaben zum Prüfen der Vorhersage", "Holdout tasks to check the prediction"), None),
+            (de_en("Aufwärmaufgaben vor Aufgabe 1, die nicht in die Schätzung eingehen",
+                   "Warm-up tasks before task 1 that are left out of the estimation"), None),
         ]),
         ("visuell", de_en("Elementtypen: räumlich und visuell", "Element types: spatial and visual"), [
             (de_en("2D-Positionierung, Bild, Bild markieren mit Hot Spots",

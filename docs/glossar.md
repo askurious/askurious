@@ -54,6 +54,7 @@ Begriffe, die die Oberfläche für Forschende einheitlich verwendet. Entstanden 
 | **Versuchsbedingungen** | Zellen eines Between-Subject-Designs aus Randomisierungen; auch die Stufen, nach denen eine Schleife Varianten zieht | Bedingungen (für Versuchsbedingungen) |
 | **Versuchsplan** | welche Person welche Aufgaben eines Wahlexperiments (Conjoint, ACBC, Bewertungs-Conjoint, MaxDiff, Paarvergleich) oder welche Vignetten sieht; der Knopf heißt „Versuchsplan erzeugen“, seine Teile „Versionen des Versuchsplans“. „Design“ heißt nur das Erscheinungsbild; Fachwörter wie „Between-Subject-Design“ und „Designeffekt“ bleiben | Designversion, Design (für einen Versuchsplan) |
 | **Version** | eine Fassung des Versuchsplans von Conjoint, MaxDiff oder Vignetten (welche Person welche Aufgaben sieht); bei Vignetten heißt sie „Deck“ (die Zeilen, die eine Person sieht) | Fassung (für einen Versuchsplan) |
+| **Aufwärmaufgabe**, **Aufwärm-Set**, **Holdout-Aufgabe** | feste Aufgaben eines Wahlexperiments (Conjoint, Bewertungs-Conjoint; bei MaxDiff Sets), für alle gleich, die nicht in die Schätzung eingehen: Aufwärmaufgaben kommen vor Aufgabe 1 und üben das Format (in der Literatur auch „Burn-in“ oder „warm-up task“), Holdout-Aufgaben prüfen die Vorhersage; „Burn-in“ heißt in Askurious sonst nur der Vorlauf der HB-Schätzung | Übungsaufgabe, Einstiegsaufgabe |
 | **verbotene Kombinationen** | Stufen zweier Merkmale (oder Faktoren der Vignetten), die nicht zusammen in einer Aufgabe vorkommen dürfen | Ausschlüsse (für Stufenkombinationen) |
 | **Schleife** | Blöcke je Tabellenzeile oder je **Vignette** wiederholen; ihre Spalten sind **Platzhalter**; die Zeilen kommen aus einer Tabelle oder aus Faktoren und Stufen | Loop (außer als Erklärung), Loop & Merge |
 | **Merkmal**, **Stufe** | die Eigenschaften einer Wahlaufgabe (Conjoint, ACBC) und ihre Werte, z. B. Merkmal Preis mit den Stufen 9 €, 12 €, 15 €; bei Vignetten „Faktor“; was Personen auszeichnet und in ein Modell eingeht, heißt **Kovariate** | Attribut, Level (Ausprägung bleibt für die Werte eines Quotenmerkmals) |
@@ -206,6 +207,7 @@ Die Oberfläche für Forschende und Admins gibt es auch auf Englisch (Konto › 
 | Merkmal, Stufe, Kovariate | attribute, level, covariate | feature (für ein Merkmal), characteristic (für ein Merkmal) |
 | Faktor (Vignetten) | factor | |
 | Versuchsplan, Version | experimental design, version | experimental plan, design version |
+| Aufwärmaufgabe, Aufwärm-Set, Holdout-Aufgabe | warm-up task, warm-up set, holdout task | practice task |
 | verbotene Kombinationen | prohibitions | exclusions (für Stufenkombinationen) |
 | Startprüfung | pre-launch check | design check |
 | Endseite, Text der Endseite | end page, end page text | thank-you page, closing text (für den Text der Endseite) |

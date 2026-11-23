@@ -156,6 +156,8 @@ def page_key(page_items, spec):
         key += f".t{spec['task']}"
     if "holdout" in spec:  # a holdout task (app/holdouts.py)
         key += f".h{spec['holdout']}"
+    if "warmup" in spec:  # a warm-up task (app/holdouts.py)
+        key += f".w{spec['warmup']}"
     if spec.get("explain"):
         key += ".x"
     if spec.get("anchor"):

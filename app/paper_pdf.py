@@ -653,9 +653,9 @@ def _conjoint_task(ctx, item, pos, row, spec):
 
     kind, c, t = item.kind, item.config, item.t(ctx.lang)
     state = (ctx.layout.get("cj") or {}).get(str(item.id)) or {}
-    if "holdout" in spec:
-        profiles = holdouts.cbc_profiles(item, spec["holdout"])
-        key = f"h{spec['holdout']}"
+    if holdouts.page_kind(spec):  # a holdout or warm-up task: fixed options
+        profiles = kind.page_profiles_fixed(item, spec)
+        key = holdouts.page_key(spec)
     else:
         version = state.get("version", 0)
         if not kind.version_known(item, version):
@@ -860,9 +860,9 @@ def _maxdiff_task(ctx, item, pos, row, spec):
     from app import holdouts
 
     kind, t = item.kind, item.t(ctx.lang)
-    if "holdout" in spec:
-        s = holdouts.maxdiff_set(item, spec["holdout"]) or []
-        key = f"h{spec['holdout']}"
+    if holdouts.page_kind(spec):  # a holdout or warm-up set: fixed statements
+        s = kind.fixed_set(item, spec) or []
+        key = holdouts.page_key(spec)
     else:
         s = kind.task_set(item, spec.get("v", 0), spec.get("task", 0))
         key = f"t{spec.get('task', 0)}"
@@ -870,7 +870,7 @@ def _maxdiff_task(ctx, item, pos, row, spec):
         return []
     labels = kind.labels(item, ctx.lang)
     unit = Unit()
-    total = kind.n_sets(item) + len(holdouts.maxdiff_active(item))
+    total = kind.shown_tasks(item)
     y = _task_head(ctx, item, unit, spec, total)
     from app.items.maxdiff import DEFAULT_TEXTS
 
@@ -1233,7 +1233,7 @@ def _build_sheet(survey, lang, layout):
             continue
         if "block" not in spec:
             continue
-        if spec.get("task") is not None or spec.get("holdout") is not None or spec.get("explain") or spec.get("anchor")                 or spec.get("rank"):
+        if spec.get("task") is not None or spec.get("holdout") is not None or spec.get("warmup") is not None or spec.get("explain") or spec.get("anchor")                 or spec.get("rank"):
             # a page of a choice experiment (one task, its explanation, the anchoring question)
             item = items.get((spec.get("items") or [None])[0]) or db.session.get(Item, (spec.get("items") or [0])[0])
             if item is None or item.type not in TASKS or spec.get("anchor"):

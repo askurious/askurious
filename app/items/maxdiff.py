@@ -8,9 +8,10 @@ Results: counting scores and an aggregate MNL (app/maxdiff_analysis.py), individ
 hierarchical Bayes on request (app/maxdiff_hb.py, also in the wide export); the long format for other models.
 
 config: statements [{id}], set_size, sets, versions, explain, anchor, auto_next,
-        design {sig, versions, stats}, holdouts [{id, statements: [statement id, ...]}] (app/holdouts.py)
+        design {sig, versions, stats}, holdouts [{id, statements: [statement id, ...]}] (app/holdouts.py),
+        warmups [{id, statements}] (warm-up sets before set 1, the same shape)
 texts:  question, statements {id: text}, best_label, worst_label, explain_intro, anchor_question, anchor_none
-answer: {"v": version, "t0": {"b": index, "w": index}, ..., "h0": {"b": .., "w": ..} (holdout set), ...,
+answer: {"v": version, "t0": {"b": index, "w": index}, ..., "h0": {"b": .., "w": ..} (holdout set), "w0" (warm-up set), ...,
         "anchor": [indices]} (0-based statement indices;
         "anchor": [] = "none of these" ticked, None = the anchoring question was left open)
 """
@@ -62,7 +63,8 @@ class MaxDiff(ItemType):
     key = "maxdiff"
     import_rules = {"statements": r_rows(MAX_STATEMENTS, id=r_id), "set_size": r_int(3, 6), "sets": r_int(0, 60),
                     "versions": r_int(1, 20), "explain": r_flag, "anchor": r_flag, "design": r_any,  # see import_config
-                    "holdouts": r_rows(holdouts.MAX, id=r_id, statements=r_list(6, r_id)), "sim": clean_scenarios,
+                    "holdouts": r_rows(holdouts.MAX, id=r_id, statements=r_list(6, r_id)),
+                    "warmups": r_rows(holdouts.WARMUP_MAX, id=r_id, statements=r_list(6, r_id)), "sim": clean_scenarios,
                     "lc": clean_segments}
 
     def import_config(self, config):
@@ -90,6 +92,9 @@ class MaxDiff(ItemType):
         if not unfit and "holdouts" in config and holdouts.import_fit(config, "statements") is None:
             config["holdouts"] = []  # statements the file does not have
             unknown = unknown + ["holdouts"]
+        if not unfit and "warmups" in config and holdouts.import_fit(config, "statements", "warmups") is None:
+            config["warmups"] = []
+            unknown = unknown + ["warmups"]
         return config, unfit, unknown
     label = "MaxDiff (Best-Worst)"
     short = Both("Wichtigste und unwichtigste wählen", "Choose most and least important")
@@ -133,7 +138,7 @@ class MaxDiff(ItemType):
 
     def default_config(self):
         return {"statements": [], "set_size": 4, "sets": 0, "versions": 1, "explain": False, "anchor": False,
-                "design": None, "auto_next": False, "holdouts": []}
+                "design": None, "auto_next": False, "holdouts": [], "warmups": []}
 
     def default_texts(self, lang):
         return {**pick(DEFAULT_TEXTS, lang), "statements": {}}
@@ -167,6 +172,8 @@ class MaxDiff(ItemType):
                           versions=num("versions", 1, 20, 1))
             if "ho_count" in form:  # holdout sets (app/holdouts.py), locked with the design
                 config["holdouts"] = holdouts.maxdiff_from_form(item, config, form)
+            if "wu_count" in form:  # warm-up sets before set 1, locked with the design
+                config["warmups"] = holdouts.maxdiff_from_form(item, config, form, "warmups")
         else:
             for sid, text in rows:
                 if sid in known and text.strip():
@@ -275,21 +282,36 @@ class MaxDiff(ItemType):
         state = {"version": self.balanced_version(survey, item, rng)}
         pages = [{"explain": True}] if item.config.get("explain") else []
         active = dict(holdouts.maxdiff_active(item))
-        if not active:
+        warm = dict(holdouts.maxdiff_active(item, "warmups"))
+        if not active and not warm:
             pages += [{"task": t, "v": state["version"]} for t in range(self.n_sets(item))]
-        else:  # holdout sets between and after the sets; "n": the number the page shows ("Set n von ...")
-            order = [(k, x) for k, x in holdouts.page_order(self.n_sets(item), len(holdouts.stored(item)))
-                     if k == "t" or x in active]
-            pages += [{"task" if k == "t" else "holdout": x, "v": state["version"], "n": n}
-                      for n, (k, x) in enumerate(order, start=1)]
+        else:  # warm-up sets first, holdout sets between and after the sets; "n": the number the page shows
+            pages += [{**p, "v": state["version"]} for p in holdouts.pages(self._page_order(item), active, warm)]
         if item.config.get("anchor"):
             # a fixed list favours its first entries: every person sees the statements in an own order
             state["anchor_order"] = rng.sample(range(self.n_items(item)), self.n_items(item))
             pages.append({"anchor": True, "order": state["anchor_order"]})
         return state, pages
 
+    def _page_order(self, item):
+        return holdouts.page_order(self.n_sets(item), len(holdouts.stored(item)), len(holdouts.stored(item, "warmups")))
+
     def holdout_set(self, item, h):
         return holdouts.maxdiff_set(item, h) or []
+
+    def warmup_set(self, item, w):
+        return holdouts.maxdiff_set(item, w, "warmups") or []
+
+    def warmup_count(self, item):
+        return len(holdouts.stored(item, "warmups"))
+
+    def warmup_statement(self, item, w, p):
+        return holdouts.maxdiff_choice(item, w, p, "warmups")
+
+    def fixed_set(self, item, meta):
+        """The statements of a holdout or warm-up page, None for a set of the design."""
+        kind = holdouts.page_kind(meta)
+        return holdouts.maxdiff_set(item, meta[holdouts.KINDS[kind]["meta"]], kind) if kind else None
 
     def holdout_count(self, item):
         return len(holdouts.stored(item))
@@ -298,8 +320,9 @@ class MaxDiff(ItemType):
         return holdouts.maxdiff_choice(item, h, p)
 
     def shown_tasks(self, item):
-        """Sets a person sees, holdouts included (the "of" in "Set 3 von 10")."""
-        return self.n_sets(item) + len(holdouts.maxdiff_active(item))
+        """Sets a person sees, holdouts and warm-ups included (the "of" in "Set 3 von 10")."""
+        return (self.n_sets(item) + len(holdouts.maxdiff_active(item))
+                + len(holdouts.maxdiff_active(item, "warmups")))
 
     def balanced_version(self, survey, item, rng):
         """The design version used least so far by real participants (random among ties)."""
@@ -317,11 +340,9 @@ class MaxDiff(ItemType):
 
     def timing_pages(self, item):
         pages = [("_x", "Erklärungsseite", ".x")] if item.config.get("explain") else []
-        active = {h for h, _ in holdouts.maxdiff_active(item)}
-        pages += [(f"_t{x + 1}", f"Set {x + 1}", f".t{x}") if k == "t" else
-                  (f"_ho{x + 1}", f"Holdout-Set {x + 1}", f".h{x}")
-                  for k, x in holdouts.page_order(self.n_sets(item), len(holdouts.stored(item)))
-                  if k == "t" or x in active]
+        pages += holdouts.timing(self._page_order(item), {h for h, _ in holdouts.maxdiff_active(item)},
+                                 {w for w, _ in holdouts.maxdiff_active(item, "warmups")},
+                                 ("Set", "Holdout-Set", "Aufwärm-Set"))
         return pages + ([("_a", "Ankerfrage", ".a")] if item.config.get("anchor") else [])
 
     def seconds(self, item, read):
@@ -343,7 +364,7 @@ class MaxDiff(ItemType):
         elif not self.design_current(item):
             problems.append(de_en("Versuchsplan fehlt oder ist veraltet: bitte „Versuchsplan erzeugen“",
                                   "Experimental design missing or out of date: please “Generate experimental design”"))
-        return problems + holdouts.maxdiff_problems(item)
+        return problems + holdouts.maxdiff_problems(item, "warmups") + holdouts.maxdiff_problems(item)
 
     # --- answers -------------------------------------------------------------------------
 
@@ -362,7 +383,7 @@ class MaxDiff(ItemType):
                 return {"anchor": None}
             return {"anchor": chosen}  # "none of these" is an answer: nothing is really important
         task = meta.get("task", 0)
-        key = f"h{meta['holdout']}" if "holdout" in meta else f"t{task}"
+        key = holdouts.page_key(meta)
         raw_b, raw_w = form.get(f"i{item.id}_{key}_b", ""), form.get(f"i{item.id}_{key}_w", "")
         extra = {"v": meta["v"]} if "v" in meta else {}
         if raw_b == "" and raw_w == "":
@@ -374,8 +395,8 @@ class MaxDiff(ItemType):
         b, w = whole(raw_b), whole(raw_w)
         if b is None or w is None:
             raise AnswerError(m["invalid"])
-        if "holdout" in meta:
-            allowed = set(holdouts.maxdiff_set(item, meta["holdout"]) or range(n))
+        if holdouts.page_kind(meta):
+            allowed = set(self.fixed_set(item, meta) or range(n))
         else:
             allowed = (set(self.task_set(item, meta["v"], task)) if "v" in meta and self.design_current(item)
                        else set(range(n)))
@@ -390,7 +411,7 @@ class MaxDiff(ItemType):
         if meta.get("anchor"):
             raw = form.getlist(f"i{item.id}_a")
             return {"anchor": [whole(x) for x in raw if whole(x) is not None] if raw else None}
-        key = f"h{meta['holdout']}" if "holdout" in meta else f"t{meta.get('task', 0)}"
+        key = holdouts.page_key(meta)
         raw_b, raw_w = form.get(f"i{item.id}_{key}_b", ""), form.get(f"i{item.id}_{key}_w", "")
         return {key: {"b": whole(raw_b), "w": whole(raw_w)}}
 
@@ -428,9 +449,9 @@ class MaxDiff(ItemType):
         if meta.get("anchor"):
             return {f"i{item.id}_a": [str(i) for i in range(n) if utility[i] > DUMMY_ANCHOR] or ["none"]}
         task = meta.get("task", 0)
-        key = f"h{meta['holdout']}" if "holdout" in meta else f"t{task}"
-        # a holdout set from the same utilities as the sets
-        s = (holdouts.maxdiff_set(item, meta["holdout"]) if "holdout" in meta
+        key = holdouts.page_key(meta)
+        # a holdout or warm-up set from the same utilities as the sets
+        s = (self.fixed_set(item, meta) if holdouts.page_kind(meta)
              else self.task_set(item, meta.get("v", 0), task))
         if not s:
             return {}
@@ -446,6 +467,9 @@ class MaxDiff(ItemType):
 
     def export_columns(self, item):
         cols = [(f"{item.code}_version", "Version des Versuchsplans")]
+        for w in range(len(holdouts.stored(item, "warmups"))):
+            cols.append((f"{item.code}_wu{w + 1}_best", f"Aufwärm-Set {w + 1}: wichtigste Aussage (Nummer)"))
+            cols.append((f"{item.code}_wu{w + 1}_worst", f"Aufwärm-Set {w + 1}: am wenigsten wichtige Aussage (Nummer)"))
         for t in range(self.n_sets(item)):
             cols.append((f"{item.code}_t{t + 1}_best", f"Set {t + 1}: wichtigste Aussage (Nummer)"))
             cols.append((f"{item.code}_t{t + 1}_worst", f"Set {t + 1}: am wenigsten wichtige Aussage (Nummer)"))
@@ -468,6 +492,8 @@ class MaxDiff(ItemType):
                 "tasks": [(f"t{t}", t, f"{code}_t{t + 1}_best", f"{code}_t{t + 1}_worst") for t in range(self.n_sets(item))],
                 "holdouts": [(f"h{h}", f"{code}_ho{h + 1}_best", f"{code}_ho{h + 1}_worst")
                              for h in range(len(holdouts.stored(item)))],
+                "warmups": [(f"w{w}", f"{code}_wu{w + 1}_best", f"{code}_wu{w + 1}_worst")
+                            for w in range(len(holdouts.stored(item, "warmups")))],
                 "versions": item.config["design"]["versions"] if self.design_current(item) else None,
                 "anchor": bool(item.config.get("anchor"))}
 
@@ -484,7 +510,7 @@ class MaxDiff(ItemType):
             out[worst] = None if w is None else w + 1
             if b is not None and w is not None:
                 tasks[t] = (b, w)
-        for key, best, worst in plan["holdouts"]:
+        for key, best, worst in plan["holdouts"] + plan.get("warmups", []):
             choice = answer.get(key) or {}
             b, w = choice.get("b"), choice.get("w")
             out[best] = None if b is None else b + 1
@@ -524,6 +550,15 @@ class MaxDiff(ItemType):
                             "HB ein (Prüfung der Vorhersage)",
                         "number of the statement; holdout set: the same for everybody, not part of the counts, the logit "
                         "model and HB (check of the prediction)"),
+                in_lang(ui, "Aussagen im Set: ", "statements in the set: ") + ", ".join(str(i + 1) for i in shown)]
+        if column.startswith(f"{code}_wu") and (column.endswith("_best") or column.endswith("_worst")):
+            w = int(column[len(code) + 3:].split("_")[0]) - 1
+            shown = holdouts.maxdiff_set(item, w, "warmups") or []
+            return "MaxDiff", values, [
+                in_lang(ui, "Nummer der Aussage; Aufwärm-Set vor Set 1: für alle gleich, geht nicht in Zählwerte, "
+                            "Logit-Modell und HB ein",
+                        "number of the statement; warm-up set before set 1: the same for everybody, not part of the "
+                        "counts, the logit model and HB"),
                 in_lang(ui, "Aussagen im Set: ", "statements in the set: ") + ", ".join(str(i + 1) for i in shown)]
         if column.endswith("_best") or column.endswith("_worst"):
             return "MaxDiff", values, [in_lang(ui, "Nummer der Aussage; welche Aussagen im Set standen: Versuchsplan bzw. Langformat",
@@ -581,6 +616,9 @@ class MaxDiff(ItemType):
         out.append(f"  - {self.n_sets(item)} sets × {c.get('set_size')} statements, {c.get('versions')} {'version' if c.get('versions') == 1 else 'versions'}"
                    + (", explanation page" if c.get("explain") else "")
                    + (", anchoring question" if c.get("anchor") else ""))
+        if holdouts.stored(item, "warmups"):
+            out.append(f"  - {len(holdouts.stored(item, 'warmups'))} warm-up set(s) before set 1, the same for everyone, "
+                       "not used for estimation")
         if holdouts.stored(item):
             out.append(f"  - {len(holdouts.stored(item))} holdout set(s), the same for everyone, not used for estimation")
         return out
