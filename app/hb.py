@@ -48,7 +48,8 @@ Starts from the pooled logit (all persons equal). After `burn` iterations every 
 Sigma (and of spread(Sigma)), acceptance rate, RLH per person (root likelihood: geometric mean of the choice probabilities at the
 posterior mean betas) and a convergence check (Geweke-type z of the log-likelihood and of mu, first vs
 second half of the kept draws, standard errors from batch means; Geweke, 1992, with batch means instead of
-spectral densities). The traces of mu and of the log-likelihood are returned for the split-R-hat and ESS of
+spectral densities; limits in geweke_limits: t-corrected for the log-likelihood, which only gives a hint, Bonferroni
+for the means). The traces of mu and of the log-likelihood are returned for the split-R-hat and ESS of
 app/hb_convergence.py, and `keep` of the kept draws of all betas, evenly spaced, for predictions that average
 over the posterior (app/choice_predict.py). The seed makes a run reproducible.
 
@@ -61,7 +62,7 @@ import numpy as np
 
 from app.choice_model import TRAIN
 
-GEWEKE_LIMIT = 3.5  # |z| above this: the first and the second half of the kept draws differ
+GEWEKE_ALPHA = 0.05  # level of the Geweke-type comparison of the halves (limits in geweke_limits)
 MU_PRIOR_SD = 5.0   # prior sd of the population means, in units of prior_cov (logit scale)
 MIN_PERSONS = 10    # fewer persons say nothing about a distribution of utilities across persons
 BATCHES = 10        # batch means per half for the standard error of the half means
@@ -75,6 +76,13 @@ KEEP_DRAWS = 100    # kept draws of all betas returned for predictions over the 
 GEWEKE = ("Geweke, J. (1992). Evaluating the accuracy of sampling-based approaches to the calculation of posterior "
           "moments. In J. M. Bernardo, J. O. Berger, A. P. Dawid, & A. F. M. Smith (Eds.), Bayesian statistics 4 "
           "(pp. 169–193). Oxford University Press.")
+COWLES_CARLIN = ("Cowles, M. K., & Carlin, B. P. (1996). Markov chain Monte Carlo convergence diagnostics: A comparative "
+                 "review. Journal of the American Statistical Association, 91(434), 883–904. "
+                 "https://doi.org/10.1080/01621459.1996.10476956")
+DUNN = ("Dunn, O. J. (1961). Multiple comparisons among means. Journal of the American Statistical Association, 56(293), "
+        "52–64. https://doi.org/10.1080/01621459.1961.10482090")
+GEWEKE_SOURCES = (GEWEKE, COWLES_CARLIN, DUNN)
+GEWEKE_STORED = ("geweke_ll_limit", "geweke_mu_limit", "geweke_ll_hint")  # stored with a result since 2026-11-23
 ROBERTS_ROSENTHAL = ("Roberts, G. O., & Rosenthal, J. S. (1998). Optimal scaling of discrete approximations to Langevin "
                      "diffusions. Journal of the Royal Statistical Society: Series B, 60(1), 255–268. "
                      "https://doi.org/10.1111/1467-9868.00123")
@@ -212,6 +220,39 @@ def geweke(x, batches=BATCHES):
 
     se = math.sqrt(var_of_mean(x[:h]) + var_of_mean(x[-h:]))
     return float((x[:h].mean() - x[-h:].mean()) / se) if se > 0 else 0.0
+
+
+def geweke_limits(k, batches=BATCHES):
+    """(limit for the log-likelihood, limit for each of the k population means) of the Geweke-type comparison
+    (Ralf, 2026-11-23; before a fixed 3.5 for both, one mean allowed beyond it).
+    Each z divides by a standard error from only `batches` batch means per half, so it follows Student's t with
+    2 (batches - 1) degrees of freedom rather than the normal distribution of Geweke (1992). Log-likelihood, one
+    quantity: two-sided GEWEKE_ALPHA (about 2.10 at 10 batches). Means, k quantities: Bonferroni (Dunn, 1961), the
+    quantile at 1 - GEWEKE_ALPHA / (2k), so that a healthy chain flags any mean with chance GEWEKE_ALPHA at most
+    (about 3.5 at k = 20, 4.2 at k = 100); with the normal quantile instead it was about 11 % at k = 20 in simulations."""
+    from app.intervals import t_quantile
+
+    df = 2 * (batches - 1)
+    return t_quantile(1 - GEWEKE_ALPHA / 2, df), t_quantile(1 - GEWEKE_ALPHA / (2 * max(int(k), 1)), df)
+
+
+def geweke_check(lls, mus):
+    """The Geweke-type comparison of the halves of the kept draws, JSON-ready: z of the log-likelihood and of every
+    population mean (columns of mus), the limits of geweke_limits, the number of means beyond theirs. Passed
+    ("converged") when it could be checked and no mean is beyond its limit; a log-likelihood beyond its limit is
+    only a hint ("geweke_ll_hint": the chain may still drift a little), R-hat and ESS decide the convergence
+    (app/hb_convergence.py)."""
+    lls = np.asarray(lls, dtype=float)
+    mus = np.asarray(mus, dtype=float)
+    k = mus.shape[1] if mus.ndim == 2 else 0
+    z_ll = geweke(lls)
+    z_mu = [geweke(mus[:, j]) for j in range(k)] if len(mus) else []
+    ll_limit, mu_limit = geweke_limits(k)
+    flagged = sum(1 for z in z_mu if z is not None and abs(z) > mu_limit)
+    checked = z_ll is not None
+    return {"checked": checked, "converged": checked and flagged == 0, "geweke_ll": z_ll, "geweke_mu": z_mu,
+            "geweke_mu_flagged": flagged, "geweke_ll_limit": round(ll_limit, 3), "geweke_mu_limit": round(mu_limit, 3),
+            "geweke_ll_hint": bool(checked and abs(z_ll) > ll_limit)}
 
 
 def acceptance_warning(acc):
@@ -412,13 +453,10 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     beta = sums / max(n_kept, 1)
     mus = np.array([m for m, _, _ in kept])
     lls = np.array([x for _, x, _ in kept])
-    z_ll = geweke(lls)
-    z_mu = [geweke(mus[:, j]) for j in range(k)] if n_kept else []
-    z_mu_flag = sum(1 for z in z_mu if z is not None and abs(z) > GEWEKE_LIMIT)
-    checked = z_ll is not None
-    # one flagged mean is allowed: among many means one often passes the limit by chance in a healthy run (one of
-    # three trial runs at the default length). A mean that drifts because the data set no limit is named by the separation notes of the models.
-    converged = checked and abs(z_ll) <= GEWEKE_LIMIT and z_mu_flag <= 1
+    # the limit of the means is corrected for their number (Bonferroni), so no "one may pass" rule; the log-likelihood
+    # only gives a hint (geweke_check). A mean that drifts because the data set no limit is named by the separation
+    # notes of the models.
+    gw = geweke_check(lls, mus.reshape(len(mus), k) if n_kept else np.empty((0, k)))
     half = n_kept // 2
     return {
         "beta": beta, "mu": mus.mean(axis=0) if n_kept else mu,
@@ -427,8 +465,7 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         "shift_acceptance": shifted_kept / draws if draws else None,
         "rlh": rlh(data, beta), "chance_rlh": np.exp(data.chance_loglik() / data.sets_per_person),
         "loglik": float(data.loglik(beta).sum()), "persons": n, "sets": int(data.sets_per_person.sum()),
-        "kept": n_kept, "converged": converged, "checked": checked,
-        "geweke_ll": z_ll, "geweke_mu": z_mu, "geweke_mu_flagged": z_mu_flag,
+        "kept": n_kept, **gw,
         "ll_halves": [float(lls[:half].mean()), float(lls[-half:].mean())] if half else None,
         "ll_trace": lls, "mu_trace": mus, "summaries": np.array(summaries) if summaries else None,
         "person_stat": None if stat_sums is None else stat_sums / n_kept,

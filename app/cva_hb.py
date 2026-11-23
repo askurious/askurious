@@ -161,11 +161,8 @@ def run(inp, progress=None):
     beta = sums / max(n_kept, 1)
     mus, lls = np.array(mus), np.array(lls)
     S = np.array(summaries) if summaries else None
-    z_ll = hb.geweke(lls)
-    z_mu = [hb.geweke(mus[:, j]) for j in range(k)] if n_kept else []
-    flagged = sum(1 for z in z_mu if z is not None and abs(z) > hb.GEWEKE_LIMIT)
-    checked = z_ll is not None
-    geweke_ok = checked and abs(z_ll) <= hb.GEWEKE_LIMIT and flagged <= 1
+    gw = hb.geweke_check(lls, mus.reshape(len(mus), k) if n_kept else np.empty((0, k)))
+    geweke_ok = gw["converged"]
     diag = hb_convergence.diagnose(mus, lls, geweke_ok=geweke_ok, shown=S)
     util = beta[:, 1:] @ M.T
     ranges = np.column_stack([util[:, s:s + c].max(axis=1) - util[:, s:s + c].min(axis=1) for _, s, c in spans])
@@ -188,8 +185,9 @@ def run(inp, progress=None):
             "r2": [None if v is None else round(v, 4) for v in r2], "sigma": rnd(np.sqrt(s2_sums / max(n_kept, 1))),
             "util_lo": rnd(lo_s), "util_hi": rnd(hi_s), "mu": rnd(mus.mean(axis=0) if n_kept else mu),
             "sigma_util": round(float(util.var(axis=0).mean()), 4),
-            "converged": diag["diag_ok"], "geweke_ok": geweke_ok, "checked": checked, "geweke_ll": z_ll,
-            "geweke_mu_flagged": flagged, "ll_halves": [float(lls[:half].mean()), float(lls[-half:].mean())] if half else None,
+            "converged": diag["diag_ok"], "geweke_ok": geweke_ok, "checked": gw["checked"], "geweke_ll": gw["geweke_ll"],
+            "geweke_mu_flagged": gw["geweke_mu_flagged"], **{x: gw[x] for x in hb.GEWEKE_STORED},
+            "ll_halves": [float(lls[:half].mean()), float(lls[-half:].mean())] if half else None,
             "kept": n_kept, "sets": int(counts.sum()), "seconds": round(time.monotonic() - started, 1),
             "acceptance": None, **diag,
             "draws": hb.pack_draws(np.array(kept_draws) if kept_draws else None)}

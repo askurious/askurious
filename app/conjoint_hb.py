@@ -225,6 +225,7 @@ def run(inp, progress=None):
            "sigma_price": _finite(r["spread"][2], None),
            "converged": diag["diag_ok"], "geweke_ok": r["converged"], "checked": r["checked"],
            "geweke_ll": r["geweke_ll"], "geweke_mu_flagged": r["geweke_mu_flagged"], "ll_halves": r["ll_halves"],
+           **{x: r[x] for x in hb.GEWEKE_STORED},
            "kept": r["kept"], "sets": r["sets"], "seconds": round(r["seconds"], 1), **diag,
            # a sample of the kept draws of every person's betas: the simulator and the holdouts average shares over
            # them instead of computing them from the shrunken posterior means (audit 2026-10-05, W-1)
@@ -614,6 +615,7 @@ def summary(item, res, lang):
                     "limit": float(RLH_FACTOR * chance.mean())},
             "settings": res["settings"], "acceptance": acc, "target": hb.TARGET, "converged": res["converged"],
             "geweke_ll": res["geweke_ll"], "geweke_mu_flagged": res["geweke_mu_flagged"],
+            **{x: res.get(x) for x in hb.GEWEKE_STORED},
             "ll_halves": res["ll_halves"], "kept": res["kept"], "sets": res["sets"], "seconds": res["seconds"],
             "created": to_local(datetime.fromisoformat(res["created"])), "pool": res.get("pool") or {},
             "warnings": warnings, "rlh_factor": RLH_FACTOR,

@@ -322,8 +322,9 @@ def choice_sources(choice):
         groups.append(("Hierarchical Bayes", [hb.ALLENBY, hb.ROSSI]))
     if any(c["hb"] and c["hb"].get("rhat_max") is not None for c in choice):
         groups.append((de_en("Konvergenz der HB-Kette: split-R̂ und effektive Stichprobengröße; Geweke-artiger Vergleich der "
-                             "Hälften", "Convergence of the HB chain: split R̂ and effective sample size; Geweke-like "
-                             "comparison of the halves"), list(hb_convergence.SOURCES) + [hb.GEWEKE]))
+                             "Hälften (Grenze nach Bonferroni)", "Convergence of the HB chain: split R̂ and effective sample "
+                             "size; Geweke-like comparison of the halves (Bonferroni limit)"),
+                       list(hb_convergence.SOURCES) + list(hb.GEWEKE_SOURCES)))
     if any(c.get("segments") and c["type"] == "cva" for c in choice):
         from app import latent_class, lc_regression
 

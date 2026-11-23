@@ -249,6 +249,10 @@ def view(res):
     return {"ok": bool(res.get("diag_ok")), "complete": res.get("diag_complete", True),
             "rhat_max": res.get("rhat_max"), "ess_min": res.get("ess_min"),
             "ess_ll": res.get("ess_ll"), "geweke_ok": res.get("geweke_ok", True), "kept": res.get("kept"),
+            # limits and hint of the Geweke-type check (app/hb.py, geweke_check); None for a result from before
+            "geweke_ll": res.get("geweke_ll"), "geweke_ll_limit": res.get("geweke_ll_limit"),
+            "geweke_ll_hint": bool(res.get("geweke_ll_hint")), "geweke_mu_limit": res.get("geweke_mu_limit"),
+            "geweke_mu_flagged": res.get("geweke_mu_flagged"),
             "rhat_limit": RHAT_LIMIT, "ess_limit": ESS_MIN, "chart": trace_chart(res.get("ll_trace")),
             "longer": None if res.get("diag_ok") else longer_settings(settings, defaults)}
 

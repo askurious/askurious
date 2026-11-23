@@ -162,3 +162,18 @@ def test_hb_partworths_table_in_the_report(app):
     assert "Politiker (begrenzt)" in text and "nur die Priori begrenzt den Wert" in text
     assert "Preiskoeffizient je Währungseinheit" in text and "90,0 % der Personen" in text
     assert "Konstante „Keine davon“" in text
+
+
+def test_hb_geweke_note_in_the_report(app):
+    """The hint of the Geweke-type check (log-likelihood beyond its t limit) stands in the note of the HB figure with
+    its limit and sources; a result from before (no limit stored) and one without a hint get no note (2026-11-23)."""
+    hb = {"persons": 40, "type": "conjoint", "converged": True, "geweke_ll": -2.01, "geweke_ll_limit": 1.5,
+          "geweke_ll_hint": True, "attributes": [{"label": "Kommunikator", "importance": 1.0, "importance_sd": 0.0,
+                                                  "importance_q": [1.0, 1.0, 1.0], "levels": []}]}
+    with app.app_context():
+        rep = results_pdf.Report(None, "de")
+        text = " ".join(_flow_text(results_pdf._cbc(rep, {"cbc": {"hb": {"result": hb}}}, "cbc")).split())
+        assert "Die zweite Hälfte der Ziehungen passt besser" in text and "z = −2,01" in text and "±1,50" in text
+        assert "Geweke, 1992" in text and "Cowles & Carlin, 1996" in text
+        assert results_pdf._hb_geweke_note(rep, {**hb, "geweke_ll_limit": None}) == ""
+        assert results_pdf._hb_geweke_note(rep, {**hb, "geweke_ll_hint": False}) == ""
