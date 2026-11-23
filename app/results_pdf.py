@@ -975,6 +975,7 @@ def _cbc(rep, e, title):
         if not hb.get("converged", True):
             note += " " + rep.say("Die Kette hat die Konvergenzprüfung nicht bestanden.", "The chain did not pass the "
                                   "convergence check.")
+        note += _hb_geweke_note(rep, hb)
         out += rep.figure(rep.say("{t}: Wichtigkeit der Merkmale (Hierarchical Bayes)",
                                   "{t}: importance of the attributes (hierarchical Bayes)", t=title),
                           rep.bars([(a["label"], a["importance"]) for a in rows], lambda v, label: rep.pct(v), rep.pct(1), top=1), note)
@@ -992,6 +993,23 @@ def _cbc(rep, e, title):
                                       "lässt sich auf der Ergebnisseite starten.", "There is no current hierarchical Bayes "
                                       "estimate for this experiment; it can be started on the results page.")))
     return out
+
+
+def _hb_geweke_note(rep, hb):
+    """The note of the Geweke-type check for the HB figure (app/hb.py, geweke_check): the hint of the log-likelihood
+    with its limit and the limit of the population means, "" for a result from before 2026-11-23 or without a hint."""
+    from app import hb as hb_mod
+
+    if not hb.get("geweke_ll_hint") or hb.get("geweke_ll") is None or hb.get("geweke_ll_limit") is None:
+        return ""
+    second = hb["geweke_ll"] < 0
+    return " " + rep.say("Hinweis: Die {h} Hälfte der Ziehungen passt besser zu den Daten (Log-Likelihood z = {z}, Grenze "
+                         "±{l}); die Kette driftet vielleicht noch leicht {c}. Über die Konvergenz entscheiden R̂ und ESS.",
+                         "Note: the {h} half of the draws fits the data better (log-likelihood z = {z}, limit ±{l}); the "
+                         "chain may still drift a little {c}. R̂ and ESS decide on convergence.",
+                         h=rep.say("zweite", "second") if second else rep.say("erste", "first"),
+                         z=rep.num(hb["geweke_ll"], 2), l=rep.num(hb["geweke_ll_limit"], 2),
+                         c=rep.cite(*hb_mod.GEWEKE_SOURCES[:2]))
 
 
 def _hb_partworths(rep, hb, title):

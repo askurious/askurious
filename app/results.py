@@ -1609,12 +1609,14 @@ def page_sources(data):
                         hb_convergence.VEHTARI]))
         groups.append((de_en("Konvergenz der HB-Kette: rang-normalisiertes split-R̂ und effektive Stichprobengröße (Geyers "
                              "monotone Anfangsfolge, nach Vehtari et al., 2021); Regel R̂ < {rhat} und ESS ≥ {ess}; dazu ein Geweke-artiger "
-                             "Vergleich der Hälften (Batch-Mittel statt Spektraldichten)",
+                             "Vergleich der Hälften (Batch-Mittel statt Spektraldichten; Grenze der Populationsmittel nach "
+                             "Bonferroni, die Log-Likelihood mit Student-t-Grenze nur als Hinweis)",
                              "Convergence of the HB chain: rank-normalised split-R̂ and effective sample size (Geyer's "
                              "initial monotone sequence, after Vehtari et al., 2021); rule R̂ < {rhat} and ESS ≥ {ess}; plus a Geweke-like "
-                             "comparison of the halves (batch means instead of spectral densities)",
+                             "comparison of the halves (batch means instead of spectral densities; limit of the population "
+                             "means by Bonferroni, the log-likelihood with a Student's t limit only as a note)",
                              rhat=units.number(hb_convergence.RHAT_LIMIT, 2, units.page_lang()), ess=hb_convergence.ESS_MIN),
-                       list(hb_convergence.SOURCES) + [hb.GEWEKE]))
+                       list(hb_convergence.SOURCES) + list(hb.GEWEKE_SOURCES)))
     lc_logit = any(((e.get(k) or {}).get("lc") or {}).get("result") for e in entries for k in ("maxdiff", "cbc", "acbc"))
     lc_reg = any(((e.get("cva") or {}).get("lc") or {}).get("result") for e in entries)  # app/lc_regression.py
     if lc_logit or lc_reg:

@@ -107,6 +107,7 @@ def run(inp, progress=None):
             "mu": rnd(r["mu"]), "sigma_diag": rnd(r["sigma_diag"]), "sigma_util": round(float(r["spread"][0]), 4),
             "acceptance": r["acceptance"], "converged": diag["diag_ok"], "geweke_ok": r["converged"],
             "checked": r["checked"], "geweke_ll": r["geweke_ll"], "geweke_mu_flagged": r["geweke_mu_flagged"],
+            **{x: r[x] for x in hb.GEWEKE_STORED},
             "ll_halves": r["ll_halves"], "kept": r["kept"], "sets": r["sets"], "seconds": round(r["seconds"], 1), **diag,
             "draws": hb.pack_draws(r["draws"])}
 
