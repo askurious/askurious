@@ -337,3 +337,12 @@ def test_hierarchical_prior_does_not_collapse_from_its_start():
         assert r["sigma_diag"].min() > 0.1, (seed, r["sigma_diag"])
         means.append(r["sigma_diag"].mean())
     assert min(means) > 0.3 and max(means) / min(means) < 1.5, means
+
+
+def test_prior_options_name_their_source(app, client, survey):
+    """The options of the field cite their source in APA style, author and year (Ralf, 2026-11-24); the default
+    names none, since its expectation is a Festlegung of Askurious."""
+    with_dummies(app, client, n=12)
+    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    assert "fest (Standard)</option>" in html
+    assert "hierarchisch (Huang &amp; Wand, 2013)</option>" in html and "weit (Rossi et al., 2005)</option>" in html
