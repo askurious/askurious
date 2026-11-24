@@ -19,7 +19,7 @@ import threading
 from datetime import datetime
 
 # the kinds a person starts by a button; the omega bootstrap starts by itself with the results page and is not counted
-COUNTED_KINDS = {"maxdiff_hb", "conjoint_hb", "cva_hb", "paired_hb", "segments", "sem", "sem_power", "panel"}
+COUNTED_KINDS = {"maxdiff_hb", "conjoint_hb", "conjoint_ww", "cva_hb", "paired_hb", "segments", "sem", "sem_power", "panel"}
 
 
 class EstimateLimit(Exception):

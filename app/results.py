@@ -1002,6 +1002,10 @@ def _compute(survey, sources=("real",), include_incomplete=False, drop_speeders=
             from app import conjoint_hb
 
             entry[kind]["hb"] = conjoint_hb.view(item, hb_table, lang)
+            from app import conjoint_interactions
+
+            # interactions between attributes, below the HB block (2026-11-24)
+            entry[kind]["ww"] = conjoint_interactions.view(item, hb_table, entry[kind]["hb"], lang)
             if kind == "cbc":  # holdout tasks: not for ACBC (W13)
                 from app import holdouts
 
@@ -1068,7 +1072,7 @@ def refresh_estimates(data, survey):
     when that is not enough: an estimate made with other settings since on other answers (only they tell whether it fits),
     or a question with holdout tasks whose estimate became current or stopped being so (the hit rates need the
     answers)."""
-    from app import conjoint_hb, cva_hb, holdouts, maxdiff_hb, paired_hb, segments
+    from app import conjoint_hb, conjoint_interactions, cva_hb, holdouts, maxdiff_hb, paired_hb, segments
 
     lang = survey.default_language
     again = False
@@ -1076,6 +1080,9 @@ def refresh_estimates(data, survey):
         item = e["item"]
         for kind in ("maxdiff", "cbc", "acbc", "paired", "cva"):
             part = e.get(kind)
+            if part and part.get("ww") and "data_key" in part["ww"]:
+                # the search of interactions as stored now (a run started or ended, a pair taken over since)
+                part["ww"] = conjoint_interactions.revisit(item, part["ww"], lang)
             if part and part.get("lc") and "input_key" in part["lc"]:
                 # the segments as stored now, with the solution and names chosen since (item.config["lc"])
                 part["lc"] = segments.revisit(item, part["lc"], lang)

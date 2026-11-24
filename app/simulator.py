@@ -785,6 +785,17 @@ def cbc_optimize(item, entry, state, lang, weighting=None):
                     U = U + price[:, :, None] * (values[None, None, :] - center)
             elif a in offset:
                 U = U + util[:, :, offset[a] + values]
+        if params.get("ww"):  # interactions taken into the HB model (app/conjoint_interactions.py)
+            size = len(part)
+            lv = {a: (np.array([v[free.index(a)] for v in part]) if a in free else
+                      np.full(size, -1 if product["levels"][a] is None else product["levels"][a]))
+                  for a in range(len(product["levels"])) if a != pa}
+            px = (np.array([v[free.index(pa)] for v in part], dtype=float) if pa is not None and pa in free else
+                  np.asarray(list_prices[start:start + chunk], dtype=float) if listed else
+                  np.full(size, float(product["price"])) if held_price else None)
+            add = choice_predict.interaction_utilities(params["ww"], lv, px, center)
+            if not np.isscalar(add):
+                U = U + add[:, None, :]
         if rival is None:
             P = U.mean(axis=0)                                             # persons x variants: mean utility
             F = None

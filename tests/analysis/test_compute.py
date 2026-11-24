@@ -232,7 +232,7 @@ def test_silent_node_is_given_up(app, client, survey, node, monkeypatch):
 def test_latent_classes_and_conjoint_kinds_run_on_the_node(app):
     """Every kind's run() works without the Flask app (the node has none)."""
     assert set(compute.KINDS) == {"maxdiff_hb", "conjoint_hb", "paired_hb", "cva_hb", "segments", "sem", "omega", "sem_power",
-                                 "panel", "sem_fit"}
+                                 "panel", "sem_fit", "conjoint_ww"}
     for kind in compute.KINDS:
         assert callable(compute.runner(kind))
 

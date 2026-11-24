@@ -1,0 +1,112 @@
+{# Interactions between attributes of a CBC or ACBC (app/conjoint_interactions.py view()): a fold below the HB block,
+   closed while nothing is computed. Search with its confirmation as a background job (surveys.results_ww), the table
+   with pages of 10/20/50 (static/ww.js), per pair a dialog with the table of the combinations; a confirmed pair can
+   be taken into the HB model (surveys.results_ww_adopt). Needs: w (view), h (HB view), e, f, survey. #}
+{% from "_learn.html" import term %}
+{% from "_macros.html" import num %}
+{% from "_icons.html" import icon %}
+{% from "_sources.html" import cite %}
+{% set res = w.result %}
+{% set hb_now = h and h.state == "current" %}
+{% set may_edit = survey.can(current_user, "editor") %}
+<details class="res-dist res-choice-fold ww-part" id="ww-{{ e.item.id }}" data-ww-item="{{ e.item.id }}"{% if w.state == "running" or res %} open{% endif %}>
+  <summary>{{ de_en("Wechselwirkungen zwischen Merkmalen", "Interactions between attributes") }} <span class="hint">{% if w.state == "running" %}{{ de_en("Suche läuft", "search running") }}{% elif res %}{% set n_conf = res.rows|selectattr("status", "equalto", "confirmed")|list|length %}{{ de_en("{n} von {m} Paaren bestätigt", "{n} of {m} pairs confirmed", n=n_conf, m=res.rows|length) }}{% elif w.state == "stale" %}{{ de_en("die frühere Suche passt nicht mehr zu den Daten", "the earlier search no longer matches the data") }}{% else %}{{ de_en("noch nicht gesucht", "not searched yet") }}{% endif %}</span></summary>
+  {% if w.state == "running" %}
+  {% set done = ((w.marker.progress or 0) * 100)|round|int %}
+  <div class="batch-progress hb-progress" data-ww-running data-url="{{ url_for('surveys.results_ww_status', survey_id=survey.id, item_id=e.item.id) }}">
+    <div class="p-progress" role="progressbar" aria-label="{{ de_en('Suche nach Wechselwirkungen', 'Search for interactions') }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ done }}"><span data-bar style="width:{{ done }}%"></span></div>
+    <span role="status">{{ de_en("Suche und Gegenprüfung laufen:", "Search and confirmation running:") }} <span data-status>{{ done|pctsign }}</span> · {{ de_en("gestartet {t} Uhr.", "started at {t}.", t=w.marker.started|localclock) }} {{ de_en("Das Ergebnis erscheint hier von selbst.", "The result appears here automatically.") }}</span>
+  </div>
+  {% else %}
+  {% if w.marker and w.marker.state == "error" %}<p class="flash flash-warning">{{ de_en("Die letzte Suche ist fehlgeschlagen:", "The last search failed:") }} {{ w.marker.message }}</p>
+  {% elif w.marker and w.marker.state == "aborted" %}<p class="flash flash-warning">{{ de_en("Die letzte Suche wurde abgebrochen (keine Rückmeldung mehr).", "The last search was aborted (no more response).") }}</p>{% endif %}
+  {% if w.state == "stale" %}<p class="muted small">{{ de_en("Die frühere Suche{d} gehört zu einem anderen Datenstand und wird nicht mehr gezeigt.", "The earlier search{d} belongs to a different state of the data and is no longer shown.", d=(de_en(" vom {d}", " from {d}", d=w.stale_created|localdt) if w.stale_created else "")) }}</p>{% endif %}
+  {% if w.available %}
+  <form method="post" class="ww-start" action="{{ url_for('surveys.results_ww', survey_id=survey.id, item_id=e.item.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+    {% if f.all %}<input type="hidden" name="all" value="1">{% endif %}
+    {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
+    <label class="ww-field">{{ de_en("Gegenprüfung mit", "Confirmation with") }}{{ term("ww_confirm", "") }}
+      {% if w.holdouts %}<select name="splits" disabled><option>{{ de_en("Holdout-Aufgaben", "holdout tasks") }}</option></select>
+      {% else %}<select name="splits">{% for n in w.splits %}<option value="{{ n }}">{{ de_en("zurückgehaltenen Aufgaben, {n} Aufteilungen", "held-out tasks, {n} divisions", n=n) }}</option>{% endfor %}</select>{% endif %}
+    </label>
+    <button class="button button-small">{% if res %}{{ de_en("Suche neu starten", "Start the search again") }}{% else %}{{ de_en("Suche starten", "Start search") }}{% endif %}</button>
+    <span class="muted small">{% set mins = w.runtime %}{% if mins %}{{ de_en("Suche in Sekunden; Gegenprüfung etwa {b} Minuten plus {m} Minuten je auffälligem Paar, im Hintergrund.", "Search in seconds; confirmation about {b} minutes plus {m} minutes per notable pair, in the background.", b=mins[0], m=mins[1]) }}{% else %}{{ de_en("Suche in Sekunden; Gegenprüfung je auffälligem Paar einige Minuten, im Hintergrund.", "Search in seconds; confirmation a few minutes per notable pair, in the background.") }}{% endif %}{% if not hb_now %} {{ de_en("Ohne aktuelle HB-Schätzung nur der einfache Test.", "Without a current HB estimation only the simple test.") }}{% endif %}</span>
+  </form>
+  {% else %}
+  <p class="muted small">{{ de_en("Für die Suche fehlen Daten (wie für die HB-Schätzung) oder mindestens zwei Merkmale mit Stufen.", "The search lacks data (as for the HB estimation) or at least two attributes with levels.") }}</p>
+  {% endif %}
+  {% if res %}
+  <p class="muted small">{{ de_en("gesucht am {d}", "searched on {d}", d=res.created|localdt) if res.created else "" }} · {{ de_en("{n} Personen", "{n} people", n=res.persons) }} · {{ de_en("Rechenzeit {s} s", "computing time {s} s", s=num(res.seconds, 1)) }}{% if not res.with_hb %} · {{ de_en("ohne Test nach HB (damals keine aktuelle HB-Schätzung)", "without the test after HB (no current HB estimation then)") }}{% elif hb_now and h.result and res.hb_key and h.input_key and res.hb_key != h.input_key %} · {{ de_en("die HB-Schätzung wurde seitdem neu gerechnet", "the HB estimation has been recomputed since") }}{% endif %}</p>
+  <div class="res-scroll"><table class="res-table ww-table" data-ww-table>
+    <thead><tr><th>{{ de_en("Merkmalspaar", "Attribute pair") }}{{ term("ww", "") }}</th>
+      <th class="num">{{ de_en("p einfach", "p simple") }}</th>
+      <th class="num">{{ de_en("p nach HB", "p after HB") }}</th>
+      <th class="num">{{ term("p_holm", "p (Holm)") }}</th>
+      <th class="num">{{ de_en("+ Sicherheit", "+ certainty") }}{{ term("ww_gain", "") }}</th>
+      <th class="num">{{ de_en("Vorhersage (Δ LL)", "Prediction (Δ LL)") }}</th>
+      <th>{{ de_en("Ergebnis", "Result") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in res.rows %}
+    {% set c = r.confirm %}
+    <tr data-ww-row>
+      <td>{{ r.label }}{% if r.adopted %} <span class="hint">{{ de_en("im HB-Modell", "in the HB model") }}</span>{% endif %}</td>
+      <td class="num">{{ p_bare(r.simple.p) if r.simple.estimable else "–" }}</td>
+      <td class="num">{{ p_bare(r.hb.p) if r.hb and r.hb.estimable else "–" }}</td>
+      <td class="num">{{ p_bare(r.p_holm) }}</td>
+      <td class="num">{% if r.gain is not none %}{{ num(r.gain, 2) }} {{ de_en("Pp.", "pp") }}{% else %}–{% endif %}</td>
+      <td class="num">{% if c %}{{ num(c.mean, 1) }} <span class="hint">{{ de_en("{b} von {n} besser", "{b} of {n} better", b=c.better, n=c.delta|length) }}</span>{% else %}–{% endif %}</td>
+      <td><span class="xp-status is-{{ {'confirmed': 'ok', 'notable': 'wait', 'none': 'none', 'na': 'none'}[r.status] }}"><span class="xp-dot" aria-hidden="true"></span>{{ r.status_label }}</span></td>
+      <td>{% if r.cells %}<button type="button" class="button button-small button-secondary" data-dialog-open="ww-dlg-{{ e.item.id }}-{{ r.a }}-{{ r.b }}">{{ de_en("Tabelle", "Table") }}</button>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="ww-pager" data-ww-pager hidden>
+    <label>{{ de_en("Zeilen je Seite", "Rows per page") }} <select data-ww-size><option>10</option><option>20</option><option>50</option></select></label>
+    <button type="button" class="button button-small button-secondary" data-ww-prev aria-label="{{ de_en('Vorherige Seite', 'Previous page') }}">‹</button>
+    <span data-ww-page></span>
+    <button type="button" class="button button-small button-secondary" data-ww-next aria-label="{{ de_en('Nächste Seite', 'Next page') }}">›</button>
+  </div>
+  <p class="muted small">{{ de_en("p einfach: Likelihood-Quotienten-Test im gepoolten Logit; p nach HB: derselbe Test mit dem HB-Nutzen jeder Person als Grundlage; Holm korrigiert über alle {n} Paare. Bestätigt heißt: Das Modell mit der Wechselwirkung sagt zurückgehaltene Wahlen besser vorher, im Mittel und in mindestens {k} von {s} Aufteilungen.", "p simple: likelihood ratio test in the pooled logit; p after HB: the same test with each person’s HB utility as the base; Holm corrects over all {n} pairs. Confirmed means: the model with the interaction predicts held-out choices better, on average and in at least {k} of {s} divisions.", n=res.rows|length, k=res.confirm.needed, s=res.confirm.splits) }} {{ cite(w.sources) }} · <a href="{{ url_for('surveys.results_ww_csv', survey_id=survey.id, item_id=e.item.id) }}">{{ de_en("Tabelle als CSV", "Table as CSV") }}</a></p>
+  {% for r in res.rows if r.cells %}
+  {% set c = r.confirm %}
+  <dialog class="person-dialog xp-dialog ww-dialog" id="ww-dlg-{{ e.item.id }}-{{ r.a }}-{{ r.b }}" aria-labelledby="ww-dlg-{{ e.item.id }}-{{ r.a }}-{{ r.b }}-title">
+    <div class="xp-dialog-head"><h2 id="ww-dlg-{{ e.item.id }}-{{ r.a }}-{{ r.b }}-title">{{ r.label }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    <p class="muted small">{{ de_en("Wechselwirkung je Kombination (Logit-Skala, Effektkodierung: Zeilen und Spalten summieren sich zu 0), mit 95-%-Intervall aus dem personenrobusten Fehler; Modell: {m}.", "Interaction per combination (logit scale, effects coding: rows and columns sum to 0), with a 95% interval from the person-robust error; model: {m}.", m=(de_en("nach HB", "after HB") if r.cells.basis == "hb" else de_en("einfach", "simple"))) }}</p>
+    <div class="res-scroll"><table class="res-table ww-cells">
+      <thead><tr><th>{{ r.a_label }} \ {{ r.b_label }}</th>{% for lb in r.b_levels %}<th class="num">{{ lb }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for la in r.a_levels %}{% set i = loop.index0 %}<tr><th scope="row">{{ la }}</th>{% for lb in r.b_levels %}{% set j = loop.index0 %}<td class="num{% if r.cells.lo[i][j] > 0 %} ww-pos{% elif r.cells.hi[i][j] < 0 %} ww-neg{% endif %}">{{ num(r.cells.w[i][j], 2) }} <span class="hint">[{{ num(r.cells.lo[i][j], 2) }}; {{ num(r.cells.hi[i][j], 2) }}]</span></td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="res-group-head">{{ de_en("Nutzen der Kombination", "Utility of the combination") }} <span class="hint">{{ de_en("Haupteffekte beider Stufen plus Wechselwirkung", "main effects of both levels plus interaction") }}</span></p>
+    <div class="res-scroll"><table class="res-table ww-cells">
+      <thead><tr><th>{{ r.a_label }} \ {{ r.b_label }}</th>{% for lb in r.b_levels %}<th class="num">{{ lb }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for la in r.a_levels %}{% set i = loop.index0 %}<tr><th scope="row">{{ la }}</th>{% for lb in r.b_levels %}<td class="num">{{ num(r.cells.comb[i][loop.index0], 2) }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="res-group-head">{{ de_en("Wie oft gezeigt", "How often shown") }}</p>
+    <div class="res-scroll"><table class="res-table ww-cells">
+      <thead><tr><th>{{ r.a_label }} \ {{ r.b_label }}</th>{% for lb in r.b_levels %}<th class="num">{{ lb }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for la in r.a_levels %}{% set i = loop.index0 %}<tr><th scope="row">{{ la }}</th>{% for lb in r.b_levels %}<td class="num">{{ r.counts[i][loop.index0] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% if r.few %}<p class="flash flash-warning">{{ de_en("Mindestens eine Kombination wurde seltener als {n}-mal gezeigt: Ihr Wert ist unsicher.", "At least one combination was shown fewer than {n} times: its value is uncertain.", n=res.min_cell) }}</p>{% endif %}
+    <p class="muted small">{{ de_en("Wald-Test (personenrobust):", "Wald test (person-robust):") }} {{ de_en("einfach", "simple") }} p {{ p_bare(r.simple.wald_p) }}{% if r.hb and r.hb.estimable %}, {{ de_en("nach HB", "after HB") }} p {{ p_bare(r.hb.wald_p) }}{% endif %}.
+    {% if c %}{{ de_en("Gegenprüfung, Log-Likelihood der zurückgehaltenen Wahlen ohne → mit Wechselwirkung:", "Confirmation, log-likelihood of the held-out choices without → with the interaction:") }} {% for d in c.delta %}{{ num(c.ll_without[loop.index0], 1) }} → {{ num(c.ll_with[loop.index0], 1) }}{% if not loop.last %}; {% endif %}{% endfor %}. {{ de_en("Trefferquote ohne → mit:", "Hit rate without → with:") }} {% for x in c.hit_without %}{{ x|percent if x is not none else "–" }} → {{ c.hit_with[loop.index0]|percent if c.hit_with[loop.index0] is not none else "–" }}{% if not loop.last %}; {% endif %}{% endfor %}.{% endif %}</p>
+    {% if may_edit and (r.status == "confirmed" or r.adopted) %}
+    <form method="post" action="{{ url_for('surveys.results_ww_adopt', survey_id=survey.id, item_id=e.item.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
+      {% if f.all %}<input type="hidden" name="all" value="1">{% endif %}
+      {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
+      <input type="hidden" name="a" value="{{ r.a_id }}"><input type="hidden" name="b" value="{{ r.b_id }}">
+      <input type="hidden" name="take" value="{{ '0' if r.adopted else '1' }}">
+      <button class="button button-small">{% if r.adopted %}{{ de_en("Entfernen", "Remove") }}{% else %}{{ de_en("Ins HB-Modell übernehmen", "Apply to the HB model") }}{% endif %}</button>
+      <span class="muted small">{{ term("fixed_random", de_en("als fester Parameter für alle", "as a fixed parameter for everyone")) }}</span>
+    </form>
+    {% endif %}
+  </dialog>
+  {% endfor %}
+  {% endif %}
+  {% endif %}
+</details>
