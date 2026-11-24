@@ -137,8 +137,9 @@ def test_conjoint_groups_follow_the_prior_blocks():
 
 def test_hierarchical_prior_recovers_a_small_and_a_large_spread():
     """Recovery on simulated CBC data (200 persons, 10 tasks): the fixed prior pulls the tiny spread of the first
-    attribute (true variance 0.0067 per parameter) far up towards its prior mean; the hierarchical prior keeps it small,
-    and for the large spread of the constant (4) it is not worse."""
+    attribute (true variance 0.0067 per parameter) far up towards its prior mean (0.215); the hierarchical prior keeps
+    it clearly lower, and for the large spread of the constant (4) it is not worse. Since the bound a_g <= hb.HW_A_MAX
+    (2026-11-24) only in part: 0.15 to 0.17 instead of 0.03 to 0.05 without the bound."""
     from app import hb
 
     persons, k, prior, groups, truth = _cbc()
@@ -146,7 +147,7 @@ def test_hierarchical_prior_recovers_a_small_and_a_large_spread():
     iw = hb.estimate(persons, k, **kw)["sigma_diag"]
     hw = hb.estimate(persons, k, prior="hw", prior_groups=groups, **kw)["sigma_diag"]
     tiny_iw, tiny_hw = iw[:2].mean(), hw[:2].mean()
-    assert tiny_hw < 0.08 and tiny_hw < tiny_iw / 3
+    assert tiny_hw < 0.85 * tiny_iw, (tiny_hw, tiny_iw)
     assert abs(hw[6] - truth[6]) <= abs(iw[6] - truth[6]) + 0.5
 
 
@@ -315,7 +316,8 @@ def test_hierarchical_prior_does_not_collapse_from_its_start():
     """All betas start at mu (no spread), and with the hierarchical scale from the first iteration Sigma | D = 0 fell to
     about S0 / N, a grew, S0 shrank further: Sigma ended near 0 (min. diagonal below 0.03, mean 0.07 to 0.12 at
     these seeds, true variance 0.6 per level parameter, 0.8 for the constant), each start elsewhere. With the warm-up of
-    hb.HW_WARM under the fixed prior the spread stays and the starts agree."""
+    hb.HW_WARM under the fixed prior the spread stayed at first, but a_g then ran up for single groups and Sigma
+    collapsed later (min. diagonal 0.055 under Linux); with a_g <= hb.HW_A_MAX it stays and the starts agree."""
     from app import hb
 
     persons, k, cov, groups = _rich_cbc()
@@ -326,6 +328,45 @@ def test_hierarchical_prior_does_not_collapse_from_its_start():
         assert r["sigma_diag"].min() > 0.1, (seed, r["sigma_diag"])
         means.append(r["sigma_diag"].mean())
     assert min(means) > 0.3 and max(means) / min(means) < 1.5, means
+
+
+def test_truncated_gamma_keeps_its_bound_and_its_mean():
+    """hb._gamma_above draws Gamma(shape, 1) given x >= lower: no draw below the bound, and the mean that of plain draws
+    kept above it, for a bound below the shape (plain rejection) and far above it (shifted exponential)."""
+    from app import hb
+
+    rng = np.random.default_rng(4)
+    for alpha, low in ((10.5, 6.0), (3.5, 9.0), (1.5, 4.0), (0.7, 2.0)):
+        x = np.array([hb._gamma_above(rng, [alpha], [low])[0] for _ in range(20000)])
+        assert x.min() >= low
+        direct = rng.gamma(alpha, size=3_000_000)
+        direct = direct[direct >= low]
+        assert len(direct) > 20000
+        se = direct.std() / np.sqrt(len(x))
+        assert abs(x.mean() - direct.mean()) < 5 * se, (alpha, low, x.mean(), direct.mean())
+        assert x.std() == pytest.approx(direct.std(), rel=0.05)
+    both = hb._gamma_above(rng, np.array([2.0, 30.0]), np.array([50.0, 1.0]))
+    assert both.shape == (2,) and both[0] >= 50
+
+
+def test_hierarchical_a_stays_below_its_bound(monkeypatch):
+    """a_g | Sigma is drawn from its inverse gamma truncated to a_g <= hb.HW_A_MAX: every draw (seen through the scale it
+    gives) and the reported mean prior_a stay at or below the bound."""
+    from app import hb
+
+    persons, k, cov, groups = _rich_cbc(n=40, tasks=12)
+    seen = []
+    scale = hb.hw_scale
+
+    def watched(blocks, a, k):
+        seen.append(np.max(a))
+        return scale(blocks, a, k)
+
+    monkeypatch.setattr(hb, "hw_scale", watched)
+    r = hb.estimate(persons, k, burn=400, draws=400, thin=2, seed=1, prior_cov=cov, keep=0, prior="hw",
+                    prior_groups=groups)
+    assert len(seen) == 800 - int(400 * hb.HW_WARM) and max(seen) <= hb.HW_A_MAX
+    assert np.all(r["prior_a"] <= hb.HW_A_MAX) and np.all(r["prior_a"] > 0)
 
 
 def test_prior_options_name_their_source(app, client, survey):
