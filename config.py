@@ -459,6 +459,10 @@ class Config:
     # hierarchical Bayes and latent class estimations computing at the same time on the whole server (all its
     # processes, file locks in uploads/hb/_slots; audit 2026-10-06, P7); more wait
     HB_PARALLEL = int(os.environ.get("HB_PARALLEL", "2"))
+    # HB runs of the confirmation of the interaction search side by side, each in a process of its own (default 4, as
+    # many as the chains of one HB estimation; 1: one after another). app/conjoint_interactions.py reads it from the
+    # environment, as on the Rechenknecht, and lowers it when the machine is busy
+    WW_PARALLEL = int(os.environ.get("WW_PARALLEL", "4"))
     # estimations (HB, latent classes, SEM and panel bootstraps, power simulations) one account may start within
     # ESTIMATE_WINDOW seconds, counted for all processes (rate_hit, serialised): one account with many copies of a survey put its
     # jobs before everyone else's (audit 2026-10-22, D-04). 0 = no limit

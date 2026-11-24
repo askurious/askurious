@@ -7797,3 +7797,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 ## 2026-11-24: Priori-Feld nennt die Quellen der Optionen
 
 - Ralf: Die Optionen des Feldes „Priori der Streuung zwischen Personen“ zitieren ihre Quelle nach APA mit Jahr: „hierarchisch (Huang & Wand, 2013)“, „weit (Rossi et al., 2005)“; „fest (Standard)“ ohne Quelle, weil sein Erwartungswert eine Festlegung von Askurious ist. Nur die Beschriftung; Schlüssel iw/hw/wide unverändert. Modellzeile, Methodenfalte, Codebuch und PDF nannten die Jahre schon.
+
+## 2026-11-24: Wechselwirkungen: Gegenprüfung parallel
+
+- Ralf: Die HB-Läufe der Gegenprüfung (Aufteilungen × (1 + auffällige Paare)) hängen nicht voneinander ab und laufen jetzt nebeneinander in eigenen Prozessen (`hb_chains.in_processes`, verallgemeinert aus den Ketten: „spawn“, niedrigste Priorität, ein BLAS-Thread je Prozess; ein Prozess beendet sich, wenn der wartende Prozess weg ist). Anzahl: `WW_PARALLEL` (Standard 4 wie die Ketten einer HB-Schätzung; 1 = nacheinander wie bisher), höchstens so viele wie Läufe, bei ausgelasteter Maschine weniger (Kerne minus Last der letzten Minute plus eigener Kern, höchstens Affinität/Container-Quote). Jeder Lauf behält seinen Seed, die Ergebnisse werden in Laufreihenfolge eingesammelt: Ergebnis gleich. Fehler oder getöteter Prozess beenden den Auftrag mit Fehler, Abbruch beendet die Prozesse. Laufzeithinweis teilt durch `WW_PARALLEL`.
+- Gemessen (simulierte Studie, 367 Personen, 12 Aufgaben, 4 Merkmale, 5000 Burn-in + 20 000 Iterationen, 3 Aufteilungen, 2 auffällige Paare = 9 HB-Läufe, Windows, 6 Kerne): `WW_PARALLEL=1` 15:10 min, `=4` 4:54 min, Ergebnis identisch.
+- Tests `tests/analysis/test_conjoint_interactions_parallel.py`; `config.py`, `compose.yaml` (`WW_PARALLEL` in den App-Einstellungen und beim Rechenknecht).

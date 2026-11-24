@@ -209,6 +209,7 @@ x-app-settings: &app-settings
   WHISPER_PATH:
   WHISPER_TIMEOUT:
   WHISPER_URL:
+  WW_PARALLEL:
   ZENODO_CLIENT_ID:
   ZENODO_SANDBOX_CLIENT_ID:
 
@@ -508,6 +509,9 @@ services:
       COMPUTE_CALLBACK: http://researcher:8000/rechenknecht
       COMPUTE_BIND: 0.0.0.0:8090
       COMPUTE_PARALLEL: "4"
+      # HB runs of one confirmation of the interaction search side by side (app/conjoint_interactions.py), as many as
+      # the chain processes of one HB estimation, so the 16 processes on 16 cores above still hold; fewer when busy
+      WW_PARALLEL: "4"
       COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-1}   # signature 1 still taken (app/compute.py, CFG-07)
     # 16 of the 27 cores since 2026-11-24 (12 of 24 before): every HB estimation runs 4 chains in processes of their own
     # (app/hb_chains.py). The low share keeps it behind the participants (2048) when cores are scarce

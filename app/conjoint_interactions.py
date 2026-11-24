@@ -50,6 +50,7 @@ ALPHA = 0.05      # Holm p below this: confirmation; the usual level
 MIN_CELL = 30     # combinations of two levels shown fewer times: a warning (Askurious's choice, about 30 per cell)
 SPLITS = (3, 5)   # divisions of the confirmation without holdout tasks; 3 is the default (E4)
 KEEP = 100        # kept draws of an HB run of the confirmation that predict the held-out choices
+PARALLEL = 4      # HB runs of the confirmation side by side by default (WW_PARALLEL; as many as hb_chains.CHAINS)
 HOLM = ("Holm, S. (1979). A simple sequentially rejective multiple test procedure. Scandinavian Journal of Statistics, "
         "6(2), 65–70.")
 HAINMUELLER = ("Hainmueller, J., Hopkins, D. J., & Yamamoto, T. (2014). Causal inference in conjoint analysis: "
@@ -365,40 +366,101 @@ def needed(count):
     return math.ceil(2 * count / 3)
 
 
-def confirm(person_sets, coding, pairs, cfg, prior_cov, prior_kwargs, splits=3, holdout_sets=None, progress=None):
+def parallel_setting():
+    """WW_PARALLEL from the environment (default PARALLEL; 1: one run after another in this process). Read from the
+    environment, not the app's configuration: the confirmation runs on the Rechenknecht too, which has none."""
+    try:
+        return max(1, int(os.environ.get("WW_PARALLEL") or PARALLEL))
+    except ValueError:
+        return PARALLEL
+
+
+def _cpu_limit():
+    """The cores this process may use: its affinity (os.cpu_count where there is none) and a container's CPU quota
+    (cgroup v2 cpu.max, e.g. "cpus: 16" of the Rechenknecht in deploy/docker/compose.yaml)."""
+    try:
+        n = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        n = os.cpu_count() or 1
+    try:
+        with open("/sys/fs/cgroup/cpu.max", encoding="ascii") as f:
+            quota, period = f.read().split()[:2]
+        if quota != "max":
+            n = min(n, max(1, int(int(quota) // int(period))))
+    except (OSError, ValueError):
+        pass
+    return n
+
+
+def _load():
+    """The machine's load average over the last minute, None where there is none (Windows)."""
+    try:
+        return os.getloadavg()[0]
+    except (AttributeError, OSError):
+        return None
+
+
+def processes(runs, wanted=None, cpus=None, limit=None, load=...):
+    """Processes for the `runs` HB runs of a confirmation: WW_PARALLEL, at most the runs, and at most the free cores:
+    the machine's cores minus its load average over the last minute, plus the core of this process (its own load is
+    counted in it), and never more than this process may use (affinity, container quota); at least 1. wanted, cpus, limit
+    and load (None: no load average) are given by tests; left out they are read from this machine."""
+    wanted = parallel_setting() if wanted is None else max(1, int(wanted))
+    n = min(wanted, max(1, int(runs)))
+    if n <= 1:
+        return 1
+    cpus = (os.cpu_count() or 1) if cpus is None else cpus
+    limit = _cpu_limit() if limit is None else limit
+    load = _load() if load is ... else load
+    free = limit if load is None else min(limit, int(math.floor(cpus - load)) + 1)
+    return max(1, min(n, free))
+
+
+def confirm(person_sets, coding, pairs, cfg, prior_cov, prior_kwargs, splits=3, holdout_sets=None, progress=None,
+            workers=None):
     """{pair: {"ll_with", "ll_without", "hit_with", "hit_without", "choices", "delta", "mean", "lo", "hi", "better",
     "confirmed"}} for the pairs (see the module text). holdout_sets: held-out sets per person (with the interaction
-    columns computed on the fly), or None for divisions."""
-    from app import hb
+    columns computed on the fly), or None for divisions. workers: processes for the HB runs (None: processes())."""
+    from app import hb, hb_chains
 
     if holdout_sets is not None:
         parts = [(person_sets, holdout_sets)]
     else:
         parts = divisions(person_sets, coding, splits, cfg.get("seed", 1))
-    runs = len(parts) * (1 + len(pairs))
-    done = [0]
+    k = coding.k
 
-    def step(fraction):
-        if progress:
-            progress((done[0] + fraction) / max(runs, 1))
+    def args(seed, fixed=None, fixed_prior=None):
+        return {"burn": cfg["burn"], "draws": cfg["draws"], "thin": cfg["thin"], "seed": seed, "prior_cov": prior_cov,
+                "keep": KEEP, "fixed": fixed, "fixed_prior": fixed_prior, **prior_kwargs}
 
-    def estimate(train, fixed=None, fixed_prior=None, seed=1):
-        return hb.estimate(train, coding.k + (len(fixed) if fixed else 0), burn=cfg["burn"], draws=cfg["draws"],
-                           thin=cfg["thin"], seed=seed, prior_cov=prior_cov, progress=step, keep=KEEP,
-                           fixed=fixed, fixed_prior=fixed_prior, **prior_kwargs)
-
-    out = {tuple(p): {"ll_with": [], "ll_without": [], "hit_with": [], "hit_without": [], "choices": []} for p in pairs}
-    for d, (train, test) in enumerate(parts):
+    # every HB run with its own fixed seed, in the order of the divisions and, within one, without and with each pair
+    tasks = []
+    for d, (train, _) in enumerate(parts):
         seed = int(cfg.get("seed", 1)) + d
-        r0 = estimate(train, seed=seed)
-        done[0] += 1
-        ll0, hit0, total = predict(test, r0["draws"])
+        tasks.append((train, k, args(seed)))
         for a, b in pairs:
             m = len(attribute_columns(coding, a)) * len(attribute_columns(coding, b))
-            k = coding.k
-            r1 = estimate(with_pairs_people(train, coding, [(a, b)]), fixed=list(range(k, k + m)),
-                          fixed_prior=prior_block(coding, a, b), seed=seed)
-            done[0] += 1
+            tasks.append((with_pairs_people(train, coding, [(a, b)]), k + m,
+                          args(seed, list(range(k, k + m)), prior_block(coding, a, b))))
+    runs = len(tasks)
+    workers = processes(runs) if workers is None else max(1, min(int(workers), runs))
+    if workers > 1:
+        results = hb_chains.in_processes(tasks, workers, progress, "Confirmation run")
+    else:
+        results = []
+        for n, (train, kk, kw) in enumerate(tasks):
+            step = (lambda n: (lambda f: progress((n + f) / max(runs, 1))))(n) if progress else None
+            results.append(hb.estimate(train, kk, progress=step, **kw))
+
+    out = {tuple(p): {"ll_with": [], "ll_without": [], "hit_with": [], "hit_without": [], "choices": []} for p in pairs}
+    n = 0
+    for d, (train, test) in enumerate(parts):
+        r0 = results[n]
+        n += 1
+        ll0, hit0, total = predict(test, r0["draws"])
+        for a, b in pairs:
+            r1 = results[n]
+            n += 1
             ll1, hit1, _ = predict(with_pairs_people(test, coding, [(a, b)]), r1["draws"], r1["fixed_draws"])
             row = out[(a, b)]
             row["ll_with"].append(round(ll1, 3))
@@ -752,12 +814,13 @@ def csv_text(item, res, lang):
     return buf.getvalue()
 
 
-def runtime_minutes(hb_seconds, splits):
+def runtime_minutes(hb_seconds, splits, parallel=None):
     """(minutes of the base runs, minutes per notable pair) of the confirmation, roughly: per division one HB run
     without the interaction shared by all pairs and one with each pair, each about as long as the HB estimate
-    (measured: 367 people, 4 attributes, 12 min for 3 divisions and 2 pairs against 64 s for the HB estimate).
-    None without an HB time."""
+    (measured: 367 people, 4 attributes, 12 min for 3 divisions and 2 pairs against 64 s for the HB estimate), with
+    `parallel` runs side by side (WW_PARALLEL when None) the time divided by them. None without an HB time."""
     if not hb_seconds:
         return None
-    one = max(1, round(hb_seconds * splits * 1.25 / 60))
+    parallel = parallel_setting() if parallel is None else max(1, int(parallel))
+    one = max(1, round(hb_seconds * splits * 1.25 / 60 / parallel))
     return one, one

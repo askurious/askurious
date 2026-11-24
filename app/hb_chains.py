@@ -29,6 +29,7 @@ import math
 import multiprocessing
 import os
 import queue as queue_module
+import threading
 import time
 import traceback
 
@@ -130,11 +131,19 @@ def _chain_args(chains, chain, kwargs, k):
 
 
 def _run_chain(messages, chain, person_sets, k, kwargs):
-    """In a process of its own: one chain, its progress and its result (or the error) as messages."""
+    """In a process of its own: one chain (or one run of in_processes), its progress and its result (or the error) as
+    messages. At the lowest priority (app/estimate.py), also when the waiting process is a web process's thread; it ends
+    itself once the waiting process is gone (killed with its job), instead of computing on for nobody."""
+    from app import estimate
+
+    estimate.lower_priority()
+    parent = multiprocessing.parent_process()
     last = [-1.0]
 
     def progress(fraction):
         if fraction - last[0] >= 0.02 or fraction >= 1:
+            if parent is not None and not parent.is_alive():
+                os._exit(1)
             last[0] = fraction
             messages.put(("progress", chain, float(fraction)))
 
@@ -173,20 +182,51 @@ def estimate(person_sets, k, chains=CHAINS, progress=None, workers=None, **kwarg
 
 
 def _in_processes(person_sets, k, chain_kwargs, workers, progress):
-    """The chains in up to `workers` processes at once; their results in chain order. An error in a chain, a process that
-    ends without its result or an exception of progress (a cancelled run) ends the other processes."""
+    """The chains in up to `workers` processes at once; their results in chain order (in_processes)."""
+    return in_processes([(person_sets, k, kw) for kw in chain_kwargs], workers, progress, "HB chain")
+
+
+# the libraries' own thread pools: one thread in every process of in_processes, the processes are the parallelism
+THREAD_VARS = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+_env_lock = threading.Lock()
+
+
+def _start_one_thread(p):
+    """Start process p with THREAD_VARS at 1 (read by numpy when the new process imports it); this process's
+    environment is restored at once."""
+    with _env_lock:
+        before = {v: os.environ.get(v) for v in THREAD_VARS}
+        try:
+            for v in THREAD_VARS:
+                os.environ[v] = "1"
+            p.start()
+        finally:
+            for v, x in before.items():
+                if x is None:
+                    os.environ.pop(v, None)
+                else:
+                    os.environ[v] = x
+
+
+def in_processes(tasks, workers, progress=None, label="HB run"):
+    """hb.estimate(person_sets, k, **kwargs) for every task (person_sets, k, kwargs) in up to `workers` processes at once
+    ("spawn", lowest priority, one BLAS thread each); the results in the order of the tasks, so they are the same as one
+    after another in this process (every run has its own seed in kwargs). progress(fraction): the mean of the runs'
+    fractions. An error in a run, a process that ends without its result (killed) or an exception of progress (a
+    cancelled job) ends the other processes and raises (RuntimeError for the first two)."""
     ctx = multiprocessing.get_context("spawn")
     messages = ctx.Queue()
-    waiting = list(range(len(chain_kwargs)))
-    running, results, fractions = {}, {}, [0.0] * len(chain_kwargs)
+    waiting = list(range(len(tasks)))
+    running, results, fractions = {}, {}, [0.0] * len(tasks)
     reported = -1.0
     try:
-        while len(results) < len(chain_kwargs):
+        while len(results) < len(tasks):
             while waiting and len(running) < workers:
                 c = waiting.pop(0)
-                p = ctx.Process(target=_run_chain, args=(messages, c, person_sets, k, chain_kwargs[c]),
-                                name=f"hb-chain-{c}", daemon=True)
-                p.start()
+                person_sets, k, kwargs = tasks[c]
+                p = ctx.Process(target=_run_chain, args=(messages, c, person_sets, k, kwargs),
+                                name=f"{label.lower().replace(' ', '-')}-{c}", daemon=True)
+                _start_one_thread(p)
                 running[c] = p
             try:
                 kind, c, value = messages.get(timeout=WAIT)
@@ -196,11 +236,11 @@ def _in_processes(person_sets, k, chain_kwargs, workers, progress):
                         try:  # its last message may still be on its way
                             kind, c2, value = messages.get(timeout=WAIT)
                         except queue_module.Empty:
-                            raise RuntimeError(f"HB chain {c} ended without a result (exit code {p.exitcode})")
-                        _take(kind, c2, value, results, fractions, running)
+                            raise RuntimeError(f"{label} {c} ended without a result (exit code {p.exitcode})")
+                        _take(kind, c2, value, results, fractions, running, label)
                         break
                 continue
-            _take(kind, c, value, results, fractions, running)
+            _take(kind, c, value, results, fractions, running, label)
             if progress:
                 mean = sum(fractions) / len(fractions)
                 if mean - reported >= 0.02 or mean >= 1:
@@ -213,12 +253,12 @@ def _in_processes(person_sets, k, chain_kwargs, workers, progress):
         for p in running.values():
             p.join(timeout=WAIT)
         messages.close()
-    return [results[c] for c in range(len(chain_kwargs))]
+    return [results[c] for c in range(len(tasks))]
 
 
-def _take(kind, c, value, results, fractions, running):
+def _take(kind, c, value, results, fractions, running, label="HB chain"):
     if kind == "error":
-        raise RuntimeError(f"HB chain {c} failed: {value}")
+        raise RuntimeError(f"{label} {c} failed: {value}")
     if kind == "progress":
         fractions[c] = value
         return
