@@ -339,7 +339,7 @@ def test_compose_two_participants_with_the_shares_of_one():
     block = compose[compose.index("  participant-a:"):compose.index("  participant-b:")]
     assert '"--workers", "12"' in block and '"--graceful-timeout", "60"' in block
     assert compose.count('"--keep-alive", "75"') == 4                        # longer than nginx's 60 s
-    assert "cpu_shares: 1024" in block and "cpus: 20" in block and "stop_grace_period: 65s" in block
+    assert "cpu_shares: 1024" in block and "cpus: 24" in block and "stop_grace_period: 65s" in block  # 27 vCPU since 2026-11-24
     assert "participant-a=http:http://participant-a:8000/healthz" in compose
     assert "participant-b=http:http://participant-b:8000/healthz" in compose
     assert "06-participant-upstream.sh:ro" in compose
