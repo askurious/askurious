@@ -22,6 +22,11 @@ class Settings:
     cache_idle_seconds: int = 300
     cache_jobs: int = 8
     cache_memory_mb: int = 3072
+    # parallel jobs (2026-11-24, VM with 27 vCPU and 56 GiB): every slot is its own thread with its own resident
+    # process and model; any free slot takes the next queued job, so no slot waits for a kind of recording
+    workers: int = 1
+    # keep the large-v3-turbo weights loaded through alignment and diarization when the memory limit allows it
+    keep_weights: bool = False
 
     @classmethod
     def environment(cls):
@@ -33,6 +38,10 @@ class Settings:
             max_seconds=int(os.environ.get("WHISPER_MAX_SECONDS", "10800")),
             max_host_load=float(os.environ.get("WHISPER_MAX_LOAD", "12")),
             app_health=os.environ.get("WHISPER_APP_HEALTH", ""),
+            max_pending=int(os.environ.get("WHISPER_MAX_PENDING", "8")),
+            cache_memory_mb=int(os.environ.get("WHISPER_CACHE_MB", "3072")),
+            workers=int(os.environ.get("WHISPER_WORKERS", "1")),
+            keep_weights=os.environ.get("WHISPER_KEEP_WEIGHTS", "").lower() in {"1", "true"},
         )
 
 

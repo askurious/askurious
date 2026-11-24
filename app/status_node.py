@@ -96,6 +96,11 @@ BRAND_SEP = "@"  # "cert@polltergeist.de": a check of that brand's own names, de
 STATUS_PREFIX = "status."  # the status name of a domain, as nginx (server_name ~^status\.) and certbot know it
 
 
+
+# whisper counters as app/whisper_jobs.py accepts them (WHISPER_WORKERS up to 4, WHISPER_MAX_PENDING up to 32)
+MAX_RUNNING, MAX_OPEN = 4, 32
+
+
 def parse_checks(text):
     """"participant=http:http://participant:8000/healthz,db=tcp:db:5432" -> [(key, kind, target), ...]"""
     out = []
@@ -132,7 +137,7 @@ def check(kind, target):
                 ok, detail = False, "whisper:unavailable:0:0"
             else:
                 queued, running = data.get("queued"), data.get("running")
-                if type(queued) is not int or type(running) is not int or not 0 <= queued <= 8 or not 0 <= running <= 1 or queued + running > 8 or (data["state"] == "disabled" and queued + running):
+                if type(queued) is not int or type(running) is not int or queued < 0 or not 0 <= running <= MAX_RUNNING or queued + running > MAX_OPEN or (data["state"] == "disabled" and queued + running):
                     ok, detail = False, "whisper:unavailable:0:0"
                 else:
                     ok, detail = True, "whisper:disabled:0:0" if data["state"] == "disabled" else "whisper:ready:0:0"

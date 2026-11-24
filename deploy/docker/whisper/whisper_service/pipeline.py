@@ -181,8 +181,9 @@ def process(job, reuse=False):
         job['completed'] = dict(checkpoint.completed)
     if not reuse or resumed:
         CACHE.clear()
-    elif parameters["model"] == "large-v3-turbo" and (parameters["align"] or parameters["diarize"]):
-        # Large ASR weights must not overlap alignment/diarization under the 4 GiB cgroup.
+    elif parameters["model"] == "large-v3-turbo" and (parameters["align"] or parameters["diarize"]) and not job.get("keep_weights"):
+        # Large ASR weights must not overlap alignment/diarization under a small cgroup (4-5 GiB for one slot);
+        # with WHISPER_KEEP_WEIGHTS the limit leaves room for both, so the next job needs no reload.
         CACHE.unload_weights()
     gc.collect()
     if parameters["align"] and 'aligning' not in checkpoint.completed:
