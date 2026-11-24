@@ -1030,9 +1030,12 @@ def runtime_minutes(hb_seconds, splits, parallel=None):
     """(minutes of the base runs, minutes per notable pair) of the confirmation, roughly: per division one HB run
     without the interaction shared by all pairs and one with each pair, each about as long as the HB estimate
     (measured: 367 people, 4 attributes, 12 min for 3 divisions and 2 pairs against 64 s for the HB estimate), with
-    `parallel` runs side by side (WW_PARALLEL when None) the time divided by them. None without an HB time."""
+    `parallel` runs side by side (WW_PARALLEL when None) the time divided by about 0.7 of them (measured with 4: 4:54 min
+    for 3 divisions, 17:23 min for "jede Aufgabe einmal" with 12 tasks, each with 2 pairs, 2026-11-24). `splits`: the
+    divisions or folds. None without an HB time."""
     if not hb_seconds:
         return None
     parallel = parallel_setting() if parallel is None else max(1, int(parallel))
-    one = max(1, round(hb_seconds * splits * 1.25 / 60 / parallel))
+    speedup = 1.0 if parallel == 1 else 0.7 * parallel
+    one = max(1, round(hb_seconds * splits * 1.25 / 60 / speedup))
     return one, one

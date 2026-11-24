@@ -51,6 +51,7 @@ def test_processes_follow_setting_runs_and_free_cores(monkeypatch):
 def test_runtime_hint_follows_the_processes():
     assert ww.runtime_minutes(64, 3, 1) == (4, 4)                 # 367 persons: 12 min for 3 divisions and 2 pairs
     assert ww.runtime_minutes(64, 3, 4) == (1, 1)
+    assert ww.runtime_minutes(62.5, 12, 4) == (6, 6)              # every task once, 12 tasks: measured 17:23 min
     assert ww.runtime_minutes(None, 3, 4) is None
 
 
