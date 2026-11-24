@@ -127,7 +127,8 @@ def test_h3_conjoint_names_constant_and_price_separately(app, client, survey):
     cbc_setup(client, price_attr=True, none=True, tasks=12, versions=6)
     app.config.update(CBC_FAST)
     simulate_segments(app, 40, none_asc=-0.5)
-    client.post("/surveys/1/results/hb/2", data={"source": "real"})
+    # the fixed prior, whose expectation the method text names (the default is the wide one since 2026-11-24)
+    client.post("/surveys/1/results/hb/2", data={"source": "real", "prior": "iw"})
     with app.app_context():
         from app import conjoint_hb
 

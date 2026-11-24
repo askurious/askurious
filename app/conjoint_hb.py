@@ -643,11 +643,14 @@ def _state(item, out, stored, lang):
 SCALE_KEY = "hb_scale"  # item.config: "diffs" shows the part-worths rescaled per person; absent: raw logit values (a
 #                         display setting of the results page, simulator.RESULT_KEYS: the stored result stays as it is)
 SCALES = ("raw", "diffs")
+DEFAULT_SCALE = "diffs"  # since 2026-11-24 (Ralf): rescaled per person, as the usual HB programs show them by default
 
 
 def scale_of(item):
-    """How the results page shows the HB part-worths of the question: "raw" (logit scale, default) or "diffs"."""
-    return "diffs" if (item.config or {}).get(SCALE_KEY) == "diffs" else "raw"
+    """How the results page shows the HB part-worths of the question: "diffs" (rescaled per person, DEFAULT_SCALE) or
+    "raw" (logit scale)."""
+    chosen = (item.config or {}).get(SCALE_KEY)
+    return chosen if chosen in SCALES else DEFAULT_SCALE
 
 
 def choose_scale(item, value):
@@ -655,7 +658,7 @@ def choose_scale(item, value):
     if value not in SCALES or value == scale_of(item):
         return False
     config = {k: v for k, v in (item.config or {}).items() if k != SCALE_KEY}
-    item.config = {**config, SCALE_KEY: "diffs"} if value == "diffs" else config
+    item.config = config if value == DEFAULT_SCALE else {**config, SCALE_KEY: value}
     return True
 
 

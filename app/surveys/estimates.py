@@ -7,7 +7,7 @@ from app.lang import de_en
 from app.surveys.base import bp, data_pool, get_survey
 
 
-PRIOR_TYPES = ("maxdiff", "conjoint", "acbc", "paired")  # HB by app/hb.py, with the choice of the prior
+PRIOR_TYPES = ("maxdiff", "conjoint", "acbc", "paired")  # HB by app/hb.py, with the choice of the prior (as maxdiff_hb)
 
 
 @bp.route("/<sid:survey_id>/results/hb/<int:item_id>", methods=["POST"])

@@ -7797,3 +7797,7 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 ## 2026-11-24: Priori-Feld nennt die Quellen der Optionen
 
 - Ralf: Die Optionen des Feldes „Priori der Streuung zwischen Personen“ zitieren ihre Quelle nach APA mit Jahr: „hierarchisch (Huang & Wand, 2013)“, „weit (Rossi et al., 2005)“; „fest (Standard)“ ohne Quelle, weil sein Erwartungswert eine Festlegung von Askurious ist. Nur die Beschriftung; Schlüssel iw/hw/wide unverändert. Modellzeile, Methodenfalte, Codebuch und PDF nannten die Jahre schon.
+
+## 2026-11-24: HB-Standard „weit“ und „normiert (Spannweiten je Person)“
+
+- Ralf: im Ausgangszustand wie die gängigen Werkzeuge rechnen und zeigen. Standard der Priori der Streuung ist jetzt „weit“ (`maxdiff_hb.DEFAULT_PRIOR`), gespeichert wird nur die Abweichung (`item.config["hb_prior"]` = "iw" oder "hw"; "wide" bleibt lesbar). Standard der HB-Teilnutzen von CBC/ACBC ist „normiert“ (`conjoint_hb.DEFAULT_SCALE`), Abweichung `hb_scale = "raw"`; "diffs" bleibt lesbar. Ergebnisse mit fester Priori behalten ihren Schlüssel (settings ohne „prior“): Fragen ohne eigene Wahl zeigen sie nach dem Deploy als veraltet (nicht gelöscht), bis neu geschätzt wird; wer „fest“ wählt, findet sie ohne Neuschätzung wieder. Keine Migration (Ralf: alle neu schätzen lassen). Modellzeile und Codebuch nennen jetzt auch „fest“; Feld „weit (Standard; Rossi et al., 2005) / fest / hierarchisch (Huang & Wand, 2013)“; Lernhilfe und Handbuch angepasst; Hinweis „eine andere Priori“ beim veralteten Ergebnis.
