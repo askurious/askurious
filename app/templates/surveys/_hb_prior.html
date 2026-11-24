@@ -12,8 +12,8 @@
   <label for="hb-prior-{{ e.item.id }}">{{ de_en("Priori der Streuung zwischen Personen", "Prior of the spread between people") }}</label>
   <select id="hb-prior-{{ e.item.id }}" name="prior" data-submit-on-change>
     <option value="iw"{% if prior_now not in ("hw", "wide") %} selected{% endif %}>{{ de_en("fest (Standard)", "fixed (default)") }}</option>
-    <option value="hw"{% if prior_now == "hw" %} selected{% endif %}>{{ de_en("hierarchisch (Huang & Wand)", "hierarchical (Huang & Wand)") }}</option>
-    <option value="wide"{% if prior_now == "wide" %} selected{% endif %}>{{ de_en("weit", "wide") }}</option>
+    <option value="hw"{% if prior_now == "hw" %} selected{% endif %}>{{ de_en("hierarchisch (Huang & Wand, 2013)", "hierarchical (Huang & Wand, 2013)") }}</option>
+    <option value="wide"{% if prior_now == "wide" %} selected{% endif %}>{{ de_en("weit (Rossi et al., 2005)", "wide (Rossi et al., 2005)") }}</option>
   </select>
 </form>
 {{ why("hb_prior") }}
