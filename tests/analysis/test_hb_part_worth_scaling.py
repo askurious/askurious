@@ -54,22 +54,30 @@ def test_switch_on_the_results_page_export_and_key(app, client, survey):
     simulate_segments(app, 40, none_asc=-0.5)
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
     html = client.get("/surveys/1/results").data.decode()
-    assert 'name="scale"' in html and "Rohwerte (Logit-Skala)" in html and "normiert (Spannweiten je Person)" in html
-    assert "Normiert: Alle Nutzen einer Person" not in html
+    assert 'name="scale"' in html and "Rohwerte (Logit-Skala)" in html
+    # rescaled is the default since 2026-11-24
+    assert '<option value="diffs" selected>' in html and "normiert (Spannweiten je Person; Standard)" in html
+    assert "Normiert: Alle Nutzen einer Person" in html
+    fetch = {"X-Requested-With": "fetch"}
+    r = client.post("/surveys/1/results/hb/2/scale", data={"source": "real", "scale": "raw"}, headers=fetch)
+    assert r.status_code == 200 and r.get_json()["ok"]
+    html = client.get("/surveys/1/results").data.decode()
+    assert '<option value="raw" selected>' in html and "Normiert: Alle Nutzen einer Person" not in html
+    assert "cbc_hb_norm_" not in client.get("/surveys/1/export/data.csv").data.decode()
     with app.app_context():
         from app import conjoint_hb
 
         item = db.session.get(Item, 2)
+        assert item.config["hb_scale"] == "raw" and conjoint_hb.scale_of(item) == "raw"
         before = conjoint_hb.load(item)
         raw_view = conjoint_hb.summary(item, before, "de")
-    fetch = {"X-Requested-With": "fetch"}
     r = client.post("/surveys/1/results/hb/2/scale", data={"source": "real", "scale": "diffs"}, headers=fetch)
     assert r.status_code == 200 and r.get_json()["ok"]
     with app.app_context():
         from app import conjoint_hb
 
         item = db.session.get(Item, 2)
-        assert item.config["hb_scale"] == "diffs" and conjoint_hb.scale_of(item) == "diffs"
+        assert "hb_scale" not in item.config and conjoint_hb.scale_of(item) == "diffs"
         # only a display: the stored result, its key and its being current stay as they were
         after = conjoint_hb.load(item)
         assert after["key"] == before["key"] and after["created"] == before["created"]
@@ -106,11 +114,14 @@ def test_switch_on_the_results_page_export_and_key(app, client, survey):
         assert total == pytest.approx(100 * (len(spans) + (width is not None)), abs=0.1)
     book = client.get("/surveys/1/export/codebook.csv").data.decode("utf-8-sig")
     assert "Spannweiten je Person summieren sich zu 100" in book
-    # back to the raw values: no rescaled columns, the default leaves nothing in the question
-    client.post("/surveys/1/results/hb/2/scale", data={"source": "real", "scale": "raw"}, headers=fetch)
+    # the value "diffs" stored before the new default is read as it
     with app.app_context():
-        assert "hb_scale" not in db.session.get(Item, 2).config
-    assert "cbc_hb_norm_" not in client.get("/surveys/1/export/data.csv").data.decode()
+        from app import conjoint_hb
+
+        item = db.session.get(Item, 2)
+        item.config = {**item.config, "hb_scale": "diffs"}
+        db.session.commit()
+        assert conjoint_hb.scale_of(db.session.get(Item, 2)) == "diffs"
 
 
 def test_scale_route_checks(app, client, survey):
@@ -137,7 +148,8 @@ def test_rescaled_table_in_the_report(app):
         rep = results_pdf.Report(None, "de")
         text = " ".join(_flow_text(results_pdf._cbc(rep, {"cbc": {"hb": {"result": hb}}, "item": item}, "cbc")).split())
         raw = " ".join(_flow_text(results_pdf._cbc(results_pdf.Report(None, "de"),
-                                                   {"cbc": {"hb": {"result": hb}}, "item": SimpleNamespace(config={})},
+                                                   {"cbc": {"hb": {"result": hb}},
+                                                    "item": SimpleNamespace(config={"hb_scale": "raw"})},
                                                    "cbc")).split())
     assert "cbc: Teilnutzen normiert (Hierarchical Bayes)" in text and "61,50" in text and "[55,00; 68,00]" in text
     assert "100 × Zahl der Merkmale" in text and "Ohne 2 Personen" in text

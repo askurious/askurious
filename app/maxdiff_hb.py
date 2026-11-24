@@ -49,14 +49,19 @@ TOP = 3                 # "in the personal top 3"
 MAX_DOTS = 400          # above this many persons the distribution chart shows boxes only
 
 
-PRIOR_KEY = "hb_prior"  # item.config: "hw" (hierarchical) or "wide"; absent for the default (a setting of the results
-#                         page, simulator.RESULT_KEYS: no part of the questionnaire, its design or the other models)
+PRIOR_KEY = "hb_prior"  # item.config: "iw" (fixed) or "hw" (hierarchical); absent for the default (a setting of the
+#                         results page, simulator.RESULT_KEYS: no part of the questionnaire, its design or the other models)
+# The default since 2026-11-24 (Ralf): the wide prior, so that a first estimate matches what the usual HB programs give
+# by default. Before it was the fixed one ("iw"): its results carry no "prior" in their settings and go stale for a
+# question that keeps the default (a new key), so they are estimated anew under the wide prior.
+DEFAULT_PRIOR = "wide"
+PRIOR_TYPES = ("maxdiff", "conjoint", "acbc", "paired")  # HB by app/hb.py with the choice of the prior (not the CVA)
 
 
 def prior_of(item):
-    """The prior on Sigma chosen for the question: "hw", "wide" or "iw" (the default)."""
+    """The prior on Sigma chosen for the question: "iw", "hw" or "wide" (DEFAULT_PRIOR)."""
     chosen = (item.config or {}).get(PRIOR_KEY)
-    return chosen if chosen in hb.PRIORS and chosen != "iw" else "iw"
+    return chosen if chosen in hb.PRIORS else DEFAULT_PRIOR
 
 
 def choose_prior(item, value):
@@ -65,14 +70,14 @@ def choose_prior(item, value):
     if value not in hb.PRIORS or value == prior_of(item):
         return False
     config = {k: v for k, v in (item.config or {}).items() if k != PRIOR_KEY}
-    item.config = config if value == "iw" else {**config, PRIOR_KEY: value}
+    item.config = config if value == DEFAULT_PRIOR else {**config, PRIOR_KEY: value}
     return True
 
 
 def with_prior(cfg, item):
-    """The HB settings cfg with the question's prior: "prior" only for another than the default, so the settings and
-    the key of a result with the default stay exactly as before. Other settings (the latent classes, {"lc": True})
-    are left alone."""
+    """The HB settings cfg with the question's prior: "prior" for "hw" and "wide"; none for the fixed prior, as in
+    every result estimated with it before the option, whose settings and key thus stay what they were. Other
+    settings (the latent classes, {"lc": True}) are left alone."""
     if "burn" not in cfg:
         return cfg
     cfg = {k: v for k, v in cfg.items() if k != "prior"}
@@ -88,7 +93,7 @@ def prior_args(cfg, groups):
 
 
 def prior_text(cfg, lang):
-    """The part of the codebook line on the prior: "" for the default, so its line stays as it was."""
+    """The part of the codebook line on the prior of the settings cfg (none there: the fixed prior)."""
     chosen = (cfg or {}).get("prior")
     if chosen == "hw":
         return (", hierarchical prior on the spread (Huang & Wand, 2013)" if lang == "en"
@@ -97,7 +102,8 @@ def prior_text(cfg, lang):
         return (", wide prior on the spread (scale = degrees of freedom × prior covariance; Rossi et al., 2005)"
                 if lang == "en" else
                 ", weite Priori der Streuung (Skala = Freiheitsgrade × Priori-Kovarianz; Rossi et al., 2005)")
-    return ""
+    return (", fixed prior on the spread (its expectation the prior covariance)" if lang == "en"
+            else ", feste Priori der Streuung (Erwartungswert = Priori-Kovarianz)")
 
 
 def settings(app=None):
@@ -679,7 +685,7 @@ def fits(item, path, result, build):
     from app import export, lang, results_store
 
     settings_now = result.get("settings") or {}
-    if "burn" in settings_now and settings_now.get("prior", "iw") != prior_of(item):
+    if "burn" in settings_now and item.type in PRIOR_TYPES and settings_now.get("prior", "iw") != prior_of(item):
         return False  # another prior chosen since (PRIOR_KEY): no part of the data fingerprint, so checked here
     pool = result.get("pool") or {}
     if pool.get("fingerprint") and pool.get("program") == results_store.program():

@@ -165,7 +165,8 @@ def test_results_button_estimate_and_export(app, client, survey):
         item = db.session.get(Item, 2)
         res = maxdiff_hb.load(item)
         # as the results page: without what quality control marks (Q-9), whatever the form sends
-        assert res["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "chains": 4} and res["pool"]["drop"]
+        assert res["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "chains": 4, "prior": "wide"} \
+            and res["pool"]["drop"]  # the wide prior is the default (2026-11-24)
         assert res["pool"]["sources"] == ["dummy"] and res["anchored"]
         assert os.path.exists(os.path.join(app.config["UPLOAD_FOLDER"], "hb", item.block.survey.uid, "item_2.json"))
         assert np.allclose(np.array(res["prob"]).sum(axis=1), 100, atol=0.05)
