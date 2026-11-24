@@ -1048,18 +1048,37 @@ def _ww_search(rep, res, title):
                      _p(rep, r["hb"].get("p")) if r.get("hb") and r["hb"].get("estimable") else "–",
                      _p(rep, r.get("p_holm")) if r.get("p_holm") is not None else "–",
                      rep.num(r.get("gain")) if r.get("gain") is not None else "–",
-                     rep.num(c["mean"], 1) if c else "–", r["status_label"]])
+                     rep.num(c["mean"], 2 if c.get("mode") == "tasks" else 1) if c else "–", r["status_label"]])
     conf = res.get("confirm") or {}
     note = rep.say("p einfach: Likelihood-Quotienten-Test im gepoolten Logit; p nach HB: derselbe Test mit dem HB-Nutzen "
                    "jeder Person als Grundlage {c1}; Holm-Korrektur über alle Paare {c2}. + Sicherheit: Zuwachs von "
-                   "McFaddens R² in Prozentpunkten. Δ LL: mittlere Verbesserung der Log-Likelihood zurückgehaltener Wahlen "
-                   "{c3}; bestätigt, wenn sie im Mittel und in mindestens {k} von {s} Aufteilungen stieg.",
+                   "McFaddens R² in Prozentpunkten. ",
                    "p simple: likelihood ratio test in the pooled logit; p after HB: the same test with each person's HB "
                    "utility as the base {c1}; Holm correction over all pairs {c2}. + certainty: gain in McFadden's R² in "
-                   "percentage points. Δ LL: mean improvement of the log-likelihood of held-out choices {c3}; confirmed "
-                   "when it rose on average and in at least {k} of {s} divisions.",
-                   c1=rep.cite(ww.HAINMUELLER, ww.EGAMI_IMAI), c2=rep.cite(ww.HOLM), c3=rep.cite(ww.GELMAN_HWANG_VEHTARI),
-                   k=conf.get("needed"), s=conf.get("splits"))
+                   "percentage points. ", c1=rep.cite(ww.HAINMUELLER, ww.EGAMI_IMAI), c2=rep.cite(ww.HOLM))
+    if conf.get("mode") == "tasks":
+        note += rep.say("Δ LL: mittlere Verbesserung der Log-Likelihood zurückgehaltener Wahlen je Person {c3}, jede "
+                        "Aufgabe einmal zurückgehalten ({s} Teile) {c4}; bestätigt, wenn sie im Mittel positiv war und ein "
+                        "einseitiger t-Test für verbundene Stichproben über die Personen p < ,05 ergab.",
+                        "Δ LL: mean improvement of the log-likelihood of held-out choices per person {c3}, every task held "
+                        "out once ({s} folds) {c4}; confirmed when it was positive on average and a one-sided paired t-test "
+                        "across people gave p < .05.", c3=rep.cite(ww.GELMAN_HWANG_VEHTARI), c4=rep.cite(ww.STONE),
+                        s=conf.get("splits"))
+    else:
+        note += rep.say("Δ LL: mittlere Verbesserung der Log-Likelihood zurückgehaltener Wahlen {c3}; bestätigt, wenn sie "
+                        "im Mittel und in mindestens {k} von {s} Aufteilungen stieg.",
+                        "Δ LL: mean improvement of the log-likelihood of held-out choices {c3}; confirmed when it rose on "
+                        "average and in at least {k} of {s} divisions.",
+                        c3=(rep.cite(ww.GELMAN_HWANG_VEHTARI) if conf.get("mode") == "holdouts"
+                            else rep.cite(ww.GELMAN_HWANG_VEHTARI, ww.PICARD_COOK)),
+                        k=conf.get("needed"), s=conf.get("splits"))
+    said = [ww.suggestion(r, conf, rep.ui == "en") for r in res["rows"] if r.get("status") in ("confirmed", "notable")]
+    if said:
+        quiet = sum(1 for r in res["rows"] if r.get("status") == "none")
+        note += " " + rep.say("Formulierungsvorschlag: ", "Suggested wording: ") + " ".join(said)
+        if quiet:
+            note += " " + rep.say("Für die übrigen {n} Paare fand sich kein Hinweis.",
+                                  "No indication was found for the other {n} pairs.", n=quiet)
     return rep.table(rep.say("{t}: Wechselwirkungen zwischen Merkmalen", "{t}: interactions between attributes", t=title),
                      [rep.say("Merkmalspaar", "Attribute pair"), rep.say("p einfach", "p simple"),
                       rep.say("p nach HB", "p after HB"), "p (Holm)", rep.say("+ Sicherheit", "+ certainty"), "Δ LL",

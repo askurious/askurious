@@ -21,6 +21,28 @@
     })();
   });
 
+  // the runtime hint follows the kind of confirmation picked (each option carries its own hint)
+  document.querySelectorAll("[data-ww-splits]").forEach(function (select) {
+    var hint = select.closest("form").querySelector("[data-ww-hint]");
+    if (!hint) return;
+    select.addEventListener("change", function () {
+      var text = select.options[select.selectedIndex].getAttribute("data-hint");
+      if (text) hint.textContent = text;
+    });
+  });
+
+  // "Formulierungsvorschlag": the sentence to the clipboard (copyText and say from app.js)
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-ww-copy]");
+    if (!b) return;
+    var source = document.querySelector(b.dataset.wwCopy);
+    if (!source) return;
+    copyText(source.textContent.trim()).then(function () {
+      b.classList.add("is-done"); say(de_en("Kopiert", "Copied"));
+      setTimeout(function () { b.classList.remove("is-done"); }, 1500);
+    }, function () { say(de_en("Kopieren nicht möglich", "Copying not possible")); });
+  });
+
   document.querySelectorAll("[data-ww-table]").forEach(function (table) {
     var part = table.closest(".ww-part"), pager = part && part.querySelector("[data-ww-pager]");
     var rows = Array.prototype.slice.call(table.querySelectorAll("[data-ww-row]"));

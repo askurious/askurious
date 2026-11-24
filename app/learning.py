@@ -756,9 +756,52 @@ TERMS = {
                 "die Sicherheit des Befunds.", "+0,21 Pp.: kaum mehr erklärt als ohne die Wechselwirkung.",
                 (("app.choice_model", "MCFADDEN"),)),
     "ww_confirm": ("Gegenprüfung", "Gegenprüfung an zurückgehaltenen Aufgaben", "Das Modell wird ohne einige Aufgaben "
-                   "geschätzt und muss deren Wahlen vorhersagen. Hilft die Wechselwirkung dabei im Mittel und in den "
-                   "meisten Aufteilungen, gilt sie als bestätigt.", "In 3 von 3 Aufteilungen besser vorhergesagt: "
-                   "bestätigt.", (("app.conjoint_interactions", "GELMAN_HWANG_VEHTARI"),)),
+                   "geschätzt und muss deren Wahlen vorhersagen. Standard ist „jede Aufgabe einmal“: Teil t hält die "
+                   "Aufgabe t jeder Person zurück, so wird jede Wahl genau einmal vorhergesagt, ohne Zufallsziehung "
+                   "(k-fache Kreuzvalidierung mit k = Zahl der Aufgaben; Stone, 1974; Kohavi, 1995). Bestätigt, wenn "
+                   "der Gewinn an Log-Likelihood je Person im Mittel positiv ist und ein einseitiger t-Test für "
+                   "verbundene Stichproben über die Personen p < ,05 ergibt. Zufällige Aufteilungen (Picard & Cook, "
+                   "1984) sind schneller; dort zählt: im Mittel besser und in mindestens zwei Dritteln der Aufteilungen.",
+                   "12 Aufgaben, Δ LL = +0,04 je Person, t(366) = 2,90, p = ,002: bestätigt.",
+                   (("app.conjoint_interactions", "GELMAN_HWANG_VEHTARI"), ("app.conjoint_interactions", "STONE"),
+                    ("app.conjoint_interactions", "KOHAVI"), ("app.conjoint_interactions", "PICARD_COOK"))),
+    "ww_cell": ("Wechselwirkung je Kombination", "Wechselwirkung je Kombination", "Positiv: Die Kombination wird höher "
+                "bewertet, als die Summe ihrer beiden Teilnutzen sagt; negativ: niedriger; nahe 0: nichts Zusätzliches. "
+                "Wegen der Effektkodierung summieren sich Zeilen und Spalten zu 0: Ein großer positiver Wert erzwingt "
+                "negative in derselben Zeile und Spalte, eine Zelle allein ist nicht zu deuten. Grün oder rot heißt: "
+                "Das 95-%-Intervall (personenrobust) schließt 0 aus; bei 9 Zellen fällt auch zufällig eine auf. Die "
+                "Werte stammen aus dem Test, auf dem das Ergebnis beruht („nach HB“ oder „einfach“).",
+                "Expertin × Vorschreibung +0,32 [0,19; 0,44]: wirkt deutlich stärker, als beide Teilnutzen zusammen "
+                "sagen.", (("app.conjoint_interactions", "EGAMI_IMAI"), ("app.choice_model", "CAMERON"))),
+    "ww_comb": ("Nutzen der Kombination", "Nutzen der Kombination", "Haupteffekte beider Stufen plus Wechselwirkung: der "
+                "Gesamtwert der Kombination, der höchste ist die beste. Er steht auf der Skala des Testmodells (nach HB: "
+                "HB-Teilnutzen mal dem geschätzten Faktor, siehe „Skala“), ist daher größer als die Teilnutzen der "
+                "Ergebnisseite und nur innerhalb dieser Tabelle vergleichbar. Entlang einer Zeile oder Spalte zeigt sich, "
+                "wo die Wechselwirkung die Rangfolge ändert.", "Expertin × Vorschreibung 1,85, Laie × Vorschreibung "
+                "0,40: Vorschreibung wirkt vor allem mit einer Expertin.",
+                (("app.conjoint_interactions", "HAINMUELLER"),)),
+    "ww_shown": ("Wie oft gezeigt", "Wie oft eine Kombination gezeigt wurde", "Wie oft jede Kombination der beiden "
+                 "Stufen in den gezeigten Konzepten vorkam. Unter 30 ist der Wert dieser Zelle unsicher (Hinweis "
+                 "darunter); seltene Kombinationen entstehen durch Verbote im Versuchsplan oder wenige Aufgaben.",
+                 "Laie × Verbot 18-mal: diese Zelle mit Vorsicht lesen.", (("app.holdouts", "ORME"),)),
+    "ww_wald": ("Wald-Test", "Wald-Test (personenrobust)", "Prüft, ob alle Wechselwirkungswerte des Paars zugleich 0 sein "
+                "können; der Fehler berücksichtigt, dass eine Person mehrere Aufgaben beantwortet. „einfach“: im "
+                "gepoolten Logit, „nach HB“: mit dem HB-Nutzen jeder Person als Grundlage. Ergänzt den "
+                "Likelihood-Quotienten-Test der Tabelle.", "einfach p = ,003, nach HB p < ,001: Beide Tests sehen die "
+                "Wechselwirkung.", (("app.choice_model", "CAMERON"),)),
+    "ww_ll": ("ohne → mit", "Gegenprüfung: Log-Likelihood und Trefferquote", "Je Teil die summierte Log-Likelihood der "
+              "zurückgehaltenen Wahlen ohne und mit der Wechselwirkung: höher (näher an 0) ist besser; Unterschiede unter "
+              "etwa 1–2 sind bei rund 500 Wahlen Rauschen. Die Trefferquote ist der Anteil der Wahlen, die das Modell "
+              "richtig vorhersagt. Wie „bestätigt“ entschieden wird, steht bei der Gegenprüfung.",
+              "−512,4 → −506,9: um 5,5 besser; Trefferquote 61 % → 62 %.",
+              (("app.conjoint_interactions", "GELMAN_HWANG_VEHTARI"),)),
+    "ww_suggest": ("Formulierungsvorschlag", "Formulierungsvorschlag", "Ein Satz für den Ergebnisteil, je nach Ergebnis "
+                   "des Paars, mit den Zahlen des Tests, auf dem es beruht. Er ist ein Ausgangspunkt, kein fertiger Text: "
+                   "Bei einer bestätigten Wechselwirkung nennen die Zellen, deren Intervall 0 ausschließt, woher sie "
+                   "kommt; die inhaltliche Deutung gehört dazu.", "Es gibt Hinweise auf eine Wechselwirkung zwischen "
+                   "Kommunikator und Vehemenz (p (Holm) = ,012), die sich in der Kreuzvalidierung jedoch nicht als "
+                   "vorhersagerelevant erwies.",
+                   (("app.conjoint_interactions", "HOLM"), ("app.conjoint_interactions", "GELMAN_HWANG_VEHTARI"))),
     "fixed_random": ("fest / streuend", "Feste und streuende Parameter", "Streuende Parameter (die Teilnutzen) hat jede "
                      "Person für sich; ein fester Parameter gilt für alle gleich. Übernommene Wechselwirkungen sind fest: "
                      "Sie brauchen so weniger Daten je Person.", "Wechselwirkung +0,11 für alle, Teilnutzen je Person "
@@ -1094,7 +1137,8 @@ SECTIONS = (
                                               "calibration")),
     ("Wahlmodelle", "R̂ und ESS prüfen die Rechnung der HB-Schätzung, nicht ihr Ergebnis.",
      ("partworth", "importance", "wtp", "score", "rho2", "rlh", "sop", "first_choice", "hit_rate", "mae", "rhat", "ess",
-      "hb", "mnl", "holdout", "warmup", "ww", "ww_gain", "ww_confirm", "fixed_random")),
+      "hb", "mnl", "holdout", "warmup", "ww", "ww_gain", "ww_confirm", "ww_cell", "ww_comb", "ww_shown", "ww_wald",
+      "ww_ll", "ww_suggest", "fixed_random")),
     ("Segmente", "", ("bic", "entropy", "membership", "odds_ratio")),
     ("Strukturgleichungsmodelle", "", ("beta", "indirect", "interaction", "jn", "control", "single_item",
                                        "second_order", "higher_order", "formative", "redundancy", "r2", "total_effect")),
@@ -1627,8 +1671,44 @@ TERMS_EN = {
                 "explanatory power of the choice model (McFadden R², measured against chance). A measure of size, not of "
                 "how certain the finding is.", "+0.21 pp: hardly more explained than without the interaction."),
     "ww_confirm": ("Confirmation", "Confirmation on held-out tasks", "The model is estimated without some tasks and has "
-                   "to predict their choices. If the interaction helps on average and in most divisions, it counts as "
-                   "confirmed.", "Predicted better in 3 of 3 divisions: confirmed."),
+                   "to predict their choices. The default is “every task once”: fold t holds out task t of every "
+                   "person, so every choice is predicted exactly once, without a random draw (k-fold cross-validation "
+                   "with k = the number of tasks; Stone, 1974; Kohavi, 1995). Confirmed when the gain in log-likelihood "
+                   "per person is positive on average and a one-sided paired t-test across people gives p < .05. Random "
+                   "divisions (Picard & Cook, 1984) are faster; there it counts: better on average and in at least two "
+                   "thirds of the divisions.", "12 tasks, Δ LL = +0.04 per person, t(366) = 2.90, p = .002: confirmed."),
+    "ww_cell": ("Interaction per combination", "Interaction per combination", "Positive: the combination is valued more "
+                "than the sum of its two part-worths says; negative: less; near 0: nothing extra. Because of effects "
+                "coding, rows and columns sum to 0: a large positive value forces negative ones in the same row and "
+                "column, so a single cell is not to be read alone. Green or red means: the 95% interval (person-robust) "
+                "excludes 0; with 9 cells one also stands out by chance. The values come from the test the result rests "
+                "on (“after HB” or “simple”).", "Expert × prescription +0.32 [0.19; 0.44]: works clearly more strongly "
+                "than both part-worths together say."),
+    "ww_comb": ("Utility of the combination", "Utility of the combination", "Main effects of both levels plus the "
+                "interaction: the total value of the combination, the highest is the best. It is on the scale of the test "
+                "model (after HB: HB part-worths times the fitted factor, see “Scale”), so it is larger than the "
+                "part-worths on the results page and only comparable within this table. Along a row or column it shows "
+                "where the interaction changes the ranking.", "Expert × prescription 1.85, layperson × prescription "
+                "0.40: prescription works mainly with an expert."),
+    "ww_shown": ("How often shown", "How often a combination was shown", "How often each combination of the two levels "
+                 "appeared in the concepts shown. Below 30 the value of that cell is uncertain (note below); rare "
+                 "combinations come from prohibitions in the design or few tasks.",
+                 "Layperson × ban 18 times: read this cell with caution."),
+    "ww_wald": ("Wald test", "Wald test (person-robust)", "Tests whether all interaction values of the pair can be 0 at "
+                "once; the error takes into account that one person answers several tasks. “simple”: in the pooled "
+                "logit, “after HB”: with each person’s HB utility as the base. Complements the likelihood ratio test of "
+                "the table.", "simple p = .003, after HB p < .001: both tests see the interaction."),
+    "ww_ll": ("without → with", "Confirmation: log-likelihood and hit rate", "Per fold the summed log-likelihood of the "
+              "held-out choices without and with the interaction: higher (closer to 0) is better; differences below "
+              "about 1–2 are noise at around 500 choices. The hit rate is the share of choices the model predicts "
+              "correctly. How “confirmed” is decided is explained at the confirmation.",
+              "−512.4 → −506.9: 5.5 better; hit rate 61% → 62%."),
+    "ww_suggest": ("Suggested wording", "Suggested wording", "A sentence for the results section, chosen by the result "
+                   "of the pair, with the figures of the test it rests on. It is a starting point, not a finished text: "
+                   "for a confirmed interaction the cells whose interval excludes 0 name where it comes from; the "
+                   "substantive interpretation belongs with it.", "There are indications of an interaction between "
+                   "communicator and vehemence (p (Holm) = .012), which, however, did not prove relevant for prediction "
+                   "in the cross-validation."),
     "fixed_random": ("fixed / random", "Fixed and random parameters", "Random parameters (the part-worths) belong to "
                      "each person; a fixed parameter is the same for everyone. Interactions applied to the HB model are "
                      "fixed: they need less data per person that way.", "Interaction +0.11 for everyone, part-worths different per "

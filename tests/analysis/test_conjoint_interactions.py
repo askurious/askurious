@@ -164,3 +164,100 @@ def test_confirmation_on_holdout_tasks():
     assert res["confirm"] == {"mode": "holdouts", "splits": 1, "needed": 1}
     top = res["rows"][0]
     assert (top["a"], top["b"]) == (0, 1) and top["status"] == "confirmed" and len(top["confirm"]["delta"]) == 1
+
+
+# --- "jede Aufgabe einmal" (leave-one-task-out) and the suggested wording (2026-11-24) ------------------------------
+
+def test_every_task_is_held_out_exactly_once_with_uneven_task_counts():
+    coding, people, _ = simulate(0.0, persons=4, tasks=8, seed=31)
+    people = [people[0], people[1][:5], people[2][:1], people[3][:3]]          # 8, 5, 1 and 3 tasks
+    parts, grouped = ww.task_folds(people, coding)
+    assert len(parts) == 8 and not grouped and ww.fold_count(people, coding) == (8, False)
+    for n, sets in enumerate(people):
+        held = [id(s) for _, test in parts for s in test[n]]
+        if len(sets) < 2:
+            assert held == [] and all(train[n] == sets for train, _ in parts)   # one task: always in training
+            continue
+        assert sorted(held) == sorted(id(s) for s in sets)                    # every choice held out exactly once
+        for train, test in parts:
+            assert len(train[n]) + len(test[n]) == len(sets) and not set(map(id, train[n])) & set(map(id, test[n]))
+    # more than 12 tasks: the positions modulo 10, still every task once
+    coding, many, _ = simulate(0.0, persons=2, tasks=15, seed=32)
+    parts, grouped = ww.task_folds(many, coding)
+    assert grouped and len(parts) == ww.GROUPED_FOLDS
+    assert sorted(id(s) for _, test in parts for s in test[0]) == sorted(id(s) for s in many[0])
+    assert [len(test[0]) for _, test in parts] == [2] * 5 + [1] * 5
+
+
+def test_paired_t_test_over_persons():
+    t = ww.paired([0.2, 0.1, 0.3, 0.0, 0.4])
+    assert t["n"] == 5 and t["df"] == 4 and t["mean"] == pytest.approx(0.2)
+    assert t["t"] == pytest.approx(0.2 / (math.sqrt(0.025) / math.sqrt(5)), rel=1e-3) and t["p"] < 0.05
+    assert ww.paired([0.1])["p"] is None and ww.paired([0.1, 0.1])["p"] is None   # one person, no spread
+
+
+@pytest.mark.parametrize("strength, confirmed", [(0.9, True), (0.0, False)])
+def test_every_task_once_confirms_a_true_interaction_only(strength, confirmed):
+    from app import conjoint_hb
+
+    coding, people, _ = simulate(strength, persons=150, tasks=6, seed=41)
+    c = ww.confirm(people, coding, [(0, 1)], FAST, conjoint_hb._prior(coding), {}, ww.TASKS)[(0, 1)]
+    assert c["mode"] == "tasks" and len(c["delta"]) == 6 and c["needed"] is None and not c["grouped"]
+    t = c["persons"]
+    assert set(t) == {"n", "mean", "sd", "t", "df", "p"} and t["n"] == 150    # aggregates only, no value per person
+    assert c["confirmed"] is confirmed
+    assert (t["mean"] > 0 and t["p"] < 0.05) is confirmed
+    assert sum(c["choices"]) == 150 * 6                                       # every choice predicted exactly once
+
+
+def _row(status, **extra):
+    row = {"a_label": "Kommunikator", "b_label": "Vehemenz", "a_levels": ["Expertin", "Laie", "Betroffene"],
+           "b_levels": ["Empfehlung", "Vorschreibung", "Verbot"], "status": status, "estimable": status != "na",
+           "p_holm": 0.0123, "simple": {"estimable": True, "lr": 30.1, "df": 4},
+           "hb": {"estimable": True, "lr": 41.237, "df": 4},
+           "cells": {"w": [[0.05, 0.32, -0.37], [0.0, -0.1, 0.1], [-0.05, -0.22, 0.27]],
+                     "lo": [[-0.1, 0.19, -0.5], [-0.1, -0.2, -0.05], [-0.2, -0.4, 0.1]],
+                     "hi": [[0.2, 0.44, -0.25], [0.1, 0.05, 0.2], [0.1, 0.01, 0.4]]}}
+    row.update(extra)
+    return row
+
+
+SPLIT = {"mode": "split", "splits": 3, "needed": 2}
+
+
+def test_suggested_wording_for_every_status_in_both_languages():
+    c = {"delta": [3.1, 2.0, -0.4], "mean": 1.5667, "better": 2}
+    de = ww.suggestion(_row("confirmed", confirm=c), SPLIT, False)
+    assert de == ("Zwischen Kommunikator und Vehemenz zeigte sich eine Wechselwirkung (χ²(4) = 41,24, p (Holm) = ,012), "
+                  "die auch die Vorhersage zurückgehaltener Wahlen verbesserte (2 von 3 Aufteilungen, Δ LL = +1,6). Sie "
+                  "geht vor allem auf die Kombinationen Expertin × Verbot (−0,37 [−0,50; −0,25]) und Expertin × "
+                  "Vorschreibung (+0,32 [0,19; 0,44]) zurück.")
+    en = ww.suggestion(_row("confirmed", confirm=c), SPLIT, True)
+    assert en.startswith("An interaction between Kommunikator and Vehemenz emerged (χ²(4) = 41.24, p (Holm) = .012)")
+    assert "(2 of 3 divisions, Δ LL = +1.6)" in en and "It stems mainly from the combinations Expertin × Verbot" in en
+    c = {"delta": [1.0, -2.0, -0.5], "mean": -0.5, "better": 1}
+    assert ww.suggestion(_row("notable", confirm=c), SPLIT, False) == (
+        "Es gibt Hinweise auf eine Wechselwirkung zwischen Kommunikator und Vehemenz (p (Holm) = ,012), die sich in der "
+        "Kreuzvalidierung jedoch nicht als vorhersagerelevant erwies (1 von 3 Aufteilungen besser, Δ LL = −0,5).")
+    assert ww.suggestion(_row("notable", confirm=c), SPLIT, True) == (
+        "There are indications of an interaction between Kommunikator and Vehemenz (p (Holm) = .012), which, however, "
+        "did not prove relevant for prediction in the cross-validation (better in 1 of 3 divisions, Δ LL = −0.5).")
+    assert ww.suggestion(_row("none", p_holm=0.0004), SPLIT, False) == (
+        "Zwischen Kommunikator und Vehemenz fand sich kein Hinweis auf eine Wechselwirkung (p (Holm) < ,001).")
+    assert ww.suggestion(_row("none", p_holm=0.31), SPLIT, True) == (
+        "No indication of an interaction between Kommunikator and Vehemenz was found (p (Holm) = .310).")
+    assert ww.suggestion(_row("na"), SPLIT, False) == (
+        "Die Wechselwirkung zwischen Kommunikator und Vehemenz ließ sich wegen des Versuchsplans nicht schätzen.")
+    assert ww.suggestion(_row("na"), SPLIT, True) == (
+        "The interaction between Kommunikator and Vehemenz could not be estimated because of the experimental design.")
+    # every task once: the paired test over persons instead of "x von n Aufteilungen"
+    c = {"mode": "tasks", "grouped": False, "delta": [0.5] * 12, "mean": 0.0412, "better": 9,
+         "persons": {"n": 367, "mean": 0.0412, "sd": 0.27, "t": 2.9234, "df": 366, "p": 0.0018}}
+    tasks = {"mode": "tasks", "splits": 12, "needed": None}
+    assert ("(Kreuzvalidierung über alle 12 Aufgaben, jede Aufgabe einmal zurückgehalten: Δ LL = +0,04 je Person im "
+            "Mittel, t(366) = 2,92, p = ,002)") in ww.suggestion(_row("confirmed", confirm=c), tasks, False)
+    assert ("(cross-validation over all 12 tasks, each task held out once: Δ LL = +0.04 per person on average, "
+            "t(366) = 2.92, p = .002)") in ww.suggestion(_row("confirmed", confirm=c), tasks, True)
+    # holdout tasks
+    c = {"mode": "holdouts", "delta": [-1.2], "mean": -1.2, "better": 0}
+    assert "an den Holdout-Aufgaben jedoch nicht" in ww.suggestion(_row("notable", confirm=c), {"mode": "holdouts"}, False)

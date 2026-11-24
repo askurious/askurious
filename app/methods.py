@@ -172,10 +172,22 @@ def _interactions(item, hb):
         return None
     rows = (res or {}).get("rows") or []
     conf = (res or {}).get("confirm") or {}
+
+    def labelled(r):  # the row with the labels conjoint_interactions.suggestion names
+        A, B = attrs[r["a"]], attrs[r["b"]]
+        return {**r, "a_label": A["label"], "b_label": B["label"], "a_levels": A["level_labels"],
+                "b_levels": B["level_labels"]}
+    shown = [labelled(r) for r in rows if r.get("status") in ("confirmed", "notable", "na")
+             and r["a"] < len(attrs) and r["b"] < len(attrs)]
     return {"pairs": len(rows), "notable": sum(1 for r in rows if r.get("status") in ("confirmed", "notable")),
             "confirmed": [name(r["a"], r["b"]) for r in rows if r.get("status") == "confirmed"],
             "with_hb": bool((res or {}).get("with_hb")), "holdouts": conf.get("mode") == "holdouts",
-            "splits": conf.get("splits"), "needed": conf.get("needed"), "searched": bool(res), "taken": taken}
+            "by_task": conf.get("mode") == "tasks", "grouped": bool(conf.get("grouped")),
+            "splits": conf.get("splits"), "needed": conf.get("needed"), "searched": bool(res), "taken": taken,
+            # per pair with a hint (or not estimable) the suggested wording; the others in one sentence
+            "say_de": [ww.suggestion(r, conf, False) for r in shown],
+            "say_en": [ww.suggestion(r, conf, True) for r in shown],
+            "quiet": sum(1 for r in rows if r.get("status") == "none")}
 
 
 def _ww_de(c):
@@ -190,9 +202,19 @@ def _ww_de(c):
                  "Likelihood-Quotienten-Test im gepoolten Logit"
                  + (" und mit dem HB-Nutzen jeder Person als Grundlage" if w["with_hb"] else "")
                  + ", dazu ein personenrobuster Wald-Test; die p-Werte wurden nach Holm (1979) für alle Paare korrigiert.")
-        if w["notable"]:
+        if w["notable"] and w.get("by_task"):
+            over = (f"alle Aufgaben in {w['splits']} Teilen" if w.get("grouped") else f"alle {w['splits']} Aufgaben")
+            text += (f" {w['notable']} Paar(e) mit p(Holm) < 0,05 wurden in einer Kreuzvalidierung über {over} "
+                     "gegengeprüft, jede Aufgabe jeder Person einmal zurückgehalten (Stone, 1974): HB mit und ohne die "
+                     "Wechselwirkung als festen Parameter für alle Personen, Vorhersage der zurückgehaltenen Wahlen über die "
+                     "Posteriori-Ziehungen (Gelman et al., 2014); als bestätigt galt ein Paar, wenn die Differenz der "
+                     "Log-Likelihood je Person im Mittel positiv war und ein einseitiger t-Test für verbundene Stichproben "
+                     "über die Personen p < 0,05 ergab. "
+                     + (f"Bestätigt: {', '.join(w['confirmed'])}." if w["confirmed"] else "Keines wurde bestätigt."))
+        elif w["notable"]:
             where = ("an den Holdout-Aufgaben" if w["holdouts"] else
-                     f"an je einer zufällig zurückgehaltenen Aufgabe je Person in {w['splits']} Aufteilungen")
+                     f"an je einer zufällig zurückgehaltenen Aufgabe je Person in {w['splits']} Aufteilungen "
+                     "(Picard & Cook, 1984)")
             text += (f" {w['notable']} Paar(e) mit p(Holm) < 0,05 wurden {where} gegengeprüft: HB mit und ohne die "
                      "Wechselwirkung als festen Parameter für alle Personen, Vorhersage der zurückgehaltenen Wahlen über die "
                      "Posteriori-Ziehungen (Gelman et al., 2014); als bestätigt galt ein Paar, wenn die Log-Likelihood im "
@@ -200,6 +222,10 @@ def _ww_de(c):
                      + (f"Bestätigt: {', '.join(w['confirmed'])}." if w["confirmed"] else "Keines wurde bestätigt."))
         else:
             text += " Kein Paar lag nach der Korrektur unter 0,05."
+        for sentence in w.get("say_de") or []:
+            text += " " + sentence
+        if w.get("say_de") and w.get("quiet"):
+            text += f" Für die übrigen {w['quiet']} Paare fand sich kein Hinweis."
     if w["taken"]:
         text += (" Ins HB-Modell gingen als feste, für alle Personen gleiche Parameter ein (Train, 2009; Rossi et al., "
                  f"2005): {', '.join(w['taken'])}; die Wichtigkeiten beruhen weiter nur auf den Haupteffekten.")
@@ -216,12 +242,25 @@ def _ww_en(c):
                  "Hainmueller et al., 2014; Egami & Imai, 2019), likelihood ratio test in the pooled logit"
                  + (" and with each person's HB utility as the base" if w["with_hb"] else "")
                  + " plus a person-robust Wald test, Holm (1979) correction over all pairs")
-        if w["notable"]:
-            where = "the holdout tasks" if w["holdouts"] else f"one held-out task per person in {w['splits']} divisions"
+        if w["notable"] and w.get("by_task"):
+            over = f"all tasks in {w['splits']} folds" if w.get("grouped") else f"all {w['splits']} tasks"
+            line += (f"; {w['notable']} pair(s) with Holm p < .05 checked in a cross-validation over {over}, every task "
+                     "of every person held out once (Stone, 1974; HB with and without the interaction as a fixed parameter, "
+                     "predictive log-likelihood; Gelman et al., 2014), confirmed when the per-person gain was positive on "
+                     "average and a one-sided paired t-test across people gave p < .05: "
+                     + (", ".join(w["confirmed"]) if w["confirmed"] else "none confirmed"))
+        elif w["notable"]:
+            where = ("the holdout tasks" if w["holdouts"] else
+                     f"one held-out task per person in {w['splits']} divisions (Picard & Cook, 1984)")
             line += (f"; {w['notable']} pair(s) with Holm p < .05 checked on {where} (HB with and without the interaction "
                      "as a fixed parameter, predictive log-likelihood; Gelman et al., 2014), confirmed when it improved on "
                      f"average and in at least {w['needed']} of {w['splits']} divisions: "
                      + (", ".join(w["confirmed"]) if w["confirmed"] else "none confirmed"))
+        said = list(w.get("say_en") or [])
+        if said and w.get("quiet"):
+            said.append(f"No indication was found for the other {w['quiet']} pairs.")
+        if said:
+            line += "; results: " + " ".join(said).rstrip(".")
     if w["taken"]:
         line += (f"; fixed interactions in the HB model (Train, 2009; Rossi et al., 2005): {', '.join(w['taken'])}, "
                  "importances from the main effects only")
@@ -404,7 +443,11 @@ def choice_sources(choice):
 
         groups.append((de_en("Wechselwirkungen zwischen Merkmalen: Suche, Holm-Korrektur und Gegenprüfung",
                              "Interactions between attributes: search, Holm correction and confirmation"),
-                       [ww.HAINMUELLER, ww.EGAMI_IMAI, ww.HOLM, ww.GELMAN_HWANG_VEHTARI]))
+                       [ww.HAINMUELLER, ww.EGAMI_IMAI, ww.HOLM, ww.GELMAN_HWANG_VEHTARI]
+                       + ([ww.STONE] if any(c.get("ww") and c["ww"].get("by_task") and c["ww"]["notable"]
+                                           for c in choice) else [])
+                       + ([ww.PICARD_COOK] if any(c.get("ww") and c["ww"]["notable"] and not c["ww"].get("by_task")
+                                                  and not c["ww"]["holdouts"] for c in choice) else [])))
     if any(c.get("ww") and c["ww"]["taken"] for c in choice):
         from app import choice_model as cm
 
