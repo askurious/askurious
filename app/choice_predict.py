@@ -33,7 +33,34 @@ def concept_utility(model, profile, price=None):
     u = sum(values[profile[a]] for a, values in model["pw"].items())
     if model.get("price") is not None and price is not None:
         u += model["price"] * (price - model.get("center", 0.0))
+    if model.get("ww"):  # interactions taken into the HB model (app/conjoint_interactions.py), their posterior means
+        add = interaction_utilities(model["ww"], {a: np.array([lv if lv is not None else -1])
+                                                   for a, lv in enumerate(profile)},
+                                    None if price is None else np.array([float(price)]), model.get("center", 0.0))
+        u += 0.0 if np.isscalar(add) else float(add[0, 0])
     return u
+
+
+def interaction_utilities(terms, levels, prices=None, center=0.0):
+    """The utility the interactions add (app/conjoint_hb.interaction_terms), draws x variants, or 0 without any.
+    levels: {attribute: level per variant (array, -1 for not shown)}; prices: price per variant (None: no price term)."""
+    out = 0
+    for t in terms or []:
+        if t["kind"] == "levels":
+            la, lb = levels.get(t["a"]), levels.get(t["b"])
+            if la is None or lb is None:
+                continue
+            la, lb = np.asarray(la), np.asarray(lb)
+            ok = (la >= 0) & (lb >= 0)
+            out = out + t["T"][:, np.where(ok, la, 0), np.where(ok, lb, 0)] * ok
+        else:
+            lb = levels.get(t["attr"])
+            if lb is None or prices is None:
+                continue
+            lb, x = np.asarray(lb), np.asarray(prices, dtype=float)
+            ok = (lb >= 0) & np.isfinite(x)
+            out = out + t["S"][:, np.where(ok, lb, 0)] * np.where(ok, x - center, 0.0)
+    return out
 
 
 def none_utility(model):
@@ -88,6 +115,12 @@ def draw_utilities(params, spans, profiles, prices=None, with_none=False, center
                 u = u + util[:, :, start + profile[a]]
         if price is not None and x is not None:
             u = u + price * (x - center)
+        if params.get("ww"):  # the same for everyone: draws x 1, broadcast over the persons
+            add = interaction_utilities(params["ww"], {a: np.array([lv if lv is not None else -1])
+                                                       for a, lv in enumerate(profile)},
+                                        None if x is None else np.array([float(x)]), center)
+            if not np.isscalar(add):
+                u = u + add[:, :1]
         out.append(u)
     if with_none:
         out.append(asc if asc is not None else np.zeros(util.shape[:2]))
@@ -103,6 +136,12 @@ def hb_models(result):
                     "price": result["price"][n] if result.get("price") is not None else None,
                     "center": (result.get("coding") or {}).get("price_center") or 0.0,
                     "asc": result["asc"][n] if result.get("asc") is not None else None}
+    if result.get("interactions"):
+        from app import conjoint_hb
+
+        terms = conjoint_hb.interaction_terms(result)
+        for model in out.values():
+            model["ww"] = terms
     return out
 
 

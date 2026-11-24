@@ -147,9 +147,84 @@ def _choice(survey, table):
         entry["holdouts"] = item.kind.holdout_count(item) if hasattr(item.kind, "holdout_count") else 0
         entry["warmups"] = item.kind.warmup_count(item) if hasattr(item.kind, "warmup_count") else 0
         entry["segments"] = _segments(item)
+        entry["ww"] = _interactions(item, hb)
         entry["text_de"] = _choice_de(entry)
         out.append(entry)
     return out
+
+
+def _interactions(item, hb):
+    """The search of interactions between attributes (app/conjoint_interactions.py) for the draft, None without one:
+    pairs searched, notable and confirmed ones, the kind of confirmation and the pairs taken into the HB model (only
+    when the stored HB estimate carries them)."""
+    if item.type not in ("conjoint", "acbc"):
+        return None
+    from app import conjoint_interactions as ww
+
+    res = ww.load(item)
+    attrs = item.kind.attributes(item, item.survey.default_language)
+
+    def name(a, b):
+        return f"{attrs[a]['label']} × {attrs[b]['label']}" if a < len(attrs) and b < len(attrs) else "?"
+    taken = [name(r["a"], r["b"]) for r in (hb or {}).get("interactions") or []]
+    if not res and not taken:
+        return None
+    rows = (res or {}).get("rows") or []
+    conf = (res or {}).get("confirm") or {}
+    return {"pairs": len(rows), "notable": sum(1 for r in rows if r.get("status") in ("confirmed", "notable")),
+            "confirmed": [name(r["a"], r["b"]) for r in rows if r.get("status") == "confirmed"],
+            "with_hb": bool((res or {}).get("with_hb")), "holdouts": conf.get("mode") == "holdouts",
+            "splits": conf.get("splits"), "needed": conf.get("needed"), "searched": bool(res), "taken": taken}
+
+
+def _ww_de(c):
+    """The sentences on interactions between attributes, "" without a search."""
+    w = c.get("ww")
+    if not w:
+        return ""
+    text = ""
+    if w["searched"]:
+        text += (f" Wechselwirkungen zwischen Merkmalen wurden für alle {w['pairs']} Merkmalspaare gesucht (Produkte der "
+                 "effektkodierten Spalten beider Merkmale; Hainmueller et al., 2014; Egami & Imai, 2019): "
+                 "Likelihood-Quotienten-Test im gepoolten Logit"
+                 + (" und mit dem HB-Nutzen jeder Person als Grundlage" if w["with_hb"] else "")
+                 + ", dazu ein personenrobuster Wald-Test; die p-Werte wurden nach Holm (1979) für alle Paare korrigiert.")
+        if w["notable"]:
+            where = ("an den Holdout-Aufgaben" if w["holdouts"] else
+                     f"an je einer zufällig zurückgehaltenen Aufgabe je Person in {w['splits']} Aufteilungen")
+            text += (f" {w['notable']} Paar(e) mit p(Holm) < 0,05 wurden {where} gegengeprüft: HB mit und ohne die "
+                     "Wechselwirkung als festen Parameter für alle Personen, Vorhersage der zurückgehaltenen Wahlen über die "
+                     "Posteriori-Ziehungen (Gelman et al., 2014); als bestätigt galt ein Paar, wenn die Log-Likelihood im "
+                     f"Mittel und in mindestens {w['needed']} von {w['splits']} Aufteilungen stieg. "
+                     + (f"Bestätigt: {', '.join(w['confirmed'])}." if w["confirmed"] else "Keines wurde bestätigt."))
+        else:
+            text += " Kein Paar lag nach der Korrektur unter 0,05."
+    if w["taken"]:
+        text += (" Ins HB-Modell gingen als feste, für alle Personen gleiche Parameter ein (Train, 2009; Rossi et al., "
+                 f"2005): {', '.join(w['taken'])}; die Wichtigkeiten beruhen weiter nur auf den Haupteffekten.")
+    return text
+
+
+def _ww_en(c):
+    w = c.get("ww")
+    if not w:
+        return ""
+    line = ""
+    if w["searched"]:
+        line += (f"; interactions searched for all {w['pairs']} attribute pairs (products of the effects-coded columns; "
+                 "Hainmueller et al., 2014; Egami & Imai, 2019), likelihood ratio test in the pooled logit"
+                 + (" and with each person's HB utility as the base" if w["with_hb"] else "")
+                 + " plus a person-robust Wald test, Holm (1979) correction over all pairs")
+        if w["notable"]:
+            where = "the holdout tasks" if w["holdouts"] else f"one held-out task per person in {w['splits']} divisions"
+            line += (f"; {w['notable']} pair(s) with Holm p < .05 checked on {where} (HB with and without the interaction "
+                     "as a fixed parameter, predictive log-likelihood; Gelman et al., 2014), confirmed when it improved on "
+                     f"average and in at least {w['needed']} of {w['splits']} divisions: "
+                     + (", ".join(w["confirmed"]) if w["confirmed"] else "none confirmed"))
+    if w["taken"]:
+        line += (f"; fixed interactions in the HB model (Train, 2009; Rossi et al., 2005): {', '.join(w['taken'])}, "
+                 "importances from the main effects only")
+    return line
 
 
 def _dual(config):
@@ -323,6 +398,17 @@ def choice_sources(choice):
         groups.append(("Hierarchical Bayes", [hb.ALLENBY, hb.ROSSI]
                        + ([hb.HUANG_WAND] if any(c["hb"] and c["hb"].get("prior") == "hw" for c in choice) else [])
                        + ([hb.HEIN] if any(c["hb"] and c["hb"].get("prior") == "wide" for c in choice) else [])))
+    if any(c.get("ww") and c["ww"]["searched"] for c in choice):
+        from app import conjoint_interactions as ww
+
+        groups.append((de_en("Wechselwirkungen zwischen Merkmalen: Suche, Holm-Korrektur und Gegenprüfung",
+                             "Interactions between attributes: search, Holm correction and confirmation"),
+                       [ww.HAINMUELLER, ww.EGAMI_IMAI, ww.HOLM, ww.GELMAN_HWANG_VEHTARI]))
+    if any(c.get("ww") and c["ww"]["taken"] for c in choice):
+        from app import choice_model as cm
+
+        groups.append((de_en("Feste und streuende Parameter im HB-Modell", "Fixed and random parameters in the HB model"),
+                       [cm.TRAIN, hb.ROSSI]))
     if any(c["hb"] and c["hb"].get("rhat_max") is not None for c in choice):
         groups.append((de_en("Konvergenz der HB-Kette: split-R̂ und effektive Stichprobengröße; Geweke-artiger Vergleich der "
                              "Hälften (Grenze nach Bonferroni)", "Convergence of the HB chain: split R̂ and effective sample "
@@ -468,6 +554,7 @@ def _choice_de(c):
                 text += (f" Für die individuellen Nutzen gab es keine Regel, nur einen Hinweis: Bei "
                          f"{units.percent_text(h['person_share'], 'de')} der Personen lag das klassische split-R̂ "
                          "mindestens eines Nutzens über 1,05.")
+    text += _ww_de(c)
     text += _warmups_de(c)
     if c.get("holdouts"):
         unit = "Sets" if c["type"] == "maxdiff" else ("Aufgabe" if c["holdouts"] == 1 else "Aufgaben")
@@ -593,6 +680,7 @@ def _choice_en(c):
             if h.get("person_share") is not None:
                 line += (f"; individual utilities (note only): {100 * h['person_share']:.1f}% of persons with a classic "
                          "split R-hat above 1.05")
+    line += _ww_en(c)
     line += _warmups_en(c)
     if c.get("holdouts"):
         line += f"; {c['holdouts']} holdout task(s), not used in the estimation"

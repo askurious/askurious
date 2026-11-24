@@ -74,6 +74,16 @@ over the posterior (app/choice_predict.py). Since 2026-11-23 also the trace of t
 convergence rule) and the classic split-R-hat of every person's betas from running sums over the two halves of the
 kept draws (person_rhat; only a hint, no draws of all persons stored). The seed makes a run reproducible.
 
+Optional parameters common to all persons (`fixed`, 2026-11-24): some columns of the design, e.g. the interaction of
+two attributes (app/conjoint_interactions.py), get one value gamma for everyone instead of one per person; they are
+no part of mu and Sigma. A model with fixed and random coefficients (Train, 2009, ch. 12.7; Rossi et al., 2005,
+ch. 5). Prior gamma ~ N(0, MU_PRIOR_SD^2 * fixed_prior), as the prior of mu (fixed_prior: the prior covariance of
+their coding, default I). Each iteration one random-walk Metropolis step on gamma with the joint log-likelihood of all
+persons (Train, 2009, ch. 12.7), its proposal shaped by the inverse of the summed logit information of these columns
+(recomputed with the proposal shapes of the betas) and its step size adapted like the joint scaling towards
+SCALE_TARGET. Their kept draws are returned with mean and 95 % interval and enter the Geweke-type check like mu.
+Without `fixed` nothing changes: the same steps, the same random numbers, the same settings.
+
 Used for MaxDiff (app/maxdiff_hb.py), CBC and ACBC (app/conjoint_hb.py) and the paired comparison
 (app/paired_hb.py); the ratings-based conjoint has its own Gibbs sampler (app/cva_hb.py) with the same checks.
 """
@@ -82,7 +92,7 @@ import time
 
 import numpy as np
 
-from app.choice_model import TRAIN
+from app.choice_model import TRAIN, ChoiceSet
 
 GEWEKE_ALPHA = 0.05  # level of the Geweke-type comparison of the halves (limits in geweke_limits)
 MU_PRIOR_SD = 5.0   # prior sd of the population means, in units of prior_cov (logit scale)
@@ -407,7 +417,7 @@ def _chance(log_ratio):
 
 def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov=None, prior_df=None,
              init=None, target=TARGET, summary=None, person_stat=None, progress=None, keep=KEEP_DRAWS, spread=None,
-             prior="iw", prior_groups=None, prior_scale=HW_SCALE):
+             prior="iw", prior_groups=None, prior_scale=HW_SCALE, fixed=None, fixed_prior=None):
     """Run the sampler. person_sets: [[ChoiceSet]] per person (every person at least one set).
     summary(B) -> 1-d array: evaluated at every kept draw (e.g. the mean scores over persons), returned as
     an array (kept draws x length). person_stat(B) -> array (N x q): averaged over the kept draws (posterior
@@ -417,13 +427,44 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     about every 2 %. keep: how many kept draws of all betas to return ("draws", evenly spaced).
     prior: "iw" the fixed inverse Wishart prior on Sigma (default), "hw" the hierarchical one (Huang & Wand, 2013;
     see the module text) with prior_groups (index arrays along which prior_cov is block diagonal, None: every
-    parameter alone) and prior_scale (A). Returns a dict."""
+    parameter alone) and prior_scale (A). fixed: indices of columns common to all persons (see the module text); then
+    prior_cov, prior_groups, init, mu and the betas refer to the other columns in their order, and fixed_prior (len(fixed)
+    square, default I) is the prior covariance of the fixed ones in units of MU_PRIOR_SD^2. Returns a dict."""
     from app.choice_model import fit
 
     started = time.monotonic()
     rng = np.random.default_rng(seed)
-    data = Data(person_sets, k)
+    fixed = sorted({int(j) for j in fixed}) if fixed is not None and len(fixed) else []
+    kf = len(fixed)
+    if kf:
+        # the random columns first, the fixed ones after them: the hierarchical part sees only the first k
+        free = [j for j in range(k) if j not in set(fixed)]
+        order = free + fixed
+        person_sets = [[ChoiceSet(np.asarray(s.X, dtype=float)[:, order], s.chosen) for s in sets] for sets in person_sets]
+        k = len(free)
+    data = Data(person_sets, k + kf)
     n = data.n
+    gam = [np.zeros(kf)]                     # the current values of the fixed parameters (none without `fixed`)
+
+    if kf:
+        def full(Bm, g=None):
+            return np.hstack([Bm, np.broadcast_to(gam[0] if g is None else g, (len(Bm), kf))])
+
+        def loglik_grad(Bm):
+            ll_, G_ = data.loglik_grad(full(Bm))
+            return ll_, G_[:, :k]
+
+        def loglik(Bm, g=None):
+            return data.loglik(full(Bm, g))
+
+        def information(Bm):
+            Ha = data.information(full(Bm))
+            return Ha[:, :k, :k], Ha[:, k:, k:].sum(axis=0)
+    else:
+        loglik_grad, loglik = data.loglik_grad, data.loglik
+
+        def information(Bm):
+            return data.information(Bm), None
     prior_cov = np.eye(k) if prior_cov is None else np.asarray(prior_cov, dtype=float)
     if prior not in PRIORS:
         raise ValueError(f"unknown prior {prior!r}")
@@ -442,12 +483,23 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         S0 = fixed_scale(prior_cov, df0, wide=prior == "wide")  # prior mean of Sigma = prior_cov (default)
     mu_prec = np.linalg.inv(MU_PRIOR_SD ** 2 * prior_cov)  # prior precision of mu (prior mean 0)
     if init is None:
-        init = fit([s for sets in person_sets for s in sets], k, ridge=0.1)[0]
+        init = fit([s for sets in person_sets for s in sets], k + kf, ridge=0.1)[0]
+        if kf:
+            gam[0] = np.array(init[k:], dtype=float)
+            init = init[:k]
     mu = np.array(init, dtype=float)
     B = np.tile(mu, (n, 1))
     Sigma = prior_cov.copy()
-    ll, G = data.loglik_grad(B)
-    H = data.information(B)                  # recomputed once in the middle of the burn-in, at the betas then
+    ll, G = loglik_grad(B)
+    H, Hf = information(B)                   # recomputed once in the middle of the burn-in, at the betas then
+    if kf:
+        f_prior = np.eye(kf) if fixed_prior is None else np.asarray(fixed_prior, dtype=float)
+        f_prec = np.linalg.inv(MU_PRIOR_SD ** 2 * f_prior)
+        f_chol = None
+        f_step = 2.38 / math.sqrt(kf)        # random walk: the optimal scale for a normal target (Roberts et al., 1997)
+        f_tally = f_kept = 0
+        f_log_sum = 0.0
+        f_trace, f_draws = [], []
     eps = np.ones(n)                         # step size per person
     shift = 1.0                              # step of the joint shift, in units of the summed information
     scale = 0.1 / math.sqrt(k)               # step of the joint scaling, on the log scale
@@ -481,7 +533,7 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         Sigma = _inv_wishart(rng, df0 + n, S0 + D.T @ D)
         Si = np.linalg.inv(Sigma)
         if it and it == burn // 2:
-            H = data.information(B)
+            H, Hf = information(B)
         if C is None or (it < settle and (it % ADAPT_EVERY == 0 or it == burn // 2)):
             # proposal shape per person, fixed after burn-in (it depends on Sigma at that time, not on the betas)
             P = H + Si
@@ -490,11 +542,14 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
             shift_prec = H.sum(axis=0) + mu_prec
             shift_cov = np.linalg.inv(shift_prec)
             shift_chol = np.linalg.cholesky((shift_cov + shift_cov.T) / 2)
+            if kf:
+                f_cov = np.linalg.inv(Hf + f_prec)
+                f_chol = np.linalg.cholesky((f_cov + f_cov.T) / 2)
         # lower level: one preconditioned Langevin step per person
         half = (0.5 * eps ** 2)[:, None]
         mean_now = B + half * _apply(C, G - D @ Si)
         prop = mean_now + eps[:, None] * _apply(R, rng.standard_normal((n, k)))
-        ll_prop, G_prop = data.loglik_grad(prop)
+        ll_prop, G_prop = loglik_grad(prop)
         D_prop = prop - mu
         mean_back = prop + half * _apply(C, G_prop - D_prop @ Si)
         log_ratio = (ll_prop - 0.5 * _quad(D_prop, Si)) - (ll - 0.5 * _quad(D, Si)) \
@@ -510,7 +565,7 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         toward = half_s * (shift_cov @ (G.sum(axis=0) - mu_prec @ mu))
         delta = toward + shift * (shift_chol @ rng.standard_normal(k))
         mu_shift = mu + delta
-        ll_shift, G_shift = data.loglik_grad(B + delta)
+        ll_shift, G_shift = loglik_grad(B + delta)
         back = half_s * (shift_cov @ (G_shift.sum(axis=0) - mu_prec @ mu_shift))
         f, b = delta - toward, -delta - back
         log_moved = (ll_shift.sum() - ll.sum() - 0.5 * (mu_shift @ mu_prec @ mu_shift - mu @ mu_prec @ mu)
@@ -525,17 +580,29 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         c = np.exp(logc)
         B_scaled = mu + (B - mu) * c
         Si_scaled = Si / np.outer(c, c)
-        log_scaled = (data.loglik(B_scaled).sum() - ll.sum() - df0 * logc.sum()
+        log_scaled = (loglik(B_scaled).sum() - ll.sum() - df0 * logc.sum()
                       - 0.5 * (np.sum(S0 * Si_scaled) - np.sum(S0 * Si)))
         scaled = math.log(rng.random()) < log_scaled
         if scaled:
             B, Sigma = B_scaled, Sigma * np.outer(c, c)
-            ll, G = data.loglik_grad(B)
+            ll, G = loglik_grad(B)
+        if kf:
+            # the fixed parameters: a random walk on the joint log-likelihood of all persons with their normal prior
+            g_prop = gam[0] + f_step * (f_chol @ rng.standard_normal(kf))
+            log_f = (loglik(B, g_prop).sum() - ll.sum()
+                     - 0.5 * (g_prop @ f_prec @ g_prop - gam[0] @ f_prec @ gam[0]))
+            f_moved = math.log(rng.random()) < log_f
+            if f_moved:
+                gam[0] = g_prop
+                ll, G = loglik_grad(B)
         if settle <= it < burn:
             # settling phase (H-5): the next step sizes from this iteration, with a decreasing gain; averaged on the log
             # scale, the averages are the step sizes of the kept draws
             shift *= math.exp(gain * (float(_chance(log_moved)) - target))
             scale *= math.exp(gain * (float(_chance(log_scaled)) - SCALE_TARGET))
+            if kf:
+                f_step *= math.exp(gain * (float(_chance(log_f)) - SCALE_TARGET))
+                f_log_sum += math.log(f_step)
             log_sums[0] += np.log(eps)
             log_sums[1] += math.log(shift)
             log_sums[2] += math.log(scale)
@@ -543,18 +610,27 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
                 count = burn - settle
                 eps = np.exp(log_sums[0] / count)
                 shift, scale = math.exp(log_sums[1] / count), math.exp(log_sums[2] / count)
+                if kf:
+                    f_step = math.exp(f_log_sum / count)
         elif it < burn:
             tally += accept
             shift_tally += moved
             scale_tally += scaled
+            if kf:
+                f_tally += f_moved
             if (it + 1) % ADAPT_EVERY == 0:
                 eps = _adapt(eps, tally / ADAPT_EVERY, target)
                 shift = float(_adapt(shift, shift_tally / ADAPT_EVERY, target))
                 scale = float(_adapt(scale, scale_tally / ADAPT_EVERY, SCALE_TARGET))
                 tally[:], shift_tally, scale_tally = 0, 0, 0
+                if kf:
+                    f_step = float(_adapt(f_step, f_tally / ADAPT_EVERY, SCALE_TARGET))
+                    f_tally = 0
         else:
             accepted_kept += int(accept.sum())
             shifted_kept += moved
+            if kf:
+                f_kept += f_moved
             if (it - burn + 1) % thin == 0:
                 sums += B
                 kept.append((mu.copy(), float(ll.sum()), np.diag(Sigma).copy()))
@@ -565,8 +641,12 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
                 if part is not None and half_kept:
                     half_sums[part] += B
                     half_squares[part] += B * B
+                if kf:
+                    f_trace.append(gam[0].copy())
                 if keep_every and (len(kept) - 1) % keep_every == 0 and len(kept_draws) < keep:
                     kept_draws.append(B.copy())
+                    if kf:
+                        f_draws.append(gam[0].copy())
                 if summary is not None:
                     summaries.append(summary(B))
                 if spread is not None:
@@ -584,15 +664,23 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     # the limit of the means is corrected for their number (Bonferroni), so no "one may pass" rule; the log-likelihood
     # only gives a hint (geweke_check). A mean that drifts because the data set no limit is named by the separation
     # notes of the models.
-    gw = geweke_check(lls, mus.reshape(len(mus), k) if n_kept else np.empty((0, k)))
+    if kf:
+        f_trace = np.array(f_trace) if n_kept else np.empty((0, kf))
+        g_mean = f_trace.mean(axis=0) if n_kept else gam[0]
+        gw = geweke_check(lls, np.hstack([mus.reshape(len(mus), k), f_trace]) if n_kept else np.empty((0, k + kf)))
+        fit_ll = loglik(beta, g_mean)
+    else:
+        gw = geweke_check(lls, mus.reshape(len(mus), k) if n_kept else np.empty((0, k)))
+        fit_ll = data.loglik(beta)
     half = n_kept // 2
-    return {
+    out = {
         "beta": beta, "mu": mus.mean(axis=0) if n_kept else mu,
         "sigma_diag": np.array([s for _, _, s in kept]).mean(axis=0) if n_kept else np.diag(Sigma),
         "acceptance": accepted_kept / (draws * n) if draws and n else None, "rho": float(np.median(eps)),
         "shift_acceptance": shifted_kept / draws if draws else None,
-        "rlh": rlh(data, beta), "chance_rlh": np.exp(data.chance_loglik() / data.sets_per_person),
-        "loglik": float(data.loglik(beta).sum()), "persons": n, "sets": int(data.sets_per_person.sum()),
+        "rlh": rlh(data, beta) if not kf else _rlh_of(fit_ll, data),
+        "chance_rlh": np.exp(data.chance_loglik() / data.sets_per_person),
+        "loglik": float(fit_ll.sum()), "persons": n, "sets": int(data.sets_per_person.sum()),
         "kept": n_kept, **gw,
         "ll_halves": [float(lls[:half].mean()), float(lls[-half:].mean())] if half else None,
         "ll_trace": lls, "mu_trace": mus,
@@ -608,3 +696,16 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         # posterior mean of the scales a_g of the hierarchical prior, one per group
         **({"prior_a": a_sum / n_kept if n_kept else a} if hw else {}),
     }
+    if kf:
+        lo, hi = np.percentile(f_trace, [2.5, 97.5], axis=0) if n_kept else (g_mean, g_mean)
+        out["settings"]["fixed"] = kf
+        out.update(fixed=g_mean, fixed_lo=lo, fixed_hi=hi, fixed_trace=f_trace,
+                   fixed_draws=np.array(f_draws) if f_draws else None,
+                   fixed_acceptance=f_kept / draws if draws else None)
+    return out
+
+
+def _rlh_of(ll, data):
+    """rlh() from a log-likelihood per person already computed."""
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.exp(ll / data.sets_per_person)

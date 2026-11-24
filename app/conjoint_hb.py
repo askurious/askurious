@@ -17,6 +17,13 @@ persons are taken afterwards; the part-worths, constant and price also get the 9
 the mean (mean over persons at every kept draw), the importances none.
 No individual willingness to pay: a ratio of two individual coefficients is too unstable.
 
+Interactions taken into the model (item.config["hb_interactions"], app/conjoint_interactions.py, 2026-11-24): every
+pair adds the products of the two attributes' columns as parameters common to all persons (app/hb.py `fixed`, prior
+conjoint_interactions.prior_block). The result then carries "interactions" (per pair the mean and 95 % interval of every
+combination of levels and of the parameters) and "ww_draws" (the kept draws of the fixed parameters, aligned with
+"draws"); the importances stay those of the main effects. Without interactions the input, its key and the result are
+those of before.
+
 Storage, background run, status and staleness as for MaxDiff (app/maxdiff_hb.py, same files and settings).
 """
 import hashlib
@@ -113,22 +120,35 @@ def _base_input(item, table):
     if len(persons) < hb.MIN_PERSONS or not coding.k:
         return None
     levels = item.kind.attributes(item, item.survey.default_language)
+    from app import conjoint_interactions as ww
+
     data = {
         # the holdout tasks (app/holdouts.py) and the saved scenarios of the simulator never enter the estimation:
         # changing them leaves the result current
         "format": FORMAT, "coding": CODING, "type": item.type,
-        "config": {k: v for k, v in without_sim(item.config).items() if k != "holdouts" and k not in DISPLAY_KEYS},
+        "config": {k: v for k, v in without_sim(item.config).items()
+                   if k != "holdouts" and k not in DISPLAY_KEYS and k != ww.CONFIG_KEY},
         "labels": [a["level_labels"] for a in levels] if coding.price is not None else None,
         "persons": raw}
+    # the interactions taken into the model (only those the coding can carry), only when there are any: the key of a
+    # model without them stays the one of before
+    pairs = [p for p in ww.adopted_indices(item) if p in ww.pairs_of(coding, item.type == "conjoint")]
     dumped = {k: json.dumps(v, sort_keys=True, default=str) for k, v in data.items()}
+    ww_data_key = hashlib.sha1(_dumped(dumped).encode()).hexdigest()
+    if pairs:
+        dumped["interactions"] = json.dumps([list(p) for p in pairs])
     data_key = hashlib.sha1(_dumped(dumped).encode()).hexdigest()  # as maxdiff_hb
     linear = [a for a in range(len(coding.levels)) if a not in coding.effects]
-    return {"dumped": dumped, "inp": {
-        "data_key": data_key, "type": item.type,
-        "coding": {"levels": coding.levels, "price_scale": coding.price_scale, "asc": coding.asc is not None,
-                   "linear": linear, "price_center": coding.price_center},
-        "price_range": price_range,
-        "persons": [{"pid": pid, "sets": [(s.X.tolist(), int(s.chosen)) for s in sets]} for pid, sets in persons]}}
+    inp = {"data_key": data_key, "ww_data_key": ww_data_key, "type": item.type,
+           "coding": {"levels": coding.levels, "price_scale": coding.price_scale, "asc": coding.asc is not None,
+                      "linear": linear, "price_center": coding.price_center},
+           "price_range": price_range,
+           "persons": [{"pid": pid, "sets": [(s.X.tolist(), int(s.chosen)) for s in sets]} for pid, sets in persons]}
+    if pairs:
+        pa = item.kind.price_attribute(item) if item.type == "conjoint" else None
+        inp["interactions"] = [list(p) for p in pairs]
+        inp["ww_price_levels"] = item.kind.level_numbers(item, pa) if pa is not None and coding.price is not None else None
+    return {"dumped": dumped, "inp": inp}
 
 
 def _without_holdouts(answer):
@@ -195,18 +215,35 @@ def run(inp, progress=None):
                 S[coding.price, coding.price] / coding.price_scale ** 2 if coding.price is not None else np.nan]
 
     cfg = inp["settings"]
-    r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
+    pairs = [tuple(p) for p in inp.get("interactions") or []]
+    main_sets = person_sets
+    extra = {}
+    if pairs:  # the interactions taken over: parameters common to all persons after the k of the main effects
+        from app import conjoint_interactions as ww
+
+        person_sets = [ww.with_pairs(sets, coding, pairs) for sets in person_sets]
+        blocks = [ww.prior_block(coding, a, b) for a, b in pairs]
+        m = sum(len(B) for B in blocks)
+        prior_fixed = np.zeros((m, m))
+        at = 0
+        for B in blocks:
+            prior_fixed[at:at + len(B), at:at + len(B)] = B
+            at += len(B)
+        extra = {"fixed": list(range(k, k + m)), "fixed_prior": prior_fixed}
+    r = hb.estimate(person_sets, k + (len(extra["fixed"]) if pairs else 0), burn=cfg["burn"], draws=cfg["draws"],
+                    thin=cfg["thin"], seed=cfg["seed"],
                     prior_cov=_prior(coding), summary=summary, progress=progress, spread=spread,
-                    **maxdiff_hb.prior_args(cfg, _prior_groups(coding)))
+                    **maxdiff_hb.prior_args(cfg, _prior_groups(coding)), **extra)
     beta = r["beta"]
     S = r["summaries"]
-    # all parameters of mu and the means the page shows (part-worths, constant, price)
-    diag = hb_convergence.diagnose(r["mu_trace"], r["ll_trace"], geweke_ok=r["converged"], shown=S,
+    # all parameters of mu (and the fixed interactions) and the means the page shows (part-worths, constant, price)
+    diag = hb_convergence.diagnose(np.hstack([r["mu_trace"], r["fixed_trace"]]) if pairs else r["mu_trace"],
+                                   r["ll_trace"], geweke_ok=r["converged"], shown=S,
                                    sigma=r["sigma_trace"], person=r["person_rhat"])
     lo, hi = np.percentile(S, [2.5, 97.5], axis=0) if S is not None and len(S) else (None, None)
     t = len(M)
     # what the data leave open (as in choice_model.summarise): there the prior sets the values
-    everything = [s for sets in person_sets for s in sets]
+    everything = [s for sets in main_sets for s in sets]
     separated = coding.separated(everything)
     free = undetermined(everything, k)
     loose = sorted({a for a, _ in separated} | {a for a in coding.effects
@@ -252,6 +289,36 @@ def run(inp, progress=None):
         out.update(price=[float(f"{x:.6g}") for x in beta[:, coding.price] / coding.price_scale],
                    price_lo=None if lo is None else float(f"{lo[pos]:.6g}"),
                    price_hi=None if hi is None else float(f"{hi[pos]:.6g}"))
+    if pairs:
+        out["interactions"] = _interaction_summary(coding, pairs, r, inp.get("ww_price_levels"))
+        out["ww_draws"] = hb.pack_draws(r["fixed_draws"])
+        out["fixed_acceptance"] = r["fixed_acceptance"]
+    return out
+
+
+def _interaction_summary(coding, pairs, r, price_levels):
+    """Per taken-over pair: its columns, the mean and 95 % interval of each parameter, and of every combination of
+    levels (La x Lb; price: per price level) from all kept draws."""
+    from app import conjoint_interactions as ww
+
+    out, at = [], 0
+    trace = np.asarray(r["fixed_trace"], dtype=float)
+    for a, b in pairs:
+        m = len(ww.attribute_columns(coding, a)) * len(ww.attribute_columns(coding, b))
+        part = trace[:, at:at + m]
+        C = ww.cell_matrix(coding, a, b, price_levels)
+        La = len(ww.level_codes(coding, a, price_levels))
+        Lb = len(ww.level_codes(coding, b, price_levels))
+        row = {"a": a, "b": b, "start": at, "cols": m,
+               "mean": np.round(r["fixed"][at:at + m], 4).tolist(),
+               "lo": np.round(r["fixed_lo"][at:at + m], 4).tolist(), "hi": np.round(r["fixed_hi"][at:at + m], 4).tolist()}
+        if len(C) and len(part):
+            cells = part @ C.T                                           # draws x cells
+            lo, hi = np.percentile(cells, [2.5, 97.5], axis=0)
+            row.update(cells=np.round(cells.mean(axis=0), 4).reshape(La, Lb).tolist(),
+                       cells_lo=np.round(lo, 4).reshape(La, Lb).tolist(), cells_hi=np.round(hi, 4).reshape(La, Lb).tolist())
+        out.append(row)
+        at += m
     return out
 
 
@@ -275,9 +342,36 @@ def draw_parameters(result):
         return {"util": util, "price": price, "asc": asc}
     coding = _coding(result["coding"])
     M = np.array([coding.level_vector(a, lv) for a, _, n in result["spans"] for lv in range(n)])
-    return {"util": B @ M.T if len(M) else np.zeros(B.shape[:2] + (0,)),
-            "price": None if coding.price is None else B[:, :, coding.price] / coding.price_scale,
-            "asc": None if coding.asc is None else B[:, :, coding.asc]}
+    out = {"util": B @ M.T if len(M) else np.zeros(B.shape[:2] + (0,)),
+           "price": None if coding.price is None else B[:, :, coding.price] / coding.price_scale,
+           "asc": None if coding.asc is None else B[:, :, coding.asc]}
+    if result.get("interactions"):
+        out["ww"] = interaction_terms(result, hb.unpack_draws(result.get("ww_draws")))
+    return out
+
+
+def interaction_terms(result, fixed_draws=None):
+    """The taken-over interactions as the simulator adds them to a concept (choice_predict.interaction_utilities):
+    two attributes with levels {"kind": "levels", "a", "b", "T": draws x La x Lb}; the linear price with an attribute
+    {"kind": "price", "attr": the other attribute, "S": draws x its levels, per currency unit: the term is
+    S x (price - centre)}. fixed_draws: draws x all fixed parameters (None: one "draw", the posterior means)."""
+    from app import conjoint_interactions as ww
+
+    coding = _coding(result["coding"])
+    out = []
+    for row in result.get("interactions") or []:
+        a, b, start, m = row["a"], row["b"], row["start"], row["cols"]
+        G = (np.asarray(fixed_draws, dtype=float)[:, start:start + m] if fixed_draws is not None
+             else np.array(row["mean"], dtype=float)[None, :])
+        if a in coding.offsets and b in coding.offsets:
+            A, Bc = ww.level_codes(coding, a), ww.level_codes(coding, b)
+            G3 = G.reshape(len(G), A.shape[1], Bc.shape[1])
+            out.append({"kind": "levels", "a": a, "b": b, "T": np.einsum("ia,dab,jb->dij", A, G3, Bc)})
+        else:
+            other = b if a not in coding.offsets else a
+            codes = ww.level_codes(coding, other)
+            out.append({"kind": "price", "attr": other, "S": (G @ codes.T) / coding.price_scale})
+    return out
 
 
 # --- start, current result ------------------------------------------------------------------------------
@@ -360,7 +454,24 @@ def export_columns(item, result):
     if result.get("has_price_importance"):
         cols.append((f"{code}_hb_imp_price", "HB-Wichtigkeit: Preis"))
     cols.append((f"{code}_hb_rlh", "HB: Root Likelihood (Anpassungsgüte der Person)"))
+    cols += [(col, label) for col, label, _, _, _ in _interaction_columns(item, result)]
     return cols
+
+
+def _interaction_columns(item, result):
+    """[(column, label, row of result["interactions"], level of a, level of b)]: one column per combination of levels of
+    every taken-over pair, <code>_hb_ww_<attribute a>_<attribute b>_<level a>_<level b> (the same value for everyone)."""
+    attrs = item.kind.attributes(item)
+    out = []
+    for row in result.get("interactions") or []:
+        if row["a"] >= len(attrs) or row["b"] >= len(attrs) or not row.get("cells"):
+            continue
+        A, B = attrs[row["a"]], attrs[row["b"]]
+        for i, la in enumerate(A["level_labels"][:len(row["cells"])]):
+            for j, lb in enumerate(B["level_labels"][:len(row["cells"][i])]):
+                out.append((f"{item.code}_hb_ww_{A['code']}_{B['code']}_{i + 1}_{j + 1}",
+                            f"HB-Wechselwirkung (für alle gleich): {A['label']} = {la} × {B['label']} = {lb}", row, i, j))
+    return out
 
 
 def _norm(item, column):
@@ -375,6 +486,7 @@ def export_values(item, result):
     levels = _level_columns(item, result)
     imp = importances(result)  # loose attributes without importance, as on the page (D4)
     factors = diff_factors(result) if scale_of(item) == "diffs" else None
+    ww_columns = _interaction_columns(item, result)
     out = {}
     for n, pid in enumerate(result["pids"]):
         row = {col: result["util"][n][pos] for col, _, _, pos in levels}
@@ -398,6 +510,8 @@ def export_values(item, result):
         if result.get("has_price_importance"):
             row[f"{code}_hb_imp_price"] = round(float(imp[n][len(result["spans"])]), 4)
         row[f"{code}_hb_rlh"] = result["rlh"][n]
+        for col, _, ww_row, i, j in ww_columns:
+            row[col] = ww_row["cells"][i][j]
         out[pid] = row
     return out
 
@@ -455,6 +569,14 @@ def codebook_info(item, column, result, lang=None):
                           "their ranges (price: |coefficient| × price range); empty where the sum is 0")]
     if column == f"{code}_hb_price":
         return "Zahl", in_lang(lang, "Logit je Währungseinheit", "logit per currency unit"), [note]
+    if column.startswith(f"{code}_hb_ww_"):
+        return "Zahl", in_lang(lang, "Logit, für alle Personen gleich", "logit, the same for everyone"), [
+            note, in_lang(lang, "Wechselwirkung zweier Merkmale, als fester Parameter für alle Personen geschätzt "
+                                "(Effektkodierung, Zeilen und Spalten summieren sich zu 0; beim linearen Preis: Wert "
+                                "bei diesem Preis); sie kommt zu den Teilnutzen der beiden Stufen hinzu",
+                          "interaction of two attributes, estimated as a fixed parameter for everyone (effects coding, "
+                          "rows and columns sum to 0; with the linear price: value at this price); it adds to the "
+                          "part-worths of the two levels")]
     if column in (f"{code}_hb_none", f"{code}_hb_threshold"):
         # CBC centres the price on the mean of its levels (cbc_analysis.choice_sets, C-3), ACBC on the mean price of
         # the concepts shown (audit 2026-10-12, W-4)
@@ -626,6 +748,33 @@ def importances(res):
     return out
 
 
+def _interaction_rows(item, res, attrs, rows, price):
+    """The taken-over interactions for the HB block: per pair the table of interaction values (mean and 95 % interval)
+    and of the combination utilities (mean part-worths of both levels plus the interaction)."""
+    out = []
+    if not res.get("interactions"):
+        return out
+    by_attr = {a: [lv["mean"] for lv in row["levels"]] for row, (a, _, _) in zip(rows, res["spans"])}
+    pa = item.kind.price_attribute(item) if item.type == "conjoint" else None
+    numbers = item.kind.level_numbers(item, pa) if pa is not None else None
+    centre = (res.get("coding") or {}).get("price_center") or 0.0
+    if pa is not None and numbers and price is not None:
+        by_attr[pa] = [price["mean"] * (x - centre) for x in numbers]
+    for row in res["interactions"]:
+        if row["a"] >= len(attrs) or row["b"] >= len(attrs) or not row.get("cells"):
+            continue
+        A, B = attrs[row["a"]], attrs[row["b"]]
+        ua, ub = by_attr.get(row["a"]), by_attr.get(row["b"])
+        cells = row["cells"]
+        comb = ([[ua[i] + ub[j] + cells[i][j] for j in range(len(cells[i]))] for i in range(len(cells))]
+                if ua is not None and ub is not None and len(ua) == len(cells) and len(ub) == len(cells[0]) else None)
+        out.append({"a": row["a"], "b": row["b"], "label": f"{A['label']} × {B['label']}", "a_label": A["label"],
+                    "b_label": B["label"], "a_levels": A["level_labels"][:len(cells)],
+                    "b_levels": B["level_labels"][:len(cells[0])], "cells": cells, "lo": row["cells_lo"],
+                    "hi": row["cells_hi"], "comb": comb})
+    return out
+
+
 def _quartiles(column):
     """[Q1, median, Q3] of the importances of the people (shares 0 … 1): the spread the figure draws, since importances
     are bounded and often skewed, where ± SD would run past 0 or 100 % (Ralf, 2026-10-26)."""
@@ -741,6 +890,7 @@ def summary(item, res, lang):
         asc["lo"] = asc["hi"] = None
     price_levels = _price_levels(item, attrs, price, pa)
     return {"persons": n, "type": res["type"], "attributes": rows, "price": price, "asc": asc,
+            "interactions": _interaction_rows(item, res, attrs, rows, price),
             "price_levels": price_levels,
             # the same part-worths rescaled per person (SCALE_KEY), for the switch above the table; importances,
             # simulator and holdouts keep the raw values

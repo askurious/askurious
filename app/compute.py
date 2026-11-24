@@ -46,7 +46,9 @@ from app.extensions import csrf
 bp = Blueprint("compute", __name__, url_prefix="/rechenknecht")
 
 # kind -> module with run(inp, progress); the kind travels with the job, the module is imported on both machines
-KINDS = {"maxdiff_hb": "app.maxdiff_hb", "conjoint_hb": "app.conjoint_hb", "paired_hb": "app.paired_hb", "cva_hb": "app.cva_hb", "segments": "app.segments",
+KINDS = {"maxdiff_hb": "app.maxdiff_hb", "conjoint_hb": "app.conjoint_hb",
+         "conjoint_ww": "app.conjoint_interactions",  # search and confirmation of interactions (2026-11-24)
+         "paired_hb": "app.paired_hb", "cva_hb": "app.cva_hb", "segments": "app.segments",
          "sem": "app.sem_job",  # the bootstrap of a structural equation model (app/sem_model.py)
          "omega": "app.omega_job",
          "sem_power": "app.sem_power_job",  # the power of a planned SEM by simulation (SEM extensions 2026-10-17)
@@ -58,7 +60,7 @@ CODE = ("hb.py", "hb_convergence.py", "maxdiff_hb.py", "maxdiff_analysis.py", "c
         "segments.py", "latent_class.py", "lc_regression.py", "units.py", "compute.py", "compute_node.py", "sem.py", "sem_job.py",
         "omega_job.py", "intervals.py", "scales.py", "paired_hb.py", "paired_analysis.py", "cva_hb.py", "sem_means.py",
         "sem_ordinal.py", "sem_power_job.py", "sem_table.py", "panel_tables.py", "panel_power.py", "panel_models.py",
-        "panel_job.py", "sem_model.py", "sem_fit_job.py")
+        "panel_job.py", "sem_model.py", "sem_fit_job.py", "conjoint_interactions.py", "group_tests.py")
 MAX_AGE = 300        # seconds a signed message stays valid (clocks of both machines may differ a little)
 SEND_TIMEOUT = 15    # seconds for sending a job
 QUIET = 60           # seconds without a sign from the Rechenknecht before the status request asks it

@@ -439,3 +439,114 @@ def results_sim_undo(survey_id, item_id):
         db.session.commit()
     return _sim_back(survey, item, de_en("Letzte Änderung der Szenarien zurückgenommen.", "Last change of the scenarios undone.")
                      if done else None)
+
+
+# --- interactions between attributes (app/conjoint_interactions.py, 2026-11-24) ---------------------------------
+
+def _ww_item(survey_id, item_id, need=None):
+    """The survey and a CBC or ACBC question of it, for the search of interactions."""
+    from app.models import Item
+
+    survey = get_survey(survey_id, need=need) if need else get_survey(survey_id)
+    item = db.session.get(Item, item_id)
+    if item is None or item.block.survey_id != survey.id or item.type not in ("conjoint", "acbc"):
+        abort(404)
+    return survey, item
+
+
+def _ww_back(survey, item, form, message=None, error=False, anchor="ww"):
+    from flask import jsonify
+
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify(message=message, error=error)
+    if message:
+        flash(message, "error" if error else "success")
+    args = {k: form.getlist(k) for k in ("source", "all", "drop") if form.get(k)}
+    return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#{anchor}-{item.id}")
+
+
+@bp.route("/<sid:survey_id>/results/ww/<int:item_id>", methods=["POST"])
+@login_required
+def results_ww(survey_id, item_id):
+    """Start the search of interactions between the attributes of a CBC or ACBC question with its confirmation, in the
+    background like HB (app/conjoint_interactions.py), for the data pool of the results page."""
+    from app import conjoint_interactions, maxdiff_hb
+
+    survey, item = _ww_item(survey_id, item_id)
+    pool = maxdiff_hb.stamp(survey, {**data_pool(survey, request.form), "drop": True})
+    try:
+        splits = int(request.form.get("splits") or conjoint_interactions.SPLITS[0])
+    except ValueError:
+        splits = conjoint_interactions.SPLITS[0]
+    state = conjoint_interactions.start(item, maxdiff_hb.pool_table(survey, pool), pool, splits,
+                                        background=not current_app.config.get("HB_SYNC"))
+    messages = {"started": de_en("Suche gestartet; sie läuft im Hintergrund, die Seite zeigt den Stand.",
+                                 "Search started; it runs in the background, the page shows how far it is."),
+                "running": de_en("Für diese Frage läuft bereits eine Suche.", "A search is already running for this question."),
+                "current": de_en("Die gespeicherte Suche passt schon zu diesen Daten.",
+                                 "The saved search already fits these data."),
+                "nodata": de_en("Für die Suche fehlen Daten (wie für die HB-Schätzung) oder Merkmalspaare.",
+                                "The search lacks data (as for the HB estimation) or pairs of attributes.")}
+    return _ww_back(survey, item, request.form, messages[state], error=state == "nodata")
+
+
+@bp.route("/<sid:survey_id>/results/ww/<int:item_id>/status")
+@login_required
+def results_ww_status(survey_id, item_id):
+    """How far a running search is: {"state", "progress"}; any other state lets the page reload."""
+    from flask import jsonify
+
+    from app import conjoint_interactions
+
+    _, item = _ww_item(survey_id, item_id)
+    marker = conjoint_interactions.running(item)
+    response = (jsonify(state=marker["state"], progress=marker.get("progress") or 0.0, queued=bool(marker.get("queued")))
+                if marker else jsonify(state="done"))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@bp.route("/<sid:survey_id>/results/ww/<int:item_id>/adopt", methods=["POST"])
+@login_required
+def results_ww_adopt(survey_id, item_id):
+    """Take a confirmed pair into the HB model or out of it (item.config["hb_interactions"], attribute ids). The HB
+    estimate is then no longer current, like after another prior (conjoint_hb.model_input: the pairs are in its key);
+    removing works for any pair taken over."""
+    from app import conjoint_interactions
+
+    survey, item = _ww_item(survey_id, item_id, need="editor")
+    take = request.form.get("take") == "1"
+    a, b = request.form.get("a") or "", request.form.get("b") or ""
+    if take:
+        stored = conjoint_interactions.load(item) or {}
+        ids = [x.get("id") for x in item.config.get("attributes", [])]
+        confirmed = {tuple(sorted((ids[r["a"]], ids[r["b"]]))) for r in stored.get("rows") or []
+                     if r.get("status") == "confirmed" and r["a"] < len(ids) and r["b"] < len(ids)}
+        if tuple(sorted((a, b))) not in confirmed:
+            return _ww_back(survey, item, request.form, de_en("Nur bestätigte Wechselwirkungen lassen sich übernehmen.",
+                                                              "Only confirmed interactions can be applied."), error=True)
+    if conjoint_interactions.set_adopted(item, a, b, take):
+        db.session.commit()
+    message = (de_en("Ins HB-Modell übernommen. Bitte die HB-Schätzung neu starten.",
+                     "Applied to the HB model. Please start the HB estimation again.") if take else
+               de_en("Aus dem HB-Modell entfernt. Bitte die HB-Schätzung neu starten.",
+                     "Removed from the HB model. Please start the HB estimation again."))
+    return _ww_back(survey, item, request.form, message, anchor="hb")
+
+
+@bp.route("/<sid:survey_id>/results/ww/<int:item_id>.csv")
+@login_required
+def results_ww_csv(survey_id, item_id):
+    """The table of the search as CSV."""
+    from flask import Response as FlaskResponse
+
+    from app import conjoint_interactions
+    from app.lang import current
+
+    survey, item = _ww_item(survey_id, item_id)
+    stored = conjoint_interactions.load(item)
+    if not stored:
+        abort(404)
+    body = "﻿" + conjoint_interactions.csv_text(item, stored, current())
+    name = f"{item.code}_wechselwirkungen.csv"
+    return FlaskResponse(body, mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={name}"})
