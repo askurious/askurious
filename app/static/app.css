@@ -2880,6 +2880,9 @@ td[data-mq-kind="text"] .mq-options { display: none; }
 .ww-table td.num .hint { display: block; }
 .ww-dialog { max-width: min(860px, 96vw); }
 .ww-dialog form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.ww-suggest { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0 0; }
+.ww-suggest .ww-copy { flex: none; width: 30px; height: 30px; border-color: var(--border); }
+.ww-suggest .ww-copy.is-done { color: var(--ok); }
 /* segments (app/segments.py, _segments.html): one colour per segment, the same in every table and bar */
 .lc-c1 { --seg: var(--chart-1); } .lc-c2 { --seg: var(--chart-2); } .lc-c3 { --seg: var(--chart-3); }
 .lc-c4 { --seg: var(--chart-4); } .lc-c5 { --seg: var(--chart-5); } .lc-c6 { --seg: var(--chart-6); }

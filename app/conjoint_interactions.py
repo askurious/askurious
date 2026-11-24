@@ -20,13 +20,19 @@ Does a combination of two levels do more (or less) than the sum of their part-wo
    the design, levels only in fixed combinations: app/choice_model.undetermined, or no finite covariance) is "nicht
    schätzbar". Per pair the count of every combination of levels among the concepts shown (MIN_CELL warns).
 2. Confirmation, for every pair with a Holm p below ALPHA (Gelman, Hwang & Vehtari, 2014: judge a model by how it
-   predicts data it was not fitted to). With holdout tasks (app/holdouts.py, CBC) those, else per person one task
-   held out at random, in `splits` divisions (3, selectable 5). On the training tasks HB with the main effects and HB
-   with the pair's interaction as parameters common to all persons (app/hb.py `fixed`; Train, 2009; Rossi et al.,
-   2005), each predicting the held-out choices over its kept draws: summed log-likelihood and hit rate per division.
-   "bestätigt" only when the log-likelihood improves in the mean and in at least two thirds of the divisions (2 of 3,
-   4 of 5, the one of the holdouts); otherwise "auffällig, nicht bestätigt". The HB test "nach HB" alone is too
-   optimistic, since the HB utilities were estimated on the same tasks.
+   predicts data it was not fitted to). With holdout tasks (app/holdouts.py, CBC) those. Else by default (since
+   2026-11-24, Ralf) every task once (leave-one-task-out, Stone, 1974; k-fold cross-validation with k = the number of
+   tasks, Kohavi, 1995): fold t holds out task t of every person, so every held-out choice is predicted exactly once
+   and nothing depends on a random draw (more than TASK_FOLDS_MAX tasks: the positions modulo GROUPED_FOLDS, 10
+   folds); persons with one task stay in training. Or per person one task held out at random in 3 or 5 divisions
+   (repeated random splitting, Picard & Cook, 1984). On the training tasks HB with the main effects and HB with the
+   pair's interaction as parameters common to all persons (app/hb.py `fixed`; Train, 2009; Rossi et al., 2005), each
+   predicting the held-out choices over its kept draws: summed log-likelihood and hit rate per division. "bestätigt":
+   every task once: per person the summed log-likelihood with minus without the interaction, mean > 0 and a one-sided
+   paired t-test over persons below ALPHA (the person is the unit, as in the robust tests); random divisions: the
+   log-likelihood improves in the mean and in at least two thirds of the divisions (2 of 3, 4 of 5, the one of the
+   holdouts). Otherwise "auffällig, nicht bestätigt". The HB test "nach HB" alone is too optimistic, since the HB
+   utilities were estimated on the same tasks. Per person only aggregates are kept (mean, SD, n, t, p).
 3. Taking over (app/conjoint_hb.py): a confirmed pair can go into the HB model as a fixed interaction
    (item.config[CONFIG_KEY], attribute ids); simulator, export and report then use it.
 
@@ -48,7 +54,10 @@ FORMAT = 1
 CONFIG_KEY = "hb_interactions"  # item.config: [[attribute id, attribute id], ...] taken into the HB model
 ALPHA = 0.05      # Holm p below this: confirmation; the usual level
 MIN_CELL = 30     # combinations of two levels shown fewer times: a warning (Askurious's choice, about 30 per cell)
-SPLITS = (3, 5)   # divisions of the confirmation without holdout tasks; 3 is the default (E4)
+TASKS = 0         # value of "jede Aufgabe einmal" (leave-one-task-out) among SPLITS, the default since 2026-11-24
+SPLITS = (TASKS, 3, 5)  # confirmation without holdout tasks: every task once, or 3 or 5 random divisions
+TASK_FOLDS_MAX = 12  # more tasks per person: the positions are grouped modulo GROUPED_FOLDS (fewer HB runs)
+GROUPED_FOLDS = 10
 KEEP = 100        # kept draws of an HB run of the confirmation that predict the held-out choices
 PARALLEL = 4      # HB runs of the confirmation side by side by default (WW_PARALLEL; as many as hb_chains.CHAINS)
 HOLM = ("Holm, S. (1979). A simple sequentially rejective multiple test procedure. Scandinavian Journal of Statistics, "
@@ -64,7 +73,15 @@ GELMAN_HWANG_VEHTARI = ("Gelman, A., Hwang, J., & Vehtari, A. (2014). Understand
                         "https://doi.org/10.1007/s11222-013-9416-2")
 ROSSI = ("Rossi, P. E., Allenby, G. M., & McCulloch, R. (2005). Bayesian statistics and marketing. Wiley. "
          "https://doi.org/10.1002/0470863692")
-SOURCES = (HAINMUELLER, EGAMI_IMAI, HOLM, CAMERON, MCFADDEN, GELMAN_HWANG_VEHTARI, TRAIN, ROSSI)
+STONE = ("Stone, M. (1974). Cross-validatory choice and assessment of statistical predictions. Journal of the Royal "
+         "Statistical Society: Series B (Methodological), 36(2), 111–147. "
+         "https://doi.org/10.1111/j.2517-6161.1974.tb00994.x")
+PICARD_COOK = ("Picard, R. R., & Cook, R. D. (1984). Cross-validation of regression models. Journal of the American "
+               "Statistical Association, 79(387), 575–583. https://doi.org/10.1080/01621459.1984.10478083")
+KOHAVI = ("Kohavi, R. (1995). A study of cross-validation and bootstrap for accuracy estimation and model selection. "
+          "In Proceedings of the 14th International Joint Conference on Artificial Intelligence (Vol. 2, pp. 1137–1143). "
+          "Morgan Kaufmann.")
+SOURCES = (HAINMUELLER, EGAMI_IMAI, HOLM, CAMERON, MCFADDEN, GELMAN_HWANG_VEHTARI, STONE, PICARD_COOK, TRAIN, ROSSI)
 
 
 # --- coding of the pairs ------------------------------------------------------------------------------------------
@@ -338,12 +355,62 @@ def divisions(person_sets, coding, count, seed):
     return out
 
 
-def predict(test_sets, draws, fixed_draws=None):
+def fold_count(person_sets, coding):
+    """(folds, grouped) of "jede Aufgabe einmal": as many as the most tasks of a person, GROUPED_FOLDS beyond
+    TASK_FOLDS_MAX; 0 when nobody has two tasks."""
+    most = max((len(tasks_of(sets, coding)) for sets in person_sets), default=0)
+    if most > TASK_FOLDS_MAX:
+        return GROUPED_FOLDS, True
+    return (most if most >= 2 else 0), False
+
+
+def task_folds(person_sets, coding):
+    """([(training sets per person, held-out sets per person)], grouped): fold f holds out the tasks at the positions
+    t with t mod folds = f of every person with two tasks or more (without grouping: task f), so every task of those
+    persons is held out exactly once; persons with one task stay in training."""
+    count, grouped = fold_count(person_sets, coding)
+    tasks = [tasks_of(sets, coding) for sets in person_sets]
+    parts = []
+    for f in range(count):
+        train, test = [], []
+        for t in tasks:
+            if len(t) < 2:
+                train.append([s for task in t for s in task])
+                test.append([])
+                continue
+            train.append([s for n, task in enumerate(t) if n % count != f for s in task])
+            test.append([s for n, task in enumerate(t) if n % count == f for s in task])
+        parts.append((train, test))
+    return parts, grouped
+
+
+def paired(diff):
+    """One-sided paired t-test over persons of the per-person differences (with minus without): {"n", "mean", "sd",
+    "t", "df", "p"}; t and p None with fewer than two persons or no spread."""
+    from app.intervals import t_cdf
+
+    d = np.asarray(diff, dtype=float)
+    n = int(d.size)
+    out = {"n": n, "mean": round(float(d.mean()), 4) if n else None, "sd": None, "t": None, "df": None, "p": None}
+    if n < 2:
+        return out
+    sd = float(d.std(ddof=1))
+    out["sd"] = round(sd, 4)
+    if sd > 0:
+        t = float(d.mean()) / (sd / math.sqrt(n))
+        out.update({"t": round(t, 3), "df": n - 1, "p": round(float(1 - t_cdf(t, n - 1)), 6)})
+    return out
+
+
+def predict(test_sets, draws, fixed_draws=None, people=False):
     """(summed log-likelihood, hits, choices) of the held-out sets: per set the choice probabilities averaged over the
-    kept draws (betas draws x persons x k, fixed parameters draws x m for the columns after the k)."""
+    kept draws (betas draws x persons x k, fixed parameters draws x m for the columns after the k). people: also the
+    summed log-likelihood of every person (fourth value)."""
     ll, hits, total = 0.0, 0.0, 0
+    each = []
     k = draws.shape[2]
     for n, sets in enumerate(test_sets):
+        mine = 0.0
         for s in sets:
             X = np.asarray(s.X, dtype=float)
             if not 0 <= s.chosen < len(X):
@@ -354,11 +421,14 @@ def predict(test_sets, draws, fixed_draws=None):
             U = U - U.max(axis=0, keepdims=True)
             P = np.exp(U)
             P = (P / P.sum(axis=0, keepdims=True)).mean(axis=1)
-            ll += math.log(max(P[s.chosen], 1e-300))
+            v = math.log(max(P[s.chosen], 1e-300))
+            ll += v
+            mine += v
             best = np.flatnonzero(P >= P.max() - 1e-12)
             hits += (s.chosen in best) / len(best)
             total += 1
-    return ll, hits, total
+        each.append(mine)
+    return (ll, hits, total, each) if people else (ll, hits, total)
 
 
 def needed(count):
@@ -420,11 +490,17 @@ def confirm(person_sets, coding, pairs, cfg, prior_cov, prior_kwargs, splits=3, 
             workers=None):
     """{pair: {"ll_with", "ll_without", "hit_with", "hit_without", "choices", "delta", "mean", "lo", "hi", "better",
     "confirmed"}} for the pairs (see the module text). holdout_sets: held-out sets per person (with the interaction
-    columns computed on the fly), or None for divisions. workers: processes for the HB runs (None: processes())."""
+    columns computed on the fly), or None for divisions: splits = TASKS every task once (then also "persons", the
+    paired test over persons, "hit_all_with"/"hit_all_without" over all folds and "grouped"), else that many random
+    divisions. workers: processes for the HB runs (None: processes())."""
     from app import hb, hb_chains
 
+    by_task = holdout_sets is None and splits == TASKS
+    grouped = False
     if holdout_sets is not None:
         parts = [(person_sets, holdout_sets)]
+    elif by_task:
+        parts, grouped = task_folds(person_sets, coding)
     else:
         parts = divisions(person_sets, coding, splits, cfg.get("seed", 1))
     k = coding.k
@@ -453,29 +529,47 @@ def confirm(person_sets, coding, pairs, cfg, prior_cov, prior_kwargs, splits=3, 
             results.append(hb.estimate(train, kk, progress=step, **kw))
 
     out = {tuple(p): {"ll_with": [], "ll_without": [], "hit_with": [], "hit_without": [], "choices": []} for p in pairs}
+    gain = {tuple(p): np.zeros(len(person_sets)) for p in pairs}   # per person, only while counting; never stored
+    hits = {tuple(p): [0.0, 0.0, 0] for p in pairs}
+    held = np.zeros(len(person_sets), dtype=bool)
     n = 0
     for d, (train, test) in enumerate(parts):
         r0 = results[n]
         n += 1
-        ll0, hit0, total = predict(test, r0["draws"])
+        ll0, hit0, total, each0 = predict(test, r0["draws"], people=True)
+        held |= np.array([bool(t) for t in test], dtype=bool)
         for a, b in pairs:
             r1 = results[n]
             n += 1
-            ll1, hit1, _ = predict(with_pairs_people(test, coding, [(a, b)]), r1["draws"], r1["fixed_draws"])
+            ll1, hit1, _, each1 = predict(with_pairs_people(test, coding, [(a, b)]), r1["draws"], r1["fixed_draws"],
+                                          people=True)
+            gain[(a, b)] += np.asarray(each1) - np.asarray(each0)
+            hits[(a, b)][0] += hit0
+            hits[(a, b)][1] += hit1
+            hits[(a, b)][2] += total
             row = out[(a, b)]
             row["ll_with"].append(round(ll1, 3))
             row["ll_without"].append(round(ll0, 3))
             row["hit_with"].append(round(hit1 / total, 4) if total else None)
             row["hit_without"].append(round(hit0 / total, 4) if total else None)
             row["choices"].append(total)
-    for row in out.values():
+    for pair, row in out.items():
         delta = [w - wo for w, wo in zip(row["ll_with"], row["ll_without"])]
         row["delta"] = [round(x, 3) for x in delta]
         row["mean"] = round(float(np.mean(delta)), 3) if delta else None
         row["lo"], row["hi"] = (round(min(delta), 3), round(max(delta), 3)) if delta else (None, None)
         row["better"] = sum(1 for x in delta if x > 0)
-        row["needed"] = needed(len(delta))
-        row["confirmed"] = bool(delta) and row["mean"] > 0 and row["better"] >= row["needed"]
+        if by_task:
+            test = paired(gain[pair][held])
+            h0, h1, total = hits[pair]
+            row.update({"mode": "tasks", "grouped": grouped, "persons": test, "needed": None,
+                        "mean": round(test["mean"], 3) if test["mean"] is not None else None,
+                        "hit_all_without": round(h0 / total, 4) if total else None,
+                        "hit_all_with": round(h1 / total, 4) if total else None})
+            row["confirmed"] = bool(test["p"] is not None and test["mean"] > 0 and test["p"] < ALPHA)
+        else:
+            row["needed"] = needed(len(delta))
+            row["confirmed"] = bool(delta) and row["mean"] > 0 and row["better"] >= row["needed"]
     return out
 
 
@@ -529,11 +623,16 @@ def run(inp, progress=None):
             r["status"] = "confirmed" if c and c["confirmed"] else "notable"
     if progress:
         progress(1.0)
+    splits = int(inp.get("splits", 3))
+    if inp.get("holdouts"):
+        how = {"mode": "holdouts", "splits": 1, "needed": 1}
+    elif splits == TASKS:
+        folds, grouped = fold_count(person_sets, coding)
+        how = {"mode": "tasks", "splits": folds, "needed": None, "grouped": grouped}
+    else:
+        how = {"mode": "split", "splits": splits, "needed": needed(splits)}
     return {"format": FORMAT, "key": inp["key"], "data_key": inp["data_key"], "hb_key": inp.get("hb_key"),
-            "type": inp["type"], "with_hb": hb_beta is not None, "rows": rows,
-            "confirm": {"mode": "holdouts" if inp.get("holdouts") else "split",
-                        "splits": 1 if inp.get("holdouts") else int(inp.get("splits", 3)),
-                        "needed": needed(1 if inp.get("holdouts") else int(inp.get("splits", 3)))},
+            "type": inp["type"], "with_hb": hb_beta is not None, "rows": rows, "confirm": how,
             "flagged": len(flagged), "persons": len(person_sets), "seconds": round(time.monotonic() - started, 1)}
 
 
@@ -584,7 +683,7 @@ def _holdout_input(item, table, coding):
     return sorted(by_person.items(), key=lambda kv: str(kv[0])) or None
 
 
-def build_input(item, table, splits=3, hb_result=None):
+def build_input(item, table, splits=TASKS, hb_result=None):
     """Everything the job needs, or None (no HB input: too few persons or no design)."""
     from app import conjoint_hb
 
@@ -645,7 +744,7 @@ def running(item):
     return jobs.marker(_paths(item))
 
 
-def start(item, table, pool, splits=3, background=True):
+def start(item, table, pool, splits=TASKS, background=True):
     """"started", "running", "current" or "nodata"."""
     from flask import current_app
 
@@ -723,7 +822,16 @@ def view(item, table, hb_view, lang):
            "hb_current": bool(hb_view and hb_view.get("state") == "current"),
            "hb_seconds": ((hb_view or {}).get("result") or {}).get("seconds") if hb_view else None,
            "holdouts": item.type == "conjoint" and bool(_holdouts_active(item)), "splits": SPLITS}
-    out["runtime"] = runtime_minutes(out["hb_seconds"], 1 if out["holdouts"] else SPLITS[0])
+    out["folds"] = None
+    if available and not out["holdouts"]:
+        out["folds"], out["grouped"] = fold_count(
+            [[ChoiceSet(np.asarray(X, dtype=float), chosen) for X, chosen in p["sets"]] for p in hb_inp["persons"]],
+            conjoint_hb._coding(hb_inp["coding"]))
+    # per option of the select: (minutes of the base runs, minutes per notable pair)
+    out["runtimes"] = {s: runtime_minutes(out["hb_seconds"], out["folds"] if s == TASKS else s) for s in SPLITS
+                       if not (s == TASKS and not out["folds"])}
+    out["runtime"] = (runtime_minutes(out["hb_seconds"], 1) if out["holdouts"]
+                      else out["runtimes"].get(TASKS) or out["runtimes"].get(3))
     return _state(item, out, lang)
 
 
@@ -759,7 +867,8 @@ def _state(item, out, lang):
 
 
 def summary(item, res, lang):
-    """Rows with labels for the template and the dialog tables."""
+    """Rows with labels for the template and the dialog tables, each with its "suggestion" in the page language."""
+    from app.lang import english
     from app.timeutil import to_local
     from datetime import datetime
 
@@ -777,11 +886,114 @@ def summary(item, res, lang):
                      "status_label": status_label(r["status"]), "cells": cells,
                      "adopted": (r["a"], r["b"]) in adopted_now,
                      "few": 0 < r.get("min_cell", 0) < MIN_CELL or r.get("min_cell", 0) == 0})
+        rows[-1]["suggestion"] = suggestion(rows[-1], res.get("confirm"), english())
     created = res.get("created")
     return {"rows": rows, "with_hb": res.get("with_hb"), "confirm": res.get("confirm"), "flagged": res.get("flagged"),
             "persons": res.get("persons"), "seconds": res.get("seconds"), "min_cell": MIN_CELL, "alpha": ALPHA,
             "hb_key": res.get("hb_key"),
             "created": to_local(datetime.fromisoformat(created)) if created else None}
+
+
+# --- the suggested wording ---------------------------------------------------------------------------------------
+
+def _dec(x, places, english, signed=False):
+    from app import units
+
+    s = units.fixed(x, places, signed=signed)
+    return s if english else s.replace(".", ",")
+
+
+def _p_is(p, english):
+    """"= ,012" or "< ,001" (German), "= .012" or "< .001" (English), as the tables write p."""
+    from app import units
+
+    s = units.p_bare(p, "en" if english else "de")
+    return s if s.startswith("<") else f"= {s}"
+
+
+def _named_cells(r, english):
+    """The (at most two) strongest combinations whose interval excludes 0, "" without one."""
+    cells = r.get("cells") or {}
+    found = []
+    for i, la in enumerate(r.get("a_levels") or []):
+        for j, lb in enumerate(r.get("b_levels") or []):
+            try:
+                w, lo, hi = cells["w"][i][j], cells["lo"][i][j], cells["hi"][i][j]
+            except (KeyError, IndexError, TypeError):
+                continue
+            if lo > 0 or hi < 0:
+                found.append((abs(w), f"{la} × {lb} ({_dec(w, 2, english, True)} "
+                                      f"[{_dec(lo, 2, english)}; {_dec(hi, 2, english)}])"))
+    found.sort(key=lambda x: -x[0])
+    names = [n for _, n in found[:2]]
+    if not names:
+        return ""
+    if english:
+        return ("the combination " if len(names) == 1 else "the combinations ") + " and ".join(names)
+    return ("die Kombination " if len(names) == 1 else "die Kombinationen ") + " und ".join(names)
+
+
+def _evidence(c, how, english, confirmed):
+    """The figures of the confirmation in the suggestion: divisions, holdouts or every task once."""
+    mode = (c or {}).get("mode") or (how or {}).get("mode") or "split"
+    if mode == "tasks":
+        t = c.get("persons") or {}
+        folds = len(c.get("delta") or [])
+        if t.get("t") is None:
+            return None
+        fig = dict(T=folds, d=_dec(c["mean"], 2, english, True), df=t["df"], t=_dec(t["t"], 2, english),
+                   p=_p_is(t["p"], english))
+        if english:
+            over = "all tasks in {T} folds" if c.get("grouped") else "all {T} tasks"
+            return ("cross-validation over " + over + " (each task held out once): Δ LL = {d} per person on average, "
+                    "t({df}) = {t}, p {p}").format(**fig)
+        over = "alle Aufgaben in {T} Teilen" if c.get("grouped") else "alle {T} Aufgaben"
+        return ("Kreuzvalidierung über " + over + " (jede Aufgabe einmal zurückgehalten): Δ LL = {d} je Person im "
+                "Mittel, t({df}) = {t}, p {p}").format(**fig)
+    d = _dec(c["mean"], 1, english, True)
+    if mode == "holdouts":
+        return f"holdout tasks, Δ LL = {d}" if english else f"Holdout-Aufgaben, Δ LL = {d}"
+    b, n = c["better"], len(c["delta"])
+    if english:
+        return f"{b} of {n} divisions, Δ LL = {d}" if confirmed else f"better in {b} of {n} divisions, Δ LL = {d}"
+    return f"{b} von {n} Aufteilungen, Δ LL = {d}" if confirmed else f"{b} von {n} Aufteilungen besser, Δ LL = {d}"
+
+
+def suggestion(r, how, english):
+    """A sentence for a paper on the pair r (a row of summary(), with labels), chosen by its status: confirmed,
+    notable, no indication, not estimable. how: res["confirm"] (the kind of confirmation). The test is the one the
+    status rests on (after HB when there is one)."""
+    A, B = r.get("a_label", "?"), r.get("b_label", "?")
+    status = r.get("status")
+    if status == "na" or not r.get("estimable", True):
+        return (f"The interaction between {A} and {B} could not be estimated because of the experimental design."
+                if english else
+                f"Die Wechselwirkung zwischen {A} und {B} ließ sich wegen des Versuchsplans nicht schätzen.")
+    p = _p_is(r.get("p_holm"), english)
+    if status == "none":
+        return (f"No indication of an interaction between {A} and {B} was found (p (Holm) {p})." if english else
+                f"Zwischen {A} und {B} fand sich kein Hinweis auf eine Wechselwirkung (p (Holm) {p}).")
+    c = r.get("confirm")
+    ev = _evidence(c, how, english, status == "confirmed") if c else None
+    holdouts = ((c or {}).get("mode") or (how or {}).get("mode")) == "holdouts"
+    if status == "confirmed":
+        test = (r.get("hb") if (r.get("hb") or {}).get("estimable") else r.get("simple")) or {}
+        chi = (f"χ²({test['df']}) = {_dec(test['lr'], 2, english)}, " if test.get("lr") is not None else "")
+        cells = _named_cells(r, english)
+        if english:
+            text = (f"An interaction between {A} and {B} emerged ({chi}p (Holm) {p}) that also improved the prediction "
+                    f"of held-out choices" + (f" ({ev})." if ev else "."))
+            return text + (f" It stems mainly from {cells}." if cells else "")
+        text = (f"Zwischen {A} und {B} zeigte sich eine Wechselwirkung ({chi}p (Holm) {p}), die auch die Vorhersage "
+                f"zurückgehaltener Wahlen verbesserte" + (f" ({ev})." if ev else "."))
+        return text + (f" Sie geht vor allem auf {cells} zurück." if cells else "")
+    if english:
+        where = "on the holdout tasks" if holdouts else "in the cross-validation"
+        return (f"There are indications of an interaction between {A} and {B} (p (Holm) {p}), which, however, did not "
+                f"prove relevant for prediction {where}" + (f" ({ev})." if ev else "."))
+    where = "an den Holdout-Aufgaben" if holdouts else "in der Kreuzvalidierung"
+    return (f"Es gibt Hinweise auf eine Wechselwirkung zwischen {A} und {B} (p (Holm) {p}), die sich {where} jedoch "
+            f"nicht als vorhersagerelevant erwies" + (f" ({ev})." if ev else "."))
 
 
 def csv_text(item, res, lang):

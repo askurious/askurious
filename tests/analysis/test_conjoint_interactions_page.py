@@ -74,6 +74,49 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
     assert " open>" in block[:80] and "bestätigt" in block and "Suche neu starten" in block
     assert block.count("data-ww-row") == 3 and 'data-dialog-open="ww-dlg-2-' in block
     assert "Ins HB-Modell übernehmen" in html and "Wie oft gezeigt" in html
+    # a stored search with random divisions (as before 2026-11-24) still shows as before, now with the reading aids,
+    # the scale of the combination table and the suggested wording with its copy button
+    assert "2 von 3 besser" in block or "3 von 3 besser" in block or "1 von 3 besser" in block
+    assert "Formulierungsvorschlag" in html and "data-ww-copy=" in html and "Skala: HB-Teilnutzen ×" in html
+    assert "zeigte sich eine Wechselwirkung (χ²(" in html and "Aufteilungen, Δ LL = +" in html
+    from app.models import User
+
+    with app.app_context():                                   # the "?" of the learning aids, switched on on "Konto"
+        db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X")).learning_aids = True
+        db.session.commit()
+    aided = client.get("/surveys/1/results").data.decode()
+    for key in ("ww_cell", "ww_comb", "ww_shown", "ww_wald", "ww_ll", "ww_suggest", "ww_confirm"):
+        assert f'#{key}"' in aided, key
+    # the select: every task once is the default, the random divisions name their source
+    select = block.split("data-ww-splits>", 1)[1].split("</select>", 1)[0]
+    assert select.index('value="0"') < select.index('value="3"') < select.index('value="5"')
+    assert "jede Aufgabe einmal (Standard; Stone, 1974)" in select and "3 zufällige Aufteilungen (schnell; Picard" in select
+    # the methods text carries the sentence per flagged pair and its sources
+    from app import methods
+
+    with app.app_context():
+        item = db.session.get(Item, 2)
+        w = methods._interactions(item, None)
+        assert w["say_de"] and any("zeigte sich eine Wechselwirkung" in s for s in w["say_de"])
+        assert "zeigte sich eine Wechselwirkung" in methods._ww_de({"ww": w})
+        assert "results: An interaction between" in methods._ww_en({"ww": w})
+        # a search with "jede Aufgabe einmal" shows the paired test over persons instead of the divisions
+        from app import maxdiff_hb
+
+        tasks = dict(stored, confirm={"mode": "tasks", "splits": 10, "needed": None, "grouped": False})
+        tasks["rows"] = [dict(r, confirm=(dict(r["confirm"], mode="tasks", grouped=False, needed=None,
+                                               delta=[0.4] * 10, mean=0.052, hit_all_with=0.61, hit_all_without=0.58,
+                                               persons={"n": 160, "mean": 0.052, "sd": 0.2, "t": 3.29, "df": 159,
+                                                        "p": 0.0006})
+                                          if r.get("confirm") else None)) for r in stored["rows"]]
+        maxdiff_hb._write(ww._paths(item)[0], tasks)
+        w = methods._interactions(item, None)
+        assert "Kreuzvalidierung über alle 10 Aufgaben" in methods._ww_de({"ww": w})
+    html = client.get("/surveys/1/results").data.decode()
+    assert "Kreuzvalidierung über alle 10 Aufgaben (jede Aufgabe einmal zurückgehalten): Δ LL = 0,05 je Person" in html
+    assert "t(159) = 3,29, p &lt; ,001" in html and "einseitiger t-Test über die Personen" in html
+    with app.app_context():
+        maxdiff_hb._write(ww._paths(db.session.get(Item, 2))[0], stored)
     # the search table as CSV
     rows = list(csv.reader(io.StringIO(client.get("/surveys/1/results/ww/2.csv").data.decode("utf-8-sig")), delimiter=";"))
     assert rows[0][0] == "Merkmalspaar" and len(rows) == 4 and rows[1][-1] == "bestätigt"
