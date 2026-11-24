@@ -2,6 +2,8 @@
 way of the Android app: join, enrol, entry part, study, entries of a module, leaving, deleting a person."""
 from datetime import timedelta, timezone
 
+import pytest
+
 from app import diary, theme
 from app.extensions import db
 from app.models import Block, Enrolment, Response, Survey, utcnow
@@ -174,7 +176,8 @@ def _prompt(app, minutes_ago=1, expires=60):
     with app.app_context():
         survey = db.session.get(Survey, 1)
         person = db.session.scalar(db.select(Enrolment))
-        due = datetime.now(timezone.utc).replace(second=0, microsecond=0) - timedelta(minutes=minutes_ago)
+        # the app's clock (utcnow), so that a test that pins it (_clock_at) gets its prompt at that time
+        due = diary.utcnow().replace(tzinfo=timezone.utc, second=0, microsecond=0) - timedelta(minutes=minutes_ago)
         local = due.astimezone(diary.zone(person.tz))
         if person.first_day and local.date() < person.first_day:  # just after midnight: the prompt was yesterday
             person.first_day = local.date()
@@ -343,10 +346,41 @@ def test_the_plain_link_leads_to_the_join_page_not_to_the_questionnaire(app, cli
     assert "Askurious" in browser.get(f"/j/{code}").get_data(as_text=True)
 
 
-def test_only_times_of_the_schedule_make_entries(app, client):
+def _clock_at(monkeypatch, local_time, tz="Europe/Berlin"):
+    """Pin the clock of the app (utcnow in every module of app/ that imported it) to today's local_time ("HH:MM") in tz,
+    the time zone of a new person."""
+    import sys
+    from datetime import datetime, time
+    from zoneinfo import ZoneInfo
+
+    from app import models
+
+    zone = ZoneInfo(tz)
+    local = datetime.combine(datetime.now(zone).date(), time.fromisoformat(local_time), zone)
+    fixed = local.astimezone(timezone.utc).replace(tzinfo=None)
+    patched = 0
+    for name, module in list(sys.modules.items()):
+        clock = getattr(module, "utcnow", None)
+        if (name == "app" or name.startswith("app.")) and getattr(clock, "__qualname__", "") == "utcnow"                 and getattr(clock, "__module__", "") == models.__name__:
+            monkeypatch.setattr(module, "utcnow", lambda: fixed)
+            patched += 1
+    assert patched and diary.utcnow() == fixed
+    return fixed
+
+
+@pytest.mark.parametrize("local_time", ["00:05", "12:00"])
+def test_only_times_of_the_schedule_make_entries(app, client, monkeypatch, local_time):
+    """Times the schedule does not have are refused (400), whatever the time of day: at 00:05 the probed times lie on
+    the day before, which the person's diary therefore covers too (before, it began today, and the app answered 409,
+    "ended", for a day before the diary instead of 400; a test artefact, not the app: the run of 2026-11-24 00:05)."""
+    _clock_at(monkeypatch, local_time)
     code = _new(app, client)
     phone, secret = _enrol(app, code)
     _active_from_today(app)
+    with app.app_context():  # the probed times reach up to 12 minutes back: the diary began yesterday
+        person = db.session.scalar(db.select(Enrolment))
+        person.first_day -= timedelta(days=1)
+        db.session.commit()
     due = _prompt(app, minutes_ago=5, expires=0)
     for k in (1, 2, 7):  # minutes the schedule does not have
         out = phone.post(API + "/entry", json={"module": "m1", "due": due - k * 60_000}, headers=_bearer(secret))
