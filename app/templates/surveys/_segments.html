@@ -83,7 +83,7 @@
   {% for s in res.segments %}
   <li><span class="res-bar-label">{% if editor %}<span class="lc-key lc-c{{ s.index + 1 }}"></span><input type="text" name="lc_name_{{ s.index }}" value="{{ s.name if res.names_saved else '' }}" placeholder="{{ s.name }}" maxlength="40" class="lc-name lc-c{{ s.index + 1 }}" aria-label="{{ de_en('Name für Segment {n}', 'Name for segment {n}', n=s.index + 1) }}">{% else %}<span class="lc-key lc-c{{ s.index + 1 }}"></span>{{ s.name }}{% endif %}</span>
     <span class="res-bar lc-bar lc-c{{ s.index + 1 }}"><span style="width: {{ (s.share * 100)|round(1) }}%"></span></span>
-    <span class="res-bar-n" title="{{ de_en('{n} Personen am wahrscheinlichsten hier, davon {sure} mit mindestens 80 %', '{n} people most likely here, {sure} of them with at least 80%', n=s.persons, sure=s.sure) }}">{{ pct(s.share) }}{% if s.lo is not none %} <span class="hint">[{{ pct(s.lo) }}; {{ pct(s.hi) }}]</span>{% endif %} · {{ de_en("{n} P.", "{n} pers.", n=s.persons) }}{% if f.weighted and l.sizes_weighted %}<br><span class="hint">{{ de_en("gewichtet", "weighted") }} {{ pct(l.sizes_weighted[s.index]) }}</span>{% endif %}</span></li>
+    <span class="res-bar-n" title="{{ de_en('{n} Personen am wahrscheinlichsten hier, davon {sure} mit mindestens 80 %', '{n} people most likely here, {sure} of them with at least 80%', n=s.persons, sure=s.sure) }}">{{ pct(s.share) }}{% if s.lo is not none %} <span class="hint">[{{ pct(s.lo) }}; {{ pct(s.hi) }}]</span>{% endif %} <span class="lc-n">· {{ de_en("{n} Personen", "{n} people", n=s.persons) }}</span>{% if f.weighted and l.sizes_weighted %}<br><span class="hint">{{ de_en("gewichtet", "weighted") }} {{ pct(l.sizes_weighted[s.index]) }}</span>{% endif %}</span></li>
   {% endfor %}
 </ul>
 {% endif %}
