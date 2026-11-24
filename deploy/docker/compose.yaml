@@ -471,8 +471,10 @@ services:
     pull_policy: never                     # built for the two app containers, never fetched from a registry
     restart: unless-stopped
     logging: *logging
-    # six estimations at once (COMPUTE_PARALLEL), each up to some 400 MB with its input (measured 2026-10-06), so 3 GB;
-    # the host has 22 GB since 2026-10-17, before that six took the limits past its memory (T08-N-4)
+    # three estimations at once (COMPUTE_PARALLEL) since 2026-11-24, each with 4 chain processes (app/hb_chains.py): 12
+    # processes on 12 cores. Measured: the estimation itself up to some 400 MB with its input (2026-10-06), each chain
+    # process about 95 MB at 367 persons and 170 MB at 2000 (2026-11-24), so about 1.1 GB at 2000 persons and 3 GB for
+    # three; six would need 6.5 GB, past the sum of the limits the host allows (T08-N-4)
     mem_limit: 3g
     pids_limit: 256
     tmpfs:
@@ -488,7 +490,7 @@ services:
       COMPUTE_SECRET: ${COMPUTE_SECRET}
       COMPUTE_CALLBACK: http://researcher:8000/rechenknecht
       COMPUTE_BIND: 0.0.0.0:8090
-      COMPUTE_PARALLEL: "6"
+      COMPUTE_PARALLEL: "3"
       COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-1}   # signature 1 still taken (app/compute.py, CFG-07)
     # 12 of the 24 cores since 2026-11-24: every HB estimation runs 4 chains in processes of their own (app/hb_chains.py);
     # measured that day: load about 1 of 24 cores. The low share keeps it behind the participants (2048) when cores are scarce
