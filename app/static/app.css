@@ -2828,6 +2828,7 @@ td[data-mq-kind="text"] .mq-options { display: none; }
 /* HB (app/conjoint_hb.py): value with its interval on one line; intervals and quartiles get the wider columns */
 .results-page .res-bars.hb-importance > li { grid-template-columns: minmax(110px, 200px) minmax(0, 1fr) 150px; }
 .hb-importance .res-bar-n { white-space: nowrap; }
+.lc-sizes .lc-n { white-space: nowrap; }  /* "· 77 Personen" stays on one line (Ralf, 2026-11-24) */
 .acbc-results .hb-utilities th:first-child { width: auto; }
 /* the market simulator grows with its products: content width up to the whole column, then it scrolls (Ralf, 2026-10-04) */
 .results-page .acbc-results .sim-fold .res-scroll { width: fit-content; max-width: 100%; }
