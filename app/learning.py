@@ -748,8 +748,9 @@ TERMS = {
     "mae": ("MAE", "Mittlere absolute Abweichung", "Wie weit die vorhergesagten Wahlanteile im Mittel von den "
             "beobachteten abweichen, in Prozentpunkten. Kleiner ist besser.",
             "MAE = 3,1 PP: Die Anteile liegen im Mittel um 3 Punkte daneben.", (("app.holdouts", "ORME"),)),
-    "rhat": ("R̂", "R-hat", "Ob die HB-Kette sich eingependelt hat: Vergleicht die erste mit der zweiten Hälfte der "
-             "Ziehungen. Unter 1,01 gilt sie als konvergiert.", "R̂ = 1,004: konvergiert.",
+    "rhat": ("R̂", "R-hat", "Ob die HB-Schätzung sich eingependelt hat: Vergleicht mehrere unabhängig gestartete Ketten "
+             "und je ihre erste mit der zweiten Hälfte der Ziehungen. Unter 1,01 gilt sie als konvergiert.",
+             "R̂ = 1,004: konvergiert.",
              (("app.hb_convergence", "VEHTARI"),)),
     "ess": ("ESS", "Effektive Stichprobengröße", "Wie vielen unabhängigen Ziehungen die gespeicherten entsprechen; "
             "aufeinanderfolgende Ziehungen ähneln sich. Ab 400 ist der Mittelwert verlässlich; für Intervalle zählen "
@@ -1605,8 +1606,9 @@ TERMS_EN = {
     "mae": ("MAE", "Mean absolute error", "How far the predicted choice shares differ from the observed ones on "
             "average, in percentage points. Smaller is better.",
             "MAE = 3.1 pp: the shares are off by 3 points on average."),
-    "rhat": ("R̂", "R-hat", "Whether the HB chain has settled: compares the first with the second half of the draws. "
-             "Below 1.01 it counts as converged.", "R̂ = 1.004: converged."),
+    "rhat": ("R̂", "R-hat", "Whether the HB estimation has settled: compares several independently started chains and "
+             "the first with the second half of the draws of each. Below 1.01 it counts as converged.",
+             "R̂ = 1.004: converged."),
     "ess": ("ESS", "Effective sample size", "How many independent draws the stored ones correspond to; consecutive "
             "draws are similar. From 400 the mean is reliable; for intervals the tails of the distribution matter, "
             "which this value does not check.", "ESS = 850 of 1,000 draws."),

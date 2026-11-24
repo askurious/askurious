@@ -22,6 +22,7 @@ inverse Wishart (default, nothing stored), the hierarchical prior of Huang & Wan
 df x prior_cov, Rossi et al., 2005), "wide" (app/hb.py). Only then the settings carry "prior", so the key of a result
 with the default stays what it was.
 """
+import functools
 import hashlib
 import json
 import os
@@ -32,7 +33,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from app import hb, hb_convergence
+from app import hb, hb_chains, hb_convergence
 from app.maxdiff_analysis import (anchor_sets, axis, chart, components, counts, disconnected_note, parameters,
                                   persons_from_table, prob_scores, task_sets)
 from app.lang import de_en
@@ -101,12 +102,16 @@ def prior_text(cfg, lang):
 
 def settings(app=None):
     """Default length 5000 burn-in + 20 000 iterations (audit 2026-10-05, H-2: with 10 000 the chain failed the rule of
-    app/hb_convergence.py on healthy data in 8 of 8 runs, so nearly every estimate needed a longer run)."""
+    app/hb_convergence.py on healthy data in 8 of 8 runs, so nearly every estimate needed a longer run); since 2026-11-24
+    in 4 chains, each with the 5000 burn-in and 5000 of the iterations (app/hb_chains.py)."""
     from flask import current_app
 
     c = (app or current_app).config
     return {"burn": int(c.get("HB_BURN", 5000)), "draws": int(c.get("HB_DRAWS", 20000)),
-            "thin": int(c.get("HB_THIN", 10)), "seed": int(c.get("HB_SEED", 1))}
+            "thin": int(c.get("HB_THIN", 10)), "seed": int(c.get("HB_SEED", 1)),
+            # independent chains (app/hb_chains.py, Ralf 2026-11-24): each the full burn-in and 1/chains of the iterations;
+            # HB_CHAINS only for tests (not in config.py: one value for every server)
+            "chains": int(c.get("HB_CHAINS", hb_chains.CHAINS))}
 
 
 # --- input ------------------------------------------------------------------------------------------
@@ -167,6 +172,28 @@ def _matrices(m, k, thr):
     return M, t_vec
 
 
+def _scores(B, M, keep, a, t_vec):
+    """Probability scores per person (persons x statements [+ threshold]) at the betas B (run)."""
+    U = B @ M.T
+    shift = U[:, keep].mean(axis=1, keepdims=True)
+    p = np.exp(U - shift) / (np.exp(U - shift) + a - 1)
+    f = 100 / p[:, keep].sum(axis=1, keepdims=True)
+    if t_vec is None:
+        return p * f
+    t = B @ t_vec - shift[:, 0]
+    return np.column_stack([p * f, np.exp(t) / (np.exp(t) + a - 1) * f[:, 0]])
+
+
+def _mean_over_persons(B, stat):
+    """The mean over persons of a value per person at the betas B (the summary of hb.estimate)."""
+    return stat(B).mean(axis=0)
+
+
+def zero_centred_spread(S, M):
+    """The mean variance between persons of the zero-centred utilities M beta for the covariance S."""
+    return [np.mean(np.diag(M @ S @ M.T))]
+
+
 def run(inp, progress=None):
     """Estimate from model_input(); returns the JSON-ready result (without pool and item)."""
     versions, est, col, k, thr = inp["versions"], inp["est"], inp["col"], inp["k"], inp["thr"]
@@ -191,30 +218,25 @@ def run(inp, progress=None):
     if len(keep) < 2:
         keep = list(range(m))
 
-    def scores(B):  # persons x (statements [+ threshold])
-        U = B @ M.T
-        shift = U[:, keep].mean(axis=1, keepdims=True)
-        p = np.exp(U - shift) / (np.exp(U - shift) + a - 1)
-        f = 100 / p[:, keep].sum(axis=1, keepdims=True)
-        if t_vec is None:
-            return p * f
-        t = B @ t_vec - shift[:, 0]
-        return np.column_stack([p * f, np.exp(t) / (np.exp(t) + a - 1) * f[:, 0]])
+    # persons x (statements [+ threshold]); module-level functions, so they travel to the chain processes
+    scores = functools.partial(_scores, M=M, keep=keep, a=a, t_vec=t_vec)
 
     prior = np.eye(k) + np.ones((k, k))  # differences to the reference of iid statements with variance 1
     cfg = inp["settings"]
     # the prior covariance I + 11' couples all parameters: one group for the hierarchical prior
-    r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
-                    prior_cov=prior, summary=lambda B: scores(B).mean(axis=0), person_stat=scores, progress=progress,
-                    **prior_args(cfg, [np.arange(k)]),
-                    # spread between persons in the scale the page shows: the variance of the zero-centred utilities,
-                    # not of the differences to the reference (about twice as large; audit 2026-10-05, H-3)
-                    spread=lambda S: [np.mean(np.diag(M @ S @ M.T))])
+    r = hb_chains.estimate(person_sets, k, chains=hb_chains.chains_of(cfg), burn=cfg["burn"], draws=cfg["draws"],
+                           thin=cfg["thin"], seed=cfg["seed"], prior_cov=prior,
+                           summary=functools.partial(_mean_over_persons, stat=scores), person_stat=scores,
+                           progress=progress, **prior_args(cfg, [np.arange(k)]),
+                           # spread between persons in the scale the page shows: the variance of the zero-centred
+                           # utilities, not of the differences to the reference (about twice as large; audit 2026-10-05,
+                           # H-3)
+                           spread=functools.partial(zero_centred_spread, M=M))
     beta = r["beta"]
     util = beta @ M.T
     # convergence judged on the zero-centred statement means (not on the differences to the reference)
     diag = hb_convergence.diagnose(r["mu_trace"] @ M.T, r["ll_trace"], geweke_ok=r["converged"], shown=r["summaries"],
-                                   sigma=r["sigma_trace"], person=r["person_rhat"])
+                                   sigma=r["sigma_trace"], person=r["person_rhat"], chains=r["chains"])
     thr_util = None if t_vec is None else beta @ t_vec
     # scores per person: posterior means (so the mean over persons lies inside its posterior interval)
     prob = r["person_stat"][:, :m]
@@ -778,11 +800,11 @@ def describe(result, survey=None, lang=None):
     if reader(lang) == "en":
         return (f"Hierarchical Bayes (HB-MNL, sequential best-worst coding{', with anchor question' if result.get('anchored') else ''}), "
                 f"estimated on {to_local(when):%Y-%m-%d %H:%M}; {len(result['pids'])} people ({basis}); "
-                f"{s['burn']} burn-in, {s['draws']} iterations, thinning {s['thin']}, seed {s['seed']}{prior_text(s, 'en')}; "
+                f"{hb_chains.length_text(s, 'en')}, thinning {s['thin']}, seed {s['seed']}{prior_text(s, 'en')}; "
                 f"posterior mean per person{hb_convergence.describe(result, 'en')}")
     return (f"Hierarchical Bayes (HB-MNL, sequenzielle Best-Worst-Kodierung{', mit Ankerfrage' if result.get('anchored') else ''}), "
             f"geschätzt am {to_local(when):%d.%m.%Y %H:%M}; {len(result['pids'])} Personen ({basis}); "
-            f"{s['burn']} Burn-in, {s['draws']} Iterationen, Thinning {s['thin']}, Seed {s['seed']}{prior_text(s, 'de')}; "
+            f"{hb_chains.length_text(s, 'de')}, Thinning {s['thin']}, Seed {s['seed']}{prior_text(s, 'de')}; "
             f"Posterior-Mittel je Person{hb_convergence.describe(result, 'de')}")
 
 

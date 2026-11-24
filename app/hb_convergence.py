@@ -1,23 +1,26 @@
-"""Convergence of one HB chain (app/hb.py): effective sample size, split-R-hat and the stored trace.
+"""Convergence of an HB estimation (app/hb.py, app/hb_chains.py): effective sample size, split-R-hat and the stored trace.
 
-Only one chain runs (no doubled computing time), so R-hat is the split-R-hat of Vehtari et al. (2021): the
-kept draws are cut into two halves that are compared like two chains, after rank normalisation (pooled ranks,
-z = Phi^-1((r - 3/8) / (S + 1/4))); reported is the larger of the R-hat of the rank-normalised draws and of
-the rank-normalised folded draws |x - median| (the latter finds halves that differ in spread). The effective
-sample size is the bulk ESS of the same paper: the autocorrelations of the rank-normalised halves combined
-over both halves, summed with Geyer's (1992) initial positive sequence (pairs of consecutive autocorrelations
-while their sum is positive), made monotone (no pair above the one before it; since the audit of 2026-10-05, H-4:
-without it, single chains came out far too low). Own implementation from the formulas of both papers.
-Both per population mean mu_j (MaxDiff: the zero-centred statement means) and the ESS also for the log-likelihood.
+Since 2026-11-24 every estimation runs several chains (app/hb_chains.py, CHAINS = 4), each from its own random stream,
+and R-hat is the multi-chain split-R-hat of Vehtari et al. (2021): the kept draws of every chain are cut into two
+halves, and all halves are compared like chains, after rank normalisation (pooled ranks, z = Phi^-1((r - 3/8) /
+(S + 1/4))); reported is the larger of the R-hat of the rank-normalised draws and of the rank-normalised folded draws
+|x - median| (the latter finds parts that differ in spread). A result of one chain (all results before, settings without
+"chains") is judged as before from the two halves of that chain. The effective sample size is the bulk ESS of the same
+paper: the autocorrelations of the rank-normalised parts combined over all parts, summed with Geyer's (1992) initial
+positive sequence (pairs of consecutive autocorrelations while their sum is positive), made monotone (no pair above the
+one before it; since the audit of 2026-10-05, H-4: without it, single chains came out far too low). Own implementation
+from the formulas of both papers. Both per population mean mu_j (MaxDiff: the zero-centred statement means) and the ESS
+also for the log-likelihood.
 
 Rule (Vehtari et al., 2021): max R-hat < 1.01 and min ESS >= 400, over mu, the log-likelihood and the means the
 page shows (since the audit of 2026-10-05, W-2) and, since 2026-11-23, the diagonal of Sigma (the variances between
-persons per parameter, on which the SD and quartiles of the report rest); the Geweke-type check of app/hb.py stays an
-additional condition. The individual utilities get no rule, only a hint: the share of persons with at least one
-utility whose classic split-R-hat (from running sums over the halves, app/hb.person_rhat) exceeds
-PERSON_RHAT_LIMIT; the hint shows above PERSON_SHARE_HINT. A result stored before keeps its judgement and shows none
-of the new values. The log-likelihood trace is stored thinned to at most TRACE_POINTS points for the
-small line on the results page.
+persons per parameter, on which the SD and quartiles of the report rest); the Geweke-type check of app/hb.py (per
+chain, limits corrected over all chains) stays an additional condition. The individual utilities get no rule, only a
+hint: the share of persons with at least one utility whose classic split-R-hat (from running sums over the halves of
+every chain, app/hb.person_rhat, app/hb_chains.person_rhat) exceeds PERSON_RHAT_LIMIT; the hint shows above
+PERSON_SHARE_HINT. A result stored before keeps its judgement and shows none of the new values. The log-likelihood trace
+is stored thinned to at most TRACE_POINTS points (shared out over the chains) for the small line on the results page,
+one line per chain.
 """
 import math
 from statistics import NormalDist
@@ -48,11 +51,12 @@ SOURCES = (VEHTARI, GEYER)
 _inv_cdf = np.vectorize(NormalDist().inv_cdf)
 
 
-def _halves(x):
-    """The chain cut into two halves (the middle draw dropped for an odd length): array 2 x n."""
-    x = np.asarray(x, dtype=float)
-    h = len(x) // 2
-    return np.stack([x[:h], x[-h:]])
+def _halves(x, chains=1):
+    """Every chain cut into two halves (the middle draw dropped for an odd length): array 2 chains x n. x holds the
+    chains one after another, each with the same number of draws."""
+    x = np.asarray(x, dtype=float).reshape(chains, -1)
+    h = x.shape[1] // 2
+    return np.concatenate([x[:, :h], x[:, x.shape[1] - h:]])
 
 
 def _ranks(x):
@@ -121,53 +125,63 @@ def rhat_chains(chains):
     return float(math.sqrt(((n - 1) / n * W + B / n) / W))
 
 
-def rhat(x):
-    """Rank-normalised split-R-hat of one chain: max of the bulk and the folded value (Vehtari et al., 2021)."""
+def _judgeable(x, chains):
+    return (len(x) >= 8 * chains and len(x) % chains == 0 and np.all(np.isfinite(x)) and np.ptp(x) > 0)
+
+
+def rhat(x, chains=1):
+    """Rank-normalised split-R-hat of `chains` chains (x: their draws one after another): max of the bulk and the folded
+    value (Vehtari et al., 2021)."""
     x = np.asarray(x, dtype=float)
-    if len(x) < 8 or not np.all(np.isfinite(x)) or not np.ptp(x) > 0:
+    if not _judgeable(x, chains):
         return None
-    bulk = rhat_chains(rank_normalize(_halves(x)))
-    folded = rhat_chains(rank_normalize(_halves(np.abs(x - np.median(x)))))
+    bulk = rhat_chains(rank_normalize(_halves(x, chains)))
+    folded = rhat_chains(rank_normalize(_halves(np.abs(x - np.median(x)), chains)))
     values = [v for v in (bulk, folded) if v is not None]
     return max(values) if values else None
 
 
-def ess(x):
-    """Bulk effective sample size of one chain (rank-normalised halves, Vehtari et al., 2021)."""
+def ess(x, chains=1):
+    """Bulk effective sample size of `chains` chains (rank-normalised halves of every chain, Vehtari et al., 2021)."""
     x = np.asarray(x, dtype=float)
-    if len(x) < 8 or not np.all(np.isfinite(x)) or not np.ptp(x) > 0:
+    if not _judgeable(x, chains):
         return None
-    return ess_chains(rank_normalize(_halves(x)))
+    return ess_chains(rank_normalize(_halves(x, chains)))
 
 
-def thin_trace(trace, points=TRACE_POINTS):
-    """At most `points` values of the trace, evenly spaced, first and last kept."""
+def thin_trace(trace, points=TRACE_POINTS, chains=1):
+    """At most `points` values of the trace, evenly spaced, first and last kept; with several chains (one after another
+    in trace) points // chains of each, again one after another."""
     trace = np.asarray(trace, dtype=float)
+    if chains > 1 and len(trace) % chains == 0:
+        return np.concatenate([thin_trace(part, points // chains) for part in trace.reshape(chains, -1)])
     if len(trace) <= points:
         return trace
     return trace[np.unique(np.linspace(0, len(trace) - 1, points).round().astype(int))]
 
 
-def diagnose(means, ll_trace, geweke_ok=True, shown=None, sigma=None, person=None):
+def diagnose(means, ll_trace, geweke_ok=True, shown=None, sigma=None, person=None, chains=1):
     """Convergence of the kept draws: means (draws x parameters, the population means to judge), the
     log-likelihood trace and shown (draws x values: the means over persons the page shows at every kept draw, e.g.
     part-worths or scores; audit 2026-10-05, W-2: judged too, they are what is read), sigma (draws x parameters:
     the diagonal of Sigma, judged like mu) and person (persons x parameters: split-R-hat of the individual utilities,
-    app/hb.person_rhat; only the hint). JSON-ready dict for the stored result."""
+    app/hb.person_rhat; only the hint). chains: how many chains the draws come from, one after another in every array
+    (app/hb_chains.py). JSON-ready dict for the stored result."""
     means = np.asarray(means, dtype=float)
     ll = np.asarray(ll_trace, dtype=float)
     cols = means.T if means.ndim == 2 and len(means) else []
-    rhats = [rhat(c) for c in cols]
-    esss = [ess(c) for c in cols]
-    ess_ll = ess(ll)
+    chains = max(1, int(chains or 1))
+    rhats = [rhat(c, chains) for c in cols]
+    esss = [ess(c, chains) for c in cols]
+    ess_ll = ess(ll, chains)
     shown = np.asarray(shown, dtype=float) if shown is not None else None
     extra = list(shown.T) if shown is not None and shown.ndim == 2 and len(shown) else []
-    rhat_shown = [rhat(c) for c in extra]
-    ess_shown = [ess(c) for c in extra]
+    rhat_shown = [rhat(c, chains) for c in extra]
+    ess_shown = [ess(c, chains) for c in extra]
     sigma = np.asarray(sigma, dtype=float) if sigma is not None else None
     var_cols = list(sigma.T) if sigma is not None and sigma.ndim == 2 and len(sigma) else []
-    rhat_sigma = [rhat(c) for c in var_cols]
-    ess_sigma = [ess(c) for c in var_cols]
+    rhat_sigma = [rhat(c, chains) for c in var_cols]
+    ess_sigma = [ess(c, chains) for c in var_cols]
 
     def valid(v):
         return v is not None and math.isfinite(v)
@@ -192,7 +206,9 @@ def diagnose(means, ll_trace, geweke_ok=True, shown=None, sigma=None, person=Non
            "ess_shown": r(min([v for v in ess_shown if valid(v)], default=None), 1),
            "diag_complete": bool(complete),
            "rhat_max": r(rhat_max, 4), "ess_min": r(ess_min, 1), "diag_ok": ok,
-           "ll_trace": [r(v, 2) for v in thin_trace(ll)]}
+           "ll_trace": [r(v, 2) for v in thin_trace(ll, chains=chains)]}
+    if chains > 1:  # only for several chains, so a result of one chain stays as it was
+        out["chains"] = chains
     if sigma is not None:
         out.update(rhat_sigma_max=r(max([v for v in rhat_sigma if valid(v)], default=None), 4),
                    ess_sigma_min=r(min([v for v in ess_sigma if valid(v)], default=None), 1))
@@ -238,17 +254,24 @@ def person_hint(res):
     return share is not None and share > PERSON_SHARE_HINT
 
 
-def trace_chart(trace, width=720, height=90):
-    """Geometry of the small log-likelihood line: SVG polyline points and the axis labels."""
+def trace_chart(trace, width=720, height=90, chains=1):
+    """Geometry of the small log-likelihood line: SVG polyline points (one line per chain, "lines"; "points" the first)
+    and the axis labels."""
     t = np.asarray(trace or [], dtype=float)
-    if len(t) < 2 or not np.all(np.isfinite(t)):
+    chains = max(1, int(chains or 1))
+    if chains > 1 and len(t) % chains:
+        chains = 1
+    if len(t) < 2 * chains or not np.all(np.isfinite(t)):
         return None
     x0, x1, y0, y1 = 60, width - 8, 8, height - 18
     lo, hi = float(t.min()), float(t.max())
     span = hi - lo or 1.0
-    xs = x0 + np.arange(len(t)) / (len(t) - 1) * (x1 - x0)
-    ys = y1 - (t - lo) / span * (y1 - y0)
-    return {"points": " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys)), "width": width, "height": height,
+    lines = []
+    for part in t.reshape(chains, -1):
+        xs = x0 + np.arange(len(part)) / (len(part) - 1) * (x1 - x0)
+        ys = y1 - (part - lo) / span * (y1 - y0)
+        lines.append(" ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys)))
+    return {"points": lines[0], "lines": lines, "chains": chains, "width": width, "height": height,
             "x0": x0, "x1": x1, "y0": y0, "y1": y1, "lo": lo, "hi": hi}
 
 
@@ -258,7 +281,9 @@ def longer_settings(settings, defaults):
     burn, draws = int(settings["burn"]) * 2, int(settings["draws"]) * 2
     if burn + draws > LONGER_MAX * (int(defaults["burn"]) + int(defaults["draws"])):
         return None
-    return {**settings, "burn": burn, "draws": draws}
+    # the chains of the configured settings (a result of one chain from before runs again with them, 2026-11-24)
+    chains = defaults.get("chains") or settings.get("chains")
+    return {**settings, "burn": burn, "draws": draws, **({"chains": chains} if chains else {})}
 
 
 def warning(res):
@@ -316,7 +341,10 @@ def view(res):
             "geweke_ll": res.get("geweke_ll"), "geweke_ll_limit": res.get("geweke_ll_limit"),
             "geweke_ll_hint": bool(res.get("geweke_ll_hint")), "geweke_mu_limit": res.get("geweke_mu_limit"),
             "geweke_mu_flagged": res.get("geweke_mu_flagged"),
-            "rhat_limit": RHAT_LIMIT, "ess_limit": ESS_MIN, "chart": trace_chart(res.get("ll_trace")),
+            "rhat_limit": RHAT_LIMIT, "ess_limit": ESS_MIN,
+            "chart": trace_chart(res.get("ll_trace"), chains=res.get("chains") or 1),
+            # independent chains (app/hb_chains.py); 1 for every result from before 2026-11-24
+            "chains": res.get("chains") or 1,
             # the diagonal of Sigma and the hint on the individual utilities; None for a result from before
             "rhat_sigma_max": res.get("rhat_sigma_max"), "ess_sigma_min": res.get("ess_sigma_min"),
             "person_rhat_share": res.get("person_rhat_share"), "person_rhat_flagged": res.get("person_rhat_flagged"),
@@ -345,7 +373,8 @@ def describe(res, lang=None):
                   f"{number(PERSON_RHAT_LIMIT, 2, 'en')} (note only"
                   f"{'; above 5 %: estimate again with double length' if person_hint(res) else ''})"
                   if share is not None else "")
-        return (f"; convergence{what} {'unremarkable' if res.get('diag_ok') else 'to be checked'}: rank-normalised split R̂ max. "
+        chains = (f" over {res['chains']} chains" if (res.get("chains") or 1) > 1 else "")
+        return (f"; convergence{what}{chains} {'unremarkable' if res.get('diag_ok') else 'to be checked'}: rank-normalised split R̂ max. "
                 f"{number(res['rhat_max'], 3, 'en')}, effective sample size (ESS) min. {number(res['ess_min'], 0, 'en')} of "
                 f"{res.get('kept')} draws (rule R̂ < {number(RHAT_LIMIT, 2, 'en')} and ESS ≥ {ESS_MIN}, Vehtari et al., 2021)"
                 f"{person}")
@@ -354,7 +383,8 @@ def describe(res, lang=None):
               f"{number(PERSON_RHAT_LIMIT, 2)} (nur Hinweis"
               f"{'; über 5 %: mit doppelter Länge neu schätzen' if person_hint(res) else ''})"
               if share is not None else "")
-    return (f"; Konvergenz{what} {'unauffällig' if res.get('diag_ok') else 'prüfen'}: rang-normalisiertes split-R̂ max. "
+    chains = (f" über {res['chains']} Ketten" if (res.get("chains") or 1) > 1 else "")
+    return (f"; Konvergenz{what}{chains} {'unauffällig' if res.get('diag_ok') else 'prüfen'}: rang-normalisiertes split-R̂ max. "
             f"{number(res['rhat_max'], 3)}, effektive Stichprobengröße (ESS) min. {number(res['ess_min'])} von "
             f"{res.get('kept')} Ziehungen (Regel R̂ < {number(RHAT_LIMIT, 2)} und ESS ≥ {ESS_MIN}, Vehtari et al., 2021)"
             f"{person}")

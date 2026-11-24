@@ -19,6 +19,7 @@ No individual willingness to pay: a ratio of two individual coefficients is too 
 
 Storage, background run, status and staleness as for MaxDiff (app/maxdiff_hb.py, same files and settings).
 """
+import functools
 import hashlib
 import json
 import math
@@ -27,7 +28,7 @@ from datetime import datetime
 
 import numpy as np
 
-from app import hb, hb_convergence, maxdiff_hb
+from app import hb, hb_chains, hb_convergence, maxdiff_hb
 from app.lang import de_en
 from app.units import fixed, number, page_lang
 from app.choice_model import ChoiceSet, Coding, charts, once, price_unit, responses_for, undetermined
@@ -160,6 +161,21 @@ def _prior_groups(coding):
     return groups + [np.array([j]) for j in range(coding.k) if j not in inside]
 
 
+def _summary(B, M, asc, price, price_scale):
+    """The means over persons at the betas B: part-worths, constant, price coefficient per currency unit."""
+    extra = ([B[:, asc].mean()] if asc is not None else []) \
+        + ([B[:, price].mean() / price_scale] if price is not None else [])
+    return np.concatenate([(B @ M.T).mean(axis=0), extra])
+
+
+def _spread(S, M, asc, price, price_scale):
+    """The variances between persons for the covariance S: of the zero-centred part-worths (mean over the levels), of
+    the constant and of the price coefficient per currency unit."""
+    return [np.mean(np.diag(M @ S @ M.T)) if len(M) else np.nan,
+            S[asc, asc] if asc is not None else np.nan,
+            S[price, price] / price_scale ** 2 if price is not None else np.nan]
+
+
 def run(inp, progress=None):
     """Estimate from model_input(); returns the JSON-ready result (without pool and item)."""
     coding = _coding(inp["coding"])
@@ -184,25 +200,21 @@ def run(inp, progress=None):
         total = R.sum(axis=1, keepdims=True)
         return np.divide(R, total, out=np.zeros_like(R), where=total > 0)
 
-    def summary(B):                                   # means over persons at one draw
-        extra = ([B[:, coding.asc].mean()] if coding.asc is not None else []) \
-            + ([B[:, coding.price].mean() / coding.price_scale] if coding.price is not None else [])
-        return np.concatenate([(B @ M.T).mean(axis=0), extra])
-
-    def spread(S):  # spread between persons in the scales the page shows (audit 2026-10-05, H-3)
-        return [np.mean(np.diag(M @ S @ M.T)) if len(M) else np.nan,
-                S[coding.asc, coding.asc] if coding.asc is not None else np.nan,
-                S[coding.price, coding.price] / coding.price_scale ** 2 if coding.price is not None else np.nan]
+    # means over persons at one draw and the spread between persons in the scales the page shows (audit 2026-10-05,
+    # H-3); module-level functions, so they travel to the chain processes
+    parts = {"M": M, "asc": coding.asc, "price": coding.price, "price_scale": coding.price_scale}
+    summary = functools.partial(_summary, **parts)
+    spread = functools.partial(_spread, **parts)
 
     cfg = inp["settings"]
-    r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
-                    prior_cov=_prior(coding), summary=summary, progress=progress, spread=spread,
-                    **maxdiff_hb.prior_args(cfg, _prior_groups(coding)))
+    r = hb_chains.estimate(person_sets, k, chains=hb_chains.chains_of(cfg), burn=cfg["burn"], draws=cfg["draws"],
+                           thin=cfg["thin"], seed=cfg["seed"], prior_cov=_prior(coding), summary=summary,
+                           progress=progress, spread=spread, **maxdiff_hb.prior_args(cfg, _prior_groups(coding)))
     beta = r["beta"]
     S = r["summaries"]
     # all parameters of mu and the means the page shows (part-worths, constant, price)
     diag = hb_convergence.diagnose(r["mu_trace"], r["ll_trace"], geweke_ok=r["converged"], shown=S,
-                                   sigma=r["sigma_trace"], person=r["person_rhat"])
+                                   sigma=r["sigma_trace"], person=r["person_rhat"], chains=r["chains"])
     lo, hi = np.percentile(S, [2.5, 97.5], axis=0) if S is not None and len(S) else (None, None)
     t = len(M)
     # what the data leave open (as in choice_model.summarise): there the prior sets the values
@@ -414,12 +426,12 @@ def describe(result, survey=None, lang=None):
     if reader(lang) == "en":
         coding = ("screening against the threshold, tournament tasks" if result["type"] == "acbc" else "choice tasks")
         return (f"Hierarchical Bayes (HB-MNL, {coding}, effects coding), estimated on {to_local(when):%Y-%m-%d %H:%M}; "
-                f"{len(result['pids'])} people ({basis}); {s['burn']} burn-in, {s['draws']} iterations, "
+                f"{len(result['pids'])} people ({basis}); {hb_chains.length_text(s, 'en')}, "
                 f"thinning {s['thin']}, seed {s['seed']}{maxdiff_hb.prior_text(s, 'en')}; posterior mean per person"
                 f"{hb_convergence.describe(result, 'en')}")
     coding = ("Screening gegen die Schwelle, Turnieraufgaben" if result["type"] == "acbc" else "Auswahlaufgaben")
     return (f"Hierarchical Bayes (HB-MNL, {coding}, Effektkodierung), geschätzt am {to_local(when):%d.%m.%Y %H:%M}; "
-            f"{len(result['pids'])} Personen ({basis}); {s['burn']} Burn-in, {s['draws']} Iterationen, "
+            f"{len(result['pids'])} Personen ({basis}); {hb_chains.length_text(s, 'de')}, "
             f"Thinning {s['thin']}, Seed {s['seed']}{maxdiff_hb.prior_text(s, 'de')}; Posterior-Mittel je Person"
             f"{hb_convergence.describe(result, 'de')}")
 

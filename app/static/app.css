@@ -2923,6 +2923,7 @@ td[data-mq-kind="text"] .mq-options { display: none; }
 /* HB convergence (app/hb_convergence.py): log-likelihood trace, status */
 .hb-trace { max-height: 110px; }
 .hb-trace-line { fill: none; stroke: var(--accent); stroke-width: 1.2; }
+.hb-trace-line[data-chain] { stroke-opacity: 0.55; }  /* one line per chain (app/hb_chains.py): overlapping lines show agreement */
 .hb-conv-ok { color: var(--ok); }
 .hb-conv-check, .caution-text, .weight-check { color: var(--caution); }  /* "prüfen" at an HB chain, an EFA table, a power plan or a weighting target */
 
