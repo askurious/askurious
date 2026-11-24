@@ -1,5 +1,5 @@
-{# The prior on the spread between people of the HB estimation of this question (maxdiff_hb.PRIOR_KEY): the fixed
-   inverse Wishart (default), the hierarchical prior of Huang & Wand (2013) or the wide one (app/hb.py). Changing it saves the choice and estimates
+{# The prior on the spread between people of the HB estimation of this question (maxdiff_hb.PRIOR_KEY): the wide
+   inverse Wishart (default, maxdiff_hb.DEFAULT_PRIOR), the fixed one or the hierarchical prior of Huang & Wand (2013). Changing it saves the choice and estimates
    anew at once in the background (surveys.results_hb, static/hb.js), as the covariates of the segments do. Not for the
    ratings-based conjoint (its own sampler). Needs: e, f, survey. #}
 {% from "_learn.html" import why %}
@@ -11,9 +11,9 @@
   {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
   <label for="hb-prior-{{ e.item.id }}">{{ de_en("Priori der Streuung zwischen Personen", "Prior of the spread between people") }}</label>
   <select id="hb-prior-{{ e.item.id }}" name="prior" data-submit-on-change>
-    <option value="iw"{% if prior_now not in ("hw", "wide") %} selected{% endif %}>{{ de_en("fest (Standard)", "fixed (default)") }}</option>
+    <option value="wide"{% if prior_now not in ("iw", "hw") %} selected{% endif %}>{{ de_en("weit (Standard; Rossi et al., 2005)", "wide (default; Rossi et al., 2005)") }}</option>
+    <option value="iw"{% if prior_now == "iw" %} selected{% endif %}>{{ de_en("fest", "fixed") }}</option>
     <option value="hw"{% if prior_now == "hw" %} selected{% endif %}>{{ de_en("hierarchisch (Huang & Wand, 2013)", "hierarchical (Huang & Wand, 2013)") }}</option>
-    <option value="wide"{% if prior_now == "wide" %} selected{% endif %}>{{ de_en("weit (Rossi et al., 2005)", "wide (Rossi et al., 2005)") }}</option>
   </select>
 </form>
 {{ why("hb_prior") }}
