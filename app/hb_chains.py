@@ -123,7 +123,8 @@ def _chain_args(chains, chain, kwargs, k):
     draws = int(kwargs.get("draws", 10000)) // chains
     thin = int(kwargs.get("thin", 10))
     keep = kwargs.get("keep", hb.KEEP_DRAWS)
-    moments = Moments(kwargs.get("person_stat"), draws // thin, k)
+    # the betas the callbacks see: without the columns common to all persons (hb.estimate, `fixed`)
+    moments = Moments(kwargs.get("person_stat"), draws // thin, k - len(_fixed(kwargs)))
     return {**kwargs, "seed": [int(kwargs.get("seed", 1)), chain], "draws": draws,
             "keep": math.ceil(keep / chains) if keep else keep, "person_stat": moments}, moments
 
@@ -143,6 +144,12 @@ def _run_chain(messages, chain, person_sets, k, kwargs):
         messages.put(("error", chain, f"{type(e).__name__}: {e}\n{traceback.format_exc()}"))
 
 
+def _fixed(kwargs):
+    """The columns common to all persons (hb.estimate's `fixed`), sorted, or []."""
+    fixed = kwargs.get("fixed")
+    return sorted({int(j) for j in fixed}) if fixed is not None and len(fixed) else []
+
+
 def estimate(person_sets, k, chains=CHAINS, progress=None, workers=None, **kwargs):
     """hb.estimate in `chains` chains, merged (module text). Every keyword argument goes to hb.estimate as given, but
     seed, draws and keep, which are shared out over the chains; workers: processes (None: processes()). With one chain
@@ -160,7 +167,7 @@ def estimate(person_sets, k, chains=CHAINS, progress=None, workers=None, **kwarg
             results.append(hb.estimate(person_sets, k, progress=share, **kw))
     else:
         results = _in_processes(person_sets, k, [kw for kw, _ in args], workers, progress)
-    out = merge(results, [m for _, m in args], hb.Data(person_sets, k), k, kwargs)
+    out = merge(results, [m for _, m in args], person_sets, k, kwargs)
     out["seconds"] = time.monotonic() - started
     return out
 
@@ -235,8 +242,27 @@ def _numeric(v):
     return isinstance(v, np.ndarray) and v.dtype.kind in "fiu"
 
 
-def merge(results, moments, data, k, kwargs):
-    """One result of the shape of hb.estimate from the chains' results (module text)."""
+def _fit(person_sets, k, beta, fixed, gamma):
+    """(log-likelihood per person, RLH, chance RLH) at the posterior means: the betas and, for the columns common to all
+    persons, their means gamma (columns ordered as hb.estimate orders them: the others first)."""
+    if fixed:
+        free = [j for j in range(k) if j not in set(fixed)]
+        order = free + fixed
+        from app.choice_model import ChoiceSet
+
+        person_sets = [[ChoiceSet(np.asarray(s.X, dtype=float)[:, order], s.chosen) for s in sets] for sets in person_sets]
+        beta = np.hstack([beta, np.broadcast_to(gamma, (len(beta), len(fixed)))])
+    data = hb.Data(person_sets, k)
+    ll = data.loglik(beta)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        rlh = np.exp(ll / data.sets_per_person)
+    return ll, rlh, np.exp(data.chance_loglik() / data.sets_per_person)
+
+
+def merge(results, moments, person_sets, k, kwargs):
+    """One result of the shape of hb.estimate from the chains' results (module text). With columns common to all
+    persons (`fixed`): their means averaged, their interval from the draws of all chains, their kept draws ("fixed_draws")
+    taken like "draws"."""
     first = results[0]
     chains = len(results)
     kept = [r["kept"] for r in results]
@@ -265,9 +291,9 @@ def merge(results, moments, data, k, kwargs):
         squares.append(q)
     h = moments[0].half
     person_stat = None if inner[0] is None else _mean(inner)
-    # Geweke-type check per chain, limits Bonferroni-corrected over all chains
+    # Geweke-type check per chain (mu and the common parameters), limits Bonferroni-corrected over all chains
     ll_limit = hb.geweke_limits(chains)[1]
-    mu_limit = hb.geweke_limits(chains * k)[1]
+    mu_limit = hb.geweke_limits(chains * max(len(first["geweke_mu"] or []), 1))[1]
     z_ll = [r["geweke_ll"] for r in results]
     checked = all(r["checked"] for r in results)
     z_ll_max = max((z for z in z_ll if z is not None), key=abs, default=None)
@@ -281,14 +307,25 @@ def merge(results, moments, data, k, kwargs):
     draws = [r["draws"] for r in results if r["draws"] is not None]
     keep = kwargs.get("keep", hb.KEEP_DRAWS)
     draws = np.concatenate(draws) if draws else None
+    chosen = None
     if draws is not None and keep and len(draws) > keep:
-        draws = draws[np.unique(np.linspace(0, len(draws) - 1, keep).round().astype(int))]
+        chosen = np.unique(np.linspace(0, len(draws) - 1, keep).round().astype(int))
+        draws = draws[chosen]
+    fixed = _fixed(kwargs)
+    if fixed and "fixed_trace" in out:
+        trace = out["fixed_trace"]
+        if len(trace):
+            out["fixed_lo"], out["fixed_hi"] = np.percentile(trace, [2.5, 97.5], axis=0)
+        f_draws = [r.get("fixed_draws") for r in results if r.get("fixed_draws") is not None]
+        f_draws = np.concatenate(f_draws) if f_draws else None
+        out["fixed_draws"] = f_draws[chosen] if f_draws is not None and chosen is not None else f_draws
+    fit_ll, rlh, chance = _fit(person_sets, k, beta, fixed, out.get("fixed"))
     settings = {**first["settings"], "seed": kwargs.get("seed", 1), "draws": int(kwargs.get("draws", 10000)),
                 "chains": chains}
     out.update({
         "beta": beta, "person_stat": person_stat,
-        "rlh": hb.rlh(data, beta), "chance_rlh": np.exp(data.chance_loglik() / data.sets_per_person),
-        "loglik": float(data.loglik(beta).sum()), "persons": first["persons"], "sets": first["sets"],
+        "rlh": rlh, "chance_rlh": chance, "loglik": float(fit_ll.sum()), "persons": first["persons"],
+        "sets": first["sets"],
         "kept": total, "chains": chains, "chain_kept": kept[0],
         "acceptance": _avg([r["acceptance"] for r in results]),
         "shift_acceptance": _avg([r["shift_acceptance"] for r in results]),

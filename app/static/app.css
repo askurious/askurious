@@ -2864,6 +2864,21 @@ td[data-mq-kind="text"] .mq-options { display: none; }
 /* MaxDiff HB (app/maxdiff_hb.py): distribution across persons, RLH histogram */
 .res-run-hb { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 10px; }
 .res-run-hb form { margin: 0; }
+/* interactions between attributes (surveys/_conjoint_ww.html, 2026-11-24) */
+.ww-start { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 10px; }
+.ww-field { display: inline-flex; align-items: center; gap: 8px; }
+.ww-field select { height: 42px; }
+.ww-pager { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; font-size: 0.85rem; }
+.ww-pager select { height: 42px; }
+.ww-cells td.ww-pos { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.ww-cells td.ww-neg { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.acbc-results .res-table.ww-table { width: 100%; table-layout: auto; }
+.acbc-results .res-table.ww-table th:first-child { width: auto; }
+.ww-table td.num { white-space: nowrap; }
+.ww-table td.num .hint { white-space: normal; }
+.ww-table td.num .hint { display: block; }
+.ww-dialog { max-width: min(860px, 96vw); }
+.ww-dialog form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
 /* segments (app/segments.py, _segments.html): one colour per segment, the same in every table and bar */
 .lc-c1 { --seg: var(--chart-1); } .lc-c2 { --seg: var(--chart-2); } .lc-c3 { --seg: var(--chart-3); }
 .lc-c4 { --seg: var(--chart-4); } .lc-c5 { --seg: var(--chart-5); } .lc-c6 { --seg: var(--chart-6); }

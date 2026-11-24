@@ -15,6 +15,7 @@
 {# 1. importance and part-worths #}
 {% if not hb_now %}{% with m=m, asc_label=cm_with.asc_label, sets_note=cm_with.sets_note, price_label=cm_with.price_label, cm_part="main" %}{% include "surveys/_choice_model.html" %}{% endwith %}{% endif %}
 {% if h %}{% with hb_section="main" %}{% include "surveys/_conjoint_hb.html" %}{% endwith %}{% endif %}
+{% if e.cbc.ww %}{% with w=e.cbc.ww %}{% include "surveys/_conjoint_ww.html" %}{% endwith %}{% endif %}
 {# 2. the market simulator #}
 <div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
 {# 3. folded: what lies behind #}

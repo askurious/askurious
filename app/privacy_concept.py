@@ -1260,10 +1260,12 @@ def _services():
          "who": de_en("System", "System"), "switch": "TSA_URL",
          "state": _on(c.get("TSA_URL"), _host(c.get("TSA_URL") or "")), "where": de_en("Deutschland", "Germany")},
         {"name": de_en("Rechenknecht (zweiter Rechner)", "Compute node (second machine)"), "words": ("Rechenknecht",),
-         "data": de_en("Modelldaten für HB- und Latent-Class-Schätzungen, pseudonymisiert (Teilnahmen als 1, 2, 3 …); "
+         "data": de_en("Modelldaten für HB- und Latent-Class-Schätzungen und die Suche nach Wechselwirkungen, "
+                       "pseudonymisiert (Teilnahmen als 1, 2, 3 …); "
                        "für Strukturgleichungs- und Längsschnittmodelle, Bootstraps und Simulationen nur Zahlen ohne "
                        "Kennungen; signiert.",
-                       "Model input for HB and latent class estimations, pseudonymised (participations as 1, 2, 3 …); "
+                       "Model input for HB and latent class estimations and the search for interactions, pseudonymised "
+                       "(participations as 1, 2, 3 …); "
                        "for structural equation and longitudinal models, bootstraps and simulations numbers only, "
                        "without identifiers; signed."),
          "who": de_en("System, auf Anstoß der Forschenden", "System, started by researchers"), "switch": "COMPUTE_URL",

@@ -748,6 +748,22 @@ TERMS = {
     "mae": ("MAE", "Mittlere absolute Abweichung", "Wie weit die vorhergesagten Wahlanteile im Mittel von den "
             "beobachteten abweichen, in Prozentpunkten. Kleiner ist besser.",
             "MAE = 3,1 PP: Die Anteile liegen im Mittel um 3 Punkte daneben.", (("app.holdouts", "ORME"),)),
+    "ww": ("Wechselwirkung", "Wechselwirkung zwischen Merkmalen", "Ob eine Kombination zweier Stufen mehr oder weniger "
+           "bewirkt als die Summe ihrer Teilnutzen. Gesucht wird für jedes Merkmalspaar; zählt erst, wenn die Gegenprüfung "
+           "sie bestätigt.", "Wissenschaftler × Vorschreibung +0,11: Diese Kombination wirkt stärker, als beide Teilnutzen "
+           "zusammen sagen.", (("app.conjoint_interactions", "EGAMI_IMAI"), ("app.conjoint_interactions", "HAINMUELLER"))),
+    "ww_gain": ("+ Sicherheit", "Zuwachs der Erklärungskraft", "Um wie viele Prozentpunkte die Wechselwirkung die "
+                "Erklärungskraft des Wahlmodells hebt (McFadden-R², gemessen am Zufall). Ein Maß für die Größe, nicht für "
+                "die Sicherheit des Befunds.", "+0,21 Pp.: kaum mehr erklärt als ohne die Wechselwirkung.",
+                (("app.choice_model", "MCFADDEN"),)),
+    "ww_confirm": ("Gegenprüfung", "Gegenprüfung an zurückgehaltenen Aufgaben", "Das Modell wird ohne einige Aufgaben "
+                   "geschätzt und muss deren Wahlen vorhersagen. Hilft die Wechselwirkung dabei im Mittel und in den "
+                   "meisten Aufteilungen, gilt sie als bestätigt.", "In 3 von 3 Aufteilungen besser vorhergesagt: "
+                   "bestätigt.", (("app.conjoint_interactions", "GELMAN_HWANG_VEHTARI"),)),
+    "fixed_random": ("fest / streuend", "Feste und streuende Parameter", "Streuende Parameter (die Teilnutzen) hat jede "
+                     "Person für sich; ein fester Parameter gilt für alle gleich. Übernommene Wechselwirkungen sind fest: "
+                     "Sie brauchen so weniger Daten je Person.", "Wechselwirkung +0,11 für alle, Teilnutzen je Person "
+                     "verschieden.", (("app.choice_model", "TRAIN"), ("app.conjoint_interactions", "ROSSI"))),
     "rhat": ("R̂", "R-hat", "Ob die HB-Schätzung sich eingependelt hat: Vergleicht mehrere unabhängig gestartete Ketten "
              "und je ihre erste mit der zweiten Hälfte der Ziehungen. Unter 1,01 gilt sie als konvergiert.",
              "R̂ = 1,004: konvergiert.",
@@ -1079,7 +1095,7 @@ SECTIONS = (
                                               "calibration")),
     ("Wahlmodelle", "R̂ und ESS prüfen die Rechnung der HB-Schätzung, nicht ihr Ergebnis.",
      ("partworth", "importance", "wtp", "score", "rho2", "rlh", "sop", "first_choice", "hit_rate", "mae", "rhat", "ess",
-      "hb", "mnl", "holdout", "warmup")),
+      "hb", "mnl", "holdout", "warmup", "ww", "ww_gain", "ww_confirm", "fixed_random")),
     ("Segmente", "", ("bic", "entropy", "membership", "odds_ratio")),
     ("Strukturgleichungsmodelle", "", ("beta", "indirect", "interaction", "jn", "control", "single_item",
                                        "second_order", "higher_order", "formative", "redundancy", "r2", "total_effect")),
@@ -1606,6 +1622,20 @@ TERMS_EN = {
     "mae": ("MAE", "Mean absolute error", "How far the predicted choice shares differ from the observed ones on "
             "average, in percentage points. Smaller is better.",
             "MAE = 3.1 pp: the shares are off by 3 points on average."),
+    "ww": ("Interaction", "Interaction between attributes", "Whether a combination of two levels does more or less than "
+           "the sum of their part-worths. Searched for every pair of attributes; it counts only when the confirmation "
+           "confirms it.", "Scientist × prescription +0.11: this combination works more strongly than both part-worths "
+           "together say."),
+    "ww_gain": ("+ certainty", "Gain in explanatory power", "By how many percentage points the interaction raises the "
+                "explanatory power of the choice model (McFadden R², measured against chance). A measure of size, not of "
+                "how certain the finding is.", "+0.21 pp: hardly more explained than without the interaction."),
+    "ww_confirm": ("Confirmation", "Confirmation on held-out tasks", "The model is estimated without some tasks and has "
+                   "to predict their choices. If the interaction helps on average and in most divisions, it counts as "
+                   "confirmed.", "Predicted better in 3 of 3 divisions: confirmed."),
+    "fixed_random": ("fixed / random", "Fixed and random parameters", "Random parameters (the part-worths) belong to "
+                     "each person; a fixed parameter is the same for everyone. Interactions applied to the HB model are "
+                     "fixed: they need less data per person that way.", "Interaction +0.11 for everyone, part-worths different per "
+                     "person."),
     "rhat": ("R̂", "R-hat", "Whether the HB estimation has settled: compares several independently started chains and "
              "the first with the second half of the draws of each. Below 1.01 it counts as converged.",
              "R̂ = 1.004: converged."),

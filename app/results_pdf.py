@@ -1004,11 +1004,67 @@ def _cbc(rep, e, title):
                          widths=[0.40, 0.12, 0.12, 0.12, 0.12, 0.12])
         out += _hb_partworths(rep, hb, title, diffs=e.get("item") is not None
                               and conjoint_hb.scale_of(e["item"]) == "diffs" and bool(hb.get("diffs")))
+        out += _hb_interactions(rep, hb, title)
     elif (cbc.get("hb") or {}).get("available"):
         out.append(_para(rep, rep.say("Für dieses Experiment liegt keine aktuelle Hierarchical-Bayes-Schätzung vor; sie "
                                       "lässt sich auf der Ergebnisseite starten.", "There is no current hierarchical Bayes "
                                       "estimate for this experiment; it can be started on the results page.")))
+    out += _ww_search(rep, (cbc.get("ww") or {}).get("result"), title)
     return out
+
+
+def _hb_interactions(rep, hb, title):
+    """The interactions taken into the HB model (app/conjoint_interactions.py): per pair the table of the combinations
+    with mean and 95% posterior interval, as in the HB block of the results page."""
+    from app import conjoint_interactions as ww
+
+    out = []
+    for row in hb.get("interactions") or []:
+        body = [[la] + [f"{rep.num(row['cells'][i][j])} {rep.ci((row['lo'][i][j], row['hi'][i][j])) or ''}".strip()
+                        for j in range(len(row["b_levels"]))] for i, la in enumerate(row["a_levels"])]
+        note = rep.say("Wechselwirkung als fester, für alle Personen gleicher Parameter im HB-Modell {c}; Logit-Skala, "
+                       "Mittel und 95-%-Posterior-Intervall; Effektkodierung, Zeilen und Spalten summieren sich zu 0. Die "
+                       "Wichtigkeiten beruhen nur auf den Haupteffekten.",
+                       "Interaction as a fixed parameter, the same for everyone, in the HB model {c}; logit scale, mean "
+                       "and 95% posterior interval; effects coding, rows and columns sum to 0. The importances rest on the "
+                       "main effects only.", c=rep.cite(ww.TRAIN, ww.ROSSI))
+        n = len(row["b_levels"])
+        out += rep.table(rep.say("{t}: Wechselwirkung {p} (Hierarchical Bayes)", "{t}: interaction {p} (hierarchical Bayes)",
+                                 t=title, p=row["label"]), [row["a_label"] + " \\ " + row["b_label"]] + list(row["b_levels"]),
+                         body, note, widths=[0.28] + [0.72 / n] * n)
+    return out
+
+
+def _ww_search(rep, res, title):
+    """The table of the search of interactions with its confirmation, when one was run."""
+    from app import conjoint_interactions as ww
+
+    if not res or not res.get("rows"):
+        return []
+    body = []
+    for r in res["rows"]:
+        c = r.get("confirm")
+        body.append([r["label"], _p(rep, r["simple"].get("p")) if r["simple"].get("estimable") else "–",
+                     _p(rep, r["hb"].get("p")) if r.get("hb") and r["hb"].get("estimable") else "–",
+                     _p(rep, r.get("p_holm")) if r.get("p_holm") is not None else "–",
+                     rep.num(r.get("gain")) if r.get("gain") is not None else "–",
+                     rep.num(c["mean"], 1) if c else "–", r["status_label"]])
+    conf = res.get("confirm") or {}
+    note = rep.say("p einfach: Likelihood-Quotienten-Test im gepoolten Logit; p nach HB: derselbe Test mit dem HB-Nutzen "
+                   "jeder Person als Grundlage {c1}; Holm-Korrektur über alle Paare {c2}. + Sicherheit: Zuwachs von "
+                   "McFaddens R² in Prozentpunkten. Δ LL: mittlere Verbesserung der Log-Likelihood zurückgehaltener Wahlen "
+                   "{c3}; bestätigt, wenn sie im Mittel und in mindestens {k} von {s} Aufteilungen stieg.",
+                   "p simple: likelihood ratio test in the pooled logit; p after HB: the same test with each person's HB "
+                   "utility as the base {c1}; Holm correction over all pairs {c2}. + certainty: gain in McFadden's R² in "
+                   "percentage points. Δ LL: mean improvement of the log-likelihood of held-out choices {c3}; confirmed "
+                   "when it rose on average and in at least {k} of {s} divisions.",
+                   c1=rep.cite(ww.HAINMUELLER, ww.EGAMI_IMAI), c2=rep.cite(ww.HOLM), c3=rep.cite(ww.GELMAN_HWANG_VEHTARI),
+                   k=conf.get("needed"), s=conf.get("splits"))
+    return rep.table(rep.say("{t}: Wechselwirkungen zwischen Merkmalen", "{t}: interactions between attributes", t=title),
+                     [rep.say("Merkmalspaar", "Attribute pair"), rep.say("p einfach", "p simple"),
+                      rep.say("p nach HB", "p after HB"), "p (Holm)", rep.say("+ Sicherheit", "+ certainty"), "Δ LL",
+                      rep.say("Ergebnis", "Result")], body, note,
+                     widths=[0.27, 0.10, 0.10, 0.10, 0.11, 0.09, 0.23])
 
 
 def _hb_geweke_note(rep, hb):
@@ -1253,3 +1309,10 @@ def filename(survey):
     return export.filename(survey, "ergebnisbericht")[:-4] + ".pdf"
 
 
+
+
+def _p(rep, value):
+    """A p value in APA style in the language of the report (units.p_bare)."""
+    from app.units import p_bare
+
+    return p_bare(value, rep.ui)

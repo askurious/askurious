@@ -12,7 +12,7 @@ from app.models import Survey
 # results.fill_omega): a new kind has to be named here, so it cannot be left out of the deletion
 STEMS = {"maxdiff_hb": "item_5", "conjoint_hb": "item_6", "paired_hb": "item_8", "cva_hb": "item_9", "segments": "item_7.lc", "sem": "sem",
          "omega": "omega-abc", "sem_power": "sem_power", "panel": "panel",
-         "sem_fit": "sem_fit"}
+         "sem_fit": "sem_fit", "conjoint_ww": "item_10.ww"}
 
 
 def _runs(app, uid):
