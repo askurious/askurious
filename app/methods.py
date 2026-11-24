@@ -530,7 +530,8 @@ def _choice_de(c):
                      "Personen hierarchisch (Huang & Wand, 2013): invers-Wishart mit ν + k − 1 Freiheitsgraden (ν = 2) bei "
                      "k Parametern, deren Skala eigene Faktoren mit einer invers-Gamma-Priori hat (Skala 2,5 der "
                      "halb-t-verteilten Standardabweichungen; beim Conjoint je Merkmal, für die Konstante und den Preis), "
-                     "sodass die Daten die Höhe der Streuung bestimmen.")
+                     "sodass die Daten die Höhe der Streuung bestimmen; die Faktoren sind nach oben auf 4 begrenzt "
+                     "(gestutzte Priori gegen entartete Skalen, Festlegung von Askurious).")
         elif h.get("prior") == "wide":
             text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
                      "Personen weit: invers-Wishart mit k + 5 Freiheitsgraden bei k Parametern und der Skala (k + 5) × "
@@ -666,7 +667,8 @@ def _choice_en(c):
                  + ("scale), covariance hierarchical (Huang & Wand, 2013): inverse Wishart with nu + k - 1 degrees of "
                     "freedom (nu = 2) whose scale has factors of their own with an inverse gamma prior (scale 2.5 of the "
                     "half-t standard deviations; for a conjoint per attribute, the constant and the price), so the data "
-                    "set the level of the spread"
+                    "set the level of the spread; the factors are bounded above at 4 (a truncated prior against degenerate "
+                    "scales, set by Askurious)"
                     if h.get("prior") == "hw" else
                     "scale), covariance wide: inverse Wishart with k + 5 degrees of freedom and the scale (k + 5) x prior "
                     "covariance (Rossi et al., 2005), so its mean is (k + 5)/4 times the prior covariance; it allows "

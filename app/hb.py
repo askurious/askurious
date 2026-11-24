@@ -29,6 +29,17 @@ S0 and so on; Sigma collapsed to 1e-3 to 1e-6 within the first iterations, befor
 chain did not leave it (seen on real ACBC data with k = 19 and 252 persons: different starts, different results).
 The warm-up is discarded with the rest of the burn-in, so the kept draws are those of the hierarchical prior
 (Festlegung von Askurious, 2026-11-24).
+The warm-up only delayed the collapse: after it a_g ran up for single groups (the constant first; 63, 490, 1e4), S0 went
+towards 0 and that variance fell to 1e-4 and stayed there; with 5000 + 20 000 iterations almost every parameter
+collapsed (simulated data, true variances 0.6 and 0.8; the fixed prior stable). So a_g is bounded above,
+a_g <= HW_A_MAX = 4: the prior of a_g is IG(1/2, 1/A^2) truncated to (0, HW_A_MAX] (Festlegung von Askurious,
+2026-11-24: it rules out degenerate scales). The scale of the prior then stays at least a quarter of that of the fixed
+prior (2 nu P_g / a_g >= P_g instead of 4 P_g). The Gibbs step stays exact: a_g | Sigma is the inverse gamma above
+truncated to a_g <= HW_A_MAX, drawn as rate / x with x ~ Gamma(shape, 1) truncated to x >= rate / HW_A_MAX
+(_gamma_above). Below the bound the steps are those of Huang & Wand. The price: a small spread now stays small only in
+part. On the simulated CBC data of tests/analysis/test_hb_prior.py (true variance 0.0067) the hierarchical prior gives
+0.15 to 0.17 with the bound, 0.03 to 0.05 without it, the fixed prior 0.215 (Festlegung von Askurious, 2026-11-24:
+stability first).
 The default (prior="iw") is the fixed prior above, unchanged and with the same random numbers.
 
 Optional wide prior on Sigma (prior="wide"): the same inverse Wishart with df = k + 5, but the scale df x prior_cov
@@ -117,6 +128,7 @@ PRIORS = ("iw", "hw", "wide")  # prior on Sigma: fixed inverse Wishart (default)
 HW_NU = 2           # nu of Huang & Wand: correlations uniform on (-1, 1)
 HW_SCALE = 2.5      # A of Huang & Wand: scale of the half-t prior of the standard deviations (logit scale)
 HW_WARM = 0.25      # first share of the burn-in of prior="hw" that runs with the fixed prior (see the module text)
+HW_A_MAX = 4.0      # upper bound of a_g of prior="hw": its prior truncated there (see the module text)
 GEWEKE = ("Geweke, J. (1992). Evaluating the accuracy of sampling-based approaches to the calculation of posterior "
           "moments. In J. M. Bernardo, J. O. Berger, A. P. Dawid, & A. F. M. Smith (Eds.), Bayesian statistics 4 "
           "(pp. 169–193). Oxford University Press.")
@@ -291,6 +303,29 @@ def hw_conditional(Si, blocks, df, nu=HW_NU, scale=HW_SCALE):
     shapes = np.array([0.5 + len(g) * df / 2 for g, _ in blocks])
     rates = np.array([nu * float(np.sum(P * Si[np.ix_(g, g)])) + 1 / scale ** 2 for g, P in blocks])
     return shapes, rates
+
+
+def _gamma_above(rng, shapes, lower):
+    """One draw per entry of Gamma(shape, 1) truncated to values of at least `lower` (exact): plain rejection where the
+    bound lies at or below the shape, else rejection from an exponential shifted to the bound, its rate the optimal
+    one for the truncated gamma (Dagpunar, 1978); for a shape of at most 1 the rate 1."""
+    out = np.empty(len(shapes))
+    for i, (alpha, low) in enumerate(zip(shapes, lower)):
+        alpha, low = float(alpha), float(low)
+        if low <= alpha:
+            x = rng.gamma(alpha)
+            while x < low:
+                x = rng.gamma(alpha)
+        else:
+            lam = min(1.0, (low - alpha + math.sqrt((low - alpha) ** 2 + 4 * low)) / (2 * low))
+            peak = max(low, (alpha - 1) / (1 - lam)) if lam < 1 else low
+            top = (alpha - 1) * math.log(peak) - (1 - lam) * peak
+            while True:
+                x = low + rng.exponential() / lam
+                if math.log(rng.random()) <= (alpha - 1) * math.log(x) - (1 - lam) * x - top:
+                    break
+        out[i] = x
+    return out
 
 
 def _draw_mu(rng, mean, Sigma, n, prior_prec):
@@ -539,7 +574,7 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         if hw and it >= warm_until:
             df0 = df_hw
             shapes, rates = hw_conditional(np.linalg.inv(Sigma), blocks, df0, scale=prior_scale)
-            a = rates / rng.gamma(shapes)
+            a = rates / _gamma_above(rng, shapes, rates / HW_A_MAX)   # a_g <= HW_A_MAX (module text)
             S0 = hw_scale(blocks, a, k)         # held fixed in the joint scaling below, with df0
         mu = _draw_mu(rng, B.mean(axis=0), Sigma, n, mu_prec)
         D = B - mu
