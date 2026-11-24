@@ -24,6 +24,13 @@ for L levels); for m_g = 1 and P_g = 1 the steps below are those of Huang & Wand
   Sigma | a, betas, mu    ~ IW(nu + k - 1 + N, 2 nu blockdiag(P_g / a_g) + sum (beta_n - mu)(beta_n - mu)')
 The default (prior="iw") is the fixed prior above, unchanged and with the same random numbers.
 
+Optional wide prior on Sigma (prior="wide"): the same inverse Wishart with df = k + 5, but the scale df x prior_cov
+instead of (df - k - 1) x prior_cov, the convention "scale = degrees of freedom x unit variance" of Rossi, Allenby &
+McCulloch (2005). Its prior mean of Sigma is df / (df - k - 1) = (k + 5) / 4 times prior_cov (3.5 times for k = 9): it
+allows larger differences between persons and shrinks the individual values less towards the mean; with few tasks per
+person it tends to overfit (Hein, Kurz & Steiner, 2019). Only the scale changes; the prior of mu, the start values, the
+proposals and the joint scaling (with this scale) stay as with the default.
+
 Sampler (Allenby & Rossi; Train 2009, ch. 12), one iteration:
   mu    | betas, Sigma    ~ N(V N Sigma^-1 mean of the betas, V), V = (prior^-1 + N Sigma^-1)^-1   (Gibbs)
   Sigma | betas, mu       ~ IW(df + N, scale + sum (beta_n - mu)(beta_n - mu)')    (Gibbs)
@@ -88,7 +95,8 @@ ADAPT_EVERY = 50    # burn-in iterations per adaptation of the step sizes (until
 SETTLE = 0.25       # last share of the burn-in: step sizes settle with a decreasing gain and are averaged (H-5)
 SETTLE_OFFSET = 10  # gain 1 / sqrt(t + SETTLE_OFFSET) in the t-th iteration of the settling phase
 KEEP_DRAWS = 100    # kept draws of all betas returned for predictions over the posterior (W-1)
-PRIORS = ("iw", "hw")  # prior on Sigma: fixed inverse Wishart (default) or hierarchical (Huang & Wand, 2013)
+PRIORS = ("iw", "hw", "wide")  # prior on Sigma: fixed inverse Wishart (default), hierarchical (Huang & Wand, 2013) or
+#                                 wide (scale df x prior_cov, Rossi et al., 2005)
 HW_NU = 2           # nu of Huang & Wand: correlations uniform on (-1, 1)
 HW_SCALE = 2.5      # A of Huang & Wand: scale of the half-t prior of the standard deviations (logit scale)
 GEWEKE = ("Geweke, J. (1992). Evaluating the accuracy of sampling-based approaches to the calculation of posterior "
@@ -119,6 +127,8 @@ ALLENBY = ("Allenby, G. M., & Rossi, P. E. (1998). Marketing models of consumer 
 SOURCES = (ROSSI, ALLENBY, TRAIN)
 HUANG_WAND = ("Huang, A., & Wand, M. P. (2013). Simple marginally noninformative prior distributions for covariance "
               "matrices. Bayesian Analysis, 8(2), 439–452. https://doi.org/10.1214/13-BA815")
+HEIN = ("Hein, M., Kurz, P., & Steiner, W. J. (2019). On the effect of HB covariance matrix prior settings: A simulation "
+        "study. Journal of Choice Modelling, 31, 51–72. https://doi.org/10.1016/j.jocm.2019.02.001")
 
 
 class Data:
@@ -232,6 +242,13 @@ def hw_blocks(prior_cov, groups=None):
     if np.any(np.abs(prior_cov[~inside]) > 1e-12):
         raise ValueError("prior_cov must be block diagonal along prior_groups")
     return [(g, prior_cov[np.ix_(g, g)]) for g in groups]
+
+
+def fixed_scale(prior_cov, df, wide=False):
+    """Scale of the inverse Wishart prior of Sigma with df degrees of freedom: (df - k - 1) prior_cov, so that its mean is
+    prior_cov (default), or df prior_cov ("wide", Rossi et al., 2005), whose mean is df / (df - k - 1) prior_cov."""
+    prior_cov = np.asarray(prior_cov, dtype=float)
+    return (df if wide else df - len(prior_cov) - 1) * prior_cov
 
 
 def hw_df(k, nu=HW_NU):
@@ -422,7 +439,7 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         S0 = None
     else:
         df0 = prior_df or k + 5
-        S0 = (df0 - k - 1) * prior_cov          # prior mean of Sigma = prior_cov
+        S0 = fixed_scale(prior_cov, df0, wide=prior == "wide")  # prior mean of Sigma = prior_cov (default)
     mu_prec = np.linalg.inv(MU_PRIOR_SD ** 2 * prior_cov)  # prior precision of mu (prior mean 0)
     if init is None:
         init = fit([s for sets in person_sets for s in sets], k, ridge=0.1)[0]
@@ -585,7 +602,8 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         "spread": None if spread_sum is None else spread_sum / n_kept,
         "draws": np.array(kept_draws) if kept_draws else None,
         "settings": {"burn": burn, "draws": draws, "thin": thin, "seed": seed, "prior_df": df0, "target": target,
-                     **({"prior": "hw", "prior_scale": prior_scale} if hw else {})},
+                     **({"prior": "hw", "prior_scale": prior_scale} if hw else
+                        {"prior": "wide"} if prior == "wide" else {})},
         "seconds": time.monotonic() - started,
         # posterior mean of the scales a_g of the hierarchical prior, one per group
         **({"prior_a": a_sum / n_kept if n_kept else a} if hw else {}),

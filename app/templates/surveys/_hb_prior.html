@@ -1,9 +1,9 @@
 {# The prior on the spread between people of the HB estimation of this question (maxdiff_hb.PRIOR_KEY): the fixed
-   inverse Wishart (default) or the hierarchical prior of Huang & Wand (2013). Changing it saves the choice and estimates
+   inverse Wishart (default), the hierarchical prior of Huang & Wand (2013) or the wide one (app/hb.py). Changing it saves the choice and estimates
    anew at once in the background (surveys.results_hb, static/hb.js), as the covariates of the segments do. Not for the
    ratings-based conjoint (its own sampler). Needs: e, f, survey. #}
 {% from "_learn.html" import why %}
-{% set hw_now = (e.item.config or {}).get("hb_prior") == "hw" %}
+{% set prior_now = (e.item.config or {}).get("hb_prior") %}
 <form class="res-run-hb hb-prior" method="post" action="{{ url_for('surveys.results_hb', survey_id=survey.id, item_id=e.item.id) }}" data-hb-form>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {% for s in f.sources %}<input type="hidden" name="source" value="{{ s }}">{% endfor %}
@@ -11,8 +11,9 @@
   {% if f.drop %}<input type="hidden" name="drop" value="1">{% endif %}
   <label for="hb-prior-{{ e.item.id }}">{{ de_en("Priori der Streuung zwischen Personen", "Prior of the spread between people") }}</label>
   <select id="hb-prior-{{ e.item.id }}" name="prior" data-submit-on-change>
-    <option value="iw"{% if not hw_now %} selected{% endif %}>{{ de_en("fest (Standard)", "fixed (default)") }}</option>
-    <option value="hw"{% if hw_now %} selected{% endif %}>{{ de_en("hierarchisch (Huang & Wand)", "hierarchical (Huang & Wand)") }}</option>
+    <option value="iw"{% if prior_now not in ("hw", "wide") %} selected{% endif %}>{{ de_en("fest (Standard)", "fixed (default)") }}</option>
+    <option value="hw"{% if prior_now == "hw" %} selected{% endif %}>{{ de_en("hierarchisch (Huang & Wand)", "hierarchical (Huang & Wand)") }}</option>
+    <option value="wide"{% if prior_now == "wide" %} selected{% endif %}>{{ de_en("weit", "wide") }}</option>
   </select>
 </form>
 {{ why("hb_prior") }}

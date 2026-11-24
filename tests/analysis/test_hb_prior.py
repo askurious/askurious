@@ -156,7 +156,7 @@ def test_choice_on_the_results_page_and_the_key(app, client, survey):
     with_dummies(app, client, n=20)
     html = client.get("/surveys/1/results?source=dummy").data.decode()
     assert 'name="prior"' in html and "Priori der Streuung zwischen Personen" in html and "fest (Standard)" in html
-    assert "Warum? Feste oder hierarchische Priori?" in html
+    assert "Warum? Feste, hierarchische oder weite Priori?" in html
     client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
     with app.app_context():
         from app import maxdiff_hb, segments, simulator
@@ -212,3 +212,83 @@ def test_stored_default_result_goes_stale_when_the_prior_changes(app, client, su
         maxdiff_hb.choose_prior(item, "hw")                      # chosen, not estimated yet
         db.session.commit()
         assert maxdiff_hb.current(db.session.get(Item, 2)) is None
+
+
+# --- the wide prior (scale = degrees of freedom x prior covariance) ---------------------------------------------------
+
+def test_wide_scale_is_degrees_of_freedom_times_prior_cov():
+    from app import hb
+
+    cov = np.eye(3) + 1
+    assert np.allclose(hb.fixed_scale(cov, 8), (8 - 3 - 1) * cov)              # the default: prior mean = cov
+    assert np.allclose(hb.fixed_scale(cov, 8, wide=True), 8 * cov)            # wide: prior mean 8/4 = 2 x cov
+
+
+def test_wide_prior_runs_reproducibly_and_default_stays():
+    from app import hb
+
+    versions, answers, _, _ = simulate(30, seed=2)
+    sets, k, _ = person_sets(versions, answers)
+    kw = dict(burn=200, draws=200, thin=2, seed=5, prior_cov=np.eye(k) + 1, keep=0)
+    a, b = hb.estimate(sets, k, prior="wide", **kw), hb.estimate(sets, k, prior="wide", **kw)
+    assert np.array_equal(a["beta"], b["beta"]) and np.array_equal(a["sigma_diag"], b["sigma_diag"])
+    assert a["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 5, "prior_df": k + 5, "target": hb.TARGET,
+                             "prior": "wide"}
+    assert "prior_a" not in a
+    default = hb.estimate(sets, k, **kw)
+    assert "prior" not in default["settings"] and not np.array_equal(default["beta"], a["beta"])
+
+
+def test_wide_prior_gives_a_larger_spread_between_persons():
+    """On the simulated CBC data every diagonal element of Sigma comes out larger than with the default prior (its prior
+    mean is (k + 5) / 4 = 3 times larger here, k = 7)."""
+    from app import hb
+
+    persons, k, prior, _, _ = _cbc()
+    kw = dict(burn=1000, draws=2000, thin=10, seed=1, prior_cov=prior, keep=0)
+    iw = hb.estimate(persons, k, **kw)["sigma_diag"]
+    wide = hb.estimate(persons, k, prior="wide", **kw)["sigma_diag"]
+    assert np.all(wide > iw)
+
+
+def test_wide_choice_on_the_results_page(app, client, survey):
+    with_dummies(app, client, n=20)
+    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    assert '<option value="iw" selected>' in html and '<option value="hw">' in html and '<option value="wide">' in html
+    assert html.index('value="iw"') < html.index('value="hw"') < html.index('value="wide"')
+    assert "Warum? Feste, hierarchische oder weite Priori?" in html and "Rossi et al., 2005" in html
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
+    with app.app_context():
+        from app import maxdiff_hb
+
+        first = maxdiff_hb.load(db.session.get(Item, 2))
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50", "prior": "wide"})
+    with app.app_context():
+        from app import maxdiff_hb
+
+        item = db.session.get(Item, 2)
+        wide = maxdiff_hb.load(item)
+        assert item.config["hb_prior"] == "wide" and maxdiff_hb.prior_of(item) == "wide"
+        assert wide["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "prior": "wide"}
+        assert wide["key"] != first["key"] and maxdiff_hb.current(item) is not None
+        # a result with another prior is not current for this choice
+        maxdiff_hb.choose_prior(item, "hw")
+        db.session.commit()
+        assert maxdiff_hb.current(db.session.get(Item, 2)) is None
+        maxdiff_hb.choose_prior(db.session.get(Item, 2), "wide")
+        db.session.commit()
+    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    assert '<option value="wide" selected>' in html and "Priori der Streuung weit (Rossi et al., 2005)" in html
+    assert "Hein, M., Kurz, P., &amp; Steiner, W. J. (2019)" in html
+    book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
+    assert "weite Priori der Streuung" in next(line for line in book.splitlines() if line.startswith("md_hb_prob1"))
+    # a value outside the keys changes nothing; back to the default stores nothing
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50", "prior": "weit"})
+    with app.app_context():
+        assert db.session.get(Item, 2).config["hb_prior"] == "wide"
+    client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50", "prior": "iw"})
+    with app.app_context():
+        from app import maxdiff_hb
+
+        item = db.session.get(Item, 2)
+        assert "hb_prior" not in item.config and maxdiff_hb.load(item)["key"] == first["key"]
