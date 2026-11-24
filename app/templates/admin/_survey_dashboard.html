@@ -7,6 +7,14 @@
 {% from "_macros.html" import list_table %}
 {% macro cell(n) %}{% set v = stats_mod.small_cell(n) %}{{ v if v is string else v|thousands }}{% endmacro %}
 {% macro before(cur, prev) %}{% if prev is not none %}<span class="hint">{{ de_en("davor:", "before:") }} {{ prev|thousands }}{% set c = stats_mod.change(cur, prev) %}{% if c %} ({{ c }}){% endif %}</span>{% endif %}{% endmacro %}
+{# weekday x local hour, shaded by stats_mod.heat_level: cells under MIN_CELL stay light #}
+{% macro heatmap(grid, label, note) %}{% set top = grid|map("max")|max %}{% set days = stats_mod.weekdays() %}
+  <div class="res-scroll"><table class="adash-heat" aria-label="{{ label }}">
+    <thead><tr><th></th>{% for h in range(24) %}<th scope="col">{{ h if h % 3 == 0 else "" }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for day in grid %}{% set wd = days[loop.index0] %}<tr><th scope="row">{{ wd }}</th>{% for n in day %}<td class="adash-h{{ stats_mod.heat_level(n, top) }}" title="{{ wd }} {{ '%02d' % loop.index0 }}:00 · {{ cell(n) }}"></td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="aic-legend"><span class="aic-key"><i class="adash-h1"></i>{{ de_en("wenige", "few") }}</span><span class="aic-key"><i class="adash-h4"></i>{{ de_en("viele", "many") }}</span><span>{{ note }}</span></p>
+{% endmacro %}
 {% set d = stats %}{% set w = d.window %}{% set p = d.parts %}{% set sv = d.surveys %}
 <div data-admin-dash>
 <form class="adash-bar" method="get" action="{{ url_for(dash_endpoint, **dash_args) }}" data-admin-dash-form>
@@ -34,6 +42,7 @@
 <details class="learn-why learn-method">
   <summary>{{ de_en("Was zählt hier?", "What is counted here?") }}</summary>
 <p>{{ de_en("Gezählt werden nur echte Teilnahmen: Testdurchläufe, Dummy-Daten und die Vorschau zählen nicht. Eine Teilnahme ist im Zeitraum begonnen, wenn ihre erste Seite darin liegt, und abgeschlossen, wenn sie darin bis zum Ende kam; ein Papierbogen zählt mit dem Zeitpunkt der Übernahme. „Abgebrochen“ heißt: begonnen und seit {h} Stunden keine Seite mehr. Befragungen, die ihre Forschenden aus den Übersichten der Admins heraushalten, zählen in allen Zahlen mit, werden aber nirgends genannt.", "Only real participations are counted: test runs, dummy data and the preview are not. A participation was begun in the period if its first page lies in it, and completed if it reached the end in it; a paper questionnaire counts with the time it was read in. “Abandoned” means: begun, and no page for {h} hours. Surveys whose researchers keep them out of the admins’ overviews count in every figure but are never named.", h=stats_mod.ABANDON_HOURS) }}</p>
+{% if d.work is not none %}<p>{{ de_en("„Wann Forschende arbeiten“ zählt je Stunde, wie viele Anmeldungen (je Browser) darin genutzt wurden. Gespeichert wird nur diese Zahl je Stunde, weder wer noch wann genau noch was; nach {d} Tagen wird sie gelöscht.", "“When researchers work” counts per hour how many sign-ins (per browser) were used in it. Only this number per hour is stored, not who, not exactly when, not what; it is deleted after {d} days.", d=stats_mod.WORK_KEEP_DAYS) }}</p>{% endif %}
 <p>{{ de_en("Aufteilungen nennen Zahlen unter {n} nur als „< {n}“, damit sich niemand aus wenigen Teilnahmen erkennen lässt; die Gesamtzahlen bleiben genau. Gezeigt werden nur Zählungen, keine Antworten.", "Breakdowns give numbers under {n} only as “< {n}”, so that nobody can be recognised from a few participations; the totals stay exact. Only counts are shown, never answers.", n=stats_mod.MIN_CELL) }}</p>
 </details>
 <section class="panel" id="eingang">
@@ -54,12 +63,7 @@
 <section class="panel" id="wann">
   <h2>{{ de_en("Wann Teilnahmen eingehen", "When participations come in") }} <span class="hint">{{ de_en("abgeschlossene im Zeitraum, nach Wochentag und Stunde", "completed in the period, by weekday and hour") }}</span></h2>
   {% if not p.completed %}<p class="muted">{{ de_en("Im gewählten Zeitraum wurde keine Teilnahme abgeschlossen.", "No participation was completed in the chosen period.") }}</p>{% else %}
-  {% set top = d.heat|map("max")|max %}{% set days = stats_mod.weekdays() %}
-  <div class="res-scroll"><table class="adash-heat" aria-label="{{ de_en('Abgeschlossene Teilnahmen nach Wochentag und Stunde', 'Completed participations by weekday and hour') }}">
-    <thead><tr><th></th>{% for h in range(24) %}<th scope="col">{{ h if h % 3 == 0 else "" }}</th>{% endfor %}</tr></thead>
-    <tbody>{% for day in d.heat %}{% set wd = days[loop.index0] %}<tr><th scope="row">{{ wd }}</th>{% for n in day %}<td class="adash-h{{ stats_mod.heat_level(n, top) }}" title="{{ wd }} {{ '%02d' % loop.index0 }}:00 · {{ cell(n) }}"></td>{% endfor %}</tr>{% endfor %}</tbody>
-  </table></div>
-  <p class="aic-legend"><span class="aic-key"><i class="adash-h1"></i>{{ de_en("wenige", "few") }}</span><span class="aic-key"><i class="adash-h4"></i>{{ de_en("viele", "many") }}</span><span>{{ de_en("Felder mit weniger als {n} Teilnahmen bleiben hell.", "Cells with fewer than {n} participations stay light.", n=stats_mod.MIN_CELL) }}</span></p>
+  {{ heatmap(d.heat, de_en("Abgeschlossene Teilnahmen nach Wochentag und Stunde", "Completed participations by weekday and hour"), de_en("Felder mit weniger als {n} Teilnahmen bleiben hell.", "Cells with fewer than {n} participations stay light.", n=stats_mod.MIN_CELL)) }}
   {% endif %}
 </section>
 </div>
@@ -85,5 +89,13 @@
     </tbody>
   {% endcall %}</div>
 </section>
+{% if d.work is not none %}
+<section class="panel" id="forschende-wann">
+  <h2>{{ de_en("Wann Forschende arbeiten", "When researchers work") }} <span class="hint">{{ de_en("aktive Anmeldungen im Zeitraum, nach Wochentag und Stunde", "active sign-ins in the period, by weekday and hour") }}</span></h2>
+  {% if not d.work|map("sum")|sum %}<p class="muted">{{ de_en("Im gewählten Zeitraum war niemand angemeldet.", "Nobody was signed in during the chosen period.") }}</p>{% else %}
+  {{ heatmap(d.work, de_en("Aktive Anmeldungen nach Wochentag und Stunde", "Active sign-ins by weekday and hour"), de_en("Felder mit weniger als {n} Anmeldungen bleiben hell.", "Cells with fewer than {n} sign-ins stay light.", n=stats_mod.MIN_CELL)) }}
+  {% endif %}
+</section>
+{% endif %}
 </div>
 </div>

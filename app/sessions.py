@@ -62,6 +62,9 @@ def start(user, since=None):
     sid = secrets.token_urlsafe(24)
     now = utcnow()
     db.session.add(LoginSession(id=sid, user_id=user.id, created_at=since or now, last_seen_at=now, label=_label()[:60]))
+    from app import researcher_activity
+
+    researcher_activity.count(now)  # a session active in this hour, without saying whose
     db.session.commit()
     g.login_sid = sid
     session["sid"] = sid
@@ -106,6 +109,10 @@ def open_row(user_id, sid):
     if row.created_at and now - row.created_at > maximum:
         return None  # signed in too long ago: sign in again
     if not row.last_seen_at or now - row.last_seen_at > TOUCH:
+        from app import researcher_activity
+
+        if not row.last_seen_at or researcher_activity.hour_of(row.last_seen_at) != researcher_activity.hour_of(now):
+            researcher_activity.count(now)  # first use of this session in this hour: one more, without saying whose
         row.last_seen_at = now
         db.session.commit()
     return row

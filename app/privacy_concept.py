@@ -499,7 +499,9 @@ def _activities():
                            "am Ende des Zugangs endet die Beteiligung, ein nur so entstandenes Konto wird gesperrt wie ein "
                            "befristetes. Einladungslinks der Plattform (nur Prüfwert, "
                            "Notiz, Zähler) und Gründungslinks: bis 30 Tage nach Ablauf oder Nutzung. Anträge auf mehr Plätze: bis die "
-                           "Organisation gelöscht wird.",
+                           "Organisation gelöscht wird. Für „Wann Forschende arbeiten“ (Administration › Befragungen) "
+                           "bleibt je Stunde nur die Zahl der darin genutzten Anmeldungen, ohne Konto, Sitzung oder "
+                           "genauere Uhrzeit; sie wird nach 400 Tagen gelöscht.",
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
                            "date remain; memberships, home and admin role in organisations go with the account. Email "
                            "address and password hash also when the person removes this sign-in on the page “Account › Profile and sign-in” "
@@ -516,7 +518,9 @@ def _activities():
                            "access; the link as a hash only): likewise at most 30 days; at the end of the access the membership "
                            "ends, and an account that came about only this way is blocked as one with a period is. "
                            "Invitation links of the platform (hash, note, counter only) and founding links: until 30 days after "
-                           "they expire or are used. Requests for more places: until the organisation is deleted."),
+                           "they expire or are used. Requests for more places: until the organisation is deleted. For “When "
+                           "researchers work” (Administration › Surveys) only the number of sign-ins used per hour remains, "
+                           "without account, session or a finer time; it is deleted after 400 days."),
          "controller": owner,
          "basis": de_en("Art. 6 Abs. 1 lit. b DSGVO (Nutzungsbedingungen); bei öffentlichen Stellen ggf. lit. e",
                         "Art. 6 (1) (b) GDPR (terms of use); for public bodies possibly (e)")},

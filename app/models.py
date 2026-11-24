@@ -3107,6 +3107,16 @@ class RateCount(db.Model):
     n: Mapped[int] = mapped_column(default=1)
 
 
+class ResearcherActivity(db.Model):
+    """How many sign-in sessions of researchers were active in one hour (app/researcher_activity.py): the hour's start
+    in UTC and a number, no account, no session, nothing finer than the hour. Kept researcher_activity.KEEP_DAYS days."""
+
+    __tablename__ = "researcher_activity"
+
+    hour: Mapped[datetime] = mapped_column(primary_key=True)
+    n: Mapped[int] = mapped_column(default=0)
+
+
 class EditMark(db.Model):
     """Who has a part of a survey open in an editor and who saved it last (see app/edit_guard.py).
 

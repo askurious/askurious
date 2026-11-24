@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from markupsafe import Markup, escape
 
 from app.lang import de_en, english
+from app.researcher_activity import KEEP_DAYS as WORK_KEEP_DAYS  # shown in "Was zählt hier?"
 from app.timeutil import LOCAL_TZ, to_local
 
 MIN_CELL = 5          # a number of participations under this is shown as "< 5" in a breakdown
@@ -221,9 +222,15 @@ def compute(key=DEFAULT, since=None, now=None, org_id=None):
         with_org = ({main if o is None else o for o in db.session.scalars(db.select(Survey.org_id).where(Survey.id.in_(with_input)))}
                     if with_input else set())
         people["orgs"] = (len(with_org & org_ids), len(org_ids))
+    # when researchers work (the whole platform only): sessions active per hour, never whose (app/researcher_activity.py)
+    work = None
+    if org_id is None:
+        from app import researcher_activity
+
+        work = researcher_activity.heat(start, now, to_local)
     return {"window": w, "now": now, "surveys": surveys, "parts": parts, "with_input": len(with_input),
             "quiet": quiet, "active_now": active_now, "buckets": buckets, "outcome": outcome, "heat": heat,
-            "kinds": kinds, "people": people}
+            "kinds": kinds, "people": people, "work": work}
 
 
 def small_cell(n):
