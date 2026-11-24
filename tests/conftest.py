@@ -10,6 +10,7 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 # the chains of an HB estimation one after another in the test process (app/hb_chains.py; the same result as in
 # processes of their own): every xdist worker stays on one core; tests of the processes pass workers themselves
 os.environ.setdefault("HB_CHAIN_PROCESSES", "1")
+os.environ.setdefault("WW_PARALLEL", "1")  # confirmation runs of the interaction search in this process
 
 import pytest  # noqa: E402
 from jinja2 import BytecodeCache
