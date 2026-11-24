@@ -321,7 +321,8 @@ def choice_sources(choice):
                                  "Bayes regression"), [cva_hb.LENK, hb_convergence.VEHTARI]))
     if any(c["hb"] for c in choice):
         groups.append(("Hierarchical Bayes", [hb.ALLENBY, hb.ROSSI]
-                       + ([hb.HUANG_WAND] if any(c["hb"] and c["hb"].get("prior") == "hw" for c in choice) else [])))
+                       + ([hb.HUANG_WAND] if any(c["hb"] and c["hb"].get("prior") == "hw" for c in choice) else [])
+                       + ([hb.HEIN] if any(c["hb"] and c["hb"].get("prior") == "wide" for c in choice) else [])))
     if any(c["hb"] and c["hb"].get("rhat_max") is not None for c in choice):
         groups.append((de_en("Konvergenz der HB-Kette: split-R̂ und effektive Stichprobengröße; Geweke-artiger Vergleich der "
                              "Hälften (Grenze nach Bonferroni)", "Convergence of the HB chain: split R̂ and effective sample "
@@ -443,6 +444,12 @@ def _choice_de(c):
                      "k Parametern, deren Skala eigene Faktoren mit einer invers-Gamma-Priori hat (Skala 2,5 der "
                      "halb-t-verteilten Standardabweichungen; beim Conjoint je Merkmal, für die Konstante und den Preis), "
                      "sodass die Daten die Höhe der Streuung bestimmen.")
+        elif h.get("prior") == "wide":
+            text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
+                     "Personen weit: invers-Wishart mit k + 5 Freiheitsgraden bei k Parametern und der Skala (k + 5) × "
+                     "Priori-Kovarianz (Rossi et al., 2005), ihr Erwartungswert also (k + 5)/4-mal die Priori-Kovarianz; "
+                     "sie lässt größere Unterschiede zwischen Personen zu und kann bei wenigen Aufgaben je Person zur "
+                     "Überanpassung neigen (Hein et al., 2019).")
         else:
             text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
                      "Personen invers-Wishart mit k + 5 Freiheitsgraden bei k Parametern und der Priori-Kovarianz als "
@@ -573,6 +580,10 @@ def _choice_en(c):
                     "half-t standard deviations; for a conjoint per attribute, the constant and the price), so the data "
                     "set the level of the spread"
                     if h.get("prior") == "hw" else
+                    "scale), covariance wide: inverse Wishart with k + 5 degrees of freedom and the scale (k + 5) x prior "
+                    "covariance (Rossi et al., 2005), so its mean is (k + 5)/4 times the prior covariance; it allows "
+                    "larger differences between persons and may overfit with few tasks per person (Hein et al., 2019)"
+                    if h.get("prior") == "wide" else
                     "scale), covariance inverse Wishart with k + 5 degrees of freedom and the prior covariance as its mean"))
         if h.get("rhat_max") is not None and h.get("ess_min") is not None:
             line += (f"; convergence{' of the population means and variances' if h.get('sigma') else ''}: "

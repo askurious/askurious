@@ -222,12 +222,15 @@ REASONS = {
         "benennen lassen und Holdouts besser vorhersagen.",
         (("app.latent_class", "NYLUND"), ("app.latent_class", "ANDREWS_CURRIM"))),
     "hb_prior": (
-        "Feste oder hierarchische Priori?",
+        "Feste, hierarchische oder weite Priori?",
         "Die feste Priori zieht die Streuung zwischen Personen bei wenigen Personen oder schwach bestimmten Werten zu "
         "einem festen Wert hin. Die hierarchische Priori lernt die Streuung aus den Daten, beim Conjoint je Merkmal: Kleine "
-        "Unterschiede zwischen Personen werden nicht angehoben, große nicht gedrückt. Die Ergebnisse weichen meist nur wenig "
-        "voneinander ab.",
-        (("app.hb", "HUANG_WAND"),)),
+        "Unterschiede zwischen Personen werden nicht angehoben, große nicht gedrückt; die Ergebnisse weichen meist nur wenig "
+        "ab. Die weite Priori (Skala = Freiheitsgrade × Priori-Kovarianz) lässt größere Unterschiede zwischen Personen zu "
+        "und zieht die individuellen Werte weniger zum Mittel: Werte und Streuungen fallen größer aus, Merkmale mit wenig "
+        "echtem Unterschied zwischen Personen gewinnen an Wichtigkeit. Sie hilft beim Vergleich mit Programmen, die so eine "
+        "weite Priori voreinstellen, neigt bei wenigen Aufgaben je Person aber zur Überanpassung.",
+        (("app.hb", "HUANG_WAND"), ("app.hb", "ROSSI"), ("app.hb", "HEIN"))),
     "segments_covariates": (
         "Kovariaten ins Modell?",
         "Kovariaten lassen die Segmentanteile je Person von Fragen wie dem Alter abhängen; das schätzt diese "
@@ -1183,10 +1186,15 @@ REASONS_EN = {
         "The BIC suggests the number that best balances fit and parsimony; Askurious skips very small and unstable "
         "solutions. Also choose by content: segments that differ clearly, can be named and predict holdouts better."),
     "hb_prior": (
-        "Fixed or hierarchical prior?",
+        "Fixed, hierarchical or wide prior?",
         "With few people or weakly determined values, the fixed prior pulls the spread between people towards a fixed "
         "value. The hierarchical prior learns the spread from the data, for a conjoint per attribute: small differences "
-        "between people are not raised and large ones are not pressed down. The results usually differ only slightly."),
+        "between people are not raised and large ones are not pressed down; the results usually differ only slightly. "
+        "The wide prior (scale = degrees of freedom × prior covariance) allows larger differences between people and "
+        "shrinks the individual values less towards the mean: "
+        "values and spreads come out larger, and attributes with little real difference between people gain importance. "
+        "It helps when comparing with programs that use such a wide prior by default, but tends to overfit with few tasks "
+        "per person."),
     "segments_covariates": (
         "Covariates in the model?",
         "Covariates let each person’s segment shares depend on questions such as age; this estimates these "

@@ -18,8 +18,9 @@ result whose key differs from the current data is stale. A marker file shows a r
 carries a heartbeat, so a run killed with its process (Passenger) is shown as aborted after a while.
 Settings from the app config: HB_BURN, HB_DRAWS, HB_THIN, HB_SEED; HB_SYNC runs in the request (tests). The prior on
 the spread between persons is chosen per question on the results page (item.config["hb_prior"], PRIOR_KEY): the fixed
-inverse Wishart (default, nothing stored) or the hierarchical prior of Huang & Wand (2013), "hw" (app/hb.py). Only then
-the settings carry "prior": "hw", so the key of a result with the default stays what it was.
+inverse Wishart (default, nothing stored), the hierarchical prior of Huang & Wand (2013), "hw", or the wide one (scale
+df x prior_cov, Rossi et al., 2005), "wide" (app/hb.py). Only then the settings carry "prior", so the key of a result
+with the default stays what it was.
 """
 import hashlib
 import json
@@ -47,45 +48,55 @@ TOP = 3                 # "in the personal top 3"
 MAX_DOTS = 400          # above this many persons the distribution chart shows boxes only
 
 
-PRIOR_KEY = "hb_prior"  # item.config: "hw" for the hierarchical prior; absent for the default (a setting of the results
+PRIOR_KEY = "hb_prior"  # item.config: "hw" (hierarchical) or "wide"; absent for the default (a setting of the results
 #                         page, simulator.RESULT_KEYS: no part of the questionnaire, its design or the other models)
 
 
 def prior_of(item):
-    """The prior on Sigma chosen for the question: "hw" or "iw" (the default)."""
-    return "hw" if (item.config or {}).get(PRIOR_KEY) == "hw" else "iw"
+    """The prior on Sigma chosen for the question: "hw", "wide" or "iw" (the default)."""
+    chosen = (item.config or {}).get(PRIOR_KEY)
+    return chosen if chosen in hb.PRIORS and chosen != "iw" else "iw"
 
 
 def choose_prior(item, value):
-    """Store the prior chosen on the results page ("iw" or "hw"; anything else changes nothing): True if it changed."""
+    """Store the prior chosen on the results page (one of hb.PRIORS; anything else changes nothing): True if it
+    changed."""
     if value not in hb.PRIORS or value == prior_of(item):
         return False
     config = {k: v for k, v in (item.config or {}).items() if k != PRIOR_KEY}
-    item.config = {**config, PRIOR_KEY: "hw"} if value == "hw" else config
+    item.config = config if value == "iw" else {**config, PRIOR_KEY: value}
     return True
 
 
 def with_prior(cfg, item):
-    """The HB settings cfg with the question's prior: "prior": "hw" only for the hierarchical one, so the settings and
+    """The HB settings cfg with the question's prior: "prior" only for another than the default, so the settings and
     the key of a result with the default stay exactly as before. Other settings (the latent classes, {"lc": True})
     are left alone."""
     if "burn" not in cfg:
         return cfg
     cfg = {k: v for k, v in cfg.items() if k != "prior"}
-    return {**cfg, "prior": "hw"} if prior_of(item) == "hw" else cfg
+    chosen = prior_of(item)
+    return cfg if chosen == "iw" else {**cfg, "prior": chosen}
 
 
 def prior_args(cfg, groups):
     """The keyword arguments of hb.estimate for the prior in the settings cfg: none for the default."""
-    return {"prior": "hw", "prior_groups": groups} if cfg.get("prior") == "hw" else {}
+    if cfg.get("prior") == "hw":
+        return {"prior": "hw", "prior_groups": groups}
+    return {"prior": "wide"} if cfg.get("prior") == "wide" else {}
 
 
 def prior_text(cfg, lang):
     """The part of the codebook line on the prior: "" for the default, so its line stays as it was."""
-    if (cfg or {}).get("prior") != "hw":
-        return ""
-    return (", hierarchical prior on the spread (Huang & Wand, 2013)" if lang == "en"
-            else ", hierarchische Priori der Streuung (Huang & Wand, 2013)")
+    chosen = (cfg or {}).get("prior")
+    if chosen == "hw":
+        return (", hierarchical prior on the spread (Huang & Wand, 2013)" if lang == "en"
+                else ", hierarchische Priori der Streuung (Huang & Wand, 2013)")
+    if chosen == "wide":
+        return (", wide prior on the spread (scale = degrees of freedom × prior covariance; Rossi et al., 2005)"
+                if lang == "en" else
+                ", weite Priori der Streuung (Skala = Freiheitsgrade × Priori-Kovarianz; Rossi et al., 2005)")
+    return ""
 
 
 def settings(app=None):

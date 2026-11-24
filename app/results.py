@@ -1602,6 +1602,12 @@ def page_sources(data):
                for e in entries for k in ("maxdiff", "cbc", "acbc", "paired")):
             groups.append((de_en("Hierarchische Priori der Streuung zwischen Personen (Auswahl je Frage)",
                                  "Hierarchical prior of the spread between people (chosen per question)"), [hb.HUANG_WAND]))
+        if any(((((e.get(k) or {}).get("hb") or {}).get("result") or {}).get("settings") or {}).get("prior") == "wide"
+               for e in entries for k in ("maxdiff", "cbc", "acbc", "paired")):
+            groups.append((de_en("Weite Priori der Streuung zwischen Personen (Auswahl je Frage): Skala = Freiheitsgrade × "
+                                 "Priori-Kovarianz; Neigung zur Überanpassung bei wenigen Aufgaben je Person",
+                                 "Wide prior of the spread between people (chosen per question): scale = degrees of freedom "
+                                 "× prior covariance; tendency to overfit with few tasks per person"), [hb.ROSSI, hb.HEIN]))
         groups.append((de_en("HB-Sampler: Langevin-Schritt je Person mit eigener, im Burn-in auf eine Ziel-Akzeptanz "
                              "geregelter Schrittweite (Random-Walk-Schritte: Ziel 0,3), im letzten Viertel des Burn-ins mit "
                              "abnehmendem Gewinn nachgeregelt und gemittelt (Robbins-Monro), gemeinsame Verschiebung und "
