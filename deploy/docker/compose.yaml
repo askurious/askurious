@@ -462,7 +462,7 @@ services:
       interval: 30s
       timeout: 5s
 
-  # Rechenknecht (app/compute_node.py): HB and latent classes, at most 8 cores and the lowest share, so that long
+  # Rechenknecht (app/compute_node.py): HB and latent classes, at most 12 cores and the lowest share, so that long
   # estimations never slow down either side. Same image, but nothing of the .env: no database, no SECRET_KEY, no uploads;
   # only the shared COMPUTE_SECRET. Reachable inside the compose network only. Down: the app computes itself.
   compute:
@@ -490,7 +490,9 @@ services:
       COMPUTE_BIND: 0.0.0.0:8090
       COMPUTE_PARALLEL: "6"
       COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-1}   # signature 1 still taken (app/compute.py, CFG-07)
-    cpus: 8
+    # 12 of the 24 cores since 2026-11-24: every HB estimation runs 4 chains in processes of their own (app/hb_chains.py);
+    # measured that day: load about 1 of 24 cores. The low share keeps it behind the participants (2048) when cores are scarce
+    cpus: 12
     cpu_shares: 256
     depends_on: [researcher]
 
