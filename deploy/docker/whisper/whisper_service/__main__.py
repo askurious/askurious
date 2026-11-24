@@ -14,9 +14,12 @@ from .worker import run
 def main():
     os.umask(0o077)
     settings = Settings.environment()
-    if len(settings.token) < 32 or not 1 <= settings.threads <= 8 or not 60 <= settings.max_seconds <= 21600:
+    if (len(settings.token) < 32 or not 1 <= settings.threads <= 8 or not 60 <= settings.max_seconds <= 21600
+            or not 1 <= settings.workers <= 4 or not 1 <= settings.max_pending <= 32
+            or not 1024 <= settings.cache_memory_mb <= 16384):
         raise SystemExit("WHISPER_TOKEN must have at least 32 characters; WHISPER_THREADS must be 1..8; "
-                         "WHISPER_MAX_SECONDS must be 60..21600.")
+                         "WHISPER_MAX_SECONDS must be 60..21600; WHISPER_WORKERS must be 1..4; "
+                         "WHISPER_MAX_PENDING must be 1..32; WHISPER_CACHE_MB must be 1024..16384.")
     manifest = settings.models / "manifest.json"
     if not manifest.is_file():
         raise SystemExit("Prepare the local model volume before starting the service.")
@@ -36,15 +39,20 @@ def main():
     lock = (settings.state / "worker.lock").open("a")
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     stop_event = threading.Event()
-    worker = threading.Thread(target=run, args=(queue, stop_event), daemon=True, name="transcription-worker")
-    worker.start()
+    # One lock for the whole service: its slots are threads of this process. Unfinished jobs go back to the queue
+    # once, before any slot starts, so that no slot requeues a job another slot is already computing.
+    queue.recover()
+    workers = [threading.Thread(target=run, args=(queue, stop_event), kwargs={"recover": False}, daemon=True,
+                                name=f"transcription-worker-{number}") for number in range(1, settings.workers + 1)]
+    for worker in workers:
+        worker.start()
     try:
-        serve(create_app(queue, ready=worker.is_alive), host="0.0.0.0", port=8091, threads=4,
+        serve(create_app(queue, ready=lambda: all(worker.is_alive() for worker in workers)), host="0.0.0.0", port=8091, threads=4,
               connection_limit=32, max_request_body_size=settings.max_bytes + 1024 * 1024,
               channel_timeout=30, ident="")
     finally:
         stop_event.set()
-        queue.wake.set()
+        queue.wake.set()  # an Event: every waiting slot wakes up
         lock.close()
 
 

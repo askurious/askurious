@@ -301,8 +301,9 @@ x-app: &app
   # memory and processes (SV-3/DP-5): a runaway request or estimation ends in its own container (the kernel stops a
   # process there), never takes PostgreSQL along. Measured: a participants' container 1.4 GB, at 1,000 people at once
   # 2.8 GB for both together (load test 2026-10-08). The researcher overrides this for two reports up to 0.8 GB each.
-  # All limits together stay below the host's 19 GB also with WhisperX (Abgleich 2026-10-15, T08-N-4; BETRIEB.md):
-  # 2.5 GB leave a participants' container its measured 1.4 GB, the /tmp of 512 MB and room to spare.
+  # All limits together stay below the host's memory also with WhisperX (56 GiB since 2026-11-24, before 19 GB;
+  # T08-N-4; BETRIEB.md): 2.5 GB leave a container of this kind its measured 1.4 GB, the /tmp of 512 MB and room to
+  # spare. The two participants' containers take 4 GB since 2026-11-24 (they used 1.6 GB each right after a start).
   mem_limit: 2560m
   pids_limit: 1024                     # processes and threads: 12 workers x 4 threads and the background threads
   tmpfs:
@@ -325,11 +326,12 @@ services:
     logging: *logging
     # mission critical with nginx and participant (Philipp, 2026-10-08): 2048; researcher 512, the rest 256
     cpu_shares: 2048
-    # memory (SV-3/DP-5): room for shared_buffers (1 GB), 500 connections and maintenance; the app containers have
+    # memory (SV-3/DP-5): room for shared_buffers (4 GB since 2026-11-24, 1 GB before), 500 connections with
+    # work_mem 16 MB and maintenance; the app containers have
     # their own, lower limits, so that one of them that runs out ends there. Should the server itself run short, the
     # kernel stops other processes first (oom_score_adj). Starts as root and switches to the user postgres (gosu, no
     # setuid program): no-new-privileges does not hinder it; its capabilities stay as the image needs them
-    mem_limit: 3g
+    mem_limit: 8g
     oom_score_adj: -500
     pids_limit: 1024                         # max_connections 500, one process each, and PostgreSQL's own
     security_opt: ["no-new-privileges:true"]
@@ -350,7 +352,11 @@ services:
     # request (gunicorn --timeout 300), and a transaction left open (idle in transaction) ends after 10 minutes, so
     # that it holds no locks and VACUUM and migrations do not wait for it. pg_dump and pg_restore switch the
     # statement limit off for themselves. A slow request takes seconds, the load test saw idle transactions of 0.01 s.
-    command: ["postgres", "-c", "max_connections=500", "-c", "shared_buffers=1GB",
+    # Memory since 2026-11-24 (VM with 56 GiB): shared_buffers 4 GB of the 8 GB limit; effective_cache_size only tells
+    # the planner how much the host's file cache holds besides (about 24 GB free of the other limits), it reserves
+    # nothing; work_mem 16 MB per sort or hash, so that reports and exports sort in memory instead of on disk.
+    command: ["postgres", "-c", "max_connections=500", "-c", "shared_buffers=4GB",
+              "-c", "effective_cache_size=24GB", "-c", "work_mem=16MB",
               "-c", "statement_timeout=300s", "-c", "idle_in_transaction_session_timeout=600s"]
 
   # participants first: more workers and four times the researchers' CPU share when both sides are busy. One process uses one core
@@ -358,8 +364,8 @@ services:
   # 1,000 at once at 0.16 s (median) on ~15 cores.
   # Two containers of 12 processes each (24 together, as in the one container before): a deploy restarts them one
   # after the other (restart.sh), nginx sends the requests to the other in between, and participants see no error
-  # page (zwei-teilnahme-container-konzept.md, Ralf 2026-10-08). Each may use up to 20 of the 24 cores (a ceiling
-  # only, so that one can take more when the load is uneven; 4 stay for PostgreSQL and nginx); their shares of 1024
+  # page (zwei-teilnahme-container-konzept.md, Ralf 2026-10-08). Each may use up to 24 of the 27 cores (a ceiling
+  # only, so that one can take more when the load is uneven; 3 stay for PostgreSQL and nginx); their shares of 1024
   # add up to the 2048 of the database and nginx, as the one container had.
   housekeeping:
     <<: *app
@@ -382,7 +388,8 @@ services:
   participant-a: &participant
     <<: *app
     cpu_shares: 1024
-    cpus: 20
+    cpus: 24
+    mem_limit: 4g                            # 1.6 GB each after a start (2026-11-24), room for peaks and the /tmp
     # a running request gets up to --graceful-timeout 60 to finish when the container stops (a long voice message over
     # a slow line): the restart waits for it. --timeout only ends a worker that stops answering as a whole; with
     # gthread a single slow request is not ended by it (nginx gives up after 60 s and does not repeat it, BT10).
@@ -407,7 +414,7 @@ services:
   researcher:
     <<: *app
     networks: {default: {}, whisper-net: {}}
-    mem_limit: 3g                           # web workers (~1 GB) plus two reports up to ~0.8 GB each (PF-2, T08-N-4)
+    mem_limit: 6g                           # web workers (~1 GB), reports up to ~0.8 GB each and the 1 GB /tmp (PF-2, T08-N-4)
     cpu_shares: 512                          # a quarter of the participants' share (Philipp, 2026-10-08)
     # exports, imports (40 MB as text) and results computed anew; /tmp takes ZIP exports past 16 MB
     tmpfs:
@@ -435,24 +442,34 @@ services:
     pull_policy: never  # build and validate separately with explicit CPU/RAM limits (whisper/README.md)
     restart: unless-stopped
     logging: *logging
-    cpus: 8                       # 24 vCPU with AVX2/FMA since 2026-10-17; nice 15 and the lowest share keep it behind the app
+    # three jobs at once since 2026-11-24 (27 vCPU with AVX2/FMA, 56 GiB): WHISPER_WORKERS slots of WHISPER_THREADS
+    # each, 3 x 6 = 18 cores; nice 15 and the lowest share keep it behind the app
+    cpus: 18
     cpu_shares: 64
-    mem_limit: 5g
-    memswap_limit: 5g
+    # per slot about 4-5 GB with large-v3-turbo kept loaded through alignment and diarization (WHISPER_KEEP_WEIGHTS)
+    mem_limit: 18g
+    memswap_limit: 18g
     oom_score_adj: 500
     pids_limit: 256
     tmpfs: ["/tmp:size=64m,mode=1777"]
     networks: {whisper-net: {}}
     environment:
       WHISPER_TOKEN: ${WHISPER_TOKEN:-}
-      WHISPER_THREADS: "8"
+      # any free slot takes the next queued job; every slot has its own process and its own model
+      WHISPER_WORKERS: "3"
+      WHISPER_MAX_PENDING: "16"     # open jobs (computing and waiting) before the app waits for a free place
+      WHISPER_KEEP_WEIGHTS: "1"     # the memory limit holds turbo and alignment/diarization side by side
+      WHISPER_CACHE_MB: "6144"      # a slot's resident process stays up to this size (3072 was below turbo plus alignment)
+      WHISPER_THREADS: "6"
       # the libraries' own thread pools follow WHISPER_THREADS; they override the image's values without a rebuild
-      OMP_NUM_THREADS: "8"
-      MKL_NUM_THREADS: "8"
-      OPENBLAS_NUM_THREADS: "8"
-      NUMEXPR_NUM_THREADS: "8"
+      OMP_NUM_THREADS: "6"
+      MKL_NUM_THREADS: "6"
+      OPENBLAS_NUM_THREADS: "6"
+      NUMEXPR_NUM_THREADS: "6"
       WHISPER_MAX_SECONDS: "10800"  # longest recording part: 3 hours (60 minutes until 2026-11-05)
-      WHISPER_MAX_LOAD: "20"        # no new job above this load; 12 was meant for 4 threads on fewer cores
+      # no new job above this host load; the 18 threads of the slots count themselves, so 30 leaves the same 12 for
+      # the rest as 20 did for one slot of 8 (12 was meant for 4 threads on fewer cores)
+      WHISPER_MAX_LOAD: "30"
       WHISPER_APP_HEALTH: http://researcher:8000/healthz
     volumes:
       - ${WHISPER_MODELS_DIR:-${HOME}/askurious-whisper-models}:/models:ro
@@ -471,11 +488,11 @@ services:
     pull_policy: never                     # built for the two app containers, never fetched from a registry
     restart: unless-stopped
     logging: *logging
-    # three estimations at once (COMPUTE_PARALLEL) since 2026-11-24, each with 4 chain processes (app/hb_chains.py): 12
-    # processes on 12 cores. Measured: the estimation itself up to some 400 MB with its input (2026-10-06), each chain
-    # process about 95 MB at 367 persons and 170 MB at 2000 (2026-11-24), so about 1.1 GB at 2000 persons and 3 GB for
-    # three; six would need 6.5 GB, past the sum of the limits the host allows (T08-N-4)
-    mem_limit: 3g
+    # four estimations at once (COMPUTE_PARALLEL; three until the VM grew to 27 vCPU and 56 GiB on 2026-11-24), each
+    # with 4 chain processes (app/hb_chains.py): 16 processes on 16 cores. Measured: the estimation itself up to some
+    # 400 MB with its input (2026-10-06), each chain process about 95 MB at 367 persons and 170 MB at 2000
+    # (2026-11-24), so about 1.1 GB at 2000 persons, 4.4 GB for four, and 8 GB leave room for larger studies (T08-N-4)
+    mem_limit: 8g
     pids_limit: 256
     tmpfs:
       - /tmp:size=256m,mode=1777
@@ -490,11 +507,11 @@ services:
       COMPUTE_SECRET: ${COMPUTE_SECRET}
       COMPUTE_CALLBACK: http://researcher:8000/rechenknecht
       COMPUTE_BIND: 0.0.0.0:8090
-      COMPUTE_PARALLEL: "3"
+      COMPUTE_PARALLEL: "4"
       COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-1}   # signature 1 still taken (app/compute.py, CFG-07)
-    # 12 of the 24 cores since 2026-11-24: every HB estimation runs 4 chains in processes of their own (app/hb_chains.py);
-    # measured that day: load about 1 of 24 cores. The low share keeps it behind the participants (2048) when cores are scarce
-    cpus: 12
+    # 16 of the 27 cores since 2026-11-24 (12 of 24 before): every HB estimation runs 4 chains in processes of their own
+    # (app/hb_chains.py). The low share keeps it behind the participants (2048) when cores are scarce
+    cpus: 16
     cpu_shares: 256
     depends_on: [researcher]
 

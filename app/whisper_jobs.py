@@ -53,6 +53,11 @@ def _url(job_id=""):
     return current_app.config["WHISPER_URL"].rstrip("/") + "/v1/jobs" + (f"/{job_id}" if job_id else "")
 
 
+# Plausible counters of the service: up to 4 jobs computed at once (WHISPER_WORKERS) and up to 32 open jobs
+# (WHISPER_MAX_PENDING); compose sets 3 and 16 since 2026-11-24. Anything above is treated as a broken reply.
+MAX_RUNNING, MAX_OPEN = 4, 32
+
+
 def status():
     """Only aggregate operational counters, never job ids or transcription content."""
     config = current_app.config
@@ -65,7 +70,8 @@ def status():
             data = response.json() if response.status_code == 200 else None
             if isinstance(data, dict) and data.get("state") in ("ready", "busy"):
                 counts = {key: data.get(key) for key in ("queued", "running")}  # "free" stays inside (_free)
-                if all(type(value) is int and 0 <= value <= 8 for value in counts.values()) and counts["running"] <= 1 and sum(counts.values()) <= 8:
+                if (all(type(value) is int and value >= 0 for value in counts.values())
+                        and counts["running"] <= MAX_RUNNING and sum(counts.values()) <= MAX_OPEN):
                     return {"state": "busy" if any(counts.values()) else "ready", **counts}, 200
         except (requests.RequestException, ValueError):
             pass
@@ -282,7 +288,7 @@ def _free():
 
 
 def _submit(path, fields, progress):
-    """Sends the recording once the service has a free place. While it is full (8 open jobs, or too little disk), the
+    """Sends the recording once the service has a free place. While it is full (all open places taken, or too little disk), the
     request waits here in the app instead of failing, however many come together (Ralf, 2026-10-19: 50 and more
     overlapping requests during an analysis). The service's own copy of the audio so still waits at most a few jobs,
     within the 24 hours of the privacy statement; the recording itself is kept by the app anyway. Cancelling works

@@ -511,3 +511,91 @@ def test_every_copy_of_the_image_passes_its_dockerignore():
         for source in sources.split():
             assert source.rstrip("/") in allowed, source
             assert (whisper / source).exists(), source
+
+
+def test_estimate_with_several_slots_starts_each_job_in_the_first_free_slot():
+    """2026-11-24: with WHISPER_WORKERS slots a waiting job starts when the first slot is free, not after the sum of
+    all earlier jobs; one slot still gives the plain sum."""
+    rows = [{'id': name, 'state': 'queued', 'duration': 100, 'options': json.dumps(options({})), 'phases': '{}'}
+            for name in ('a', 'b', 'c', 'd')]
+    one = estimates.estimate(rows, 'd', {}, 6, 1000)
+    alone = estimates.estimate(rows[:1], 'a', {}, 6, 1000)
+    assert one['seconds'] == 4 * alone['seconds']
+    three = estimates.estimate(rows, 'd', {}, 6, 1000, workers=3)
+    assert three['seconds'] == 2 * alone['seconds']                     # d waits for the first of a, b, c
+    assert estimates.estimate(rows, 'c', {}, 6, 1000, workers=3)['seconds'] == alone['seconds']
+
+
+def test_several_slots_claim_each_job_once(queue, monkeypatch):
+    """2026-11-24: three slots take queued jobs at the same time; the atomic claim gives every job to one slot only
+    and every slot gets one, so none waits while recordings are queued."""
+    import threading
+    queue.settings = replace(queue.settings, workers=3)
+    jobs = {submit(queue) for _ in range(6)}
+    stopping, started, lock = threading.Event(), [], threading.Lock()
+    together = threading.Barrier(3, timeout=20)
+    def execute(_queue, job, **kwargs):
+        with lock:
+            started.append(job['id'])
+        together.wait()                         # three jobs compute at once before any slot takes the next
+        queue.finish(job['id'], result={'segments': []})
+        with lock:
+            if len(started) == len(jobs):
+                stopping.set()
+                queue.wake.set()
+    monkeypatch.setattr(worker, 'room', lambda settings: True)
+    monkeypatch.setattr(worker, 'execute', execute)
+    slots = [threading.Thread(target=worker.run, args=(queue, stopping), kwargs={'recover': False}) for _ in range(3)]
+    for slot in slots:
+        slot.start()
+    for slot in slots:
+        slot.join(30)
+    assert not any(slot.is_alive() for slot in slots)
+    assert sorted(started) == sorted(jobs)
+
+
+def test_slots_and_open_places_come_from_the_environment_and_pass_the_start_check(monkeypatch):
+    """2026-11-24 (VM with 27 vCPU, 56 GiB): slots, open places, the resident size and keeping the turbo weights are
+    settings; compose.yaml sets values the start accepts and the threads of all slots fit the container's cores."""
+    import re
+    for name in ("WHISPER_WORKERS", "WHISPER_MAX_PENDING", "WHISPER_CACHE_MB", "WHISPER_KEEP_WEIGHTS"):
+        monkeypatch.delenv(name, raising=False)
+    default = Settings.environment()
+    assert (default.workers, default.max_pending, default.cache_memory_mb, default.keep_weights) == (1, 8, 3072, False)
+    monkeypatch.setenv("WHISPER_WORKERS", "3")
+    monkeypatch.setenv("WHISPER_MAX_PENDING", "16")
+    monkeypatch.setenv("WHISPER_CACHE_MB", "6144")
+    monkeypatch.setenv("WHISPER_KEEP_WEIGHTS", "1")
+    settings = Settings.environment()
+    assert (settings.workers, settings.max_pending, settings.cache_memory_mb, settings.keep_weights) == (3, 16, 6144, True)
+    root = Path(__file__).resolve().parents[2]
+    compose = (root / "deploy/docker/compose.yaml").read_text(encoding="utf-8")
+    main = (root / "deploy/docker/whisper/whisper_service/__main__.py").read_text(encoding="utf-8")
+    block = compose[compose.index("\n  whisper:\n"):]
+    block = block[:block.index("\n\n")]
+    value = {name: int(re.search(rf'{name}: "(\d+)"', block).group(1))
+             for name in ("WHISPER_WORKERS", "WHISPER_MAX_PENDING", "WHISPER_CACHE_MB", "WHISPER_THREADS")}
+    for name, field in (("WHISPER_WORKERS", "workers"), ("WHISPER_MAX_PENDING", "max_pending"),
+                        ("WHISPER_CACHE_MB", "cache_memory_mb")):
+        low, high = map(int, re.search(rf"not (\d+) <= settings.{field} <= (\d+)", main).groups())
+        assert low <= value[name] <= high, name
+    cpus = int(re.search(r"^    cpus: (\d+)", block, re.M).group(1))
+    memory = int(re.search(r"^    mem_limit: (\d+)g", block, re.M).group(1))
+    assert value["WHISPER_WORKERS"] * value["WHISPER_THREADS"] <= cpus
+    assert value["WHISPER_WORKERS"] * value["WHISPER_CACHE_MB"] <= memory * 1024
+    # the app and the status page take the service's counters for plausible up to these bounds
+    from app import status_node, whisper_jobs
+    assert value["WHISPER_WORKERS"] <= whisper_jobs.MAX_RUNNING == status_node.MAX_RUNNING
+    assert value["WHISPER_MAX_PENDING"] <= whisper_jobs.MAX_OPEN == status_node.MAX_OPEN
+
+
+def test_kept_weights_skip_the_unload_before_alignment():
+    """2026-11-24: with WHISPER_KEEP_WEIGHTS the turbo weights stay loaded through alignment and diarization, so the
+    next job of the slot needs no reload; without it they are unloaded as before (small cgroup)."""
+    import inspect
+
+    import whisper_service.pipeline as pipeline
+    import whisper_service.worker as worker_module
+    source = inspect.getsource(pipeline.process)
+    assert 'and not job.get("keep_weights")' in source and "CACHE.unload_weights()" in source
+    assert '"keep_weights": queue.settings.keep_weights' in inspect.getsource(worker_module.execute)

@@ -86,18 +86,23 @@ def phase_seconds(row, options, progress, timings, threads, now):
             'sampled': sampled, 'overdue': overdue}
 
 
-def estimate(rows, target, timings, threads, now, phase_timings=None):
-    total, lower, upper, sampled, overdue = 0, 0, 0, True, False
+def estimate(rows, target, timings, threads, now, phase_timings=None, workers=1):
+    """Waiting plus own time of target. rows: running jobs first, then the queue in order. With several slots every job
+    starts in the slot that becomes free first (as the slots claim), so one slot gives the plain sum as before."""
+    slots = [(0, 0, 0)] * max(1, workers)
+    sampled, overdue = True, False
     for row in rows:
         value = seconds(row, timings, threads, now, phase_timings)
         if value is None:
             return None  # An unknown predecessor must never become zero waiting time.
-        total += value['seconds']
-        lower += value['low_seconds']
-        upper += value['high_seconds']
         sampled = sampled and value['sampled']
         overdue = overdue or value['overdue']
+        start = min(slots)
+        slots.remove(start)
+        finish = (start[0] + value['seconds'], start[1] + value['low_seconds'], start[2] + value['high_seconds'])
+        slots.append(finish)
         if row['id'] == target:
+            total, lower, upper = finish
             return {'seconds': min(7 * 86400, math.ceil(total)),
                     'low_seconds': min(7 * 86400, math.ceil(lower)), 'high_seconds': min(7 * 86400, math.ceil(upper)),
                     'sampled': sampled, 'overdue': overdue}

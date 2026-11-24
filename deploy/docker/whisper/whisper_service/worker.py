@@ -88,6 +88,7 @@ def execute(queue, job, allowed=room, resident=None):
     input_file = queue.files / f"{job_id}.input"
     input_file.write_text(json.dumps({"audio": str(queue.audio(job_id)), "models": str(queue.settings.models),
                                     "threads": queue.settings.threads, "max_seconds": queue.settings.max_seconds,
+                                    "keep_weights": queue.settings.keep_weights,
                                     "options": json.loads(job["options"]), "output": str(queue.result_file(job_id)),
                                     "progress": str(queue.files / f"{job_id}.progress"),
                                     "checkpoint": str(queue.files / f"{job_id}.checkpoint"), "fingerprint": job['fingerprint'],
@@ -149,8 +150,10 @@ def execute(queue, job, allowed=room, resident=None):
         (queue.files / f"{job_id}.progress").unlink(missing_ok=True)
 
 
-def run(queue, stop_event):
-    queue.recover()
+def run(queue, stop_event, recover=True):
+    """One slot. With several slots __main__ recovers once before they start (recover=False here)."""
+    if recover:
+        queue.recover()
     resident = Resident(queue.settings)
     try:
         while not stop_event.is_set():

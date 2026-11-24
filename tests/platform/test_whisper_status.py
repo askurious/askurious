@@ -35,7 +35,7 @@ def test_relay_strips_contents_and_uses_private_credential(app, monkeypatch):
 
 
 @pytest.mark.parametrize("data", [None, {"state": "busy", "queued": True, "running": 0},
-    {"state": "busy", "queued": 8, "running": 1}, {"state": "busy", "queued": 0, "running": 2},
+    {"state": "busy", "queued": 30, "running": 3}, {"state": "busy", "queued": 0, "running": 5},
     {"state": "ready", "queued": -1, "running": 0}])
 def test_invalid_relay_response_fails_without_contents(app, monkeypatch, data):
     app.config.update(WHISPER_JOBS=True, WHISPER_URL="http://whisper:8091", WHISPER_TOKEN="private")
@@ -59,7 +59,9 @@ def test_timeout_details_are_not_public(app, monkeypatch):
     ("busy", 2, 1, True, "whisper:ready:0:0"),            # T02-NEU-3: no use of the service in public
     ("ready", 0, 0, True, "whisper:ready:0:0"),
     ("disabled", 1, 0, False, "whisper:unavailable:0:0"),
-    ("busy", 0, 2, False, "whisper:unavailable:0:0"),
+    ("busy", 13, 3, True, "whisper:ready:0:0"),          # three slots and 16 open places since 2026-11-24
+    ("busy", 0, 5, False, "whisper:unavailable:0:0"),
+    ("busy", 30, 3, False, "whisper:unavailable:0:0"),
     ("unavailable", 0, 0, False, "whisper:unavailable:0:0")])
 def test_status_check_validates_state(monkeypatch, state, q, r, ok, detail):
     monkeypatch.setattr(requests, "get", lambda *a, **k: reply({"state": state, "queued": q, "running": r}))
@@ -101,3 +103,12 @@ def test_internal_network_boundary():
         assert "whisper=whisper:http://researcher:8000/healthz/whisper," in path.read_text()
     for side in ["researcher", "participant"]:
         assert "location = /healthz/whisper { return 404; }" in (root / "nginx/locations" / f"{side}.conf").read_text()
+
+
+def test_relay_accepts_several_slots(app, monkeypatch):
+    """2026-11-24: the service computes up to WHISPER_WORKERS jobs at once (3 on the RWTH server, 16 open places);
+    the relay took more than one running job for a broken reply."""
+    app.config.update(WHISPER_JOBS=True, WHISPER_URL="http://whisper:8091", WHISPER_TOKEN="private")
+    monkeypatch.setattr(requests, "get", lambda *a, **k: reply({"state": "busy", "queued": 13, "running": 3}))
+    response = app.test_client().get("/healthz/whisper")
+    assert response.status_code == 200 and response.json == {"state": "busy", "queued": 13, "running": 3}

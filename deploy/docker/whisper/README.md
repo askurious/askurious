@@ -55,22 +55,22 @@ zusätzlich als GHSA-63cw-57p8-fm3p geführt, derselbe Befund; behoben erst in P
 
 | Einstellung | Vorbereitung |
 |---|---|
-| CPU | höchstens 8 CPUs, 8 Rechenthreads (`WHISPER_THREADS`), `nice 15`, CPU-Shares 64 |
-| Speicher | 5 GiB einschließlich Dateicache, kein zusätzlicher Swap (seit 2026-10-24; vorher 4 GiB, Spitze mit `large-v3-turbo` und deutschem Alignment 3,27 GiB) |
+| CPU | auf dem RWTH-Server seit 2026-11-24 höchstens 18 CPUs: 3 Plätze (`WHISPER_WORKERS`) mit je 6 Rechenthreads (`WHISPER_THREADS`); `nice 15`, CPU-Shares 64 |
+| Speicher | 18 GiB einschließlich Dateicache für drei Plätze, kein zusätzlicher Swap (seit 2026-11-24; 5 GiB für einen Platz seit 2026-10-24, davor 4 GiB; Spitze eines Auftrags mit `large-v3-turbo` und deutschem Alignment 3,27 GiB) |
 | Host-Speicherdruck | `oom_score_adj=500`: der Kernel bevorzugt den Transkriptionsprozess gegenüber den App-Prozessen |
 | Prozesse | höchstens 256 einschließlich Threads |
-| Parallelität | ein Rechenauftrag; höchstens 8 offene Aufträge im Dienst, weitere Anfragen warten in der App auf einen freien Platz (`/v1/status` meldet `free`) |
-| Modell-Cache | ein Whisper-Modell mit VAD; höchstens 5 Minuten Leerlauf / 8 Aufträge; Freigabe bei Hostdruck, Fehler, Abbruch oder mehr als 3 GiB RSS |
+| Parallelität | `WHISPER_WORKERS` Rechenaufträge gleichzeitig (Standard 1, compose.yaml 3); jeder freie Platz nimmt den nächsten Auftrag der Warteschlange, gleich welcher Länge. Höchstens `WHISPER_MAX_PENDING` offene Aufträge im Dienst (Standard 8, compose.yaml 16), weitere Anfragen warten in der App auf einen freien Platz (`/v1/status` meldet `free`) |
+| Modell-Cache | je Platz ein eigener Rechenprozess mit einem Whisper-Modell und VAD; höchstens 5 Minuten Leerlauf / 8 Aufträge; Freigabe bei Hostdruck, Fehler, Abbruch oder mehr RSS als `WHISPER_CACHE_MB` (Standard 3072, compose.yaml 6144) |
 | Dateien | höchstens 400 MiB und 3 Stunden pro Aufnahmeteil (`WHISPER_MAX_SECONDS`, Standard 10800; bis 05.11.2026 60 Minuten) |
 | Modelle | `large-v3-turbo` als Standard (seit 18.10.2026); optional `small`, jeweils CPU `int8` |
 | Pipeline | Transkription, Wort-Zeitmarken, Sprecherzuordnung; Deutsch/Englisch |
-| Hostschutz | kein neuer Auftrag bei weniger als 4 GiB verfügbarem Host-RAM, weniger als 2 GiB plus 400 MiB freiem Plattenplatz, Load über `WHISPER_MAX_LOAD` (Standard 12, compose.yaml 20 für 24 vCPU) oder erfolglosem App-Healthcheck |
+| Hostschutz | kein neuer Auftrag bei weniger als 4 GiB verfügbarem Host-RAM, weniger als 2 GiB plus 400 MiB freiem Plattenplatz, Load über `WHISPER_MAX_LOAD` (Standard 12, compose.yaml 30 für 27 vCPU: die 18 Threads der Plätze zählen selbst mit); jeder Platz prüft das vor jedem Auftrag und während er rechnet oder erfolglosem App-Healthcheck |
 | Temporäre Daten | Audio nach Abschluss/Fehler/Abbruch entfernt; offene Aufträge nach 24 h, Ergebnisse nach 1 h |
 
 Das sind harte Containergrenzen, keine Garantie für unveränderte Antwortzeiten.
 Bei Hostdruck wird der Rechenprozess beendet und der Auftrag wieder eingereiht;
 ein angefangener Aufnahmeteil wird dann vollständig neu berechnet. Die Queue
-überlebt Containerneustarts. Nach einem Neustart läuft höchstens ein Auftrag weiter.
+überlebt Containerneustarts. Nach einem Neustart laufen höchstens so viele Aufträge weiter, wie es Plätze gibt.
 Bereinigung erfolgt alle 15 Sekunden im Leerlauf, spätestens nach einer Minute
 während eines Auftrags, oder nach dem nächsten Start eines ausgeschalteten Dienstes.
 Modelle sind schreibgeschützt; Audio, Warteschlange und Upload-Spool liegen im
@@ -82,10 +82,12 @@ für Folgeaufträge derselben Sprache und Modellwahl wiederverwenden. Ein Wechse
 verwirft das alte Modell vor dem Laden des neuen. Alignment und Sprecherzuordnung
 werden nach jedem Auftrag freigegeben. Prompts werden pro Auftrag gesetzt und
 anschließend zurückgesetzt; Audio, Transkripte und VAD-Zustände werden nicht als
-Wiederverwendungscache geführt. Die harte 4-GiB-Grenze bleibt unverändert.
+Wiederverwendungscache geführt. Die harte Speichergrenze des Containers bleibt unverändert.
 Ein Abbruch oder Hostdruck beendet den Rechenprozess einschließlich Modell-Cache.
 Bei `large-v3-turbo` werden die großen ASR-Gewichte vor Alignment/Sprecherzuordnung
-vollständig entladen. Der kleine Laufzeitkontext und VAD bleiben wiederverwendbar;
+vollständig entladen, außer mit `WHISPER_KEEP_WEIGHTS=1` (compose.yaml seit 2026-11-24:
+18 GiB lassen je Platz Turbo und Alignment/Sprecherzuordnung nebeneinander zu, der
+nächste Auftrag des Platzes lädt dann nichts neu). Der kleine Laufzeitkontext und VAD bleiben wiederverwendbar;
 die Gewichte werden bei einem Folgeauftrag wieder geladen. Damit bleiben nicht
 gleichzeitig Turbo, Alignment und Sprecherzuordnung vollständig im Speicher.
 Leerlaufgrenze und RSS-Prüfung greifen spätestens beim nächsten 15-Sekunden-Tick.
@@ -101,7 +103,7 @@ wird je Auftrag gespeichert und verändert weder den Serverstandard noch andere
 Interviews. Ein Modellwechsel startet die generierten Aufnahmeteile neu und
 verwirft alte entfernte Aufträge; bereits korrigierter Transkripttext bleibt
 erhalten und bekommt nach Abschluss gegebenenfalls einen neuen Entwurf daneben.
-Auch bei unterschiedlicher Auswahl wird nur ein Auftrag gleichzeitig berechnet.
+Gleichzeitig berechnet werden höchstens so viele Aufträge, wie es Plätze gibt (`WHISPER_WORKERS`), gleich mit welcher Auswahl.
 
 Die App speichert Auftrags-IDs pro Aufnahmeteil und verwendet sie beim erneuten
 Start, sofern Datei und Optionen unverändert sind. Verschiedene Interviews erhalten

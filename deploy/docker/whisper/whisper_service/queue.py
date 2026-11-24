@@ -169,7 +169,7 @@ class Queue:
             timings = {row['settings']: dict(row) for row in db.execute('SELECT * FROM timings WHERE updated>=?', (now - 7 * 86400,))}
             phases = {(row['settings'], row['stage']): dict(row) for row in
                       db.execute('SELECT * FROM phase_timings WHERE updated>=?', (now - 7 * 86400,))}
-        return estimates.estimate(rows, job_id, timings, self.settings.threads, now, phases)
+        return estimates.estimate(rows, job_id, timings, self.settings.threads, now, phases, self.settings.workers)
 
     def finish(self, job_id, result=None, error=""):
         with self.connect() as db:
