@@ -230,7 +230,7 @@ def test_suggested_wording_for_every_status_in_both_languages():
     de = ww.suggestion(_row("confirmed", confirm=c), SPLIT, False)
     assert de == ("Zwischen Kommunikator und Vehemenz zeigte sich eine Wechselwirkung (χ²(4) = 41,24, p (Holm) = ,012), "
                   "die auch die Vorhersage zurückgehaltener Wahlen verbesserte (2 von 3 Aufteilungen, Δ LL = +1,6). Sie "
-                  "geht vor allem auf die Kombinationen Expertin × Verbot (-0,37 [-0,50; -0,25]) und Expertin × "
+                  "geht vor allem auf die Kombinationen Expertin × Verbot (−0,37 [−0,50; −0,25]) und Expertin × "
                   "Vorschreibung (+0,32 [0,19; 0,44]) zurück.")
     en = ww.suggestion(_row("confirmed", confirm=c), SPLIT, True)
     assert en.startswith("An interaction between Kommunikator and Vehemenz emerged (χ²(4) = 41.24, p (Holm) = .012)")
@@ -238,10 +238,10 @@ def test_suggested_wording_for_every_status_in_both_languages():
     c = {"delta": [1.0, -2.0, -0.5], "mean": -0.5, "better": 1}
     assert ww.suggestion(_row("notable", confirm=c), SPLIT, False) == (
         "Es gibt Hinweise auf eine Wechselwirkung zwischen Kommunikator und Vehemenz (p (Holm) = ,012), die sich in der "
-        "Kreuzvalidierung jedoch nicht als vorhersagerelevant erwies (1 von 3 Aufteilungen besser, Δ LL = -0,5).")
+        "Kreuzvalidierung jedoch nicht als vorhersagerelevant erwies (1 von 3 Aufteilungen besser, Δ LL = −0,5).")
     assert ww.suggestion(_row("notable", confirm=c), SPLIT, True) == (
         "There are indications of an interaction between Kommunikator and Vehemenz (p (Holm) = .012), which, however, "
-        "did not prove relevant for prediction in the cross-validation (better in 1 of 3 divisions, Δ LL = -0.5).")
+        "did not prove relevant for prediction in the cross-validation (better in 1 of 3 divisions, Δ LL = −0.5).")
     assert ww.suggestion(_row("none", p_holm=0.0004), SPLIT, False) == (
         "Zwischen Kommunikator und Vehemenz fand sich kein Hinweis auf eine Wechselwirkung (p (Holm) < ,001).")
     assert ww.suggestion(_row("none", p_holm=0.31), SPLIT, True) == (
@@ -254,9 +254,9 @@ def test_suggested_wording_for_every_status_in_both_languages():
     c = {"mode": "tasks", "grouped": False, "delta": [0.5] * 12, "mean": 0.0412, "better": 9,
          "persons": {"n": 367, "mean": 0.0412, "sd": 0.27, "t": 2.9234, "df": 366, "p": 0.0018}}
     tasks = {"mode": "tasks", "splits": 12, "needed": None}
-    assert ("(Kreuzvalidierung über alle 12 Aufgaben (jede Aufgabe einmal zurückgehalten): Δ LL = +0,04 je Person im "
+    assert ("(Kreuzvalidierung über alle 12 Aufgaben, jede Aufgabe einmal zurückgehalten: Δ LL = +0,04 je Person im "
             "Mittel, t(366) = 2,92, p = ,002)") in ww.suggestion(_row("confirmed", confirm=c), tasks, False)
-    assert ("(cross-validation over all 12 tasks (each task held out once): Δ LL = +0.04 per person on average, "
+    assert ("(cross-validation over all 12 tasks, each task held out once: Δ LL = +0.04 per person on average, "
             "t(366) = 2.92, p = .002)") in ww.suggestion(_row("confirmed", confirm=c), tasks, True)
     # holdout tasks
     c = {"mode": "holdouts", "delta": [-1.2], "mean": -1.2, "better": 0}

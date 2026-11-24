@@ -899,7 +899,7 @@ def summary(item, res, lang):
 def _dec(x, places, english, signed=False):
     from app import units
 
-    s = units.fixed(x, places, signed=signed)
+    s = units.fixed(x, places, signed=signed).replace("-", "−")   # the minus sign of the tables
     return s if english else s.replace(".", ",")
 
 
@@ -945,10 +945,10 @@ def _evidence(c, how, english, confirmed):
                    p=_p_is(t["p"], english))
         if english:
             over = "all tasks in {T} folds" if c.get("grouped") else "all {T} tasks"
-            return ("cross-validation over " + over + " (each task held out once): Δ LL = {d} per person on average, "
+            return ("cross-validation over " + over + ", each task held out once: Δ LL = {d} per person on average, "
                     "t({df}) = {t}, p {p}").format(**fig)
         over = "alle Aufgaben in {T} Teilen" if c.get("grouped") else "alle {T} Aufgaben"
-        return ("Kreuzvalidierung über " + over + " (jede Aufgabe einmal zurückgehalten): Δ LL = {d} je Person im "
+        return ("Kreuzvalidierung über " + over + ", jede Aufgabe einmal zurückgehalten: Δ LL = {d} je Person im "
                 "Mittel, t({df}) = {t}, p {p}").format(**fig)
     d = _dec(c["mean"], 1, english, True)
     if mode == "holdouts":

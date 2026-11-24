@@ -5639,11 +5639,23 @@ document.addEventListener("click", function (e) {
     }
     pop.append(link);
     pop.setAttribute("aria-label", btn.dataset.termName);
+    // a "?" inside an open modal dialog: the box goes into that dialog, else it stays below the dialog's top layer
+    // (dialog "Tabelle" of the interactions, 2026-11-24); its place is then counted from the dialog
+    var box = btn.closest("dialog[open]") || document.body;
+    if (pop.parentNode !== box) box.appendChild(pop);
     pop.hidden = false;
     var r = btn.getBoundingClientRect(), w = Math.min(320, document.documentElement.clientWidth - 32);
     pop.style.width = w + "px";
-    pop.style.left = Math.max(16, Math.min(r.left + window.scrollX - 12, window.scrollX + document.documentElement.clientWidth - w - 16)) + "px";
-    pop.style.top = (r.bottom + window.scrollY + 6) + "px";
+    if (box === document.body) {
+      pop.style.left = Math.max(16, Math.min(r.left + window.scrollX - 12, window.scrollX + document.documentElement.clientWidth - w - 16)) + "px";
+      pop.style.top = (r.bottom + window.scrollY + 6) + "px";
+    } else {
+      var d = box.getBoundingClientRect(), wide = box.clientWidth;
+      w = Math.min(w, wide - 32);
+      pop.style.width = w + "px";
+      pop.style.left = Math.max(16, Math.min(r.left - d.left + box.scrollLeft - 12, wide - w - 16)) + "px";
+      pop.style.top = (r.bottom - d.top + box.scrollTop + 6) + "px";
+    }
     owner = btn;
     btn.setAttribute("aria-expanded", "true");
     btn.setAttribute("aria-controls", "learn-pop");
