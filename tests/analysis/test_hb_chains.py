@@ -196,3 +196,22 @@ def test_four_chains_pass_the_rule_on_healthy_data():
                     person=r["person_rhat"], chains=r["chains"])
     assert r["kept"] == 2000 and d["chains"] == 4
     assert d["diag_ok"], d
+
+
+def test_fixed_parameters_merged_over_the_chains():
+    """Parameters common to all persons (hb.estimate's `fixed`, the interactions of a conjoint): means averaged, the
+    interval from the draws of all chains, their kept draws taken like "draws", RLH at the betas with their means."""
+    people, k = simulate(n=30), 4
+    stat = functools.partial(_scaled, factor=1.0)
+    r = hb_chains.estimate(people, k, chains=4, workers=1, fixed=[3], person_stat=stat,
+                           summary=functools.partial(_mean, stat=stat), **SHORT)
+    single = [hb.estimate(people, k, burn=150, draws=100, thin=2, seed=[3, c], fixed=[3], keep=25) for c in range(4)]
+    assert r["beta"].shape == (30, 3) and r["person_stat"].shape == (30, 3)
+    assert np.allclose(r["fixed"], np.mean([s["fixed"] for s in single], axis=0))
+    trace = np.concatenate([s["fixed_trace"] for s in single])
+    assert np.allclose(r["fixed_trace"], trace)
+    assert np.allclose([r["fixed_lo"], r["fixed_hi"]], np.percentile(trace, [2.5, 97.5], axis=0))
+    assert r["fixed_draws"].shape == (hb.KEEP_DRAWS, 1) and len(r["draws"]) == hb.KEEP_DRAWS
+    assert r["settings"]["fixed"] == 1 and len(r["geweke_mu"]) == 4
+    assert r["geweke_mu_limit"] == pytest.approx(round(hb.geweke_limits(4 * 4)[1], 3))
+    assert np.all(r["rlh"] > 0) and np.all(r["rlh"] <= 1)
