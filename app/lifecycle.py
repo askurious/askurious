@@ -833,6 +833,9 @@ def _rare_sweeps(now):
     from app import sessions
 
     _step("sessions.sweep", sessions.sweep, now)  # sign-in sessions that ended or were not used for the cookie lifetime
+    from app import researcher_activity
+
+    _step("researcher_activity.sweep", researcher_activity.sweep, now)  # hours of "Wann Forschende arbeiten" past a year
     from app import account_types
 
     # user types with a period (konzept-nutzertypen-2026-10-15.md): notices by mail, blocking at the end, deletion after
