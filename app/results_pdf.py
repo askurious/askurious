@@ -972,9 +972,17 @@ def _cbc(rep, e, title):
                        "Hierarchical Bayes {c}, N = {p} people; importance per person from their part-worths, then averaged. "
                        "SD, Mdn, Q1 and Q3 describe the differences between the people.", p=hb.get("persons"),
                        c=rep.cite(hb_mod.ALLENBY))
+        chains = (hb.get("settings") or {}).get("chains") or 1
+        if chains > 1:  # independent chains since 2026-11-24 (app/hb_chains.py); a result from before is not named
+            s = hb["settings"]
+            note += " " + rep.say("Geschätzt in {n} Ketten mit je {b} Burn-in und {d} Iterationen.",
+                                  "Estimated in {n} chains of {b} burn-in and {d} iterations each.", n=chains,
+                                  b=rep.num(int(s["burn"]), 0), d=rep.num(int(s["draws"]) // chains, 0))
         if not hb.get("converged", True):
-            note += " " + rep.say("Die Kette hat die Konvergenzprüfung nicht bestanden.", "The chain did not pass the "
-                                  "convergence check.")
+            note += " " + (rep.say("Die Ketten haben die Konvergenzprüfung nicht bestanden.", "The chains did not pass "
+                                   "the convergence check.") if chains > 1 else
+                           rep.say("Die Kette hat die Konvergenzprüfung nicht bestanden.", "The chain did not pass the "
+                                   "convergence check."))
         note += _hb_geweke_note(rep, hb)
         if (hb.get("settings") or {}).get("prior") == "hw":  # the default prior is not named, as before
             note += " " + rep.say("Priori der Streuung zwischen Personen hierarchisch {c}.",

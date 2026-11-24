@@ -142,7 +142,8 @@ def _choice(survey, table):
                         "date": f"{local(datetime.fromisoformat(hb['created'])):%d.%m.%Y}",
                         "rhat_max": hb.get("rhat_max"), "ess_min": hb.get("ess_min"), "kept": hb.get("kept"),
                         "converged": hb.get("diag_ok"), "sigma": hb.get("rhat_sigma_max") is not None,
-                        "person_share": hb.get("person_rhat_share"), "prior": hb["settings"].get("prior")}
+                        "person_share": hb.get("person_rhat_share"), "prior": hb["settings"].get("prior"),
+                        "chains": hb["settings"].get("chains") or 1}
                        if hb and hb.get("pids") and hb.get("settings") and hb.get("created") else None)
         entry["holdouts"] = item.kind.holdout_count(item) if hasattr(item.kind, "holdout_count") else 0
         entry["warmups"] = item.kind.warmup_count(item) if hasattr(item.kind, "warmup_count") else 0
@@ -523,7 +524,7 @@ def _choice_de(c):
     if c["hb"]:
         h = c["hb"]
         text += (f" Individuelle Nutzen wurden zusätzlich per Hierarchical Bayes geschätzt (Allenby & Rossi, 1998; "
-                 f"n = {h['n']}, {h['burn']} Burn-in-Iterationen, {h['draws']} Iterationen, Stand {h['date']}).")
+                 f"n = {h['n']}, {_hb_length(h, 'de')}, Stand {h['date']}).")
         if h.get("prior") == "hw":
             text += (" Priori: Populationsmittel normalverteilt mit Standardabweichung 5 (Logit-Skala), Kovarianz zwischen "
                      "Personen hierarchisch (Huang & Wand, 2013): invers-Wishart mit ν + k − 1 Freiheitsgraden (ν = 2) bei "
@@ -661,7 +662,7 @@ def _choice_en(c):
     if c["hb"]:
         h = c["hb"]
         line += (f"; also individual utilities by hierarchical Bayes (Allenby & Rossi, 1998), n = {h['n']}, "
-                 f"{h['burn']} burn-in and {h['draws']} iterations; prior: population means normal with sd 5 (logit "
+                 f"{_hb_length(h, 'en')}; prior: population means normal with sd 5 (logit "
                  + ("scale), covariance hierarchical (Huang & Wand, 2013): inverse Wishart with nu + k - 1 degrees of "
                     "freedom (nu = 2) whose scale has factors of their own with an inverse gamma prior (scale 2.5 of the "
                     "half-t standard deviations; for a conjoint per attribute, the constant and the price), so the data "
@@ -1301,3 +1302,14 @@ def _warmups_en(c):
         return ""
     unit = "set" if c.get("type") == "maxdiff" else "task"
     return f"; beforehand everyone saw {n} fixed warm-up {unit}{'' if n == 1 else 's'}, not used in the estimation"
+
+
+def _hb_length(h, lang):
+    """Length of an HB run in the method text: with several chains (app/hb_chains.py) their number and the length of each,
+    else as before."""
+    chains = h.get("chains") or 1
+    if chains > 1:
+        return (f"{chains} chains of {h['burn']} burn-in and {h['draws'] // chains} iterations each" if lang == "en"
+                else f"{chains} Ketten mit je {h['burn']} Burn-in- und {h['draws'] // chains} Iterationen")
+    return (f"{h['burn']} burn-in and {h['draws']} iterations" if lang == "en"
+            else f"{h['burn']} Burn-in-Iterationen, {h['draws']} Iterationen")

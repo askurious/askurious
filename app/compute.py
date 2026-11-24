@@ -56,7 +56,7 @@ KINDS = {"maxdiff_hb": "app.maxdiff_hb", "conjoint_hb": "app.conjoint_hb",
          "sem_fit": "app.sem_fit_job"}  # the estimate of the results page's model (thread "Rechenknecht")  # the models over the waves of a panel (Ralf 2026-10-17, thread "Rechenknecht")
 # the files the estimations compute with: their content is the version both machines must share (the app's
 # results_store.program() uses file times, which differ between two checkouts)
-CODE = ("hb.py", "hb_convergence.py", "maxdiff_hb.py", "maxdiff_analysis.py", "conjoint_hb.py", "choice_model.py",
+CODE = ("hb.py", "hb_chains.py", "hb_convergence.py", "maxdiff_hb.py", "maxdiff_analysis.py", "conjoint_hb.py", "choice_model.py",
         "segments.py", "latent_class.py", "lc_regression.py", "units.py", "compute.py", "compute_node.py", "sem.py", "sem_job.py",
         "omega_job.py", "intervals.py", "scales.py", "paired_hb.py", "paired_analysis.py", "cva_hb.py", "sem_means.py",
         "sem_ordinal.py", "sem_power_job.py", "sem_table.py", "panel_tables.py", "panel_power.py", "panel_models.py",

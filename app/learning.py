@@ -764,8 +764,9 @@ TERMS = {
                      "Person für sich; ein fester Parameter gilt für alle gleich. Übernommene Wechselwirkungen sind fest: "
                      "Sie brauchen so weniger Daten je Person.", "Wechselwirkung +0,11 für alle, Teilnutzen je Person "
                      "verschieden.", (("app.choice_model", "TRAIN"), ("app.conjoint_interactions", "ROSSI"))),
-    "rhat": ("R̂", "R-hat", "Ob die HB-Kette sich eingependelt hat: Vergleicht die erste mit der zweiten Hälfte der "
-             "Ziehungen. Unter 1,01 gilt sie als konvergiert.", "R̂ = 1,004: konvergiert.",
+    "rhat": ("R̂", "R-hat", "Ob die HB-Schätzung sich eingependelt hat: Vergleicht mehrere unabhängig gestartete Ketten "
+             "und je ihre erste mit der zweiten Hälfte der Ziehungen. Unter 1,01 gilt sie als konvergiert.",
+             "R̂ = 1,004: konvergiert.",
              (("app.hb_convergence", "VEHTARI"),)),
     "ess": ("ESS", "Effektive Stichprobengröße", "Wie vielen unabhängigen Ziehungen die gespeicherten entsprechen; "
             "aufeinanderfolgende Ziehungen ähneln sich. Ab 400 ist der Mittelwert verlässlich; für Intervalle zählen "
@@ -1635,8 +1636,9 @@ TERMS_EN = {
                      "each person; a fixed parameter is the same for everyone. Interactions applied to the HB model are "
                      "fixed: they need less data per person that way.", "Interaction +0.11 for everyone, part-worths different per "
                      "person."),
-    "rhat": ("R̂", "R-hat", "Whether the HB chain has settled: compares the first with the second half of the draws. "
-             "Below 1.01 it counts as converged.", "R̂ = 1.004: converged."),
+    "rhat": ("R̂", "R-hat", "Whether the HB estimation has settled: compares several independently started chains and "
+             "the first with the second half of the draws of each. Below 1.01 it counts as converged.",
+             "R̂ = 1.004: converged."),
     "ess": ("ESS", "Effective sample size", "How many independent draws the stored ones correspond to; consecutive "
             "draws are similar. From 400 the mean is reliable; for intervals the tails of the distribution matter, "
             "which this value does not check.", "ESS = 850 of 1,000 draws."),

@@ -58,7 +58,9 @@ def model_input(item, table, config=None):
     if len(persons) < hb.MIN_PERSONS:
         return None
     lo, hi = kind.scale_range(item)
-    cfg = config or settings()
+    # one chain: the Gibbs sampler below is its own (no app/hb_chains.py), so the settings name no chains and the key of
+    # a result stays as it was
+    cfg = {k: v for k, v in (config or settings()).items() if k != "chains"}
     data = {"format": FORMAT, "type": "cva", "design": item.config["design"].get("sig"), "form": kind.form(item),
             "scale": [lo, hi], "levels": kind.level_counts(item), "persons": persons}
     data_key = hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()

@@ -273,7 +273,9 @@ def test_cbc_stores_trace_shows_line_and_runs_longer(app, client, survey, monkey
     monkeypatch.setattr(results, "compute", lambda *a, **k: computed.append(1) or real(*a, **k))
     html = client.get("/surveys/1/results").data.decode()
     assert not computed
-    assert "<strong>fertig</strong>" in html and "800 Burn-in- und 800 weitere Iterationen" in html
+    # four chains since 2026-11-24 (app/hb_chains.py): each the full burn-in and a quarter of the iterations
+    assert "<strong>fertig</strong>" in html and "4 Ketten mit je 800 Burn-in- und 200 weiteren Iterationen" in html
+    assert "4 Ketten · " in html.split('class="muted small hb-convergence"')[1].split("</p>")[0]
     assert "1.600 Burn-in- und 1.600 weitere Iterationen statt 800 und 800" in html
 
 

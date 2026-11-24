@@ -13,12 +13,13 @@ pairs; chance is one over the number of categories.
 Storage, background run, status, staleness and the view of the results page are those of MaxDiff
 (app/maxdiff_hb.py: same files, settings and summary); only the input, the model and the export are its own.
 """
+import functools
 import hashlib
 import json
 
 import numpy as np
 
-from app import hb, hb_convergence, maxdiff_hb
+from app import hb, hb_chains, hb_convergence, maxdiff_hb
 from app.lang import de_en
 from app.maxdiff_hb import (FORMAT, _matrices, created_local, load, pool_table, restamp, running, settings,  # noqa: F401
                             stamp)
@@ -57,6 +58,13 @@ def model_input(item, table, config=None):
     return _prepare(item, table, config)[0]
 
 
+def _values(B, M):
+    """The values of the options per person at the betas B (paired_analysis.worths of the zero-centred utilities)."""
+    from app import paired_analysis as pa
+
+    return pa.worths(B @ M.T)
+
+
 def run(inp, progress=None):
     """Estimate from model_input(); the result has the keys of a MaxDiff result (maxdiff_hb.run), so its storage and
     summary serve it."""
@@ -76,22 +84,22 @@ def run(inp, progress=None):
     m = len(est)
     M, _ = _matrices(m, k, None)
 
-    def values(B):
-        return pa.worths(B @ M.T)
+    values = functools.partial(_values, M=M)
 
     prior = np.eye(k)
     prior[:m - 1, :m - 1] += 1.0  # differences to the reference of iid options with variance 1
     cfg = inp["settings"]
     # hierarchical prior: one group for the differences of the options (block I + 11'), the others alone
     groups = [np.arange(m - 1)] + [np.array([j]) for j in range(m - 1, k)]
-    r = hb.estimate(person_sets, k, burn=cfg["burn"], draws=cfg["draws"], thin=cfg["thin"], seed=cfg["seed"],
-                    prior_cov=prior, summary=lambda B: values(B).mean(axis=0), person_stat=values, progress=progress,
-                    **maxdiff_hb.prior_args(cfg, groups),
-                    spread=lambda S: [np.mean(np.diag(M @ S @ M.T))])
+    r = hb_chains.estimate(person_sets, k, chains=hb_chains.chains_of(cfg), burn=cfg["burn"], draws=cfg["draws"],
+                           thin=cfg["thin"], seed=cfg["seed"], prior_cov=prior,
+                           summary=functools.partial(maxdiff_hb._mean_over_persons, stat=values), person_stat=values,
+                           progress=progress, **maxdiff_hb.prior_args(cfg, groups),
+                           spread=functools.partial(maxdiff_hb.zero_centred_spread, M=M))
     beta = r["beta"]
     util = beta @ M.T
     diag = hb_convergence.diagnose(r["mu_trace"] @ M.T, r["ll_trace"], geweke_ok=r["converged"], shown=r["summaries"],
-                                   sigma=r["sigma_trace"], person=r["person_rhat"])
+                                   sigma=r["sigma_trace"], person=r["person_rhat"], chains=r["chains"])
     data = hb.Data(person_sets, k)
     rlh = hb.rlh(data, beta)
     chance = np.exp(data.chance_loglik() / data.sets_per_person)
@@ -238,12 +246,12 @@ def describe(result, survey=None, lang=None):
     basis = maxdiff_hb.pool_text(result.get("pool") or {}, survey, lang)
     if reader(lang) == "en":
         return (f"Hierarchical Bayes (Bradley-Terry, adjacent categories, with position effect), estimated on "
-                f"{when:%Y-%m-%d %H:%M}; {len(result['pids'])} people ({basis}); {s['burn']} burn-in, {s['draws']} "
-                f"iterations, thinning {s['thin']}, seed {s['seed']}{maxdiff_hb.prior_text(s, 'en')}; posterior mean per person"
+                f"{when:%Y-%m-%d %H:%M}; {len(result['pids'])} people ({basis}); {hb_chains.length_text(s, 'en')}, "
+                f"thinning {s['thin']}, seed {s['seed']}{maxdiff_hb.prior_text(s, 'en')}; posterior mean per person"
                 f"{hb_convergence.describe(result, 'en')}")
     return (f"Hierarchical Bayes (Bradley-Terry, benachbarte Kategorien, mit Positionseffekt), geschätzt am "
-            f"{when:%d.%m.%Y %H:%M}; {len(result['pids'])} Personen ({basis}); {s['burn']} Burn-in, {s['draws']} "
-            f"Iterationen, Thinning {s['thin']}, Seed {s['seed']}{maxdiff_hb.prior_text(s, 'de')}; Posterior-Mittel je Person"
+            f"{when:%d.%m.%Y %H:%M}; {len(result['pids'])} Personen ({basis}); {hb_chains.length_text(s, 'de')}, "
+            f"Thinning {s['thin']}, Seed {s['seed']}{maxdiff_hb.prior_text(s, 'de')}; Posterior-Mittel je Person"
             f"{hb_convergence.describe(result, 'de')}")
 
 

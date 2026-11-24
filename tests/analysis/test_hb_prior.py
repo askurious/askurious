@@ -164,7 +164,7 @@ def test_choice_on_the_results_page_and_the_key(app, client, survey):
         item = db.session.get(Item, 2)
         first = maxdiff_hb.load(item)
         # the default: the settings dict and so the key of the result exactly as before the option
-        assert first["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1}
+        assert first["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "chains": 4}
         assert "hb_prior" not in item.config
         table = maxdiff_hb.pool_table(item.survey, first["pool"])
         lc_key = segments.model_input(item, table)["key"] if segments.model_input(item, table) else None
@@ -175,7 +175,7 @@ def test_choice_on_the_results_page_and_the_key(app, client, survey):
         item = db.session.get(Item, 2)
         second = maxdiff_hb.load(item)
         assert item.config["hb_prior"] == "hw" and maxdiff_hb.prior_of(item) == "hw"
-        assert second["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "prior": "hw"}
+        assert second["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "chains": 4, "prior": "hw"}
         assert second["key"] != first["key"] and second["data_key"] == first["data_key"]
         assert maxdiff_hb.current(item) is not None
         # a setting of the results page: neither the questionnaire nor the latent classes see it
@@ -269,7 +269,7 @@ def test_wide_choice_on_the_results_page(app, client, survey):
         item = db.session.get(Item, 2)
         wide = maxdiff_hb.load(item)
         assert item.config["hb_prior"] == "wide" and maxdiff_hb.prior_of(item) == "wide"
-        assert wide["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "prior": "wide"}
+        assert wide["settings"] == {"burn": 200, "draws": 200, "thin": 2, "seed": 1, "chains": 4, "prior": "wide"}
         assert wide["key"] != first["key"] and maxdiff_hb.current(item) is not None
         # a result with another prior is not current for this choice
         maxdiff_hb.choose_prior(item, "hw")
