@@ -292,3 +292,48 @@ def test_wide_choice_on_the_results_page(app, client, survey):
 
         item = db.session.get(Item, 2)
         assert "hb_prior" not in item.config and maxdiff_hb.load(item)["key"] == first["key"]
+
+
+def _rich_cbc(n=100, tasks=24, attributes=6, seed=7):
+    """Simulated choices with real spread between persons and many parameters (6 x 4 levels + none, k = 19): the data
+    on which the hierarchical prior used to collapse from its start (2026-11-24)."""
+    from app.choice_model import ChoiceSet
+
+    rng = np.random.default_rng(seed)
+    L = 4
+    k = attributes * (L - 1) + 1
+    cov, groups = np.eye(k), []
+    for a in range(attributes):
+        cov[a * 3:(a + 1) * 3, a * 3:(a + 1) * 3] = np.eye(L - 1) - 1 / L
+        groups.append(np.arange(a * 3, (a + 1) * 3))
+    groups.append(np.array([k - 1]))
+
+    def level(v):
+        return np.eye(L - 1)[v] if v < L - 1 else -np.ones(L - 1)
+
+    persons = []
+    for b in rng.multivariate_normal(rng.normal(0, 1, k), 0.8 * cov, size=n):
+        sets = []
+        for _ in range(tasks):
+            X = np.array([np.concatenate([level(rng.integers(L)) for _ in range(attributes)] + [[0.0]]) for _ in range(3)]
+                         + [np.r_[np.zeros(k - 1), 1.0]])
+            sets.append(ChoiceSet(X, int(np.argmax(X @ b + rng.gumbel(size=4)))))
+        persons.append(sets)
+    return persons, k, cov, groups
+
+
+def test_hierarchical_prior_does_not_collapse_from_its_start():
+    """All betas start at mu (no spread), and with the hierarchical scale from the first iteration Sigma | D = 0 fell to
+    about S0 / N, a grew, S0 shrank further: Sigma ended near 0 (min. diagonal below 0.03, mean 0.07 to 0.12 at
+    these seeds, true variance 0.6 per level parameter, 0.8 for the constant), each start elsewhere. With the warm-up of
+    hb.HW_WARM under the fixed prior the spread stays and the starts agree."""
+    from app import hb
+
+    persons, k, cov, groups = _rich_cbc()
+    means = []
+    for seed in (1, 2, 3):
+        r = hb.estimate(persons, k, burn=1000, draws=1000, thin=5, seed=seed, prior_cov=cov, keep=0, prior="hw",
+                        prior_groups=groups)
+        assert r["sigma_diag"].min() > 0.1, (seed, r["sigma_diag"])
+        means.append(r["sigma_diag"].mean())
+    assert min(means) > 0.3 and max(means) / min(means) < 1.5, means

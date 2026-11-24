@@ -22,6 +22,13 @@ and one a_g, so the levels of an effects-coded attribute keep one common spread 
 for L levels); for m_g = 1 and P_g = 1 the steps below are those of Huang & Wand. Gibbs steps:
   a_g   | Sigma           ~ IG(1/2 + m_g (nu + k - 1) / 2, nu trace(P_g (Sigma^-1)_gg) + 1 / A^2)
   Sigma | a, betas, mu    ~ IW(nu + k - 1 + N, 2 nu blockdiag(P_g / a_g) + sum (beta_n - mu)(beta_n - mu)')
+The first HW_WARM share of the burn-in runs with the fixed prior instead (Sigma ~ IW(k + 5 + N, 4 prior_cov + D'D), the
+joint scaling with that scale and df), a | Sigma is not drawn there: the chain starts with all betas at mu (D = 0), and
+with the hierarchical scale from the start Sigma | D = 0 falls to about S0 / N, which gives a large a, an even smaller
+S0 and so on; Sigma collapsed to 1e-3 to 1e-6 within the first iterations, before the betas could spread, and the
+chain did not leave it (seen on real ACBC data with k = 19 and 252 persons: different starts, different results).
+The warm-up is discarded with the rest of the burn-in, so the kept draws are those of the hierarchical prior
+(Festlegung von Askurious, 2026-11-24).
 The default (prior="iw") is the fixed prior above, unchanged and with the same random numbers.
 
 Optional wide prior on Sigma (prior="wide"): the same inverse Wishart with df = k + 5, but the scale df x prior_cov
@@ -99,6 +106,7 @@ PRIORS = ("iw", "hw", "wide")  # prior on Sigma: fixed inverse Wishart (default)
 #                                 wide (scale df x prior_cov, Rossi et al., 2005)
 HW_NU = 2           # nu of Huang & Wand: correlations uniform on (-1, 1)
 HW_SCALE = 2.5      # A of Huang & Wand: scale of the half-t prior of the standard deviations (logit scale)
+HW_WARM = 0.25      # first share of the burn-in of prior="hw" that runs with the fixed prior (see the module text)
 GEWEKE = ("Geweke, J. (1992). Evaluating the accuracy of sampling-based approaches to the calculation of posterior "
           "moments. In J. M. Bernardo, J. O. Berger, A. P. Dawid, & A. F. M. Smith (Eds.), Bayesian statistics 4 "
           "(pp. 169–193). Oxford University Press.")
@@ -434,9 +442,13 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
         # where the inverse Wishart has no mean. So every iteration draws a | Sigma first, the first one at the start
         # Sigma = prior_cov (a valid Gibbs scan in the order a, mu, Sigma).
         blocks = hw_blocks(prior_cov, prior_groups)
-        df0 = hw_df(k)
+        df_hw = hw_df(k)
         a = a_sum = np.zeros(len(blocks))
-        S0 = None
+        # warm-up with the fixed prior, so that the betas spread before the scale is learnt (HW_WARM, module text)
+        warm_until = int(burn * HW_WARM)
+        df_warm = k + 5
+        S0_warm = fixed_scale(prior_cov, df_warm)
+        df0, S0 = (df_warm, S0_warm) if warm_until else (df_hw, None)
     else:
         df0 = prior_df or k + 5
         S0 = fixed_scale(prior_cov, df0, wide=prior == "wide")  # prior mean of Sigma = prior_cov (default)
@@ -472,7 +484,8 @@ def estimate(person_sets, k, burn=10000, draws=10000, thin=10, seed=1, prior_cov
     report_every = max(1, total // 50)
     for it in range(total):
         # upper level: (with the hierarchical prior first a | Sigma, then) mu, then Sigma
-        if hw:
+        if hw and it >= warm_until:
+            df0 = df_hw
             shapes, rates = hw_conditional(np.linalg.inv(Sigma), blocks, df0, scale=prior_scale)
             a = rates / rng.gamma(shapes)
             S0 = hw_scale(blocks, a, k)         # held fixed in the joint scaling below, with df0
