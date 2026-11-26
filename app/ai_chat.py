@@ -54,6 +54,11 @@ CALL_TIMEOUT = 30
 PARALLEL_DEFAULT = 1
 MAX_TOKENS = 800           # of one answer
 PER_PERSON_DAY = 100       # messages of one participation in 24 hours, over all chats
+MAX_HISTORY_CHARS = 32_000  # of the conversation sent along with a message: the oldest exchanges are left out beyond it
+PENDING = "pending"        # status of a participant's message while the model is asked
+# pg_advisory_xact_lock(SEND_LOCK, survey id): the limits of a message are checked and the message is stored by one
+# request of the survey at a time, in whichever process (PostgreSQL; SQLite has one writer anyway)
+SEND_LOCK = 4712
 DEFAULT_PER_DAY = 500      # messages of all participants of a survey in 24 hours (AiChatAccess.per_day)
 MAX_PER_DAY = 100_000
 MAX_KEY = 400
@@ -142,7 +147,23 @@ def page(survey_id):
     survey = _survey(survey_id, need="admin" if request.method == "POST" else "viewer")
     row = access(survey)
     if request.method == "POST":
-        problem = save(survey, row, request.form)
+        from app import accounts, ai_access
+
+        # a key and the address the participants' messages go to: as for the personal access (app/ai_access.py), only
+        # after a fresh sign-in, only with generative AI switched on, and a limited number of checks per hour (each
+        # one asks the provider)
+        again = accounts.need_fresh(url_for("ai_chat.page", survey_id=survey.id))
+        if again is not None:
+            return again
+        if not ai_access.ai_on():
+            problem = de_en(*ai_access.OFF) + " " + de_en(
+                "Schalten Sie sie auf der Seite „KI-Nutzung“ ein, um den Modellzugang zu speichern.",
+                "Switch it on on the page “AI usage” to save the model access.")
+        elif not ai_access.allow_save(current_user.id):
+            problem = de_en("Zu viele Versuche in kurzer Zeit. Bitte später noch einmal.",
+                            "Too many attempts in a short time. Please try again later.")
+        else:
+            problem = save(survey, row, request.form)
         if problem:
             flash(problem, "error")
         else:
@@ -349,6 +370,67 @@ def _store(response, item, role, text, status, row=None, system="", masked=None,
     return turn
 
 
+def on_page(survey, response, item):
+    """Whether the chat `item` stands on the page the participation is at: a chat of a page not reached yet, of a
+    page left behind or of another path through the questionnaire takes no message."""
+    from app import runtime
+
+    pages = (getattr(response, "layout", None) or {}).get("pages") or []
+    position = response.position or 0
+    if not 0 <= position < len(pages) or runtime.is_marker(pages[position]) or not pages[position].get("items"):
+        return False
+    _block, items = runtime.page_at(survey, response, position)
+    return any(i is not None and i.id == item.id for i in items)
+
+
+def _one_at_a_time(survey):
+    """Until the next commit no other request of this survey checks the limits or stores a message (SEND_LOCK)."""
+    if db.engine.dialect.name == "postgresql":
+        from sqlalchemy import text
+
+        db.session.execute(text("SELECT pg_advisory_xact_lock(:lock, :survey)"), {"lock": SEND_LOCK, "survey": survey.id})
+
+
+def _waiting(response):
+    """Whether a message of this participation is with the model right now, in any process. One whose answer never
+    came (the process ended meanwhile) no longer counts after the time a call may take, and is marked as failed."""
+    from app.models import AiChatTurn, utcnow
+
+    recent = utcnow() - timedelta(seconds=CALL_TIMEOUT + 5)
+    waiting = False
+    for turn in db.session.scalars(db.select(AiChatTurn).where(
+            AiChatTurn.response_id == response.id, AiChatTurn.role == "user", AiChatTurn.status == PENDING)):
+        if turn.created_at is not None and turn.created_at >= recent:
+            waiting = True
+        else:
+            turn.status = "error"
+    return waiting
+
+
+def _history(system, rows, masked):
+    """What the model gets: the instructions, the exchanges so far that got an answer (a message that failed or was
+    refused is left out), the newest first to stay until MAX_HISTORY_CHARS are full, and the new message."""
+    from app import ai_privacy
+
+    pairs, asked = [], None
+    for t in rows:
+        if t.role == "user":
+            asked = t if t.status in ("ok", "crisis") else None
+        elif t.status == "ok" and asked is not None:
+            pairs.append((asked.masked if asked.masked is not None else ai_privacy.redact(asked.text), t.text or ""))
+            asked = None
+    room, kept = MAX_HISTORY_CHARS - len(masked), []
+    for mine, reply in reversed(pairs):
+        room -= len(mine) + len(reply)
+        if room < 0:
+            break
+        kept.append((mine, reply))
+    history = [{"role": "system", "content": system}] if system else []
+    for mine, reply in reversed(kept):
+        history += [{"role": "user", "content": mine}, {"role": "assistant", "content": reply}]
+    return history + [{"role": "user", "content": masked}]
+
+
 def send(survey, response, item, message, lang):
     """One message of the participant: checked, sent to the model with the conversation so far, both stored.
     Returns (JSON for the page, HTTP status). The caller commits."""
@@ -362,9 +444,13 @@ def send(survey, response, item, message, lang):
     if len(message) > kind.max_chars(item):
         return {"error": words["long"]}, 400
     crisis = bool(CRISIS.search(message))
-    done = [t for t in turns(response.id, item.id) if t.role == "user"]
     row = access(survey)
     system = kind.system_prompt(item, lang)
+    _one_at_a_time(survey)  # from here to the commit below: the counts are true for every process
+    if _waiting(response):
+        db.session.commit()
+        return {"error": words["busy"], "crisis": crisis}, 429
+    done = [t for t in turns(response.id, item.id) if t.role == "user"]
 
     def refused(key, status):
         _store(response, item, "user", message, status, row, system, ai_privacy.redact(message))
@@ -380,42 +466,36 @@ def send(survey, response, item, message, lang):
             _count_since(AiChatTurn.survey_id == survey.id) >= row.per_day:
         return refused("limit_day", "limit")
     masked = ai_privacy.redact(message)
-    history = [{"role": "system", "content": system}] if system else []
-    for t in turns(response.id, item.id):
-        if t.role == "user":
-            history.append({"role": "user", "content": t.masked if t.masked is not None else ai_privacy.redact(t.text)})
-        elif t.status == "ok":
-            history.append({"role": "assistant", "content": t.text})
-    history.append({"role": "user", "content": masked})
-    status_user = "crisis" if crisis else "ok"
-    # the participant's message is stored before the call: the write lock is not held while the model answers
-    _store(response, item, "user", message, status_user, row, system, masked)
+    history = _history(system, turns(response.id, item.id), masked)
+    # the participant's message is stored before the call, as waiting: the lock is not held while the model answers,
+    # and every process sees that this participation has a message under way
+    mine = _store(response, item, "user", message, PENDING, row, system, masked).id
     db.session.commit()
     started = time.monotonic()
     try:
         with _Slot(response.id):
             reply, tokens = _call(row, history)
     except Busy:
-        _mark_last(response, item, "error")
+        _settle(mine, "crisis" if crisis else "error")
         return {"error": words["busy"], "crisis": crisis}, 429
     except Exception as e:  # the service failed: the message stays logged with the status "error"
         current_app.logger.info("AI chat: call failed: %s", type(e).__name__)
-        _mark_last(response, item, "error")
+        _settle(mine, "crisis" if crisis else "error")
         return {"error": words["error"], "crisis": crisis}, 502
     millis = int((time.monotonic() - started) * 1000)
+    _settle(mine, "crisis" if crisis else "ok")
     _store(response, item, "assistant", reply, "ok", row, system, tokens=tokens, millis=millis)
     return {"reply": reply, "crisis": crisis, "left": max(kind.max_messages(item) - len(done) - 1, 0)}, 200
 
 
-def _mark_last(response, item, status):
-    """The participant's message just stored got no answer: its status says why (it stays in the log)."""
+def _settle(turn_id, status):
+    """The participant's message stored as waiting has its outcome: answered ("ok"), not answered ("error"), or
+    "crisis" (the hint to help was shown, whatever the model did). It stays in the log either way."""
     from app.models import AiChatTurn
 
-    last = db.session.scalar(db.select(AiChatTurn).where(
-        AiChatTurn.response_id == response.id, AiChatTurn.item_id == item.id, AiChatTurn.role == "user")
-        .order_by(AiChatTurn.seq.desc()).limit(1))
-    if last is not None and last.status != "crisis":
-        last.status = status
+    turn = db.session.get(AiChatTurn, turn_id)
+    if turn is not None:
+        turn.status = status
 
 
 def _call(row, history):

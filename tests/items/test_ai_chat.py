@@ -11,6 +11,7 @@ AGREE = {**CONSENT_OK, "i1_c_ai_chat": "1"}
 
 
 def setup(app, client, monkeypatch, **extra):
+    ai_access._saves.clear()                                        # the saves per hour count for all tests of a process
     experiments_on(client, "ai_chat")
     fill_consent(client)
     add(client, "ai_chat")                                          # item 2
@@ -236,3 +237,173 @@ def test_messages_go_with_their_participation_and_the_survey(app, client, survey
         db.session.commit()
         assert db.session.scalar(db.select(db.func.count(AiChatTurn.id))) == 0
         assert db.session.get(AiChatAccess, 1) is None
+
+
+# --- the chat takes messages only where the person is, one at a time, and within its limits ------------------------
+
+
+def _two_chats(app, client, monkeypatch):
+    """Chat 2 on the first content page, chat 3 on a page of its own behind it."""
+    setup(app, client, monkeypatch)
+    client.post(E + "/blocks", data={})
+    add(client, "ai_chat", block=3)                                 # item 3
+    client.post(E + "/items/3", data={"code": "chat2", "question": "Zweites Gespräch.", "system": "Zweite Anweisung.",
+                                      "greeting": "Hallo!", "max_messages": "3", "min_messages": "0", "max_chars": "200"})
+    save_access(client)
+    start(client)
+
+
+def test_only_the_chat_of_the_current_page_takes_a_message(app, client, survey, monkeypatch):
+    _two_chats(app, client, monkeypatch)
+    seen = []
+    fake_model(monkeypatch, seen)
+    with app.app_context():
+        from app.models import Item
+
+        assert db.session.get(Item, 3).type == "ai_chat"
+    early = app.test_client()
+    early.get("/s/1")                                               # on the consent page: no chat yet
+    assert early.post("/s/1/chat/2", json={"message": "zu früh"}).status_code == 409
+    p = participant(app)                                            # on the page of chat 2
+    assert p.post("/s/1/chat/3", json={"message": "die spätere Seite"}).status_code == 409
+    assert p.post("/s/1/chat/2", json={"message": "hier"}).status_code == 200
+    p.post("/s/1", data={"nav": "next"})                            # now on the page of chat 3
+    assert p.post("/s/1/chat/2", json={"message": "die Seite davor"}).status_code == 409
+    assert p.post("/s/1/chat/3", json={"message": "hier"}).status_code == 200
+    with app.app_context():
+        assert [t.text for t in db.session.scalars(db.select(AiChatTurn).filter_by(role="user"))] == ["hier", "hier"]
+    assert len(seen) == 2
+
+
+def test_a_message_waits_while_another_of_the_participation_is_with_the_model(app, client, survey, monkeypatch):
+    """The waiting message is in the database, so another process sees it too; after the time a call may take it no
+    longer holds the chat up and counts as failed."""
+    from datetime import timedelta
+
+    setup(app, client, monkeypatch)
+    save_access(client)
+    start(client)
+    fake_model(monkeypatch)
+    p = participant(app)
+    with app.app_context():
+        response = db.session.scalar(db.select(Response).filter_by(source="real"))
+        db.session.add(AiChatTurn(survey_id=1, response_id=response.id, item_id=2, seq=1, role="user", text="unterwegs",
+                                  status=ai_chat.PENDING))
+        db.session.commit()
+    r = p.post("/s/1/chat/2", json={"message": "gleichzeitig"})
+    assert r.status_code == 429 and "ausgelastet" in r.json["error"]
+    with app.app_context():
+        assert db.session.scalar(db.select(AiChatTurn).filter_by(text="gleichzeitig")) is None   # not stored, not sent
+        waiting = db.session.scalar(db.select(AiChatTurn).filter_by(text="unterwegs"))
+        waiting.created_at -= timedelta(seconds=ai_chat.CALL_TIMEOUT + 10)
+        db.session.commit()
+    assert p.post("/s/1/chat/2", json={"message": "später"}).status_code == 200
+    with app.app_context():
+        assert db.session.scalar(db.select(AiChatTurn.status).filter_by(text="unterwegs")) == "error"
+        assert db.session.scalar(db.select(AiChatTurn.status).filter_by(text="später")) == "ok"
+
+
+def test_the_message_is_stored_as_waiting_while_the_model_is_asked(app, client, survey, monkeypatch):
+    setup(app, client, monkeypatch)
+    save_access(client)
+    start(client)
+    during = []
+
+    def call(row, history):
+        during.append(db.session.scalar(db.select(AiChatTurn.status).filter_by(role="user")))
+        return "Antwort", (1, 1)
+
+    monkeypatch.setattr(ai_chat, "_call", call)
+    assert participant(app).post("/s/1/chat/2", json={"message": "eins"}).status_code == 200
+    assert during == [ai_chat.PENDING]
+    with app.app_context():
+        assert db.session.scalar(db.select(AiChatTurn.status).filter_by(role="user")) == "ok"
+
+
+def test_failed_messages_stay_out_of_the_conversation_and_it_has_a_size(app, client, survey, monkeypatch):
+    setup(app, client, monkeypatch, max_messages="10")
+    save_access(client)
+    start(client)
+    seen, fail = [], [True]
+
+    def call(row, history):
+        seen.append(history)
+        if fail[0]:
+            raise RuntimeError("down")
+        return "Antwort " + "y" * 150, (1, 1)
+
+    monkeypatch.setattr(ai_chat, "_call", call)
+    p = participant(app)
+    assert p.post("/s/1/chat/2", json={"message": "geht verloren"}).status_code == 502
+    fail[0] = False
+    p.post("/s/1/chat/2", json={"message": "erste " + "x" * 150})
+    assert [m["role"] for m in seen[-1]] == ["system", "user"]      # the failed message is not sent again
+    p.post("/s/1/chat/2", json={"message": "zweite " + "x" * 150})
+    assert [m["role"] for m in seen[-1]] == ["system", "user", "assistant", "user"]
+    assert "geht verloren" not in str(seen[-1])
+    monkeypatch.setattr(ai_chat, "MAX_HISTORY_CHARS", 400)          # room for one exchange and the new message
+    p.post("/s/1/chat/2", json={"message": "dritte"})
+    sent = seen[-1]
+    assert [m["role"] for m in sent] == ["system", "user", "assistant", "user"]
+    assert sent[1]["content"].startswith("zweite") and sent[-1]["content"] == "dritte"   # the oldest exchange went
+
+
+def test_messages_per_sender_have_a_limit(app, client, survey, monkeypatch):
+    from app import limits
+
+    setup(app, client, monkeypatch, max_messages="10")
+    save_access(client)
+    start(client)
+    fake_model(monkeypatch)
+    limits._fallback.clear()
+    app.config["AI_CHAT_SENDER_LIMIT"] = 2
+    p = participant(app)
+    env = {"REMOTE_ADDR": "203.0.113.9"}
+    assert p.post("/s/1/chat/2", json={"message": "eins"}, environ_base=env).status_code == 200
+    assert p.post("/s/1/chat/2", json={"message": "zwei"}, environ_base=env).status_code == 200
+    r = p.post("/s/1/chat/2", json={"message": "drei"}, environ_base=env)
+    assert r.status_code == 429 and "ausgelastet" in r.json["error"]
+    with app.app_context():
+        assert db.session.scalar(db.select(AiChatTurn).filter_by(text="drei")) is None
+
+
+# --- saving the model access: as the personal access ------------------------------------------------------------
+
+
+def test_saving_the_access_needs_a_fresh_sign_in(app, client, survey, monkeypatch):
+    setup(app, client, monkeypatch)
+    with client.session_transaction() as s:
+        s["signed_in_at"] -= 3600
+    r = save_access(client)
+    assert r.status_code == 302 and r.headers["Location"].startswith("/auth/login")   # sign in again first
+    with app.app_context():
+        assert db.session.scalar(db.select(AiChatAccess)) is None
+
+
+def test_saving_the_access_needs_generative_ai_switched_on(app, client, survey, monkeypatch):
+    from app.models import User
+
+    setup(app, client, monkeypatch)
+    asked = []
+    monkeypatch.setattr(ai_access, "model_ids", lambda c: asked.append(1) or ["model-a"])
+    with app.app_context():
+        db.session.scalar(db.select(User)).ai_enabled = False
+        db.session.commit()
+    save_access(client)
+    page = client.get("/surveys/1/ai-chat")
+    assert "ausgeschaltet" in page.data.decode() and asked == []                # the provider is not asked
+    with app.app_context():
+        assert db.session.scalar(db.select(AiChatAccess)) is None
+
+
+def test_saving_the_access_is_limited_per_hour(app, client, survey, monkeypatch):
+    setup(app, client, monkeypatch)
+    asked = []
+    monkeypatch.setattr(ai_access, "model_ids", lambda c: asked.append(1) or ["model-a"])
+    monkeypatch.setattr(ai_access, "SAVE_LIMIT", 2)
+    for _ in range(2):
+        save_access(client)
+    save_access(client)
+    page = client.get("/surveys/1/ai-chat")
+    assert "Zu viele Versuche" in page.data.decode() and len(asked) == 2
+    ai_access._saves.clear()

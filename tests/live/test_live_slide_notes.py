@@ -147,7 +147,9 @@ def test_landscape_without_typed_notes_and_bad_input(app, client):
     code, sid, block, (first, *_) = _deck(app, client, pages=1)
     steer(client, code, action="start")
     p = _phone(app, code)
-    assert p.post(f"/live/{code}/notizen.pdf", data={"notes": "[1, 2]"}).status_code == 400
+    # what cannot be read still uses the device's turn of the minute: each from a device of its own
+    assert _phone(app, code).post(f"/live/{code}/notizen.pdf", data={"notes": "[1, 2]"}).status_code == 400
+    assert _phone(app, code).post(f"/live/{code}/notizen.pdf", data={"notes": "[" * 100_000}).status_code == 400
     assert p.post(f"/live/{code}/notizen.pdf", data={"notes": "x" * 6_000_001}).status_code == 413
     r = _pdf(p, code, {str(first): {"t": "nur getippt", "s": []}}, mine_text="")
     pg = PdfReader(io.BytesIO(r.data)).pages[0]
@@ -169,3 +171,28 @@ def test_the_participants_privacy_page_names_the_notes(app, client):
         key = db.session.get(Survey, sid).public_key
     page = app.test_client().get(f"/s/{key}/privacy").data.decode()
     assert "bleiben nur im Speicher Ihres Browsers" in page
+
+
+def test_notes_that_cannot_be_read_use_the_turn_of_the_minute(app, client):
+    code, sid, block, (first, *_) = _deck(app, client, pages=1)
+    steer(client, code, action="start")
+    p = _phone(app, code)
+    assert p.post(f"/live/{code}/notizen.pdf", data={"notes": "[" * 100_000}).status_code == 400   # nested too deeply
+    assert p.post(f"/live/{code}/notizen.pdf", data={"notes": "[" * 100_000}).status_code == 429   # counted
+    assert _pdf(p, code).status_code == 429
+
+
+def test_only_some_pdfs_are_drawn_at_once_in_a_process(app, client):
+    from app.live import notes
+
+    code, sid, block, (first, *_) = _deck(app, client, pages=1)
+    steer(client, code, action="start")
+    held = [notes._drawing.acquire(blocking=False) for _ in range(notes.PDF_PARALLEL)]
+    try:
+        assert all(held)
+        r = _pdf(_phone(app, code), code)
+        assert r.status_code == 503 and r.headers["Retry-After"] and r.json["ok"] is False
+    finally:
+        for _ in held:
+            notes._drawing.release()
+    assert _pdf(_phone(app, code), code).status_code == 200                     # free again

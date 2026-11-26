@@ -13,6 +13,7 @@ limits.allow_notes_pdf).
 import io
 import json
 import os
+import threading
 import unicodedata
 
 from flask import abort, current_app, jsonify, request, send_file
@@ -33,6 +34,11 @@ MAX_BYTES = 6_000_000  # the notes of all slides as sent (MAX_CONTENT_LENGTH is 
 A4_W, A4_H = 595.28, 841.89
 MARGIN = 42
 FONT, SIZE, LEADING = pdf_fonts.REGULAR, 11, 15
+
+# PDFs drawn at once in one process: drawing takes a page thread for its whole time, so the others stay free for
+# the votes of the hall; one more gets "try again in a moment"
+PDF_PARALLEL = 2
+_drawing = threading.BoundedSemaphore(PDF_PARALLEL)
 
 
 def _slides(survey, st):
@@ -179,7 +185,7 @@ def notes_pdf(code):
     """"Folien mit Notizen herunterladen": every slide up to the presenter's place as a page of a PDF, with what the
     device chose of its own notes (form field notes: {slide id: {"t": typed note, "s": strokes}}, ticks mine_ink,
     mine_text) and the presenter's strokes (presenter). The notes are only read for this PDF and stored nowhere."""
-    from app import export, limits
+    from app import limits
 
     survey = _public(code)
     st = state(survey)
@@ -190,17 +196,34 @@ def notes_pdf(code):
     if len(raw) > MAX_BYTES:
         return jsonify(ok=False, error=tr(survey.default_language, "Die Notizen sind zu umfangreich für ein PDF. Bitte einige Striche radieren.",
                                           "The notes are too large for a PDF. Please erase some strokes.")), 413
+    device = _device(survey)
+    db.session.commit()  # the device's receipt (_public): the limit counts in a transaction of its own (SQLite: one writer)
+    # counted before the notes are read: a request that is refused or cannot be read still uses its turn
+    if not limits.allow_notes_pdf(survey, device):
+        return jsonify(ok=False, error=tr(survey.default_language, "Bitte warten Sie eine Minute, bevor Sie das PDF erneut herunterladen.",
+                                          "Please wait a minute before downloading the PDF again.")), 429
+    from app.request_values import safe_loads
+
     try:
-        notes = json.loads(raw)
+        notes = safe_loads(raw)  # ValueError also for a value nested too deeply
     except ValueError:
         notes = None
     if not isinstance(notes, dict):
         abort(400)
-    device = _device(survey)
-    db.session.commit()  # the device's receipt (_public): the limit counts in a transaction of its own (SQLite: one writer)
-    if not limits.allow_notes_pdf(survey, device):
-        return jsonify(ok=False, error=tr(survey.default_language, "Bitte warten Sie eine Minute, bevor Sie das PDF erneut herunterladen.",
-                                          "Please wait a minute before downloading the PDF again.")), 429
+    if not _drawing.acquire(blocking=False):
+        response = jsonify(ok=False, error=tr(survey.default_language, "Bitte warten Sie eine Minute, bevor Sie das PDF erneut herunterladen.",
+                                              "Please wait a minute before downloading the PDF again."))
+        response.headers["Retry-After"] = str(limits.NOTES_PDF_WINDOW)
+        return response, 503
+    try:
+        return _draw(survey, st, slides, notes)
+    finally:
+        _drawing.release()
+
+
+def _draw(survey, st, slides, notes):
+    from app import export
+
     mine_ink, mine_text, presenter = (request.form.get(k) == "1" for k in ("mine_ink", "mine_text", "presenter"))
     theirs = ink.ink_of(survey, st["run"]["id"]) if presenter and not st.get("ink_off") else {}
     pages = []

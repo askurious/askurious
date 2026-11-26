@@ -2309,7 +2309,8 @@ class AiChatAccess(db.Model):
 class AiChatTurn(db.Model):
     """One message of the element "KI-Chat" (app/ai_chat.py): what the participant wrote (role "user") or what the model
     answered ("assistant"), in full, as study data (Ralf 2026-10-23: the original text is kept, the masked one sent to
-    the model beside it). status: ok, error, limit, crisis (a hint to help was shown), no_access. No foreign key: the
+    the model beside it). status: ok, pending (the model is being asked), error, limit, crisis (a hint to help was
+    shown), no_access. No foreign key: the
     rows go in code with their participation (an event on Response), with the survey (lifecycle.delete, retention.purge)
     and orphans with the housekeeping (ai_chat.sweep)."""
 
