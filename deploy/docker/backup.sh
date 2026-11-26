@@ -186,6 +186,8 @@ if [ -z "$kind" ]; then
     until [ "$(head -n 1 "$ready_file" 2>/dev/null || true)" = READY ]; do
       if ! kill -0 "$gate_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
         echo "Could not acquire consistent storage backup window: $service" >&2
+        # why: what the gate's container said (finish removes the control folder with this file)
+        cat "$control_dir/error-$service" >&2 2>/dev/null || true
         exit 1
       fi
       sleep 0.1
