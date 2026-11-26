@@ -15,6 +15,7 @@
        "show_own": crowd.show_own, "prev": item.config.get("keep_previous", true), "bins": (sc.bins|length) if sc.bins else 0, "live": sc.live, "codes": sc.get("codes"),
        "lo": sc.get("lo"), "hi": sc.get("hi"), "me": ui("Sie", "You"), "lock": item.config.get("lock_answers", false)}|tojson }}'
        data-fixed-note="{{ ui("Ihre Antwort ist festgelegt und lässt sich nicht mehr ändern.", "Your answer is fixed and can no longer be changed.") }}">
+    {% if crowd.label %}<p class="p-sc-label">{{ crowd.label|fill(variables) }}</p>{% endif %}
     {% set fixing = item.config.get("lock_answers", false) %}
     <p class="p-crowd-wait" data-crowd-wait hidden>{% if fixing %}{{ ui("Sobald Sie Ihre Antwort festgelegt haben, sehen Sie hier, wo die anderen stehen.", "Once you have fixed your answer, you will see here where the others stand.") }}{% else %}{{ ui("Sobald Sie oben geantwortet haben, sehen Sie hier, wo die anderen stehen.", "Once you have answered above, you will see here where the others stand.") }}{% endif %}</p>
     {# the question on this page (app/feedback_lock.py): the crowd walks only after "Antwort festlegen", which fixes the answer #}
