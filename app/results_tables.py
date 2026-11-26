@@ -17,7 +17,8 @@ files with their rows.
 
 The same tables as one Excel file (build_xlsx, button "Tabellen (Excel)"; Ralf, 2026-11-26): a sheet per table, written
 by the app's own writer (app/xlsx.py), the numbers of the core tables as numbers, unrounded; the sheets "README" and
-"tabellen" stand for the two files of the ZIP."""
+"tabellen" stand for the two files of the ZIP. Its first sheet "Übersicht" is the page to start from: the title of the
+survey, the data basis and a table of contents whose entries jump to their sheets (feedback of a tester, 2026-11-26)."""
 import csv
 import io
 import re
@@ -28,6 +29,7 @@ from app.items.base import plain
 NAME = "ergebnistabellen.zip"
 SHOWN = "wie_angezeigt"
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+OVERVIEW = "Übersicht"
 
 # file -> (columns, German description, English description); the order is the order in README and tabellen.csv
 FILES = {
@@ -447,8 +449,8 @@ def shown(root):
 
 # --- the ZIP -------------------------------------------------------------------------------------------------------
 
-def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator, book=False):
-    """The text of README.txt; book: of the sheet "README" of the Excel file, which speaks of sheets."""
+def _basis(survey, ui, data, pool, computed_at):
+    """What the tables stand on, as lines: the title, the data basis, what is left out, when it was computed."""
     from app import brand, timeutil
 
     en = ui == "en"
@@ -461,7 +463,7 @@ def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator, book
     basis = ", ".join(sources.get(x, x) for x in pool["sources"])
     if pool.get("all"):
         basis += say(", auch nicht abgeschlossene", ", also those not completed")
-    lines = [say("Ergebnistabellen: {t}", "Results tables: {t}", t=_text(survey.title)), "",
+    lines = [say("Ergebnistabellen: {t}", "Results tables: {t}", t=_text(survey.title)),
              say("Datengrundlage: N = {n} Teilnahmen ({b}).", "Data basis: N = {n} participations ({b}).",
                  n=data.get("n_rows", 0), b=basis)]
     if data.get("marked"):
@@ -474,7 +476,20 @@ def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator, book
                   "Unweighted results, computed on {d}; the same data basis and the same results as the results report "
                   "(PDF). Nothing is estimated anew: an estimate that is missing or out of date (HB, segments) is "
                   "missing here too.", d=timeutil.fmt(computed_at, lang=ui)),
-              say("Erstellt mit {b}.", "Made with {b}.", b=brand.name()), "",
+              say("Erstellt mit {b}.", "Made with {b}.", b=brand.name())]
+    return lines
+
+
+def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator, book=False):
+    """The text of README.txt; book: of the sheet "README" of the Excel file, which speaks of sheets."""
+    en = ui == "en"
+
+    def say(de, en_text, **values):
+        return (en_text if en else de).format(**values)
+
+    lines = _basis(survey, ui, data, pool, computed_at)
+    lines[1:1] = [""]
+    lines += ["",
               (say("Format: Excel-Datei (.xlsx), ein Blatt je Tabelle. Zahlen stehen als Zahlen, ungerundet (Excel zeigt "
                    "sie in der Schreibweise des eigenen Rechners); leer = kein Wert; 1/0 = ja/nein. Blatt- und "
                    "Spaltennamen sind fest und hängen nicht von der Sprache ab. Anteile und Wichtigkeiten stehen als 0 "
@@ -625,8 +640,36 @@ def build_xlsx(survey, ui=None, data=None, pool=None, computed_at=None, page=Tru
     while readme and not readme[-1]:
         readme.pop()
     head = ["blatt", "zeilen", "art", "titel", "abschnitt"]
-    return xlsx.workbook([("README", readme[:1], [[line] for line in readme[1:]], [120]),
+    return xlsx.workbook([_overview(survey, ui, data, pool, computed_at, files, index),
+                          ("README", readme[:1], [[line] for line in readme[1:]], [120]),
                           ("tabellen", head, index, _widths(head, index))] + sheets)
+
+
+def _overview(survey, ui, data, pool, computed_at, files, index):
+    """The first sheet: the title of the survey, the data basis and the contents; every name of a sheet jumps there."""
+    from app import xlsx
+
+    en = ui == "en"
+    title, *basis = _basis(survey, ui, data, pool, computed_at)
+    core_text = {sheet_name(name): FILES[name][2 if en else 1] for name, _ in files}
+    rows = [[title.split(": ", 1)[0]]] + [[line] for line in basis] + [
+        [""], ["Contents" if en else "Inhalt"], ["Sheet", "Content", "Rows"] if en else ["Blatt", "Inhalt", "Zeilen"]]
+    start = len(rows) + 2  # the row of the first entry: the title is row 1
+    entries = [["README", "Notes on the format, and every sheet with its columns" if en else
+                "Hinweise zum Format und jedes Blatt mit seinen Spalten", ""],
+               ["tabellen", "List of all sheets, for programs" if en else "Verzeichnis aller Blätter, für Programme", ""]]
+    as_shown = "as on the results page" if en else "wie auf der Ergebnisseite"
+    for name, n, _kind, heading, section in index:
+        entries.append([name, core_text.get(name) or f"{heading or section} ({as_shown})", n])
+    links = {f"A{start + i}": row[0] for i, row in enumerate(entries)}
+    styles = {1: xlsx.TITLE, start - 2: xlsx.TITLE, start - 1: xlsx.HEADER}
+    widths = [34, 110, 10]
+    # the lines above the contents run over the whole width; a row as high as its text needs
+    merge = [f"A{r}:C{r}" for r in range(1, start - 2)]
+    heights = {1: 24, start - 2: 24, **{r + 2: 15 * (1 + len(line[0]) // (sum(widths) - 10))
+                                       for r, line in enumerate(rows[:start - 4]) if line[0]}}
+    return (OVERVIEW, [title.split(": ", 1)[-1]], rows + entries, widths,
+            {"page": True, "styles": styles, "links": links, "merge": merge, "heights": heights})
 
 
 def filename(survey):
