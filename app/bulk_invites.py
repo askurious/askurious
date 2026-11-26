@@ -37,10 +37,6 @@ DAYS = (14, 30)
 _SPLIT = re.compile(r"[\s,;<>]+")
 
 
-def _site_admin(user):
-    return user.orcid in current_app.config["ADMIN_ORCIDS"]
-
-
 def may_invite(user, group):
     """The lead of a course who may bring in new people, or a site admin."""
     from app import auth
@@ -49,7 +45,7 @@ def may_invite(user, group):
         return False
     from app import orgs
 
-    return _site_admin(user) or (group.led_by(user) and auth.may_admit(user)
+    return orgs.acts_as_site_admin(user) or (group.led_by(user) and auth.may_admit(user)
                                  and orgs.may_bring_in(user, orgs.of(group)))
 
 

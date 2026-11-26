@@ -299,7 +299,7 @@ def _create_with_password(link, group):
                            "No new account can be created here with these details. If you already have an account, "
                            "please sign in and open the link again afterwards.")
     maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
-    user = accounts.create_local(name, email, "", False, maker)
+    user = accounts.create_local(name, email, "", False, maker, self_chosen=True)  # without mail: never confirmed
     db.session.flush()
     passwords.set_password(user, password)
     user.last_login_at = utcnow()

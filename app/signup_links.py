@@ -243,6 +243,7 @@ def page(token):
 
 
 CONFIRM_HOURS = 24  # how long the link of the mail holds
+CONFIRM_SEAL = "signup-confirm"  # the link's content is sealed for this purpose only (secrets_box.seal)
 
 
 def _create_with_password(link, token):
@@ -297,9 +298,9 @@ def _mail_confirmation(token, name, email, password):
 
     from app import mail, mailqueue, secrets_box
 
-    held = secrets_box.encrypt(json.dumps({"t": token, "name": name, "email": email,
-                                           "hash": generate_password_hash(password),
-                                           "until": time.time() + CONFIRM_HOURS * 3600}))
+    held = secrets_box.seal(CONFIRM_SEAL, json.dumps({"t": token, "name": name, "email": email,
+                                                      "hash": generate_password_hash(password),
+                                                      "until": time.time() + CONFIRM_HOURS * 3600}).encode())
     link = brand.public_base() + url_for("signup_links.confirm", held=held)
     mailqueue.enqueue(email, de_en("Askurious: Registrierung bestätigen", "Askurious: confirm your registration"),
                       de_en("Guten Tag {name},\n\nmit diesem Link legen Sie Ihr Konto an (gültig {h} Stunden):\n\n"
@@ -330,9 +331,10 @@ def _mail_taken(email):
     mailqueue.kick()
 
 
-@bp.route("/confirm/<path:held>")
+@bp.route("/confirm/<path:held>", methods=["GET", "POST"])
 def confirm(held):
-    """The link of the confirmation mail: the account is made now, with the details of the form, and signed in. A
+    """The link of the confirmation mail. Opening it shows one button; only pressing it makes the account, with the
+    details of the form, and signs it in: a program that opens the links of a mail to check them uses nothing up. A
     link that ran out, was used already or whose invitation no longer holds makes nothing."""
     import json
 
@@ -341,8 +343,11 @@ def confirm(held):
     if not limits.allow_invite_try(count=False):
         abort(429)
     try:
-        data = json.loads(secrets_box.decrypt(held) or "{}")
+        # links mailed before the seal were locked with the general box: they hold until they run out
+        data = json.loads(secrets_box.unseal(CONFIRM_SEAL, held) or secrets_box.decrypt(held) or "{}")
     except ValueError:
+        data = {}
+    if not isinstance(data, dict):
         data = {}
     link = valid(data.get("t", "")) if data.get("t") and float(data.get("until") or 0) > time.time() else None
     if link is None or current_user.is_authenticated or not accounts.email_free(data.get("email", "")):
@@ -351,6 +356,10 @@ def confirm(held):
                     "This confirmation link is no longer valid. If the account was created already, please sign in."),
               "error")
         return redirect(url_for("auth.sign_in"))
+    if request.method != "POST":
+        response = current_app.make_response(render_template("signup/confirm.html", name=data["name"], email=data["email"]))
+        response.headers["Cache-Control"] = "no-store"  # the address of the page is the link
+        return response
     done, said = _make_account(link, data["name"], data["email"], data["hash"], confirmed=True)
     if done is None:
         flash(said, "error")
@@ -369,7 +378,7 @@ def _make_account(link, name, email, password_hash, confirmed):
         db.session.rollback()
         return _invalid(), None
     maker = db.session.get(User, link.created_by_id) if link.created_by_id else None
-    user = accounts.create_local(name, email, "", False, maker)
+    user = accounts.create_local(name, email, "", False, maker, self_chosen=not confirmed)
     db.session.flush()
     passwords.set_password_hash(user, password_hash)
     if confirmed:

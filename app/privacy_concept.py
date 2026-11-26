@@ -466,7 +466,9 @@ def _activities():
                           "Access to the platform, assigning surveys, protection against misuse."),
          "subjects": de_en("Forschende, Admins, eingeladene Personen",
                              "Researchers, admins, invited people"),
-         "data": de_en("ORCID iD, Name, E-Mail-Adresse, Passwort als scrypt-Hash, Geheimnis der "
+         "data": de_en("ORCID iD, Name, E-Mail-Adresse (mit dem Zeitpunkt ihrer Bestätigung per Mail oder dem Vermerk, "
+                       "dass die Person sie auf der Seite eines Links selbst eingetragen hat und keine Mail sie bestätigt hat; "
+                       "über eine solche Adresse findet die Personensuche das Konto nicht), Passwort als scrypt-Hash, Geheimnis der "
                        "Zwei-Faktor-Anmeldung (verschlüsselt), Anmeldezeiten, grobe Browserbezeichnung der Sitzungen, "
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
                        "freigegebene Befragungstypen, Nutzertyp mit Beginn und "
@@ -474,7 +476,9 @@ def _activities():
                        "Nummer des Kürzels in Organisationen mit verborgenen Namen, Anträge von Admins einer Organisation auf mehr Plätze (Begründung, Entscheidung), "
                        "angeheftete und ausgeblendete Befragungen, "
                        "Bearbeitungsspuren.",
-                       "ORCID iD, name, email address, password as a scrypt hash, secret of the two-factor "
+                       "ORCID iD, name, email address (with the time a mail confirmed it, or the mark that the person "
+                       "entered it on a link's page and no mail confirmed it; the people search does not find the account "
+                       "by such an address), password as a scrypt hash, secret of the two-factor "
                        "sign-in (encrypted), sign-in times, coarse browser label of the sessions, acceptance of the terms "
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "

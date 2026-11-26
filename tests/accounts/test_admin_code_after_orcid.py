@@ -93,3 +93,63 @@ def test_the_operator_resets_a_lost_factor(strict, client):
         s.pop("totp_ok", None)
     r = client.get("/admin/")
     assert r.status_code == 302 and "/account/second-factor/set-up" in r.headers["Location"]
+
+
+def _org_id(app, **kw):
+    from app.models import Organisation
+
+    with app.app_context():
+        org = Organisation(name="Institut Y", **kw)
+        db.session.add(org)
+        db.session.commit()
+        return org.id
+
+
+def test_the_pages_of_an_organisation_ask_a_site_admin_for_the_code_too(strict, client):
+    org_id = _org_id(strict)
+    r = client.get(f"/org/{org_id}/people")                     # signed in like an ORCID sign-in, no factor yet
+    assert r.status_code == 302 and "/account/second-factor/set-up" in r.headers["Location"]
+    r = client.post(f"/org/{org_id}/people", data={"action": "remove", "user": "1"})
+    assert r.status_code == 302 and "/account/second-factor/" in r.headers["Location"]
+    _set_up(client)
+    assert client.get(f"/org/{org_id}/people").status_code == 200
+    with client.session_transaction() as s:
+        s.pop("totp_ok", None)                                   # another browser, or the hours are over
+    r = client.get(f"/org/{org_id}/people")
+    assert r.status_code == 302 and "/account/second-factor/code" in r.headers["Location"]
+
+
+def test_without_the_code_a_site_admin_has_no_more_rights_than_others(strict, client):
+    """The helpers that decide by "site admin" outside the administration: the list of suggestions, bringing people
+    in past an organisation's limit, taking people out, the details of the health check."""
+    from flask_login import current_user
+
+    from app import orgs, shortlist
+    from app.models import Organisation
+
+    org_id = _org_id(strict, invite_scope="platform")
+    with client:
+        client.get("/")
+        me = current_user._get_current_object()
+        assert orgs.acts_as_site_admin(me) is False
+        assert shortlist.keeper_of(me, None) is False and shortlist.keeper_of(me, org_id) is False
+        assert orgs.may_bring_in(me, org_id, "0000-0002-1825-0097") is False
+        other = User(id=99, orcid="0000-0002-1825-0097", name="Andere")
+        assert orgs.may_remove(me, other, db.session.get(Organisation, org_id)) is False
+    health = client.get("/healthz").get_json()
+    assert all(v in ("ok", "error") for v in health["deps"].values())       # no versions
+    _set_up(client)
+    with client:
+        client.get("/")
+        me = current_user._get_current_object()
+        assert orgs.acts_as_site_admin(me) is True and shortlist.keeper_of(me, None) is True
+        assert orgs.may_bring_in(me, org_id, "0000-0002-1825-0097") is True
+
+
+def test_the_status_of_another_account_counts_as_before(strict, client):
+    """For someone who is not the person in this browser (the maker of a link) the status of the account decides."""
+    from app import orgs
+
+    with strict.app_context():
+        admin = db.session.scalar(db.select(User).filter_by(orcid=ADMIN))
+        assert orgs.acts_as_site_admin(admin) is True

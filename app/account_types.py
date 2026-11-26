@@ -360,7 +360,7 @@ def bringing_in(admin):
     organisation sees no survey's content or answers (konzept-abteilungen A15), so cannot give that to themself."""
     from app import orgs
 
-    return admin if admin is not None and orgs._site_admin(admin) else None
+    return admin if admin is not None and orgs.acts_as_site_admin(admin) else None
 
 
 def start_new(user, now=None):
@@ -429,7 +429,7 @@ def exempt_of(t, by=None):
     change leaves out nobody; `by` itself is never left out."""
     from app import orgs
 
-    if by is not None and orgs._site_admin(by):
+    if by is not None and orgs.acts_as_site_admin(by):
         return []
     users = db.session.scalars(db.select(User).join(UserLogin, UserLogin.user_id == User.id)
                                .where(UserLogin.account_type_id == t.id))

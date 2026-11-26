@@ -48,13 +48,15 @@ def search_people(q, existing):
 
     if passwords.normal_email(q):
         # a complete address finds exactly the account that signs in with it; addresses are never shown or
-        # searched by parts. Only accounts a site admin made, who entered the address: an ORCID account picks
-        # its sign-in name itself, unverified, and could take a colleague's address to be invited in their place.
-        owner = db.session.scalar(db.select(User).join(UserLogin, UserLogin.user_id == User.id)
-                                  .filter(UserLogin.email == passwords.normal_email(q)))
-        if owner is not None and not owner.has_orcid:
-            add(people_keys.key_for(owner), owner.name, "", "user")
-        return results
+        # searched by parts. Only accounts whose address someone else entered (an admin, an inviter) or a mail
+        # confirmed: an ORCID account picks its sign-in name itself, and so does a person on a link's page while mail
+        # is off (UserLogin.email_self_chosen); either could take a colleague's address to be invited in their place.
+        found = db.session.execute(db.select(User, UserLogin).join(UserLogin, UserLogin.user_id == User.id)
+                                   .filter(UserLogin.email == passwords.normal_email(q))).first()
+        if found is not None and not found[0].has_orcid and (found[1].email_verified_at is not None
+                                                             or not found[1].email_self_chosen):
+            add(people_keys.key_for(found[0]), found[0].name, "", "user")
+        return _aliases(results)
 
     for orcid, name in groups.colleagues(current_user, q)[:10]:
         add(orcid, name, "", "group")

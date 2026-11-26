@@ -4,7 +4,7 @@ the chosen day (membership, and the period of an account that came in this way a
 import re
 from datetime import timedelta
 
-from app import invite_links
+from app import invite_links, invites
 from app.extensions import db
 from app.models import MemberInvite, SurveyMember, User, UserLogin, utcnow
 from app.timeutil import local_today
@@ -143,3 +143,106 @@ def test_send_by_mail(app, client, survey):
 
 def test_csv_cells_are_no_formulas():
     assert invite_links._cell("=HYPERLINK()") == "'=HYPERLINK()" and invite_links._cell("Anna") == "Anna"
+
+
+def _one_link(client, survey, name="Jonas Kraft"):
+    page = client.post(f"/invite/links/survey/{survey}", data=_form([(name, "")])).data.decode()
+    (_link, token), = _links(page)
+    return token
+
+
+def _confirm_path(sent, to):
+    mail = [m for m in sent if m["To"] == to][-1]
+    found = re.search(r"https?://[^\s]+?(/invite/confirm/[^\s]+)", mail.get_content())
+    return found.group(1) if found else None
+
+
+JONAS = {"way": "password", "name": "Jonas", "email": "jonas@example.org", "password": GOOD, "repeat": GOOD}
+
+
+def test_a_typed_address_is_confirmed_by_mail_first(app, client, survey):
+    """Mail on, a link without an address: the form makes nothing, the link of the mail shows a button, the button
+    makes the account with a confirmed address and the membership."""
+    sent = mail_on(app)
+    token = _one_link(client, survey)
+    guest = app.test_client()
+    assert guest.post(f"/invite/{token}", data=JONAS).status_code == 302
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="jonas@example.org")) is None
+        assert db.session.scalar(db.select(MemberInvite)) is not None          # still open
+    path = _confirm_path(sent, "jonas@example.org")
+    assert path
+    page = guest.get(path)
+    assert page.status_code == 200 and page.headers["Cache-Control"] == "no-store"
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="jonas@example.org")) is None
+    assert guest.post(path).status_code == 302
+    with app.app_context():
+        login = db.session.scalar(db.select(UserLogin).filter_by(email="jonas@example.org"))
+        assert login.email_verified_at is not None and not login.email_self_chosen
+        assert db.session.scalar(db.select(SurveyMember).filter_by(survey_id=survey, user_id=login.user_id)) is not None
+        assert db.session.scalar(db.select(MemberInvite)) is None
+    assert "gilt nicht mehr" in app.test_client().post(path, follow_redirects=True).data.decode()   # once
+
+
+def test_a_taken_address_gets_the_same_answer_and_no_link(app, client, survey):
+    sent = mail_on(app)
+    with app.app_context():
+        from app import accounts
+
+        accounts.create_local("Kim", "kim@example.org", "", False, None)
+        db.session.commit()
+    token = _one_link(client, survey)
+    free = app.test_client().post(f"/invite/{token}", data={**JONAS, "email": "frei@example.org"})
+    taken = app.test_client().post(f"/invite/{token}", data={**JONAS, "email": "kim@example.org"})
+    assert free.status_code == taken.status_code == 302 and free.headers["Location"] == taken.headers["Location"]
+    assert _confirm_path(sent, "frei@example.org") and _confirm_path(sent, "kim@example.org") is None
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="frei@example.org")) is None
+
+
+def test_an_invitation_that_cannot_be_taken_leaves_no_account(app, client, survey, monkeypatch):
+    """Whatever keeps the new person from joining (here: the invitation was taken a moment before) takes the new
+    account back as well, and nobody is signed in."""
+    token = _one_link(client, survey)
+    real = invites.join
+
+    def taken_meanwhile(invite, user=None, **kw):
+        db.session.execute(db.delete(MemberInvite).where(MemberInvite.id == invite.id))  # as a parallel request does
+        return real(invite, user, **kw)
+
+    monkeypatch.setattr(invites, "join", taken_meanwhile)
+    with app.app_context():
+        before = db.session.scalar(db.select(db.func.count()).select_from(User))
+    guest = app.test_client()
+    assert guest.post(f"/invite/{token}", data=JONAS).status_code == 302
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="jonas@example.org")) is None
+        assert db.session.scalar(db.select(db.func.count()).select_from(User)) == before
+    with guest.session_transaction() as s:
+        assert "_user_id" not in s                                              # not signed in
+
+
+def test_nobody_finds_an_account_by_an_address_it_typed_itself(app, client, survey):
+    """Mail off: the address of the new account is its sign-in name, unconfirmed. The people search by full address
+    finds only accounts whose address someone else entered or a mail confirmed."""
+    from app import accounts
+    from app.surveys.people import search_people
+
+    token = _one_link(client, survey)
+    app.test_client().post(f"/invite/{token}", data={**JONAS, "name": "Prof. Echt", "email": "echt@example.org"})
+    with app.app_context():
+        login = db.session.scalar(db.select(UserLogin).filter_by(email="echt@example.org"))
+        assert login is not None and login.email_self_chosen is True and login.email_verified_at is None
+        accounts.create_local("Vom Admin", "admin-made@example.org", "", False, None)
+        db.session.commit()
+    with client:
+        client.get("/")
+        assert search_people("echt@example.org", set()) == []
+        assert [r["name"] for r in search_people("admin-made@example.org", set())] == ["Vom Admin"]
+    with app.app_context():
+        db.session.scalar(db.select(UserLogin).filter_by(email="echt@example.org")).email_verified_at = utcnow()
+        db.session.commit()
+    with client:
+        client.get("/")
+        assert [r["name"] for r in search_people("echt@example.org", set())] == ["Prof. Echt"]

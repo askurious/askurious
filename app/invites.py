@@ -260,10 +260,11 @@ def notice(user, by, survey=None, group=None, role=""):
     return mail.send(row.email, subject, text, reply_to=_reply_to(by))
 
 
-def join(invite, user=None, orcid=None, name=""):
+def join(invite, user=None, orcid=None, name="", new_account=False):
     """Make the person a member as the invitation says and remove it: `user`, or (first sign-in with ORCID, no
     account yet) the iD with its name, as adding by iD does before a first sign-in. Returns (url to go to, message
-    or None)."""
+    or None). new_account: `user` was made for this invitation and is not committed yet; with a message nothing is
+    committed here, so the caller's rollback takes the account back and the invitation stays as it was."""
     from app import groups as groups_mod, people_keys
 
     if not authorised(invite):
@@ -282,7 +283,8 @@ def join(invite, user=None, orcid=None, name=""):
     if claimed != 1:
         return url_for("dashboard.index"), de_en("Diese Einladung ist nicht mehr gültig.", "This invitation is no longer valid.")
     if target is None:
-        db.session.commit()
+        if not new_account:
+            db.session.commit()
         return url_for("dashboard.index"), de_en("Die Befragung oder Gruppe gibt es nicht mehr.",
                                                  "The survey or group no longer exists.")
     person = user or people_keys.account(orcid, name)  # the iD's account, pending until its first sign-in
@@ -306,7 +308,8 @@ def join(invite, user=None, orcid=None, name=""):
         member.role = "lead"  # as joinlinks.join (H7)
     if member is None:
         if len(target.members) >= groups_mod.MAX_MEMBERS or groups_mod.count_for(person.id) >= groups_mod.MAX_GROUPS:
-            db.session.commit()
+            if not new_account:
+                db.session.commit()
             return url_for("dashboard.index"), de_en("Die Gruppe ist voll, oder Sie sind schon in zu vielen Gruppen.",
                                                      "The group is full, or you are already in too many groups.")
         target.members.append(WorkGroupMember(user=person, name=name or "",
@@ -361,7 +364,7 @@ def _invalid():
 def accept(token):
     """The link of an invitation: signed in, accept with one click; else sign in with ORCID, or choose a password
     for a new account with the invited address."""
-    from app import accounts, limits, mail, passwords
+    from app import limits, mail, passwords
 
     if not limits.allow_invite_try(count=False):
         abort(429)  # too many links that led nowhere from this sender (security audit 2026-10-13, TN-2)
@@ -401,10 +404,6 @@ def accept(token):
             email = passwords.normal_email(request.form.get("email"))
             if email is None:
                 error = de_en("Bitte eine gültige E-Mail-Adresse angeben.", "Please enter a valid email address.")
-            elif _account_of(email) is not None:
-                error = de_en("Für diese Adresse gibt es schon ein Konto. Bitte melden Sie sich an und öffnen Sie den "
-                              "Link danach noch einmal.", "There is already an account for this address. Please sign in "
-                              "and open the link again afterwards.")
         if not error and not name:
             error = de_en("Bitte Ihren Namen angeben.", "Please enter your name.")
         if not error:
@@ -418,34 +417,131 @@ def accept(token):
             error = de_en("Die beiden Eingaben stimmen nicht überein.", "The two entries do not match.")
         if error:
             flash(error, "error")
+        elif ask_email and mail.enabled():
+            # an address the person types becomes a sign-in name only after a mail to it was opened, and the page
+            # says the same whether the address has an account or not (as signup_links._create_with_password)
+            from app import accounts, signup_links
+
+            limits.allow_invite_try()  # each try counts: whoever holds the link cannot ask address after address
+            if limits._take_shared("invite_confirm", email, 3, 3600):
+                _mail_confirmation(token, name, email, password) if accounts.email_free(email) else signup_links._mail_taken(email)
+            flash(signup_links._check_mail(email), "info")
+            return redirect(url_for("public.index"))
         else:
-            inviter = db.session.get(User, invite.created_by_id) if invite.created_by_id else None
-            user = accounts.create_local(name, email, "",
-                                         False, inviter)
-            db.session.flush()
-            passwords.set_password(user, password)
-            user.last_login_at = utcnow()
-            goal, said = join(invite, user)
-            from app import account_types
+            from werkzeug.security import generate_password_hash
 
-            # its user type and period (a course gives its own) and survey types, raised as far as the invitation
-            # needs (F8)
-            account_types.new_account_levels(user, account_types.start_new(user))
-            db.session.commit()
-            from app import auth, notify
-
-            auth.remember(user, via="password")
-            try:
-                notify.new_user(user)
-            except Exception as e:  # noqa: BLE001 - the note to the operators must not break the page
-                current_app.logger.warning("New account not reported in Slack: %s", type(e).__name__)
-            flash(said or de_en("Konto angelegt, Einladung angenommen.", "Account created, invitation accepted."),
-                  "error" if said else "success")
-            return redirect(goal)
+            done, said = _make_account(invite, name, email, generate_password_hash(password), self_chosen=ask_email)
+            if done is not None:
+                return done
+            if ask_email:
+                limits.allow_invite_try()
+            flash(said, "error")
+            return redirect(url_for("invites.accept", token=token))
     return _no_store(render_template(
         "invites/accept.html", invite=invite, title=title, role=_role_label(invite), token=token, signed_in=False,
         taken=taken, ask_email=ask_email, orcid_on=bool(current_app.config.get("ORCID_CLIENT_ID")), min_length=passwords.MIN_LENGTH,
         form=request.form if request.method == "POST" else {}))
+
+
+def _make_account(invite, name, email, password_hash, self_chosen=False, confirmed=False):
+    """The new account of an invitation, a member as it says: (response, None) or (None, message). Whatever keeps the
+    person from joining (the invitation taken meanwhile, no place left, the address taken) leaves nothing behind: no
+    account without the membership the invitation stands for."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app import account_types, accounts, auth, notify, passwords
+
+    no_account = de_en("Mit diesen Angaben lässt sich hier kein neues Konto anlegen. Haben Sie schon ein Konto, "
+                       "melden Sie sich an und öffnen Sie den Link danach noch einmal.",
+                       "No new account can be created here with these details. If you already have an account, "
+                       "please sign in and open the link again afterwards.")
+    if not accounts.email_free(email):
+        return None, no_account
+    inviter = db.session.get(User, invite.created_by_id) if invite.created_by_id else None
+    try:
+        user = accounts.create_local(name, email, "", False, inviter, self_chosen=self_chosen and not confirmed)
+        db.session.flush()
+    except IntegrityError:  # the same address at the same moment
+        db.session.rollback()
+        return None, no_account
+    passwords.set_password_hash(user, password_hash)
+    if confirmed:
+        passwords.login_row(user).email_verified_at = utcnow()
+    user.last_login_at = utcnow()
+    goal, said = join(invite, user, new_account=True)
+    if said:
+        db.session.rollback()
+        return None, said
+    # its user type and period (a course gives its own) and survey types, raised as far as the invitation needs (F8)
+    account_types.new_account_levels(user, account_types.start_new(user))
+    db.session.commit()
+    auth.remember(user, via="password")
+    try:
+        notify.new_user(user)
+    except Exception as e:  # noqa: BLE001 - the note to the operators must not break the page
+        current_app.logger.warning("New account not reported in Slack: %s", type(e).__name__)
+    flash(de_en("Konto angelegt, Einladung angenommen.", "Account created, invitation accepted."), "success")
+    return redirect(goal), None
+
+
+CONFIRM_HOURS = 24            # how long the link of the confirmation mail holds
+CONFIRM_SEAL = "invite-confirm"
+
+
+def _mail_confirmation(token, name, email, password):
+    import json
+
+    from werkzeug.security import generate_password_hash
+
+    from app import mail, mailqueue, secrets_box
+
+    held = secrets_box.seal(CONFIRM_SEAL, json.dumps({
+        "t": token, "name": name, "email": email, "hash": generate_password_hash(password),
+        "until": time.time() + CONFIRM_HOURS * 3600}).encode())
+    link = brand.public_base() + url_for("invites.confirm", held=held)
+    mailqueue.enqueue(email, de_en("Askurious: E-Mail-Adresse bestätigen", "Askurious: confirm your email address"),
+                      de_en("Guten Tag {name},\n\nmit diesem Link bestätigen Sie Ihre Adresse, legen Ihr Konto an und "
+                            "nehmen die Einladung an (gültig {h} Stunden):\n\n{link}\n\nHaben Sie das nicht angefragt, "
+                            "ignorieren Sie diese E-Mail; es wird kein Konto angelegt.",
+                            "Hello {name},\n\nwith this link you confirm your address, create your account and accept "
+                            "the invitation (valid for {h} hours):\n\n{link}\n\nIf you did not ask for this, ignore "
+                            "this email; no account is created.", name=name, h=CONFIRM_HOURS, link=link)
+                      + mail.signature(), kind="emailcheck")
+    db.session.commit()
+    mailqueue.kick()
+
+
+@bp.route("/confirm/<path:held>", methods=["GET", "POST"])
+def confirm(held):
+    """The link of the confirmation mail (a personal link without an address, mail on). Opening it shows one button;
+    only pressing it makes the account, a member as the invitation says, and signs it in: a program that opens the
+    links of a mail to check them uses nothing up. A link that ran out, or whose invitation or address is taken,
+    makes nothing."""
+    import json
+
+    from app import accounts, limits, secrets_box
+
+    if not limits.allow_invite_try(count=False):
+        abort(429)
+    try:
+        data = json.loads(secrets_box.unseal(CONFIRM_SEAL, held) or b"{}")
+    except ValueError:
+        data = {}
+    invite = valid(data.get("t", "")) if data.get("t") and float(data.get("until") or 0) > time.time() else None
+    if (invite is None or invite.email or target_of(invite) is None or current_user.is_authenticated
+            or not accounts.email_free(data.get("email", ""))):
+        limits.allow_invite_try()
+        flash(de_en("Dieser Bestätigungslink gilt nicht mehr. Ist das Konto schon angelegt, melden Sie sich bitte an.",
+                    "This confirmation link is no longer valid. If the account was created already, please sign in."),
+              "error")
+        return redirect(url_for("auth.sign_in"))
+    if request.method != "POST":
+        return _no_store(render_template("signup/confirm.html", name=data["name"], email=data["email"]))
+    done, said = _make_account(invite, data["name"], data["email"], data["hash"], confirmed=True)
+    if done is None:
+        flash(said, "error")
+        return redirect(url_for("auth.sign_in"))
+    return done
 
 
 def _no_store(page):

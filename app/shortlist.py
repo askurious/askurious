@@ -75,5 +75,5 @@ def keeper_of(user, org_id):
     if user is None or not user.is_authenticated:
         return False
     if org_id is None:
-        return bool(user.is_admin)
-    return bool(user.is_admin) or orgs.is_admin_of(user, org_id)
+        return orgs.acts_as_site_admin(user)
+    return orgs.acts_as_site_admin(user) or orgs.is_admin_of(user, org_id)

@@ -97,11 +97,12 @@ def email_free(email, user=None):
     return owner is None or (user is not None and owner == user.id)
 
 
-def create_local(name, email, affiliation, may_create, by):
+def create_local(name, email, affiliation, may_create, by, self_chosen=False):
     """An account without ORCID, made by a site admin: that is the admin's yes to this person. It signs in with
     this address once the password is set over the one-time link (app/passwords.py). may_create: "create" for every
     type (kind_access.give_create); a caller that sets the survey types afterwards passes False and raises them
-    itself."""
+    itself. self_chosen: the person typed the address on a link's page and no mail confirmed it
+    (UserLogin.email_self_chosen)."""
     from sqlalchemy.exc import IntegrityError
 
     from app.auth import new_account_ids
@@ -121,7 +122,7 @@ def create_local(name, email, affiliation, may_create, by):
             if attempt:
                 raise
     db.session.add(UserLogin(user_id=user.id, email=email, status_changed_at=utcnow(),
-                             status_changed_by_id=by.id if by else None))
+                             status_changed_by_id=by.id if by else None, email_self_chosen=True if self_chosen else None))
     if may_create:
         from app import kind_access
 

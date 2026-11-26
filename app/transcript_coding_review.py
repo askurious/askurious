@@ -200,7 +200,8 @@ def may_propose_merge(project, source, target, who):
     """Setting `guarded`: two subcategories of which one is someone else's are merged by proposing it."""
     from app.transcript_coding import guarded, subtree
 
-    return (guarded(project) and source.kind == CodingCategory.SUB and target.kind == CodingCategory.SUB
+    return (guarded(project) and source.project_id == project.id and target.project_id == project.id
+            and source.kind == CodingCategory.SUB and target.kind == CodingCategory.SUB
             and source.id != target.id and target.id not in subtree(project, source) and not may_merge(project, source, target, who))
 
 
@@ -1649,7 +1650,8 @@ def merge_categories(code, pid):
     survey, project, who = _in(code, pid)
     source = db.session.get(CodingCategory, request.form.get("source", type=int) or 0)
     target = db.session.get(CodingCategory, request.form.get("target", type=int) or 0)
-    if source is None or target is None or source.removed_at or target.removed_at:
+    if (source is None or target is None or source.removed_at or target.removed_at
+            or source.project_id != project.id or target.project_id != project.id):
         abort(404)
     values = {k: request.form.get(k) for k in ("name", "definition", "delimitation", "anchor") if k in request.form}
     names = (source.name, target.name)  # as they were, for the message

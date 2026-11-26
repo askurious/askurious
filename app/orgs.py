@@ -362,6 +362,23 @@ def _site_admin(user):
     return bool(getattr(user, "is_admin", False)) or getattr(user, "orcid", None) in current_app.config["ADMIN_ORCIDS"]
 
 
+def acts_as_site_admin(user):
+    """Whether `user` acts with a site admin's rights here. For the person signed in in this browser that needs the
+    code from the authenticator app like the administration (twofactor.admin_rights; after an ORCID sign-in without
+    one only while ADMIN_CODE_AFTER_ORCID is off): until then the account acts like any other. For someone else (the
+    maker of a link, a job without a request) the status of the account counts."""
+    if not _site_admin(user):
+        return False
+    from flask import has_request_context
+    from flask_login import current_user
+
+    if has_request_context() and current_user.is_authenticated and current_user.id == getattr(user, "id", None):
+        from app import twofactor
+
+        return twofactor.admin_rights(user)
+    return True
+
+
 def personal_shares(uid):
     """What other people shared with the account `uid` personally, as (organisation, owner id) pairs: designs it may
     use or edit, linked elements, AInstein projects (audit 2026-10-22, B-01) and analyses of interview guides it codes
@@ -435,7 +452,7 @@ def manages(admin, target, org):
         return False
     if not (is_admin_of(admin, org.id) and home_id(target) == org.id and not is_admin_of(target, org.id)):
         return False
-    return _site_admin(admin) or not outside_roles(target, org)
+    return acts_as_site_admin(admin) or not outside_roles(target, org)
 
 
 def may_remove(admin, target, org):
@@ -444,7 +461,7 @@ def may_remove(admin, target, org):
     the person's other organisation, which stays as it is."""
     if target is None or _site_admin(target) or target.id == getattr(admin, "id", None):
         return False
-    return (is_admin_of(admin, org.id) or _site_admin(admin)) and not is_admin_of(target, org.id)
+    return (is_admin_of(admin, org.id) or acts_as_site_admin(admin)) and not is_admin_of(target, org.id)
 
 
 def not_managed_said(target, org):
@@ -544,9 +561,7 @@ def may_bring_in(user, org_id, person=None):
     in it always; from outside after the scope of the organisation. Site admins always."""
     if not is_external(person, org_id):
         return True
-    from flask import current_app
-
-    if user is not None and getattr(user, "orcid", None) in current_app.config.get("ADMIN_ORCIDS", ()):
+    if user is not None and acts_as_site_admin(user):
         return True
     scope = scope_of(get(org_id))
     if scope == "create":

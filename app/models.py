@@ -611,6 +611,10 @@ class UserLogin(db.Model):
     may_create: Mapped[bool | None] = mapped_column(default=None)
     email: Mapped[str | None] = mapped_column(String(254), unique=True)  # lower case; the sign-in name
     email_verified_at: Mapped[datetime | None]  # mailbox confirmation; None for legacy/manual access
+    # True: the person typed the address themself on a link's page and no mail confirmed it (mail off); such an
+    # address is a sign-in name only, nobody finds the account by it (surveys/people.search_people). None: entered
+    # by an admin or an inviter, or from before the column (migration 0129)
+    email_self_chosen: Mapped[bool | None]
     password_hash: Mapped[str | None] = mapped_column(String(255))
     password_changed_at: Mapped[datetime | None]
     failed_count: Mapped[int] = mapped_column(default=0)
