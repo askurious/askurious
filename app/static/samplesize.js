@@ -840,7 +840,7 @@
     var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return value || fallback;
   }
-  function esc(text) { return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function esc(text) { return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function draw() {
     if (!figure) return;
     var fields = {};

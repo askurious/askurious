@@ -29,18 +29,43 @@ def test_the_apps_log_masks_an_exception_on_such_a_link(app, caplog):
     assert "Exception on /d/***/boom" in text and TOKEN not in text
 
 
-def test_the_cron_key_in_an_address_is_masked_and_warned_about(app, caplog):
-    """Code review 2026-10-15, H9: /cron/close still takes ?key= for scheduled tasks set up before the header; the
-    key is masked in the app's log, and such a call is warned about."""
+def test_tokens_in_further_paths_and_in_parameters_are_masked():
+    """Confirmation links, the link to join an organisation, the personal link of an invitation mail, the handover
+    to the participants' address and the return from an external section."""
+    for text in (f"Exception on /signup/confirm/{TOKEN} [GET]", f"Exception on /invite/confirm/{TOKEN} [POST]",
+                 f"/org/join/{TOKEN}", f"GET /s/abc123?einladung={TOKEN} HTTP/1.1", f"/s/abc123?lang=de&uebergabe={TOKEN}",
+                 f"/s/abc123/back?t={TOKEN}"):
+        assert TOKEN not in log_mask.mask(text) and "***" in log_mask.mask(text), text
+    assert log_mask.mask("/org/12/people?t=abc") == "/org/12/people?t=abc"        # no token: as it is
+    assert log_mask.mask("/surveys/1/editor?einladung=kurz") == "/surveys/1/editor?einladung=kurz"
+
+
+def test_a_traceback_and_gunicorns_log_are_masked_too(app):
+    record = logging.LogRecord("gunicorn.error", logging.ERROR, __file__, 1, "Error handling request %s",
+                               (f"/d/{TOKEN}",), None)
+    record.exc_text = f'File "x.py", line 1\n  GET /invite/{TOKEN}\nValueError'
+    assert any(isinstance(f, log_mask.MaskTokens) for f in logging.getLogger("gunicorn.error").filters)
+    log_mask.MaskTokens().filter(record)
+    assert TOKEN not in record.getMessage() and TOKEN not in record.exc_text and record.exc_text.count("\n") == 2
+    inner = logging.Formatter("%(message)s")
+    try:
+        raise ValueError(f"/q/{TOKEN}")
+    except ValueError:
+        import sys
+
+        failing = logging.LogRecord("x", logging.ERROR, __file__, 1, "boom", (), sys.exc_info())
+    text = log_mask.MaskingFormatter(inner).format(failing)
+    assert TOKEN not in text and "ValueError" in text and "\n" in text
+
+
+def test_the_cron_key_in_an_address_is_masked_and_not_taken(app, caplog):
+    """A call that still sends ?key= leaves no key in the app's log, and the route does not take it."""
     for path in (f"/cron/close?key={TOKEN}", f"GET /cron/close?x=1&key={TOKEN} HTTP/1.1"):
         assert TOKEN not in log_mask.mask(path) and "key=***" in log_mask.mask(path), path
     assert log_mask.mask("/constructs/?key=abc") == "/constructs/?key=abc"
     app.config["CRON_KEY"] = TOKEN
-    with caplog.at_level(logging.WARNING, logger=app.logger.name):
-        assert app.test_client().get(f"/cron/close?key={TOKEN}").status_code == 200
-        assert app.test_client().post("/cron/close", headers={"X-Cron-Key": TOKEN}).status_code == 200
-    warned = [r for r in caplog.records if "X-Cron-Key" in r.getMessage()]
-    assert len(warned) == 1 and TOKEN not in warned[0].getMessage()
+    assert app.test_client().post(f"/cron/close?key={TOKEN}").status_code == 404
+    assert app.test_client().post("/cron/close", headers={"X-Cron-Key": TOKEN}).status_code == 200
 
 
 def test_line_breaks_and_control_characters_are_escaped():

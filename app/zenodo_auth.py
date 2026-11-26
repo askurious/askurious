@@ -136,7 +136,9 @@ def callback():
     pending = session.pop("zenodo_oauth", None) or {}
     nxt = pending.get("next", "")
     back = redirect(local_path(nxt) or url_for("dashboard.index"))
-    if not pending or request.args.get("state") != pending.get("state"):
+    import hmac
+
+    if not pending or not hmac.compare_digest(str(request.args.get("state") or ""), str(pending.get("state") or "")):
         flash(de_en("Zenodo-Verbindung: ungültiger Zustand, bitte erneut versuchen.", "Zenodo connection: invalid state, please try again."), "error")
         return back
     if "code" not in request.args:

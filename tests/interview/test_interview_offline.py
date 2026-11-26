@@ -237,3 +237,18 @@ def test_j_the_batch_takes_one_recording_without_gaps(tmp_path):
     done = subprocess.run([NODE, str(harness), str(STATIC / "audiostore.js")], capture_output=True, check=True, timeout=60)
     out = json.loads(done.stdout.decode("utf-8"))
     assert out == {"one": None, "run": [3, 4, 5], "gap": None, "big": None, "many": 12}
+
+
+def test_the_kept_page_carries_the_headers_that_protect_it():
+    """The service worker keeps a copy of the interview page for use without a connection: the copy it hands out
+    carries the page's Content-Security-Policy and the other protecting headers like the page from the server."""
+    import os
+
+    here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    with open(os.path.join(here, "app", "static", "interview-sw.js"), encoding="utf-8") as f:
+        script = f.read()
+    for name in ("Content-Security-Policy", "X-Frame-Options", "X-Content-Type-Options", "Referrer-Policy"):
+        assert f'"{name}"' in script, name
+    keep = script[script.index("function keepPage"):script.index("function offlineCopy")]
+    copy = script[script.index("function offlineCopy"):script.index('self.addEventListener("fetch"')]
+    assert "protection(res.headers" in keep and "protection(res.headers" in copy

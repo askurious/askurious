@@ -261,3 +261,17 @@ def test_status_json_lists_every_service_and_the_state_of_the_whole(monkeypatch,
     store.add([(now + 40, "compute", 1, 4, "ok")])
     monkeypatch.setattr(status_node.time, "time", lambda real=status_node.time.time: real() + 70)
     assert c.get(url).get_json()["state"] == 0
+
+
+def test_wrong_tokens_are_counted_per_sender(app, client):
+    from app import limits, monitoring_feed
+
+    limits._fallback.clear()
+    with app.app_context():
+        token = monitoring_feed.make_token(None)
+    app.config["TOKEN_TRY_LIMIT"] = 3
+    guest, env = app.test_client(), {"REMOTE_ADDR": "203.0.113.78"}
+    for _ in range(3):
+        assert guest.get("/api/monitoring/" + "x" * 32, environ_base=env).status_code == 404
+    assert guest.get(f"/api/monitoring/{token}", environ_base=env).status_code == 404     # this sender waits
+    assert app.test_client().get(f"/api/monitoring/{token}").status_code == 200           # others are not held up

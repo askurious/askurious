@@ -605,7 +605,12 @@ class Config:
     OWN_AI_CALLS_PER_DAY = int(os.environ.get("OWN_AI_CALLS_PER_DAY", "2000"))     # per researcher
     AI_OWN_URL_HOSTS = [h.lower() for h in _list("AI_OWN_URL_HOSTS")]
 
-    # Secret for /cron/close in the header X-Cron-Key (Plesk scheduled task); ?key=... still works but is warned about
+    # The add-on modules that may load (app/plugins.py), by the names of their entry points, comma-separated. Unset:
+    # every installed one (the Docker image installs by hash, so nothing else is there); "-": none
+    ASKURIOUS_PLUGINS = (None if "ASKURIOUS_PLUGINS" not in os.environ or not os.environ["ASKURIOUS_PLUGINS"].strip()
+                         else [n for n in _list("ASKURIOUS_PLUGINS") if n != "-"])
+
+    # Secret for /cron/close: POST with the header X-Cron-Key, for a server without the housekeeping process
     CRON_KEY = os.environ.get("CRON_KEY", "")
 
     # "Mit Zenodo verbinden" (OAuth): one registered application per target

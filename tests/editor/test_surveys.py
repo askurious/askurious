@@ -43,7 +43,7 @@ def test_auto_close_by_sample_and_time(app, client, survey):
     with app.app_context():
         db.session.add(Response(survey_id=1, completed_at=utcnow()))
         db.session.commit()
-    assert client.get("/cron/close?key=k").json == {"closed": 1}
+    assert client.post("/cron/close", headers={"X-Cron-Key": "k"}).json == {"closed": 1}
     with app.app_context():
         assert db.session.get(Survey, 1).close_reason == "sample"
     # resuming is refused while the sample is full
@@ -55,7 +55,7 @@ def test_auto_close_by_sample_and_time(app, client, survey):
         assert s.status == "running"
         s.field_end = utcnow() - timedelta(minutes=1)
         db.session.commit()
-    assert client.get("/cron/close?key=k").json == {"closed": 1}
+    assert client.post("/cron/close", headers={"X-Cron-Key": "k"}).json == {"closed": 1}
 
 
 def test_pause_and_resume_only_in_settings(app, client, survey):

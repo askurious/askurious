@@ -131,3 +131,45 @@ def test_every_token_in_a_path_is_kept_out_of_the_log(app):
         if not re.search(pattern, rule.rule.replace("<token>", "abc")):
             missing.append(rule.rule)
     assert not missing, missing
+
+
+def test_every_written_form_of_an_ipv6_address_counts_for_its_64(app):
+    """nginx limits per /64 of an IPv6 sender: the map takes the first four groups from every form in which an
+    address is written (RFC 5952 leaves out one run of zero groups as "::")."""
+    import ipaddress
+    import os
+    import random
+
+    from tests.nginx_conf import NGINX, _read
+
+    template = _active(_read(os.path.join(NGINX, "askurious.conf.template")))
+    block = re.search(r"map \$remote_addr \$limit_key \{(.*?)\}\s*\nmap", template, re.S).group(1)
+    lines = [(re.compile(p.replace("(?<", "(?P<")), value.strip('"'))
+             for p, value in re.findall(r'"~(.+?)" ("?\$[^;]+);', block)]
+    assert len(lines) == 5
+
+    def net(text):
+        """The key nginx counts this address under, as four groups (a key of fewer groups stands for zeros)."""
+        for pattern, value in lines:
+            m = pattern.search(text)
+            if m:
+                key = re.sub(r"\$(\w+)", lambda g: m.group(g.group(1)), value)
+                groups = [g for g in key.split(":") if g]
+                return ":".join(groups + ["0"] * (4 - len(groups)))
+        return None
+
+    rng = random.Random(7)
+    seen = set()
+    for _ in range(3000):
+        groups = [rng.choice((0, 0, 0, rng.randrange(1, 0x10000))) for _ in range(8)]
+        if groups[0] == 0:
+            groups[0] = 0x2001
+        address = ipaddress.IPv6Address(":".join(f"{g:x}" for g in groups))
+        written = str(address)                                              # as nginx writes it (compressed)
+        expected = ":".join(f"{g:x}" for g in groups[:4])
+        assert net(written) == expected, written
+        seen.add(written.count(":"))
+    assert net("2001::1:a:b:c:d") == "2001:0:0:1" and net("2001:db8::1:a:b:c") == "2001:db8:0:0"
+    assert net("2001::4266:0:0:e5d0:a998") == "2001:0:0:4266" and net("2001::7:1:a:b:c:d") == "2001:0:7:1"
+    assert net("2001:db8::9:1:a:b:c") == "2001:db8:0:9"
+    assert net("192.0.2.7") is None and len(seen) > 3

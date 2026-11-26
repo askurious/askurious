@@ -118,8 +118,12 @@ def tools():
 
 def load(app):
     """Load every installed module (called once by create_app)."""
+    allowed = app.config.get("ASKURIOUS_PLUGINS")  # None: every installed module; a list: only those named
     for ep in entry_points(group=GROUP):
         if ep.name in LOADED:
+            continue
+        if allowed is not None and ep.name not in allowed:
+            app.logger.warning("add-on module %s is installed but not in ASKURIOUS_PLUGINS: not loaded", ep.name)
             continue
         try:
             ep.load().init_app(app)

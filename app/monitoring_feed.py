@@ -169,7 +169,12 @@ def _figures():
 
 @bp.route("/<given>")
 def feed(given):
+    from app import limits
+
+    if not limits.allow_secret_try(count=False):  # wrong tokens are counted per sender, like other secrets
+        abort(404)
     if not _allowed(given):
+        limits.allow_secret_try()
         abort(404)
     kept = current_app.extensions.get("monitoring_feed")
     if kept is None or time.monotonic() - kept[0] > KEPT_SECONDS:

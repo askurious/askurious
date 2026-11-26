@@ -286,3 +286,16 @@ def test_colour_of_a_category_by_hand_and_take_it_back(app, client):
     # a main category has no "wie darüber"; its frame takes its colour
     edit(main, green, "Belastung")
     assert f'stroke="{green}" stroke-width="2"' in client.get(f"{base}/map.svg").data.decode()
+
+
+def test_the_drawing_as_a_file_runs_and_loads_nothing(app, client):
+    """The SVG opened by its address is a document: it carries the policy that lets it neither run nor load anything,
+    and texts in attributes are written with their quotes as entities."""
+    from app import transcript_coding_review as review
+
+    assert review.escape('a"b\'c<d&') == "a&#34;b&#39;c&lt;d&amp;"
+    code, pid, rid, base, main, bea = _setup(app, client)
+    r = client.get(f"{base}/map.svg")
+    assert r.status_code == 200 and r.mimetype == "image/svg+xml"
+    policy = r.headers["Content-Security-Policy"]
+    assert "default-src 'none'" in policy and "sandbox" in policy and r.headers["X-Content-Type-Options"] == "nosniff"

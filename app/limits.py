@@ -496,6 +496,13 @@ def allow_invite_try(count=True):
     return _shared_sender_limit("invite_try", "TOKEN_TRY_LIMIT", "TOKEN_TRY_WINDOW", count)
 
 
+def allow_secret_try(count=True):
+    """Whether this sender may present another wrong secret of the server itself (the key of /cron/close, the token
+    of the monitoring feed): False once it presented TOKEN_TRY_LIMIT such within TOKEN_TRY_WINDOW; count=True notes
+    one more. The right secret always goes through. In the database."""
+    return _shared_sender_limit("secret_try", "TOKEN_TRY_LIMIT", "TOKEN_TRY_WINDOW", count)
+
+
 def allow_interviewer_try(count=True):
     """Whether this sender may present another interviewer link that leads nowhere (app/interviewer.py): False once
     it presented TOKEN_TRY_LIMIT such within TOKEN_TRY_WINDOW; count=True notes one more. A valid link always goes

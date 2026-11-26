@@ -31,19 +31,25 @@ import difflib
 import io
 import math
 import random
-from xml.sax.saxutils import escape
 
 from flask import Response as HttpResponse
 from flask import abort, flash, redirect, render_template, request, send_file, url_for
+from markupsafe import escape as _escape
 
 from app import autosave, heavy
 from app.extensions import db
 from app.lang import de_en
+from app.links import local_path
 from app.models import CodingCategory, CodingEvent, Response, utcnow
 from app.transcript_coding import (_add, _event, _in, _key, bp, interviews, live, numbers, resolver, signed_in_or_coder,
                                    tree)
 from app.transcript_coding_view import (anchor_spots, clean_quote, codings, example_spots, has_transcript, paragraphs,
                                         placed, spotter, transcript)
+
+def escape(text):
+    """Text for the drawing, in an element or in an attribute: also quotes are written as entities."""
+    return str(_escape(text))
+
 
 KUCKARTZ = ("Kuckartz, U., & Rädiker, S. (2022). Qualitative Inhaltsanalyse: Methoden, Praxis, Computerunterstützung "
             "(5. Aufl.). Beltz Juventa.")
@@ -1515,8 +1521,12 @@ def map_pdf_file(code, pid):
 @heavy.limited  # a place among the heavy evaluations (performance audit 2026-11-11)
 def map_file(code, pid):
     survey, project, who = _in(code, pid)
+    # an SVG is a document: opened by its address it must not run or load anything (as app/media.py for uploaded ones)
     return HttpResponse(map_svg(project, who, survey, **map_options(request.args)), mimetype="image/svg+xml",
-                        headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.svg"'})
+                        headers={"Content-Disposition": f'attachment; filename="kategoriensystem-{survey.code}-{project.id}.svg"',
+                                 "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox; "
+                                                            "frame-ancestors 'self'",
+                                 "X-Content-Type-Options": "nosniff"})
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/cases")
@@ -1666,8 +1676,8 @@ def merge_categories(code, pid):
             db.session.commit()
             flash(de_en("Vorschlag gesendet: „{a}“ mit „{b}“ zusammenführen. Team und Autor entscheiden.",
                         "Proposal sent: merge “{a}” with “{b}”. The team and the author decide.", a=names[0], b=names[1]), "success")
-        return redirect(request.form.get("back") if (request.form.get("back") or "").startswith("/") and not (request.form.get("back") or "").startswith("//")
-                        else url_for("transcript_coding.overview", code=survey.code, pid=project.id))
+        return redirect(local_path(request.form.get("back"))
+                        or url_for("transcript_coding.overview", code=survey.code, pid=project.id))
     problem = merge(project, source, target, who, request.form.get("reason"), values)
     if problem:
         db.session.rollback()
@@ -1678,8 +1688,8 @@ def merge_categories(code, pid):
                     "“{a}” is merged with “{b}”. Whoever has passages in it sees this and can take theirs out.",
                     a=names[0], b=names[1])
               + (de_en(" Neuer Name: „{c}“.", " New name: “{c}”.", c=target.name) if target.name != names[1] else ""), "success")
-    return redirect(request.form.get("back") if (request.form.get("back") or "").startswith("/") and not (request.form.get("back") or "").startswith("//")
-                    else url_for("transcript_coding.overview", code=survey.code, pid=project.id))
+    return redirect(local_path(request.form.get("back"))
+                    or url_for("transcript_coding.overview", code=survey.code, pid=project.id))
 
 
 @bp.route("/<code>/interviews/coding/<int:pid>/events/<int:eid>/<answer>", methods=["POST"])

@@ -197,7 +197,7 @@ def test_the_personal_period_cuts_positions_down_to_the_state(app, client, surve
         s = db.session.get(Survey, 1)
         s.closed_at = utcnow() - timedelta(days=40)
         db.session.commit()
-    client.get("/cron/close", headers={"X-Cron-Key": "k"})
+    client.post("/cron/close", headers={"X-Cron-Key": "k"})
     with app.app_context():
         answers = [r.answers["2"] for r in db.session.scalars(db.select(Response).filter_by(source="real").order_by(Response.id))]
         assert answers == [{"way": "device", "acc": 12, "state": "5", "src": "pos", "plz": "52062"}, {"way": "refused"}]
