@@ -356,3 +356,46 @@ def test_a_course_lead_makes_no_link_for_an_account_with_shares_from_outside(app
     with app.app_context():
         assert bulk_invites.beyond_course(db.session.get(User, student), db.session.get(WorkGroup, gid))
     assert client.post(f"/course/{gid}/link/{student}").status_code == 404
+
+
+def test_an_invitation_to_join_ends_with_the_sign_in_or_a_block_of_who_made_it(app, client):
+    """The link to join an organisation is signed, nothing is stored: it names the sign-in version of the admin who
+    made it and no longer holds once that account is blocked or signed out everywhere. Links handed out before the
+    version was part of them hold until they run out."""
+    from itsdangerous import URLSafeTimedSerializer
+
+    from app import org_admin
+    from app.models import Organisation
+
+    with app.app_context():
+        org = Organisation(name="Institut Z")
+        db.session.add(org)
+        guest = User(orcid="0000-0002-1694-233X", name="Gast")
+        db.session.add(guest)
+        db.session.commit()
+        org_id, guest_id = org.id, guest.id
+
+    def holds(token):
+        with app.test_request_context("/"):
+            from flask_login import login_user
+
+            login_user(db.session.get(User, guest_id))
+            return org_admin._join_of(token) is not None
+
+    with app.test_request_context("/"):
+        admin = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
+        token = org_admin._join_token(db.session.get(Organisation, org_id), db.session.get(User, guest_id), admin)
+        old = URLSafeTimedSerializer(app.secret_key, salt=org_admin.JOIN_SALT).dumps(
+            {"o": org_id, "u": guest_id, "b": admin.id})
+        admin_id = admin.id
+    assert holds(token) and holds(old)
+    with app.app_context():
+        row = db.session.get(UserLogin, admin_id) or UserLogin(user_id=admin_id)
+        db.session.add(row)
+        row.session_version = (row.session_version or 0) + 1      # signed out everywhere, or a new password
+        db.session.commit()
+    assert not holds(token) and holds(old)
+    with app.app_context():
+        db.session.get(UserLogin, admin_id).status = UserLogin.BLOCKED
+        db.session.commit()
+    assert not holds(old)

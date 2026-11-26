@@ -99,7 +99,7 @@ def token_for(invite):
     keys = _keys()
     for key in keys:
         value = token(invite, key)
-        if _hash(value) == invite.token_hash:
+        if hmac.compare_digest(_hash(value), invite.token_hash or ""):
             return value
     value = token(invite, keys[0])
     invite.token_hash = _hash(value)

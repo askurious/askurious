@@ -181,6 +181,11 @@ check_brand() {
   { [ -r .env.brand ] && grep -q '^SECRET_KEY=.' .env.brand && grep -q '^DATABASE_URL=.' .env.brand; } \
     || brand_refuse "the profile \"brand\" is on, but .env.brand is missing or lacks SECRET_KEY or DATABASE_URL (brand-db.sh writes it); its containers would run with the development key on SQLite"
   [ -n "$(env_value BRAND_COMPUTE_SECRET)" ] || brand_refuse "the profile \"brand\" is on, but BRAND_COMPUTE_SECRET is empty (brand-db.sh writes it)"
+  # the brand's participants' container gets no TOKEN_KEY (compose.yaml): what it has to open lies under
+  # PARTICIPANT_TOKEN_KEY, so a brand with TOKEN_KEY needs that key as well, in .env.brand, which both sides read
+  if cat .env.brand .env.brand-researcher 2>/dev/null | grep -q '^TOKEN_KEY=.' && ! grep -q '^PARTICIPANT_TOKEN_KEY=.' .env.brand; then
+    brand_refuse "the brand has TOKEN_KEY but no PARTICIPANT_TOKEN_KEY in .env.brand; its participants' container could not open the keys of its surveys (add PARTICIPANT_TOKEN_KEY to .env.brand and run key_rotation)"
+  fi
   main=$(env_value RESEARCHER_HOST); main=${main:-askurious.de}
   for host in "$main" "$(env_value PARTICIPANT_HOST)" "$(env_value STATUS_HOST)"; do
     host=$(echo "$host" | tr 'A-Z' 'a-z'); [ -n "$host" ] || continue

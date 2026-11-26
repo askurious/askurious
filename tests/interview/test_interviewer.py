@@ -366,3 +366,26 @@ def test_an_interviewer_session_deletes_no_recording(links, client):
     assert client.post(f"/guide/{code}/interviews/{rid}/audio/delete").status_code == 302  # the guide's admin may
     with app.app_context():
         assert not interview_audio.parts(db.session.get(Response, rid))
+
+
+def test_the_link_shown_once_lies_locked_in_the_session(app, client):
+    """The session cookie is signed, not encrypted: the key of an access just made is kept there locked."""
+    from app import secrets_box
+
+    code, sid = make(app, client)
+    r = client.post(f"/guide/{code}/interviewers/new", data={"name": "Anna Neu", "days": "30", "devices": "2",
+                                                             "may_record": "1", "may_transcribe": "1"})
+    assert r.status_code == 302
+    page_url = f"/guide/{code}/interviews"
+    with client.session_transaction() as s:
+        kept = s["iv_new"]
+        with app.app_context():
+            key = secrets_box.decrypt(kept["k"])
+        assert key and key not in str(kept)
+    page = client.get(page_url).data.decode()
+    assert key in page                                           # shown once
+    with client.session_transaction() as s:
+        assert "iv_new" not in s
+    with client.session_transaction() as s:
+        s["iv_new"] = {"a": kept["a"], "k": key}                 # a key in the clear, as before: not shown
+    assert key not in client.get(page_url).data.decode()

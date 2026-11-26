@@ -214,7 +214,12 @@ class _Unpickler(pickle.Unpickler):
 
 
 def _signature(body):
-    key = hashlib.sha256(b"results-store:" + str(current_app.config["SECRET_KEY"]).encode()).digest()
+    """The kept results are written and read on the researchers' side only. Signed with TOKEN_KEY where the server has
+    one: the participants' containers share the folder and SECRET_KEY, but never get TOKEN_KEY (deploy/docker/
+    compose.yaml), so a file put there from their side is not read. Without TOKEN_KEY (one address, development)
+    SECRET_KEY as before. A file signed with the key of before is simply computed anew."""
+    secret = current_app.config.get("TOKEN_KEY") or current_app.config["SECRET_KEY"]
+    key = hashlib.sha256(b"results-store:" + str(secret).encode()).digest()
     return hmac.new(key, body, hashlib.sha256).digest()
 
 

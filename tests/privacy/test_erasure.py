@@ -328,3 +328,27 @@ def test_a_mistyped_number_still_finds_the_code_on_the_page_of_the_platform(app,
     guest = app.test_client()
     assert "unwiederbringlich gelöscht" in guest.post("/privacy/delete", data={"code": "99-" + code[2:], "sure": "1"}).data.decode()
     assert stored(app) == []
+
+
+def test_a_code_noted_before_the_key_changed_still_deletes(app, client, survey):
+    """SECRET_KEY changed, the key of before kept as a fallback: the page shows the same code again; with the old key
+    gone the hash noted with the participation still stands, so the code written down keeps deleting."""
+    uid = build(app, client)
+    first = app.test_client()
+    code = CODE.search(take(first, uid, "meins")).group(1)
+    with app.app_context():
+        noted = db.session.scalar(db.select(Response.erase_hash).filter_by(survey_id=1, is_preview=False))
+    old = app.config["SECRET_KEY"]
+    app.config.update(SECRET_KEY="n" * 48, SECRET_KEY_FALLBACKS=[old])
+    try:
+        with app.app_context():
+            s = db.session.get(Survey, 1)
+            row = db.session.scalar(db.select(Response).filter_by(survey_id=1, is_preview=False))
+            assert erasure.code_for(s, row) == code               # made with the key of before
+            app.config["SECRET_KEY_FALLBACKS"] = []
+            assert erasure.code_for(s, row) is None               # no key makes it any more: not replaced
+            assert db.session.scalar(db.select(Response.erase_hash).filter_by(survey_id=1, is_preview=False)) == noted
+        done = app.test_client().post(f"/s/{uid}/delete", data={"sure": "1", "code": code}).data.decode()
+        assert "unwiederbringlich gelöscht" in done and stored(app) == []
+    finally:
+        app.config.update(SECRET_KEY=old, SECRET_KEY_FALLBACKS=[])

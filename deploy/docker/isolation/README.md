@@ -70,9 +70,11 @@ Tabelle ersetzt oder Objekte unter einer anderen Rolle erzeugt, muss die Rechte 
 | frontend | nginx, Haupt-App, Status |
 | backend (intern) | DB, Haupt-App, Haushaltung, Migrationsjob |
 | compute-net (intern) | Haupt-App, Haushaltung, Haupt-Rechenknecht |
-| brand-frontend | nginx, Status, Marken-App |
-| brand-backend (intern) | DB, Marken-App, Marken-Haushaltung |
-| brand-compute-net (intern) | Marken-App, Marken-Haushaltung, Marken-Rechenknecht |
+| brand-frontend | nginx, Status, Teilnahme-Container der Marke |
+| brand-backend (intern) | DB, Teilnahme-Container der Marke, Migrationsjob der Marke |
+| brand-researcher-front | nginx, Status, Forschenden-Container der Marke |
+| brand-researcher-back (intern) | DB, Forschenden-Container der Marke, Marken-Haushaltung |
+| brand-compute-net (intern) | Forschenden-Container der Marke, Marken-Haushaltung, Marken-Rechenknecht |
 | outbound | Haupt-Haushaltung für nötige externe Aufrufe |
 | brand-outbound | Marken-Haushaltung für nötige externe Aufrufe |
 | certificate-outbound | certbot für Zertifikatserneuerung |

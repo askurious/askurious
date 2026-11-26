@@ -156,6 +156,15 @@ def test_result_pushed_by_the_node(app, client, survey, node):
     assert _stored(app) is None
     assert push({"job": job, "progress": 0.5}, path="/stand").status_code == 200
     assert client.get("/surveys/1/results/hb/2/status").get_json()["progress"] == 0.5
+    # a progress message signed earlier than the last one taken changes nothing, whichever process it reaches
+    body = compute.pack({"job": job, "progress": 0.1})
+    early = compute.signed_headers(SECRET, "/stand", body)
+    earlier = str(int(early["X-Compute-Time"]) - 60)
+    early.update({"X-Compute-Time": earlier, "X-Compute-Signature-2": compute.sign2(
+        SECRET, compute.REQUEST, "POST", earlier, early["X-Compute-Nonce"], "/stand", body)})
+    early.pop("X-Compute-Signature", None)
+    assert anon.post("/rechenknecht/stand", data=body, headers=early).status_code == 200
+    assert client.get("/surveys/1/results/hb/2/status").get_json()["progress"] == 0.5
     assert push({"job": job, "result": result}).status_code == 200
     assert client.get("/surveys/1/results/hb/2/status").get_json() == {"state": "done"}
     assert len(_stored(app)["pids"]) == len(result["pids"])

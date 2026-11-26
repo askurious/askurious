@@ -470,7 +470,7 @@ def add(code):
                     names=", ".join(skipped)), "error")
     if len(made) == 1:
         access, key = made[0]
-        session["iv_new"] = {"a": access.id, "k": key}  # shown once on the next page (show_once)
+        _keep_once(access, key)  # shown once on the next page (show_once)
         return _back(survey)
     from app.links import qr
 
@@ -482,19 +482,31 @@ def add(code):
     return response
 
 
+def _keep_once(access, key):
+    """The key of an access just made or renewed, for the next page: locked, since the session cookie is signed, not
+    encrypted, and the key opens the access for as long as it is valid."""
+    from app import secrets_box
+
+    session["iv_new"] = {"a": access.id, "k": secrets_box.encrypt(key)}
+
+
 def show_once(survey):
     """The link of an access just made or renewed, once: {"access", "url", "qr" (a data: address of the SVG)} or None."""
     import base64
+    import hmac
 
+    from app import secrets_box
     from app.links import qr
 
     new = session.pop("iv_new", None)
     if not isinstance(new, dict):
         return None
+    key = secrets_box.decrypt(str(new.get("k") or ""))
     access = db.session.get(InterviewerAccess, new.get("a")) if isinstance(new.get("a"), int) else None
-    if access is None or access.survey_id != survey.id or access.token_hash != _digest(str(new.get("k", ""))):
+    if not key or access is None or access.survey_id != survey.id \
+            or not hmac.compare_digest(access.token_hash, _digest(key)):
         return None
-    url = link(survey, new["k"])
+    url = link(survey, key)
     return {"access": access, "url": url, "qr": "data:image/svg+xml;base64," + base64.b64encode(qr(url)).decode()}
 
 
@@ -567,7 +579,7 @@ def change(code, aid, action):
         abort(404)
     name = access.name
     if action == "link":
-        session["iv_new"] = {"a": access.id, "k": new_key(access)}
+        _keep_once(access, new_key(access))
         message = de_en("Neuer Link für {name}: Der alte öffnet nichts mehr.", "New link for {name}: the old one opens nothing any more.", name=name)
     elif action == "block":
         access.blocked = True

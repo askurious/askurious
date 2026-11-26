@@ -8,8 +8,12 @@
 #
 # - database "polltergeist" in the same PostgreSQL, owned by its own role "polltergeist_app" (LOGIN, no superuser),
 #   which cannot connect to the database of Askurious and the other way round (CONNECT taken from PUBLIC on both)
-# - ~/askurious-env/.env.brand with its own SECRET_KEY, DATABASE_URL, SITE_BRAND and addresses on the brand's domain,
-#   plus the sign-in and imprint lines of the .env (ORCID_*, ADMIN_ORCIDS, IMPRINT_*); never overwritten
+# - ~/askurious-env/.env.brand with its own SECRET_KEY, PARTICIPANT_TOKEN_KEY, DATABASE_URL, SITE_BRAND and addresses on
+#   the brand's domain, plus the sign-in and imprint lines of the .env (ORCID_*, ADMIN_ORCIDS, IMPRINT_*) without
+#   secrets; never overwritten
+# - ~/askurious-env/.env.brand-researcher with what only the researchers' side may hold: its own TOKEN_KEY and
+#   RESEARCHER_SESSION_KEY and the ORCID client secret of the .env. The brand's participants' container does not read
+#   it; further secrets of the researchers' side (mail, AI, Whisper, Zenodo, Slack) belong there too
 # - BRAND_COMPUTE_SECRET in the .env (the brand's own Rechenknecht)
 # The containers create the tables themselves at their first start (app/migrations.py).
 set -euo pipefail
@@ -30,7 +34,9 @@ role=${db}_app
 ENV_FILE=$(readlink -f .env)
 ENV_DIR=$(dirname "$ENV_FILE")
 BRAND_ENV=$ENV_DIR/.env.brand
+RESEARCHER_ENV=$ENV_DIR/.env.brand-researcher
 [ ! -e "$BRAND_ENV" ] || { echo "$BRAND_ENV exists already: nothing changed (remove it by hand to start again)." >&2; exit 1; }
+[ ! -e "$RESEARCHER_ENV" ] || { echo "$RESEARCHER_ENV exists already: nothing changed (remove it by hand to start again)." >&2; exit 1; }
 psql_su() { $C exec -T db psql -U askurious -d askurious -v ON_ERROR_STOP=1 -q -X; }
 
 pw=$(openssl rand -hex 24)
@@ -52,17 +58,27 @@ echo "PostgreSQL: database $db, owned by $role"
 {
   echo "# $name with its own database (brand-db.sh, $(date -u +%Y-%m-%d)); compose.yaml, profile \"brand\""
   echo "SECRET_KEY=$(openssl rand -hex 32)"
+  echo "PARTICIPANT_TOKEN_KEY=$(openssl rand -hex 32)"
   echo "DATABASE_URL=postgresql://$role:$pw@db/$db"
   echo "SITE_BRAND=$domain=$name"
   echo "PUBLIC_BASE_URL=https://$domain"
   echo "PARTICIPANT_BASE_URL=https://ask.$domain"
   echo "STATUS_URL=https://status.$domain/"
   echo "MAIL_FROM_NAME=$name"
-  grep -E '^(ORCID_[A-Z_]+|ADMIN_ORCIDS|IMPRINT_[A-Z_]+)=' "$ENV_FILE" || true
+  grep -E '^(ORCID_[A-Z_]+|ADMIN_ORCIDS|IMPRINT_[A-Z_]+)=' "$ENV_FILE" | grep -v '^ORCID_CLIENT_SECRET=' || true
 } > "$BRAND_ENV"
 chmod 600 "$BRAND_ENV"
 ln -sfn "$BRAND_ENV" .env.brand
 echo "$BRAND_ENV written and linked here"
+{
+  echo "# $name: secrets of the researchers' side only (brand-db.sh, $(date -u +%Y-%m-%d)); never read by brand-participant"
+  echo "TOKEN_KEY=$(openssl rand -hex 32)"
+  echo "RESEARCHER_SESSION_KEY=$(openssl rand -hex 32)"
+  grep -E '^ORCID_CLIENT_SECRET=' "$ENV_FILE" || true
+} > "$RESEARCHER_ENV"
+chmod 600 "$RESEARCHER_ENV"
+ln -sfn "$RESEARCHER_ENV" .env.brand-researcher
+echo "$RESEARCHER_ENV written and linked here"
 
 if ! grep -q '^BRAND_COMPUTE_SECRET=.' "$ENV_FILE"; then
   { [ -z "$(tail -c 1 "$ENV_FILE")" ] || echo; echo "BRAND_COMPUTE_SECRET=$(openssl rand -hex 32)"; } >> "$ENV_FILE"

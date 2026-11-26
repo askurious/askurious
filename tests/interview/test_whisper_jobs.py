@@ -374,3 +374,14 @@ def test_the_participants_side_queues_cancels_and_the_housekeeping_hands_them_on
         assert db.session.scalar(db.select(db.func.count(WhisperCancel.id))) == 0
     assert len(calls) == 1 and list(calls[0][1]["json"]["jobs"].values()) == [
         {"id": "a" * 32, "service": record["service"]}]
+
+
+def test_the_relay_key_comes_from_the_key_the_participants_side_does_not_hold(app):
+    app.config.update(SECRET_KEY="k" * 48, TOKEN_KEY="")
+    with app.app_context():
+        shared = whisper_jobs.relay_key()
+        app.config["TOKEN_KEY"] = "t" * 48
+        own = whisper_jobs.relay_key()
+        assert shared and own and own != shared
+        app.config["TOKEN_KEY"] = "short"                        # no key to derive from
+        assert whisper_jobs.relay_key() == ""

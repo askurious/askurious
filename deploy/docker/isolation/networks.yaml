@@ -1,7 +1,7 @@
 # Target topology; restart.sh and transition.py handle the staged rollout. Compose >= 2.24.4.
 services:
   db:
-    networks: !override {backend: {}, researcher-back: {}, brand-backend: {}}
+    networks: !override {backend: {}, researcher-back: {}, brand-backend: {}, brand-researcher-back: {}}
   # the participants' containers share no network with the researchers' container (audit 2026-10-22, E-01, stage 2b):
   # a break-in there reaches neither researcher:8000 (past nginx, its rate limits and blocked paths, with a forged
   # X-Forwarded-For) nor the Rechenknecht; they queue the cancels of transcriptions in the database (whisper_cancel)
@@ -26,8 +26,9 @@ services:
       researcher-front:
         aliases: ["${RESEARCHER_HOST:-askurious.de}", "${PARTICIPANT_HOST:-ask.askurious.de}", "${STATUS_HOST:-status.askurious.de}"]
       brand-frontend: {}
+      brand-researcher-front: {}
   status:
-    networks: !override {frontend: {}, researcher-front: {}, brand-frontend: {}}
+    networks: !override {frontend: {}, researcher-front: {}, brand-frontend: {}, brand-researcher-front: {}}
     environment:
       # No database or compute network membership merely for TCP monitoring.
       STATUS_CHECKS: >-
@@ -42,12 +43,14 @@ services:
         ${BRAND_STATUS_CHECKS:-}
   certbot:
     networks: !override {certificate-outbound: {}}
+  # as participant-a and -b: the brand's participants' container shares no network with its researchers' container
+  # and none with its Rechenknecht
   brand-participant:
-    networks: !override {brand-frontend: {}, brand-backend: {}, brand-compute-net: {}}
+    networks: !override {brand-frontend: {}, brand-backend: {}}
   brand-researcher:
-    networks: !override {brand-frontend: {}, brand-backend: {}, brand-compute-net: {}}
+    networks: !override {brand-researcher-front: {}, brand-researcher-back: {}, brand-compute-net: {}}
   brand-housekeeping:
-    networks: !override {brand-backend: {}, brand-compute-net: {}, brand-outbound: {}}
+    networks: !override {brand-researcher-back: {}, brand-compute-net: {}, brand-outbound: {}}
   brand-compute:
     networks: !override {brand-compute-net: {}}
 
@@ -59,6 +62,8 @@ networks:
   compute-net: {internal: true}
   brand-frontend: {}
   brand-backend: {internal: true}
+  brand-researcher-front: {}
+  brand-researcher-back: {internal: true}
   brand-compute-net: {internal: true}
   outbound: {}
   brand-outbound: {}
