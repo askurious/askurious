@@ -136,6 +136,9 @@ case "${1:-}" in
   lock-before-deploy) kind=-before-deploy ;;
   *) echo "usage: $0 [before-deploy|lock-before-deploy]" >&2; exit 2 ;;
 esac
+# without a key the dumps and the copies off the server stay readable for whoever gets hold of them: said in every
+# run's output (and shown on Administration > Server, "encrypt" in backups.json)
+[ -n "$(encrypt_key)" ] || echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) WARNING: BACKUP_ENCRYPT_KEY is not set: the dumps are written unencrypted (BETRIEB.md, Datensicherung)" >&2
 # lock_before_deploy [<minutes>]: every readable dump before a deploy encrypted (older than <minutes> only, when given)
 lock_before_deploy() {
   local f bad=0 age=()

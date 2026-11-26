@@ -54,9 +54,16 @@ self.addEventListener("message", function (e) {
   }
 });
 
+// the headers that protect the page (what it may load and run, framing, sniffing, the referrer): the copy kept for
+// offline use carries them like the page from the server
+var KEPT_HEADERS = ["Content-Security-Policy", "X-Frame-Options", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy", "Cross-Origin-Opener-Policy"];
+function protection(from, into) {
+  KEPT_HEADERS.forEach(function (name) { var value = from.get(name); if (value) into.set(name, value); });
+  return into;
+}
 function keepPage(req, res) {
   return res.clone().text().then(function (html) {
-    var headers = new Headers({ "Content-Type": res.headers.get("Content-Type") || "text/html; charset=utf-8", "X-Kept-At": String(Date.now()) });
+    var headers = protection(res.headers, new Headers({ "Content-Type": res.headers.get("Content-Type") || "text/html; charset=utf-8", "X-Kept-At": String(Date.now()) }));
     return caches.open(PAGES).then(function (c) { return c.put(req.url, new Response(html, { headers: headers })); });
   });
 }
@@ -65,7 +72,7 @@ function offlineCopy(req) {
     if (!res || Date.now() - Number(res.headers.get("X-Kept-At") || 0) > maxAge(req.url)) return null;
     return res.text().then(function (html) {
       return new Response(html.replace("data-interview ", 'data-interview data-offline-copy="' + res.headers.get("X-Kept-At") + '" '),
-                          { headers: { "Content-Type": res.headers.get("Content-Type") || "text/html; charset=utf-8" } });
+                          { headers: protection(res.headers, new Headers({ "Content-Type": res.headers.get("Content-Type") || "text/html; charset=utf-8" })) });
     });
   });
 }

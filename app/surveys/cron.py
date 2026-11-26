@@ -10,18 +10,21 @@ from app.extensions import csrf
 cron_bp = Blueprint("cron", __name__, url_prefix="/cron")
 
 
-@cron_bp.route("/close", methods=["GET", "POST"])
+@cron_bp.route("/close", methods=["POST"])
 @csrf.exempt
 def cron_close():
+    """For a server without the housekeeping process (the Docker server has it and answers 404 here in nginx): a
+    scheduled task sends POST with the key in the header X-Cron-Key. The key is never taken from the address (it
+    would end up in access logs), and wrong keys are counted per sender like other secrets."""
     import hmac
 
-    # the key belongs in the header X-Cron-Key (query strings end up in the server's access log);
-    # ?key= still works for scheduled tasks set up before
+    from app import limits
+
     key = current_app.config.get("CRON_KEY")
-    given = request.headers.get("X-Cron-Key") or request.args.get("key") or ""
-    if not key or not hmac.compare_digest(given.encode(), key.encode()):
+    given = request.headers.get("X-Cron-Key") or ""
+    if not key or not limits.allow_secret_try(count=False):
         abort(404)
-    if not request.headers.get("X-Cron-Key"):
-        # the app's log masks it (log_mask.CRON_KEY), the web server's access log may not (code review 2026-10-15, H9)
-        current_app.logger.warning("/cron/close called with ?key= in the address; send the header X-Cron-Key instead")
+    if not hmac.compare_digest(given.encode(), key.encode()):
+        limits.allow_secret_try()
+        abort(404)
     return {"closed": lifecycle.close_due_surveys()}

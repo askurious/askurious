@@ -332,4 +332,6 @@ def undo_step(survey_id, again):
               else de_en("Es gibt nichts mehr zurückzunehmen.", "There is nothing more to undo."), "warning")
     if done:
         return _to_step(survey, done[-1], lang)
-    return redirect(request.referrer or url_for("editor.index", survey_id=survey.id))
+    from app.links import same_site_path
+
+    return redirect(same_site_path(request.referrer) or url_for("editor.index", survey_id=survey.id))

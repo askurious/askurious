@@ -31,6 +31,24 @@ def local_path(value):
     return "" if parts.scheme or parts.netloc else value
 
 
+def same_site_path(address):
+    """The path (with its query) of `address` if it is a page of this very host (the Referer of a form sent from
+    here), else "": a redirect "back" never leaves the site."""
+    from urllib.parse import urlsplit
+
+    from flask import request
+
+    if not address:
+        return ""
+    try:
+        parts = urlsplit(address)
+    except ValueError:
+        return ""
+    if parts.scheme not in ("http", "https") or parts.netloc != request.host:
+        return ""
+    return local_path((parts.path or "/") + ("?" + parts.query if parts.query else ""))
+
+
 def normalize(label):
     return (label or "").strip().lower()
 

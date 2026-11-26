@@ -225,7 +225,7 @@ def test_k6_pending_import_files_go_with_the_account_and_with_the_housekeeping(a
     assert os.listdir(folder) == [old]
     past = time.time() - transfer.PENDING_SECONDS - 10
     os.utime(os.path.join(folder, old), (past, past))
-    client.get("/cron/close", headers={"X-Cron-Key": "k"})
+    client.post("/cron/close", headers={"X-Cron-Key": "k"})
     assert os.listdir(folder) == []
 
 

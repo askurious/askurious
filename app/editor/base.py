@@ -24,9 +24,11 @@ def _malformed(e):
         message = de_en("Nicht gespeichert: Eine Zahl im Formular ist ungültig.", "Not saved: a number in the form is invalid.")
     if autosave.wanted():
         return jsonify(status="invalid", message=message)
-    if request.method == "POST" and request.referrer:
+    from app.links import same_site_path
+
+    if request.method == "POST" and same_site_path(request.referrer):
         flash(message, "error")
-        return redirect(request.referrer)
+        return redirect(same_site_path(request.referrer))
     return message, 400
 
 

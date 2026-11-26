@@ -5,10 +5,13 @@ import secrets
 EMAIL = re.compile(r"(?<![\w@])[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+", re.UNICODE)
 URL = re.compile(r"(?:https?://|www\.)[^\s<>\"']+", re.IGNORECASE)
 PHONE = re.compile(r"(?<!\w)(?:\+|00)?\d(?:[\d ()/.-]{5,}\d)(?!\w)")
+# an IBAN: two letters, two check digits, then 11 to 30 letters and digits, written together or in groups of four
+IBAN = re.compile(r"(?<![A-Za-z0-9])[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,4})?(?![A-Za-z0-9])")
 
 
 def contact_details(text, replace):
     text = URL.sub(lambda m: replace(m.group(), "URL"), text)
+    text = IBAN.sub(lambda m: replace(m.group(), "IBAN") if sum(c.isdigit() for c in m.group()) >= 8 else m.group(), text)
     text = EMAIL.sub(lambda m: replace(m.group(), "EMAIL"), text)
     return PHONE.sub(lambda m: replace(m.group(), "PHONE") if 7 <= sum(c.isdigit() for c in m.group()) <= 15
                      else m.group(), text)

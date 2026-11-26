@@ -77,6 +77,11 @@ server_tokens off;
 map $remote_addr $limit_key {
     "~^(?P<net>[0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}):" $net;
     "~^(?P<net>(?:[0-9a-f]{1,4}:){1,3}):(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,3})?$" $net;
+    # "::" within the first four groups with more than four groups behind it: then some of the groups behind it
+    # belong to the /64 as well (2001::4266:0:0:e5d0:a998 is 2001:0:0:4266:...). One line per way this can be written
+    "~^(?P<a>[0-9a-f]{1,4})::(?P<b>[0-9a-f]{1,4})(?::[0-9a-f]{1,4}){4}$" "$a:0:0:$b";
+    "~^(?P<a>[0-9a-f]{1,4})::(?P<b>[0-9a-f]{1,4}):(?P<c>[0-9a-f]{1,4})(?::[0-9a-f]{1,4}){4}$" "$a:0:$b:$c";
+    "~^(?P<a>[0-9a-f]{1,4}:[0-9a-f]{1,4})::(?P<b>[0-9a-f]{1,4})(?::[0-9a-f]{1,4}){4}$" "$a:0:$b";
     default $binary_remote_addr;
 }
 map $request_method $limit_post { POST $limit_key; default ""; }

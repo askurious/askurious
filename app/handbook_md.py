@@ -42,6 +42,9 @@ def _href(target):
     if name in PAGES:
         url = url_for("handbook.page", name=name) if name != "index" else url_for("handbook.index")
         return url + ("#" + anchor if anchor else ""), False
+    # anything else only as a path of this site: never an address with another scheme (javascript:, data:)
+    if re.match(r"[A-Za-z][A-Za-z0-9+.-]*:", target) or target.startswith("//") or "\\" in target:
+        return "#", False
     return target, False
 
 

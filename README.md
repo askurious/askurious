@@ -171,7 +171,7 @@ The app applies missing migrations by itself when it starts (one server process 
 
 **Rules for every change** are in [CLAUDE.md](CLAUDE.md): every text in German and English (and for participants in every survey language), the words of [docs/glossar.md](docs/glossar.md), and the legal texts checked with each change.
 
-**Add-on modules** are separate Python packages that extend Askurious when they are installed in the same environment: they name a module with `init_app(app)` under the entry point group `askurious.plugins`, register their own pages and may add an experimental feature, a button on "My surveys" and keep surveys they made for themselves out of the lists ([app/plugins.py](app/plugins.py)). Without one installed nothing changes; a module that fails to load is left out and logged.
+**Add-on modules** are separate Python packages that extend Askurious when they are installed in the same environment: they name a module with `init_app(app)` under the entry point group `askurious.plugins`, register their own pages and may add an experimental feature, a button on "My surveys" and keep surveys they made for themselves out of the lists ([app/plugins.py](app/plugins.py)). Without one installed nothing changes; a module that fails to load is left out and logged. `ASKURIOUS_PLUGINS` (names of entry points, comma-separated) limits which installed modules may load; unset, every installed one loads, `-` loads none.
 
 **Records:** what was built is in [log.md](log.md); the releases are described in [docs/releases.md](docs/releases.md). The record of decisions and the list of open ideas are kept outside this repository.
 
