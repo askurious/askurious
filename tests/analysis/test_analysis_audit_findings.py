@@ -572,14 +572,24 @@ def test_run_beats_between_its_progress_steps(app, paths, monkeypatch):
     maxdiff_hb._write(paths[1], {"state": "running"})
     seen = []
 
+    def beat():
+        """The beat in the state file. Every beat replaces the file: under Windows a read in that moment finds none
+        (_read gives None), so read again; a file that stays unreadable fails here after 10 s (2026-11-26)."""
+        until = time.monotonic() + 10
+        while True:
+            state = maxdiff_hb._read(paths[1])
+            if state is not None or time.monotonic() >= until:
+                return state["beat"]
+            time.sleep(0.01)
+
     def quiet(inp, progress):  # a long step without a tick
-        first = maxdiff_hb._read(paths[1])["beat"]
+        first = beat()
         # waits for the beat instead of a fixed 0.4 s: on busy cores the beat thread came later (test suite concept
         # 2026-10-18, C); a run that never beats still fails after 10 s
         until = time.monotonic() + 10
-        while maxdiff_hb._read(paths[1])["beat"] == first and time.monotonic() < until:
+        while beat() == first and time.monotonic() < until:
             time.sleep(0.05)
-        seen.append((first, maxdiff_hb._read(paths[1])["beat"]))
+        seen.append((first, beat()))
         return {"key": inp["key"]}
 
     maxdiff_hb._estimate_and_store(app, paths, {"key": "k"}, {}, quiet)
