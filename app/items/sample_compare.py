@@ -192,11 +192,30 @@ class SampleCompare(ItemType):
         the instruction of the source question, else (last resort) its variable name; with the subscale it is about.
         A construct's instruction ("Die folgenden Aussagen können mehr oder weniger auf Sie zutreffen …") read as a
         misplaced question above the curve (pre-test 2026-10-20), its name says what is compared."""
+        instrument = self.instrument_name(src, lang)
+        return self.named(instrument or label_text(src.text("question", lang)) or src.code, sub, bool(instrument))
+
+    @staticmethod
+    def instrument_name(src, lang):
+        """The name of the construct a source was made from, in English for a participant who does not read German;
+        None for a question of the researcher's own."""
         from app import constructs
 
         info = constructs.info(src)
-        text = constructs.SEEDS_EN.get(info["key"], {}).get("name", info["label"]) if info and not lang.startswith("de")             else info["label"] if info else label_text(src.text("question", lang)) or src.code
-        return f"{text} ({sub})" if sub else text
+        if not info:
+            return None
+        return info["label"] if lang.startswith("de") else constructs.SEEDS_EN.get(info["key"], {}).get("name", info["label"])
+
+    @staticmethod
+    def named(text, sub=None, instrument=True):
+        """The label of a scale value with the subscale (dimension) it shows. The subscale leads, so a label cut
+        to its room keeps it: "Target · Foil & Target Instrument for AI Literacy (FITAI)". A matrix of the
+        researcher's own has only its instruction as a text ("Wie sehr stimmen Sie den folgenden Aussagen zu?"), the
+        same for each of its subscales and no name for what is measured: there the subscale stands alone (feedback
+        on the FITAI survey, 2026-11-26: every row of the profile read alike, the subscale was cut off behind it)."""
+        if not sub:
+            return text
+        return f"{sub} · {text}" if instrument and text else sub
 
     def sources(self, item):
         by_id = {i.id: i for b in item.survey.blocks for i in b.items}
@@ -325,19 +344,12 @@ class SampleCompare(ItemType):
             ends = (t.get("right", ""), t.get("left", "")) if src.config.get("reverse") else (t.get("left", ""), t.get("right", ""))
             return float(lo), float(hi), label_text(src.text("question", lang)), *ends  # value() is recoded, so the ends swap
         points = src.config["points"]
-        construct = (src.config or {}).get("construct")
-        name = src.code
-        if construct:
-            from app import constructs
-
-            info = constructs.info(src)
-            name = info["label"] if info else src.code
+        if (src.config or {}).get("construct"):
+            name = self.named(self.instrument_name(src, lang) or src.code, sub)
         elif src.type == "likert" and len(src.config.get("statements", [])) == 1:
-            name = label_text(src.kind.statements(src, lang)[0]["text"]) or src.code
-        else:
-            name = label_text(src.text("question", lang)) or src.code
-        if sub:
-            name = f"{name} ({sub})"
+            name = self.named(label_text(src.kind.statements(src, lang)[0]["text"]) or src.code, sub)
+        else:  # a matrix of the researcher's own: its subscale says more than its instruction
+            name = self.named(label_text(src.text("question", lang)) or src.code, sub, instrument=False)
         if src.type == "likert":
             labels = src.kind.labels(src, lang)
             stmts = src.config.get("statements", [])

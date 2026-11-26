@@ -230,7 +230,11 @@ class SampleCrowd(SampleCompare):
         simulated = sum(1 for a in avatars if a["id"].startswith("sim"))
         own_answer = (own_answers or {}).get(src.id)
         own = self.position(src, scale, own_answer, 0.5) if own_answer is not None else None
-        return {"source": src, "scale": scale, "n": len(real), "enough": len(real) >= MIN_N,
+        # a scale mean: which scale or subscale the figures stand on (the element's own question does not say it,
+        # and two crowds for two subscales looked alike; feedback 2026-11-26). A single question shows its answers
+        # under the stage, that says enough.
+        label = self.source_label(src, lang, scale["sub"]) if self.is_matrix(src) else ""
+        return {"source": src, "scale": scale, "label": label, "n": len(real), "enough": len(real) >= MIN_N,
                 "avatars": avatars, "simulated": simulated, "own": own, "show_own": item.config.get("show_own", True),
                 "own_text": self.own_text(src, scale, own_answer, lang) if own_answer is not None else ""}
 

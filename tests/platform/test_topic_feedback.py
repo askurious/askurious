@@ -168,10 +168,57 @@ def test_scale_profile_shows_each_big_five_dimension(app, client, survey):
                                     answers={"2": {s["id"]: 3 for s in statements}}))
         db.session.commit()
         pr = item.kind.profile(item, "de", own)
-        assert [r["name"][-3:] for r in pr["rows"]] == ["(E)", "(A)", "(C)", "(N)", "(O)"]
+        assert [r["name"][:4] for r in pr["rows"]] == ["E · ", "A · ", "C · ", "N · ", "O · "]  # the dimension leads
         assert all(r["own"] == 5.0 and r["sample"] == 3.0 for r in pr["rows"]) and pr["n"] == 5
         assert "Sie 5,0" in pr["svg"] and "Stichprobe 3,0" in pr["svg"]
         assert item.kind.export_values(item, {"n": 5}) == {"profil_n": 5}
+
+
+def test_feedback_names_the_subscale_it_shows(app, client, survey):
+    """Feedback on the FITAI survey (2026-11-26): profile and crowd showed scale means without saying of which
+    dimension. A matrix of the researcher's own had its instruction as the name of every row, cut after 70 signs,
+    which took the subscale behind it away; the crowd named no scale at all. Now the subscale leads, and stands
+    alone where the only other text is the instruction."""
+    client.post("/surveys/1/editor/blocks/2/items", data={"type": "construct:fitai"})     # 2: the instrument
+    client.post("/surveys/1/editor/blocks/2/items", data={"type": "construct:fitai"})     # 3: becomes an own matrix
+    add(client, "page_break")                                                              # 4
+    add(client, "scale_profile")                                                           # 5
+    add(client, "sample_crowd")                                                            # 6
+    add(client, "sample_crowd")                                                            # 7
+    add(client, "sample_compare")                                                          # 8
+    question = "Wie sehr stimmen Sie den folgenden Aussagen über Künstliche Intelligenz zu? Bitte antworten Sie spontan."
+    with app.app_context():
+        own = db.session.get(Item, 3)
+        own.config = {k: v for k, v in own.config.items() if k != "construct"}
+        own.texts = {**own.texts, "de": {**own.texts["de"], "question": question}}
+        profile, crowd, crowd_own, bell = (db.session.get(Item, n) for n in (5, 6, 7, 8))
+        profile.config = {**profile.config, "sources": [2, 2, 3, 3], "subscales": ["Target", "Foil", "Target", "Foil"]}
+        crowd.config = {**crowd.config, "sources": [2], "subscales": ["Foil"]}
+        crowd_own.config = {**crowd_own.config, "sources": [3], "subscales": ["Target"]}
+        bell.config = {**bell.config, "sources": [3], "subscales": ["Foil"], "display": "bell"}
+        db.session.commit()
+        fitai = "Foil & Target Instrument for AI Literacy (FITAI)"
+        pr = profile.kind.profile(profile, "de", {})
+        assert [r["name"] for r in pr["rows"]] == [f"Target · {fitai}", f"Foil · {fitai}", "Target", "Foil"]
+        assert ">Target</text>" in pr["svg"] and ">Foil</text>" in pr["svg"] and "Wie sehr" not in pr["svg"]
+        assert crowd.kind.crowd(crowd, "de", {})["label"] == f"Foil · {fitai}"
+        assert crowd_own.kind.crowd(crowd_own, "de", {})["label"] == "Target"
+        assert bell.kind.bell(bell, "de", {})["label"] == "Foil"
+        own.config = {**own.config, "statements": [{**s, "subscale": None} for s in own.config["statements"]]}
+        assert crowd_own.kind.crowd(crowd_own, "de", {})["label"] == question  # no subscales: what the matrix asks
+    html = client.get("/surveys/1/editor/preview?page=3", follow_redirects=True).data.decode()
+    assert f'<p class="p-sc-label">Foil · {fitai.replace("&", "&amp;")}</p>' in html
+    assert '<p class="p-sc-label">Target</p>' in html
+
+
+def test_crowd_of_a_single_question_has_no_scale_label(app, client, survey):
+    """Its answers stand under the stage; a label would only repeat the question."""
+    add(client, "rating")                                                                  # 2
+    add(client, "sample_crowd")                                                            # 3
+    with app.app_context():
+        crowd = db.session.get(Item, 3)
+        crowd.config = {**crowd.config, "sources": [2]}
+        assert crowd.kind.crowd(crowd, "de", {})["label"] == ""
 
 
 def test_profile_labels_stay_inside_at_the_ends():
