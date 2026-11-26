@@ -87,7 +87,8 @@ def test_no_app_container_reads_the_whole_env_and_participants_get_no_researcher
     key, the ORCID and Zenodo secrets and Slack's signing secret (env_file: .env for every app container)."""
     assert not re.search(r"^\s*env_file: \.env\s*$", COMPOSE, re.M)
     # only the brand's own (profile), and its participants' database line (participant-db-role.sh, CFG-04)
-    assert set(re.findall(r"^\s+- path: (\S+)", COMPOSE, re.M)) == {".env.brand", ".env.brand-participant"}
+    assert set(re.findall(r"^\s+- path: (\S+)", COMPOSE, re.M)) == {".env.brand", ".env.brand-participant",
+                                                                    ".env.brand-researcher"}
     assert set(RESEARCHER_SECRETS) == {"ORCID_CLIENT_SECRET", "ZENODO_CLIENT_SECRET", "ZENODO_SANDBOX_CLIENT_SECRET",
                                        "OPENAI_API_KEY", "WHISPER_TOKEN", "SLACK_SIGNING_SECRET", "CRON_KEY",
                                        "RESEARCHER_SESSION_KEY", "RESEARCHER_SESSION_KEY_FALLBACKS"}
@@ -463,6 +464,10 @@ def test_participants_get_no_compute_secret_and_their_own_token_key():
     assert {"PARTICIPANT_TOKEN_KEY", "PARTICIPANT_TOKEN_KEY_FALLBACKS"} <= set(SECRETS)
     brand = _service("brand-participant")
     assert 'COMPUTE_SECRET: ""' in brand
+    # the brand's participants' container: none of the researchers' secrets, whatever its env files hold
+    for name in (set(RESEARCHER_SECRETS) | {"TOKEN_KEY", "TOKEN_KEY_FALLBACKS", "MAIL_PASSWORD"}):
+        assert re.search(rf'^\s+{name}: ""', brand, re.M), name
+    assert ".env.brand-researcher" not in brand and ".env.brand-researcher" in _service("brand-researcher")
 
 
 def test_participants_share_no_network_with_the_researchers_container():
@@ -483,3 +488,25 @@ def test_participants_share_no_network_with_the_researchers_container():
     assert {"researcher-front"} <= names("nginx") and {"frontend"} <= names("nginx")
     assert {"researcher-front", "frontend"} <= names("status")
     assert {"backend", "researcher-back"} <= names("db") and "researcher-back" in names("housekeeping")
+    # a brand with its own containers: the same separation
+    assert names("brand-participant") == {"brand-frontend", "brand-backend"}
+    assert not names("brand-participant") & (names("brand-researcher") | names("brand-compute") | names("brand-housekeeping"))
+    assert {"brand-frontend", "brand-researcher-front"} <= names("nginx") & names("status")
+    assert {"brand-backend", "brand-researcher-back"} <= names("db")
+    assert "brand-researcher-back" in names("brand-researcher") & names("brand-housekeeping")
+    assert "brand-compute-net" in names("brand-researcher") & names("brand-compute")
+    for network in ("brand-researcher-front", "brand-researcher-back"):
+        assert re.search(rf"^  {network}: ", text, re.M), network
+
+
+def test_the_rechenknecht_takes_the_old_signature_only_when_asked_and_the_status_page_has_a_real_server():
+    """Signature 1 of the Rechenknecht (without a nonce) is off unless the .env switches it on; the status page runs
+    behind gunicorn with one process (one round of checks a minute) and a fixed number of threads, and nginx limits
+    requests and connections per sender in front of it."""
+    compute, status = _service("compute"), _service("status")
+    assert "COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-0}" in compute
+    assert '"gunicorn"' in status and '"--workers", "1"' in status and '"--threads", "8"' in status
+    assert "app.status_node:create()" in status and "python" not in status.split("command:")[1].split("environment:")[0]
+    conf = open(os.path.join(HERE, "deploy", "docker", "nginx", "locations", "status.conf"), encoding="utf-8").read()
+    assert "limit_conn ask_conn" in conf and "limit_req zone=ask_pages" in conf
+    assert re.search(r"^location \^~ /status/ \{.*limit_req zone=ask_secret", conf, re.M)

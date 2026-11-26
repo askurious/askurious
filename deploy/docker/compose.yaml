@@ -514,7 +514,7 @@ services:
       # HB runs of one confirmation of the interaction search side by side (app/conjoint_interactions.py), as many as
       # the chain processes of one HB estimation, so the 16 processes on 16 cores above still hold; fewer when busy
       WW_PARALLEL: "4"
-      COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-1}   # signature 1 still taken (app/compute.py, CFG-07)
+      COMPUTE_SIGNATURE_V1: ${COMPUTE_SIGNATURE_V1:-0}   # signature 1 only when asked for (app/compute.py, CFG-07)
     # 16 of the 27 cores since 2026-11-24 (12 of 24 before): every HB estimation runs 4 chains in processes of their own
     # (app/hb_chains.py). The low share keeps it behind the participants (2048) when cores are scarce
     cpus: 16
@@ -533,7 +533,9 @@ services:
     pids_limit: 128
     tmpfs:
       - /tmp:size=64m,mode=1777
-    command: ["python", "-m", "app.status_node"]
+    # one process, so one round of checks a minute (create() starts it), with a fixed number of threads for the pages
+    command: ["gunicorn", "--bind", "0.0.0.0:8070", "--workers", "1", "--worker-class", "gthread", "--threads", "8",
+              "--timeout", "30", "--graceful-timeout", "10", "app.status_node:create()"]
     environment:
       STATUS_BIND: 0.0.0.0:8070
       STATUS_DB: /status/status.db
@@ -663,6 +665,22 @@ services:
       LIFECYCLE_IN_REQUEST: "0"
       COMPUTE_URL: http://brand-compute:8090
       COMPUTE_SECRET: ""                   # the participants' side hands out no jobs (audit 2026-10-22, E-01)
+      # as participant-a and -b: none of the researchers' secrets, whatever .env.brand holds (these lines win over
+      # env_file). brand-db.sh writes them to .env.brand-researcher, which only the researchers' side reads; a
+      # .env.brand from before still names them. What the participants open lies under PARTICIPANT_TOKEN_KEY
+      # (restart.sh refuses a brand with TOKEN_KEY and without it)
+      TOKEN_KEY: ""
+      TOKEN_KEY_FALLBACKS: ""
+      RESEARCHER_SESSION_KEY: ""
+      RESEARCHER_SESSION_KEY_FALLBACKS: ""
+      ORCID_CLIENT_SECRET: ""
+      ZENODO_CLIENT_SECRET: ""
+      ZENODO_SANDBOX_CLIENT_SECRET: ""
+      OPENAI_API_KEY: ""
+      WHISPER_TOKEN: ""
+      SLACK_SIGNING_SECRET: ""
+      CRON_KEY: ""
+      MAIL_PASSWORD: ""
     volumes:
       - instance-brand:/app/instance
     command: ["gunicorn", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "6", "--threads", "4",
@@ -673,6 +691,10 @@ services:
     profiles: ["brand"]
     env_file:
       - path: .env.brand
+        required: false
+      # the secrets only the researchers' side needs (sign-in, AI, Whisper, mail, TOKEN_KEY ...; brand-db.sh): the
+      # brand's participants' container does not read this file
+      - path: .env.brand-researcher
         required: false
     cpu_shares: 256
     environment:

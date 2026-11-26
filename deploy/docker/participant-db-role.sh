@@ -112,7 +112,8 @@ others=$($C exec -T db psql -U askurious -d "$database" -AtX -c \
 
 if [ -n "$fresh" ]; then
   if [ -n "$brand" ]; then
-    printf 'DATABASE_URL=postgresql://%s:%s@db/%s\n' "$ROLE" "$pw" "$database" > "$OWN_ENV"
+    # with the role: the start refuses any other (app/participant_grants.py, role_problem), as participant-a and -b
+    printf 'DATABASE_URL=postgresql://%s:%s@db/%s\nPARTICIPANT_ROLE_CHECK=1\n' "$ROLE" "$pw" "$database" > "$OWN_ENV"
     chmod 600 "$OWN_ENV"
     ln -sfn "$OWN_ENV" .env.brand-participant
     echo "$OWN_ENV written and linked here"

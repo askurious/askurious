@@ -84,13 +84,26 @@ def digest(code):
     return hashlib.sha256(("erase:" + code).encode()).hexdigest()
 
 
-def raw_code(survey, pid):
-    """The twelve characters of the deletion code of the participation `pid` (as they are hashed)."""
-    key = current_app.config["SECRET_KEY"]
+def raw_code(survey, pid, key=None):
+    """The twelve characters of the deletion code of the participation `pid` (as they are hashed), made with the
+    server's key of now (or `key`)."""
+    key = key or current_app.config["SECRET_KEY"]
     raw = hmac.new(key.encode() if isinstance(key, str) else key, f"erase|{survey.uid}|{pid}".encode(),
                    hashlib.sha256).digest()
     number = int.from_bytes(raw[:8], "big")
     return "".join(ALPHABET[(number >> (5 * i)) & 31] for i in range(LENGTH))
+
+
+def raw_codes(survey, pid):
+    """raw_code with the key of now first, then with the keys of before (SECRET_KEY_FALLBACKS): a code handed out
+    before the key changed is still recognised while its key is kept."""
+    config = current_app.config
+    out = []
+    for key in [config["SECRET_KEY"], *(config.get("SECRET_KEY_FALLBACKS") or [])]:
+        code = raw_code(survey, pid, key) if key else None
+        if code and code not in out:
+            out.append(code)
+    return out
 
 
 def written(survey, code):
@@ -107,11 +120,16 @@ def code_for(survey, response):
         return None
     if getattr(response, "enrolment_id", None) and (response.occasion or {}).get("part") != "entry":
         return None  # a diary study: one code per person, on the end of the entry part; it deletes all entries
-    code = raw_code(survey, response.pid)
-    if response.erase_hash != digest(code):
-        db.session.execute(db.update(Response.__table__).where(Response.__table__.c.id == response.id)
-                           .values(erase_hash=digest(code)))
-        db.session.commit()
+    codes = raw_codes(survey, response.pid)
+    if response.erase_hash:
+        # the hash noted once stays: the code the person wrote down (or got on a device before the interview was
+        # synced) keeps deleting, also after the server's key changed. It is shown again while a key still makes it
+        code = next((c for c in codes if digest(c) == response.erase_hash), None)
+        return written(survey, code) if code else None
+    code = codes[0]
+    db.session.execute(db.update(Response.__table__).where(Response.__table__.c.id == response.id)
+                       .values(erase_hash=digest(code)))
+    db.session.commit()
     return written(survey, code)
 
 

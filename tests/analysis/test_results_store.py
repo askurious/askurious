@@ -385,3 +385,21 @@ def test_the_blocks_of_a_survey_page_load_in_two_queries(app, client, survey):
     finally:
         event.remove(engine, "before_cursor_execute", count)
     assert len(statements) <= 2, len(statements)
+
+
+def test_kept_results_are_signed_with_a_key_the_participants_side_does_not_hold(app, client, survey):
+    """With TOKEN_KEY on the server the kept results are signed with it: the participants' containers share the
+    folder and SECRET_KEY but never get TOKEN_KEY, so a file written with SECRET_KEY alone is not read."""
+    from app import results_store
+    from app.extensions import db
+    from app.models import Survey
+
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        app.config["TOKEN_KEY"] = ""
+        assert results_store.save(s, "k", {"n": 1}, name="quality") and results_store.load(s, "k", name="quality")[0] == {"n": 1}
+        app.config["TOKEN_KEY"] = "t" * 48                      # the researchers' side with its key
+        assert results_store.load(s, "k", name="quality") is None   # signed without it: computed anew
+        assert results_store.save(s, "k", {"n": 2}, name="quality") and results_store.load(s, "k", name="quality")[0] == {"n": 2}
+        app.config["TOKEN_KEY"] = ""                            # what the participants' side could verify or forge
+        assert results_store.load(s, "k", name="quality") is None

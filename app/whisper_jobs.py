@@ -80,12 +80,13 @@ def status():
 
 def relay_key():
     """The key of the internal cancel relay (/guide/internal/whisper/cancel), "" when none can be had. Derived from
-    SECRET_KEY, which all app containers share and the Rechenknecht does not have: before it was COMPUTE_SECRET, and
-    with it the compute container could cancel transcriptions (Abgleich 2026-10-15, NB-9). The development key and
-    keys shorter than 32 characters give none."""
+    TOKEN_KEY where the server has one: the researchers' container and the housekeeping hold it, the participants'
+    containers and the Rechenknecht do not (they queue their cancels in the database, _queue). Without TOKEN_KEY from
+    SECRET_KEY as before (before that it was COMPUTE_SECRET, and with it the compute container could cancel
+    transcriptions; Abgleich 2026-10-15, NB-9). The development key and keys shorter than 32 characters give none."""
     from config import DEV_SECRET_KEY
 
-    key = current_app.config.get("SECRET_KEY") or ""
+    key = current_app.config.get("TOKEN_KEY") or current_app.config.get("SECRET_KEY") or ""
     if not isinstance(key, str) or len(key) < 32 or key == DEV_SECRET_KEY:
         return ""
     return hmac.new(key.encode(), b"askurious whisper cancel relay", hashlib.sha256).hexdigest()

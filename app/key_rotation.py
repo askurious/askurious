@@ -98,10 +98,35 @@ def rotate():
         "ai_chat_access": _rotate_columns(AiChatAccess, "key_enc", box=secrets_box.PARTICIPANT),
         "dashboard_links": _rotate_columns(BoardShare, "token_box"),
         "quota_links": _rotate_columns(QuotaShare, "token_box"),
+        "site_settings": _rotate_settings(),
         "surveys": _rotate_surveys(),
     }
     db.session.commit()
     return counts
+
+
+def locked_settings():
+    """The keys of site_setting whose value is a locked secret (secrets_box): the token of the monitoring feed."""
+    from app import monitoring_feed
+
+    return (monitoring_feed.SETTING,)
+
+
+def _rotate_settings():
+    from app import secrets_box
+    from app.extensions import db
+    from app.models import SiteSetting
+
+    changed = 0
+    for key in locked_settings():
+        row = db.session.get(SiteSetting, key)
+        if row is None or not row.value:
+            continue
+        new = secrets_box.reencrypt(row.value)
+        if new != row.value:
+            row.value = new
+            changed += 1
+    return changed
 
 
 def unreadable():
@@ -119,6 +144,11 @@ def unreadable():
                                 ("dashboard_links", BoardShare, ("token_box",)), ("quota_links", QuotaShare, ("token_box",))):
         out[label] = sum(1 for row in db.session.scalars(db.select(model)) for name in names
                          if getattr(row, name) and not secrets_box.decrypt(getattr(row, name)))
+    from app.models import SiteSetting
+
+    out["site_settings"] = sum(1 for key in locked_settings()
+                               if (row := db.session.get(SiteSetting, key)) is not None and row.value
+                               and not secrets_box.decrypt(row.value))
     from app import external, flow, webservice
     from app.models import Survey
 
