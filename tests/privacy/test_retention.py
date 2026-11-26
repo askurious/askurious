@@ -102,7 +102,7 @@ def test_identifiers_and_contact_details_go_first_then_everything(app, client, s
         for name in ("results.bin", "item_2.json"):
             open(os.path.join(hb, name), "w").close()
     close(app, client, days_ago=40)
-    client.get("/cron/close", headers={"X-Cron-Key": "k"})                # the housekeeping carries the periods out
+    client.post("/cron/close", headers={"X-Cron-Key": "k"})                # the housekeeping carries the periods out
     assert state(app) == (2, 0, 0, [("retention", 0, 1)])
     data = open(os.path.join(folder, "data.csv"), encoding="utf-8-sig", newline="").read()
     assert data == 'resp_id,pid,url_pid,why\r\n1,1-a,,eins\r\n2,1-b,,"zwei, drei"\r\n'
@@ -114,7 +114,7 @@ def test_identifiers_and_contact_details_go_first_then_everything(app, client, s
         s = db.session.get(Survey, 1)
         s.closed_at = utcnow() - timedelta(days=370)
         db.session.commit()
-    client.get("/cron/close", headers={"X-Cron-Key": "k"})
+    client.post("/cron/close", headers={"X-Cron-Key": "k"})
     assert state(app) == (0, 0, 0, [("retention", 2, 1)])
     with app.app_context():
         assert retention.run() == 0

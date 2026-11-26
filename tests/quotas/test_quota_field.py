@@ -172,7 +172,7 @@ def test_the_minute_check_and_cron_release_places(app, client, survey):
     uid = start(app, client)
     screen(app, uid)
     idle(app, 120)
-    assert client.get("/cron/close?key=k").status_code == 200
+    assert client.post("/cron/close", headers={"X-Cron-Key": "k"}).status_code == 200
     assert counters(app)["running"] == 0
 
 
