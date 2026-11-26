@@ -752,16 +752,25 @@ def _delete_page(org, user, row, plan, able, choices):
 
 # --- joining by one's own consent (audit 2026-10-18, AUTHZ-01, AUTHZ-02) --------------------------------------------
 
-def _join_serializer():
+def _join_serializers():
+    """The signer that makes the links first, then those that still read links handed out before: the researchers'
+    session key where the server has one (the participants' side never holds it, app/cookies.py), else SECRET_KEY,
+    which signed them until 2026-11 and reads those links until they run out."""
     from flask import current_app
     from itsdangerous import URLSafeTimedSerializer
 
-    return URLSafeTimedSerializer(current_app.secret_key, salt=JOIN_SALT)
+    from app import cookies
+
+    keys = [k for k in (cookies.researcher_key(), current_app.secret_key) if k]
+    return [URLSafeTimedSerializer(key, salt=JOIN_SALT) for key in dict.fromkeys(keys)]
 
 
 def _join_token(org, user, by):
-    """A signed invitation for one account to join `org`, valid JOIN_DAYS; nothing is stored."""
-    return _join_serializer().dumps({"o": org.id, "u": user.id, "b": by.id})
+    """A signed invitation for one account to join `org`, valid JOIN_DAYS; nothing is stored. It names the sign-in
+    version of its maker: once that account signs out everywhere or gets a new password, its links end with it."""
+    from app import auth
+
+    return _join_serializers()[0].dumps({"o": org.id, "u": user.id, "b": by.id, "sv": auth._sign_in_version(by.id)})
 
 
 def _join_of(token):
@@ -769,15 +778,24 @@ def _join_of(token):
     the organisation (or a site admin)."""
     from itsdangerous import BadSignature
 
-    try:
-        data = _join_serializer().loads(token, max_age=JOIN_DAYS * 86400)
-    except (BadSignature, ValueError, TypeError):
-        return None
+    data = None
+    for serializer in _join_serializers():
+        try:
+            data = serializer.loads(token, max_age=JOIN_DAYS * 86400)
+            break
+        except (BadSignature, ValueError, TypeError):
+            continue
     if not isinstance(data, dict) or data.get("u") != current_user.id:
         return None
     org = orgs.get(data.get("o"))
     inviter = db.session.get(User, data.get("b") or 0)
     if org is None or org.key == orgs.GUEST or inviter is None:
+        return None
+    from app import accounts, auth
+
+    if accounts.is_blocked(inviter):
+        return None
+    if "sv" in data and data["sv"] != auth._sign_in_version(inviter.id):  # links from before carry none: until they run out
         return None
     if not (orgs.is_admin_of(inviter, org.id) or orgs._site_admin(inviter)):
         return None

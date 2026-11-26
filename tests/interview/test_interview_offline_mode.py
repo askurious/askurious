@@ -120,6 +120,34 @@ def test_the_deletion_code_works_before_the_sync(app, client):
     assert "zum Löschen vorgemerkt" in r.get_data(as_text=True)
 
 
+def test_the_code_of_a_place_holds_when_the_servers_key_changes(app, client):
+    """The hash of the code is noted with the place when it is reserved, and goes to the interview with the sync: the
+    code handed over on the device deletes before and after the sync, also when SECRET_KEY changed meanwhile."""
+    from app import erasure, interview_offline
+
+    code, sid = _on(app, client)
+    pack = _pack(client, code, n=2)
+    first, second = pack["slots"]
+    assert _sync(client, code, pack, first).status_code == 200
+    with app.app_context():
+        survey = db.session.get(Survey, sid)
+        kept = {s["pid"]: s.get("erase_hash") for p in interview_offline.packs(survey) for s in p["slots"]}
+        row = db.session.scalar(db.select(Response).filter_by(survey_id=sid, pid=first["pid"]))
+        assert row.erase_hash == kept[first["pid"]] == erasure.digest(erasure.normalise(first["code"]))
+    old = app.config["SECRET_KEY"]
+    app.config.update(SECRET_KEY="n" * 48, SECRET_KEY_FALLBACKS=[])
+    try:
+        with app.app_context():
+            survey = db.session.get(Survey, sid)
+            assert erasure.raw_code(survey, second["pid"]) != erasure.normalise(second["code"])   # the key changed
+            assert erasure.by_code(survey, first["code"]).pid == first["pid"]          # the synced interview
+            assert interview_offline.erase_pending(second["code"]) is not None         # the place still on the device
+            assert interview_offline.erase_pending("1-2222-2222-2222") is None
+    finally:
+        app.config.update(SECRET_KEY=old, SECRET_KEY_FALLBACKS=[])
+    assert _sync(client, code, pack, second).status_code == 410
+
+
 def test_withdrawn_and_expired_packs(app, client):
     from app import interview_offline
 

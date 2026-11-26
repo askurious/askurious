@@ -507,12 +507,15 @@ def progress():
     if not index:
         return jsonify(ok=False), 404
     marker = maxdiff_hb._read(index["paths"][1]) or {}
-    if marker.get("remote") == data["job"] and marker.get("state") == "running":
+    # the time the message was signed at: one signed before the last one taken is not taken again, in whichever
+    # process it arrives (the nonces of verify are kept per process), so a recorded message cannot set the bar back
+    sent = int(request.headers.get("X-Compute-Time") or 0)
+    if marker.get("remote") == data["job"] and marker.get("state") == "running" and sent >= int(marker.get("sent") or 0):
         try:
             fraction = min(1.0, max(0.0, float(data.get("progress") or 0)))
         except (TypeError, ValueError):
             fraction = 0.0
-        marker.update(progress=round(fraction, 3), beat=_now().isoformat())
+        marker.update(progress=round(fraction, 3), beat=_now().isoformat(), sent=sent)
         maxdiff_hb._write(index["paths"][1], marker)
     return jsonify(ok=True)
 

@@ -175,9 +175,28 @@ def make_pack(survey, access, n, device=None):
             "slots": [{"pid": new_pid(survey.code), "label": label, "rid": None} for label in labels]}
     if not survey.erase_code:  # interviews get a deletion code to hand over (app/erasure.py)
         survey.erase_code = True
+    codes = {}
+    for s in pack["slots"]:
+        raw = erasure.raw_code(survey, s["pid"])
+        # the hash of the code handed to the device is noted with the place: the code is recognised by it, whatever
+        # happens to the server's key before the device comes back
+        s["erase_hash"] = erasure.digest(raw)
+        codes[s["pid"]] = erasure.written(survey, raw)
     _store(survey, packs(survey) + [pack])
-    codes = {s["pid"]: erasure.written(survey, erasure.raw_code(survey, s["pid"])) for s in pack["slots"]}
     return pack, codes
+
+
+def _code_fits(survey, slot, raw):
+    """Whether `raw` (the twelve characters) is the deletion code of this place: by the hash noted with it, or for a
+    place from before by the codes the server's keys make."""
+    import hmac
+
+    from app import erasure
+
+    kept = slot.get("erase_hash")
+    if kept:
+        return hmac.compare_digest(str(kept), erasure.digest(raw))
+    return any(hmac.compare_digest(code, raw) for code in erasure.raw_codes(survey, slot.get("pid", "")))
 
 
 def find_slot(survey, pack_id, pid):
@@ -206,7 +225,7 @@ def erase_pending(code, survey=None):
         items = packs(s)
         for p in items:
             for slot in p.get("slots") or []:
-                if not slot.get("rid") and not slot.get("erase") and erasure.raw_code(s, slot.get("pid", "")) == raw:
+                if not slot.get("rid") and not slot.get("erase") and _code_fits(s, slot, raw):
                     slot["erase"] = True
                     _store(s, items)
                     return True
@@ -216,7 +235,7 @@ def erase_pending(code, survey=None):
 
     for s in surveys:
         open_slots = [slot for p in packs(s) for slot in p.get("slots") or []
-                      if not slot.get("rid") and not slot.get("erase") and erasure.raw_code(s, slot.get("pid", "")) == raw]
+                      if not slot.get("rid") and not slot.get("erase") and _code_fits(s, slot, raw)]
         if not open_slots:
             continue
         if participant_cleanup.deferred():
@@ -348,6 +367,8 @@ def sync(survey, access, data):
     _store(survey, items)
     from app import erasure
 
+    if slot.get("erase_hash") and not row.erase_hash:
+        row.erase_hash = slot["erase_hash"]  # the code the device handed over, as noted when the place was reserved
     erasure.code_for(survey, row)  # notes the hash, so the code given offline deletes this interview from now on
     db.session.commit()
     return 200, {"ok": True, "rid": row.id, "done": row.status == Response.COMPLETED,

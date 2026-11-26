@@ -286,3 +286,55 @@ def test_the_log_says_when_the_sides_are_not_separated(app):
         "RESEARCHER_SESSION_KEY is empty"]
     assert key_strength.separation_gaps({"SIDE": "researcher", "RESEARCHER_SESSION_KEY": "x",
                                          "PARTICIPANT_TOKEN_KEY": "y"}) == []
+
+
+def test_rotation_reaches_the_token_of_the_monitoring_feed(app):
+    """The token of the monitoring feed lies locked in site_setting: a new TOKEN_KEY locks it anew like the other
+    stored secrets, and a token no key opens any more is counted."""
+    from app import key_rotation, monitoring_feed
+
+    app.config.update(TOKEN_KEY=OLD, TOKEN_KEY_FALLBACKS=[])
+    with app.app_context():
+        token = monitoring_feed.make_token(None)
+    app.config.update(TOKEN_KEY=NEW)
+    with app.app_context():
+        assert monitoring_feed.token() == "" and key_rotation.unreadable()["site_settings"] == 1
+    app.config.update(TOKEN_KEY_FALLBACKS=[OLD])
+    with app.app_context():
+        assert key_rotation.unreadable()["site_settings"] == 0
+        assert key_rotation.rotate()["site_settings"] == 1 and key_rotation.rotate()["site_settings"] == 0
+    app.config.update(TOKEN_KEY_FALLBACKS=[])
+    with app.app_context():
+        assert monitoring_feed.token() == token
+
+
+def test_every_place_that_locks_a_secret_is_known_to_the_rotation():
+    """A secret locked with secrets_box and kept in the database has to be locked anew by app/key_rotation.py; one
+    kept only in the session cookie ends with the session. A new place has to be entered here, with where it is kept."""
+    import os
+    import re
+
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "app")
+    rotated = {  # module: what key_rotation.rotate covers
+        "account_jobs.py": "account_jobs", "ai_access.py": "ai_access", "ai_chat.py": "ai_chat_access",
+        "coscine.py": "coscine", "email_confirmation.py": "email_confirmation", "external.py": "surveys",
+        "monitoring_feed.py": "site_settings", "panel.py": "surveys", "shared_tokens.py": "dashboard_links, quota_links",
+        "twofactor.py": "totp", "webservice.py": "surveys", "zenodo_auth.py": "zenodo",
+    }
+    session_only = {"accounts.py", "admin.py", "interviewer.py", "invites.py", "joinlinks.py", "org_admin.py",
+                    "org_links.py", "signup_links.py"}
+    found = set()
+    for folder, _dirs, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".py") or name in ("secrets_box.py", "key_rotation.py"):
+                continue
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                text = f.read()
+            if re.search(r"secrets_box\.encrypt\(|import encrypt\b|\bencrypt\(value\)", text):
+                found.add(name)
+    assert found == set(rotated) | session_only, sorted(found ^ (set(rotated) | session_only))
+    with open(os.path.join(root, "key_rotation.py"), encoding="utf-8") as f:
+        rotation = f.read()
+    for name, places in rotated.items():
+        for place in places.split(", "):
+            assert f'"{place}"' in rotation, (name, place)
