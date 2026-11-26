@@ -752,6 +752,35 @@ def model_columns(item, with_hb=True, sources=None):
     return out
 
 
+def model_state(survey, sources=None):
+    """[{"code", "model": "hb" | "lc", "state"}] of the stored estimates of the survey's choice questions, for the
+    line under the data set on the export page (Ralf, 2026-11-26: the columns were there, but the page never said so,
+    and after new participations they were gone without a word). state: "current" (its columns <code>_hb_... or
+    <code>_lk... are in the data set), "stale" (estimated on other data than its pool holds now: no columns until it
+    is estimated again), "other" (current, but for a pool with none of the export's sources, see _hb). A latent class
+    result that shows one segment has no columns and is not listed."""
+    import os
+
+    from app import maxdiff_hb, segments
+
+    def state(result):
+        if not result:
+            return "stale"
+        mine = set((result.get("pool") or {}).get("sources") or ["real"])
+        return "other" if sources is not None and not mine & set(sources) else "current"
+
+    out = []
+    for item in _items(survey):
+        module = hb_module(item)
+        if module and os.path.exists(maxdiff_hb._paths(item)[0]):
+            out.append({"code": item.code, "model": "hb", "state": state(module.current(item))})
+        if item.type in segments.TYPES and os.path.exists(segments._paths(item)[0]):
+            result = segments.current(item)
+            if not result or segments.shown_k(item, result) > 1:
+                out.append({"code": item.code, "model": "lc", "state": state(result)})
+    return out
+
+
 # the look follows the device (theme with scheme "auto"): which one the person saw
 SCHEME_COLUMN = ("scheme", "Gezeigte Darstellung: light | dark | mixed (wechselte während der Teilnahme); leer = nicht erfasst")
 

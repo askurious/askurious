@@ -13,8 +13,8 @@
 <section class="panel" id="datenzugaenge">
   {# named as on the export page, with what it is: the panel alone said nothing (Ralf, 2026-10-20) #}
   <h2>{{ de_en("Datenzugang für R und Python", "Data access for R and Python") }}</h2>
-  <p class="muted small">{{ de_en("Tokens, mit denen ein Skript Datensatz und Codebuch einer Befragung lädt. Angelegt werden sie unter „Export“ einer Befragung.",
-    "Tokens with which a script loads the data set and codebook of a survey. They are created under “Export” of a survey.") }}</p>
+  <p class="muted small">{{ de_en("Tokens, mit denen ein Skript Datensatz, Codebuch und Ergebnistabellen einer Befragung lädt. Angelegt werden sie unter „Export“ einer Befragung.",
+    "Tokens with which a script loads the data set, codebook and results tables of a survey. They are created under “Export” of a survey.") }}</p>
   {% for token, survey in data_tokens %}
     <p>{{ token.name }} · {{ survey.title }} · <a href="{{ url_for('surveys.data', survey_id=survey.id) }}#data-access">{{ de_en("Ansehen und widerrufen", "View and revoke") }}</a></p>
   {% else %}<p class="muted">{{ de_en("Keine gültigen Tokens.", "No valid tokens.") }}</p>{% endfor %}

@@ -98,7 +98,7 @@ def addresses(survey):
     escapes them, also in the attribute of the copy chip). R needs no package: download.file sends headers since
     R 3.6; the token comes from the environment (.Renviron), never from the script."""
     base = brand.public_base()
-    urls = {kind: base + url_for(f"data_access.api_{kind}", survey_id=survey.id) for kind in ("csv", "rds", "codebook")}
+    urls = {kind: base + url_for(f"data_access.api_{kind}", survey_id=survey.id) for kind in ("csv", "rds", "codebook", "results")}
     rds, csv = urls["rds"], urls["csv"]
     urls["r"] = "\n".join((
         'token <- Sys.getenv("ASKURIOUS_TOKEN")',
@@ -275,7 +275,15 @@ def _file(survey_id, kind):
         return heavy.busy()
     g.coding_user = owner  # the token's person: what they code blind stays out of the file (coding.hidden, R1)
     pool, scales, standard = _pool(survey), request.args.get("scales") == "1", request.args.get("standard") == "1"
-    if kind == "rds":
+    if kind == "results":
+        # the results of the saved data pool as tables (app/results_tables.py): the core files only, since the tables
+        # "as shown" are read from the results page of a signed-in person; ?lang=en for an English README
+        from app import results_tables
+
+        sep = "semicolon" if request.args.get("sep") == "semicolon" else "comma"
+        body = results_tables.build(survey, ui="en" if request.args.get("lang") == "en" else "de", separator=sep, page=False)
+        mimetype, name = "application/zip", results_tables.filename(survey)
+    elif kind == "rds":
         body, mimetype, name = rds_body(survey, pool, scales, standard), "application/octet-stream", export.filename(survey, "r")[:-4] + ".rds"
     else:
         sep = "semicolon" if request.args.get("sep") == "semicolon" else "comma"
@@ -313,3 +321,9 @@ def api_rds(survey_id):
 @bp.route("/api/v1/surveys/<sid:survey_id>/codebook.csv")
 def api_codebook(survey_id):
     return _file(survey_id, "codebook")
+
+
+@bp.route("/api/v1/surveys/<sid:survey_id>/results.zip")
+def api_results(survey_id):
+    """The results tables (app/results_tables.py): aggregates of the saved data pool, as the button beside the report."""
+    return _file(survey_id, "results")

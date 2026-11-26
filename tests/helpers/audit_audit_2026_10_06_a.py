@@ -103,6 +103,7 @@ OPEN = {"surveys.export_data_flow", "surveys.export_file", "surveys.export_zip",
         "surveys.prereg_file", "dashboard.export", "interview.export", "interview.export_docx", "interview.export_qdc",
         "surveys.export_sem_r",  # the model of the study plan as an R script, no answers
         "surveys.export_results_pdf",  # the results report: aggregates as on the results page, no answers or free texts
+        "surveys.export_results_tables",  # the same results as CSV tables in a ZIP (app/results_tables.py)
         "surveys.prereg_stamp", "surveys.seal_checker",  # the timestamp of the pre-registration, the checker
         "surveys.export_ddi",  # DDI Lifecycle 4.0: questionnaire and codebook as XML, no answers
         "surveys.export_ddi_codebook",  # DDI Codebook 2.5 for CESSDA: the same, no answers

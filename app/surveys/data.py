@@ -437,6 +437,14 @@ def export_counts(survey_id):
     from flask import jsonify
 
     survey = get_survey(survey_id)
-    response = jsonify(_export_counts(survey, data_pool(survey)))
+    pool = data_pool(survey)
+    counts = _export_counts(survey, pool)
+    if survey.can(current_user, "editor"):  # who gets the data set: which model columns it carries (export.model_state)
+        from app import export
+
+        models = export.model_state(survey, pool["sources"])
+        if models:
+            counts["models"] = models
+    response = jsonify(counts)
     response.headers["Cache-Control"] = "no-store"
     return response

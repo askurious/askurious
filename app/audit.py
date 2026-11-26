@@ -38,6 +38,7 @@ ACTIONS = {
     "data_access.api_csv": "Datenexport CSV (Token)",
     "data_access.api_rds": "Datenexport .rds (Token)",
     "data_access.api_codebook": "Codebuch (Token)",
+    "data_access.api_results": "Ergebnistabellen (Token)",
     # the AI agent interface (app/mcp.py, app/agent_access.py): every tool call of an agent, with tool and token
     "mcp.endpoint": "Agenten-Zugriff",
     "surveys.export_conjoint": "Datenexport Langformat",
@@ -121,6 +122,7 @@ ACTIONS_EN = {
     "data_access.api_csv": "Data export CSV (token)",
     "data_access.api_rds": "Data export .rds (token)",
     "data_access.api_codebook": "Codebook (token)",
+    "data_access.api_results": "Results tables (token)",
     "mcp.endpoint": "Agent access",
     "surveys.export_conjoint": "Data export long format",
     "surveys.export_vignettes": "Data export vignettes (long format)",
@@ -215,7 +217,7 @@ def log_who(stored):
 # (app/platform_erase.py) once it is done
 ON_SUCCESS = ("accounts.delete_own", "surveys.results_panel", "admin.account", "admin.group_action", "admin.platform_erase",
               "data_access.create", "data_access.revoke",
-              "data_access.api_csv", "data_access.api_rds", "data_access.api_codebook",
+              "data_access.api_csv", "data_access.api_rds", "data_access.api_codebook", "data_access.api_results",
               "agent_access.create", "agent_access.revoke", "mcp.endpoint")
 # form fields that are worth a word in the detail; nothing else of the request is written down
 DETAIL_FIELDS = ("orcid", "role", "action", "kind", "target", "group", "source", "all", "fmt", "sep", "feature", "state",

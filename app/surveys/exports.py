@@ -293,6 +293,26 @@ def export_results_pdf(survey_id):
     })
 
 
+@bp.route("/<sid:survey_id>/export/results-tables.zip")
+@login_required
+@report_jobs.background(ready=_report_kept)
+def export_results_tables(survey_id):
+    """The results of the report as tables for programs: a ZIP of CSV files (app/results_tables.py), for every role
+    that gets the report; aggregates only, no free texts, the separator as chosen on the export page."""
+    from flask import Response as FlaskResponse
+
+    from app import results_tables
+
+    survey = get_survey(survey_id)
+    sep = "semicolon" if request.args.get("sep") == "semicolon" else "comma"
+    body = results_tables.build(survey, separator=sep)
+    return FlaskResponse(body, headers={
+        "Content-Type": "application/zip",
+        "Content-Disposition": f'attachment; filename="{results_tables.filename(survey)}"',
+        "Cache-Control": "no-store",
+    })
+
+
 @bp.route("/<sid:survey_id>/export/survey-material.pdf")
 @login_required
 @heavy.limited
