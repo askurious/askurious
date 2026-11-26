@@ -95,19 +95,21 @@ case "$*" in
  *storage_backup_lock.py*)
   for value in "$@"; do case "$value" in *:/backup-control) control=${value%:/backup-control} ;; esac; done
   signal=${@: -1}; signal=${signal##*/}
-  exec python "$PROOF_CODE_ROOT/storage_backup_lock.py" "$STORAGE_PROOF_HOME/instance" --release-file "$control/$signal" --max-hold 5 ;;
+  exec "$PROOF_PYTHON" "$PROOF_CODE_ROOT/storage_backup_lock.py" "$STORAGE_PROOF_HOME/instance" --release-file "$control/$signal" --max-hold 5 ;;
  "compose ps --services --status running") printf 'researcher\\nparticipant-a\\nparticipant-b\\nhousekeeping\\ncompute\\n' ;;
  *"FROM pg_database"*) echo askurious ;;
- *pg_dump*) python "$PROOF/check_gate.py" "$STORAGE_PROOF_HOME/instance/.storage-backup.lock"; echo PGDMP-fake ;;
+ *pg_dump*) "$PROOF_PYTHON" "$PROOF/check_gate.py" "$STORAGE_PROOF_HOME/instance/.storage-backup.lock"; echo PGDMP-fake ;;
  *"pg_restore -l"*) grep -q '^PGDMP-fake' ;;
  *"python - /app/instance /snap"*)
-  python "$PROOF/check_gate.py" "$STORAGE_PROOF_HOME/instance/.storage-backup.lock"
-  python "$PROOF_CODE_ROOT/snapshot_uploads.py" "$STORAGE_PROOF_HOME/instance" "$STORAGE_PROOF_HOME/backups/uploads" 14 ;;
+  "$PROOF_PYTHON" "$PROOF/check_gate.py" "$STORAGE_PROOF_HOME/instance/.storage-backup.lock"
+  "$PROOF_PYTHON" "$PROOF_CODE_ROOT/snapshot_uploads.py" "$STORAGE_PROOF_HOME/instance" "$STORAGE_PROOF_HOME/backups/uploads" 14 ;;
  *) exit 0 ;;
 esac
 ''');docker.chmod(0o755)
     import os
-    environment={**os.environ,'PATH':str(bin_dir)+':'+os.environ['PATH'],
+    # the stand-in runs this interpreter, not whatever "python" the PATH has: a test run started by the path of
+    # its venv's interpreter (the WSL half of the full suite) has no "python" on the PATH at all (2026-11-26)
+    environment={**os.environ,'PATH':str(bin_dir)+':'+os.environ['PATH'],'PROOF_PYTHON':sys.executable,
                  'STORAGE_PROOF_HOME':str(home),'PROOF':str(folder),'PROOF_CODE_ROOT':str(code_root)}
     # /tmp is noexec in the production container. Export the artificial Docker command as a Bash function.
     body=docker.read_text().split('case "$*" in',1)[1].rsplit('esac',1)[0]
