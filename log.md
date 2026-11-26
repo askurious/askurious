@@ -7845,6 +7845,11 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Unter dem Datenpool nennt eine Zeile, welche Modellspalten der Datensatz gerade trägt (`…_hb_…`, `…_lk…`) und welche Schätzung veraltet oder für andere Datenquellen gemacht ist, mit Link zur Ergebnisseite (`export.model_state`, kommt mit der Zählung). Der Text zum Datensatz erklärt die Spalten.
 - Handbuch (Export), README, Datenschutzkonzept (Lese-Token) und Seite „Verbindungen“ angepasst. Tests `tests/exports/test_results_tables.py`.
 
+## 2026-11-26: Ergebnistabellen als Excel-Datei
+
+- Export › Antworten › Ergebnisbericht: dritter Knopf „Tabellen (Excel)“ (`results_tables.build_xlsx`, `/export/results-tables.xlsx`): dieselben Tabellen wie das ZIP als eine .xlsx mit einem Blatt je Tabelle. Blätter der berechneten Tabellen heißen wie die Dateien im ZIP, Zahlen als Zahlen und ungerundet, ja/nein als 1/0; Tabellen „wie angezeigt“ als Blätter `001-…` mit Text. Blatt `README` (Datengrundlage, alle Blätter) und Blatt `tabellen` (Verzeichnis). Geschrieben mit dem eigenen Schreiber `app/xlsx.py`, keine neue Bibliothek. Rollen und Hintergrundlauf wie beim ZIP.
+- Handbuch (Export) und README angepasst. Tests `tests/exports/test_results_tables.py`.
+
 ## 2026-11-26: Härtung, Teil 7 (nginx und certbot)
 
 - `compose.yaml`: nginx läuft nur noch mit vier Capabilities (`NET_BIND_SERVICE`, `SETUID`, `SETGID`, `CHOWN`), certbot ohne Capabilities, mit nur lesbarem Image, Protokoll und `/tmp` im Speicher (der Arbeitsordner bleibt das Volume des Images). Lokal mit beiden Images belegt (Start, `nginx -t`, Reload, Umschalten der Teilnahme-Container, `certbot renew`).
