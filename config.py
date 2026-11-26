@@ -440,6 +440,8 @@ class Config:
     # and window (audit 2026-10-06, S5). More than LIVE_QA_FLOOD audience questions within a minute wait for the
     # presenter.
     LIVE_WINDOW = int(os.environ.get("LIVE_WINDOW", "600"))
+    # messages to the KI-Chat of one survey per sender and minute (limits.allow_ai_chat); 0 switches it off
+    AI_CHAT_SENDER_LIMIT = int(os.environ.get("AI_CHAT_SENDER_LIMIT", "60"))
     LIVE_JOIN_LIMIT = int(os.environ.get("LIVE_JOIN_LIMIT", "600"))
     LIVE_QA_LIMIT = int(os.environ.get("LIVE_QA_LIMIT", "60"))
     LIVE_VOTE_LIMIT = int(os.environ.get("LIVE_VOTE_LIMIT", "600"))

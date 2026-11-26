@@ -1542,7 +1542,13 @@ def chat(uid, item_id):
     item = db.session.get(Item, item_id)
     if item is None or item.type != "ai_chat" or item.block is None or item.block.survey_id != survey.id:
         return jsonify(error="page"), 404
+    if not ai_chat.on_page(survey, response, item):  # only the chat of the page the person is on
+        return jsonify(error="page"), 409
     lang = _pick_language(survey, response)
+    from app import limits
+
+    if not limits.allow_ai_chat(survey):
+        return jsonify(error=ai_chat._texts(lang)["busy"]), 429
     body = request.get_json(silent=True) if request.is_json else None
     message = (body or {}).get("message") if isinstance(body, dict) else request.form.get("message")
     out, status = ai_chat.send(survey, response, item, message if isinstance(message, str) else "", lang)

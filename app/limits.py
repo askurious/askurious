@@ -560,6 +560,17 @@ def allow_live(kind):
     return _counted_sender_limit("live_" + kind, limit, window)
 
 
+AI_CHAT_WINDOW = 60  # seconds
+
+
+def allow_ai_chat(survey):
+    """Count a message to the KI-Chat of a survey for this sender: at most AI_CHAT_SENDER_LIMIT within AI_CHAT_WINDOW,
+    in the database for all processes. The limits of the chat itself (per conversation, per participation and day,
+    per survey and day, app/ai_chat.py) count per participation; this one keeps a script that starts participation
+    after participation from using them up and from holding the page threads."""
+    return _counted_sender_limit("ai_chat", current_app.config.get("AI_CHAT_SENDER_LIMIT", 60), AI_CHAT_WINDOW, survey.id)
+
+
 NOTES_PDF_WINDOW = 60  # seconds: one PDF of the slides with notes per device and live vote (app/live/notes.py, E10)
 
 
