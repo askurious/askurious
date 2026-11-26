@@ -433,8 +433,9 @@ def gate():
 
 def org_gate():
     """For the pages of an organisation's admins (app/org_admin.py, A20): as for the administration, after a sign-in
-    with a password a code from the authenticator app, set up first if need be; an ORCID sign-in is enough."""
-    if not current_user.is_authenticated or via() == VIA_ORCID:
+    with a password a code from the authenticator app, set up first if need be; an ORCID sign-in is enough, except
+    for a site admin while ADMIN_CODE_AFTER_ORCID is on (orcid_exempt)."""
+    if not current_user.is_authenticated or orcid_exempt():
         return None
     back = local_path(request.full_path.rstrip("?")) if request.method == "GET" else None
     if not enabled(current_user):

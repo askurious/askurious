@@ -110,7 +110,7 @@ def accept(user, token):
     if claimed != 1:
         db.session.rollback()
         return False
-    row.email, row.email_verified_at = proof.email, utcnow()
+    row.email, row.email_verified_at, row.email_self_chosen = proof.email, utcnow(), None
     if payload.get("activate"):
         passwords.set_password_hash(user, payload["hash"], first=True)  # revokes nothing (T01-N2)
     else:

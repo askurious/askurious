@@ -170,7 +170,7 @@ def new_form(org):
     """What the one dialog "Neue Gruppe" (groups/_new.html) offers in `org`: the same dialog and the same way for every
     page and everyone (Ralf 2026-10-24). Admins of the organisation and site admins also choose the lead, "Anlegen"
     for who joins and a course; a lead link only site admins, since only theirs stays valid (joinlinks.paused)."""
-    site = orgs._site_admin(current_user)
+    site = orgs.acts_as_site_admin(current_user)
     admin = site or (org is not None and orgs.is_admin_of(current_user, org.id))
     people = [u for u, _ in orgs.members_of(org) if u.id != current_user.id] if admin and org is not None else []
     return {"org": org, "admin": admin, "lead_link": site, "people": people,

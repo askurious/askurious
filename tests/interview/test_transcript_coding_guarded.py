@@ -114,3 +114,23 @@ def test_taking_a_move_back_from_the_history(app, client):
     with app.app_context():
         assert db.session.get(CodingEvent, moved).data["undone"]
         assert db.session.get(CodingCategory, team_a).definition == "neu"             # later changes stay
+
+
+def test_merging_takes_only_categories_of_this_project(app, client):
+    """A category of another coding project is neither merged nor proposed, and its name is not shown."""
+    code, pid, rid, base, main, bea = _setup(app, client)
+    _guard(client, base)
+    own = _sub(bea, base, main, "Schlaf")
+    from tests.interview.test_transcript_coding import _new
+
+    other_pid = _new(client, code, name="Anderes Projekt", start="empty")
+    other_base = f"/guide/{code}/interviews/coding/{other_pid}"
+    client.post(f"{other_base}/categories/new", data={"kind": "main", "name": "Fremd"})
+    with app.app_context():
+        other_main = db.session.scalar(db.select(CodingCategory.id).filter_by(project_id=other_pid, kind="main"))
+    foreign = _sub(client, other_base, other_main, "Vertrauliches Thema")
+    for source, target in ((own, foreign), (foreign, own)):
+        r = bea.post(f"{base}/merge", data={"source": source, "target": target, "reason": "x", "back": base})
+        assert r.status_code == 404
+    assert _open(app, pid) == [] and _cat(app, foreign)["merged"] is None and _cat(app, own)["merged"] is None
+    assert "Vertrauliches Thema" not in bea.get(base).data.decode()

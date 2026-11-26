@@ -146,7 +146,9 @@ def healthz():
     texts are for signed-in site admins only; everyone else sees ok/error per package."""
     from flask_login import current_user
 
-    detail = current_user.is_authenticated and current_user.is_admin
+    from app import twofactor
+
+    detail = current_user.is_authenticated and twofactor.admin_rights(current_user)
     deps, ok = {}, True
     for name in ("numpy", "PIL", "cryptography", "docx", "lxml"):  # docx and lxml: the questionnaire as Word
         try:

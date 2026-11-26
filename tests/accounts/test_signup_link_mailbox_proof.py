@@ -28,7 +28,12 @@ def test_the_account_comes_with_the_click_in_the_mail(app, client):
     path = _link_in(sent, "kim@example.org")
     assert path
     guest = app.test_client()
-    assert guest.get("/signup/" + path).status_code == 302
+    page = guest.get("/signup/" + path)                                         # opening the link makes nothing yet
+    assert page.status_code == 200 and page.headers["Cache-Control"] == "no-store" and "Konto anlegen" in page.data.decode()
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="kim@example.org")) is None
+        assert db.session.scalar(db.select(SignUpLink)).uses == 0
+    assert guest.post("/signup/" + path).status_code == 302                     # the button does
     with app.app_context():
         login = db.session.scalar(db.select(UserLogin).filter_by(email="kim@example.org"))
         assert login is not None and login.password_hash and login.email_verified_at is not None
@@ -42,10 +47,47 @@ def test_a_taken_address_gets_the_same_answer(app, client):
     org_id = _org(app)
     first = _make(client, org_id)
     _register(app, first)
-    app.test_client().get("/signup/" + _link_in(sent, "kim@example.org"))      # Kim's account exists now
+    app.test_client().post("/signup/" + _link_in(sent, "kim@example.org"))     # Kim's account exists now
     second = _make(client, org_id, note="noch eine")
     free = _register(app, second, email="neu@example.org").headers["Location"]
     taken = _register(app, second).headers["Location"]
     assert free == taken                                                        # the same way on, whatever the address
     taken_mail = [m for m in sent if m["To"] == "kim@example.org"][-1]
     assert "schon registriert" in taken_mail["Subject"] and "/signup/confirm/" not in taken_mail.get_content()
+
+
+def test_a_link_mailed_before_the_seal_still_confirms(app, client):
+    """Confirmation links already in mailboxes were locked with the general box; they hold until they run out."""
+    import json
+    import time
+
+    from werkzeug.security import generate_password_hash
+
+    from app import secrets_box
+
+    mail_on(app)
+    token = _make(client, _org(app))
+    with app.app_context():
+        held = secrets_box.encrypt(json.dumps({"t": token, "name": "Kim Neu", "email": "kim@example.org",
+                                               "hash": generate_password_hash("ein langer Satz als Passwort"),
+                                               "until": time.time() + 3600}))
+    guest = app.test_client()
+    assert guest.get(f"/signup/confirm/{held}").status_code == 200
+    assert guest.post(f"/signup/confirm/{held}").status_code == 302
+    with app.app_context():
+        assert db.session.scalar(db.select(UserLogin).filter_by(email="kim@example.org")).email_verified_at is not None
+
+
+def test_a_confirmation_link_of_another_kind_makes_nothing(app, client):
+    """What is sealed for the confirmation of an invitation does not open a registration."""
+    import json
+    import time
+
+    from app import secrets_box
+
+    mail_on(app)
+    token = _make(client, _org(app))
+    with app.app_context():
+        held = secrets_box.seal("invite-confirm", json.dumps({"t": token, "name": "Kim", "email": "kim@example.org",
+                                                              "hash": "x", "until": time.time() + 3600}).encode())
+    assert "gilt nicht mehr" in app.test_client().get(f"/signup/confirm/{held}", follow_redirects=True).data.decode()

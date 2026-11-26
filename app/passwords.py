@@ -224,7 +224,7 @@ def remove(user):
     if row is None or not row.password_hash:
         return
     row.password_hash, row.password_changed_at = None, utcnow()
-    row.email, row.email_verified_at = None, None
+    row.email, row.email_verified_at, row.email_self_chosen = None, None, None
     row.failed_count, row.locked_until, row.failed_streak, row.hard_locked_at = 0, None, 0, None
     row.reset_requested_at = None
     row.session_version = (row.session_version or 0) + 1

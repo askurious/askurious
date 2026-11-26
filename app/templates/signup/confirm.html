@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{# The link of a confirmation mail (app/signup_links.py, app/invites.py): one button makes the account, so that a
+   program which only opens the link uses nothing up. Needs: name, email. #}
+{% block title %}{{ de_en("E-Mail-Adresse bestätigen", "Confirm email address") }}{% endblock %}
+{% block content %}
+<div class="sign-in">
+  <h1>{{ de_en("E-Mail-Adresse bestätigen", "Confirm email address") }}</h1>
+  <section class="panel">
+    <p>{{ de_en("Guten Tag {n}, Ihre Adresse {e} ist bestätigt, sobald Sie hier weitergehen. Dann wird Ihr Konto angelegt, und Sie sind angemeldet.", "Hello {n}, your address {e} is confirmed as soon as you go on here. Your account is then created, and you are signed in.", n=name, e=email) }}</p>
+    <form method="post" class="button-row">
+      {{ csrf() }}
+      <button class="button">{{ de_en("Konto anlegen", "Create account") }}</button>
+    </form>
+    <p class="muted small">{{ de_en("Haben Sie das nicht angefragt, schließen Sie diese Seite; es wird kein Konto angelegt.", "If you did not ask for this, close this page; no account is created.") }}</p>
+  </section>
+</div>
+{% endblock %}

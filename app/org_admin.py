@@ -610,7 +610,7 @@ def _asks_only(sup):
     it is a request the person confirms on "Konto" (account_types.request_supervision). That holds for the admin
     themself (Ralf 2026-11-12) and for anyone else they choose (Ralf 2026-11-20: an admin makes accounts, so a second
     account of their own entered at once took the person's consent away). A site admin enters it at once."""
-    return not orgs._site_admin(current_user)
+    return not orgs.acts_as_site_admin(current_user)
 
 
 def _supervisor_action(org, user, action):

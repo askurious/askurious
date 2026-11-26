@@ -1263,6 +1263,7 @@ def account(user_id):
                     MailOutbox.kind == "emailcheck", MailOutbox.sent_at.is_(None)))
                 row.email = email
                 row.email_verified_at = None
+                row.email_self_chosen = None  # entered by an admin now
                 row.reset_requested_at = None  # an open "Passwort vergessen?" was asked for the old address (A4)
                 db.session.commit()
                 audit.done(detail=f"user={user.number or user.id}")  # never the address itself (A3)

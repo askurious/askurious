@@ -94,7 +94,7 @@ def _merge(item, since, by_id, until):
 def _may(org, item):
     """Admins of the organisation are taken out by a platform admin (as in people_action); a one-time link only by
     whoever manages the account."""
-    if item["admin"] and not current_user.is_admin:
+    if item["admin"] and not orgs.acts_as_site_admin(current_user):
         return False
     if item["key"].startswith("l"):
         return orgs.manages(current_user, item["user"], org)
