@@ -120,6 +120,7 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
     # the search table as CSV
     rows = list(csv.reader(io.StringIO(client.get("/surveys/1/results/ww/2.csv").data.decode("utf-8-sig")), delimiter=";"))
     assert rows[0][0] == "Merkmalspaar" and len(rows) == 4 and rows[1][-1] == "bestätigt"
+    assert not any(cell.startswith(("=", "+", "-", "@")) for cell in rows[0])     # no heading starts a formula
     # a pair that is not confirmed cannot be taken over
     other = next((r for r in stored["rows"] if r["status"] != "confirmed"), None)
     if other is not None:
@@ -170,3 +171,16 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
     client.post("/surveys/1/results/ww/2/adopt", data={"a": a_id, "b": b_id, "take": "0"})
     with app.app_context():
         assert ww.CONFIG_KEY not in db.session.get(Item, 2).config
+
+
+def test_the_csv_of_the_search_starts_no_formula_in_a_spreadsheet(monkeypatch):
+    """Names of attributes are the researchers' texts: one that begins like a formula is written with an apostrophe
+    in front (export.safe_text)."""
+    from app import conjoint_interactions as module
+
+    rows = [{"label": "=HYPERLINK(\"http://x\") × Preis", "cols": "@a × b", "simple": {"p": 0.01}, "hb": None, "confirm": None,
+             "p_holm": 0.02, "gain": 0.5, "min_cell": 12, "status_label": "+auffällig"}]
+    monkeypatch.setattr(module, "summary", lambda item, res, lang: {"rows": rows})
+    lines = list(csv.reader(io.StringIO(module.csv_text(None, None, "de")), delimiter=";"))
+    assert lines[1][0].startswith("'=HYPERLINK") and lines[1][1] == "'@a × b" and lines[1][-1] == "'+auffällig"
+    assert lines[1][2] == "0,0100"                                                 # numbers stay numbers

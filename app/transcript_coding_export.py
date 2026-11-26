@@ -364,11 +364,15 @@ def build_csv(project, survey, who=None):
     them), for scripts and for programs without Excel."""
     import csv
 
+    from app.export import safe_text
+
     head, system, *_rest = _codebook(project, survey, who)
     buf = io.StringIO()
     out = csv.writer(buf, delimiter=";")
-    out.writerow(head)
-    out.writerows(system)
+    # a name, a definition or a quote that starts like a formula gets an apostrophe (export.safe_text); the Excel
+    # file writes the same cells as plain text and needs none
+    out.writerow([safe_text(cell) for cell in head])
+    out.writerows([safe_text(cell) for cell in row] for row in system)
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 

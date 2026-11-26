@@ -55,3 +55,19 @@ def test_codebook_and_rights(app, client):
     assert bea.get(f"{base}/analysis.qdpx").status_code == 404                    # coders see no exports
     assert bea.get(f"{base}/categories.qdc").status_code == 404
     assert ".qdpx" in client.get(f"{base}/overview").data.decode() and ".qdpx" not in bea.get(f"{base}/overview").data.decode()
+
+
+def test_the_csv_of_the_category_system_starts_no_formula_in_a_spreadsheet(monkeypatch):
+    """A category name, a definition or a quote that begins like a formula gets an apostrophe in the CSV file
+    (export.safe_text); the Excel file writes the same cells as plain text and keeps them as they are."""
+    import csv
+    import io
+
+    from app import transcript_coding_export as module
+
+    head = ["Nummer", "Kategorie", "Definition"]
+    system = [["1", "=SUMME(A1:A9)", "-2"], ["1.1", "@Verweis", "+cmd|x"]]
+    monkeypatch.setattr(module, "_codebook", lambda project, survey, who=None: (head, system, [], [], [], [], {}))
+    rows = list(csv.reader(io.StringIO(module.build_csv(None, None).decode("utf-8-sig")), delimiter=";"))
+    assert rows[1] == ["1", "'=SUMME(A1:A9)", "-2"] and rows[2] == ["1.1", "'@Verweis", "'+cmd|x"]
+    assert system[0][1] == "=SUMME(A1:A9)"                                          # the rows of the Excel file untouched

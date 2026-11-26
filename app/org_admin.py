@@ -209,16 +209,23 @@ def people_action(org_id):
         row = orgs.row_of(org.id, user.id) if user is not None else None
         home_here = user is not None and orgs.home_id(user) == org.id
         in_groups = user is not None and org.id in orgs.ids_of(user)
-        if home_here:
-            # at home here: removed only when the person belongs to another organisation too, where the home moves
-            # (org-personen-loeschen-konzept.md, 5a); else "Löschen" on the person's page
-            # taking out reaches nothing beyond the organisation, so roles elsewhere do not stop it (orgs.may_remove)
+        if user is not None and (row is not None or in_groups or home_here):
+            # wherever the person's home is: an admin of the organisation and a platform admin's account are taken
+            # out by a platform admin only, and nobody takes out themself here (orgs.may_remove)
             refused = None
             if orgs.is_admin_of(user, org.id):
                 refused = de_en("Admins der Organisation entfernt ein Admin der Plattform.",
                                 "A platform admin removes admins of the organisation.")
             elif not orgs.may_remove(current_user, user, org):
                 refused = de_en("Dieses Konto verwalten Sie nicht.", "You do not manage this account.")
+            if refused:
+                flash(refused, "error")
+                return back
+        if home_here:
+            # at home here: removed only when the person belongs to another organisation too, where the home moves
+            # (org-personen-loeschen-konzept.md, 5a); else "Löschen" on the person's page
+            # taking out reaches nothing beyond the organisation, so roles elsewhere do not stop it (orgs.may_remove)
+            refused = None
             if refused is None and not org_delete.other_orgs(user, org):
                 refused = de_en("{n} gehört nur zu dieser Organisation; auf der Seite der Person lässt sich das Konto "
                                 "löschen.", "{n} belongs to this organisation only; the account can be deleted on the "
