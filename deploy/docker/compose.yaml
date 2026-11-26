@@ -767,8 +767,10 @@ services:
     logging: *logging
     cpu_shares: 256
     # runs as root (image) and writes only its two volumes, both root's: no capability at all, the image read-only
-    # (SV-3/DP-5; 2026-11-26). Its working folder, its log (kept until the container is recreated; docker logs has
-    # what a failed renewal says) and /tmp are in memory and count towards mem_limit.
+    # (SV-3/DP-5; 2026-11-26). Its log (kept until the container is recreated; docker logs has what a failed renewal
+    # says) and /tmp are in memory and count towards mem_limit: certbot keeps up to 1000 logs of some 25 kB. Its
+    # working folder /var/lib/letsencrypt stays the volume the image declares for it (writable under read_only); a
+    # tmpfs there would collide with that volume when compose recreates the container ("Duplicate mount point").
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     read_only: true
@@ -776,8 +778,7 @@ services:
     pids_limit: 64
     tmpfs:
       - /tmp:size=16m,mode=1777
-      - /var/lib/letsencrypt:size=16m,mode=0755
-      - /var/log/letsencrypt:size=16m,mode=0700
+      - /var/log/letsencrypt:size=64m,mode=0700
     volumes:
       - certs:/etc/letsencrypt
       - acme:/var/www/acme

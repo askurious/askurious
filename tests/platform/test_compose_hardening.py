@@ -163,7 +163,7 @@ def test_every_service_has_memory_and_process_limits_and_no_new_privileges():
 def test_nginx_and_certbot_keep_only_the_capabilities_they_need():
     """Hardening 2026-11-26: nginx and certbot ran with every capability of Docker's default set. nginx keeps the four
     its master needs (ports below 1024, the workers' change of user, the cache folders handed to that user), certbot
-    none, with a read-only image and its working folders in memory. Tried with both images: start, nginx -t, reload,
+    none, with a read-only image, its log and /tmp in memory. Tried with both images: start, nginx -t, reload,
     the participants' upstream switch, certbot renew."""
     nginx = _service("nginx")
     assert "    cap_drop: [ALL]" in nginx
@@ -174,7 +174,9 @@ def test_nginx_and_certbot_keep_only_the_capabilities_they_need():
     assert 'security_opt: ["no-new-privileges:true"]' in certbot and "    read_only: true" in certbot
     # all it writes outside its two volumes lies in memory, with a size (it counts towards mem_limit)
     tmpfs = re.findall(r"^      - (/[^:\s]+):size=\d+m", _block(certbot, "    tmpfs:"), re.M)
-    assert tmpfs == ["/tmp", "/var/lib/letsencrypt", "/var/log/letsencrypt"]
+    assert tmpfs == ["/tmp", "/var/log/letsencrypt"]
+    # /var/lib/letsencrypt is a volume of the image: a tmpfs there collides with it when the container is recreated
+    assert "/var/lib/letsencrypt" not in certbot
     assert "- certs:/etc/letsencrypt" in certbot and "- acme:/var/www/acme" in certbot
 
 
