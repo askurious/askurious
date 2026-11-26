@@ -6677,7 +6677,38 @@ function sgicCollision(partShares, n) {
           counts.marked + de_en(" markiert · ", " marked · ") +
           (form.querySelector('[name="drop"]:checked').value === "1" ? de_en("Markierte ausgeschlossen", "Marked participations excluded") : de_en("Markierte einbezogen", "Marked participations included")) +
           de_en(" · ungewichtet", " · unweighted");
+        modelLine(counts.models || []);
       }).catch(function () { if (mine === version) { line.removeAttribute("aria-busy"); line.textContent = de_en("Fallzahl nicht erreichbar. Seite neu laden, um die Auswahl zu prüfen.", "Count unavailable. Reload the page to check the selection."); } });
+  }
+  // Which columns of stored models the data set carries (export.model_state): per question HB and segments, and
+  // which estimate is out of date or made for other data sources, with the way to the results page.
+  function modelLine(models) {
+    var line = box.querySelector("[data-model-line]");
+    if (!line) return;
+    var names = { hb: "HB", lc: de_en("Segmente", "segments") };
+    function list(state) {
+      var by = {}, order = [];
+      models.forEach(function (m) {
+        if (m.state !== state) return;
+        if (!by[m.code]) { by[m.code] = []; order.push(m.code); }
+        by[m.code].push(names[m.model] || m.model);
+      });
+      return order.map(function (code) { return code + " (" + by[code].join(", ") + ")"; }).join(", ");
+    }
+    var current = list("current"), stale = list("stale"), other = list("other");
+    line.textContent = "";
+    line.hidden = !models.length;
+    if (!models.length) return;
+    var text = current ? de_en("Modellwerte je Person im Datensatz: ", "Model values per person in the data set: ") + current + "." : "";
+    if (stale) text += (text ? " " : "") + de_en("Nicht enthalten, weil die Schätzung veraltet ist: ", "Not included because the estimate is out of date: ") + stale + ".";
+    if (other) text += (text ? " " : "") + de_en("Nicht enthalten, weil für andere Datenquellen geschätzt: ", "Not included because estimated for other data sources: ") + other + ".";
+    line.appendChild(document.createTextNode(text + " "));
+    if (stale || other) {
+      var link = document.createElement("a");
+      link.href = line.dataset.resultsUrl;
+      link.textContent = de_en("Auf der Ergebnisseite neu schätzen", "Estimate again on the results page");
+      line.appendChild(link);
+    }
   }
   form.addEventListener("change", soon);
   update();

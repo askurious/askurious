@@ -272,7 +272,8 @@ def roles():
                       "Nutzungsbedingungen angenommen haben; gespeichert nur als Hash",
                       "token of a member with Edit or Manage, as long as they have accepted the current terms of use; "
                       "stored as a hash only"),
-         "sees": de_en("Rohdaten der Befragung als Datei.", "The survey's raw data as a file.")},
+         "sees": de_en("Rohdaten der Befragung als Datei; Codebuch und Ergebnistabellen (aggregiert).",
+                       "The survey's raw data as a file; codebook and results tables (aggregated).")},
         {"who": de_en("Personen mit Dashboard- oder Quotenlink", "People with a dashboard or quota link"),
          "how": de_en("Öffentlicher Link mit Token", "public link with a token"),
          "sees": de_en("Nur zusammengefasste Zahlen, keine einzelnen Antworten.",

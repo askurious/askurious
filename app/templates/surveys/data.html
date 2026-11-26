@@ -85,6 +85,9 @@
       {{ computing(de_en("Exportumfang wird berechnet …", "Calculating export selection …"), tag="p", attrs=" data-count-line"|safe) }}
       <noscript><p>{{ de_en("Ohne JavaScript wird die Fallzahl hier nicht berechnet; die Zeilen des heruntergeladenen Datensatzes zeigen sie.", "Without JavaScript, the count is not calculated here; the rows of the downloaded data set show it.") }}</p></noscript>
       <div hidden>{{ used_data(pool) }}</div>
+      {# which columns of stored models (HB, latent class) the data set carries, and which estimate is out of date
+         (export.model_state, filled by app.js with the counts; Ralf 2026-11-26) #}
+      <p class="small" data-model-line data-results-url="{{ url_for('surveys.results', survey_id=survey.id) }}" hidden></p>
     </div>
     {% endif %}
     {# the counts are those of real participations, whatever the data pool above holds (UI/UX audit 2026-10-07, W19) #}
@@ -96,6 +99,8 @@
   </form>
 </section>
 
+{# element types with a stored model per person (HB, latent class): app/export.py hb_module, app/segments.py TYPES #}
+{% set model_types = survey.blocks|map(attribute="items")|sum(start=[])|selectattr("type", "in", ("conjoint", "acbc", "maxdiff", "paired", "cva"))|list if can_data and not live else [] %}
 {% set long_items = survey.blocks|map(attribute="items")|sum(start=[])|selectattr("kind.long_export")|list if can_data else [] %}
 {% set vignette_loops = vignettes_of(survey) if can_data else [] %}
 {% set long_loops = loop_long_of(survey) if can_data else [] %}
@@ -109,7 +114,7 @@
   {% if can_data %}
   <ul class="xp-rows">
     {% call xp.row(de_en("Datensatz", "Data set"), de_en("Eine Zeile je Teilnahme; die Spalte durchgang nennt den Durchgang", "One row per participation; the column durchgang names the run") if live else (de_en("Eine Zeile je Eintrag, die Spalte person nennt die Person", "One row per entry, the column person names the person") if diary else de_en("Eine Zeile je Teilnahme", "One row per participation")),
-                   "" if live else de_en("CSV für R, Python und Excel; SPSS und JASP (.sav) und jamovi (.omv) als fertige Datei mit Variablen- und Wertelabels und Messniveaus; R (.rds) für readRDS() mit Labels (lesbar mit haven), fehlende Werte als NA; SPSS-Syntax mit Datendatei (.zip): Syntax, die die Datendatei (.dat, durch Kommas getrennt, nur für SPSS) mit Labels einliest. Umgepolte Items sind bereits rekodiert; zufällige Reihenfolgen stehen in …_order, Speeder in duration_rel (Dauer ÷ Median) und speeder, die Markierung der Qualitätssicherung in qc_marked.", "CSV for R, Python and Excel; SPSS and JASP (.sav) and jamovi (.omv) as a ready file with variable and value labels and levels of measurement; R (.rds) for readRDS() with labels (readable with haven), missing values as NA; SPSS syntax with data file (.zip): syntax that reads the data file (.dat, comma-separated, for SPSS only) with labels. Reversed items are already recoded; random orders are in …_order, speeders in duration_rel (duration ÷ median) and speeder, the mark of the quality assurance in qc_marked.") ~ (" qc_rsi (Relative Speed Index)." if survey.page_timing else "")) %}
+                   "" if live else de_en("CSV für R, Python und Excel; SPSS und JASP (.sav) und jamovi (.omv) als fertige Datei mit Variablen- und Wertelabels und Messniveaus; R (.rds) für readRDS() mit Labels (lesbar mit haven), fehlende Werte als NA; SPSS-Syntax mit Datendatei (.zip): Syntax, die die Datendatei (.dat, durch Kommas getrennt, nur für SPSS) mit Labels einliest. Umgepolte Items sind bereits rekodiert; zufällige Reihenfolgen stehen in …_order, Speeder in duration_rel (Dauer ÷ Median) und speeder, die Markierung der Qualitätssicherung in qc_marked.", "CSV for R, Python and Excel; SPSS and JASP (.sav) and jamovi (.omv) as a ready file with variable and value labels and levels of measurement; R (.rds) for readRDS() with labels (readable with haven), missing values as NA; SPSS syntax with data file (.zip): syntax that reads the data file (.dat, comma-separated, for SPSS only) with labels. Reversed items are already recoded; random orders are in …_order, speeders in duration_rel (duration ÷ median) and speeder, the mark of the quality assurance in qc_marked.") ~ (" qc_rsi (Relative Speed Index)." if survey.page_timing else "") ~ (de_en(" Werte je Person aus aktuellen Schätzungen stehen direkt nach ihrer Frage: Hierarchical Bayes in …_hb_… (Teilnutzen, Wichtigkeiten, RLH), Segmente in …_lk (wahrscheinlichstes Segment) und …_lk_p1 … (Wahrscheinlichkeiten); das Codebuch erklärt jede Spalte. Nach neuen Teilnahmen fehlen sie, bis neu geschätzt ist; die Zeile unter dem Datenpool sagt, was gerade enthalten ist.", " Values per person from current estimates follow their question: hierarchical Bayes in …_hb_… (part-worths, importances, RLH), segments in …_lk (most likely segment) and …_lk_p1 … (probabilities); the codebook explains every column. After new participations they are missing until estimated again; the line under the data pool says what is included right now.") if model_types else "")) %}
       {{ xp.fmt("CSV", url_for('surveys.export_csv', survey_id=survey.id, kind='data'), de_en("Datensatz als CSV herunterladen", "Download data set as CSV"), primary=true) }}
       {% if not live %}
       {{ xp.fmt(".sav", url_for('surveys.export_sav', survey_id=survey.id), de_en("SPSS und JASP (.sav) herunterladen", "Download SPSS and JASP (.sav)")) }}
@@ -120,8 +125,9 @@
     {% endcall %}
     {% if not live %}
     {# all results of the saved pool as one PDF after APA 7 (app/results_pdf.py, Ralf 2026-10-26) #}
-    {% call xp.row(de_en("Ergebnisbericht", "Results report"), de_en("Alle Ergebnisse nach APA 7", "All results after APA 7"), de_en("alle berechneten Ergebnisse des gespeicherten Datenpools: Datengrundlage, je Frage nummerierte Abbildungen und Tabellen, Skalen, Wahlexperimente und Literatur, nach APA 7; ohne Freitexte, ohne KI", "all computed results of the saved data pool: data basis, numbered figures and tables per question, scales, choice experiments and references, after APA 7; without free texts, without AI")) %}
+    {% call xp.row(de_en("Ergebnisbericht", "Results report"), de_en("Alle Ergebnisse nach APA 7", "All results after APA 7"), de_en("PDF: alle berechneten Ergebnisse des gespeicherten Datenpools: Datengrundlage, je Frage nummerierte Abbildungen und Tabellen, Skalen, Wahlexperimente und Literatur, nach APA 7; ohne Freitexte, ohne KI. Tabellen (ZIP): dieselben Ergebnisse als CSV-Dateien für R, Python und Excel, ungerundet und im Langformat: Häufigkeiten, Kennwerte, Skalen, Wahlmodelle (Logit, Hierarchical Bayes, Wechselwirkungen), Segmente; dazu jede Tabelle der Ergebnisseite, wie sie dort steht. Eine README-Datei erklärt alle Dateien; das Trennzeichen ist das oben gewählte.", "PDF: all computed results of the saved data pool: data basis, numbered figures and tables per question, scales, choice experiments and references, after APA 7; without free texts, without AI. Tables (ZIP): the same results as CSV files for R, Python and Excel, unrounded and in long format: frequencies, descriptive statistics, scales, choice models (logit, hierarchical Bayes, interactions), segments; plus every table of the results page as it stands there. A README file explains all files; the separator is the one chosen above.")) %}
       {{ xp.fmt("PDF", url_for('surveys.export_results_pdf', survey_id=survey.id), de_en("Ergebnisbericht (PDF) herunterladen", "Download results report (PDF)"), pooled=false) }}
+      {{ xp.fmt(de_en("Tabellen (ZIP)", "Tables (ZIP)"), url_for('surveys.export_results_tables', survey_id=survey.id), de_en("Ergebnistabellen (ZIP mit CSV-Dateien) herunterladen", "Download results tables (ZIP of CSV files)")) }}
     {% endcall %}
     {% endif %}
     {% if not live and sem_model.build(survey) %}
@@ -530,7 +536,7 @@
       <pre class="env-lines"><code>{{ data_urls.python }}</code></pre></div>
       <span class="chip" role="button" tabindex="0" data-copy-text="{{ data_urls.python }}" title="{{ de_en('Python-Code kopieren', 'Copy Python code') }}">{{ de_en("kopieren", "copy") }}</span></li>
   </ul>
-  <p class="muted small">{{ de_en("Adressen:", "Addresses:") }} <code>{{ data_urls.csv }}</code>, <code>{{ data_urls.rds }}</code>, {{ de_en("Codebuch", "codebook") }} <code>{{ data_urls.codebook }}</code>.
+  <p class="muted small">{{ de_en("Adressen:", "Addresses:") }} <code>{{ data_urls.csv }}</code>, <code>{{ data_urls.rds }}</code>, {{ de_en("Codebuch", "codebook") }} <code>{{ data_urls.codebook }}</code>, {{ de_en("Ergebnistabellen (ZIP, gespeicherter Datenpool wie der Ergebnisbericht)", "results tables (ZIP, saved data pool as the results report)") }} <code>{{ data_urls.results }}</code>.
     {{ de_en("Ohne Angaben gilt der Datenpool der Befragung, markierte Teilnahmen bleiben markiert. Wie oben wählbar mit", "Without further details the data pool of the survey applies, marked participations stay marked. As above, choose with") }}
     <code>?drop=1</code> ({{ de_en("Markierte ausschließen", "exclude marked ones") }}), <code>?source=real&amp;source=test</code>, <code>?all=1</code>, <code>?sep=semicolon</code>{% if scale_cols %}, <code>?scales=1</code>{% endif %}{% if standard_vars %}, <code>?standard=1</code>{% endif %}.</p>
   {% endif %}
