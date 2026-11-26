@@ -99,7 +99,14 @@ def test_excel_file_with_a_sheet_per_table(app, client, survey):
     assert r.headers["Content-Disposition"].endswith('.xlsx"') and "ergebnistabellen" in r.headers["Content-Disposition"]
     book = _book(r.data)
     names = list(book)
-    assert names[:3] == ["README", "tabellen", "haeufigkeiten"]
+    assert names[:4] == ["Übersicht", "README", "tabellen", "haeufigkeiten"]
+    # the first sheet: the survey, the data basis, the contents with every other sheet
+    first = book["Übersicht"]
+    assert first[0][0] and first[1][0] == "Ergebnistabellen" and "N = 20 Teilnahmen" in first[2][0]
+    at = first.index(["Blatt", "Inhalt", "Zeilen"])
+    assert first[at - 1][0] == "Inhalt" and [x[0] for x in first[at + 1:]] == names[1:]
+    line = next(x for x in first if x[0] == "haeufigkeiten")
+    assert "Je Variable und Antwort" in line[1] and line[2] == len(book["haeufigkeiten"]) - 1
     head, *rows = book["haeufigkeiten"]
     assert tuple(head) == results_tables.FILES["haeufigkeiten.csv"][0]
     first = next(dict(zip(head, x)) for x in rows if x[head.index("variable")] == "rad" and x[head.index("n")] == 8)
@@ -110,7 +117,7 @@ def test_excel_file_with_a_sheet_per_table(app, client, survey):
     assert ".csv" not in readme and "README.txt" not in readme
     index = {x[0]: x for x in book["tabellen"][1:]}
     assert book["tabellen"][0][:3] == ["blatt", "zeilen", "art"]
-    assert set(index) == set(names[2:]) and index["haeufigkeiten"][1:3] == [len(rows), "berechnet"]
+    assert set(index) == set(names[3:]) and index["haeufigkeiten"][1:3] == [len(rows), "berechnet"]
     assert b"geheim" not in b"".join(zipfile.ZipFile(io.BytesIO(r.data)).read(n) for n in
                                      zipfile.ZipFile(io.BytesIO(r.data)).namelist())
     page = client.get("/surveys/1/data").data.decode()
@@ -120,6 +127,7 @@ def test_excel_file_with_a_sheet_per_table(app, client, survey):
 def test_excel_values_and_sheets_of_shown_tables(app, monkeypatch):
     import lxml.html
     from datetime import datetime
+    from xml.etree import ElementTree as ET
 
     from app import results_pdf
 
@@ -137,12 +145,26 @@ def test_excel_values_and_sheets_of_shown_tables(app, monkeypatch):
         body = results_tables.build_xlsx(SimpleNamespace(title="Studie"), "en", data={"items": [e], "n_rows": 3},
                                          pool={"sources": ["real"], "all": False}, computed_at=datetime(2026, 11, 26, 9, 0))
     book = _book(body)
-    assert list(book)[:4] == ["README", "tabellen", "kennwerte", "001-sem"] and all(len(n) <= 31 for n in book)
+    assert list(book)[:5] == ["Übersicht", "README", "tabellen", "kennwerte", "001-sem"]
+    assert all(len(n) <= 31 for n in book)
+    first = book["Übersicht"]
+    assert first[0] == ["Studie"] and first[1] == ["Results tables"] and ["Sheet", "Content", "Rows"] in first
+    assert ["001-sem", "Pfade (as on the results page)", 1.0] in first
+    # every name in the contents jumps to its sheet, inside the file only; the lines above lie over the whole width
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    with zipfile.ZipFile(io.BytesIO(body)) as z:
+        sheet = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
+        assert not [n for n in z.namelist() if "worksheets/_rels" in n]
+    jumps = {h.get("ref"): h.get("location") for h in sheet.iter(f"{ns}hyperlink")}
+    at = first.index(["Sheet", "Content", "Rows"]) + 1  # the number of the header row; entries follow
+    assert jumps == {f"A{at + 1 + i}": f"'{name}'!A1" for i, name in enumerate(list(book)[1:])}
+    assert "A1:C1" in [m.get("ref") for m in sheet.iter(f"{ns}mergeCell")]
+    assert not list(sheet.iter(f"{ns}autoFilter")) and not list(sheet.iter(f"{ns}pane"))
     head, row = book["kennwerte"]
     values = dict(zip(head, row + [""] * len(head)))
     assert values["m"] == 41.25 and values["n"] == 10 and values["sd"] == "" and values["label"] == "Alter"
     assert book["001-sem"] == [["Pfad", "β"], ["=A → B", "0,41"]]            # as shown: text, "=" stays text
-    long = list(book)[4]
+    long = list(book)[5]
     assert book[long] == [["", ""], ["a", "b"]] and long.startswith("002-eine-sehr-lange")  # no head: an empty one
     assert book["tabellen"][1:] == [["kennwerte", 1.0, "berechnet", "", ""], ["001-sem", 1.0, "wie angezeigt", "Pfade", "sem"],
                                     [long, 1.0, "wie angezeigt", "Lang",

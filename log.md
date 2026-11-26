@@ -7855,3 +7855,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - `compose.yaml`: nginx läuft nur noch mit vier Capabilities (`NET_BIND_SERVICE`, `SETUID`, `SETGID`, `CHOWN`), certbot ohne Capabilities, mit nur lesbarem Image, Protokoll und `/tmp` im Speicher (der Arbeitsordner bleibt das Volume des Images). Lokal mit beiden Images belegt (Start, `nginx -t`, Reload, Umschalten der Teilnahme-Container, `certbot renew`).
 - nginx: `map_hash_bucket_size 256` und `map_hash_max_size 4096` für die Tabellen der gebauten statischen Dateien; die Warnung „could not build optimal map_hash“ bei jedem Start und Reload entfällt, und nginx startet auch auf Rechnern mit 64 Byte Cache-Zeile.
 - Datenschutzkonzept (Schutzmaßnahmen) nennt beides. Tests `tests/platform/test_compose_hardening.py::test_nginx_and_certbot_keep_only_the_capabilities_they_need`, `tests/platform/test_nginx_limits_and_headers.py::test_the_maps_of_the_static_files_have_room`.
+
+## 2026-11-26: Übersichtsblatt in der Excel-Datei der Ergebnistabellen
+
+- Rückmeldung einer Testerin: zuerst eine aufgeräumte Übersicht mit Projektnamen und Inhaltsverzeichnis. Die Excel-Datei beginnt jetzt mit dem Blatt `Übersicht` (`results_tables._overview`): Titel der Befragung, Datengrundlage, darunter das Inhaltsverzeichnis mit Blatt, Inhalt und Zeilenzahl; der Name jedes Blatts springt per Klick dorthin. `README` und `tabellen` folgen wie bisher.
+- `app/xlsx.py`: Blätter als Seite zum Lesen (ohne fixierte Kopfzeile und Filter), Stile je Zeile (Überschrift), Sprünge zu anderen Blättern, verbundene Zellen, Zeilenhöhen. Handbuch (Export) angepasst.
