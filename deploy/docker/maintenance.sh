@@ -45,12 +45,17 @@ for image in $(docker compose config --images 2>/dev/null | sort -u) $(sed -n 's
   echo "image $image $(docker image inspect --format '{{join .RepoDigests " "}}' "$image" 2>/dev/null || echo '(local)')"
 done
 # a newer state of a pinned base image (CFG-05): asked at the registry (Docker Hub's public API, nothing pulled) by
-# tools/image_digests.py in the app's image, the code folder read-only; a moved tag says so in Slack and stops nothing
+# tools/image_digests.py in the app's image, the code folder read-only; a moved tag says so in Slack and stops nothing.
+# The database's image too, once the .env pins it (DB_IMAGE=postgres:17.x@sha256:..., compose.yaml): this window then
+# pulls no new one, so it says when the registry has a newer build of that release or a newer release of the branch.
+# Only the image's name goes into the check, nothing else of the .env; the line itself is changed by hand.
 if [ -f ../../tools/image_digests.py ]; then
+  db_image=${DB_IMAGE:-$(sed -n 's/^DB_IMAGE=//p' .env 2>/dev/null | tail -n 1 | tr -d '\r')}
   if ! out=$(docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-      -v "$(cd ../.. && pwd)":/src:ro --entrypoint python askurious:latest /src/tools/image_digests.py 2>&1); then
+      -v "$(cd ../.. && pwd)":/src:ro --entrypoint python askurious:latest /src/tools/image_digests.py \
+      ${db_image:+--db-image "$db_image"} 2>&1); then
     echo "$out"
-    ./alarm.sh "Pinned base images have a newer state (or the registry was not reached): $(echo "$out" | tail -n 1). Raise them: tools/image_digests.py --update, PR, deploy (BETRIEB.md, Images anheben)" || true
+    ./alarm.sh "Base images have a newer state (or the registry was not reached): $(echo "$out" | tail -n 1) (BETRIEB.md, Images anheben)" || true
   else
     echo "$out" | tail -n 1
   fi

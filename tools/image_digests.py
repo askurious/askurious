@@ -7,11 +7,16 @@ Docker then takes exactly that image; the tag only says what it is.
 
     python tools/image_digests.py            list the pinned images and whether the registry has a newer state
     python tools/image_digests.py --update   write the registry's current digest of each tag into the files
+    python tools/image_digests.py --db-image postgres:17.12@sha256:...
+                                             also the database's image, which a server pins in its .env (DB_IMAGE,
+                                             compose.yaml) and not in these files: says when the registry has a newer
+                                             state of that tag or a newer release of the same branch (17.13). Only
+                                             says so: the .env is changed by hand, in a backed-up maintenance window
 
 --update on a developer's computer, then a PR (the local tests and the vulnerability check), merge and deploy:
 that is how the images get their security fixes now (BETRIEB.md, "Images anheben"). maintenance.sh runs the plain
 check each week and says in Slack when a tag has moved, so a fix waits days, not months. Exit code 1 when a tag has
-moved (or the registry could not be asked), 0 when all are current.
+moved (or the registry could not be asked, or the database's image has a newer state), 0 when all are current.
 
 Only the registry's public API is asked (Docker Hub, anonymous); nothing is pulled or run.
 """
@@ -20,6 +25,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +35,10 @@ FILES = ("deploy/docker/Dockerfile", "deploy/docker/nginx-image/Dockerfile", "de
 # an image of Docker Hub with tag and digest, in a FROM line or an image: line
 PINNED = re.compile(r"(?P<lead>(?:^FROM\s+|^\s*image:\s+))(?P<name>[a-z0-9][a-z0-9._/-]*):(?P<tag>[A-Za-z0-9._-]+)"
                     r"@(?P<digest>sha256:[0-9a-f]{64})", re.M)
+# the database's image as a server's .env names it (DB_IMAGE): tag and, once pinned, digest
+DB_IMAGE = re.compile(r"(?P<name>[a-z0-9][a-z0-9._/-]*):(?P<tag>[A-Za-z0-9._-]+)(?:@(?P<digest>sha256:[0-9a-f]{64}))?")
+# a tag that names a release of a branch: 17.12, 17.12-trixie
+RELEASE = re.compile(r"(?P<major>\d+)\.(?P<minor>\d+)(?P<rest>-[A-Za-z0-9._-]+)?")
 # images built here, never fetched (compose.yaml: pull_policy never)
 LOCAL = ("askurious", "askurious-nginx", "askurious-whisperx")
 TIMEOUT = 20
@@ -81,9 +91,65 @@ def registry_digest(name, tag):
     return digest
 
 
+def registry_tags(name, part):
+    """The names of the tags of an image at Docker Hub that contain `part` (at most 500); raises like registry_digest."""
+    repo = name if "/" in name else f"library/{name}"
+    url = f"https://hub.docker.com/v2/repositories/{repo}/tags?page_size=100&name={urllib.parse.quote(part)}"
+    names = []
+    for _page in range(5):
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "askurious-image-digests"}),
+                                    timeout=TIMEOUT) as r:
+            data = json.load(r)
+        names += [row.get("name") or "" for row in data.get("results") or []]
+        url = data.get("next")
+        if not url:
+            break
+    return names
+
+
+def newer_release(name, tag):
+    """The newest release of the tag's branch in the registry when it is newer than the tag ("17.12" -> "17.13",
+    "17.12-trixie" -> "17.13-trixie"), else None. A tag without a release number ("17", "latest") has none."""
+    m = RELEASE.fullmatch(tag)
+    if not m:
+        return None
+    best = int(m["minor"])
+    for other in registry_tags(name, f"{m['major']}."):
+        o = RELEASE.fullmatch(other)
+        if o and o["major"] == m["major"] and (o["rest"] or "") == (m["rest"] or ""):
+            best = max(best, int(o["minor"]))
+    return f"{m['major']}.{best}{m['rest'] or ''}" if best > int(m["minor"]) else None
+
+
+def check_db_image(ref):
+    """(lines to print, what is newer or "", registry not asked) for the database's image as the server's .env names
+    it. Without a digest it follows its tag (the maintenance window pulls it): nothing to say."""
+    m = DB_IMAGE.fullmatch(ref.strip())
+    if not m:
+        return [f"database image {ref!r}: not understood (name:tag@sha256:...)"], "", True
+    name, tag, digest = m["name"], m["tag"], m["digest"]
+    if not digest:
+        return [f"database image {name}:{tag}: not pinned by a digest, the maintenance window pulls its tag"], "", False
+    lines, newer = [], []
+    try:
+        now = registry_digest(name, tag)
+        release = newer_release(name, tag)
+    except (OSError, ValueError, urllib.error.URLError) as e:
+        return [f"database image {name}:{tag}: registry not asked ({type(e).__name__})"], "", True
+    state = "current" if now == digest else f"moved to {now}"
+    lines.append(f"database image (DB_IMAGE): {name}:{tag}@{digest[:19]}... {state}")
+    if now != digest:
+        newer.append(f"a newer build of {name}:{tag}")
+    if release:
+        lines.append(f"database image (DB_IMAGE): {name}:{release} is out")
+        newer.append(f"the newer release {name}:{release}")
+    return lines, " and ".join(newer), False
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     update = "--update" in argv
+    db_image = argv[argv.index("--db-image") + 1] if "--db-image" in argv[:-1] else ""
     loose = unpinned()
     for rel, line in loose:
         print(f"not pinned: {rel}: {line}")
@@ -111,9 +177,22 @@ def main(argv=None):
                 f.write(text)
             print(f"written: {rel}")
         return 1 if failed or loose else 0
+    # the last line is what the maintenance window sends to Slack: everything that is newer in one line
+    notes = []
     if moved:
-        print(f"{len(moved)} pinned image(s) have a newer state: python tools/image_digests.py --update, then a PR")
-    return 1 if moved or failed or loose else 0
+        notes.append(f"{len(moved)} pinned image(s) have a newer state: python tools/image_digests.py --update, then a PR")
+    db_newer = ""
+    if db_image:
+        lines, db_newer, db_failed = check_db_image(db_image)
+        for line in lines:
+            print(line)
+        failed = failed or db_failed
+        if db_newer:
+            notes.append(f"The database image has {db_newer}: set the new DB_IMAGE line in the .env in a maintenance "
+                         "window after a backup (BETRIEB.md, Images anheben)")
+    if notes:
+        print(" | ".join(notes))
+    return 1 if moved or failed or loose or db_newer else 0
 
 
 if __name__ == "__main__":

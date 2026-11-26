@@ -400,6 +400,60 @@ def test_image_digests_update_writes_the_new_digest(tmp_path, monkeypatch):
     assert image_digests.main([]) == 0
 
 
+def test_the_weekly_check_also_asks_for_the_database_image_of_the_env(monkeypatch, capsys):
+    """2026-11-26: a server pins the database's image in its .env (DB_IMAGE=postgres:17.x@sha256:...), not in the
+    repository, so the weekly check never looked at it and the maintenance window no longer pulls a new one: a
+    security fix of PostgreSQL would have gone unnoticed. maintenance.sh hands the line to tools/image_digests.py,
+    which says when the registry has a newer build of that release or a newer release of the branch. It only says
+    so; nothing writes the .env."""
+    import sys
+
+    sys.path.insert(0, os.path.join(HERE, "tools"))
+    import image_digests
+
+    old, new = "sha256:" + "a" * 64, "sha256:" + "b" * 64
+    own = {(n, t): d for _f, n, t, d in image_digests.pinned()}
+    state = {"postgres": old, "tags": ["17.11", "17.12", "17.12-trixie", "17.2", "18.1", "17", "17.12-alpine"]}
+    monkeypatch.setattr(image_digests, "registry_digest",
+                        lambda name, tag: state["postgres"] if name == "postgres" else own[(name, tag)])
+    monkeypatch.setattr(image_digests, "registry_tags", lambda name, part: state["tags"])
+    pinned = f"postgres:17.12@{old}"
+
+    assert image_digests.main(["--db-image", pinned]) == 0                      # all current: nothing to say
+    assert f"postgres:17.12@{old[:19]}... current" in capsys.readouterr().out
+    state["postgres"] = new                                                      # the same release, built anew
+    assert image_digests.main(["--db-image", pinned]) == 1
+    out = capsys.readouterr().out
+    assert f"moved to {new}" in out and "a newer build of postgres:17.12" in out.splitlines()[-1]
+    assert "DB_IMAGE" in out.splitlines()[-1] and "maintenance window" in out.splitlines()[-1]
+    state["postgres"] = old
+    state["tags"].append("17.13")                                               # a newer release of the branch
+    assert image_digests.main(["--db-image", pinned]) == 1
+    assert "the newer release postgres:17.13" in capsys.readouterr().out.splitlines()[-1]
+    # 17.2 is older than 17.12 (numbers, not text), 18.1 another branch, another variant no release of this one
+    assert image_digests.newer_release("postgres", "17.12-trixie") is None
+    state["tags"].remove("17.13")
+    assert image_digests.newer_release("postgres", "17.12") is None and image_digests.newer_release("postgres", "17") is None
+    # without a digest the image follows its tag (the maintenance window pulls it): no finding
+    assert image_digests.main(["--db-image", "postgres:17"]) == 0
+    assert "not pinned by a digest" in capsys.readouterr().out
+    # the registry does not answer: exit 1 like for the other images, and nothing claimed
+    def down(name, tag):
+        if name == "postgres":
+            raise OSError("down")
+        return own[(name, tag)]
+    monkeypatch.setattr(image_digests, "registry_digest", down)
+    assert image_digests.main(["--db-image", pinned]) == 1
+    assert "registry not asked" in capsys.readouterr().out
+    # --update writes the repository's files only: no file of the repository names DB_IMAGE's digest
+    assert "DB_IMAGE" not in "".join(image_digests.FILES)
+    # maintenance.sh reads the line from the .env (or the environment) and passes only the image's name on
+    maintenance = _read("deploy", "docker", "maintenance.sh")
+    assert "sed -n 's/^DB_IMAGE=//p' .env" in maintenance and '${db_image:+--db-image "$db_image"}' in maintenance
+    part = maintenance[maintenance.index("db_image="):maintenance.index("image_digests.py is missing")]
+    assert "alarm.sh" in part and ">> .env" not in maintenance and "> .env" not in maintenance
+
+
 def test_ci_runs_the_tests_and_the_vulnerability_check():
     """CFG-06; since 2026-10-19 the workflow starts only by hand (Ralf: no CI on GitHub for now, the cost of private
     Actions), and the deploy asks GitHub nothing."""
