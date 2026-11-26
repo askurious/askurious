@@ -1619,13 +1619,17 @@ def measures():
                    "etwa die Eingangsbestätigung einer Beschwerde, warten in der Mail-Warteschlange, bis die Wartung sie "
                    "binnen etwa einer Minute verschickt, danach bleiben Adresse und Text nicht gespeichert; mit eigenem "
                    "Schlüssel der Forschenden-Sitzungen können sie keine Sitzung der Forschenden ausstellen); "
-                   "App-Container ohne Sonderrechte und mit nur lesbarem Dateisystem",
+                   "App-Container ohne Sonderrechte und mit nur lesbarem Dateisystem; der Webserver (nginx) nur mit "
+                   "den vier Sonderrechten, die er braucht, der Zertifikatsdienst ohne Sonderrechte und mit nur "
+                   "lesbarem Dateisystem",
                    "Each container gets only the secrets it needs (the participation containers no access to ORCID, "
                    "Zenodo, AI services, no password of the mail server and no database superuser; their emails, such "
                    "as the confirmation of receipt of a complaint, wait in the mail queue until the housekeeping sends "
                    "them within about a minute, after which address and text are not kept; with an own key for the "
                    "researchers' sessions they cannot issue a researcher's session); app containers without special "
-                   "rights and with a read-only file system"), "deploy/docker/compose.yaml, app/mail.py, app/cookies.py"),
+                   "rights and with a read-only file system; the web server (nginx) with only the four special rights "
+                   "it needs, the certificate service without special rights and with a read-only file system"),
+             "deploy/docker/compose.yaml, app/mail.py, app/cookies.py"),
             (de_en("Schlüssel beim Start auf Länge, Zufall und ratbare Wörter geprüft: Ein zu kurzer oder zufallsloser "
                    "verhindert den Start, ein schwacher wird bei jedem Start gemeldet; eigene, per HKDF abgeleitete "
                    "Schlüssel je Zweck für neue Zwecke; Wechsel eines Schlüssels mit dem alten als Rückfall, gespeicherte "

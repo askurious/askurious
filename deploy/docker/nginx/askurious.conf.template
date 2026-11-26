@@ -21,6 +21,11 @@ upstream participant {
 # nginx/brand-stack.sh writes these files at the start. With BRAND_STACK_DOMAIN its names go to brand-researcher and
 # brand-participant; without it the files are empty and every name goes to the containers above, as before.
 include /etc/nginx/brand/upstreams*.conf;
+# Room for the maps of the built static files (below, some 300 addresses each, many longer than 64 bytes). nginx
+# takes the size of a bucket from the processor's cache line: with 64 it did not start at all ("could not build
+# map_hash"), with 128 (the server) it warned at every start and reload ("could not build optimal map_hash").
+map_hash_bucket_size 256;
+map_hash_max_size 4096;
 map $host $researcher_pool  { default researcher;  include /etc/nginx/brand/researcher-map*.conf; }
 map $host $participant_pool { default participant; include /etc/nginx/brand/participant-map*.conf; }
 

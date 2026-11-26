@@ -587,8 +587,14 @@ services:
     logging: *logging
     cpu_shares: 2048
     # its master runs as root (ports 80 and 443, the keys), the workers as the user nginx; the start scripts copy
-    # certificates and write configuration. no-new-privileges only (SV-3/DP-5): no setuid program gains rights. The
-    # capabilities stay as the image needs them (taking them away is a test on the server first, BETRIEB.md)
+    # certificates and write configuration, so the file system stays writable. no-new-privileges (SV-3/DP-5): no
+    # setuid program gains rights. Of the capabilities only the four the master needs (2026-11-26, tried with this
+    # image: start, nginx -t, reload, the participants' upstream switch, the renewal step): the ports below 1024
+    # (NET_BIND_SERVICE), the workers' change to the user nginx (SETUID, SETGID) and the cache folders it hands to
+    # that user at its start (CHOWN). Without DAC_OVERRIDE root reads only what root owns or all may read: the
+    # certificates and keys are root's (certbot, self-signed.sh).
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, SETUID, SETGID, CHOWN]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 256m
     pids_limit: 512                          # one worker per core (24) and the renewal loop
@@ -760,9 +766,18 @@ services:
     restart: unless-stopped
     logging: *logging
     cpu_shares: 256
-    security_opt: ["no-new-privileges:true"]  # runs as root (image), writes only its volumes (SV-3/DP-5)
+    # runs as root (image) and writes only its two volumes, both root's: no capability at all, the image read-only
+    # (SV-3/DP-5; 2026-11-26). Its working folder, its log (kept until the container is recreated; docker logs has
+    # what a failed renewal says) and /tmp are in memory and count towards mem_limit.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
     mem_limit: 256m
     pids_limit: 64
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/lib/letsencrypt:size=16m,mode=0755
+      - /var/log/letsencrypt:size=16m,mode=0700
     volumes:
       - certs:/etc/letsencrypt
       - acme:/var/www/acme

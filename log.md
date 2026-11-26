@@ -7844,3 +7844,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Daten-API: `/api/v1/surveys/<id>/results.zip` mit dem Lese-Token (nur die berechneten Dateien, `?sep=semicolon`, `?lang=en`); im Protokoll „Ergebnistabellen (Token)“.
 - Unter dem Datenpool nennt eine Zeile, welche Modellspalten der Datensatz gerade trägt (`…_hb_…`, `…_lk…`) und welche Schätzung veraltet oder für andere Datenquellen gemacht ist, mit Link zur Ergebnisseite (`export.model_state`, kommt mit der Zählung). Der Text zum Datensatz erklärt die Spalten.
 - Handbuch (Export), README, Datenschutzkonzept (Lese-Token) und Seite „Verbindungen“ angepasst. Tests `tests/exports/test_results_tables.py`.
+
+## 2026-11-26: Härtung, Teil 7 (nginx und certbot)
+
+- `compose.yaml`: nginx läuft nur noch mit vier Capabilities (`NET_BIND_SERVICE`, `SETUID`, `SETGID`, `CHOWN`), certbot ohne Capabilities, mit nur lesbarem Image und Arbeitsordner, Protokoll und `/tmp` im Speicher. Lokal mit beiden Images belegt (Start, `nginx -t`, Reload, Umschalten der Teilnahme-Container, `certbot renew`).
+- nginx: `map_hash_bucket_size 256` und `map_hash_max_size 4096` für die Tabellen der gebauten statischen Dateien; die Warnung „could not build optimal map_hash“ bei jedem Start und Reload entfällt, und nginx startet auch auf Rechnern mit 64 Byte Cache-Zeile.
+- Datenschutzkonzept (Schutzmaßnahmen) nennt beides. Tests `tests/platform/test_compose_hardening.py::test_nginx_and_certbot_keep_only_the_capabilities_they_need`, `tests/platform/test_nginx_limits_and_headers.py::test_the_maps_of_the_static_files_have_room`.
