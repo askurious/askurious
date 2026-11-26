@@ -1010,19 +1010,23 @@ def csv_text(item, res, lang):
         s = f"{x:.{d}f}"
         return s.replace(".", ",") if german else s
 
+    from app.export import safe_text
+
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";" if german else ",")
+    # no cell starts like a formula: the names of attributes are the researchers' texts (export.safe_text), and the
+    # heading of the gain is written out
     w.writerow([de_en("Merkmalspaar", "Attribute pair"), de_en("Spalten", "Columns"), de_en("p einfach", "p simple"),
                 de_en("p Wald einfach", "p Wald simple"), de_en("p nach HB", "p after HB"),
                 de_en("p Wald nach HB", "p Wald after HB"), "p (Holm)",
-                de_en("+ Sicherheit (Pp.)", "+ certainty (pp)"), de_en("Δ LL Vorhersage (Mittel)", "Δ LL prediction (mean)"),
+                de_en("Zuwachs Sicherheit (Pp.)", "Gain in certainty (pp)"), de_en("Δ LL Vorhersage (Mittel)", "Δ LL prediction (mean)"),
                 de_en("besser in Aufteilungen", "better in divisions"), de_en("kleinste Zelle", "smallest cell"),
                 de_en("Ergebnis", "Result")])
     for r in view_rows:
         s, h, c = r["simple"] or {}, r["hb"] or {}, r.get("confirm") or {}
-        w.writerow([r["label"], r["cols"], num(s.get("p")), num(s.get("wald_p")), num(h.get("p")), num(h.get("wald_p")),
-                    num(r.get("p_holm")), num(r.get("gain"), 3), num(c.get("mean"), 2),
-                    f"{c['better']}/{len(c['delta'])}" if c else "", r.get("min_cell", ""), r["status_label"]])
+        w.writerow([safe_text(r["label"]), safe_text(r["cols"]), num(s.get("p")), num(s.get("wald_p")), num(h.get("p")),
+                    num(h.get("wald_p")), num(r.get("p_holm")), num(r.get("gain"), 3), num(c.get("mean"), 2),
+                    f"{c['better']}/{len(c['delta'])}" if c else "", r.get("min_cell", ""), safe_text(r["status_label"])])
     return buf.getvalue()
 
 

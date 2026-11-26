@@ -399,3 +399,136 @@ def test_an_invitation_to_join_ends_with_the_sign_in_or_a_block_of_who_made_it(a
         db.session.get(UserLogin, admin_id).status = UserLogin.BLOCKED
         db.session.commit()
     assert not holds(old)
+
+
+# --- sharing, taking out, leads and course lists keep to the organisation's fence ----------------------------------
+
+
+def test_an_admin_of_the_organisation_at_home_elsewhere_is_not_taken_out_by_another(app, client):
+    """An admin of the organisation whose home is another organisation (named from outside) is taken out by a platform
+    admin only, like one at home here."""
+    ids, clients = _orgs(app)
+    with app.app_context():
+        person = _user(PERSON)
+        orgs.add(db.session.get(Organisation, ids["x"]), person, role="admin")   # at home in "main", admin of X
+        db.session.commit()
+        orgs.forget()
+    page = clients[ADMIN_X].post(f"/org/{ids['x']}/people", data={"action": "remove", "user_id": ids["person"]},
+                                 follow_redirects=True).data.decode()
+    assert "entfernt ein Admin der Plattform" in page
+    with app.app_context():
+        assert orgs.is_admin_of(_user(PERSON), ids["x"])
+
+
+def test_sharing_asks_what_adding_to_a_survey_asks(app, client):
+    """orgs.sharing_refused, used for designs, linked elements, research projects and the analyses of a guide: a
+    blocked account, a person who cannot sign in, and a person behind another organisation's fence are refused,
+    before an account is made for the key."""
+    from types import SimpleNamespace
+
+    from flask_login import login_user
+
+    ids, clients = _orgs(app)
+    local = _local(app, "Lokal Y", "lokal@example.org", home=ids["y"])
+    with app.app_context():
+        db.session.get(Organisation, ids["y"]).invite_in = False
+        db.session.commit()
+        orgs.forget()
+    thing = SimpleNamespace(org_id=ids["x"])
+    with app.test_request_context("/"):
+        actor = _user(ADMIN_X)
+        login_user(actor)
+        before = db.session.scalar(db.select(db.func.count(User.id)))
+        assert orgs.sharing_refused(actor, thing, PERSON) is None                       # can sign in, no fence
+        assert orgs.sharing_refused(actor, thing, f"u{local}") == orgs.not_across()     # the other organisation's switch
+        assert "anmelden" in orgs.sharing_refused(actor, thing, "0000-0001-5109-3700")  # cannot sign in: no account made
+        row = db.session.get(UserLogin, ids["person"]) or UserLogin(user_id=ids["person"])
+        db.session.add(row)
+        row.status = UserLogin.BLOCKED
+        db.session.flush()
+        assert orgs.sharing_refused(actor, thing, PERSON) is not None                   # blocked
+        assert db.session.scalar(db.select(db.func.count(User.id))) == before
+        db.session.rollback()
+
+
+def test_a_design_is_not_shared_past_the_fence_or_with_a_blocked_account(app, client):
+    from app.models import DesignShare
+
+    ids, clients = _orgs(app)
+    local = _local(app, "Lokal Y", "lokal@example.org", home=ids["y"])
+    with app.app_context():
+        db.session.get(Organisation, ids["y"]).invite_in = False
+        db.session.commit()
+        orgs.forget()
+    x = clients[ADMIN_X]
+    x.post("/designs/new", data={"name": "Mein Design"})
+    with app.app_context():
+        from app.models import Design
+
+        design_id = db.session.scalar(db.select(Design.id).order_by(Design.id.desc()))
+    page = x.post(f"/designs/{design_id}/share", data={"orcid": f"u{local}"}, follow_redirects=True).data.decode()
+    assert "andere" in page and "Organisation" in page
+    with app.app_context():
+        assert db.session.scalar(db.select(DesignShare)) is None
+    assert x.post(f"/designs/{design_id}/share", data={"orcid": PERSON, "name": "Person"}).status_code == 302
+    with app.app_context():
+        assert db.session.scalar(db.select(db.func.count(DesignShare.id))) == 1
+
+
+def test_the_lead_of_a_new_group_is_named_within_what_the_organisation_allows(app, client):
+    """An admin of an organisation names the lead of a new group: an address gets the same answer whether it has no
+    account or one outside the organisation, and an iD without an account comes in only where the organisation lets
+    its admins bring people in."""
+    ids, clients = _orgs(app)
+    _local(app, "Lokal Y", "lokal@example.org", home=ids["y"])
+    x = clients[ADMIN_X]
+
+    def create(lead, **extra):
+        return x.post(f"/org/{ids['x']}/groups", data={"action": "new", "name": f"Gruppe {lead}", "lead": lead, **extra},
+                      follow_redirects=True).data.decode()
+
+    elsewhere, nobody = create("lokal@example.org"), create("niemand@example.org")
+    said = "gehört nicht zur Organisation dieser Gruppe"
+    assert said in elsewhere and said in nobody
+    with app.app_context():
+        db.session.get(Organisation, ids["x"]).invite_scope = "platform"
+        db.session.commit()
+        orgs.forget()
+    page = create("0000-0001-5109-3700", lead_name="Neu Von Aussen")
+    assert "nur Admins der Plattform" in page
+    with app.app_context():
+        assert db.session.scalar(db.select(WorkGroup)) is None and _user("0000-0001-5109-3700") is None
+
+
+def test_a_course_list_takes_in_at_once_only_whom_the_lead_could_add(app, client, survey):
+    """Addresses of accounts the lead could not add by hand (behind another organisation's fence, blocked, an address
+    typed by its holder and never confirmed) are invited like addresses without an account; the preview does not
+    tell them apart. Past the limit of a list nothing is looked up."""
+    from flask_login import login_user
+
+    ids, clients = _orgs(app)
+    fenced = _local(app, "Lokal Y", "fenced@example.org", home=ids["y"])
+    blocked = _local(app, "Gesperrt", "blocked@example.org")
+    typed = _local(app, "Getippt", "typed@example.org")
+    fine = _local(app, "Passt", "fine@example.org")
+    with app.app_context():
+        db.session.get(Organisation, ids["y"]).invite_in = False
+        db.session.get(UserLogin, blocked).status = UserLogin.BLOCKED
+        db.session.get(UserLogin, typed).email_self_chosen = True
+        group = WorkGroup(name="Kurs", created_by_id=1)
+        db.session.add(group)
+        db.session.commit()
+        orgs.forget()
+        group_id = group.id
+    with app.test_request_context("/"):
+        login_user(_user("0000-0000-0000-001X"))
+        group = db.session.get(WorkGroup, group_id)
+        text = "fenced@example.org, blocked@example.org; typed@example.org fine@example.org neu@example.org"
+        out = bulk_invites.sort_list(text, group)
+        assert [e for e, _u in out["account"]] == ["fine@example.org"] and out["account"][0][1].id == fine
+        assert sorted(out["new"]) == ["blocked@example.org", "fenced@example.org", "neu@example.org", "typed@example.org"]
+        many = " ".join(f"p{i}@example.org" for i in range(bulk_invites.MAX_LIST + 7))
+        out = bulk_invites.sort_list(many, group)
+        assert len(out["new"]) == bulk_invites.MAX_LIST and out["over"] == 7
+        assert bulk_invites._too_many(group, out)
+    assert fenced

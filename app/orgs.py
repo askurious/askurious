@@ -504,6 +504,30 @@ def may_invite_across(survey, orcid):
     return home is None or home.invite_in or home.key == GUEST
 
 
+def sharing_refused(actor, thing, key, admits=False):
+    """Why `actor` cannot share `thing` (a design, a linked element, a research project, an analysis of a guide: what
+    has an org_id) with the person behind `key` (an ORCID iD or an account's key): a message, or None. The same
+    questions as adding a person to a survey (surveys/people.add_member): the account is not blocked, the person can
+    sign in already (sharing gives no right to), the switches of both organisations allow it, and the organisation
+    lets `actor` bring in someone from outside. Asked before any account is made for the key. admits: what is shared
+    takes people in as a survey does (the analysis of a guide's interviews): then a person who cannot sign in yet may
+    be named by whoever may admit people (auth.may_admit)."""
+    from app import accounts, auth, people_keys
+
+    known = people_keys.account(key, create=False)
+    if known is not None and not known.pending and accounts.is_blocked(known):
+        return auth.cannot_sign_in()
+    if admits and not auth.may_admit(actor, key):
+        return auth.not_admitted()
+    if not admits and not auth.may_sign_in(key):
+        return auth.cannot_sign_in()
+    if not may_invite_across(thing, known or key):
+        return not_across()
+    if not may_bring_in(actor, of(thing), known or key):
+        return not_brought_in(of(thing))
+    return None
+
+
 def not_across():
     return de_en("Diese Person gehört zu einer anderen Organisation, und Einladungen über die Organisation hinaus sind "
                  "dort oder hier ausgeschaltet. Ein Admin der Plattform kann das ändern.",

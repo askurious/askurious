@@ -1675,9 +1675,18 @@ def add_members(code, pid):
             group = None  # only a group of the one adding, of the guide's organisation
         problem = add_member(project, kind, current_user, group=group)
     else:
+        from app import orgs
+
         key = " ".join(request.form.get("person", "").split())
-        user = people_keys.account(key) if key else None
-        problem = add_member(project, CodingMember.PERSON, current_user, user=user)
+        known = people_keys.account(key, create=False) if key else None
+        already = known is not None and db.session.scalar(db.select(CodingMember.id).filter_by(
+            project_id=project.id, kind=CodingMember.PERSON, user_id=known.id)) is not None
+        # as sharing elsewhere: only a person who can sign in, within what both organisations allow; asked before an
+        # account is made for the key
+        problem = orgs.sharing_refused(current_user, survey, key, admits=True) if key and not already else None
+        if problem is None:
+            user = people_keys.account(key) if key else None
+            problem = add_member(project, CodingMember.PERSON, current_user, user=user)
     if problem:
         db.session.rollback()
         flash(problem, "error")

@@ -56,11 +56,27 @@ def _course(group_id):
     return group
 
 
+def _joins_at_once(group, user, row):
+    """Whether the account behind an address of the list becomes a member at once: only one the lead could add by
+    hand as well. Its address was entered by someone else or confirmed by mail (as the people search asks,
+    surveys/people.search_people), it is not blocked, and it belongs to the course's organisation already or may be
+    brought in from where it is at home (orgs.may_invite_across, orgs.may_bring_in). Every other address gets an
+    invitation like one without an account, which the person accepts or not; the list does not say which is which."""
+    from app import accounts, orgs
+
+    if row.email_self_chosen and row.email_verified_at is None:
+        return False
+    if accounts.is_blocked(user):
+        return False
+    return orgs.may_invite_across(group, user) and orgs.may_bring_in(current_user, orgs.of(group), user)
+
+
 def sort_list(text, group):
-    """{"new": [...], "account": [(address, user)], "member": [...], "invalid": [...], "twice": [...]} of a pasted list."""
+    """{"new": [...], "account": [(address, user)], "member": [...], "invalid": [...], "twice": [...], "over": n} of a
+    pasted list. Past MAX_LIST addresses nothing is looked up any more: they are only counted ("over")."""
     from app import passwords
 
-    out = {"new": [], "account": [], "member": [], "invalid": [], "twice": []}
+    out = {"new": [], "account": [], "member": [], "invalid": [], "twice": [], "over": 0}
     seen = set()
     for part in _SPLIT.split(text or ""):
         part = part.strip().strip('"\'').removeprefix("mailto:")
@@ -68,29 +84,42 @@ def sort_list(text, group):
             continue
         email = passwords.normal_email(part)
         if email is None:
-            if "@" in part or "." in part:
+            if ("@" in part or "." in part) and len(out["invalid"]) < MAX_LIST:
                 out["invalid"].append(part[:254])
             continue
         if email in seen:
-            out["twice"].append(email)
+            if len(out["twice"]) < MAX_LIST:
+                out["twice"].append(email)
+            continue
+        if len(seen) >= MAX_LIST:
+            out["over"] += 1
             continue
         seen.add(email)
-        user = db.session.scalar(db.select(User).join(UserLogin, UserLogin.user_id == User.id)
-                                 .filter(UserLogin.email == email))
-        if user is None:
-            out["new"].append(email)
-        elif group.member_of(user) is not None:
+        found = db.session.execute(db.select(User, UserLogin).join(UserLogin, UserLogin.user_id == User.id)
+                                   .filter(UserLogin.email == email)).first()
+        if found is not None and group.member_of(found[0]) is not None:
             out["member"].append(email)
+        elif found is not None and _joins_at_once(group, *found):
+            out["account"].append((email, found[0]))
         else:
-            out["account"].append((email, user))
+            out["new"].append(email)
     return out
+
+
+def _room(count):
+    """Whether the account may still send `count` mails today (the limit per account of the mail queue, which the
+    invitations of a list count against like every other mail), asked under the account's lock."""
+    from app import mailqueue
+
+    mailqueue.lock_account(current_user.id)
+    return mailqueue.room_for(current_user.id) >= count
 
 
 def _too_many(group, sorted_):
     from app import groups as groups_mod
 
     n = len(sorted_["new"]) + len(sorted_["account"])
-    if n > MAX_LIST:
+    if n > MAX_LIST or sorted_.get("over"):
         return de_en("Höchstens {n} Adressen je Liste.", "At most {n} addresses per list.", n=MAX_LIST)
     if len(group.members) + n > groups_mod.MAX_MEMBERS:
         return de_en("Die Gruppe hätte damit mehr als {n} Mitglieder.", "The group would then have more than {n} members.",
@@ -135,6 +164,10 @@ def invite_list(group_id):
             flash(problem, "error")
         elif not sorted_["new"] and not sorted_["account"]:
             flash(de_en("Keine neuen Adressen in der Liste.", "No new addresses in the list."), "error")
+        elif mail.enabled() and not _room(len(sorted_["new"])):
+            flash(de_en("So viele E-Mails gehen heute von Ihrem Konto nicht mehr hinaus. Bitte die Liste teilen oder "
+                        "morgen fortfahren.", "That many emails cannot go out from your account today any more. Please "
+                        "split the list or continue tomorrow."), "error")
         else:
             invites.sweep()
             rows = []
@@ -170,8 +203,10 @@ def _csv(group, rows, added):
     out = io.StringIO()
     writer = csv.writer(out, delimiter=";")
     writer.writerow([de_en("E-Mail-Adresse", "Email address"), de_en("Link", "Link"), de_en("gültig bis", "valid until")])
+    from app.export import safe_text
+
     for invite, token in rows:
-        writer.writerow([invite.email, invites.link_of(token),
+        writer.writerow([safe_text(invite.email), invites.link_of(token),
                          fmt(invite.expires_at, lang=lang.current())])
     response = current_app.make_response(("﻿" + out.getvalue()).encode("utf-8"))
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
