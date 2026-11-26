@@ -26,6 +26,7 @@
         <tr><th>{{ de_en("hat schon ein Konto, wird direkt Mitglied", "has an account, becomes a member at once") }}</th><td>{{ sorted.account|length }}{% if sorted.account %}: <span class="muted small">{% for e, u in sorted.account %}{{ e }} ({{ u.display_name }}){{ ", " if not loop.last }}{% endfor %}</span>{% endif %}</td></tr>
         <tr><th>{{ de_en("schon in der Gruppe", "already in the group") }}</th><td>{{ sorted.member|length }}</td></tr>
         <tr><th>{{ de_en("doppelt", "twice") }}</th><td>{{ sorted.twice|length }}</td></tr>
+        {% if sorted.over %}<tr><th>{{ de_en("über der Grenze von {n} Adressen, nicht geprüft", "beyond the limit of {n} addresses, not checked", n=max_list) }}</th><td>{{ sorted.over }}</td></tr>{% endif %}
         <tr><th>{{ de_en("ungültig", "invalid") }}</th><td>{{ sorted.invalid|length }}{% if sorted.invalid %}: <span class="muted small">{{ sorted.invalid|join(", ") }}</span>{% endif %}</td></tr>
       </tbody></table></div>
     {% endif %}

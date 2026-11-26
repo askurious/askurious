@@ -229,7 +229,7 @@ def linked_element(key):
                 flash(de_en("Bitte einen Namen eingeben.", "Please enter a name."), "error")
             return redirect(url_for("constructs.linked", key=c.key))
         if request.form.get("action") in ("share_person", "unshare_person"):
-            from app import accounts, auth
+            from app import accounts, orgs as orgs_mod
             from app.auth import ORCID_RE
             from app.models import ConstructShare
 
@@ -250,8 +250,8 @@ def linked_element(key):
                             "Please enter an ORCID iD (0000-0000-0000-0000) or choose a person from your contacts."), "error")
             elif known is not None and known.id == current_user.id:
                 flash(de_en("Das Element gehört Ihnen bereits.", "The element is already yours."), "error")
-            elif not shared and not auth.may_sign_in(orcid):
-                flash(auth.cannot_sign_in(), "error")
+            elif not shared and orgs_mod.sharing_refused(current_user, c, orcid):
+                flash(orgs_mod.sharing_refused(current_user, c, orcid), "error")
             elif not shared:
                 from app.surveys import _remember_contact
 

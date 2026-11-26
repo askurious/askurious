@@ -464,7 +464,7 @@ def share(design_id):
     """Share with a person, found by "Person hinzufügen" (or an ORCID iD); right=edit also gives the right to edit,
     as "Bearbeiten erlauben" afterwards would."""
     design = _own(design_id)
-    from app import accounts, auth
+    from app import accounts, orgs
     from app.surveys import _remember_contact
 
     orcid = (request.form.get("orcid") or "").strip()
@@ -476,8 +476,8 @@ def share(design_id):
         flash(de_en("Das Design gehört Ihnen bereits.", "The design already belongs to you."), "error")
     elif known is not None and any(s.user_id == known.id for s in design.shares):
         flash(de_en("Mit dieser Person ist das Design schon geteilt.", "The design is already shared with this person."), "error")
-    elif not auth.may_sign_in(orcid):
-        flash(auth.cannot_sign_in(), "error")
+    elif orgs.sharing_refused(current_user, design, orcid):
+        flash(orgs.sharing_refused(current_user, design, orcid), "error")
     else:
         name = (request.form.get("name") or "").strip()[:200]
         user = people_keys.account(orcid, name)  # a pending account for an iD that never signed in

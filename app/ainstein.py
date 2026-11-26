@@ -1996,16 +1996,23 @@ def share(code):
         gone = shares.pop(int(f["remove"]))
         flash(de_en("„{name}“ hat keinen Zugriff mehr.", "“{name}” no longer has access.", name=gone.get("name")), "success")
     elif f.get("orcid"):
+        from app import orgs
+
         orcid = _line(f.get("orcid"), 19)
-        person = people_keys.account(orcid, _line(f.get("name"), 200)) if orcid != current_user.orcid else None
-        if orcid == current_user.orcid:
+        known = people_keys.account(orcid, create=False)
+        problem = None if orcid == current_user.orcid else orgs.sharing_refused(current_user, project, orcid)
+        # an account for the key only once sharing is allowed: a refused try leaves nothing behind
+        person = people_keys.account(orcid, _line(f.get("name"), 200)) if orcid != current_user.orcid and not problem else None
+        if orcid == current_user.orcid or (known is not None and known.id == current_user.id):
             flash(de_en("Das Projekt gehört Ihnen bereits.", "The project already belongs to you."), "warning")
-        elif not auth.may_sign_in(orcid) or person is None:
-            flash(auth.cannot_sign_in(), "error")
+        elif problem or person is None:
+            flash(problem or auth.cannot_sign_in(), "error")
         else:
             shares = [x for x in shares if not (x.get("kind") == "person" and people_keys.names(x, person))]
-            shares.append({"kind": "person", **people_keys.entry_for(person),
-                           "name": _line(f.get("name"), 200) or person.display_name, "role": role})
+            # an account's name as this person may see it (an organisation that hides names: its label); the name
+            # typed only for an iD that has no account yet
+            shown = person.display_name if not person.pending else (_line(f.get("name"), 200) or person.display_name)
+            shares.append({"kind": "person", **people_keys.entry_for(person), "name": shown, "role": role})
             flash(de_en("Geteilt mit {name} ({role}).", "Shared with {name} ({role}).", name=shares[-1]["name"],
                         role=shared_roles()[role]), "success")
     elif f.get("group_id", "").isdigit():

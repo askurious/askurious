@@ -247,9 +247,20 @@ def create(org, back_url):
             lead_name = orgs.display_name(key) or key
         found = _lead_from_outside(typed, lead_name)
         if isinstance(found, str):
-            return refused(found)
+            from app import passwords
+
+            # an address: the same answer whether it has no account or one outside the organisation (only a platform
+            # admin is told which)
+            return refused(found if offer["lead_link"] or not passwords.normal_email(typed) else orgs.not_in_org())
         if found[1] is not None and not offer["lead_link"] and not orgs.is_member(found[1], org.id):
             return refused(orgs.not_in_org())
+        if found[1] is None and not offer["lead_link"]:
+            # an iD without an account comes in from outside: only where the organisation lets its admins bring
+            # people in, and while it has a place left
+            if not orgs.may_bring_in(current_user, org.id, found[0]):
+                return refused(orgs.not_brought_in(org.id))
+            if orgs.accounts_left(org) == 0:
+                return refused(orgs.home_full_said())
     elif myself and count_for(current_user.id) >= MAX_GROUPS:
         return refused(de_en("Mehr als {n} Gruppen je Person sind nicht möglich.",
                              "More than {n} groups per person are not possible.", n=MAX_GROUPS))
