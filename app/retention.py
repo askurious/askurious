@@ -388,6 +388,9 @@ def purge(survey):
     paper.forget_survey_scans(survey)  # scans of paper sheets hold answers
     paper.forget_purged(survey)  # the sheets no longer name participations that are gone (audit 2026-10-21, B1)
     keep_floor_before_bulk_delete(Response, Response.survey_id == survey.id)  # SQLite gives no id twice (B1)
+    from app import interview_audio
+
+    interview_audio.cancel_jobs_where(Response.survey_id == survey.id)  # transcriptions under way end with the commit
     rows = db.session.execute(db.delete(Response.__table__).where(Response.__table__.c.survey_id == survey.id)).rowcount
     from app import diary
 

@@ -118,7 +118,21 @@ def test_memos_in_the_exports_and_where_they_go(app, client):
     with app.app_context():
         from app import transcript_coding_view
 
-        transcript_coding_view.forget([db.session.get(Response, rid)])
+        # on the participants' side of its own the step is noted for the housekeeping, which has the rights for it
+        from app import participant_cleanup
+        from app.models import ParticipantCleanup
+
+        app.config["SIDE"] = "participant"
+        try:
+            transcript_coding_view.forget([db.session.get(Response, rid)])
+            db.session.commit()
+        finally:
+            app.config["SIDE"] = None
+        assert len(db.session.scalars(db.select(CodingMemo)).all()) == 3
+        assert db.session.scalar(db.select(ParticipantCleanup)).payload == {"interviews": [rid]}
+        assert participant_cleanup.drain() == 1
+        assert [m.text for m in db.session.scalars(db.select(CodingMemo))] == ["Kategorie-Memo"]
+        transcript_coding_view.forget([db.session.get(Response, rid)])              # at once on one address
         db.session.commit()
         assert [m.text for m in db.session.scalars(db.select(CodingMemo))] == ["Kategorie-Memo"]
     # with the analysis everything goes

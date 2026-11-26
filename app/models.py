@@ -3555,3 +3555,21 @@ class WhisperCancel(db.Model):
     job_id: Mapped[str] = mapped_column(String(32))
     service: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
+
+
+class ParticipantCleanup(db.Model):
+    """A step a deletion on the participants' side leaves for the housekeeping (app/participant_cleanup.py): under
+    their own database role the participants' containers write neither a survey's coding guide, nor the analyses of
+    interview transcripts, nor the field packs of an interview guide. kind: "coding" (payload: digests of the anchor
+    examples to empty), "transcripts" (ids of the interviews that went), "offline" (participation id of a field pack
+    place whose interview is deleted before its sync). No answer, no text of a person; the housekeeping removes the
+    row once the step is done. A random key, so the table needs no sequence; no foreign key (rows of a survey that
+    went are dropped unread)."""
+
+    __tablename__ = "participant_cleanup"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_random_id)
+    kind: Mapped[str] = mapped_column(String(20))
+    survey_id: Mapped[int] = mapped_column(index=True)
+    payload: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)

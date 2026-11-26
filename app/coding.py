@@ -821,17 +821,50 @@ def forget(survey, responses):
     responses = list(responses)
     if not survey.codings or not responses:
         return
-    codings, changed = dict(survey.codings), False
+    hits, proposals = {}, False
     for item, col, _, key in targets(survey):
-        found = codings.get(key)
+        found = survey.codings.get(key)
         if not isinstance(found, dict):
             continue
+        proposals = proposals or "proposals" in found
         uplan = unit_plan(item, col, key)
         gone = [norm(text) for r in responses for _, text in units(item, uplan, r) if text]
-        cats = []
         for c in found.get("cats") or []:
             example = norm(c.get("example") or "") if isinstance(c, dict) else ""
             if example and any(example in text for text in gone):
+                hits.setdefault(key, []).append(_digest(example))
+    from app import participant_cleanup
+
+    if participant_cleanup.deferred():
+        # the participants' own database role does not write the coding guide: the housekeeping empties what was
+        # found here (the digests of the examples, never an answer; app/participant_cleanup.py)
+        if hits or proposals:
+            participant_cleanup.queue(participant_cleanup.CODING, survey.id, {"hits": hits})
+        return
+    empty_quoted(survey, hits)
+
+
+def _digest(example):
+    import hashlib
+
+    return hashlib.sha256(example.encode("utf-8")).hexdigest()
+
+
+def empty_quoted(survey, hits):
+    """The second half of forget(): the anchor examples named by `hits` ({target key: [digests of the normalised
+    examples]}) are emptied, and the AI's proposals of every target go."""
+    if not survey.codings:
+        return
+    codings, changed = dict(survey.codings), False
+    for _item, _col, _, key in targets(survey):
+        found = codings.get(key)
+        if not isinstance(found, dict):
+            continue
+        quoted = set(hits.get(key) or ())
+        cats = []
+        for c in found.get("cats") or []:
+            example = norm(c.get("example") or "") if isinstance(c, dict) else ""
+            if example and _digest(example) in quoted:
                 c = {**c, "example": ""}
             cats.append(c)
         new = {k: v for k, v in found.items() if k != "proposals"}

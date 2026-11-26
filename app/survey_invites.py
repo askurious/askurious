@@ -110,10 +110,17 @@ def _hash(value):
     return hashlib.sha256((value or "").encode()).hexdigest()
 
 
+# what the participants' side reads of an entry (its database role has these columns only, app/participant_grants.py):
+# never the address or the name
+_SEEN = (SurveyInvite.id, SurveyInvite.survey_id, SurveyInvite.status, SurveyInvite.pending_status)
+
+
 def find(survey, value):
+    """The entry behind the token of a personal link, as a row (id, survey_id, status, pending_status), or None."""
     if not value or len(value) > 64:
         return None
-    return db.session.scalar(db.select(SurveyInvite).filter_by(survey_id=survey.id, token_hash=_hash(value)))
+    return db.session.execute(db.select(*_SEEN).where(SurveyInvite.survey_id == survey.id,
+                                                      SurveyInvite.token_hash == _hash(value))).first()
 
 
 def rows_of(text):
@@ -459,7 +466,8 @@ def refusal(survey):
 
     if not only_invited(survey):
         return None
-    invite = db.session.get(SurveyInvite, session.get(session_key(survey)) or 0)
+    invite = db.session.execute(db.select(*_SEEN).where(
+        SurveyInvite.id == (session.get(session_key(survey)) or 0))).first()
     if invite is None or invite.survey_id != survey.id or invite.status == SurveyInvite.OPTOUT:
         return "missing"
     if invite.status != SurveyInvite.OPEN or invite.pending_status is not None:
@@ -518,8 +526,12 @@ def apply_states():
 
 
 def opt_out(invite):
-    invite.status, invite.email, invite.name, invite.pending_status = SurveyInvite.OPTOUT, "", "", None
-    db.session.execute(db.delete(MailOutbox).where(MailOutbox.invite_id == invite.id))
+    """No further mails to this entry (a row of find): address and name are emptied, the state says so. A mail still
+    waiting is left to the queue, which drops the mail of an entry that opted out instead of sending it
+    (mailqueue.run): this runs on the participants' side, whose database role does not read the queue."""
+    db.session.execute(db.update(SurveyInvite).where(SurveyInvite.id == invite.id)
+                       .values(status=SurveyInvite.OPTOUT, email="", name="", pending_status=None)
+                       .execution_options(synchronize_session=False))
     db.session.commit()
 
 
