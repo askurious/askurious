@@ -160,6 +160,26 @@ def test_every_service_has_memory_and_process_limits_and_no_new_privileges():
     assert int(re.search(r"pids_limit: (\d+)", db).group(1)) > 500                # max_connections=500, one process each
 
 
+def test_nginx_and_certbot_keep_only_the_capabilities_they_need():
+    """Hardening 2026-11-26: nginx and certbot ran with every capability of Docker's default set. nginx keeps the four
+    its master needs (ports below 1024, the workers' change of user, the cache folders handed to that user), certbot
+    none, with a read-only image, its log and /tmp in memory. Tried with both images: start, nginx -t, reload,
+    the participants' upstream switch, certbot renew."""
+    nginx = _service("nginx")
+    assert "    cap_drop: [ALL]" in nginx
+    assert re.search(r"^    cap_add: \[(.+)\]$", nginx, re.M).group(1).split(", ") == ["NET_BIND_SERVICE", "SETUID", "SETGID", "CHOWN"]
+    assert 'security_opt: ["no-new-privileges:true"]' in nginx
+    certbot = _service("certbot")
+    assert "    cap_drop: [ALL]" in certbot and "cap_add" not in certbot
+    assert 'security_opt: ["no-new-privileges:true"]' in certbot and "    read_only: true" in certbot
+    # all it writes outside its two volumes lies in memory, with a size (it counts towards mem_limit)
+    tmpfs = re.findall(r"^      - (/[^:\s]+):size=\d+m", _block(certbot, "    tmpfs:"), re.M)
+    assert tmpfs == ["/tmp", "/var/log/letsencrypt"]
+    # /var/lib/letsencrypt is a volume of the image: a tmpfs there collides with it when the container is recreated
+    assert "/var/lib/letsencrypt" not in certbot
+    assert "- certs:/etc/letsencrypt" in certbot and "- acme:/var/www/acme" in certbot
+
+
 def test_app_writes_only_into_its_volumes_and_tmp():
     """Audit 2026-10-13, SV-3: read_only for the app containers holds only if the app writes nowhere else. The image
     makes only instance/ and /status the app user's (the rest of /app is root's, so it could not write there before);

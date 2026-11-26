@@ -7849,3 +7849,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Export › Antworten › Ergebnisbericht: dritter Knopf „Tabellen (Excel)“ (`results_tables.build_xlsx`, `/export/results-tables.xlsx`): dieselben Tabellen wie das ZIP als eine .xlsx mit einem Blatt je Tabelle. Blätter der berechneten Tabellen heißen wie die Dateien im ZIP, Zahlen als Zahlen und ungerundet, ja/nein als 1/0; Tabellen „wie angezeigt“ als Blätter `001-…` mit Text. Blatt `README` (Datengrundlage, alle Blätter) und Blatt `tabellen` (Verzeichnis). Geschrieben mit dem eigenen Schreiber `app/xlsx.py`, keine neue Bibliothek. Rollen und Hintergrundlauf wie beim ZIP.
 - Handbuch (Export) und README angepasst. Tests `tests/exports/test_results_tables.py`.
+
+## 2026-11-26: Härtung, Teil 7 (nginx und certbot)
+
+- `compose.yaml`: nginx läuft nur noch mit vier Capabilities (`NET_BIND_SERVICE`, `SETUID`, `SETGID`, `CHOWN`), certbot ohne Capabilities, mit nur lesbarem Image, Protokoll und `/tmp` im Speicher (der Arbeitsordner bleibt das Volume des Images). Lokal mit beiden Images belegt (Start, `nginx -t`, Reload, Umschalten der Teilnahme-Container, `certbot renew`).
+- nginx: `map_hash_bucket_size 256` und `map_hash_max_size 4096` für die Tabellen der gebauten statischen Dateien; die Warnung „could not build optimal map_hash“ bei jedem Start und Reload entfällt, und nginx startet auch auf Rechnern mit 64 Byte Cache-Zeile.
+- Datenschutzkonzept (Schutzmaßnahmen) nennt beides. Tests `tests/platform/test_compose_hardening.py::test_nginx_and_certbot_keep_only_the_capabilities_they_need`, `tests/platform/test_nginx_limits_and_headers.py::test_the_maps_of_the_static_files_have_room`.

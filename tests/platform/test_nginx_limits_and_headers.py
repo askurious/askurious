@@ -173,3 +173,27 @@ def test_every_written_form_of_an_ipv6_address_counts_for_its_64(app):
     assert net("2001::4266:0:0:e5d0:a998") == "2001:0:0:4266" and net("2001::7:1:a:b:c:d") == "2001:0:7:1"
     assert net("2001:db8::9:1:a:b:c") == "2001:db8:0:9"
     assert net("192.0.2.7") is None and len(seen) > 3
+
+
+def test_the_maps_of_the_static_files_have_room():
+    """2026-11-26: the maps of the built static files (static-hashes.conf, static-versions.conf: one line per file)
+    did not fit nginx's default hash: with a bucket of 64 bytes (the processor's cache line) nginx did not start
+    ("could not build map_hash"), with 128 it warned at every start and reload. The template sets both sizes; every
+    key must fit one bucket (nginx: the key, two bytes of length, rounded up to 8, and one pointer)."""
+    import os
+
+    from tests.nginx_conf import NGINX, _read
+
+    template = _read(os.path.join(NGINX, "askurious.conf.template"))
+    bucket = int(re.search(r"^map_hash_bucket_size (\d+);$", template, re.M).group(1))
+    size = int(re.search(r"^map_hash_max_size (\d+);$", template, re.M).group(1))
+    static = os.path.join(os.path.dirname(os.path.dirname(NGINX)), "..", "app", "static")
+    keys = []
+    for folder, _dirs, files in os.walk(static):
+        for name in files:
+            relative = os.path.relpath(os.path.join(folder, name), static).replace(os.sep, "/")
+            keys.append(f"/static/{relative}:{'0' * 12}")              # the longer of the two maps' keys
+    assert len(keys) > 100
+    longest = max(len(key) for key in keys)
+    assert (longest + 2 + 7) // 8 * 8 + 8 <= bucket, longest
+    assert 2 * len(keys) <= size                                      # this build's files and the previous build's
