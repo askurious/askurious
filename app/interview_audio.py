@@ -441,6 +441,21 @@ def _keep_doomed(session):
     session.info.pop("whisper_cancel", None)
 
 
+def cancel_jobs_where(*where):
+    """Before participations go in one statement (lifecycle.delete, retention.purge): no after_delete runs for them, so
+    the transcriptions still under way for their recordings are noted here and cancelled once the deletion is
+    committed, as for a single interview (_doomed)."""
+    from app.extensions import json_given
+
+    for interview in db.session.scalars(db.select(Response.interview).where(json_given(Response.interview), *where)):
+        records = ((interview or {}).get("transcript") or {}).get("jobs") or {}
+        if not isinstance(records, dict):
+            continue
+        selected = {str(key): dict(value) for key, value in records.items() if isinstance(value, dict)}
+        if selected:
+            db.session.info.setdefault("whisper_cancel", []).append(selected)
+
+
 def _cancel_jobs(row, numbers=None):
     """Remote erasure follows a successful database commit, also for person-code erasure."""
     records = ((row.interview or {}).get("transcript") or {}).get("jobs") or {}

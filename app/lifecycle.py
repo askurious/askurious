@@ -560,6 +560,9 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
     for obj in [o for o in db.session.identity_map.values() if isinstance(o, Response) and o.survey_id == survey.id]:
         db.session.expunge(obj)
     keep_floor_before_bulk_delete(Response, Response.survey_id == survey.id)  # SQLite gives no id twice (audit 2026-10-21, B1)
+    from app import interview_audio
+
+    interview_audio.cancel_jobs_where(Response.survey_id == survey.id)  # transcriptions under way end with the commit
     db.session.execute(db.delete(Response.__table__).where(Response.__table__.c.survey_id == survey.id))
     from app import diary
 
@@ -581,16 +584,19 @@ def delete(survey, force=False, seal_reason=None, hide_title=False):
 
 def survey_folders(uid):
     """Every folder of a survey's files: images, saved states (they hold all answers), HB results (utilities per
-    participation id), recordings of interviews (app/interview_audio.py) and scanned paper sheets (app/paper.py)."""
+    participation id), recordings of interviews (app/interview_audio.py), scanned paper sheets (app/paper.py), voice
+    messages of participants (app/items/voice.py) and screenshots of testers' comments (app/comment_shots.py)."""
     import os
 
     from flask import current_app
 
-    from app import paper
+    from app import comment_shots, paper
+    from app.items import voice
 
     base = current_app.config["UPLOAD_FOLDER"]
     return [os.path.join(base, uid), os.path.join(base, "snapshots", uid), os.path.join(base, "hb", uid),
-            os.path.join(os.path.dirname(base), "interview-audio", uid), os.path.join(paper.root(), uid)]
+            os.path.join(os.path.dirname(base), "interview-audio", uid), os.path.join(paper.root(), uid),
+            os.path.join(voice.root(), uid), os.path.join(comment_shots.root(), uid)]
 
 
 def remove_folders(folders):
@@ -600,12 +606,16 @@ def remove_folders(folders):
 
     from flask import current_app
 
-    from app import jobs
+    from app import jobs, report_jobs
 
     clean = True
     for folder in folders:
         if os.path.basename(os.path.dirname(os.path.abspath(folder))) == "hb":
             jobs.forget(folder, prefix="")  # running estimations stop and write nothing (code review 2026-10-07, C3)
+            try:  # reports being written in the background stop too, so none puts its file back
+                report_jobs.forget_uid(os.path.basename(os.path.abspath(folder)))
+            except OSError as e:
+                current_app.logger.warning("Report jobs of a deleted survey not stopped: %s", e)
         try:
             shutil.rmtree(folder)
         except FileNotFoundError:

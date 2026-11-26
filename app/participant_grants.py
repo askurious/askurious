@@ -91,7 +91,18 @@ GRANTS = {
     # participation of a new survey ended in a server error (live quiz, 2026-10-23)
     "seal_chain": (("SELECT", "INSERT"), "the first ended case of a survey with the seal chain on records the survey "
                    "of the chain (its number, uid, title)"),
-    "erasure": (("SELECT", "INSERT"), "the count of participations deleted with their code (no content)"),
+    # the first deletion of a day and way inserts the row, every further one adds to its two counts (erasure.count)
+    "erasure": (("SELECT", "INSERT", "UPDATE (responses, contacts)"), "the count of participations deleted with their "
+                "code (no content)"),
+    "participant_cleanup": (("SELECT", "INSERT"), "what a deletion with the code leaves for the housekeeping, which "
+                            "has the rights for it: anchor examples of the coding guide, the analyses of interview "
+                            "transcripts, a field pack's place (app/participant_cleanup.py; no answers in it)"),
+    # the personal link of an invitation mail (?einladung=...) and "no further mails" (/no-mail/...): found by the
+    # hash of its token, its state noted, opting out empties address and name. Never reading address or name
+    "survey_invite": (("SELECT (id, survey_id, status, pending_status, token_hash)",
+                       "UPDATE (status, pending_status, email, name)"),
+                      "the entry of an invitation list behind a personal link: found, marked begun or done, opted out "
+                      "(app/survey_invites.py); the address and the name are never read"),
     "board_erase_floor": (("SELECT", "INSERT", "UPDATE"), "a deletion with the code or from the diary app raises the "
                           "count the dashboard links wait for (app/erasure.py, _raise_floor; INSERT ... ON CONFLICT "
                           "DO UPDATE)"),
@@ -186,7 +197,6 @@ NOT_GRANTED = {
     "sign_up_link": "registration links of the platform, made by site admins",
     "site_setting": "settings of the platform from the administration",
     "survey_hide": "surveys hidden from a researcher's list",
-    "survey_invite": "address lists for invitation mails, sent by researchers",
     "survey_pin": "surveys pinned on a researcher's start page",
     "translation_mark": "the editor's translation state",
     "trashed_item": "the editor's bin of deleted questions",
@@ -221,6 +231,8 @@ FORBIDDEN = (
     ("column", "survey", "data_pool", "UPDATE"),
     ("table", "response", None, "DELETE"),  # participations go through participant_erase_response only
     ("table", "access_log", None, "SELECT"),
+    ("column", "survey_invite", "email", "SELECT"),  # the address list: only the columns of GRANTS["survey_invite"]
+    ("column", "survey", "codings", "UPDATE"),
 )
 
 

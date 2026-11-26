@@ -14,7 +14,8 @@ def main():
         started = time.monotonic()
         try:
             with app.app_context():
-                from app import export_tables, interview_transcribe, security_log, storage_usage, whisper_jobs
+                from app import (export_tables, interview_transcribe, participant_cleanup, security_log, storage_usage,
+                                 whisper_jobs)
 
                 # each on its own: one that fails does not keep the others from running (code review 2026-10-15,
                 # E1); close_due_surveys isolates its own steps, and puts the round off only while the database is busy
@@ -23,7 +24,8 @@ def main():
                                    ("storage_usage.reconcile", storage_usage.reconcile),
                                    ("interview_transcribe.resume_stale", interview_transcribe.resume_stale),
                                    ("security_log.sweep", security_log.sweep),
-                                   ("whisper_jobs.drain_cancels", whisper_jobs.drain_cancels)):
+                                   ("whisper_jobs.drain_cancels", whisper_jobs.drain_cancels),
+                                   ("participant_cleanup.drain", participant_cleanup.drain)):
                     try:
                         step()
                     except Exception:

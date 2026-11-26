@@ -14,7 +14,10 @@ Two steps around the restore, with the app stopped:
 "save" writes instance/reapply-erasures.json (readable by the server user only; --file elsewhere): the ids of the
 participations, the entries of the separated section, the surveys, the accounts, the read tokens, sign-in tokens and
 sessions there are now, the deleted accounts, every seal chain entry and timestamp, and the deletion counters
-(models.Erasure). No answers, no addresses, no hashes. "apply" compares the restored database with it:
+(models.Erasure); the ids of the links and accesses (LINKS), of the people of diary studies and of the entries of
+invitation lists with their state; and what says whether a link or a sign-in still holds (STATE: blocked, renewed,
+used, the status and sign-in version of an account, when its password changed, a digest of its locked second
+factor). No answers, no addresses, no password hashes. "apply" compares the restored database with it:
   - the seal chains get back the entries and timestamps written since the dump (the same hashes, so codes and
     timestamps given out stay valid), and the deleted cases lose their salt and participation id again;
   - participations and entries of the separated section that the database holds again but that were gone before the
@@ -22,7 +25,15 @@ sessions there are now, the deleted accounts, every seal chain entry and timesta
     that quote them, paper scans, quota counters, saved states, kept results and estimates follow as at the first
     deletion; a case the restored chain still names gets its deletion record there;
   - the deletion counters per survey, day and way go back up to what they were;
-  - read tokens (data_token), sign-in tokens and sessions that were gone are deleted again;
+  - read tokens (data_token), sign-in tokens and sessions that were gone are deleted again; so are agent tokens,
+    interviewer links, dashboard and quota links, join, registration and founding links and invitations revoked,
+    used up or withdrawn since the dump, and the people of a diary study who left since;
+  - links and accounts that stayed get back what ended them since the dump: an interviewer link blocked or renewed,
+    a link used, an account blocked or ended, sessions signed out (session_version). An account whose password or
+    second factor changed since the dump does not get the old one back: the restored password or factor is removed
+    and the account named, so a site admin hands out a new one-time link;
+  - entries of invitation lists deleted since the dump go again, and those that opted out lose address and name
+    again, with their waiting mails;
   - accounts deleted since the dump are deleted again by the app's own way (accounts.delete): surveys that were gone
     before the restore go with them, those that were still there are taken over by a site admin (the run names them);
   - surveys deleted since the dump are only named: delete them again in the app.
@@ -54,6 +65,21 @@ import sqlalchemy as sa
 FILE = os.path.join("instance", "reapply-erasures.json")
 CHUNK = 500
 TOKENS = ("data_token", "auth_token", "login_session")  # gone since the dump: revoked, used or signed out
+# links and accesses whose row goes when they are revoked, withdrawn or used up: gone again as well
+LINKS = ("agent_token", "interviewer_access", "board_share", "quota_share", "group_join_link", "sign_up_link",
+         "org_found_link", "member_invite")
+# of rows that stayed: the columns that say whether the link or the sign-in still holds, put back as saved
+# (table: (key column, columns)); a column the table does not have is left out
+STATE = {
+    "interviewer_access": ("id", ("blocked", "revision", "token_hash", "expires_at")),
+    "board_share": ("id", ("token", "token_box", "revoked", "expires_at")),
+    "quota_share": ("id", ("token", "token_box", "revoked", "expires_at")),
+    "group_join_link": ("id", ("uses", "expires_at")),
+    "sign_up_link": ("id", ("uses", "expires_at")),
+    "org_found_link": ("id", ("used_at", "org_id", "used_by_id", "expires_at")),
+    "user_login": ("user_id", ("status", "block_reason", "valid_until", "session_version", "locked_until",
+                               "hard_locked_at")),
+}
 
 
 class Refused(Exception):
@@ -96,8 +122,39 @@ def _tables(engine):
     names = set(sa.inspect(engine).get_table_names())
     meta.reflect(engine, only=[n for n in ("survey", "response", "once_value", "contact_entry", "split_session",
                                            "seal_entry", "seal_anchor", "erasure", "quota", "user", "deleted_account",
-                                           *TOKENS) if n in names])
+                                           "user_login", "survey_invite", "mail_outbox", "enrolment", "ai_chat_turn",
+                                           "coding_memo", *TOKENS, *LINKS, *STATE) if n in names])
     return meta.tables
+
+
+def _digest(value):
+    import hashlib
+
+    return hashlib.sha256(str(value).encode()).hexdigest()[:24] if value else ""
+
+
+def _state(conn, tables):
+    """{table: {key: {column: value}}} of STATE, as it is now."""
+    out = {}
+    for name, (key, columns) in STATE.items():
+        if name not in tables:
+            continue
+        table = tables[name]
+        have = [c for c in columns if c in table.c]
+        out[name] = {str(row._mapping[key]): {c: _enc(row._mapping[c]) for c in have}
+                     for row in conn.execute(sa.select(table.c[key], *[table.c[c] for c in have]))}
+    return out
+
+
+def _credentials(conn, tables):
+    """{user id: {"password": when it last changed, "factor": digest of the locked second factor}}: enough to see that
+    a password or factor changed since the dump, nothing to sign in with."""
+    if "user_login" not in tables:
+        return {}
+    login = tables["user_login"]
+    return {str(r.user_id): {"password": _enc(r.password_changed_at) if "password_changed_at" in login.c else None,
+                             "factor": _digest(r.totp_box) if "totp_box" in login.c else ""}
+            for r in conn.execute(sa.select(login))}
 
 
 def _rows(conn, table):
@@ -137,6 +194,13 @@ def save(engine, path):
                                      conn.execute(sa.select(tables["deleted_account"]))]
                 if "deleted_account" in tables else [],
                 "tokens": {name: sorted(_ids(conn, tables, name)) for name in TOKENS if name in tables},
+                "links": {name: sorted(_ids(conn, tables, name)) for name in LINKS if name in tables},
+                "state": _state(conn, tables),
+                "credentials": _credentials(conn, tables),
+                "enrolments": sorted(_ids(conn, tables, "enrolment")),
+                "survey_invites": {str(r.id): r.status for r in conn.execute(
+                    sa.select(tables["survey_invite"].c.id, tables["survey_invite"].c.status))}
+                if "survey_invite" in tables else None,
                 "seal_entry": _rows(conn, tables["seal_entry"]) if "seal_entry" in tables else [],
                 "seal_anchor": _rows(conn, tables["seal_anchor"]) if "seal_anchor" in tables else [],
                 "erasure": _rows(conn, tables["erasure"]) if "erasure" in tables else []}
@@ -200,7 +264,8 @@ def plan_and_apply(conn, tables, data, url=None, remover=None):
     (apply --do); without one they are only counted (the dry run) or deleted on the tables (--tables-only: "tables")."""
     report = {"refused": refusals(conn, tables, data, url), "responses": {}, "entries": 0, "sessions": 0,
               "surveys": [], "seal_added": 0, "seal_forgotten": 0, "anchors": 0, "erasure": {}, "quotas": [],
-              "tokens": {}, "accounts": [], "accounts_named": [], "taken_over": [], "codings": [], "paper": []}
+              "tokens": {}, "accounts": [], "accounts_named": [], "taken_over": [], "codings": [], "paper": [],
+              "links": {}, "state": {}, "passwords": [], "factors": [], "invites": 0, "optouts": 0, "enrolments": 0}
     if report["refused"]:
         return report
     response = tables["response"]
@@ -278,6 +343,18 @@ def plan_and_apply(conn, tables, data, url=None, remover=None):
                 _delete(conn, tables[name], tables[name].c.id, extra)
             report["tokens"][name] = len(extra)
 
+    _links_and_state(conn, tables, data, report)
+    _invite_lists(conn, tables, data, report)
+    if "enrolment" in tables and data.get("enrolments") is not None:
+        left = _ids(conn, tables, "enrolment") - set(data["enrolments"])
+        if left and callable(remover) and "enrolment_id" in response.c:
+            # those with participations go with them by the app's way (erase_again takes the whole person)
+            left -= {r[0] for r in conn.execute(sa.select(response.c.enrolment_id).where(
+                response.c.id.in_(sorted(gone_ids)), response.c.enrolment_id.is_not(None)))} if gone_ids else set()
+        if left:
+            _delete(conn, tables["enrolment"], tables["enrolment"].c.id, left)
+        report["enrolments"] = len(left)
+
     entries = set()
     if "contact_entry" in tables:
         entries = _ids(conn, tables, "contact_entry") - set(data["contact_entries"])
@@ -316,10 +393,88 @@ def plan_and_apply(conn, tables, data, url=None, remover=None):
                                                              .values(salt=None, response_id=None)).rowcount or 0
             if "once_value" in tables:
                 _delete(conn, tables["once_value"], tables["once_value"].c.response_id, gone_ids)
+            for name in ("ai_chat_turn", "coding_memo"):  # what the app's way takes along with a participation
+                if name in tables and "response_id" in tables[name].c:
+                    _delete(conn, tables[name], tables[name].c.response_id, gone_ids)
             _delete(conn, response, response.c.id, gone_ids)
         if entries:
             _delete(conn, tables["contact_entry"], tables["contact_entry"].c.id, entries)
     return report
+
+
+def _links_and_state(conn, tables, data, report):
+    """Links and accesses gone since the dump go again; of those that stayed, and of the accounts, what ended them
+    since comes back (STATE). A password or second factor that changed since the dump is not restored to the old one:
+    it is removed, and the account named."""
+    for name in LINKS:
+        if name in tables and name in (data.get("links") or {}):
+            extra = _ids(conn, tables, name) - set(data["links"][name])
+            if extra:
+                _delete(conn, tables[name], tables[name].c.id, extra)
+            report["links"][name] = len(extra)
+    for name, saved in (data.get("state") or {}).items():
+        if name not in tables or name not in STATE:
+            continue
+        table, key = tables[name], STATE[name][0]
+        columns = [c for c in STATE[name][1] if c in table.c]
+        changed = 0
+        for row in conn.execute(sa.select(table.c[key], *[table.c[c] for c in columns])).all():
+            before = saved.get(str(row._mapping[key]))
+            if before is None:
+                continue
+            values = {}
+            for c in columns:
+                if c not in before:
+                    continue
+                was, now = _dec(before[c]), row._mapping[c]
+                if c == "session_version":  # never back: a sign-out since the dump stays one
+                    was = max(was or 0, now or 0)
+                if was != now:
+                    values[c] = was
+            if values:
+                conn.execute(table.update().where(table.c[key] == row._mapping[key]).values(**values))
+                changed += 1
+        report["state"][name] = changed
+    if "user_login" in tables and data.get("credentials"):
+        login = tables["user_login"]
+        for row in conn.execute(sa.select(login)).all():
+            before = data["credentials"].get(str(row.user_id))
+            if before is None:
+                continue
+            if ("password_hash" in login.c and row.password_hash
+                    and _dec(before.get("password")) != row._mapping.get("password_changed_at")):
+                conn.execute(login.update().where(login.c.user_id == row.user_id).values(password_hash=None))
+                report["passwords"].append(row.user_id)
+            if "totp_box" in login.c and row.totp_box and before.get("factor") != _digest(row.totp_box):
+                gone = {c: None for c in ("totp_box", "totp_step", "totp_backup") if c in login.c}
+                conn.execute(login.update().where(login.c.user_id == row.user_id).values(**gone))
+                report["factors"].append(row.user_id)
+
+
+def _invite_lists(conn, tables, data, report):
+    """Entries of invitation lists deleted since the dump go again; those that opted out since lose address and name
+    again and get no mail that was still waiting."""
+    saved = data.get("survey_invites")
+    if saved is None or "survey_invite" not in tables:
+        return
+    invite = tables["survey_invite"]
+    gone, opted = [], []
+    for row in conn.execute(sa.select(invite.c.id, invite.c.status)).all():
+        if str(row.id) not in saved:
+            gone.append(row.id)
+        elif saved[str(row.id)] == "optout" and row.status != "optout":
+            opted.append(row.id)
+    for i in range(0, len(opted), CHUNK):
+        conn.execute(invite.update().where(invite.c.id.in_(opted[i:i + CHUNK])).values(
+            status="optout", email="", name="", **({"pending_status": None} if "pending_status" in invite.c else {})))
+    if "mail_outbox" in tables and "invite_id" in tables["mail_outbox"].c and (gone or opted):
+        outbox = tables["mail_outbox"]
+        for i in range(0, len(gone + opted), CHUNK):
+            conn.execute(outbox.delete().where(outbox.c.invite_id.in_((gone + opted)[i:i + CHUNK]),
+                                               *([outbox.c.sent_at.is_(None)] if "sent_at" in outbox.c else [])))
+    if gone:
+        _delete(conn, invite, invite.c.id, gone)
+    report["invites"], report["optouts"] = len(gone), len(opted)
 
 
 def _app_remover(data, after):
@@ -493,6 +648,20 @@ def _print(report, data, do):
     tokens = report.get("tokens") or {}
     print(f"  Lese-Tokens {verb}: {tokens.get('data_token', 0)}, Anmelde-Tokens: {tokens.get('auth_token', 0)},"
           f" Sitzungen: {tokens.get('login_session', 0)}")
+    links = report.get("links") or {}
+    if any(links.values()) or any((report.get("state") or {}).values()):
+        print(f"  Links und Zugänge {verb}: " + (", ".join(f"{name} {n}" for name, n in sorted(links.items()) if n) or "0")
+              + "; auf den Stand vor dem Zurückspielen gebracht (gesperrt, erneuert, genutzt, abgemeldet): "
+              + (", ".join(f"{name} {n}" for name, n in sorted((report.get("state") or {}).items()) if n) or "0"))
+    if report.get("invites") or report.get("optouts") or report.get("enrolments"):
+        print(f"  Einladungslisten: {report.get('invites', 0)} Einträge {verb}, {report.get('optouts', 0)} Abmeldungen"
+              f" wiederhergestellt; Personen von Tagebuchstudien {verb}: {report.get('enrolments', 0)}")
+    for uid in report.get("passwords") or []:
+        print(f"  ACHTUNG: Konto {uid} hat sein Passwort seit dem Dump geändert: das alte gilt nicht wieder"
+              + (" (mit --do entfernt)." if not do else ", es ist entfernt. Bitte einen Einmal-Link ausstellen."))
+    for uid in report.get("factors") or []:
+        print(f"  ACHTUNG: Konto {uid} hat seinen zweiten Faktor seit dem Dump geändert oder entfernt: der alte gilt"
+              " nicht wieder" + (" (mit --do entfernt)." if not do else ", er ist entfernt. Bitte neu einrichten lassen."))
     for uid in report["accounts"]:
         print(f"  Konto {uid} erneut gelöscht.")
     for sid, admin in report["taken_over"]:

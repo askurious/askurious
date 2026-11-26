@@ -150,3 +150,34 @@ def test_texts_name_the_offline_mode(app, client):
     assert "PBKDF2" in js and "AES-GCM" in js and "ROUNDS = 600000" in js
     iv = (STATIC / "interview.js").read_text(encoding="utf-8")
     assert "if (OM) { AskuriousOffline.keep(st); return; }" in iv
+
+
+def test_on_the_participants_side_the_deletion_is_noted_and_holds_at_once(app, client):
+    """The participants' own database role does not write the guide's field packs (app/participant_grants.py): the
+    code notes the place for the housekeeping, and the sync refuses it from that moment."""
+    from app import interview_offline, participant_cleanup
+    from app.models import ParticipantCleanup
+
+    code, sid = _on(app, client)
+    pack = _pack(client, code, n=2)
+    slot = pack["slots"][0]
+    app.config["SIDE"] = "participant"
+    try:
+        with app.app_context():
+            assert interview_offline.erase_pending(slot["code"]) is not None
+            assert interview_offline.erase_pending(slot["code"]) is not None      # asked twice: noted once
+            row, = db.session.scalars(db.select(ParticipantCleanup)).all()
+            assert (row.kind, row.survey_id, row.payload) == (participant_cleanup.OFFLINE, sid, {"pid": slot["pid"]})
+            packs = interview_offline.packs(db.session.get(Survey, sid))
+            assert not any(s.get("erase") for p in packs for s in p["slots"])     # nothing written from this side
+    finally:
+        app.config["SIDE"] = None
+    r = _sync(client, code, pack, slot)
+    assert r.status_code == 410 and r.json["error"] == "erased"                   # before the housekeeping ran
+    assert _sync(client, code, pack, pack["slots"][1]).status_code == 200          # the other place is untouched
+    with app.app_context():
+        assert participant_cleanup.drain() == 1
+        packs = interview_offline.packs(db.session.get(Survey, sid))
+        assert [s.get("erase") for p in packs for s in p["slots"] if s["pid"] == slot["pid"]] == [True]
+        assert db.session.scalar(db.select(ParticipantCleanup)) is None
+    assert _sync(client, code, pack, slot).status_code == 410

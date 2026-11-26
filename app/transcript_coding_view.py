@@ -637,7 +637,22 @@ def forget_moves(projects, interviews=None, coding=None):
 
 
 def forget(responses):
-    """Before interviews are deleted (erasure, retention): anchor examples quoting them go."""
+    """Before interviews are deleted (erasure, retention): anchor examples quoting them go. On the participants' side
+    of its own the housekeeping does it (app/participant_cleanup.py): their database role does not reach the
+    analyses."""
+    from app import participant_cleanup
+
+    if participant_cleanup.deferred():
+        by_survey = {}
+        for r in responses:
+            by_survey.setdefault(r.survey_id, []).append(r.id)
+        for survey_id, ids in by_survey.items():
+            participant_cleanup.queue(participant_cleanup.TRANSCRIPTS, survey_id, {"interviews": sorted(ids)})
+        return
+    forget_now(responses)
+
+
+def forget_now(responses):
     ids = {r.id for r in responses}
     survey_ids = {r.survey_id for r in responses}
     if not ids:

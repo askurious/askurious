@@ -212,15 +212,43 @@ def erase_pending(code, survey=None):
                     return True
         return False
 
+    from app import participant_cleanup
+
     for s in surveys:
-        if any(not slot.get("rid") and not slot.get("erase") and erasure.raw_code(s, slot.get("pid", "")) == raw
-               for p in packs(s) for slot in p.get("slots") or []):
-            _hold(s)  # the packs read anew under the survey's row: a sync or a new pack at the same time is kept
-            if mark(s):
+        open_slots = [slot for p in packs(s) for slot in p.get("slots") or []
+                      if not slot.get("rid") and not slot.get("erase") and erasure.raw_code(s, slot.get("pid", "")) == raw]
+        if not open_slots:
+            continue
+        if participant_cleanup.deferred():
+            # the participants' own database role does not write the guide's field packs: the place is noted, the
+            # sync refuses it from now on (sync, below), and the housekeeping marks it (app/participant_cleanup.py)
+            pid = str(open_slots[0].get("pid") or "")
+            if pid not in participant_cleanup.offline_erased(s.id):
+                participant_cleanup.queue(participant_cleanup.OFFLINE, s.id, {"pid": pid})
                 db.session.commit()
-                return s
-            db.session.rollback()
+            return s
+        _hold(s)  # the packs read anew under the survey's row: a sync or a new pack at the same time is kept
+        if mark(s):
+            db.session.commit()
+            return s
+        db.session.rollback()
     return None
+
+
+def mark_erased(survey, pid):
+    """The housekeeping's half of erase_pending on the participants' side: the place with this participation id is
+    marked, unless its interview was synced or marked meanwhile. The caller commits."""
+    if not pid:
+        return False
+    _hold(survey)
+    items = packs(survey)
+    for p in items:
+        for slot in p.get("slots") or []:
+            if slot.get("pid") == pid and not slot.get("rid") and not slot.get("erase"):
+                slot["erase"] = True
+                _store(survey, items)
+                return True
+    return False
 
 
 def run(now=None):
@@ -267,7 +295,9 @@ def sync(survey, access, data):
         return 404, {"ok": False, "error": "unknown"}
     if access is not None and pack.get("access") != access.id:
         return 404, {"ok": False, "error": "unknown"}
-    if slot.get("erase"):
+    from app import participant_cleanup
+
+    if slot.get("erase") or slot.get("pid") in participant_cleanup.offline_erased(survey.id):
         return 410, {"ok": False, "error": "erased"}  # its deletion code was used: the device deletes its copy
     row = db.session.scalar(db.select(Response).filter_by(survey_id=survey.id, pid=slot["pid"], is_preview=False))
     if row is None:
