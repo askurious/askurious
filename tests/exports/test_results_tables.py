@@ -65,6 +65,92 @@ def test_separator_of_the_export_page_and_button(app, client, survey):
     assert "/surveys/1/export/results-tables.zip" in page and "Tabellen (ZIP)" in page
 
 
+def _book(data):
+    """{sheet name: [[cell values]]} of an .xlsx, numbers as float, read with the standard library only; and whether
+    any cell holds a formula."""
+    import re
+    from xml.etree import ElementTree as ET
+
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    out = {}
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        assert z.testzip() is None
+        for i, sheet in enumerate(ET.fromstring(z.read("xl/workbook.xml")).iter(f"{ns}sheet"), 1):
+            root = ET.fromstring(z.read(f"xl/worksheets/sheet{i}.xml"))
+            assert not list(root.iter(f"{ns}f"))  # never a formula
+            rows = []
+            for row in root.iter(f"{ns}row"):
+                cells = {}
+                for c in row.iter(f"{ns}c"):
+                    t, v = c.find(f"{ns}is/{ns}t"), c.find(f"{ns}v")
+                    cells[re.match(r"[A-Z]+", c.get("r")).group(0)] = (
+                        t.text if t is not None else float(v.text) if v is not None else "")
+                rows.append([cells.get(chr(65 + n), "") for n in range(max((ord(k) - 64 for k in cells), default=0))])
+            out[sheet.get("name")] = rows
+    return out
+
+
+def test_excel_file_with_a_sheet_per_table(app, client, survey):
+    """The third button (Ralf, 2026-11-26): the tables of the ZIP as one .xlsx, a sheet per table, written by
+    app/xlsx.py; numbers as numbers, unrounded; no free texts."""
+    _survey(app, client)
+    r = client.get("/surveys/1/export/results-tables.xlsx")
+    assert r.status_code == 200 and r.mimetype == results_tables.XLSX_MIME
+    assert r.headers["Content-Disposition"].endswith('.xlsx"') and "ergebnistabellen" in r.headers["Content-Disposition"]
+    book = _book(r.data)
+    names = list(book)
+    assert names[:3] == ["README", "tabellen", "haeufigkeiten"]
+    head, *rows = book["haeufigkeiten"]
+    assert tuple(head) == results_tables.FILES["haeufigkeiten.csv"][0]
+    first = next(dict(zip(head, x)) for x in rows if x[head.index("variable")] == "rad" and x[head.index("n")] == 8)
+    assert first["anteil"] == 0.4 and first["n_gueltig"] == 20 and first["fehlend"] == 0 and first["art"] == "nominal"
+    assert 0.19 < first["ci_low"] < 0.4 < first["ci_high"] < 0.65 and round(first["ci_low"], 3) != first["ci_low"]
+    readme = "\n".join(x[0] for x in book["README"] if x)
+    assert "N = 20 Teilnahmen" in readme and "haeufigkeiten (" in readme and "ein Blatt je Tabelle" in readme
+    assert ".csv" not in readme and "README.txt" not in readme
+    index = {x[0]: x for x in book["tabellen"][1:]}
+    assert book["tabellen"][0][:3] == ["blatt", "zeilen", "art"]
+    assert set(index) == set(names[2:]) and index["haeufigkeiten"][1:3] == [len(rows), "berechnet"]
+    assert b"geheim" not in b"".join(zipfile.ZipFile(io.BytesIO(r.data)).read(n) for n in
+                                     zipfile.ZipFile(io.BytesIO(r.data)).namelist())
+    page = client.get("/surveys/1/data").data.decode()
+    assert "/surveys/1/export/results-tables.xlsx" in page and "Tabellen (Excel)" in page
+
+
+def test_excel_values_and_sheets_of_shown_tables(app, monkeypatch):
+    import lxml.html
+    from datetime import datetime
+
+    from app import results_pdf
+
+    assert [results_tables._value(v) for v in (None, True, False, 2.0, 1 / 3, float("nan"), float("inf"), 7, "=1+1")] == [
+        "", 1, 0, 2, 1 / 3, "", "", 7, "=1+1"]
+    assert all(len(results_tables.sheet_name(f)) <= 31 for f in results_tables.FILES)
+    root = lxml.html.fromstring("""<main><section id="sem"><h3>Pfade</h3><table><thead><tr><th>Pfad</th><th>β</th></tr></thead>
+        <tbody><tr><td>=A → B</td><td>0,41</td></tr></tbody></table></section>
+        <section id="eine-sehr-lange-kennung-eines-abschnitts-der-ergebnisseite"><h3>Lang</h3><table><tbody><tr><td>a</td><td>b</td></tr>
+        </tbody></table></section></main>""")
+    monkeypatch.setattr(results_pdf, "page_tree", lambda survey: root)
+    e = {"item": SimpleNamespace(code="alter"), "question": "Alter", "columns": [
+        {"type": "num", "code": "alter", "label": "Alter", "n": 10, "mean": 41.25, "sd": float("nan"), "gini": None}]}
+    with app.test_request_context():
+        body = results_tables.build_xlsx(SimpleNamespace(title="Studie"), "en", data={"items": [e], "n_rows": 3},
+                                         pool={"sources": ["real"], "all": False}, computed_at=datetime(2026, 11, 26, 9, 0))
+    book = _book(body)
+    assert list(book)[:4] == ["README", "tabellen", "kennwerte", "001-sem"] and all(len(n) <= 31 for n in book)
+    head, row = book["kennwerte"]
+    values = dict(zip(head, row + [""] * len(head)))
+    assert values["m"] == 41.25 and values["n"] == 10 and values["sd"] == "" and values["label"] == "Alter"
+    assert book["001-sem"] == [["Pfad", "β"], ["=A → B", "0,41"]]            # as shown: text, "=" stays text
+    long = list(book)[4]
+    assert book[long] == [["", ""], ["a", "b"]] and long.startswith("002-eine-sehr-lange")  # no head: an empty one
+    assert book["tabellen"][1:] == [["kennwerte", 1.0, "berechnet", "", ""], ["001-sem", 1.0, "wie angezeigt", "Pfade", "sem"],
+                                    [long, 1.0, "wie angezeigt", "Lang",
+                                     "eine-sehr-lange-kennung-eines-abschnitts-der-ergebnisseite"]]
+    readme = "\n".join(x[0] for x in book["README"] if x)
+    assert "Data basis: N = 3 participations" in readme and "Sheets 001-… to 002-… (2 sheets)" in readme
+
+
 def _entry(**parts):
     return {"item": SimpleNamespace(code="cbc"), "question": "Wahl", **parts}
 

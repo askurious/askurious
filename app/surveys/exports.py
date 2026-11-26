@@ -313,6 +313,24 @@ def export_results_tables(survey_id):
     })
 
 
+@bp.route("/<sid:survey_id>/export/results-tables.xlsx")
+@login_required
+@report_jobs.background(ready=_report_kept)
+def export_results_xlsx(survey_id):
+    """The same tables as one Excel file, a sheet per table (results_tables.build_xlsx; Ralf, 2026-11-26); roles and
+    content as the ZIP."""
+    from flask import Response as FlaskResponse
+
+    from app import results_tables
+
+    survey = get_survey(survey_id)
+    return FlaskResponse(results_tables.build_xlsx(survey), headers={
+        "Content-Type": results_tables.XLSX_MIME,
+        "Content-Disposition": f'attachment; filename="{results_tables.filename_xlsx(survey)}"',
+        "Cache-Control": "no-store",
+    })
+
+
 @bp.route("/<sid:survey_id>/export/survey-material.pdf")
 @login_required
 @heavy.limited

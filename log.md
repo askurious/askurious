@@ -7844,3 +7844,8 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Daten-API: `/api/v1/surveys/<id>/results.zip` mit dem Lese-Token (nur die berechneten Dateien, `?sep=semicolon`, `?lang=en`); im Protokoll „Ergebnistabellen (Token)“.
 - Unter dem Datenpool nennt eine Zeile, welche Modellspalten der Datensatz gerade trägt (`…_hb_…`, `…_lk…`) und welche Schätzung veraltet oder für andere Datenquellen gemacht ist, mit Link zur Ergebnisseite (`export.model_state`, kommt mit der Zählung). Der Text zum Datensatz erklärt die Spalten.
 - Handbuch (Export), README, Datenschutzkonzept (Lese-Token) und Seite „Verbindungen“ angepasst. Tests `tests/exports/test_results_tables.py`.
+
+## 2026-11-26: Ergebnistabellen als Excel-Datei
+
+- Export › Antworten › Ergebnisbericht: dritter Knopf „Tabellen (Excel)“ (`results_tables.build_xlsx`, `/export/results-tables.xlsx`): dieselben Tabellen wie das ZIP als eine .xlsx mit einem Blatt je Tabelle. Blätter der berechneten Tabellen heißen wie die Dateien im ZIP, Zahlen als Zahlen und ungerundet, ja/nein als 1/0; Tabellen „wie angezeigt“ als Blätter `001-…` mit Text. Blatt `README` (Datengrundlage, alle Blätter) und Blatt `tabellen` (Verzeichnis). Geschrieben mit dem eigenen Schreiber `app/xlsx.py`, keine neue Bibliothek. Rollen und Hintergrundlauf wie beim ZIP.
+- Handbuch (Export) und README angepasst. Tests `tests/exports/test_results_tables.py`.
